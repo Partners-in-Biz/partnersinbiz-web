@@ -240,6 +240,49 @@ describe('GET workspaces with scoped execution locations', () => {
     expect(JSON.stringify(project)).not.toContain('Other private Mac')
   })
 
+  it('marks a native Mac project location online from the live linked runtime even when the replica row is stale offline', async () => {
+    mockDiscoverExecutionLocations.mockResolvedValue([])
+    mockDiscoverLinkedTargets.mockResolvedValue([{
+      id: '87554b49-31b1-4484-8a1f-7075d6fa30ca',
+      locationId: 'linked-device:87554b49-31b1-4484-8a1f-7075d6fa30ca',
+      deviceId: '87554b49-31b1-4484-8a1f-7075d6fa30ca',
+      label: 'Peets-Mac-mini.local',
+      platform: 'macos',
+      mappingId: 'partners-mac-workspace',
+      workspaceId: 'partners',
+      kind: 'linked-computer',
+      deviceKind: 'computer',
+      selectable: true,
+      lastSeenAt: '2026-07-22T18:00:00.000Z',
+    }])
+    mockProjectDocs = [{
+      id: 'project-1',
+      data: () => ({ orgId: 'pib-platform-owner', name: 'Launch project' }),
+    }]
+    mockProjectLibraryDocs = [{ id: 'link-project-1', data: () => ({ orgId: 'pib-platform-owner', userId: 'peet', projectId: 'project-1', active: true }) }]
+    mockReplicaDocs = [{
+      id: 'replica-mac',
+      data: () => ({
+        replicaId: 'replica-mac', projectId: 'project-1', orgId: 'pib-platform-owner', workspaceId: 'partners',
+        locationId: 'linked-device:87554b49-31b1-4484-8a1f-7075d6fa30ca', locationLabel: "Peet's Mac",
+        locationKind: 'computer', locationPlatform: 'macos',
+        locationOwner: { type: 'user', userId: 'peet' }, locationVisibility: 'private',
+        mappingId: 'partners-mac-workspace',
+        relativePath: 'projects/project-1', availability: 'offline', syncStatus: 'offline', isCanonical: false, active: true,
+      }),
+    }]
+
+    const { GET } = await import('@/app/api/v1/workspaces/route')
+    const response = await GET(new NextRequest('http://localhost/api/v1/workspaces?orgId=pib-platform-owner'))
+    const project = (await response.json()).data.projects[0]
+    expect(project.locations).toEqual([expect.objectContaining({
+      locationId: 'linked-device:87554b49-31b1-4484-8a1f-7075d6fa30ca',
+      availability: 'online',
+      selectable: true,
+      authenticatedRuntime: true,
+    })])
+  })
+
   it('discovers projects linked to the active organisation through multi-org arrays', async () => {
     const arrayProject = {
       id: 'project-array',

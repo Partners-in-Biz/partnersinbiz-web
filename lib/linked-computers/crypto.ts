@@ -891,3 +891,365 @@ export async function exchangePairing(
   if (!result.ok) throw new Error('linked computers: pairing exchange denied')
   return { deviceId: result.deviceId, credential: result.credential, credentialVersion: result.credentialVersion }
 }
+
+/**
+ * Adopt a legacy project_execution_location onto an already-paired linked device.
+ * Used when the machine is authenticated but project replicas still point at partners-vps / peets-mac-mini.
+ * Does not create credentials or consume a pairing challenge.
+ */
+export async function adoptLegacyLocationOntoLinkedDevice(
+  input: {
+    actorUserId: string
+    deviceId: string
+    adoptLocationId: string
+  },
+  options: Options = {},
+): Promise<{
+  deviceId: string
+  nativeLocationId: string
+  adoptedFromLocationId: string
+  replicaCount: number
+  alreadyAdopted?: boolean
+}> {
+  const db = options.db ?? (adminDb as unknown as LinkedComputerPairingDb)
+  const actorUserId = required(input.actorUserId, 'actorUserId')
+  const deviceId = safeIdentifier(input.deviceId, 'deviceId')
+  const adoptLocationId = safeIdentifier(input.adoptLocationId, 'adoptLocationId')
+  const nativeLocationId = `linked-device:${deviceId}`
+
+  return db.runTransaction(async (tx) => {
+    const deviceRef = db.collection(DEVICES).doc(deviceId)
+    const locationRef = db.collection(PROJECT_LOCATIONS).doc(adoptLocationId)
+    const nativeLocationRef = db.collection(PROJECT_LOCATIONS).doc(nativeLocationId)
+    const [deviceSnap, locationSnap, nativeLocationSnap] = await Promise.all([
+      tx.get(deviceRef),
+      tx.get(locationRef),
+      tx.get(nativeLocationRef),
+    ])
+    if (!deviceSnap.exists) throw new Error('linked computers: device not found')
+    const device = deviceSnap.data() ?? {}
+    if (device.status !== 'active') throw new Error('linked computers: device is not active')
+    const ownerType = (device.ownerType === 'organization' ? 'organization' : 'user') as LinkedDeviceOwnerType
+    const deviceKind = (device.deviceKind === 'vps' ? 'vps' : 'computer') as LinkedDeviceKind
+    const ownerUserId = ownerType === 'user'
+      ? required(device.ownerUserId ?? device.createdByUserId, 'ownerUserId')
+      : actorUserId
+    const ownerOrgId = ownerType === 'organization' ? required(device.ownerOrgId, 'ownerOrgId') : null
+    if (ownerType === 'user' && ownerUserId !== actorUserId) {
+      throw new Error('linked computers: device owner required')
+    }
+    if (ownerOrgId) {
+      const membership = await tx.get(db.collection(MEMBERS).doc(`${ownerOrgId}_${actorUserId}`))
+      if (!membershipMatches(membership.data(), ownerOrgId, actorUserId, true)) {
+        throw new Error('linked computers: organisation administrator required')
+      }
+    }
+
+    if (nativeLocationSnap.exists) {
+      const native = nativeLocationSnap.data() ?? {}
+      if (native.adoptedFromLocationId === adoptLocationId && native.nativeDeviceId === deviceId) {
+        return {
+          deviceId,
+          nativeLocationId,
+          adoptedFromLocationId: adoptLocationId,
+          replicaCount: 0,
+          alreadyAdopted: true,
+        }
+      }
+      throw new Error('linked computers: device already has a native project location')
+    }
+
+    if (!locationSnap.exists) throw new Error('linked computers: location not found')
+    const locationRow = locationSnap.data() ?? {}
+    if (locationRow.status === 'retired' && locationRow.replacedByLocationId === nativeLocationId) {
+      return {
+        deviceId,
+        nativeLocationId,
+        adoptedFromLocationId: adoptLocationId,
+        replicaCount: 0,
+        alreadyAdopted: true,
+      }
+    }
+    const descriptor = adoptionDescriptor(locationRow, {
+      locationId: adoptLocationId,
+      ownerUserId,
+      ownerType,
+      ownerOrgId,
+      deviceKind,
+    })
+    if (descriptor.platform !== device.platform) {
+      throw new Error('linked computers: device platform mismatch')
+    }
+
+    const [replicaSnapshot, runtimeJobSnapshot] = await Promise.all([
+      tx.get(db.collection(PROJECT_REPLICAS).where('locationId', '==', adoptLocationId)),
+      tx.get(db.collection(PROJECT_SYNC_RUNTIME_JOBS).where('locationId', '==', adoptLocationId)),
+    ])
+    const activeReplicas = replicaSnapshot.docs.filter((doc) => (doc.data() ?? {}).active === true)
+    const orgIds = Array.from(new Set(descriptor.mappings.map((mapping) => mapping.orgId))).sort()
+    const grantRefs = orgIds.map((orgId) => db.collection(GRANTS).doc(`${orgId}_${deviceId}`))
+    const mappingRefs = descriptor.mappings.map((mapping) => db.collection(MAPPINGS).doc(mapping.mappingId))
+    const membershipRefs = orgIds.map((orgId) => db.collection(MEMBERS).doc(`${orgId}_${ownerUserId}`))
+    const workspaceRefs = descriptor.mappings.map((mapping) => db.collection(WORKSPACES).doc(mapping.workspaceId))
+
+    const replacementRows = activeReplicas.map((old) => {
+      const row = old.data() ?? {}
+      const projectId = safeIdentifier(row.projectId, 'projectId')
+      const orgId = safeIdentifier(row.orgId, 'orgId')
+      const workspaceId = safeIdentifier(row.workspaceId, 'workspaceId')
+      const mappingId = safeIdentifier(row.mappingId, 'mappingId')
+      if (!descriptor.mappings.some((mapping) => mapping.mappingId === mappingId
+        && mapping.orgId === orgId && mapping.workspaceId === workspaceId)) {
+        throw new Error('linked computers: replica mapping mismatch')
+      }
+      const newReplicaId = scopedProjectReplicaId({
+        projectId, orgId, workspaceId, locationId: nativeLocationId, mappingId,
+      })
+      return {
+        old,
+        row,
+        newReplicaId,
+        newRef: db.collection(PROJECT_REPLICAS).doc(newReplicaId),
+      }
+    })
+    if (new Set(replacementRows.map((row) => row.newReplicaId)).size !== replacementRows.length) {
+      throw new Error('linked computers: duplicate replacement replica')
+    }
+
+    const projectIds = Array.from(new Set(replacementRows.map(({ row }) => String(row.projectId)))).sort()
+    if (!projectLocationAdoptionFitsTransaction({
+      replicaCount: replacementRows.length,
+      mappingCount: descriptor.mappings.length,
+      grantCount: orgIds.length,
+      projectCount: projectIds.length,
+    })) {
+      throw new Error('linked computers: project location adoption exceeds transaction limit')
+    }
+
+    const projectRefs = projectIds.map((projectId) => db.collection(PROJECTS).doc(projectId))
+    const syncScopes = Array.from(new Map(replacementRows.map(({ row }) => {
+      const orgId = String(row.orgId)
+      const projectId = String(row.projectId)
+      return [`${orgId}\0${projectId}`, { orgId, projectId }]
+    })).values()).sort((left, right) => (
+      `${left.orgId}:${left.projectId}`.localeCompare(`${right.orgId}:${right.projectId}`)
+    ))
+    const projectOrganizationRefs = syncScopes.map(({ orgId, projectId }) => (
+      db.collection(PROJECT_ORGANIZATIONS).doc(projectOrganizationDocId(projectId, orgId))
+    ))
+    const syncHeadRefs = syncScopes.map(({ orgId, projectId }) => (
+      db.collection(PROJECT_SYNC_HEADS).doc(projectSyncHeadDocumentId(orgId, projectId))
+    ))
+
+    const [
+      grantSnapshots,
+      mappingSnapshots,
+      membershipSnapshots,
+      workspaceSnapshots,
+      replacementSnapshots,
+      projectSnapshots,
+      projectOrganizationSnapshots,
+      syncHeadSnapshots,
+    ] = await Promise.all([
+      Promise.all(grantRefs.map((ref) => tx.get(ref))),
+      Promise.all(mappingRefs.map((ref) => tx.get(ref))),
+      Promise.all(membershipRefs.map((ref) => tx.get(ref))),
+      Promise.all(workspaceRefs.map((ref) => tx.get(ref))),
+      Promise.all(replacementRows.map((row) => tx.get(row.newRef))),
+      Promise.all(projectRefs.map((ref) => tx.get(ref))),
+      Promise.all(projectOrganizationRefs.map((ref) => tx.get(ref))),
+      Promise.all(syncHeadRefs.map((ref) => tx.get(ref))),
+    ])
+
+    const syncRequestIds = Array.from(new Set(syncHeadSnapshots.flatMap((snapshot) => {
+      const requestId = snapshot.data()?.requestId
+      return typeof requestId === 'string' && requestId ? [requestId] : []
+    })))
+    const syncRequestRefs = syncRequestIds.map((requestId) => db.collection(PROJECT_SYNC_REQUESTS).doc(requestId))
+    const syncRequestSnapshots = await Promise.all(syncRequestRefs.map((ref) => tx.get(ref)))
+    const syncRequestsById = new Map(syncRequestIds.map((requestId, index) => [requestId, syncRequestSnapshots[index]]))
+    const activeSyncHead = syncHeadSnapshots.some((snapshot) => {
+      if (!snapshot.exists) return false
+      const row = snapshot.data() ?? {}
+      const requestId = typeof row.requestId === 'string' ? row.requestId : ''
+      const request = requestId ? syncRequestsById.get(requestId) : undefined
+      return !terminalProjectSyncStatus(row.status)
+        || Boolean(request?.exists && !terminalProjectSyncStatus(request.data()?.status))
+        || Boolean(!request?.exists && !terminalProjectSyncStatus(row.status))
+    })
+    const activeRuntimeJob = runtimeJobSnapshot.docs.some((snapshot) => (
+      (snapshot.data() ?? {}).status !== 'completed'
+    ))
+    if (activeSyncHead || activeRuntimeJob) {
+      throw new Error('linked computers: project location has active sync work')
+    }
+
+    const authorizationValid = orgIds.every((orgId, index) => membershipMatches(
+      membershipSnapshots[index].data(),
+      orgId,
+      ownerUserId,
+      ownerType === 'organization',
+    )) && descriptor.mappings.every((mapping, index) => workspaceMatches(
+      workspaceSnapshots[index].data(),
+      mapping.orgId,
+      mapping.workspaceId,
+    )) && projectSnapshots.every((snapshot) => snapshot.exists && activeAdoptionProject(snapshot.data()))
+      && syncScopes.every(({ orgId, projectId }, index) => {
+        const snapshot = projectOrganizationSnapshots[index]
+        const project = projectSnapshots[projectIds.indexOf(projectId)]
+        return activeAdoptionProjectOrganization(snapshot.data(), snapshot.exists, project?.data(), projectId, orgId)
+      })
+    if (!authorizationValid) throw new Error('linked computers: adoption authorisation failed')
+    if (replacementSnapshots.some((snapshot) => snapshot.exists)) {
+      throw new Error('linked computers: native replica already exists')
+    }
+    for (const [index, snapshot] of mappingSnapshots.entries()) {
+      if (!snapshot.exists) continue
+      const row = snapshot.data() ?? {}
+      if (row.deviceId !== deviceId) {
+        throw new Error(`linked computers: mapping ${descriptor.mappings[index].mappingId} belongs to another device`)
+      }
+    }
+
+    const at = timestamp(options)
+    const owner = ownerType === 'user'
+      ? { type: 'user', userId: ownerUserId }
+      : { type: 'organization', orgId: ownerOrgId! }
+
+    tx.create(nativeLocationRef, {
+      locationId: nativeLocationId,
+      label: descriptor.label,
+      kind: descriptor.kind,
+      platform: descriptor.platform,
+      runtimeTargetId: nativeLocationId,
+      owner,
+      visibility: descriptor.visibility,
+      allowedOrgIds: orgIds,
+      status: 'active',
+      availability: device.lastSeenAt ? 'online' : 'offline',
+      verificationStatus: 'pending',
+      mappings: descriptor.mappings.map((mapping) => ({ ...mapping, status: 'paused' })),
+      nativeDeviceId: deviceId,
+      adoptedFromLocationId: adoptLocationId,
+      createdAt: at,
+      updatedAt: at,
+      lastSeenAt: device.lastSeenAt ?? null,
+    })
+
+    orgIds.forEach((orgId, index) => {
+      if (grantSnapshots[index].exists) return
+      tx.create(grantRefs[index], {
+        deviceId,
+        orgId,
+        grantedByUserId: actorUserId,
+        accessMode: ownerType === 'organization' ? 'organization' : 'owner',
+        allowedUserIds: [],
+        capabilities: ['workspace.execute', 'workspace.sync'],
+        status: 'active',
+        createdAt: at,
+        updatedAt: at,
+      })
+    })
+
+    descriptor.mappings.forEach((mapping, index) => {
+      if (mappingSnapshots[index].exists) return
+      tx.create(mappingRefs[index], {
+        mappingId: mapping.mappingId,
+        deviceId,
+        orgId: mapping.orgId,
+        workspaceId: mapping.workspaceId,
+        label: descriptor.label,
+        status: 'pending',
+        adoptedFromLocationId: adoptLocationId,
+        createdAt: at,
+        updatedAt: at,
+      })
+    })
+
+    replacementRows.forEach(({ old, row, newReplicaId, newRef }) => {
+      tx.create(newRef, {
+        ...row,
+        replicaId: newReplicaId,
+        locationId: nativeLocationId,
+        locationLabel: descriptor.label,
+        locationKind: descriptor.kind,
+        locationPlatform: descriptor.platform,
+        locationOwner: owner,
+        locationVisibility: descriptor.visibility,
+        availability: 'offline',
+        syncStatus: 'offline',
+        active: true,
+        adoptedFromReplicaId: old.id,
+        adoptedFromLocationId: adoptLocationId,
+        createdAt: at,
+        updatedAt: at,
+        unlinkedAt: null,
+        unlinkedByUserId: null,
+      })
+      tx.update(old.ref, {
+        active: false,
+        availability: 'offline',
+        syncStatus: 'offline',
+        replacedByReplicaId: newReplicaId,
+        unlinkedAt: at,
+        unlinkedByUserId: actorUserId,
+        updatedAt: at,
+      })
+    })
+
+    projectSnapshots.forEach((snapshot, index) => {
+      const project = snapshot.data() ?? {}
+      const existingLocationIds = Array.isArray(project.executionLocationIds)
+        ? project.executionLocationIds.filter((value): value is string => typeof value === 'string' && value.length > 0)
+        : []
+      const executionLocationIds = Array.from(new Set([
+        ...existingLocationIds.filter((locationId) => locationId !== adoptLocationId),
+        nativeLocationId,
+      ]))
+      const projectId = projectIds[index]
+      const legacyReplicaWasCanonical = replacementRows.some(({ row }) => (
+        row.projectId === projectId && row.isCanonical === true
+      ))
+      tx.update(projectRefs[index], {
+        executionLocationIds,
+        canonicalLocationId: project.canonicalLocationId === adoptLocationId
+          ? nativeLocationId
+          : typeof project.canonicalLocationId === 'string' && project.canonicalLocationId
+            ? project.canonicalLocationId
+            : legacyReplicaWasCanonical ? nativeLocationId : null,
+        setupState: 'sync_pending',
+        updatedAt: at,
+      })
+    })
+
+    tx.update(locationRef, {
+      status: 'retired',
+      availability: 'offline',
+      replacedByLocationId: nativeLocationId,
+      adoptedDeviceId: deviceId,
+      retiredAt: at,
+      retiredByUserId: actorUserId,
+      updatedAt: at,
+    })
+    tx.update(deviceRef, {
+      adoptedFromLocationId: adoptLocationId,
+      updatedAt: at,
+    })
+    tx.create(auditRef(db), {
+      eventId: randomUUID(),
+      action: 'location.adopted',
+      actorUserId,
+      deviceId,
+      adoptedFromLocationId: adoptLocationId,
+      nativeLocationId,
+      createdAt: at,
+    })
+
+    return {
+      deviceId,
+      nativeLocationId,
+      adoptedFromLocationId: adoptLocationId,
+      replicaCount: replacementRows.length,
+    }
+  })
+}
