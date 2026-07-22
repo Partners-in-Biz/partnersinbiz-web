@@ -491,6 +491,9 @@ export const POST = withAuth(
           orgId: conversation.orgId,
           workspaceId: conversation.workspaceContext.workspaceId,
           runtimeTargetId: requestedRuntimeTarget,
+          ...(conversation.workspaceContext.mappingId
+            ? { mappingId: conversation.workspaceContext.mappingId }
+            : {}),
           agentId: dispatchAgentId,
         })
       } catch {
@@ -577,6 +580,9 @@ export const POST = withAuth(
             orgId: conversation.orgId,
             workspaceId: conversation.workspaceContext.workspaceId,
             runtimeTargetId: requestedRuntimeTarget,
+            ...(conversation.workspaceContext.mappingId
+              ? { mappingId: conversation.workspaceContext.mappingId }
+              : {}),
             agentId,
           })
           if (authorizedRuntime.kind === 'linked-computer') linkedComputerBinding = authorizedRuntime
@@ -740,7 +746,7 @@ export const POST = withAuth(
           actorUserId: user.uid,
           workspaceId: linkedComputerBinding.workspaceId,
           ...(projectId && boundProjectReplica ? { projectId, projectReplicaId: boundProjectReplica.replicaId } : {}),
-          mappingId: linkedComputerBinding.mappingId,
+          mappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
           relativeFolder: boundProjectReplica?.relativePath ?? (projectId ? `projects/${projectId}` : '.'),
           ...(coworkWorkingDirectory ? { workingDirectory: coworkWorkingDirectory } : {}),
           credentialVersion: linkedComputerBinding.credentialVersion,
@@ -770,7 +776,7 @@ export const POST = withAuth(
           await messagesCollection(convId).doc(assistantMessage.id).update({
             runId: queued.jobId, dispatchAgentId: agentId, acceptedDevice,
             linkedDeviceId: linkedComputerBinding.deviceId,
-            linkedDeviceMappingId: linkedComputerBinding.mappingId,
+            linkedDeviceMappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
             linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
           })
           return apiSuccess({ message, assistantMessage: { ...assistantMessage, runId: queued.jobId, dispatchAgentId: agentId, acceptedDevice }, runId: queued.jobId, dispatchAgentId: agentId }, 201)

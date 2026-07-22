@@ -65,8 +65,15 @@ export const POST = withAuth(
     const body = await req.json().catch(() => null)
     const runtimeTarget = body && typeof body.runtimeTarget === 'string' ? body.runtimeTarget.trim() : ''
     if (!runtimeTarget) return apiError('runtimeTarget is required', 400)
-    if (runtimeTarget === source.workspaceContext.runtimeTarget) {
-      return apiError('Select a different computer to continue this session', 400)
+    const requestedMappingId = body && typeof body.mappingId === 'string' && body.mappingId.trim()
+      ? body.mappingId.trim()
+      : source.workspaceContext.mappingId
+    if (requestedMappingId && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(requestedMappingId)) {
+      return apiError('mappingId is invalid', 400)
+    }
+    if (runtimeTarget === source.workspaceContext.runtimeTarget
+      && (requestedMappingId || '') === (source.workspaceContext.mappingId || '')) {
+      return apiError('Select a different computer or mapped location to continue this session', 400)
     }
 
     let authorizedRuntime: Awaited<ReturnType<typeof authorizeWorkspaceRuntime>>
@@ -77,6 +84,7 @@ export const POST = withAuth(
         orgId: source.orgId,
         workspaceId: source.workspaceContext.workspaceId,
         runtimeTargetId: runtimeTarget,
+        ...(requestedMappingId ? { mappingId: requestedMappingId } : {}),
         ...(dispatchAgentId ? { agentId: dispatchAgentId } : {}),
       })
     } catch {
@@ -114,6 +122,8 @@ export const POST = withAuth(
       ownerUserId: user.uid,
       runtimeTarget,
       runtimeLabel,
+      mappingId: 'mappingId' in authorizedRuntime ? authorizedRuntime.mappingId : requestedMappingId,
+      mappingLabel: 'mappingLabel' in authorizedRuntime ? authorizedRuntime.mappingLabel : undefined,
       shareMode: source.workspaceContext.shareMode,
       projectId,
       projectName: source.workspaceContext.projectName,

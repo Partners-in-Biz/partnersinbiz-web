@@ -658,7 +658,7 @@ export async function putWorkspaceMapping(input: {
       if (old.deviceId !== input.deviceId || old.orgId !== input.orgId) throw new Error('linked computers: mapping tenant scope mismatch')
     }
     const fromStatus = existing.exists ? existing.data()?.status as WorkspaceMappingStatus : undefined
-    if (fromStatus ? !MAPPING_TRANSITIONS[fromStatus]?.includes(input.status) : input.status !== 'pending') {
+    if (fromStatus && fromStatus !== input.status && !MAPPING_TRANSITIONS[fromStatus]?.includes(input.status)) {
       throw new Error('linked computers: invalid mapping status transition')
     }
     const at = timestamp(options)

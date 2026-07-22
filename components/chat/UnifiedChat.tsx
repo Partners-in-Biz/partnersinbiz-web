@@ -192,6 +192,7 @@ interface WorkspaceRuntimePresence {
   hostId?: string
   deviceId?: string
   mappingId?: string
+  mappingLabel?: string
   workspaceId?: string
   locationId?: string
   locationLabel?: string
@@ -345,6 +346,27 @@ function projectRuntimeLocationId(runtime: WorkspaceRuntimePresence): string {
 
 function projectRuntimeLabel(runtime: WorkspaceRuntimePresence): string {
   return runtime.locationLabel || runtime.location?.label || runtime.label
+}
+
+function workspaceRuntimeSelectionKey(runtime: WorkspaceRuntimePresence): string {
+  const mappingId = runtime.mappingId?.trim()
+  return mappingId ? `${runtime.id}::${mappingId}` : runtime.id
+}
+
+function parseWorkspaceRuntimeSelection(value: string): { runtimeTargetId: string; mappingId?: string } {
+  const separator = value.indexOf('::')
+  if (separator <= 0) return { runtimeTargetId: value }
+  const mappingId = value.slice(separator + 2).trim()
+  return {
+    runtimeTargetId: value.slice(0, separator),
+    ...(mappingId ? { mappingId } : {}),
+  }
+}
+
+function workspaceRuntimeOptionLabel(runtime: WorkspaceRuntimePresence): string {
+  const mappingLabel = runtime.mappingLabel?.trim()
+  if (mappingLabel) return `${runtime.label} · ${mappingLabel}`
+  return runtime.label
 }
 
 function newProjectSetupIdempotencyKey(): string {
@@ -1190,7 +1212,9 @@ export default function UnifiedChat({
     },
     [newScope, selectedWorkspaceId, selectedWorkspaceProject, workspaceRuntimeTargetsByWorkspace],
   )
-  const selectedWorkspaceRuntimeIsValid = workspaceRuntimeTargets.some(runtime => runtime.id === selectedWorkspaceRuntime && runtime.selectable)
+  const selectedWorkspaceRuntimeIsValid = workspaceRuntimeTargets.some(runtime => (
+    workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime && runtime.selectable
+  ))
   useEffect(() => {
     if (workspaceRuntimeTargets.length === 0) {
       if (newScope === 'project' && selectedWorkspaceRuntime) {
@@ -1199,20 +1223,25 @@ export default function UnifiedChat({
       }
       return
     }
-    if (!workspaceRuntimeExplicitRef.current && !workspaceRuntimeTargets.some((runtime) => runtime.id === selectedWorkspaceRuntime && runtime.selectable)) {
-      setSelectedWorkspaceRuntime(workspaceRuntimeTargets.find((runtime) => runtime.selectable)?.id ?? '')
+    if (!workspaceRuntimeExplicitRef.current && !workspaceRuntimeTargets.some((runtime) => (
+      workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime && runtime.selectable
+    ))) {
+      const first = workspaceRuntimeTargets.find((runtime) => runtime.selectable)
+      setSelectedWorkspaceRuntime(first ? workspaceRuntimeSelectionKey(first) : '')
     }
   }, [newScope, selectedWorkspaceRuntime, workspaceRuntimeTargets])
   const projectLocationOptions = useMemo<ProjectLocationOption[]>(() => workspaces.flatMap((workspace) => (
     workspaceRuntimeTargetsByWorkspace[workspace.workspaceId] ?? []
   ).map((runtime) => ({
-    key: `${workspace.workspaceId}:${runtime.id}`,
+    key: `${workspace.workspaceId}:${workspaceRuntimeSelectionKey(runtime)}`,
     runtimeTargetId: runtime.id,
     locationId: projectRuntimeLocationId(runtime),
     ...(runtime.mappingId ? { mappingId: runtime.mappingId } : {}),
     workspaceId: workspace.workspaceId,
     workspaceLabel: workspace.orgName,
-    label: projectRuntimeLabel(runtime),
+    label: runtime.mappingLabel
+      ? `${projectRuntimeLabel(runtime)} · ${runtime.mappingLabel}`
+      : projectRuntimeLabel(runtime),
     ...(runtime.kind === 'vps' || runtime.deviceKind === 'vps'
       ? { kind: 'vps' as const }
       : { kind: 'computer' as const }),
@@ -1228,13 +1257,15 @@ export default function UnifiedChat({
       const runtimeWorkspaceId = runtime.workspaceId?.trim() ?? ''
       if (!locationId || !runtimeWorkspaceId || runtimeWorkspaceId !== workspace.workspaceId) return []
       return [{
-        key: `${runtimeWorkspaceId}:${locationId}`,
+        key: `${runtimeWorkspaceId}:${workspaceRuntimeSelectionKey(runtime)}`,
         runtimeTargetId: runtime.id,
         locationId,
         ...(runtime.mappingId ? { mappingId: runtime.mappingId } : {}),
         workspaceId: runtimeWorkspaceId,
         workspaceLabel: workspace.orgName,
-        label: projectRuntimeLabel(runtime),
+        label: runtime.mappingLabel
+          ? `${projectRuntimeLabel(runtime)} · ${runtime.mappingLabel}`
+          : projectRuntimeLabel(runtime),
         selectable: runtime.selectable,
       }]
     }))
@@ -1542,9 +1573,10 @@ export default function UnifiedChat({
         setSelectedWorkspaceRuntime((current) => {
           if (workspaceRuntimeExplicitRef.current) return current
           const initialRuntimes = runtimeTargetsByWorkspace[initialWorkspaceId] ?? runtimes
-          const currentTarget = initialRuntimes.find((runtime) => runtime.id === current)
+          const currentTarget = initialRuntimes.find((runtime) => workspaceRuntimeSelectionKey(runtime) === current)
           if (currentTarget?.selectable) return current
-          return initialRuntimes.find((runtime) => runtime.selectable)?.id ?? ''
+          const first = initialRuntimes.find((runtime) => runtime.selectable)
+          return first ? workspaceRuntimeSelectionKey(first) : ''
         })
         return snapshot
       } catch {
@@ -3328,18 +3360,18 @@ export default function UnifiedChat({
       setSelectedProjectId(projectIdFromResponse)
 
       const refreshedTargets = refreshed?.runtimeTargetsByWorkspace ?? workspaceRuntimeTargetsByWorkspace
-      let availableLocation: { workspaceId: string; runtimeTargetId: string } | undefined
+      let availableLocation: { workspaceId: string; selectionKey: string } | undefined
       for (const [workspaceId, targets] of Object.entries(refreshedTargets)) {
         const runtime = targets.find((candidate) => candidate.selectable && linkedLocationIds.includes(projectRuntimeLocationId(candidate)))
         if (runtime) {
-          availableLocation = { workspaceId, runtimeTargetId: runtime.id }
+          availableLocation = { workspaceId, selectionKey: workspaceRuntimeSelectionKey(runtime) }
           break
         }
       }
       if (availableLocation) {
         workspaceRuntimeExplicitRef.current = true
         setSelectedWorkspaceId(availableLocation.workspaceId)
-        setSelectedWorkspaceRuntime(availableLocation.runtimeTargetId)
+        setSelectedWorkspaceRuntime(availableLocation.selectionKey)
       }
       setProjectSetupResult(setupResult)
     } catch (projectError) {
@@ -3379,24 +3411,30 @@ export default function UnifiedChat({
       if (newScope !== 'general') payload.scope = newScope
       if (newScope === 'workspace') {
         if (!selectedWorkspaceId) throw new Error('Select a Workspace before starting a Workspace chat.')
+        const selected = parseWorkspaceRuntimeSelection(selectedWorkspaceRuntime)
         payload.workspaceId = selectedWorkspaceId
-        payload.runtimeTarget = selectedWorkspaceRuntime
+        payload.runtimeTarget = selected.runtimeTargetId
+        if (selected.mappingId) payload.mappingId = selected.mappingId
         payload.shareMode = selectedWorkspaceShareMode
       }
       if (newScope === 'company') {
         if (!selectedCompanyId) throw new Error('Select a company before starting a company Cowork chat.')
         if (!selectedWorkspaceId) throw new Error('No organisation runtime Workspace is available for this company.')
+        const selected = parseWorkspaceRuntimeSelection(selectedWorkspaceRuntime)
         payload.scopeRefId = selectedCompanyId
         payload.workspaceId = selectedWorkspaceId
-        payload.runtimeTarget = selectedWorkspaceRuntime
+        payload.runtimeTarget = selected.runtimeTargetId
+        if (selected.mappingId) payload.mappingId = selected.mappingId
         payload.shareMode = selectedWorkspaceShareMode
       }
       if (newScope === 'project') {
         if (!selectedProjectId) throw new Error('Select a project before starting a project chat.')
         if (!selectedWorkspaceId) throw new Error('No organisation Workspace is available for this project.')
+        const selected = parseWorkspaceRuntimeSelection(selectedWorkspaceRuntime)
         payload.scopeRefId = selectedProjectId
         payload.workspaceId = selectedWorkspaceId
-        payload.runtimeTarget = selectedWorkspaceRuntime
+        payload.runtimeTarget = selected.runtimeTargetId
+        if (selected.mappingId) payload.mappingId = selected.mappingId
         payload.shareMode = selectedWorkspaceShareMode
       }
       if (newScope === scope && scopeRefId) payload.scopeRefId = scopeRefId
@@ -5495,24 +5533,29 @@ export default function UnifiedChat({
                   </div>
                   <div>
                     <label htmlFor="workspace-runtime" className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-                      Runtime
+                      Computer / mapped folder
                     </label>
                     <select
                       id="workspace-runtime"
-                      aria-label="Runtime"
+                      aria-label="Computer / mapped folder"
                       value={selectedWorkspaceRuntime}
                       onChange={(e) => { workspaceRuntimeExplicitRef.current = true; setSelectedWorkspaceRuntime(e.target.value) }}
                       className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-primary/60"
                     >
-                      {!workspaceRuntimeTargets.some((runtime) => runtime.selectable || runtime.id === selectedWorkspaceRuntime) ? (
+                      {!workspaceRuntimeTargets.some((runtime) => (
+                        runtime.selectable || workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime
+                      )) ? (
                         <option value="" disabled>{newScope === 'project'
                           ? workspaceRuntimeTargets.length > 0
                             ? 'No ready project computers available'
                             : 'No linked computers available'
                           : 'No computers available'}</option>
                       ) : workspaceRuntimeTargets
-                        .filter((runtime) => runtime.selectable || runtime.id === selectedWorkspaceRuntime)
+                        .filter((runtime) => (
+                          runtime.selectable || workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime
+                        ))
                         .map((runtime) => {
+                          const selectionKey = workspaceRuntimeSelectionKey(runtime)
                           const status = runtime.isLocal
                             ? runtime.isFresh && runtime.isHealthy
                               ? runtime.ageSeconds != null
@@ -5521,19 +5564,21 @@ export default function UnifiedChat({
                               : ' · Computer unavailable'
                             : ''
                           return (
-                            <option key={runtime.id} value={runtime.id} disabled={!runtime.selectable}>
-                              {runtime.label}{status}
+                            <option key={selectionKey} value={selectionKey} disabled={!runtime.selectable}>
+                              {workspaceRuntimeOptionLabel(runtime)}{status}
                             </option>
                           )
                         })}
                     </select>
-                    {workspaceRuntimeExplicitRef.current && workspaceRuntimeTargets.some(runtime => runtime.id === selectedWorkspaceRuntime && !runtime.selectable) && (
+                    {workspaceRuntimeExplicitRef.current && workspaceRuntimeTargets.some(runtime => (
+                      workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime && !runtime.selectable
+                    )) && (
                       <p role="alert" className="mt-2 text-xs text-red-300">
-                        {workspaceRuntimeTargets.find(runtime => runtime.id === selectedWorkspaceRuntime)?.label ?? 'This computer'} is unavailable. Select another computer or try again when it is online.
+                        {workspaceRuntimeTargets.find(runtime => workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime)?.label ?? 'This computer'} is unavailable. Select another computer or try again when it is online.
                       </p>
                     )}
                     <div className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
-                      Only healthy computers authorised for the current organisation can run files here.
+                      Only healthy computers authorised for the current organisation can run files here. When a computer has more than one mapped folder, each mapping appears as its own choice.
                     </div>
                     {newScope === 'project' && selectedProjectId && workspaceRuntimeTargets.length === 0 && (
                       <p role="status" className="mt-2 text-xs text-amber-200">
