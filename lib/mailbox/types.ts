@@ -44,6 +44,10 @@ export interface MailboxMessageSafe {
   read: boolean
   starred: boolean
   from: string
+  /** Display name from the From header when available (e.g. "Rikus Stander"). */
+  fromName?: string | null
+  /** Original From header text when available. */
+  fromRaw?: string | null
   to: string[]
   cc: string[]
   bcc: string[]

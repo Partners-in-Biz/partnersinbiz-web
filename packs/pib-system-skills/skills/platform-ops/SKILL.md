@@ -602,7 +602,8 @@ Messages injects a `[Mailbox connections]` block when the acting user has authen
 1. If the prompt says `status: connected`, call `GET /agent/email/accounts` then `GET /agent/email/messages?summarize=true&q=...` with the injected `pib_dlg_…` Bearer token **before** asking the user to paste email content.
 2. Never claim you cannot access their email when the mailbox block shows a connected account — use `/agent/email/*`.
 3. Portal `/portal/email/*` is browser/session only. Hermes must use `/agent/email/*`.
-4. After drafting, echo returned `uiActions`/`contextRef` so Messages opens the email side canvas. Humans **Approve & send**; do not auto-send.
+4. Message reads auto-refresh stale Google sync (≈5 min) and, when `q` is set, also run a **live Gmail search** that imports matches before filtering. Prefer short queries (`rs@ahslaw.co.za`, `Rikus Stander July 20`) — not full Gmail UI sentences.
+5. After drafting, echo returned `uiActions`/`contextRef` so Messages opens the email side canvas. Humans **Approve & send**; do not auto-send.
 
 ### Admin operations utility routes
 
