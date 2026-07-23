@@ -240,6 +240,58 @@ describe('GET /api/v1/projects', () => {
     expect(body.data.map((project) => project.id)).toEqual(['received'])
   })
 
+  it('hides unassigned org projects from owned_or_linked members on the portal list', async () => {
+    mockUser = {
+      uid: 'stean',
+      role: 'client',
+      orgId: 'pib-platform-owner',
+      memberAccessPolicy: {
+        preset: 'custom',
+        modules: {
+          crm: true, projects: true, documents: true, marketing: true, messages: true,
+          email: true, reports: true, research: true, properties: true, billing: true,
+          mobileApps: false, youtubeStudio: false, bookStudio: false,
+        },
+        recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+      },
+    } as MockUser
+    mockProjectMemberGet.mockResolvedValue({ exists: false })
+    mockProjectGet
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'ahs-law',
+            data: () => ({
+              name: 'AHS Law - SEO 90-day Sprint',
+              orgId: 'pib-platform-owner',
+              ownerUid: 'peet',
+              createdBy: 'peet',
+              status: 'development',
+              createdAt: { seconds: 40 },
+            }),
+          },
+          {
+            id: 'stean-project',
+            data: () => ({
+              name: 'Stean Book',
+              orgId: 'pib-platform-owner',
+              ownerUid: 'stean',
+              createdBy: 'stean',
+              status: 'development',
+              createdAt: { seconds: 30 },
+            }),
+          },
+        ],
+      })
+      .mockResolvedValue({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/projects/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects?view=received'))
+    expect(res.status).toBe(200)
+    const body = await res.json() as ProjectResponse
+    expect(body.data.map((project) => project.id)).toEqual(['stean-project'])
+  })
+
   it('discovers an active canonical organisation share without legacy project link fields', async () => {
     mockUser = { uid: 'client-1', role: 'client', orgId: 'recipient-org' }
     mockProjectGet.mockResolvedValue({ docs: [] })

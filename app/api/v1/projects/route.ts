@@ -18,7 +18,7 @@ import {
   resolvePlatformOwnerOrgId,
 } from '@/lib/platform-owner/relationships'
 import { canAccessProject } from '@/lib/projects/access'
-import { ensureProjectOwnerMembership, projectOrganizationDocId } from '@/lib/projects/collaboration'
+import { ensureProjectOwnerMembership, filterProjectsForMemberScope, projectOrganizationDocId } from '@/lib/projects/collaboration'
 import { publicProjectView } from '@/lib/projects/public'
 import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
@@ -297,12 +297,16 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     if (!scope.ok) return apiSuccess([])
     const orgId = scope.orgId
     if (view === 'received' || view === 'shared') {
-      const projects = (await loadClientVisibleProjectsForOrg(orgId, listLimit))
-        .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
-        .filter((project) => filterProjectByArchiveMode(project, archives))
+      const projects = await filterProjectsForMemberScope(
+        user,
+        (await loadClientVisibleProjectsForOrg(orgId, listLimit))
+          .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
+          .filter((project) => filterProjectByArchiveMode(project, archives)),
+      )
+      const sorted = projects
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
         .slice(0, listLimit ?? undefined)
-      return apiSuccess(projects.map(publicProjectView))
+      return apiSuccess(sorted.map(publicProjectView))
     }
     query = query.where(view === 'received' ? 'recipientOrgId' : 'orgId', '==', orgId)
   }
@@ -324,12 +328,16 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       return apiError('Forbidden', 403)
     }
     if (view === 'received' || view === 'shared') {
-      const projects = (await loadClientVisibleProjectsForOrg(orgId, listLimit))
-        .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
-        .filter((project) => filterProjectByArchiveMode(project, archives))
+      const projects = await filterProjectsForMemberScope(
+        user,
+        (await loadClientVisibleProjectsForOrg(orgId, listLimit))
+          .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
+          .filter((project) => filterProjectByArchiveMode(project, archives)),
+      )
+      const sorted = projects
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
         .slice(0, listLimit ?? undefined)
-      return apiSuccess(projects.map(publicProjectView))
+      return apiSuccess(sorted.map(publicProjectView))
     }
     query = query.where('orgId', '==', orgId)
   } else if (user.role === 'admin') {
@@ -337,12 +345,16 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       ? explicitAdminOrgIds(user)
       : restrictedAdminOrgIds(user)
     if ((view === 'received' || view === 'shared') && allowedOrgIds.length > 0) {
-      const projects = (await loadClientVisibleProjectsForOrgs(allowedOrgIds.slice(0, 30), listLimit))
-        .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
-        .filter((project) => filterProjectByArchiveMode(project, archives))
+      const projects = await filterProjectsForMemberScope(
+        user,
+        (await loadClientVisibleProjectsForOrgs(allowedOrgIds.slice(0, 30), listLimit))
+          .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
+          .filter((project) => filterProjectByArchiveMode(project, archives)),
+      )
+      const sorted = projects
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
         .slice(0, listLimit ?? undefined)
-      return apiSuccess(projects.map(publicProjectView))
+      return apiSuccess(sorted.map(publicProjectView))
     }
     if (allowedOrgIds.length > 0) {
       query = query.where('orgId', 'in', allowedOrgIds.slice(0, 30))
@@ -351,14 +363,18 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
 
   const snapshot = await withOptionalLimit(query, listLimit).get()
 
-  const projects: ProjectListItem[] = snapshot.docs
-    .map((doc): ProjectListItem => ({ id: doc.id, ...doc.data() }))
-    .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
-    .filter((project) => filterProjectByArchiveMode(project, archives))
+  const projects: ProjectListItem[] = await filterProjectsForMemberScope(
+    user,
+    snapshot.docs
+      .map((doc): ProjectListItem => ({ id: doc.id, ...doc.data() }))
+      .filter((project) => !sharedOnly || Boolean(project.claimableRelationshipId))
+      .filter((project) => filterProjectByArchiveMode(project, archives)),
+  )
+  const sorted = projects
     .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
     .slice(0, listLimit ?? undefined)
 
-  return apiSuccess(projects.map(publicProjectView))
+  return apiSuccess(sorted.map(publicProjectView))
 })
 
 export async function handleProjectCreate(
