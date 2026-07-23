@@ -31,14 +31,21 @@ export const GET = withAuth('client', async () => apiSuccess({
       method: 'GET',
       path: '/api/v1/agent/email/messages',
       query: ['orgId', 'uid|requestingUserId', 'delegationEvidenceId', 'folder?', 'accountId?', 'q?', 'limit?', 'summarize?'],
-      safety: 'Read-only; requires read delegation and returns messages scoped by orgId + uid + optional accountId.',
+      safety: 'Read-only; requires read delegation and returns messages scoped by orgId + uid + optional accountId. summarize=true still includes bodyPreview (≤8k).',
+    },
+    {
+      name: 'email.messages.get',
+      method: 'GET',
+      path: '/api/v1/agent/email/messages/{id}',
+      query: ['orgId', 'uid|requestingUserId', 'delegationEvidenceId?'],
+      safety: 'Read-only; returns the full mailbox message (including bodyText) for one id in the same org/uid scope.',
     },
     {
       name: 'email.context.summarise',
       method: 'GET',
       path: '/api/v1/agent/email/messages?summarize=true',
       query: ['orgId', 'uid|requestingUserId', 'delegationEvidenceId', 'folder?', 'accountId?', 'q?', 'limit?'],
-      safety: 'Requires read delegation and returns bounded snippets/metadata only, not full message bodies.',
+      safety: 'Requires read delegation. Returns metadata + bodyPreview. For longer mail, follow up with GET /messages/{id}. Never ask the user to paste when connected.',
     },
     {
       name: 'email.draft.create',

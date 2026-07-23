@@ -67,7 +67,10 @@ export type AgentMailboxSendRequestInput = AgentMailboxContext & {
   approvalEvidence?: AgentMailboxApprovalEvidence
 }
 
-type AgentMailboxSummaryItem = Pick<MailboxMessageSafe, 'id' | 'from' | 'to' | 'subject' | 'snippet' | 'createdAt' | 'receivedAt' | 'sentAt' | 'folder'>
+type AgentMailboxSummaryItem = Pick<MailboxMessageSafe, 'id' | 'from' | 'to' | 'subject' | 'snippet' | 'createdAt' | 'receivedAt' | 'sentAt' | 'folder'> & {
+  fromName?: string | null
+  bodyPreview?: string
+}
 
 function requireContext(input: AgentMailboxContext) {
   if (!input.orgId?.trim()) throw new Error('orgId is required')
@@ -185,24 +188,44 @@ export async function readAgentMailboxMessages(input: AgentMailboxReadInput, act
   }
 }
 
+export async function getAgentMailboxMessage(
+  input: AgentMailboxContext & { messageId: string },
+  actor: AgentMailboxActor,
+) {
+  requireContext(input)
+  const messageId = normalizeText(input.messageId)
+  if (!messageId) throw new Error('messageId is required')
+  const message = await loadMessage({ orgId: input.orgId, uid: input.uid, messageId })
+  if (!message) throw new Error('Mailbox message not found for requested user/org context')
+  await writeToolEvent(input, actor, { action: 'read_message', mailboxMessageId: message.id, folder: message.folder })
+  return { context: { orgId: input.orgId, uid: input.uid }, message }
+}
+
 export async function summarizeAgentMailboxContext(input: AgentMailboxReadInput, actor: AgentMailboxActor) {
   const result = await readAgentMailboxMessages(input, actor)
   const items: AgentMailboxSummaryItem[] = result.messages.map((message) => ({
     id: message.id,
     folder: message.folder,
     from: message.from,
+    fromName: message.fromName ?? null,
     to: message.to,
     subject: message.subject,
     snippet: message.snippet,
+    // Agents were stuck asking users to paste because summarize stripped bodies.
+    bodyPreview: message.bodyText.replace(/\s+/g, ' ').trim().slice(0, 8000),
     createdAt: message.createdAt,
     receivedAt: message.receivedAt,
     sentAt: message.sentAt,
   }))
   const summary = items.length === 0
     ? 'No matching mailbox messages found for the requested user/org context.'
-    : items.map((item, index) => `${index + 1}. ${item.subject || '(no subject)'} — ${item.from} — ${item.snippet}`).join('\n')
+    : items.map((item, index) => {
+      const who = item.fromName ? `${item.fromName} <${item.from}>` : item.from
+      const preview = item.bodyPreview ? `\n   body: ${item.bodyPreview.slice(0, 500)}${item.bodyPreview.length > 500 ? '…' : ''}` : ''
+      return `${index + 1}. id=${item.id} — ${item.subject || '(no subject)'} — ${who} — ${item.snippet}${preview}`
+    }).join('\n')
   await writeToolEvent(input, actor, { action: 'summarize_context', resultCount: items.length })
-  return { context: result.context, summary, items }
+  return { context: result.context, summary, items, freshness: result.freshness }
 }
 
 export async function createAgentMailboxDraft(input: AgentMailboxDraftInput, actor: AgentMailboxActor) {
