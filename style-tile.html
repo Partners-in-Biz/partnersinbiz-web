@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand Style Tile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --off-white: #F9F7F5;
+            --text-color: #3D3D3D;
+            --wood-tone: #D3B89E;
+            --soft-green: #A3B8A1;
+            --terracotta: #E87A5D;
+            --headline-font: 'Nunito', sans-serif;
+            --body-font: 'Lato', sans-serif;
+        }
+        body {
+            font-family: var(--body-font);
+            background-color: var(--off-white);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        h1, h2 {
+            font-family: var(--headline-font);
+            font-weight: 700;
+        }
+        h1 {
+            color: var(--terracotta);
+            border-bottom: 2px solid var(--soft-green);
+            padding-bottom: 0.5rem;
+        }
+        .palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .swatch {
+            width: 100px;
+            height: 100px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 0.5rem;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            font-size: 0.9em;
+        }
+        .recipe-card {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 2rem;
+        }
+        .recipe-hero {
+            background-color: var(--wood-tone);
+            color: white;
+            text-align: center;
+            padding: 4rem 1rem;
+            font-family: var(--headline-font);
+        }
+        .recipe-content {
+            padding: 1.5rem;
+        }
+        .recipe-title {
+            font-family: var(--headline-font);
+            font-size: 2em;
+            margin-top: 0;
+        }
+        .recipe-details {
+            display: flex;
+            gap: 1.5rem;
+            list-style: none;
+            padding: 0;
+            margin-bottom: 1.5rem;
+            color: var(--terracotta);
+            font-weight: bold;
+        }
+        .recipe-details li { display: flex; align-items: center; gap: 0.5rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Brand Style Tile</h1>
+        <p>This is a visual reference for the app's brand identity, reflecting a mood that is clean, natural, achievable, and fresh.</p>
+
+        <h2>Color Palette</h2>
+        <div class="palette">
+            <div class="swatch" style="background-color: var(--terracotta);"><span>Terracotta<br>#E87A5D</span></div>
+            <div class="swatch" style="background-color: var(--soft-green);"><span>Soft Green<br>#A3B8A1</span></div>
+            <div class="swatch" style="background-color: var(--wood-tone);"><span>Wood Tone<br>#D3B89E</span></div>
+            <div class="swatch" style="background-color: var(--text-color);"><span>Text<br>#3D3D3D</span></div>
+            <div class="swatch" style="background-color: var(--off-white); color: #333; text-shadow: none;"><span>Background<br>#F9F7F5</span></div>
+        </div>
+
+        <h2>Typography</h2>
+        <div>
+            <h1 style="font-size: 2.5rem; margin-bottom: 0;">Headline Font (Nunito)</h1>
+            <p>Used for titles and major headings. Friendly, modern, and slightly rounded.</p>
+        </div>
+        <div>
+            <p style="font-size: 1.2rem;">Body Font (Lato). Clean, warm, and highly legible. Perfect for instructions and ingredients.</p>
+        </div>
+
+        <hr style="margin: 2rem 0; border: 1px solid #eee;">
+
+        <h2>Example UI: Recipe Card</h2>
+        <div class="recipe-card">
+            <div class="recipe-hero">
+                [ Beautiful, naturally lit photo of the dish ]
+            </div>
+            <div class="recipe-content">
+                <h2 class="recipe-title">30-Minute Thai Green Curry</h2>
+                <ul class="recipe-details">
+                    <li><span>&#9201;</span> 20 mins</li>
+                    <li><span>&#129379;</span> Budget-Friendly</li>
+                    <li><span>&#128100;</span> Serves 4</li>
+                </ul>
+                <h3>Ingredients</h3>
+                <p>This section would contain the list of ingredients in the clean 'Lato' body font, easy to read at a glance while shopping or cooking.</p>
+                <h3>Instructions</h3>
+                <p>The step-by-step instructions would also be here, clearly formatted for a busy parent to follow without losing their place.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
