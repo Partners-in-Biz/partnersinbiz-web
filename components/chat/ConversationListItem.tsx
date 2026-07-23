@@ -115,6 +115,17 @@ function runtimeBadge(conversation: Conversation): string | null {
   return mapping ? `${machine} · ${mapping}` : machine
 }
 
+function projectBadge(conversation: Conversation): string | null {
+  const workspace = conversation.workspaceContext
+  const name = workspace?.projectName?.trim()
+  if (name) return name
+  if (conversation.scope === 'project') {
+    const contextProject = conversation.contextRefs?.find((ref) => ref.type === 'project')
+    return contextProject?.label?.trim() || null
+  }
+  return null
+}
+
 function visibilityBadge(conversation: Conversation): string | null {
   const mode = conversation.workspaceContext?.shareMode
   if (!mode) return null
@@ -150,6 +161,7 @@ export default function ConversationListItem({
   const leadAgent = primaryAgent(c)
   const leadAgentDot = leadAgent?.kind === 'agent' ? (AGENT_COLORS[leadAgent.agentId] ?? 'bg-white/40') : 'bg-white/30'
   const workspaceRuntime = runtimeBadge(c)
+  const workspaceProject = projectBadge(c)
   const workspaceVisibility = visibilityBadge(c)
   const context = contextGlyph(c)
 
@@ -186,6 +198,15 @@ export default function ConversationListItem({
         </div>
 
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] leading-3 text-[var(--color-pib-text-muted)]/85">
+          {workspaceProject && (
+            <span
+              data-testid={`conversation-project-badge-${c.id}`}
+              className="max-w-[48%] shrink truncate font-medium text-[9px] leading-3 text-primary/90"
+              title={`Project: ${workspaceProject}`}
+            >
+              {workspaceProject}
+            </span>
+          )}
           {workspaceRuntime && (
             <span className="max-w-[40%] shrink truncate pib-pill pib-pill-blue !px-1 !py-0 !text-[8px] !leading-3" title={`Workspace runtime: ${workspaceRuntime}`}>
               {workspaceRuntime}

@@ -3963,11 +3963,11 @@ export default function UnifiedChat({
           )}
           {hermesLayout && hermesCompanyGroups.length > 0 && (
             <div data-testid="hermes-companies" className="min-w-0">
-              <div className="mb-1 flex items-center justify-between px-1 text-xs font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
+              <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
                 <span>Cowork folders</span>
-                <span className="font-mono text-xs tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesCompanyGroups.length}</span>
+                <span className="font-mono text-[10px] tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesCompanyGroups.length}</span>
               </div>
-              <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex min-w-0 flex-col gap-0.5">
                 {hermesCompanyGroups.map((company) => {
                   const groupKey = `company:${company.id}`
                   const sessionsExpanded = Boolean(conversationFilter.trim()) || expandedSessionGroupKeys.includes(groupKey)
@@ -3978,21 +3978,21 @@ export default function UnifiedChat({
                       data-testid={`hermes-company-${company.id}`}
                       data-folder-accent={`company:${company.id}`}
                       style={folderAccentStyle(`company:${company.id}`)}
-                      className="mx-folder-accent min-w-0 overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.025] p-1 pl-2"
+                      className="mx-folder-accent min-w-0 overflow-hidden rounded-md border border-white/[0.06] bg-white/[0.025] py-0.5 pl-1.5 pr-0.5"
                     >
-                    <div className="flex min-w-0 items-center gap-1 px-1 py-1">
+                    <div className="flex min-w-0 items-center gap-0.5 px-0.5">
                       <button
                         type="button"
                         aria-expanded={sessionsExpanded}
                         aria-controls={sessionsRegionId}
                         aria-label={`${sessionsExpanded ? 'Collapse' : 'Expand'} sessions for ${company.name}`}
                         onClick={() => toggleSessionGroup(groupKey)}
-                        className="flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
+                        className="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
                       >
-                        <span className="material-symbols-outlined shrink-0 text-[16px] text-primary" aria-hidden="true">folder</span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{company.name}</span>
-                        <span className="font-mono text-xs text-[var(--color-pib-text-muted)]/70">{company.conversations.length}</span>
-                        <span className="material-symbols-outlined shrink-0 text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
+                        <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">folder</span>
+                        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{company.name}</span>
+                        <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{company.conversations.length}</span>
+                        <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
                           {sessionsExpanded ? 'expand_less' : 'expand_more'}
                         </span>
                       </button>
@@ -4002,9 +4002,9 @@ export default function UnifiedChat({
                         title={`Start session in ${company.name}`}
                         disabled={!allowStartConversations}
                         onClick={() => openNewCompanyConversation(company.id, company.name)}
-                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40 xl:h-8 xl:w-8"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40 xl:h-7 xl:w-7"
                       >
-                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
                       </button>
                     </div>
                     {sessionsExpanded && <div id={sessionsRegionId} className="mt-0.5 flex min-w-0 flex-col gap-0.5">
@@ -4075,11 +4075,11 @@ export default function UnifiedChat({
           )}
           {hermesLayout && hermesProjectGroups.length > 0 && (
             <div data-testid="hermes-projects" className="min-w-0">
-              <div className="mb-1 flex items-center justify-between px-1 text-xs font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
+              <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
                 <span>Projects</span>
-                <span className="font-mono text-xs tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesProjectGroups.length}</span>
+                <span className="font-mono text-[10px] tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesProjectGroups.length}</span>
               </div>
-              <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex min-w-0 flex-col gap-0.5">
                 {hermesProjectGroups.map((project) => {
                   const groupKey = `project:${project.id}`
                   const sessionsExpanded = Boolean(conversationFilter.trim()) || expandedSessionGroupKeys.includes(groupKey)
@@ -4090,23 +4090,33 @@ export default function UnifiedChat({
                       data-testid={`hermes-project-${project.id}`}
                       data-folder-accent={`project:${project.id}`}
                       style={folderAccentStyle(`project:${project.id}`)}
-                      className="mx-folder-accent min-w-0 overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.025] p-1 pl-2"
+                      className="group/project mx-folder-accent min-w-0 overflow-hidden rounded-md border border-white/[0.06] bg-white/[0.025] py-0.5 pl-1.5 pr-0.5"
                     >
-                    <div className="flex min-w-0 items-center gap-1 px-1 py-1">
+                    <div className="flex min-w-0 items-center gap-0.5 px-0.5">
                       <button
                         type="button"
                         aria-expanded={sessionsExpanded}
                         aria-controls={sessionsRegionId}
                         aria-label={`${sessionsExpanded ? 'Collapse' : 'Expand'} sessions for ${project.name}`}
                         onClick={() => toggleSessionGroup(groupKey)}
-                        className="flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
+                        className="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
                       >
-                        <span className="material-symbols-outlined shrink-0 text-[16px] text-primary" aria-hidden="true">folder_managed</span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--color-pib-text)]">{project.name}</span>
-                        <span className="font-mono text-xs text-[var(--color-pib-text-muted)]/70">{project.conversations.length}</span>
-                        <span className="material-symbols-outlined shrink-0 text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
+                        <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">folder_managed</span>
+                        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]" title={project.name}>{project.name}</span>
+                        <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{project.conversations.length}</span>
+                        <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
                           {sessionsExpanded ? 'expand_less' : 'expand_more'}
                         </span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Start session for ${project.name}`}
+                        title={`Start session for ${project.name}`}
+                        disabled={!allowStartConversations}
+                        onClick={() => openNewConversation(project.id)}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40 xl:h-7 xl:w-7"
+                      >
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
                       </button>
                       <button
                         type="button"
@@ -4115,37 +4125,27 @@ export default function UnifiedChat({
                         onClick={() => managedProject?.id === project.id
                           ? setManagedProject(null)
                           : openProjectLocationManager({ id: project.id, name: project.name })}
-                        className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 xl:w-8 ${managedProject?.id === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'}`}
+                        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-7 xl:w-7 ${managedProject?.id === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'} ${managedProject?.id === project.id ? '' : 'opacity-0 group-hover/project:opacity-100 focus-visible:opacity-100 xl:opacity-0 xl:group-hover/project:opacity-100'}`}
                       >
-                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">devices</span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Start session for ${project.name}`}
-                        title={`Start session for ${project.name}`}
-                        disabled={!allowStartConversations}
-                        onClick={() => openNewConversation(project.id)}
-                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-40 xl:h-8 xl:w-8"
-                      >
-                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">devices</span>
                       </button>
                       <button
                         type="button"
                         aria-label={`Link client organisation to ${project.name}`}
                         title={`Link client organisation to ${project.name}`}
                         onClick={() => setAccessProject({ id: project.id, name: project.name })}
-                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 xl:w-8"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] opacity-0 hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/project:opacity-100 xl:h-7 xl:w-7"
                       >
-                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">group_add</span>
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">group_add</span>
                       </button>
                       <button
                         type="button"
                         aria-label={`Remove ${project.name} from my projects`}
                         title={`Remove ${project.name} from my projects`}
                         onClick={() => void removeProjectFromSidebar(project.id)}
-                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-red-200 focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 xl:w-8"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] opacity-0 hover:bg-white/[0.08] hover:text-red-200 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/project:opacity-100 xl:h-7 xl:w-7"
                       >
-                        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">remove</span>
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">remove</span>
                       </button>
                     </div>
                     {(sessionsExpanded && (project.locations?.length ?? 0) > 0) && (

@@ -1697,10 +1697,11 @@ describe('UnifiedChat message scrolling', () => {
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
 
     const launchProject = await screen.findByTestId('hermes-project-project-1')
-    expect(within(launchProject).getByText('Launch Project')).toBeInTheDocument()
+    expect(within(launchProject).getByRole('button', { name: /sessions for Launch Project/ })).toBeInTheDocument()
     const collapseLaunch = await within(launchProject).findByRole('button', { name: 'Collapse sessions for Launch Project' })
     expect(within(launchProject).getByTestId('conversation-row-conv-project-one')).toHaveTextContent('Homepage implementation')
     expect(within(launchProject).getByTestId('conversation-row-conv-project-one')).toHaveTextContent('Studio Mac')
+    expect(within(launchProject).getByTestId('conversation-project-badge-conv-project-one')).toHaveTextContent('Launch Project')
     expect(within(launchProject).getByTestId('conversation-row-conv-project-two')).toHaveTextContent('Launch checklist')
     expect(within(launchProject).getByTestId('conversation-row-conv-project-two')).toHaveTextContent('Partners VPS')
     fireEvent.click(collapseLaunch)
