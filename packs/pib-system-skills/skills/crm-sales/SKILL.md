@@ -1571,6 +1571,9 @@ Generate a personalised email draft for a contact using LLM.
 
 #### `POST /api/v1/crm/ai/compose-email` — auth: member
 
+Generates a CRM email draft for a contact. For sending from a **connected Gmail/SMTP mailbox**, prefer the operational mailbox flow in `platform-ops`:
+`GET /agent/email/accounts` → draft via `/agent/email/drafts` → echo `open_context` uiActions so Messages opens the email side canvas for human Approve & send.
+
 Body:
 ```json
 {

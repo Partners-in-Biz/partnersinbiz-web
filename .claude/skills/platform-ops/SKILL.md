@@ -556,11 +556,12 @@ Current route inventory:
 
 | Method | Path | Auth | Use |
 |---|---|---|---|
-| GET | `/agent/email` | admin/agent | Agent email capability overview. |
-| GET | `/agent/email/messages` | admin/agent | List delegated messages available to the agent. |
-| POST | `/agent/email/drafts` | admin/agent | Draft outbound email for human review; returns `contextRef` + `open_context` uiActions. |
-| POST | `/agent/email/replies` | admin/agent | Prepare a reply draft for human review; returns `contextRef` + `open_context` uiActions. |
-| POST | `/agent/email/send-requests` | admin/agent | Create an auditable send request. |
+| GET | `/agent/email` | client/agent | Agent email capability overview. |
+| GET | `/agent/email/accounts` | client/agent | List connected Gmail/SMTP accounts for a user (no secrets). |
+| GET | `/agent/email/messages` | client/agent | List delegated messages available to the agent. |
+| POST | `/agent/email/drafts` | client/agent | Draft outbound email for human review; returns `contextRef` + `open_context` uiActions. |
+| POST | `/agent/email/replies` | client/agent | Prepare a reply draft for human review; returns `contextRef` + `open_context` uiActions. |
+| POST | `/agent/email/send-requests` | client/agent | Create an auditable send request. |
 
 Mailbox/email operations are stricter than ordinary admin-like agent access. The route must prove the requesting user/delegation context unless the agent has explicit system permission.
 
@@ -593,6 +594,15 @@ Mailbox routes manage connected Gmail/Google mailbox accounts and messages. Use 
 | DELETE/PATCH | `/portal/email/messages/[id]` | client | Delete/update a portal mailbox message. |
 
 Agents should not treat mailbox messages as marketing broadcasts. Respect delegated user context and keep outbound replies auditable via `/agent/email/*` or the mailbox message routes, depending on the requested workflow.
+
+#### Connected mailbox first (operational Gmail / SMTP)
+
+Messages injects a `[Mailbox connections]` block when the acting user has authenticated Google/SMTP accounts.
+
+1. If the prompt says `status: connected`, call `GET /agent/email/accounts` then `GET /agent/email/messages?summarize=true&q=...` with the injected `pib_dlg_…` Bearer token **before** asking the user to paste email content.
+2. Never claim you cannot access their email when the mailbox block shows a connected account — use `/agent/email/*`.
+3. Portal `/portal/email/*` is browser/session only. Hermes must use `/agent/email/*`.
+4. After drafting, echo returned `uiActions`/`contextRef` so Messages opens the email side canvas. Humans **Approve & send**; do not auto-send.
 
 ### Admin operations utility routes
 

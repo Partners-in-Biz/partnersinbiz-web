@@ -2,6 +2,7 @@
 
 import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
+import { applyAssistantTextDelta } from '@/lib/chat/applyAssistantTextDelta'
 import { buildThinkingTrace } from '@/lib/conversations/thinking-trace'
 import {
   formatCreateConversationNetworkError,
@@ -2562,6 +2563,12 @@ export default function UnifiedChat({
       eventSourcesRef.current[msgId]?.close()
       const url = `/api/v1/admin/agents/${agentId}/runs/${encodeURIComponent(runId)}/events`
       const es = new EventSource(url)
+      setLiveEvents((prev) => {
+        if (!(msgId in prev)) return prev
+        const next = { ...prev }
+        delete next[msgId]
+        return next
+      })
       es.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data) as ChatEvent
@@ -2588,7 +2595,7 @@ export default function UnifiedChat({
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === msgId
-                  ? { ...m, status: 'streaming', content: `${m.content ?? ''}${data.delta}` }
+                  ? { ...m, status: 'streaming', content: applyAssistantTextDelta(m.content ?? '', data.delta ?? '') }
                   : m,
               ),
             )
@@ -2665,8 +2672,9 @@ export default function UnifiedChat({
           body: JSON.stringify({ runId, agentId, events }),
         })
         const body = await readApiResponse(res)
-        const data = body.data as { status?: string } | undefined
+        const data = body.data as { status?: string; content?: string } | undefined
         const status: string | undefined = data?.status
+        const finalizedContent = typeof data?.content === 'string' ? data.content : undefined
 
         if (!res.ok && shouldStopFinalizePollingForStatus(res.status)) {
           closeEventStream(msgId)
@@ -2762,6 +2770,7 @@ export default function UnifiedChat({
               ? {
                   ...m,
                   status: terminalStatus,
+                  ...(typeof finalizedContent === 'string' ? { content: finalizedContent } : {}),
                   ...(thinking ? { thinking } : {}),
                   ...(terminalStatus === 'failed'
                     ? { error: m.error || 'Agent run failed' }

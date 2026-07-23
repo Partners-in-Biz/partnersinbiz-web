@@ -54,6 +54,14 @@ Interactive Hermes runs use the **user-delegation** token injected by Messages /
 - Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
 - See skill `system-auth` for mint/resolve rules.
 
+## Connected mailbox vs marketing email (mandatory)
+
+This skill covers **marketing/ESP** email (broadcasts, sequences, Resend). Operational Gmail/SMTP for a person is different:
+
+1. Check the Messages `[Mailbox connections]` prompt block first.
+2. If connected, use `GET /api/v1/agent/email/accounts` and `GET /api/v1/agent/email/messages?summarize=true` (platform-ops / agent-email toolset) before asking the user to paste emails.
+3. Draft personal 1:1 replies via `POST /api/v1/agent/email/drafts` or `/replies`, then echo `uiActions`/`contextRef` (`open_context`) so Messages opens the email side canvas for human **Approve & send**.
+4. Do not use marketing broadcast/sequence APIs for personal inbox triage.
 
 ## Base URL & Authentication
 

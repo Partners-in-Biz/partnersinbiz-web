@@ -3,18 +3,29 @@ import { apiSuccess } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = withAuth('admin', async () => apiSuccess({
+export const GET = withAuth('client', async () => apiSuccess({
   toolset: 'agent-email',
-  version: '2026-05-26.v2',
-  scope: 'All operations require explicit orgId and uid/requestingUserId plus machine-checkable mailbox delegation evidence for that org/user/action, so agents cannot select arbitrary mailbox contexts.',
+  version: '2026-07-23.v3',
+  scope: 'All operations require explicit orgId and uid/requestingUserId. Interactive Messages runs may authorize via the injected user-delegation Bearer token (self mailbox). Agent/system keys still need mailbox_agent_delegations or a scoped mailbox API-key permission.',
   delegation: {
     required: true,
     queryOrBody: ['delegationEvidenceId', 'delegationEvidence.id|delegationEvidence.delegationEvidenceId'],
-    acceptedEvidence: ['mailbox_agent_delegations active/approved record scoped to actor+orgId+uid+actionClass', 'agent_api_key permission resource mailbox:<orgId>:<uid> with read|draft|send action'],
+    acceptedEvidence: [
+      'self: non-ai caller whose uid+orgId match the requested mailbox',
+      'mailbox_agent_delegations active/approved record scoped to actor+orgId+uid+actionClass',
+      'agent_api_key permission resource mailbox:<orgId>:<uid> with read|draft|send action',
+    ],
     legacyAiKey: 'Not sufficient without a delegation record.',
   },
   auditCollections: ['mailbox_agent_tool_events', 'mailbox_send_requests', 'mailbox_audit_events', 'activities'],
   tools: [
+    {
+      name: 'email.accounts.list',
+      method: 'GET',
+      path: '/api/v1/agent/email/accounts',
+      query: ['orgId', 'uid|requestingUserId', 'delegationEvidenceId?'],
+      safety: 'Read-only; lists connected Gmail/SMTP accounts for the requested user/org without secrets.',
+    },
     {
       name: 'email.messages.read',
       method: 'GET',

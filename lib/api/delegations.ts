@@ -97,6 +97,7 @@ export type MintedDelegation = {
   agentId: string
   orgIds: string[]
   scopes: string[]
+  mailboxDelegationEvidenceId?: string
 }
 
 export async function mintAgentDelegation(input: {
@@ -122,6 +123,7 @@ export async function mintAgentDelegation(input: {
   const scopes = await buildDelegationScopes(input.user, orgId)
   const memberAccessPolicy = await loadMemberAccessPolicy(input.user.uid, orgId)
   const ref = adminDb.collection(DELEGATION_COLLECTION).doc()
+  const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString()
 
   await ref.set({
     tokenHash,
@@ -138,21 +140,41 @@ export async function mintAgentDelegation(input: {
     purpose,
     conversationId: normalizeText(input.conversationId) || null,
     status: 'active',
-    expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString(),
+    expiresAt,
     createdAt: FieldValue.serverTimestamp(),
     createdBy: input.user.uid,
     createdByType: 'user',
     lastUsedAt: null,
   })
 
+  // Parallel mailbox evidence so agent/system keys can still call /agent/email/*
+  // when Messages also injects the user-delegation Bearer token (preferred).
+  const mailboxRef = adminDb.collection('mailbox_agent_delegations').doc()
+  await mailboxRef.set({
+    orgId,
+    uid: input.user.uid,
+    delegatedUid: input.user.uid,
+    agentId,
+    actorId: `agent:${agentId}`,
+    actionClasses: ['read', 'draft'],
+    status: 'active',
+    purpose,
+    conversationId: normalizeText(input.conversationId) || null,
+    sourceDelegationId: ref.id,
+    expiresAt,
+    createdAt: FieldValue.serverTimestamp(),
+    createdBy: input.user.uid,
+  })
+
   return {
     id: ref.id,
     token,
-    expiresAt: new Date(Date.now() + ttlSeconds * 1000).toISOString(),
+    expiresAt,
     actingForUserId: input.user.uid,
     agentId,
     orgIds: [orgId],
     scopes,
+    mailboxDelegationEvidenceId: mailboxRef.id,
   }
 }
 
@@ -214,11 +236,20 @@ export function buildDelegationAuthPromptBlock(input: {
   actingForUserId: string
   scopes: string[]
   apiBaseUrl?: string
+  mailboxDelegationEvidenceId?: string
 }): string {
   const apiBase = (input.apiBaseUrl || 'https://partnersinbiz.online').replace(/\/+$/, '')
   const scopeLine = input.scopes.length > 0
     ? input.scopes.join(', ')
     : '(org module policy — none explicitly listed)'
+  const mailboxLines = input.mailboxDelegationEvidenceId
+    ? [
+      `Mailbox delegationEvidenceId for /api/v1/agent/email/* (if using an agent/system key): ${input.mailboxDelegationEvidenceId}`,
+      'Prefer the user-delegation Bearer token above for mailbox reads/drafts; it already authorises the acting user.',
+    ]
+    : [
+      'For connected mailbox reads/drafts, call /api/v1/agent/email/* with this same user-delegation Bearer token and the acting user uid.',
+    ]
   return [
     '',
     '[Partners in Biz API auth — user delegation]',
@@ -229,6 +260,7 @@ export function buildDelegationAuthPromptBlock(input: {
     `- API base: ${apiBase}`,
     `Token expires at ${input.expiresAt} (ISO). Do not reuse after expiry.`,
     `Scopes for this delegation: ${scopeLine}`,
+    ...mailboxLines,
     'Do not use AI_API_KEY, agent system keys, or invent credentials for PiB API calls in this run.',
     'Do not print the full Bearer token in client-visible replies; use it only in HTTP Authorization headers.',
     'If a PiB API call returns 401/403, stop and report the exact error — do not fall back to another key.',

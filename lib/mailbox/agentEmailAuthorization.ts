@@ -92,8 +92,14 @@ export async function authorizeAgentMailboxDelegation(input: {
     throw new AgentMailboxAuthorizationError('Forbidden for requested orgId')
   }
 
-  if (input.user.role !== 'ai' && input.user.uid === uid && input.user.orgId === orgId) {
-    return { evidenceId: `self:${input.user.uid}`, evidenceType: 'self', actorId, orgId, uid, actionClass: input.actionClass }
+  if (input.user.role !== 'ai' && input.user.uid === uid) {
+    const orgMatches = input.user.orgId === orgId
+      || input.user.activeOrgId === orgId
+      || (Array.isArray(input.user.orgIds) && input.user.orgIds.includes(orgId))
+      || (Array.isArray(input.user.allowedOrgIds) && input.user.allowedOrgIds.includes(orgId))
+    if (orgMatches) {
+      return { evidenceId: `self:${input.user.uid}`, evidenceType: 'self', actorId, orgId, uid, actionClass: input.actionClass }
+    }
   }
 
   const scopedPermission = input.user.permissions?.find((permission) => permissionMatches(permission, orgId, uid, input.actionClass))

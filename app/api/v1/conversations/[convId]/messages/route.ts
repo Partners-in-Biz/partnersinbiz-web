@@ -15,6 +15,7 @@ import {
   buildDelegationAuthPromptBlock,
   mintMessagesDispatchDelegation,
 } from '@/lib/api/delegations'
+import { buildMailboxContextPromptBlock, listMailboxAccountsForUser } from '@/lib/mailbox/mailboxContext'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import {
@@ -731,6 +732,13 @@ export const POST = withAuth(
         agentId,
         conversationId: convId,
       })
+      const mailboxAccounts = await listMailboxAccountsForUser(conversation.orgId, user.uid).catch(() => [])
+      const mailboxContext = buildMailboxContextPromptBlock({
+        orgId: conversation.orgId,
+        uid: user.uid,
+        accounts: mailboxAccounts,
+        mailboxDelegationEvidenceId: mintedDelegation?.mailboxDelegationEvidenceId,
+      })
       const delegationAuthContext = mintedDelegation
         ? buildDelegationAuthPromptBlock({
           token: mintedDelegation.token,
@@ -739,9 +747,10 @@ export const POST = withAuth(
           agentId,
           actingForUserId: mintedDelegation.actingForUserId,
           scopes: mintedDelegation.scopes,
+          mailboxDelegationEvidenceId: mintedDelegation.mailboxDelegationEvidenceId,
         })
         : ''
-      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
+      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
       if (linkedComputerBinding) {
         const hasImageAttachments = attachments.some((attachment) => (
           /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.contentType) && Boolean(attachment.storagePath)
