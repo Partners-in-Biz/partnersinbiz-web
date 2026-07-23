@@ -683,6 +683,72 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     })]))
   })
 
+  it('recovers a successful create when the browser loses the POST response', async () => {
+    const postHeaders: Array<HeadersInit | undefined> = []
+    let postAttempts = 0
+    const recovered = {
+      ...baseConversation,
+      id: 'conv-recovered',
+      title: 'New conversation',
+      createdAt: { seconds: Math.floor(Date.now() / 1000) },
+    }
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) {
+        return jsonResponse({ data: [{
+          agentId: 'pip', name: 'Pip', role: 'Operator', persona: '', iconKey: 'hub', colorKey: 'violet',
+          enabled: true, baseUrl: '', apiKey: '', defaultModel: 'auto',
+        }] })
+      }
+      if (url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) {
+        return jsonResponse({ data: { workspaces: [], runtimeTargetsByWorkspace: {}, projects: [] } })
+      }
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({
+          data: {
+            conversations: postAttempts >= 2 ? [recovered, baseConversation] : [baseConversation],
+          },
+        })
+      }
+      if (url === '/api/v1/conversations/conv-1/messages' || url === '/api/v1/conversations/conv-recovered/messages') {
+        return jsonResponse({ data: { messages: [] } })
+      }
+      if (url === '/api/v1/conversations' && init?.method === 'POST') {
+        postAttempts += 1
+        postHeaders.push(init.headers)
+        throw new TypeError('Failed to fetch')
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))
+    const dialog = await screen.findByRole('dialog', { name: 'New conversation' })
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Pip Operator/ }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Start conversation' }))
+
+    await waitFor(() => expect(postAttempts).toBe(2))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New conversation' })).not.toBeInTheDocument())
+    expect(await screen.findByText(/Chat was created — connection dropped/i)).toBeInTheDocument()
+    expect(screen.getByTestId('conversation-title')).toHaveTextContent('New conversation')
+
+    const firstHeaders = postHeaders[0] as Record<string, string>
+    const secondHeaders = postHeaders[1] as Record<string, string>
+    expect(firstHeaders['Idempotency-Key'] || firstHeaders['idempotency-key']).toMatch(/^conversation-create:/)
+    expect(secondHeaders['Idempotency-Key'] || secondHeaders['idempotency-key'])
+      .toBe(firstHeaders['Idempotency-Key'] || firstHeaders['idempotency-key'])
+  })
+
   it('refreshes computer availability every 30 seconds and clears that poll on unmount', async () => {
     let workspaceRequests = 0
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {

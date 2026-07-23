@@ -32,6 +32,10 @@ jest.mock('@/lib/api/auth', () => ({
     handler(req, mockUser, ctx),
 }))
 
+jest.mock('@/lib/api/idempotency', () => ({
+  withIdempotency: (handler: MockHandler) => handler,
+}))
+
 jest.mock('@/lib/conversations/conversations', () => ({
   createConversation: mockCreateConversation,
   listConversations: mockListConversations,

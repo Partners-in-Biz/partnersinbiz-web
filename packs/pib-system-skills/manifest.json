@@ -1,0 +1,287 @@
+{
+  "packName": "pib-system-skills",
+  "packVersion": "0.1.1",
+  "catalogVersion": "2026-07-23.system-skills-v0.1.1",
+  "minApiVersion": "2026-07-23",
+  "channel": "stable",
+  "decisions": {
+    "repo": "Partners-in-Biz/pib-system-skills",
+    "interactiveAuth": "user-delegation",
+    "systemAuth": "platform-or-agent-key-cron-only",
+    "versionPinning": "env-pin-with-stable-channel-alias",
+    "tiers": [
+      "core",
+      "growth"
+    ]
+  },
+  "baseUrl": "https://partnersinbiz.online/api/v1",
+  "tiers": {
+    "core": {
+      "description": "SaaS CRUD/ops every PiB agent needs for day-to-day platform work",
+      "skills": [
+        "system-auth",
+        "client-documents",
+        "docs-lead",
+        "billing-finance",
+        "client-manager",
+        "crm-sales",
+        "project-management",
+        "platform-ops",
+        "collaboration-runtime",
+        "email-outreach",
+        "analytics",
+        "properties",
+        "support-manager",
+        "qa-release"
+      ]
+    },
+    "growth": {
+      "description": "First-class PiB product execution (social, SEO, ads, research, studio-adjacent)",
+      "skills": [
+        "social-media-manager",
+        "content-engine",
+        "seo-sprint-manager",
+        "geo-seo-service",
+        "ads-manager",
+        "data-analyst",
+        "research-intelligence",
+        "google-workspace",
+        "email-marketing-governance",
+        "evidence-ledger"
+      ]
+    }
+  },
+  "skills": {
+    "system-auth": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "high",
+      "requiredScopes": [],
+      "summary": "How agents authenticate: user-delegation for interactive work; system key for cron only."
+    },
+    "client-documents": {
+      "tier": "core",
+      "owner": "docs",
+      "risk": "medium",
+      "requiredScopes": [
+        "documents:create",
+        "documents:update"
+      ],
+      "verification": [
+        "get-document",
+        "get-current-version-nonempty"
+      ],
+      "contracts": [
+        "contracts/client-documents/version-payload.valid.json"
+      ]
+    },
+    "docs-lead": {
+      "tier": "core",
+      "owner": "docs",
+      "risk": "medium",
+      "requiredScopes": [
+        "documents:create"
+      ]
+    },
+    "billing-finance": {
+      "tier": "core",
+      "owner": "nora",
+      "risk": "high",
+      "requiredScopes": [
+        "billing:read",
+        "billing:write"
+      ],
+      "approvalGates": [
+        "invoice_change"
+      ]
+    },
+    "client-manager": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "medium",
+      "requiredScopes": [
+        "organizations:read",
+        "organizations:write"
+      ]
+    },
+    "crm-sales": {
+      "tier": "core",
+      "owner": "nora",
+      "risk": "medium",
+      "requiredScopes": [
+        "crm:read",
+        "crm:write"
+      ]
+    },
+    "project-management": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "medium",
+      "requiredScopes": [
+        "projects:read",
+        "projects:write"
+      ]
+    },
+    "platform-ops": {
+      "tier": "core",
+      "owner": "theo",
+      "risk": "high",
+      "requiredScopes": [
+        "platform:read"
+      ]
+    },
+    "collaboration-runtime": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "low",
+      "requiredScopes": [
+        "comments:write"
+      ]
+    },
+    "email-outreach": {
+      "tier": "core",
+      "owner": "nora",
+      "risk": "high",
+      "requiredScopes": [
+        "email:draft"
+      ],
+      "approvalGates": [
+        "message_client"
+      ]
+    },
+    "analytics": {
+      "tier": "core",
+      "owner": "data",
+      "risk": "low",
+      "requiredScopes": [
+        "analytics:read"
+      ]
+    },
+    "properties": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "medium",
+      "requiredScopes": [
+        "properties:read",
+        "properties:write"
+      ]
+    },
+    "support-manager": {
+      "tier": "core",
+      "owner": "support",
+      "risk": "medium",
+      "requiredScopes": [
+        "support:read",
+        "support:write"
+      ]
+    },
+    "qa-release": {
+      "tier": "core",
+      "owner": "qa-release",
+      "risk": "high",
+      "requiredScopes": [
+        "qa:read"
+      ],
+      "approvalGates": [
+        "deploy"
+      ]
+    },
+    "social-media-manager": {
+      "tier": "growth",
+      "owner": "maya",
+      "risk": "high",
+      "requiredScopes": [
+        "social:write"
+      ],
+      "approvalGates": [
+        "publish"
+      ]
+    },
+    "content-engine": {
+      "tier": "growth",
+      "owner": "maya",
+      "risk": "medium",
+      "requiredScopes": [
+        "content:write"
+      ]
+    },
+    "seo-sprint-manager": {
+      "tier": "growth",
+      "owner": "seo",
+      "risk": "medium",
+      "requiredScopes": [
+        "seo:write"
+      ]
+    },
+    "geo-seo-service": {
+      "tier": "growth",
+      "owner": "seo",
+      "risk": "medium",
+      "requiredScopes": [
+        "seo:write"
+      ]
+    },
+    "ads-manager": {
+      "tier": "growth",
+      "owner": "ads",
+      "risk": "critical",
+      "requiredScopes": [
+        "ads:read"
+      ],
+      "approvalGates": [
+        "spend"
+      ]
+    },
+    "data-analyst": {
+      "tier": "growth",
+      "owner": "data",
+      "risk": "low",
+      "requiredScopes": [
+        "analytics:read"
+      ]
+    },
+    "research-intelligence": {
+      "tier": "growth",
+      "owner": "sage",
+      "risk": "low",
+      "requiredScopes": [
+        "research:write"
+      ]
+    },
+    "google-workspace": {
+      "tier": "growth",
+      "owner": "pip",
+      "risk": "high",
+      "requiredScopes": [
+        "workspace:read"
+      ]
+    },
+    "email-marketing-governance": {
+      "tier": "growth",
+      "owner": "maya",
+      "risk": "critical",
+      "requiredScopes": [
+        "email_marketing_read"
+      ],
+      "approvalGates": [
+        "email_marketing_send"
+      ]
+    },
+    "evidence-ledger": {
+      "tier": "growth",
+      "owner": "sage",
+      "risk": "low",
+      "requiredScopes": [
+        "research:write"
+      ]
+    }
+  },
+  "verificationContract": {
+    "afterEveryWrite": [
+      "Read back the created/updated resource by id",
+      "Assert success criteria from the skill (non-empty content, expected status, links)",
+      "Only then report URL/id to the human",
+      "On HTTP 4xx: print the JSON error field; do not create duplicate shells"
+    ]
+  }
+}

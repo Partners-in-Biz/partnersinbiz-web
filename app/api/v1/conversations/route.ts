@@ -7,8 +7,10 @@
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
+import { withIdempotency } from '@/lib/api/idempotency'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { ensureCompanyCoworkFolderWithinBudget } from '@/lib/conversations/create-resilience'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { AGENT_IDS } from '@/lib/agents/types'
 import {
@@ -48,7 +50,7 @@ const isPlatformWorkspace = (orgId: string) => orgId === PIB_PLATFORM_ORG_ID
 
 export const POST = withAuth(
   'client',
-  async (req: NextRequest, user: ApiUser) => {
+  withIdempotency(async (req: NextRequest, user: ApiUser) => {
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
 
@@ -352,9 +354,18 @@ export const POST = withAuth(
     if (boundWorkspaceContext && (boundWorkspaceContext.folderScope === 'company'
       || (boundWorkspaceContext.folderScope === 'project' && boundWorkspaceContext.companyId))) {
       const { ensureCompanyCoworkFolderOnVps } = await import('@/lib/client-provisioning/ensure-company-cowork')
-      const ensured = await ensureCompanyCoworkFolderOnVps(boundWorkspaceContext)
-      if (!ensured.ok) return apiError(ensured.error, 409)
-      boundWorkspaceContext = ensured.workspace
+      const ensured = await ensureCompanyCoworkFolderWithinBudget(
+        () => ensureCompanyCoworkFolderOnVps(boundWorkspaceContext!),
+      )
+      if (!ensured.ok) {
+        const failure = ensured as { ok: false; error: string }
+        return apiError(failure.error || 'Company Cowork folder could not be prepared', 409)
+      }
+      if (!('deferred' in ensured)) {
+        boundWorkspaceContext = ensured.workspace
+      }
+      // Deferred/timeout: create with the resolved workspace context; first
+      // message dispatch still runs ensureCompanyCoworkFolderOnVps.
     }
     const contextRefs = await resolveContextReferences(
       sanitizeContextReferenceSeeds((body as Record<string, unknown>).contextRefs),
@@ -375,7 +386,7 @@ export const POST = withAuth(
     })
 
     return apiSuccess({ conversation: publicConversationView(conversation) }, 201)
-  },
+  }),
 )
 
 export const GET = withAuth(

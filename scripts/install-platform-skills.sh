@@ -6,14 +6,27 @@
 # Idempotent — safe to re-run. Symlinks always point back to the canonical
 # location inside the partnersinbiz-web repo so edits are git-versioned.
 #
+# Prefer the versioned system skills pack when present:
+#   packs/pib-system-skills (pib-system-skills@semver)
+#
 # Usage:
 #   bash partnersinbiz-web/scripts/install-platform-skills.sh
 set -euo pipefail
 
-SRC="/Users/peetstander/Cowork/Partners in Biz — Client Growth/partnersinbiz-web/.claude/skills"
+ROOT="/Users/peetstander/Cowork/Partners in Biz — Client Growth/partnersinbiz-web"
+SRC="$ROOT/.claude/skills"
 DEST="/Users/peetstander/Cowork/.claude/skills"
+PACK="$ROOT/packs/pib-system-skills"
 
-POLICY_JSON="/Users/peetstander/Cowork/Partners in Biz — Client Growth/partnersinbiz-web/config/agent-skill-policy.json"
+POLICY_JSON="$ROOT/config/agent-skill-policy.json"
+
+# 1) Install versioned system pack (core + growth) into DEST + DEST/partnersinbiz
+if [ -x "$PACK/bin/pib-skills" ]; then
+  echo "Installing pib-system-skills pack…"
+  PIB_SKILLS_DEST="$DEST" bash "$PACK/bin/pib-skills" install all
+  echo
+fi
+
 
 # Only top-level PiB platform/runtime skills are exposed Cowork-wide. Nested
 # marketing and software-development skills are specialist runtime skills and

@@ -3,6 +3,12 @@
 import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
 import { buildThinkingTrace } from '@/lib/conversations/thinking-trace'
+import {
+  formatCreateConversationNetworkError,
+  isNetworkFetchFailure,
+  matchReconciledCreatedConversation,
+  newConversationCreateIdempotencyKey,
+} from '@/lib/conversations/create-resilience'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import {
@@ -925,6 +931,7 @@ export default function UnifiedChat({
   }, [onContextCanvasPresentationChange])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [modalError, setModalError] = useState<string | null>(null)
   const [contextRefs, setContextRefs] = useState<ContextReference[]>([])
   const [contextMention, setContextMention] = useState<ActiveContextMention | null>(null)
   const [contextTypePrompt, setContextTypePrompt] = useState<ActiveContextTypePrompt | null>(null)
@@ -1772,6 +1779,7 @@ export default function UnifiedChat({
       setNewScope('project')
       setSelectedProjectId(forProjectId)
     }
+    setModalError(null)
     setShowNewModal(true)
   }, [allowStartConversations])
 
@@ -1783,12 +1791,14 @@ export default function UnifiedChat({
     setNewScope('company')
     setSelectedCompanyId(companyId)
     setSelectedCompanyName(companyName)
+    setModalError(null)
     setShowNewModal(true)
   }, [allowStartConversations])
 
   const closeNewConversation = useCallback(() => {
     setShowNewModal(false)
     setShowProjectSetupWizard(false)
+    setModalError(null)
   }, [])
 
   const openProjectSetupWizard = useCallback(() => {
@@ -1818,6 +1828,7 @@ export default function UnifiedChat({
       return
     }
     setNewScope('project')
+    setModalError(null)
     setShowNewModal(true)
     openProjectSetupWizard()
   }, [allowStartConversations, openProjectSetupWizard])
@@ -3477,25 +3488,44 @@ export default function UnifiedChat({
   const handleCreateConversation = useCallback(async () => {
     if (creatingConv) return
     if (!allowStartConversations) {
-      setError('Starting new conversations is disabled for your organisation role.')
+      setModalError('Starting new conversations is disabled for your organisation role.')
       return
     }
     if ((newScope === 'workspace' || newScope === 'company' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) {
-      setError('Select an available runtime for this Workspace before starting the conversation.')
+      setModalError('Select an available runtime for this Workspace before starting the conversation.')
       return
     }
     if (newScope === 'project' && projectSetupBlocksSession) {
-      setError('This project does not yet have an available linked location.')
+      setModalError('This project does not yet have an available linked location.')
       return
     }
     setCreatingConv(true)
-    setError(null)
+    setModalError(null)
+    const idempotencyKey = newConversationCreateIdempotencyKey()
+    const adoptCreatedConversation = (conv: Conversation, opts?: { networkRecovered?: boolean }) => {
+      setConversations((prev) => (prev.some((row) => row.id === conv.id) ? prev : [conv, ...prev]))
+      setActiveId(conv.id)
+      setMobilePane('conversation')
+      setMessages([])
+      setShowNewModal(false)
+      setShowProjectSetupWizard(false)
+      setNewTitle('')
+      setNewParticipants([])
+      setNewScope(scope ?? (projectId ? 'project' : 'general'))
+      setModalError(null)
+      if (opts?.networkRecovered) {
+        setError('Chat was created — connection dropped on the way back. You’re in the new session now.')
+      }
+    }
     try {
       const participants = newParticipants.map((p) =>
         p.kind === 'agent'
           ? { kind: 'agent' as const, agentId: p.agentId }
           : { kind: 'user' as const, uid: p.uid },
       )
+      const agentIds = participants
+        .filter((participant): participant is { kind: 'agent'; agentId: string } => participant.kind === 'agent')
+        .map((participant) => participant.agentId)
       const payload: Record<string, unknown> = {
         orgId,
         participants,
@@ -3534,31 +3564,70 @@ export default function UnifiedChat({
       if (newScope === 'project' && projectId && !payload.scopeRefId) payload.scopeRefId = projectId
       if (contextRefs.length > 0) payload.contextRefs = contextRefs
 
-      const res = await fetch('/api/v1/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const body = await res.json()
-      if (!res.ok) {
-        throw new Error(body.error ?? `create conversation: ${res.status}`)
+      const reconcileCriteria = {
+        startedBy: currentUserUid,
+        scope: newScope,
+        scopeRefId: typeof payload.scopeRefId === 'string' ? payload.scopeRefId : undefined,
+        companyId: newScope === 'company' ? selectedCompanyId : undefined,
+        projectId: newScope === 'project'
+          ? (typeof payload.scopeRefId === 'string' ? payload.scopeRefId : selectedProjectId)
+          : undefined,
+        workspaceId: typeof payload.workspaceId === 'string' ? payload.workspaceId : selectedWorkspaceId || undefined,
+        runtimeTarget: typeof payload.runtimeTarget === 'string' ? payload.runtimeTarget : undefined,
+        agentIds,
+        title: newTitle.trim() || undefined,
       }
-      const conv: Conversation = body.data?.conversation
-      setConversations((prev) => [conv, ...prev])
-      setActiveId(conv.id)
-      setMobilePane('conversation')
-      setMessages([])
-      setShowNewModal(false)
-      setShowProjectSetupWizard(false)
-      setNewTitle('')
-      setNewParticipants([])
-      setNewScope(scope ?? (projectId ? 'project' : 'general'))
+
+      let res: Response
+      try {
+        res = await fetch('/api/v1/conversations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': idempotencyKey,
+          },
+          body: JSON.stringify(payload),
+        })
+      } catch (networkError) {
+        if (!isNetworkFetchFailure(networkError)) throw networkError
+        setModalError(formatCreateConversationNetworkError('checking'))
+        // Retry once with the same idempotency key — server replays the created chat.
+        try {
+          res = await fetch('/api/v1/conversations', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Idempotency-Key': idempotencyKey,
+            },
+            body: JSON.stringify(payload),
+          })
+        } catch (retryError) {
+          if (!isNetworkFetchFailure(retryError)) throw retryError
+          const listRes = await fetch(`/api/v1/conversations?${listQuery}`)
+          if (!listRes.ok) throw new Error(formatCreateConversationNetworkError('unconfirmed'))
+          const listBody = await listRes.json().catch(() => null)
+          const listed = (listBody?.data?.conversations ?? []) as Conversation[]
+          const matched = matchReconciledCreatedConversation(listed, reconcileCriteria)
+          if (!matched) throw new Error(formatCreateConversationNetworkError('unconfirmed'))
+          const recovered = listed.find((row) => row.id === matched.id) ?? (matched as Conversation)
+          adoptCreatedConversation(recovered, { networkRecovered: true })
+          return
+        }
+      }
+
+      const body = await res.json().catch(() => null)
+      if (!res.ok) {
+        throw new Error(body?.error ?? `create conversation: ${res.status}`)
+      }
+      const conv: Conversation | undefined = body?.data?.conversation
+      if (!conv?.id) throw new Error('create conversation: missing conversation payload')
+      adoptCreatedConversation(conv)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create conversation')
+      setModalError(e instanceof Error ? e.message : 'Failed to create conversation')
     } finally {
       setCreatingConv(false)
     }
-  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, projectSetupBlocksSession, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId, selectedCompanyId, setActiveId])
+  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, projectSetupBlocksSession, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId, selectedCompanyId, setActiveId, currentUserUid, listQuery])
 
   const send = useCallback(
     async (e: FormEvent) => {
@@ -6012,9 +6081,9 @@ export default function UnifiedChat({
                 </div>
               )}
 
-              {error && (
+              {modalError && (
                 <div className="rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-xs text-red-200">
-                  {error}
+                  {modalError}
                 </div>
               )}
             </div>

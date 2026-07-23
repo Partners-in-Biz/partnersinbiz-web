@@ -121,6 +121,27 @@ export const GET = withAuth('admin', async () => {
           },
         },
       },
+      delegations: {
+        method: 'POST',
+        path: '/api/v1/agent/delegations',
+        description: 'Mint a short-lived user-scoped delegation token for an interactive agent run. Human session/Firebase auth only.',
+        body: '{ orgId: string, agentId: string, purpose: string, ttlSeconds?: number, conversationId?: string }',
+        example: {
+          request: 'POST /api/v1/agent/delegations',
+          response: {
+            success: true,
+            data: {
+              id: 'dlg_123',
+              token: 'pib_dlg_…',
+              expiresAt: '2026-07-23T10:00:00.000Z',
+              actingForUserId: 'user-456',
+              agentId: 'pip',
+              orgIds: ['org-123'],
+              scopes: ['documents:create', 'documents:edit', 'messages:reply'],
+            },
+          },
+        },
+      },
       growthCommandQueue: {
         method: 'GET',
         path: '/api/v1/agent/growth-command-queue',
