@@ -107,8 +107,8 @@ export function PortalViewSwitch({ orgId, collapsed = false, compact = false, ic
         title={error || portalOpenLabel}
         aria-label={portalOpenLabel}
         className={[
-          'flex items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors disabled:opacity-60',
-          collapsed ? 'mx-auto my-2 h-8 w-8 rounded-lg' : 'h-8 w-8 border-l border-[var(--color-pib-line)]',
+          'flex items-center justify-center rounded-md text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors disabled:opacity-60',
+          collapsed ? 'mx-auto my-2 h-8 w-8' : 'h-8 w-8',
         ].join(' ')}
       >
         <span className="material-symbols-outlined text-[18px]">shield</span>
