@@ -5,6 +5,8 @@ argument-hint: "audit | google | meta | youtube | linkedin | tiktok | microsoft 
 license: MIT
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-strategy`](../ads-strategy/SKILL.md). Agents no longer load `ads` at runtime; do not add new content here.
+
 # Ads: Multi-Platform Paid Advertising Audit & Optimization
 
 Comprehensive ad account analysis across all major platforms (Google, Meta,

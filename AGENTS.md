@@ -38,7 +38,7 @@ Push normal work to `origin/development`, but do not trigger Vercel Preview buil
 
 ## Hermes Agent Skill Policy
 
-Current policy version: `2026-07-23.system-skills-v0.1.1`.
+Current policy version: `2026-07-23.system-skills-v0.1.2`.
 
 The live PiB task-bus specialists are 12: `pip`, `theo`, `maya`, `sage`, `nora`, `ads`, `qa-release`, `support`, `data`, `docs`, `seo`, and `sales`. UI names may be human-friendly, but routing and policy always use the functional `agentId`.
 

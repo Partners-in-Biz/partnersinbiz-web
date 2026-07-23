@@ -4,6 +4,8 @@ description: "Budget allocation and bidding strategy review across all ad platfo
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-strategy`](../ads-strategy/SKILL.md). Agents no longer load `ads-budget` at runtime; do not add new content here.
+
 <!-- Updated: 2026-04-13 | v1.5 -->
 
 # Budget Allocation & Bidding Strategy

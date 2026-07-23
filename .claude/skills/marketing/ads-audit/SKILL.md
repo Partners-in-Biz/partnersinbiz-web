@@ -4,6 +4,8 @@ description: "Full multi-platform paid advertising audit with parallel subagent 
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-strategy`](../ads-strategy/SKILL.md). Agents no longer load `ads-audit` at runtime; do not add new content here.
+
 # Full Multi-Platform Ads Audit
 
 ## Process

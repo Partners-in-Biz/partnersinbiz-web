@@ -1,43 +1,45 @@
 ---
 name: platform-ops
 description: >
-  Cross-cutting platform operations on Partners in Biz: API key management, global search,
-  agent memory lookup, Obsidian/Hermes vector memory indexing,
-  dashboard stats, activity feed, file uploads and library, Workspace OS folders/artifacts,
-  Workspace Broker jobs, workspace inbox (unified across all resources), notifications,
-  outbound webhooks with delivery history and replay, the agent manifest, admin agent/Hermes
-  profile operations, platform staff management (super-admin), all report types (revenue, pipeline,
-  outstanding invoices, client lifetime value, expense summary, activity summary, team
-  utilization, monthly reports), and FX exchange rates. Also the canonical reference for
+  Cross-cutting platform primitives on Partners in Biz: API key management, platform health,
+  global search, dashboard stats, activity feed, briefings, file uploads and library,
+  Workspace OS folders/artifacts, Workspace Broker jobs, the unified workspace inbox,
+  notifications, outbound webhooks with delivery history and replay, the agent manifest,
+  workspace mailbox operations, unified chat conversations, and the canonical reference for
   collaboration primitives (idempotency, actor tagging, unified comments, mentions) that all
-  other skills use. Use this skill whenever the user mentions anything operational or
-  cross-cutting, including: "dashboard stats", "platform stats", "global search",
-  "search across everything", "find a doc", "find a contact", "agent memory",
-  "memory lookup", "semantic memory", "Obsidian memory", "get client context",
-  "what does the agent know", "reindex memory", "API key", "create API key",
-  "rotate key", "revoke key", "list keys", "upload a file", "file library", "list files",
-  "find file", "delete file", "workspace artifact", "workspace folder", "Google Drive folder",
-  "create Google Doc", "create Google Sheet", "export artifact", "share artifact",
-  "permission audit", "system health", "uptime", "platform health", "my inbox",
-  "workspace inbox", "what needs my attention", "assigned to me", "pending approvals",
-  "overdue items", "mentions", "mark as read", "snooze notification", "notifications",
-  "mark all read", "create webhook", "outbound webhook", "subscribe to events", "HMAC verify",
+  other skills use. For agent/Hermes runtime administration, Platform Users staff management,
+  and Reports, see the related skills below instead. Use this skill whenever the user
+  mentions anything operational or cross-cutting, including: "dashboard stats",
+  "platform stats", "global search", "search across everything", "find a doc",
+  "find a contact", "API key", "create API key", "rotate key", "revoke key", "list keys",
+  "upload a file", "file library", "list files", "find file", "delete file",
+  "workspace artifact", "workspace folder", "Google Drive folder", "create Google Doc",
+  "create Google Sheet", "export artifact", "share artifact", "permission audit",
+  "system health", "uptime", "platform health", "my inbox", "workspace inbox",
+  "what needs my attention", "assigned to me", "pending approvals", "overdue items",
+  "mentions", "mark as read", "snooze notification", "notifications", "mark all read",
+  "create webhook", "outbound webhook", "subscribe to events", "HMAC verify",
   "webhook delivery", "webhook history", "test webhook", "replay failed webhook",
-  "disable webhook", "agent manifest", "agent skills", "agent skill policy",
-  "Hermes profile", "Hermes run", "Hermes job", "agent logs", "agent files",
-  "loop engine", "self-improvement loop", "agent evolution review",
-  "business insight review", "proactive insight", "loop run telemetry",
-  "what can the agent do", "leave a comment",
-  "@mention teammate", "activity feed", "audit log", "recent activity", "platform users",
-  "add staff", "invite admin", "super admin", "allowedOrgIds", "restrict admin access",
-  "revenue report", "pipeline report", "outstanding invoices report", "client value",
-  "expense summary", "activity summary", "team utilization", "monthly report",
-  "generate report", "send report", "FX rates", "exchange rates", "currency rates". If in doubt, trigger.
+  "disable webhook", "agent manifest", "what can the agent do", "leave a comment",
+  "@mention teammate", "activity feed", "audit log", "recent activity". If in doubt, trigger.
 ---
 
 # Platform Ops — Partners in Biz Platform API
 
 Cross-cutting platform operations, plus the canonical reference for the collaboration primitives every other skill uses.
+
+## Related skills
+
+This mega-skill was split. If the request is about one of these, use that skill instead:
+
+- `agent-runtime-ops` — Hermes profile links/controls, agent registry/admin, agent memory lookup/reindex, Loop Engine internals, runtime/provider health, linked computers
+- `platform-admin-users` — Platform Users (staff) super-admin CRUD, onboard/offboard
+- `reports` — snapshot reports + ad-hoc query reports (revenue, pipeline, outstanding, client-value, expense-summary, activity-summary, team-utilization)
+- `billing-finance` — FX rates now live there (short reference + auth pointer)
+- `book-studio-ops` — Book Studio production engine + Creative Canvas bridge
+- `youtube-studio-ops` — YouTube Studio pipeline + Creative Canvas bridge
+- `creative-canvas-ops` — canvas node graphs/runs/exports + BYOK provider connections
+- `system-auth` — auth/delegation mint & resolve rules
 
 ## Auth (mandatory)
 
@@ -158,60 +160,6 @@ Response (201): `{ id, keyOnce, keyPrefix }`.
 #### `GET/PUT/DELETE /platform/api-keys/[id]` — auth: admin
 `DELETE` revokes.
 
-### Agent memory lookup
-
-#### `POST /agent/lookup` — auth: admin/agent
-Hybrid memory lookup for agents. Use this for questions like "get me the client called John" or "what context do we have around this company?"
-
-Body:
-```json
-{
-  "query": "client John",
-  "orgId": "org_abc",
-  "sourceTypes": ["obsidian", "crm_contact", "crm_company"],
-  "limit": 8,
-  "requestingUserId": "uid_123",
-  "delegationEvidenceId": "delegation_abc"
-}
-```
-
-Response:
-```json
-{
-  "intent": "entity_lookup",
-  "entityCandidates": [],
-  "selectedEntity": { "type": "contact", "id": "contact_abc", "label": "John" },
-  "memory": [],
-  "nextActions": [],
-  "citations": []
-}
-```
-
-Operating model:
-- Exact/normalized Firestore entity resolution runs first across organizations, companies, contacts, and aliases.
-- Vector retrieval runs only after structured tenant/org filters are applied.
-- Memory comes from `agent_memory_chunks`, including compiled Obsidian/Hermes `index`, `wiki`, `raw`, `logs`, and selected operational Firestore data.
-- Use vector memory for semantic recall and citations, not as the primary database operation.
-
-Security model:
-- VPS Hermes agents (`pip`, `theo`, `maya`, `sage`, `nora`, and specialists) are `role: "ai"` bearer-key callers.
-- A Hermes agent lookup must include `requestingUserId` plus valid `agent_memory_delegations` evidence scoped to actor, org, user, status, expiry, and `read`, unless the agent has explicit `agent_memory_system:<orgId>` or `agent_memory_system:*`.
-- Delegated lookup runs with the requesting user's effective org permissions.
-- Client-effective lookups return only `public` memory chunks by default; internal, restricted, and sensitive chunks are hidden.
-- Sensitive mailbox/support/social/ads snippets stay redacted unless source-specific delegated permission is present.
-- Direct client Firestore access to `agent_memory_chunks` is denied; all retrieval goes through this API.
-
-#### `POST /admin/agent-memory/reindex` — auth: admin
-Manual/admin reindex. Use after new source connectors, schema changes, or backfills.
-
-Body:
-```json
-{ "orgId": "org_abc", "sourceTypes": ["obsidian", "crm_contact"], "full": false }
-```
-
-#### `POST /cron/agent-memory-index`
-Incremental scheduled indexing endpoint. Intended for Vercel cron or platform scheduler use, not direct client use.
-
 ### Global search
 
 #### `GET /search?q=...` — auth: admin
@@ -259,40 +207,6 @@ Briefings aggregate current account/project/CRM/document/social/support signals 
 
 Recent guardrail: urgent `task.agent_done` notification cards can be review work even when the task is already done. Inspect the source task state before calling something blocked; for project tasks, `columnId=done`, `agentStatus=done`, and `reviewStatus=approved` means the action is review/open-source, not unblock.
 
-### Loop Engine self-improvement and business insight review
-
-Use this section when Peet asks whether the agents are self-improving, whether the system is being proactive, or whether business insight gaps are being surfaced.
-
-The active review loops are:
-
-- `agent-evolution-review` — turns repeated agent blockers, rework, stale instructions, and review failures into evidence-backed learning proposals.
-- `business-insight-review` — turns commercial, operational, and data-quality signals into internal insight cards/tasks before Peet has to inspect every workstream manually.
-
-Loop Engine routes:
-
-| Method | Path | Auth | Use |
-|---|---|---|---|
-| POST | `/admin/loop-engine/evaluate` | admin/ai | Evaluate a loop manually. Use dry-run first; set `persist` and `persistReviewTasks` only when review task creation is intended. |
-| GET | `/admin/loop-engine/runs` | admin/ai | List recent org-scoped `loop_engine_runs`; use these records as evidence for candidates, actions, telemetry, and skipped reasons. |
-| POST | `/projects/[projectId]/tasks/[taskId]/business-insight-action` | client/admin/ai with project access | Convert an approved `business-insight-review` task into tracked internal action work. |
-| GET | `/api/cron/loop-review` | cron/admin | Scheduled loop-review worker; persists `loop_engine_runs` and conservative review task drafts. |
-
-Business insight signal sources include CRM contacts/deals, capture sources, SEO sprints, ad campaigns, social posts/inbox, invoices, support tickets, reports, projects, agent outputs, previous `loop_engine_runs`, and client document review state.
-
-Client document business metrics are:
-
-- `client_documents_waiting_for_review` — `client_review` documents older than 7 days.
-- `client_documents_changes_requested` — documents currently in `changes_requested`.
-- `client_documents_blocking_publish_assumptions` — documents with open `blocks_publish` assumptions.
-
-Guardrails:
-
-- These loops may read, draft, create internal tasks, and report. They must not automatically rewrite skills/wiki/prompts/runtime config, message clients, publish content, change spend, approve finance, or change client-visible document access.
-- Preserve approval gates from the loop registry: `human-review`, `client-visible`, `public-publishing`, `paid-spend`, and `finance`.
-- Exact agent model/token/cost/duration evidence must come from existing task/run telemetry. Never estimate token/cost numbers; when telemetry is absent, record a tooling-gap instead of inventing data.
-- Agent learning proposals need source task/run ids, repeated pattern counts, reviewer context, proposed instruction change, and validation plan before any skill or wiki update.
-- Business insight proposals need source item ids, metric snapshot, opportunity/risk hypothesis, owner, recommended next action, and approval requirement.
-
 ### Platform utility and cron routes
 
 These routes are cross-cutting infrastructure. Use them for platform health, setup, session-safe public metadata, push-token registration, and scheduled workers.
@@ -316,14 +230,14 @@ Current cron routes:
 
 | Method | Path | Use |
 |---|---|---|
-| POST | `/api/cron/agent-memory-index` | Incremental agent memory indexing. |
+| POST | `/api/cron/agent-memory-index` | Incremental agent memory indexing (see `agent-runtime-ops`). |
 | GET | `/api/cron/anomalies` | Scheduled anomaly checks. |
 | GET | `/api/cron/conversation-runs` | Unified chat/Hermes run finalization. |
 | GET | `/api/cron/crm-integrations` | CRM integration syncs. |
 | GET | `/api/cron/integrations` | Generic property/integration dispatch. |
-| GET | `/api/cron/loop-review` | Scheduled agent-evolution and business-insight review loop. |
+| GET | `/api/cron/loop-review` | Scheduled agent-evolution and business-insight review loop (see `agent-runtime-ops`). |
 | GET | `/api/cron/project-playbooks` | Scheduled project playbook jobs. |
-| GET | `/api/cron/reports` | Scheduled report generation/sending. |
+| GET | `/api/cron/reports` | Scheduled report generation/sending (see `reports`). |
 | GET | `/api/cron/seo-daily` | SEO daily loop. |
 | GET | `/api/cron/seo-weekly` | SEO weekly optimization loop. |
 | GET | `/api/cron/social-analytics` | Social analytics pull. |
@@ -441,38 +355,7 @@ Broker routes create durable `workspace-broker` jobs. After a broker call, poll 
 { "ok": true, "timestamp": "...", "services": { "firestore": "ok", "auth": "ok", "storage": "ok" } }
 ```
 
-### Hermes runtime and provider health
-
-Treat these as separate acceptance gates:
-
-1. `systemctl is-active hermes@<profile>` proves only that the gateway process is alive.
-2. `/profiles/<profile>/health` proves only that the profile API is serving.
-3. A real authenticated `POST /profiles/<profile>/v1/responses` with the prompt `Reply with exactly CODEXOK and nothing else.` proves the configured model provider can answer.
-
-For a VPS provider incident, run the model canary across every routed active profile (`ads`, `data`, `docs`, `maya`, `nora`, `pip`, `qa-release`, `sage`, `sales`, `seo`, `support`, `theo`) before claiming the scope. The `default` unit is intentionally API-less and is verified through systemd stability and clean logs.
-
-Keep platform API authentication separate from model-provider authentication:
-
-- Test PiB credentials against an authoritative PiB endpoint, including `X-Org-Id` where required.
-- `401 token_invalidated`, `token_revoked`, or `token_expired` from `openai-codex` is a Hermes provider credential failure, not a PiB API-key failure.
-- A healthy profile endpoint plus a failed `CODEXOK` response is still an outage.
-- A fallback that returns billing/credit, organisation-policy, or missing-provider errors is not a successful fallback.
-
-For one failing Codex profile, use a profile-specific device flow; do not copy another working profile's `auth.json` or refresh token:
-
-```bash
-sudo -iu hermes bash -lc 'export HERMES_HOME=/var/lib/hermes; cd /var/lib/hermes/hermes-agent; /usr/local/bin/hermes -p <profile> auth add openai-codex --type oauth --no-browser --timeout 600'
-```
-
-After successful sign-in:
-
-1. Restart only `hermes@<profile>`.
-2. Wait at least 30 seconds and require `NRestarts` not to increase.
-3. Require the public profile health route to return HTTP 200.
-4. Require the real model canary to return exact `CODEXOK`.
-5. Requeue blocked agent work only after all four checks pass.
-
-Never print API keys, OAuth access tokens, refresh tokens, or raw profile environment values during this workflow.
+For Hermes/model-provider runtime health (systemd, profile health, model canary), see `agent-runtime-ops`.
 
 ### Workspace inbox
 
@@ -711,73 +594,16 @@ Mailbox routes manage connected Gmail/Google mailbox accounts and messages. Use 
 
 Agents should not treat mailbox messages as marketing broadcasts. Respect delegated user context and keep outbound replies auditable via `/agent/email/*` or the mailbox message routes, depending on the requested workflow.
 
-### Admin agent and Hermes profile operations
+### Admin operations utility routes
 
-These are admin UI/VPS orchestration routes, not ordinary client-facing task APIs. They let platform admins inspect and operate named agents and Hermes profile links. Use them only when Peet asks to manage agents, inspect agent health/logs/files, apply skill policy, or control a Hermes run/job.
-
-#### Admin agent registry
+For the Hermes agent registry, admin agent config/health/logs/skills/cron, and Hermes profile links/controls, see `agent-runtime-ops`. For Platform Users (staff) CRUD and password/reset routes, see `platform-admin-users`.
 
 | Method | Path | Auth | Use |
 |---|---|---|---|
-| GET/POST | `/admin/agents` | admin; POST super-admin | List or provision named agents. |
-| PUT | `/admin/agents/[agentId]` | admin | Update agent metadata/config reference. |
-| GET/PUT | `/admin/agents/[agentId]/config` | admin | Read/write live agent config. |
-| GET/PATCH | `/admin/agents/[agentId]/env` | admin | Read/update safe env keys. |
-| GET | `/admin/agents/[agentId]/health` | admin | Read runtime health. |
-| GET | `/admin/agents/[agentId]/logs` | admin | Read recent logs. |
-| GET | `/admin/agents/[agentId]/files` | admin | List agent files. |
-| GET/PUT | `/admin/agents/[agentId]/files/[...filePath]` | admin | Read/write a file through the agent file proxy. |
-| GET/POST | `/admin/agents/[agentId]/cron` | admin | List/create cron jobs. |
-| DELETE/POST | `/admin/agents/[agentId]/cron/[jobId]` | admin | Delete or trigger a cron job. |
-| GET | `/admin/agents/[agentId]/runs/[runId]` | admin | Inspect a run. |
-| GET | `/admin/agents/[agentId]/runs/[runId]/events` | admin | Stream/list run events. |
-| POST | `/admin/agents/[agentId]/runs/[runId]/approval` | admin | Approve/reject a gated run action. |
-| GET/POST | `/admin/agents/[agentId]/skills` | admin | List/install skills for the agent. |
-| DELETE | `/admin/agents/[agentId]/skills/[skillName]` | admin | Remove an installed skill. |
-| GET/POST | `/admin/agents/[agentId]/skill-policy` | admin; POST super-admin | Preview/apply the platform skill policy. |
-
-`POST /admin/agents` provisions through Pip's VPS profile and is super-admin only. `POST /admin/agents/[agentId]/skill-policy` may rewrite live Hermes config, so preview with GET first.
-
-#### Admin operations utility routes
-
-| Method | Path | Auth | Use |
-|---|---|---|---|
-| GET | `/admin/agent-tasks` | admin | List platform-visible agent tasks. |
-| GET/PATCH | `/admin/notification-preferences` | admin | Read/update admin notification preferences. |
-| GET/POST | `/admin/platform-members` | super-admin | List/create platform members. |
-| PATCH | `/admin/platform-members/[uid]/password` | super-admin | Set/reset platform member password. |
-| POST | `/admin/platform-members/[uid]/reset` | super-admin | Send/reset platform member access. |
-| PATCH | `/admin/platform-users/[uid]/password` | super-admin | Set/reset platform user password. |
-| POST | `/admin/platform-users/[uid]/reset` | super-admin | Send/reset platform user access. |
+| GET | `/admin/notification-preferences` | admin | Read/update admin notification preferences (GET/PATCH). |
 | GET | `/admin/support` | admin | List support tickets. |
 | PATCH | `/admin/support/[id]` | admin | Update support ticket status/metadata. |
 | GET/POST | `/admin/support/[id]/messages` | admin | List/add support ticket messages. |
-
-#### Hermes profile links and controls
-
-| Method | Path | Auth | Use |
-|---|---|---|---|
-| GET/PUT/DELETE | `/admin/hermes/profiles/[orgId]` | GET client; PUT/DELETE super-admin | Read/configure/disable a Hermes profile link for an org. |
-| GET/POST/PUT/PATCH/DELETE | `/admin/hermes/profiles/[orgId]/controls/[control]/[[...path]]` | admin/client with capability | Proxy a resolved Hermes admin control. |
-| GET/POST/PUT/PATCH/DELETE | `/admin/hermes/profiles/[orgId]/dashboard/[...path]` | admin/client with capability | Proxy Hermes dashboard paths for the org profile. |
-| GET/POST | `/admin/hermes/profiles/[orgId]/conversations` | admin/client with capability | List/start Hermes conversations. |
-| GET/PATCH/DELETE | `/admin/hermes/profiles/[orgId]/conversations/[convId]` | admin/client with capability | Manage a conversation. |
-| GET/POST | `/admin/hermes/profiles/[orgId]/conversations/[convId]/messages` | admin/client with capability | List/send messages. |
-| POST | `/admin/hermes/profiles/[orgId]/conversations/[convId]/messages/[msgId]/finalize` | admin/client with capability | Finalize a message. |
-| GET/POST | `/admin/hermes/profiles/[orgId]/jobs` | admin/client with capability | List/create jobs. |
-| GET/PATCH/PUT/DELETE | `/admin/hermes/profiles/[orgId]/jobs/[jobId]` | admin/client with capability | Manage a job. |
-| POST | `/admin/hermes/profiles/[orgId]/jobs/[jobId]/run` | admin/client with capability | Run a job now. |
-| POST | `/admin/hermes/profiles/[orgId]/jobs/[jobId]/pause` | admin/client with capability | Pause a job. |
-| POST | `/admin/hermes/profiles/[orgId]/jobs/[jobId]/resume` | admin/client with capability | Resume a job. |
-| POST | `/admin/hermes/profiles/[orgId]/runs` | admin/client with capability | Start a run. |
-| GET | `/admin/hermes/profiles/[orgId]/runs/[runId]` | admin/client with capability | Inspect a run. |
-| GET | `/admin/hermes/profiles/[orgId]/runs/[runId]/events` | admin/client with capability | Stream/list run events. |
-| POST | `/admin/hermes/profiles/[orgId]/runs/[runId]/approval` | admin/client with capability | Approve/reject a gated run action. |
-| POST | `/admin/hermes/profiles/[orgId]/runs/[runId]/stop` | admin/client with capability | Stop a run. |
-| GET/POST | `/admin/hermes/profiles/[orgId]/skills` | admin/client with capability | List/install profile skills. |
-| DELETE | `/admin/hermes/profiles/[orgId]/skills/[skillName]` | admin/client with capability | Remove a profile skill. |
-
-Hermes controls go through `requireHermesProfileAccess` and `resolveHermesAdminControl`; do not construct arbitrary VPS URLs from the client side. The API capability gate is the source of truth.
 
 ### Unified chat conversations
 
@@ -817,11 +643,7 @@ Use this before adding references to conversations, comments, research items, or
 
 ### Reports (cross-cutting)
 
-#### `GET /reports/activity-summary?orgId=X&from=...&to=...` — auth: admin
-Cross-module counts: social posts, emails sent, invoices created, deals updated, contacts added, tasks completed.
-
-#### `GET /reports/pipeline?orgId=X` — auth: admin
-Deals by stage + values + win rate.
+Moved to the `reports` skill — see `GET /reports/activity-summary` and `GET /reports/pipeline` there for the cross-cutting query reports, plus the full snapshot-report CRUD.
 
 ### Comments (full reference)
 
@@ -911,6 +733,8 @@ GET /search?q=acme
 
 ### 6. Generate weekly activity summary
 
+See the `reports` skill for the full request/response shape:
+
 ```bash
 GET /reports/activity-summary?orgId=org_abc&from=2026-04-07&to=2026-04-13
 ```
@@ -946,727 +770,3 @@ GET /webhooks/wh_xyz/deliveries?limit=50
 6. **Prefer soft-delete** — `DELETE` is soft by default; only use `?force=true` when you're certain.
 7. **Search is eventually consistent** — freshly-created items may not appear for ~1 min.
 8. **Activity log everything** — use `POST /activity` (auto-written by most routes) for a durable audit trail.
-
----
-
-## Platform Users (super-admin staff management)
-
-These endpoints manage PiB **internal staff** (users with `role === 'admin'`). They are restricted to **super admins only** — an admin whose `allowedOrgIds` array is empty. A restricted admin (non-empty `allowedOrgIds`) cannot call these endpoints; this prevents silent self-elevation.
-
-### User model
-
-```json
-{
-  "uid": "firebase_uid",
-  "email": "staff@partnersinbiz.online",
-  "displayName": "Alice Smith",
-  "role": "admin",
-  "orgId": "PIB_PLATFORM_ORG_ID",
-  "allowedOrgIds": ["org_abc", "org_xyz"],
-  "isSuperAdmin": false,
-  "createdAt": "...",
-  "updatedAt": "..."
-}
-```
-
-`isSuperAdmin` is a derived field: `true` when `allowedOrgIds.length === 0`. It is never stored; it is computed on every read.
-
-### `allowedOrgIds` scoping concept
-
-- **Super admin** — `allowedOrgIds: []` (empty). Sees and manages every org on the platform.
-- **Restricted admin** — `allowedOrgIds: ["org_a", "org_b"]`. UI and API scope them to those orgs only.
-- To convert a restricted admin to super admin, PATCH with `allowedOrgIds: []`.
-- A super admin **cannot restrict their own account** via PATCH — they must ask a different super admin. This prevents accidental self-lockout.
-- `allowedOrgIds` is admin-surface visibility only. It does not grant client portal/CRM access. To let a PiB admin enter a client portal, add the staff user as an explicit member of that client org through `/admin/org/[slug]/team` or `POST /organizations/[id]/members`.
-- For `/admin/org/partners-in-biz/billing`, restricted admins see only PiB-issued invoices where the recipient client is inside `allowedOrgIds`; super admins see all PiB-issued invoices.
-
-### `GET /admin/platform-users` — auth: super-admin
-
-Lists all users with `role === 'admin'`, sorted newest first.
-
-Response:
-```json
-[
-  { "uid": "...", "email": "...", "displayName": "...", "role": "admin",
-    "orgId": "...", "allowedOrgIds": ["org_abc"], "isSuperAdmin": false,
-    "createdAt": "...", "updatedAt": "..." }
-]
-```
-
-### `POST /admin/platform-users` — auth: super-admin
-
-Creates a new platform staff account. Finds or creates the Firebase Auth user, writes the `users` doc, then optionally sends a welcome email with a password-setup link.
-
-Body:
-```json
-{
-  "email": "newstaff@example.com",
-  "name": "Bob Jones",
-  "allowedOrgIds": ["org_abc"],
-  "sendWelcomeEmail": true
-}
-```
-
-- `allowedOrgIds` — omit or pass `[]` for a super admin; pass org IDs to restrict.
-- `sendWelcomeEmail` — defaults to `true`. Sends a branded email from the platform address with a Firebase password-reset link so the new user can set their own password.
-- If a user with this email already exists as a **non-admin** role (e.g. `member`), returns `409` — resolve in the team page first.
-
-Response (201):
-```json
-{
-  "uid": "...", "email": "...", "displayName": "...", "role": "admin",
-  "orgId": "PIB_PLATFORM_ORG_ID", "allowedOrgIds": [],
-  "isSuperAdmin": true,
-  "setupLink": "https://..."
-}
-```
-
-`setupLink` is the Firebase password-reset URL returned once at creation. Store or send it immediately — it is not re-exposed later.
-
-### `GET /admin/platform-users/[uid]` — auth: super-admin
-
-Returns a single platform admin by UID. Returns `404` if the UID exists but is not an admin.
-
-### `PATCH /admin/platform-users/[uid]` — auth: super-admin
-
-Updatable fields:
-- `name` — updates both Firestore `displayName` and Firebase Auth display name. Cannot be empty string.
-- `allowedOrgIds` — replaces the full list. Pass `[]` to promote to super admin. Deduplication and trimming applied automatically.
-
-Self-restriction guardrail: if `uid === caller.uid` and `allowedOrgIds` is non-empty, returns `400` — ask another super admin to do it.
-
-Response: updated user object.
-
-### `DELETE /admin/platform-users/[uid]` — auth: super-admin
-
-Deletes the Firebase Auth user (revokes all sessions) and removes the Firestore `users` doc. Cannot delete yourself — returns `400`.
-
-Response: `{ "uid": "...", "deleted": true }`.
-
-### Workflow: onboard a new staff member
-
-```bash
-# 1. Create the account (welcome email sent automatically)
-POST /admin/platform-users
-{ "email": "alice@example.com", "name": "Alice Smith",
-  "allowedOrgIds": ["org_client1", "org_client2"] }
-# → { uid, setupLink }
-
-# 2. If the email failed or they need a new link, use Firebase Console
-#    or re-POST with sendWelcomeEmail: true (idempotent — merges the doc)
-
-# 3. Promote to super admin later
-PATCH /admin/platform-users/<uid>
-{ "allowedOrgIds": [] }
-
-# 4. Off-board
-DELETE /admin/platform-users/<uid>
-```
-
----
-
-## Reports
-
-Two separate report surfaces:
-
-1. **Snapshot reports** (`POST /reports`) — generates and stores a full monthly report doc (with KPIs, executive summary, brand snapshot). Listed via `GET /reports`.
-2. **Ad-hoc query reports** (`GET /reports/revenue`, `/pipeline`, etc.) — live queries, no persistence. Use these for dashboard widgets and agent decisions.
-
-### Snapshot reports
-
-#### `GET /reports?orgId=X` — auth: admin
-
-Lists previously generated report documents for an org.
-
-Query: `orgId` (required), `limit` (default 24, max 100).
-
-Response: `{ ok: true, reports: [...] }`.
-
-#### `POST /reports` — auth: admin
-
-Generates and stores a new report. Uses the org's timezone from the `organizations` collection (defaults to UTC).
-
-Body:
-```json
-{
-  "orgId": "org_abc",
-  "type": "monthly",
-  "month": "2026-04",
-  "start": "2026-04-01",
-  "end": "2026-04-30",
-  "propertyId": "prop_xyz"
-}
-```
-
-- `type` — `"monthly"` (default) or any `ReportType`.
-- `month` — `YYYY-MM` format. Resolved to the org's timezone month boundaries. Defaults to last completed month.
-- `start` / `end` — ISO dates for a custom range (overrides `month`).
-- `propertyId` — optional property scope; omit for org-wide.
-
-Response: `{ ok: true, report: { id, orgId, type, period, kpis, exec_summary, highlights, status, publicToken, brand, ... } }`.
-
-Note: `maxDuration` is 60s — report generation can be slow.
-
-#### `GET /reports/[id]` — auth: admin
-
-Fetches one report by ID. Returns `404` if not found.
-
-Response: `{ ok: true, report: {...} }`.
-
-#### `PATCH /reports/[id]` — auth: admin
-
-Editable fields on a stored report:
-- `exec_summary` (string)
-- `highlights` (string array, max 8 items)
-- `status` (`"draft"` | `"sent"` | `"archived"`)
-
-Response: `{ ok: true, report: { updated fields... } }`.
-
-#### `DELETE /reports/[id]` — auth: admin
-
-Soft-archives the report by setting `status: "archived"`. The doc is not removed.
-
-Response: `{ ok: true }`.
-
-#### `POST /reports/[id]/send` — auth: admin
-
-Emails the report to one or more recipients via Resend. Sends a branded HTML email with top-level KPI summary and a CTA button linking to the public report page (`/reports/<publicToken>`). Marks the stored report `status: "sent"`.
-
-Body:
-```json
-{ "to": ["client@example.com", "cfo@example.com"] }
-```
-
-Requirements: report must have a `publicToken` and `RESEND_API_KEY` must be configured.
-
-Response: `{ ok: true, link: "https://partnersinbiz.online/reports/<token>", recipients: [...] }`.
-
-Note: `maxDuration` is 30s.
-
-### Ad-hoc query reports
-
-All ad-hoc report endpoints are live queries — no stored state. Returns empty results gracefully when collections don't exist yet.
-
-#### `GET /reports/revenue` — auth: admin
-
-Revenue grouped into time buckets from paid invoices.
-
-Query:
-- `orgId` (required)
-- `from` (required, ISO date) — inclusive, matched against `paidAt`
-- `to` (required, ISO date) — inclusive
-- `groupBy` — `"month"` (default) | `"quarter"` | `"week"` | `"day"`
-
-Response:
-```json
-{
-  "from": "2026-01-01T00:00:00.000Z",
-  "to": "2026-04-30T23:59:59.000Z",
-  "groupBy": "month",
-  "buckets": [
-    { "label": "2026-01", "total": 45000, "count": 3 },
-    { "label": "2026-02", "total": 62000, "count": 5 }
-  ],
-  "grandTotal": 107000,
-  "currency": "ZAR"
-}
-```
-
-Mixed-currency response includes `"mixed": true` and per-bucket `byCurrency: { "ZAR": N, "USD": N }` instead of top-level `currency`.
-
-Bucket label formats: `YYYY-MM` (month), `YYYY-Www` (week, ISO), `YYYY-Qq` (quarter), `YYYY-MM-DD` (day).
-
-#### `GET /reports/pipeline` — auth: admin
-
-Deal pipeline snapshot grouped by stage.
-
-Query: `orgId` (required).
-
-Response:
-```json
-{
-  "byStage": {
-    "prospect":    { "count": 8,  "value": 80000 },
-    "proposal":    { "count": 4,  "value": 55000 },
-    "negotiation": { "count": 2,  "value": 30000 },
-    "won":         { "count": 12, "value": 140000 },
-    "lost":        { "count": 3,  "value": 25000 }
-  },
-  "totalOpen":      165000,
-  "totalClosedWon": 140000,
-  "totalClosedLost": 25000,
-  "winRate": 0.8
-}
-```
-
-`winRate` = `closedWonCount / (closedWonCount + closedLostCount)`. Excludes deleted deals.
-
-#### `GET /reports/outstanding` — auth: admin
-
-Outstanding (unpaid) invoices aged by `dueDate`. Statuses included: `sent`, `overdue`, `payment_pending_verification`.
-
-Query: `orgId` (required).
-
-Response:
-```json
-{
-  "buckets": {
-    "0-30":  { "count": 3, "total": 15000 },
-    "31-60": { "count": 1, "total": 8000  },
-    "61-90": { "count": 0, "total": 0     },
-    "90+":   { "count": 2, "total": 22000 }
-  },
-  "total": 45000,
-  "count": 6,
-  "currency": "ZAR"
-}
-```
-
-Invoices with no `dueDate` are placed in `0-30`. Mixed currencies add `"mixed": true` and remove top-level `currency`.
-
-#### `GET /reports/client-value` — auth: admin
-
-Lifetime paid invoice value ranked by client org.
-
-Query:
-- `orgId` (required) — billing org scope
-- `limit` (optional, default 20, max 100)
-
-Response:
-```json
-{
-  "clients": [
-    {
-      "clientOrgId": "org_abc",
-      "clientName":  "Acme Corp",
-      "lifetimeValue": 185000,
-      "invoiceCount": 14,
-      "lastInvoiceAt": "2026-04-10T00:00:00.000Z"
-    }
-  ],
-  "total": 185000
-}
-```
-
-Sorted descending by `lifetimeValue`. `clientName` is sourced from the snapshotted `clientDetails.name` field on each invoice.
-
-#### `GET /reports/expense-summary` — auth: admin
-
-Expenses grouped by category, project, or user within a date window.
-
-Query:
-- `orgId` (required)
-- `from` (ISO, optional — defaults to 30 days ago)
-- `to` (ISO, optional — defaults to now)
-- `groupBy` — `"category"` (default) | `"project"` | `"user"`
-
-Response:
-```json
-{
-  "from": "...", "to": "...", "groupBy": "category",
-  "buckets": [
-    { "label": "travel",    "total": 12000, "count": 5, "billable": 3, "reimbursable": 2 },
-    { "label": "software",  "total": 4500,  "count": 2, "billable": 2, "reimbursable": 0 }
-  ],
-  "grandTotal": 16500,
-  "currency": "ZAR"
-}
-```
-
-`billable` and `reimbursable` are counts (not amounts) of entries in the bucket with those flags set. Sorted descending by `total`. Returns empty buckets if the `expenses` collection doesn't exist.
-
-#### `GET /reports/activity-summary` — auth: admin
-
-Cross-module activity counts over a date window.
-
-Query:
-- `orgId` (required)
-- `from` (ISO, optional — defaults to 30 days ago)
-- `to` (ISO, optional — defaults to now)
-
-Response:
-```json
-{
-  "from": "...", "to": "...",
-  "counts": {
-    "socialPosts":      12,
-    "emailsSent":       84,
-    "invoicesCreated":   7,
-    "dealsUpdated":     15,
-    "contactsAdded":    23,
-    "tasksCompleted":   31
-  }
-}
-```
-
-Each sub-collection query is wrapped in `try/catch` — a missing collection or missing index returns `0` for that metric rather than failing the whole response.
-
-#### `GET /reports/team-utilization` — auth: admin
-
-Billable vs non-billable time per user from the `time_entries` collection (owned by the A7 time-tracking module).
-
-Query:
-- `orgId` (required)
-- `from` (ISO, optional — defaults to 30 days ago)
-- `to` (ISO, optional — defaults to now)
-
-Response:
-```json
-{
-  "users": [
-    {
-      "userId": "uid_abc",
-      "totalMinutes": 2400,
-      "billableMinutes": 1920,
-      "nonBillableMinutes": 480,
-      "utilizationPct": 80.0
-    }
-  ],
-  "totalMinutes": 2400,
-  "avgUtilizationPct": 80.0
-}
-```
-
-`utilizationPct` = `billableMinutes / totalMinutes * 100`, rounded to 2 decimal places. Users sorted descending by `totalMinutes`. Returns zeroed totals if `time_entries` doesn't exist yet.
-
----
-
-## Creative provider connections (BYOK)
-
-Bring-your-own-key connections for the Creative Canvas. Lets a client wire up their own xAI, Google (Gemini), fal.ai, Recraft, or Higgsfield credentials so canvas generation runs on their account instead of platform credits. All routes: auth `client`, `orgId` via `?orgId=` query or `x-org-id` header (falls back to `user.orgId`/`orgIds[0]`).
-
-Providers that support connections: `xai`, `google`, `fal`, `recraft`, `higgsfield` (Higgsfield needs `apiKey` + `apiSecret`; the rest just `apiKey`).
-
-#### `GET /creative-canvas/connections?orgId=...` — auth: client
-Lists the caller's own user-scoped connections plus the org's org-scoped connections. Always masked — no `credentialsEnc`, only `credentialHint` (e.g. `xai-…1234`) and `hasCredentials`.
-
-Response:
-```json
-{ "connections": [
-  { "id": "org:org_abc:xai", "provider": "xai", "scope": "org", "orgId": "org_abc",
-    "ownerUid": null, "label": "xAI (Grok)", "status": "connected",
-    "credentialHint": "xai-…1234", "hasCredentials": true,
-    "lastValidatedAt": "...", "lastUsedAt": "...", "lastError": null }
-] }
-```
-
-#### `POST /creative-canvas/connections?orgId=...` — auth: client
-Body:
-```json
-{ "provider": "xai", "scope": "org", "label": "Marketing xAI key",
-  "credentials": { "apiKey": "xai-..." } }
-```
-For Higgsfield, `credentials` needs both `apiKey` and `apiSecret`.
-
-- `scope`: `"org"` (shared by everyone in the org) or `"user"` (portable across all orgs the calling user belongs to). **Agents (`role: "ai"`) can only create org-scoped connections** — `scope: "user"` from an agent caller returns 400 `Agents can only create organisation-scoped connections`.
-- The key is validated against the provider before it's stored — a bad/expired key returns 400 with the provider's validation error, nothing is persisted.
-- Credentials are AES-256-GCM encrypted, keyed off `org:{orgId}` or `user:{uid}` (org and user connections can never decrypt each other's blobs).
-- Connection id is derived as `org:{orgId}:{provider}` or `user:{uid}:{provider}` — URL-encode the colons when addressing `/connections/{id}`.
-- Errors: 400 `scope must be "org" or "user"`, 400 `credentials are required`, 400 `Credential value too long` (>4096 chars), 400 `<Field> is required` for missing required fields, 400 `Provider does not support connections` for providers without a `connection` config (e.g. `manual_upload`, `agent_task`).
-- Success: 201 `{ "connection": { ...masked } }`.
-
-#### `DELETE /creative-canvas/connections/{id}?orgId=...` — auth: client
-Revokes the connection (clears stored credentials, `status` → `revoked`). Errors: 403 `Forbidden`, 404 `Connection not found`. Success: `{ "connection": { ...masked } }`.
-
-#### `POST /creative-canvas/connections/{id}/validate?orgId=...` — auth: client
-Re-checks a stored key against the provider and updates `status`/`lastValidatedAt`/`lastError`. Response: `{ "connection": { ...masked }, "validation": { "ok": true } }` (or `{ "ok": false, "error": "..." }`). 400 `Connection has no stored credentials` if already revoked.
-
-### BYOK billing rule
-
-When generating on the canvas, credential resolution runs **user-scoped connection → org-scoped connection → shared platform runtime → `connection_required`**:
-
-- If a usable connection is found (user-scoped wins over org-scoped), the run is billed to the user's own provider account — run provenance is stamped `{ "costUnits": 0, "costLabel": "byok:<provider>" }` and it **bypasses platform creative-canvas credits entirely**.
-- `higgsfield` always has a shared-runtime fallback (unchanged behaviour — the existing VPS Higgsfield executor, billed in platform credits) even with no connection configured.
-- `xai` falls back to the platform `XAI_API_KEY` env var if no connection exists (still charges platform credits).
-- `google`, `fal`, and `recraft` have **no shared fallback** — generating with one of their models and no connection returns 400 `Connect a <provider> account in Creative providers to use this model`.
-
-### New canvas models (BYOK direct lane)
-
-These model ids run against the connected provider directly (not through the Higgsfield executor):
-
-| Model id | Provider | Kind | Execution |
-|---|---|---|---|
-| `grok-imagine-image` | xai | image | sync |
-| `grok-imagine-image-quality` | xai | image | sync |
-| `grok-imagine-video` | xai | video | async |
-| `grok-imagine-video-1.5` | xai | video | async |
-| `gemini-3-pro-image-preview` | google | image | sync |
-| `imagen-4` | google | image | sync |
-| `recraftv4` | recraft | image | sync |
-| `recraftv4-vector` | recraft | image | sync |
-| `fal-flux-2-pro` | fal | image | async |
-| `fal-kling-video-2-6-pro` | fal | video | async |
-| `fal-veo-3-1` | fal | video | async |
-
-`google`, `recraft`, and `fal` models always require a connection (no platform fallback). `xai` models fall back to the platform key if unconnected. Async models are dispatched via the direct-provider runtime (submit + poll against the provider's own API) rather than the shared Higgsfield job queue.
-
----
-
-## YouTube Studio ↔ Creative Canvas bridge
-
-Turns a YouTube Studio video project into a fully seeded Creative Canvas production board, keeps the two in sync as canvas runs complete, and lets a canvas export create — and later publish — the video project on its own.
-
-#### `POST /youtube-studio/videos/{id}/open-in-canvas?orgId=...` — auth: client
-
-Opens (or creates) the canvas for a video project. Idempotent — calling it again on an already-linked video returns the existing canvas instead of creating a duplicate.
-
-Response: `{ "canvasId": "canvas_abc", "created": true }` (201 if a canvas was just created, 200 if one already existed).
-
-```bash
-curl -X POST "https://partnersinbiz.online/api/v1/youtube-studio/videos/vid_123/open-in-canvas?orgId=org_abc" \
-  -H "Authorization: Bearer $AI_API_KEY"
-```
-
-What gets seeded, from the video project's latest production draft:
-- A brief node summarizing the video.
-- One prompt node, one music-bed-audio node, and one video generator node per scene.
-- A final assembly node with `edit.outputKind: "youtube_render"`, which is what the sync-back logic (below) watches for.
-
-Note: seeded audio nodes are **music beds only** — there is no TTS model wired up yet, so scene narration is not auto-voiced. The narration script is preserved as text on each scene's prompt node so it isn't lost, it just isn't rendered to audio automatically.
-
-Two-way link stored on both records: `video.creativeCanvasId` ↔ `canvas.linked.youtubeVideoProjectId`.
-
-#### Sync-back (automatic, no endpoint to call)
-
-Once a video is linked, completed runs on that canvas write back to the video project automatically:
-
-- **Any** completed video run on the linked canvas adds a `rendered_video` source asset to the video project, keyed `canvas-run-{runId}` (idempotent — re-processing the same run never double-adds it).
-- A completed run on the node carrying `edit.outputKind: "youtube_render"` additionally flips the video's open render job to `rendered` (creating one if none exists), stamped with `renderEngine: { "provider": "creative_canvas", "jobId": "<runId>" }`.
-- Approval and publish state on the video project are never touched by sync-back — a canvas render completing does not itself approve or schedule anything.
-
-#### Export auto-create (canvas → new video project)
-
-Exporting a canvas node with target `youtube_studio` no longer requires the canvas to already be linked to a video project — it will auto-create one:
-
-- Org has exactly **one** YouTube channel workspace → auto-creates against it, no extra input needed.
-- Org has **several** channel workspaces → pass `channelWorkspaceId` in the export body to disambiguate.
-- Org has **none** → 400 asking the caller to create a channel workspace first.
-
-```bash
-curl -X POST "https://partnersinbiz.online/api/v1/creative-canvas/canvas_abc/exports/draft?orgId=org_abc" \
-  -H "Authorization: Bearer $AI_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nodeId": "node_final_assembly",
-    "target": "youtube_studio",
-    "channelWorkspaceId": "chw_marketing"
-  }'
-```
-
-#### Scheduled publishing (cron)
-
-Release plans using an API publish mode with `scheduledPublishAt` are executed by a 5-minute cron, `GET /cron/youtube-studio-publish`:
-
-- Every run re-checks all approval and readiness gates before publishing — nothing bypasses approval just because it's scheduled.
-- Approval blocks never burn a retry attempt.
-- Genuine publish failures are capped at 3 attempts, tracked via `publishAttemptCount` and `lastPublishError` on the plan.
-- After 3 failed attempts the plan is marked terminal: `publishExecutionStatus: "failed"`, surfaced on the plan for a human to intervene.
-- An in-flight guard prevents overlapping cron ticks from double-publishing the same plan.
-
-#### Render imports into the canvas source library
-
-`youtube_render_jobs` whose status is `rendered`, `qa_review`, or `approved` — and which have an http(s) output URL — appear as importable sources in the Creative Canvas source library. Portal (client) users only see jobs whose visibility flags allow client viewing; internal-only render jobs stay invisible to them.
-
----
-
-## Book Studio production engine
-
-Book Studio's content model (chapters/pages), puzzle generation, print/ebook assembly, and its Creative Canvas bridge — the production surface that turns a book project into real interior PDFs, cover PDFs, and EPUBs. All routes below: auth `admin`, `orgId` via `?orgId=` query (falls back to `x-org-id` header / caller's org).
-
-### Chapters and pages (content units)
-
-Chapters and pages are project-scoped content-unit documents, siblings of the other Book Studio resources (briefs, series, publishing-packets, etc.) served through the same generic resource routes.
-
-#### `GET /book-studio/chapters?orgId=...` / `GET /book-studio/pages?orgId=...`
-Lists live (non-deleted) records for the org.
-
-#### `POST /book-studio/chapters?orgId=...`
-Body fields: `projectId`, `title`, `body` (max 900,000 chars — over the limit 400s), `status` (`draft` | `generated` | `edited` | `approved`, default `draft`), `order` (non-negative int), `canvasRunId`.
-- `wordCount` is **server-computed** from `body` on every write — a client-supplied `wordCount` is always ignored/overwritten.
-- Chapters/pages suppress the generic `stage`/`channel` pipeline fields entirely (they don't apply to content units).
-
-#### `POST /book-studio/pages?orgId=...`
-Body fields: `projectId`, `title`, `kind` (`illustration` | `colouring` | `comic` | `puzzle` | `activity` | `text` | `front_matter` | `back_matter`), `status` (same content-status enum as chapters), `order`, `imageUrl`, `imageStoragePath`, `caption`, `prompt`, `canvasRunId`, and:
-```json
-{ "puzzle": { "kind": "sudoku", "seed": 123456, "difficulty": "medium",
-    "params": { "words": ["OCEAN", "REEF"] } } }
-```
-`puzzle` is a composite object: `kind` (required for the object to be kept), `seed` (int), `difficulty` (string), `params` (whitelisted to `words: string[]` or `entries: {word,clue}[]` shape — any other key is dropped), `solutionRef`.
-
-### Generic PATCH for any Book Studio resource
-
-#### `PATCH /book-studio/{resource}/{id}?orgId=...`
-One endpoint patches every Book Studio resource (`projects`, `briefs`, `series`, `chapters`, `pages`, `artifact-links`, `publishing-packets`, `rights-ledgers`, `package-manifests`, `analytics-imports`, `decision-logs`) — `{resource}` is the same plural-kebab key used in the collection's own GET/POST path.
-- Only fields present in the request body are touched — no create-time defaults leak in, and `orgId`/`projectId` can never be changed through a patch (silently stripped even if sent).
-- Soft-delete: `{ "deleted": true }` — the record disappears from GET list results but is not physically removed.
-- **Invalid enum values 400 instead of silently falling back.** In create mode an out-of-range enum silently falls back to a default; in PATCH mode a *present-but-invalid* value throws, e.g. `PATCH pages/{id}` with `{"kind": "not_a_kind"}` → 400 `invalid value for kind`. This applies to every enum-ish field (`status`, `kind`, gate `status`, rights `status`, package-manifest `qaStatus`, etc.).
-- Composite objects (`puzzle`, `packageManifest`, `gates`, `rightsLedger`, `metadata`, `approvalState`, `analyticsSnapshot`, `trim`) **replace wholesale** — Firestore `update()` overwrites the whole top-level key, so patching `puzzle` with a new object never merges with the old one; send the full object you want.
-- Cross-org or already-deleted records 404 indistinguishably from records that never existed.
-
-```bash
-curl -X PATCH "https://partnersinbiz.online/api/v1/book-studio/pages/page_123?orgId=org_abc" \
-  -H "Authorization: Bearer $AI_API_KEY" -H "Content-Type: application/json" \
-  -d '{"status": "edited", "imageUrl": "https://.../page-1.png"}'
-```
-
-### Project and series content-model fields
-
-Beyond the shared Book Studio fields (title, status, stage, bridgeLinks, gates, etc.), `projects` and `series` accept:
-
-**Projects** — `format` (registry id, validated against the format registry; unknown id → 400 `unknown book format`), `trim` (`{ presetId }`, must resolve to a known preset or 400 `unknown trim preset`), `stylePrompt`, `coverImageUrl`, `creativeCanvasId`, `seriesVolumeNumber` (positive int).
-
-Format registry ids (`BookFormatId`): `story`, `nonfiction`, `kids_picture`, `colouring`, `comic`, `activity_workbook`, `puzzle_sudoku`, `puzzle_word_search`, `puzzle_maze`, `puzzle_crossword`, `puzzle_mixed`. Each format fixes a `layout` (`reflowable` for chapter-based books, `fixed` for page/image-based ones), `contentUnits` (`chapters` vs `pages`), a default + supported trim list, which assembly outputs it produces, and (for puzzle formats) a `puzzleKind`.
-
-Trim presets (`TrimPresetId`): `5x8`, `6x9`, `7x10`, `8x10`, `8.5x8.5`, `8.5x11` — all KDP-spec (0.125" bleed, 300 DPI); `resolveTrimSpec` also derives margins/gutter and paperback spine width from page count.
-
-**Series** — `volumeOrder` (string array of project ids), `sharedMetadata` (`{ authorName, imprint, keywords, categories }`), `sharedStylePrompt`.
-
-### `POST /book-studio/projects/{id}/pages/generate-puzzles?orgId=...`
-
-Generates a batch of deterministic, seeded puzzle pages and creates them as `pages` records in one call.
-
-Body:
-```json
-{ "kind": "word_search", "count": 20, "difficulty": "medium",
-  "params": { "words": ["OCEAN", "REEF", "CORAL"] },
-  "startOrder": 40 }
-```
-- `kind`: `sudoku` | `word_search` | `maze` | `crossword` — must match the project format's `puzzleKind` (or the format must be `puzzle_mixed`), else 400.
-- `count`: integer 1–100.
-- `difficulty`: `easy` | `medium` | `hard` | `expert`.
-- `params`: `{ words: string[] }` for word_search, `{ entries: {word, clue}[] }` for crossword (unknown/other keys dropped).
-- `startOrder` (optional): int ≥ 0; defaults to `max(existing live page order for this project) + 1`.
-- **Validate-all-before-write**: every one of `count` puzzles is generated and validated first; if any single one fails, the whole call 400s and nothing is written — never a partial batch.
-- Seeds are derived from a random base + index, so pages are deterministically reproducible per seed but not predictable batch-to-batch.
-- Response: 201 `{ "pages": [ {...created page records...} ] }`, each pre-tagged `kind: "puzzle"`, `status: "generated"`.
-
-### `POST /book-studio/projects/{id}/assemble?orgId=...`
-
-Produces the real, downloadable production files for a book project — this is the actual print/ebook build step, not a preview.
-
-- Loads the project's live chapters/pages, builds whichever of interior PDF / full-wrap cover PDF / EPUB the format calls for (`format.assembly`), and uploads each to Firebase Storage.
-- **Readiness gates before building anything**: reflowable formats need at least one chapter with non-empty body (else 422 `AssemblyNotReadyError` "no chapters"); fixed-layout formats need every image-kind page (`illustration`, `colouring`, `comic`, `activity`) to have an `imageUrl`, else **422 `{ "missing": [<page orders>] }`**.
-- Writes `packageManifest` back onto the project: `{ status: "generated", version: <incremented from previous>, qaStatus: "pending_review", generatedAt, checksum, files: [{ role, label, href, storagePath, checksum, bytes, pageCount? }] }`. Each file carries its own **sha256 checksum**; the manifest's top-level `checksum` mirrors the interior PDF's (or the first file's, for formats with no interior).
-- Also writes a `decision-logs` entry (`decision: "package_assembled"`) summarizing which files were produced.
-- **Store upload remains manual per governance** — assembly produces the files and manifest only; nothing here submits to KDP/Google Play Books/Apple Books/etc. (the publishing-packet `manual_upload_review` stage still owns that human step).
-- Errors: 404 `book project not found`, 400 unknown format/trim, 422 not-ready / missing assets (as above).
-
-```bash
-curl -X POST "https://partnersinbiz.online/api/v1/book-studio/projects/proj_123/assemble?orgId=org_abc" \
-  -H "Authorization: Bearer $AI_API_KEY"
-```
-
-### `POST /book-studio/projects/{id}/open-in-canvas?orgId=...`
-
-Opens (or creates) a Creative Canvas production board for a book project — same idempotent pattern as the YouTube Studio bridge above.
-
-Response: `{ "canvasId": "canvas_abc", "created": true|false }` — `created: false` and the existing canvas short-circuit if the project is already linked to a live canvas; a stale link (canvas deleted) falls through and re-creates.
-
-What gets seeded, keyed off the project's `format.canvasRecipe`:
-- A brief node (title/format/audience/style summary) that every generator references.
-- A cover image generation node — always seeded, tagged `data.bookRole: "cover"`.
-- `picture_book` / `colouring_book` / `comic_book` recipes → one image generation node per page still missing `imageUrl`, tagged `data.bookRole: "page_illustration"` + `data.bookPageId`.
-- `text_book` recipe → one copy-generation node per chapter still needing prose (`status` unset/`draft`/`generated`), tagged `data.bookRole: "chapter_text"` + `data.bookChapterId`.
-- `none` recipe (puzzle/activity formats) → brief + cover only; puzzle interiors are always generated deterministically via `generate-puzzles`, never via canvas models.
-- Every generation node carries `edit.outputKind: "book_artifact"` so downstream export/routing can identify book outputs in the run stream. Hard cap of 24 generation nodes (cover included) per seed.
-- Two-way link stored on both records: `project.creativeCanvasId` ↔ `canvas.linked.bookStudioProjectId`.
-
-#### Sync-back (automatic, no endpoint to call)
-
-Completed runs on a linked canvas write back to the book project automatically, scoped to exactly three fields — nothing else in Book Studio is ever touched by canvas sync-back:
-- `bookRole: "cover"` run completes → project `coverImageUrl` set to the run's output URL, plus an `artifact-links` record (`canvas-run-{runId}`, idempotent).
-- `bookRole: "page_illustration"` run completes → the tagged page's `imageUrl` set, `canvasRunId` stamped, `status` set to `generated`.
-- `bookRole: "chapter_text"` run completes → the tagged chapter's `body` set (and `wordCount` recomputed), `canvasRunId` stamped, `status` set to `generated`.
-- **Edited/approved content is never clobbered**: a page already `edited` or `approved`, or a chapter whose status isn't `draft`/`generated`, is left untouched even if its generating node completes again.
-
-### Canvas exports/drafts → Book Studio
-
-Exporting a canvas node with `target: "book_studio"` (output kind `book_artifact`) auto-creates a linked book project if the canvas isn't already linked to one — same auto-create convention as `youtube_studio`/`client_document` targets.
-
-```bash
-curl -X POST "https://partnersinbiz.online/api/v1/creative-canvas/canvas_abc/exports/draft?orgId=org_abc" \
-  -H "Authorization: Bearer $AI_API_KEY" -H "Content-Type: application/json" \
-  -d '{ "nodeId": "node_chapter_1", "target": "book_studio",
-        "format": "story", "seriesId": "series_abc", "title": "Book title" }'
-```
-- `format` is **required** on first (unlinked) export — must be a valid format-registry id, else 400 listing the valid ids.
-- `seriesId` (optional) must resolve to a live, same-org `book_studio_series` doc, else 400.
-- `title` optional — falls back to the canvas's own title.
-- Idempotent: if the canvas is already linked to a live, same-org book project, that project is reused (`created: false`) instead of creating a duplicate; response includes `projectId` and `created`.
-
----
-
-## FX Rates
-
-#### `GET /fx/rates` — auth: public (no API key required)
-
-Returns cached FX-to-ZAR rates for a given date. Rates are not sensitive and are readable without authentication.
-
-Query:
-- `date` (optional, `YYYY-MM-DD`) — defaults to today.
-
-Response:
-```json
-{
-  "ok": true,
-  "date": "2026-05-07",
-  "base": "ZAR",
-  "source": "...",
-  "rates": {
-    "USD": 18.45,
-    "EUR": 19.82,
-    "GBP": 23.10
-  }
-}
-```
-
-`rates` maps currency codes to their value in the base currency (ZAR). Rates are pre-fetched and cached — this endpoint reads the cache, it does not trigger a live fetch.
-
-Error (400): `date must be YYYY-MM-DD`.
-Error (500): cache miss or upstream fetch failure.
-
-### Workflow: convert an invoice amount to ZAR
-
-```bash
-# 1. Get today's rates
-GET /fx/rates
-# → { rates: { USD: 18.45, EUR: 19.82 } }
-
-# 2. Multiply invoice.total by rates[invoice.currency]
-# e.g. USD 1000 * 18.45 = ZAR 18,450
-```
-
-## Linked computers — adopt legacy project locations (system path)
-
-Use when Messages shows **Legacy · pairing required**, Sync now is disabled, or project chats have **No ready project computers**.
-
-Wiki: `agents/partners/wiki/system-legacy-location-adoption-2026-07-22.md`
-
-### Adopt onto an already-paired device
-
-```bash
-POST /linked-computers/:deviceId/adopt-location
-Authorization: Bearer $AI_API_KEY
-{
-  "adoptLocationId": "peets-mac-mini",   # or partners-vps
-  "actorUserId": "zcpAJ4NXWQfjXWPXkl6nYwt7Gmm1"
-}
-```
-
-Or from the repo with Firebase admin:
-
-```bash
-npx tsx scripts/list-linked-adoption-targets.ts
-npx tsx scripts/adopt-project-location-onto-device.ts --dry-run \
-  --device-id <id> --location-id peets-mac-mini
-npx tsx scripts/adopt-project-location-onto-device.ts --apply \
-  --device-id <id> --location-id partners-vps
-```
-
-### Fresh VPS/Mac with no linked device yet
-
-1. `POST /linked-computers/pairing` with `deviceKind`, `ownerType`, `adoptLocationId`
-2. On the machine: `pib-runtime pair --challenge <id> --platform linux|macos`
-3. Confirm workspace map if mapping status is pending
-
-Do **not** tell the user to wait on Sync now while any linked location is still legacy. Sync also needs `PROJECT_SYNC_STORAGE_LIFECYCLE_VERIFIED` after TTL/lifecycle readback — separate from project chat readiness.

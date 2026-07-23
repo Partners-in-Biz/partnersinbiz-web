@@ -4,6 +4,8 @@ description: "Brand DNA extractor for paid advertising. Scans a website URL to e
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-creative`](../ads-creative/SKILL.md). Agents no longer load `ads-dna` at runtime; do not add new content here.
+
 # Ads DNA: Brand DNA Extractor
 
 Extracts brand identity from a website and saves it as `brand-profile.json`

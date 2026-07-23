@@ -4,6 +4,8 @@ description: "Product photography enhancement for ad creatives using banana-clau
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-creative`](../ads-creative/SKILL.md). Agents no longer load `ads-photoshoot` at runtime; do not add new content here.
+
 # Ads Photoshoot: AI Product Photography
 
 Transforms a product image or description into professional ad-ready photography

@@ -4,6 +4,8 @@ description: "Strategic paid advertising planning with industry-specific templat
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-strategy`](../ads-strategy/SKILL.md). Agents no longer load `ads-plan` at runtime; do not add new content here.
+
 # Strategic Paid Advertising Plan
 
 ## Process
