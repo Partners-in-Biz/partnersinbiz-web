@@ -3865,32 +3865,40 @@ export default function UnifiedChat({
     }
   }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, projectSetupBlocksSession, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId, selectedCompanyId, setActiveId, currentUserUid, listQuery])
 
-  const send = useCallback(
-    async (e: FormEvent) => {
+  const dispatchComposerMessage = useCallback(
+    async (options: {
+      text: string
+      attachments: File[]
+      clearComposer: boolean
+      useSelectedSlashCommand?: boolean
+    }): Promise<boolean> => {
+      const {
+        text,
+        attachments: filesToSend,
+        clearComposer,
+        useSelectedSlashCommand = true,
+      } = options
+      if (!text.trim() && filesToSend.length === 0) return false
+      if (sending) return false
+      if (!allowSendMessages) {
+        setError('Replies are disabled for your organisation role.')
+        return false
+      }
+      if (unavailableActiveRuntime) {
+        setError('Computer unavailable')
+        return false
+      }
 
-	      e.preventDefault()
-	      if (!input.trim() && attachments.length === 0) return
-	      if (sending) return
-	      if (!allowSendMessages) {
-	        setError('Replies are disabled for your organisation role.')
-	        return
-	      }
-	      if (unavailableActiveRuntime) {
-	        setError('Computer unavailable')
-	        return
-	      }
-	      if (hasInFlightAgentRun) {
-	        queueCurrentComposerDraft()
-	        return
-	      }
-	      setError(null)
+      setError(null)
       setSending(true)
       let convId = activeId
 
       try {
-        const currentPageCommand = extractCurrentPageContextCommand(input)
-        const parsedSlashCommand = parseLeadingSlashCommand(input)
-        const activeSlashCommand = selectedSlashCommand ?? parsedSlashCommand?.command ?? null
+        const currentPageCommand = extractCurrentPageContextCommand(text)
+        const parsedSlashCommand = parseLeadingSlashCommand(text)
+        const activeSlashCommand = (
+          useSelectedSlashCommand ? selectedSlashCommand : null
+        ) ?? parsedSlashCommand?.command ?? null
         const slashArgs = parsedSlashCommand?.args ?? ''
         const slashPayload: SlashCommandPayload | null = activeSlashCommand
           ? buildSlashCommandPayload(activeSlashCommand, slashArgs)
@@ -3903,29 +3911,31 @@ export default function UnifiedChat({
             ? slashArgs
             : activeSlashCommand
               ? slashArgs || activeSlashCommand.description
-              : input
+              : text
         let refsForSend = preferCurrentPageContext && currentPageContext && !convId
           ? [coerceContextRef(currentPageContext)]
           : contextRefs
         if (shouldUseCurrentPage) {
           refsForSend = await pinCurrentPageContext()
-          if (!messageText.trim() && attachments.length === 0) {
-            setInput('')
-            setContextMention(null)
-            setContextTypePrompt(null)
-            setSlashPrompt(null)
-            setSelectedSlashCommand(null)
-            return
+          if (!messageText.trim() && filesToSend.length === 0) {
+            if (clearComposer) {
+              setInput('')
+              setContextMention(null)
+              setContextTypePrompt(null)
+              setSlashPrompt(null)
+              setSelectedSlashCommand(null)
+            }
+            return false
           }
         }
 
-	        // Auto-create a conversation if none selected.
-	        let createdWithAgent = false
-	        if (!convId) {
-	          if (!allowStartConversations) {
-	            throw new Error('Starting new conversations is disabled for your organisation role.')
-	          }
-	          const participants = allowAgentParticipants
+        // Auto-create a conversation if none selected.
+        let createdWithAgent = false
+        if (!convId) {
+          if (!allowStartConversations) {
+            throw new Error('Starting new conversations is disabled for your organisation role.')
+          }
+          const participants = allowAgentParticipants
             ? [{ kind: 'agent' as const, agentId: 'pip' as const }]
             : []
           const payload: Record<string, unknown> = {
@@ -3960,8 +3970,8 @@ export default function UnifiedChat({
           setMobilePane('conversation')
         }
 
-        const uploadedAttachments = attachments.length > 0
-          ? await Promise.all(attachments.map((file) => uploadConversationAttachment(convId!, file)))
+        const uploadedAttachments = filesToSend.length > 0
+          ? await Promise.all(filesToSend.map((file) => uploadConversationAttachment(convId!, file)))
           : []
 
         // Build content: keep file names in the text preview, store URLs separately.
@@ -3972,14 +3982,16 @@ export default function UnifiedChat({
             .join('\n')
           content = content.trim() ? `${content}\n\n${attNote}` : attNote
         }
-        rememberComposerPrompt(convId!, input)
-        setInput('')
-        setContextMention(null)
-        setContextTypePrompt(null)
-        setSlashPrompt(null)
-        setSelectedSlashCommand(null)
-        setContextSearchResults([])
-        setAttachments([])
+        rememberComposerPrompt(convId!, text)
+        if (clearComposer) {
+          setInput('')
+          setContextMention(null)
+          setContextTypePrompt(null)
+          setSlashPrompt(null)
+          setSelectedSlashCommand(null)
+          setContextSearchResults([])
+          setAttachments([])
+        }
         const nowSec = Date.now() / 1000
         const shouldExpectAgentReply =
           createdWithAgent ||
@@ -4058,34 +4070,32 @@ export default function UnifiedChat({
           startEventStream(newAssistantId, runId, agentId, convId)
           pollFinalize(convId, newAssistantId, runId, agentId)
         }
+        return true
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Send failed')
+        return false
       } finally {
         setSending(false)
       }
     },
     [
       activeId,
-      input,
-      attachments,
       agentEffort,
       approvalMode,
       selectedRuntime,
       modelCatalog?.canSelect,
       sending,
-      hasInFlightAgentRun,
-      queueCurrentComposerDraft,
       rememberComposerPrompt,
       contextRefs,
       preferCurrentPageContext,
       currentPageContext,
       coerceContextRef,
       pinCurrentPageContext,
-	      allowAgentParticipants,
-	      allowStartConversations,
-	      allowSendMessages,
-	      unavailableActiveRuntime,
-	      orgId,
+      allowAgentParticipants,
+      allowStartConversations,
+      allowSendMessages,
+      unavailableActiveRuntime,
+      orgId,
       currentUserUid,
       currentUserDisplayName,
       scope,
@@ -4103,6 +4113,111 @@ export default function UnifiedChat({
       setActiveId,
     ],
   )
+
+  const dispatchComposerMessageRef = useRef(dispatchComposerMessage)
+  useEffect(() => {
+    dispatchComposerMessageRef.current = dispatchComposerMessage
+  }, [dispatchComposerMessage])
+
+  const send = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault()
+      if (!input.trim() && attachments.length === 0) return
+      if (sending) return
+      if (!allowSendMessages) {
+        setError('Replies are disabled for your organisation role.')
+        return
+      }
+      if (unavailableActiveRuntime) {
+        setError('Computer unavailable')
+        return
+      }
+      if (hasInFlightAgentRun) {
+        queueCurrentComposerDraft()
+        return
+      }
+      await dispatchComposerMessage({
+        text: input,
+        attachments,
+        clearComposer: true,
+        useSelectedSlashCommand: true,
+      })
+    },
+    [
+      input,
+      attachments,
+      sending,
+      allowSendMessages,
+      unavailableActiveRuntime,
+      hasInFlightAgentRun,
+      queueCurrentComposerDraft,
+      dispatchComposerMessage,
+    ],
+  )
+
+  // Auto-send the next queued follow-up once the active agent run finishes.
+  // The queue is a next-turn bridge ("Will send after this run"), not live steering.
+  const queuedDraftsRef = useRef(queuedDraftsByConversation)
+  const flushingQueuedDraftRef = useRef(false)
+  const autoFlushBlockedDraftIdsRef = useRef(new Set<string>())
+  useEffect(() => {
+    queuedDraftsRef.current = queuedDraftsByConversation
+  }, [queuedDraftsByConversation])
+
+  useEffect(() => {
+    if (hasInFlightAgentRun) {
+      // A new run started — allow previously failed auto-flushes to retry afterward.
+      autoFlushBlockedDraftIdsRef.current.clear()
+      return
+    }
+    if (sending || flushingQueuedDraftRef.current) return
+    if (!activeId || !allowSendMessages || unavailableActiveRuntime) return
+    const nextDraft = (queuedDraftsRef.current[activeId] ?? [])[0]
+    if (!nextDraft || autoFlushBlockedDraftIdsRef.current.has(nextDraft.id)) return
+
+    flushingQueuedDraftRef.current = true
+    const current = queuedDraftsRef.current[activeId] ?? []
+    if (current[0]?.id !== nextDraft.id) {
+      flushingQueuedDraftRef.current = false
+      return
+    }
+    const draft = current[0]
+    const remaining = current.slice(1)
+    const nextQueue = remaining.length === 0
+      ? (() => {
+          const { [activeId]: _removed, ...rest } = queuedDraftsRef.current
+          void _removed
+          return rest
+        })()
+      : { ...queuedDraftsRef.current, [activeId]: remaining }
+    queuedDraftsRef.current = nextQueue
+    setQueuedDraftsByConversation(nextQueue)
+
+    void dispatchComposerMessageRef.current({
+      text: draft.text,
+      attachments: draft.attachments,
+      clearComposer: false,
+      useSelectedSlashCommand: false,
+    }).then((ok) => {
+      if (ok) return
+      autoFlushBlockedDraftIdsRef.current.add(draft.id)
+      const restored = {
+        ...queuedDraftsRef.current,
+        [activeId]: [draft, ...(queuedDraftsRef.current[activeId] ?? []).filter((item) => item.id !== draft.id)],
+      }
+      queuedDraftsRef.current = restored
+      setQueuedDraftsByConversation(restored)
+    }).finally(() => {
+      flushingQueuedDraftRef.current = false
+    })
+  }, [
+    hasInFlightAgentRun,
+    sending,
+    activeId,
+    allowSendMessages,
+    unavailableActiveRuntime,
+    queuedDraftsByConversation,
+  ])
 
   // ── Render ────────────────────────────────────────────────────────────────
   const scopeLabel = companyCoworkLocked
@@ -5523,7 +5638,7 @@ export default function UnifiedChat({
             >
               <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] font-medium uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 <span>{activeQueuedDrafts.length} queued follow-up{activeQueuedDrafts.length === 1 ? '' : 's'}</span>
-                {hasInFlightAgentRun && <span>Will wait for this run</span>}
+                <span>{hasInFlightAgentRun ? 'Will send after this run' : sending ? 'Sending…' : 'Sending next…'}</span>
               </div>
               <div className="space-y-1">
                 {activeQueuedDrafts.map((draft) => (
