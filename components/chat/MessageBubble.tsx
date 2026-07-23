@@ -506,7 +506,10 @@ function bareUrls(content: string): string[] {
   return urls
 }
 
-function linkifyBareUrls(text: string, keyPrefix: string): ReactNode[] {
+const REDACTED_URL_HINT =
+  'Sensitive or private URL removed from linked-computer output for safety. Public links stay visible; credentialed or private URLs cannot be recovered from chat.'
+
+function linkifyBareUrlsOnly(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = []
   let lastIndex = 0
   BARE_URL_PATTERN.lastIndex = 0
@@ -531,6 +534,31 @@ function linkifyBareUrls(text: string, keyPrefix: string): ReactNode[] {
     lastIndex = match.index + rawToken.length
   }
   if (lastIndex < text.length) nodes.push(text.slice(lastIndex))
+  return nodes
+}
+
+/** Linkify bare URLs and explain lingering `[redacted-url]` safety placeholders. */
+function linkifyBareUrls(text: string, keyPrefix: string): ReactNode[] {
+  if (!text.includes('[redacted-url]')) return linkifyBareUrlsOnly(text, keyPrefix)
+  const nodes: ReactNode[] = []
+  const parts = text.split(/(\[redacted-url\])/g)
+  for (let i = 0; i < parts.length; i += 1) {
+    const part = parts[i]
+    if (!part) continue
+    if (part === '[redacted-url]') {
+      nodes.push(
+        <abbr
+          key={`${keyPrefix}-redacted-url-${i}`}
+          title={REDACTED_URL_HINT}
+          className="cursor-help rounded bg-amber-500/10 px-1 py-0.5 font-mono text-[0.9em] text-amber-200/90 no-underline decoration-dotted"
+        >
+          [redacted-url]
+        </abbr>,
+      )
+      continue
+    }
+    nodes.push(...linkifyBareUrlsOnly(part, `${keyPrefix}-${i}`))
+  }
   return nodes
 }
 
@@ -878,7 +906,7 @@ export function ChatMessageContent({ content }: { content: string }) {
   const authInstruction = extractDeviceAuthInstruction(content)
   if (authInstruction) return <DeviceAuthCard instruction={authInstruction} />
   if (!hasRichChatMarkup(content)) {
-    if (!hasBareUrl(content)) return <>{content}</>
+    if (!hasBareUrl(content) && !content.includes('[redacted-url]')) return <>{content}</>
     return (
       <div className="space-y-1 [&>:first-child]:mt-0 [&>:last-child]:mb-0">
         <p>{linkifyBareUrls(content, 'plain-message')}</p>

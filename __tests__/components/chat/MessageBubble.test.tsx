@@ -57,6 +57,28 @@ describe('MessageBubble', () => {
     expect(closestMessageGroup(messageText)).toHaveClass('min-w-0')
   })
 
+  it('explains lingering [redacted-url] placeholders instead of implying a recoverable link', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-redacted-url',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Signed upload: [redacted-url] — ask for a public link if you need it.',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+        }}
+      />,
+    )
+
+    const marker = screen.getByTitle(/Sensitive or private URL removed/i)
+    expect(marker).toHaveTextContent('[redacted-url]')
+    expect(marker.tagName).toBe('ABBR')
+  })
+
   it('keeps the user bubble clamped for long pasted mobile text', () => {
     const longToken = 'Attachment:' + 'VeryLongScreenshotFilenameWithoutNaturalBreaks'.repeat(8)
 
