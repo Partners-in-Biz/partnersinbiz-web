@@ -114,20 +114,20 @@ Each document version is an ordered array of `DocumentBlock` objects. Fill `cont
 | Block type | Content shape | Notes |
 |---|---|---|
 | `hero` | `string` (subtitle / tagline) | Always first. Title comes from `document.title`. |
-| `summary` | `string` (markdown prose) | Executive summary or overview |
-| `problem` | `string` (markdown prose) | Problem statement, audience pain, context |
+| `summary` | `string` (plain prose) | Executive summary or overview. **Not Markdown** — use real newlines; put section titles in `block.title`. |
+| `problem` | `string` (plain prose) | Problem statement, audience pain, context. **Not Markdown.** |
 | `scope` | `string` or `string[]` (bullet list) | What is in scope |
 | `deliverables` | `string[]` (list of deliverables) | Concrete outputs |
 | `timeline` | `{ phases: [{ label: string, duration: string, description?: string }] }` | Milestone phases |
 | `investment` | `{ items: [{ label: string, amount: number, currency?: string }], total: number, currency?: string, notes?: string }` | Pricing table |
-| `terms` | `string` (markdown prose) | Payment terms, IP, cancellation |
+| `terms` | `string` (plain prose) | Payment terms, IP, cancellation. **Not Markdown.** |
 | `approval` | `string` (instructions text for client) | Shown above the approve button |
 | `metrics` | `{ items: [{ label: string, value?: string, target?: string, description?: string }] }` | KPIs / success metrics |
 | `risk` | `string[]` or `string` | Known risks, assumptions, limitations |
 | `table` | `{ headers: string[], rows: string[][] }` | Generic data table |
 | `gallery` | `string[]` (image URLs) | Image gallery |
 | `callout` | `{ title: string, body: string, variant?: 'info'\|'warning'\|'success' }` | Highlighted callout box |
-| `rich_text` | `string` (markdown) | Free-form markdown section |
+| `rich_text` | `string` (plain prose) | Free-form section. **Not Markdown** — `###` / `**` / `` ` `` render as literal characters. Prefer splitting into titled blocks + `table` / `faq` / `scope`. |
 | `image` | `{ url, alt?, caption?, width?: 'normal'\|'wide'\|'full' }` | Lazy-loaded; `wide` breaks past prose column, `full` is edge-to-edge |
 | `video` | `{ url, provider?: 'youtube'\|'loom'\|'vimeo'\|'mux', caption? }` | Auto-detects provider from URL; lazy iframe |
 | `embed` | `{ url, height?: number, caption? }` | Sandboxed iframe; only allowed hosts (Calendly, Tally, Typeform, Figma, CodeSandbox, Google Docs/Forms) — others fall back to a plain link |
@@ -136,6 +136,10 @@ Each document version is an ordered array of `DocumentBlock` objects. Fill `cont
 | `pricing_toggle` | `{ items: [{label, amount, required?, default?}], currency, note? }` | Interactive — client toggles add-ons, total updates live |
 | `faq` | `{ items: [{q, a}] }` | Native `<details>` accordion |
 | `comparison` | `{ headers: string[], rows: [{label, values: (string\|boolean)[]}], highlightCol?: number }` | Highlight column tinted accent; boolean cells render as check/cross icons |
+
+> ⚠️ **Prose blocks are plain text, not Markdown.** `summary`, `problem`, `terms`, `hero`, `approval`, and `rich_text` render with `whitespace-pre-wrap` only. Never put `###`, `**`, `` ` ``, or Markdown lists in content — they show literally to the client. Use `block.title` for headings and structured blocks (`table`, `scope`, `deliverables`, `faq`, `callout`, `metrics`, `timeline`, `comparison`, `risk`) for structure. Use real newlines in JSON strings (not the two-character sequence `\n`).
+
+> ⚠️ **Theme contrast for tables:** alternating table rows use `--doc-surface`. Prefer the default dark palette (`bg` near `#0A0A0B`, light `text`, gold `accent`), or set `palette.surface` / `border` / `muted` explicitly for light themes. Light `bg` without those fields now auto-derives readable surface colors in the renderer, but older light-only palettes still looked broken (dark surface + dark text).
 
 > ⚠️ **Match the content shape exactly — the wrong shape crashes the whole document, it does not degrade gracefully.** The renderer maps `content` straight onto React children, so handing a block an unexpected object/array throws React error #31 ("Objects are not valid as a React child") and the *entire* document page renders "Document not found" / blank for both admin and client. Most common footguns: `risk` must be `string[]` (NOT `[{severity, item}]`), `timeline` must be `{ phases: [...] }` (NOT `[{phase, detail}]`), `approval`/`terms`/`hero`/`summary`/`problem` must be plain `string` (NOT objects), `metrics` must be `{ items: [...] }` with `value`/`target` as **strings** not integers. When copying blocks from an older document version, re-validate every shape against this table — older drafts may use shapes a newer renderer rejects.
 
@@ -638,7 +642,7 @@ Copy-paste-ready examples for every block type. Each block is one element of the
   "id": "notes",
   "type": "rich_text",
   "title": "A note from Peet",
-  "content": "We've run this exact playbook for **5 SaaS clients** in the last 18 months. Every one hit the CPL target inside 60 days. The reason: we ship creative weekly, not monthly — so we kill bad ads fast and double down on what works.",
+  "content": "We've run this exact playbook for 5 SaaS clients in the last 18 months. Every one hit the CPL target inside 60 days. The reason: we ship creative weekly, not monthly — so we kill bad ads fast and double down on what works.",
   "required": false,
   "display": {}
 }

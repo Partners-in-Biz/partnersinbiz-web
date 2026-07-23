@@ -220,8 +220,10 @@ function validateTheme(value: unknown): { ok: true; value: DocumentTheme } | { o
       return { ok: false, error: `theme.palette.${field} must be a non-empty string` }
     }
   }
-  if (palette.muted !== undefined && typeof palette.muted !== 'string') {
-    return { ok: false, error: 'theme.palette.muted must be a string' }
+  for (const optional of ['muted', 'border', 'surface'] as const) {
+    if (palette[optional] !== undefined && typeof palette[optional] !== 'string') {
+      return { ok: false, error: `theme.palette.${optional} must be a string` }
+    }
   }
 
   // Default typography when agents only send palette (common incomplete theme).
@@ -250,6 +252,8 @@ function validateTheme(value: unknown): { ok: true; value: DocumentTheme } | { o
         text: palette.text as string,
         accent: palette.accent as string,
         ...(typeof palette.muted === 'string' ? { muted: palette.muted } : {}),
+        ...(typeof palette.border === 'string' ? { border: palette.border } : {}),
+        ...(typeof palette.surface === 'string' ? { surface: palette.surface } : {}),
       },
       typography,
     },

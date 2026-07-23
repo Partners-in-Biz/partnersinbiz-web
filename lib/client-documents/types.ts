@@ -399,6 +399,8 @@ export interface DocumentTheme {
     text: string
     accent: string
     muted?: string
+    border?: string
+    surface?: string
   }
   typography: {
     heading: string
