@@ -4066,13 +4066,9 @@ export default function UnifiedChat({
           const agentId: AgentId =
             dispatchAgentId ?? (agentParticipant?.kind === 'agent' ? agentParticipant.agentId : 'pip')
           void runDocId
-          try {
-            // Open SSE stream to receive live tool-call events
-            startEventStream(newAssistantId, runId, agentId, convId)
-            pollFinalize(convId, newAssistantId, runId, agentId)
-          } catch {
-            // Message already landed — stream/poll setup failures must not undo send.
-          }
+          // Open SSE stream to receive live tool-call events
+          startEventStream(newAssistantId, runId, agentId, convId)
+          pollFinalize(convId, newAssistantId, runId, agentId)
         }
         return true
       } catch (e) {
