@@ -2365,11 +2365,16 @@ export default function UnifiedChat({
   ])
 
   // ── Load messages ─────────────────────────────────────────────────────────
+  // Only paint into React state when `convId` is still the active session.
+  // Finalize polls / SSE recovery keep fetching in the background so runs can
+  // complete after the user switches away, but a late response must never
+  // overwrite the conversation currently on screen.
   const loadMessages = useCallback(async (
     convId: string,
     options?: { silent?: boolean; softError?: boolean },
   ): Promise<ConversationMessage[] | null> => {
-    if (!options?.silent) setLoading(true)
+    const shouldMutateUi = () => activeConversationIdRef.current === convId
+    if (!options?.silent && shouldMutateUi()) setLoading(true)
     try {
       let res: Response
       try {
@@ -2392,16 +2397,20 @@ export default function UnifiedChat({
       if (!res.ok) throw new Error(`load messages: ${res.status}`)
       const body = await res.json()
       const nextMessages = (body.data?.messages ?? []) as ConversationMessage[]
-      setMessages(nextMessages)
-      if (options?.softError) setError(null)
+      if (shouldMutateUi()) {
+        setMessages(nextMessages)
+        if (options?.softError) setError(null)
+      }
       return nextMessages
     } catch (e) {
-      setError(options?.softError
-        ? formatLiveMessageRefreshError(e)
-        : (e instanceof Error ? e.message : 'Failed to load messages'))
+      if (shouldMutateUi()) {
+        setError(options?.softError
+          ? formatLiveMessageRefreshError(e)
+          : (e instanceof Error ? e.message : 'Failed to load messages'))
+      }
       return null
     } finally {
-      if (!options?.silent) setLoading(false)
+      if (!options?.silent && shouldMutateUi()) setLoading(false)
     }
   }, [])
 
@@ -2569,13 +2578,16 @@ export default function UnifiedChat({
         delete next[msgId]
         return next
       })
+      const shouldPaintStream = () => !convId || activeConversationIdRef.current === convId
       es.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data) as ChatEvent
+          // Always accumulate events — finalize may still need them after a session switch.
           setLiveEvents((prev) => ({
             ...prev,
             [msgId]: [...(prev[msgId] ?? []), data],
           }))
+          if (!shouldPaintStream()) return
           const richParts = Array.isArray(data.richParts) ? data.richParts as RichMessagePart[] : []
           const uiActions = Array.isArray(data.uiActions) ? data.uiActions as ChatUiAction[] : []
           if (richParts.length > 0 || uiActions.length > 0) {
@@ -2640,21 +2652,24 @@ export default function UnifiedChat({
   // ── Polling finalize ──────────────────────────────────────────────────────
   const pollFinalize = useCallback(
     async (convId: string, msgId: string, runId: string, agentId: AgentId, attempts = 0) => {
+      const shouldPaint = () => activeConversationIdRef.current === convId
       if (attempts > MAX_RUN_POLL_ATTEMPTS) {
         closeEventStream(msgId)
         // Update the pending message to show a timeout notice without killing it
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === msgId
-              ? { ...m, status: 'failed', error: 'Run timed out — the agent may still be working. Refresh to check.', content: '' }
-              : m,
-          ),
-        )
+        if (shouldPaint()) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === msgId
+                ? { ...m, status: 'failed', error: 'Run timed out — the agent may still be working. Refresh to check.', content: '' }
+                : m,
+            ),
+          )
+        }
         return
       }
 
       // Show elapsed time hint in the bubble after 30s
-      if (attempts === 20) {
+      if (attempts === 20 && shouldPaint()) {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === msgId && m.status === 'pending'
@@ -2678,23 +2693,25 @@ export default function UnifiedChat({
 
         if (!res.ok && shouldStopFinalizePollingForStatus(res.status)) {
           closeEventStream(msgId)
-          const apiMessage = typeof body.error === 'string' && !body.error.trim().startsWith('<')
-            ? body.error
-            : undefined
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === msgId
-                ? {
-                    ...m,
-                    status: 'failed',
-                    error: apiMessage
-                      ? `Agent response could not be finalized: ${apiMessage}. Refresh and send again if needed.`
-                      : `Agent response could not be finalized (${res.status}). Refresh and send again if needed.`,
-                    content: '',
-                  }
-                : m,
-            ),
-          )
+          if (shouldPaint()) {
+            const apiMessage = typeof body.error === 'string' && !body.error.trim().startsWith('<')
+              ? body.error
+              : undefined
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === msgId
+                  ? {
+                      ...m,
+                      status: 'failed',
+                      error: apiMessage
+                        ? `Agent response could not be finalized: ${apiMessage}. Refresh and send again if needed.`
+                        : `Agent response could not be finalized (${res.status}). Refresh and send again if needed.`,
+                      content: '',
+                    }
+                  : m,
+              ),
+            )
+          }
           return
         }
 
@@ -2721,14 +2738,16 @@ export default function UnifiedChat({
         }
 
         if (status === 'waiting_approval') {
-          const lastEvent = events[events.length - 1]
-          setMessages((prev) =>
-            prev.map((m) => (m.id === msgId ? { ...m, status: 'waiting_approval', runId } : m)),
-          )
-          setApprovalPending((prev) => ({
-            ...prev,
-            [msgId]: { runId, agentId, toolName: lastEvent?.tool },
-          }))
+          if (shouldPaint()) {
+            const lastEvent = events[events.length - 1]
+            setMessages((prev) =>
+              prev.map((m) => (m.id === msgId ? { ...m, status: 'waiting_approval', runId } : m)),
+            )
+            setApprovalPending((prev) => ({
+              ...prev,
+              [msgId]: { runId, agentId, toolName: lastEvent?.tool },
+            }))
+          }
           if (shouldAutoApproveDangerousCommands(approvalModeRef.current)) {
             void (async () => {
               try {
@@ -2741,14 +2760,16 @@ export default function UnifiedChat({
                   },
                 )
                 if (!res.ok) return
-                setApprovalPending((prev) => {
-                  const next = { ...prev }
-                  delete next[msgId]
-                  return next
-                })
-                setMessages((prev) =>
-                  prev.map((m) => (m.id === msgId ? { ...m, status: 'pending' } : m)),
-                )
+                if (shouldPaint()) {
+                  setApprovalPending((prev) => {
+                    const next = { ...prev }
+                    delete next[msgId]
+                    return next
+                  })
+                  setMessages((prev) =>
+                    prev.map((m) => (m.id === msgId ? { ...m, status: 'pending' } : m)),
+                  )
+                }
                 startEventStream(msgId, runId, agentId, convId)
                 scheduleFinalizePoll(convId, msgId, runId, agentId, attempts)
               } catch {
@@ -2764,28 +2785,30 @@ export default function UnifiedChat({
         closeEventStream(msgId)
         const thinking = buildThinkingTrace(events)
         const terminalStatus = status === 'failed' ? 'failed' : 'completed'
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === msgId
-              ? {
-                  ...m,
-                  status: terminalStatus,
-                  ...(typeof finalizedContent === 'string' ? { content: finalizedContent } : {}),
-                  ...(thinking ? { thinking } : {}),
-                  ...(terminalStatus === 'failed'
-                    ? { error: m.error || 'Agent run failed' }
-                    : { error: undefined }),
-                }
-              : m,
-          ),
-        )
+        if (shouldPaint()) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === msgId
+                ? {
+                    ...m,
+                    status: terminalStatus,
+                    ...(typeof finalizedContent === 'string' ? { content: finalizedContent } : {}),
+                    ...(thinking ? { thinking } : {}),
+                    ...(terminalStatus === 'failed'
+                      ? { error: m.error || 'Agent run failed' }
+                      : { error: undefined }),
+                  }
+                : m,
+            ),
+          )
+        }
         let loaded: ConversationMessage[] | null = null
         for (let retry = 0; retry < FINALIZE_LOAD_RETRIES; retry += 1) {
           loaded = await loadMessages(convId, { silent: true, softError: true })
           if (loaded) break
           await new Promise((resolve) => setTimeout(resolve, 400 * (retry + 1)))
         }
-        if (!loaded) {
+        if (!loaded && shouldPaint()) {
           setError('Agent finished, but the reply could not be refreshed. Reload the page to see it.')
         }
         await loadConversations()
@@ -2804,18 +2827,20 @@ export default function UnifiedChat({
           return
         }
         closeEventStream(msgId)
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === msgId
-              ? {
-                  ...m,
-                  status: 'failed',
-                  error: 'Lost connection while checking the agent run. Refresh or send the message again.',
-                  content: '',
-                }
-              : m,
-          ),
-        )
+        if (shouldPaint()) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === msgId
+                ? {
+                    ...m,
+                    status: 'failed',
+                    error: 'Lost connection while checking the agent run. Refresh or send the message again.',
+                    content: '',
+                  }
+                : m,
+            ),
+          )
+        }
       }
     },
     [loadMessages, loadConversations, closeEventStream, scheduleFinalizePoll, startEventStream],
@@ -4031,7 +4056,12 @@ export default function UnifiedChat({
               createdAt: { seconds: nowSec + 0.001 },
             }]
           : []
-        setMessages((prev) => [...prev, optimisticUser, ...optimisticAgent])
+        // Do not append optimistic rows if the user already switched sessions —
+        // that would briefly (or permanently, via a follow-on race) paint this
+        // send into the wrong conversation.
+        if (activeConversationIdRef.current === convId) {
+          setMessages((prev) => [...prev, optimisticUser, ...optimisticAgent])
+        }
 
         const res = await fetch(`/api/v1/conversations/${convId}/messages`, {
           method: 'POST',
