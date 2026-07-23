@@ -3,7 +3,8 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { ROLE_RANK } from '@/lib/orgMembers/types'
 import type { OrgRole } from '@/lib/organizations/types'
 import { resolveAgentApiKeyUser } from '@/lib/api/auth'
-import type { ApiAuthKind, ApiPermission } from '@/lib/api/types'
+import { resolveDelegationTokenUser } from '@/lib/api/delegations'
+import type { ApiAuthKind, ApiPermission, ApiUser } from '@/lib/api/types'
 import {
   AGENT_PIP_REF,
   buildHumanRef,
@@ -43,6 +44,9 @@ export interface CrmAuthContext {
     authKind?: ApiAuthKind
     agentId?: string
     apiKeyId?: string
+    delegationId?: string
+    actingForUserId?: string
+    delegationScopes?: string[]
     permissions?: ApiPermission[]
     orgId?: string
     allowedOrgIds?: string[]
@@ -87,6 +91,122 @@ function agentRefFor(agentId: string | undefined): MemberRef {
   }
 }
 
+function cleanStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+}
+
+function delegationAllowsOrg(user: ApiUser, orgId: string): boolean {
+  const allowed = new Set<string>()
+  if (user.orgId) allowed.add(user.orgId)
+  if (user.activeOrgId) allowed.add(user.activeOrgId)
+  for (const id of user.orgIds ?? []) allowed.add(id)
+  for (const id of user.allowedOrgIds ?? []) allowed.add(id)
+  // Empty allow-set means the mint record lacked org claims — fail closed.
+  if (allowed.size === 0) return false
+  return allowed.has(orgId)
+}
+
+async function resolveHumanCrmMembership(input: {
+  uid: string
+  orgId: string
+  minRole: Exclude<CrmRole, 'system'>
+}): Promise<
+  | { ok: true; role: OrgRole; actor: MemberRef; permissions: OrgPermissions; accessPolicy: MemberAccessPolicy }
+  | { ok: false; response: Response }
+> {
+  const { uid, orgId, minRole } = input
+  const memberSnap = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
+  let role: OrgRole | null = null
+  let actor: MemberRef | null = null
+  let accessScope: unknown
+  let storedAccessPolicy: unknown
+  if (memberSnap.exists) {
+    const m = memberSnap.data() ?? {}
+    role = (m.role as OrgRole) ?? null
+    actor = buildHumanRef(uid, m)
+    accessScope = m.accessScope
+    storedAccessPolicy = m.accessPolicy
+  }
+
+  const { permissions, members, exists: orgExists } = await loadOrgPermissions(orgId)
+  if (!orgExists) return { ok: false, response: apiError('Organization not found', 404) }
+
+  if (!role) {
+    const fallback = members?.find((m) => m.userId === uid)
+    if (fallback) {
+      role = fallback.role
+      actor = { uid, displayName: uid, kind: 'human' }
+      accessScope = fallback.accessScope
+      storedAccessPolicy = fallback.accessPolicy
+    }
+  }
+
+  if (!role || !actor) return { ok: false, response: apiError('Workspace membership not found', 403) }
+  if (rankOf(role) < rankOf(minRole)) return { ok: false, response: apiError('Insufficient permissions', 403) }
+  const accessPolicy = resolveMemberAccessPolicy({ role, accessScope, accessPolicy: storedAccessPolicy })
+  if (!canAccessModule(accessPolicy, 'crm')) {
+    return { ok: false, response: apiError('CRM module access is disabled for this team member', 403) }
+  }
+
+  return { ok: true, role, actor, permissions, accessPolicy }
+}
+
+async function resolveDelegationCrmContext(
+  req: NextRequest,
+  delegationUser: ApiUser,
+  minRole: Exclude<CrmRole, 'system'>,
+): Promise<CrmAuthContext | Response> {
+  const actingUid = (delegationUser.actingForUserId || delegationUser.uid || '').trim()
+  if (!actingUid) return apiError('Invalid delegation token', 401)
+
+  const requestedOrgId =
+    req.headers.get('x-org-id')?.trim() ||
+    new URL(req.url).searchParams.get('orgId')?.trim() ||
+    ''
+  const orgId = requestedOrgId || delegationUser.activeOrgId || delegationUser.orgId || ''
+  if (!orgId) return apiError('Missing X-Org-Id header', 400)
+  if (!delegationAllowsOrg(delegationUser, orgId)) {
+    return apiError('Delegation is not scoped to this organization', 403)
+  }
+
+  const userDoc = await adminDb.collection('users').doc(actingUid).get()
+  if (!userDoc.exists) return apiError('User not found', 404)
+  const userData = userDoc.data() ?? {}
+
+  const allowed = await canUsePortalOrg(actingUid, userData, orgId)
+  if (!allowed) return apiError('You do not have access to this workspace', 403)
+
+  const membership = await resolveHumanCrmMembership({ uid: actingUid, orgId, minRole })
+  if (!membership.ok) return membership.response
+
+  return {
+    orgId,
+    uid: actingUid,
+    actor: membership.actor,
+    role: membership.role,
+    // Keep human privilege model: delegation must not inherit system/agent CRM bypasses.
+    isAgent: false,
+    permissions: membership.permissions,
+    accessPolicy: membership.accessPolicy,
+    user: {
+      uid: actingUid,
+      role: typeof userData.role === 'string' ? userData.role : delegationUser.role,
+      authKind: 'user_delegation',
+      agentId: delegationUser.agentId,
+      apiKeyId: delegationUser.apiKeyId,
+      delegationId: delegationUser.delegationId,
+      actingForUserId: actingUid,
+      delegationScopes: delegationUser.delegationScopes,
+      permissions: delegationUser.permissions,
+      orgId: typeof userData.orgId === 'string' ? userData.orgId : orgId,
+      allowedOrgIds: Array.isArray(userData.allowedOrgIds)
+        ? cleanStringArray(userData.allowedOrgIds)
+        : delegationUser.allowedOrgIds,
+    },
+  }
+}
+
 export function withCrmAuth(
   minRole: Exclude<CrmRole, 'system'>,
   handler: CrmRouteHandler,
@@ -105,6 +225,16 @@ export function withCrmAuth<RouteCtx = unknown>(
     // Bearer path
     if (authHeader.startsWith('Bearer ')) {
       const token = authHeader.slice(7)
+
+      // 1. User-delegation tokens (Messages / interactive Hermes runs).
+      const delegationUser = await resolveDelegationTokenUser(token)
+      if (delegationUser) {
+        const resolved = await resolveDelegationCrmContext(req, delegationUser, minRole)
+        if (resolved instanceof Response) return resolved
+        return handler(req, resolved, routeCtx)
+      }
+
+      // 2. Legacy shared AI key or per-agent API key (cron / system only).
       const aiKey = process.env.AI_API_KEY
       const isLegacyAiKey = Boolean(aiKey && token === aiKey)
       const agentUser = isLegacyAiKey ? null : await resolveAgentApiKeyUser(token)
@@ -172,53 +302,23 @@ export function withCrmAuth<RouteCtx = unknown>(
     }
     if (!orgId) return apiError('No active workspace', 400)
 
-    const memberSnap = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
-    let role: OrgRole | null = null
-    let actor: MemberRef | null = null
-    let accessScope: unknown
-    let storedAccessPolicy: unknown
-    if (memberSnap.exists) {
-      const m = memberSnap.data() ?? {}
-      role = (m.role as OrgRole) ?? null
-      actor = buildHumanRef(uid, m)
-      accessScope = m.accessScope
-      storedAccessPolicy = m.accessPolicy
-    }
-
-    const { permissions, members } = await loadOrgPermissions(orgId)
-
-    if (!role) {
-      const fallback = members?.find((m) => m.userId === uid)
-      if (fallback) {
-        role = fallback.role
-        actor = { uid, displayName: uid, kind: 'human' }
-        accessScope = fallback.accessScope
-        storedAccessPolicy = fallback.accessPolicy
-      }
-    }
-
-    if (!role || !actor) return apiError('Workspace membership not found', 403)
-    if (rankOf(role) < rankOf(minRole)) return apiError('Insufficient permissions', 403)
-    const accessPolicy = resolveMemberAccessPolicy({ role, accessScope, accessPolicy: storedAccessPolicy })
-    if (!canAccessModule(accessPolicy, 'crm')) {
-      return apiError('CRM module access is disabled for this team member', 403)
-    }
+    const membership = await resolveHumanCrmMembership({ uid, orgId, minRole })
+    if (!membership.ok) return membership.response
 
     const ctx: CrmAuthContext = {
       orgId,
       uid,
-      actor,
-      role,
+      actor: membership.actor,
+      role: membership.role,
       isAgent: false,
-      permissions,
-      accessPolicy,
+      permissions: membership.permissions,
+      accessPolicy: membership.accessPolicy,
       user: {
         uid,
         role: typeof userData.role === 'string' ? userData.role : undefined,
+        authKind: 'session',
         orgId: typeof userData.orgId === 'string' ? userData.orgId : orgId,
-        allowedOrgIds: Array.isArray(userData.allowedOrgIds)
-          ? userData.allowedOrgIds.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0)
-          : undefined,
+        allowedOrgIds: cleanStringArray(userData.allowedOrgIds),
       },
     }
     return handler(req, ctx, routeCtx)
