@@ -71,22 +71,34 @@ mapfile -t active_units < <(
     | awk '{print $1}'
 )
 if (( ${#active_units[@]} > 0 )); then
-  systemctl restart "${active_units[@]}"
-  systemctl is-active "${active_units[@]}"
-
-  # A syntax/import failure can leave a Restart=always unit momentarily active
-  # before it falls into a crash loop. Do not report a successful skill sync
-  # until every restarted profile survives a full stabilization window without
-  # incrementing its restart counter.
-  declare -A restart_baseline=()
-  for unit in "${active_units[@]}"; do
-    restart_baseline["$unit"]=$(systemctl show "$unit" --property=NRestarts --value)
-  done
-  stabilization_seconds=${PIB_SKILL_RESTART_STABILIZATION_SECONDS:-30}
+  # Rolling restart — never bounce the whole fleet at once. A simultaneous
+  # restart makes every Messages/Hermes run fail with claim timeouts or
+  # "Local Hermes execution failed" for ~30–60s (seen 2026-07-23 during Blake).
+  gap_seconds=${PIB_SKILL_RESTART_GAP_SECONDS:-3}
+  if [[ ! "$gap_seconds" =~ ^[0-9]+$ ]]; then
+    echo "PIB_SKILL_RESTART_GAP_SECONDS must be a non-negative integer" >&2
+    exit 2
+  fi
+  stabilization_seconds=${PIB_SKILL_RESTART_STABILIZATION_SECONDS:-15}
   if [[ ! "$stabilization_seconds" =~ ^[0-9]+$ ]]; then
     echo "PIB_SKILL_RESTART_STABILIZATION_SECONDS must be a non-negative integer" >&2
     exit 2
   fi
+
+  declare -A restart_baseline=()
+  for unit in "${active_units[@]}"; do
+    restart_baseline["$unit"]=$(systemctl show "$unit" --property=NRestarts --value)
+    systemctl restart "$unit"
+    systemctl is-active "$unit"
+    if (( gap_seconds > 0 )); then
+      sleep "$gap_seconds"
+    fi
+  done
+
+  # A syntax/import failure can leave a Restart=always unit momentarily active
+  # before it falls into a crash loop. Do not report a successful skill sync
+  # until every restarted profile survives a stabilization window without
+  # incrementing its restart counter.
   sleep "$stabilization_seconds"
   systemctl is-active "${active_units[@]}"
   for unit in "${active_units[@]}"; do
@@ -98,5 +110,5 @@ if (( ${#active_units[@]} > 0 )); then
   done
 fi
 
-logger -t pib-skill-sync "applied staged PiB agent skills and restarted ${#active_units[@]} active profiles"
+logger -t pib-skill-sync "applied staged PiB agent skills with rolling restart of ${#active_units[@]} active profiles"
 echo "PiB skill staging apply complete"
