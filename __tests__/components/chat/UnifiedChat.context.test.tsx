@@ -2974,6 +2974,7 @@ describe('UnifiedChat context references', () => {
 
     expect(await screen.findByTestId('queued-composer-drafts')).toHaveTextContent('1 queued follow-up')
     expect(screen.getByText('Please continue after approval')).toBeInTheDocument()
+    expect(screen.getByText('Will send after this run')).toBeInTheDocument()
     expect(input).toHaveValue('')
     expect(mockFetch.mock.calls.some(([url, init]) =>
       String(url) === '/api/v1/conversations/conv-1/messages' && init?.method === 'POST',
@@ -2982,6 +2983,124 @@ describe('UnifiedChat context references', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Load' }))
     expect(input).toHaveValue('Please continue after approval')
     expect(screen.queryByTestId('queued-composer-drafts')).not.toBeInTheDocument()
+  })
+
+  it('auto-sends the next queued follow-up after the in-flight agent run completes', async () => {
+    const originalEventSource = window.EventSource
+    class MockEventSource {
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      close = jest.fn()
+      constructor(_url: string) {}
+    }
+    Object.defineProperty(window, 'EventSource', {
+      configurable: true,
+      value: MockEventSource,
+    })
+
+    let runStopped = false
+    mockFetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
+      if (url === '/api/v1/conversations/conv-1/messages/msg-waiting/stop' && init?.method === 'POST') {
+        runStopped = true
+        return jsonResponse({ data: { ok: true } })
+      }
+      if (url.includes('/finalize') && init?.method === 'POST') {
+        return jsonResponse({ data: { status: 'running' } })
+      }
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        if (init?.method === 'POST') {
+          const body = typeof init.body === 'string' ? JSON.parse(init.body) : {}
+          return jsonResponse({
+            data: {
+              message: {
+                id: 'msg-user-queued',
+                conversationId: 'conv-1',
+                role: 'user',
+                content: body.content,
+                authorKind: 'user',
+                authorId: 'user-1',
+                authorDisplayName: 'Peet',
+                status: 'completed',
+              },
+              assistantMessage: {
+                id: 'msg-assistant-next',
+                conversationId: 'conv-1',
+                role: 'assistant',
+                content: '',
+                authorKind: 'agent',
+                authorId: 'pip',
+                authorDisplayName: 'Pip',
+                status: 'pending',
+              },
+              runId: 'run-next',
+              dispatchAgentId: 'pip',
+            },
+          })
+        }
+        return jsonResponse({
+          data: {
+            messages: [{
+              id: 'msg-waiting',
+              conversationId: 'conv-1',
+              role: 'assistant',
+              content: runStopped ? 'Stopped' : 'Waiting for approval',
+              authorKind: 'agent',
+              authorId: 'pip',
+              authorDisplayName: 'Pip',
+              status: runStopped ? 'failed' : 'waiting_approval',
+              runId: 'run-1',
+              createdAt: { seconds: 2 },
+            }],
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        allowDeleteConversations
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Queue a follow-up while Pip is running')
+    fireEvent.change(input, { target: { value: 'here is the 3rd blog post' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+    expect(await screen.findByTestId('queued-composer-drafts')).toHaveTextContent('1 queued follow-up')
+    expect(mockFetch.mock.calls.some(([url, init]) =>
+      String(url) === '/api/v1/conversations/conv-1/messages' && init?.method === 'POST',
+    )).toBe(false)
+
+    // Stopping the in-flight run clears pending/waiting status and should flush the queue.
+    fireEvent.click(screen.getByRole('button', { name: /Stop run/i }))
+
+    await waitFor(() => {
+      const queuedPosts = mockFetch.mock.calls.filter(([url, init]) =>
+        String(url) === '/api/v1/conversations/conv-1/messages' && init?.method === 'POST',
+      )
+      expect(queuedPosts.length).toBeGreaterThanOrEqual(1)
+      const body = JSON.parse(String(queuedPosts[0][1]?.body))
+      expect(body.content).toBe('here is the 3rd blog post')
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('queued-composer-drafts')).not.toBeInTheDocument()
+    })
+
+    Object.defineProperty(window, 'EventSource', {
+      configurable: true,
+      value: originalEventSource,
+    })
   })
 
   it('recalls local composer history with ArrowUp and ArrowDown', async () => {
