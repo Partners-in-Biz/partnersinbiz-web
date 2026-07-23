@@ -254,6 +254,8 @@ export const POST = withAuth(
     let projectFolderRelativePath: string | undefined
     let companyId: string | undefined
     let companyName: string | undefined
+    let companyDomain: string | undefined
+    let companyLinkedOrgId: string | undefined
     if (convScope === 'project') {
       if (!scopeRefId) return apiError('scopeRefId is required for project conversations', 400)
       if (!requestedWorkspaceId || !runtimeTarget) {
@@ -276,6 +278,14 @@ export const POST = withAuth(
       if (!company) return apiError('Company not found', 404)
       companyId = company.id
       companyName = company.name
+      companyDomain = typeof company.data.domain === 'string' && company.data.domain.trim()
+        ? company.data.domain.trim()
+        : typeof company.data.website === 'string' && company.data.website.trim()
+          ? company.data.website.trim()
+          : undefined
+      companyLinkedOrgId = typeof company.data.linkedOrgId === 'string' && company.data.linkedOrgId.trim()
+        ? company.data.linkedOrgId.trim()
+        : undefined
     }
     const shouldBindWorkspace = convScope === 'workspace' || convScope === 'company'
       || convScope === 'project' || Boolean(requestedWorkspaceId)
@@ -347,9 +357,18 @@ export const POST = withAuth(
           folderRelativePath: projectFolderRelativePath,
           companyId,
           companyName,
+          companyDomain,
+          companyLinkedOrgId,
         })
       : null
-    if (shouldBindWorkspace && !workspaceContext) return apiError('Workspace not found for this organisation', 404)
+    if (shouldBindWorkspace && !workspaceContext) {
+      return apiError(
+        convScope === 'company'
+          ? 'Company Cowork folder could not be prepared for this organisation'
+          : 'Workspace not found for this organisation',
+        404,
+      )
+    }
     let boundWorkspaceContext = workspaceContext
     if (boundWorkspaceContext && (boundWorkspaceContext.folderScope === 'company'
       || (boundWorkspaceContext.folderScope === 'project' && boundWorkspaceContext.companyId))) {
@@ -359,7 +378,10 @@ export const POST = withAuth(
       )
       if (!ensured.ok) {
         const failure = ensured as { ok: false; error: string }
-        return apiError(failure.error || 'Company Cowork folder could not be prepared', 409)
+        return apiError(
+          failure.error || 'Setting up the company Cowork folder failed. Try again in a moment.',
+          409,
+        )
       }
       if (!('deferred' in ensured)) {
         boundWorkspaceContext = ensured.workspace

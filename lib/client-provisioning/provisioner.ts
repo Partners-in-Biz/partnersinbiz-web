@@ -85,6 +85,40 @@ export function inferAgentName(clientName: string): string {
   return clientName.trim().split(/\s+/)[0] || 'Client'
 }
 
+/** Kebab-case agent domain / workspace id for a CRM company Cowork folder. */
+export function inferCompanyCoworkDomain(input: {
+  name?: string | null
+  domain?: string | null
+  website?: string | null
+}): string {
+  const fromName = (input.name || '')
+    .normalize('NFKD')
+    .replace(/[’']/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  if (fromName) return fromName
+
+  const host = [input.domain, input.website]
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .find(Boolean)
+  if (host) {
+    try {
+      const normalised = host.includes('://') ? host : `https://${host}`
+      const hostname = new URL(normalised).hostname.replace(/^www\./i, '')
+      const label = hostname.split('.')[0] || hostname
+      const fromHost = label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+      if (fromHost) return fromHost
+    } catch {
+      // fall through
+    }
+  }
+  return 'company'
+}
+
 export function buildClientProvisioningPayload(input: ClientProvisioningInput): ClientProvisioningPayload {
   const clientName = input.clientName.trim()
   const domain = input.domain.trim()

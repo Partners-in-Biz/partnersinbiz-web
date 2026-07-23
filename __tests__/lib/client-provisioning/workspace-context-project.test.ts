@@ -98,6 +98,51 @@ describe('project conversation workspace identity', () => {
     }))
   })
 
+  it('builds a provisional company Cowork identity when the Workspace link is missing', async () => {
+    mockCompanyWorkspaceGet.mockResolvedValue({ docs: [] })
+    const { resolveConversationWorkspaceContext } = await import('@/lib/client-provisioning/workspace-context')
+
+    const context = await resolveConversationWorkspaceContext({
+      orgId: 'org-1',
+      workspaceId: 'partners',
+      ownerUserId: 'user-1',
+      companyId: 'company-hunt',
+      companyName: 'Hunt and Gun',
+      companyDomain: 'huntandgun.co.za',
+      companyLinkedOrgId: 'client-hunt',
+    })
+
+    expect(context).toEqual(expect.objectContaining({
+      orgId: 'org-1',
+      workspaceId: 'partners',
+      companyId: 'company-hunt',
+      companyName: 'Hunt and Gun',
+      companyWorkspaceId: 'hunt-and-gun',
+      folderScope: 'company',
+      agentDomain: 'hunt-and-gun',
+      vpsPath: '/var/lib/hermes/Cowork/Hunt and Gun',
+      localPath: '~/Cowork/Hunt and Gun',
+      vpsWorkingPath: '/var/lib/hermes/Cowork/Hunt and Gun',
+    }))
+  })
+
+  it('does not 404 a named company session just because the Workspace link is missing', async () => {
+    mockCompanyWorkspaceGet.mockResolvedValue({ docs: [] })
+    const { resolveConversationWorkspaceContext } = await import('@/lib/client-provisioning/workspace-context')
+
+    const context = await resolveConversationWorkspaceContext({
+      orgId: 'org-1',
+      workspaceId: 'partners',
+      ownerUserId: 'user-1',
+      companyId: 'company-hunt',
+      companyName: 'Hunt and Gun',
+    })
+
+    expect(context).not.toBeNull()
+    expect(context?.folderScope).toBe('company')
+    expect(context?.companyWorkspaceId).toBe('hunt-and-gun')
+  })
+
   it('binds the spawned session to the project CRM company in the current organisation', async () => {
     mockProjectGet.mockResolvedValue({
       exists: true,
