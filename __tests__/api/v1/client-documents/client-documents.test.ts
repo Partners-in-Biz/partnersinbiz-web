@@ -1184,6 +1184,69 @@ describe('client documents API', () => {
     )
   })
 
+  it('defaults missing required/display and accepts top-level motion aliases from agent payloads', async () => {
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({ orgId: 'org-1', title: 'Proposal', deleted: false }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/versions/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/versions', {
+      blocks: [
+        {
+          id: 'hero',
+          type: 'hero',
+          title: 'SPEC',
+          content: 'Hunt & Gun CRM',
+          motion: 'reveal',
+        },
+        {
+          id: 'summary',
+          type: 'summary',
+          title: 'Overview',
+          content: 'Agent content-only block',
+        },
+      ],
+      theme: {
+        brandName: 'Hunt and Gun',
+        palette: { bg: '#FFFFFF', text: '#1a202c', accent: '#D5A138' },
+      },
+      changeSummary: 'Agent payload without required/display/typography',
+    })
+
+    const res = await POST(req, user, { params: Promise.resolve({ id: 'doc-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data).toEqual({ id: 'version-1' })
+    expect(mockTransactionSet).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'version-1' }),
+      expect.objectContaining({
+        blocks: [
+          expect.objectContaining({
+            id: 'hero',
+            required: false,
+            display: { motion: 'reveal' },
+          }),
+          expect.objectContaining({
+            id: 'summary',
+            required: false,
+            display: {},
+          }),
+        ],
+        theme: expect.objectContaining({
+          brandName: 'Hunt and Gun',
+          palette: expect.objectContaining({ accent: '#D5A138' }),
+          typography: expect.objectContaining({
+            heading: expect.any(String),
+            body: expect.any(String),
+          }),
+        }),
+      }),
+    )
+  })
+
   it('creates a draft version with showcase blocks from the internal helper payload', async () => {
     mockTransactionGet.mockResolvedValueOnce({
       exists: true,
