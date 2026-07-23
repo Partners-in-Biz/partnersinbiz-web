@@ -18,6 +18,17 @@ async function loadOwnedMessage(id: string, orgId: string, uid: string) {
   return { ref, data }
 }
 
+export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, uid: string, orgId: string, _role, ctx: Ctx) => {
+  try {
+    const { id } = await ctx.params
+    const owned = await loadOwnedMessage(id, orgId, uid)
+    if (!owned) return apiError('Email message not found', 404)
+    return apiSuccess({ message: serializeMessage(id, owned.data) })
+  } catch (err) {
+    return apiErrorFromException(err)
+  }
+})
+
 export const PATCH = withPortalAuthAndRole('member', async (req: NextRequest, uid: string, orgId: string, _role, ctx: Ctx) => {
   try {
     const { id } = await ctx.params

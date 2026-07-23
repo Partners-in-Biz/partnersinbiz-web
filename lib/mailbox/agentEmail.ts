@@ -4,6 +4,7 @@ import { serializeAccount, serializeMessage, splitEmails } from '@/lib/mailbox/s
 import type { MailboxFolder, MailboxMessageSafe } from '@/lib/mailbox/types'
 import { sendMailboxMessage, type SendMailboxMessageResult } from '@/lib/mailbox/sendBridge'
 import type { AgentMailboxDelegationEvidence } from '@/lib/mailbox/agentEmailAuthorization'
+import { buildEmailContextPresentation, type EmailContextPresentation } from '@/lib/mailbox/emailContextPresentation'
 
 type ActorType = 'user' | 'agent' | 'system'
 
@@ -215,7 +216,9 @@ export async function createAgentMailboxDraft(input: AgentMailboxDraftInput, act
   const ref = await adminDb.collection('mailbox_messages').add(payload)
   await writeToolEvent(input, actor, { action: 'draft_created', mailboxMessageId: ref.id, accountId: account.id })
   const fresh = await ref.get()
-  return { message: serializeMessage(ref.id, fresh.data() ?? payload) }
+  const message = serializeMessage(ref.id, fresh.data() ?? payload)
+  const presentation = buildEmailContextPresentation(message)
+  return { message, ...presentation } satisfies { message: MailboxMessageSafe } & EmailContextPresentation
 }
 
 export async function createAgentMailboxReplyDraft(input: AgentMailboxReplyDraftInput, actor: AgentMailboxActor) {

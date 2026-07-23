@@ -128,7 +128,10 @@ describe('agent email mailbox tool contract', () => {
     const reply = await createAgentMailboxReplyDraft({ orgId: 'org-1', uid: 'user-1', sourceMessageId: 'source-1', bodyText: 'Reply body' }, { actorId: 'agent:theo', actorType: 'agent' })
 
     expect(draft.message).toMatchObject({ orgId: 'org-1', uid: 'user-1', accountId: 'acct-1', folder: 'drafts', to: ['lead@example.com'] })
+    expect(draft.contextRef).toMatchObject({ type: 'email', id: draft.message.id, label: 'Draft' })
+    expect(draft.uiActions[0]).toMatchObject({ type: 'open_context', payload: { kind: 'email', id: draft.message.id } })
     expect(reply.message).toMatchObject({ orgId: 'org-1', uid: 'user-1', accountId: 'acct-1', folder: 'drafts', to: ['lead@example.com'], subject: 'Re: Original' })
+    expect(reply.uiActions[0]).toMatchObject({ type: 'open_context', payload: { kind: 'email', id: reply.message.id } })
   })
 
   it('rejects agent send requests without approval evidence and audits the refusal', async () => {

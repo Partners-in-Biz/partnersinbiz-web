@@ -558,8 +558,8 @@ Current route inventory:
 |---|---|---|---|
 | GET | `/agent/email` | admin/agent | Agent email capability overview. |
 | GET | `/agent/email/messages` | admin/agent | List delegated messages available to the agent. |
-| POST | `/agent/email/drafts` | admin/agent | Draft a reply or outbound email for human review. |
-| POST | `/agent/email/replies` | admin/agent | Prepare or submit a reply depending on delegation. |
+| POST | `/agent/email/drafts` | admin/agent | Draft outbound email for human review; returns `contextRef` + `open_context` uiActions. |
+| POST | `/agent/email/replies` | admin/agent | Prepare a reply draft for human review; returns `contextRef` + `open_context` uiActions. |
 | POST | `/agent/email/send-requests` | admin/agent | Create an auditable send request. |
 
 Mailbox/email operations are stricter than ordinary admin-like agent access. The route must prove the requesting user/delegation context unless the agent has explicit system permission.
@@ -629,8 +629,9 @@ Conversation participant rules:
 Rich chat output contract:
 - Hermes events and final run payloads may include `richParts`/`rich_parts` and `uiActions`/`ui_actions`. The PiB chat normalizer and finalizer preserve those fields instead of flattening them into text.
 - Supported `richParts` include `markdown`, `code`, `table`, `image`, `gallery`, `file`, `audio`, `video`, `tool_output`, `status`, `approval`, `clarify`, and `model_picker`.
-- Supported `uiActions` include `approve`, `deny`, `choose`, `retry`, `stop`, `open`, `copy`, `download`, and `custom`. Prefer stable `id` plus `action_id`/`actionId` values so the web UI can round-trip choices to Hermes.
+- Supported `uiActions` include `approve`, `deny`, `choose`, `retry`, `stop`, `open`, `open_context`, `copy`, `download`, and `custom`. Prefer stable `id` plus `action_id`/`actionId` values so the web UI can round-trip choices to Hermes.
 - Telegram inline keyboards are adapter-specific; the web chat equivalent is a `uiActions` array. If a Hermes payload only contains a Telegram-style `reply_markup.inline_keyboard`, PiB will derive button actions as a fallback, but agents should emit web-native `uiActions` when possible.
+- After `POST /agent/email/drafts` or `/agent/email/replies`, echo the returned `uiActions` / `contextRef` into the assistant message. Messages treats `open_context` with `{ kind: "email", id }` as attach-and-open for the email draft canvas. Humans review/edit there and use **Approve & send**; do not auto-send.
 - For approval, clarify, and model picker prompts, send a visible rich part and matching actions. The in-app UI renders those controls in `MessageBubble` and posts the chosen action through the admin agent run action route.
 
 #### Context reference search

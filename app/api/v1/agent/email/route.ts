@@ -35,6 +35,8 @@ export const GET = withAuth('admin', async () => apiSuccess({
       path: '/api/v1/agent/email/drafts',
       body: ['orgId', 'uid|requestingUserId', 'delegationEvidenceId|delegationEvidence', 'accountId?', 'to', 'cc?', 'bcc?', 'subject', 'bodyText', 'bodyHtml?'],
       safety: 'Requires draft delegation, creates a draft in the requesting user/org account context, and records an agent tool event.',
+      returns: ['message', 'contextRef (type=email)', 'uiActions (open_context → Review email draft in Messages canvas)'],
+      chatHandoff: 'Echo uiActions/contextRef into the assistant message so Messages can attach the draft and open the email side canvas for human review before send.',
     },
     {
       name: 'email.reply.create',
@@ -42,6 +44,8 @@ export const GET = withAuth('admin', async () => apiSuccess({
       path: '/api/v1/agent/email/replies',
       body: ['orgId', 'uid|requestingUserId', 'delegationEvidenceId|delegationEvidence', 'sourceMessageId', 'accountId?', 'bodyText', 'bodyHtml?'],
       safety: 'Requires draft delegation and creates a reply draft only after loading the source message from the same orgId + uid scope.',
+      returns: ['message', 'contextRef (type=email)', 'uiActions (open_context → Review email draft in Messages canvas)'],
+      chatHandoff: 'Echo uiActions/contextRef into the assistant message so Messages can attach the draft and open the email side canvas for human review before send.',
     },
     {
       name: 'email.send.request',

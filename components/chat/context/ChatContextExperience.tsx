@@ -14,7 +14,7 @@ const executionOnlyModel: ChatContextReadModel = {
   pulse: { label: 'Execution', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '',
 }
 
-export function ChatContextExperience({ context, compact = false, artifactRequest, execution, executionRequest, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void }) {
+export function ChatContextExperience({ context, compact = false, artifactRequest, focusRequest, execution, executionRequest, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; focusRequest?: { kind: ChatContextReference['kind']; id: string; projectId?: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void }) {
   const [open, setOpen] = useState(false)
   const [canvasMode, setCanvasMode] = useState<'single' | 'dual'>('single')
   const [canvasWidth, setCanvasWidth] = useState(520)
@@ -117,6 +117,15 @@ export function ChatContextExperience({ context, compact = false, artifactReques
     setActiveArtifactId(artifactRequest.id)
     setOpen(true)
   }, [artifactRequest])
+  useEffect(() => {
+    if (!focusRequest) return
+    context.setActiveContext({
+      kind: focusRequest.kind,
+      id: focusRequest.id,
+      ...(focusRequest.projectId ? { projectId: focusRequest.projectId } : {}),
+    })
+    setOpen(true)
+  }, [context.setActiveContext, focusRequest])
   useEffect(() => { if (executionRequest) setOpen(true) }, [executionRequest])
   const hasExecution = Boolean(execution?.activeMessage?.runId)
   if ((!context.model || !context.activeContext) && !hasExecution) return <>

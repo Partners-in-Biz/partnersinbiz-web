@@ -32,6 +32,7 @@ import {
 } from '@/lib/context-references/composer'
 import {
   contextReferenceKey,
+  contextReferenceTypeFrom,
   MAX_CONTEXT_REFS,
   type ContextReference,
   type ContextReferenceSeed,
@@ -970,6 +971,8 @@ export default function UnifiedChat({
   const [queuedDraftsByConversation, setQueuedDraftsByConversation] = useState<Record<string, QueuedComposerDraft[]>>({})
   const [executionDockRequest, setExecutionDockRequest] = useState(0)
   const [contextArtifactRequest, setContextArtifactRequest] = useState<{ id: string; nonce: number }>()
+  const [contextFocusRequest, setContextFocusRequest] = useState<{ kind: ContextReference['type']; id: string; projectId?: string; nonce: number }>()
+  const handledOpenContextActionsRef = useRef(new Set<string>())
   const [pinnedConversationIds, setPinnedConversationIds] = useState<string[]>(() => readPinnedConversationIds(orgId))
   const [expandedSessionGroupKeys, setExpandedSessionGroupKeys] = useState<string[]>(() => readExpandedSessionGroupKeys(orgId))
 
@@ -2545,6 +2548,7 @@ export default function UnifiedChat({
 
   // Close header menu when switching conversations
   useEffect(() => { setHeaderMenuOpen(false) }, [activeId])
+  useEffect(() => { handledOpenContextActionsRef.current.clear() }, [activeId])
 
   // Cleanup polling + SSE on unmount
   useEffect(() => () => {
@@ -2873,9 +2877,49 @@ export default function UnifiedChat({
     [approvalPending, activeId, pollFinalize, startEventStream],
   )
 
+  const patchContextRefsRef = useRef<((
+    action: 'add' | 'remove' | 'clear',
+    refs?: Array<ContextReference | ContextReferenceSeed>,
+  ) => Promise<ContextReference[]>) | null>(null)
   const handleUiAction = useCallback(
     async (message: ConversationMessage, action: ChatUiAction) => {
       const actionType = String(action.type).toLowerCase()
+      if (actionType === 'open_context') {
+        const payload = action.payload && typeof action.payload === 'object' && !Array.isArray(action.payload)
+          ? action.payload as Record<string, unknown>
+          : {}
+        const kind = contextReferenceTypeFrom(payload.kind ?? payload.type ?? action.value)
+        const id = typeof payload.id === 'string'
+          ? payload.id.trim()
+          : typeof action.value === 'string'
+            ? action.value.trim()
+            : ''
+        const projectId = typeof payload.projectId === 'string' ? payload.projectId.trim() : ''
+        const label = typeof payload.label === 'string' ? payload.label.trim() : action.label
+        if (!kind || !id) {
+          setError('This open-context action is missing a valid context reference.')
+          return
+        }
+        try {
+          const patch = patchContextRefsRef.current
+          if (!patch) throw new Error('Context attachment is not ready yet')
+          await patch('add', [{
+            type: kind,
+            id,
+            ...(label ? { label } : {}),
+            ...(projectId ? { metadata: { projectId } } : {}),
+          }])
+          setContextFocusRequest({
+            kind,
+            id,
+            ...(projectId ? { projectId } : {}),
+            nonce: Date.now(),
+          })
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to open context')
+        }
+        return
+      }
       if (actionType === 'open' || actionType === 'download' || actionType === 'copy') return
 
       const runId = message.runId
@@ -2921,6 +2965,19 @@ export default function UnifiedChat({
     },
     [activeId, initialAgentId, pollFinalize, startEventStream],
   )
+
+  useEffect(() => {
+    const latestAssistant = [...messages].reverse().find((message) => message.role === 'assistant' && Array.isArray(message.uiActions) && message.uiActions.length > 0)
+    if (!latestAssistant?.uiActions?.length) return
+    for (const action of latestAssistant.uiActions) {
+      if (String(action.type).toLowerCase() !== 'open_context') continue
+      const key = `${latestAssistant.id}:${action.id}`
+      if (handledOpenContextActionsRef.current.has(key)) continue
+      handledOpenContextActionsRef.current.add(key)
+      void handleUiAction(latestAssistant, action)
+      break
+    }
+  }, [handleUiAction, messages])
 
   const projectTaskHref = useCallback((taskId: string) => {
     const projectId = projectChat.activeProjectId ?? ''
@@ -3190,6 +3247,7 @@ export default function UnifiedChat({
     )
     return next
   }, [activeId, coerceContextRef, contextRefs])
+  patchContextRefsRef.current = patchContextRefs
 
   const pinCurrentPageContext = useCallback(async (): Promise<ContextReference[]> => {
     if (!currentPageContext) {
@@ -5095,7 +5153,7 @@ export default function UnifiedChat({
           </div>
         </div>
 
-        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}

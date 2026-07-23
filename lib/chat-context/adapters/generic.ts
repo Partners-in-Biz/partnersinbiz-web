@@ -150,7 +150,7 @@ export const genericChatContextAdapter: ChatContextAdapter = {
         attention: [],
         activity,
         preview: {
-          kind: ref.type === 'document' ? 'document' : 'summary',
+          kind: ref.type === 'document' ? 'document' : ref.type === 'email' ? 'email' : 'summary',
           ...(summary ? { text: summary } : {}),
           ...(status ? { status } : {}),
         },
