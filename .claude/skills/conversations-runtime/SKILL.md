@@ -1,18 +1,21 @@
 ---
 name: conversations-runtime
 description: >
-  Stub skill for the Partners in Biz conversations/chat runtime: conversation lifecycle, message streaming lifecycle (stop/finalize), attachments, model selection, and agent-message ingestion. Owner: theo. Full request/response docs not yet written. Use this skill whenever the user is debugging or building against the conversations/chat message API, not when drafting user-facing chat content (see chat-surface-gather for the read-only surface digest).
+  Partners in Biz conversations/chat runtime for Hermes engineers: conversation CRUD,
+  message dispatch lifecycle (send/continue/stop/finalize), attachments, model selection,
+  context assembly, and agent-message ingestion. Owner: theo. Use when debugging or
+  building against /api/v1/conversations/* — not for drafting user-facing chat copy
+  (see chat-surface-gather).
 ---
 
-# Conversations Runtime — Partners in Biz Platform API (stub)
-
-**Status: stub.** This skill points at a real, shipped API surface under `/api/v1/conversations/*` that has not yet been fully documented (request/response shapes, per-route auth level, and validated agent workflows). Read the route source under `app/api/v1/conversations/**` before relying on undocumented behavior, and do not assume a shape not shown here.
+# Conversations Runtime — Partners in Biz Platform API
 
 ## Owner & scope
 
 - Owner: `theo`
-- Scope: Engineering-facing conversation runtime: conversation CRUD, message send/continue/stop/finalize lifecycle, attachments, per-conversation model selection, per-conversation context assembly, and agent-message ingestion used by dispatch/watcher code paths.
+- Allowed: `theo`, `qa-release`, `pip` (orchestrator debugging)
 - Base path: `https://partnersinbiz.online/api/v1/conversations`
+- Related: `system-auth`, `chat-surface-gather`, `collaboration-runtime`
 
 ## Auth (mandatory)
 
@@ -23,28 +26,42 @@ Interactive Hermes runs use the **user-delegation** token injected by Messages /
 - Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
 - See skill `system-auth` for mint/resolve rules.
 
-## API routes to document next
+## Route map (shipped)
 
-- `GET/POST /conversations`
-- `GET/PATCH /conversations/[convId]`
-- `GET/POST /conversations/[convId]/messages`
-- `POST /conversations/[convId]/messages/[msgId]/stop`
-- `POST /conversations/[convId]/messages/[msgId]/finalize`
-- `POST /conversations/[convId]/continue`
-- `GET/POST /conversations/[convId]/agent-messages`
-- `GET/POST /conversations/[convId]/attachments`
-- `GET/DELETE /conversations/[convId]/attachments/[attachmentId]`
-- `GET /conversations/[convId]/context`
-- `GET/POST /conversations/[convId]/models`
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET/POST | `/conversations` | List / create conversations |
+| GET/PATCH | `/conversations/[convId]` | Read / update conversation metadata |
+| GET/POST | `/conversations/[convId]/messages` | List messages / human send (dispatches Hermes or linked-computer run) |
+| POST | `/conversations/[convId]/continue` | Continue a pending agent turn |
+| POST | `/conversations/[convId]/messages/[msgId]/stop` | Stop an in-flight run |
+| POST | `/conversations/[convId]/messages/[msgId]/finalize` | Finalize / mark complete |
+| GET/POST | `/conversations/[convId]/agent-messages` | Agent append completed assistant messages (no re-dispatch) |
+| GET/POST | `/conversations/[convId]/attachments` | List / upload attachments |
+| GET/DELETE | `/conversations/[convId]/attachments/[attachmentId]` | Fetch / remove attachment |
+| GET | `/conversations/[convId]/context` | Assembled context for the conversation |
+| GET/POST | `/conversations/[convId]/models` | List / select model overrides |
 
-## Next steps to un-stub this skill
+## Agent patterns
 
-- Document request/response shapes and the auth level (`viewer`/`member`/`admin`/`system`/delegation-only) per route above.
-- Add copy-paste-ready example payloads once shapes are confirmed against route source.
-- Add an `## Agent patterns` / workflow-guide section once at least one end-to-end flow has been run and verified (write → read-back → report).
-- Register any newly-confirmed write-then-verify contract in the pack `verificationContract`.
+### Human message → agent dispatch
+1. `POST /conversations/[convId]/messages` with `{ content, ... }` as the human user session.
+2. Platform mints a short-lived `pib_dlg_*` token and injects it into the Hermes prompt.
+3. Read back assistant message status via `GET .../messages` — do not invent run outcomes.
 
-## Cross-references
+### Agent append without re-dispatch
+Use `POST .../agent-messages` only when the agent already finished work and needs to land rich parts into the thread. Never use it to fake a Hermes run.
 
-- chat-surface-gather (read-only chat-surface digest for non-engineering agents)
-- system-auth (delegation token minting used by interactive conversation runs)
+### Stop / finalize
+If a run is stuck pending, prefer `stop` then report the exact gateway/workspace failure code from the message record.
+
+## Success gate
+
+After any create/update that clients will see:
+1. `GET` the conversation or message list
+2. Assert the expected message id / status / rich parts exist
+3. Surface exact API `error` strings on 4xx — do not retry with a god-key
+
+## Source of truth
+
+Route implementations live under `app/api/v1/conversations/**`. If this skill and the route disagree, the route wins — update this skill immediately.

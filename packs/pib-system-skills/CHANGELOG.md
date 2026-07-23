@@ -2,6 +2,8 @@
 
 ## 0.1.2 — 2026-07-23
 
+- Add golden contracts for billing invoice create + CRM contact create; verify-contracts now enforces policy↔pack catalogVersion lockstep and new core skills
+- Deepen conversations-runtime from stub to route-map skill
 - Consolidate ~21 `marketing/ads-*` Claude skills into 3 tiered umbrella
   skills: `marketing/ads-strategy` (plan, budget, math, audit, competitor,
   test), `marketing/ads-platforms` (google, meta, linkedin, microsoft,

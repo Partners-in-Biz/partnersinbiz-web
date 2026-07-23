@@ -103,6 +103,9 @@
       ],
       "approvalGates": [
         "invoice_change"
+      ],
+      "contracts": [
+        "contracts/billing-finance/invoice-create.valid.json"
       ]
     },
     "client-manager": {
@@ -121,6 +124,9 @@
       "requiredScopes": [
         "crm:read",
         "crm:write"
+      ],
+      "contracts": [
+        "contracts/crm-sales/contact-create.valid.json"
       ]
     },
     "project-management": {

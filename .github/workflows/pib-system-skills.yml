@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - 'pib-system-skills-v*'
+    paths:
+      - 'packs/pib-system-skills/**'
+      - 'config/agent-skill-policy.json'
+      - '.github/workflows/pib-system-skills.yml'
+  pull_request:
+    paths:
+      - 'packs/pib-system-skills/**'
+      - 'config/agent-skill-policy.json'
+      - '.github/workflows/pib-system-skills.yml'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -22,7 +31,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify contracts
+      - name: Verify contracts + catalog lockstep
         run: node bin/verify-contracts.mjs
       - name: Show status
         run: bash bin/pib-skills status
+      - name: Skill-policy unit tests
+        working-directory: .
+        run: |
+          npm ci
+          npx jest __tests__/lib/agents/skill-policy.test.ts --runInBand
