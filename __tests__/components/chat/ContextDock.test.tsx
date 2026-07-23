@@ -160,6 +160,87 @@ it('renders the email context composer instead of the generic overview for email
   expect(screen.getByLabelText('Subject')).toHaveValue('Follow up')
 })
 
+it('renders campaign platform previews in the context dock', async () => {
+  global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.includes('/assets')) {
+      return {
+        ok: true,
+        json: async () => ({
+          data: {
+            social: [{
+              id: 's1',
+              platforms: ['linkedin'],
+              content: { text: 'LinkedIn launch post' },
+              status: 'pending_approval',
+            }],
+            blogs: [],
+            videos: [],
+            meta: { totals: { social: 1, blogs: 0, videos: 0 }, byStatus: {} },
+          },
+        }),
+      } as Response
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        data: {
+          id: 'camp-1',
+          name: 'July Growth',
+          brandIdentity: {
+            palette: { bg: '#111', accent: '#0A66C2', alert: '#F59E0B', text: '#fff' },
+          },
+        },
+      }),
+    } as Response
+  }) as jest.Mock
+
+  render(<ContextDock
+    model={{
+      ...model,
+      context: { kind: 'campaign', id: 'camp-1', orgId: 'o1', label: 'July Growth', icon: 'ads_click', href: '/portal/campaigns/camp-1' },
+      preview: { kind: 'campaign', status: 'in_review' },
+    }}
+    open
+    compact
+    onClose={jest.fn()}
+  />)
+
+  expect(await screen.findByTestId('context-campaign-preview')).toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Campaign platform previews' })).toHaveTextContent('LinkedIn launch post')
+  expect(screen.queryByRole('region', { name: 'Context overview' })).not.toBeInTheDocument()
+})
+
+it('renders a social platform preview card in the context dock', async () => {
+  global.fetch = jest.fn(async () => ({
+    ok: true,
+    json: async () => ({
+      data: {
+        id: 'post-1',
+        platforms: ['instagram'],
+        content: { text: 'Carousel drop this Friday' },
+        status: 'draft',
+        media: [{ type: 'image', url: 'https://cdn.example.com/post.jpg' }],
+      },
+    }),
+  })) as jest.Mock
+
+  render(<ContextDock
+    model={{
+      ...model,
+      context: { kind: 'social', id: 'post-1', orgId: 'o1', label: 'Carousel drop', icon: 'campaign' },
+      preview: { kind: 'social', status: 'draft' },
+    }}
+    open
+    compact
+    onClose={jest.fn()}
+  />)
+
+  expect(await screen.findByTestId('context-social-preview')).toBeInTheDocument()
+  expect(screen.getByRole('region', { name: 'Social platform preview' })).toHaveTextContent('Carousel drop this Friday')
+  expect(screen.queryByRole('region', { name: 'Context overview' })).not.toBeInTheDocument()
+})
+
 it('uses a genuinely modal bottom sheet in compact chat and marks the active artifact accessibly', () => {
   const artifact = { id: 'a1', studioKind: 'video_editor' as const, resourceType: 'video', resourceId: 'v1', title: 'Launch cut', artifactKind: 'video' as const, state: 'review' as const, statusLabel: 'In review', href: '/videos/v1', actions: [] }
   render(<ContextDock model={{ ...model, artifacts: [artifact] }} open compact activeArtifactId="a1" onClose={jest.fn()} />)

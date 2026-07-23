@@ -27,6 +27,9 @@ export type { BlogPreviewCardProps } from './BlogPreviewCard'
 
 export { AssetActions } from './AssetActions'
 
+export { pickSocialCard, SocialPlatformCard } from './pickSocialCard'
+export type { SocialPreviewCardProps } from './pickSocialCard'
+
 export type {
   PreviewSocialPost,
   PreviewBlog,

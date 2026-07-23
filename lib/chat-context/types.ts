@@ -33,7 +33,7 @@ export function chatContextReferenceKey(reference: ChatContextReference): string
 }
 
 export interface ChatContextPreview {
-  kind: 'summary' | 'document' | 'email'
+  kind: 'summary' | 'document' | 'email' | 'campaign' | 'social'
   text?: string
   status?: string
   version?: string

@@ -16,6 +16,8 @@ import { youtubeStudioChatContextAdapter } from '@/lib/chat-context/adapters/you
 import { nonMarketingStudioRootChatContextAdapter } from '@/lib/chat-context/adapters/studioRoot'
 import type { StudioKind } from '@/lib/chat-context/types'
 import { genericChatContextAdapter } from '@/lib/chat-context/adapters/generic'
+import { campaignChatContextAdapter } from '@/lib/chat-context/adapters/campaign'
+import { socialChatContextAdapter } from '@/lib/chat-context/adapters/social'
 
 export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
 type StudioRootAdapters = Record<StudioKind, ChatContextAdapter>
@@ -45,6 +47,8 @@ export function createChatContextRegistry(adapters: ChatContextAdapters, fallbac
 
 export const chatContextRegistry = createChatContextRegistry({
   project: projectChatContextAdapter,
+  campaign: campaignChatContextAdapter,
+  social: socialChatContextAdapter,
   studio: createStudioRootNamespaceAdapter({
     marketing_studio: marketingStudioChatContextAdapter,
     video_editor: nonMarketingStudioRootChatContextAdapter,

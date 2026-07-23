@@ -22,6 +22,8 @@ export interface PreviewSocialPost {
   status?: string
   media?: PreviewMedia[]
   campaignId?: string
+  /** Instagram story / reel / feed hint used by card pickers. */
+  format?: string
   // Optional convenience fields used for chrome — cards fall back gracefully if absent.
   authorName?: string
   authorHandle?: string

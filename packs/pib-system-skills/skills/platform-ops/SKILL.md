@@ -644,6 +644,7 @@ Rich chat output contract:
 - Supported `uiActions` include `approve`, `deny`, `choose`, `retry`, `stop`, `open`, `open_context`, `copy`, `download`, and `custom`. Prefer stable `id` plus `action_id`/`actionId` values so the web UI can round-trip choices to Hermes.
 - Telegram inline keyboards are adapter-specific; the web chat equivalent is a `uiActions` array. If a Hermes payload only contains a Telegram-style `reply_markup.inline_keyboard`, PiB will derive button actions as a fallback, but agents should emit web-native `uiActions` when possible.
 - After `POST /agent/email/drafts` or `/agent/email/replies`, echo the returned `uiActions` / `contextRef` into the assistant message. Messages treats `open_context` with `{ kind: "email", id }` as attach-and-open for the email draft canvas. Humans review/edit there and use **Approve & send**; do not auto-send.
+- After creating or preparing a content-engine `campaign` or a `social_posts` row for human review in Messages, emit `open_context` with `{ kind: "campaign", id }` or `{ kind: "social", id }`. Messages attaches the ref and opens the Context Dock with platform-faithful preview cards (Instagram/LinkedIn/Facebook/X/YouTube/blog). Still link the cockpit (`/portal/campaigns/[id]`) or social review workspace for full approve/schedule flows.
 - For approval, clarify, and model picker prompts, send a visible rich part and matching actions. The in-app UI renders those controls in `MessageBubble` and posts the chosen action through the admin agent run action route.
 
 #### Context reference search
