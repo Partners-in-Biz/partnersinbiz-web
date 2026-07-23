@@ -1,7 +1,7 @@
 import type { MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 
 export type ApiRole = 'admin' | 'client' | 'ai'
-export type ApiAuthKind = 'session' | 'firebase' | 'legacy_ai_key' | 'agent_api_key'
+export type ApiAuthKind = 'session' | 'firebase' | 'legacy_ai_key' | 'agent_api_key' | 'user_delegation'
 
 export interface ApiPermission {
   resource: string
@@ -14,6 +14,9 @@ export interface ApiUser {
   authKind?: ApiAuthKind
   agentId?: string
   apiKeyId?: string
+  delegationId?: string
+  actingForUserId?: string
+  delegationScopes?: string[]
   permissions?: ApiPermission[]
   orgId?: string
   // The organisation currently selected in the portal switcher. This is the

@@ -9,6 +9,7 @@ import { resolveMemberAccessPolicy, type MemberAccessPolicy } from '@/lib/orgMem
 import type { OrgRole } from '@/lib/organizations/types'
 import { getMaintenanceState, isMaintenanceActiveNow, requestBypassesMaintenance } from '@/lib/governance/maintenance'
 import { isActiveOrgMembershipRow } from '@/lib/linked-computers/policy'
+import { resolveDelegationTokenUser } from '@/lib/api/delegations'
 
 type RouteHandler = (req: NextRequest, user: ApiUser, context?: any) => Promise<Response>
 
@@ -95,17 +96,21 @@ async function _resolveUser(req: NextRequest): Promise<ApiUser | null> {
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice(7)
 
-    // 1. Check for AI_API_KEY
+    // 1. Check for a user-scoped delegation token.
+    const delegationUser = await resolveDelegationTokenUser(token)
+    if (delegationUser) return delegationUser
+
+    // 2. Check for AI_API_KEY
     const aiKey = process.env.AI_API_KEY
     if (constantTimeStringEqual(token, aiKey)) {
       return { uid: 'ai-agent', role: 'ai', authKind: 'legacy_ai_key' }
     }
 
-    // 2. Check hashed PiB per-agent API keys.
+    // 3. Check hashed PiB per-agent API keys.
     const agentUser = await resolveAgentApiKeyUser(token)
     if (agentUser) return agentUser
 
-    // 3. Verify as Firebase ID token
+    // 4. Verify as Firebase ID token
     try {
       const decoded = await adminAuth.verifyIdToken(token)
       const extras = await getUserExtrasFromFirestore(decoded.uid)

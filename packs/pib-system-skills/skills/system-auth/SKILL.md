@@ -16,7 +16,7 @@ description: >
 3. Skills describe *how* to call the API. The API enforces *whether*. Never assume a god-key bypasses org ACLs.
 4. Effective permission = `user scopes ∩ agent capability ∩ approval gates`.
 
-## Interactive auth (target)
+## Interactive auth (implemented route)
 
 ```http
 POST /api/v1/agent/delegations
@@ -25,8 +25,10 @@ Content-Type: application/json
 
 {
   "orgId": "<active org>",
-  "purpose": "messages-session",
-  "ttlSeconds": 3600
+  "agentId": "pip",
+  "purpose": "messages:conv_123",
+  "ttlSeconds": 3600,
+  "conversationId": "conv_123"
 }
 ```
 
@@ -36,9 +38,11 @@ Response (shape):
 {
   "success": true,
   "data": {
-    "token": "<delegation_jwt>",
+    "id": "dlg_123",
+    "token": "pib_dlg_…",
     "expiresAt": "…",
     "actingForUserId": "uid_…",
+    "agentId": "pip",
     "orgIds": ["…"],
     "scopes": ["documents:create", "documents:update", "crm:read", "…"]
   }
@@ -48,12 +52,14 @@ Response (shape):
 Use on subsequent calls:
 
 ```http
-Authorization: Bearer <delegation_jwt>
+Authorization: Bearer <pib_dlg_…>
 X-Acting-For: <actingForUserId>
 X-Org-Id: <orgId>
 ```
 
-If delegation endpoint is not yet deployed in this environment, fall back to the conversation-provided credential and **still** respect org scoping (`orgId` / `linked.companyId`). Do not invent access to orgs the user cannot open in the portal.
+This route is implemented in the current app code at `POST /api/v1/agent/delegations`.
+
+**Current rollout state:** token mint + Bearer resolution are implemented in `partnersinbiz-web` and available after the next app deployment. Conversation runtime binding still needs to switch from broad system credentials to delegation-token injection by default.
 
 ## System auth (cron only)
 
