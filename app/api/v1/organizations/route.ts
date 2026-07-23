@@ -321,4 +321,6 @@ export async function handleOrganizationCreate(
   }
 }
 
-export const POST = withAuth('admin', handleOrganizationCreate)
+// Do not pass Next.js route context through as trustedSetup — that is only for
+// explicit internal setup callers. Public POST must omit the third argument.
+export const POST = withAuth('admin', (req: NextRequest, user: ApiUser) => handleOrganizationCreate(req, user))
