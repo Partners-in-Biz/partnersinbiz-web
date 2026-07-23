@@ -1,7 +1,7 @@
 {
   "packName": "pib-system-skills",
-  "packVersion": "0.1.1",
-  "catalogVersion": "2026-07-23.system-skills-v0.1.1",
+  "packVersion": "0.1.2",
+  "catalogVersion": "2026-07-23.system-skills-v0.1.2",
   "minApiVersion": "2026-07-23",
   "channel": "stable",
   "decisions": {
@@ -27,6 +27,9 @@
         "crm-sales",
         "project-management",
         "platform-ops",
+        "agent-runtime-ops",
+        "platform-admin-users",
+        "reports",
         "collaboration-runtime",
         "email-outreach",
         "analytics",
@@ -100,6 +103,9 @@
       ],
       "approvalGates": [
         "invoice_change"
+      ],
+      "contracts": [
+        "contracts/billing-finance/invoice-create.valid.json"
       ]
     },
     "client-manager": {
@@ -118,6 +124,9 @@
       "requiredScopes": [
         "crm:read",
         "crm:write"
+      ],
+      "contracts": [
+        "contracts/crm-sales/contact-create.valid.json"
       ]
     },
     "project-management": {
@@ -135,7 +144,36 @@
       "risk": "high",
       "requiredScopes": [
         "platform:read"
-      ]
+      ],
+      "summary": "Cross-cutting platform primitives: API keys, health, search, dashboard, activity, briefings, files, workspace folders, notifications, webhooks, comments. Split 2026-07-23 from the former mega-skill into agent-runtime-ops, platform-admin-users, and reports."
+    },
+    "agent-runtime-ops": {
+      "tier": "core",
+      "owner": "theo",
+      "risk": "critical",
+      "requiredScopes": [
+        "agent_runtime:read",
+        "agent_runtime:admin"
+      ],
+      "summary": "Hermes profile links/controls, agent registry/admin, agent memory lookup/reindex, Loop Engine internals, runtime/provider health, linked computers."
+    },
+    "platform-admin-users": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "critical",
+      "requiredScopes": [
+        "platform_users:admin"
+      ],
+      "summary": "Platform Users (staff) super-admin CRUD, allowedOrgIds scoping, onboard/offboard."
+    },
+    "reports": {
+      "tier": "core",
+      "owner": "data",
+      "risk": "medium",
+      "requiredScopes": [
+        "reports:read"
+      ],
+      "summary": "Snapshot report CRUD + ad-hoc query reports (revenue, pipeline, outstanding, client-value, expense-summary, activity-summary, team-utilization)."
     },
     "collaboration-runtime": {
       "tier": "core",
@@ -294,21 +332,21 @@
       "owner": "maya",
       "risk": "medium",
       "requiredScopes": [],
-      "summary": "Stub: creative canvas node graphs, generation runs, provider dispatch, exports to documents/manuscripts/social drafts. Not yet fully documented."
+      "summary": "Creative canvas node graphs, generation runs, provider dispatch, exports, and BYOK provider connections (documented 2026-07-23; remaining route shapes still to confirm)."
     },
     "book-studio-ops": {
       "tier": "growth",
       "owner": "maya",
       "risk": "medium",
       "requiredScopes": [],
-      "summary": "Stub: book studio projects, chapters, pages, series, rights ledgers, publishing packets. Not yet fully documented."
+      "summary": "Book studio chapters/pages content model, puzzle generation, print/ebook assembly, and the Creative Canvas production bridge (documented 2026-07-23; remaining route shapes still to confirm)."
     },
     "youtube-studio-ops": {
       "tier": "growth",
       "owner": "maya",
       "risk": "medium",
       "requiredScopes": [],
-      "summary": "Stub: YouTube channels, videos, release plans, clip candidates, publish packets. Not yet fully documented."
+      "summary": "YouTube Studio release pipeline and its Creative Canvas production bridge, sync-back, and scheduled publishing (documented 2026-07-23; remaining route shapes still to confirm)."
     },
     "conversations-runtime": {
       "tier": "growth",

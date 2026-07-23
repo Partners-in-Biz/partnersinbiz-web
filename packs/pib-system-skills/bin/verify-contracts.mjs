@@ -8,10 +8,11 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const repoRoot = join(root, '..', '..')
 const manifest = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8'))
 
 let failed = 0
-function check( cond, msg) {
+function check(cond, msg) {
   if (!cond) {
     console.error(`FAIL: ${msg}`)
     failed += 1
@@ -23,6 +24,18 @@ function check( cond, msg) {
 check(typeof manifest.packVersion === 'string' && manifest.packVersion.length > 0, 'packVersion set')
 check(manifest.tiers?.core?.skills?.includes('system-auth'), 'core includes system-auth')
 check(manifest.tiers?.core?.skills?.includes('client-documents'), 'core includes client-documents')
+check(manifest.tiers?.core?.skills?.includes('agent-runtime-ops'), 'core includes agent-runtime-ops')
+check(manifest.tiers?.core?.skills?.includes('reports'), 'core includes reports')
+
+const policyPath = join(repoRoot, 'config/agent-skill-policy.json')
+check(existsSync(policyPath), 'agent-skill-policy.json present for lockstep')
+if (existsSync(policyPath)) {
+  const policy = JSON.parse(readFileSync(policyPath, 'utf8'))
+  check(
+    policy.catalogVersion === manifest.catalogVersion,
+    `catalogVersion lockstep policy=${policy.catalogVersion} pack=${manifest.catalogVersion}`,
+  )
+}
 
 for (const [name, meta] of Object.entries(manifest.skills || {})) {
   const skillMd = join(root, 'skills', name, 'SKILL.md')
@@ -43,6 +56,20 @@ check(valid.theme?.palette?.bg && valid.theme?.typography?.heading, 'theme has p
 
 const invalid = JSON.parse(readFileSync(join(root, 'contracts/client-documents/version-payload.invalid.json'), 'utf8'))
 check(Array.isArray(invalid.cases) && invalid.cases.length >= 1, 'invalid cases documented')
+
+const invoiceValid = JSON.parse(readFileSync(join(root, 'contracts/billing-finance/invoice-create.valid.json'), 'utf8'))
+check(Array.isArray(invoiceValid.lineItems) && invoiceValid.lineItems.length >= 1, 'invoice golden has lineItems')
+check(typeof invoiceValid.currency === 'string' && invoiceValid.currency.length === 3, 'invoice golden has currency')
+
+const invoiceInvalid = JSON.parse(readFileSync(join(root, 'contracts/billing-finance/invoice-create.invalid.json'), 'utf8'))
+check(Array.isArray(invoiceInvalid.cases) && invoiceInvalid.cases.length >= 1, 'invoice invalid cases documented')
+
+const contactValid = JSON.parse(readFileSync(join(root, 'contracts/crm-sales/contact-create.valid.json'), 'utf8'))
+check(typeof contactValid.name === 'string' && typeof contactValid.email === 'string', 'contact golden has name+email')
+check(!Object.prototype.hasOwnProperty.call(contactValid, 'orgId'), 'contact golden does not put orgId in body')
+
+const contactInvalid = JSON.parse(readFileSync(join(root, 'contracts/crm-sales/contact-create.invalid.json'), 'utf8'))
+check(Array.isArray(contactInvalid.cases) && contactInvalid.cases.length >= 1, 'contact invalid cases documented')
 
 if (failed) {
   console.error(`\n${failed} contract check(s) failed`)

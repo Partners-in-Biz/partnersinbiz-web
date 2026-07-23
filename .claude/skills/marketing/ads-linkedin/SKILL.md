@@ -4,6 +4,8 @@ description: "LinkedIn Ads deep analysis for B2B advertising. Evaluates 27 check
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-platforms`](../ads-platforms/SKILL.md). Agents no longer load `ads-linkedin` at runtime; do not add new content here.
+
 # LinkedIn Ads Deep Analysis
 
 **Terminology note (Oct 2025):** Campaign Groups are now called Campaigns, and

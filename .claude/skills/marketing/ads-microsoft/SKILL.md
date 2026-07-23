@@ -4,6 +4,8 @@ description: "Microsoft/Bing Ads deep analysis covering search, Performance Max,
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-platforms`](../ads-platforms/SKILL.md). Agents no longer load `ads-microsoft` at runtime; do not add new content here.
+
 # Microsoft Ads Deep Analysis
 
 ## Process

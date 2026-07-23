@@ -4,6 +4,8 @@ description: "AI image generation for paid ad creatives. Reads campaign-brief.md
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-creative`](../ads-creative/SKILL.md). Agents no longer load `ads-generate` at runtime; do not add new content here.
+
 # Ads Generate: AI Ad Image Generator
 
 Generates platform-sized ad creative images from your campaign brief and brand

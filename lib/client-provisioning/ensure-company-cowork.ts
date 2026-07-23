@@ -2,6 +2,7 @@ import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
 import {
   buildClientProvisioningPayload,
   inferAgentName,
+  inferCompanyCoworkDomain,
 } from '@/lib/client-provisioning/provisioner'
 import {
   conversationUsesCompanyCoworkFolder,
@@ -19,16 +20,90 @@ export type EnsureCompanyCoworkFolderResult =
   | { ok: true; workspace: ConversationWorkspaceContext; createdOrVerified: true }
   | { ok: false; code: 'company_workspace_missing' | 'company_provision_failed'; error: string }
 
-function provisioningIdentity(workspace: ConversationWorkspaceContext, company: OrgWorkspaceRecord) {
-  const clientName = (workspace.companyName || company.orgName || '').trim()
-  const domain = (company.agentDomain || company.orgSlug || '').trim()
-  const orgId = (company.orgId || workspace.orgId || '').trim()
+function provisioningIdentity(
+  workspace: ConversationWorkspaceContext,
+  company: OrgWorkspaceRecord | null,
+) {
+  const clientName = (workspace.companyName || company?.orgName || '').trim()
+  const domain = (
+    company?.agentDomain
+    || company?.orgSlug
+    || inferCompanyCoworkDomain({
+      name: clientName,
+      domain: workspace.companyDomain,
+    })
+  ).trim()
+  const orgId = (
+    company?.orgId
+    || workspace.companyLinkedOrgId
+    || workspace.orgId
+    || ''
+  ).trim()
   return { clientName, domain, orgId }
+}
+
+async function resolveOrBootstrapCompanyWorkspace(
+  workspace: ConversationWorkspaceContext,
+): Promise<OrgWorkspaceRecord | null> {
+  if (workspace.companyId) {
+    const byCompany = await getCompanyWorkspaceByCompanyId(workspace.companyId)
+    if (byCompany) return byCompany
+  }
+  if (workspace.companyWorkspaceId) {
+    const byId = await getOrgWorkspaceById(workspace.companyWorkspaceId)
+    if (byId) return byId
+  }
+
+  const clientName = (workspace.companyName || '').trim()
+  const companyId = (workspace.companyId || '').trim()
+  if (!clientName || !companyId) return null
+
+  const domain = inferCompanyCoworkDomain({
+    name: clientName,
+    domain: workspace.companyDomain,
+  })
+  const existingByDomain = await getOrgWorkspaceById(domain)
+  if (existingByDomain) return existingByDomain
+
+  const orgId = (workspace.companyLinkedOrgId || workspace.orgId || '').trim()
+  if (!orgId) return null
+
+  const payload = buildClientProvisioningPayload({
+    clientName,
+    domain,
+    orgId,
+    companyId,
+    contactIds: workspace.contactIds,
+  })
+  return {
+    id: payload.manifest.workspaceId,
+    ...({
+      workspaceId: payload.manifest.workspaceId,
+      orgId: payload.manifest.orgId,
+      orgSlug: payload.manifest.orgSlug,
+      orgName: payload.manifest.orgName,
+      agentDomain: payload.manifest.agentDomain,
+      agentName: payload.manifest.agentName,
+      vpsPath: payload.manifest.vpsPath,
+      localPath: payload.manifest.localPath,
+      agentDomainPath: payload.manifest.agentDomainPath,
+      localAgentDomainPath: payload.manifest.localAgentDomainPath,
+      sourceOfTruth: 'vps',
+      syncMode: payload.manifest.syncMode,
+      defaultRuntimeTarget: 'vps',
+      status: 'active',
+      folderVersion: payload.manifest.folderVersion,
+      manifest: payload.manifest,
+      companyId,
+      contactIds: payload.manifest.linked.contactIds,
+    } satisfies Omit<OrgWorkspaceRecord, 'id'>),
+  }
 }
 
 /**
  * Ensure the company Cowork tree exists on the VPS (idempotent Pip admin provision),
- * refresh Firestore org_workspaces, and return an enriched conversation workspace context.
+ * refresh Firestore org_workspaces (creating the company Workspace link when missing),
+ * and return an enriched conversation workspace context.
  */
 export async function ensureCompanyCoworkFolderOnVps(
   workspace: ConversationWorkspaceContext,
@@ -37,16 +112,12 @@ export async function ensureCompanyCoworkFolderOnVps(
     return { ok: true, workspace, createdOrVerified: true }
   }
 
-  const company = workspace.companyId
-    ? await getCompanyWorkspaceByCompanyId(workspace.companyId)
-    : workspace.companyWorkspaceId
-      ? await getOrgWorkspaceById(workspace.companyWorkspaceId)
-      : null
+  const company = await resolveOrBootstrapCompanyWorkspace(workspace)
   if (!company) {
     return {
       ok: false,
       code: 'company_workspace_missing',
-      error: 'This company Cowork folder is not linked to a Workspace yet.',
+      error: 'This company Cowork folder could not be prepared because the company name is missing.',
     }
   }
 
@@ -66,7 +137,7 @@ export async function ensureCompanyCoworkFolderOnVps(
       orgId,
       agentName: company.agentName || inferAgentName(clientName),
       companyId: workspace.companyId || company.companyId,
-      contactIds: company.contactIds,
+      contactIds: company.contactIds?.length ? company.contactIds : workspace.contactIds,
     }
     await provisionFullClientOnVps(input)
     const payload = buildClientProvisioningPayload(input)
@@ -76,7 +147,7 @@ export async function ensureCompanyCoworkFolderOnVps(
       workspaceId: company.workspaceId || payload.manifest.workspaceId,
       linked: {
         companyId: workspace.companyId || company.companyId || payload.manifest.linked.companyId,
-        contactIds: company.contactIds?.length ? company.contactIds : payload.manifest.linked.contactIds,
+        contactIds: input.contactIds?.length ? input.contactIds : payload.manifest.linked.contactIds,
       },
     })
   } catch (error) {
@@ -91,6 +162,8 @@ export async function ensureCompanyCoworkFolderOnVps(
     ...workspace,
     companyWorkspaceId: company.workspaceId,
     companyName: workspace.companyName || clientName,
+    companyDomain: workspace.companyDomain || domain,
+    companyLinkedOrgId: workspace.companyLinkedOrgId || orgId,
   })
   return { ok: true, workspace: enriched, createdOrVerified: true }
 }

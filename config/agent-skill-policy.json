@@ -1,6 +1,6 @@
 {
-  "version": "2026-07-23.system-skills-v0.1.1",
-  "catalogVersion": "2026-07-23.system-skills-v0.1.1",
+  "version": "2026-07-23.system-skills-v0.1.2",
+  "catalogVersion": "2026-07-23.system-skills-v0.1.2",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],
@@ -82,6 +82,9 @@
     "geo-seo-service",
     "google-workspace",
     "platform-ops",
+    "agent-runtime-ops",
+    "platform-admin-users",
+    "reports",
     "project-management",
     "properties",
     "qa-release",
@@ -437,7 +440,28 @@
       "ownerAgentId": "ads",
       "allowedAgentIds": [
         "ads",
-        "maya"
+        "maya",
+        "qa-release"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-strategy": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "qa-release"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps"
+    },
+    "marketing/ads-platforms": {
+      "ownerAgentId": "ads",
+      "allowedAgentIds": [
+        "ads",
+        "theo",
+        "qa-release"
       ],
       "riskLevel": "high",
       "syncTarget": "vps"
@@ -572,7 +596,46 @@
         "theo"
       ],
       "riskLevel": "high",
-      "syncTarget": "vps"
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "core"
+    },
+    "agent-runtime-ops": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "theo",
+        "pip",
+        "qa-release"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "core"
+    },
+    "platform-admin-users": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "pip",
+        "theo",
+        "qa-release"
+      ],
+      "riskLevel": "critical",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "core"
+    },
+    "reports": {
+      "ownerAgentId": "data",
+      "allowedAgentIds": [
+        "data",
+        "pip",
+        "nora",
+        "qa-release"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "core"
     },
     "project-management": {
       "ownerAgentId": "pip",
@@ -1265,7 +1328,10 @@
         "studio-artifact-review",
         "studio-context-gather",
         "studio-release-handoff",
-        "life-os-ops"
+        "life-os-ops",
+        "agent-runtime-ops",
+        "platform-admin-users",
+        "reports"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1301,7 +1367,10 @@
         "studio-artifact-review",
         "studio-context-gather",
         "studio-release-handoff",
-        "life-os-ops"
+        "life-os-ops",
+        "agent-runtime-ops",
+        "platform-admin-users",
+        "reports"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -1386,7 +1455,9 @@
         "studio-context-gather",
         "studio-release-handoff",
         "conversations-runtime",
-        "llm-providers-ops"
+        "llm-providers-ops",
+        "agent-runtime-ops",
+        "platform-admin-users"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1451,7 +1522,9 @@
         "studio-context-gather",
         "studio-release-handoff",
         "conversations-runtime",
-        "llm-providers-ops"
+        "llm-providers-ops",
+        "agent-runtime-ops",
+        "platform-admin-users"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -1559,12 +1632,7 @@
         "research-intelligence",
         "social-media-manager",
         "social-recovery-gather",
-        "marketing/ads-create",
         "marketing/ads-creative",
-        "marketing/ads-dna",
-        "marketing/ads-generate",
-        "marketing/ads-landing",
-        "marketing/ads-photoshoot",
         "research/last30days",
         "research/open-notebook",
         "studio-artifact-orchestrate",
@@ -1734,7 +1802,8 @@
         "evidence-ledger",
         "google-workspace",
         "project-management",
-        "research-intelligence"
+        "research-intelligence",
+        "reports"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1755,7 +1824,8 @@
         "evidence-ledger",
         "google-workspace",
         "project-management",
-        "research-intelligence"
+        "research-intelligence",
+        "reports"
       ],
       "globalSkills": [
         "email/himalaya",
@@ -1837,26 +1907,9 @@
         "google-workspace",
         "project-management",
         "research-intelligence",
-        "marketing/ads",
-        "marketing/ads-apple",
-        "marketing/ads-audit",
-        "marketing/ads-budget",
-        "marketing/ads-competitor",
-        "marketing/ads-create",
+        "marketing/ads-strategy",
+        "marketing/ads-platforms",
         "marketing/ads-creative",
-        "marketing/ads-dna",
-        "marketing/ads-generate",
-        "marketing/ads-google",
-        "marketing/ads-landing",
-        "marketing/ads-linkedin",
-        "marketing/ads-math",
-        "marketing/ads-meta",
-        "marketing/ads-microsoft",
-        "marketing/ads-photoshoot",
-        "marketing/ads-plan",
-        "marketing/ads-test",
-        "marketing/ads-tiktok",
-        "marketing/ads-youtube",
         "research/last30days"
       ],
       "globalSkills": [
@@ -1952,7 +2005,10 @@
         "youtube-studio-ops",
         "conversations-runtime",
         "life-os-ops",
-        "llm-providers-ops"
+        "llm-providers-ops",
+        "agent-runtime-ops",
+        "platform-admin-users",
+        "reports"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2024,7 +2080,10 @@
         "youtube-studio-ops",
         "conversations-runtime",
         "life-os-ops",
-        "llm-providers-ops"
+        "llm-providers-ops",
+        "agent-runtime-ops",
+        "platform-admin-users",
+        "reports"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -2181,7 +2240,8 @@
         "project-management",
         "properties",
         "research-intelligence",
-        "social-recovery-gather"
+        "social-recovery-gather",
+        "reports"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2205,7 +2265,8 @@
         "social-recovery-gather",
         "marketing/ads-math",
         "marketing/ads-test",
-        "platform/headroom"
+        "platform/headroom",
+        "reports"
       ],
       "globalSkills": [
         "data-science/jupyter-live-kernel",

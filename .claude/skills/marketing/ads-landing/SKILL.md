@@ -4,6 +4,8 @@ description: "Landing page quality assessment for paid advertising campaigns. Ev
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-creative`](../ads-creative/SKILL.md). Agents no longer load `ads-landing` at runtime; do not add new content here.
+
 <!-- Updated: 2026-04-13 | v1.5 -->
 
 # Landing Page Quality for Ad Campaigns

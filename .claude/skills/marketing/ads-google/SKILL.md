@@ -4,6 +4,8 @@ description: "Google Ads deep analysis covering Search, Performance Max, Display
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-platforms`](../ads-platforms/SKILL.md). Agents no longer load `ads-google` at runtime; do not add new content here.
+
 # Google Ads Deep Analysis
 
 ## Process

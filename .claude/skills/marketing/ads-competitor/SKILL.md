@@ -4,6 +4,8 @@ description: "Competitor ad intelligence analysis across Google, Meta, LinkedIn,
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-strategy`](../ads-strategy/SKILL.md). Agents no longer load `ads-competitor` at runtime; do not add new content here.
+
 <!-- Updated: 2026-04-13 | v1.5 -->
 
 # Competitor Ad Intelligence

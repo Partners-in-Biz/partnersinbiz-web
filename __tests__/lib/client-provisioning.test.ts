@@ -1,4 +1,4 @@
-import { buildClientProvisioningPayload, inferAgentName } from '@/lib/client-provisioning/provisioner'
+import { buildClientProvisioningPayload, inferAgentName, inferCompanyCoworkDomain } from '@/lib/client-provisioning/provisioner'
 import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
 import { callAgentPath } from '@/lib/agents/team'
 
@@ -36,6 +36,11 @@ describe('client workspace provisioning', () => {
     expect(payload.soul).toContain('PiB org_id: `org_123`')
     expect(payload.soul).toContain('Project folder: `/var/lib/hermes/Cowork/Acme Inc`')
     expect(payload.soul).toContain('Never say you are Codex')
+  })
+
+  it('infers company Cowork domains from the company name first', () => {
+    expect(inferCompanyCoworkDomain({ name: 'Hunt and Gun', domain: 'huntandgun.co.za' })).toBe('hunt-and-gun')
+    expect(inferCompanyCoworkDomain({ domain: 'https://www.acme.io' })).toBe('acme')
   })
 
   it('links workspace manifests to CRM company and contact ids when supplied', () => {

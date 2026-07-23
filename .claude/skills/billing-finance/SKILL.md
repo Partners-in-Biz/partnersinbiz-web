@@ -15,7 +15,8 @@ description: >
   "approve expense", "reject expense", "reimburse expense", "bill expense to client",
   "revenue report", "monthly revenue", "quarterly revenue", "outstanding invoices", "aged receivables",
   "client lifetime value", "top clients", "expense by category", "VAT", "ZAR", "currency",
-  "quote to invoice", "mark as paid", "invoice status". If in doubt, trigger.
+  "quote to invoice", "mark as paid", "invoice status", "FX rates", "exchange rates",
+  "currency rates". If in doubt, trigger.
 ---
 
 # Billing & Finance — Partners in Biz Platform API
@@ -325,26 +326,12 @@ Response: `{ billed: count, invoiceId, newTotal }`.
 
 ### Reports (billing-related)
 
-#### `GET /reports/revenue?orgId=X&from=...&to=...&groupBy=month`
-Buckets paid invoices by `paidAt`. `groupBy`: `day` | `week` | `month` | `quarter`.
+See the `reports` skill for full request/response shapes. Quick reference for billing agents:
 
-Response:
-```json
-{ "from": "...", "to": "...", "groupBy": "month",
-  "buckets": [{ "label": "2026-03", "total": 45000, "count": 8 }],
-  "grandTotal": 180000, "currency": "ZAR" }
-```
-
-If invoices span multiple currencies, `currency` becomes null and each bucket has `byCurrency: {...}`.
-
-#### `GET /reports/outstanding?orgId=X`
-Aged receivables — `sent` / `overdue` / `payment_pending_verification` grouped by `dueDate` age: `0-30`, `31-60`, `61-90`, `90+`.
-
-#### `GET /reports/client-value?orgId=X`
-Top clients ranked by lifetime paid total.
-
-#### `GET /reports/expense-summary?orgId=X&from=...&to=...&groupBy=category|project|user`
-Expense breakdown.
+- `GET /reports/revenue?orgId=X&from=...&to=...&groupBy=month` — paid invoices bucketed by `paidAt`.
+- `GET /reports/outstanding?orgId=X` — aged receivables (`sent`/`overdue`/`payment_pending_verification`) by `dueDate` age bucket.
+- `GET /reports/client-value?orgId=X` — top clients ranked by lifetime paid total.
+- `GET /reports/expense-summary?orgId=X&from=...&to=...&groupBy=category|project|user` — expense breakdown.
 
 ### Comments on invoices/expenses
 
@@ -352,6 +339,43 @@ Expense breakdown.
 POST /comments
 { "orgId": "org_abc", "resourceType": "invoice", "resourceId": "inv_xyz",
   "body": "Client asked to extend due date by 14 days. @user:uid123 please confirm." }
+```
+
+### FX rates
+
+#### `GET /fx/rates` — auth: public (no API key required)
+
+Returns cached FX-to-ZAR rates for a given date. Rates are not sensitive and are readable without authentication — see `## Auth (mandatory)` above for how this differs from every other route in this skill.
+
+Query:
+- `date` (optional, `YYYY-MM-DD`) — defaults to today.
+
+Response:
+```json
+{
+  "ok": true,
+  "date": "2026-05-07",
+  "base": "ZAR",
+  "source": "...",
+  "rates": {
+    "USD": 18.45,
+    "EUR": 19.82,
+    "GBP": 23.10
+  }
+}
+```
+
+`rates` maps currency codes to their value in the base currency (ZAR). Rates are pre-fetched and cached — this endpoint reads the cache, it does not trigger a live fetch.
+
+Error (400): `date must be YYYY-MM-DD`.
+Error (500): cache miss or upstream fetch failure.
+
+```bash
+# Convert an invoice amount to ZAR
+GET /fx/rates
+# → { rates: { USD: 18.45, EUR: 19.82 } }
+# Multiply invoice.total by rates[invoice.currency]
+# e.g. USD 1000 * 18.45 = ZAR 18,450
 ```
 
 ---

@@ -4,6 +4,8 @@ description: "PPC financial calculator and modeling tool. CPA, ROAS, CPL calcula
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-strategy`](../ads-strategy/SKILL.md). Agents no longer load `ads-math` at runtime; do not add new content here.
+
 # PPC Financial Calculator & Modeling
 
 <!-- Created: 2026-04-13 | v1.5 -->

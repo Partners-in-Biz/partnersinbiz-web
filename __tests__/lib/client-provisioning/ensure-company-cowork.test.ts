@@ -1,6 +1,7 @@
 const mockProvision = jest.fn()
 const mockUpsert = jest.fn()
 const mockGetCompany = jest.fn()
+const mockGetById = jest.fn()
 const mockEnrich = jest.fn()
 
 jest.mock('@/lib/client-provisioning/vps', () => ({
@@ -8,7 +9,7 @@ jest.mock('@/lib/client-provisioning/vps', () => ({
 }))
 jest.mock('@/lib/client-provisioning/workspace-context', () => ({
   getCompanyWorkspaceByCompanyId: (...args: unknown[]) => mockGetCompany(...args),
-  getOrgWorkspaceById: jest.fn(),
+  getOrgWorkspaceById: (...args: unknown[]) => mockGetById(...args),
   upsertOrgWorkspace: (...args: unknown[]) => mockUpsert(...args),
 }))
 jest.mock('@/lib/client-provisioning/company-cowork-dispatch', () => ({
@@ -33,6 +34,7 @@ describe('ensureCompanyCoworkFolderOnVps', () => {
       companyId: 'company-hunt',
       contactIds: [],
     })
+    mockGetById.mockResolvedValue(null)
     mockProvision.mockResolvedValue({ profile: { skipped: true }, workspace: { ok: true } })
     mockUpsert.mockResolvedValue({ workspaceId: 'hunt-and-gun' })
     mockEnrich.mockImplementation(async (workspace: Record<string, unknown>) => ({
@@ -79,8 +81,49 @@ describe('ensureCompanyCoworkFolderOnVps', () => {
     }))
   })
 
-  it('fails closed when the company Workspace link is missing', async () => {
+  it('bootstraps and provisions when the company Workspace link is missing', async () => {
     mockGetCompany.mockResolvedValue(null)
+    mockGetById.mockResolvedValue(null)
+    const { ensureCompanyCoworkFolderOnVps } = await import('@/lib/client-provisioning/ensure-company-cowork')
+    const result = await ensureCompanyCoworkFolderOnVps({
+      workspaceId: 'partners',
+      orgId: 'pib-platform-owner',
+      orgSlug: 'partners',
+      orgName: 'Partners in Biz',
+      agentDomain: 'partners',
+      vpsPath: '/var/lib/hermes/Cowork/Partners in Biz',
+      localPath: '~/Cowork/Partners in Biz',
+      agentDomainPath: '/x',
+      localAgentDomainPath: '~/x',
+      sourceOfTruth: 'vps',
+      runtimeTarget: 'vps',
+      runtimeLabel: 'Partners VPS',
+      shareMode: 'private',
+      ownerUserId: 'user-1',
+      companyId: 'company-hunt',
+      companyName: 'Hunt and Gun',
+      companyDomain: 'huntandgun.co.za',
+      companyLinkedOrgId: 'AEsehyRzcy2wfk0aR7KY',
+      folderScope: 'company',
+      contactIds: [],
+    })
+
+    expect(result.ok).toBe(true)
+    expect(mockProvision).toHaveBeenCalledWith(expect.objectContaining({
+      clientName: 'Hunt and Gun',
+      domain: 'hunt-and-gun',
+      orgId: 'AEsehyRzcy2wfk0aR7KY',
+      companyId: 'company-hunt',
+    }))
+    expect(mockUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: 'hunt-and-gun',
+      linked: expect.objectContaining({ companyId: 'company-hunt' }),
+    }))
+  })
+
+  it('fails only when company identity cannot be inferred', async () => {
+    mockGetCompany.mockResolvedValue(null)
+    mockGetById.mockResolvedValue(null)
     const { ensureCompanyCoworkFolderOnVps } = await import('@/lib/client-provisioning/ensure-company-cowork')
     const result = await ensureCompanyCoworkFolderOnVps({
       workspaceId: 'partners',

@@ -48,6 +48,9 @@ describe('agent skill policy manifest', () => {
       'geo-seo-service',
       'google-workspace',
       'platform-ops',
+      'agent-runtime-ops',
+      'platform-admin-users',
+      'reports',
       'project-management',
       'properties',
       'qa-release',
@@ -133,15 +136,15 @@ describe('agent skill policy manifest', () => {
   })
 
   it('requires model-level proof and profile-specific OAuth recovery for Hermes incidents', () => {
-    const platformSkill = readFileSync(join(
+    const runtimeSkill = readFileSync(join(
       process.cwd(),
-      '.claude/skills/platform-ops/SKILL.md',
+      '.claude/skills/agent-runtime-ops/SKILL.md',
     ), 'utf8')
 
-    expect(platformSkill).toContain('Reply with exactly CODEXOK and nothing else.')
-    expect(platformSkill).toContain('NRestarts')
-    expect(platformSkill).toContain('auth add openai-codex --type oauth --no-browser --timeout 600')
-    expect(platformSkill).toContain("do not copy another working profile's `auth.json` or refresh token")
+    expect(runtimeSkill).toContain('Reply with exactly CODEXOK and nothing else.')
+    expect(runtimeSkill).toContain('NRestarts')
+    expect(runtimeSkill).toContain('auth add openai-codex --type oauth --no-browser --timeout 600')
+    expect(runtimeSkill).toContain("do not copy another working profile's `auth.json` or refresh token")
   })
 
   it('catalogs every repo skill folder with an owner and runtime policy', () => {
@@ -214,9 +217,9 @@ describe('agent skill policy manifest', () => {
     ]))
     expect(AGENT_SKILL_POLICY.agents.ads.runtimeSkills).toEqual(expect.arrayContaining([
       'ads-manager',
-      'marketing/ads',
-      'marketing/ads-google',
-      'marketing/ads-meta',
+      'marketing/ads-strategy',
+      'marketing/ads-platforms',
+      'marketing/ads-creative',
     ]))
     expect(AGENT_SKILL_POLICY.futureAgentCandidates).toEqual([])
   })

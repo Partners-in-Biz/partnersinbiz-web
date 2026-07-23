@@ -4,6 +4,8 @@ description: "YouTube Ads specific analysis covering campaign types, creative qu
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-platforms`](../ads-platforms/SKILL.md). Agents no longer load `ads-youtube` at runtime; do not add new content here.
+
 # YouTube Ads Analysis
 
 <!-- Updated: 2026-04-13 | v1.5: Demand Gen replaces VAC, Shorts expansion, CTV section, frequency capping -->

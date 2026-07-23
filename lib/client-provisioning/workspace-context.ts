@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { buildClientProvisioningPayload, inferCompanyCoworkDomain } from '@/lib/client-provisioning/provisioner'
 
 export type WorkspaceRuntimeTarget = 'vps' | 'local' | 'auto' | string
 
@@ -84,6 +85,10 @@ export type ConversationWorkspaceContext = {
   ownerUserId: string
   companyId: string | null
   companyName?: string
+  /** Optional domain/website hint used when auto-provisioning a missing company Cowork folder. */
+  companyDomain?: string
+  /** Client org that owns the company Cowork workspace record when distinct from the active chat org. */
+  companyLinkedOrgId?: string
   contactIds: string[]
   folderScope?: 'organisation' | 'company' | 'project'
   folderRelativePath?: string
@@ -189,6 +194,8 @@ export async function resolveConversationWorkspaceContext(input: {
   folderRelativePath?: string | null
   companyId?: string | null
   companyName?: string | null
+  companyDomain?: string | null
+  companyLinkedOrgId?: string | null
 }): Promise<ConversationWorkspaceContext | null> {
   const workspace = input.workspaceId
     ? await getOrgWorkspaceById(input.workspaceId)
@@ -208,14 +215,50 @@ export async function resolveConversationWorkspaceContext(input: {
       }
     }
   }
-  const companyWorkspace = projectCompanyId
+  let companyWorkspace = projectCompanyId
     ? await getCompanyWorkspaceByCompanyId(projectCompanyId)
     : null
-  // A company-root session must never fall back to the organisation root.
+  const explicitCompanyId = cleanString(input.companyId)
+  const companyName = cleanString(input.companyName) || companyWorkspace?.orgName || ''
+  const companyDomainHint = cleanString(input.companyDomain)
+  const companyLinkedOrgId = cleanString(input.companyLinkedOrgId) || cleanString(companyWorkspace?.orgId)
+  // Explicit company-root sessions must never fall back to the organisation root.
+  // If the Firestore company Workspace link is missing, build a provisional company
+  // Cowork identity so create/ensure can provision the folder instead of 404ing.
+  if (explicitCompanyId && !companyWorkspace) {
+    if (!companyName) return null
+    const domain = inferCompanyCoworkDomain({ name: companyName, domain: companyDomainHint })
+    const provisionalOrgId = companyLinkedOrgId || input.orgId
+    const provisional = buildClientProvisioningPayload({
+      clientName: companyName,
+      domain,
+      orgId: provisionalOrgId,
+      companyId: explicitCompanyId,
+    })
+    companyWorkspace = {
+      id: provisional.manifest.workspaceId,
+      workspaceId: provisional.manifest.workspaceId,
+      orgId: provisional.manifest.orgId,
+      orgSlug: provisional.manifest.orgSlug,
+      orgName: provisional.manifest.orgName,
+      agentDomain: provisional.manifest.agentDomain,
+      agentName: provisional.manifest.agentName,
+      vpsPath: provisional.manifest.vpsPath,
+      localPath: provisional.manifest.localPath,
+      agentDomainPath: provisional.manifest.agentDomainPath,
+      localAgentDomainPath: provisional.manifest.localAgentDomainPath,
+      sourceOfTruth: 'vps',
+      syncMode: provisional.manifest.syncMode,
+      defaultRuntimeTarget: 'vps',
+      status: 'active',
+      folderVersion: provisional.manifest.folderVersion,
+      manifest: provisional.manifest,
+      companyId: explicitCompanyId,
+      contactIds: provisional.manifest.linked.contactIds,
+    }
+  }
   // Legacy project rows may still lack a company Workspace link; keep those
   // on their existing organisation project path until their CRM link is repaired.
-  if (cleanString(input.companyId) && !companyWorkspace) return null
-  const companyName = cleanString(input.companyName) || companyWorkspace?.orgName || ''
   const workspaceRoot = companyWorkspace ?? workspace
   const requestedFolderRelativePath = cleanString(input.folderRelativePath)
   const folderRelativePath = projectId
@@ -254,6 +297,8 @@ export async function resolveConversationWorkspaceContext(input: {
     ownerUserId: input.ownerUserId,
     companyId: projectCompanyId || workspace.companyId || null,
     ...(companyName ? { companyName } : {}),
+    ...(companyDomainHint ? { companyDomain: companyDomainHint } : {}),
+    ...(companyLinkedOrgId ? { companyLinkedOrgId } : {}),
     contactIds: Array.isArray(workspace.contactIds) ? workspace.contactIds : [],
     folderScope: projectId ? 'project' : projectCompanyId ? 'company' : 'organisation',
     folderRelativePath,

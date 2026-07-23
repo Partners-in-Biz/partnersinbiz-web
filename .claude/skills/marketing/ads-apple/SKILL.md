@@ -4,6 +4,8 @@ description: "Apple Ads (formerly Apple Search Ads) deep analysis for mobile app
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-platforms`](../ads-platforms/SKILL.md). Agents no longer load `ads-apple` at runtime; do not add new content here.
+
 # Apple Ads (formerly Apple Search Ads) Deep Analysis
 
 <!-- Updated: 2026-04-13 | v1.5: Maximize Conversions, CPP-only (Creative Sets deprecated), AdAttributionKit, rebrand -->

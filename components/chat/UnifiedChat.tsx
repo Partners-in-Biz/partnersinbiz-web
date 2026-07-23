@@ -6180,7 +6180,11 @@ export default function UnifiedChat({
                 disabled={!allowStartConversations || creatingConv || newParticipants.length === 0 || ((newScope === 'workspace' || newScope === 'company' || newScope === 'project') && !selectedWorkspaceRuntimeIsValid) || (newScope === 'workspace' && !selectedWorkspaceId) || (newScope === 'company' && (!selectedCompanyId || !selectedWorkspaceId)) || (newScope === 'project' && (!selectedProjectId || !selectedWorkspaceId || projectSetupBlocksSession))}
                 className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-on-primary disabled:opacity-50 hover:opacity-90"
               >
-                {creatingConv ? 'Creating…' : 'Start conversation'}
+                {creatingConv
+                  ? (newScope === 'company' || newScope === 'project'
+                    ? 'Setting up Cowork folder…'
+                    : 'Creating…')
+                  : 'Start conversation'}
               </button>
             </div>
         </AccessibleDialog>

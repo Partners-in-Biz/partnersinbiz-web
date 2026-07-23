@@ -4,6 +4,8 @@ description: "Meta Ads deep analysis covering Facebook and Instagram advertising
 user-invokable: false
 ---
 
+> **Deprecated (kept on disk for reference only, one release):** This skill has been consolidated into [`marketing/ads-platforms`](../ads-platforms/SKILL.md). Agents no longer load `ads-meta` at runtime; do not add new content here.
+
 # Meta Ads Deep Analysis
 
 ## Andromeda AI Engine
