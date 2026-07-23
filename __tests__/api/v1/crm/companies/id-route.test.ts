@@ -270,6 +270,44 @@ describe('PATCH /api/v1/crm/companies/:id', () => {
     expect(written.updatedByRef.displayName).toBe('Bob P')
     expect(written.updatedByRef.kind).toBe('human')
   })
+
+  it('rebuilds ownerRef and assignedToRef when ownerUid changes', async () => {
+    const uid = uidFor('member-owner-ref')
+    const member = seedOrgMember('org-a', uid, { role: 'admin', firstName: 'Admin', lastName: 'A' })
+    stageAuth(member)
+    const co = buildCompany({
+      id: 'co-owner-ref',
+      orgId: 'org-a',
+      notes: 'keep me',
+      tags: ['client-org'],
+      ownerUid: 'old-owner',
+      assignedTo: 'old-owner',
+    })
+    ;(companiesStore.loadCompany as jest.Mock).mockResolvedValue(makeLoadedCompany(co))
+    ;(companiesStore.loadMemberRef as jest.Mock).mockResolvedValue({
+      uid: 'new-owner',
+      displayName: 'Stean van Wyk',
+      kind: 'human',
+      jobTitle: 'CMO',
+    })
+    const req = callAsMember(member, 'PATCH', '/api/v1/crm/companies/co-owner-ref', {
+      ownerUid: 'new-owner',
+    })
+    const res = await routeModule.PATCH(req, routeCtx('co-owner-ref'))
+    expect(res.status).toBe(200)
+    const written = updateFn.mock.calls[0][0]
+    expect(written.ownerUid).toBe('new-owner')
+    expect(written.ownerRef).toEqual({
+      uid: 'new-owner',
+      displayName: 'Stean van Wyk',
+      kind: 'human',
+      jobTitle: 'CMO',
+    })
+    expect(written.assignedTo).toBe('new-owner')
+    expect(written.assignedToRef.uid).toBe('new-owner')
+    expect(written.notes).toBeUndefined()
+    expect(written.tags).toBeUndefined()
+  })
 })
 
 describe('PUT /api/v1/crm/companies/:id', () => {

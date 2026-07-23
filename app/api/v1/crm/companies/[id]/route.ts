@@ -74,34 +74,66 @@ async function handleUpdate(
     if (!validChain) return apiError('Invalid parentCompanyId: creates a cycle or crosses tenants', 400)
   }
 
-  // Validate account manager if changing + resolve ref snapshot
-  let accountManagerRefPatch: undefined | { accountManagerRef: unknown } = undefined
+  // Validate assignment UIDs + resolve ref snapshots (same contract as bulk update)
+  const assignmentRefPatch: Record<string, unknown> = {}
   if ('accountManagerUid' in body) {
     if (body.accountManagerUid === '' || body.accountManagerUid === null) {
       // Explicit unset — clear both fields below via sanitized + FieldValue.delete on ref
-      accountManagerRefPatch = { accountManagerRef: (await import('firebase-admin/firestore')).FieldValue.delete() }
+      assignmentRefPatch.accountManagerRef = FieldValue.delete()
     } else if (body.accountManagerUid) {
       if (!isCrmPrivilegedActor(ctx) && body.accountManagerUid !== ctx.actor.uid) {
         return apiError('You can only assign companies to yourself with your current CRM access', 403)
       }
       const ref = await loadMemberRef(ctx.orgId, body.accountManagerUid as string)
       if (!ref) return apiError('accountManagerUid does not belong to this workspace', 400)
-      accountManagerRefPatch = { accountManagerRef: ref }
+      assignmentRefPatch.accountManagerRef = ref
     }
   }
 
+  const ownerUidInput = typeof body.ownerUid === 'string' ? body.ownerUid.trim() : ''
+  if (ownerUidInput) {
+    const ref = await loadMemberRef(ctx.orgId, ownerUidInput)
+    if (!ref) return apiError('ownerUid does not belong to this workspace', 400)
+    assignmentRefPatch.ownerUid = ownerUidInput
+    assignmentRefPatch.ownerRef = ref
+    // Keep assignedTo in sync with owner when only ownerUid is patched (create path does the same).
+    if (!('assignedTo' in body)) {
+      assignmentRefPatch.assignedTo = ownerUidInput
+      assignmentRefPatch.assignedToRef = ref
+    }
+  }
+
+  const assignedToInput = typeof body.assignedTo === 'string' ? body.assignedTo.trim() : ''
+  if (assignedToInput) {
+    if (!isCrmPrivilegedActor(ctx) && assignedToInput !== ctx.actor.uid) {
+      return apiError('You can only assign companies to yourself with your current CRM access', 403)
+    }
+    const ref = await loadMemberRef(ctx.orgId, assignedToInput)
+    if (!ref) return apiError('assignedTo does not belong to this workspace', 400)
+    assignmentRefPatch.assignedTo = assignedToInput
+    assignmentRefPatch.assignedToRef = ref
+  }
+
   const sanitized = sanitizeCompanyForWrite(body)
+  // sanitizeCompanyForWrite defaults empty tags/notes for creates — never blank them on partial update.
+  if (!('tags' in body)) delete sanitized.tags
+  if (!('notes' in body)) delete sanitized.notes
   const allowedUserPatch = normalizeAllowedUserPatch(body.allowedUserIds)
   if (body.allowedUserIds !== undefined && allowedUserPatch === null) {
     return apiError('allowedUserIds must be an array of user IDs', 400)
   }
   const nextAllowedUserIds = allowedUserPatch ?? normalizeAllowedUserIds(loaded.data.allowedUserIds)
-  for (const uid of [body.accountManagerUid, body.ownerUid]) {
+  for (const uid of [body.accountManagerUid, body.ownerUid, body.assignedTo]) {
     if (typeof uid === 'string' && uid.trim() && !nextAllowedUserIds.includes(uid.trim())) {
       nextAllowedUserIds.push(uid.trim())
     }
   }
-  if (body.allowedUserIds !== undefined || typeof body.accountManagerUid === 'string' || typeof body.ownerUid === 'string') {
+  if (
+    body.allowedUserIds !== undefined
+    || typeof body.accountManagerUid === 'string'
+    || typeof body.ownerUid === 'string'
+    || typeof body.assignedTo === 'string'
+  ) {
     sanitized.allowedUserIds = nextAllowedUserIds
   }
 
@@ -120,7 +152,7 @@ async function handleUpdate(
 
   const patch: Record<string, unknown> = {
     ...sanitized,
-    ...(accountManagerRefPatch ?? {}),
+    ...assignmentRefPatch,
     updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
     updatedByRef: ctx.actor,
     updatedAt: Timestamp.now(),
