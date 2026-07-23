@@ -61,6 +61,7 @@ import { ContextArtifactBundle } from '@/components/chat/context/ContextArtifact
 import type { ProjectChatTaskItem } from '@/lib/projects/chatProgress'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 import { folderAccentStyle } from '@/lib/messages/folder-accent'
+import { pickPreferredWorkspaceRuntime } from '@/lib/messages/preferred-workspace-runtime'
 import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAccessPanel'
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
@@ -910,6 +911,7 @@ export default function UnifiedChat({
 }: UnifiedChatProps) {
   // ── State ─────────────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<Conversation[]>([])
+  const [conversationsHydrated, setConversationsHydrated] = useState(false)
   const [uncontrolledActiveId, setUncontrolledActiveId] = useState<string | null>(null)
   const activeId = activeConversationId === undefined ? uncontrolledActiveId : activeConversationId
   const activeConversationIdRef = useRef(activeId)
@@ -1027,11 +1029,16 @@ export default function UnifiedChat({
   const [workspaceCatalogueLoaded, setWorkspaceCatalogueLoaded] = useState(false)
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
   const [selectedProjectId, setSelectedProjectId] = useState(projectId ?? '')
-  const [selectedCompanyId, setSelectedCompanyId] = useState('')
-  const [selectedCompanyName, setSelectedCompanyName] = useState('')
+  const [selectedCompanyId, setSelectedCompanyId] = useState(
+    scope === 'company' && scopeRefId ? scopeRefId : '',
+  )
+  const [selectedCompanyName, setSelectedCompanyName] = useState(
+    scope === 'company' && orgName?.trim() ? orgName.trim() : '',
+  )
   const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<string>('')
   const workspaceRuntimeExplicitRef = useRef(false)
   const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
+  const companyCoworkLocked = scope === 'company' && Boolean(scopeRefId)
   const [showProjectSetupWizard, setShowProjectSetupWizard] = useState(false)
   const [projectSetupMode, setProjectSetupMode] = useState<ProjectSetupMode>('existing_folder')
   const [projectSetupCompanyId, setProjectSetupCompanyId] = useState('')
@@ -1301,10 +1308,12 @@ export default function UnifiedChat({
     if (!workspaceRuntimeExplicitRef.current && !workspaceRuntimeTargets.some((runtime) => (
       workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime && runtime.selectable
     ))) {
-      const first = workspaceRuntimeTargets.find((runtime) => runtime.selectable)
-      setSelectedWorkspaceRuntime(first ? workspaceRuntimeSelectionKey(first) : '')
+      const preferred = pickPreferredWorkspaceRuntime(workspaceRuntimeTargets, {
+        preferredTargetId: selectedWorkspace?.defaultRuntimeTarget,
+      })
+      setSelectedWorkspaceRuntime(preferred ? workspaceRuntimeSelectionKey(preferred) : '')
     }
-  }, [newScope, selectedWorkspaceRuntime, workspaceRuntimeTargets])
+  }, [newScope, selectedWorkspace?.defaultRuntimeTarget, selectedWorkspaceRuntime, workspaceRuntimeTargets])
   const projectLocationOptions = useMemo<ProjectLocationOption[]>(() => workspaces.flatMap((workspace) => (
     workspaceRuntimeTargetsByWorkspace[workspace.workspaceId] ?? []
   ).map((runtime) => ({
@@ -1620,6 +1629,13 @@ export default function UnifiedChat({
     return params.toString()
   }, [orgId, projectId, scope, scopeRefId])
 
+  useEffect(() => {
+    if (!companyCoworkLocked || !scopeRefId) return
+    setNewScope('company')
+    setSelectedCompanyId(scopeRefId)
+    if (orgName?.trim()) setSelectedCompanyName(orgName.trim())
+  }, [companyCoworkLocked, orgName, scopeRefId])
+
   // ── Load agents (for colorKey lookup) ─────────────────────────────────────
   useEffect(() => {
     fetch(`/api/v1/orgs/${orgId}/visible-agents`)
@@ -1670,6 +1686,7 @@ export default function UnifiedChat({
         }))
         setWorkspaceCatalogueLoaded(true)
         const initialWorkspaceId = next[0]?.workspaceId || ''
+        const initialWorkspace = next.find((workspace) => workspace.workspaceId === initialWorkspaceId) ?? next[0]
         setSelectedWorkspaceId((current) => current || initialWorkspaceId)
         setSelectedProjectId((current) => current || projectId || projects[0]?.id || '')
         setSelectedWorkspaceRuntime((current) => {
@@ -1677,8 +1694,10 @@ export default function UnifiedChat({
           const initialRuntimes = runtimeTargetsByWorkspace[initialWorkspaceId] ?? runtimes
           const currentTarget = initialRuntimes.find((runtime) => workspaceRuntimeSelectionKey(runtime) === current)
           if (currentTarget?.selectable) return current
-          const first = initialRuntimes.find((runtime) => runtime.selectable)
-          return first ? workspaceRuntimeSelectionKey(first) : ''
+          const preferred = pickPreferredWorkspaceRuntime(initialRuntimes, {
+            preferredTargetId: initialWorkspace?.defaultRuntimeTarget,
+          })
+          return preferred ? workspaceRuntimeSelectionKey(preferred) : ''
         })
         return snapshot
       } catch {
@@ -1780,10 +1799,14 @@ export default function UnifiedChat({
     if (forProjectId) {
       setNewScope('project')
       setSelectedProjectId(forProjectId)
+    } else if (scope === 'company' && scopeRefId) {
+      setNewScope('company')
+      setSelectedCompanyId(scopeRefId)
+      if (orgName?.trim()) setSelectedCompanyName(orgName.trim())
     }
     setModalError(null)
     setShowNewModal(true)
-  }, [allowStartConversations])
+  }, [allowStartConversations, orgName, scope, scopeRefId])
 
   const openNewCompanyConversation = useCallback((companyId: string, companyName: string) => {
     if (!allowStartConversations) {
@@ -2200,6 +2223,9 @@ export default function UnifiedChat({
         initialAgentId &&
         scope &&
         scopeRefId &&
+        scope !== 'company' &&
+        scope !== 'workspace' &&
+        scope !== 'project' &&
         !autoCreateRef.current
       ) {
         autoCreateRef.current = true
@@ -2228,6 +2254,8 @@ export default function UnifiedChat({
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load conversations')
+    } finally {
+      setConversationsHydrated(true)
     }
   }, [
     listQuery,
@@ -2247,6 +2275,89 @@ export default function UnifiedChat({
     layoutVariant,
     linkedProjectIds,
     setActiveId,
+  ])
+
+  // Company Cowork (CRM embed): wait for the workspace catalogue, then create on the
+  // org default computer (usually VPS) so sessions bind to the company folder.
+  useEffect(() => {
+    if (!autoCreateScopedConversation || !allowStartConversations || !initialAgentId) return
+    if (scope !== 'company' || !scopeRefId) return
+    if (!conversationsHydrated) return
+    if (!workspaceCatalogueLoaded || !selectedWorkspaceId || !selectedWorkspaceRuntimeIsValid) return
+    if (conversations.length > 0 || activeId || autoCreateRef.current) return
+
+    autoCreateRef.current = true
+    let cancelled = false
+    let settled = false
+    const idempotencyKey = `company-cowork-autocreate:${orgId}:${scopeRefId}:${currentUserUid}`
+    void (async () => {
+      try {
+        const selected = parseWorkspaceRuntimeSelection(selectedWorkspaceRuntime)
+        const createRes = await fetch('/api/v1/conversations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': idempotencyKey,
+          },
+          body: JSON.stringify({
+            orgId,
+            participants: [{ kind: 'agent', agentId: initialAgentId }],
+            title: autoCreateTitle?.trim() || `${orgName || 'Company'} Cowork`,
+            scope: 'company',
+            scopeRefId,
+            workspaceId: selectedWorkspaceId,
+            runtimeTarget: selected.runtimeTargetId,
+            ...(selected.mappingId ? { mappingId: selected.mappingId } : {}),
+            shareMode: selectedWorkspaceShareMode,
+            ...(currentPageContext ? { contextRefs: [coerceContextRef(currentPageContext)] } : {}),
+          }),
+        })
+        const createBody = await createRes.json().catch(() => null)
+        if (cancelled) return
+        if (!createRes.ok) {
+          throw new Error(createBody?.error ?? `create conversation: ${createRes.status}`)
+        }
+        const conv: Conversation | undefined = createBody?.data?.conversation
+        if (conv) {
+          settled = true
+          setConversations((current) => (current.some((row) => row.id === conv.id) ? current : [conv, ...current]))
+          setActiveId(conv.id)
+          setMobilePane('conversation')
+        } else {
+          autoCreateRef.current = false
+        }
+      } catch (createError) {
+        if (cancelled) return
+        autoCreateRef.current = false
+        setError(createError instanceof Error ? createError.message : 'Failed to start company Cowork chat')
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      if (!settled) autoCreateRef.current = false
+    }
+  }, [
+    activeId,
+    allowStartConversations,
+    autoCreateScopedConversation,
+    autoCreateTitle,
+    coerceContextRef,
+    conversations.length,
+    conversationsHydrated,
+    currentPageContext,
+    currentUserUid,
+    initialAgentId,
+    orgId,
+    orgName,
+    scope,
+    scopeRefId,
+    selectedWorkspaceId,
+    selectedWorkspaceRuntime,
+    selectedWorkspaceRuntimeIsValid,
+    selectedWorkspaceShareMode,
+    setActiveId,
+    workspaceCatalogueLoaded,
   ])
 
   // ── Load messages ─────────────────────────────────────────────────────────
@@ -3757,6 +3868,16 @@ export default function UnifiedChat({
           }
           if (scope) payload.scope = scope
           if (scopeRefId) payload.scopeRefId = scopeRefId
+          if (scope === 'company') {
+            if (!selectedWorkspaceId || !selectedWorkspaceRuntimeIsValid) {
+              throw new Error('Select an available computer before starting this company Cowork chat.')
+            }
+            const selected = parseWorkspaceRuntimeSelection(selectedWorkspaceRuntime)
+            payload.workspaceId = selectedWorkspaceId
+            payload.runtimeTarget = selected.runtimeTargetId
+            if (selected.mappingId) payload.mappingId = selected.mappingId
+            payload.shareMode = selectedWorkspaceShareMode
+          }
           if (refsForSend.length > 0) payload.contextRefs = refsForSend
           const r = await fetch('/api/v1/conversations', {
             method: 'POST',
@@ -3765,7 +3886,7 @@ export default function UnifiedChat({
           })
           const b = await r.json()
           convId = b.data?.conversation?.id as string | undefined ?? null
-          if (!convId) throw new Error('Failed to create conversation')
+          if (!convId) throw new Error(b?.error ?? 'Failed to create conversation')
           createdWithAgent = participants.length > 0
           setConversations((prev) => [b.data.conversation, ...prev])
           setActiveId(convId)
@@ -3902,6 +4023,10 @@ export default function UnifiedChat({
       currentUserDisplayName,
       scope,
       scopeRefId,
+      selectedWorkspaceId,
+      selectedWorkspaceRuntime,
+      selectedWorkspaceRuntimeIsValid,
+      selectedWorkspaceShareMode,
       loadMessages,
       pollFinalize,
       startEventStream,
@@ -3913,19 +4038,23 @@ export default function UnifiedChat({
   )
 
   // ── Render ────────────────────────────────────────────────────────────────
-  const scopeLabel = scope && scope !== 'general'
-    ? scope.charAt(0).toUpperCase() + scope.slice(1)
-    : 'Default'
+  const scopeLabel = companyCoworkLocked
+    ? 'Company Cowork'
+    : scope && scope !== 'general'
+      ? scope.charAt(0).toUpperCase() + scope.slice(1)
+      : 'Default'
   const subtitle = [orgName, scopeLabel].filter(Boolean).join(' · ')
-  const availableConversationContexts = [
-    { value: 'general' as const, label: `General conversation${orgName ? `: ${orgName}` : ''}` },
-    ...(workspaces.length > 0 ? [{ value: 'workspace' as const, label: 'Organisation root folder' }] : []),
-    ...(workspaces.length > 0 ? [{ value: 'company' as const, label: 'Company Cowork folder' }] : []),
-    { value: 'project' as const, label: 'Project inside company' },
-    ...(scope && scope !== 'general' && scope !== 'project' && scope !== 'workspace' && scope !== 'company'
-      ? [{ value: scope, label: `Current ${scope}: ${scopeRefId ?? 'selected item'}` }]
-      : []),
-  ]
+  const availableConversationContexts = companyCoworkLocked
+    ? [{ value: 'company' as const, label: `Company Cowork: ${selectedCompanyName || orgName || 'selected company'}` }]
+    : [
+      { value: 'general' as const, label: `General conversation${orgName ? `: ${orgName}` : ''}` },
+      ...(workspaces.length > 0 ? [{ value: 'workspace' as const, label: 'Organisation root folder' }] : []),
+      ...(workspaces.length > 0 ? [{ value: 'company' as const, label: 'Company Cowork folder' }] : []),
+      { value: 'project' as const, label: 'Project inside company' },
+      ...(scope && scope !== 'general' && scope !== 'project' && scope !== 'workspace' && scope !== 'company'
+        ? [{ value: scope, label: `Current ${scope}: ${scopeRefId ?? 'selected item'}` }]
+        : []),
+    ]
   const showListOnMobile = mobilePane === 'list'
   const hermesLayout = layoutVariant === 'hermes' && !compact
   // A saved collapsed preference only applies to the docked >=1280 rail. Overlay
@@ -5690,22 +5819,40 @@ export default function UnifiedChat({
                 <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] block mb-1.5">
                   Conversation context
                 </label>
-                <select
-                  aria-label="Conversation context"
-                  value={newScope}
-                  onChange={(e) => setNewScope(e.target.value as ConversationScope)}
-                  className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-primary/60"
-                >
-                  {availableConversationContexts.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                {companyCoworkLocked ? (
+                  <div
+                    data-testid="locked-company-cowork-context"
+                    className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-primary" aria-hidden="true">folder</span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">
+                        {selectedCompanyName || orgName || 'Company Cowork'}
+                      </p>
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)]">
+                        Company Cowork folder · pick VPS or Mac below
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <select
+                    aria-label="Conversation context"
+                    value={newScope}
+                    onChange={(e) => setNewScope(e.target.value as ConversationScope)}
+                    className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-primary/60"
+                  >
+                    {availableConversationContexts.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {(newScope === 'workspace' || newScope === 'company' || newScope === 'project') && (
                 <div className="flex flex-col gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  {!(companyCoworkLocked && newScope === 'company') && (
                   <div>
                     <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                       {newScope === 'project'
@@ -5770,6 +5917,7 @@ export default function UnifiedChat({
                       </div>
                     )}
                   </div>
+                  )}
                   <div>
                     <label htmlFor="workspace-runtime" className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                       {showMappedFolderRuntimeChoices ? 'Computer / mapped folder' : 'Computer'}
@@ -5822,7 +5970,9 @@ export default function UnifiedChat({
                       {showMappedFolderRuntimeChoices
                         ? 'Only healthy computers authorised for the current organisation can run files here. When a computer has more than one mapped folder, each mapping appears as its own choice.'
                         : newScope === 'company'
-                          ? 'Pick VPS or Mac. The company Cowork folder is already chosen above.'
+                          ? companyCoworkLocked
+                            ? 'Defaults to this organisation’s VPS Cowork copy. Switch to Mac or another computer anytime.'
+                            : 'Pick VPS or Mac. The company Cowork folder is already chosen above.'
                           : 'Pick a linked computer. The project folder is already chosen above.'}
                     </div>
                     {newScope === 'project' && selectedProjectId && workspaceRuntimeTargets.length === 0 && (
