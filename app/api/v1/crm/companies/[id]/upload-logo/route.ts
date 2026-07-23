@@ -16,6 +16,7 @@ import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { loadCompany } from '@/lib/companies/store'
+import { crmActorCanReadCompanyRecord } from '@/lib/crm/assignment-access'
 import crypto from 'crypto'
 
 type RouteCtx = { params: Promise<{ id: string }> }
@@ -40,9 +41,9 @@ export const POST = withCrmAuth<RouteCtx>(
   async (req, ctx, routeCtx) => {
     const { id } = await routeCtx!.params
 
-    // Verify company exists and belongs to org
+    // Verify company exists, belongs to org, and actor can read it
     const loaded = await loadCompany(id, ctx.orgId)
-    if (!loaded) return apiError('Company not found', 404)
+    if (!loaded || !(await crmActorCanReadCompanyRecord(ctx, id, loaded.data))) return apiError('Company not found', 404)
 
     // Parse multipart form-data
     let formData: FormData

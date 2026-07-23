@@ -7,10 +7,16 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
-import { withCrmAuth } from '@/lib/auth/crm-middleware'
+import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { CalendarAssignee } from '@/lib/calendar/types'
 import { getFreshGoogleAccessToken, googleAccountHasScopes } from '@/lib/google/userToken'
+import {
+  crmActorCanReadRecord,
+  crmRecordCompanyIds,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +32,25 @@ type CreatedGoogleCalendarEvent = {
 }
 
 const GOOGLE_CALENDAR_EVENTS_SCOPE = 'https://www.googleapis.com/auth/calendar.events'
+
+async function loadAccessibleContact(
+  ctx: CrmAuthContext,
+  contactId: string,
+): Promise<{ ok: true; contact: Record<string, unknown> } | { ok: false; res: Response }> {
+  const snap = await adminDb.collection('contacts').doc(contactId).get()
+  if (!snap.exists) return { ok: false, res: apiError('Contact not found', 404) }
+  const data = snap.data()!
+  if (data.orgId !== ctx.orgId || data.deleted === true) {
+    return { ok: false, res: apiError('Contact not found', 404) }
+  }
+  if (!isCrmPrivilegedActor(ctx)) {
+    const companies = await loadCompanyAssignmentMap(ctx.orgId, crmRecordCompanyIds(data))
+    if (!crmActorCanReadRecord(ctx, { id: snap.id, ...data }, { companies })) {
+      return { ok: false, res: apiError('Contact not found', 404) }
+    }
+  }
+  return { ok: true, contact: { id: snap.id, ...data } }
+}
 
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -144,11 +169,10 @@ export const POST = withCrmAuth<RouteCtx>(
     if (end.getTime() <= start.getTime()) return apiError('endAt must be after startAt', 400)
 
     const contactRef = adminDb.collection('contacts').doc(id)
-    const snap = await contactRef.get()
-    if (!snap.exists) return apiError('Contact not found', 404)
+    const access = await loadAccessibleContact(ctx, id)
+    if (!access.ok) return access.res
 
-    const contact = snap.data() ?? {}
-    if (contact.orgId !== ctx.orgId) return apiError('Contact not found', 404)
+    const contact = access.contact
 
     const contactEmail = cleanString(contact.email)
     if (!contactEmail) return apiError('Contact has no email address', 400)
