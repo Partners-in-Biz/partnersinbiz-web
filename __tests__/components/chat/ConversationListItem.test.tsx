@@ -44,4 +44,30 @@ describe('ConversationListItem', () => {
     expect(row.querySelector('.truncate')).not.toBeNull()
     expect(container.querySelector('.overflow-hidden')).not.toBeNull()
   })
+
+  it('shows the project name on compact project sessions', () => {
+    render(
+      <ConversationListItem
+        conversation={makeConversation({
+          scope: 'project',
+          scopeRefId: 'project-1',
+          workspaceContext: {
+            workspaceId: 'ws-1',
+            orgName: 'Partners in Biz',
+            runtimeTarget: 'linked-device:vps',
+            runtimeLabel: 'Partners VPS',
+            shareMode: 'private',
+            projectId: 'project-1',
+            projectName: 'AHS Law - SEO 90-day Sprint',
+          },
+        })}
+        active={false}
+        onClick={() => {}}
+        currentUserUid="user-1"
+        density="compact"
+      />,
+    )
+
+    expect(screen.getByTestId('conversation-project-badge-conv-1')).toHaveTextContent('AHS Law - SEO 90-day Sprint')
+  })
 })
