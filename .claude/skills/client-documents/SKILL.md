@@ -335,6 +335,13 @@ When a shared spec has client feedback:
    - Admin URL: `https://partnersinbiz.online/portal/documents/[id]`
    - Summary of `blocks_publish` assumptions that must be resolved before you can publish
    - Never publish without Peet's explicit instruction
+
+   **Success gate (mandatory before claiming done):**
+   1. `GET /api/v1/client-documents/[id]/versions` and confirm the **current** version has filled content (not empty template strings).
+   2. At least the primary blocks (`hero`/`summary` plus the sections you claimed to write) must be non-empty.
+   3. If `POST …/versions` returns 400, surface the exact `error` string, fix the payload, and retry once. Never invent a success URL.
+   4. Do not create additional document shells after a versions failure — update the existing document id.
+   5. Only then return the portal URL. If verification fails, say the document shell exists but content is **not** landed.
 8. **Publish/send to client:** only after blockers are resolved and Peet approves, call `POST /api/v1/client-documents/[id]/publish`. This moves the document to `client_review` and enables share. For system clients, verify both the PiB CRM company Documents tab and the client/org Documents list.
 9. **Countersign proposals/SOWs when needed:** if Peet wants a visible PiB signature, use the admin document editor `Countersign` action or call `POST /api/v1/client-documents/[id]/sign` after publish. Default values are Peet Stander, Founder, The Partners in Business. The shared/rendered document appends an `Agreement signatures` section showing PiB signature state and the client's platform acceptance.
 
