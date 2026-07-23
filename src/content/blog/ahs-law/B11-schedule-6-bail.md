@@ -1,13 +1,11 @@
 ---
-title: "Schedule 6 Bail Applications: What “Exceptional Circumstances” Really Means"
-published: "2026-07-20"
-updated: "2026-07-23"
-tags: ["Bail", "Criminal Law", "Legal Procedure"]
-author: "Rikus Stander"
-client: "AHS Law"
-client_id: "ahs-law"
-hero_image: "/assets/blog/B11-schedule-6-bail.jpg"
-hero_image_prompt: "cinematic photo, a tense courtroom scene in South Africa, focus on the accused's face, a mix of fear and hope. The magistrate is a background blur. The lighting is dramatic, low-key, inspired by legal thriller movie posters. shallow depth of field, moody, realistic, 8k"
+title: 'Schedule 6 Bail Applications: What “Exceptional Circumstances” Really Means'
+published: 2026-07-20
+author: 'Rikus Stander'
+hero_image: '/assets/blog/B11-schedule-6-bail.png'
+hero_image_prompt: 'Cinematic, dark, moody, legal-themed image. A lone figure stands in a dimly lit, modern courtroom. Shafts of light pierce the gloom, illuminating dust motes. The scales of justice are prominent on the judge''s bench, slightly off-center. The mood is one of tension and gravity. The style is photorealistic, with a shallow depth of field, focusing on the scales. Shot with a 35mm lens, f/1.8.'
+slug: schedule-6-bail-applications-what-exceptional-circumstances-really-means
+company: ahs-law
 ---
 
 When someone is charged with a very serious offence in South Africa, bail is no longer the normal starting point. For offences listed in Schedule 6 of the Criminal Procedure Act 51 of 1977, the law flips the usual approach. The court must keep the accused in custody unless that person can show something specific: exceptional circumstances that, in the interests of justice, allow release.
@@ -26,6 +24,6 @@ The Constitutional Court confirmed that this approach is constitutional in S v D
 
 Schedule 6 covers some of the most serious crimes. These include (among others):
 
-- Murder in certain circumstances (for example where it was planned or premeditated)
-- Rape in specified circumstances
-- Robbery with aggravating circumstances (often involving a firearm)
+*   Murder in certain circumstances (for example where it was planned or premeditated)
+*   Rape in specified circumstances
+*   Robbery with aggravating circumstances (often involving a firearm or causing grievous bodily harm)
