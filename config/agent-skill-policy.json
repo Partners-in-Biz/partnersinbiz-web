@@ -1,6 +1,6 @@
 {
-  "version": "2026-07-13.studio-artifacts-v1",
-  "catalogVersion": "2026-07-13.studio-artifact-skills-v1",
+  "version": "2026-07-23.system-skills-v0.1.0",
+  "catalogVersion": "2026-07-23.system-skills-v0.1.0",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],
@@ -66,6 +66,7 @@
     "approval-queue-gather",
     "ceo-on-demand-gather",
     "chat-surface-gather",
+    "system-auth",
     "billing-finance",
     "client-documents",
     "client-manager",
@@ -1159,6 +1160,27 @@
       ],
       "riskLevel": "medium",
       "syncTarget": "vps"
+    },
+    "system-auth": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "docs",
+        "maya",
+        "nora",
+        "pip",
+        "qa-release",
+        "sage",
+        "sales",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "core"
     }
   },
   "agents": {
@@ -1168,6 +1190,7 @@
       "role": "Front-door operator and orchestrator",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/pip",
       "pibSkills": [
+        "system-auth",
         "analytics",
         "agent-runtime-gather",
         "agent-skill-drift-gather",
@@ -1197,6 +1220,7 @@
         "studio-release-handoff"
       ],
       "runtimeSkills": [
+        "system-auth",
         "analytics",
         "agent-runtime-gather",
         "agent-skill-drift-gather",
@@ -1291,6 +1315,7 @@
       "role": "Engineering and infrastructure specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/theo",
       "pibSkills": [
+        "system-auth",
         "ads-manager",
         "analytics",
         "agent-runtime-gather",
@@ -1327,6 +1352,7 @@
         "studio-release-handoff"
       ],
       "runtimeSkills": [
+        "system-auth",
         "ads-manager",
         "analytics",
         "agent-runtime-gather",
@@ -1460,6 +1486,7 @@
       "role": "Marketing and creative specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/maya",
       "pibSkills": [
+        "system-auth",
         "analytics",
         "approval-queue-gather",
         "ceo-on-demand-gather",
@@ -1482,6 +1509,7 @@
         "studio-release-handoff"
       ],
       "runtimeSkills": [
+        "system-auth",
         "analytics",
         "approval-queue-gather",
         "ceo-on-demand-gather",
@@ -1573,6 +1601,7 @@
       "role": "Research and strategic intelligence specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/sage",
       "pibSkills": [
+        "system-auth",
         "analytics",
         "ceo-on-demand-gather",
         "client-documents",
@@ -1590,6 +1619,7 @@
         "studio-context-gather"
       ],
       "runtimeSkills": [
+        "system-auth",
         "analytics",
         "ceo-on-demand-gather",
         "client-documents",
@@ -1653,6 +1683,7 @@
       "role": "Operations, CRM, billing, and inbox specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/nora",
       "pibSkills": [
+        "system-auth",
         "analytics",
         "agent-runtime-gather",
         "agent-skill-drift-gather",
@@ -1673,6 +1704,7 @@
         "research-intelligence"
       ],
       "runtimeSkills": [
+        "system-auth",
         "analytics",
         "agent-runtime-gather",
         "agent-skill-drift-gather",
@@ -1748,6 +1780,7 @@
       "role": "Paid advertising specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/ads",
       "pibSkills": [
+        "system-auth",
         "ads-manager",
         "analytics",
         "ceo-on-demand-gather",
@@ -1762,6 +1795,7 @@
         "research-intelligence"
       ],
       "runtimeSkills": [
+        "system-auth",
         "ads-manager",
         "analytics",
         "ceo-on-demand-gather",
@@ -1848,6 +1882,7 @@
       "role": "QA and release readiness specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/qa-release",
       "pibSkills": [
+        "system-auth",
         "ads-manager",
         "analytics",
         "agent-runtime-gather",
@@ -1884,6 +1919,7 @@
         "studio-release-handoff"
       ],
       "runtimeSkills": [
+        "system-auth",
         "ads-manager",
         "analytics",
         "agent-runtime-gather",
@@ -2004,6 +2040,7 @@
       "role": "Client support triage specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/support",
       "pibSkills": [
+        "system-auth",
         "analytics",
         "ceo-on-demand-gather",
         "chat-surface-gather",
@@ -2020,6 +2057,7 @@
         "support-manager"
       ],
       "runtimeSkills": [
+        "system-auth",
         "analytics",
         "ceo-on-demand-gather",
         "chat-surface-gather",
@@ -2086,6 +2124,7 @@
       "role": "Analytics, reporting, and data-quality specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/data",
       "pibSkills": [
+        "system-auth",
         "analytics",
         "agent-runtime-gather",
         "agent-skill-drift-gather",
@@ -2106,6 +2145,7 @@
         "social-recovery-gather"
       ],
       "runtimeSkills": [
+        "system-auth",
         "analytics",
         "agent-runtime-gather",
         "agent-skill-drift-gather",
@@ -2174,6 +2214,7 @@
       "role": "Client documents and approvals specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/docs",
       "pibSkills": [
+        "system-auth",
         "analytics",
         "ceo-on-demand-gather",
         "client-documents",
@@ -2194,6 +2235,7 @@
         "studio-release-handoff"
       ],
       "runtimeSkills": [
+        "system-auth",
         "analytics",
         "ceo-on-demand-gather",
         "client-documents",
@@ -2263,6 +2305,7 @@
       "role": "SEO sprint and local SEO specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/seo",
       "pibSkills": [
+        "system-auth",
         "analytics",
         "ceo-on-demand-gather",
         "client-documents",
@@ -2279,6 +2322,7 @@
         "seo-sprint-manager"
       ],
       "runtimeSkills": [
+        "system-auth",
         "analytics",
         "ceo-on-demand-gather",
         "client-documents",
@@ -2343,6 +2387,7 @@
       "role": "Revenue and outbound sales specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/sales",
       "pibSkills": [
+        "system-auth",
         "analytics",
         "approval-queue-gather",
         "ceo-on-demand-gather",
@@ -2360,6 +2405,7 @@
         "research-intelligence"
       ],
       "runtimeSkills": [
+        "system-auth",
         "analytics",
         "approval-queue-gather",
         "ceo-on-demand-gather",
