@@ -2,6 +2,17 @@ import { NextRequest } from 'next/server'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { apiErrorFromException, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
+import {
+  type AssignableCrmRecord,
+  crmActorCanReadCompanyRecord,
+  crmActorCanReadRecord,
+  crmRecordCompanyIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+} from '@/lib/crm/assignment-access'
+import { resolveBillingCrmAuthContext } from '@/lib/billing/crm-record-scope'
+import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,7 +46,7 @@ function addRecipient(
   target.push({ ...recipient, email })
 }
 
-export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, _uid: string, orgId: string) => {
+export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, uid: string, orgId: string) => {
   try {
     const { searchParams } = new URL(req.url)
     const q = normalizeSearch(searchParams.get('q'))
@@ -43,16 +54,46 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, _uid
     const recipients: RecipientSuggestion[] = []
     const seen = new Set<string>()
 
+    const userDoc = await adminDb.collection('users').doc(uid).get()
+    const userData = userDoc.data() ?? {}
+    const apiUser: ApiUser = {
+      uid,
+      role: userData.role === 'admin' ? 'admin' : userData.role === 'ai' ? 'ai' : 'client',
+      orgId,
+      activeOrgId: orgId,
+      allowedOrgIds: Array.isArray(userData.allowedOrgIds) ? userData.allowedOrgIds : undefined,
+      orgIds: Array.isArray(userData.orgIds) ? userData.orgIds : undefined,
+    }
+    const crmCtx = await resolveBillingCrmAuthContext(apiUser, orgId)
+    const privileged = isCrmPrivilegedActor(crmCtx)
+
     const [contactsSnap, companiesSnap] = await Promise.all([
       adminDb.collection('contacts').where('orgId', '==', orgId).limit(250).get(),
       adminDb.collection('companies').where('orgId', '==', orgId).limit(250).get(),
     ])
 
-    for (const doc of contactsSnap.docs) {
-      const data = doc.data()
-      if (data.deleted === true) continue
+    const contactRows = contactsSnap.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }) as AssignableCrmRecord & {
+        name?: unknown
+        email?: unknown
+        companyName?: unknown
+        company?: unknown
+      })
+      .filter((row) => row.deleted !== true)
+
+    let visibleContacts = contactRows
+    if (!privileged) {
+      const companyIds = new Set<string>()
+      for (const row of contactRows) {
+        for (const id of crmRecordCompanyIds(row)) companyIds.add(id)
+      }
+      const companies = await loadCompanyAssignmentMap(orgId, companyIds)
+      visibleContacts = filterCrmRowsForActor(crmCtx, contactRows, { companies }) as typeof contactRows
+    }
+
+    for (const data of visibleContacts) {
       addRecipient(recipients, seen, {
-        id: doc.id,
+        id: String(data.id),
         type: 'contact',
         label: String(data.name ?? data.email ?? 'Contact'),
         email: String(data.email ?? ''),
@@ -63,8 +104,16 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, _uid
 
     for (const doc of companiesSnap.docs) {
       if (recipients.length >= limit) break
-      const data = doc.data()
+      const data = doc.data() as AssignableCrmRecord & {
+        name?: unknown
+        tradingName?: unknown
+        legalName?: unknown
+        billingEmail?: unknown
+        accountsContact?: { email?: unknown; name?: unknown }
+        authorizedSignatory?: { email?: unknown; name?: unknown }
+      }
       if (data.deleted === true) continue
+      if (!privileged && !(await crmActorCanReadCompanyRecord(crmCtx, doc.id, { id: doc.id, ...data }))) continue
       const companyName = String(data.name ?? data.tradingName ?? data.legalName ?? 'Company')
       const candidates = [
         { email: data.billingEmail, detail: 'Billing email' },

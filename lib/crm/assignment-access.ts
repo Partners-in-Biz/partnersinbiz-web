@@ -24,8 +24,10 @@ export type AssignableCrmRecord = {
   companyId?: unknown
   companyName?: unknown
   sourceCompanyId?: unknown
+  targetCompanyId?: unknown
   contactId?: unknown
   sourceContactId?: unknown
+  targetContactId?: unknown
   companyLinks?: unknown
 }
 
@@ -92,7 +94,7 @@ export function crmRecordAssignedToUid(record: AssignableCrmRecord | null | unde
 export function crmRecordCompanyIds(record: AssignableCrmRecord | null | undefined): string[] {
   if (!record) return []
   const ids = new Set<string>()
-  for (const value of [record.companyId, record.sourceCompanyId]) {
+  for (const value of [record.companyId, record.sourceCompanyId, record.targetCompanyId]) {
     const id = stringValue(value)
     if (id) ids.add(id)
   }
@@ -111,7 +113,7 @@ export function crmRecordCompanyIds(record: AssignableCrmRecord | null | undefin
 export function crmRecordContactIds(record: AssignableCrmRecord | null | undefined): string[] {
   if (!record) return []
   const ids = new Set<string>()
-  for (const value of [record.contactId, record.sourceContactId]) {
+  for (const value of [record.contactId, record.sourceContactId, record.targetContactId]) {
     const id = stringValue(value)
     if (id) ids.add(id)
   }

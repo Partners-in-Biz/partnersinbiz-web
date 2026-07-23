@@ -5,6 +5,15 @@ import {
   listBusinessRelationships,
   updateBusinessRelationship,
 } from '@/lib/business-relationships/store'
+import {
+  type AssignableCrmRecord,
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +29,24 @@ function paramsFromUrl(url: string) {
 }
 
 export const GET = withCrmAuth('viewer', async (req, ctx) => {
-  const relationships = await listBusinessRelationships(ctx.orgId, paramsFromUrl(req.url))
+  let relationships = await listBusinessRelationships(ctx.orgId, paramsFromUrl(req.url))
+  if (!isCrmPrivilegedActor(ctx)) {
+    const rows = relationships.map((row) => ({ ...row, orgId: ctx.orgId }) as AssignableCrmRecord)
+    const companyIds = new Set<string>()
+    const contactIds = new Set<string>()
+    for (const row of rows) {
+      for (const id of crmRecordCompanyIds(row)) companyIds.add(id)
+      for (const id of crmRecordContactIds(row)) contactIds.add(id)
+    }
+    const [companies, contacts] = await Promise.all([
+      loadCompanyAssignmentMap(ctx.orgId, companyIds),
+      loadContactAssignmentMap(ctx.orgId, contactIds),
+    ])
+    const allowedIds = new Set(
+      filterCrmRowsForActor(ctx, rows, { companies, contacts }).map((row) => row.id).filter(Boolean),
+    )
+    relationships = relationships.filter((row) => allowedIds.has(row.id))
+  }
   return apiSuccess({ relationships })
 })
 

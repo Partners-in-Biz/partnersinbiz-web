@@ -2,6 +2,15 @@ import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { createInventoryItem, listInventoryItems, updateInventoryItem } from '@/lib/commerce/store'
 import { guardAgentCrmAction } from '@/lib/agents/action-guard'
+import {
+  type AssignableCrmRecord,
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +26,21 @@ function listParams(url: string) {
 }
 
 export const GET = withCrmAuth('viewer', async (req, ctx) => {
-  return apiSuccess({ inventoryItems: await listInventoryItems(ctx.orgId, listParams(req.url)) })
+  let inventoryItems = await listInventoryItems(ctx.orgId, listParams(req.url))
+  if (!isCrmPrivilegedActor(ctx)) {
+    const companyIds = new Set<string>()
+    const contactIds = new Set<string>()
+    for (const item of inventoryItems as AssignableCrmRecord[]) {
+      for (const id of crmRecordCompanyIds(item)) companyIds.add(id)
+      for (const id of crmRecordContactIds(item)) contactIds.add(id)
+    }
+    const [companies, contacts] = await Promise.all([
+      loadCompanyAssignmentMap(ctx.orgId, companyIds),
+      loadContactAssignmentMap(ctx.orgId, contactIds),
+    ])
+    inventoryItems = filterCrmRowsForActor(ctx, inventoryItems as AssignableCrmRecord[], { companies, contacts }) as typeof inventoryItems
+  }
+  return apiSuccess({ inventoryItems })
 })
 
 export const POST = withCrmAuth('member', async (req, ctx) => {
