@@ -1,12 +1,15 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useLayoutEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter, usePathname } from 'next/navigation'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import type { OrganizationSummary } from '@/lib/organizations/types'
 
 const LS_RECENT_KEY = 'pib_recent_orgs'
 const MAX_RECENTS = 5
+const MENU_MIN_WIDTH = 280
+const MENU_VIEWPORT_GAP = 8
 
 function loadRecents(): string[] {
   try {
@@ -28,26 +31,71 @@ function pushRecent(current: string[], id: string): string[] {
   return deduped.slice(0, MAX_RECENTS)
 }
 
+type MenuPosition = {
+  top: number
+  left: number
+  width: number
+  maxHeight: number
+}
+
+function positionMenu(trigger: HTMLElement): MenuPosition {
+  const rect = trigger.getBoundingClientRect()
+  const width = Math.min(
+    Math.max(rect.width, MENU_MIN_WIDTH),
+    window.innerWidth - MENU_VIEWPORT_GAP * 2,
+  )
+  let left = rect.left
+  if (left + width > window.innerWidth - MENU_VIEWPORT_GAP) {
+    left = Math.max(MENU_VIEWPORT_GAP, window.innerWidth - MENU_VIEWPORT_GAP - width)
+  }
+  const top = Math.min(rect.bottom + 6, window.innerHeight - MENU_VIEWPORT_GAP)
+  const maxHeight = Math.max(160, window.innerHeight - top - MENU_VIEWPORT_GAP)
+  return { top, left, width, maxHeight }
+}
+
 export function OrgSwitcher() {
   const { selectedOrgId, orgName, orgs: contextOrgs, setOrg, clearOrg } = useOrg()
   const router = useRouter()
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [menuPos, setMenuPos] = useState<MenuPosition | null>(null)
   const [recentIds, setRecentIds] = useState<string[]>(() => (typeof window === 'undefined' ? [] : loadRecents()))
   const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-        setSearch('')
-      }
+      const target = e.target as Node
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return
+      setOpen(false)
+      setSearch('')
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) {
+      setMenuPos(null)
+      return
+    }
+
+    const update = () => {
+      if (!triggerRef.current) return
+      setMenuPos(positionMenu(triggerRef.current))
+    }
+
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [open])
 
   useEffect(() => {
     if (open) setTimeout(() => searchRef.current?.focus(), 50)
@@ -92,9 +140,104 @@ export function OrgSwitcher() {
     ? contextOrgs.filter((o) => o.name.toLowerCase().includes(search.toLowerCase()))
     : contextOrgs
 
+  const menu = open && menuPos && typeof document !== 'undefined'
+    ? createPortal(
+        <div
+          ref={menuRef}
+          role="listbox"
+          aria-label="Organisations"
+          className="fixed z-[80] bg-[var(--color-pib-surface)] border border-[var(--color-pib-line-strong)] rounded-xl shadow-2xl overflow-hidden"
+          style={{
+            top: menuPos.top,
+            left: menuPos.left,
+            width: menuPos.width,
+            maxHeight: menuPos.maxHeight,
+          }}
+        >
+          <div className="flex flex-col max-h-[inherit]">
+            <button
+              onClick={selectAllOrgs}
+              className="w-full text-left px-3.5 py-2.5 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03] transition-colors border-b border-[var(--color-pib-line)] flex items-center gap-2.5 shrink-0"
+            >
+              <span className="material-symbols-outlined text-[18px]">grid_view</span>
+              All orgs
+            </button>
+
+            {recentOrgs.length > 0 && (
+              <div className="border-b border-[var(--color-pib-line)] shrink-0">
+                <p className="px-3.5 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                  Recent
+                </p>
+                {recentOrgs.map((org) => (
+                  <button
+                    key={org.id}
+                    onClick={() => selectOrg(org)}
+                    className={[
+                      'w-full text-left px-3.5 py-2 text-sm transition-colors hover:bg-white/[0.03] flex items-center gap-2.5',
+                      selectedOrgId === org.id ? 'text-[var(--color-pib-accent-hover)]' : 'text-[var(--color-pib-text)]',
+                    ].join(' ')}
+                  >
+                    <span className="w-5 h-5 rounded-md bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] flex items-center justify-center text-[10px] font-bold text-[var(--color-pib-text-muted)] shrink-0">
+                      {org.name?.[0]?.toUpperCase() ?? '?'}
+                    </span>
+                    <span className="truncate">{org.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="px-3.5 py-2 border-b border-[var(--color-pib-line)] shrink-0">
+              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-[var(--color-pib-surface-2)] rounded-lg">
+                <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] shrink-0">search</span>
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search orgs…"
+                  className="flex-1 bg-transparent text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
+                />
+                {search && (
+                  <button onClick={() => setSearch('')} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
+                    <span className="material-symbols-outlined text-[14px]">close</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="overflow-y-auto min-h-0 flex-1">
+              {filtered.map((org) => (
+                <button
+                  key={org.id}
+                  onClick={() => selectOrg(org)}
+                  className={[
+                    'w-full text-left px-3.5 py-2.5 text-sm transition-colors hover:bg-white/[0.03] flex items-center gap-2.5',
+                    selectedOrgId === org.id ? 'text-[var(--color-pib-accent-hover)]' : 'text-[var(--color-pib-text)]',
+                  ].join(' ')}
+                >
+                  <span className="w-5 h-5 rounded-md bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] flex items-center justify-center text-[10px] font-bold text-[var(--color-pib-text-muted)] shrink-0">
+                    {org.name?.[0]?.toUpperCase() ?? '?'}
+                  </span>
+                  <span className="truncate">{org.name}</span>
+                </button>
+              ))}
+              {filtered.length === 0 && (
+                <p className="px-3.5 py-2.5 text-xs text-[var(--color-pib-text-muted)]">No orgs match &quot;{search}&quot;</p>
+              )}
+              {contextOrgs.length === 0 && !search && (
+                <p className="px-3.5 py-2.5 text-xs text-[var(--color-pib-text-muted)]">No organisations yet</p>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null
+
   return (
     <div ref={ref} className="relative px-3">
       <button
+        ref={triggerRef}
         onClick={toggleOpen}
         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm bg-[var(--color-pib-surface)] border border-[var(--color-pib-line)] rounded-lg text-[var(--color-pib-text)] hover:border-[var(--color-pib-line-strong)] transition-colors"
         aria-haspopup="listbox"
@@ -106,87 +249,7 @@ export function OrgSwitcher() {
         <span className="truncate flex-1 text-left">{label}</span>
         <span className="material-symbols-outlined text-[18px] text-[var(--color-pib-text-muted)]">unfold_more</span>
       </button>
-
-      {open && (
-        <div className="absolute left-3 right-3 mt-1.5 z-50 bg-[var(--color-pib-surface)] border border-[var(--color-pib-line-strong)] rounded-xl shadow-2xl overflow-hidden">
-          {/* All orgs */}
-          <button
-            onClick={selectAllOrgs}
-            className="w-full text-left px-3 py-2.5 text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.03] transition-colors border-b border-[var(--color-pib-line)] flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[18px]">grid_view</span>
-            All orgs
-          </button>
-
-          {/* Recents */}
-          {recentOrgs.length > 0 && (
-            <div className="border-b border-[var(--color-pib-line)]">
-              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--color-pib-text-muted)]">
-                Recent
-              </p>
-              {recentOrgs.map((org) => (
-                <button
-                  key={org.id}
-                  onClick={() => selectOrg(org)}
-                  className={[
-                    'w-full text-left px-3 py-2 text-sm transition-colors hover:bg-white/[0.03] flex items-center gap-2',
-                    selectedOrgId === org.id ? 'text-[var(--color-pib-accent-hover)]' : 'text-[var(--color-pib-text)]',
-                  ].join(' ')}
-                >
-                  <span className="w-5 h-5 rounded-md bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] flex items-center justify-center text-[10px] font-bold text-[var(--color-pib-text-muted)] shrink-0">
-                    {org.name?.[0]?.toUpperCase() ?? '?'}
-                  </span>
-                  {org.name}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Search + full list */}
-          <div className="px-3 py-2 border-b border-[var(--color-pib-line)]">
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-[var(--color-pib-surface-2)] rounded-lg">
-              <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)] shrink-0">search</span>
-              <input
-                ref={searchRef}
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search orgs…"
-                className="flex-1 bg-transparent text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none"
-              />
-              {search && (
-                <button onClick={() => setSearch('')} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]">
-                  <span className="material-symbols-outlined text-[14px]">close</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="max-h-48 overflow-y-auto">
-            {filtered.map((org) => (
-              <button
-                key={org.id}
-                onClick={() => selectOrg(org)}
-                className={[
-                  'w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-white/[0.03] flex items-center gap-2',
-                  selectedOrgId === org.id ? 'text-[var(--color-pib-accent-hover)]' : 'text-[var(--color-pib-text)]',
-                ].join(' ')}
-              >
-                <span className="w-5 h-5 rounded-md bg-[var(--color-pib-surface-2)] border border-[var(--color-pib-line)] flex items-center justify-center text-[10px] font-bold text-[var(--color-pib-text-muted)] shrink-0">
-                  {org.name?.[0]?.toUpperCase() ?? '?'}
-                </span>
-                {org.name}
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <p className="px-3 py-2.5 text-xs text-[var(--color-pib-text-muted)]">No orgs match &quot;{search}&quot;</p>
-            )}
-            {contextOrgs.length === 0 && !search && (
-              <p className="px-3 py-2.5 text-xs text-[var(--color-pib-text-muted)]">No organisations yet</p>
-            )}
-          </div>
-        </div>
-      )}
+      {menu}
     </div>
   )
 }

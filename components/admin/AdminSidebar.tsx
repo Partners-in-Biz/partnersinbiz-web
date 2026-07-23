@@ -92,7 +92,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
       ))
     : groupedNav.map(({ group, items }) => (
         <div key={group} className="space-y-0.5 pb-2 last:pb-0">
-          <p className="eyebrow !text-[10px] px-2.5 mb-1">{groupLabels[group]}</p>
+          <p className="eyebrow !text-[10px] px-2 mb-1">{groupLabels[group]}</p>
           {items.map((item) => (
             <NavLink key={item.href} item={item} pathname={pathname} />
           ))}
@@ -128,10 +128,10 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
       <aside
         data-module-accent="cyan"
         className={[
-          'shrink-0 flex flex-col border-r border-[var(--pib-fx-line,var(--color-pib-line))] bg-[var(--color-sidebar)] overflow-y-auto',
+          'shrink-0 flex flex-col border-r border-[var(--pib-fx-line,var(--color-pib-line))] bg-[var(--color-sidebar)] overflow-hidden',
           'md:h-screen md:sticky md:top-0 md:z-auto',
           'fixed top-0 left-0 h-full z-50 transition-all duration-300 ease-in-out',
-          collapsed ? 'w-14' : 'w-56',
+          collapsed ? 'w-14' : 'w-60',
           open ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         ].join(' ')}
       >
@@ -139,7 +139,7 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         <div
           className={[
             'pib-glass-bar shrink-0 !min-h-0 border-b border-[var(--pib-fx-line,var(--color-pib-line))]',
-            collapsed ? 'h-11 justify-center !px-0' : 'h-11 gap-2 !px-3',
+            collapsed ? 'h-11 justify-center !px-0' : 'h-11 gap-2 !px-3.5',
           ].join(' ')}
         >
           <Image src="/pib-logo-512.png" alt="Partners in Biz" width={22} height={22} className="rounded-md object-contain shrink-0" />
@@ -158,14 +158,14 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
         </div>
 
         {/* Collapse and mode switch controls */}
-        <div className="hidden md:flex items-center justify-between h-8 border-b border-[var(--pib-fx-line,var(--color-pib-line))] shrink-0">
+        <div className="hidden md:flex items-center justify-between h-8 border-b border-[var(--pib-fx-line,var(--color-pib-line))] shrink-0 px-0.5">
           <button
             onClick={onToggleCollapsed}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className={[
-              'flex h-8 items-center justify-center text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors',
-              collapsed ? 'w-full' : 'w-8 border-r border-[var(--pib-fx-line,var(--color-pib-line))]',
+              'flex h-8 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.04] transition-colors',
+              collapsed ? 'w-full' : 'w-8',
             ].join(' ')}
           >
             <span className="material-symbols-outlined text-[16px]">
@@ -197,19 +197,19 @@ export function AdminSidebar({ open = false, onClose, collapsed = false, onToggl
 
         {/* Org Switcher */}
         {!collapsed && (
-          <div className="border-t border-[var(--pib-fx-line,var(--color-pib-line))] py-2">
-            <p className="eyebrow !text-[9px] px-3 mb-1">Context</p>
+          <div className="border-t border-[var(--pib-fx-line,var(--color-pib-line))] py-2.5 shrink-0">
+            <p className="eyebrow !text-[9px] px-3.5 mb-1.5">Context</p>
             <OrgSwitcher />
           </div>
         )}
 
         {/* Navigation */}
         {!collapsed && (
-          <div className="px-2.5 pt-2 pb-0.5">
+          <div className="px-3 pt-2 pb-0.5 shrink-0">
             <p className="eyebrow !text-[9px] px-1.5 mb-1.5">{isWorkspaceMode ? `${workspaceLabel} navigation` : 'Navigation'}</p>
           </div>
         )}
-        <nav className={['flex-1 space-y-0.5', collapsed ? 'px-1.5 pt-2' : 'px-2'].join(' ')}>
+        <nav className={['flex-1 min-h-0 overflow-y-auto space-y-0.5', collapsed ? 'px-1.5 pt-2' : 'px-2.5 pb-3'].join(' ')}>
           {navContent}
         </nav>
       </aside>
