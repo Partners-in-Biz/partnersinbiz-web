@@ -9,6 +9,7 @@ import {
   matchReconciledCreatedConversation,
   newConversationCreateIdempotencyKey,
 } from '@/lib/conversations/create-resilience'
+import { exportChatAsMarkdown } from '@/lib/conversations/export-chat'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import {
@@ -1084,8 +1085,9 @@ export default function UnifiedChat({
   const [sessionsOverlayViewport, setSessionsOverlayViewport] = useState(false)
   const [tabletSessionsDrawer, setTabletSessionsDrawer] = useState(false)
 
-  // Mobile header "…" menu
+  // Header "…" menu (rename / export / archive)
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
+  const [exportingChat, setExportingChat] = useState(false)
   const [conversationFilter, setConversationFilter] = useState('')
 
   // Refs
@@ -3313,6 +3315,62 @@ export default function UnifiedChat({
     )
   }, [])
 
+  // ── Export chat transcript (Markdown download) ───────────────────────────
+  const fetchConversationMessagesForExport = useCallback(async (convId: string): Promise<ConversationMessage[]> => {
+    let res: Response
+    try {
+      res = await fetch(`/api/v1/conversations/${convId}/messages`)
+    } catch {
+      try {
+        res = await fetch(`/api/v1/chat-feed/${convId}`)
+      } catch {
+        res = await fetch(`/api/v1/thread-data/${convId}`)
+      }
+    }
+    if (!res.ok && (res.status === 401 || res.status === 403 || res.status === 404 || res.status >= 500)) {
+      const fallback = await fetch(`/api/v1/chat-feed/${convId}`)
+      if (fallback.ok || !res.ok) res = fallback
+    }
+    if (!res.ok && (res.status === 401 || res.status === 403 || res.status === 404 || res.status >= 500)) {
+      const fallback = await fetch(`/api/v1/thread-data/${convId}`)
+      if (fallback.ok || !res.ok) res = fallback
+    }
+    if (!res.ok) throw new Error(`export messages: ${res.status}`)
+    const body = await res.json()
+    return (body.data?.messages ?? []) as ConversationMessage[]
+  }, [])
+
+  const exportConversation = useCallback(async (convId: string) => {
+    if (exportingChat) return
+    const conversation = conversations.find((item) => item.id === convId)
+      ?? (activeConversation?.id === convId ? activeConversation : null)
+    setExportingChat(true)
+    setMenuOpenId(null)
+    setMenuPosition(null)
+    setHeaderMenuOpen(false)
+    try {
+      const exportMessages = convId === activeId
+        ? messages
+        : await fetchConversationMessagesForExport(convId)
+      exportChatAsMarkdown({
+        title: conversation?.title || 'Conversation',
+        conversationId: convId,
+        messages: exportMessages,
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to export chat')
+    } finally {
+      setExportingChat(false)
+    }
+  }, [
+    activeConversation,
+    activeId,
+    conversations,
+    exportingChat,
+    fetchConversationMessagesForExport,
+    messages,
+  ])
+
   // ── Stop agent run ───────────────────────────────────────────────────────
   const stopAgentRun = useCallback(
     async (convId: string, msgId: string) => {
@@ -4625,6 +4683,15 @@ export default function UnifiedChat({
             <span className="material-symbols-outlined text-[14px]">open_in_new</span>
             Open in new window
           </button>
+          <button
+            type="button"
+            disabled={exportingChat}
+            className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] disabled:opacity-50 xl:min-h-0"
+            onClick={() => { void exportConversation(menuOpenId) }}
+          >
+            <span className="material-symbols-outlined text-[14px]">download</span>
+            {exportingChat ? 'Exporting…' : 'Export chat'}
+          </button>
           {hermesLayout && menuConversation && (
             <button
               type="button"
@@ -4807,13 +4874,14 @@ export default function UnifiedChat({
               </div>
             )}
 
-            {/* ⋯ menu — mobile only (rename/archive) */}
+            {/* ⋯ menu — rename / export / archive */}
             {activeConversation && (
-              <div className="lg:hidden relative shrink-0" data-header-menu>
+              <div className="relative shrink-0" data-header-menu>
                 <button
                   type="button"
                   onClick={() => setHeaderMenuOpen((v) => !v)}
                   aria-label="Conversation options"
+                  aria-expanded={headerMenuOpen}
                   className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-white/[0.06] active:bg-white/[0.1] text-[var(--color-pib-text-muted)] transition-colors"
                 >
                   <span className="material-symbols-outlined text-[22px]">more_horiz</span>
@@ -4827,6 +4895,15 @@ export default function UnifiedChat({
                     >
                       <span className="material-symbols-outlined text-[16px]">open_in_new</span>
                       Open in new window
+                    </button>
+                    <button
+                      type="button"
+                      disabled={exportingChat}
+                      className="w-full text-left px-3 py-2 text-sm text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] disabled:opacity-50 flex items-center gap-2"
+                      onClick={() => { void exportConversation(activeConversation.id) }}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">download</span>
+                      {exportingChat ? 'Exporting…' : 'Export chat'}
                     </button>
                     <button
                       type="button"

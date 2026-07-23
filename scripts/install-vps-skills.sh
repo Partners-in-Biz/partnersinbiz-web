@@ -60,7 +60,10 @@ else
   SRC_PRIMARY="$WEB_SRC"
 fi
 
-mapfile -t PLATFORM_SKILLS < <(node -e "const p=require('$POLICY_JSON'); console.log(Object.entries(p.skillCatalog).filter(([,v]) => v.syncTarget === 'vps').map(([k]) => k).sort().join('\n'))")
+PLATFORM_SKILLS=()
+while IFS= read -r skill; do
+  [ -n "$skill" ] && PLATFORM_SKILLS+=("$skill")
+done < <(node -e "const p=require('$POLICY_JSON'); console.log(Object.entries(p.skillCatalog).filter(([,v]) => v.syncTarget === 'vps').map(([k]) => k).sort().join('\n'))")
 
 if [ ! -d "$SRC_PRIMARY" ] && [ ! -d "$WEB_SRC" ]; then
   echo "FATAL: no skill source directories found" >&2

@@ -47,7 +47,14 @@
         "research-intelligence",
         "google-workspace",
         "email-marketing-governance",
-        "evidence-ledger"
+        "evidence-ledger",
+        "video-editor-ops",
+        "creative-canvas-ops",
+        "book-studio-ops",
+        "youtube-studio-ops",
+        "conversations-runtime",
+        "life-os-ops",
+        "llm-providers-ops"
       ]
     }
   },
@@ -159,7 +166,7 @@
     },
     "properties": {
       "tier": "core",
-      "owner": "pip",
+      "owner": "theo",
       "risk": "medium",
       "requiredScopes": [
         "properties:read",
@@ -274,6 +281,55 @@
       "requiredScopes": [
         "research:write"
       ]
+    },
+    "video-editor-ops": {
+      "tier": "growth",
+      "owner": "maya",
+      "risk": "medium",
+      "requiredScopes": [],
+      "summary": "Stub: video editor projects, render jobs, transcripts/captions, TTS, stock, LUTs, templates. Not yet fully documented."
+    },
+    "creative-canvas-ops": {
+      "tier": "growth",
+      "owner": "maya",
+      "risk": "medium",
+      "requiredScopes": [],
+      "summary": "Stub: creative canvas node graphs, generation runs, provider dispatch, exports to documents/manuscripts/social drafts. Not yet fully documented."
+    },
+    "book-studio-ops": {
+      "tier": "growth",
+      "owner": "maya",
+      "risk": "medium",
+      "requiredScopes": [],
+      "summary": "Stub: book studio projects, chapters, pages, series, rights ledgers, publishing packets. Not yet fully documented."
+    },
+    "youtube-studio-ops": {
+      "tier": "growth",
+      "owner": "maya",
+      "risk": "medium",
+      "requiredScopes": [],
+      "summary": "Stub: YouTube channels, videos, release plans, clip candidates, publish packets. Not yet fully documented."
+    },
+    "conversations-runtime": {
+      "tier": "growth",
+      "owner": "theo",
+      "risk": "medium",
+      "requiredScopes": [],
+      "summary": "Stub: conversation/message runtime — CRUD, streaming lifecycle, attachments, models, agent-message ingestion. Not yet fully documented."
+    },
+    "life-os-ops": {
+      "tier": "growth",
+      "owner": "pip",
+      "risk": "low",
+      "requiredScopes": [],
+      "summary": "Stub: personal Life OS — check-ins, coach, experiments, reminders, reviews. Not yet fully documented."
+    },
+    "llm-providers-ops": {
+      "tier": "growth",
+      "owner": "theo",
+      "risk": "high",
+      "requiredScopes": [],
+      "summary": "Stub: LLM provider connections and OAuth linking for agent/runtime model access. Not yet fully documented."
     }
   },
   "verificationContract": {

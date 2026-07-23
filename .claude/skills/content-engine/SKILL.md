@@ -27,6 +27,16 @@ After the run, the agent prints:
 
 The user's job is to give you the client's domain, brand, and any constraints. Your job is to execute the pipeline — most of it parallelised across subagents — and surface a campaign the client can review.
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## When to Use
 
 - "build content for [client]" / "produce a content engine"
@@ -79,12 +89,13 @@ For **app-specific work** (consumer apps), Phase 4 has a parallel sibling — ru
 ## Auth + base URL
 
 ```
-Authorization: Bearer ${AI_API_KEY}        # from env or ~/.env, NEVER hard-coded
+Authorization: Bearer <pib_dlg_...>        # interactive/human-triggered runs (see Auth (mandatory) above)
+Authorization: Bearer ${AI_API_KEY}        # cron/system runs only, from env or ~/.env, NEVER hard-coded
 X-Org-Id: <org id resolved via GET /api/v1/organizations and slug match>
 Base URL: https://partnersinbiz.online/api/v1
 ```
 
-The `ai` role bypasses tenant restrictions, so the engine can run for any client. Resolve `X-Org-Id` once at the start of a run from the client's slug or name and reuse it for every call.
+The `ai` role (system key, cron/system only) bypasses tenant restrictions, so the engine can run for any client. Resolve `X-Org-Id` once at the start of a run from the client's slug or name and reuse it for every call.
 
 Idempotency: every write that could be retried uses an `Idempotency-Key` header. Keys follow the pattern `pib-engine-{campaignId}-{slot}-{platform}-{format}` so a retry on the same slot is safe.
 

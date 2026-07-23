@@ -20,6 +20,16 @@ Properties are the central registry for every deployed site or app PiB manages. 
 links the analytics SDK (via `ingestKey`), runtime config, and external revenue/ad integrations
 into one record.
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## Concepts
 
 | Concept | Description |
@@ -36,7 +46,7 @@ into one record.
 ```
 Base: https://partnersinbiz.online/api/v1
 
-Admin endpoints: Authorization: Bearer <AI_API_KEY>
+Admin endpoints: Authorization: Bearer <pib_dlg_...> (interactive) or <AI_API_KEY> (cron/system only)
 Public config:   x-pib-ingest-key: <ingestKey>   (no Bearer)
 ```
 

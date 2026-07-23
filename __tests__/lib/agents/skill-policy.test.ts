@@ -32,6 +32,7 @@ describe('agent skill policy manifest', () => {
       'approval-queue-gather',
       'ceo-on-demand-gather',
       'chat-surface-gather',
+      'system-auth',
       'billing-finance',
       'client-documents',
       'client-manager',
@@ -59,6 +60,13 @@ describe('agent skill policy manifest', () => {
       'studio-context-gather',
       'studio-release-handoff',
       'support-manager',
+      'video-editor-ops',
+      'creative-canvas-ops',
+      'book-studio-ops',
+      'youtube-studio-ops',
+      'conversations-runtime',
+      'life-os-ops',
+      'llm-providers-ops',
     ])
 
     for (const skill of AGENT_SKILL_POLICY.repoPibSkills) {
@@ -214,13 +222,17 @@ describe('agent skill policy manifest', () => {
   })
 
   it('gives role owners outreach skills and every profile the analytics baseline', () => {
-    const sequenceAgents = ['theo', 'maya', 'nora', 'qa-release', 'support', 'sales']
+    // theo is engineering/infra-only and intentionally excluded from non-engineering
+    // execution skills like email-outreach (see agent-skill-policy narrowing).
+    const sequenceAgents = ['maya', 'nora', 'qa-release', 'support', 'sales']
     for (const agentId of sequenceAgents) {
       expect(AGENT_SKILL_POLICY.skillCatalog['email-outreach'].allowedAgentIds).toContain(agentId)
       expect(AGENT_SKILL_POLICY.agents[agentId].runtimeSkills).toContain('email-outreach')
     }
 
     expect(AGENT_SKILL_POLICY.agents.data.runtimeSkills).not.toContain('email-outreach')
+    expect(AGENT_SKILL_POLICY.agents.theo.runtimeSkills).not.toContain('email-outreach')
+    expect(AGENT_SKILL_POLICY.skillCatalog['email-outreach'].allowedAgentIds).not.toContain('theo')
 
     const performanceAgents = Object.keys(AGENT_SKILL_POLICY.agents)
     for (const agentId of performanceAgents) {
@@ -285,6 +297,7 @@ describe('agent skill policy manifest', () => {
 
   it('classifies fully qualified globals without colliding with PiB skills that share a basename', () => {
     const installed = classifyInstalledSkills([
+      'partnersinbiz/system-auth',
       'partnersinbiz/analytics',
       'partnersinbiz/ceo-on-demand-gather',
       'partnersinbiz/client-documents',
@@ -304,10 +317,6 @@ describe('agent skill policy manifest', () => {
       'partnersinbiz/studio-artifact-review',
       'partnersinbiz/studio-context-gather',
       'partnersinbiz/studio-release-handoff',
-      'higgsfield-generate',
-      'higgsfield-marketplace-cards',
-      'higgsfield-product-photoshoot',
-      'higgsfield-soul-id',
       'productivity/google-workspace',
       'productivity/powerpoint',
     ])

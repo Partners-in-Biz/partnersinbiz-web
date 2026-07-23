@@ -1,9 +1,9 @@
 # Hermes Agent Skill Policy
 
-Current policy version: `2026-05-22.v2`
-Catalog version: `2026-05-22.skills-v2`
+Current policy version: `2026-07-23.system-skills-v0.1.1`
+Catalog version: `2026-07-23.system-skills-v0.1.1`
 
-Partners in Biz now treats every agent skill as a cataloged, owned, versioned runtime capability. The platform team is 11 specialists:
+Partners in Biz now treats every agent skill as a cataloged, owned, versioned runtime capability. The platform team is 12 specialists:
 
 | agentId | UI name | Ownership |
 | --- | --- | --- |
@@ -18,6 +18,7 @@ Partners in Biz now treats every agent skill as a cataloged, owned, versioned ru
 | `data` | Vera | Analytics, dashboards, attribution, reporting, data quality |
 | `docs` | Iris | Client documents, specs, approvals, reports, deliverable polish |
 | `seo` | Silas | SEO sprint execution, local SEO, GSC/PageSpeed/Bing interpretation |
+| `sales` | Blake | Lead lists, prospect qualification, CRM sales pipeline hygiene, outreach drafting, reply triage, proposal handoff, daily revenue cadence |
 
 ## Canonical Manifest
 
@@ -51,6 +52,8 @@ skills:
 ```
 
 Profiles must not load `/var/lib/hermes/pib-skills` directly. That directory is the shared source cache only.
+
+`skills.external_dirs` is a **Hermes-only** runtime config key. Claude (Desktop/Code/`.claude/skills`) has no equivalent setting and does not read `external_dirs` — Claude picks up skills only from the `.claude/skills/**` mirror committed in this repo. Keep the pack (`packs/pib-system-skills/skills/**`) and the `.claude/skills/**` mirror byte-identical per skill.
 
 Apply or refresh policy on the VPS:
 
@@ -114,6 +117,6 @@ Quinn is the default reviewer for Theo, Ari, Silas, Vera, and release-sensitive 
 
 ## Watcher Behavior
 
-The watcher derives eligible agents from enabled `agent_team` docs. If Firestore is unavailable or returns no usable IDs, it falls back to the 11 policy agents.
+The watcher derives eligible agents from enabled `agent_team` docs. If Firestore is unavailable or returns no usable IDs, it falls back to the 12 policy agents.
 
 Every dispatch should include provenance and review context where available: source document, approval gate, risk level, required capability, expected artifacts, and reviewer agent. The watcher must not dispatch tasks blocked by dependencies or pending approval gates.

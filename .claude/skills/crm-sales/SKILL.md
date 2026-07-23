@@ -28,6 +28,16 @@ description: >
 
 Covers the full sales funnel: contacts (leads → prospects → clients → churned), deals with stages, activity logging, quotes/proposals, AI contact briefings, and public lead-capture forms with submission triage.
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## Base URL & Authentication
 
 ```
@@ -37,6 +47,8 @@ https://partnersinbiz.online/api/v1
 ```
 Authorization: Bearer <AI_API_KEY>
 ```
+
+Prefer the user-delegation Bearer token (`pib_dlg_…`) for interactive/human-triggered runs — see `## Auth (mandatory)` above. `AI_API_KEY` is for cron/system jobs only.
 
 Except for `POST /forms/[slug]/submit` which is **public** (no auth required).
 
@@ -141,10 +153,11 @@ Hardening rules from the CRM OS follow-up:
 ## Auth & org scoping (PR 2+)
 
 All `/api/v1/crm/contacts/*` routes now use the `withCrmAuth` middleware:
-- **Bearer API key (agent calls):** `Authorization: Bearer ${AI_API_KEY}` + `X-Org-Id: <orgId>` header. Role is `system` — bypasses every minRole and every permission toggle.
+- **User-delegation Bearer token (interactive agent calls):** `Authorization: Bearer pib_dlg_…` + `X-Org-Id: <orgId>` header. Role resolves to the delegating human's own `orgMembers/{orgId}_{uid}` role — it does **not** bypass `minRole` or permission toggles. This is the default for human-triggered Hermes runs; see `system-auth`.
+- **Agent system key (cron/system only):** `Authorization: Bearer ${AI_API_KEY}` + `X-Org-Id: <orgId>` header. Role is `system` for unattended/cron jobs only — do not use this path for interactive work.
 - **Session cookie (portal users):** `__session` cookie. Role resolved from `orgMembers/{orgId}_{uid}`. Routes enforce `viewer`/`member`/`admin` minRole.
 - The `orgId` body field on POST is IGNORED — middleware reads orgId from the token. Always send `X-Org-Id` for Bearer calls.
-- Every write embeds `createdByRef` / `updatedByRef` snapshots. Agent calls show as `Pip` (`uid: 'agent:pip', kind: 'agent'`).
+- Every write embeds `createdByRef` / `updatedByRef` snapshots. Agent calls show as `Pip` (`uid: 'agent:pip', kind: 'agent'`) when using the system key; delegated calls attribute to the delegating human.
 
 ## orgId conventions
 

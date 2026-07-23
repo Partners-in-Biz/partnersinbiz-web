@@ -37,7 +37,9 @@ cmd_status() {
 
 cmd_install() {
   require_node
-  local dest="${PIB_SKILLS_DEST:-$HOME/.claude/skills}"
+  # Hermes is the default runtime home. Override with PIB_SKILLS_DEST only for
+  # explicit Claude/compat bridges.
+  local dest="${PIB_SKILLS_DEST:-$HOME/.hermes/skills}"
   local tier="${1:-all}"
   mkdir -p "$dest"
 
@@ -98,7 +100,7 @@ Usage:
   pib-skills verify-contracts
 
 Env:
-  PIB_SKILLS_DEST              install target (default: ~/.claude/skills)
+  PIB_SKILLS_DEST              install target (default: ~/.hermes/skills)
   PIB_SYSTEM_SKILLS_VERSION    optional pin for consumers
 EOF
 }

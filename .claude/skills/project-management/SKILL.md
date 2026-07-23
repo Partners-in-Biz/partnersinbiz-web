@@ -18,6 +18,16 @@ description: >
 
 Projects, tasks (two systems — project-nested vs. standalone), time tracking with billing-to-invoice, calendar events with RSVP, and project docs. Plus a rich agent-context endpoint that gives AI agents everything they need about a project in one call.
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## Base URL & Authentication
 
 ```
@@ -27,6 +37,8 @@ https://partnersinbiz.online/api/v1
 ```
 Authorization: Bearer <AI_API_KEY>
 ```
+
+Prefer the user-delegation Bearer token (`pib_dlg_…`) for interactive/human-triggered runs — see `## Auth (mandatory)` above. `AI_API_KEY` is for cron/system jobs only.
 
 ## Two task systems — know the difference
 
