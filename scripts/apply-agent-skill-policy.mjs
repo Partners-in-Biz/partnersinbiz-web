@@ -265,7 +265,11 @@ for (const [agentId, agentPolicy] of agentEntries) {
   }
   summary.agents[agentId] = agentSummary
 
-  const externalDir = agentPolicy.vpsExternalDir
+  const externalDir = join(root, 'agent-skills', agentId)
+  // Policy still documents the production VPS path; runtime dirs always follow --root.
+  if (root === '/var/lib/hermes' && agentPolicy.vpsExternalDir && agentPolicy.vpsExternalDir !== externalDir) {
+    summary.warnings.push(`${agentId}: policy vpsExternalDir ${agentPolicy.vpsExternalDir} != ${externalDir}`)
+  }
   ensureDir(externalDir)
   resetManagedRepoSkillRoot(externalDir)
   resetManagedGlobalSkillRoots(externalDir)
@@ -285,11 +289,15 @@ for (const [agentId, agentPolicy] of agentEntries) {
   }
 
   for (const skill of agentPolicy.globalSkills) {
-    const source = join(hermesBundledRoot, ...skill.split('/'))
+    const candidates = [
+      join(hermesBundledRoot, ...skill.split('/')),
+      join(root, 'skills', ...skill.split('/')),
+    ]
+    const source = candidates.find((path) => existsSync(path))
     const dest = join(externalDir, ...skill.split('/'))
-    if (!existsSync(source)) {
+    if (!source) {
       agentSummary.missingGlobalSkills.push(skill)
-      const warning = `${agentId}: missing global skill source ${source}`
+      const warning = `${agentId}: missing global skill source ${candidates[0]}`
       if (allowMissingGlobal) summary.nonFatalWarnings.push(warning)
       else summary.warnings.push(warning)
       continue
@@ -307,7 +315,7 @@ for (const [agentId, agentPolicy] of agentEntries) {
   }
 
   if (updateConfig) {
-    agentSummary.profileConfigUpdated = updateProfileConfig(agentId, agentPolicy.vpsExternalDir)
+    agentSummary.profileConfigUpdated = updateProfileConfig(agentId, externalDir)
   }
 }
 
