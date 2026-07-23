@@ -20,12 +20,20 @@ export function conversationUsesCompanyCoworkFolder(
  * Absolute or portable (~/) local working path the linked Mac/runtime must enter.
  * Required for company Cowork chats because org Workspace mappings typically point
  * at the Partners folder, while company folders are siblings under ~/Cowork.
+ *
+ * Prefer the VPS absolute path when dispatching to a Linux/VPS linked computer —
+ * expanding ~/Cowork on the VPS service account home breaks claim acceptance.
  */
 export function linkedCoworkWorkingDirectory(
   workspace: ConversationWorkspaceContext | null | undefined,
+  options?: { preferVps?: boolean },
 ): string | undefined {
   if (!conversationUsesCompanyCoworkFolder(workspace)) return undefined
-  const directory = workspace?.localWorkingPath?.trim()
+  if (options?.preferVps) {
+    const vps = workspace?.vpsWorkingPath?.trim()
+    if (vps) return vps
+  }
+  const directory = workspace?.localWorkingPath?.trim() || workspace?.vpsWorkingPath?.trim()
   return directory || undefined
 }
 

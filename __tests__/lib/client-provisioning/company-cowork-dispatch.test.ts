@@ -51,6 +51,16 @@ describe('company cowork dispatch helpers', () => {
     expect(linkedCoworkWorkingDirectory(context({ folderScope: 'organisation' }))).toBeUndefined()
   })
 
+  it('prefers the absolute VPS working path for Linux linked computers', () => {
+    expect(linkedCoworkWorkingDirectory(context({
+      folderScope: 'project',
+      companyId: 'c1',
+      projectId: 'p1',
+      localWorkingPath: '~/Cowork/AHS Law/projects/p1',
+      vpsWorkingPath: '/var/lib/hermes/Cowork/AHS Law/projects/p1',
+    }), { preferVps: true })).toBe('/var/lib/hermes/Cowork/AHS Law/projects/p1')
+  })
+
   it('requires linked runtime 1.1.3+ for company workingDirectory', () => {
     expect(linkedRuntimeSupportsCoworkWorkingDirectory('1.1.2')).toBe(false)
     expect(linkedRuntimeSupportsCoworkWorkingDirectory('1.1.3')).toBe(true)

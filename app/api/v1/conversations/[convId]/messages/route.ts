@@ -735,7 +735,8 @@ export const POST = withAuth(
         }
         const images = await linkedRunImages(attachments)
         const projectId = boundProjectId
-        const coworkWorkingDirectory = linkedCoworkWorkingDirectory(conversation.workspaceContext)
+        const preferVps = linkedComputerBinding.platform === 'linux'
+        const coworkWorkingDirectory = linkedCoworkWorkingDirectory(conversation.workspaceContext, { preferVps })
         if (coworkWorkingDirectory
           && !linkedRuntimeSupportsCoworkWorkingDirectory(linkedComputerBinding.runtimeVersion)) {
           const error = 'This computer needs a Linked Runtime update (1.1.3+) before company Cowork folders can run on it.'
