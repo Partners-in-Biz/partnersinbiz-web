@@ -170,6 +170,51 @@ export function legacyProjectPolicyAllows(user: ApiUser, data: Record<string, un
   return userLinkedToProjectFallback(user, data)
 }
 
+/** True when the member's Projects record scope is owned_or_linked (not org-wide). */
+export function projectsScopeIsOwnedOrLinked(user: ApiUser): boolean {
+  if (user.role === 'ai' || isSuperAdmin(user)) return false
+  if (!user.memberAccessPolicy) return false
+  if (!canAccessModule(user.memberAccessPolicy, 'projects')) return false
+  return recordScopeFor(user.memberAccessPolicy, 'projects') === 'owned_or_linked'
+}
+
+/**
+ * Filter org-visible projects down to the actor's book when recordScopes.projects
+ * is owned_or_linked. Personal legacy fields or an active projectMembers row count
+ * as linked; same-org projectOrganizations alone does not.
+ */
+export async function filterProjectsForMemberScope<T extends { id: string }>(
+  user: ApiUser,
+  projects: T[],
+): Promise<T[]> {
+  if (user.role === 'ai' || isSuperAdmin(user)) return projects
+  if (!user.memberAccessPolicy) return projects
+  if (!canAccessModule(user.memberAccessPolicy, 'projects')) return []
+  if (recordScopeFor(user.memberAccessPolicy, 'projects') === 'all') return projects
+
+  const personallyLinked: T[] = []
+  const needsMembershipCheck: T[] = []
+  for (const project of projects) {
+    if (legacyProjectPolicyAllows(user, project as unknown as Record<string, unknown>)) {
+      personallyLinked.push(project)
+    } else {
+      needsMembershipCheck.push(project)
+    }
+  }
+  if (needsMembershipCheck.length === 0) return personallyLinked
+
+  const memberSnaps = await Promise.all(
+    needsMembershipCheck.map((project) => (
+      adminDb.collection('projectMembers').doc(projectMemberDocId(project.id, user.uid)).get()
+    )),
+  )
+  const membershipLinked = needsMembershipCheck.filter((_, index) => {
+    const snap = memberSnaps[index]
+    return snap.exists && cleanString(snap.data()?.status) === 'active'
+  })
+  return [...personallyLinked, ...membershipLinked]
+}
+
 export function filterProjectItemsForAccess<T extends object>(
   items: T[],
   input: { projectAccess?: ProjectAccessContext | null; user?: Pick<ApiUser, 'uid' | 'orgId' | 'orgIds' | 'allowedOrgIds' | 'role'> },
@@ -273,6 +318,7 @@ export async function resolveProjectAccessForUser(
   if (isSuperAdmin(user)) return { role: 'owner', source: 'super_admin', canViewInternal: true }
 
   const scopedOrgId = cleanString(requestedOrgId)
+  const ownedOrLinkedOnly = projectsScopeIsOwnedOrLinked(user)
   const memberSnap = await adminDb.collection('projectMembers').doc(projectMemberDocId(projectId, user.uid)).get()
   if (memberSnap.exists) {
     const member = memberSnap.data() ?? {}
@@ -296,6 +342,10 @@ export async function resolveProjectAccessForUser(
       if (orgSnap.exists) {
         const orgAccess = orgSnap.data() ?? {}
         if (orgAccess.status === 'active') {
+          // Org-wide share must not bypass owned_or_linked personal book of work.
+          if (ownedOrLinkedOnly) {
+            return legacyProjectAccessForUser(user, projectData, scopedOrgId)
+          }
           return {
             role: normalizeProjectRole(orgAccess.role),
             source: 'project_organization',
@@ -313,6 +363,11 @@ export async function resolveProjectAccessForUser(
     if (orgSnap.exists) {
       const orgAccess = orgSnap.data() ?? {}
       if (orgAccess.status !== 'active') continue
+      if (ownedOrLinkedOnly) {
+        const legacy = legacyProjectAccessForUser(user, projectData, orgId)
+        if (legacy) return legacy
+        continue
+      }
       return {
         role: normalizeProjectRole(orgAccess.role),
         source: 'project_organization',
