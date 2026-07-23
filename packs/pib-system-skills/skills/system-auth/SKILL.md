@@ -53,13 +53,22 @@ Use on subsequent calls:
 
 ```http
 Authorization: Bearer <pib_dlg_…>
-X-Acting-For: <actingForUserId>
 X-Org-Id: <orgId>
 ```
 
-This route is implemented in the current app code at `POST /api/v1/agent/delegations`.
+### Messages dispatch (automatic)
 
-**Current rollout state:** token mint + Bearer resolution are implemented in `partnersinbiz-web` and available after the next app deployment. Conversation runtime binding still needs to switch from broad system credentials to delegation-token injection by default.
+When a human sends a Messages chat that dispatches Hermes / linked-computer runs, the platform mints a short-lived delegation and injects:
+
+```
+[Partners in Biz API auth — user delegation]
+Authorization: Bearer pib_dlg_…
+X-Org-Id: <orgId>
+```
+
+into the agent prompt. Prefer that injected Bearer token for all `/api/v1/*` calls in the run. Do not fall back to `AI_API_KEY`.
+
+**Rollout:** mint + Bearer resolution + Messages prompt injection are in `partnersinbiz-web` app code. Live after the app deployment that includes this change.
 
 ## System auth (cron only)
 

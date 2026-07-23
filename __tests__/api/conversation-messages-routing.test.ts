@@ -18,6 +18,7 @@ const mockListMessages = jest.fn()
 const mockTouchConversation = jest.fn()
 const mockMessagesCollection = jest.fn()
 const mockCreateHermesRun = jest.fn()
+const mockMintMessagesDispatchDelegation = jest.fn()
 const mockResolveAuthorizedWorkingDirectory = jest.fn()
 const mockGetAgentDispatchHermesProfileLink = jest.fn()
 const mockIsConfiguredCompatibilityRuntimeTarget = jest.fn()
@@ -54,6 +55,14 @@ jest.mock('@/lib/conversations/conversations', () => ({
 jest.mock('@/lib/hermes/server', () => ({
   createHermesRun: mockCreateHermesRun,
 }))
+
+jest.mock('@/lib/api/delegations', () => {
+  const actual = jest.requireActual('@/lib/api/delegations') as typeof import('@/lib/api/delegations')
+  return {
+    ...actual,
+    mintMessagesDispatchDelegation: (...args: unknown[]) => mockMintMessagesDispatchDelegation(...args),
+  }
+})
 
 jest.mock('@/lib/client-provisioning/working-directory', () => ({
   resolveAuthorizedWorkingDirectory: mockResolveAuthorizedWorkingDirectory,
@@ -128,6 +137,7 @@ beforeEach(() => {
   mockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
   organizationSettings = {}
   organizationMembers = [{ userId: 'client-1', role: 'member' }]
+  mockMintMessagesDispatchDelegation.mockResolvedValue(null)
 
   mockCollection.mockImplementation((name: string) => {
     if (name === 'users') {
@@ -412,6 +422,53 @@ describe('unified conversation message routing', () => {
     expect(prompt).toContain('responseMessageId: assistant-1')
     expect(prompt).toContain('project_task_proposal')
     expect(prompt).toContain('Create a clear, bounded, low-risk single task immediately')
+  })
+
+  it('mints a user-delegation token and injects it into the Hermes prompt + metadata', async () => {
+    mockMintMessagesDispatchDelegation.mockResolvedValue({
+      id: 'dlg-messages-1',
+      token: 'pib_dlg_testtoken1234567890abcdef',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      actingForUserId: 'client-1',
+      agentId: 'pip',
+      orgIds: ['pib-platform-owner'],
+      scopes: ['documents:create', 'documents:update'],
+    })
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req({ content: 'Create the CRM spec document' }), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockMintMessagesDispatchDelegation).toHaveBeenCalledWith(expect.objectContaining({
+      user: expect.objectContaining({ uid: 'client-1', role: 'client' }),
+      orgId: 'pib-platform-owner',
+      agentId: 'pip',
+      conversationId: 'conv-1',
+    }))
+    const hermesArgs = mockCreateHermesRun.mock.calls[0][2]
+    expect(hermesArgs.prompt).toContain('[Partners in Biz API auth — user delegation]')
+    expect(hermesArgs.prompt).toContain('Authorization: Bearer pib_dlg_testtoken1234567890abcdef')
+    expect(hermesArgs.prompt).toContain('X-Org-Id: pib-platform-owner')
+    expect(hermesArgs.prompt).toContain('Do not use AI_API_KEY')
+    expect(hermesArgs.metadata).toEqual(expect.objectContaining({
+      delegationId: 'dlg-messages-1',
+      authKind: 'user_delegation',
+      actingForUserId: 'client-1',
+    }))
+    expect(hermesArgs.metadata).not.toHaveProperty('token')
+    expect((globalThis as { __mockMessageUpdate?: jest.Mock }).__mockMessageUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ delegationId: 'dlg-messages-1', runId: 'run-1' }),
+    )
   })
 
   it('enforces the selected local project folder as the Hermes run working directory', async () => {

@@ -89,6 +89,16 @@ async function buildDelegationScopes(user: ApiUser, orgId: string): Promise<stri
   return Array.from(scopes).sort()
 }
 
+export type MintedDelegation = {
+  id: string
+  token: string
+  expiresAt: string
+  actingForUserId: string
+  agentId: string
+  orgIds: string[]
+  scopes: string[]
+}
+
 export async function mintAgentDelegation(input: {
   user: ApiUser
   orgId: string
@@ -96,7 +106,7 @@ export async function mintAgentDelegation(input: {
   purpose: string
   ttlSeconds?: number
   conversationId?: string
-}) {
+}): Promise<MintedDelegation> {
   const orgId = normalizeText(input.orgId)
   const agentId = normalizeText(input.agentId)
   const purpose = normalizeText(input.purpose)
@@ -191,6 +201,69 @@ export async function resolveDelegationTokenUser(rawToken: string): Promise<ApiU
       memberAccessPolicy: data.memberAccessPolicy ?? undefined,
     }
   } catch {
+    return null
+  }
+}
+
+/** Prompt block injected into Messages → Hermes / linked-computer runs. */
+export function buildDelegationAuthPromptBlock(input: {
+  token: string
+  expiresAt: string
+  orgId: string
+  agentId: string
+  actingForUserId: string
+  scopes: string[]
+  apiBaseUrl?: string
+}): string {
+  const apiBase = (input.apiBaseUrl || 'https://partnersinbiz.online').replace(/\/+$/, '')
+  const scopeLine = input.scopes.length > 0
+    ? input.scopes.join(', ')
+    : '(org module policy — none explicitly listed)'
+  return [
+    '',
+    '[Partners in Biz API auth — user delegation]',
+    `You are acting for user ${input.actingForUserId} as agent ${input.agentId} in org ${input.orgId}.`,
+    'For every Partners in Biz /api/v1/* call in this run:',
+    `- Authorization: Bearer ${input.token}`,
+    `- X-Org-Id: ${input.orgId}`,
+    `- API base: ${apiBase}`,
+    `Token expires at ${input.expiresAt} (ISO). Do not reuse after expiry.`,
+    `Scopes for this delegation: ${scopeLine}`,
+    'Do not use AI_API_KEY, agent system keys, or invent credentials for PiB API calls in this run.',
+    'Do not print the full Bearer token in client-visible replies; use it only in HTTP Authorization headers.',
+    'If a PiB API call returns 401/403, stop and report the exact error — do not fall back to another key.',
+    '',
+  ].join('\n')
+}
+
+/**
+ * Mint a Messages-dispatch delegation for a human sender.
+ * Soft-fails (returns null) so chat dispatch is never blocked by auth mint issues.
+ */
+export async function mintMessagesDispatchDelegation(input: {
+  user: ApiUser
+  orgId: string
+  agentId: string
+  conversationId: string
+}): Promise<MintedDelegation | null> {
+  if (input.user.role === 'ai') return null
+  if (input.user.authKind === 'user_delegation') return null
+  try {
+    return await mintAgentDelegation({
+      user: input.user,
+      orgId: input.orgId,
+      agentId: input.agentId,
+      purpose: `messages:${input.conversationId}`,
+      conversationId: input.conversationId,
+      ttlSeconds: 60 * 60,
+    })
+  } catch (error) {
+    console.error('[delegation-mint-messages-failed]', {
+      conversationId: input.conversationId,
+      agentId: input.agentId,
+      orgId: input.orgId,
+      message: error instanceof Error ? error.message : String(error),
+    })
     return null
   }
 }

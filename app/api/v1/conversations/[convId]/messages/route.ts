@@ -11,6 +11,10 @@ import { NextRequest } from 'next/server'
 import { getStorage } from 'firebase-admin/storage'
 import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
+import {
+  buildDelegationAuthPromptBlock,
+  mintMessagesDispatchDelegation,
+} from '@/lib/api/delegations'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import {
@@ -721,7 +725,23 @@ export const POST = withAuth(
       const attachmentContext = publicAttachments.length > 0
         ? `\n\n[Attachments]\n${publicAttachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
+      const mintedDelegation = await mintMessagesDispatchDelegation({
+        user,
+        orgId: conversation.orgId,
+        agentId,
+        conversationId: convId,
+      })
+      const delegationAuthContext = mintedDelegation
+        ? buildDelegationAuthPromptBlock({
+          token: mintedDelegation.token,
+          expiresAt: mintedDelegation.expiresAt,
+          orgId: conversation.orgId,
+          agentId,
+          actingForUserId: mintedDelegation.actingForUserId,
+          scopes: mintedDelegation.scopes,
+        })
+        : ''
+      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
       if (linkedComputerBinding) {
         const hasImageAttachments = attachments.some((attachment) => (
           /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.contentType) && Boolean(attachment.storagePath)
@@ -796,6 +816,7 @@ export const POST = withAuth(
             linkedDeviceId: linkedComputerBinding.deviceId,
             linkedDeviceMappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
             linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
+            ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
           })
           return apiSuccess({ message, assistantMessage: { ...assistantMessage, runId: queued.jobId, dispatchAgentId: agentId, acceptedDevice }, runId: queued.jobId, dispatchAgentId: agentId }, 201)
         } catch {
@@ -881,6 +902,11 @@ export const POST = withAuth(
           ...(agentEffort ? { agentEffort } : {}),
           ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
           ...(slashCommand ? { slashCommand } : {}),
+          ...(mintedDelegation ? {
+            delegationId: mintedDelegation.id,
+            authKind: 'user_delegation',
+            actingForUserId: mintedDelegation.actingForUserId,
+          } : {}),
         },
       }).catch(async (err) => {
         const safeFailure = classifyWorkspaceDispatchFailure(err)
@@ -922,6 +948,7 @@ export const POST = withAuth(
             dispatchAgentId: agentId,
             ...(dispatchLink.runtimeTargetId ? { dispatchRuntimeTargetId: dispatchLink.runtimeTargetId } : {}),
             ...(runResult.runDocId ? { runDocId: runResult.runDocId } : {}),
+            ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
           })
         } else {
           await messagesCollection(convId).doc(assistantMessage.id).update({
