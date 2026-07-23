@@ -20,7 +20,9 @@ process.env.SESSION_COOKIE_NAME = '__session'
 const ORG_ID = 'org-test'
 const UID = 'uid-real'
 const mockApiKeyUpdate = jest.fn()
+const mockDelegationUpdate = jest.fn()
 let mockApiKeyDocs: Array<{ id: string; data: () => Record<string, unknown>; ref: { update: jest.Mock } }> = []
+let mockDelegationDocs: Array<{ id: string; data: () => Record<string, unknown>; ref: { update: jest.Mock } }> = []
 
 function makeReq(headers: Record<string, string> = {}, method = 'GET') {
   return new NextRequest('http://localhost/api/v1/crm/contacts', {
@@ -34,11 +36,13 @@ function setupCollections({
   member,
   org,
   memberOrgIds,
+  userUid = UID,
 }: {
   user: Record<string, unknown> | null
   member: Record<string, unknown> | null
   org: Record<string, unknown> | null
   memberOrgIds?: string[]
+  userUid?: string
 }) {
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
     if (name === 'users') {
@@ -53,8 +57,8 @@ function setupCollections({
         where: jest.fn().mockReturnValue({
           get: jest.fn().mockResolvedValue({
             docs: (memberOrgIds ?? []).map((orgId) => ({
-              id: `${orgId}_${UID}`,
-              data: () => ({ orgId, uid: UID }),
+              id: `${orgId}_${userUid}`,
+              data: () => ({ orgId, uid: userUid }),
             })),
           }),
         }),
@@ -82,6 +86,18 @@ function setupCollections({
         }),
       }
     }
+    if (name === 'agent_delegations') {
+      return {
+        where: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            get: jest.fn().mockResolvedValue({
+              empty: mockDelegationDocs.length === 0,
+              docs: mockDelegationDocs,
+            }),
+          }),
+        }),
+      }
+    }
     throw new Error(`Unexpected collection: ${name}`)
   })
 }
@@ -98,6 +114,26 @@ function apiKeyDoc(rawKey: string, data: Record<string, unknown>) {
       ...data,
     }),
     ref: { update: mockApiKeyUpdate },
+  }
+}
+
+function delegationDoc(rawToken: string, data: Record<string, unknown> = {}) {
+  return {
+    id: 'crm-dlg-1',
+    data: () => ({
+      tokenHash: createHash('sha256').update(rawToken).digest('hex'),
+      actingForUserId: UID,
+      agentId: 'sales',
+      role: 'client',
+      orgId: ORG_ID,
+      activeOrgId: ORG_ID,
+      orgIds: [ORG_ID],
+      scopes: ['documents:create'],
+      status: 'active',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      ...data,
+    }),
+    ref: { update: mockDelegationUpdate },
   }
 }
 
@@ -291,7 +327,9 @@ describe('withCrmAuth — Bearer path', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockApiKeyDocs = []
+    mockDelegationDocs = []
     mockApiKeyUpdate.mockResolvedValue(undefined)
+    mockDelegationUpdate.mockResolvedValue(undefined)
   })
 
   it('200s with system role for valid AI_API_KEY + X-Org-Id', async () => {
@@ -401,6 +439,161 @@ describe('withCrmAuth — Bearer path', () => {
     const res = await route(makeReq({ authorization: `Bearer ${rawKey}`, 'x-org-id': ORG_ID }))
 
     expect(res.status).toBe(403)
+  })
+})
+
+describe('withCrmAuth — user delegation Bearer path', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockApiKeyDocs = []
+    mockDelegationDocs = []
+    mockApiKeyUpdate.mockResolvedValue(undefined)
+    mockDelegationUpdate.mockResolvedValue(undefined)
+  })
+
+  it('200s with acting-user membership for a valid pib_dlg token', async () => {
+    const rawToken = 'pib_dlg_crm_sales_valid'
+    mockDelegationDocs = [delegationDoc(rawToken)]
+    setupCollections({
+      user: { activeOrgId: ORG_ID, orgId: ORG_ID, role: 'client' },
+      member: { orgId: ORG_ID, uid: UID, role: 'owner', firstName: 'Peet', lastName: 'Stander' },
+      org: { settings: { permissions: { membersCanDeleteContacts: true } } },
+      memberOrgIds: [ORG_ID],
+    })
+    const handler = jest.fn().mockResolvedValue(new Response('ok', { status: 200 }))
+    const route = withCrmAuth('member', handler)
+
+    const res = await route(
+      makeReq({ authorization: `Bearer ${rawToken}`, 'x-org-id': ORG_ID }),
+    )
+
+    expect(res.status).toBe(200)
+    expect(handler).toHaveBeenCalledTimes(1)
+    const ctx = handler.mock.calls[0][1]
+    expect(ctx.orgId).toBe(ORG_ID)
+    expect(ctx.uid).toBe(UID)
+    expect(ctx.role).toBe('owner')
+    expect(ctx.isAgent).toBe(false)
+    expect(ctx.actor.uid).toBe(UID)
+    expect(ctx.actor.kind).toBe('human')
+    expect(ctx.user.authKind).toBe('user_delegation')
+    expect(ctx.user.agentId).toBe('sales')
+    expect(ctx.user.actingForUserId).toBe(UID)
+    expect(ctx.user.delegationId).toBe('crm-dlg-1')
+    expect(ctx.accessPolicy.modules.crm).toBe(true)
+    expect(mockDelegationUpdate).toHaveBeenCalled()
+  })
+
+  it('does not grant system/agent CRM bypass for delegation tokens', async () => {
+    const rawToken = 'pib_dlg_crm_no_system_bypass'
+    mockDelegationDocs = [delegationDoc(rawToken)]
+    setupCollections({
+      user: { activeOrgId: ORG_ID, orgId: ORG_ID },
+      member: {
+        orgId: ORG_ID,
+        uid: UID,
+        role: 'member',
+        accessPolicy: {
+          preset: 'custom',
+          modules: { crm: true, projects: false },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+        },
+      },
+      org: { settings: { permissions: {} } },
+      memberOrgIds: [ORG_ID],
+    })
+    const handler = jest.fn().mockResolvedValue(new Response('ok', { status: 200 }))
+    const route = withCrmAuth('member', handler)
+
+    const res = await route(
+      makeReq({ authorization: `Bearer ${rawToken}`, 'x-org-id': ORG_ID }),
+    )
+
+    expect(res.status).toBe(200)
+    const ctx = handler.mock.calls[0][1]
+    expect(ctx.role).toBe('member')
+    expect(ctx.isAgent).toBe(false)
+    expect(ctx.accessPolicy.recordScopes.crm).toBe('owned_or_linked')
+  })
+
+  it('403s when delegation targets an org outside its scope', async () => {
+    const rawToken = 'pib_dlg_crm_wrong_org'
+    mockDelegationDocs = [delegationDoc(rawToken, { orgId: 'org-other', activeOrgId: 'org-other', orgIds: ['org-other'] })]
+    setupCollections({
+      user: { activeOrgId: ORG_ID, orgId: ORG_ID },
+      member: { orgId: ORG_ID, uid: UID, role: 'owner' },
+      org: { settings: { permissions: {} } },
+      memberOrgIds: [ORG_ID],
+    })
+    const handler = jest.fn()
+    const route = withCrmAuth('viewer', handler)
+
+    const res = await route(
+      makeReq({ authorization: `Bearer ${rawToken}`, 'x-org-id': ORG_ID }),
+    )
+
+    expect(res.status).toBe(403)
+    expect(handler).not.toHaveBeenCalled()
+    expect((await res.json()).error).toMatch(/not scoped/i)
+  })
+
+  it('403s when acting user lacks CRM module access', async () => {
+    const rawToken = 'pib_dlg_crm_module_disabled'
+    mockDelegationDocs = [delegationDoc(rawToken)]
+    setupCollections({
+      user: { activeOrgId: ORG_ID, orgId: ORG_ID },
+      member: {
+        orgId: ORG_ID,
+        uid: UID,
+        role: 'member',
+        accessPolicy: {
+          preset: 'custom',
+          modules: { crm: false, projects: true },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+        },
+      },
+      org: { settings: { permissions: {} } },
+      memberOrgIds: [ORG_ID],
+    })
+    const handler = jest.fn()
+    const route = withCrmAuth('viewer', handler)
+
+    const res = await route(
+      makeReq({ authorization: `Bearer ${rawToken}`, 'x-org-id': ORG_ID }),
+    )
+
+    expect(res.status).toBe(403)
+    expect(handler).not.toHaveBeenCalled()
+    expect((await res.json()).error).toMatch(/CRM/i)
+  })
+
+  it('401s when a pib_dlg token is expired', async () => {
+    const rawToken = 'pib_dlg_crm_expired'
+    mockDelegationDocs = [delegationDoc(rawToken, { expiresAt: '2020-01-01T00:00:00.000Z' })]
+    setupCollections({ user: null, member: null, org: { settings: { permissions: {} } } })
+    const handler = jest.fn()
+    const route = withCrmAuth('viewer', handler)
+
+    const res = await route(
+      makeReq({ authorization: `Bearer ${rawToken}`, 'x-org-id': ORG_ID }),
+    )
+
+    expect(res.status).toBe(401)
+    expect(handler).not.toHaveBeenCalled()
+    expect((await res.json()).error).toMatch(/Invalid API key/i)
+  })
+
+  it('400s when delegation call is missing X-Org-Id and mint has no org claim', async () => {
+    const rawToken = 'pib_dlg_crm_missing_org'
+    mockDelegationDocs = [delegationDoc(rawToken, { orgId: '', activeOrgId: '', orgIds: [] })]
+    setupCollections({ user: null, member: null, org: { settings: { permissions: {} } } })
+    const handler = jest.fn()
+    const route = withCrmAuth('viewer', handler)
+
+    const res = await route(makeReq({ authorization: `Bearer ${rawToken}` }))
+
+    expect(res.status).toBe(400)
+    expect(handler).not.toHaveBeenCalled()
   })
 })
 

@@ -129,8 +129,50 @@ export function transitionLinkedRun(job: LinkedRunJob, event:
   return { ...job, status: event.outcome, encryptedPayload: null, completedAtMs: event.nowMs, updatedAtMs: event.nowMs }
 }
 
+const LINKED_URL_KEEP_MARKER = '\u0000PIB_KEEP_URL_'
+const SENSITIVE_URL_QUERY =
+  /(?:^|[?&#])(?:api[_-]?key|token|access[_-]?token|refresh[_-]?token|id[_-]?token|secret|password|passwd|auth|credential|signature|sig|session|cookie|jwt|bearer|key|X-Amz-Signature|X-Goog-Signature)=/i
+
+function isPrivateOrLocalHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '0.0.0.0') return true
+  if (host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.lan') || host.endsWith('.localhost')) return true
+  const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+  if (!ipv4) return false
+  const [a, b] = [Number(ipv4[1]), Number(ipv4[2])]
+  return a === 10
+    || a === 127
+    || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 168)
+    || (a === 169 && b === 254)
+}
+
+/** Redact credentialed, signed, or private-network URLs; keep ordinary public links readable in chat. */
+export function shouldRedactLinkedUrl(rawUrl: string): boolean {
+  const trimmed = rawUrl.trim().replace(/[.,;:!?)}\]]+$/g, '')
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    return true
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true
+  if (parsed.username || parsed.password) return true
+  if (isPrivateOrLocalHost(parsed.hostname)) return true
+  if (SENSITIVE_URL_QUERY.test(parsed.search) || SENSITIVE_URL_QUERY.test(parsed.hash)) return true
+  return false
+}
+
 export function sanitizeLinkedResult(value: string): string {
-  const redacted = value
+  const keptUrls: string[] = []
+  // Preserve safe public URLs through later token/path scrubbers, then restore them.
+  const withUrlMarkers = value.replace(/(?:https?:\/\/)[^\s)\]}]+/gi, (url) => {
+    if (shouldRedactLinkedUrl(url)) return '[redacted-url]'
+    const index = keptUrls.length
+    keptUrls.push(url)
+    return `${LINKED_URL_KEEP_MARKER}${index}\u0000`
+  })
+  const redacted = withUrlMarkers
     .replace(/-----BEGIN[^\r\n]*PRIVATE KEY-----[\s\S]*?(?:-----END[^\r\n]*PRIVATE KEY-----|$)/gi, '[redacted-private-key]')
     .replace(/(?:-----BEGIN\s*)?PRIVATE KEY-----[\s\S]*$/gi, '[redacted-private-key]')
     .replace(/\bAuthorization\s*:\s*(?:Bearer\s+)?[^\s,;]+/gi, 'Authorization: [redacted]')
@@ -143,9 +185,11 @@ export function sanitizeLinkedResult(value: string): string {
     .replace(/\\\\[^\\\s]+\\[^\s)\]}]+/g, '[redacted-path]')
     .replace(/\b[A-Za-z]:\\[^\s)\]}]+/g, '[redacted-path]')
     .replace(/(^|[\s("'])\/(?!\/)[^\s)\]}"']+/gm, '$1[redacted-path]')
-    .replace(/(?:https?:\/\/)[^\s)\]}]+/gi, '[redacted-url]')
     .replace(/\b[A-Za-z0-9_+\/.=-]{40,}\b/g, '[redacted-token]')
-  const safe = redacted.slice(0, 1_000_000)
+  let safe = redacted.slice(0, 1_000_000)
+  for (let i = 0; i < keptUrls.length; i += 1) {
+    safe = safe.split(`${LINKED_URL_KEEP_MARKER}${i}\u0000`).join(keptUrls[i]!)
+  }
   // Put optional whitespace inside the negative lookahead so JS backtracking cannot
   // defeat `(?!\[redacted\])` on already-scrubbed `password: [redacted]` / `Authorization: [redacted]`.
   // Without that, any agent reply mentioning a password wiped the entire message.

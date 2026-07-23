@@ -3,19 +3,13 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  InstagramFeedCard,
-  InstagramReelsCard,
-  InstagramStoriesCard,
-  FacebookFeedCard,
-  LinkedInPostCard,
-  TwitterPostCard,
-  YouTubeCard,
   BlogReaderCard,
   AssetActions,
   type PreviewSocialPost,
   type PreviewBlog,
   type PreviewBrand,
 } from '@/components/campaign-preview'
+import { SocialPlatformCard } from '@/components/campaign-preview/pickSocialCard'
 import { SendToYouTubeStudioButton } from '@/components/youtube-studio/SendToYouTubeStudioButton'
 import { VideoTriptych } from './VideoTriptych'
 
@@ -40,24 +34,6 @@ function withOrgScope(path: string, asset?: ScopedAsset): string {
   if (!orgId) return path
   const separator = path.includes('?') ? '&' : '?'
   return `${path}${separator}orgId=${encodeURIComponent(orgId)}`
-}
-
-function pickSocialCard(post: PreviewSocialPost) {
-  const platform = (post.platform || '').toLowerCase()
-  const hasVideo = (post.media ?? []).some((m) => m.type === 'video')
-
-  if (platform === 'instagram') {
-    if (hasVideo) return InstagramReelsCard
-    if (((post as unknown as { format?: string }).format) === 'story') return InstagramStoriesCard
-    return InstagramFeedCard
-  }
-  if (platform === 'linkedin') return LinkedInPostCard
-  if (platform === 'twitter' || platform === 'x') return TwitterPostCard
-  if (platform === 'facebook') return FacebookFeedCard
-  if (platform === 'youtube') return YouTubeCard
-
-  // sensible default
-  return LinkedInPostCard
 }
 
 export function AssetGrid({
@@ -208,15 +184,12 @@ export function AssetGrid({
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Social ({social.length})</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {social.map((post) => {
-              const Card = pickSocialCard(post)
-              return (
-                <div key={post.id} className="space-y-2">
-                  <Card post={post} brand={brand} />
-                  {actionsFor(post, 'social_post', post.status ?? 'draft')}
-                </div>
-              )
-            })}
+            {social.map((post) => (
+              <div key={post.id} className="space-y-2">
+                <SocialPlatformCard post={post} brand={brand} />
+                {actionsFor(post, 'social_post', post.status ?? 'draft')}
+              </div>
+            ))}
           </div>
         </section>
       )}

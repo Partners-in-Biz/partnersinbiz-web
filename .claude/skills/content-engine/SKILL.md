@@ -25,6 +25,19 @@ After the run, the agent prints:
 - The client portal URL (`/portal/campaigns/[id]`) for the client
 - The public share URL (`/c/[shareToken]`) for sales pitches
 
+When the run happens inside Messages, also emit a web-native `uiActions` entry so the human can open the side canvas with platform-faithful previews:
+
+```json
+{
+  "id": "open-campaign",
+  "type": "open_context",
+  "label": "Preview campaign",
+  "payload": { "kind": "campaign", "id": "<campaignId>", "label": "<campaign name>" }
+}
+```
+
+Messages attaches the campaign context and opens the Context Dock with Instagram/LinkedIn/Facebook/X/YouTube/blog cards. For a single social post use `{ "kind": "social", "id": "<postId>" }` instead. Still include the cockpit/share URLs in the message text.
+
 The user's job is to give you the client's domain, brand, and any constraints. Your job is to execute the pipeline — most of it parallelised across subagents — and surface a campaign the client can review.
 
 ## Auth (mandatory)

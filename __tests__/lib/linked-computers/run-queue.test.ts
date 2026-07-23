@@ -78,6 +78,20 @@ describe('linked run queue security transitions', () => {
     expect(sanitizeLinkedResult('broken password: ,,,, keep quiet')).toBe('[redacted output]')
   })
 
+  it('keeps public https links readable while redacting sensitive or private URLs', () => {
+    expect(sanitizeLinkedResult('Preview ready: https://partnersinbiz.online/portal/messages'))
+      .toBe('Preview ready: https://partnersinbiz.online/portal/messages')
+    expect(sanitizeLinkedResult('Deployed to https://example.com/docs/guide'))
+      .toBe('Deployed to https://example.com/docs/guide')
+    expect(sanitizeLinkedResult('Signed https://storage.example.com/o/x?alt=media&token=abc123 keep going'))
+      .toBe('Signed [redacted-url] keep going')
+    expect(sanitizeLinkedResult('Local http://127.0.0.1:3000/admin and https://user:pass@evil.example/x'))
+      .toBe('Local [redacted-url] and [redacted-url]')
+    // Long path segments inside kept URLs must not be eaten by the token scrubber.
+    const longPublic = `https://example.com/${'segment-'.repeat(8)}page`
+    expect(sanitizeLinkedResult(`Open ${longPublic}`)).toBe(`Open ${longPublic}`)
+  })
+
   it('denies cross-device, stale credential and out-of-order completion while making duplicate completion idempotent', () => {
     expect(() => transitionLinkedRun(queued(), { type: 'claim', deviceId: 'device-b', credentialVersion: 3, nowMs: now, leaseMs: 30_000 })).toThrow('device mismatch')
     expect(() => transitionLinkedRun(queued(), { type: 'claim', deviceId: 'device-a', credentialVersion: 2, nowMs: now, leaseMs: 30_000 })).toThrow('credential mismatch')
