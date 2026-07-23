@@ -1,7 +1,7 @@
 {
   "packName": "pib-system-skills",
-  "packVersion": "0.1.0",
-  "catalogVersion": "2026-07-23.system-skills-v0.1.0",
+  "packVersion": "0.1.1",
+  "catalogVersion": "2026-07-23.system-skills-v0.1.1",
   "minApiVersion": "2026-07-23",
   "channel": "stable",
   "decisions": {
@@ -9,7 +9,10 @@
     "interactiveAuth": "user-delegation",
     "systemAuth": "platform-or-agent-key-cron-only",
     "versionPinning": "env-pin-with-stable-channel-alias",
-    "tiers": ["core", "growth"]
+    "tiers": [
+      "core",
+      "growth"
+    ]
   },
   "baseUrl": "https://partnersinbiz.online/api/v1",
   "tiers": {
@@ -60,32 +63,218 @@
       "tier": "core",
       "owner": "docs",
       "risk": "medium",
-      "requiredScopes": ["documents:create", "documents:update"],
-      "verification": ["get-document", "get-current-version-nonempty"],
-      "contracts": ["contracts/client-documents/version-payload.valid.json"]
+      "requiredScopes": [
+        "documents:create",
+        "documents:update"
+      ],
+      "verification": [
+        "get-document",
+        "get-current-version-nonempty"
+      ],
+      "contracts": [
+        "contracts/client-documents/version-payload.valid.json"
+      ]
     },
-    "docs-lead": { "tier": "core", "owner": "docs", "risk": "medium", "requiredScopes": ["documents:create"] },
-    "billing-finance": { "tier": "core", "owner": "nora", "risk": "high", "requiredScopes": ["billing:read", "billing:write"], "approvalGates": ["invoice_change"] },
-    "client-manager": { "tier": "core", "owner": "pip", "risk": "medium", "requiredScopes": ["organizations:read", "organizations:write"] },
-    "crm-sales": { "tier": "core", "owner": "nora", "risk": "medium", "requiredScopes": ["crm:read", "crm:write"] },
-    "project-management": { "tier": "core", "owner": "pip", "risk": "medium", "requiredScopes": ["projects:read", "projects:write"] },
-    "platform-ops": { "tier": "core", "owner": "theo", "risk": "high", "requiredScopes": ["platform:read"] },
-    "collaboration-runtime": { "tier": "core", "owner": "pip", "risk": "low", "requiredScopes": ["comments:write"] },
-    "email-outreach": { "tier": "core", "owner": "nora", "risk": "high", "requiredScopes": ["email:draft"], "approvalGates": ["message_client"] },
-    "analytics": { "tier": "core", "owner": "data", "risk": "low", "requiredScopes": ["analytics:read"] },
-    "properties": { "tier": "core", "owner": "pip", "risk": "medium", "requiredScopes": ["properties:read", "properties:write"] },
-    "support-manager": { "tier": "core", "owner": "support", "risk": "medium", "requiredScopes": ["support:read", "support:write"] },
-    "qa-release": { "tier": "core", "owner": "qa-release", "risk": "high", "requiredScopes": ["qa:read"], "approvalGates": ["deploy"] },
-    "social-media-manager": { "tier": "growth", "owner": "maya", "risk": "high", "requiredScopes": ["social:write"], "approvalGates": ["publish"] },
-    "content-engine": { "tier": "growth", "owner": "maya", "risk": "medium", "requiredScopes": ["content:write"] },
-    "seo-sprint-manager": { "tier": "growth", "owner": "seo", "risk": "medium", "requiredScopes": ["seo:write"] },
-    "geo-seo-service": { "tier": "growth", "owner": "seo", "risk": "medium", "requiredScopes": ["seo:write"] },
-    "ads-manager": { "tier": "growth", "owner": "ads", "risk": "critical", "requiredScopes": ["ads:read"], "approvalGates": ["spend"] },
-    "data-analyst": { "tier": "growth", "owner": "data", "risk": "low", "requiredScopes": ["analytics:read"] },
-    "research-intelligence": { "tier": "growth", "owner": "sage", "risk": "low", "requiredScopes": ["research:write"] },
-    "google-workspace": { "tier": "growth", "owner": "pip", "risk": "high", "requiredScopes": ["workspace:read"] },
-    "email-marketing-governance": { "tier": "growth", "owner": "maya", "risk": "critical", "requiredScopes": ["email_marketing_read"], "approvalGates": ["email_marketing_send"] },
-    "evidence-ledger": { "tier": "growth", "owner": "sage", "risk": "low", "requiredScopes": ["research:write"] }
+    "docs-lead": {
+      "tier": "core",
+      "owner": "docs",
+      "risk": "medium",
+      "requiredScopes": [
+        "documents:create"
+      ]
+    },
+    "billing-finance": {
+      "tier": "core",
+      "owner": "nora",
+      "risk": "high",
+      "requiredScopes": [
+        "billing:read",
+        "billing:write"
+      ],
+      "approvalGates": [
+        "invoice_change"
+      ]
+    },
+    "client-manager": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "medium",
+      "requiredScopes": [
+        "organizations:read",
+        "organizations:write"
+      ]
+    },
+    "crm-sales": {
+      "tier": "core",
+      "owner": "nora",
+      "risk": "medium",
+      "requiredScopes": [
+        "crm:read",
+        "crm:write"
+      ]
+    },
+    "project-management": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "medium",
+      "requiredScopes": [
+        "projects:read",
+        "projects:write"
+      ]
+    },
+    "platform-ops": {
+      "tier": "core",
+      "owner": "theo",
+      "risk": "high",
+      "requiredScopes": [
+        "platform:read"
+      ]
+    },
+    "collaboration-runtime": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "low",
+      "requiredScopes": [
+        "comments:write"
+      ]
+    },
+    "email-outreach": {
+      "tier": "core",
+      "owner": "nora",
+      "risk": "high",
+      "requiredScopes": [
+        "email:draft"
+      ],
+      "approvalGates": [
+        "message_client"
+      ]
+    },
+    "analytics": {
+      "tier": "core",
+      "owner": "data",
+      "risk": "low",
+      "requiredScopes": [
+        "analytics:read"
+      ]
+    },
+    "properties": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "medium",
+      "requiredScopes": [
+        "properties:read",
+        "properties:write"
+      ]
+    },
+    "support-manager": {
+      "tier": "core",
+      "owner": "support",
+      "risk": "medium",
+      "requiredScopes": [
+        "support:read",
+        "support:write"
+      ]
+    },
+    "qa-release": {
+      "tier": "core",
+      "owner": "qa-release",
+      "risk": "high",
+      "requiredScopes": [
+        "qa:read"
+      ],
+      "approvalGates": [
+        "deploy"
+      ]
+    },
+    "social-media-manager": {
+      "tier": "growth",
+      "owner": "maya",
+      "risk": "high",
+      "requiredScopes": [
+        "social:write"
+      ],
+      "approvalGates": [
+        "publish"
+      ]
+    },
+    "content-engine": {
+      "tier": "growth",
+      "owner": "maya",
+      "risk": "medium",
+      "requiredScopes": [
+        "content:write"
+      ]
+    },
+    "seo-sprint-manager": {
+      "tier": "growth",
+      "owner": "seo",
+      "risk": "medium",
+      "requiredScopes": [
+        "seo:write"
+      ]
+    },
+    "geo-seo-service": {
+      "tier": "growth",
+      "owner": "seo",
+      "risk": "medium",
+      "requiredScopes": [
+        "seo:write"
+      ]
+    },
+    "ads-manager": {
+      "tier": "growth",
+      "owner": "ads",
+      "risk": "critical",
+      "requiredScopes": [
+        "ads:read"
+      ],
+      "approvalGates": [
+        "spend"
+      ]
+    },
+    "data-analyst": {
+      "tier": "growth",
+      "owner": "data",
+      "risk": "low",
+      "requiredScopes": [
+        "analytics:read"
+      ]
+    },
+    "research-intelligence": {
+      "tier": "growth",
+      "owner": "sage",
+      "risk": "low",
+      "requiredScopes": [
+        "research:write"
+      ]
+    },
+    "google-workspace": {
+      "tier": "growth",
+      "owner": "pip",
+      "risk": "high",
+      "requiredScopes": [
+        "workspace:read"
+      ]
+    },
+    "email-marketing-governance": {
+      "tier": "growth",
+      "owner": "maya",
+      "risk": "critical",
+      "requiredScopes": [
+        "email_marketing_read"
+      ],
+      "approvalGates": [
+        "email_marketing_send"
+      ]
+    },
+    "evidence-ledger": {
+      "tier": "growth",
+      "owner": "sage",
+      "risk": "low",
+      "requiredScopes": [
+        "research:write"
+      ]
+    }
   },
   "verificationContract": {
     "afterEveryWrite": [
