@@ -185,7 +185,10 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(within(projectSetup).queryByRole('radio', { name: 'Full client workspace' })).not.toBeInTheDocument()
 
     fireEvent.keyDown(dialog, { key: 'Escape' })
-    fireEvent.click(screen.getByRole('button', { name: /^New conversation$/i }))
+    const startConversation = screen.getAllByRole('button', { name: /^New conversation$/i })
+      .find((button) => button.getAttribute('data-testid') !== 'conversation-title')
+    expect(startConversation).toBeTruthy()
+    fireEvent.click(startConversation!)
     expect(screen.queryByRole('region', { name: 'New project' })).not.toBeInTheDocument()
   })
 
@@ -811,7 +814,10 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
 
     await waitFor(() => expect(workspaceUrls.some((url) => url.includes('agentId=pip'))).toBe(true))
-    fireEvent.click(screen.getByRole('button', { name: 'New conversation' }))
+    const startConversation = screen.getAllByRole('button', { name: 'New conversation' })
+      .find((button) => button.getAttribute('data-testid') !== 'conversation-title')
+    expect(startConversation).toBeTruthy()
+    fireEvent.click(startConversation!)
     const dialog = await screen.findByRole('dialog', { name: 'New conversation' })
     fireEvent.click(within(dialog).getByRole('checkbox', { name: /Theo Builder/ }))
 
@@ -3082,7 +3088,8 @@ describe('UnifiedChat context references', () => {
     )).toBe(false)
 
     // Stopping the in-flight run clears pending/waiting status and should flush the queue.
-    fireEvent.click(screen.getByRole('button', { name: /Stop run/i }))
+    const conversationLog = screen.getByRole('log', { name: 'Conversation messages' })
+    fireEvent.click(within(conversationLog).getByRole('button', { name: /Stop run/i }))
 
     await waitFor(() => {
       const queuedPosts = mockFetch.mock.calls.filter(([url, init]) =>
