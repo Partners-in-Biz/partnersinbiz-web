@@ -1757,6 +1757,10 @@ describe('UnifiedChat message scrolling', () => {
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
 
     const project = await screen.findByTestId('hermes-project-project-1')
+    const toggle = within(project).getByRole('button', {
+      name: /^(Expand|Collapse) sessions for Launch Project$/,
+    })
+    if (toggle.getAttribute('aria-expanded') !== 'true') fireEvent.click(toggle)
     expect(within(project).getByTestId('project-location-badge-project-1-location-vps')).toHaveTextContent('VPS · Partners VPS · online')
     expect(within(project).getByTestId('project-location-badge-project-1-location-mac')).toHaveTextContent('Computer · Studio Mac · Computer unavailable')
     expect(within(project).getByTestId('project-location-badge-project-1-legacy-mac')).toHaveTextContent('Computer · Old Mac · Pairing required')

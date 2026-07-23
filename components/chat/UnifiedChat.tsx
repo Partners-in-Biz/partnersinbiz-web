@@ -680,11 +680,18 @@ function buildHermesProjectGroups(
   projects: WorkspaceProjectSummary[],
   filter: string,
 ) {
-  const groups = new Map<string, { id: string; name: string; locations?: WorkspaceProjectLocationSummary[]; conversations: Conversation[] }>()
+  const groups = new Map<string, {
+    id: string
+    name: string
+    companyId: string | null
+    locations?: WorkspaceProjectLocationSummary[]
+    conversations: Conversation[]
+  }>()
   for (const project of projects) {
     groups.set(project.id, {
       id: project.id,
       name: project.name,
+      companyId: null,
       ...(project.locations ? { locations: project.locations } : {}),
       conversations: [],
     })
@@ -696,6 +703,10 @@ function buildHermesProjectGroups(
     const group = groups.get(project.id)
     if (!group) continue
     group.conversations.push(conversation)
+    if (!group.companyId) {
+      const companyId = conversation.workspaceContext?.companyId?.trim() || null
+      if (companyId) group.companyId = companyId
+    }
   }
 
   const query = filter.trim().toLocaleLowerCase()
@@ -1523,14 +1534,31 @@ export default function UnifiedChat({
   )
   const hasHermesRailItems = hermesCompanyGroups.length > 0 || hermesProjectGroups.length > 0 || hermesSessionSections.length > 0
   useEffect(() => {
+    const keys = hermesProjectGroups
+      .filter((project) => project.conversations.length > 0)
+      .map((project) => `project:${project.id}`)
+    if (keys.length === 0) return
+    setExpandedSessionGroupKeys((current) => {
+      const missing = keys.filter((key) => !current.includes(key))
+      if (missing.length === 0) return current
+      const next = [...current, ...missing]
+      writeExpandedSessionGroupKeys(orgId, next)
+      return next
+    })
+  }, [hermesProjectGroups, orgId])
+  useEffect(() => {
     if (!activeId || layoutVariant !== 'hermes') return
     const company = hermesCompanyGroups.find((group) => group.conversations.some((conversation) => conversation.id === activeId))
     const project = hermesProjectGroups.find((group) => group.conversations.some((conversation) => conversation.id === activeId))
-    const groupKey = company ? `company:${company.id}` : project ? `project:${project.id}` : null
-    if (!groupKey) return
+    const groupKeys = [
+      ...(company ? [`company:${company.id}`] : []),
+      ...(project ? [`project:${project.id}`] : []),
+    ]
+    if (groupKeys.length === 0) return
     setExpandedSessionGroupKeys((current) => {
-      if (current.includes(groupKey)) return current
-      const next = [...current, groupKey]
+      const missing = groupKeys.filter((key) => !current.includes(key))
+      if (missing.length === 0) return current
+      const next = [...current, ...missing]
       writeExpandedSessionGroupKeys(orgId, next)
       return next
     })
@@ -4120,7 +4148,7 @@ export default function UnifiedChat({
                         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">remove</span>
                       </button>
                     </div>
-                    {(project.locations?.length ?? 0) > 0 && (
+                    {(sessionsExpanded && (project.locations?.length ?? 0) > 0) && (
                       <div data-testid={`project-location-badges-${project.id}`} className="flex min-w-0 flex-wrap gap-1 px-1 pb-1">
                         {project.locations?.map((location) => {
                           const machineType = location.kind === 'vps' ? 'VPS' : 'Computer'

@@ -1,5 +1,23 @@
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import crypto from 'node:crypto'
-function expandHome(value:string){if(value==='~')return os.homedir();if(value.startsWith('~/')||value.startsWith('~'+path.sep))return path.join(os.homedir(),value.slice(2));return value}
+function expandHome(value:string,mappingRoot?:string){
+  // Portable ~/Cowork/... paths must resolve against the mapped Cowork root on
+  // VPS (often /var/lib/hermes/Cowork), not the service account home (/root).
+  if(mappingRoot&&(value==='~/Cowork'||value.startsWith('~/Cowork/')||value.startsWith('~/Cowork'+path.sep))){
+    const rootName=path.basename(mappingRoot)
+    if(rootName==='Cowork'){
+      const suffix=value.slice('~/Cowork'.length).replace(/^[/\\]+/,'')
+      return suffix?path.join(mappingRoot,suffix):mappingRoot
+    }
+    const parent=path.dirname(mappingRoot)
+    if(path.basename(parent)==='Cowork'){
+      const suffix=value.slice('~/Cowork'.length).replace(/^[/\\]+/,'')
+      return suffix?path.join(parent,suffix):parent
+    }
+  }
+  if(value==='~')return os.homedir()
+  if(value.startsWith('~/')||value.startsWith('~'+path.sep))return path.join(os.homedir(),value.slice(2))
+  return value
+}
 function isContained(root:string,candidate:string){return candidate===root||candidate.startsWith(root+path.sep)}
 /**
  * Resolve a company Cowork working directory. Org Workspace mappings usually point
@@ -9,7 +27,7 @@ function isContained(root:string,candidate:string){return candidate===root||cand
  */
 export function resolveMappedWorkingDirectory(mappingRoot:string,relative='',workingDirectory?:string){
   if(workingDirectory&&workingDirectory.trim()){
-    const requested=path.resolve(expandHome(workingDirectory.trim()))
+    const requested=path.resolve(expandHome(workingDirectory.trim(),mappingRoot))
     const mappingParent=fs.realpathSync(path.dirname(mappingRoot))
     if(!fs.existsSync(requested)){
       const requestedParent=path.dirname(requested)
