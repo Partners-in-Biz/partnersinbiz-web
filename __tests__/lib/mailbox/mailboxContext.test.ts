@@ -33,6 +33,8 @@ describe('buildMailboxContextPromptBlock', () => {
     expect(block).toContain('/api/v1/agent/email/messages')
     expect(block).toContain('Hard scope: only uid=user-1')
     expect(block).toContain('live Gmail search')
+    expect(block).toContain('GET /api/v1/agent/email/messages/{id}')
+    expect(block).toContain('NEVER ask the user to paste')
     expect(block).toContain('delegationEvidenceId=mailbox-dlg-1')
     expect(block).toContain('Never auto-send')
   })

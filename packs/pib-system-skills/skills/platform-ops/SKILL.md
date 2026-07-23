@@ -603,7 +603,8 @@ Messages injects a `[Mailbox connections]` block when the acting user has authen
 2. Never claim you cannot access their email when the mailbox block shows a connected account — use `/agent/email/*`.
 3. Portal `/portal/email/*` is browser/session only. Hermes must use `/agent/email/*`.
 4. Message reads auto-refresh stale Google sync (≈5 min) and, when `q` is set, also run a **live Gmail search** that imports matches before filtering. Prefer short queries (`rs@ahslaw.co.za`, `Rikus Stander July 20`) — not full Gmail UI sentences.
-5. After drafting, echo returned `uiActions`/`contextRef` so Messages opens the email side canvas. Humans **Approve & send**; do not auto-send.
+5. `summarize=true` returns `bodyPreview` (up to 8k). For full text use `GET /agent/email/messages/{id}`. If connected + hits exist, **never** ask the user to paste the email.
+6. After drafting, echo returned `uiActions`/`contextRef` so Messages opens the email side canvas. Humans **Approve & send**; do not auto-send.
 
 ### Admin operations utility routes
 

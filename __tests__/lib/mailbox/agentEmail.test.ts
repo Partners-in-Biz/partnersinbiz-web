@@ -114,6 +114,8 @@ describe('agent email mailbox tool contract', () => {
     expect(result.summary).toContain('Need pricing')
     expect(result.items[0]).not.toHaveProperty('bodyText')
     expect(result.items[0]).toMatchObject({ id: 'msg-1', from: 'lead@example.com', snippet: 'Need pricing for package' })
+    expect(result.items[0]).toEqual(expect.objectContaining({ bodyPreview: expect.stringContaining('A') }))
+    expect(String((result.items[0] as { bodyPreview?: string }).bodyPreview).length).toBeLessThanOrEqual(8000)
   })
 
   it('creates drafts and replies under the requested org/user account context', async () => {

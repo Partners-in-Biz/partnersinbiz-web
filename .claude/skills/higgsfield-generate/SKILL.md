@@ -41,7 +41,9 @@ Before any other command:
    ```bash
    curl -fsSL https://raw.githubusercontent.com/higgsfield-ai/cli/main/install.sh | sh
    ```
-2. If `higgsfield account status` fails with `Session expired` / `Not authenticated`, ask the user to run `higgsfield auth login` (interactive) and wait for confirmation.
+2. If `higgsfield account status` fails with `Session expired` / `Not authenticated`:
+   - If the user asked for GPT/OpenAI images (or any non-Higgsfield fallback), use that path immediately — do **not** block the task on `higgsfield auth login`.
+   - Only ask the user to run `higgsfield auth login` when they explicitly want Higgsfield output and no alternate image path will do.
 
 
 ## UX Rules
