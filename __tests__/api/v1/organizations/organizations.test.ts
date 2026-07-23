@@ -132,6 +132,18 @@ describe('POST /api/v1/organizations', () => {
     }))
   })
 
+  it('ignores the ordinary Next.js route context when creating an organisation through the public API', async () => {
+    const res = await POST(
+      adminReq('POST', { name: 'Humanaut AI', description: 'Client org', provisionWorkspace: false }),
+      { params: Promise.resolve({}) },
+    )
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.data.id).toBe('new-org-id')
+    expect(mockAdd).toHaveBeenCalledTimes(1)
+  })
+
   it('uses and replays a trusted setup-derived organisation id without a second create', async () => {
     const memberSet = jest.fn().mockResolvedValue(undefined)
     mockTrustedOrgCreate.mockResolvedValue(undefined)
