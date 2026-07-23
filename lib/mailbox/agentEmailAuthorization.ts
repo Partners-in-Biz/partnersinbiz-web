@@ -102,6 +102,13 @@ export async function authorizeAgentMailboxDelegation(input: {
     }
   }
 
+  if (input.user.authKind === 'user_delegation') {
+    const actingUid = normalizeText(input.user.actingForUserId) || normalizeText(input.user.uid)
+    if (actingUid && actingUid !== uid) {
+      throw new AgentMailboxAuthorizationError('User-delegation mailbox access is limited to the acting user')
+    }
+  }
+
   const scopedPermission = input.user.permissions?.find((permission) => permissionMatches(permission, orgId, uid, input.actionClass))
   if (input.user.authKind === 'agent_api_key' && scopedPermission) {
     return { evidenceId: `api-key-permission:${input.user.apiKeyId ?? actorId}:${scopedPermission.resource}`, evidenceType: 'api_key_permission', actorId, orgId, uid, actionClass: input.actionClass }

@@ -31,6 +31,7 @@ describe('buildMailboxContextPromptBlock', () => {
     expect(block).toContain('me@example.com')
     expect(block).toContain('/api/v1/agent/email/accounts')
     expect(block).toContain('/api/v1/agent/email/messages')
+    expect(block).toContain('Hard scope: only uid=user-1')
     expect(block).toContain('delegationEvidenceId=mailbox-dlg-1')
     expect(block).toContain('Never auto-send')
   })

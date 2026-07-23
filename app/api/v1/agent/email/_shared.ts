@@ -12,7 +12,12 @@ export function agentMailboxActorFromUser(user: ApiUser): AgentMailboxActor {
 }
 
 export function agentMailboxContextFromBody(body: Record<string, unknown>, user: ApiUser): { orgId: string | null; uid: string | null } {
-  const orgId = typeof body.orgId === 'string' ? body.orgId : user.orgId ?? null
+  const orgId = typeof body.orgId === 'string' ? body.orgId : user.orgId ?? user.activeOrgId ?? null
+  // User-delegation tokens are minted for one acting human. Ignore request-supplied
+  // uid/requestingUserId so prompt injection cannot retarget another mailbox.
+  if (user.authKind === 'user_delegation') {
+    return { orgId, uid: user.actingForUserId || user.uid || null }
+  }
   const uid = typeof body.uid === 'string'
     ? body.uid
     : typeof body.requestingUserId === 'string'
@@ -25,7 +30,10 @@ export function agentMailboxContextFromBody(body: Record<string, unknown>, user:
 
 export function agentMailboxContextFromRequest(req: NextRequest, user: ApiUser): { orgId: string | null; uid: string | null; searchParams: URLSearchParams } {
   const { searchParams } = new URL(req.url)
-  const orgId = searchParams.get('orgId') ?? user.orgId ?? null
+  const orgId = searchParams.get('orgId') ?? user.orgId ?? user.activeOrgId ?? null
+  if (user.authKind === 'user_delegation') {
+    return { orgId, uid: user.actingForUserId || user.uid || null, searchParams }
+  }
   const uid = searchParams.get('uid') ?? searchParams.get('requestingUserId') ?? (user.role === 'ai' ? null : user.uid)
   return { orgId, uid, searchParams }
 }
