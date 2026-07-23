@@ -39,6 +39,16 @@ description: >
 
 Cross-cutting platform operations, plus the canonical reference for the collaboration primitives every other skill uses.
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## Base URL & Authentication
 
 ```
@@ -49,7 +59,7 @@ https://partnersinbiz.online/api/v1
 Authorization: Bearer <AI_API_KEY>
 ```
 
-Prefer per-agent `pib_ag_...` keys from Firestore `api_keys` for VPS Hermes profiles. The legacy shared `AI_API_KEY` remains a migration/admin fallback, but it should not be treated as the desired long-term credential model.
+Prefer the user-delegation Bearer token (`pib_dlg_…`) for interactive/human-triggered runs, or per-agent `pib_ag_...` keys from Firestore `api_keys` for VPS Hermes profiles. The legacy shared `AI_API_KEY` is a cron/system-only fallback, not the desired credential model for interactive work.
 
 For AI/agent bearer requests to tenant-scoped routes, also send:
 

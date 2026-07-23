@@ -22,6 +22,16 @@ description: >
 
 This skill enables full social media management for any client/organization through the Partners in Biz platform API. It covers the entire lifecycle: connecting accounts, creating content (with AI assistance), scheduling, publishing, approval workflows, inbox management, tracking analytics, managing RSS auto-posting, and repurposing content across platforms.
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## Supported Platforms
 
 `twitter` (aliased as `x`), `linkedin`, `facebook`, `instagram`, `tiktok`, `pinterest`, `reddit`, `bluesky`, `threads`, `youtube`, `mastodon`, `dribbble`
@@ -32,7 +42,7 @@ Note: The legacy `x` alias maps to `twitter` internally. Prefer `twitter` in new
 
 - **`client`** — org-scoped user. Can read/create posts and inbox items.
 - **`admin`** — platform admin. Required for all single-resource operations (`/[id]`), analytics, media, RSS, bulk, publish, approve, and most write operations.
-- **AI/Hermes agents** use a bearer key plus `X-Org-Id`. Prefer per-agent `pib_ag_...` keys from Firestore `api_keys`; the legacy shared `AI_API_KEY` is fallback. Current social routes treat AI callers as admin-level for social operations while scoping the request by `X-Org-Id`.
+- **AI/Hermes agents** use a bearer key plus `X-Org-Id`. Prefer the user-delegation Bearer token (`pib_dlg_…`) for interactive/human-triggered runs, or per-agent `pib_ag_...` keys from Firestore `api_keys`; the legacy shared `AI_API_KEY` is a cron/system-only fallback. Current social routes treat AI callers as admin-level for social operations while scoping the request by `X-Org-Id`.
 
 ---
 

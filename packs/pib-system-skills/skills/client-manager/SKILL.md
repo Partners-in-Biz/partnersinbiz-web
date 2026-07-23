@@ -22,6 +22,16 @@ description: >
 
 This skill handles the full client lifecycle on Partners in Biz: creating client organisations, managing members and roles, linking CRM contacts to billing orgs, issuing portal logins, running product-specific onboarding flows, routing portal enquiries, and maintaining brand profiles that downstream skills (content, social, email) read from.
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## Base URL & Authentication
 
 ```
@@ -34,7 +44,7 @@ All authenticated endpoints require:
 Authorization: Bearer <AI_API_KEY>
 ```
 
-AI agents and admins have full access. Override base URL via `PIB_API_BASE` for local dev.
+Prefer the user-delegation Bearer token (`pib_dlg_…`) for interactive/human-triggered runs — see `## Auth (mandatory)` above. `AI_API_KEY` is for cron/system jobs only. AI agents and admins have full access. Override base URL via `PIB_API_BASE` for local dev.
 
 ## orgId conventions
 

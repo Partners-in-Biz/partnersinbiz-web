@@ -40,9 +40,19 @@ description: |
 
 You are the agent's interface to the PiB ads module. The platform spans 4 ad networks (Meta, Google, LinkedIn, TikTok) with a unified canonical model + per-platform extensions. All endpoints live under `https://partnersinbiz.online/api/v1/`.
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## Quick reference
 
-**Auth:** `Authorization: Bearer <AI_API_KEY>` + `X-Org-Id: <orgId>` on every request.
+**Auth:** interactive runs use the user-delegation Bearer token (`pib_dlg_…`) + `X-Org-Id: <orgId>` (see `## Auth (mandatory)` above); `Authorization: Bearer <AI_API_KEY>` + `X-Org-Id: <orgId>` is cron/system only.
 
 **Envelope:** all responses follow `{ success, data }` or `{ success, error }`. Unwrap with:
 ```javascript

@@ -44,6 +44,16 @@ Drive 90-day SEO sprints for any client site, with three loops:
 After Day 90, sprints transition to **Phase 4 (Compounding)** — Loop A still runs daily,
 Loop C generates work weekly. The sprint never "ends" until archived.
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## UI surfaces
 
 | Audience | URL | What's there |
@@ -136,8 +146,7 @@ mentions, dependencies, and agent handoff.
 Authorization: Bearer ${AI_API_KEY}
 ```
 
-The `AI_API_KEY` env var is set on Vercel for `partnersinbiz-web`. Auths as role `ai`
-which gets admin-equivalent access.
+Prefer the user-delegation Bearer token (`pib_dlg_…`) for interactive/human-triggered runs — see `## Auth (mandatory)` above. `AI_API_KEY` is for cron/system jobs only. The `AI_API_KEY` env var is set on Vercel for `partnersinbiz-web` for cron/system jobs; it auths as role `ai` which gets admin-equivalent access.
 
 ## orgId / clientId rules
 

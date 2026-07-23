@@ -38,7 +38,9 @@ Push normal work to `origin/development`, but do not trigger Vercel Preview buil
 
 ## Hermes Agent Skill Policy
 
-The live PiB task-bus specialists are `pip`, `theo`, `maya`, `sage`, `nora`, `ads`, `qa-release`, `support`, `data`, `docs`, and `seo`. UI names may be human-friendly, but routing and policy always use the functional `agentId`.
+Current policy version: `2026-07-23.system-skills-v0.1.1`.
+
+The live PiB task-bus specialists are 12: `pip`, `theo`, `maya`, `sage`, `nora`, `ads`, `qa-release`, `support`, `data`, `docs`, `seo`, and `sales`. UI names may be human-friendly, but routing and policy always use the functional `agentId`.
 
 Runtime skills are hard-allowlisted by `config/agent-skill-policy.json`. The v2 manifest catalogs every repo skill path, declares an owner, risk level, runtime agents, sync target, action capabilities, approval gates, and reviewer defaults. The same manifest is consumed by the app registry, admin skill-policy view, VPS sync/apply scripts, and watcher rollout notes.
 
@@ -53,12 +55,13 @@ Runtime skills are hard-allowlisted by `config/agent-skill-policy.json`. The v2 
 - `data` / Vera owns analytics, dashboards, attribution, reporting, and data quality.
 - `docs` / Iris owns client documents, specs, approvals, reports, and deliverable polish.
 - `seo` / Silas owns SEO sprint execution, local SEO, GSC/PageSpeed/Bing interpretation, and optimization queues.
+- `sales` / Blake owns lead lists, prospect qualification, CRM sales pipeline hygiene, outreach drafting, reply triage, proposal handoff, and daily revenue cadence.
 
 Sensitive capabilities are hard gates, not suggestions. Production deploys, paid-ad spend or launch, public publishing, client-visible email/message sends, invoice/payment changes, destructive data operations, secret/config changes, and final client reports require an approval task in Projects/Kanban before execution.
 
 Theo’s engineering workflow must use the Partners delivery gate: create the online spec/change document first, wait for approval, then create linked Kanban implementation tasks with dependencies and `agentStatus=pending`. Link tasks back through `agentInput.context.sourceDocumentId`, `sourceDocumentSectionId`, `sourceSpecVersion`, `approvalGateTaskId`, `sourceResearchItemId`, `riskLevel`, `requiredCapability`, `reviewerAgentId`, and `expectedArtifacts` where applicable.
 
-VPS profiles must load only `/var/lib/hermes/agent-skills/<agentId>` in `skills.external_dirs`. Do not point core specialist profiles back at `/var/lib/hermes/pib-skills`; that shared cache is only the source for policy-generated per-agent directories.
+VPS profiles must load only `/var/lib/hermes/agent-skills/<agentId>` in `skills.external_dirs`. Do not point core specialist profiles back at `/var/lib/hermes/pib-skills`; that shared cache is only the source for policy-generated per-agent directories. `skills.external_dirs` is a **Hermes-only** runtime config key — Claude (Desktop/Code/`.claude/skills`) has no equivalent setting and does not read it; Claude profiles pick up skills only via the `.claude/skills/**` mirror in this repo.
 
 ## All-Agent Wiki Update Standard
 

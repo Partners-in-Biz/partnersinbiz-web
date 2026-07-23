@@ -93,15 +93,21 @@
     "studio-artifact-review",
     "studio-context-gather",
     "studio-release-handoff",
-    "support-manager"
+    "support-manager",
+    "video-editor-ops",
+    "creative-canvas-ops",
+    "book-studio-ops",
+    "youtube-studio-ops",
+    "conversations-runtime",
+    "life-os-ops",
+    "llm-providers-ops"
   ],
   "skillCatalog": {
     "ads-manager": {
       "ownerAgentId": "ads",
       "allowedAgentIds": [
         "ads",
-        "qa-release",
-        "theo"
+        "qa-release"
       ],
       "riskLevel": "critical",
       "syncTarget": "vps"
@@ -143,8 +149,7 @@
       "ownerAgentId": "nora",
       "allowedAgentIds": [
         "nora",
-        "qa-release",
-        "theo"
+        "qa-release"
       ],
       "riskLevel": "critical",
       "syncTarget": "vps"
@@ -212,8 +217,7 @@
         "maya",
         "pip",
         "qa-release",
-        "seo",
-        "theo"
+        "seo"
       ],
       "riskLevel": "high",
       "syncTarget": "vps"
@@ -231,8 +235,7 @@
         "sage",
         "sales",
         "seo",
-        "support",
-        "theo"
+        "support"
       ],
       "riskLevel": "high",
       "syncTarget": "vps"
@@ -274,8 +277,7 @@
         "pip",
         "qa-release",
         "sales",
-        "support",
-        "theo"
+        "support"
       ],
       "riskLevel": "critical",
       "syncTarget": "vps"
@@ -289,8 +291,7 @@
         "pip",
         "qa-release",
         "sales",
-        "support",
-        "theo"
+        "support"
       ],
       "riskLevel": "critical",
       "syncTarget": "vps"
@@ -318,8 +319,7 @@
       "ownerAgentId": "seo",
       "allowedAgentIds": [
         "qa-release",
-        "seo",
-        "theo"
+        "seo"
       ],
       "riskLevel": "high",
       "syncTarget": "vps"
@@ -342,18 +342,10 @@
     "higgsfield-generate": {
       "ownerAgentId": "maya",
       "allowedAgentIds": [
-        "pip",
-        "theo",
         "maya",
-        "sage",
-        "nora",
         "ads",
         "qa-release",
-        "support",
-        "data",
-        "docs",
-        "seo",
-        "sales"
+        "theo"
       ],
       "riskLevel": "high",
       "syncTarget": "vps"
@@ -361,18 +353,10 @@
     "higgsfield-marketplace-cards": {
       "ownerAgentId": "maya",
       "allowedAgentIds": [
-        "pip",
-        "theo",
         "maya",
-        "sage",
-        "nora",
         "ads",
         "qa-release",
-        "support",
-        "data",
-        "docs",
-        "seo",
-        "sales"
+        "theo"
       ],
       "riskLevel": "high",
       "syncTarget": "vps"
@@ -380,18 +364,10 @@
     "higgsfield-product-photoshoot": {
       "ownerAgentId": "maya",
       "allowedAgentIds": [
-        "pip",
-        "theo",
         "maya",
-        "sage",
-        "nora",
         "ads",
         "qa-release",
-        "support",
-        "data",
-        "docs",
-        "seo",
-        "sales"
+        "theo"
       ],
       "riskLevel": "high",
       "syncTarget": "vps"
@@ -399,18 +375,10 @@
     "higgsfield-soul-id": {
       "ownerAgentId": "maya",
       "allowedAgentIds": [
-        "pip",
-        "theo",
         "maya",
-        "sage",
-        "nora",
         "ads",
         "qa-release",
-        "support",
-        "data",
-        "docs",
-        "seo",
-        "sales"
+        "theo"
       ],
       "riskLevel": "critical",
       "syncTarget": "vps"
@@ -594,7 +562,7 @@
       "syncTarget": "vps"
     },
     "platform-ops": {
-      "ownerAgentId": "pip",
+      "ownerAgentId": "theo",
       "allowedAgentIds": [
         "data",
         "docs",
@@ -673,8 +641,7 @@
         "pip",
         "qa-release",
         "sage",
-        "seo",
-        "theo"
+        "seo"
       ],
       "riskLevel": "high",
       "syncTarget": "vps"
@@ -684,8 +651,7 @@
       "allowedAgentIds": [
         "maya",
         "pip",
-        "qa-release",
-        "theo"
+        "qa-release"
       ],
       "riskLevel": "critical",
       "syncTarget": "vps"
@@ -821,8 +787,7 @@
       "allowedAgentIds": [
         "pip",
         "qa-release",
-        "support",
-        "theo"
+        "support"
       ],
       "riskLevel": "medium",
       "syncTarget": "vps"
@@ -1181,6 +1146,88 @@
       "syncTarget": "vps",
       "pack": "pib-system-skills",
       "packTier": "core"
+    },
+    "video-editor-ops": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "maya",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "growth"
+    },
+    "creative-canvas-ops": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "maya",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "growth"
+    },
+    "book-studio-ops": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "maya",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "growth"
+    },
+    "youtube-studio-ops": {
+      "ownerAgentId": "maya",
+      "allowedAgentIds": [
+        "maya",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "growth"
+    },
+    "conversations-runtime": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "theo",
+        "qa-release"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "growth"
+    },
+    "life-os-ops": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "pip",
+        "qa-release",
+        "theo"
+      ],
+      "riskLevel": "low",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "growth"
+    },
+    "llm-providers-ops": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "theo",
+        "qa-release"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "growth"
     }
   },
   "agents": {
@@ -1217,7 +1264,8 @@
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
-        "studio-release-handoff"
+        "studio-release-handoff",
+        "life-os-ops"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1252,17 +1300,14 @@
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
-        "studio-release-handoff"
+        "studio-release-handoff",
+        "life-os-ops"
       ],
       "globalSkills": [
         "app-store-connect-cli",
         "aso-appstore-screenshots",
         "autonomous-ai-agents/hermes-agent",
         "google-play-console-cli",
-        "higgsfield-generate",
-        "higgsfield-marketplace-cards",
-        "higgsfield-product-photoshoot",
-        "higgsfield-soul-id",
         "ios-marketing-capture",
         "software-development/mobile-screenshot-capture"
       ],
@@ -1316,73 +1361,55 @@
       "vpsExternalDir": "/var/lib/hermes/agent-skills/theo",
       "pibSkills": [
         "system-auth",
-        "ads-manager",
         "analytics",
         "agent-runtime-gather",
         "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
-        "billing-finance",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
-        "content-engine",
-        "crm-sales",
         "crm-hygiene-gather",
         "data-analyst",
         "docs-lead",
-        "email-marketing-governance",
-        "email-outreach",
         "evidence-ledger",
-        "geo-seo-service",
         "google-workspace",
         "platform-ops",
         "project-management",
         "properties",
         "qa-release",
         "research-intelligence",
-        "seo-sprint-manager",
-        "social-media-manager",
         "social-recovery-gather",
-        "support-manager",
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
-        "studio-release-handoff"
+        "studio-release-handoff",
+        "conversations-runtime",
+        "llm-providers-ops"
       ],
       "runtimeSkills": [
         "system-auth",
-        "ads-manager",
         "analytics",
         "agent-runtime-gather",
         "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
         "chat-surface-gather",
-        "billing-finance",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
-        "content-engine",
-        "crm-sales",
         "crm-hygiene-gather",
         "data-analyst",
         "docs-lead",
-        "email-marketing-governance",
-        "email-outreach",
         "evidence-ledger",
-        "geo-seo-service",
         "google-workspace",
         "platform-ops",
         "project-management",
         "properties",
         "qa-release",
         "research-intelligence",
-        "seo-sprint-manager",
-        "social-media-manager",
         "social-recovery-gather",
-        "support-manager",
         "marketing/ads",
         "software-development/code-review",
         "software-development/karpathy-guidelines",
@@ -1422,7 +1449,9 @@
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
-        "studio-release-handoff"
+        "studio-release-handoff",
+        "conversations-runtime",
+        "llm-providers-ops"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -1506,7 +1535,11 @@
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
-        "studio-release-handoff"
+        "studio-release-handoff",
+        "video-editor-ops",
+        "creative-canvas-ops",
+        "book-studio-ops",
+        "youtube-studio-ops"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1537,7 +1570,11 @@
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
-        "studio-release-handoff"
+        "studio-release-handoff",
+        "video-editor-ops",
+        "creative-canvas-ops",
+        "book-studio-ops",
+        "youtube-studio-ops"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -1640,10 +1677,6 @@
         "studio-context-gather"
       ],
       "globalSkills": [
-        "higgsfield-generate",
-        "higgsfield-marketplace-cards",
-        "higgsfield-product-photoshoot",
-        "higgsfield-soul-id",
         "note-taking/obsidian",
         "productivity/google-workspace",
         "productivity/maps",
@@ -1726,10 +1759,6 @@
       ],
       "globalSkills": [
         "email/himalaya",
-        "higgsfield-generate",
-        "higgsfield-marketplace-cards",
-        "higgsfield-product-photoshoot",
-        "higgsfield-soul-id",
         "productivity/google-workspace"
       ],
       "capabilities": [
@@ -1916,7 +1945,14 @@
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
-        "studio-release-handoff"
+        "studio-release-handoff",
+        "video-editor-ops",
+        "creative-canvas-ops",
+        "book-studio-ops",
+        "youtube-studio-ops",
+        "conversations-runtime",
+        "life-os-ops",
+        "llm-providers-ops"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1981,7 +2017,14 @@
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
-        "studio-release-handoff"
+        "studio-release-handoff",
+        "video-editor-ops",
+        "creative-canvas-ops",
+        "book-studio-ops",
+        "youtube-studio-ops",
+        "conversations-runtime",
+        "life-os-ops",
+        "llm-providers-ops"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -2074,10 +2117,6 @@
         "support-manager"
       ],
       "globalSkills": [
-        "higgsfield-generate",
-        "higgsfield-marketplace-cards",
-        "higgsfield-product-photoshoot",
-        "higgsfield-soul-id",
         "productivity/google-workspace"
       ],
       "capabilities": [
@@ -2170,10 +2209,6 @@
       ],
       "globalSkills": [
         "data-science/jupyter-live-kernel",
-        "higgsfield-generate",
-        "higgsfield-marketplace-cards",
-        "higgsfield-product-photoshoot",
-        "higgsfield-soul-id",
         "productivity/google-workspace"
       ],
       "capabilities": [
@@ -2214,7 +2249,6 @@
       "role": "Client documents and approvals specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/docs",
       "pibSkills": [
-        "system-auth",
         "analytics",
         "ceo-on-demand-gather",
         "client-documents",
@@ -2232,10 +2266,10 @@
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
-        "studio-release-handoff"
+        "studio-release-handoff",
+        "system-auth"
       ],
       "runtimeSkills": [
-        "system-auth",
         "analytics",
         "ceo-on-demand-gather",
         "client-documents",
@@ -2254,13 +2288,10 @@
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
-        "studio-release-handoff"
+        "studio-release-handoff",
+        "system-auth"
       ],
       "globalSkills": [
-        "higgsfield-generate",
-        "higgsfield-marketplace-cards",
-        "higgsfield-product-photoshoot",
-        "higgsfield-soul-id",
         "productivity/google-workspace",
         "productivity/powerpoint"
       ],
@@ -2342,10 +2373,6 @@
         "research/open-notebook"
       ],
       "globalSkills": [
-        "higgsfield-generate",
-        "higgsfield-marketplace-cards",
-        "higgsfield-product-photoshoot",
-        "higgsfield-soul-id",
         "productivity/google-workspace",
         "productivity/maps",
         "research/blogwatcher"
@@ -2423,10 +2450,6 @@
         "research-intelligence"
       ],
       "globalSkills": [
-        "higgsfield-generate",
-        "higgsfield-marketplace-cards",
-        "higgsfield-product-photoshoot",
-        "higgsfield-soul-id",
         "productivity/google-workspace"
       ],
       "capabilities": [

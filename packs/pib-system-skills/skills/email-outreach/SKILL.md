@@ -45,6 +45,16 @@ A complete email marketing system. Eight layers:
 7. **AI** — generate emails, sequences, subject variants, and rewrites
 8. **Analytics** — per-org / per-broadcast / per-sequence / per-contact dashboards
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## Base URL & Authentication
 
 ```
@@ -54,6 +64,8 @@ https://partnersinbiz.online/api/v1
 ```
 Authorization: Bearer <AI_API_KEY>
 ```
+
+Prefer the user-delegation Bearer token (`pib_dlg_…`) for interactive/human-triggered runs — see `## Auth (mandatory)` above. `AI_API_KEY` is for cron/system jobs only.
 
 CRM-scoped endpoints also accept scoped per-agent API keys (`pib_...`) created in platform API-key management. Pass `Authorization: Bearer <pib_agent_key>` and either `X-Org-Id: <orgId>` or rely on the key's saved `orgId`; scoped keys are rejected with 403 if the request targets another org.
 

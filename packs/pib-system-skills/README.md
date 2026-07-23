@@ -25,7 +25,7 @@ Agents on Mac, VPS, and client machines were loading **different / stale** skill
 ./bin/pib-skills verify-contracts
 ```
 
-Mac default install destination: `~/.claude/skills` (+ `~/.claude/skills/partnersinbiz/*`).
+Default install destination is **Hermes**: `~/.hermes/skills` (+ `~/.hermes/skills/partnersinbiz/*`), overridable via `PIB_SKILLS_DEST`. Claude is a separate, explicitly-maintained mirror at `partnersinbiz-web/.claude/skills/**` (kept byte-identical to `skills/**` in this pack) — it is not the pack's install target.
 
 ## Layout
 

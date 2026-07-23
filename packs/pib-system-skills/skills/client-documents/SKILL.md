@@ -7,6 +7,16 @@ description: Create, review, publish, and track client-facing PiB documents incl
 
 Use this whenever Peet asks for a proposal, spec, strategy document, sign-off, report, change request, approval pack, or any client-facing document.
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## What This Is
 
 `client_documents` are the collaboration and approval layer between PiB and clients. They live at:
@@ -169,7 +179,7 @@ Loop-generated document insight tasks are internal by default and carry `require
 ## Full API Reference
 
 Base URL: `https://partnersinbiz.online`
-Auth: `Authorization: Bearer <AI_API_KEY>` + `X-Org-Id: <orgId>` on every request.
+Auth: interactive runs use the user-delegation Bearer token (`pib_dlg_…`) + `X-Org-Id: <orgId>` (see `## Auth (mandatory)` above); `Authorization: Bearer <AI_API_KEY>` + `X-Org-Id: <orgId>` is cron/system only.
 All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ?? body`.
 
 ### Documents

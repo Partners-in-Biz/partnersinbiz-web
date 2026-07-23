@@ -18,6 +18,16 @@ description: >
 Product analytics module: event collection, session tracking, funnel analysis, user timelines,
 cohort retention, live event stream, and browser SDK.
 
+## Auth (mandatory)
+
+Interactive Hermes runs use the **user-delegation** token injected by Messages / minted via `system-auth` (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+
+- Prefer the injected delegation token for all `/api/v1/*` calls in a human-triggered run.
+- `AI_API_KEY` / agent system keys are **cron/system only**.
+- Never claim a write succeeded without read-back (see pack `verificationContract` / skill success gate).
+- See skill `system-auth` for mint/resolve rules.
+
+
 ## Architecture overview
 
 ```
@@ -43,7 +53,7 @@ Admin API (all require Bearer auth)
 ```
 
 Each `property` (from the Properties module) has one `ingestKey` — a 64-char hex string.  
-The ingest endpoint is public (no Bearer). All query endpoints require `Authorization: Bearer <AI_API_KEY>`.
+The ingest endpoint is public (no Bearer). Query endpoints accept the user-delegation Bearer token (`pib_dlg_…`) for interactive runs (see `## Auth (mandatory)` above) or `Authorization: Bearer <AI_API_KEY>` for cron/system jobs.
 
 ---
 
