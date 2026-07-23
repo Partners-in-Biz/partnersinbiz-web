@@ -89,7 +89,11 @@ function validateBlocks(value: unknown): { ok: true; value: DocumentBlock[] } | 
     }
 
     const row = block as Record<string, unknown>
-    const unknownFields = Object.keys(row).filter((field) => !BLOCK_FIELDS.has(field))
+    // Agent-friendly: accept top-level `motion` as an alias for `display.motion`.
+    // Agents commonly omit `required` / `display` or hoist motion; reject only real unknowns.
+    const unknownFields = Object.keys(row).filter(
+      (field) => !BLOCK_FIELDS.has(field) && field !== 'motion',
+    )
     if (unknownFields.length > 0) {
       return { ok: false, error: `blocks[${index}] contains unsupported field(s): ${unknownFields.join(', ')}` }
     }
@@ -103,9 +107,11 @@ function validateBlocks(value: unknown): { ok: true; value: DocumentBlock[] } | 
     if (row.title !== undefined && typeof row.title !== 'string') {
       return { ok: false, error: `blocks[${index}].title must be a string` }
     }
-    if (typeof row.required !== 'boolean') {
+    // Default missing `required` to false — agents often send content-only blocks.
+    if (row.required !== undefined && typeof row.required !== 'boolean') {
       return { ok: false, error: `blocks[${index}].required must be a boolean` }
     }
+    const required = typeof row.required === 'boolean' ? row.required : false
     if (row.locked !== undefined && typeof row.locked !== 'boolean') {
       return { ok: false, error: `blocks[${index}].locked must be a boolean` }
     }
@@ -118,11 +124,23 @@ function validateBlocks(value: unknown): { ok: true; value: DocumentBlock[] } | 
     if (row.contextRefs !== undefined && !Array.isArray(row.contextRefs)) {
       return { ok: false, error: `blocks[${index}].contextRefs must be an array` }
     }
-    if (!row.display || typeof row.display !== 'object' || Array.isArray(row.display)) {
+
+    let displayInput: unknown = row.display
+    if (displayInput === undefined || displayInput === null) {
+      displayInput = typeof row.motion === 'string' ? { motion: row.motion } : {}
+    } else if (
+      typeof displayInput === 'object' &&
+      !Array.isArray(displayInput) &&
+      typeof row.motion === 'string' &&
+      (displayInput as Record<string, unknown>).motion === undefined
+    ) {
+      displayInput = { ...(displayInput as Record<string, unknown>), motion: row.motion }
+    }
+    if (!displayInput || typeof displayInput !== 'object' || Array.isArray(displayInput)) {
       return { ok: false, error: `blocks[${index}].display must be an object` }
     }
 
-    const display = row.display as Record<string, unknown>
+    const display = displayInput as Record<string, unknown>
     if (display.variant !== undefined && typeof display.variant !== 'string') {
       return { ok: false, error: `blocks[${index}].display.variant must be a string` }
     }
@@ -163,7 +181,7 @@ function validateBlocks(value: unknown): { ok: true; value: DocumentBlock[] } | 
       type: row.type as DocumentBlockType,
       ...(typeof row.title === 'string' ? { title: row.title.trim() } : {}),
       content: row.content,
-      required: row.required,
+      required,
       ...(typeof row.locked === 'boolean' ? { locked: row.locked } : {}),
       ...(typeof row.clientEditable === 'boolean' ? { clientEditable: row.clientEditable } : {}),
       ...(typeof row.visibility === 'string' ? { visibility: row.visibility as DocumentBlockVisibility } : {}),
@@ -195,9 +213,6 @@ function validateTheme(value: unknown): { ok: true; value: DocumentTheme } | { o
   if (!theme.palette || typeof theme.palette !== 'object' || Array.isArray(theme.palette)) {
     return { ok: false, error: 'theme.palette is required' }
   }
-  if (!theme.typography || typeof theme.typography !== 'object' || Array.isArray(theme.typography)) {
-    return { ok: false, error: 'theme.typography is required' }
-  }
 
   const palette = theme.palette as Record<string, unknown>
   for (const field of ['bg', 'text', 'accent']) {
@@ -209,14 +224,36 @@ function validateTheme(value: unknown): { ok: true; value: DocumentTheme } | { o
     return { ok: false, error: 'theme.palette.muted must be a string' }
   }
 
-  const typography = theme.typography as Record<string, unknown>
-  for (const field of ['heading', 'body']) {
-    if (typeof typography[field] !== 'string' || !typography[field]) {
-      return { ok: false, error: `theme.typography.${field} must be a non-empty string` }
-    }
+  // Default typography when agents only send palette (common incomplete theme).
+  const typographySource =
+    theme.typography && typeof theme.typography === 'object' && !Array.isArray(theme.typography)
+      ? (theme.typography as Record<string, unknown>)
+      : DEFAULT_THEME.typography
+  const typography = {
+    heading:
+      typeof typographySource.heading === 'string' && typographySource.heading
+        ? typographySource.heading
+        : DEFAULT_THEME.typography.heading,
+    body:
+      typeof typographySource.body === 'string' && typographySource.body
+        ? typographySource.body
+        : DEFAULT_THEME.typography.body,
   }
 
-  return { ok: true, value: theme as unknown as DocumentTheme }
+  return {
+    ok: true,
+    value: {
+      ...(typeof theme.brandName === 'string' ? { brandName: theme.brandName } : {}),
+      ...(typeof theme.logoUrl === 'string' ? { logoUrl: theme.logoUrl } : {}),
+      palette: {
+        bg: palette.bg as string,
+        text: palette.text as string,
+        accent: palette.accent as string,
+        ...(typeof palette.muted === 'string' ? { muted: palette.muted } : {}),
+      },
+      typography,
+    },
+  }
 }
 
 export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {

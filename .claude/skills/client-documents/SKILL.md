@@ -318,7 +318,9 @@ When a shared spec has client feedback:
    }
    ```
    Use brand colors from org profile if available.
-5b. **If this is a proposal**, also include a `video` block (Loom intro), a `comparison` block, a `pricing_toggle` block, and an `faq` block for maximum impact. See "Make a Standout Proposal" below.
+
+   **Version payload tolerance (important):** each block should include `id`, `type`, `content`, `required` (boolean), and `display` (object, e.g. `{ "motion": "reveal" }`). If you omit `required` / `display`, the API defaults them (`required: false`, `display: {}`). Top-level `motion` is accepted as an alias for `display.motion`. Theme typography defaults when only `palette` is sent. Still prefer sending the full shape from the examples below. On any 400, read and surface the `error` string — do not retry blindly or hand off as "API rejects payload".
+   5b. **If this is a proposal**, also include a `video` block (Loom intro), a `comparison` block, a `pricing_toggle` block, and an `faq` block for maximum impact. See "Make a Standout Proposal" below.
 6. **Mark open assumptions:**
    ```
    PATCH /api/v1/client-documents/[id]
