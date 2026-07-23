@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { decryptCredentials, encryptCredentials, type EncryptedCredentials } from '@/lib/integrations/crypto'
 import { GOOGLE_TOKEN_ENDPOINT, readMailboxGoogleOAuthEnv } from './googleOAuth'
+import { parseFromHeader } from './messageSearch'
 
 const GMAIL_MESSAGES_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/messages'
 const REFRESH_SKEW_MS = 2 * 60 * 1000
@@ -216,6 +217,7 @@ function buildMessagePayload(input: {
   const bodyHtml = extractBody(input.gmail.payload, 'text/html') || undefined
   const messageDate = messageTimestamp(input.gmail, headers)
   const subject = firstHeader(headers, 'subject')
+  const fromParsed = parseFromHeader(firstHeader(headers, 'from'))
   return {
     orgId: input.orgId,
     uid: input.uid,
@@ -227,7 +229,9 @@ function buildMessagePayload(input: {
     status: isDraft ? 'draft' : isSent ? 'sent' : 'received',
     read: !labelIds.has('UNREAD'),
     starred: labelIds.has('STARRED'),
-    from: parseEmailAddresses(firstHeader(headers, 'from'))[0] ?? firstHeader(headers, 'from'),
+    from: fromParsed.email || parseEmailAddresses(firstHeader(headers, 'from'))[0] || firstHeader(headers, 'from'),
+    fromName: fromParsed.name || null,
+    fromRaw: fromParsed.raw || firstHeader(headers, 'from') || null,
     to: parseEmailAddresses(firstHeader(headers, 'to')),
     cc: parseEmailAddresses(firstHeader(headers, 'cc')),
     bcc: parseEmailAddresses(firstHeader(headers, 'bcc')),
@@ -273,46 +277,54 @@ async function upsertThread(input: {
   }, { merge: true })
 }
 
-export async function syncGmailMailboxAccount(input: GmailMailboxSyncInput): Promise<GmailMailboxSyncResult> {
+async function loadGoogleAccountForSync(input: { orgId: string; uid: string; accountId: string }) {
   const accountRef = adminDb.collection('mailbox_accounts').doc(input.accountId)
   const accountDoc = await accountRef.get()
-  if (!accountDoc.exists) return emptyResult({ ok: false, error: 'Mailbox account not found', errored: 1 })
+  if (!accountDoc.exists) {
+    return { error: emptyResult({ ok: false, error: 'Mailbox account not found', errored: 1 }) as GmailMailboxSyncResult }
+  }
   const account = accountDoc.data() as MailboxAccountDoc
   if (account.orgId !== input.orgId || account.uid !== input.uid || account.deletedAt) {
-    return emptyResult({ ok: false, error: 'Mailbox account not found', errored: 1 })
+    return { error: emptyResult({ ok: false, error: 'Mailbox account not found', errored: 1 }) as GmailMailboxSyncResult }
   }
   if (account.provider !== 'google' || !account.googleEnc) {
-    return emptyResult({ ok: false, error: 'Mailbox account is not a connected Google account', errored: 1 })
+    return { error: emptyResult({ ok: false, error: 'Mailbox account is not a connected Google account', errored: 1 }) as GmailMailboxSyncResult }
   }
 
   let credentials: GmailCredentials
   try {
     credentials = decryptCredentials<GmailCredentials>(account.googleEnc, input.orgId)
   } catch (_err) {
-    return markNeedsReconnect(accountRef, 'Google credentials could not be decrypted; reconnect this mailbox')
+    return { error: await markNeedsReconnect(accountRef, 'Google credentials could not be decrypted; reconnect this mailbox') }
   }
 
   const refreshed = await refreshAccessTokenIfNeeded(accountRef, input.orgId, credentials)
-  if (!refreshed?.accessToken) return markNeedsReconnect(accountRef, 'Google access expired; reconnect this mailbox')
-  const accessToken = refreshed.accessToken
-  credentials = refreshed
+  if (!refreshed?.accessToken) {
+    return { error: await markNeedsReconnect(accountRef, 'Google access expired; reconnect this mailbox') }
+  }
 
-  const maxResults = Math.min(Math.max(Number(input.maxResults ?? (input.mode === 'backfill' ? 200 : 100)), 1), 500)
-  const currentMailboxWindow = input.mode === 'backfill' ? '' : ' newer_than:30d'
-  const [inboxIds, sentIds] = await Promise.all([
-    listGmailMessageIds(accessToken, `in:inbox${currentMailboxWindow}`, maxResults),
-    listGmailMessageIds(accessToken, `in:sent${currentMailboxWindow}`, maxResults),
-  ])
-  if (!inboxIds || !sentIds) return markNeedsReconnect(accountRef, 'Google mailbox sync failed; reconnect this mailbox if the problem persists')
+  return { accountRef, account, accessToken: refreshed.accessToken, credentials: refreshed }
+}
 
+async function importGmailIds(input: {
+  orgId: string
+  uid: string
+  accountId: string
+  account: MailboxAccountDoc
+  credentials: GmailCredentials
+  accessToken: string
+  ids: string[]
+  accountRef: FirebaseFirestore.DocumentReference
+  touchLastSync: boolean
+}): Promise<GmailMailboxSyncResult> {
   const result = emptyResult()
   const threadCounts = new Map<string, { count: number; subject: string }>()
   const seen = new Set<string>()
-  for (const id of [...inboxIds, ...sentIds]) {
+  for (const id of input.ids) {
     if (seen.has(id)) continue
     seen.add(id)
-    const gmail = await fetchGmailMessage(accessToken, id)
-    if (gmail === 'unauthorized') return markNeedsReconnect(accountRef, 'Google access was rejected; reconnect this mailbox')
+    const gmail = await fetchGmailMessage(input.accessToken, id)
+    if (gmail === 'unauthorized') return markNeedsReconnect(input.accountRef, 'Google access was rejected; reconnect this mailbox')
     if (!gmail?.id) {
       result.skipped += 1
       continue
@@ -321,8 +333,8 @@ export async function syncGmailMailboxAccount(input: GmailMailboxSyncInput): Pro
       orgId: input.orgId,
       uid: input.uid,
       accountId: input.accountId,
-      accountEmail: String(account.emailAddress ?? credentials.emailAddress ?? ''),
-      profileId: String(account.profileId ?? `${input.orgId}_${input.uid}`),
+      accountEmail: String(input.account.emailAddress ?? input.credentials.emailAddress ?? ''),
+      profileId: String(input.account.profileId ?? `${input.orgId}_${input.uid}`),
       gmail,
     })
     const existing = await findExistingMessage(input.orgId, input.uid, input.accountId, gmail.id)
@@ -346,18 +358,95 @@ export async function syncGmailMailboxAccount(input: GmailMailboxSyncInput): Pro
     orgId: input.orgId,
     uid: input.uid,
     accountId: input.accountId,
-    accountEmail: String(account.emailAddress ?? credentials.emailAddress ?? ''),
-    profileId: String(account.profileId ?? `${input.orgId}_${input.uid}`),
+    accountEmail: String(input.account.emailAddress ?? input.credentials.emailAddress ?? ''),
+    profileId: String(input.account.profileId ?? `${input.orgId}_${input.uid}`),
     threadId,
     subject: data.subject,
     messageCount: data.count,
   })))
 
-  await accountRef.set({
-    status: 'connected',
-    lastSyncAt: FieldValue.serverTimestamp(),
-    lastSyncError: null,
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true })
+  if (input.touchLastSync) {
+    await input.accountRef.set({
+      status: 'connected',
+      lastSyncAt: FieldValue.serverTimestamp(),
+      lastSyncError: null,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true })
+  } else {
+    await input.accountRef.set({
+      status: 'connected',
+      lastSyncError: null,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true })
+  }
   return result
+}
+
+export async function syncGmailMailboxAccount(input: GmailMailboxSyncInput): Promise<GmailMailboxSyncResult> {
+  const loaded = await loadGoogleAccountForSync(input)
+  if ('error' in loaded && loaded.error) return loaded.error
+  const { accountRef, account, accessToken, credentials } = loaded as {
+    accountRef: FirebaseFirestore.DocumentReference
+    account: MailboxAccountDoc
+    accessToken: string
+    credentials: GmailCredentials
+  }
+
+  const maxResults = Math.min(Math.max(Number(input.maxResults ?? (input.mode === 'backfill' ? 200 : 100)), 1), 500)
+  const currentMailboxWindow = input.mode === 'backfill' ? '' : ' newer_than:30d'
+  const [inboxIds, sentIds] = await Promise.all([
+    listGmailMessageIds(accessToken, `in:inbox${currentMailboxWindow}`, maxResults),
+    listGmailMessageIds(accessToken, `in:sent${currentMailboxWindow}`, maxResults),
+  ])
+  if (!inboxIds || !sentIds) return markNeedsReconnect(accountRef, 'Google mailbox sync failed; reconnect this mailbox if the problem persists')
+
+  return importGmailIds({
+    orgId: input.orgId,
+    uid: input.uid,
+    accountId: input.accountId,
+    account,
+    credentials,
+    accessToken,
+    ids: [...inboxIds, ...sentIds],
+    accountRef,
+    touchLastSync: true,
+  })
+}
+
+export type GmailMailboxSearchInput = {
+  orgId: string
+  uid: string
+  accountId: string
+  q: string
+  maxResults?: number
+}
+
+/** Live Gmail search → import matching messages into mailbox_messages (does not replace full inbox sync). */
+export async function syncGmailMailboxSearch(input: GmailMailboxSearchInput): Promise<GmailMailboxSyncResult> {
+  const q = input.q.trim()
+  if (!q) return emptyResult()
+  const loaded = await loadGoogleAccountForSync(input)
+  if ('error' in loaded && loaded.error) return loaded.error
+  const { accountRef, account, accessToken, credentials } = loaded as {
+    accountRef: FirebaseFirestore.DocumentReference
+    account: MailboxAccountDoc
+    accessToken: string
+    credentials: GmailCredentials
+  }
+
+  const maxResults = Math.min(Math.max(Number(input.maxResults ?? 40), 1), 100)
+  const ids = await listGmailMessageIds(accessToken, q, maxResults)
+  if (!ids) return markNeedsReconnect(accountRef, 'Google mailbox search failed; reconnect this mailbox if the problem persists')
+
+  return importGmailIds({
+    orgId: input.orgId,
+    uid: input.uid,
+    accountId: input.accountId,
+    account,
+    credentials,
+    accessToken,
+    ids,
+    accountRef,
+    touchLastSync: false,
+  })
 }

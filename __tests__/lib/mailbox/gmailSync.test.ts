@@ -150,11 +150,11 @@ describe('syncGmailMailboxAccount', () => {
     expect(messages.find((item) => item.id === 'existing')!.data).toMatchObject({
       orgId: 'org-1', uid: 'uid-1', accountId: 'acct-1', accountEmail: 'me@example.com',
       folder: 'inbox', direction: 'inbound', status: 'received', read: false, starred: true,
-      from: 'client@example.com', to: ['me@example.com'], subject: 'Inbound subject', providerMessageId: 'gmail-in-1', threadId: 'thread-1',
+      from: 'client@example.com', fromName: 'Client', to: ['me@example.com'], subject: 'Inbound subject', providerMessageId: 'gmail-in-1', threadId: 'thread-1',
     })
     expect(messages.find((item) => item.data.providerMessageId === 'gmail-sent-1')!.data).toMatchObject({
       orgId: 'org-1', uid: 'uid-1', accountId: 'acct-1', folder: 'sent', direction: 'outbound', status: 'sent',
-      from: 'me@example.com', to: ['client@example.com', 'other@example.com'], subject: 'Sent subject', bodyText: 'Sent body',
+      from: 'me@example.com', fromName: 'Me', to: ['client@example.com', 'other@example.com'], subject: 'Sent subject', bodyText: 'Sent body',
     })
     expect(threads).toHaveLength(1)
     expect(threads[0].data).toMatchObject({ orgId: 'org-1', uid: 'uid-1', accountId: 'acct-1', providerThreadId: 'thread-1', messageCount: 2 })

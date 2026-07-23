@@ -5,6 +5,8 @@ import type { MailboxFolder, MailboxMessageSafe } from '@/lib/mailbox/types'
 import { sendMailboxMessage, type SendMailboxMessageResult } from '@/lib/mailbox/sendBridge'
 import type { AgentMailboxDelegationEvidence } from '@/lib/mailbox/agentEmailAuthorization'
 import { buildEmailContextPresentation, type EmailContextPresentation } from '@/lib/mailbox/emailContextPresentation'
+import { ensureFreshGoogleMailboxData } from '@/lib/mailbox/ensureFresh'
+import { mailboxMessageMatchesQuery } from '@/lib/mailbox/messageSearch'
 
 type ActorType = 'user' | 'agent' | 'system'
 
@@ -154,22 +156,33 @@ export async function readAgentMailboxMessages(input: AgentMailboxReadInput, act
   requireContext(input)
   const limit = cleanLimit(input.limit)
   const folder = input.folder ?? 'inbox'
-  const queryText = normalizeText(input.q).toLowerCase()
+  const queryText = normalizeText(input.q)
+  const freshness = await ensureFreshGoogleMailboxData(input.orgId, input.uid, input.accountId ?? null, {
+    q: queryText || undefined,
+  })
   let query = adminDb.collection('mailbox_messages').where('orgId', '==', input.orgId).where('uid', '==', input.uid) as FirebaseFirestore.Query
   if (input.accountId && input.accountId !== 'all') query = query.where('accountId', '==', input.accountId)
   const snap = await query.get()
   let messages = snap.docs.map((doc) => serializeMessage(doc.id, doc.data()))
   if (folder !== 'all') messages = messages.filter((message) => message.folder === folder)
   if (queryText) {
-    messages = messages.filter((message) =>
-      [message.subject, message.from, message.accountEmail, message.snippet, ...message.to, ...message.cc]
-        .some((value) => value.toLowerCase().includes(queryText)),
-    )
+    messages = messages.filter((message) => mailboxMessageMatchesQuery(message, queryText))
   }
-  messages.sort((a, b) => new Date(b.createdAt ?? b.receivedAt ?? b.sentAt ?? 0).getTime() - new Date(a.createdAt ?? a.receivedAt ?? a.sentAt ?? 0).getTime())
+  messages.sort((a, b) => new Date(b.receivedAt ?? b.sentAt ?? b.createdAt ?? 0).getTime() - new Date(a.receivedAt ?? a.sentAt ?? a.createdAt ?? 0).getTime())
   const scoped = messages.slice(0, limit)
-  await writeToolEvent(input, actor, { action: 'read_context', folder, accountId: input.accountId ?? null, q: queryText || null, resultCount: scoped.length })
-  return { context: { orgId: input.orgId, uid: input.uid, folder, accountId: input.accountId ?? null }, messages: scoped }
+  await writeToolEvent(input, actor, {
+    action: 'read_context',
+    folder,
+    accountId: input.accountId ?? null,
+    q: queryText || null,
+    resultCount: scoped.length,
+    freshness,
+  })
+  return {
+    context: { orgId: input.orgId, uid: input.uid, folder, accountId: input.accountId ?? null },
+    freshness,
+    messages: scoped,
+  }
 }
 
 export async function summarizeAgentMailboxContext(input: AgentMailboxReadInput, actor: AgentMailboxActor) {

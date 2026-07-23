@@ -3,9 +3,10 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
 import { adminDb } from '@/lib/firebase/admin'
-import { isMailboxFolder, serializeAccount, serializeMessage, splitEmails, toIso } from '@/lib/mailbox/serializers'
+import { isMailboxFolder, serializeAccount, serializeMessage, splitEmails } from '@/lib/mailbox/serializers'
 import { sanitizeMailboxAttachments } from '@/lib/mailbox/attachments'
-import { syncGmailMailboxAccount } from '@/lib/mailbox/gmailSync'
+import { ensureFreshGoogleMailboxData } from '@/lib/mailbox/ensureFresh'
+import { mailboxMessageMatchesQuery } from '@/lib/mailbox/messageSearch'
 import { sendMailboxMessage } from '@/lib/mailbox/sendBridge'
 
 export const dynamic = 'force-dynamic'
@@ -27,43 +28,19 @@ async function defaultAccount(orgId: string, uid: string) {
   return accounts[0] ?? null
 }
 
-function isStaleSync(lastSyncAt: string | null): boolean {
-  if (!lastSyncAt) return true
-  const lastSyncMs = new Date(lastSyncAt).getTime()
-  return !Number.isFinite(lastSyncMs) || Date.now() - lastSyncMs > 5 * 60 * 1000
-}
-
-async function ensureFreshGoogleMailboxData(orgId: string, uid: string, accountId: string | null, forceRefresh = false) {
-  const snap = await adminDb.collection('mailbox_accounts').where('orgId', '==', orgId).where('uid', '==', uid).get()
-  const accounts = snap.docs
-    .filter((doc) => !doc.data().deletedAt)
-    .map((doc) => ({ id: doc.id, data: doc.data() }))
-    .filter(({ data }) => data.provider === 'google' && data.status === 'connected' && data.googleEnc)
-    .filter(({ id, data }) => (!accountId || accountId === 'all' || id === accountId) && (forceRefresh || isStaleSync(toIso(data.lastSyncAt))))
-    .slice(0, 3)
-
-  const results = await Promise.all(accounts.map(({ id }) => syncGmailMailboxAccount({
-    orgId,
-    uid,
-    accountId: id,
-    mode: 'incremental',
-    maxResults: forceRefresh ? 160 : 80,
-  }).catch((error) => ({ ok: false, error: error instanceof Error ? error.message : 'Mailbox sync failed' }))))
-
-  const failed = results.filter((result) => !result.ok)
-  return { attempted: accounts.length, failed: failed.length }
-}
-
 export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, uid: string, orgId: string) => {
   try {
     const { searchParams } = new URL(req.url)
     const folder = isMailboxFolder(searchParams.get('folder')) ? searchParams.get('folder')! : 'inbox'
     const accountId = searchParams.get('accountId')
-    const q = (searchParams.get('q') ?? '').trim().toLowerCase()
+    const q = (searchParams.get('q') ?? '').trim()
     const limit = Math.min(Math.max(Number(searchParams.get('limit') ?? 50), 1), 100)
     const forceRefresh = searchParams.get('refresh') === '1' || searchParams.get('refresh') === 'true'
 
-    const freshness = await ensureFreshGoogleMailboxData(orgId, uid, accountId, forceRefresh)
+    const freshness = await ensureFreshGoogleMailboxData(orgId, uid, accountId, {
+      forceRefresh,
+      q: q || undefined,
+    })
 
     let query = adminDb.collection('mailbox_messages').where('orgId', '==', orgId).where('uid', '==', uid) as FirebaseFirestore.Query
     if (accountId && accountId !== 'all') query = query.where('accountId', '==', accountId)
@@ -72,9 +49,7 @@ export const GET = withPortalAuthAndRole('viewer', async (req: NextRequest, uid:
       .map((doc) => serializeMessage(doc.id, doc.data()))
       .filter((message) => message.folder === folder)
     if (q) {
-      messages = messages.filter((message) =>
-        [message.subject, message.from, message.accountEmail, message.snippet, ...message.to].some((value) => value.toLowerCase().includes(q)),
-      )
+      messages = messages.filter((message) => mailboxMessageMatchesQuery(message, q))
     }
     messages.sort((a, b) => new Date(b.receivedAt ?? b.sentAt ?? b.createdAt ?? 0).getTime() - new Date(a.receivedAt ?? a.sentAt ?? a.createdAt ?? 0).getTime())
     return apiSuccess({ messages: messages.slice(0, limit), freshness })

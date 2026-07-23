@@ -71,6 +71,8 @@ export function serializeMessage(id: string, data: Record<string, unknown>): Mai
     read: data.read !== false,
     starred: data.starred === true,
     from: String(data.from ?? ''),
+    fromName: typeof data.fromName === 'string' && data.fromName.trim() ? data.fromName.trim() : null,
+    fromRaw: typeof data.fromRaw === 'string' && data.fromRaw.trim() ? data.fromRaw.trim() : null,
     to: splitEmails(data.to),
     cc: splitEmails(data.cc),
     bcc: splitEmails(data.bcc),

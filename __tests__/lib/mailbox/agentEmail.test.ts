@@ -85,17 +85,19 @@ describe('agent email mailbox tool contract', () => {
 
   it('reads and searches only the requested org/user mailbox context', async () => {
     const messages: Doc[] = [
-      { id: 'msg-1', data: { orgId: 'org-1', uid: 'user-1', accountId: 'acct-1', folder: 'inbox', from: 'lead@example.com', to: ['me@example.com'], subject: 'Proposal question', bodyText: 'Can you send the proposal?', snippet: 'Can you send', createdAt: '2026-05-26T08:00:00Z' } },
+      { id: 'msg-1', data: { orgId: 'org-1', uid: 'user-1', accountId: 'acct-1', folder: 'inbox', from: 'lead@example.com', fromName: 'Lead Person', to: ['me@example.com'], subject: 'Proposal question', bodyText: 'Can you send the proposal?', snippet: 'Can you send', createdAt: '2026-05-26T08:00:00Z' } },
       { id: 'msg-2', data: { orgId: 'org-1', uid: 'user-2', accountId: 'acct-2', folder: 'inbox', from: 'other@example.com', subject: 'Proposal secret', bodyText: 'Wrong user' } },
       { id: 'msg-3', data: { orgId: 'org-2', uid: 'user-1', accountId: 'acct-3', folder: 'inbox', from: 'other@example.com', subject: 'Proposal secret', bodyText: 'Wrong org' } },
     ]
     stageCollections({ mailbox_messages: messages, mailbox_accounts: [], mailbox_agent_tool_events: [], mailbox_send_requests: [] })
 
     const { readAgentMailboxMessages } = await import('@/lib/mailbox/agentEmail')
-    const result = await readAgentMailboxMessages({ orgId: 'org-1', uid: 'user-1', q: 'proposal', folder: 'inbox', limit: 10 }, { actorId: 'agent:theo', actorType: 'agent' })
+    const bySubject = await readAgentMailboxMessages({ orgId: 'org-1', uid: 'user-1', q: 'proposal', folder: 'inbox', limit: 10 }, { actorId: 'agent:theo', actorType: 'agent' })
+    const byName = await readAgentMailboxMessages({ orgId: 'org-1', uid: 'user-1', q: 'Lead Person OR lead@example.com', folder: 'inbox', limit: 10 }, { actorId: 'agent:theo', actorType: 'agent' })
 
-    expect(result.messages.map((message) => message.id)).toEqual(['msg-1'])
-    expect(result.context).toMatchObject({ orgId: 'org-1', uid: 'user-1' })
+    expect(bySubject.messages.map((message) => message.id)).toEqual(['msg-1'])
+    expect(byName.messages.map((message) => message.id)).toEqual(['msg-1'])
+    expect(bySubject.context).toMatchObject({ orgId: 'org-1', uid: 'user-1' })
   })
 
   it('summarises bounded mailbox context without leaking full bodies', async () => {

@@ -40,6 +40,7 @@ export function buildMailboxContextPromptBlock(input: {
   lines.push('Before asking the user to paste an email, call the agent mailbox APIs with the injected user-delegation Bearer token:')
   lines.push(`- GET /api/v1/agent/email/accounts?orgId=${encodeURIComponent(input.orgId)}&uid=${encodeURIComponent(input.uid)}`)
   lines.push(`- GET /api/v1/agent/email/messages?orgId=${encodeURIComponent(input.orgId)}&uid=${encodeURIComponent(input.uid)}&summarize=true&q=...`)
+  lines.push('Reads auto-refresh stale Google sync and run a live Gmail search for `q` (name, address, and/or date). Prefer short queries like `rs@ahslaw.co.za` or `Rikus Stander July 20` — do not paste Gmail UI instructions.')
   lines.push(`Hard scope: only uid=${input.uid} in orgId=${input.orgId}. Do not query another user's mailbox.`)
   if (input.mailboxDelegationEvidenceId) {
     lines.push(`- Include delegationEvidenceId=${input.mailboxDelegationEvidenceId} when calling with an agent/system key instead of the user-delegation token.`)
