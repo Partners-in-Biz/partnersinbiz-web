@@ -3,6 +3,10 @@ import { adminDb } from '@/lib/firebase/admin'
 import { apiError } from '@/lib/api/response'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
+import {
+  crmActorCanReadBillingRecord,
+  resolveBillingCrmAuthContext,
+} from '@/lib/billing/crm-record-scope'
 
 export type InvoiceAccessOk = {
   ok: true
@@ -41,6 +45,17 @@ export async function requireInvoiceAccess(
 
   if (!orgIds.some((orgId) => canAccessOrg(user, orgId))) {
     return { ok: false, response: apiError('Forbidden', 403) }
+  }
+
+  // Owned-or-linked CRM members only see invoices tied to their book (or created by them).
+  if (user.role === 'client') {
+    const perspectiveOrgId = scopedOrgId
+      ?? orgIds.find((orgId) => canAccessOrg(user, orgId))
+    if (perspectiveOrgId) {
+      const crmCtx = await resolveBillingCrmAuthContext(user, perspectiveOrgId)
+      const allowed = await crmActorCanReadBillingRecord(crmCtx, { id: invoiceId, ...data })
+      if (!allowed) return { ok: false, response: apiError('Invoice not found', 404) }
+    }
   }
 
   return { ok: true, ref, snap, data }

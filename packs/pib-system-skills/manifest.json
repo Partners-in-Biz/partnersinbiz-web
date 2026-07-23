@@ -325,7 +325,7 @@
       "owner": "maya",
       "risk": "medium",
       "requiredScopes": [],
-      "summary": "Stub: video editor projects, render jobs, transcripts/captions, TTS, stock, LUTs, templates. Not yet fully documented."
+      "summary": "Editor projects/timelines, credit-metered render jobs, transcription/translation, TTS voiceover, 9:16 reframe, beat analysis, stock search/import, LUTs, templates, and the media-preview/proxy-ledger cache (route-mapped 2026-07-23; request/response shapes still to confirm)."
     },
     "creative-canvas-ops": {
       "tier": "growth",
@@ -360,14 +360,14 @@
       "owner": "pip",
       "risk": "low",
       "requiredScopes": [],
-      "summary": "Stub: personal Life OS — check-ins, coach, experiments, reminders, reviews. Not yet fully documented."
+      "summary": "Personal Life OS — check-ins, AI coach workflow (with crisis safety boundary), experiments, reminder preferences/scheduling, weekly reviews, and admin-only data retention (route-mapped 2026-07-23; request/response shapes still to confirm)."
     },
     "llm-providers-ops": {
       "tier": "growth",
       "owner": "theo",
       "risk": "high",
       "requiredScopes": [],
-      "summary": "Stub: LLM provider connections and OAuth linking for agent/runtime model access. Not yet fully documented."
+      "summary": "LLM provider credential connections, device-code OAuth (xAI Grok, OpenAI Codex), and org/user-scoped Hermes VPS credential sync (route-mapped 2026-07-23; request/response shapes still to confirm)."
     }
   },
   "verificationContract": {

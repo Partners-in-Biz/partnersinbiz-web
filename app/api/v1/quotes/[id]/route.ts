@@ -15,6 +15,7 @@ import type { Quote } from '@/lib/quotes/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import type { Contact } from '@/lib/crm/types'
 import { decorateQuotePortalCapabilities, sanitizeQuotePortalPatch } from '@/lib/billing/portal-permissions'
+import { crmActorCanReadBillingRecord } from '@/lib/billing/crm-record-scope'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -67,6 +68,11 @@ async function loadQuote(id: string, ctx: CrmAuthContext) {
   if (data.deleted === true) return { ok: false as const, status: 404, error: 'Quote not found' }
   const access = accessForQuote(data, ctx)
   if (!access) return { ok: false as const, status: 404, error: 'Quote not found' }
+  // Sender-side owned_or_linked members only open quotes tied to their CRM book.
+  if (access === 'sender' || access === 'legacy') {
+    const allowed = await crmActorCanReadBillingRecord(ctx, { id, ...data })
+    if (!allowed) return { ok: false as const, status: 404, error: 'Quote not found' }
+  }
   return { ok: true as const, ref, data, access }
 }
 

@@ -20,7 +20,7 @@
 #
 # Optional trailing agent IDs limit the policy apply to those agents.
 # Env:
-#   PIB_SYSTEM_SKILLS_VERSION  pin tag/branch (default: v0.1.1)
+#   PIB_SYSTEM_SKILLS_VERSION  pin tag/branch (default: v0.1.2)
 set -euo pipefail
 
 ROOT="/var/lib/hermes"
@@ -30,7 +30,7 @@ PACK_SRC="$PACK_ROOT/skills"
 SHARED="/var/lib/hermes/pib-skills/partnersinbiz"
 POLICY_SCRIPT="/var/lib/hermes/partnersinbiz-web/scripts/apply-agent-skill-policy.mjs"
 POLICY_JSON="/var/lib/hermes/partnersinbiz-web/config/agent-skill-policy.json"
-PIN="${PIB_SYSTEM_SKILLS_VERSION:-v0.1.1}"
+PIN="${PIB_SYSTEM_SKILLS_VERSION:-v0.1.2}"
 
 if [ ! -f "$POLICY_JSON" ]; then
   echo "FATAL: skill policy missing at $POLICY_JSON" >&2

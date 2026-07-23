@@ -194,7 +194,9 @@ describe('GET /api/v1/quotes/:id', () => {
 
   it('viewer GET returns quote for own org', async () => {
     const viewer = seedOrgMember('org-1', 'uid-v', { role: 'viewer' })
-    stageAuth(viewer, { quotes: [makeQuoteDoc('q-1', { orgId: 'org-1', status: 'sent' })] })
+    stageAuth(viewer, {
+      quotes: [makeQuoteDoc('q-1', { orgId: 'org-1', status: 'sent', createdBy: 'uid-v' })],
+    })
     const req = callAsMember(viewer, 'GET', '/api/v1/quotes/q-1')
     const { GET } = await import('@/app/api/v1/quotes/[id]/route')
     const res = await GET(req, { params: Promise.resolve({ id: 'q-1' }) })

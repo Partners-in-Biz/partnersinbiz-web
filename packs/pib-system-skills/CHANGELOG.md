@@ -2,6 +2,17 @@
 
 ## 0.1.2 — 2026-07-23
 
+- Deepen three stub growth skills into route-mapped skills (no v0.1.2 tag/release
+  existed yet at time of edit, so this stays under 0.1.2 rather than bumping):
+  `video-editor-ops` (24 `app/api/v1/video-editor/**` route files: projects,
+  render-jobs, transcripts/translate, tts, reframe, captions/generate,
+  media/beats, stock search/import, luts, templates/resolve, media-previews,
+  proxy-ledger), `life-os-ops` (`app/api/v1/life-os/**` + admin retention:
+  check-ins, coach, experiments, reminders, reviews), and `llm-providers-ops`
+  (`app/api/v1/llm-providers/**`: connections CRUD + sync, device-code OAuth
+  for xAI/Codex). Each now has a real route map, agent workflows with a
+  write→GET read-back success gate, and cross-references; manifest summaries
+  updated to match.
 - Add golden contracts for billing invoice create + CRM contact create; verify-contracts now enforces policy↔pack catalogVersion lockstep and new core skills
 - Deepen conversations-runtime from stub to route-map skill
 - Consolidate ~21 `marketing/ads-*` Claude skills into 3 tiered umbrella

@@ -15,6 +15,10 @@ import {
   resolvePlatformOwnerOrgId,
 } from '@/lib/platform-owner/relationships'
 import { decorateInvoicePortalCapabilities } from '@/lib/billing/portal-permissions'
+import {
+  filterBillingRecordsForCrmActor,
+  resolveBillingCrmAuthContext,
+} from '@/lib/billing/crm-record-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -203,9 +207,12 @@ export const GET = withAuth('client', async (req, user) => {
   if (user.role === 'client') {
     const requestedOrgId = searchParams.get('orgId') ?? user.activeOrgId ?? user.orgId ?? user.orgIds?.[0]
     if (!requestedOrgId || !canAccessOrg(user, requestedOrgId)) return apiSuccess([])
+    const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
     if (view === 'received') {
-      const invoices = (await loadReceivedInvoicesForOrg(requestedOrgId))
+      const received = (await loadReceivedInvoicesForOrg(requestedOrgId))
         .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+      const scoped = await filterBillingRecordsForCrmActor(crmCtx, received)
+      const invoices = scoped
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
         .slice(0, 50)
       return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
@@ -240,11 +247,21 @@ export const GET = withAuth('client', async (req, user) => {
   }
 
   const snapshot = await query.get()
-  const invoices = snapshot.docs
+  let invoices = snapshot.docs
     .map((doc): InvoiceListItem => ({ id: doc.id, ...doc.data() }))
     .filter((invoice) => !orgAccessFilter || orgAccessFilter.includes(String(invoice[orgField] ?? '')))
     .filter((invoice) => !billingOrgIdFilter || invoice.billingOrgId === billingOrgIdFilter)
     .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+
+  if (user.role === 'client') {
+    const requestedOrgId = searchParams.get('orgId') ?? user.activeOrgId ?? user.orgId ?? user.orgIds?.[0]
+    if (requestedOrgId) {
+      const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
+      invoices = await filterBillingRecordsForCrmActor(crmCtx, invoices)
+    }
+  }
+
+  invoices = invoices
     .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
     .slice(0, 50)
 

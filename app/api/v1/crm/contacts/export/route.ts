@@ -10,6 +10,9 @@
  * the export to a specific selection — used by the bulk command bar's
  * "Export selected" action. When `ids` is present the list filters are ignored.
  *
+ * Scoped CRM members (`owned_or_linked`) only export contacts they can read.
+ * Org toggle `membersCanExportContacts` gates member-role exports.
+ *
  * The download filename is date-stamped: contacts-YYYY-MM-DD.csv
  *
  * Auth: viewer+
@@ -17,9 +20,15 @@
  */
 import { NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
-import { withCrmAuth } from '@/lib/auth/crm-middleware'
+import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
 import { apiError } from '@/lib/api/response'
 import type { Contact, ContactStage, ContactType, ContactSource } from '@/lib/crm/types'
+import {
+  crmRecordCompanyIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,10 +96,15 @@ function readIdsFromQuery(searchParams: URLSearchParams): string[] | null {
 // in a query string. When ids are present (query OR body) the list filters are
 // ignored and exactly that selection is exported.
 async function handleExport(
-  orgId: string,
+  ctx: CrmAuthContext,
   searchParams: URLSearchParams,
   bodyIds: string[] | null,
 ): Promise<NextResponse> {
+  if (ctx.role === 'member' && !ctx.permissions.membersCanExportContacts) {
+    return apiError('Contact export is disabled for members in this organisation', 403)
+  }
+
+  const orgId = ctx.orgId
   const selectedIds = bodyIds ?? readIdsFromQuery(searchParams)
   const selectedIdSet = selectedIds ? new Set(selectedIds) : null
 
@@ -116,6 +130,15 @@ async function handleExport(
   let contacts: Contact[] = snapshot.docs
     .map((doc): Contact => ({ ...(doc.data() as Contact), id: doc.id }))
     .filter((c: Contact) => c.orgId === orgId && c.deleted !== true)
+
+  if (!isCrmPrivilegedActor(ctx)) {
+    const companyIds = new Set<string>()
+    for (const contact of contacts) {
+      for (const companyId of crmRecordCompanyIds(contact)) companyIds.add(companyId)
+    }
+    const companies = await loadCompanyAssignmentMap(orgId, companyIds)
+    contacts = filterCrmRowsForActor(ctx, contacts, { companies })
+  }
 
   if (selectedIdSet) {
     contacts = contacts.filter((c) => selectedIdSet.has(c.id))
@@ -206,7 +229,7 @@ async function handleExport(
 // GET — filtered export (filters in query string) or selection export via ?ids=
 export const GET = withCrmAuth('viewer', async (req, ctx) => {
   const { searchParams } = new URL(req.url)
-  return handleExport(ctx.orgId, searchParams, null)
+  return handleExport(ctx, searchParams, null)
 })
 
 // POST — selection export for large id sets that exceed URL-length limits.
@@ -224,5 +247,5 @@ export const POST = withCrmAuth('viewer', async (req, ctx) => {
   } catch {
     // no / invalid body — fall through to query-string behaviour
   }
-  return handleExport(ctx.orgId, searchParams, bodyIds)
+  return handleExport(ctx, searchParams, bodyIds)
 })

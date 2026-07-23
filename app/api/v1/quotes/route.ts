@@ -16,6 +16,7 @@ import type { Quote } from '@/lib/quotes/types'
 import type { Contact, DealLineItem } from '@/lib/crm/types'
 import type { LineItem } from '@/lib/invoices/types'
 import { decorateQuotePortalCapabilities, type QuoteAccessKind } from '@/lib/billing/portal-permissions'
+import { filterBillingRecordsForCrmActor } from '@/lib/billing/crm-record-scope'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -138,8 +139,10 @@ export const GET = withCrmAuth('viewer', async (req: NextRequest, ctx) => {
     if (view === 'shared') quotes = quotes.filter((quote) => Boolean(quote.claimableRelationshipId))
   }
 
-  quotes = quotes
-    .filter((quote) => quote.deleted !== true)
+  quotes = (await filterBillingRecordsForCrmActor(
+    ctx,
+    quotes.filter((quote) => quote.deleted !== true),
+  ))
     .sort((a, b) => createdAtMillis(b.createdAt ?? b.issueDate) - createdAtMillis(a.createdAt ?? a.issueDate))
     .slice(0, 50)
 

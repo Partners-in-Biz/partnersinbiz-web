@@ -128,7 +128,15 @@ describe('GET /api/v1/quotes', () => {
   beforeEach(() => jest.clearAllMocks())
 
   it('viewer can GET list (own org scoped)', async () => {
-    const viewer = seedOrgMember('org-1', 'uid-v', { role: 'viewer' })
+    const viewer = {
+      ...seedOrgMember('org-1', 'uid-v', { role: 'viewer' }),
+      // Org-isolation list test: full CRM record scope (not owned_or_linked).
+      accessPolicy: {
+        preset: 'custom',
+        modules: { crm: true, reports: true },
+        recordScopes: { crm: 'all', projects: 'owned_or_linked' },
+      },
+    }
     stageAuth(viewer, {
       existingQuotes: [
         { id: 'q-1', data: { orgId: 'org-1', quoteNumber: 'Q-TES-001', status: 'draft' } },

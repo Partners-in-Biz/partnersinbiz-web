@@ -99,6 +99,15 @@ beforeEach(() => {
     if (name === 'organizations') return { doc: mockOrgDoc, where: mockOrgWhere }
     if (name === 'companies') return { doc: mockCompanyDoc }
     if (name === 'contacts') return { doc: mockContactDoc }
+    // No membership doc → resolveBillingCrmAuthContext falls back to full member
+    // defaults so existing admin/client list tests stay org-scoped only.
+    if (name === 'orgMembers') {
+      return {
+        doc: () => ({
+          get: async () => ({ exists: false }),
+        }),
+      }
+    }
     throw new Error(`Unexpected collection: ${name}`)
   })
 })

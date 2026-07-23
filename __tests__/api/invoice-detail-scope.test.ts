@@ -79,6 +79,31 @@ beforeEach(() => {
     if (name === 'users') {
       return { doc: () => ({ get: jest.fn().mockResolvedValue({ data: () => ({ displayName: 'Client User' }) }) }) }
     }
+    if (name === 'orgMembers') {
+      return {
+        doc: () => ({
+          get: jest.fn().mockResolvedValue({
+            exists: true,
+            data: () => ({
+              role: 'member',
+              status: 'active',
+              accessPolicy: {
+                preset: 'crm_sales',
+                modules: { crm: true, billing: true },
+                recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+              },
+            }),
+          }),
+        }),
+      }
+    }
+    if (name === 'companies' || name === 'contacts') {
+      return {
+        doc: () => ({
+          get: jest.fn().mockResolvedValue({ exists: false }),
+        }),
+      }
+    }
     throw new Error(`Unexpected collection: ${name}`)
   })
 })
