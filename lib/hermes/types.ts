@@ -149,6 +149,7 @@ export type ChatUiActionType =
   | 'retry'
   | 'stop'
   | 'open'
+  | 'open_context'
   | 'copy'
   | 'download'
   | 'custom'

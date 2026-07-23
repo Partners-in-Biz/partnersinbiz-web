@@ -30,6 +30,12 @@ jest.mock('@/lib/api/platformAdmin', () => ({
   canAccessOrg: (...args: unknown[]) => mockCanAccessOrg(...args),
 }))
 
+const mockRequireInvoiceAccess = jest.fn()
+
+jest.mock('@/lib/invoices/access', () => ({
+  requireInvoiceAccess: (...args: unknown[]) => mockRequireInvoiceAccess(...args),
+}))
+
 function makeReq(url: string, headers?: HeadersInit) {
   return new NextRequest(url, { headers })
 }
@@ -57,6 +63,7 @@ beforeEach(() => {
   })
   mockResolveUser.mockResolvedValue(null)
   mockCanAccessOrg.mockReturnValue(false)
+  mockRequireInvoiceAccess.mockResolvedValue({ ok: false, response: new Response('Forbidden', { status: 403 }) })
   mockInvoiceGet.mockResolvedValue(invoiceSnap({
     invoiceNumber: 'INV-001',
     orgId: 'org-1',
@@ -138,7 +145,12 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
 
   it('keeps authenticated admin access working without a PDF share token', async () => {
     mockResolveUser.mockResolvedValueOnce({ uid: 'admin-1', role: 'admin' })
-    mockCanAccessOrg.mockReturnValueOnce(true)
+    mockRequireInvoiceAccess.mockResolvedValueOnce({
+      ok: true,
+      ref: {},
+      snap: {},
+      data: { invoiceNumber: 'INV-001', orgId: 'org-1' },
+    })
 
     const { GET } = await import('@/app/api/v1/invoices/[id]/pdf/route')
     const res = await GET(makeReq('http://localhost/api/v1/invoices/invoice-1/pdf'), makeCtx())
@@ -146,11 +158,21 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
     expect(res.status).toBe(200)
     expect(mockCheckAndIncrementRateLimit).not.toHaveBeenCalled()
     expect(mockRenderInvoicePdf).toHaveBeenCalled()
+    expect(mockRequireInvoiceAccess).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'admin-1', role: 'admin' }),
+      'invoice-1',
+      null,
+    )
   })
 
   it('keeps authenticated PDF access constrained to the selected orgId query', async () => {
     mockResolveUser.mockResolvedValueOnce({ uid: 'client-1', role: 'client', orgIds: ['home-org', 'course-digs'] })
-    mockCanAccessOrg.mockImplementationOnce((_user, orgId) => orgId === 'course-digs')
+    mockRequireInvoiceAccess.mockResolvedValueOnce({
+      ok: true,
+      ref: {},
+      snap: {},
+      data: { invoiceNumber: 'COU-003', recipientOrgId: 'course-digs' },
+    })
     mockInvoiceGet.mockResolvedValueOnce(invoiceSnap({
       invoiceNumber: 'COU-003',
       orgId: 'pib-platform-owner',
@@ -163,10 +185,19 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
 
     expect(res.status).toBe(200)
     expect(mockCheckAndIncrementRateLimit).not.toHaveBeenCalled()
+    expect(mockRequireInvoiceAccess).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'client-1', role: 'client' }),
+      'invoice-1',
+      'course-digs',
+    )
   })
 
   it('rejects authenticated PDF access when selected orgId does not match the invoice scope', async () => {
     mockResolveUser.mockResolvedValueOnce({ uid: 'client-1', role: 'client', orgIds: ['home-org', 'course-digs'] })
+    mockRequireInvoiceAccess.mockResolvedValueOnce({
+      ok: false,
+      response: new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }),
+    })
     mockInvoiceGet.mockResolvedValueOnce(invoiceSnap({
       invoiceNumber: 'COU-003',
       orgId: 'pib-platform-owner',
@@ -176,6 +207,20 @@ describe('GET /api/v1/invoices/[id]/pdf', () => {
 
     const { GET } = await import('@/app/api/v1/invoices/[id]/pdf/route')
     const res = await GET(makeReq('http://localhost/api/v1/invoices/invoice-1/pdf?orgId=home-org'), makeCtx())
+
+    expect(res.status).toBe(403)
+    expect(mockRenderInvoicePdf).not.toHaveBeenCalled()
+  })
+
+  it('rejects authenticated client PDF access when CRM owned_or_linked denies the invoice', async () => {
+    mockResolveUser.mockResolvedValueOnce({ uid: 'member-1', role: 'client', orgId: 'org-1', activeOrgId: 'org-1' })
+    mockRequireInvoiceAccess.mockResolvedValueOnce({
+      ok: false,
+      response: new Response(JSON.stringify({ error: 'Invoice not found' }), { status: 404 }),
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/[id]/pdf/route')
+    const res = await GET(makeReq('http://localhost/api/v1/invoices/invoice-1/pdf?orgId=org-1'), makeCtx())
 
     expect(res.status).toBe(403)
     expect(mockRenderInvoicePdf).not.toHaveBeenCalled()

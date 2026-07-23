@@ -4,6 +4,7 @@ import { serializeAccount, serializeMessage, splitEmails } from '@/lib/mailbox/s
 import type { MailboxFolder, MailboxMessageSafe } from '@/lib/mailbox/types'
 import { sendMailboxMessage, type SendMailboxMessageResult } from '@/lib/mailbox/sendBridge'
 import type { AgentMailboxDelegationEvidence } from '@/lib/mailbox/agentEmailAuthorization'
+import { buildEmailContextPresentation, type EmailContextPresentation } from '@/lib/mailbox/emailContextPresentation'
 
 type ActorType = 'user' | 'agent' | 'system'
 
@@ -138,6 +139,17 @@ async function resolveAccount(input: AgentMailboxContext & { accountId?: string 
   return serializeAccount(doc.id, data)
 }
 
+export async function listAgentMailboxAccounts(input: AgentMailboxContext, actor: AgentMailboxActor) {
+  requireContext(input)
+  const snap = await adminDb.collection('mailbox_accounts').where('orgId', '==', input.orgId).where('uid', '==', input.uid).get()
+  const accounts = snap.docs
+    .filter((doc) => !doc.data().deletedAt)
+    .map((doc) => serializeAccount(doc.id, doc.data()))
+    .sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || a.emailAddress.localeCompare(b.emailAddress))
+  await writeToolEvent(input, actor, { action: 'list_accounts', resultCount: accounts.length })
+  return { context: { orgId: input.orgId, uid: input.uid }, accounts }
+}
+
 export async function readAgentMailboxMessages(input: AgentMailboxReadInput, actor: AgentMailboxActor) {
   requireContext(input)
   const limit = cleanLimit(input.limit)
@@ -215,7 +227,9 @@ export async function createAgentMailboxDraft(input: AgentMailboxDraftInput, act
   const ref = await adminDb.collection('mailbox_messages').add(payload)
   await writeToolEvent(input, actor, { action: 'draft_created', mailboxMessageId: ref.id, accountId: account.id })
   const fresh = await ref.get()
-  return { message: serializeMessage(ref.id, fresh.data() ?? payload) }
+  const message = serializeMessage(ref.id, fresh.data() ?? payload)
+  const presentation = buildEmailContextPresentation(message)
+  return { message, ...presentation } satisfies { message: MailboxMessageSafe } & EmailContextPresentation
 }
 
 export async function createAgentMailboxReplyDraft(input: AgentMailboxReplyDraftInput, actor: AgentMailboxActor) {

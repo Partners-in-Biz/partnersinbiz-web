@@ -13,6 +13,7 @@ import {
   uiActionsFromEvents,
   uiActionsFromPayload,
 } from '@/lib/hermes/rich-messages'
+import { applyAssistantTextDelta } from '@/lib/chat/applyAssistantTextDelta'
 import {
   CONVERSATION_RUN_LOOKUP_GRACE_MS,
   CONVERSATION_RUN_LOST_ERROR,
@@ -183,7 +184,7 @@ export function extractOutputFromEvents(events: ChatEvent[] = []): string {
       if (text && !event.error) return [text]
       return []
     })
-    .join('')
+    .reduce((current, chunk) => applyAssistantTextDelta(current, chunk), '')
     .trim()
 }
 

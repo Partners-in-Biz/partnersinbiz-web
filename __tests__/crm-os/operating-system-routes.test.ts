@@ -6,6 +6,7 @@ type MockCrmContext = {
   role: 'viewer' | 'member' | 'admin' | 'owner' | 'system'
   isAgent: boolean
   permissions: Record<string, unknown>
+  accessPolicy?: { preset: string; modules: Record<string, boolean>; recordScopes: { crm: string; projects: string } }
   user: { uid: string; role?: string; orgId?: string }
 }
 
@@ -37,6 +38,7 @@ let mockCtx: MockCrmContext = {
   role: 'admin',
   isAgent: false,
   permissions: {},
+  accessPolicy: { preset: 'full', modules: {}, recordScopes: { crm: 'all', projects: 'all' } },
   user: { uid: 'user-1', role: 'client', orgId: 'org-1' },
 }
 
@@ -115,6 +117,7 @@ beforeEach(() => {
     role: 'admin',
     isAgent: false,
     permissions: {},
+    accessPolicy: { preset: 'full', modules: {}, recordScopes: { crm: 'all', projects: 'all' } },
     user: { uid: 'user-1', role: 'client', orgId: 'org-1' },
   }
   mockLoadCompany.mockResolvedValue({ data: { id: 'company-1', orgId: 'org-1', name: 'Acme' } })
@@ -224,7 +227,7 @@ describe('CRM OS route contracts', () => {
     const res = await GET(request('GET', '/api/v1/crm/os-dashboard'))
 
     expect(res.status).toBe(200)
-    expect(mockBuildCrmOsDashboard).toHaveBeenCalledWith('org-1')
+    expect(mockBuildCrmOsDashboard).toHaveBeenCalledWith('org-1', expect.objectContaining({ orgId: 'org-1' }))
     expect((await res.json()).data.summary.companies).toBe(4)
   })
 })

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { resolveUser } from '@/lib/api/auth'
-import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { apiError } from '@/lib/api/response'
+import { requireInvoiceAccess } from '@/lib/invoices/access'
 import { renderInvoicePdf } from '@/lib/invoices/pdf-generator'
 import { checkAndIncrementRateLimit } from '@/lib/rateLimit'
 import {
@@ -22,23 +22,13 @@ function requestIp(req: NextRequest): string {
   return forwarded || req.headers.get('x-real-ip') || 'unknown'
 }
 
-async function isAuthenticatedInvoiceViewer(req: NextRequest, invoiceData: InvoiceRecord): Promise<boolean> {
+async function isAuthenticatedInvoiceViewer(req: NextRequest, invoiceId: string): Promise<boolean> {
   const user = await resolveUser(req)
   if (!user) return false
 
-  const orgIds = [
-    invoiceData.orgId,
-    invoiceData.sourceOrgId,
-    invoiceData.recipientOrgId,
-    invoiceData.targetOrgId,
-  ].filter((value): value is string => typeof value === 'string' && value.length > 0)
   const requestedOrgId = new URL(req.url).searchParams.get('orgId')?.trim()
-
-  if (requestedOrgId) {
-    return orgIds.includes(requestedOrgId) && canAccessOrg(user, requestedOrgId)
-  }
-
-  return orgIds.some((orgId) => canAccessOrg(user, orgId))
+  const access = await requireInvoiceAccess(user, invoiceId, requestedOrgId || null)
+  return access.ok
 }
 
 async function enforcePublicRateLimit(req: NextRequest, invoiceId: string) {
@@ -70,7 +60,7 @@ export async function GET(req: NextRequest, ctx: RouteContext) {
     const invoice = { id: invoiceDoc.id, ...invoiceData }
     const requestedToken = new URL(req.url).searchParams.get('t')
     const tokenMatches = invoicePdfShareTokenMatches(invoiceData.pdfShareToken, requestedToken)
-    const authenticated = tokenMatches ? false : await isAuthenticatedInvoiceViewer(req, invoiceData)
+    const authenticated = tokenMatches ? false : await isAuthenticatedInvoiceViewer(req, id)
 
     if (!authenticated) {
       const rateLimited = await enforcePublicRateLimit(req, id)

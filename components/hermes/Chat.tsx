@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChatEvent } from '@/lib/hermes/types'
+import { applyAssistantTextDelta } from '@/lib/chat/applyAssistantTextDelta'
 import { ChatMessageContent } from '@/components/chat/MessageBubble'
 import VoiceInputButton from '@/components/chat/VoiceInputButton'
 
@@ -163,7 +164,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === msgId
-                  ? { ...m, status: 'streaming', content: `${m.content ?? ''}${ev.delta}` }
+                  ? { ...m, status: 'streaming', content: applyAssistantTextDelta(m.content ?? '', ev.delta ?? '') }
                   : m,
               ),
             )

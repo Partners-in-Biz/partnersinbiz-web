@@ -8,7 +8,7 @@ import { agentMailboxActorFromUser, agentMailboxContextFromRequest, authorizeAge
 
 export const dynamic = 'force-dynamic'
 
-export const GET = withAuth('admin', async (req: NextRequest, user) => {
+export const GET = withAuth('client', async (req: NextRequest, user) => {
   try {
     const ctx = agentMailboxContextFromRequest(req, user)
     if (!ctx.orgId) return apiError('orgId is required', 400)

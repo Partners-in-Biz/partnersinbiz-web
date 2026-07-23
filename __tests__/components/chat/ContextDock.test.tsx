@@ -83,6 +83,83 @@ it('keeps workspace links touch-sized until the xl desktop breakpoint', () => {
   expect(screen.getByRole('link', { name: /Open full workspace/i })).not.toHaveClass('sm:h-9', 'md:h-9', 'lg:h-9')
 })
 
+it('renders the email context composer instead of the generic overview for email drafts', async () => {
+  global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.includes('/accounts')) {
+      return {
+        ok: true,
+        json: async () => ({
+          data: {
+            accounts: [{
+              id: 'acct-1',
+              emailAddress: 'me@example.com',
+              status: 'connected',
+              isDefault: true,
+              orgId: 'o1',
+              uid: 'u1',
+              profileId: 'o1_u1',
+              provider: 'google',
+              displayName: 'Me',
+              hasSmtp: false,
+              hasImap: false,
+              hasGoogleOAuth: true,
+              lastSyncAt: null,
+              createdAt: null,
+              updatedAt: null,
+            }],
+          },
+        }),
+      } as Response
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        data: {
+          message: {
+            id: 'email-1',
+            orgId: 'o1',
+            uid: 'u1',
+            profileId: 'o1_u1',
+            accountId: 'acct-1',
+            accountEmail: 'me@example.com',
+            folder: 'drafts',
+            direction: 'draft',
+            status: 'draft',
+            read: true,
+            starred: false,
+            from: 'me@example.com',
+            to: ['lead@example.com'],
+            cc: [],
+            bcc: [],
+            subject: 'Follow up',
+            bodyText: 'Hello',
+            attachments: [],
+            snippet: 'Hello',
+            createdAt: null,
+            updatedAt: null,
+          },
+        },
+      }),
+    } as Response
+  }) as jest.Mock
+
+  render(<ContextDock
+    model={{
+      ...model,
+      context: { kind: 'email', id: 'email-1', orgId: 'o1', label: 'Follow up', icon: 'mail' },
+      preview: { kind: 'email', text: 'status: draft', status: 'draft' },
+    }}
+    open
+    compact
+    onClose={jest.fn()}
+  />)
+
+  expect(await screen.findByTestId('context-email-composer')).toBeInTheDocument()
+  expect(screen.queryByRole('region', { name: 'Context overview' })).not.toBeInTheDocument()
+  expect(screen.getByLabelText('Subject')).toHaveValue('Follow up')
+})
+
 it('uses a genuinely modal bottom sheet in compact chat and marks the active artifact accessibly', () => {
   const artifact = { id: 'a1', studioKind: 'video_editor' as const, resourceType: 'video', resourceId: 'v1', title: 'Launch cut', artifactKind: 'video' as const, state: 'review' as const, statusLabel: 'In review', href: '/videos/v1', actions: [] }
   render(<ContextDock model={{ ...model, artifacts: [artifact] }} open compact activeArtifactId="a1" onClose={jest.fn()} />)

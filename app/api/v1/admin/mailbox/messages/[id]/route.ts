@@ -36,6 +36,19 @@ async function loadOwnedMessage(id: string, orgId: string, uid: string) {
   return { ref, data }
 }
 
+export const GET = withAuth('admin', async (_req: NextRequest, user, ctx: Ctx) => {
+  try {
+    const orgId = PIB_PLATFORM_ORG_ID
+    const uid = user.uid
+    const { id } = await ctx.params
+    const owned = await loadOwnedMessage(id, orgId, uid)
+    if (!owned) return apiError('Email message not found', 404)
+    return apiSuccess({ message: serializeMessage(id, owned.data) })
+  } catch (err) {
+    return apiErrorFromException(err)
+  }
+})
+
 export const PATCH = withAuth('admin', async (req: NextRequest, user, ctx: Ctx) => {
   try {
     const orgId = PIB_PLATFORM_ORG_ID

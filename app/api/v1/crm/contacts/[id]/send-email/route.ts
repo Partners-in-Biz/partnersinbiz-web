@@ -7,14 +7,39 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
-import { withCrmAuth } from '@/lib/auth/crm-middleware'
+import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { sendEmail } from '@/lib/email/send'
 import { isSuppressed } from '@/lib/email/suppressions'
+import {
+  crmActorCanReadRecord,
+  crmRecordCompanyIds,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+} from '@/lib/crm/assignment-access'
 
 export const dynamic = 'force-dynamic'
 
 type RouteCtx = { params: Promise<{ id: string }> }
+
+async function loadAccessibleContact(
+  ctx: CrmAuthContext,
+  contactId: string,
+): Promise<{ ok: true; contact: Record<string, unknown> } | { ok: false; res: Response }> {
+  const snap = await adminDb.collection('contacts').doc(contactId).get()
+  if (!snap.exists) return { ok: false, res: apiError('Contact not found', 404) }
+  const data = snap.data()!
+  if (data.orgId !== ctx.orgId || data.deleted === true) {
+    return { ok: false, res: apiError('Contact not found', 404) }
+  }
+  if (!isCrmPrivilegedActor(ctx)) {
+    const companies = await loadCompanyAssignmentMap(ctx.orgId, crmRecordCompanyIds(data))
+    if (!crmActorCanReadRecord(ctx, { id: snap.id, ...data }, { companies })) {
+      return { ok: false, res: apiError('Contact not found', 404) }
+    }
+  }
+  return { ok: true, contact: { id: snap.id, ...data } }
+}
 
 export const POST = withCrmAuth<RouteCtx>(
   'member',
@@ -36,12 +61,11 @@ export const POST = withCrmAuth<RouteCtx>(
     if (!subject) return apiError('subject is required', 400)
     if (!bodyText) return apiError('bodyText is required', 400)
 
-    // ── Fetch + verify contact ────────────────────────────────────────────────
+    // ── Fetch + verify contact (org + owned/linked) ──────────────────────────
+    const access = await loadAccessibleContact(ctx, id)
+    if (!access.ok) return access.res
+    const contact = access.contact
     const docRef = adminDb.collection('contacts').doc(id)
-    const snap = await docRef.get()
-    if (!snap.exists) return apiError('Contact not found', 404)
-    const contact = snap.data()!
-    if (contact.orgId !== ctx.orgId) return apiError('Contact not found', 404)
 
     if (!contact.email) return apiError('Contact has no email address', 400)
 

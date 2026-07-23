@@ -14,9 +14,25 @@ import type { Company } from '@/lib/companies/types'
 import { convDoc } from '@/lib/conversations/conversations'
 import { adminDb } from '@/lib/firebase/admin'
 import { getProjectForUser } from '@/lib/projects/access'
-import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
+import { filterProjectItemsForAccess, filterProjectsForMemberScope } from '@/lib/projects/collaboration'
 import { getResearchItem, RESEARCH_COLLECTION } from '@/lib/research/store'
 import { getSupportTicket, SUPPORT_TICKETS_COLLECTION } from '@/lib/support/store'
+import {
+  type AssignableCrmRecord,
+  crmActorCanReadCompanyRecord,
+  crmActorCanReadRecord,
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+} from '@/lib/crm/assignment-access'
+import {
+  crmActorCanReadBillingRecord,
+  filterBillingRecordsForCrmActor,
+  resolveBillingCrmAuthContext,
+} from '@/lib/billing/crm-record-scope'
 import {
   contextReferenceKey,
   contextReferenceTypeFrom,
@@ -259,6 +275,85 @@ function canUseOrg(user: ApiUser, orgId: string): boolean {
   return canAccessOrg(user, orgId)
 }
 
+async function actorCanReadCrmRecord(
+  user: ApiUser,
+  orgId: string,
+  type: 'contact' | 'company' | 'deal' | 'invoice' | 'quote',
+  id: string,
+  data: RawDoc,
+): Promise<boolean> {
+  const ctx = await resolveBillingCrmAuthContext(user, orgId)
+  if (isCrmPrivilegedActor(ctx)) return true
+  const record = { id, ...data, orgId: data.orgId ?? orgId } as AssignableCrmRecord
+  if (type === 'company') return crmActorCanReadCompanyRecord(ctx, id, record)
+  if (type === 'invoice' || type === 'quote') return crmActorCanReadBillingRecord(ctx, record)
+  const companyIds = new Set(crmRecordCompanyIds(record))
+  const contactIds = new Set(crmRecordContactIds(record))
+  const [companies, contacts] = await Promise.all([
+    loadCompanyAssignmentMap(orgId, companyIds),
+    loadContactAssignmentMap(orgId, contactIds),
+  ])
+  return crmActorCanReadRecord(ctx, record, { companies, contacts })
+}
+
+async function filterSearchDocsForRecordScope(
+  user: ApiUser,
+  orgId: string,
+  type: ContextReferenceType,
+  docs: FirestoreDoc[],
+): Promise<FirestoreDoc[]> {
+  if (type === 'project') {
+    const rows = docs.map((doc) => ({ id: doc.id, ...(doc.data() ?? {}) }))
+    const allowed = await filterProjectsForMemberScope(user, rows)
+    const allowedIds = new Set(allowed.map((row) => row.id))
+    return docs.filter((doc) => allowedIds.has(doc.id))
+  }
+
+  if (type !== 'contact' && type !== 'company' && type !== 'deal' && type !== 'invoice' && type !== 'quote') {
+    return docs
+  }
+
+  const ctx = await resolveBillingCrmAuthContext(user, orgId)
+  if (isCrmPrivilegedActor(ctx)) return docs
+
+  const rows = docs.map((doc) => ({ id: doc.id, ...(doc.data() ?? {}), orgId: (doc.data() ?? {}).orgId ?? orgId }) as AssignableCrmRecord)
+
+  if (type === 'invoice' || type === 'quote') {
+    const allowed = await filterBillingRecordsForCrmActor(ctx, rows)
+    const allowedIds = new Set(allowed.map((row) => row.id).filter(Boolean))
+    return docs.filter((doc) => allowedIds.has(doc.id))
+  }
+
+  if (type === 'company') {
+    const allowed = filterCrmRowsForActor(ctx, rows)
+    const allowedIds = new Set(allowed.map((row) => row.id).filter(Boolean))
+    // Companies readable via assigned contacts still need crmActorCanReadCompanyRecord.
+    const maybeHidden = docs.filter((doc) => !allowedIds.has(doc.id))
+    const recovered: FirestoreDoc[] = []
+    for (const doc of maybeHidden) {
+      const data = doc.data() ?? {}
+      if (await crmActorCanReadCompanyRecord(ctx, doc.id, { id: doc.id, ...data } as AssignableCrmRecord)) {
+        recovered.push(doc)
+      }
+    }
+    return [...docs.filter((doc) => allowedIds.has(doc.id)), ...recovered]
+  }
+
+  const companyIds = new Set<string>()
+  const contactIds = new Set<string>()
+  for (const row of rows) {
+    for (const id of crmRecordCompanyIds(row)) companyIds.add(id)
+    for (const id of crmRecordContactIds(row)) contactIds.add(id)
+  }
+  const [companies, contacts] = await Promise.all([
+    loadCompanyAssignmentMap(orgId, companyIds),
+    loadContactAssignmentMap(orgId, contactIds),
+  ])
+  const allowed = filterCrmRowsForActor(ctx, rows, { companies, contacts })
+  const allowedIds = new Set(allowed.map((row) => row.id).filter(Boolean))
+  return docs.filter((doc) => allowedIds.has(doc.id))
+}
+
 function isDeleted(data: RawDoc): boolean {
   return data.deleted === true || data.archived === true
 }
@@ -497,6 +592,7 @@ async function resolveCrm(type: 'contact' | 'company', input: ResolverInput): Pr
   const data = doc.data() ?? {}
   const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
   if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
+  if (!(await actorCanReadCrmRecord(input.user, orgId, type, doc.id, data))) return null
   const relationshipSeeds = type === 'contact'
     ? [
         relationSeed('company', data.companyId, 'Company'),
@@ -660,6 +756,10 @@ async function resolveGeneric(
   if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
   if (type === 'email' && input.user.role === 'client' && clean(data.uid) !== input.user.uid) return null
   if (type === 'workspace_artifact' && input.user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
+  if ((type === 'deal' || type === 'invoice' || type === 'quote') &&
+    !(await actorCanReadCrmRecord(input.user, orgId, type, doc.id, data))) {
+    return null
+  }
   const label = clean(data.name) ||
     clean(data.title) ||
     clean(data.subject) ||
@@ -1008,7 +1108,8 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
 
   if (type === 'project') {
     const docs = await queryByOrg('projects', input.orgId, 80)
-    return docs
+    const scopedDocs = await filterSearchDocsForRecordScope(input.user, input.orgId, 'project', docs)
+    return scopedDocs
       .map((doc) => refFromSearchDoc('project', doc, input.user))
       .filter((ref): ref is ContextReference => Boolean(ref))
       .filter((ref) => matchesQuery({ name: ref.label, summary: ref.summary }, query))
@@ -1023,7 +1124,8 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
       const canUseCompany = !isDeleted(companyData) &&
         companyOrgId &&
         sameOrg(companyData, input.orgId) &&
-        canUseOrg(input.user, companyOrgId)
+        canUseOrg(input.user, companyOrgId) &&
+        await actorCanReadCrmRecord(input.user, companyOrgId, 'company', companyDoc.id, companyData)
       if (canUseCompany) {
         const rows = await listCompanyDocuments({
           id: companyDoc.id,
@@ -1047,7 +1149,8 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
   const collection = COLLECTION_BY_TYPE[type]
   if (!collection) return []
   const docs = await queryByOrg(collection, input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
-  return docs
+  const scopedDocs = await filterSearchDocsForRecordScope(input.user, input.orgId, type, docs)
+  return scopedDocs
     .map((doc) => refFromSearchDoc(type, doc, input.user))
     .filter((ref): ref is ContextReference => Boolean(ref))
     .filter((ref) => matchesQuery({ name: ref.label, summary: ref.summary }, query))

@@ -21,6 +21,21 @@ describe('delegation prompt + messages mint helper', () => {
     expect(block).toContain('acting for user user-1 as agent docs')
     expect(block).toContain('documents:create')
     expect(block).toContain('Do not use AI_API_KEY')
+    expect(block).toContain('/api/v1/agent/email/*')
+  })
+
+  it('includes mailbox delegation evidence when provided', () => {
+    const block = buildDelegationAuthPromptBlock({
+      token: 'pib_dlg_abc',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      orgId: 'org-1',
+      agentId: 'docs',
+      actingForUserId: 'user-1',
+      scopes: ['documents:create'],
+      mailboxDelegationEvidenceId: 'mailbox-dlg-1',
+    })
+    expect(block).toContain('delegationEvidenceId for /api/v1/agent/email/*')
+    expect(block).toContain('mailbox-dlg-1')
   })
 
   it('skips minting for AI system users and nested delegations', async () => {

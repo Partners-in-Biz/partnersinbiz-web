@@ -7,10 +7,28 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { listEnrollments, enrollContact, SequenceEnrollmentError } from '@/lib/sequences/enrollment'
 import { getSequence } from '@/lib/sequences/store'
 import { assertEmailMarketingAgentActionWithTask } from '@/lib/email-marketing/agent-governance'
+import {
+  type AssignableCrmRecord,
+  crmActorCanReadRecord,
+  filterCrmRowsForActor,
+  isCrmPrivilegedActor,
+  loadCompanyAssignmentMap,
+  loadContactAssignmentMap,
+  crmRecordCompanyIds,
+} from '@/lib/crm/assignment-access'
+import { adminDb } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
 
 type RouteCtx = { params: Promise<{ id: string }> }
+
+async function loadContactForScope(orgId: string, contactId: string): Promise<AssignableCrmRecord | null> {
+  const snap = await adminDb.collection('contacts').doc(contactId).get()
+  if (!snap.exists) return null
+  const data = snap.data() as AssignableCrmRecord
+  if (data.orgId !== orgId || data.deleted === true) return null
+  return { id: snap.id, ...data }
+}
 
 // ── GET ─────────────────────────────────────────────────────────────────────────
 
@@ -18,7 +36,22 @@ export const GET = withCrmAuth<RouteCtx>('member', async (_req, ctx, routeCtx) =
   const { id } = await routeCtx!.params
 
   try {
-    const enrollments = await listEnrollments(ctx.orgId, { sequenceId: id })
+    let enrollments = await listEnrollments(ctx.orgId, { sequenceId: id })
+    if (!isCrmPrivilegedActor(ctx)) {
+      const contactIds = enrollments
+        .map((row) => (typeof row.contactId === 'string' ? row.contactId : ''))
+        .filter(Boolean)
+      const contacts = await loadContactAssignmentMap(ctx.orgId, contactIds)
+      const companyIds = new Set<string>()
+      for (const contact of contacts.values()) {
+        for (const companyId of crmRecordCompanyIds(contact)) companyIds.add(companyId)
+      }
+      const companies = await loadCompanyAssignmentMap(ctx.orgId, companyIds)
+      const visibleContactIds = new Set(
+        filterCrmRowsForActor(ctx, Array.from(contacts.values()), { companies }).map((row) => row.id).filter(Boolean),
+      )
+      enrollments = enrollments.filter((row) => visibleContactIds.has(row.contactId))
+    }
     return apiSuccess({ enrollments })
   } catch (err) {
     console.error('[sequence-enrollments-list-error]', err)
@@ -48,6 +81,15 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req, ctx, routeCtx) =
     if (sequence.status !== 'active') {
       return apiError('Sequence must be active before enrollment', 400)
     }
+
+    const contactId = (body.contactId as string).trim()
+    const contact = await loadContactForScope(ctx.orgId, contactId)
+    if (!contact) return apiError('Contact not found', 404)
+    if (!isCrmPrivilegedActor(ctx)) {
+      const companies = await loadCompanyAssignmentMap(ctx.orgId, crmRecordCompanyIds(contact))
+      if (!crmActorCanReadRecord(ctx, contact, { companies })) return apiError('Contact not found', 404)
+    }
+
     if (ctx.user) {
       try {
         await assertEmailMarketingAgentActionWithTask(
@@ -65,7 +107,7 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req, ctx, routeCtx) =
     const enrollmentArgs = [
       ctx.orgId,
       id,
-      (body.contactId as string).trim(),
+      contactId,
       ctx.actor,
       firstStepDelayDays,
     ] as const
