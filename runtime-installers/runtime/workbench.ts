@@ -253,13 +253,35 @@ function gitError(error: { code?: string | number | null; killed?: boolean; sign
   return new Error('git command failed')
 }
 
+function boundGitArguments(root: string, args: string[]): string[] {
+  const gitDirectory = path.join(root, '.git')
+  let stat: fs.Stats
+  try {
+    stat = fs.lstatSync(gitDirectory)
+  } catch {
+    throw new Error('git repository boundary unavailable')
+  }
+  if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error('git repository boundary is unsafe')
+  const realGitDirectory = fs.realpathSync(gitDirectory)
+  if (!isContained(root, realGitDirectory)) throw new Error('git repository boundary is unsafe')
+  return [
+    `--git-dir=${realGitDirectory}`,
+    `--work-tree=${root}`,
+    '-c', 'core.fsmonitor=false',
+    '-c', 'core.untrackedCache=false',
+    ...args,
+  ]
+}
+
 function runGit(root: string, args: string[], options: WorkbenchExecutorOptions): Promise<Buffer> {
   const maxBuffer = positiveLimit(options.maxGitOutputBytes, DEFAULT_MAX_GIT_OUTPUT_BYTES)
   const timeout = positiveLimit(options.gitTimeoutMs, DEFAULT_GIT_TIMEOUT_MS)
+  const boundedArguments = boundGitArguments(root, args)
   return new Promise((resolve, reject) => {
-    execFile('git', args, {
+    execFile('git', boundedArguments, {
       cwd: root,
       encoding: 'buffer',
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_PAGER: 'cat' },
       maxBuffer,
       timeout,
       windowsHide: true,
@@ -315,7 +337,7 @@ async function gitStatus(_operation: Extract<WorkbenchRuntimeOperation, { kind: 
 async function gitDiff(operation: Extract<WorkbenchRuntimeOperation, { kind: 'git.diff' }>, root: string, options: WorkbenchExecutorOptions): Promise<WorkbenchOperationResult> {
   const relativePath = normalizeRelativePath(operation.path ?? '', true)
   const staged = operation.staged === true
-  const args = ['diff', '--no-ext-diff', '--no-color']
+  const args = ['diff', '--no-ext-diff', '--no-textconv', '--no-color']
   if (staged) args.push('--cached')
   args.push('--')
   if (relativePath) args.push(relativePath)
