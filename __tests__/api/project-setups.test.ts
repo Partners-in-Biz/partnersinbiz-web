@@ -104,8 +104,8 @@ beforeEach(() => {
   }, { status: 201 }))
   const workspace = {
     workspaceId: 'partners', orgId: 'pib-org',
-    vpsPath: '/var/lib/hermes/Cowork/Partners in Biz',
-    localPath: '/Users/peetstander/Cowork/Partners in Biz',
+    vpsPath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
+    localPath: '/Users/peetstander/Cowork/partners/Partners in Biz',
   }
   mockGetOrgWorkspaceById.mockResolvedValue(workspace)
   mockGetDefaultOrgWorkspace.mockResolvedValue(workspace)
@@ -113,8 +113,8 @@ beforeEach(() => {
     ...workspace,
     workspaceId: 'acme-company',
     orgId: 'linked-client-org',
-    vpsPath: '/var/lib/hermes/Cowork/Acme',
-    localPath: '/Users/peetstander/Cowork/Acme',
+    vpsPath: '/var/lib/hermes/Cowork/partners/Acme',
+    localPath: '/Users/peetstander/Cowork/partners/Acme',
   })
   mockListExecutionLocationsForWorkspace.mockResolvedValue([vps])
   mockProvisionStandardProjectFolder.mockResolvedValue({
@@ -163,7 +163,7 @@ describe('POST /api/v1/project-setups', () => {
       orgId: 'pib-org', userId: 'peet-user', projectId: 'project-1', companyId: 'company-1',
     })
     expect(mockProvisionStandardProjectFolder).toHaveBeenCalledWith(expect.objectContaining({
-      workspaceId: 'partners', workspacePath: '/var/lib/hermes/Cowork/Acme',
+      workspaceId: 'partners', workspacePath: '/var/lib/hermes/Cowork/partners/Acme',
     }))
   })
 
@@ -300,7 +300,7 @@ describe('POST /api/v1/project-setups', () => {
         orgId: 'pib-org', name: 'Registered folder', deleted: false, projectId: null,
         resourceType: 'client_workspace', resourceId: 'partners:registered', visibility: 'admin_agents_clients',
         permissions: { allowedAgentIds: [], allowedRoleIds: [], allowedUserIds: [], inheritParent: true },
-        paths: { vpsPath: '/var/lib/hermes/Cowork/Partners in Biz/campaigns/registered', localPathHint: null },
+        paths: { vpsPath: '/var/lib/hermes/Cowork/partners/Partners in Biz/campaigns/registered', localPathHint: null },
       }),
     })
     const { POST } = await import('@/app/api/v1/project-setups/route')
@@ -428,7 +428,7 @@ describe('POST /api/v1/project-setups', () => {
   it('redacts upstream server diagnostics while preserving the 5xx status', async () => {
     mockHandleProjectCreate.mockResolvedValueOnce(NextResponse.json({
       success: false,
-      error: 'OSError: /var/lib/hermes/Cowork/Partners in Biz/private-client/.env failed',
+      error: 'OSError: /var/lib/hermes/Cowork/partners/Partners in Biz/private-client/.env failed',
     }, { status: 500 }))
     const { POST } = await import('@/app/api/v1/project-setups/route')
     const response = await POST(request({

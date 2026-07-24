@@ -24,9 +24,12 @@ describe('project conversation workspace identity', () => {
       exists: true,
       id: 'partners',
       data: () => ({
-        workspaceId: 'partners', orgId: 'org-1', orgSlug: 'partners', orgName: 'Partners in Biz',
-        agentDomain: 'partners', vpsPath: '/srv/Cowork/Partners', localPath: '/Users/peet/Cowork/Partners',
-        agentDomainPath: '/srv/Cowork/agents/partners', localAgentDomainPath: '/Users/peet/Cowork/agents/partners',
+        workspaceId: 'partners', orgId: 'pib-platform-owner', orgSlug: 'partners', orgName: 'Partners in Biz',
+        agentDomain: 'partners',
+        vpsPath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
+        localPath: '/Users/peet/Cowork/partners/Partners in Biz',
+        agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/partners',
+        localAgentDomainPath: '/Users/peet/Cowork/Cowork/agents/partners',
         defaultRuntimeTarget: 'vps', companyId: 'workspace-company', contactIds: [],
       }),
     })
@@ -36,14 +39,14 @@ describe('project conversation workspace identity', () => {
     mockProjectGet.mockResolvedValue({
       exists: true,
       id: 'project-1',
-      data: () => ({ sourceOrgId: 'org-1', sourceCompanyId: 'company-1', name: 'Website launch' }),
+      data: () => ({ sourceOrgId: 'pib-platform-owner', sourceCompanyId: 'company-1', name: 'Website launch' }),
     })
     mockCompanyWorkspaceGet.mockResolvedValue({
       docs: [{
         id: 'acme-company',
         data: () => ({
           workspaceId: 'acme-company', orgId: 'client-org', orgSlug: 'acme', orgName: 'Acme',
-          vpsPath: '/var/lib/hermes/Cowork/Acme', localPath: '/Users/peet/Cowork/Acme',
+          vpsPath: '/var/lib/hermes/Cowork/partners/Acme', localPath: '/Users/peet/Cowork/partners/Acme',
           status: 'active', companyId: 'company-1',
         }),
       }],
@@ -51,7 +54,7 @@ describe('project conversation workspace identity', () => {
     const { resolveConversationWorkspaceContext } = await import('@/lib/client-provisioning/workspace-context')
 
     const context = await resolveConversationWorkspaceContext({
-      orgId: 'org-1', workspaceId: 'partners', ownerUserId: 'user-1',
+      orgId: 'pib-platform-owner', workspaceId: 'partners', ownerUserId: 'user-1',
       projectId: 'project-1', projectName: 'Website launch', folderRelativePath: 'projects/project-1',
     })
 
@@ -60,8 +63,8 @@ describe('project conversation workspace identity', () => {
       companyWorkspaceId: 'acme-company',
       companyId: 'company-1',
       folderScope: 'project',
-      vpsPath: '/var/lib/hermes/Cowork/Acme',
-      vpsWorkingPath: '/var/lib/hermes/Cowork/Acme/projects/project-1',
+      vpsPath: '/var/lib/hermes/Cowork/partners/Acme',
+      vpsWorkingPath: '/var/lib/hermes/Cowork/partners/Acme/projects/project-1',
     }))
   })
 
@@ -74,7 +77,7 @@ describe('project conversation workspace identity', () => {
           agentDomain: 'acme',
           agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/acme',
           localAgentDomainPath: '/Users/peet/Cowork/Cowork/agents/acme',
-          vpsPath: '/var/lib/hermes/Cowork/Acme', localPath: '/Users/peet/Cowork/Acme',
+          vpsPath: '/var/lib/hermes/Cowork/partners/Acme', localPath: '/Users/peet/Cowork/partners/Acme',
           status: 'active', companyId: 'company-1',
         }),
       }],
@@ -82,19 +85,19 @@ describe('project conversation workspace identity', () => {
     const { resolveConversationWorkspaceContext } = await import('@/lib/client-provisioning/workspace-context')
 
     const context = await resolveConversationWorkspaceContext({
-      orgId: 'org-1', workspaceId: 'partners', ownerUserId: 'user-1',
+      orgId: 'pib-platform-owner', workspaceId: 'partners', ownerUserId: 'user-1',
       companyId: 'company-1', companyName: 'Acme',
     })
 
     expect(context).toEqual(expect.objectContaining({
-      orgId: 'org-1', orgName: 'Partners in Biz',
+      orgId: 'pib-platform-owner', orgName: 'Partners in Biz',
       workspaceId: 'partners', companyWorkspaceId: 'acme-company',
       companyId: 'company-1', companyName: 'Acme', folderScope: 'company',
       agentDomain: 'acme',
       agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/acme',
       localAgentDomainPath: '/Users/peet/Cowork/Cowork/agents/acme',
-      vpsWorkingPath: '/var/lib/hermes/Cowork/Acme',
-      localWorkingPath: '/Users/peet/Cowork/Acme',
+      vpsWorkingPath: '/var/lib/hermes/Cowork/partners/Acme',
+      localWorkingPath: '/Users/peet/Cowork/partners/Acme',
     }))
   })
 
@@ -103,7 +106,7 @@ describe('project conversation workspace identity', () => {
     const { resolveConversationWorkspaceContext } = await import('@/lib/client-provisioning/workspace-context')
 
     const context = await resolveConversationWorkspaceContext({
-      orgId: 'org-1',
+      orgId: 'pib-platform-owner',
       workspaceId: 'partners',
       ownerUserId: 'user-1',
       companyId: 'company-hunt',
@@ -113,16 +116,16 @@ describe('project conversation workspace identity', () => {
     })
 
     expect(context).toEqual(expect.objectContaining({
-      orgId: 'org-1',
+      orgId: 'pib-platform-owner',
       workspaceId: 'partners',
       companyId: 'company-hunt',
       companyName: 'Hunt and Gun',
       companyWorkspaceId: 'hunt-and-gun',
       folderScope: 'company',
       agentDomain: 'hunt-and-gun',
-      vpsPath: '/var/lib/hermes/Cowork/Hunt and Gun',
-      localPath: '~/Cowork/Hunt and Gun',
-      vpsWorkingPath: '/var/lib/hermes/Cowork/Hunt and Gun',
+      vpsPath: '/var/lib/hermes/Cowork/partners/Hunt and Gun',
+      localPath: '~/Cowork/partners/Hunt and Gun',
+      vpsWorkingPath: '/var/lib/hermes/Cowork/partners/Hunt and Gun',
     }))
   })
 
@@ -131,7 +134,7 @@ describe('project conversation workspace identity', () => {
     const { resolveConversationWorkspaceContext } = await import('@/lib/client-provisioning/workspace-context')
 
     const context = await resolveConversationWorkspaceContext({
-      orgId: 'org-1',
+      orgId: 'pib-platform-owner',
       workspaceId: 'partners',
       ownerUserId: 'user-1',
       companyId: 'company-hunt',
@@ -147,23 +150,23 @@ describe('project conversation workspace identity', () => {
     mockProjectGet.mockResolvedValue({
       exists: true,
       id: 'project-1',
-      data: () => ({ sourceOrgId: 'org-1', sourceCompanyId: 'company-1', name: 'Acme Cowork' }),
+      data: () => ({ sourceOrgId: 'pib-platform-owner', sourceCompanyId: 'company-1', name: 'Acme Cowork' }),
     })
     mockCompanyWorkspaceGet.mockResolvedValue({
       docs: [{ id: 'acme-company', data: () => ({
         workspaceId: 'acme-company', orgId: 'client-org', orgName: 'Acme',
-        vpsPath: '/var/lib/hermes/Cowork/Acme', localPath: '/Users/peet/Cowork/Acme',
+        vpsPath: '/var/lib/hermes/Cowork/partners/Acme', localPath: '/Users/peet/Cowork/partners/Acme',
         status: 'active', companyId: 'company-1',
       }) }],
     })
     const { resolveConversationWorkspaceContext } = await import('@/lib/client-provisioning/workspace-context')
 
     const context = await resolveConversationWorkspaceContext({
-      orgId: 'org-1', workspaceId: 'partners', ownerUserId: 'user-1', projectId: 'project-1', projectName: 'Acme Cowork',
+      orgId: 'pib-platform-owner', workspaceId: 'partners', ownerUserId: 'user-1', projectId: 'project-1', projectName: 'Acme Cowork',
     })
 
     expect(context).toEqual(expect.objectContaining({
-      orgId: 'org-1', ownerUserId: 'user-1', projectId: 'project-1', companyId: 'company-1',
+      orgId: 'pib-platform-owner', ownerUserId: 'user-1', projectId: 'project-1', companyId: 'company-1',
     }))
   })
 
@@ -176,7 +179,7 @@ describe('project conversation workspace identity', () => {
     const { resolveConversationWorkspaceContext } = await import('@/lib/client-provisioning/workspace-context')
 
     const context = await resolveConversationWorkspaceContext({
-      orgId: 'org-1', workspaceId: 'partners', ownerUserId: 'user-1', projectId: 'project-1',
+      orgId: 'pib-platform-owner', workspaceId: 'partners', ownerUserId: 'user-1', projectId: 'project-1',
     })
 
     expect(context?.companyId).toBe('workspace-company')

@@ -3,12 +3,20 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import * as admin from 'firebase-admin'
+import {
+  LOCAL_COWORK_ROOT,
+  PIB_COWORK_NESTING_SLUG,
+  VPS_COWORK_ROOT,
+  sanitizeCoworkNestingSlug,
+} from '@/lib/client-provisioning/cowork-paths'
 
 interface WorkspaceAuditRow {
   workspaceId: string
   orgId: string
   orgName: string
   workspaceName: string
+  /** Relative path from Cowork root when known (e.g. `partners/Hunt and Gun`). */
+  workspaceRelativePath: string
   agentDomain: string
   localWorkspaceExists: boolean
   localAgentDomainExists: boolean
@@ -24,12 +32,22 @@ interface AuditOptions {
   checkVps: boolean
   host: string
   outputDir: string
+  orgSlug: string
 }
 
 const REQUIRED_FOLDERS = [
   'docs', 'briefs', 'assets', 'assets/private', 'marketing', 'research',
   'operations', 'operations/admin', 'deliverables', 'inbox', 'archive',
 ]
+
+/** Top-level Cowork entries that are never Workspace roots. */
+export const AUDIT_RESERVED_TOP_LEVEL = new Set([
+  'Cowork',
+  'Partners in Biz — Client Growth',
+  'Side Projects',
+  'YouTube Business',
+  '_projects',
+])
 
 function loadEnv(): void {
   for (const filename of ['.env.local', '.env']) {
@@ -65,23 +83,26 @@ function initAdmin(): FirebaseFirestore.Firestore {
   return admin.firestore()
 }
 
-function parseOptions(argv: string[]): AuditOptions {
+export function parseAuditOptions(argv: string[]): AuditOptions {
   let checkVps = false
   let host = process.env.HERMES_VPS_HOST?.trim() || 'hermes-api.partnersinbiz.online'
   let outputDir = path.resolve(process.cwd(), 'scripts/workspace-audit-reports')
+  let orgSlug = PIB_COWORK_NESTING_SLUG
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === '--check-vps') checkVps = true
     else if (argv[index] === '--host') host = argv[++index]?.trim() || ''
     else if (argv[index] === '--output-dir') outputDir = path.resolve(argv[++index] || outputDir)
+    else if (argv[index] === '--org-slug') orgSlug = argv[++index]?.trim() || ''
     else throw new Error(`Unknown argument: ${argv[index]}`)
   }
   if (!/^[a-zA-Z0-9.-]+$/.test(host)) throw new Error('Host contains unsupported characters')
-  return { checkVps, host, outputDir }
+  return { checkVps, host, outputDir, orgSlug: sanitizeCoworkNestingSlug(orgSlug || PIB_COWORK_NESTING_SLUG) }
 }
 
-function nameFromVpsPath(vpsPath: string): string {
+/** Display folder name (basename) from a VPS Cowork workspace path. */
+export function nameFromVpsPath(vpsPath: string): string {
   const normalized = path.posix.normalize(vpsPath)
-  if (!normalized.startsWith('/var/lib/hermes/Cowork/') || normalized === '/var/lib/hermes/Cowork') {
+  if (!normalized.startsWith(`${VPS_COWORK_ROOT}/`) || normalized === VPS_COWORK_ROOT) {
     throw new Error(`Unsafe VPS Workspace path: ${vpsPath}`)
   }
   const name = path.posix.basename(normalized)
@@ -89,10 +110,53 @@ function nameFromVpsPath(vpsPath: string): string {
   return name
 }
 
+/** Relative path from the Cowork root (e.g. `partners/Hunt and Gun` or legacy `Hunt and Gun`). */
+export function relativeFromVpsCoworkPath(vpsPath: string): string {
+  const normalized = path.posix.normalize(vpsPath)
+  if (!normalized.startsWith(`${VPS_COWORK_ROOT}/`) || normalized === VPS_COWORK_ROOT) {
+    throw new Error(`Unsafe VPS Workspace path: ${vpsPath}`)
+  }
+  return normalized.slice(VPS_COWORK_ROOT.length + 1)
+}
+
 function expandHome(value: string): string {
   if (value === '~') return process.env.HOME || value
   if (value.startsWith('~/')) return path.join(process.env.HOME || '', value.slice(2))
   return value
+}
+
+/**
+ * Inventory candidate workspace directories under a Cowork root.
+ * Keys are relative paths from the Cowork root (nested when under an org nest).
+ */
+export function listCoworkInventoryRelativePaths(
+  coworkRoot: string,
+  nestSlugs: string[] = [PIB_COWORK_NESTING_SLUG],
+): string[] {
+  if (!existsSync(coworkRoot)) return []
+  const nestSet = new Set(nestSlugs.map((slug) => sanitizeCoworkNestingSlug(slug)))
+  const results: string[] = []
+
+  for (const entry of readdirSync(coworkRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory() && !entry.isSymbolicLink()) continue
+    if (entry.name.startsWith('.')) continue
+    if (AUDIT_RESERVED_TOP_LEVEL.has(entry.name)) continue
+
+    if (nestSet.has(entry.name)) {
+      const nestDir = path.join(coworkRoot, entry.name)
+      if (!existsSync(nestDir)) continue
+      for (const child of readdirSync(nestDir, { withFileTypes: true })) {
+        if (!child.isDirectory() && !child.isSymbolicLink()) continue
+        if (child.name.startsWith('.')) continue
+        results.push(`${entry.name}/${child.name}`)
+      }
+      continue
+    }
+
+    results.push(entry.name)
+  }
+
+  return results.sort((a, b) => a.localeCompare(b))
 }
 
 function queryRemote(host: string, workspaces: Array<{ workspaceId: string; vpsPath: string; agentDomainPath: string }>): Record<string, {
@@ -109,7 +173,7 @@ result = {}
 for item in payload['workspaces']:
     workspace = pathlib.Path(item['vpsPath']).resolve()
     agent = pathlib.Path(item['agentDomainPath']).resolve()
-    allowed_workspace = pathlib.Path('/var/lib/hermes/Cowork').resolve()
+    allowed_workspace = pathlib.Path(${JSON.stringify(VPS_COWORK_ROOT)}).resolve()
     allowed_agent = pathlib.Path('/var/lib/hermes/cowork-wiki/agents').resolve()
     safe_workspace = workspace != allowed_workspace and allowed_workspace in workspace.parents
     safe_agent = agent != allowed_agent and allowed_agent in agent.parents
@@ -134,7 +198,7 @@ print(json.dumps(result, sort_keys=True))
 
 async function run(): Promise<void> {
   loadEnv()
-  const options = parseOptions(process.argv.slice(2))
+  const options = parseAuditOptions(process.argv.slice(2))
   const db = initAdmin()
   const snap = await db.collection('org_workspaces').where('status', '==', 'active').get()
   const records = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Record<string, unknown> & { id: string }))
@@ -145,16 +209,20 @@ async function run(): Promise<void> {
   }))
   const remote = options.checkVps ? queryRemote(options.host, remoteInput) : {}
   const expectedWorkspaceNames = new Set<string>()
+  const expectedWorkspaceRelativePaths = new Set<string>()
   const expectedAgentDomains = new Set<string>()
 
   const rows: WorkspaceAuditRow[] = records.map((record) => {
     const workspaceId = String(record.workspaceId || record.id)
     const vpsPath = String(record.vpsPath || '')
     const workspaceName = nameFromVpsPath(vpsPath)
+    const workspaceRelativePath = relativeFromVpsCoworkPath(vpsPath)
     const agentDomain = String(record.agentDomain || '')
     expectedWorkspaceNames.add(workspaceName)
+    expectedWorkspaceRelativePaths.add(workspaceRelativePath)
     expectedAgentDomains.add(agentDomain)
-    const localPath = expandHome(String(record.localPath || path.join(process.env.HOME || '', 'Cowork', workspaceName)))
+    const defaultLocal = path.join(process.env.HOME || '', 'Cowork', workspaceRelativePath)
+    const localPath = expandHome(String(record.localPath || defaultLocal))
     const localAgentPath = expandHome(String(record.localAgentDomainPath || path.join(process.env.HOME || '', 'Cowork', 'Cowork', 'agents', agentDomain)))
     const remoteRow = remote[workspaceId]
     const notes: string[] = []
@@ -175,6 +243,7 @@ async function run(): Promise<void> {
       orgId: String(record.orgId || ''),
       orgName: String(record.orgName || ''),
       workspaceName,
+      workspaceRelativePath,
       agentDomain,
       localWorkspaceExists: existsSync(localPath),
       localAgentDomainExists: existsSync(localAgentPath),
@@ -189,15 +258,14 @@ async function run(): Promise<void> {
 
   const localCoworkRoot = path.join(process.env.HOME || '', 'Cowork')
   const localAgentRoot = path.join(localCoworkRoot, 'Cowork', 'agents')
-  const reservedTopLevel = new Set(['Cowork'])
-  const nonWorkspaceDirectories = existsSync(localCoworkRoot)
-    ? readdirSync(localCoworkRoot, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.') && !reservedTopLevel.has(entry.name) && !expectedWorkspaceNames.has(entry.name))
-      .map((entry) => entry.name)
-      .sort()
-    : []
-  const recognizedProjectDirectories = nonWorkspaceDirectories.filter((name) => {
-    const directory = path.join(localCoworkRoot, name)
+  const inventoryRelativePaths = listCoworkInventoryRelativePaths(localCoworkRoot, [options.orgSlug])
+  const isExpectedInventoryPath = (relativePath: string): boolean => {
+    const basename = path.basename(relativePath)
+    return expectedWorkspaceRelativePaths.has(relativePath) || expectedWorkspaceNames.has(basename)
+  }
+  const nonWorkspaceDirectories = inventoryRelativePaths.filter((relativePath) => !isExpectedInventoryPath(relativePath))
+  const recognizedProjectDirectories = nonWorkspaceDirectories.filter((relativePath) => {
+    const directory = path.join(localCoworkRoot, relativePath)
     return ['.git', 'AGENTS.md', 'CLAUDE.md'].some((marker) => existsSync(path.join(directory, marker)))
   })
   const unmappedTopLevelDirectories = nonWorkspaceDirectories.filter((name) => !recognizedProjectDirectories.includes(name))
@@ -212,6 +280,8 @@ async function run(): Promise<void> {
   const report = {
     generatedAt: new Date().toISOString(),
     sourceOfTruth: 'vps',
+    orgSlug: options.orgSlug,
+    localCoworkRoot: LOCAL_COWORK_ROOT,
     destructiveChangesPerformed: false,
     counts: {
       activeWorkspaces: rows.length,
@@ -227,7 +297,7 @@ async function run(): Promise<void> {
       recognizedProjectDirectories,
       unmappedTopLevelDirectories,
       unmappedAgentDomains,
-      note: 'Directories with repository/instruction markers are recognized as non-Workspace projects. Remaining unmapped directories may be legacy material. This audit never deletes or moves them.',
+      note: 'Inventory keys are relative to the Cowork root (top-level legacy folders and children of org nest dirs like partners/). Directories with repository/instruction markers are recognized as non-Workspace projects. Remaining unmapped directories may be legacy material. This audit never deletes or moves them.',
     },
   }
   mkdirSync(options.outputDir, { recursive: true })
@@ -236,7 +306,9 @@ async function run(): Promise<void> {
   console.log(JSON.stringify({ outputPath, ...report.counts }, null, 2))
 }
 
-run().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exitCode = 1
-})
+if (require.main === module) {
+  run().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+}

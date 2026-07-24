@@ -137,7 +137,7 @@ Save to `<workspace>/marketing/plans/content-master-plan.md`. Aim for 2,500–4,
 7. Reference link library by pillar
 8. Distribution channels + watermark rules
 
-The AHS Law master plan at `/Users/peetstander/Cowork/AHS Law/marketing/plans/content-master-plan.md` is canonical.
+The AHS Law master plan at `/Users/peetstander/Cowork/partners/AHS Law/marketing/plans/content-master-plan.md` is canonical.
 
 ## Time budget
 

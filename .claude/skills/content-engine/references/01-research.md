@@ -53,7 +53,7 @@ Save to `<workspace>/research/<domain>-public-questions-<year>.md`. Structure th
 5. **Content strategy recommendations** — distill the research into 8 blog topics + social angles
 6. **Sources & methodology** — every publication consulted, every Act/document cited
 
-The AHS Law brief at `/Users/peetstander/Cowork/AHS Law/research/sa-law-public-questions-2026.md` is the canonical template — match its structure.
+The AHS Law brief at `/Users/peetstander/Cowork/partners/AHS Law/research/sa-law-public-questions-2026.md` is the canonical template — match its structure.
 
 ## Length
 

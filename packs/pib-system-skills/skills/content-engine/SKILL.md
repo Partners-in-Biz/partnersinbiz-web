@@ -430,7 +430,7 @@ After the final phase, print the **campaign cockpit URL**, the **client portal U
 ## Reference Examples
 
 - **Partners in Biz** itself (service business / B2B SaaS hybrid): `/Users/peetstander/Cowork/Partners in Biz — Client Growth/` — canonical example.
-- **AHS Law** (service business): `/Users/peetstander/Cowork/AHS Law/` — older local-files-only example. Use only for content format reference, not as a template — it predates the platform-first flow.
+- **AHS Law** (service business): `/Users/peetstander/Cowork/partners/AHS Law/` — older local-files-only example. Use only for content format reference, not as a template — it predates the platform-first flow.
 
 When in doubt about blog format: read an existing `seo_content` row + its `seo_drafts` body via the API.  
 When in doubt about social format: read an existing `social_post` row via the API.  

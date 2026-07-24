@@ -7,5 +7,22 @@ it('rewrites portable ~/Cowork paths against a Cowork mapping root',()=>{
   fs.mkdirSync(project,{recursive:true})
   expect(resolveMappedWorkingDirectory(cowork,'projects/project-1','~/Cowork/AHS Law/projects/project-1')).toBe(fs.realpathSync(project))
 })
+it('resolves nested partners company folders from a partners org mapping',()=>{
+  const d=fs.mkdtempSync(path.join(os.tmpdir(),'cowork-partners-map-'))
+  const partnersRoot=path.join(d,'Cowork','partners','Partners in Biz')
+  const hunt=path.join(d,'Cowork','partners','Hunt and Gun')
+  fs.mkdirSync(partnersRoot,{recursive:true})
+  fs.mkdirSync(path.join(hunt,'projects','project-1'),{recursive:true})
+  expect(resolveMappedWorkingDirectory(
+    partnersRoot,
+    '',
+    '~/Cowork/partners/Hunt and Gun',
+  )).toBe(fs.realpathSync(hunt))
+  expect(resolveMappedWorkingDirectory(
+    partnersRoot,
+    '',
+    '~/Cowork/partners/Hunt and Gun/projects/project-1',
+  )).toBe(fs.realpathSync(path.join(hunt,'projects','project-1')))
+})
 it('requires exact bearer and bound logical dispatch',()=>{const x={requestId:'r',runId:'run',deviceId:'d',targetId:'t',credentialVersion:1,mappingId:'m',orgId:'o',workspaceId:'w',projectId:'p',capability:'workspace.execute'};expect(authorizeRun(x,x,'Bearer token','token')).toEqual(x);expect(()=>authorizeRun(x,{...x,runId:'other'},'Bearer token','token')).toThrow();expect(()=>authorizeRun(x,x,'','token')).toThrow(/authentication/)})
 it('deeply redacts auth json pem and nested errors',()=>{expect(JSON.stringify(deepRedact({authorization:'Bearer abc',nested:{transportToken:'xyz',error:new Error('credential=q')},pem:'-----BEGIN PRIVATE KEY----- hi'}))).not.toMatch(/abc|xyz|PRIVATE KEY|credential=q/)})})

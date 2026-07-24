@@ -28,7 +28,7 @@ jest.mock('@/lib/activity/log', () => ({ logActivity: mockLogActivity }))
 const baseFolder = {
   orgId: 'org-1', name: 'Assets', deleted: false, sourceOfTruth: 'google_drive', syncMode: 'full',
   syncTargets: ['vps', 'local'], drive: { folderId: 'drive-1', folderUrl: null },
-  paths: { vpsPath: '/var/lib/hermes/Cowork/Acme/assets', localPathHint: '~/Cowork/Acme/assets' },
+  paths: { vpsPath: '/var/lib/hermes/Cowork/partners/Acme/assets', localPathHint: '~/Cowork/partners/Acme/assets' },
   syncState: { status: 'synced', lastSyncedAt: null, lastAttemptAt: null, error: null, conflictCount: 0 },
   audit: { conflictStatus: 'none', notes: null },
 }

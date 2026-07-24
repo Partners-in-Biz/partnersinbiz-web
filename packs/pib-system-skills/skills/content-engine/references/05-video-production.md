@@ -244,6 +244,6 @@ If a render is taking dramatically longer or producing tiny files, stop and re-c
 
 ## Reference examples
 
-- **Working canonical**: `/Users/peetstander/Cowork/AHS Law/marketing/videos/V1-landlord-cant-do/index.html` — the original working pattern this template was extracted from.
+- **Working canonical**: `/Users/peetstander/Cowork/partners/AHS Law/marketing/videos/V1-landlord-cant-do/index.html` — the original working pattern this template was extracted from.
 - **Template**: `assets/composition-template.html` (this skill) — brand-agnostic, parameterised version of the above.
 - **PiB worked example**: `/Users/peetstander/Cowork/Partners in Biz — Client Growth/marketing/videos/V1-website-vs-app/index.html` — same template, PiB content + brand. Confirms the template produces a working render for a different client.

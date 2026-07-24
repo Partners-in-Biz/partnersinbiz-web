@@ -32,8 +32,8 @@ function conversation(shareMode: 'private' | 'shared' | 'org'): Conversation {
       orgSlug: 'acme',
       orgName: 'Acme',
       agentDomain: 'acme',
-      vpsPath: '/var/lib/hermes/Cowork/Acme',
-      localPath: '/Users/test/Cowork/Acme',
+      vpsPath: '/var/lib/hermes/Cowork/partners/Acme',
+      localPath: '/Users/test/Cowork/partners/Acme',
       agentDomainPath: '/var/lib/hermes/cowork-wiki/agents/acme',
       localAgentDomainPath: '/Users/test/Cowork/Cowork/agents/acme',
       sourceOfTruth: 'vps',
@@ -93,8 +93,8 @@ describe('Workspace conversation access', () => {
   it('redacts server and local filesystem paths from public conversation views', () => {
     const privateConversation = conversation('private')
     if (privateConversation.workspaceContext) {
-      privateConversation.workspaceContext.vpsWorkingPath = '/var/lib/hermes/Cowork/Acme/projects/project-1'
-      privateConversation.workspaceContext.localWorkingPath = '~/Cowork/Acme/projects/project-1'
+      privateConversation.workspaceContext.vpsWorkingPath = '/var/lib/hermes/Cowork/partners/Acme/projects/project-1'
+      privateConversation.workspaceContext.localWorkingPath = '~/Cowork/partners/Acme/projects/project-1'
     }
     privateConversation.participants = [{ kind: 'user', uid: 'owner-1', role: 'client', email: 'owner@example.com' }]
     const publicView = publicConversationView(privateConversation)

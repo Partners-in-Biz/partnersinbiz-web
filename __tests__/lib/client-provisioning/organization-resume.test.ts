@@ -34,7 +34,7 @@ describe('resumeClientOrganizationWorkspace', () => {
       clientName: 'Acme', domain: 'acme', orgId: 'client-org', agentName: 'Pip',
     }))
     expect(deps.patchOrganization).toHaveBeenCalledWith('client-org', expect.objectContaining({
-      workspaceId: 'acme', provisioning: expect.objectContaining({ status: 'complete' }),
+      workspaceId: 'acme__acme', provisioning: expect.objectContaining({ status: 'complete' }),
     }))
   })
 

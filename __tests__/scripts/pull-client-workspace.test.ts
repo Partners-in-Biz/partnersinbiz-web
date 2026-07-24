@@ -6,7 +6,7 @@ import {
 } from '@/scripts/pull-client-workspace'
 
 describe('pull-client-workspace', () => {
-  it('builds a dry-run, pull-only plan for Workspace and agent-domain content', () => {
+  it('builds a dry-run, pull-only plan for nested Workspace and flat agent-domain content', () => {
     const options = parsePullWorkspaceArgs([
       '--workspace', 'Vikings Wrestling',
       '--host', 'vps.example.com',
@@ -14,6 +14,8 @@ describe('pull-client-workspace', () => {
     ])
     expect(options).toMatchObject({
       workspaceName: 'Vikings Wrestling',
+      workspaceRelativePath: 'partners/Vikings Wrestling',
+      orgSlug: 'partners',
       agentDomain: 'vikings-wrestling',
       host: 'vps.example.com',
       apply: false,
@@ -23,14 +25,47 @@ describe('pull-client-workspace', () => {
     expect(commands[0]).toEqual(expect.arrayContaining([
       'rsync',
       '--dry-run',
-      "root@vps.example.com:'/var/lib/hermes/Cowork/Vikings Wrestling/'",
-      '/tmp/Cowork/Vikings Wrestling/',
+      "root@vps.example.com:'/var/lib/hermes/Cowork/partners/Vikings Wrestling/'",
+      '/tmp/Cowork/partners/Vikings Wrestling/',
     ]))
     expect(commands[1]).toEqual(expect.arrayContaining([
       "root@vps.example.com:'/var/lib/hermes/cowork-wiki/agents/vikings-wrestling/'",
       '/tmp/Cowork/Cowork/agents/vikings-wrestling/',
     ]))
     expect(commands[0]).not.toContain('--delete')
+  })
+
+  it('does not double-nest when workspace already includes the org slug', () => {
+    const options = parsePullWorkspaceArgs([
+      '--workspace', 'partners/Hunt and Gun',
+      '--host', 'vps.example.com',
+      '--local-root', '/tmp/Cowork',
+      '--org-slug', 'partners',
+    ])
+    expect(options).toMatchObject({
+      workspaceName: 'Hunt and Gun',
+      workspaceRelativePath: 'partners/Hunt and Gun',
+      orgSlug: 'partners',
+      agentDomain: 'hunt-and-gun',
+    })
+    const [command] = buildPullCommands(options)
+    expect(command).toEqual(expect.arrayContaining([
+      "root@vps.example.com:'/var/lib/hermes/Cowork/partners/Hunt and Gun/'",
+      '/tmp/Cowork/partners/Hunt and Gun/',
+    ]))
+  })
+
+  it('honours --org-slug for tenant nests', () => {
+    const options = parsePullWorkspaceArgs([
+      '--workspace', 'Acme',
+      '--org-slug', 'acme',
+      '--local-root', '/tmp/Cowork',
+    ])
+    expect(options.workspaceRelativePath).toBe('acme/Acme')
+    expect(buildPullCommands(options)[0]).toEqual(expect.arrayContaining([
+      "root@hermes-api.partnersinbiz.online:'/var/lib/hermes/Cowork/acme/Acme/'",
+      '/tmp/Cowork/acme/Acme/',
+    ]))
   })
 
   it('adds backups instead of delete semantics in apply mode', () => {
@@ -54,6 +89,7 @@ describe('pull-client-workspace', () => {
       '--skip-agent-domain',
     ])
     expect(options.skipAgentDomain).toBe(true)
+    expect(options.workspaceRelativePath).toBe('partners/Partners in Biz')
     expect(buildPullCommands(options)).toHaveLength(1)
   })
 

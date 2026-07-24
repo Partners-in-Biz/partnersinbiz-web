@@ -15,7 +15,7 @@ the route handlers — do not skip steps "because it looks like the API allows i
 Run these once at the top — abort if any fail:
 
 ```bash
-WORKSPACE="/Users/peetstander/Cowork/<CLIENT>"
+WORKSPACE="/Users/peetstander/Cowork/partners/<CLIENT>"
 
 # 1. Marketing folder structure — at minimum need ONE of (blogs / videos / social)
 ls "$WORKSPACE/marketing/blog-posts/"   2>/dev/null | head -3

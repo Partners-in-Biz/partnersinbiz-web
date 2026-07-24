@@ -95,8 +95,8 @@ function dependencies(overrides: Partial<ProjectSetupExecutionDependencies> = {}
     getWorkspace: jest.fn().mockResolvedValue({
       workspaceId: 'partners',
       orgId: 'pib-org',
-      vpsPath: '/var/lib/hermes/Cowork/Partners in Biz',
-      localPath: '/Users/peetstander/Cowork/Partners in Biz',
+      vpsPath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
+      localPath: '/Users/peetstander/Cowork/partners/Partners in Biz',
     }),
     getWorkspaceFolder: jest.fn().mockResolvedValue(null),
     listExecutionLocations: jest.fn().mockResolvedValue([vps, mac]),
@@ -140,7 +140,7 @@ describe('executeProjectSetup', () => {
       projectId: 'project-1',
       orgId: 'pib-org',
       workspaceId: 'partners',
-      workspacePath: '/var/lib/hermes/Cowork/Partners in Biz',
+      workspacePath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
     })
     expect(deps.linkProjectLocation).toHaveBeenNthCalledWith(1, expect.objectContaining({
       projectId: 'project-1',
@@ -245,8 +245,8 @@ describe('executeProjectSetup', () => {
         resourceType: 'client_workspace',
         resourceId: 'partners:existing-campaign',
         paths: {
-          vpsPath: '/var/lib/hermes/Cowork/Partners in Biz/campaigns/existing',
-          localPathHint: '/Users/peetstander/Cowork/Partners in Biz/campaigns/existing',
+          vpsPath: '/var/lib/hermes/Cowork/partners/Partners in Biz/campaigns/existing',
+          localPathHint: '/Users/peetstander/Cowork/partners/Partners in Biz/campaigns/existing',
         },
       }),
     })
@@ -289,7 +289,7 @@ describe('executeProjectSetup', () => {
         id: 'folder-registered', orgId: 'pib-org', name: 'Existing campaign', deleted: false,
         projectId: null, resourceType: null, resourceId: null,
         paths: {
-          vpsPath: '/var/lib/hermes/Cowork/Partners in Biz/campaigns/existing',
+          vpsPath: '/var/lib/hermes/Cowork/partners/Partners in Biz/campaigns/existing',
           localPathHint: null,
         },
       }),
@@ -373,7 +373,7 @@ describe('executeProjectSetup', () => {
   it('reuses full-client organisation provisioning before creating the linked project', async () => {
     const deps = dependencies({
       getWorkspace: jest.fn().mockImplementation(async (orgId) => ({
-        workspaceId: 'acme', orgId, vpsPath: '/var/lib/hermes/Cowork/Acme', localPath: '~/Cowork/Acme',
+        workspaceId: 'acme', orgId, vpsPath: '/var/lib/hermes/Cowork/partners/Acme', localPath: '~/Cowork/partners/Acme',
       })),
       listExecutionLocations: jest.fn().mockResolvedValue([]),
     })
@@ -421,7 +421,7 @@ describe('executeProjectSetup', () => {
   it('reports the created client organisation when subsequent project creation fails', async () => {
     const deps = dependencies({
       getWorkspace: jest.fn().mockResolvedValue({
-        workspaceId: 'acme', orgId: 'client-org', vpsPath: '/var/lib/hermes/Cowork/Acme', localPath: '~/Cowork/Acme',
+        workspaceId: 'acme', orgId: 'client-org', vpsPath: '/var/lib/hermes/Cowork/partners/Acme', localPath: '~/Cowork/partners/Acme',
       }),
       createProject: jest.fn().mockResolvedValue({
         ok: false, status: 403, error: 'Project creation is disabled for your organisation role',
@@ -497,7 +497,7 @@ describe('executeProjectSetup', () => {
       createOrganization,
       resumeOrganization,
       getWorkspace: jest.fn().mockImplementation(async (orgId) => ({
-        workspaceId: 'acme', orgId, vpsPath: '/var/lib/hermes/Cowork/Acme', localPath: '~/Cowork/Acme',
+        workspaceId: 'acme', orgId, vpsPath: '/var/lib/hermes/Cowork/partners/Acme', localPath: '~/Cowork/partners/Acme',
       })),
       listExecutionLocations: jest.fn().mockResolvedValue([]),
     })

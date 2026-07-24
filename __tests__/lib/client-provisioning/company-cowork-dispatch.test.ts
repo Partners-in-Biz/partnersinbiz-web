@@ -12,8 +12,8 @@ function context(overrides: Partial<ConversationWorkspaceContext> = {}): Convers
     orgSlug: 'partners',
     orgName: 'Partners in Biz',
     agentDomain: 'partners',
-    vpsPath: '/var/lib/hermes/Cowork/Partners in Biz',
-    localPath: '/Users/peet/Cowork/Partners in Biz',
+    vpsPath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
+    localPath: '/Users/peet/Cowork/partners/Partners in Biz',
     agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/partners',
     localAgentDomainPath: '/Users/peet/Cowork/Cowork/agents/partners',
     sourceOfTruth: 'vps',
@@ -46,8 +46,8 @@ describe('company cowork dispatch helpers', () => {
     expect(linkedCoworkWorkingDirectory(context({
       folderScope: 'company',
       companyId: 'c1',
-      localWorkingPath: '/Users/peet/Cowork/Hunt and Gun',
-    }))).toBe('/Users/peet/Cowork/Hunt and Gun')
+      localWorkingPath: '/Users/peet/Cowork/partners/Hunt and Gun',
+    }))).toBe('/Users/peet/Cowork/partners/Hunt and Gun')
     expect(linkedCoworkWorkingDirectory(context({ folderScope: 'organisation' }))).toBeUndefined()
   })
 
@@ -56,9 +56,9 @@ describe('company cowork dispatch helpers', () => {
       folderScope: 'project',
       companyId: 'c1',
       projectId: 'p1',
-      localWorkingPath: '~/Cowork/AHS Law/projects/p1',
-      vpsWorkingPath: '/var/lib/hermes/Cowork/AHS Law/projects/p1',
-    }), { preferVps: true })).toBe('/var/lib/hermes/Cowork/AHS Law/projects/p1')
+      localWorkingPath: '~/Cowork/partners/AHS Law/projects/p1',
+      vpsWorkingPath: '/var/lib/hermes/Cowork/partners/AHS Law/projects/p1',
+    }), { preferVps: true })).toBe('/var/lib/hermes/Cowork/partners/AHS Law/projects/p1')
   })
 
   it('requires linked runtime 1.1.3+ for company workingDirectory', () => {

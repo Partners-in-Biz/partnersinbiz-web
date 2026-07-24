@@ -15,6 +15,7 @@ import {
   type ConversationWorkspaceContext,
   type OrgWorkspaceRecord,
 } from '@/lib/client-provisioning/workspace-context'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 export type EnsureCompanyCoworkFolderResult =
   | { ok: true; workspace: ConversationWorkspaceContext; createdOrVerified: true }
@@ -74,6 +75,7 @@ async function resolveOrBootstrapCompanyWorkspace(
     orgId,
     companyId,
     contactIds: workspace.contactIds,
+    platformOwned: workspace.orgId === PIB_PLATFORM_ORG_ID,
   })
   return {
     id: payload.manifest.workspaceId,
@@ -138,6 +140,9 @@ export async function ensureCompanyCoworkFolderOnVps(
       agentName: company.agentName || inferAgentName(clientName),
       companyId: workspace.companyId || company.companyId,
       contactIds: company.contactIds?.length ? company.contactIds : workspace.contactIds,
+      // Partners CRM company Cowork always nests under partners/, even when the
+      // workspace record is linked to a client organisation id.
+      platformOwned: workspace.orgId === PIB_PLATFORM_ORG_ID,
     }
     await provisionFullClientOnVps(input)
     const payload = buildClientProvisioningPayload(input)

@@ -17,7 +17,7 @@ const conversation = {
   archived: false,
   workspaceContext: {
     workspaceId: 'acme', orgId: 'org-1', orgName: 'Acme', orgSlug: 'acme', agentDomain: 'acme',
-    vpsPath: '/var/lib/hermes/Cowork/Acme', localPath: '~/Cowork/Acme', sourceOfTruth: 'vps' as const,
+    vpsPath: '/var/lib/hermes/Cowork/partners/Acme', localPath: '~/Cowork/partners/Acme', sourceOfTruth: 'vps' as const,
     syncMode: 'hybrid', defaultRuntimeTarget: 'vps', runtimeTarget: 'vps', ownerUserId: 'owner-1',
     shareMode: 'private' as const,
   },

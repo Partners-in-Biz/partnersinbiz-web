@@ -52,7 +52,7 @@ describe('OrgSettingsPage folder mappings', () => {
                 tags: ['drive', 'binary'],
                 sortOrder: 10,
                 drive: { folderId: 'drive_123', folderUrl: 'https://drive.google.com/drive/folders/drive_123' },
-                paths: { vpsPath: '/var/lib/hermes/Cowork/Acme/assets', localPathHint: '~/Cowork/Acme/assets' },
+                paths: { vpsPath: '/var/lib/hermes/Cowork/partners/Acme/assets', localPathHint: '~/Cowork/partners/Acme/assets' },
                 sourceOfTruth: 'google_drive',
                 syncMode: 'full',
                 syncTargets: ['vps', 'local'],

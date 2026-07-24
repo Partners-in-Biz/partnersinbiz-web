@@ -2,9 +2,14 @@
 
 import { createHash, randomUUID } from 'node:crypto'
 import { existsSync, realpathSync } from 'node:fs'
-import { copyFile, lstat, mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
+import { copyFile, lstat, mkdir, readFile, readdir, realpath, rename, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import { spawnSync } from 'node:child_process'
+import {
+  PIB_COWORK_NESTING_SLUG,
+  VPS_COWORK_ROOT,
+  resolveOperatorWorkspaceTarget,
+} from '@/lib/client-provisioning/cowork-paths'
 
 export type SyncDirection = 'pull' | 'push' | 'both'
 export type SyncClassification = 'unchanged' | 'pull' | 'push' | 'conflict' | 'local_deleted' | 'remote_deleted'
@@ -24,6 +29,9 @@ export interface SyncPlanEntry {
 
 export interface SyncOptions {
   workspaceName: string
+  /** Relative path from Cowork root, e.g. `partners/Hunt and Gun`. */
+  workspaceRelativePath: string
+  orgSlug: string
   agentDomain: string
   host: string
   user: string
@@ -60,6 +68,8 @@ interface RemoteSnapshot {
 
 interface SyncIdentity {
   workspaceName: string
+  workspaceRelativePath: string
+  orgSlug: string
   agentDomain: string
   host: string
   user: string
@@ -145,6 +155,24 @@ export function validateSafeName(value: string, label: string): string {
   return trimmed
 }
 
+/** Accept a folder name or already-nested `orgSlug/folderName` workspace arg. */
+export function validateWorkspaceArg(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.includes('\\') || trimmed.includes('\0') || trimmed.includes('\n') || trimmed.includes('\r')) {
+    throw new Error('Workspace must be a single safe folder name')
+  }
+  const segments = trimmed.split('/').map((segment) => segment.trim()).filter(Boolean)
+  if (segments.length === 0 || segments.length > 2) {
+    throw new Error('Workspace must be a single safe folder name')
+  }
+  for (const segment of segments) {
+    if (segment === '.' || segment === '..') {
+      throw new Error('Workspace must be a single safe folder name')
+    }
+  }
+  return segments.length === 2 ? `${segments[0]}/${segments[1]}` : segments[0]
+}
+
 export function validateHost(value: string): string {
   const trimmed = value.trim()
   if (!/^[a-zA-Z0-9.-]+$/.test(trimmed)) throw new Error('Host contains unsafe characters')
@@ -182,8 +210,10 @@ export function parseSyncArgs(argv: string[]): SyncOptions {
     const index = argv.indexOf(flag)
     return index >= 0 ? argv[index + 1] : undefined
   }
-  const workspaceName = validateSafeName(read('--workspace') ?? '', 'Workspace')
-  const agentDomain = validateSafeName(read('--agent-domain') ?? slugifyWorkspaceName(workspaceName), 'Agent domain')
+  const workspaceArg = validateWorkspaceArg(read('--workspace') ?? '')
+  const orgSlugArg = read('--org-slug')?.trim() || PIB_COWORK_NESTING_SLUG
+  const target = resolveOperatorWorkspaceTarget({ workspace: workspaceArg, orgSlug: orgSlugArg })
+  const agentDomain = validateSafeName(read('--agent-domain') ?? slugifyWorkspaceName(target.folderName), 'Agent domain')
   const direction = (read('--direction') ?? 'pull') as SyncDirection
   if (!['pull', 'push', 'both'].includes(direction)) throw new Error('direction must be pull, push, or both')
   const apply = argv.includes('--apply')
@@ -223,7 +253,9 @@ export function parseSyncArgs(argv: string[]): SyncOptions {
 
   const localRoot = resolve(read('--local-root') ?? join(process.env.HOME ?? '', 'Cowork'))
   return {
-    workspaceName,
+    workspaceName: target.folderName,
+    workspaceRelativePath: target.relativeFromCoworkRoot,
+    orgSlug: target.orgSlug,
     agentDomain,
     host: validateHost(read('--host') ?? process.env.PIB_VPS_HOST ?? '72.61.166.143'),
     user: validateUser(read('--user') ?? process.env.PIB_VPS_USER ?? 'root'),
@@ -380,7 +412,7 @@ async function inventoryTree(root: string, prefix: 'workspace' | 'agent'): Promi
 
 function localRoots(options: SyncOptions) {
   return {
-    workspace: join(options.localRoot, options.workspaceName),
+    workspace: join(options.localRoot, options.workspaceRelativePath),
     agent: join(options.localRoot, 'Cowork', 'agents', options.agentDomain),
   }
 }
@@ -390,17 +422,28 @@ export async function buildLocalInventory(options: SyncOptions): Promise<FileInv
   return { ...(await inventoryTree(roots.workspace, 'workspace')), ...(await inventoryTree(roots.agent, 'agent')) }
 }
 
+function resolveCommand(command: string): string {
+  const testBin = process.env.PIB_TEST_BIN_DIR?.trim()
+  if (testBin) {
+    const candidate = join(testBin, command)
+    if (existsSync(candidate)) return candidate
+  }
+  return command
+}
+
 function run(command: string, args: string[], capture = false, input?: string): string {
+  const resolved = resolveCommand(command)
+  const env = { ...process.env }
   const result = capture
-    ? spawnSync(command, args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], input })
-    : spawnSync(command, args, { encoding: 'utf8', stdio: input === undefined ? 'inherit' : ['pipe', 'inherit', 'inherit'], input })
+    ? spawnSync(resolved, args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], input, env })
+    : spawnSync(resolved, args, { encoding: 'utf8', stdio: input === undefined ? 'inherit' : ['pipe', 'inherit', 'inherit'], input, env })
   if (result.status !== 0) throw new Error(`${command} failed (${result.status}): ${String(result.stderr ?? '').trim()}`)
   return capture ? String(result.stdout) : ''
 }
 
 function remoteRoots(options: SyncOptions) {
   return {
-    workspace: `/var/lib/hermes/Cowork/${options.workspaceName}`,
+    workspace: `${VPS_COWORK_ROOT}/${options.workspaceRelativePath}`,
     agent: `/var/lib/hermes/cowork-wiki/agents/${options.agentDomain}`,
   }
 }
@@ -546,6 +589,8 @@ async function atomicWrite(path: string, value: unknown): Promise<void> {
 function identityFor(options: SyncOptions, remote: RemoteWorkspaceIdentity): SyncIdentity {
   return {
     workspaceName: options.workspaceName,
+    workspaceRelativePath: options.workspaceRelativePath,
+    orgSlug: options.orgSlug,
     agentDomain: options.agentDomain,
     host: options.host,
     user: options.user,
@@ -556,6 +601,8 @@ function identityFor(options: SyncOptions, remote: RemoteWorkspaceIdentity): Syn
 
 function requestedIdentityMatches(options: SyncOptions, identity: SyncIdentity): boolean {
   return identity.workspaceName === options.workspaceName
+    && identity.workspaceRelativePath === options.workspaceRelativePath
+    && identity.orgSlug === options.orgSlug
     && identity.agentDomain === options.agentDomain
     && identity.host === options.host
     && identity.user === options.user
@@ -847,7 +894,8 @@ export async function runWorkspaceSync(options: SyncOptions) {
   return {
     ...result,
     direction: options.apply ? undefined : options.direction,
-    workspace: options.workspaceName,
+    workspace: options.workspaceRelativePath,
+    orgSlug: options.orgSlug,
     agentDomain: options.agentDomain,
   }
 }

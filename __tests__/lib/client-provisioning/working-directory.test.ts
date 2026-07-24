@@ -55,7 +55,7 @@ it('authorizes a canonical organisation root', async () => {
 })
 
 it('defers VPS filesystem existence checks to the authenticated remote runtime', async () => {
-  const remoteRoot = '/var/lib/hermes/Cowork/Partners in Biz'
+  const remoteRoot = '/var/lib/hermes/Cowork/partners/Partners in Biz'
 
   await expect(resolveAuthorizedWorkingDirectory({
     workspaceContext: context({
@@ -71,7 +71,7 @@ it('defers VPS filesystem existence checks to the authenticated remote runtime',
 })
 
 it('defers a portable Mac home path to the authenticated owning runtime', async () => {
-  const portableRoot = '~/Cowork/AHS Law'
+  const portableRoot = '~/Cowork/partners/AHS Law'
 
   await expect(resolveAuthorizedWorkingDirectory({
     workspaceContext: context({
@@ -88,7 +88,7 @@ it('defers a portable Mac home path to the authenticated owning runtime', async 
 })
 
 it('builds a portable Mac project path for the authenticated owning runtime', async () => {
-  const portableRoot = '~/Cowork/AHS Law'
+  const portableRoot = '~/Cowork/partners/AHS Law'
   mockProjectGet.mockResolvedValue({
     exists: true,
     data: () => ({ orgId: 'org-1', archived: false, status: 'active' }),
@@ -104,7 +104,7 @@ it('builds a portable Mac project path for the authenticated owning runtime', as
     }),
   })).resolves.toEqual({
     ok: true,
-    directory: '~/Cowork/AHS Law/projects/project-1',
+    directory: '~/Cowork/partners/AHS Law/projects/project-1',
     pathClass: 'project',
   })
 })

@@ -85,7 +85,32 @@ describe('conflict-aware Workspace sync', () => {
       approvedPaths: ['workspace/readme.md'],
       allowPush: true,
       pushWorkspaceId: 'workspace-123',
+      workspaceRelativePath: 'partners/Acme',
+      orgSlug: 'partners',
     })
+  })
+
+  it('nests workspace roots under --org-slug and keeps agent domains flat', () => {
+    const nested = parseSyncArgs(['--workspace', 'Hunt and Gun', '--org-slug', 'partners'])
+    expect(nested).toMatchObject({
+      workspaceName: 'Hunt and Gun',
+      workspaceRelativePath: 'partners/Hunt and Gun',
+      orgSlug: 'partners',
+      agentDomain: 'hunt-and-gun',
+    })
+    const alreadyNested = parseSyncArgs(['--workspace', 'partners/Hunt and Gun'])
+    expect(alreadyNested.workspaceRelativePath).toBe('partners/Hunt and Gun')
+    expect(alreadyNested.workspaceName).toBe('Hunt and Gun')
+
+    const script = remoteInventoryScript(nested)
+    const encoded = script.match(/b64decode\("([A-Za-z0-9+/=]+)"\)/)?.[1]
+    expect(encoded).toBeTruthy()
+    const config = JSON.parse(Buffer.from(encoded!, 'base64').toString('utf8')) as {
+      expected: { workspace: string; agent: string }
+    }
+    expect(config.expected.workspace).toBe('/var/lib/hermes/Cowork/partners/Hunt and Gun')
+    expect(config.expected.agent).toBe('/var/lib/hermes/cowork-wiki/agents/hunt-and-gun')
+    expect(config.expected.workspace).not.toContain('/partners/partners/')
   })
 
   it('validates target and resolution input', () => {
@@ -106,6 +131,7 @@ describe('conflict-aware Workspace sync', () => {
 
   it('builds remote inventory through verified SSH stdin and limits inventory to Markdown', () => {
     const options = parseSyncArgs(['--workspace', 'Acme Client', '--host', 'vps.example.com'])
+    expect(options.workspaceRelativePath).toBe('partners/Acme Client')
     expect(remoteInventoryCommand(options)).toEqual([
       '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', '-o', 'StrictHostKeyChecking=yes',
       'root@vps.example.com', 'python3', '-',
@@ -115,6 +141,12 @@ describe('conflict-aware Workspace sync', () => {
     expect(script).toContain('base64.b64decode')
     expect(script).toContain('endswith(".md")')
     expect(script).toContain('symlink in sync tree')
+    const encoded = script.match(/b64decode\("([A-Za-z0-9+/=]+)"\)/)?.[1]
+    expect(encoded).toBeTruthy()
+    const config = JSON.parse(Buffer.from(encoded!, 'base64').toString('utf8')) as {
+      expected: { workspace: string }
+    }
+    expect(config.expected.workspace).toBe('/var/lib/hermes/Cowork/partners/Acme Client')
     expect(script).not.toContain('apiKey')
   })
 })

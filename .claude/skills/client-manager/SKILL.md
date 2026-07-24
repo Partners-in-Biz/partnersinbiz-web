@@ -439,13 +439,16 @@ When the user says "create a new Cowork space" or "add a new client", do ALL of 
 
 **Current agent topology:** do **not** create a Hermes profile per client. PiB uses fixed named agent profiles (`pip`, `theo`, `maya`, `sage`, `nora`) and passes client context by `orgId` per conversation/task. Client setup creates the app org, Cowork workspace, Obsidian domain, instructions, and mappings — not a dedicated Hermes runtime profile.
 
-**Path convention:** local Mac paths use `/Users/peetstander/Cowork/...`; VPS paths mirror the same structure under `/var/lib/hermes/Cowork/...`. For example:
+**Path convention:** client workspaces nest under an org slug — Partners uses `partners/`; other organisations use their own org slug. Prefer portable `~/Cowork/...` (cwd / Mac) and `/var/lib/hermes/Cowork/...` (VPS). Agent wiki domains stay flat under `Cowork/agents/`. For example:
 
 ```text
-Mac: /Users/peetstander/Cowork/<CLIENT_NAME>
-VPS: /var/lib/hermes/Cowork/<CLIENT_NAME>
+Portable / cwd: ~/Cowork/partners/<CLIENT_NAME>
+Mac absolute:   /Users/peetstander/Cowork/partners/<CLIENT_NAME>
+VPS:            /var/lib/hermes/Cowork/partners/<CLIENT_NAME>
 
-Mac wiki: /Users/peetstander/Cowork/Cowork/agents/<DOMAIN>
+Other org:      ~/Cowork/<ORG_SLUG>/<CLIENT_NAME>
+
+Mac wiki: ~/Cowork/Cowork/agents/<DOMAIN>
 VPS wiki: /var/lib/hermes/Cowork/Cowork/agents/<DOMAIN>
 ```
 
@@ -453,7 +456,8 @@ The VPS path `/var/lib/hermes/Cowork/Cowork` is a symlink to `/var/lib/hermes/co
 
 **Variables used below:**
 - `CLIENT_NAME` — display name, e.g. `Deidre Ras Biokinetics`
-- `DOMAIN` — kebab-case slug, e.g. `deidre-ras-biokinetics`
+- `ORG_SLUG` — nesting folder under Cowork (`partners` for Partners-owned clients; otherwise the tenant org slug)
+- `DOMAIN` — kebab-case agent/wiki slug, e.g. `deidre-ras-biokinetics` (always flat: `agents/<DOMAIN>/`)
 - `AGENT_NAME` — short first-name or brand name used as agent identity, e.g. `Deidre`
 - `ORG_ID` — returned by step 1 or looked up if org already exists
 
@@ -493,13 +497,15 @@ platform: https://partnersinbiz.online
 
 #### Step 3 — Workspace folder + subfolders
 
+Partners-owned clients nest under `partners/`. Other orgs use `~/Cowork/<ORG_SLUG>/<CLIENT_NAME>/...`.
+
 ```bash
-mkdir -p ~/Cowork/<CLIENT_NAME>/{docs,briefs,assets,marketing,research,operations,deliverables,inbox,archive}
+mkdir -p ~/Cowork/partners/<CLIENT_NAME>/{docs,briefs,assets,marketing,research,operations,deliverables,inbox,archive}
 ```
 
 #### Step 4 — Workspace AGENTS.md plus legacy CLAUDE.md mirror
 
-Write `~/Cowork/<CLIENT_NAME>/AGENTS.md` using this template (substitute all placeholders), then write the same content to `~/Cowork/<CLIENT_NAME>/CLAUDE.md` as a legacy mirror for older tooling:
+Write `~/Cowork/partners/<CLIENT_NAME>/AGENTS.md` using this template (substitute all placeholders; swap `partners` for `<ORG_SLUG>` when the client belongs to another org), then write the same content to `~/Cowork/partners/<CLIENT_NAME>/CLAUDE.md` as a legacy mirror for older tooling:
 
 ```markdown
 # <CLIENT_NAME> — Project Instructions
@@ -508,20 +514,20 @@ You are **<AGENT_NAME>**, the dedicated AI agent for **<CLIENT_NAME>** inside Pe
 
 You assist with strategy, research, planning, writing, content, operations, documentation, execution support, and structured follow-through for the <CLIENT_NAME> project.
 
-Your working directory is `/Users/peetstander/Cowork/<CLIENT_NAME>`.
+Your working directory is the process cwd / portable root `~/Cowork/partners/<CLIENT_NAME>` (Mac absolute: `/Users/peetstander/Cowork/partners/<CLIENT_NAME>`; VPS: `/var/lib/hermes/Cowork/partners/<CLIENT_NAME>`). Prefer cwd-relative paths.
 
 ## Knowledge Base Domain
 
-Your knowledge base lives at: `/Users/peetstander/Cowork/Cowork/agents/<DOMAIN>/`
+Your knowledge base lives at: `~/Cowork/Cowork/agents/<DOMAIN>/` (flat agent domain — not nested under `partners/` or `<ORG_SLUG>/`).
 
 - On session start, read the hot cache from `~/Cowork/Cowork/agents/<DOMAIN>/wiki/hot.md`
 - When you need deeper context: read hot.md first, then index.md, then individual wiki pages
 - At session end, update hot.md with a summary of what changed
-- Start each session by reading `/Users/peetstander/Cowork/Cowork/agents/<DOMAIN>/index.md`
-- When you learn something worth keeping, write to `/Users/peetstander/Cowork/Cowork/agents/<DOMAIN>/wiki/<topic>.md`
-- At the end of sessions, write summaries to `/Users/peetstander/Cowork/Cowork/agents/<DOMAIN>/logs/YYYY-MM-DD.md`
-- Update `/Users/peetstander/Cowork/Cowork/agents/<DOMAIN>/index.md` when you add new content
-- For cross-domain knowledge, write to `/Users/peetstander/Cowork/Cowork/shared/wiki/`
+- Start each session by reading `~/Cowork/Cowork/agents/<DOMAIN>/index.md`
+- When you learn something worth keeping, write to `~/Cowork/Cowork/agents/<DOMAIN>/wiki/<topic>.md`
+- At the end of sessions, write summaries to `~/Cowork/Cowork/agents/<DOMAIN>/logs/YYYY-MM-DD.md`
+- Update `~/Cowork/Cowork/agents/<DOMAIN>/index.md` when you add new content
+- For cross-domain knowledge, write to `~/Cowork/Cowork/shared/wiki/`
 - This is the SAME knowledge base that PiB named agents read and write when handling this client. Keep it current.
 
 ## Self-Evolution Rules
@@ -543,7 +549,7 @@ Do this proactively. Do not wait to be asked.
 
 ## Workspace Organisation
 
-Everything you create goes inside `/Users/peetstander/Cowork/<CLIENT_NAME>`. Never save files to the Desktop, home folder, or anywhere outside your workspace.
+Everything you create goes inside the cwd / portable root `~/Cowork/partners/<CLIENT_NAME>`. Never save files to the Desktop, home folder, or anywhere outside your workspace.
 
 - `docs/` — documentation, strategy notes, specs, and durable references
 - `briefs/` — task briefs, campaign briefs, requirements, stakeholder instructions
@@ -580,7 +586,7 @@ Add the new client to the completed items in `~/Cowork/Cowork/agents/cowork/wiki
 
 - [ ] PiB org created (or confirmed) — org_id recorded
 - [ ] Obsidian domain created: `agents/<DOMAIN>/` with wiki/, logs/, raw/, index.md
-- [ ] Workspace folder created: `~/Cowork/<CLIENT_NAME>/`
+- [ ] Workspace folder created: `~/Cowork/partners/<CLIENT_NAME>/` (or `~/Cowork/<ORG_SLUG>/<CLIENT_NAME>/` for other orgs)
 - [ ] Workspace subfolders created (docs, briefs, assets, marketing, research, operations, deliverables, inbox, archive)
 - [ ] `AGENTS.md` written to workspace root
 - [ ] `CLAUDE.md` written to workspace root as a legacy mirror
