@@ -75,7 +75,9 @@ import {
   buildWorkbenchFileTree,
   buildWorkbenchTerminalEntries,
 } from '@/lib/messages/workbench/from-events'
-import type { WorkbenchFileNode, WorkbenchFilePreview, WorkbenchFilesSource, WorkbenchRuntimeSummary, WorkbenchTab } from '@/lib/messages/workbench/types'
+import { attachWorkbenchDiffs, mergeWorkbenchDirectory, runConversationWorkbenchJob, workbenchEntriesToTree, workbenchJobResult, workbenchStatusToChanges } from '@/lib/messages/workbench/client'
+import { formatWorkbenchOperationResult, pollWorkbenchJob } from '@/lib/messages/workbench/browser-client'
+import type { WorkbenchChangeFile, WorkbenchFileNode, WorkbenchFilePreview, WorkbenchFilesSource, WorkbenchRuntimeSummary, WorkbenchTab, WorkbenchTerminalEntry } from '@/lib/messages/workbench/types'
 
 type AgentId = string
 
@@ -955,8 +957,11 @@ export default function UnifiedChat({
   const [workbenchFilesLoading, setWorkbenchFilesLoading] = useState(false)
   const [workbenchSelectedFilePath, setWorkbenchSelectedFilePath] = useState<string | null>(null)
   const [workbenchFilePreview, setWorkbenchFilePreview] = useState<WorkbenchFilePreview | null>(null)
+  const [workbenchLiveChanges, setWorkbenchLiveChanges] = useState<WorkbenchChangeFile[] | null>(null)
   const [workbenchChangesMessage, setWorkbenchChangesMessage] = useState<string | null>(null)
   const [workbenchChangesLoading, setWorkbenchChangesLoading] = useState(false)
+  const [workbenchLocalTerminalEntries, setWorkbenchLocalTerminalEntries] = useState<WorkbenchTerminalEntry[]>([])
+  const [workbenchTerminalRunning, setWorkbenchTerminalRunning] = useState(false)
   const [contextCanvasCloseRequest, setContextCanvasCloseRequest] = useState(0)
   // Icon strip stays visible whenever the workbench is enabled; expand margin when a dock opens.
   const rightDockOpen = contextCanvasOpen || workbenchOpen || showAgentWorkbench
@@ -1037,7 +1042,10 @@ export default function UnifiedChat({
     setWorkbenchLiveFiles({ source: 'none', tree: [] })
     setWorkbenchSelectedFilePath(null)
     setWorkbenchFilePreview(null)
+    setWorkbenchLiveChanges(null)
     setWorkbenchChangesMessage(null)
+    setWorkbenchLocalTerminalEntries([])
+    setWorkbenchTerminalRunning(false)
     if (!activeId) {
       setWorkbenchStateConversationId(null)
       return
@@ -1324,7 +1332,8 @@ export default function UnifiedChat({
   const workbenchRichParts = useMemo(() => messages.flatMap((message) => message.richParts ?? []), [messages])
   const workbenchTerminalEntries = useMemo(() => buildWorkbenchTerminalEntries(workbenchEvents), [workbenchEvents])
   const workbenchFileTree = useMemo(() => buildWorkbenchFileTree(workbenchEvents), [workbenchEvents])
-  const workbenchChanges = useMemo(() => buildWorkbenchChanges(workbenchEvents), [workbenchEvents])
+  const workbenchEventChanges = useMemo(() => buildWorkbenchChanges(workbenchEvents), [workbenchEvents])
+  const workbenchChanges = workbenchLiveChanges ?? workbenchEventChanges
   const workbenchBrowserTargets = useMemo(() => buildWorkbenchBrowserTargets(workbenchEvents, workbenchRichParts), [workbenchEvents, workbenchRichParts])
   const hasInFlightAgentRun = useMemo(
     () => messages.some((message) =>
@@ -2304,13 +2313,11 @@ export default function UnifiedChat({
     if (!activeId) return
     setWorkbenchFilesLoading(true)
     try {
-      const res = await fetch(`/api/v1/conversations/${activeId}/workbench/files`)
-      const body = await res.json().catch(() => null)
-      if (!res.ok) throw new Error(body?.error ?? `workbench files: ${res.status}`)
-      const data = body?.data ?? {}
+      const job = await runConversationWorkbenchJob(activeId, { kind: 'fs.list', path: '' })
+      const result = workbenchJobResult<{ entries: Array<{ path: string; type: 'file' | 'directory'; size?: number }> }>(job)
       setWorkbenchLiveFiles({
-        source: data.source === 'sync' ? 'sync' : 'none',
-        tree: Array.isArray(data.tree) ? data.tree : [],
+        source: 'sync',
+        tree: workbenchEntriesToTree(result.entries),
       })
     } catch {
       setWorkbenchLiveFiles({ source: 'none', tree: [] })
@@ -2323,14 +2330,35 @@ export default function UnifiedChat({
     if (!activeId) return
     setWorkbenchChangesLoading(true)
     try {
-      const res = await fetch(`/api/v1/conversations/${activeId}/workbench/changes`)
-      const body = await res.json().catch(() => null)
-      if (!res.ok) throw new Error(body?.error ?? `workbench changes: ${res.status}`)
-      setWorkbenchChangesMessage(typeof body?.data?.message === 'string' ? body.data.message : null)
-    } catch {
-      setWorkbenchChangesMessage(null)
+      const statusJob = await runConversationWorkbenchJob(activeId, { kind: 'git.status' })
+      const status = workbenchJobResult<{ changes: Array<{ path: string; status: string }> }>(statusJob)
+      const [unstagedJob, stagedJob] = await Promise.all([
+        runConversationWorkbenchJob(activeId, { kind: 'git.diff', staged: false }),
+        runConversationWorkbenchJob(activeId, { kind: 'git.diff', staged: true }),
+      ])
+      const unstaged = workbenchJobResult<{ diff: string }>(unstagedJob)
+      const staged = workbenchJobResult<{ diff: string }>(stagedJob)
+      setWorkbenchLiveChanges(attachWorkbenchDiffs(workbenchStatusToChanges(status.changes), [unstaged.diff, staged.diff].filter(Boolean).join('\n')))
+      setWorkbenchChangesMessage('Live git status and diff from the linked computer.')
+    } catch (changesError) {
+      setWorkbenchLiveChanges(null)
+      setWorkbenchChangesMessage(changesError instanceof Error ? changesError.message : null)
     } finally {
       setWorkbenchChangesLoading(false)
+    }
+  }, [activeId])
+
+  const loadWorkbenchDirectory = useCallback(async (path: string) => {
+    if (!activeId) return
+    try {
+      const job = await runConversationWorkbenchJob(activeId, { kind: 'fs.list', path })
+      const result = workbenchJobResult<{ entries: Array<{ path: string; type: 'file' | 'directory'; size?: number }> }>(job)
+      setWorkbenchLiveFiles((current) => ({
+        source: 'sync',
+        tree: mergeWorkbenchDirectory(current.tree, path, result.entries),
+      }))
+    } catch {
+      // Keep the current tree visible; expanding again or refreshing can retry.
     }
   }, [activeId])
 
@@ -2338,13 +2366,9 @@ export default function UnifiedChat({
     if (!activeId) return
     setWorkbenchFilePreview({ path, content: null, loading: true, error: null })
     try {
-      const res = await fetch(`/api/v1/conversations/${activeId}/workbench/files/content?path=${encodeURIComponent(path)}`)
-      if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        throw new Error(typeof body?.error === 'string' ? body.error : `file content: ${res.status}`)
-      }
-      const content = await res.text()
-      setWorkbenchFilePreview({ path, content, loading: false, error: null })
+      const job = await runConversationWorkbenchJob(activeId, { kind: 'fs.read', path })
+      const result = workbenchJobResult<{ content: string; sha256: string }>(job)
+      setWorkbenchFilePreview({ path, content: result.content, sha256: result.sha256, loading: false, error: null })
     } catch (contentError) {
       setWorkbenchFilePreview({
         path,
@@ -2359,6 +2383,67 @@ export default function UnifiedChat({
     setWorkbenchSelectedFilePath(path)
     void loadWorkbenchFileContent(path)
   }, [loadWorkbenchFileContent])
+
+  const saveWorkbenchFile = useCallback(async (path: string, content: string, expectedSha256?: string) => {
+    if (!activeId) throw new Error('No active conversation')
+    const job = await runConversationWorkbenchJob(activeId, {
+      kind: 'fs.write',
+      path,
+      content,
+      ...(expectedSha256 ? { expectedSha256 } : {}),
+    }, { approveWrite: true })
+    const result = workbenchJobResult<{ bytesWritten: number; sha256: string }>(job)
+    setWorkbenchFilePreview({ path, content, sha256: result.sha256, loading: false, error: null })
+    void loadWorkbenchChanges()
+    return { sha256: result.sha256 }
+  }, [activeId, loadWorkbenchChanges])
+
+  const runWorkbenchTerminalCommand = useCallback(async (command: string) => {
+    if (!activeId || workbenchTerminalRunning) return
+    const entryId = `local-terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const startedAt = Date.now()
+    setWorkbenchTerminalRunning(true)
+    setWorkbenchLocalTerminalEntries((entries) => [
+      ...entries,
+      { id: entryId, status: 'running' as const, label: command, meta: 'running…', body: `$ ${command}`, timestamp: startedAt },
+    ].slice(-24))
+
+    const finish = (status: 'done' | 'failed', outputBody: string) => {
+      setWorkbenchLocalTerminalEntries((entries) => entries.map((entry) => (
+        entry.id === entryId
+          ? { ...entry, status, meta: `${Date.now() - startedAt}ms`, body: `$ ${command}\n${outputBody}` }
+          : entry
+      )))
+    }
+
+    try {
+      const res = await fetch(`/api/v1/conversations/${activeId}/workbench/terminal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error ?? `workbench terminal: ${res.status}`)
+
+      if (typeof body?.data?.cwd === 'string') {
+        finish('done', body.data.cwd)
+        return
+      }
+
+      const jobId = body?.data?.jobId
+      let job = body?.data
+      const terminalStatuses = new Set(['completed', 'failed', 'cancelled', 'expired', 'awaiting_approval'])
+      if (jobId && !terminalStatuses.has(job?.status)) {
+        job = await pollWorkbenchJob(activeId, jobId)
+      }
+      finish(job?.status === 'failed' || job?.status === 'cancelled' || job?.status === 'expired' ? 'failed' : 'done', formatWorkbenchOperationResult(job))
+      if (job?.status === 'completed' && (command === 'git status' || command.startsWith('git diff'))) void loadWorkbenchChanges()
+    } catch (error) {
+      finish('failed', error instanceof Error ? error.message : 'Command failed.')
+    } finally {
+      setWorkbenchTerminalRunning(false)
+    }
+  }, [activeId, workbenchTerminalRunning, loadWorkbenchChanges])
 
   useEffect(() => {
     if (showAgentWorkbench && workbenchOpen && workbenchTab === 'files' && activeId) void loadWorkbenchFiles()
@@ -5513,13 +5598,19 @@ export default function UnifiedChat({
           onRefreshFiles={loadWorkbenchFiles}
           selectedFilePath={workbenchSelectedFilePath}
           onSelectFilePath={handleSelectWorkbenchFilePath}
+          onExpandDirectory={(path) => { void loadWorkbenchDirectory(path) }}
           filePreview={workbenchFilePreview}
+          onSaveFile={saveWorkbenchFile}
           changes={workbenchChanges}
           changesMessage={workbenchChangesMessage}
           changesLoading={workbenchChangesLoading}
+          changesSource={workbenchLiveChanges !== null ? 'live' : workbenchEventChanges.length > 0 ? 'events' : 'none'}
           onRefreshChanges={loadWorkbenchChanges}
           browserTargets={workbenchBrowserTargets}
           compact={compact}
+          onRunTerminalCommand={runWorkbenchTerminalCommand}
+          terminalRunning={workbenchTerminalRunning}
+          localTerminalEntries={workbenchLocalTerminalEntries}
         />}
 
         {/* Messages */}

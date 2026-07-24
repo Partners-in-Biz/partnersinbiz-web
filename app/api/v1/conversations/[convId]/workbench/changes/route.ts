@@ -10,12 +10,12 @@ export const dynamic = 'force-dynamic'
 type Params = { params: Promise<{ convId: string }> }
 
 /**
- * Phase 2a has no `git status` / `git diff` runtime job yet (that lands in
- * Phase 2b, once workbench jobs can be dispatched to a linked-runtime like
- * project-sync inventory jobs are today). This endpoint exists so the client
- * has a stable contract to call and a clear reason to keep showing the
- * event-derived Changes list (`buildWorkbenchChanges`) in the meantime,
- * instead of a client-side guess about why live changes aren't available.
+ * Phase 2b moved live `git status` onto the workbench jobs queue
+ * (`POST .../workbench/jobs` with `{ kind: 'git.status' }`, dispatched to the
+ * linked computer) so the client can show progress and surface
+ * approval/failure states instead of blocking on a device round trip here.
+ * This GET stays fast and job-free — it just tells the client where to find
+ * live data and keeps the event-derived Changes list as an instant fallback.
  */
 export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, ctx?: unknown) => {
   const { convId } = await (ctx as Params).params
@@ -26,8 +26,8 @@ export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, c
   if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
   return apiSuccess({
-    source: 'pending_runtime',
+    source: 'jobs',
     changes: [],
-    message: 'Live git status requires linked-runtime workbench jobs (Phase 2b). Showing activity derived from this session for now.',
+    message: 'Use Refresh to run git status on the linked computer.',
   })
 })

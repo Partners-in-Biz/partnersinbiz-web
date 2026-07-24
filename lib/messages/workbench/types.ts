@@ -52,6 +52,7 @@ export type WorkbenchFilesSource = 'sync' | 'events' | 'none'
 export interface WorkbenchFilePreview {
   path: string
   content: string | null
+  sha256?: string
   loading: boolean
   error: string | null
 }

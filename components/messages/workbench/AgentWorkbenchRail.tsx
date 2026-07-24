@@ -76,17 +76,33 @@ export interface AgentWorkbenchRailProps {
   onRefreshFiles?: () => void
   selectedFilePath?: string | null
   onSelectFilePath?: (path: string) => void
+  onExpandDirectory?: (path: string) => void
   filePreview?: WorkbenchFilePreview | null
+  onSaveFile?: (path: string, content: string, expectedSha256?: string) => Promise<{ sha256?: string } | void>
   changes: WorkbenchChangeFile[]
   changesMessage?: string | null
   changesLoading?: boolean
+  /** Where `changes` came from — drives the Changes tab's source badge/banner. */
+  changesSource?: 'live' | 'events' | 'none'
   onRefreshChanges?: () => void
   browserTargets: WorkbenchBrowserTarget[]
   compact?: boolean
+  /** Runs an allowlisted terminal command (git status/diff, ls, pwd) against the linked computer. */
+  onRunTerminalCommand?: (command: string) => void
+  /** True while a terminal command is in flight — disables the command bar. */
+  terminalRunning?: boolean
+  /** Locally-tracked terminal entries for commands run from this panel, merged after `terminalEntries`. */
+  localTerminalEntries?: WorkbenchTerminalEntry[]
 }
 
 const FILES_SOURCE_LABEL: Record<WorkbenchFilesSource, string> = {
   sync: 'Synced',
+  events: 'From activity',
+  none: '',
+}
+
+const CHANGES_SOURCE_LABEL: Record<'live' | 'events' | 'none', string> = {
+  live: 'Live',
   events: 'From activity',
   none: '',
 }
@@ -115,13 +131,19 @@ export function AgentWorkbenchRail({
   onRefreshFiles,
   selectedFilePath,
   onSelectFilePath,
+  onExpandDirectory,
   filePreview,
+  onSaveFile,
   changes,
   changesMessage,
   changesLoading = false,
+  changesSource = 'none',
   onRefreshChanges,
   browserTargets,
   compact = false,
+  onRunTerminalCommand,
+  terminalRunning = false,
+  localTerminalEntries,
 }: AgentWorkbenchRailProps) {
   const mobileViewport = useIsMobileViewport()
   const sheet = compact || mobileViewport
@@ -133,9 +155,14 @@ export function AgentWorkbenchRail({
     [liveFileTree, fileTree],
   )
 
+  const mergedTerminalEntries = useMemo(
+    () => (localTerminalEntries && localTerminalEntries.length > 0 ? [...terminalEntries, ...localTerminalEntries] : terminalEntries),
+    [terminalEntries, localTerminalEntries],
+  )
+
   const counts: Record<WorkbenchTab, number> = {
     files: effectiveFileTree.length,
-    terminal: terminalEntries.length,
+    terminal: mergedTerminalEntries.length,
     browser: browserTargets.length,
     changes: changes.length,
   }
@@ -241,6 +268,18 @@ export function AgentWorkbenchRail({
                 {FILES_SOURCE_LABEL[filesSource]}
               </span>
             )}
+            {activeTabMeta.id === 'changes' && changesSource !== 'none' && (
+              <span
+                className={[
+                  'shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] uppercase tracking-wide',
+                  changesSource === 'live'
+                    ? 'border-emerald-400/30 text-emerald-300'
+                    : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)]',
+                ].join(' ')}
+              >
+                {CHANGES_SOURCE_LABEL[changesSource]}
+              </span>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {activeTabMeta.id === 'files' && onRefreshFiles && (
@@ -283,13 +322,23 @@ export function AgentWorkbenchRail({
             tree={effectiveFileTree}
             selectedPath={selectedFilePath}
             onSelectPath={onSelectFilePath}
+            onExpandDirectory={onExpandDirectory}
             preview={filePreview}
+            onSave={onSaveFile}
           />
         )}
-        {activeTabMeta.id === 'terminal' && <WorkbenchTerminalPanel entries={terminalEntries} />}
+        {activeTabMeta.id === 'terminal' && (
+          <WorkbenchTerminalPanel entries={mergedTerminalEntries} onRunCommand={onRunTerminalCommand} running={terminalRunning} />
+        )}
         {activeTabMeta.id === 'browser' && <WorkbenchBrowserPanel targets={browserTargets} />}
         {activeTabMeta.id === 'changes' && (
-          <WorkbenchChangesPanel changes={changes} message={changesMessage} onOpenInFiles={openPathInFiles} />
+          <WorkbenchChangesPanel
+            changes={changes}
+            message={changesMessage}
+            onOpenInFiles={openPathInFiles}
+            source={changesSource}
+            loading={changesLoading}
+          />
         )}
       </div>
     </>

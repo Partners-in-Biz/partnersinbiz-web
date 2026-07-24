@@ -108,6 +108,7 @@ describe('WorkbenchBrowserPanel security boundary', () => {
   it.each([
     'http://[::ffff:127.0.0.1]:3000',
     'http://[fec0::1]:3000',
+    'http://[2001:10::1]',
     'http://198.51.100.10',
   ])('blocks non-public and reserved target %s', (url) => {
     render(<WorkbenchBrowserPanel targets={[]} />)

@@ -14,11 +14,14 @@ const STATUS_META: Record<WorkbenchChangeStatus, { label: string; className: str
 export interface WorkbenchChangesPanelProps {
   changes: WorkbenchChangeFile[]
   onOpenInFiles?: (path: string) => void
-  /** Phase 2b status note (e.g. "live git status requires linked-runtime jobs"). */
+  /** Phase 2b status note (e.g. approval/failure feedback from the last `git.status` run). */
   message?: string | null
+  /** Where `changes` came from — shows a small "Live" banner when a `git.status` job has completed. */
+  source?: 'live' | 'events' | 'none'
+  loading?: boolean
 }
 
-export function WorkbenchChangesPanel({ changes, onOpenInFiles, message }: WorkbenchChangesPanelProps) {
+export function WorkbenchChangesPanel({ changes, onOpenInFiles, message, source = 'none', loading = false }: WorkbenchChangesPanelProps) {
   const [selectedPath, setSelectedPath] = useState<string | null>(changes[0]?.path ?? null)
 
   useEffect(() => {
@@ -29,6 +32,13 @@ export function WorkbenchChangesPanel({ changes, onOpenInFiles, message }: Workb
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [changes])
 
+  const liveBanner = source === 'live' && (
+    <div className="flex shrink-0 items-center gap-1.5 border-b border-[var(--color-card-border)] bg-emerald-500/[0.06] px-2.5 py-1 text-[10px] font-medium text-emerald-300">
+      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full bg-emerald-400 ${loading ? 'animate-pulse' : ''}`} />
+      Live from linked computer (git status)
+    </div>
+  )
+
   const statusNote = message && (
     <p className="shrink-0 border-b border-[var(--color-card-border)] bg-white/[0.03] px-2.5 py-1.5 text-[10px] leading-relaxed text-[var(--color-pib-text-muted)]">
       {message}
@@ -38,6 +48,7 @@ export function WorkbenchChangesPanel({ changes, onOpenInFiles, message }: Workb
   if (changes.length === 0) {
     return (
       <div className="flex h-full flex-col">
+        {liveBanner}
         {statusNote}
         <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
           <span aria-hidden="true" className="material-symbols-outlined text-[28px] text-[var(--color-pib-text-muted)]">difference</span>
@@ -54,6 +65,7 @@ export function WorkbenchChangesPanel({ changes, onOpenInFiles, message }: Workb
 
   return (
     <div data-testid="workbench-changes-panel" className="flex h-full min-h-0 flex-col">
+      {liveBanner}
       {statusNote}
       <div className="max-h-[40%] shrink-0 overflow-y-auto border-b border-[var(--color-card-border)]">
         {changes.map((change) => {

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import type { WorkbenchJob } from '@/lib/messages/workbench/jobs'
 
 type MockUser = { uid: string; role: 'admin' | 'client' | 'ai'; orgId: string }
 type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
@@ -118,7 +119,7 @@ describe('GET /api/v1/conversations/[convId]/workbench/files', () => {
 })
 
 describe('GET /api/v1/conversations/[convId]/workbench/changes', () => {
-  it('reports the pending-runtime placeholder for Phase 2a', async () => {
+  it('reports the jobs-backed contract for Phase 2b without blocking on a device', async () => {
     const { GET } = await import('@/app/api/v1/conversations/[convId]/workbench/changes/route')
 
     const res = await GET(
@@ -128,9 +129,9 @@ describe('GET /api/v1/conversations/[convId]/workbench/changes', () => {
 
     expect(res.status).toBe(200)
     const body = await readJson(res)
-    expect(body.data.source).toBe('pending_runtime')
+    expect(body.data.source).toBe('jobs')
     expect(body.data.changes).toEqual([])
-    expect(body.data.message).toMatch(/linked-runtime/i)
+    expect(body.data.message).toMatch(/refresh/i)
   })
 
   it('403s for a non-participant', async () => {
@@ -163,22 +164,6 @@ describe('POST /api/v1/conversations/[convId]/workbench/terminal', () => {
     expect(body.code).toBe('WORKBENCH_SHELL_COMMAND_NOT_ALLOWED')
   })
 
-  it('501s with the pending-protocol contract for allowlisted commands', async () => {
-    const { POST } = await import('@/app/api/v1/conversations/[convId]/workbench/terminal/route')
-
-    const res = await POST(
-      new NextRequest('http://localhost/api/v1/conversations/conv-1/workbench/terminal', {
-        method: 'POST',
-        body: JSON.stringify({ command: 'git status' }),
-      }),
-      { params: Promise.resolve({ convId: 'conv-1' }) },
-    )
-
-    expect(res.status).toBe(501)
-    const body = await readJson(res)
-    expect(body.code).toBe('WORKBENCH_SHELL_PENDING')
-  })
-
   it('403s for a non-participant before validating the command', async () => {
     mockUser = { uid: 'stranger', role: 'client', orgId: 'org-1' }
     const { POST } = await import('@/app/api/v1/conversations/[convId]/workbench/terminal/route')
@@ -192,5 +177,52 @@ describe('POST /api/v1/conversations/[convId]/workbench/terminal', () => {
     )
 
     expect(res.status).toBe(403)
+  })
+
+  it('answers pwd directly from the authorized relative folder without a device job', async () => {
+    const { handleWorkbenchTerminalCommand } = await import('@/app/api/v1/conversations/[convId]/workbench/terminal/route')
+    const authorize = jest.fn(async () => ({ relativeFolder: 'projects/project-a' } as never))
+    const enqueue = jest.fn()
+
+    const request = new NextRequest('http://localhost/api/v1/conversations/conv-1/workbench/terminal', {
+      method: 'POST',
+      body: JSON.stringify({ command: 'pwd' }),
+    })
+    const response = await handleWorkbenchTerminalCommand(request, { uid: 'client-1', role: 'client', orgId: 'org-1' } as never, 'conv-1', { authorize, enqueue })
+
+    expect(response.status).toBe(200)
+    const body = await readJson(response)
+    expect(body.data).toEqual({ cwd: 'projects/project-a' })
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('enqueues the mapped operation for an allowlisted command and returns 202', async () => {
+    const { handleWorkbenchTerminalCommand } = await import('@/app/api/v1/conversations/[convId]/workbench/terminal/route')
+    const authorization = {
+      conversation: { id: 'conv-1', orgId: 'org-1' },
+      projectId: null,
+      relativeFolder: '.',
+      binding: {
+        deviceId: 'device-a', runtimeTargetId: 'runtime-a', credentialVersion: 3,
+        workspaceId: 'workspace-a', mappingId: 'mapping-a',
+      },
+    }
+    const authorize = jest.fn(async () => authorization as never)
+    const enqueue = jest.fn(async (input: Record<string, unknown>) => ({
+      jobId: 'job-1', kind: input.kind, status: 'queued', attempt: 0,
+      createdAtMs: 1_000, updatedAtMs: 1_000, expiresAtMs: 100_000,
+      encryptedOperation: null, encryptedResult: null,
+    } as unknown as WorkbenchJob))
+
+    const request = new NextRequest('http://localhost/api/v1/conversations/conv-1/workbench/terminal', {
+      method: 'POST',
+      body: JSON.stringify({ command: 'git status' }),
+    })
+    const response = await handleWorkbenchTerminalCommand(request, { uid: 'client-1', role: 'client', orgId: 'org-1' } as never, 'conv-1', { authorize, enqueue })
+
+    expect(response.status).toBe(202)
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ kind: 'git.status', operation: { kind: 'git.status' } }))
+    const body = await readJson(response)
+    expect(body.data).toMatchObject({ jobId: 'job-1', kind: 'git.status', status: 'queued' })
   })
 })

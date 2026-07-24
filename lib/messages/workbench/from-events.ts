@@ -90,10 +90,11 @@ function toolCallIdentity(event: ChatEvent): string | null {
   return visit(event.raw)
 }
 
-const UNSCOPED_RUN_KEY = '__workbench_unscoped_run__'
+const UNSCOPED_RUN_KEY = 'unscoped'
 
 function toolRunKey(event: ChatEvent): string {
-  return event.runId?.trim() || event.run_id?.trim() || UNSCOPED_RUN_KEY
+  const explicitRunId = event.runId?.trim() || event.run_id?.trim()
+  return explicitRunId ? `scoped:${explicitRunId}` : UNSCOPED_RUN_KEY
 }
 
 export function buildWorkbenchTerminalEntries(events: ChatEvent[]): WorkbenchTerminalEntry[] {

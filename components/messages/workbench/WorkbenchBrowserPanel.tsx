@@ -9,16 +9,10 @@ function privateHostname(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '')
   if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host === '::' || host === '::1' || host === '0.0.0.0') return true
 
-  // Browser URL parsing canonicalizes IPv4-mapped addresses such as
-  // ::ffff:127.0.0.1 to ::ffff:7f00:1. Conservatively allow only global
-  // unicast IPv6 (2000::/3), excluding the documentation block.
-  if (host.includes(':')) {
-    const firstHextet = Number.parseInt(host.split(':').find(Boolean) ?? '0', 16)
-    return !Number.isFinite(firstHextet)
-      || firstHextet < 0x2000
-      || firstHextet > 0x3fff
-      || /^2001:db8(?::|$)/.test(host)
-  }
+  // Literal IPv6 addresses are conservatively blocked in observer mode. A
+  // public tunnel hostname remains available for legitimate remote previews,
+  // while this avoids an incomplete special-purpose IPv6 range allowlist.
+  if (host.includes(':')) return true
 
   const ipv4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/)?.slice(1).map(Number)
   if (!ipv4) return false

@@ -1,4 +1,4 @@
-import crypto from 'node:crypto'
+import * as crypto from 'node:crypto'
 
 const ENVELOPE_CONTEXT = 'conversation-workbench-job:v1'
 const MAX_PATH_LENGTH = 512
