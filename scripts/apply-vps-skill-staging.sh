@@ -66,6 +66,14 @@ sudo -u hermes env HOME=/var/lib/hermes /usr/bin/node \
   /var/lib/hermes/partnersinbiz-web/scripts/apply-agent-skill-policy.mjs \
   --root /var/lib/hermes --apply --no-config --allow-missing-global
 
+# Shared drain/restart helpers (installed next to this script on the VPS).
+RESTART_LIB="$(cd "$(dirname "$0")" && pwd)/pib-hermes-profile-restart-lib.sh"
+if [[ ! -f "$RESTART_LIB" ]]; then
+  RESTART_LIB=/usr/local/lib/partnersinbiz/pib-hermes-profile-restart-lib.sh
+fi
+# shellcheck source=/dev/null
+source "$RESTART_LIB"
+
 mapfile -t active_units < <(
   systemctl list-units 'hermes@*.service' --state=running --no-legend --plain \
     | awk '{print $1}'
@@ -73,14 +81,16 @@ mapfile -t active_units < <(
 if (( ${#active_units[@]} > 0 )); then
   # Rolling restart with drain + health gates.
   # Never bounce the whole fleet at once (Blake outage 2026-07-23).
-  # Before each restart, wait for the profile API port to go quiet so an
-  # in-flight /v1/runs (SSE) can finish. After restart, wait for /v1/health.
+  # Never force-kill multi-hour runs: if a profile is still busy after the
+  # soft drain window, skills stay on disk and restart is deferred to the
+  # pib-hermes-deferred-restart.timer sweeper.
   gap_seconds=${PIB_SKILL_RESTART_GAP_SECONDS:-2}
   if [[ ! "$gap_seconds" =~ ^[0-9]+$ ]]; then
     echo "PIB_SKILL_RESTART_GAP_SECONDS must be a non-negative integer" >&2
     exit 2
   fi
-  drain_seconds=${PIB_SKILL_RESTART_DRAIN_SECONDS:-90}
+  # Soft wait only — long runs defer instead of being killed.
+  drain_seconds=${PIB_SKILL_RESTART_DRAIN_SECONDS:-120}
   if [[ ! "$drain_seconds" =~ ^[0-9]+$ ]]; then
     echo "PIB_SKILL_RESTART_DRAIN_SECONDS must be a non-negative integer" >&2
     exit 2
@@ -101,108 +111,35 @@ if (( ${#active_units[@]} > 0 )); then
     exit 2
   fi
 
-  profile_port() {
-    local profile="$1" env_file port
-    env_file="/etc/hermes/profiles/${profile}.env"
-    [[ -f "$env_file" ]] || return 1
-    port=$(awk -F= '/^API_SERVER_PORT=/{gsub(/"/,"",$2); print $2; exit}' "$env_file")
-    [[ "$port" =~ ^[0-9]+$ ]] || return 1
-    printf '%s\n' "$port"
-  }
-
-  profile_api_key() {
-    local profile="$1" env_file
-    env_file="/etc/hermes/profiles/${profile}.env"
-    [[ -f "$env_file" ]] || return 1
-    awk -F= '/^API_SERVER_KEY=/{gsub(/^"|"$/,"",$2); print $2; exit}' "$env_file"
-  }
-
-  established_count() {
-    local port="$1"
-    # Count peer connections to the Hermes API port (active runs hold SSE).
-    ss -tn state established "( sport = :${port} )" 2>/dev/null \
-      | awk 'NR>1 {c++} END {print c+0}'
-  }
-
-  wait_for_quiet_port() {
-    local profile="$1" port quiet_needed="$2" max_wait="$3"
-    local started now quiet_streak=0 count
-    port=$(profile_port "$profile") || {
-      echo "drain skip for ${profile}: no API_SERVER_PORT" >&2
-      return 0
-    }
-    started=$(date +%s)
-    while true; do
-      now=$(date +%s)
-      if (( now - started >= max_wait )); then
-        echo "drain timeout for hermes@${profile} after ${max_wait}s (proceeding)" >&2
-        return 0
-      fi
-      count=$(established_count "$port")
-      if (( count == 0 )); then
-        quiet_streak=$((quiet_streak + 1))
-        if (( quiet_streak >= quiet_needed )); then
-          echo "drain quiet hermes@${profile} port ${port}"
-          return 0
-        fi
-      else
-        quiet_streak=0
-      fi
-      sleep 1
-    done
-  }
-
-  wait_for_health() {
-    local profile="$1" max_wait="$2"
-    local port key started now code
-    port=$(profile_port "$profile") || return 0
-    key=$(profile_api_key "$profile") || return 0
-    started=$(date +%s)
-    while true; do
-      now=$(date +%s)
-      if (( now - started >= max_wait )); then
-        echo "health timeout for hermes@${profile} after ${max_wait}s" >&2
-        return 1
-      fi
-      code=$(curl -sS --max-time 3 -o /dev/null -w '%{http_code}' \
-        -H "Authorization: Bearer ${key}" \
-        "http://127.0.0.1:${port}/v1/health" || true)
-      if [[ "$code" == "200" ]]; then
-        echo "health ok hermes@${profile}"
-        return 0
-      fi
-      sleep 1
-    done
-  }
-
-  declare -A restart_baseline=()
+  restarted_units=()
+  deferred_units=()
   for unit in "${active_units[@]}"; do
     profile=${unit#hermes@}
     profile=${profile%.service}
-    restart_baseline["$unit"]=$(systemctl show "$unit" --property=NRestarts --value)
-    wait_for_quiet_port "$profile" "$quiet_seconds" "$drain_seconds"
-    systemctl restart "$unit"
-    systemctl is-active "$unit"
-    wait_for_health "$profile" "$health_seconds"
-    if (( gap_seconds > 0 )); then
-      sleep "$gap_seconds"
-    fi
-  done
-
-  # A syntax/import failure can leave a Restart=always unit momentarily active
-  # before it falls into a crash loop. Do not report a successful skill sync
-  # until every restarted profile survives a stabilization window without
-  # incrementing its restart counter.
-  sleep "$stabilization_seconds"
-  systemctl is-active "${active_units[@]}"
-  for unit in "${active_units[@]}"; do
-    current_restarts=$(systemctl show "$unit" --property=NRestarts --value)
-    if (( current_restarts > restart_baseline["$unit"] )); then
-      echo "$unit restarted during the ${stabilization_seconds}s stabilization window" >&2
+    set +e
+    pib_hermes_restart_profile_when_idle "$profile" "$quiet_seconds" "$drain_seconds" "$health_seconds" "$gap_seconds"
+    rc=$?
+    set -e
+    if (( rc == 0 )); then
+      restarted_units+=("$unit")
+    elif (( rc == 2 )); then
+      deferred_units+=("$unit")
+    else
+      echo "hard failure restarting ${unit}" >&2
       exit 1
     fi
   done
-fi
 
-logger -t pib-skill-sync "applied staged PiB agent skills with drained rolling restart of ${#active_units[@]} active profiles"
-echo "PiB skill staging apply complete"
+  # Extra settle only for profiles restarted in this pass (crash-loop already gated).
+  if (( ${#restarted_units[@]} > 0 && stabilization_seconds > 0 )); then
+    sleep "$stabilization_seconds"
+    systemctl is-active "${restarted_units[@]}"
+  fi
+
+  logger -t pib-skill-sync \
+    "applied PiB skills; restarted=${#restarted_units[@]} deferred=${#deferred_units[@]}"
+  echo "PiB skill staging apply complete (restarted=${#restarted_units[@]} deferred=${#deferred_units[@]})"
+else
+  logger -t pib-skill-sync "applied staged PiB agent skills (no active hermes@ profiles)"
+  echo "PiB skill staging apply complete"
+fi
