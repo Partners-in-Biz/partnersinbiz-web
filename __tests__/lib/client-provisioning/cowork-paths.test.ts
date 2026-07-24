@@ -5,6 +5,7 @@ import {
   resolveCoworkNestingOrgSlug,
   resolveOperatorWorkspaceTarget,
   rewriteLegacyFlatCoworkPath,
+  rewriteLegacyFlatCoworkPathsInText,
   sanitizeCoworkNestingSlug,
 } from '@/lib/client-provisioning/cowork-paths'
 
@@ -104,6 +105,31 @@ describe('cowork-paths', () => {
       orgId: 'pib-platform-owner',
     })).toThrow(/Cowork folderName is required/)
     expect(() => resolveCoworkNestingOrgSlug({ orgId: '' })).toThrow(/orgId is required/)
+  })
+
+  it('rewrites legacy flat Cowork path tokens inside free-form text', () => {
+    const input = [
+      'Working dir: ~/Cowork/Acme Inc',
+      'VPS: /var/lib/hermes/Cowork/Acme Inc/docs',
+      'Mac: /Users/peetstander/Cowork/Acme Inc/briefs',
+      'Wiki stays flat: ~/Cowork/Cowork/agents/acme-inc/wiki/hot.md',
+      'Platform repo: ~/Cowork/Partners in Biz — Client Growth/partnersinbiz-web',
+      'Already nested: ~/Cowork/partners/Acme Inc',
+      'Already nested VPS: /var/lib/hermes/Cowork/partners/Acme Inc',
+    ].join('\n')
+
+    const result = rewriteLegacyFlatCoworkPathsInText(input)
+
+    expect(result.changes).toBe(3)
+    expect(result.text).toContain('Working dir: ~/Cowork/partners/Acme Inc')
+    expect(result.text).toContain('VPS: /var/lib/hermes/Cowork/partners/Acme Inc/docs')
+    expect(result.text).toContain('Mac: /Users/peetstander/Cowork/partners/Acme Inc/briefs')
+    expect(result.text).toContain('~/Cowork/Cowork/agents/acme-inc/wiki/hot.md')
+    expect(result.text).toContain('~/Cowork/Partners in Biz — Client Growth/partnersinbiz-web')
+    expect(result.text).toContain('Already nested: ~/Cowork/partners/Acme Inc')
+    expect(result.text).toContain('Already nested VPS: /var/lib/hermes/Cowork/partners/Acme Inc')
+    expect(result.text).not.toContain('~/Cowork/Acme Inc\n')
+    expect(result.text).not.toMatch(/\/var\/lib\/hermes\/Cowork\/Acme Inc/)
   })
 
   it('resolves operator CLI workspace args without double-nesting', () => {

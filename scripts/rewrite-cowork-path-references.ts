@@ -19,7 +19,7 @@ import {
   realpathSync,
   writeFileSync,
 } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join, relative, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import {
   PIB_COWORK_NESTING_SLUG,
@@ -182,112 +182,25 @@ function rewriteWiki(dryRun: boolean): FileChange[] {
 }
 
 function rewriteVps(flags: Flags): FileChange[] {
-  const dryFlag = flags.dryRun ? '1' : '0'
-  const script = `set -euo pipefail
-ROOT=${shellSingleQuote(VPS_COWORK_ROOT + '/' + PIB_COWORK_NESTING_SLUG)}
-DRY=${dryFlag}
-python3 - <<'PY'
-import json, os, re, sys
-root = os.environ["ROOT"]
-dry = os.environ["DRY"] == "1"
-nest = "partners"
-text_names = {"AGENTS.md", "CLAUDE.md", "SOUL.md", "SOUL.local.md", "AGENTS.local.md"}
-skip = {"node_modules", ".git", ".next", "dist", "build", ".turbo", ".claude", "venv", "__pycache__"}
-reserved = {"Cowork", nest, "Partners in Biz — Client Growth", "Side Projects", "YouTube Business"}
-patterns = [
-    re.compile(r"~/Cowork/[^\\s\`\"'<>\\])|,]+"),
-    re.compile(r"/var/lib/hermes/Cowork/[^\\s\`\"'<>\\])|,]+"),
-    re.compile(r"/Users/[^/\\s]+/Cowork/[^\\s\`\"'<>\\])|,]+"),
-]
-
-def is_legacy(path: str) -> bool:
-    m = re.match(r"^(?:~/Cowork|/var/lib/hermes/Cowork|/Users/[^/]+/Cowork)/([^/]+)(?:/.*)?$", path)
-    if not m: return False
-    return m.group(1) not in reserved and not m.group(1).startswith(".")
-
-def rewrite_path(path: str) -> str | None:
-    if not is_legacy(path):
-        return None
-    if path.startswith("~/Cowork/"):
-        rest = path[len("~/Cowork/"):]
-        return f"~/Cowork/{nest}/{rest}"
-    if path.startswith("/var/lib/hermes/Cowork/"):
-        rest = path[len("/var/lib/hermes/Cowork/"):]
-        return f"/var/lib/hermes/Cowork/{nest}/{rest}"
-    m = re.match(r"^(/Users/[^/]+/Cowork)/(.*)$", path)
-    if m:
-        return f"{m.group(1)}/{nest}/{m.group(2)}"
-    return None
-
-def rewrite_text(text: str):
-    changes = 0
-    def repl(match: re.Match[str]) -> str:
-        nonlocal changes
-        raw = match.group(0)
-        core, trailing = raw, ""
-        while core and core[-1] in ".,;:!?":
-            trailing = core[-1] + trailing
-            core = core[:-1]
-        rewritten = rewrite_path(core)
-        if not rewritten or rewritten == core:
-            return raw
-        changes += 1
-        return rewritten + trailing
-    out = text
-    for pat in patterns:
-        out = pat.sub(repl, out)
-    return out, changes
-
-changed = []
-for dirpath, dirnames, filenames in os.walk(root):
-    dirnames[:] = [d for d in dirnames if d not in skip and not d.startswith(".")]
-    for name in filenames:
-        full = os.path.join(dirpath, name)
-        if name in text_names:
-            before = open(full, "r", encoding="utf-8", errors="ignore").read()
-            after, n = rewrite_text(before)
-            if n:
-                if not dry:
-                    open(full, "w", encoding="utf-8").write(after)
-                changed.append({"path": full, "changes": n, "kind": "text"})
-        elif name == ".pib-workspace.json":
-            try:
-                data = json.load(open(full, "r", encoding="utf-8"))
-            except Exception:
-                continue
-            n = 0
-            for key in ("localPath", "vpsPath", "agentDomainPath", "localAgentDomainPath"):
-                value = data.get(key)
-                if isinstance(value, str):
-                    rewritten = rewrite_path(value.strip())
-                    if rewritten and rewritten != value:
-                        data[key] = rewritten
-                        n += 1
-            if n:
-                if not dry:
-                    open(full, "w", encoding="utf-8").write(json.dumps(data, indent=2) + "\\n")
-                changed.append({"path": full, "changes": n, "kind": "json"})
-
-# Hermes specialist SOUL files that hardcode Partners paths
-profiles = "/var/lib/hermes/profiles"
-if os.path.isdir(profiles):
-    for name in os.listdir(profiles):
-        soul = os.path.join(profiles, name, "SOUL.md")
-        if not os.path.isfile(soul):
-            continue
-        before = open(soul, "r", encoding="utf-8", errors="ignore").read()
-        after, n = rewrite_text(before)
-        if n:
-            if not dry:
-                open(soul, "w", encoding="utf-8").write(after)
-            changed.append({"path": soul, "changes": n, "kind": "text"})
-
-print(json.dumps(changed))
-PY`
-  const envPrefix = `ROOT=${shellSingleQuote(`${VPS_COWORK_ROOT}/${PIB_COWORK_NESTING_SLUG}`)} DRY=${dryFlag} `
+  const localScript = resolve(__dirname, 'rewrite-cowork-path-references-vps.py')
+  const remoteScript = '/tmp/rewrite-cowork-path-references-vps.py'
+  const userHost = `root@${flags.host}`
+  const copy = spawnSync(
+    'scp',
+    ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', localScript, `${userHost}:${remoteScript}`],
+    { encoding: 'utf8' },
+  )
+  if (copy.status !== 0) {
+    throw new Error(`VPS script copy failed: ${copy.stderr || copy.stdout || 'no output'}`)
+  }
   const result = spawnSync(
     'ssh',
-    ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20', `root@${flags.host}`, envPrefix + script],
+    [
+      '-o', 'BatchMode=yes',
+      '-o', 'ConnectTimeout=20',
+      userHost,
+      `ROOT=${shellSingleQuote(`${VPS_COWORK_ROOT}/${PIB_COWORK_NESTING_SLUG}`)} DRY=${flags.dryRun ? '1' : '0'} python3 ${shellSingleQuote(remoteScript)}`,
+    ],
     { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 },
   )
   if (result.status !== 0) {

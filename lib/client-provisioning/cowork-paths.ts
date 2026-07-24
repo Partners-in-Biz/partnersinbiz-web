@@ -260,10 +260,11 @@ export function rewriteLegacyFlatCoworkPathsInText(
   nestingOrgSlug: string = PIB_COWORK_NESTING_SLUG,
 ): { text: string; changes: number } {
   if (!text) return { text, changes: 0 }
+  // Allow spaces inside folder names (e.g. "Acme Inc"); stop at newlines / markdown delimiters.
   const patterns = [
-    /~\/Cowork\/[^\s`"'<>\])|,]+/g,
-    /\/var\/lib\/hermes\/Cowork\/[^\s`"'<>\])|,]+/g,
-    /\/Users\/[^/\s]+\/Cowork\/[^\s`"'<>\])|,]+/g,
+    /~\/Cowork\/[^\n`"'<>\])|,]+/g,
+    /\/var\/lib\/hermes\/Cowork\/[^\n`"'<>\])|,]+/g,
+    /\/Users\/[^/\s]+\/Cowork\/[^\n`"'<>\])|,]+/g,
   ]
   let next = text
   let changes = 0

@@ -34,8 +34,11 @@ describe('client workspace provisioning', () => {
       linked: { companyId: null, contactIds: [] },
     })
     expect(payload.workspaceInstructions).toContain('VPS-canonical')
+    expect(payload.workspaceInstructions).toContain('Portable root: `~/Cowork/partners/Acme Inc`')
     expect(payload.soul).toContain('PiB org_id: `pib-platform-owner`')
-    expect(payload.soul).toContain('Project folder: `/var/lib/hermes/Cowork/partners/Acme Inc`')
+    expect(payload.soul).toContain('Portable root: `~/Cowork/partners/Acme Inc`')
+    expect(payload.soul).toContain('Canonical VPS root: `/var/lib/hermes/Cowork/partners/Acme Inc`')
+    expect(payload.soul).toContain('cwd')
     expect(payload.soul).toContain('Never say you are Codex')
   })
 
