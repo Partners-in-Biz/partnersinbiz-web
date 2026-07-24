@@ -156,7 +156,9 @@ export function buildClientProvisioningPayload(input: ClientProvisioningInput): 
     domain: paths.agentDomain,
     orgId,
     workspacePath,
+    localWorkspacePath,
     agentDomainPath,
+    localAgentDomainPath,
   })
   const manifest: OrgWorkspaceManifest = {
     schemaVersion: 1,
@@ -264,16 +266,18 @@ export function buildDefaultFolderRegistry({
   domain,
   orgId,
   workspacePath,
+  localWorkspacePath,
   agentDomainPath,
+  localAgentDomainPath = `${LOCAL_OBSIDIAN_ROOT}/agents/${domain}`,
 }: {
   clientName: string
   domain: string
   orgId: string
   workspacePath: string
+  localWorkspacePath: string
   agentDomainPath: string
+  localAgentDomainPath?: string
 }): ClientFolderRegistryRecord[] {
-  const localWorkspacePath = `${LOCAL_COWORK_ROOT}/${clientName}`
-  const localAgentDomainPath = `${LOCAL_OBSIDIAN_ROOT}/agents/${domain}`
 
   return [
     folderRecord({

@@ -83,9 +83,10 @@ describe('cowork-paths', () => {
   })
 
   it('rejects invalid folder names and nesting slugs', () => {
-    expect(() => sanitizeCoworkNestingSlug('../escape')).toThrow(/Invalid Cowork nesting slug/)
     expect(() => sanitizeCoworkNestingSlug('')).toThrow(/Invalid Cowork nesting slug/)
     expect(() => sanitizeCoworkNestingSlug('!!!')).toThrow(/Invalid Cowork nesting slug/)
+    expect(() => sanitizeCoworkNestingSlug('..')).toThrow(/Invalid Cowork nesting slug/)
+    expect(sanitizeCoworkNestingSlug('../escape')).toBe('escape')
     expect(() => buildCoworkPaths({
       folderName: '../escape',
       domain: 'escape',
