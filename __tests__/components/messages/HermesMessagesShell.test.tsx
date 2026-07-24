@@ -87,6 +87,7 @@ describe('HermesMessagesShell', () => {
       allowSendMessages: true,
       allowArchiveConversations: false,
       layoutVariant: 'hermes',
+      showAgentWorkbench: true,
     }))
   })
 

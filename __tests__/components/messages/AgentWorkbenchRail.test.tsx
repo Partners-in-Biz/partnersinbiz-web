@@ -1,56 +1,45 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import { useState } from 'react'
 import AgentWorkbenchRail from '@/components/messages/workbench/AgentWorkbenchRail'
-import type { ChatEvent } from '@/lib/hermes/types'
+import type { WorkbenchTab } from '@/lib/messages/workbench/types'
 
-const events: ChatEvent[] = [
-  { event: 'tool.started', tool: 'terminal', input: 'npm test', timestamp: 100 },
-  { event: 'tool.completed', tool: 'terminal', input: 'npm test', stdout: 'PASS workbench', exitCode: 0, timestamp: 101 },
-  {
-    event: 'tool.completed',
-    tool: 'patch',
-    input: '*** Begin Patch\n*** Update File: components/chat/UnifiedChat.tsx\n@@\n-old\n+new\n*** End Patch',
-    timestamp: 102,
-  },
-]
+function Harness({ mapped = true }: { mapped?: boolean }) {
+  const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState<WorkbenchTab>('files')
+  return (
+    <AgentWorkbenchRail
+      open={open}
+      activeTab={tab}
+      onOpenChange={setOpen}
+      onTabChange={(next) => { if (next) setTab(next) }}
+      runtime={{ label: 'Peet Mac', mappingLabel: mapped ? 'PiB web' : null, projectName: 'PIB - Website', hasMapping: mapped }}
+      terminalEntries={[{ id: 'command-1', status: 'done', label: 'terminal', meta: 'exit 0', body: '$ npm test\nPASS workbench' }]}
+      fileTree={[{ name: 'components', path: 'components', kind: 'directory', children: [{ name: 'UnifiedChat.tsx', path: 'components/UnifiedChat.tsx', kind: 'file' }] }]}
+      changes={[{ path: 'components/UnifiedChat.tsx', status: 'modified', patch: '@@\n-old\n+new' }]}
+      browserTargets={[{ id: 'preview-1', url: 'https://preview.example.test', title: 'Preview', source: 'event' }]}
+    />
+  )
+}
 
 describe('AgentWorkbenchRail', () => {
-  beforeEach(() => window.localStorage.clear())
+  it('defaults closed and exposes all four observer panels', () => {
+    render(<Harness />)
 
-  it('offers four observer tabs and renders live terminal and changes data', () => {
-    render(
-      <AgentWorkbenchRail
-        conversationId="conv-1"
-        events={events}
-        runtime={{ kind: 'linked-computer', label: 'Peet Mac', mappingId: 'map-1', mappedRootLabel: 'Partners in Biz' }}
-      />,
-    )
+    expect(screen.getByTestId('agent-workbench-rail')).toHaveAttribute('data-open', 'false')
+    for (const label of ['Files', 'Terminal', 'Browser', 'Changes']) expect(screen.getByLabelText(label)).toBeInTheDocument()
 
-    expect(screen.getByRole('button', { name: 'Open Files workbench' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open Terminal workbench' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open Browser workbench' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Open Changes workbench' })).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Terminal'))
+    expect(screen.getByTestId('agent-workbench-rail')).toHaveAttribute('data-open', 'true')
+    expect(screen.getByText('$ npm test', { exact: false })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Open Terminal workbench' }))
-    expect(screen.getByRole('dialog', { name: 'Agent Workbench' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: /Terminal/ })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByText('$ npm test')).toBeInTheDocument()
-    expect(screen.getByText('PASS workbench')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('tab', { name: /Changes/ }))
-    expect(screen.getByText('components/chat/UnifiedChat.tsx')).toBeInTheDocument()
-    expect(screen.getByText('modified')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('agent-workbench-tab-changes'))
+    expect(screen.getByText('components/UnifiedChat.tsx')).toBeInTheDocument()
+    expect(screen.getByText('@@', { exact: false })).toBeInTheDocument()
   })
 
-  it('explains the runtime binding requirement when no workspace is connected', () => {
-    render(
-      <AgentWorkbenchRail
-        conversationId="conv-unbound"
-        events={[]}
-        runtime={{ kind: 'none', label: 'No runtime' }}
-      />,
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: 'Open Files workbench' }))
-    expect(screen.getByText(/Link a computer or choose a workspace folder/i)).toBeInTheDocument()
+  it('shows an honest fallback when no folder mapping is bound', () => {
+    render(<Harness mapped={false} />)
+    fireEvent.click(screen.getByLabelText('Files'))
+    expect(screen.getByText(/No workspace mapping/)).toBeInTheDocument()
   })
 })

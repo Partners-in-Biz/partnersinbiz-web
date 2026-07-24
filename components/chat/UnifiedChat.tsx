@@ -67,6 +67,14 @@ import { pickPreferredWorkspaceRuntime } from '@/lib/messages/preferred-workspac
 import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAccessPanel'
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
+import AgentWorkbenchRail from '@/components/messages/workbench/AgentWorkbenchRail'
+import {
+  buildWorkbenchBrowserTargets,
+  buildWorkbenchChanges,
+  buildWorkbenchFileTree,
+  buildWorkbenchTerminalEntries,
+} from '@/lib/messages/workbench/from-events'
+import type { WorkbenchRuntimeSummary, WorkbenchTab } from '@/lib/messages/workbench/types'
 
 type AgentId = string
 
@@ -124,6 +132,8 @@ export interface UnifiedChatProps {
   conversationRailMode?: 'expanded' | 'collapsed'
   onConversationRailModeChange?: (mode: 'expanded' | 'collapsed') => void
   onContextCanvasPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void
+  /** Enables the observer-only Files / Terminal / Browser / Changes rail in Messages. */
+  showAgentWorkbench?: boolean
 }
 
 const POLL_INTERVAL = 1500
@@ -913,6 +923,7 @@ export default function UnifiedChat({
   conversationRailMode = 'expanded',
   onConversationRailModeChange,
   onContextCanvasPresentationChange,
+  showAgentWorkbench = false,
 }: UnifiedChatProps) {
   // ── State ─────────────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -930,13 +941,36 @@ export default function UnifiedChat({
   const [sending, setSending] = useState(false)
   const [contextCanvasPresentation, setContextCanvasPresentation] = useState<{ open: boolean; mode: 'single' | 'dual'; width: number }>({ open: false, mode: 'single', width: 520 })
   const contextCanvasOpen = contextCanvasPresentation.open
+  const [workbenchOpen, setWorkbenchOpen] = useState(false)
+  const [workbenchTab, setWorkbenchTab] = useState<WorkbenchTab>('files')
+  const [workbenchWidth, setWorkbenchWidth] = useState(480)
+  const [workbenchStateConversationId, setWorkbenchStateConversationId] = useState<string | null>(null)
+  const [contextCanvasCloseRequest, setContextCanvasCloseRequest] = useState(0)
+  // Icon strip stays visible whenever the workbench is enabled; expand margin when a dock opens.
+  const rightDockOpen = contextCanvasOpen || workbenchOpen || showAgentWorkbench
+  const rightDockWidth = workbenchOpen
+    ? workbenchWidth + 40
+    : contextCanvasOpen
+      ? contextCanvasPresentation.width
+      : showAgentWorkbench
+        ? 40
+        : contextCanvasPresentation.width
   const contextCanvasReservedStyle = {
-    '--context-canvas-width': `${contextCanvasPresentation.width}px`,
+    '--context-canvas-width': `${rightDockWidth}px`,
   } as CSSProperties
   const handleContextCanvasPresentationChange = useCallback((state: { open: boolean; mode: 'single' | 'dual'; width: number }) => {
     setContextCanvasPresentation(state)
+    if (state.open) setWorkbenchOpen(false)
     onContextCanvasPresentationChange?.(state)
   }, [onContextCanvasPresentationChange])
+  const handleWorkbenchOpenChange = useCallback((open: boolean) => {
+    setWorkbenchOpen(open)
+    if (open) setContextCanvasCloseRequest((revision) => revision + 1)
+  }, [])
+  const openWorkbenchTab = useCallback((tab: WorkbenchTab) => {
+    setWorkbenchTab(tab)
+    handleWorkbenchOpenChange(true)
+  }, [handleWorkbenchOpenChange])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
@@ -983,6 +1017,31 @@ export default function UnifiedChat({
   useEffect(() => {
     onConversationsChange?.(conversations)
   }, [conversations, onConversationsChange])
+
+  useEffect(() => {
+    setWorkbenchOpen(false)
+    if (!activeId) {
+      setWorkbenchStateConversationId(null)
+      return
+    }
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(`pib-messages-workbench:${orgId}:${activeId}`) ?? '{}') as { tab?: unknown; width?: unknown }
+      if (stored.tab === 'files' || stored.tab === 'terminal' || stored.tab === 'browser' || stored.tab === 'changes') setWorkbenchTab(stored.tab)
+      if (typeof stored.width === 'number' && Number.isFinite(stored.width)) setWorkbenchWidth(Math.min(720, Math.max(420, stored.width)))
+    } catch {
+      // Ignore corrupt or unavailable browser storage.
+    }
+    setWorkbenchStateConversationId(activeId)
+  }, [activeId, orgId])
+
+  useEffect(() => {
+    if (!activeId || workbenchStateConversationId !== activeId) return
+    try {
+      window.localStorage.setItem(`pib-messages-workbench:${orgId}:${activeId}`, JSON.stringify({ tab: workbenchTab, width: workbenchWidth }))
+    } catch {
+      // Ignore browser storage failures.
+    }
+  }, [activeId, orgId, workbenchStateConversationId, workbenchTab, workbenchWidth])
 
   useEffect(() => {
     if (!syncedConversationTitles) return
@@ -1240,6 +1299,15 @@ export default function UnifiedChat({
     ) ?? null
   }, [messages])
   const activeRuntimeEvents = activeRuntimeMessage ? (liveEvents[activeRuntimeMessage.id] ?? []) : []
+  const workbenchEvents = useMemo(() => messages.flatMap((message) => {
+    const streamed = liveEvents[message.id]
+    return streamed?.length ? streamed : ((message.events ?? []) as ChatEvent[])
+  }), [liveEvents, messages])
+  const workbenchRichParts = useMemo(() => messages.flatMap((message) => message.richParts ?? []), [messages])
+  const workbenchTerminalEntries = useMemo(() => buildWorkbenchTerminalEntries(workbenchEvents), [workbenchEvents])
+  const workbenchFileTree = useMemo(() => buildWorkbenchFileTree(workbenchEvents), [workbenchEvents])
+  const workbenchChanges = useMemo(() => buildWorkbenchChanges(workbenchEvents), [workbenchEvents])
+  const workbenchBrowserTargets = useMemo(() => buildWorkbenchBrowserTargets(workbenchEvents, workbenchRichParts), [workbenchEvents, workbenchRichParts])
   const hasInFlightAgentRun = useMemo(
     () => messages.some((message) =>
       message.role === 'assistant' && (
@@ -1515,6 +1583,14 @@ export default function UnifiedChat({
         ),
       )
     : undefined
+  const workbenchRuntime = useMemo<WorkbenchRuntimeSummary>(() => ({
+    label: activeRuntimeLabel || activeWorkspaceContext?.runtimeLabel || activeWorkspaceContext?.runtimeTarget,
+    mappingLabel: activeWorkspaceContext?.mappingLabel,
+    folderScope: activeWorkspaceContext?.folderScope ?? activeWorkspaceContext?.folderRelativePath ?? null,
+    projectName: activeWorkspaceContext?.projectName,
+    runtimeTarget: activeWorkspaceContext?.runtimeTarget,
+    hasMapping: Boolean(activeWorkspaceContext?.mappingId),
+  }), [activeRuntimeLabel, activeWorkspaceContext])
   const unavailableActiveRuntime = useMemo(
     () => activeWorkspaceContext && activeRuntimeCatalogueLoaded && (!activeRuntimePresence || !activeRuntimePresence.selectable)
       ? {
@@ -5313,10 +5389,24 @@ export default function UnifiedChat({
           </div>
         </div>
 
-        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
+        {showAgentWorkbench && <AgentWorkbenchRail
+          open={workbenchOpen}
+          activeTab={workbenchTab}
+          onOpenChange={handleWorkbenchOpenChange}
+          onTabChange={(tab) => { if (tab) setWorkbenchTab(tab) }}
+          width={workbenchWidth}
+          onWidthChange={setWorkbenchWidth}
+          runtime={workbenchRuntime}
+          terminalEntries={workbenchTerminalEntries}
+          fileTree={workbenchFileTree}
+          changes={workbenchChanges}
+          browserTargets={workbenchBrowserTargets}
+          compact={compact}
+        />}
 
         {/* Messages */}
         <div
@@ -5325,7 +5415,7 @@ export default function UnifiedChat({
           aria-label="Conversation messages"
           aria-live="polite"
           style={contextCanvasReservedStyle}
-          className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${contextCanvasOpen ? 'lg:mr-[var(--context-canvas-width)]' : ''}`}
+          className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${rightDockOpen ? 'lg:mr-[var(--context-canvas-width)]' : ''}`}
         >
           {loading && <div className="text-xs text-[var(--color-pib-text-muted)]">Loading…</div>}
           {!loading && messages.length === 0 && (
@@ -5480,7 +5570,7 @@ export default function UnifiedChat({
               ? 'shrink-0 min-w-0 flex flex-col gap-1.5 border-t border-[var(--color-card-border)] p-2 transition-[background-color,margin] duration-200'
               : 'shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3 transition-[background-color,margin] duration-200',
             draggingAttachments ? 'bg-primary/10 ring-1 ring-primary/35' : '',
-            contextCanvasOpen ? 'lg:mr-[var(--context-canvas-width)]' : '',
+            rightDockOpen ? 'lg:mr-[var(--context-canvas-width)]' : '',
           ].join(' ')}
         >
           {showComposerContextToolbar && (
@@ -5953,11 +6043,30 @@ export default function UnifiedChat({
                     </select>
                   </label>
                 )}
+                {showAgentWorkbench && (
+                  <button
+                    type="button"
+                    data-testid="hermes-agent-workbench-toggle"
+                    aria-label={workbenchOpen ? 'Close agent workbench' : 'Open agent workbench'}
+                    aria-pressed={workbenchOpen}
+                    onClick={() => {
+                      if (workbenchOpen) handleWorkbenchOpenChange(false)
+                      else openWorkbenchTab(workbenchTab)
+                    }}
+                    className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">dock_to_left</span>
+                    Workbench
+                  </button>
+                )}
                 {runtimeExecution && <button
                   type="button"
                   data-testid="hermes-runtime-inspector-toggle"
-                  aria-label="Open execution in context dock"
-                  onClick={() => setExecutionDockRequest((value) => value + 1)}
+                  aria-label={showAgentWorkbench ? 'Open terminal in agent workbench' : 'Open execution in context dock'}
+                  onClick={() => {
+                    if (showAgentWorkbench) openWorkbenchTab('terminal')
+                    else setExecutionDockRequest((value) => value + 1)
+                  }}
                   className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                 >
                   <span className="material-symbols-outlined text-[13px]">developer_board</span>

@@ -14,7 +14,7 @@ const executionOnlyModel: ChatContextReadModel = {
   pulse: { label: 'Execution', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '',
 }
 
-export function ChatContextExperience({ context, compact = false, artifactRequest, focusRequest, execution, executionRequest, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; focusRequest?: { kind: ChatContextReference['kind']; id: string; projectId?: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void }) {
+export function ChatContextExperience({ context, compact = false, artifactRequest, focusRequest, execution, executionRequest, closeRequest = 0, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; focusRequest?: { kind: ChatContextReference['kind']; id: string; projectId?: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; closeRequest?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void }) {
   const [open, setOpen] = useState(false)
   const [canvasMode, setCanvasMode] = useState<'single' | 'dual'>('single')
   const [canvasWidth, setCanvasWidth] = useState(520)
@@ -57,6 +57,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   actionOperationIdentityRef.current = actionOperationIdentity
   useEffect(() => { onOpenChange?.(open) }, [onOpenChange, open])
   useEffect(() => { onPresentationChange?.({ open, mode: canvasMode, width: canvasWidth }) }, [canvasMode, canvasWidth, onPresentationChange, open])
+  useEffect(() => { if (closeRequest > 0) setOpen(false) }, [closeRequest])
   useEffect(() => {
     pendingRef.current = undefined
     setPendingActionId(undefined)

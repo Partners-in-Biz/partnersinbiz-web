@@ -1,71 +1,45 @@
 import type { ChatEvent } from '@/lib/hermes/types'
 import {
+  buildWorkbenchBrowserTargets,
+  buildWorkbenchChanges,
   buildWorkbenchFileTree,
-  mapWorkbenchChanges,
-  mapWorkbenchTerminal,
-  mapWorkbenchUrls,
-} from '@/lib/messages/workbench/mappers'
+  buildWorkbenchTerminalEntries,
+} from '@/lib/messages/workbench/from-events'
 
-const events: ChatEvent[] = [
-  { event: 'tool.started', tool: 'terminal', input: 'npm test -- --runInBand', timestamp: 100, runId: 'run-1' },
-  { event: 'tool.completed', tool: 'terminal', stdout: 'PASS workbench', stderr: 'warning', exitCode: 0, timestamp: 102, runId: 'run-1' },
-  { event: 'tool.started', tool: 'read_file', input: 'components/chat/UnifiedChat.tsx', timestamp: 103 },
-  { event: 'tool.completed', tool: 'read_file', input: 'components/chat/UnifiedChat.tsx', output: 'export default function UnifiedChat() {}', timestamp: 104 },
-  {
-    event: 'tool.completed',
-    tool: 'patch',
-    input: [
-      '*** Begin Patch',
-      '*** Update File: components/chat/UnifiedChat.tsx',
-      '@@',
-      '-const oldValue = true',
-      '+const newValue = true',
-      '*** Add File: components/messages/workbench/AgentWorkbenchRail.tsx',
-      '+export function AgentWorkbenchRail() {}',
-      '*** End Patch',
-    ].join('\n'),
-    timestamp: 105,
-  },
-  { event: 'tool.completed', tool: 'terminal', input: 'npm run dev', output: 'ready at https://preview.example.com/workbench', timestamp: 106 },
-]
+const event = (value: Partial<ChatEvent>): ChatEvent => ({ event: 'tool.completed', ...value })
 
-describe('Messages Agent Workbench event mappers', () => {
-  it('groups terminal starts and completions into one transcript entry', () => {
-    expect(mapWorkbenchTerminal(events)).toEqual([
-      expect.objectContaining({
-        command: 'npm test -- --runInBand',
-        stdout: 'PASS workbench',
-        stderr: 'warning',
-        exitCode: 0,
-        status: 'completed',
-      }),
-      expect.objectContaining({
-        command: 'npm run dev',
-        stdout: 'ready at https://preview.example.com/workbench',
-        status: 'completed',
-      }),
+describe('Messages workbench event derivation', () => {
+  it('groups a command start and completion into one terminal transcript row', () => {
+    const rows = buildWorkbenchTerminalEntries([
+      event({ event: 'tool.started', runId: 'run-1', tool: 'terminal', input: 'npm test', timestamp: 100 }),
+      event({ event: 'tool.completed', runId: 'run-1', tool: 'terminal', input: 'npm test', stdout: 'PASS workbench', exitCode: 0, timestamp: 101 }),
     ])
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ status: 'done', label: 'terminal' })
+    expect(rows[0].body).toContain('$ npm test')
+    expect(rows[0].body).toContain('PASS workbench')
   })
 
-  it('derives modified and added files with their session patch', () => {
-    expect(mapWorkbenchChanges(events)).toEqual(expect.arrayContaining([
-      expect.objectContaining({ path: 'components/chat/UnifiedChat.tsx', status: 'modified' }),
-      expect.objectContaining({ path: 'components/messages/workbench/AgentWorkbenchRail.tsx', status: 'added' }),
-    ]))
-    expect(mapWorkbenchChanges(events)[0]?.patch).toContain('@@')
-  })
-
-  it('builds a useful read-only file tree and keeps observed file previews', () => {
-    const tree = buildWorkbenchFileTree(events, { mappedRootLabel: 'Partners in Biz' })
-    expect(tree.label).toBe('Partners in Biz')
-    expect(JSON.stringify(tree)).toContain('UnifiedChat.tsx')
-    expect(JSON.stringify(tree)).toContain('export default function UnifiedChat() {}')
-    expect(JSON.stringify(tree)).toContain('AgentWorkbenchRail.tsx')
-  })
-
-  it('extracts safe agent-reported browser URLs', () => {
-    expect(mapWorkbenchUrls(events)).toEqual([
-      expect.objectContaining({ url: 'https://preview.example.com/workbench' }),
+  it('builds a nested file tree from observed file activity', () => {
+    const tree = buildWorkbenchFileTree([
+      event({ tool: 'read_file', input: 'components/chat/UnifiedChat.tsx', output: 'source' }),
+      event({ tool: 'write_file', input: 'lib/messages/workbench/state.ts', output: 'ok' }),
     ])
+
+    expect(tree.map((node) => node.name)).toEqual(['components', 'lib'])
+    expect(tree[0].children?.[0].children?.[0]).toMatchObject({ name: 'UnifiedChat.tsx', kind: 'file' })
+  })
+
+  it('maps V4A patches to changed files with diff previews', () => {
+    const patch = '*** Begin Patch\n*** Update File: components/chat/UnifiedChat.tsx\n@@\n-old\n+new\n*** End Patch'
+    const changes = buildWorkbenchChanges([event({ tool: 'patch', input: patch, output: 'Done!' })])
+
+    expect(changes).toEqual([expect.objectContaining({ path: 'components/chat/UnifiedChat.tsx', status: 'modified', patch: expect.stringContaining('+new') })])
+  })
+
+  it('extracts browser targets from event URLs', () => {
+    expect(buildWorkbenchBrowserTargets([event({ tool: 'terminal', output: 'Preview: https://preview.example.test/app' })]))
+      .toEqual([expect.objectContaining({ url: 'https://preview.example.test/app', source: 'event' })])
   })
 })
