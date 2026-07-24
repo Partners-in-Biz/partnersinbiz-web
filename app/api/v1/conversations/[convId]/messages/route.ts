@@ -833,7 +833,7 @@ export const POST = withAuth(
           if (!cancelled.won) {
             return apiSuccess({ message, assistantMessage: { ...assistantMessage, runId: queued.jobId, dispatchAgentId: agentId, status: cancelled.status }, runId: queued.jobId, dispatchAgentId: agentId }, 201)
           }
-          const error = 'The linked computer did not accept the run before the secure dispatch timeout.'
+          const error = 'The linked computer did not accept the run in time. It may be restarting, offline, or busy — confirm the selected computer is online and retry in a few seconds.'
           await messagesCollection(convId).doc(assistantMessage.id).update({ content: '', status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_claim_timeout' })
           return apiSuccess({ message, assistantMessage: { ...assistantMessage, status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_claim_timeout' } }, 201)
         }

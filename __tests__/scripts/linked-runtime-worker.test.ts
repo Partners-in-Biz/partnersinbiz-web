@@ -40,6 +40,57 @@ it('forwards local Hermes SSE tool events while polling run status', async () =>
 })
 it('keeps heartbeats independent from long-running execution and sync pollers',async()=>{let stopped=false;const beat=jest.fn(async()=>{}),wait=jest.fn(async()=>{stopped=true});await heartbeatForever(beat,()=>stopped,60_000,wait);expect(beat).toHaveBeenCalledTimes(1);expect(wait).toHaveBeenCalledWith(60_000)})
 it('keeps an idle execution claim inside the web acceptance window',()=>{expect(linkedRunPollDelay(30_000,()=>0.999)).toBeLessThanOrEqual(2_000)})
+it('surfaces concrete Hermes start and terminal failure details', async () => {
+  const startFail = jest.fn(async () => new Response(JSON.stringify({ error: 'provider quota exhausted' }), { status: 503 })) as any
+  await expect(callLocalHermes(
+    'sales',
+    { prompt: 'p', working_directory: '/tmp' },
+    { PIB_LOCAL_HERMES_ROUTES: JSON.stringify({ sales: { baseUrl: 'http://127.0.0.1:8673', apiKey: 'k' } }) },
+    startFail,
+  )).rejects.toThrow(/sales.*503.*provider quota exhausted/i)
+
+  const terminalFail = jest.fn(async (url: any) => {
+    const target = String(url)
+    if (target.endsWith('/v1/runs')) return new Response(JSON.stringify({ run_id: 'run-fail' }), { status: 200 })
+    return new Response(JSON.stringify({ status: 'failed', error: 'model refused tools' }), { status: 200 })
+  }) as any
+  await expect(callLocalHermes(
+    'sales',
+    { prompt: 'p', working_directory: '/tmp' },
+    { PIB_LOCAL_HERMES_ROUTES: JSON.stringify({ sales: { baseUrl: 'http://127.0.0.1:8673', apiKey: 'k' } }) },
+    terminalFail,
+    async () => undefined,
+  )).rejects.toThrow(/Local Hermes sales model refused tools/)
+})
+
+it('propagates Hermes error text into the linked-run completion payload', async () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'worker-err-'))
+  const root = path.join(d, 'root')
+  fs.mkdirSync(root)
+  const maps = new MappingRegistry(path.join(d, 'maps'))
+  maps.map('m', root)
+  const k = generateKeyPairSync('ed25519')
+  const posts: any[] = []
+  const post = jest.fn(async (p: string, b: any) => {
+    posts.push([p, b])
+    return new Response('', { status: 200 })
+  })
+  const hermes = jest.fn(async () => {
+    throw new Error('Local Hermes sales refused to start (HTTP 503: provider quota exhausted)')
+  })
+  const result = await executeJob(
+    { jobId: 'j', requestId: 'r', prompt: 'p', workspaceId: 'w', projectId: 'p', mappingId: 'm', relativeFolder: '', attempt: 1, leaseToken: 'lease' },
+    { deviceId: 'd', credentialVersion: 1, privateKey: k.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() },
+    maps,
+    post,
+    hermes,
+  )
+  expect(result.status).toBe('failed')
+  expect(result.error).toMatch(/provider quota exhausted/)
+  const complete = posts.find(([p]) => String(p).endsWith('/complete'))
+  expect(complete?.[1].error).toMatch(/provider quota exhausted/)
+})
+
 it('runs a claimed job only in its contained mapping and retries an output-bound signed completion',async()=>{const d=fs.mkdtempSync(path.join(os.tmpdir(),'worker-')),root=path.join(d,'root');fs.mkdirSync(root);const maps=new MappingRegistry(path.join(d,'maps'));maps.map('m',root);const k=generateKeyPairSync('ed25519'),calls:any[]=[];let completes=0;const post=jest.fn(async(p:string,b:any)=>{calls.push([p,b]);if(p.endsWith('/complete')&&completes++===0)return new Response('',{status:503});return new Response('',{status:200})});const hermes=jest.fn(async b=>({ok:true,cwd:b.working_directory}));const result=await executeJob({jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'p',mappingId:'m',relativeFolder:'',attempt:2,leaseToken:'lease-token-123'},{deviceId:'d',credentialVersion:2,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()},maps,post,hermes);expect(hermes).toHaveBeenCalledWith(expect.objectContaining({working_directory:fs.realpathSync(root)}), expect.any(Object));expect(completes).toBe(2);expect(result.receipt).toEqual(expect.objectContaining({attempt:2,leaseToken:'lease-token-123',event:'completed',outputBytes:Buffer.byteLength(result.output)}));expect(result.receipt.signature).toBeTruthy();expect(calls[0][1].receipt.event).toBe('accepted')})
 
 it('honours an absolute company Cowork sibling workingDirectory outside the org mapping root',async()=>{const d=fs.mkdtempSync(path.join(os.tmpdir(),'worker-cowork-')),partners=path.join(d,'Partners in Biz'),hunt=path.join(d,'Hunt and Gun');fs.mkdirSync(partners);fs.mkdirSync(hunt);const maps=new MappingRegistry(path.join(d,'maps'));maps.map('m',partners);const k=generateKeyPairSync('ed25519');const post=jest.fn(async()=>new Response('',{status:200}));const hermes=jest.fn(async b=>({ok:true,cwd:b.working_directory}));await executeJob({jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'',mappingId:'m',relativeFolder:'.',workingDirectory:hunt,attempt:1,leaseToken:'lease'},{deviceId:'d',credentialVersion:1,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()},maps,post,hermes);expect(hermes).toHaveBeenCalledWith(expect.objectContaining({working_directory:fs.realpathSync(hunt)}), expect.any(Object))})

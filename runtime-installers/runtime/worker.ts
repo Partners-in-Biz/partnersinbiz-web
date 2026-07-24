@@ -59,7 +59,7 @@ function receipt(
     timestamp: new Date().toISOString(),
     acceptedAt,
     toolStartedAt,
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.5',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.6',
     machineLabel: os.hostname(),
     outputSha256: digest(output),
     outputBytes: Buffer.byteLength(output),
@@ -129,7 +129,7 @@ export async function executeJob(
           eventFlush = eventFlush.then(async () => {
             const response = await post(`/runs/${job.jobId}/progress`, {
               receipt: receipt(job, device, 'progress', 'running', acceptedAt, toolStartedAt, '', ''),
-              events,
+              events: events as JSONValue[],
             })
             if (!response.ok && response.status !== 409) leaseError = new Error('event progress rejected')
           }).catch(() => {
@@ -139,9 +139,14 @@ export async function executeJob(
       },
     )
     output = typeof result === 'string' ? result : JSON.stringify(result) ?? 'null'
-  } catch {
+  } catch (err) {
     status = 'failed'
-    error = 'Local Hermes execution failed'
+    const message = err instanceof Error ? err.message.replace(/\s+/g, ' ').trim() : ''
+    error = message && message.length <= 400
+      ? message
+      : message
+        ? `${message.slice(0, 399)}…`
+        : 'Local Hermes execution failed'
   } finally {
     clearInterval(timer)
     await renewal
