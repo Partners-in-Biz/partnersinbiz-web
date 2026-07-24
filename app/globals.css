@@ -785,8 +785,15 @@
   }
 
   /* Icon tint chip — a rounded-square icon holder that carries the module's
-     signature hue. The standard way to add colour to cards and list rows. */
-  .pib-icon-tint {
+     signature hue. The standard way to add colour to cards and list rows.
+     Every colour variant includes the same layout so using only
+     `pib-icon-tint-rose` (etc.) still centers the glyph and keeps radius. */
+  .pib-icon-tint,
+  .pib-icon-tint-violet,
+  .pib-icon-tint-green,
+  .pib-icon-tint-blue,
+  .pib-icon-tint-cyan,
+  .pib-icon-tint-rose {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -794,6 +801,8 @@
     height: 2.25rem;
     flex: 0 0 auto;
     border-radius: 10px;
+  }
+  .pib-icon-tint {
     background: var(--color-pib-accent-soft);
     color: var(--color-pib-accent-hover);
   }

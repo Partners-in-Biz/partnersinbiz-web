@@ -248,7 +248,7 @@ export default function ParticipantPicker({ orgId, onSelect, className = '', sho
                     onChange={() => toggleContact(contact)}
                     className="sr-only"
                   />
-                  <div className="w-7 h-7 rounded-full pib-icon-tint-blue flex items-center justify-center text-xs font-bold shrink-0">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-blue-soft)] text-xs font-bold text-[#93C5FD]">
                     {inits || '?'}
                   </div>
                   <div className="flex-1 min-w-0">
