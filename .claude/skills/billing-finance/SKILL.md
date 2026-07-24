@@ -175,7 +175,7 @@ Cancels the active/paused recurring schedule for this invoice by setting `status
 ### Invoice actions — send + status
 
 #### `POST /invoices/[id]/send` — auth: admin
-Generates `publicToken` if absent, sets `status: 'sent'`, `sentAt`. Emails `clientDetails.email` with the public view URL + PDF link.
+Generates `publicToken` if absent, sets `status: 'sent'`, `sentAt`. Emails `clientDetails.email` with the public view URL **and a PDF attachment**. Requires a client email. Returns `{ id, status, emailed, recipientEmail }`.
 
 Dispatches `invoice.sent` webhook.
 
@@ -530,7 +530,7 @@ When the run happens inside Messages, after `POST /invoices` (or after a meaning
 }
 ```
 
-Messages treats `open_context` with `{ kind: "invoice", id }` as attach-and-open. The Context Dock renders the print-friendly invoice layout (same HTML as the portal preview). Still include the admin/portal invoice URL in the message text. Do **not** auto-send; wait for human review before `POST /invoices/[id]/send`.
+Messages treats `open_context` with `{ kind: "invoice", id }` as attach-and-open. The Context Dock renders the print-friendly invoice layout (same HTML as the portal preview) with **Download PDF** and **Send email** (PDF attachment to the client email). Still include the admin/portal invoice URL in the message text. Do **not** auto-send; wait for human review before `POST /invoices/[id]/send` (or use the dock Send button).
 
 For dry-run totals before create, still use `POST /invoices/preview`. Once the invoice exists, prefer `open_context` over pasting raw HTML.
 

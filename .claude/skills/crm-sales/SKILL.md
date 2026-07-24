@@ -357,6 +357,12 @@ Full quote.
 #### `GET /quotes/[id]/html` — auth: viewer
 Returns print-friendly quote HTML (invoice layout with the quote number) for Messages Context Dock preview.
 
+#### `GET /quotes/[id]/pdf` — auth: viewer
+Returns a PDF binary of the quote (same layout as the HTML preview).
+
+#### `POST /quotes/[id]/send` — auth: member (sender)
+Draft → sent. Emails `clientDetails.email` / `recipientEmail` with the quote PDF attached. Requires a client email. Returns `{ id, status, emailed, recipientEmail }`.
+
 #### `PATCH /quotes/[id]` — auth: member
 Update fields. Status transitions: `draft` → `sent` → `accepted` | `rejected` | `converted`.
 - On `status=accepted`: dispatches `quote.accepted`
@@ -379,7 +385,7 @@ When creating or preparing a quote inside Messages, emit `open_context` so the h
 }
 ```
 
-Messages attaches the quote and opens the side canvas with the same HTML preview used by the portal. Still link `/admin/quotes/[id]` (or the portal quotes workspace) for full edit/send/convert flows. Do not convert or send until the human confirms.
+Messages attaches the quote and opens the side canvas with the same HTML preview used by the portal, plus **Download PDF** and **Send email** (PDF attachment) actions for drafts. Still link `/admin/quotes/[id]` (or the portal quotes workspace) for full edit/convert flows. Do not convert until the human confirms.
 
 ### AI Contact Brief
 

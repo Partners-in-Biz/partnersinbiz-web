@@ -13,6 +13,7 @@ export type WebhookEvent =
   | 'invoice.paid'
   | 'invoice.overdue'
   | 'quote.created'
+  | 'quote.sent'
   | 'quote.accepted'
   | 'quote.rejected'
   | 'contact.created'
@@ -39,6 +40,7 @@ export const VALID_WEBHOOK_EVENTS: WebhookEvent[] = [
   'invoice.paid',
   'invoice.overdue',
   'quote.created',
+  'quote.sent',
   'quote.accepted',
   'quote.rejected',
   'contact.created',

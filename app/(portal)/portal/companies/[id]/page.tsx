@@ -1488,32 +1488,40 @@ function InvoicesPanel({
                   {editingInvoiceId === invoice.id ? (
                   <tr key={`${invoice.id}-editor`}>
                     <td colSpan={5} className="bg-[var(--color-pib-surface-soft)] px-5 py-4">
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="text-xs text-[var(--color-pib-text-muted)]">Due date
-                          <input type="date" value={draftForm.dueDate} onChange={(event) => setDraftForm((current) => ({ ...current, dueDate: event.target.value }))} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] mt-1" />
-                        </label>
-                        <label className="text-xs text-[var(--color-pib-text-muted)]">Tax rate
-                          <input type="number" min="0" max="100" value={draftForm.taxRate} onChange={(event) => setDraftForm((current) => ({ ...current, taxRate: event.target.value }))} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] mt-1" />
-                        </label>
-                        <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Line item description
-                          <input value={draftForm.description} onChange={(event) => setDraftForm((current) => ({ ...current, description: event.target.value }))} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] mt-1" />
-                        </label>
-                        <label className="text-xs text-[var(--color-pib-text-muted)]">Quantity
-                          <input type="number" min="1" value={draftForm.quantity} onChange={(event) => setDraftForm((current) => ({ ...current, quantity: event.target.value }))} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] mt-1" />
-                        </label>
-                        <label className="text-xs text-[var(--color-pib-text-muted)]">Unit price
-                          <input type="number" min="0" step="0.01" value={draftForm.unitPrice} onChange={(event) => setDraftForm((current) => ({ ...current, unitPrice: event.target.value }))} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] mt-1" />
-                        </label>
-                        <label className="text-xs text-[var(--color-pib-text-muted)] sm:col-span-2">Notes
-                          <textarea value={draftForm.notes} onChange={(event) => setDraftForm((current) => ({ ...current, notes: event.target.value }))} className="rounded-md border border-[var(--color-pib-line)] bg-transparent p-2 text-xs text-[var(--color-pib-text)] mt-1" rows={2} />
-                        </label>
-                      </div>
-                      {editError ? <p className="mt-3 text-xs text-red-300">{editError}</p> : null}
-                      <div className="mt-3 flex justify-end gap-2">
-                        <button type="button" onClick={() => setEditingInvoiceId(null)} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]">Cancel</button>
-                        <button type="button" onClick={() => saveDraftInvoice(invoice)} disabled={savingInvoiceId === invoice.id} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 disabled:opacity-60">
-                          {savingInvoiceId === invoice.id ? 'Saving...' : 'Save draft invoice'}
-                        </button>
+                      <div className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 space-y-4">
+                        <div>
+                          <p className="text-sm font-medium text-[var(--color-pib-text)]">Edit draft invoice</p>
+                          <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+                            Update due date, tax, line item, and notes before sending.
+                          </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="pib-label block">Due date
+                            <input type="date" value={draftForm.dueDate} onChange={(event) => setDraftForm((current) => ({ ...current, dueDate: event.target.value }))} className="pib-input mt-1 w-full" />
+                          </label>
+                          <label className="pib-label block">Tax rate
+                            <input type="number" min="0" max="100" value={draftForm.taxRate} onChange={(event) => setDraftForm((current) => ({ ...current, taxRate: event.target.value }))} className="pib-input mt-1 w-full" />
+                          </label>
+                          <label className="pib-label block sm:col-span-2">Line item description
+                            <input value={draftForm.description} onChange={(event) => setDraftForm((current) => ({ ...current, description: event.target.value }))} className="pib-input mt-1 w-full" />
+                          </label>
+                          <label className="pib-label block">Quantity
+                            <input type="number" min="1" value={draftForm.quantity} onChange={(event) => setDraftForm((current) => ({ ...current, quantity: event.target.value }))} className="pib-input mt-1 w-full" />
+                          </label>
+                          <label className="pib-label block">Unit price
+                            <input type="number" min="0" step="0.01" value={draftForm.unitPrice} onChange={(event) => setDraftForm((current) => ({ ...current, unitPrice: event.target.value }))} className="pib-input mt-1 w-full" />
+                          </label>
+                          <label className="pib-label block sm:col-span-2">Notes
+                            <textarea value={draftForm.notes} onChange={(event) => setDraftForm((current) => ({ ...current, notes: event.target.value }))} className="pib-textarea mt-1 w-full" rows={3} />
+                          </label>
+                        </div>
+                        {editError ? <p className="text-xs text-red-300">{editError}</p> : null}
+                        <div className="flex justify-end gap-2">
+                          <button type="button" onClick={() => setEditingInvoiceId(null)} className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2.5 text-xs text-[var(--color-pib-text-muted)] transition-colors hover:bg-[var(--color-row-hover)] hover:text-[var(--color-pib-text)]">Cancel</button>
+                          <button type="button" onClick={() => saveDraftInvoice(invoice)} disabled={savingInvoiceId === invoice.id} className="h-8 rounded-md bg-[var(--color-accent-v2)] px-3 text-xs font-medium text-black transition-colors hover:opacity-90 disabled:opacity-60">
+                            {savingInvoiceId === invoice.id ? 'Saving...' : 'Save draft invoice'}
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>

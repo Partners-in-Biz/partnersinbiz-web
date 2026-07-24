@@ -4,10 +4,10 @@
  * Side effects:
  *  - Sets `status='sent'`, `sentAt=serverTimestamp()`
  *  - Generates a `publicToken` (32-char hex) if not already set
- *  - Emails the invoice to `clientDetails.email` via Resend
+ *  - Emails the invoice to `clientDetails.email` via Resend with PDF attachment
  *  - Logs errors but always returns success if the Firestore update succeeded
  *
- * Auth: admin (ai satisfies).
+ * Auth: client with manage access on the source org (ai/admin satisfy).
  */
 import crypto from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
@@ -20,6 +20,8 @@ import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
 import { canManageOrgAs } from '@/lib/orgMembers/permissions'
+import { renderInvoicePdf } from '@/lib/invoices/pdf-generator'
+import { invoiceLikeFromInvoiceRecord } from '@/lib/invoices/commerce-html'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,6 +47,11 @@ export const POST = withAuth('client', async (req, user, ctx) => {
     return apiError(`Invoice cannot be sent from status '${invoice.status}'`, 400)
   }
 
+  const clientEmail: string | undefined = invoice.clientDetails?.email ?? invoice.recipientEmail
+  if (!clientEmail) {
+    return apiError('Invoice has no client email to send to', 400)
+  }
+
   const publicToken = invoice.publicToken ?? crypto.randomBytes(16).toString('hex')
 
   const updates: Record<string, unknown> = {
@@ -67,45 +74,43 @@ export const POST = withAuth('client', async (req, user, ctx) => {
     entityTitle: invoice.invoiceNumber ?? undefined,
   }).catch(() => {})
 
-  // Email the client — swallow failures, DB update already succeeded.
-  const clientEmail: string | undefined = invoice.clientDetails?.email ?? invoice.recipientEmail
-  if (clientEmail) {
-    try {
-      const invoiceNumber: string = invoice.invoiceNumber ?? id
-      const total = new Intl.NumberFormat('en', {
-        style: 'currency',
-        currency: invoice.currency ?? 'USD',
-      }).format(invoice.total ?? 0)
-      const dueDate = invoice.dueDate?._seconds
-        ? new Date(invoice.dueDate._seconds * 1000).toLocaleDateString('en-ZA', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })
-        : 'N/A'
-      const viewUrl = `${PUBLIC_BASE_URL}/invoice/${publicToken}`
-      const html = invoiceSentEmail(
-        invoiceNumber,
-        total,
-        dueDate,
-        invoice.clientDetails?.name ?? 'there',
-        viewUrl,
-      )
-      const pdfUrl = `${PUBLIC_BASE_URL}/api/v1/invoices/${id}/pdf`
-      const htmlWithPdf = html.replace(
-        '</a>',
-        `</a><p style="color:rgba(255,255,255,0.4); font-size:11px; margin-top:12px;">Download PDF: <a href="${pdfUrl}" style="color:#F59E0B;">${pdfUrl}</a></p>`,
-      )
+  let emailed = false
+  try {
+    const invoiceNumber: string = invoice.invoiceNumber ?? id
+    const total = new Intl.NumberFormat('en', {
+      style: 'currency',
+      currency: invoice.currency ?? 'USD',
+    }).format(invoice.total ?? 0)
+    const dueDate = invoice.dueDate?._seconds
+      ? new Date(invoice.dueDate._seconds * 1000).toLocaleDateString('en-ZA', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      : 'N/A'
+    const viewUrl = `${PUBLIC_BASE_URL}/invoice/${publicToken}`
+    const html = invoiceSentEmail(
+      invoiceNumber,
+      total,
+      dueDate,
+      invoice.clientDetails?.name ?? 'there',
+      viewUrl,
+    )
+    const pdfBuffer = await renderInvoicePdf(invoiceLikeFromInvoiceRecord(invoice as Record<string, unknown>, id))
 
-      await getResendClient().emails.send({
-        from: FROM_ADDRESS,
-        to: clientEmail,
-        subject: `Invoice ${invoiceNumber}`,
-        html: htmlWithPdf,
-      })
-    } catch (err) {
-      console.error('[invoices/send] email failed:', err)
-    }
+    await getResendClient().emails.send({
+      from: FROM_ADDRESS,
+      to: clientEmail,
+      subject: `Invoice ${invoiceNumber}`,
+      html,
+      attachments: [{
+        filename: `${invoiceNumber}.pdf`,
+        content: pdfBuffer,
+      }],
+    })
+    emailed = true
+  } catch (err) {
+    console.error('[invoices/send] email failed:', err)
   }
 
   const orgId: string | undefined = invoice.orgId
@@ -116,7 +121,7 @@ export const POST = withAuth('client', async (req, user, ctx) => {
         invoiceNumber: invoice.invoiceNumber ?? id,
         total: invoice.total,
         currency: invoice.currency ?? 'USD',
-        clientEmail: invoice.clientDetails?.email ?? null,
+        clientEmail: clientEmail ?? null,
         dueDate: invoice.dueDate ?? null,
         publicViewUrl: `${PUBLIC_BASE_URL}/invoice/${publicToken}`,
       })
@@ -125,5 +130,5 @@ export const POST = withAuth('client', async (req, user, ctx) => {
     }
   }
 
-  return apiSuccess({ id, status: 'sent', sentAt: new Date().toISOString() })
+  return apiSuccess({ id, status: 'sent', sentAt: new Date().toISOString(), emailed, recipientEmail: clientEmail })
 })

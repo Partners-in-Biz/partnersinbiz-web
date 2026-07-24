@@ -242,18 +242,36 @@ it('renders a social platform preview card in the context dock', async () => {
 })
 
 it.each([
-  ['invoice', 'context-invoice-preview', 'Invoice document preview', '/api/v1/invoices/inv-1/html', 'INV-100'],
-  ['quote', 'context-quote-preview', 'Quote document preview', '/api/v1/quotes/quote-1/html', 'Q-200'],
-] as const)('renders %s HTML preview in the context dock', async (kind, testId, label, path, number) => {
+  ['invoice', 'context-invoice-preview', 'Invoice document preview', '/api/v1/invoices/inv-1/html', 'INV-100', '/api/v1/invoices/inv-1'],
+  ['quote', 'context-quote-preview', 'Quote document preview', '/api/v1/quotes/quote-1/html', 'Q-200', '/api/v1/quotes/quote-1'],
+] as const)('renders %s HTML preview with download and send actions', async (kind, testId, label, path, number, metaPath) => {
   global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
-    expect(url).toContain(path)
     expect(url).toContain('orgId=o1')
     expect((init?.headers as Record<string, string>)?.['X-Org-Id']).toBe('o1')
-    return {
-      ok: true,
-      text: async () => `<!DOCTYPE html><html><body><div class="invoice-number">${number}</div></body></html>`,
-    } as Response
+    if (url.includes(path)) {
+      return {
+        ok: true,
+        text: async () => `<!DOCTYPE html><html><body><div class="invoice-number">${number}</div></body></html>`,
+      } as Response
+    }
+    if (url.includes('/pdf')) {
+      return {
+        ok: true,
+        blob: async () => new Blob(['%PDF'], { type: 'application/pdf' }),
+      } as Response
+    }
+    if (url.includes(metaPath) && !url.includes('/html') && !url.includes('/pdf') && !url.includes('/send')) {
+      return {
+        ok: true,
+        json: async () => ({
+          data: kind === 'invoice'
+            ? { invoiceNumber: number, status: 'draft', clientDetails: { email: 'client@example.com', name: 'Client' } }
+            : { quote: { quoteNumber: number, status: 'draft', clientDetails: { email: 'client@example.com', name: 'Client' } } },
+        }),
+      } as Response
+    }
+    throw new Error(`Unexpected fetch ${url}`)
   }) as jest.Mock
 
   render(<ContextDock
@@ -278,6 +296,8 @@ it.each([
   expect(screen.getByRole('region', { name: label })).toBeInTheDocument()
   expect(screen.getByTitle(`${kind === 'invoice' ? 'Invoice' : 'Quote'} preview`)).toBeInTheDocument()
   expect(screen.queryByRole('region', { name: 'Context overview' })).not.toBeInTheDocument()
+  expect(await screen.findByRole('button', { name: 'Download PDF' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Send email' })).toBeInTheDocument()
 })
 
 it('uses a genuinely modal bottom sheet in compact chat and marks the active artifact accessibly', () => {
