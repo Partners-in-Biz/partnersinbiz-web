@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import AgentWorkbenchRail from '@/components/messages/workbench/AgentWorkbenchRail'
-import { WorkbenchBrowserPanel } from '@/components/messages/workbench/WorkbenchBrowserPanel'
+import { formatDesignAnnotation, WorkbenchBrowserPanel } from '@/components/messages/workbench/WorkbenchBrowserPanel'
 import type { WorkbenchFilePreview, WorkbenchFilesSource, WorkbenchTab } from '@/lib/messages/workbench/types'
 
 function Harness({ mapped = true, liveTree = false }: { mapped?: boolean; liveTree?: boolean }) {
@@ -80,12 +80,12 @@ describe('AgentWorkbenchRail', () => {
 describe('WorkbenchBrowserPanel security boundary', () => {
   it('does not auto-load an observed URL and requires an explicit external-open preparation', () => {
     render(<WorkbenchBrowserPanel targets={[{ id: 'target', url: 'https://public-preview.example.test/app', title: 'Observed preview', source: 'event' }]} />)
-    expect(screen.queryByRole('link', { name: 'Open observed URL' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open preview in new tab' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByText('Observed preview'))
-    expect(screen.queryByRole('link', { name: 'Open observed URL' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open preview in new tab' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Prepare' }))
-    expect(screen.getByRole('link', { name: 'Open observed URL' })).toHaveAttribute('href', 'https://public-preview.example.test/app')
-    expect(screen.getByRole('link', { name: 'Open observed URL' })).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(screen.getByRole('link', { name: 'Open preview in new tab' })).toHaveAttribute('href', 'https://public-preview.example.test/app')
+    expect(screen.getByRole('link', { name: 'Open preview in new tab' })).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
   it('does not auto-load an observed screenshot artifact', () => {
@@ -116,5 +116,63 @@ describe('WorkbenchBrowserPanel security boundary', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Prepare' }))
     expect(screen.getByRole('alert')).toHaveTextContent(/private-network/)
     expect(screen.queryByRole('link', { name: 'Open observed URL' })).not.toBeInTheDocument()
+  })
+
+  it('starts an explicit screenshot stream and follows the newest agent frame', () => {
+    const first = { id: 'frame-1', imageUrl: 'https://cdn.example.test/frame-1.png', title: 'Browser frame 1', source: 'event' as const }
+    const { rerender } = render(<WorkbenchBrowserPanel targets={[first]} />)
+
+    expect(screen.queryByRole('img', { name: 'Browser frame 1' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Start live stream' }))
+    expect(screen.getByRole('img', { name: 'Browser frame 1' })).toHaveAttribute('src', first.imageUrl)
+
+    const second = { id: 'frame-2', imageUrl: 'https://cdn.example.test/frame-2.png', title: 'Browser frame 2', source: 'event' as const }
+    rerender(<WorkbenchBrowserPanel targets={[first, second]} />)
+
+    expect(screen.getByRole('img', { name: 'Browser frame 2' })).toHaveAttribute('src', second.imageUrl)
+    expect(screen.getByText('Live · 2 frames')).toBeInTheDocument()
+  })
+
+  it('embeds an explicitly prepared public preview in a sandboxed iframe', () => {
+    render(<WorkbenchBrowserPanel targets={[]} />)
+    fireEvent.change(screen.getByLabelText('Browser target URL'), { target: { value: 'https://preview.example.test/app' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare' }))
+
+    const preview = screen.getByTitle('Local app preview')
+    expect(preview).toHaveAttribute('src', 'https://preview.example.test/app')
+    expect(preview).toHaveAttribute('sandbox', 'allow-forms allow-modals allow-popups allow-scripts')
+    expect(screen.getByRole('link', { name: 'Open preview in new tab' })).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it('captures a Design Mode point and injects a formatted note into chat without sending it', () => {
+    const onAddToChat = jest.fn()
+    render(<WorkbenchBrowserPanel
+      targets={[{ id: 'frame', imageUrl: 'https://cdn.example.test/frame.png', title: 'Pricing page', source: 'event' }]}
+      onAddToChat={onAddToChat}
+    />)
+    fireEvent.click(screen.getByText('Pricing page'))
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Enable Design Mode' }))
+
+    const overlay = screen.getByLabelText('Design Mode canvas')
+    jest.spyOn(overlay, 'getBoundingClientRect').mockReturnValue({
+      x: 10, y: 20, left: 10, top: 20, right: 210, bottom: 120, width: 200, height: 100, toJSON: () => ({}),
+    })
+    fireEvent.click(overlay, { clientX: 60, clientY: 70 })
+    fireEvent.change(screen.getByLabelText('Design annotation'), { target: { value: 'Align this CTA with the price card.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add annotation to chat' }))
+
+    expect(onAddToChat).toHaveBeenCalledWith(expect.stringContaining('Align this CTA with the price card.'))
+    expect(onAddToChat).toHaveBeenCalledWith(expect.stringContaining('Point: 25%, 50%'))
+  })
+
+  it('formats Design Mode annotations as bounded plain text', () => {
+    expect(formatDesignAnnotation({
+      title: 'Pricing page',
+      url: 'https://preview.example.test/pricing',
+      xPct: 25,
+      yPct: 50,
+      note: '  Tighten this copy.  ',
+    })).toBe('[Design note]\nTarget: Pricing page\nURL: https://preview.example.test/pricing\nPoint: 25%, 50%\nFeedback: Tighten this copy.')
   })
 })

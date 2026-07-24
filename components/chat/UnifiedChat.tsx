@@ -3362,6 +3362,17 @@ export default function UnifiedChat({
     })
   }, [])
 
+  const addWorkbenchNoteToComposer = useCallback((text: string) => {
+    const cleaned = text.trim()
+    if (!cleaned) return
+    setInput((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${cleaned}\n\n` : `${cleaned}\n\n`))
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      const length = composerRef.current?.value.length ?? 0
+      composerRef.current?.setSelectionRange(length, length)
+    })
+  }, [])
+
   const updateMentionFromComposer = useCallback((value: string, caret = value.length) => {
     const mention = findActiveContextMention(value, caret)
     const typePrompt = mention ? null : findActiveContextTypePrompt(value, caret)
@@ -5628,6 +5639,7 @@ export default function UnifiedChat({
           changesSource={workbenchLiveChanges !== null ? 'live' : workbenchEventChanges.length > 0 ? 'events' : 'none'}
           onRefreshChanges={loadWorkbenchChanges}
           browserTargets={workbenchBrowserTargets}
+          onAddBrowserNoteToChat={addWorkbenchNoteToComposer}
           compact={compact}
           onRunTerminalCommand={runWorkbenchTerminalCommand}
           onClearTerminal={clearWorkbenchLocalTerminal}

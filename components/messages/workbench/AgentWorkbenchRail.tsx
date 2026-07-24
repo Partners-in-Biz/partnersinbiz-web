@@ -86,6 +86,8 @@ export interface AgentWorkbenchRailProps {
   changesSource?: 'live' | 'events' | 'none'
   onRefreshChanges?: () => void
   browserTargets: WorkbenchBrowserTarget[]
+  /** Adds a Browser Design Mode note to the active chat composer without sending it. */
+  onAddBrowserNoteToChat?: (text: string) => void
   compact?: boolean
   /** Runs an allowlisted terminal command (git status/diff, ls, pwd) against the linked computer. */
   onRunTerminalCommand?: (command: string) => void
@@ -142,6 +144,7 @@ export function AgentWorkbenchRail({
   changesSource = 'none',
   onRefreshChanges,
   browserTargets,
+  onAddBrowserNoteToChat,
   compact = false,
   onRunTerminalCommand,
   onClearTerminal,
@@ -338,7 +341,9 @@ export function AgentWorkbenchRail({
             running={terminalRunning}
           />
         )}
-        {activeTabMeta.id === 'browser' && <WorkbenchBrowserPanel targets={browserTargets} />}
+        {activeTabMeta.id === 'browser' && (
+          <WorkbenchBrowserPanel targets={browserTargets} onAddToChat={onAddBrowserNoteToChat} />
+        )}
         {activeTabMeta.id === 'changes' && (
           <WorkbenchChangesPanel
             changes={changes}
