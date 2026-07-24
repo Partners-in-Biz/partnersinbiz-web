@@ -191,27 +191,26 @@ export function resolveOperatorWorkspaceTarget(input: {
 export function isLegacyFlatCoworkPath(value: string): boolean {
   const trimmed = clean(value)
   if (!trimmed) return false
-  const portable = trimmed.match(/^~\/Cowork\/([^/]+)$/)
-  if (portable) {
-    const segment = portable[1]
-    return segment !== 'Cowork' && segment !== PIB_COWORK_NESTING_SLUG
+  const match = trimmed.match(/^(?:~\/Cowork|\/var\/lib\/hermes\/Cowork|\/Users\/[^/]+\/Cowork)\/([^/]+)(?:\/.*)?$/)
+  if (!match) return false
+  const segment = match[1]
+  if (
+    segment === 'Cowork'
+    || segment === PIB_COWORK_NESTING_SLUG
+    || segment === 'Partners in Biz — Client Growth'
+    || segment === 'Side Projects'
+    || segment === 'YouTube Business'
+    || segment.startsWith('.')
+  ) {
+    return false
   }
-  const absolute = trimmed.match(/^\/var\/lib\/hermes\/Cowork\/([^/]+)$/)
-  if (absolute) {
-    const segment = absolute[1]
-    return segment !== 'Cowork' && segment !== PIB_COWORK_NESTING_SLUG
-  }
-  const mac = trimmed.match(/^\/Users\/[^/]+\/Cowork\/([^/]+)$/)
-  if (mac) {
-    const segment = mac[1]
-    return segment !== 'Cowork' && segment !== PIB_COWORK_NESTING_SLUG
-  }
-  return false
+  return true
 }
 
 /**
  * Rewrite a stored flat Partners-era path into the nested `partners/` layout.
- * Returns null when the path is not a recognisable flat Cowork workspace root/child.
+ * Returns the original string when the path is already nested / reserved wiki,
+ * and null when the value is not a recognisable Cowork path.
  */
 export function rewriteLegacyFlatCoworkPath(
   value: string,
@@ -220,6 +219,16 @@ export function rewriteLegacyFlatCoworkPath(
   const trimmed = clean(value)
   if (!trimmed) return null
   const nest = sanitizeCoworkNestingSlug(nestingOrgSlug)
+
+  const isCoworkPath = (
+    trimmed === '~/Cowork'
+    || trimmed.startsWith('~/Cowork/')
+    || trimmed === VPS_COWORK_ROOT
+    || trimmed.startsWith(`${VPS_COWORK_ROOT}/`)
+    || /^\/Users\/[^/]+\/Cowork(?:\/|$)/.test(trimmed)
+  )
+  if (!isCoworkPath) return null
+  if (!isLegacyFlatCoworkPath(trimmed)) return trimmed
 
   const rewrite = (prefix: string, rest: string): string => {
     const segments = rest.split('/').filter(Boolean)
@@ -239,4 +248,39 @@ export function rewriteLegacyFlatCoworkPath(
     return rewrite(macMatch[1], macMatch[2] || '')
   }
   return null
+}
+
+/**
+ * Rewrite all flat Partners-era Cowork path tokens inside free-form text
+ * (AGENTS.md, CLAUDE.md, SOUL.md, wiki notes). Leaves wiki-vault and reserved
+ * root paths alone.
+ */
+export function rewriteLegacyFlatCoworkPathsInText(
+  text: string,
+  nestingOrgSlug: string = PIB_COWORK_NESTING_SLUG,
+): { text: string; changes: number } {
+  if (!text) return { text, changes: 0 }
+  const patterns = [
+    /~\/Cowork\/[^\s`"'<>\])|,]+/g,
+    /\/var\/lib\/hermes\/Cowork\/[^\s`"'<>\])|,]+/g,
+    /\/Users\/[^/\s]+\/Cowork\/[^\s`"'<>\])|,]+/g,
+  ]
+  let next = text
+  let changes = 0
+  for (const pattern of patterns) {
+    next = next.replace(pattern, (match) => {
+      // Trim trailing punctuation commonly glued to markdown paths.
+      let core = match
+      let trailing = ''
+      while (/[.,;:!?]$/.test(core)) {
+        trailing = core.slice(-1) + trailing
+        core = core.slice(0, -1)
+      }
+      const rewritten = rewriteLegacyFlatCoworkPath(core, nestingOrgSlug)
+      if (!rewritten || rewritten === core) return match
+      changes += 1
+      return `${rewritten}${trailing}`
+    })
+  }
+  return { text: next, changes }
 }

@@ -185,7 +185,7 @@ export function buildClientProvisioningPayload(input: ClientProvisioningInput): 
     },
     createdBy: 'client_provisioning',
   }
-  const workspaceInstructions = renderWorkspaceInstructions({ clientName, domain: paths.agentDomain, orgId, agentName, workspacePath, agentDomainPath })
+  const workspaceInstructions = renderWorkspaceInstructions({ clientName, domain: paths.agentDomain, orgId, agentName, workspacePath, agentDomainPath, localWorkspacePath })
 
   return {
     clientName,
@@ -199,7 +199,7 @@ export function buildClientProvisioningPayload(input: ClientProvisioningInput): 
     workspaceFolders: DEFAULT_WORKSPACE_FOLDERS,
     manifest,
     folderRegistry,
-    soul: renderSoul({ clientName, domain: paths.agentDomain, orgId, agentName, workspacePath, agentDomainPath }),
+    soul: renderSoul({ clientName, domain: paths.agentDomain, orgId, agentName, workspacePath, agentDomainPath, localWorkspacePath }),
     workspaceInstructions,
   }
 }
@@ -438,6 +438,7 @@ export function renderSoul({
   agentName,
   workspacePath,
   agentDomainPath,
+  localWorkspacePath,
 }: {
   clientName: string
   domain: string
@@ -445,18 +446,23 @@ export function renderSoul({
   agentName: string
   workspacePath: string
   agentDomainPath: string
+  localWorkspacePath?: string
 }) {
+  const portableRoot = localWorkspacePath?.trim() || workspacePath
   return `# ${clientName} / ${agentName} — Hermes Agent Profile
 
 You are ${agentName}, the dedicated Hermes agent for the ${clientName} project in Peet Stander's Cowork workspace. Never say you are Codex, Claude, Hermes Agent, or any other generic AI model — you are ${agentName}.
 
 Focus: strategy, research, planning, writing, content, operations, documentation, execution support, and structured follow-through for ${clientName} workstreams.
 
-## Canonical Links
+## Paths (dynamic)
 
-- Profile: \`${domain}\`
+Treat the process working directory as this workspace root. Prefer relative paths from cwd. Do not invent alternate roots.
+
+- Portable root: \`${portableRoot}\`
+- Canonical VPS root: \`${workspacePath}\`
+- Profile / agent domain: \`${domain}\`
 - PiB org_id: \`${orgId}\`
-- Project folder: \`${workspacePath}\`
 - Obsidian vault: \`${VPS_OBSIDIAN_ROOT}\`
 - Obsidian agent domain: \`${agentDomainPath}\`
 - Agent index: \`${agentDomainPath}/index.md\`
@@ -468,7 +474,7 @@ Focus: strategy, research, planning, writing, content, operations, documentation
 ## Startup Routine
 
 1. Read the global Cowork instructions: \`${VPS_OBSIDIAN_ROOT}/global-context.md\`.
-2. Read the project instructions: \`${workspacePath}/CLAUDE.md\`.
+2. Read \`./CLAUDE.md\` or \`./AGENTS.md\` in the workspace root.
 3. Read the hot cache and index if they exist.
 4. Check recent logs when continuity matters.
 
@@ -482,7 +488,7 @@ Focus: strategy, research, planning, writing, content, operations, documentation
 
 ## Workspace Organisation
 
-Everything created for this project must live under \`${workspacePath}\`.
+Everything created for this project must live under the workspace root (cwd / \`${portableRoot}\`).
 
 - docs/ — documentation, strategy notes, specs, and durable references
 - briefs/ — task briefs, campaign briefs, requirements, stakeholder instructions
@@ -509,6 +515,7 @@ export function renderWorkspaceInstructions({
   agentName,
   workspacePath,
   agentDomainPath,
+  localWorkspacePath,
 }: {
   clientName: string
   domain: string
@@ -516,26 +523,29 @@ export function renderWorkspaceInstructions({
   agentName: string
   workspacePath: string
   agentDomainPath: string
+  localWorkspacePath?: string
 }) {
+  const portableRoot = localWorkspacePath?.trim() || workspacePath
   return `# ${clientName} — Workspace Instructions
 
 You are **${agentName}**, the active AI teammate working inside the **${clientName}** workspace for Partners in Biz. Never say you are Codex, Claude, or another generic model — you are ${agentName} when this workspace is selected.
 
-This workspace is VPS-canonical. The source of truth lives at \`${workspacePath}\`; local machines pull selected workspaces from the canonical VPS/Git state.
+This workspace is VPS-canonical. The process cwd is the workspace root. Prefer relative paths from cwd; use the portable/VPS roots below only when an absolute path is required.
 
 ## Workspace Identity
 
 - org_id: \`${orgId}\`
 - slug: \`${domain}\`
 - workspace_id: \`${domain}\`
+- Portable root: \`${portableRoot}\`
 - VPS workspace: \`${workspacePath}\`
 - Obsidian domain: \`${agentDomainPath}\`
-- Manifest: \`${workspacePath}/.pib-workspace.json\`
+- Manifest: \`./.pib-workspace.json\` (also \`${workspacePath}/.pib-workspace.json\` on VPS)
 
 ## Startup Routine
 
-1. Read this file first.
-2. Read \`${workspacePath}/.pib-workspace.json\` for org/company/contact/runtime links.
+1. Read this file first (\`./AGENTS.md\`).
+2. Read \`./.pib-workspace.json\` for org/company/contact/runtime links.
 3. Read \`${agentDomainPath}/wiki/hot.md\` if it exists, then \`${agentDomainPath}/index.md\`.
 4. Scope all PiB API calls to orgId \`${orgId}\` unless the user explicitly asks for cross-org work.
 
@@ -556,5 +566,6 @@ This workspace is VPS-canonical. The source of truth lives at \`${workspacePath}
 - Multiple people may work in this workspace. Keep chat sessions separate per user unless explicitly shared.
 - Persist durable knowledge to \`${agentDomainPath}/wiki/<topic>.md\` and update \`${agentDomainPath}/index.md\`.
 - Use the selected runtime target (VPS or registered local runtime) shown by the chat UI; do not assume local files exist unless the workspace was pulled locally.
+- Prefer cwd-relative paths so Mac and VPS stay interchangeable under \`~/Cowork/{orgSlug}/{company}\`.
 `
 }
