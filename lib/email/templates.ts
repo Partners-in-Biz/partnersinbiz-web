@@ -73,9 +73,30 @@ export function invoiceSentEmail(invoiceNumber: string, total: string, dueDate: 
       <tr><td style="color:rgba(255,255,255,0.5); font-size:13px; padding:4px 0;">Amount:</td><td style="color:#F59E0B; font-size:15px; font-weight:600; text-align:right;">${total}</td></tr>
       <tr><td style="color:rgba(255,255,255,0.5); font-size:13px; padding:4px 0;">Due:</td><td style="color:#FAFAFA; font-size:13px; text-align:right;">${dueDate}</td></tr>
     </table>
+    <p style="color:rgba(255,255,255,0.55); font-size:13px; line-height:1.6; margin:0 0 16px 0;">
+      A PDF copy is attached to this email.
+    </p>
     <a href="${viewUrl}" style="display:inline-block; background:#F59E0B; color:#1A1A1A; padding:10px 20px; border-radius:8px; text-decoration:none; font-size:13px; font-weight:600;">
       View Invoice
     </a>`,
+    unsubscribeUrl
+  )
+}
+
+export function quoteSentEmail(quoteNumber: string, total: string, validUntil: string, orgName: string, unsubscribeUrl?: string): string {
+  return baseTemplate(
+    `Quote ${quoteNumber}`,
+    `<p style="color:rgba(255,255,255,0.6); font-size:14px; line-height:1.6; margin:0 0 16px 0;">
+      Hi, please find your quote for <strong style="color:#FAFAFA;">${orgName}</strong>.
+    </p>
+    <table style="width:100%; margin-bottom:16px;">
+      <tr><td style="color:rgba(255,255,255,0.5); font-size:13px; padding:4px 0;">Quote:</td><td style="color:#FAFAFA; font-size:13px; text-align:right;">${quoteNumber}</td></tr>
+      <tr><td style="color:rgba(255,255,255,0.5); font-size:13px; padding:4px 0;">Amount:</td><td style="color:#F59E0B; font-size:15px; font-weight:600; text-align:right;">${total}</td></tr>
+      <tr><td style="color:rgba(255,255,255,0.5); font-size:13px; padding:4px 0;">Valid until:</td><td style="color:#FAFAFA; font-size:13px; text-align:right;">${validUntil}</td></tr>
+    </table>
+    <p style="color:rgba(255,255,255,0.55); font-size:13px; line-height:1.6; margin:0;">
+      A PDF copy is attached to this email.
+    </p>`,
     unsubscribeUrl
   )
 }
