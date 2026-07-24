@@ -354,6 +354,9 @@ Response (201): `{ id, quoteNumber }`. Dispatches `quote.created`.
 #### `GET /quotes/[id]` — auth: viewer
 Full quote.
 
+#### `GET /quotes/[id]/html` — auth: viewer
+Returns print-friendly quote HTML (invoice layout with the quote number) for Messages Context Dock preview.
+
 #### `PATCH /quotes/[id]` — auth: member
 Update fields. Status transitions: `draft` → `sent` → `accepted` | `rejected` | `converted`.
 - On `status=accepted`: dispatches `quote.accepted`
@@ -362,6 +365,21 @@ Update fields. Status transitions: `draft` → `sent` → `accepted` | `rejected
 
 #### `DELETE /quotes/[id]` — auth: admin
 Soft-delete.
+
+### Messages quote preview handoff
+
+When creating or preparing a quote inside Messages, emit `open_context` so the human can review the document layout in the Context Dock:
+
+```json
+{
+  "id": "open-quote",
+  "type": "open_context",
+  "label": "Preview quote",
+  "payload": { "kind": "quote", "id": "<quoteId>", "label": "<quoteNumber>" }
+}
+```
+
+Messages attaches the quote and opens the side canvas with the same HTML preview used by the portal. Still link `/admin/quotes/[id]` (or the portal quotes workspace) for full edit/send/convert flows. Do not convert or send until the human confirms.
 
 ### AI Contact Brief
 
