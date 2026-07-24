@@ -293,6 +293,8 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     userRole,
     orgName,
     allowDeleteConversations: surface === 'admin',
+    // Portal participants can stop runs they can reply in; delete stays admin-only.
+    allowStopRuns: capabilities.allowSendMessages,
     allowManageConversationAccess: surface === 'admin',
     allowAgentParticipants: capabilities.allowAgentParticipants,
     allowStartConversations: capabilities.allowStartConversations,

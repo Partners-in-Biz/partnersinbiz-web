@@ -100,6 +100,8 @@ export interface UnifiedChatProps {
   autoCreateScopedConversation?: boolean
   autoCreateTitle?: string
   allowDeleteConversations?: boolean
+  /** Stop in-flight agent runs. Defaults to allowDeleteConversations for backward compatibility. */
+  allowStopRuns?: boolean
   allowManageConversationAccess?: boolean
   allowAgentParticipants?: boolean
   allowStartConversations?: boolean
@@ -892,6 +894,7 @@ export default function UnifiedChat({
   autoCreateScopedConversation = false,
   autoCreateTitle,
   allowDeleteConversations = false,
+  allowStopRuns,
   allowManageConversationAccess = false,
   allowAgentParticipants = true,
   allowStartConversations = true,
@@ -3574,10 +3577,13 @@ export default function UnifiedChat({
     messages,
   ])
 
+  // Stop is independent of delete: portal participants may cancel runs they can reply in.
+  const canStopRuns = allowStopRuns ?? allowDeleteConversations
+
   // ── Stop agent run ───────────────────────────────────────────────────────
   const stopAgentRun = useCallback(
     async (convId: string, msgId: string) => {
-      if (!allowDeleteConversations) return
+      if (!canStopRuns) return
       closeEventStream(msgId)
       setMessages((prev) =>
         prev.map((m) =>
@@ -3595,7 +3601,7 @@ export default function UnifiedChat({
       await loadMessages(convId)
       await loadConversations()
     },
-    [allowDeleteConversations, closeEventStream, loadConversations, loadMessages],
+    [canStopRuns, closeEventStream, loadConversations, loadMessages],
   )
 
   // ── Create new conversation (from modal) ──────────────────────────────────
@@ -4294,7 +4300,7 @@ export default function UnifiedChat({
     return () => document.removeEventListener('keydown', keydown)
   }, [activeConversation, closeSessions, sessionsOverlayViewport, showConversationList, showListOnMobile])
   const canStopActiveRun = Boolean(
-    allowDeleteConversations &&
+    canStopRuns &&
     activeRuntimeMessage?.runId &&
     activeId &&
     (activeRuntimeMessage?.status === 'pending' ||
@@ -5354,7 +5360,7 @@ export default function UnifiedChat({
                     agentIconKey={agentDoc?.iconKey}
                     liveEvents={isPending ? (liveEvents[m.id] ?? []) : []}
                     onStopRun={
-                      allowDeleteConversations && isPending && m.runId && activeId
+                      canStopRuns && isPending && m.runId && activeId
                         ? () => stopAgentRun(activeId, m.id)
                         : undefined
                     }
