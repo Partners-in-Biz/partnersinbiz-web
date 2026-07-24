@@ -52,6 +52,11 @@ export async function downloadSkillPackArchive(input: {
   return archivePath
 }
 
+/**
+ * Apply a skill pack for one agent only.
+ * Shared `pib-skills` is a content-addressed cache; the agent's external_dirs
+ * tree is a private copy of *this pack only* — never a symlink to the union.
+ */
 export function applySkillPackArchive(input: {
   agentId: string
   archivePath: string
@@ -67,33 +72,34 @@ export function applySkillPackArchive(input: {
     const partnersSource = path.join(extractRoot, 'partnersinbiz')
     if (!fs.existsSync(partnersSource)) throw new Error('skill-pack missing partnersinbiz root')
 
+    const skillDirs = fs.readdirSync(partnersSource, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+
     // Reject path escape / symlinks.
     for (const rel of walkFiles(partnersSource)) {
       if (rel.includes('..') || path.isAbsolute(rel)) throw new Error(`unsafe skill path: ${rel}`)
       const abs = path.join(partnersSource, rel)
-      const st = fs.lstatSync(abs)
-      if (st.isSymbolicLink()) throw new Error(`symlink rejected: ${rel}`)
+      if (fs.lstatSync(abs).isSymbolicLink()) throw new Error(`symlink rejected: ${rel}`)
     }
 
+    // Content-addressed shared cache (dedupe downloads / rebuilds).
     const pibSkillsRoot = path.join(hermesHome(env), 'pib-skills', 'partnersinbiz')
     ensureDir(pibSkillsRoot)
-    for (const entry of fs.readdirSync(partnersSource, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue
-      const from = path.join(partnersSource, entry.name)
-      const to = path.join(pibSkillsRoot, entry.name)
+    for (const skillName of skillDirs) {
+      const from = path.join(partnersSource, skillName)
+      const to = path.join(pibSkillsRoot, skillName)
       fs.rmSync(to, { recursive: true, force: true })
       fs.cpSync(from, to, { recursive: true })
     }
 
+    // Per-agent isolated tree — only this pack's skills, never the shared union.
     const externalDir = path.join(hermesHome(env), 'agent-skills', input.agentId)
-    ensureDir(externalDir)
     const managedPartners = path.join(externalDir, 'partnersinbiz')
     fs.rmSync(managedPartners, { recursive: true, force: true })
-    // Prefer symlink to shared cache when possible; fall back to copy.
-    try {
-      fs.symlinkSync(pibSkillsRoot, managedPartners, 'dir')
-    } catch {
-      fs.cpSync(pibSkillsRoot, managedPartners, { recursive: true })
+    ensureDir(managedPartners)
+    for (const skillName of skillDirs) {
+      fs.cpSync(path.join(partnersSource, skillName), path.join(managedPartners, skillName), { recursive: true })
     }
 
     writeAgentExternalDirsConfig({ agentId: input.agentId, externalDir, env })
@@ -109,9 +115,20 @@ export function applySkillPackArchive(input: {
       skillsApplied: true,
       skillsDigest: digest.digest('hex'),
       externalDir,
-      skillCount: fs.readdirSync(partnersSource).length,
+      skillCount: skillDirs.length,
     }
   } finally {
     fs.rmSync(extractRoot, { recursive: true, force: true })
   }
+}
+
+export function removeAgentSkillTree(input: {
+  agentId: string
+  env?: NodeJS.ProcessEnv
+}): { removed: boolean; externalDir: string } {
+  const env = input.env ?? process.env
+  const externalDir = path.join(hermesHome(env), 'agent-skills', input.agentId)
+  const existed = fs.existsSync(externalDir)
+  fs.rmSync(externalDir, { recursive: true, force: true })
+  return { removed: existed, externalDir }
 }

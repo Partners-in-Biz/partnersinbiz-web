@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import type { AgentId } from '@/lib/agents/types'
 import { isValidAgentId } from '@/lib/agents/types'
 
-export type AgentHostJobKind = 'install' | 'sync-policy'
+export type AgentHostJobKind = 'install' | 'sync-policy' | 'uninstall'
 export type AgentHostJobStatus = 'queued' | 'claimed' | 'completed' | 'failed' | 'cancelled' | 'expired'
 
 export interface AgentHostJobPayload {

@@ -192,3 +192,52 @@ export async function waitForAgentHealthy(input: {
   }
   return false
 }
+
+export function stopHermesGateway(input: {
+  agentId: string
+  env?: HermesLifecycleEnv
+}): { stopped: boolean; hermesBin: string | null; error?: string } {
+  const env = input.env ?? process.env
+  const hermesBin = resolveHermesBinary(env)
+  let stoppedViaCli = false
+  if (hermesBin) {
+    const result = spawnSync(
+      hermesBin,
+      ['-p', input.agentId, 'gateway', 'stop', '--quiet'],
+      {
+        encoding: 'utf8',
+        env: { ...env, HERMES_HOME: hermesHome(env) },
+      },
+    )
+    stoppedViaCli = result.status === 0
+  }
+
+  const metaPath = pidFile(input.agentId, env)
+  let killedPid = false
+  try {
+    if (fs.existsSync(metaPath)) {
+      const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')) as { pid?: number }
+      if (Number.isInteger(meta.pid) && (meta.pid ?? 0) > 1) {
+        try {
+          process.kill(meta.pid!, 'SIGTERM')
+          killedPid = true
+        } catch {
+          // already dead
+        }
+      }
+      fs.rmSync(metaPath, { force: true })
+    }
+  } catch (error) {
+    return {
+      stopped: stoppedViaCli || killedPid,
+      hermesBin,
+      error: error instanceof Error ? error.message : 'failed to stop hermes gateway',
+    }
+  }
+
+  return {
+    stopped: stoppedViaCli || killedPid || !hermesBin,
+    hermesBin,
+    ...(!stoppedViaCli && !killedPid && hermesBin ? { error: 'gateway stop did not confirm' } : {}),
+  }
+}

@@ -148,18 +148,44 @@ export async function enqueueAgentHostJob(
       transaction.get(jobRef),
       transaction.get(queueRef),
     ])
-    if (existingSnapshot.exists) {
-      const existing = fromStored(existingSnapshot.id, existingSnapshot.data() ?? {})
-      if (existing.requestFingerprint !== requestFingerprint
-        || existing.actorUserId !== input.actorUserId
-        || existing.orgId !== input.orgId) {
-        throw new Error('agent-host: idempotency key reused with different request')
-      }
-      return existing
-    }
     const pendingJobIds = Array.isArray(queueSnapshot.data()?.pendingJobIds)
       ? queueSnapshot.data()!.pendingJobIds as string[]
       : []
+
+    if (existingSnapshot.exists) {
+      const existing = fromStored(existingSnapshot.id, existingSnapshot.data() ?? {})
+      const terminal = ['completed', 'failed', 'cancelled', 'expired'].includes(existing.status)
+      if (!terminal) {
+        if (existing.requestFingerprint !== requestFingerprint
+          || existing.actorUserId !== input.actorUserId
+          || existing.orgId !== input.orgId) {
+          throw new Error('agent-host: idempotency key reused with different request')
+        }
+        return existing
+      }
+      // Terminal jobs must be re-queued so heartbeat/reconcile can retry after failure
+      // or after a previously successful install that later disappeared from the host.
+      if (existing.actorUserId !== input.actorUserId || existing.orgId !== input.orgId) {
+        throw new Error('agent-host: idempotency key reused with different request')
+      }
+      const reset: AgentHostJob = {
+        ...job,
+        createdAtMs: existing.createdAtMs,
+        attempt: 0,
+        status: 'queued',
+      }
+      if (pendingJobIds.length >= 200 && !pendingJobIds.includes(id)) {
+        throw new Error('agent-host: device queue full')
+      }
+      transaction.set(jobRef, toStored(reset), { merge: false })
+      transaction.set(queueRef, {
+        deviceId: input.deviceId,
+        pendingJobIds: pendingJobIds.includes(id) ? pendingJobIds : [...pendingJobIds, id],
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+      return reset
+    }
+
     if (pendingJobIds.length >= 200) throw new Error('agent-host: device queue full')
     transaction.create(jobRef, toStored(job))
     transaction.set(queueRef, {
