@@ -8,8 +8,12 @@ on:
       - 'config/agent-skill-policy.json'
       - 'scripts/apply-agent-skill-policy.mjs'
       - 'scripts/apply-vps-skill-staging.sh'
+      - 'scripts/pib-hermes-profile-restart-lib.sh'
+      - 'scripts/pib-hermes-deferred-restart-sweep.sh'
       - 'scripts/install-vps-skills.sh'
       - 'ops/hermes-vps/pib-skill-sync.sudoers'
+      - 'ops/hermes-vps/pib-hermes-deferred-restart.service'
+      - 'ops/hermes-vps/pib-hermes-deferred-restart.timer'
       - '.github/workflows/sync-vps-skills.yml'
   workflow_dispatch:
 

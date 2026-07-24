@@ -3074,7 +3074,7 @@ describe('UnifiedChat context references', () => {
         currentUserUid="user-1"
         currentUserDisplayName="Peet"
         initialConvId="conv-1"
-        allowDeleteConversations
+        allowStopRuns
       />,
     )
 

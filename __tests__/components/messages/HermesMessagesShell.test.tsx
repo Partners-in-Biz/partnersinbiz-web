@@ -10,6 +10,7 @@ const mockUnifiedChat = jest.fn((props: Record<string, unknown>) => (
     data-org-id={String(props.orgId)}
     data-allow-agent-participants={String(props.allowAgentParticipants)}
     data-allow-delete={String(props.allowDeleteConversations)}
+    data-allow-stop={String(props.allowStopRuns)}
     data-layout-variant={String(props.layoutVariant)}
     data-conversation-rail-mode={String(props.conversationRailMode)}
   />
@@ -72,6 +73,7 @@ describe('HermesMessagesShell', () => {
     expect(screen.getByRole('button', { name: 'Close Session' })).toHaveClass('h-11', 'w-11', 'xl:h-3', 'xl:w-3', 'xl:opacity-0')
     expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-org-id', 'org-1')
     expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-layout-variant', 'hermes')
+    expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-allow-stop', 'true')
     expect(mockUnifiedChat).toHaveBeenCalledWith(expect.objectContaining({
       orgId: 'org-1',
       orgName: 'Peet Co',
@@ -79,6 +81,7 @@ describe('HermesMessagesShell', () => {
       currentUserDisplayName: 'Peet',
       initialConvId: 'conv-1',
       allowDeleteConversations: false,
+      allowStopRuns: true,
       allowAgentParticipants: true,
       allowStartConversations: true,
       allowSendMessages: true,
@@ -105,8 +108,10 @@ describe('HermesMessagesShell', () => {
 
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Human-only')
     expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-allow-delete', 'true')
+    expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-allow-stop', 'true')
     expect(mockUnifiedChat).toHaveBeenCalledWith(expect.objectContaining({
       allowDeleteConversations: true,
+      allowStopRuns: true,
       allowAgentParticipants: false,
     }))
   })
