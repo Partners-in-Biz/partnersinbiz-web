@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { claimPendingDeviceRotation, recordDeviceHeartbeat } from '@/lib/linked-computers/store'
 import { authenticateSignedDeviceRequest, lifecycleError, noStoreHeaders } from '@/lib/linked-computers/http'
+import { reconcileDesiredAgentsAfterHeartbeat } from '@/lib/linked-computers/agent-host-service'
 
 type Context = { params: Promise<{ deviceId: string }> }
-export async function handleDeviceHeartbeat(req: NextRequest, deviceId: string, auth = authenticateSignedDeviceRequest, record = recordDeviceHeartbeat, claimRotation = claimPendingDeviceRotation): Promise<Response> {
+export async function handleDeviceHeartbeat(req: NextRequest, deviceId: string, auth = authenticateSignedDeviceRequest, record = recordDeviceHeartbeat, claimRotation = claimPendingDeviceRotation, reconcile = reconcileDesiredAgentsAfterHeartbeat): Promise<Response> {
   try {
     const rawBody = await req.text()
     const identity = await auth(req, deviceId, rawBody)
@@ -28,6 +29,8 @@ export async function handleDeviceHeartbeat(req: NextRequest, deviceId: string, 
       ...(advertisedCapabilities.includes('workspace.sync') && syncProtocolVersion === 1 ? ['workspace.sync' as const] : []),
     ]
     await record({ deviceId, runtimeVersion: body.runtimeVersion, health: body.health, capabilities, syncProtocolVersion, availableAgentIds, hermesVersion, healthReason })
+    // Best-effort: requeue missing keep-in-sync / desired installs without blocking heartbeat.
+    void reconcile({ deviceId, availableAgentIds }).catch(() => undefined)
     const rotation = body.claimRotation === true
       ? await claimRotation({ deviceId, authenticatedCredentialVersion: identity.credentialVersion })
       : null

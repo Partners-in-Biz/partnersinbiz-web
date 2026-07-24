@@ -132,8 +132,19 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
     }
 
     const updatedAgent = await recordAgentSkillPolicyApplied(agentId as AgentId, user.uid, configApplied ? 'in_sync' : 'not_applied')
+    let keepInSyncJobIds: string[] = []
+    try {
+      const { enqueueKeepInSyncPolicyJobs } = await import('@/lib/linked-computers/agent-host-service')
+      keepInSyncJobIds = await enqueueKeepInSyncPolicyJobs({
+        agentId: agentId as AgentId,
+        actorUserId: user.uid,
+        policyVersion: AGENT_SKILL_POLICY.version,
+      })
+    } catch {
+      // Linked-host fan-out must not fail the primary VPS policy apply.
+    }
     const view = await loadPolicyView(agentId as AgentId)
-    return apiSuccess({ ...view, agent: updatedAgent, configApplied })
+    return apiSuccess({ ...view, agent: updatedAgent, configApplied, keepInSyncJobIds })
   } catch (err) {
     return apiError(err instanceof Error ? err.message : 'Failed to apply skill policy', 500)
   }

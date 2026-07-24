@@ -67,6 +67,14 @@ export interface SafeLinkedDeviceDto {
   deviceKind: LinkedDeviceKind; ownerType: LinkedDeviceOwnerType
   runtimeVersion: string; capabilities: LinkedDeviceCapability[]; status: LinkedDeviceStatus
   availableAgentIds: string[]; hermesVersion: string | null; healthReason: 'hermes_unavailable' | 'no_agents_available' | null
+  desiredAgents: Array<{
+    agentId: string
+    keepInSync: boolean
+    desiredPolicyVersion: string | null
+    appliedPolicyVersion: string | null
+    status: string
+    lastError: string | null
+  }>
   credentialVersion: number; createdAt: unknown; updatedAt: unknown; lastSeenAt: unknown | null
   health: 'ok' | 'degraded' | null
   grants: Array<{ orgId: string; status: DeviceGrantStatus; accessMode: DeviceGrantAccessMode }>
@@ -80,7 +88,22 @@ export function toSafeLinkedDeviceDto(row: LinkedDevice): SafeLinkedDeviceDto {
     ? row.availableAgentIds.filter((agentId): agentId is string => typeof agentId === 'string')
     : []
   const healthReason = row.healthReason === 'hermes_unavailable' || row.healthReason === 'no_agents_available' ? row.healthReason : null
-  return { deviceId, label, platform, architecture, deviceKind: row.deviceKind === 'vps' ? 'vps' : 'computer', ownerType: linkedDeviceOwnerType(row), runtimeVersion, availableAgentIds, hermesVersion: typeof row.hermesVersion === 'string' ? row.hermesVersion : null, healthReason, capabilities, status, credentialVersion, createdAt, updatedAt, lastSeenAt,
+  const desiredAgents = Array.isArray((row as LinkedDevice & { desiredAgents?: unknown }).desiredAgents)
+    ? ((row as LinkedDevice & { desiredAgents: unknown[] }).desiredAgents).flatMap((entry) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
+        const binding = entry as Record<string, unknown>
+        if (typeof binding.agentId !== 'string') return []
+        return [{
+          agentId: binding.agentId,
+          keepInSync: binding.keepInSync === true,
+          desiredPolicyVersion: typeof binding.desiredPolicyVersion === 'string' ? binding.desiredPolicyVersion : null,
+          appliedPolicyVersion: typeof binding.appliedPolicyVersion === 'string' ? binding.appliedPolicyVersion : null,
+          status: typeof binding.status === 'string' ? binding.status : 'desired',
+          lastError: typeof binding.lastError === 'string' ? binding.lastError : null,
+        }]
+      })
+    : []
+  return { deviceId, label, platform, architecture, deviceKind: row.deviceKind === 'vps' ? 'vps' : 'computer', ownerType: linkedDeviceOwnerType(row), runtimeVersion, availableAgentIds, hermesVersion: typeof row.hermesVersion === 'string' ? row.hermesVersion : null, healthReason, desiredAgents, capabilities, status, credentialVersion, createdAt, updatedAt, lastSeenAt,
     health: health === 'ok' || health === 'degraded' ? health : null, grants: [], mappings: [] }
 }
 
