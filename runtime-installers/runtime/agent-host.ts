@@ -5,13 +5,14 @@ import { probeLocalHermes } from './hermes'
 import {
   ensureHermesProfile,
   startHermesGateway,
+  stopHermesGateway,
   waitForAgentHealthy,
 } from './hermes-profile-lifecycle'
-import { applySkillPackArchive, downloadSkillPackArchive } from './skill-pack-apply'
+import { applySkillPackArchive, removeAgentSkillTree } from './skill-pack-apply'
 
 export type AgentHostRuntimeJob = {
   jobId: string
-  kind: 'install' | 'sync-policy'
+  kind: 'install' | 'sync-policy' | 'uninstall'
   status: string
   agentId: string
   policyVersion: string | null
@@ -110,6 +111,35 @@ export async function executeAgentHostJob(
       return { ok: false, error: 'invalid agent id' }
     }
 
+    if (job.kind === 'uninstall') {
+      const stopped = stopHermesGateway({ agentId: job.agentId, env })
+      const skills = removeAgentSkillTree({ agentId: job.agentId, env })
+      const desiredPath = path.join(profileDir(job.agentId, env), 'pib-desired-agent.json')
+      fs.rmSync(desiredPath, { force: true })
+      const stillHealthy = await waitForAgentHealthy({
+        agentId: job.agentId,
+        probe: () => probe(env),
+        timeoutMs: 2_000,
+        intervalMs: 500,
+      })
+      if (stillHealthy) {
+        return {
+          ok: false,
+          error: stopped.error || 'Agent still healthy on loopback after uninstall stop',
+        }
+      }
+      return {
+        ok: true,
+        result: {
+          uninstalled: true,
+          gatewayStopped: stopped.stopped,
+          skillsRemoved: skills.removed,
+          healthy: false,
+          note: 'Agent gateway stopped and skill tree removed from this computer.',
+        },
+      }
+    }
+
     const profile = ensureHermesProfile({
       agentId: job.agentId,
       preferredPort: job.preferredPort,
@@ -159,7 +189,11 @@ export async function executeAgentHostJob(
         skillCount,
         packSha256: job.skillPack?.packSha256 ?? null,
       }, env)
-      policyApplied = Boolean(job.policyVersion) && (skillsApplied || !job.skillPack)
+      // Managed keep-in-sync / sync-policy must apply skills when a pack is present.
+      // Installs without a pack (custom agents) may stamp policy without skills.
+      policyApplied = Boolean(job.policyVersion) && (
+        job.skillPack ? skillsApplied : true
+      )
     }
 
     let gatewayStarted = false
@@ -241,5 +275,5 @@ export async function pollAgentHostForever(
 }
 
 export function linkedRuntimeAgentHostClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.6', agentHostProtocolVersion: 2 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.7', agentHostProtocolVersion: 2 as const }
 }

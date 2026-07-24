@@ -12,11 +12,13 @@ function deviceError(error: unknown): Response {
   const status = /not found/.test(message) ? 404
     : /authentication|signature|credential|replay|timestamp|tenant|authorization|revoked|device mismatch|active device/.test(message) ? 403
       : /lease|already final/.test(message) ? 409
-        : 400
+        : /protocol/.test(message) ? 400
+          : 400
   const publicMessage = status === 404 ? 'Agent host job not found'
     : status === 403 ? 'Linked computer access denied'
       : status === 409 ? 'Agent host job lease is no longer current'
-        : 'Linked computer agent request invalid'
+        : /protocol/.test(message) ? 'Agent host protocol version 2 required. Update the linked computer runtime.'
+          : 'Linked computer agent request invalid'
   return NextResponse.json({ success: false, error: publicMessage }, { status, headers: noStoreHeaders })
 }
 
@@ -30,6 +32,10 @@ export async function handleAgentHostClaim(
     const rawBody = await request.text()
     const identity = await authenticate(request, deviceId, rawBody)
     if (identity.deviceId !== deviceId) throw new Error('agent-host: tenant device mismatch')
+    const body = JSON.parse(rawBody || '{}') as Record<string, unknown>
+    if (body.agentHostProtocolVersion !== 2) {
+      throw new Error('agent-host: agentHostProtocolVersion 2 required')
+    }
     const claimed = await claim({
       deviceId,
       ownerUserId: identity.ownerUserId,

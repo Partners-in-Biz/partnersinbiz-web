@@ -29,30 +29,37 @@ const MEMBERS = 'orgMembers'
 const AGENT_HOST_PROTOCOL_VERSION = 2
 
 function skillPackForAgent(agentId: AgentId): AgentHostJobPayload['skillPack'] {
-  try {
-    const manifest = buildSkillPackManifest(agentId)
-    if (manifest.skillNames.length === 0) return null
-    return {
-      packSha256: manifest.packSha256,
-      policyVersion: manifest.policyVersion,
-      skillNames: manifest.skillNames,
-      artifactPath: `/api/v1/linked-computers/{deviceId}/agents/skills/artifact?agentId=${encodeURIComponent(agentId)}&packSha256=${manifest.packSha256}`,
-    }
-  } catch {
-    return null
+  const policy = getAgentSkillPolicy(agentId)
+  if (!policy) return null
+  const manifest = buildSkillPackManifest(agentId)
+  if (manifest.skillNames.length === 0) {
+    throw new Error(`agent-host: managed agent ${agentId} has an empty skill pack`)
+  }
+  return {
+    packSha256: manifest.packSha256,
+    policyVersion: manifest.policyVersion,
+    skillNames: manifest.skillNames,
+    artifactPath: `/api/v1/linked-computers/{deviceId}/agents/skills/artifact?agentId=${encodeURIComponent(agentId)}&packSha256=${manifest.packSha256}`,
   }
 }
 
 function policyPayload(agentId: AgentId, keepInSync: boolean, deviceId?: string): AgentHostJobPayload {
   const policy = getAgentSkillPolicy(agentId)
-  const skillPack = skillPackForAgent(agentId)
+  // Custom agents may install without a pack; keep-in-sync requires a managed policy pack.
+  const effectiveKeepInSync = keepInSync && Boolean(policy)
+  const skillPack = effectiveKeepInSync || policy
+    ? skillPackForAgent(agentId)
+    : null
+  if (policy && effectiveKeepInSync && !skillPack) {
+    throw new Error(`agent-host: skill pack required for keep-in-sync on ${agentId}`)
+  }
   const artifactPath = skillPack
     ? skillPack.artifactPath.replace('{deviceId}', deviceId ?? '{deviceId}')
     : null
   return {
     agentId,
-    policyVersion: AGENT_SKILL_POLICY.version,
-    keepInSync,
+    policyVersion: policy ? AGENT_SKILL_POLICY.version : null,
+    keepInSync: effectiveKeepInSync,
     runtimeSkills: policy?.runtimeSkills ?? [],
     pibSkills: policy?.pibSkills ?? [],
     vpsExternalDir: policy?.vpsExternalDir ?? null,
@@ -62,6 +69,17 @@ function policyPayload(agentId: AgentId, keepInSync: boolean, deviceId?: string)
       ? { skillPack: { ...skillPack, artifactPath } }
       : {}),
   }
+}
+
+function jobIdempotencyKey(
+  kind: 'install' | 'sync-policy' | 'uninstall',
+  deviceId: string,
+  agentId: string,
+  policyVersion: string | null,
+  packSha256?: string | null,
+): string {
+  const pack = packSha256 ? packSha256.slice(0, 16) : 'nopack'
+  return `${kind}:${deviceId}:${agentId}:${policyVersion ?? 'none'}:${pack}`
 }
 
 export async function listCatalogAgentIds(): Promise<AgentId[]> {
@@ -133,13 +151,21 @@ export async function setDeviceDesiredAgents(input: {
   }
 
   const catalog = new Set(await listCatalogAgentIds())
-  const filteredDesired = input.desired.filter((row) => catalog.has(row.agentId) || isValidAgentId(row.agentId))
+  const filteredDesired = input.desired
+    .filter((row) => catalog.has(row.agentId))
+    .map((row) => ({
+      agentId: row.agentId,
+      // Keep-in-sync is only meaningful for managed skill-policy agents.
+      keepInSync: row.keepInSync === true && Boolean(getAgentSkillPolicy(row.agentId)),
+    }))
 
   const existing = parseDesiredAgentBindings(device.desiredAgents)
   const policyVersionByAgent: Record<string, string | null> = {}
   for (const row of filteredDesired) {
     if (!isValidAgentId(row.agentId)) continue
-    policyVersionByAgent[row.agentId] = AGENT_SKILL_POLICY.version
+    policyVersionByAgent[row.agentId] = getAgentSkillPolicy(row.agentId)
+      ? AGENT_SKILL_POLICY.version
+      : null
   }
   const merged = mergeDesiredAgentBindings({
     existing,
@@ -154,6 +180,20 @@ export async function setDeviceDesiredAgents(input: {
 
   const enqueuedJobIds: string[] = []
   if (input.enqueueJobs !== false) {
+    for (const agentId of merged.removed) {
+      const payload = policyPayload(agentId, false, input.deviceId)
+      const job = await enqueueAgentHostJob({
+        idempotencyKey: jobIdempotencyKey('uninstall', input.deviceId, agentId, payload.policyVersion, payload.skillPack?.packSha256),
+        deviceId: input.deviceId,
+        orgId: input.orgId,
+        actorUserId: input.actorUserId,
+        credentialVersion: device.credentialVersion,
+        kind: 'uninstall',
+        payload,
+      })
+      enqueuedJobIds.push(job.jobId)
+    }
+
     const availableAgentIds = Array.isArray(device.availableAgentIds)
       ? device.availableAgentIds.filter((id): id is string => typeof id === 'string')
       : []
@@ -162,14 +202,15 @@ export async function setDeviceDesiredAgents(input: {
       availableAgentIds,
     })
     for (const binding of installTargets) {
+      const payload = policyPayload(binding.agentId, binding.keepInSync, input.deviceId)
       const job = await enqueueAgentHostJob({
-        idempotencyKey: `install:${input.deviceId}:${binding.agentId}:${binding.desiredPolicyVersion ?? 'none'}`,
+        idempotencyKey: jobIdempotencyKey('install', input.deviceId, binding.agentId, binding.desiredPolicyVersion, payload.skillPack?.packSha256),
         deviceId: input.deviceId,
         orgId: input.orgId,
         actorUserId: input.actorUserId,
         credentialVersion: device.credentialVersion,
         kind: 'install',
-        payload: policyPayload(binding.agentId, binding.keepInSync, input.deviceId),
+        payload,
       })
       enqueuedJobIds.push(job.jobId)
       await patchDesiredAgentBinding(input.deviceId, binding.agentId, {
@@ -189,14 +230,15 @@ export async function setDeviceDesiredAgents(input: {
     })
     for (const binding of syncTargets) {
       if (installTargets.some((row) => row.agentId === binding.agentId)) continue
+      const payload = policyPayload(binding.agentId, binding.keepInSync, input.deviceId)
       const job = await enqueueAgentHostJob({
-        idempotencyKey: `sync:${input.deviceId}:${binding.agentId}:${binding.desiredPolicyVersion ?? 'none'}`,
+        idempotencyKey: jobIdempotencyKey('sync-policy', input.deviceId, binding.agentId, binding.desiredPolicyVersion, payload.skillPack?.packSha256),
         deviceId: input.deviceId,
         orgId: input.orgId,
         actorUserId: input.actorUserId,
         credentialVersion: device.credentialVersion,
         kind: 'sync-policy',
-        payload: policyPayload(binding.agentId, binding.keepInSync, input.deviceId),
+        payload,
       })
       enqueuedJobIds.push(job.jobId)
       await patchDesiredAgentBinding(input.deviceId, binding.agentId, {
@@ -239,13 +281,18 @@ function resultFlag(result: Record<string, unknown> | undefined, key: string): b
 
 export async function applyAgentHostJobResult(job: AgentHostJob): Promise<void> {
   const agentId = job.payload.agentId
+  if (job.kind === 'uninstall') {
+    // Binding was already removed from desiredAgents; nothing to patch.
+    return
+  }
   if (job.status === 'completed') {
     const healthy = resultFlag(job.result, 'healthy')
     const skillsApplied = resultFlag(job.result, 'skillsApplied')
     const policyApplied = resultFlag(job.result, 'policyApplied')
     const requiredSkills = Boolean(job.payload.skillPack) && (job.payload.keepInSync || job.kind === 'sync-policy')
     const inSync = Boolean(
-      job.payload.policyVersion
+      job.payload.keepInSync
+      && job.payload.policyVersion
       && policyApplied
       && (!requiredSkills || skillsApplied)
       && (job.kind !== 'install' || healthy),
@@ -254,7 +301,7 @@ export async function applyAgentHostJobResult(job: AgentHostJob): Promise<void> 
     if (job.kind === 'install') {
       await patchDesiredAgentBinding(job.deviceId, agentId, {
         status: inSync ? 'in_sync' : (healthy ? 'installed' : 'error'),
-        appliedPolicyVersion: inSync ? job.payload.policyVersion : (policyApplied ? job.payload.policyVersion : null),
+        appliedPolicyVersion: inSync || policyApplied ? job.payload.policyVersion : null,
         desiredPolicyVersion: job.payload.policyVersion,
         lastError: healthy ? null : 'Agent installed but not yet healthy on the host',
       })
@@ -300,15 +347,16 @@ export async function enqueueKeepInSyncPolicyJobs(input: {
       desiredPolicyVersion: input.policyVersion,
       lastError: null,
     })
+    const payload = policyPayload(input.agentId, true, doc.id)
     const job = await enqueueAgentHostJob({
-      idempotencyKey: `sync:${doc.id}:${input.agentId}:${input.policyVersion}`,
+      idempotencyKey: jobIdempotencyKey('sync-policy', doc.id, input.agentId, input.policyVersion, payload.skillPack?.packSha256),
       deviceId: doc.id,
       orgId: resolvedOrgId,
       actorUserId: input.actorUserId || linkedDeviceActorUserId(device),
       credentialVersion: device.credentialVersion,
       kind: 'sync-policy',
       payload: {
-        ...policyPayload(input.agentId, true, doc.id),
+        ...payload,
         policyVersion: input.policyVersion,
       },
     })
@@ -342,14 +390,15 @@ export async function reconcileDesiredAgentsAfterHeartbeat(input: {
   })
   for (const binding of missing) {
     if (binding.status === 'installing' && Date.now() - binding.updatedAtMs < 120_000) continue
+    const payload = policyPayload(binding.agentId, binding.keepInSync, input.deviceId)
     const job = await enqueueAgentHostJob({
-      idempotencyKey: `install:${input.deviceId}:${binding.agentId}:${binding.desiredPolicyVersion ?? 'none'}`,
+      idempotencyKey: jobIdempotencyKey('install', input.deviceId, binding.agentId, binding.desiredPolicyVersion, payload.skillPack?.packSha256),
       deviceId: input.deviceId,
       orgId,
       actorUserId: linkedDeviceActorUserId(device),
       credentialVersion: device.credentialVersion,
       kind: 'install',
-      payload: policyPayload(binding.agentId, binding.keepInSync, input.deviceId),
+      payload,
     })
     jobIds.push(job.jobId)
     await patchDesiredAgentBinding(input.deviceId, binding.agentId, {
@@ -374,14 +423,15 @@ export async function reconcileDesiredAgentsAfterHeartbeat(input: {
       desiredPolicyVersion: binding.desiredPolicyVersion,
       lastError: null,
     })
+    const payload = policyPayload(binding.agentId, true, input.deviceId)
     const job = await enqueueAgentHostJob({
-      idempotencyKey: `sync:${input.deviceId}:${binding.agentId}:${binding.desiredPolicyVersion}`,
+      idempotencyKey: jobIdempotencyKey('sync-policy', input.deviceId, binding.agentId, binding.desiredPolicyVersion, payload.skillPack?.packSha256),
       deviceId: input.deviceId,
       orgId,
       actorUserId: linkedDeviceActorUserId(device),
       credentialVersion: device.credentialVersion,
       kind: 'sync-policy',
-      payload: policyPayload(binding.agentId, true, input.deviceId),
+      payload,
     })
     jobIds.push(job.jobId)
     await patchDesiredAgentBinding(input.deviceId, binding.agentId, {

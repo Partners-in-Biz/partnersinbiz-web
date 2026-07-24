@@ -16,7 +16,7 @@ export type LocalHermesProbe = {
   healthReason?: 'hermes_unavailable' | 'no_agents_available'
 }
 
-const AGENT_ID = /^[a-z][a-z0-9-]{0,63}$/
+const AGENT_ID = /^[a-z][a-z0-9._-]{0,39}$/
 
 function cleanAgentId(value: unknown): string {
   const clean = typeof value === 'string' ? value.trim().toLowerCase() : ''

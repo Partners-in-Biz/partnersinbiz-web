@@ -161,6 +161,30 @@ export function LinkedComputersWorkspace() {
     return () => window.clearInterval(interval)
   }, [load, loadCatalogue])
 
+  useEffect(() => {
+    if (!agentsDevice || !agentsOrgId) return
+    let cancelled = false
+    const refresh = async () => {
+      try {
+        const query = `?orgId=${encodeURIComponent(agentsOrgId)}`
+        const body = await request(`/api/v1/linked-computers/${agentsDevice.deviceId}/agents${query}`)
+        if (cancelled) return
+        const desired = Array.isArray(body.data?.desiredAgents)
+          ? body.data.desiredAgents as DesiredAgentRow[]
+          : []
+        setAgentsLive(desired)
+      } catch {
+        // Keep the last known live status if a poll fails.
+      }
+    }
+    void refresh()
+    const interval = window.setInterval(() => { void refresh() }, 5_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [agentsDevice, agentsOrgId])
+
   async function mutate(url: string, init: RequestInit): Promise<boolean> {
     try { await request(url, { ...init, headers: { 'content-type': 'application/json', ...init.headers } }); setError(''); if (!await load()) { setError('Your change was saved, but the latest computer status could not be refreshed. Keep this window open and try again.'); return false } return true }
     catch (cause) { setError(safeError(Number((cause as { status?: number }).status))); return false }
@@ -221,11 +245,15 @@ export function LinkedComputersWorkspace() {
     setAgentsSaving(true)
     setAgentsMessage('')
     try {
-      await request(`/api/v1/linked-computers/${agentsDevice.deviceId}/agents`, {
+      const body = await request(`/api/v1/linked-computers/${agentsDevice.deviceId}/agents`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ orgId: agentsOrgId, desiredAgents: agentsDraft }),
       })
+      const desired = Array.isArray(body.data?.desiredAgents)
+        ? body.data.desiredAgents as DesiredAgentRow[]
+        : agentsLive
+      setAgentsLive(desired)
       setAgentsMessage('Saved. The computer will pull and sync selected agents shortly.')
       await load()
     } catch (cause) {

@@ -120,7 +120,7 @@ describe('linked computer lifecycle HTTP boundaries', () => {
     } as never)
     const response = await handleLinkedComputerList({ uid: 'user-a' }, async () => [safe])
     const json = await response.json()
-    expect(Object.keys(json.data[0]).sort()).toEqual(['architecture', 'availableAgentIds', 'capabilities', 'createdAt', 'credentialVersion', 'deviceId', 'deviceKind', 'grants', 'health', 'healthReason', 'hermesVersion', 'label', 'lastSeenAt', 'mappings', 'ownerType', 'platform', 'runtimeVersion', 'status', 'updatedAt'].sort())
+    expect(Object.keys(json.data[0]).sort()).toEqual(['architecture', 'availableAgentIds', 'capabilities', 'createdAt', 'credentialVersion', 'desiredAgents', 'deviceId', 'deviceKind', 'grants', 'health', 'healthReason', 'hermesVersion', 'label', 'lastSeenAt', 'mappings', 'ownerType', 'platform', 'runtimeVersion', 'status', 'updatedAt'].sort())
     expect(JSON.stringify(json)).not.toMatch(/\/Users|private-target|fingerprint|secret|internalUrl/i)
   })
 
