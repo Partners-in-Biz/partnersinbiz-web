@@ -5,7 +5,7 @@ describe('client provisioning folder registry', () => {
     const payload = buildClientProvisioningPayload({
       clientName: 'Acme Inc',
       domain: 'acme-inc',
-      orgId: 'org_123',
+      orgId: 'pib-platform-owner',
       agentName: 'Ava',
     })
 
@@ -15,8 +15,8 @@ describe('client provisioning folder registry', () => {
         visibility: 'admin_agents',
         sourceOfTruth: 'vps',
         syncTargets: expect.objectContaining({
-          vpsPath: '/var/lib/hermes/Cowork/Acme Inc',
-          localPath: '~/Cowork/Acme Inc',
+          vpsPath: '/var/lib/hermes/Cowork/partners/Acme Inc',
+          localPath: '~/Cowork/partners/Acme Inc',
         }),
       }),
       expect.objectContaining({
