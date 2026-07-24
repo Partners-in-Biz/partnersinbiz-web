@@ -241,6 +241,45 @@ it('renders a social platform preview card in the context dock', async () => {
   expect(screen.queryByRole('region', { name: 'Context overview' })).not.toBeInTheDocument()
 })
 
+it.each([
+  ['invoice', 'context-invoice-preview', 'Invoice document preview', '/api/v1/invoices/inv-1/html', 'INV-100'],
+  ['quote', 'context-quote-preview', 'Quote document preview', '/api/v1/quotes/quote-1/html', 'Q-200'],
+] as const)('renders %s HTML preview in the context dock', async (kind, testId, label, path, number) => {
+  global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    expect(url).toContain(path)
+    expect(url).toContain('orgId=o1')
+    expect((init?.headers as Record<string, string>)?.['X-Org-Id']).toBe('o1')
+    return {
+      ok: true,
+      text: async () => `<!DOCTYPE html><html><body><div class="invoice-number">${number}</div></body></html>`,
+    } as Response
+  }) as jest.Mock
+
+  render(<ContextDock
+    model={{
+      ...model,
+      context: {
+        kind,
+        id: kind === 'invoice' ? 'inv-1' : 'quote-1',
+        orgId: 'o1',
+        label: number,
+        icon: kind === 'invoice' ? 'receipt_long' : 'request_quote',
+        href: kind === 'invoice' ? '/admin/invoices/inv-1' : '/admin/quotes/quote-1',
+      },
+      preview: { kind: 'summary', text: `status: draft | ${number}`, status: 'draft' },
+    }}
+    open
+    compact
+    onClose={jest.fn()}
+  />)
+
+  expect(await screen.findByTestId(testId)).toBeInTheDocument()
+  expect(screen.getByRole('region', { name: label })).toBeInTheDocument()
+  expect(screen.getByTitle(`${kind === 'invoice' ? 'Invoice' : 'Quote'} preview`)).toBeInTheDocument()
+  expect(screen.queryByRole('region', { name: 'Context overview' })).not.toBeInTheDocument()
+})
+
 it('uses a genuinely modal bottom sheet in compact chat and marks the active artifact accessibly', () => {
   const artifact = { id: 'a1', studioKind: 'video_editor' as const, resourceType: 'video', resourceId: 'v1', title: 'Launch cut', artifactKind: 'video' as const, state: 'review' as const, statusLabel: 'In review', href: '/videos/v1', actions: [] }
   render(<ContextDock model={{ ...model, artifacts: [artifact] }} open compact activeArtifactId="a1" onClose={jest.fn()} />)

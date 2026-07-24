@@ -154,6 +154,9 @@ Soft-cancel (`status: 'cancelled'`).
 #### `POST /invoices/preview` — auth: admin
 Body: invoice-like JSON. Optional `orgId` enriches the preview with real client billing details and platform-owner sender details after access validation. Returns rendered invoice HTML and does not create a Firestore invoice. Useful before committing.
 
+#### `GET /invoices/[id]/html` — auth: client+
+Returns the same print-friendly invoice HTML used by the portal preview / Messages Context Dock. Prefer this after create so the human can review the document layout in chat.
+
 #### `GET /invoices/next-number?orgId=X` — auth: admin
 Returns the next invoice number for the client org: `{ invoiceNumber: "CLI-042" }`.
 
@@ -514,13 +517,31 @@ GET /quotes?view=received
 | 409 | `Cannot modify a billed entry` / `Cannot delete a billed expense` | Unlink invoice first |
 | 503 | `PayPal is not configured` | Set `PAYPAL_CLIENT_ID` + `PAYPAL_CLIENT_SECRET` |
 
+## Messages side-canvas handoff
+
+When the run happens inside Messages, after `POST /invoices` (or after a meaningful draft update the human should review), emit a web-native `uiActions` entry so Messages attaches the invoice and opens the Context Dock with the real document HTML preview:
+
+```json
+{
+  "id": "open-invoice",
+  "type": "open_context",
+  "label": "Preview invoice",
+  "payload": { "kind": "invoice", "id": "<invoiceId>", "label": "<invoiceNumber>" }
+}
+```
+
+Messages treats `open_context` with `{ kind: "invoice", id }` as attach-and-open. The Context Dock renders the print-friendly invoice layout (same HTML as the portal preview). Still include the admin/portal invoice URL in the message text. Do **not** auto-send; wait for human review before `POST /invoices/[id]/send`.
+
+For dry-run totals before create, still use `POST /invoices/preview`. Once the invoice exists, prefer `open_context` over pasting raw HTML.
+
 ## Agent patterns
 
 1. **Always prefer EFT** — it's cheaper. Only suggest PayPal when client is international.
 2. **Check `payment-instructions` before sending** — confirms banking details are populated on the platform org.
 3. **Verify proof of payment carefully** — confirm amount + reference match the invoice before confirming.
 4. **Use `/invoices/preview` before committing** — lets you show the user the totals first.
-5. **Idempotency on creates** — pass `Idempotency-Key: <uuid>` on `POST /invoices` and `POST /expenses`.
-6. **Webhooks** — subscribe to `invoice.paid`, `invoice.overdue`, `payment.received` (see `platform-ops`).
-7. **Currency consistency** — check client org `settings.currency`; default to `ZAR` for SA clients.
-8. **PiB-issued resources** — keep PiB as source/issuer and clients as recipients. For Partners in Biz billing pages, query received invoices by `billingOrgId=pib-platform-owner`, not `orgId=pib-platform-owner`.
+5. **After create in Messages, emit `open_context`** — so the human sees the invoice layout in the side canvas before send.
+6. **Idempotency on creates** — pass `Idempotency-Key: <uuid>` on `POST /invoices` and `POST /expenses`.
+7. **Webhooks** — subscribe to `invoice.paid`, `invoice.overdue`, `payment.received` (see `platform-ops`).
+8. **Currency consistency** — check client org `settings.currency`; default to `ZAR` for SA clients.
+9. **PiB-issued resources** — keep PiB as source/issuer and clients as recipients. For Partners in Biz billing pages, query received invoices by `billingOrgId=pib-platform-owner`, not `orgId=pib-platform-owner`.
