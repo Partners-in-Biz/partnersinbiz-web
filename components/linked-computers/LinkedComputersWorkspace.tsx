@@ -6,7 +6,28 @@ import { AccessibleDialog, AccessibleMenu } from './AccessibleOverlay'
 
 type Grant = { orgId: string; orgLabel?: string; status: string; accessMode?: 'owner' | 'organization' | 'selected_users' }
 type Mapping = { mappingId: string; orgId: string; workspaceId: string; label: string; status: string }
-type Device = { deviceId: string; label: string; platform: string; architecture: string; deviceKind?: 'computer' | 'vps'; ownerType?: 'user' | 'organization'; runtimeVersion: string; status: string; health?: string; healthReason?: 'hermes_unavailable' | 'no_agents_available' | null; hermesVersion?: string | null; availableAgentIds?: string[]; desiredAgents?: Array<{ agentId: string; keepInSync: boolean; desiredPolicyVersion: string | null; appliedPolicyVersion: string | null; status: string; lastError: string | null }>; lastSeenAt: unknown; grants?: Grant[]; mappings?: Mapping[] }
+type DesiredAgentRow = { agentId: string; keepInSync: boolean; desiredPolicyVersion: string | null; appliedPolicyVersion: string | null; status: string; lastError: string | null }
+type Device = { deviceId: string; label: string; platform: string; architecture: string; deviceKind?: 'computer' | 'vps'; ownerType?: 'user' | 'organization'; runtimeVersion: string; status: string; health?: string; healthReason?: 'hermes_unavailable' | 'no_agents_available' | null; hermesVersion?: string | null; availableAgentIds?: string[]; desiredAgents?: DesiredAgentRow[]; lastSeenAt: unknown; grants?: Grant[]; mappings?: Mapping[] }
+
+function agentSyncStatusLabel(status: string): string {
+  switch (status) {
+    case 'in_sync': return 'in sync'
+    case 'installing': return 'installing'
+    case 'installed': return 'installed'
+    case 'syncing': return 'syncing'
+    case 'drifted': return 'drifted'
+    case 'error': return 'error'
+    case 'desired': return 'queued'
+    default: return status
+  }
+}
+
+function agentSyncStatusClass(status: string): string {
+  if (status === 'in_sync') return 'text-emerald-400'
+  if (status === 'drifted' || status === 'error') return 'text-amber-300'
+  if (status === 'installing' || status === 'syncing') return 'text-sky-300'
+  return 'text-[var(--color-pib-text-muted)]'
+}
 type WorkspaceOption = { workspaceId: string; orgId: string; orgName: string }
 type ExecutionLocation = {
   id: string
@@ -68,6 +89,7 @@ export function LinkedComputersWorkspace() {
   const [agentsDevice, setAgentsDevice] = useState<Device | null>(null)
   const [agentsCatalog, setAgentsCatalog] = useState<string[]>([])
   const [agentsDraft, setAgentsDraft] = useState<Array<{ agentId: string; keepInSync: boolean }>>([])
+  const [agentsLive, setAgentsLive] = useState<DesiredAgentRow[]>([])
   const [agentsOrgId, setAgentsOrgId] = useState('')
   const [agentsSaving, setAgentsSaving] = useState(false)
   const [agentsMessage, setAgentsMessage] = useState('')
@@ -175,8 +197,9 @@ export function LinkedComputersWorkspace() {
       const body = await request(`/api/v1/linked-computers/${device.deviceId}/agents${query}`)
       const catalog = Array.isArray(body.data?.catalogAgentIds) ? body.data.catalogAgentIds as string[] : []
       const desired = Array.isArray(body.data?.desiredAgents)
-        ? body.data.desiredAgents as Array<{ agentId: string; keepInSync?: boolean }>
+        ? body.data.desiredAgents as DesiredAgentRow[]
         : (device.desiredAgents ?? [])
+      setAgentsLive(desired)
       setAgentsCatalog(catalog)
       setAgentsDraft(catalog.flatMap((agentId) => {
         const existing = desired.find((row) => row.agentId === agentId)
@@ -185,6 +208,7 @@ export function LinkedComputersWorkspace() {
     } catch (cause) {
       setAgentsMessage(safeError(Number((cause as { status?: number }).status)))
       setAgentsCatalog([])
+      setAgentsLive(device.desiredAgents ?? [])
       setAgentsDraft((device.desiredAgents ?? []).map((row) => ({ agentId: row.agentId, keepInSync: row.keepInSync })))
     }
   }
@@ -400,9 +424,28 @@ export function LinkedComputersWorkspace() {
                     </p>
                   )}
                   {device.desiredAgents?.length ? (
-                    <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                      Desired: {device.desiredAgents.map((row) => `${row.agentId}${row.keepInSync ? ' (sync)' : ''}`).join(', ')}
-                    </p>
+                    <ul className="mt-1 space-y-0.5 text-xs">
+                      {device.desiredAgents.map((row) => (
+                        <li key={row.agentId} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="text-[var(--color-pib-text-muted)]">
+                            {row.agentId}{row.keepInSync ? ' · keep in sync' : ''}
+                          </span>
+                          <span className={agentSyncStatusClass(row.status)}>
+                            {agentSyncStatusLabel(row.status)}
+                          </span>
+                          {row.status === 'drifted' || row.status === 'error' ? (
+                            <span className="text-[var(--color-pib-text-muted)]">
+                              {row.lastError
+                                || (row.desiredPolicyVersion && row.appliedPolicyVersion
+                                  ? `${row.appliedPolicyVersion} → ${row.desiredPolicyVersion}`
+                                  : row.desiredPolicyVersion
+                                    ? `wants ${row.desiredPolicyVersion}`
+                                    : '')}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
                   ) : null}
                 </div>
                 <div>
@@ -562,6 +605,7 @@ export function LinkedComputersWorkspace() {
               const selected = agentsDraft.some((row) => row.agentId === agentId)
               const keepInSync = agentsDraft.find((row) => row.agentId === agentId)?.keepInSync === true
               const online = agentsDevice.availableAgentIds?.includes(agentId)
+              const live = agentsLive.find((row) => row.agentId === agentId)
               return (
                 <div key={agentId} className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
                   <label className="flex items-center gap-2 text-sm">
@@ -572,7 +616,20 @@ export function LinkedComputersWorkspace() {
                     />
                     <span className="font-medium">{agentId}</span>
                     <span className="text-xs text-[var(--color-pib-text-muted)]">{online ? 'online' : 'offline'}</span>
+                    {live ? (
+                      <span className={`text-xs ${agentSyncStatusClass(live.status)}`}>
+                        {agentSyncStatusLabel(live.status)}
+                      </span>
+                    ) : null}
                   </label>
+                  {live?.lastError ? (
+                    <p className="mt-1 pl-6 text-xs text-amber-300">{live.lastError}</p>
+                  ) : null}
+                  {live?.keepInSync && live.desiredPolicyVersion && live.desiredPolicyVersion !== live.appliedPolicyVersion ? (
+                    <p className="mt-1 pl-6 text-xs text-[var(--color-pib-text-muted)]">
+                      Policy drift: {live.appliedPolicyVersion || 'none'} → {live.desiredPolicyVersion}
+                    </p>
+                  ) : null}
                   {selected && (
                     <label className="mt-1 flex items-center gap-2 pl-6 text-xs text-[var(--color-pib-text-muted)]">
                       <input

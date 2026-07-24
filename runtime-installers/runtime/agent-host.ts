@@ -1,8 +1,13 @@
-import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { probeLocalHermes } from './hermes'
+import {
+  ensureHermesProfile,
+  startHermesGateway,
+  waitForAgentHealthy,
+} from './hermes-profile-lifecycle'
+import { applySkillPackArchive, downloadSkillPackArchive } from './skill-pack-apply'
 
 export type AgentHostRuntimeJob = {
   jobId: string
@@ -15,8 +20,20 @@ export type AgentHostRuntimeJob = {
   pibSkills: string[]
   vpsExternalDir: string | null
   preferredPort: number | null
+  skillPack?: {
+    packSha256: string
+    policyVersion: string
+    skillNames: string[]
+    artifactPath: string
+  } | null
+  protocolVersion?: number
   leaseToken?: string
 }
+
+export type AgentHostSkillPackDownloader = (input: {
+  artifactPath: string
+  expectedContentSha256: string
+}) => Promise<string>
 
 function hermesHome(env: NodeJS.ProcessEnv = process.env): string {
   return env.PIB_HERMES_HOME || env.HERMES_HOME || path.join(os.homedir(), '.hermes')
@@ -35,58 +52,18 @@ function writeFileSecure(filePath: string, contents: string) {
   fs.writeFileSync(filePath, contents, { encoding: 'utf8', mode: 0o600 })
 }
 
-function readEnvPort(filePath: string): number | null {
-  try {
-    const line = fs.readFileSync(filePath, 'utf8').split(/\r?\n/).find((row) => row.startsWith('API_SERVER_PORT='))
-    if (!line) return null
-    const port = Number(line.slice('API_SERVER_PORT='.length).trim())
-    return Number.isInteger(port) && port > 0 ? port : null
-  } catch {
-    return null
-  }
-}
-
-function ensureProfileEnv(agentId: string, preferredPort: number | null, env: NodeJS.ProcessEnv = process.env): { created: boolean; port: number | null; apiKeyPresent: boolean } {
-  const dir = profileDir(agentId, env)
-  const envFile = path.join(dir, '.env')
-  ensureDir(dir)
-  if (fs.existsSync(envFile)) {
-    return {
-      created: false,
-      port: readEnvPort(envFile),
-      apiKeyPresent: fs.readFileSync(envFile, 'utf8').includes('API_SERVER_KEY='),
-    }
-  }
-
-  const sharedKey = (() => {
-    try {
-      const shared = fs.readFileSync(path.join(hermesHome(env), '.env'), 'utf8')
-      const line = shared.split(/\r?\n/).find((row) => row.startsWith('API_SERVER_KEY='))
-      return line ? line.slice('API_SERVER_KEY='.length).trim() : ''
-    } catch {
-      return ''
-    }
-  })()
-  const apiKey = sharedKey || crypto.randomBytes(24).toString('hex')
-  const port = preferredPort && preferredPort > 0 ? preferredPort : null
-  const lines = [
-    'API_SERVER_ENABLED=true',
-    'API_SERVER_HOST=127.0.0.1',
-    ...(port ? [`API_SERVER_PORT=${port}`] : []),
-    `API_SERVER_MODEL_NAME=${agentId}`,
-    `API_SERVER_KEY=${apiKey}`,
-    '',
-  ]
-  writeFileSecure(envFile, lines.join('\n'))
-  return { created: true, port, apiKeyPresent: true }
-}
-
-function writePolicyStamp(agentId: string, policyVersion: string | null, env: NodeJS.ProcessEnv = process.env) {
+function writePolicyStamp(
+  agentId: string,
+  policyVersion: string | null,
+  extra: Record<string, unknown> = {},
+  env: NodeJS.ProcessEnv = process.env,
+) {
   const stamp = {
     agentId,
     policyVersion,
     appliedAt: new Date().toISOString(),
     source: 'pib-runtime-agent-host',
+    ...extra,
   }
   writeFileSecure(
     path.join(profileDir(agentId, env), 'pib-skill-policy.json'),
@@ -106,6 +83,7 @@ function writeDesiredManifest(
     runtimeSkills: job.runtimeSkills,
     pibSkills: job.pibSkills,
     vpsExternalDir: job.vpsExternalDir,
+    skillPackSha256: job.skillPack?.packSha256 ?? null,
     updatedAt: new Date().toISOString(),
   }
   writeFileSecure(
@@ -116,25 +94,103 @@ function writeDesiredManifest(
 
 export async function executeAgentHostJob(
   job: AgentHostRuntimeJob,
-  env: NodeJS.ProcessEnv = process.env,
-  probe: typeof probeLocalHermes = probeLocalHermes,
+  options: {
+    env?: NodeJS.ProcessEnv
+    probe?: typeof probeLocalHermes
+    downloadSkillPack?: AgentHostSkillPackDownloader
+    startGateway?: boolean
+  } = {},
 ): Promise<{ ok: true; result: Record<string, unknown> } | { ok: false; error: string }> {
+  const env = options.env ?? process.env
+  const probe = options.probe ?? probeLocalHermes
+  const startGateway = options.startGateway !== false
+
   try {
-    if (!job.agentId || !/^[a-z][a-z0-9-]{0,63}$/.test(job.agentId)) {
+    if (!job.agentId || !/^[a-z][a-z0-9._-]{0,39}$/.test(job.agentId)) {
       return { ok: false, error: 'invalid agent id' }
     }
 
-    const profile = ensureProfileEnv(job.agentId, job.preferredPort, env)
+    const profile = ensureHermesProfile({
+      agentId: job.agentId,
+      preferredPort: job.preferredPort,
+      env,
+    })
     writeDesiredManifest(job.agentId, job, env)
 
-    let policyApplied = false
-    if (job.kind === 'sync-policy' || job.keepInSync) {
-      writePolicyStamp(job.agentId, job.policyVersion, env)
-      policyApplied = Boolean(job.policyVersion)
+    let skillsApplied = false
+    let skillsDigest: string | null = null
+    let skillCount = 0
+    let externalDir: string | null = null
+
+    const shouldApplySkills = Boolean(
+      job.skillPack
+      && (job.kind === 'sync-policy' || job.keepInSync || job.kind === 'install'),
+    )
+
+    if (shouldApplySkills && job.skillPack) {
+      if (!options.downloadSkillPack) {
+        return { ok: false, error: 'skill pack downloader required for keep-in-sync jobs' }
+      }
+      const archivePath = await options.downloadSkillPack({
+        artifactPath: job.skillPack.artifactPath,
+        expectedContentSha256: job.skillPack.packSha256,
+      })
+      try {
+        const applied = applySkillPackArchive({
+          agentId: job.agentId,
+          archivePath,
+          expectedSha256: job.skillPack.packSha256,
+          env,
+        })
+        skillsApplied = applied.skillsApplied
+        skillsDigest = applied.skillsDigest
+        skillCount = applied.skillCount
+        externalDir = applied.externalDir
+      } finally {
+        fs.rmSync(archivePath, { force: true })
+      }
     }
 
-    const probeResult = await probe(env)
-    const healthy = probeResult.availableAgentIds.includes(job.agentId)
+    let policyApplied = false
+    if (job.kind === 'sync-policy' || job.keepInSync || skillsApplied) {
+      writePolicyStamp(job.agentId, job.policyVersion, {
+        skillsApplied,
+        skillsDigest,
+        skillCount,
+        packSha256: job.skillPack?.packSha256 ?? null,
+      }, env)
+      policyApplied = Boolean(job.policyVersion) && (skillsApplied || !job.skillPack)
+    }
+
+    let gatewayStarted = false
+    let gatewayPid: number | null = null
+    let gatewayError: string | undefined
+    if (startGateway && (job.kind === 'install' || job.kind === 'sync-policy')) {
+      const gateway = startHermesGateway({ agentId: job.agentId, env })
+      gatewayStarted = gateway.started
+      gatewayPid = gateway.pid
+      gatewayError = gateway.error
+    }
+
+    const healthy = await waitForAgentHealthy({
+      agentId: job.agentId,
+      probe: () => probe(env),
+      timeoutMs: startGateway ? 20_000 : 2_000,
+      intervalMs: 1_000,
+    })
+
+    const installRequiresHealth = job.kind === 'install'
+    const syncRequiresSkills = Boolean(job.skillPack) && (job.kind === 'sync-policy' || job.keepInSync)
+    if (installRequiresHealth && !healthy) {
+      return {
+        ok: false,
+        error: gatewayError
+          || 'Agent profile prepared but Hermes did not become healthy on loopback',
+      }
+    }
+    if (syncRequiresSkills && !skillsApplied) {
+      return { ok: false, error: 'Skill pack was not applied' }
+    }
 
     return {
       ok: true,
@@ -142,12 +198,19 @@ export async function executeAgentHostJob(
         profileCreated: profile.created,
         port: profile.port,
         apiKeyPresent: profile.apiKeyPresent,
+        hermesBin: profile.hermesBin,
         policyApplied,
+        skillsApplied,
+        skillsDigest,
+        skillCount,
+        externalDir,
+        gatewayStarted,
+        gatewayPid,
         healthy,
-        hermesVersion: probeResult.hermesVersion ?? null,
+        hermesVersion: (await probe(env).catch(() => ({ hermesVersion: null }))).hermesVersion ?? null,
         note: healthy
-          ? 'Agent profile is healthy on loopback.'
-          : 'Profile prepared. Start or restart the local Hermes profile so heartbeat can advertise it.',
+          ? 'Agent is healthy on loopback with policy applied.'
+          : 'Profile prepared. Skills applied; start Hermes if it is not already running.',
       },
     }
   } catch (error) {
@@ -178,5 +241,5 @@ export async function pollAgentHostForever(
 }
 
 export function linkedRuntimeAgentHostClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.6', agentHostProtocolVersion: 1 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.6', agentHostProtocolVersion: 2 as const }
 }

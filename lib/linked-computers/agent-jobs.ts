@@ -12,8 +12,14 @@ export interface AgentHostJobPayload {
   runtimeSkills: string[]
   pibSkills: string[]
   vpsExternalDir: string | null
-  /** Stable local API port for managed profiles when creating a new Hermes profile. */
   preferredPort: number | null
+  skillPack?: {
+    packSha256: string
+    policyVersion: string
+    skillNames: string[]
+    artifactPath: string
+  } | null
+  protocolVersion?: number
 }
 
 export interface AgentHostJob {
@@ -50,6 +56,8 @@ export interface PublicAgentHostJob {
   pibSkills: string[]
   vpsExternalDir: string | null
   preferredPort: number | null
+  skillPack?: AgentHostJobPayload['skillPack']
+  protocolVersion?: number
   leaseToken?: string
   createdAt: string
   updatedAt: string
@@ -105,6 +113,7 @@ export function agentHostRequestFingerprint(input: {
   pibSkills: string[]
   vpsExternalDir: string | null
   preferredPort: number | null
+  packSha256?: string | null
 }): string {
   return crypto.createHash('sha256')
     .update(JSON.stringify({
@@ -117,6 +126,7 @@ export function agentHostRequestFingerprint(input: {
       pibSkills: [...input.pibSkills].sort(),
       vpsExternalDir: input.vpsExternalDir,
       preferredPort: input.preferredPort,
+      packSha256: input.packSha256 ?? null,
     }))
     .digest('hex')
 }
@@ -132,6 +142,19 @@ export function parseAgentHostJobPayload(value: unknown): AgentHostJobPayload {
     ? row.pibSkills.filter((item): item is string => typeof item === 'string')
     : []
   const preferredPort = Number(row.preferredPort)
+  const skillPack = row.skillPack && typeof row.skillPack === 'object' && !Array.isArray(row.skillPack)
+    ? (() => {
+        const pack = row.skillPack as Record<string, unknown>
+        const packSha256 = typeof pack.packSha256 === 'string' ? pack.packSha256 : ''
+        const policyVersion = typeof pack.policyVersion === 'string' ? pack.policyVersion : ''
+        const artifactPath = typeof pack.artifactPath === 'string' ? pack.artifactPath : ''
+        const skillNames = Array.isArray(pack.skillNames)
+          ? pack.skillNames.filter((item): item is string => typeof item === 'string')
+          : []
+        if (!packSha256 || !policyVersion || !artifactPath) return null
+        return { packSha256, policyVersion, skillNames, artifactPath }
+      })()
+    : null
   return {
     agentId: row.agentId,
     policyVersion: typeof row.policyVersion === 'string' ? row.policyVersion : null,
@@ -140,6 +163,8 @@ export function parseAgentHostJobPayload(value: unknown): AgentHostJobPayload {
     pibSkills,
     vpsExternalDir: typeof row.vpsExternalDir === 'string' ? row.vpsExternalDir : null,
     preferredPort: Number.isInteger(preferredPort) && preferredPort > 0 ? preferredPort : null,
+    ...(skillPack ? { skillPack } : {}),
+    ...(typeof row.protocolVersion === 'number' ? { protocolVersion: row.protocolVersion } : {}),
   }
 }
 
@@ -155,6 +180,8 @@ export function toPublicAgentHostJob(job: AgentHostJob): PublicAgentHostJob {
     pibSkills: job.payload.pibSkills,
     vpsExternalDir: job.payload.vpsExternalDir,
     preferredPort: job.payload.preferredPort,
+    ...(job.payload.skillPack ? { skillPack: job.payload.skillPack } : {}),
+    ...(job.payload.protocolVersion ? { protocolVersion: job.payload.protocolVersion } : {}),
     ...(job.leaseToken ? { leaseToken: job.leaseToken } : {}),
     createdAt: new Date(job.createdAtMs).toISOString(),
     updatedAt: new Date(job.updatedAtMs).toISOString(),

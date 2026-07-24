@@ -2,8 +2,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { resolveOrgScope } from '@/lib/api/orgScope'
-import { publicManagedAgentIds } from '@/lib/linked-computers/agent-bindings'
-import { listDeviceDesiredAgents, setDeviceDesiredAgents } from '@/lib/linked-computers/agent-host-service'
+import { listCatalogAgentIds, listDeviceDesiredAgents, setDeviceDesiredAgents } from '@/lib/linked-computers/agent-host-service'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,10 +29,13 @@ export const GET = withAuth('client', async (req: NextRequest, user, context) =>
   const scope = resolveOrgScope(user, orgIdParam)
   if (!scope.ok) return apiError(scope.error, scope.status)
   try {
-    const inventory = await listDeviceDesiredAgents(deviceId)
+    const [inventory, catalogAgentIds] = await Promise.all([
+      listDeviceDesiredAgents(deviceId),
+      listCatalogAgentIds(),
+    ])
     return apiSuccess({
       ...inventory,
-      catalogAgentIds: publicManagedAgentIds(),
+      catalogAgentIds,
       orgId: scope.orgId,
     })
   } catch (error) {
@@ -65,12 +67,13 @@ export const PUT = withAuth('client', async (req: NextRequest, user, context) =>
       desired,
       enqueueJobs: body.enqueueJobs !== false,
     })
+    const catalogAgentIds = await listCatalogAgentIds()
     return apiSuccess({
       deviceId,
       orgId: scope.orgId,
       desiredAgents: result.desiredAgents,
       enqueuedJobIds: result.enqueuedJobIds,
-      catalogAgentIds: publicManagedAgentIds(),
+      catalogAgentIds,
     })
   } catch (error) {
     return hostError(error)

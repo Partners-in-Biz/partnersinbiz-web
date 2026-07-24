@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp, type DocumentReference } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import {
   agentHostJobId,
@@ -122,6 +122,7 @@ export async function enqueueAgentHostJob(
     pibSkills: input.payload.pibSkills,
     vpsExternalDir: input.payload.vpsExternalDir,
     preferredPort: input.payload.preferredPort,
+    packSha256: input.payload.skillPack?.packSha256 ?? null,
   })
   const job: AgentHostJob = {
     jobId: id,
@@ -170,6 +171,10 @@ export async function enqueueAgentHostJob(
   })
 }
 
+/**
+ * Claim the oldest claimable job. Claimed jobs stay at the head of the queue
+ * until complete/fail so lease expiry can re-claim without losing order.
+ */
 export async function claimOldestAgentHostJob(
   input: { deviceId: string; ownerUserId: string; credentialVersion: number },
   options: { nowMs?: number; leaseMs?: number } = {},
@@ -195,8 +200,10 @@ export async function claimOldestAgentHostJob(
       : []
     if (ids.length === 0) return null
 
+    let selected: AgentHostJob | null = null
+    let selectedRef: DocumentReference | null = null
     const survivors: string[] = []
-    let claimedPublic: PublicAgentHostJob | null = null
+
     for (const jobId of ids) {
       const jobRef = adminDb.collection(AGENT_HOST_JOBS).doc(jobId)
       const jobSnapshot = await transaction.get(jobRef)
@@ -216,27 +223,39 @@ export async function claimOldestAgentHostJob(
         })
         continue
       }
-      if (!claimedPublic && isClaimable(job, nowMs)) {
+      if (!selected && isClaimable(job, nowMs)) {
         const leaseToken = crypto.randomBytes(16).toString('hex')
-        const claimed = transitionAgentHostJob(job, {
+        selected = transitionAgentHostJob(job, {
           type: 'claim',
           leaseToken,
           leaseExpiresAtMs: nowMs + leaseMs,
           nowMs,
         })
-        transaction.set(jobRef, toStored(claimed), { merge: false })
-        claimedPublic = toPublicAgentHostJob(claimed)
+        selectedRef = jobRef
         continue
       }
       survivors.push(jobId)
     }
 
+    if (!selected || !selectedRef) {
+      if (survivors.length !== ids.length) {
+        transaction.set(queueRef, {
+          deviceId: input.deviceId,
+          pendingJobIds: survivors,
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true })
+      }
+      return null
+    }
+
+    transaction.set(selectedRef, toStored(selected), { merge: false })
+    // Keep claimed job at head until complete — mirrors run-queue lease semantics.
     transaction.set(queueRef, {
       deviceId: input.deviceId,
-      pendingJobIds: survivors,
+      pendingJobIds: [selected.jobId, ...survivors],
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true })
-    return claimedPublic
+    return toPublicAgentHostJob(selected)
   })
 }
 
@@ -252,7 +271,11 @@ export async function completeAgentHostJob(input: {
   const nowMs = options.nowMs ?? Date.now()
   return adminDb.runTransaction(async (transaction) => {
     const jobRef = adminDb.collection(AGENT_HOST_JOBS).doc(input.jobId)
-    const jobSnapshot = await transaction.get(jobRef)
+    const queueRef = adminDb.collection(AGENT_HOST_QUEUES).doc(input.deviceId)
+    const [jobSnapshot, queueSnapshot] = await Promise.all([
+      transaction.get(jobRef),
+      transaction.get(queueRef),
+    ])
     if (!jobSnapshot.exists) throw new Error('agent-host: job not found')
     const job = fromStored(jobSnapshot.id, jobSnapshot.data() ?? {})
     if (job.deviceId !== input.deviceId) throw new Error('agent-host: device mismatch')
@@ -262,6 +285,17 @@ export async function completeAgentHostJob(input: {
       ? transitionAgentHostJob(job, { type: 'complete', result: input.result, nowMs })
       : transitionAgentHostJob(job, { type: 'fail', error: input.error || 'agent job failed', nowMs })
     transaction.set(jobRef, toStored(next), { merge: false })
+
+    const ids = Array.isArray(queueSnapshot.data()?.pendingJobIds)
+      ? queueSnapshot.data()!.pendingJobIds as string[]
+      : []
+    if (ids.includes(input.jobId)) {
+      transaction.set(queueRef, {
+        deviceId: input.deviceId,
+        pendingJobIds: ids.filter((id) => id !== input.jobId),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+    }
     return next
   })
 }

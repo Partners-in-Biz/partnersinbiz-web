@@ -75,11 +75,29 @@ async function claim():Promise<Job|null>{const i=await identity();const response
 async function syncClaim():Promise<WorkspaceSyncRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/sync/claim`,linkedRuntimeSyncClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkspaceSyncRuntimeJob}
 async function workbenchClaim():Promise<WorkbenchRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/workbench/claim`,linkedRuntimeWorkbenchClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkbenchRuntimeJob}
 async function agentHostClaim():Promise<AgentHostRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/agents/claim`,linkedRuntimeAgentClaimBody());if(response.status===204)return null;return await jsonData(response) as AgentHostRuntimeJob}
+async function downloadAgentSkillPack(artifactPath:string,expectedContentSha256:string){
+  const i=await identity()
+  const resolvedPath=artifactPath.includes('{deviceId}')?artifactPath.replace('{deviceId}',i.deviceId):artifactPath
+  const {downloadSkillPackArchive}=await import('./skill-pack-apply')
+  const apiClient=await client()
+  const response=await apiClient.get(resolvedPath)
+  if(!response.ok)throw new Error(`skill pack download rejected (${response.status})`)
+  let consumed=false
+  return downloadSkillPackArchive({
+    url:resolvedPath,
+    expectedContentSha256,
+    fetcher:async()=>{
+      if(consumed)throw new Error('skill pack fetcher reused')
+      consumed=true
+      return response
+    },
+  })
+}
 async function localHermes(agentId:string,body:{prompt:string;images?:Array<{url:string;contentType:string}>;model?:string;provider?:string;working_directory:string;yolo?:boolean},helpers?:{onEvents?:(events:unknown[])=>void|Promise<void>}):Promise<unknown>{return callLocalHermes(agentId,body,process.env,fetch,(ms)=>new Promise(r=>setTimeout(r,ms)),helpers?.onEvents)}
 async function run(job:Job){const i=await identity();return executeJob({...job},i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body),(body,helpers)=>localHermes(job.agentId||'pip',body,helpers))}
 async function syncRun(job:WorkspaceSyncRuntimeJob){const i=await identity();return executeWorkspaceSyncJob(job,{registry:maps,stateRoot,spool:syncSpool,post:(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body)})}
 async function workbenchRun(job:WorkbenchRuntimeJob){const i=await identity();return executeWorkbenchJob(job,i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
-async function agentHostRun(job:AgentHostRuntimeJob){const i=await identity();const outcome=await executeAgentHostJob(job);await post(`/api/v1/linked-computers/${i.deviceId}/agents/jobs/${job.jobId}/complete`,{leaseToken:job.leaseToken,ok:outcome.ok,...(outcome.ok?{result:outcome.result}:{error:outcome.error})})}
+async function agentHostRun(job:AgentHostRuntimeJob){const i=await identity();const outcome=await executeAgentHostJob(job,{downloadSkillPack:async({artifactPath,expectedContentSha256})=>downloadAgentSkillPack(artifactPath,expectedContentSha256)});await post(`/api/v1/linked-computers/${i.deviceId}/agents/jobs/${job.jobId}/complete`,{leaseToken:job.leaseToken,ok:outcome.ok,...(outcome.ok?{result:outcome.result}:{error:outcome.error})})}
 async function syncFlush(){const i=await identity();return syncSpool.flush((suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 export async function isRevokeAcknowledged(response:Response){if(!response.ok)return false;try{const body=record(await response.json());return body.revoked===true&&typeof body.code==='string'&&['device_revoked','already_revoked'].includes(body.code)}catch{return false}}
 async function signedRemoteRevoke(){const i=await identity(),response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/revoke`,{reason:'local-user-revoked',runtimeVersion});if(!await isRevokeAcknowledged(response))throw new Error('remote revoke unavailable')}

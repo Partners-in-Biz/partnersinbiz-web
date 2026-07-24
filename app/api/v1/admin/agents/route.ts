@@ -91,9 +91,18 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       apiKey,
       ...registry,
     })
+    const { resolvePreferredAgentPort } = await import('@/lib/linked-computers/agent-host-ports')
     const safeProvisioned = { ...result }
     delete safeProvisioned.apiKey
-    return apiSuccess({ agent, provisioned: safeProvisioned })
+    return apiSuccess({
+      agent,
+      provisioned: safeProvisioned,
+      linkedComputerPull: {
+        preferredPort: resolvePreferredAgentPort(agentId),
+        catalogIncluded: true,
+        note: 'Custom agents appear in Linked Computers → Agents and can be pulled with keep-in-sync.',
+      },
+    })
   } catch (err) {
     return apiError(err instanceof Error ? err.message : 'Failed to create agent', 500)
   }
