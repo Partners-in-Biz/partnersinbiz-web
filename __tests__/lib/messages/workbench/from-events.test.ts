@@ -57,6 +57,26 @@ describe('buildWorkbenchTerminalEntries', () => {
     expect(entries.map((entry) => entry.body)).toEqual(['$ first\nFIRST', '$ second\nSECOND'])
   })
 
+  it('normalizes snake-case run ids before correlating identity-less completions', () => {
+    const entries = buildWorkbenchTerminalEntries([
+      { event: 'tool.started', run_id: 'run-1', tool: 'terminal', input: 'first' },
+      { event: 'tool.started', run_id: 'run-2', tool: 'terminal', input: 'second' },
+      { event: 'tool.completed', run_id: 'run-1', tool: 'terminal', output: 'FIRST' },
+      { event: 'tool.completed', run_id: 'run-2', tool: 'terminal', output: 'SECOND' },
+    ])
+    expect(entries.map((entry) => entry.body)).toEqual(['$ first\nFIRST', '$ second\nSECOND'])
+  })
+
+  it('keeps unscoped completions isolated from explicitly scoped runs', () => {
+    const entries = buildWorkbenchTerminalEntries([
+      { event: 'tool.started', tool: 'terminal', input: 'unscoped' },
+      { event: 'tool.started', runId: 'run-2', tool: 'terminal', input: 'scoped' },
+      { event: 'tool.completed', tool: 'terminal', output: 'UNSCOPED' },
+      { event: 'tool.completed', runId: 'run-2', tool: 'terminal', output: 'SCOPED' },
+    ])
+    expect(entries.map((entry) => entry.body)).toEqual(['$ unscoped\nUNSCOPED', '$ scoped\nSCOPED'])
+  })
+
   it('classifies status from event type and error/exit code for uncorrelated events', () => {
     const events: ChatEvent[] = [
       { event: 'tool.completed', tool: 'terminal', exitCode: 1 },

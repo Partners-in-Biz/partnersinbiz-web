@@ -60,6 +60,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, ct
 
   const entry = findManifestFile(resolution.manifest.entries, relativePath)
   if (!entry) return apiError('File not found in the synced manifest', 404)
+  if (!entry.sha256) return apiError('File content is not available in the synced manifest', 404)
   if (entry.size > MAX_PREVIEW_BYTES) {
     return apiError(`File is too large to preview (max ${Math.floor(MAX_PREVIEW_BYTES / 1024)}KB)`, 413)
   }

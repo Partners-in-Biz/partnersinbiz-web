@@ -6,16 +6,34 @@ import { type FormEvent, useEffect, useState } from 'react'
 import type { WorkbenchBrowserTarget } from '@/lib/messages/workbench/types'
 
 function privateHostname(hostname: string): boolean {
-  let host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '')
-  const mappedIpv4 = host.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)?.[1]
-  if (mappedIpv4) host = mappedIpv4
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '')
   if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host === '::' || host === '::1' || host === '0.0.0.0') return true
-  if (/^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) || /^169\.254\./.test(host)) return true
-  const cgnat = host.match(/^100\.(\d+)\./)
-  if (cgnat && Number(cgnat[1]) >= 64 && Number(cgnat[1]) <= 127) return true
-  const private172 = host.match(/^172\.(\d+)\./)
-  if (private172 && Number(private172[1]) >= 16 && Number(private172[1]) <= 31) return true
-  return /^(?:fc|fd|fe8|fe9|fea|feb)[0-9a-f:]*$/i.test(host)
+
+  // Browser URL parsing canonicalizes IPv4-mapped addresses such as
+  // ::ffff:127.0.0.1 to ::ffff:7f00:1. Conservatively allow only global
+  // unicast IPv6 (2000::/3), excluding the documentation block.
+  if (host.includes(':')) {
+    const firstHextet = Number.parseInt(host.split(':').find(Boolean) ?? '0', 16)
+    return !Number.isFinite(firstHextet)
+      || firstHextet < 0x2000
+      || firstHextet > 0x3fff
+      || /^2001:db8(?::|$)/.test(host)
+  }
+
+  const ipv4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/)?.slice(1).map(Number)
+  if (!ipv4) return false
+  const [a, b, c] = ipv4
+  return a === 0
+    || a === 10
+    || a === 127
+    || (a === 100 && b >= 64 && b <= 127)
+    || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 0 && (c === 0 || c === 2))
+    || (a === 192 && b === 168)
+    || (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100)))
+    || (a === 203 && b === 0 && c === 113)
+    || a >= 224
 }
 
 function safeObservedUrl(value: string): { url: string | null; error: string | null } {

@@ -164,7 +164,7 @@ describe('workbench claim authorization', () => {
     mapping: { mappingId: 'mapping-a', deviceId: 'device-a', orgId: 'org-a', workspaceId: 'workspace-a', projectId: 'project-a', status: 'active' },
     deviceMember: { orgId: 'org-a', uid: 'owner-a', status: 'active' },
     actorMember: { orgId: 'org-a', uid: 'user-a', role: 'client', status: 'active' },
-    conversation: { id: 'conversation-a', orgId: 'org-a', participantUids: ['user-a'], workspaceContext: { workspaceId: 'workspace-a', mappingId: 'mapping-a', runtimeTarget: 'runtime-a', projectId: 'project-a', shareMode: 'private' } },
+    conversation: { id: 'conversation-a', orgId: 'org-a', participantUids: ['user-a'], workspaceContext: { orgId: 'org-a', workspaceId: 'workspace-a', mappingId: 'mapping-a', runtimeTarget: 'runtime-a', projectId: 'project-a', shareMode: 'private' } },
     project: { clientOrgIds: ['org-a'] },
     projectOrganization: { projectId: 'project-a', orgId: 'org-a', status: 'active' },
     projectReplica: { replicaId: 'replica-a', projectId: 'project-a', orgId: 'org-a', workspaceId: 'workspace-a', locationId: 'linked-device:device-a', mappingId: 'mapping-a', relativePath: 'projects/project-a', active: true },
@@ -177,6 +177,7 @@ describe('workbench claim authorization', () => {
     expect(isWorkbenchClaimAuthorized({ ...input, authorization: { ...stored, mapping: { ...stored.mapping, status: 'revoked' } } })).toBe(false)
     expect(isWorkbenchClaimAuthorized({ ...input, authorization: { ...stored, conversation: { ...stored.conversation, participantUids: [] } } })).toBe(false)
     expect(isWorkbenchClaimAuthorized({ ...input, authorization: { ...stored, conversation: { ...stored.conversation, orgId: 'org-b' } } })).toBe(false)
+    expect(isWorkbenchClaimAuthorized({ ...input, authorization: { ...stored, conversation: { ...stored.conversation, workspaceContext: { ...stored.conversation!.workspaceContext as object, orgId: 'org-b' } } } })).toBe(false)
     expect(isWorkbenchClaimAuthorized({ ...input, job: job({ conversationId: 'conversation-b' }) })).toBe(false)
     expect(isWorkbenchClaimAuthorized({ ...input, authorization: { ...stored, projectOrganization: { ...stored.projectOrganization, status: 'revoked' } } })).toBe(false)
   })

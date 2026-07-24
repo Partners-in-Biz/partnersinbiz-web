@@ -90,9 +90,16 @@ function toolCallIdentity(event: ChatEvent): string | null {
   return visit(event.raw)
 }
 
+const UNSCOPED_RUN_KEY = '__workbench_unscoped_run__'
+
+function toolRunKey(event: ChatEvent): string {
+  return event.runId?.trim() || event.run_id?.trim() || UNSCOPED_RUN_KEY
+}
+
 export function buildWorkbenchTerminalEntries(events: ChatEvent[]): WorkbenchTerminalEntry[] {
   const entries: WorkbenchTerminalEntry[] = []
   const identities = new Map<string, string>()
+  const runKeys = new Map<string, string>()
   const eventMeta = (event: ChatEvent) => {
     const seconds = event.timestamp
       ? new Date(event.timestamp > 10_000_000_000 ? event.timestamp : event.timestamp * 1000).toISOString().slice(11, 19)
@@ -110,8 +117,9 @@ export function buildWorkbenchTerminalEntries(events: ChatEvent[]): WorkbenchTer
     if (event.event === 'assistant.text_delta' || event.event === 'heartbeat') return
     const failed = Boolean(event.error) || (typeof event.exitCode === 'number' && event.exitCode !== 0)
     if (event.event === 'tool.started') {
+      const runKey = toolRunKey(event)
       const entry: WorkbenchTerminalEntry = {
-        id: `${event.runId ?? 'run'}:${index}:${event.tool ?? 'tool'}`,
+        id: `${runKey}:${index}:${event.tool ?? 'tool'}`,
         status: 'running',
         label: event.tool ?? terminalEventLabel(event),
         meta: eventMeta(event),
@@ -120,15 +128,17 @@ export function buildWorkbenchTerminalEntries(events: ChatEvent[]): WorkbenchTer
         timestamp: event.timestamp,
       }
       entries.push(entry)
+      runKeys.set(entry.id, runKey)
       const identity = toolCallIdentity(event)
       if (identity) identities.set(entry.id, identity)
       return
     }
     if (event.event === 'tool.completed') {
       const identity = toolCallIdentity(event)
+      const runKey = toolRunKey(event)
       const running = identity
-        ? entries.find((entry) => entry.status === 'running' && entry.tool === event.tool && identities.get(entry.id) === identity)
-        : entries.findLast((entry) => entry.status === 'running' && entry.tool === event.tool && (!event.runId || entry.id.startsWith(`${event.runId}:`)))
+        ? entries.find((entry) => entry.status === 'running' && entry.tool === event.tool && runKeys.get(entry.id) === runKey && identities.get(entry.id) === identity)
+        : entries.findLast((entry) => entry.status === 'running' && entry.tool === event.tool && runKeys.get(entry.id) === runKey)
       if (running) {
         running.status = failed ? 'failed' : 'done'
         running.meta = eventMeta(event)
@@ -148,7 +158,7 @@ export function buildWorkbenchTerminalEntries(events: ChatEvent[]): WorkbenchTer
           ? 'done'
           : 'info'
     entries.push({
-      id: `${event.runId ?? 'run'}:${index}:${event.event ?? 'event'}:${event.tool ?? ''}`,
+      id: `${toolRunKey(event)}:${index}:${event.event ?? event.tool ?? 'event'}`,
       status,
       label: event.tool ?? terminalEventLabel(event),
       meta: eventMeta(event),

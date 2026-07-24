@@ -10,6 +10,7 @@ import {
   decryptWorkbenchValue,
   encryptWorkbenchValue,
   parseWorkbenchResult,
+  sanitizeWorkbenchRelativePath,
   transitionWorkbenchJob,
   workbenchJobId,
   workbenchRequestFingerprint,
@@ -240,9 +241,18 @@ export function isWorkbenchClaimAuthorized(input: {
     ? conversation.workspaceContext as Record<string, unknown>
     : undefined
   if (!participantUids.includes(job.actorUserId) && workspaceContext?.shareMode !== 'org') return false
-  if (workspaceContext?.workspaceId !== job.workspaceId || workspaceContext?.mappingId !== job.mappingId) return false
+  if (workspaceContext?.orgId !== job.orgId
+    || workspaceContext?.workspaceId !== job.workspaceId
+    || workspaceContext?.mappingId !== job.mappingId) return false
   if (workspaceContext?.runtimeTarget !== job.runtimeTargetId && workspaceContext?.runtimeTarget !== job.deviceId) return false
   if ((conversationProjectId(conversation as unknown as Conversation) ?? null) !== (job.projectId ?? null)) return false
+  if (!job.projectId) {
+    const currentRelativeFolder = sanitizeWorkbenchRelativePath(
+      typeof workspaceContext?.folderRelativePath === 'string' ? workspaceContext.folderRelativePath : '.',
+      { allowRoot: true },
+    )
+    if (currentRelativeFolder !== job.relativeFolder) return false
+  }
   if (job.kind === 'fs.write' && (!job.approvedAtMs || job.approvedByUserId !== job.actorUserId)) return false
 
   return isLinkedRunClaimAuthorized({
