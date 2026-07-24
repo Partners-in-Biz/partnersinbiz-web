@@ -57,6 +57,7 @@ import {
   rewriteConversationDoc,
   rewriteOrganizationDoc,
   rewriteOrgWorkspaceDoc,
+  rewritePathFieldsInObject,
   rewritePibWorkspaceJson,
   shellSingleQuote,
 } from '@/scripts/lib/org-scoped-cowork-migration'
@@ -101,6 +102,10 @@ export interface FirestoreRewriteCounts {
   organizationsRewritten: number
   conversationsScanned: number
   conversationsRewritten: number
+  workspaceFoldersScanned: number
+  workspaceFoldersRewritten: number
+  projectsScanned: number
+  projectsRewritten: number
   pathFieldChanges: number
 }
 
@@ -479,6 +484,10 @@ async function migrateFirestore(dryRun: boolean): Promise<FirestoreRewriteCounts
     organizationsRewritten: 0,
     conversationsScanned: 0,
     conversationsRewritten: 0,
+    workspaceFoldersScanned: 0,
+    workspaceFoldersRewritten: 0,
+    projectsScanned: 0,
+    projectsRewritten: 0,
     pathFieldChanges: 0,
   }
 
@@ -530,6 +539,20 @@ async function migrateFirestore(dryRun: boolean): Promise<FirestoreRewriteCounts
 
     last = snap.docs[snap.docs.length - 1]
     if (snap.size < pageSize) break
+  }
+
+  for (const collectionName of ['workspace_folders', 'projects'] as const) {
+    const snap = await db.collection(collectionName).get()
+    for (const doc of snap.docs) {
+      if (collectionName === 'workspace_folders') counts.workspaceFoldersScanned += 1
+      else counts.projectsScanned += 1
+      const rewritten = rewritePathFieldsInObject(doc.data() ?? {})
+      if (!rewritten.changed) continue
+      if (collectionName === 'workspace_folders') counts.workspaceFoldersRewritten += 1
+      else counts.projectsRewritten += 1
+      counts.pathFieldChanges += rewritten.changes.length
+      if (!dryRun) await doc.ref.set(buildFirestoreMergePatch(rewritten), { merge: true })
+    }
   }
 
   return counts
@@ -604,6 +627,8 @@ function printSummary(summary: MigrationSummary): void {
   console.log(`org_workspaces: ${fs.orgWorkspacesRewritten}/${fs.orgWorkspacesScanned} rewritten`)
   console.log(`organizations:  ${fs.organizationsRewritten}/${fs.organizationsScanned} rewritten`)
   console.log(`conversations:  ${fs.conversationsRewritten}/${fs.conversationsScanned} rewritten`)
+  console.log(`workspace_folders: ${fs.workspaceFoldersRewritten}/${fs.workspaceFoldersScanned} rewritten`)
+  console.log(`projects:          ${fs.projectsRewritten}/${fs.projectsScanned} rewritten`)
   console.log(`path field changes (all collections): ${fs.pathFieldChanges}`)
   console.log('')
 }
@@ -618,6 +643,10 @@ export async function run(flags: CliFlags): Promise<MigrationSummary> {
     organizationsRewritten: 0,
     conversationsScanned: 0,
     conversationsRewritten: 0,
+    workspaceFoldersScanned: 0,
+    workspaceFoldersRewritten: 0,
+    projectsScanned: 0,
+    projectsRewritten: 0,
     pathFieldChanges: 0,
   }
 

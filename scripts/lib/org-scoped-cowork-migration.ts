@@ -7,6 +7,7 @@ import {
   PIB_COWORK_NESTING_SLUG,
   VPS_COWORK_ROOT,
   rewriteLegacyFlatCoworkPath,
+  rewriteLegacyFlatCoworkPathsInText,
 } from '@/lib/client-provisioning/cowork-paths'
 
 /** Top-level Cowork entries that must stay at the Cowork root. */
@@ -34,6 +35,7 @@ export const COWORK_PATH_FIELD_KEYS = [
   'localAgentDomainPath',
   'localWorkingPath',
   'vpsWorkingPath',
+  'localPathHint',
 ] as const
 
 export type CoworkPathFieldKey = (typeof COWORK_PATH_FIELD_KEYS)[number]
@@ -256,6 +258,8 @@ function rewriteKnownPathFields(
  * Deep-rewrite path fields on a plain object (workspace docs, manifests, etc.).
  * Handles nested `manifest`, `workspaceManifest`, `workspaceContext`, and
  * `folderRegistry[].syncTargets`.
+ * Also rewrites any nested string values that are flat Cowork path tokens
+ * (e.g. organizations.provisioning.result.workspace.directoriesCreated[]).
  */
 export function rewritePathFieldsInObject(
   data: Record<string, unknown>,
@@ -264,7 +268,7 @@ export function rewritePathFieldsInObject(
   const changes: PathRewriteChange[] = []
   let next: Record<string, unknown> = rewriteKnownPathFields({ ...data }, '', nestingOrgSlug, changes)
 
-  const nestedKeys = ['manifest', 'workspaceManifest', 'workspaceContext'] as const
+  const nestedKeys = ['manifest', 'workspaceManifest', 'workspaceContext', 'paths', 'syncTargets'] as const
   for (const nestedKey of nestedKeys) {
     const nested = asRecord(data[nestedKey])
     if (Object.keys(nested).length === 0) continue
@@ -293,11 +297,58 @@ export function rewritePathFieldsInObject(
     if (registryChanged) next = { ...next, folderRegistry: nextRegistry }
   }
 
+  // Catch historical provisioning result payloads and similar nested path lists.
+  const deep = rewriteNestedCoworkPathStrings(next, nestingOrgSlug, '')
+  if (deep.changed) {
+    next = deep.next
+    changes.push(...deep.changes)
+  }
+
   return {
     changed: changes.length > 0,
     next,
     changes,
   }
+}
+
+function rewriteNestedCoworkPathStrings(
+  value: Record<string, unknown>,
+  nestingOrgSlug: string,
+  prefix: string,
+): PathRewriteResult {
+  const changes: PathRewriteChange[] = []
+
+  const walk = (node: unknown, path: string): unknown => {
+    if (typeof node === 'string') {
+      const rewritten = rewriteCoworkPathValue(node, nestingOrgSlug)
+      if (rewritten) {
+        changes.push({ fieldPath: path || '(root)', from: node, to: rewritten })
+        return rewritten
+      }
+      // Free-text fields (message previews) may embed flat paths mid-string.
+      const textRewrite = rewriteLegacyFlatCoworkPathsInText(node, nestingOrgSlug)
+      if (textRewrite.changes > 0 && textRewrite.text !== node) {
+        changes.push({ fieldPath: path || '(root)', from: node, to: textRewrite.text })
+        return textRewrite.text
+      }
+      return node
+    }
+    if (Array.isArray(node)) {
+      return node.map((item, index) => walk(item, path ? `${path}[${index}]` : `[${index}]`))
+    }
+    if (node && typeof node === 'object') {
+      const record = node as Record<string, unknown>
+      const out: Record<string, unknown> = {}
+      for (const [key, child] of Object.entries(record)) {
+        out[key] = walk(child, path ? `${path}.${key}` : key)
+      }
+      return out
+    }
+    return node
+  }
+
+  const next = walk(value, prefix) as Record<string, unknown>
+  return { changed: changes.length > 0, next, changes }
 }
 
 /** Minimal Firestore merge patch from a rewrite result (avoids rewriting unrelated fields). */
@@ -306,22 +357,11 @@ export function buildFirestoreMergePatch(result: PathRewriteResult): Record<stri
   const patch: Record<string, unknown> = {}
   const topLevelKeys = new Set<string>()
   for (const change of result.changes) {
-    if (!change.fieldPath.includes('.') && !change.fieldPath.includes('[')) {
-      topLevelKeys.add(change.fieldPath)
-    }
+    const top = change.fieldPath.split(/[.\[]/)[0]
+    if (top) topLevelKeys.add(top)
   }
-  for (const key of topLevelKeys) patch[key] = result.next[key]
-  if (result.changes.some((c) => c.fieldPath.startsWith('manifest.'))) {
-    patch.manifest = result.next.manifest
-  }
-  if (result.changes.some((c) => c.fieldPath.startsWith('workspaceManifest.'))) {
-    patch.workspaceManifest = result.next.workspaceManifest
-  }
-  if (result.changes.some((c) => c.fieldPath.startsWith('workspaceContext.'))) {
-    patch.workspaceContext = result.next.workspaceContext
-  }
-  if (result.changes.some((c) => c.fieldPath.startsWith('folderRegistry'))) {
-    patch.folderRegistry = result.next.folderRegistry
+  for (const key of topLevelKeys) {
+    if (key in result.next) patch[key] = result.next[key]
   }
   return patch
 }
@@ -344,25 +384,8 @@ export function rewriteConversationDoc(
   data: Record<string, unknown>,
   nestingOrgSlug: string = PIB_COWORK_NESTING_SLUG,
 ): PathRewriteResult {
-  const context = asRecord(data.workspaceContext)
-  if (Object.keys(context).length === 0) {
-    return { changed: false, next: data, changes: [] }
-  }
-  const rewritten = rewritePathFieldsInObject(
-    { workspaceContext: context },
-    nestingOrgSlug,
-  )
-  if (!rewritten.changed) {
-    return { changed: false, next: data, changes: [] }
-  }
-  return {
-    changed: true,
-    next: {
-      ...data,
-      workspaceContext: rewritten.next.workspaceContext,
-    },
-    changes: rewritten.changes,
-  }
+  // Rewrite workspaceContext paths plus any embedded flat paths in preview text.
+  return rewritePathFieldsInObject(data, nestingOrgSlug)
 }
 
 export function rewritePibWorkspaceJson(

@@ -6,8 +6,8 @@ Runs in DISCOVERY mode by default — just inventories what's in the client's
 marketing/ folder so the agent can plan the import. Does NOT write anything.
 
 Usage:
-    python3 import-from-local.py --workspace "/Users/peetstander/Cowork/<CLIENT>"
-    python3 import-from-local.py --workspace "/Users/peetstander/Cowork/Velox/velox"
+    python3 import-from-local.py --workspace "/Users/peetstander/Cowork/partners/<CLIENT>"
+    python3 import-from-local.py --workspace "/Users/peetstander/Cowork/partners/Velox/velox"
 
 Reports:
     - Master plan present? (marketing/plans/content-master-plan.md or similar)
