@@ -11,7 +11,14 @@ const STATUS_META: Record<WorkbenchChangeStatus, { label: string; className: str
   unknown: { label: '?', className: 'text-[var(--color-pib-text-muted)] border-[var(--color-card-border)] bg-white/[0.04]' },
 }
 
-export function WorkbenchChangesPanel({ changes }: { changes: WorkbenchChangeFile[] }) {
+export interface WorkbenchChangesPanelProps {
+  changes: WorkbenchChangeFile[]
+  onOpenInFiles?: (path: string) => void
+  /** Phase 2b status note (e.g. "live git status requires linked-runtime jobs"). */
+  message?: string | null
+}
+
+export function WorkbenchChangesPanel({ changes, onOpenInFiles, message }: WorkbenchChangesPanelProps) {
   const [selectedPath, setSelectedPath] = useState<string | null>(changes[0]?.path ?? null)
 
   useEffect(() => {
@@ -22,14 +29,23 @@ export function WorkbenchChangesPanel({ changes }: { changes: WorkbenchChangeFil
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [changes])
 
+  const statusNote = message && (
+    <p className="shrink-0 border-b border-[var(--color-card-border)] bg-white/[0.03] px-2.5 py-1.5 text-[10px] leading-relaxed text-[var(--color-pib-text-muted)]">
+      {message}
+    </p>
+  )
+
   if (changes.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-        <span aria-hidden="true" className="material-symbols-outlined text-[28px] text-[var(--color-pib-text-muted)]">difference</span>
-        <p className="text-xs font-medium text-[var(--color-pib-text)]">No changes yet</p>
-        <p className="text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">
-          Files written, edited or patched by the agent will show up here with their diffs.
-        </p>
+      <div className="flex h-full flex-col">
+        {statusNote}
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+          <span aria-hidden="true" className="material-symbols-outlined text-[28px] text-[var(--color-pib-text-muted)]">difference</span>
+          <p className="text-xs font-medium text-[var(--color-pib-text)]">No changes yet</p>
+          <p className="text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">
+            Files written, edited or patched by the agent will show up here with their diffs.
+          </p>
+        </div>
       </div>
     )
   }
@@ -38,6 +54,7 @@ export function WorkbenchChangesPanel({ changes }: { changes: WorkbenchChangeFil
 
   return (
     <div data-testid="workbench-changes-panel" className="flex h-full min-h-0 flex-col">
+      {statusNote}
       <div className="max-h-[40%] shrink-0 overflow-y-auto border-b border-[var(--color-card-border)]">
         {changes.map((change) => {
           const meta = STATUS_META[change.status] ?? STATUS_META.unknown
@@ -60,6 +77,18 @@ export function WorkbenchChangesPanel({ changes }: { changes: WorkbenchChangeFil
           )
         })}
       </div>
+      {selected && onOpenInFiles && (
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--color-card-border)] px-2.5 py-1.5">
+          <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]">{selected.path}</span>
+          <button
+            type="button"
+            onClick={() => onOpenInFiles(selected.path)}
+            className="shrink-0 rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[10px] font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+          >
+            Open in Files
+          </button>
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-auto p-2">
         {selected?.patch ? (
           <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-[var(--color-pib-text-muted)] [overflow-wrap:anywhere]">

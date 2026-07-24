@@ -47,6 +47,16 @@ describe('buildWorkbenchTerminalEntries', () => {
     expect(entries.map((entry) => entry.body)).toEqual(['$ first\nFIRST', '$ second\nSECOND'])
   })
 
+  it('uses the most recent matching call as the fallback when call identity is unavailable', () => {
+    const entries = buildWorkbenchTerminalEntries([
+      { event: 'tool.started', runId: 'run-1', tool: 'terminal', input: 'first' },
+      { event: 'tool.started', runId: 'run-1', tool: 'terminal', input: 'second' },
+      { event: 'tool.completed', runId: 'run-1', tool: 'terminal', output: 'SECOND' },
+      { event: 'tool.completed', runId: 'run-1', tool: 'terminal', output: 'FIRST' },
+    ])
+    expect(entries.map((entry) => entry.body)).toEqual(['$ first\nFIRST', '$ second\nSECOND'])
+  })
+
   it('classifies status from event type and error/exit code for uncorrelated events', () => {
     const events: ChatEvent[] = [
       { event: 'tool.completed', tool: 'terminal', exitCode: 1 },
