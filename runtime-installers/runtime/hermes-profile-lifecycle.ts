@@ -1,4 +1,4 @@
-import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -148,7 +148,7 @@ export function startHermesGateway(input: {
   if (!hermesBin) return { started: false, pid: null, hermesBin: null, error: 'hermes binary not found' }
 
   try {
-    const child: ChildProcessWithoutNullStreams = spawn(
+    const child = spawn(
       hermesBin,
       ['-p', input.agentId, 'gateway', 'run', '--replace', '--force', '--quiet'],
       {
