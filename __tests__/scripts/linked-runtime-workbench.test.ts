@@ -33,7 +33,7 @@ function job(input: Record<string, unknown>): WorkbenchRuntimeJob {
     mappingId: 'mapping-a',
     relativeFolder: '',
     attempt: 1,
-    leaseToken: 'lease-a',
+    leaseToken: 'lease-token-1234567890',
     kind,
     operation: {
       kind,
@@ -72,6 +72,13 @@ describe('safe typed linked-computer workbench executor', () => {
       await expect(executeWorkbenchOperation(job({ kind: 'fs.read', path: unsafePath }), registry)).rejects.toThrow(/unsafe workbench path/i)
     },
   )
+
+  it('rejects malformed claim bindings before resolving a mapping or operation', async () => {
+    const { registry } = mappedWorkspace()
+    await expect(executeWorkbenchOperation(job({ kind: 'fs.list', path: '', leaseToken: 'short' }), registry)).rejects.toThrow(/invalid workbench claim/i)
+    await expect(executeWorkbenchOperation(job({ kind: 'fs.list', path: '', attempt: 0 }), registry)).rejects.toThrow(/invalid workbench claim/i)
+    await expect(executeWorkbenchOperation(job({ kind: 'fs.list', path: '', mappingId: '../mapping' }), registry)).rejects.toThrow(/invalid workbench claim/i)
+  })
 
   it('rejects symlink escapes, binary reads, oversized reads, and excessive directory listings', async () => {
     const { temporary, root, registry } = mappedWorkspace()
@@ -193,13 +200,13 @@ describe('safe typed linked-computer workbench executor', () => {
       privateKey: keys.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
     }
 
-    const result = await executeWorkbenchJob(job({ kind: 'fs.read', path: 'readme.txt', attempt: 2, leaseToken: 'lease-2' }), device, registry, post)
+    const result = await executeWorkbenchJob(job({ kind: 'fs.read', path: 'readme.txt', attempt: 2, leaseToken: 'lease-token-2345678901' }), device, registry, post)
     expect(result.status).toBe('completed')
     expect(post).toHaveBeenCalledTimes(1)
     expect(posts[0][0]).toBe('/workbench/jobs/job-a/complete')
     const body = posts[0][1] as any
     expect(body).toEqual(expect.objectContaining({
-      attempt: 2, leaseToken: 'lease-2', outcome: 'completed',
+      attempt: 2, leaseToken: 'lease-token-2345678901', outcome: 'completed',
       result: expect.objectContaining({ content: 'hello' }),
     }))
     expect(body.receipt).toEqual(expect.objectContaining({
@@ -209,7 +216,7 @@ describe('safe typed linked-computer workbench executor', () => {
       mappingId: 'mapping-a',
       credentialVersion: 4,
       attempt: 2,
-      leaseToken: 'lease-2',
+      leaseToken: 'lease-token-2345678901',
       event: 'completed',
       outcome: 'completed',
       signature: expect.any(String),

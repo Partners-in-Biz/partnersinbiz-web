@@ -79,6 +79,21 @@ function positiveLimit(value: number | undefined, fallback: number): number {
   return Number.isSafeInteger(value) && Number(value) > 0 ? Number(value) : fallback
 }
 
+function assertValidClaim(job: WorkbenchRuntimeJob): void {
+  const identifier = /^[A-Za-z0-9_-]{1,128}$/
+  if (!job || typeof job !== 'object'
+    || !identifier.test(job.jobId)
+    || !identifier.test(job.mappingId)
+    || (job.requestId !== undefined && !identifier.test(job.requestId))
+    || !Number.isSafeInteger(job.attempt) || job.attempt < 1
+    || typeof job.leaseToken !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(job.leaseToken)
+    || !job.operation || typeof job.operation !== 'object'
+    || !['fs.list', 'fs.read', 'fs.write', 'git.status', 'git.diff'].includes(job.kind)
+    || job.kind !== job.operation.kind) {
+    throw new Error('invalid workbench claim')
+  }
+}
+
 function normalizeRelativePath(value: unknown, allowRoot: boolean): string {
   if (typeof value !== 'string') throw new Error('unsafe workbench path')
   if (allowRoot && (value === '' || value === '.')) return ''
@@ -350,8 +365,8 @@ export async function executeWorkbenchOperation(
   registry: MappingRegistry,
   options: WorkbenchExecutorOptions = {},
 ): Promise<WorkbenchOperationResult> {
+  assertValidClaim(job)
   const root = mappedRoot(job, registry)
-  if (job.kind !== job.operation.kind) throw new Error('workbench operation kind mismatch')
   switch (job.operation.kind) {
     case 'fs.list': return listFiles(job.operation, root, options)
     case 'fs.read': return readFile(job.operation, root, options)
