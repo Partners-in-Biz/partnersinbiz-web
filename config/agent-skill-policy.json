@@ -1,6 +1,6 @@
 {
-  "version": "2026-07-23.system-skills-v0.1.2",
-  "catalogVersion": "2026-07-23.system-skills-v0.1.2",
+  "version": "2026-07-24.system-skills-v0.1.3",
+  "catalogVersion": "2026-07-24.system-skills-v0.1.3",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],
@@ -74,6 +74,7 @@
     "content-engine",
     "crm-sales",
     "crm-hygiene-gather",
+    "sales-operating-system",
     "data-analyst",
     "docs-lead",
     "email-marketing-governance",
@@ -1134,6 +1135,18 @@
       "riskLevel": "medium",
       "syncTarget": "vps"
     },
+    "sales-operating-system": {
+      "ownerAgentId": "sales",
+      "allowedAgentIds": [
+        "nora",
+        "pip",
+        "qa-release",
+        "sales",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps"
+    },
     "social-recovery-gather": {
       "ownerAgentId": "maya",
       "allowedAgentIds": [
@@ -1313,6 +1326,7 @@
         "content-engine",
         "crm-sales",
         "crm-hygiene-gather",
+        "sales-operating-system",
         "data-analyst",
         "evidence-ledger",
         "google-workspace",
@@ -1347,6 +1361,7 @@
         "content-engine",
         "crm-sales",
         "crm-hygiene-gather",
+        "sales-operating-system",
         "data-analyst",
         "email-marketing-governance",
         "email-outreach",
@@ -1797,6 +1812,7 @@
         "collaboration-runtime",
         "crm-sales",
         "crm-hygiene-gather",
+        "sales-operating-system",
         "data-analyst",
         "email-outreach",
         "evidence-ledger",
@@ -1819,6 +1835,7 @@
         "collaboration-runtime",
         "crm-sales",
         "crm-hygiene-gather",
+        "sales-operating-system",
         "data-analyst",
         "email-outreach",
         "evidence-ledger",
@@ -2485,6 +2502,7 @@
         "collaboration-runtime",
         "crm-sales",
         "crm-hygiene-gather",
+        "sales-operating-system",
         "data-analyst",
         "email-outreach",
         "evidence-ledger",
@@ -2503,6 +2521,7 @@
         "collaboration-runtime",
         "crm-sales",
         "crm-hygiene-gather",
+        "sales-operating-system",
         "data-analyst",
         "email-outreach",
         "evidence-ledger",

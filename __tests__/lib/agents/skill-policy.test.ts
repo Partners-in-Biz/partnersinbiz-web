@@ -40,6 +40,7 @@ describe('agent skill policy manifest', () => {
       'content-engine',
       'crm-sales',
       'crm-hygiene-gather',
+      'sales-operating-system',
       'data-analyst',
       'docs-lead',
       'email-marketing-governance',
