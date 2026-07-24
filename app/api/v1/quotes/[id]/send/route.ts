@@ -77,8 +77,20 @@ export const POST = withCrmAuth<RouteCtx>('member', async (_req, ctx, routeCtx) 
       style: 'currency',
       currency: data.currency ?? 'USD',
     }).format(data.total ?? 0)
-    const validUntil = data.validUntil && typeof data.validUntil === 'object' && '_seconds' in (data.validUntil as object)
-      ? new Date(Number((data.validUntil as { _seconds: number })._seconds) * 1000).toLocaleDateString('en-ZA', {
+    const validUntilMs = (() => {
+      const value = data.validUntil
+      if (!value || typeof value !== 'object') return 0
+      const timestamp = value as {
+        toMillis?: () => number
+        seconds?: number
+        _seconds?: number
+      }
+      if (typeof timestamp.toMillis === 'function') return timestamp.toMillis()
+      const seconds = timestamp.seconds ?? timestamp._seconds
+      return typeof seconds === 'number' ? seconds * 1000 : 0
+    })()
+    const validUntil = validUntilMs
+      ? new Date(validUntilMs).toLocaleDateString('en-ZA', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
