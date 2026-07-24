@@ -2,16 +2,23 @@ import fs from 'node:fs';import os from 'node:os';import path from 'node:path';i
 function expandHome(value:string,mappingRoot?:string){
   // Portable ~/Cowork/... paths must resolve against the mapped Cowork root on
   // VPS (often /var/lib/hermes/Cowork), not the service account home (/root).
+  // Mapping roots may be:
+  //   /var/lib/hermes/Cowork                          (whole tree)
+  //   …/Cowork/Partners in Biz                       (legacy flat)
+  //   …/Cowork/partners/Partners in Biz              (org-nested)
   if(mappingRoot&&(value==='~/Cowork'||value.startsWith('~/Cowork/')||value.startsWith('~/Cowork'+path.sep))){
+    const suffix=value.slice('~/Cowork'.length).replace(/^[/\\]+/,'')
     const rootName=path.basename(mappingRoot)
     if(rootName==='Cowork'){
-      const suffix=value.slice('~/Cowork'.length).replace(/^[/\\]+/,'')
       return suffix?path.join(mappingRoot,suffix):mappingRoot
     }
     const parent=path.dirname(mappingRoot)
     if(path.basename(parent)==='Cowork'){
-      const suffix=value.slice('~/Cowork'.length).replace(/^[/\\]+/,'')
       return suffix?path.join(parent,suffix):parent
+    }
+    const grandparent=path.dirname(parent)
+    if(path.basename(grandparent)==='Cowork'){
+      return suffix?path.join(grandparent,suffix):grandparent
     }
   }
   if(value==='~')return os.homedir()
@@ -21,9 +28,9 @@ function expandHome(value:string,mappingRoot?:string){
 function isContained(root:string,candidate:string){return candidate===root||candidate.startsWith(root+path.sep)}
 /**
  * Resolve a company Cowork working directory. Org Workspace mappings usually point
- * at one folder (e.g. Partners in Biz). Company folders are siblings under the
- * Cowork parent, so absolute/portable working directories are allowed when they
- * stay inside that parent.
+ * at one folder (e.g. partners/Partners in Biz). Company folders are siblings under
+ * the same org nest (…/Cowork/{orgSlug}/), so absolute/portable working directories
+ * are allowed when they stay inside that parent.
  */
 export function resolveMappedWorkingDirectory(mappingRoot:string,relative='',workingDirectory?:string){
   if(workingDirectory&&workingDirectory.trim()){

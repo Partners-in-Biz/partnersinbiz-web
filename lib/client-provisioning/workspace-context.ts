@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { buildClientProvisioningPayload, inferCompanyCoworkDomain } from '@/lib/client-provisioning/provisioner'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 export type WorkspaceRuntimeTarget = 'vps' | 'local' | 'auto' | string
 
@@ -234,6 +235,7 @@ export async function resolveConversationWorkspaceContext(input: {
       domain,
       orgId: provisionalOrgId,
       companyId: explicitCompanyId,
+      platformOwned: input.orgId === PIB_PLATFORM_ORG_ID || provisionalOrgId === PIB_PLATFORM_ORG_ID,
     })
     companyWorkspace = {
       id: provisional.manifest.workspaceId,

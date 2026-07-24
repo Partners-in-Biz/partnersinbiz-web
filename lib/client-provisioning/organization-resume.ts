@@ -66,6 +66,8 @@ export async function resumeClientOrganizationWorkspace(
     clientName: organization.name,
     domain: organization.slug,
     orgId: organization.id,
+    orgSlug: organization.slug,
+    platformOwned: organization.id === 'pib-platform-owner',
     agentName,
     companyId: null,
     contactIds: [],

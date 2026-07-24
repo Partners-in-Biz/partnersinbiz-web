@@ -1,9 +1,24 @@
 import type { OrgWorkspaceManifest } from './workspace-context'
+import {
+  buildCoworkPaths,
+  LOCAL_COWORK_ROOT,
+  LOCAL_OBSIDIAN_ROOT,
+  VPS_COWORK_ROOT,
+  VPS_OBSIDIAN_ROOT,
+} from './cowork-paths'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 export type ClientProvisioningInput = {
   clientName: string
   domain: string
   orgId: string
+  /** Preferred filesystem nesting slug; platform owner always nests under `partners`. */
+  orgSlug?: string | null
+  /**
+   * Nest under Partners (`partners/`) even when orgId is a linked client org.
+   * Default true for company Cowork operated from the Partners CRM perspective.
+   */
+  platformOwned?: boolean
   agentName?: string
   companyId?: string | null
   contactIds?: string[]
@@ -61,10 +76,7 @@ export type ClientProvisioningPayload = {
   workspaceInstructions: string
 }
 
-const VPS_COWORK_ROOT = '/var/lib/hermes/Cowork'
-const VPS_OBSIDIAN_ROOT = `${VPS_COWORK_ROOT}/Cowork`
-const LOCAL_COWORK_ROOT = '~/Cowork'
-const LOCAL_OBSIDIAN_ROOT = `${LOCAL_COWORK_ROOT}/Cowork`
+export { VPS_COWORK_ROOT, VPS_OBSIDIAN_ROOT, LOCAL_COWORK_ROOT, LOCAL_OBSIDIAN_ROOT }
 const WORKSPACE_FOLDER_VERSION = 2
 const DEFAULT_WORKSPACE_FOLDERS = [
   'projects',
@@ -124,18 +136,35 @@ export function buildClientProvisioningPayload(input: ClientProvisioningInput): 
   const domain = input.domain.trim()
   const orgId = input.orgId.trim()
   const agentName = (input.agentName?.trim() || inferAgentName(clientName)).trim()
-  const workspacePath = `${VPS_COWORK_ROOT}/${clientName}`
-  const agentDomainPath = `${VPS_OBSIDIAN_ROOT}/agents/${domain}`
-  const localWorkspacePath = `${LOCAL_COWORK_ROOT}/${clientName}`
-  const localAgentDomainPath = `${LOCAL_OBSIDIAN_ROOT}/agents/${domain}`
-  const folderRegistry = buildDefaultFolderRegistry({ clientName, domain, orgId, workspacePath, agentDomainPath })
+  // Nest under `partners/` when the workspace belongs to the platform owner, or
+  // when the caller explicitly marks CRM company Cowork as platform-owned.
+  // Tenant orgs pass platformOwned: false (or omit with a non-platform orgId).
+  const platformOwned = input.platformOwned ?? (orgId === PIB_PLATFORM_ORG_ID)
+  const paths = buildCoworkPaths({
+    folderName: clientName,
+    domain,
+    orgId,
+    orgSlug: input.orgSlug,
+    platformOwned,
+  })
+  const workspacePath = paths.vpsPath
+  const agentDomainPath = paths.agentDomainPath
+  const localWorkspacePath = paths.localPath
+  const localAgentDomainPath = paths.localAgentDomainPath
+  const folderRegistry = buildDefaultFolderRegistry({
+    clientName,
+    domain: paths.agentDomain,
+    orgId,
+    workspacePath,
+    agentDomainPath,
+  })
   const manifest: OrgWorkspaceManifest = {
     schemaVersion: 1,
-    workspaceId: domain,
+    workspaceId: paths.workspaceId,
     orgId,
-    orgSlug: domain,
+    orgSlug: paths.orgSlug,
     orgName: clientName,
-    agentDomain: domain,
+    agentDomain: paths.agentDomain,
     agentName,
     vpsPath: workspacePath,
     localPath: localWorkspacePath,
@@ -154,11 +183,11 @@ export function buildClientProvisioningPayload(input: ClientProvisioningInput): 
     },
     createdBy: 'client_provisioning',
   }
-  const workspaceInstructions = renderWorkspaceInstructions({ clientName, domain, orgId, agentName, workspacePath, agentDomainPath })
+  const workspaceInstructions = renderWorkspaceInstructions({ clientName, domain: paths.agentDomain, orgId, agentName, workspacePath, agentDomainPath })
 
   return {
     clientName,
-    domain,
+    domain: paths.agentDomain,
     orgId,
     agentName,
     workspacePath,
@@ -168,7 +197,7 @@ export function buildClientProvisioningPayload(input: ClientProvisioningInput): 
     workspaceFolders: DEFAULT_WORKSPACE_FOLDERS,
     manifest,
     folderRegistry,
-    soul: renderSoul({ clientName, domain, orgId, agentName, workspacePath, agentDomainPath }),
+    soul: renderSoul({ clientName, domain: paths.agentDomain, orgId, agentName, workspacePath, agentDomainPath }),
     workspaceInstructions,
   }
 }

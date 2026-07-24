@@ -6,8 +6,8 @@ import type {
   WorkspaceProjectProbeInput,
 } from './verification-probes'
 
-export const PARTNERS_VPS_WORKSPACE_ROOT = '/var/lib/hermes/Cowork/Partners in Biz'
-export const PARTNERS_LOCAL_WORKSPACE_ROOT = '/Users/peetstander/Cowork/Partners in Biz'
+export const PARTNERS_VPS_WORKSPACE_ROOT = '/var/lib/hermes/Cowork/partners/Partners in Biz'
+export const PARTNERS_LOCAL_WORKSPACE_ROOT = '/Users/peetstander/Cowork/partners/Partners in Biz'
 
 export interface PartnersLocationEvidenceProbeDependencies {
   runtimeHealth(runtimeTargetId: string): Promise<{ statusCode: number; latencyMs?: number }>
