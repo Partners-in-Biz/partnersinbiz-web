@@ -89,6 +89,8 @@ export interface AgentWorkbenchRailProps {
   compact?: boolean
   /** Runs an allowlisted terminal command (git status/diff, ls, pwd) against the linked computer. */
   onRunTerminalCommand?: (command: string) => void
+  /** Clears locally-run terminal entries (SSE observer entries remain). */
+  onClearTerminal?: () => void
   /** True while a terminal command is in flight — disables the command bar. */
   terminalRunning?: boolean
   /** Locally-tracked terminal entries for commands run from this panel, merged after `terminalEntries`. */
@@ -142,6 +144,7 @@ export function AgentWorkbenchRail({
   browserTargets,
   compact = false,
   onRunTerminalCommand,
+  onClearTerminal,
   terminalRunning = false,
   localTerminalEntries,
 }: AgentWorkbenchRailProps) {
@@ -328,7 +331,12 @@ export function AgentWorkbenchRail({
           />
         )}
         {activeTabMeta.id === 'terminal' && (
-          <WorkbenchTerminalPanel entries={mergedTerminalEntries} onRunCommand={onRunTerminalCommand} running={terminalRunning} />
+          <WorkbenchTerminalPanel
+            entries={mergedTerminalEntries}
+            onRunCommand={onRunTerminalCommand}
+            onClear={onClearTerminal}
+            running={terminalRunning}
+          />
         )}
         {activeTabMeta.id === 'browser' && <WorkbenchBrowserPanel targets={browserTargets} />}
         {activeTabMeta.id === 'changes' && (

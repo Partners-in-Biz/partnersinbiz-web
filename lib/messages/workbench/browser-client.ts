@@ -27,6 +27,8 @@ export interface WorkbenchOperationRunOptions {
   /** Delay (ms) between polls. Default 350ms. */
   intervalMs?: number
   signal?: AbortSignal
+  /** Invoked on each poll while the job is still claimed/queued (Phase 3 shell.exec progress). */
+  onProgress?: (job: PublicWorkbenchJob) => void
 }
 
 /** Random, header-safe idempotency key, e.g. `createWorkbenchIdempotencyKey('terminal')`. */
@@ -80,20 +82,34 @@ export async function enqueueWorkbenchOperation(
 export async function pollWorkbenchJob(
   conversationId: string,
   jobId: string,
-  options: Pick<WorkbenchOperationRunOptions, 'timeoutMs' | 'intervalMs' | 'signal'> = {},
+  options: Pick<WorkbenchOperationRunOptions, 'timeoutMs' | 'intervalMs' | 'signal' | 'onProgress'> = {},
 ): Promise<PublicWorkbenchJob> {
-  const timeoutMs = options.timeoutMs ?? 20_000
+  const timeoutMs = options.timeoutMs ?? 60_000
   const intervalMs = options.intervalMs ?? 350
   const deadline = Date.now() + timeoutMs
   const jobUrl = `${workbenchJobsBase(conversationId)}/${encodeURIComponent(jobId)}`
 
   let job = await readWorkbenchJobResponse(await fetch(jobUrl, { cache: 'no-store', signal: options.signal }))
+  options.onProgress?.(job)
   while (!TERMINAL_JOB_STATUSES.has(job.status)) {
     if (Date.now() >= deadline) throw new Error('Workbench job timed out waiting for the linked computer')
     await wait(intervalMs, options.signal)
     job = await readWorkbenchJobResponse(await fetch(jobUrl, { cache: 'no-store', signal: options.signal }))
+    options.onProgress?.(job)
   }
   return job
+}
+
+/** Renders in-flight shell.exec progress chunks into a live transcript body. */
+export function formatWorkbenchProgressBody(command: string, job: PublicWorkbenchJob): string {
+  const chunks = Array.isArray(job.progress) ? job.progress : []
+  const streamed = chunks
+    .slice()
+    .sort((left, right) => left.seq - right.seq)
+    .map((chunk) => chunk.text)
+    .join('')
+    .replace(/\n+$/, '')
+  return streamed ? `$ ${command}\n${streamed}` : `$ ${command}\n… ${job.status}`
 }
 
 /** Enqueues a typed operation and polls it through to a terminal/awaiting-approval status. */

@@ -76,7 +76,7 @@ import {
   buildWorkbenchTerminalEntries,
 } from '@/lib/messages/workbench/from-events'
 import { attachWorkbenchDiffs, mergeWorkbenchDirectory, runConversationWorkbenchJob, workbenchEntriesToTree, workbenchJobResult, workbenchStatusToChanges } from '@/lib/messages/workbench/client'
-import { formatWorkbenchOperationResult, pollWorkbenchJob } from '@/lib/messages/workbench/browser-client'
+import { formatWorkbenchOperationResult, formatWorkbenchProgressBody, pollWorkbenchJob } from '@/lib/messages/workbench/browser-client'
 import type { WorkbenchChangeFile, WorkbenchFileNode, WorkbenchFilePreview, WorkbenchFilesSource, WorkbenchRuntimeSummary, WorkbenchTab, WorkbenchTerminalEntry } from '@/lib/messages/workbench/types'
 
 type AgentId = string
@@ -2411,7 +2411,7 @@ export default function UnifiedChat({
     const finish = (status: 'done' | 'failed', outputBody: string) => {
       setWorkbenchLocalTerminalEntries((entries) => entries.map((entry) => (
         entry.id === entryId
-          ? { ...entry, status, meta: `${Date.now() - startedAt}ms`, body: `$ ${command}\n${outputBody}` }
+          ? { ...entry, status, meta: `${Date.now() - startedAt}ms`, body: outputBody.startsWith('$ ') ? outputBody : `$ ${command}\n${outputBody}` }
           : entry
       )))
     }
@@ -2426,7 +2426,7 @@ export default function UnifiedChat({
       if (!res.ok) throw new Error(body?.error ?? `workbench terminal: ${res.status}`)
 
       if (typeof body?.data?.cwd === 'string') {
-        finish('done', body.data.cwd)
+        finish('done', `$ ${command}\n${body.data.cwd}`)
         return
       }
 
@@ -2434,9 +2434,25 @@ export default function UnifiedChat({
       let job = body?.data
       const terminalStatuses = new Set(['completed', 'failed', 'cancelled', 'expired', 'awaiting_approval'])
       if (jobId && !terminalStatuses.has(job?.status)) {
-        job = await pollWorkbenchJob(activeId, jobId)
+        job = await pollWorkbenchJob(activeId, jobId, {
+          timeoutMs: 90_000,
+          onProgress: (liveJob) => {
+            setWorkbenchLocalTerminalEntries((entries) => entries.map((entry) => (
+              entry.id === entryId
+                ? {
+                    ...entry,
+                    status: 'running',
+                    meta: liveJob.status,
+                    body: formatWorkbenchProgressBody(command, liveJob),
+                  }
+                : entry
+            )))
+          },
+        })
       }
-      finish(job?.status === 'failed' || job?.status === 'cancelled' || job?.status === 'expired' ? 'failed' : 'done', formatWorkbenchOperationResult(job))
+      const failed = job?.status === 'failed' || job?.status === 'cancelled' || job?.status === 'expired'
+        || (job?.kind === 'shell.exec' && job?.result && 'exitCode' in job.result && Number(job.result.exitCode) !== 0)
+      finish(failed ? 'failed' : 'done', formatWorkbenchOperationResult(job))
       if (job?.status === 'completed' && (command === 'git status' || command.startsWith('git diff'))) void loadWorkbenchChanges()
     } catch (error) {
       finish('failed', error instanceof Error ? error.message : 'Command failed.')
@@ -2444,6 +2460,11 @@ export default function UnifiedChat({
       setWorkbenchTerminalRunning(false)
     }
   }, [activeId, workbenchTerminalRunning, loadWorkbenchChanges])
+
+  const clearWorkbenchLocalTerminal = useCallback(() => {
+    if (workbenchTerminalRunning) return
+    setWorkbenchLocalTerminalEntries([])
+  }, [workbenchTerminalRunning])
 
   useEffect(() => {
     if (showAgentWorkbench && workbenchOpen && workbenchTab === 'files' && activeId) void loadWorkbenchFiles()
@@ -5609,6 +5630,7 @@ export default function UnifiedChat({
           browserTargets={workbenchBrowserTargets}
           compact={compact}
           onRunTerminalCommand={runWorkbenchTerminalCommand}
+          onClearTerminal={clearWorkbenchLocalTerminal}
           terminalRunning={workbenchTerminalRunning}
           localTerminalEntries={workbenchLocalTerminalEntries}
         />}
