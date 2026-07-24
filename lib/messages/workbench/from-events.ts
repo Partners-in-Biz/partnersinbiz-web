@@ -126,11 +126,9 @@ export function buildWorkbenchTerminalEntries(events: ChatEvent[]): WorkbenchTer
     }
     if (event.event === 'tool.completed') {
       const identity = toolCallIdentity(event)
-      const running = entries.find((entry) => {
-        if (entry.status !== 'running' || entry.tool !== event.tool) return false
-        if (identity) return identities.get(entry.id) === identity
-        return !event.runId || entry.id.startsWith(`${event.runId}:`)
-      })
+      const running = identity
+        ? entries.find((entry) => entry.status === 'running' && entry.tool === event.tool && identities.get(entry.id) === identity)
+        : entries.findLast((entry) => entry.status === 'running' && entry.tool === event.tool && (!event.runId || entry.id.startsWith(`${event.runId}:`)))
       if (running) {
         running.status = failed ? 'failed' : 'done'
         running.meta = eventMeta(event)
