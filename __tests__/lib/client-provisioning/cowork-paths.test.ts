@@ -3,6 +3,7 @@ import {
   buildCoworkWorkspaceId,
   isLegacyFlatCoworkPath,
   resolveCoworkNestingOrgSlug,
+  resolveOperatorWorkspaceTarget,
   rewriteLegacyFlatCoworkPath,
   sanitizeCoworkNestingSlug,
 } from '@/lib/client-provisioning/cowork-paths'
@@ -103,5 +104,31 @@ describe('cowork-paths', () => {
       orgId: 'pib-platform-owner',
     })).toThrow(/Cowork folderName is required/)
     expect(() => resolveCoworkNestingOrgSlug({ orgId: '' })).toThrow(/orgId is required/)
+  })
+
+  it('resolves operator CLI workspace args without double-nesting', () => {
+    expect(resolveOperatorWorkspaceTarget({ workspace: 'Hunt and Gun' })).toEqual({
+      orgSlug: 'partners',
+      folderName: 'Hunt and Gun',
+      relativeFromCoworkRoot: 'partners/Hunt and Gun',
+    })
+    expect(resolveOperatorWorkspaceTarget({
+      workspace: 'partners/Hunt and Gun',
+      orgSlug: 'partners',
+    })).toEqual({
+      orgSlug: 'partners',
+      folderName: 'Hunt and Gun',
+      relativeFromCoworkRoot: 'partners/Hunt and Gun',
+    })
+    expect(resolveOperatorWorkspaceTarget({
+      workspace: 'Acme Inc',
+      orgSlug: 'acme',
+    })).toEqual({
+      orgSlug: 'acme',
+      folderName: 'Acme Inc',
+      relativeFromCoworkRoot: 'acme/Acme Inc',
+    })
+    expect(() => resolveOperatorWorkspaceTarget({ workspace: '../escape' })).toThrow(/unsafe/)
+    expect(() => resolveOperatorWorkspaceTarget({ workspace: '' })).toThrow(/required/)
   })
 })

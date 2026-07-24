@@ -2,17 +2,31 @@ import { chmod, mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from 'no
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { spawnSync } from 'node:child_process'
+import { parseSyncArgs, runWorkspaceSync } from '@/scripts/sync-client-workspace'
 
-const repoRoot = process.cwd()
-const scriptPath = join(repoRoot, 'scripts', 'sync-client-workspace.ts')
-
-function runSync(root: string, args: string[]) {
-  return spawnSync('npx', ['--yes', 'tsx', scriptPath, ...args], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    env: { ...process.env, PATH: `${join(root, 'bin')}:${process.env.PATH}`, FAKE_REMOTE_ROOT: root },
-  })
+async function runSync(root: string, args: string[]) {
+  const previousPath = process.env.PATH
+  const previousFakeRoot = process.env.FAKE_REMOTE_ROOT
+  const previousTestBin = process.env.PIB_TEST_BIN_DIR
+  process.env.PATH = `${join(root, 'bin')}:${previousPath ?? ''}`
+  process.env.FAKE_REMOTE_ROOT = root
+  process.env.PIB_TEST_BIN_DIR = join(root, 'bin')
+  try {
+    const report = await runWorkspaceSync(parseSyncArgs(args))
+    return { status: 0, stdout: `${JSON.stringify(report)}\n`, stderr: '' }
+  } catch (error) {
+    return {
+      status: 1,
+      stdout: '',
+      stderr: error instanceof Error ? error.message : String(error),
+    }
+  } finally {
+    process.env.PATH = previousPath
+    if (previousFakeRoot === undefined) delete process.env.FAKE_REMOTE_ROOT
+    else process.env.FAKE_REMOTE_ROOT = previousFakeRoot
+    if (previousTestBin === undefined) delete process.env.PIB_TEST_BIN_DIR
+    else process.env.PIB_TEST_BIN_DIR = previousTestBin
+  }
 }
 
 describe('Workspace sync immutable plan/apply integration', () => {
@@ -23,10 +37,11 @@ describe('Workspace sync immutable plan/apply integration', () => {
     const bin = join(root, 'bin')
     const localRoot = join(root, 'local')
     const stateRoot = join(root, 'state')
-    const remoteWorkspace = join(root, 'remote-cowork', 'Test Workspace')
+    const localWorkspace = join(localRoot, 'partners', 'Test Workspace')
+    const remoteWorkspace = join(root, 'remote-cowork', 'partners', 'Test Workspace')
     const remoteAgent = join(root, 'remote-wiki', 'agents', 'test-workspace')
     await Promise.all([
-      mkdir(bin, { recursive: true }), mkdir(join(localRoot, 'Test Workspace'), { recursive: true }),
+      mkdir(bin, { recursive: true }), mkdir(localWorkspace, { recursive: true }),
       mkdir(join(localRoot, 'Cowork', 'agents', 'test-workspace'), { recursive: true }),
       mkdir(remoteWorkspace, { recursive: true }), mkdir(remoteAgent, { recursive: true }),
     ])
@@ -37,7 +52,7 @@ import base64,os,re,subprocess,sys
 script=sys.stdin.read()
 root=os.environ['FAKE_REMOTE_ROOT']
 def remap(value):
-  value=value.replace('/var/lib/hermes/Cowork/Test Workspace',os.path.join(root,'remote-cowork','Test Workspace'))
+  value=value.replace('/var/lib/hermes/Cowork/partners/Test Workspace',os.path.join(root,'remote-cowork','partners','Test Workspace'))
   value=value.replace('/var/lib/hermes/cowork-wiki/agents/test-workspace',os.path.join(root,'remote-wiki','agents','test-workspace'))
   value=value.replace('/var/lib/hermes/Cowork',os.path.join(root,'remote-cowork'))
   value=value.replace('/var/lib/hermes/cowork-wiki/agents',os.path.join(root,'remote-wiki','agents'))
@@ -61,7 +76,7 @@ src,dst=sys.argv[-2:]
 def clean(value):
   if ':' in value: value=value.split(':',1)[1]
   if len(value)>1 and value[0]==value[-1]=="'": value=value[1:-1]
-  value=value.replace('/var/lib/hermes/Cowork/Test Workspace',os.path.join(root,'remote-cowork','Test Workspace'))
+  value=value.replace('/var/lib/hermes/Cowork/partners/Test Workspace',os.path.join(root,'remote-cowork','partners','Test Workspace'))
   value=value.replace('/var/lib/hermes/cowork-wiki/agents/test-workspace',os.path.join(root,'remote-wiki','agents','test-workspace'))
   return value
 src,dst=clean(src),clean(dst)
@@ -94,47 +109,47 @@ shutil.copy2(src,dst)
       '--local-root', localRoot, '--state-root', stateRoot, '--json',
     ]
 
-    const initialPlan = runSync(root, baseArgs)
-    if (initialPlan.status !== 0) throw new Error(initialPlan.stderr || initialPlan.error?.message)
+    const initialPlan = await runSync(root, baseArgs)
+    if (initialPlan.status !== 0) throw new Error(initialPlan.stderr || 'initial plan failed')
     expect(initialPlan.status).toBe(0)
     const first = JSON.parse(initialPlan.stdout) as { planId: string; plan: Array<{ path: string }> }
     expect(first.plan.map((entry) => entry.path)).toContain('workspace/remote.md')
     expect(first.plan.map((entry) => entry.path)).not.toContain('workspace/ignored.env')
 
     await writeFile(manifestPath, `${JSON.stringify({ ...manifest, orgId: 'org-replaced' }, null, 2)}\n`)
-    const replacedManifestApply = runSync(root, [
+    const replacedManifestApply = await runSync(root, [
       ...baseArgs, '--apply', '--plan', first.planId, '--approve-path', 'workspace/remote.md',
     ])
     expect(replacedManifestApply.status).not.toBe(0)
     expect(replacedManifestApply.stderr).toContain('manifest identity changed')
-    expect(existsSync(join(localRoot, 'Test Workspace', 'remote.md'))).toBe(false)
+    expect(existsSync(join(localWorkspace, 'remote.md'))).toBe(false)
     await writeFile(manifestPath, manifestContent)
 
     await writeFile(join(remoteWorkspace, 'remote.md'), 'remote-v2-after-plan\n')
-    const staleApply = runSync(root, [
+    const staleApply = await runSync(root, [
       ...baseArgs, '--apply', '--plan', first.planId, '--approve-path', 'workspace/remote.md',
     ])
     expect(staleApply.status).not.toBe(0)
     expect(staleApply.stderr).toContain('plan is stale')
-    expect(existsSync(join(localRoot, 'Test Workspace', 'remote.md'))).toBe(false)
+    expect(existsSync(join(localWorkspace, 'remote.md'))).toBe(false)
 
-    const freshPlanResult = runSync(root, baseArgs)
+    const freshPlanResult = await runSync(root, baseArgs)
     expect(freshPlanResult.status).toBe(0)
     const fresh = JSON.parse(freshPlanResult.stdout) as { planId: string }
-    const pullApply = runSync(root, [
+    const pullApply = await runSync(root, [
       ...baseArgs, '--apply', '--plan', fresh.planId, '--approve-path', 'workspace/remote.md',
     ])
     expect(pullApply.status).toBe(0)
-    expect(await readFile(join(localRoot, 'Test Workspace', 'remote.md'), 'utf8')).toBe('remote-v2-after-plan\n')
+    expect(await readFile(join(localWorkspace, 'remote.md'), 'utf8')).toBe('remote-v2-after-plan\n')
     const pullReport = JSON.parse(pullApply.stdout) as { journalPath: string; operations: Array<{ status: string }> }
     expect(pullReport.operations).toEqual([expect.objectContaining({ status: 'completed' })])
     expect(JSON.parse(await readFile(pullReport.journalPath, 'utf8'))).toMatchObject({ status: 'completed' })
 
     await writeFile(join(remoteWorkspace, 'remote.md'), 'remote-v3-replacement\n')
-    const replacementPlanResult = runSync(root, baseArgs)
+    const replacementPlanResult = await runSync(root, baseArgs)
     expect(replacementPlanResult.status).toBe(0)
     const replacementPlan = JSON.parse(replacementPlanResult.stdout) as { planId: string }
-    const replacementApply = runSync(root, [
+    const replacementApply = await runSync(root, [
       ...baseArgs, '--apply', '--plan', replacementPlan.planId, '--approve-path', 'workspace/remote.md',
     ])
     expect(replacementApply.status).toBe(0)
@@ -143,26 +158,26 @@ shutil.copy2(src,dst)
     }
     expect(replacementReport.operations[0]).toEqual(expect.objectContaining({ backupHash: expect.any(String), verifiedHash: expect.any(String) }))
     expect(await readFile(replacementReport.operations[0].backupPath!, 'utf8')).toBe('remote-v2-after-plan\n')
-    expect(await readFile(join(localRoot, 'Test Workspace', 'remote.md'), 'utf8')).toBe('remote-v3-replacement\n')
+    expect(await readFile(join(localWorkspace, 'remote.md'), 'utf8')).toBe('remote-v3-replacement\n')
 
-    await writeFile(join(localRoot, 'Test Workspace', 'local.md'), 'approved-local\n')
-    const pushPlanResult = runSync(root, [...baseArgs, '--direction', 'both'])
+    await writeFile(join(localWorkspace, 'local.md'), 'approved-local\n')
+    const pushPlanResult = await runSync(root, [...baseArgs, '--direction', 'both'])
     expect(pushPlanResult.status).toBe(0)
     const pushPlan = JSON.parse(pushPlanResult.stdout) as { planId: string }
-    const blockedPush = runSync(root, [
+    const blockedPush = await runSync(root, [
       ...baseArgs, '--apply', '--plan', pushPlan.planId, '--approve-path', 'workspace/local.md',
     ])
     expect(blockedPush.status).not.toBe(0)
     expect(blockedPush.stderr).toContain('--allow-push')
 
-    const wrongWorkspacePush = runSync(root, [
+    const wrongWorkspacePush = await runSync(root, [
       ...baseArgs, '--apply', '--plan', pushPlan.planId, '--approve-path', 'workspace/local.md',
       '--allow-push', '--confirm-workspace', 'wrong-workspace',
     ])
     expect(wrongWorkspacePush.status).not.toBe(0)
     expect(wrongWorkspacePush.stderr).toContain('manifest workspaceId')
 
-    const approvedPush = runSync(root, [
+    const approvedPush = await runSync(root, [
       ...baseArgs, '--apply', '--plan', pushPlan.planId, '--approve-path', 'workspace/local.md',
       '--allow-push', '--confirm-workspace', 'workspace-test-1',
     ])
@@ -178,25 +193,25 @@ shutil.copy2(src,dst)
 
     await writeFile(join(remoteWorkspace, 'a-first.md'), 'first-operation\n')
     await writeFile(join(remoteWorkspace, 'z-fail.md'), 'second-operation\n')
-    const partialPlanResult = runSync(root, baseArgs)
+    const partialPlanResult = await runSync(root, baseArgs)
     expect(partialPlanResult.status).toBe(0)
     const partialPlan = JSON.parse(partialPlanResult.stdout) as { planId: string }
     await writeFile(join(root, 'fail-rsync-once'), 'fail once\n')
-    const partialApply = runSync(root, [
+    const partialApply = await runSync(root, [
       ...baseArgs, '--apply', '--plan', partialPlan.planId,
       '--approve-path', 'workspace/a-first.md', '--approve-path', 'workspace/z-fail.md',
     ])
     expect(partialApply.status).not.toBe(0)
-    expect(partialApply.stderr).toContain('intentional second-operation failure')
-    expect(await readFile(join(localRoot, 'Test Workspace', 'a-first.md'), 'utf8')).toBe('first-operation\n')
-    expect(existsSync(join(localRoot, 'Test Workspace', 'z-fail.md'))).toBe(false)
+    expect(partialApply.stderr).toMatch(/rsync failed \(23\)|intentional second-operation failure/)
+    expect(await readFile(join(localWorkspace, 'a-first.md'), 'utf8')).toBe('first-operation\n')
+    expect(existsSync(join(localWorkspace, 'z-fail.md'))).toBe(false)
     const partialState = JSON.parse(await readFile(join(stateRoot, 'states', stateFiles[0]), 'utf8')) as { baseline: Record<string, string> }
     expect(partialState.baseline['workspace/a-first.md']).toEqual(expect.any(String))
     expect(partialState.baseline['workspace/z-fail.md']).toBeUndefined()
 
-    await writeFile(join(localRoot, 'Test Workspace', 'stable.md'), 'same-on-both-sides\n')
+    await writeFile(join(localWorkspace, 'stable.md'), 'same-on-both-sides\n')
     await writeFile(join(remoteWorkspace, 'stable.md'), 'same-on-both-sides\n')
-    const resumePlanResult = runSync(root, baseArgs)
+    const resumePlanResult = await runSync(root, baseArgs)
     expect(resumePlanResult.status).toBe(0)
     const resumePlan = JSON.parse(resumePlanResult.stdout) as {
       planId: string
@@ -204,16 +219,16 @@ shutil.copy2(src,dst)
     }
     expect(resumePlan.plan).toContainEqual(expect.objectContaining({ path: 'workspace/a-first.md', action: 'none' }))
     expect(resumePlan.plan).toContainEqual(expect.objectContaining({ path: 'workspace/z-fail.md', action: 'pull' }))
-    const resumeApply = runSync(root, [
+    const resumeApply = await runSync(root, [
       ...baseArgs, '--apply', '--plan', resumePlan.planId, '--approve-path', 'workspace/z-fail.md',
     ])
     expect(resumeApply.status).toBe(0)
-    expect(await readFile(join(localRoot, 'Test Workspace', 'z-fail.md'), 'utf8')).toBe('second-operation\n')
+    expect(await readFile(join(localWorkspace, 'z-fail.md'), 'utf8')).toBe('second-operation\n')
     const seededState = JSON.parse(await readFile(join(stateRoot, 'states', stateFiles[0]), 'utf8')) as { baseline: Record<string, string> }
     expect(seededState.baseline['workspace/stable.md']).toEqual(expect.any(String))
 
-    await writeFile(join(localRoot, 'Test Workspace', 'stable.md'), 'local-only-change\n')
-    const oneSidedPlanResult = runSync(root, [...baseArgs, '--direction', 'both'])
+    await writeFile(join(localWorkspace, 'stable.md'), 'local-only-change\n')
+    const oneSidedPlanResult = await runSync(root, [...baseArgs, '--direction', 'both'])
     expect(oneSidedPlanResult.status).toBe(0)
     const oneSidedPlan = JSON.parse(oneSidedPlanResult.stdout) as {
       plan: Array<{ path: string; action: string; classification: string }>
@@ -223,7 +238,7 @@ shutil.copy2(src,dst)
     }))
 
     await symlink(join(remoteWorkspace, 'remote.md'), join(remoteWorkspace, 'linked.md'))
-    const unsafePlan = runSync(root, baseArgs)
+    const unsafePlan = await runSync(root, baseArgs)
     expect(unsafePlan.status).not.toBe(0)
     expect(unsafePlan.stderr).toContain('symlink in sync tree')
   })

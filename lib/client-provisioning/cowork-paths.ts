@@ -132,6 +132,61 @@ export function buildCoworkPaths(scope: CoworkPathScope): CoworkPaths {
   }
 }
 
+export type OperatorWorkspaceTarget = {
+  /** Nesting org segment (e.g. `partners`). */
+  orgSlug: string
+  /** Display folder name / basename (e.g. `Hunt and Gun`). */
+  folderName: string
+  /** Relative path from the Cowork root (e.g. `partners/Hunt and Gun`). */
+  relativeFromCoworkRoot: string
+}
+
+/**
+ * Resolve an operator CLI `--workspace` value into the org-nested relative path.
+ *
+ * - `--workspace "Hunt and Gun"` + default/org slug → `partners/Hunt and Gun`
+ * - `--workspace "partners/Hunt and Gun"` → already nested; do not double-nest
+ */
+export function resolveOperatorWorkspaceTarget(input: {
+  workspace: string
+  orgSlug?: string | null
+}): OperatorWorkspaceTarget {
+  const trimmed = clean(input.workspace)
+  if (!trimmed) throw new Error('Workspace name is required')
+
+  const defaultSlug = sanitizeCoworkNestingSlug(clean(input.orgSlug) || PIB_COWORK_NESTING_SLUG)
+  const segments = trimmed.split('/').map((segment) => segment.trim()).filter(Boolean)
+  if (segments.length === 0) throw new Error('Workspace name is required')
+  for (const segment of segments) {
+    if (
+      segment === '.'
+      || segment === '..'
+      || segment.includes('\\')
+      || segment.includes('\0')
+      || segment.includes('\n')
+      || segment.includes('\r')
+    ) {
+      throw new Error('Workspace path contains unsafe segments')
+    }
+  }
+
+  if (segments.length >= 2) {
+    const folderName = segments[segments.length - 1]
+    const orgSlug = sanitizeCoworkNestingSlug(segments[0])
+    return {
+      orgSlug,
+      folderName,
+      relativeFromCoworkRoot: segments.join('/'),
+    }
+  }
+
+  return {
+    orgSlug: defaultSlug,
+    folderName: segments[0],
+    relativeFromCoworkRoot: `${defaultSlug}/${segments[0]}`,
+  }
+}
+
 /** True when a portable/absolute path still uses the pre-nesting flat layout. */
 export function isLegacyFlatCoworkPath(value: string): boolean {
   const trimmed = clean(value)
