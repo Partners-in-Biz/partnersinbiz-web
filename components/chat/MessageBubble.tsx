@@ -1878,11 +1878,23 @@ export default function MessageBubble({
                     </p>
                   )}
                 </div>
-                {elapsed > 0 && (
-                  <span className="shrink-0 rounded bg-black/20 px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
-                    {elapsed}s
-                  </span>
-                )}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {elapsed > 0 && (
+                    <span className="rounded bg-black/20 px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
+                      {elapsed}s
+                    </span>
+                  )}
+                  {onStopRun && m.runId && (
+                    <button
+                      type="button"
+                      onClick={onStopRun}
+                      className="inline-flex items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-200 hover:bg-red-500/15"
+                    >
+                      <span className="material-symbols-outlined text-[13px]">stop_circle</span>
+                      Stop
+                    </button>
+                  )}
+                </div>
               </div>
 
               {tasks.length > 0 && (
@@ -1938,16 +1950,6 @@ export default function MessageBubble({
                   ))}
                 </div>
               </details>
-            )}
-            {onStopRun && m.runId && (
-              <button
-                type="button"
-                onClick={onStopRun}
-                className="mt-1 inline-flex items-center gap-1 rounded-md border border-red-500/30 px-2 py-1 text-[11px] font-medium text-red-200 hover:bg-red-500/10"
-              >
-                <span className="material-symbols-outlined text-[13px]">stop_circle</span>
-                Stop run
-              </button>
             )}
           </div>
         )}

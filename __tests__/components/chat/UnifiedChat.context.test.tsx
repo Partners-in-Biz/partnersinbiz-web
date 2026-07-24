@@ -3089,7 +3089,7 @@ describe('UnifiedChat context references', () => {
 
     // Stopping the in-flight run clears pending/waiting status and should flush the queue.
     const conversationLog = screen.getByRole('log', { name: 'Conversation messages' })
-    fireEvent.click(within(conversationLog).getByRole('button', { name: /Stop run/i }))
+    fireEvent.click(within(conversationLog).getByRole('button', { name: /Stop/i }))
 
     await waitFor(() => {
       const queuedPosts = mockFetch.mock.calls.filter(([url, init]) =>

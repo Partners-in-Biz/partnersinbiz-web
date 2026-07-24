@@ -100,7 +100,7 @@ export interface UnifiedChatProps {
   autoCreateScopedConversation?: boolean
   autoCreateTitle?: string
   allowDeleteConversations?: boolean
-  /** Stop in-flight agent runs. Defaults to allowDeleteConversations for backward compatibility. */
+  /** Stop in-flight agent runs. Defaults on so any chat participant can cancel a stuck agent. */
   allowStopRuns?: boolean
   allowManageConversationAccess?: boolean
   allowAgentParticipants?: boolean
@@ -894,7 +894,7 @@ export default function UnifiedChat({
   autoCreateScopedConversation = false,
   autoCreateTitle,
   allowDeleteConversations = false,
-  allowStopRuns,
+  allowStopRuns = true,
   allowManageConversationAccess = false,
   allowAgentParticipants = true,
   allowStartConversations = true,
@@ -3577,8 +3577,8 @@ export default function UnifiedChat({
     messages,
   ])
 
-  // Stop is independent of delete: portal participants may cancel runs they can reply in.
-  const canStopRuns = allowStopRuns ?? allowDeleteConversations
+  // Any participant in the chat can stop an in-flight agent run.
+  const canStopRuns = allowStopRuns
 
   // ── Stop agent run ───────────────────────────────────────────────────────
   const stopAgentRun = useCallback(
@@ -5885,6 +5885,16 @@ export default function UnifiedChat({
                   <span className={`h-1.5 w-1.5 rounded-full ${hasInFlightAgentRun ? 'bg-amber-300' : 'bg-emerald-300'}`} />
                   {activeRuntimeMessage?.status?.replace('_', ' ') ?? (hasInFlightAgentRun ? 'running' : 'idle')}
                 </span>
+                {canStopActiveRun && activeRuntimeMessage?.id && activeId && (
+                  <button
+                    type="button"
+                    onClick={() => stopAgentRun(activeId, activeRuntimeMessage.id)}
+                    className="inline-flex h-6 items-center gap-1 rounded-full border border-red-400/25 bg-red-500/10 px-2 text-[11px] font-medium text-red-200 hover:bg-red-500/15"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">stop_circle</span>
+                    Stop
+                  </button>
+                )}
                 <span className="inline-flex h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2">
                   <span className="material-symbols-outlined text-[13px]">playlist_add</span>
                   {activeQueuedDrafts.length} queued
@@ -5942,16 +5952,6 @@ export default function UnifiedChat({
                       ))}
                     </select>
                   </label>
-                )}
-                {canStopActiveRun && activeRuntimeMessage?.id && activeId && (
-                  <button
-                    type="button"
-                    onClick={() => stopAgentRun(activeId, activeRuntimeMessage.id)}
-                    className="inline-flex h-7 items-center gap-1 rounded-full border border-red-400/25 bg-red-500/10 px-2 text-[11px] font-medium text-red-200 hover:bg-red-500/15"
-                  >
-                    <span className="material-symbols-outlined text-[13px]">stop_circle</span>
-                    Stop
-                  </button>
                 )}
                 {runtimeExecution && <button
                   type="button"
