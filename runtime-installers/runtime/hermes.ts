@@ -168,6 +168,37 @@ export async function probeLocalHermes(
     : { availableAgentIds: [], healthReason: 'hermes_unavailable' }
 }
 
+function truncateDetail(value: string, max = 280): string {
+  const clean = value.replace(/\s+/g, ' ').trim()
+  if (!clean) return ''
+  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
+}
+
+function hermesFailureDetail(payload: Record<string, unknown> | null | undefined): string {
+  if (!payload) return ''
+  for (const key of ['error', 'errorMessage', 'message', 'reason', 'detail']) {
+    const value = payload[key]
+    if (typeof value === 'string' && value.trim()) return truncateDetail(value)
+    if (value && typeof value === 'object') {
+      const nested = value as Record<string, unknown>
+      for (const nestedKey of ['message', 'code', 'type']) {
+        if (typeof nested[nestedKey] === 'string' && nested[nestedKey].trim()) {
+          return truncateDetail(String(nested[nestedKey]))
+        }
+      }
+    }
+  }
+  if (typeof payload.status === 'string' && payload.status.trim()) {
+    return truncateDetail(`status=${payload.status}`)
+  }
+  return ''
+}
+
+function hermesHttpFailure(status: number, bodyText: string, fallback: string): Error {
+  const detail = truncateDetail(bodyText)
+  return new Error(detail ? `${fallback} (HTTP ${status}: ${detail})` : `${fallback} (HTTP ${status})`)
+}
+
 export async function callLocalHermes(
   agentId: string,
   body: { prompt: string; images?: Array<{ url: string; contentType: string }>; model?: string; provider?: string; working_directory: string; yolo?: boolean },
@@ -196,10 +227,18 @@ export async function callLocalHermes(
       working_directory: body.working_directory,
     }),
   })
-  if (!response.ok) throw new Error('Local Hermes execution failed')
-  const started = await response.json().catch(() => null) as Record<string, unknown> | null
+  const startText = await response.text().catch(() => '')
+  if (!response.ok) throw hermesHttpFailure(response.status, startText, `Local Hermes ${cleanAgent} refused to start`)
+  const started = (() => {
+    try { return startText ? JSON.parse(startText) as Record<string, unknown> : null } catch { return null }
+  })()
   const runId = typeof started?.run_id === 'string' ? started.run_id : typeof started?.id === 'string' ? started.id : ''
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(runId)) throw new Error('Local Hermes execution failed')
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(runId)) {
+    const detail = hermesFailureDetail(started) || truncateDetail(startText)
+    throw new Error(detail
+      ? `Local Hermes ${cleanAgent} did not return a run id (${detail})`
+      : `Local Hermes ${cleanAgent} did not return a run id`)
+  }
   const rawTimeout = Number(env.PIB_LOCAL_HERMES_RUN_TIMEOUT_MS ?? 30 * 60_000)
   const timeoutMs = Number.isFinite(rawTimeout) ? Math.min(Math.max(rawTimeout, 30_000), 24 * 60 * 60_000) : 30 * 60_000
   const deadline = Date.now() + timeoutMs
@@ -229,18 +268,24 @@ export async function callLocalHermes(
         headers: authHeaders(route),
         signal: AbortSignal.timeout(15_000),
       })
-      if (!runResponse.ok) throw new Error('Local Hermes execution failed')
-      const run = await runResponse.json().catch(() => null) as Record<string, unknown> | null
+      const runText = await runResponse.text().catch(() => '')
+      if (!runResponse.ok) throw hermesHttpFailure(runResponse.status, runText, `Local Hermes ${cleanAgent} poll failed`)
+      const run = (() => {
+        try { return runText ? JSON.parse(runText) as Record<string, unknown> : null } catch { return null }
+      })()
       if (run?.status === 'completed') {
         if (typeof run.output === 'string') return run.output
         const result = run.result && typeof run.result === 'object' ? run.result as Record<string, unknown> : null
         if (typeof result?.output === 'string') return result.output
         return run
       }
-      if (run?.status === 'failed' || run?.status === 'cancelled') throw new Error('Local Hermes execution failed')
+      if (run?.status === 'failed' || run?.status === 'cancelled') {
+        const detail = hermesFailureDetail(run) || String(run?.status || 'failed')
+        throw new Error(`Local Hermes ${cleanAgent} ${detail}`)
+      }
       await wait(1_000)
     }
-    throw new Error('Local Hermes execution timed out')
+    throw new Error(`Local Hermes ${cleanAgent} timed out after ${Math.round(timeoutMs / 1000)}s`)
   } finally {
     abort.abort()
     await eventsTask.catch(() => undefined)

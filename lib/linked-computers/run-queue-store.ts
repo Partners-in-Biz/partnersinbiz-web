@@ -325,8 +325,17 @@ function timestampMs(value: unknown): number | null {
   return Number.isFinite(ms) ? ms : null
 }
 
+/** Default acceptance wait. Caps high enough to survive a single rolling Hermes restart. */
+export const LINKED_RUN_CLAIM_DEFAULT_TIMEOUT_MS = 15_000
+export const LINKED_RUN_CLAIM_MAX_TIMEOUT_MS = 25_000
+
 export async function waitForLinkedRunClaim(job: LinkedRunJob, options: { timeoutMs?: number; pollMs?: number } = {}) {
-  const deadline = Date.now() + Math.min(options.timeoutMs ?? 8_000, 15_000)
+  const requested = options.timeoutMs ?? LINKED_RUN_CLAIM_DEFAULT_TIMEOUT_MS
+  const timeoutMs = Math.min(
+    Math.max(1_000, Number.isFinite(requested) ? requested : LINKED_RUN_CLAIM_DEFAULT_TIMEOUT_MS),
+    LINKED_RUN_CLAIM_MAX_TIMEOUT_MS,
+  )
+  const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     const snap = await adminDb.collection(LINKED_RUN_JOBS).doc(job.jobId).get()
     const row = snap.exists ? fromStored(snap.data() ?? {}) : null
@@ -334,7 +343,7 @@ export async function waitForLinkedRunClaim(job: LinkedRunJob, options: { timeou
     if (row && ['running', 'completed', 'failed', 'cancelled'].includes(row.status) && (stored.acceptanceReceipt || stored.receipt)) return row
     await new Promise((resolve) => setTimeout(resolve, Math.max(50, options.pollMs ?? 200)))
   }
-  throw new Error('linked computers: claim timeout')
+  throw new Error(`linked computers: claim timeout after ${Math.round(timeoutMs / 1000)}s`)
 }
 
 export type LinkedRunResult = {
