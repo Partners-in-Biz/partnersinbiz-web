@@ -3,8 +3,11 @@ import { resolve } from 'node:path'
 
 describe('VPS skill staging deployment', () => {
   const helper = readFileSync(resolve(process.cwd(), 'scripts/apply-vps-skill-staging.sh'), 'utf8')
+  const lib = readFileSync(resolve(process.cwd(), 'scripts/pib-hermes-profile-restart-lib.sh'), 'utf8')
+  const sweep = readFileSync(resolve(process.cwd(), 'scripts/pib-hermes-deferred-restart-sweep.sh'), 'utf8')
   const workflow = readFileSync(resolve(process.cwd(), '.github/workflows/sync-vps-skills.yml'), 'utf8')
   const sudoers = readFileSync(resolve(process.cwd(), 'ops/hermes-vps/pib-skill-sync.sudoers'), 'utf8')
+  const timer = readFileSync(resolve(process.cwd(), 'ops/hermes-vps/pib-hermes-deferred-restart.timer'), 'utf8')
 
   it('keeps the privileged installer bounded to an owned, symlink-free staging path', () => {
     expect(helper).toContain('^/srv/hermes-projects/pib-skill-staging/[0-9]+-[0-9]+$')
@@ -13,14 +16,21 @@ describe('VPS skill staging deployment', () => {
     expect(helper).toContain('sudo -u hermes env HOME=/var/lib/hermes')
     expect(helper).toContain('PIB_SKILL_RESTART_STABILIZATION_SECONDS:-15')
     expect(helper).toContain('PIB_SKILL_RESTART_GAP_SECONDS:-2')
-    expect(helper).toContain('PIB_SKILL_RESTART_DRAIN_SECONDS:-90')
-    expect(helper).toContain('wait_for_quiet_port')
-    expect(helper).toContain('wait_for_health')
-    expect(helper).toContain('Rolling restart with drain')
-    expect(helper).toContain('--property=NRestarts --value')
-    expect(helper).toContain('restarted during the ${stabilization_seconds}s stabilization window')
+    expect(helper).toContain('PIB_SKILL_RESTART_DRAIN_SECONDS:-120')
+    expect(helper).toContain('pib_hermes_restart_profile_when_idle')
+    expect(helper).toContain('deferred')
+    expect(helper).toContain('Never force-kill multi-hour runs')
     expect(helper).not.toContain('systemctl restart "${active_units[@]}"')
     expect(helper).not.toMatch(/(?:bash|sh|source|\.)\s+"?\$staging/)
+  })
+
+  it('never force-restarts busy profiles and defers to the sweeper', () => {
+    expect(lib).toContain('pib_hermes_mark_pending_restart')
+    expect(lib).toContain('pib_hermes_restart_profile_when_idle')
+    expect(lib).toContain('return 2')
+    expect(lib).toContain('hermes-restart-pending')
+    expect(sweep).toContain('pib_hermes_restart_profile_when_idle')
+    expect(timer).toContain('OnUnitActiveSec=2min')
   })
 
   it('stages outside the private Hermes home and invokes only the root-owned installer', () => {

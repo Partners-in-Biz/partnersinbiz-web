@@ -1,0 +1,13 @@
+[Unit]
+Description=Sweep deferred Hermes restarts every 2 minutes
+Documentation=https://partnersinbiz.online
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=30s
+Unit=pib-hermes-deferred-restart.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

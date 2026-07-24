@@ -37,6 +37,13 @@ jobs:
             echo "Root-owned VPS skill installer is not at the reviewed repository version" >&2
             exit 1
           fi
+          local_lib_sha=$(sha256sum scripts/pib-hermes-profile-restart-lib.sh | awk '{print $1}')
+          remote_lib_sha=$(ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "sha256sum /usr/local/lib/partnersinbiz/pib-hermes-profile-restart-lib.sh" | awk '{print $1}')
+          if [ "$local_lib_sha" != "$remote_lib_sha" ]; then
+            echo "Root-owned Hermes restart helper lib is not at the reviewed repository version" >&2
+            exit 1
+          fi
 
           staging="/srv/hermes-projects/pib-skill-staging/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \

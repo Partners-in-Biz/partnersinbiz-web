@@ -1,0 +1,8 @@
+[Unit]
+Description=Partners in Biz deferred Hermes profile restart sweep
+Documentation=https://partnersinbiz.online
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/pib-hermes-deferred-restart-sweep
+Nice=10
