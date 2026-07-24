@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { filterAgentsByGate } from '@/lib/conversations/new-conversation-agent-gate'
 
 type AgentId = string
 
@@ -55,11 +56,25 @@ interface ParticipantPickerProps {
   onSelect: (selected: SelectedParticipant[]) => void
   className?: string
   showAgents?: boolean
+  /**
+   * Extra filter after org-visible agents load.
+   * null = no machine filter (platform / general chat).
+   * [] = show no agents (awaiting computer, or empty inventory).
+   */
+  allowedAgentIds?: string[] | null
+  agentsUnavailableReason?: string | null
 }
 
 const MAX_SELECTIONS = 5
 
-export default function ParticipantPicker({ orgId, onSelect, className = '', showAgents = true }: ParticipantPickerProps) {
+export default function ParticipantPicker({
+  orgId,
+  onSelect,
+  className = '',
+  showAgents = true,
+  allowedAgentIds = null,
+  agentsUnavailableReason = null,
+}: ParticipantPickerProps) {
   const [agents, setAgents] = useState<AgentTeamDoc[]>([])
   const [contacts, setContacts] = useState<OrgContact[]>([])
   const [selected, setSelected] = useState<SelectedParticipant[]>([])
@@ -89,6 +104,25 @@ export default function ParticipantPicker({ orgId, onSelect, className = '', sho
       cancelled = true
     }
   }, [orgId, showAgents])
+
+  const visibleAgents = useMemo(
+    () => filterAgentsByGate(agents, allowedAgentIds),
+    [agents, allowedAgentIds],
+  )
+
+  // Drop agent selections that are no longer allowed after context/machine changes.
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = prev.filter((participant) => {
+        if (participant.kind !== 'agent') return true
+        if (!showAgents) return false
+        if (allowedAgentIds == null) return visibleAgents.some((agent) => agent.agentId === participant.agentId)
+        return allowedAgentIds.includes(participant.agentId)
+      })
+      if (next.length === prev.length && next.every((item, index) => item === prev[index])) return prev
+      return next
+    })
+  }, [allowedAgentIds, showAgents, visibleAgents])
 
   // Notify parent whenever selection changes
   useEffect(() => {
@@ -136,6 +170,9 @@ export default function ParticipantPicker({ orgId, onSelect, className = '', sho
     )
   }
 
+  const showAgentSection = showAgents
+  const agentsBlocked = showAgentSection && visibleAgents.length === 0 && Boolean(agentsUnavailableReason)
+
   return (
     <div className={`space-y-3 ${className}`}>
       {/* Selected chips */}
@@ -167,58 +204,66 @@ export default function ParticipantPicker({ orgId, onSelect, className = '', sho
         <p className="text-xs text-amber-300">Max {MAX_SELECTIONS} participants.</p>
       )}
 
-      {/* Agents section */}
-      {showAgents && agents.length > 0 && (
+      {/* Agents section — after context + machine in the parent modal */}
+      {showAgentSection && (
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2 px-1">Agents</p>
-          <div className="space-y-1">
-            {agents.map((agent) => {
-              const isChecked = selected.some((s) => s.kind === 'agent' && s.agentId === agent.agentId)
-              const c = AGENT_COLOR[agent.colorKey] ?? AGENT_COLOR.violet
-              const disabled = !isChecked && selected.length >= MAX_SELECTIONS
-              return (
-                <label
-                  key={agent.agentId}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
-                    isChecked
-                      ? 'bg-white/8 border border-white/15'
-                      : 'hover:bg-white/5 border border-transparent'
-                  } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    disabled={disabled}
-                    onChange={() => toggleAgent(agent)}
-                    className="sr-only"
-                  />
-                  <div className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center shrink-0">
-                    <span className={`material-symbols-outlined text-[15px] ${c.icon}`}>
-                      {agent.iconKey ?? 'smart_toy'}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${c.label}`}>{agent.name}</p>
-                    <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{agent.role}</p>
-                  </div>
-                  {agent.lastHealthStatus && (
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                        agent.lastHealthStatus === 'ok'
-                          ? 'bg-emerald-400'
-                          : agent.lastHealthStatus === 'degraded'
-                          ? 'bg-amber-400'
-                          : 'bg-red-400'
-                      }`}
+          {agentsBlocked ? (
+            <p data-testid="agents-unavailable-reason" className="px-1 text-xs text-[var(--color-pib-text-muted)]">
+              {agentsUnavailableReason}
+            </p>
+          ) : visibleAgents.length > 0 ? (
+            <div className="space-y-1">
+              {visibleAgents.map((agent) => {
+                const isChecked = selected.some((s) => s.kind === 'agent' && s.agentId === agent.agentId)
+                const c = AGENT_COLOR[agent.colorKey] ?? AGENT_COLOR.violet
+                const disabled = !isChecked && selected.length >= MAX_SELECTIONS
+                return (
+                  <label
+                    key={agent.agentId}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
+                      isChecked
+                        ? 'bg-white/8 border border-white/15'
+                        : 'hover:bg-white/5 border border-transparent'
+                    } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      disabled={disabled}
+                      onChange={() => toggleAgent(agent)}
+                      className="sr-only"
                     />
-                  )}
-                  {isChecked && (
-                    <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
-                  )}
-                </label>
-              )
-            })}
-          </div>
+                    <div className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center shrink-0">
+                      <span className={`material-symbols-outlined text-[15px] ${c.icon}`}>
+                        {agent.iconKey ?? 'smart_toy'}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium ${c.label}`}>{agent.name}</p>
+                      <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{agent.role}</p>
+                    </div>
+                    {agent.lastHealthStatus && (
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          agent.lastHealthStatus === 'ok'
+                            ? 'bg-emerald-400'
+                            : agent.lastHealthStatus === 'degraded'
+                            ? 'bg-amber-400'
+                            : 'bg-red-400'
+                        }`}
+                      />
+                    )}
+                    {isChecked && (
+                      <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                    )}
+                  </label>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="px-1 text-xs text-[var(--color-pib-text-muted)]">No agents available for this organisation.</p>
+          )}
         </div>
       )}
 
@@ -265,7 +310,7 @@ export default function ParticipantPicker({ orgId, onSelect, className = '', sho
         </div>
       )}
 
-      {agents.length === 0 && contacts.length === 0 && (
+      {(!showAgentSection || visibleAgents.length === 0) && contacts.length === 0 && !agentsBlocked && (
         <p className="text-xs text-[var(--color-pib-text-muted)] px-1">No participants available.</p>
       )}
     </div>

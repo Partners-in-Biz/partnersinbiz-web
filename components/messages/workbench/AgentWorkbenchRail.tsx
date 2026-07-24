@@ -1,10 +1,12 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   WorkbenchBrowserTarget,
   WorkbenchChangeFile,
   WorkbenchFileNode,
+  WorkbenchFilePreview,
+  WorkbenchFilesSource,
   WorkbenchRuntimeSummary,
   WorkbenchTab,
   WorkbenchTerminalEntry,
@@ -64,10 +66,29 @@ export interface AgentWorkbenchRailProps {
   onWidthChange?: (width: number) => void
   runtime?: WorkbenchRuntimeSummary
   terminalEntries: WorkbenchTerminalEntry[]
+  /** Phase 1 event-derived tree — used whenever no sync tree is available. */
   fileTree: WorkbenchFileNode[]
+  /** Phase 2a sync-backed tree (project-sync manifest). Preferred over `fileTree` when non-empty. */
+  liveFileTree?: WorkbenchFileNode[]
+  /** Where `liveFileTree`/`fileTree` came from, for a small source hint in the header. */
+  filesSource?: WorkbenchFilesSource
+  filesLoading?: boolean
+  onRefreshFiles?: () => void
+  selectedFilePath?: string | null
+  onSelectFilePath?: (path: string) => void
+  filePreview?: WorkbenchFilePreview | null
   changes: WorkbenchChangeFile[]
+  changesMessage?: string | null
+  changesLoading?: boolean
+  onRefreshChanges?: () => void
   browserTargets: WorkbenchBrowserTarget[]
   compact?: boolean
+}
+
+const FILES_SOURCE_LABEL: Record<WorkbenchFilesSource, string> = {
+  sync: 'Synced',
+  events: 'From activity',
+  none: '',
 }
 
 /**
@@ -88,7 +109,17 @@ export function AgentWorkbenchRail({
   runtime,
   terminalEntries,
   fileTree,
+  liveFileTree,
+  filesSource = 'events',
+  filesLoading = false,
+  onRefreshFiles,
+  selectedFilePath,
+  onSelectFilePath,
+  filePreview,
   changes,
+  changesMessage,
+  changesLoading = false,
+  onRefreshChanges,
   browserTargets,
   compact = false,
 }: AgentWorkbenchRailProps) {
@@ -97,11 +128,22 @@ export function AgentWorkbenchRail({
   const resizeRef = useRef<{ x: number; width: number } | null>(null)
   const clampedWidth = clampWorkbenchWidth(width)
 
+  const effectiveFileTree = useMemo(
+    () => (liveFileTree && liveFileTree.length > 0 ? liveFileTree : fileTree),
+    [liveFileTree, fileTree],
+  )
+
   const counts: Record<WorkbenchTab, number> = {
-    files: fileTree.length,
+    files: effectiveFileTree.length,
     terminal: terminalEntries.length,
     browser: browserTargets.length,
     changes: changes.length,
+  }
+
+  const openPathInFiles = (path: string) => {
+    onSelectFilePath?.(path)
+    onTabChange('files')
+    onOpenChange(true)
   }
 
   const selectTab = (tab: WorkbenchTab) => {
@@ -194,23 +236,61 @@ export function AgentWorkbenchRail({
           <div className="flex min-w-0 items-center gap-2">
             <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-primary">{activeTabMeta.icon}</span>
             <p className="truncate text-xs font-semibold text-[var(--color-pib-text)]">{activeTabMeta.label}</p>
+            {activeTabMeta.id === 'files' && filesSource !== 'none' && (
+              <span className="shrink-0 rounded-full border border-[var(--color-card-border)] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                {FILES_SOURCE_LABEL[filesSource]}
+              </span>
+            )}
           </div>
-          <button
-            type="button"
-            aria-label="Close workbench"
-            onClick={close}
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            {activeTabMeta.id === 'files' && onRefreshFiles && (
+              <button
+                type="button"
+                aria-label="Refresh files"
+                onClick={onRefreshFiles}
+                disabled={filesLoading}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-50"
+              >
+                <span aria-hidden="true" className={`material-symbols-outlined text-[15px] ${filesLoading ? 'animate-spin' : ''}`}>refresh</span>
+              </button>
+            )}
+            {activeTabMeta.id === 'changes' && onRefreshChanges && (
+              <button
+                type="button"
+                aria-label="Refresh changes"
+                onClick={onRefreshChanges}
+                disabled={changesLoading}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:opacity-50"
+              >
+                <span aria-hidden="true" className={`material-symbols-outlined text-[15px] ${changesLoading ? 'animate-spin' : ''}`}>refresh</span>
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label="Close workbench"
+              onClick={close}
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>
         </div>
         {runtimeStrip}
       </header>
       <div data-testid="agent-workbench-panel-body" className="min-h-0 flex-1 overflow-hidden">
-        {activeTabMeta.id === 'files' && <WorkbenchFilesPanel tree={fileTree} />}
+        {activeTabMeta.id === 'files' && (
+          <WorkbenchFilesPanel
+            tree={effectiveFileTree}
+            selectedPath={selectedFilePath}
+            onSelectPath={onSelectFilePath}
+            preview={filePreview}
+          />
+        )}
         {activeTabMeta.id === 'terminal' && <WorkbenchTerminalPanel entries={terminalEntries} />}
         {activeTabMeta.id === 'browser' && <WorkbenchBrowserPanel targets={browserTargets} />}
-        {activeTabMeta.id === 'changes' && <WorkbenchChangesPanel changes={changes} />}
+        {activeTabMeta.id === 'changes' && (
+          <WorkbenchChangesPanel changes={changes} message={changesMessage} onOpenInFiles={openPathInFiles} />
+        )}
       </div>
     </>
   )

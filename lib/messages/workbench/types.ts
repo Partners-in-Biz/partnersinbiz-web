@@ -44,3 +44,14 @@ export interface WorkbenchRuntimeSummary {
   runtimeTarget?: string | null
   hasMapping: boolean
 }
+
+/** Where the Files tree currently on screen came from. */
+export type WorkbenchFilesSource = 'sync' | 'events' | 'none'
+
+/** Text preview state for a single selected file in the Files panel. */
+export interface WorkbenchFilePreview {
+  path: string
+  content: string | null
+  loading: boolean
+  error: string | null
+}

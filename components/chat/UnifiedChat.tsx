@@ -51,6 +51,7 @@ import {
 import MessageBubble, { type ConversationAttachment, type ConversationMessage } from './MessageBubble'
 import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
+import { resolveNewConversationAgentGate } from '@/lib/conversations/new-conversation-agent-gate'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
 import ConversationAccessDialog from './ConversationAccessDialog'
 import VoiceInputButton from './VoiceInputButton'
@@ -74,7 +75,7 @@ import {
   buildWorkbenchFileTree,
   buildWorkbenchTerminalEntries,
 } from '@/lib/messages/workbench/from-events'
-import type { WorkbenchRuntimeSummary, WorkbenchTab } from '@/lib/messages/workbench/types'
+import type { WorkbenchFileNode, WorkbenchFilePreview, WorkbenchFilesSource, WorkbenchRuntimeSummary, WorkbenchTab } from '@/lib/messages/workbench/types'
 
 type AgentId = string
 
@@ -233,6 +234,8 @@ interface WorkspaceRuntimePresence {
   lastSeenAt: string | null
   ageSeconds: number | null
   lastHealthStatus: string | null
+  /** Healthy Hermes agent ids on this linked computer (when known). */
+  availableAgentIds?: string[]
 }
 
 interface WorkspaceCatalogueSnapshot {
@@ -945,6 +948,15 @@ export default function UnifiedChat({
   const [workbenchTab, setWorkbenchTab] = useState<WorkbenchTab>('files')
   const [workbenchWidth, setWorkbenchWidth] = useState(480)
   const [workbenchStateConversationId, setWorkbenchStateConversationId] = useState<string | null>(null)
+  const [workbenchLiveFiles, setWorkbenchLiveFiles] = useState<{ source: WorkbenchFilesSource; tree: WorkbenchFileNode[] }>({
+    source: 'none',
+    tree: [],
+  })
+  const [workbenchFilesLoading, setWorkbenchFilesLoading] = useState(false)
+  const [workbenchSelectedFilePath, setWorkbenchSelectedFilePath] = useState<string | null>(null)
+  const [workbenchFilePreview, setWorkbenchFilePreview] = useState<WorkbenchFilePreview | null>(null)
+  const [workbenchChangesMessage, setWorkbenchChangesMessage] = useState<string | null>(null)
+  const [workbenchChangesLoading, setWorkbenchChangesLoading] = useState(false)
   const [contextCanvasCloseRequest, setContextCanvasCloseRequest] = useState(0)
   // Icon strip stays visible whenever the workbench is enabled; expand margin when a dock opens.
   const rightDockOpen = contextCanvasOpen || workbenchOpen || showAgentWorkbench
@@ -1022,6 +1034,10 @@ export default function UnifiedChat({
     setWorkbenchOpen(false)
     setWorkbenchTab('files')
     setWorkbenchWidth(480)
+    setWorkbenchLiveFiles({ source: 'none', tree: [] })
+    setWorkbenchSelectedFilePath(null)
+    setWorkbenchFilePreview(null)
+    setWorkbenchChangesMessage(null)
     if (!activeId) {
       setWorkbenchStateConversationId(null)
       return
@@ -1374,6 +1390,24 @@ export default function UnifiedChat({
   const selectedWorkspaceRuntimeIsValid = workspaceRuntimeTargets.some(runtime => (
     workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime && runtime.selectable
   ))
+  const selectedWorkspaceRuntimeTarget = useMemo(
+    () => workspaceRuntimeTargets.find((runtime) => (
+      workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime
+    )) ?? null,
+    [selectedWorkspaceRuntime, workspaceRuntimeTargets],
+  )
+  const runtimeRequiredForNewConversation = newScope === 'workspace' || newScope === 'company' || newScope === 'project'
+  const newConversationAgentGate = useMemo(
+    () => resolveNewConversationAgentGate({
+      scope: newScope,
+      runtimeRequired: runtimeRequiredForNewConversation,
+      runtimeSelected: selectedWorkspaceRuntimeIsValid,
+      runtimeAvailableAgentIds: selectedWorkspaceRuntimeTarget && 'availableAgentIds' in selectedWorkspaceRuntimeTarget
+        ? selectedWorkspaceRuntimeTarget.availableAgentIds ?? null
+        : null,
+    }),
+    [newScope, runtimeRequiredForNewConversation, selectedWorkspaceRuntimeIsValid, selectedWorkspaceRuntimeTarget],
+  )
   useEffect(() => {
     if (workspaceRuntimeTargets.length === 0) {
       if (newScope === 'project' && selectedWorkspaceRuntime) {
@@ -2265,6 +2299,74 @@ export default function UnifiedChat({
       setModelCatalogLoading(false)
     }
   }, [activeId, activeModelAgentId])
+
+  const loadWorkbenchFiles = useCallback(async () => {
+    if (!activeId) return
+    setWorkbenchFilesLoading(true)
+    try {
+      const res = await fetch(`/api/v1/conversations/${activeId}/workbench/files`)
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error ?? `workbench files: ${res.status}`)
+      const data = body?.data ?? {}
+      setWorkbenchLiveFiles({
+        source: data.source === 'sync' ? 'sync' : 'none',
+        tree: Array.isArray(data.tree) ? data.tree : [],
+      })
+    } catch {
+      setWorkbenchLiveFiles({ source: 'none', tree: [] })
+    } finally {
+      setWorkbenchFilesLoading(false)
+    }
+  }, [activeId])
+
+  const loadWorkbenchChanges = useCallback(async () => {
+    if (!activeId) return
+    setWorkbenchChangesLoading(true)
+    try {
+      const res = await fetch(`/api/v1/conversations/${activeId}/workbench/changes`)
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error ?? `workbench changes: ${res.status}`)
+      setWorkbenchChangesMessage(typeof body?.data?.message === 'string' ? body.data.message : null)
+    } catch {
+      setWorkbenchChangesMessage(null)
+    } finally {
+      setWorkbenchChangesLoading(false)
+    }
+  }, [activeId])
+
+  const loadWorkbenchFileContent = useCallback(async (path: string) => {
+    if (!activeId) return
+    setWorkbenchFilePreview({ path, content: null, loading: true, error: null })
+    try {
+      const res = await fetch(`/api/v1/conversations/${activeId}/workbench/files/content?path=${encodeURIComponent(path)}`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(typeof body?.error === 'string' ? body.error : `file content: ${res.status}`)
+      }
+      const content = await res.text()
+      setWorkbenchFilePreview({ path, content, loading: false, error: null })
+    } catch (contentError) {
+      setWorkbenchFilePreview({
+        path,
+        content: null,
+        loading: false,
+        error: contentError instanceof Error ? contentError.message : 'Failed to load file content',
+      })
+    }
+  }, [activeId])
+
+  const handleSelectWorkbenchFilePath = useCallback((path: string) => {
+    setWorkbenchSelectedFilePath(path)
+    void loadWorkbenchFileContent(path)
+  }, [loadWorkbenchFileContent])
+
+  useEffect(() => {
+    if (showAgentWorkbench && workbenchOpen && workbenchTab === 'files' && activeId) void loadWorkbenchFiles()
+  }, [showAgentWorkbench, workbenchOpen, workbenchTab, activeId, loadWorkbenchFiles])
+
+  useEffect(() => {
+    if (showAgentWorkbench && workbenchOpen && workbenchTab === 'changes' && activeId) void loadWorkbenchChanges()
+  }, [showAgentWorkbench, workbenchOpen, workbenchTab, activeId, loadWorkbenchChanges])
 
   useEffect(() => {
     void loadModelCatalog()
@@ -5405,7 +5507,17 @@ export default function UnifiedChat({
           runtime={workbenchRuntime}
           terminalEntries={workbenchTerminalEntries}
           fileTree={workbenchFileTree}
+          liveFileTree={workbenchLiveFiles.tree}
+          filesSource={workbenchLiveFiles.source === 'sync' ? 'sync' : workbenchFileTree.length > 0 ? 'events' : 'none'}
+          filesLoading={workbenchFilesLoading}
+          onRefreshFiles={loadWorkbenchFiles}
+          selectedFilePath={workbenchSelectedFilePath}
+          onSelectFilePath={handleSelectWorkbenchFilePath}
+          filePreview={workbenchFilePreview}
           changes={workbenchChanges}
+          changesMessage={workbenchChangesMessage}
+          changesLoading={workbenchChangesLoading}
+          onRefreshChanges={loadWorkbenchChanges}
           browserTargets={workbenchBrowserTargets}
           compact={compact}
         />}
@@ -6130,20 +6242,6 @@ export default function UnifiedChat({
                 />
               </div>
 
-              {/* Participant picker */}
-              <div>
-                <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] block mb-1.5">
-                  Participants (max 5)
-                </label>
-                <div className="sm:max-h-[300px] sm:overflow-y-auto">
-                  <ParticipantPicker
-                    orgId={orgId}
-                    onSelect={setNewParticipants}
-                    showAgents={allowAgentParticipants}
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] block mb-1.5">
                   Conversation context
@@ -6636,6 +6734,32 @@ export default function UnifiedChat({
                   )}
                 </div>
               )}
+
+              {/* Participants after context + machine so agents match the selected runtime */}
+              <div>
+                <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] block mb-1.5">
+                  Participants (max 5)
+                </label>
+                {newScope === 'general' && allowAgentParticipants && (
+                  <p className="mb-2 px-0.5 text-[11px] text-[var(--color-pib-text-muted)]">
+                    General chat uses Partners platform agents for this organisation. Workspace, company, and project chats list agents from the computer you pick above.
+                  </p>
+                )}
+                {runtimeRequiredForNewConversation && newConversationAgentGate.mode === 'runtime' && allowAgentParticipants && (
+                  <p className="mb-2 px-0.5 text-[11px] text-[var(--color-pib-text-muted)]">
+                    Showing agents available on the selected computer.
+                  </p>
+                )}
+                <div className="sm:max-h-[300px] sm:overflow-y-auto">
+                  <ParticipantPicker
+                    orgId={orgId}
+                    onSelect={setNewParticipants}
+                    showAgents={allowAgentParticipants}
+                    allowedAgentIds={newConversationAgentGate.allowedAgentIds}
+                    agentsUnavailableReason={newConversationAgentGate.reason}
+                  />
+                </div>
+              </div>
 
               {modalError && (
                 <div className="rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-xs text-red-200">
