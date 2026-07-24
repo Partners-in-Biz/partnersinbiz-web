@@ -77,8 +77,22 @@ function terminalBodyForEvent(event: ChatEvent): string {
  * streaming text deltas and polling heartbeats and keeps the most recent
  * 48 entries.
  */
+function toolCallIdentity(event: ChatEvent): string | null {
+  const visit = (value: unknown, depth = 0): string | null => {
+    if (!value || typeof value !== 'object' || depth > 2) return null
+    const record = value as Record<string, unknown>
+    for (const key of ['toolCallId', 'tool_call_id', 'callId', 'call_id', 'invocationId', 'invocation_id']) {
+      const candidate = record[key]
+      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    }
+    return visit(record.data, depth + 1) ?? visit(record.payload, depth + 1)
+  }
+  return visit(event.raw)
+}
+
 export function buildWorkbenchTerminalEntries(events: ChatEvent[]): WorkbenchTerminalEntry[] {
   const entries: WorkbenchTerminalEntry[] = []
+  const identities = new Map<string, string>()
   const eventMeta = (event: ChatEvent) => {
     const seconds = event.timestamp
       ? new Date(event.timestamp > 10_000_000_000 ? event.timestamp : event.timestamp * 1000).toISOString().slice(11, 19)
@@ -96,7 +110,7 @@ export function buildWorkbenchTerminalEntries(events: ChatEvent[]): WorkbenchTer
     if (event.event === 'assistant.text_delta' || event.event === 'heartbeat') return
     const failed = Boolean(event.error) || (typeof event.exitCode === 'number' && event.exitCode !== 0)
     if (event.event === 'tool.started') {
-      entries.push({
+      const entry: WorkbenchTerminalEntry = {
         id: `${event.runId ?? 'run'}:${index}:${event.tool ?? 'tool'}`,
         status: 'running',
         label: event.tool ?? terminalEventLabel(event),
@@ -104,15 +118,26 @@ export function buildWorkbenchTerminalEntries(events: ChatEvent[]): WorkbenchTer
         body: terminalBodyForEvent(event),
         tool: event.tool,
         timestamp: event.timestamp,
-      })
+      }
+      entries.push(entry)
+      const identity = toolCallIdentity(event)
+      if (identity) identities.set(entry.id, identity)
       return
     }
     if (event.event === 'tool.completed') {
-      const running = entries.findLast((entry) => entry.status === 'running' && entry.tool === event.tool)
+      const identity = toolCallIdentity(event)
+      const running = entries.find((entry) => {
+        if (entry.status !== 'running' || entry.tool !== event.tool) return false
+        if (identity) return identities.get(entry.id) === identity
+        return !event.runId || entry.id.startsWith(`${event.runId}:`)
+      })
       if (running) {
         running.status = failed ? 'failed' : 'done'
         running.meta = eventMeta(event)
-        running.body = terminalBodyForEvent(event) || running.body
+        const completedBody = terminalBodyForEvent(event)
+        running.body = event.input || event.preview
+          ? (completedBody || running.body)
+          : [running.body, completedBody].filter(Boolean).join('\n')
         running.timestamp = event.timestamp ?? running.timestamp
         return
       }
@@ -240,7 +265,7 @@ interface MutableFileNode {
   children: Map<string, MutableFileNode> | null
 }
 
-function buildTreeFromPaths(rawPaths: string[]): WorkbenchFileNode[] {
+function buildTreeFromPaths(rawPaths: string[], directoryPaths = new Set<string>()): WorkbenchFileNode[] {
   const root = new Map<string, MutableFileNode>()
 
   for (const rawPath of rawPaths) {
@@ -253,15 +278,16 @@ function buildTreeFromPaths(rawPaths: string[]): WorkbenchFileNode[] {
     segments.forEach((segment, index) => {
       currentPath = currentPath ? `${currentPath}/${segment}` : (isAbsolute ? `/${segment}` : segment)
       const isLast = index === segments.length - 1
+      const isDirectory = !isLast || directoryPaths.has(rawPath)
       let node = cursor.get(segment)
       if (!node) {
-        node = { name: segment, path: currentPath, kind: isLast ? 'file' : 'directory', children: isLast ? null : new Map() }
+        node = { name: segment, path: currentPath, kind: isDirectory ? 'directory' : 'file', children: isDirectory ? new Map() : null }
         cursor.set(segment, node)
-      } else if (!isLast && node.kind === 'file') {
+      } else if (isDirectory && node.kind === 'file') {
         node.kind = 'directory'
         node.children = node.children ?? new Map()
       }
-      if (!isLast) {
+      if (isDirectory) {
         if (!node.children) node.children = new Map()
         cursor = node.children
       }
@@ -295,6 +321,7 @@ function buildTreeFromPaths(rawPaths: string[]): WorkbenchFileNode[] {
  */
 export function buildWorkbenchFileTree(events: ChatEvent[]): WorkbenchFileNode[] {
   const paths = new Set<string>()
+  const directoryPaths = new Set<string>()
 
   for (const event of events) {
     const texts = [event.input, event.output, event.preview, event.stdout].filter(isNonEmptyString)
@@ -314,13 +341,17 @@ export function buildWorkbenchFileTree(events: ChatEvent[]): WorkbenchFileNode[]
         const hint = extractBarePathHint(hintSource)
         if (hint) {
           const normalized = normalizePath(hint)
-          if (normalized) paths.add(normalized)
+          if (normalized) {
+            paths.add(normalized)
+            const tokens = new Set(toolTokens(tool))
+            if (tokens.has('ls') || tokens.has('list') || tokens.has('glob') || tokens.has('find')) directoryPaths.add(normalized)
+          }
         }
       }
     }
   }
 
-  return buildTreeFromPaths(Array.from(paths))
+  return buildTreeFromPaths(Array.from(paths), directoryPaths)
 }
 
 // ---------------------------------------------------------------------------

@@ -28,6 +28,25 @@ describe('buildWorkbenchTerminalEntries', () => {
     expect(entries[0].status).toBe('done')
   })
 
+  it('preserves the started command when completion only contains output', () => {
+    const entries = buildWorkbenchTerminalEntries([
+      { event: 'tool.started', runId: 'run-1', tool: 'terminal', input: 'npm test' },
+      { event: 'tool.completed', runId: 'run-1', tool: 'terminal', output: 'PASS' },
+    ])
+    expect(entries).toHaveLength(1)
+    expect(entries[0].body).toBe('$ npm test\nPASS')
+  })
+
+  it('uses tool call identity to correlate concurrent calls of the same tool', () => {
+    const entries = buildWorkbenchTerminalEntries([
+      { event: 'tool.started', runId: 'run-1', tool: 'terminal', input: 'first', raw: { toolCallId: 'a' } },
+      { event: 'tool.started', runId: 'run-1', tool: 'terminal', input: 'second', raw: { toolCallId: 'b' } },
+      { event: 'tool.completed', runId: 'run-1', tool: 'terminal', output: 'SECOND', raw: { toolCallId: 'b' } },
+      { event: 'tool.completed', runId: 'run-1', tool: 'terminal', output: 'FIRST', raw: { toolCallId: 'a' } },
+    ])
+    expect(entries.map((entry) => entry.body)).toEqual(['$ first\nFIRST', '$ second\nSECOND'])
+  })
+
   it('classifies status from event type and error/exit code for uncorrelated events', () => {
     const events: ChatEvent[] = [
       { event: 'tool.completed', tool: 'terminal', exitCode: 1 },
@@ -118,7 +137,12 @@ describe('buildWorkbenchFileTree', () => {
       { event: 'tool.completed', tool: 'list_dir', input: 'src/lib' },
     ]
     const tree = buildWorkbenchFileTree(events)
-    expect(flattenPaths(tree)).toEqual(expect.arrayContaining(['src/components', 'src/lib']))
+    expect(tree).toHaveLength(1)
+    expect(tree[0]).toMatchObject({ name: 'src', kind: 'directory' })
+    expect(tree[0].children).toEqual([
+      expect.objectContaining({ path: 'src/components', kind: 'directory' }),
+      expect.objectContaining({ path: 'src/lib', kind: 'directory' }),
+    ])
   })
 
   it('extracts a "path" JSON key hint from structured tool input', () => {

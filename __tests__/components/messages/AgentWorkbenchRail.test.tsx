@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import AgentWorkbenchRail from '@/components/messages/workbench/AgentWorkbenchRail'
+import { WorkbenchBrowserPanel } from '@/components/messages/workbench/WorkbenchBrowserPanel'
 import type { WorkbenchTab } from '@/lib/messages/workbench/types'
 
 function Harness({ mapped = true }: { mapped?: boolean }) {
@@ -41,5 +42,25 @@ describe('AgentWorkbenchRail', () => {
     render(<Harness mapped={false} />)
     fireEvent.click(screen.getByLabelText('Files'))
     expect(screen.getByText(/No workspace mapping/)).toBeInTheDocument()
+  })
+})
+
+describe('WorkbenchBrowserPanel security boundary', () => {
+  it('does not auto-load an observed URL and requires an explicit preview action', () => {
+    render(<WorkbenchBrowserPanel targets={[{ id: 'target', url: 'https://public-preview.example.test/app', title: 'Observed preview', source: 'event' }]} />)
+    expect(screen.queryByTitle('Observed preview')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Observed preview'))
+    expect(screen.queryByTitle('Observed preview')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Preview' }))
+    expect(screen.getByTitle('Observed preview')).toHaveAttribute('sandbox', 'allow-scripts')
+    expect(screen.getByTitle('Observed preview')).toHaveAttribute('referrerpolicy', 'no-referrer')
+  })
+
+  it('blocks private-network preview URLs', () => {
+    render(<WorkbenchBrowserPanel targets={[]} />)
+    fireEvent.change(screen.getByLabelText('Browser preview URL'), { target: { value: 'http://127.0.0.1:3000' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Preview' }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/private-network/)
+    expect(screen.queryByTitle(/127\.0\.0\.1/)).not.toBeInTheDocument()
   })
 })

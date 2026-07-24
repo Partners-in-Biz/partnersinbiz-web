@@ -1020,6 +1020,8 @@ export default function UnifiedChat({
 
   useEffect(() => {
     setWorkbenchOpen(false)
+    setWorkbenchTab('files')
+    setWorkbenchWidth(480)
     if (!activeId) {
       setWorkbenchStateConversationId(null)
       return
@@ -1586,7 +1588,7 @@ export default function UnifiedChat({
   const workbenchRuntime = useMemo<WorkbenchRuntimeSummary>(() => ({
     label: activeRuntimeLabel || activeWorkspaceContext?.runtimeLabel || activeWorkspaceContext?.runtimeTarget,
     mappingLabel: activeWorkspaceContext?.mappingLabel,
-    folderScope: activeWorkspaceContext?.folderScope ?? activeWorkspaceContext?.folderRelativePath ?? null,
+    folderScope: activeWorkspaceContext?.folderScope ?? null,
     projectName: activeWorkspaceContext?.projectName,
     runtimeTarget: activeWorkspaceContext?.runtimeTarget,
     hasMapping: Boolean(activeWorkspaceContext?.mappingId),
