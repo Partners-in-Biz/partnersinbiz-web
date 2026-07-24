@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { createHash, createPrivateKey, randomUUID, sign } from 'node:crypto'
 import { TextDecoder } from 'node:util'
 import { MappingRegistry } from './bridge'
@@ -12,6 +12,52 @@ const DEFAULT_MAX_GIT_OUTPUT_BYTES = 2 * 1024 * 1024
 const DEFAULT_GIT_TIMEOUT_MS = 5_000
 const MAX_ERROR_BYTES = 400
 const MAX_IDLE_CLAIM_BASE_DELAY_MS = 1_000
+const DEFAULT_SHELL_TIMEOUT_MS = 30_000
+const MAX_SHELL_TIMEOUT_MS = 60_000
+const MAX_SHELL_OUTPUT_BYTES = 2 * 1024 * 1024
+const MAX_SHELL_ARGV_LENGTH = 16
+const MAX_SHELL_ARG_BYTES = 256
+
+// This block (constants + ALLOWLISTED_ARGV + isAllowlistedArgv) is a runtime-local
+// mirror of lib/messages/workbench/shell-allowlist.ts. The runtime is a standalone
+// commonjs bundle (see runtime-installers/runtime/tsconfig.json: rootDir "." forbids
+// importing files from outside this directory), so it cannot import the server copy
+// directly — keep these two allowlists identical by hand. The server already
+// validates/normalizes argv via parseWorkbenchOperation before a job is ever queued,
+// so this check is defense-in-depth: it must never be stricter than the server list
+// or legitimately queued jobs would be rejected here.
+const ALLOWLISTED_ARGV: readonly (readonly string[])[] = [
+  ['node', '--version'],
+  ['npm', '--version'],
+  ['npm', 'test'],
+  ['npm', 'run', 'lint'],
+  ['pnpm', '--version'],
+  ['pnpm', 'test'],
+  ['pnpm', 'lint'],
+  ['yarn', '--version'],
+  ['python3', '--version'],
+  ['python', '--version'],
+  ['uname', '-a'],
+  ['which', 'node'],
+  ['ls', '-la'],
+  ['git', 'log', '--oneline', '-n', '20'],
+  ['git', 'branch', '--show-current'],
+]
+
+function isAllowlistedArgv(argv: readonly string[]): boolean {
+  return ALLOWLISTED_ARGV.some((allowed) => allowed.length === argv.length && allowed.every((value, index) => value === argv[index]))
+}
+
+const SAFE_SHELL_ENV_KEYS = ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR', 'TERM', 'USER', 'SHELL'] as const
+
+function sanitizedShellEnv(): NodeJS.ProcessEnv {
+  const env: Record<string, string> = {}
+  for (const key of SAFE_SHELL_ENV_KEYS) {
+    const value = process.env[key]
+    if (typeof value === 'string') env[key] = value
+  }
+  return env as NodeJS.ProcessEnv
+}
 
 export type WorkbenchRuntimeOperation =
   | { kind: 'fs.list'; path: string }
@@ -19,6 +65,7 @@ export type WorkbenchRuntimeOperation =
   | { kind: 'fs.write'; path: string; content: string; expectedSha256?: string | null }
   | { kind: 'git.status' }
   | { kind: 'git.diff'; path?: string; staged?: boolean }
+  | { kind: 'shell.exec'; argv: string[]; cwd?: string; timeoutMs?: number }
 
 export type WorkbenchRuntimeJob = {
   jobId: string
@@ -48,6 +95,7 @@ export type WorkbenchOperationResult =
   | { bytesWritten: number; sha256: string }
   | { changes: WorkbenchGitChange[] }
   | { diff: string }
+  | { exitCode: number; stdout: string; stderr: string; truncated?: boolean; durationMs?: number }
 
 export type WorkbenchExecutorOptions = {
   maxFileBytes?: number
@@ -55,6 +103,10 @@ export type WorkbenchExecutorOptions = {
   maxGitOutputBytes?: number
   gitTimeoutMs?: number
   retryDelayMs?: number
+  maxShellOutputBytes?: number
+  shellTimeoutMs?: number
+  /** Best-effort progress sink for shell.exec streaming; failures never abort the job. */
+  onShellProgress?: (chunk: { stream: 'stdout' | 'stderr'; text: string; seq: number }) => void
 }
 
 export type WorkbenchDevice = {
@@ -88,7 +140,7 @@ function assertValidClaim(job: WorkbenchRuntimeJob): void {
     || !Number.isSafeInteger(job.attempt) || job.attempt < 1
     || typeof job.leaseToken !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(job.leaseToken)
     || !job.operation || typeof job.operation !== 'object'
-    || !['fs.list', 'fs.read', 'fs.write', 'git.status', 'git.diff'].includes(job.kind)
+    || !['fs.list', 'fs.read', 'fs.write', 'git.status', 'git.diff', 'shell.exec'].includes(job.kind)
     || job.kind !== job.operation.kind) {
     throw new Error('invalid workbench claim')
   }
@@ -360,6 +412,204 @@ async function gitDiff(operation: Extract<WorkbenchRuntimeOperation, { kind: 'gi
   return { diff: decodeText(output, 'git diff output') }
 }
 
+function prepareShellExec(
+  operation: Extract<WorkbenchRuntimeOperation, { kind: 'shell.exec' }>,
+  root: string,
+  options: WorkbenchExecutorOptions,
+): { argv: string[]; cwd: string; timeoutMs: number } {
+  if (
+    !Array.isArray(operation.argv) ||
+    operation.argv.length === 0 ||
+    operation.argv.length > MAX_SHELL_ARGV_LENGTH ||
+    !operation.argv.every((value) => typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= MAX_SHELL_ARG_BYTES)
+  ) {
+    throw new Error('workbench shell.exec requires a non-empty, bounded argv')
+  }
+  if (!isAllowlistedArgv(operation.argv)) throw new Error('workbench shell.exec command is not allowlisted')
+  if (operation.timeoutMs !== undefined && (!Number.isSafeInteger(operation.timeoutMs) || operation.timeoutMs <= 0)) {
+    throw new Error('workbench shell.exec timeoutMs must be a positive integer')
+  }
+  const relativeCwd = normalizeRelativePath(operation.cwd ?? '', true)
+  const cwd = resolveExisting(root, relativeCwd)
+  if (!fs.statSync(cwd).isDirectory()) throw new Error('workbench shell.exec cwd must be a directory')
+  const requestedTimeout = positiveLimit(operation.timeoutMs, positiveLimit(options.shellTimeoutMs, DEFAULT_SHELL_TIMEOUT_MS))
+  const timeoutMs = Math.min(requestedTimeout, MAX_SHELL_TIMEOUT_MS)
+  return { argv: operation.argv, cwd, timeoutMs }
+}
+
+function truncateShellOutput(buffer: Buffer, maxBytes: number): { text: string; truncated: boolean } {
+  const truncated = buffer.byteLength > maxBytes
+  const bounded = truncated ? buffer.subarray(0, maxBytes) : buffer
+  return { text: bounded.toString('utf8'), truncated }
+}
+
+function asBuffer(value: unknown): Buffer {
+  if (Buffer.isBuffer(value)) return value
+  return Buffer.from(typeof value === 'string' ? value : '')
+}
+
+async function shellExec(
+  operation: Extract<WorkbenchRuntimeOperation, { kind: 'shell.exec' }>,
+  root: string,
+  options: WorkbenchExecutorOptions,
+): Promise<WorkbenchOperationResult> {
+  const { argv, cwd, timeoutMs } = prepareShellExec(operation, root, options)
+  const displayLimit = positiveLimit(options.maxShellOutputBytes, MAX_SHELL_OUTPUT_BYTES)
+  // execFile's own maxBuffer is intentionally set well above the display limit so a
+  // legitimate (allowlisted) command always runs to natural completion and yields a
+  // real numeric exit code — the server's WorkbenchResult schema requires exitCode to
+  // be a safe integer, never null. We then truncate the captured buffers ourselves to
+  // displayLimit and flag truncated:true, rather than relying on Node's own
+  // maxBuffer-triggered kill (which loses the exit code entirely).
+  const execFileMaxBuffer = displayLimit * 8
+  const startedAt = Date.now()
+  return new Promise((resolve, reject) => {
+    execFile(argv[0], argv.slice(1), {
+      cwd,
+      shell: false,
+      timeout: timeoutMs,
+      maxBuffer: execFileMaxBuffer,
+      env: sanitizedShellEnv(),
+      encoding: 'buffer',
+      windowsHide: true,
+    }, (error, stdoutRaw, stderrRaw) => {
+      // Node passes captured buffers via the stdout/stderr callback params even on
+      // failure (non-zero exit); error.stdout/error.stderr are NOT populated when
+      // execFile is called with encoding: 'buffer'.
+      const stdout = truncateShellOutput(asBuffer(stdoutRaw), displayLimit)
+      const stderr = truncateShellOutput(asBuffer(stderrRaw), displayLimit)
+      const durationMs = Date.now() - startedAt
+      if (error) {
+        const caught = error as NodeJS.ErrnoException & { killed?: boolean; signal?: string | null }
+        if (caught.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' || /maxbuffer/i.test(caught.message)) {
+          reject(new Error('workbench shell command output exceeded limit'))
+          return
+        }
+        if (caught.killed || caught.signal || /timed out|timeout/i.test(caught.message)) {
+          reject(new Error('workbench shell command timed out'))
+          return
+        }
+        if (typeof caught.code === 'number') {
+          resolve({
+            exitCode: caught.code,
+            stdout: stdout.text,
+            stderr: stderr.text,
+            durationMs,
+            ...(stdout.truncated || stderr.truncated ? { truncated: true } : {}),
+          })
+          return
+        }
+        reject(new Error('workbench shell command failed to start'))
+        return
+      }
+      resolve({
+        exitCode: 0,
+        stdout: stdout.text,
+        stderr: stderr.text,
+        durationMs,
+        ...(stdout.truncated || stderr.truncated ? { truncated: true } : {}),
+      })
+    })
+  })
+}
+
+/**
+ * Streaming variant used from executeWorkbenchJob when a signed `post` helper is
+ * available: streams stdout/stderr chunks to the device progress endpoint (best
+ * effort — posting failures never fail the job) while buffering the full output
+ * for the final completion result, matching the shape of the execFile-based
+ * shellExec above.
+ */
+async function shellExecWithProgress(
+  job: WorkbenchRuntimeJob,
+  root: string,
+  options: WorkbenchExecutorOptions,
+  post: (path: string, body: Record<string, unknown>) => Promise<Response>,
+): Promise<WorkbenchOperationResult> {
+  const operation = job.operation as Extract<WorkbenchRuntimeOperation, { kind: 'shell.exec' }>
+  const { argv, cwd, timeoutMs } = prepareShellExec(operation, root, options)
+  const maxBuffer = positiveLimit(options.maxShellOutputBytes, MAX_SHELL_OUTPUT_BYTES)
+  const startedAt = Date.now()
+  let seq = 0
+  // Body shape matches lib/messages/workbench/jobs.ts parseWorkbenchProgressChunk:
+  // { seq, stream, text, atMs }, wrapped as { attempt, leaseToken, chunk }.
+  const postProgress = (stream: 'stdout' | 'stderr', text: string) => {
+    seq += 1
+    options.onShellProgress?.({ stream, text, seq })
+    post(`/workbench/jobs/${job.jobId}/progress`, {
+      attempt: job.attempt,
+      leaseToken: job.leaseToken,
+      chunk: { seq, stream, text, atMs: Date.now() },
+    }).catch(() => undefined)
+  }
+
+  return new Promise((resolve, reject) => {
+    let child: ReturnType<typeof spawn>
+    try {
+      child = spawn(argv[0], argv.slice(1), { cwd, shell: false, env: sanitizedShellEnv(), windowsHide: true })
+    } catch {
+      reject(new Error('workbench shell command failed to start'))
+      return
+    }
+
+    const stdoutChunks: Buffer[] = []
+    const stderrChunks: Buffer[] = []
+    let stdoutBytes = 0
+    let stderrBytes = 0
+    let truncated = false
+    let timedOut = false
+    let settled = false
+
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill('SIGTERM')
+    }, timeoutMs)
+
+    const onChunk = (stream: 'stdout' | 'stderr') => (chunk: Buffer) => {
+      const chunks = stream === 'stdout' ? stdoutChunks : stderrChunks
+      const used = stream === 'stdout' ? stdoutBytes : stderrBytes
+      if (used >= maxBuffer) {
+        truncated = true
+        return
+      }
+      const remaining = maxBuffer - used
+      const bounded = chunk.byteLength > remaining ? chunk.subarray(0, remaining) : chunk
+      if (bounded.byteLength > 0) {
+        chunks.push(bounded)
+        if (stream === 'stdout') stdoutBytes += bounded.byteLength
+        else stderrBytes += bounded.byteLength
+        postProgress(stream, bounded.toString('utf8'))
+      }
+      if (bounded.byteLength < chunk.byteLength) truncated = true
+    }
+
+    child.stdout?.on('data', onChunk('stdout'))
+    child.stderr?.on('data', onChunk('stderr'))
+    child.once('error', (spawnError) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      reject(spawnError instanceof Error ? spawnError : new Error('workbench shell command failed'))
+    })
+    child.once('close', (code, signal) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (signal) {
+        reject(new Error(timedOut ? 'workbench shell command timed out' : `workbench shell command terminated by signal ${signal}`))
+        return
+      }
+      resolve({
+        exitCode: code ?? 0,
+        stdout: Buffer.concat(stdoutChunks).toString('utf8'),
+        stderr: Buffer.concat(stderrChunks).toString('utf8'),
+        durationMs: Date.now() - startedAt,
+        ...(truncated ? { truncated: true } : {}),
+      })
+    })
+  })
+}
+
 export async function executeWorkbenchOperation(
   job: WorkbenchRuntimeJob,
   registry: MappingRegistry,
@@ -373,6 +623,7 @@ export async function executeWorkbenchOperation(
     case 'fs.write': return writeFile(job.operation, root, options)
     case 'git.status': return gitStatus(job.operation, root, options)
     case 'git.diff': return gitDiff(job.operation, root, options)
+    case 'shell.exec': return shellExec(job.operation, root, options)
     default: throw new Error('unsupported workbench operation')
   }
 }
@@ -438,7 +689,13 @@ export async function executeWorkbenchJob(
   let error = ''
   let status: 'completed' | 'failed' = 'completed'
   try {
-    result = await executeWorkbenchOperation(job, registry, options)
+    if (job.operation.kind === 'shell.exec') {
+      assertValidClaim(job)
+      const root = mappedRoot(job, registry)
+      result = await shellExecWithProgress(job, root, options, post)
+    } else {
+      result = await executeWorkbenchOperation(job, registry, options)
+    }
   } catch (caught) {
     status = 'failed'
     error = boundedError(caught)

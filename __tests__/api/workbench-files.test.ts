@@ -225,4 +225,54 @@ describe('POST /api/v1/conversations/[convId]/workbench/terminal', () => {
     const body = await readJson(response)
     expect(body.data).toMatchObject({ jobId: 'job-1', kind: 'git.status', status: 'queued' })
   })
+
+  it('falls back to an allowlisted shell.exec job when the command has no typed mapping', async () => {
+    const { handleWorkbenchTerminalCommand } = await import('@/app/api/v1/conversations/[convId]/workbench/terminal/route')
+    const authorization = {
+      conversation: { id: 'conv-1', orgId: 'org-1' },
+      projectId: null,
+      relativeFolder: '.',
+      binding: {
+        deviceId: 'device-a', runtimeTargetId: 'runtime-a', credentialVersion: 3,
+        workspaceId: 'workspace-a', mappingId: 'mapping-a',
+      },
+    }
+    const authorize = jest.fn(async () => authorization as never)
+    const enqueue = jest.fn(async (input: Record<string, unknown>) => ({
+      jobId: 'job-2', kind: input.kind, status: 'queued', attempt: 0,
+      createdAtMs: 1_000, updatedAtMs: 1_000, expiresAtMs: 100_000,
+      encryptedOperation: null, encryptedResult: null,
+    } as unknown as WorkbenchJob))
+
+    const request = new NextRequest('http://localhost/api/v1/conversations/conv-1/workbench/terminal', {
+      method: 'POST',
+      body: JSON.stringify({ command: 'node --version' }),
+    })
+    const response = await handleWorkbenchTerminalCommand(request, { uid: 'client-1', role: 'client', orgId: 'org-1' } as never, 'conv-1', { authorize, enqueue })
+
+    expect(response.status).toBe(202)
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      kind: 'shell.exec', operation: { kind: 'shell.exec', argv: ['node', '--version'] },
+    }))
+    const body = await readJson(response)
+    expect(body.data).toMatchObject({ jobId: 'job-2', kind: 'shell.exec', status: 'queued' })
+  })
+
+  it('lists both typed and shell.exec allowlisted commands in the rejection message', async () => {
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/workbench/terminal/route')
+
+    const res = await POST(
+      new NextRequest('http://localhost/api/v1/conversations/conv-1/workbench/terminal', {
+        method: 'POST',
+        body: JSON.stringify({ command: 'curl evil.example.com' }),
+      }),
+      { params: Promise.resolve({ convId: 'conv-1' }) },
+    )
+
+    expect(res.status).toBe(400)
+    const body = await readJson(res)
+    expect(body.code).toBe('WORKBENCH_SHELL_COMMAND_NOT_ALLOWED')
+    expect(body.error).toMatch(/git status/)
+    expect(body.error).toMatch(/node --version/)
+  })
 })

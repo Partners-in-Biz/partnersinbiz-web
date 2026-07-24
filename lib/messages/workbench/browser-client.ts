@@ -13,6 +13,7 @@
  */
 import type { WorkbenchChangeFile, WorkbenchChangeStatus } from './types'
 import type { PublicWorkbenchJob, WorkbenchJobStatus, WorkbenchOperation } from './jobs'
+import { mapShellCommandToArgv } from './shell-allowlist'
 
 const TERMINAL_JOB_STATUSES: ReadonlySet<WorkbenchJobStatus> = new Set([
   'completed', 'failed', 'cancelled', 'expired', 'awaiting_approval',
@@ -127,14 +128,17 @@ export function gitStatusResultToChanges(result: WorkbenchGitStatusResult | null
 }
 
 /**
- * Allowlisted read-only terminal commands, mapped to the typed workbench
- * operation that performs the same job (Phase 2b has no free-form shell
- * execution). `pwd` intentionally returns `null` — it needs no device round
- * trip since the conversation's bound relative folder already answers it
- * (see the terminal route's special case).
+ * Allowlisted terminal commands, mapped to a workbench operation. `git
+ * status` / `git diff` / `ls` map onto typed FS/git operations (Phase 2b);
+ * everything else falls back to an allowlisted one-shot `shell.exec` job
+ * (Phase 3 MVP — exact argv templates only, still no free-form PTY). `pwd`
+ * intentionally returns `null` — it needs no device round trip since the
+ * conversation's bound relative folder already answers it (see the
+ * terminal route's special case).
  */
 export function mapTerminalCommandToOperation(command: string): WorkbenchOperation | null {
-  switch (command.trim()) {
+  const trimmed = command.trim()
+  switch (trimmed) {
     case 'git status':
       return { kind: 'git.status' }
     case 'git diff':
@@ -142,8 +146,10 @@ export function mapTerminalCommandToOperation(command: string): WorkbenchOperati
       return { kind: 'git.diff' }
     case 'ls':
       return { kind: 'fs.list', path: '.' }
-    default:
-      return null
+    default: {
+      const argv = mapShellCommandToArgv(trimmed)
+      return argv ? { kind: 'shell.exec', argv } : null
+    }
   }
 }
 
@@ -163,6 +169,13 @@ export function formatWorkbenchOperationResult(job: PublicWorkbenchJob): string 
   if (job.kind === 'fs.list' && 'entries' in result && Array.isArray(result.entries)) {
     if (result.entries.length === 0) return '(empty directory)'
     return result.entries.map((entry) => (entry.type === 'directory' ? `${entry.path}/` : entry.path)).join('\n')
+  }
+  if (job.kind === 'shell.exec' && 'exitCode' in result) {
+    const operation = job.operation
+    const cmd = operation && operation.kind === 'shell.exec' ? operation.argv.join(' ') : 'shell.exec'
+    const stdout = 'stdout' in result && typeof result.stdout === 'string' ? result.stdout.replace(/\n+$/, '') : ''
+    const stderr = 'stderr' in result && typeof result.stderr === 'string' ? result.stderr.replace(/\n+$/, '') : ''
+    return [`$ ${cmd}`, ...(stdout ? [stdout] : []), ...(stderr ? [stderr] : []), `exit ${result.exitCode}`].join('\n')
   }
   return JSON.stringify(result, null, 2)
 }

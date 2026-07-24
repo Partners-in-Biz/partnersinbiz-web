@@ -7,14 +7,17 @@ import { isLinkedRunClaimAuthorized } from '@/lib/linked-computers/run-queue-sto
 import { sanitizeLinkedResult } from '@/lib/linked-computers/run-queue'
 import { projectOrganizationDocId } from '@/lib/projects/collaboration'
 import {
+  appendWorkbenchProgressChunk,
   decryptWorkbenchValue,
   encryptWorkbenchValue,
+  parseWorkbenchProgressChunk,
   parseWorkbenchResult,
   sanitizeWorkbenchRelativePath,
   transitionWorkbenchJob,
   workbenchJobId,
   workbenchRequestFingerprint,
   type WorkbenchJob,
+  type WorkbenchJobProgressChunk,
   type WorkbenchOperation,
   type WorkbenchResult,
 } from './jobs'
@@ -50,7 +53,7 @@ function fromStored(jobId: string, row: Record<string, unknown>): WorkbenchJob {
 function toStored(job: WorkbenchJob): Record<string, unknown> {
   const {
     createdAtMs, updatedAtMs, expiresAtMs, leaseExpiresAtMs, claimedAtMs,
-    approvedAtMs, completedAtMs, operation: _operation, result: _result, ...row
+    approvedAtMs, completedAtMs, operation: _operation, result: _result, progressChunks: _progressChunks, ...row
   } = job
   return {
     ...row,
@@ -72,7 +75,15 @@ function hydrate(job: WorkbenchJob): WorkbenchJob {
   const result = job.encryptedResult
     ? decryptWorkbenchValue<WorkbenchResult>(job.encryptedResult, job.deviceId, job.jobId, 'result')
     : undefined
-  return { ...job, ...(operation ? { operation } : {}), ...(result ? { result } : {}) } as WorkbenchJob
+  const progressChunks = job.encryptedProgress
+    ? decryptWorkbenchValue<WorkbenchJobProgressChunk[]>(job.encryptedProgress, job.deviceId, job.jobId, 'progress')
+    : undefined
+  return {
+    ...job,
+    ...(operation ? { operation } : {}),
+    ...(result ? { result } : {}),
+    ...(progressChunks ? { progressChunks } : {}),
+  } as WorkbenchJob
 }
 
 export interface EnqueueWorkbenchJobInput {
@@ -455,5 +466,62 @@ export async function completeWorkbenchJob(input: CompleteWorkbenchJobInput, opt
     transaction.update(jobRef, toStored(next))
     transaction.set(queueRef, { pendingJobIds: ids.filter((id) => id !== input.jobId), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     return next
+  })
+}
+
+export interface AppendWorkbenchJobProgressInput {
+  deviceId: string
+  ownerUserId: string
+  credentialVersion: number
+  jobId: string
+  attempt: number
+  leaseToken: string
+  /** Validated internally via `parseWorkbenchProgressChunk` before it is persisted. */
+  chunk: unknown
+}
+
+/**
+ * Phase 3 MVP `shell.exec` streaming: a device worker calls this while a
+ * claimed job is still running to report incremental stdout/stderr and to
+ * renew its lease (the same way `workspace.execute` progress renews the
+ * linked-computer run-queue lease). Re-verifies claim authorization on every
+ * call so a revoked grant/mapping stops progress from a job already in
+ * flight, not just future claims.
+ */
+export async function appendWorkbenchJobProgress(
+  input: AppendWorkbenchJobProgressInput,
+  options: { nowMs?: number; leaseMs?: number } = {},
+): Promise<{ jobId: string; leaseExpiresAtMs: number }> {
+  const nowMs = options.nowMs ?? Date.now()
+  const chunk = parseWorkbenchProgressChunk(input.chunk)
+  return adminDb.runTransaction(async (transaction) => {
+    const jobRef = adminDb.collection(WORKBENCH_JOBS_COLLECTION).doc(input.jobId)
+    const jobSnapshot = await transaction.get(jobRef)
+    if (!jobSnapshot.exists) throw new Error('workbench: job not found')
+    const job = fromStored(jobSnapshot.id, jobSnapshot.data() ?? {})
+    const baseAuthorization = await loadAuthorization(transaction, job)
+    const authorization = await withDeviceMembership(transaction, baseAuthorization, job.orgId, input.ownerUserId)
+    if (!isWorkbenchClaimAuthorized({
+      authenticatedDeviceUserId: input.ownerUserId,
+      credentialVersion: input.credentialVersion,
+      authorization,
+      job,
+    })) throw new Error('workbench: job authorization revoked')
+
+    const renewed = transitionWorkbenchJob(job, {
+      type: 'progress', deviceId: input.deviceId, credentialVersion: input.credentialVersion,
+      attempt: input.attempt, leaseToken: input.leaseToken, nowMs, leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS,
+    })
+    const existingChunks = job.encryptedProgress
+      ? decryptWorkbenchValue<WorkbenchJobProgressChunk[]>(job.encryptedProgress, job.deviceId, job.jobId, 'progress')
+      : []
+    const nextChunks = appendWorkbenchProgressChunk(existingChunks, chunk)
+    const next: WorkbenchJob = {
+      ...renewed,
+      encryptedProgress: encryptWorkbenchValue(nextChunks, job.deviceId, job.jobId, 'progress'),
+      progressChunks: nextChunks,
+    }
+    transaction.update(jobRef, toStored(next))
+    return { jobId: next.jobId, leaseExpiresAtMs: next.leaseExpiresAtMs ?? nowMs }
   })
 }

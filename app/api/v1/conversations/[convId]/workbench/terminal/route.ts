@@ -7,6 +7,7 @@ import { mapTerminalCommandToOperation } from '@/lib/messages/workbench/browser-
 import { authorizeWorkbenchConversation, WorkbenchAuthorizationError } from '@/lib/messages/workbench/authorization'
 import { enqueueWorkbenchJob, type EnqueueWorkbenchJobInput } from '@/lib/messages/workbench/job-store'
 import { publicWorkbenchJob } from '@/lib/messages/workbench/jobs'
+import { ALLOWLISTED_SHELL_COMMANDS } from '@/lib/messages/workbench/shell-allowlist'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,15 +19,16 @@ interface TerminalDependencies {
 }
 
 /**
- * Phase 2b: allowlisted read-only shell commands the Messages workbench
- * terminal can run against a conversation's linked-computer workspace. Each
- * one maps (via `mapTerminalCommandToOperation`) to an existing typed
- * workbench operation and is dispatched through the same job queue as the
- * Files/Changes tabs — there is still no free-form PTY protocol. `pwd` is
+ * Phase 2b/3 MVP: allowlisted terminal commands the Messages workbench
+ * terminal can run against a conversation's linked-computer workspace.
+ * `git status` / `git diff` / `ls` map (via `mapTerminalCommandToOperation`)
+ * onto typed FS/git workbench operations; every other allowlisted command
+ * falls back to a one-shot `shell.exec` job with an exact-match argv
+ * template — there is still no free-form PTY protocol. `pwd` is
  * special-cased below because it only needs the server-known relative
  * folder, not a device round trip.
  */
-const ALLOWLISTED_COMMANDS = new Set(['git status', 'git diff', 'git diff --stat', 'ls', 'pwd'])
+const TYPED_TERMINAL_COMMANDS = ['git status', 'git diff', 'git diff --stat', 'ls', 'pwd']
 
 function routeError(error: unknown) {
   if (error instanceof WorkbenchAuthorizationError) return apiError(error.message, error.status)
@@ -45,13 +47,6 @@ export async function handleWorkbenchTerminalCommand(
   const body = await request.json().catch(() => ({})) as Record<string, unknown>
   const command = typeof body.command === 'string' ? body.command.trim() : ''
   if (!command) return apiError('command is required', 400)
-  if (!ALLOWLISTED_COMMANDS.has(command)) {
-    return apiError(
-      `Command is not allowlisted for workbench terminal jobs. Allowed: ${Array.from(ALLOWLISTED_COMMANDS).join(', ')}`,
-      400,
-      { code: 'WORKBENCH_SHELL_COMMAND_NOT_ALLOWED' },
-    )
-  }
 
   try {
     if (command === 'pwd') {
@@ -60,7 +55,13 @@ export async function handleWorkbenchTerminalCommand(
     }
 
     const operation = mapTerminalCommandToOperation(command)
-    if (!operation) return apiError('Unable to map command to a workbench operation', 400)
+    if (!operation) {
+      return apiError(
+        `Command is not allowlisted for workbench terminal jobs. Allowed: ${[...TYPED_TERMINAL_COMMANDS, ...ALLOWLISTED_SHELL_COMMANDS].join(', ')}`,
+        400,
+        { code: 'WORKBENCH_SHELL_COMMAND_NOT_ALLOWED' },
+      )
+    }
 
     const authorization = await dependencies.authorize(user, conversationId)
     if (user.role !== 'admin' && user.role !== 'client') return apiError('Forbidden', 403)

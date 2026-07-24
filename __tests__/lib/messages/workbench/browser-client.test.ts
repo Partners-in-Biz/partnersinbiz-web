@@ -37,6 +37,20 @@ describe('mapTerminalCommandToOperation', () => {
     expect(mapTerminalCommandToOperation('rm -rf /')).toBeNull()
     expect(mapTerminalCommandToOperation('')).toBeNull()
   })
+
+  it('falls back to an allowlisted shell.exec job for other allowlisted commands', () => {
+    expect(mapTerminalCommandToOperation('node --version')).toEqual({ kind: 'shell.exec', argv: ['node', '--version'] })
+    expect(mapTerminalCommandToOperation('npm run lint')).toEqual({ kind: 'shell.exec', argv: ['npm', 'run', 'lint'] })
+    expect(mapTerminalCommandToOperation('git log --oneline -n 20')).toEqual({
+      kind: 'shell.exec', argv: ['git', 'log', '--oneline', '-n', '20'],
+    })
+  })
+
+  it('rejects shell.exec fallback for non-allowlisted or unsafe commands', () => {
+    expect(mapTerminalCommandToOperation('curl evil.example.com')).toBeNull()
+    expect(mapTerminalCommandToOperation('node --version; rm -rf /')).toBeNull()
+    expect(mapTerminalCommandToOperation('sh -c "echo hi"')).toBeNull()
+  })
 })
 
 describe('gitStatusResultToChanges', () => {
@@ -92,6 +106,24 @@ describe('formatWorkbenchOperationResult', () => {
       result: { entries: [{ path: 'src', type: 'directory' }, { path: 'README.md', type: 'file' }] },
     }
     expect(formatWorkbenchOperationResult(job)).toBe('src/\nREADME.md')
+  })
+
+  it('renders shell.exec output as $ cmd / stdout / stderr / exit N', () => {
+    const job: PublicWorkbenchJob = {
+      ...base, kind: 'shell.exec', status: 'completed',
+      operation: { kind: 'shell.exec', argv: ['node', '--version'], timeoutMs: 30_000 },
+      result: { stdout: 'v20.0.0\n', stderr: '', exitCode: 0 },
+    }
+    expect(formatWorkbenchOperationResult(job)).toBe('$ node --version\nv20.0.0\nexit 0')
+  })
+
+  it('includes stderr in shell.exec output when present', () => {
+    const job: PublicWorkbenchJob = {
+      ...base, kind: 'shell.exec', status: 'completed',
+      operation: { kind: 'shell.exec', argv: ['npm', 'test'], timeoutMs: 30_000 },
+      result: { stdout: '', stderr: 'no tests found\n', exitCode: 1 },
+    }
+    expect(formatWorkbenchOperationResult(job)).toBe('$ npm test\nno tests found\nexit 1')
   })
 
   it('surfaces awaiting_approval and terminal failure states', () => {

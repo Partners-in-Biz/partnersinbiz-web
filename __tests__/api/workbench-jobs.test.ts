@@ -4,6 +4,7 @@ import { handleGetWorkbenchJob } from '@/app/api/v1/conversations/[convId]/workb
 import { handleApproveWorkbenchJob } from '@/app/api/v1/conversations/[convId]/workbench/jobs/[jobId]/approve/route'
 import { handleWorkbenchClaim } from '@/app/api/v1/linked-computers/[deviceId]/workbench/claim/route'
 import { handleWorkbenchComplete } from '@/app/api/v1/linked-computers/[deviceId]/workbench/jobs/[jobId]/complete/route'
+import { handleWorkbenchProgress } from '@/app/api/v1/linked-computers/[deviceId]/workbench/jobs/[jobId]/progress/route'
 import { isWorkbenchClaimAuthorized, type WorkbenchStoredAuthorization } from '@/lib/messages/workbench/job-store'
 import type { WorkbenchJob } from '@/lib/messages/workbench/jobs'
 
@@ -154,6 +155,41 @@ describe('signed linked-computer workbench routes', () => {
       deviceId: 'device-a', ownerUserId: 'owner-a', credentialVersion: 3, jobId: 'job-a',
       attempt: 1, leaseToken: 'lease-token-1234567890', outcome: 'completed', result: { entries: [] },
     }))
+  })
+
+  it('binds progress to the signed device, path job, attempt, and lease, and renews the lease', async () => {
+    const append = jest.fn(async () => ({ jobId: 'job-a', leaseExpiresAtMs: 30_000 }))
+    const request = new NextRequest('https://app.test/api/v1/linked-computers/device-a/workbench/jobs/job-a/progress', {
+      method: 'POST',
+      body: JSON.stringify({
+        attempt: 1, leaseToken: 'lease-token-1234567890',
+        chunk: { seq: 0, stream: 'stdout', text: 'v20.0.0\n', atMs: 1_000 },
+      }),
+    })
+
+    const response = await handleWorkbenchProgress(request, 'device-a', 'job-a', async () => identity, append)
+
+    expect(response.status).toBe(200)
+    expect(append).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: 'device-a', ownerUserId: 'owner-a', credentialVersion: 3, jobId: 'job-a',
+      attempt: 1, leaseToken: 'lease-token-1234567890',
+      chunk: { seq: 0, stream: 'stdout', text: 'v20.0.0\n', atMs: 1_000 },
+    }))
+    const body = await response.json()
+    expect(body.data).toMatchObject({ accepted: true, jobId: 'job-a' })
+  })
+
+  it('rejects a progress request with a malformed attempt or lease token before touching the store', async () => {
+    const append = jest.fn()
+    const request = new NextRequest('https://app.test/api/v1/linked-computers/device-a/workbench/jobs/job-a/progress', {
+      method: 'POST',
+      body: JSON.stringify({ attempt: 0, leaseToken: 'short', chunk: { seq: 0, stream: 'stdout', text: 'x', atMs: 1 } }),
+    })
+
+    const response = await handleWorkbenchProgress(request, 'device-a', 'job-a', async () => identity, append)
+
+    expect(response.status).toBe(400)
+    expect(append).not.toHaveBeenCalled()
   })
 })
 

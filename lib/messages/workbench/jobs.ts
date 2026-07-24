@@ -1,11 +1,17 @@
 import * as crypto from 'node:crypto'
+import { isAllowlistedShellArgv, normalizeShellArgv } from './shell-allowlist'
 
 const ENVELOPE_CONTEXT = 'conversation-workbench-job:v1'
 const MAX_PATH_LENGTH = 512
 const MAX_WRITE_BYTES = 1_000_000
 const MAX_RESULT_BYTES = 2_000_000
+const MIN_SHELL_TIMEOUT_MS = 1_000
+const MAX_SHELL_TIMEOUT_MS = 60_000
+const DEFAULT_SHELL_TIMEOUT_MS = 30_000
+const MAX_PROGRESS_CHUNKS = 64
+const MAX_PROGRESS_CHUNK_BYTES = 2_000
 
-export type WorkbenchJobKind = 'fs.list' | 'fs.read' | 'fs.write' | 'git.status' | 'git.diff'
+export type WorkbenchJobKind = 'fs.list' | 'fs.read' | 'fs.write' | 'git.status' | 'git.diff' | 'shell.exec'
 export type WorkbenchJobStatus =
   | 'awaiting_approval'
   | 'queued'
@@ -21,6 +27,7 @@ export type WorkbenchOperation =
   | { kind: 'fs.write'; path: string; content: string; expectedSha256?: string }
   | { kind: 'git.status' }
   | { kind: 'git.diff'; path?: string; staged?: boolean }
+  | { kind: 'shell.exec'; argv: string[]; cwd?: string; timeoutMs?: number }
 
 export type WorkbenchResult =
   | { entries: Array<{ path: string; type: 'file' | 'directory'; size?: number }> }
@@ -28,7 +35,16 @@ export type WorkbenchResult =
   | { bytesWritten: number; sha256: string }
   | { branch?: string; changes: Array<{ path: string; status: string }> }
   | { diff: string; truncated?: boolean }
+  | { stdout: string; stderr: string; exitCode: number; truncated?: boolean; durationMs?: number }
   | Record<string, unknown>
+
+/** Progress chunk streamed by a device worker while a `shell.exec` job runs. */
+export interface WorkbenchJobProgressChunk {
+  seq: number
+  stream: 'stdout' | 'stderr' | 'status'
+  text: string
+  atMs: number
+}
 
 export interface EncryptedWorkbenchValue {
   ciphertext: string
@@ -63,9 +79,12 @@ export interface WorkbenchJob {
   completedAtMs?: number
   encryptedOperation: EncryptedWorkbenchValue | null
   encryptedResult: EncryptedWorkbenchValue | null
+  /** Encrypted, capped ring buffer of in-flight `shell.exec` output chunks. */
+  encryptedProgress?: EncryptedWorkbenchValue | null
   /** Decrypted transient value; never persisted by the store. */
   operation?: WorkbenchOperation
   result?: WorkbenchResult
+  progressChunks?: WorkbenchJobProgressChunk[]
   error?: string
   resultFingerprint?: string
   createdAtMs: number
@@ -80,6 +99,7 @@ export interface PublicWorkbenchJob {
   approvalRequired: boolean
   operation?: Exclude<WorkbenchOperation, { kind: 'fs.write' }> | { kind: 'fs.write'; path: string; expectedSha256?: string }
   result?: WorkbenchResult
+  progress?: WorkbenchJobProgressChunk[]
   error?: string
   createdAt: string
   updatedAt: string
@@ -162,6 +182,26 @@ export function parseWorkbenchOperation(value: unknown): WorkbenchOperation {
         ...(typeof input.staged === 'boolean' ? { staged: input.staged } : {}),
       }
     }
+    case 'shell.exec': {
+      if (!exactKeys(input, ['kind', 'argv', 'cwd', 'timeoutMs'])
+        || !Array.isArray(input.argv) || !input.argv.every((item) => typeof item === 'string')) {
+        return invalidOperation()
+      }
+      const argv = normalizeShellArgv(input.argv as string[])
+      if (!argv || !isAllowlistedShellArgv(argv)) return invalidOperation()
+      let cwd: string | undefined
+      if (input.cwd !== undefined) {
+        if (typeof input.cwd !== 'string') return invalidOperation()
+        cwd = sanitizeWorkbenchRelativePath(input.cwd, { allowRoot: true }) ?? undefined
+        if (!cwd) return invalidOperation()
+      }
+      let timeoutMs = DEFAULT_SHELL_TIMEOUT_MS
+      if (input.timeoutMs !== undefined) {
+        if (!Number.isSafeInteger(input.timeoutMs)) return invalidOperation()
+        timeoutMs = Math.min(MAX_SHELL_TIMEOUT_MS, Math.max(MIN_SHELL_TIMEOUT_MS, Number(input.timeoutMs)))
+      }
+      return { kind: 'shell.exec', argv, ...(cwd ? { cwd } : {}), timeoutMs }
+    }
     default:
       return invalidOperation()
   }
@@ -210,6 +250,18 @@ export function parseWorkbenchResult(kind: WorkbenchJobKind, value: unknown): Wo
     })
     return { ...(typeof input.branch === 'string' ? { branch: input.branch.slice(0, 256) } : {}), changes }
   }
+  if (kind === 'shell.exec') {
+    if (typeof input.stdout !== 'string' || typeof input.stderr !== 'string' || !Number.isSafeInteger(input.exitCode)
+      || (input.truncated !== undefined && typeof input.truncated !== 'boolean')
+      || (input.durationMs !== undefined && (!Number.isSafeInteger(input.durationMs) || Number(input.durationMs) < 0))) {
+      throw new Error('workbench: invalid result')
+    }
+    return {
+      stdout: input.stdout, stderr: input.stderr, exitCode: Number(input.exitCode),
+      ...(input.truncated === true ? { truncated: true } : {}),
+      ...(typeof input.durationMs === 'number' ? { durationMs: Number(input.durationMs) } : {}),
+    }
+  }
   if (typeof input.diff !== 'string') throw new Error('workbench: invalid result')
   return { diff: input.diff, ...(input.truncated === true ? { truncated: true } : {}) }
 }
@@ -222,7 +274,7 @@ function masterKey(): Buffer {
     : crypto.createHash('sha256').update(value).digest()
 }
 
-function envelopeKey(deviceId: string, jobId: string, purpose: 'operation' | 'result'): Buffer {
+function envelopeKey(deviceId: string, jobId: string, purpose: 'operation' | 'result' | 'progress'): Buffer {
   return crypto.createHmac('sha256', masterKey()).update(`${ENVELOPE_CONTEXT}:${deviceId}:${jobId}:${purpose}`).digest()
 }
 
@@ -230,7 +282,7 @@ export function encryptWorkbenchValue(
   value: unknown,
   deviceId: string,
   jobId: string,
-  purpose: 'operation' | 'result',
+  purpose: 'operation' | 'result' | 'progress',
 ): EncryptedWorkbenchValue {
   const iv = crypto.randomBytes(12)
   const cipher = crypto.createCipheriv('aes-256-gcm', envelopeKey(deviceId, jobId, purpose), iv)
@@ -243,7 +295,7 @@ export function decryptWorkbenchValue<T>(
   value: EncryptedWorkbenchValue,
   deviceId: string,
   jobId: string,
-  purpose: 'operation' | 'result',
+  purpose: 'operation' | 'result' | 'progress',
 ): T {
   const decipher = crypto.createDecipheriv('aes-256-gcm', envelopeKey(deviceId, jobId, purpose), Buffer.from(value.iv, 'base64'))
   decipher.setAAD(Buffer.from(`${deviceId}\n${jobId}\n${purpose}`))
@@ -271,6 +323,7 @@ export function workbenchJobId(input: { conversationId: string; actorUserId: str
 export function transitionWorkbenchJob(job: WorkbenchJob, event:
   | { type: 'approve'; approverUserId: string; nowMs: number }
   | { type: 'claim'; deviceId: string; credentialVersion: number; nowMs: number; leaseMs: number }
+  | { type: 'progress'; deviceId: string; credentialVersion: number; attempt: number; leaseToken: string; nowMs: number; leaseMs: number }
   | { type: 'complete'; deviceId: string; credentialVersion: number; attempt: number; leaseToken: string; outcome: 'completed' | 'failed' | 'cancelled'; nowMs: number }
 ): WorkbenchJob {
   if (event.type === 'approve') {
@@ -298,6 +351,12 @@ export function transitionWorkbenchJob(job: WorkbenchJob, event:
       updatedAtMs: event.nowMs,
     }
   }
+  if (event.type === 'progress') {
+    if (job.status !== 'claimed') throw new Error('workbench: job not claimed')
+    if (event.attempt !== job.attempt || event.leaseToken !== job.leaseToken) throw new Error('workbench: lease mismatch')
+    if ((job.leaseExpiresAtMs ?? 0) < event.nowMs) throw new Error('workbench: lease expired')
+    return { ...job, leaseExpiresAtMs: event.nowMs + event.leaseMs, updatedAtMs: event.nowMs }
+  }
   if (job.status === event.outcome) return job
   if (job.status !== 'claimed') throw new Error('workbench: job not claimed')
   if (event.attempt !== job.attempt || event.leaseToken !== job.leaseToken) throw new Error('workbench: lease mismatch')
@@ -309,6 +368,37 @@ export function transitionWorkbenchJob(job: WorkbenchJob, event:
     completedAtMs: event.nowMs,
     updatedAtMs: event.nowMs,
   }
+}
+
+function truncateProgressText(text: string, maxBytes: number): string {
+  if (Buffer.byteLength(text, 'utf8') <= maxBytes) return text
+  return Buffer.from(text, 'utf8').subarray(0, maxBytes).toString('utf8')
+}
+
+/** Validates a single progress chunk reported by a device worker. */
+export function parseWorkbenchProgressChunk(value: unknown): WorkbenchJobProgressChunk {
+  const input = record(value)
+  if (!input || !Number.isSafeInteger(input.seq) || Number(input.seq) < 0
+    || typeof input.stream !== 'string' || !['stdout', 'stderr', 'status'].includes(input.stream)
+    || typeof input.text !== 'string' || Buffer.byteLength(input.text, 'utf8') > 1_000_000
+    || !Number.isSafeInteger(input.atMs) || Number(input.atMs) < 0) {
+    throw new Error('workbench: invalid progress chunk')
+  }
+  return {
+    seq: Number(input.seq),
+    stream: input.stream as WorkbenchJobProgressChunk['stream'],
+    text: truncateProgressText(input.text, MAX_PROGRESS_CHUNK_BYTES),
+    atMs: Number(input.atMs),
+  }
+}
+
+/** Appends a chunk to the in-memory progress ring buffer, capped at 64 entries. */
+export function appendWorkbenchProgressChunk(
+  existing: WorkbenchJobProgressChunk[] | undefined,
+  chunk: WorkbenchJobProgressChunk,
+): WorkbenchJobProgressChunk[] {
+  const next = [...(existing ?? []), chunk]
+  return next.length > MAX_PROGRESS_CHUNKS ? next.slice(next.length - MAX_PROGRESS_CHUNKS) : next
 }
 
 export function publicWorkbenchJob(job: WorkbenchJob): PublicWorkbenchJob {
@@ -324,6 +414,7 @@ export function publicWorkbenchJob(job: WorkbenchJob): PublicWorkbenchJob {
     approvalRequired: job.kind === 'fs.write' && !job.approvedAtMs,
     ...(operation ? { operation } : {}),
     ...(job.result !== undefined ? { result: job.result } : {}),
+    ...(job.progressChunks?.length ? { progress: job.progressChunks } : {}),
     ...(job.error ? { error: job.error } : {}),
     createdAt: new Date(job.createdAtMs).toISOString(),
     updatedAt: new Date(job.updatedAtMs).toISOString(),

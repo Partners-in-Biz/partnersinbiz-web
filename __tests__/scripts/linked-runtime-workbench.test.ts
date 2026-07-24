@@ -26,7 +26,7 @@ function mappedWorkspace() {
 }
 
 function job(input: Record<string, unknown>): WorkbenchRuntimeJob {
-  const { kind = 'fs.list', path: operationPath = '', content, expectedSha256, staged } = input
+  const { kind = 'fs.list', path: operationPath = '', content, expectedSha256, staged, argv, cwd, timeoutMs } = input
   return {
     jobId: 'job-a',
     requestId: 'request-a',
@@ -37,16 +37,22 @@ function job(input: Record<string, unknown>): WorkbenchRuntimeJob {
     kind,
     operation: {
       kind,
-      ...(kind !== 'git.status' ? { path: operationPath } : {}),
+      ...(kind !== 'git.status' && kind !== 'shell.exec' ? { path: operationPath } : {}),
       ...(content !== undefined ? { content } : {}),
       ...(Object.prototype.hasOwnProperty.call(input, 'expectedSha256') ? { expectedSha256 } : {}),
       ...(staged !== undefined ? { staged } : {}),
+      ...(argv !== undefined ? { argv } : {}),
+      ...(cwd !== undefined ? { cwd } : {}),
+      ...(timeoutMs !== undefined ? { timeoutMs } : {}),
     },
     ...input,
     path: undefined,
     content: undefined,
     expectedSha256: undefined,
     staged: undefined,
+    argv: undefined,
+    cwd: undefined,
+    timeoutMs: undefined,
   } as unknown as WorkbenchRuntimeJob
 }
 
@@ -258,5 +264,77 @@ describe('safe typed linked-computer workbench executor', () => {
     let claims = 0
     await pollWorkbenchForever(async () => (++claims === 1 ? claimed : null), run, () => claims > 1, async () => undefined)
     expect(run).toHaveBeenCalledWith(claimed)
+  })
+})
+
+describe('safe typed linked-computer workbench shell.exec executor', () => {
+  it('runs an allowlisted command jailed to the mapped root and returns exit code 0', async () => {
+    const { root, registry } = mappedWorkspace()
+    fs.writeFileSync(path.join(root, 'marker.txt'), 'hi')
+    const result = await executeWorkbenchOperation(job({ kind: 'shell.exec', argv: ['ls', '-la'] }), registry) as { exitCode: number; stdout: string; stderr: string }
+    expect(result.exitCode).toBe(0)
+    expect(result.stdout).toContain('marker.txt')
+    expect(result.stderr).toBe('')
+  })
+
+  it('rejects a command whose argv is not on the exact-match allowlist', async () => {
+    const { registry } = mappedWorkspace()
+    await expect(executeWorkbenchOperation(job({ kind: 'shell.exec', argv: ['rm', '-rf', '/'] }), registry)).rejects.toThrow(/not allowlisted/i)
+    await expect(executeWorkbenchOperation(job({ kind: 'shell.exec', argv: ['ls', '-la', '/etc'] }), registry)).rejects.toThrow(/not allowlisted/i)
+    await expect(executeWorkbenchOperation(job({ kind: 'shell.exec', argv: [] }), registry)).rejects.toThrow(/non-empty/i)
+  })
+
+  it('rejects a shell.exec cwd that escapes the mapped root via traversal or symlink', async () => {
+    const { temporary, root, registry } = mappedWorkspace()
+    const outside = path.join(temporary, 'outside')
+    fs.mkdirSync(outside)
+    fs.symlinkSync(outside, path.join(root, 'escape-dir'))
+
+    await expect(executeWorkbenchOperation(job({ kind: 'shell.exec', argv: ['ls', '-la'], cwd: '../outside' }), registry)).rejects.toThrow(/unsafe workbench path/i)
+    await expect(executeWorkbenchOperation(job({ kind: 'shell.exec', argv: ['ls', '-la'], cwd: 'escape-dir' }), registry)).rejects.toThrow(/containment|symlink/i)
+    await expect(executeWorkbenchOperation(job({ kind: 'shell.exec', argv: ['ls', '-la'], cwd: 'missing-dir' }), registry)).rejects.toThrow(/does not exist/i)
+  })
+
+  it('returns a non-zero exit code as a completed result instead of throwing', async () => {
+    const { registry } = mappedWorkspace()
+    const result = await executeWorkbenchOperation(job({ kind: 'shell.exec', argv: ['git', 'branch', '--show-current'] }), registry) as { exitCode: number; stdout: string; stderr: string }
+    expect(result.exitCode).not.toBe(0)
+    expect(Number.isSafeInteger(result.exitCode)).toBe(true)
+    expect(result.stderr.toLowerCase()).toContain('not a git repository')
+  })
+
+  it('streams best-effort progress chunks and posts a completed receipt via executeWorkbenchJob', async () => {
+    const { root, registry } = mappedWorkspace()
+    fs.writeFileSync(path.join(root, 'marker.txt'), 'hi')
+    const keys = generateKeyPairSync('ed25519')
+    const posts: Array<[string, Record<string, unknown>]> = []
+    const post = jest.fn(async (endpoint: string, body: Record<string, unknown>) => {
+      posts.push([endpoint, body])
+      return new Response('', { status: 200 })
+    })
+    const device = {
+      deviceId: 'device-a',
+      credentialVersion: 1,
+      privateKey: keys.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    }
+
+    const result = await executeWorkbenchJob(job({ kind: 'shell.exec', argv: ['ls', '-la'] }), device, registry, post)
+    expect(result.status).toBe('completed')
+    expect(result.result).toEqual(expect.objectContaining({ exitCode: 0, stdout: expect.stringContaining('marker.txt') }))
+    const completion = posts.find(([endpoint]) => endpoint.endsWith('/complete'))
+    expect(completion).toBeDefined()
+    const progress = posts.filter(([endpoint]) => endpoint.endsWith('/progress'))
+    for (const [, body] of progress) {
+      expect(body).toEqual(expect.objectContaining({
+        attempt: 1,
+        leaseToken: expect.any(String),
+        chunk: expect.objectContaining({
+          seq: expect.any(Number),
+          stream: expect.stringMatching(/stdout|stderr/),
+          text: expect.any(String),
+          atMs: expect.any(Number),
+        }),
+      }))
+    }
   })
 })
