@@ -15,6 +15,7 @@ export const RESERVED_COWORK_ROOT_NAMES = new Set([
   'Partners in Biz — Client Growth',
   'Side Projects',
   'YouTube Business',
+  '_projects',
   PIB_COWORK_NESTING_SLUG,
 ])
 

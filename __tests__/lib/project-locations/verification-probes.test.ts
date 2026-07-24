@@ -58,7 +58,7 @@ describe('project-location verification folder probes', () => {
 
   it('builds a data-only SSH Python probe and rejects malformed remote output', () => {
     const script = buildRemoteWorkspaceProbeScript({
-      workspaceRoot: '/var/lib/hermes/Cowork/Partners in Biz',
+      workspaceRoot: '/var/lib/hermes/Cowork/partners/Partners in Biz',
       projects: [{ projectId: 'project-a', relativePath: 'projects/project-a' }],
     })
     expect(script).toContain('pathlib.Path')

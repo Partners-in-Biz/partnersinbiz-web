@@ -173,8 +173,8 @@ beforeEach(() => {
         orgName: 'Acme',
         agentDomain: 'acme',
         agentName: 'Ava',
-        vpsPath: '/var/lib/hermes/Cowork/Acme',
-        localPath: '~/Cowork/Acme',
+        vpsPath: '/var/lib/hermes/Cowork/partners/Acme',
+        localPath: '~/Cowork/partners/Acme',
         agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/acme',
         localAgentDomainPath: '~/Cowork/Cowork/agents/acme',
         sourceOfTruth: 'vps',
@@ -511,8 +511,8 @@ describe('platform-scoped unified conversations', () => {
         folderRelativePath: 'clients/acme/website-launch',
         projectId: 'project-1',
         projectName: 'Website launch',
-        vpsWorkingPath: '/var/lib/hermes/Cowork/Acme/clients/acme/website-launch',
-        localWorkingPath: '~/Cowork/Acme/clients/acme/website-launch',
+        vpsWorkingPath: '/var/lib/hermes/Cowork/partners/Acme/clients/acme/website-launch',
+        localWorkingPath: '~/Cowork/partners/Acme/clients/acme/website-launch',
       }),
     }))
   })
@@ -540,7 +540,7 @@ describe('platform-scoped unified conversations', () => {
       workspaceContext: expect.objectContaining({
         orgId: 'org-1', workspaceId: 'acme', companyId: 'company-1', companyName: 'Acme',
         companyWorkspaceId: 'acme', folderScope: 'company',
-        vpsWorkingPath: '/var/lib/hermes/Cowork/Acme',
+        vpsWorkingPath: '/var/lib/hermes/Cowork/partners/Acme',
       }),
     }))
   })

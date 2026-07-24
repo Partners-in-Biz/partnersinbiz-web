@@ -25,7 +25,7 @@ describe('Partners verification SSH probe', () => {
       }
     }
     const result = await runRemoteWorkspaceFolderProbe({
-      workspaceRoot: '/var/lib/hermes/Cowork/Partners in Biz',
+      workspaceRoot: '/var/lib/hermes/Cowork/partners/Partners in Biz',
       projects: [{ projectId: 'project-a', relativePath: 'projects/project-a' }],
     }, { host: '65.108.146.144', user: 'root' }, spawn)
     expect(result.projectFolderIds).toEqual(['project-a'])
@@ -40,10 +40,10 @@ describe('Partners verification SSH probe', () => {
   it('does not leak SSH stderr when the remote probe fails', async () => {
     const spawn: VerificationSpawn = () => ({ status: 255, stdout: '', stderr: 'secret host detail' })
     await expect(runRemoteWorkspaceFolderProbe({
-      workspaceRoot: '/var/lib/hermes/Cowork/Partners in Biz', projects: [],
+      workspaceRoot: '/var/lib/hermes/Cowork/partners/Partners in Biz', projects: [],
     }, { host: '65.108.146.144', user: 'root' }, spawn)).rejects.toThrow('remote workspace folder probe failed')
     await expect(runRemoteWorkspaceFolderProbe({
-      workspaceRoot: '/var/lib/hermes/Cowork/Partners in Biz', projects: [],
+      workspaceRoot: '/var/lib/hermes/Cowork/partners/Partners in Biz', projects: [],
     }, { host: '65.108.146.144', user: 'root' }, spawn)).rejects.not.toThrow('secret')
   })
 })

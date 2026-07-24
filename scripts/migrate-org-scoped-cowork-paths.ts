@@ -58,6 +58,7 @@ import {
   rewriteOrganizationDoc,
   rewriteOrgWorkspaceDoc,
   rewritePibWorkspaceJson,
+  shellSingleQuote,
 } from '@/scripts/lib/org-scoped-cowork-migration'
 
 export {
@@ -211,21 +212,52 @@ function listMacMoveCandidates(macCoworkRoot: string): {
   return { moves, skipped }
 }
 
-/** Folder names to migrate on VPS (includes already-nested Mac partners/ dirs + flat move candidates). */
-function discoverPartnerWorkspaceFolderNames(macCoworkRoot: string): string[] {
+/** Folder names to migrate on VPS (Mac candidates + remote flat dirs via SSH). */
+function discoverPartnerWorkspaceFolderNames(flags: CliFlags): string[] {
   const names = new Set<string>()
-  if (!existsSync(macCoworkRoot)) return []
-  const { moves, skipped } = listMacMoveCandidates(macCoworkRoot)
-  for (const move of moves) names.add(move.folderName)
-  for (const skip of skipped) {
-    if (skip.reason.includes('symlink')) names.add(skip.folderName)
-  }
-  const nestRoot = join(macCoworkRoot, PIB_COWORK_NESTING_SLUG)
-  if (existsSync(nestRoot) && entryKind(nestRoot) === 'directory') {
-    for (const name of readdirSync(nestRoot)) {
-      if (entryKind(join(nestRoot, name)) === 'directory') names.add(name)
+  const macCoworkRoot = flags.macCoworkRoot
+  if (existsSync(macCoworkRoot)) {
+    const { moves, skipped } = listMacMoveCandidates(macCoworkRoot)
+    for (const move of moves) names.add(move.folderName)
+    for (const skip of skipped) {
+      if (skip.reason.includes('symlink')) names.add(skip.folderName)
+    }
+    const nestRoot = join(macCoworkRoot, PIB_COWORK_NESTING_SLUG)
+    if (existsSync(nestRoot) && entryKind(nestRoot) === 'directory') {
+      for (const name of readdirSync(nestRoot)) {
+        if (entryKind(join(nestRoot, name)) === 'directory') names.add(name)
+      }
     }
   }
+
+  // Also include VPS-only flat company folders (e.g. Humanaut AI).
+  try {
+    const user = process.env.PIB_VPS_USER?.trim() || 'root'
+    const host = flags.host || DEFAULT_PIB_VPS_HOST
+    const listed = spawnSync(
+      'ssh',
+      [
+        '-o', 'BatchMode=yes',
+        '-o', 'ConnectTimeout=20',
+        `${user}@${host}`,
+        `ls -1 ${shellSingleQuote(VPS_COWORK_ROOT)}`,
+      ],
+      { encoding: 'utf8' },
+    )
+    if (listed.status === 0) {
+      for (const line of listed.stdout.split('\n')) {
+        const name = line.trim()
+        if (!name) continue
+        const classification = classifyMoveCandidate({ name, kind: 'directory' })
+        if (classification.action === 'move') names.add(name)
+      }
+    } else {
+      console.warn(`VPS folder listing failed: ${listed.stderr || listed.stdout || 'unknown error'}`)
+    }
+  } catch (error) {
+    console.warn(`VPS folder listing error: ${error instanceof Error ? error.message : error}`)
+  }
+
   return [...names].sort((a, b) => a.localeCompare(b))
 }
 
@@ -608,7 +640,7 @@ export async function run(flags: CliFlags): Promise<MigrationSummary> {
   }
 
   if (scopes.vps) {
-    const moveFolderNames = discoverPartnerWorkspaceFolderNames(flags.macCoworkRoot)
+    const moveFolderNames = discoverPartnerWorkspaceFolderNames(flags)
     if (moveFolderNames.length === 0) {
       console.warn('No move candidates discovered for VPS; skipping remote moves.')
     } else {

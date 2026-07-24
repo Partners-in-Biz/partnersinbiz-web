@@ -27,7 +27,7 @@ describe('standard project folder provisioning', () => {
       projectId: 'project-1',
       orgId: 'pib-org',
       workspaceId: 'partners',
-      workspacePath: '/var/lib/hermes/Cowork/Partners in Biz',
+      workspacePath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
     })).resolves.toMatchObject({
       relativePath: 'projects/project-1', folderStatus: 'provisioned', syncStatus: 'pending',
     })
@@ -39,7 +39,7 @@ describe('standard project folder provisioning', () => {
         projectId: 'project-1',
         orgId: 'pib-org',
         workspaceId: 'partners',
-        workspacePath: '/var/lib/hermes/Cowork/Partners in Biz',
+        workspacePath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
       }),
     }, { runtimeTarget: 'vps' })
   })
@@ -52,7 +52,7 @@ describe('standard project folder provisioning', () => {
 
     await expect(provisionStandardProjectFolder({
       projectId: 'project-1', orgId: 'pib-org', workspaceId: 'partners',
-      workspacePath: '/var/lib/hermes/Cowork/Partners in Biz',
+      workspacePath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
     })).rejects.toThrow('project manifest identity conflict')
   })
 })

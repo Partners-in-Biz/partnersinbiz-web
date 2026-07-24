@@ -280,7 +280,7 @@ beforeEach(() => {
   })
   mockResolveAuthorizedWorkingDirectory.mockResolvedValue({
     ok: true,
-    directory: '/Users/peetstander/Cowork/Partners in Biz/projects/website',
+    directory: '/Users/peetstander/Cowork/partners/Partners in Biz/projects/website',
     pathClass: 'project',
   })
 })
@@ -500,8 +500,8 @@ describe('unified conversation message routing', () => {
         orgSlug: 'partners',
         orgName: 'Partners in Biz',
         agentDomain: 'partners',
-        vpsPath: '/var/lib/hermes/Cowork/Partners in Biz',
-        localPath: '/Users/peetstander/Cowork/Partners in Biz',
+        vpsPath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
+        localPath: '/Users/peetstander/Cowork/partners/Partners in Biz',
         agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/partners',
         localAgentDomainPath: '/Users/peetstander/Cowork/Cowork/agents/partners',
         sourceOfTruth: 'vps',
@@ -511,8 +511,8 @@ describe('unified conversation message routing', () => {
         contactIds: [],
         folderScope: 'project',
         projectId: 'website',
-        vpsWorkingPath: '/var/lib/hermes/Cowork/Partners in Biz/projects/website',
-        localWorkingPath: '/Users/peetstander/Cowork/Partners in Biz/projects/website',
+        vpsWorkingPath: '/var/lib/hermes/Cowork/partners/Partners in Biz/projects/website',
+        localWorkingPath: '/Users/peetstander/Cowork/partners/Partners in Biz/projects/website',
       },
     })
     const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
@@ -526,8 +526,8 @@ describe('unified conversation message routing', () => {
       projectRelativePath: 'clients/partners/website',
     })
     expect(mockCreateHermesRun.mock.calls[0][2]).toEqual(expect.objectContaining({
-      working_directory: '/Users/peetstander/Cowork/Partners in Biz/projects/website',
-      working_directory_root: '/Users/peetstander/Cowork/Partners in Biz',
+      working_directory: '/Users/peetstander/Cowork/partners/Partners in Biz/projects/website',
+      working_directory_root: '/Users/peetstander/Cowork/partners/Partners in Biz',
       metadata: expect.objectContaining({
         requestedRuntimeTargetId: 'local',
         runtimeTargetId: 'local',
@@ -625,10 +625,10 @@ describe('unified conversation message routing', () => {
         agentDomain: 'hunt-and-gun',
         agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/hunt-and-gun',
         localAgentDomainPath: '/Users/peetstander/Cowork/Cowork/agents/hunt-and-gun',
-        vpsPath: '/var/lib/hermes/Cowork/Hunt and Gun',
-        localPath: '/Users/peetstander/Cowork/Hunt and Gun',
-        vpsWorkingPath: '/var/lib/hermes/Cowork/Hunt and Gun',
-        localWorkingPath: '/Users/peetstander/Cowork/Hunt and Gun',
+        vpsPath: '/var/lib/hermes/Cowork/partners/Hunt and Gun',
+        localPath: '/Users/peetstander/Cowork/partners/Hunt and Gun',
+        vpsWorkingPath: '/var/lib/hermes/Cowork/partners/Hunt and Gun',
+        localWorkingPath: '/Users/peetstander/Cowork/partners/Hunt and Gun',
         sourceOfTruth: 'vps',
         shareMode: 'private',
         ownerUserId: 'client-1',
@@ -645,7 +645,7 @@ describe('unified conversation message routing', () => {
       deviceId: 'device-a',
       mappingId: 'map-a',
       relativeFolder: '.',
-      workingDirectory: '/Users/peetstander/Cowork/Hunt and Gun',
+      workingDirectory: '/Users/peetstander/Cowork/partners/Hunt and Gun',
     }))
     const prompt = String(mockEnqueueLinkedRun.mock.calls[0][0].payload.prompt)
     expect(prompt).toContain('bound to the Hunt and Gun Cowork folder')
@@ -694,7 +694,7 @@ describe('unified conversation message routing', () => {
         folderScope: 'company',
         companyId: 'company-hunt',
         companyName: 'Hunt and Gun',
-        localWorkingPath: '/Users/peetstander/Cowork/Hunt and Gun',
+        localWorkingPath: '/Users/peetstander/Cowork/partners/Hunt and Gun',
         contactIds: [],
       },
     })
@@ -712,7 +712,7 @@ describe('unified conversation message routing', () => {
   it('dispatches VPS company Cowork chats with Hunt and Gun working_directory and company prompt framing', async () => {
     mockResolveAuthorizedWorkingDirectory.mockResolvedValue({
       ok: true,
-      directory: '/var/lib/hermes/Cowork/Hunt and Gun',
+      directory: '/var/lib/hermes/Cowork/partners/Hunt and Gun',
       pathClass: 'company',
     })
     mockGetAgentDispatchHermesProfileLink.mockResolvedValue({
@@ -751,10 +751,10 @@ describe('unified conversation message routing', () => {
         agentDomain: 'hunt-and-gun',
         agentDomainPath: '/var/lib/hermes/Cowork/Cowork/agents/hunt-and-gun',
         localAgentDomainPath: '/Users/peetstander/Cowork/Cowork/agents/hunt-and-gun',
-        vpsPath: '/var/lib/hermes/Cowork/Hunt and Gun',
-        localPath: '/Users/peetstander/Cowork/Hunt and Gun',
-        vpsWorkingPath: '/var/lib/hermes/Cowork/Hunt and Gun',
-        localWorkingPath: '/Users/peetstander/Cowork/Hunt and Gun',
+        vpsPath: '/var/lib/hermes/Cowork/partners/Hunt and Gun',
+        localPath: '/Users/peetstander/Cowork/partners/Hunt and Gun',
+        vpsWorkingPath: '/var/lib/hermes/Cowork/partners/Hunt and Gun',
+        localWorkingPath: '/Users/peetstander/Cowork/partners/Hunt and Gun',
         sourceOfTruth: 'vps',
         shareMode: 'private',
         ownerUserId: 'client-1',
@@ -771,8 +771,8 @@ describe('unified conversation message routing', () => {
       expect.anything(),
       'client-1',
       expect.objectContaining({
-        working_directory: '/var/lib/hermes/Cowork/Hunt and Gun',
-        working_directory_root: '/var/lib/hermes/Cowork/Hunt and Gun',
+        working_directory: '/var/lib/hermes/Cowork/partners/Hunt and Gun',
+        working_directory_root: '/var/lib/hermes/Cowork/partners/Hunt and Gun',
       }),
     )
     const prompt = String(mockCreateHermesRun.mock.calls[0][2].prompt)

@@ -1,4 +1,5 @@
 import type { ApiUser } from '@/lib/api/types'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import {
   buildClientProvisioningPayload,
   inferAgentName,
@@ -67,7 +68,7 @@ export async function resumeClientOrganizationWorkspace(
     domain: organization.slug,
     orgId: organization.id,
     orgSlug: organization.slug,
-    platformOwned: organization.id === 'pib-platform-owner',
+    platformOwned: organization.id === PIB_PLATFORM_ORG_ID,
     agentName,
     companyId: null,
     contactIds: [],
