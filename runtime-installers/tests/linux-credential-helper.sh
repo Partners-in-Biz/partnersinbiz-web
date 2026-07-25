@@ -14,6 +14,10 @@ shift
 case "$cmd" in
   --version) printf 'systemd 255\n' ;;
   encrypt)
+    if [[ "${1:-}" == --help ]]; then
+      printf 'Usage: systemd-creds encrypt [OPTIONS]\n'
+      exit 0
+    fi
     [[ "${FAKE_CREDS_FAIL:-0}" != 1 ]] || exit 70
     output="${@: -1}"
     { printf 'ENCRYPTED:'; base64; } > "$output"
