@@ -76,7 +76,7 @@ jobs:
         run: |
           npx tsx scripts/package-linked-runtime-release.ts \
             --version "$VERSION" \
-            --minimum-version "$VERSION" \
+            --minimum-version "${VERSION%.*}.0" \
             --tag "runtime-v$VERSION" \
             --targets linux-x64,linux-arm64
 

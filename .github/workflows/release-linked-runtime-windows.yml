@@ -126,7 +126,8 @@ jobs:
       - name: Create signed metadata and unsigned CAB containers
         shell: pwsh
         run: |
-          npx tsx scripts/package-linked-runtime-release.ts --version $env:VERSION --minimum-version $env:VERSION --tag "runtime-v$env:VERSION" --targets windows-x64,windows-arm64
+          $min = ($env:VERSION -replace '^(\d+\.\d+)\.\d+.*$', '$1.0')
+          npx tsx scripts/package-linked-runtime-release.ts --version $env:VERSION --minimum-version $min --tag "runtime-v$env:VERSION" --targets windows-x64,windows-arm64
       - name: Sign Windows x64 CAB
         uses: sslcom/esigner-codesign@cf5f6c1d38ad10f47e3ed9aca873f429b1a8d85b
         with:
