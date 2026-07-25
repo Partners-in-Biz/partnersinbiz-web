@@ -77,7 +77,17 @@ import {
 } from '@/lib/messages/workbench/from-events'
 import { attachWorkbenchDiffs, mergeWorkbenchDirectory, runConversationWorkbenchJob, workbenchEntriesToTree, workbenchJobResult, workbenchStatusToChanges } from '@/lib/messages/workbench/client'
 import { formatWorkbenchOperationResult, formatWorkbenchProgressBody, pollWorkbenchJob } from '@/lib/messages/workbench/browser-client'
-import type { WorkbenchChangeFile, WorkbenchFileNode, WorkbenchFilePreview, WorkbenchFilesSource, WorkbenchRuntimeSummary, WorkbenchTab, WorkbenchTerminalEntry } from '@/lib/messages/workbench/types'
+import {
+  appendWorkbenchSessionOutput,
+  createWorkbenchSession,
+  killWorkbenchSession as killWorkbenchSessionApi,
+  pollWorkbenchSession,
+  writeWorkbenchSessionStdin,
+  WORKBENCH_SESSION_TERMINAL_STATUSES,
+  type PublicWorkbenchSession,
+  type WorkbenchSessionTranscriptState,
+} from '@/lib/messages/workbench/session-client'
+import type { WorkbenchChangeFile, WorkbenchFileNode, WorkbenchFilePreview, WorkbenchFilesSource, WorkbenchRuntimeSummary, WorkbenchSessionViewState, WorkbenchTab, WorkbenchTerminalEntry, WorkbenchTerminalMode } from '@/lib/messages/workbench/types'
 
 type AgentId = string
 
@@ -962,6 +972,10 @@ export default function UnifiedChat({
   const [workbenchChangesLoading, setWorkbenchChangesLoading] = useState(false)
   const [workbenchLocalTerminalEntries, setWorkbenchLocalTerminalEntries] = useState<WorkbenchTerminalEntry[]>([])
   const [workbenchTerminalRunning, setWorkbenchTerminalRunning] = useState(false)
+  const [workbenchTerminalMode, setWorkbenchTerminalMode] = useState<WorkbenchTerminalMode>('jobs')
+  const [workbenchSession, setWorkbenchSession] = useState<WorkbenchSessionViewState | null>(null)
+  const workbenchSessionTranscriptRef = useRef<WorkbenchSessionTranscriptState>({ text: '', lastSeq: -1 })
+  const workbenchSessionAbortRef = useRef<AbortController | null>(null)
   const [contextCanvasCloseRequest, setContextCanvasCloseRequest] = useState(0)
   // Icon strip stays visible whenever the workbench is enabled; expand margin when a dock opens.
   const rightDockOpen = contextCanvasOpen || workbenchOpen || showAgentWorkbench
@@ -2470,6 +2484,84 @@ export default function UnifiedChat({
     if (workbenchTerminalRunning) return
     setWorkbenchLocalTerminalEntries([])
   }, [workbenchTerminalRunning])
+
+  /** Merges a session snapshot's new-only output chunks into the running transcript, then updates view state. */
+  const applyWorkbenchSessionUpdate = useCallback((remote: PublicWorkbenchSession) => {
+    workbenchSessionTranscriptRef.current = appendWorkbenchSessionOutput(workbenchSessionTranscriptRef.current, remote)
+    setWorkbenchSession({
+      sessionId: remote.sessionId,
+      status: remote.status,
+      transcript: workbenchSessionTranscriptRef.current.text,
+      exitCode: remote.exitCode ?? null,
+      error: remote.error ?? null,
+      busy: false,
+    })
+  }, [])
+
+  const startWorkbenchSession = useCallback(async () => {
+    if (!activeId) return
+    workbenchSessionAbortRef.current?.abort()
+    const controller = new AbortController()
+    workbenchSessionAbortRef.current = controller
+    workbenchSessionTranscriptRef.current = { text: '', lastSeq: -1 }
+    setWorkbenchSession({ sessionId: null, status: 'starting', transcript: '', exitCode: null, error: null, busy: true })
+
+    try {
+      const created = await createWorkbenchSession(activeId, { signal: controller.signal })
+      applyWorkbenchSessionUpdate(created)
+      if (!WORKBENCH_SESSION_TERMINAL_STATUSES.has(created.status)) {
+        await pollWorkbenchSession(activeId, created.sessionId, {
+          signal: controller.signal,
+          onProgress: applyWorkbenchSessionUpdate,
+        })
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setWorkbenchSession((prev) => ({
+        sessionId: prev?.sessionId ?? null,
+        status: 'error',
+        transcript: prev?.transcript ?? '',
+        exitCode: prev?.exitCode ?? null,
+        error: error instanceof Error ? error.message : 'Failed to start the session.',
+        busy: false,
+      }))
+    }
+  }, [activeId, applyWorkbenchSessionUpdate])
+
+  const sendWorkbenchSessionInput = useCallback(async (line: string) => {
+    if (!activeId || !workbenchSession?.sessionId) return
+    try {
+      const updated = await writeWorkbenchSessionStdin(activeId, workbenchSession.sessionId, line, 'line')
+      applyWorkbenchSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to send input to the session.' }
+        : prev)
+    }
+  }, [activeId, workbenchSession?.sessionId, applyWorkbenchSessionUpdate])
+
+  const killWorkbenchSession = useCallback(async () => {
+    if (!activeId || !workbenchSession?.sessionId) return
+    setWorkbenchSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      // A `queued` session is killed immediately; a `claimed`/`running` one just has a kill
+      // control enqueued, so this response may still report the pre-kill status — the poll
+      // loop already running from `startWorkbenchSession` picks up the eventual terminal state.
+      const killResponse = await killWorkbenchSessionApi(activeId, workbenchSession.sessionId)
+      applyWorkbenchSessionUpdate(killResponse)
+    } catch (error) {
+      setWorkbenchSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to kill the session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchSession?.sessionId, applyWorkbenchSessionUpdate])
+
+  useEffect(() => {
+    // Conversation-scoped: drop any in-flight session poll and its transcript when switching conversations.
+    workbenchSessionAbortRef.current?.abort()
+    workbenchSessionTranscriptRef.current = { text: '', lastSeq: -1 }
+    setWorkbenchSession(null)
+  }, [activeId])
 
   useEffect(() => {
     if (showAgentWorkbench && workbenchOpen && workbenchTab === 'files' && activeId) void loadWorkbenchFiles()
@@ -5651,6 +5743,12 @@ export default function UnifiedChat({
           onClearTerminal={clearWorkbenchLocalTerminal}
           terminalRunning={workbenchTerminalRunning}
           localTerminalEntries={workbenchLocalTerminalEntries}
+          terminalMode={workbenchTerminalMode}
+          onTerminalModeChange={setWorkbenchTerminalMode}
+          terminalSession={workbenchSession}
+          onStartTerminalSession={startWorkbenchSession}
+          onSendTerminalSessionInput={sendWorkbenchSessionInput}
+          onKillTerminalSession={killWorkbenchSession}
         />}
 
         {/* Messages */}

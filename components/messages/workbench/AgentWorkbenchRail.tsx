@@ -8,8 +8,10 @@ import type {
   WorkbenchFilePreview,
   WorkbenchFilesSource,
   WorkbenchRuntimeSummary,
+  WorkbenchSessionViewState,
   WorkbenchTab,
   WorkbenchTerminalEntry,
+  WorkbenchTerminalMode,
 } from '@/lib/messages/workbench/types'
 import { WorkbenchBrowserPanel } from './WorkbenchBrowserPanel'
 import { WorkbenchChangesPanel } from './WorkbenchChangesPanel'
@@ -97,6 +99,14 @@ export interface AgentWorkbenchRailProps {
   terminalRunning?: boolean
   /** Locally-tracked terminal entries for commands run from this panel, merged after `terminalEntries`. */
   localTerminalEntries?: WorkbenchTerminalEntry[]
+  /** Jobs vs. interactive Session mode for the Terminal tab (Phase 3b). Defaults to uncontrolled 'jobs'. */
+  terminalMode?: WorkbenchTerminalMode
+  onTerminalModeChange?: (mode: WorkbenchTerminalMode) => void
+  /** Current interactive session state, owned by the host (e.g. `UnifiedChat`). */
+  terminalSession?: WorkbenchSessionViewState | null
+  onStartTerminalSession?: () => void
+  onSendTerminalSessionInput?: (line: string) => void
+  onKillTerminalSession?: () => void
 }
 
 const FILES_SOURCE_LABEL: Record<WorkbenchFilesSource, string> = {
@@ -150,6 +160,12 @@ export function AgentWorkbenchRail({
   onClearTerminal,
   terminalRunning = false,
   localTerminalEntries,
+  terminalMode,
+  onTerminalModeChange,
+  terminalSession,
+  onStartTerminalSession,
+  onSendTerminalSessionInput,
+  onKillTerminalSession,
 }: AgentWorkbenchRailProps) {
   const mobileViewport = useIsMobileViewport()
   const sheet = compact || mobileViewport
@@ -339,6 +355,12 @@ export function AgentWorkbenchRail({
             onRunCommand={onRunTerminalCommand}
             onClear={onClearTerminal}
             running={terminalRunning}
+            mode={terminalMode}
+            onModeChange={onTerminalModeChange}
+            session={terminalSession}
+            onStartSession={onStartTerminalSession}
+            onSendSessionInput={onSendTerminalSessionInput}
+            onKillSession={onKillTerminalSession}
           />
         )}
         {activeTabMeta.id === 'browser' && (

@@ -50,7 +50,7 @@ function isAllowlistedArgv(argv: readonly string[]): boolean {
 
 const SAFE_SHELL_ENV_KEYS = ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR', 'TERM', 'USER', 'SHELL'] as const
 
-function sanitizedShellEnv(): NodeJS.ProcessEnv {
+export function sanitizedShellEnv(): NodeJS.ProcessEnv {
   const env: Record<string, string> = {}
   for (const key of SAFE_SHELL_ENV_KEYS) {
     const value = process.env[key]
@@ -146,7 +146,7 @@ function assertValidClaim(job: WorkbenchRuntimeJob): void {
   }
 }
 
-function normalizeRelativePath(value: unknown, allowRoot: boolean): string {
+export function normalizeRelativePath(value: unknown, allowRoot: boolean): string {
   if (typeof value !== 'string') throw new Error('unsafe workbench path')
   if (allowRoot && (value === '' || value === '.')) return ''
   if (
@@ -168,7 +168,7 @@ function normalizeRelativePath(value: unknown, allowRoot: boolean): string {
   return segments.join('/')
 }
 
-function mappedRoot(job: WorkbenchRuntimeJob, registry: MappingRegistry): string {
+export function mappedRoot(job: Pick<WorkbenchRuntimeJob, 'mappingId' | 'relativeFolder'>, registry: MappingRegistry): string {
   const relativeFolder = normalizeRelativePath(job.relativeFolder ?? '', true)
   const resolved = registry.resolve(job.mappingId, relativeFolder)
   const root = fs.realpathSync(resolved)
@@ -176,7 +176,7 @@ function mappedRoot(job: WorkbenchRuntimeJob, registry: MappingRegistry): string
   return root
 }
 
-function resolveExisting(root: string, relativePath: string): string {
+export function resolveExisting(root: string, relativePath: string): string {
   const candidate = path.join(root, relativePath)
   let real: string
   try {

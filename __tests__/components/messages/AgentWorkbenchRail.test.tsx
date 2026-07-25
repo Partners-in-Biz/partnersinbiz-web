@@ -144,7 +144,7 @@ describe('WorkbenchBrowserPanel security boundary', () => {
     expect(screen.getByRole('link', { name: 'Open preview in new tab' })).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
-  it('captures a Design Mode point and injects a formatted note into chat without sending it', () => {
+  it('captures a Design Mode point, commits it as a pin, and sends that pin to chat without sending the message', () => {
     const onAddToChat = jest.fn()
     render(<WorkbenchBrowserPanel
       targets={[{ id: 'frame', imageUrl: 'https://cdn.example.test/frame.png', title: 'Pricing page', source: 'event' }]}
@@ -160,10 +160,88 @@ describe('WorkbenchBrowserPanel security boundary', () => {
     })
     fireEvent.click(overlay, { clientX: 60, clientY: 70 })
     fireEvent.change(screen.getByLabelText('Design annotation'), { target: { value: 'Align this CTA with the price card.' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add annotation to chat' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add pin' }))
+
+    expect(onAddToChat).not.toHaveBeenCalled()
+    expect(screen.getByText('Align this CTA with the price card.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add pin 1 to chat' }))
 
     expect(onAddToChat).toHaveBeenCalledWith(expect.stringContaining('Align this CTA with the price card.'))
     expect(onAddToChat).toHaveBeenCalledWith(expect.stringContaining('Point: 25%, 50%'))
+  })
+
+  it('supports multiple pins, "Add all to chat", removing a pin, and clearing every pin', () => {
+    const onAddToChat = jest.fn()
+    render(<WorkbenchBrowserPanel
+      targets={[{ id: 'frame', imageUrl: 'https://cdn.example.test/frame.png', title: 'Pricing page', source: 'event' }]}
+      onAddToChat={onAddToChat}
+    />)
+    fireEvent.click(screen.getByText('Pricing page'))
+    fireEvent.click(screen.getByRole('button', { name: 'Prepare' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Enable Design Mode' }))
+
+    const overlay = screen.getByLabelText('Design Mode canvas')
+    jest.spyOn(overlay, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100, toJSON: () => ({}),
+    })
+
+    fireEvent.click(overlay, { clientX: 20, clientY: 10 })
+    fireEvent.change(screen.getByLabelText('Design annotation'), { target: { value: 'First note' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add pin' }))
+
+    fireEvent.click(overlay, { clientX: 180, clientY: 90 })
+    fireEvent.change(screen.getByLabelText('Design annotation'), { target: { value: 'Second note' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add pin' }))
+
+    expect(screen.getByText('2 pins')).toBeInTheDocument()
+    expect(screen.getByText('First note')).toBeInTheDocument()
+    expect(screen.getByText('Second note')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add all to chat' }))
+    expect(onAddToChat).toHaveBeenCalledTimes(1)
+    expect(onAddToChat).toHaveBeenCalledWith(expect.stringContaining('First note'))
+    expect(onAddToChat).toHaveBeenCalledWith(expect.stringContaining('Second note'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove pin 1' }))
+    expect(screen.queryByText('First note')).not.toBeInTheDocument()
+    expect(screen.getByText('1 pin')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear pins' }))
+    expect(screen.queryByText('Second note')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('workbench-design-pin-list')).not.toBeInTheDocument()
+  })
+
+  it('persists committed pins across a live frame update (a rerender with a new target)', () => {
+    const first = { id: 'frame-1', imageUrl: 'https://cdn.example.test/frame-1.png', title: 'Browser frame 1', source: 'event' as const }
+    const { rerender } = render(<WorkbenchBrowserPanel targets={[first]} onAddToChat={jest.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start live stream' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Enable Design Mode' }))
+
+    const overlay = screen.getByLabelText('Design Mode canvas')
+    jest.spyOn(overlay, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 200, bottom: 100, width: 200, height: 100, toJSON: () => ({}),
+    })
+    fireEvent.click(overlay, { clientX: 50, clientY: 50 })
+    fireEvent.change(screen.getByLabelText('Design annotation'), { target: { value: 'Persisted pin' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add pin' }))
+    expect(screen.getByText('Persisted pin')).toBeInTheDocument()
+
+    // Simulate a new live frame arriving — the streamed target list grows and the panel follows the newest frame.
+    const second = { id: 'frame-2', imageUrl: 'https://cdn.example.test/frame-2.png', title: 'Browser frame 2', source: 'event' as const }
+    rerender(<WorkbenchBrowserPanel targets={[first, second]} onAddToChat={jest.fn()} />)
+
+    expect(screen.getByRole('img', { name: 'Browser frame 2' })).toBeInTheDocument()
+    expect(screen.getByText('Persisted pin')).toBeInTheDocument()
+    expect(screen.getByText('1 pin')).toBeInTheDocument()
+
+    // A third frame arrives while still streaming — the pin must keep surviving.
+    const third = { id: 'frame-3', imageUrl: 'https://cdn.example.test/frame-3.png', title: 'Browser frame 3', source: 'event' as const }
+    rerender(<WorkbenchBrowserPanel targets={[first, second, third]} onAddToChat={jest.fn()} />)
+
+    expect(screen.getByRole('img', { name: 'Browser frame 3' })).toBeInTheDocument()
+    expect(screen.getByText('Persisted pin')).toBeInTheDocument()
   })
 
   it('formats Design Mode annotations as bounded plain text', () => {

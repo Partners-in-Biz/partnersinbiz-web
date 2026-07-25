@@ -69,9 +69,25 @@ export function formatDesignAnnotation(input: {
   ].join('\n')
 }
 
+/** A committed Design Mode note, pinned to a point on whichever frame/URL was prepared when it was added. */
+export interface WorkbenchDesignPin {
+  id: string
+  xPct: number
+  yPct: number
+  note: string
+  url: string | null
+  title: string
+}
+
+function createPinId(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `pin-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 export interface WorkbenchBrowserPanelProps {
   targets: WorkbenchBrowserTarget[]
-  /** Adds a Design Mode note to the existing chat composer. It never sends the message. */
+  /** Adds a Design Mode note (or several, newline-joined) to the existing chat composer. It never sends the message. */
   onAddToChat?: (text: string) => void
 }
 
@@ -84,8 +100,11 @@ export function WorkbenchBrowserPanel({ targets, onAddToChat }: WorkbenchBrowser
   const [validationError, setValidationError] = useState<string | null>(null)
   const [streaming, setStreaming] = useState(false)
   const [designMode, setDesignMode] = useState(false)
-  const [annotationPoint, setAnnotationPoint] = useState<{ xPct: number; yPct: number } | null>(null)
-  const [annotation, setAnnotation] = useState('')
+  // Draft point/note being composed on the current frame — cleared on frame/target changes.
+  const [draftPoint, setDraftPoint] = useState<{ xPct: number; yPct: number } | null>(null)
+  const [draftNote, setDraftNote] = useState('')
+  // Committed pins — intentionally NOT reset by live frame updates or target switches, only by "Clear pins".
+  const [pins, setPins] = useState<WorkbenchDesignPin[]>([])
 
   const frames = useMemo(() => targets.filter((target) => Boolean(target.imageUrl)), [targets])
   const latestFrame = frames[frames.length - 1]
@@ -108,7 +127,7 @@ export function WorkbenchBrowserPanel({ targets, onAddToChat }: WorkbenchBrowser
     setPreparedImageUrl(result.url)
     setPreparedTitle(latestFrame.title || 'Agent browser frame')
     setValidationError(null)
-    setAnnotationPoint(null)
+    setDraftPoint(null)
   }, [latestFrame?.id, latestFrame?.imageUrl, latestFrame?.title, streaming])
 
   const selected = targets.find((target) => target.id === selectedId) ?? targets[0]
@@ -124,7 +143,7 @@ export function WorkbenchBrowserPanel({ targets, onAddToChat }: WorkbenchBrowser
       : 'Local app preview')
     setStreaming(false)
     setDesignMode(false)
-    setAnnotationPoint(null)
+    setDraftPoint(null)
   }
 
   const toggleStream = () => {
@@ -145,30 +164,46 @@ export function WorkbenchBrowserPanel({ targets, onAddToChat }: WorkbenchBrowser
     setPreparedTitle(latestFrame.title || 'Agent browser frame')
     setValidationError(null)
     setDesignMode(false)
-    setAnnotationPoint(null)
+    setDraftPoint(null)
     setStreaming(true)
   }
 
   const capturePoint = (event: MouseEvent<HTMLButtonElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect()
     if (bounds.width <= 0 || bounds.height <= 0) return
-    setAnnotationPoint({
+    setDraftPoint({
       xPct: Math.min(100, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 100)),
       yPct: Math.min(100, Math.max(0, ((event.clientY - bounds.top) / bounds.height) * 100)),
     })
   }
 
-  const addAnnotationToChat = () => {
-    if (!onAddToChat || !annotationPoint || !annotation.trim()) return
-    onAddToChat(formatDesignAnnotation({
-      title: preparedTitle,
+  const addDraftPin = () => {
+    if (!draftPoint || !draftNote.trim()) return
+    setPins((prev) => [...prev, {
+      id: createPinId(),
+      xPct: draftPoint.xPct,
+      yPct: draftPoint.yPct,
+      note: draftNote.trim(),
       url: preparedUrl,
-      xPct: annotationPoint.xPct,
-      yPct: annotationPoint.yPct,
-      note: annotation,
-    }))
-    setAnnotation('')
-    setAnnotationPoint(null)
+      title: preparedTitle,
+    }])
+    setDraftNote('')
+    setDraftPoint(null)
+  }
+
+  const removePin = (id: string) => setPins((prev) => prev.filter((pin) => pin.id !== id))
+
+  const clearPins = () => setPins([])
+
+  const addPinToChat = (pin: WorkbenchDesignPin) => {
+    onAddToChat?.(formatDesignAnnotation({ title: pin.title, url: pin.url, xPct: pin.xPct, yPct: pin.yPct, note: pin.note }))
+  }
+
+  const addAllPinsToChat = () => {
+    if (!onAddToChat || pins.length === 0) return
+    onAddToChat(pins
+      .map((pin) => formatDesignAnnotation({ title: pin.title, url: pin.url, xPct: pin.xPct, yPct: pin.yPct, note: pin.note }))
+      .join('\n\n'))
   }
 
   const hasPreparedTarget = Boolean(preparedImageUrl || preparedUrl)
@@ -186,7 +221,7 @@ export function WorkbenchBrowserPanel({ targets, onAddToChat }: WorkbenchBrowser
             setPreparedImageUrl(null)
             setStreaming(false)
             setDesignMode(false)
-            setAnnotationPoint(null)
+            setDraftPoint(null)
           }}
           placeholder="https://public-preview.example"
           className="min-h-9 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60"
@@ -212,7 +247,7 @@ export function WorkbenchBrowserPanel({ targets, onAddToChat }: WorkbenchBrowser
               type="button"
               aria-label={designMode ? 'Disable Design Mode' : 'Enable Design Mode'}
               aria-pressed={designMode}
-              onClick={() => { setDesignMode((value) => !value); setAnnotationPoint(null) }}
+              onClick={() => { setDesignMode((value) => !value); setDraftPoint(null) }}
               className={`ml-auto inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[10px] ${designMode ? 'border-primary/40 bg-primary/10 text-primary' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]'}`}
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[14px]">design_services</span>
@@ -241,7 +276,7 @@ export function WorkbenchBrowserPanel({ targets, onAddToChat }: WorkbenchBrowser
                   setValidationError(null)
                   setStreaming(false)
                   setDesignMode(false)
-                  setAnnotationPoint(null)
+                  setDraftPoint(null)
                 }}
                 className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[12px] ${active ? 'bg-primary/10 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}
               >
@@ -276,11 +311,21 @@ export function WorkbenchBrowserPanel({ targets, onAddToChat }: WorkbenchBrowser
                   onClick={capturePoint}
                   className="absolute inset-0 cursor-crosshair bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
                 >
-                  {annotationPoint && (
+                  {pins.map((pin, index) => (
+                    <span
+                      key={pin.id}
+                      aria-hidden="true"
+                      className="absolute grid h-4 w-4 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white/70 bg-white/20 text-[8px] font-bold text-white shadow-[0_0_0_2px_rgba(0,0,0,0.45)]"
+                      style={{ left: `${pin.xPct}%`, top: `${pin.yPct}%` }}
+                    >
+                      {index + 1}
+                    </span>
+                  ))}
+                  {draftPoint && (
                     <span
                       aria-hidden="true"
                       className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-primary shadow-[0_0_0_3px_rgba(0,0,0,0.45)]"
-                      style={{ left: `${annotationPoint.xPct}%`, top: `${annotationPoint.yPct}%` }}
+                      style={{ left: `${draftPoint.xPct}%`, top: `${draftPoint.yPct}%` }}
                     />
                   )}
                 </button>
@@ -295,30 +340,93 @@ export function WorkbenchBrowserPanel({ targets, onAddToChat }: WorkbenchBrowser
             </div>
 
             {designMode && (
-              <div className="mt-2 shrink-0 rounded-md border border-primary/25 bg-primary/[0.06] p-2">
-                <p className="mb-1 text-[10px] text-[var(--color-pib-text-muted)]">Click the preview, describe the change, then add the note to chat. Nothing is sent automatically.</p>
-                <textarea
-                  aria-label="Design annotation"
-                  value={annotation}
-                  maxLength={MAX_ANNOTATION_LENGTH}
-                  onChange={(event) => setAnnotation(event.target.value)}
-                  placeholder={annotationPoint ? 'Describe the requested change…' : 'Choose a point on the preview first…'}
-                  className="min-h-16 w-full resize-y rounded-md border border-[var(--color-card-border)] bg-black/20 p-2 text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60"
-                />
-                <div className="mt-1 flex items-center justify-between gap-2">
-                  <span className="text-[9px] text-[var(--color-pib-text-muted)]">
-                    {annotationPoint ? `Point ${Math.round(annotationPoint.xPct)}%, ${Math.round(annotationPoint.yPct)}%` : 'No point selected'}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Add annotation to chat"
-                    onClick={addAnnotationToChat}
-                    disabled={!annotationPoint || !annotation.trim()}
-                    className="min-h-7 rounded-md border border-primary/35 bg-primary/10 px-2 text-[10px] font-medium text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Add to chat
-                  </button>
+              <div className="mt-2 shrink-0 space-y-2">
+                <div className="rounded-md border border-primary/25 bg-primary/[0.06] p-2">
+                  <p className="mb-1 text-[10px] text-[var(--color-pib-text-muted)]">Click the preview, describe the change, then add a pin. Nothing is sent automatically.</p>
+                  <textarea
+                    aria-label="Design annotation"
+                    value={draftNote}
+                    maxLength={MAX_ANNOTATION_LENGTH}
+                    onChange={(event) => setDraftNote(event.target.value)}
+                    placeholder={draftPoint ? 'Describe the requested change…' : 'Choose a point on the preview first…'}
+                    className="min-h-16 w-full resize-y rounded-md border border-[var(--color-card-border)] bg-black/20 p-2 text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60"
+                  />
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="text-[9px] text-[var(--color-pib-text-muted)]">
+                      {draftPoint ? `Point ${Math.round(draftPoint.xPct)}%, ${Math.round(draftPoint.yPct)}%` : 'No point selected'}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Add pin"
+                      onClick={addDraftPin}
+                      disabled={!draftPoint || !draftNote.trim()}
+                      className="min-h-7 rounded-md border border-primary/35 bg-primary/10 px-2 text-[10px] font-medium text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Add pin
+                    </button>
+                  </div>
                 </div>
+
+                {pins.length > 0 && (
+                  <div data-testid="workbench-design-pin-list" className="rounded-md border border-[var(--color-card-border)] bg-black/20 p-2">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-medium text-[var(--color-pib-text)]">{pins.length} pin{pins.length === 1 ? '' : 's'}</p>
+                      <div className="flex items-center gap-1.5">
+                        {onAddToChat && (
+                          <button
+                            type="button"
+                            aria-label="Add all to chat"
+                            onClick={addAllPinsToChat}
+                            className="min-h-6 rounded-md border border-primary/35 bg-primary/10 px-2 text-[9px] font-medium text-primary hover:bg-primary/15"
+                          >
+                            Add all to chat
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          aria-label="Clear pins"
+                          onClick={clearPins}
+                          className="min-h-6 rounded-md border border-white/10 px-2 text-[9px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
+                        >
+                          Clear pins
+                        </button>
+                      </div>
+                    </div>
+                    <ul className="space-y-1">
+                      {pins.map((pin, index) => (
+                        <li key={pin.id} className="flex items-start gap-2 rounded-md border border-white/5 bg-black/20 px-2 py-1.5">
+                          <span aria-hidden="true" className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border border-white/30 text-[8px] font-bold text-[var(--color-pib-text-muted)]">
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] text-[var(--color-pib-text-muted)]">{Math.round(pin.xPct)}%, {Math.round(pin.yPct)}%</p>
+                            <p className="truncate text-[10px] text-[var(--color-pib-text)]" title={pin.note}>{pin.note}</p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            {onAddToChat && (
+                              <button
+                                type="button"
+                                aria-label={`Add pin ${index + 1} to chat`}
+                                onClick={() => addPinToChat(pin)}
+                                className="grid h-6 w-6 place-items-center rounded-full text-primary hover:bg-primary/10"
+                              >
+                                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">add_comment</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              aria-label={`Remove pin ${index + 1}`}
+                              onClick={() => removePin(pin.id)}
+                              className="grid h-6 w-6 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                            >
+                              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">close</span>
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </>

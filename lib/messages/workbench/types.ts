@@ -1,6 +1,27 @@
+import type { WorkbenchSessionStatus } from './session-client'
+
 export type WorkbenchTab = 'files' | 'terminal' | 'browser' | 'changes'
 
 export type WorkbenchTerminalStatus = 'running' | 'done' | 'failed' | 'info'
+
+/** Jobs = existing allowlisted one-shot commands; Session = interactive PTY (Phase 3b). */
+export type WorkbenchTerminalMode = 'jobs' | 'session'
+
+/** `WorkbenchSessionStatus` plus client-only transient/error states not reported by the server. */
+export type WorkbenchSessionViewStatus = WorkbenchSessionStatus | 'idle' | 'starting' | 'error'
+
+/** UI-facing view of an interactive session, owned by the host (e.g. `UnifiedChat`) and passed down as a prop. */
+export interface WorkbenchSessionViewState {
+  sessionId: string | null
+  status: WorkbenchSessionViewStatus
+  /** Accumulated stdout/stderr transcript — see `appendWorkbenchSessionOutput`. */
+  transcript: string
+  exitCode?: number | null
+  /** Set on a server-reported failure or a client-side error (e.g. the session API 404s). */
+  error?: string | null
+  /** True while a start/kill request is in flight. */
+  busy: boolean
+}
 
 export interface WorkbenchTerminalEntry {
   id: string
