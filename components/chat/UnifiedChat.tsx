@@ -1009,6 +1009,7 @@ export default function UnifiedChat({
       if (stored) setApprovalMode(stored)
     } catch {
       // Ignore localStorage read failures.
+      return
     }
   }, [orgId])
   useEffect(() => {
@@ -1016,6 +1017,7 @@ export default function UnifiedChat({
       window.localStorage.setItem(`${APPROVAL_MODE_STORAGE_PREFIX}:${orgId}`, approvalMode)
     } catch {
       // Ignore localStorage write failures.
+      return
     }
   }, [approvalMode, orgId])
   const [modelCatalog, setModelCatalog] = useState<MessageModelCatalog | null>(null)
@@ -1056,6 +1058,7 @@ export default function UnifiedChat({
       if (typeof stored.width === 'number' && Number.isFinite(stored.width)) setWorkbenchWidth(Math.min(720, Math.max(420, stored.width)))
     } catch {
       // Ignore corrupt or unavailable browser storage.
+      return
     }
     setWorkbenchStateConversationId(activeId)
   }, [activeId, orgId])
@@ -1066,6 +1069,7 @@ export default function UnifiedChat({
       window.localStorage.setItem(`pib-messages-workbench:${orgId}:${activeId}`, JSON.stringify({ tab: workbenchTab, width: workbenchWidth }))
     } catch {
       // Ignore browser storage failures.
+      return
     }
   }, [activeId, orgId, workbenchStateConversationId, workbenchTab, workbenchWidth])
 
@@ -2359,6 +2363,7 @@ export default function UnifiedChat({
       }))
     } catch {
       // Keep the current tree visible; expanding again or refreshing can retry.
+      return
     }
   }, [activeId])
 
@@ -3063,6 +3068,7 @@ export default function UnifiedChat({
                 scheduleFinalizePoll(convId, msgId, runId, agentId, attempts)
               } catch {
                 // Keep waiting_approval UI if auto-approve fails.
+                return
               }
             })()
           }

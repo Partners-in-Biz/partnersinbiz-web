@@ -175,6 +175,7 @@ export function LinkedComputersWorkspace() {
         setAgentsLive(desired)
       } catch {
         // Keep the last known live status if a poll fails.
+        return
       }
     }
     void refresh()

@@ -55,6 +55,7 @@ async function loadPolicyView(agentId: AgentId) {
     }
   } catch {
     // A missing skill endpoint should not hide the policy preview.
+    installed = installed ?? []
   }
 
   try {
@@ -62,6 +63,7 @@ async function loadPolicyView(agentId: AgentId) {
     if (cfg.response.ok) liveConfig = extractConfigPayload(cfg.data)
   } catch {
     // Sidecar may be temporarily unavailable. The caller still gets the manifest.
+    liveConfig = liveConfig ?? null
   }
 
   const classified = classifyInstalledSkills(installed)
@@ -142,6 +144,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
       })
     } catch {
       // Linked-host fan-out must not fail the primary VPS policy apply.
+      keepInSyncJobIds = []
     }
     const view = await loadPolicyView(agentId as AgentId)
     return apiSuccess({ ...view, agent: updatedAgent, configApplied, keepInSyncJobIds })
