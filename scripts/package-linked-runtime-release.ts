@@ -128,7 +128,9 @@ export function packageRuntimeRelease(input: {
 if (require.main === module) {
   const root = process.cwd()
   const version = argument('--version')
-  const minimumVersion = argument('--minimum-version', version)
+  // Floor at major.minor.0 so patch upgrades (1.1.7 → 1.1.8) are allowed.
+  const defaultMinimum = version.replace(/^(\d+\.\d+)\.\d+.*$/, '$1.0')
+  const minimumVersion = argument('--minimum-version', defaultMinimum)
   const tag = argument('--tag', `runtime-v${version}`)
   const targets = argument('--targets', 'linux-x64,linux-arm64').split(',').filter(Boolean) as RuntimeTarget[]
   const privateKeyPem = process.env.PIB_RUNTIME_RELEASE_PRIVATE_KEY ?? ''
