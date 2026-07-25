@@ -153,6 +153,27 @@ export function isWorkbenchSessionOwnedByContext(
     && session.relativeFolder === authorization.relativeFolder
 }
 
+/** Exact durable binding used by the browser control session create/poll/approve/navigate/capture/kill routes. */
+export function isWorkbenchBrowserSessionOwnedByContext(
+  session: WorkbenchBrowserSession,
+  user: ApiUser,
+  conversationId: string,
+  authorization: AuthorizedWorkbenchContext,
+): boolean {
+  return session.conversationId === conversationId
+    && session.conversationId === authorization.conversation.id
+    && session.orgId === authorization.conversation.orgId
+    && session.actorUserId === user.uid
+    && session.deviceId === authorization.binding.deviceId
+    && session.runtimeTargetId === authorization.binding.runtimeTargetId
+    && session.credentialVersion === authorization.binding.credentialVersion
+    && session.workspaceId === authorization.binding.workspaceId
+    && session.mappingId === authorization.binding.mappingId
+    && (session.projectId ?? null) === authorization.projectId
+    && (session.projectReplicaId ?? null) === (authorization.projectReplicaId ?? null)
+    && session.relativeFolder === authorization.relativeFolder
+}
+
 /** Exact durable binding used by the browser tunnel create/poll/approve/kill routes. */
 export function isWorkbenchTunnelSessionOwnedByContext(
   session: WorkbenchTunnelSession,

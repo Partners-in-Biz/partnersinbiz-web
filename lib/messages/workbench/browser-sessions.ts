@@ -12,9 +12,14 @@ import { decryptWorkbenchValue, encryptWorkbenchValue, type EncryptedWorkbenchVa
  * to `queued` — a real browser reaching the open internet from the linked
  * computer is at least as sensitive as an unattended file write, so this
  * always requires an explicit approval step, regardless of actor role.
+ *
+ * Encryption reuses `encryptWorkbenchValue`/`decryptWorkbenchValue` from
+ * `jobs.ts` rather than adding a third envelope-encryption implementation —
+ * those helpers only key off `(deviceId, id, purpose)`, so passing this
+ * session's id in place of a job id is safe as long as ids never collide
+ * across the two collections, which the `wbbs_` id prefix guarantees.
  */
 
-const ENVELOPE_CONTEXT = 'conversation-workbench-browser-session:v1'
 const MAX_PENDING_CONTROLS = 64
 /** Progress ring buffer is smaller than the pty session's 64 — signed image URLs are far heavier than a line of stdout. */
 const MAX_PROGRESS_CHUNKS = 30
@@ -318,32 +323,25 @@ export function publicWorkbenchBrowserSession(session: WorkbenchBrowserSession):
   }
 }
 
-function masterKey(): Buffer {
-  const value = process.env.SOCIAL_TOKEN_MASTER_KEY?.trim()
-  if (!value) throw new Error('Missing env var: SOCIAL_TOKEN_MASTER_KEY')
-  return value.length === 64 && /^[0-9a-f]+$/i.test(value)
-    ? Buffer.from(value, 'hex')
-    : crypto.createHash('sha256').update(value).digest()
-}
-
 export type WorkbenchBrowserSessionEncryptionPurpose = 'create' | 'control' | 'progress'
 
-function envelopeKey(deviceId: string, sessionId: string, purpose: WorkbenchBrowserSessionEncryptionPurpose): Buffer {
-  return crypto.createHmac('sha256', masterKey()).update(`${ENVELOPE_CONTEXT}:${deviceId}:${sessionId}:${purpose}`).digest()
+/**
+ * `create`/`control`/`progress` map 1:1 onto jobs.ts's
+ * `operation`/`result`/`progress` purposes purely to get a distinct derived
+ * key per field (jobs.ts never reuses a `result` envelope for a browser
+ * session, so there is no cross-purpose collision).
+ */
+function jobsPurpose(purpose: WorkbenchBrowserSessionEncryptionPurpose): 'operation' | 'result' | 'progress' {
+  return purpose === 'create' ? 'operation' : purpose === 'control' ? 'result' : 'progress'
 }
 
-/** Same envelope-encryption pattern as `encryptWorkbenchSessionValue` in `sessions.ts`, namespaced for browser sessions. */
 export function encryptWorkbenchBrowserSessionValue(
   value: unknown,
   deviceId: string,
   sessionId: string,
   purpose: WorkbenchBrowserSessionEncryptionPurpose,
 ): EncryptedWorkbenchValue {
-  const iv = crypto.randomBytes(12)
-  const cipher = crypto.createCipheriv('aes-256-gcm', envelopeKey(deviceId, sessionId, purpose), iv)
-  cipher.setAAD(Buffer.from(`${deviceId}\n${sessionId}\n${purpose}`))
-  const ciphertext = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()])
-  return { ciphertext: ciphertext.toString('base64'), iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64') }
+  return encryptWorkbenchValue(value, deviceId, sessionId, jobsPurpose(purpose))
 }
 
 export function decryptWorkbenchBrowserSessionValue<T>(
@@ -352,10 +350,7 @@ export function decryptWorkbenchBrowserSessionValue<T>(
   sessionId: string,
   purpose: WorkbenchBrowserSessionEncryptionPurpose,
 ): T {
-  const decipher = crypto.createDecipheriv('aes-256-gcm', envelopeKey(deviceId, sessionId, purpose), Buffer.from(value.iv, 'base64'))
-  decipher.setAAD(Buffer.from(`${deviceId}\n${sessionId}\n${purpose}`))
-  decipher.setAuthTag(Buffer.from(value.tag, 'base64'))
-  return JSON.parse(Buffer.concat([decipher.update(Buffer.from(value.ciphertext, 'base64')), decipher.final()]).toString('utf8')) as T
+  return decryptWorkbenchValue<T>(value, deviceId, sessionId, jobsPurpose(purpose))
 }
 
 /**
