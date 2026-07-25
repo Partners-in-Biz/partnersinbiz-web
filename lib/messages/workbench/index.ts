@@ -6,6 +6,8 @@ export * from './sessions'
 export * from './session-store'
 export * from './tunnel-sessions'
 export * from './tunnel-session-store'
+export * from './browser-sessions'
+export * from './browser-session-store'
 export * from './authorization'
 export * from './shell-allowlist'
 export * from './browser-client'
@@ -47,3 +49,23 @@ export {
   type WorkbenchTunnelCreateOptions,
   type WorkbenchTunnelPollOptions,
 } from './tunnel-client'
+// `browser-session-client.ts` mirrors create/get/approve and public session
+// types from `./browser-sessions` / `./browser-session-store`. Re-export only
+// unique client helpers; colliding names stay on the server exports above.
+export {
+  appendWorkbenchBrowserSessionProgress,
+  captureWorkbenchBrowserSession,
+  EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS,
+  killWorkbenchBrowserSession,
+  latestWorkbenchBrowserSessionFrameUrl,
+  navigateWorkbenchBrowserSession,
+  pollWorkbenchBrowserSession,
+  WORKBENCH_BROWSER_SESSION_ACTIVE_STATUSES,
+  WORKBENCH_BROWSER_SESSION_APPROVAL_STATUSES,
+  WORKBENCH_BROWSER_SESSION_CONTROL_STATUSES,
+  WORKBENCH_BROWSER_SESSION_TERMINAL_STATUSES,
+  type WorkbenchBrowserSessionCreateOptions,
+  type WorkbenchBrowserSessionPollOptions,
+  type WorkbenchBrowserSessionProgressState,
+  type WorkbenchBrowserSessionRequestOptions,
+} from './browser-session-client'
