@@ -13,8 +13,8 @@ type StatCardProps = {
 }
 
 const ACCENT_TINT: Record<ModuleAccent, string> = {
-  amber: 'pib-icon-tint',
-  accent: 'pib-icon-tint',
+  amber: '',
+  accent: '',
   violet: 'pib-icon-tint-violet',
   rose: 'pib-icon-tint-rose',
   blue: 'pib-icon-tint-blue',
@@ -36,7 +36,7 @@ export function StatCard({ label, value, detail, icon, accent = 'amber', classNa
           {detail ? <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">{detail}</p> : null}
         </div>
         {icon ? (
-          <span className={cn(ACCENT_TINT[accent], 'shrink-0')} aria-hidden="true">
+          <span className={cn('pib-icon-tint', ACCENT_TINT[accent], 'shrink-0')} aria-hidden="true">
             <span className="material-symbols-outlined text-[16px]">{icon}</span>
           </span>
         ) : null}

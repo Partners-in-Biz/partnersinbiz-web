@@ -10,6 +10,23 @@ import { DeviceApiClient, type DeviceIdentity } from './client'
 import { executeJob, pollForever, type Job } from './worker'
 import { callLocalHermes, probeLocalHermes, type LocalHermesProbe } from './hermes'
 import {
+  executeWorkbenchJob,
+  pollWorkbenchForever,
+  type WorkbenchRuntimeJob,
+} from './workbench'
+import {
+  linkedRuntimeWorkbenchSessionsClaimBody,
+  pollWorkbenchSessionsForever,
+  runWorkbenchSessionClaim,
+  type WorkbenchSessionClaim,
+} from './workbench-sessions'
+import {
+  executeAgentHostJob,
+  linkedRuntimeAgentHostClaimBody,
+  pollAgentHostForever,
+  type AgentHostRuntimeJob,
+} from './agent-host'
+import {
   DurableSyncSpool,
   executeWorkspaceSyncJob,
   pollWorkspaceSyncForever,
@@ -17,7 +34,7 @@ import {
 } from './workspace-sync'
 
 const api=process.env.PIB_API_BASE||'https://partnersinbiz.online'
-const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.1.6'
+const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.1.7'
 const stateRoot=process.env.PIB_RUNTIME_STATE_DIR||path.join(os.homedir(),'.partnersinbiz')
 const revocationMarker=path.join(stateRoot,'revocation-pending.json')
 const maps=new MappingRegistry(path.join(stateRoot,'mappings.json'))
@@ -57,12 +74,38 @@ async function acknowledgeRotation(value:RuntimeIdentity,deliveryId:string){cons
 export function nativeWorkspaceSyncSupported(platform=process.platform){return platform==='darwin'||platform==='linux'}
 export function linkedRuntimeHeartbeatBody(platform=process.platform,hermesProbe:LocalHermesProbe={availableAgentIds:['pip']}){const sync=nativeWorkspaceSyncSupported(platform),hermesReady=hermesProbe.availableAgentIds.length>0,capabilities=[...(hermesReady?['workspace.execute' as const]:[]),...(sync?['workspace.sync' as const]:[])];return{runtimeVersion,health:hermesReady?'ok' as const:'degraded' as const,capabilities,availableAgentIds:hermesProbe.availableAgentIds,...(hermesProbe.hermesVersion?{hermesVersion:hermesProbe.hermesVersion}:{}),...(hermesProbe.healthReason?{healthReason:hermesProbe.healthReason}:{}),...(sync?{syncProtocolVersion:1 as const}:{}),claimRotation:true}}
 export function linkedRuntimeSyncClaimBody(){return{runtimeVersion,syncProtocolVersion:1 as const}}
+export function linkedRuntimeWorkbenchClaimBody(){return{runtimeVersion,workbenchProtocolVersion:1 as const}}
+export function linkedRuntimeAgentClaimBody(){return{...linkedRuntimeAgentHostClaimBody(),runtimeVersion}}
 async function heartbeat(){let i=await identity();if(i.pendingRotationDeliveryId)i=await handleRotation(i,{rotation:null},persistIdentity,identity,acknowledgeRotation);const hermesProbe=await probeLocalHermes();const response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/heartbeat`,linkedRuntimeHeartbeatBody(process.platform,hermesProbe)),data=await jsonData(response);await handleRotation(i,data,persistIdentity,identity,acknowledgeRotation)}
 async function claim():Promise<Job|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/runs/claim`,{runtimeVersion});if(response.status===204)return null;return await jsonData(response) as Job}
 async function syncClaim():Promise<WorkspaceSyncRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/sync/claim`,linkedRuntimeSyncClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkspaceSyncRuntimeJob}
+async function workbenchClaim():Promise<WorkbenchRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/workbench/claim`,linkedRuntimeWorkbenchClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkbenchRuntimeJob}
+async function workbenchSessionsClaim():Promise<WorkbenchSessionClaim|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/workbench/sessions/claim`,linkedRuntimeWorkbenchSessionsClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkbenchSessionClaim}
+async function agentHostClaim():Promise<AgentHostRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/agents/claim`,linkedRuntimeAgentClaimBody());if(response.status===204)return null;return await jsonData(response) as AgentHostRuntimeJob}
+async function downloadAgentSkillPack(artifactPath:string,expectedContentSha256:string){
+  const i=await identity()
+  const resolvedPath=artifactPath.includes('{deviceId}')?artifactPath.replace('{deviceId}',i.deviceId):artifactPath
+  const {downloadSkillPackArchive}=await import('./skill-pack-apply')
+  const apiClient=await client()
+  const response=await apiClient.get(resolvedPath)
+  if(!response.ok)throw new Error(`skill pack download rejected (${response.status})`)
+  let consumed=false
+  return downloadSkillPackArchive({
+    url:resolvedPath,
+    expectedContentSha256,
+    fetcher:async()=>{
+      if(consumed)throw new Error('skill pack fetcher reused')
+      consumed=true
+      return response
+    },
+  })
+}
 async function localHermes(agentId:string,body:{prompt:string;images?:Array<{url:string;contentType:string}>;model?:string;provider?:string;working_directory:string;yolo?:boolean},helpers?:{onEvents?:(events:unknown[])=>void|Promise<void>}):Promise<unknown>{return callLocalHermes(agentId,body,process.env,fetch,(ms)=>new Promise(r=>setTimeout(r,ms)),helpers?.onEvents)}
 async function run(job:Job){const i=await identity();return executeJob({...job},i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body),(body,helpers)=>localHermes(job.agentId||'pip',body,helpers))}
 async function syncRun(job:WorkspaceSyncRuntimeJob){const i=await identity();return executeWorkspaceSyncJob(job,{registry:maps,stateRoot,spool:syncSpool,post:(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body)})}
+async function workbenchRun(job:WorkbenchRuntimeJob){const i=await identity();return executeWorkbenchJob(job,i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
+async function workbenchSessionsRun(claim:WorkbenchSessionClaim){const i=await identity();return runWorkbenchSessionClaim(claim,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
+async function agentHostRun(job:AgentHostRuntimeJob){const i=await identity();const outcome=await executeAgentHostJob(job,{downloadSkillPack:async({artifactPath,expectedContentSha256})=>downloadAgentSkillPack(artifactPath,expectedContentSha256)});await post(`/api/v1/linked-computers/${i.deviceId}/agents/jobs/${job.jobId}/complete`,{leaseToken:job.leaseToken,ok:outcome.ok,...(outcome.ok?{result:outcome.result}:{error:outcome.error})})}
 async function syncFlush(){const i=await identity();return syncSpool.flush((suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 export async function isRevokeAcknowledged(response:Response){if(!response.ok)return false;try{const body=record(await response.json());return body.revoked===true&&typeof body.code==='string'&&['device_revoked','already_revoked'].includes(body.code)}catch{return false}}
 async function signedRemoteRevoke(){const i=await identity(),response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/revoke`,{reason:'local-user-revoked',runtimeVersion});if(!await isRevokeAcknowledged(response))throw new Error('remote revoke unavailable')}
@@ -70,7 +113,7 @@ async function clearRevocation(){await store.clear();fs.rmSync(revocationMarker,
 export async function recoverPendingRevocation(attempt:()=>Promise<void>,clear:()=>Promise<void>,wait:(ms:number)=>Promise<void>,stop:()=>boolean){let delay=1000;while(!stop()){try{await attempt();await clear();return true}catch{await wait(delay);delay=Math.min(delay*2,30000)}}return false}
 export async function heartbeatForever(beat:()=>Promise<void>,stop:()=>boolean,intervalMs=60_000,wait:(ms:number)=>Promise<void>=ms=>new Promise(r=>setTimeout(r,ms))){while(!stop()){await beat().catch(()=>undefined);if(!stop())await wait(intervalMs)}}
 export async function runRuntimeServicePollers(...pollers:Array<()=>Promise<void>>){await Promise.all(pollers.map(poller=>poller()))}
-async function service(){let stopped=false;process.once('SIGTERM',()=>{stopped=true});process.once('SIGINT',()=>{stopped=true});if(fs.existsSync(revocationMarker)){await recoverPendingRevocation(signedRemoteRevoke,clearRevocation,ms=>new Promise(r=>setTimeout(r,ms)),()=>stopped);return}const pollers=[()=>pollForever(claim,run,()=>stopped),()=>heartbeatForever(heartbeat,()=>stopped)];if(nativeWorkspaceSyncSupported())pollers.push(()=>pollWorkspaceSyncForever(syncClaim,syncRun,syncFlush,async()=>undefined,()=>stopped));await runRuntimeServicePollers(...pollers)}
+async function service(){let stopped=false;process.once('SIGTERM',()=>{stopped=true});process.once('SIGINT',()=>{stopped=true});if(fs.existsSync(revocationMarker)){await recoverPendingRevocation(signedRemoteRevoke,clearRevocation,ms=>new Promise(r=>setTimeout(r,ms)),()=>stopped);return}const pollers=[()=>pollForever(claim,run,()=>stopped),()=>pollWorkbenchForever(workbenchClaim,workbenchRun,()=>stopped),()=>pollWorkbenchSessionsForever(workbenchSessionsClaim,workbenchSessionsRun,()=>stopped),()=>pollAgentHostForever(agentHostClaim,agentHostRun,()=>stopped),()=>heartbeatForever(heartbeat,()=>stopped)];if(nativeWorkspaceSyncSupported())pollers.push(()=>pollWorkspaceSyncForever(syncClaim,syncRun,syncFlush,async()=>undefined,()=>stopped));await runRuntimeServicePollers(...pollers)}
 async function revoke(){fs.mkdirSync(stateRoot,{recursive:true,mode:0o700});fs.writeFileSync(revocationMarker,JSON.stringify({pending:true,createdAt:new Date().toISOString()}),{mode:0o600});const result=await revokeAndCleanup(signedRemoteRevoke,clearRevocation);if(result.remoteRevokePending){process.stderr.write('Remote revoke pending; secure identity retained for revoke-only retry.\n');throw new Error('remote revoke pending')}}
 function option(args:string[],name:string){const i=args.indexOf(name);if(i<0||!args[i+1])throw new Error(`${name} is required`);return args[i+1]}
 async function confirmMapping(mappingId:string,present:boolean){const i=await identity(),response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/mappings/${mappingId}/confirm`,{present});if(!response.ok)throw new Error('mapping confirmation rejected')}

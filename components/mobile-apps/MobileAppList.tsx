@@ -101,7 +101,7 @@ export function MobileAppList({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={app.assets.iconUrl} alt="" className="h-12 w-12 rounded-md object-cover" />
               ) : (
-                <div className="flex h-12 w-12 items-center justify-center rounded-md pib-icon-tint-cyan">
+                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[var(--color-pib-cyan-soft)] text-[#5EEAD4]">
                   <span className="material-symbols-outlined text-[20px]">apps</span>
                 </div>
               )}

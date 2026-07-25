@@ -108,7 +108,12 @@
   padding: 0.85rem 1rem !important;
   border-radius: 0.85rem !important;
 }
-.pib-icon-tint {
+.pib-icon-tint,
+.pib-icon-tint-violet,
+.pib-icon-tint-green,
+.pib-icon-tint-blue,
+.pib-icon-tint-cyan,
+.pib-icon-tint-rose {
   width: 1.85rem !important;
   height: 1.85rem !important;
   border-radius: 0.5rem !important;

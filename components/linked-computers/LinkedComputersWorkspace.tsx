@@ -6,7 +6,28 @@ import { AccessibleDialog, AccessibleMenu } from './AccessibleOverlay'
 
 type Grant = { orgId: string; orgLabel?: string; status: string; accessMode?: 'owner' | 'organization' | 'selected_users' }
 type Mapping = { mappingId: string; orgId: string; workspaceId: string; label: string; status: string }
-type Device = { deviceId: string; label: string; platform: string; architecture: string; deviceKind?: 'computer' | 'vps'; ownerType?: 'user' | 'organization'; runtimeVersion: string; status: string; health?: string; healthReason?: 'hermes_unavailable' | 'no_agents_available' | null; hermesVersion?: string | null; availableAgentIds?: string[]; lastSeenAt: unknown; grants?: Grant[]; mappings?: Mapping[] }
+type DesiredAgentRow = { agentId: string; keepInSync: boolean; desiredPolicyVersion: string | null; appliedPolicyVersion: string | null; status: string; lastError: string | null }
+type Device = { deviceId: string; label: string; platform: string; architecture: string; deviceKind?: 'computer' | 'vps'; ownerType?: 'user' | 'organization'; runtimeVersion: string; status: string; health?: string; healthReason?: 'hermes_unavailable' | 'no_agents_available' | null; hermesVersion?: string | null; availableAgentIds?: string[]; desiredAgents?: DesiredAgentRow[]; lastSeenAt: unknown; grants?: Grant[]; mappings?: Mapping[] }
+
+function agentSyncStatusLabel(status: string): string {
+  switch (status) {
+    case 'in_sync': return 'in sync'
+    case 'installing': return 'installing'
+    case 'installed': return 'installed'
+    case 'syncing': return 'syncing'
+    case 'drifted': return 'drifted'
+    case 'error': return 'error'
+    case 'desired': return 'queued'
+    default: return status
+  }
+}
+
+function agentSyncStatusClass(status: string): string {
+  if (status === 'in_sync') return 'text-emerald-400'
+  if (status === 'drifted' || status === 'error') return 'text-amber-300'
+  if (status === 'installing' || status === 'syncing') return 'text-sky-300'
+  return 'text-[var(--color-pib-text-muted)]'
+}
 type WorkspaceOption = { workspaceId: string; orgId: string; orgName: string }
 type ExecutionLocation = {
   id: string
@@ -65,6 +86,13 @@ export function LinkedComputersWorkspace() {
   const [mappingCommand,setMappingCommand]=useState('')
   const [actions, setActions] = useState<Device | null>(null)
   const [confirmRemove, setConfirmRemove] = useState<Device | null>(null)
+  const [agentsDevice, setAgentsDevice] = useState<Device | null>(null)
+  const [agentsCatalog, setAgentsCatalog] = useState<string[]>([])
+  const [agentsDraft, setAgentsDraft] = useState<Array<{ agentId: string; keepInSync: boolean }>>([])
+  const [agentsLive, setAgentsLive] = useState<DesiredAgentRow[]>([])
+  const [agentsOrgId, setAgentsOrgId] = useState('')
+  const [agentsSaving, setAgentsSaving] = useState(false)
+  const [agentsMessage, setAgentsMessage] = useState('')
   const [now, setNow] = useState(0)
   const [workspaceOptions, setWorkspaceOptions] = useState<WorkspaceOption[]>([])
   const [executionLocations, setExecutionLocations] = useState<ExecutionLocation[]>([])
@@ -133,6 +161,31 @@ export function LinkedComputersWorkspace() {
     return () => window.clearInterval(interval)
   }, [load, loadCatalogue])
 
+  useEffect(() => {
+    if (!agentsDevice || !agentsOrgId) return
+    let cancelled = false
+    const refresh = async () => {
+      try {
+        const query = `?orgId=${encodeURIComponent(agentsOrgId)}`
+        const body = await request(`/api/v1/linked-computers/${agentsDevice.deviceId}/agents${query}`)
+        if (cancelled) return
+        const desired = Array.isArray(body.data?.desiredAgents)
+          ? body.data.desiredAgents as DesiredAgentRow[]
+          : []
+        setAgentsLive(desired)
+      } catch {
+        // Keep the last known live status if a poll fails.
+        return
+      }
+    }
+    void refresh()
+    const interval = window.setInterval(() => { void refresh() }, 5_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [agentsDevice, agentsOrgId])
+
   async function mutate(url: string, init: RequestInit): Promise<boolean> {
     try { await request(url, { ...init, headers: { 'content-type': 'application/json', ...init.headers } }); setError(''); if (!await load()) { setError('Your change was saved, but the latest computer status could not be refreshed. Keep this window open and try again.'); return false } return true }
     catch (cause) { setError(safeError(Number((cause as { status?: number }).status))); return false }
@@ -155,6 +208,75 @@ export function LinkedComputersWorkspace() {
     setMappingCommand('')
     const existingMode = access?.grants?.find(grant => grant.orgId === selectedOrgId)?.accessMode
     setGrantAccessMode(existingMode === 'organization' || existingMode === 'owner' ? existingMode : existingMode === 'selected_users' ? null : 'owner')
+  }
+
+  async function openAgentsDialog(device: Device) {
+    setAgentsDevice(device)
+    setAgentsMessage('')
+    const defaultOrgId = device.grants?.find((grant) => grant.status === 'active')?.orgId
+      || workspaceOptions[0]?.orgId
+      || ''
+    setAgentsOrgId(defaultOrgId)
+    try {
+      const query = defaultOrgId ? `?orgId=${encodeURIComponent(defaultOrgId)}` : ''
+      const body = await request(`/api/v1/linked-computers/${device.deviceId}/agents${query}`)
+      const catalog = Array.isArray(body.data?.catalogAgentIds) ? body.data.catalogAgentIds as string[] : []
+      const desired = Array.isArray(body.data?.desiredAgents)
+        ? body.data.desiredAgents as DesiredAgentRow[]
+        : (device.desiredAgents ?? [])
+      setAgentsLive(desired)
+      setAgentsCatalog(catalog)
+      setAgentsDraft(catalog.flatMap((agentId) => {
+        const existing = desired.find((row) => row.agentId === agentId)
+        return existing ? [{ agentId, keepInSync: existing.keepInSync === true }] : []
+      }))
+    } catch (cause) {
+      setAgentsMessage(safeError(Number((cause as { status?: number }).status)))
+      setAgentsCatalog([])
+      setAgentsLive(device.desiredAgents ?? [])
+      setAgentsDraft((device.desiredAgents ?? []).map((row) => ({ agentId: row.agentId, keepInSync: row.keepInSync })))
+    }
+  }
+
+  async function saveAgents() {
+    if (!agentsDevice || !agentsOrgId) {
+      setAgentsMessage('Pick an organisation before saving agents.')
+      return
+    }
+    setAgentsSaving(true)
+    setAgentsMessage('')
+    try {
+      const body = await request(`/api/v1/linked-computers/${agentsDevice.deviceId}/agents`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ orgId: agentsOrgId, desiredAgents: agentsDraft }),
+      })
+      const desired = Array.isArray(body.data?.desiredAgents)
+        ? body.data.desiredAgents as DesiredAgentRow[]
+        : agentsLive
+      setAgentsLive(desired)
+      setAgentsMessage('Saved. The computer will pull and sync selected agents shortly.')
+      await load()
+    } catch (cause) {
+      setAgentsMessage(safeError(Number((cause as { status?: number }).status)))
+    } finally {
+      setAgentsSaving(false)
+    }
+  }
+
+  function toggleAgentDraft(agentId: string) {
+    setAgentsDraft((current) => {
+      if (current.some((row) => row.agentId === agentId)) {
+        return current.filter((row) => row.agentId !== agentId)
+      }
+      return [...current, { agentId, keepInSync: true }].sort((a, b) => a.agentId.localeCompare(b.agentId))
+    })
+  }
+
+  function toggleKeepInSync(agentId: string) {
+    setAgentsDraft((current) => current.map((row) => (
+      row.agentId === agentId ? { ...row, keepInSync: !row.keepInSync } : row
+    )))
   }
 
   return (
@@ -299,6 +421,14 @@ export function LinkedComputersWorkspace() {
                   </button>
                   <button
                     type="button"
+                    aria-label={`Manage agents for ${device.label}`}
+                    onClick={() => void openAgentsDialog(device)}
+                    className="btn-pib-secondary btn-pib-sm"
+                  >
+                    Agents
+                  </button>
+                  <button
+                    type="button"
                     aria-label={`More actions for ${device.label}`}
                     aria-haspopup="menu"
                     aria-expanded={actions?.deviceId === device.deviceId}
@@ -315,13 +445,37 @@ export function LinkedComputersWorkspace() {
                   <p className="text-xs font-semibold">Local agents</p>
                   {device.availableAgentIds?.length ? (
                     <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
-                      {device.availableAgentIds.join(', ')}
+                      Online: {device.availableAgentIds.join(', ')}
                     </p>
                   ) : (
                     <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                       No healthy Hermes agents reported
                     </p>
                   )}
+                  {device.desiredAgents?.length ? (
+                    <ul className="mt-1 space-y-0.5 text-xs">
+                      {device.desiredAgents.map((row) => (
+                        <li key={row.agentId} className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="text-[var(--color-pib-text-muted)]">
+                            {row.agentId}{row.keepInSync ? ' · keep in sync' : ''}
+                          </span>
+                          <span className={agentSyncStatusClass(row.status)}>
+                            {agentSyncStatusLabel(row.status)}
+                          </span>
+                          {row.status === 'drifted' || row.status === 'error' ? (
+                            <span className="text-[var(--color-pib-text-muted)]">
+                              {row.lastError
+                                || (row.desiredPolicyVersion && row.appliedPolicyVersion
+                                  ? `${row.appliedPolicyVersion} → ${row.desiredPolicyVersion}`
+                                  : row.desiredPolicyVersion
+                                    ? `wants ${row.desiredPolicyVersion}`
+                                    : '')}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
                 <div>
                   <p className="text-xs font-semibold">Organisation access</p>
@@ -453,6 +607,84 @@ export function LinkedComputersWorkspace() {
               Cancel
             </button>
           </form>
+        </AccessibleDialog>
+      )}
+      {agentsDevice && (
+        <AccessibleDialog label={`Agents on ${agentsDevice.label}`} onClose={() => setAgentsDevice(null)}>
+          <h2 className="text-sm font-semibold">Pull agents onto {agentsDevice.label}</h2>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            Select agents to install on this computer. Keep in sync pushes skill-policy updates to every machine that hosts the agent.
+          </p>
+          <label className="mt-3 block text-sm">
+            Organisation
+            <select
+              aria-label="Organisation for agent sync"
+              value={agentsOrgId}
+              onChange={(event) => setAgentsOrgId(event.target.value)}
+              className="mt-1 w-full rounded-lg border bg-transparent p-2"
+            >
+              <option value="">Select an organisation</option>
+              {Array.from(new Map(workspaceOptions.map((option) => [option.orgId, option])).values()).map((option) => (
+                <option key={option.orgId} value={option.orgId}>{option.orgName}</option>
+              ))}
+            </select>
+          </label>
+          <div className="mt-3 max-h-72 space-y-1 overflow-y-auto">
+            {(agentsCatalog.length > 0 ? agentsCatalog : agentsDraft.map((row) => row.agentId)).map((agentId) => {
+              const selected = agentsDraft.some((row) => row.agentId === agentId)
+              const keepInSync = agentsDraft.find((row) => row.agentId === agentId)?.keepInSync === true
+              const online = agentsDevice.availableAgentIds?.includes(agentId)
+              const live = agentsLive.find((row) => row.agentId === agentId)
+              return (
+                <div key={agentId} className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleAgentDraft(agentId)}
+                    />
+                    <span className="font-medium">{agentId}</span>
+                    <span className="text-xs text-[var(--color-pib-text-muted)]">{online ? 'online' : 'offline'}</span>
+                    {live ? (
+                      <span className={`text-xs ${agentSyncStatusClass(live.status)}`}>
+                        {agentSyncStatusLabel(live.status)}
+                      </span>
+                    ) : null}
+                  </label>
+                  {live?.lastError ? (
+                    <p className="mt-1 pl-6 text-xs text-amber-300">{live.lastError}</p>
+                  ) : null}
+                  {live?.keepInSync && live.desiredPolicyVersion && live.desiredPolicyVersion !== live.appliedPolicyVersion ? (
+                    <p className="mt-1 pl-6 text-xs text-[var(--color-pib-text-muted)]">
+                      Policy drift: {live.appliedPolicyVersion || 'none'} → {live.desiredPolicyVersion}
+                    </p>
+                  ) : null}
+                  {selected && (
+                    <label className="mt-1 flex items-center gap-2 pl-6 text-xs text-[var(--color-pib-text-muted)]">
+                      <input
+                        type="checkbox"
+                        checked={keepInSync}
+                        onChange={() => toggleKeepInSync(agentId)}
+                      />
+                      Keep in sync with online skill policy
+                    </label>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {agentsMessage && <p role="status" className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{agentsMessage}</p>}
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              className="btn-pib-primary btn-pib-sm"
+              disabled={agentsSaving || !agentsOrgId}
+              onClick={() => void saveAgents()}
+            >
+              {agentsSaving ? 'Saving…' : 'Save & pull'}
+            </button>
+            <button type="button" className="text-sm" onClick={() => setAgentsDevice(null)}>Cancel</button>
+          </div>
         </AccessibleDialog>
       )}
       {access && (

@@ -20,13 +20,17 @@ description: >
   "company command center", "business relationship", "supplier company", "service workspace",
   "SEO workspace", "order", "shipment", "inventory", "quote to delivery", "CRM OS dashboard",
   "reconcile CRM links", "connect Mailchimp", "connect HubSpot", "sync contacts", "CRM integration",
-  "capture source", "lead source", "where did this contact come from", "attribution". If in doubt,
-  trigger — this skill owns the full company-to-delivery lifecycle.
+  "capture source", "lead source", "where did this contact come from", "attribution",
+  "retainer", "recurring client", "won this month", "lost this month", "sales operating system".
+  If in doubt, trigger — this skill owns the full company-to-delivery lifecycle.
+  For retainer vs deal vs invoice semantics, also load `sales-operating-system`.
 ---
 
 # CRM & Sales — Partners in Biz Platform API
 
 Covers the full sales funnel: contacts (leads → prospects → clients → churned), deals with stages, activity logging, quotes/proposals, AI contact briefings, and public lead-capture forms with submission triage.
+
+**Commercial OS (Blake):** deals win/change relationships; invoices collect money; retainers are **not** a deal every month. Full rules live in skill `sales-operating-system`. Dashboard `wonThisMonth` / `lostThisMonth` are deal heuristics (`probability === 100` / `lostReason` + `updatedAt` in the current calendar month) — paid invoices do not count as wins.
 
 ## Auth (mandatory)
 
@@ -510,6 +514,16 @@ POST /calendar/events
 
 ## Workflow guides
 
+### 0. Retainer / recurring client (do not open a monthly deal)
+
+```text
+Win once with a deal → move to Won → contact type=client
+Ongoing months → recurring invoice schedule (billing-finance / Nora)
+Upsell, expansion, or at-risk renewal → NEW deal only then
+Never create 12 deals for a 12-month retainer to inflate "Won this month"
+Paid invoices do NOT auto-close deals and do NOT feed wonThisMonth
+```
+
 ### 1. Lead → form → contact → deal → quote → won
 
 ```bash
@@ -522,10 +536,10 @@ POST /forms/homepage-enquiry/submit?orgId=org_abc
 PUT /crm/contacts/contact_abc
 { "stage": "contacted", "type": "prospect" }
 
-# Create deal
+# Create deal (use stageId on multi-pipeline orgs; stage aliases may still appear in older docs)
 POST /crm/deals
 { "orgId": "org_abc", "contactId": "contact_abc",
-  "title": "Acme - Pro Plan", "value": 12000, "currency": "ZAR", "stage": "discovery" }
+  "title": "Acme - Pro Plan", "value": 12000, "currency": "ZAR", "stageId": "discovery" }
 
 # Get AI brief before demo call
 GET /ai/contact-brief/contact_abc
@@ -536,7 +550,7 @@ POST /crm/contacts/contact_abc/activities
 
 # Move deal forward
 PUT /crm/deals/deal_xyz
-{ "stage": "proposal" }   # dispatches deal.stage_changed
+{ "stageId": "proposal" }   # dispatches deal.stage_changed; probability follows stage unless overridden
 
 # Create quote
 POST /quotes
@@ -547,11 +561,12 @@ POST /quotes
 PATCH /quotes/quote_123
 { "status": "accepted" }  # dispatches quote.accepted
 
-# Close-won
+# Close-won (pipeline stage kind=won → probability 100 → Overview wonThisMonth)
 PUT /crm/deals/deal_xyz
-{ "stage": "won" }  # dispatches deal.stage_changed + deal.won
+{ "stageId": "won" }  # dispatches deal.stage_changed + deal.won
 
-# Convert: create invoice (see billing-finance skill)
+# Convert: create invoice / monthly recurring schedule (see billing-finance; Nora executes finance gates)
+# PUT contact type to client after close-won
 ```
 
 ### 2. Tag and segment contacts

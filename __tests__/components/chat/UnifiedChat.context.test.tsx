@@ -148,6 +148,11 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(screen.getByTestId('accessible-dialog-panel')).toHaveClass('max-h-[calc(100dvh-2rem)]', 'flex-col', 'overflow-hidden')
     expect(screen.getByTestId('new-conversation-scroll-body')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')
     expect(screen.getByRole('button', { name: 'Start conversation' }).parentElement).toHaveClass('shrink-0')
+    // Context before participants: machine-aware agent picking depends on this order.
+    const body = screen.getByTestId('new-conversation-scroll-body')
+    const contextLabel = within(body).getByText('Conversation context')
+    const participantsLabel = within(body).getByText('Participants (max 5)')
+    expect(contextLabel.compareDocumentPosition(participantsLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(dialog).toContainElement(document.activeElement as HTMLElement)
     expect(background).toHaveAttribute('inert')
 

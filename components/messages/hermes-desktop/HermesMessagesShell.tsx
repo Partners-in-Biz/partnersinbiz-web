@@ -301,6 +301,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     allowSendMessages: capabilities.allowSendMessages,
     allowArchiveConversations: capabilities.allowArchiveConversations,
     layoutVariant: 'hermes' as const,
+    showAgentWorkbench: true,
   }), [capabilities, currentUserDisplayName, currentUserUid, orgId, orgName, surface, userRole])
 
   const openTabCount = useMemo(

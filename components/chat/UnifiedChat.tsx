@@ -51,6 +51,7 @@ import {
 import MessageBubble, { type ConversationAttachment, type ConversationMessage } from './MessageBubble'
 import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
+import { resolveNewConversationAgentGate } from '@/lib/conversations/new-conversation-agent-gate'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
 import ConversationAccessDialog from './ConversationAccessDialog'
 import VoiceInputButton from './VoiceInputButton'
@@ -67,6 +68,26 @@ import { pickPreferredWorkspaceRuntime } from '@/lib/messages/preferred-workspac
 import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAccessPanel'
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
+import AgentWorkbenchRail from '@/components/messages/workbench/AgentWorkbenchRail'
+import {
+  buildWorkbenchBrowserTargets,
+  buildWorkbenchChanges,
+  buildWorkbenchFileTree,
+  buildWorkbenchTerminalEntries,
+} from '@/lib/messages/workbench/from-events'
+import { attachWorkbenchDiffs, mergeWorkbenchDirectory, runConversationWorkbenchJob, workbenchEntriesToTree, workbenchJobResult, workbenchStatusToChanges } from '@/lib/messages/workbench/client'
+import { formatWorkbenchOperationResult, formatWorkbenchProgressBody, pollWorkbenchJob } from '@/lib/messages/workbench/browser-client'
+import {
+  appendWorkbenchSessionOutput,
+  createWorkbenchSession,
+  killWorkbenchSession as killWorkbenchSessionApi,
+  pollWorkbenchSession,
+  writeWorkbenchSessionStdin,
+  WORKBENCH_SESSION_TERMINAL_STATUSES,
+  type PublicWorkbenchSession,
+  type WorkbenchSessionTranscriptState,
+} from '@/lib/messages/workbench/session-client'
+import type { WorkbenchChangeFile, WorkbenchFileNode, WorkbenchFilePreview, WorkbenchFilesSource, WorkbenchRuntimeSummary, WorkbenchSessionViewState, WorkbenchTab, WorkbenchTerminalEntry, WorkbenchTerminalMode } from '@/lib/messages/workbench/types'
 
 type AgentId = string
 
@@ -124,6 +145,8 @@ export interface UnifiedChatProps {
   conversationRailMode?: 'expanded' | 'collapsed'
   onConversationRailModeChange?: (mode: 'expanded' | 'collapsed') => void
   onContextCanvasPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void
+  /** Enables the observer-only Files / Terminal / Browser / Changes rail in Messages. */
+  showAgentWorkbench?: boolean
 }
 
 const POLL_INTERVAL = 1500
@@ -223,6 +246,8 @@ interface WorkspaceRuntimePresence {
   lastSeenAt: string | null
   ageSeconds: number | null
   lastHealthStatus: string | null
+  /** Healthy Hermes agent ids on this linked computer (when known). */
+  availableAgentIds?: string[]
 }
 
 interface WorkspaceCatalogueSnapshot {
@@ -913,6 +938,7 @@ export default function UnifiedChat({
   conversationRailMode = 'expanded',
   onConversationRailModeChange,
   onContextCanvasPresentationChange,
+  showAgentWorkbench = false,
 }: UnifiedChatProps) {
   // ── State ─────────────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -930,13 +956,52 @@ export default function UnifiedChat({
   const [sending, setSending] = useState(false)
   const [contextCanvasPresentation, setContextCanvasPresentation] = useState<{ open: boolean; mode: 'single' | 'dual'; width: number }>({ open: false, mode: 'single', width: 520 })
   const contextCanvasOpen = contextCanvasPresentation.open
+  const [workbenchOpen, setWorkbenchOpen] = useState(false)
+  const [workbenchTab, setWorkbenchTab] = useState<WorkbenchTab>('files')
+  const [workbenchWidth, setWorkbenchWidth] = useState(480)
+  const [workbenchStateConversationId, setWorkbenchStateConversationId] = useState<string | null>(null)
+  const [workbenchLiveFiles, setWorkbenchLiveFiles] = useState<{ source: WorkbenchFilesSource; tree: WorkbenchFileNode[] }>({
+    source: 'none',
+    tree: [],
+  })
+  const [workbenchFilesLoading, setWorkbenchFilesLoading] = useState(false)
+  const [workbenchSelectedFilePath, setWorkbenchSelectedFilePath] = useState<string | null>(null)
+  const [workbenchFilePreview, setWorkbenchFilePreview] = useState<WorkbenchFilePreview | null>(null)
+  const [workbenchLiveChanges, setWorkbenchLiveChanges] = useState<WorkbenchChangeFile[] | null>(null)
+  const [workbenchChangesMessage, setWorkbenchChangesMessage] = useState<string | null>(null)
+  const [workbenchChangesLoading, setWorkbenchChangesLoading] = useState(false)
+  const [workbenchLocalTerminalEntries, setWorkbenchLocalTerminalEntries] = useState<WorkbenchTerminalEntry[]>([])
+  const [workbenchTerminalRunning, setWorkbenchTerminalRunning] = useState(false)
+  const [workbenchTerminalMode, setWorkbenchTerminalMode] = useState<WorkbenchTerminalMode>('jobs')
+  const [workbenchSession, setWorkbenchSession] = useState<WorkbenchSessionViewState | null>(null)
+  const workbenchSessionTranscriptRef = useRef<WorkbenchSessionTranscriptState>({ text: '', lastSeq: -1 })
+  const workbenchSessionAbortRef = useRef<AbortController | null>(null)
+  const [contextCanvasCloseRequest, setContextCanvasCloseRequest] = useState(0)
+  // Icon strip stays visible whenever the workbench is enabled; expand margin when a dock opens.
+  const rightDockOpen = contextCanvasOpen || workbenchOpen || showAgentWorkbench
+  const rightDockWidth = workbenchOpen
+    ? workbenchWidth + 40
+    : contextCanvasOpen
+      ? contextCanvasPresentation.width
+      : showAgentWorkbench
+        ? 40
+        : contextCanvasPresentation.width
   const contextCanvasReservedStyle = {
-    '--context-canvas-width': `${contextCanvasPresentation.width}px`,
+    '--context-canvas-width': `${rightDockWidth}px`,
   } as CSSProperties
   const handleContextCanvasPresentationChange = useCallback((state: { open: boolean; mode: 'single' | 'dual'; width: number }) => {
     setContextCanvasPresentation(state)
+    if (state.open) setWorkbenchOpen(false)
     onContextCanvasPresentationChange?.(state)
   }, [onContextCanvasPresentationChange])
+  const handleWorkbenchOpenChange = useCallback((open: boolean) => {
+    setWorkbenchOpen(open)
+    if (open) setContextCanvasCloseRequest((revision) => revision + 1)
+  }, [])
+  const openWorkbenchTab = useCallback((tab: WorkbenchTab) => {
+    setWorkbenchTab(tab)
+    handleWorkbenchOpenChange(true)
+  }, [handleWorkbenchOpenChange])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
@@ -958,6 +1023,7 @@ export default function UnifiedChat({
       if (stored) setApprovalMode(stored)
     } catch {
       // Ignore localStorage read failures.
+      return
     }
   }, [orgId])
   useEffect(() => {
@@ -965,6 +1031,7 @@ export default function UnifiedChat({
       window.localStorage.setItem(`${APPROVAL_MODE_STORAGE_PREFIX}:${orgId}`, approvalMode)
     } catch {
       // Ignore localStorage write failures.
+      return
     }
   }, [approvalMode, orgId])
   const [modelCatalog, setModelCatalog] = useState<MessageModelCatalog | null>(null)
@@ -983,6 +1050,42 @@ export default function UnifiedChat({
   useEffect(() => {
     onConversationsChange?.(conversations)
   }, [conversations, onConversationsChange])
+
+  useEffect(() => {
+    setWorkbenchOpen(false)
+    setWorkbenchTab('files')
+    setWorkbenchWidth(480)
+    setWorkbenchLiveFiles({ source: 'none', tree: [] })
+    setWorkbenchSelectedFilePath(null)
+    setWorkbenchFilePreview(null)
+    setWorkbenchLiveChanges(null)
+    setWorkbenchChangesMessage(null)
+    setWorkbenchLocalTerminalEntries([])
+    setWorkbenchTerminalRunning(false)
+    if (!activeId) {
+      setWorkbenchStateConversationId(null)
+      return
+    }
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(`pib-messages-workbench:${orgId}:${activeId}`) ?? '{}') as { tab?: unknown; width?: unknown }
+      if (stored.tab === 'files' || stored.tab === 'terminal' || stored.tab === 'browser' || stored.tab === 'changes') setWorkbenchTab(stored.tab)
+      if (typeof stored.width === 'number' && Number.isFinite(stored.width)) setWorkbenchWidth(Math.min(720, Math.max(420, stored.width)))
+    } catch {
+      // Ignore corrupt or unavailable browser storage.
+      return
+    }
+    setWorkbenchStateConversationId(activeId)
+  }, [activeId, orgId])
+
+  useEffect(() => {
+    if (!activeId || workbenchStateConversationId !== activeId) return
+    try {
+      window.localStorage.setItem(`pib-messages-workbench:${orgId}:${activeId}`, JSON.stringify({ tab: workbenchTab, width: workbenchWidth }))
+    } catch {
+      // Ignore browser storage failures.
+      return
+    }
+  }, [activeId, orgId, workbenchStateConversationId, workbenchTab, workbenchWidth])
 
   useEffect(() => {
     if (!syncedConversationTitles) return
@@ -1240,6 +1343,16 @@ export default function UnifiedChat({
     ) ?? null
   }, [messages])
   const activeRuntimeEvents = activeRuntimeMessage ? (liveEvents[activeRuntimeMessage.id] ?? []) : []
+  const workbenchEvents = useMemo(() => messages.flatMap((message) => {
+    const streamed = liveEvents[message.id]
+    return streamed?.length ? streamed : ((message.events ?? []) as ChatEvent[])
+  }), [liveEvents, messages])
+  const workbenchRichParts = useMemo(() => messages.flatMap((message) => message.richParts ?? []), [messages])
+  const workbenchTerminalEntries = useMemo(() => buildWorkbenchTerminalEntries(workbenchEvents), [workbenchEvents])
+  const workbenchFileTree = useMemo(() => buildWorkbenchFileTree(workbenchEvents), [workbenchEvents])
+  const workbenchEventChanges = useMemo(() => buildWorkbenchChanges(workbenchEvents), [workbenchEvents])
+  const workbenchChanges = workbenchLiveChanges ?? workbenchEventChanges
+  const workbenchBrowserTargets = useMemo(() => buildWorkbenchBrowserTargets(workbenchEvents, workbenchRichParts), [workbenchEvents, workbenchRichParts])
   const hasInFlightAgentRun = useMemo(
     () => messages.some((message) =>
       message.role === 'assistant' && (
@@ -1304,6 +1417,24 @@ export default function UnifiedChat({
   const selectedWorkspaceRuntimeIsValid = workspaceRuntimeTargets.some(runtime => (
     workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime && runtime.selectable
   ))
+  const selectedWorkspaceRuntimeTarget = useMemo(
+    () => workspaceRuntimeTargets.find((runtime) => (
+      workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime
+    )) ?? null,
+    [selectedWorkspaceRuntime, workspaceRuntimeTargets],
+  )
+  const runtimeRequiredForNewConversation = newScope === 'workspace' || newScope === 'company' || newScope === 'project'
+  const newConversationAgentGate = useMemo(
+    () => resolveNewConversationAgentGate({
+      scope: newScope,
+      runtimeRequired: runtimeRequiredForNewConversation,
+      runtimeSelected: selectedWorkspaceRuntimeIsValid,
+      runtimeAvailableAgentIds: selectedWorkspaceRuntimeTarget && 'availableAgentIds' in selectedWorkspaceRuntimeTarget
+        ? selectedWorkspaceRuntimeTarget.availableAgentIds ?? null
+        : null,
+    }),
+    [newScope, runtimeRequiredForNewConversation, selectedWorkspaceRuntimeIsValid, selectedWorkspaceRuntimeTarget],
+  )
   useEffect(() => {
     if (workspaceRuntimeTargets.length === 0) {
       if (newScope === 'project' && selectedWorkspaceRuntime) {
@@ -1515,6 +1646,14 @@ export default function UnifiedChat({
         ),
       )
     : undefined
+  const workbenchRuntime = useMemo<WorkbenchRuntimeSummary>(() => ({
+    label: activeRuntimeLabel || activeWorkspaceContext?.runtimeLabel || activeWorkspaceContext?.runtimeTarget,
+    mappingLabel: activeWorkspaceContext?.mappingLabel,
+    folderScope: activeWorkspaceContext?.folderScope ?? null,
+    projectName: activeWorkspaceContext?.projectName,
+    runtimeTarget: activeWorkspaceContext?.runtimeTarget,
+    hasMapping: Boolean(activeWorkspaceContext?.mappingId),
+  }), [activeRuntimeLabel, activeWorkspaceContext])
   const unavailableActiveRuntime = useMemo(
     () => activeWorkspaceContext && activeRuntimeCatalogueLoaded && (!activeRuntimePresence || !activeRuntimePresence.selectable)
       ? {
@@ -2188,6 +2327,250 @@ export default function UnifiedChat({
     }
   }, [activeId, activeModelAgentId])
 
+  const loadWorkbenchFiles = useCallback(async () => {
+    if (!activeId) return
+    setWorkbenchFilesLoading(true)
+    try {
+      const job = await runConversationWorkbenchJob(activeId, { kind: 'fs.list', path: '' })
+      const result = workbenchJobResult<{ entries: Array<{ path: string; type: 'file' | 'directory'; size?: number }> }>(job)
+      setWorkbenchLiveFiles({
+        source: 'sync',
+        tree: workbenchEntriesToTree(result.entries),
+      })
+    } catch {
+      setWorkbenchLiveFiles({ source: 'none', tree: [] })
+    } finally {
+      setWorkbenchFilesLoading(false)
+    }
+  }, [activeId])
+
+  const loadWorkbenchChanges = useCallback(async () => {
+    if (!activeId) return
+    setWorkbenchChangesLoading(true)
+    try {
+      const statusJob = await runConversationWorkbenchJob(activeId, { kind: 'git.status' })
+      const status = workbenchJobResult<{ changes: Array<{ path: string; status: string }> }>(statusJob)
+      const [unstagedJob, stagedJob] = await Promise.all([
+        runConversationWorkbenchJob(activeId, { kind: 'git.diff', staged: false }),
+        runConversationWorkbenchJob(activeId, { kind: 'git.diff', staged: true }),
+      ])
+      const unstaged = workbenchJobResult<{ diff: string }>(unstagedJob)
+      const staged = workbenchJobResult<{ diff: string }>(stagedJob)
+      setWorkbenchLiveChanges(attachWorkbenchDiffs(workbenchStatusToChanges(status.changes), [unstaged.diff, staged.diff].filter(Boolean).join('\n')))
+      setWorkbenchChangesMessage('Live git status and diff from the linked computer.')
+    } catch (changesError) {
+      setWorkbenchLiveChanges(null)
+      setWorkbenchChangesMessage(changesError instanceof Error ? changesError.message : null)
+    } finally {
+      setWorkbenchChangesLoading(false)
+    }
+  }, [activeId])
+
+  const loadWorkbenchDirectory = useCallback(async (path: string) => {
+    if (!activeId) return
+    try {
+      const job = await runConversationWorkbenchJob(activeId, { kind: 'fs.list', path })
+      const result = workbenchJobResult<{ entries: Array<{ path: string; type: 'file' | 'directory'; size?: number }> }>(job)
+      setWorkbenchLiveFiles((current) => ({
+        source: 'sync',
+        tree: mergeWorkbenchDirectory(current.tree, path, result.entries),
+      }))
+    } catch {
+      // Keep the current tree visible; expanding again or refreshing can retry.
+      return
+    }
+  }, [activeId])
+
+  const loadWorkbenchFileContent = useCallback(async (path: string) => {
+    if (!activeId) return
+    setWorkbenchFilePreview({ path, content: null, loading: true, error: null })
+    try {
+      const job = await runConversationWorkbenchJob(activeId, { kind: 'fs.read', path })
+      const result = workbenchJobResult<{ content: string; sha256: string }>(job)
+      setWorkbenchFilePreview({ path, content: result.content, sha256: result.sha256, loading: false, error: null })
+    } catch (contentError) {
+      setWorkbenchFilePreview({
+        path,
+        content: null,
+        loading: false,
+        error: contentError instanceof Error ? contentError.message : 'Failed to load file content',
+      })
+    }
+  }, [activeId])
+
+  const handleSelectWorkbenchFilePath = useCallback((path: string) => {
+    setWorkbenchSelectedFilePath(path)
+    void loadWorkbenchFileContent(path)
+  }, [loadWorkbenchFileContent])
+
+  const saveWorkbenchFile = useCallback(async (path: string, content: string, expectedSha256?: string) => {
+    if (!activeId) throw new Error('No active conversation')
+    const job = await runConversationWorkbenchJob(activeId, {
+      kind: 'fs.write',
+      path,
+      content,
+      ...(expectedSha256 ? { expectedSha256 } : {}),
+    }, { approveWrite: true })
+    const result = workbenchJobResult<{ bytesWritten: number; sha256: string }>(job)
+    setWorkbenchFilePreview({ path, content, sha256: result.sha256, loading: false, error: null })
+    void loadWorkbenchChanges()
+    return { sha256: result.sha256 }
+  }, [activeId, loadWorkbenchChanges])
+
+  const runWorkbenchTerminalCommand = useCallback(async (command: string) => {
+    if (!activeId || workbenchTerminalRunning) return
+    const entryId = `local-terminal-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const startedAt = Date.now()
+    setWorkbenchTerminalRunning(true)
+    setWorkbenchLocalTerminalEntries((entries) => [
+      ...entries,
+      { id: entryId, status: 'running' as const, label: command, meta: 'running…', body: `$ ${command}`, timestamp: startedAt },
+    ].slice(-24))
+
+    const finish = (status: 'done' | 'failed', outputBody: string) => {
+      setWorkbenchLocalTerminalEntries((entries) => entries.map((entry) => (
+        entry.id === entryId
+          ? { ...entry, status, meta: `${Date.now() - startedAt}ms`, body: outputBody.startsWith('$ ') ? outputBody : `$ ${command}\n${outputBody}` }
+          : entry
+      )))
+    }
+
+    try {
+      const res = await fetch(`/api/v1/conversations/${activeId}/workbench/terminal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error ?? `workbench terminal: ${res.status}`)
+
+      if (typeof body?.data?.cwd === 'string') {
+        finish('done', `$ ${command}\n${body.data.cwd}`)
+        return
+      }
+
+      const jobId = body?.data?.jobId
+      let job = body?.data
+      const terminalStatuses = new Set(['completed', 'failed', 'cancelled', 'expired', 'awaiting_approval'])
+      if (jobId && !terminalStatuses.has(job?.status)) {
+        job = await pollWorkbenchJob(activeId, jobId, {
+          timeoutMs: 90_000,
+          onProgress: (liveJob) => {
+            setWorkbenchLocalTerminalEntries((entries) => entries.map((entry) => (
+              entry.id === entryId
+                ? {
+                    ...entry,
+                    status: 'running',
+                    meta: liveJob.status,
+                    body: formatWorkbenchProgressBody(command, liveJob),
+                  }
+                : entry
+            )))
+          },
+        })
+      }
+      const failed = job?.status === 'failed' || job?.status === 'cancelled' || job?.status === 'expired'
+        || (job?.kind === 'shell.exec' && job?.result && 'exitCode' in job.result && Number(job.result.exitCode) !== 0)
+      finish(failed ? 'failed' : 'done', formatWorkbenchOperationResult(job))
+      if (job?.status === 'completed' && (command === 'git status' || command.startsWith('git diff'))) void loadWorkbenchChanges()
+    } catch (error) {
+      finish('failed', error instanceof Error ? error.message : 'Command failed.')
+    } finally {
+      setWorkbenchTerminalRunning(false)
+    }
+  }, [activeId, workbenchTerminalRunning, loadWorkbenchChanges])
+
+  const clearWorkbenchLocalTerminal = useCallback(() => {
+    if (workbenchTerminalRunning) return
+    setWorkbenchLocalTerminalEntries([])
+  }, [workbenchTerminalRunning])
+
+  /** Merges a session snapshot's new-only output chunks into the running transcript, then updates view state. */
+  const applyWorkbenchSessionUpdate = useCallback((remote: PublicWorkbenchSession) => {
+    workbenchSessionTranscriptRef.current = appendWorkbenchSessionOutput(workbenchSessionTranscriptRef.current, remote)
+    setWorkbenchSession({
+      sessionId: remote.sessionId,
+      status: remote.status,
+      transcript: workbenchSessionTranscriptRef.current.text,
+      exitCode: remote.exitCode ?? null,
+      error: remote.error ?? null,
+      busy: false,
+    })
+  }, [])
+
+  const startWorkbenchSession = useCallback(async () => {
+    if (!activeId) return
+    workbenchSessionAbortRef.current?.abort()
+    const controller = new AbortController()
+    workbenchSessionAbortRef.current = controller
+    workbenchSessionTranscriptRef.current = { text: '', lastSeq: -1 }
+    setWorkbenchSession({ sessionId: null, status: 'starting', transcript: '', exitCode: null, error: null, busy: true })
+
+    try {
+      const created = await createWorkbenchSession(activeId, { signal: controller.signal })
+      applyWorkbenchSessionUpdate(created)
+      if (!WORKBENCH_SESSION_TERMINAL_STATUSES.has(created.status)) {
+        await pollWorkbenchSession(activeId, created.sessionId, {
+          signal: controller.signal,
+          onProgress: applyWorkbenchSessionUpdate,
+        })
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setWorkbenchSession((prev) => ({
+        sessionId: prev?.sessionId ?? null,
+        status: 'error',
+        transcript: prev?.transcript ?? '',
+        exitCode: prev?.exitCode ?? null,
+        error: error instanceof Error ? error.message : 'Failed to start the session.',
+        busy: false,
+      }))
+    }
+  }, [activeId, applyWorkbenchSessionUpdate])
+
+  const sendWorkbenchSessionInput = useCallback(async (line: string) => {
+    if (!activeId || !workbenchSession?.sessionId) return
+    try {
+      const updated = await writeWorkbenchSessionStdin(activeId, workbenchSession.sessionId, line, 'line')
+      applyWorkbenchSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to send input to the session.' }
+        : prev)
+    }
+  }, [activeId, workbenchSession?.sessionId, applyWorkbenchSessionUpdate])
+
+  const killWorkbenchSession = useCallback(async () => {
+    if (!activeId || !workbenchSession?.sessionId) return
+    setWorkbenchSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      // A `queued` session is killed immediately; a `claimed`/`running` one just has a kill
+      // control enqueued, so this response may still report the pre-kill status — the poll
+      // loop already running from `startWorkbenchSession` picks up the eventual terminal state.
+      const killResponse = await killWorkbenchSessionApi(activeId, workbenchSession.sessionId)
+      applyWorkbenchSessionUpdate(killResponse)
+    } catch (error) {
+      setWorkbenchSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to kill the session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchSession?.sessionId, applyWorkbenchSessionUpdate])
+
+  useEffect(() => {
+    // Conversation-scoped: drop any in-flight session poll and its transcript when switching conversations.
+    workbenchSessionAbortRef.current?.abort()
+    workbenchSessionTranscriptRef.current = { text: '', lastSeq: -1 }
+    setWorkbenchSession(null)
+  }, [activeId])
+
+  useEffect(() => {
+    if (showAgentWorkbench && workbenchOpen && workbenchTab === 'files' && activeId) void loadWorkbenchFiles()
+  }, [showAgentWorkbench, workbenchOpen, workbenchTab, activeId, loadWorkbenchFiles])
+
+  useEffect(() => {
+    if (showAgentWorkbench && workbenchOpen && workbenchTab === 'changes' && activeId) void loadWorkbenchChanges()
+  }, [showAgentWorkbench, workbenchOpen, workbenchTab, activeId, loadWorkbenchChanges])
+
   useEffect(() => {
     void loadModelCatalog()
   }, [loadModelCatalog])
@@ -2777,6 +3160,7 @@ export default function UnifiedChat({
                 scheduleFinalizePoll(convId, msgId, runId, agentId, attempts)
               } catch {
                 // Keep waiting_approval UI if auto-approve fails.
+                return
               }
             })()
           }
@@ -3069,6 +3453,17 @@ export default function UnifiedChat({
     const cleaned = transcript.trim()
     if (!cleaned) return
     setInput((prev) => (prev.trim() ? `${prev.trimEnd()} ${cleaned}` : cleaned))
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      const length = composerRef.current?.value.length ?? 0
+      composerRef.current?.setSelectionRange(length, length)
+    })
+  }, [])
+
+  const addWorkbenchNoteToComposer = useCallback((text: string) => {
+    const cleaned = text.trim()
+    if (!cleaned) return
+    setInput((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${cleaned}\n\n` : `${cleaned}\n\n`))
     requestAnimationFrame(() => {
       composerRef.current?.focus()
       const length = composerRef.current?.value.length ?? 0
@@ -5313,10 +5708,48 @@ export default function UnifiedChat({
           </div>
         </div>
 
-        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
+        {showAgentWorkbench && <AgentWorkbenchRail
+          open={workbenchOpen}
+          activeTab={workbenchTab}
+          onOpenChange={handleWorkbenchOpenChange}
+          onTabChange={(tab) => { if (tab) setWorkbenchTab(tab) }}
+          width={workbenchWidth}
+          onWidthChange={setWorkbenchWidth}
+          runtime={workbenchRuntime}
+          terminalEntries={workbenchTerminalEntries}
+          fileTree={workbenchFileTree}
+          liveFileTree={workbenchLiveFiles.tree}
+          filesSource={workbenchLiveFiles.source === 'sync' ? 'sync' : workbenchFileTree.length > 0 ? 'events' : 'none'}
+          filesLoading={workbenchFilesLoading}
+          onRefreshFiles={loadWorkbenchFiles}
+          selectedFilePath={workbenchSelectedFilePath}
+          onSelectFilePath={handleSelectWorkbenchFilePath}
+          onExpandDirectory={(path) => { void loadWorkbenchDirectory(path) }}
+          filePreview={workbenchFilePreview}
+          onSaveFile={saveWorkbenchFile}
+          changes={workbenchChanges}
+          changesMessage={workbenchChangesMessage}
+          changesLoading={workbenchChangesLoading}
+          changesSource={workbenchLiveChanges !== null ? 'live' : workbenchEventChanges.length > 0 ? 'events' : 'none'}
+          onRefreshChanges={loadWorkbenchChanges}
+          browserTargets={workbenchBrowserTargets}
+          onAddBrowserNoteToChat={addWorkbenchNoteToComposer}
+          compact={compact}
+          onRunTerminalCommand={runWorkbenchTerminalCommand}
+          onClearTerminal={clearWorkbenchLocalTerminal}
+          terminalRunning={workbenchTerminalRunning}
+          localTerminalEntries={workbenchLocalTerminalEntries}
+          terminalMode={workbenchTerminalMode}
+          onTerminalModeChange={setWorkbenchTerminalMode}
+          terminalSession={workbenchSession}
+          onStartTerminalSession={startWorkbenchSession}
+          onSendTerminalSessionInput={sendWorkbenchSessionInput}
+          onKillTerminalSession={killWorkbenchSession}
+        />}
 
         {/* Messages */}
         <div
@@ -5325,7 +5758,7 @@ export default function UnifiedChat({
           aria-label="Conversation messages"
           aria-live="polite"
           style={contextCanvasReservedStyle}
-          className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${contextCanvasOpen ? 'lg:mr-[var(--context-canvas-width)]' : ''}`}
+          className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${rightDockOpen ? 'lg:mr-[var(--context-canvas-width)]' : ''}`}
         >
           {loading && <div className="text-xs text-[var(--color-pib-text-muted)]">Loading…</div>}
           {!loading && messages.length === 0 && (
@@ -5480,7 +5913,7 @@ export default function UnifiedChat({
               ? 'shrink-0 min-w-0 flex flex-col gap-1.5 border-t border-[var(--color-card-border)] p-2 transition-[background-color,margin] duration-200'
               : 'shrink-0 min-w-0 flex flex-col gap-2 border-t border-[var(--color-card-border)] p-3 transition-[background-color,margin] duration-200',
             draggingAttachments ? 'bg-primary/10 ring-1 ring-primary/35' : '',
-            contextCanvasOpen ? 'lg:mr-[var(--context-canvas-width)]' : '',
+            rightDockOpen ? 'lg:mr-[var(--context-canvas-width)]' : '',
           ].join(' ')}
         >
           {showComposerContextToolbar && (
@@ -5953,11 +6386,30 @@ export default function UnifiedChat({
                     </select>
                   </label>
                 )}
+                {showAgentWorkbench && (
+                  <button
+                    type="button"
+                    data-testid="hermes-agent-workbench-toggle"
+                    aria-label={workbenchOpen ? 'Close agent workbench' : 'Open agent workbench'}
+                    aria-pressed={workbenchOpen}
+                    onClick={() => {
+                      if (workbenchOpen) handleWorkbenchOpenChange(false)
+                      else openWorkbenchTab(workbenchTab)
+                    }}
+                    className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">dock_to_left</span>
+                    Workbench
+                  </button>
+                )}
                 {runtimeExecution && <button
                   type="button"
                   data-testid="hermes-runtime-inspector-toggle"
-                  aria-label="Open execution in context dock"
-                  onClick={() => setExecutionDockRequest((value) => value + 1)}
+                  aria-label={showAgentWorkbench ? 'Open terminal in agent workbench' : 'Open execution in context dock'}
+                  onClick={() => {
+                    if (showAgentWorkbench) openWorkbenchTab('terminal')
+                    else setExecutionDockRequest((value) => value + 1)
+                  }}
                   className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                 >
                   <span className="material-symbols-outlined text-[13px]">developer_board</span>
@@ -6017,20 +6469,6 @@ export default function UnifiedChat({
                   placeholder="e.g. Q3 campaign planning"
                   className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none focus:border-primary/60"
                 />
-              </div>
-
-              {/* Participant picker */}
-              <div>
-                <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] block mb-1.5">
-                  Participants (max 5)
-                </label>
-                <div className="sm:max-h-[300px] sm:overflow-y-auto">
-                  <ParticipantPicker
-                    orgId={orgId}
-                    onSelect={setNewParticipants}
-                    showAgents={allowAgentParticipants}
-                  />
-                </div>
               </div>
 
               <div>
@@ -6525,6 +6963,32 @@ export default function UnifiedChat({
                   )}
                 </div>
               )}
+
+              {/* Participants after context + machine so agents match the selected runtime */}
+              <div>
+                <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] block mb-1.5">
+                  Participants (max 5)
+                </label>
+                {newScope === 'general' && allowAgentParticipants && (
+                  <p className="mb-2 px-0.5 text-[11px] text-[var(--color-pib-text-muted)]">
+                    General chat uses Partners platform agents for this organisation. Workspace, company, and project chats list agents from the computer you pick above.
+                  </p>
+                )}
+                {runtimeRequiredForNewConversation && newConversationAgentGate.mode === 'runtime' && allowAgentParticipants && (
+                  <p className="mb-2 px-0.5 text-[11px] text-[var(--color-pib-text-muted)]">
+                    Showing agents available on the selected computer.
+                  </p>
+                )}
+                <div className="sm:max-h-[300px] sm:overflow-y-auto">
+                  <ParticipantPicker
+                    orgId={orgId}
+                    onSelect={setNewParticipants}
+                    showAgents={allowAgentParticipants}
+                    allowedAgentIds={newConversationAgentGate.allowedAgentIds}
+                    agentsUnavailableReason={newConversationAgentGate.reason}
+                  />
+                </div>
+              </div>
 
               {modalError && (
                 <div className="rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-xs text-red-200">

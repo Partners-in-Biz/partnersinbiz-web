@@ -86,7 +86,7 @@ export function MessageDrawer({
         className={[
           'relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40',
           open
-            ? 'pib-icon-tint-blue'
+            ? 'bg-[var(--color-pib-blue-soft)] text-[#93C5FD]'
             : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]',
         ].join(' ')}
       >
