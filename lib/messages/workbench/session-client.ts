@@ -6,13 +6,17 @@
  *
  *   POST   /api/v1/conversations/{id}/workbench/sessions            { cols?, rows?, cwd? }
  *   GET    /api/v1/conversations/{id}/workbench/sessions/{sessionId}
+ *   POST   /api/v1/conversations/{id}/workbench/sessions/{sessionId}/approve
  *   POST   /api/v1/conversations/{id}/workbench/sessions/{sessionId}/stdin   { data, mode }
  *   POST   /api/v1/conversations/{id}/workbench/sessions/{sessionId}/resize { cols, rows }
  *   POST   /api/v1/conversations/{id}/workbench/sessions/{sessionId}/kill
  *
  * A session is a real interactive shell (server-chosen bash/zsh — a client
  * can never request a specific shell or initial command), not a one-shot
- * job. `PublicWorkbenchSession`/`WorkbenchSessionStatus` are re-exported
+ * job. It always starts `awaiting_approval` — a full shell is strictly more
+ * powerful than the allowlisted one-shot jobs — so the caller must `approve`
+ * it before a device will spawn the pty.
+ * `PublicWorkbenchSession`/`WorkbenchSessionStatus` are re-exported
  * type-only from `./sessions` (the server module) so the client and server
  * never drift; the `import type` is fully erased at build time, so nothing
  * server-only (Firestore, `node:crypto`) ends up in the browser bundle —
@@ -40,8 +44,13 @@ export const WORKBENCH_SESSION_TERMINAL_STATUSES: ReadonlySet<WorkbenchSessionSt
 /** Statuses where the session is alive enough to accept stdin (matches `enqueueControl`'s server-side check). */
 export const WORKBENCH_SESSION_INPUT_STATUSES: ReadonlySet<WorkbenchSessionStatus> = new Set(['claimed', 'running'])
 
-/** Statuses where Start is disallowed and Kill is meaningful (queued, or alive). */
-export const WORKBENCH_SESSION_ACTIVE_STATUSES: ReadonlySet<WorkbenchSessionStatus> = new Set(['queued', 'claimed', 'running'])
+/** Statuses where Approve is meaningful (still waiting on the caller). */
+export const WORKBENCH_SESSION_APPROVAL_STATUSES: ReadonlySet<WorkbenchSessionStatus> = new Set(['awaiting_approval'])
+
+/** Statuses where Start is disallowed and Kill is meaningful (awaiting approval, queued, or alive). */
+export const WORKBENCH_SESSION_ACTIVE_STATUSES: ReadonlySet<WorkbenchSessionStatus> = new Set([
+  'awaiting_approval', 'queued', 'claimed', 'running',
+])
 
 export interface WorkbenchSessionCreateOptions {
   cols?: number
@@ -58,7 +67,13 @@ export interface WorkbenchSessionPollOptions {
   intervalMs?: number
   signal?: AbortSignal
   onProgress?: (session: PublicWorkbenchSession) => void
+  /** Statuses that stop the poll loop. Defaults to terminal ∪ `awaiting_approval` (a decision point). */
+  settledStatuses?: ReadonlySet<WorkbenchSessionStatus>
 }
+
+const DEFAULT_SETTLED_STATUSES: ReadonlySet<WorkbenchSessionStatus> = new Set([
+  'awaiting_approval', 'exited', 'killed', 'expired', 'failed',
+])
 
 function workbenchSessionsBase(conversationId: string): string {
   return `/api/v1/conversations/${encodeURIComponent(conversationId)}/workbench/sessions`
@@ -87,7 +102,7 @@ function wait(delayMs: number, signal?: AbortSignal): Promise<void> {
   })
 }
 
-/** Starts a new interactive shell session on the linked computer (server-chosen shell binary). */
+/** Starts a new interactive shell session on the linked computer (server-chosen shell binary). Always starts `awaiting_approval`. */
 export async function createWorkbenchSession(
   conversationId: string,
   options: WorkbenchSessionCreateOptions = {},
@@ -115,7 +130,20 @@ export async function getWorkbenchSession(
   return readWorkbenchSessionResponse(response)
 }
 
-/** Polls a session until it reaches a terminal status, or `timeoutMs` elapses. */
+/** Approves an `awaiting_approval` session so a device will spawn the pty. */
+export async function approveWorkbenchSession(
+  conversationId: string,
+  sessionId: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<PublicWorkbenchSession> {
+  const response = await fetch(`${workbenchSessionBase(conversationId, sessionId)}/approve`, {
+    method: 'POST',
+    signal: options.signal,
+  })
+  return readWorkbenchSessionResponse(response)
+}
+
+/** Polls a session until it reaches a settled status (approval needed, or terminal), or `timeoutMs` elapses. */
 export async function pollWorkbenchSession(
   conversationId: string,
   sessionId: string,
@@ -123,11 +151,12 @@ export async function pollWorkbenchSession(
 ): Promise<PublicWorkbenchSession> {
   const timeoutMs = options.timeoutMs ?? 10 * 60_000
   const intervalMs = options.intervalMs ?? 750
+  const settled = options.settledStatuses ?? DEFAULT_SETTLED_STATUSES
   const deadline = Date.now() + timeoutMs
 
   let session = await getWorkbenchSession(conversationId, sessionId, { signal: options.signal })
   options.onProgress?.(session)
-  while (!WORKBENCH_SESSION_TERMINAL_STATUSES.has(session.status)) {
+  while (!settled.has(session.status)) {
     if (Date.now() >= deadline) throw new Error('Workbench session timed out waiting for the linked computer')
     await wait(intervalMs, options.signal)
     session = await getWorkbenchSession(conversationId, sessionId, { signal: options.signal })
@@ -153,7 +182,7 @@ export async function writeWorkbenchSessionStdin(
   return readWorkbenchSessionResponse(response)
 }
 
-/** Resizes the PTY. Not wired into the Session mode MVP UI (no xterm grid), but kept for parity with the server route. */
+/** Resizes the PTY to match the xterm grid reported by `WorkbenchXterm`'s fit/resize observer. */
 export async function resizeWorkbenchSession(
   conversationId: string,
   sessionId: string,
@@ -171,8 +200,8 @@ export async function resizeWorkbenchSession(
 }
 
 /**
- * Kills a session. A `queued` session (never claimed by a device) transitions
- * straight to `killed`; a `claimed`/`running` session gets a kill control
+ * Kills a session. An `awaiting_approval`/`queued` session (never claimed by
+ * a device) transitions straight to `killed`; a `claimed`/`running` session gets a kill control
  * enqueued for its owning device — the returned session may still show
  * `running` until the device reports the final outcome, so callers should
  * keep polling after kill rather than treating this response as terminal.

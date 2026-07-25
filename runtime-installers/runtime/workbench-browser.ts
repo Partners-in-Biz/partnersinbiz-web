@@ -11,9 +11,17 @@ export interface WorkbenchBrowserViewport {
   height: number
 }
 
+export type WorkbenchBrowserMouseButton = 'left' | 'right' | 'middle'
+
 export type WorkbenchBrowserControl =
   | { kind: 'navigate'; url: string }
   | { kind: 'capture' }
+  | { kind: 'click'; x: number; y: number; button?: WorkbenchBrowserMouseButton }
+  | { kind: 'type'; text: string }
+  | { kind: 'press'; key: string }
+  | { kind: 'scroll'; x: number; y: number; deltaX?: number; deltaY: number }
+  | { kind: 'follow_start'; intervalMs?: number }
+  | { kind: 'follow_stop' }
   | { kind: 'kill' }
 
 export type WorkbenchBrowserClaim =
@@ -63,6 +71,36 @@ const MAX_VIEWPORT_WIDTH = 1920
 const MIN_VIEWPORT_HEIGHT = 240
 const MAX_VIEWPORT_HEIGHT = 1200
 const MAX_URL_LENGTH = 2_048
+const MAX_TYPE_TEXT_LENGTH = 2_000
+const MAX_SCROLL_DELTA = 100_000
+const MIN_FOLLOW_INTERVAL_MS = 500
+const MAX_FOLLOW_INTERVAL_MS = 5_000
+const DEFAULT_FOLLOW_INTERVAL_MS = 1_000
+const UNSAFE_TEXT = /[\u0000-\u0008\u000B-\u001F\u007F]/
+const MOUSE_BUTTONS: ReadonlySet<string> = new Set<WorkbenchBrowserMouseButton>(['left', 'right', 'middle'])
+
+/**
+ * Mirrors `WORKBENCH_BROWSER_ALLOWED_KEYS` in
+ * lib/messages/workbench/browser-sessions.ts, adding the CDP payload each key
+ * needs. `text` is set only where Chrome expects the key to also insert a
+ * character, so Enter submits a form and Tab moves focus while the arrows and
+ * Escape stay non-inserting.
+ */
+const KEY_EVENTS: Record<string, { code: string; keyCode: number; text?: string }> = {
+  Enter: { code: 'Enter', keyCode: 13, text: '\r' },
+  Escape: { code: 'Escape', keyCode: 27 },
+  Tab: { code: 'Tab', keyCode: 9, text: '\t' },
+  Backspace: { code: 'Backspace', keyCode: 8 },
+  Delete: { code: 'Delete', keyCode: 46 },
+  ArrowUp: { code: 'ArrowUp', keyCode: 38 },
+  ArrowDown: { code: 'ArrowDown', keyCode: 40 },
+  ArrowLeft: { code: 'ArrowLeft', keyCode: 37 },
+  ArrowRight: { code: 'ArrowRight', keyCode: 39 },
+  Home: { code: 'Home', keyCode: 36 },
+  End: { code: 'End', keyCode: 35 },
+  PageUp: { code: 'PageUp', keyCode: 33 },
+  PageDown: { code: 'PageDown', keyCode: 34 },
+}
 // Stay below the route's 1.5 MiB ceiling even when "MB" is interpreted as
 // decimal by callers/proxies.
 const MAX_FRAME_BYTES = 1_500_000
@@ -173,15 +211,72 @@ function validUrl(value: unknown): value is string {
   }
 }
 
+function validPoint(x: unknown, y: unknown): boolean {
+  return typeof x === 'number' && Number.isSafeInteger(x) && x >= 0 && x <= MAX_VIEWPORT_WIDTH
+    && typeof y === 'number' && Number.isSafeInteger(y) && y >= 0 && y <= MAX_VIEWPORT_HEIGHT
+}
+
+function validDelta(value: unknown, required: boolean): boolean {
+  if (value === undefined) return !required
+  return typeof value === 'number' && Number.isSafeInteger(value) && Math.abs(value) <= MAX_SCROLL_DELTA
+}
+
 function assertValidControl(value: unknown): WorkbenchBrowserControl {
   const input = record(value)
   if (!input || typeof input.kind !== 'string') throw new Error('invalid workbench browser control')
-  if (input.kind === 'capture' || input.kind === 'kill') {
+  if (input.kind === 'capture' || input.kind === 'kill' || input.kind === 'follow_stop') {
     if (!exactKeys(input, ['kind'])) throw new Error('invalid workbench browser control')
     return { kind: input.kind }
   }
   if (input.kind === 'navigate' && exactKeys(input, ['kind', 'url']) && validUrl(input.url)) {
     return { kind: 'navigate', url: input.url }
+  }
+  if (
+    input.kind === 'click' && exactKeys(input, ['kind', 'x', 'y', 'button'])
+    && validPoint(input.x, input.y)
+    && (input.button === undefined || (typeof input.button === 'string' && MOUSE_BUTTONS.has(input.button)))
+  ) {
+    return {
+      kind: 'click',
+      x: input.x as number,
+      y: input.y as number,
+      button: (input.button as WorkbenchBrowserMouseButton | undefined) ?? 'left',
+    }
+  }
+  if (
+    input.kind === 'type' && exactKeys(input, ['kind', 'text'])
+    && typeof input.text === 'string' && input.text.length > 0 && input.text.length <= MAX_TYPE_TEXT_LENGTH
+    && !UNSAFE_TEXT.test(input.text)
+  ) {
+    return { kind: 'type', text: input.text }
+  }
+  if (
+    input.kind === 'press' && exactKeys(input, ['kind', 'key'])
+    && typeof input.key === 'string' && Object.prototype.hasOwnProperty.call(KEY_EVENTS, input.key)
+  ) {
+    return { kind: 'press', key: input.key }
+  }
+  if (
+    input.kind === 'scroll' && exactKeys(input, ['kind', 'x', 'y', 'deltaX', 'deltaY'])
+    && validPoint(input.x, input.y) && validDelta(input.deltaX, false) && validDelta(input.deltaY, true)
+  ) {
+    return {
+      kind: 'scroll',
+      x: input.x as number,
+      y: input.y as number,
+      deltaX: (input.deltaX as number | undefined) ?? 0,
+      deltaY: input.deltaY as number,
+    }
+  }
+  if (input.kind === 'follow_start' && exactKeys(input, ['kind', 'intervalMs'])) {
+    if (input.intervalMs === undefined) return { kind: 'follow_start', intervalMs: DEFAULT_FOLLOW_INTERVAL_MS }
+    if (
+      typeof input.intervalMs === 'number' && Number.isSafeInteger(input.intervalMs)
+      && input.intervalMs >= MIN_FOLLOW_INTERVAL_MS && input.intervalMs <= MAX_FOLLOW_INTERVAL_MS
+    ) {
+      return { kind: 'follow_start', intervalMs: input.intervalMs }
+    }
+    throw new Error('invalid workbench browser control')
   }
   throw new Error('invalid workbench browser control')
 }
@@ -369,6 +464,10 @@ type BrowserEntry = {
   startedAtMs: number
   profile: string
   heartbeatTimer: ReturnType<typeof setInterval> | null
+  /** Periodic `captureAndUpload` loop started by `follow_start`; cleared by `follow_stop`, kill, and expiry. */
+  followTimer: ReturnType<typeof setInterval> | null
+  /** Guards the follow loop against overlapping captures when one tick outlives its interval. */
+  followCapturing: boolean
 }
 
 const browsers = new Map<string, BrowserEntry>()
@@ -377,8 +476,14 @@ export function activeWorkbenchBrowserSessionIds(): string[] {
   return [...browsers.keys()]
 }
 
+function stopFollow(entry: BrowserEntry): void {
+  if (entry.followTimer) clearInterval(entry.followTimer)
+  entry.followTimer = null
+}
+
 function removeBrowser(sessionId: string, entry: BrowserEntry): void {
   if (entry.heartbeatTimer) clearInterval(entry.heartbeatTimer)
+  stopFollow(entry)
   browsers.delete(sessionId)
   entry.cdp.close()
   try { fs.rmSync(entry.profile, { recursive: true, force: true }) } catch { /* best effort */ }
@@ -422,6 +527,36 @@ async function navigate(entry: BrowserEntry, url: string): Promise<void> {
   const loaded = entry.cdp.waitForEvent('Page.loadEventFired', entry.targetSessionId)
   await entry.cdp.send('Page.navigate', { url }, entry.targetSessionId)
   await loaded.catch(() => undefined)
+}
+
+async function click(entry: BrowserEntry, x: number, y: number, button: WorkbenchBrowserMouseButton): Promise<void> {
+  const base = { x, y, button, clickCount: 1, buttons: button === 'left' ? 1 : button === 'right' ? 2 : 4 }
+  await entry.cdp.send('Input.dispatchMouseEvent', { ...base, type: 'mousePressed' }, entry.targetSessionId)
+  await entry.cdp.send('Input.dispatchMouseEvent', { ...base, type: 'mouseReleased' }, entry.targetSessionId)
+}
+
+async function scroll(entry: BrowserEntry, x: number, y: number, deltaX: number, deltaY: number): Promise<void> {
+  await entry.cdp.send('Input.dispatchMouseEvent', {
+    type: 'mouseWheel', x, y, deltaX, deltaY, button: 'none', buttons: 0,
+  }, entry.targetSessionId)
+}
+
+async function insertText(entry: BrowserEntry, text: string): Promise<void> {
+  await entry.cdp.send('Input.insertText', { text }, entry.targetSessionId)
+}
+
+async function pressKey(entry: BrowserEntry, key: string): Promise<void> {
+  const mapped = KEY_EVENTS[key]
+  if (!mapped) throw new Error('invalid workbench browser control')
+  const base = {
+    key,
+    code: mapped.code,
+    windowsVirtualKeyCode: mapped.keyCode,
+    nativeVirtualKeyCode: mapped.keyCode,
+    ...(mapped.text ? { text: mapped.text, unmodifiedText: mapped.text } : {}),
+  }
+  await entry.cdp.send('Input.dispatchKeyEvent', { ...base, type: 'keyDown' }, entry.targetSessionId)
+  await entry.cdp.send('Input.dispatchKeyEvent', { ...base, type: 'keyUp' }, entry.targetSessionId)
 }
 
 function evaluatedPage(result: Record<string, unknown>): { pageUrl?: string; title?: string } {
@@ -481,6 +616,27 @@ async function captureAndUpload(sessionId: string, entry: BrowserEntry): Promise
   if (!progress.ok) throw new Error(`browser frame progress rejected (${progress.status})`)
 }
 
+/**
+ * Streams a frame every `intervalMs` until `follow_stop`/kill/expiry. Ticks
+ * are dropped rather than queued while a capture is still in flight, so a slow
+ * page cannot build up an unbounded backlog of screenshot uploads, and a
+ * failing capture ends the loop instead of retrying forever.
+ */
+function startFollow(sessionId: string, entry: BrowserEntry, intervalMs: number): void {
+  stopFollow(entry)
+  entry.followTimer = setInterval(() => {
+    if (entry.finished) {
+      stopFollow(entry)
+      return
+    }
+    if (entry.followCapturing) return
+    entry.followCapturing = true
+    captureAndUpload(sessionId, entry)
+      .catch(() => stopFollow(entry))
+      .finally(() => { entry.followCapturing = false })
+  }, intervalMs)
+}
+
 /** Launches Chrome, parses DevToolsActivePort, drives the page over raw CDP, and publishes an initial frame. */
 export async function handleWorkbenchBrowserCreate(
   claim: WorkbenchBrowserClaim,
@@ -532,6 +688,8 @@ export async function handleWorkbenchBrowserCreate(
       startedAtMs: Date.now(),
       profile,
       heartbeatTimer: null,
+      followTimer: null,
+      followCapturing: false,
     }
     createdEntry = entry
     browsers.set(claim.sessionId, entry)
@@ -594,11 +752,24 @@ export async function runWorkbenchBrowserClaim(
   const entry = requireBrowser(claim)
   if (control.kind === 'kill') {
     entry.killRequested = true
+    stopFollow(entry)
     entry.cdp.close()
     try { entry.child.kill('SIGTERM') } catch { /* process already exited */ }
     return undefined
   }
+  if (control.kind === 'follow_start') {
+    startFollow(claim.sessionId, entry, control.intervalMs ?? DEFAULT_FOLLOW_INTERVAL_MS)
+    return undefined
+  }
+  if (control.kind === 'follow_stop') {
+    stopFollow(entry)
+    return undefined
+  }
   if (control.kind === 'navigate') await navigate(entry, control.url)
+  if (control.kind === 'click') await click(entry, control.x, control.y, control.button ?? 'left')
+  if (control.kind === 'type') await insertText(entry, control.text)
+  if (control.kind === 'press') await pressKey(entry, control.key)
+  if (control.kind === 'scroll') await scroll(entry, control.x, control.y, control.deltaX ?? 0, control.deltaY)
   await captureAndUpload(claim.sessionId, entry)
   return undefined
 }
@@ -608,6 +779,7 @@ export function handleBrowserKill(sessionId: string): void {
   const entry = browsers.get(sessionId)
   if (!entry) return
   entry.killRequested = true
+  stopFollow(entry)
   entry.cdp.close()
   try { entry.child.kill('SIGTERM') } catch { /* process already exited */ }
 }

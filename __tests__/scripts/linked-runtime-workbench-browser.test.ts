@@ -277,6 +277,122 @@ describe('linked-computer headless Chrome workbench browser runtime', () => {
     expect(completion?.[1]).toEqual({ attempt: 1, leaseToken: LEASE_TOKEN, outcome: 'killed' })
   })
 
+  it('dispatches click/type/press/scroll over CDP against the attached page and publishes a frame after each', async () => {
+    const { socket } = installFakeBrowser()
+    const posts: Array<[string, Record<string, unknown>]> = []
+    const post = jest.fn(async (endpoint: string, body: Record<string, unknown>) => {
+      posts.push([endpoint, body])
+      if (endpoint.endsWith('/frames')) {
+        return Response.json({ success: true, data: { imageUrl: `https://frames.example/${posts.length}.jpg`, contentType: 'image/jpeg' } })
+      }
+      return Response.json({ success: true, data: { accepted: true } })
+    })
+    await runWorkbenchBrowserClaim(createClaim(), registry(), post)
+
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'click', x: 100, y: 200, button: 'left' }), registry(), post)
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'type', text: 'hello@example.com' }), registry(), post)
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'press', key: 'Enter' }), registry(), post)
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'scroll', x: 10, y: 20, deltaX: 0, deltaY: 400 }), registry(), post)
+
+    const clicks = socket.sent.filter((message) =>
+      message.method === 'Input.dispatchMouseEvent' && (message.params as Record<string, unknown>).type !== 'mouseWheel')
+    expect(clicks.map((message) => (message.params as Record<string, unknown>).type)).toEqual(['mousePressed', 'mouseReleased'])
+    expect(clicks[0].params).toMatchObject({ x: 100, y: 200, button: 'left', clickCount: 1 })
+    expect(clicks.every((message) => message.sessionId === 'cdp-session-a')).toBe(true)
+
+    expect(socket.sent.find((message) => message.method === 'Input.insertText')?.params).toEqual({ text: 'hello@example.com' })
+
+    const keys = socket.sent.filter((message) => message.method === 'Input.dispatchKeyEvent')
+    expect(keys.map((message) => (message.params as Record<string, unknown>).type)).toEqual(['keyDown', 'keyUp'])
+    expect(keys[0].params).toMatchObject({ key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' })
+
+    const wheel = socket.sent.find((message) =>
+      message.method === 'Input.dispatchMouseEvent' && (message.params as Record<string, unknown>).type === 'mouseWheel')
+    expect(wheel?.params).toMatchObject({ x: 10, y: 20, deltaX: 0, deltaY: 400 })
+
+    // One frame from create plus one after each of the four interactions.
+    expect(posts.filter(([endpoint]) => endpoint.endsWith('/frames'))).toHaveLength(5)
+  })
+
+  it('captures on an interval while following and stops on follow_stop and on kill', async () => {
+    const { socket } = installFakeBrowser()
+    const posts: Array<[string, Record<string, unknown>]> = []
+    const post = jest.fn(async (endpoint: string, body: Record<string, unknown>) => {
+      posts.push([endpoint, body])
+      if (endpoint.endsWith('/frames')) {
+        return Response.json({ success: true, data: { imageUrl: `https://frames.example/${posts.length}.jpg`, contentType: 'image/jpeg' } })
+      }
+      return Response.json({ success: true, data: { accepted: true } })
+    })
+    const frameCount = () => posts.filter(([endpoint]) => endpoint.endsWith('/frames')).length
+    // `Response.json()` consumes a stream through setImmediate, so that timer
+    // stays real; only the follow interval itself is virtualized here.
+    const tick = async (milliseconds: number) => {
+      await jest.advanceTimersByTimeAsync(milliseconds)
+      for (let index = 0; index < 5; index += 1) await new Promise<void>((resolve) => setImmediate(resolve))
+    }
+
+    await runWorkbenchBrowserClaim(createClaim(), registry(), post)
+    jest.useFakeTimers({ doNotFake: ['setImmediate', 'queueMicrotask', 'nextTick'] })
+    try {
+      const afterCreate = frameCount()
+      await runWorkbenchBrowserClaim(controlClaim({ kind: 'follow_start', intervalMs: 500 }), registry(), post)
+      expect(frameCount()).toBe(afterCreate)
+
+      await tick(500)
+      expect(frameCount()).toBe(afterCreate + 1)
+
+      await tick(500)
+      await tick(500)
+      expect(frameCount()).toBe(afterCreate + 3)
+
+      await runWorkbenchBrowserClaim(controlClaim({ kind: 'follow_stop' }), registry(), post)
+      const afterStop = frameCount()
+      await tick(2_000)
+      expect(frameCount()).toBe(afterStop)
+
+      // A restarted follow must also stop when the session is killed.
+      await runWorkbenchBrowserClaim(controlClaim({ kind: 'follow_start', intervalMs: 500 }), registry(), post)
+      await tick(500)
+      expect(frameCount()).toBe(afterStop + 1)
+
+      await runWorkbenchBrowserClaim(controlClaim({ kind: 'kill' }), registry(), post)
+      const afterKill = frameCount()
+      await tick(5_000)
+      expect(frameCount()).toBe(afterKill)
+      expect(socket.closed).toBe(true)
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('rejects out-of-range, unsafe, or unknown interaction controls before touching CDP', async () => {
+    const { socket } = installFakeBrowser()
+    const post = jest.fn(async (endpoint: string) => (endpoint.endsWith('/frames')
+      ? Response.json({ success: true, data: { imageUrl: 'https://frames.example/f.jpg', contentType: 'image/jpeg' } })
+      : Response.json({ success: true })))
+    await runWorkbenchBrowserClaim(createClaim(), registry(), post)
+    const sentBefore = socket.sent.length
+
+    for (const control of [
+      { kind: 'click', x: 5_000, y: 10 },
+      { kind: 'click', x: -1, y: 10 },
+      { kind: 'click', x: 10, y: 10, button: 'back' },
+      { kind: 'type', text: '' },
+      { kind: 'type', text: 'red \u001b[31mtext' },
+      { kind: 'type', text: 'x'.repeat(2_001) },
+      { kind: 'press', key: 'F12' },
+      { kind: 'scroll', x: 10, y: 10 },
+      { kind: 'scroll', x: 10, y: 10, deltaY: 100_001 },
+      { kind: 'follow_start', intervalMs: 10 },
+      { kind: 'follow_stop', extra: true },
+    ] as unknown as Array<Extract<WorkbenchBrowserClaim, { kind: 'control' }>['control']>) {
+      await expect(runWorkbenchBrowserClaim(controlClaim(control), registry(), post))
+        .rejects.toThrow(/invalid workbench browser/i)
+    }
+    expect(socket.sent).toHaveLength(sentBefore)
+  })
+
   it('rejects malformed claims before launching Chrome and reports a clear unavailable-browser failure', async () => {
     const spawnChrome = jest.fn()
     __setWorkbenchBrowserDependenciesForTests({ chromePath: '/fixed/chrome', spawnChrome })

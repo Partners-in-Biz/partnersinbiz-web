@@ -6,10 +6,17 @@ import {
   parseWorkbenchBrowserProgressChunk,
   parseWorkbenchBrowserSessionControl,
   publicWorkbenchBrowserSession,
+  sanitizeWorkbenchBrowserFollowIntervalMs,
+  sanitizeWorkbenchBrowserKey,
+  sanitizeWorkbenchBrowserMouseButton,
+  sanitizeWorkbenchBrowserPoint,
+  sanitizeWorkbenchBrowserScrollDeltas,
   sanitizeWorkbenchBrowserStartUrl,
+  sanitizeWorkbenchBrowserTypeText,
   sanitizeWorkbenchBrowserUrl,
   sanitizeWorkbenchBrowserViewport,
   transitionWorkbenchBrowserSession,
+  WORKBENCH_BROWSER_ALLOWED_KEYS,
   type WorkbenchBrowserSession,
 } from '@/lib/messages/workbench/browser-sessions'
 
@@ -107,6 +114,25 @@ describe('parseWorkbenchBrowserSessionControl', () => {
   })
 
   it.each([
+    [{ kind: 'click', x: 10, y: 20 }, { kind: 'click', x: 10, y: 20, button: 'left' }],
+    [{ kind: 'click', x: 10.7, y: 20.9, button: 'right' }, { kind: 'click', x: 10, y: 20, button: 'right' }],
+    [{ kind: 'click', x: 0, y: 0, button: 'middle' }, { kind: 'click', x: 0, y: 0, button: 'middle' }],
+    [{ kind: 'type', text: 'hello@example.com' }, { kind: 'type', text: 'hello@example.com' }],
+    [{ kind: 'type', text: 'line one\nline two\ttabbed' }, { kind: 'type', text: 'line one\nline two\ttabbed' }],
+    [{ kind: 'press', key: 'Enter' }, { kind: 'press', key: 'Enter' }],
+    [{ kind: 'press', key: 'ArrowDown' }, { kind: 'press', key: 'ArrowDown' }],
+    [{ kind: 'scroll', x: 5, y: 6, deltaY: 400 }, { kind: 'scroll', x: 5, y: 6, deltaX: 0, deltaY: 400 }],
+    [{ kind: 'scroll', x: 5, y: 6, deltaX: -120, deltaY: -400 }, { kind: 'scroll', x: 5, y: 6, deltaX: -120, deltaY: -400 }],
+    [{ kind: 'follow_start' }, { kind: 'follow_start', intervalMs: 1_000 }],
+    [{ kind: 'follow_start', intervalMs: 2_500 }, { kind: 'follow_start', intervalMs: 2_500 }],
+    [{ kind: 'follow_start', intervalMs: 10 }, { kind: 'follow_start', intervalMs: 500 }],
+    [{ kind: 'follow_start', intervalMs: 60_000 }, { kind: 'follow_start', intervalMs: 5_000 }],
+    [{ kind: 'follow_stop' }, { kind: 'follow_stop' }],
+  ])('accepts Phase 5 interaction/follow control %j, resolving optional fields to defaults', (input, expected) => {
+    expect(parseWorkbenchBrowserSessionControl(input)).toEqual(expected)
+  })
+
+  it.each([
     { kind: 'create', startUrl: 'javascript:alert(1)', viewport: { width: 800, height: 600 } },
     { kind: 'create', startUrl: null, viewport: { width: 800 } },
     { kind: 'navigate', url: 'file:///etc/passwd' },
@@ -117,6 +143,72 @@ describe('parseWorkbenchBrowserSessionControl', () => {
     'not-an-object',
   ])('rejects unsafe or untyped control %j', (input) => {
     expect(() => parseWorkbenchBrowserSessionControl(input)).toThrow('workbench: invalid browser session control')
+  })
+
+  it.each([
+    { kind: 'click', x: -1, y: 10 },
+    { kind: 'click', x: 1_921, y: 10 },
+    { kind: 'click', x: 10, y: 1_201 },
+    { kind: 'click', x: Number.NaN, y: 10 },
+    { kind: 'click', x: '10', y: 10 },
+    { kind: 'click', x: 10, y: 10, button: 'back' },
+    { kind: 'click', x: 10, y: 10, selector: 'button' },
+    { kind: 'type', text: '' },
+    { kind: 'type', text: 'x'.repeat(2_001) },
+    { kind: 'type', text: 'red \u001b[31mtext' },
+    { kind: 'type', text: 42 },
+    { kind: 'press', key: 'a' },
+    { kind: 'press', key: 'F12' },
+    { kind: 'press', key: 'Meta+Q' },
+    { kind: 'press' },
+    { kind: 'scroll', x: 5, y: 6 },
+    { kind: 'scroll', x: 5, y: 6, deltaY: Number.POSITIVE_INFINITY },
+    { kind: 'scroll', x: 5, y: 6, deltaY: 100_001 },
+    { kind: 'scroll', x: 5, y: 6, deltaY: 100, deltaZ: 1 },
+    { kind: 'follow_start', intervalMs: 'fast' },
+    { kind: 'follow_start', intervalMs: 1_000, extra: true },
+    { kind: 'follow_stop', extra: true },
+  ])('rejects out-of-range or unsafe interaction control %j', (input) => {
+    expect(() => parseWorkbenchBrowserSessionControl(input)).toThrow('workbench: invalid browser session control')
+  })
+})
+
+describe('interaction sanitizers', () => {
+  it('validates viewport points, rejecting out-of-range coordinates rather than clamping them', () => {
+    expect(sanitizeWorkbenchBrowserPoint(640, 360)).toEqual({ x: 640, y: 360 })
+    expect(sanitizeWorkbenchBrowserPoint(1_920, 1_200)).toEqual({ x: 1_920, y: 1_200 })
+    expect(sanitizeWorkbenchBrowserPoint(12.9, 7.1)).toEqual({ x: 12, y: 7 })
+    expect(sanitizeWorkbenchBrowserPoint(1_921, 360)).toBeNull()
+    expect(sanitizeWorkbenchBrowserPoint(-1, 360)).toBeNull()
+    expect(sanitizeWorkbenchBrowserPoint(640, undefined)).toBeNull()
+  })
+
+  it('defaults an omitted mouse button to left', () => {
+    expect(sanitizeWorkbenchBrowserMouseButton(undefined)).toBe('left')
+    expect(sanitizeWorkbenchBrowserMouseButton('middle')).toBe('middle')
+    expect(sanitizeWorkbenchBrowserMouseButton('back')).toBeNull()
+  })
+
+  it('requires deltaY and defaults deltaX to 0', () => {
+    expect(sanitizeWorkbenchBrowserScrollDeltas(undefined, 400)).toEqual({ deltaX: 0, deltaY: 400 })
+    expect(sanitizeWorkbenchBrowserScrollDeltas(-40, -400)).toEqual({ deltaX: -40, deltaY: -400 })
+    expect(sanitizeWorkbenchBrowserScrollDeltas(0, undefined)).toBeNull()
+    expect(sanitizeWorkbenchBrowserScrollDeltas(0, 100_001)).toBeNull()
+  })
+
+  it('keeps tab/newline in typed text but rejects other control characters', () => {
+    expect(sanitizeWorkbenchBrowserTypeText('a\tb\nc')).toBe('a\tb\nc')
+    expect(sanitizeWorkbenchBrowserTypeText('a\u0007b')).toBeNull()
+    expect(sanitizeWorkbenchBrowserTypeText('')).toBeNull()
+  })
+
+  it('allowlists keys and clamps the follow interval to 500-5000ms', () => {
+    for (const key of WORKBENCH_BROWSER_ALLOWED_KEYS) expect(sanitizeWorkbenchBrowserKey(key)).toBe(key)
+    expect(sanitizeWorkbenchBrowserKey('Control')).toBeNull()
+    expect(sanitizeWorkbenchBrowserFollowIntervalMs(undefined)).toBe(1_000)
+    expect(sanitizeWorkbenchBrowserFollowIntervalMs(499)).toBe(500)
+    expect(sanitizeWorkbenchBrowserFollowIntervalMs(5_001)).toBe(5_000)
+    expect(sanitizeWorkbenchBrowserFollowIntervalMs('1000')).toBeNull()
   })
 })
 

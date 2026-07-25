@@ -44,6 +44,9 @@ const config: Config = {
       testEnvironment: 'jsdom',
       testMatch: ['<rootDir>/__tests__/**/*.test.tsx'],
       moduleNameMapper: {
+        // Components may import real stylesheets (e.g. xterm.js ships its own
+        // CSS); ts-jest cannot parse CSS, so stub them out under test.
+        '\\.(css|scss|sass)$': '<rootDir>/__mocks__/styleMock.js',
         '^@/(.*)$': '<rootDir>/$1',
       },
       modulePathIgnorePatterns: ['<rootDir>/.hermes/tmp/'],

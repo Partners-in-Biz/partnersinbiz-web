@@ -2,13 +2,18 @@ import {
   appendWorkbenchBrowserSessionProgress,
   approveWorkbenchBrowserSession,
   captureWorkbenchBrowserSession,
+  clickWorkbenchBrowserSession,
   createWorkbenchBrowserSession,
   EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS,
+  followWorkbenchBrowserSession,
   getWorkbenchBrowserSession,
   killWorkbenchBrowserSession,
   latestWorkbenchBrowserSessionFrameUrl,
   navigateWorkbenchBrowserSession,
   pollWorkbenchBrowserSession,
+  pressWorkbenchBrowserSession,
+  scrollWorkbenchBrowserSession,
+  typeWorkbenchBrowserSession,
 } from '@/lib/messages/workbench/browser-session-client'
 import type { PublicWorkbenchBrowserSession } from '@/lib/messages/workbench/browser-session-client'
 
@@ -142,6 +147,78 @@ describe('approveWorkbenchBrowserSession / navigateWorkbenchBrowserSession / cap
   it('throws a readable error on failure', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Workbench browser session is not running' }), { status: 409 }))
     await expect(navigateWorkbenchBrowserSession('conv-1', 'wbbs_a', 'https://example.com')).rejects.toThrow('Workbench browser session is not running')
+  })
+})
+
+describe('interaction and follow helpers', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  function mockRunningSession() {
+    return jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'running' }) }), { status: 200 }))
+  }
+
+  it('click POSTs viewport pixel coordinates to the click route', async () => {
+    const fetchMock = mockRunningSession()
+
+    const result = await clickWorkbenchBrowserSession('conv-1', 'wbbs_a', { x: 120, y: 340 })
+
+    expect(result.status).toBe('running')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/wbbs_a/click')
+    expect((init as RequestInit).method).toBe('POST')
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({ x: 120, y: 340 })
+  })
+
+  it('click forwards an explicit button', async () => {
+    const fetchMock = mockRunningSession()
+    await clickWorkbenchBrowserSession('conv-1', 'wbbs_a', { x: 1, y: 2, button: 'right' })
+    expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))).toEqual({ x: 1, y: 2, button: 'right' })
+  })
+
+  it('type POSTs { text } to the type route', async () => {
+    const fetchMock = mockRunningSession()
+    await typeWorkbenchBrowserSession('conv-1', 'wbbs_a', { text: 'hello@example.com' })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/wbbs_a/type')
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({ text: 'hello@example.com' })
+  })
+
+  it('press POSTs { key } to the press route', async () => {
+    const fetchMock = mockRunningSession()
+    await pressWorkbenchBrowserSession('conv-1', 'wbbs_a', { key: 'Enter' })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/wbbs_a/press')
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({ key: 'Enter' })
+  })
+
+  it('scroll POSTs the anchor point and wheel delta to the scroll route', async () => {
+    const fetchMock = mockRunningSession()
+    await scrollWorkbenchBrowserSession('conv-1', 'wbbs_a', { x: 10, y: 20, deltaY: 400 })
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/wbbs_a/scroll')
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({ x: 10, y: 20, deltaY: 400 })
+  })
+
+  it('follow POSTs start with an interval and stop without one', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch')
+      .mockImplementation(async () => new Response(JSON.stringify({ data: session({ status: 'running' }) }), { status: 200 }))
+
+    await followWorkbenchBrowserSession('conv-1', 'wbbs_a', { action: 'start', intervalMs: 1_000 })
+    await followWorkbenchBrowserSession('conv-1', 'wbbs_a', { action: 'stop' })
+
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/wbbs_a/follow')
+    expect(JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body))).toEqual({ action: 'start', intervalMs: 1_000 })
+    expect(JSON.parse(String((fetchMock.mock.calls[1][1] as RequestInit).body))).toEqual({ action: 'stop' })
+  })
+
+  it('surfaces a server rejection as a readable error', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(
+      JSON.stringify({ error: 'x and y must be viewport pixel coordinates within 0-1920 x 0-1200' }),
+      { status: 400 },
+    ))
+    await expect(clickWorkbenchBrowserSession('conv-1', 'wbbs_a', { x: 9_999, y: 1 }))
+      .rejects.toThrow(/viewport pixel coordinates/)
   })
 })
 

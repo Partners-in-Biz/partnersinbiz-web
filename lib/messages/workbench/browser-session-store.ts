@@ -15,6 +15,9 @@ import {
   isTerminalWorkbenchBrowserSessionStatus,
   parseWorkbenchBrowserProgressChunk,
   transitionWorkbenchBrowserSession,
+  WORKBENCH_BROWSER_DEFAULT_FOLLOW_INTERVAL_MS,
+  type WorkbenchBrowserKey,
+  type WorkbenchBrowserMouseButton,
   type WorkbenchBrowserProgressChunk,
   type WorkbenchBrowserSession,
   type WorkbenchBrowserSessionControl,
@@ -334,6 +337,80 @@ export async function enqueueBrowserSessionCapture(input: EnqueueBrowserSessionC
   return enqueueControl(input, { kind: 'capture' }, options)
 }
 
+export interface EnqueueBrowserSessionClickInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  x: number
+  y: number
+  button?: WorkbenchBrowserMouseButton
+}
+
+export async function enqueueBrowserSessionClick(input: EnqueueBrowserSessionClickInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
+  return enqueueControl(input, { kind: 'click', x: input.x, y: input.y, ...(input.button ? { button: input.button } : {}) }, options)
+}
+
+export interface EnqueueBrowserSessionTypeInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  text: string
+}
+
+export async function enqueueBrowserSessionType(input: EnqueueBrowserSessionTypeInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
+  return enqueueControl(input, { kind: 'type', text: input.text }, options)
+}
+
+export interface EnqueueBrowserSessionPressInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  key: WorkbenchBrowserKey
+}
+
+export async function enqueueBrowserSessionPress(input: EnqueueBrowserSessionPressInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
+  return enqueueControl(input, { kind: 'press', key: input.key }, options)
+}
+
+export interface EnqueueBrowserSessionScrollInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  x: number
+  y: number
+  deltaX?: number
+  deltaY: number
+}
+
+export async function enqueueBrowserSessionScroll(input: EnqueueBrowserSessionScrollInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
+  return enqueueControl(
+    input,
+    { kind: 'scroll', x: input.x, y: input.y, deltaX: input.deltaX ?? 0, deltaY: input.deltaY },
+    options,
+  )
+}
+
+export interface EnqueueBrowserSessionFollowStartInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  intervalMs?: number
+}
+
+/**
+ * Starts the device-side capture loop. The interval lives on the device's
+ * browser entry rather than as repeated `capture` controls, so a follow that
+ * outlives its enqueue call cannot fill the 200-entry control queue.
+ */
+export async function enqueueBrowserSessionFollowStart(
+  input: EnqueueBrowserSessionFollowStartInput,
+  options: { nowMs?: number } = {},
+): Promise<WorkbenchBrowserSession> {
+  return enqueueControl(
+    input,
+    { kind: 'follow_start', intervalMs: input.intervalMs ?? WORKBENCH_BROWSER_DEFAULT_FOLLOW_INTERVAL_MS },
+    options,
+  )
+}
+
+export interface EnqueueBrowserSessionFollowStopInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+}
+
+export async function enqueueBrowserSessionFollowStop(input: EnqueueBrowserSessionFollowStopInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
+  return enqueueControl(input, { kind: 'follow_stop' }, options)
+}
+
 export interface EnqueueBrowserSessionKillInput extends WorkbenchBrowserSessionBinding {
   sessionId: string
 }
@@ -456,8 +533,9 @@ async function withDeviceMembership(
  * Claim payload returned to a device worker's
  * `POST .../workbench/browser/sessions/claim` poll. `kind: 'create'` is
  * returned at most once per session (spawns headless Chrome + connects over
- * CDP); `kind: 'control'` delivers exactly one queued navigate/capture/kill
- * control for a session the device already owns and is running.
+ * CDP); `kind: 'control'` delivers exactly one queued control (navigate,
+ * capture, click/type/press/scroll, follow start/stop, or kill) for a session
+ * the device already owns and is running.
  */
 export type WorkbenchBrowserSessionClaim =
   | {

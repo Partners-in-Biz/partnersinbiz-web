@@ -12,6 +12,11 @@
  *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/approve
  *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/navigate  { url }
  *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/capture
+ *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/click     { x, y, button? }
+ *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/type      { text }
+ *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/press     { key }
+ *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/scroll    { x, y, deltaX?, deltaY }
+ *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/follow    { action, intervalMs? }
  *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/kill
  *
  * A browser session always starts `awaiting_approval` — a real browser
@@ -53,7 +58,7 @@ export const WORKBENCH_BROWSER_SESSION_ACTIVE_STATUSES: ReadonlySet<WorkbenchBro
   'awaiting_approval', 'queued', 'claimed', 'running',
 ])
 
-/** Statuses where navigate/capture can be sent (matches the server's "browser session not running" check). */
+/** Statuses where navigate/capture/interaction/follow can be sent (matches the server's "browser session not running" check). */
 export const WORKBENCH_BROWSER_SESSION_CONTROL_STATUSES: ReadonlySet<WorkbenchBrowserSessionStatus> = new Set(['claimed', 'running'])
 
 export interface WorkbenchBrowserSessionCreateOptions {
@@ -175,6 +180,108 @@ export async function captureWorkbenchBrowserSession(
     signal: options.signal,
   })
   return readWorkbenchBrowserSessionResponse(response)
+}
+
+export type WorkbenchBrowserMouseButton = 'left' | 'right' | 'middle'
+
+export interface WorkbenchBrowserClickInput {
+  /** CSS pixel offset inside the session viewport, origin top-left — not a percentage of the rendered frame. */
+  x: number
+  y: number
+  button?: WorkbenchBrowserMouseButton
+}
+
+export interface WorkbenchBrowserTypeInput {
+  /** Max 2000 characters; inserted at the page's current focus. */
+  text: string
+}
+
+export interface WorkbenchBrowserPressInput {
+  /** One allowlisted key: Enter, Escape, Tab, Backspace, Delete, arrows, Home/End, PageUp/PageDown. */
+  key: string
+}
+
+export interface WorkbenchBrowserScrollInput {
+  x: number
+  y: number
+  deltaX?: number
+  deltaY: number
+}
+
+export interface WorkbenchBrowserFollowInput {
+  action: 'start' | 'stop'
+  /** Device-side capture cadence, clamped server-side to 500-5000ms. Ignored for `stop`. */
+  intervalMs?: number
+}
+
+async function postWorkbenchBrowserSessionControl(
+  conversationId: string,
+  sessionId: string,
+  action: string,
+  body: unknown,
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  const response = await fetch(`${workbenchBrowserSessionBase(conversationId, sessionId)}/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: options.signal,
+  })
+  return readWorkbenchBrowserSessionResponse(response)
+}
+
+/** Clicks at a viewport pixel coordinate in the running session's browser. */
+export async function clickWorkbenchBrowserSession(
+  conversationId: string,
+  sessionId: string,
+  input: WorkbenchBrowserClickInput,
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  return postWorkbenchBrowserSessionControl(conversationId, sessionId, 'click', input, options)
+}
+
+/** Types text into whatever the running session's browser currently has focused. */
+export async function typeWorkbenchBrowserSession(
+  conversationId: string,
+  sessionId: string,
+  input: WorkbenchBrowserTypeInput,
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  return postWorkbenchBrowserSessionControl(conversationId, sessionId, 'type', input, options)
+}
+
+/** Presses a single named key (e.g. `Enter`, `Escape`, `Tab`) in the running session's browser. */
+export async function pressWorkbenchBrowserSession(
+  conversationId: string,
+  sessionId: string,
+  input: WorkbenchBrowserPressInput,
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  return postWorkbenchBrowserSessionControl(conversationId, sessionId, 'press', input, options)
+}
+
+/** Scrolls by a wheel delta anchored at a viewport pixel coordinate. */
+export async function scrollWorkbenchBrowserSession(
+  conversationId: string,
+  sessionId: string,
+  input: WorkbenchBrowserScrollInput,
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  return postWorkbenchBrowserSessionControl(conversationId, sessionId, 'scroll', input, options)
+}
+
+/**
+ * Starts or stops device-side frame following. While started, the device
+ * captures frames on its own cadence instead of only on explicit `capture`
+ * calls, so the panel can render a near-live view of the agent's browser.
+ */
+export async function followWorkbenchBrowserSession(
+  conversationId: string,
+  sessionId: string,
+  input: WorkbenchBrowserFollowInput,
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  return postWorkbenchBrowserSessionControl(conversationId, sessionId, 'follow', input, options)
 }
 
 /**

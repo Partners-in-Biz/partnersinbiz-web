@@ -25,6 +25,7 @@ export {
   resizeWorkbenchSession,
   writeWorkbenchSessionStdin,
   WORKBENCH_SESSION_ACTIVE_STATUSES,
+  WORKBENCH_SESSION_APPROVAL_STATUSES,
   WORKBENCH_SESSION_INPUT_STATUSES,
   WORKBENCH_SESSION_TERMINAL_STATUSES,
   type WorkbenchSessionCreateOptions,

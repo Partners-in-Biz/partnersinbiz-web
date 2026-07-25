@@ -104,6 +104,12 @@ export interface AgentWorkbenchRailProps {
   onNavigateBrowserAgentSession?: (url: string) => void
   onCaptureBrowserAgentSession?: () => void
   onKillBrowserAgentSession?: () => void
+  /** Design Mode drive (Phase 5): clicks/types in the agent browser at a point given in percent of the current frame. */
+  onClickBrowserAgentSessionAt?: (xPct: number, yPct: number) => void
+  onTypeBrowserAgentSession?: (text: string) => void
+  /** Toggles device-side frame following for the agent browser session. */
+  onStartBrowserAgentSessionFollow?: () => void
+  onStopBrowserAgentSessionFollow?: () => void
   compact?: boolean
   /** Runs an allowlisted terminal command (git status/diff, ls, pwd) against the linked computer. */
   onRunTerminalCommand?: (command: string) => void
@@ -119,7 +125,13 @@ export interface AgentWorkbenchRailProps {
   /** Current interactive session state, owned by the host (e.g. `UnifiedChat`). */
   terminalSession?: WorkbenchSessionViewState | null
   onStartTerminalSession?: () => void
+  /** Approves a terminal session currently `awaiting_approval` (Phase 5). */
+  onApproveTerminalSession?: () => void
   onSendTerminalSessionInput?: (line: string) => void
+  /** Raw keystrokes from the xterm surface, written with stdin `mode: 'raw'`. */
+  onSendTerminalSessionData?: (data: string) => void
+  /** Fitted xterm grid size, forwarded to the remote pty resize control. */
+  onResizeTerminalSession?: (cols: number, rows: number) => void
   onKillTerminalSession?: () => void
 }
 
@@ -179,6 +191,10 @@ export function AgentWorkbenchRail({
   onNavigateBrowserAgentSession,
   onCaptureBrowserAgentSession,
   onKillBrowserAgentSession,
+  onClickBrowserAgentSessionAt,
+  onTypeBrowserAgentSession,
+  onStartBrowserAgentSessionFollow,
+  onStopBrowserAgentSessionFollow,
   compact = false,
   onRunTerminalCommand,
   onClearTerminal,
@@ -188,7 +204,10 @@ export function AgentWorkbenchRail({
   onTerminalModeChange,
   terminalSession,
   onStartTerminalSession,
+  onApproveTerminalSession,
   onSendTerminalSessionInput,
+  onSendTerminalSessionData,
+  onResizeTerminalSession,
   onKillTerminalSession,
 }: AgentWorkbenchRailProps) {
   const mobileViewport = useIsMobileViewport()
@@ -383,7 +402,10 @@ export function AgentWorkbenchRail({
             onModeChange={onTerminalModeChange}
             session={terminalSession}
             onStartSession={onStartTerminalSession}
+            onApproveSession={onApproveTerminalSession}
             onSendSessionInput={onSendTerminalSessionInput}
+            onSendSessionData={onSendTerminalSessionData}
+            onResizeSession={onResizeTerminalSession}
             onKillSession={onKillTerminalSession}
           />
         )}
@@ -401,6 +423,10 @@ export function AgentWorkbenchRail({
             onNavigateBrowserSession={onNavigateBrowserAgentSession}
             onCaptureBrowserSession={onCaptureBrowserAgentSession}
             onKillBrowserSession={onKillBrowserAgentSession}
+            onClickAt={onClickBrowserAgentSessionAt}
+            onTypeAt={onTypeBrowserAgentSession}
+            onFollowStart={onStartBrowserAgentSessionFollow}
+            onFollowStop={onStopBrowserAgentSessionFollow}
           />
         )}
         {activeTabMeta.id === 'changes' && (

@@ -70,6 +70,8 @@ export interface WorkbenchTunnelViewState {
   publicUrl: string | null
   localUrl: string | null
   error?: string | null
+  /** Latest human-readable provider progress line (e.g. cloudflared startup output), shown while the tunnel comes up. */
+  progress?: string | null
   /** True while an open/approve/kill request is in flight. */
   busy: boolean
 }
@@ -86,6 +88,10 @@ export interface WorkbenchBrowserSessionViewState {
   /** Most recently captured frame's `imageUrl` — the panel follows this when "Follow session frames" is enabled. */
   latestFrameUrl: string | null
   frameCount: number
+  /** Headless Chrome viewport, used to convert a percentage point on a frame into CSS pixels for click/scroll drives. */
+  viewport?: { width: number; height: number } | null
+  /** True while device-side frame following is on — the panel polls faster and labels the view as live. */
+  following?: boolean
   error?: string | null
   /** True while a start/approve/navigate/capture/kill request is in flight. */
   busy: boolean

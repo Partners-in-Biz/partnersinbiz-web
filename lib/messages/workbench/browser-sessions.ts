@@ -32,6 +32,32 @@ const MAX_VIEWPORT_WIDTH = 1920
 const MIN_VIEWPORT_HEIGHT = 240
 const MAX_VIEWPORT_HEIGHT = 1200
 
+const MAX_TYPE_TEXT_LENGTH = 2_000
+/** Generous ceiling on a single wheel event; anything larger is a caller bug, not a scroll. */
+const MAX_SCROLL_DELTA = 100_000
+const MIN_FOLLOW_INTERVAL_MS = 500
+const MAX_FOLLOW_INTERVAL_MS = 5_000
+
+export const WORKBENCH_BROWSER_DEFAULT_FOLLOW_INTERVAL_MS = 1_000
+
+export type WorkbenchBrowserMouseButton = 'left' | 'right' | 'middle'
+const MOUSE_BUTTONS: ReadonlySet<string> = new Set<WorkbenchBrowserMouseButton>(['left', 'right', 'middle'])
+
+/**
+ * Keys a caller may press. Deliberately an allowlist of navigation/editing
+ * keys with no modifier combinations: printable characters go through
+ * `type` (CDP `Input.insertText`), and a chord like Cmd+Q or Ctrl+Shift+I
+ * would let a caller drive Chrome's own UI rather than the page.
+ */
+export const WORKBENCH_BROWSER_ALLOWED_KEYS = [
+  'Enter', 'Escape', 'Tab', 'Backspace', 'Delete',
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+  'Home', 'End', 'PageUp', 'PageDown',
+] as const
+
+export type WorkbenchBrowserKey = typeof WORKBENCH_BROWSER_ALLOWED_KEYS[number]
+const ALLOWED_KEYS: ReadonlySet<string> = new Set<string>(WORKBENCH_BROWSER_ALLOWED_KEYS)
+
 export const WORKBENCH_BROWSER_DEFAULT_VIEWPORT = { width: 1280, height: 720 } as const
 /** Absolute session lifetime, matching the pty session's `WORKBENCH_SESSION_TTL_MS`. */
 export const WORKBENCH_BROWSER_SESSION_TTL_MS = 30 * 60 * 1000
@@ -56,19 +82,34 @@ export interface WorkbenchBrowserViewport {
 /**
  * Work a device worker consumes from its per-device pending-work queue.
  * `create` is claimed exactly once per session (spawns headless Chrome and
- * connects over CDP); `navigate` / `capture` / `kill` are delivered one at a
- * time to a device that already owns that session's running browser. See
+ * connects over CDP); every other control is delivered one at a time to a
+ * device that already owns that session's running browser. See
  * `WorkbenchBrowserSessionClaim` in `browser-session-store.ts` for the exact
  * claim response envelope (sessionId, attempt, leaseToken, etc.) wrapping
  * one of these controls.
+ *
+ * Phase 5 adds interaction (`click`/`type`/`press`/`scroll`) and a
+ * device-side capture loop (`follow_start`/`follow_stop`). Interaction
+ * coordinates are CSS pixels in the session viewport with the origin at the
+ * top-left, matching what the Browser panel's frame `<img>` reports for a
+ * click, so the panel can forward a click position unchanged.
+ * `parseWorkbenchBrowserSessionControl` resolves the optional fields
+ * (`button`, `deltaX`, `intervalMs`) to concrete defaults, so a device never
+ * has to guess.
  */
 export type WorkbenchBrowserSessionControl =
   | { kind: 'create'; startUrl: string | null; viewport: WorkbenchBrowserViewport }
   | { kind: 'navigate'; url: string }
   | { kind: 'capture' }
+  | { kind: 'click'; x: number; y: number; button?: WorkbenchBrowserMouseButton }
+  | { kind: 'type'; text: string }
+  | { kind: 'press'; key: WorkbenchBrowserKey }
+  | { kind: 'scroll'; x: number; y: number; deltaX?: number; deltaY: number }
+  | { kind: 'follow_start'; intervalMs?: number }
+  | { kind: 'follow_stop' }
   | { kind: 'kill' }
 
-/** A single not-yet-delivered navigate/capture/kill control, FIFO-ordered by `seq`. */
+/** A single not-yet-delivered control, FIFO-ordered by `seq`. */
 export interface WorkbenchBrowserSessionQueuedControl {
   seq: number
   control: Exclude<WorkbenchBrowserSessionControl, { kind: 'create' }>
@@ -203,6 +244,70 @@ export function sanitizeWorkbenchBrowserStartUrl(value: unknown): { ok: true; ur
   return url ? { ok: true, url } : { ok: false }
 }
 
+/**
+ * Validates an interaction point in viewport CSS pixels. Out-of-range
+ * coordinates are rejected rather than clamped: a click 4000px to the right
+ * of a 1280px-wide viewport is a caller bug, and silently retargeting it to
+ * the viewport edge would click something the caller never asked for. The
+ * bound is the maximum *allowed* viewport (1920x1200) rather than this
+ * session's own size, which this module does not know here — the device
+ * clamps to its real viewport when dispatching.
+ */
+export function sanitizeWorkbenchBrowserPoint(x: unknown, y: unknown): { x: number; y: number } | null {
+  if (typeof x !== 'number' || !Number.isFinite(x) || typeof y !== 'number' || !Number.isFinite(y)) return null
+  const pointX = Math.trunc(x)
+  const pointY = Math.trunc(y)
+  if (pointX < 0 || pointX > MAX_VIEWPORT_WIDTH || pointY < 0 || pointY > MAX_VIEWPORT_HEIGHT) return null
+  return { x: pointX, y: pointY }
+}
+
+/** Defaults an omitted mouse button to `left`; rejects anything outside left/right/middle. */
+export function sanitizeWorkbenchBrowserMouseButton(value: unknown): WorkbenchBrowserMouseButton | null {
+  if (value === undefined) return 'left'
+  if (typeof value !== 'string' || !MOUSE_BUTTONS.has(value)) return null
+  return value as WorkbenchBrowserMouseButton
+}
+
+function sanitizeScrollDelta(value: unknown, whenOmitted: number | null): number | null {
+  if (value === undefined) return whenOmitted
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  const delta = Math.trunc(value)
+  return Math.abs(delta) > MAX_SCROLL_DELTA ? null : delta
+}
+
+/** Validates a wheel delta pair: `deltaY` is required, `deltaX` defaults to 0 (vertical-only scroll). */
+export function sanitizeWorkbenchBrowserScrollDeltas(deltaX: unknown, deltaY: unknown): { deltaX: number; deltaY: number } | null {
+  const resolvedX = sanitizeScrollDelta(deltaX, 0)
+  const resolvedY = sanitizeScrollDelta(deltaY, null)
+  if (resolvedX === null || resolvedY === null) return null
+  return { deltaX: resolvedX, deltaY: resolvedY }
+}
+
+/**
+ * Validates text for `Input.insertText`. Tab and newline are kept (they are
+ * meaningful inside a textarea), but every other C0/DEL control character is
+ * rejected so a caller cannot smuggle terminal escapes through a field that
+ * ends up echoed in progress text or logs.
+ */
+export function sanitizeWorkbenchBrowserTypeText(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length === 0 || value.length > MAX_TYPE_TEXT_LENGTH) return null
+  if (/[\u0000-\u0008\u000B-\u001F\u007F]/.test(value)) return null
+  return value
+}
+
+/** Validates a key against `WORKBENCH_BROWSER_ALLOWED_KEYS`. */
+export function sanitizeWorkbenchBrowserKey(value: unknown): WorkbenchBrowserKey | null {
+  if (typeof value !== 'string' || !ALLOWED_KEYS.has(value)) return null
+  return value as WorkbenchBrowserKey
+}
+
+/** Clamps a follow-loop interval into 500-5000ms, defaulting to 1000ms when omitted. */
+export function sanitizeWorkbenchBrowserFollowIntervalMs(value: unknown): number | null {
+  if (value === undefined) return WORKBENCH_BROWSER_DEFAULT_FOLLOW_INTERVAL_MS
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  return clamp(value, MIN_FOLLOW_INTERVAL_MS, MAX_FOLLOW_INTERVAL_MS)
+}
+
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
 }
@@ -244,6 +349,41 @@ export function parseWorkbenchBrowserSessionControl(value: unknown): WorkbenchBr
     case 'capture':
       if (!exactKeys(input, ['kind'])) throw new Error('workbench: invalid browser session control')
       return { kind: 'capture' }
+    case 'click': {
+      if (!exactKeys(input, ['kind', 'x', 'y', 'button'])) throw new Error('workbench: invalid browser session control')
+      const point = sanitizeWorkbenchBrowserPoint(input.x, input.y)
+      const button = sanitizeWorkbenchBrowserMouseButton(input.button)
+      if (!point || !button) throw new Error('workbench: invalid browser session control')
+      return { kind: 'click', ...point, button }
+    }
+    case 'type': {
+      if (!exactKeys(input, ['kind', 'text'])) throw new Error('workbench: invalid browser session control')
+      const text = sanitizeWorkbenchBrowserTypeText(input.text)
+      if (text === null) throw new Error('workbench: invalid browser session control')
+      return { kind: 'type', text }
+    }
+    case 'press': {
+      if (!exactKeys(input, ['kind', 'key'])) throw new Error('workbench: invalid browser session control')
+      const key = sanitizeWorkbenchBrowserKey(input.key)
+      if (!key) throw new Error('workbench: invalid browser session control')
+      return { kind: 'press', key }
+    }
+    case 'scroll': {
+      if (!exactKeys(input, ['kind', 'x', 'y', 'deltaX', 'deltaY'])) throw new Error('workbench: invalid browser session control')
+      const point = sanitizeWorkbenchBrowserPoint(input.x, input.y)
+      const deltas = sanitizeWorkbenchBrowserScrollDeltas(input.deltaX, input.deltaY)
+      if (!point || !deltas) throw new Error('workbench: invalid browser session control')
+      return { kind: 'scroll', ...point, ...deltas }
+    }
+    case 'follow_start': {
+      if (!exactKeys(input, ['kind', 'intervalMs'])) throw new Error('workbench: invalid browser session control')
+      const intervalMs = sanitizeWorkbenchBrowserFollowIntervalMs(input.intervalMs)
+      if (intervalMs === null) throw new Error('workbench: invalid browser session control')
+      return { kind: 'follow_start', intervalMs }
+    }
+    case 'follow_stop':
+      if (!exactKeys(input, ['kind'])) throw new Error('workbench: invalid browser session control')
+      return { kind: 'follow_stop' }
     case 'kill':
       if (!exactKeys(input, ['kind'])) throw new Error('workbench: invalid browser session control')
       return { kind: 'kill' }

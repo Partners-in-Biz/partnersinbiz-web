@@ -12,7 +12,7 @@ import {
   type WorkbenchSession,
 } from '@/lib/messages/workbench/sessions'
 
-function queuedSession(overrides: Partial<WorkbenchSession> = {}): WorkbenchSession {
+function awaitingApprovalSession(overrides: Partial<WorkbenchSession> = {}): WorkbenchSession {
   return {
     sessionId: 'wbs_a',
     conversationId: 'conversation-a',
@@ -28,7 +28,7 @@ function queuedSession(overrides: Partial<WorkbenchSession> = {}): WorkbenchSess
     shell: 'zsh',
     cols: 120,
     rows: 40,
-    status: 'queued',
+    status: 'awaiting_approval',
     attempt: 0,
     encryptedCreateControl: { ciphertext: 'cipher', iv: 'iv', tag: 'tag' },
     createdAtMs: 1_000,
@@ -36,6 +36,16 @@ function queuedSession(overrides: Partial<WorkbenchSession> = {}): WorkbenchSess
     ttlExpiresAtMs: 100_000,
     ...overrides,
   }
+}
+
+/** An approved session, i.e. what a device may actually claim. */
+function queuedSession(overrides: Partial<WorkbenchSession> = {}): WorkbenchSession {
+  return awaitingApprovalSession({
+    status: 'queued',
+    approvedByUserId: 'user-a',
+    approvedAtMs: 1_500,
+    ...overrides,
+  })
 }
 
 describe('resolveWorkbenchSessionShell', () => {
@@ -141,6 +151,7 @@ describe('appendWorkbenchSessionControl', () => {
 
 describe('isTerminalWorkbenchSessionStatus', () => {
   it('classifies terminal vs. non-terminal statuses', () => {
+    expect(isTerminalWorkbenchSessionStatus('awaiting_approval')).toBe(false)
     expect(isTerminalWorkbenchSessionStatus('queued')).toBe(false)
     expect(isTerminalWorkbenchSessionStatus('claimed')).toBe(false)
     expect(isTerminalWorkbenchSessionStatus('running')).toBe(false)
@@ -161,9 +172,41 @@ describe('publicWorkbenchSession', () => {
     expect(view.progress).toEqual([{ seq: 0, stream: 'stdout', text: 'v20.0.0\n', atMs: 1_000 }])
     expect(JSON.stringify(view)).not.toMatch(/encrypted|credential|relativeFolder|Users\//i)
   })
+
+  it('flags approvalRequired only while awaiting_approval, and surfaces approvedAt once approved', () => {
+    expect(publicWorkbenchSession(awaitingApprovalSession()).approvalRequired).toBe(true)
+    const approved = publicWorkbenchSession(queuedSession())
+    expect(approved.approvalRequired).toBe(false)
+    expect(approved.approvedAt).toBe(new Date(1_500).toISOString())
+  })
 })
 
 describe('workbench session queue transitions', () => {
+  it('always starts awaiting_approval and approve flips it to queued', () => {
+    const approved = transitionWorkbenchSession(awaitingApprovalSession(), {
+      type: 'approve', approverUserId: 'user-a', nowMs: 2_000,
+    })
+    expect(approved).toMatchObject({ status: 'queued', approvedByUserId: 'user-a', approvedAtMs: 2_000 })
+  })
+
+  it('rejects approval by a different user, of an already-queued session, or once expired', () => {
+    expect(() => transitionWorkbenchSession(awaitingApprovalSession(), {
+      type: 'approve', approverUserId: 'user-b', nowMs: 2_000,
+    })).toThrow('workbench: session approval owner mismatch')
+    expect(() => transitionWorkbenchSession(queuedSession(), {
+      type: 'approve', approverUserId: 'user-a', nowMs: 2_000,
+    })).toThrow('workbench: session is not awaiting approval')
+    expect(() => transitionWorkbenchSession(awaitingApprovalSession({ ttlExpiresAtMs: 1_500 }), {
+      type: 'approve', approverUserId: 'user-a', nowMs: 2_000,
+    })).toThrow('workbench: session expired')
+  })
+
+  it('refuses to claim a session that was never approved', () => {
+    expect(() => transitionWorkbenchSession(awaitingApprovalSession(), {
+      type: 'claimCreate', deviceId: 'device-a', credentialVersion: 3, nowMs: 2_000, leaseMs: 90_000,
+    })).toThrow('workbench: session already claimed')
+  })
+
   it('claims the create control, generating a lease and incrementing attempt', () => {
     const claimed = transitionWorkbenchSession(queuedSession(), {
       type: 'claimCreate', deviceId: 'device-a', credentialVersion: 3, nowMs: 2_000, leaseMs: 90_000,
@@ -233,7 +276,9 @@ describe('workbench session queue transitions', () => {
       .toThrow('workbench: session already final')
   })
 
-  it('kills a queued session directly (no pty exists yet) but refuses to kill an already-claimed one this way', () => {
+  it('kills an unapproved or queued session directly (no pty exists yet) but refuses to kill an already-claimed one this way', () => {
+    expect(transitionWorkbenchSession(awaitingApprovalSession(), { type: 'killQueued', nowMs: 4_000 }))
+      .toMatchObject({ status: 'killed', encryptedCreateControl: null })
     const killed = transitionWorkbenchSession(queuedSession(), { type: 'killQueued', nowMs: 4_000 })
     expect(killed).toMatchObject({ status: 'killed', encryptedCreateControl: null })
     expect(() => transitionWorkbenchSession(queuedSession({ status: 'running' }), { type: 'killQueued', nowMs: 4_000 }))

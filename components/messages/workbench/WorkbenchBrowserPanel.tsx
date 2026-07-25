@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Confirmed browser screenshot artifacts are intentionally rendered without Next image optimization. */
 
-import { type FormEvent, type MouseEvent, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   WorkbenchBrowserSessionViewState,
   WorkbenchBrowserSessionViewStatus,
@@ -17,7 +17,18 @@ import {
 } from '@/lib/messages/workbench/browser-session-client'
 
 const MAX_ANNOTATION_LENGTH = 1_000
+const MAX_DRIVE_TYPE_LENGTH = 500
 const DEFAULT_TUNNEL_PORT = 3000
+/** Mirrors the server's `sanitizeWorkbenchTunnelPort` range so the inline error matches what the API would reject. */
+const MIN_TUNNEL_PORT = 1024
+const MAX_TUNNEL_PORT = 65_535
+const TUNNEL_PORT_ERROR = `Port must be a whole number between ${MIN_TUNNEL_PORT} and ${MAX_TUNNEL_PORT}.`
+
+/** cloudflared missing from PATH is by far the most common tunnel failure, and it has a one-line fix. */
+function cloudflaredInstallHint(error: string | null | undefined): boolean {
+  if (!error) return false
+  return /cloudflared|ENOENT|not found|no such file/i.test(error)
+}
 
 const TUNNEL_STATUS_LABEL: Record<WorkbenchTunnelViewStatus, string> = {
   idle: 'Not started',
@@ -163,6 +174,18 @@ export interface WorkbenchDesignPin {
   note: string
   url: string | null
   title: string
+  /**
+   * Identity of the frame the point was picked on. Agent frames are replaced
+   * as the session streams, so a pin whose `frameId` no longer matches the
+   * visible frame is drawn at coordinates that may no longer mean anything.
+   */
+  frameId: string | null
+}
+
+interface WorkbenchDesignPoint {
+  xPct: number
+  yPct: number
+  frameId: string | null
 }
 
 function createPinId(): string {
@@ -195,6 +218,18 @@ export interface WorkbenchBrowserPanelProps {
   onCaptureBrowserSession?: () => void
   /** Closes the active browser session. */
   onKillBrowserSession?: () => void
+  /**
+   * Drives a real click in the agent's browser at a point on the current
+   * frame, given in percent of the frame's width/height. The host converts
+   * percentages to viewport CSS pixels — the panel never sees the viewport.
+   */
+  onClickAt?: (xPct: number, yPct: number) => void
+  /** Types text into whatever the agent's browser currently has focused (usually right after a drive click). */
+  onTypeAt?: (text: string) => void
+  /** Turns on device-side frame following so frames stream without an explicit Capture. */
+  onFollowStart?: () => void
+  /** Turns device-side frame following back off. */
+  onFollowStop?: () => void
 }
 
 export function WorkbenchBrowserPanel({
@@ -210,6 +245,10 @@ export function WorkbenchBrowserPanel({
   onNavigateBrowserSession,
   onCaptureBrowserSession,
   onKillBrowserSession,
+  onClickAt,
+  onTypeAt,
+  onFollowStart,
+  onFollowStop,
 }: WorkbenchBrowserPanelProps) {
   const [selectedId, setSelectedId] = useState<string | null>(targets[0]?.id ?? null)
   const [draftUrl, setDraftUrl] = useState('')
@@ -221,11 +260,14 @@ export function WorkbenchBrowserPanel({
   const [followingSession, setFollowingSession] = useState(false)
   const [designMode, setDesignMode] = useState(false)
   // Draft point/note being composed on the current frame — cleared on frame/target changes.
-  const [draftPoint, setDraftPoint] = useState<{ xPct: number; yPct: number } | null>(null)
+  const [draftPoint, setDraftPoint] = useState<WorkbenchDesignPoint | null>(null)
   const [draftNote, setDraftNote] = useState('')
+  const [driveTypeText, setDriveTypeText] = useState('')
+  const [driveTypeOpen, setDriveTypeOpen] = useState(false)
   // Committed pins — intentionally NOT reset by live frame updates or target switches, only by "Clear pins".
   const [pins, setPins] = useState<WorkbenchDesignPin[]>([])
   const [tunnelPortInput, setTunnelPortInput] = useState(String(DEFAULT_TUNNEL_PORT))
+  const [tunnelPortError, setTunnelPortError] = useState<string | null>(null)
   const [browserStartUrlInput, setBrowserStartUrlInput] = useState('')
   const [browserNavigateUrlInput, setBrowserNavigateUrlInput] = useState('')
 
@@ -233,9 +275,62 @@ export function WorkbenchBrowserPanel({
   const latestFrame = frames[frames.length - 1]
   const activeTunnelHost = useMemo(() => hostOf(tunnel?.publicUrl), [tunnel?.publicUrl])
 
+  /** The frame a point picked *right now* would belong to — see `WorkbenchDesignPin.frameId`. */
+  const currentFrameId = preparedImageUrl ?? preparedUrl ?? null
+
+  // Following is device-side state, so it has to be turned back off on every exit path
+  // (toggle, preview switch, unmount) rather than only when the button is clicked again.
+  const followingRef = useRef(false)
+  const onFollowStopRef = useRef(onFollowStop)
+  useEffect(() => {
+    onFollowStopRef.current = onFollowStop
+  }, [onFollowStop])
+
+  const stopFollowingSession = useCallback(() => {
+    setFollowingSession(false)
+    if (!followingRef.current) return
+    followingRef.current = false
+    onFollowStopRef.current?.()
+  }, [])
+
+  const startFollowingSession = useCallback(() => {
+    setFollowingSession(true)
+    if (followingRef.current) return
+    followingRef.current = true
+    onFollowStart?.()
+  }, [onFollowStart])
+
+  useEffect(() => () => {
+    if (!followingRef.current) return
+    followingRef.current = false
+    onFollowStopRef.current?.()
+  }, [])
+
+  // Hosts that report `following` own the flag (they can auto-follow a session that just
+  // started running), so the toggle mirrors them instead of drifting out of sync.
+  const hostFollowing = browserSession?.following
+  useEffect(() => {
+    if (hostFollowing === undefined) return
+    followingRef.current = hostFollowing
+    setFollowingSession(hostFollowing)
+  }, [hostFollowing])
+
   useEffect(() => {
     if (!targets.some((target) => target.id === selectedId)) setSelectedId(targets[0]?.id ?? null)
   }, [selectedId, targets])
+
+  // Escape leaves Design Mode — a full-bleed crosshair overlay needs a keyboard way out.
+  useEffect(() => {
+    if (!designMode) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setDesignMode(false)
+      setDraftPoint(null)
+      setDriveTypeOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [designMode])
 
   useEffect(() => {
     if (!streaming || !latestFrame?.imageUrl) return
@@ -251,15 +346,15 @@ export function WorkbenchBrowserPanel({
     setPreparedImageUrl(result.url)
     setPreparedTitle(latestFrame.title || 'Agent browser frame')
     setValidationError(null)
-    setDraftPoint(null)
   }, [latestFrame?.id, latestFrame?.imageUrl, latestFrame?.title, streaming, activeTunnelHost])
 
   // Follows the agent browser session's most recently captured frame, mirroring the target-based streaming above.
+  // A draft point deliberately survives the swap: it carries the frame it was picked on, and the UI flags the drift.
   useEffect(() => {
     if (!followingSession || !browserSession?.latestFrameUrl) return
     const result = safeObservedUrl(browserSession.latestFrameUrl, activeTunnelHost)
     if (!result.url) {
-      setFollowingSession(false)
+      stopFollowingSession()
       setValidationError(result.error)
       return
     }
@@ -267,8 +362,7 @@ export function WorkbenchBrowserPanel({
     setPreparedImageUrl(result.url)
     setPreparedTitle('Agent browser session frame')
     setValidationError(null)
-    setDraftPoint(null)
-  }, [followingSession, browserSession?.latestFrameUrl, activeTunnelHost])
+  }, [followingSession, browserSession?.latestFrameUrl, activeTunnelHost, stopFollowingSession])
 
   const selected = targets.find((target) => target.id === selectedId) ?? targets[0]
 
@@ -282,7 +376,7 @@ export function WorkbenchBrowserPanel({
       ? selected.title || (selected.imageUrl ? 'Agent browser frame' : 'Local app preview')
       : 'Local app preview')
     setStreaming(false)
-    setFollowingSession(false)
+    stopFollowingSession()
     setDesignMode(false)
     setDraftPoint(null)
   }
@@ -297,7 +391,7 @@ export function WorkbenchBrowserPanel({
     setPreparedImageUrl(null)
     setPreparedTitle('Tunnel preview')
     setStreaming(false)
-    setFollowingSession(false)
+    stopFollowingSession()
     setDesignMode(false)
     setDraftPoint(null)
   }
@@ -321,35 +415,40 @@ export function WorkbenchBrowserPanel({
     setValidationError(null)
     setDesignMode(false)
     setDraftPoint(null)
-    setFollowingSession(false)
+    stopFollowingSession()
     setStreaming(true)
   }
 
   const toggleFollowSession = () => {
     if (followingSession) {
-      setFollowingSession(false)
+      stopFollowingSession()
       return
     }
-    if (!browserSession?.latestFrameUrl) return
-    const result = safeObservedUrl(browserSession.latestFrameUrl, activeTunnelHost)
-    if (!result.url) {
-      setValidationError(result.error)
-      return
+    // Following can be armed before the first frame lands — the device starts streaming once it's on.
+    if (browserSession?.latestFrameUrl) {
+      const result = safeObservedUrl(browserSession.latestFrameUrl, activeTunnelHost)
+      if (!result.url) {
+        setValidationError(result.error)
+        return
+      }
+      setPreparedUrl(result.url)
+      setPreparedImageUrl(result.url)
+      setPreparedTitle('Agent browser session frame')
     }
-    setPreparedUrl(result.url)
-    setPreparedImageUrl(result.url)
-    setPreparedTitle('Agent browser session frame')
     setValidationError(null)
-    setDesignMode(false)
     setDraftPoint(null)
     setStreaming(false)
-    setFollowingSession(true)
+    startFollowingSession()
   }
 
   const submitTunnelPort = (event: FormEvent) => {
     event.preventDefault()
-    const port = Number.parseInt(tunnelPortInput, 10)
-    if (!Number.isFinite(port) || port <= 0 || port > 65_535) return
+    const port = Number.parseInt(tunnelPortInput.trim(), 10)
+    if (!Number.isInteger(port) || port < MIN_TUNNEL_PORT || port > MAX_TUNNEL_PORT) {
+      setTunnelPortError(TUNNEL_PORT_ERROR)
+      return
+    }
+    setTunnelPortError(null)
     onStartTunnel?.(port)
   }
 
@@ -371,7 +470,9 @@ export function WorkbenchBrowserPanel({
     setDraftPoint({
       xPct: Math.min(100, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 100)),
       yPct: Math.min(100, Math.max(0, ((event.clientY - bounds.top) / bounds.height) * 100)),
+      frameId: currentFrameId,
     })
+    setDriveTypeOpen(false)
   }
 
   const addDraftPin = () => {
@@ -383,6 +484,7 @@ export function WorkbenchBrowserPanel({
       note: draftNote.trim(),
       url: preparedUrl,
       title: preparedTitle,
+      frameId: draftPoint.frameId,
     }])
     setDraftNote('')
     setDraftPoint(null)
@@ -406,6 +508,7 @@ export function WorkbenchBrowserPanel({
   const hasPreparedTarget = Boolean(preparedImageUrl || preparedUrl)
 
   const tunnelStatus: WorkbenchTunnelViewStatus = tunnel?.status ?? 'idle'
+  const tunnelInstallHintVisible = cloudflaredInstallHint(tunnel?.error)
   const tunnelActive = WORKBENCH_TUNNEL_ACTIVE_STATUSES.has(tunnelStatus as never)
   const tunnelOpenDisabled = tunnelActive || tunnel?.busy || !onStartTunnel
   const tunnelKillDisabled = !tunnelActive || !tunnel?.sessionId || !onKillTunnel
@@ -418,6 +521,26 @@ export function WorkbenchBrowserPanel({
   const browserSessionApproveVisible = browserSessionStatus === 'awaiting_approval' && Boolean(onApproveBrowserSession)
   const browserSessionControllable = WORKBENCH_BROWSER_SESSION_CONTROL_STATUSES.has(browserSessionStatus as never)
   const browserSessionControlsDisabled = !browserSessionControllable || !browserSession?.sessionId
+  const browserSessionFollowVisible = Boolean(browserSession) && (browserSessionControllable || Boolean(browserSession?.latestFrameUrl))
+
+  // Driving only makes sense on a live agent frame: percentages map to the session's viewport,
+  // which is meaningless for a tunnel iframe or a historical screenshot artifact.
+  const driveEnabled = Boolean(onClickAt) && followingSession && browserSessionControllable && Boolean(preparedImageUrl)
+  const draftPointStale = Boolean(draftPoint) && draftPoint?.frameId !== currentFrameId
+
+  const driveClick = () => {
+    if (!draftPoint) return
+    onClickAt?.(draftPoint.xPct, draftPoint.yPct)
+  }
+
+  const driveType = (event: FormEvent) => {
+    event.preventDefault()
+    const text = driveTypeText.trim()
+    if (!text) return
+    onTypeAt?.(text)
+    setDriveTypeText('')
+    setDriveTypeOpen(false)
+  }
 
   return (
     <div data-testid="workbench-browser-panel" className="flex h-full min-h-0 flex-col">
@@ -427,16 +550,21 @@ export function WorkbenchBrowserPanel({
             <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-primary">cable</span>
             <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-pib-text-muted)]">Tunnel</p>
             <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${TUNNEL_STATUS_DOT[tunnelStatus]}`} />
-            <span data-testid="workbench-tunnel-status" className="text-[10px] text-[var(--color-pib-text-muted)]">{TUNNEL_STATUS_LABEL[tunnelStatus]}</span>
+            <span data-testid="workbench-tunnel-status" aria-live="polite" className="text-[10px] text-[var(--color-pib-text-muted)]">{TUNNEL_STATUS_LABEL[tunnelStatus]}</span>
           </div>
-          <form onSubmit={submitTunnelPort} className="flex items-center gap-1.5">
+          {/* noValidate: the inline error below is the single source of truth, instead of a native range tooltip. */}
+          <form onSubmit={submitTunnelPort} noValidate className="flex items-center gap-1.5">
             <input
               aria-label="Tunnel port"
               type="number"
-              min={1}
-              max={65535}
+              min={MIN_TUNNEL_PORT}
+              max={MAX_TUNNEL_PORT}
+              aria-invalid={Boolean(tunnelPortError)}
               value={tunnelPortInput}
-              onChange={(event) => setTunnelPortInput(event.target.value)}
+              onChange={(event) => {
+                setTunnelPortInput(event.target.value)
+                setTunnelPortError(null)
+              }}
               disabled={tunnelActive}
               className="min-h-8 w-20 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 font-mono text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-50"
             />
@@ -468,6 +596,9 @@ export function WorkbenchBrowserPanel({
               Kill
             </button>
           </form>
+          {tunnelPortError && (
+            <p role="alert" data-testid="workbench-tunnel-port-error" className="text-[10px] text-red-300">{tunnelPortError}</p>
+          )}
           {tunnel?.publicUrl && (
             <div className="flex items-center gap-1.5 rounded-md border border-emerald-400/25 bg-emerald-400/[0.06] px-2 py-1">
               <span data-testid="workbench-tunnel-public-url" className="min-w-0 flex-1 truncate font-mono text-[10px] text-emerald-200" title={tunnel.publicUrl}>
@@ -483,7 +614,20 @@ export function WorkbenchBrowserPanel({
               </button>
             </div>
           )}
-          {tunnel?.error && <p role="alert" className="text-[10px] text-red-300">{tunnel.error}</p>}
+          {tunnel?.progress && (
+            <p data-testid="workbench-tunnel-progress" aria-live="polite" className="truncate font-mono text-[10px] text-[var(--color-pib-text-muted)]" title={tunnel.progress}>
+              {tunnel.progress}
+            </p>
+          )}
+          {tunnel?.error && <p role="alert" data-testid="workbench-tunnel-error" className="text-[10px] text-red-300">{tunnel.error}</p>}
+          {tunnelInstallHintVisible && (
+            <p data-testid="workbench-tunnel-install-hint" className="rounded-md border border-amber-400/25 bg-amber-400/[0.06] px-2 py-1 text-[10px] text-amber-200">
+              cloudflared does not look installed. On macOS: <code className="font-mono">brew install cloudflared</code>
+            </p>
+          )}
+          <p className="text-[10px] leading-relaxed text-[var(--color-pib-text-muted)]">
+            Preview iframe needs a public URL (tunnel). Agent browser runs on your Mac and can use localhost.
+          </p>
         </div>
       )}
 
@@ -493,7 +637,7 @@ export function WorkbenchBrowserPanel({
             <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-primary">smart_toy</span>
             <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-pib-text-muted)]">Agent browser</p>
             <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${BROWSER_SESSION_STATUS_DOT[browserSessionStatus]}`} />
-            <span data-testid="workbench-agent-browser-status" className="text-[10px] text-[var(--color-pib-text-muted)]">{BROWSER_SESSION_STATUS_LABEL[browserSessionStatus]}</span>
+            <span data-testid="workbench-agent-browser-status" aria-live="polite" className="text-[10px] text-[var(--color-pib-text-muted)]">{BROWSER_SESSION_STATUS_LABEL[browserSessionStatus]}</span>
           </div>
           <form onSubmit={submitBrowserStartUrl} className="flex items-center gap-1.5">
             <input
@@ -558,22 +702,23 @@ export function WorkbenchBrowserPanel({
             >
               Capture
             </button>
-            {Boolean(browserSession?.latestFrameUrl) && (
+            {browserSessionFollowVisible && (
               <button
                 type="button"
-                aria-label={followingSession ? 'Pause following session frames' : 'Follow session frames'}
+                aria-label={followingSession ? 'Stop following agent frames' : 'Follow agent frames'}
+                aria-pressed={followingSession}
                 onClick={toggleFollowSession}
                 data-testid="workbench-agent-browser-follow"
                 className={`shrink-0 rounded-md border px-2 py-1.5 text-[10px] ${followingSession ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]'}`}
               >
-                {followingSession ? `Following · ${browserSession?.frameCount ?? 0}` : 'Follow frames'}
+                {followingSession ? `Following · ${browserSession?.frameCount ?? 0}` : 'Follow agent frames'}
               </button>
             )}
           </form>
           {browserSession?.currentUrl && (
             <p className="truncate text-[10px] text-[var(--color-pib-text-muted)]">Current: <span className="font-mono">{browserSession.currentUrl}</span></p>
           )}
-          {browserSession?.error && <p role="alert" className="text-[10px] text-red-300">{browserSession.error}</p>}
+          {browserSession?.error && <p role="alert" data-testid="workbench-agent-browser-error" className="text-[10px] text-red-300">{browserSession.error}</p>}
         </div>
       )}
 
@@ -587,7 +732,7 @@ export function WorkbenchBrowserPanel({
             setPreparedUrl(null)
             setPreparedImageUrl(null)
             setStreaming(false)
-            setFollowingSession(false)
+            stopFollowingSession()
             setDesignMode(false)
             setDraftPoint(null)
           }}
@@ -597,7 +742,7 @@ export function WorkbenchBrowserPanel({
         <button type="submit" className="min-h-9 rounded-md border border-[var(--color-card-border)] px-2 text-[11px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]">Prepare</button>
       </form>
 
-      {(frames.length > 0 || (hasPreparedTarget && onAddToChat)) && (
+      {(frames.length > 0 || (hasPreparedTarget && (onAddToChat || onClickAt))) && (
         <div className="flex min-h-9 shrink-0 items-center gap-2 border-b border-[var(--color-card-border)] px-2 py-1.5">
           {frames.length > 0 && (
             <button
@@ -610,12 +755,12 @@ export function WorkbenchBrowserPanel({
               {streaming ? `Live · ${frames.length} frames` : 'Start live stream'}
             </button>
           )}
-          {hasPreparedTarget && onAddToChat && (
+          {hasPreparedTarget && (onAddToChat || onClickAt) && (
             <button
               type="button"
               aria-label={designMode ? 'Disable Design Mode' : 'Enable Design Mode'}
               aria-pressed={designMode}
-              onClick={() => { setDesignMode((value) => !value); setDraftPoint(null) }}
+              onClick={() => { setDesignMode((value) => !value); setDraftPoint(null); setDriveTypeOpen(false) }}
               className={`ml-auto inline-flex min-h-7 items-center gap-1 rounded-md border px-2 text-[10px] ${designMode ? 'border-primary/40 bg-primary/10 text-primary' : 'border-[var(--color-card-border)] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]'}`}
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[14px]">design_services</span>
@@ -643,7 +788,7 @@ export function WorkbenchBrowserPanel({
                   setPreparedImageUrl(null)
                   setValidationError(null)
                   setStreaming(false)
-                  setFollowingSession(false)
+                  stopFollowingSession()
                   setDesignMode(false)
                   setDraftPoint(null)
                 }}
@@ -702,7 +847,15 @@ export function WorkbenchBrowserPanel({
             </div>
 
             <div className="mt-2 flex shrink-0 items-center justify-between gap-2 text-[10px] text-[var(--color-pib-text-muted)]">
-              <span>{preparedImageUrl ? (streaming ? 'Following agent screenshot events.' : 'Confirmed screenshot artifact.') : 'Sandboxed public preview. If framing is blocked, open it in a new tab.'}</span>
+              <span data-testid="workbench-preview-kind" aria-live="polite">
+                {preparedImageUrl
+                  ? followingSession
+                    ? 'Agent frames — live from the browser running on your Mac.'
+                    : streaming
+                      ? 'Agent frames — following screenshot events.'
+                      : 'Agent frames — confirmed screenshot artifact.'
+                  : 'Public preview iframe — sandboxed. If framing is blocked, open it in a new tab.'}
+              </span>
               {preparedUrl && (
                 <a href={preparedUrl} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer" className="shrink-0 text-primary hover:underline">Open preview in new tab</a>
               )}
@@ -710,8 +863,71 @@ export function WorkbenchBrowserPanel({
 
             {designMode && (
               <div className="mt-2 shrink-0 space-y-2">
+                {driveEnabled && (
+                  <div data-testid="workbench-design-drive" className="rounded-md border border-emerald-400/25 bg-emerald-400/[0.06] p-2">
+                    <p className="mb-1.5 text-[10px] text-[var(--color-pib-text-muted)]">
+                      {draftPoint
+                        ? 'Drive the agent browser at this point, or keep it as a note for chat.'
+                        : 'Pick a point on the frame to click it in the agent browser.'}
+                    </p>
+                    {draftPointStale && (
+                      <p role="status" data-testid="workbench-design-frame-drift" className="mb-1.5 text-[10px] text-amber-200">
+                        The frame changed after you picked this point — re-pick it before clicking.
+                      </p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={driveClick}
+                        disabled={!draftPoint}
+                        data-testid="workbench-design-click-here"
+                        className="min-h-7 rounded-md border border-emerald-400/40 bg-emerald-400/15 px-2 text-[10px] font-semibold text-emerald-200 hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Click here
+                      </button>
+                      {onTypeAt && (
+                        <button
+                          type="button"
+                          onClick={() => setDriveTypeOpen((value) => !value)}
+                          disabled={!draftPoint}
+                          aria-expanded={driveTypeOpen}
+                          data-testid="workbench-design-type-toggle"
+                          className="min-h-7 rounded-md border border-[var(--color-card-border)] px-2 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Type…
+                        </button>
+                      )}
+                    </div>
+                    {onTypeAt && driveTypeOpen && draftPoint && (
+                      <form onSubmit={driveType} className="mt-1.5 flex items-center gap-1.5">
+                        <input
+                          aria-label="Text to type in the agent browser"
+                          value={driveTypeText}
+                          maxLength={MAX_DRIVE_TYPE_LENGTH}
+                          onChange={(event) => setDriveTypeText(event.target.value)}
+                          placeholder="Text to type into the focused field…"
+                          className="min-h-7 min-w-0 flex-1 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 text-[11px] text-[var(--color-pib-text)] outline-none focus:border-primary/60"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!driveTypeText.trim()}
+                          data-testid="workbench-design-type-send"
+                          className="min-h-7 shrink-0 rounded-md border border-emerald-400/40 bg-emerald-400/15 px-2 text-[10px] font-medium text-emerald-200 hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Type
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                )}
+
+                {onAddToChat && (
                 <div className="rounded-md border border-primary/25 bg-primary/[0.06] p-2">
-                  <p className="mb-1 text-[10px] text-[var(--color-pib-text-muted)]">Click the preview, describe the change, then add a pin. Nothing is sent automatically.</p>
+                  <p className="mb-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                    {driveEnabled
+                      ? 'Or describe the change and add a pin — pins are only added to the composer, never sent.'
+                      : 'Click the preview, describe the change, then add a pin. Nothing is sent automatically.'}
+                  </p>
                   <textarea
                     aria-label="Design annotation"
                     value={draftNote}
@@ -722,7 +938,9 @@ export function WorkbenchBrowserPanel({
                   />
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <span className="text-[9px] text-[var(--color-pib-text-muted)]">
-                      {draftPoint ? `Point ${Math.round(draftPoint.xPct)}%, ${Math.round(draftPoint.yPct)}%` : 'No point selected'}
+                      {draftPoint
+                        ? `Point ${Math.round(draftPoint.xPct)}%, ${Math.round(draftPoint.yPct)}%${draftPointStale ? ' · frame changed' : ''}`
+                        : 'No point selected'}
                     </span>
                     <button
                       type="button"
@@ -735,6 +953,7 @@ export function WorkbenchBrowserPanel({
                     </button>
                   </div>
                 </div>
+                )}
 
                 {pins.length > 0 && (
                   <div data-testid="workbench-design-pin-list" className="rounded-md border border-[var(--color-card-border)] bg-black/20 p-2">
@@ -768,7 +987,10 @@ export function WorkbenchBrowserPanel({
                             {index + 1}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[9px] text-[var(--color-pib-text-muted)]">{Math.round(pin.xPct)}%, {Math.round(pin.yPct)}%</p>
+                            <p className="text-[9px] text-[var(--color-pib-text-muted)]">
+                              {Math.round(pin.xPct)}%, {Math.round(pin.yPct)}%
+                              {pin.frameId !== currentFrameId && <span className="ml-1 text-amber-200/80">· from an earlier frame</span>}
+                            </p>
                             <p className="truncate text-[10px] text-[var(--color-pib-text)]" title={pin.note}>{pin.note}</p>
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
@@ -800,10 +1022,25 @@ export function WorkbenchBrowserPanel({
             )}
           </>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-[11px] text-[var(--color-pib-text-muted)]">
+          <div data-testid="workbench-browser-empty-state" className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-[11px] text-[var(--color-pib-text-muted)]">
             <span aria-hidden="true" className="material-symbols-outlined text-[24px]">visibility_off</span>
-            <p>Select an observed target, then choose Prepare. Targets and screenshots never load automatically.</p>
-            <p className="text-[10px] opacity-80">Agent screenshot events can be followed as a live stream; public preview URLs can be embedded after validation.</p>
+            <p>Nothing is loaded yet. Targets and screenshots never load automatically.</p>
+            <ol className="w-full max-w-[260px] space-y-1.5 text-left text-[10px]">
+              {[
+                { label: 'Open tunnel', hint: 'Publishes a local port so the preview iframe has a public URL.' },
+                { label: 'Start browser', hint: 'Runs headless Chrome on your Mac after you approve it.' },
+                { label: 'Follow frames', hint: 'Streams the agent\u2019s frames here, and lets Design Mode drive clicks.' },
+              ].map((step, index) => (
+                <li key={step.label} className="flex items-start gap-2 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 py-1.5">
+                  <span aria-hidden="true" className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border border-primary/40 text-[8px] font-bold text-primary">{index + 1}</span>
+                  <span className="min-w-0">
+                    <span className="block font-medium text-[var(--color-pib-text)]">{step.label}</span>
+                    <span className="block opacity-80">{step.hint}</span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="text-[10px] opacity-80">Already have a public URL? Paste it above and choose Prepare.</p>
           </div>
         )}
       </div>

@@ -3,6 +3,32 @@ import { useState } from 'react'
 import { WorkbenchTerminalPanel } from '@/components/messages/workbench/WorkbenchTerminalPanel'
 import type { WorkbenchSessionViewState, WorkbenchTerminalMode } from '@/lib/messages/workbench/types'
 
+/**
+ * The real emulator is covered by WorkbenchXterm.test.tsx; here it is stubbed
+ * so these tests can assert wiring (which props the panel hands down, and that
+ * the xterm surface replaces the plain transcript dump) without a canvas.
+ */
+jest.mock('@/components/messages/workbench/WorkbenchXterm', () => ({
+  WorkbenchXterm: ({ output, onData, onResize, disabled }: {
+    output: string
+    onData?: (data: string) => void
+    onResize?: (cols: number, rows: number) => void
+    disabled?: boolean
+  }) => (
+    <div data-testid="workbench-xterm" data-disabled={String(Boolean(disabled))}>
+      <span data-testid="workbench-xterm-output">{output}</span>
+      <button type="button" data-testid="workbench-xterm-emit-data" onClick={() => onData?.('\u0003')}>data</button>
+      <button type="button" data-testid="workbench-xterm-emit-resize" onClick={() => onResize?.(80, 24)}>resize</button>
+    </div>
+  ),
+}))
+
+function sessionState(overrides: Partial<WorkbenchSessionViewState> = {}): WorkbenchSessionViewState {
+  return {
+    sessionId: 'sess-1', status: 'running', transcript: '', exitCode: null, error: null, busy: false, ...overrides,
+  }
+}
+
 describe('WorkbenchTerminalPanel — Jobs mode', () => {
   it('defaults to Jobs mode and keeps the allowlisted command bar working', () => {
     const onRunCommand = jest.fn()
@@ -51,14 +77,14 @@ describe('WorkbenchTerminalPanel — Session mode', () => {
     expect(onStartSession).toHaveBeenCalledWith()
   })
 
-  it('renders the live transcript and status chip for a running session, with input always enabled', () => {
-    const session: WorkbenchSessionViewState = {
-      sessionId: 'sess-1', status: 'running', transcript: '$ bash\nready>', exitCode: null, error: null, busy: false,
-    }
+  it('renders the live transcript in the xterm surface for a running session, with input always enabled', () => {
+    const session = sessionState({ transcript: '$ bash\nready>' })
     render(<WorkbenchTerminalPanel entries={[]} mode="session" session={session} onSendSessionInput={jest.fn()} onKillSession={jest.fn()} />)
 
     expect(screen.getByTestId('workbench-session-status')).toHaveTextContent('Running')
-    expect(screen.getByTestId('workbench-session-transcript')).toHaveTextContent('ready>')
+    expect(screen.getByTestId('workbench-xterm-output')).toHaveTextContent('ready>')
+    // The xterm surface owns the transcript once a pty exists — no plain dump alongside it.
+    expect(screen.queryByTestId('workbench-session-transcript')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Session stdin')).toBeEnabled()
     expect(screen.getByTestId('workbench-session-kill')).toBeEnabled()
     // Starting a new session while one is active is disallowed.
@@ -67,10 +93,7 @@ describe('WorkbenchTerminalPanel — Session mode', () => {
 
   it('sends a stdin line on Enter/submit and clears the input', () => {
     const onSendSessionInput = jest.fn()
-    const session: WorkbenchSessionViewState = {
-      sessionId: 'sess-1', status: 'running', transcript: '', exitCode: null, error: null, busy: false,
-    }
-    render(<WorkbenchTerminalPanel entries={[]} mode="session" session={session} onSendSessionInput={onSendSessionInput} />)
+    render(<WorkbenchTerminalPanel entries={[]} mode="session" session={sessionState()} onSendSessionInput={onSendSessionInput} />)
 
     const input = screen.getByLabelText('Session stdin')
     fireEvent.change(input, { target: { value: 'echo hi' } })
@@ -122,6 +145,145 @@ describe('WorkbenchTerminalPanel — Session mode', () => {
     expect(screen.getByTestId('workbench-session-start')).toBeDisabled()
     expect(screen.getByTestId('workbench-session-kill')).toBeDisabled()
     expect(screen.getByLabelText('Session stdin')).toBeDisabled()
+  })
+})
+
+describe('WorkbenchTerminalPanel — session approval', () => {
+  it('shows Approve plus a consent notice while the session is awaiting approval, and no pty surface yet', () => {
+    const onApproveSession = jest.fn()
+    render(<WorkbenchTerminalPanel
+      entries={[]}
+      mode="session"
+      session={sessionState({ status: 'awaiting_approval' })}
+      onApproveSession={onApproveSession}
+      onKillSession={jest.fn()}
+      onStartSession={jest.fn()}
+    />)
+
+    expect(screen.getByTestId('workbench-session-status')).toHaveTextContent('Awaiting approval')
+    expect(screen.getByTestId('workbench-session-approval-notice')).toHaveTextContent('unrestricted shell')
+    expect(screen.queryByTestId('workbench-xterm')).not.toBeInTheDocument()
+    // A session awaiting approval is already active, so Start is blocked but Kill is offered.
+    expect(screen.getByTestId('workbench-session-start')).toBeDisabled()
+    expect(screen.getByTestId('workbench-session-kill')).toBeEnabled()
+    expect(screen.getByLabelText('Session stdin')).toBeDisabled()
+
+    fireEvent.click(screen.getByTestId('workbench-session-approve'))
+    expect(onApproveSession).toHaveBeenCalled()
+  })
+
+  it('exposes accessible names for the Approve and Kill controls', () => {
+    render(<WorkbenchTerminalPanel
+      entries={[]}
+      mode="session"
+      session={sessionState({ status: 'awaiting_approval' })}
+      onApproveSession={jest.fn()}
+      onKillSession={jest.fn()}
+    />)
+
+    expect(screen.getByRole('button', { name: 'Approve full shell session' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Kill shell session' })).toBeEnabled()
+  })
+
+  it('disables Approve while an approval request is already in flight', () => {
+    render(<WorkbenchTerminalPanel
+      entries={[]}
+      mode="session"
+      session={sessionState({ status: 'awaiting_approval', busy: true })}
+      onApproveSession={jest.fn()}
+    />)
+
+    expect(screen.getByTestId('workbench-session-approve')).toBeDisabled()
+  })
+
+  it('hides Approve once the session has been approved and queued', () => {
+    render(<WorkbenchTerminalPanel entries={[]} mode="session" session={sessionState({ status: 'queued' })} onApproveSession={jest.fn()} />)
+
+    expect(screen.getByTestId('workbench-session-status')).toHaveTextContent('Queued')
+    expect(screen.queryByTestId('workbench-session-approve')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('workbench-session-approval-notice')).not.toBeInTheDocument()
+  })
+})
+
+describe('WorkbenchTerminalPanel — xterm wiring', () => {
+  it('forwards raw keystrokes and fitted grid sizes from the emulator to the host', () => {
+    const onSendSessionData = jest.fn()
+    const onResizeSession = jest.fn()
+    render(<WorkbenchTerminalPanel
+      entries={[]}
+      mode="session"
+      session={sessionState()}
+      onSendSessionData={onSendSessionData}
+      onResizeSession={onResizeSession}
+    />)
+
+    fireEvent.click(screen.getByTestId('workbench-xterm-emit-data'))
+    fireEvent.click(screen.getByTestId('workbench-xterm-emit-resize'))
+
+    expect(onSendSessionData).toHaveBeenCalledWith('\u0003')
+    expect(onResizeSession).toHaveBeenCalledWith(80, 24)
+  })
+
+  it('keeps the final screen readable after exit, with keyboard input disabled', () => {
+    render(<WorkbenchTerminalPanel
+      entries={[]}
+      mode="session"
+      session={sessionState({ status: 'exited', transcript: 'bye\n', exitCode: 0 })}
+      onSendSessionData={jest.fn()}
+    />)
+
+    expect(screen.getByTestId('workbench-xterm-output')).toHaveTextContent('bye')
+    expect(screen.getByTestId('workbench-xterm')).toHaveAttribute('data-disabled', 'true')
+  })
+
+  it('leaves the emulator enabled for a running session with a raw-stdin handler', () => {
+    render(<WorkbenchTerminalPanel entries={[]} mode="session" session={sessionState()} onSendSessionData={jest.fn()} />)
+    expect(screen.getByTestId('workbench-xterm')).toHaveAttribute('data-disabled', 'false')
+  })
+
+  it('adds an install hint when the failure is a missing node-pty on the linked computer', () => {
+    render(<WorkbenchTerminalPanel
+      entries={[]}
+      mode="session"
+      session={sessionState({ sessionId: null, status: 'error', error: "Cannot find module 'node-pty'" })}
+      onStartSession={jest.fn()}
+    />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent("Cannot find module 'node-pty'")
+    expect(screen.getByTestId('workbench-session-node-pty-hint')).toHaveTextContent('npm install node-pty')
+  })
+
+  it('recognises the runtime’s own optional-dependency wording', () => {
+    render(<WorkbenchTerminalPanel
+      entries={[]}
+      mode="session"
+      session={sessionState({
+        status: 'failed',
+        error: 'interactive workbench sessions require the optional "node-pty" dependency, which is not installed in this runtime build.',
+      })}
+    />)
+
+    expect(screen.getByTestId('workbench-session-node-pty-hint')).toBeInTheDocument()
+  })
+
+  it('does not add the node-pty hint to unrelated failures', () => {
+    render(<WorkbenchTerminalPanel
+      entries={[]}
+      mode="session"
+      session={sessionState({ sessionId: null, status: 'error', error: 'Linked computer is offline' })}
+      onStartSession={jest.fn()}
+    />)
+
+    expect(screen.queryByTestId('workbench-session-node-pty-hint')).not.toBeInTheDocument()
+  })
+})
+
+describe('WorkbenchTerminalPanel — mode labels', () => {
+  it('labels Jobs as safe one-shots and Session as an approval-gated full shell', () => {
+    render(<WorkbenchTerminalPanel entries={[]} onRunCommand={jest.fn()} />)
+
+    expect(screen.getByTestId('workbench-terminal-mode-jobs')).toHaveTextContent('Safe one-shots')
+    expect(screen.getByTestId('workbench-terminal-mode-session')).toHaveTextContent('Full shell (approval required)')
   })
 })
 
