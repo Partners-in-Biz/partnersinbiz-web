@@ -13,19 +13,25 @@ const nextConfig: NextConfig = {
     root: projectRoot,
   },
   experimental: {
-    // Keep the production build inside Vercel's 8 GB container. The custom
-    // webpack hook below disables Next's automatic build-worker isolation, so
-    // opt back in explicitly and bound page-data/static-generation workers.
-    webpackBuildWorker: true,
+    // Keep the production build inside Vercel's 8 GB container.
+    // webpackBuildWorker must stay OFF: with the Phase 5 Messages/Workbench
+    // graph (esp. UnifiedChat), the worker IPC path JSON.stringifies compilation
+    // payloads and dies with `RangeError: Invalid string length` on 8 GB builds.
+    // Run webpack in-process; bound static generation instead.
+    webpackBuildWorker: false,
     webpackMemoryOptimizations: true,
     cpus: 1,
     staticGenerationMaxConcurrency: 1,
   },
   transpilePackages: ['@partnersinbiz/analytics-js'],
   serverExternalPackages: ['@react-pdf/renderer'],
+  productionBrowserSourceMaps: false,
   webpack(config, { dev }) {
     if (!dev) {
       config.cache = false
+      // Avoid giant stats/source-map strings during compile (same Invalid string length class).
+      config.devtool = false
+      config.stats = 'errors-only'
     }
 
     return config
