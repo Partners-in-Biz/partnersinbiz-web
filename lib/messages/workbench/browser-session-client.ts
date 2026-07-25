@@ -1,66 +1,60 @@
 /**
- * Client-safe helpers for the Messages workbench agent browser sessions
- * (Phase 4b) — a live, controllable browser on the linked computer, distinct
- * from `browser-client.ts`'s Design Mode URL validation and the read-only
- * screenshot targets derived from conversation events. Mirrors
- * `session-client.ts`'s create/get/kill pattern, plus an approval step and
- * navigate/capture actions:
+ * Client-safe helpers for the Messages workbench Browser control sessions
+ * (Phase 4b) — a live, controllable headless Chrome on the linked computer,
+ * distinct from `browser-client.ts`'s Design Mode URL validation and the
+ * read-only screenshot targets derived from conversation events. Mirrors
+ * `tunnel-client.ts`'s fetch-flavored helpers, but talks to the browser
+ * session endpoints built in `browser-session-store.ts` / the
+ * `app/api/v1/conversations/[convId]/workbench/browser/sessions/**` routes:
  *
- *   POST /api/v1/conversations/{id}/workbench/browser/sessions            { startUrl?, viewport? }
- *   GET  /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}
- *   POST /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/approve
- *   POST /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/navigate  { url }
- *   POST /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/capture
- *   POST /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/kill
+ *   POST   /api/v1/conversations/{id}/workbench/browser/sessions            { startUrl?, viewport? }
+ *   GET    /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}
+ *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/approve
+ *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/navigate  { url }
+ *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/capture
+ *   POST   /api/v1/conversations/{id}/workbench/browser/sessions/{sessionId}/kill
  *
- * These routes are being built by a parallel workstream — every helper here
- * throws a readable `Error` on a non-2xx response (including a 404/501
- * while the route doesn't exist yet), so the UI layer can render an inline
- * error instead of crashing.
+ * A browser session always starts `awaiting_approval` — a real browser
+ * reaching the open internet from the linked computer is at least as
+ * sensitive as an unattended file write — so the caller must `approve` it
+ * before a device will spawn headless Chrome. `PublicWorkbenchBrowserSession`
+ * / `WorkbenchBrowserSessionStatus` / `WorkbenchBrowserProgressChunk` are
+ * re-exported type-only from `./browser-sessions` (the server module) so the
+ * client and server never drift; the `import type` is fully erased at build
+ * time, so nothing server-only (Firestore, `node:crypto`) ends up in the
+ * browser bundle — same pattern `tunnel-client.ts`/`session-client.ts`
+ * already use.
+ *
+ * These helpers throw a readable `Error` whenever a call fails, so the UI
+ * layer (the Browser panel) can render an inline error/approval prompt
+ * instead of crashing.
  */
+import type {
+  PublicWorkbenchBrowserSession as ServerPublicWorkbenchBrowserSession,
+  WorkbenchBrowserProgressChunk as ServerWorkbenchBrowserProgressChunk,
+  WorkbenchBrowserSessionStatus as ServerWorkbenchBrowserSessionStatus,
+  WorkbenchBrowserViewport as ServerWorkbenchBrowserViewport,
+} from './browser-sessions'
 
-export type WorkbenchBrowserSessionStatus =
-  | 'queued'
-  | 'awaiting_approval'
-  | 'starting'
-  | 'running'
-  | 'closed'
-  | 'failed'
-  | 'expired'
+export type WorkbenchBrowserSessionStatus = ServerWorkbenchBrowserSessionStatus
+export type PublicWorkbenchBrowserSession = ServerPublicWorkbenchBrowserSession
+export type WorkbenchBrowserProgressChunk = ServerWorkbenchBrowserProgressChunk
+export type WorkbenchBrowserViewport = ServerWorkbenchBrowserViewport
 
-/** One captured frame, ordered by `seq` (mirrors `WorkbenchJobProgressChunk`'s seq-ordered ring buffer). */
-export interface WorkbenchBrowserSessionFrame {
-  id: string
-  seq: number
-  imageUrl: string
-  url?: string
-  title?: string
-  capturedAt?: string
-}
-
-export interface PublicWorkbenchBrowserSession {
-  sessionId: string
-  status: WorkbenchBrowserSessionStatus
-  startUrl?: string
-  currentUrl?: string
-  viewport?: { width: number; height: number }
-  /** Ring buffer of recently captured frames — accumulate client-side via `appendWorkbenchBrowserSessionFrames`. */
-  frames?: WorkbenchBrowserSessionFrame[]
-  error?: string
-  createdAt: string
-  updatedAt: string
-}
-
-/** Statuses where the session is fully done and can't be resumed. */
-export const WORKBENCH_BROWSER_SESSION_TERMINAL_STATUSES: ReadonlySet<WorkbenchBrowserSessionStatus> = new Set(['closed', 'failed', 'expired'])
-/** Statuses where Start is disallowed and Kill is meaningful. */
-export const WORKBENCH_BROWSER_SESSION_ACTIVE_STATUSES: ReadonlySet<WorkbenchBrowserSessionStatus> = new Set(['queued', 'awaiting_approval', 'starting', 'running'])
-/** Statuses worth stopping a poll loop on: either a decision point (approval) or a settled/terminal state. */
-export const WORKBENCH_BROWSER_SESSION_SETTLED_STATUSES: ReadonlySet<WorkbenchBrowserSessionStatus> = new Set([
-  'awaiting_approval', 'running', 'closed', 'failed', 'expired',
+export const WORKBENCH_BROWSER_SESSION_TERMINAL_STATUSES: ReadonlySet<WorkbenchBrowserSessionStatus> = new Set([
+  'exited', 'killed', 'expired', 'failed',
 ])
-/** Statuses where navigate/capture can be sent (matches the server's expected running-session check). */
-export const WORKBENCH_BROWSER_SESSION_CONTROL_STATUSES: ReadonlySet<WorkbenchBrowserSessionStatus> = new Set(['running'])
+
+/** Statuses where Approve is meaningful (still waiting on the caller). */
+export const WORKBENCH_BROWSER_SESSION_APPROVAL_STATUSES: ReadonlySet<WorkbenchBrowserSessionStatus> = new Set(['awaiting_approval'])
+
+/** Statuses where Kill is meaningful (awaiting approval, or alive). */
+export const WORKBENCH_BROWSER_SESSION_ACTIVE_STATUSES: ReadonlySet<WorkbenchBrowserSessionStatus> = new Set([
+  'awaiting_approval', 'queued', 'claimed', 'running',
+])
+
+/** Statuses where navigate/capture can be sent (matches the server's "browser session not running" check). */
+export const WORKBENCH_BROWSER_SESSION_CONTROL_STATUSES: ReadonlySet<WorkbenchBrowserSessionStatus> = new Set(['claimed', 'running'])
 
 export interface WorkbenchBrowserSessionCreateOptions {
   startUrl?: string
@@ -78,9 +72,13 @@ export interface WorkbenchBrowserSessionPollOptions extends WorkbenchBrowserSess
   /** Delay (ms) between polls. Default 1200ms. */
   intervalMs?: number
   onProgress?: (session: PublicWorkbenchBrowserSession) => void
-  /** Statuses that stop the poll loop. Defaults to `WORKBENCH_BROWSER_SESSION_SETTLED_STATUSES`. */
+  /** Statuses that stop the poll loop. Defaults to terminal ∪ `running` ∪ `awaiting_approval` (a decision point). */
   settledStatuses?: ReadonlySet<WorkbenchBrowserSessionStatus>
 }
+
+const DEFAULT_SETTLED_STATUSES: ReadonlySet<WorkbenchBrowserSessionStatus> = new Set([
+  'awaiting_approval', 'running', 'exited', 'killed', 'expired', 'failed',
+])
 
 function workbenchBrowserSessionsBase(conversationId: string): string {
   return `/api/v1/conversations/${encodeURIComponent(conversationId)}/workbench/browser/sessions`
@@ -109,7 +107,7 @@ function wait(delayMs: number, signal?: AbortSignal): Promise<void> {
   })
 }
 
-/** Starts a new agent browser session on the linked computer, optionally navigating to `startUrl` immediately. */
+/** Requests a new browser control session, optionally navigating to `startUrl` immediately. Always starts `awaiting_approval`. */
 export async function createWorkbenchBrowserSession(
   conversationId: string,
   options: WorkbenchBrowserSessionCreateOptions = {},
@@ -124,7 +122,7 @@ export async function createWorkbenchBrowserSession(
   return readWorkbenchBrowserSessionResponse(response)
 }
 
-/** Reads the current state (status + any newly captured frames) of a browser session. */
+/** Reads the current state (status + any newly streamed progress chunks) of a browser session. */
 export async function getWorkbenchBrowserSession(
   conversationId: string,
   sessionId: string,
@@ -137,7 +135,7 @@ export async function getWorkbenchBrowserSession(
   return readWorkbenchBrowserSessionResponse(response)
 }
 
-/** Approves a browser session that is `awaiting_approval`, allowing the linked computer to launch it. */
+/** Approves an `awaiting_approval` browser session so a device will spawn headless Chrome. */
 export async function approveWorkbenchBrowserSession(
   conversationId: string,
   sessionId: string,
@@ -179,7 +177,14 @@ export async function captureWorkbenchBrowserSession(
   return readWorkbenchBrowserSessionResponse(response)
 }
 
-/** Closes the session's browser. A `queued` session closes immediately; a running one may briefly report its pre-kill status. */
+/**
+ * Kills a browser session. An `awaiting_approval`/`queued` session (never
+ * claimed by a device) transitions straight to `killed`; a `claimed`/
+ * `running` session gets a kill control enqueued for its owning device —
+ * the returned session may still show `running` until the device reports
+ * the final outcome, so callers should keep polling after kill rather than
+ * treating this response as terminal.
+ */
 export async function killWorkbenchBrowserSession(
   conversationId: string,
   sessionId: string,
@@ -200,7 +205,7 @@ export async function pollWorkbenchBrowserSession(
 ): Promise<PublicWorkbenchBrowserSession> {
   const timeoutMs = options.timeoutMs ?? 60_000
   const intervalMs = options.intervalMs ?? 1200
-  const settled = options.settledStatuses ?? WORKBENCH_BROWSER_SESSION_SETTLED_STATUSES
+  const settled = options.settledStatuses ?? DEFAULT_SETTLED_STATUSES
   const deadline = Date.now() + timeoutMs
 
   let session = await getWorkbenchBrowserSession(conversationId, sessionId, { signal: options.signal })
@@ -214,31 +219,40 @@ export async function pollWorkbenchBrowserSession(
   return session
 }
 
-/** Local, incrementally-accumulated frame state — see `appendWorkbenchBrowserSessionFrames`. */
-export interface WorkbenchBrowserSessionFrameState {
-  frames: WorkbenchBrowserSessionFrame[]
+/** Local, incrementally-accumulated progress state — see `appendWorkbenchBrowserSessionProgress`. */
+export interface WorkbenchBrowserSessionProgressState {
+  chunks: WorkbenchBrowserProgressChunk[]
   lastSeq: number
 }
 
-export const EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES: WorkbenchBrowserSessionFrameState = { frames: [], lastSeq: -1 }
+export const EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS: WorkbenchBrowserSessionProgressState = { chunks: [], lastSeq: -1 }
 
 /**
- * Merges only the frames newer than `state.lastSeq` into the running list.
- * The server's `frames` field is expected to be a capped ring buffer (same
- * pattern as job/session progress chunks), so a full replace on every poll
- * would silently drop history once a session has captured enough frames to
- * overflow that buffer — accumulating client-side avoids that.
+ * Merges only the chunks newer than `state.lastSeq` into the running list.
+ * The server's `progress` field is a capped ring buffer (same pattern as
+ * job/pty-session progress chunks), so a full replace on every poll would
+ * silently drop history once a session streams enough frames to overflow
+ * that buffer — accumulating client-side avoids that.
  */
-export function appendWorkbenchBrowserSessionFrames(
-  state: WorkbenchBrowserSessionFrameState,
-  session: Pick<PublicWorkbenchBrowserSession, 'frames'>,
-): WorkbenchBrowserSessionFrameState {
-  const incoming = (Array.isArray(session.frames) ? session.frames : [])
-    .filter((frame) => frame.seq > state.lastSeq)
+export function appendWorkbenchBrowserSessionProgress(
+  state: WorkbenchBrowserSessionProgressState,
+  session: Pick<PublicWorkbenchBrowserSession, 'progress'>,
+): WorkbenchBrowserSessionProgressState {
+  const incoming = (Array.isArray(session.progress) ? session.progress : [])
+    .filter((chunk) => chunk.seq > state.lastSeq)
     .sort((left, right) => left.seq - right.seq)
   if (incoming.length === 0) return state
   return {
-    frames: [...state.frames, ...incoming],
+    chunks: [...state.chunks, ...incoming],
     lastSeq: incoming[incoming.length - 1].seq,
   }
+}
+
+/** Convenience: the most recent `frame` chunk's `imageUrl`, if any have streamed in yet. */
+export function latestWorkbenchBrowserSessionFrameUrl(chunks: readonly WorkbenchBrowserProgressChunk[]): string | undefined {
+  for (let index = chunks.length - 1; index >= 0; index -= 1) {
+    const chunk = chunks[index]
+    if (chunk.stream === 'frame' && chunk.imageUrl) return chunk.imageUrl
+  }
+  return undefined
 }

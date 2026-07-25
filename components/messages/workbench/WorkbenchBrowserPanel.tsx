@@ -11,7 +11,10 @@ import type {
   WorkbenchTunnelViewStatus,
 } from '@/lib/messages/workbench/types'
 import { WORKBENCH_TUNNEL_ACTIVE_STATUSES } from '@/lib/messages/workbench/tunnel-client'
-import { WORKBENCH_BROWSER_SESSION_ACTIVE_STATUSES } from '@/lib/messages/workbench/browser-session-client'
+import {
+  WORKBENCH_BROWSER_SESSION_ACTIVE_STATUSES,
+  WORKBENCH_BROWSER_SESSION_CONTROL_STATUSES,
+} from '@/lib/messages/workbench/browser-session-client'
 
 const MAX_ANNOTATION_LENGTH = 1_000
 const DEFAULT_TUNNEL_PORT = 3000
@@ -19,10 +22,12 @@ const DEFAULT_TUNNEL_PORT = 3000
 const TUNNEL_STATUS_LABEL: Record<WorkbenchTunnelViewStatus, string> = {
   idle: 'Not started',
   starting: 'Opening…',
-  queued: 'Queued',
   awaiting_approval: 'Awaiting approval',
+  queued: 'Queued',
+  claimed: 'Claimed',
   running: 'Running',
-  closed: 'Closed',
+  exited: 'Exited',
+  killed: 'Killed',
   failed: 'Failed',
   expired: 'Expired',
   error: 'Error',
@@ -31,10 +36,12 @@ const TUNNEL_STATUS_LABEL: Record<WorkbenchTunnelViewStatus, string> = {
 const TUNNEL_STATUS_DOT: Record<WorkbenchTunnelViewStatus, string> = {
   idle: 'bg-white/30',
   starting: 'bg-primary animate-pulse',
-  queued: 'bg-amber-300 animate-pulse',
   awaiting_approval: 'bg-amber-300 animate-pulse',
+  queued: 'bg-amber-300 animate-pulse',
+  claimed: 'bg-amber-300 animate-pulse',
   running: 'bg-emerald-400',
-  closed: 'bg-white/40',
+  exited: 'bg-white/40',
+  killed: 'bg-white/40',
   failed: 'bg-red-400',
   expired: 'bg-white/40',
   error: 'bg-red-400',
@@ -43,10 +50,12 @@ const TUNNEL_STATUS_DOT: Record<WorkbenchTunnelViewStatus, string> = {
 const BROWSER_SESSION_STATUS_LABEL: Record<WorkbenchBrowserSessionViewStatus, string> = {
   idle: 'Not started',
   starting: 'Starting…',
-  queued: 'Queued',
   awaiting_approval: 'Awaiting approval',
+  queued: 'Queued',
+  claimed: 'Claimed',
   running: 'Running',
-  closed: 'Closed',
+  exited: 'Exited',
+  killed: 'Killed',
   failed: 'Failed',
   expired: 'Expired',
   error: 'Error',
@@ -55,10 +64,12 @@ const BROWSER_SESSION_STATUS_LABEL: Record<WorkbenchBrowserSessionViewStatus, st
 const BROWSER_SESSION_STATUS_DOT: Record<WorkbenchBrowserSessionViewStatus, string> = {
   idle: 'bg-white/30',
   starting: 'bg-primary animate-pulse',
-  queued: 'bg-amber-300 animate-pulse',
   awaiting_approval: 'bg-amber-300 animate-pulse',
+  queued: 'bg-amber-300 animate-pulse',
+  claimed: 'bg-amber-300 animate-pulse',
   running: 'bg-primary animate-pulse',
-  closed: 'bg-white/40',
+  exited: 'bg-white/40',
+  killed: 'bg-white/40',
   failed: 'bg-red-400',
   expired: 'bg-white/40',
   error: 'bg-red-400',
@@ -405,8 +416,8 @@ export function WorkbenchBrowserPanel({
   const browserSessionStartDisabled = browserSessionActive || browserSession?.busy || !onStartBrowserSession
   const browserSessionKillDisabled = !browserSessionActive || !browserSession?.sessionId || !onKillBrowserSession
   const browserSessionApproveVisible = browserSessionStatus === 'awaiting_approval' && Boolean(onApproveBrowserSession)
-  const browserSessionRunning = browserSessionStatus === 'running'
-  const browserSessionControlsDisabled = !browserSessionRunning || !browserSession?.sessionId
+  const browserSessionControllable = WORKBENCH_BROWSER_SESSION_CONTROL_STATUSES.has(browserSessionStatus as never)
+  const browserSessionControlsDisabled = !browserSessionControllable || !browserSession?.sessionId
 
   return (
     <div data-testid="workbench-browser-panel" className="flex h-full min-h-0 flex-col">

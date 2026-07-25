@@ -88,24 +88,24 @@ import {
   type WorkbenchSessionTranscriptState,
 } from '@/lib/messages/workbench/session-client'
 import {
-  approveWorkbenchTunnel,
-  createWorkbenchTunnel,
-  killWorkbenchTunnel as killWorkbenchTunnelApi,
-  pollWorkbenchTunnel,
-  WORKBENCH_TUNNEL_SETTLED_STATUSES,
-  type PublicWorkbenchTunnel,
+  approveTunnelSession,
+  createTunnelSession,
+  killTunnelSession,
+  pollTunnelSession,
+  WORKBENCH_TUNNEL_TERMINAL_STATUSES,
+  type PublicWorkbenchTunnelSession,
 } from '@/lib/messages/workbench/tunnel-client'
 import {
   appendWorkbenchBrowserSessionFrames,
-  approveWorkbenchBrowserSession as approveWorkbenchBrowserSessionApi,
-  captureWorkbenchBrowserSession as captureWorkbenchBrowserSessionApi,
-  createWorkbenchBrowserSession,
-  getWorkbenchBrowserSession,
-  killWorkbenchBrowserSession as killWorkbenchBrowserSessionApi,
-  navigateWorkbenchBrowserSession as navigateWorkbenchBrowserSessionApi,
-  pollWorkbenchBrowserSession,
+  approveBrowserSession,
+  captureBrowserSession,
+  createBrowserSession,
+  getBrowserSession,
+  killBrowserSession,
+  navigateBrowserSession,
+  pollBrowserSession,
   EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES,
-  WORKBENCH_BROWSER_SESSION_SETTLED_STATUSES,
+  WORKBENCH_BROWSER_SESSION_TERMINAL_STATUSES,
   type PublicWorkbenchBrowserSession,
   type WorkbenchBrowserSessionFrameState,
 } from '@/lib/messages/workbench/browser-session-client'
@@ -2602,14 +2602,20 @@ export default function UnifiedChat({
     setWorkbenchSession(null)
   }, [activeId])
 
-  /** Merges a tunnel snapshot into view state — mirrors `applyWorkbenchSessionUpdate` above. */
-  const applyWorkbenchTunnelUpdate = useCallback((remote: PublicWorkbenchTunnel) => {
+  /**
+   * Merges a tunnel snapshot into view state — mirrors `applyWorkbenchSessionUpdate` above.
+   * `localUrl` isn't denormalized onto the top-level session (unlike `publicUrl`), so it's
+   * pulled from the most recent `stream: 'tunnel'` progress chunk that reported one.
+   */
+  const applyWorkbenchTunnelUpdate = useCallback((remote: PublicWorkbenchTunnelSession) => {
+    const progress = Array.isArray(remote.progress) ? remote.progress : []
+    const localUrl = [...progress].reverse().find((chunk) => chunk.localUrl)?.localUrl ?? null
     setWorkbenchTunnel({
       sessionId: remote.sessionId,
       status: remote.status,
       port: remote.port,
       publicUrl: remote.publicUrl ?? null,
-      localUrl: remote.localUrl ?? null,
+      localUrl,
       error: remote.error ?? null,
       busy: false,
     })
@@ -2623,14 +2629,9 @@ export default function UnifiedChat({
     setWorkbenchTunnel({ sessionId: null, status: 'starting', port, publicUrl: null, localUrl: null, error: null, busy: true })
 
     try {
-      const created = await createWorkbenchTunnel(activeId, port, { signal: controller.signal })
+      // A tunnel always starts `awaiting_approval` — nothing to poll until the user approves it.
+      const created = await createTunnelSession(activeId, port, { signal: controller.signal })
       applyWorkbenchTunnelUpdate(created)
-      if (!WORKBENCH_TUNNEL_SETTLED_STATUSES.has(created.status)) {
-        await pollWorkbenchTunnel(activeId, created.sessionId, {
-          signal: controller.signal,
-          onProgress: applyWorkbenchTunnelUpdate,
-        })
-      }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
       setWorkbenchTunnel((prev) => ({
@@ -2652,13 +2653,12 @@ export default function UnifiedChat({
     workbenchTunnelAbortRef.current = controller
     setWorkbenchTunnel((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
-      const approved = await approveWorkbenchTunnel(activeId, workbenchTunnel.sessionId, { signal: controller.signal })
+      const approved = await approveTunnelSession(activeId, workbenchTunnel.sessionId, { signal: controller.signal })
       applyWorkbenchTunnelUpdate(approved)
-      if (!WORKBENCH_TUNNEL_SETTLED_STATUSES.has(approved.status) || approved.status === 'awaiting_approval') {
-        await pollWorkbenchTunnel(activeId, workbenchTunnel.sessionId, {
+      if (!WORKBENCH_TUNNEL_TERMINAL_STATUSES.has(approved.status) && !approved.publicUrl) {
+        await pollTunnelSession(activeId, workbenchTunnel.sessionId, {
           signal: controller.signal,
           onProgress: applyWorkbenchTunnelUpdate,
-          settledStatuses: new Set(['running', 'closed', 'failed', 'expired']),
         })
       }
     } catch (error) {
@@ -2674,7 +2674,7 @@ export default function UnifiedChat({
     workbenchTunnelAbortRef.current?.abort()
     setWorkbenchTunnel((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
-      const killed = await killWorkbenchTunnelApi(activeId, workbenchTunnel.sessionId)
+      const killed = await killTunnelSession(activeId, workbenchTunnel.sessionId)
       applyWorkbenchTunnelUpdate(killed)
     } catch (error) {
       setWorkbenchTunnel((prev) => prev
@@ -2697,7 +2697,7 @@ export default function UnifiedChat({
       sessionId: remote.sessionId,
       status: remote.status,
       startUrl: remote.startUrl ?? null,
-      currentUrl: remote.currentUrl ?? null,
+      currentUrl: remote.currentPageUrl ?? null,
       latestFrameUrl: frames.length > 0 ? frames[frames.length - 1].imageUrl : null,
       frameCount: frames.length,
       error: remote.error ?? null,
@@ -2717,14 +2717,9 @@ export default function UnifiedChat({
     })
 
     try {
-      const created = await createWorkbenchBrowserSession(activeId, { startUrl, signal: controller.signal })
+      // A browser session always starts `awaiting_approval` — nothing to poll until the user approves it.
+      const created = await createBrowserSession(activeId, { startUrl, signal: controller.signal })
       applyWorkbenchBrowserSessionUpdate(created)
-      if (!WORKBENCH_BROWSER_SESSION_SETTLED_STATUSES.has(created.status)) {
-        await pollWorkbenchBrowserSession(activeId, created.sessionId, {
-          signal: controller.signal,
-          onProgress: applyWorkbenchBrowserSessionUpdate,
-        })
-      }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
       setWorkbenchBrowserSession((prev) => ({
@@ -2747,13 +2742,12 @@ export default function UnifiedChat({
     workbenchBrowserSessionAbortRef.current = controller
     setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
-      const approved = await approveWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, { signal: controller.signal })
+      const approved = await approveBrowserSession(activeId, workbenchBrowserSession.sessionId, { signal: controller.signal })
       applyWorkbenchBrowserSessionUpdate(approved)
-      if (approved.status !== 'running' && !['closed', 'failed', 'expired'].includes(approved.status)) {
-        await pollWorkbenchBrowserSession(activeId, workbenchBrowserSession.sessionId, {
+      if (!WORKBENCH_BROWSER_SESSION_TERMINAL_STATUSES.has(approved.status) && approved.status !== 'running') {
+        await pollBrowserSession(activeId, workbenchBrowserSession.sessionId, {
           signal: controller.signal,
           onProgress: applyWorkbenchBrowserSessionUpdate,
-          settledStatuses: new Set(['running', 'closed', 'failed', 'expired']),
         })
       }
     } catch (error) {
@@ -2768,7 +2762,7 @@ export default function UnifiedChat({
     if (!activeId || !workbenchBrowserSession?.sessionId) return
     setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
-      const updated = await navigateWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, url)
+      const updated = await navigateBrowserSession(activeId, workbenchBrowserSession.sessionId, url)
       applyWorkbenchBrowserSessionUpdate(updated)
     } catch (error) {
       setWorkbenchBrowserSession((prev) => prev
@@ -2781,7 +2775,7 @@ export default function UnifiedChat({
     if (!activeId || !workbenchBrowserSession?.sessionId) return
     setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
-      const updated = await captureWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId)
+      const updated = await captureBrowserSession(activeId, workbenchBrowserSession.sessionId)
       applyWorkbenchBrowserSessionUpdate(updated)
     } catch (error) {
       setWorkbenchBrowserSession((prev) => prev
@@ -2795,7 +2789,7 @@ export default function UnifiedChat({
     workbenchBrowserSessionAbortRef.current?.abort()
     setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
-      const killed = await killWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId)
+      const killed = await killBrowserSession(activeId, workbenchBrowserSession.sessionId)
       applyWorkbenchBrowserSessionUpdate(killed)
     } catch (error) {
       setWorkbenchBrowserSession((prev) => prev
@@ -2821,7 +2815,7 @@ export default function UnifiedChat({
     const sessionId = workbenchBrowserSession.sessionId
     const controller = new AbortController()
     const interval = setInterval(() => {
-      getWorkbenchBrowserSession(conversationId, sessionId, { signal: controller.signal })
+      getBrowserSession(conversationId, sessionId, { signal: controller.signal })
         .then(applyWorkbenchBrowserSessionUpdate)
         .catch(() => {
           // A follow-up poll failing (e.g. a transient network blip) shouldn't surface as an error banner.
