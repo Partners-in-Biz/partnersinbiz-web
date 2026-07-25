@@ -87,7 +87,41 @@ import {
   type PublicWorkbenchSession,
   type WorkbenchSessionTranscriptState,
 } from '@/lib/messages/workbench/session-client'
-import type { WorkbenchChangeFile, WorkbenchFileNode, WorkbenchFilePreview, WorkbenchFilesSource, WorkbenchRuntimeSummary, WorkbenchSessionViewState, WorkbenchTab, WorkbenchTerminalEntry, WorkbenchTerminalMode } from '@/lib/messages/workbench/types'
+import {
+  approveWorkbenchTunnel,
+  createWorkbenchTunnel,
+  killWorkbenchTunnel as killWorkbenchTunnelApi,
+  pollWorkbenchTunnel,
+  WORKBENCH_TUNNEL_SETTLED_STATUSES,
+  type PublicWorkbenchTunnel,
+} from '@/lib/messages/workbench/tunnel-client'
+import {
+  appendWorkbenchBrowserSessionFrames,
+  approveWorkbenchBrowserSession as approveWorkbenchBrowserSessionApi,
+  captureWorkbenchBrowserSession as captureWorkbenchBrowserSessionApi,
+  createWorkbenchBrowserSession,
+  getWorkbenchBrowserSession,
+  killWorkbenchBrowserSession as killWorkbenchBrowserSessionApi,
+  navigateWorkbenchBrowserSession as navigateWorkbenchBrowserSessionApi,
+  pollWorkbenchBrowserSession,
+  EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES,
+  WORKBENCH_BROWSER_SESSION_SETTLED_STATUSES,
+  type PublicWorkbenchBrowserSession,
+  type WorkbenchBrowserSessionFrameState,
+} from '@/lib/messages/workbench/browser-session-client'
+import type {
+  WorkbenchBrowserSessionViewState,
+  WorkbenchChangeFile,
+  WorkbenchFileNode,
+  WorkbenchFilePreview,
+  WorkbenchFilesSource,
+  WorkbenchRuntimeSummary,
+  WorkbenchSessionViewState,
+  WorkbenchTab,
+  WorkbenchTerminalEntry,
+  WorkbenchTerminalMode,
+  WorkbenchTunnelViewState,
+} from '@/lib/messages/workbench/types'
 
 type AgentId = string
 
@@ -976,6 +1010,11 @@ export default function UnifiedChat({
   const [workbenchSession, setWorkbenchSession] = useState<WorkbenchSessionViewState | null>(null)
   const workbenchSessionTranscriptRef = useRef<WorkbenchSessionTranscriptState>({ text: '', lastSeq: -1 })
   const workbenchSessionAbortRef = useRef<AbortController | null>(null)
+  const [workbenchTunnel, setWorkbenchTunnel] = useState<WorkbenchTunnelViewState | null>(null)
+  const workbenchTunnelAbortRef = useRef<AbortController | null>(null)
+  const [workbenchBrowserSession, setWorkbenchBrowserSession] = useState<WorkbenchBrowserSessionViewState | null>(null)
+  const workbenchBrowserSessionFramesRef = useRef<WorkbenchBrowserSessionFrameState>(EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES)
+  const workbenchBrowserSessionAbortRef = useRef<AbortController | null>(null)
   const [contextCanvasCloseRequest, setContextCanvasCloseRequest] = useState(0)
   // Icon strip stays visible whenever the workbench is enabled; expand margin when a dock opens.
   const rightDockOpen = contextCanvasOpen || workbenchOpen || showAgentWorkbench
@@ -2562,6 +2601,237 @@ export default function UnifiedChat({
     workbenchSessionTranscriptRef.current = { text: '', lastSeq: -1 }
     setWorkbenchSession(null)
   }, [activeId])
+
+  /** Merges a tunnel snapshot into view state — mirrors `applyWorkbenchSessionUpdate` above. */
+  const applyWorkbenchTunnelUpdate = useCallback((remote: PublicWorkbenchTunnel) => {
+    setWorkbenchTunnel({
+      sessionId: remote.sessionId,
+      status: remote.status,
+      port: remote.port,
+      publicUrl: remote.publicUrl ?? null,
+      localUrl: remote.localUrl ?? null,
+      error: remote.error ?? null,
+      busy: false,
+    })
+  }, [])
+
+  const startWorkbenchTunnel = useCallback(async (port: number) => {
+    if (!activeId) return
+    workbenchTunnelAbortRef.current?.abort()
+    const controller = new AbortController()
+    workbenchTunnelAbortRef.current = controller
+    setWorkbenchTunnel({ sessionId: null, status: 'starting', port, publicUrl: null, localUrl: null, error: null, busy: true })
+
+    try {
+      const created = await createWorkbenchTunnel(activeId, port, { signal: controller.signal })
+      applyWorkbenchTunnelUpdate(created)
+      if (!WORKBENCH_TUNNEL_SETTLED_STATUSES.has(created.status)) {
+        await pollWorkbenchTunnel(activeId, created.sessionId, {
+          signal: controller.signal,
+          onProgress: applyWorkbenchTunnelUpdate,
+        })
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setWorkbenchTunnel((prev) => ({
+        sessionId: prev?.sessionId ?? null,
+        status: 'error',
+        port,
+        publicUrl: prev?.publicUrl ?? null,
+        localUrl: prev?.localUrl ?? null,
+        error: error instanceof Error ? error.message : 'Failed to open the tunnel.',
+        busy: false,
+      }))
+    }
+  }, [activeId, applyWorkbenchTunnelUpdate])
+
+  const approveWorkbenchTunnelSession = useCallback(async () => {
+    if (!activeId || !workbenchTunnel?.sessionId) return
+    workbenchTunnelAbortRef.current?.abort()
+    const controller = new AbortController()
+    workbenchTunnelAbortRef.current = controller
+    setWorkbenchTunnel((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const approved = await approveWorkbenchTunnel(activeId, workbenchTunnel.sessionId, { signal: controller.signal })
+      applyWorkbenchTunnelUpdate(approved)
+      if (!WORKBENCH_TUNNEL_SETTLED_STATUSES.has(approved.status) || approved.status === 'awaiting_approval') {
+        await pollWorkbenchTunnel(activeId, workbenchTunnel.sessionId, {
+          signal: controller.signal,
+          onProgress: applyWorkbenchTunnelUpdate,
+          settledStatuses: new Set(['running', 'closed', 'failed', 'expired']),
+        })
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setWorkbenchTunnel((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to approve the tunnel.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchTunnel?.sessionId, applyWorkbenchTunnelUpdate])
+
+  const killWorkbenchTunnel = useCallback(async () => {
+    if (!activeId || !workbenchTunnel?.sessionId) return
+    workbenchTunnelAbortRef.current?.abort()
+    setWorkbenchTunnel((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const killed = await killWorkbenchTunnelApi(activeId, workbenchTunnel.sessionId)
+      applyWorkbenchTunnelUpdate(killed)
+    } catch (error) {
+      setWorkbenchTunnel((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to close the tunnel.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchTunnel?.sessionId, applyWorkbenchTunnelUpdate])
+
+  useEffect(() => {
+    // Conversation-scoped: drop any in-flight tunnel poll when switching conversations.
+    workbenchTunnelAbortRef.current?.abort()
+    setWorkbenchTunnel(null)
+  }, [activeId])
+
+  /** Merges a browser session snapshot's new-only frames into view state — mirrors the terminal session pattern. */
+  const applyWorkbenchBrowserSessionUpdate = useCallback((remote: PublicWorkbenchBrowserSession) => {
+    workbenchBrowserSessionFramesRef.current = appendWorkbenchBrowserSessionFrames(workbenchBrowserSessionFramesRef.current, remote)
+    const frames = workbenchBrowserSessionFramesRef.current.frames
+    setWorkbenchBrowserSession({
+      sessionId: remote.sessionId,
+      status: remote.status,
+      startUrl: remote.startUrl ?? null,
+      currentUrl: remote.currentUrl ?? null,
+      latestFrameUrl: frames.length > 0 ? frames[frames.length - 1].imageUrl : null,
+      frameCount: frames.length,
+      error: remote.error ?? null,
+      busy: false,
+    })
+  }, [])
+
+  const startWorkbenchBrowserSession = useCallback(async (startUrl?: string) => {
+    if (!activeId) return
+    workbenchBrowserSessionAbortRef.current?.abort()
+    const controller = new AbortController()
+    workbenchBrowserSessionAbortRef.current = controller
+    workbenchBrowserSessionFramesRef.current = EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES
+    setWorkbenchBrowserSession({
+      sessionId: null, status: 'starting', startUrl: startUrl ?? null, currentUrl: null,
+      latestFrameUrl: null, frameCount: 0, error: null, busy: true,
+    })
+
+    try {
+      const created = await createWorkbenchBrowserSession(activeId, { startUrl, signal: controller.signal })
+      applyWorkbenchBrowserSessionUpdate(created)
+      if (!WORKBENCH_BROWSER_SESSION_SETTLED_STATUSES.has(created.status)) {
+        await pollWorkbenchBrowserSession(activeId, created.sessionId, {
+          signal: controller.signal,
+          onProgress: applyWorkbenchBrowserSessionUpdate,
+        })
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setWorkbenchBrowserSession((prev) => ({
+        sessionId: prev?.sessionId ?? null,
+        status: 'error',
+        startUrl: startUrl ?? prev?.startUrl ?? null,
+        currentUrl: prev?.currentUrl ?? null,
+        latestFrameUrl: prev?.latestFrameUrl ?? null,
+        frameCount: prev?.frameCount ?? 0,
+        error: error instanceof Error ? error.message : 'Failed to start the browser session.',
+        busy: false,
+      }))
+    }
+  }, [activeId, applyWorkbenchBrowserSessionUpdate])
+
+  const approveWorkbenchBrowserSession = useCallback(async () => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    workbenchBrowserSessionAbortRef.current?.abort()
+    const controller = new AbortController()
+    workbenchBrowserSessionAbortRef.current = controller
+    setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const approved = await approveWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, { signal: controller.signal })
+      applyWorkbenchBrowserSessionUpdate(approved)
+      if (approved.status !== 'running' && !['closed', 'failed', 'expired'].includes(approved.status)) {
+        await pollWorkbenchBrowserSession(activeId, workbenchBrowserSession.sessionId, {
+          signal: controller.signal,
+          onProgress: applyWorkbenchBrowserSessionUpdate,
+          settledStatuses: new Set(['running', 'closed', 'failed', 'expired']),
+        })
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to approve the browser session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  const navigateWorkbenchBrowserSession = useCallback(async (url: string) => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const updated = await navigateWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, url)
+      applyWorkbenchBrowserSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to navigate the browser session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  const captureWorkbenchBrowserSession = useCallback(async () => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const updated = await captureWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId)
+      applyWorkbenchBrowserSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to capture a frame.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  const killWorkbenchBrowserSession = useCallback(async () => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    workbenchBrowserSessionAbortRef.current?.abort()
+    setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const killed = await killWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId)
+      applyWorkbenchBrowserSessionUpdate(killed)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to close the browser session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  useEffect(() => {
+    // Conversation-scoped: drop any in-flight browser session poll and its frames when switching conversations.
+    workbenchBrowserSessionAbortRef.current?.abort()
+    workbenchBrowserSessionFramesRef.current = EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES
+    setWorkbenchBrowserSession(null)
+  }, [activeId])
+
+  // While the Browser tab is open on a running agent session, lightly poll for frames the
+  // agent captures on its own (outside a user-triggered navigate/capture click) — this is the
+  // "follow live frames" experience, mirroring how terminal Session mode streams continuously.
+  useEffect(() => {
+    if (!showAgentWorkbench || !workbenchOpen || workbenchTab !== 'browser') return
+    if (!activeId || !workbenchBrowserSession?.sessionId || workbenchBrowserSession.status !== 'running') return
+    const conversationId = activeId
+    const sessionId = workbenchBrowserSession.sessionId
+    const controller = new AbortController()
+    const interval = setInterval(() => {
+      getWorkbenchBrowserSession(conversationId, sessionId, { signal: controller.signal })
+        .then(applyWorkbenchBrowserSessionUpdate)
+        .catch(() => {
+          // A follow-up poll failing (e.g. a transient network blip) shouldn't surface as an error banner.
+        })
+    }, 2_500)
+    return () => {
+      controller.abort()
+      clearInterval(interval)
+    }
+  }, [showAgentWorkbench, workbenchOpen, workbenchTab, activeId, workbenchBrowserSession?.sessionId, workbenchBrowserSession?.status, applyWorkbenchBrowserSessionUpdate])
 
   useEffect(() => {
     if (showAgentWorkbench && workbenchOpen && workbenchTab === 'files' && activeId) void loadWorkbenchFiles()
@@ -5738,6 +6008,16 @@ export default function UnifiedChat({
           onRefreshChanges={loadWorkbenchChanges}
           browserTargets={workbenchBrowserTargets}
           onAddBrowserNoteToChat={addWorkbenchNoteToComposer}
+          browserTunnel={workbenchTunnel}
+          onStartBrowserTunnel={startWorkbenchTunnel}
+          onApproveBrowserTunnel={approveWorkbenchTunnelSession}
+          onKillBrowserTunnel={killWorkbenchTunnel}
+          browserAgentSession={workbenchBrowserSession}
+          onStartBrowserAgentSession={startWorkbenchBrowserSession}
+          onApproveBrowserAgentSession={approveWorkbenchBrowserSession}
+          onNavigateBrowserAgentSession={navigateWorkbenchBrowserSession}
+          onCaptureBrowserAgentSession={captureWorkbenchBrowserSession}
+          onKillBrowserAgentSession={killWorkbenchBrowserSession}
           compact={compact}
           onRunTerminalCommand={runWorkbenchTerminalCommand}
           onClearTerminal={clearWorkbenchLocalTerminal}

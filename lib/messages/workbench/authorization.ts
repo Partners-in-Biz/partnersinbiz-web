@@ -7,8 +7,10 @@ import {
   type AuthorizedLinkedComputerDispatch,
 } from '@/lib/linked-computers/runtime-targets'
 import { requireProjectRuntimeReplica } from '@/lib/project-locations/runtime-binding'
+import type { WorkbenchBrowserSession } from './browser-sessions'
 import { sanitizeWorkbenchRelativePath, type WorkbenchJob } from './jobs'
 import type { WorkbenchSession } from './sessions'
+import type { WorkbenchTunnelSession } from './tunnel-sessions'
 
 export class WorkbenchAuthorizationError extends Error {
   constructor(message: string, readonly status: number) {
@@ -133,6 +135,27 @@ export function isWorkbenchJobOwnedByContext(
 /** Exact durable session binding used by the browser session poll/stdin/resize/kill routes. */
 export function isWorkbenchSessionOwnedByContext(
   session: WorkbenchSession,
+  user: ApiUser,
+  conversationId: string,
+  authorization: AuthorizedWorkbenchContext,
+): boolean {
+  return session.conversationId === conversationId
+    && session.conversationId === authorization.conversation.id
+    && session.orgId === authorization.conversation.orgId
+    && session.actorUserId === user.uid
+    && session.deviceId === authorization.binding.deviceId
+    && session.runtimeTargetId === authorization.binding.runtimeTargetId
+    && session.credentialVersion === authorization.binding.credentialVersion
+    && session.workspaceId === authorization.binding.workspaceId
+    && session.mappingId === authorization.binding.mappingId
+    && (session.projectId ?? null) === authorization.projectId
+    && (session.projectReplicaId ?? null) === (authorization.projectReplicaId ?? null)
+    && session.relativeFolder === authorization.relativeFolder
+}
+
+/** Exact durable binding used by the browser tunnel create/poll/approve/kill routes. */
+export function isWorkbenchTunnelSessionOwnedByContext(
+  session: WorkbenchTunnelSession,
   user: ApiUser,
   conversationId: string,
   authorization: AuthorizedWorkbenchContext,
