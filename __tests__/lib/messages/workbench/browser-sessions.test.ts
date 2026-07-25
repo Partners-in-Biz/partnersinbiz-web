@@ -1,0 +1,309 @@
+import {
+  appendWorkbenchBrowserProgressChunk,
+  appendWorkbenchBrowserSessionControl,
+  generateWorkbenchBrowserSessionId,
+  isTerminalWorkbenchBrowserSessionStatus,
+  parseWorkbenchBrowserProgressChunk,
+  parseWorkbenchBrowserSessionControl,
+  publicWorkbenchBrowserSession,
+  sanitizeWorkbenchBrowserStartUrl,
+  sanitizeWorkbenchBrowserUrl,
+  sanitizeWorkbenchBrowserViewport,
+  transitionWorkbenchBrowserSession,
+  type WorkbenchBrowserSession,
+} from '@/lib/messages/workbench/browser-sessions'
+
+function awaitingApprovalSession(overrides: Partial<WorkbenchBrowserSession> = {}): WorkbenchBrowserSession {
+  return {
+    sessionId: 'wbbs_a',
+    conversationId: 'conversation-a',
+    orgId: 'org-a',
+    actorUserId: 'user-a',
+    actorRole: 'client',
+    deviceId: 'device-a',
+    runtimeTargetId: 'runtime-a',
+    credentialVersion: 3,
+    workspaceId: 'workspace-a',
+    mappingId: 'mapping-a',
+    relativeFolder: 'projects/project-a',
+    startUrl: null,
+    viewport: { width: 1280, height: 720 },
+    status: 'awaiting_approval',
+    attempt: 0,
+    encryptedCreateControl: { ciphertext: 'cipher', iv: 'iv', tag: 'tag' },
+    createdAtMs: 1_000,
+    updatedAtMs: 1_000,
+    ttlExpiresAtMs: 100_000,
+    ...overrides,
+  }
+}
+
+function queuedSession(overrides: Partial<WorkbenchBrowserSession> = {}): WorkbenchBrowserSession {
+  return awaitingApprovalSession({ status: 'queued', approvedByUserId: 'user-a', approvedAtMs: 1_500, ...overrides })
+}
+
+describe('sanitizeWorkbenchBrowserUrl', () => {
+  it('accepts http/https URLs including localhost, 127.0.0.1, and *.localhost', () => {
+    expect(sanitizeWorkbenchBrowserUrl('https://example.com/path')).toBe('https://example.com/path')
+    expect(sanitizeWorkbenchBrowserUrl('http://localhost:3000')).toBe('http://localhost:3000/')
+    expect(sanitizeWorkbenchBrowserUrl('http://127.0.0.1:8080')).toBe('http://127.0.0.1:8080/')
+    expect(sanitizeWorkbenchBrowserUrl('http://myapp.localhost')).toBe('http://myapp.localhost/')
+  })
+
+  it('rejects file://, javascript:, credentialed URLs, and non-string/empty/oversized input', () => {
+    expect(sanitizeWorkbenchBrowserUrl('file:///etc/passwd')).toBeNull()
+    expect(sanitizeWorkbenchBrowserUrl('javascript:alert(1)')).toBeNull()
+    expect(sanitizeWorkbenchBrowserUrl('https://user:pass@example.com')).toBeNull()
+    expect(sanitizeWorkbenchBrowserUrl('')).toBeNull()
+    expect(sanitizeWorkbenchBrowserUrl(42)).toBeNull()
+    expect(sanitizeWorkbenchBrowserUrl(`https://example.com/${'a'.repeat(2_048)}`)).toBeNull()
+  })
+})
+
+describe('sanitizeWorkbenchBrowserStartUrl', () => {
+  it('allows omitted/null (blank tab) and validates a provided URL', () => {
+    expect(sanitizeWorkbenchBrowserStartUrl(undefined)).toEqual({ ok: true, url: null })
+    expect(sanitizeWorkbenchBrowserStartUrl(null)).toEqual({ ok: true, url: null })
+    expect(sanitizeWorkbenchBrowserStartUrl('https://example.com')).toEqual({ ok: true, url: 'https://example.com/' })
+    expect(sanitizeWorkbenchBrowserStartUrl('javascript:alert(1)')).toEqual({ ok: false })
+  })
+})
+
+describe('sanitizeWorkbenchBrowserViewport', () => {
+  it('defaults to 1280x720 when omitted', () => {
+    expect(sanitizeWorkbenchBrowserViewport(undefined, undefined)).toEqual({ width: 1280, height: 720 })
+  })
+
+  it('clamps into 320-1920 x 240-1200', () => {
+    expect(sanitizeWorkbenchBrowserViewport(0, 0)).toEqual({ width: 320, height: 240 })
+    expect(sanitizeWorkbenchBrowserViewport(5_000, 5_000)).toEqual({ width: 1920, height: 1200 })
+    expect(sanitizeWorkbenchBrowserViewport(800, 600)).toEqual({ width: 800, height: 600 })
+  })
+
+  it('rejects non-numeric input', () => {
+    expect(sanitizeWorkbenchBrowserViewport('800', 600)).toBeNull()
+    expect(sanitizeWorkbenchBrowserViewport(800, Number.NaN)).toBeNull()
+  })
+})
+
+describe('generateWorkbenchBrowserSessionId', () => {
+  it('produces unique, prefixed ids', () => {
+    const first = generateWorkbenchBrowserSessionId()
+    const second = generateWorkbenchBrowserSessionId()
+    expect(first).toMatch(/^wbbs_/)
+    expect(first).not.toBe(second)
+  })
+})
+
+describe('parseWorkbenchBrowserSessionControl', () => {
+  it.each([
+    [{ kind: 'create', startUrl: 'https://example.com', viewport: { width: 800, height: 600 } }, { kind: 'create', startUrl: 'https://example.com/', viewport: { width: 800, height: 600 } }],
+    [{ kind: 'create', startUrl: null, viewport: { width: 1280, height: 720 } }, { kind: 'create', startUrl: null, viewport: { width: 1280, height: 720 } }],
+    [{ kind: 'navigate', url: 'https://example.com/next' }, { kind: 'navigate', url: 'https://example.com/next' }],
+    [{ kind: 'capture' }, { kind: 'capture' }],
+    [{ kind: 'kill' }, { kind: 'kill' }],
+  ])('accepts typed control %j', (input, expected) => {
+    expect(parseWorkbenchBrowserSessionControl(input)).toEqual(expected)
+  })
+
+  it.each([
+    { kind: 'create', startUrl: 'javascript:alert(1)', viewport: { width: 800, height: 600 } },
+    { kind: 'create', startUrl: null, viewport: { width: 800 } },
+    { kind: 'navigate', url: 'file:///etc/passwd' },
+    { kind: 'navigate' },
+    { kind: 'capture', extra: true },
+    { kind: 'kill', extra: true },
+    { kind: 'unknown' },
+    'not-an-object',
+  ])('rejects unsafe or untyped control %j', (input) => {
+    expect(() => parseWorkbenchBrowserSessionControl(input)).toThrow('workbench: invalid browser session control')
+  })
+})
+
+describe('parseWorkbenchBrowserProgressChunk', () => {
+  it('accepts frame/status/stderr chunks and truncates oversized text', () => {
+    expect(parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'frame', imageUrl: 'https://cdn.example.com/f.jpg', contentType: 'image/jpeg', atMs: 1_000 }))
+      .toEqual({ seq: 0, stream: 'frame', imageUrl: 'https://cdn.example.com/f.jpg', contentType: 'image/jpeg', atMs: 1_000 })
+    expect(parseWorkbenchBrowserProgressChunk({ seq: 1, stream: 'status', text: 'browser session active', atMs: 2_000 }))
+      .toEqual({ seq: 1, stream: 'status', text: 'browser session active', atMs: 2_000 })
+    const truncated = parseWorkbenchBrowserProgressChunk({ seq: 2, stream: 'stderr', text: 'x'.repeat(3_000), atMs: 3_000 })
+    expect(Buffer.byteLength(truncated.text ?? '', 'utf8')).toBe(2_000)
+  })
+
+  it('rejects a frame chunk without imageUrl and an invalid contentType', () => {
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'frame', atMs: 1_000 })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'frame', imageUrl: 'https://x', contentType: 'image/gif', atMs: 1_000 })).toThrow('workbench: invalid browser progress chunk')
+  })
+
+  it('rejects malformed seq/stream/atMs', () => {
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: -1, stream: 'status', atMs: 1_000 })).toThrow()
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'bogus', atMs: 1_000 })).toThrow()
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'status', atMs: -1 })).toThrow()
+  })
+})
+
+describe('appendWorkbenchBrowserSessionControl', () => {
+  it('caps the FIFO at 64 entries, dropping the oldest first', () => {
+    let controls: ReturnType<typeof appendWorkbenchBrowserSessionControl> | undefined
+    for (let seq = 0; seq < 70; seq += 1) {
+      controls = appendWorkbenchBrowserSessionControl(controls, { seq, control: { kind: 'capture' }, actorUserId: 'user-a', enqueuedAtMs: seq })
+    }
+    expect(controls).toHaveLength(64)
+    expect(controls![0].seq).toBe(6)
+    expect(controls![63].seq).toBe(69)
+  })
+})
+
+describe('appendWorkbenchBrowserProgressChunk', () => {
+  it('caps the ring buffer at 30 entries, dropping the oldest first', () => {
+    let chunks: ReturnType<typeof appendWorkbenchBrowserProgressChunk> | undefined
+    for (let seq = 0; seq < 40; seq += 1) {
+      chunks = appendWorkbenchBrowserProgressChunk(chunks, { seq, stream: 'status', text: 'tick', atMs: seq })
+    }
+    expect(chunks).toHaveLength(30)
+    expect(chunks![0].seq).toBe(10)
+    expect(chunks![29].seq).toBe(39)
+  })
+})
+
+describe('isTerminalWorkbenchBrowserSessionStatus', () => {
+  it('classifies terminal vs. non-terminal statuses', () => {
+    expect(isTerminalWorkbenchBrowserSessionStatus('awaiting_approval')).toBe(false)
+    expect(isTerminalWorkbenchBrowserSessionStatus('queued')).toBe(false)
+    expect(isTerminalWorkbenchBrowserSessionStatus('claimed')).toBe(false)
+    expect(isTerminalWorkbenchBrowserSessionStatus('running')).toBe(false)
+    expect(isTerminalWorkbenchBrowserSessionStatus('exited')).toBe(true)
+    expect(isTerminalWorkbenchBrowserSessionStatus('killed')).toBe(true)
+    expect(isTerminalWorkbenchBrowserSessionStatus('expired')).toBe(true)
+    expect(isTerminalWorkbenchBrowserSessionStatus('failed')).toBe(true)
+  })
+})
+
+describe('publicWorkbenchBrowserSession', () => {
+  it('never exposes encrypted payloads, credentials, or physical paths to the browser', () => {
+    const view = publicWorkbenchBrowserSession(queuedSession({
+      progressChunks: [{ seq: 0, stream: 'frame', imageUrl: 'https://cdn.example.com/f.jpg', atMs: 1_000 }],
+      currentPageUrl: 'https://example.com',
+    }))
+    expect(view).toMatchObject({ sessionId: 'wbbs_a', status: 'queued', viewport: { width: 1280, height: 720 }, currentPageUrl: 'https://example.com' })
+    expect(view.progress).toEqual([{ seq: 0, stream: 'frame', imageUrl: 'https://cdn.example.com/f.jpg', atMs: 1_000 }])
+    expect(JSON.stringify(view)).not.toMatch(/encrypted|credential|relativeFolder|Users\//i)
+  })
+})
+
+describe('workbench browser session queue transitions', () => {
+  it('approves an awaiting_approval session, moving it to queued', () => {
+    const approved = transitionWorkbenchBrowserSession(awaitingApprovalSession(), { type: 'approve', approverUserId: 'user-a', nowMs: 1_200 })
+    expect(approved).toMatchObject({ status: 'queued', approvedByUserId: 'user-a', approvedAtMs: 1_200 })
+  })
+
+  it('rejects approval by a non-owner, a non-awaiting session, or after expiry', () => {
+    expect(() => transitionWorkbenchBrowserSession(awaitingApprovalSession(), { type: 'approve', approverUserId: 'user-b', nowMs: 1_200 }))
+      .toThrow('workbench: browser session approval owner mismatch')
+    expect(() => transitionWorkbenchBrowserSession(queuedSession(), { type: 'approve', approverUserId: 'user-a', nowMs: 1_200 }))
+      .toThrow('workbench: browser session is not awaiting approval')
+    expect(() => transitionWorkbenchBrowserSession(awaitingApprovalSession({ ttlExpiresAtMs: 1_000 }), { type: 'approve', approverUserId: 'user-a', nowMs: 1_200 }))
+      .toThrow('workbench: browser session expired')
+  })
+
+  it('claims the create control, generating a lease and incrementing attempt', () => {
+    const claimed = transitionWorkbenchBrowserSession(queuedSession(), {
+      type: 'claimCreate', deviceId: 'device-a', credentialVersion: 3, nowMs: 2_000, leaseMs: 90_000,
+    })
+    expect(claimed.status).toBe('claimed')
+    expect(claimed.attempt).toBe(1)
+    expect(claimed.leaseToken).toEqual(expect.any(String))
+    expect(claimed.encryptedCreateControl).toBeNull()
+    expect(claimed.leaseExpiresAtMs).toBe(92_000)
+  })
+
+  it('rejects claiming an already-claimed session, a device/credential mismatch, or an expired session', () => {
+    const claimed = transitionWorkbenchBrowserSession(queuedSession(), {
+      type: 'claimCreate', deviceId: 'device-a', credentialVersion: 3, nowMs: 2_000, leaseMs: 90_000,
+    })
+    expect(() => transitionWorkbenchBrowserSession(claimed, {
+      type: 'claimCreate', deviceId: 'device-a', credentialVersion: 3, nowMs: 3_000, leaseMs: 90_000,
+    })).toThrow('workbench: browser session already claimed')
+    expect(() => transitionWorkbenchBrowserSession(queuedSession(), {
+      type: 'claimCreate', deviceId: 'device-b', credentialVersion: 3, nowMs: 2_000, leaseMs: 90_000,
+    })).toThrow('workbench: device mismatch')
+    expect(() => transitionWorkbenchBrowserSession(queuedSession({ ttlExpiresAtMs: 1_500 }), {
+      type: 'claimCreate', deviceId: 'device-a', credentialVersion: 3, nowMs: 2_000, leaseMs: 90_000,
+    })).toThrow('workbench: browser session expired')
+  })
+
+  it('flips claimed -> running on the first progress call and renews the lease thereafter', () => {
+    const claimed = transitionWorkbenchBrowserSession(queuedSession(), {
+      type: 'claimCreate', deviceId: 'device-a', credentialVersion: 3, nowMs: 2_000, leaseMs: 90_000,
+    })
+    const running = transitionWorkbenchBrowserSession(claimed, {
+      type: 'progress', deviceId: 'device-a', credentialVersion: 3, attempt: claimed.attempt, leaseToken: claimed.leaseToken!,
+      nowMs: 5_000, leaseMs: 90_000,
+    })
+    expect(running.status).toBe('running')
+    expect(running.leaseExpiresAtMs).toBe(95_000)
+
+    const renewed = transitionWorkbenchBrowserSession(running, {
+      type: 'progress', deviceId: 'device-a', credentialVersion: 3, attempt: running.attempt, leaseToken: running.leaseToken!,
+      nowMs: 10_000, leaseMs: 90_000,
+    })
+    expect(renewed.status).toBe('running')
+    expect(renewed.leaseExpiresAtMs).toBe(100_000)
+  })
+
+  it('rejects progress with a stale lease or on an unclaimed session', () => {
+    const claimed = transitionWorkbenchBrowserSession(queuedSession(), {
+      type: 'claimCreate', deviceId: 'device-a', credentialVersion: 3, nowMs: 2_000, leaseMs: 90_000,
+    })
+    expect(() => transitionWorkbenchBrowserSession(claimed, {
+      type: 'progress', deviceId: 'device-a', credentialVersion: 3, attempt: claimed.attempt, leaseToken: 'stale',
+      nowMs: 5_000, leaseMs: 90_000,
+    })).toThrow('workbench: lease mismatch')
+    expect(() => transitionWorkbenchBrowserSession(queuedSession(), {
+      type: 'progress', deviceId: 'device-a', credentialVersion: 3, attempt: 0, leaseToken: 'none',
+      nowMs: 5_000, leaseMs: 90_000,
+    })).toThrow('workbench: browser session not claimed')
+  })
+
+  it('kills an awaiting_approval or queued session directly (no browser exists yet) but refuses to kill an already-claimed one this way', () => {
+    const killedAwaiting = transitionWorkbenchBrowserSession(awaitingApprovalSession(), { type: 'killQueued', nowMs: 4_000 })
+    expect(killedAwaiting).toMatchObject({ status: 'killed', encryptedCreateControl: null })
+    const killedQueued = transitionWorkbenchBrowserSession(queuedSession(), { type: 'killQueued', nowMs: 4_000 })
+    expect(killedQueued).toMatchObject({ status: 'killed', encryptedCreateControl: null })
+    expect(() => transitionWorkbenchBrowserSession(queuedSession({ status: 'running' }), { type: 'killQueued', nowMs: 4_000 }))
+      .toThrow('workbench: browser session already claimed')
+  })
+
+  it('completes a running session and rejects completion with a stale lease', () => {
+    const claimed = transitionWorkbenchBrowserSession(queuedSession(), {
+      type: 'claimCreate', deviceId: 'device-a', credentialVersion: 3, nowMs: 2_000, leaseMs: 90_000,
+    })
+    const completed = transitionWorkbenchBrowserSession(claimed, {
+      type: 'complete', deviceId: 'device-a', credentialVersion: 3, attempt: claimed.attempt, leaseToken: claimed.leaseToken!,
+      outcome: 'exited', nowMs: 9_000,
+    })
+    expect(completed).toMatchObject({ status: 'exited', encryptedCreateControl: null, encryptedControls: null })
+
+    expect(() => transitionWorkbenchBrowserSession(claimed, {
+      type: 'complete', deviceId: 'device-a', credentialVersion: 3, attempt: claimed.attempt, leaseToken: 'stale-lease',
+      outcome: 'exited', nowMs: 9_000,
+    })).toThrow('workbench: lease mismatch')
+  })
+
+  it('is idempotent when re-completing with the same outcome', () => {
+    const exited = queuedSession({ status: 'exited' })
+    expect(transitionWorkbenchBrowserSession(exited, {
+      type: 'complete', deviceId: 'device-a', credentialVersion: 3, attempt: 1, leaseToken: 'irrelevant', outcome: 'exited', nowMs: 9_000,
+    })).toBe(exited)
+  })
+
+  it('expires a claimed session once and leaves a terminal session untouched', () => {
+    const claimed = transitionWorkbenchBrowserSession(queuedSession(), {
+      type: 'claimCreate', deviceId: 'device-a', credentialVersion: 3, nowMs: 2_000, leaseMs: 90_000,
+    })
+    const expired = transitionWorkbenchBrowserSession(claimed, { type: 'expire', nowMs: 200_000 })
+    expect(expired).toMatchObject({ status: 'expired', encryptedCreateControl: null, encryptedControls: null })
+    const exited = queuedSession({ status: 'exited' })
+    expect(transitionWorkbenchBrowserSession(exited, { type: 'expire', nowMs: 200_000 })).toBe(exited)
+  })
+})

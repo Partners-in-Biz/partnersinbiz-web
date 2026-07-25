@@ -223,7 +223,12 @@ export function parseWorkbenchBrowserSessionControl(value: unknown): WorkbenchBr
     case 'create': {
       if (!exactKeys(input, ['kind', 'startUrl', 'viewport'])) throw new Error('workbench: invalid browser session control')
       const viewportInput = record(input.viewport)
-      if (!viewportInput || !exactKeys(viewportInput, ['width', 'height'])) throw new Error('workbench: invalid browser session control')
+      if (
+        !viewportInput
+        || !exactKeys(viewportInput, ['width', 'height'])
+        || typeof viewportInput.width !== 'number'
+        || typeof viewportInput.height !== 'number'
+      ) throw new Error('workbench: invalid browser session control')
       const viewport = sanitizeWorkbenchBrowserViewport(viewportInput.width, viewportInput.height)
       if (!viewport) throw new Error('workbench: invalid browser session control')
       const startUrlResult = sanitizeWorkbenchBrowserStartUrl(input.startUrl)

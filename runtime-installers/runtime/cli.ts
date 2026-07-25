@@ -27,6 +27,12 @@ import {
   type WorkbenchTunnelClaim,
 } from './workbench-tunnel'
 import {
+  linkedRuntimeWorkbenchBrowserClaimBody,
+  pollWorkbenchBrowserForever,
+  runWorkbenchBrowserClaim,
+  type WorkbenchBrowserClaim,
+} from './workbench-browser'
+import {
   executeAgentHostJob,
   linkedRuntimeAgentHostClaimBody,
   pollAgentHostForever,
@@ -88,6 +94,7 @@ async function syncClaim():Promise<WorkspaceSyncRuntimeJob|null>{const i=await i
 async function workbenchClaim():Promise<WorkbenchRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/workbench/claim`,linkedRuntimeWorkbenchClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkbenchRuntimeJob}
 async function workbenchSessionsClaim():Promise<WorkbenchSessionClaim|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/workbench/sessions/claim`,linkedRuntimeWorkbenchSessionsClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkbenchSessionClaim}
 async function workbenchTunnelsClaim():Promise<WorkbenchTunnelClaim|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/workbench/tunnel/sessions/claim`,linkedRuntimeWorkbenchTunnelsClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkbenchTunnelClaim}
+async function workbenchBrowserSessionsClaim():Promise<WorkbenchBrowserClaim|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/workbench/browser/sessions/claim`,linkedRuntimeWorkbenchBrowserClaimBody());if(response.status===204)return null;return await jsonData(response) as WorkbenchBrowserClaim}
 async function agentHostClaim():Promise<AgentHostRuntimeJob|null>{const i=await identity();const response=await post(`/api/v1/linked-computers/${i.deviceId}/agents/claim`,linkedRuntimeAgentClaimBody());if(response.status===204)return null;return await jsonData(response) as AgentHostRuntimeJob}
 async function downloadAgentSkillPack(artifactPath:string,expectedContentSha256:string){
   const i=await identity()
@@ -113,6 +120,7 @@ async function syncRun(job:WorkspaceSyncRuntimeJob){const i=await identity();ret
 async function workbenchRun(job:WorkbenchRuntimeJob){const i=await identity();return executeWorkbenchJob(job,i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 async function workbenchSessionsRun(claim:WorkbenchSessionClaim){const i=await identity();return runWorkbenchSessionClaim(claim,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 async function workbenchTunnelsRun(claim:WorkbenchTunnelClaim){const i=await identity();return runWorkbenchTunnelClaim(claim,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
+async function workbenchBrowserSessionsRun(claim:WorkbenchBrowserClaim){const i=await identity();return runWorkbenchBrowserClaim(claim,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 async function agentHostRun(job:AgentHostRuntimeJob){const i=await identity();const outcome=await executeAgentHostJob(job,{downloadSkillPack:async({artifactPath,expectedContentSha256})=>downloadAgentSkillPack(artifactPath,expectedContentSha256)});await post(`/api/v1/linked-computers/${i.deviceId}/agents/jobs/${job.jobId}/complete`,{leaseToken:job.leaseToken,ok:outcome.ok,...(outcome.ok?{result:outcome.result}:{error:outcome.error})})}
 async function syncFlush(){const i=await identity();return syncSpool.flush((suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 export async function isRevokeAcknowledged(response:Response){if(!response.ok)return false;try{const body=record(await response.json());return body.revoked===true&&typeof body.code==='string'&&['device_revoked','already_revoked'].includes(body.code)}catch{return false}}
@@ -121,7 +129,7 @@ async function clearRevocation(){await store.clear();fs.rmSync(revocationMarker,
 export async function recoverPendingRevocation(attempt:()=>Promise<void>,clear:()=>Promise<void>,wait:(ms:number)=>Promise<void>,stop:()=>boolean){let delay=1000;while(!stop()){try{await attempt();await clear();return true}catch{await wait(delay);delay=Math.min(delay*2,30000)}}return false}
 export async function heartbeatForever(beat:()=>Promise<void>,stop:()=>boolean,intervalMs=60_000,wait:(ms:number)=>Promise<void>=ms=>new Promise(r=>setTimeout(r,ms))){while(!stop()){await beat().catch(()=>undefined);if(!stop())await wait(intervalMs)}}
 export async function runRuntimeServicePollers(...pollers:Array<()=>Promise<void>>){await Promise.all(pollers.map(poller=>poller()))}
-async function service(){let stopped=false;process.once('SIGTERM',()=>{stopped=true});process.once('SIGINT',()=>{stopped=true});if(fs.existsSync(revocationMarker)){await recoverPendingRevocation(signedRemoteRevoke,clearRevocation,ms=>new Promise(r=>setTimeout(r,ms)),()=>stopped);return}const pollers=[()=>pollForever(claim,run,()=>stopped),()=>pollWorkbenchForever(workbenchClaim,workbenchRun,()=>stopped),()=>pollWorkbenchSessionsForever(workbenchSessionsClaim,workbenchSessionsRun,()=>stopped),()=>pollWorkbenchTunnelsForever(workbenchTunnelsClaim,workbenchTunnelsRun,()=>stopped),()=>pollAgentHostForever(agentHostClaim,agentHostRun,()=>stopped),()=>heartbeatForever(heartbeat,()=>stopped)];if(nativeWorkspaceSyncSupported())pollers.push(()=>pollWorkspaceSyncForever(syncClaim,syncRun,syncFlush,async()=>undefined,()=>stopped));await runRuntimeServicePollers(...pollers)}
+async function service(){let stopped=false;process.once('SIGTERM',()=>{stopped=true});process.once('SIGINT',()=>{stopped=true});if(fs.existsSync(revocationMarker)){await recoverPendingRevocation(signedRemoteRevoke,clearRevocation,ms=>new Promise(r=>setTimeout(r,ms)),()=>stopped);return}const pollers=[()=>pollForever(claim,run,()=>stopped),()=>pollWorkbenchForever(workbenchClaim,workbenchRun,()=>stopped),()=>pollWorkbenchSessionsForever(workbenchSessionsClaim,workbenchSessionsRun,()=>stopped),()=>pollWorkbenchTunnelsForever(workbenchTunnelsClaim,workbenchTunnelsRun,()=>stopped),()=>pollWorkbenchBrowserForever(workbenchBrowserSessionsClaim,workbenchBrowserSessionsRun,()=>stopped),()=>pollAgentHostForever(agentHostClaim,agentHostRun,()=>stopped),()=>heartbeatForever(heartbeat,()=>stopped)];if(nativeWorkspaceSyncSupported())pollers.push(()=>pollWorkspaceSyncForever(syncClaim,syncRun,syncFlush,async()=>undefined,()=>stopped));await runRuntimeServicePollers(...pollers)}
 async function revoke(){fs.mkdirSync(stateRoot,{recursive:true,mode:0o700});fs.writeFileSync(revocationMarker,JSON.stringify({pending:true,createdAt:new Date().toISOString()}),{mode:0o600});const result=await revokeAndCleanup(signedRemoteRevoke,clearRevocation);if(result.remoteRevokePending){process.stderr.write('Remote revoke pending; secure identity retained for revoke-only retry.\n');throw new Error('remote revoke pending')}}
 function option(args:string[],name:string){const i=args.indexOf(name);if(i<0||!args[i+1])throw new Error(`${name} is required`);return args[i+1]}
 async function confirmMapping(mappingId:string,present:boolean){const i=await identity(),response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/mappings/${mappingId}/confirm`,{present});if(!response.ok)throw new Error('mapping confirmation rejected')}

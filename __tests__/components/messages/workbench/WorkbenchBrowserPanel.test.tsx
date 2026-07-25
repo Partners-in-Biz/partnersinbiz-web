@@ -84,7 +84,7 @@ describe('WorkbenchBrowserPanel — tunnel strip', () => {
 
   it('calls onKillTunnel only when a tunnel is active', () => {
     const onKillTunnel = jest.fn()
-    const { rerender } = render(<WorkbenchBrowserPanel targets={[]} tunnel={tunnelState({ status: 'closed', publicUrl: null })} onStartTunnel={jest.fn()} onKillTunnel={onKillTunnel} />)
+    const { rerender } = render(<WorkbenchBrowserPanel targets={[]} tunnel={tunnelState({ status: 'killed', publicUrl: null })} onStartTunnel={jest.fn()} onKillTunnel={onKillTunnel} />)
     expect(screen.getByTestId('workbench-tunnel-kill')).toBeDisabled()
 
     rerender(<WorkbenchBrowserPanel targets={[]} tunnel={tunnelState({ status: 'running' })} onStartTunnel={jest.fn()} onKillTunnel={onKillTunnel} />)

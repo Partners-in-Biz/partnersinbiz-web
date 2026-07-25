@@ -168,13 +168,6 @@ type TunnelEntry = {
 
 const tunnels = new Map<string, TunnelEntry>()
 
-function requireTunnel(sessionId: string): TunnelEntry {
-  if (!IDENTIFIER.test(sessionId)) throw new Error('invalid workbench tunnel session id')
-  const entry = tunnels.get(sessionId)
-  if (!entry) throw new Error('workbench tunnel not found')
-  return entry
-}
-
 /** Exposed for tests; not part of the runtime's public control surface. */
 export function activeWorkbenchTunnelIds(): string[] {
   return [...tunnels.keys()]

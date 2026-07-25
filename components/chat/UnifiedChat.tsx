@@ -96,18 +96,18 @@ import {
   type PublicWorkbenchTunnelSession,
 } from '@/lib/messages/workbench/tunnel-client'
 import {
-  appendWorkbenchBrowserSessionFrames,
-  approveBrowserSession,
-  captureBrowserSession,
-  createBrowserSession,
-  getBrowserSession,
-  killBrowserSession,
-  navigateBrowserSession,
-  pollBrowserSession,
-  EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES,
-  WORKBENCH_BROWSER_SESSION_TERMINAL_STATUSES,
+  appendWorkbenchBrowserSessionProgress,
+  approveWorkbenchBrowserSession as approveWorkbenchBrowserSessionApi,
+  captureWorkbenchBrowserSession as captureWorkbenchBrowserSessionApi,
+  createWorkbenchBrowserSession,
+  getWorkbenchBrowserSession,
+  killWorkbenchBrowserSession as killWorkbenchBrowserSessionApi,
+  latestWorkbenchBrowserSessionFrameUrl,
+  navigateWorkbenchBrowserSession as navigateWorkbenchBrowserSessionApi,
+  pollWorkbenchBrowserSession,
+  EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS,
   type PublicWorkbenchBrowserSession,
-  type WorkbenchBrowserSessionFrameState,
+  type WorkbenchBrowserSessionProgressState,
 } from '@/lib/messages/workbench/browser-session-client'
 import type {
   WorkbenchBrowserSessionViewState,
@@ -1013,7 +1013,7 @@ export default function UnifiedChat({
   const [workbenchTunnel, setWorkbenchTunnel] = useState<WorkbenchTunnelViewState | null>(null)
   const workbenchTunnelAbortRef = useRef<AbortController | null>(null)
   const [workbenchBrowserSession, setWorkbenchBrowserSession] = useState<WorkbenchBrowserSessionViewState | null>(null)
-  const workbenchBrowserSessionFramesRef = useRef<WorkbenchBrowserSessionFrameState>(EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES)
+  const workbenchBrowserSessionProgressRef = useRef<WorkbenchBrowserSessionProgressState>(EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS)
   const workbenchBrowserSessionAbortRef = useRef<AbortController | null>(null)
   const [contextCanvasCloseRequest, setContextCanvasCloseRequest] = useState(0)
   // Icon strip stays visible whenever the workbench is enabled; expand margin when a dock opens.
@@ -2689,17 +2689,18 @@ export default function UnifiedChat({
     setWorkbenchTunnel(null)
   }, [activeId])
 
-  /** Merges a browser session snapshot's new-only frames into view state — mirrors the terminal session pattern. */
+  /** Merges a browser session snapshot's new-only progress chunks into view state — mirrors the terminal session pattern. */
   const applyWorkbenchBrowserSessionUpdate = useCallback((remote: PublicWorkbenchBrowserSession) => {
-    workbenchBrowserSessionFramesRef.current = appendWorkbenchBrowserSessionFrames(workbenchBrowserSessionFramesRef.current, remote)
-    const frames = workbenchBrowserSessionFramesRef.current.frames
+    workbenchBrowserSessionProgressRef.current = appendWorkbenchBrowserSessionProgress(workbenchBrowserSessionProgressRef.current, remote)
+    const chunks = workbenchBrowserSessionProgressRef.current.chunks
+    const frameCount = chunks.filter((chunk) => chunk.stream === 'frame' && chunk.imageUrl).length
     setWorkbenchBrowserSession({
       sessionId: remote.sessionId,
       status: remote.status,
       startUrl: remote.startUrl ?? null,
       currentUrl: remote.currentPageUrl ?? null,
-      latestFrameUrl: frames.length > 0 ? frames[frames.length - 1].imageUrl : null,
-      frameCount: frames.length,
+      latestFrameUrl: latestWorkbenchBrowserSessionFrameUrl(chunks) ?? null,
+      frameCount,
       error: remote.error ?? null,
       busy: false,
     })
@@ -2710,7 +2711,7 @@ export default function UnifiedChat({
     workbenchBrowserSessionAbortRef.current?.abort()
     const controller = new AbortController()
     workbenchBrowserSessionAbortRef.current = controller
-    workbenchBrowserSessionFramesRef.current = EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES
+    workbenchBrowserSessionProgressRef.current = EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS
     setWorkbenchBrowserSession({
       sessionId: null, status: 'starting', startUrl: startUrl ?? null, currentUrl: null,
       latestFrameUrl: null, frameCount: 0, error: null, busy: true,
@@ -2718,7 +2719,7 @@ export default function UnifiedChat({
 
     try {
       // A browser session always starts `awaiting_approval` — nothing to poll until the user approves it.
-      const created = await createBrowserSession(activeId, { startUrl, signal: controller.signal })
+      const created = await createWorkbenchBrowserSession(activeId, { startUrl, signal: controller.signal })
       applyWorkbenchBrowserSessionUpdate(created)
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
@@ -2742,12 +2743,13 @@ export default function UnifiedChat({
     workbenchBrowserSessionAbortRef.current = controller
     setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
-      const approved = await approveBrowserSession(activeId, workbenchBrowserSession.sessionId, { signal: controller.signal })
+      const approved = await approveWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, { signal: controller.signal })
       applyWorkbenchBrowserSessionUpdate(approved)
-      if (!WORKBENCH_BROWSER_SESSION_TERMINAL_STATUSES.has(approved.status) && approved.status !== 'running') {
-        await pollBrowserSession(activeId, workbenchBrowserSession.sessionId, {
+      if (approved.status === 'queued' || approved.status === 'claimed') {
+        await pollWorkbenchBrowserSession(activeId, workbenchBrowserSession.sessionId, {
           signal: controller.signal,
           onProgress: applyWorkbenchBrowserSessionUpdate,
+          settledStatuses: new Set(['running', 'exited', 'killed', 'expired', 'failed']),
         })
       }
     } catch (error) {
@@ -2762,7 +2764,7 @@ export default function UnifiedChat({
     if (!activeId || !workbenchBrowserSession?.sessionId) return
     setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
-      const updated = await navigateBrowserSession(activeId, workbenchBrowserSession.sessionId, url)
+      const updated = await navigateWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, url)
       applyWorkbenchBrowserSessionUpdate(updated)
     } catch (error) {
       setWorkbenchBrowserSession((prev) => prev
@@ -2775,7 +2777,7 @@ export default function UnifiedChat({
     if (!activeId || !workbenchBrowserSession?.sessionId) return
     setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
-      const updated = await captureBrowserSession(activeId, workbenchBrowserSession.sessionId)
+      const updated = await captureWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId)
       applyWorkbenchBrowserSessionUpdate(updated)
     } catch (error) {
       setWorkbenchBrowserSession((prev) => prev
@@ -2789,7 +2791,7 @@ export default function UnifiedChat({
     workbenchBrowserSessionAbortRef.current?.abort()
     setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
-      const killed = await killBrowserSession(activeId, workbenchBrowserSession.sessionId)
+      const killed = await killWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId)
       applyWorkbenchBrowserSessionUpdate(killed)
     } catch (error) {
       setWorkbenchBrowserSession((prev) => prev
@@ -2799,9 +2801,9 @@ export default function UnifiedChat({
   }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
 
   useEffect(() => {
-    // Conversation-scoped: drop any in-flight browser session poll and its frames when switching conversations.
+    // Conversation-scoped: drop any in-flight browser session poll and its progress when switching conversations.
     workbenchBrowserSessionAbortRef.current?.abort()
-    workbenchBrowserSessionFramesRef.current = EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES
+    workbenchBrowserSessionProgressRef.current = EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS
     setWorkbenchBrowserSession(null)
   }, [activeId])
 
@@ -2815,7 +2817,7 @@ export default function UnifiedChat({
     const sessionId = workbenchBrowserSession.sessionId
     const controller = new AbortController()
     const interval = setInterval(() => {
-      getBrowserSession(conversationId, sessionId, { signal: controller.signal })
+      getWorkbenchBrowserSession(conversationId, sessionId, { signal: controller.signal })
         .then(applyWorkbenchBrowserSessionUpdate)
         .catch(() => {
           // A follow-up poll failing (e.g. a transient network blip) shouldn't surface as an error banner.

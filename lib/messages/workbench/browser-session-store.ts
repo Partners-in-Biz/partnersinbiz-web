@@ -57,6 +57,8 @@ function toStored(session: WorkbenchBrowserSession): Record<string, unknown> {
     createdAtMs, updatedAtMs, ttlExpiresAtMs, leaseExpiresAtMs, claimedAtMs, approvedAtMs, completedAtMs,
     pendingControls: _pendingControls, progressChunks: _progressChunks, ...row
   } = session
+  void _pendingControls
+  void _progressChunks
   return {
     ...row,
     createdAt: Timestamp.fromMillis(createdAtMs),

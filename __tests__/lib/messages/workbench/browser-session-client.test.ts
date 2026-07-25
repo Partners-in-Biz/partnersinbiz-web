@@ -1,11 +1,12 @@
 import {
-  appendWorkbenchBrowserSessionFrames,
+  appendWorkbenchBrowserSessionProgress,
   approveWorkbenchBrowserSession,
   captureWorkbenchBrowserSession,
   createWorkbenchBrowserSession,
-  EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES,
+  EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS,
   getWorkbenchBrowserSession,
   killWorkbenchBrowserSession,
+  latestWorkbenchBrowserSessionFrameUrl,
   navigateWorkbenchBrowserSession,
   pollWorkbenchBrowserSession,
 } from '@/lib/messages/workbench/browser-session-client'
@@ -13,10 +14,13 @@ import type { PublicWorkbenchBrowserSession } from '@/lib/messages/workbench/bro
 
 function session(overrides: Partial<PublicWorkbenchBrowserSession> = {}): PublicWorkbenchBrowserSession {
   return {
-    sessionId: 'bsess-1',
+    sessionId: 'wbbs_a',
     status: 'queued',
-    createdAt: '',
-    updatedAt: '',
+    startUrl: null,
+    viewport: { width: 1280, height: 720 },
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ttlExpiresAt: '2026-01-01T00:30:00.000Z',
     ...overrides,
   }
 }
@@ -26,25 +30,25 @@ describe('createWorkbenchBrowserSession', () => {
 
   it('POSTs the optional startUrl/viewport to the browser sessions route', async () => {
     const fetchMock = jest.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session() }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'awaiting_approval' }) }), { status: 202 }))
 
     const created = await createWorkbenchBrowserSession('conv-1', { startUrl: 'https://example.com' })
 
-    expect(created.status).toBe('queued')
+    expect(created.status).toBe('awaiting_approval')
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions')
     expect((init as RequestInit).method).toBe('POST')
     expect(JSON.parse(String((init as RequestInit).body))).toEqual({ startUrl: 'https://example.com' })
   })
 
-  it('throws a readable error when the route 404s (server/runtime not built yet)', async () => {
-    jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Not found' }), { status: 404 }))
-    await expect(createWorkbenchBrowserSession('conv-1')).rejects.toThrow('Not found')
+  it('throws a readable error when the route fails', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }))
+    await expect(createWorkbenchBrowserSession('conv-1')).rejects.toThrow('Forbidden')
   })
 
-  it('throws a generic error when a 501 has no JSON body at all', async () => {
-    jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('<html>not implemented</html>', { status: 501 }))
-    await expect(createWorkbenchBrowserSession('conv-1')).rejects.toThrow(/501/)
+  it('throws a generic error when a failure response has no JSON body at all', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('<html>error</html>', { status: 500 }))
+    await expect(createWorkbenchBrowserSession('conv-1')).rejects.toThrow(/500/)
   })
 })
 
@@ -55,10 +59,10 @@ describe('getWorkbenchBrowserSession / pollWorkbenchBrowserSession', () => {
     const fetchMock = jest.spyOn(global, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: session() }), { status: 200 }))
 
-    const result = await getWorkbenchBrowserSession('conv-1', 'bsess-1')
+    const result = await getWorkbenchBrowserSession('conv-1', 'wbbs_a')
 
-    expect(result.sessionId).toBe('bsess-1')
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/bsess-1')
+    expect(result.sessionId).toBe('wbbs_a')
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/wbbs_a')
   })
 
   it('polls, invoking onProgress each time, until a settled status is reached (awaiting_approval)', async () => {
@@ -67,7 +71,7 @@ describe('getWorkbenchBrowserSession / pollWorkbenchBrowserSession', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'queued' }) }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'awaiting_approval' }) }), { status: 200 }))
 
-    const result = await pollWorkbenchBrowserSession('conv-1', 'bsess-1', { intervalMs: 0, onProgress })
+    const result = await pollWorkbenchBrowserSession('conv-1', 'wbbs_a', { intervalMs: 0, onProgress })
 
     expect(result.status).toBe('awaiting_approval')
     expect(onProgress).toHaveBeenCalledTimes(2)
@@ -75,9 +79,9 @@ describe('getWorkbenchBrowserSession / pollWorkbenchBrowserSession', () => {
 
   it('times out waiting for a session stuck in a non-settled status', async () => {
     jest.spyOn(global, 'fetch').mockImplementation(async () =>
-      new Response(JSON.stringify({ data: session({ status: 'starting' }) }), { status: 200 }))
+      new Response(JSON.stringify({ data: session({ status: 'claimed' }) }), { status: 200 }))
 
-    await expect(pollWorkbenchBrowserSession('conv-1', 'bsess-1', { timeoutMs: 5, intervalMs: 0 })).rejects.toThrow(/timed out/i)
+    await expect(pollWorkbenchBrowserSession('conv-1', 'wbbs_a', { timeoutMs: 5, intervalMs: 0 })).rejects.toThrow(/timed out/i)
   })
 })
 
@@ -86,86 +90,98 @@ describe('approveWorkbenchBrowserSession / navigateWorkbenchBrowserSession / cap
 
   it('approve POSTs to the approve route', async () => {
     const fetchMock = jest.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'running' }) }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'queued' }) }), { status: 200 }))
 
-    const result = await approveWorkbenchBrowserSession('conv-1', 'bsess-1')
+    const result = await approveWorkbenchBrowserSession('conv-1', 'wbbs_a')
 
-    expect(result.status).toBe('running')
+    expect(result.status).toBe('queued')
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/bsess-1/approve')
+    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/wbbs_a/approve')
     expect((init as RequestInit).method).toBe('POST')
   })
 
   it('navigate POSTs { url } to the navigate route', async () => {
     const fetchMock = jest.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'running', currentUrl: 'https://example.com/next' }) }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'running', currentPageUrl: 'https://example.com/next' }) }), { status: 200 }))
 
-    const result = await navigateWorkbenchBrowserSession('conv-1', 'bsess-1', 'https://example.com/next')
+    const result = await navigateWorkbenchBrowserSession('conv-1', 'wbbs_a', 'https://example.com/next')
 
-    expect(result.currentUrl).toBe('https://example.com/next')
+    expect(result.currentPageUrl).toBe('https://example.com/next')
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/bsess-1/navigate')
+    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/wbbs_a/navigate')
     expect((init as RequestInit).method).toBe('POST')
     expect(JSON.parse(String((init as RequestInit).body))).toEqual({ url: 'https://example.com/next' })
   })
 
-  it('capture POSTs to the capture route and returns the updated session (with new frames)', async () => {
+  it('capture POSTs to the capture route and returns the updated session (with new progress chunks)', async () => {
     const fetchMock = jest.spyOn(global, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify({
-        data: session({ status: 'running', frames: [{ id: 'f1', seq: 0, imageUrl: 'https://cdn.example.com/f1.png' }] }),
+        data: session({ status: 'running', progress: [{ seq: 0, stream: 'frame', imageUrl: 'https://cdn.example.com/f1.png', atMs: 1_000 }] }),
       }), { status: 200 }))
 
-    const result = await captureWorkbenchBrowserSession('conv-1', 'bsess-1')
+    const result = await captureWorkbenchBrowserSession('conv-1', 'wbbs_a')
 
-    expect(result.frames).toHaveLength(1)
+    expect(result.progress).toHaveLength(1)
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/bsess-1/capture')
+    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/wbbs_a/capture')
     expect((init as RequestInit).method).toBe('POST')
   })
 
   it('kill POSTs to the kill route and returns the updated session', async () => {
     const fetchMock = jest.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'closed' }) }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'killed' }) }), { status: 200 }))
 
-    const result = await killWorkbenchBrowserSession('conv-1', 'bsess-1')
+    const result = await killWorkbenchBrowserSession('conv-1', 'wbbs_a')
 
-    expect(result.status).toBe('closed')
+    expect(result.status).toBe('killed')
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/bsess-1/kill')
+    expect(url).toBe('/api/v1/conversations/conv-1/workbench/browser/sessions/wbbs_a/kill')
     expect((init as RequestInit).method).toBe('POST')
   })
 
   it('throws a readable error on failure', async () => {
-    jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Session is not running' }), { status: 409 }))
-    await expect(navigateWorkbenchBrowserSession('conv-1', 'bsess-1', 'https://example.com')).rejects.toThrow('Session is not running')
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Workbench browser session is not running' }), { status: 409 }))
+    await expect(navigateWorkbenchBrowserSession('conv-1', 'wbbs_a', 'https://example.com')).rejects.toThrow('Workbench browser session is not running')
   })
 })
 
-describe('appendWorkbenchBrowserSessionFrames', () => {
-  it('appends only frames newer than the last-seen seq, in seq order', () => {
-    const state = appendWorkbenchBrowserSessionFrames(EMPTY_WORKBENCH_BROWSER_SESSION_FRAMES, session({
-      frames: [
-        { id: 'f0', seq: 0, imageUrl: 'https://cdn.example.com/f0.png' },
-        { id: 'f1', seq: 1, imageUrl: 'https://cdn.example.com/f1.png' },
+describe('appendWorkbenchBrowserSessionProgress', () => {
+  it('appends only chunks newer than the last-seen seq, in seq order', () => {
+    const state = appendWorkbenchBrowserSessionProgress(EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS, session({
+      progress: [
+        { seq: 0, stream: 'frame', imageUrl: 'https://cdn.example.com/f0.png', atMs: 1_000 },
+        { seq: 1, stream: 'frame', imageUrl: 'https://cdn.example.com/f1.png', atMs: 2_000 },
       ],
     }))
-    expect(state.frames.map((frame) => frame.id)).toEqual(['f0', 'f1'])
+    expect(state.chunks.map((chunk) => chunk.seq)).toEqual([0, 1])
     expect(state.lastSeq).toBe(1)
 
-    const next = appendWorkbenchBrowserSessionFrames(state, session({
-      frames: [
-        { id: 'f1', seq: 1, imageUrl: 'https://cdn.example.com/f1.png' },
-        { id: 'f2', seq: 2, imageUrl: 'https://cdn.example.com/f2.png' },
+    const next = appendWorkbenchBrowserSessionProgress(state, session({
+      progress: [
+        { seq: 1, stream: 'frame', imageUrl: 'https://cdn.example.com/f1.png', atMs: 2_000 },
+        { seq: 2, stream: 'status', text: 'ok', atMs: 3_000 },
       ],
     }))
-    expect(next.frames.map((frame) => frame.id)).toEqual(['f0', 'f1', 'f2'])
+    expect(next.chunks.map((chunk) => chunk.seq)).toEqual([0, 1, 2])
     expect(next.lastSeq).toBe(2)
   })
 
-  it('returns the same state when there are no new frames', () => {
-    const state = { frames: [{ id: 'f0', seq: 0, imageUrl: 'x' }], lastSeq: 0 }
-    expect(appendWorkbenchBrowserSessionFrames(state, session({ frames: [{ id: 'f0', seq: 0, imageUrl: 'x' }] }))).toBe(state)
-    expect(appendWorkbenchBrowserSessionFrames(state, session({ frames: [] }))).toBe(state)
-    expect(appendWorkbenchBrowserSessionFrames(state, session({}))).toBe(state)
+  it('returns the same state when there are no new chunks', () => {
+    const state = { chunks: [{ seq: 0, stream: 'status' as const, text: 'ok', atMs: 1_000 }], lastSeq: 0 }
+    expect(appendWorkbenchBrowserSessionProgress(state, session({ progress: state.chunks }))).toBe(state)
+    expect(appendWorkbenchBrowserSessionProgress(state, session({ progress: [] }))).toBe(state)
+    expect(appendWorkbenchBrowserSessionProgress(state, session({}))).toBe(state)
+  })
+})
+
+describe('latestWorkbenchBrowserSessionFrameUrl', () => {
+  it('returns the most recent frame chunk\'s imageUrl, skipping status/stderr chunks', () => {
+    expect(latestWorkbenchBrowserSessionFrameUrl([
+      { seq: 0, stream: 'frame', imageUrl: 'https://cdn.example.com/f0.png', atMs: 1_000 },
+      { seq: 1, stream: 'status', text: 'ok', atMs: 2_000 },
+      { seq: 2, stream: 'frame', imageUrl: 'https://cdn.example.com/f2.png', atMs: 3_000 },
+      { seq: 3, stream: 'stderr', text: 'oops', atMs: 4_000 },
+    ])).toBe('https://cdn.example.com/f2.png')
+    expect(latestWorkbenchBrowserSessionFrameUrl([])).toBeUndefined()
   })
 })
