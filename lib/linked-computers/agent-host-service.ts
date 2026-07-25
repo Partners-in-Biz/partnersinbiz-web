@@ -30,9 +30,9 @@ const AGENT_HOST_PROTOCOL_VERSION = 2
 
 function skillPackForAgent(agentId: AgentId): AgentHostJobPayload['skillPack'] {
   const policy = getAgentSkillPolicy(agentId)
-  if (!policy) return null
   const manifest = buildSkillPackManifest(agentId)
-  if (manifest.skillNames.length === 0) {
+  // Managed agents must ship real skills; custom agents may stamp an empty pack for keep-in-sync.
+  if (policy && manifest.skillNames.length === 0) {
     throw new Error(`agent-host: managed agent ${agentId} has an empty skill pack`)
   }
   return {
@@ -45,20 +45,23 @@ function skillPackForAgent(agentId: AgentId): AgentHostJobPayload['skillPack'] {
 
 function policyPayload(agentId: AgentId, keepInSync: boolean, deviceId?: string): AgentHostJobPayload {
   const policy = getAgentSkillPolicy(agentId)
-  // Custom agents may install without a pack; keep-in-sync requires a managed policy pack.
-  const effectiveKeepInSync = keepInSync && Boolean(policy)
+  const effectiveKeepInSync = keepInSync === true
+  // Keep-in-sync always ships a pack (managed skills, or empty custom stamp for re-ensure).
+  // Installs without keep-in-sync still omit packs for custom agents.
   const skillPack = effectiveKeepInSync || policy
     ? skillPackForAgent(agentId)
     : null
-  if (policy && effectiveKeepInSync && !skillPack) {
+  if (effectiveKeepInSync && !skillPack) {
     throw new Error(`agent-host: skill pack required for keep-in-sync on ${agentId}`)
   }
   const artifactPath = skillPack
     ? skillPack.artifactPath.replace('{deviceId}', deviceId ?? '{deviceId}')
     : null
+  const policyVersion = skillPack?.policyVersion
+    ?? (policy ? AGENT_SKILL_POLICY.version : null)
   return {
     agentId,
-    policyVersion: policy ? AGENT_SKILL_POLICY.version : null,
+    policyVersion,
     keepInSync: effectiveKeepInSync,
     runtimeSkills: policy?.runtimeSkills ?? [],
     pibSkills: policy?.pibSkills ?? [],
@@ -155,15 +158,15 @@ export async function setDeviceDesiredAgents(input: {
     .filter((row) => catalog.has(row.agentId))
     .map((row) => ({
       agentId: row.agentId,
-      // Keep-in-sync is only meaningful for managed skill-policy agents.
-      keepInSync: row.keepInSync === true && Boolean(getAgentSkillPolicy(row.agentId)),
+      keepInSync: row.keepInSync === true,
     }))
 
   const existing = parseDesiredAgentBindings(device.desiredAgents)
   const policyVersionByAgent: Record<string, string | null> = {}
   for (const row of filteredDesired) {
     if (!isValidAgentId(row.agentId)) continue
-    policyVersionByAgent[row.agentId] = getAgentSkillPolicy(row.agentId)
+    // Keep-in-sync stamps catalog policy version even for empty custom packs.
+    policyVersionByAgent[row.agentId] = row.keepInSync || getAgentSkillPolicy(row.agentId)
       ? AGENT_SKILL_POLICY.version
       : null
   }

@@ -7,7 +7,7 @@ import { AccessibleDialog, AccessibleMenu } from './AccessibleOverlay'
 type Grant = { orgId: string; orgLabel?: string; status: string; accessMode?: 'owner' | 'organization' | 'selected_users' }
 type Mapping = { mappingId: string; orgId: string; workspaceId: string; label: string; status: string }
 type DesiredAgentRow = { agentId: string; keepInSync: boolean; desiredPolicyVersion: string | null; appliedPolicyVersion: string | null; status: string; lastError: string | null }
-type Device = { deviceId: string; label: string; platform: string; architecture: string; deviceKind?: 'computer' | 'vps'; ownerType?: 'user' | 'organization'; runtimeVersion: string; status: string; health?: string; healthReason?: 'hermes_unavailable' | 'no_agents_available' | null; hermesVersion?: string | null; availableAgentIds?: string[]; desiredAgents?: DesiredAgentRow[]; lastSeenAt: unknown; grants?: Grant[]; mappings?: Mapping[] }
+type Device = { deviceId: string; label: string; platform: string; architecture: string; deviceKind?: 'computer' | 'vps'; ownerType?: 'user' | 'organization'; runtimeVersion: string; status: string; health?: string; healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available' | null; hermesVersion?: string | null; availableAgentIds?: string[]; desiredAgents?: DesiredAgentRow[]; lastSeenAt: unknown; grants?: Grant[]; mappings?: Mapping[] }
 
 function agentSyncStatusLabel(status: string): string {
   switch (status) {
@@ -382,9 +382,11 @@ export function LinkedComputersWorkspace() {
                     >
                       {online
                         ? 'Online'
-                        : device.healthReason === 'hermes_unavailable'
-                          ? 'Hermes unavailable'
-                          : 'Computer unavailable'}
+                        : device.healthReason === 'hermes_binary_missing'
+                          ? 'Hermes missing'
+                          : device.healthReason === 'hermes_unavailable'
+                            ? 'Hermes unavailable'
+                            : 'Computer unavailable'}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
@@ -393,6 +395,11 @@ export function LinkedComputersWorkspace() {
                     {device.architecture} · Version {device.runtimeVersion}
                     {device.hermesVersion ? ` · Hermes ${device.hermesVersion}` : ''}
                   </p>
+                  {device.healthReason === 'hermes_binary_missing' && (
+                    <p className="mt-1.5 text-xs text-red-300">
+                      Install Hermes on this machine (Linked Computers bootstrap) or set PIB_HERMES_BIN, then restart the runtime.
+                    </p>
+                  )}
                   {device.healthReason === 'hermes_unavailable' && (
                     <p className="mt-1.5 text-xs text-red-300">
                       Start Hermes and at least one local agent profile on this machine.
@@ -652,7 +659,11 @@ export function LinkedComputersWorkspace() {
                     ) : null}
                   </label>
                   {live?.lastError ? (
-                    <p className="mt-1 pl-6 text-xs text-amber-300">{live.lastError}</p>
+                    <p className="mt-1 pl-6 text-xs text-amber-300">
+                      {live.lastError.includes('hermes binary not found')
+                        ? 'Hermes binary missing — install Hermes (bootstrap) or set PIB_HERMES_BIN, then retry pull.'
+                        : live.lastError}
+                    </p>
                   ) : null}
                   {live?.keepInSync && live.desiredPolicyVersion && live.desiredPolicyVersion !== live.appliedPolicyVersion ? (
                     <p className="mt-1 pl-6 text-xs text-[var(--color-pib-text-muted)]">

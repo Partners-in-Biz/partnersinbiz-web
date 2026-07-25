@@ -29,7 +29,7 @@ export interface LinkedDevice {
   /** Healthy Hermes profiles currently reachable over loopback on this device. */
   availableAgentIds?: string[]
   hermesVersion?: string
-  healthReason?: 'hermes_unavailable' | 'no_agents_available'
+  healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available'
   capabilities: LinkedDeviceCapability[]
   status: LinkedDeviceStatus
   credentialVersion: number

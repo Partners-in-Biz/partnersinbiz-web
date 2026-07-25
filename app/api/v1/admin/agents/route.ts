@@ -100,7 +100,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       linkedComputerPull: {
         preferredPort: resolvePreferredAgentPort(agentId),
         catalogIncluded: true,
-        note: 'Custom agents appear in Linked Computers → Agents and can be pulled with keep-in-sync.',
+        note: 'Custom agents appear in Linked Computers → Agents and can be pulled with keep-in-sync (empty skill stamp until a managed policy exists).',
       },
     })
   } catch (err) {

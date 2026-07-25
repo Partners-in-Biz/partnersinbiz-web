@@ -29,7 +29,7 @@ verify_release() {
   if [[ -f "$artifact_dir/.unsigned-dev" || -z "$PUBLIC_KEY" ]];then [[ "${PIB_ALLOW_UNSIGNED_DEV:-0}" == 1 ]]||{ echo 'Production refused an unsigned development release.' >&2;return 1;};echo "UNSIGNED DEVELOPMENT MODE: package authenticity is not guaranteed." >&2;unsigned_flag="--allow-unsigned-dev";fi
   local key_file="$artifact_dir/release-public.pem" signature_file="$artifact_dir/manifest.sig"
   [[ -z "$PUBLIC_KEY" ]]||printf '%s\n' "$PUBLIC_KEY" > "$key_file" # public verification material, never a credential
-  [[ -n "$unsigned_flag" || -f "$signature_file" ]] || { [[ "${4:-}" != offline ]] || { echo 'Stored release signature is missing.' >&2;return 1; };curl --fail --silent --show-error --proto '=https' "$METADATA_URL.sig" -o "$signature_file"; }
+  [[ -n "$unsigned_flag" || -f "$signature_file" ]] || { [[ "${4:-}" != offline ]] || { echo 'Stored release signature is missing.' >&2;return 1; };curl -fsSL --proto '=https' "$METADATA_URL.sig" -o "$signature_file"; }
   [[ -x "$RELEASE_MANAGER" ]] || { echo "Signed release manager is missing." >&2; return 1; }
   local current_version="${PIB_RUNTIME_CURRENT_VERSION:-}" rollback_flag=""
   if [[ -z "$current_version" && -x "$ROOT/current/pib-runtime" ]];then
@@ -46,10 +46,12 @@ verify_release() {
 
 install_runtime() {
   require_root
-  local stage; stage="$(mktemp -d)"; trap 'rm -rf "$stage"' RETURN
-  curl --fail --silent --show-error --proto '=https' "$METADATA_URL" -o "$stage/metadata.json"
+  local stage; stage="$(mktemp -d)"
+  # Expand path into the trap string so RETURN cannot hit set -u after locals unwind.
+  trap 'rm -rf "'"$stage"'"' RETURN
+  curl -fsSL --proto '=https' "$METADATA_URL" -o "$stage/metadata.json"
   local url; url="$(/usr/bin/plutil -extract payloadUrl raw "$stage/metadata.json")"
-  curl --fail --silent --show-error --proto '=https' "$url" -o "$stage/pib-runtime"
+  curl -fsSL --proto '=https' "$url" -o "$stage/pib-runtime"
   chmod 0755 "$stage/pib-runtime"
   verify_release "$stage/metadata.json" "$stage/pib-runtime"
   cp "$stage/metadata.json" "$stage/manifest.json"

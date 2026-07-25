@@ -66,7 +66,7 @@ export interface SafeLinkedDeviceDto {
   deviceId: string; label: string; platform: LinkedDevicePlatform; architecture: LinkedDeviceArchitecture
   deviceKind: LinkedDeviceKind; ownerType: LinkedDeviceOwnerType
   runtimeVersion: string; capabilities: LinkedDeviceCapability[]; status: LinkedDeviceStatus
-  availableAgentIds: string[]; hermesVersion: string | null; healthReason: 'hermes_unavailable' | 'no_agents_available' | null
+  availableAgentIds: string[]; hermesVersion: string | null; healthReason: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available' | null
   desiredAgents: Array<{
     agentId: string
     keepInSync: boolean
@@ -87,7 +87,11 @@ export function toSafeLinkedDeviceDto(row: LinkedDevice): SafeLinkedDeviceDto {
   const availableAgentIds = Array.isArray(row.availableAgentIds)
     ? row.availableAgentIds.filter((agentId): agentId is string => typeof agentId === 'string')
     : []
-  const healthReason = row.healthReason === 'hermes_unavailable' || row.healthReason === 'no_agents_available' ? row.healthReason : null
+  const healthReason = row.healthReason === 'hermes_unavailable'
+    || row.healthReason === 'hermes_binary_missing'
+    || row.healthReason === 'no_agents_available'
+    ? row.healthReason
+    : null
   const desiredAgents = Array.isArray((row as LinkedDevice & { desiredAgents?: unknown }).desiredAgents)
     ? ((row as LinkedDevice & { desiredAgents: unknown[] }).desiredAgents).flatMap((entry) => {
         if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return []
@@ -157,7 +161,7 @@ export async function updateOwnedDevice(input: { deviceId: string; actorUserId: 
   })
 }
 
-export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVersion: string; capabilities: LinkedDeviceCapability[]; health: 'ok' | 'degraded'; syncProtocolVersion?: 1 | null; availableAgentIds?: string[]; hermesVersion?: string | null; healthReason?: 'hermes_unavailable' | 'no_agents_available' | null }, options: StoreOptions = {}): Promise<void> {
+export async function recordDeviceHeartbeat(input: { deviceId: string; runtimeVersion: string; capabilities: LinkedDeviceCapability[]; health: 'ok' | 'degraded'; syncProtocolVersion?: 1 | null; availableAgentIds?: string[]; hermesVersion?: string | null; healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available' | null }, options: StoreOptions = {}): Promise<void> {
   const db = options.db ?? (adminDb as unknown as DbLike)
   await db.runTransaction(async (tx) => {
     const ref = db.collection(DEVICES).doc(input.deviceId)
