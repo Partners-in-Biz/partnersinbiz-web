@@ -3,13 +3,14 @@ import nextConfig from '@/next.config'
 import packageJson from '@/package.json'
 
 describe('production build memory profile', () => {
-  it('isolates webpack and bounds page-generation concurrency for Vercel builds', () => {
+  it('runs webpack in-process and bounds page-generation concurrency for Vercel builds', () => {
     expect(nextConfig.experimental).toMatchObject({
-      webpackBuildWorker: true,
+      webpackBuildWorker: false,
       webpackMemoryOptimizations: true,
       cpus: 1,
       staticGenerationMaxConcurrency: 1,
     })
+    expect(nextConfig.productionBrowserSourceMaps).toBe(false)
   })
 
   it('keeps turbopack.root aligned with outputFileTracingRoot at the app root', () => {
