@@ -20,7 +20,9 @@ export async function handleDeviceHeartbeat(req: NextRequest, deviceId: string, 
     const hermesVersion = typeof body.hermesVersion === 'string' && body.hermesVersion.trim().length <= 64
       ? body.hermesVersion.trim() || null
       : null
-    const healthReason = body.healthReason === 'hermes_unavailable' || body.healthReason === 'no_agents_available'
+    const healthReason = body.healthReason === 'hermes_unavailable'
+      || body.healthReason === 'hermes_binary_missing'
+      || body.healthReason === 'no_agents_available'
       ? body.healthReason
       : null
     const syncProtocolVersion = body.syncProtocolVersion === 1 ? 1 : null

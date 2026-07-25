@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { resolveHermesBinary } from './hermes-profile-lifecycle'
 
 type RuntimeEnv = Record<string, string | undefined>
 
@@ -13,7 +14,7 @@ export type LocalHermesRoute = {
 export type LocalHermesProbe = {
   availableAgentIds: string[]
   hermesVersion?: string
-  healthReason?: 'hermes_unavailable' | 'no_agents_available'
+  healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available'
 }
 
 const AGENT_ID = /^[a-z][a-z0-9._-]{0,39}$/
@@ -144,9 +145,22 @@ export async function probeLocalHermes(
   env: RuntimeEnv = process.env,
   fetcher: typeof fetch = fetch,
 ): Promise<LocalHermesProbe> {
+  const hermesBin = resolveHermesBinary(env as NodeJS.ProcessEnv)
   let routes: LocalHermesRoute[]
-  try { routes = localHermesRoutes(env) } catch { return { availableAgentIds: [], healthReason: 'hermes_unavailable' } }
-  if (routes.length === 0) return { availableAgentIds: [], healthReason: 'no_agents_available' }
+  try {
+    routes = localHermesRoutes(env)
+  } catch {
+    return {
+      availableAgentIds: [],
+      healthReason: hermesBin ? 'hermes_unavailable' : 'hermes_binary_missing',
+    }
+  }
+  if (routes.length === 0) {
+    return {
+      availableAgentIds: [],
+      healthReason: hermesBin ? 'no_agents_available' : 'hermes_binary_missing',
+    }
+  }
   const healthy: string[] = []
   let hermesVersion: string | undefined
   await Promise.all(routes.map(async (route) => {
@@ -165,7 +179,10 @@ export async function probeLocalHermes(
   healthy.sort()
   return healthy.length > 0
     ? { availableAgentIds: healthy, ...(hermesVersion ? { hermesVersion } : {}) }
-    : { availableAgentIds: [], healthReason: 'hermes_unavailable' }
+    : {
+        availableAgentIds: [],
+        healthReason: hermesBin ? 'hermes_unavailable' : 'hermes_binary_missing',
+      }
 }
 
 function truncateDetail(value: string, max = 280): string {

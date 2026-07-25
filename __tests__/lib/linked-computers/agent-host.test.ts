@@ -188,4 +188,14 @@ describe('pullable catalog + skill packs', () => {
     expect(first.skillNames.length).toBeGreaterThan(0)
     expect(first.files.length).toBeGreaterThan(0)
   })
+
+  it('builds an empty but deterministic pack for custom agents without skill policy', () => {
+    const first = buildSkillPackManifest('custom-analyst')
+    const second = buildSkillPackManifest('custom-analyst')
+    expect(first.skillNames).toEqual([])
+    expect(first.files).toEqual([])
+    expect(first.packSha256).toBe(second.packSha256)
+    expect(first.packSha256).toMatch(/^[a-f0-9]{64}$/)
+    expect(first.policyVersion).toBeTruthy()
+  })
 })

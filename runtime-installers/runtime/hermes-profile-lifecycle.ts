@@ -145,7 +145,14 @@ export function startHermesGateway(input: {
 }): { started: boolean; pid: number | null; hermesBin: string | null; error?: string } {
   const env = input.env ?? process.env
   const hermesBin = resolveHermesBinary(env)
-  if (!hermesBin) return { started: false, pid: null, hermesBin: null, error: 'hermes binary not found' }
+  if (!hermesBin) {
+    return {
+      started: false,
+      pid: null,
+      hermesBin: null,
+      error: 'hermes binary not found — install Hermes (Linked Computers bootstrap) or set PIB_HERMES_BIN',
+    }
+  }
 
   try {
     const child = spawn(

@@ -88,7 +88,43 @@ async function main() {
     failures.push('skill tree still present after uninstall')
   }
 
+  // Custom agents keep-in-sync with an empty skill stamp.
+  const customManifest = buildSkillPackManifest('custom-analyst')
+  if (customManifest.skillNames.length !== 0) failures.push('custom pack should be empty')
+  const customMaterialized = materializeSkillPackTarGz('custom-analyst')
+  const customInstall = await executeAgentHostJob({
+    jobId: 'accept-custom-install',
+    kind: 'install',
+    status: 'claimed',
+    agentId: 'custom-analyst',
+    policyVersion: customManifest.policyVersion,
+    keepInSync: true,
+    runtimeSkills: [],
+    pibSkills: [],
+    vpsExternalDir: null,
+    preferredPort: resolvePreferredAgentPort('custom-analyst'),
+    skillPack: {
+      packSha256: customManifest.packSha256,
+      policyVersion: customManifest.policyVersion,
+      skillNames: customManifest.skillNames,
+      artifactPath: '/api/v1/linked-computers/dev/agents/skills/artifact?agentId=custom-analyst',
+    },
+  }, {
+    env,
+    startGateway: false,
+    probe: async () => ({ availableAgentIds: ['custom-analyst'], hermesVersion: 'accept' }),
+    downloadSkillPack: async () => {
+      const copy = path.join(home, 'custom-dl.tgz')
+      fs.copyFileSync(customMaterialized.archivePath, copy)
+      return copy
+    },
+  })
+  if (!customInstall.ok) {
+    failures.push(`custom keep-in-sync install failed: ${'error' in customInstall ? customInstall.error : ''}`)
+  }
+
   fs.rmSync(archivePath, { force: true })
+  fs.rmSync(customMaterialized.archivePath, { force: true })
   fs.rmSync(home, { recursive: true, force: true })
 
   if (failures.length) {
@@ -97,7 +133,7 @@ async function main() {
     process.exitCode = 1
     return
   }
-  console.log('ACCEPTANCE PASSED: pack build, isolated apply, install, uninstall')
+  console.log('ACCEPTANCE PASSED: pack build, isolated apply, install, uninstall, custom empty keep-in-sync')
 }
 
 main().catch((error) => {
