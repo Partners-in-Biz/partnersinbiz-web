@@ -145,7 +145,7 @@ export async function probeLocalHermes(
   env: RuntimeEnv = process.env,
   fetcher: typeof fetch = fetch,
 ): Promise<LocalHermesProbe> {
-  if (!resolveHermesBinary(env)) {
+  if (!resolveHermesBinary(env as NodeJS.ProcessEnv)) {
     return { availableAgentIds: [], healthReason: 'hermes_binary_missing' }
   }
   let routes: LocalHermesRoute[]
