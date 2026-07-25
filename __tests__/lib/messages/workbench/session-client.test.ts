@@ -3,8 +3,10 @@ import {
   createWorkbenchSession,
   EMPTY_WORKBENCH_SESSION_TRANSCRIPT,
   getWorkbenchSession,
+  approveWorkbenchSession,
   killWorkbenchSession,
   pollWorkbenchSession,
+  resizeWorkbenchSession,
   writeWorkbenchSessionStdin,
 } from '@/lib/messages/workbench/session-client'
 import type { PublicWorkbenchSession } from '@/lib/messages/workbench/session-client'
@@ -16,6 +18,7 @@ function session(overrides: Partial<PublicWorkbenchSession> = {}): PublicWorkben
     cols: 120,
     rows: 40,
     shell: 'bash',
+    approvalRequired: false,
     createdAt: '',
     updatedAt: '',
     ttlExpiresAt: '',
@@ -26,13 +29,16 @@ function session(overrides: Partial<PublicWorkbenchSession> = {}): PublicWorkben
 describe('createWorkbenchSession', () => {
   afterEach(() => jest.restoreAllMocks())
 
-  it('POSTs to the sessions route with the given cwd (server chooses the shell)', async () => {
+  it('POSTs to the sessions route with the given cwd (server chooses the shell) and comes back awaiting approval', async () => {
     const fetchMock = jest.spyOn(global, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'queued' }) }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: session({ status: 'awaiting_approval', approvalRequired: true }),
+      }), { status: 202 }))
 
     const created = await createWorkbenchSession('conv-1', { cwd: 'src' })
 
-    expect(created.status).toBe('queued')
+    expect(created.status).toBe('awaiting_approval')
+    expect(created.approvalRequired).toBe(true)
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/v1/conversations/conv-1/workbench/sessions')
     expect((init as RequestInit).method).toBe('POST')
@@ -76,11 +82,75 @@ describe('getWorkbenchSession / pollWorkbenchSession', () => {
     expect(onProgress).toHaveBeenCalledTimes(3)
   })
 
+  it('stops immediately on awaiting_approval — approval is a decision point, not a wait state', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: session({ status: 'awaiting_approval' }) }), { status: 200 }))
+
+    const result = await pollWorkbenchSession('conv-1', 'sess-1', { intervalMs: 0 })
+
+    expect(result.status).toBe('awaiting_approval')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('can be told to poll through approval into a running pty (post-approve wait)', async () => {
+    jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'queued' }) }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ status: 'running' }) }), { status: 200 }))
+
+    const result = await pollWorkbenchSession('conv-1', 'sess-1', {
+      intervalMs: 0,
+      settledStatuses: new Set(['running', 'exited', 'killed', 'expired', 'failed']),
+    })
+
+    expect(result.status).toBe('running')
+  })
+
   it('times out waiting for a session stuck in a non-terminal status', async () => {
     jest.spyOn(global, 'fetch').mockImplementation(async () =>
       new Response(JSON.stringify({ data: session({ status: 'running' }) }), { status: 200 }))
 
     await expect(pollWorkbenchSession('conv-1', 'sess-1', { timeoutMs: 5, intervalMs: 0 })).rejects.toThrow(/timed out/i)
+  })
+})
+
+describe('approveWorkbenchSession', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  it('POSTs to the approve route and returns the queued session', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: session({ status: 'queued', approvedAt: '2026-07-25T06:00:00.000Z' }),
+      }), { status: 200 }))
+
+    const approved = await approveWorkbenchSession('conv-1', 'sess-1')
+
+    expect(approved.status).toBe('queued')
+    expect(approved.approvedAt).toBe('2026-07-25T06:00:00.000Z')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/v1/conversations/conv-1/workbench/sessions/sess-1/approve')
+    expect((init as RequestInit).method).toBe('POST')
+  })
+
+  it('throws a readable error when the session is no longer awaiting approval', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Workbench session is no longer awaiting approval' }), { status: 409 }))
+    await expect(approveWorkbenchSession('conv-1', 'sess-1')).rejects.toThrow('no longer awaiting approval')
+  })
+})
+
+describe('resizeWorkbenchSession', () => {
+  afterEach(() => jest.restoreAllMocks())
+
+  it('POSTs the xterm grid size to the resize route', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: session({ cols: 80, rows: 24 }) }), { status: 200 }))
+
+    const result = await resizeWorkbenchSession('conv-1', 'sess-1', 80, 24)
+
+    expect(result.cols).toBe(80)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('/api/v1/conversations/conv-1/workbench/sessions/sess-1/resize')
+    expect(JSON.parse(String((init as RequestInit).body))).toEqual({ cols: 80, rows: 24 })
   })
 })
 

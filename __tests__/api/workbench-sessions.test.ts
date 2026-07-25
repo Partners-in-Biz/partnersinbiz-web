@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { handleCreateWorkbenchSession } from '@/app/api/v1/conversations/[convId]/workbench/sessions/route'
 import { handleGetWorkbenchSession } from '@/app/api/v1/conversations/[convId]/workbench/sessions/[sessionId]/route'
+import { handleApproveWorkbenchSession } from '@/app/api/v1/conversations/[convId]/workbench/sessions/[sessionId]/approve/route'
 import { handleWorkbenchSessionStdin } from '@/app/api/v1/conversations/[convId]/workbench/sessions/[sessionId]/stdin/route'
 import { handleWorkbenchSessionResize } from '@/app/api/v1/conversations/[convId]/workbench/sessions/[sessionId]/resize/route'
 import { handleWorkbenchSessionKill } from '@/app/api/v1/conversations/[convId]/workbench/sessions/[sessionId]/kill/route'
@@ -47,6 +48,8 @@ function session(overrides: Partial<WorkbenchSession> = {}): WorkbenchSession {
     rows: 40,
     status: 'queued',
     attempt: 0,
+    approvedByUserId: 'user-a',
+    approvedAtMs: 1_500,
     encryptedCreateControl: { ciphertext: 'cipher', iv: 'iv', tag: 'tag' },
     createdAtMs: 1_000,
     updatedAtMs: 1_000,
@@ -55,10 +58,16 @@ function session(overrides: Partial<WorkbenchSession> = {}): WorkbenchSession {
   }
 }
 
+/** A freshly-created session: `awaiting_approval`, with no approval recorded yet. */
+function awaitingApprovalSession(overrides: Partial<WorkbenchSession> = {}): WorkbenchSession {
+  const { approvedByUserId: _approvedByUserId, approvedAtMs: _approvedAtMs, ...rest } = session()
+  return { ...rest, status: 'awaiting_approval', ...overrides }
+}
+
 describe('conversation workbench session browser routes', () => {
   it('creates a session using only the conversation-derived device binding and a server-chosen shell', async () => {
     const authorize = jest.fn(async () => authorization)
-    const create = jest.fn(async () => session())
+    const create = jest.fn(async () => awaitingApprovalSession())
     const request = new NextRequest('https://app.test/api/v1/conversations/conversation-a/workbench/sessions', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -77,6 +86,9 @@ describe('conversation workbench session browser routes', () => {
     }))
     expect(create).not.toHaveBeenCalledWith(expect.objectContaining({ shell: 'powershell' }))
     expect(create).not.toHaveBeenCalledWith(expect.objectContaining({ deviceId: 'device-b' }))
+    const body = await response.json()
+    expect(body.data.status).toBe('awaiting_approval')
+    expect(body.data.approvalRequired).toBe(true)
   })
 
   it('rejects out-of-range dimensions before authorizing', async () => {
@@ -169,6 +181,48 @@ describe('conversation workbench session browser routes', () => {
 
     expect(response.status).toBe(200)
     expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'wbs_a', cols: 300, rows: 1 }))
+  })
+
+  it('approves an awaiting_approval session using only the rechecked binding', async () => {
+    const get = jest.fn(async () => awaitingApprovalSession())
+    const approve = jest.fn(async () => session())
+    const request = new NextRequest('https://app.test/api/v1/conversations/conversation-a/workbench/sessions/wbs_a/approve', { method: 'POST' })
+
+    const response = await handleApproveWorkbenchSession(request, user, 'conversation-a', 'wbs_a', {
+      authorize: async () => authorization, get, approve,
+    })
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(approve).toHaveBeenCalledWith(expect.objectContaining({
+      sessionId: 'wbs_a', approverUserId: 'user-a', conversationId: 'conversation-a', deviceId: 'device-a', mappingId: 'mapping-a',
+    }))
+    expect(body.data.status).toBe('queued')
+    expect(body.data.approvalRequired).toBe(false)
+  })
+
+  it('rejects approving a session that is no longer awaiting_approval', async () => {
+    const approve = jest.fn()
+    const request = new NextRequest('https://app.test/api/v1/conversations/conversation-a/workbench/sessions/wbs_a/approve', { method: 'POST' })
+
+    const response = await handleApproveWorkbenchSession(request, user, 'conversation-a', 'wbs_a', {
+      authorize: async () => authorization, get: async () => session(), approve,
+    })
+
+    expect(response.status).toBe(409)
+    expect(approve).not.toHaveBeenCalled()
+  })
+
+  it('refuses to approve a session belonging to another user', async () => {
+    const approve = jest.fn()
+    const request = new NextRequest('https://app.test/api/v1/conversations/conversation-a/workbench/sessions/wbs_a/approve', { method: 'POST' })
+
+    const response = await handleApproveWorkbenchSession(request, user, 'conversation-a', 'wbs_a', {
+      authorize: async () => authorization, get: async () => awaitingApprovalSession({ actorUserId: 'user-b' }), approve,
+    })
+
+    expect(response.status).toBe(404)
+    expect(approve).not.toHaveBeenCalled()
   })
 
   it('kills a session using only the rechecked binding', async () => {

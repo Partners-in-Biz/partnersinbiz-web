@@ -1,4 +1,6 @@
 import type { WorkbenchSessionStatus } from './session-client'
+import type { WorkbenchTunnelStatus } from './tunnel-client'
+import type { WorkbenchBrowserSessionStatus } from './browser-session-client'
 
 export type WorkbenchTab = 'files' | 'terminal' | 'browser' | 'changes'
 
@@ -55,6 +57,44 @@ export interface WorkbenchBrowserTarget {
   title?: string
   imageUrl?: string
   source: 'event' | 'rich_part' | 'attachment'
+}
+
+/** `WorkbenchTunnelStatus` plus client-only transient/error states not reported by the server. */
+export type WorkbenchTunnelViewStatus = WorkbenchTunnelStatus | 'idle' | 'starting' | 'error'
+
+/** UI-facing view of a tunnel session (Phase 4b), owned by the host (e.g. `UnifiedChat`) and passed down as a prop. */
+export interface WorkbenchTunnelViewState {
+  sessionId: string | null
+  status: WorkbenchTunnelViewStatus
+  port: number
+  publicUrl: string | null
+  localUrl: string | null
+  error?: string | null
+  /** Latest human-readable provider progress line (e.g. cloudflared startup output), shown while the tunnel comes up. */
+  progress?: string | null
+  /** True while an open/approve/kill request is in flight. */
+  busy: boolean
+}
+
+/** `WorkbenchBrowserSessionStatus` plus client-only transient/error states not reported by the server. */
+export type WorkbenchBrowserSessionViewStatus = WorkbenchBrowserSessionStatus | 'idle' | 'starting' | 'error'
+
+/** UI-facing view of an agent browser session (Phase 4b), owned by the host (e.g. `UnifiedChat`) and passed down as a prop. */
+export interface WorkbenchBrowserSessionViewState {
+  sessionId: string | null
+  status: WorkbenchBrowserSessionViewStatus
+  startUrl: string | null
+  currentUrl: string | null
+  /** Most recently captured frame's `imageUrl` — the panel follows this when "Follow session frames" is enabled. */
+  latestFrameUrl: string | null
+  frameCount: number
+  /** Headless Chrome viewport, used to convert a percentage point on a frame into CSS pixels for click/scroll drives. */
+  viewport?: { width: number; height: number } | null
+  /** True while device-side frame following is on — the panel polls faster and labels the view as live. */
+  following?: boolean
+  error?: string | null
+  /** True while a start/approve/navigate/capture/kill request is in flight. */
+  busy: boolean
 }
 
 export interface WorkbenchRuntimeSummary {

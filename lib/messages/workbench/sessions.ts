@@ -9,6 +9,12 @@ import { sanitizeWorkbenchRelativePath, type EncryptedWorkbenchValue, type Workb
  * and the actual node-pty runtime host is out of scope here (see the
  * `WorkbenchSessionClaim` union in `session-store.ts` for the exact payload
  * shape the device-side runtime worker should expect over the wire).
+ *
+ * Every create starts `awaiting_approval` (matching `tunnel-sessions.ts` and
+ * `browser-sessions.ts`): an unrestricted interactive shell on the linked
+ * computer is strictly more powerful than the allowlisted one-shot
+ * `shell.exec` jobs, so it always needs an explicit approval step before the
+ * create control is ever enqueued for a device, regardless of actor role.
  */
 
 const ENVELOPE_CONTEXT = 'conversation-workbench-session:v1'
@@ -24,7 +30,15 @@ export const WORKBENCH_SESSION_TTL_MS = 30 * 60 * 1000
 /** Renewable claim/heartbeat lease, matching the `shell.exec` job lease in `job-store.ts`. */
 export const WORKBENCH_SESSION_LEASE_MS = 90_000
 
-export type WorkbenchSessionStatus = 'queued' | 'claimed' | 'running' | 'exited' | 'killed' | 'expired' | 'failed'
+export type WorkbenchSessionStatus =
+  | 'awaiting_approval'
+  | 'queued'
+  | 'claimed'
+  | 'running'
+  | 'exited'
+  | 'killed'
+  | 'expired'
+  | 'failed'
 export type WorkbenchSessionShell = 'bash' | 'zsh' | 'sh'
 export type WorkbenchSessionStdinMode = 'line' | 'raw'
 
@@ -73,6 +87,8 @@ export interface WorkbenchSession {
   leaseToken?: string
   leaseExpiresAtMs?: number
   claimedAtMs?: number
+  approvedByUserId?: string
+  approvedAtMs?: number
   exitCode?: number
   error?: string
   /** Encrypted `{ kind: 'create'; ... }` control; cleared once a device claims it. */
@@ -97,12 +113,14 @@ export interface PublicWorkbenchSession {
   cols: number
   rows: number
   shell: WorkbenchSessionShell
+  approvalRequired: boolean
   progress?: WorkbenchJobProgressChunk[]
   exitCode?: number
   error?: string
   createdAt: string
   updatedAt: string
   ttlExpiresAt: string
+  approvedAt?: string
 }
 
 const TERMINAL_SESSION_STATUSES: ReadonlySet<WorkbenchSessionStatus> = new Set(['exited', 'killed', 'expired', 'failed'])
@@ -262,26 +280,31 @@ export function publicWorkbenchSession(session: WorkbenchSession): PublicWorkben
     cols: session.cols,
     rows: session.rows,
     shell: session.shell,
+    approvalRequired: session.status === 'awaiting_approval',
     ...(session.progressChunks?.length ? { progress: session.progressChunks } : {}),
     ...(session.exitCode !== undefined ? { exitCode: session.exitCode } : {}),
     ...(session.error ? { error: session.error } : {}),
     createdAt: new Date(session.createdAtMs).toISOString(),
     updatedAt: new Date(session.updatedAtMs).toISOString(),
     ttlExpiresAt: new Date(session.ttlExpiresAtMs).toISOString(),
+    ...(session.approvedAtMs ? { approvedAt: new Date(session.approvedAtMs).toISOString() } : {}),
   }
 }
 
 /**
  * Pure state machine mirroring `transitionWorkbenchJob` in `jobs.ts`, adapted
- * for a session's longer-lived pty lifecycle: `queued` (create control
- * pending) -> `claimed` (device claimed the create control, spawning the
- * pty) -> `running` (device confirmed the pty is alive via its first
- * progress call) -> a terminal status. `resize` is applied optimistically
- * (before device delivery) so the public view reflects intent immediately;
- * `killQueued` short-circuits a session that was killed before any device
- * ever claimed it, since there is no live pty to tear down remotely.
+ * for a session's longer-lived pty lifecycle: `awaiting_approval` (create
+ * control set, but never enqueued to the device) -> `approve` -> `queued`
+ * -> `claimed` (device claimed the create control, spawning the pty) ->
+ * `running` (device confirmed the pty is alive via its first progress call)
+ * -> a terminal status. `resize` is applied optimistically (before device
+ * delivery) so the public view reflects intent immediately; `killQueued`
+ * short-circuits a session that was killed before any device ever claimed
+ * it (whether still awaiting approval or already approved/queued), since
+ * there is no live pty to tear down remotely in either case.
  */
 export function transitionWorkbenchSession(session: WorkbenchSession, event:
+  | { type: 'approve'; approverUserId: string; nowMs: number }
   | { type: 'claimCreate'; deviceId: string; credentialVersion: number; nowMs: number; leaseMs: number }
   | { type: 'progress'; deviceId: string; credentialVersion: number; attempt: number; leaseToken: string; nowMs: number; leaseMs: number }
   | { type: 'resize'; cols: number; rows: number; nowMs: number }
@@ -289,12 +312,18 @@ export function transitionWorkbenchSession(session: WorkbenchSession, event:
   | { type: 'complete'; deviceId: string; credentialVersion: number; attempt: number; leaseToken: string; outcome: 'exited' | 'killed' | 'failed'; nowMs: number }
   | { type: 'expire'; nowMs: number }
 ): WorkbenchSession {
+  if (event.type === 'approve') {
+    if (session.status !== 'awaiting_approval') throw new Error('workbench: session is not awaiting approval')
+    if (event.approverUserId !== session.actorUserId) throw new Error('workbench: session approval owner mismatch')
+    if (event.nowMs >= session.ttlExpiresAtMs) throw new Error('workbench: session expired')
+    return { ...session, status: 'queued', approvedByUserId: event.approverUserId, approvedAtMs: event.nowMs, updatedAtMs: event.nowMs }
+  }
   if (event.type === 'resize') {
     if (isTerminalWorkbenchSessionStatus(session.status)) throw new Error('workbench: session already final')
     return { ...session, cols: event.cols, rows: event.rows, updatedAtMs: event.nowMs }
   }
   if (event.type === 'killQueued') {
-    if (session.status !== 'queued') throw new Error('workbench: session already claimed')
+    if (session.status !== 'awaiting_approval' && session.status !== 'queued') throw new Error('workbench: session already claimed')
     return { ...session, status: 'killed', encryptedCreateControl: null, completedAtMs: event.nowMs, updatedAtMs: event.nowMs }
   }
   if (event.type === 'expire') {

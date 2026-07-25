@@ -79,15 +79,61 @@ import { attachWorkbenchDiffs, mergeWorkbenchDirectory, runConversationWorkbench
 import { formatWorkbenchOperationResult, formatWorkbenchProgressBody, pollWorkbenchJob } from '@/lib/messages/workbench/browser-client'
 import {
   appendWorkbenchSessionOutput,
+  approveWorkbenchSession as approveWorkbenchSessionApi,
   createWorkbenchSession,
   killWorkbenchSession as killWorkbenchSessionApi,
   pollWorkbenchSession,
+  resizeWorkbenchSession as resizeWorkbenchSessionApi,
   writeWorkbenchSessionStdin,
   WORKBENCH_SESSION_TERMINAL_STATUSES,
   type PublicWorkbenchSession,
   type WorkbenchSessionTranscriptState,
 } from '@/lib/messages/workbench/session-client'
-import type { WorkbenchChangeFile, WorkbenchFileNode, WorkbenchFilePreview, WorkbenchFilesSource, WorkbenchRuntimeSummary, WorkbenchSessionViewState, WorkbenchTab, WorkbenchTerminalEntry, WorkbenchTerminalMode } from '@/lib/messages/workbench/types'
+import {
+  approveTunnelSession,
+  createTunnelSession,
+  killTunnelSession,
+  pollTunnelSession,
+  WORKBENCH_TUNNEL_TERMINAL_STATUSES,
+  type PublicWorkbenchTunnelSession,
+} from '@/lib/messages/workbench/tunnel-client'
+import {
+  appendWorkbenchBrowserSessionProgress,
+  approveWorkbenchBrowserSession as approveWorkbenchBrowserSessionApi,
+  captureWorkbenchBrowserSession as captureWorkbenchBrowserSessionApi,
+  clickWorkbenchBrowserSession as clickWorkbenchBrowserSessionApi,
+  createWorkbenchBrowserSession,
+  followWorkbenchBrowserSession as followWorkbenchBrowserSessionApi,
+  getWorkbenchBrowserSession,
+  killWorkbenchBrowserSession as killWorkbenchBrowserSessionApi,
+  latestWorkbenchBrowserSessionFrameUrl,
+  navigateWorkbenchBrowserSession as navigateWorkbenchBrowserSessionApi,
+  pollWorkbenchBrowserSession,
+  typeWorkbenchBrowserSession as typeWorkbenchBrowserSessionApi,
+  EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS,
+  type PublicWorkbenchBrowserSession,
+  type WorkbenchBrowserSessionProgressState,
+} from '@/lib/messages/workbench/browser-session-client'
+import type {
+  WorkbenchBrowserSessionViewState,
+  WorkbenchChangeFile,
+  WorkbenchFileNode,
+  WorkbenchFilePreview,
+  WorkbenchFilesSource,
+  WorkbenchRuntimeSummary,
+  WorkbenchSessionViewState,
+  WorkbenchTab,
+  WorkbenchTerminalEntry,
+  WorkbenchTerminalMode,
+  WorkbenchTunnelViewState,
+} from '@/lib/messages/workbench/types'
+
+/** Matches the server's default browser viewport — used only when a session snapshot hasn't reported one yet. */
+const WORKBENCH_BROWSER_FALLBACK_VIEWPORT = { width: 1280, height: 720 } as const
+/** Device-side capture cadence, and the frame poll cadence, while following the agent browser. */
+const WORKBENCH_BROWSER_FOLLOW_INTERVAL_MS = 800
+/** Frame poll cadence when the Browser tab is open but not following. */
+const WORKBENCH_BROWSER_IDLE_POLL_INTERVAL_MS = 2_500
 
 type AgentId = string
 
@@ -976,6 +1022,13 @@ export default function UnifiedChat({
   const [workbenchSession, setWorkbenchSession] = useState<WorkbenchSessionViewState | null>(null)
   const workbenchSessionTranscriptRef = useRef<WorkbenchSessionTranscriptState>({ text: '', lastSeq: -1 })
   const workbenchSessionAbortRef = useRef<AbortController | null>(null)
+  const [workbenchTunnel, setWorkbenchTunnel] = useState<WorkbenchTunnelViewState | null>(null)
+  const workbenchTunnelAbortRef = useRef<AbortController | null>(null)
+  const [workbenchBrowserSession, setWorkbenchBrowserSession] = useState<WorkbenchBrowserSessionViewState | null>(null)
+  const workbenchBrowserSessionProgressRef = useRef<WorkbenchBrowserSessionProgressState>(EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS)
+  const workbenchBrowserSessionAbortRef = useRef<AbortController | null>(null)
+  // Device-side frame following, driven by the Browser panel's Follow toggle.
+  const [workbenchBrowserFollowing, setWorkbenchBrowserFollowing] = useState(false)
   const [contextCanvasCloseRequest, setContextCanvasCloseRequest] = useState(0)
   // Icon strip stays visible whenever the workbench is enabled; expand margin when a dock opens.
   const rightDockOpen = contextCanvasOpen || workbenchOpen || showAgentWorkbench
@@ -2507,14 +2560,11 @@ export default function UnifiedChat({
     setWorkbenchSession({ sessionId: null, status: 'starting', transcript: '', exitCode: null, error: null, busy: true })
 
     try {
+      // A session always starts `awaiting_approval` — a full shell is more
+      // powerful than the allowlisted one-shot jobs, so there is nothing to
+      // poll until the user approves it in the Terminal panel.
       const created = await createWorkbenchSession(activeId, { signal: controller.signal })
       applyWorkbenchSessionUpdate(created)
-      if (!WORKBENCH_SESSION_TERMINAL_STATUSES.has(created.status)) {
-        await pollWorkbenchSession(activeId, created.sessionId, {
-          signal: controller.signal,
-          onProgress: applyWorkbenchSessionUpdate,
-        })
-      }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
       setWorkbenchSession((prev) => ({
@@ -2528,6 +2578,29 @@ export default function UnifiedChat({
     }
   }, [activeId, applyWorkbenchSessionUpdate])
 
+  const approveWorkbenchSession = useCallback(async () => {
+    if (!activeId || !workbenchSession?.sessionId) return
+    workbenchSessionAbortRef.current?.abort()
+    const controller = new AbortController()
+    workbenchSessionAbortRef.current = controller
+    setWorkbenchSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const approved = await approveWorkbenchSessionApi(activeId, workbenchSession.sessionId, { signal: controller.signal })
+      applyWorkbenchSessionUpdate(approved)
+      if (!WORKBENCH_SESSION_TERMINAL_STATUSES.has(approved.status)) {
+        await pollWorkbenchSession(activeId, approved.sessionId, {
+          signal: controller.signal,
+          onProgress: applyWorkbenchSessionUpdate,
+        })
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setWorkbenchSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to approve the session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchSession?.sessionId, applyWorkbenchSessionUpdate])
+
   const sendWorkbenchSessionInput = useCallback(async (line: string) => {
     if (!activeId || !workbenchSession?.sessionId) return
     try {
@@ -2540,13 +2613,40 @@ export default function UnifiedChat({
     }
   }, [activeId, workbenchSession?.sessionId, applyWorkbenchSessionUpdate])
 
+  /**
+   * Keystrokes from the xterm surface. `mode: 'raw'` is mandatory here — the
+   * emulator already sends its own Enter/control bytes, so `'line'` would
+   * append a second newline and break interactive prompts and Ctrl-C.
+   */
+  const sendWorkbenchSessionData = useCallback(async (data: string) => {
+    if (!activeId || !workbenchSession?.sessionId) return
+    try {
+      const updated = await writeWorkbenchSessionStdin(activeId, workbenchSession.sessionId, data, 'raw')
+      applyWorkbenchSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to send input to the session.' }
+        : prev)
+    }
+  }, [activeId, workbenchSession?.sessionId, applyWorkbenchSessionUpdate])
+
+  const resizeWorkbenchSession = useCallback(async (cols: number, rows: number) => {
+    if (!activeId || !workbenchSession?.sessionId) return
+    try {
+      const updated = await resizeWorkbenchSessionApi(activeId, workbenchSession.sessionId, cols, rows)
+      applyWorkbenchSessionUpdate(updated)
+    } catch {
+      // A resize is cosmetic until the next keystroke: never surface it as a session error.
+    }
+  }, [activeId, workbenchSession?.sessionId, applyWorkbenchSessionUpdate])
+
   const killWorkbenchSession = useCallback(async () => {
     if (!activeId || !workbenchSession?.sessionId) return
     setWorkbenchSession((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
-      // A `queued` session is killed immediately; a `claimed`/`running` one just has a kill
-      // control enqueued, so this response may still report the pre-kill status — the poll
-      // loop already running from `startWorkbenchSession` picks up the eventual terminal state.
+      // An `awaiting_approval`/`queued` session is killed immediately; a `claimed`/`running`
+      // one just has a kill control enqueued, so this response may still report the pre-kill
+      // status — the poll loop started by `approveWorkbenchSession` picks up the terminal state.
       const killResponse = await killWorkbenchSessionApi(activeId, workbenchSession.sessionId)
       applyWorkbenchSessionUpdate(killResponse)
     } catch (error) {
@@ -2562,6 +2662,316 @@ export default function UnifiedChat({
     workbenchSessionTranscriptRef.current = { text: '', lastSeq: -1 }
     setWorkbenchSession(null)
   }, [activeId])
+
+  /**
+   * Merges a tunnel snapshot into view state — mirrors `applyWorkbenchSessionUpdate` above.
+   * `localUrl` isn't denormalized onto the top-level session (unlike `publicUrl`), so it's
+   * pulled from the most recent `stream: 'tunnel'` progress chunk that reported one.
+   */
+  const applyWorkbenchTunnelUpdate = useCallback((remote: PublicWorkbenchTunnelSession) => {
+    const progress = Array.isArray(remote.progress) ? remote.progress : []
+    const localUrl = [...progress].reverse().find((chunk) => chunk.localUrl)?.localUrl ?? null
+    const progressText = [...progress].reverse().find((chunk) => chunk.text?.trim())?.text?.trim() ?? null
+    setWorkbenchTunnel({
+      sessionId: remote.sessionId,
+      status: remote.status,
+      port: remote.port,
+      publicUrl: remote.publicUrl ?? null,
+      localUrl,
+      error: remote.error ?? null,
+      progress: progressText,
+      busy: false,
+    })
+  }, [])
+
+  const startWorkbenchTunnel = useCallback(async (port: number) => {
+    if (!activeId) return
+    workbenchTunnelAbortRef.current?.abort()
+    const controller = new AbortController()
+    workbenchTunnelAbortRef.current = controller
+    setWorkbenchTunnel({ sessionId: null, status: 'starting', port, publicUrl: null, localUrl: null, error: null, busy: true })
+
+    try {
+      // A tunnel always starts `awaiting_approval` — nothing to poll until the user approves it.
+      const created = await createTunnelSession(activeId, port, { signal: controller.signal })
+      applyWorkbenchTunnelUpdate(created)
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setWorkbenchTunnel((prev) => ({
+        sessionId: prev?.sessionId ?? null,
+        status: 'error',
+        port,
+        publicUrl: prev?.publicUrl ?? null,
+        localUrl: prev?.localUrl ?? null,
+        error: error instanceof Error ? error.message : 'Failed to open the tunnel.',
+        busy: false,
+      }))
+    }
+  }, [activeId, applyWorkbenchTunnelUpdate])
+
+  const approveWorkbenchTunnelSession = useCallback(async () => {
+    if (!activeId || !workbenchTunnel?.sessionId) return
+    workbenchTunnelAbortRef.current?.abort()
+    const controller = new AbortController()
+    workbenchTunnelAbortRef.current = controller
+    setWorkbenchTunnel((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const approved = await approveTunnelSession(activeId, workbenchTunnel.sessionId, { signal: controller.signal })
+      applyWorkbenchTunnelUpdate(approved)
+      if (!WORKBENCH_TUNNEL_TERMINAL_STATUSES.has(approved.status) && !approved.publicUrl) {
+        await pollTunnelSession(activeId, workbenchTunnel.sessionId, {
+          signal: controller.signal,
+          onProgress: applyWorkbenchTunnelUpdate,
+        })
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setWorkbenchTunnel((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to approve the tunnel.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchTunnel?.sessionId, applyWorkbenchTunnelUpdate])
+
+  const killWorkbenchTunnel = useCallback(async () => {
+    if (!activeId || !workbenchTunnel?.sessionId) return
+    workbenchTunnelAbortRef.current?.abort()
+    setWorkbenchTunnel((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const killed = await killTunnelSession(activeId, workbenchTunnel.sessionId)
+      applyWorkbenchTunnelUpdate(killed)
+    } catch (error) {
+      setWorkbenchTunnel((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to close the tunnel.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchTunnel?.sessionId, applyWorkbenchTunnelUpdate])
+
+  useEffect(() => {
+    // Conversation-scoped: drop any in-flight tunnel poll when switching conversations.
+    workbenchTunnelAbortRef.current?.abort()
+    setWorkbenchTunnel(null)
+  }, [activeId])
+
+  /** Merges a browser session snapshot's new-only progress chunks into view state — mirrors the terminal session pattern. */
+  const applyWorkbenchBrowserSessionUpdate = useCallback((remote: PublicWorkbenchBrowserSession) => {
+    workbenchBrowserSessionProgressRef.current = appendWorkbenchBrowserSessionProgress(workbenchBrowserSessionProgressRef.current, remote)
+    const chunks = workbenchBrowserSessionProgressRef.current.chunks
+    const frameCount = chunks.filter((chunk) => chunk.stream === 'frame' && chunk.imageUrl).length
+    setWorkbenchBrowserSession({
+      sessionId: remote.sessionId,
+      status: remote.status,
+      startUrl: remote.startUrl ?? null,
+      currentUrl: remote.currentPageUrl ?? null,
+      latestFrameUrl: latestWorkbenchBrowserSessionFrameUrl(chunks) ?? null,
+      frameCount,
+      viewport: remote.viewport ?? null,
+      error: remote.error ?? null,
+      busy: false,
+    })
+  }, [])
+
+  const startWorkbenchBrowserSession = useCallback(async (startUrl?: string) => {
+    if (!activeId) return
+    workbenchBrowserSessionAbortRef.current?.abort()
+    const controller = new AbortController()
+    workbenchBrowserSessionAbortRef.current = controller
+    workbenchBrowserSessionProgressRef.current = EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS
+    setWorkbenchBrowserSession({
+      sessionId: null, status: 'starting', startUrl: startUrl ?? null, currentUrl: null,
+      latestFrameUrl: null, frameCount: 0, error: null, busy: true,
+    })
+
+    try {
+      // A browser session always starts `awaiting_approval` — nothing to poll until the user approves it.
+      const created = await createWorkbenchBrowserSession(activeId, { startUrl, signal: controller.signal })
+      applyWorkbenchBrowserSessionUpdate(created)
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setWorkbenchBrowserSession((prev) => ({
+        sessionId: prev?.sessionId ?? null,
+        status: 'error',
+        startUrl: startUrl ?? prev?.startUrl ?? null,
+        currentUrl: prev?.currentUrl ?? null,
+        latestFrameUrl: prev?.latestFrameUrl ?? null,
+        frameCount: prev?.frameCount ?? 0,
+        error: error instanceof Error ? error.message : 'Failed to start the browser session.',
+        busy: false,
+      }))
+    }
+  }, [activeId, applyWorkbenchBrowserSessionUpdate])
+
+  const approveWorkbenchBrowserSession = useCallback(async () => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    workbenchBrowserSessionAbortRef.current?.abort()
+    const controller = new AbortController()
+    workbenchBrowserSessionAbortRef.current = controller
+    setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const approved = await approveWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, { signal: controller.signal })
+      applyWorkbenchBrowserSessionUpdate(approved)
+      if (approved.status === 'queued' || approved.status === 'claimed') {
+        await pollWorkbenchBrowserSession(activeId, workbenchBrowserSession.sessionId, {
+          signal: controller.signal,
+          onProgress: applyWorkbenchBrowserSessionUpdate,
+          settledStatuses: new Set(['running', 'exited', 'killed', 'expired', 'failed']),
+        })
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to approve the browser session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  const navigateWorkbenchBrowserSession = useCallback(async (url: string) => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const updated = await navigateWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, url)
+      applyWorkbenchBrowserSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to navigate the browser session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  const captureWorkbenchBrowserSession = useCallback(async () => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const updated = await captureWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId)
+      applyWorkbenchBrowserSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to capture a frame.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  /**
+   * Design Mode drive: the panel reports a point as a percentage of the frame it
+   * is showing, which maps onto the session's own viewport (the frame is a
+   * screenshot of exactly that viewport) rather than onto the rendered <img>.
+   */
+  const clickWorkbenchBrowserSessionAt = useCallback(async (xPct: number, yPct: number) => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    const viewport = workbenchBrowserSession.viewport ?? WORKBENCH_BROWSER_FALLBACK_VIEWPORT
+    const x = Math.round(Math.min(100, Math.max(0, xPct)) / 100 * viewport.width)
+    const y = Math.round(Math.min(100, Math.max(0, yPct)) / 100 * viewport.height)
+    setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const updated = await clickWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, { x, y })
+      applyWorkbenchBrowserSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to click in the browser session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, workbenchBrowserSession?.viewport, applyWorkbenchBrowserSessionUpdate])
+
+  const typeInWorkbenchBrowserSession = useCallback(async (text: string) => {
+    if (!activeId || !workbenchBrowserSession?.sessionId || !text) return
+    setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const updated = await typeWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, { text })
+      applyWorkbenchBrowserSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to type in the browser session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  /**
+   * Device-side following. `following` is tracked locally rather than read back
+   * from the session, so the toggle stays responsive and the frame poll below
+   * can speed up immediately; a failed request rolls it back.
+   */
+  const setWorkbenchBrowserSessionFollow = useCallback(async (action: 'start' | 'stop') => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    const next = action === 'start'
+    setWorkbenchBrowserFollowing(next)
+    try {
+      const updated = await followWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, {
+        action,
+        ...(next ? { intervalMs: WORKBENCH_BROWSER_FOLLOW_INTERVAL_MS } : {}),
+      })
+      applyWorkbenchBrowserSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchBrowserFollowing(!next)
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to change frame following.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  const startWorkbenchBrowserSessionFollow = useCallback(() => { void setWorkbenchBrowserSessionFollow('start') }, [setWorkbenchBrowserSessionFollow])
+  const stopWorkbenchBrowserSessionFollow = useCallback(() => { void setWorkbenchBrowserSessionFollow('stop') }, [setWorkbenchBrowserSessionFollow])
+
+  const killWorkbenchBrowserSession = useCallback(async () => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    setWorkbenchBrowserFollowing(false)
+    workbenchBrowserSessionAbortRef.current?.abort()
+    setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
+    try {
+      const killed = await killWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId)
+      applyWorkbenchBrowserSessionUpdate(killed)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to close the browser session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  useEffect(() => {
+    // Conversation-scoped: drop any in-flight browser session poll and its progress when switching conversations.
+    workbenchBrowserSessionAbortRef.current?.abort()
+    workbenchBrowserSessionProgressRef.current = EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS
+    setWorkbenchBrowserSession(null)
+    setWorkbenchBrowserFollowing(false)
+  }, [activeId])
+
+  // Following is only meaningful on a live session — a session that exits or is killed
+  // leaves the flag behind otherwise, and the panel would keep claiming it is live.
+  useEffect(() => {
+    if (workbenchBrowserSession?.status !== 'running') setWorkbenchBrowserFollowing(false)
+  }, [workbenchBrowserSession?.status])
+
+  // A session the user just approved is almost always one they want to watch, so following
+  // starts on its own once the device reports `running` and the Browser tab is on screen.
+  useEffect(() => {
+    if (!showAgentWorkbench || !workbenchOpen || workbenchTab !== 'browser') return
+    if (workbenchBrowserSession?.status !== 'running' || !workbenchBrowserSession.sessionId) return
+    if (workbenchBrowserFollowing) return
+    void setWorkbenchBrowserSessionFollow('start')
+    // `workbenchBrowserFollowing` is intentionally excluded: re-running on its own flip would
+    // immediately re-start following after the user turns it off.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAgentWorkbench, workbenchOpen, workbenchTab, workbenchBrowserSession?.status, workbenchBrowserSession?.sessionId])
+
+  // While the Browser tab is open on a running agent session, poll for frames the agent
+  // captures on its own (outside a user-triggered navigate/capture click) — this is the
+  // "follow live frames" experience, mirroring how terminal Session mode streams continuously.
+  useEffect(() => {
+    if (!showAgentWorkbench || !workbenchOpen || workbenchTab !== 'browser') return
+    if (!activeId || !workbenchBrowserSession?.sessionId || workbenchBrowserSession.status !== 'running') return
+    const conversationId = activeId
+    const sessionId = workbenchBrowserSession.sessionId
+    const controller = new AbortController()
+    const interval = setInterval(() => {
+      getWorkbenchBrowserSession(conversationId, sessionId, { signal: controller.signal })
+        .then(applyWorkbenchBrowserSessionUpdate)
+        .catch(() => {
+          // A follow-up poll failing (e.g. a transient network blip) shouldn't surface as an error banner.
+        })
+    }, workbenchBrowserFollowing ? WORKBENCH_BROWSER_FOLLOW_INTERVAL_MS : WORKBENCH_BROWSER_IDLE_POLL_INTERVAL_MS)
+    return () => {
+      controller.abort()
+      clearInterval(interval)
+    }
+  }, [showAgentWorkbench, workbenchOpen, workbenchTab, activeId, workbenchBrowserSession?.sessionId, workbenchBrowserSession?.status, workbenchBrowserFollowing, applyWorkbenchBrowserSessionUpdate])
 
   useEffect(() => {
     if (showAgentWorkbench && workbenchOpen && workbenchTab === 'files' && activeId) void loadWorkbenchFiles()
@@ -5738,6 +6148,20 @@ export default function UnifiedChat({
           onRefreshChanges={loadWorkbenchChanges}
           browserTargets={workbenchBrowserTargets}
           onAddBrowserNoteToChat={addWorkbenchNoteToComposer}
+          browserTunnel={workbenchTunnel}
+          onStartBrowserTunnel={startWorkbenchTunnel}
+          onApproveBrowserTunnel={approveWorkbenchTunnelSession}
+          onKillBrowserTunnel={killWorkbenchTunnel}
+          browserAgentSession={workbenchBrowserSession ? { ...workbenchBrowserSession, following: workbenchBrowserFollowing } : workbenchBrowserSession}
+          onStartBrowserAgentSession={startWorkbenchBrowserSession}
+          onApproveBrowserAgentSession={approveWorkbenchBrowserSession}
+          onNavigateBrowserAgentSession={navigateWorkbenchBrowserSession}
+          onCaptureBrowserAgentSession={captureWorkbenchBrowserSession}
+          onKillBrowserAgentSession={killWorkbenchBrowserSession}
+          onClickBrowserAgentSessionAt={clickWorkbenchBrowserSessionAt}
+          onTypeBrowserAgentSession={typeInWorkbenchBrowserSession}
+          onStartBrowserAgentSessionFollow={startWorkbenchBrowserSessionFollow}
+          onStopBrowserAgentSessionFollow={stopWorkbenchBrowserSessionFollow}
           compact={compact}
           onRunTerminalCommand={runWorkbenchTerminalCommand}
           onClearTerminal={clearWorkbenchLocalTerminal}
@@ -5747,7 +6171,10 @@ export default function UnifiedChat({
           onTerminalModeChange={setWorkbenchTerminalMode}
           terminalSession={workbenchSession}
           onStartTerminalSession={startWorkbenchSession}
+          onApproveTerminalSession={approveWorkbenchSession}
           onSendTerminalSessionInput={sendWorkbenchSessionInput}
+          onSendTerminalSessionData={sendWorkbenchSessionData}
+          onResizeTerminalSession={resizeWorkbenchSession}
           onKillTerminalSession={killWorkbenchSession}
         />}
 

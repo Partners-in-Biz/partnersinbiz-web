@@ -2,6 +2,7 @@
 
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { ALLOWLISTED_SHELL_COMMANDS } from '@/lib/messages/workbench/shell-allowlist'
+import { WorkbenchXterm } from './WorkbenchXterm'
 import type {
   WorkbenchSessionViewState,
   WorkbenchSessionViewStatus,
@@ -46,14 +47,21 @@ const QUICK_COMMANDS = [
   ].includes(command)),
 ]
 
-/** A session is alive enough to disallow Start / allow Kill from `queued` (never yet claimed) through `running`. */
-const SESSION_ACTIVE_STATUSES: ReadonlySet<WorkbenchSessionViewStatus> = new Set(['starting', 'queued', 'claimed', 'running'])
+/** A session is alive enough to disallow Start / allow Kill from `awaiting_approval` (never yet claimed) through `running`. */
+const SESSION_ACTIVE_STATUSES: ReadonlySet<WorkbenchSessionViewStatus> = new Set([
+  'starting', 'awaiting_approval', 'queued', 'claimed', 'running',
+])
 /** Statuses that accept stdin — matches the server's `enqueueControl` check (`claimed` or `running`). */
 const SESSION_INPUT_STATUSES: ReadonlySet<WorkbenchSessionViewStatus> = new Set(['claimed', 'running'])
+/** Statuses where a pty exists (or existed), so the xterm surface owns the transcript. */
+const SESSION_XTERM_STATUSES: ReadonlySet<WorkbenchSessionViewStatus> = new Set([
+  'claimed', 'running', 'exited', 'failed', 'killed', 'expired',
+])
 
 const SESSION_STATUS_LABEL: Record<WorkbenchSessionViewStatus, string> = {
   idle: 'Not started',
   starting: 'Starting…',
+  awaiting_approval: 'Awaiting approval',
   queued: 'Queued',
   claimed: 'Starting…',
   running: 'Running',
@@ -67,6 +75,7 @@ const SESSION_STATUS_LABEL: Record<WorkbenchSessionViewStatus, string> = {
 const SESSION_STATUS_DOT: Record<WorkbenchSessionViewStatus, string> = {
   idle: 'bg-white/30',
   starting: 'bg-primary animate-pulse',
+  awaiting_approval: 'bg-amber-400 animate-pulse',
   queued: 'bg-amber-300 animate-pulse',
   claimed: 'bg-amber-300 animate-pulse',
   running: 'bg-primary animate-pulse',
@@ -75,6 +84,25 @@ const SESSION_STATUS_DOT: Record<WorkbenchSessionViewStatus, string> = {
   killed: 'bg-white/40',
   expired: 'bg-white/40',
   error: 'bg-red-400',
+}
+
+const TERMINAL_MODE_LABEL: Record<WorkbenchTerminalMode, string> = {
+  jobs: 'Safe one-shots',
+  session: 'Full shell (approval required)',
+}
+
+/**
+ * The device-side pty host needs `node-pty`, an optional native module the
+ * compiled runtime binary cannot embed yet, so it must be installed in the
+ * runtime's own working directory. Hand the operator that fix instead of the
+ * raw module-load failure.
+ */
+const NODE_PTY_HINT = 'The linked computer’s runtime is missing node-pty. On that machine, run '
+  + '`npm install node-pty` in the runtime’s install directory (macOS also needs `xcode-select --install`), '
+  + 'then restart the runtime agent and start the session again.'
+
+function isNodePtyError(error: string | null | undefined): boolean {
+  return typeof error === 'string' && error.toLowerCase().includes('node-pty')
 }
 
 export interface WorkbenchTerminalPanelProps {
@@ -92,8 +120,14 @@ export interface WorkbenchTerminalPanelProps {
   session?: WorkbenchSessionViewState | null
   /** Starts a new session (server-chosen shell — no client-supplied command). Omit to disable the Start button. */
   onStartSession?: () => void
-  /** Sends one line of stdin to the running session. Omit to disable the input. */
+  /** Approves a session currently `awaiting_approval`. Omit to hide the Approve button. */
+  onApproveSession?: () => void
+  /** Sends one line of stdin to the running session. Omit to disable the fallback line input. */
   onSendSessionInput?: (line: string) => void
+  /** Sends raw keystrokes (control bytes included) from the xterm surface. Must be written with stdin `mode: 'raw'`. */
+  onSendSessionData?: (data: string) => void
+  /** Reports the fitted xterm grid so the host can resize the remote pty. */
+  onResizeSession?: (cols: number, rows: number) => void
   /** Kills the current session. Omit to disable the Kill button. */
   onKillSession?: () => void
 }
@@ -101,12 +135,18 @@ export interface WorkbenchTerminalPanelProps {
 function WorkbenchSessionView({
   session,
   onStart,
+  onApprove,
   onSendInput,
+  onSendData,
+  onResize,
   onKill,
 }: {
   session?: WorkbenchSessionViewState | null
   onStart?: () => void
+  onApprove?: () => void
   onSendInput?: (line: string) => void
+  onSendData?: (data: string) => void
+  onResize?: (cols: number, rows: number) => void
   onKill?: () => void
 }) {
   const [stdinValue, setStdinValue] = useState('')
@@ -118,6 +158,13 @@ function WorkbenchSessionView({
   const startDisabled = active || !onStart
   const killDisabled = !active || !hasSession || !onKill
   const inputEnabled = SESSION_INPUT_STATUSES.has(status) && hasSession && Boolean(onSendInput)
+  const approveVisible = status === 'awaiting_approval' && hasSession && Boolean(onApprove)
+  /**
+   * The emulator takes over once a pty has existed — including after exit, so
+   * the final screen and its scrollback stay readable instead of collapsing
+   * back to a plain text dump.
+   */
+  const showXterm = hasSession && SESSION_XTERM_STATUSES.has(status)
 
   useEffect(() => {
     const node = transcriptRef.current
@@ -156,9 +203,22 @@ function WorkbenchSessionView({
           >
             Start session
           </button>
+          {approveVisible && (
+            <button
+              type="button"
+              data-testid="workbench-session-approve"
+              aria-label="Approve full shell session"
+              onClick={() => onApprove?.()}
+              disabled={session?.busy}
+              className="shrink-0 rounded-md border border-amber-400/35 bg-amber-400/10 px-2 py-1 text-[10px] font-medium text-amber-200 hover:bg-amber-400/15 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Approve
+            </button>
+          )}
           <button
             type="button"
             data-testid="workbench-session-kill"
+            aria-label="Kill shell session"
             onClick={() => onKill?.()}
             disabled={killDisabled}
             className="shrink-0 rounded-md border border-red-400/35 bg-red-500/10 px-2 py-1 text-[10px] font-medium text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-40"
@@ -168,23 +228,46 @@ function WorkbenchSessionView({
         </div>
       </div>
 
-      {session?.error && (
-        <p role="alert" className="shrink-0 border-b border-red-400/20 bg-red-500/10 px-2 py-1.5 text-[10px] text-red-200">
-          {session.error}
+      {approveVisible && (
+        <p data-testid="workbench-session-approval-notice" className="shrink-0 border-b border-amber-400/20 bg-amber-400/10 px-2 py-1.5 text-[10px] text-amber-100">
+          This opens an unrestricted shell on the linked computer. Approve to let it start.
         </p>
       )}
 
-      <div
-        ref={transcriptRef}
-        data-testid="workbench-session-transcript"
-        className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words bg-[#050505]/80 p-2 font-mono text-[11px] leading-relaxed text-[var(--color-pib-text-muted)] [overflow-wrap:anywhere]"
-      >
-        {session?.transcript || (
-          <span className="text-[var(--color-pib-text-muted)]/60">
-            {hasSession ? 'Waiting for output…' : 'Start a session to open an interactive shell on the linked computer.'}
-          </span>
-        )}
-      </div>
+      {session?.error && (
+        <div role="alert" className="shrink-0 space-y-1 border-b border-red-400/20 bg-red-500/10 px-2 py-1.5 text-[10px] text-red-200">
+          <p>{session.error}</p>
+          {isNodePtyError(session.error) && (
+            <p data-testid="workbench-session-node-pty-hint" className="text-red-100/80">{NODE_PTY_HINT}</p>
+          )}
+        </div>
+      )}
+
+      {showXterm ? (
+        <WorkbenchXterm
+          output={session?.transcript ?? ''}
+          onData={onSendData}
+          onResize={onResize}
+          disabled={!SESSION_INPUT_STATUSES.has(status) || !onSendData}
+          className="min-h-0 flex-1 p-1.5"
+        />
+      ) : (
+        <div
+          ref={transcriptRef}
+          data-testid="workbench-session-transcript"
+          className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words bg-[#050505]/80 p-2 font-mono text-[11px] leading-relaxed text-[var(--color-pib-text-muted)] [overflow-wrap:anywhere]"
+        >
+          {session?.transcript || (
+            <span className="text-[var(--color-pib-text-muted)]/60">
+              {hasSession
+                ? status === 'awaiting_approval'
+                  ? 'Waiting for approval before the shell starts…'
+                  : 'Waiting for output…'
+                : 'Start a session to open an interactive shell on the linked computer.'}
+            </span>
+          )}
+        </div>
+      )}
 
       <form onSubmit={submitStdin} className="flex shrink-0 gap-1.5 border-t border-white/10 p-2">
         <input
@@ -216,7 +299,10 @@ export function WorkbenchTerminalPanel({
   onModeChange,
   session,
   onStartSession,
+  onApproveSession,
   onSendSessionInput,
+  onSendSessionData,
+  onResizeSession,
   onKillSession,
 }: WorkbenchTerminalPanelProps) {
   const [customCommand, setCustomCommand] = useState('')
@@ -244,14 +330,16 @@ export function WorkbenchTerminalPanel({
           role="tab"
           aria-selected={mode === tabMode}
           data-testid={`workbench-terminal-mode-${tabMode}`}
+          title={TERMINAL_MODE_LABEL[tabMode]}
           onClick={() => changeMode(tabMode)}
-          className={`rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${
+          className={`flex items-baseline gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors ${
             mode === tabMode
               ? 'bg-primary/15 text-primary'
               : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]'
           }`}
         >
-          {tabMode === 'jobs' ? 'Jobs' : 'Session'}
+          <span>{tabMode === 'jobs' ? 'Jobs' : 'Session'}</span>
+          <span className="text-[9px] font-normal opacity-70">{TERMINAL_MODE_LABEL[tabMode]}</span>
         </button>
       ))}
     </div>
@@ -264,7 +352,10 @@ export function WorkbenchTerminalPanel({
         <WorkbenchSessionView
           session={session}
           onStart={onStartSession}
+          onApprove={onApproveSession}
           onSendInput={onSendSessionInput}
+          onSendData={onSendSessionData}
+          onResize={onResizeSession}
           onKill={onKillSession}
         />
       </div>
@@ -327,7 +418,7 @@ export function WorkbenchTerminalPanel({
         </button>
       </form>
       <p className="text-[10px] leading-relaxed text-[var(--color-pib-text-muted)]/80">
-        One-shot allowlisted jobs on the linked computer (Phase 3). Switch to Session for an interactive shell.
+        Safe one-shot allowlisted jobs on the linked computer. Switch to Session for a full shell, which requires approval.
       </p>
     </div>
   )

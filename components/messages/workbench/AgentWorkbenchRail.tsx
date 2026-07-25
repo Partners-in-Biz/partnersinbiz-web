@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
+  WorkbenchBrowserSessionViewState,
   WorkbenchBrowserTarget,
   WorkbenchChangeFile,
   WorkbenchFileNode,
@@ -12,6 +13,7 @@ import type {
   WorkbenchTab,
   WorkbenchTerminalEntry,
   WorkbenchTerminalMode,
+  WorkbenchTunnelViewState,
 } from '@/lib/messages/workbench/types'
 import { WorkbenchBrowserPanel } from './WorkbenchBrowserPanel'
 import { WorkbenchChangesPanel } from './WorkbenchChangesPanel'
@@ -90,6 +92,24 @@ export interface AgentWorkbenchRailProps {
   browserTargets: WorkbenchBrowserTarget[]
   /** Adds a Browser Design Mode note to the active chat composer without sending it. */
   onAddBrowserNoteToChat?: (text: string) => void
+  /** Current tunnel session state (Phase 4b), owned by the host. */
+  browserTunnel?: WorkbenchTunnelViewState | null
+  onStartBrowserTunnel?: (port: number) => void
+  onApproveBrowserTunnel?: () => void
+  onKillBrowserTunnel?: () => void
+  /** Current agent browser session state (Phase 4b), owned by the host. */
+  browserAgentSession?: WorkbenchBrowserSessionViewState | null
+  onStartBrowserAgentSession?: (startUrl?: string) => void
+  onApproveBrowserAgentSession?: () => void
+  onNavigateBrowserAgentSession?: (url: string) => void
+  onCaptureBrowserAgentSession?: () => void
+  onKillBrowserAgentSession?: () => void
+  /** Design Mode drive (Phase 5): clicks/types in the agent browser at a point given in percent of the current frame. */
+  onClickBrowserAgentSessionAt?: (xPct: number, yPct: number) => void
+  onTypeBrowserAgentSession?: (text: string) => void
+  /** Toggles device-side frame following for the agent browser session. */
+  onStartBrowserAgentSessionFollow?: () => void
+  onStopBrowserAgentSessionFollow?: () => void
   compact?: boolean
   /** Runs an allowlisted terminal command (git status/diff, ls, pwd) against the linked computer. */
   onRunTerminalCommand?: (command: string) => void
@@ -105,7 +125,13 @@ export interface AgentWorkbenchRailProps {
   /** Current interactive session state, owned by the host (e.g. `UnifiedChat`). */
   terminalSession?: WorkbenchSessionViewState | null
   onStartTerminalSession?: () => void
+  /** Approves a terminal session currently `awaiting_approval` (Phase 5). */
+  onApproveTerminalSession?: () => void
   onSendTerminalSessionInput?: (line: string) => void
+  /** Raw keystrokes from the xterm surface, written with stdin `mode: 'raw'`. */
+  onSendTerminalSessionData?: (data: string) => void
+  /** Fitted xterm grid size, forwarded to the remote pty resize control. */
+  onResizeTerminalSession?: (cols: number, rows: number) => void
   onKillTerminalSession?: () => void
 }
 
@@ -155,6 +181,20 @@ export function AgentWorkbenchRail({
   onRefreshChanges,
   browserTargets,
   onAddBrowserNoteToChat,
+  browserTunnel,
+  onStartBrowserTunnel,
+  onApproveBrowserTunnel,
+  onKillBrowserTunnel,
+  browserAgentSession,
+  onStartBrowserAgentSession,
+  onApproveBrowserAgentSession,
+  onNavigateBrowserAgentSession,
+  onCaptureBrowserAgentSession,
+  onKillBrowserAgentSession,
+  onClickBrowserAgentSessionAt,
+  onTypeBrowserAgentSession,
+  onStartBrowserAgentSessionFollow,
+  onStopBrowserAgentSessionFollow,
   compact = false,
   onRunTerminalCommand,
   onClearTerminal,
@@ -164,7 +204,10 @@ export function AgentWorkbenchRail({
   onTerminalModeChange,
   terminalSession,
   onStartTerminalSession,
+  onApproveTerminalSession,
   onSendTerminalSessionInput,
+  onSendTerminalSessionData,
+  onResizeTerminalSession,
   onKillTerminalSession,
 }: AgentWorkbenchRailProps) {
   const mobileViewport = useIsMobileViewport()
@@ -359,12 +402,32 @@ export function AgentWorkbenchRail({
             onModeChange={onTerminalModeChange}
             session={terminalSession}
             onStartSession={onStartTerminalSession}
+            onApproveSession={onApproveTerminalSession}
             onSendSessionInput={onSendTerminalSessionInput}
+            onSendSessionData={onSendTerminalSessionData}
+            onResizeSession={onResizeTerminalSession}
             onKillSession={onKillTerminalSession}
           />
         )}
         {activeTabMeta.id === 'browser' && (
-          <WorkbenchBrowserPanel targets={browserTargets} onAddToChat={onAddBrowserNoteToChat} />
+          <WorkbenchBrowserPanel
+            targets={browserTargets}
+            onAddToChat={onAddBrowserNoteToChat}
+            tunnel={browserTunnel}
+            onStartTunnel={onStartBrowserTunnel}
+            onApproveTunnel={onApproveBrowserTunnel}
+            onKillTunnel={onKillBrowserTunnel}
+            browserSession={browserAgentSession}
+            onStartBrowserSession={onStartBrowserAgentSession}
+            onApproveBrowserSession={onApproveBrowserAgentSession}
+            onNavigateBrowserSession={onNavigateBrowserAgentSession}
+            onCaptureBrowserSession={onCaptureBrowserAgentSession}
+            onKillBrowserSession={onKillBrowserAgentSession}
+            onClickAt={onClickBrowserAgentSessionAt}
+            onTypeAt={onTypeBrowserAgentSession}
+            onFollowStart={onStartBrowserAgentSessionFollow}
+            onFollowStop={onStopBrowserAgentSessionFollow}
+          />
         )}
         {activeTabMeta.id === 'changes' && (
           <WorkbenchChangesPanel

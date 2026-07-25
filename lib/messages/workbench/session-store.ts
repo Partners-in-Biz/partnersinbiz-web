@@ -51,13 +51,14 @@ function fromStored(sessionId: string, row: Record<string, unknown>): WorkbenchS
     ttlExpiresAtMs: timestampMs(row.ttlExpiresAt),
     ...(row.leaseExpiresAt ? { leaseExpiresAtMs: timestampMs(row.leaseExpiresAt) } : {}),
     ...(row.claimedAt ? { claimedAtMs: timestampMs(row.claimedAt) } : {}),
+    ...(row.approvedAt ? { approvedAtMs: timestampMs(row.approvedAt) } : {}),
     ...(row.completedAt ? { completedAtMs: timestampMs(row.completedAt) } : {}),
   } as unknown as WorkbenchSession
 }
 
 function toStored(session: WorkbenchSession): Record<string, unknown> {
   const {
-    createdAtMs, updatedAtMs, ttlExpiresAtMs, leaseExpiresAtMs, claimedAtMs, completedAtMs,
+    createdAtMs, updatedAtMs, ttlExpiresAtMs, leaseExpiresAtMs, claimedAtMs, approvedAtMs, completedAtMs,
     pendingControls: _pendingControls, progressChunks: _progressChunks, ...row
   } = session
   return {
@@ -68,6 +69,7 @@ function toStored(session: WorkbenchSession): Record<string, unknown> {
     cleanupAt: Timestamp.fromMillis(ttlExpiresAtMs + CLEANUP_RETENTION_MS),
     ...(leaseExpiresAtMs ? { leaseExpiresAt: Timestamp.fromMillis(leaseExpiresAtMs) } : {}),
     ...(claimedAtMs ? { claimedAt: Timestamp.fromMillis(claimedAtMs) } : {}),
+    ...(approvedAtMs ? { approvedAt: Timestamp.fromMillis(approvedAtMs) } : {}),
     ...(completedAtMs ? { completedAt: Timestamp.fromMillis(completedAtMs) } : {}),
   }
 }
@@ -99,7 +101,9 @@ function queueRef(deviceId: string) {
  * stored in the same collection as sessions under a `pointer:` prefixed id
  * (session ids are always prefixed `wbs_`, so there is no collision). This
  * avoids needing a Firestore composite index just to enforce "one active
- * session per conversation".
+ * session per conversation", including while a session is merely
+ * `awaiting_approval` (an unapproved pending session still blocks a second
+ * create).
  */
 function pointerRef(conversationId: string) {
   return adminDb.collection(WORKBENCH_SESSIONS_COLLECTION).doc(`pointer:${conversationId}`)
@@ -125,6 +129,13 @@ export interface CreateWorkbenchSessionInput {
   cwd: string
 }
 
+/**
+ * Creates an interactive shell session in `awaiting_approval`. The create
+ * control is encrypted and stored, but — mirroring
+ * `createWorkbenchBrowserSession` / `createTunnelSession` — it never touches
+ * the device's pending-work queue at creation time: it only reaches the
+ * device once `approveWorkbenchSession` is called.
+ */
 export async function createWorkbenchSession(
   input: CreateWorkbenchSessionInput,
   options: { nowMs?: number; ttlMs?: number } = {},
@@ -135,8 +146,7 @@ export async function createWorkbenchSession(
 
   return adminDb.runTransaction(async (transaction) => {
     const pRef = pointerRef(input.conversationId)
-    const qRef = queueRef(input.deviceId)
-    const [pointerSnapshot, queueSnapshot] = await Promise.all([transaction.get(pRef), transaction.get(qRef)])
+    const pointerSnapshot = await transaction.get(pRef)
 
     const activeSessionId = typeof pointerSnapshot.data()?.activeSessionId === 'string'
       ? pointerSnapshot.data()!.activeSessionId as string
@@ -151,15 +161,10 @@ export async function createWorkbenchSession(
       }
     }
 
-    const pendingSessionIds = Array.isArray(queueSnapshot.data()?.pendingSessionIds)
-      ? queueSnapshot.data()!.pendingSessionIds as string[]
-      : []
-    if (pendingSessionIds.length >= MAX_DEVICE_SESSION_QUEUE) throw new Error('workbench: device session queue full')
-
     const session: WorkbenchSession = {
       ...input,
       sessionId,
-      status: 'queued',
+      status: 'awaiting_approval',
       attempt: 0,
       encryptedCreateControl: encryptWorkbenchSessionValue(
         { kind: 'create', cols: input.cols, rows: input.rows, cwd: input.cwd, shell: input.shell },
@@ -170,11 +175,6 @@ export async function createWorkbenchSession(
       ttlExpiresAtMs: nowMs + ttlMs,
     }
     transaction.create(sessionRef(sessionId), toStored(session))
-    transaction.set(qRef, {
-      deviceId: input.deviceId,
-      pendingSessionIds: [...pendingSessionIds, sessionId],
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true })
     transaction.set(pRef, {
       conversationId: input.conversationId, activeSessionId: sessionId, updatedAt: FieldValue.serverTimestamp(),
     })
@@ -228,6 +228,46 @@ function sessionBindingMatches(session: WorkbenchSession, input: WorkbenchSessio
     && session.relativeFolder === input.relativeFolder
 }
 
+export interface ApproveWorkbenchSessionInput extends WorkbenchSessionBinding {
+  sessionId: string
+  approverUserId: string
+}
+
+/**
+ * Approves a session awaiting approval, moving it to `queued` and — for the
+ * first time — adding it to the device's pending-work queue. Mirrors
+ * `approveWorkbenchBrowserSession` / `approveTunnelSession`. For MVP, the
+ * only approver accepted is the session's own actor (self-approval, exactly
+ * like `fs.write` job approval); there is no separate admin-review queue yet.
+ */
+export async function approveWorkbenchSession(
+  input: ApproveWorkbenchSessionInput,
+  options: { nowMs?: number } = {},
+): Promise<WorkbenchSession> {
+  const nowMs = options.nowMs ?? Date.now()
+  return adminDb.runTransaction(async (transaction) => {
+    const sRef = sessionRef(input.sessionId)
+    const qRef = queueRef(input.deviceId)
+    const [snapshot, queueSnapshot] = await Promise.all([transaction.get(sRef), transaction.get(qRef)])
+    if (!snapshot.exists) throw new Error('workbench: session not found')
+    const session = fromStored(snapshot.id, snapshot.data() ?? {})
+    if (!sessionBindingMatches(session, input)) throw new Error('workbench: session binding mismatch')
+    if (session.status === 'queued' && session.approvedByUserId === input.approverUserId) return hydrate(session)
+    const approved = transitionWorkbenchSession(session, { type: 'approve', approverUserId: input.approverUserId, nowMs })
+    const pendingSessionIds = Array.isArray(queueSnapshot.data()?.pendingSessionIds)
+      ? queueSnapshot.data()!.pendingSessionIds as string[]
+      : []
+    if (pendingSessionIds.length >= MAX_DEVICE_SESSION_QUEUE) throw new Error('workbench: device session queue full')
+    transaction.update(sRef, toStored(approved))
+    transaction.set(qRef, {
+      deviceId: input.deviceId,
+      pendingSessionIds: pendingSessionIds.includes(input.sessionId) ? pendingSessionIds : [...pendingSessionIds, input.sessionId],
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true })
+    return hydrate(approved)
+  })
+}
+
 async function enqueueControl(
   binding: WorkbenchSessionBinding & { sessionId: string },
   control: Exclude<WorkbenchSessionControl, { kind: 'create' }>,
@@ -245,13 +285,15 @@ async function enqueueControl(
       ? queueSnapshot.data()!.pendingSessionIds as string[]
       : []
 
-    if (control.kind === 'kill' && session.status === 'queued') {
+    if (control.kind === 'kill' && (session.status === 'awaiting_approval' || session.status === 'queued')) {
       const killed = transitionWorkbenchSession(session, { type: 'killQueued', nowMs })
       transaction.update(sRef, toStored(killed))
-      transaction.set(qRef, {
-        pendingSessionIds: pendingSessionIds.filter((id) => id !== session.sessionId),
-        updatedAt: FieldValue.serverTimestamp(),
-      }, { merge: true })
+      if (session.status === 'queued') {
+        transaction.set(qRef, {
+          pendingSessionIds: pendingSessionIds.filter((id) => id !== session.sessionId),
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true })
+      }
       return hydrate(killed)
     }
     if (session.status !== 'claimed' && session.status !== 'running') throw new Error('workbench: session not running')
@@ -328,10 +370,11 @@ function activeMembership(row: Record<string, unknown> | undefined, orgId: strin
 }
 
 /**
- * Same shape/checks as `isWorkbenchClaimAuthorized` in `job-store.ts` (minus
- * the jobs-only `fs.write` approval branch, which has no session analog) —
- * re-verified before every claim/progress/complete call so a revoked
- * grant/mapping/membership stops an in-flight session immediately.
+ * Same shape/checks as `isWorkbenchClaimAuthorized` in `job-store.ts`,
+ * including the self-approval requirement (a session, like `fs.write`, is
+ * only claimable once its own actor approved it) — re-verified before every
+ * claim/progress/complete call so a revoked grant/mapping/membership stops
+ * an in-flight session immediately.
  */
 export function isWorkbenchSessionClaimAuthorized(input: {
   authenticatedDeviceUserId: string
@@ -360,6 +403,7 @@ export function isWorkbenchSessionClaimAuthorized(input: {
     )
     if (currentRelativeFolder !== session.relativeFolder) return false
   }
+  if (!session.approvedAtMs || session.approvedByUserId !== session.actorUserId) return false
 
   return isLinkedRunClaimAuthorized({
     authenticatedDeviceUserId: input.authenticatedDeviceUserId,
