@@ -132,6 +132,7 @@ function FilePreviewPane({
 
 export interface WorkbenchFilesPanelProps {
   tree: WorkbenchFileNode[]
+  message?: string | null
   selectedPath?: string | null
   onSelectPath?: (path: string) => void
   onExpandDirectory?: (path: string) => void
@@ -139,22 +140,35 @@ export interface WorkbenchFilesPanelProps {
   onSave?: (path: string, content: string, expectedSha256?: string) => Promise<{ sha256?: string } | void>
 }
 
-export function WorkbenchFilesPanel({ tree, selectedPath, onSelectPath, onExpandDirectory, preview, onSave }: WorkbenchFilesPanelProps) {
+export function WorkbenchFilesPanel({ tree, message, selectedPath, onSelectPath, onExpandDirectory, preview, onSave }: WorkbenchFilesPanelProps) {
   if (tree.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 px-6 py-10 text-center">
         <span aria-hidden="true" className="material-symbols-outlined text-[28px] text-[var(--color-pib-text-muted)]">folder_off</span>
-        <p className="text-xs font-medium text-[var(--color-pib-text)]">No files detected yet</p>
-        <p className="text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">
-          Without a linked-computer sync, this tree is inferred from tool activity in the conversation — file paths
-          mentioned in read, write, edit and list-directory calls. Nothing has been touched yet in this run.
-        </p>
+        {message ? (
+          <>
+            <p className="text-xs font-medium text-red-200">Files could not be loaded</p>
+            <p role="alert" className="text-[11px] leading-relaxed text-red-300">{message}</p>
+          </>
+        ) : (
+          <>
+            <p className="text-xs font-medium text-[var(--color-pib-text)]">No files found</p>
+            <p className="text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">
+              The linked workspace returned an empty folder. Refresh after checking that this project is linked to the correct folder.
+            </p>
+          </>
+        )}
       </div>
     )
   }
 
   return (
     <div data-testid="workbench-files-panel" className="flex h-full min-h-0 flex-col">
+      {message && (
+        <p role="alert" className="shrink-0 border-b border-red-400/20 bg-red-400/10 px-3 py-2 text-[11px] text-red-200">
+          {message}
+        </p>
+      )}
       <div className={`min-h-0 overflow-y-auto p-2 text-[var(--color-pib-text)] ${preview ? 'max-h-[45%] shrink-0 border-b border-[var(--color-card-border)]' : 'flex-1'}`}>
         {tree.map((node) => (
           <FileNodeRow key={node.path} node={node} depth={0} selectedPath={selectedPath} onSelectPath={onSelectPath} onExpandDirectory={onExpandDirectory} />

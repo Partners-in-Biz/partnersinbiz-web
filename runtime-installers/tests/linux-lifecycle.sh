@@ -58,6 +58,11 @@ make_release() {
 make_release "$TMP/release-1" 1.0.0 first
 make_release "$TMP/release-2" 1.1.0 second
 
+# The installed-version helper must resolve the manager from its argument,
+# regardless of whether a caller also has a variable named `release`.
+release="$TMP/wrong-release"
+[[ "$(installed_version "$TMP/release-1")" == 1.0.0 ]]
+
 verify_release "$TMP/release-1/manifest.json" "$TMP/release-1/pib-runtime" signed offline
 activate_verified_release "$TMP/release-1"
 [[ -x "$PIB_LINUX_ROOT/current/pib-runtime" ]]

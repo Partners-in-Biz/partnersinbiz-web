@@ -77,6 +77,7 @@ export interface AgentWorkbenchRailProps {
   /** Where `liveFileTree`/`fileTree` came from, for a small source hint in the header. */
   filesSource?: WorkbenchFilesSource
   filesLoading?: boolean
+  filesMessage?: string | null
   onRefreshFiles?: () => void
   selectedFilePath?: string | null
   onSelectFilePath?: (path: string) => void
@@ -168,6 +169,7 @@ export function AgentWorkbenchRail({
   liveFileTree,
   filesSource = 'events',
   filesLoading = false,
+  filesMessage,
   onRefreshFiles,
   selectedFilePath,
   onSelectFilePath,
@@ -385,6 +387,7 @@ export function AgentWorkbenchRail({
         {activeTabMeta.id === 'files' && (
           <WorkbenchFilesPanel
             tree={effectiveFileTree}
+            message={filesMessage}
             selectedPath={selectedFilePath}
             onSelectPath={onSelectFilePath}
             onExpandDirectory={onExpandDirectory}

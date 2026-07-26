@@ -1012,6 +1012,7 @@ export default function UnifiedChat({
     tree: [],
   })
   const [workbenchFilesLoading, setWorkbenchFilesLoading] = useState(false)
+  const [workbenchFilesMessage, setWorkbenchFilesMessage] = useState<string | null>(null)
   const [workbenchSelectedFilePath, setWorkbenchSelectedFilePath] = useState<string | null>(null)
   const [workbenchFilePreview, setWorkbenchFilePreview] = useState<WorkbenchFilePreview | null>(null)
   const [workbenchLiveChanges, setWorkbenchLiveChanges] = useState<WorkbenchChangeFile[] | null>(null)
@@ -1110,6 +1111,7 @@ export default function UnifiedChat({
     setWorkbenchTab('files')
     setWorkbenchWidth(480)
     setWorkbenchLiveFiles({ source: 'none', tree: [] })
+    setWorkbenchFilesMessage(null)
     setWorkbenchSelectedFilePath(null)
     setWorkbenchFilePreview(null)
     setWorkbenchLiveChanges(null)
@@ -2392,8 +2394,10 @@ export default function UnifiedChat({
         source: 'sync',
         tree: workbenchEntriesToTree(result.entries),
       })
-    } catch {
+      setWorkbenchFilesMessage(null)
+    } catch (filesError) {
       setWorkbenchLiveFiles({ source: 'none', tree: [] })
+      setWorkbenchFilesMessage(filesError instanceof Error ? filesError.message : 'Failed to load files from the linked computer')
     } finally {
       setWorkbenchFilesLoading(false)
     }
@@ -2430,7 +2434,9 @@ export default function UnifiedChat({
         source: 'sync',
         tree: mergeWorkbenchDirectory(current.tree, path, result.entries),
       }))
-    } catch {
+      setWorkbenchFilesMessage(null)
+    } catch (directoryError) {
+      setWorkbenchFilesMessage(directoryError instanceof Error ? directoryError.message : `Failed to load ${path}`)
       // Keep the current tree visible; expanding again or refreshing can retry.
       return
     }
@@ -6151,6 +6157,7 @@ export default function UnifiedChat({
           liveFileTree={workbenchLiveFiles.tree}
           filesSource={workbenchLiveFiles.source === 'sync' ? 'sync' : workbenchFileTree.length > 0 ? 'events' : 'none'}
           filesLoading={workbenchFilesLoading}
+          filesMessage={workbenchFilesMessage}
           onRefreshFiles={loadWorkbenchFiles}
           selectedFilePath={workbenchSelectedFilePath}
           onSelectFilePath={handleSelectWorkbenchFilePath}
