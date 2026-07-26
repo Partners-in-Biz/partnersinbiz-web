@@ -6867,7 +6867,7 @@ export default function UnifiedChat({
         <AccessibleDialog
           label="New conversation"
           onClose={closeNewConversation}
-          className="flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl"
+          className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
         >
             {/* Modal header */}
             <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3 sm:px-5 sm:py-4">
@@ -7406,7 +7406,7 @@ export default function UnifiedChat({
                     Showing agents available on the selected computer.
                   </p>
                 )}
-                <div className="sm:max-h-[300px] sm:overflow-y-auto">
+                <div data-testid="new-conversation-participants-scroll" className="max-h-[min(40dvh,240px)] overflow-y-auto overscroll-contain sm:max-h-[300px]">
                   <ParticipantPicker
                     orgId={orgId}
                     onSelect={setNewParticipants}

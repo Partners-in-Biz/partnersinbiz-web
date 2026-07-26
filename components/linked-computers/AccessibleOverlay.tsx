@@ -1,6 +1,7 @@
 'use client'
 
 import { type ReactNode, useEffect, useRef } from 'react'
+import { cn } from '@/lib/utils'
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
@@ -48,7 +49,31 @@ export function AccessibleDialog({ label, onClose, children, className = 'w-full
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
   }
-  return <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={label} onKeyDown={keyDown} onMouseDown={event => { if (event.target === event.currentTarget) onClose() }} className="fixed inset-0 z-50 grid place-items-center overflow-hidden bg-black/60 p-4"><div data-testid="accessible-dialog-panel" className={`max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain ${className}`}>{children}</div></div>
+  // Mobile: bottom-sheet alignment + scrollable overlay so tall dialogs (and sticky
+  // footers) stay reachable. twMerge lets callers override overflow (e.g. overflow-hidden
+  // + internal scroll body) without fighting the default overflow-y-auto panel.
+  return (
+    <div
+      ref={ref}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+      onKeyDown={keyDown}
+      onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto overscroll-contain bg-black/60 p-2 sm:items-center sm:p-4"
+    >
+      <div
+        data-testid="accessible-dialog-panel"
+        className={cn(
+          'my-auto max-h-[calc(100dvh-1rem)] min-h-0 w-full overflow-y-auto overscroll-contain sm:max-h-[calc(100dvh-2rem)]',
+          className,
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  )
 }
 
 export function AccessibleMenu({ id, label, onClose, children }: { id: string; label: string; onClose(): void; children: ReactNode }) {
