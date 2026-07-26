@@ -7,6 +7,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import type * as FirebaseFirestore from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
+import { withIdempotency } from '@/lib/api/idempotency'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { logActivity } from '@/lib/activity/log'
@@ -631,7 +632,10 @@ export async function handleProjectCreate(
   return apiSuccess(stripUndefined({ id: docRef.id, claimToken, claimStatus }), setupReplay ? 200 : 201)
 }
 
-export const POST = withAuth('client', (req: NextRequest, user: ApiUser) => handleProjectCreate(req, user))
+export const POST = withAuth(
+  'client',
+  withIdempotency((req: NextRequest, user: ApiUser) => handleProjectCreate(req, user)),
+)
 
 export const DELETE = withAuth('admin', async (req: NextRequest, user: ApiUser) => {
   const { searchParams } = new URL(req.url)
