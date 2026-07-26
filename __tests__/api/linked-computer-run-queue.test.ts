@@ -91,6 +91,35 @@ describe('linked computer outbound run routes', () => {
     expect(authorize({ ...base, actorMember: { ...base.actorMember, status: 'revoked' } })).toBe(false)
   })
 
+  it('treats a replica path change as an authorization change', () => {
+    const authorize = isLinkedRunClaimAuthorized as unknown as (input: Record<string, unknown>) => boolean
+    const base = {
+      authenticatedDeviceUserId: 'owner-a',
+      device: { deviceId: 'device-a', ownerUserId: 'owner-a', status: 'active', credentialVersion: 3, capabilities: ['workspace.execute'] },
+      grant: { deviceId: 'device-a', orgId: 'org-a', status: 'active', accessMode: 'selected_users', allowedUserIds: ['selected-a'], capabilities: ['workspace.execute'] },
+      mapping: { mappingId: 'map-a', deviceId: 'device-a', orgId: 'org-a', workspaceId: 'workspace-a', status: 'active' },
+      deviceMember: { orgId: 'org-a', uid: 'owner-a', status: 'active' },
+      actorMember: { orgId: 'org-a', uid: 'selected-a', status: 'active' },
+      project: { clientOrgIds: ['org-a'] },
+      projectOrganization: { projectId: 'project-a', orgId: 'org-a', status: 'active' },
+      projectReplica: {
+        replicaId: 'replica-a', projectId: 'project-a', orgId: 'org-a', workspaceId: 'workspace-a',
+        locationId: 'linked-device:device-a', mappingId: 'map-a', relativePath: 'projects/current', active: true,
+      },
+      job: {
+        deviceId: 'device-a', orgId: 'org-a', actorUserId: 'selected-a', workspaceId: 'workspace-a',
+        projectId: 'project-a', projectReplicaId: 'replica-a', mappingId: 'map-a', relativeFolder: 'projects/old',
+      },
+      credentialVersion: 3,
+    }
+
+    expect(authorize(base)).toBe(false)
+    expect(authorize({
+      ...base,
+      job: { ...base.job, relativeFolder: 'projects/current' },
+    })).toBe(true)
+  })
+
   it('returns a path-safe claim and no secrets or physical paths', async () => {
     const req = new NextRequest('https://app.test/api/v1/linked-computers/device-a/runs/claim', { method: 'POST', body: '{}' })
     const response = await handleLinkedRunClaim(req, 'device-a', async () => identity, async () => claim)

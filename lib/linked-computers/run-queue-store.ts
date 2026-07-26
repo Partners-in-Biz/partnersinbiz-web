@@ -204,37 +204,60 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
     const candidates = ids.slice(0, 12)
     const candidateSurvivors: string[] = []
     const untouchedTail = ids.slice(12)
-    const expiredRefs: Array<{ ref: FirebaseFirestore.DocumentReference; job: LinkedRunJob }> = []
+    const expiredRefs: Array<{
+      ref: FirebaseFirestore.DocumentReference
+      job: LinkedRunJob
+      reason: 'ttl' | 'authorization_changed'
+    }> = []
+    let selectedIsRetry = false
     for (const id of candidates) {
       const ref = adminDb.collection(LINKED_RUN_JOBS).doc(id)
       const snap = await tx.get(ref)
       if (!snap.exists) continue
       const current = fromStored(snap.data() ?? {})
       if (current.deviceId !== input.deviceId || ['completed', 'failed', 'cancelled', 'expired'].includes(current.status)) continue
-      if (current.expiresAtMs <= nowMs) { expiredRefs.push({ ref, job: current }); continue }
+      if (current.expiresAtMs <= nowMs) {
+        expiredRefs.push({ ref, job: current, reason: 'ttl' })
+        continue
+      }
       if (!selected && (current.status === 'queued' || (['claimed', 'running'].includes(current.status) && (current.leaseExpiresAtMs ?? 0) <= nowMs))) {
         const authorization = await loadLinkedRunAuthorization(tx, current, input.ownerUserId)
         if (!isLinkedRunClaimAuthorized({
           authenticatedDeviceUserId: input.ownerUserId, credentialVersion: input.credentialVersion,
           ...authorization, job: current,
         })) {
-          expiredRefs.push({ ref, job: current }); continue
+          expiredRefs.push({ ref, job: current, reason: 'authorization_changed' })
+          continue
         }
+        selectedIsRetry = current.attempt > 0
         selected = transitionLinkedRun(current, { type: 'claim', ...input, nowMs, leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS })
         selectedRef = ref
       } else candidateSurvivors.push(id)
     }
     const remaining = [...candidateSurvivors, ...untouchedTail]
     for (const expired of expiredRefs) {
-      tx.update(expired.ref, { status: 'expired', encryptedPayload: null, finalizationState: 'complete', completedAt: Timestamp.fromMillis(nowMs), cleanupAt: Timestamp.fromMillis(nowMs + DEFAULT_TTL_MS), updatedAt: Timestamp.fromMillis(nowMs) })
-      tx.set(adminDb.collection('conversations').doc(expired.job.conversationId).collection('messages').doc(expired.job.assistantMessageId), { content: '', status: 'failed', error: 'The linked computer run expired or is no longer authorized.', runId: expired.job.jobId, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
-      tx.set(adminDb.collection('hermes_runs').doc(expired.job.jobId), { status: 'expired', error: 'The linked computer run expired or is no longer authorized.', completedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      const error = expired.reason === 'ttl'
+        ? 'The linked computer run expired before it could finish. Please retry.'
+        : 'The linked computer authorization changed while this run was active. Please retry.'
+      tx.update(expired.ref, { status: 'expired', encryptedPayload: null, error, finalizationState: 'complete', completedAt: Timestamp.fromMillis(nowMs), cleanupAt: Timestamp.fromMillis(nowMs + DEFAULT_TTL_MS), updatedAt: Timestamp.fromMillis(nowMs) })
+      tx.set(adminDb.collection('conversations').doc(expired.job.conversationId).collection('messages').doc(expired.job.assistantMessageId), { content: '', status: 'failed', error, runId: expired.job.jobId, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      tx.set(adminDb.collection('hermes_runs').doc(expired.job.jobId), { status: 'expired', error, completedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     }
     if (!selected || !selectedRef) {
       if (remaining.length !== ids.length) tx.set(queueRef, { pendingJobIds: remaining, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
       return null
     }
-    tx.update(selectedRef, toStored(selected))
+    tx.update(selectedRef, {
+      ...toStored(selected),
+      // Acceptance identity and receipts belong to one lease attempt. A
+      // runtime can legitimately upgrade or restart before reclaiming an
+      // expired lease, so the new attempt must establish its own identity.
+      ...(selectedIsRetry ? {
+        acceptedRuntimeVersion: FieldValue.delete(),
+        acceptedMachineLabel: FieldValue.delete(),
+        acceptanceReceipt: FieldValue.delete(),
+      } : {}),
+    })
     tx.set(queueRef, { pendingJobIds: [selected.jobId, ...remaining], updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     return publicClaimedLinkedRun(selected, decryptLinkedRunPayload(selected.encryptedPayload!, selected.deviceId, selected.jobId))
   })

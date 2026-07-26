@@ -157,13 +157,28 @@ swap_verified_releases() {
   mv "$swap" "$ROOT/previous"
 }
 install_systemd_assets() {
-  local version temp hermes_home="$HERMES_HOME_PATH"
+  local version temp hermes_home="$HERMES_HOME_PATH" chrome_path="${PIB_CHROME_PATH:-}"
   version="$(json_field "$ROOT/current/manifest.json" version)"
   if [[ -z "$hermes_home" && -f "$RUNTIME_ENV_PATH" ]]; then
     hermes_home="$($PYTHON - "$RUNTIME_ENV_PATH" <<'PY'
 import json, sys
 for line in open(sys.argv[1], encoding="utf-8"):
     if line.startswith('PIB_HERMES_HOME='):
+        try:
+            value = json.loads(line.split('=', 1)[1].strip())
+        except (ValueError, json.JSONDecodeError):
+            value = ''
+        if isinstance(value, str):
+            print(value)
+        break
+PY
+)"
+  fi
+  if [[ -z "$chrome_path" && -f "$RUNTIME_ENV_PATH" ]]; then
+    chrome_path="$($PYTHON - "$RUNTIME_ENV_PATH" <<'PY'
+import json, sys
+for line in open(sys.argv[1], encoding="utf-8"):
+    if line.startswith('PIB_CHROME_PATH='):
         try:
             value = json.loads(line.split('=', 1)[1].strip())
         except (ValueError, json.JSONDecodeError):
@@ -186,6 +201,7 @@ PY
     write_runtime_environment PIB_FILE_HELPER "$RUNTIME_FILE_HELPER"
     write_runtime_environment PIB_API_BASE "$API_BASE"
     [[ -z "$hermes_home" ]] || write_runtime_environment PIB_HERMES_HOME "$hermes_home"
+    [[ -z "$chrome_path" ]] || write_runtime_environment PIB_CHROME_PATH "$chrome_path"
   } > "$temp"
   chmod 0600 "$temp"
   mv -f "$temp" "$RUNTIME_ENV_PATH"

@@ -121,6 +121,7 @@ export function MessageDrawer({
                 allowAgentParticipants={allowAgentParticipants}
                 allowDeleteConversations={allowDeleteConversations}
                 currentPageContext={currentPageContext}
+                preferCurrentPageContext
                 compact
               />
             </div>

@@ -11,7 +11,10 @@ Group=root
 ExecStart=/opt/partnersinbiz/current/pib-runtime service
 Restart=always
 RestartSec=5s
-TimeoutStopSec=30s
+# A linked Hermes run can remain active for much longer than a normal process
+# shutdown. SIGTERM stops new claims and lets the current run drain; never
+# force-kill it during a routine runtime update.
+TimeoutStopSec=2h
 StateDirectory=partnersinbiz
 StateDirectoryMode=0700
 LogsDirectory=partnersinbiz
