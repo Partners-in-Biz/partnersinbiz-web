@@ -25,14 +25,14 @@ describe('AccessibleDialog responsive viewport contract', () => {
       <AccessibleDialog
         label="New conversation"
         onClose={jest.fn()}
-        className="flex max-h-[calc(100dvh-1rem)] flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)]"
+        className="flex h-[80dvh] max-h-[calc(100dvh-1rem)] flex-col overflow-hidden sm:max-h-[calc(100dvh-2rem)]"
       >
         <div>Body</div>
       </AccessibleDialog>,
     )
 
     const panel = screen.getByTestId('accessible-dialog-panel')
-    expect(panel).toHaveClass('overflow-hidden', 'flex-col', 'min-h-0')
+    expect(panel).toHaveClass('h-[80dvh]', 'overflow-hidden', 'flex-col', 'min-h-0')
     expect(panel).not.toHaveClass('overflow-y-auto')
   })
 })
