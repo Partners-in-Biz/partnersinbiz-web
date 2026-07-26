@@ -2827,7 +2827,12 @@ export default function UnifiedChat({
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
       setWorkbenchBrowserSession((prev) => prev
-        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to approve the browser session.', busy: false }
+        ? {
+            ...prev,
+            status: 'error',
+            error: error instanceof Error ? error.message : 'Failed to approve the browser session.',
+            busy: false,
+          }
         : prev)
     }
   }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
