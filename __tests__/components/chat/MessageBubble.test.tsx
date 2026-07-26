@@ -715,6 +715,28 @@ describe('MessageBubble', () => {
     expect(screen.getByText('Waiting for agent activity...')).toBeInTheDocument()
   })
 
+  it('does not claim to poll Hermes before a run id exists', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'tmp-assistant-submit',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pending',
+          authorDisplayName: 'Agent',
+          status: 'pending',
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Starting agent')).toBeInTheDocument()
+    expect(screen.getByText('Waiting for the server to create a run...')).toBeInTheDocument()
+    expect(screen.queryByText('Still polling run...')).not.toBeInTheDocument()
+  })
+
   it('rehydrates Studio artifacts by stable ID instead of rendering stale snapshots', async () => {
     const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
       success: true,

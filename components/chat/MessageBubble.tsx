@@ -215,10 +215,16 @@ function commandConsoleRows(events: ChatEvent[]): Array<{
     .slice(-24)
 }
 
-function currentActivity(events: ChatEvent[], elapsed: number): { label: string; detail?: string } {
+function currentActivity(events: ChatEvent[], elapsed: number, hasRunId: boolean): { label: string; detail?: string } {
   const meaningful = events.filter((event) => event.event !== 'assistant.text_delta')
   const latest = meaningful.at(-1) ?? events.at(-1)
   if (!latest) {
+    if (!hasRunId) {
+      return {
+        label: 'Starting agent',
+        detail: 'Waiting for the server to create a run...',
+      }
+    }
     return elapsed >= 90
       ? { label: 'No event for 90s', detail: 'Still polling run...' }
       : { label: 'Planning work', detail: 'Waiting for the first agent event...' }
@@ -1679,7 +1685,7 @@ export default function MessageBubble({
   const displayEvents: ChatEvent[] = liveEvents.length
     ? liveEvents
     : ((m.events ?? []) as ChatEvent[])
-  const activity = currentActivity(displayEvents, elapsed)
+  const activity = currentActivity(displayEvents, elapsed, Boolean(m.runId))
   const tasks = taskRows(displayEvents)
   const safeReasoning = reasoningSummary(displayEvents)
   const thinking = m.thinking ?? buildThinkingTrace(displayEvents)

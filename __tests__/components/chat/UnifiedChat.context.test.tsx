@@ -7,6 +7,7 @@ import UnifiedChat, {
   uploadConversationAttachment,
 } from '@/components/chat/UnifiedChat'
 import type { ContextReference } from '@/lib/context-references/types'
+import { postConversationMessage } from '@/lib/conversations/message-submit'
 
 jest.mock('@/components/chat/VoiceInputButton', () => ({
   __esModule: true,
@@ -73,6 +74,31 @@ function jsonResponse(body: unknown, ok = true) {
     json: async () => body,
   } as Response
 }
+
+describe('conversation message submission', () => {
+  it('times out when the server never confirms dispatch', async () => {
+    jest.useFakeTimers()
+    const originalFetch = global.fetch
+    global.fetch = jest.fn(() => new Promise<Response>(() => undefined))
+
+    try {
+      const request = postConversationMessage('/api/v1/conversations/conv-1/messages', {
+        method: 'POST',
+      }, 10)
+      const rejection = expect(request).rejects.toThrow(
+        'Message submission timed out before an agent run was confirmed. Your draft has been restored.',
+      )
+
+      await act(async () => {
+        jest.advanceTimersByTime(10)
+      })
+      await rejection
+    } finally {
+      global.fetch = originalFetch
+      jest.useRealTimers()
+    }
+  })
+})
 
 function errorResponse(status: number, body: unknown = { error: 'Unauthorized' }) {
   return {
@@ -2887,6 +2913,41 @@ describe('UnifiedChat context references', () => {
     })
   })
 
+  it('rolls back optimistic bubbles and restores the draft when dispatch is rejected before persistence', async () => {
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url === '/api/v1/conversations/conv-1/messages' && init?.method === 'POST') {
+        return errorResponse(409, { error: 'Project is not linked to this computer' })
+      }
+      return defaultFetch(input, init)
+    })
+    global.fetch = mockFetch
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    const draft = 'How is the project doing?'
+    fireEvent.change(input, { target: { value: draft } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Project is not linked to this computer'))
+    expect(input).toHaveValue(draft)
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled()
+
+    const conversationLog = screen.getByRole('log', { name: 'Conversation messages' })
+    expect(within(conversationLog).queryByText(draft)).not.toBeInTheDocument()
+    expect(within(conversationLog).queryByText('Waiting for agent activity...')).not.toBeInTheDocument()
+    expect(within(conversationLog).queryByText('Still polling run...')).not.toBeInTheDocument()
+  })
+
   it('shows selected agent skills and exposes /skills as structured command intent', async () => {
     render(
       <UnifiedChat
@@ -2975,6 +3036,7 @@ describe('UnifiedChat context references', () => {
               authorId: 'pip',
               authorDisplayName: 'Pip',
               status: 'waiting_approval',
+              runId: 'run-waiting',
               createdAt: { seconds: 2 },
             }],
           },

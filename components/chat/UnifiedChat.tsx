@@ -11,6 +11,7 @@ import {
   newConversationCreateIdempotencyKey,
 } from '@/lib/conversations/create-resilience'
 import { exportChatAsMarkdown } from '@/lib/conversations/export-chat'
+import { postConversationMessage } from '@/lib/conversations/message-submit'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import {
@@ -1387,11 +1388,12 @@ export default function UnifiedChat({
   const activeRuntimeMessage = useMemo(() => {
     const sorted = messages.slice().sort((a, b) => tsSeconds(b.createdAt) - tsSeconds(a.createdAt))
     return sorted.find((message) =>
-      message.role === 'assistant' && (
+      message.role === 'assistant' && Boolean(message.runId) && (
         message.status === 'pending' ||
         message.status === 'streaming' ||
         message.status === 'waiting_approval' ||
-        Boolean(message.runId)
+        message.status === 'completed' ||
+        message.status === 'failed'
       ),
     ) ?? null
   }, [messages])
@@ -1408,7 +1410,7 @@ export default function UnifiedChat({
   const workbenchBrowserTargets = useMemo(() => buildWorkbenchBrowserTargets(workbenchEvents, workbenchRichParts), [workbenchEvents, workbenchRichParts])
   const hasInFlightAgentRun = useMemo(
     () => messages.some((message) =>
-      message.role === 'assistant' && (
+      message.role === 'assistant' && Boolean(message.runId) && (
         message.status === 'pending' ||
         message.status === 'streaming' ||
         message.status === 'waiting_approval'
@@ -4728,6 +4730,7 @@ export default function UnifiedChat({
       setError(null)
       setSending(true)
       let convId = activeId
+      let optimisticMessageIds: string[] = []
 
       try {
         const currentPageCommand = extractCurrentPageContextCommand(text)
@@ -4835,8 +4838,9 @@ export default function UnifiedChat({
         const runtimeForSend = modelCatalog?.canSelect && selectedRuntime?.model ? selectedRuntime : null
 
         // Optimistic messages
+        const optimisticTimestamp = Date.now()
         const optimisticUser: ConversationMessage = {
-          id: `tmp-user-${Date.now()}`,
+          id: `tmp-user-${optimisticTimestamp}`,
           conversationId: convId,
           role: 'user',
           content,
@@ -4854,7 +4858,7 @@ export default function UnifiedChat({
         }
         const optimisticAgent: ConversationMessage[] = shouldExpectAgentReply
           ? [{
-              id: `tmp-assistant-${Date.now()}`,
+              id: `tmp-assistant-${optimisticTimestamp}`,
               conversationId: convId,
               role: 'assistant',
               content: '',
@@ -4867,6 +4871,7 @@ export default function UnifiedChat({
               createdAt: { seconds: nowSec + 0.001 },
             }]
           : []
+        optimisticMessageIds = [optimisticUser.id, ...optimisticAgent.map((message) => message.id)]
         // Do not append optimistic rows if the user already switched sessions —
         // that would briefly (or permanently, via a follow-on race) paint this
         // send into the wrong conversation.
@@ -4874,7 +4879,7 @@ export default function UnifiedChat({
           setMessages((prev) => [...prev, optimisticUser, ...optimisticAgent])
         }
 
-        const res = await fetch(`/api/v1/conversations/${convId}/messages`, {
+        const res = await postConversationMessage(`/api/v1/conversations/${convId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -4913,7 +4918,18 @@ export default function UnifiedChat({
         }
         return true
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Send failed')
+        const message = e instanceof Error ? e.message : 'Send failed'
+        if (optimisticMessageIds.length > 0) {
+          const optimisticIds = new Set(optimisticMessageIds)
+          setMessages((prev) => prev.filter((row) => !optimisticIds.has(row.id)))
+        }
+        if (clearComposer) {
+          setInput((current) => current.trim() ? current : text)
+          if (filesToSend.length > 0) {
+            setAttachments((current) => current.length > 0 ? current : filesToSend)
+          }
+        }
+        setError(message)
         return false
       } finally {
         setSending(false)
@@ -6322,7 +6338,7 @@ export default function UnifiedChat({
           </div>
         )}
         {error && (
-          <div className="px-4 py-2 text-xs text-red-300 border-t border-red-500/30 bg-red-500/10">
+          <div role="alert" className="px-4 py-2 text-xs text-red-300 border-t border-red-500/30 bg-red-500/10">
             {error}
           </div>
         )}
