@@ -76,7 +76,7 @@ import {
   buildWorkbenchFileTree,
   buildWorkbenchTerminalEntries,
 } from '@/lib/messages/workbench/from-events'
-import { attachWorkbenchDiffs, mergeWorkbenchDirectory, runConversationWorkbenchJob, workbenchEntriesToTree, workbenchJobResult, workbenchStatusToChanges } from '@/lib/messages/workbench/client'
+import { attachWorkbenchDiffs, mergeWorkbenchDirectory, runConversationWorkbenchJob, WORKBENCH_ROOT_PATH, workbenchEntriesToTree, workbenchJobResult, workbenchStatusToChanges } from '@/lib/messages/workbench/client'
 import { formatWorkbenchOperationResult, formatWorkbenchProgressBody, pollWorkbenchJob } from '@/lib/messages/workbench/browser-client'
 import {
   appendWorkbenchSessionOutput,
@@ -2388,7 +2388,7 @@ export default function UnifiedChat({
     if (!activeId) return
     setWorkbenchFilesLoading(true)
     try {
-      const job = await runConversationWorkbenchJob(activeId, { kind: 'fs.list', path: '' })
+      const job = await runConversationWorkbenchJob(activeId, { kind: 'fs.list', path: WORKBENCH_ROOT_PATH })
       const result = workbenchJobResult<{ entries: Array<{ path: string; type: 'file' | 'directory'; size?: number }> }>(job)
       setWorkbenchLiveFiles({
         source: 'sync',
