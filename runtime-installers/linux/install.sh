@@ -94,7 +94,9 @@ download() {
   "$CURL" --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --tlsv1.2 "$1" -o "$2"
 }
 installed_version() {
-  local release="$1" manager="$release/pib-release-manager" manifest="$release/manifest.json" args
+  local release="$1" manager manifest args
+  manager="$release/pib-release-manager"
+  manifest="$release/manifest.json"
   [[ -x "$manager" && -f "$manifest" ]] || return 1
   args=(installed-version --manifest "$manifest" --payload "$release/pib-runtime" --platform linux --architecture "$ARCH" --channel stable)
   if [[ -f "$release/.unsigned-dev" ]]; then

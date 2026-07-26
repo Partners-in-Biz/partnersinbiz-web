@@ -42,4 +42,12 @@ describe('WorkbenchFilesPanel Phase 2', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith('src/app.ts', 'new', 'a'.repeat(64)))
     expect(screen.getByText('Saved')).toBeInTheDocument()
   })
+
+  it('shows the linked-computer failure instead of presenting it as an empty folder', () => {
+    render(<WorkbenchFilesPanel tree={[]} message="Computer runtime update required for Workbench" />)
+
+    expect(screen.getByText('Files could not be loaded')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Computer runtime update required for Workbench')
+    expect(screen.queryByText('No files found')).not.toBeInTheDocument()
+  })
 })

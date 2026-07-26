@@ -4,6 +4,7 @@ import { getConversation } from '@/lib/conversations/conversations'
 import type { Conversation } from '@/lib/conversations/types'
 import {
   authorizeLinkedComputerDispatch,
+  linkedRuntimeUpdateRequired,
   type AuthorizedLinkedComputerDispatch,
 } from '@/lib/linked-computers/runtime-targets'
 import { requireProjectRuntimeReplica } from '@/lib/project-locations/runtime-binding'
@@ -33,6 +34,12 @@ interface AuthorizationDependencies {
   authorizeConversationProject?: typeof authorizeConversationProject
   authorizeLinkedComputerDispatch?: typeof authorizeLinkedComputerDispatch
   requireProjectRuntimeReplica?: typeof requireProjectRuntimeReplica
+}
+
+export const WORKBENCH_MINIMUM_RUNTIME_VERSION = '1.1.8'
+
+export function workbenchRuntimeUpdateRequired(version: string): boolean {
+  return linkedRuntimeUpdateRequired(version, WORKBENCH_MINIMUM_RUNTIME_VERSION)
 }
 
 /**
@@ -79,6 +86,12 @@ export async function authorizeWorkbenchConversation(
   }
   if (binding.workspaceId !== workspaceId || binding.mappingId !== mappingId) {
     throw new WorkbenchAuthorizationError('Computer workspace binding changed', 409)
+  }
+  if (workbenchRuntimeUpdateRequired(binding.runtimeVersion)) {
+    throw new WorkbenchAuthorizationError(
+      `Computer runtime update required for Workbench (minimum ${WORKBENCH_MINIMUM_RUNTIME_VERSION})`,
+      409,
+    )
   }
 
   if (projectAuthorization.projectId) {
