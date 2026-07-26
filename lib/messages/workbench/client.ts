@@ -8,6 +8,9 @@ export interface WorkbenchJobRunOptions {
   signal?: AbortSignal
 }
 
+/** Canonical relative path for the linked workspace root. */
+export const WORKBENCH_ROOT_PATH = '.'
+
 function idempotencyKey(): string {
   const random = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()

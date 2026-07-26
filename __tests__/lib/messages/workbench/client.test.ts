@@ -1,7 +1,11 @@
-import { attachWorkbenchDiffs, mergeWorkbenchDirectory, runConversationWorkbenchJob, workbenchEntriesToTree, workbenchStatusToChanges } from '@/lib/messages/workbench/client'
+import { attachWorkbenchDiffs, mergeWorkbenchDirectory, runConversationWorkbenchJob, WORKBENCH_ROOT_PATH, workbenchEntriesToTree, workbenchStatusToChanges } from '@/lib/messages/workbench/client'
 
 describe('runConversationWorkbenchJob', () => {
   afterEach(() => jest.restoreAllMocks())
+
+  it('uses the API root-path contract for top-level file listings', () => {
+    expect(WORKBENCH_ROOT_PATH).toBe('.')
+  })
 
   it('creates and polls a typed job without sending caller-selected binding identifiers', async () => {
     const fetchMock = jest.spyOn(global, 'fetch')
