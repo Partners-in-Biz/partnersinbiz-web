@@ -7,6 +7,7 @@ jest.mock('@/components/chat/UnifiedChat', () => ({
     <div
       data-testid="unified-chat"
       data-current-context={JSON.stringify(props.currentPageContext ?? null)}
+      data-prefer-current-page={String(props.preferCurrentPageContext ?? false)}
     />
   ),
 }))
@@ -89,5 +90,6 @@ describe('MessageDrawer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open messages' }))
 
     expect(screen.getByTestId('unified-chat').dataset.currentContext).toContain('contact-1')
+    expect(screen.getByTestId('unified-chat')).toHaveAttribute('data-prefer-current-page', 'true')
   })
 })

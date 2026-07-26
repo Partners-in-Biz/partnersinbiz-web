@@ -81,13 +81,16 @@ if verify_release "$TMP/unsigned/manifest.json" "$TMP/unsigned/pib-runtime" sign
 fi
 PIB_ALLOW_UNSIGNED_DEV=1 verify_release "$TMP/unsigned/manifest.json" "$TMP/unsigned/pib-runtime" signed offline
 
+printf 'PIB_CHROME_PATH="/usr/local/bin/pib-workbench-chrome"\n' > "$PIB_RUNTIME_ENV_PATH"
 install_systemd_assets
 grep -q '/opt/partnersinbiz/current/pib-runtime service' "$PIB_LINUX_UNIT_PATH"
+grep -q 'TimeoutStopSec=2h' "$PIB_LINUX_UNIT_PATH"
 grep -q '^PIB_RUNTIME_VERSION="1.0.0"$' "$PIB_RUNTIME_ENV_PATH"
 grep -Fqx "PIB_RUNTIME_STATE_DIR=\"$PIB_LINUX_STATE_ROOT\"" "$PIB_RUNTIME_ENV_PATH"
 grep -Fqx "PIB_CREDENTIAL_HELPER=\"$PIB_LINUX_ROOT/current/pib-credential-helper\"" "$PIB_RUNTIME_ENV_PATH"
 grep -Fqx "PIB_FILE_HELPER=\"$PIB_LINUX_ROOT/current/pib-file-helper\"" "$PIB_RUNTIME_ENV_PATH"
 grep -Fqx 'PIB_API_BASE="https://partnersinbiz.online"' "$PIB_RUNTIME_ENV_PATH"
+grep -Fqx 'PIB_CHROME_PATH="/usr/local/bin/pib-workbench-chrome"' "$PIB_RUNTIME_ENV_PATH"
 grep -q 'daemon-reload' "$PIB_SYSTEMCTL_LOG"
 grep -q 'enable pib-runtime.service' "$PIB_SYSTEMCTL_LOG"
 
