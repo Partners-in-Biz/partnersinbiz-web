@@ -132,7 +132,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
 
   // Get recent comments (latest 10 across all tasks)
   const recentComments: RecentTaskComment[] = []
-  for (const taskDoc of tasksSnapshot.docs) {
+  for (const taskDoc of tasksSnapshot.docs.filter((doc) => visibleTaskIds.has(doc.id))) {
     const commentsSnapshot = await adminDb
       .collection('projects')
       .doc(projectId)
