@@ -37,7 +37,9 @@ function publicSummary(value: unknown) {
 
 export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const explicitOrgId = _req.headers.get('x-org-id')?.trim() || ''
+  if (user.role === 'ai' && !explicitOrgId) return apiError('X-Org-Id is required for agent planning access', 400)
+  const access = await getProjectForUser(projectId, user, explicitOrgId || user.orgId || undefined)
   if (!access.ok) return apiError(access.error, access.status)
   const project = access.doc.data() ?? {}
   return apiSuccess({ planningDiscovery: publicSummary(project.planningDiscovery) })
@@ -45,7 +47,9 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
 
 export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const explicitOrgId = req.headers.get('x-org-id')?.trim() || ''
+  if (user.role === 'ai' && !explicitOrgId) return apiError('X-Org-Id is required for agent planning access', 400)
+  const access = await getProjectForUser(projectId, user, explicitOrgId || user.orgId || undefined)
   if (!access.ok) return apiError(access.error, access.status)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'manage_project')) {
     return apiError('Project manager access is required for planning confirmation', 403)
@@ -53,6 +57,9 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const action = await req.json().catch(() => null)
   if (!action || typeof action !== 'object' || typeof action.type !== 'string') return apiError('A planning discovery action is required', 400)
+  if (user.role === 'ai' && action.type !== 'start' && action.type !== 'submit_brief') {
+    return apiError('A human project manager must confirm, reopen, or attest the Decision Brief', 403)
+  }
 
   const projectRef = adminDb.collection('projects').doc(projectId)
   const eventRef = projectRef.collection('planningDiscoveryEvents').doc()

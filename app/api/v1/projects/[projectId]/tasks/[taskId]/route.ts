@@ -14,6 +14,7 @@ import { adminProjectTaskLink } from '@/lib/projects/links'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
+import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,6 +67,14 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const access = await getProjectForUser(projectId, user)
   if (!access.ok) return apiError(access.error, access.status)
+  const planningSensitiveFields = [
+    'assigneeAgentId', 'agentInput', 'dependsOn', 'approvalGateTaskId', 'columnId',
+    'agentStatus', 'agentReleaseAt', 'agentReleaseStatus', 'agentReleasedAt',
+  ]
+  if (planningSensitiveFields.some((field) => body[field] !== undefined)) {
+    const planningBlocker = planningMutationBlocker(access.doc.data() ?? {})
+    if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
+  }
 
   const ref = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
   const doc = await ref.get()

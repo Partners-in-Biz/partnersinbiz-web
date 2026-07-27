@@ -88,6 +88,7 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
       preset: 'custom',
       modules: moduleFlags(false),
       recordScopes: { ...OWNED_OR_LINKED_DEFAULT_SCOPES },
+      agentRuntimeAccess: {},
     }
   }
 

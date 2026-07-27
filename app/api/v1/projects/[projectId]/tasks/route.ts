@@ -90,11 +90,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!access.ok) return apiError(access.error, access.status)
   const project = access.doc.data() ?? {}
 
-  const isPlannedAgentWork = typeof body.assigneeAgentId === 'string'
-    || (body.agentInput && typeof body.agentInput === 'object')
-    || Array.isArray(body.dependsOn)
-    || typeof body.approvalGateTaskId === 'string'
-  const planningBlocker = isPlannedAgentWork ? planningMutationBlocker(project) : null
+  const planningBlocker = planningMutationBlocker(project)
   if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
 
   const taskData = buildProjectTaskCreateData(body, projectId, typeof project.orgId === 'string' ? project.orgId : undefined)
