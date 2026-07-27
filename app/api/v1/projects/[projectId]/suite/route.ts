@@ -571,6 +571,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const collectionName = COLLECTION_BY_TYPE[type]
   if (!collectionName) return apiError('Invalid suite record type', 400)
   if (!id) return apiError('id is required', 400)
+  if (!['approval', 'risk', 'decision', 'audit', 'permission'].includes(type)) {
+    const blocker = planningMutationBlocker((access.doc.data() ?? {}) as Record<string, unknown>)
+    if (blocker) return apiError(blocker.message, 409, blocker)
+  }
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', permissionForSuiteType(type))) {
     return apiError('Project manager access is required for this project suite record', 403)
   }
