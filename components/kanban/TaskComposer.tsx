@@ -4,6 +4,9 @@ import { useMemo, useRef, useState } from 'react'
 import VoiceInputButton from '@/components/chat/VoiceInputButton'
 import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
 import { AGENT_EFFORT_OPTIONS, AGENT_MODEL_OPTIONS, type AgentEffort, type AgentModel } from '@/lib/agents/runRouting'
+import {
+  type TaskLlmCredentialSource,
+} from '@/lib/projects/task-llm'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { AgentId, AgentMember, Attachment, ChecklistItem, Column, Task, TeamMember } from './types'
 
@@ -121,6 +124,7 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
   const [reviewerAgentId, setReviewerAgentId] = useState<AgentId | ''>('')
   const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>('')
   const [agentModel, setAgentModel] = useState<AgentModel | ''>('')
+  const [llmCredentialSource, setLlmCredentialSource] = useState<TaskLlmCredentialSource | ''>('')
   const [requiredCapability, setRequiredCapability] = useState('')
   const [riskLevel, setRiskLevel] = useState<(typeof RISK_LEVELS)[number] | ''>('')
   const [approvalGate, setApprovalGate] = useState<(typeof APPROVAL_GATES)[number] | ''>('')
@@ -261,6 +265,9 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
         verifierChecklist,
         agentEffort: agentId && agentEffort ? agentEffort : null,
         agentModel: agentId && agentModel ? agentModel : null,
+        llmCredentialSource: agentId
+          ? (llmCredentialSource || 'auto')
+          : null,
         dueDate: dueDate || null,
         startDate: startDate || null,
         estimateMinutes: Number.isFinite(estimate) && estimate > 0 ? Math.round(estimate * 60) : null,
@@ -604,6 +611,21 @@ export function TaskComposer({ open, column, projectId, orgId, members, agents =
                         <option key={option.value} value={option.value}>{option.label}</option>
                       ))}
                     </select>
+                  </label>
+                  <label className="space-y-1 sm:col-span-2">
+                    <span className="block pib-label">LLM credentials</span>
+                    <select
+                      value={llmCredentialSource}
+                      onChange={(event) => setLlmCredentialSource(event.target.value as TaskLlmCredentialSource | '')}
+                      className="w-full min-w-0 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-2 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
+                    >
+                      <option value="">Auto (personal if allowed, else organisation)</option>
+                      <option value="org">Organisation VPS credentials</option>
+                      <option value="personal">My personal credentials</option>
+                    </select>
+                    <span className="block text-[10px] text-[var(--color-pib-text-muted)]">
+                      Personal requires Team access “personal LLM on organisation VPS” and a connected provider in Settings.
+                    </span>
                   </label>
                 </div>
               )}

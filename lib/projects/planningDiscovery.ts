@@ -246,6 +246,7 @@ const PROJECT_TASK_CONTEXT_FIELDS = new Set([
 const PROJECT_TASK_PLANNING_FIELDS = new Set([
   ...PROJECT_TASK_CONTEXT_FIELDS,
   'assigneeId', 'assigneeIds', 'assigneeAgentId', 'agentInput', 'agentEffort', 'agentModel',
+  'agentProvider', 'llmCredentialSource', 'llmCredentialOwnerUid',
   'agentReleaseAt', 'reviewerIds', 'reviewerAgentId',
 ])
 

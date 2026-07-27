@@ -31,6 +31,9 @@ export interface TaskDispatchInput {
   constraints?: string[]
   agentEffort?: string | null
   agentModel?: string | null
+  agentProvider?: string | null
+  llmCredentialSource?: string | null
+  llmResolvedSource?: string | null
 }
 
 function runTimeoutMs(): number {
@@ -88,10 +91,13 @@ async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<{ ru
     input: `[Task ${input.taskId}] ${input.spec}`,
     ...(input.agentEffort ? { reasoning_effort: input.agentEffort } : {}),
     ...(input.agentModel ? { model: input.agentModel } : {}),
+    ...(input.agentProvider ? { provider: input.agentProvider } : {}),
     metadata: {
       taskId: input.taskId,
       orgId: input.orgId,
       agentId: input.agentId,
+      ...(input.llmCredentialSource ? { llmCredentialSource: input.llmCredentialSource } : {}),
+      ...(input.llmResolvedSource ? { llmResolvedSource: input.llmResolvedSource } : {}),
       ...(input.context ? { context: input.context } : {}),
       ...(input.constraints && input.constraints.length ? { constraints: input.constraints } : {}),
     },

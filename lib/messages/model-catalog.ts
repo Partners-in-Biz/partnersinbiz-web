@@ -352,7 +352,7 @@ export async function getMessageModelCatalog(input: {
   }
 
   const orgId = input.conversation.orgId || input.user.orgId || input.user.activeOrgId || ''
-  let connectedHermesProviders = new Set<string>()
+  const connectedHermesProviders = new Set<string>()
   const localOnlyProviderLabels: string[] = []
   const personalConnectedProviders = new Set<string>()
   if (orgId) {

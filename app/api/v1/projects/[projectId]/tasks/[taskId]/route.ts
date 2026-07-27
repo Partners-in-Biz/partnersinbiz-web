@@ -16,6 +16,7 @@ import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
 import { isProjectTaskPlanningMutation, planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
+import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
 
 export const dynamic = 'force-dynamic'
 
@@ -157,6 +158,33 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     updateValue.contextRefs = contextRefs
     const nextAgentInput = agentInputWithContextRefs(updateValue.agentInput ?? existing.agentInput, contextRefs)
     if (nextAgentInput) updateValue.agentInput = nextAgentInput
+  }
+
+  const llmFieldsTouched = [
+    'llmCredentialSource',
+    'agentProvider',
+    'agentModel',
+    'assigneeAgentId',
+  ].some((field) => body[field] !== undefined)
+  if (llmFieldsTouched && typeof projectOrgId === 'string' && projectOrgId) {
+    const mergedForResolve: Record<string, unknown> = {
+      llmCredentialSource: updateValue.llmCredentialSource ?? existing.llmCredentialSource ?? 'auto',
+      agentProvider: updateValue.agentProvider !== undefined ? updateValue.agentProvider : existing.agentProvider,
+      agentModel: updateValue.agentModel !== undefined ? updateValue.agentModel : existing.agentModel,
+    }
+    await applyTaskLlmCredentialResolution({
+      orgId: projectOrgId,
+      ownerUid: typeof existing.createdBy === 'string' && existing.createdBy
+        ? existing.createdBy
+        : (typeof existing.reporterId === 'string' && existing.reporterId ? existing.reporterId : user.uid),
+      user,
+      taskFields: mergedForResolve,
+      syncPersonal: true,
+    })
+    updateValue.llmCredentialSource = mergedForResolve.llmCredentialSource
+    updateValue.agentProvider = mergedForResolve.agentProvider
+    updateValue.llmCredentialOwnerUid = mergedForResolve.llmCredentialOwnerUid
+    updateValue.llmResolvedSource = mergedForResolve.llmResolvedSource
   }
 
   // Sentinel swap — the payload builder is pure JSON and can't emit FieldValue.serverTimestamp() itself.

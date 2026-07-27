@@ -140,6 +140,12 @@ export interface Task {
   riskLevel?: 'low' | 'medium' | 'high' | 'critical'
   agentEffort?: AgentEffort | null
   agentModel?: AgentModel | null
+  /** Hermes provider id (e.g. openai-codex, xai-oauth). */
+  agentProvider?: string | null
+  /** Which credentials the watcher should prefer for this task. */
+  llmCredentialSource?: 'auto' | 'org' | 'personal' | null
+  /** Owner whose personal credentials apply when llmCredentialSource is personal/auto. */
+  llmCredentialOwnerUid?: string | null
   requiredCapability?: string | null
   requestedByAgentId?: AgentId | null
   approvalGateTaskId?: string | null

@@ -1,5 +1,10 @@
 import { isValidAgentId } from '@/lib/agents/types'
 import { cleanAgentEffort, cleanAgentModel, VALID_AGENT_EFFORTS, VALID_AGENT_MODELS } from '@/lib/agents/runRouting'
+import {
+  cleanTaskAgentProvider,
+  cleanTaskLlmCredentialSource,
+  VALID_LLM_CREDENTIAL_SOURCES,
+} from '@/lib/projects/task-llm'
 import { columnForAgentStatus } from '@/lib/tasks/agentState'
 import type { AgentStatus } from '@/lib/tasks/types'
 
@@ -75,6 +80,9 @@ export const TASK_SOURCE_LINKAGE_FIELDS = [
   'approvalGate',
   'agentEffort',
   'agentModel',
+  'agentProvider',
+  'llmCredentialSource',
+  'llmCredentialOwnerUid',
   'requiredCapability',
   'requestedByAgentId',
   'expectedArtifacts',
@@ -233,6 +241,43 @@ function applyProvenanceFields(
     if (model.value) target.agentModel = model.value
     else target.agentModel = null
   }
+  if (source.agentProvider !== undefined) {
+    if (source.agentProvider === null || source.agentProvider === '') {
+      target.agentProvider = null
+    } else {
+      const provider = cleanTaskAgentProvider(source.agentProvider)
+      if (!provider) {
+        return { ok: false, error: 'Invalid agentProvider; expected a Hermes provider id', status: 400 }
+      }
+      target.agentProvider = provider
+    }
+  }
+  if (source.llmCredentialSource !== undefined) {
+    if (source.llmCredentialSource === null || source.llmCredentialSource === '') {
+      target.llmCredentialSource = 'auto'
+    } else {
+      const sourceValue = cleanTaskLlmCredentialSource(source.llmCredentialSource)
+      if (!sourceValue) {
+        return {
+          ok: false,
+          error: `Invalid llmCredentialSource; expected one of ${VALID_LLM_CREDENTIAL_SOURCES.join(' | ')}`,
+          status: 400,
+        }
+      }
+      target.llmCredentialSource = sourceValue
+    }
+  }
+  if (source.llmCredentialOwnerUid !== undefined) {
+    if (source.llmCredentialOwnerUid === null || source.llmCredentialOwnerUid === '') {
+      target.llmCredentialOwnerUid = null
+    } else {
+      const owner = cleanString(source.llmCredentialOwnerUid)
+      if (!owner || owner.length > 128) {
+        return { ok: false, error: 'Invalid llmCredentialOwnerUid', status: 400 }
+      }
+      target.llmCredentialOwnerUid = owner
+    }
+  }
   if (source.requestedByAgentId !== undefined) {
     const requestedBy = cleanAgentId(source.requestedByAgentId, 'requestedByAgentId')
     if (!requestedBy.ok) return { ok: false, error: requestedBy.error, status: requestedBy.status }
@@ -253,6 +298,9 @@ function applyProvenanceFields(
       || field === 'approvalGate'
       || field === 'agentEffort'
       || field === 'agentModel'
+      || field === 'agentProvider'
+      || field === 'llmCredentialSource'
+      || field === 'llmCredentialOwnerUid'
       || field === 'requiredCapability'
       || field === 'requestedByAgentId'
       || field === 'expectedArtifacts'
