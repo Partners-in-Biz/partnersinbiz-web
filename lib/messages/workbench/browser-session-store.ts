@@ -6,7 +6,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { isLinkedRunClaimAuthorized } from '@/lib/linked-computers/run-queue-store'
 import { sanitizeLinkedResult } from '@/lib/linked-computers/run-queue'
 import { projectOrganizationDocId } from '@/lib/projects/collaboration'
-import { sanitizeWorkbenchRelativePath } from './jobs'
+import { canonicalWorkbenchWorkspaceRelativePath } from './jobs'
 import {
   appendWorkbenchBrowserProgressChunk,
   appendWorkbenchBrowserSessionControl,
@@ -463,10 +463,7 @@ export function isWorkbenchBrowserSessionClaimAuthorized(input: {
   if (workspaceContext?.runtimeTarget !== session.runtimeTargetId && workspaceContext?.runtimeTarget !== session.deviceId) return false
   if ((conversationProjectId(conversation as unknown as Conversation) ?? null) !== (session.projectId ?? null)) return false
   if (!session.projectId) {
-    const currentRelativeFolder = sanitizeWorkbenchRelativePath(
-      typeof workspaceContext?.folderRelativePath === 'string' ? workspaceContext.folderRelativePath : '.',
-      { allowRoot: true },
-    )
+    const currentRelativeFolder = canonicalWorkbenchWorkspaceRelativePath(workspaceContext?.folderRelativePath)
     if (currentRelativeFolder !== session.relativeFolder) return false
   }
   if (!session.approvedAtMs || session.approvedByUserId !== session.actorUserId) return false

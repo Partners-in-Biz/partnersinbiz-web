@@ -8,11 +8,11 @@ import { sanitizeLinkedResult } from '@/lib/linked-computers/run-queue'
 import { projectOrganizationDocId } from '@/lib/projects/collaboration'
 import {
   appendWorkbenchProgressChunk,
+  canonicalWorkbenchWorkspaceRelativePath,
   decryptWorkbenchValue,
   encryptWorkbenchValue,
   parseWorkbenchProgressChunk,
   parseWorkbenchResult,
-  sanitizeWorkbenchRelativePath,
   transitionWorkbenchJob,
   workbenchJobId,
   workbenchRequestFingerprint,
@@ -258,10 +258,7 @@ export function isWorkbenchClaimAuthorized(input: {
   if (workspaceContext?.runtimeTarget !== job.runtimeTargetId && workspaceContext?.runtimeTarget !== job.deviceId) return false
   if ((conversationProjectId(conversation as unknown as Conversation) ?? null) !== (job.projectId ?? null)) return false
   if (!job.projectId) {
-    const currentRelativeFolder = sanitizeWorkbenchRelativePath(
-      typeof workspaceContext?.folderRelativePath === 'string' ? workspaceContext.folderRelativePath : '.',
-      { allowRoot: true },
-    )
+    const currentRelativeFolder = canonicalWorkbenchWorkspaceRelativePath(workspaceContext?.folderRelativePath)
     if (currentRelativeFolder !== job.relativeFolder) return false
   }
   if (job.kind === 'fs.write' && (!job.approvedAtMs || job.approvedByUserId !== job.actorUserId)) return false

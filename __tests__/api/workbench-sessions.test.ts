@@ -355,4 +355,34 @@ describe('workbench session claim authorization', () => {
     expect(isWorkbenchSessionClaimAuthorized({ ...input, session: session({ conversationId: 'conversation-b' }) })).toBe(false)
     expect(isWorkbenchSessionClaimAuthorized({ ...input, authorization: { ...stored, projectOrganization: { ...stored.projectOrganization, status: 'revoked' } } })).toBe(false)
   })
+
+  it('authorizes a root session when the conversation persists its folder as an empty string', () => {
+    const rootStored: WorkbenchSessionStoredAuthorization = {
+      ...stored,
+      mapping: { ...stored.mapping, projectId: undefined },
+      conversation: {
+        ...stored.conversation,
+        workspaceContext: {
+          ...(stored.conversation!.workspaceContext as object),
+          projectId: undefined,
+          folderRelativePath: '',
+        },
+      },
+      project: undefined,
+      projectOrganization: undefined,
+      projectReplica: undefined,
+    }
+    const rootSession = session({
+      projectId: undefined,
+      projectReplicaId: undefined,
+      relativeFolder: '.',
+    })
+
+    expect(isWorkbenchSessionClaimAuthorized({
+      authenticatedDeviceUserId: 'owner-a',
+      credentialVersion: 3,
+      authorization: rootStored,
+      session: rootSession,
+    })).toBe(true)
+  })
 })
