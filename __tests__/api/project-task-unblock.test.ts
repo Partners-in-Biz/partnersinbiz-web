@@ -8,6 +8,7 @@ const mockGetAll = jest.fn()
 const mockCollection = jest.fn()
 const mockGetProjectForUser = jest.fn()
 const mockLogActivity = jest.fn()
+const mockPlanningMutationBlocker = jest.fn((_project: Record<string, unknown>): null | { code: 'planning_discovery_required'; message: string; revision: number } => null)
 let mockUser: MockUser = { uid: 'user-1', role: 'admin' }
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -33,6 +34,10 @@ jest.mock('@/lib/projects/access', () => ({
 
 jest.mock('@/lib/activity/log', () => ({
   logActivity: (...args: unknown[]) => mockLogActivity(...args),
+}))
+
+jest.mock('@/lib/projects/planningDiscovery', () => ({
+  planningMutationBlocker: (project: Record<string, unknown>) => mockPlanningMutationBlocker(project),
 }))
 
 function docSnapshot(id: string, data: Record<string, unknown>, exists = true) {
@@ -87,6 +92,7 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
   beforeEach(() => {
     jest.resetModules()
     jest.clearAllMocks()
+    mockPlanningMutationBlocker.mockReturnValue(null)
     mockUser = { uid: 'user-1', role: 'admin' }
     mockLogActivity.mockResolvedValue(undefined)
     mockGetProjectForUser.mockResolvedValue({
@@ -131,6 +137,22 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
       userRole: 'admin',
       agentPickedUp: false,
     }))
+  })
+
+  it('fails closed before requeueing when planning discovery is stale', async () => {
+    const { taskUpdate, commentSet } = makeTaskRefs({
+      title: 'Awaiting input', columnId: 'blocked', agentStatus: 'awaiting-input', assigneeAgentId: 'theo',
+    })
+    mockPlanningMutationBlocker.mockReturnValue({
+      code: 'planning_discovery_required', message: 'Planning discovery required', revision: 4,
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/unblock/route')
+    const res = await POST(req(), ctx)
+
+    expect(res.status).toBe(409)
+    expect(taskUpdate).not.toHaveBeenCalled()
+    expect(commentSet).not.toHaveBeenCalled()
   })
 
   it('returns dependency and approval reasons without clearing blocked state when gates are not satisfied', async () => {

@@ -266,8 +266,6 @@ export async function runProjectPlaybookTemplate(input: {
   disableAutoCreateTasks?: boolean
 }) {
   const title = cleanString(input.playbook.title) || 'Project playbook'
-  const planningBlocker = planningMutationBlocker(input.project)
-  if (planningBlocker) return { ok: false as const, error: planningBlocker.message, status: 409, code: planningBlocker.code }
   const template = normalizeProjectPlaybookTemplate(input.playbook.template ?? input.playbook)
   const validation = validateProjectPlaybookTemplate(template)
   if (!validation.ok) return { ok: false as const, error: validation.error, status: 400 }
@@ -412,6 +410,15 @@ export async function runProjectPlaybookTemplate(input: {
           deduplicated: true,
         },
       }
+    }
+
+    const liveProject = await transaction.get(projectRef)
+    if (!liveProject.exists) {
+      return { ok: false as const, error: 'Project not found', status: 404 }
+    }
+    const planningBlocker = planningMutationBlocker(liveProject.data() ?? {})
+    if (planningBlocker) {
+      return { ok: false as const, error: planningBlocker.message, status: 409, code: planningBlocker.code }
     }
 
     for (const taskWrite of taskWrites) transaction.set(taskWrite.ref, taskWrite.value)

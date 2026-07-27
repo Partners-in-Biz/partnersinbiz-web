@@ -2,7 +2,17 @@ import React from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ProjectSuitePanel } from '@/components/projects/ProjectSuitePanel'
 
-function suiteResponse() {
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
+function suiteResponse(overrides: Record<string, unknown> = {}) {
   return {
     health: { level: 'watch', score: 82, blockedTasks: 0, overdueTasks: 1, waitingApprovals: 1, milestoneDrift: 1 },
     milestones: [{ id: 'milestone-1', title: 'Design sprint', startDate: '2026-06-01', dueDate: '2026-06-10', baselineDueDate: '2026-06-08', status: 'active' }],
@@ -64,16 +74,24 @@ function suiteResponse() {
       overCapacityCount: 0,
     },
     reports: { tasks: { total: 0, blocked: 0 }, approvals: { waiting: 0 }, revenue: { trackedAmount: 0, currency: 'ZAR' } },
+    ...overrides,
   }
 }
 
+function suiteFetchResponse(data: ReturnType<typeof suiteResponse>) {
+  return { ok: true, json: async () => ({ data }) } as Response
+}
+
 describe('ProjectSuitePanel', () => {
+  let currentSuiteResponse: ReturnType<typeof suiteResponse>
+
   beforeEach(() => {
+    currentSuiteResponse = suiteResponse()
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
       const method = init?.method ?? 'GET'
       if (url === '/api/v1/projects/project-1/suite' && method === 'GET') {
-        return { ok: true, json: async () => ({ data: suiteResponse() }) } as Response
+        return { ok: true, json: async () => ({ data: currentSuiteResponse }) } as Response
       }
       if (url === '/api/v1/projects/project-1/suite' && ['POST', 'PATCH', 'DELETE'].includes(method)) {
         return { ok: true, json: async () => ({ data: { id: 'saved' } }) } as Response
@@ -170,6 +188,8 @@ describe('ProjectSuitePanel', () => {
 
     fireEvent.change(screen.getByLabelText('Playbook title'), { target: { value: 'Weekly launch rhythm' } })
     fireEvent.change(screen.getByLabelText('Playbook cadence'), { target: { value: 'weekly' } })
+    fireEvent.change(screen.getByLabelText('Template steps'), { target: { value: 'Kickoff' } })
+    fireEvent.change(screen.getByLabelText('Agent task specification'), { target: { value: 'Run the approved weekly launch step.' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save playbook' }))
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/suite', expect.objectContaining({
@@ -182,7 +202,23 @@ describe('ProjectSuitePanel', () => {
         recurrenceRule: 'FREQ=WEEKLY;INTERVAL=1',
         nextRunAt: null,
         autoCreateTasks: false,
-        templateSteps: [],
+        template: {
+          schemaVersion: 1,
+          steps: [{
+            stepId: 'step-1',
+            taskKind: 'agent',
+            title: 'Kickoff',
+            assigneeAgentId: 'theo',
+            agentInput: { spec: 'Run the approved weekly launch step.' },
+            dependsOnStepIds: [],
+            requiredCapability: 'project-management',
+            riskLevel: 'medium',
+            reviewerAgentId: 'qa-release',
+            expectedArtifacts: ['Completion summary', 'Evidence links'],
+            verifierChecklist: ['Acceptance criteria met', 'Evidence attached'],
+            labels: ['playbook'],
+          }],
+        },
         visibility: 'project',
       }),
     })))
@@ -206,13 +242,14 @@ describe('ProjectSuitePanel', () => {
     })))
   })
 
-  it('creates recurring playbook templates with recurrence and reusable steps', async () => {
+  it('creates structured agent-ready playbooks with sequential dependencies and common execution metadata', async () => {
     render(<ProjectSuitePanel projectId="project-1" />)
 
     await waitFor(() => expect(screen.getAllByText('Weekly launch rhythm').length).toBeGreaterThan(0))
     expect(screen.getByText('FREQ=WEEKLY;INTERVAL=1')).toBeInTheDocument()
     expect(screen.getByText('2 steps')).toBeInTheDocument()
     expect(screen.getByText('Auto-create')).toBeInTheDocument()
+    expect(screen.getByText('Agent execution details')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Playbook title'), { target: { value: 'Monthly launch template' } })
     fireEvent.change(screen.getByLabelText('Playbook cadence'), { target: { value: 'monthly' } })
@@ -220,6 +257,15 @@ describe('ProjectSuitePanel', () => {
     fireEvent.change(screen.getByLabelText('Recurrence rule'), { target: { value: 'FREQ=MONTHLY;INTERVAL=1' } })
     fireEvent.change(screen.getByLabelText('Next run date'), { target: { value: '2026-06-01' } })
     fireEvent.change(screen.getByLabelText('Template steps'), { target: { value: 'Kickoff, QA, Client signoff' } })
+    fireEvent.change(screen.getByLabelText('Common assignee agent'), { target: { value: 'maya' } })
+    fireEvent.change(screen.getByLabelText('Agent task specification'), { target: { value: 'Execute each launch step using the approved project brief.' } })
+    fireEvent.change(screen.getByLabelText('Required capability'), { target: { value: 'project-delivery' } })
+    fireEvent.change(screen.getByLabelText('Risk level'), { target: { value: 'high' } })
+    fireEvent.change(screen.getByLabelText('Reviewer agent'), { target: { value: 'qa-release' } })
+    fireEvent.change(screen.getByLabelText('Expected artifacts'), { target: { value: 'completion summary, evidence links' } })
+    fireEvent.change(screen.getByLabelText('Verifier checklist'), { target: { value: 'Acceptance criteria met, Evidence attached' } })
+    fireEvent.change(screen.getByLabelText('Playbook labels'), { target: { value: 'launch, recurring' } })
+    fireEvent.change(screen.getByLabelText('Approval gate'), { target: { value: 'production-deploy' } })
     fireEvent.click(screen.getByLabelText('Auto-create tasks'))
     fireEvent.click(screen.getByRole('button', { name: 'Save playbook' }))
 
@@ -233,8 +279,155 @@ describe('ProjectSuitePanel', () => {
         recurrenceRule: 'FREQ=MONTHLY;INTERVAL=1',
         nextRunAt: '2026-06-01',
         autoCreateTasks: true,
-        templateSteps: ['Kickoff', 'QA', 'Client signoff'],
+        template: {
+          schemaVersion: 1,
+          steps: [
+            {
+              stepId: 'approval-gate-1',
+              taskKind: 'approval-gate',
+              title: 'Approval: production deploy',
+              dependsOnStepIds: [],
+              approvalGate: 'production-deploy',
+              riskLevel: 'high',
+              expectedArtifacts: ['completion summary', 'evidence links'],
+              verifierChecklist: ['Acceptance criteria met', 'Evidence attached'],
+              labels: ['launch', 'recurring'],
+            },
+            {
+              stepId: 'step-1',
+              taskKind: 'agent',
+              title: 'Kickoff',
+              assigneeAgentId: 'maya',
+              agentInput: { spec: 'Execute each launch step using the approved project brief.' },
+              dependsOnStepIds: [],
+              requiredCapability: 'project-delivery',
+              riskLevel: 'high',
+              reviewerAgentId: 'qa-release',
+              expectedArtifacts: ['completion summary', 'evidence links'],
+              verifierChecklist: ['Acceptance criteria met', 'Evidence attached'],
+              labels: ['launch', 'recurring'],
+              approvalGateStepId: 'approval-gate-1',
+            },
+            {
+              stepId: 'step-2',
+              taskKind: 'agent',
+              title: 'QA',
+              assigneeAgentId: 'maya',
+              agentInput: { spec: 'Execute each launch step using the approved project brief.' },
+              dependsOnStepIds: ['step-1'],
+              requiredCapability: 'project-delivery',
+              riskLevel: 'high',
+              reviewerAgentId: 'qa-release',
+              expectedArtifacts: ['completion summary', 'evidence links'],
+              verifierChecklist: ['Acceptance criteria met', 'Evidence attached'],
+              labels: ['launch', 'recurring'],
+              approvalGateStepId: 'approval-gate-1',
+            },
+            {
+              stepId: 'step-3',
+              taskKind: 'agent',
+              title: 'Client signoff',
+              assigneeAgentId: 'maya',
+              agentInput: { spec: 'Execute each launch step using the approved project brief.' },
+              dependsOnStepIds: ['step-2'],
+              requiredCapability: 'project-delivery',
+              riskLevel: 'high',
+              reviewerAgentId: 'qa-release',
+              expectedArtifacts: ['completion summary', 'evidence links'],
+              verifierChecklist: ['Acceptance criteria met', 'Evidence attached'],
+              labels: ['launch', 'recurring'],
+              approvalGateStepId: 'approval-gate-1',
+            },
+          ],
+        },
         visibility: 'project',
+      }),
+    })))
+  })
+
+  it('shows every Decision Brief field plus revision and digest before confirmation', async () => {
+    currentSuiteResponse = suiteResponse({
+      planningDiscovery: {
+        revision: 7,
+        status: 'brief_ready',
+        mode: 'interview',
+        confidence: 97,
+        digest: 'digest-abc-123',
+        brief: {
+          outcome: 'Launch a reliable client portal',
+          user: 'Client operations managers',
+          whyNow: 'The current handoff is manual',
+          successCriteria: ['Tasks update without refresh'],
+          constraints: ['Use the existing design system'],
+          outOfScope: ['Billing migration'],
+          assumptions: ['Existing APIs remain stable'],
+          risks: ['Cross-org data leakage'],
+          approvalGates: ['production-deploy'],
+        },
+      },
+    })
+
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getByText('Launch a reliable client portal')).toBeInTheDocument())
+    expect(screen.getByText('Client operations managers')).toBeInTheDocument()
+    expect(screen.getByText('The current handoff is manual')).toBeInTheDocument()
+    expect(screen.getByText('Tasks update without refresh')).toBeInTheDocument()
+    expect(screen.getByText('Use the existing design system')).toBeInTheDocument()
+    expect(screen.getByText('Billing migration')).toBeInTheDocument()
+    expect(screen.getByText('Existing APIs remain stable')).toBeInTheDocument()
+    expect(screen.getByText('Cross-org data leakage')).toBeInTheDocument()
+    expect(screen.getByText('production-deploy')).toBeInTheDocument()
+    expect(screen.getByText('7')).toBeInTheDocument()
+    expect(screen.getByText('digest-abc-123')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Decision Brief' }))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/planning-discovery', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ type: 'confirm', expectedRevision: 7, expectedDigest: 'digest-abc-123' }),
+    })))
+  })
+
+  it('requires an explicit operational-gates acknowledgement before planning with assumptions', async () => {
+    const brief = {
+      outcome: 'Launch a reliable client portal',
+      user: 'Client operations managers',
+      whyNow: 'The current handoff is manual',
+      successCriteria: ['Tasks update without refresh'],
+      constraints: ['Use the existing design system'],
+      outOfScope: ['Billing migration'],
+      assumptions: ['Existing APIs remain stable'],
+      risks: ['Cross-org data leakage'],
+      approvalGates: ['production-deploy'],
+    }
+    currentSuiteResponse = suiteResponse({
+      planningDiscovery: { revision: 4, status: 'interviewing', mode: 'interview', digest: 'digest-yolo', brief },
+    })
+
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getByText('Launch a reliable client portal')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Plan with assumptions (YOLO)'))
+    fireEvent.change(screen.getByLabelText('Planning assumptions attestation'), { target: { value: 'PLAN WITH ASSUMPTIONS' } })
+    fireEvent.change(screen.getByLabelText('Planning assumptions reason'), { target: { value: 'The project must start today.' } })
+
+    const submit = screen.getByRole('button', { name: 'Attest and plan with assumptions' })
+    expect(submit).toBeDisabled()
+    expect(global.fetch).not.toHaveBeenCalledWith('/api/v1/projects/project-1/planning-discovery', expect.anything())
+
+    fireEvent.click(screen.getByLabelText('I acknowledge all operational approval gates remain required'))
+    expect(submit).toBeEnabled()
+    fireEvent.click(submit)
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/planning-discovery', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'plan_with_assumptions',
+        expectedRevision: 4,
+        attestation: 'PLAN WITH ASSUMPTIONS',
+        reason: 'The project must start today.',
+        acknowledgesPreservedOperationalGates: true,
+        brief,
       }),
     })))
   })
@@ -410,5 +603,132 @@ describe('ProjectSuitePanel', () => {
     } finally {
       jest.useRealTimers()
     }
+  })
+
+  it('does not poll while the Plan tab is hidden and refreshes when it becomes visible', async () => {
+    jest.useFakeTimers()
+    const originalVisibility = Object.getOwnPropertyDescriptor(document, 'visibilityState')
+    let visibility: DocumentVisibilityState = 'visible'
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility })
+    try {
+      render(<ProjectSuitePanel projectId="project-1" />)
+      await act(async () => { await Promise.resolve(); await Promise.resolve() })
+
+      visibility = 'hidden'
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'))
+        jest.advanceTimersByTime(45_000)
+        await Promise.resolve()
+      })
+      const hiddenGets = (global.fetch as jest.Mock).mock.calls.filter(([url, init]) => String(url).endsWith('/suite') && (!init || !init.method || init.method === 'GET'))
+      expect(hiddenGets).toHaveLength(1)
+
+      visibility = 'visible'
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'))
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+      const visibleGets = (global.fetch as jest.Mock).mock.calls.filter(([url, init]) => String(url).endsWith('/suite') && (!init || !init.method || init.method === 'GET'))
+      expect(visibleGets).toHaveLength(2)
+    } finally {
+      if (originalVisibility) Object.defineProperty(document, 'visibilityState', originalVisibility)
+      else delete (document as unknown as { visibilityState?: DocumentVisibilityState }).visibilityState
+      jest.useRealTimers()
+    }
+  })
+
+  it('prevents polling and post-mutation refreshes from overlapping the initial Plan request', async () => {
+    jest.useFakeTimers()
+    const initial = deferred<Response>()
+    global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = init?.method ?? 'GET'
+      if (url.endsWith('/suite') && method === 'GET') return initial.promise
+      if (url.endsWith('/suite') && method === 'POST') return Promise.resolve({ ok: true, json: async () => ({ data: { id: 'saved' } }) } as Response)
+      return Promise.resolve({ ok: true, json: async () => ({ data: {} }) } as Response)
+    }) as jest.Mock
+
+    try {
+      render(<ProjectSuitePanel projectId="project-1" />)
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+
+      fireEvent.change(screen.getByLabelText('Automation title'), { target: { value: 'Draft automation' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Save automation' }))
+      await act(async () => {
+        jest.advanceTimersByTime(15_000)
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+
+      const suiteGets = (global.fetch as jest.Mock).mock.calls.filter(([url, init]) => String(url).endsWith('/suite') && (!init || !init.method || init.method === 'GET'))
+      expect(suiteGets).toHaveLength(1)
+
+      await act(async () => {
+        initial.resolve(suiteFetchResponse(suiteResponse()))
+        await initial.promise
+        await Promise.resolve()
+      })
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('ignores a stale Plan error after a newer project request succeeds', async () => {
+    const projectOne = deferred<Response>()
+    const projectTwo = deferred<Response>()
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/projects/project-1/suite') return projectOne.promise
+      if (url === '/api/v1/projects/project-2/suite') return projectTwo.promise
+      return Promise.resolve({ ok: true, json: async () => ({ data: {} }) } as Response)
+    }) as jest.Mock
+
+    const view = render(<ProjectSuitePanel projectId="project-1" />)
+    view.rerender(<ProjectSuitePanel projectId="project-2" />)
+
+    await act(async () => {
+      projectTwo.resolve(suiteFetchResponse(suiteResponse({ health: { level: 'healthy', score: 99 } })))
+      await projectTwo.promise
+      await Promise.resolve()
+    })
+    expect(screen.getByText('99')).toBeInTheDocument()
+
+    await act(async () => {
+      projectOne.reject(new Error('stale project failure'))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.queryByText('stale project failure')).not.toBeInTheDocument()
+    expect(screen.getByText('99')).toBeInTheDocument()
+  })
+
+  it('ignores a stale Plan success after a newer project request succeeds', async () => {
+    const projectOne = deferred<Response>()
+    const projectTwo = deferred<Response>()
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/projects/project-1/suite') return projectOne.promise
+      if (url === '/api/v1/projects/project-2/suite') return projectTwo.promise
+      return Promise.resolve({ ok: true, json: async () => ({ data: {} }) } as Response)
+    }) as jest.Mock
+
+    const view = render(<ProjectSuitePanel projectId="project-1" />)
+    view.rerender(<ProjectSuitePanel projectId="project-2" />)
+
+    await act(async () => {
+      projectTwo.resolve(suiteFetchResponse(suiteResponse({ health: { level: 'healthy', score: 99 } })))
+      await projectTwo.promise
+      await Promise.resolve()
+    })
+    expect(screen.getByText('99')).toBeInTheDocument()
+
+    await act(async () => {
+      projectOne.resolve(suiteFetchResponse(suiteResponse({ health: { level: 'critical', score: 12 } })))
+      await projectOne.promise
+      await Promise.resolve()
+    })
+    expect(screen.queryByText('12')).not.toBeInTheDocument()
+    expect(screen.getByText('99')).toBeInTheDocument()
   })
 })

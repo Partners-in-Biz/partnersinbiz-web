@@ -12,6 +12,7 @@ import { documentLinksTo } from '@/lib/client-documents/links'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument } from '@/lib/client-documents/types'
 import { getProjectForUser } from '@/lib/projects/access'
+import { planningMutationBlocker, preparePlanningContextMutation } from '@/lib/projects/planningDiscovery'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,12 +66,40 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     updates.type = body.type
   }
 
-  await adminDb
-    .collection('projects')
-    .doc(projectId)
-    .collection('docs')
-    .doc(docId)
-    .update(updates)
+  const project = (access.doc.data() ?? {}) as Record<string, unknown>
+  const blocker = planningMutationBlocker(project)
+  if (blocker) return apiError(blocker.message, 409, blocker)
+
+  const projectRef = adminDb.collection('projects').doc(projectId)
+  const docRef = projectRef.collection('docs').doc(docId)
+  const eventRef = projectRef.collection('planningDiscoveryEvents').doc()
+  const mutation = await adminDb.runTransaction(async (tx) => {
+    const [liveProjectSnapshot, liveDocSnapshot] = await Promise.all([tx.get(projectRef), tx.get(docRef)])
+    if (!liveProjectSnapshot.exists) return { ok: false as const, status: 404, error: 'Project not found' }
+    if (!liveDocSnapshot.exists) return { ok: false as const, status: 404, error: 'Document not found' }
+    const liveProject = (liveProjectSnapshot.data() ?? {}) as Record<string, unknown>
+    const liveBlocker = planningMutationBlocker(liveProject)
+    if (liveBlocker) return { ok: false as const, status: 409, error: liveBlocker.message, details: liveBlocker }
+    const transition = preparePlanningContextMutation(
+      liveProject,
+      { uid: user.uid, now: new Date().toISOString() },
+      'Project document materially changed',
+    )
+    if (!transition.ok) return transition
+    tx.update(docRef, updates)
+    tx.update(projectRef, {
+      planningDiscovery: transition.state,
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    tx.set(eventRef, {
+      ...transition.event,
+      projectId,
+      orgId: liveProject.orgId ?? null,
+      schemaVersion: 1,
+    })
+    return { ok: true as const }
+  })
+  if (!mutation.ok) return apiError(mutation.error, mutation.status, 'details' in mutation ? mutation.details : undefined)
 
   return apiSuccess({ id: docId, ...updates })
 })
@@ -79,12 +108,40 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   const { projectId, docId } = await (ctx as RouteContext).params
   const access = await getProjectForUser(projectId, user)
   if (!access.ok) return apiError(access.error, access.status)
-  await adminDb
-    .collection('projects')
-    .doc(projectId)
-    .collection('docs')
-    .doc(docId)
-    .delete()
+  const project = (access.doc.data() ?? {}) as Record<string, unknown>
+  const blocker = planningMutationBlocker(project)
+  if (blocker) return apiError(blocker.message, 409, blocker)
+
+  const projectRef = adminDb.collection('projects').doc(projectId)
+  const docRef = projectRef.collection('docs').doc(docId)
+  const eventRef = projectRef.collection('planningDiscoveryEvents').doc()
+  const mutation = await adminDb.runTransaction(async (tx) => {
+    const [liveProjectSnapshot, liveDocSnapshot] = await Promise.all([tx.get(projectRef), tx.get(docRef)])
+    if (!liveProjectSnapshot.exists) return { ok: false as const, status: 404, error: 'Project not found' }
+    if (!liveDocSnapshot.exists) return { ok: false as const, status: 404, error: 'Document not found' }
+    const liveProject = (liveProjectSnapshot.data() ?? {}) as Record<string, unknown>
+    const liveBlocker = planningMutationBlocker(liveProject)
+    if (liveBlocker) return { ok: false as const, status: 409, error: liveBlocker.message, details: liveBlocker }
+    const transition = preparePlanningContextMutation(
+      liveProject,
+      { uid: user.uid, now: new Date().toISOString() },
+      'Project document deleted',
+    )
+    if (!transition.ok) return transition
+    tx.delete(docRef)
+    tx.update(projectRef, {
+      planningDiscovery: transition.state,
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    tx.set(eventRef, {
+      ...transition.event,
+      projectId,
+      orgId: liveProject.orgId ?? null,
+      schemaVersion: 1,
+    })
+    return { ok: true as const }
+  })
+  if (!mutation.ok) return apiError(mutation.error, mutation.status, 'details' in mutation ? mutation.details : undefined)
 
   return apiSuccess({ success: true })
 })

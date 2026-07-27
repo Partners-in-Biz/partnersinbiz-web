@@ -38,7 +38,8 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
   const explicitOrgId = req.headers.get('x-org-id')?.trim() || ''
   if (user.role === 'ai' && !explicitOrgId) return apiError('X-Org-Id is required for agent project context', 400)
-  const requestedOrgId = explicitOrgId || user.orgId || undefined
+  const requestedOrgId = explicitOrgId || user.activeOrgId || user.orgId || ''
+  if (!requestedOrgId) return apiError('Active organisation is required for agent project context', 400)
 
   const access = await getProjectForUser(projectId, user, requestedOrgId)
   if (!access.ok) return apiError(access.error, access.status)
@@ -86,6 +87,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const taskRecords = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
   const plan = await loadAgentProjectPlan({
     projectId,
+    activeOrgId: requestedOrgId,
     projectData: projectData ?? {},
     tasks: taskRecords,
     user,

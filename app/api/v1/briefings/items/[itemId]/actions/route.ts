@@ -6,6 +6,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { getProjectForUser } from '@/lib/projects/access'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
+import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import { isValidAgentId } from '@/lib/agents/types'
 export const dynamic = 'force-dynamic'
 
@@ -192,6 +193,8 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!projectId) return apiError('source projectId is required to create a linked Projects/Kanban task', 400)
   const access = await getProjectForUser(projectId, user)
   if (!access.ok) return apiError(access.error, access.status)
+  const planningBlocker = planningMutationBlocker((access.doc.data() ?? {}) as Record<string, unknown>)
+  if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
 
   const agentId = cleanString(body.assigneeAgentId)
   if (action === 'assign-agent' && (!agentId || !isValidAgentId(agentId))) {

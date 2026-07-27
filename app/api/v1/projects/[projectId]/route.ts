@@ -17,6 +17,7 @@ import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 import {
   applyPlanningDiscoveryAction,
   isPlanningReady,
+  planningMutationBlocker,
   type PlanningActionResult,
   type PlanningDiscoveryState,
 } from '@/lib/projects/planningDiscovery'
@@ -156,36 +157,27 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   }
 
   const projectData = (access.doc.data() ?? {}) as Record<string, unknown>
-  const materialPlanningReason = materialPlanningContextReason(projectData, body as Record<string, unknown>)
   const currentPlanning = projectData.planningDiscovery as PlanningDiscoveryState | undefined
-  let planningTransition: Extract<PlanningActionResult, { ok: true }> | null = null
-  if (materialPlanningReason && !currentPlanning) {
-    const transition = applyPlanningDiscoveryAction(null, { type: 'start' }, { uid: user.uid, now: new Date().toISOString() })
-    if (!transition.ok) return apiError(transition.error, transition.status)
-    planningTransition = transition
-  } else if (materialPlanningReason && currentPlanning && (
-    currentPlanning.brief
-    || currentPlanning.digest
-    || currentPlanning.inspection
-    || (currentPlanning.turns?.length ?? 0) > 0
-    || currentPlanning.status !== 'interviewing'
-  )) {
-    const transition = applyPlanningDiscoveryAction(currentPlanning, {
-      type: 'reopen',
-      expectedRevision: currentPlanning.revision,
-      reason: materialPlanningReason,
-    }, { uid: user.uid, now: new Date().toISOString() })
-    if (!transition.ok) return apiError(transition.error, transition.status)
-    planningTransition = transition
+  const materialPlanningReason = materialPlanningContextReason(projectData, body as Record<string, unknown>)
+  if (promotesProjectLifecycle(projectData.status, body.status)) {
+    if (materialPlanningReason) {
+      return apiError('Confirm the revised planning context before promoting the project lifecycle', 409, {
+        code: 'planning_discovery_required',
+        revision: currentPlanning?.revision ?? 0,
+      })
+    }
+    if (!isPlanningReady(currentPlanning)) {
+      return apiError('Planning discovery must be ready before promoting the project beyond discovery', 409, {
+        code: 'planning_discovery_required',
+        revision: currentPlanning?.revision ?? 0,
+      })
+    }
   }
-  const planningAfterPatch = planningTransition?.state ?? currentPlanning
-  if (promotesProjectLifecycle(projectData.status, body.status) && !isPlanningReady(planningAfterPatch)) {
-    return apiError('Planning discovery must be ready before promoting the project beyond discovery', 409, {
-      code: 'planning_discovery_required',
-      revision: planningAfterPatch?.revision ?? 0,
-    })
-  }
-  if (planningTransition) updates.planningDiscovery = planningTransition.state
+  const projectPlanningSensitive = body.name !== undefined
+    || body.description !== undefined
+    || body.brief !== undefined
+    || body.targetDate !== undefined
+    || body.dueDate !== undefined
 
   if (body.archived !== undefined) {
     updates.archived = body.archived === true
@@ -228,27 +220,72 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   }
 
   const projectRef = adminDb.collection('projects').doc(projectId)
-  if (planningTransition) {
+  if (projectPlanningSensitive) {
     const eventRef = projectRef.collection('planningDiscoveryEvents').doc()
-    const expectedPlanningRevision = currentPlanning?.revision ?? 0
-    const committed = await adminDb.runTransaction(async (tx) => {
+    const mutation = await adminDb.runTransaction(async (tx) => {
       const liveProjectSnap = await tx.get(projectRef)
-      if (!liveProjectSnap.exists) return false
-      const livePlanning = liveProjectSnap.data()?.planningDiscovery as Partial<PlanningDiscoveryState> | undefined
-      if ((livePlanning?.revision ?? 0) !== expectedPlanningRevision) return false
-      tx.update(projectRef, updates)
-      tx.set(eventRef, {
-        ...planningTransition.event,
-        projectId,
-        orgId: projectData.orgId ?? null,
-        schemaVersion: 1,
-      })
-      return true
+      if (!liveProjectSnap.exists) return { ok: false as const, status: 404, error: 'Project not found' }
+      const liveProject = (liveProjectSnap.data() ?? {}) as Record<string, unknown>
+      const livePlanning = liveProject.planningDiscovery as PlanningDiscoveryState | undefined
+      const actor = { uid: user.uid, now: new Date().toISOString() }
+      if ((livePlanning?.revision ?? 0) !== (currentPlanning?.revision ?? 0)) {
+        return {
+          ok: false as const,
+          status: 409,
+          error: 'Planning discovery revision changed; retry the project update',
+          details: {
+            code: 'planning_discovery_revision_conflict',
+            revision: currentPlanning?.revision ?? 0,
+          },
+        }
+      }
+
+      if (!livePlanning?.enforced) {
+        const started = applyPlanningDiscoveryAction(null, { type: 'start' }, actor)
+        if (!started.ok) return started
+        tx.update(projectRef, {
+          planningDiscovery: started.state,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        tx.set(eventRef, {
+          ...started.event,
+          projectId,
+          orgId: liveProject.orgId ?? null,
+          schemaVersion: 1,
+        })
+        const blocker = planningMutationBlocker({ planningDiscovery: started.state })!
+        return { ok: false as const, status: 409, error: blocker.message, details: blocker, discoveryStarted: true }
+      }
+
+      const blocker = planningMutationBlocker(liveProject)
+      if (blocker) return { ok: false as const, status: 409, error: blocker.message, details: blocker }
+
+      const liveMaterialPlanningReason = materialPlanningContextReason(liveProject, body as Record<string, unknown>)
+      let planningTransition: Extract<PlanningActionResult, { ok: true }> | null = null
+      if (liveMaterialPlanningReason) {
+        const transition = applyPlanningDiscoveryAction(livePlanning, {
+          type: 'reopen',
+          expectedRevision: livePlanning.revision,
+          reason: liveMaterialPlanningReason,
+        }, actor)
+        if (!transition.ok) return transition
+        planningTransition = transition
+      }
+
+      tx.update(projectRef, planningTransition
+        ? { ...updates, planningDiscovery: planningTransition.state }
+        : updates)
+      if (planningTransition) {
+        tx.set(eventRef, {
+          ...planningTransition.event,
+          projectId,
+          orgId: liveProject.orgId ?? null,
+          schemaVersion: 1,
+        })
+      }
+      return { ok: true as const }
     })
-    if (!committed) return apiError('Planning discovery revision changed; retry the project update', 409, {
-      code: 'planning_discovery_revision_conflict',
-      revision: expectedPlanningRevision,
-    })
+    if (!mutation.ok) return apiError(mutation.error, mutation.status, 'details' in mutation ? mutation.details : undefined)
   } else {
     await projectRef.update(updates)
   }

@@ -14,7 +14,7 @@ import { adminProjectTaskLink } from '@/lib/projects/links'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
-import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
+import { isProjectTaskPlanningMutation, planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 
 export const dynamic = 'force-dynamic'
@@ -97,11 +97,8 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required to update tasks', 403)
   }
-  const planningSensitiveFields = [
-    'assigneeAgentId', 'agentInput', 'dependsOn', 'approvalGateTaskId', 'columnId',
-    'agentStatus', 'agentReleaseAt', 'agentReleaseStatus', 'agentReleasedAt',
-  ]
-  if (planningSensitiveFields.some((field) => body[field] !== undefined)) {
+  const planningSensitive = isProjectTaskPlanningMutation(body)
+  if (planningSensitive) {
     const planningBlocker = planningMutationBlocker(access.doc.data() ?? {})
     if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
   }
@@ -160,7 +157,22 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     updateValue.agentHeartbeatAt = FieldValue.serverTimestamp()
   }
 
-  await ref.update({ ...updateValue, updatedAt: FieldValue.serverTimestamp() })
+  const projectRef = adminDb.collection('projects').doc(projectId)
+  const mutation = await adminDb.runTransaction(async (tx) => {
+    if (planningSensitive) {
+      const liveProject = await tx.get(projectRef)
+      if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
+      const planningBlocker = planningMutationBlocker(liveProject.data() ?? {})
+      if (planningBlocker) {
+        return { ok: false as const, status: 409, error: planningBlocker.message, details: planningBlocker }
+      }
+    }
+    const liveTask = await tx.get(ref)
+    if (!liveTask.exists) return { ok: false as const, status: 404, error: 'Task not found' }
+    tx.update(ref, { ...updateValue, updatedAt: FieldValue.serverTimestamp() })
+    return { ok: true as const }
+  })
+  if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
 
   if (projectOrgId) {
     logActivity({
@@ -279,6 +291,8 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required to delete tasks', 403)
   }
+  const planningBlocker = planningMutationBlocker(access.doc.data() ?? {})
+  if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
 
   const ref = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
   const doc = await ref.get()
@@ -291,7 +305,20 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
     return apiError('Only an admin approver can delete approval-gated project tasks', 403)
   }
 
-  await ref.delete()
+  const projectRef = adminDb.collection('projects').doc(projectId)
+  const mutation = await adminDb.runTransaction(async (tx) => {
+    const liveProject = await tx.get(projectRef)
+    const liveTask = await tx.get(ref)
+    if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
+    if (!liveTask.exists) return { ok: false as const, status: 404, error: 'Task not found' }
+    const planningBlocker = planningMutationBlocker(liveProject.data() ?? {})
+    if (planningBlocker) {
+      return { ok: false as const, status: 409, error: planningBlocker.message, details: planningBlocker }
+    }
+    tx.delete(ref)
+    return { ok: true as const }
+  })
+  if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
 
   const deleteOrgId = access.doc.data()?.orgId as string | undefined
   if (deleteOrgId) {

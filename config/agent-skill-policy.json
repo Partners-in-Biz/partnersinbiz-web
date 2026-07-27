@@ -1106,6 +1106,7 @@
     "agent-skills/using-agent-skills": {
       "ownerAgentId": "theo",
       "allowedAgentIds": [
+        "pip",
         "qa-release",
         "theo"
       ],
@@ -1382,6 +1383,7 @@
         "research/last30days",
         "research/open-notebook",
         "platform/headroom",
+        "agent-skills/using-agent-skills",
         "agent-skills/interview-me",
         "agent-skills/planning-and-task-breakdown",
         "agent-skills/spec-driven-development",

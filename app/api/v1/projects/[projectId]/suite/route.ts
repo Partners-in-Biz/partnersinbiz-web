@@ -68,6 +68,20 @@ const MANAGER_SUITE_TYPES = new Set<SuiteType>([
   'revenue',
 ])
 
+const PLANNING_GATED_SUITE_TYPES = new Set<SuiteType>([
+  'milestone',
+  'baseline',
+  'playbook',
+  'automation',
+  'notification',
+  'capacity',
+  'revenue',
+])
+
+function suiteMutationRequiresPlanning(type: SuiteType): boolean {
+  return PLANNING_GATED_SUITE_TYPES.has(type)
+}
+
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -515,10 +529,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!collectionName) {
     return apiError('type must be one of: milestone, approval, risk, decision, baseline, playbook, automation, permission, audit, notification, capacity, revenue', 400)
   }
-  if (!['approval', 'risk', 'decision', 'audit', 'permission'].includes(type)) {
-    const blocker = planningMutationBlocker((access.doc.data() ?? {}) as Record<string, unknown>)
-    if (blocker) return apiError(blocker.message, 409, blocker)
-  }
+  const planningSensitive = suiteMutationRequiresPlanning(type)
 
   const requiredPermission = permissionForSuiteType(type)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', requiredPermission)) {
@@ -548,7 +559,19 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const record = suiteMutableFields(body, type, user.uid, 'create')
   if (!record.ok) return apiError(record.error, 400)
   const toWrite = record.value
-  const ref = await adminDb.collection('projects').doc(projectId).collection(collectionName).add(toWrite)
+  const projectRef = adminDb.collection('projects').doc(projectId)
+  const ref = projectRef.collection(collectionName).doc()
+  const mutation = await adminDb.runTransaction(async (tx) => {
+    if (planningSensitive) {
+      const liveProject = await tx.get(projectRef)
+      if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
+      const blocker = planningMutationBlocker((liveProject.data() ?? {}) as Record<string, unknown>)
+      if (blocker) return { ok: false as const, status: 409, error: blocker.message, details: blocker }
+    }
+    tx.set(ref, toWrite)
+    return { ok: true as const }
+  })
+  if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
   const project = (access.doc.data() ?? {}) as Record<string, unknown>
   await writeSuiteAudit({
     projectId,
@@ -581,10 +604,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const collectionName = COLLECTION_BY_TYPE[type]
   if (!collectionName) return apiError('Invalid suite record type', 400)
   if (!id) return apiError('id is required', 400)
-  if (!['approval', 'risk', 'decision', 'audit', 'permission'].includes(type)) {
-    const blocker = planningMutationBlocker((access.doc.data() ?? {}) as Record<string, unknown>)
-    if (blocker) return apiError(blocker.message, 409, blocker)
-  }
+  const planningSensitive = suiteMutationRequiresPlanning(type)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', permissionForSuiteType(type))) {
     return apiError('Project manager access is required for this project suite record', 403)
   }
@@ -595,7 +615,20 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const ref = adminDb.collection('projects').doc(projectId).collection(collectionName).doc(id)
   const doc = await ref.get()
   if (!doc.exists) return apiError('Suite record not found', 404)
-  await ref.update(updates.value)
+  const projectRef = adminDb.collection('projects').doc(projectId)
+  const mutation = await adminDb.runTransaction(async (tx) => {
+    if (planningSensitive) {
+      const liveProject = await tx.get(projectRef)
+      if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
+      const blocker = planningMutationBlocker((liveProject.data() ?? {}) as Record<string, unknown>)
+      if (blocker) return { ok: false as const, status: 409, error: blocker.message, details: blocker }
+    }
+    const liveRecord = await tx.get(ref)
+    if (!liveRecord.exists) return { ok: false as const, status: 404, error: 'Suite record not found' }
+    tx.update(ref, updates.value)
+    return { ok: true as const }
+  })
+  if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
   const project = (access.doc.data() ?? {}) as Record<string, unknown>
   const title = cleanString(updates.value.title) || cleanString(doc.data()?.title)
   await writeSuiteAudit({
@@ -632,20 +665,35 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', permissionForSuiteType(type))) {
     return apiError('Project manager access is required for this project suite record', 403)
   }
+  const planningSensitive = suiteMutationRequiresPlanning(type)
 
   const ref = adminDb.collection('projects').doc(projectId).collection(collectionName).doc(id)
   const doc = await ref.get()
   if (!doc.exists) return apiError('Suite record not found', 404)
   const project = (access.doc.data() ?? {}) as Record<string, unknown>
   const title = cleanString(doc.data()?.title)
-  await ref.update({
+  const archiveValue = {
     deleted: true,
     status: 'archived',
     archivedBy: user.uid,
     archivedAt: FieldValue.serverTimestamp(),
     updatedBy: user.uid,
     updatedAt: FieldValue.serverTimestamp(),
+  }
+  const projectRef = adminDb.collection('projects').doc(projectId)
+  const mutation = await adminDb.runTransaction(async (tx) => {
+    if (planningSensitive) {
+      const liveProject = await tx.get(projectRef)
+      if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
+      const blocker = planningMutationBlocker((liveProject.data() ?? {}) as Record<string, unknown>)
+      if (blocker) return { ok: false as const, status: 409, error: blocker.message, details: blocker }
+    }
+    const liveRecord = await tx.get(ref)
+    if (!liveRecord.exists) return { ok: false as const, status: 404, error: 'Suite record not found' }
+    tx.update(ref, archiveValue)
+    return { ok: true as const }
   })
+  if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
   await writeSuiteAudit({
     projectId,
     eventType: 'suite_archived',
