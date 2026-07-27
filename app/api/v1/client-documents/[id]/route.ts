@@ -153,9 +153,9 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
     if (!Array.isArray(body.sharedWithUserIds) || body.sharedWithUserIds.length > 100) {
       return apiError('sharedWithUserIds must be an array of at most 100 user ids', 400)
     }
-    const sharedWithUserIds = Array.from(new Set(body.sharedWithUserIds.map((value: unknown) => (
-      typeof value === 'string' ? value.trim() : ''
-    )).filter(Boolean)))
+    const sharedWithUserIds = Array.from(new Set(body.sharedWithUserIds
+      .map((value: unknown) => (typeof value === 'string' ? value.trim() : ''))
+      .filter((uid): uid is string => Boolean(uid))))
     if (sharedWithUserIds.some((uid) => uid.length > 256)) {
       return apiError('sharedWithUserIds contains an invalid user id', 400)
     }
