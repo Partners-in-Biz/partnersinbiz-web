@@ -10,6 +10,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
+import { delegatedAgentAttribution } from '@/lib/api/actor'
 import { resolveMemberRef } from '@/lib/orgMembers/memberRef'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type {
@@ -401,6 +402,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     lastContactedAt: null,
     createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
     createdByRef: actorRef,
+    ...delegatedAgentAttribution(ctx.user),
     updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
     updatedByRef: actorRef,
   }

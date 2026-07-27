@@ -6,6 +6,11 @@ export type ActorType = 'user' | 'agent' | 'system'
 export interface ActorInfo {
   createdBy: string
   createdByType: ActorType
+  /**
+   * Present only when a human delegated this action to an agent. The human
+   * remains the owner; this is the durable audit link to the acting agent.
+   */
+  createdByAgentId?: string
 }
 
 /**
@@ -19,6 +24,9 @@ export function actorFrom(user: ApiUser): ActorInfo {
   return {
     createdBy: user.uid,
     createdByType: user.role === 'ai' ? 'agent' : 'user',
+    ...(user.authKind === 'user_delegation' && user.agentId
+      ? { createdByAgentId: user.agentId }
+      : {}),
   }
 }
 
@@ -30,10 +38,26 @@ export function lastActorFrom(user: ApiUser): {
   updatedBy: string
   updatedByType: ActorType
   updatedAt: FieldValue
+  updatedByAgentId?: string
 } {
   return {
     updatedBy: user.uid,
     updatedByType: user.role === 'ai' ? 'agent' : 'user',
     updatedAt: FieldValue.serverTimestamp(),
+    ...(user.authKind === 'user_delegation' && user.agentId
+      ? { updatedByAgentId: user.agentId }
+      : {}),
   }
+}
+
+/**
+ * Adds agent audit attribution to records whose primary owner is a member.
+ * Delegation deliberately never changes `createdBy` or `createdByRef`.
+ */
+export function delegatedAgentAttribution(
+  user: Pick<ApiUser, 'authKind' | 'agentId'> | null | undefined,
+): { createdByAgentId?: string } {
+  return user?.authKind === 'user_delegation' && user.agentId
+    ? { createdByAgentId: user.agentId }
+    : {}
 }

@@ -5,7 +5,7 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
-import { isClientVisibleToOrg } from '@/lib/client-documents/access'
+import { isClientDocumentVisibleToUser } from '@/lib/client-documents/access'
 import { normalizeClientDocumentLinks, validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
 import { CLIENT_DOCUMENTS_COLLECTION, createClientDocument } from '@/lib/client-documents/store'
 import { themeFromOrg } from '@/lib/client-documents/themeFromOrg'
@@ -231,14 +231,12 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
         ])
         return linkedOrgIds.has(scope.orgId)
       })
-      .filter((doc) => user.role !== 'client' || isClientVisibleToOrg(doc, scope.orgId))
+      .filter((doc) => user.role !== 'client' || isClientDocumentVisibleToUser(doc, user))
     const byId = new Map<string, ClientDocument & { id: string }>()
     for (const document of [...documents, ...linkedPlatformDocuments]) byId.set(document.id, document)
     documents = Array.from(byId.values())
   }
-  if (user.role === 'client') {
-    documents = documents.filter((doc) => isClientVisibleToOrg(doc, scope.orgId))
-  }
+  if (user.role === 'client') documents = documents.filter((doc) => isClientDocumentVisibleToUser(doc, user))
   const hasMore = documents.length > limit
   const total = hasMore ? limit + 1 : documents.length
   documents = documents.slice(0, limit)
