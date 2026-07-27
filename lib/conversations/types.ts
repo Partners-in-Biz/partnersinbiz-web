@@ -129,6 +129,12 @@ export interface ConversationMessage {
   authorId: string
   authorDisplayName: string
   dispatchAgentId?: AgentId
+  /** Runtime target id used when this assistant turn was dispatched. */
+  dispatchRuntimeTargetId?: string
+  /** Resolved runtime kind for the dispatch (vps / local / linked-computer / …). */
+  dispatchRuntimeKind?: string
+  /** Human machine label at dispatch time, e.g. "Partners VPS" or "Peet's Mac". */
+  dispatchRuntimeLabel?: string
   acceptedDevice?: { machineLabel: string; runtimeVersion: string; acceptedAt: string }
   createdAt?: Timestamp
 }

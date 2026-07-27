@@ -962,6 +962,8 @@ export const POST = withAuth(
             runId,
             dispatchAgentId: agentId,
             ...(dispatchLink.runtimeTargetId ? { dispatchRuntimeTargetId: dispatchLink.runtimeTargetId } : {}),
+            ...(dispatchLink.runtimeKind ? { dispatchRuntimeKind: dispatchLink.runtimeKind } : {}),
+            ...(dispatchLink.machineLabel ? { dispatchRuntimeLabel: dispatchLink.machineLabel } : {}),
             ...(runResult.runDocId ? { runDocId: runResult.runDocId } : {}),
             ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
           })
@@ -976,7 +978,14 @@ export const POST = withAuth(
           {
             message,
             assistantMessage: runId
-              ? { ...assistantMessage, runId, dispatchAgentId: agentId }
+              ? {
+                  ...assistantMessage,
+                  runId,
+                  dispatchAgentId: agentId,
+                  ...(dispatchLink.runtimeTargetId ? { dispatchRuntimeTargetId: dispatchLink.runtimeTargetId } : {}),
+                  ...(dispatchLink.runtimeKind ? { dispatchRuntimeKind: dispatchLink.runtimeKind } : {}),
+                  ...(dispatchLink.machineLabel ? { dispatchRuntimeLabel: dispatchLink.machineLabel } : {}),
+                }
               : { ...assistantMessage, status: 'failed', error: 'Agent gateway did not return a run id' },
             runId,
             dispatchAgentId: agentId,
