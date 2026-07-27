@@ -117,9 +117,6 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   }
   const project = access.doc.data() ?? {}
 
-  const planningBlocker = planningMutationBlocker(project)
-  if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
-
   const orgId = authoritativeProjectOrgId(project)
   if (!orgId) return apiError('Project organisation is required to create tasks', 400)
   const taskBody = { ...body }
@@ -154,11 +151,19 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     updatedAt: FieldValue.serverTimestamp(),
   }
 
-  const ref = await adminDb
-    .collection('projects')
-    .doc(projectId)
-    .collection('tasks')
-    .add(doc)
+  const projectRef = adminDb.collection('projects').doc(projectId)
+  const ref = projectRef.collection('tasks').doc()
+  const mutation = await adminDb.runTransaction(async (tx) => {
+    const liveProject = await tx.get(projectRef)
+    if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
+    const planningBlocker = planningMutationBlocker(liveProject.data() ?? {})
+    if (planningBlocker) {
+      return { ok: false as const, status: 409, error: planningBlocker.message, details: planningBlocker }
+    }
+    tx.set(ref, doc)
+    return { ok: true as const }
+  })
+  if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
 
   if (orgId) {
     const actorName = user.uid === 'ai-agent'

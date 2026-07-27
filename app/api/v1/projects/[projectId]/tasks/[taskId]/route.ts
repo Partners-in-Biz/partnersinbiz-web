@@ -14,7 +14,7 @@ import { adminProjectTaskLink } from '@/lib/projects/links'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
-import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
+import { isProjectTaskPlanningMutation, planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 
 export const dynamic = 'force-dynamic'
@@ -35,6 +35,13 @@ function projectRequestOrgScope(req: NextRequest, user: Parameters<typeof getPro
     return { ok: false as const, response: apiError('Agent organisation scope does not match X-Org-Id', 403) }
   }
   return { ok: true as const, orgId: explicitOrgId || undefined }
+}
+
+function isDirectHumanAdmin(user: Parameters<typeof getProjectForUser>[1]): boolean {
+  return user.role === 'admin'
+    && user.authKind !== 'user_delegation'
+    && user.authKind !== 'agent_api_key'
+    && user.authKind !== 'legacy_ai_key'
 }
 
 function taskIsVisible(
@@ -97,11 +104,8 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required to update tasks', 403)
   }
-  const planningSensitiveFields = [
-    'assigneeAgentId', 'agentInput', 'dependsOn', 'approvalGateTaskId', 'columnId',
-    'agentStatus', 'agentReleaseAt', 'agentReleaseStatus', 'agentReleasedAt',
-  ]
-  if (planningSensitiveFields.some((field) => body[field] !== undefined)) {
+  const planningSensitive = isProjectTaskPlanningMutation(body)
+  if (planningSensitive) {
     const planningBlocker = planningMutationBlocker(access.doc.data() ?? {})
     if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
   }
@@ -122,10 +126,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const isApprovalGatedTask = isApprovalGateCard || existingApprovalGateTaskId
   const approvalMetadataFields = ['approvalGate', 'requiredCapability', 'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'approvalGateTaskId']
   const approvalExecutionFields = ['columnId', 'reviewStatus', 'labels', 'agentStatus', 'assigneeAgentId', 'agentOutput', 'agentConversationId', 'agentHeartbeatAt', 'agentReleaseAt', 'agentReleaseStatus', 'agentReleasedAt']
-  if (body.approvalStatus !== undefined && user.role !== 'admin') {
+  if (body.approvalStatus !== undefined && !isDirectHumanAdmin(user)) {
     return apiError('Only an admin approver can change approvalStatus on project tasks', 403)
   }
-  if (user.role !== 'admin' && approvalMetadataFields.some((field) => body[field] !== undefined)) {
+  if (!isDirectHumanAdmin(user) && approvalMetadataFields.some((field) => body[field] !== undefined)) {
     return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
   if (body.approvalStatus !== undefined && body.approvalStatus !== null && !isApprovalGatedTask) {
@@ -135,10 +139,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!updates.ok) return apiError(updates.error, updates.status ?? 400)
   const updateValue = applyAgentColumnMoveState(existing, updates.value, body)
   const touchesApprovalExecutionState = approvalExecutionFields.some((field) => updateValue[field] !== undefined)
-  if (user.role !== 'admin' && isApprovalGateCard && touchesApprovalExecutionState) {
+  if (!isDirectHumanAdmin(user) && isApprovalGateCard && touchesApprovalExecutionState) {
     return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
-  if (user.role !== 'admin' && existingApprovalGateTaskId && touchesApprovalExecutionState) {
+  if (!isDirectHumanAdmin(user) && existingApprovalGateTaskId && touchesApprovalExecutionState) {
     const approved = await approvalGateTaskApproved(projectId, String(existing.approvalGateTaskId))
     if (!approved) return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
@@ -160,7 +164,22 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     updateValue.agentHeartbeatAt = FieldValue.serverTimestamp()
   }
 
-  await ref.update({ ...updateValue, updatedAt: FieldValue.serverTimestamp() })
+  const projectRef = adminDb.collection('projects').doc(projectId)
+  const mutation = await adminDb.runTransaction(async (tx) => {
+    if (planningSensitive) {
+      const liveProject = await tx.get(projectRef)
+      if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
+      const planningBlocker = planningMutationBlocker(liveProject.data() ?? {})
+      if (planningBlocker) {
+        return { ok: false as const, status: 409, error: planningBlocker.message, details: planningBlocker }
+      }
+    }
+    const liveTask = await tx.get(ref)
+    if (!liveTask.exists) return { ok: false as const, status: 404, error: 'Task not found' }
+    tx.update(ref, { ...updateValue, updatedAt: FieldValue.serverTimestamp() })
+    return { ok: true as const }
+  })
+  if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
 
   if (projectOrgId) {
     logActivity({
@@ -279,6 +298,8 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required to delete tasks', 403)
   }
+  const planningBlocker = planningMutationBlocker(access.doc.data() ?? {})
+  if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
 
   const ref = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
   const doc = await ref.get()
@@ -287,11 +308,24 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   const existing = doc.data() ?? {}
   if (!taskIsVisible(taskId, existing, access, user)) return apiError('Task not found', 404)
   const hasApprovalGateTaskId = typeof existing.approvalGateTaskId === 'string' && existing.approvalGateTaskId.trim().length > 0
-  if (user.role !== 'admin' && (isApprovalGateRecord(existing) || hasApprovalGateTaskId)) {
+  if (!isDirectHumanAdmin(user) && (isApprovalGateRecord(existing) || hasApprovalGateTaskId)) {
     return apiError('Only an admin approver can delete approval-gated project tasks', 403)
   }
 
-  await ref.delete()
+  const projectRef = adminDb.collection('projects').doc(projectId)
+  const mutation = await adminDb.runTransaction(async (tx) => {
+    const liveProject = await tx.get(projectRef)
+    const liveTask = await tx.get(ref)
+    if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
+    if (!liveTask.exists) return { ok: false as const, status: 404, error: 'Task not found' }
+    const planningBlocker = planningMutationBlocker(liveProject.data() ?? {})
+    if (planningBlocker) {
+      return { ok: false as const, status: 409, error: planningBlocker.message, details: planningBlocker }
+    }
+    tx.delete(ref)
+    return { ok: true as const }
+  })
+  if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
 
   const deleteOrgId = access.doc.data()?.orgId as string | undefined
   if (deleteOrgId) {

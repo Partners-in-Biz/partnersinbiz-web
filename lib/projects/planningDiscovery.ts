@@ -237,6 +237,61 @@ export function planningMutationBlocker(project: Record<string, unknown>): null 
   }
 }
 
+const PROJECT_TASK_CONTEXT_FIELDS = new Set([
+  'title', 'description', 'priority', 'dueDate', 'startDate', 'baselineDueDate', 'baselineStartDate',
+  'estimateMinutes', 'order', 'dependsOn', 'approvalGateTaskId', 'approvalGate', 'requiredCapability',
+  'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'labels', 'checklist', 'internalOnly',
+])
+
+const PROJECT_TASK_PLANNING_FIELDS = new Set([
+  ...PROJECT_TASK_CONTEXT_FIELDS,
+  'assigneeId', 'assigneeIds', 'assigneeAgentId', 'agentInput', 'agentEffort', 'agentModel',
+  'agentReleaseAt', 'reviewerIds', 'reviewerAgentId',
+])
+
+export function isProjectTaskContextMutation(body: Record<string, unknown>): boolean {
+  return Object.keys(body).some((field) => PROJECT_TASK_CONTEXT_FIELDS.has(field))
+}
+
+export function isProjectTaskPlanningMutation(body: Record<string, unknown>): boolean {
+  if (Object.keys(body).some((field) => PROJECT_TASK_PLANNING_FIELDS.has(field))) return true
+  if (body.columnId !== undefined && body.columnId !== 'review' && body.columnId !== 'done') return true
+  if (body.agentStatus !== undefined && !['picked-up', 'in-progress', 'done', 'blocked', 'awaiting-input'].includes(String(body.agentStatus))) return true
+  return false
+}
+
+export function preparePlanningContextMutation(
+  project: Record<string, unknown>,
+  actor: { uid: string; now: string },
+  reason: string,
+): PlanningActionResult {
+  const current = project.planningDiscovery as PlanningDiscoveryState | undefined
+  if (!current?.enforced) return { ok: false, error: 'Start planning discovery first', status: 409 }
+  return applyPlanningDiscoveryAction(current, {
+    type: 'reopen',
+    expectedRevision: current.revision,
+    reason,
+  }, actor)
+}
+
+export async function planningReadyProjectInTransaction(
+  transaction: { get: (ref: unknown) => Promise<{ exists: boolean; data: () => Record<string, unknown> | undefined }> },
+  projectRef: unknown,
+): Promise<
+  | { ok: true; project: Record<string, unknown> }
+  | { ok: false; status: 404; code: 'project_not_found'; message: string; revision: 0 }
+  | { ok: false; status: 409; code: 'planning_discovery_required'; message: string; revision: number }
+> {
+  const snapshot = await transaction.get(projectRef)
+  if (!snapshot.exists) {
+    return { ok: false, status: 404, code: 'project_not_found', message: 'Project not found', revision: 0 }
+  }
+  const project = snapshot.data() ?? {}
+  const blocker = planningMutationBlocker(project)
+  if (blocker) return { ok: false, status: 409, ...blocker }
+  return { ok: true, project }
+}
+
 function conflict(state: PlanningDiscoveryState | null, expectedRevision: unknown): PlanningActionResult | null {
   const current = state?.revision ?? 0
   return typeof expectedRevision === 'number' && expectedRevision === current

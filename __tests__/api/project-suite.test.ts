@@ -41,7 +41,18 @@ const mockUser = { uid: 'owner-1', role: 'admin' as const, orgId: 'owner-org' }
 type MockAuthHandler = (req: NextRequest, user: typeof mockUser, ctx?: unknown) => unknown
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: {
+    collection: mockCollection,
+    runTransaction: jest.fn(async (callback: (tx: {
+      get: (ref: { get: () => unknown }) => unknown
+      set: (ref: { set: (value: unknown) => unknown }, value: unknown) => unknown
+      update: (ref: { update: (value: unknown) => unknown }, value: unknown) => unknown
+    }) => unknown) => callback({
+      get: (ref) => ref.get(),
+      set: (ref, value) => ref.set(value),
+      update: (ref, value) => ref.update(value),
+    })),
+  },
 }))
 
 jest.mock('@/lib/api/auth', () => ({
@@ -176,8 +187,12 @@ beforeEach(() => {
       deduplicated: false,
     },
   })
-  mockMilestoneDoc.mockReturnValue({ get: mockMilestoneDocGet, update: mockMilestoneUpdate })
-  mockPlaybookDoc.mockReturnValue({ get: mockPlaybookDocGet, update: mockPlaybookUpdate })
+  mockMilestoneDoc.mockImplementation((id?: string) => id
+    ? { id, get: mockMilestoneDocGet, update: mockMilestoneUpdate }
+    : { id: 'milestone-new', get: mockMilestoneDocGet, set: mockMilestoneAdd, update: mockMilestoneUpdate })
+  mockPlaybookDoc.mockImplementation((id?: string) => id
+    ? { id, get: mockPlaybookDocGet, update: mockPlaybookUpdate }
+    : { id: 'playbook-new', get: mockPlaybookDocGet, set: mockPlaybookAdd, update: mockPlaybookUpdate })
   mockSubCollection.mockImplementation((name: string) => {
     if (name === 'tasks') return { get: mockTasksGet, add: mockTaskAdd }
     if (name === 'milestones') return { get: mockMilestonesGet, add: mockMilestoneAdd, doc: mockMilestoneDoc }
@@ -186,15 +201,21 @@ beforeEach(() => {
     if (name === 'decisions') return { get: mockDecisionsGet }
     if (name === 'baselines') return { get: mockBaselinesGet }
     if (name === 'playbooks') return { get: mockPlaybooksGet, add: mockPlaybookAdd, doc: mockPlaybookDoc }
-    if (name === 'automations') return { get: mockAutomationsGet, add: mockAutomationAdd }
-    if (name === 'permissions') return { get: mockPermissionsGet, add: mockPermissionAdd }
+    if (name === 'automations') return { get: mockAutomationsGet, add: mockAutomationAdd, doc: jest.fn(() => ({ id: 'automation-new', set: mockAutomationAdd })) }
+    if (name === 'permissions') return { get: mockPermissionsGet, add: mockPermissionAdd, doc: jest.fn(() => ({ id: 'permission-new', set: mockPermissionAdd })) }
     if (name === 'audit') return { get: mockAuditGet, add: mockAuditAdd }
-    if (name === 'notificationSettings') return { get: mockNotificationSettingsGet, add: mockNotificationAdd }
-    if (name === 'capacities') return { get: mockCapacitiesGet, add: mockCapacityAdd }
-    if (name === 'revenue') return { get: mockRevenueGet, add: mockRevenueAdd }
+    if (name === 'notificationSettings') return { get: mockNotificationSettingsGet, add: mockNotificationAdd, doc: jest.fn(() => ({ id: 'notification-new', set: mockNotificationAdd })) }
+    if (name === 'capacities') return { get: mockCapacitiesGet, add: mockCapacityAdd, doc: jest.fn(() => ({ id: 'capacity-new', set: mockCapacityAdd })) }
+    if (name === 'revenue') return { get: mockRevenueGet, add: mockRevenueAdd, doc: jest.fn(() => ({ id: 'revenue-new', set: mockRevenueAdd })) }
     throw new Error(`Unexpected subcollection ${name}`)
   })
-  mockProjectDoc.mockReturnValue({ collection: mockSubCollection })
+  mockProjectDoc.mockReturnValue({
+    collection: mockSubCollection,
+    get: jest.fn(async () => ({
+      exists: true,
+      data: () => ({ id: 'project-1', orgId: 'owner-org', ownerOrgId: 'owner-org' }),
+    })),
+  })
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { doc: mockProjectDoc }
     if (name === 'projectMembers') return { where: mockProjectMemberWhere }

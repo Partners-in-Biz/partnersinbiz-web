@@ -17,7 +17,16 @@ jest.mock('firebase-admin/firestore', () => ({
 }))
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: {
+    collection: mockCollection,
+    runTransaction: jest.fn(async (callback: (tx: {
+      get: (ref: { get: () => unknown }) => unknown
+      set: (ref: { set: (value: unknown) => unknown }, value: unknown) => unknown
+    }) => unknown) => callback({
+      get: (ref) => ref.get(),
+      set: (ref, value) => ref.set(value),
+    })),
+  },
 }))
 
 jest.mock('@/lib/api/auth', () => ({
@@ -44,6 +53,10 @@ jest.mock('@/lib/activity/log', () => ({
   logActivity: jest.fn(() => Promise.resolve()),
 }))
 
+jest.mock('@/lib/projects/planningDiscovery', () => ({
+  planningMutationBlocker: jest.fn(() => null),
+}))
+
 beforeEach(() => {
   jest.clearAllMocks()
   mockGetProjectForUser.mockResolvedValue({
@@ -67,9 +80,18 @@ beforeEach(() => {
     },
   ])
   mockTaskAdd.mockResolvedValue({ id: 'task-1' })
-  mockTaskCollection.mockReturnValue({ add: mockTaskAdd })
+  mockTaskCollection.mockReturnValue({
+    add: mockTaskAdd,
+    doc: jest.fn(() => ({ id: 'task-1', set: mockTaskAdd })),
+  })
   mockTaskDoc.mockReturnValue({ collection: mockTaskCollection })
-  mockProjectDoc.mockReturnValue({ collection: mockTaskCollection })
+  mockProjectDoc.mockReturnValue({
+    collection: mockTaskCollection,
+    get: jest.fn(async () => ({
+      exists: true,
+      data: () => ({ orgId: 'org-1', name: 'Launch Project' }),
+    })),
+  })
   mockNotificationAdd.mockResolvedValue({ id: 'notification-1' })
   mockUserDoc.mockReturnValue({
     get: jest.fn(async () => ({ data: () => ({ displayName: 'Peet Stander' }) })),

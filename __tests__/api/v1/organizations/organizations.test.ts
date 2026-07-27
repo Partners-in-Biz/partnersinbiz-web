@@ -231,19 +231,21 @@ describe('POST /api/v1/organizations', () => {
       clientName: 'Velox',
       domain: 'velox',
       orgId: 'new-org-id',
+      orgSlug: 'velox',
+      platformOwned: false,
       agentName: 'Vee',
       companyId: null,
       contactIds: [],
     })
     expect(mockSet).toHaveBeenCalledWith(
       expect.objectContaining({
-        workspaceId: 'velox',
-        workspaceManifest: expect.objectContaining({ workspaceId: 'velox', sourceOfTruth: 'vps' }),
+        workspaceId: 'velox__velox',
+        workspaceManifest: expect.objectContaining({ workspaceId: 'velox__velox', sourceOfTruth: 'vps' }),
         provisioning: expect.objectContaining({ status: 'complete', domain: 'velox', agentName: 'Vee', workspaceId: 'velox' }),
       }),
       { merge: true },
     )
-    expect(upsertOrgWorkspace).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'velox' }))
+    expect(upsertOrgWorkspace).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'velox__velox' }))
   })
 
   it('uses a validated explicit client domain for the organisation slug and Workspace provisioning', async () => {

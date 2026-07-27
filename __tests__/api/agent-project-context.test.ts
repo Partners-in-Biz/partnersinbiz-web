@@ -21,7 +21,10 @@ jest.mock('@/lib/api/auth', () => ({
 }))
 
 jest.mock('@/lib/projects/access', () => ({ getProjectForUser: mockGetProjectForUser }))
-jest.mock('@/lib/projects/agentSuiteProjection', () => ({ loadAgentProjectPlan: mockLoadAgentProjectPlan }))
+jest.mock('@/lib/projects/agentSuiteProjection', () => ({
+  loadAgentProjectPlan: mockLoadAgentProjectPlan,
+  applyAgentPermissionPolicies: (items: unknown[]) => items,
+}))
 
 const ts = (millis: number) => ({
   toMillis: () => millis,
@@ -158,6 +161,24 @@ describe('GET /api/v1/agent/project/[projectId]', () => {
       milestones: [{ id: 'milestone-1', title: 'Release' }],
     }))
     expect(mockGetProjectForUser).toHaveBeenCalledWith('project-1', expect.any(Object), 'platform')
-    expect(mockLoadAgentProjectPlan).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'project-1' }))
+    expect(mockLoadAgentProjectPlan).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'project-1', activeOrgId: 'platform' }))
+  })
+
+  it('wires X-Org-Id into the Agent Plan projection as the active organisation', async () => {
+    mockTasksGet.mockResolvedValue({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/agent/project/[projectId]/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/agent/project/project-1', {
+      headers: { 'x-org-id': 'org-active' },
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(mockGetProjectForUser).toHaveBeenCalledWith('project-1', expect.any(Object), 'org-active')
+    expect(mockLoadAgentProjectPlan).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      activeOrgId: 'org-active',
+    }))
   })
 })

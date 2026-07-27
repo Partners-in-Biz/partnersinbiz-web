@@ -8,6 +8,7 @@ const mockTaskDoc = jest.fn()
 const mockTasksCollection = jest.fn()
 const mockProjectDoc = jest.fn()
 const mockCollection = jest.fn()
+const mockPlanningMutationBlocker = jest.fn((_project: Record<string, unknown>): null | { code: 'planning_discovery_required'; message: string; revision: number } => null)
 let currentUser: { uid: string; role: 'client' | 'admin' | 'ai'; authKind: string; orgId?: string } = {
   uid: 'client-1', role: 'client', authKind: 'session',
 }
@@ -19,7 +20,14 @@ jest.mock('firebase-admin/firestore', () => ({
 }))
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: {
+    collection: mockCollection,
+    runTransaction: jest.fn(async (callback: (tx: unknown) => unknown) => callback({
+      get: jest.fn(async (ref: { get: () => unknown }) => ref.get()),
+      update: jest.fn((ref: { update: (value: unknown) => unknown }, value: unknown) => ref.update(value)),
+      delete: jest.fn((ref: { delete: () => unknown }) => ref.delete()),
+    })),
+  },
 }))
 
 jest.mock('@/lib/api/auth', () => ({
@@ -38,7 +46,9 @@ jest.mock('@/lib/projects/access', () => ({
 }))
 
 jest.mock('@/lib/projects/planningDiscovery', () => ({
-  planningMutationBlocker: jest.fn(() => null),
+  planningMutationBlocker: (project: Record<string, unknown>) => mockPlanningMutationBlocker(project),
+  isProjectTaskPlanningMutation: jest.requireActual('@/lib/projects/planningDiscovery').isProjectTaskPlanningMutation,
+  isProjectTaskContextMutation: jest.requireActual('@/lib/projects/planningDiscovery').isProjectTaskContextMutation,
 }))
 
 jest.mock('@/lib/activity/log', () => ({
@@ -61,6 +71,7 @@ function req(body: Record<string, unknown>) {
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
+  mockPlanningMutationBlocker.mockReturnValue(null)
   currentUser = { uid: 'client-1', role: 'client', authKind: 'session' }
   mockGetProjectForUser.mockResolvedValue({
     ok: true,
@@ -80,7 +91,10 @@ beforeEach(() => {
   mockTaskDelete.mockResolvedValue(undefined)
   mockTaskDoc.mockReturnValue({ get: mockTaskGet, update: mockTaskUpdate, delete: mockTaskDelete })
   mockTasksCollection.mockReturnValue({ doc: mockTaskDoc })
-  mockProjectDoc.mockReturnValue({ collection: mockTasksCollection, get: jest.fn(async () => ({ data: () => ({ orgId: 'org-1' }) })) })
+  mockProjectDoc.mockReturnValue({
+    collection: mockTasksCollection,
+    get: jest.fn(async () => ({ exists: true, data: () => ({ orgId: 'org-1' }) })),
+  })
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { doc: mockProjectDoc }
     if (name === 'notifications') return { add: jest.fn() }
@@ -89,6 +103,49 @@ beforeEach(() => {
 })
 
 describe('project task approval gate route guards', () => {
+  it('fails closed for material task-intent updates when planning is not ready', async () => {
+    mockPlanningMutationBlocker.mockReturnValue({
+      code: 'planning_discovery_required', message: 'Planning discovery required', revision: 0,
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({ title: 'Changed task intent' }), ctx)
+
+    expect(res.status).toBe(409)
+    expect(mockTaskGet).not.toHaveBeenCalled()
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('does not block operational completion output when planning has since become stale', async () => {
+    mockPlanningMutationBlocker.mockReturnValue({
+      code: 'planning_discovery_required', message: 'Planning discovery required', revision: 8,
+    })
+    mockTaskGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ title: 'In-flight task', labels: [], assigneeAgentId: 'theo', agentStatus: 'in-progress' }),
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({ agentStatus: 'done', agentOutput: { summary: 'Completed safely' } }), ctx)
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'done',
+      agentOutput: { summary: 'Completed safely' },
+      columnId: 'review',
+    }))
+  })
+
+  it('fails closed before deleting a task when planning is not ready', async () => {
+    mockPlanningMutationBlocker.mockReturnValue({
+      code: 'planning_discovery_required', message: 'Planning discovery required', revision: 2,
+    })
+    const { DELETE } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await DELETE(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', { method: 'DELETE' }), ctx)
+
+    expect(res.status).toBe(409)
+    expect(mockTaskGet).not.toHaveBeenCalled()
+    expect(mockTaskDelete).not.toHaveBeenCalled()
+  })
+
   it('requires contributor write permission before updating a task', async () => {
     mockGetProjectForUser.mockResolvedValueOnce({
       ok: true,
@@ -123,6 +180,19 @@ describe('project task approval gate route guards', () => {
 
     expect(res.status).toBe(403)
     expect(body.error).toMatch(/Only an admin approver/)
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('blocks delegated agents whose projected role is admin from changing approval-gate metadata', async () => {
+    currentUser = { uid: 'admin-1', role: 'admin', authKind: 'user_delegation', orgId: 'org-1' }
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', {
+      method: 'PATCH',
+      headers: { 'x-org-id': 'org-1' },
+      body: JSON.stringify({ approvalStatus: 'approved' }),
+    }), ctx)
+
+    expect(res.status).toBe(403)
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 

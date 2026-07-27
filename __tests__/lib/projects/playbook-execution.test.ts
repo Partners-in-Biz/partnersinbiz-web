@@ -3,6 +3,9 @@ const mockRunTransaction = jest.fn()
 const mockTransactionGet = jest.fn()
 const mockTransactionSet = jest.fn()
 const mockTransactionUpdate = jest.fn()
+const mockPlanningMutationBlocker = jest.fn((project: Record<string, unknown>) => project.planningReady === false
+  ? { code: 'planning_discovery_required', message: 'Planning discovery required', revision: 2 }
+  : null)
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -12,7 +15,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 }))
 
 jest.mock('@/lib/projects/planningDiscovery', () => ({
-  planningMutationBlocker: jest.fn(() => null),
+  planningMutationBlocker: (project: Record<string, unknown>) => mockPlanningMutationBlocker(project),
 }))
 
 jest.mock('firebase-admin/firestore', () => ({
@@ -46,7 +49,9 @@ beforeEach(() => {
   mockCollection.mockImplementation((name: string) => ({
     doc: jest.fn((id: string) => name === 'projects' && id === 'project-1' ? projectRef : ref(`${name}/${id}`)),
   }))
-  mockTransactionGet.mockResolvedValue({ exists: false, data: () => undefined })
+  mockTransactionGet.mockImplementation(async (readRef: { path?: string }) => readRef.path === 'projects/project-1'
+    ? { exists: true, data: () => ({ orgId: 'authoritative-org', planningReady: true }) }
+    : { exists: false, data: () => undefined })
   mockRunTransaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
     get: mockTransactionGet,
     set: mockTransactionSet,
@@ -128,5 +133,24 @@ describe('runProjectPlaybookTemplate', () => {
     expect(result).toEqual(expect.objectContaining({ ok: false, status: 400 }))
     expect(mockRunTransaction).not.toHaveBeenCalled()
     expect(mockTransactionSet).not.toHaveBeenCalled()
+  })
+
+  it('checks live project readiness inside the task batch transaction', async () => {
+    mockTransactionGet.mockImplementation(async (readRef: { path?: string }) => {
+      if (readRef.path === 'projects/project-1') {
+        return { exists: true, data: () => ({ orgId: 'authoritative-org', planningReady: false }) }
+      }
+      return { exists: false, data: () => undefined }
+    })
+    const { runProjectPlaybookTemplate } = await import('@/lib/projects/playbooks')
+    const result = await runProjectPlaybookTemplate({
+      projectId: 'project-1', playbookId: 'release', actorUid: 'agent:pip', runKey: 'request-atomic',
+      project: { orgId: 'authoritative-org' }, playbook: { template: { steps: [agentStep()] } },
+    })
+
+    expect(result).toEqual(expect.objectContaining({ ok: false, status: 409 }))
+    expect(mockTransactionGet).toHaveBeenCalledWith(expect.objectContaining({ path: 'projects/project-1' }))
+    expect(mockTransactionSet).not.toHaveBeenCalled()
+    expect(mockTransactionUpdate).not.toHaveBeenCalled()
   })
 })

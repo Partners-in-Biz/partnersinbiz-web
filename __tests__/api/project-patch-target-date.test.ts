@@ -8,7 +8,16 @@ const mockProjectUpdate = jest.fn()
 let mockUser = { uid: 'owner-1', role: 'admin' as const, orgId: 'pib-platform-owner' }
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: {
+    collection: mockCollection,
+    runTransaction: jest.fn(async (callback: (tx: {
+      get: (ref: { get: () => unknown }) => unknown
+      update: (ref: { update: (value: unknown) => unknown }, value: unknown) => unknown
+    }) => unknown) => callback({
+      get: (ref) => ref.get(),
+      update: (ref, value) => ref.update(value),
+    })),
+  },
 }))
 
 jest.mock('@/lib/api/auth', () => ({
@@ -26,6 +35,11 @@ jest.mock('@/lib/activity/log', () => ({
 
 jest.mock('@/lib/api/platformAdmin', () => ({
   canAccessOrg: jest.fn(() => true),
+}))
+
+jest.mock('@/lib/projects/planningDiscovery', () => ({
+  ...jest.requireActual('@/lib/projects/planningDiscovery'),
+  planningMutationBlocker: jest.fn(() => null),
 }))
 
 jest.mock('firebase-admin/firestore', () => ({
@@ -46,12 +60,26 @@ beforeEach(() => {
         name: 'PIB - Website',
         orgId: 'pib-platform-owner',
         sourceOrgId: 'pib-platform-owner',
+        planningDiscovery: { enforced: true, revision: 1, status: 'confirmed' },
       }),
     },
     projectAccess: { role: 'owner' },
   })
   mockProjectUpdate.mockResolvedValue(undefined)
-  mockProjectDoc.mockReturnValue({ update: mockProjectUpdate })
+  mockProjectDoc.mockReturnValue({
+    update: mockProjectUpdate,
+    get: jest.fn(async () => ({
+      exists: true,
+      data: () => ({
+        id: 'project-1',
+        name: 'PIB - Website',
+        orgId: 'pib-platform-owner',
+        sourceOrgId: 'pib-platform-owner',
+        planningDiscovery: { enforced: true, revision: 1, status: 'confirmed' },
+      }),
+    })),
+    collection: jest.fn(() => ({ doc: jest.fn(() => ({ id: 'event-1' })) })),
+  })
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { doc: mockProjectDoc }
     throw new Error(`Unexpected collection ${name}`)

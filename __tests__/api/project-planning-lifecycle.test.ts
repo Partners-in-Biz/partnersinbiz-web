@@ -115,26 +115,45 @@ function patchRequest(body: unknown) {
 }
 
 describe('project planning lifecycle enforcement', () => {
-  it('starts enforced discovery on a legacy project when its planning context is next mutated', async () => {
+  it('starts enforced discovery but does not apply the first legacy planning-context mutation', async () => {
     const { PATCH } = await import('@/app/api/v1/projects/[projectId]/route')
     const res = await PATCH(patchRequest({ description: 'New planning intent for this legacy project' }), {
       params: Promise.resolve({ projectId: 'project-1' }),
     })
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(409)
     expect(mockTransactionUpdate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-      description: 'New planning intent for this legacy project',
       planningDiscovery: expect.objectContaining({
         enforced: true,
         status: 'interviewing',
         revision: 1,
       }),
     }))
+    expect(mockTransactionUpdate).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      description: 'New planning intent for this legacy project',
+    }))
     expect(mockTransactionSet).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       type: 'started',
       revision: 1,
     }))
     expect(mockRunTransaction).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['name', { name: 'Renamed legacy project' }],
+    ['target date', { targetDate: '2026-08-15' }],
+  ])('starts enforced discovery without applying a legacy %s mutation', async (_label, patch) => {
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/route')
+    const res = await PATCH(patchRequest(patch), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(409)
+    expect(mockProjectUpdate).not.toHaveBeenCalled()
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      planningDiscovery: expect.objectContaining({ enforced: true, status: 'interviewing', revision: 1 }),
+    }))
+    expect(mockTransactionUpdate).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining(patch))
   })
 
   it('fails closed when a legacy project is promoted beyond discovery without planning readiness', async () => {
@@ -157,6 +176,23 @@ describe('project planning lifecycle enforcement', () => {
 
     expect(res.status).toBe(200)
     expect(mockProjectUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: 'design' }))
+  })
+
+  it('fails closed when planning becomes stale before an otherwise-ready target-date commit', async () => {
+    const confirmed = confirmedPlanning()
+    projectData.planningDiscovery = confirmed
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ ...projectData, planningDiscovery: { ...confirmed, status: 'interviewing' } }),
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/route')
+    const res = await PATCH(patchRequest({ targetDate: '2026-08-15' }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(409)
+    expect(mockProjectUpdate).not.toHaveBeenCalled()
+    expect(mockTransactionUpdate).not.toHaveBeenCalled()
   })
 
   it('atomically reopens confirmed planning and preserves its audit snapshot after a material description change', async () => {

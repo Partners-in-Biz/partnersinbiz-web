@@ -10,6 +10,7 @@ const mockActivityAdd = jest.fn()
 const mockCollection = jest.fn()
 const mockCanAccessOrg = jest.fn(() => true)
 const mockGetProjectForUser = jest.fn()
+const mockPlanningMutationBlocker = jest.fn((_project: Record<string, unknown>): null | { code: 'planning_discovery_required'; message: string; revision: number } => null)
 const mockUser = { uid: 'admin-1', role: 'admin' as const, allowedOrgIds: ['org-1', 'pib-platform-owner'] }
 const mockRoles: string[] = []
 
@@ -44,11 +45,16 @@ jest.mock('@/lib/projects/access', () => ({
   getProjectForUser: mockGetProjectForUser,
 }))
 
+jest.mock('@/lib/projects/planningDiscovery', () => ({
+  planningMutationBlocker: (project: Record<string, unknown>) => mockPlanningMutationBlocker(project),
+}))
+
 describe('briefing API routes', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockRoles.length = 0
     mockCanAccessOrg.mockReturnValue(true)
+    mockPlanningMutationBlocker.mockReturnValue(null)
     mockProjectTaskAdd.mockResolvedValue({ id: 'linked-task-1' })
     mockActivityAdd.mockResolvedValue({ id: 'crm-activity-1' })
     mockGetProjectForUser.mockResolvedValue({
@@ -343,6 +349,24 @@ describe('briefing API routes', () => {
     expect(payload.agentInput.context.approvalGateCopy).toContain('approval-task-1')
     expect(payload.agentInput.context.approvalGateCopy).toContain('external send')
     expect(mockActivityAdd).not.toHaveBeenCalled()
+  })
+
+  it('fails closed for the briefing alternate task writer when project planning is stale', async () => {
+    mockPlanningMutationBlocker.mockReturnValue({
+      code: 'planning_discovery_required', message: 'Planning discovery required', revision: 6,
+    })
+    const { POST } = await import('@/app/api/v1/briefings/items/[itemId]/actions/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/briefings/items/agent-output%3Aout-1/actions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create-routed-task', orgId: 'pib-platform-owner', title: 'Unsafe follow-up',
+        context: { projectId: 'project-1' },
+      }),
+    }), { params: Promise.resolve({ itemId: 'agent-output%3Aout-1' }) })
+
+    expect(res.status).toBe(409)
+    expect(mockProjectTaskAdd).not.toHaveBeenCalled()
   })
 
   it('accepts routed briefing alternatives for specialist triage and routed task creation', async () => {

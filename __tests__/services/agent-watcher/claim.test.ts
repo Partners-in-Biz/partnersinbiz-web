@@ -28,6 +28,11 @@ jest.mock('../../../services/agent-watcher/src/logger', () => ({
 
 import { db } from '../../../services/agent-watcher/src/firestore'
 import { claimTask, sweepStaleTasks } from '../../../services/agent-watcher/src/claim'
+import {
+  planningDiscoveryDigest,
+  type PlanningDecisionBrief,
+  type PlanningDiscoveryState,
+} from '../../../lib/projects/planningDiscovery'
 
 const dbMock = db as unknown as { collection: jest.Mock; collectionGroup: jest.Mock; batch: jest.Mock; runTransaction: jest.Mock }
 
@@ -93,6 +98,71 @@ describe('agent watcher planning gate claim', () => {
   const projectRef = { path: 'projects/project-1' }
   const taskRef = { path: 'projects/project-1/tasks/task-1', parent: { parent: projectRef, doc: jest.fn() } }
 
+  const brief: PlanningDecisionBrief = {
+    outcome: 'Ship a safe planning gate',
+    user: 'Project delivery agents',
+    whyNow: 'Queued work must not bypass planning discovery',
+    successCriteria: ['Only canonically ready work can be claimed'],
+    constraints: ['Keep the watcher package self-contained'],
+    outOfScope: ['Production deployment'],
+    assumptions: ['Existing execution remains operable'],
+    risks: ['Incomplete state could dispatch work'],
+    approvalGates: ['production-deploy'],
+  }
+  const digest = planningDiscoveryDigest(brief)
+  const inspection = {
+    brief: ['brief'], docs: ['docs'], files: ['files'], plan: ['plan'],
+    tasks: ['tasks'], tools: ['tools'], agents: ['agents'], skills: ['skills'],
+    inspectedBy: 'pip', inspectedAt: '2026-07-27T00:00:00.000Z',
+  }
+  const confirmedState: PlanningDiscoveryState = {
+    schemaVersion: 1,
+    revision: 7,
+    enforced: true,
+    status: 'confirmed',
+    mode: 'interview',
+    inspection,
+    turns: [{
+      id: 'q-1', question: 'What matters?', currentGuess: 'Safe dispatch',
+      askedBy: 'pip', askedAt: '2026-07-27T00:01:00.000Z',
+      answer: 'Canonical readiness', answeredBy: 'peet', answeredAt: '2026-07-27T00:02:00.000Z',
+    }],
+    confidence: 96,
+    predictedNextAnswers: ['Development only', 'No deployment', 'Preserve approvals'],
+    intentBlockingUnknowns: [],
+    brief,
+    digest,
+    confirmedBy: 'peet',
+    confirmedAt: '2026-07-27T00:03:00.000Z',
+  }
+  const assumptionsState: PlanningDiscoveryState = {
+    schemaVersion: 1,
+    revision: 5,
+    enforced: true,
+    status: 'assumptions_attested',
+    mode: 'assumptions',
+    inspection,
+    brief,
+    digest,
+    attestation: 'PLAN WITH ASSUMPTIONS',
+    attestationReason: 'Proceed with explicit assumptions while preserving every approval gate',
+    acknowledgesPreservedOperationalGates: true,
+    confirmedBy: 'peet',
+    confirmedAt: '2026-07-27T00:03:00.000Z',
+  }
+
+  async function claimWithPlanningState(planningDiscovery: unknown) {
+    const update = jest.fn()
+    dbMock.runTransaction.mockImplementation(async (work) => work({
+      get: jest.fn()
+        .mockResolvedValueOnce({ exists: true, data: () => ({ assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo' }) })
+        .mockResolvedValueOnce({ exists: true, data: () => ({ planningDiscovery }) }),
+      update,
+    }))
+    const claimed = await claimTask(taskRef as never, 'theo')
+    return { claimed, update }
+  }
+
   beforeEach(() => jest.clearAllMocks())
 
   it('does not claim nested queued work when its parent project discovery is incomplete, even in YOLO mode', async () => {
@@ -135,17 +205,27 @@ describe('agent watcher planning gate claim', () => {
     expect(update).not.toHaveBeenCalled()
   })
 
-  it('claims queued work after the exact brief is confirmed', async () => {
-    const update = jest.fn()
-    dbMock.runTransaction.mockImplementation(async (work) => work({
-      get: jest.fn()
-        .mockResolvedValueOnce({ exists: true, data: () => ({ assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo' }) })
-        .mockResolvedValueOnce({ exists: true, data: () => ({ planningDiscovery: { enforced: true, status: 'confirmed', digest: 'digest', brief: { outcome: 'Ship' } } }) }),
-      update,
-    }))
+  it.each([
+    ['confirmed interview', confirmedState],
+    ['attested assumption', assumptionsState],
+  ])('claims queued work after a canonically ready %s state', async (_label, state) => {
+    const { claimed, update } = await claimWithPlanningState(state)
 
-    await expect(claimTask(taskRef as never, 'theo')).resolves.toBe(true)
+    expect(claimed).toBe(true)
     expect(update).toHaveBeenCalledWith(taskRef, expect.objectContaining({ agentStatus: 'picked-up' }))
+  })
+
+  it.each([
+    ['confirmed state without complete inspection', { ...confirmedState, inspection: undefined }],
+    ['confirmed state without answered interview evidence', { ...confirmedState, turns: [] }],
+    ['confirmed state with a stale digest', { ...confirmedState, digest: 'stale-digest' }],
+    ['assumption state without exact attestation', { ...assumptionsState, attestation: undefined }],
+    ['assumption state without preserved-gate acknowledgement', { ...assumptionsState, acknowledgesPreservedOperationalGates: undefined }],
+  ])('rejects an incomplete %s', async (_label, state) => {
+    const { claimed, update } = await claimWithPlanningState(state)
+
+    expect(claimed).toBe(false)
+    expect(update).not.toHaveBeenCalled()
   })
 })
 

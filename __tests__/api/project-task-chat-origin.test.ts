@@ -17,7 +17,16 @@ jest.mock('firebase-admin/firestore', () => ({
 }))
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: mockCollection },
+  adminDb: {
+    collection: mockCollection,
+    runTransaction: jest.fn(async (callback: (tx: {
+      get: (ref: { get: () => unknown }) => unknown
+      set: (ref: { set: (value: unknown) => unknown }, value: unknown) => unknown
+    }) => unknown) => callback({
+      get: (ref) => ref.get(),
+      set: (ref, value) => ref.set(value),
+    })),
+  },
 }))
 
 jest.mock('@/lib/api/auth', () => ({
@@ -77,8 +86,18 @@ beforeEach(() => {
   const secondWhere = jest.fn(() => ({ limit: () => ({ get: mockDuplicateGet }) }))
   mockTaskWhere.mockReturnValue({ where: secondWhere })
   mockTaskAdd.mockResolvedValue({ id: 'task-new' })
-  mockTaskCollection.mockReturnValue({ where: mockTaskWhere, add: mockTaskAdd })
-  mockProjectDoc.mockReturnValue({ collection: mockTaskCollection })
+  mockTaskCollection.mockReturnValue({
+    where: mockTaskWhere,
+    add: mockTaskAdd,
+    doc: jest.fn(() => ({ id: 'task-new', set: mockTaskAdd })),
+  })
+  mockProjectDoc.mockReturnValue({
+    collection: mockTaskCollection,
+    get: jest.fn(async () => ({
+      exists: true,
+      data: () => ({ orgId: 'org-1', name: 'Launch' }),
+    })),
+  })
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { doc: mockProjectDoc }
     if (name === 'notifications') return { add: jest.fn() }

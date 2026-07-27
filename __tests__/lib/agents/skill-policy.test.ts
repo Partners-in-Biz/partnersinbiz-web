@@ -227,6 +227,7 @@ describe('agent skill policy manifest', () => {
 
   it('grants Pip the governed planning workflow in both runtime and catalog policy', () => {
     const planningSkills = [
+      'agent-skills/using-agent-skills',
       'agent-skills/interview-me',
       'agent-skills/planning-and-task-breakdown',
       'agent-skills/spec-driven-development',

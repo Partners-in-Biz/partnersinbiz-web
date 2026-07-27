@@ -5,6 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
 import { evaluateUnblockReadiness, type DependencyStatus } from '@/lib/projects/blockerRecovery'
+import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import { logActivity } from '@/lib/activity/log'
 
 export const dynamic = 'force-dynamic'
@@ -60,6 +61,8 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const access = await getProjectForUser(projectId, user)
   if (!access.ok) return apiError(access.error, access.status)
   if (!isAuthorisedToUnblock(user.role)) return apiError('Only an authorised user can unblock a waiting task', 403)
+  const planningBlocker = planningMutationBlocker((access.doc.data() ?? {}) as Record<string, unknown>)
+  if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
 
   const taskRef = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
   const taskDoc = await taskRef.get()

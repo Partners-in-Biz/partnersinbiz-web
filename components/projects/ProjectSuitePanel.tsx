@@ -88,7 +88,7 @@ type SuiteData = {
     mode?: 'interview' | 'assumptions'
     confidence?: number
     digest?: string
-    brief?: { outcome?: string; whyNow?: string; successCriteria?: string[]; constraints?: string[]; outOfScope?: string[]; assumptions?: string[]; risks?: string[]; approvalGates?: string[] }
+    brief?: { outcome?: string; user?: string; whyNow?: string; successCriteria?: string[]; constraints?: string[]; outOfScope?: string[]; assumptions?: string[]; risks?: string[]; approvalGates?: string[] }
     attestationReason?: string
   } | null
   health?: ProjectHealth
@@ -176,6 +176,14 @@ function csvToIds(value: string): string[] {
       .map((item) => item.trim())
       .filter(Boolean),
   ))
+}
+
+function playbookTemplateStepCount(item: SuiteItem): number {
+  if (item.template && typeof item.template === 'object') {
+    const steps = (item.template as { steps?: unknown }).steps
+    if (Array.isArray(steps)) return steps.length
+  }
+  return Array.isArray(item.templateSteps) ? item.templateSteps.length : 0
 }
 
 type TimelineDraft = {
@@ -581,6 +589,15 @@ function ControlForms({
   const [playbookRecurrenceRule, setPlaybookRecurrenceRule] = useState('FREQ=WEEKLY;INTERVAL=1')
   const [playbookNextRunAt, setPlaybookNextRunAt] = useState('')
   const [playbookTemplateSteps, setPlaybookTemplateSteps] = useState('')
+  const [playbookAssigneeAgentId, setPlaybookAssigneeAgentId] = useState('theo')
+  const [playbookAgentSpec, setPlaybookAgentSpec] = useState('')
+  const [playbookRequiredCapability, setPlaybookRequiredCapability] = useState('project-management')
+  const [playbookRiskLevel, setPlaybookRiskLevel] = useState('medium')
+  const [playbookReviewerAgentId, setPlaybookReviewerAgentId] = useState('qa-release')
+  const [playbookExpectedArtifacts, setPlaybookExpectedArtifacts] = useState('Completion summary, Evidence links')
+  const [playbookVerifierChecklist, setPlaybookVerifierChecklist] = useState('Acceptance criteria met, Evidence attached')
+  const [playbookLabels, setPlaybookLabels] = useState('playbook')
+  const [playbookApprovalGate, setPlaybookApprovalGate] = useState('')
   const [playbookAutoCreateTasks, setPlaybookAutoCreateTasks] = useState(false)
   const [automationTitle, setAutomationTitle] = useState('')
   const [automationTrigger, setAutomationTrigger] = useState('milestone_drift')
@@ -617,6 +634,10 @@ function ControlForms({
           className="rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3"
           onSubmit={(event) => {
             event.preventDefault()
+            const stepTitles = csvToIds(playbookTemplateSteps)
+            const expectedArtifacts = csvToIds(playbookExpectedArtifacts)
+            const verifierChecklist = csvToIds(playbookVerifierChecklist)
+            const labels = csvToIds(playbookLabels)
             onCreateSuiteItem({
               type: 'playbook',
               title: playbookTitle,
@@ -625,13 +646,44 @@ function ControlForms({
               recurrenceRule: playbookRecurrenceRule,
               nextRunAt: playbookNextRunAt || null,
               autoCreateTasks: playbookAutoCreateTasks,
-              templateSteps: csvToIds(playbookTemplateSteps),
+              template: {
+                schemaVersion: 1,
+                steps: [
+                  ...(playbookApprovalGate.trim() ? [{
+                    stepId: 'approval-gate-1',
+                    taskKind: 'approval-gate',
+                    title: `Approval: ${playbookApprovalGate.trim().replace(/-/g, ' ')}`,
+                    dependsOnStepIds: [],
+                    approvalGate: playbookApprovalGate.trim(),
+                    riskLevel: playbookRiskLevel,
+                    expectedArtifacts,
+                    verifierChecklist,
+                    labels,
+                  }] : []),
+                  ...stepTitles.map((title, index) => ({
+                    stepId: `step-${index + 1}`,
+                    taskKind: 'agent',
+                    title,
+                    assigneeAgentId: playbookAssigneeAgentId.trim(),
+                    agentInput: { spec: playbookAgentSpec.trim() },
+                    dependsOnStepIds: index === 0 ? [] : [`step-${index}`],
+                    requiredCapability: playbookRequiredCapability.trim(),
+                    riskLevel: playbookRiskLevel,
+                    reviewerAgentId: playbookReviewerAgentId.trim(),
+                    expectedArtifacts,
+                    verifierChecklist,
+                    labels,
+                    ...(playbookApprovalGate.trim() ? { approvalGateStepId: 'approval-gate-1' } : {}),
+                  })),
+                ],
+              },
               visibility: 'project',
             })
               .then(() => {
                 setPlaybookTitle('')
                 setPlaybookNextRunAt('')
                 setPlaybookTemplateSteps('')
+                setPlaybookAgentSpec('')
                 setPlaybookAutoCreateTasks(false)
               })
               .catch(() => {})
@@ -650,33 +702,100 @@ function ControlForms({
               <option value="per_milestone">per milestone</option>
             </select>
           </label>
-          <label className="mt-2 block">
-            <span className="mb-1 block pib-label">Playbook template</span>
-            <select value={playbookTemplateKind} onChange={(event) => setPlaybookTemplateKind(event.target.value)} className="pib-input">
-              <option value="delivery">delivery</option>
-              <option value="launch">launch</option>
-              <option value="reporting">reporting</option>
-              <option value="client_onboarding">client onboarding</option>
-              <option value="custom">custom</option>
-            </select>
-          </label>
-          <label className="mt-2 block">
-            <span className="mb-1 block pib-label">Recurrence rule</span>
-            <input value={playbookRecurrenceRule} onChange={(event) => setPlaybookRecurrenceRule(event.target.value)} className="pib-input" />
-          </label>
-          <label className="mt-2 block">
-            <span className="mb-1 block pib-label">Next run date</span>
-            <input type="date" value={playbookNextRunAt} onChange={(event) => setPlaybookNextRunAt(event.target.value)} className="pib-input" />
-          </label>
+          <details className="mt-2 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] p-2">
+            <summary className="cursor-pointer text-xs font-semibold text-[var(--color-pib-text)]">Schedule details</summary>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Playbook template</span>
+              <select value={playbookTemplateKind} onChange={(event) => setPlaybookTemplateKind(event.target.value)} className="pib-input">
+                <option value="delivery">delivery</option>
+                <option value="launch">launch</option>
+                <option value="reporting">reporting</option>
+                <option value="client_onboarding">client onboarding</option>
+                <option value="custom">custom</option>
+              </select>
+            </label>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Recurrence rule</span>
+              <input value={playbookRecurrenceRule} onChange={(event) => setPlaybookRecurrenceRule(event.target.value)} className="pib-input" />
+            </label>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Next run date</span>
+              <input type="date" value={playbookNextRunAt} onChange={(event) => setPlaybookNextRunAt(event.target.value)} className="pib-input" />
+            </label>
+          </details>
           <label className="mt-2 block">
             <span className="mb-1 block pib-label">Template steps</span>
-            <input value={playbookTemplateSteps} onChange={(event) => setPlaybookTemplateSteps(event.target.value)} className="pib-input" />
+            <input value={playbookTemplateSteps} onChange={(event) => setPlaybookTemplateSteps(event.target.value)} placeholder="Discovery, Build, Verify" className="pib-input" />
           </label>
+          <details className="mt-2 rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] p-2">
+            <summary className="cursor-pointer text-xs font-semibold text-[var(--color-pib-text)]">Agent execution details</summary>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Common assignee agent</span>
+              <select value={playbookAssigneeAgentId} onChange={(event) => setPlaybookAssigneeAgentId(event.target.value)} className="pib-input">
+                <option value="pip">Pip</option>
+                <option value="theo">Theo</option>
+                <option value="maya">Maya</option>
+                <option value="sage">Sage</option>
+                <option value="nora">Nora</option>
+              </select>
+            </label>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Agent task specification</span>
+              <textarea value={playbookAgentSpec} onChange={(event) => setPlaybookAgentSpec(event.target.value)} placeholder="Instructions every generated agent task must follow" rows={3} className="pib-input" />
+            </label>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Required capability</span>
+              <input value={playbookRequiredCapability} onChange={(event) => setPlaybookRequiredCapability(event.target.value)} className="pib-input" />
+            </label>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Risk level</span>
+              <select value={playbookRiskLevel} onChange={(event) => setPlaybookRiskLevel(event.target.value)} className="pib-input">
+                <option value="low">low</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+                <option value="critical">critical</option>
+              </select>
+            </label>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Reviewer agent</span>
+              <input value={playbookReviewerAgentId} onChange={(event) => setPlaybookReviewerAgentId(event.target.value)} className="pib-input" />
+            </label>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Expected artifacts</span>
+              <input value={playbookExpectedArtifacts} onChange={(event) => setPlaybookExpectedArtifacts(event.target.value)} className="pib-input" />
+            </label>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Verifier checklist</span>
+              <input value={playbookVerifierChecklist} onChange={(event) => setPlaybookVerifierChecklist(event.target.value)} className="pib-input" />
+            </label>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Playbook labels</span>
+              <input value={playbookLabels} onChange={(event) => setPlaybookLabels(event.target.value)} className="pib-input" />
+            </label>
+            <label className="mt-2 block">
+              <span className="mb-1 block pib-label">Approval gate</span>
+              <input value={playbookApprovalGate} onChange={(event) => setPlaybookApprovalGate(event.target.value)} placeholder="Optional, for example production-deploy" className="pib-input" />
+            </label>
+            <p className="mt-2 text-[11px] text-[var(--color-pib-text-muted)]">Steps run sequentially. An approval-gate step is added and linked only when you configure one here.</p>
+          </details>
           <label className="mt-3 inline-flex items-center gap-2 text-xs text-[var(--color-pib-text)]">
             <input type="checkbox" checked={playbookAutoCreateTasks} onChange={(event) => setPlaybookAutoCreateTasks(event.target.checked)} className="size-4 rounded border-[var(--color-pib-line)] bg-[var(--color-background)]" />
             <span>Auto-create tasks</span>
           </label>
-          <button type="submit" className="pib-btn-primary mt-3 text-xs font-label" disabled={saving || !playbookTitle.trim()}>Save playbook</button>
+          <button
+            type="submit"
+            className="pib-btn-primary mt-3 text-xs font-label"
+            disabled={saving
+              || !playbookTitle.trim()
+              || csvToIds(playbookTemplateSteps).length === 0
+              || !playbookAssigneeAgentId.trim()
+              || !playbookAgentSpec.trim()
+              || !playbookRequiredCapability.trim()
+              || !playbookReviewerAgentId.trim()
+              || csvToIds(playbookExpectedArtifacts).length === 0
+              || csvToIds(playbookVerifierChecklist).length === 0
+              || csvToIds(playbookLabels).length === 0}
+          >Save playbook</button>
         </form>
 
         <form
@@ -1033,10 +1152,10 @@ function ItemList({
                   Next {formatDate(item.nextRunAt)}
                 </span>
               ) : null}
-              {Array.isArray(item.templateSteps) && item.templateSteps.length > 0 ? (
+              {playbookTemplateStepCount(item) > 0 ? (
                 <span className="inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">checklist</span>
-                  {item.templateSteps.length} steps
+                  {playbookTemplateStepCount(item)} steps
                 </span>
               ) : null}
               {item.autoCreateTasks ? (
@@ -1108,10 +1227,7 @@ function ItemList({
             </div>
             {type && item.id && (onArchive || onRun) ? (
               <div className="mt-3 flex justify-end gap-2">
-                {type === 'playbook' && onRun && (
-                  (Array.isArray(item.templateSteps) && item.templateSteps.length > 0)
-                  || (item.template && typeof item.template === 'object' && Array.isArray((item.template as { steps?: unknown[] }).steps) && ((item.template as { steps: unknown[] }).steps.length > 0))
-                ) ? (
+                {type === 'playbook' && onRun && playbookTemplateStepCount(item) > 0 ? (
                   <button
                     type="button"
                     className="pib-btn-primary px-3 py-1 text-[11px] font-label"
@@ -1158,6 +1274,7 @@ function PlanningDiscoveryPanel({
 }) {
   const [attestation, setAttestation] = useState('')
   const [reason, setReason] = useState('')
+  const [acknowledgesPreservedOperationalGates, setAcknowledgesPreservedOperationalGates] = useState(false)
   const ready = state?.status === 'confirmed' || state?.status === 'assumptions_attested'
   const revision = state?.revision ?? 0
   const brief = state?.brief
@@ -1180,13 +1297,21 @@ function PlanningDiscoveryPanel({
       </div>
 
       {brief && (
-        <div className="mt-4 grid gap-3 rounded-xl bg-white p-4 text-sm md:grid-cols-2">
-          <div><span className="font-semibold">Outcome:</span> {brief.outcome}</div>
-          <div><span className="font-semibold">Why now:</span> {brief.whyNow}</div>
-          <div><span className="font-semibold">Success:</span> {(brief.successCriteria ?? []).join(' · ') || 'Not recorded'}</div>
-          <div><span className="font-semibold">Constraints:</span> {(brief.constraints ?? []).join(' · ') || 'None recorded'}</div>
-          <div><span className="font-semibold">Assumptions:</span> {(brief.assumptions ?? []).join(' · ') || 'None recorded'}</div>
-          <div><span className="font-semibold">Approval gates:</span> {(brief.approvalGates ?? []).join(' · ') || 'Standard gates apply'}</div>
+        <div className="mt-4 rounded-xl bg-white p-4 text-sm">
+          <h4 className="font-headline font-semibold text-[var(--color-pib-text)]">Decision Brief</h4>
+          <dl className="mt-3 grid gap-3 md:grid-cols-2">
+            <div><dt className="font-semibold">Outcome</dt><dd>{brief.outcome || 'Not recorded'}</dd></div>
+            <div><dt className="font-semibold">User / audience</dt><dd>{brief.user || 'Not recorded'}</dd></div>
+            <div><dt className="font-semibold">Why now</dt><dd>{brief.whyNow || 'Not recorded'}</dd></div>
+            <div><dt className="font-semibold">Success criteria</dt><dd>{(brief.successCriteria ?? []).join(' · ') || 'Not recorded'}</dd></div>
+            <div><dt className="font-semibold">Constraints</dt><dd>{(brief.constraints ?? []).join(' · ') || 'None recorded'}</dd></div>
+            <div><dt className="font-semibold">Out of scope</dt><dd>{(brief.outOfScope ?? []).join(' · ') || 'None recorded'}</dd></div>
+            <div><dt className="font-semibold">Assumptions</dt><dd>{(brief.assumptions ?? []).join(' · ') || 'None recorded'}</dd></div>
+            <div><dt className="font-semibold">Risks</dt><dd>{(brief.risks ?? []).join(' · ') || 'None recorded'}</dd></div>
+            <div><dt className="font-semibold">Approval gates</dt><dd>{(brief.approvalGates ?? []).join(' · ') || 'None recorded'}</dd></div>
+            <div><dt className="font-semibold">Revision</dt><dd>{revision}</dd></div>
+            <div className="md:col-span-2"><dt className="font-semibold">Digest</dt><dd className="break-all font-mono text-xs">{state?.digest || 'Not recorded'}</dd></div>
+          </dl>
         </div>
       )}
 
@@ -1206,7 +1331,23 @@ function PlanningDiscoveryPanel({
             <input aria-label="Planning assumptions attestation" className="pib-input" value={attestation} onChange={(event) => setAttestation(event.target.value)} placeholder="Type PLAN WITH ASSUMPTIONS" />
             <input aria-label="Planning assumptions reason" className="pib-input" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why is assumption mode appropriate?" />
           </div>
-          <button className="pib-btn-secondary mt-3" disabled={saving || attestation !== 'PLAN WITH ASSUMPTIONS' || reason.trim().length < 10} onClick={() => onAction({ type: 'plan_with_assumptions', expectedRevision: revision, attestation, reason, brief })}>Attest and plan with assumptions</button>
+          <label className="mt-3 flex items-start gap-2 text-xs text-[var(--color-pib-text)]">
+            <input
+              type="checkbox"
+              checked={acknowledgesPreservedOperationalGates}
+              onChange={(event) => setAcknowledgesPreservedOperationalGates(event.target.checked)}
+              className="mt-0.5 size-4 rounded border-[var(--color-pib-line)] bg-[var(--color-background)]"
+            />
+            <span>I acknowledge all operational approval gates remain required</span>
+          </label>
+          <button
+            className="pib-btn-secondary mt-3"
+            disabled={saving || attestation !== 'PLAN WITH ASSUMPTIONS' || reason.trim().length < 10 || !acknowledgesPreservedOperationalGates}
+            onClick={() => {
+              if (!acknowledgesPreservedOperationalGates) return
+              onAction({ type: 'plan_with_assumptions', expectedRevision: revision, attestation, reason, acknowledgesPreservedOperationalGates: true, brief })
+            }}
+          >Attest and plan with assumptions</button>
         </details>
       )}
     </section>
@@ -1220,7 +1361,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null)
   const requestSequenceRef = useRef(0)
-  const pollInFlightRef = useRef(false)
+  const loadInFlightProjectsRef = useRef(new Set<string>())
 
   const health = data.health ?? {}
   const score = typeof health.score === 'number' ? health.score : 100
@@ -1237,8 +1378,8 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   )
 
   const loadSuite = useCallback(async (options?: { quiet?: boolean; poll?: boolean; signal?: AbortSignal }) => {
-    if (options?.poll && pollInFlightRef.current) return
-    if (options?.poll) pollInFlightRef.current = true
+    if (loadInFlightProjectsRef.current.has(projectId)) return
+    loadInFlightProjectsRef.current.add(projectId)
     const requestSequence = ++requestSequenceRef.current
     if (!options?.quiet) setLoading(true)
     try {
@@ -1269,12 +1410,12 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
       setError(null)
       setLastUpdatedAt(Date.now())
     } catch (err) {
-      if ((err as { name?: string }).name !== 'AbortError') {
+      if (requestSequence === requestSequenceRef.current && (err as { name?: string }).name !== 'AbortError') {
         setError(err instanceof Error ? err.message : 'Project suite failed to load')
       }
     } finally {
-      if (options?.poll) pollInFlightRef.current = false
-      if (!options?.quiet) setLoading(false)
+      loadInFlightProjectsRef.current.delete(projectId)
+      if (requestSequence === requestSequenceRef.current && !options?.quiet) setLoading(false)
     }
   }, [projectId])
 

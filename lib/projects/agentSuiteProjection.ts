@@ -57,17 +57,41 @@ async function list(projectId: string, name: string): Promise<AgentSuiteRecord[]
   return snap.docs.map((doc: { id: string; data: () => Record<string, unknown> }) => ({ id: doc.id, ...doc.data() })).filter((item: Record<string, unknown>) => item.deleted !== true)
 }
 
+function restrictRowsToActiveOrg<T extends object>(items: T[], activeOrgId: string): T[] {
+  return items.filter((item) => {
+    const allowedOrgIds = cleanStringArray((item as Record<string, unknown>).allowedOrgIds)
+    return allowedOrgIds.length === 0 || allowedOrgIds.includes(activeOrgId)
+  })
+}
+
+function activeOrgPrincipal(user: ApiUser, activeOrgId: string): ApiUser {
+  return {
+    ...user,
+    orgId: activeOrgId,
+    activeOrgId,
+    orgIds: [activeOrgId],
+    allowedOrgIds: [activeOrgId],
+  }
+}
+
 export async function loadAgentProjectPlan(input: {
   projectId: string
   projectData: Record<string, unknown>
   tasks: AgentSuiteRecord[]
+  activeOrgId: string
   user: ApiUser
   projectAccess: ProjectAccessContext | null
 }) {
+  const activeOrgId = cleanString(input.activeOrgId)
+  if (!activeOrgId) throw new Error('Active organisation is required for Agent Plan projection')
   const rows = await Promise.all(COLLECTIONS.map((name) => list(input.projectId, name)))
   const byName = Object.fromEntries(COLLECTIONS.map((name, index) => [name, rows[index]])) as Record<(typeof COLLECTIONS)[number], AgentSuiteRecord[]>
-  const filter = <T extends object>(items: T[]) => filterProjectItemsForAccess(items, { projectAccess: input.projectAccess, user: input.user })
-  const policies = byName.permissions
+  const scopedUser = activeOrgPrincipal(input.user, activeOrgId)
+  const filter = <T extends object>(items: T[]) => filterProjectItemsForAccess(
+    restrictRowsToActiveOrg(items, activeOrgId),
+    { projectAccess: input.projectAccess, user: scopedUser },
+  )
+  const policies = restrictRowsToActiveOrg(byName.permissions, activeOrgId)
   const tasks = filter(applyAgentPermissionPolicies(input.tasks, policies, 'task'))
   const milestones = filter(applyAgentPermissionPolicies(byName.milestones, policies, 'milestone'))
   const approvals = filter(applyAgentPermissionPolicies(byName.approvals, policies, 'approval'))
