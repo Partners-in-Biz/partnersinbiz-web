@@ -90,6 +90,10 @@ interface TaskData {
   riskLevel?: string
   agentEffort?: string
   agentModel?: string
+  agentProvider?: string
+  llmCredentialSource?: string
+  llmCredentialOwnerUid?: string
+  llmResolvedSource?: string
   requiredCapability?: string
   requestedByAgentId?: string
   expectedArtifacts?: string[]
@@ -616,6 +620,9 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       constraints: taskData.agentInput?.constraints,
       agentEffort: taskData.agentEffort ?? null,
       agentModel: taskData.agentModel ?? null,
+      agentProvider: taskData.agentProvider ?? null,
+      llmCredentialSource: taskData.llmCredentialSource ?? null,
+      llmResolvedSource: taskData.llmResolvedSource ?? null,
     }
 
     // Callback: fires as soon as the Hermes run is created (before polling completes).

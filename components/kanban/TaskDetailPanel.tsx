@@ -6,6 +6,7 @@ import { uploadTaskFile } from './TaskComposer'
 import { ContextReferenceChips } from '@/components/context-references/ContextReferenceChips'
 import { ContextReferencePicker } from '@/components/context-references/ContextReferencePicker'
 import { AGENT_EFFORT_OPTIONS, AGENT_MODEL_OPTIONS, type AgentEffort, type AgentModel } from '@/lib/agents/runRouting'
+import type { TaskLlmCredentialSource } from '@/lib/projects/task-llm'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { ReadableTaskText } from './ReadableTaskText'
 import type { ContextReference } from '@/lib/context-references/types'
@@ -168,6 +169,9 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
   const [reviewerAgentId, setReviewerAgentId] = useState<AgentId | ''>((task?.reviewerAgentId as AgentId | null) ?? '')
   const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>((task?.agentEffort as AgentEffort | null) ?? '')
   const [agentModel, setAgentModel] = useState<AgentModel | ''>((task?.agentModel as AgentModel | null) ?? '')
+  const [llmCredentialSource, setLlmCredentialSource] = useState<TaskLlmCredentialSource | ''>(
+    (task?.llmCredentialSource as TaskLlmCredentialSource | null) ?? '',
+  )
   const [dueDate, setDueDate] = useState(dateInputValue(task?.dueDate))
   const [startDate, setStartDate] = useState(dateInputValue(task?.startDate))
   const [agentReleaseAt, setAgentReleaseAt] = useState(dateTimeInputValue(task?.agentReleaseAt))
@@ -212,6 +216,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
     setReviewerAgentId((task?.reviewerAgentId as AgentId | null) ?? '')
     setAgentEffort((task?.agentEffort as AgentEffort | null) ?? '')
     setAgentModel((task?.agentModel as AgentModel | null) ?? '')
+    setLlmCredentialSource((task?.llmCredentialSource as TaskLlmCredentialSource | null) ?? '')
     setDueDate(dateInputValue(task?.dueDate))
     setStartDate(dateInputValue(task?.startDate))
     setAgentReleaseAt(dateTimeInputValue(task?.agentReleaseAt))
@@ -293,6 +298,7 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
       reviewerAgentId: reviewerAgentId || null,
       agentEffort: agentId && agentEffort ? agentEffort : null,
       agentModel: agentId && agentModel ? agentModel : null,
+      llmCredentialSource: agentId ? (llmCredentialSource || 'auto') : null,
       dueDate: dueDate || null,
       startDate: startDate || null,
       agentReleaseAt: hasReleaseDate ? releaseDate!.toISOString() : null,
@@ -1129,6 +1135,21 @@ export function TaskDetailPanel({ task, columnName, projectId, orgId, members = 
                     </select>
                   </label>
                 </div>
+                <label className="block space-y-1">
+                  <span className="block pib-label">LLM credentials</span>
+                  <select
+                    value={llmCredentialSource}
+                    onChange={e => { setLlmCredentialSource(e.target.value as TaskLlmCredentialSource | ''); setEditing(true) }}
+                    className="w-full rounded-[var(--radius-btn)] border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-2 py-2 text-xs text-[var(--color-pib-text)] focus:border-[var(--color-accent-v2)] focus:outline-none"
+                  >
+                    <option value="">Auto (personal if allowed, else organisation)</option>
+                    <option value="org">Organisation VPS credentials</option>
+                    <option value="personal">My personal credentials</option>
+                  </select>
+                  <span className="block text-[10px] text-[var(--color-pib-text-muted)]">
+                    Personal requires Team access enablement and a connected provider in Settings.
+                  </span>
+                </label>
                 <div className="flex items-center justify-between gap-2">
                   <p className="pib-label">Scheduled release</p>
                   {task.agentReleaseStatus === 'scheduled' && Boolean(task.agentReleaseAt) && (

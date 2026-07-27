@@ -113,6 +113,38 @@ describe('agent watcher Hermes dispatch', () => {
     }))
   })
 
+  it('sends provider when agentProvider is set for personal/org credential routing', async () => {
+    let postedBody: Record<string, unknown> | null = null
+    global.fetch = jest.fn(async (url: string | URL, init?: RequestInit) => {
+      const urlText = String(url)
+      if (urlText.endsWith('/v1/runs')) {
+        postedBody = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
+        return new Response(JSON.stringify({ id: 'run-provider-1' }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ status: 'completed', output: 'done' }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    await expect(runAndPoll(cfg, {
+      taskId: 'task-1',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Do the work',
+      agentModel: 'gpt-5.4',
+      agentProvider: 'openai-codex',
+      llmCredentialSource: 'personal',
+      llmResolvedSource: 'personal',
+    })).resolves.toMatchObject({ runId: 'run-provider-1', output: 'done', error: null })
+
+    expect(postedBody).toEqual(expect.objectContaining({
+      model: 'gpt-5.4',
+      provider: 'openai-codex',
+      metadata: expect.objectContaining({
+        llmCredentialSource: 'personal',
+        llmResolvedSource: 'personal',
+      }),
+    }))
+  })
+
   it('returns exact upstream model token and cost telemetry from terminal Hermes payloads', async () => {
     global.fetch = jest.fn(async (url: string | URL) => {
       const urlText = String(url)

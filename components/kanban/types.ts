@@ -95,6 +95,9 @@ export interface Task {
   approvalGate?: ApprovalGate | null
   agentEffort?: AgentEffort | null
   agentModel?: AgentModel | null
+  agentProvider?: string | null
+  llmCredentialSource?: 'auto' | 'org' | 'personal' | null
+  llmCredentialOwnerUid?: string | null
   requiredCapability?: string | null
   requestedByAgentId?: AgentId | null
   approvalGateTaskId?: string | null

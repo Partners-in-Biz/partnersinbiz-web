@@ -15,6 +15,7 @@ import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
 import { getConversation } from '@/lib/conversations/conversations'
 import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
+import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
 
 export const dynamic = 'force-dynamic'
 
@@ -142,6 +143,14 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     taskData.value.contextRefs = contextRefs
     attachContextRefsToAgentInput(taskData.value, contextRefs)
   }
+
+  await applyTaskLlmCredentialResolution({
+    orgId,
+    ownerUid: user.uid,
+    user,
+    taskFields: taskData.value,
+    syncPersonal: true,
+  })
 
   const doc: Record<string, unknown> = {
     ...taskData.value,
