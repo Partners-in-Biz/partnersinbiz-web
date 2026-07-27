@@ -19,6 +19,15 @@ describe('agent watcher task dispatch eligibility', () => {
     expect(getTaskDispatchBlocker({ assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', approvalGate: { status: 'approved' } }, validAgents)).toBeNull()
   })
 
+  it('fails closed for persisted string approval gates until approvalStatus is approved', () => {
+    const base = { assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo' }
+
+    expect(getTaskDispatchBlocker({ ...base, approvalGate: 'production-deploy', approvalStatus: 'pending' }, validAgents)).toBe('approval-pending')
+    expect(getTaskDispatchBlocker({ ...base, approvalGate: 'production-deploy', approvalStatus: 'accepted' }, validAgents)).toBe('approval-pending')
+    expect(getTaskDispatchBlocker({ ...base, approvalGate: 'production-deploy', approvalStatus: 'approved' }, validAgents)).toBeNull()
+    expect(getTaskDispatchBlocker({ ...base, approvalGate: 'none', approvalStatus: 'pending' }, validAgents)).toBe('approval-pending')
+  })
+
   it('does not pass scheduled backlog tasks before their release time', () => {
     expect(getTaskDispatchBlocker({
       assigneeAgentId: 'theo',
@@ -70,5 +79,13 @@ describe('agent watcher task dispatch eligibility', () => {
       'review-approved': { columnId: 'review', agentStatus: 'done', reviewerAgentId: 'qa-release', reviewStatus: 'approved' },
       'ordinary-done': { columnId: 'review', agentStatus: 'done' },
     })).toEqual(['review-pending'])
+  })
+
+  it('requires approval before a completed approval-gate dependency resolves', () => {
+    expect(getUnresolvedDependencyIds(['pending-gate', 'approved-gate', 'labelled-gate'], {
+      'pending-gate': { columnId: 'done', agentStatus: 'done', approvalGate: 'production-deploy', approvalStatus: 'pending' },
+      'approved-gate': { columnId: 'done', agentStatus: 'done', approvalGate: 'production-deploy', approvalStatus: 'approved' },
+      'labelled-gate': { columnId: 'done', agentStatus: 'done', labels: ['approval-gate'], approvalStatus: 'pending' },
+    })).toEqual(['pending-gate', 'labelled-gate'])
   })
 })

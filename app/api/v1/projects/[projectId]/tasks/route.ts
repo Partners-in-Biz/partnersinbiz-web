@@ -10,7 +10,7 @@ import {
   notificationPriority,
   taskOrderMillis,
 } from '@/lib/projects/taskPayload'
-import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
+import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
 import { getConversation } from '@/lib/conversations/conversations'
@@ -22,6 +22,26 @@ type RouteContext = { params: Promise<{ projectId: string }> }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function cleanString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function authoritativeProjectOrgId(project: Record<string, unknown>): string {
+  return cleanString(project.orgId) || cleanString(project.ownerOrgId) || cleanString(project.sourceOrgId) || cleanString(project.issuerOrgId)
+}
+
+function projectRequestOrgScope(req: NextRequest, user: Parameters<typeof getProjectForUser>[1]) {
+  const explicitOrgId = req.headers.get('x-org-id')?.trim() || ''
+  const isAgentActor = user.role === 'ai' || user.authKind === 'user_delegation'
+  if (isAgentActor && !explicitOrgId) {
+    return { ok: false as const, response: apiError('X-Org-Id is required for agent project task access', 400) }
+  }
+  if (isAgentActor && user.orgId && explicitOrgId !== user.orgId) {
+    return { ok: false as const, response: apiError('Agent organisation scope does not match X-Org-Id', 403) }
+  }
+  return { ok: true as const, orgId: explicitOrgId || undefined }
 }
 
 async function validateChatOrigin(input: {
@@ -67,7 +87,9 @@ function attachContextRefsToAgentInput(value: Record<string, unknown>, contextRe
 
 export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const scope = projectRequestOrgScope(req, user)
+  if (!scope.ok) return scope.response
+  const access = await getProjectForUser(projectId, user, scope.orgId)
   if (!access.ok) return apiError(access.error, access.status)
 
   const snapshot = await adminDb
@@ -86,16 +108,25 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
 
-  const access = await getProjectForUser(projectId, user)
+  const scope = projectRequestOrgScope(req, user)
+  if (!scope.ok) return scope.response
+  const access = await getProjectForUser(projectId, user, scope.orgId)
   if (!access.ok) return apiError(access.error, access.status)
+  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
+    return apiError('Project contributor access is required to create tasks', 403)
+  }
   const project = access.doc.data() ?? {}
 
   const planningBlocker = planningMutationBlocker(project)
   if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
 
-  const taskData = buildProjectTaskCreateData(body, projectId, typeof project.orgId === 'string' ? project.orgId : undefined)
+  const orgId = authoritativeProjectOrgId(project)
+  if (!orgId) return apiError('Project organisation is required to create tasks', 400)
+  const taskBody = { ...body }
+  delete taskBody.orgId
+  const taskData = buildProjectTaskCreateData(taskBody, projectId, orgId)
   if (!taskData.ok) return apiError(taskData.error, taskData.status ?? 400)
-  const orgId = typeof taskData.value.orgId === 'string' ? taskData.value.orgId : typeof project.orgId === 'string' ? project.orgId : undefined
+  taskData.value.orgId = orgId
   const chatOriginValidation = await validateChatOrigin({
     projectId,
     orgId,

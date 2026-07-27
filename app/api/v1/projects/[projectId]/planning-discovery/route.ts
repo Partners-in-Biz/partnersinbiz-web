@@ -6,6 +6,7 @@ import { getProjectForUser } from '@/lib/projects/access'
 import { canProjectRole } from '@/lib/projects/collaboration'
 import {
   applyPlanningDiscoveryAction,
+  isPlanningDiscoveryActionType,
   type PlanningDiscoveryState,
 } from '@/lib/projects/planningDiscovery'
 
@@ -22,9 +23,15 @@ function publicSummary(value: unknown) {
     status: state.status,
     mode: state.mode,
     enforced: state.enforced,
+    inspection: state.inspection ?? null,
+    turns: state.turns ?? [],
+    pendingQuestionId: state.pendingQuestionId ?? null,
+    predictedNextAnswers: state.predictedNextAnswers ?? [],
+    intentBlockingUnknowns: state.intentBlockingUnknowns ?? [],
     confidence: state.confidence ?? null,
     brief: state.brief ?? null,
     digest: state.digest ?? null,
+    snapshots: state.snapshots ?? [],
     startedBy: state.startedBy ?? null,
     startedAt: state.startedAt ?? null,
     updatedBy: state.updatedBy ?? null,
@@ -32,6 +39,7 @@ function publicSummary(value: unknown) {
     confirmedBy: state.confirmedBy ?? null,
     confirmedAt: state.confirmedAt ?? null,
     attestationReason: state.attestationReason ?? null,
+    acknowledgesPreservedOperationalGates: state.acknowledgesPreservedOperationalGates === true,
   }
 }
 
@@ -57,8 +65,10 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const action = await req.json().catch(() => null)
   if (!action || typeof action !== 'object' || typeof action.type !== 'string') return apiError('A planning discovery action is required', 400)
-  if (user.role === 'ai' && action.type !== 'start' && action.type !== 'submit_brief') {
-    return apiError('A human project manager must confirm, reopen, or attest the Decision Brief', 403)
+  if (!isPlanningDiscoveryActionType(action.type)) return apiError('Unknown planning discovery action', 400)
+  const terminalHumanActions = new Set(['confirm', 'plan_with_assumptions', 'reopen'])
+  if (terminalHumanActions.has(action.type) && (user.role === 'ai' || user.authKind === 'user_delegation')) {
+    return apiError('A direct human project manager must confirm, reopen, or attest the Decision Brief', 403)
   }
 
   const projectRef = adminDb.collection('projects').doc(projectId)
@@ -70,7 +80,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       const project = snap.data() ?? {}
       const transition = applyPlanningDiscoveryAction(
         (project.planningDiscovery as PlanningDiscoveryState | undefined) ?? null,
-        action as Parameters<typeof applyPlanningDiscoveryAction>[1],
+        action,
         { uid: user.uid, now: new Date().toISOString() },
       )
       if (!transition.ok) return transition
@@ -84,10 +94,15 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
           status: transition.state.status,
           mode: transition.state.mode,
           confidence: transition.state.confidence ?? null,
+          inspection: transition.state.inspection ?? null,
+          turns: transition.state.turns ?? [],
+          predictedNextAnswers: transition.state.predictedNextAnswers ?? [],
+          intentBlockingUnknowns: transition.state.intentBlockingUnknowns ?? [],
           brief: transition.state.brief,
           confirmedBy: transition.state.confirmedBy ?? null,
           confirmedAt: transition.state.confirmedAt ?? null,
           attestationReason: transition.state.attestationReason ?? null,
+          acknowledgesPreservedOperationalGates: transition.state.acknowledgesPreservedOperationalGates === true,
           updatedBy: user.uid,
           updatedAt: new Date(),
         }, { merge: true })

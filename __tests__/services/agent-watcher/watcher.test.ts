@@ -761,6 +761,82 @@ describe('agent watcher dispatchTask', () => {
     )
   })
 
+  it('does not release blocked tasks whose completed approval-gate dependency is unapproved', async () => {
+    const dependencySnap = {
+      exists: true,
+      data: () => ({
+        agentStatus: 'done',
+        columnId: 'done',
+        approvalGate: 'production-deploy',
+        approvalStatus: 'pending',
+        labels: ['approval-gate'],
+      }),
+    }
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'blocked-approval-follow-up',
+      path: 'projects/project-1/tasks/blocked-approval-follow-up',
+      parent: {
+        doc: jest.fn(() => ({ get: jest.fn(async () => dependencySnap) })),
+      },
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'awaiting-input',
+      columnId: 'blocked',
+      title: 'Blocked approval follow-up',
+      dependsOn: ['approval-dependency-1'],
+    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks()
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(taskRef.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'pending',
+      columnId: 'todo',
+    }))
+    expect(claimTaskMock).not.toHaveBeenCalledWith(taskRef, 'theo')
+  })
+
+  it('does not sweep pending work through an unapproved reviewer dependency', async () => {
+    const dependencySnap = {
+      exists: true,
+      data: () => ({
+        agentStatus: 'done',
+        columnId: 'review',
+        reviewerAgentId: 'qa-release',
+        reviewStatus: 'pending',
+      }),
+    }
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'review-dependent-follow-up',
+      path: 'projects/project-1/tasks/review-dependent-follow-up',
+      parent: {
+        doc: jest.fn(() => ({ get: jest.fn(async () => dependencySnap) })),
+      },
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Reviewer-dependent follow-up',
+      dependsOn: ['review-dependency-1'],
+    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks()
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(claimTaskMock).not.toHaveBeenCalledWith(taskRef, 'theo')
+    expect(runAndPollMock).not.toHaveBeenCalled()
+  })
+
   it('does not auto-release blocked error cards just because their dependencies are done', async () => {
     const dependencySnap = { exists: true, data: () => ({ agentStatus: 'done', columnId: 'review' }) }
     const taskRef = {

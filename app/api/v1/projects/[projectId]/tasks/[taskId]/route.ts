@@ -15,6 +15,7 @@ import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
 import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
+import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +23,30 @@ type RouteContext = { params: Promise<{ projectId: string; taskId: string }> }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function projectRequestOrgScope(req: NextRequest, user: Parameters<typeof getProjectForUser>[1]) {
+  const explicitOrgId = req.headers.get('x-org-id')?.trim() || ''
+  const isAgentActor = user.role === 'ai' || user.authKind === 'user_delegation'
+  if (isAgentActor && !explicitOrgId) {
+    return { ok: false as const, response: apiError('X-Org-Id is required for agent project task access', 400) }
+  }
+  if (isAgentActor && user.orgId && explicitOrgId !== user.orgId) {
+    return { ok: false as const, response: apiError('Agent organisation scope does not match X-Org-Id', 403) }
+  }
+  return { ok: true as const, orgId: explicitOrgId || undefined }
+}
+
+function taskIsVisible(
+  taskId: string,
+  task: Record<string, unknown>,
+  access: Extract<Awaited<ReturnType<typeof getProjectForUser>>, { ok: true }>,
+  user: Parameters<typeof getProjectForUser>[1],
+): boolean {
+  return filterProjectItemsForAccess([{ id: taskId, ...task }], {
+    projectAccess: access.projectAccess,
+    user,
+  }).length === 1
 }
 
 function agentInputWithContextRefs(
@@ -65,8 +90,13 @@ async function approvalGateTaskApproved(projectId: string, approvalGateTaskId: s
 export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, taskId } = await (ctx as RouteContext).params
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
-  const access = await getProjectForUser(projectId, user)
+  const scope = projectRequestOrgScope(req, user)
+  if (!scope.ok) return scope.response
+  const access = await getProjectForUser(projectId, user, scope.orgId)
   if (!access.ok) return apiError(access.error, access.status)
+  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
+    return apiError('Project contributor access is required to update tasks', 403)
+  }
   const planningSensitiveFields = [
     'assigneeAgentId', 'agentInput', 'dependsOn', 'approvalGateTaskId', 'columnId',
     'agentStatus', 'agentReleaseAt', 'agentReleaseStatus', 'agentReleasedAt',
@@ -81,6 +111,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!doc.exists) return apiError('Task not found', 404)
 
   const existing = doc.data() ?? {}
+  if (!taskIsVisible(taskId, existing, access, user)) return apiError('Task not found', 404)
   const labels = Array.isArray(existing.labels) ? existing.labels.map((label) => String(label).toLowerCase()) : []
   const existingGate = typeof existing.approvalGate === 'string' && existing.approvalGate && existing.approvalGate !== 'none'
   const nextGate = typeof body.approvalGate === 'string' && body.approvalGate && body.approvalGate !== 'none'
@@ -241,14 +272,20 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
 
 export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, taskId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const scope = projectRequestOrgScope(req, user)
+  if (!scope.ok) return scope.response
+  const access = await getProjectForUser(projectId, user, scope.orgId)
   if (!access.ok) return apiError(access.error, access.status)
+  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
+    return apiError('Project contributor access is required to delete tasks', 403)
+  }
 
   const ref = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
   const doc = await ref.get()
   if (!doc.exists) return apiError('Task not found', 404)
 
   const existing = doc.data() ?? {}
+  if (!taskIsVisible(taskId, existing, access, user)) return apiError('Task not found', 404)
   const hasApprovalGateTaskId = typeof existing.approvalGateTaskId === 'string' && existing.approvalGateTaskId.trim().length > 0
   if (user.role !== 'admin' && (isApprovalGateRecord(existing) || hasApprovalGateTaskId)) {
     return apiError('Only an admin approver can delete approval-gated project tasks', 403)
