@@ -11,6 +11,7 @@ import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValida
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentAssumption } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +34,84 @@ const ASSUMPTION_STATUSES = new Set(['open', 'resolved'])
 
 function actorType(user: ApiUser) {
   return user.role === 'ai' ? 'agent' : 'user'
+}
+
+function linkedProjectIds(linked: ClientDocument['linked'] | undefined): string[] {
+  return Array.from(new Set([
+    ...(typeof linked?.projectId === 'string' ? [linked.projectId] : []),
+    ...(Array.isArray(linked?.projectIds) ? linked.projectIds : []),
+  ].map((id) => id.trim()).filter(Boolean)))
+}
+
+async function applyLinkedProjectPlanningMutation(
+  transaction: FirebaseFirestore.Transaction,
+  projectIds: string[],
+  user: ApiUser,
+  reason: string,
+): Promise<{ ok: true } | { ok: false; response: Response }> {
+  if (projectIds.length === 0) return { ok: true }
+
+  const projectRefs = projectIds.map((projectId) => adminDb.collection('projects').doc(projectId))
+  const eventRefs = projectRefs.map((projectRef) => projectRef.collection('planningDiscoveryEvents').doc())
+  const projectSnapshots = await Promise.all(projectRefs.map((projectRef) => transaction.get(projectRef)))
+  const now = new Date().toISOString()
+  const transitions = projectSnapshots.map((snapshot, index) => {
+    if (!snapshot.exists) {
+      return {
+        ok: false as const,
+        response: apiError(`Linked project not found: ${projectIds[index]}`, 409, {
+          code: 'planning_discovery_required',
+          revision: 0,
+        }),
+      }
+    }
+    const project = (snapshot.data() ?? {}) as Record<string, unknown>
+    return {
+      ok: true as const,
+      project,
+      transition: planningContextMutationTransition(project, { uid: user.uid, now, reason }),
+    }
+  })
+  const missing = transitions.find((item) => !item.ok)
+  if (missing && !missing.ok) return missing
+
+  const blocked = transitions.find((item) => item.ok && !item.transition.allowed)
+  if (blocked?.ok && !blocked.transition.allowed) {
+    transitions.forEach((item, index) => {
+      if (item.ok && !item.transition.allowed && item.transition.state) {
+        transaction.update(projectRefs[index], {
+          planningDiscovery: item.transition.state,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        if (item.transition.event) {
+          transaction.set(eventRefs[index], {
+            ...item.transition.event,
+            projectId: projectIds[index],
+            orgId: item.project.orgId ?? null,
+            schemaVersion: 1,
+            reason,
+          })
+        }
+      }
+    })
+    return { ok: false, response: apiError(blocked.transition.blocker.message, 409, blocked.transition.blocker) }
+  }
+
+  transitions.forEach((item, index) => {
+    if (!item.ok || !item.transition.allowed) return
+    transaction.update(projectRefs[index], {
+      planningDiscovery: item.transition.state,
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    transaction.set(eventRefs[index], {
+      ...item.transition.event,
+      projectId: projectIds[index],
+      orgId: item.project.orgId ?? null,
+      schemaVersion: 1,
+      reason,
+    })
+  })
+  return { ok: true }
 }
 
 async function assertPatchLinkTenantSafety(
@@ -171,17 +250,24 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
       return { ok: false as const, response: apiError('Document not found', 404) }
     }
 
-    const access = assertClientDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
+    const document = snap.data() as Partial<ClientDocument>
+    const access = assertClientDocumentDataAccess(document, user)
     if (!access.ok) return access
     if (!canManageClientDocument(snap.data() as Partial<ClientDocument>, user)) {
       return { ok: false as const, response: apiError('Only the document creator can manage member sharing', 403) }
     }
 
     if (update.linked) {
-      const data = snap.data() as Partial<ClientDocument>
-      const tenantSafety = await assertPatchLinkTenantSafety(update.linked as ClientDocument['linked'], data.orgId, user)
+      const tenantSafety = await assertPatchLinkTenantSafety(update.linked as ClientDocument['linked'], document.orgId, user)
       if (tenantSafety.ok === false) return { ok: false as const, response: apiError(tenantSafety.error, tenantSafety.status) }
     }
+
+    const projectIds = Array.from(new Set([
+      ...linkedProjectIds(document.linked),
+      ...linkedProjectIds(update.linked as ClientDocument['linked'] | undefined),
+    ]))
+    const planning = await applyLinkedProjectPlanningMutation(transaction, projectIds, user, 'client_document.updated')
+    if (!planning.ok) return planning
 
     transaction.update(documentRef, update)
     return { ok: true as const }
@@ -202,8 +288,17 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, user: ApiUser,
       return { ok: false as const, response: apiError('Document not found', 404) }
     }
 
-    const access = assertClientDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
+    const document = snap.data() as Partial<ClientDocument>
+    const access = assertClientDocumentDataAccess(document, user)
     if (!access.ok) return access
+
+    const planning = await applyLinkedProjectPlanningMutation(
+      transaction,
+      linkedProjectIds(document.linked),
+      user,
+      'client_document.deleted',
+    )
+    if (!planning.ok) return planning
 
     transaction.update(documentRef, {
       status: 'archived',

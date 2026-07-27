@@ -7,7 +7,11 @@ import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { isClientDocumentVisibleToUser, isClientVisibleClientDocument } from '@/lib/client-documents/access'
 import { normalizeClientDocumentLinks, validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
-import { CLIENT_DOCUMENTS_COLLECTION, createClientDocument } from '@/lib/client-documents/store'
+import {
+  CLIENT_DOCUMENTS_COLLECTION,
+  createClientDocument,
+  isClientDocumentPlanningError,
+} from '@/lib/client-documents/store'
 import { themeFromOrg } from '@/lib/client-documents/themeFromOrg'
 import type {
   ClientDocument,
@@ -330,15 +334,23 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   const bodyTheme = (body as { theme?: DocumentTheme }).theme
   const versionTheme: DocumentTheme | undefined = bodyTheme ?? autoTheme ?? undefined
 
-  const created = await createClientDocument({
-    title,
-    type: body.type,
-    orgId: documentOrgId,
-    linked: documentLinked,
-    assumptions,
-    user,
-    theme: versionTheme,
-  })
+  let created: Awaited<ReturnType<typeof createClientDocument>>
+  try {
+    created = await createClientDocument({
+      title,
+      type: body.type,
+      orgId: documentOrgId,
+      linked: documentLinked,
+      assumptions,
+      user,
+      theme: versionTheme,
+    })
+  } catch (error) {
+    if (isClientDocumentPlanningError(error)) {
+      return apiError(error.message, error.status, error.details)
+    }
+    throw error
+  }
 
   // Messages Context Dock: auto-attach open_context when this create is from a chat turn.
   const handoffOrgId = documentOrgId ?? orgId
