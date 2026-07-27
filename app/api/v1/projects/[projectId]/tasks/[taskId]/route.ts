@@ -37,6 +37,13 @@ function projectRequestOrgScope(req: NextRequest, user: Parameters<typeof getPro
   return { ok: true as const, orgId: explicitOrgId || undefined }
 }
 
+function isDirectHumanAdmin(user: Parameters<typeof getProjectForUser>[1]): boolean {
+  return user.role === 'admin'
+    && user.authKind !== 'user_delegation'
+    && user.authKind !== 'agent_api_key'
+    && user.authKind !== 'legacy_ai_key'
+}
+
 function taskIsVisible(
   taskId: string,
   task: Record<string, unknown>,
@@ -119,10 +126,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const isApprovalGatedTask = isApprovalGateCard || existingApprovalGateTaskId
   const approvalMetadataFields = ['approvalGate', 'requiredCapability', 'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'approvalGateTaskId']
   const approvalExecutionFields = ['columnId', 'reviewStatus', 'labels', 'agentStatus', 'assigneeAgentId', 'agentOutput', 'agentConversationId', 'agentHeartbeatAt', 'agentReleaseAt', 'agentReleaseStatus', 'agentReleasedAt']
-  if (body.approvalStatus !== undefined && user.role !== 'admin') {
+  if (body.approvalStatus !== undefined && !isDirectHumanAdmin(user)) {
     return apiError('Only an admin approver can change approvalStatus on project tasks', 403)
   }
-  if (user.role !== 'admin' && approvalMetadataFields.some((field) => body[field] !== undefined)) {
+  if (!isDirectHumanAdmin(user) && approvalMetadataFields.some((field) => body[field] !== undefined)) {
     return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
   if (body.approvalStatus !== undefined && body.approvalStatus !== null && !isApprovalGatedTask) {
@@ -132,10 +139,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!updates.ok) return apiError(updates.error, updates.status ?? 400)
   const updateValue = applyAgentColumnMoveState(existing, updates.value, body)
   const touchesApprovalExecutionState = approvalExecutionFields.some((field) => updateValue[field] !== undefined)
-  if (user.role !== 'admin' && isApprovalGateCard && touchesApprovalExecutionState) {
+  if (!isDirectHumanAdmin(user) && isApprovalGateCard && touchesApprovalExecutionState) {
     return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
-  if (user.role !== 'admin' && existingApprovalGateTaskId && touchesApprovalExecutionState) {
+  if (!isDirectHumanAdmin(user) && existingApprovalGateTaskId && touchesApprovalExecutionState) {
     const approved = await approvalGateTaskApproved(projectId, String(existing.approvalGateTaskId))
     if (!approved) return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
@@ -301,7 +308,7 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   const existing = doc.data() ?? {}
   if (!taskIsVisible(taskId, existing, access, user)) return apiError('Task not found', 404)
   const hasApprovalGateTaskId = typeof existing.approvalGateTaskId === 'string' && existing.approvalGateTaskId.trim().length > 0
-  if (user.role !== 'admin' && (isApprovalGateRecord(existing) || hasApprovalGateTaskId)) {
+  if (!isDirectHumanAdmin(user) && (isApprovalGateRecord(existing) || hasApprovalGateTaskId)) {
     return apiError('Only an admin approver can delete approval-gated project tasks', 403)
   }
 

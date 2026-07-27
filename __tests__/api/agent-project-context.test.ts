@@ -21,7 +21,10 @@ jest.mock('@/lib/api/auth', () => ({
 }))
 
 jest.mock('@/lib/projects/access', () => ({ getProjectForUser: mockGetProjectForUser }))
-jest.mock('@/lib/projects/agentSuiteProjection', () => ({ loadAgentProjectPlan: mockLoadAgentProjectPlan }))
+jest.mock('@/lib/projects/agentSuiteProjection', () => ({
+  loadAgentProjectPlan: mockLoadAgentProjectPlan,
+  applyAgentPermissionPolicies: (items: unknown[]) => items,
+}))
 
 const ts = (millis: number) => ({
   toMillis: () => millis,

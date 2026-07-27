@@ -285,7 +285,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
       }
       return { ok: true as const }
     })
-    if (!mutation.ok) return apiError(mutation.error, mutation.status, 'details' in mutation ? mutation.details : undefined)
+    if (!mutation.ok) return apiError(mutation.error, mutation.status, 'details' in mutation ? mutation.details ?? undefined : undefined)
   } else {
     await projectRef.update(updates)
   }

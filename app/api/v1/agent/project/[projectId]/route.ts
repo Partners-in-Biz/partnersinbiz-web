@@ -14,7 +14,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
-import { loadAgentProjectPlan } from '@/lib/projects/agentSuiteProjection'
+import { applyAgentPermissionPolicies, loadAgentProjectPlan } from '@/lib/projects/agentSuiteProjection'
 import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 
 export const dynamic = 'force-dynamic'
@@ -37,7 +37,11 @@ function timestampMillis(value: unknown): number {
 export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
   const explicitOrgId = req.headers.get('x-org-id')?.trim() || ''
-  if (user.role === 'ai' && !explicitOrgId) return apiError('X-Org-Id is required for agent project context', 400)
+  const isAgentActor = user.role === 'ai' || user.authKind === 'user_delegation'
+  if (isAgentActor && !explicitOrgId) return apiError('X-Org-Id is required for agent project context', 400)
+  if (isAgentActor && user.orgId && explicitOrgId !== user.orgId) {
+    return apiError('Agent organisation scope does not match X-Org-Id', 403)
+  }
   const requestedOrgId = explicitOrgId || user.activeOrgId || user.orgId || ''
   if (!requestedOrgId) return apiError('Active organisation is required for agent project context', 400)
 
@@ -66,15 +70,13 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     id: doc.id,
     ...doc.data(),
   } as { id: string; title?: unknown; content?: unknown; type?: unknown } & Record<string, unknown>))
-  const visibleDocumentRecords = filterProjectItemsForAccess(documentRecords, { projectAccess: access.projectAccess, user })
-  const documents = visibleDocumentRecords.map(data => {
-    return {
-      id: data.id,
-      title: typeof data.title === 'string' ? data.title : '',
-      content: typeof data.content === 'string' ? data.content : '',
-      type: typeof data.type === 'string' ? data.type : 'notes',
-    }
-  })
+  const scopedUser = {
+    ...user,
+    orgId: requestedOrgId,
+    activeOrgId: requestedOrgId,
+    orgIds: [requestedOrgId],
+    allowedOrgIds: [requestedOrgId],
+  }
 
   // Get tasks
   const tasksSnapshot = await adminDb
@@ -93,6 +95,16 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     user,
     projectAccess: access.projectAccess,
   })
+  const visibleDocumentRecords = filterProjectItemsForAccess(
+    applyAgentPermissionPolicies(documentRecords, plan.permissions, 'document'),
+    { projectAccess: access.projectAccess, user: scopedUser },
+  )
+  const documents = visibleDocumentRecords.map(data => ({
+    id: data.id,
+    title: typeof data.title === 'string' ? data.title : '',
+    content: typeof data.content === 'string' ? data.content : '',
+    type: typeof data.type === 'string' ? data.type : 'notes',
+  }))
   const visibleTaskRecords = plan.tasks
   const visibleTaskIds = new Set(visibleTaskRecords.map((task) => task.id))
 

@@ -127,6 +127,17 @@ function stageAuth(member: { uid: string; orgId: string; role: string; firstName
         }),
       }
     }
+    if (name === 'contacts') {
+      return {
+        doc: (id: string) => ({
+          get: () => Promise.resolve({
+            exists: true,
+            id,
+            data: () => ({ orgId: member.orgId, deleted: false }),
+          }),
+        }),
+      }
+    }
     return { doc: () => ({ get: () => Promise.resolve({ exists: false }) }) }
   })
 }
