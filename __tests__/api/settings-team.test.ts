@@ -12,6 +12,7 @@ const mockBatchSet = jest.fn()
 const mockBatchUpdate = jest.fn()
 const mockBatchDelete = jest.fn()
 const mockBatchCommit = jest.fn()
+const mockDiscoverAuthorizedRuntimeTargets = jest.fn()
 
 type MockPortalRoleHandler = (
   req: NextRequest,
@@ -43,6 +44,9 @@ jest.mock('firebase-admin/firestore', () => ({
     arrayRemove: (v: unknown) => ({ type: 'arrayRemove', v }),
   },
 }))
+jest.mock('@/lib/linked-computers/runtime-targets', () => ({
+  discoverAuthorizedRuntimeTargets: mockDiscoverAuthorizedRuntimeTargets,
+}))
 
 import { adminAuth } from '@/lib/firebase/admin'
 
@@ -51,6 +55,7 @@ beforeEach(() => {
   const batchObj = { set: mockBatchSet, update: mockBatchUpdate, delete: mockBatchDelete, commit: mockBatchCommit }
   mockBatch.mockReturnValue(batchObj)
   mockBatchCommit.mockResolvedValue(undefined)
+  mockDiscoverAuthorizedRuntimeTargets.mockResolvedValue([])
   mockDoc.mockReturnValue({ get: mockGet, set: mockSet, update: mockUpdate, delete: mockDelete })
   const queryObj = { where: mockWhere, get: mockGet }
   mockWhere.mockReturnValue(queryObj)
@@ -248,6 +253,37 @@ describe('GET/PATCH /api/v1/portal/settings/team/[uid]/access', () => {
     expect(body.accessPolicy.modules.crm).toBe(true)
     expect(body.accessPolicy.modules.projects).toBe(false)
     expect(body.accessSummary).toMatch(/CRM/i)
+  })
+
+  it('lists active existing computers authorized for the edited member', async () => {
+    mockGet
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({ role: 'member', accessScope: 'crm' }),
+      })
+      .mockResolvedValueOnce({
+        docs: [{ id: 'workspace-row', data: () => ({ workspaceId: 'partners-workspace' }) }],
+      })
+    mockDiscoverAuthorizedRuntimeTargets.mockResolvedValueOnce([{
+      id: 'partners-vps',
+      label: 'Partners VPS',
+      availableAgentIds: ['pip', 'theo'],
+    }])
+
+    const { GET } = await import('@/app/api/v1/portal/settings/team/[uid]/access/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/team/uid-target/access', {
+      headers: { Cookie: '__session=valid' },
+    })
+    const res = await GET(req, { params: Promise.resolve({ uid: 'uid-target' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockDiscoverAuthorizedRuntimeTargets).toHaveBeenCalledWith({
+      userId: 'uid-target', orgId: 'org-1', workspaceId: 'partners-workspace',
+    })
+    expect(body.agentRuntimeTargets).toEqual([expect.objectContaining({
+      id: 'partners-vps', label: 'Partners VPS', availableAgentIds: ['pip', 'theo'],
+    })])
   })
 
   it('updates accessPolicy in orgMembers and organizations.members[]', async () => {

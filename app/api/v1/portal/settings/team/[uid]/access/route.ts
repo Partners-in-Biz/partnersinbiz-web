@@ -4,6 +4,8 @@ import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiErrorFromException } from '@/lib/api/response'
 import type { OrgMember, OrgRole } from '@/lib/organizations/types'
+import { ORG_WORKSPACES_COLLECTION, type OrgWorkspaceRecord } from '@/lib/client-provisioning/workspace-context'
+import { discoverAuthorizedRuntimeTargets, type PublicAuthorizedRuntimeTarget } from '@/lib/linked-computers/runtime-targets'
 import {
   accessSummaryForPolicy,
   normalizeMemberAccessPolicy,
@@ -17,6 +19,39 @@ type StoredMember = OrgMember & { uid?: string }
 
 function memberUid(member: StoredMember): string {
   return member.userId || member.uid || ''
+}
+
+/**
+ * Lists the computers the edited member can already use. This must be resolved
+ * for that member (rather than the administrator editing their policy): a
+ * selected-user computer grant can legitimately differ between the two people.
+ * It deliberately reads active mappings only, so editing agent permissions
+ * never creates a folder mapping or asks the operator to enter a host path.
+ */
+async function loadMemberRuntimeTargets(orgId: string, userId: string): Promise<PublicAuthorizedRuntimeTarget[]> {
+  const workspaceSnapshot = await adminDb.collection(ORG_WORKSPACES_COLLECTION)
+    .where('orgId', '==', orgId)
+    .where('status', '==', 'active')
+    .get()
+  const workspaces = workspaceSnapshot.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }) as OrgWorkspaceRecord)
+    .filter((workspace) => typeof workspace.workspaceId === 'string' && workspace.workspaceId.length > 0)
+
+  const byRuntimeId = new Map<string, PublicAuthorizedRuntimeTarget>()
+  for (const workspace of workspaces) {
+    const targets = await discoverAuthorizedRuntimeTargets({
+      userId,
+      orgId,
+      workspaceId: workspace.workspaceId,
+    })
+    for (const target of targets) {
+      // A single computer may have several Workspace folders. Agent access is
+      // intentionally per computer, so show it once and preserve its existing
+      // mapping entirely outside this settings panel.
+      if (!byRuntimeId.has(target.id)) byRuntimeId.set(target.id, target)
+    }
+  }
+  return Array.from(byRuntimeId.values()).sort((left, right) => left.label.localeCompare(right.label))
 }
 
 async function loadMemberAccess(orgId: string, targetUid: string) {
@@ -70,6 +105,9 @@ export const GET = withPortalAuthAndRole(
         accessScope: loaded.accessScope,
         accessPolicy: loaded.accessPolicy,
         accessSummary: accessSummaryForPolicy(loaded.accessPolicy),
+        // A missing/stale catalogue must not prevent access-policy editing.
+        // Dispatch independently reauthorizes the live computer grant.
+        agentRuntimeTargets: await loadMemberRuntimeTargets(orgId, targetUid).catch(() => []),
       })
     } catch (err) {
       return apiErrorFromException(err)
