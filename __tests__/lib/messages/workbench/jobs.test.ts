@@ -1,5 +1,6 @@
 import {
   appendWorkbenchProgressChunk,
+  canonicalWorkbenchWorkspaceRelativePath,
   parseWorkbenchOperation,
   parseWorkbenchProgressChunk,
   parseWorkbenchResult,
@@ -79,6 +80,13 @@ describe('workbench operation validation', () => {
     expect(sanitizeWorkbenchRelativePath('.', { allowRoot: true })).toBe('.')
     expect(sanitizeWorkbenchRelativePath('.', { allowRoot: false })).toBeNull()
     expect(sanitizeWorkbenchRelativePath('src//lib/jobs.ts')).toBe('src/lib/jobs.ts')
+  })
+
+  it('canonicalizes legacy empty workspace roots to the Workbench root', () => {
+    expect(canonicalWorkbenchWorkspaceRelativePath('')).toBe('.')
+    expect(canonicalWorkbenchWorkspaceRelativePath('   ')).toBe('.')
+    expect(canonicalWorkbenchWorkspaceRelativePath(undefined)).toBe('.')
+    expect(canonicalWorkbenchWorkspaceRelativePath('clients/acme')).toBe('clients/acme')
   })
 })
 

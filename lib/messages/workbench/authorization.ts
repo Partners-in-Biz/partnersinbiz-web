@@ -9,7 +9,11 @@ import {
 } from '@/lib/linked-computers/runtime-targets'
 import { requireProjectRuntimeReplica } from '@/lib/project-locations/runtime-binding'
 import type { WorkbenchBrowserSession } from './browser-sessions'
-import { sanitizeWorkbenchRelativePath, type WorkbenchJob } from './jobs'
+import {
+  canonicalWorkbenchWorkspaceRelativePath,
+  sanitizeWorkbenchRelativePath,
+  type WorkbenchJob,
+} from './jobs'
 import type { WorkbenchSession } from './sessions'
 import type { WorkbenchTunnelSession } from './tunnel-sessions'
 
@@ -119,7 +123,7 @@ export async function authorizeWorkbenchConversation(
     }
   }
 
-  const relativeFolder = sanitizeWorkbenchRelativePath(workspace.folderRelativePath || '.', { allowRoot: true })
+  const relativeFolder = canonicalWorkbenchWorkspaceRelativePath(workspace.folderRelativePath)
   if (!relativeFolder) throw new WorkbenchAuthorizationError('Conversation workspace folder is invalid', 409)
   return { conversation, projectId: null, relativeFolder, binding }
 }
