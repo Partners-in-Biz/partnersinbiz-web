@@ -10,6 +10,11 @@ import type { Conversation } from '@/lib/conversations/types'
 import { listLlmProviderConnections } from '@/lib/llm-providers/store'
 import { getLlmProvider, listLlmProviders } from '@/lib/llm-providers/providers'
 import {
+  isOrgVpsConversationRuntime,
+  runtimeBelongsToUserComputer,
+} from '@/lib/llm-providers/sync-targets'
+import { memberMayUsePersonalLlmOnOrgVps } from '@/lib/orgMembers/access-policy'
+import {
   expandProviderAliases,
   normalizeProviderId,
   providersShareCredentialFamily,
@@ -246,7 +251,8 @@ function connectedModelOptions(
 }
 
 export function canSelectMessageModels(user: ApiUser): boolean {
-  return user.role === 'admin' || user.role === 'ai'
+  // Portal humans and agents may pick any model unlocked for the conversation runtime.
+  return user.role === 'admin' || user.role === 'client' || user.role === 'ai'
 }
 
 export function selectConversationModelAgentId(conversation: Conversation, requestedAgentId?: unknown): AgentId | null {
@@ -297,6 +303,7 @@ export async function getMessageModelCatalog(input: {
   const agentData = agentSnap.exists ? agentSnap.data() as Partial<AgentTeamDoc> : null
   const registryDefaultModel = cleanMessageModelId(agentData?.defaultModel)
   const canSelect = canSelectMessageModels(input.user)
+  const runtimeTarget = readString(input.conversation.workspaceContext?.runtimeTarget) || undefined
 
   let models: PublicMessageModelOption[] = []
   let source: PublicMessageModelCatalog['source'] = 'none'
@@ -304,10 +311,10 @@ export async function getMessageModelCatalog(input: {
   let liveConfig: unknown = null
 
   const [modelsResult, configResult] = await Promise.all([
-    callAgentPath(agentId, '/v1/models', { method: 'GET' })
+    callAgentPath(agentId, '/v1/models', { method: 'GET' }, { runtimeTarget })
       .then((result) => ({ ok: true as const, result }))
       .catch((error: unknown) => ({ ok: false as const, error })),
-    callAgentPath(agentId, '/admin/config')
+    callAgentPath(agentId, '/admin/config', {}, { runtimeTarget })
       .then((result) => ({ ok: true as const, result }))
       .catch((error: unknown) => ({ ok: false as const, error })),
   ])
@@ -347,22 +354,47 @@ export async function getMessageModelCatalog(input: {
   const orgId = input.conversation.orgId || input.user.orgId || input.user.activeOrgId || ''
   let connectedHermesProviders = new Set<string>()
   const localOnlyProviderLabels: string[] = []
+  const personalConnectedProviders = new Set<string>()
   if (orgId) {
     try {
       const connections = await listLlmProviderConnections({ orgId, uid: input.user.uid })
-      // Only organisation-scoped credentials are synced to the org VPS runtime.
-      connectedHermesProviders = new Set(
-        connections
-          .filter((c) => c.scope === 'org' && c.status === 'connected' && c.hasCredentials)
-          .map((c) => c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider || c.provider)
-          .map((provider) => normalizeProviderId(provider))
-          .filter(Boolean),
+      const onUserComputer = await runtimeBelongsToUserComputer(input.user.uid, runtimeTarget)
+      const onOrgVps = !onUserComputer && isOrgVpsConversationRuntime(runtimeTarget)
+      const allowPersonalOnVps = memberMayUsePersonalLlmOnOrgVps(
+        input.user.memberAccessPolicy,
+        // ApiUser uses portal roles; owners are typically admin with full policy.
+        null,
       )
+
       for (const c of connections) {
-        if (c.scope !== 'user' || c.status !== 'connected' || !c.hasCredentials) continue
+        if (c.status !== 'connected' || !c.hasCredentials) continue
+        const hermesProvider = normalizeProviderId(
+          c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider || c.provider,
+        )
+        if (!hermesProvider) continue
+
+        if (c.scope === 'org') {
+          // Org credentials unlock Connected models on the organisation VPS.
+          if (onOrgVps || !onUserComputer) {
+            connectedHermesProviders.add(hermesProvider)
+          }
+          continue
+        }
+
+        // Personal credentials
         const def = getLlmProvider(c.provider)
         const label = def?.label || c.label || c.provider
-        if (!localOnlyProviderLabels.includes(label)) localOnlyProviderLabels.push(label)
+        personalConnectedProviders.add(hermesProvider)
+
+        if (onUserComputer) {
+          connectedHermesProviders.add(hermesProvider)
+        } else if (onOrgVps && allowPersonalOnVps) {
+          // Eligible on VPS when Team access allows personal LLM credentials there.
+          // Still mark localOnly=false so the picker treats them as Connected for this chat.
+          connectedHermesProviders.add(hermesProvider)
+        } else if (!localOnlyProviderLabels.includes(label)) {
+          localOnlyProviderLabels.push(label)
+        }
       }
     } catch {
       // Catalogue still works without connection enrichment.
@@ -416,20 +448,24 @@ export async function getMessageModelCatalog(input: {
   const hasCredentialTruth = usableProviders.size > 0
 
   models = dedupeModels(models).map((model) => {
+    const providerAliases = [...expandProviderAliases([model.provider])]
     const providerUsable = !hasCredentialTruth
       ? true
-      : [...expandProviderAliases([model.provider])].some((alias) => usableProviders.has(alias))
+      : providerAliases.some((alias) => usableProviders.has(alias))
         || model.connected === true
         || model.source === 'connected'
     const hermesSaysUnavailable = model.available === false
     const available = !hermesSaysUnavailable && providerUsable
     const active = modelMatchesLivePrimary(model, autoModel, autoProvider)
+    const unlockedViaConnection = providerAliases.some((alias) => connectedHermesProviders.has(alias))
+    const isPersonalProvider = providerAliases.some((alias) => personalConnectedProviders.has(alias))
     return {
       ...model,
       active,
       available,
       configured: hasCredentialTruth ? (providerUsable || model.configured) : model.configured,
-      connected: model.connected || [...expandProviderAliases([model.provider])].some((alias) => connectedHermesProviders.has(alias)),
+      connected: model.connected || unlockedViaConnection,
+      localOnly: isPersonalProvider && !unlockedViaConnection,
       ...(available
         ? { reasonUnavailable: undefined }
         : {
@@ -446,7 +482,7 @@ export async function getMessageModelCatalog(input: {
   })
 
   if (localOnlyProviderLabels.length) {
-    const localNote = `Personal credentials (${localOnlyProviderLabels.join(', ')}) apply on linked computers only — not on the organisation VPS.`
+    const localNote = `Personal credentials (${localOnlyProviderLabels.join(', ')}) apply on your linked computers${memberMayUsePersonalLlmOnOrgVps(input.user.memberAccessPolicy, null) ? '' : ' only — ask an admin to enable them on the organisation VPS in Team access'}.`
     warning = warning ? `${warning} ${localNote}` : localNote
   }
 

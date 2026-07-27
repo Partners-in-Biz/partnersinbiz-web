@@ -37,9 +37,10 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     notes: {
       cursor: UNSUPPORTED_CURSOR_NOTE,
       orgScope: 'Organisation credentials sync only to this organisation’s VPS Hermes profiles and are shared by everyone using that VPS.',
-      userScope: 'Personal credentials stay on each user’s linked computer. They are never synced to the organisation VPS.',
+      userScope:
+        'Personal credentials sync to your linked computers. When Team access enables “Personal LLM credentials on organisation VPS”, they can also sync to the org VPS (skipped when an organisation connection already covers that provider).',
       hermesNative:
-        'Empty Connect buttons only mean nothing is saved in PiB Settings. Agents can still run on Hermes-native credentials already configured on the VPS or a linked computer (for example ChatGPT Codex via hermes auth). Connect here when you want portal-managed credentials that sync to the organisation VPS and show as Connected in Messages.',
+        'Empty Connect buttons only mean nothing is saved in PiB Settings. Agents can still run on Hermes-native credentials already configured on the VPS or a linked computer (for example ChatGPT Codex via hermes auth). Connect here when you want portal-managed credentials that sync and show as Connected in Messages.',
     },
   })
 })
@@ -103,20 +104,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     type: user.role === 'ai' ? 'agent' : 'user',
   })
 
-  // User-scoped credentials never sync to VPS. Org credentials sync only to org VPS targets.
   let syncResult: Awaited<ReturnType<typeof syncLlmConnectionToHermes>> | undefined
-  if (scope === 'user') {
-    syncResult = {
-      synced: [],
-      failed: [],
-      skippedReason: 'user_scope_local_only',
-      message:
-        'Personal credentials saved. Configure the same provider on each linked computer via Hermes setup — they are not pushed to the organisation VPS.',
-    }
-  } else if (sync !== false) {
+  if (sync !== false) {
     try {
       syncResult = await syncLlmConnectionToHermes(connection.id, {
         agentIds: Array.isArray(agentIds) ? agentIds : undefined,
+        accessPolicy: user.memberAccessPolicy,
       })
     } catch (err) {
       syncResult = {

@@ -31,8 +31,8 @@ export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser,
   if (!existing) return apiError('Connection not found', 404)
   if (!canManageLlmConnection(existing, { orgId, uid: user.uid })) return apiError('Forbidden', 403)
 
-  // Only organisation connections may have been written to a VPS — never unset from user scope.
-  if (existing.scope === 'org' && existing.syncedAgentIds?.length && existing.authKind !== 'oauth_token') {
+  // Best-effort unset on agents previously synced (org VPS and/or personal linked computers).
+  if (existing.syncedAgentIds?.length && existing.authKind !== 'oauth_token') {
     const defEnv = existing.provider === 'copilot'
       ? 'COPILOT_GITHUB_TOKEN'
       : existing.provider === 'xai'
@@ -58,7 +58,7 @@ export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser,
       )
     }
   }
-  if (existing.scope === 'org' && existing.syncedAgentIds?.length && (existing.authKind === 'oauth_token' || existing.provider.includes('oauth') || existing.provider === 'openai-codex' || existing.provider === 'nous')) {
+  if (existing.syncedAgentIds?.length && (existing.authKind === 'oauth_token' || existing.provider.includes('oauth') || existing.provider === 'openai-codex' || existing.provider === 'nous')) {
     await Promise.allSettled(
       existing.syncedAgentIds.map((agentId) =>
         callAgentPath(agentId as AgentId, `/admin/auth/providers/${existing.hermesProvider}`, {
@@ -81,17 +81,11 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const existing = await getLlmProviderConnection(id)
   if (!existing) return apiError('Connection not found', 404)
   if (!canManageLlmConnection(existing, { orgId, uid: user.uid })) return apiError('Forbidden', 403)
-  if (existing.scope === 'user') {
-    return apiError(
-      'Personal credentials are not synced to the organisation VPS. Configure them on each linked computer via Hermes setup.',
-      400,
-    )
-  }
-
   const body = await req.json().catch(() => ({})) as { agentIds?: string[] }
   try {
     const sync = await syncLlmConnectionToHermes(id, {
       agentIds: Array.isArray(body.agentIds) ? body.agentIds : undefined,
+      accessPolicy: user.memberAccessPolicy,
     })
     return apiSuccess({ sync })
   } catch (err) {

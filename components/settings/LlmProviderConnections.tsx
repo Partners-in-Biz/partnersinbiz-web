@@ -90,7 +90,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
           <span className="font-medium text-[var(--color-pib-text)]">Linked computers</span>
           {' — '}
           {notes?.userScope
-            || 'Personal credentials stay on each user’s linked computer and are never pushed to the organisation VPS.'}
+            || 'Personal credentials sync to your linked computers, and to the organisation VPS when Team access allows it.'}
         </p>
         {syncTargets && syncTargets.targetCount === 0 && syncTargets.reasonIfEmpty ? (
           <p className="text-amber-200/90">{syncTargets.reasonIfEmpty}</p>
@@ -256,11 +256,9 @@ function ConnectedRow({
           </span>
         </div>
         <div className="flex gap-2">
-          {!isPersonal && (
-            <button type="button" className="btn-pib-secondary text-xs" disabled={busy} onClick={run(onResync)}>
-              Sync to organisation VPS
-            </button>
-          )}
+          <button type="button" className="btn-pib-secondary text-xs" disabled={busy} onClick={run(onResync)}>
+            {isPersonal ? 'Sync to my computers' : 'Sync to organisation VPS'}
+          </button>
           <button
             type="button"
             className="btn-pib-secondary text-xs text-red-300"
@@ -274,7 +272,7 @@ function ConnectedRow({
       <p className="font-mono text-xs text-[var(--color-pib-text-muted)]">{connection.credentialHint}</p>
       {isPersonal ? (
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
-          Not synced to the organisation VPS. Configure the same provider on each linked computer during Hermes setup.
+          Syncs to your linked computers. If Team access enables personal LLM credentials on the organisation VPS, sync also writes there (unless an organisation connection already covers this provider).
         </p>
       ) : connection.syncedAgentIds?.length > 0 ? (
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
@@ -366,7 +364,7 @@ function ConnectForm({
           <span>
             <span className="font-medium">Just me · linked computers</span>
             <span className="block text-xs text-[var(--color-pib-text-muted)]">
-              Reminder in PiB only — set the real keys on each linked computer during Hermes setup. Never synced to the org VPS.
+              Syncs to your linked computers. Also syncs to the organisation VPS when Team access allows personal LLM credentials there.
             </span>
           </span>
         </label>
@@ -380,7 +378,7 @@ function ConnectForm({
         )}
         {canApiKey && (
           <button type="button" className="pib-btn-primary text-xs" disabled={submitting} onClick={() => void submit('api_key')}>
-            {scope === 'org' ? 'Save & sync to org VPS' : 'Save personal reminder'}
+            {scope === 'org' ? 'Save & sync to org VPS' : 'Save & sync to my computers'}
           </button>
         )}
         {provider.oauthCapable && canApiKey && (

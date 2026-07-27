@@ -142,11 +142,11 @@ describe('conversation model catalogue API', () => {
     const raw = JSON.stringify(body)
     expect(raw).not.toContain('encrypted-secret')
     expect(raw).not.toContain('secret-runtime')
-    expect(mockCallAgentPath).toHaveBeenCalledWith('pip', '/v1/models', { method: 'GET' })
-    expect(mockCallAgentPath).toHaveBeenCalledWith('pip', '/admin/config')
+    expect(mockCallAgentPath).toHaveBeenCalledWith('pip', '/v1/models', { method: 'GET' }, { runtimeTarget: undefined })
+    expect(mockCallAgentPath).toHaveBeenCalledWith('pip', '/admin/config', {}, { runtimeTarget: undefined })
   })
 
-  it('lets participants inspect safe model status without granting selection rights', async () => {
+  it('lets conversation participants select models for the unlocked providers', async () => {
     mockUser = { uid: 'client-1', role: 'client', orgId: 'org-1' }
     const { GET } = await import('@/app/api/v1/conversations/[convId]/models/route')
 
@@ -157,7 +157,7 @@ describe('conversation model catalogue API', () => {
 
     expect(res.status).toBe(200)
     const body = await readJson(res)
-    expect(body.data.canSelect).toBe(false)
+    expect(body.data.canSelect).toBe(true)
     expect(JSON.stringify(body)).not.toContain('encrypted-secret')
   })
 
