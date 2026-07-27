@@ -183,6 +183,19 @@ describe('project task approval gate route guards', () => {
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
+  it('blocks delegated agents whose projected role is admin from changing approval-gate metadata', async () => {
+    currentUser = { uid: 'admin-1', role: 'admin', authKind: 'user_delegation', orgId: 'org-1' }
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', {
+      method: 'PATCH',
+      headers: { 'x-org-id': 'org-1' },
+      body: JSON.stringify({ approvalStatus: 'approved' }),
+    }), ctx)
+
+    expect(res.status).toBe(403)
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
   it('blocks non-admin users from adding a gate and execution state in the same request', async () => {
     mockTaskGet.mockResolvedValueOnce({
       exists: true,
