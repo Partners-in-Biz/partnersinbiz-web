@@ -52,6 +52,26 @@ function resourceContextSeed(args: {
   }
 }
 
+function timestampMillis(value: unknown): number {
+  if (!value) return 0
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') return Date.parse(value) || 0
+  if (typeof value === 'object') {
+    const timestamp = value as { toMillis?: () => number; seconds?: number; _seconds?: number }
+    if (typeof timestamp.toMillis === 'function') {
+      try {
+        return timestamp.toMillis()
+      } catch {
+        return 0
+      }
+    }
+    const seconds = timestamp.seconds ?? timestamp._seconds
+    if (typeof seconds === 'number') return seconds * 1000
+  }
+  return 0
+}
+
 /**
  * GET — list comments. Requires `orgId`. Optional filters:
  *   - resourceType, resourceId, parentCommentId
@@ -77,20 +97,18 @@ export const GET = withAuth('admin', async (req) => {
     )
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query: any = adminDb.collection('comments').where('orgId', '==', orgId)
-
-  if (resourceType) query = query.where('resourceType', '==', resourceType)
-  if (resourceId) query = query.where('resourceId', '==', resourceId)
-  if (parentCommentId) query = query.where('parentCommentId', '==', parentCommentId)
-
-  query = query.orderBy('createdAt', 'asc').limit(limit)
-
-  const snap = await query.get()
+  // Query only by tenant, then apply optional filters and ordering in memory.
+  // Firestore otherwise requires a different composite index for every supported
+  // filter combination; missing partial-filter indexes caused this route to 500.
+  const snap = await adminDb.collection('comments').where('orgId', '==', orgId).get()
   const comments: Comment[] = snap.docs
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((doc: any) => ({ id: doc.id, ...doc.data() }))
-    .filter((c: Comment) => (includeDeleted ? true : c.deleted !== true))
+    .map((doc) => ({ id: doc.id, ...doc.data() }) as Comment)
+    .filter((comment: Comment) => !resourceType || comment.resourceType === resourceType)
+    .filter((comment: Comment) => !resourceId || comment.resourceId === resourceId)
+    .filter((comment: Comment) => !parentCommentId || comment.parentCommentId === parentCommentId)
+    .filter((comment: Comment) => includeDeleted || comment.deleted !== true)
+    .sort((a: Comment, b: Comment) => timestampMillis(a.createdAt) - timestampMillis(b.createdAt))
+    .slice(0, limit)
 
   return apiSuccess(comments)
 })
