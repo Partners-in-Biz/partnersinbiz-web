@@ -4,7 +4,9 @@ const mockEnquiriesAdd = jest.fn()
 const mockContactsAdd = jest.fn()
 const mockContactsGet = jest.fn()
 const mockCollection = jest.fn()
-const mockEmailSend = jest.fn()
+const mockEnquirySet = jest.fn()
+const mockSendEmail = jest.fn()
+const mockGetOrgManagerEmails = jest.fn()
 const mockFireTrigger = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -13,11 +15,12 @@ jest.mock('@/lib/firebase/admin', () => ({
   },
 }))
 
-jest.mock('@/lib/email/resend', () => ({
-  FROM_ADDRESS: 'Partners in Biz <hello@partnersinbiz.online>',
-  getResendClient: jest.fn(() => ({
-    emails: { send: mockEmailSend },
-  })),
+jest.mock('@/lib/email/send', () => ({
+  sendEmail: mockSendEmail,
+}))
+
+jest.mock('@/lib/organizations/manager-emails', () => ({
+  getOrgManagerEmails: mockGetOrgManagerEmails,
 }))
 
 jest.mock('@/lib/automations/trigger', () => ({
@@ -47,10 +50,12 @@ const validBody = {
 describe('POST /api/enquiries', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockEnquiriesAdd.mockResolvedValue({ id: 'test-enquiry-id' })
+    mockEnquiriesAdd.mockResolvedValue({ id: 'test-enquiry-id', set: mockEnquirySet })
     mockContactsAdd.mockResolvedValue({ id: 'test-contact-id' })
     mockContactsGet.mockResolvedValue({ empty: true, docs: [] })
-    mockEmailSend.mockResolvedValue({ id: 'email-id' })
+    mockEnquirySet.mockResolvedValue(undefined)
+    mockSendEmail.mockResolvedValue({ success: true })
+    mockGetOrgManagerEmails.mockResolvedValue([])
     mockFireTrigger.mockResolvedValue(undefined)
     mockCollection.mockImplementation((name: string) => {
       if (name === 'enquiries') return { add: mockEnquiriesAdd }
@@ -127,6 +132,7 @@ describe('POST /api/enquiries', () => {
       projectType: 'web',
       interest: null,
       status: 'new',
+      notificationDelivery: expect.objectContaining({ status: 'pending' }),
     }))
     expect(mockContactsAdd).toHaveBeenCalledWith(expect.objectContaining({
       orgId: 'pib-platform-owner',
@@ -317,14 +323,96 @@ describe('POST /api/enquiries', () => {
     const res = await POST(req)
 
     expect(res.status).toBe(201)
-    expect(mockEmailSend).toHaveBeenCalledTimes(2)
-    expect(mockEmailSend).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    expect(mockSendEmail).toHaveBeenCalledTimes(2)
+    expect(mockSendEmail).toHaveBeenNthCalledWith(1, expect.objectContaining({
       to: 'peet.stander@partnersinbiz.online',
       subject: 'New Project Inquiry from Test User',
     }))
-    expect(mockEmailSend).toHaveBeenNthCalledWith(2, expect.objectContaining({
+    expect(mockSendEmail).toHaveBeenNthCalledWith(2, expect.objectContaining({
       to: 'test@example.com',
       subject: 'We received your Partners in Biz request',
     }))
+    expect(mockEnquirySet).toHaveBeenCalledWith({
+      notificationDelivery: expect.objectContaining({
+        status: 'sent',
+        admin: expect.objectContaining({ status: 'sent', recipients: ['peet.stander@partnersinbiz.online'] }),
+        acknowledgement: expect.objectContaining({ status: 'sent', recipient: 'test@example.com' }),
+      }),
+    }, { merge: true })
+  })
+
+  it('routes admin notifications to stored platform managers', async () => {
+    mockGetOrgManagerEmails.mockResolvedValue(['owner@partnersinbiz.online', 'admin@partnersinbiz.online'])
+
+    const res = await POST(makeRequest(validBody))
+
+    expect(res.status).toBe(201)
+    expect(mockSendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: 'owner@partnersinbiz.online' }))
+    expect(mockSendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: 'admin@partnersinbiz.online' }))
+    expect(mockSendEmail).toHaveBeenCalledWith(expect.objectContaining({ to: 'test@example.com' }))
+  })
+
+  it('falls back to the default admin when stored manager addresses are blank or malformed', async () => {
+    mockGetOrgManagerEmails.mockResolvedValue(['   ', 'not-an-email', null])
+
+    const res = await POST(makeRequest(validBody))
+
+    expect(res.status).toBe(201)
+    expect(mockSendEmail).toHaveBeenCalledWith(expect.objectContaining({
+      to: 'peet.stander@partnersinbiz.online',
+    }))
+    expect(mockEnquirySet).toHaveBeenCalledWith({
+      notificationDelivery: expect.objectContaining({
+        admin: expect.objectContaining({ status: 'sent', attempts: 1 }),
+      }),
+    }, { merge: true })
+  })
+
+  it('records a failed admin delivery without suppressing the submitter acknowledgement', async () => {
+    mockSendEmail
+      .mockResolvedValueOnce({ success: false, error: 'provider rejected request' })
+      .mockResolvedValueOnce({ success: true })
+
+    const res = await POST(makeRequest(validBody))
+
+    expect(res.status).toBe(201)
+    expect(mockSendEmail).toHaveBeenCalledTimes(2)
+    expect(mockSendEmail).toHaveBeenNthCalledWith(2, expect.objectContaining({ to: 'test@example.com' }))
+    expect(mockEnquirySet).toHaveBeenCalledWith({
+      notificationDelivery: expect.objectContaining({
+        status: 'partial',
+        admin: expect.objectContaining({ status: 'failed', attempts: 1, error: 'provider rejected request' }),
+        acknowledgement: expect.objectContaining({ status: 'sent', attempts: 1 }),
+      }),
+    }, { merge: true })
+  })
+
+  it('records per-recipient partial admin delivery and a failed acknowledgement', async () => {
+    mockGetOrgManagerEmails.mockResolvedValue(['owner@partnersinbiz.online', 'admin@partnersinbiz.online'])
+    mockSendEmail
+      .mockResolvedValueOnce({ success: true })
+      .mockResolvedValueOnce({ success: false, error: 'manager mailbox rejected' })
+      .mockRejectedValueOnce(new Error('acknowledgement provider unavailable'))
+
+    const res = await POST(makeRequest(validBody))
+
+    expect(res.status).toBe(201)
+    expect(mockEnquirySet).toHaveBeenCalledWith({
+      notificationDelivery: expect.objectContaining({
+        status: 'partial',
+        admin: expect.objectContaining({
+          status: 'partial',
+          attempts: 2,
+          deliveries: [
+            expect.objectContaining({ recipient: 'owner@partnersinbiz.online', status: 'sent' }),
+            expect.objectContaining({ recipient: 'admin@partnersinbiz.online', status: 'failed' }),
+          ],
+        }),
+        acknowledgement: expect.objectContaining({
+          status: 'failed',
+          error: 'acknowledgement provider unavailable',
+        }),
+      }),
+    }, { merge: true })
   })
 })

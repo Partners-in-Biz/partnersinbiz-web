@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
-import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
+import { FROM_ADDRESS } from '@/lib/email/resend'
+import { sendEmail } from '@/lib/email/send'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { fireTrigger } from '@/lib/automations/trigger'
 import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
 import { getPartnerOpportunity } from '@/lib/partner-opportunities'
+import { getOrgManagerEmails } from '@/lib/organizations/manager-emails'
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -47,6 +49,34 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;')
+}
+
+function deliveryError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error || 'Email delivery failed')
+  return message.replace(/\s+/g, ' ').trim().slice(0, 300) || 'Email delivery failed'
+}
+
+function emailSubjectText(value: string): string {
+  return value.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120)
+}
+
+async function deliverEmail(input: { to: string; subject: string; html: string }) {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  try {
+    const result = await Promise.race([
+      sendEmail({ ...input, from: FROM_ADDRESS }),
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => reject(new Error('Email delivery timed out')), 10_000)
+      }),
+    ])
+    return result.success
+      ? { status: 'sent' as const, attempts: 1, error: null }
+      : { status: 'failed' as const, attempts: 1, error: deliveryError(result.error) }
+  } catch (error) {
+    return { status: 'failed' as const, attempts: 1, error: deliveryError(error) }
+  } finally {
+    if (timeout) clearTimeout(timeout)
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -130,6 +160,10 @@ export async function POST(request: NextRequest) {
     status: 'new',
     createdAt: FieldValue.serverTimestamp(),
     assignedTo: null,
+    notificationDelivery: {
+      status: 'pending',
+      createdAt: FieldValue.serverTimestamp(),
+    },
   })
 
   // Also create a CRM contact for this lead — scoped to the PIB platform org
@@ -201,15 +235,22 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Notification email — fire-and-forget; failure must not break form submission
+  // Deliver the internal alert and submitter acknowledgement independently.
+  // Direct Resend calls return `{ error }` for provider rejections, so awaiting
+  // them without checking the result can silently lose the notification.
   try {
-    const adminEmail = process.env.ADMIN_EMAIL || 'peet.stander@partnersinbiz.online'
-    const resend = getResendClient()
-    await resend.emails.send({
-      from: FROM_ADDRESS,
-      to: adminEmail,
-      subject: `New Project Inquiry from ${escapeHtml(normalizedName)}`,
-      html: `
+    const configuredManagers = Array.from(new Set(
+      (await getOrgManagerEmails(PIB_PLATFORM_ORG_ID).catch(() => []))
+        .filter((recipient): recipient is string => typeof recipient === 'string')
+        .map((recipient) => recipient.trim().toLowerCase())
+        .filter(isValidEmail),
+    ))
+    const configuredFallback = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
+    const fallbackRecipient = isValidEmail(configuredFallback)
+      ? configuredFallback
+      : 'peet.stander@partnersinbiz.online'
+    const adminRecipients = configuredManagers.length > 0 ? configuredManagers : [fallbackRecipient]
+    const adminHtml = `
         <h2>New Project Inquiry</h2>
         <p><strong>Name:</strong> ${escapeHtml(normalizedName)}</p>
         <p><strong>Email:</strong> ${escapeHtml(normalizedEmail)}</p>
@@ -220,11 +261,16 @@ export async function POST(request: NextRequest) {
         <p><strong>Details:</strong></p>
         <p>${escapeHtml(normalizedDetails).replace(/\n/g, '<br />')}</p>
         <p><em>Enquiry ID: ${docRef.id}</em></p>
-      `,
-    })
-
-    await resend.emails.send({
-      from: FROM_ADDRESS,
+      `
+    const adminDeliveryPromise = Promise.all(adminRecipients.map(async (recipient) => ({
+      recipient,
+      ...await deliverEmail({
+        to: recipient,
+        subject: `New Project Inquiry from ${emailSubjectText(normalizedName)}`,
+        html: adminHtml,
+      }),
+    })))
+    const acknowledgementPromise = deliverEmail({
       to: normalizedEmail,
       subject: 'We received your Partners in Biz request',
       html: `
@@ -234,9 +280,40 @@ export async function POST(request: NextRequest) {
         <p>Regards,<br />Partners in Biz</p>
       `,
     })
+    const [adminResults, acknowledgement] = await Promise.all([
+      adminDeliveryPromise,
+      acknowledgementPromise,
+    ])
+    const adminSent = adminResults.filter((result) => result.status === 'sent').length
+    const adminStatus = adminSent === adminResults.length
+      ? 'sent'
+      : adminSent > 0
+        ? 'partial'
+        : 'failed'
+    const anySent = adminSent > 0 || acknowledgement.status === 'sent'
+    const allSent = adminStatus === 'sent' && acknowledgement.status === 'sent'
+
+    await docRef.set({
+      notificationDelivery: {
+        status: allSent ? 'sent' : anySent ? 'partial' : 'failed',
+        admin: {
+          status: adminStatus,
+          recipients: adminRecipients,
+          attempts: adminResults.reduce((total, result) => total + result.attempts, 0),
+          error: adminResults.find((result) => result.error)?.error ?? null,
+          deliveries: adminResults,
+        },
+        acknowledgement: {
+          ...acknowledgement,
+          recipient: normalizedEmail,
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+    }, { merge: true })
   } catch (err) {
-    // Log but do not fail the request
-    console.error('[enquiries] notification email failed:', err)
+    // The enquiry itself remains valid; preserve it and log a diagnostic rather
+    // than returning a false submission failure to the prospect.
+    console.error('[enquiries] notification delivery recording failed:', err)
   }
 
   return NextResponse.json({ id: docRef.id }, { status: 201 })

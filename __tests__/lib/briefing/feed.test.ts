@@ -701,6 +701,87 @@ describe('briefing feed', () => {
     expect(JSON.stringify(feed.items)).toContain('[REDACTED]')
   })
 
+  it('uses meaningful enquiry data instead of opaque submitted identifiers', async () => {
+    collections.organizations = [makeDoc('pib-platform-owner', { name: 'Partners in Biz', slug: 'partners-in-biz' })]
+    collections.enquiries = [makeDoc('enquiry-readable', {
+      userId: null,
+      name: 'FjPWzAySvrpczDnFJH',
+      email: 'person@example.test',
+      company: 'PfEiJEUWJeyzqlmTnz',
+      projectType: 'partnership',
+      details: 'Requested area: uNinclZIySDQSBtAKlhKfXs. Interested in the local coupon platform.',
+      status: 'new',
+      assignedTo: null,
+      createdAt: '2026-07-27T07:39:31.411Z',
+    })]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: ['pib-platform-owner'] },
+      { limit: 10, sourceType: 'enquiry' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0]).toMatchObject({
+      title: 'New enquiry from person@example.test',
+      actor: { name: 'person@example.test' },
+      context: { enquiryName: 'person@example.test' },
+      metadata: expect.objectContaining({ company: null }),
+    })
+    expect(feed.items[0].summary).toContain('partnership enquiry from person@example.test')
+    expect(JSON.stringify(feed.items[0])).not.toContain('FjPWzAySvrpczDnFJH')
+    expect(JSON.stringify(feed.items[0])).not.toContain('PfEiJEUWJeyzqlmTnz')
+    expect(JSON.stringify(feed.items[0])).not.toContain('uNinclZIySDQSBtAKlhKfXs')
+  })
+
+  it('preserves legitimate long mixed-case enquiry names and companies', async () => {
+    collections.organizations = [makeDoc('pib-platform-owner', { name: 'Partners in Biz', slug: 'partners-in-biz' })]
+    collections.enquiries = [makeDoc('enquiry-legitimate-name', {
+      userId: null,
+      name: 'PartnersInBizOnline',
+      email: 'hello@example.test',
+      company: 'partnersinbizonlinepty',
+      projectType: 'marketing',
+      details: 'Please help with internationalization and a practical campaign review.',
+      status: 'new',
+      createdAt: '2026-07-27T08:00:00.000Z',
+    })]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: ['pib-platform-owner'] },
+      { limit: 10, sourceType: 'enquiry' },
+    )
+
+    expect(feed.items[0]).toMatchObject({
+      title: 'New enquiry from PartnersInBizOnline',
+      metadata: expect.objectContaining({ company: 'partnersinbizonlinepty' }),
+    })
+    expect(feed.items[0].summary).toContain('internationalization')
+  })
+
+  it('suppresses a single opaque enquiry name even when the other fields are normal', async () => {
+    collections.organizations = [makeDoc('pib-platform-owner', { name: 'Partners in Biz', slug: 'partners-in-biz' })]
+    collections.enquiries = [makeDoc('enquiry-single-opaque-name', {
+      name: 'FjPWzAySvrpczDnFJH',
+      email: 'person@example.test',
+      company: 'Normal Company',
+      projectType: 'partnership',
+      details: 'Interested in the local coupon platform.',
+      status: 'new',
+      createdAt: '2026-07-27T08:05:00.000Z',
+    })]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner', allowedOrgIds: ['pib-platform-owner'] },
+      { limit: 10, sourceType: 'enquiry' },
+    )
+
+    expect(feed.items[0].title).toBe('New enquiry from person@example.test')
+    expect(JSON.stringify(feed.items[0])).not.toContain('FjPWzAySvrpczDnFJH')
+  })
+
   it('turns CRM follow-up activities into source-linked action cards', async () => {
     collections.organizations = [makeDoc('org-1', { name: 'Client One', slug: 'client-one' })]
     collections.activities = [

@@ -19,8 +19,32 @@ function clean(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
+function looksLikeOpaqueSubmittedId(value: string | null): boolean {
+  if (!value || /\s/.test(value)) return false
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) return true
+  if (value.length < 16 || !/^[A-Za-z0-9_-]+$/.test(value)) return false
+  const uppercase = (value.match(/[A-Z]/g) ?? []).length
+  const lowercase = (value.match(/[a-z]/g) ?? []).length
+  return uppercase >= 6 && lowercase >= 6
+}
+
+function cleanHumanValue(value: unknown): string | null {
+  const text = clean(value)
+  return text && !looksLikeOpaqueSubmittedId(text) ? text : null
+}
+
+function scrubOpaqueSubmittedIds(value: unknown): string | null {
+  const text = clean(value)
+  if (!text) return null
+  return text
+    .replace(/[A-Za-z0-9_-]{16,}/g, (token) => looksLikeOpaqueSubmittedId(token) ? '[unavailable]' : token)
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function enquiryName(doc: EnquiryDocument, docId: string): string {
-  return clean(doc.name) ?? clean(doc.email) ?? docId
+  void docId
+  return cleanHumanValue(doc.name) ?? clean(doc.email) ?? 'Unknown enquirer'
 }
 
 function sourceUrl(docId: string): string {
@@ -73,17 +97,21 @@ export const enquiryAdapter: BriefingSourceAdapter<EnquiryDocument> = {
     const label = enquiryName(doc, docId)
     const type = clean(doc.projectType)
     parts.push(type ? `${type} enquiry from ${label}` : `Enquiry from ${label}`)
-    const company = clean(doc.company)
+    const company = cleanHumanValue(doc.company)
     const email = clean(doc.email)
     if (company) parts.push(`Company: ${company}`)
     if (email) parts.push(`Email: ${email}`)
-    const detail = extractMultiFieldExcerpt(doc, ['details'], { maxLength: 160 })
+    const detail = extractMultiFieldExcerpt({ ...doc, details: scrubOpaqueSubmittedIds(doc.details) }, ['details'], { maxLength: 160 })
     if (detail) parts.push(detail)
     return parts.join('. ')
   },
 
   extractExcerpt(doc: EnquiryDocument, docId: string, maxLength = 300): string | null {
-    return extractMultiFieldExcerpt(doc, ['details', 'company', 'email', 'projectType'], { maxLength })
+    return extractMultiFieldExcerpt({
+      ...doc,
+      details: scrubOpaqueSubmittedIds(doc.details),
+      company: cleanHumanValue(doc.company),
+    }, ['details', 'company', 'email', 'projectType'], { maxLength })
       ?? this.extractSummary(doc, docId)
   },
 
@@ -95,7 +123,7 @@ export const enquiryAdapter: BriefingSourceAdapter<EnquiryDocument> = {
     return {
       enquiryStatus: clean(doc.status),
       email: clean(doc.email),
-      company: clean(doc.company),
+      company: cleanHumanValue(doc.company),
       projectType: clean(doc.projectType),
       assignedTo: clean(doc.assignedTo),
       userId: clean(doc.userId),
