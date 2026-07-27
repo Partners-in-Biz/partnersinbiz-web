@@ -5,6 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
 import { normalizeProjectPlaybookTemplate, runProjectPlaybookTemplate, validateProjectPlaybookTemplate } from '@/lib/projects/playbooks'
+import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import {
   buildProjectHealth,
   buildProjectReports,
@@ -504,6 +505,10 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const collectionName = COLLECTION_BY_TYPE[type]
   if (!collectionName) {
     return apiError('type must be one of: milestone, approval, risk, decision, baseline, playbook, automation, permission, audit, notification, capacity, revenue', 400)
+  }
+  if (!['approval', 'risk', 'decision', 'audit', 'permission'].includes(type)) {
+    const blocker = planningMutationBlocker((access.doc.data() ?? {}) as Record<string, unknown>)
+    if (blocker) return apiError(blocker.message, 409, blocker)
   }
 
   const requiredPermission = permissionForSuiteType(type)

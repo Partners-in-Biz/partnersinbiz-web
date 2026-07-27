@@ -1273,6 +1273,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
         setError(err instanceof Error ? err.message : 'Project suite failed to load')
       }
     } finally {
+      if (options?.poll) pollInFlightRef.current = false
       if (!options?.quiet) setLoading(false)
     }
   }, [projectId])
@@ -1281,7 +1282,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
     const controller = new AbortController()
     loadSuite({ signal: controller.signal }).catch(() => {})
     const refreshWhenVisible = () => {
-      if (document.visibilityState === 'visible') loadSuite({ quiet: true, signal: controller.signal }).catch(() => {})
+      if (document.visibilityState === 'visible') loadSuite({ quiet: true, poll: true, signal: controller.signal }).catch(() => {})
     }
     const interval = window.setInterval(refreshWhenVisible, PLAN_REFRESH_INTERVAL_MS)
     document.addEventListener('visibilitychange', refreshWhenVisible)
