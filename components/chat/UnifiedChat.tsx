@@ -66,6 +66,7 @@ import type { ProjectChatTaskItem } from '@/lib/projects/chatProgress'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 import { folderAccentStyle } from '@/lib/messages/folder-accent'
 import { pickPreferredWorkspaceRuntime } from '@/lib/messages/preferred-workspace-runtime'
+import { buildConnectionWhere, type ConnectionWhere } from '@/lib/chat/connection-where'
 import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAccessPanel'
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
@@ -1708,22 +1709,78 @@ export default function UnifiedChat({
         ),
       )
     : undefined
+  const lastDispatchMessage = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const row = messages[index]
+      if (row.authorKind !== 'agent' && row.role !== 'assistant') continue
+      if (
+        row.dispatchRuntimeLabel
+        || row.dispatchRuntimeKind
+        || row.dispatchRuntimeTargetId
+        || row.acceptedDevice?.machineLabel
+      ) {
+        return row
+      }
+    }
+    return null
+  }, [messages])
+  const activeConnectionWhere = useMemo<ConnectionWhere | null>(() => {
+    const fromPresence = buildConnectionWhere({
+      runtimeKind: activeRuntimePresence?.kind
+        ?? (activeRuntimePresence?.deviceKind === 'vps'
+          ? 'vps'
+          : activeRuntimePresence?.deviceKind === 'computer'
+            ? 'linked-computer'
+            : activeRuntimePresence?.isLocal
+              ? 'local'
+              : null),
+      machineLabel: activeRuntimePresence?.label || activeRuntimePresence?.locationLabel,
+      locationLabel: activeRuntimePresence?.locationLabel,
+      runtimeTarget: activeWorkspaceContext?.runtimeTarget ?? activeRuntimePresence?.id,
+      runtimeLabel: activeWorkspaceContext?.runtimeLabel ?? activeRuntimePresence?.label,
+      mappingLabel: activeWorkspaceContext?.mappingLabel ?? activeRuntimePresence?.mappingLabel,
+      deviceKind: activeRuntimePresence?.deviceKind,
+      isLocal: activeRuntimePresence?.isLocal,
+      online: activeRuntimePresence
+        ? Boolean(activeRuntimePresence.isFresh && activeRuntimePresence.isHealthy)
+        : null,
+    })
+    if (fromPresence) return fromPresence
+
+    const fromContext = buildConnectionWhere({
+      runtimeTarget: activeWorkspaceContext?.runtimeTarget,
+      runtimeLabel: activeWorkspaceContext?.runtimeLabel,
+      mappingLabel: activeWorkspaceContext?.mappingLabel,
+      online: null,
+    })
+    if (fromContext) return fromContext
+
+    return buildConnectionWhere({
+      runtimeKind: lastDispatchMessage?.dispatchRuntimeKind,
+      machineLabel: lastDispatchMessage?.dispatchRuntimeLabel || lastDispatchMessage?.acceptedDevice?.machineLabel,
+      runtimeTarget: lastDispatchMessage?.dispatchRuntimeTargetId,
+      online: lastDispatchMessage?.acceptedDevice ? true : null,
+    })
+  }, [activeRuntimePresence, activeWorkspaceContext, lastDispatchMessage])
   const workbenchRuntime = useMemo<WorkbenchRuntimeSummary>(() => ({
-    label: activeRuntimeLabel || activeWorkspaceContext?.runtimeLabel || activeWorkspaceContext?.runtimeTarget,
-    mappingLabel: activeWorkspaceContext?.mappingLabel,
+    label: activeConnectionWhere?.display
+      || activeRuntimeLabel
+      || activeWorkspaceContext?.runtimeLabel
+      || activeWorkspaceContext?.runtimeTarget,
+    mappingLabel: activeWorkspaceContext?.mappingLabel ?? activeConnectionWhere?.mappingLabel,
     folderScope: activeWorkspaceContext?.folderScope ?? null,
     projectName: activeWorkspaceContext?.projectName,
     runtimeTarget: activeWorkspaceContext?.runtimeTarget,
     hasMapping: Boolean(activeWorkspaceContext?.mappingId),
-  }), [activeRuntimeLabel, activeWorkspaceContext])
+  }), [activeConnectionWhere, activeRuntimeLabel, activeWorkspaceContext])
   const unavailableActiveRuntime = useMemo(
     () => activeWorkspaceContext && activeRuntimeCatalogueLoaded && (!activeRuntimePresence || !activeRuntimePresence.selectable)
       ? {
-          label: activeRuntimePresence?.label || activeRuntimeLabel || 'This computer',
+          label: activeRuntimePresence?.label || activeRuntimeLabel || activeConnectionWhere?.label || 'This computer',
           offline: !activeRuntimePresence || !activeRuntimePresence.isFresh || !activeRuntimePresence.isHealthy,
         }
       : undefined,
-    [activeRuntimeCatalogueLoaded, activeRuntimeLabel, activeRuntimePresence, activeWorkspaceContext],
+    [activeConnectionWhere?.label, activeRuntimeCatalogueLoaded, activeRuntimeLabel, activeRuntimePresence, activeWorkspaceContext],
   )
   const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations) && !unavailableActiveRuntime
   const visibleConversations = useMemo(
@@ -6073,15 +6130,35 @@ export default function UnifiedChat({
                     {activeConversation?.title || 'New conversation'}
                   </button>
                 )}
-                {subtitle && (
-                  <div className="mt-0.5 truncate text-[11px] text-[var(--color-pib-text-muted)] lg:hidden">
-                    {subtitle}
+                {(subtitle || activeConnectionWhere) && (
+                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)] lg:hidden">
+                    {subtitle && <span className="truncate">{subtitle}</span>}
+                    {subtitle && activeConnectionWhere && <span aria-hidden="true">·</span>}
+                    {activeConnectionWhere && (
+                      <span
+                        data-testid="connection-where-chip-mobile"
+                        className="inline-flex min-w-0 items-center gap-1 truncate"
+                        title={activeConnectionWhere.title}
+                      >
+                        <span
+                          className={[
+                            'h-1.5 w-1.5 shrink-0 rounded-full',
+                            activeConnectionWhere.online === true
+                              ? 'bg-emerald-400'
+                              : activeConnectionWhere.online === false
+                                ? 'bg-amber-400'
+                                : 'bg-white/30',
+                          ].join(' ')}
+                        />
+                        <span className="truncate">{activeConnectionWhere.display}</span>
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
 
               {activeConversation?.participants && activeConversation.participants.length > 0 && !compact && (
-                <div className="hidden min-w-0 max-w-[65%] shrink lg:block">
+                <div className="hidden min-w-0 max-w-[55%] shrink lg:block">
                   <ParticipantBar
                     participants={activeConversation.participants}
                     agentDetails={agentMap}
@@ -6091,13 +6168,29 @@ export default function UnifiedChat({
               )}
             </div>
 
-            {activeWorkspaceContext && activeRuntimeLabel && (
+            {activeConnectionWhere && (
               <div
-                className="hidden shrink-0 pib-pill pib-pill-blue !gap-1 lg:flex"
-                title={`${activeWorkspaceContext.orgName} · ${activeRuntimeLabel}`}
+                data-testid="connection-where-chip"
+                className="hidden shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 text-xs text-[var(--color-pib-text-muted)] lg:inline-flex"
+                title={activeConnectionWhere.title}
+                aria-label={`Connected via ${activeConnectionWhere.display}`}
               >
-                <span className="material-symbols-outlined text-[13px]">folder_managed</span>
-                {activeRuntimeLabel}
+                <span
+                  className={[
+                    'h-1.5 w-1.5 shrink-0 rounded-full',
+                    activeConnectionWhere.online === true
+                      ? 'bg-emerald-400'
+                      : activeConnectionWhere.online === false
+                        ? 'bg-amber-400'
+                        : 'bg-white/30',
+                  ].join(' ')}
+                />
+                <span className="material-symbols-outlined text-[13px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
+                  {activeConnectionWhere.icon}
+                </span>
+                <span className="max-w-[14rem] truncate text-[var(--color-pib-text)]">
+                  {activeConnectionWhere.display}
+                </span>
               </div>
             )}
 
@@ -6837,6 +6930,28 @@ export default function UnifiedChat({
                   <span className={`h-1.5 w-1.5 rounded-full ${hasInFlightAgentRun ? 'bg-amber-300' : 'bg-emerald-300'}`} />
                   {activeRuntimeMessage?.status?.replace('_', ' ') ?? (hasInFlightAgentRun ? 'running' : 'idle')}
                 </span>
+                {activeConnectionWhere && (
+                  <span
+                    data-testid="connection-where-chip-control-bar"
+                    title={activeConnectionWhere.title}
+                    className="inline-flex h-6 max-w-[16rem] items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 text-[11px] text-[var(--color-pib-text)]"
+                  >
+                    <span
+                      className={[
+                        'h-1.5 w-1.5 shrink-0 rounded-full',
+                        activeConnectionWhere.online === true
+                          ? 'bg-emerald-400'
+                          : activeConnectionWhere.online === false
+                            ? 'bg-amber-400'
+                            : 'bg-white/30',
+                      ].join(' ')}
+                    />
+                    <span className="material-symbols-outlined text-[13px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
+                      {activeConnectionWhere.icon}
+                    </span>
+                    <span className="truncate">{activeConnectionWhere.display}</span>
+                  </span>
+                )}
                 {canStopActiveRun && activeRuntimeMessage?.id && activeId && (
                   <button
                     type="button"
