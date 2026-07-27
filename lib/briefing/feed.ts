@@ -2,6 +2,13 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
+import {
+  crmRecordAssignedToUid,
+  crmRecordCompanyIds,
+  crmRecordContactIds,
+  type AssignableCrmRecord,
+  type CrmAssignmentMaps,
+} from '@/lib/crm/assignment-access'
 import { withBriefingCardContract } from './cardContract'
 import type { BriefingCard, BriefingCardAction, BriefingCardStateStatus, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
 import { activityAdapter, adCampaignAdapter, agentLearningReviewAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, broadcastAdapter, businessInsightReviewAdapter, calendarEventAdapter, campaignAdapter, clientDocumentAdapter, commentAdapter, contactAdapter, dealAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
@@ -426,6 +433,63 @@ function calendarVisibleToUser(data: Record<string, unknown>, user: ApiUser): bo
   })
 }
 
+/** Human Briefings is a personal action queue — not an org-wide CRM dump. */
+function briefingUsesPersonalCrmScope(user: ApiUser): boolean {
+  return user.role === 'admin' || user.role === 'client'
+}
+
+/**
+ * CRM relationship cards only surface when the viewer is linked as owner,
+ * assignee, creator, member, or via an owned company/contact. Privileged
+ * CRM `all` scope must not bypass this — Briefings is per-user work.
+ */
+function briefingCrmLinkedToUser(
+  record: AssignableCrmRecord,
+  uid: string,
+  maps: CrmAssignmentMaps = {},
+): boolean {
+  if (!uid) return false
+  if (crmRecordAssignedToUid(record, uid)) return true
+
+  for (const companyId of crmRecordCompanyIds(record)) {
+    if (crmRecordAssignedToUid(maps.companies?.get(companyId), uid)) return true
+  }
+
+  for (const contactId of crmRecordContactIds(record)) {
+    const contact = maps.contacts?.get(contactId)
+    if (!contact) continue
+    if (crmRecordAssignedToUid(contact, uid)) return true
+    for (const companyId of crmRecordCompanyIds(contact)) {
+      if (crmRecordAssignedToUid(maps.companies?.get(companyId), uid)) return true
+    }
+  }
+
+  return false
+}
+
+async function loadBriefingCrmRecordMap(
+  collectionName: 'companies' | 'contacts',
+  ids: Iterable<string>,
+): Promise<Map<string, AssignableCrmRecord>> {
+  const uniqueIds = [...new Set([...ids].filter(Boolean))]
+  const map = new Map<string, AssignableCrmRecord>()
+  if (uniqueIds.length === 0) return map
+
+  try {
+    await Promise.all(chunk(uniqueIds, 30).map(async (batch) => {
+      await Promise.all(batch.map(async (id) => {
+        const snap = await adminDb.collection(collectionName).doc(id).get()
+        if (!snap.exists) return
+        const data = snap.data() as AssignableCrmRecord
+        if (data.deleted === true) return
+        map.set(snap.id, { ...data, id: snap.id })
+      }))
+    }))
+  } catch { ignoreOptionalFeedSource() }
+
+  return map
+}
+
 async function fetchCalendarEventDocs(scopedOrgIds: string[] | null, user: ApiUser): Promise<FirestoreDoc[]> {
   const docs = await fetchCollectionDocs('calendar_events', scopedOrgIds)
   const seen = new Set<string>()
@@ -721,8 +785,17 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('contact')) {
     try {
       const docs = await fetchCollectionDocs('contacts', scopedOrgIds)
+      const personalCrm = briefingUsesPersonalCrmScope(user)
+      const companyIds = personalCrm
+        ? docs.flatMap((doc) => crmRecordCompanyIds({ id: doc.id, ...doc.data() } as AssignableCrmRecord))
+        : []
+      const companies = personalCrm
+        ? await loadBriefingCrmRecordMap('companies', companyIds)
+        : new Map<string, AssignableCrmRecord>()
       for (const doc of docs) {
-        const item = toItemSafe(contactAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (personalCrm && !briefingCrmLinkedToUser(data as AssignableCrmRecord, user.uid, { companies })) continue
+        const item = toItemSafe(contactAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -731,8 +804,27 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('deal')) {
     try {
       const docs = await fetchCollectionDocs('deals', scopedOrgIds)
+      const personalCrm = briefingUsesPersonalCrmScope(user)
+      let maps: CrmAssignmentMaps = {}
+      if (personalCrm) {
+        const records = docs.map((doc) => ({ id: doc.id, ...doc.data() } as AssignableCrmRecord))
+        const contactIds = records.flatMap((record) => crmRecordContactIds(record))
+        const companyIds = [
+          ...records.flatMap((record) => crmRecordCompanyIds(record)),
+        ]
+        const contacts = await loadBriefingCrmRecordMap('contacts', contactIds)
+        for (const contact of contacts.values()) {
+          companyIds.push(...crmRecordCompanyIds(contact))
+        }
+        maps = {
+          contacts,
+          companies: await loadBriefingCrmRecordMap('companies', companyIds),
+        }
+      }
       for (const doc of docs) {
-        const item = toItemSafe(dealAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (personalCrm && !briefingCrmLinkedToUser(data as AssignableCrmRecord, user.uid, maps)) continue
+        const item = toItemSafe(dealAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -742,7 +834,16 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
     try {
       const docs = await fetchCollectionDocs('notifications', scopedOrgIds)
       for (const doc of docs) {
-        const item = toItemSafe(notificationAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (
+          briefingUsesPersonalCrmScope(user) &&
+          typeof data.userId === 'string' &&
+          data.userId &&
+          data.userId !== user.uid
+        ) {
+          continue
+        }
+        const item = toItemSafe(notificationAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -751,8 +852,34 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('activity')) {
     try {
       const docs = await fetchCollectionDocs('activities', scopedOrgIds)
+      const personalCrm = briefingUsesPersonalCrmScope(user)
+      let maps: CrmAssignmentMaps = {}
+      if (personalCrm) {
+        const records = docs.map((doc) => ({ id: doc.id, ...doc.data() } as AssignableCrmRecord))
+        const contactIds = records.flatMap((record) => crmRecordContactIds(record))
+        const companyIds = records.flatMap((record) => crmRecordCompanyIds(record))
+        const contacts = await loadBriefingCrmRecordMap('contacts', contactIds)
+        for (const contact of contacts.values()) {
+          companyIds.push(...crmRecordCompanyIds(contact))
+        }
+        maps = {
+          contacts,
+          companies: await loadBriefingCrmRecordMap('companies', companyIds),
+        }
+      }
       for (const doc of docs) {
-        const item = toItemSafe(activityAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (personalCrm) {
+          const actorId = typeof data.actorId === 'string' ? data.actorId.replace(/^user:/, '') : ''
+          const createdBy = typeof data.createdBy === 'string' ? data.createdBy.replace(/^user:/, '') : ''
+          const createdByUid = typeof (data.createdByRef as { uid?: unknown } | undefined)?.uid === 'string'
+            ? String((data.createdByRef as { uid: string }).uid)
+            : ''
+          const selfAuthored = actorId === user.uid || createdBy === user.uid || createdByUid === user.uid
+          const crmLinked = briefingCrmLinkedToUser(data as AssignableCrmRecord, user.uid, maps)
+          if (!crmLinked && !selfAuthored) continue
+        }
+        const item = toItemSafe(activityAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
