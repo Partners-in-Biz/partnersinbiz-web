@@ -215,14 +215,6 @@ describe('TeamPage', () => {
       if (url === '/api/v1/portal/org') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ user: { uid: 'current-admin' } }) })
       }
-      if (url === '/api/v1/workspaces?agentId=pip&orgId=org-1') {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({
-            data: { runtimeTargets: [{ id: 'partners-vps', label: 'Partners VPS', availableAgentIds: ['pip', 'theo'] }] },
-          }),
-        })
-      }
       if (url === '/api/v1/portal/settings/team/sales-rep/access?orgId=org-1' && !init) {
         return Promise.resolve({
           ok: true,
@@ -234,6 +226,7 @@ describe('TeamPage', () => {
                 modules: { crm: true, projects: false, reports: true },
                 recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
               },
+              agentRuntimeTargets: [{ id: 'partners-vps', label: 'Partners VPS', availableAgentIds: ['pip', 'theo'] }],
             }),
         })
       }

@@ -153,20 +153,11 @@ export default function TeamPage() {
     setAccessDraft(member.accessPolicy ? normalizeMemberAccessPolicy(member.accessPolicy) : null)
     setAccessError('')
     setAccessLoading(true)
-    const [res, runtimeRes] = await Promise.all([
-      fetch(teamEndpoint(`/api/v1/portal/settings/team/${member.uid}/access`)),
-      fetch(teamEndpoint('/api/v1/workspaces?agentId=pip')),
-    ])
+    const res = await fetch(teamEndpoint(`/api/v1/portal/settings/team/${member.uid}/access`))
     if (res.ok) {
       const body = await res.json().catch(() => ({}))
       if (body.accessPolicy) setAccessDraft(normalizeMemberAccessPolicy(body.accessPolicy))
-    } else {
-      const body = await res.json().catch(() => ({}))
-      setAccessError(body.error ?? 'Failed to load access settings.')
-    }
-    if (runtimeRes.ok) {
-      const body = await runtimeRes.json().catch(() => ({}))
-      const targets = Array.isArray(body?.data?.runtimeTargets) ? body.data.runtimeTargets : []
+      const targets = Array.isArray(body?.agentRuntimeTargets) ? body.agentRuntimeTargets : []
       const seen = new Set<string>()
       setAccessRuntimeTargets(targets.filter((target: unknown): target is AgentRuntimeTarget => {
         if (!target || typeof target !== 'object') return false
@@ -176,6 +167,8 @@ export default function TeamPage() {
         return true
       }))
     } else {
+      const body = await res.json().catch(() => ({}))
+      setAccessError(body.error ?? 'Failed to load access settings.')
       setAccessRuntimeTargets([])
     }
     setAccessLoading(false)
