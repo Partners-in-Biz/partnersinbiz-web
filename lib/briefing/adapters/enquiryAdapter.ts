@@ -1,3 +1,4 @@
+import { looksLikeOpaqueSubmittedId } from '@/lib/lead-capture/opaque-submission'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import type { BriefingPriority, BriefingSourceAdapter } from '../types'
 import { extractMultiFieldExcerpt, hashSourceDocument, normalizeTimestamp } from '../utils'
@@ -17,15 +18,6 @@ interface EnquiryDocument extends Record<string, unknown> {
 
 function clean(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
-function looksLikeOpaqueSubmittedId(value: string | null): boolean {
-  if (!value || /\s/.test(value)) return false
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) return true
-  if (value.length < 16 || !/^[A-Za-z0-9_-]+$/.test(value)) return false
-  const uppercase = (value.match(/[A-Z]/g) ?? []).length
-  const lowercase = (value.match(/[a-z]/g) ?? []).length
-  return uppercase >= 6 && lowercase >= 6
 }
 
 function cleanHumanValue(value: unknown): string | null {

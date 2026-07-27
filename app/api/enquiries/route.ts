@@ -6,6 +6,7 @@ import { sendEmail } from '@/lib/email/send'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { fireTrigger } from '@/lib/automations/trigger'
 import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
+import { isOpaqueEnquirySpam } from '@/lib/lead-capture/opaque-submission'
 import { getPartnerOpportunity } from '@/lib/partner-opportunities'
 import { getOrgManagerEmails } from '@/lib/organizations/manager-emails'
 
@@ -114,6 +115,25 @@ export async function POST(request: NextRequest) {
   const normalizedPhone = typeof phone === 'string' ? phone.trim() : ''
   const normalizedWebsite = typeof website === 'string' ? website.trim() : ''
   const normalizedInterest = normalizeInterest(body.interest)
+
+  // Bot spam fills name/company/phone/website with long mixed-case opaque
+  // tokens. Reject silently with a fake success so we do not tip the bot or
+  // pollute CRM / admin inboxes (same pattern as capture-source honeypots).
+  if (isOpaqueEnquirySpam({
+    name: normalizedName,
+    company: normalizedCompany,
+    phone: normalizedPhone,
+    website: normalizedWebsite,
+  })) {
+    console.warn('[enquiries] opaque spam rejected', {
+      email: normalizedEmail,
+      projectType,
+      nameLength: normalizedName.length,
+      companyLength: normalizedCompany.length,
+      phoneLength: normalizedPhone.length,
+    })
+    return NextResponse.json({ id: 'received' }, { status: 201 })
+  }
 
   if (projectType === 'partnership') {
     if (!normalizedInterest) {

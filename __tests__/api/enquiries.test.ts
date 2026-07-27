@@ -77,6 +77,32 @@ describe('POST /api/enquiries', () => {
     expect(body.error).toMatch(/name/i)
   })
 
+  it('silently rejects opaque bot identity tokens without creating CRM records', async () => {
+    const req = makeRequest({
+      name: 'iOaLYqVVIyexllUXRQNQTG',
+      email: 'cham.sar.an.g@gmail.com',
+      company: 'NAIYZZTjfFcuitpae',
+      phone: 'uWktLdFgyTRjsekNCz',
+      website: 'NAIYZZTjfFcuitpae',
+      projectType: 'marketing',
+      details: [
+        'Gauteng Growth Audit request',
+        '',
+        'Business and online link: NAIYZZTjfFcuitpae',
+        'WhatsApp: uWktLdFgyTRjsekNCz',
+        'Biggest challenge: mDnGKlOBLbsLTCiyHhNnqgeE',
+        'Offer: Website + 90-day SEO + social media sprint',
+        'Source page: /gauteng-growth-audit',
+      ].join('\n'),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    await expect(res.json()).resolves.toEqual({ id: 'received' })
+    expect(mockEnquiriesAdd).not.toHaveBeenCalled()
+    expect(mockContactsAdd).not.toHaveBeenCalled()
+    expect(mockSendEmail).not.toHaveBeenCalled()
+  })
+
   it('returns 400 when email is missing', async () => {
     const req = makeRequest({ ...validBody, email: '' })
     const res = await POST(req)
