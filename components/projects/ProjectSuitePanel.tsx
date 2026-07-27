@@ -22,6 +22,7 @@ type SuiteItem = {
   nextRunAt?: unknown
   autoCreateTasks?: boolean
   templateSteps?: string[]
+  template?: unknown
   notificationChannels?: string[]
   itemType?: string
   itemId?: string
@@ -1107,7 +1108,10 @@ function ItemList({
             </div>
             {type && item.id && (onArchive || onRun) ? (
               <div className="mt-3 flex justify-end gap-2">
-                {type === 'playbook' && onRun && Array.isArray(item.templateSteps) && item.templateSteps.length > 0 ? (
+                {type === 'playbook' && onRun && (
+                  (Array.isArray(item.templateSteps) && item.templateSteps.length > 0)
+                  || (item.template && typeof item.template === 'object' && Array.isArray((item.template as { steps?: unknown[] }).steps) && ((item.template as { steps: unknown[] }).steps.length > 0))
+                ) ? (
                   <button
                     type="button"
                     className="pib-btn-primary px-3 py-1 text-[11px] font-label"
@@ -1216,6 +1220,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null)
   const requestSequenceRef = useRef(0)
+  const pollInFlightRef = useRef(false)
 
   const health = data.health ?? {}
   const score = typeof health.score === 'number' ? health.score : 100
@@ -1231,7 +1236,9 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
     [health.blockedTasks, health.milestoneDrift, health.overdueTasks, health.waitingApprovals],
   )
 
-  const loadSuite = useCallback(async (options?: { quiet?: boolean; signal?: AbortSignal }) => {
+  const loadSuite = useCallback(async (options?: { quiet?: boolean; poll?: boolean; signal?: AbortSignal }) => {
+    if (options?.poll && pollInFlightRef.current) return
+    if (options?.poll) pollInFlightRef.current = true
     const requestSequence = ++requestSequenceRef.current
     if (!options?.quiet) setLoading(true)
     try {
