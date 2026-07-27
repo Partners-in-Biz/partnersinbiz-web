@@ -55,6 +55,33 @@ describe('agent watcher Hermes dispatch', () => {
     })).resolves.toMatchObject({ runId: 'run-failed-1', output: null, error: 'boom' })
   })
 
+  it('stops polling after repeated retryable gateway failures so the task can be durably retried', async () => {
+    jest.useFakeTimers()
+    global.fetch = jest.fn(async (url: string | URL) => {
+      const urlText = String(url)
+      if (urlText.endsWith('/v1/runs')) {
+        return new Response(JSON.stringify({ id: 'run-gateway-1' }), { status: 200 })
+      }
+      return new Response('Bad Gateway', { status: 502 })
+    }) as unknown as typeof fetch
+
+    const resultPromise = runAndPoll(cfg, {
+      taskId: 'task-1',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Do the work',
+    })
+    await jest.runAllTimersAsync()
+
+    await expect(resultPromise).resolves.toMatchObject({
+      runId: 'run-gateway-1',
+      output: null,
+      error: expect.stringContaining('returned 502 repeatedly'),
+    })
+    expect(global.fetch).toHaveBeenCalledTimes(4)
+    jest.useRealTimers()
+  })
+
   it('sends effort and model overrides as top-level run fields', async () => {
     let postedBody: Record<string, unknown> | null = null
     global.fetch = jest.fn(async (url: string | URL, init?: RequestInit) => {
