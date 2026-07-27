@@ -47,7 +47,7 @@ make_release() {
   local dir="$1" version="$2" marker="$3"
   mkdir -p "$dir"
   printf "#!/bin/sh\nprintf '%%s\\\\n' '%s'\n" "$marker" > "$dir/pib-runtime"
-  printf '#!/bin/sh\n' > "$dir/pib-release-manager"
+  cp "$PIB_RELEASE_MANAGER" "$dir/pib-release-manager"
   printf '#!/bin/sh\n' > "$dir/pib-credential-helper"
   printf '#!/bin/sh\n' > "$dir/pib-file-helper"
   chmod 0755 "$dir"/pib-*
