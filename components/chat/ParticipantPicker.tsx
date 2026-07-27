@@ -63,6 +63,7 @@ interface ParticipantPickerProps {
    */
   allowedAgentIds?: string[] | null
   agentsUnavailableReason?: string | null
+  runtimeTargetId?: string | null
 }
 
 const MAX_SELECTIONS = 5
@@ -74,6 +75,7 @@ export default function ParticipantPicker({
   showAgents = true,
   allowedAgentIds = null,
   agentsUnavailableReason = null,
+  runtimeTargetId = null,
 }: ParticipantPickerProps) {
   const [agents, setAgents] = useState<AgentTeamDoc[]>([])
   const [contacts, setContacts] = useState<OrgContact[]>([])
@@ -85,7 +87,7 @@ export default function ParticipantPicker({
     let cancelled = false
     Promise.all([
       showAgents
-        ? fetch(`/api/v1/orgs/${orgId}/visible-agents`).then((r) => r.json())
+        ? fetch(`/api/v1/orgs/${orgId}/visible-agents${runtimeTargetId ? `?runtimeTarget=${encodeURIComponent(runtimeTargetId)}` : ''}`).then((r) => r.json())
         : Promise.resolve({ data: [] }),
       fetch(`/api/v1/orgs/${orgId}/contacts`).then((r) => r.json()),
     ])
@@ -103,7 +105,7 @@ export default function ParticipantPicker({
     return () => {
       cancelled = true
     }
-  }, [orgId, showAgents])
+  }, [orgId, runtimeTargetId, showAgents])
 
   const visibleAgents = useMemo(
     () => filterAgentsByGate(agents, allowedAgentIds),

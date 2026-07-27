@@ -1,4 +1,5 @@
 import type { OrgRole } from '@/lib/organizations/types'
+import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 
 export const WORKSPACE_MODULE_KEYS = [
   'crm',
@@ -34,6 +35,9 @@ export interface MemberAccessPolicy {
   preset: AccessPolicyPreset
   modules: Record<WorkspaceModuleKey, boolean>
   recordScopes: Record<RecordScopedModuleKey, RecordScope>
+  /** Explicit specialist-agent grants by authorised runtime target. Members
+   * never receive agent execution merely because they can use Messages. */
+  agentRuntimeAccess: Record<string, AgentId[]>
 }
 
 type RoleWithSystem = OrgRole | 'system'
@@ -70,6 +74,7 @@ export const FULL_ACCESS_POLICY: MemberAccessPolicy = {
   preset: 'full',
   modules: moduleFlags(true),
   recordScopes: { crm: 'all', projects: 'all' },
+  agentRuntimeAccess: {},
 }
 
 export const OWNED_OR_LINKED_DEFAULT_SCOPES: Record<RecordScopedModuleKey, RecordScope> = {
@@ -90,6 +95,7 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
     preset?: unknown
     modules?: unknown
     recordScopes?: unknown
+    agentRuntimeAccess?: unknown
   }
   const modulesInput =
     input.modules && typeof input.modules === 'object' && !Array.isArray(input.modules)
@@ -98,6 +104,10 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
   const recordScopesInput =
     input.recordScopes && typeof input.recordScopes === 'object' && !Array.isArray(input.recordScopes)
       ? input.recordScopes as Record<string, unknown>
+      : {}
+  const agentRuntimeAccessInput =
+    input.agentRuntimeAccess && typeof input.agentRuntimeAccess === 'object' && !Array.isArray(input.agentRuntimeAccess)
+      ? input.agentRuntimeAccess as Record<string, unknown>
       : {}
 
   const modules = moduleFlags(false)
@@ -109,6 +119,14 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
   for (const key of Object.keys(recordScopes) as RecordScopedModuleKey[]) {
     const scope = recordScopesInput[key]
     recordScopes[key] = scope === 'all' ? 'all' : 'owned_or_linked'
+  }
+  const agentRuntimeAccess: Record<string, AgentId[]> = {}
+  for (const [runtimeTargetId, rawAgentIds] of Object.entries(agentRuntimeAccessInput)) {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(runtimeTargetId) || !Array.isArray(rawAgentIds)) continue
+    const agentIds = Array.from(new Set(rawAgentIds.filter((agentId): agentId is AgentId => (
+      typeof agentId === 'string' && AGENT_IDS.includes(agentId as AgentId)
+    ))))
+    if (agentIds.length > 0) agentRuntimeAccess[runtimeTargetId] = agentIds
   }
 
   const preset = typeof input.preset === 'string' && [
@@ -123,7 +141,19 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
     ? input.preset as AccessPolicyPreset
     : 'custom'
 
-  return { preset, modules, recordScopes }
+  return { preset, modules, recordScopes, agentRuntimeAccess }
+}
+
+/** True only for an explicit member grant. Owners/admins bypass this at the
+ * caller because their role is authoritative and should not need per-device rows. */
+export function memberCanUseAgentOnRuntime(
+  policyValue: MemberAccessPolicy | unknown,
+  runtimeTargetId: string | null | undefined,
+  agentId: AgentId,
+): boolean {
+  if (!runtimeTargetId) return false
+  const grants = normalizeMemberAccessPolicy(policyValue).agentRuntimeAccess ?? {}
+  return grants[runtimeTargetId]?.includes(agentId) === true
 }
 
 export function defaultAccessPolicyFor(role: RoleWithSystem, accessScope?: unknown): MemberAccessPolicy {

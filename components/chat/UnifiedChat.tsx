@@ -7442,6 +7442,7 @@ export default function UnifiedChat({
                     showAgents={allowAgentParticipants}
                     allowedAgentIds={newConversationAgentGate.allowedAgentIds}
                     agentsUnavailableReason={newConversationAgentGate.reason}
+                    runtimeTargetId={selectedWorkspaceRuntimeTarget?.id ?? null}
                   />
                 </div>
               </div>

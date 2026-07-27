@@ -215,6 +215,14 @@ describe('TeamPage', () => {
       if (url === '/api/v1/portal/org') {
         return Promise.resolve({ ok: true, json: () => Promise.resolve({ user: { uid: 'current-admin' } }) })
       }
+      if (url === '/api/v1/workspaces?agentId=pip&orgId=org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            data: { runtimeTargets: [{ id: 'partners-vps', label: 'Partners VPS', availableAgentIds: ['pip', 'theo'] }] },
+          }),
+        })
+      }
       if (url === '/api/v1/portal/settings/team/sales-rep/access?orgId=org-1' && !init) {
         return Promise.resolve({
           ok: true,
@@ -258,8 +266,11 @@ describe('TeamPage', () => {
     expect(await within(drawer).findByRole('checkbox', { name: 'CRM' })).toBeChecked()
     const projectsCheckbox = await within(drawer).findByRole('checkbox', { name: 'Projects' })
     expect(projectsCheckbox).not.toBeChecked()
+    const theoCheckbox = await within(drawer).findByRole('checkbox', { name: 'theo' })
+    expect(theoCheckbox).not.toBeChecked()
 
     fireEvent.click(projectsCheckbox)
+    fireEvent.click(theoCheckbox)
     fireEvent.click(within(drawer).getByRole('button', { name: 'Save access' }))
 
     await waitFor(() => {
@@ -271,6 +282,10 @@ describe('TeamPage', () => {
         }),
       )
     })
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/portal/settings/team/sales-rep/access?orgId=org-1',
+      expect.objectContaining({ body: expect.stringContaining('"partners-vps":["theo"]') }),
+    )
     expect(await screen.findByText('CRM, Projects, Reports - owned or linked records')).toBeInTheDocument()
   })
 

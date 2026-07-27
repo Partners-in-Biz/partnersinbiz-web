@@ -11,7 +11,8 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { orgChatConfigDoc, resolveVisibleAgents } from '@/lib/conversations/conversations'
-import type { AgentId } from '@/lib/conversations/types'
+import { memberCanUseAgentOnRuntime } from '@/lib/orgMembers/access-policy'
+import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 import type { AgentTeamStoredDoc } from '@/lib/agents/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -21,7 +22,7 @@ type Params = { params: Promise<{ orgId: string }> }
 
 export const GET = withAuth(
   'client',
-  async (_req: NextRequest, user: ApiUser, context?: unknown) => {
+  async (req: NextRequest, user: ApiUser, context?: unknown) => {
     const { orgId: orgIdParam } = await (context as Params).params
     const scope = resolveOrgScope(user, orgIdParam)
     if (!scope.ok) return apiError(scope.error, scope.status)
@@ -37,6 +38,16 @@ export const GET = withAuth(
       : null
 
     const allowedAgentIds = new Set<AgentId>(resolveVisibleAgents(config, callerRole))
+    const runtimeTargetId = req.nextUrl.searchParams.get('runtimeTarget')?.trim()
+    // A Team-admin may delegate selected profiles on a selected computer to a
+    // member. This supplements—not replaces—the ordinary role visibility list.
+    if (user.role !== 'admin' && runtimeTargetId) {
+      for (const agentId of AGENT_IDS) {
+        if (memberCanUseAgentOnRuntime(user.memberAccessPolicy, runtimeTargetId, agentId)) {
+          allowedAgentIds.add(agentId)
+        }
+      }
+    }
 
     // Read enabled agents from agent_team
     const snap = await adminDb.collection('agent_team').get()
