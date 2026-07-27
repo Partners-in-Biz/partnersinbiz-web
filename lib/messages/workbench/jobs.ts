@@ -131,6 +131,17 @@ export function sanitizeWorkbenchRelativePath(
   return segments.join('/')
 }
 
+/**
+ * Canonicalize a persisted conversation workspace folder. Organisation and
+ * company root conversations historically store the root as an empty string,
+ * while Workbench jobs bind it as ".". Keep creation and every runtime claim
+ * recheck on the same representation.
+ */
+export function canonicalWorkbenchWorkspaceRelativePath(value: unknown): string | null {
+  const path = typeof value === 'string' && value.trim() ? value : '.'
+  return sanitizeWorkbenchRelativePath(path, { allowRoot: true })
+}
+
 function invalidOperation(): never {
   throw new Error('workbench: invalid operation')
 }
