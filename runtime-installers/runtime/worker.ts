@@ -166,6 +166,7 @@ export async function executeJob(
 }
 
 const MAX_IDLE_CLAIM_BASE_DELAY_MS = 1_000
+/** Bound device-wide chat parallelism while allowing independent agent gateways to stay productive. */
 export const LINKED_RUN_MAX_CONCURRENCY = 8
 
 export function linkedRunPollDelay(delay: number, random: () => number = Math.random) {
