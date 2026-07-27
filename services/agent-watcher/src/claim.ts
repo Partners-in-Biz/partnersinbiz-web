@@ -13,7 +13,7 @@ import type { DocumentReference, Firestore } from 'firebase-admin/firestore'
 import { db, FieldValue } from './firestore'
 import { logger } from './logger'
 import { agentStatusUpdate } from './task-updates'
-import { getUnresolvedDependencyIds, hasPendingApprovalGate, hasPendingScheduledRelease } from './eligibility'
+import { getUnresolvedDependencyIds, hasPendingAgentRetry, hasPendingApprovalGate, hasPendingScheduledRelease } from './eligibility'
 
 const STALE_THRESHOLD_MS = 5 * 60 * 1_000
 const SWEEP_INTERVAL_MS = 60 * 1_000
@@ -32,6 +32,7 @@ export async function claimTask(taskRef: DocumentReference, expectedAgentId: str
       if (data.deleted === true) return false
       if (data.status === 'cancelled' || data.status === 'canceled') return false
       if (hasPendingScheduledRelease(data)) return false
+      if (hasPendingAgentRetry(data)) return false
       if (hasPendingApprovalGate(data)) return false
 
       const dependsOn = Array.isArray(data.dependsOn) ? data.dependsOn.filter(Boolean) : []

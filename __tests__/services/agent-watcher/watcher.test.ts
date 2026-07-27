@@ -555,6 +555,38 @@ describe('agent watcher dispatchTask', () => {
     }))
   })
 
+  it('durably requeues transient provider connection failures instead of blocking the project', async () => {
+    const taskRef = makeTaskRef()
+    const stopHeartbeat = jest.fn()
+    startHeartbeatMock.mockReturnValue(stopHeartbeat)
+    jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-07-27T06:00:00.000Z'))
+    runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
+      await onRunCreated('run-connection-1')
+      return { runId: 'run-connection-1', output: null, error: 'Connection error.' }
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'pip',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Investigate project blockers',
+    })
+
+    expect(stopHeartbeat).toHaveBeenCalledTimes(1)
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentConversationId: 'run-connection-1',
+      agentRetryCount: 1,
+      agentRetryAt: '2026-07-27T06:01:00.000Z',
+      agentHeartbeatAt: 'DELETE_FIELD',
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('Transient watcher error: Connection error.'),
+      }),
+    }))
+  })
+
   it('retries a pending task that arrives while the agent is at concurrency capacity', async () => {
     const running: Array<(value: { runId: string; output: string; error: null }) => void> = []
     runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {

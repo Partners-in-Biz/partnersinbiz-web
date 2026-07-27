@@ -9,6 +9,7 @@ export interface DispatchEligibilityTask {
   approvalGate?: { status?: string | null } | null
   agentReleaseAt?: string | number | { toMillis?: () => number; toDate?: () => Date } | null
   agentReleaseStatus?: string | null
+  agentRetryAt?: string | number | { toMillis?: () => number; toDate?: () => Date } | null
 }
 
 export interface DependencyState {
@@ -24,6 +25,7 @@ export type DispatchBlocker =
   | 'cancelled'
   | 'approval-pending'
   | 'scheduled-release-pending'
+  | 'retry-backoff-pending'
 
 const APPROVED_STATUSES = new Set(['approved', 'accepted', 'resolved'])
 
@@ -65,16 +67,23 @@ export function hasPendingScheduledRelease(task: DispatchEligibilityTask, now = 
   return releaseAt !== null && releaseAt > now
 }
 
+export function hasPendingAgentRetry(task: DispatchEligibilityTask, now = Date.now()): boolean {
+  const retryAt = releaseMillis(task.agentRetryAt)
+  return retryAt !== null && retryAt > now
+}
+
 export function getTaskDispatchBlocker(
   task: DispatchEligibilityTask,
   validAgentIds: readonly string[],
+  now = Date.now(),
 ): DispatchBlocker | null {
   if (!task.assigneeAgentId || !validAgentIds.includes(task.assigneeAgentId)) return 'invalid-assignee'
   if (task.deleted === true) return 'deleted'
   if (task.status === 'cancelled' || task.status === 'canceled') return 'cancelled'
   if (task.agentStatus !== 'pending') return 'not-pending'
   if (task.columnId !== 'todo') return 'not-todo'
-  if (hasPendingScheduledRelease(task)) return 'scheduled-release-pending'
+  if (hasPendingScheduledRelease(task, now)) return 'scheduled-release-pending'
+  if (hasPendingAgentRetry(task, now)) return 'retry-backoff-pending'
   if (hasPendingApprovalGate(task)) return 'approval-pending'
   return null
 }
