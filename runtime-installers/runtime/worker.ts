@@ -195,8 +195,7 @@ export async function pollForever(
     const job = await claim().catch(() => null)
     if (job) {
       delay = 250
-      let task: Promise<void>
-      task = Promise.resolve()
+      const task: Promise<void> = Promise.resolve()
         .then(() => run(job))
         .then(() => undefined)
         .catch(() => undefined)
