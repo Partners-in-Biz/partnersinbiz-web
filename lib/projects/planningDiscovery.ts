@@ -34,7 +34,7 @@ export type PlanningDiscoveryState = {
 }
 
 type PlanningAction =
-  | { type: 'start' }
+  | { type: 'start'; expectedRevision?: number }
   | { type: 'submit_brief'; expectedRevision: number; confidence: number; brief: PlanningDecisionBrief }
   | { type: 'confirm'; expectedRevision: number; expectedDigest: string }
   | { type: 'plan_with_assumptions'; expectedRevision: number; attestation: string; reason: string; brief: PlanningDecisionBrief }
@@ -110,6 +110,11 @@ export function applyPlanningDiscoveryAction(
   actor: { uid: string; now: string },
 ): PlanningActionResult {
   if (action.type === 'start') {
+    if (current) {
+      const stale = conflict(current, action.expectedRevision ?? -1)
+      if (stale) return stale
+      return { ok: false, error: 'Planning discovery has already started; reopen the current brief instead', status: 409 }
+    }
     const state: PlanningDiscoveryState = {
       schemaVersion: 1,
       revision: (current?.revision ?? 0) + 1,

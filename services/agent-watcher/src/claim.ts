@@ -35,6 +35,20 @@ export async function claimTask(taskRef: DocumentReference, expectedAgentId: str
       if (hasPendingAgentRetry(data)) return false
       if (hasPendingApprovalGate(data)) return false
 
+      // Route guards cannot stop a task already queued when discovery is reopened.
+      // Enforce the project gate in the same transaction as the claim.
+      const projectRef = taskRef.parent.parent
+      if (projectRef) {
+        const projectSnap = await tx.get(projectRef)
+        if (!projectSnap.exists) return false
+        const discovery = projectSnap.data()?.planningDiscovery
+        if (discovery?.enforced === true) {
+          const ready = (discovery.status === 'confirmed' || discovery.status === 'assumptions_attested')
+            && Boolean(discovery.digest && discovery.brief)
+          if (!ready) return false
+        }
+      }
+
       const dependsOn = Array.isArray(data.dependsOn) ? data.dependsOn.filter(Boolean) : []
       if (dependsOn.length > 0) {
         const dependenciesById: Record<string, { agentStatus?: string | null; columnId?: string | null; reviewerAgentId?: string | null; reviewStatus?: string | null } | null> = {}

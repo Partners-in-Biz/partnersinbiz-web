@@ -15,6 +15,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
 import { loadAgentProjectPlan } from '@/lib/projects/agentSuiteProjection'
+import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,10 +61,11 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     .orderBy('createdAt', 'desc')
     .get()
 
-  const documents = docsSnapshot.docs.map(doc => {
-    const data = doc.data()
+  const documentRecords = docsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  const visibleDocumentRecords = filterProjectItemsForAccess(documentRecords, { projectAccess: access.projectAccess, user })
+  const documents = visibleDocumentRecords.map(data => {
     return {
-      id: doc.id,
+      id: data.id,
       title: data.title ?? '',
       content: data.content ?? '',
       type: data.type ?? 'notes',
@@ -79,11 +81,19 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     .get()
 
   const taskRecords = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  const plan = await loadAgentProjectPlan({
+    projectId,
+    projectData: projectData ?? {},
+    tasks: taskRecords,
+    user,
+    projectAccess: access.projectAccess,
+  })
+  const visibleTaskRecords = plan.tasks
+  const visibleTaskIds = new Set(visibleTaskRecords.map((task) => task.id))
 
-  const tasks = tasksSnapshot.docs.map(doc => {
-    const data = doc.data()
+  const tasks = visibleTaskRecords.map(data => {
     return {
-      id: doc.id,
+      id: data.id,
       orgId: data.orgId ?? project.orgId,
       projectId: data.projectId ?? projectId,
       title: data.title ?? '',

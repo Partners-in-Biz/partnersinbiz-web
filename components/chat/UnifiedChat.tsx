@@ -1067,6 +1067,7 @@ export default function UnifiedChat({
   const [selectedSlashCommand, setSelectedSlashCommand] = useState<SlashCommandDefinition | null>(null)
   const [contextSearchResults, setContextSearchResults] = useState<ContextReference[]>([])
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
+  const [contextSearchMessage, setContextSearchMessage] = useState<string | null>(null)
   const [contextPickerActiveIndex, setContextPickerActiveIndex] = useState(0)
   const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>('')
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('ask')
@@ -3280,6 +3281,7 @@ export default function UnifiedChat({
     if (!contextMention) {
       setContextSearchResults([])
       setContextSearchLoading(false)
+      setContextSearchMessage(null)
       return
     }
 
@@ -3292,6 +3294,7 @@ export default function UnifiedChat({
     if (isWorkbenchPathSearch && !contextMention.query.trim()) {
       setContextSearchResults([])
       setContextSearchLoading(false)
+      setContextSearchMessage('Type part of a linked file or folder name')
       return () => controller.abort()
     }
     const params = new URLSearchParams({
@@ -3305,13 +3308,15 @@ export default function UnifiedChat({
       params.set('contextId', currentPageContext.id)
     }
     setContextSearchLoading(true)
+    setContextSearchMessage(null)
     if (isWorkbenchPathSearch) {
-      void runConversationWorkbenchJob(activeId!, {
-        kind: 'fs.search',
-        query: contextMention.query,
-        entryType: contextMention.namespace === 'files' ? 'file' : 'directory',
-        limit: 8,
-      }, { signal: controller.signal })
+      const timer = window.setTimeout(() => {
+        void runConversationWorkbenchJob(activeId!, {
+          kind: 'fs.search',
+          query: contextMention.query,
+          entryType: contextMention.namespace === 'files' ? 'file' : 'directory',
+          limit: 8,
+        }, { signal: controller.signal })
         .then(async (job) => {
           const response = await fetch(
             `/api/v1/conversations/${encodeURIComponent(activeId!)}/workbench/context-references`,
@@ -3322,7 +3327,9 @@ export default function UnifiedChat({
               signal: controller.signal,
             },
           )
-          return response.ok ? response.json() : null
+          const body = await response.json().catch(() => null)
+          if (!response.ok) throw new Error(body?.error || 'Unable to attach linked path')
+          return body
         })
         .then((body) => {
           setContextSearchResults(((body?.data?.refs ?? []) as ContextReference[]).map(coerceContextRef))
@@ -3330,11 +3337,16 @@ export default function UnifiedChat({
         .catch((err) => {
           if (err instanceof DOMException && err.name === 'AbortError') return
           setContextSearchResults([])
+          setContextSearchMessage(err instanceof Error ? err.message : 'Linked path search failed')
         })
         .finally(() => {
           if (!controller.signal.aborted) setContextSearchLoading(false)
         })
-      return () => controller.abort()
+      }, 300)
+      return () => {
+        window.clearTimeout(timer)
+        controller.abort()
+      }
     }
     fetch(`/api/v1/context-references/search?${params.toString()}`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
@@ -3344,10 +3356,12 @@ export default function UnifiedChat({
           return
         }
         setContextSearchResults((body.data.refs as ContextReference[]).map(coerceContextRef))
+        setContextSearchMessage(null)
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === 'AbortError') return
         setContextSearchResults([])
+        setContextSearchMessage('Reference search failed')
       })
       .finally(() => {
         if (!controller.signal.aborted) setContextSearchLoading(false)
@@ -6576,7 +6590,9 @@ export default function UnifiedChat({
                 <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">Searching…</div>
               )}
               {!contextSearchLoading && contextSearchResults.length === 0 && (
-                <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">No matching references</div>
+                <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  {contextSearchMessage ?? 'No matching references'}
+                </div>
               )}
               {!contextSearchLoading && contextSearchResults.map((ref, index) => (
                 <button

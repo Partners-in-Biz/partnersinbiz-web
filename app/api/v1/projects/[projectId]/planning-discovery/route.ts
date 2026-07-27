@@ -75,6 +75,23 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       )
       if (!transition.ok) return transition
       tx.update(projectRef, { planningDiscovery: transition.state, updatedAt: new Date() })
+      if (transition.state.brief && transition.state.digest) {
+        tx.set(projectRef.collection('decisionBriefs').doc(transition.state.digest), {
+          projectId,
+          orgId: project.orgId ?? null,
+          digest: transition.state.digest,
+          revision: transition.state.revision,
+          status: transition.state.status,
+          mode: transition.state.mode,
+          confidence: transition.state.confidence ?? null,
+          brief: transition.state.brief,
+          confirmedBy: transition.state.confirmedBy ?? null,
+          confirmedAt: transition.state.confirmedAt ?? null,
+          attestationReason: transition.state.attestationReason ?? null,
+          updatedBy: user.uid,
+          updatedAt: new Date(),
+        }, { merge: true })
+      }
       tx.set(eventRef, {
         ...transition.event,
         projectId,
@@ -86,6 +103,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     if (!result.ok) return apiError(result.error, result.status)
     return apiSuccess({ planningDiscovery: publicSummary(result.state), eventId: eventRef.id })
   } catch (error) {
-    return apiError(error instanceof Error ? error.message : 'Planning discovery update failed', 500)
+    console.error('[planning-discovery-update-error]', error)
+    return apiError('Planning discovery update failed', 500)
   }
 })
