@@ -61,14 +61,17 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     .orderBy('createdAt', 'desc')
     .get()
 
-  const documentRecords = docsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  const documentRecords = docsSnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  } as { id: string; title?: unknown; content?: unknown; type?: unknown } & Record<string, unknown>))
   const visibleDocumentRecords = filterProjectItemsForAccess(documentRecords, { projectAccess: access.projectAccess, user })
   const documents = visibleDocumentRecords.map(data => {
     return {
       id: data.id,
-      title: data.title ?? '',
-      content: data.content ?? '',
-      type: data.type ?? 'notes',
+      title: typeof data.title === 'string' ? data.title : '',
+      content: typeof data.content === 'string' ? data.content : '',
+      type: typeof data.type === 'string' ? data.type : 'notes',
     }
   })
 

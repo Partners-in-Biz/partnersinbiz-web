@@ -117,7 +117,7 @@ export function applyPlanningDiscoveryAction(
     }
     const state: PlanningDiscoveryState = {
       schemaVersion: 1,
-      revision: (current?.revision ?? 0) + 1,
+      revision: 1,
       status: 'interviewing',
       mode: 'interview',
       enforced: true,
