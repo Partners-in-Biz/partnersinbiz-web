@@ -1351,7 +1351,7 @@ describe('unified conversation message routing', () => {
     const res = await POST(reqWithModel(), { params: Promise.resolve({ convId: 'conv-1' }) })
 
     expect(res.status).toBe(201)
-    expect(mockCallAgentPath).toHaveBeenCalledWith('pip', '/v1/models', { method: 'GET' })
+    expect(mockCallAgentPath).toHaveBeenCalledWith('pip', '/v1/models', { method: 'GET' }, { runtimeTarget: undefined })
     expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
       role: 'user',
       model: 'openai/gpt-5.5',
@@ -1376,7 +1376,7 @@ describe('unified conversation message routing', () => {
     )
   })
 
-  it('rejects client-supplied model overrides before storing messages', async () => {
+  it('allows client-selected model overrides when the model is available', async () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
       orgId: 'pib-platform-owner',
@@ -1391,9 +1391,15 @@ describe('unified conversation message routing', () => {
 
     const res = await POST(reqWithModel(), { params: Promise.resolve({ convId: 'conv-1' }) })
 
-    expect(res.status).toBe(403)
-    expect(mockCreateMessage).not.toHaveBeenCalled()
-    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).toHaveBeenCalledWith(
+      expect.any(Object),
+      'client-1',
+      expect.objectContaining({
+        model: 'openai/gpt-5.5',
+        provider: 'openai',
+      }),
+    )
   })
 
   it('rejects unavailable model overrides before storing messages', async () => {
