@@ -17,6 +17,14 @@ const brief = {
 }
 
 describe('planning discovery state', () => {
+  it('does not let a repeated start erase an existing discovery revision', () => {
+    const started = applyPlanningDiscoveryAction(null, { type: 'start' }, { uid: 'peet', now: '2026-07-27T00:00:00.000Z' })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    const repeated = applyPlanningDiscoveryAction(started.state, { type: 'start' }, { uid: 'peet', now: '2026-07-27T00:01:00.000Z' })
+    expect(repeated).toEqual(expect.objectContaining({ ok: false, status: 409 }))
+  })
+
   it('requires a confirmed brief before planning is ready', () => {
     const started = applyPlanningDiscoveryAction(null, { type: 'start' }, { uid: 'peet', now: '2026-07-27T00:00:00.000Z' })
     expect(started.ok).toBe(true)

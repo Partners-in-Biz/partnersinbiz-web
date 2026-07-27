@@ -62,12 +62,13 @@ beforeEach(() => {
     doc: projectDocRef,
     projectAccess: { role: 'owner', source: 'project_member', canViewInternal: true },
   })
-  mockLoadAgentProjectPlan.mockResolvedValue({
+  mockLoadAgentProjectPlan.mockImplementation(async (input: { tasks: unknown[] }) => ({
     planningDiscovery: { status: 'confirmed', revision: 3 },
+    tasks: input.tasks,
     milestones: [{ id: 'milestone-1', title: 'Release' }],
     approvals: [], risks: [], decisions: [], baselines: [], playbooks: [], automations: [], permissions: [], notificationSettings: [], capacities: [], revenue: [],
     health: { score: 100 }, timeline: { items: [] }, workload: { assignees: [] }, reports: {},
-  })
+  }))
 
   mockProjectGet.mockResolvedValue({
     exists: true,

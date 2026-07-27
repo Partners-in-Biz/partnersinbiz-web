@@ -162,13 +162,6 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     return bTime - aTime
   })
   const topComments = recentComments.slice(0, 10)
-  const plan = await loadAgentProjectPlan({
-    projectId,
-    projectData: projectData ?? {},
-    tasks: taskRecords,
-    user,
-    projectAccess: access.projectAccess,
-  })
 
   return apiSuccess({
     project,

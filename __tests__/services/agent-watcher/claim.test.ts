@@ -2,6 +2,7 @@ jest.mock('../../../services/agent-watcher/src/firestore', () => ({
   db: {
     collectionGroup: jest.fn(),
     batch: jest.fn(),
+    runTransaction: jest.fn(),
   },
   FieldValue: {
     serverTimestamp: jest.fn(() => 'SERVER_TIME'),
@@ -25,9 +26,9 @@ jest.mock('../../../services/agent-watcher/src/logger', () => ({
 }))
 
 import { db } from '../../../services/agent-watcher/src/firestore'
-import { sweepStaleTasks } from '../../../services/agent-watcher/src/claim'
+import { claimTask, sweepStaleTasks } from '../../../services/agent-watcher/src/claim'
 
-const dbMock = db as unknown as { collectionGroup: jest.Mock; batch: jest.Mock }
+const dbMock = db as unknown as { collectionGroup: jest.Mock; batch: jest.Mock; runTransaction: jest.Mock }
 
 describe('agent watcher stale task sweeper', () => {
   beforeEach(() => {
@@ -84,5 +85,38 @@ describe('agent watcher stale task sweeper', () => {
       },
     ])
     expect(commit).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('agent watcher planning gate claim', () => {
+  const projectRef = { path: 'projects/project-1' }
+  const taskRef = { path: 'projects/project-1/tasks/task-1', parent: { parent: projectRef, doc: jest.fn() } }
+
+  beforeEach(() => jest.clearAllMocks())
+
+  it('does not claim queued work when project discovery is incomplete', async () => {
+    const update = jest.fn()
+    dbMock.runTransaction.mockImplementation(async (work) => work({
+      get: jest.fn()
+        .mockResolvedValueOnce({ exists: true, data: () => ({ assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo' }) })
+        .mockResolvedValueOnce({ exists: true, data: () => ({ planningDiscovery: { enforced: true, status: 'interviewing' } }) }),
+      update,
+    }))
+
+    await expect(claimTask(taskRef as never, 'theo')).resolves.toBe(false)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('claims queued work after the exact brief is confirmed', async () => {
+    const update = jest.fn()
+    dbMock.runTransaction.mockImplementation(async (work) => work({
+      get: jest.fn()
+        .mockResolvedValueOnce({ exists: true, data: () => ({ assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo' }) })
+        .mockResolvedValueOnce({ exists: true, data: () => ({ planningDiscovery: { enforced: true, status: 'confirmed', digest: 'digest', brief: { outcome: 'Ship' } } }) }),
+      update,
+    }))
+
+    await expect(claimTask(taskRef as never, 'theo')).resolves.toBe(true)
+    expect(update).toHaveBeenCalledWith(taskRef, expect.objectContaining({ agentStatus: 'picked-up' }))
   })
 })
