@@ -5,7 +5,8 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
-import { assertClientDocumentDataAccess, getAccessibleClientDocument } from '@/lib/client-documents/access'
+import { assertClientDocumentDataAccess, canManageClientDocument, getAccessibleClientDocument } from '@/lib/client-documents/access'
+import { lastActorFrom } from '@/lib/api/actor'
 import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentAssumption } from '@/lib/client-documents/types'
@@ -15,7 +16,7 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-const PATCH_FIELDS = new Set(['title', 'linked', 'assumptions', 'shareEnabled'])
+const PATCH_FIELDS = new Set(['title', 'linked', 'assumptions', 'shareEnabled', 'sharedWithUserIds'])
 const ASSUMPTION_FIELDS = new Set([
   'id',
   'text',
@@ -113,7 +114,7 @@ export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, c
   return apiSuccess(access.document)
 })
 
-export const PATCH = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
+export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object' || Array.isArray(body)) return apiError('Invalid JSON', 400)
@@ -123,11 +124,7 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user: ApiUser, c
     return apiError(`Unsupported field(s): ${invalidFields.join(', ')}`, 400)
   }
 
-  const update: Record<string, unknown> = {
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: user.uid,
-    updatedByType: actorType(user),
-  }
+  const update: Record<string, unknown> = lastActorFrom(user)
 
   if ('title' in body) {
     const title = typeof body.title === 'string' ? body.title.trim() : ''
@@ -152,6 +149,19 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user: ApiUser, c
     update.shareEnabled = body.shareEnabled
   }
 
+  if ('sharedWithUserIds' in body) {
+    if (!Array.isArray(body.sharedWithUserIds) || body.sharedWithUserIds.length > 100) {
+      return apiError('sharedWithUserIds must be an array of at most 100 user ids', 400)
+    }
+    const sharedWithUserIds = Array.from(new Set(body.sharedWithUserIds.map((value: unknown) => (
+      typeof value === 'string' ? value.trim() : ''
+    )).filter(Boolean)))
+    if (sharedWithUserIds.some((uid) => uid.length > 256)) {
+      return apiError('sharedWithUserIds contains an invalid user id', 400)
+    }
+    update.sharedWithUserIds = sharedWithUserIds
+  }
+
   const documentRef = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id)
   const result = await adminDb.runTransaction(async (transaction) => {
     const snap = await transaction.get(documentRef)
@@ -161,6 +171,9 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user: ApiUser, c
 
     const access = assertClientDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
     if (!access.ok) return access
+    if (!canManageClientDocument(snap.data() as Partial<ClientDocument>, user)) {
+      return { ok: false as const, response: apiError('Only the document creator can manage member sharing', 403) }
+    }
 
     if (update.linked) {
       const data = snap.data() as Partial<ClientDocument>

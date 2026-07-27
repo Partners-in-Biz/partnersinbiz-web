@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 
 import type { ApiUser } from '@/lib/api/types'
+import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { adminDb } from '@/lib/firebase/admin'
 
 import { serializeBlocksForFirestore } from './firestore-blocks'
@@ -89,6 +90,7 @@ export async function createClientDocument(input: {
   const batch = adminDb.batch()
   const shareToken = randomBytes(12).toString('hex')
   const inputActorType = actorType(input.user)
+  const createdActor = actorFrom(input.user)
   const now = FieldValue.serverTimestamp()
 
   const document = withoutUndefined({
@@ -105,11 +107,11 @@ export async function createClientDocument(input: {
     shareToken,
     shareEnabled: false,
     createdAt: now,
-    createdBy: input.user.uid,
-    createdByType: inputActorType,
+    ...createdActor,
     updatedAt: now,
-    updatedBy: input.user.uid,
-    updatedByType: inputActorType,
+    updatedBy: createdActor.createdBy,
+    updatedByType: createdActor.createdByType,
+    ...(createdActor.createdByAgentId ? { updatedByAgentId: createdActor.createdByAgentId } : {}),
     deleted: false,
   }) as Omit<ClientDocument, 'id'>
 
@@ -120,8 +122,9 @@ export async function createClientDocument(input: {
     blocks: serializeBlocksForFirestore(createBlocksFromTemplate(input.type)),
     theme: input.theme ?? DEFAULT_THEME,
     createdAt: FieldValue.serverTimestamp(),
-    createdBy: input.user.uid,
+    createdBy: createdActor.createdBy,
     createdByType: inputActorType,
+    ...(createdActor.createdByAgentId ? { createdByAgentId: createdActor.createdByAgentId } : {}),
     changeSummary: 'Initial draft',
   }
 
@@ -194,9 +197,7 @@ export async function publishClientDocument(
       status: 'client_review',
       latestPublishedVersionId: document.currentVersionId,
       shareEnabled: true,
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedBy: user.uid,
-      updatedByType: actorType(user),
+      ...lastActorFrom(user),
     })
     transaction.update(versionRef, { status: 'published' })
 

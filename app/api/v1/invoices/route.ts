@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import type * as FirebaseFirestore from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
+import { actorFrom } from '@/lib/api/actor'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
 import { generateInvoicePdfShareToken } from '@/lib/invoices/share-token'
@@ -400,7 +401,7 @@ export const POST = withAuth('client', async (req, user) => {
     claimStatus: claimableInvoice
       ? (crmTarget?.recipientOrgId ? 'claimed' : 'pending')
       : recipientOrgId ? 'claimed' : undefined,
-    createdBy: user.uid,
+    ...actorFrom(user),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }

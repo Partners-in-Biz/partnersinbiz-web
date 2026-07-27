@@ -85,6 +85,10 @@ What they can do once authenticated is controlled by `document.clientPermissions
 
 Use for: client review cycles, collaborative editing with external stakeholders, anyone whose feedback you need to attribute.
 
+### Internal member sharing
+
+For an internal draft that needs to be visible to specific workspace members before publication, the creator may set `sharedWithUserIds` on `PATCH /api/v1/client-documents/[id]`. The creator remains the primary owner; each listed member can read the draft. Do not publish merely to make an internal collaborator find a document.
+
 ---
 
 ## Document Types & Templates
@@ -193,7 +197,7 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 | `GET` | `/api/v1/client-documents` | `?orgId=&status=&type=&limit=&page=` | List documents |
 | `POST` | `/api/v1/client-documents` | `{ orgId?, title, type, templateId?, linked? }` | Create document (starts as `internal_draft`). From CRM company context, send `linked.companyId`; the API resolves the owner org and `linked.clientOrgId` when possible. |
 | `GET` | `/api/v1/client-documents/[id]` | — | Fetch single document |
-| `PATCH` | `/api/v1/client-documents/[id]` | `{ title?, status?, orgId?, linked?, assumptions?, clientPermissions?, shareEnabled? }` | Update metadata |
+| `PATCH` | `/api/v1/client-documents/[id]` | `{ title?, linked?, assumptions?, shareEnabled?, sharedWithUserIds? }` | Update metadata; the creator may share an internal draft with named members. |
 | `DELETE` | `/api/v1/client-documents/[id]` | — | Archive (soft delete) |
 | `POST` | `/api/v1/client-documents/[id]/archive` | `{}` | Explicit admin archive action; use this from admin UI/workflows when available |
 | `POST` | `/api/v1/client-documents/[id]/publish` | `{}` | Move to `client_review`, generate shareToken |

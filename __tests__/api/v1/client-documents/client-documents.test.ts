@@ -631,6 +631,27 @@ describe('client documents API', () => {
     expect(res.status).toBe(403)
   })
 
+  it('allows a member to retrieve their own draft or a document explicitly shared with them', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        title: 'Stean meeting minutes',
+        status: 'internal_draft',
+        createdBy: 'client-2',
+        sharedWithUserIds: ['client-1'],
+        deleted: false,
+      }),
+    })
+
+    const { GET } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1')
+    const res = await GET(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(200)
+  })
+
   it('allows clients to fetch client-visible documents explicitly linked via clientOrgIds', async () => {
     mockDocGet.mockResolvedValueOnce({
       exists: true,
@@ -880,14 +901,35 @@ describe('client documents API', () => {
     expect(mockTransactionUpdate).not.toHaveBeenCalled()
   })
 
-  it('blocks clients from patching documents', async () => {
+  it('allows creators to share drafts with members but blocks non-creators from managing them', async () => {
     const { PATCH } = await import('@/app/api/v1/client-documents/[id]/route')
-    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1', { title: 'Client edit' }, 'PATCH')
-    const res = await PATCH(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({ orgId: 'client-org', createdBy: 'client-1', deleted: false }),
+    })
+    const creatorReq = jsonRequest(
+      'http://localhost/api/v1/client-documents/doc-1',
+      { sharedWithUserIds: ['client-2'] },
+      'PATCH',
+    )
+    const creatorRes = await PATCH(creatorReq, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
 
-    expect(res.status).toBe(403)
-    expect(mockTransactionGet).not.toHaveBeenCalled()
-    expect(mockTransactionUpdate).not.toHaveBeenCalled()
+    expect(creatorRes.status).toBe(200)
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'doc-1' }),
+      expect.objectContaining({ sharedWithUserIds: ['client-2'] }),
+    )
+
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({ orgId: 'client-org', createdBy: 'client-2', sharedWithUserIds: ['client-1'], deleted: false }),
+    })
+    const memberReq = jsonRequest('http://localhost/api/v1/client-documents/doc-1', { title: 'Client edit' }, 'PATCH')
+    const memberRes = await PATCH(memberReq, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(memberRes.status).toBe(403)
   })
 
   it('publishes documents with orgId and no blocking assumptions', async () => {

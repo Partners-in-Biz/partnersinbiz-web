@@ -140,6 +140,41 @@ describe('client document store', () => {
     expect(mockVersionSet).not.toHaveBeenCalled()
   })
 
+  it('keeps the human as owner while recording the delegated agent', async () => {
+    const { createClientDocument } = await import('@/lib/client-documents/store')
+
+    await createClientDocument({
+      title: 'Stean meeting minutes',
+      type: 'monthly_report',
+      user: {
+        uid: 'stean-1',
+        role: 'client',
+        authKind: 'user_delegation',
+        agentId: 'pip',
+      },
+    })
+
+    expect(mockBatchSet).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      expect.objectContaining({
+        createdBy: 'stean-1',
+        createdByType: 'user',
+        createdByAgentId: 'pip',
+        updatedBy: 'stean-1',
+        updatedByAgentId: 'pip',
+      }),
+    )
+    expect(mockBatchSet).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      expect.objectContaining({
+        createdBy: 'stean-1',
+        createdByAgentId: 'pip',
+      }),
+    )
+  })
+
   it('blocks publish when orgId is missing', async () => {
     mockTransactionGet.mockResolvedValue({
       exists: true,

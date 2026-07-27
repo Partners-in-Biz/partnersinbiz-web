@@ -32,8 +32,17 @@ function isExplicitlyLinkedClientVisible(document: Partial<ClientDocument>, user
   return linkedClientOrgIds(document).some((orgId) => allowedOrgIds.has(orgId))
 }
 
+function isInternalCollaborator(document: Partial<ClientDocument>, user: ApiUser): boolean {
+  if (user.role !== 'client') return false
+  if (document.createdBy === user.uid) return true
+  if ((document.sharedWithUserIds ?? []).includes(user.uid)) return true
+
+  return false
+}
+
 export function assertClientDocumentDataAccess(document: Partial<ClientDocument>, user: ApiUser) {
   if (user.role === 'client') {
+    if (isInternalCollaborator(document, user)) return { ok: true as const }
     if (isExplicitlyLinkedClientVisible(document, user)) return { ok: true as const }
     return { ok: false as const, response: apiError('Forbidden', 403) }
   }
@@ -46,6 +55,15 @@ export function assertClientDocumentDataAccess(document: Partial<ClientDocument>
   if (!scope.ok) return { ok: false as const, response: apiError(scope.error, scope.status) }
 
   return { ok: true as const }
+}
+
+export function isClientDocumentVisibleToUser(document: Partial<ClientDocument>, user: ApiUser): boolean {
+  return isInternalCollaborator(document, user) || isExplicitlyLinkedClientVisible(document, user)
+}
+
+/** Internal collaborators may read a shared document; only its creator may manage it. */
+export function canManageClientDocument(document: Partial<ClientDocument>, user: ApiUser): boolean {
+  return user.role !== 'client' || document.createdBy === user.uid
 }
 
 export async function getAccessibleClientDocument(id: string, user: ApiUser) {

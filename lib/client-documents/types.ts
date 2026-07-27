@@ -453,9 +453,15 @@ export interface ClientDocument {
   createdAt?: unknown
   createdBy: string
   createdByType: DocumentActorType
+  /** Agent that acted for the human creator, when this came from a chat run. */
+  createdByAgentId?: string
   updatedAt?: unknown
   updatedBy: string
   updatedByType: DocumentActorType
+  /** Agent that acted for the human updater, when this came from a chat run. */
+  updatedByAgentId?: string
+  /** Internal members explicitly invited to collaborate on this document. */
+  sharedWithUserIds?: string[]
   deleted: boolean
   providerSignature?: DocumentProviderSignature
   clientAcceptance?: DocumentClientAcceptance

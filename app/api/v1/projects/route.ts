@@ -7,6 +7,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import type * as FirebaseFirestore from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
+import { actorFrom } from '@/lib/api/actor'
 import { withIdempotency } from '@/lib/api/idempotency'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
@@ -529,7 +530,7 @@ export async function handleProjectCreate(
     claimStatus: claimableProject
       ? (crmTarget?.recipientOrgId ? 'claimed' : 'pending')
       : recipientOrgId ? 'claimed' : undefined,
-    createdBy: user.uid,
+    ...actorFrom(user),
     ...(trustedSetup ? {
       setupOperationId: trustedSetup.setupOperationId,
       setupCreationStatus: 'creating',
