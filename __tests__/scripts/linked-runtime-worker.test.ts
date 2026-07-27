@@ -1,4 +1,4 @@
-import fs from'node:fs';import os from'node:os';import path from'node:path';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunPollDelay}from'../../runtime-installers/runtime/worker'
+import fs from'node:fs';import os from'node:os';import path from'node:path';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunPollDelay,pollForever}from'../../runtime-installers/runtime/worker'
 import { DeviceApiClient } from '../../runtime-installers/runtime/client'
 import { applyHeartbeatData,handleRotation,heartbeatForever,isRevokeAcknowledged,linkedRuntimeHeartbeatBody,linkedRuntimePlatform,linkedRuntimeSyncClaimBody,nativeWorkspaceSyncSupported,recoverPendingRevocation,runRuntimeServicePollers,sanitizeIdentity } from '../../runtime-installers/runtime/cli'
 import { callLocalHermes, localHermesRoutes, probeLocalHermes } from '../../runtime-installers/runtime/hermes'
@@ -41,6 +41,35 @@ it('forwards local Hermes SSE tool events while polling run status', async () =>
 })
 it('keeps heartbeats independent from long-running execution and sync pollers',async()=>{let stopped=false;const beat=jest.fn(async()=>{}),wait=jest.fn(async()=>{stopped=true});await heartbeatForever(beat,()=>stopped,60_000,wait);expect(beat).toHaveBeenCalledTimes(1);expect(wait).toHaveBeenCalledWith(60_000)})
 it('keeps an idle execution claim inside the web acceptance window',()=>{expect(linkedRunPollDelay(30_000,()=>0.999)).toBeLessThanOrEqual(2_000)})
+it('keeps claiming linked runs while another chat is still executing, up to the concurrency bound',async()=>{
+  let stopped=false,claims=0,active=0,maxActive=0
+  const releases:Array<()=>void>=[]
+  const started:string[]=[]
+  const jobs=[{jobId:'one'},{jobId:'two'},{jobId:'three'}] as any[]
+  const claim=jest.fn(async()=>{
+    const job=jobs[claims++]??null
+    if(!job)stopped=true
+    return job
+  })
+  const run=jest.fn(async(job:any)=>{
+    active+=1
+    maxActive=Math.max(maxActive,active)
+    started.push(job.jobId)
+    await new Promise<void>(resolve=>releases.push(resolve))
+    active-=1
+  })
+  const polling=pollForever(claim,run,()=>stopped,{maxConcurrency:2})
+  while(started.length<2)await new Promise(resolve=>setImmediate(resolve))
+  expect(started).toEqual(['one','two'])
+  expect(claim).toHaveBeenCalledTimes(2)
+  releases.shift()?.()
+  while(started.length<3)await new Promise(resolve=>setImmediate(resolve))
+  expect(started).toEqual(['one','two','three'])
+  expect(maxActive).toBe(2)
+  releases.splice(0).forEach(release=>release())
+  while(!stopped)await new Promise(resolve=>setImmediate(resolve))
+  await polling
+})
 it('surfaces concrete Hermes start and terminal failure details', async () => {
   const startFail = jest.fn(async () => new Response(JSON.stringify({ error: 'provider quota exhausted' }), { status: 503 })) as any
   await expect(callLocalHermes(
