@@ -2338,6 +2338,39 @@ describe('UnifiedChat context references', () => {
     const defaultFetch = mockFetch.getMockImplementation()!
     mockFetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
+      if (url.startsWith('/api/v1/workspaces?')) {
+        return jsonResponse({
+          data: {
+            workspaces: [{
+              workspaceId: 'workspace-1',
+              orgId: 'org-1',
+              orgSlug: 'partners',
+              orgName: 'Partners in Biz',
+              sourceOfTruth: 'local',
+              syncMode: 'hybrid',
+              defaultRuntimeTarget: 'device-1',
+              folderVersion: 1,
+            }],
+            runtimeTargetsByWorkspace: {
+              'workspace-1': [{
+                id: 'device-1',
+                deviceId: 'device-1',
+                label: 'Peet Mac',
+                mappingId: 'mapping-1',
+                mappingLabel: 'Client Growth',
+                selectable: true,
+                enabled: true,
+                isLocal: true,
+                isFresh: true,
+                isHealthy: true,
+                lastSeenAt: null,
+                deviceKind: 'computer',
+              }],
+            },
+            projects: [],
+          },
+        })
+      }
       if (url === '/api/v1/conversations/conv-1/workbench/jobs' && init?.method === 'POST') {
         expect(JSON.parse(String(init.body))).toEqual({
           operation: { kind: 'fs.search', query: 'rmicdev', entryType: 'directory', limit: 8 },
@@ -2372,6 +2405,7 @@ describe('UnifiedChat context references', () => {
       />,
     )
 
+    fireEvent.click(await screen.findByTestId('conversation-row-conv-1'))
     const input = await screen.findByPlaceholderText('Send a message')
     fireEvent.change(input, { target: { value: '@folders:rmicdev' } })
     fireEvent.click(await screen.findByText('rmicdev'))
