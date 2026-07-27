@@ -77,7 +77,15 @@ beforeEach(() => {
         })),
       }
     }
-    return makeQuery(collections[name] ?? [])
+    return {
+      ...makeQuery(collections[name] ?? []),
+      doc: jest.fn((id: string) => ({
+        get: jest.fn(async () => {
+          const doc = (collections[name] ?? []).find((entry) => entry.id === id)
+          return doc ? { ...doc, exists: true } : { exists: false, id, data: () => ({}) }
+        }),
+      })),
+    }
   })
   mockCollectionGroup.mockImplementation((name: string) => makeQuery(collectionGroups[name] ?? []))
   mockAdd.mockResolvedValue({ id: 'snapshot-1' })
@@ -709,7 +717,7 @@ describe('briefing feed', () => {
           nextAction: 'Confirm approval blockers',
         },
         createdByRef: {
-          uid: 'client-1',
+          uid: 'admin-1',
           displayName: 'Ava Owner',
           role: 'client',
         },
@@ -757,6 +765,7 @@ describe('briefing feed', () => {
         company: 'Scale Co',
         type: 'prospect',
         stage: 'demo',
+        assignedTo: 'client-1',
         leadScore: 92,
         icpScore: 88,
         lastContactedAt: '2026-05-30T08:00:00.000Z',
@@ -769,6 +778,7 @@ describe('briefing feed', () => {
         source: 'import',
         type: 'lead',
         stage: 'new',
+        assignedTo: 'client-1',
         createdAt: '2026-05-20T08:00:00.000Z',
         updatedAt: '2026-05-20T08:00:00.000Z',
       }),
@@ -779,6 +789,7 @@ describe('briefing feed', () => {
         company: 'Proposal Ltd',
         type: 'prospect',
         stage: 'proposal',
+        assignedTo: 'client-1',
         lastContactedAt: '2026-04-01T08:00:00.000Z',
         updatedAt: '2026-05-30T08:00:00.000Z',
       }),
@@ -813,6 +824,46 @@ describe('briefing feed', () => {
     expect(feed.items.find((item) => item.source.id === 'contact-proposal')?.summary).toContain('Proposal-stage prospect has not been touched since 2026-04-01')
   })
 
+  it('keeps CRM contact follow-ups scoped to the viewer even for admins', async () => {
+    collections.contacts = [
+      makeDoc('contact-mine', {
+        orgId: 'org-1',
+        name: 'Mine',
+        type: 'prospect',
+        stage: 'proposal',
+        assignedTo: 'admin-1',
+        lastContactedAt: '2026-04-01T08:00:00.000Z',
+        updatedAt: '2026-05-30T08:00:00.000Z',
+      }),
+      makeDoc('contact-theirs', {
+        orgId: 'org-1',
+        name: 'Theirs',
+        type: 'prospect',
+        stage: 'proposal',
+        assignedTo: 'stean-1',
+        lastContactedAt: '2026-04-01T08:00:00.000Z',
+        updatedAt: '2026-05-30T08:00:00.000Z',
+      }),
+      makeDoc('contact-unassigned', {
+        orgId: 'org-1',
+        name: 'Unassigned',
+        type: 'lead',
+        stage: 'new',
+        source: 'import',
+        createdBy: 'system:legacy',
+        updatedAt: '2026-05-20T08:00:00.000Z',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 20, sourceType: 'contact' },
+    )
+
+    expect(feed.items.map((item) => item.source.id)).toEqual(['contact-mine'])
+  })
+
   it('surfaces stale CRM deals and proposal follow-ups as internal revenue briefing cards', async () => {
     collections.deals = [
       makeDoc('deal-stale', {
@@ -822,6 +873,7 @@ describe('briefing feed', () => {
         currency: 'ZAR',
         stageLabel: 'Discovery',
         stageKind: 'open',
+        ownerUid: 'admin-1',
         probability: 55,
         contactId: 'contact-hot',
         companyId: 'company-1',
@@ -837,6 +889,7 @@ describe('briefing feed', () => {
         currency: 'ZAR',
         stageLabel: 'Proposal',
         stageKind: 'open',
+        ownerUid: 'admin-1',
         probability: 75,
         contactId: 'contact-proposal',
         expectedCloseDate: '2026-06-20T00:00:00.000Z',
@@ -885,6 +938,7 @@ describe('briefing feed', () => {
         company: 'Acme Holdings',
         type: 'prospect',
         stage: 'proposal',
+        assignedTo: 'client-1',
         lastContactedAt: '2026-04-01T08:00:00.000Z',
         updatedAt: '2026-05-30T08:00:00.000Z',
         notes: 'Needs follow-up. token: contact-secret-123',
@@ -895,6 +949,7 @@ describe('briefing feed', () => {
         email: 'recent@example.test',
         type: 'lead',
         stage: 'contacted',
+        assignedTo: 'client-1',
         lastContactedAt: '2026-05-30T08:00:00.000Z',
         updatedAt: '2026-05-30T08:00:00.000Z',
       }),
