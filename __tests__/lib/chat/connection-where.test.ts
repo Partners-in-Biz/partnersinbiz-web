@@ -6,34 +6,47 @@ describe('buildConnectionWhere', () => {
     expect(buildConnectionWhere(null)).toBeNull()
   })
 
-  it('formats VPS presence with mapping', () => {
+  it('formats an org VPS from structured deviceKind (any org label)', () => {
     const where = buildConnectionWhere({
       deviceKind: 'vps',
-      machineLabel: 'Partners VPS',
-      mappingLabel: 'Partners in Biz',
+      machineLabel: 'acme-edge-01',
+      mappingLabel: 'Client Growth',
       online: true,
     })
     expect(where).toEqual(expect.objectContaining({
       kind: 'VPS',
-      label: 'Partners VPS',
-      mappingLabel: 'Partners in Biz',
-      display: 'VPS · Partners VPS · Partners in Biz',
+      label: 'acme-edge-01',
+      mappingLabel: 'Client Growth',
+      display: 'VPS · acme-edge-01 · Client Growth',
       online: true,
       icon: 'dns',
     }))
   })
 
-  it('formats linked Mac computers', () => {
+  it('formats a computer-only org (no VPS required)', () => {
     const where = buildConnectionWhere({
+      deviceKind: 'computer',
       runtimeKind: 'linked-computer',
-      machineLabel: "Peet's Mac",
+      machineLabel: 'Studio Mini',
       online: true,
     })
     expect(where).toEqual(expect.objectContaining({
       kind: 'Computer',
-      display: "Computer · Peet's Mac",
+      display: 'Computer · Studio Mini',
       icon: 'computer',
     }))
+  })
+
+  it('does not reclassify from free-text names (orgs name machines anything)', () => {
+    // A linked computer literally named "...VPS..." must stay Computer when deviceKind says so.
+    const where = buildConnectionWhere({
+      deviceKind: 'computer',
+      runtimeKind: 'linked-computer',
+      machineLabel: 'Backup VPS Laptop',
+      online: true,
+    })
+    expect(where?.kind).toBe('Computer')
+    expect(where?.display).toBe('Computer · Backup VPS Laptop')
   })
 
   it('formats local runtime targets', () => {
@@ -49,13 +62,23 @@ describe('buildConnectionWhere', () => {
     }))
   })
 
-  it('uses dispatch metadata from the last agent turn', () => {
+  it('uses last-turn dispatch metadata for whatever host accepted the run', () => {
     const where = buildConnectionWhere({
       runtimeKind: 'vps',
-      machineLabel: 'hermes-vps-01',
+      machineLabel: 'client-hermes-node',
       online: null,
     })
-    expect(where?.display).toBe('VPS · hermes-vps-01')
+    expect(where?.display).toBe('VPS · client-hermes-node')
     expect(where?.online).toBeNull()
+  })
+
+  it('supports VPS-only inventory without any computer', () => {
+    const where = buildConnectionWhere({
+      deviceKind: 'vps',
+      machineLabel: 'org-canonical-vps',
+      online: true,
+    })
+    expect(where?.kind).toBe('VPS')
+    expect(where?.label).toBe('org-canonical-vps')
   })
 })
