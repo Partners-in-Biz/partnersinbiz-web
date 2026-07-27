@@ -63,4 +63,12 @@ describe('agent watcher task dispatch eligibility', () => {
       todo: { columnId: 'todo', agentStatus: 'pending' },
     })).toEqual(['todo', 'missing'])
   })
+
+  it('requires reviewer approval before a reviewed dependency resolves', () => {
+    expect(getUnresolvedDependencyIds(['review-pending', 'review-approved', 'ordinary-done'], {
+      'review-pending': { columnId: 'review', agentStatus: 'done', reviewerAgentId: 'qa-release', reviewStatus: 'pending' },
+      'review-approved': { columnId: 'review', agentStatus: 'done', reviewerAgentId: 'qa-release', reviewStatus: 'approved' },
+      'ordinary-done': { columnId: 'review', agentStatus: 'done' },
+    })).toEqual(['review-pending'])
+  })
 })

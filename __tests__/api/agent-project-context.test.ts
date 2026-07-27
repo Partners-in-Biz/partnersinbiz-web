@@ -8,6 +8,8 @@ const mockProjectGet = jest.fn()
 const mockDocsGet = jest.fn()
 const mockTasksGet = jest.fn()
 const mockCommentsGet = jest.fn()
+const mockGetProjectForUser = jest.fn()
+const mockLoadAgentProjectPlan = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
@@ -17,6 +19,9 @@ jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: MockHandler) => async (req: NextRequest, ctx?: unknown) =>
     handler(req, { uid: 'admin-1', role: 'admin', orgId: 'platform' }, ctx),
 }))
+
+jest.mock('@/lib/projects/access', () => ({ getProjectForUser: mockGetProjectForUser }))
+jest.mock('@/lib/projects/agentSuiteProjection', () => ({ loadAgentProjectPlan: mockLoadAgentProjectPlan }))
 
 const ts = (millis: number) => ({
   toMillis: () => millis,
@@ -41,6 +46,9 @@ beforeEach(() => {
     orderBy: jest.fn(() => ({ get: mockDocsGet })),
   }
   const projectDocRef = {
+    id: 'project-1',
+    exists: true,
+    data: () => ({ orgId: 'org-1', name: 'QC project', status: 'active', description: 'desc', brief: 'brief' }),
     get: mockProjectGet,
     collection: jest.fn((name: string) => {
       if (name === 'docs') return docsCollection
@@ -49,6 +57,17 @@ beforeEach(() => {
     }),
   }
   mockCollection.mockReturnValue({ doc: jest.fn(() => projectDocRef) })
+  mockGetProjectForUser.mockResolvedValue({
+    ok: true,
+    doc: projectDocRef,
+    projectAccess: { role: 'owner', source: 'project_member', canViewInternal: true },
+  })
+  mockLoadAgentProjectPlan.mockResolvedValue({
+    planningDiscovery: { status: 'confirmed', revision: 3 },
+    milestones: [{ id: 'milestone-1', title: 'Release' }],
+    approvals: [], risks: [], decisions: [], baselines: [], playbooks: [], automations: [], permissions: [], notificationSettings: [], capacities: [], revenue: [],
+    health: { score: 100 }, timeline: { items: [] }, workload: { assignees: [] }, reports: {},
+  })
 
   mockProjectGet.mockResolvedValue({
     exists: true,
@@ -133,5 +152,11 @@ describe('GET /api/v1/agent/project/[projectId]', () => {
         agentHeartbeatAt: expect.any(Object),
       }),
     ])
+    expect(body.data.plan).toEqual(expect.objectContaining({
+      planningDiscovery: { status: 'confirmed', revision: 3 },
+      milestones: [{ id: 'milestone-1', title: 'Release' }],
+    }))
+    expect(mockGetProjectForUser).toHaveBeenCalledWith('project-1', expect.any(Object), 'platform')
+    expect(mockLoadAgentProjectPlan).toHaveBeenCalledWith(expect.objectContaining({ projectId: 'project-1' }))
   })
 })

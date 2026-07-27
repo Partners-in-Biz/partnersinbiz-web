@@ -1,11 +1,33 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
+import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 
 export type ProjectPlaybookRecord = Record<string, unknown> & {
   id?: string
   deleted?: unknown
 }
+
+export type ProjectPlaybookTaskTemplateV1 = {
+  stepId: string
+  title: string
+  spec: string
+  description?: string
+  assigneeAgentId?: string
+  dependsOnStepIds: string[]
+  reviewerAgentId?: string
+  requiredCapability?: string
+  riskLevel?: string
+  approvalGateTaskId?: string
+  expectedArtifacts: string[]
+  verifierChecklist: string[]
+  labels: string[]
+  priority?: string
+  agentEffort?: string
+  agentModel?: string
+}
+
+export type ProjectPlaybookTemplateV1 = { schemaVersion: 1; steps: ProjectPlaybookTaskTemplateV1[] }
 
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -28,8 +50,82 @@ function projectOwnerOrgId(data: Record<string, unknown>): string {
   return cleanString(data.ownerOrgId) || cleanString(data.sourceOrgId) || cleanString(data.issuerOrgId) || cleanString(data.orgId)
 }
 
+function cleanRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+export function normalizeProjectPlaybookTemplate(value: unknown): ProjectPlaybookTemplateV1 {
+  const source = cleanRecord(value)
+  const structured = Array.isArray(source.steps) ? source.steps : []
+  if (structured.length > 0) {
+    return {
+      schemaVersion: 1,
+      steps: structured.map((raw, index) => {
+        const step = cleanRecord(raw)
+        const title = cleanString(step.title) || cleanString(step.spec) || `Step ${index + 1}`
+        return {
+          stepId: cleanString(step.stepId) || `step-${index + 1}`,
+          title,
+          spec: cleanString(step.spec) || title,
+          description: cleanString(step.description) || undefined,
+          assigneeAgentId: cleanString(step.assigneeAgentId) || undefined,
+          dependsOnStepIds: cleanStringArray(step.dependsOnStepIds),
+          reviewerAgentId: cleanString(step.reviewerAgentId) || undefined,
+          requiredCapability: cleanString(step.requiredCapability) || undefined,
+          riskLevel: cleanString(step.riskLevel) || undefined,
+          approvalGateTaskId: cleanString(step.approvalGateTaskId) || undefined,
+          expectedArtifacts: cleanStringArray(step.expectedArtifacts),
+          verifierChecklist: cleanStringArray(step.verifierChecklist),
+          labels: cleanStringArray(step.labels),
+          priority: cleanString(step.priority) || undefined,
+          agentEffort: cleanString(step.agentEffort) || undefined,
+          agentModel: cleanString(step.agentModel) || undefined,
+        }
+      }),
+    }
+  }
+  const legacy = cleanStringArray(Array.isArray(value) ? value : source.templateSteps)
+  return {
+    schemaVersion: 1,
+    steps: legacy.map((title, index) => ({
+      stepId: `step-${index + 1}`,
+      title,
+      spec: title,
+      dependsOnStepIds: index === 0 ? [] : [`step-${index}`],
+      expectedArtifacts: [],
+      verifierChecklist: [],
+      labels: [],
+    })),
+  }
+}
+
+export function validateProjectPlaybookTemplate(template: ProjectPlaybookTemplateV1): { ok: true } | { ok: false; error: string } {
+  if (template.steps.length === 0) return { ok: false, error: 'Playbook requires at least one step' }
+  const ids = template.steps.map((step) => step.stepId)
+  if (new Set(ids).size !== ids.length) return { ok: false, error: 'Playbook step ids must be unique' }
+  const known = new Set(ids)
+  for (const step of template.steps) {
+    if (!step.stepId || !step.title || !step.spec) return { ok: false, error: 'Every playbook step requires stepId, title, and spec' }
+    if (step.dependsOnStepIds.some((id) => !known.has(id))) return { ok: false, error: `Unknown step dependency in ${step.stepId}` }
+  }
+  const visiting = new Set<string>()
+  const visited = new Set<string>()
+  const byId = new Map(template.steps.map((step) => [step.stepId, step]))
+  const visit = (id: string): boolean => {
+    if (visiting.has(id)) return false
+    if (visited.has(id)) return true
+    visiting.add(id)
+    for (const dependencyId of byId.get(id)?.dependsOnStepIds ?? []) if (!visit(dependencyId)) return false
+    visiting.delete(id)
+    visited.add(id)
+    return true
+  }
+  for (const id of ids) if (!visit(id)) return { ok: false, error: 'Playbook step dependencies must not contain a cycle' }
+  return { ok: true }
+}
+
 export function playbookTemplateSteps(value: unknown): string[] {
-  return cleanStringArray(value)
+  return normalizeProjectPlaybookTemplate(value).steps.map((step) => step.title)
 }
 
 function parseDate(value: unknown): Date | null {
@@ -82,7 +178,7 @@ export function playbookIsDue(playbook: ProjectPlaybookRecord, now = new Date())
   const status = cleanString(playbook.status)
   if (status === 'archived' || status === 'inactive' || status === 'revoked') return false
   if (playbook.autoCreateTasks !== true) return false
-  if (playbookTemplateSteps(playbook.templateSteps).length === 0) return false
+  if (normalizeProjectPlaybookTemplate(playbook.template ?? playbook).steps.length === 0) return false
   const nextRunAt = parseDate(playbook.nextRunAt)
   return Boolean(nextRunAt && nextRunAt.getTime() <= now.getTime())
 }
@@ -107,24 +203,51 @@ export async function runProjectPlaybookTemplate(input: {
   disableAutoCreateTasks?: boolean
 }) {
   const title = cleanString(input.playbook.title) || 'Project playbook'
-  const steps = playbookTemplateSteps(input.playbook.templateSteps)
-  if (steps.length === 0) {
-    return { ok: false as const, error: 'Playbook has no reusable template steps to run', status: 400 }
-  }
+  const planningBlocker = planningMutationBlocker(input.project)
+  if (planningBlocker) return { ok: false as const, error: planningBlocker.message, status: 409, code: planningBlocker.code }
+  const template = normalizeProjectPlaybookTemplate(input.playbook.template ?? input.playbook)
+  const validation = validateProjectPlaybookTemplate(template)
+  if (!validation.ok) return { ok: false as const, error: validation.error, status: 400 }
+  const steps = template.steps
 
   const projectRef = adminDb.collection('projects').doc(input.projectId)
   const tasksRef = projectRef.collection('tasks')
   const orgId = cleanString(input.project.orgId) || projectOwnerOrgId(input.project) || undefined
   const createdTaskIds: string[] = []
+  const createdTaskIdsByStep = new Map<string, string>()
   const runId = `${input.playbookId}_${Date.now()}`
 
   for (let index = 0; index < steps.length; index += 1) {
+    const step = steps[index]
+    const dependsOn = [
+      ...step.dependsOnStepIds.map((stepId) => createdTaskIdsByStep.get(stepId)).filter((id): id is string => Boolean(id)),
+      ...(step.approvalGateTaskId ? [step.approvalGateTaskId] : []),
+    ]
     const task = buildProjectTaskCreateData({
-      title: steps[index],
-      description: `Created from playbook: ${title}`,
+      title: step.title,
+      description: step.description || `Created from playbook: ${title}`,
       columnId: 'todo',
-      priority: 'medium',
-      labels: ['playbook', `playbook:${input.playbookId}`],
+      priority: step.priority || 'medium',
+      labels: ['playbook', `playbook:${input.playbookId}`, ...step.labels],
+      assigneeAgentId: step.assigneeAgentId,
+      agentEffort: step.agentEffort,
+      agentModel: step.agentModel,
+      reviewerAgentId: step.reviewerAgentId,
+      requiredCapability: step.requiredCapability,
+      riskLevel: step.riskLevel,
+      approvalGateTaskId: step.approvalGateTaskId,
+      expectedArtifacts: step.expectedArtifacts,
+      verifierChecklist: step.verifierChecklist,
+      dependsOn,
+      agentInput: step.assigneeAgentId ? {
+        spec: step.spec,
+        context: {
+          sourcePlaybookId: input.playbookId,
+          sourcePlaybookRunId: runId,
+          sourcePlaybookStepId: step.stepId,
+          expectedArtifacts: step.expectedArtifacts,
+        },
+      } : undefined,
       order: Date.now() + index,
     }, input.projectId, orgId)
     if (!task.ok) return { ok: false as const, error: task.error, status: task.status ?? 400 }
@@ -133,6 +256,8 @@ export async function runProjectPlaybookTemplate(input: {
       ...task.value,
       sourcePlaybookId: input.playbookId,
       sourcePlaybookRunId: runId,
+      sourcePlaybookStepId: step.stepId,
+      sourcePlaybookSchemaVersion: template.schemaVersion,
       sourcePlaybookTitle: title,
       reporterId: input.actorUid,
       createdBy: input.actorUid,
@@ -140,6 +265,7 @@ export async function runProjectPlaybookTemplate(input: {
       updatedAt: FieldValue.serverTimestamp(),
     })
     createdTaskIds.push(ref.id)
+    createdTaskIdsByStep.set(step.stepId, ref.id)
   }
 
   const playbookUpdates: Record<string, unknown> = {

@@ -1,6 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+export const PLAN_REFRESH_INTERVAL_MS = 15_000
 
 type SuiteItem = {
   id?: string
@@ -79,6 +81,15 @@ type ProjectReports = {
 }
 
 type SuiteData = {
+  planningDiscovery?: {
+    revision?: number
+    status?: 'interviewing' | 'brief_ready' | 'confirmed' | 'assumptions_attested'
+    mode?: 'interview' | 'assumptions'
+    confidence?: number
+    digest?: string
+    brief?: { outcome?: string; whyNow?: string; successCriteria?: string[]; constraints?: string[]; outOfScope?: string[]; assumptions?: string[]; risks?: string[]; approvalGates?: string[] }
+    attestationReason?: string
+  } | null
   health?: ProjectHealth
   timeline?: { items?: TimelineItem[]; driftCount?: number; dependencyCount?: number; baselines?: SuiteItem[] }
   workload?: { assignees?: WorkloadAssignee[]; totalEstimateMinutes?: number; totalCapacityMinutes?: number; totalRemainingMinutes?: number; totalOverByMinutes?: number; averageUtilizationPercent?: number; overCapacityCount?: number }
@@ -1132,11 +1143,79 @@ function ItemList({
   )
 }
 
+function PlanningDiscoveryPanel({
+  state,
+  saving,
+  onAction,
+}: {
+  state: SuiteData['planningDiscovery']
+  saving: boolean
+  onAction: (action: Record<string, unknown>) => Promise<void>
+}) {
+  const [attestation, setAttestation] = useState('')
+  const [reason, setReason] = useState('')
+  const ready = state?.status === 'confirmed' || state?.status === 'assumptions_attested'
+  const revision = state?.revision ?? 0
+  const brief = state?.brief
+
+  return (
+    <section className={`rounded-2xl border p-4 ${ready ? 'border-emerald-300 bg-emerald-50/60' : 'border-amber-300 bg-amber-50/70'}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="pib-label">Mandatory planning discovery</p>
+          <h3 className="mt-1 font-headline text-lg font-bold text-[var(--color-pib-text)]">
+            {ready ? 'Decision Brief confirmed' : state ? 'Planning is gated' : 'Start the project interview'}
+          </h3>
+          <p className="mt-1 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
+            Pip inspects the project context first, asks one high-value question at a time, and records facts, assumptions, constraints, preferences, risks, and unknowns. Planned agent work and playbook runs remain blocked until the brief is confirmed.
+          </p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text)]">
+          {state?.status?.replace(/_/g, ' ') || 'not started'}
+        </span>
+      </div>
+
+      {brief && (
+        <div className="mt-4 grid gap-3 rounded-xl bg-white p-4 text-sm md:grid-cols-2">
+          <div><span className="font-semibold">Outcome:</span> {brief.outcome}</div>
+          <div><span className="font-semibold">Why now:</span> {brief.whyNow}</div>
+          <div><span className="font-semibold">Success:</span> {(brief.successCriteria ?? []).join(' · ') || 'Not recorded'}</div>
+          <div><span className="font-semibold">Constraints:</span> {(brief.constraints ?? []).join(' · ') || 'None recorded'}</div>
+          <div><span className="font-semibold">Assumptions:</span> {(brief.assumptions ?? []).join(' · ') || 'None recorded'}</div>
+          <div><span className="font-semibold">Approval gates:</span> {(brief.approvalGates ?? []).join(' · ') || 'Standard gates apply'}</div>
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {!state && <button className="pib-btn-primary" disabled={saving} onClick={() => onAction({ type: 'start' })}>Start interview-first planning</button>}
+        {state?.status === 'brief_ready' && state.digest && (
+          <button className="pib-btn-primary" disabled={saving} onClick={() => onAction({ type: 'confirm', expectedRevision: revision, expectedDigest: state.digest })}>Confirm Decision Brief</button>
+        )}
+        {ready && <button className="pib-btn-secondary" disabled={saving} onClick={() => onAction({ type: 'reopen', expectedRevision: revision })}>Reopen discovery</button>}
+      </div>
+
+      {state && !ready && brief && (
+        <details className="mt-4 rounded-xl border border-amber-200 bg-white p-3">
+          <summary className="cursor-pointer text-sm font-semibold">Plan with assumptions (YOLO)</summary>
+          <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">This skips further interview questions only. It never bypasses publishing, spend, finance, destructive-action, client-message, secret, or production approvals.</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            <input aria-label="Planning assumptions attestation" className="pib-input" value={attestation} onChange={(event) => setAttestation(event.target.value)} placeholder="Type PLAN WITH ASSUMPTIONS" />
+            <input aria-label="Planning assumptions reason" className="pib-input" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Why is assumption mode appropriate?" />
+          </div>
+          <button className="pib-btn-secondary mt-3" disabled={saving || attestation !== 'PLAN WITH ASSUMPTIONS' || reason.trim().length < 10} onClick={() => onAction({ type: 'plan_with_assumptions', expectedRevision: revision, attestation, reason, brief })}>Attest and plan with assumptions</button>
+        </details>
+      )}
+    </section>
+  )
+}
+
 export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   const [data, setData] = useState<SuiteData>(EMPTY_SUITE)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null)
+  const requestSequenceRef = useRef(0)
 
   const health = data.health ?? {}
   const score = typeof health.score === 'number' ? health.score : 100
@@ -1153,13 +1232,16 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   )
 
   const loadSuite = useCallback(async (options?: { quiet?: boolean; signal?: AbortSignal }) => {
+    const requestSequence = ++requestSequenceRef.current
     if (!options?.quiet) setLoading(true)
     try {
       const res = await fetch(`/api/v1/projects/${projectId}/suite`, { signal: options?.signal })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error || 'Project suite failed to load')
+      if (requestSequence !== requestSequenceRef.current) return
       const next = body.data ?? {}
       setData({
+        planningDiscovery: next.planningDiscovery ?? null,
         health: next.health ?? {},
         timeline: next.timeline ?? {},
         workload: next.workload ?? {},
@@ -1178,6 +1260,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
         revenue: Array.isArray(next.revenue) ? next.revenue : [],
       })
       setError(null)
+      setLastUpdatedAt(Date.now())
     } catch (err) {
       if ((err as { name?: string }).name !== 'AbortError') {
         setError(err instanceof Error ? err.message : 'Project suite failed to load')
@@ -1190,8 +1273,36 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   useEffect(() => {
     const controller = new AbortController()
     loadSuite({ signal: controller.signal }).catch(() => {})
-    return () => controller.abort()
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') loadSuite({ quiet: true, signal: controller.signal }).catch(() => {})
+    }
+    const interval = window.setInterval(refreshWhenVisible, PLAN_REFRESH_INTERVAL_MS)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      controller.abort()
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
   }, [loadSuite])
+
+  async function mutateDiscovery(action: Record<string, unknown>) {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/planning-discovery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(action),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Planning discovery update failed')
+      setError(null)
+      await loadSuite({ quiet: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Planning discovery update failed')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function mutateSuite(payload: Record<string, unknown>, method = 'POST') {
     setSaving(true)
@@ -1286,6 +1397,9 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
               <p className="pib-label">Project health</p>
               <h2 className="mt-1 text-2xl font-headline font-bold text-[var(--color-pib-text)]">{score}</h2>
               <p className="mt-1 text-sm capitalize text-[var(--color-pib-text-muted)]">{loading ? 'Loading plan data...' : level}</p>
+              <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]" aria-live="polite">
+                {lastUpdatedAt ? `Plan updates automatically every 15 seconds · updated ${new Date(lastUpdatedAt).toLocaleTimeString()}` : 'Plan updates automatically every 15 seconds'}
+              </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[520px] lg:grid-cols-4">
               {metrics.map((metric) => (
@@ -1295,6 +1409,8 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
           </div>
           {error ? <p className="mt-4 rounded-[var(--radius-btn)] border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</p> : null}
         </section>
+
+        <PlanningDiscoveryPanel state={data.planningDiscovery} saving={saving} onAction={mutateDiscovery} />
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
           <TimelinePanel

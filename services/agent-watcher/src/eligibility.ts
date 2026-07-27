@@ -15,6 +15,8 @@ export interface DispatchEligibilityTask {
 export interface DependencyState {
   agentStatus?: string | null
   columnId?: string | null
+  reviewerAgentId?: string | null
+  reviewStatus?: string | null
 }
 
 export type DispatchBlocker =
@@ -90,6 +92,7 @@ export function getTaskDispatchBlocker(
 
 export function isDependencyResolved(dep: DependencyState | null | undefined): boolean {
   if (!dep) return false
+  if (dep.reviewerAgentId) return dep.agentStatus === 'done' && dep.reviewStatus === 'approved'
   return dep.columnId === 'done' || dep.agentStatus === 'done'
 }
 

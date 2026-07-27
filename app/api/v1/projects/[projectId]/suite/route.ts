@@ -4,7 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
-import { runProjectPlaybookTemplate } from '@/lib/projects/playbooks'
+import { normalizeProjectPlaybookTemplate, runProjectPlaybookTemplate, validateProjectPlaybookTemplate } from '@/lib/projects/playbooks'
 import {
   buildProjectHealth,
   buildProjectReports,
@@ -220,6 +220,13 @@ function suiteMutableFields(
     if (isCreate || hasOwn(body, 'nextRunAt')) record.nextRunAt = cleanString(body.nextRunAt) || null
     if (isCreate || hasOwn(body, 'autoCreateTasks')) record.autoCreateTasks = cleanBoolean(body.autoCreateTasks)
     if (isCreate || hasOwn(body, 'templateSteps')) record.templateSteps = cleanStringArray(body.templateSteps)
+    if (hasOwn(body, 'template')) {
+      const template = normalizeProjectPlaybookTemplate(body.template)
+      const validation = validateProjectPlaybookTemplate(template)
+      if (!validation.ok) return { ok: false as const, error: validation.error }
+      record.template = template
+      record.templateSchemaVersion = template.schemaVersion
+    }
   }
   if (isCreate || hasOwn(body, 'channel')) record.channel = cleanString(body.channel) || undefined
   if (isCreate || hasOwn(body, 'visibility') || hasOwn(body, 'internalOnly')) {
@@ -462,6 +469,7 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const revenue = filterItems(applyPermissionPolicies(revenueRaw, permissionsRaw, 'revenue'))
 
   return apiSuccess({
+    planningDiscovery: (access.doc.data() ?? {}).planningDiscovery ?? null,
     health: buildProjectHealth({ tasks, milestones, approvals }),
     timeline: buildProjectTimeline({ tasks, milestones, baselines }),
     workload: buildProjectWorkload({ tasks, capacities }),

@@ -13,6 +13,8 @@ import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { getProjectForUser } from '@/lib/projects/access'
+import { loadAgentProjectPlan } from '@/lib/projects/agentSuiteProjection'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,10 +35,13 @@ function timestampMillis(value: unknown): number {
 
 export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
+  const explicitOrgId = req.headers.get('x-org-id')?.trim() || ''
+  if (user.role === 'ai' && !explicitOrgId) return apiError('X-Org-Id is required for agent project context', 400)
+  const requestedOrgId = explicitOrgId || user.orgId || undefined
 
-  // Get project
-  const projectDoc = await adminDb.collection('projects').doc(projectId).get()
-  if (!projectDoc.exists) return apiError('Project not found', 404)
+  const access = await getProjectForUser(projectId, user, requestedOrgId)
+  if (!access.ok) return apiError(access.error, access.status)
+  const projectDoc = access.doc
 
   const projectData = projectDoc.data()
   const project = {
@@ -72,6 +77,8 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     .collection('tasks')
     .orderBy('order', 'asc')
     .get()
+
+  const taskRecords = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 
   const tasks = tasksSnapshot.docs.map(doc => {
     const data = doc.data()
@@ -145,11 +152,19 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     return bTime - aTime
   })
   const topComments = recentComments.slice(0, 10)
+  const plan = await loadAgentProjectPlan({
+    projectId,
+    projectData: projectData ?? {},
+    tasks: taskRecords,
+    user,
+    projectAccess: access.projectAccess,
+  })
 
   return apiSuccess({
     project,
     documents,
     tasks,
+    plan,
     recentComments: topComments,
   })
 })

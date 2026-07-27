@@ -37,7 +37,7 @@ export async function claimTask(taskRef: DocumentReference, expectedAgentId: str
 
       const dependsOn = Array.isArray(data.dependsOn) ? data.dependsOn.filter(Boolean) : []
       if (dependsOn.length > 0) {
-        const dependenciesById: Record<string, { agentStatus?: string | null; columnId?: string | null } | null> = {}
+        const dependenciesById: Record<string, { agentStatus?: string | null; columnId?: string | null; reviewerAgentId?: string | null; reviewStatus?: string | null } | null> = {}
         for (const dependencyId of dependsOn) {
           const depSnap = await tx.get(taskRef.parent.doc(String(dependencyId)))
           dependenciesById[String(dependencyId)] = depSnap.exists ? (depSnap.data() ?? {}) : null
