@@ -478,6 +478,40 @@ describe('ProjectSuitePanel', () => {
     })))
   })
 
+  it('shows Pip’s one pending question and submits the direct human answer', async () => {
+    currentSuiteResponse = suiteResponse({
+      planningDiscovery: {
+        revision: 3,
+        status: 'interviewing',
+        mode: 'interview',
+        pendingQuestionId: 'q-3',
+        turns: [{
+          id: 'q-3',
+          question: 'Which outcome matters most for this release?',
+          currentGuess: 'A safe development-only implementation',
+          askedBy: 'agent:pip',
+          askedAt: '2026-07-27T00:00:00.000Z',
+        }],
+      },
+    })
+
+    render(<ProjectSuitePanel projectId="project-1" />)
+    await waitFor(() => expect(screen.getByText('Which outcome matters most for this release?')).toBeInTheDocument())
+    expect(screen.getByText('A safe development-only implementation')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Planning answer'), { target: { value: 'Ship the approved workflow safely on development.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Answer Pip' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/planning-discovery', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'answer_question',
+        expectedRevision: 3,
+        expectedQuestionId: 'q-3',
+        answer: 'Ship the approved workflow safely on development.',
+      }),
+    })))
+  })
+
   it('archives suite control records from the Plan lists', async () => {
     render(<ProjectSuitePanel projectId="project-1" />)
 
@@ -684,7 +718,7 @@ describe('ProjectSuitePanel', () => {
     }
   })
 
-  it('prevents polling and post-mutation refreshes from overlapping the initial Plan request', async () => {
+  it('queues one post-mutation refresh behind the initial Plan request without overlapping it', async () => {
     jest.useFakeTimers()
     const initial = deferred<Response>()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -714,7 +748,10 @@ describe('ProjectSuitePanel', () => {
         initial.resolve(suiteFetchResponse(suiteResponse()))
         await initial.promise
         await Promise.resolve()
+        await Promise.resolve()
       })
+      const refreshedSuiteGets = (global.fetch as jest.Mock).mock.calls.filter(([url, init]) => String(url).endsWith('/suite') && (!init || !init.method || init.method === 'GET'))
+      expect(refreshedSuiteGets).toHaveLength(2)
     } finally {
       jest.useRealTimers()
     }

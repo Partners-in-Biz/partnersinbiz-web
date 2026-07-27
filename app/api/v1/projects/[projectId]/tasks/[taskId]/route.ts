@@ -14,7 +14,8 @@ import { adminProjectTaskLink } from '@/lib/projects/links'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
-import { isProjectTaskPlanningMutation, planningMutationBlocker } from '@/lib/projects/planningDiscovery'
+import { isProjectTaskPlanningMutation } from '@/lib/projects/planningDiscovery'
+import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
 import { publishTaskLifecycleToCommandSession } from '@/lib/projects/commandSession'
@@ -22,6 +23,34 @@ import { publishTaskLifecycleToCommandSession } from '@/lib/projects/commandSess
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ projectId: string; taskId: string }> }
+
+function applyPlanningMutation(
+  tx: FirebaseFirestore.Transaction,
+  projectRef: FirebaseFirestore.DocumentReference,
+  projectId: string,
+  project: Record<string, unknown>,
+  actorUid: string,
+  reason: string,
+) {
+  const transition = planningContextMutationTransition(project, {
+    uid: actorUid,
+    now: new Date().toISOString(),
+    reason,
+  })
+  if (transition.state) {
+    tx.update(projectRef, { planningDiscovery: transition.state, updatedAt: FieldValue.serverTimestamp() })
+  }
+  if (transition.event) {
+    tx.set(projectRef.collection('planningDiscoveryEvents').doc(), {
+      ...transition.event,
+      projectId,
+      orgId: project.orgId ?? null,
+      schemaVersion: 1,
+      reason,
+    })
+  }
+  return transition
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -105,12 +134,8 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!access.ok) return apiError(access.error, access.status)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required to update tasks', 403)
-  }
+  const body = await req.json() as Record<string, unknown>
   const planningSensitive = isProjectTaskPlanningMutation(body)
-  if (planningSensitive) {
-    const planningBlocker = planningMutationBlocker(access.doc.data() ?? {})
-    if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
-  }
 
   const ref = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
   const doc = await ref.get()
@@ -195,16 +220,20 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const projectRef = adminDb.collection('projects').doc(projectId)
   const mutation = await adminDb.runTransaction(async (tx) => {
+    let liveProject: FirebaseFirestore.DocumentSnapshot | null = null
     if (planningSensitive) {
-      const liveProject = await tx.get(projectRef)
+      liveProject = await tx.get(projectRef)
       if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
-      const planningBlocker = planningMutationBlocker(liveProject.data() ?? {})
-      if (planningBlocker) {
-        return { ok: false as const, status: 409, error: planningBlocker.message, details: planningBlocker }
-      }
     }
     const liveTask = await tx.get(ref)
     if (!liveTask.exists) return { ok: false as const, status: 404, error: 'Task not found' }
+    if (liveProject) {
+      const project = (liveProject.data() ?? {}) as Record<string, unknown>
+      const planning = applyPlanningMutation(tx, projectRef, projectId, project, user.uid, 'project_task.updated')
+      if (!planning.allowed) {
+        return { ok: false as const, status: 409, error: planning.blocker.message, details: planning.blocker }
+      }
+    }
     tx.update(ref, { ...updateValue, updatedAt: FieldValue.serverTimestamp() })
     return { ok: true as const }
   })
@@ -362,11 +391,9 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   if (!scope.ok) return scope.response
   const access = await getProjectForUser(projectId, user, scope.orgId)
   if (!access.ok) return apiError(access.error, access.status)
-  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
+  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'contribute')) {
     return apiError('Project contributor access is required to delete tasks', 403)
   }
-  const planningBlocker = planningMutationBlocker(access.doc.data() ?? {})
-  if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
 
   const ref = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
   const doc = await ref.get()
@@ -385,9 +412,10 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
     const liveTask = await tx.get(ref)
     if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
     if (!liveTask.exists) return { ok: false as const, status: 404, error: 'Task not found' }
-    const planningBlocker = planningMutationBlocker(liveProject.data() ?? {})
-    if (planningBlocker) {
-      return { ok: false as const, status: 409, error: planningBlocker.message, details: planningBlocker }
+    const project = (liveProject.data() ?? {}) as Record<string, unknown>
+    const planning = applyPlanningMutation(tx, projectRef, projectId, project, user.uid, 'project_task.deleted')
+    if (!planning.allowed) {
+      return { ok: false as const, status: 409, error: planning.blocker.message, details: planning.blocker }
     }
     tx.delete(ref)
     return { ok: true as const }

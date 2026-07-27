@@ -11,7 +11,10 @@ import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValida
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentAssumption } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
-import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
+import {
+  canMutateLinkedProjectPlanning,
+  planningContextMutationTransition,
+} from '@/lib/projects/planningDiscoveryStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,6 +50,7 @@ async function applyLinkedProjectPlanningMutation(
   transaction: FirebaseFirestore.Transaction,
   projectIds: string[],
   user: ApiUser,
+  documentOrgId: string | undefined,
   reason: string,
 ): Promise<{ ok: true } | { ok: false; response: Response }> {
   if (projectIds.length === 0) return { ok: true }
@@ -55,25 +59,24 @@ async function applyLinkedProjectPlanningMutation(
   const eventRefs = projectRefs.map((projectRef) => projectRef.collection('planningDiscoveryEvents').doc())
   const projectSnapshots = await Promise.all(projectRefs.map((projectRef) => transaction.get(projectRef)))
   const now = new Date().toISOString()
-  const transitions = projectSnapshots.map((snapshot, index) => {
-    if (!snapshot.exists) {
-      return {
-        ok: false as const,
-        response: apiError(`Linked project not found: ${projectIds[index]}`, 409, {
-          code: 'planning_discovery_required',
-          revision: 0,
-        }),
-      }
+  const projects = projectSnapshots.map((snapshot) => snapshot.exists
+    ? (snapshot.data() ?? {}) as Record<string, unknown>
+    : null)
+  if (projects.some((project) => !project || !canMutateLinkedProjectPlanning(project, user, documentOrgId))) {
+    return {
+      ok: false,
+      response: apiError('Linked project is not accessible', 403, { code: 'project_access_denied' }),
     }
-    const project = (snapshot.data() ?? {}) as Record<string, unknown>
+  }
+
+  const transitions = projects.map((project) => {
+    const accessibleProject = project as Record<string, unknown>
     return {
       ok: true as const,
-      project,
-      transition: planningContextMutationTransition(project, { uid: user.uid, now, reason }),
+      project: accessibleProject,
+      transition: planningContextMutationTransition(accessibleProject, { uid: user.uid, now, reason }),
     }
   })
-  const missing = transitions.find((item) => !item.ok)
-  if (missing && !missing.ok) return missing
 
   const blocked = transitions.find((item) => item.ok && !item.transition.allowed)
   if (blocked?.ok && !blocked.transition.allowed) {
@@ -266,7 +269,13 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
       ...linkedProjectIds(document.linked),
       ...linkedProjectIds(update.linked as ClientDocument['linked'] | undefined),
     ]))
-    const planning = await applyLinkedProjectPlanningMutation(transaction, projectIds, user, 'client_document.updated')
+    const planning = await applyLinkedProjectPlanningMutation(
+      transaction,
+      projectIds,
+      user,
+      document.orgId,
+      'client_document.updated',
+    )
     if (!planning.ok) return planning
 
     transaction.update(documentRef, update)
@@ -296,6 +305,7 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, user: ApiUser,
       transaction,
       linkedProjectIds(document.linked),
       user,
+      document.orgId,
       'client_document.deleted',
     )
     if (!planning.ok) return planning

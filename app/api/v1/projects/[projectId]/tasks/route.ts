@@ -16,10 +16,39 @@ import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/cont
 import { getConversation } from '@/lib/conversations/conversations'
 import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
+import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ projectId: string }> }
+
+function applyPlanningMutation(
+  tx: FirebaseFirestore.Transaction,
+  projectRef: FirebaseFirestore.DocumentReference,
+  projectId: string,
+  project: Record<string, unknown>,
+  actorUid: string,
+  reason: string,
+) {
+  const transition = planningContextMutationTransition(project, {
+    uid: actorUid,
+    now: new Date().toISOString(),
+    reason,
+  })
+  if (transition.state) {
+    tx.update(projectRef, { planningDiscovery: transition.state, updatedAt: FieldValue.serverTimestamp() })
+  }
+  if (transition.event) {
+    tx.set(projectRef.collection('planningDiscoveryEvents').doc(), {
+      ...transition.event,
+      projectId,
+      orgId: project.orgId ?? null,
+      schemaVersion: 1,
+      reason,
+    })
+  }
+  return transition
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -165,9 +194,10 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const mutation = await adminDb.runTransaction(async (tx) => {
     const liveProject = await tx.get(projectRef)
     if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
-    const planningBlocker = planningMutationBlocker(liveProject.data() ?? {})
-    if (planningBlocker) {
-      return { ok: false as const, status: 409, error: planningBlocker.message, details: planningBlocker }
+    const project = (liveProject.data() ?? {}) as Record<string, unknown>
+    const planning = applyPlanningMutation(tx, projectRef, projectId, project, user.uid, 'project_task.created')
+    if (!planning.allowed) {
+      return { ok: false as const, status: 409, error: planning.blocker.message, details: planning.blocker }
     }
     tx.set(ref, doc)
     return { ok: true as const }

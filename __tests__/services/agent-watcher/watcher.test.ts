@@ -339,7 +339,7 @@ describe('agent watcher dispatchTask', () => {
     expect(spec).toContain('If the database does not contain the required facts, do not infer or fabricate the answer.')
     expect(spec).toContain('Temporary throw-away HTML is allowed only for a named one-off question where visual comparison materially improves the answer')
     expect(spec).toContain('GET /api/v1/agent/growth-command-queue with orgId=pib-platform-owner')
-    expect(spec).toContain('Return the evidence, decision, reusable workflow, next actions, and safety readback in the dynamic Messages window.')
+    expect(spec).toContain('Return the decision first, followed by evidence, reusable workflow, next actions, and safety readback in the dynamic Messages window.')
     expect(spec).toContain('structured approval_card rich part')
   })
 

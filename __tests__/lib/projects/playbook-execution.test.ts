@@ -6,6 +6,9 @@ const mockTransactionUpdate = jest.fn()
 const mockPlanningMutationBlocker = jest.fn((project: Record<string, unknown>) => project.planningReady === false
   ? { code: 'planning_discovery_required', message: 'Planning discovery required', revision: 2 }
   : null)
+const mockPlanningContextMutationTransition = jest.fn((project: Record<string, unknown>) => project.planningReady === false
+  ? { allowed: false, blocker: { code: 'planning_discovery_required', message: 'Planning discovery required', revision: 2 } }
+  : { allowed: true, state: { enforced: true, status: 'interviewing', revision: 9 }, event: { type: 'reopened', reason: 'project_playbook.run' } })
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -16,6 +19,9 @@ jest.mock('@/lib/firebase/admin', () => ({
 
 jest.mock('@/lib/projects/planningDiscovery', () => ({
   planningMutationBlocker: (project: Record<string, unknown>) => mockPlanningMutationBlocker(project),
+}))
+jest.mock('@/lib/projects/planningDiscoveryStore', () => ({
+  planningContextMutationTransition: (project: Record<string, unknown>) => mockPlanningContextMutationTransition(project),
 }))
 
 jest.mock('firebase-admin/firestore', () => ({
@@ -102,7 +108,10 @@ describe('runProjectPlaybookTemplate', () => {
     }))
     expect(mockTransactionSet.mock.calls.some(([writtenRef]) => String(writtenRef.path).includes('/playbookRuns/'))).toBe(true)
     expect(mockTransactionSet.mock.calls.some(([writtenRef]) => String(writtenRef.path).includes('/audit/'))).toBe(true)
-    expect(mockTransactionUpdate).toHaveBeenCalledTimes(1)
+    expect(mockTransactionUpdate).toHaveBeenCalledTimes(2)
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(expect.objectContaining({ path: 'projects/project-1' }), expect.objectContaining({
+      planningDiscovery: expect.objectContaining({ status: 'interviewing', revision: 9 }),
+    }))
   })
 
   it('returns a supplied run key idempotently without writing duplicate tasks', async () => {

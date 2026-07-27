@@ -10,7 +10,7 @@ import { normalizeClientDocumentLinks, validateClientDocumentLinks } from '@/lib
 import {
   CLIENT_DOCUMENTS_COLLECTION,
   createClientDocument,
-  isClientDocumentPlanningError,
+  isClientDocumentMutationError,
 } from '@/lib/client-documents/store'
 import { themeFromOrg } from '@/lib/client-documents/themeFromOrg'
 import type {
@@ -346,7 +346,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
       theme: versionTheme,
     })
   } catch (error) {
-    if (isClientDocumentPlanningError(error)) {
+    if (isClientDocumentMutationError(error)) {
       return apiError(error.message, error.status, error.details)
     }
     throw error

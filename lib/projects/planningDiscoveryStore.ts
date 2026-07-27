@@ -10,6 +10,7 @@ import {
 } from '@/lib/projects/planningDiscovery'
 
 type PlanningBlocker = NonNullable<ReturnType<typeof planningMutationBlocker>>
+type PlanningEvent = Record<string, unknown>
 
 export type PlanningContextMutationTransition =
   | {

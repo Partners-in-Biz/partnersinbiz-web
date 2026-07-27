@@ -14,6 +14,9 @@ const mockTransactionDelete = jest.fn()
 const mockPlanningMutationBlocker = jest.fn((project: Record<string, unknown>) => project.planningReady === true
   ? null
   : { code: 'planning_discovery_required', message: 'Planning discovery required', revision: 0 })
+const mockPlanningContextMutationTransition = jest.fn((project: Record<string, unknown>, input: { reason: string }) => project.planningReady === true
+  ? { allowed: true, state: { enforced: true, status: 'interviewing', revision: 8 }, event: { type: 'reopened', reason: input.reason } }
+  : { allowed: false, blocker: { code: 'planning_discovery_required', message: 'Planning discovery required', revision: 0 }, state: { enforced: true, status: 'interviewing', revision: 1 }, event: { type: 'started' } })
 
 const user = { uid: 'admin-1', role: 'admin' as const, orgId: 'org-1', authKind: 'session' as const }
 let accessProject: Record<string, unknown>
@@ -36,6 +39,9 @@ jest.mock('@/lib/projects/planningDiscovery', () => ({
   planningMutationBlocker: (project: Record<string, unknown>) => mockPlanningMutationBlocker(project),
   isProjectTaskPlanningMutation: jest.requireActual('@/lib/projects/planningDiscovery').isProjectTaskPlanningMutation,
   isProjectTaskContextMutation: jest.requireActual('@/lib/projects/planningDiscovery').isProjectTaskContextMutation,
+}))
+jest.mock('@/lib/projects/planningDiscoveryStore', () => ({
+  planningContextMutationTransition: (project: Record<string, unknown>, input: { reason: string }) => mockPlanningContextMutationTransition(project, input),
 }))
 
 jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn(() => Promise.resolve()) }))
@@ -118,6 +124,13 @@ describe('project task planning mutation atomicity', () => {
     expect(mockRunTransaction).toHaveBeenCalledTimes(1)
     expect(mockTransactionGet).toHaveBeenCalledWith(projectRef)
     expect(mockTransactionSet).toHaveBeenCalledWith(taskRef, expect.objectContaining({ title: 'Planned task' }))
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(projectRef, expect.objectContaining({
+      planningDiscovery: expect.objectContaining({ status: 'interviewing', revision: 8 }),
+    }))
+    expect(mockTransactionSet).toHaveBeenCalledWith(expect.objectContaining({ path: expect.stringContaining('/planningDiscoveryEvents/') }), expect.objectContaining({
+      type: 'reopened',
+      reason: 'project_task.created',
+    }))
     expect(mockTaskAdd).not.toHaveBeenCalled()
   })
 
@@ -127,7 +140,10 @@ describe('project task planning mutation atomicity', () => {
     const res = await POST(request('POST', { title: 'Stale planned task' }), collectionCtx)
 
     expect(res.status).toBe(409)
-    expect(mockTransactionSet).not.toHaveBeenCalled()
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(projectRef, expect.objectContaining({
+      planningDiscovery: expect.objectContaining({ status: 'interviewing', revision: 1 }),
+    }))
+    expect(mockTransactionSet).not.toHaveBeenCalledWith(taskRef, expect.anything())
     expect(mockTaskAdd).not.toHaveBeenCalled()
   })
 
@@ -170,6 +186,9 @@ describe('project task planning mutation atomicity', () => {
     expect(res.status).toBe(200)
     expect(mockTransactionGet).toHaveBeenCalledWith(projectRef)
     expect(mockTransactionUpdate).toHaveBeenCalledWith(taskRef, expect.objectContaining({ title: 'Updated plan' }))
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(projectRef, expect.objectContaining({
+      planningDiscovery: expect.objectContaining({ status: 'interviewing', revision: 8 }),
+    }))
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
@@ -191,6 +210,9 @@ describe('project task planning mutation atomicity', () => {
     expect(res.status).toBe(200)
     expect(mockTransactionGet).toHaveBeenCalledWith(projectRef)
     expect(mockTransactionDelete).toHaveBeenCalledWith(taskRef)
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(projectRef, expect.objectContaining({
+      planningDiscovery: expect.objectContaining({ status: 'interviewing', revision: 8 }),
+    }))
     expect(mockTaskDelete).not.toHaveBeenCalled()
   })
 })

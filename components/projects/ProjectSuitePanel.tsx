@@ -1437,6 +1437,43 @@ function PlanningDiscoveryPanel({
         </div>
       )}
 
+      {pendingTurn?.question && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-white p-4 text-sm">
+          <p className="pib-label">Pip’s current question</p>
+          <p className="mt-2 font-semibold text-[var(--color-pib-text)]">{pendingTurn.question}</p>
+          {pendingTurn.currentGuess && (
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
+              Current guess: <span className="font-medium text-[var(--color-pib-text)]">{pendingTurn.currentGuess}</span>
+            </p>
+          )}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              aria-label="Planning answer"
+              className="pib-input flex-1"
+              value={answer}
+              onChange={(event) => setAnswer(event.target.value)}
+              placeholder="Answer this question directly"
+            />
+            <button
+              type="button"
+              className="pib-btn-primary"
+              disabled={saving || answer.trim().length === 0}
+              onClick={async () => {
+                await onAction({
+                  type: 'answer_question',
+                  expectedRevision: revision,
+                  expectedQuestionId: state?.pendingQuestionId,
+                  answer: answer.trim(),
+                })
+                setAnswer('')
+              }}
+            >
+              Answer Pip
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mt-4 flex flex-wrap gap-2">
         {!state && <button className="pib-btn-primary" disabled={saving} onClick={() => onAction({ type: 'start' })}>Start interview-first planning</button>}
         {state?.status === 'brief_ready' && state.digest && (
@@ -1484,6 +1521,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null)
   const requestSequenceRef = useRef(0)
   const loadInFlightProjectsRef = useRef(new Set<string>())
+  const queuedRefreshProjectsRef = useRef(new Set<string>())
 
   const health = data.health ?? {}
   const score = typeof health.score === 'number' ? health.score : 100
@@ -1500,7 +1538,10 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   )
 
   const loadSuite = useCallback(async (options?: { quiet?: boolean; poll?: boolean; signal?: AbortSignal }) => {
-    if (loadInFlightProjectsRef.current.has(projectId)) return
+    if (loadInFlightProjectsRef.current.has(projectId)) {
+      queuedRefreshProjectsRef.current.add(projectId)
+      return
+    }
     loadInFlightProjectsRef.current.add(projectId)
     const requestSequence = ++requestSequenceRef.current
     if (!options?.quiet) setLoading(true)
@@ -1547,6 +1588,9 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
     } finally {
       loadInFlightProjectsRef.current.delete(projectId)
       if (requestSequence === requestSequenceRef.current && !options?.quiet) setLoading(false)
+      if (queuedRefreshProjectsRef.current.delete(projectId) && document.visibilityState === 'visible') {
+        loadSuite({ quiet: true }).catch(() => {})
+      }
     }
   }, [projectId])
 
@@ -1560,6 +1604,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
     document.addEventListener('visibilitychange', refreshWhenVisible)
     return () => {
       controller.abort()
+      queuedRefreshProjectsRef.current.delete(projectId)
       window.clearInterval(interval)
       document.removeEventListener('visibilitychange', refreshWhenVisible)
     }

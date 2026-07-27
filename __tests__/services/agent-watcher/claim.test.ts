@@ -205,6 +205,13 @@ describe('agent watcher planning gate claim', () => {
     expect(update).not.toHaveBeenCalled()
   })
 
+  it('fails closed and does not claim queued work when planning discovery is missing', async () => {
+    const { claimed, update } = await claimWithPlanningState(undefined)
+
+    expect(claimed).toBe(false)
+    expect(update).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['confirmed interview', confirmedState],
     ['attested assumption', assumptionsState],
@@ -232,6 +239,36 @@ describe('agent watcher planning gate claim', () => {
 describe('agent watcher transactional approval and dependency claim gates', () => {
   const projectRef = { path: 'projects/project-1' }
   const dependencyRef = { path: 'projects/project-1/tasks/gate-1' }
+  const readyBrief: PlanningDecisionBrief = {
+    outcome: 'Dispatch only planned work',
+    user: 'Delivery agents',
+    whyNow: 'Dependency gates must be tested after planning readiness',
+    successCriteria: ['Planning and approval gates are both enforced'],
+    constraints: ['Development only'],
+    outOfScope: ['Production promotion'],
+    assumptions: ['Approval evidence is authoritative'],
+    risks: ['A dependency could be claimed early'],
+    approvalGates: ['production-deploy'],
+  }
+  const readyPlanningState: PlanningDiscoveryState = {
+    schemaVersion: 1,
+    revision: 4,
+    enforced: true,
+    status: 'assumptions_attested',
+    mode: 'assumptions',
+    inspection: {
+      brief: ['brief'], docs: ['docs'], files: ['files'], plan: ['plan'],
+      tasks: ['tasks'], tools: ['tools'], agents: ['agents'], skills: ['skills'],
+      inspectedBy: 'agent:pip', inspectedAt: '2026-07-27T00:00:00.000Z',
+    },
+    brief: readyBrief,
+    digest: planningDiscoveryDigest(readyBrief),
+    attestation: 'PLAN WITH ASSUMPTIONS',
+    attestationReason: 'Proceed while retaining every protected operational approval gate',
+    acknowledgesPreservedOperationalGates: true,
+    confirmedBy: 'peet',
+    confirmedAt: '2026-07-27T00:01:00.000Z',
+  }
   const taskRef = {
     path: 'projects/project-1/tasks/task-1',
     parent: { parent: projectRef, doc: jest.fn(() => dependencyRef) },
@@ -252,7 +289,7 @@ describe('agent watcher transactional approval and dependency claim gates', () =
           approvalGateTaskId: 'gate-1',
         }),
       })
-      .mockResolvedValueOnce({ exists: true, data: () => ({ planningDiscovery: { enforced: false } }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({ planningDiscovery: readyPlanningState }) })
       .mockResolvedValueOnce({ exists: true, data: () => ({ columnId: 'done', agentStatus: 'done', approvalStatus: 'pending' }) })
     dbMock.runTransaction.mockImplementation(async (work) => work({ get, update }))
 
@@ -271,7 +308,7 @@ describe('agent watcher transactional approval and dependency claim gates', () =
           exists: true,
           data: () => ({ assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', dependsOn: ['gate-1'] }),
         })
-        .mockResolvedValueOnce({ exists: true, data: () => ({ planningDiscovery: { enforced: false } }) })
+        .mockResolvedValueOnce({ exists: true, data: () => ({ planningDiscovery: readyPlanningState }) })
         .mockResolvedValueOnce({
           exists: true,
           data: () => ({ columnId: 'done', agentStatus: 'done', approvalGate: 'production-deploy', approvalStatus: 'pending' }),
@@ -291,7 +328,7 @@ describe('agent watcher transactional approval and dependency claim gates', () =
           exists: true,
           data: () => ({ assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', dependsOn: ['gate-1'] }),
         })
-        .mockResolvedValueOnce({ exists: true, data: () => ({ planningDiscovery: { enforced: false } }) })
+        .mockResolvedValueOnce({ exists: true, data: () => ({ planningDiscovery: readyPlanningState }) })
         .mockResolvedValueOnce({
           exists: true,
           data: () => ({ columnId: 'review', agentStatus: 'done', reviewerAgentId: 'qa-release', reviewStatus: 'pending' }),

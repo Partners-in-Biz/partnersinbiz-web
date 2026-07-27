@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
-import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
+import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 
 export type ProjectPlaybookRecord = Record<string, unknown> & {
   id?: string
@@ -286,6 +286,7 @@ export async function runProjectPlaybookTemplate(input: {
   const runRef = projectRef.collection('playbookRuns').doc(runId)
   const playbookRef = projectRef.collection('playbooks').doc(input.playbookId)
   const auditRef = projectRef.collection('audit').doc()
+  const planningEventRef = projectRef.collection('planningDiscoveryEvents').doc()
   const taskRefsByStep = new Map(steps.map((step) => [step.stepId, tasksRef.doc()]))
   const createdTaskIds = steps.map((step) => taskRefsByStep.get(step.stepId)!.id)
   const taskWrites: Array<{ ref: DocumentReference; value: Record<string, unknown> }> = []
@@ -416,9 +417,26 @@ export async function runProjectPlaybookTemplate(input: {
     if (!liveProject.exists) {
       return { ok: false as const, error: 'Project not found', status: 404 }
     }
-    const planningBlocker = planningMutationBlocker(liveProject.data() ?? {})
-    if (planningBlocker) {
-      return { ok: false as const, error: planningBlocker.message, status: 409, code: planningBlocker.code }
+    const projectData = (liveProject.data() ?? {}) as Record<string, unknown>
+    const planning = planningContextMutationTransition(projectData, {
+      uid: input.actorUid,
+      now: new Date().toISOString(),
+      reason: 'project_playbook.run',
+    })
+    if (planning.state) {
+      transaction.update(projectRef, { planningDiscovery: planning.state, updatedAt: FieldValue.serverTimestamp() })
+    }
+    if (planning.event) {
+      transaction.set(planningEventRef, {
+        ...planning.event,
+        projectId: input.projectId,
+        orgId: projectData.orgId ?? input.project.orgId ?? null,
+        schemaVersion: 1,
+        reason: 'project_playbook.run',
+      })
+    }
+    if (!planning.allowed) {
+      return { ok: false as const, error: planning.blocker.message, status: 409, code: planning.blocker.code }
     }
 
     for (const taskWrite of taskWrites) transaction.set(taskWrite.ref, taskWrite.value)
