@@ -48,12 +48,18 @@ import { getAgentConfig } from '../../../services/agent-watcher/src/config'
 import { claimTask, startHeartbeat } from '../../../services/agent-watcher/src/claim'
 import { db } from '../../../services/agent-watcher/src/firestore'
 import { runAndPoll } from '../../../services/agent-watcher/src/hermes'
-import { dispatchTask, startWatcher, sweepReadyPendingTasks } from '../../../services/agent-watcher/src/watcher'
+import { dispatchTask, isTransientHermesError, startWatcher, sweepReadyPendingTasks } from '../../../services/agent-watcher/src/watcher'
 
 const getAgentConfigMock = getAgentConfig as jest.Mock
 const claimTaskMock = claimTask as jest.Mock
 const startHeartbeatMock = startHeartbeat as jest.Mock
 const runAndPollMock = runAndPoll as jest.Mock
+
+describe('agent watcher transient Hermes errors', () => {
+  it('treats a gateway-lost run as retryable after an upstream outage', () => {
+    expect(isTransientHermesError('Hermes run run-1 was not found on the agent gateway')).toBe(true)
+  })
+})
 const dbMock = db as unknown as { collectionGroup?: jest.Mock; collection?: jest.Mock }
 
 type FilteringQueryDoc = { ref: Record<string, unknown>; data: () => Record<string, unknown> }

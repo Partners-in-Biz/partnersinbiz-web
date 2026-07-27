@@ -9,6 +9,8 @@ import { buildAgentRunTelemetry, type AgentRunTelemetry } from './run-telemetry'
 const POLL_INTERVAL_MS = 2_000
 const DEFAULT_RUN_TIMEOUT_MS = 90 * 60 * 1_000
 const MAX_NOT_FOUND_POLLS = 3
+const MAX_RETRYABLE_HTTP_POLLS = 3
+const RETRYABLE_HTTP_STATUSES = new Set([429, 502, 503, 504])
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'succeeded', 'success', 'error', 'cancelled', 'canceled'])
 const FAILURE_STATUSES = new Set(['failed', 'error', 'cancelled', 'canceled'])
@@ -130,6 +132,7 @@ async function pollRun(cfg: AgentConfig, runId: string, signal: { aborted: boole
   const timeoutMs = runTimeoutMs()
   const deadline = Date.now() + timeoutMs
   let notFoundPolls = 0
+  let retryableHttpPolls = 0
 
   while (!signal.aborted) {
     if (Date.now() > deadline) {
@@ -169,14 +172,23 @@ async function pollRun(cfg: AgentConfig, runId: string, signal: { aborted: boole
         if (notFoundPolls >= MAX_NOT_FOUND_POLLS) {
           throw new Error(`Hermes run ${runId} was not found on the agent gateway`)
         }
+        retryableHttpPolls = 0
+      } else if (RETRYABLE_HTTP_STATUSES.has(res.status)) {
+        retryableHttpPolls += 1
+        notFoundPolls = 0
+        if (retryableHttpPolls >= MAX_RETRYABLE_HTTP_POLLS) {
+          throw new Error(`Hermes run ${runId} returned ${res.status} repeatedly while polling`)
+        }
       } else {
         notFoundPolls = 0
+        retryableHttpPolls = 0
       }
       logger.warn('Hermes poll returned non-OK', { runId, status: res.status })
       await sleep(POLL_INTERVAL_MS)
       continue
     }
     notFoundPolls = 0
+    retryableHttpPolls = 0
 
     const status = extractStatus(data)
     if (status && TERMINAL_STATUSES.has(status)) {

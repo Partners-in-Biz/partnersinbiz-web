@@ -98,6 +98,7 @@ const TRANSIENT_HERMES_ERROR_PATTERNS = [
   /\brate limit(?:ed)?\b/i,
   /\bservice unavailable\b/i,
   /\bprovider (?:is )?(?:overloaded|temporarily unavailable)\b/i,
+  /\bwas not found on the agent gateway\b/i,
 ]
 
 export function isTransientHermesError(error: string): boolean {
