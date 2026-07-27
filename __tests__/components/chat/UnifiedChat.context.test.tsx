@@ -2305,6 +2305,115 @@ describe('UnifiedChat context references', () => {
     expect(screen.getByRole('button', { name: 'Add conversation context' })).toBeInTheDocument()
   })
 
+  it('searches the authorised linked computer for @folders and pins the sealed relative path', async () => {
+    const linkedRef = {
+      type: 'workspace_folder' as const,
+      id: 'workbench-directory:sealed',
+      orgId: 'org-1',
+      label: 'rmicdev',
+      origin: 'mention' as const,
+      summary: 'Linked Workbench folder: rmicdev',
+      metadata: {
+        contextKind: 'workbench_path',
+        path: 'rmicdev',
+        entryType: 'directory',
+        conversationId: 'conv-1',
+        deviceId: 'device-1',
+        workspaceId: 'workspace-1',
+        mappingId: 'mapping-1',
+        rootBindingId: 'loyalty-plus',
+      },
+    }
+    conversation = {
+      ...conversation,
+      workspaceContext: {
+        orgId: 'org-1',
+        workspaceId: 'workspace-1',
+        runtimeTarget: 'device-1',
+        mappingId: 'mapping-1',
+        folderScope: 'company',
+        companyWorkspaceId: 'loyalty-plus',
+      },
+    }
+    const defaultFetch = mockFetch.getMockImplementation()!
+    mockFetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/workspaces?')) {
+        return jsonResponse({
+          data: {
+            workspaces: [{
+              workspaceId: 'workspace-1',
+              orgId: 'org-1',
+              orgSlug: 'partners',
+              orgName: 'Partners in Biz',
+              sourceOfTruth: 'local',
+              syncMode: 'hybrid',
+              defaultRuntimeTarget: 'device-1',
+              folderVersion: 1,
+            }],
+            runtimeTargetsByWorkspace: {
+              'workspace-1': [{
+                id: 'device-1',
+                deviceId: 'device-1',
+                label: 'Peet Mac',
+                mappingId: 'mapping-1',
+                mappingLabel: 'Client Growth',
+                selectable: true,
+                enabled: true,
+                isLocal: true,
+                isFresh: true,
+                isHealthy: true,
+                lastSeenAt: null,
+                deviceKind: 'computer',
+              }],
+            },
+            projects: [],
+          },
+        })
+      }
+      if (url === '/api/v1/conversations/conv-1/workbench/jobs' && init?.method === 'POST') {
+        expect(JSON.parse(String(init.body))).toEqual({
+          operation: { kind: 'fs.search', query: 'rmicdev', entryType: 'directory', limit: 8 },
+        })
+        return jsonResponse({
+          data: {
+            jobId: 'search-job',
+            kind: 'fs.search',
+            status: 'completed',
+            approvalRequired: false,
+            result: { entries: [{ path: 'rmicdev', type: 'directory' }] },
+          },
+        })
+      }
+      if (url === '/api/v1/conversations/conv-1/workbench/context-references' && init?.method === 'POST') {
+        return jsonResponse({ data: { refs: [linkedRef] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body))
+        expect(body).toMatchObject({ action: 'add', refs: [linkedRef] })
+        conversation = { ...conversation, contextRefs: [linkedRef] }
+        return jsonResponse({ data: { contextRefs: [linkedRef] } })
+      }
+      return defaultFetch(input, init)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    fireEvent.click(await screen.findByTestId('conversation-row-conv-1'))
+    const input = await screen.findByPlaceholderText('Send a message')
+    fireEvent.change(input, { target: { value: '@folders:rmicdev' } })
+    fireEvent.click(await screen.findByText('rmicdev'))
+
+    await waitFor(() => expect(screen.getByText('workspace_folder: rmicdev')).toBeInTheDocument())
+    expect(input).toHaveValue('')
+  })
+
   it('reuses an open context picker without changing the draft or appending another mention', async () => {
     render(
       <UnifiedChat

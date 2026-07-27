@@ -61,6 +61,7 @@ export function sanitizedShellEnv(): NodeJS.ProcessEnv {
 
 export type WorkbenchRuntimeOperation =
   | { kind: 'fs.list'; path: string }
+  | { kind: 'fs.search'; query: string; entryType: 'file' | 'directory'; limit?: number }
   | { kind: 'fs.read'; path: string }
   | { kind: 'fs.write'; path: string; content: string; expectedSha256?: string | null }
   | { kind: 'git.status' }
@@ -72,6 +73,7 @@ export type WorkbenchRuntimeJob = {
   requestId?: string
   mappingId: string
   relativeFolder?: string
+  workingDirectory?: string
   attempt: number
   leaseToken: string
   kind: WorkbenchRuntimeOperation['kind']
@@ -140,7 +142,7 @@ function assertValidClaim(job: WorkbenchRuntimeJob): void {
     || !Number.isSafeInteger(job.attempt) || job.attempt < 1
     || typeof job.leaseToken !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(job.leaseToken)
     || !job.operation || typeof job.operation !== 'object'
-    || !['fs.list', 'fs.read', 'fs.write', 'git.status', 'git.diff', 'shell.exec'].includes(job.kind)
+    || !['fs.list', 'fs.search', 'fs.read', 'fs.write', 'git.status', 'git.diff', 'shell.exec'].includes(job.kind)
     || job.kind !== job.operation.kind) {
     throw new Error('invalid workbench claim')
   }
@@ -168,9 +170,9 @@ export function normalizeRelativePath(value: unknown, allowRoot: boolean): strin
   return segments.join('/')
 }
 
-export function mappedRoot(job: Pick<WorkbenchRuntimeJob, 'mappingId' | 'relativeFolder'>, registry: MappingRegistry): string {
+export function mappedRoot(job: Pick<WorkbenchRuntimeJob, 'mappingId' | 'relativeFolder' | 'workingDirectory'>, registry: MappingRegistry): string {
   const relativeFolder = normalizeRelativePath(job.relativeFolder ?? '', true)
-  const resolved = registry.resolve(job.mappingId, relativeFolder)
+  const resolved = registry.resolve(job.mappingId, relativeFolder, job.workingDirectory)
   const root = fs.realpathSync(resolved)
   if (!fs.statSync(root).isDirectory()) throw new Error('workbench mapping must resolve to a directory')
   return root
@@ -247,6 +249,41 @@ async function listFiles(operation: Extract<WorkbenchRuntimeOperation, { kind: '
     }]
   }).sort((left, right) => left.path.localeCompare(right.path))
   return { entries: result }
+}
+
+const SEARCH_IGNORED_DIRECTORIES = new Set(['.git', 'node_modules', '.next', 'dist', 'build', 'coverage', '.cache'])
+
+async function searchFiles(
+  operation: Extract<WorkbenchRuntimeOperation, { kind: 'fs.search' }>,
+  root: string,
+): Promise<WorkbenchOperationResult> {
+  const query = operation.query.trim().toLocaleLowerCase()
+  const limit = Math.min(Math.max(operation.limit ?? 8, 1), 20)
+  if (!query || query.length > 120 || !['file', 'directory'].includes(operation.entryType)) {
+    throw new Error('invalid workbench search')
+  }
+  const matches: Array<{ path: string; type: 'file' | 'directory'; size?: number }> = []
+  const pending: Array<{ absolute: string; relative: string; depth: number }> = [{ absolute: root, relative: '', depth: 0 }]
+  let visited = 0
+  while (pending.length && matches.length < limit && visited < 10_000) {
+    const current = pending.shift()!
+    for (const entry of fs.readdirSync(current.absolute, { withFileTypes: true })) {
+      visited += 1
+      if (visited > 10_000) break
+      if (entry.isSymbolicLink() || (!entry.isFile() && !entry.isDirectory())) continue
+      const relative = current.relative ? `${current.relative}/${entry.name}` : entry.name
+      const type = entry.isDirectory() ? 'directory' as const : 'file' as const
+      if (type === operation.entryType && relative.toLocaleLowerCase().includes(query)) {
+        const stat = fs.lstatSync(path.join(current.absolute, entry.name))
+        matches.push({ path: relative, type, ...(type === 'file' ? { size: stat.size } : {}) })
+        if (matches.length >= limit) break
+      }
+      if (entry.isDirectory() && current.depth < 8 && !SEARCH_IGNORED_DIRECTORIES.has(entry.name)) {
+        pending.push({ absolute: path.join(current.absolute, entry.name), relative, depth: current.depth + 1 })
+      }
+    }
+  }
+  return { entries: matches.sort((left, right) => left.path.localeCompare(right.path)) }
 }
 
 async function readFile(operation: Extract<WorkbenchRuntimeOperation, { kind: 'fs.read' }>, root: string, options: WorkbenchExecutorOptions): Promise<WorkbenchOperationResult> {
@@ -619,6 +656,7 @@ export async function executeWorkbenchOperation(
   const root = mappedRoot(job, registry)
   switch (job.operation.kind) {
     case 'fs.list': return listFiles(job.operation, root, options)
+    case 'fs.search': return searchFiles(job.operation, root)
     case 'fs.read': return readFile(job.operation, root, options)
     case 'fs.write': return writeFile(job.operation, root, options)
     case 'git.status': return gitStatus(job.operation, root, options)
@@ -657,7 +695,7 @@ function completionReceipt(
     timestamp: new Date().toISOString(),
     acceptedAt,
     toolStartedAt,
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.8',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.10',
     machineLabel: os.hostname(),
     outputSha256: digest(output),
     outputBytes: Buffer.byteLength(output),

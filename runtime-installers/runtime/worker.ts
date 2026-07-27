@@ -59,7 +59,7 @@ function receipt(
     timestamp: new Date().toISOString(),
     acceptedAt,
     toolStartedAt,
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.8',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.10',
     machineLabel: os.hostname(),
     outputSha256: digest(output),
     outputBytes: Buffer.byteLength(output),
@@ -166,6 +166,8 @@ export async function executeJob(
 }
 
 const MAX_IDLE_CLAIM_BASE_DELAY_MS = 1_000
+/** Bound device-wide chat parallelism while allowing independent agent gateways to stay productive. */
+export const LINKED_RUN_MAX_CONCURRENCY = 8
 
 export function linkedRunPollDelay(delay: number, random: () => number = Math.random) {
   const bounded = Math.min(Math.max(250, delay), MAX_IDLE_CLAIM_BASE_DELAY_MS)
@@ -176,16 +178,33 @@ export async function pollForever(
   claim: () => Promise<Job | null>,
   run: (job: Job) => Promise<unknown>,
   stop: () => boolean = () => false,
+  options: { maxConcurrency?: number } = {},
 ) {
+  const requestedConcurrency = options.maxConcurrency ?? LINKED_RUN_MAX_CONCURRENCY
+  const maxConcurrency = Math.min(
+    LINKED_RUN_MAX_CONCURRENCY,
+    Math.max(1, Number.isFinite(requestedConcurrency) ? Math.floor(requestedConcurrency) : LINKED_RUN_MAX_CONCURRENCY),
+  )
+  const inFlight = new Set<Promise<void>>()
   let delay = 250
   while (!stop()) {
+    if (inFlight.size >= maxConcurrency) {
+      await Promise.race(inFlight)
+      continue
+    }
     const job = await claim().catch(() => null)
     if (job) {
       delay = 250
-      await run(job).catch(() => undefined)
+      const task: Promise<void> = Promise.resolve()
+        .then(() => run(job))
+        .then(() => undefined)
+        .catch(() => undefined)
+        .finally(() => inFlight.delete(task))
+      inFlight.add(task)
     } else {
       await new Promise((r) => setTimeout(r, linkedRunPollDelay(delay)))
       delay = Math.min(delay * 2, MAX_IDLE_CLAIM_BASE_DELAY_MS)
     }
   }
+  await Promise.allSettled(inFlight)
 }

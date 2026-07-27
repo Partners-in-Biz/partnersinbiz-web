@@ -802,7 +802,7 @@ export function __resetWorkbenchBrowsersForTests(): void {
 
 export function linkedRuntimeWorkbenchBrowserClaimBody() {
   return {
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.8',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.10',
     workbenchBrowserSessionsProtocolVersion: 1 as const,
   }
 }

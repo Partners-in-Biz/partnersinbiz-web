@@ -11,7 +11,7 @@ const DEFAULT_SHELL_TIMEOUT_MS = 30_000
 const MAX_PROGRESS_CHUNKS = 64
 const MAX_PROGRESS_CHUNK_BYTES = 2_000
 
-export type WorkbenchJobKind = 'fs.list' | 'fs.read' | 'fs.write' | 'git.status' | 'git.diff' | 'shell.exec'
+export type WorkbenchJobKind = 'fs.list' | 'fs.search' | 'fs.read' | 'fs.write' | 'git.status' | 'git.diff' | 'shell.exec'
 export type WorkbenchJobStatus =
   | 'awaiting_approval'
   | 'queued'
@@ -23,6 +23,7 @@ export type WorkbenchJobStatus =
 
 export type WorkbenchOperation =
   | { kind: 'fs.list'; path: string }
+  | { kind: 'fs.search'; query: string; entryType: 'file' | 'directory'; limit?: number }
   | { kind: 'fs.read'; path: string }
   | { kind: 'fs.write'; path: string; content: string; expectedSha256?: string }
   | { kind: 'git.status' }
@@ -67,6 +68,8 @@ export interface WorkbenchJob {
   mappingId: string
   projectId?: string
   projectReplicaId?: string
+  /** Stable company-workspace identity; never a host filesystem path. */
+  rootBindingId?: string
   relativeFolder: string
   kind: WorkbenchJobKind
   status: WorkbenchJobStatus
@@ -156,6 +159,22 @@ export function parseWorkbenchOperation(value: unknown): WorkbenchOperation {
       if (!path) return invalidOperation()
       return { kind: 'fs.list', path }
     }
+    case 'fs.search': {
+      if (!exactKeys(input, ['kind', 'query', 'entryType', 'limit'])
+        || typeof input.query !== 'string'
+        || !['file', 'directory'].includes(String(input.entryType))
+        || (input.limit !== undefined && (!Number.isSafeInteger(input.limit) || Number(input.limit) < 1 || Number(input.limit) > 20))) {
+        return invalidOperation()
+      }
+      const query = input.query.trim()
+      if (!query || query.length > 120 || /[\u0000-\u001f]/.test(query)) return invalidOperation()
+      return {
+        kind: 'fs.search',
+        query,
+        entryType: input.entryType as 'file' | 'directory',
+        limit: input.limit === undefined ? 8 : Number(input.limit),
+      }
+    }
     case 'fs.read': {
       if (!exactKeys(input, ['kind', 'path']) || typeof input.path !== 'string') return invalidOperation()
       const path = sanitizeWorkbenchRelativePath(input.path)
@@ -226,7 +245,7 @@ export function parseWorkbenchResult(kind: WorkbenchJobKind, value: unknown): Wo
   }
   const input = record(value)
   if (!input) throw new Error('workbench: invalid result')
-  if (kind === 'fs.list') {
+  if (kind === 'fs.list' || kind === 'fs.search') {
     if (!Array.isArray(input.entries) || input.entries.length > 10_000) throw new Error('workbench: invalid result')
     const entries = input.entries.map((entry) => {
       const row = record(entry)
@@ -320,6 +339,7 @@ export function workbenchRequestFingerprint(input: {
   actorUserId: string
   deviceId: string
   mappingId: string
+  rootBindingId?: string
   operation: WorkbenchOperation
 }): string {
   return crypto.createHash('sha256').update(JSON.stringify(input)).digest('hex')

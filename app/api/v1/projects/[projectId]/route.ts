@@ -14,6 +14,12 @@ import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
 import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
+import {
+  applyPlanningDiscoveryAction,
+  isPlanningReady,
+  type PlanningActionResult,
+  type PlanningDiscoveryState,
+} from '@/lib/projects/planningDiscovery'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +36,8 @@ const VALID_STATUSES = [
 
 type ProjectStatus = (typeof VALID_STATUSES)[number]
 
+const PROJECT_STATUS_RANK = new Map<ProjectStatus, number>(VALID_STATUSES.map((status, index) => [status, index]))
+
 type LinkSafetyUser = Parameters<typeof canAccessOrg>[0]
 
 function normalizeProjectTargetDate(value: unknown): string | null | undefined {
@@ -44,6 +52,29 @@ function normalizeProjectTargetDate(value: unknown): string | null | undefined {
   if (Number.isNaN(parsed)) return undefined
 
   return trimmed
+}
+
+function materialPlanningValue(value: unknown): string {
+  if (typeof value === 'string') return value.trim()
+  if (value === undefined) return ''
+  try { return JSON.stringify(value) } catch { return String(value) }
+}
+
+function materialPlanningContextReason(project: Record<string, unknown>, body: Record<string, unknown>): string | null {
+  if (body.description !== undefined && materialPlanningValue(body.description) !== materialPlanningValue(project.description)) {
+    return 'Project description materially changed'
+  }
+  if (body.brief !== undefined && materialPlanningValue(body.brief) !== materialPlanningValue(project.brief)) {
+    return 'Project brief materially changed'
+  }
+  return null
+}
+
+function promotesProjectLifecycle(current: unknown, next: unknown): boolean {
+  if (typeof next !== 'string' || !PROJECT_STATUS_RANK.has(next as ProjectStatus) || next === 'discovery') return false
+  const currentRank = typeof current === 'string' ? PROJECT_STATUS_RANK.get(current as ProjectStatus) : undefined
+  const nextRank = PROJECT_STATUS_RANK.get(next as ProjectStatus) ?? 0
+  return nextRank > (currentRank ?? 0)
 }
 
 async function loadOwnedCrmRecord(collection: 'companies' | 'contacts', id: string, orgId: string) {
@@ -124,6 +155,38 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     updates.status = body.status
   }
 
+  const projectData = (access.doc.data() ?? {}) as Record<string, unknown>
+  const materialPlanningReason = materialPlanningContextReason(projectData, body as Record<string, unknown>)
+  const currentPlanning = projectData.planningDiscovery as PlanningDiscoveryState | undefined
+  let planningTransition: Extract<PlanningActionResult, { ok: true }> | null = null
+  if (materialPlanningReason && !currentPlanning) {
+    const transition = applyPlanningDiscoveryAction(null, { type: 'start' }, { uid: user.uid, now: new Date().toISOString() })
+    if (!transition.ok) return apiError(transition.error, transition.status)
+    planningTransition = transition
+  } else if (materialPlanningReason && currentPlanning && (
+    currentPlanning.brief
+    || currentPlanning.digest
+    || currentPlanning.inspection
+    || (currentPlanning.turns?.length ?? 0) > 0
+    || currentPlanning.status !== 'interviewing'
+  )) {
+    const transition = applyPlanningDiscoveryAction(currentPlanning, {
+      type: 'reopen',
+      expectedRevision: currentPlanning.revision,
+      reason: materialPlanningReason,
+    }, { uid: user.uid, now: new Date().toISOString() })
+    if (!transition.ok) return apiError(transition.error, transition.status)
+    planningTransition = transition
+  }
+  const planningAfterPatch = planningTransition?.state ?? currentPlanning
+  if (promotesProjectLifecycle(projectData.status, body.status) && !isPlanningReady(planningAfterPatch)) {
+    return apiError('Planning discovery must be ready before promoting the project beyond discovery', 409, {
+      code: 'planning_discovery_required',
+      revision: planningAfterPatch?.revision ?? 0,
+    })
+  }
+  if (planningTransition) updates.planningDiscovery = planningTransition.state
+
   if (body.archived !== undefined) {
     updates.archived = body.archived === true
     updates.archivedAt = body.archived === true ? FieldValue.serverTimestamp() : null
@@ -144,10 +207,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     updates.targetDate = nextTargetDate
   }
 
-  const orgId = access.doc.data()?.orgId as string | undefined
-  const sourceOrgId = (access.doc.data()?.sourceOrgId as string | undefined) || orgId
+  const orgId = projectData.orgId as string | undefined
+  const sourceOrgId = (projectData.sourceOrgId as string | undefined) || orgId
   if (Object.keys(requestedLinks).length > 0) {
-    const existing = access.doc.data() ?? {}
+    const existing = projectData
     const requestedProjectLinks = { ...requestedLinks }
     if (requestedProjectLinks.sourceCompanyId !== undefined && requestedProjectLinks.companyId === undefined) {
       requestedProjectLinks.companyId = requestedProjectLinks.sourceCompanyId
@@ -164,10 +227,33 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     Object.assign(updates, normalizedLinks.value)
   }
 
-  await adminDb.collection('projects').doc(projectId).update(updates)
+  const projectRef = adminDb.collection('projects').doc(projectId)
+  if (planningTransition) {
+    const eventRef = projectRef.collection('planningDiscoveryEvents').doc()
+    const expectedPlanningRevision = currentPlanning?.revision ?? 0
+    const committed = await adminDb.runTransaction(async (tx) => {
+      const liveProjectSnap = await tx.get(projectRef)
+      if (!liveProjectSnap.exists) return false
+      const livePlanning = liveProjectSnap.data()?.planningDiscovery as Partial<PlanningDiscoveryState> | undefined
+      if ((livePlanning?.revision ?? 0) !== expectedPlanningRevision) return false
+      tx.update(projectRef, updates)
+      tx.set(eventRef, {
+        ...planningTransition.event,
+        projectId,
+        orgId: projectData.orgId ?? null,
+        schemaVersion: 1,
+      })
+      return true
+    })
+    if (!committed) return apiError('Planning discovery revision changed; retry the project update', 409, {
+      code: 'planning_discovery_revision_conflict',
+      revision: expectedPlanningRevision,
+    })
+  } else {
+    await projectRef.update(updates)
+  }
 
   if (orgId) {
-    const projectData = access.doc.data() ?? {}
     const summaryOrgIds = Array.from(new Set([
       orgId,
       projectData.recipientOrgId,

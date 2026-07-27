@@ -17,6 +17,7 @@ import {
   type RecordScope,
   type WorkspaceModuleKey,
 } from '@/lib/orgMembers/access-policy'
+import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 
 interface Member {
   uid: string
@@ -34,6 +35,12 @@ interface Member {
 interface MyProfile {
   uid: string
   role: OrgRole | null
+}
+
+interface AgentRuntimeTarget {
+  id: string
+  label?: string
+  availableAgentIds?: string[]
 }
 
 function InviteField({ id, label, children }: { id: string; label: string; children: ReactNode }) {
@@ -91,6 +98,7 @@ export default function TeamPage() {
   const [accessLoading, setAccessLoading] = useState(false)
   const [accessSaving, setAccessSaving] = useState(false)
   const [accessError, setAccessError] = useState('')
+  const [accessRuntimeTargets, setAccessRuntimeTargets] = useState<AgentRuntimeTarget[]>([])
 
   const loadTeamMembers = useCallback(() => (
     fetch(teamEndpoint('/api/v1/portal/settings/team')).then(r => r.ok ? r.json() : null).then(d => {
@@ -145,13 +153,30 @@ export default function TeamPage() {
     setAccessDraft(member.accessPolicy ? normalizeMemberAccessPolicy(member.accessPolicy) : null)
     setAccessError('')
     setAccessLoading(true)
-    const res = await fetch(teamEndpoint(`/api/v1/portal/settings/team/${member.uid}/access`))
+    const [res, runtimeRes] = await Promise.all([
+      fetch(teamEndpoint(`/api/v1/portal/settings/team/${member.uid}/access`)),
+      fetch(teamEndpoint('/api/v1/workspaces?agentId=pip')),
+    ])
     if (res.ok) {
       const body = await res.json().catch(() => ({}))
       if (body.accessPolicy) setAccessDraft(normalizeMemberAccessPolicy(body.accessPolicy))
     } else {
       const body = await res.json().catch(() => ({}))
       setAccessError(body.error ?? 'Failed to load access settings.')
+    }
+    if (runtimeRes.ok) {
+      const body = await runtimeRes.json().catch(() => ({}))
+      const targets = Array.isArray(body?.data?.runtimeTargets) ? body.data.runtimeTargets : []
+      const seen = new Set<string>()
+      setAccessRuntimeTargets(targets.filter((target: unknown): target is AgentRuntimeTarget => {
+        if (!target || typeof target !== 'object') return false
+        const item = target as AgentRuntimeTarget
+        if (typeof item.id !== 'string' || !item.id || seen.has(item.id)) return false
+        seen.add(item.id)
+        return true
+      }))
+    } else {
+      setAccessRuntimeTargets([])
     }
     setAccessLoading(false)
   }
@@ -175,6 +200,19 @@ export default function TeamPage() {
       ...policy,
       recordScopes: { ...policy.recordScopes, [moduleKey]: scope },
     }))
+  }
+
+  function toggleRuntimeAgent(runtimeTargetId: string, agentId: AgentId) {
+    updateAccessDraft(policy => {
+      const current = policy.agentRuntimeAccess[runtimeTargetId] ?? []
+      const next = current.includes(agentId)
+        ? current.filter((id) => id !== agentId)
+        : [...current, agentId]
+      const agentRuntimeAccess = { ...policy.agentRuntimeAccess }
+      if (next.length > 0) agentRuntimeAccess[runtimeTargetId] = next
+      else delete agentRuntimeAccess[runtimeTargetId]
+      return { ...policy, agentRuntimeAccess }
+    })
   }
 
   async function handleSaveAccess() {
@@ -399,6 +437,43 @@ export default function TeamPage() {
                       <option value="all">All projects</option>
                     </select>
                   </InviteField>
+                </div>
+
+                <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-5">
+                  <div>
+                    <p className="eyebrow !text-[10px]">Agent access by computer</p>
+                    <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                      Choose the agents this member may start on each authorised computer. Their existing computer and Workspace access still applies.
+                    </p>
+                  </div>
+                  {accessRuntimeTargets.length === 0 ? (
+                    <p className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-3 text-sm text-[var(--color-pib-text-muted)]">
+                      No authorised agent computers are available to configure.
+                    </p>
+                  ) : accessRuntimeTargets.map((runtime) => {
+                    const runtimeAgentIds = Array.isArray(runtime.availableAgentIds) && runtime.availableAgentIds.length > 0
+                      ? runtime.availableAgentIds.filter((id): id is AgentId => AGENT_IDS.includes(id as AgentId))
+                      : AGENT_IDS
+                    return (
+                      <div key={runtime.id} className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+                        <p className="text-sm font-medium text-[var(--color-pib-text)]">{runtime.label || runtime.id}</p>
+                        <p className="mt-0.5 text-[11px] text-[var(--color-pib-text-muted)]">{runtime.id}</p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {runtimeAgentIds.map((agentId) => (
+                            <label key={agentId} className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-pib-line)] px-2.5 py-2 text-sm text-[var(--color-pib-text)]">
+                              <span className="capitalize">{agentId.replace(/-/g, ' ')}</span>
+                              <input
+                                type="checkbox"
+                                checked={accessDraft.agentRuntimeAccess[runtime.id]?.includes(agentId) === true}
+                                onChange={() => toggleRuntimeAgent(runtime.id, agentId)}
+                                className="h-4 w-4 accent-[var(--color-pib-accent)]"
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}

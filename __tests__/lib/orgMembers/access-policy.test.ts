@@ -3,6 +3,7 @@ import {
   accessSummaryForPolicy,
   canAccessModule,
   defaultAccessPolicyFor,
+  memberCanUseAgentOnRuntime,
   normalizeMemberAccessPolicy,
   recordScopeFor,
   resolveMemberAccessPolicy,
@@ -84,5 +85,22 @@ describe('org member access policy', () => {
     expect(canAccessModule(policy, 'marketing')).toBe(false)
     expect(recordScopeFor(policy, 'crm')).toBe('all')
     expect(recordScopeFor(policy, 'projects')).toBe('owned_or_linked')
+  })
+
+  it('keeps agent execution deny-by-default and normalizes explicit per-runtime grants', () => {
+    const policy = normalizeMemberAccessPolicy({
+      preset: 'custom',
+      modules: { messages: true },
+      recordScopes: {},
+      agentRuntimeAccess: {
+        'partners-vps': ['pip', 'theo', 'theo', 'not-an-agent'],
+        'bad path/target': ['maya'],
+      },
+    })
+
+    expect(policy.agentRuntimeAccess).toEqual({ 'partners-vps': ['pip', 'theo'] })
+    expect(memberCanUseAgentOnRuntime(policy, 'partners-vps', 'theo')).toBe(true)
+    expect(memberCanUseAgentOnRuntime(policy, 'partners-vps', 'maya')).toBe(false)
+    expect(memberCanUseAgentOnRuntime(policy, 'another-vps', 'pip')).toBe(false)
   })
 })

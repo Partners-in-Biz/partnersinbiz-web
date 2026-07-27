@@ -3,6 +3,12 @@ import { authorizeConversationProject, canAccessConversation } from '@/lib/conve
 import { getConversation } from '@/lib/conversations/conversations'
 import type { Conversation } from '@/lib/conversations/types'
 import {
+  conversationUsesCompanyCoworkFolder,
+  enrichCompanyCoworkWorkspaceContext,
+  linkedCoworkWorkingDirectory,
+  linkedRuntimeSupportsCoworkWorkingDirectory,
+} from '@/lib/client-provisioning/company-cowork-dispatch'
+import {
   authorizeLinkedComputerDispatch,
   linkedRuntimeUpdateRequired,
   type AuthorizedLinkedComputerDispatch,
@@ -28,6 +34,9 @@ export interface AuthorizedWorkbenchContext {
   conversation: Conversation
   projectId: string | null
   projectReplicaId?: string
+  rootBindingId?: string
+  /** Transient runtime target path. It is never persisted in context references or Workbench jobs. */
+  workingDirectory?: string
   relativeFolder: string
   binding: AuthorizedLinkedComputerDispatch
 }
@@ -41,6 +50,7 @@ interface AuthorizationDependencies {
 }
 
 export const WORKBENCH_MINIMUM_RUNTIME_VERSION = '1.1.8'
+export const WORKBENCH_COMPANY_ROOT_MINIMUM_RUNTIME_VERSION = '1.1.10'
 
 export function workbenchRuntimeUpdateRequired(version: string): boolean {
   return linkedRuntimeUpdateRequired(version, WORKBENCH_MINIMUM_RUNTIME_VERSION)
@@ -68,7 +78,7 @@ export async function authorizeWorkbenchConversation(
     throw new WorkbenchAuthorizationError(projectAuthorization.error, projectAuthorization.status)
   }
 
-  const workspace = conversation.workspaceContext
+  let workspace = conversation.workspaceContext
   const workspaceId = workspace?.workspaceId?.trim() ?? ''
   const runtimeTargetId = workspace?.runtimeTarget?.trim() ?? ''
   const mappingId = workspace?.mappingId?.trim() ?? ''
@@ -123,6 +133,30 @@ export async function authorizeWorkbenchConversation(
     }
   }
 
+  if (conversationUsesCompanyCoworkFolder(workspace)) {
+    workspace = await enrichCompanyCoworkWorkspaceContext(workspace)
+    if (!linkedRuntimeSupportsCoworkWorkingDirectory(binding.runtimeVersion)
+      || linkedRuntimeUpdateRequired(binding.runtimeVersion, WORKBENCH_COMPANY_ROOT_MINIMUM_RUNTIME_VERSION)) {
+      throw new WorkbenchAuthorizationError(
+        `Computer runtime update required for company Workbench folders (minimum ${WORKBENCH_COMPANY_ROOT_MINIMUM_RUNTIME_VERSION})`,
+        409,
+      )
+    }
+    const workingDirectory = linkedCoworkWorkingDirectory(workspace, { preferVps: binding.platform === 'linux' })
+    const rootBindingId = workspace.companyWorkspaceId?.trim() || workspace.companyId?.trim()
+    if (!workingDirectory || !rootBindingId) {
+      throw new WorkbenchAuthorizationError('Company workspace folder is unavailable', 409)
+    }
+    return {
+      conversation,
+      projectId: null,
+      relativeFolder: '.',
+      rootBindingId,
+      workingDirectory,
+      binding,
+    }
+  }
+
   const relativeFolder = canonicalWorkbenchWorkspaceRelativePath(workspace.folderRelativePath)
   if (!relativeFolder) throw new WorkbenchAuthorizationError('Conversation workspace folder is invalid', 409)
   return { conversation, projectId: null, relativeFolder, binding }
@@ -146,6 +180,7 @@ export function isWorkbenchJobOwnedByContext(
     && job.mappingId === authorization.binding.mappingId
     && (job.projectId ?? null) === authorization.projectId
     && (job.projectReplicaId ?? null) === (authorization.projectReplicaId ?? null)
+    && (job.rootBindingId ?? null) === (authorization.rootBindingId ?? null)
     && job.relativeFolder === authorization.relativeFolder
 }
 

@@ -4,7 +4,8 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
-import { runProjectPlaybookTemplate } from '@/lib/projects/playbooks'
+import { normalizeProjectPlaybookTemplate, runProjectPlaybookTemplate, validateProjectPlaybookTemplate } from '@/lib/projects/playbooks'
+import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import {
   buildProjectHealth,
   buildProjectReports,
@@ -220,6 +221,13 @@ function suiteMutableFields(
     if (isCreate || hasOwn(body, 'nextRunAt')) record.nextRunAt = cleanString(body.nextRunAt) || null
     if (isCreate || hasOwn(body, 'autoCreateTasks')) record.autoCreateTasks = cleanBoolean(body.autoCreateTasks)
     if (isCreate || hasOwn(body, 'templateSteps')) record.templateSteps = cleanStringArray(body.templateSteps)
+    if (hasOwn(body, 'template')) {
+      const template = normalizeProjectPlaybookTemplate(body.template)
+      const validation = validateProjectPlaybookTemplate(template)
+      if (!validation.ok) return { ok: false as const, error: validation.error }
+      record.template = template
+      record.templateSchemaVersion = template.schemaVersion
+    }
   }
   if (isCreate || hasOwn(body, 'channel')) record.channel = cleanString(body.channel) || undefined
   if (isCreate || hasOwn(body, 'visibility') || hasOwn(body, 'internalOnly')) {
@@ -462,6 +470,7 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const revenue = filterItems(applyPermissionPolicies(revenueRaw, permissionsRaw, 'revenue'))
 
   return apiSuccess({
+    planningDiscovery: (access.doc.data() ?? {}).planningDiscovery ?? null,
     health: buildProjectHealth({ tasks, milestones, approvals }),
     timeline: buildProjectTimeline({ tasks, milestones, baselines }),
     workload: buildProjectWorkload({ tasks, capacities }),
@@ -484,18 +493,31 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
 
 export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>
+  const isPlaybookRun = cleanString(body.type) === 'playbook' && cleanString(body.action) === 'run'
+  const explicitOrgId = req.headers.get('x-org-id')?.trim() || ''
+  const isAgentActor = user.role === 'ai' || user.authKind === 'user_delegation'
+  if (isPlaybookRun && isAgentActor && !explicitOrgId) {
+    return apiError('X-Org-Id is required for agent playbook execution', 400)
+  }
+  if (isPlaybookRun && isAgentActor && user.orgId && explicitOrgId !== user.orgId) {
+    return apiError('Agent organisation scope does not match X-Org-Id', 403)
+  }
+  const access = await getProjectForUser(projectId, user, isPlaybookRun ? explicitOrgId || undefined : undefined)
   if (!access.ok) return apiError(access.error, access.status)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required', 403)
   }
 
-  const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const type = cleanString(body.type) as SuiteType
   const action = cleanString(body.action)
   const collectionName = COLLECTION_BY_TYPE[type]
   if (!collectionName) {
     return apiError('type must be one of: milestone, approval, risk, decision, baseline, playbook, automation, permission, audit, notification, capacity, revenue', 400)
+  }
+  if (!['approval', 'risk', 'decision', 'audit', 'permission'].includes(type)) {
+    const blocker = planningMutationBlocker((access.doc.data() ?? {}) as Record<string, unknown>)
+    if (blocker) return apiError(blocker.message, 409, blocker)
   }
 
   const requiredPermission = permissionForSuiteType(type)
@@ -517,9 +539,10 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       playbook,
       project: (access.doc.data() ?? {}) as Record<string, unknown>,
       actorUid: user.uid,
+      runKey: cleanString(body.runKey) || cleanString(req.headers.get('idempotency-key')) || undefined,
     })
     if (!run.ok) return apiError(run.error, run.status)
-    return apiSuccess(run.data, 201)
+    return apiSuccess(run.data, run.data.deduplicated ? 200 : 201)
   }
 
   const record = suiteMutableFields(body, type, user.uid, 'create')
@@ -558,6 +581,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const collectionName = COLLECTION_BY_TYPE[type]
   if (!collectionName) return apiError('Invalid suite record type', 400)
   if (!id) return apiError('id is required', 400)
+  if (!['approval', 'risk', 'decision', 'audit', 'permission'].includes(type)) {
+    const blocker = planningMutationBlocker((access.doc.data() ?? {}) as Record<string, unknown>)
+    if (blocker) return apiError(blocker.message, 409, blocker)
+  }
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', permissionForSuiteType(type))) {
     return apiError('Project manager access is required for this project suite record', 403)
   }

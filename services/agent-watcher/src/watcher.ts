@@ -16,7 +16,15 @@ import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { logger } from './logger'
 import type { AgentRunTelemetry } from './run-telemetry'
 import { agentStatusUpdate } from './task-updates'
-import { getTaskDispatchBlocker, hasPendingApprovalGate, hasPendingScheduledRelease, isDependencyResolved, releaseMillis } from './eligibility'
+import {
+  getTaskDependencyGateIds,
+  getTaskDispatchBlocker,
+  getUnresolvedTaskDependencyGateIds,
+  hasPendingApprovalGate,
+  hasPendingScheduledRelease,
+  releaseMillis,
+  type DependencyState,
+} from './eligibility'
 import { buildCeoDataDecisionOperatingRule as buildSharedCeoDataDecisionOperatingRule } from './ceo-operating-rule'
 
 const MAX_CONCURRENT_PER_AGENT = 5
@@ -64,6 +72,7 @@ interface TaskData {
   agentStatus?: string
   agentInput?: { spec?: string; context?: Record<string, unknown>; constraints?: string[] }
   dependsOn?: string[]
+  approvalGateTaskId?: string
   title?: string
   columnId?: string
   reviewerAgentId?: string
@@ -73,7 +82,8 @@ interface TaskData {
   deleted?: boolean
   requiresApproval?: boolean
   approvalStatus?: string
-  approvalGate?: { status?: string }
+  approvalGate?: string | { status?: string }
+  labels?: string[]
   agentReleaseAt?: string | number | { toMillis?: () => number; toDate?: () => Date }
   agentReleaseStatus?: string
   agentReleasedAt?: unknown
@@ -356,31 +366,32 @@ function drainDeferredTasks(agentId: AgentId): void {
 async function dependenciesResolved(
   taskRef: DocumentReference,
   deps: string[] | undefined,
+  approvalGateTaskId?: string,
 ): Promise<{ ok: boolean; blockers: string[] }> {
-  if (!deps || deps.length === 0) return { ok: true, blockers: [] }
-  const blockers: string[] = []
-  for (const dep of deps) {
-    if (!dep) continue
+  const dependencyGateIds = getTaskDependencyGateIds(deps, approvalGateTaskId)
+  if (dependencyGateIds.length === 0) return { ok: true, blockers: [] }
+  const dependenciesById: Record<string, DependencyState | null> = {}
+  for (const dep of dependencyGateIds) {
     try {
       // Dependencies normally live beside the task in the same project's tasks subcollection.
       // Do not use collectionGroup + FieldPath.documentId() with bare IDs: Firestore rejects
       // those queries for collection groups because __name__ must be a valid relative path.
       const depSnap = await taskRef.parent.doc(dep).get()
       if (!depSnap.exists) {
-        blockers.push(dep)
+        dependenciesById[dep] = null
         continue
       }
-      const data = depSnap.data() as TaskData
-      if (!isDependencyResolved(data)) blockers.push(dep)
+      dependenciesById[dep] = depSnap.data() as DependencyState
     } catch (err) {
       logger.warn('dependency lookup failed', {
         taskId: taskRef.id,
         dependencyId: dep,
         error: err instanceof Error ? err.message : String(err),
       })
-      blockers.push(dep)
+      dependenciesById[dep] = null
     }
   }
+  const blockers = getUnresolvedTaskDependencyGateIds(deps, approvalGateTaskId, dependenciesById)
   return { ok: blockers.length === 0, blockers }
 }
 
@@ -533,7 +544,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
   }
 
   // Dependency gating
-  const deps = await dependenciesResolved(taskRef, taskData.dependsOn)
+  const deps = await dependenciesResolved(taskRef, taskData.dependsOn, taskData.approvalGateTaskId)
   if (!deps.ok) {
     logger.info('task deferred — dependencies not resolved', {
       taskId,
@@ -901,12 +912,13 @@ async function releaseDependencyClearedDocs(
     if (!isActiveAgentId(data.assigneeAgentId)) return
     if (allowedAgentIds && !allowedAgentIds.includes(data.assigneeAgentId)) return
     if (data.columnId !== 'blocked') return
-    if (!Array.isArray(data.dependsOn) || data.dependsOn.filter(Boolean).length === 0) return
+    const dependencyGateIds = getTaskDependencyGateIds(data.dependsOn, data.approvalGateTaskId)
+    if (dependencyGateIds.length === 0) return
     if (waitingStatus === 'blocked' && typeof data.agentOutput?.summary === 'string' && data.agentOutput.summary.trim()) return
     if (data.deleted === true || data.status === 'cancelled' || data.status === 'canceled') return
     if (hasPendingApprovalGate(data) || hasPendingScheduledRelease(data, now)) return
 
-    const deps = await dependenciesResolved(doc.ref, data.dependsOn)
+    const deps = await dependenciesResolved(doc.ref, data.dependsOn, data.approvalGateTaskId)
     if (!deps.ok) return
 
     const releasedData: TaskData = {

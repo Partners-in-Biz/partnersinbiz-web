@@ -39,6 +39,7 @@ import { getConversationCompanyForUser } from '@/lib/companies/conversation-acce
 import { publicConversationView } from '@/lib/conversations/access'
 import { organizationMemberUids } from '@/lib/conversations/participant-access'
 import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
+import { memberCanUseAgentOnRuntime } from '@/lib/orgMembers/access-policy'
 import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -79,6 +80,9 @@ export const POST = withAuth(
 
     const callerRole: 'admin' | 'client' =
       user.role === 'admin' || user.role === 'ai' ? 'admin' : 'client'
+    const requestedRuntimeTargetForAgentGrant = typeof body.runtimeTarget === 'string' && body.runtimeTarget.trim()
+      ? body.runtimeTarget.trim()
+      : null
 
     // Load visible agents for the caller's role
     const configDoc = await orgChatConfigDoc(scope.orgId).get()
@@ -143,14 +147,19 @@ export const POST = withAuth(
           email: userData.email as string | undefined,
         })
       } else if (p.kind === 'agent') {
-        if (callerRole === 'client') {
-          return apiError('Client conversations can only be started with people', 403)
-        }
         const agentId = p.agentId as AgentId | undefined
         if (!agentId || !VALID_AGENT_IDS.includes(agentId)) {
           return apiError(`Invalid agent agentId: ${agentId}`, 400)
         }
-        if (!allowedAgentIds.has(agentId)) {
+        const delegatedAgentAccess = callerRole === 'client'
+          && memberCanUseAgentOnRuntime(user.memberAccessPolicy, requestedRuntimeTargetForAgentGrant, agentId)
+        // Pip remains the ordinary member-facing assistant. Specialist profiles
+        // require an explicit per-runtime Team grant.
+        const baselineMemberAssistant = callerRole === 'client' && agentId === 'pip'
+        if (callerRole === 'client' && !baselineMemberAssistant && !delegatedAgentAccess) {
+          return apiError('This member is not allowed to use that agent on the selected computer', 403)
+        }
+        if (!allowedAgentIds.has(agentId) && !delegatedAgentAccess) {
           return apiError(`Agent ${agentId} is not visible to your role`, 403)
         }
         if (seenAgents.has(agentId)) continue

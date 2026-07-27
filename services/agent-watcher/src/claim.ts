@@ -13,7 +13,14 @@ import type { DocumentReference, Firestore } from 'firebase-admin/firestore'
 import { db, FieldValue } from './firestore'
 import { logger } from './logger'
 import { agentStatusUpdate } from './task-updates'
-import { getUnresolvedDependencyIds, hasPendingAgentRetry, hasPendingApprovalGate, hasPendingScheduledRelease } from './eligibility'
+import {
+  getTaskDependencyGateIds,
+  getUnresolvedTaskDependencyGateIds,
+  hasPendingAgentRetry,
+  hasPendingApprovalGate,
+  hasPendingScheduledRelease,
+  type DependencyState,
+} from './eligibility'
 
 const STALE_THRESHOLD_MS = 5 * 60 * 1_000
 const SWEEP_INTERVAL_MS = 60 * 1_000
@@ -35,14 +42,32 @@ export async function claimTask(taskRef: DocumentReference, expectedAgentId: str
       if (hasPendingAgentRetry(data)) return false
       if (hasPendingApprovalGate(data)) return false
 
-      const dependsOn = Array.isArray(data.dependsOn) ? data.dependsOn.filter(Boolean) : []
-      if (dependsOn.length > 0) {
-        const dependenciesById: Record<string, { agentStatus?: string | null; columnId?: string | null } | null> = {}
-        for (const dependencyId of dependsOn) {
-          const depSnap = await tx.get(taskRef.parent.doc(String(dependencyId)))
-          dependenciesById[String(dependencyId)] = depSnap.exists ? (depSnap.data() ?? {}) : null
+      // Route guards cannot stop a task already queued when discovery is reopened.
+      // Enforce the project gate in the same transaction as the claim.
+      const standaloneProjectId = typeof data.projectId === 'string' ? data.projectId.trim() : ''
+      const projectRef = taskRef.parent.parent
+        ?? (standaloneProjectId ? db.collection('projects').doc(standaloneProjectId) : null)
+      if (projectRef) {
+        const projectSnap = await tx.get(projectRef)
+        if (!projectSnap.exists) return false
+        const discovery = projectSnap.data()?.planningDiscovery
+        if (discovery?.enforced === true) {
+          const ready = (discovery.status === 'confirmed' || discovery.status === 'assumptions_attested')
+            && Boolean(discovery.digest && discovery.brief)
+          if (!ready) return false
         }
-        if (getUnresolvedDependencyIds(dependsOn.map(String), dependenciesById).length > 0) return false
+      }
+
+      const dependsOn = Array.isArray(data.dependsOn) ? data.dependsOn.filter((id): id is string => typeof id === 'string') : []
+      const approvalGateTaskId = typeof data.approvalGateTaskId === 'string' ? data.approvalGateTaskId : null
+      const dependencyGateIds = getTaskDependencyGateIds(dependsOn, approvalGateTaskId)
+      if (dependencyGateIds.length > 0) {
+        const dependenciesById: Record<string, DependencyState | null> = {}
+        for (const dependencyId of dependencyGateIds) {
+          const depSnap = await tx.get(taskRef.parent.doc(dependencyId))
+          dependenciesById[dependencyId] = depSnap.exists ? (depSnap.data() ?? {}) : null
+        }
+        if (getUnresolvedTaskDependencyGateIds(dependsOn, approvalGateTaskId, dependenciesById).length > 0) return false
       }
 
       tx.update(taskRef, {

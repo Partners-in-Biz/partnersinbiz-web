@@ -1067,6 +1067,7 @@ export default function UnifiedChat({
   const [selectedSlashCommand, setSelectedSlashCommand] = useState<SlashCommandDefinition | null>(null)
   const [contextSearchResults, setContextSearchResults] = useState<ContextReference[]>([])
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
+  const [contextSearchMessage, setContextSearchMessage] = useState<string | null>(null)
   const [contextPickerActiveIndex, setContextPickerActiveIndex] = useState(0)
   const [agentEffort, setAgentEffort] = useState<AgentEffort | ''>('')
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('ask')
@@ -1793,8 +1794,11 @@ export default function UnifiedChat({
     [conversations, menuOpenId],
   )
   const contextTypeOptions = useMemo(
-    () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
-    [contextTypePrompt],
+    () => (contextTypePrompt ? filterContextReferenceMentionOptions(
+      contextTypePrompt.query,
+      { includeWorkbenchPaths: Boolean(activeConversation?.workspaceContext) },
+    ) : []),
+    [activeConversation?.workspaceContext, contextTypePrompt],
   )
   const contextPickerOpen = Boolean(contextTypePrompt || contextMention)
   const contextPickerOptionCount = contextTypePrompt
@@ -3277,10 +3281,22 @@ export default function UnifiedChat({
     if (!contextMention) {
       setContextSearchResults([])
       setContextSearchLoading(false)
+      setContextSearchMessage(null)
       return
     }
 
     const controller = new AbortController()
+    const isWorkbenchPathSearch = Boolean(
+      activeId
+      && activeConversation?.workspaceContext
+      && (contextMention.namespace === 'files' || contextMention.namespace === 'folders'),
+    )
+    if (isWorkbenchPathSearch && !contextMention.query.trim()) {
+      setContextSearchResults([])
+      setContextSearchLoading(false)
+      setContextSearchMessage('Type part of a linked file or folder name')
+      return () => controller.abort()
+    }
     const params = new URLSearchParams({
       orgId,
       type: contextMention.namespace,
@@ -3292,6 +3308,46 @@ export default function UnifiedChat({
       params.set('contextId', currentPageContext.id)
     }
     setContextSearchLoading(true)
+    setContextSearchMessage(null)
+    if (isWorkbenchPathSearch) {
+      const timer = window.setTimeout(() => {
+        void runConversationWorkbenchJob(activeId!, {
+          kind: 'fs.search',
+          query: contextMention.query,
+          entryType: contextMention.namespace === 'files' ? 'file' : 'directory',
+          limit: 8,
+        }, { signal: controller.signal })
+        .then(async (job) => {
+          const response = await fetch(
+            `/api/v1/conversations/${encodeURIComponent(activeId!)}/workbench/context-references`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jobId: job.jobId }),
+              signal: controller.signal,
+            },
+          )
+          const body = await response.json().catch(() => null)
+          if (!response.ok) throw new Error(body?.error || 'Unable to attach linked path')
+          return body
+        })
+        .then((body) => {
+          setContextSearchResults(((body?.data?.refs ?? []) as ContextReference[]).map(coerceContextRef))
+        })
+        .catch((err) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return
+          setContextSearchResults([])
+          setContextSearchMessage(err instanceof Error ? err.message : 'Linked path search failed')
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setContextSearchLoading(false)
+        })
+      }, 300)
+      return () => {
+        window.clearTimeout(timer)
+        controller.abort()
+      }
+    }
     fetch(`/api/v1/context-references/search?${params.toString()}`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => {
@@ -3300,17 +3356,19 @@ export default function UnifiedChat({
           return
         }
         setContextSearchResults((body.data.refs as ContextReference[]).map(coerceContextRef))
+        setContextSearchMessage(null)
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === 'AbortError') return
         setContextSearchResults([])
+        setContextSearchMessage('Reference search failed')
       })
       .finally(() => {
         if (!controller.signal.aborted) setContextSearchLoading(false)
       })
 
     return () => controller.abort()
-  }, [contextMention, coerceContextRef, currentPageContext?.id, currentPageContext?.type, orgId])
+  }, [activeConversation?.workspaceContext, activeId, contextMention, coerceContextRef, currentPageContext?.id, currentPageContext?.type, orgId])
 
   useEffect(() => {
     if (!activeId) return
@@ -6532,7 +6590,9 @@ export default function UnifiedChat({
                 <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">Searching…</div>
               )}
               {!contextSearchLoading && contextSearchResults.length === 0 && (
-                <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">No matching references</div>
+                <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  {contextSearchMessage ?? 'No matching references'}
+                </div>
               )}
               {!contextSearchLoading && contextSearchResults.map((ref, index) => (
                 <button
@@ -7442,6 +7502,7 @@ export default function UnifiedChat({
                     showAgents={allowAgentParticipants}
                     allowedAgentIds={newConversationAgentGate.allowedAgentIds}
                     agentsUnavailableReason={newConversationAgentGate.reason}
+                    runtimeTargetId={selectedWorkspaceRuntimeTarget?.id ?? null}
                   />
                 </div>
               </div>

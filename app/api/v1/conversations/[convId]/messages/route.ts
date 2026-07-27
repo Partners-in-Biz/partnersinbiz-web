@@ -39,6 +39,7 @@ import type { ProjectLocationReplica } from '@/lib/project-locations/model'
 import { safeRuntimeTargetId, type RuntimeTargetSelectionErrorCode } from '@/lib/agents/runtime-targets'
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
 import { cleanApprovalMode, shouldAutoApproveDangerousCommands } from '@/lib/messages/approval-mode'
+import { memberCanUseAgentOnRuntime } from '@/lib/orgMembers/access-policy'
 import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
 import {
   contextReferenceKey,
@@ -456,6 +457,7 @@ export const POST = withAuth(
       ),
       user,
       conversation.orgId,
+      { conversationId: convId },
     )
 
     // Resolve author display name from Firestore
@@ -493,6 +495,10 @@ export const POST = withAuth(
     const requestedRuntimeTarget = conversation.workspaceContext?.runtimeTarget?.trim() || null
     let authorizedWorkspaceRuntime: AuthorizedWorkspaceRuntime | null = null
     if (requestedRuntimeTarget && conversation.workspaceContext?.workspaceId && dispatchAgentId) {
+      if (user.role !== 'admin' && user.memberAccessPolicy && dispatchAgentId !== 'pip'
+        && !memberCanUseAgentOnRuntime(user.memberAccessPolicy, requestedRuntimeTarget, dispatchAgentId)) {
+        return apiError('This member is not allowed to use that agent on the selected computer', 403)
+      }
       try {
         authorizedWorkspaceRuntime = await authorizeWorkspaceRuntime({
           userId: user.uid,

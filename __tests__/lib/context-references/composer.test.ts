@@ -158,4 +158,16 @@ describe('context reference composer helpers', () => {
       expect.arrayContaining(['studios', 'studioartifacts']),
     )
   })
+
+  it('offers linked files and folders only to Workbench-aware composers', () => {
+    expect(filterContextReferenceMentionOptions('').map((option) => option.namespace))
+      .not.toEqual(expect.arrayContaining(['folders', 'files']))
+    expect(filterContextReferenceMentionOptions('', { includeWorkbenchPaths: true }).map((option) => option.namespace))
+      .toEqual(expect.arrayContaining(['folders', 'files', 'uploads', 'workspacefolders']))
+    expect(findActiveContextMention('Inspect @folders:rmicdev')).toMatchObject({
+      namespace: 'folders',
+      type: 'workspace_folder',
+      query: 'rmicdev',
+    })
+  })
 })

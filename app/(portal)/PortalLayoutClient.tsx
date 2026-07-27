@@ -793,6 +793,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const canOpenAdminView = userRole === 'admin' && !!activeOrgSlug
   const adminViewHref = activeOrgSlug ? `/admin/org/${activeOrgSlug}/dashboard` : '/admin/dashboard'
   const allowAgentParticipants = userRole === 'admin'
+    || Object.values(memberAccessPolicy.agentRuntimeAccess).some((agentIds) => agentIds.length > 0)
   const portalWorkspaceLabel = activeOrgType === 'platform_owner' || activeOrgId === PIB_PLATFORM_ORG_ID ? 'Platform' : 'Client'
   const currentPageContext = detectCurrentPageContext({
     pathname,

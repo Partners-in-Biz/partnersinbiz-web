@@ -291,7 +291,13 @@ export function legacyProjectAccessForUser(
   data: Record<string, unknown>,
   requestedOrgId?: string,
 ): ProjectAccessContext | null {
-  if (user.role === 'ai') return { role: 'owner', source: 'ai', canViewInternal: true }
+  if (user.role === 'ai') {
+    const scopedOrgId = cleanString(requestedOrgId)
+    if (!scopedOrgId) return { role: 'owner', source: 'ai', canViewInternal: true }
+    if (!projectOrgIds(data).includes(scopedOrgId)) return null
+    const canViewInternal = scopedOrgId === projectOwnerOrgId(data)
+    return { role: canViewInternal ? 'owner' : 'contributor', source: 'ai', canViewInternal }
+  }
   if (isSuperAdmin(user)) return { role: 'owner', source: 'super_admin', canViewInternal: true }
   if (!legacyProjectPolicyAllows(user, data)) return null
   const ids = projectOrgIds(data)
@@ -314,7 +320,13 @@ export async function resolveProjectAccessForUser(
   projectData: Record<string, unknown>,
   requestedOrgId?: string,
 ): Promise<ProjectAccessContext | null> {
-  if (user.role === 'ai') return { role: 'owner', source: 'ai', canViewInternal: true }
+  if (user.role === 'ai') {
+    const scopedOrgId = cleanString(requestedOrgId)
+    if (!scopedOrgId) return { role: 'owner', source: 'ai', canViewInternal: true }
+    if (!projectOrgIds(projectData).includes(scopedOrgId)) return null
+    const canViewInternal = scopedOrgId === projectOwnerOrgId(projectData)
+    return { role: canViewInternal ? 'owner' : 'contributor', source: 'ai', canViewInternal }
+  }
   if (isSuperAdmin(user)) return { role: 'owner', source: 'super_admin', canViewInternal: true }
 
   const scopedOrgId = cleanString(requestedOrgId)

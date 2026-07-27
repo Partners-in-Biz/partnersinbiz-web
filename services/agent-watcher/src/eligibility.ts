@@ -6,7 +6,7 @@ export interface DispatchEligibilityTask {
   deleted?: boolean | null
   requiresApproval?: boolean | null
   approvalStatus?: string | null
-  approvalGate?: { status?: string | null } | null
+  approvalGate?: string | { status?: string | null } | null
   agentReleaseAt?: string | number | { toMillis?: () => number; toDate?: () => Date } | null
   agentReleaseStatus?: string | null
   agentRetryAt?: string | number | { toMillis?: () => number; toDate?: () => Date } | null
@@ -15,6 +15,11 @@ export interface DispatchEligibilityTask {
 export interface DependencyState {
   agentStatus?: string | null
   columnId?: string | null
+  reviewerAgentId?: string | null
+  reviewStatus?: string | null
+  approvalStatus?: string | null
+  approvalGate?: string | { status?: string | null } | null
+  labels?: string[] | null
 }
 
 export type DispatchBlocker =
@@ -32,12 +37,16 @@ const APPROVED_STATUSES = new Set(['approved', 'accepted', 'resolved'])
 export function getApprovalStatus(task: DispatchEligibilityTask): string | null {
   const direct = typeof task.approvalStatus === 'string' ? task.approvalStatus.trim().toLowerCase() : ''
   if (direct) return direct
-  const gate = typeof task.approvalGate?.status === 'string' ? task.approvalGate.status.trim().toLowerCase() : ''
+  const gate = typeof task.approvalGate === 'object' && typeof task.approvalGate?.status === 'string'
+    ? task.approvalGate.status.trim().toLowerCase()
+    : ''
   return gate || null
 }
 
 export function hasPendingApprovalGate(task: DispatchEligibilityTask): boolean {
   const status = getApprovalStatus(task)
+  const persistedGate = typeof task.approvalGate === 'string' ? task.approvalGate.trim().toLowerCase() : ''
+  if (persistedGate && persistedGate !== 'none') return status !== 'approved'
   if (task.requiresApproval === true) return !status || !APPROVED_STATUSES.has(status)
   if (!status) return false
   return !APPROVED_STATUSES.has(status)
@@ -90,7 +99,24 @@ export function getTaskDispatchBlocker(
 
 export function isDependencyResolved(dep: DependencyState | null | undefined): boolean {
   if (!dep) return false
+  if (isApprovalGateDependency(dep) && normalizedApprovalStatus(dep.approvalStatus) !== 'approved') return false
+  if (dep.reviewerAgentId) return dep.agentStatus === 'done' && dep.reviewStatus === 'approved'
   return dep.columnId === 'done' || dep.agentStatus === 'done'
+}
+
+function normalizedApprovalStatus(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : null
+}
+
+function isApprovalGateDependency(dep: DependencyState): boolean {
+  const stringGate = typeof dep.approvalGate === 'string' ? dep.approvalGate.trim().toLowerCase() : ''
+  const objectGate = typeof dep.approvalGate === 'object' && dep.approvalGate !== null
+  return Boolean(
+    (stringGate && stringGate !== 'none')
+    || objectGate
+    || typeof dep.approvalStatus === 'string'
+    || dep.labels?.some((label) => /approval-gate|approval-required|client-approval|required-approval/i.test(label)),
+  )
 }
 
 export function getUnresolvedDependencyIds(
@@ -104,4 +130,33 @@ export function getUnresolvedDependencyIds(
     if (!isDependencyResolved(dependenciesById[dependencyId])) unresolved.push(dependencyId)
   }
   return unresolved
+}
+
+export function getTaskDependencyGateIds(
+  dependencyIds: readonly string[] | undefined,
+  approvalGateTaskId: string | null | undefined,
+): string[] {
+  const ids = new Set<string>()
+  for (const dependencyId of dependencyIds ?? []) {
+    const normalized = typeof dependencyId === 'string' ? dependencyId.trim() : ''
+    if (normalized) ids.add(normalized)
+  }
+  const gateId = typeof approvalGateTaskId === 'string' ? approvalGateTaskId.trim() : ''
+  if (gateId) ids.add(gateId)
+  return Array.from(ids)
+}
+
+export function getUnresolvedTaskDependencyGateIds(
+  dependencyIds: readonly string[] | undefined,
+  approvalGateTaskId: string | null | undefined,
+  dependenciesById: Record<string, DependencyState | null | undefined>,
+): string[] {
+  const ordinaryDependencies = new Set(getTaskDependencyGateIds(dependencyIds, null))
+  const gateId = typeof approvalGateTaskId === 'string' ? approvalGateTaskId.trim() : ''
+  return getTaskDependencyGateIds(dependencyIds, gateId).filter((dependencyId) => {
+    const dependency = dependenciesById[dependencyId]
+    if (ordinaryDependencies.has(dependencyId) && !isDependencyResolved(dependency)) return true
+    if (gateId === dependencyId && normalizedApprovalStatus(dependency?.approvalStatus) !== 'approved') return true
+    return false
+  })
 }

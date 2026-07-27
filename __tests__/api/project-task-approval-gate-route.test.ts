@@ -8,7 +8,9 @@ const mockTaskDoc = jest.fn()
 const mockTasksCollection = jest.fn()
 const mockProjectDoc = jest.fn()
 const mockCollection = jest.fn()
-let currentUser = { uid: 'client-1', role: 'client', authKind: 'session' }
+let currentUser: { uid: string; role: 'client' | 'admin' | 'ai'; authKind: string; orgId?: string } = {
+  uid: 'client-1', role: 'client', authKind: 'session',
+}
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
@@ -35,6 +37,10 @@ jest.mock('@/lib/projects/access', () => ({
   getProjectForUser: (...args: unknown[]) => mockGetProjectForUser(...args),
 }))
 
+jest.mock('@/lib/projects/planningDiscovery', () => ({
+  planningMutationBlocker: jest.fn(() => null),
+}))
+
 jest.mock('@/lib/activity/log', () => ({
   logActivity: jest.fn(() => Promise.resolve()),
 }))
@@ -59,7 +65,7 @@ beforeEach(() => {
   mockGetProjectForUser.mockResolvedValue({
     ok: true,
     doc: { data: () => ({ orgId: 'org-1' }) },
-    projectAccess: { role: 'member' },
+    projectAccess: { role: 'contributor', source: 'project_member', canViewInternal: true },
   })
   mockTaskGet.mockResolvedValue({
     exists: true,
@@ -83,6 +89,33 @@ beforeEach(() => {
 })
 
 describe('project task approval gate route guards', () => {
+  it('requires contributor write permission before updating a task', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: { data: () => ({ orgId: 'org-1' }) },
+      projectAccess: { role: 'viewer', source: 'project_member', canViewInternal: true },
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({ title: 'No write access' }), ctx)
+
+    expect(res.status).toBe(403)
+    expect(mockTaskGet).not.toHaveBeenCalled()
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('requires explicit matching organisation scope for agent task updates', async () => {
+    currentUser = { uid: 'agent:theo', role: 'ai', authKind: 'agent_api_key', orgId: 'org-1' }
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const missing = await PATCH(req({ title: 'Unsafe' }), ctx)
+    const mismatch = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', {
+      method: 'PATCH', headers: { 'x-org-id': 'other-org' }, body: JSON.stringify({ title: 'Unsafe' }),
+    }), ctx)
+
+    expect(missing.status).toBe(400)
+    expect(mismatch.status).toBe(403)
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
   it('blocks non-admin users from changing approval-gate metadata on gated tasks', async () => {
     const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
     const res = await PATCH(req({ approvalGate: 'none' }), ctx)

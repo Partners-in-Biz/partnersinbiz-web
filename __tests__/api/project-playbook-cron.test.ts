@@ -12,12 +12,18 @@ const mockTaskAdd = jest.fn()
 const mockPlaybookDoc = jest.fn()
 const mockPlaybookUpdate = jest.fn()
 const mockAuditAdd = jest.fn()
+const mockRunProjectPlaybookTemplate = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
     collection: mockCollection,
     collectionGroup: mockCollectionGroup,
   },
+}))
+
+jest.mock('@/lib/projects/playbooks', () => ({
+  ...jest.requireActual('@/lib/projects/playbooks'),
+  runProjectPlaybookTemplate: (...args: unknown[]) => mockRunProjectPlaybookTemplate(...args),
 }))
 
 jest.mock('firebase-admin/firestore', () => ({
@@ -59,6 +65,16 @@ beforeEach(() => {
   mockTaskAdd.mockResolvedValueOnce({ id: 'task-1' }).mockResolvedValueOnce({ id: 'task-2' })
   mockPlaybookUpdate.mockResolvedValue(undefined)
   mockAuditAdd.mockResolvedValue({ id: 'audit-1' })
+  mockRunProjectPlaybookTemplate.mockResolvedValue({
+    ok: true,
+    data: {
+      playbookId: 'playbook-1',
+      playbookRunId: 'scheduled-run',
+      createdTaskIds: ['task-1', 'task-2'],
+      taskCount: 2,
+      deduplicated: false,
+    },
+  })
   mockPlaybookDoc.mockReturnValue({ update: mockPlaybookUpdate })
   mockProjectCollection.mockImplementation((name: string) => {
     if (name === 'tasks') return { add: mockTaskAdd }
@@ -89,28 +105,12 @@ describe('GET /api/cron/project-playbooks', () => {
     expect(mockCollectionGroup).toHaveBeenCalledWith('playbooks')
     expect(mockPlaybookWhere).toHaveBeenCalledWith('autoCreateTasks', '==', true)
     expect(mockProjectDoc).toHaveBeenCalledWith('project-1')
-    expect(mockTaskAdd).toHaveBeenCalledTimes(2)
-    expect(mockTaskAdd).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      title: 'Kickoff',
+    expect(mockRunProjectPlaybookTemplate).toHaveBeenCalledWith(expect.objectContaining({
       projectId: 'project-1',
-      orgId: 'owner-org',
-      sourcePlaybookId: 'playbook-1',
-      sourcePlaybookTitle: 'Weekly delivery rhythm',
-      createdBy: 'cron',
-    }))
-    expect(mockPlaybookUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      lastRunBy: 'cron',
-      lastRunTaskIds: ['task-1', 'task-2'],
-      runCount: 3,
-      nextRunAt: '2026-05-08',
-    }))
-    expect(mockAuditAdd).toHaveBeenCalledWith(expect.objectContaining({
-      eventType: 'playbook_run',
-      itemType: 'playbook',
-      itemId: 'playbook-1',
+      playbookId: 'playbook-1',
       actorUid: 'cron',
-      taskCount: 2,
-      createdTaskIds: ['task-1', 'task-2'],
+      nextRunAt: '2026-05-08',
+      project: expect.objectContaining({ orgId: 'owner-org' }),
     }))
     expect(body.data).toEqual(expect.objectContaining({
       scanned: 1,

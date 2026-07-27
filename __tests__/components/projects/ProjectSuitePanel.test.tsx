@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ProjectSuitePanel } from '@/components/projects/ProjectSuitePanel'
 
 function suiteResponse() {
@@ -388,5 +388,27 @@ describe('ProjectSuitePanel', () => {
         visibility: 'project',
       }),
     })))
+  })
+
+  it('refreshes visible Plan data every 15 seconds without clearing unsaved form drafts', async () => {
+    jest.useFakeTimers()
+    try {
+      render(<ProjectSuitePanel projectId="project-1" />)
+      await act(async () => { await Promise.resolve(); await Promise.resolve() })
+      fireEvent.change(screen.getByLabelText('Playbook title'), { target: { value: 'Unsaved planning draft' } })
+      expect(screen.getByLabelText('Playbook title')).toHaveValue('Unsaved planning draft')
+
+      await act(async () => {
+        jest.advanceTimersByTime(15_000)
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+
+      const suiteGets = (global.fetch as jest.Mock).mock.calls.filter(([url, init]) => String(url).endsWith('/suite') && (!init || !init.method || init.method === 'GET'))
+      expect(suiteGets).toHaveLength(2)
+      expect(screen.getByLabelText('Playbook title')).toHaveValue('Unsaved planning draft')
+    } finally {
+      jest.useRealTimers()
+    }
   })
 })

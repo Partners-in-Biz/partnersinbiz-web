@@ -35,6 +35,7 @@ const mockMilestoneDocGet = jest.fn()
 const mockPlaybookDocGet = jest.fn()
 const mockMilestoneUpdate = jest.fn()
 const mockPlaybookUpdate = jest.fn()
+const mockRunProjectPlaybookTemplate = jest.fn()
 
 const mockUser = { uid: 'owner-1', role: 'admin' as const, orgId: 'owner-org' }
 type MockAuthHandler = (req: NextRequest, user: typeof mockUser, ctx?: unknown) => unknown
@@ -50,6 +51,15 @@ jest.mock('@/lib/api/auth', () => ({
 
 jest.mock('@/lib/projects/access', () => ({
   getProjectForUser: (...args: unknown[]) => mockGetProjectForUser(...args),
+}))
+
+jest.mock('@/lib/projects/planningDiscovery', () => ({
+  planningMutationBlocker: jest.fn(() => null),
+}))
+
+jest.mock('@/lib/projects/playbooks', () => ({
+  ...jest.requireActual('@/lib/projects/playbooks'),
+  runProjectPlaybookTemplate: (...args: unknown[]) => mockRunProjectPlaybookTemplate(...args),
 }))
 
 jest.mock('firebase-admin/firestore', () => ({
@@ -156,6 +166,16 @@ beforeEach(() => {
   mockPlaybookDocGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Weekly client report', status: 'active', templateSteps: ['Kickoff', 'QA'] }) })
   mockMilestoneUpdate.mockResolvedValue(undefined)
   mockPlaybookUpdate.mockResolvedValue(undefined)
+  mockRunProjectPlaybookTemplate.mockResolvedValue({
+    ok: true,
+    data: {
+      playbookId: 'playbook-1',
+      playbookRunId: 'playbook-1_manual-key',
+      createdTaskIds: ['task-from-playbook-1', 'task-from-playbook-2'],
+      taskCount: 2,
+      deduplicated: false,
+    },
+  })
   mockMilestoneDoc.mockReturnValue({ get: mockMilestoneDocGet, update: mockMilestoneUpdate })
   mockPlaybookDoc.mockReturnValue({ get: mockPlaybookDocGet, update: mockPlaybookUpdate })
   mockSubCollection.mockImplementation((name: string) => {
@@ -422,7 +442,7 @@ describe('project suite API', () => {
     const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'idempotency-key': 'manual-key' },
       body: JSON.stringify({
         type: 'playbook',
         id: 'playbook-1',
@@ -439,28 +459,12 @@ describe('project suite API', () => {
       createdTaskIds: ['task-from-playbook-1', 'task-from-playbook-2'],
       taskCount: 2,
     }))
-    expect(mockTaskAdd).toHaveBeenCalledTimes(2)
-    expect(mockTaskAdd).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      title: 'Kickoff',
+    expect(mockRunProjectPlaybookTemplate).toHaveBeenCalledWith(expect.objectContaining({
       projectId: 'project-1',
-      orgId: 'owner-org',
-      columnId: 'todo',
-      labels: ['playbook', 'playbook:playbook-1'],
-      sourcePlaybookId: 'playbook-1',
-      sourcePlaybookTitle: 'Weekly client report',
-      createdBy: 'owner-1',
-    }))
-    expect(mockTaskAdd).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      title: 'QA',
-      sourcePlaybookId: 'playbook-1',
-    }))
-    expect(mockAuditAdd).toHaveBeenCalledWith(expect.objectContaining({
-      eventType: 'playbook_run',
-      itemType: 'playbook',
-      itemId: 'playbook-1',
+      playbookId: 'playbook-1',
       actorUid: 'owner-1',
-      taskCount: 2,
-      createdTaskIds: ['task-from-playbook-1', 'task-from-playbook-2'],
+      runKey: 'manual-key',
+      project: expect.objectContaining({ orgId: 'owner-org' }),
     }))
   })
 

@@ -225,6 +225,19 @@ describe('agent skill policy manifest', () => {
     expect(AGENT_SKILL_POLICY.futureAgentCandidates).toEqual([])
   })
 
+  it('grants Pip the governed planning workflow in both runtime and catalog policy', () => {
+    const planningSkills = [
+      'agent-skills/interview-me',
+      'agent-skills/planning-and-task-breakdown',
+      'agent-skills/spec-driven-development',
+      'software-development/writing-plans',
+    ]
+    expect(AGENT_SKILL_POLICY.agents.pip.runtimeSkills).toEqual(expect.arrayContaining(planningSkills))
+    for (const skill of planningSkills) {
+      expect(AGENT_SKILL_POLICY.skillCatalog[skill].allowedAgentIds).toContain('pip')
+    }
+  })
+
   it('gives role owners outreach skills and every profile the analytics baseline', () => {
     // theo is engineering/infra-only and intentionally excluded from non-engineering
     // execution skills like email-outreach (see agent-skill-policy narrowing).

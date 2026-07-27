@@ -39,6 +39,10 @@ jest.mock('@/lib/context-references/registry', () => ({
 
 jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn(() => Promise.resolve()) }))
 
+jest.mock('@/lib/projects/planningDiscovery', () => ({
+  planningMutationBlocker: jest.fn(() => null),
+}))
+
 const chatOrigin = {
   conversationId: 'conv-1',
   requestMessageId: 'user-message-1',
@@ -47,10 +51,11 @@ const chatOrigin = {
   sequence: 0,
 }
 
-function request(origin = chatOrigin) {
+function request(origin = chatOrigin, extra: Record<string, unknown> = {}) {
   return new NextRequest('http://localhost/api/v1/projects/project-1/tasks', {
     method: 'POST',
-    body: JSON.stringify({ title: 'Draft campaign copy', chatOrigin: origin }),
+    headers: { 'x-org-id': 'org-1' },
+    body: JSON.stringify({ title: 'Draft campaign copy', chatOrigin: origin, ...extra }),
   })
 }
 
@@ -110,5 +115,42 @@ describe('project task chat origin', () => {
 
     expect(res.status).toBe(201)
     expect(mockTaskAdd).toHaveBeenCalledWith(expect.objectContaining({ chatOrigin }))
+  })
+
+  it('requires explicit matching agent organisation scope', async () => {
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/route')
+    const missing = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/tasks', {
+      method: 'POST', body: JSON.stringify({ title: 'Unsafe' }),
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+    const mismatch = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/tasks', {
+      method: 'POST', headers: { 'x-org-id': 'other-org' }, body: JSON.stringify({ title: 'Unsafe' }),
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(missing.status).toBe(400)
+    expect(mismatch.status).toBe(403)
+    expect(mockTaskAdd).not.toHaveBeenCalled()
+  })
+
+  it('derives task orgId from the authoritative project instead of the body', async () => {
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/route')
+    const res = await POST(request(chatOrigin, { orgId: 'other-org' }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockGetProjectForUser).toHaveBeenCalledWith('project-1', mockUser, 'org-1')
+    expect(mockTaskAdd).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org-1' }))
+    expect(mockTaskAdd).not.toHaveBeenCalledWith(expect.objectContaining({ orgId: 'other-org' }))
+  })
+
+  it('requires contributor write permission before creating a task', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: { id: 'project-1', data: () => ({ orgId: 'org-1' }) },
+      projectAccess: { role: 'viewer', source: 'project_organization', canViewInternal: false },
+    })
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/route')
+    const res = await POST(request(), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockTaskAdd).not.toHaveBeenCalled()
   })
 })

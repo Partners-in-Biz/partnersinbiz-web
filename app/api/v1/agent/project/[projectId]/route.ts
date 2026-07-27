@@ -13,6 +13,9 @@ import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { getProjectForUser } from '@/lib/projects/access'
+import { loadAgentProjectPlan } from '@/lib/projects/agentSuiteProjection'
+import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,10 +36,13 @@ function timestampMillis(value: unknown): number {
 
 export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
+  const explicitOrgId = req.headers.get('x-org-id')?.trim() || ''
+  if (user.role === 'ai' && !explicitOrgId) return apiError('X-Org-Id is required for agent project context', 400)
+  const requestedOrgId = explicitOrgId || user.orgId || undefined
 
-  // Get project
-  const projectDoc = await adminDb.collection('projects').doc(projectId).get()
-  if (!projectDoc.exists) return apiError('Project not found', 404)
+  const access = await getProjectForUser(projectId, user, requestedOrgId)
+  if (!access.ok) return apiError(access.error, access.status)
+  const projectDoc = access.doc
 
   const projectData = projectDoc.data()
   const project = {
@@ -55,13 +61,17 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     .orderBy('createdAt', 'desc')
     .get()
 
-  const documents = docsSnapshot.docs.map(doc => {
-    const data = doc.data()
+  const documentRecords = docsSnapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  } as { id: string; title?: unknown; content?: unknown; type?: unknown } & Record<string, unknown>))
+  const visibleDocumentRecords = filterProjectItemsForAccess(documentRecords, { projectAccess: access.projectAccess, user })
+  const documents = visibleDocumentRecords.map(data => {
     return {
-      id: doc.id,
-      title: data.title ?? '',
-      content: data.content ?? '',
-      type: data.type ?? 'notes',
+      id: data.id,
+      title: typeof data.title === 'string' ? data.title : '',
+      content: typeof data.content === 'string' ? data.content : '',
+      type: typeof data.type === 'string' ? data.type : 'notes',
     }
   })
 
@@ -73,10 +83,20 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     .orderBy('order', 'asc')
     .get()
 
-  const tasks = tasksSnapshot.docs.map(doc => {
-    const data = doc.data()
+  const taskRecords = tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+  const plan = await loadAgentProjectPlan({
+    projectId,
+    projectData: projectData ?? {},
+    tasks: taskRecords,
+    user,
+    projectAccess: access.projectAccess,
+  })
+  const visibleTaskRecords = plan.tasks
+  const visibleTaskIds = new Set(visibleTaskRecords.map((task) => task.id))
+
+  const tasks = visibleTaskRecords.map(data => {
     return {
-      id: doc.id,
+      id: data.id,
       orgId: data.orgId ?? project.orgId,
       projectId: data.projectId ?? projectId,
       title: data.title ?? '',
@@ -115,7 +135,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
 
   // Get recent comments (latest 10 across all tasks)
   const recentComments: RecentTaskComment[] = []
-  for (const taskDoc of tasksSnapshot.docs) {
+  for (const taskDoc of tasksSnapshot.docs.filter((doc) => visibleTaskIds.has(doc.id))) {
     const commentsSnapshot = await adminDb
       .collection('projects')
       .doc(projectId)
@@ -150,6 +170,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     project,
     documents,
     tasks,
+    plan,
     recentComments: topComments,
   })
 })
