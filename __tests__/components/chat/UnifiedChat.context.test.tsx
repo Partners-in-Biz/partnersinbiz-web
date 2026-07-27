@@ -2124,25 +2124,34 @@ describe('UnifiedChat message scrolling', () => {
     expect(screen.getByTestId('unified-chat-root')).not.toHaveClass('xl:grid-cols-[236px_minmax(0,1fr)_260px]')
   })
 
-  it('opens active execution in the shared context dock instead of a third rail', async () => {
+  it('opens active execution in the shared context dock instead of the agent workbench', async () => {
     const defaultFetch = global.fetch as jest.Mock
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input) === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [{
         id: 'msg-run', conversationId: 'conv-1', role: 'assistant', content: 'Working', authorKind: 'agent',
         authorId: 'pip', authorDisplayName: 'Pip', status: 'failed', runId: 'run-live', createdAt: '2026-06-08T09:05:00.000Z',
+        model: 'openai/gpt-5.6-codex', provider: 'openai',
+        events: [{ type: 'tool.completed', tool: 'inspect_runtime', preview: 'Runtime snapshot ready' }],
         uiActions: [{ id: 'retry-run', type: 'retry', label: 'Retry' }],
       }] } })
       if (String(input) === '/api/v1/admin/agents/pip/runs/run-live/actions') return errorResponse(500, { error: 'retry unavailable' })
       return defaultFetch(input, init)
     })
 
-    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" initialConvId="conv-1" />)
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" initialConvId="conv-1" showAgentWorkbench />)
     await screen.findByText('Working')
     expect(screen.getByRole('button', { name: 'Add conversation context' })).toBeInTheDocument()
     expect(screen.queryByTestId('runtime-inspector-rail')).not.toBeInTheDocument()
     fireEvent.click(screen.getByTestId('hermes-runtime-inspector-toggle'))
     expect(screen.getByRole('dialog', { name: 'Conversation context' })).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: 'Execution' })).toHaveAttribute('data-emphasized', 'true')
+    const execution = screen.getByRole('region', { name: 'Execution' })
+    expect(execution).toHaveAttribute('data-emphasized', 'true')
+    expect(execution).toHaveTextContent('failed')
+    expect(execution).toHaveTextContent('openai · gpt-5.6-codex')
+    expect(execution).toHaveTextContent('run-live')
+    expect(execution).toHaveTextContent('inspect_runtime')
+    expect(execution).toHaveTextContent('Runtime snapshot ready')
+    expect(screen.getByTestId('hermes-agent-workbench-toggle')).toHaveAttribute('aria-pressed', 'false')
     fireEvent.click(screen.getByRole('button', { name: 'Retry run' }))
     await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/admin/agents/pip/runs/run-live/actions', expect.objectContaining({ method: 'POST' })))
   })
