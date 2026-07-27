@@ -66,11 +66,14 @@ jobs:
       - name: Build Linux x64 and arm64 runtimes
         run: PIB_RUNTIME_TARGETS='linux-x64 linux-arm64' bash runtime-installers/build-runtime.sh
 
-      - name: Verify installers and lifecycle
-        run: |
-          npx tsx scripts/verify-linked-runtime-installers.ts
-          bash runtime-installers/tests/linux-credential-helper.sh
-          bash runtime-installers/tests/linux-lifecycle.sh
+      - name: Verify installer contracts
+        run: npx tsx scripts/verify-linked-runtime-installers.ts
+
+      - name: Verify Linux credential helper
+        run: bash runtime-installers/tests/linux-credential-helper.sh
+
+      - name: Verify Linux lifecycle
+        run: bash runtime-installers/tests/linux-lifecycle.sh
 
       - name: Create signed release assets
         run: |
