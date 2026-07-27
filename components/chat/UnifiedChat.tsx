@@ -1399,7 +1399,11 @@ export default function UnifiedChat({
       ),
     ) ?? null
   }, [messages])
-  const activeRuntimeEvents = activeRuntimeMessage ? (liveEvents[activeRuntimeMessage.id] ?? []) : []
+  const activeRuntimeEvents = activeRuntimeMessage
+    ? (liveEvents[activeRuntimeMessage.id]?.length
+        ? liveEvents[activeRuntimeMessage.id]
+        : ((activeRuntimeMessage.events ?? []) as ChatEvent[]))
+    : []
   const workbenchEvents = useMemo(() => messages.flatMap((message) => {
     const streamed = liveEvents[message.id]
     return streamed?.length ? streamed : ((message.events ?? []) as ChatEvent[])
@@ -6860,11 +6864,8 @@ export default function UnifiedChat({
                 {runtimeExecution && <button
                   type="button"
                   data-testid="hermes-runtime-inspector-toggle"
-                  aria-label={showAgentWorkbench ? 'Open terminal in agent workbench' : 'Open execution in context dock'}
-                  onClick={() => {
-                    if (showAgentWorkbench) openWorkbenchTab('terminal')
-                    else setExecutionDockRequest((value) => value + 1)
-                  }}
+                  aria-label="Open runtime inspector"
+                  onClick={() => setExecutionDockRequest((value) => value + 1)}
                   className="inline-flex h-7 items-center gap-1 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-2 text-[11px] font-medium text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)]"
                 >
                   <span className="material-symbols-outlined text-[13px]">developer_board</span>
