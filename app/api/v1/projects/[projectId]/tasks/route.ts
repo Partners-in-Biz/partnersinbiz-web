@@ -14,6 +14,7 @@ import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
 import { getConversation } from '@/lib/conversations/conversations'
+import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 
 export const dynamic = 'force-dynamic'
 
@@ -88,6 +89,13 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const access = await getProjectForUser(projectId, user)
   if (!access.ok) return apiError(access.error, access.status)
   const project = access.doc.data() ?? {}
+
+  const isPlannedAgentWork = typeof body.assigneeAgentId === 'string'
+    || (body.agentInput && typeof body.agentInput === 'object')
+    || Array.isArray(body.dependsOn)
+    || typeof body.approvalGateTaskId === 'string'
+  const planningBlocker = isPlannedAgentWork ? planningMutationBlocker(project) : null
+  if (planningBlocker) return apiError(planningBlocker.message, 409, planningBlocker)
 
   const taskData = buildProjectTaskCreateData(body, projectId, typeof project.orgId === 'string' ? project.orgId : undefined)
   if (!taskData.ok) return apiError(taskData.error, taskData.status ?? 400)
