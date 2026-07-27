@@ -5,6 +5,7 @@ import type { ApiUser } from '@/lib/api/types'
 import { authorizeWorkbenchConversation, WorkbenchAuthorizationError } from '@/lib/messages/workbench/authorization'
 import { enqueueWorkbenchJob, type EnqueueWorkbenchJobInput } from '@/lib/messages/workbench/job-store'
 import { parseWorkbenchOperation, publicWorkbenchJob } from '@/lib/messages/workbench/jobs'
+import { linkedRuntimeUpdateRequired } from '@/lib/linked-computers/runtime-targets'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +40,9 @@ export async function handleCreateWorkbenchJob(
     const body = await request.json().catch(() => null) as { operation?: unknown } | null
     const operation = parseWorkbenchOperation(body?.operation)
     const authorization = await dependencies.authorize(user, conversationId)
+    if (operation.kind === 'fs.search' && linkedRuntimeUpdateRequired(authorization.binding.runtimeVersion, '1.1.10')) {
+      return apiError('Computer runtime update required for linked file search (minimum 1.1.10)', 409)
+    }
     if (user.role !== 'admin' && user.role !== 'client') return apiError('Forbidden', 403)
     const job = await dependencies.enqueue({
       idempotencyKey,
@@ -53,6 +57,7 @@ export async function handleCreateWorkbenchJob(
       mappingId: authorization.binding.mappingId,
       ...(authorization.projectId ? { projectId: authorization.projectId } : {}),
       ...(authorization.projectReplicaId ? { projectReplicaId: authorization.projectReplicaId } : {}),
+      ...(authorization.rootBindingId ? { rootBindingId: authorization.rootBindingId } : {}),
       relativeFolder: authorization.relativeFolder,
       kind: operation.kind,
       operation,

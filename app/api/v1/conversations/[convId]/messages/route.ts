@@ -457,6 +457,7 @@ export const POST = withAuth(
       ),
       user,
       conversation.orgId,
+      { conversationId: convId },
     )
 
     // Resolve author display name from Firestore

@@ -247,4 +247,56 @@ describe('workbench claim authorization', () => {
       job: rootJob,
     })).toBe(true)
   })
+
+  it('binds a company-root job to the immutable company workspace identity', () => {
+    const companyStored: WorkbenchStoredAuthorization = {
+      ...stored,
+      mapping: { ...stored.mapping, projectId: undefined },
+      conversation: {
+        ...stored.conversation,
+        workspaceContext: {
+          ...(stored.conversation!.workspaceContext as object),
+          projectId: undefined,
+          folderScope: 'company',
+          companyWorkspaceId: 'loyalty-plus-workspace',
+          localWorkingPath: '/Users/private/Cowork/partners/Loyalty Plus',
+          vpsWorkingPath: '/var/lib/hermes/Cowork/partners/Loyalty Plus',
+          folderRelativePath: '',
+        },
+      },
+      project: undefined,
+      projectOrganization: undefined,
+      projectReplica: undefined,
+    }
+    const companyJob = job({
+      projectId: undefined,
+      projectReplicaId: undefined,
+      rootBindingId: 'loyalty-plus-workspace',
+      relativeFolder: '.',
+    })
+    const input = {
+      authenticatedDeviceUserId: 'owner-a',
+      credentialVersion: 3,
+      authorization: companyStored,
+      job: companyJob,
+    }
+    expect(isWorkbenchClaimAuthorized(input)).toBe(true)
+    expect(isWorkbenchClaimAuthorized({
+      ...input,
+      job: { ...companyJob, rootBindingId: 'another-company' },
+    })).toBe(false)
+    expect(isWorkbenchClaimAuthorized({
+      ...input,
+      authorization: {
+        ...companyStored,
+        conversation: {
+          ...companyStored.conversation,
+          workspaceContext: {
+            ...(companyStored.conversation!.workspaceContext as object),
+            companyWorkspaceId: 'another-company',
+          },
+        },
+      },
+    })).toBe(false)
+  })
 })

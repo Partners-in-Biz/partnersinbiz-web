@@ -26,7 +26,7 @@ function mappedWorkspace() {
 }
 
 function job(input: Record<string, unknown>): WorkbenchRuntimeJob {
-  const { kind = 'fs.list', path: operationPath = '', content, expectedSha256, staged, argv, cwd, timeoutMs } = input
+  const { kind = 'fs.list', path: operationPath = '', content, expectedSha256, staged, argv, cwd, timeoutMs, query, entryType, limit } = input
   return {
     jobId: 'job-a',
     requestId: 'request-a',
@@ -44,6 +44,9 @@ function job(input: Record<string, unknown>): WorkbenchRuntimeJob {
       ...(argv !== undefined ? { argv } : {}),
       ...(cwd !== undefined ? { cwd } : {}),
       ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+      ...(query !== undefined ? { query } : {}),
+      ...(entryType !== undefined ? { entryType } : {}),
+      ...(limit !== undefined ? { limit } : {}),
     },
     ...input,
     path: undefined,
@@ -53,6 +56,9 @@ function job(input: Record<string, unknown>): WorkbenchRuntimeJob {
     argv: undefined,
     cwd: undefined,
     timeoutMs: undefined,
+    query: undefined,
+    entryType: undefined,
+    limit: undefined,
   } as unknown as WorkbenchRuntimeJob
 }
 
@@ -69,6 +75,40 @@ describe('safe typed linked-computer workbench executor', () => {
       content: 'export const ready = true\n',
       sha256: sha256('export const ready = true\n'),
     })
+  })
+
+  it('searches files and folders recursively while skipping heavy generated trees', async () => {
+    const { root, registry } = mappedWorkspace()
+    fs.mkdirSync(path.join(root, 'apps', 'rmicdev'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'apps', 'rmicdev', 'config.ts'), 'ok')
+    fs.mkdirSync(path.join(root, 'node_modules', 'rmicdev-hidden'), { recursive: true })
+
+    await expect(executeWorkbenchOperation(job({
+      kind: 'fs.search', query: 'rmicdev', entryType: 'directory', limit: 8,
+    }), registry)).resolves.toEqual({
+      entries: [{ path: 'apps/rmicdev', type: 'directory' }],
+    })
+    await expect(executeWorkbenchOperation(job({
+      kind: 'fs.search', query: 'config', entryType: 'file', limit: 8,
+    }), registry)).resolves.toEqual({
+      entries: [{ path: 'apps/rmicdev/config.ts', type: 'file', size: 2 }],
+    })
+  })
+
+  it('uses an authorised company sibling as the Workbench search root', async () => {
+    const { temporary, root, registry } = mappedWorkspace()
+    const company = path.join(temporary, 'Loyalty Plus')
+    fs.mkdirSync(path.join(company, 'rmicdev'), { recursive: true })
+    const companyJob = job({
+      kind: 'fs.search',
+      query: 'rmicdev',
+      entryType: 'directory',
+      workingDirectory: company,
+    })
+    await expect(executeWorkbenchOperation(companyJob, registry)).resolves.toEqual({
+      entries: [{ path: 'rmicdev', type: 'directory' }],
+    })
+    expect(root).not.toBe(company)
   })
 
   it.each(['../outside', '/etc/passwd', 'C:\\Windows\\system.ini', 'C:relative', '\\\\server\\share', 'src\\index.ts'])(

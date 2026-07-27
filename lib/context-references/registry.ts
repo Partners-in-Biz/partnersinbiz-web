@@ -46,6 +46,10 @@ import {
   type ContextReferenceSeed,
   type ContextReferenceType,
 } from './types'
+import {
+  isWorkbenchPathContextSeed,
+  resolveWorkbenchPathContextReference,
+} from '@/lib/messages/workbench/context-references'
 
 type RawDoc = Record<string, unknown>
 type FirestoreDoc = {
@@ -895,7 +899,15 @@ async function resolveStudioArtifact(input: ResolverInput): Promise<ContextRefer
   })
 }
 
-async function resolveOne(seed: ContextReferenceSeed, user: ApiUser, defaultOrgId?: string): Promise<ContextReference | null> {
+async function resolveOne(
+  seed: ContextReferenceSeed,
+  user: ApiUser,
+  defaultOrgId?: string,
+  conversationId?: string,
+): Promise<ContextReference | null> {
+  if (isWorkbenchPathContextSeed(seed)) {
+    return resolveWorkbenchPathContextReference(seed, user, defaultOrgId, conversationId)
+  }
   switch (seed.type) {
     case 'project':
       return resolveProject({ seed, user, defaultOrgId })
@@ -940,12 +952,13 @@ export async function resolveContextReferences(
   refs: unknown,
   user: ApiUser,
   defaultOrgId?: string,
+  options: { conversationId?: string } = {},
 ): Promise<ContextReference[]> {
   const seeds = sanitizeContextReferenceSeeds(refs)
   const resolved: ContextReference[] = []
   const seen = new Set<string>()
   for (const seed of seeds) {
-    const ref = await resolveOne(seed, user, defaultOrgId)
+    const ref = await resolveOne(seed, user, defaultOrgId, options.conversationId)
     if (!ref) continue
     const key = contextReferenceKey(ref)
     if (seen.has(key)) continue
@@ -1166,6 +1179,9 @@ export function buildAttachedContextBlock(refs: ContextReference[]): string {
     lines.push(`  orgId: ${ref.orgId}`)
     if (ref.href) lines.push(`  href: ${ref.href}`)
     if (ref.summary) lines.push(`  summary: ${ref.summary.slice(0, MAX_CONTEXT_SUMMARY_CHARS)}`)
+    if (ref.metadata?.contextKind === 'workbench_path' && typeof ref.metadata.path === 'string') {
+      lines.push(`  linkedWorkspacePath: ${ref.metadata.path}`)
+    }
   }
   lines.push('---', '')
   return `${lines.join('\n').slice(0, MAX_ATTACHED_CONTEXT_CHARS)}\n\n`
@@ -1180,7 +1196,12 @@ export async function patchConversationContextRefs(input: PatchConversationConte
     const removeKeys = new Set(sanitizeContextReferenceSeeds(input.refs).map(contextReferenceKey))
     nextRefs = nextRefs.filter((ref) => !removeKeys.has(contextReferenceKey(ref)))
   } else if (input.action === 'add') {
-    const resolved = await resolveContextReferences(input.refs ?? [], input.user, input.orgId)
+    const resolved = await resolveContextReferences(
+      input.refs ?? [],
+      input.user,
+      input.orgId,
+      { conversationId: input.convId },
+    )
     const byKey = new Map<string, ContextReference>()
     for (const ref of [...nextRefs, ...resolved]) byKey.set(contextReferenceKey(ref), ref)
     nextRefs = Array.from(byKey.values()).slice(0, MAX_CONTEXT_REFS)

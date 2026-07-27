@@ -99,6 +99,7 @@ export interface EnqueueWorkbenchJobInput {
   mappingId: string
   projectId?: string
   projectReplicaId?: string
+  rootBindingId?: string
   relativeFolder: string
   kind: WorkbenchOperation['kind']
   operation: WorkbenchOperation
@@ -176,6 +177,7 @@ export interface ApproveWorkbenchJobInput {
   mappingId: string
   projectId?: string
   projectReplicaId?: string
+  rootBindingId?: string
   relativeFolder: string
 }
 
@@ -190,6 +192,7 @@ function approvalBindingMatches(job: WorkbenchJob, input: ApproveWorkbenchJobInp
     && job.mappingId === input.mappingId
     && (job.projectId ?? null) === (input.projectId ?? null)
     && (job.projectReplicaId ?? null) === (input.projectReplicaId ?? null)
+    && (job.rootBindingId ?? null) === (input.rootBindingId ?? null)
     && job.relativeFolder === input.relativeFolder
 }
 
@@ -258,7 +261,14 @@ export function isWorkbenchClaimAuthorized(input: {
   if (workspaceContext?.runtimeTarget !== job.runtimeTargetId && workspaceContext?.runtimeTarget !== job.deviceId) return false
   if ((conversationProjectId(conversation as unknown as Conversation) ?? null) !== (job.projectId ?? null)) return false
   if (!job.projectId) {
-    const currentRelativeFolder = canonicalWorkbenchWorkspaceRelativePath(workspaceContext?.folderRelativePath)
+    const currentRootBindingId = typeof workspaceContext?.companyWorkspaceId === 'string' && workspaceContext.companyWorkspaceId.trim()
+      ? workspaceContext.companyWorkspaceId.trim()
+      : typeof workspaceContext?.companyId === 'string' ? workspaceContext.companyId.trim() : ''
+    const currentUsesCompanyRoot = workspaceContext?.folderScope === 'company'
+    if ((job.rootBindingId ?? '') !== (currentUsesCompanyRoot ? currentRootBindingId : '')) return false
+    const currentRelativeFolder = job.rootBindingId
+      ? '.'
+      : canonicalWorkbenchWorkspaceRelativePath(workspaceContext?.folderRelativePath)
     if (currentRelativeFolder !== job.relativeFolder) return false
   }
   if (job.kind === 'fs.write' && (!job.approvedAtMs || job.approvedByUserId !== job.actorUserId)) return false
@@ -339,7 +349,11 @@ export async function claimOldestWorkbenchJob(
     const tail = ids.slice(12)
     const survivors: string[] = []
     const expired: Array<{ ref: FirebaseFirestore.DocumentReference; job: WorkbenchJob }> = []
-    let selected: { ref: FirebaseFirestore.DocumentReference; job: WorkbenchJob } | null = null
+    let selected: {
+      ref: FirebaseFirestore.DocumentReference
+      job: WorkbenchJob
+      authorization: WorkbenchStoredAuthorization
+    } | null = null
 
     for (const id of candidates) {
       const ref = adminDb.collection(WORKBENCH_JOBS_COLLECTION).doc(id)
@@ -364,6 +378,7 @@ export async function claimOldestWorkbenchJob(
         }
         selected = {
           ref,
+          authorization,
           job: transitionWorkbenchJob(job, {
             type: 'claim', deviceId: input.deviceId, credentialVersion: input.credentialVersion,
             nowMs, leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS,
@@ -395,6 +410,18 @@ export async function claimOldestWorkbenchJob(
       workspaceId: selected.job.workspaceId,
       mappingId: selected.job.mappingId,
       relativeFolder: selected.job.relativeFolder,
+      ...(selected.job.rootBindingId ? {
+        workingDirectory: (() => {
+          const conversation = selected.authorization.conversation
+          const workspace = conversation?.workspaceContext && typeof conversation.workspaceContext === 'object'
+            ? conversation.workspaceContext as Record<string, unknown>
+            : undefined
+          const device = selected.authorization.device
+          const value = device?.platform === 'linux' ? workspace?.vpsWorkingPath : workspace?.localWorkingPath
+          if (typeof value !== 'string' || !value.trim()) throw new Error('workbench: company working directory unavailable')
+          return value.trim()
+        })(),
+      } : {}),
       attempt: selected.job.attempt,
       leaseToken: selected.job.leaseToken!,
     }

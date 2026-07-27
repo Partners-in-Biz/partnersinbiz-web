@@ -1793,8 +1793,11 @@ export default function UnifiedChat({
     [conversations, menuOpenId],
   )
   const contextTypeOptions = useMemo(
-    () => (contextTypePrompt ? filterContextReferenceMentionOptions(contextTypePrompt.query) : []),
-    [contextTypePrompt],
+    () => (contextTypePrompt ? filterContextReferenceMentionOptions(
+      contextTypePrompt.query,
+      { includeWorkbenchPaths: Boolean(activeConversation?.workspaceContext) },
+    ) : []),
+    [activeConversation?.workspaceContext, contextTypePrompt],
   )
   const contextPickerOpen = Boolean(contextTypePrompt || contextMention)
   const contextPickerOptionCount = contextTypePrompt
@@ -3281,6 +3284,16 @@ export default function UnifiedChat({
     }
 
     const controller = new AbortController()
+    const isWorkbenchPathSearch = Boolean(
+      activeId
+      && activeConversation?.workspaceContext
+      && (contextMention.namespace === 'files' || contextMention.namespace === 'folders'),
+    )
+    if (isWorkbenchPathSearch && !contextMention.query.trim()) {
+      setContextSearchResults([])
+      setContextSearchLoading(false)
+      return () => controller.abort()
+    }
     const params = new URLSearchParams({
       orgId,
       type: contextMention.namespace,
@@ -3292,6 +3305,37 @@ export default function UnifiedChat({
       params.set('contextId', currentPageContext.id)
     }
     setContextSearchLoading(true)
+    if (isWorkbenchPathSearch) {
+      void runConversationWorkbenchJob(activeId!, {
+        kind: 'fs.search',
+        query: contextMention.query,
+        entryType: contextMention.namespace === 'files' ? 'file' : 'directory',
+        limit: 8,
+      }, { signal: controller.signal })
+        .then(async (job) => {
+          const response = await fetch(
+            `/api/v1/conversations/${encodeURIComponent(activeId!)}/workbench/context-references`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jobId: job.jobId }),
+              signal: controller.signal,
+            },
+          )
+          return response.ok ? response.json() : null
+        })
+        .then((body) => {
+          setContextSearchResults(((body?.data?.refs ?? []) as ContextReference[]).map(coerceContextRef))
+        })
+        .catch((err) => {
+          if (err instanceof DOMException && err.name === 'AbortError') return
+          setContextSearchResults([])
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setContextSearchLoading(false)
+        })
+      return () => controller.abort()
+    }
     fetch(`/api/v1/context-references/search?${params.toString()}`, { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => {
@@ -3310,7 +3354,7 @@ export default function UnifiedChat({
       })
 
     return () => controller.abort()
-  }, [contextMention, coerceContextRef, currentPageContext?.id, currentPageContext?.type, orgId])
+  }, [activeConversation?.workspaceContext, activeId, contextMention, coerceContextRef, currentPageContext?.id, currentPageContext?.type, orgId])
 
   useEffect(() => {
     if (!activeId) return

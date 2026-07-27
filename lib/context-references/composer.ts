@@ -47,15 +47,26 @@ export const CONTEXT_REFERENCE_MENTION_OPTIONS: ContextReferenceMentionOption[] 
   { type: 'workspace_broker_job', namespace: 'brokerjobs', label: 'Workspace broker jobs' },
   { type: 'studio', namespace: 'studios', label: 'Studios' },
   { type: 'studio_artifact', namespace: 'studioartifacts', label: 'Studio artifacts' },
-  { type: 'file', namespace: 'files', label: 'Files' },
+  { type: 'file', namespace: 'uploads', label: 'Uploaded files' },
   { type: 'report', namespace: 'reports', label: 'Reports' },
   { type: 'calendar_event', namespace: 'events', label: 'Calendar events' },
 ]
 
-export function filterContextReferenceMentionOptions(query: string): ContextReferenceMentionOption[] {
+const WORKBENCH_CONTEXT_REFERENCE_MENTION_OPTIONS: ContextReferenceMentionOption[] = [
+  { type: 'workspace_folder', namespace: 'folders', label: 'Linked folders' },
+  { type: 'file', namespace: 'files', label: 'Linked files' },
+]
+
+export function filterContextReferenceMentionOptions(
+  query: string,
+  options: { includeWorkbenchPaths?: boolean } = {},
+): ContextReferenceMentionOption[] {
   const normalized = query.trim().toLowerCase()
-  if (!normalized) return CONTEXT_REFERENCE_MENTION_OPTIONS
-  return CONTEXT_REFERENCE_MENTION_OPTIONS.filter((option) => (
+  const available = options.includeWorkbenchPaths
+    ? [...WORKBENCH_CONTEXT_REFERENCE_MENTION_OPTIONS, ...CONTEXT_REFERENCE_MENTION_OPTIONS]
+    : CONTEXT_REFERENCE_MENTION_OPTIONS
+  if (!normalized) return available
+  return available.filter((option) => (
     option.namespace.includes(normalized) ||
     option.type.includes(normalized) ||
     option.label.toLowerCase().includes(normalized)

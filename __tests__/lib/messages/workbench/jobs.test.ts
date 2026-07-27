@@ -40,6 +40,10 @@ function queuedJob(overrides: Partial<WorkbenchJob> = {}): WorkbenchJob {
 describe('workbench operation validation', () => {
   it.each([
     [{ kind: 'fs.list', path: '.' }, { kind: 'fs.list', path: '.' }],
+    [
+      { kind: 'fs.search', query: 'rmicdev', entryType: 'directory', limit: 8 },
+      { kind: 'fs.search', query: 'rmicdev', entryType: 'directory', limit: 8 },
+    ],
     [{ kind: 'fs.read', path: 'src/index.ts' }, { kind: 'fs.read', path: 'src/index.ts' }],
     [{ kind: 'fs.write', path: 'src/index.ts', content: 'next' }, { kind: 'fs.write', path: 'src/index.ts', content: 'next' }],
     [{ kind: 'git.status' }, { kind: 'git.status' }],
@@ -72,6 +76,9 @@ describe('workbench operation validation', () => {
     { kind: 'shell.exec', argv: ['node', '--version'], cwd: '../escape' },
     { kind: 'shell.exec', argv: ['node', '--version'], extra: true },
     { kind: 'shell.exec', argv: [] },
+    { kind: 'fs.search', query: '', entryType: 'file' },
+    { kind: 'fs.search', query: 'src', entryType: 'symlink' },
+    { kind: 'fs.search', query: 'src', entryType: 'directory', limit: 21 },
   ])('rejects unsafe or untyped operation %j', (input) => {
     expect(() => parseWorkbenchOperation(input)).toThrow('workbench: invalid operation')
   })
