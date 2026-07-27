@@ -38,6 +38,12 @@ export interface MemberAccessPolicy {
   /** Explicit specialist-agent grants by authorised runtime target. Members
    * never receive agent execution merely because they can use Messages. */
   agentRuntimeAccess: Record<string, AgentId[]>
+  /**
+   * When true, this member may sync and use their personal LLM credentials on
+   * the organisation VPS (in addition to their own linked computers).
+   * Default false for members; owners/full-access policies default true.
+   */
+  allowPersonalLlmOnOrgVps: boolean
 }
 
 type RoleWithSystem = OrgRole | 'system'
@@ -66,8 +72,18 @@ function policy(input: {
   preset: AccessPolicyPreset
   modules: Partial<Record<WorkspaceModuleKey, boolean>>
   recordScopes?: Partial<Record<RecordScopedModuleKey, RecordScope>>
+  allowPersonalLlmOnOrgVps?: boolean
 }): MemberAccessPolicy {
   return normalizeMemberAccessPolicy(input)
+}
+
+/** Owners/full-access and explicitly opted-in members may use personal LLM keys on the org VPS. */
+export function memberMayUsePersonalLlmOnOrgVps(
+  policyValue: MemberAccessPolicy | unknown,
+  role?: RoleWithSystem | null,
+): boolean {
+  if (role === 'system' || role === 'owner') return true
+  return normalizeMemberAccessPolicy(policyValue).allowPersonalLlmOnOrgVps === true
 }
 
 export const FULL_ACCESS_POLICY: MemberAccessPolicy = {
@@ -75,6 +91,7 @@ export const FULL_ACCESS_POLICY: MemberAccessPolicy = {
   modules: moduleFlags(true),
   recordScopes: { crm: 'all', projects: 'all' },
   agentRuntimeAccess: {},
+  allowPersonalLlmOnOrgVps: true,
 }
 
 export const OWNED_OR_LINKED_DEFAULT_SCOPES: Record<RecordScopedModuleKey, RecordScope> = {
@@ -89,6 +106,7 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
       modules: moduleFlags(false),
       recordScopes: { ...OWNED_OR_LINKED_DEFAULT_SCOPES },
       agentRuntimeAccess: {},
+      allowPersonalLlmOnOrgVps: false,
     }
   }
 
@@ -97,6 +115,7 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
     modules?: unknown
     recordScopes?: unknown
     agentRuntimeAccess?: unknown
+    allowPersonalLlmOnOrgVps?: unknown
   }
   const modulesInput =
     input.modules && typeof input.modules === 'object' && !Array.isArray(input.modules)
@@ -142,7 +161,9 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
     ? input.preset as AccessPolicyPreset
     : 'custom'
 
-  return { preset, modules, recordScopes, agentRuntimeAccess }
+  const allowPersonalLlmOnOrgVps = input.allowPersonalLlmOnOrgVps === true
+
+  return { preset, modules, recordScopes, agentRuntimeAccess, allowPersonalLlmOnOrgVps }
 }
 
 /** True only for an explicit member grant. Owners/admins bypass this at the

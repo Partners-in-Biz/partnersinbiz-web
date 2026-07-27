@@ -1,44 +1,79 @@
 /**
- * Push organisation LLM credentials onto that organisation's Hermes VPS only.
- * User-scoped ("Just me") connections never sync — configure those on linked computers.
+ * Push LLM credentials onto Hermes runtimes.
+ * - Org connections → organisation VPS only
+ * - Personal connections → owner's linked computers; optionally org VPS when member access allows
  */
 import { callAgentPath } from '@/lib/agents/team'
 import { callHermesJson } from '@/lib/hermes/server'
 import type { AgentId } from '@/lib/agents/types'
+import { adminDb } from '@/lib/firebase/admin'
+import {
+  memberMayUsePersonalLlmOnOrgVps,
+  resolveMemberAccessPolicy,
+  type MemberAccessPolicy,
+} from '@/lib/orgMembers/access-policy'
+import type { OrgRole } from '@/lib/organizations/types'
 import { getLlmProvider } from './providers'
 import {
   getDecryptedLlmCredentials,
   getLlmProviderConnection,
+  listLlmProviderConnections,
   markLlmConnectionError,
   markLlmConnectionSynced,
 } from './store'
-import { resolveOrgLlmSyncTargets, type LlmSyncTarget } from './sync-targets'
+import {
+  resolveOrgLlmSyncTargets,
+  resolveUserLlmSyncTargets,
+  type LlmSyncTarget,
+} from './sync-targets'
 import type { LlmProviderConnection } from './types'
 
 export type SyncLlmConnectionResult = {
   synced: string[]
   failed: Array<{ agentId: string; error: string }>
-  skippedReason?: 'user_scope_local_only' | 'no_org_vps_target'
+  skippedReason?: 'no_sync_target' | 'org_provider_covers_vps'
+  skippedVpsBecauseOrgProvider?: boolean
+  includedOrgVps?: boolean
   message?: string
+}
+
+async function loadMemberAccessForSync(input: {
+  orgId: string
+  uid: string
+}): Promise<{ accessPolicy: MemberAccessPolicy; orgRole: OrgRole | null }> {
+  try {
+    const snap = await adminDb.collection('orgMembers').doc(`${input.orgId}_${input.uid}`).get()
+    if (!snap.exists) {
+      return {
+        accessPolicy: resolveMemberAccessPolicy({ role: 'member' }),
+        orgRole: null,
+      }
+    }
+    const data = snap.data() ?? {}
+    const orgRole = (typeof data.role === 'string' ? data.role : 'member') as OrgRole
+    return {
+      accessPolicy: resolveMemberAccessPolicy({
+        role: orgRole,
+        accessScope: data.accessScope,
+        accessPolicy: data.accessPolicy,
+      }),
+      orgRole,
+    }
+  } catch {
+    return {
+      accessPolicy: resolveMemberAccessPolicy({ role: 'member' }),
+      orgRole: null,
+    }
+  }
 }
 
 export async function syncLlmConnectionToHermes(
   connectionId: string,
-  options: { agentIds?: string[] } = {},
+  options: { agentIds?: string[]; accessPolicy?: MemberAccessPolicy; orgRole?: OrgRole | null } = {},
 ): Promise<SyncLlmConnectionResult> {
   const conn = await getLlmProviderConnection(connectionId)
   if (!conn || conn.status === 'revoked') {
     throw new Error('Connection not found')
-  }
-
-  if (conn.scope === 'user') {
-    return {
-      synced: [],
-      failed: [],
-      skippedReason: 'user_scope_local_only',
-      message:
-        'Personal credentials are not synced to any organisation VPS. Configure them on each linked computer during Hermes setup (or hermes model / hermes auth).',
-    }
   }
 
   const credentials = await getDecryptedLlmCredentials(conn)
@@ -46,13 +81,104 @@ export async function syncLlmConnectionToHermes(
     throw new Error('Connection has no credentials')
   }
 
-  const resolved = await resolveOrgLlmSyncTargets(conn.orgId, options.agentIds)
+  if (conn.scope === 'org') {
+    return pushToTargets(connectionId, conn, credentials, await resolveOrgTargets(conn.orgId, options.agentIds))
+  }
+
+  // Personal connection
+  const ownerUid = conn.ownerUid
+  if (!ownerUid) {
+    throw new Error('Personal connection is missing ownerUid')
+  }
+
+  const membership = options.accessPolicy
+    ? { accessPolicy: options.accessPolicy, orgRole: options.orgRole ?? null }
+    : await loadMemberAccessForSync({ orgId: conn.orgId, uid: ownerUid })
+
+  const allowOrgVps = memberMayUsePersonalLlmOnOrgVps(membership.accessPolicy, membership.orgRole)
+
+  // Never overwrite an organisation-managed provider on the shared VPS.
+  let skipOrgVpsBecauseOrgProvider = false
+  if (allowOrgVps) {
+    const orgConnections = await listLlmProviderConnections({ orgId: conn.orgId, uid: ownerUid })
+    skipOrgVpsBecauseOrgProvider = orgConnections.some(
+      (c) => c.scope === 'org'
+        && c.status === 'connected'
+        && c.hasCredentials
+        && (c.hermesProvider === conn.hermesProvider || c.provider === conn.provider),
+    )
+  }
+
+  const resolved = await resolveUserLlmSyncTargets({
+    ownerUid,
+    orgId: conn.orgId,
+    accessPolicy: membership.accessPolicy,
+    orgRole: membership.orgRole,
+    preferredAgentIds: options.agentIds,
+    includeOrgVps: allowOrgVps && !skipOrgVpsBecauseOrgProvider,
+  })
+
   if (!resolved.targets.length) {
-    await markLlmConnectionError(connectionId, resolved.reasonIfEmpty || 'No organisation VPS sync target')
+    await markLlmConnectionError(connectionId, resolved.reasonIfEmpty || 'No personal sync target')
     return {
       synced: [],
       failed: [],
-      skippedReason: 'no_org_vps_target',
+      skippedReason: 'no_sync_target',
+      skippedVpsBecauseOrgProvider: skipOrgVpsBecauseOrgProvider,
+      includedOrgVps: false,
+      message: resolved.reasonIfEmpty,
+    }
+  }
+
+  const result = await pushToTargets(connectionId, conn, credentials, {
+    targets: resolved.targets,
+    reasonIfEmpty: resolved.reasonIfEmpty,
+  })
+
+  const notes: string[] = []
+  if (resolved.includedOrgVps) {
+    notes.push('Personal credentials were also written to the organisation VPS agent profiles.')
+  } else if (skipOrgVpsBecauseOrgProvider) {
+    notes.push(
+      'Skipped organisation VPS — shared organisation credentials already cover this provider. Personal keys still sync to your linked computers.',
+    )
+  } else if (allowOrgVps) {
+    notes.push('Organisation VPS was eligible but no VPS sync targets were available.')
+  } else {
+    notes.push('Personal credentials sync to your linked computers only. Ask an admin to enable personal LLM credentials on the organisation VPS in Team access if needed.')
+  }
+
+  return {
+    ...result,
+    skippedVpsBecauseOrgProvider: skipOrgVpsBecauseOrgProvider,
+    includedOrgVps: resolved.includedOrgVps,
+    message: [result.message, ...notes].filter(Boolean).join(' '),
+    ...(result.synced.length === 0 && result.failed.length === 0
+      ? { skippedReason: 'no_sync_target' as const }
+      : {}),
+  }
+}
+
+async function resolveOrgTargets(orgId: string, agentIds?: string[]) {
+  const resolved = await resolveOrgLlmSyncTargets(orgId, agentIds)
+  return {
+    targets: resolved.targets,
+    reasonIfEmpty: resolved.reasonIfEmpty,
+  }
+}
+
+async function pushToTargets(
+  connectionId: string,
+  conn: LlmProviderConnection,
+  credentials: Record<string, string>,
+  resolved: { targets: LlmSyncTarget[]; reasonIfEmpty?: string },
+): Promise<SyncLlmConnectionResult> {
+  if (!resolved.targets.length) {
+    await markLlmConnectionError(connectionId, resolved.reasonIfEmpty || 'No sync target')
+    return {
+      synced: [],
+      failed: [],
+      skippedReason: 'no_sync_target',
       message: resolved.reasonIfEmpty,
     }
   }
@@ -129,7 +255,7 @@ async function pushOauthTokens(
     const { response, data } = await callHermesJson(target.hermesLink, path, { method: 'PUT', body })
     if (response.status === 404) {
       throw new Error(
-        'Organisation Hermes runtime does not yet expose /admin/auth/providers. Deploy the updated admin sidecar, then re-sync.',
+        'Hermes runtime does not yet expose /admin/auth/providers. Deploy the updated admin sidecar, then re-sync.',
       )
     }
     if (!response.ok) throw upstreamError(data, response.status)
@@ -144,7 +270,7 @@ async function pushOauthTokens(
   )
   if (response.status === 404) {
     throw new Error(
-      'Organisation VPS does not yet expose /admin/auth/providers. Deploy the updated admin sidecar, then re-sync.',
+      'Runtime does not yet expose /admin/auth/providers. Deploy the updated admin sidecar / linked runtime, then re-sync.',
     )
   }
   if (!response.ok) throw upstreamError(data, response.status)

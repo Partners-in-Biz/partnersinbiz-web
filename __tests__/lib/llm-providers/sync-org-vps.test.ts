@@ -1,22 +1,30 @@
 /**
  * @jest-environment node
  */
-import type { ApiUser } from '@/lib/api/types'
 
-const mockGet = jest.fn()
 const mockGetConnection = jest.fn()
 const mockGetCredentials = jest.fn()
-const mockResolveTargets = jest.fn()
+const mockResolveOrgTargets = jest.fn()
+const mockResolveUserTargets = jest.fn()
 const mockMarkSynced = jest.fn()
 const mockMarkError = jest.fn()
 const mockCallHermesJson = jest.fn()
 const mockCallAgentPath = jest.fn()
+const mockListConnections = jest.fn()
+const mockOrgMemberGet = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
-    collection: () => ({
-      doc: () => ({ get: (...args: unknown[]) => mockGet(...args) }),
-    }),
+    collection: (name: string) => {
+      if (name === 'orgMembers') {
+        return {
+          doc: () => ({ get: (...args: unknown[]) => mockOrgMemberGet(...args) }),
+        }
+      }
+      return {
+        doc: () => ({ get: jest.fn() }),
+      }
+    },
   },
 }))
 
@@ -25,10 +33,12 @@ jest.mock('@/lib/llm-providers/store', () => ({
   getDecryptedLlmCredentials: (...args: unknown[]) => mockGetCredentials(...args),
   markLlmConnectionSynced: (...args: unknown[]) => mockMarkSynced(...args),
   markLlmConnectionError: (...args: unknown[]) => mockMarkError(...args),
+  listLlmProviderConnections: (...args: unknown[]) => mockListConnections(...args),
 }))
 
 jest.mock('@/lib/llm-providers/sync-targets', () => ({
-  resolveOrgLlmSyncTargets: (...args: unknown[]) => mockResolveTargets(...args),
+  resolveOrgLlmSyncTargets: (...args: unknown[]) => mockResolveOrgTargets(...args),
+  resolveUserLlmSyncTargets: (...args: unknown[]) => mockResolveUserTargets(...args),
 }))
 
 jest.mock('@/lib/hermes/server', () => ({
@@ -39,33 +49,157 @@ jest.mock('@/lib/agents/team', () => ({
   callAgentPath: (...args: unknown[]) => mockCallAgentPath(...args),
 }))
 
-import { canWriteOrgLlmConnection } from '@/lib/llm-providers/org-guard'
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
 
 describe('org VPS vs personal credential sync', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ role: 'member', accessPolicy: { allowPersonalLlmOnOrgVps: false } }),
+    })
+    mockListConnections.mockResolvedValue([])
   })
 
-  it('never pushes user-scoped credentials to Hermes/VPS', async () => {
+  it('syncs user-scoped credentials to the member linked computers', async () => {
     mockGetConnection.mockResolvedValue({
       id: 'user:u1:xai',
       provider: 'xai',
       hermesProvider: 'xai',
       scope: 'user',
       orgId: 'acme',
+      ownerUid: 'u1',
       status: 'connected',
       authKind: 'api_key',
     })
+    mockGetCredentials.mockResolvedValue({ apiKey: 'xai-secret' })
+    mockResolveUserTargets.mockResolvedValue({
+      targets: [{
+        kind: 'user_linked_computer',
+        agentId: 'pip',
+        runtimeTargetId: 'mac-1',
+        deviceId: 'device-mac',
+        label: 'Peet Mac · pip',
+      }],
+      linkedComputerCount: 1,
+      includedOrgVps: false,
+    })
+    mockCallAgentPath.mockResolvedValue({ response: { ok: true, status: 200 }, data: {} })
+    mockMarkSynced.mockResolvedValue(undefined)
 
     const result = await syncLlmConnectionToHermes('user:u1:xai')
 
-    expect(result.skippedReason).toBe('user_scope_local_only')
-    expect(result.synced).toEqual([])
-    expect(mockGetCredentials).not.toHaveBeenCalled()
-    expect(mockResolveTargets).not.toHaveBeenCalled()
-    expect(mockCallHermesJson).not.toHaveBeenCalled()
-    expect(mockCallAgentPath).not.toHaveBeenCalled()
+    expect(result.synced).toEqual(['pip'])
+    expect(result.failed).toEqual([])
+    expect(mockResolveUserTargets).toHaveBeenCalled()
+    expect(mockCallAgentPath).toHaveBeenCalledWith(
+      'pip',
+      '/admin/env',
+      expect.objectContaining({ method: 'PATCH' }),
+      { runtimeTarget: 'mac-1' },
+    )
+    expect(mockMarkSynced).toHaveBeenCalledWith('user:u1:xai', ['pip'])
+  })
+
+  it('includes org VPS targets when Team access allows personal LLM on VPS', async () => {
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'member',
+        accessPolicy: { allowPersonalLlmOnOrgVps: true, modules: {}, recordScopes: {}, agentRuntimeAccess: {}, preset: 'custom' },
+      }),
+    })
+    mockGetConnection.mockResolvedValue({
+      id: 'user:u1:xai',
+      provider: 'xai',
+      hermesProvider: 'xai',
+      scope: 'user',
+      orgId: 'acme',
+      ownerUid: 'u1',
+      status: 'connected',
+      authKind: 'api_key',
+    })
+    mockGetCredentials.mockResolvedValue({ apiKey: 'xai-secret' })
+    mockResolveUserTargets.mockResolvedValue({
+      targets: [
+        {
+          kind: 'user_linked_computer',
+          agentId: 'pip',
+          runtimeTargetId: 'mac-1',
+          deviceId: 'device-mac',
+          label: 'Peet Mac · pip',
+        },
+        {
+          kind: 'org_linked_vps',
+          agentId: 'pip',
+          runtimeTargetId: 'partners-vps',
+          deviceId: 'device-vps',
+          label: 'Org VPS · pip',
+        },
+      ],
+      linkedComputerCount: 1,
+      includedOrgVps: true,
+    })
+    mockCallAgentPath.mockResolvedValue({ response: { ok: true, status: 200 }, data: {} })
+    mockMarkSynced.mockResolvedValue(undefined)
+
+    const result = await syncLlmConnectionToHermes('user:u1:xai')
+
+    expect(result.synced).toEqual(['pip', 'pip'])
+    expect(result.includedOrgVps).toBe(true)
+    expect(mockResolveUserTargets).toHaveBeenCalledWith(expect.objectContaining({
+      includeOrgVps: true,
+    }))
+  })
+
+  it('skips org VPS when an organisation connection already covers the provider', async () => {
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'member',
+        accessPolicy: { allowPersonalLlmOnOrgVps: true, modules: {}, recordScopes: {}, agentRuntimeAccess: {}, preset: 'custom' },
+      }),
+    })
+    mockListConnections.mockResolvedValue([{
+      id: 'org:acme:xai',
+      provider: 'xai',
+      hermesProvider: 'xai',
+      scope: 'org',
+      status: 'connected',
+      hasCredentials: true,
+    }])
+    mockGetConnection.mockResolvedValue({
+      id: 'user:u1:xai',
+      provider: 'xai',
+      hermesProvider: 'xai',
+      scope: 'user',
+      orgId: 'acme',
+      ownerUid: 'u1',
+      status: 'connected',
+      authKind: 'api_key',
+    })
+    mockGetCredentials.mockResolvedValue({ apiKey: 'xai-secret' })
+    mockResolveUserTargets.mockResolvedValue({
+      targets: [{
+        kind: 'user_linked_computer',
+        agentId: 'pip',
+        runtimeTargetId: 'mac-1',
+        deviceId: 'device-mac',
+        label: 'Peet Mac · pip',
+      }],
+      linkedComputerCount: 1,
+      includedOrgVps: false,
+    })
+    mockCallAgentPath.mockResolvedValue({ response: { ok: true, status: 200 }, data: {} })
+    mockMarkSynced.mockResolvedValue(undefined)
+
+    const result = await syncLlmConnectionToHermes('user:u1:xai')
+
+    expect(result.skippedVpsBecauseOrgProvider).toBe(true)
+    expect(mockResolveUserTargets).toHaveBeenCalledWith(expect.objectContaining({
+      includeOrgVps: false,
+    }))
+    expect(result.message).toMatch(/Skipped organisation VPS/)
   })
 
   it('syncs org-scoped credentials only to resolved org VPS targets', async () => {
@@ -79,7 +213,7 @@ describe('org VPS vs personal credential sync', () => {
       authKind: 'api_key',
     })
     mockGetCredentials.mockResolvedValue({ apiKey: 'xai-secret' })
-    mockResolveTargets.mockResolvedValue({
+    mockResolveOrgTargets.mockResolvedValue({
       targets: [{
         kind: 'org_hermes_link',
         agentId: 'pip',
@@ -104,7 +238,7 @@ describe('org VPS vs personal credential sync', () => {
     expect(mockMarkSynced).toHaveBeenCalledWith('org:acme:xai', ['pip'])
   })
 
-  it('returns no_org_vps_target when the organisation has no VPS', async () => {
+  it('returns no_sync_target when the organisation has no VPS', async () => {
     mockGetConnection.mockResolvedValue({
       id: 'org:acme:xai',
       provider: 'xai',
@@ -115,37 +249,17 @@ describe('org VPS vs personal credential sync', () => {
       authKind: 'api_key',
     })
     mockGetCredentials.mockResolvedValue({ apiKey: 'xai-secret' })
-    mockResolveTargets.mockResolvedValue({
+    mockResolveOrgTargets.mockResolvedValue({
       targets: [],
       orgVpsDeviceCount: 0,
       hasHermesProfileLink: false,
       reasonIfEmpty: 'No organisation VPS is linked yet.',
     })
-    mockMarkError.mockResolvedValue(undefined)
 
     const result = await syncLlmConnectionToHermes('org:acme:xai')
 
-    expect(result.skippedReason).toBe('no_org_vps_target')
-    expect(mockCallHermesJson).not.toHaveBeenCalled()
-    expect(mockCallAgentPath).not.toHaveBeenCalled()
-  })
-})
-
-describe('canWriteOrgLlmConnection', () => {
-  it('allows platform admin and org owner/admin only', async () => {
-    expect(await canWriteOrgLlmConnection({ role: 'admin', uid: 'a' } as ApiUser, 'acme')).toBe(true)
-    expect(await canWriteOrgLlmConnection({ role: 'ai', uid: 'a' } as ApiUser, 'acme')).toBe(true)
-
-    mockGet.mockResolvedValueOnce({ exists: true, data: () => ({ role: 'owner', status: 'active' }) })
-    expect(await canWriteOrgLlmConnection({ role: 'client', uid: 'u1' } as ApiUser, 'acme')).toBe(true)
-
-    mockGet.mockResolvedValueOnce({ exists: true, data: () => ({ role: 'admin', status: 'active' }) })
-    expect(await canWriteOrgLlmConnection({ role: 'client', uid: 'u1' } as ApiUser, 'acme')).toBe(true)
-
-    mockGet.mockResolvedValueOnce({ exists: true, data: () => ({ role: 'member', status: 'active' }) })
-    expect(await canWriteOrgLlmConnection({ role: 'client', uid: 'u1' } as ApiUser, 'acme')).toBe(false)
-
-    mockGet.mockResolvedValueOnce({ exists: false, data: () => undefined })
-    expect(await canWriteOrgLlmConnection({ role: 'client', uid: 'u1' } as ApiUser, 'acme')).toBe(false)
+    expect(result.skippedReason).toBe('no_sync_target')
+    expect(result.synced).toEqual([])
+    expect(mockMarkError).toHaveBeenCalled()
   })
 })

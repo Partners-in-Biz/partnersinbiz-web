@@ -4,6 +4,7 @@ import {
   canAccessModule,
   defaultAccessPolicyFor,
   memberCanUseAgentOnRuntime,
+  memberMayUsePersonalLlmOnOrgVps,
   normalizeMemberAccessPolicy,
   recordScopeFor,
   resolveMemberAccessPolicy,
@@ -102,5 +103,18 @@ describe('org member access policy', () => {
     expect(memberCanUseAgentOnRuntime(policy, 'partners-vps', 'theo')).toBe(true)
     expect(memberCanUseAgentOnRuntime(policy, 'partners-vps', 'maya')).toBe(false)
     expect(memberCanUseAgentOnRuntime(policy, 'another-vps', 'pip')).toBe(false)
+  })
+
+  it('defaults allowPersonalLlmOnOrgVps to false for members and true for owners', () => {
+    expect(normalizeMemberAccessPolicy({ preset: 'custom', modules: { messages: true } }).allowPersonalLlmOnOrgVps).toBe(false)
+    expect(normalizeMemberAccessPolicy({
+      preset: 'custom',
+      modules: { messages: true },
+      allowPersonalLlmOnOrgVps: true,
+    }).allowPersonalLlmOnOrgVps).toBe(true)
+    expect(resolveMemberAccessPolicy({ role: 'owner' }).allowPersonalLlmOnOrgVps).toBe(true)
+    expect(memberMayUsePersonalLlmOnOrgVps({ allowPersonalLlmOnOrgVps: true }, 'member')).toBe(true)
+    expect(memberMayUsePersonalLlmOnOrgVps({ allowPersonalLlmOnOrgVps: false }, 'member')).toBe(false)
+    expect(memberMayUsePersonalLlmOnOrgVps({ allowPersonalLlmOnOrgVps: false }, 'owner')).toBe(true)
   })
 })

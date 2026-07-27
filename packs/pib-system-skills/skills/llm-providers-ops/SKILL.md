@@ -13,11 +13,11 @@ description: >
 
 - Owner: `theo`
 - Allowed: `theo` (all routes); any authenticated org member can list/read; only org admins (`canWriteOrgLlmConnection`) can write `scope: "org"` connections; agents (`user.role === 'ai'`) cannot start OAuth flows or create user-scoped connections
-- Risk: high — writes/syncs credentials to the organisation's Hermes VPS profiles
+- Risk: high — writes/syncs credentials to Hermes profiles (org VPS and/or the caller's linked computers)
 - Base path: `https://partnersinbiz.online/api/v1/llm-providers`
 - Related: `system-auth`, `platform-ops`, `agent-runtime-ops`
 
-Every connection is `scope: "org"` (syncs to the org's VPS Hermes profiles, shared by everyone using that VPS) or `scope: "user"` (stays on the caller's linked computer only, **never** synced to the org VPS).
+Every connection is `scope: "org"` (syncs to the org's VPS Hermes profiles, shared by everyone using that VPS) or `scope: "user"` (syncs to the caller's linked computers; also to the org VPS when Team access `allowPersonalLlmOnOrgVps` is enabled — skipped when an org connection already covers that provider).
 
 ## Auth (mandatory)
 
@@ -33,9 +33,9 @@ Interactive Hermes runs use the **user-delegation** token injected by Messages /
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/llm-providers/connections?orgId=` | List available provider definitions, the org/caller's existing connections, and VPS sync-target info (`orgVpsDeviceCount`, `hasHermesProfileLink`, `reasonIfEmpty`) |
-| POST | `/llm-providers/connections` | Create/upsert a credential connection. Body: `{ provider, scope: "org"\|"user", label?, credentials, sync?: boolean, agentIds? }`. Validates credentials live against the provider before saving (`validateLlmCredentials`); OAuth-only providers 400 here and must use `/oauth/start` instead. User-scope connections never sync; org-scope connections sync to VPS targets unless `sync: false` |
-| DELETE | `/llm-providers/connections/[id]` | Revoke a connection. For org connections already synced to agents, best-effort unsets the provider's env var or deletes the OAuth-token provider on each synced agent before revoking the Firestore record |
-| POST | `/llm-providers/connections/[id]` | Re-sync an existing **org**-scope connection to Hermes agents (optionally a specific `agentIds` list); 400 if called on a user-scope connection |
+| POST | `/llm-providers/connections` | Create/upsert a credential connection. Body: `{ provider, scope: "org"\|"user", label?, credentials, sync?: boolean, agentIds? }`. Validates credentials live against the provider before saving (`validateLlmCredentials`); OAuth-only providers 400 here and must use `/oauth/start` instead. User-scope connections sync to the caller's linked computers (and org VPS when Team access allows); org-scope connections sync to VPS targets unless `sync: false` |
+| DELETE | `/llm-providers/connections/[id]` | Revoke a connection. For connections already synced to agents, best-effort unsets the provider's env var or deletes the OAuth-token provider on each synced agent before revoking the Firestore record |
+| POST | `/llm-providers/connections/[id]` | Re-sync an existing connection to its Hermes targets (optionally a specific `agentIds` list) |
 | POST | `/llm-providers/oauth/start` | Start a device-code OAuth flow for an OAuth-capable provider (currently `xai-oauth`, `openai-codex`; anything else 400s pointing at `hermes auth add <provider>` on the VPS instead). Returns a `session` with `userCode`/`verificationUri` to show the human. Agents cannot call this (403) |
 | GET | `/llm-providers/oauth/[sessionId]?orgId=` | Poll an OAuth session. Returns `pending: true` while the human hasn't approved the device code yet; on success upserts the connection (`authKind: "oauth_token"`), triggers a VPS sync, and marks the session `completed` |
 
