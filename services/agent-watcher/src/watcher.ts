@@ -24,6 +24,8 @@ const READY_TASK_SWEEP_MS = 60_000
 const MAX_READY_SWEEP_DOCS = 100
 const MAX_SCHEDULED_RELEASE_SWEEP_DOCS = 100
 const MAX_DEPENDENCY_RELEASE_SWEEP_DOCS = 100
+const MAX_TRANSIENT_RETRIES = 3
+const TRANSIENT_RETRY_DELAYS_MS = [60_000, 5 * 60_000, 15 * 60_000] as const
 
 const inFlight = new Set<string>()
 const perAgentInFlight = new Map<AgentId, number>()
@@ -81,8 +83,30 @@ interface TaskData {
   requiredCapability?: string
   requestedByAgentId?: string
   expectedArtifacts?: string[]
+  agentRetryCount?: number
+  agentRetryAt?: string | number | { toMillis?: () => number; toDate?: () => Date }
   reporterId?: string
   createdBy?: string
+}
+
+const TRANSIENT_HERMES_ERROR_PATTERNS = [
+  /\bconnection error\b/i,
+  /\bfetch failed\b/i,
+  /\bsocket hang up\b/i,
+  /\b(?:ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN)\b/i,
+  /\b(?:429|502|503|504)\b/,
+  /\brate limit(?:ed)?\b/i,
+  /\bservice unavailable\b/i,
+  /\bprovider (?:is )?(?:overloaded|temporarily unavailable)\b/i,
+]
+
+export function isTransientHermesError(error: string): boolean {
+  return TRANSIENT_HERMES_ERROR_PATTERNS.some((pattern) => pattern.test(error))
+}
+
+function transientRetryAt(retryCount: number, now = Date.now()): string {
+  const delay = TRANSIENT_RETRY_DELAYS_MS[Math.min(retryCount, TRANSIENT_RETRY_DELAYS_MS.length - 1)]
+  return new Date(now + delay).toISOString()
 }
 
 function safeDocKey(value: string): string {
@@ -618,6 +642,33 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     })
 
     if (result.error) {
+      const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
+      if (isTransientHermesError(result.error) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
+        const nextRetryCount = priorRetryCount + 1
+        const retryAt = transientRetryAt(priorRetryCount)
+        logger.warn('transient Hermes run failure — scheduling durable retry', {
+          taskId,
+          agentId,
+          runId: activeRunId,
+          retryCount: nextRetryCount,
+          retryAt,
+          error: result.error,
+        })
+        await taskRef.update({
+          ...agentStatusUpdate('pending'),
+          ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+          agentRetryCount: nextRetryCount,
+          agentRetryAt: retryAt,
+          agentHeartbeatAt: FieldValue.delete(),
+          agentOutput: {
+            summary: `Transient watcher error: ${result.error} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
+            telemetry,
+            completedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        return
+      }
       logger.warn('Hermes run failed — marking blocked', { taskId, agentId, error: result.error })
       await taskRef.update({
         ...agentStatusUpdate('blocked'),
@@ -669,6 +720,8 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     await taskRef.update({
       ...agentStatusUpdate('done'),
       ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+      agentRetryCount: FieldValue.delete(),
+      agentRetryAt: FieldValue.delete(),
       agentOutput: {
         summary,
         telemetry,

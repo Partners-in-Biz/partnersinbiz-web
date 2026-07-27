@@ -37,6 +37,25 @@ describe('agent watcher task dispatch eligibility', () => {
     }, validAgents)).toBeNull()
   })
 
+  it('does not redispatch transiently failed tasks before their durable retry time', () => {
+    const now = Date.parse('2026-07-27T06:00:00.000Z')
+    const base = {
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+    }
+
+    expect(getTaskDispatchBlocker({
+      ...base,
+      agentRetryAt: '2026-07-27T06:01:00.000Z',
+    }, validAgents, now)).toBe('retry-backoff-pending')
+
+    expect(getTaskDispatchBlocker({
+      ...base,
+      agentRetryAt: '2026-07-27T05:59:00.000Z',
+    }, validAgents, now)).toBeNull()
+  })
+
   it('returns only dependency IDs that are not complete yet', () => {
     expect(getUnresolvedDependencyIds(['done-column', 'done-agent', 'todo', 'missing'], {
       'done-column': { columnId: 'done', agentStatus: 'pending' },
