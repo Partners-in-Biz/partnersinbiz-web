@@ -23,7 +23,61 @@ import {
 const SAFE_MODEL_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:/@+~=-]{0,191}$/
 const SAFE_PROVIDER_ID_RE = /^[A-Za-z][A-Za-z0-9._:-]{0,63}$/
 
+/** OAuth-only Hermes provider ids that require nested auth.json tokens. */
+const OAUTH_HERMES_PROVIDERS = new Set([
+  'xai-oauth',
+  'openai-codex',
+  'nous',
+])
+
 type UnknownRecord = Record<string, unknown>
+
+function isOauthHermesProvider(provider: string): boolean {
+  const normalized = normalizeProviderId(provider)
+  if (!normalized) return false
+  if (OAUTH_HERMES_PROVIDERS.has(normalized)) return true
+  return normalized.endsWith('-oauth')
+}
+
+async function probeRuntimeOauthProviders(
+  agentId: AgentId,
+  runtimeTarget?: string,
+): Promise<{
+  probed: boolean
+  byProvider: Map<string, { usable: boolean; hasAccess: boolean; hasRefresh: boolean }>
+}> {
+  try {
+    const { response, data } = await callAgentPath(
+      agentId,
+      '/admin/auth/providers',
+      { method: 'GET' },
+      { runtimeTarget },
+    )
+    if (!response.ok) {
+      return { probed: false, byProvider: new Map() }
+    }
+    const providers = data && typeof data === 'object' && 'providers' in data
+      ? (data as { providers?: Record<string, UnknownRecord> }).providers
+      : null
+    if (!providers || typeof providers !== 'object') {
+      return { probed: true, byProvider: new Map() }
+    }
+    const byProvider = new Map<string, { usable: boolean; hasAccess: boolean; hasRefresh: boolean }>()
+    for (const [name, state] of Object.entries(providers)) {
+      if (!state || typeof state !== 'object') continue
+      const key = normalizeProviderId(name)
+      if (!key) continue
+      const hasAccess = state.has_access_token === true
+      const hasRefresh = state.has_refresh_token === true
+      const usable = state.usable === true
+        || (state.hermes_shape === true && hasAccess && hasRefresh)
+      byProvider.set(key, { usable, hasAccess, hasRefresh })
+    }
+    return { probed: true, byProvider }
+  } catch {
+    return { probed: false, byProvider: new Map() }
+  }
+}
 
 export interface PublicMessageModelOption {
   id: string
@@ -396,6 +450,31 @@ export async function getMessageModelCatalog(input: {
           connectedHermesProviders.add(hermesProvider)
         } else if (!localOnlyProviderLabels.includes(label)) {
           localOnlyProviderLabels.push(label)
+        }
+      }
+
+      // Portal "Connected" is not enough for chat: Hermes must actually hold
+      // usable OAuth tokens / keys on this conversation runtime.
+      if (connectedHermesProviders.size > 0) {
+        const runtimeAuth = await probeRuntimeOauthProviders(agentId, runtimeTarget)
+        if (runtimeAuth.probed) {
+          const blocked: string[] = []
+          for (const provider of [...connectedHermesProviders]) {
+            // Only OAuth families need nested-token proof; API-key families
+            // stay unlocked via Hermes config / env.
+            if (!isOauthHermesProvider(provider)) continue
+            const status = runtimeAuth.byProvider.get(provider)
+            const usable = status?.usable === true
+              || [...expandProviderAliases([provider])].some((alias) => runtimeAuth.byProvider.get(alias)?.usable === true)
+            if (!usable) {
+              connectedHermesProviders.delete(provider)
+              blocked.push(provider)
+            }
+          }
+          if (blocked.length) {
+            const blockedNote = `Portal credentials for ${blocked.join(', ')} are not usable on this machine yet (Hermes OAuth tokens missing or wrong shape). Re-sync from Settings → LLM providers after the runtime accepts the connection.`
+            warning = warning ? `${warning} ${blockedNote}` : blockedNote
+          }
         }
       }
     } catch {
