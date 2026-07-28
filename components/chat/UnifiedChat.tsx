@@ -716,16 +716,15 @@ function isAgentConversation(conversation: Conversation): boolean {
 function conversationWorkspaceIdentity(conversation: Conversation): { id: string; name: string } | null {
   if (isProjectConversation(conversation) || isCompanyConversation(conversation)) return null
   if (conversation.scope !== 'workspace') return null
+  // ConversationListItem's client Conversation type only exposes a subset of
+  // workspaceContext fields — stick to workspaceId / orgName / scopeRefId.
   const id = conversation.workspaceContext?.workspaceId?.trim()
     || conversation.scopeRefId?.trim()
-    || conversation.workspaceContext?.orgId?.trim()
     || conversation.orgId?.trim()
   if (!id) return null
   return {
     id,
-    name: conversation.workspaceContext?.orgName?.trim()
-      || conversation.workspaceContext?.orgSlug?.trim()
-      || 'Workspace',
+    name: conversation.workspaceContext?.orgName?.trim() || 'Workspace',
   }
 }
 
