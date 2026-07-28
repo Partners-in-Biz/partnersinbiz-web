@@ -241,6 +241,14 @@ type CreateAgentInput = Pick<AgentTeamDoc, 'agentId' | 'name' | 'role' | 'person
   apiKey: string
 } & Partial<AgentRegistryEntry>
 
+export type CreateLinkedAgentInput = Pick<
+  AgentTeamDoc,
+  'agentId' | 'name' | 'role' | 'persona' | 'defaultModel' | 'iconKey' | 'colorKey'
+  | 'scopeOrgId' | 'agentHandle' | 'createdByUserId' | 'homeDeviceId' | 'accessScope'
+> & {
+  ownerUserId?: string
+}
+
 /**
  * Update an agent doc. If `apiKey` is included in the patch it is re-encrypted
  * before write. Also mirrors `endpoint` + `apiKey` (raw) into
@@ -256,7 +264,6 @@ export async function updateAgent(agentId: AgentId, patch: UpdateableFields): Pr
   const existingRaw = existing.data() as AgentTeamStoredDoc
 
   // Build the write payload
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const writePayload: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() }
 
   let plaintextKey: string | null = null
@@ -277,7 +284,6 @@ export async function updateAgent(agentId: AgentId, patch: UpdateableFields): Pr
 
   // Side-effect: sync agent_dispatch_configs so the watcher daemon picks up changes.
   // The watcher reads `endpoint` (baseUrl + /v1/runs) and `apiKey` (UNENCRYPTED).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dispatchPatch: Record<string, any> = { updatedAt: FieldValue.serverTimestamp() }
 
   if (patch.baseUrl !== undefined) {
@@ -372,6 +378,47 @@ export async function createAgent(input: CreateAgentInput): Promise<AgentTeamDoc
     createdAt: now,
     updatedAt: now,
   }, { merge: true })
+
+  const snap = await ref.get()
+  return toPublicDoc(snap.data() as AgentTeamStoredDoc)
+}
+
+/**
+ * Register an agent whose gateway is provisioned by a signed linked-computer
+ * job. It deliberately does not create a platform dispatch target: linked
+ * conversation dispatch re-authorizes the selected machine on every run.
+ */
+export async function createLinkedAgent(input: CreateLinkedAgentInput): Promise<AgentTeamDoc> {
+  const ref = adminDb.collection(COLLECTION).doc(input.agentId)
+  const now = FieldValue.serverTimestamp()
+  const registry = mergeAgentRegistry(input.agentId, {})
+  await ref.create({
+    agentId: input.agentId,
+    name: input.name,
+    role: input.role,
+    persona: input.persona,
+    defaultModel: input.defaultModel,
+    iconKey: input.iconKey,
+    colorKey: input.colorKey,
+    enabled: true,
+    baseUrl: '',
+    // Linked runtimes mint and retain their own gateway credential. Keep an
+    // encrypted non-routable marker so the existing public DTO never exposes
+    // or mistakes a linked runtime secret for a platform credential.
+    apiKey: encryptAgentApiKey(`linked:${crypto.randomBytes(24).toString('hex')}`),
+    ...registry,
+    scopeOrgId: input.scopeOrgId,
+    agentHandle: input.agentHandle,
+    ownerUserId: input.ownerUserId ?? null,
+    createdByUserId: input.createdByUserId,
+    homeDeviceId: input.homeDeviceId,
+    provisioningMode: 'linked_device',
+    provisioningStatus: 'installing',
+    provisioningError: null,
+    accessScope: input.accessScope,
+    createdAt: now,
+    updatedAt: now,
+  })
 
   const snap = await ref.get()
   return toPublicDoc(snap.data() as AgentTeamStoredDoc)

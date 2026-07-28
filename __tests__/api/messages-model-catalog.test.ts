@@ -205,4 +205,59 @@ describe('conversation model catalogue API', () => {
       expect.objectContaining({ id: 'anthropic/claude-sonnet-4.6', source: 'agent-default', available: false }),
     ]))
   })
+
+  it('shows the complete supported catalogue for connected providers when a linked runtime cannot serve live models', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'org-1',
+      participantUids: ['admin-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Admin User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      workspaceContext: { runtimeTarget: 'local' },
+    })
+    mockCallAgentPath.mockRejectedValue(new Error('linked computer loopback endpoint is not public'))
+
+    jest.doMock('@/lib/llm-providers/store', () => ({
+      listLlmProviderConnections: jest.fn().mockResolvedValue([
+        {
+          provider: 'openai-codex',
+          hermesProvider: 'openai-codex',
+          scope: 'user',
+          status: 'connected',
+          hasCredentials: true,
+        },
+        {
+          provider: 'xai-oauth',
+          hermesProvider: 'xai-oauth',
+          scope: 'user',
+          status: 'connected',
+          hasCredentials: true,
+        },
+      ]),
+    }))
+    jest.doMock('@/lib/llm-providers/sync-targets', () => ({
+      isOrgVpsConversationRuntime: jest.fn().mockReturnValue(false),
+      runtimeBelongsToUserComputer: jest.fn().mockResolvedValue(true),
+    }))
+
+    const { GET } = await import('@/app/api/v1/conversations/[convId]/models/route')
+    const res = await GET(
+      new NextRequest('http://localhost/api/v1/conversations/conv-1/models'),
+      { params: Promise.resolve({ convId: 'conv-1' }) },
+    )
+
+    expect(res.status).toBe(200)
+    const body = await readJson(res)
+    expect(body.data.warning).toMatch(/showing the supported catalogue/i)
+    expect(body.data.selectableModelCount).toBe(16)
+    expect(body.data.models).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'gpt-5.6-luna', provider: 'openai-codex', connected: true, available: true }),
+      expect.objectContaining({ id: 'gpt-5.6-sol', provider: 'openai-codex', connected: true, available: true }),
+      expect.objectContaining({ id: 'gpt-5.6-terra', provider: 'openai-codex', connected: true, available: true }),
+      expect.objectContaining({ id: 'grok-4.20-multi-agent-0309', provider: 'xai-oauth', connected: true, available: true }),
+    ]))
+  })
 })

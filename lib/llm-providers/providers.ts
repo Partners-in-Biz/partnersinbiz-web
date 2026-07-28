@@ -45,6 +45,33 @@ export interface LlmProviderDefinition {
 export const UNSUPPORTED_CURSOR_NOTE =
   'Cursor IDE subscriptions cannot power Hermes agents. There is no Cursor model API. Use xAI Grok (SuperGrok OAuth or API key), OpenAI Codex (ChatGPT OAuth), GitHub Copilot, Anthropic, Gemini, or OpenRouter instead.'
 
+/**
+ * App-side catalogue used when a selected linked computer cannot expose its
+ * loopback Hermes `/v1/models` endpoint to the web runtime. Keep this aligned
+ * with `infra/hermes/patch_llm_model_allowlist.py`.
+ */
+const XAI_CURATED_MODELS = [
+  'grok-build-0.1',
+  'grok-4.5',
+  'grok-4.3',
+  'grok-composer-2.5-fast',
+  'grok-4.20-0309-reasoning',
+  'grok-4.20-0309-non-reasoning',
+  'grok-4.20-multi-agent-0309',
+]
+
+const OPENAI_CODEX_CURATED_MODELS = [
+  'gpt-5.6-luna',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-5.5',
+  'gpt-5.4',
+  'gpt-5.4-mini',
+  'gpt-5.3-codex',
+  'gpt-5.3-codex-spark',
+  'gpt-5.2-codex',
+]
+
 export const LLM_PROVIDERS: LlmProviderDefinition[] = [
   {
     key: 'xai-oauth',
@@ -55,14 +82,7 @@ export const LLM_PROVIDERS: LlmProviderDefinition[] = [
     credentialFields: [],
     consoleUrl: 'https://accounts.x.ai',
     docsUrl: 'https://hermes-agent.nousresearch.com/docs/integrations/providers',
-    curatedModels: [
-      'grok-build-0.1',
-      'grok-4.5',
-      'grok-4.3',
-      'grok-composer-2.5-fast',
-      'grok-4.20-0309-reasoning',
-      'grok-4.20-0309-non-reasoning',
-    ],
+    curatedModels: XAI_CURATED_MODELS,
     oauthCapable: true,
   },
   {
@@ -75,14 +95,7 @@ export const LLM_PROVIDERS: LlmProviderDefinition[] = [
     credentialFields: [{ key: 'apiKey', label: 'xAI API key', secret: true, placeholder: 'xai-…' }],
     consoleUrl: 'https://console.x.ai/team/default/api-keys',
     docsUrl: 'https://docs.x.ai/docs',
-    curatedModels: [
-      'grok-build-0.1',
-      'grok-4.5',
-      'grok-4.3',
-      'grok-composer-2.5-fast',
-      'grok-4.20-0309-reasoning',
-      'grok-4.20-0309-non-reasoning',
-    ],
+    curatedModels: XAI_CURATED_MODELS,
     oauthCapable: false,
   },
   {
@@ -94,7 +107,7 @@ export const LLM_PROVIDERS: LlmProviderDefinition[] = [
     credentialFields: [],
     consoleUrl: 'https://chatgpt.com',
     docsUrl: 'https://hermes-agent.nousresearch.com/docs/integrations/providers',
-    curatedModels: ['gpt-5.3-codex', 'gpt-5.2-codex', 'gpt-5.4', 'gpt-5.4-mini'],
+    curatedModels: OPENAI_CODEX_CURATED_MODELS,
     oauthCapable: true,
   },
   {

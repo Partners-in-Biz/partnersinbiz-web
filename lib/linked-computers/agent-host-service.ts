@@ -13,7 +13,11 @@ import {
   type DesiredAgentBinding,
   type DesiredAgentInput,
 } from './agent-bindings'
-import { resolvePreferredAgentPort, listPullableAgentIds } from './agent-host-ports'
+import {
+  allocatePreferredAgentPort,
+  listPullableAgentIds,
+  resolvePreferredAgentPort,
+} from './agent-host-ports'
 import type { AgentHostJob, AgentHostJobPayload } from './agent-jobs'
 import { enqueueAgentHostJob } from './agent-job-store'
 import {
@@ -23,10 +27,39 @@ import {
   linkedDeviceOwnerType,
 } from './policy'
 import type { LinkedDevice } from './types'
+import { memberCanUseAgentOnRuntime, resolveMemberAccessPolicy } from '@/lib/orgMembers/access-policy'
+import { canPullAgentToDevice } from '@/lib/agents/org-agent-policy'
 
 const DEVICES = 'linked_devices'
 const MEMBERS = 'orgMembers'
 const AGENT_HOST_PROTOCOL_VERSION = 2
+
+async function reservePreferredAgentPort(deviceId: string, agentId: AgentId): Promise<number> {
+  const managedPort = resolvePreferredAgentPort(agentId)
+  if (managedPort < 8800) return managedPort
+  const deviceRef = adminDb.collection(DEVICES).doc(deviceId)
+  return adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(deviceRef)
+    if (!snapshot.exists) throw new Error('linked computers: device not found')
+    const rawAssignments = snapshot.data()?.agentPortAssignments
+    const assignments: Record<string, number> = rawAssignments
+      && typeof rawAssignments === 'object'
+      && !Array.isArray(rawAssignments)
+      ? Object.fromEntries(Object.entries(rawAssignments as Record<string, unknown>)
+          .flatMap(([key, value]) => typeof value === 'number' ? [[key, value]] : []))
+      : {}
+    const port = allocatePreferredAgentPort(agentId, assignments)
+    if (assignments[agentId] !== port) {
+      transaction.update(deviceRef, {
+        // Agent IDs may contain dots, so write the map as a value instead of
+        // letting Firestore interpret an ID as a nested field path.
+        agentPortAssignments: { ...assignments, [agentId]: port },
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    }
+    return port
+  })
+}
 
 function skillPackForAgent(agentId: AgentId): AgentHostJobPayload['skillPack'] {
   const policy = getAgentSkillPolicy(agentId)
@@ -43,8 +76,9 @@ function skillPackForAgent(agentId: AgentId): AgentHostJobPayload['skillPack'] {
   }
 }
 
-function policyPayload(agentId: AgentId, keepInSync: boolean, deviceId?: string): AgentHostJobPayload {
+async function policyPayload(agentId: AgentId, keepInSync: boolean, deviceId?: string): Promise<AgentHostJobPayload> {
   const policy = getAgentSkillPolicy(agentId)
+  const agent = (await listAgents()).find((row) => row.agentId === agentId)
   const effectiveKeepInSync = keepInSync === true
   // Keep-in-sync always ships a pack (managed skills, or empty custom stamp for re-ensure).
   // Installs without keep-in-sync still omit packs for custom agents.
@@ -66,7 +100,17 @@ function policyPayload(agentId: AgentId, keepInSync: boolean, deviceId?: string)
     runtimeSkills: policy?.runtimeSkills ?? [],
     pibSkills: policy?.pibSkills ?? [],
     vpsExternalDir: policy?.vpsExternalDir ?? null,
-    preferredPort: resolvePreferredAgentPort(agentId),
+    preferredPort: deviceId
+      ? await reservePreferredAgentPort(deviceId, agentId)
+      : resolvePreferredAgentPort(agentId),
+    ...(agent?.provisioningMode === 'linked_device' ? {
+      profileConfig: {
+        name: agent.name,
+        role: agent.role,
+        persona: agent.persona,
+        defaultModel: agent.defaultModel,
+      },
+    } : {}),
     protocolVersion: AGENT_HOST_PROTOCOL_VERSION,
     ...(skillPack && artifactPath
       ? { skillPack: { ...skillPack, artifactPath } }
@@ -85,10 +129,65 @@ function jobIdempotencyKey(
   return `${kind}:${deviceId}:${agentId}:${policyVersion ?? 'none'}:${pack}`
 }
 
-export async function listCatalogAgentIds(): Promise<AgentId[]> {
+async function authorizedCatalogForDevice(input: {
+  actorUserId: string
+  orgId: string
+  device: LinkedDevice
+}): Promise<AgentId[]> {
+  const membership = await adminDb.collection(MEMBERS).doc(`${input.orgId}_${input.actorUserId}`).get()
+  const membershipRow = membership.data()
+  const membershipActive = membership.exists
+    && isActiveOrgMembershipRow(membershipRow)
+    && membershipRow?.orgId === input.orgId
+  if (!membershipActive) throw new Error('linked computers: active membership required')
+  const membershipRole = typeof membershipRow?.role === 'string' ? membershipRow.role : ''
+  const orgManager = membershipRole === 'owner' || membershipRole === 'admin'
+  const ownerType = linkedDeviceOwnerType(input.device)
+  if (ownerType === 'user' && input.device.ownerUserId !== input.actorUserId) {
+    throw new Error('linked computers: device owner required')
+  }
+  if (ownerType === 'organization' && (!orgManager || input.device.ownerOrgId !== input.orgId)) {
+    throw new Error('linked computers: organisation administrator required')
+  }
+
+  const runtimeTargetId = input.device.runtimeTargetId || `linked-device:${input.device.deviceId}`
+  const accessPolicy = resolveMemberAccessPolicy({
+    role: membershipRole as 'owner' | 'admin' | 'member' | 'viewer',
+    accessScope: membershipRow?.accessScope,
+    accessPolicy: membershipRow?.accessPolicy,
+  })
+  const agents = await listAgents()
+  return agents
+    .filter((agent) => canPullAgentToDevice({
+      agent,
+      actorUserId: input.actorUserId,
+      orgId: input.orgId,
+      orgManager,
+      explicitlyGranted: memberCanUseAgentOnRuntime(accessPolicy, runtimeTargetId, agent.agentId),
+    }))
+    .map((agent) => agent.agentId)
+    .sort() as AgentId[]
+}
+
+export async function listCatalogAgentIds(input?: {
+  actorUserId: string
+  orgId: string
+  deviceId: string
+}): Promise<AgentId[]> {
+  if (input) {
+    const deviceDoc = await adminDb.collection(DEVICES).doc(input.deviceId).get()
+    if (!deviceDoc.exists) throw new Error('linked computers: device not found')
+    return authorizedCatalogForDevice({
+      actorUserId: input.actorUserId,
+      orgId: input.orgId,
+      device: { deviceId: input.deviceId, ...deviceDoc.data() } as LinkedDevice,
+    })
+  }
   return listPullableAgentIds(async () => {
     const agents = await listAgents()
-    return agents.map((agent) => ({ agentId: agent.agentId, enabled: agent.enabled !== false }))
+    return agents
+      .filter((agent) => !agent.scopeOrgId)
+      .map((agent) => ({ agentId: agent.agentId, enabled: agent.enabled !== false }))
   })
 }
 
@@ -153,7 +252,17 @@ export async function setDeviceDesiredAgents(input: {
     })
   }
 
-  const catalog = new Set(await listCatalogAgentIds())
+  const catalog = new Set(await authorizedCatalogForDevice({
+    actorUserId: input.actorUserId,
+    orgId: input.orgId,
+    device: { ...device, deviceId: input.deviceId } as LinkedDevice,
+  }))
+  const rejectedAgentIds = input.desired
+    .map((row) => row.agentId)
+    .filter((agentId) => !catalog.has(agentId))
+  if (rejectedAgentIds.length > 0) {
+    throw new Error(`agent-host: agent access denied (${Array.from(new Set(rejectedAgentIds)).join(', ')})`)
+  }
   const filteredDesired = input.desired
     .filter((row) => catalog.has(row.agentId))
     .map((row) => ({
@@ -184,7 +293,7 @@ export async function setDeviceDesiredAgents(input: {
   const enqueuedJobIds: string[] = []
   if (input.enqueueJobs !== false) {
     for (const agentId of merged.removed) {
-      const payload = policyPayload(agentId, false, input.deviceId)
+      const payload = await policyPayload(agentId, false, input.deviceId)
       const job = await enqueueAgentHostJob({
         idempotencyKey: jobIdempotencyKey('uninstall', input.deviceId, agentId, payload.policyVersion, payload.skillPack?.packSha256),
         deviceId: input.deviceId,
@@ -205,7 +314,7 @@ export async function setDeviceDesiredAgents(input: {
       availableAgentIds,
     })
     for (const binding of installTargets) {
-      const payload = policyPayload(binding.agentId, binding.keepInSync, input.deviceId)
+      const payload = await policyPayload(binding.agentId, binding.keepInSync, input.deviceId)
       const job = await enqueueAgentHostJob({
         idempotencyKey: jobIdempotencyKey('install', input.deviceId, binding.agentId, binding.desiredPolicyVersion, payload.skillPack?.packSha256),
         deviceId: input.deviceId,
@@ -233,7 +342,7 @@ export async function setDeviceDesiredAgents(input: {
     })
     for (const binding of syncTargets) {
       if (installTargets.some((row) => row.agentId === binding.agentId)) continue
-      const payload = policyPayload(binding.agentId, binding.keepInSync, input.deviceId)
+      const payload = await policyPayload(binding.agentId, binding.keepInSync, input.deviceId)
       const job = await enqueueAgentHostJob({
         idempotencyKey: jobIdempotencyKey('sync-policy', input.deviceId, binding.agentId, binding.desiredPolicyVersion, payload.skillPack?.packSha256),
         deviceId: input.deviceId,
@@ -282,6 +391,90 @@ function resultFlag(result: Record<string, unknown> | undefined, key: string): b
   return result?.[key] === true
 }
 
+export async function finalizeLinkedAgentProvisioning(input: {
+  agent: import('@/lib/agents/types').AgentTeamStoredDoc
+  deviceId: string
+}): Promise<{ ready: boolean; error: string | null }> {
+  const { agent, deviceId } = input
+  const agentRef = adminDb.collection('agent_team').doc(agent.agentId)
+  const deviceRef = adminDb.collection(DEVICES).doc(deviceId)
+  const isHomeDevice = agent.homeDeviceId === deviceId
+  try {
+    // A signed, healthy install receipt is authoritative enough to expose this
+    // profile as a credential-sync target before the next device heartbeat.
+    await deviceRef.update({
+      availableAgentIds: FieldValue.arrayUnion(agent.agentId),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+
+    const deviceDoc = await deviceRef.get()
+    const device = deviceDoc.data() as LinkedDevice | undefined
+    const deviceOwnerType = device ? linkedDeviceOwnerType(device) : null
+    const ownerUid = deviceOwnerType === 'user'
+      ? device?.ownerUserId
+      : agent.ownerUserId || agent.createdByUserId
+    if (!ownerUid || !agent.scopeOrgId) {
+      throw new Error('Agent owner or organisation is missing')
+    }
+    const [{ listLlmProviderConnections }, { syncLlmConnectionToHermes }] = await Promise.all([
+      import('@/lib/llm-providers/store'),
+      import('@/lib/llm-providers/sync-hermes'),
+    ])
+    const connections = (await listLlmProviderConnections({
+      orgId: agent.scopeOrgId,
+      uid: ownerUid,
+    })).filter((connection) => connection.status === 'connected'
+      && connection.hasCredentials
+      && (deviceOwnerType === 'user' ? connection.scope === 'user' : agent.accessScope === 'organization' || connection.scope === 'user'))
+
+    if (!connections.length) {
+      throw new Error('Connect an LLM provider, then retry this agent')
+    }
+
+    let synced = false
+    const errors: string[] = []
+    for (const connection of connections) {
+      try {
+        const result = await syncLlmConnectionToHermes(connection.id, {
+          agentIds: [agent.agentId],
+        })
+        synced = synced || result.synced.includes(agent.agentId)
+        errors.push(...result.failed.map((failure) => failure.error))
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : 'Provider sync failed')
+      }
+    }
+    if (!synced) throw new Error(errors[0] || 'No connected provider could be synced to this agent')
+
+    await deviceRef.update({
+      credentialReadyAgentIds: FieldValue.arrayUnion(agent.agentId),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    if (isHomeDevice) {
+      await agentRef.update({
+        provisioningStatus: 'ready',
+        provisioningError: null,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    }
+    return { ready: true, error: null }
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, 500) : 'Agent provider setup failed'
+    await deviceRef.update({
+      credentialReadyAgentIds: FieldValue.arrayRemove(agent.agentId),
+      updatedAt: FieldValue.serverTimestamp(),
+    }).catch(() => undefined)
+    if (isHomeDevice) {
+      await agentRef.update({
+        provisioningStatus: 'failed',
+        provisioningError: message,
+        updatedAt: FieldValue.serverTimestamp(),
+      }).catch(() => undefined)
+    }
+    return { ready: false, error: message }
+  }
+}
+
 export async function applyAgentHostJobResult(job: AgentHostJob): Promise<void> {
   const agentId = job.payload.agentId
   if (job.kind === 'uninstall') {
@@ -308,6 +501,20 @@ export async function applyAgentHostJobResult(job: AgentHostJob): Promise<void> 
         desiredPolicyVersion: job.payload.policyVersion,
         lastError: healthy ? null : 'Agent installed but not yet healthy on the host',
       })
+      const agentRef = adminDb.collection('agent_team').doc(agentId)
+      const agentDoc = await agentRef.get()
+      const agent = agentDoc.data() as import('@/lib/agents/types').AgentTeamStoredDoc | undefined
+      if (agent?.provisioningMode === 'linked_device') {
+        if (healthy) {
+          await finalizeLinkedAgentProvisioning({ agent, deviceId: job.deviceId })
+        } else if (agent.homeDeviceId === job.deviceId) {
+          await agentRef.update({
+            provisioningStatus: 'failed',
+            provisioningError: 'Agent installed but did not become healthy',
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+        }
+      }
       return
     }
 
@@ -324,6 +531,17 @@ export async function applyAgentHostJobResult(job: AgentHostJob): Promise<void> 
       status: 'error',
       lastError: job.error ?? 'Agent host job failed',
     })
+    const agentRef = adminDb.collection('agent_team').doc(agentId)
+    const agentDoc = await agentRef.get()
+    if (job.kind === 'install'
+      && agentDoc.data()?.provisioningMode === 'linked_device'
+      && agentDoc.data()?.homeDeviceId === job.deviceId) {
+      await agentRef.update({
+        provisioningStatus: 'failed',
+        provisioningError: job.error ?? 'Agent host job failed',
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    }
   }
 }
 
@@ -350,7 +568,7 @@ export async function enqueueKeepInSyncPolicyJobs(input: {
       desiredPolicyVersion: input.policyVersion,
       lastError: null,
     })
-    const payload = policyPayload(input.agentId, true, doc.id)
+    const payload = await policyPayload(input.agentId, true, doc.id)
     const job = await enqueueAgentHostJob({
       idempotencyKey: jobIdempotencyKey('sync-policy', doc.id, input.agentId, input.policyVersion, payload.skillPack?.packSha256),
       deviceId: doc.id,
@@ -393,7 +611,7 @@ export async function reconcileDesiredAgentsAfterHeartbeat(input: {
   })
   for (const binding of missing) {
     if (binding.status === 'installing' && Date.now() - binding.updatedAtMs < 120_000) continue
-    const payload = policyPayload(binding.agentId, binding.keepInSync, input.deviceId)
+    const payload = await policyPayload(binding.agentId, binding.keepInSync, input.deviceId)
     const job = await enqueueAgentHostJob({
       idempotencyKey: jobIdempotencyKey('install', input.deviceId, binding.agentId, binding.desiredPolicyVersion, payload.skillPack?.packSha256),
       deviceId: input.deviceId,
@@ -426,7 +644,7 @@ export async function reconcileDesiredAgentsAfterHeartbeat(input: {
       desiredPolicyVersion: binding.desiredPolicyVersion,
       lastError: null,
     })
-    const payload = policyPayload(binding.agentId, true, input.deviceId)
+    const payload = await policyPayload(binding.agentId, true, input.deviceId)
     const job = await enqueueAgentHostJob({
       idempotencyKey: jobIdempotencyKey('sync-policy', input.deviceId, binding.agentId, binding.desiredPolicyVersion, payload.skillPack?.packSha256),
       deviceId: input.deviceId,

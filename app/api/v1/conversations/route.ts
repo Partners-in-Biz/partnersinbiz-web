@@ -12,7 +12,8 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { ensureCompanyCoworkFolderWithinBudget } from '@/lib/conversations/create-resilience'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
-import { AGENT_IDS } from '@/lib/agents/types'
+import { isValidAgentId } from '@/lib/agents/types'
+import { canStartLinkedAgent } from '@/lib/agents/org-agent-policy'
 import {
   createConversation,
   listConversations,
@@ -45,7 +46,6 @@ import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
 
-const VALID_AGENT_IDS: AgentId[] = [...AGENT_IDS]
 const VALID_SCOPES: ConversationScope[] = ['general', 'project', 'workspace', 'task', 'campaign', 'company', 'contact']
 const isPlatformWorkspace = (orgId: string) => orgId === PIB_PLATFORM_ORG_ID
 
@@ -148,20 +148,14 @@ export const POST = withAuth(
         })
       } else if (p.kind === 'agent') {
         const agentId = p.agentId as AgentId | undefined
-        if (!agentId || !VALID_AGENT_IDS.includes(agentId)) {
+        if (!isValidAgentId(agentId)) {
           return apiError(`Invalid agent agentId: ${agentId}`, 400)
         }
-        const delegatedAgentAccess = callerRole === 'client'
+        let delegatedAgentAccess = callerRole === 'client'
           && memberCanUseAgentOnRuntime(user.memberAccessPolicy, requestedRuntimeTargetForAgentGrant, agentId)
         // Pip remains the ordinary member-facing assistant. Specialist profiles
         // require an explicit per-runtime Team grant.
         const baselineMemberAssistant = callerRole === 'client' && agentId === 'pip'
-        if (callerRole === 'client' && !baselineMemberAssistant && !delegatedAgentAccess) {
-          return apiError('This member is not allowed to use that agent on the selected computer', 403)
-        }
-        if (!allowedAgentIds.has(agentId) && !delegatedAgentAccess) {
-          return apiError(`Agent ${agentId} is not visible to your role`, 403)
-        }
         if (seenAgents.has(agentId)) continue
 
         // Look up agent name from agent_team
@@ -169,6 +163,53 @@ export const POST = withAuth(
         const agentData = agentDoc.data()
         if (!agentDoc.exists || !agentData?.enabled) {
           return apiError(`Agent ${agentId} is not available`, 400)
+        }
+        const scopedOrgId = typeof agentData.scopeOrgId === 'string' ? agentData.scopeOrgId : null
+        if (scopedOrgId && scopedOrgId !== scope.orgId) {
+          return apiError(`Agent ${agentId} is not available in this organisation`, 403)
+        }
+        if (agentData.provisioningMode === 'linked_device' && agentData.provisioningStatus !== 'ready') {
+          return apiError(`Agent ${agentId} is still provisioning`, 409)
+        }
+        let selectedLinkedDevice: Record<string, unknown> | null = null
+        if (agentData.provisioningMode === 'linked_device') {
+          const targetDeviceId = requestedRuntimeTargetForAgentGrant?.startsWith('linked-device:')
+            ? requestedRuntimeTargetForAgentGrant.slice('linked-device:'.length)
+            : requestedRuntimeTargetForAgentGrant
+          if (!targetDeviceId) return apiError('Select a computer where this agent is installed', 409)
+          const targetDevice = await adminDb.collection('linked_devices').doc(targetDeviceId).get()
+          selectedLinkedDevice = targetDevice.exists ? targetDevice.data() ?? null : null
+          const availableAgentIds = Array.isArray(selectedLinkedDevice?.availableAgentIds)
+            ? selectedLinkedDevice.availableAgentIds as unknown[]
+            : []
+          const credentialReadyAgentIds = Array.isArray(selectedLinkedDevice?.credentialReadyAgentIds)
+            ? selectedLinkedDevice.credentialReadyAgentIds as unknown[]
+            : []
+          if (!availableAgentIds.includes(agentId) || !credentialReadyAgentIds.includes(agentId)) {
+            return apiError(`Agent ${agentId} is not ready on the selected computer`, 409)
+          }
+        }
+        const linkedAgentAccess = agentData.provisioningMode === 'linked_device'
+          ? canStartLinkedAgent({
+              accessScope: agentData.accessScope,
+              ownerUserId: agentData.ownerUserId,
+              actorUserId: user.uid,
+              callerRole,
+              selectedDeviceOwnerUserId: typeof selectedLinkedDevice?.ownerUserId === 'string'
+                ? selectedLinkedDevice.ownerUserId
+                : undefined,
+              explicitlyGranted: delegatedAgentAccess,
+            })
+          : false
+        delegatedAgentAccess = delegatedAgentAccess || linkedAgentAccess
+        if (agentData.provisioningMode === 'linked_device' && !linkedAgentAccess) {
+          return apiError('You are not allowed to use that agent on the selected computer', 403)
+        }
+        if (callerRole === 'client' && !baselineMemberAssistant && !delegatedAgentAccess) {
+          return apiError('This member is not allowed to use that agent on the selected computer', 403)
+        }
+        if (!allowedAgentIds.has(agentId) && !delegatedAgentAccess) {
+          return apiError(`Agent ${agentId} is not visible to your role`, 403)
         }
 
         seenAgents.add(agentId)

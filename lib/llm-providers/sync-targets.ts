@@ -152,8 +152,9 @@ export async function resolveUserLlmSyncTargets(input: {
     if (!device) continue
     if (device.status !== 'active') continue
     if (linkedDeviceOwnerType(device) !== 'user') continue
-    // Personal sync targets are the member's computers (not org VPS devices they happen to own).
-    if (device.deviceKind === 'vps') continue
+    // Personal sync targets are devices owned by the member. This includes a
+    // member-owned VPS; organisation-owned VPS credentials remain separately
+    // controlled by the organisation access policy below.
 
     linkedComputerCount += 1
     const agentIds = agentIdsFromDevice(device)

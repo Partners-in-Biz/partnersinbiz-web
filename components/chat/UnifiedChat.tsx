@@ -1230,6 +1230,7 @@ export default function UnifiedChat({
   const refreshWorkspaceCatalogueRef = useRef<() => Promise<WorkspaceCatalogueSnapshot | null>>(async () => null)
   const [managedProject, setManagedProject] = useState<{ id: string; name: string } | null>(null)
   const [accessProject, setAccessProject] = useState<{ id: string; name: string } | null>(null)
+  const [projectActionsOpenId, setProjectActionsOpenId] = useState<string | null>(null)
   const [managedProjectLocations, setManagedProjectLocations] = useState<ManagedProjectLocation[]>([])
   const [selectedManagedProjectLocationKeys, setSelectedManagedProjectLocationKeys] = useState<string[]>([])
   const [projectLocationsLoading, setProjectLocationsLoading] = useState(false)
@@ -1709,6 +1710,20 @@ export default function UnifiedChat({
         ),
       )
     : undefined
+  // Company/project chats use the organisation-root mapping as their dispatch
+  // authorization boundary, while the scoped context selects the actual folder
+  // beneath it. Keep both truths visible without presenting the root mapping as
+  // though it were the selected company/project folder.
+  const activeRootMappingLabel = activeWorkspaceContext?.mappingLabel ?? activeRuntimePresence?.mappingLabel
+  const activeConnectionFolderLabel = activeWorkspaceContext?.folderScope === 'company'
+    ? [activeWorkspaceContext.companyName, activeRootMappingLabel]
+        .filter(Boolean)
+        .join(' via ')
+    : activeWorkspaceContext?.folderScope === 'project'
+      ? [activeWorkspaceContext.projectName, activeRootMappingLabel]
+          .filter(Boolean)
+          .join(' via ')
+      : activeRootMappingLabel
   const lastDispatchMessage = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const row = messages[index]
@@ -1738,7 +1753,9 @@ export default function UnifiedChat({
       locationLabel: activeRuntimePresence?.locationLabel,
       runtimeTarget: activeWorkspaceContext?.runtimeTarget ?? activeRuntimePresence?.id,
       runtimeLabel: activeWorkspaceContext?.runtimeLabel ?? activeRuntimePresence?.label,
-      mappingLabel: activeWorkspaceContext?.mappingLabel ?? activeRuntimePresence?.mappingLabel,
+      mappingLabel: activeConnectionFolderLabel ?? (
+        activeWorkspaceContext?.folderScope ? undefined : activeRuntimePresence?.mappingLabel
+      ),
       deviceKind: activeRuntimePresence?.deviceKind,
       isLocal: activeRuntimePresence?.isLocal,
       online: activeRuntimePresence
@@ -1750,7 +1767,7 @@ export default function UnifiedChat({
     const fromContext = buildConnectionWhere({
       runtimeTarget: activeWorkspaceContext?.runtimeTarget,
       runtimeLabel: activeWorkspaceContext?.runtimeLabel,
-      mappingLabel: activeWorkspaceContext?.mappingLabel,
+      mappingLabel: activeConnectionFolderLabel,
       online: null,
     })
     if (fromContext) return fromContext
@@ -1761,7 +1778,7 @@ export default function UnifiedChat({
       runtimeTarget: lastDispatchMessage?.dispatchRuntimeTargetId,
       online: lastDispatchMessage?.acceptedDevice ? true : null,
     })
-  }, [activeRuntimePresence, activeWorkspaceContext, lastDispatchMessage])
+  }, [activeConnectionFolderLabel, activeRuntimePresence, activeWorkspaceContext, lastDispatchMessage])
   const workbenchRuntime = useMemo<WorkbenchRuntimeSummary>(() => ({
     label: activeConnectionWhere?.display
       || activeRuntimeLabel
@@ -5545,34 +5562,65 @@ export default function UnifiedChat({
                       </button>
                       <button
                         type="button"
-                        aria-label={`Manage locations for ${project.name}`}
-                        title={`Manage locations for ${project.name}`}
-                        onClick={() => managedProject?.id === project.id
-                          ? setManagedProject(null)
-                          : openProjectLocationManager({ id: project.id, name: project.name })}
-                        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-7 xl:w-7 ${managedProject?.id === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'} ${managedProject?.id === project.id ? '' : 'opacity-0 group-hover/project:opacity-100 focus-visible:opacity-100 xl:opacity-0 xl:group-hover/project:opacity-100'}`}
+                        aria-label={`More actions for ${project.name}`}
+                        title={`More actions for ${project.name}`}
+                        aria-expanded={projectActionsOpenId === project.id}
+                        aria-controls={`project-actions-${project.id}`}
+                        onClick={() => setProjectActionsOpenId((current) => current === project.id ? null : project.id)}
+                        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-7 xl:w-7 ${projectActionsOpenId === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'}`}
                       >
-                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">devices</span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Link client organisation to ${project.name}`}
-                        title={`Link client organisation to ${project.name}`}
-                        onClick={() => setAccessProject({ id: project.id, name: project.name })}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] opacity-0 hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/project:opacity-100 xl:h-7 xl:w-7"
-                      >
-                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">group_add</span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Remove ${project.name} from my projects`}
-                        title={`Remove ${project.name} from my projects`}
-                        onClick={() => void removeProjectFromSidebar(project.id)}
-                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] opacity-0 hover:bg-white/[0.08] hover:text-red-200 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-primary/60 group-hover/project:opacity-100 xl:h-7 xl:w-7"
-                      >
-                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">remove</span>
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">more_horiz</span>
                       </button>
                     </div>
+                    {projectActionsOpenId === project.id && (
+                      <div
+                        id={`project-actions-${project.id}`}
+                        role="group"
+                        aria-label={`Actions for ${project.name}`}
+                        className="mx-1 mb-1 grid grid-cols-3 gap-1 rounded-md border border-white/[0.06] bg-black/10 p-1"
+                      >
+                        <button
+                          type="button"
+                          aria-label={`Manage locations for ${project.name}`}
+                          title={`Manage locations for ${project.name}`}
+                          onClick={() => {
+                            setProjectActionsOpenId(null)
+                            if (managedProject?.id === project.id) setManagedProject(null)
+                            else openProjectLocationManager({ id: project.id, name: project.name })
+                          }}
+                          className={`inline-flex min-w-0 items-center justify-center gap-1 rounded px-1.5 py-1.5 text-[10px] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 ${managedProject?.id === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'}`}
+                        >
+                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">devices</span>
+                          <span className="truncate">Locations</span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Link client organisation to ${project.name}`}
+                          title={`Link client organisation to ${project.name}`}
+                          onClick={() => {
+                            setProjectActionsOpenId(null)
+                            setAccessProject({ id: project.id, name: project.name })
+                          }}
+                          className="inline-flex min-w-0 items-center justify-center gap-1 rounded px-1.5 py-1.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60"
+                        >
+                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">group_add</span>
+                          <span className="truncate">Access</span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${project.name} from my projects`}
+                          title={`Remove ${project.name} from my projects`}
+                          onClick={() => {
+                            setProjectActionsOpenId(null)
+                            void removeProjectFromSidebar(project.id)
+                          }}
+                          className="inline-flex min-w-0 items-center justify-center gap-1 rounded px-1.5 py-1.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-red-200 focus-visible:ring-2 focus-visible:ring-primary/60"
+                        >
+                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">remove</span>
+                          <span className="truncate">Remove</span>
+                        </button>
+                      </div>
+                    )}
                     {(sessionsExpanded && (project.locations?.length ?? 0) > 0) && (
                       <div data-testid={`project-location-badges-${project.id}`} className="flex min-w-0 flex-wrap gap-1 px-1 pb-1">
                         {project.locations?.map((location) => {

@@ -21,6 +21,12 @@ export type AgentHostRuntimeJob = {
   pibSkills: string[]
   vpsExternalDir: string | null
   preferredPort: number | null
+  profileConfig?: {
+    name: string
+    role: string
+    persona: string
+    defaultModel: string
+  } | null
   skillPack?: {
     packSha256: string
     policyVersion: string
@@ -85,11 +91,35 @@ function writeDesiredManifest(
     pibSkills: job.pibSkills,
     vpsExternalDir: job.vpsExternalDir,
     skillPackSha256: job.skillPack?.packSha256 ?? null,
+    profileConfig: job.profileConfig ?? null,
     updatedAt: new Date().toISOString(),
   }
   writeFileSecure(
     path.join(profileDir(agentId, env), 'pib-desired-agent.json'),
     `${JSON.stringify(manifest, null, 2)}\n`,
+  )
+}
+
+function writeProfileConfig(agentId: string, job: AgentHostRuntimeJob, env: NodeJS.ProcessEnv = process.env) {
+  if (!job.profileConfig) return
+  const config = job.profileConfig
+  writeFileSecure(
+    path.join(profileDir(agentId, env), 'pib-agent.json'),
+    `${JSON.stringify({ agentId, ...config, updatedAt: new Date().toISOString() }, null, 2)}\n`,
+  )
+  // Hermes profiles load SOUL.md as their durable role/persona instruction.
+  writeFileSecure(
+    path.join(profileDir(agentId, env), 'SOUL.md'),
+    [
+      `# ${config.name}`,
+      '',
+      `Role: ${config.role}`,
+      '',
+      config.persona,
+      '',
+      `Preferred model: ${config.defaultModel || 'auto'}`,
+      '',
+    ].join('\n'),
   )
 }
 
@@ -128,14 +158,25 @@ export async function executeAgentHostJob(
           error: stopped.error || 'Agent still healthy on loopback after uninstall stop',
         }
       }
+      let profileRemoved = false
+      // Only custom jobs carry profileConfig. Managed Pip/Theo/etc profiles are
+      // retained when unlinked; custom profiles contain their own identity and
+      // credentials and must be removed completely.
+      if (job.profileConfig) {
+        fs.rmSync(profileDir(job.agentId, env), { recursive: true, force: true })
+        profileRemoved = true
+      }
       return {
         ok: true,
         result: {
           uninstalled: true,
           gatewayStopped: stopped.stopped,
           skillsRemoved: skills.removed,
+          profileRemoved,
           healthy: false,
-          note: 'Agent gateway stopped and skill tree removed from this computer.',
+          note: profileRemoved
+            ? 'Custom agent gateway, skills, profile, and credentials removed from this computer.'
+            : 'Agent gateway stopped and skill tree removed from this computer.',
         },
       }
     }
@@ -146,6 +187,7 @@ export async function executeAgentHostJob(
       env,
     })
     writeDesiredManifest(job.agentId, job, env)
+    writeProfileConfig(job.agentId, job, env)
 
     let skillsApplied = false
     let skillsDigest: string | null = null
@@ -275,5 +317,5 @@ export async function pollAgentHostForever(
 }
 
 export function linkedRuntimeAgentHostClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.10', agentHostProtocolVersion: 2 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.11', agentHostProtocolVersion: 2 as const }
 }

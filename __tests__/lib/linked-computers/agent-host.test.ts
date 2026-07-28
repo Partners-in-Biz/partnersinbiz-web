@@ -12,7 +12,11 @@ import {
   parseAgentHostJobPayload,
   toPublicAgentHostJob,
 } from '@/lib/linked-computers/agent-jobs'
-import { resolvePreferredAgentPort, listPullableAgentIds } from '@/lib/linked-computers/agent-host-ports'
+import {
+  allocatePreferredAgentPort,
+  resolvePreferredAgentPort,
+  listPullableAgentIds,
+} from '@/lib/linked-computers/agent-host-ports'
 import { buildSkillPackManifest } from '@/lib/agents/skill-pack-builder'
 
 describe('desired agent bindings', () => {
@@ -54,7 +58,7 @@ describe('agent host jobs', () => {
     expect(preferredPortForAgent('sales')).toBe(8773)
     expect(resolvePreferredAgentPort('pip')).toBe(8755)
     expect(resolvePreferredAgentPort('custom-bot')).toBeGreaterThanOrEqual(8800)
-    expect(resolvePreferredAgentPort('custom-bot')).toBeLessThan(8900)
+    expect(resolvePreferredAgentPort('custom-bot')).toBeLessThan(9800)
     expect(resolvePreferredAgentPort('custom-bot')).toBe(resolvePreferredAgentPort('custom-bot'))
 
     const id = agentHostJobId({
@@ -102,6 +106,14 @@ describe('agent host jobs', () => {
     expect(completed.result).toEqual({ healthy: true })
   })
 
+  it('reserves the next free custom port and keeps existing assignments stable', () => {
+    const preferred = resolvePreferredAgentPort('custom-bot')
+    expect(allocatePreferredAgentPort('custom-bot', { other: preferred })).toBe(
+      preferred === 9799 ? 8800 : preferred + 1,
+    )
+    expect(allocatePreferredAgentPort('custom-bot', { 'custom-bot': 9456, other: preferred })).toBe(9456)
+  })
+
   it('fingerprints skill packs and exposes them on public jobs', () => {
     const withPack = agentHostRequestFingerprint({
       deviceId: 'd1',
@@ -137,6 +149,12 @@ describe('agent host jobs', () => {
       vpsExternalDir: null,
       preferredPort: 8755,
       protocolVersion: 2,
+      profileConfig: {
+        name: 'Custom',
+        role: 'Research',
+        persona: 'Research carefully.',
+        defaultModel: 'auto',
+      },
       skillPack: {
         packSha256: 'a'.repeat(64),
         policyVersion: 'v1',
@@ -163,6 +181,12 @@ describe('agent host jobs', () => {
     })
     expect(publicJob.skillPack?.packSha256).toHaveLength(64)
     expect(publicJob.protocolVersion).toBe(2)
+    expect(publicJob.profileConfig).toEqual({
+      name: 'Custom',
+      role: 'Research',
+      persona: 'Research carefully.',
+      defaultModel: 'auto',
+    })
   })
 })
 

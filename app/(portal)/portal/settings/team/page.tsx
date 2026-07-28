@@ -17,7 +17,7 @@ import {
   type RecordScope,
   type WorkspaceModuleKey,
 } from '@/lib/orgMembers/access-policy'
-import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
+import { AGENT_IDS, isValidAgentId, type AgentId } from '@/lib/agents/types'
 
 interface Member {
   uid: string
@@ -72,6 +72,11 @@ const MODULE_LABELS: Record<WorkspaceModuleKey, string> = {
 
 function memberDisplayName(member: Pick<Member, 'uid' | 'firstName' | 'lastName'>) {
   return [member.firstName, member.lastName].filter(Boolean).join(' ') || member.uid
+}
+
+function agentDisplayName(agentId: string) {
+  const tenantLocalHandle = /^oa-[a-f0-9]{16}-(.+)$/.exec(agentId)?.[1] ?? agentId
+  return tenantLocalHandle.replace(/[-_]/g, ' ')
 }
 
 export default function TeamPage() {
@@ -445,7 +450,7 @@ export default function TeamPage() {
                     </p>
                   ) : accessRuntimeTargets.map((runtime) => {
                     const runtimeAgentIds = Array.isArray(runtime.availableAgentIds) && runtime.availableAgentIds.length > 0
-                      ? runtime.availableAgentIds.filter((id): id is AgentId => AGENT_IDS.includes(id as AgentId))
+                      ? runtime.availableAgentIds.filter((id): id is AgentId => isValidAgentId(id))
                       : AGENT_IDS
                     return (
                       <div key={runtime.id} className="rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
@@ -454,7 +459,7 @@ export default function TeamPage() {
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
                           {runtimeAgentIds.map((agentId) => (
                             <label key={agentId} className="flex items-center justify-between gap-3 rounded-md border border-[var(--color-pib-line)] px-2.5 py-2 text-sm text-[var(--color-pib-text)]">
-                              <span className="capitalize">{agentId.replace(/-/g, ' ')}</span>
+                              <span className="capitalize">{agentDisplayName(agentId)}</span>
                               <input
                                 type="checkbox"
                                 checked={accessDraft.agentRuntimeAccess[runtime.id]?.includes(agentId) === true}

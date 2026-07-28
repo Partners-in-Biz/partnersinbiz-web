@@ -44,8 +44,9 @@ const ALLOWLISTED_ARGV: readonly (readonly string[])[] = [
   ['git', 'branch', '--show-current'],
 ]
 
-function isAllowlistedArgv(argv: readonly string[]): boolean {
-  return ALLOWLISTED_ARGV.some((allowed) => allowed.length === argv.length && allowed.every((value, index) => value === argv[index]))
+function isAllowlistedArgv(argv: readonly string[], policy?: readonly (readonly string[])[]): boolean {
+  const allowlist = policy?.length ? policy : ALLOWLISTED_ARGV
+  return allowlist.some((allowed) => allowed.length === argv.length && allowed.every((value, index) => value === argv[index]))
 }
 
 const SAFE_SHELL_ENV_KEYS = ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR', 'TERM', 'USER', 'SHELL'] as const
@@ -66,7 +67,7 @@ export type WorkbenchRuntimeOperation =
   | { kind: 'fs.write'; path: string; content: string; expectedSha256?: string | null }
   | { kind: 'git.status' }
   | { kind: 'git.diff'; path?: string; staged?: boolean }
-  | { kind: 'shell.exec'; argv: string[]; cwd?: string; timeoutMs?: number }
+  | { kind: 'shell.exec'; argv: string[]; cwd?: string; timeoutMs?: number; allowedShellArgv?: string[][] }
 
 export type WorkbenchRuntimeJob = {
   jobId: string
@@ -462,7 +463,7 @@ function prepareShellExec(
   ) {
     throw new Error('workbench shell.exec requires a non-empty, bounded argv')
   }
-  if (!isAllowlistedArgv(operation.argv)) throw new Error('workbench shell.exec command is not allowlisted')
+  if (!isAllowlistedArgv(operation.argv, operation.allowedShellArgv)) throw new Error('workbench shell.exec command is not allowlisted')
   if (operation.timeoutMs !== undefined && (!Number.isSafeInteger(operation.timeoutMs) || operation.timeoutMs <= 0)) {
     throw new Error('workbench shell.exec timeoutMs must be a positive integer')
   }
@@ -695,7 +696,7 @@ function completionReceipt(
     timestamp: new Date().toISOString(),
     acceptedAt,
     toolStartedAt,
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.10',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.11',
     machineLabel: os.hostname(),
     outputSha256: digest(output),
     outputBytes: Buffer.byteLength(output),

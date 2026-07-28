@@ -123,6 +123,7 @@ export async function enqueueAgentHostJob(
     vpsExternalDir: input.payload.vpsExternalDir,
     preferredPort: input.payload.preferredPort,
     packSha256: input.payload.skillPack?.packSha256 ?? null,
+    profileConfig: input.payload.profileConfig ?? null,
   })
   const job: AgentHostJob = {
     jobId: id,

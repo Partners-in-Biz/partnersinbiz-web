@@ -7,7 +7,7 @@ import { mapTerminalCommandToOperation } from '@/lib/messages/workbench/browser-
 import { authorizeWorkbenchConversation, WorkbenchAuthorizationError } from '@/lib/messages/workbench/authorization'
 import { enqueueWorkbenchJob, type EnqueueWorkbenchJobInput } from '@/lib/messages/workbench/job-store'
 import { publicWorkbenchJob } from '@/lib/messages/workbench/jobs'
-import { ALLOWLISTED_SHELL_COMMANDS } from '@/lib/messages/workbench/shell-allowlist'
+import { getTerminalPolicy } from '@/lib/messages/workbench/terminal-policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,16 +54,17 @@ export async function handleWorkbenchTerminalCommand(
       return apiSuccess({ cwd: authorization.relativeFolder })
     }
 
-    const operation = mapTerminalCommandToOperation(command)
+    const authorization = await dependencies.authorize(user, conversationId)
+    const policy = await getTerminalPolicy(authorization.conversation.orgId)
+    const operation = mapTerminalCommandToOperation(command, policy.allowedShellArgv)
     if (!operation) {
       return apiError(
-        `Command is not allowlisted for workbench terminal jobs. Allowed: ${[...TYPED_TERMINAL_COMMANDS, ...ALLOWLISTED_SHELL_COMMANDS].join(', ')}`,
+        `Command is not allowlisted for workbench terminal jobs. Allowed: ${[...TYPED_TERMINAL_COMMANDS, ...policy.allowedShellArgv.map((argv) => argv.join(' '))].join(', ')}`,
         400,
         { code: 'WORKBENCH_SHELL_COMMAND_NOT_ALLOWED' },
       )
     }
 
-    const authorization = await dependencies.authorize(user, conversationId)
     if (user.role !== 'admin' && user.role !== 'client') return apiError('Forbidden', 403)
     const job = await dependencies.enqueue({
       idempotencyKey: `terminal-${crypto.randomUUID()}`,
@@ -80,7 +81,7 @@ export async function handleWorkbenchTerminalCommand(
       ...(authorization.projectReplicaId ? { projectReplicaId: authorization.projectReplicaId } : {}),
       relativeFolder: authorization.relativeFolder,
       kind: operation.kind,
-      operation,
+      operation: operation.kind === 'shell.exec' ? { ...operation, allowedShellArgv: policy.allowedShellArgv } : operation,
     })
     return apiSuccess(publicWorkbenchJob(job), 202)
   } catch (error) {

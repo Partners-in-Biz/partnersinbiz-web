@@ -356,7 +356,7 @@ export async function runWorkbenchTunnelClaim(
 }
 
 export function linkedRuntimeWorkbenchTunnelsClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.10', workbenchTunnelsProtocolVersion: 1 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.11', workbenchTunnelsProtocolVersion: 1 as const }
 }
 
 /** Same idle-backoff shape as pollWorkbenchSessionsForever; sweeps TTL-expired tunnels each cycle. */

@@ -45,6 +45,86 @@ describe('executeAgentHostJob', () => {
     expect(fs.readFileSync(path.join(home, 'profiles', 'theo', '.env'), 'utf8')).toContain('API_SERVER_PORT=8756')
     expect(fs.existsSync(path.join(home, 'profiles', 'theo', 'pib-desired-agent.json'))).toBe(true)
     expect(fs.existsSync(path.join(home, 'profiles', 'theo', 'pib-skill-policy.json'))).toBe(true)
+    const managedSoul = path.join(home, 'profiles', 'theo', 'SOUL.md')
+    if (fs.existsSync(managedSoul)) {
+      expect(fs.readFileSync(managedSoul, 'utf8')).not.toContain('Preferred model:')
+    }
+    fs.rmSync(home, { recursive: true, force: true })
+  })
+
+  it('persists linked custom profile identity and persona into the Hermes profile', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-agent-host-persona-'))
+    const outcome = await executeAgentHostJob({
+      jobId: 'job-custom',
+      kind: 'install',
+      status: 'claimed',
+      agentId: 'member-research',
+      policyVersion: 'v1',
+      keepInSync: false,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8842,
+      profileConfig: {
+        name: 'Member Research',
+        role: 'Research specialist',
+        persona: 'Use evidence, cite sources, and keep this member data private.',
+        defaultModel: 'auto',
+      },
+    }, {
+      env: {
+        ...process.env,
+        PIB_HERMES_HOME: home,
+        HERMES_HOME: home,
+        PIB_RUNTIME_STATE_DIR: path.join(home, 'state'),
+      },
+      startGateway: false,
+      probe: async () => ({ availableAgentIds: ['member-research'], hermesVersion: 'test' }),
+    })
+    expect(outcome.ok).toBe(true)
+    const soul = fs.readFileSync(path.join(home, 'profiles', 'member-research', 'SOUL.md'), 'utf8')
+    expect(soul).toContain('# Member Research')
+    expect(soul).toContain('Use evidence, cite sources')
+    const identity = JSON.parse(fs.readFileSync(path.join(home, 'profiles', 'member-research', 'pib-agent.json'), 'utf8'))
+    expect(identity).toMatchObject({ agentId: 'member-research', role: 'Research specialist' })
+    fs.rmSync(home, { recursive: true, force: true })
+  })
+
+  it('removes a custom profile and its credentials on uninstall', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-agent-host-uninstall-'))
+    const profile = path.join(home, 'profiles', 'member-research')
+    fs.mkdirSync(profile, { recursive: true })
+    fs.writeFileSync(path.join(profile, 'SOUL.md'), '# Member Research\n')
+    fs.writeFileSync(path.join(profile, '.env'), 'OPENAI_API_KEY=secret\n')
+    const outcome = await executeAgentHostJob({
+      jobId: 'job-custom-uninstall',
+      kind: 'uninstall',
+      status: 'claimed',
+      agentId: 'member-research',
+      policyVersion: 'v1',
+      keepInSync: false,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8842,
+      profileConfig: {
+        name: 'Member Research',
+        role: 'Research specialist',
+        persona: 'Research carefully.',
+        defaultModel: 'auto',
+      },
+    }, {
+      env: {
+        ...process.env,
+        PIB_HERMES_HOME: home,
+        HERMES_HOME: home,
+        PIB_RUNTIME_STATE_DIR: path.join(home, 'state'),
+      },
+      probe: async () => ({ availableAgentIds: [] }),
+    })
+    expect(outcome.ok).toBe(true)
+    if (outcome.ok) expect(outcome.result.profileRemoved).toBe(true)
+    expect(fs.existsSync(profile)).toBe(false)
     fs.rmSync(home, { recursive: true, force: true })
   })
 

@@ -28,6 +28,8 @@ export interface LinkedDevice {
   runtimeVersion: string
   /** Healthy Hermes profiles currently reachable over loopback on this device. */
   availableAgentIds?: string[]
+  /** Custom profiles that are healthy and have at least one synced LLM provider. */
+  credentialReadyAgentIds?: string[]
   hermesVersion?: string
   healthReason?: 'hermes_unavailable' | 'hermes_binary_missing' | 'no_agents_available'
   capabilities: LinkedDeviceCapability[]

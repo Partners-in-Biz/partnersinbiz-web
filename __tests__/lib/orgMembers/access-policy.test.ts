@@ -94,7 +94,7 @@ describe('org member access policy', () => {
       modules: { messages: true },
       recordScopes: {},
       agentRuntimeAccess: {
-        'partners-vps': ['pip', 'theo', 'theo', 'not-an-agent'],
+        'partners-vps': ['pip', 'theo', 'theo', 'INVALID AGENT'],
         'bad path/target': ['maya'],
       },
     })
@@ -103,6 +103,18 @@ describe('org member access policy', () => {
     expect(memberCanUseAgentOnRuntime(policy, 'partners-vps', 'theo')).toBe(true)
     expect(memberCanUseAgentOnRuntime(policy, 'partners-vps', 'maya')).toBe(false)
     expect(memberCanUseAgentOnRuntime(policy, 'another-vps', 'pip')).toBe(false)
+  })
+
+  it('preserves valid custom agent ids in explicit runtime grants', () => {
+    const policy = normalizeMemberAccessPolicy({
+      agentRuntimeAccess: {
+        'linked-device:member-mac': ['my-research-agent', 'INVALID AGENT'],
+      },
+    })
+    expect(policy.agentRuntimeAccess).toEqual({
+      'linked-device:member-mac': ['my-research-agent'],
+    })
+    expect(memberCanUseAgentOnRuntime(policy, 'linked-device:member-mac', 'my-research-agent')).toBe(true)
   })
 
   it('defaults allowPersonalLlmOnOrgVps to false for members and true for owners', () => {

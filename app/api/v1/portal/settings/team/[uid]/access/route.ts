@@ -29,10 +29,21 @@ function memberUid(member: StoredMember): string {
  * never creates a folder mapping or asks the operator to enter a host path.
  */
 async function loadMemberRuntimeTargets(orgId: string, userId: string): Promise<PublicAuthorizedRuntimeTarget[]> {
-  const workspaceSnapshot = await adminDb.collection(ORG_WORKSPACES_COLLECTION)
-    .where('orgId', '==', orgId)
-    .where('status', '==', 'active')
-    .get()
+  const [workspaceSnapshot, sharedAgentSnapshot] = await Promise.all([
+    adminDb.collection(ORG_WORKSPACES_COLLECTION)
+      .where('orgId', '==', orgId)
+      .where('status', '==', 'active')
+      .get(),
+    adminDb.collection('agent_team')
+      .where('scopeOrgId', '==', orgId)
+      .get(),
+  ])
+  const grantableSharedAgentIds = sharedAgentSnapshot.docs
+    .map((doc) => doc.data())
+    .filter((agent) => agent.enabled !== false
+      && agent.accessScope === 'organization'
+      && agent.provisioningStatus === 'ready')
+    .map((agent) => String(agent.agentId))
   const workspaces = workspaceSnapshot.docs
     .map((doc) => ({ id: doc.id, ...doc.data() }) as OrgWorkspaceRecord)
     .filter((workspace) => typeof workspace.workspaceId === 'string' && workspace.workspaceId.length > 0)
@@ -51,7 +62,18 @@ async function loadMemberRuntimeTargets(orgId: string, userId: string): Promise<
       if (!byRuntimeId.has(target.id)) byRuntimeId.set(target.id, target)
     }
   }
-  return Array.from(byRuntimeId.values()).sort((left, right) => left.label.localeCompare(right.label))
+  return Array.from(byRuntimeId.values())
+    .map((target) => ({
+      ...target,
+      // Shared agents are intentionally grantable before they are installed on
+      // the member's computer. The grant authorizes the later signed pull,
+      // which then keeps the profile in sync on that destination.
+      availableAgentIds: Array.from(new Set([
+        ...(Array.isArray(target.availableAgentIds) ? target.availableAgentIds : []),
+        ...grantableSharedAgentIds,
+      ])),
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label))
 }
 
 async function loadMemberAccess(orgId: string, targetUid: string) {

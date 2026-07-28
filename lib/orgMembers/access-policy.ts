@@ -1,5 +1,5 @@
 import type { OrgRole } from '@/lib/organizations/types'
-import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
+import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 
 export const WORKSPACE_MODULE_KEYS = [
   'crm',
@@ -144,7 +144,7 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
   for (const [runtimeTargetId, rawAgentIds] of Object.entries(agentRuntimeAccessInput)) {
     if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(runtimeTargetId) || !Array.isArray(rawAgentIds)) continue
     const agentIds = Array.from(new Set(rawAgentIds.filter((agentId): agentId is AgentId => (
-      typeof agentId === 'string' && AGENT_IDS.includes(agentId as AgentId)
+      isValidAgentId(agentId)
     ))))
     if (agentIds.length > 0) agentRuntimeAccess[runtimeTargetId] = agentIds
   }

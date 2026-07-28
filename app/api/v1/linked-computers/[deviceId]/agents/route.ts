@@ -31,7 +31,7 @@ export const GET = withAuth('client', async (req: NextRequest, user, context) =>
   try {
     const [inventory, catalogAgentIds] = await Promise.all([
       listDeviceDesiredAgents(deviceId),
-      listCatalogAgentIds(),
+      listCatalogAgentIds({ actorUserId: user.uid, orgId: scope.orgId, deviceId }),
     ])
     return apiSuccess({
       ...inventory,
@@ -67,7 +67,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user, context) =>
       desired,
       enqueueJobs: body.enqueueJobs !== false,
     })
-    const catalogAgentIds = await listCatalogAgentIds()
+    const catalogAgentIds = await listCatalogAgentIds({ actorUserId: user.uid, orgId: scope.orgId, deviceId })
     return apiSuccess({
       deviceId,
       orgId: scope.orgId,

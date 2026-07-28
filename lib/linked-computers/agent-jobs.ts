@@ -13,6 +13,12 @@ export interface AgentHostJobPayload {
   pibSkills: string[]
   vpsExternalDir: string | null
   preferredPort: number | null
+  profileConfig?: {
+    name: string
+    role: string
+    persona: string
+    defaultModel: string
+  } | null
   skillPack?: {
     packSha256: string
     policyVersion: string
@@ -56,6 +62,7 @@ export interface PublicAgentHostJob {
   pibSkills: string[]
   vpsExternalDir: string | null
   preferredPort: number | null
+  profileConfig?: AgentHostJobPayload['profileConfig']
   skillPack?: AgentHostJobPayload['skillPack']
   protocolVersion?: number
   leaseToken?: string
@@ -114,6 +121,7 @@ export function agentHostRequestFingerprint(input: {
   vpsExternalDir: string | null
   preferredPort: number | null
   packSha256?: string | null
+  profileConfig?: AgentHostJobPayload['profileConfig']
 }): string {
   return crypto.createHash('sha256')
     .update(JSON.stringify({
@@ -127,6 +135,7 @@ export function agentHostRequestFingerprint(input: {
       vpsExternalDir: input.vpsExternalDir,
       preferredPort: input.preferredPort,
       packSha256: input.packSha256 ?? null,
+      profileConfig: input.profileConfig ?? null,
     }))
     .digest('hex')
 }
@@ -155,6 +164,16 @@ export function parseAgentHostJobPayload(value: unknown): AgentHostJobPayload {
         return { packSha256, policyVersion, skillNames, artifactPath }
       })()
     : null
+  const profileConfig = row.profileConfig && typeof row.profileConfig === 'object' && !Array.isArray(row.profileConfig)
+    ? (() => {
+        const config = row.profileConfig as Record<string, unknown>
+        const name = typeof config.name === 'string' ? config.name.trim().slice(0, 100) : ''
+        const role = typeof config.role === 'string' ? config.role.trim().slice(0, 120) : ''
+        const persona = typeof config.persona === 'string' ? config.persona.trim().slice(0, 20_000) : ''
+        const defaultModel = typeof config.defaultModel === 'string' ? config.defaultModel.trim().slice(0, 200) : ''
+        return name && role && persona ? { name, role, persona, defaultModel: defaultModel || 'auto' } : null
+      })()
+    : null
   return {
     agentId: row.agentId,
     policyVersion: typeof row.policyVersion === 'string' ? row.policyVersion : null,
@@ -163,6 +182,7 @@ export function parseAgentHostJobPayload(value: unknown): AgentHostJobPayload {
     pibSkills,
     vpsExternalDir: typeof row.vpsExternalDir === 'string' ? row.vpsExternalDir : null,
     preferredPort: Number.isInteger(preferredPort) && preferredPort > 0 ? preferredPort : null,
+    ...(profileConfig ? { profileConfig } : {}),
     ...(skillPack ? { skillPack } : {}),
     ...(typeof row.protocolVersion === 'number' ? { protocolVersion: row.protocolVersion } : {}),
   }
@@ -180,6 +200,7 @@ export function toPublicAgentHostJob(job: AgentHostJob): PublicAgentHostJob {
     pibSkills: job.payload.pibSkills,
     vpsExternalDir: job.payload.vpsExternalDir,
     preferredPort: job.payload.preferredPort,
+    ...(job.payload.profileConfig ? { profileConfig: job.payload.profileConfig } : {}),
     ...(job.payload.skillPack ? { skillPack: job.payload.skillPack } : {}),
     ...(job.payload.protocolVersion ? { protocolVersion: job.payload.protocolVersion } : {}),
     ...(job.leaseToken ? { leaseToken: job.leaseToken } : {}),

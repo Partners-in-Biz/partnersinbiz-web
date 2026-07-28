@@ -157,6 +157,7 @@ function installProjectSyncFetch(options: ProjectSyncFetchOptions = {}) {
 async function openLocationManager() {
   render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
   const project = await screen.findByTestId('hermes-project-project-1')
+  fireEvent.click(within(project).getByRole('button', { name: 'More actions for Launch Project' }))
   fireEvent.click(within(project).getByRole('button', { name: 'Manage locations for Launch Project' }))
   return await within(project).findByRole('region', { name: 'Manage locations for Launch Project' })
 }

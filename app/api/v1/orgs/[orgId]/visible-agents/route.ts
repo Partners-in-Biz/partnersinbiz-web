@@ -12,7 +12,7 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { orgChatConfigDoc, resolveVisibleAgents } from '@/lib/conversations/conversations'
 import { memberCanUseAgentOnRuntime } from '@/lib/orgMembers/access-policy'
-import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
+import type { AgentId } from '@/lib/agents/types'
 import type { AgentTeamStoredDoc } from '@/lib/agents/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -41,16 +41,44 @@ export const GET = withAuth(
     const runtimeTargetId = req.nextUrl.searchParams.get('runtimeTarget')?.trim()
     // A Team-admin may delegate selected profiles on a selected computer to a
     // member. This supplements—not replaces—the ordinary role visibility list.
-    if (user.role !== 'admin' && runtimeTargetId) {
-      for (const agentId of AGENT_IDS) {
-        if (memberCanUseAgentOnRuntime(user.memberAccessPolicy, runtimeTargetId, agentId)) {
-          allowedAgentIds.add(agentId)
-        }
-      }
-    }
-
     // Read enabled agents from agent_team
     const snap = await adminDb.collection('agent_team').get()
+    const memberDoc = await adminDb.collection('orgMembers').doc(`${scope.orgId}_${user.uid}`).get()
+    const memberRole = memberDoc.data()?.role
+    const orgManager = user.role === 'admin' || memberRole === 'owner' || memberRole === 'admin'
+    const selectedDeviceId = runtimeTargetId?.startsWith('linked-device:')
+      ? runtimeTargetId.slice('linked-device:'.length)
+      : runtimeTargetId
+    const selectedDeviceDoc = selectedDeviceId
+      ? await adminDb.collection('linked_devices').doc(selectedDeviceId).get()
+      : null
+    const selectedDevice = selectedDeviceDoc?.exists ? selectedDeviceDoc.data() ?? null : null
+    const selectedAvailableAgentIds = Array.isArray(selectedDevice?.availableAgentIds)
+      ? selectedDevice.availableAgentIds as unknown[]
+      : []
+    const selectedCredentialReadyAgentIds = Array.isArray(selectedDevice?.credentialReadyAgentIds)
+      ? selectedDevice.credentialReadyAgentIds as unknown[]
+      : []
+    for (const doc of snap.docs) {
+      const row = doc.data() as AgentTeamStoredDoc & {
+        scopeOrgId?: string
+        ownerUserId?: string
+        createdByUserId?: string
+        homeDeviceId?: string
+        accessScope?: 'personal' | 'organization'
+      }
+      if (row.scopeOrgId !== scope.orgId) continue
+      if (row.provisioningMode === 'linked_device'
+        && (!selectedAvailableAgentIds.includes(row.agentId)
+          || !selectedCredentialReadyAgentIds.includes(row.agentId))) continue
+      const ownerRuntimeMatches = selectedDevice?.ownerUserId === user.uid
+        && selectedAvailableAgentIds.includes(row.agentId)
+      if (orgManager && row.accessScope !== 'personal'
+        || row.ownerUserId === user.uid && ownerRuntimeMatches
+        || runtimeTargetId && memberCanUseAgentOnRuntime(user.memberAccessPolicy, runtimeTargetId, row.agentId)) {
+        allowedAgentIds.add(row.agentId)
+      }
+    }
 
     const result = snap.docs
       .map((d) => {
@@ -58,7 +86,13 @@ export const GET = withAuth(
         // agentId is stored in the doc itself; the doc ID is the same value
         return stored
       })
-      .filter((agent) => agent.enabled && allowedAgentIds.has(agent.agentId))
+      .filter((agent) => {
+        if (!agent.enabled || !allowedAgentIds.has(agent.agentId)) return false
+        const provisioning = agent as AgentTeamStoredDoc & { provisioningMode?: string; provisioningStatus?: string }
+        if (provisioning.provisioningMode === 'linked_device' && provisioning.provisioningStatus !== 'ready') return false
+        const scopedOrgId = (agent as AgentTeamStoredDoc & { scopeOrgId?: string }).scopeOrgId
+        return !scopedOrgId || scopedOrgId === scope.orgId
+      })
       .map((agent) => {
         // Strip apiKey entirely — never expose, even masked
         // eslint-disable-next-line @typescript-eslint/no-unused-vars

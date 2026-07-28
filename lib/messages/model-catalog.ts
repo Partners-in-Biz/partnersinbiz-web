@@ -309,6 +309,7 @@ export async function getMessageModelCatalog(input: {
   let source: PublicMessageModelCatalog['source'] = 'none'
   let warning: string | undefined
   let liveConfig: unknown = null
+  let liveCatalogUnavailable = false
 
   const [modelsResult, configResult] = await Promise.all([
     callAgentPath(agentId, '/v1/models', { method: 'GET' }, { runtimeTarget })
@@ -340,6 +341,7 @@ export async function getMessageModelCatalog(input: {
       .filter(Boolean) as PublicMessageModelOption[]
     source = models.length > 0 ? 'hermes' : 'none'
   } else {
+    liveCatalogUnavailable = true
     warning = modelsResult.ok
       ? `Hermes model catalogue returned ${modelsResult.result.response.status}`
       : 'Hermes model catalogue is unavailable; using the agent runtime default.'
@@ -418,6 +420,9 @@ export async function getMessageModelCatalog(input: {
     if (!models.some((model) => model.id === extra.id && model.provider === extra.provider)) {
       models.push(extra)
     }
+  }
+  if (liveCatalogUnavailable && connectedExtras.length > 0) {
+    warning = 'Live model refresh is unavailable for the selected runtime; showing the supported catalogue for your connected providers.'
   }
 
   const autoModel = cleanMessageModelId(runtimeSummary.primaryModel) || registryDefaultModel || undefined

@@ -336,7 +336,8 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     })
 
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove Acme Cowork from my projects' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'More actions for Acme Cowork' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Acme Cowork from my projects' }))
 
     await waitFor(() => expect(screen.queryByTestId('hermes-project-project-1')).not.toBeInTheDocument())
     expect(global.fetch).toHaveBeenCalledWith(
@@ -1824,6 +1825,8 @@ describe('UnifiedChat message scrolling', () => {
     expect(within(launchProject).queryByTestId('conversation-row-conv-project-one')).not.toBeInTheDocument()
     fireEvent.click(within(launchProject).getByRole('button', { name: 'Expand sessions for Launch Project' }))
 
+    expect(within(launchProject).queryByRole('button', { name: 'Link client organisation to Launch Project' })).not.toBeInTheDocument()
+    fireEvent.click(within(launchProject).getByRole('button', { name: 'More actions for Launch Project' }))
     fireEvent.click(within(launchProject).getByRole('button', { name: 'Link client organisation to Launch Project' }))
     const accessDialog = await screen.findByRole('dialog', { name: 'Project access for Launch Project' })
     expect(within(accessDialog).getByRole('heading', { name: 'Link client organisation to Launch Project' })).toBeInTheDocument()
@@ -1955,6 +1958,7 @@ describe('UnifiedChat message scrolling', () => {
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
     const project = await screen.findByTestId('hermes-project-project-1')
     expect(within(project).queryByTestId(/project-location-badge/)).not.toBeInTheDocument()
+    fireEvent.click(within(project).getByRole('button', { name: 'More actions for Launch Project' }))
     fireEvent.click(within(project).getByRole('button', { name: 'Manage locations for Launch Project' }))
 
     const manager = await within(project).findByRole('region', { name: 'Manage locations for Launch Project' })
@@ -2002,6 +2006,7 @@ describe('UnifiedChat message scrolling', () => {
 
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
     const project = await screen.findByTestId('hermes-project-project-client')
+    fireEvent.click(within(project).getByRole('button', { name: 'More actions for New client project' }))
     fireEvent.click(within(project).getByRole('button', { name: 'Manage locations for New client project' }))
     const manager = await within(project).findByRole('region', { name: 'Manage locations for New client project' })
 
@@ -2332,6 +2337,7 @@ describe('UnifiedChat context references', () => {
         runtimeTarget: 'device-1',
         mappingId: 'mapping-1',
         folderScope: 'company',
+        companyName: 'Loyalty Plus',
         companyWorkspaceId: 'loyalty-plus',
       },
     }
@@ -2406,6 +2412,7 @@ describe('UnifiedChat context references', () => {
     )
 
     fireEvent.click(await screen.findByTestId('conversation-row-conv-1'))
+    expect(await screen.findByTestId('connection-where-chip')).toHaveTextContent('Computer · Peet Mac · Loyalty Plus via Client Growth')
     const input = await screen.findByPlaceholderText('Send a message')
     fireEvent.change(input, { target: { value: '@folders:rmicdev' } })
     fireEvent.click(await screen.findByText('rmicdev'))

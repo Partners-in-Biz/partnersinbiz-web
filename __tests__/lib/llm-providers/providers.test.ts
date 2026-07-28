@@ -9,6 +9,17 @@ describe('llm providers catalogue', () => {
     expect(hermesProviderForConnection('xai-oauth')).toBe('xai-oauth')
   })
 
+  it('keeps linked-computer fallbacks aligned with the Hermes override allowlist', () => {
+    expect(getLlmProvider('openai-codex')?.curatedModels).toEqual(expect.arrayContaining([
+      'gpt-5.6-luna',
+      'gpt-5.6-sol',
+      'gpt-5.6-terra',
+      'gpt-5.3-codex-spark',
+    ]))
+    expect(getLlmProvider('xai-oauth')?.curatedModels).toContain('grok-4.20-multi-agent-0309')
+    expect(getLlmProvider('xai')?.curatedModels).toEqual(getLlmProvider('xai-oauth')?.curatedModels)
+  })
+
   it('documents that Cursor is not a Hermes inference provider', () => {
     expect(UNSUPPORTED_CURSOR_NOTE.toLowerCase()).toContain('cursor')
     expect(UNSUPPORTED_CURSOR_NOTE.toLowerCase()).toContain('cannot power hermes')

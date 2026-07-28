@@ -1,0 +1,278 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
+import { adminDb } from '@/lib/firebase/admin'
+import { apiError, apiErrorFromException } from '@/lib/api/response'
+import { createLinkedAgent } from '@/lib/agents/team'
+import type { AgentTeamStoredDoc } from '@/lib/agents/types'
+import {
+  assertCanCreateAgentOnDevice,
+  buildScopedAgentId,
+  ORG_AGENT_HANDLE_RE,
+  runtimeSupportsCustomAgentProfiles,
+} from '@/lib/agents/org-agent-policy'
+import {
+  finalizeLinkedAgentProvisioning,
+  listDeviceDesiredAgents,
+  setDeviceDesiredAgents,
+} from '@/lib/linked-computers/agent-host-service'
+import type { LinkedDevice } from '@/lib/linked-computers/types'
+import type { OrgRole } from '@/lib/organizations/types'
+
+export const dynamic = 'force-dynamic'
+
+function safeAgent(agent: AgentTeamStoredDoc) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { apiKey: _apiKey, ...safe } = agent
+  return safe
+}
+
+export const GET = withPortalAuthAndRole(
+  'viewer',
+  async (_req: NextRequest, uid: string, orgId: string, role: OrgRole) => {
+    try {
+      const [agentSnap, personalDeviceSnap, orgDeviceSnap] = await Promise.all([
+        adminDb.collection('agent_team').where('scopeOrgId', '==', orgId).get(),
+        adminDb.collection('linked_devices').where('ownerUserId', '==', uid).get(),
+        role === 'owner' || role === 'admin'
+          ? adminDb.collection('linked_devices').where('ownerOrgId', '==', orgId).get()
+          : Promise.resolve({ docs: [] }),
+      ])
+      const member = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
+      const { normalizeMemberAccessPolicy } = await import('@/lib/orgMembers/access-policy')
+      const policy = normalizeMemberAccessPolicy(member.data()?.accessPolicy)
+      const grantedAgentIds = new Set(Object.values(policy.agentRuntimeAccess).flat())
+      const canManageOrgAgents = role === 'owner' || role === 'admin'
+
+      const agents = agentSnap.docs
+        .map((doc) => safeAgent(doc.data() as AgentTeamStoredDoc))
+        .filter((agent) => agent.accessScope === 'personal'
+          ? agent.ownerUserId === uid || grantedAgentIds.has(agent.agentId)
+          : canManageOrgAgents || agent.ownerUserId === uid || grantedAgentIds.has(agent.agentId))
+        .map((agent) => ({
+          ...agent,
+          canManage: agent.ownerUserId === uid || (canManageOrgAgents && agent.accessScope !== 'personal'),
+          hasAccess: agent.ownerUserId === uid
+            || (canManageOrgAgents && agent.accessScope !== 'personal')
+            || grantedAgentIds.has(agent.agentId),
+        }))
+      const devices = [...personalDeviceSnap.docs, ...orgDeviceSnap.docs]
+        .filter((doc, index, all) => all.findIndex((candidate) => candidate.id === doc.id) === index)
+        .map((doc) => {
+          const device = doc.data() as LinkedDevice
+          return {
+            deviceId: doc.id,
+            runtimeTargetId: device.runtimeTargetId || `linked-device:${doc.id}`,
+            label: device.label,
+            deviceKind: device.deviceKind === 'vps' ? 'vps' : 'computer',
+            ownerType: device.ownerType === 'organization' ? 'organization' : 'user',
+            status: device.status,
+            runtimeVersion: device.runtimeVersion,
+            supportsCustomAgents: runtimeSupportsCustomAgentProfiles(device.runtimeVersion),
+          }
+        })
+        .filter((device) => device.status === 'active')
+
+      return NextResponse.json({ data: { agents, devices, canManageOrgAgents } })
+    } catch (error) {
+      return apiErrorFromException(error)
+    }
+  },
+)
+
+export const POST = withPortalAuthAndRole(
+  'viewer',
+  async (req: NextRequest, uid: string, orgId: string, role: OrgRole) => {
+    let body: Record<string, unknown>
+    try {
+      body = await req.json() as Record<string, unknown>
+    } catch {
+      return apiError('Invalid JSON body', 400)
+    }
+
+    const agentHandle = String(body.agentId ?? '').trim().toLowerCase()
+    const agentId = ORG_AGENT_HANDLE_RE.test(agentHandle)
+      ? buildScopedAgentId(orgId, agentHandle)
+      : ''
+    const deviceId = String(body.deviceId ?? '').trim()
+    const name = String(body.name ?? '').trim()
+    const agentRole = String(body.role ?? 'Specialist').trim()
+    const persona = String(body.persona ?? '').trim()
+    const defaultModel = String(body.defaultModel ?? 'auto').trim() || 'auto'
+    const iconKey = String(body.iconKey ?? 'smart_toy').trim() || 'smart_toy'
+    const colorKey = String(body.colorKey ?? 'sky').trim() || 'sky'
+    if (!agentId) return apiError('Agent ID must contain 2–20 lowercase letters, numbers, dots, dashes, or underscores', 400)
+    if (!deviceId) return apiError('Choose a computer for this agent', 400)
+    if (!name || !agentRole || !persona) return apiError('Name, role, and purpose are required', 400)
+    if (name.length > 100) return apiError('Name must be 100 characters or fewer', 400)
+    if (agentRole.length > 120) return apiError('Role must be 120 characters or fewer', 400)
+    if (persona.length > 20_000) return apiError('Purpose and behaviour must be 20,000 characters or fewer', 400)
+    if (defaultModel.length > 200) return apiError('Default model must be 200 characters or fewer', 400)
+    if (!/^[a-z0-9_]{1,48}$/.test(iconKey)) return apiError('Invalid agent icon', 400)
+    if (!['sky', 'violet', 'amber', 'emerald', 'rose', 'cyan', 'indigo', 'orange', 'teal', 'slate'].includes(colorKey)) {
+      return apiError('Invalid agent colour', 400)
+    }
+
+    const deviceRef = adminDb.collection('linked_devices').doc(deviceId)
+    const deviceDoc = await deviceRef.get()
+    if (!deviceDoc.exists) return apiError('Computer not found', 404)
+    const device = { deviceId, ...deviceDoc.data() } as LinkedDevice
+    if (!runtimeSupportsCustomAgentProfiles(device.runtimeVersion)) {
+      return apiError('Update this linked computer runtime before creating agents', 409)
+    }
+    let accessScope: 'personal' | 'organization'
+    try {
+      accessScope = assertCanCreateAgentOnDevice({ device, actorUserId: uid, orgId, role })
+    } catch (error) {
+      return apiError(error instanceof Error ? error.message : 'You cannot create an agent on this computer', 403)
+    }
+
+    try {
+      const agent = await createLinkedAgent({
+        agentId,
+        name,
+        role: agentRole,
+        persona,
+        defaultModel,
+        iconKey,
+        colorKey,
+        scopeOrgId: orgId,
+        agentHandle,
+        ownerUserId: accessScope === 'personal' ? uid : undefined,
+        createdByUserId: uid,
+        homeDeviceId: deviceId,
+        accessScope,
+      })
+
+      try {
+        const inventory = await listDeviceDesiredAgents(deviceId)
+        const desired = inventory.desiredAgents.map((row) => ({
+          agentId: row.agentId,
+          keepInSync: row.keepInSync,
+        }))
+        if (!desired.some((row) => row.agentId === agentId)) {
+          desired.push({ agentId, keepInSync: true })
+        }
+        const sync = await setDeviceDesiredAgents({
+          deviceId,
+          actorUserId: uid,
+          orgId,
+          desired,
+        })
+        const runtimeTargetId = device.runtimeTargetId || `linked-device:${deviceId}`
+        return NextResponse.json({
+          data: {
+            agent,
+            deviceId,
+            runtimeTargetId,
+            enqueuedJobIds: sync.enqueuedJobIds,
+            status: 'installing',
+          },
+        }, { status: 201 })
+      } catch (error) {
+        // Keep the registry row as the durable provisioning saga anchor. A
+        // device update or queue write may already have succeeded, so deleting
+        // only this row would orphan a signed install job with no tenant owner.
+        const createdRef = adminDb.collection('agent_team').doc(agentId)
+        const createdDoc = await createdRef.get().catch(() => null)
+        const createdRow = createdDoc?.data()
+        if (createdDoc?.exists
+          && createdRow?.scopeOrgId === orgId
+          && createdRow?.createdByUserId === uid
+          && createdRow?.homeDeviceId === deviceId) {
+          await createdRef.update({
+            provisioningStatus: 'failed',
+            provisioningError: error instanceof Error ? error.message.slice(0, 500) : 'Agent installation could not be queued',
+            updatedAt: new Date(),
+          }).catch(() => undefined)
+        }
+        throw error
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create agent'
+      if (/already exists|already_exists|6 ALREADY_EXISTS/i.test(message)) {
+        return apiError('An agent with that ID already exists in this organisation', 409)
+      }
+      return apiErrorFromException(error)
+    }
+  },
+)
+
+export const PATCH = withPortalAuthAndRole(
+  'viewer',
+  async (req: NextRequest, uid: string, orgId: string, role: OrgRole) => {
+    const body = await req.json().catch(() => null) as Record<string, unknown> | null
+    const agentId = typeof body?.agentId === 'string' ? body.agentId.trim() : ''
+    if (!agentId) return apiError('Agent ID is required', 400)
+
+    const agentRef = adminDb.collection('agent_team').doc(agentId)
+    const agentDoc = await agentRef.get()
+    const agent = agentDoc.data() as AgentTeamStoredDoc | undefined
+    if (!agentDoc.exists || !agent || agent.scopeOrgId !== orgId || agent.provisioningMode !== 'linked_device') {
+      return apiError('Agent not found', 404)
+    }
+    const canRetry = agent.accessScope === 'personal'
+      ? agent.ownerUserId === uid
+      : role === 'owner' || role === 'admin'
+    if (!canRetry) return apiError('You cannot retry this agent', 403)
+    if (!agent.homeDeviceId) return apiError('Agent has no home computer', 409)
+
+    const deviceDoc = await adminDb.collection('linked_devices').doc(agent.homeDeviceId).get()
+    if (!deviceDoc.exists) return apiError('Computer not found', 404)
+    const device = { deviceId: agent.homeDeviceId, ...deviceDoc.data() } as LinkedDevice
+    try {
+      if (!runtimeSupportsCustomAgentProfiles(device.runtimeVersion)) {
+        return apiError('Update this linked computer runtime before retrying the agent', 409)
+      }
+      assertCanCreateAgentOnDevice({ device, actorUserId: uid, orgId, role })
+      await agentRef.update({
+        provisioningStatus: 'installing',
+        provisioningError: null,
+        updatedAt: new Date(),
+      })
+      const inventory = await listDeviceDesiredAgents(agent.homeDeviceId)
+      if (inventory.availableAgentIds.includes(agentId)) {
+        const result = await finalizeLinkedAgentProvisioning({
+          agent,
+          deviceId: agent.homeDeviceId,
+        })
+        return NextResponse.json({
+          data: {
+            agentId,
+            deviceId: agent.homeDeviceId,
+            enqueuedJobIds: [],
+            status: result.ready ? 'ready' : 'failed',
+            error: result.error,
+          },
+        }, { status: result.ready ? 200 : 409 })
+      }
+      const desired = inventory.desiredAgents.map((row) => ({
+        agentId: row.agentId,
+        keepInSync: row.keepInSync,
+      }))
+      if (!desired.some((row) => row.agentId === agentId)) {
+        desired.push({ agentId, keepInSync: true })
+      }
+      const sync = await setDeviceDesiredAgents({
+        deviceId: agent.homeDeviceId,
+        actorUserId: uid,
+        orgId,
+        desired,
+      })
+      return NextResponse.json({
+        data: {
+          agentId,
+          deviceId: agent.homeDeviceId,
+          enqueuedJobIds: sync.enqueuedJobIds,
+          status: 'installing',
+        },
+      })
+    } catch (error) {
+      await agentRef.update({
+        provisioningStatus: 'failed',
+        provisioningError: error instanceof Error ? error.message.slice(0, 500) : 'Agent installation could not be queued',
+        updatedAt: new Date(),
+      }).catch(() => undefined)
+      return apiErrorFromException(error)
+    }
+  },
+)

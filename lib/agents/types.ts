@@ -68,6 +68,18 @@ export interface AgentTeamDoc extends AgentRegistryEntry {
   lastHealthCheck?: Timestamp
   lastHealthStatus?: 'ok' | 'degraded' | 'unreachable'
   skillPolicy?: AgentSkillPolicyState
+  /** Custom agents created from an organisation workspace remain tenant-scoped. */
+  scopeOrgId?: string
+  /** Tenant-local handle shown to users; agentId remains a globally unique runtime key. */
+  agentHandle?: string
+  /** User that created and owns a personal linked-computer agent. */
+  ownerUserId?: string
+  createdByUserId?: string
+  homeDeviceId?: string
+  provisioningMode?: 'platform_vps' | 'linked_device'
+  provisioningStatus?: 'installing' | 'ready' | 'failed'
+  provisioningError?: string | null
+  accessScope?: 'personal' | 'organization'
   createdAt: Timestamp
   updatedAt: Timestamp
 }
