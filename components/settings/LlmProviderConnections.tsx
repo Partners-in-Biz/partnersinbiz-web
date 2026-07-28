@@ -22,6 +22,7 @@ function statusTone(status: string) {
 export default function LlmProviderConnections({ orgId }: { orgId: string }) {
   const [providers, setProviders] = useState<LlmProviderDefinition[]>([])
   const [connections, setConnections] = useState<LlmProviderConnectionMasked[]>([])
+  const [canManageOrgConnections, setCanManageOrgConnections] = useState(false)
   const [syncTargets, setSyncTargets] = useState<LlmProviderCatalogResponse['syncTargets']>()
   const [notes, setNotes] = useState<LlmProviderCatalogResponse['notes'] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -36,6 +37,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
       const data = await listLlmProviderCatalog(orgId)
       setProviders(data.providers)
       setConnections(data.connections)
+      setCanManageOrgConnections(data.canManageOrgConnections)
       setSyncTargets(data.syncTargets)
       setNotes(data.notes)
     } catch (e) {
@@ -155,6 +157,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
                   <ConnectedRow
                     key={conn.id}
                     connection={conn}
+                    canManageOrgConnections={canManageOrgConnections}
                     onResync={async () => {
                       await resyncLlmConnection(orgId, conn.id)
                       await refresh()
@@ -170,6 +173,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
                 openForm === provider.key ? (
                   <ConnectForm
                     provider={provider}
+                    canManageOrgConnections={canManageOrgConnections}
                     onCancel={() => setOpenForm(null)}
                     onApiKey={async (payload) => {
                       await connectLlmApiKey({ orgId, provider: provider.key, ...payload })
@@ -221,16 +225,19 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
 
 function ConnectedRow({
   connection,
+  canManageOrgConnections,
   onResync,
   onDisconnect,
 }: {
   connection: LlmProviderConnectionMasked
+  canManageOrgConnections: boolean
   onResync: () => Promise<void>
   onDisconnect: () => Promise<void>
 }) {
   const [busy, setBusy] = useState(false)
   const [rowError, setRowError] = useState<string | null>(null)
   const isPersonal = connection.scope === 'user'
+  const canManage = isPersonal || canManageOrgConnections
   const run = (fn: () => Promise<void>) => async () => {
     setBusy(true)
     setRowError(null)
@@ -255,19 +262,23 @@ function ConnectedRow({
             {connection.status}
           </span>
         </div>
-        <div className="flex gap-2">
-          <button type="button" className="btn-pib-secondary text-xs" disabled={busy} onClick={run(onResync)}>
-            {isPersonal ? 'Sync to my computers' : 'Sync to organisation VPS'}
-          </button>
-          <button
-            type="button"
-            className="btn-pib-secondary text-xs text-red-300"
-            disabled={busy}
-            onClick={run(onDisconnect)}
-          >
-            Disconnect
-          </button>
-        </div>
+        {canManage ? (
+          <div className="flex gap-2">
+            <button type="button" className="btn-pib-secondary text-xs" disabled={busy} onClick={run(onResync)}>
+              {isPersonal ? 'Sync to my computers' : 'Sync to organisation VPS'}
+            </button>
+            <button
+              type="button"
+              className="btn-pib-secondary text-xs text-red-300"
+              disabled={busy}
+              onClick={run(onDisconnect)}
+            >
+              Disconnect
+            </button>
+          </div>
+        ) : (
+          <span className="text-[11px] text-[var(--color-pib-text-muted)]">Managed by an organisation admin</span>
+        )}
       </div>
       <p className="font-mono text-xs text-[var(--color-pib-text-muted)]">{connection.credentialHint}</p>
       {isPersonal ? (
@@ -287,18 +298,20 @@ function ConnectedRow({
 
 function ConnectForm({
   provider,
+  canManageOrgConnections,
   onCancel,
   onApiKey,
   onOauth,
 }: {
   provider: LlmProviderDefinition
+  canManageOrgConnections: boolean
   onCancel: () => void
   onApiKey: (payload: { scope: 'org' | 'user'; label: string; credentials: Record<string, string> }) => Promise<void>
   onOauth: (payload: { scope: 'org' | 'user'; label?: string }) => Promise<void>
 }) {
   const [values, setValues] = useState<Record<string, string>>({})
   const [nickname, setNickname] = useState('')
-  const [scope, setScope] = useState<'org' | 'user'>('org')
+  const [scope, setScope] = useState<'org' | 'user'>(canManageOrgConnections ? 'org' : 'user')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const wantsOauth = provider.oauthCapable && provider.credentialFields.length === 0
@@ -350,15 +363,17 @@ function ConnectForm({
         />
       </label>
       <div className="space-y-2 text-sm text-[var(--color-pib-text)]">
-        <label className="flex items-start gap-2">
-          <input type="radio" className="mt-1" checked={scope === 'org'} onChange={() => setScope('org')} />
-          <span>
-            <span className="font-medium">This organisation’s VPS</span>
-            <span className="block text-xs text-[var(--color-pib-text-muted)]">
-              Shared by everyone using the organisation VPS. Admins only. Synced to Hermes on that VPS.
+        {canManageOrgConnections ? (
+          <label className="flex items-start gap-2">
+            <input type="radio" className="mt-1" checked={scope === 'org'} onChange={() => setScope('org')} />
+            <span>
+              <span className="font-medium">This organisation’s VPS</span>
+              <span className="block text-xs text-[var(--color-pib-text-muted)]">
+                Shared by everyone using the organisation VPS. Synced to Hermes on that VPS.
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+        ) : null}
         <label className="flex items-start gap-2">
           <input type="radio" className="mt-1" checked={scope === 'user'} onChange={() => setScope('user')} />
           <span>

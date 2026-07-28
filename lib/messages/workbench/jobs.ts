@@ -1,5 +1,5 @@
 import * as crypto from 'node:crypto'
-import { isAllowlistedShellArgv, normalizeShellArgv } from './shell-allowlist'
+import { isAllowlistedShellArgv, isSafeCustomShellArgv, normalizeShellArgv } from './shell-allowlist'
 
 const ENVELOPE_CONTEXT = 'conversation-workbench-job:v1'
 const MAX_PATH_LENGTH = 512
@@ -28,7 +28,7 @@ export type WorkbenchOperation =
   | { kind: 'fs.write'; path: string; content: string; expectedSha256?: string }
   | { kind: 'git.status' }
   | { kind: 'git.diff'; path?: string; staged?: boolean }
-  | { kind: 'shell.exec'; argv: string[]; cwd?: string; timeoutMs?: number }
+  | { kind: 'shell.exec'; argv: string[]; cwd?: string; timeoutMs?: number; allowedShellArgv?: string[][] }
 
 export type WorkbenchResult =
   | { entries: Array<{ path: string; type: 'file' | 'directory'; size?: number }> }
@@ -213,12 +213,25 @@ export function parseWorkbenchOperation(value: unknown): WorkbenchOperation {
       }
     }
     case 'shell.exec': {
-      if (!exactKeys(input, ['kind', 'argv', 'cwd', 'timeoutMs'])
+      if (!exactKeys(input, ['kind', 'argv', 'cwd', 'timeoutMs', 'allowedShellArgv'])
         || !Array.isArray(input.argv) || !input.argv.every((item) => typeof item === 'string')) {
         return invalidOperation()
       }
       const argv = normalizeShellArgv(input.argv as string[])
-      if (!argv || !isAllowlistedShellArgv(argv)) return invalidOperation()
+      let allowedShellArgv: string[][] | undefined
+      if (input.allowedShellArgv !== undefined) {
+        if (!Array.isArray(input.allowedShellArgv) || input.allowedShellArgv.length === 0 || input.allowedShellArgv.length > 40) {
+          return invalidOperation()
+        }
+        allowedShellArgv = []
+        for (const candidate of input.allowedShellArgv) {
+          if (!Array.isArray(candidate) || !candidate.every((part) => typeof part === 'string')) return invalidOperation()
+          const normalized = normalizeShellArgv(candidate as string[])
+          if (!normalized || !isSafeCustomShellArgv(normalized)) return invalidOperation()
+          allowedShellArgv.push(normalized)
+        }
+      }
+      if (!argv || !isAllowlistedShellArgv(argv, allowedShellArgv)) return invalidOperation()
       let cwd: string | undefined
       if (input.cwd !== undefined) {
         if (typeof input.cwd !== 'string') return invalidOperation()
@@ -230,7 +243,7 @@ export function parseWorkbenchOperation(value: unknown): WorkbenchOperation {
         if (!Number.isSafeInteger(input.timeoutMs)) return invalidOperation()
         timeoutMs = Math.min(MAX_SHELL_TIMEOUT_MS, Math.max(MIN_SHELL_TIMEOUT_MS, Number(input.timeoutMs)))
       }
-      return { kind: 'shell.exec', argv, ...(cwd ? { cwd } : {}), timeoutMs }
+      return { kind: 'shell.exec', argv, ...(cwd ? { cwd } : {}), timeoutMs, ...(allowedShellArgv ? { allowedShellArgv } : {}) }
     }
     default:
       return invalidOperation()

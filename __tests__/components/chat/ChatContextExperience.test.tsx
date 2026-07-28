@@ -72,6 +72,29 @@ describe('useChatContexts', () => {
     )
   })
 
+  it('reloads a linked folder through its conversation-bound context reference', async () => {
+    const folderConversation = {
+      id: 'conv-linked-folder',
+      contextRefs: [{
+        type: 'workspace_folder', id: 'workbench-directory:sealed-id', label: 'lp-angular/config-split/ffqved',
+        metadata: { contextKind: 'workbench_path', path: 'lp-angular/config-split/ffqved' },
+      }],
+    }
+    global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ data: {
+      context: { kind: 'workspace_folder', id: 'workbench-directory:sealed-id', orgId: 'org-1', label: 'lp-angular/config-split/ffqved', icon: 'folder_open' },
+      pulse: { label: 'workspace folder', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: new Date().toISOString(),
+    } }) })) as jest.Mock
+
+    const { result } = renderHook(() => useChatContexts('org-1', folderConversation))
+    await waitFor(() => expect(result.current.model?.context.id).toBe('workbench-directory:sealed-id'))
+
+    expect(result.current.activeContext).toEqual(expect.objectContaining({ workbenchPath: 'lp-angular/config-split/ffqved' }))
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/chat-context/workspace_folder/workbench-directory%3Asealed-id?conversationId=conv-linked-folder',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+  })
+
   it('does not dedupe same-id task contexts from different projects or reuse their cached canvas model', async () => {
     const taskConversation = {
       id: 'conv-colliding-project-tasks',

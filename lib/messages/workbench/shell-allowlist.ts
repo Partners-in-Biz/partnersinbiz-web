@@ -23,6 +23,8 @@ export const ALLOWLISTED_SHELL_ARGV: readonly (readonly string[])[] = [
   ['git', 'branch', '--show-current'],
 ]
 
+export const DEFAULT_ALLOWLISTED_SHELL_ARGV = ALLOWLISTED_SHELL_ARGV
+
 /** Human-readable `argv.join(' ')` list for terminal/error-message display. */
 export const ALLOWLISTED_SHELL_COMMANDS: readonly string[] = ALLOWLISTED_SHELL_ARGV.map((argv) => argv.join(' '))
 
@@ -35,6 +37,11 @@ const MAX_ARG_LENGTH = 256
 const SHELL_METACHARACTERS = /[|;$<>`&(){}[\]*?~]/
 const COMMAND_LINE_UNSAFE_CHARACTERS = /["'|;$<>`&(){}[\]*?~\\]/
 const DISALLOWED_INTERPRETERS = new Set(['sh', 'bash', 'zsh', 'cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh'])
+const DISALLOWED_CUSTOM_EXECUTABLES = new Set([
+  ...DISALLOWED_INTERPRETERS,
+  'rm', 'rmdir', 'dd', 'diskutil', 'shutdown', 'reboot', 'halt', 'poweroff',
+  'kill', 'pkill', 'killall', 'chmod', 'chown', 'sudo', 'su', 'curl', 'wget',
+])
 
 /**
  * Trims and validates a candidate argv array. Rejects empty arrays/args,
@@ -58,11 +65,24 @@ export function normalizeShellArgv(argv: string[]): string[] | null {
   return normalized
 }
 
-/** Exact-match only for MVP — no prefix/wildcard matching against templates. */
-export function isAllowlistedShellArgv(argv: string[]): boolean {
+/** Additional guard for owner-managed policy entries that broaden defaults. */
+export function isSafeCustomShellArgv(argv: string[]): boolean {
   const normalized = normalizeShellArgv(argv)
   if (!normalized) return false
-  return ALLOWLISTED_SHELL_ARGV.some((template) =>
+  const executable = normalized[0].toLowerCase().split('/').pop() ?? normalized[0].toLowerCase()
+  if (DISALLOWED_CUSTOM_EXECUTABLES.has(executable) || executable.startsWith('mkfs')) return false
+  if (executable === 'git' && ['clean', 'reset'].includes(normalized[1]?.toLowerCase() ?? '')) return false
+  return true
+}
+
+/** Exact-match only for MVP — no prefix/wildcard matching against templates. */
+export function isAllowlistedShellArgv(
+  argv: string[],
+  allowlist: readonly (readonly string[])[] = ALLOWLISTED_SHELL_ARGV,
+): boolean {
+  const normalized = normalizeShellArgv(argv)
+  if (!normalized) return false
+  return allowlist.some((template) =>
     template.length === normalized.length && template.every((segment, index) => segment === normalized[index]))
 }
 
@@ -81,8 +101,11 @@ export function parseShellCommandLine(command: string): string[] | null {
 }
 
 /** Parses a command line and returns its normalized argv only if allowlisted. */
-export function mapShellCommandToArgv(command: string): string[] | null {
+export function mapShellCommandToArgv(
+  command: string,
+  allowlist: readonly (readonly string[])[] = ALLOWLISTED_SHELL_ARGV,
+): string[] | null {
   const argv = parseShellCommandLine(command)
   if (!argv) return null
-  return isAllowlistedShellArgv(argv) ? normalizeShellArgv(argv) : null
+  return isAllowlistedShellArgv(argv, allowlist) ? normalizeShellArgv(argv) : null
 }

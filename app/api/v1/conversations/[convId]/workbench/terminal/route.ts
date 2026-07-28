@@ -7,7 +7,13 @@ import { mapTerminalCommandToOperation } from '@/lib/messages/workbench/browser-
 import { authorizeWorkbenchConversation, WorkbenchAuthorizationError } from '@/lib/messages/workbench/authorization'
 import { enqueueWorkbenchJob, type EnqueueWorkbenchJobInput } from '@/lib/messages/workbench/job-store'
 import { publicWorkbenchJob } from '@/lib/messages/workbench/jobs'
-import { ALLOWLISTED_SHELL_COMMANDS } from '@/lib/messages/workbench/shell-allowlist'
+import {
+  ALLOWLISTED_SHELL_COMMANDS,
+  isSafeCustomShellArgv,
+  parseShellCommandLine,
+} from '@/lib/messages/workbench/shell-allowlist'
+import { linkedRuntimeUpdateRequired } from '@/lib/linked-computers/runtime-targets'
+import { getTerminalPolicy, type TerminalPolicy } from '@/lib/messages/workbench/terminal-policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +22,7 @@ type RouteAuthorization = Awaited<ReturnType<typeof authorizeWorkbenchConversati
 interface TerminalDependencies {
   authorize: (user: ApiUser, conversationId: string) => Promise<RouteAuthorization>
   enqueue: (input: EnqueueWorkbenchJobInput) => Promise<Awaited<ReturnType<typeof enqueueWorkbenchJob>>>
+  loadPolicy?: (orgId: string) => Promise<TerminalPolicy>
 }
 
 /**
@@ -54,16 +61,40 @@ export async function handleWorkbenchTerminalCommand(
       return apiSuccess({ cwd: authorization.relativeFolder })
     }
 
-    const operation = mapTerminalCommandToOperation(command)
+    const defaultOperation = mapTerminalCommandToOperation(command)
+    const customCandidate = defaultOperation ? null : parseShellCommandLine(command)
+    if (!defaultOperation && (!customCandidate || !isSafeCustomShellArgv(customCandidate))) {
+      return apiError(
+        `Command is not allowlisted for workbench terminal jobs. Allowed: ${[
+          ...TYPED_TERMINAL_COMMANDS,
+          ...ALLOWLISTED_SHELL_COMMANDS,
+        ].join(', ')}`,
+        400,
+        { code: 'WORKBENCH_SHELL_COMMAND_NOT_ALLOWED' },
+      )
+    }
+    const authorization = await dependencies.authorize(user, conversationId)
+    const policy = defaultOperation
+      ? null
+      : await (dependencies.loadPolicy ?? getTerminalPolicy)(authorization.conversation.orgId)
+        .catch(() => null)
+    const operation = defaultOperation
+      ?? (policy ? mapTerminalCommandToOperation(command, policy.allowedShellArgv) : null)
     if (!operation) {
       return apiError(
-        `Command is not allowlisted for workbench terminal jobs. Allowed: ${[...TYPED_TERMINAL_COMMANDS, ...ALLOWLISTED_SHELL_COMMANDS].join(', ')}`,
+        `Command is not allowlisted for workbench terminal jobs. Allowed: ${[
+          ...TYPED_TERMINAL_COMMANDS,
+          ...(policy?.allowedShellArgv.map((argv) => argv.join(' ')) ?? ALLOWLISTED_SHELL_COMMANDS),
+        ].join(', ')}`,
         400,
         { code: 'WORKBENCH_SHELL_COMMAND_NOT_ALLOWED' },
       )
     }
 
-    const authorization = await dependencies.authorize(user, conversationId)
+    const usesCustomPolicy = !defaultOperation && operation.kind === 'shell.exec' && Boolean(policy)
+    if (usesCustomPolicy && linkedRuntimeUpdateRequired(authorization.binding.runtimeVersion, '1.1.11')) {
+      return apiError('Computer runtime update required for custom terminal policy (minimum 1.1.11)', 409)
+    }
     if (user.role !== 'admin' && user.role !== 'client') return apiError('Forbidden', 403)
     const job = await dependencies.enqueue({
       idempotencyKey: `terminal-${crypto.randomUUID()}`,
@@ -80,7 +111,9 @@ export async function handleWorkbenchTerminalCommand(
       ...(authorization.projectReplicaId ? { projectReplicaId: authorization.projectReplicaId } : {}),
       relativeFolder: authorization.relativeFolder,
       kind: operation.kind,
-      operation,
+      operation: usesCustomPolicy && policy
+        ? { ...operation, allowedShellArgv: policy.allowedShellArgv }
+        : operation,
     })
     return apiSuccess(publicWorkbenchJob(job), 202)
   } catch (error) {

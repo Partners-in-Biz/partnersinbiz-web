@@ -21,13 +21,15 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const orgId = resolveOrgId(req, user)
   if (!orgId) return apiError('orgId is required', 400)
   if (!clientCanAccessOrg(user, orgId)) return apiError('Forbidden', 403)
-  const [connections, syncTargets] = await Promise.all([
+  const [connections, syncTargets, canManageOrgConnections] = await Promise.all([
     listLlmProviderConnections({ orgId, uid: user.uid }),
     resolveOrgLlmSyncTargets(orgId),
+    canWriteOrgLlmConnection(user, orgId),
   ])
   return apiSuccess({
     providers: listLlmProviders(),
     connections,
+    canManageOrgConnections,
     syncTargets: {
       orgVpsDeviceCount: syncTargets.orgVpsDeviceCount,
       hasHermesProfileLink: syncTargets.hasHermesProfileLink,

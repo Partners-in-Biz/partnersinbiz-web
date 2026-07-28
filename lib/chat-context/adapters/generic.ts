@@ -80,7 +80,7 @@ export const genericChatContextAdapter: ChatContextAdapter = {
   async resolve(input) {
     const orgId = input.user.activeOrgId ?? input.user.orgId
     const [ref] = await resolveContextReferences([
-      {
+      input.contextReference ?? {
         type: input.kind,
         id: input.id,
         orgId,

@@ -28,7 +28,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, ct
   const session = await getOauthSession(sessionId)
   if (!session) return apiError('OAuth session not found', 404)
   if (session.ownerUid !== user.uid) return apiError('Forbidden', 403)
-  if (session.orgId !== orgId && session.scope === 'org') return apiError('Forbidden', 403)
+  if (session.orgId !== orgId) return apiError('Forbidden', 403)
 
   if (session.status === 'completed') {
     return apiSuccess({ session: publicOauthSession(session), connectionId: session.id })

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
-import { clientCanAccessOrg } from '@/lib/llm-providers/org-guard'
+import { clientCanAccessOrg, canWriteOrgLlmConnection } from '@/lib/llm-providers/org-guard'
 import {
   getLlmProviderConnection,
   revokeLlmProviderConnection,
@@ -30,6 +30,9 @@ export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser,
   const existing = await getLlmProviderConnection(id)
   if (!existing) return apiError('Connection not found', 404)
   if (!canManageLlmConnection(existing, { orgId, uid: user.uid })) return apiError('Forbidden', 403)
+  if (existing.scope === 'org' && !(await canWriteOrgLlmConnection(user, orgId))) {
+    return apiError('Only organisation admins can disconnect shared organisation VPS credentials.', 403)
+  }
 
   // Best-effort unset on agents previously synced (org VPS and/or personal linked computers).
   if (existing.syncedAgentIds?.length && existing.authKind !== 'oauth_token') {
@@ -81,6 +84,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const existing = await getLlmProviderConnection(id)
   if (!existing) return apiError('Connection not found', 404)
   if (!canManageLlmConnection(existing, { orgId, uid: user.uid })) return apiError('Forbidden', 403)
+  if (existing.scope === 'org' && !(await canWriteOrgLlmConnection(user, orgId))) {
+    return apiError('Only organisation admins can sync shared organisation VPS credentials.', 403)
+  }
   const body = await req.json().catch(() => ({})) as { agentIds?: string[] }
   try {
     const sync = await syncLlmConnectionToHermes(id, {

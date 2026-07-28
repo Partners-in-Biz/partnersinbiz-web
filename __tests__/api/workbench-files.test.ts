@@ -258,6 +258,44 @@ describe('POST /api/v1/conversations/[convId]/workbench/terminal', () => {
     expect(body.data).toMatchObject({ jobId: 'job-2', kind: 'shell.exec', status: 'queued' })
   })
 
+  it('enqueues an owner-managed exact command only for runtime 1.1.11+', async () => {
+    const { handleWorkbenchTerminalCommand } = await import('@/app/api/v1/conversations/[convId]/workbench/terminal/route')
+    const authorization = {
+      conversation: { id: 'conv-1', orgId: 'org-1' },
+      projectId: null,
+      relativeFolder: '.',
+      binding: {
+        deviceId: 'device-a', runtimeTargetId: 'runtime-a', credentialVersion: 3,
+        workspaceId: 'workspace-a', mappingId: 'mapping-a', runtimeVersion: '1.1.11',
+      },
+    }
+    const authorize = jest.fn(async () => authorization as never)
+    const enqueue = jest.fn(async (input: Record<string, unknown>) => ({
+      jobId: 'job-custom', kind: input.kind, status: 'queued', attempt: 0,
+      createdAtMs: 1_000, updatedAtMs: 1_000, expiresAtMs: 100_000,
+      encryptedOperation: null, encryptedResult: null,
+    } as unknown as WorkbenchJob))
+    const loadPolicy = jest.fn(async () => ({ allowedShellArgv: [['npm', 'run', 'typecheck']] }))
+    const request = new NextRequest('http://localhost/api/v1/conversations/conv-1/workbench/terminal', {
+      method: 'POST',
+      body: JSON.stringify({ command: 'npm run typecheck' }),
+    })
+    const response = await handleWorkbenchTerminalCommand(
+      request,
+      { uid: 'client-1', role: 'client', orgId: 'org-1' } as never,
+      'conv-1',
+      { authorize, enqueue, loadPolicy },
+    )
+    expect(response.status).toBe(202)
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({
+      operation: {
+        kind: 'shell.exec',
+        argv: ['npm', 'run', 'typecheck'],
+        allowedShellArgv: [['npm', 'run', 'typecheck']],
+      },
+    }))
+  })
+
   it('lists both typed and shell.exec allowlisted commands in the rejection message', async () => {
     const { POST } = await import('@/app/api/v1/conversations/[convId]/workbench/terminal/route')
 
