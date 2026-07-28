@@ -16,6 +16,7 @@ import {
   mintMessagesDispatchDelegation,
 } from '@/lib/api/delegations'
 import { buildMailboxContextPromptBlock, listMailboxAccountsForUser } from '@/lib/mailbox/mailboxContext'
+import { buildDynamicChatCanvasPromptBlock } from '@/lib/messages/dynamicChatCanvasPrompt'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import {
@@ -776,6 +777,10 @@ export const POST = withAuth(
         conversationId: convId,
       })
       const mailboxAccounts = await listMailboxAccountsForUser(conversation.orgId, user.uid).catch(() => [])
+      const dynamicChatCanvasContext = buildDynamicChatCanvasPromptBlock({
+        conversationId: convId,
+        responseMessageId: assistantMessage.id,
+      })
       const mailboxContext = buildMailboxContextPromptBlock({
         orgId: conversation.orgId,
         uid: user.uid,
@@ -795,7 +800,7 @@ export const POST = withAuth(
           mailboxDelegationEvidenceId: mintedDelegation.mailboxDelegationEvidenceId,
         })
         : ''
-      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
+      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + dynamicChatCanvasContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
       if (linkedComputerBinding) {
         const hasImageAttachments = attachments.some((attachment) => (
           /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.contentType) && Boolean(attachment.storagePath)

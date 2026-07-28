@@ -378,7 +378,7 @@ Soft-delete.
 
 ### Messages quote preview handoff
 
-When creating or preparing a quote inside Messages, emit `open_context` so the human can review the document layout in the Context Dock:
+When creating or preparing a quote inside Messages, emit `open_context` so the human can review the document layout in the Context Dock. Always pass `conversationId` + `responseMessageId` from the Messages dynamic-chat canvas block on `POST /quotes` so the platform auto-attaches the canvas:
 
 ```json
 {
