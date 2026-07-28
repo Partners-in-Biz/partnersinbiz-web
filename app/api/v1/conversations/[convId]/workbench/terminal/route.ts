@@ -7,8 +7,7 @@ import { mapTerminalCommandToOperation } from '@/lib/messages/workbench/browser-
 import { authorizeWorkbenchConversation, WorkbenchAuthorizationError } from '@/lib/messages/workbench/authorization'
 import { enqueueWorkbenchJob, type EnqueueWorkbenchJobInput } from '@/lib/messages/workbench/job-store'
 import { publicWorkbenchJob } from '@/lib/messages/workbench/jobs'
-import { DEFAULT_ALLOWLISTED_SHELL_ARGV } from '@/lib/messages/workbench/shell-allowlist'
-import { getTerminalPolicy } from '@/lib/messages/workbench/terminal-policy'
+import { ALLOWLISTED_SHELL_COMMANDS } from '@/lib/messages/workbench/shell-allowlist'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,20 +54,10 @@ export async function handleWorkbenchTerminalCommand(
       return apiSuccess({ cwd: authorization.relativeFolder })
     }
 
-    let allowedShellArgv = DEFAULT_ALLOWLISTED_SHELL_ARGV.map((argv) => [...argv])
-    let hasCustomPolicy = false
-    let operation = mapTerminalCommandToOperation(command, allowedShellArgv)
-    if (!operation) {
-      // A policy read failure must never broaden host execution; fall back to
-      // the compiled safe defaults while still allowing the normal terminal UI.
-      const policy = await getTerminalPolicy(user.orgId).catch(() => ({ allowedShellArgv }))
-      allowedShellArgv = policy.allowedShellArgv
-      operation = mapTerminalCommandToOperation(command, allowedShellArgv)
-      hasCustomPolicy = Boolean(operation)
-    }
+    const operation = mapTerminalCommandToOperation(command)
     if (!operation) {
       return apiError(
-        `Command is not allowlisted for workbench terminal jobs. Allowed: ${[...TYPED_TERMINAL_COMMANDS, ...allowedShellArgv.map((argv) => argv.join(' '))].join(', ')}`,
+        `Command is not allowlisted for workbench terminal jobs. Allowed: ${[...TYPED_TERMINAL_COMMANDS, ...ALLOWLISTED_SHELL_COMMANDS].join(', ')}`,
         400,
         { code: 'WORKBENCH_SHELL_COMMAND_NOT_ALLOWED' },
       )
@@ -91,7 +80,7 @@ export async function handleWorkbenchTerminalCommand(
       ...(authorization.projectReplicaId ? { projectReplicaId: authorization.projectReplicaId } : {}),
       relativeFolder: authorization.relativeFolder,
       kind: operation.kind,
-      operation: operation.kind === 'shell.exec' && hasCustomPolicy ? { ...operation, allowedShellArgv } : operation,
+      operation,
     })
     return apiSuccess(publicWorkbenchJob(job), 202)
   } catch (error) {
