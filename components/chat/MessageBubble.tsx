@@ -1364,7 +1364,52 @@ function RichMessagePartView({
   if (type === 'project_task_proposal') {
     return <ProjectTaskProposal part={part} />
   }
+  if (type === 'project_command_event') {
+    return <ProjectCommandEventCard part={part} />
+  }
   return partContent(part) ? <ChatMessageContent content={partContent(part)} /> : null
+}
+
+function ProjectCommandEventCard({ part }: { part: RichMessagePart }) {
+  const event = (part as RichMessagePart & { event?: Record<string, unknown> }).event
+    ?? (part as RichMessagePart & { data?: Record<string, unknown> }).data
+    ?? null
+  if (!event || typeof event !== 'object') {
+    return partContent(part) ? <ChatMessageContent content={partContent(part)} /> : null
+  }
+  const type = String(event.type ?? 'update')
+  const taskTitle = String(event.taskTitle ?? event.taskId ?? 'Task')
+  const agentId = typeof event.agentId === 'string' ? event.agentId : ''
+  const summary = typeof event.summary === 'string' ? event.summary : ''
+  const blocker = typeof event.blockingReason === 'string' ? event.blockingReason : ''
+  const href = typeof event.taskHref === 'string' ? event.taskHref : ''
+  const tone = type.includes('blocked') || type.includes('failed')
+    ? 'border-red-400/30 bg-red-500/10 text-red-100'
+    : type.includes('awaiting') || type.includes('needs')
+      ? 'border-amber-400/30 bg-amber-500/10 text-amber-100'
+      : type.includes('done')
+        ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
+        : 'border-sky-400/30 bg-sky-500/10 text-sky-100'
+  const label = type.replace('task.', '').replace('session.', '').replace(/_/g, ' ')
+  return (
+    <div data-testid="project-command-event" className={`rounded-xl border px-3 py-2.5 text-xs ${tone}`}>
+      <div className="flex items-center gap-2">
+        <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+          {type.includes('blocked') || type.includes('failed') ? 'error' : type.includes('done') ? 'check_circle' : type.includes('awaiting') ? 'priority_high' : 'sync'}
+        </span>
+        <span className="font-semibold capitalize">{label}</span>
+        {agentId && <span className="text-[10px] opacity-80">· {agentId}</span>}
+      </div>
+      <p className="mt-1 font-medium">{taskTitle}</p>
+      {blocker && <p className="mt-1 opacity-90">Blocker: {blocker}</p>}
+      {summary && !blocker && <p className="mt-1 opacity-90 line-clamp-4">{summary}</p>}
+      {href && (
+        <a href={href} className="mt-2 inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline">
+          Open task <span className="material-symbols-outlined text-[13px]" aria-hidden="true">open_in_new</span>
+        </a>
+      )}
+    </div>
+  )
 }
 
 function RehydratedStudioArtifacts({ part }: { part: RichMessagePart }) {

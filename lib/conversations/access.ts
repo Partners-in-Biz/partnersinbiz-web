@@ -114,9 +114,11 @@ export function publicConversationMessageView(message: ConversationMessage): Con
     ...(message.thinking ? { thinking: message.thinking } : {}),
     ...(message.richParts ? { richParts: message.richParts } : {}),
     ...(message.rich_parts ? { rich_parts: message.rich_parts } : {}),
+    ...(message.projectCommandEvent ? { projectCommandEvent: message.projectCommandEvent } : {}),
     authorKind: message.authorKind,
     authorId: message.authorId,
     authorDisplayName: message.authorDisplayName,
+    ...(message.dispatchAgentId ? { dispatchAgentId: message.dispatchAgentId } : {}),
     ...(message.createdAt ? { createdAt: message.createdAt } : {}),
   }
 }

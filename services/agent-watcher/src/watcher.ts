@@ -26,6 +26,7 @@ import {
   type DependencyState,
 } from './eligibility'
 import { buildCeoDataDecisionOperatingRule as buildSharedCeoDataDecisionOperatingRule } from './ceo-operating-rule'
+import { notifyCommandSessionFromTask } from './command-session'
 
 const MAX_CONCURRENT_PER_AGENT = 5
 const READY_TASK_SWEEP_MS = 60_000
@@ -101,6 +102,13 @@ interface TaskData {
   agentRetryAt?: string | number | { toMillis?: () => number; toDate?: () => Date }
   reporterId?: string
   createdBy?: string
+  chatOrigin?: {
+    conversationId?: string
+    requestMessageId?: string
+    responseMessageId?: string
+    bundleId?: string
+    sequence?: number
+  }
 }
 
 const TRANSIENT_HERMES_ERROR_PATTERNS = [
@@ -575,13 +583,19 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     const cfg = await getAgentConfig(agentId)
     if (!cfg || !cfg.enabled) {
       logger.warn('agent has no enabled dispatch config — marking task blocked', { taskId, agentId })
+      const blockedSummary = `Watcher error: agent '${agentId}' has no enabled dispatch config in agent_dispatch_configs.`
       await taskRef.update({
         ...agentStatusUpdate('blocked'),
         agentOutput: {
-          summary: `Watcher error: agent '${agentId}' has no enabled dispatch config in agent_dispatch_configs.`,
+          summary: blockedSummary,
           completedAt: FieldValue.serverTimestamp(),
         },
         updatedAt: FieldValue.serverTimestamp(),
+      })
+      notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+        agentId,
+        summary: blockedSummary,
+        blockingReason: blockedSummary,
       })
       return
     }
@@ -591,6 +605,10 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       ...agentStatusUpdate('in-progress'),
       agentHeartbeatAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
+    })
+    notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'in-progress', {
+      agentId,
+      summary: 'Agent claimed the task and started work.',
     })
     stopHeartbeat = startHeartbeat(taskRef)
 
@@ -699,6 +717,12 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         },
         updatedAt: FieldValue.serverTimestamp(),
       })
+      notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+        agentId,
+        summary: `Watcher error: ${result.error}`,
+        blockingReason: result.error,
+        runId: activeRunId,
+      })
       return
     }
 
@@ -732,6 +756,14 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         messageForAgent,
         runId: activeRunId,
       })
+      notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'awaiting-input', {
+        agentId,
+        summary,
+        blockingReason,
+        requiredEvidence,
+        messageForAgent,
+        runId: activeRunId,
+      })
       logger.info('task needs Peet input before continuing', { taskId, agentId, blockingReason })
       return
     }
@@ -748,6 +780,11 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       },
       updatedAt: FieldValue.serverTimestamp(),
     })
+    notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'done', {
+      agentId,
+      summary,
+      runId: activeRunId,
+    })
     logger.info('task completed', { taskId, agentId })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -761,6 +798,12 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
           completedAt: FieldValue.serverTimestamp(),
         },
         updatedAt: FieldValue.serverTimestamp(),
+      })
+      notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+        agentId,
+        summary: `Watcher error: ${message}`,
+        blockingReason: message,
+        runId: activeRunId,
       })
     } catch (writeErr) {
       logger.error('failed to write blocked status after dispatch error', {

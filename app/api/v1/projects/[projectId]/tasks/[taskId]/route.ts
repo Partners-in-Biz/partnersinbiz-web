@@ -17,6 +17,7 @@ import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/cont
 import { isProjectTaskPlanningMutation, planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
+import { publishTaskLifecycleToCommandSession } from '@/lib/projects/commandSession'
 
 export const dynamic = 'force-dynamic'
 
@@ -279,6 +280,44 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
         createdAt: FieldValue.serverTimestamp(),
       }).catch(() => {})
     }
+  }
+
+  // Feed the project command session (and auto-wake lead agent when configured).
+  if (projectOrgId && typeof updateValue.agentStatus === 'string' && updateValue.agentStatus !== existing.agentStatus) {
+    const agentId = typeof updateValue.assigneeAgentId === 'string'
+      ? updateValue.assigneeAgentId
+      : typeof existing.assigneeAgentId === 'string'
+        ? existing.assigneeAgentId
+        : null
+    const nextTask = { ...existing, ...updateValue, id: taskId }
+    const recovery = (updateValue.agentStatus === 'blocked' || updateValue.agentStatus === 'awaiting-input')
+      ? buildBlockedTaskRecovery(nextTask)
+      : null
+    const chatOrigin = isRecord(existing.chatOrigin) ? existing.chatOrigin : null
+    const agentOutput = isRecord(updateValue.agentOutput)
+      ? updateValue.agentOutput
+      : isRecord(existing.agentOutput)
+        ? existing.agentOutput
+        : null
+    void publishTaskLifecycleToCommandSession({
+      projectId,
+      orgId: projectOrgId,
+      taskId,
+      taskTitle: String(existing.title ?? 'Task'),
+      agentId,
+      agentStatus: updateValue.agentStatus,
+      previousAgentStatus: typeof existing.agentStatus === 'string' ? existing.agentStatus : null,
+      summary: typeof agentOutput?.summary === 'string' ? agentOutput.summary : undefined,
+      blockingReason: recovery?.blockingReason,
+      requiredEvidence: recovery?.requiredEvidence,
+      messageForAgent: recovery?.messageForAgent,
+      runId: typeof updateValue.agentConversationId === 'string'
+        ? updateValue.agentConversationId
+        : typeof existing.agentConversationId === 'string'
+          ? existing.agentConversationId
+          : null,
+      chatOriginConversationId: typeof chatOrigin?.conversationId === 'string' ? chatOrigin.conversationId : null,
+    }).catch(() => {})
   }
 
   const previousAssignees = new Set(Array.isArray(existing.assigneeIds) ? existing.assigneeIds : existing.assigneeId ? [existing.assigneeId] : [])

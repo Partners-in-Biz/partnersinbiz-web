@@ -98,6 +98,8 @@ export interface Conversation {
   messageCount: number
   archived: boolean
   migratedFromHermes?: boolean
+  /** When set, this conversation is the command room for that project. */
+  commandSessionProjectId?: string
   createdAt?: Timestamp
   updatedAt?: Timestamp
 }
@@ -136,5 +138,7 @@ export interface ConversationMessage {
   /** Human machine label at dispatch time, e.g. "Partners VPS" or "Peet's Mac". */
   dispatchRuntimeLabel?: string
   acceptedDevice?: { machineLabel: string; runtimeVersion: string; acceptedAt: string }
+  /** Structured project command-session lifecycle event (system messages). */
+  projectCommandEvent?: Record<string, unknown>
   createdAt?: Timestamp
 }

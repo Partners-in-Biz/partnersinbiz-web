@@ -476,6 +476,35 @@ export const POST = withAuth(
       contextRefs,
     })
 
+    // First project chat becomes the command session when the project has none yet
+    // (or when the caller explicitly requests bindCommandSession).
+    const bindCommandSession = body.bindCommandSession === true
+      || (convScope === 'project' && typeof scopeRefId === 'string' && scopeRefId.length > 0)
+    if (bindCommandSession && convScope === 'project' && scopeRefId) {
+      try {
+        const { bindProjectCommandSession, normalizeCommandSession } = await import('@/lib/projects/commandSession')
+        const projectSnap = await adminDb.collection('projects').doc(scopeRefId).get()
+        const existingBinding = normalizeCommandSession(projectSnap.data()?.commandSession)
+        if (bindCommandSession && body.bindCommandSession === true) {
+          await bindProjectCommandSession({
+            projectId: scopeRefId,
+            conversationId: conversation.id,
+            orgId: scope.orgId,
+            boundBy: user.uid,
+          })
+        } else if (!existingBinding?.enabled) {
+          await bindProjectCommandSession({
+            projectId: scopeRefId,
+            conversationId: conversation.id,
+            orgId: scope.orgId,
+            boundBy: user.uid,
+          })
+        }
+      } catch (error) {
+        console.error('[conversations] command-session auto-bind failed', error)
+      }
+    }
+
     return apiSuccess({ conversation: publicConversationView(conversation) }, 201)
   }),
 )

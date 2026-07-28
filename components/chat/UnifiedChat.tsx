@@ -1346,8 +1346,89 @@ export default function UnifiedChat({
   const projectChat = useProjectChatProgress(
     orgId,
     activeConversation,
-    false,
+    // Poll board progress for project chats and command sessions so task
+    // lifecycle updates appear without reopening the conversation.
+    Boolean(
+      activeConversation
+      && (
+        activeConversation.scope === 'project'
+        || Boolean((activeConversation as { commandSessionProjectId?: string }).commandSessionProjectId)
+      ),
+    ),
   )
+  const [commandSessionBusy, setCommandSessionBusy] = useState(false)
+  const commandSessionProjectId = (activeConversation as { commandSessionProjectId?: string } | null)?.commandSessionProjectId
+  const isCommandSession = Boolean(
+    activeConversation
+    && activeConversation.scope === 'project'
+    && activeConversation.scopeRefId
+    && commandSessionProjectId === activeConversation.scopeRefId,
+  )
+  const bindCommandSession = useCallback(async () => {
+    if (!activeConversation || activeConversation.scope !== 'project' || !activeConversation.scopeRefId) return
+    setCommandSessionBusy(true)
+    try {
+      const res = await fetch(`/api/v1/projects/${encodeURIComponent(activeConversation.scopeRefId)}/command-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: activeConversation.id, autoWake: true }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || `Bind failed (${res.status})`)
+      }
+      setConversations((current) => current.map((conversation) => (
+        conversation.id === activeConversation.id
+          ? { ...conversation, commandSessionProjectId: activeConversation.scopeRefId }
+          : conversation.commandSessionProjectId === activeConversation.scopeRefId
+            ? { ...conversation, commandSessionProjectId: undefined }
+            : conversation
+      )))
+      // Pull the system bind message into the open thread.
+      if (activeId) {
+        void fetch(`/api/v1/conversations/${encodeURIComponent(activeId)}/messages`)
+          .then((response) => response.ok ? response.json() : null)
+          .then((body) => {
+            const next = body?.data
+            if (Array.isArray(next)) setMessages(next)
+          })
+          .catch(() => {})
+      }
+    } catch (error) {
+      console.error('[command-session] bind failed', error)
+    } finally {
+      setCommandSessionBusy(false)
+    }
+  }, [activeConversation, activeId])
+
+  // Command sessions also need message polling so task lifecycle system events
+  // and auto-wake replies appear without a manual refresh.
+  useEffect(() => {
+    if (!activeId || !isCommandSession) return
+    let cancelled = false
+    const poll = () => {
+      if (cancelled || document.visibilityState === 'hidden') return
+      void fetch(`/api/v1/conversations/${encodeURIComponent(activeId)}/messages`)
+        .then((response) => (response.ok ? response.json() : null))
+        .then((body) => {
+          if (cancelled || !Array.isArray(body?.data)) return
+          setMessages((prev) => {
+            const next = body.data as ConversationMessage[]
+            if (prev.length === next.length && prev[prev.length - 1]?.id === next[next.length - 1]?.id) return prev
+            return next
+          })
+        })
+        .catch(() => {})
+    }
+    const interval = window.setInterval(poll, 5_000)
+    document.addEventListener('visibilitychange', poll)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', poll)
+    }
+  }, [activeId, isCommandSession])
+
   const refreshProjectChat = projectChat.refresh
   const projectBundleRefreshRef = useRef<{ contextKey: string; refreshedAt: number; messageSignal: string }>({ contextKey: '', refreshedAt: 0, messageSignal: '' })
   useEffect(() => {
@@ -6195,6 +6276,32 @@ export default function UnifiedChat({
                   >
                     {activeConversation?.title || 'New conversation'}
                   </button>
+                )}
+                {activeConversation?.scope === 'project' && activeConversation.scopeRefId && (
+                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px]">
+                    {isCommandSession ? (
+                      <span
+                        data-testid="command-session-badge"
+                        className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-200"
+                        title="Kanban task lifecycle events and blocked-task auto-wake feed into this chat"
+                      >
+                        <span className="material-symbols-outlined text-[12px]" aria-hidden="true">hub</span>
+                        Command session
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        data-testid="bind-command-session"
+                        disabled={commandSessionBusy}
+                        onClick={() => { void bindCommandSession() }}
+                        className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/[0.04] px-2 py-0.5 font-semibold text-[var(--color-pib-text-muted)] hover:border-primary/40 hover:text-primary disabled:opacity-50"
+                        title="Link this chat as the project command room for task updates and blocked-task wake"
+                      >
+                        <span className="material-symbols-outlined text-[12px]" aria-hidden="true">link</span>
+                        {commandSessionBusy ? 'Linking…' : 'Use as command session'}
+                      </button>
+                    )}
+                  </div>
                 )}
                 {(subtitle || activeConnectionWhere) && (
                   <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)] lg:hidden">
