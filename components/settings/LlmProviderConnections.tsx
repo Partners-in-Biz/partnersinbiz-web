@@ -159,26 +159,21 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
                     connection={conn}
                     canManageOrgConnections={canManageOrgConnections}
                     onResync={async () => {
-                      const result = await resyncLlmConnection(orgId, conn.id) as {
-                        sync?: {
-                          failed?: Array<{ agentId: string; error: string }>
-                          synced?: string[]
-                          message?: string
-                          verified?: Array<{ agentId: string; usable: boolean; detail?: string }>
-                        }
-                      } | {
+                      type SyncPayload = {
                         failed?: Array<{ agentId: string; error: string }>
                         synced?: string[]
                         message?: string
                         verified?: Array<{ agentId: string; usable: boolean; detail?: string }>
                       }
-                      const sync = result && typeof result === 'object' && 'sync' in result
-                        ? result.sync
-                        : result
+                      const result = await resyncLlmConnection(orgId, conn.id)
+                      const payload = (result && typeof result === 'object'
+                        ? result as { sync?: SyncPayload } & SyncPayload
+                        : {}) as { sync?: SyncPayload } & SyncPayload
+                      const sync: SyncPayload = payload.sync ?? payload
                       await refresh()
-                      if (sync?.failed?.length) {
+                      if (sync.failed && sync.failed.length > 0) {
                         const detail = sync.failed
-                          .map((f) => `${f.agentId}: ${f.error}`)
+                          .map((f: { agentId: string; error: string }) => `${f.agentId}: ${f.error}`)
                           .join(' · ')
                         throw new Error(sync.message ? `${sync.message} ${detail}` : detail)
                       }
