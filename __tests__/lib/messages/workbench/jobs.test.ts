@@ -64,6 +64,22 @@ describe('workbench operation validation', () => {
       .toMatchObject({ timeoutMs: 60_000 })
   })
 
+  it('accepts a signed safe custom allowlist and rejects unsafe policy payloads', () => {
+    expect(parseWorkbenchOperation({
+      kind: 'shell.exec',
+      argv: ['npm', 'run', 'typecheck'],
+      allowedShellArgv: [['npm', 'run', 'typecheck']],
+    })).toMatchObject({
+      argv: ['npm', 'run', 'typecheck'],
+      allowedShellArgv: [['npm', 'run', 'typecheck']],
+    })
+    expect(() => parseWorkbenchOperation({
+      kind: 'shell.exec',
+      argv: ['sh', '-c', 'whoami'],
+      allowedShellArgv: [['sh', '-c', 'whoami']],
+    })).toThrow('workbench: invalid operation')
+  })
+
   it.each([
     { kind: 'shell', command: 'git status' },
     { kind: 'fs.read', path: '/etc/passwd' },

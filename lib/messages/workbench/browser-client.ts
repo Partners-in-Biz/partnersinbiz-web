@@ -152,7 +152,10 @@ export function gitStatusResultToChanges(result: WorkbenchGitStatusResult | null
  * conversation's bound relative folder already answers it (see the
  * terminal route's special case).
  */
-export function mapTerminalCommandToOperation(command: string): WorkbenchOperation | null {
+export function mapTerminalCommandToOperation(
+  command: string,
+  allowedShellArgv?: readonly (readonly string[])[],
+): WorkbenchOperation | null {
   const trimmed = command.trim()
   switch (trimmed) {
     case 'git status':
@@ -163,7 +166,7 @@ export function mapTerminalCommandToOperation(command: string): WorkbenchOperati
     case 'ls':
       return { kind: 'fs.list', path: '.' }
     default: {
-      const argv = mapShellCommandToArgv(trimmed)
+      const argv = mapShellCommandToArgv(trimmed, allowedShellArgv)
       return argv ? { kind: 'shell.exec', argv } : null
     }
   }

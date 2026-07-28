@@ -44,8 +44,28 @@ const ALLOWLISTED_ARGV: readonly (readonly string[])[] = [
   ['git', 'branch', '--show-current'],
 ]
 
-function isAllowlistedArgv(argv: readonly string[]): boolean {
-  return ALLOWLISTED_ARGV.some((allowed) => allowed.length === argv.length && allowed.every((value, index) => value === argv[index]))
+function isSafePolicyArgv(argv: readonly string[]): boolean {
+  const executable = String(argv[0] ?? '').toLowerCase().split('/').pop()
+  const destructive = new Set([
+    'sh', 'bash', 'zsh', 'cmd', 'cmd.exe', 'powershell', 'powershell.exe', 'pwsh',
+    'rm', 'rmdir', 'dd', 'diskutil', 'shutdown', 'reboot', 'halt', 'poweroff',
+    'kill', 'pkill', 'killall', 'chmod', 'chown', 'sudo', 'su', 'curl', 'wget',
+  ])
+  return argv.length > 0 && argv.length <= MAX_SHELL_ARGV_LENGTH
+    && !destructive.has(executable ?? '')
+    && !(executable?.startsWith('mkfs'))
+    && !(executable === 'git' && ['clean', 'reset'].includes(String(argv[1] ?? '').toLowerCase()))
+    && argv.every((part) => typeof part === 'string'
+      && part.length > 0
+      && part.length <= MAX_SHELL_ARG_BYTES
+      && !/[|;$<>`&(){}[\]*?~\u0000-\u001f]/.test(part))
+}
+
+function isAllowlistedArgv(argv: readonly string[], policy?: readonly (readonly string[])[]): boolean {
+  const allowlist = policy?.length && policy.length <= 40 && policy.every(isSafePolicyArgv)
+    ? policy
+    : ALLOWLISTED_ARGV
+  return allowlist.some((allowed) => allowed.length === argv.length && allowed.every((value, index) => value === argv[index]))
 }
 
 const SAFE_SHELL_ENV_KEYS = ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TMPDIR', 'TERM', 'USER', 'SHELL'] as const
@@ -66,7 +86,7 @@ export type WorkbenchRuntimeOperation =
   | { kind: 'fs.write'; path: string; content: string; expectedSha256?: string | null }
   | { kind: 'git.status' }
   | { kind: 'git.diff'; path?: string; staged?: boolean }
-  | { kind: 'shell.exec'; argv: string[]; cwd?: string; timeoutMs?: number }
+  | { kind: 'shell.exec'; argv: string[]; cwd?: string; timeoutMs?: number; allowedShellArgv?: string[][] }
 
 export type WorkbenchRuntimeJob = {
   jobId: string
@@ -462,7 +482,7 @@ function prepareShellExec(
   ) {
     throw new Error('workbench shell.exec requires a non-empty, bounded argv')
   }
-  if (!isAllowlistedArgv(operation.argv)) throw new Error('workbench shell.exec command is not allowlisted')
+  if (!isAllowlistedArgv(operation.argv, operation.allowedShellArgv)) throw new Error('workbench shell.exec command is not allowlisted')
   if (operation.timeoutMs !== undefined && (!Number.isSafeInteger(operation.timeoutMs) || operation.timeoutMs <= 0)) {
     throw new Error('workbench shell.exec timeoutMs must be a positive integer')
   }

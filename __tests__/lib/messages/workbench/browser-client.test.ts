@@ -51,6 +51,15 @@ describe('mapTerminalCommandToOperation', () => {
     expect(mapTerminalCommandToOperation('node --version; rm -rf /')).toBeNull()
     expect(mapTerminalCommandToOperation('sh -c "echo hi"')).toBeNull()
   })
+
+  it('maps a safe command only when an organisation policy explicitly allows it', () => {
+    expect(mapTerminalCommandToOperation('npm run typecheck')).toBeNull()
+    expect(mapTerminalCommandToOperation('npm run typecheck', [['npm', 'run', 'typecheck']])).toEqual({
+      kind: 'shell.exec',
+      argv: ['npm', 'run', 'typecheck'],
+    })
+    expect(mapTerminalCommandToOperation('sh -c nope', [['sh', '-c', 'nope']])).toBeNull()
+  })
 })
 
 describe('gitStatusResultToChanges', () => {
