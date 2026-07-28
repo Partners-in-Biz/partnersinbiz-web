@@ -16,6 +16,13 @@ const eslintConfig = defineConfig([
       "react-hooks/preserve-manual-memoization": "off",
     },
   },
+  {
+    files: ["**/*.cjs"],
+    rules: {
+      // CommonJS helper scripts intentionally use require(); ESM imports are not portable here.
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -25,6 +32,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "coverage/**",
     ".hermes/tmp/**",
+    ".worktrees/**",
     "__tests__/**",
     "**/dist/**",
     "functions/lib/**",
