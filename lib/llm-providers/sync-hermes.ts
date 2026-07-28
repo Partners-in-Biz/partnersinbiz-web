@@ -31,6 +31,7 @@ import type { LlmProviderConnection } from './types'
 export type SyncLlmConnectionResult = {
   synced: string[]
   failed: Array<{ agentId: string; error: string }>
+  verified?: Array<{ agentId: string; usable: boolean; detail?: string }>
   skippedReason?: 'no_sync_target' | 'org_provider_covers_vps'
   skippedVpsBecauseOrgProvider?: boolean
   includedOrgVps?: boolean
@@ -186,23 +187,49 @@ async function pushToTargets(
   const def = getLlmProvider(conn.provider)
   const synced: string[] = []
   const failed: Array<{ agentId: string; error: string }> = []
+  const verified: Array<{ agentId: string; usable: boolean; detail?: string }> = []
+  const isOauth = Boolean(credentials.access_token && credentials.refresh_token)
+  const envVar = def?.envVar
+    || (conn.provider === 'copilot' ? 'COPILOT_GITHUB_TOKEN' : undefined)
 
   for (const target of resolved.targets) {
     try {
-      if (credentials.access_token && credentials.refresh_token) {
+      if (isOauth) {
         await pushOauthTokens(target, conn, credentials)
-      } else if (def?.envVar && credentials.apiKey) {
-        await pushApiKeyEnv(target, def.envVar, credentials.apiKey)
-      } else if (conn.provider === 'copilot' && credentials.apiKey) {
-        await pushApiKeyEnv(target, 'COPILOT_GITHUB_TOKEN', credentials.apiKey)
+      } else if (envVar && credentials.apiKey) {
+        await pushApiKeyEnv(target, envVar, credentials.apiKey)
       } else {
         throw new Error('No syncable credential material')
+      }
+
+      const check = await verifyCredentialOnTarget(target, {
+        hermesProvider: conn.hermesProvider,
+        isOauth,
+        envVar,
+      })
+      verified.push({
+        agentId: target.agentId,
+        usable: check.usable,
+        ...(check.detail ? { detail: check.detail } : {}),
+      })
+      if (!check.usable) {
+        failed.push({
+          agentId: target.agentId,
+          error: check.detail
+            || 'Credential write succeeded but Hermes on this machine cannot use the provider yet.',
+        })
+        continue
       }
       synced.push(target.agentId)
     } catch (err) {
       failed.push({
         agentId: target.agentId,
         error: err instanceof Error ? err.message : 'Sync failed',
+      })
+      verified.push({
+        agentId: target.agentId,
+        usable: false,
+        detail: err instanceof Error ? err.message : 'Sync failed',
       })
     }
   }
@@ -213,7 +240,108 @@ async function pushToTargets(
     await markLlmConnectionError(connectionId, failed[0].error)
   }
 
-  return { synced, failed }
+  const verifyNote = verified.some((v) => !v.usable)
+    ? 'Some targets rejected verification after write — Hermes must accept the provider before models are selectable in chat.'
+    : verified.length
+      ? 'Verified Hermes can load the synced credentials on each target.'
+      : undefined
+
+  return {
+    synced,
+    failed,
+    verified,
+    ...(verifyNote ? { message: verifyNote } : {}),
+  }
+}
+
+/**
+ * Confirm the target runtime actually has usable credentials after write.
+ * OAuth: Hermes-native nested tokens must be present (`hermes_shape` / usable).
+ * API key: env var must be set on the profile.
+ */
+async function verifyCredentialOnTarget(
+  target: LlmSyncTarget,
+  input: { hermesProvider: string; isOauth: boolean; envVar?: string },
+): Promise<{ usable: boolean; detail?: string }> {
+  try {
+    if (input.isOauth) {
+      const path = '/admin/auth/providers'
+      const { response, data } = target.hermesLink
+        ? await callHermesJson(target.hermesLink, path, { method: 'GET' })
+        : await callAgentPath(
+          target.agentId as AgentId,
+          path,
+          { method: 'GET' },
+          { runtimeTarget: target.runtimeTargetId },
+        )
+      if (!response.ok) {
+        return {
+          usable: false,
+          detail: `Post-sync auth check failed (HTTP ${response.status}). Deploy the updated admin sidecar, then re-sync.`,
+        }
+      }
+      const providers = (data && typeof data === 'object' && 'providers' in data)
+        ? (data as { providers?: Record<string, Record<string, unknown>> }).providers
+        : null
+      const state = providers?.[input.hermesProvider]
+      if (!state || typeof state !== 'object') {
+        return {
+          usable: false,
+          detail: `Hermes on ${target.label} has no ${input.hermesProvider} entry after sync.`,
+        }
+      }
+      // New sidecars report hermes_shape/usable for nested tokens Hermes can read.
+      // Older sidecars only had flat has_access_token — those still break Hermes.
+      const hasHermesShapeField = 'hermes_shape' in state || 'usable' in state
+      if (!hasHermesShapeField) {
+        return {
+          usable: false,
+          detail: `Hermes admin on ${target.label} is outdated and cannot prove OAuth tokens are in the Hermes-native shape. Deploy the updated admin sidecar, then re-sync.`,
+        }
+      }
+      const usable = state.usable === true
+        || (state.hermes_shape === true && state.has_access_token === true && state.has_refresh_token === true)
+      if (!usable) {
+        return {
+          usable: false,
+          detail: `Hermes on ${target.label} still reports unusable ${input.hermesProvider} OAuth tokens (missing nested tokens shape). Re-sync after the admin sidecar update.`,
+        }
+      }
+      return { usable: true, detail: `Hermes accepted ${input.hermesProvider} OAuth on ${target.label}` }
+    }
+
+    if (!input.envVar) {
+      return { usable: false, detail: 'No env var to verify for this provider' }
+    }
+    const path = '/admin/env'
+    const { response, data } = target.hermesLink
+      ? await callHermesJson(target.hermesLink, path, { method: 'GET' })
+      : await callAgentPath(
+        target.agentId as AgentId,
+        path,
+        { method: 'GET' },
+        { runtimeTarget: target.runtimeTargetId },
+      )
+    if (!response.ok) {
+      return { usable: false, detail: `Post-sync env check failed (HTTP ${response.status})` }
+    }
+    const env = (data && typeof data === 'object' && 'env' in data)
+      ? (data as { env?: Record<string, { is_set?: boolean }> }).env
+      : null
+    const isSet = Boolean(env?.[input.envVar]?.is_set)
+    if (!isSet) {
+      return {
+        usable: false,
+        detail: `${input.envVar} is not set on Hermes for ${target.label} after sync.`,
+      }
+    }
+    return { usable: true, detail: `${input.envVar} present on ${target.label}` }
+  } catch (err) {
+    return {
+      usable: false,
+      detail: err instanceof Error ? err.message : 'Post-sync verification failed',
+    }
+  }
 }
 
 async function pushApiKeyEnv(target: LlmSyncTarget, envVar: string, apiKey: string): Promise<void> {

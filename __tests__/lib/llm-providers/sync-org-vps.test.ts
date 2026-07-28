@@ -51,6 +51,66 @@ jest.mock('@/lib/agents/team', () => ({
 
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
 
+function mockAgentPathWithEnvVerify() {
+  mockCallAgentPath.mockImplementation(async (_agentId: unknown, path: unknown, init?: { method?: string }) => {
+    if (path === '/admin/env' && (!init?.method || init.method === 'GET')) {
+      return {
+        response: { ok: true, status: 200 },
+        data: { env: { XAI_API_KEY: { is_set: true } } },
+      }
+    }
+    if (path === '/admin/auth/providers' && (!init?.method || init.method === 'GET')) {
+      return {
+        response: { ok: true, status: 200 },
+        data: {
+          providers: {
+            'xai-oauth': {
+              configured: true,
+              has_access_token: true,
+              has_refresh_token: true,
+              hermes_shape: true,
+              usable: true,
+            },
+            'openai-codex': {
+              configured: true,
+              has_access_token: true,
+              has_refresh_token: true,
+              hermes_shape: true,
+              usable: true,
+            },
+          },
+        },
+      }
+    }
+    return { response: { ok: true, status: 200 }, data: {} }
+  })
+  mockCallHermesJson.mockImplementation(async (_link: unknown, path: unknown, init?: { method?: string }) => {
+    if (path === '/admin/env' && (!init?.method || init.method === 'GET')) {
+      return {
+        response: { ok: true, status: 200 },
+        data: { env: { XAI_API_KEY: { is_set: true } } },
+      }
+    }
+    if (path === '/admin/auth/providers' && (!init?.method || init.method === 'GET')) {
+      return {
+        response: { ok: true, status: 200 },
+        data: {
+          providers: {
+            'xai-oauth': {
+              configured: true,
+              has_access_token: true,
+              has_refresh_token: true,
+              hermes_shape: true,
+              usable: true,
+            },
+          },
+        },
+      }
+    }
+    return { response: { ok: true, status: 200 }, data: {} }
+  })
+}
+
 describe('org VPS vs personal credential sync', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -59,6 +119,7 @@ describe('org VPS vs personal credential sync', () => {
       data: () => ({ role: 'member', accessPolicy: { allowPersonalLlmOnOrgVps: false } }),
     })
     mockListConnections.mockResolvedValue([])
+    mockAgentPathWithEnvVerify()
   })
 
   it('syncs user-scoped credentials to the member linked computers', async () => {
@@ -84,13 +145,13 @@ describe('org VPS vs personal credential sync', () => {
       linkedComputerCount: 1,
       includedOrgVps: false,
     })
-    mockCallAgentPath.mockResolvedValue({ response: { ok: true, status: 200 }, data: {} })
     mockMarkSynced.mockResolvedValue(undefined)
 
     const result = await syncLlmConnectionToHermes('user:u1:xai')
 
     expect(result.synced).toEqual(['pip'])
     expect(result.failed).toEqual([])
+    expect(result.verified?.[0]?.usable).toBe(true)
     expect(mockResolveUserTargets).toHaveBeenCalled()
     expect(mockCallAgentPath).toHaveBeenCalledWith(
       'pip',
@@ -99,6 +160,61 @@ describe('org VPS vs personal credential sync', () => {
       { runtimeTarget: 'mac-1' },
     )
     expect(mockMarkSynced).toHaveBeenCalledWith('user:u1:xai', ['pip'])
+  })
+
+  it('fails verification when Hermes OAuth tokens are not in native shape', async () => {
+    mockGetConnection.mockResolvedValue({
+      id: 'org:acme:xai-oauth',
+      provider: 'xai-oauth',
+      hermesProvider: 'xai-oauth',
+      scope: 'org',
+      orgId: 'acme',
+      ownerUid: null,
+      status: 'connected',
+      authKind: 'oauth_token',
+    })
+    mockGetCredentials.mockResolvedValue({
+      access_token: 'at-1',
+      refresh_token: 'rt-1',
+    })
+    mockResolveOrgTargets.mockResolvedValue({
+      targets: [{
+        kind: 'org_linked_vps',
+        agentId: 'pip',
+        runtimeTargetId: 'partners-vps',
+        deviceId: 'device-vps',
+        label: 'Org VPS · pip',
+      }],
+      orgVpsDeviceCount: 1,
+      hasHermesProfileLink: false,
+    })
+    mockCallAgentPath.mockImplementation(async (_agentId: unknown, path: unknown, init?: { method?: string }) => {
+      if (String(path).startsWith('/admin/auth/providers/') && init?.method === 'PUT') {
+        return { response: { ok: true, status: 200 }, data: { updated: true } }
+      }
+      if (path === '/admin/auth/providers') {
+        return {
+          response: { ok: true, status: 200 },
+          // Old broken flat shape — Hermes cannot use this
+          data: {
+            providers: {
+              'xai-oauth': {
+                configured: true,
+                has_access_token: true,
+                has_refresh_token: true,
+              },
+            },
+          },
+        }
+      }
+      return { response: { ok: true, status: 200 }, data: {} }
+    })
+
+    const result = await syncLlmConnectionToHermes('org:acme:xai-oauth')
+
+    expect(result.synced).toEqual([])
+    expect(result.failed[0]?.error).toMatch(/outdated|unusable|Hermes/i)
+    expect(mockMarkError).toHaveBeenCalled()
   })
 
   it('includes org VPS targets when Team access allows personal LLM on VPS', async () => {
@@ -140,7 +256,6 @@ describe('org VPS vs personal credential sync', () => {
       linkedComputerCount: 1,
       includedOrgVps: true,
     })
-    mockCallAgentPath.mockResolvedValue({ response: { ok: true, status: 200 }, data: {} })
     mockMarkSynced.mockResolvedValue(undefined)
 
     const result = await syncLlmConnectionToHermes('user:u1:xai')
@@ -190,7 +305,6 @@ describe('org VPS vs personal credential sync', () => {
       linkedComputerCount: 1,
       includedOrgVps: false,
     })
-    mockCallAgentPath.mockResolvedValue({ response: { ok: true, status: 200 }, data: {} })
     mockMarkSynced.mockResolvedValue(undefined)
 
     const result = await syncLlmConnectionToHermes('user:u1:xai')
@@ -223,7 +337,6 @@ describe('org VPS vs personal credential sync', () => {
       orgVpsDeviceCount: 0,
       hasHermesProfileLink: true,
     })
-    mockCallHermesJson.mockResolvedValue({ response: { ok: true, status: 200 }, data: {} })
     mockMarkSynced.mockResolvedValue(undefined)
 
     const result = await syncLlmConnectionToHermes('org:acme:xai')

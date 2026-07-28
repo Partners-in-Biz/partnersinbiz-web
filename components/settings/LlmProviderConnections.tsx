@@ -159,8 +159,29 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
                     connection={conn}
                     canManageOrgConnections={canManageOrgConnections}
                     onResync={async () => {
-                      await resyncLlmConnection(orgId, conn.id)
+                      const result = await resyncLlmConnection(orgId, conn.id) as {
+                        sync?: {
+                          failed?: Array<{ agentId: string; error: string }>
+                          synced?: string[]
+                          message?: string
+                          verified?: Array<{ agentId: string; usable: boolean; detail?: string }>
+                        }
+                      } | {
+                        failed?: Array<{ agentId: string; error: string }>
+                        synced?: string[]
+                        message?: string
+                        verified?: Array<{ agentId: string; usable: boolean; detail?: string }>
+                      }
+                      const sync = result && typeof result === 'object' && 'sync' in result
+                        ? result.sync
+                        : result
                       await refresh()
+                      if (sync?.failed?.length) {
+                        const detail = sync.failed
+                          .map((f) => `${f.agentId}: ${f.error}`)
+                          .join(' · ')
+                        throw new Error(sync.message ? `${sync.message} ${detail}` : detail)
+                      }
                     }}
                     onDisconnect={async () => {
                       await revokeLlmConnection(orgId, conn.id)

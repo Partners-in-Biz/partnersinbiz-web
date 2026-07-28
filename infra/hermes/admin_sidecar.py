@@ -570,6 +570,103 @@ def _atomic_write_json(path: Path, payload: dict) -> None:
             pass
 
 
+def _oauth_tokens_from_provider_state(state: dict) -> tuple[str, str]:
+    """Return (access_token, refresh_token) from Hermes-native or legacy flat state.
+
+    Hermes auth.py expects ``providers.<id>.tokens.{access_token,refresh_token}``.
+    Older PiB writes put those fields flat on the provider state; accept both
+    when reading so status and migration stay accurate.
+    """
+    tokens = state.get("tokens") if isinstance(state.get("tokens"), dict) else {}
+    access = str(tokens.get("access_token") or state.get("access_token") or "").strip()
+    refresh = str(tokens.get("refresh_token") or state.get("refresh_token") or "").strip()
+    return access, refresh
+
+
+def _oauth_auth_mode_for_provider(provider: str, existing: dict) -> str:
+    existing_mode = str(existing.get("auth_mode") or "").strip()
+    if existing_mode:
+        return existing_mode
+    if provider == "openai-codex":
+        return "chatgpt"
+    if provider in {"xai-oauth", "nous", "copilot"}:
+        return "oauth_device_code"
+    return "oauth"
+
+
+def _sync_oauth_credential_pool(
+    store: dict,
+    provider: str,
+    access_token: str,
+    refresh_token: str,
+    last_refresh: str,
+) -> None:
+    """Mirror singleton OAuth tokens into credential_pool for Hermes runtime.
+
+    Codex (and xAI OAuth after pool load) select from credential_pool when
+    present. Keep the device_code singleton entry in sync with providers.*.tokens
+    so a PiB resync actually becomes the live runtime credential.
+    """
+    pool = store.get("credential_pool")
+    if not isinstance(pool, dict):
+        pool = {}
+        store["credential_pool"] = pool
+    entries = pool.get(provider)
+    if not isinstance(entries, list):
+        entries = []
+        pool[provider] = entries
+
+    base_url = None
+    if provider == "openai-codex":
+        base_url = "https://chatgpt.com/backend-api/codex"
+    elif provider == "xai-oauth":
+        base_url = "https://api.x.ai/v1"
+
+    updated = False
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        source = str(entry.get("source") or "")
+        if source != "device_code":
+            continue
+        entry["access_token"] = access_token
+        entry["refresh_token"] = refresh_token
+        entry["auth_type"] = "oauth"
+        entry["last_refresh"] = last_refresh
+        entry["last_status"] = None
+        entry["last_status_at"] = None
+        entry["last_error_code"] = None
+        entry["last_error_reason"] = None
+        entry["last_error_message"] = None
+        entry["last_error_reset_at"] = None
+        if base_url and not entry.get("base_url"):
+            entry["base_url"] = base_url
+        updated = True
+        break
+
+    if not updated:
+        entries.append(
+            {
+                "id": f"pib-{provider[:12]}",
+                "label": provider,
+                "source": "device_code",
+                "auth_type": "oauth",
+                "priority": 0,
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "last_refresh": last_refresh,
+                "last_status": None,
+                "last_status_at": None,
+                "last_error_code": None,
+                "last_error_reason": None,
+                "last_error_message": None,
+                "last_error_reset_at": None,
+                **({"base_url": base_url} if base_url else {}),
+            }
+        )
+    pool[provider] = entries
+
+
 @app.get("/profiles/{profile}/admin/auth/providers")
 def list_auth_providers(profile: str, x_api_key: Optional[str] = Header(default=None), authorization: Optional[str] = Header(default=None)):
     """List configured OAuth providers (masked) from the profile auth.json."""
@@ -588,14 +685,19 @@ def list_auth_providers(profile: str, x_api_key: Optional[str] = Header(default=
     for name, state in providers.items():
         if not isinstance(state, dict):
             continue
-        access = str(state.get("access_token") or "")
-        refresh = str(state.get("refresh_token") or "")
+        access, refresh = _oauth_tokens_from_provider_state(state)
+        tokens_obj = state.get("tokens") if isinstance(state.get("tokens"), dict) else None
+        hermes_shape = bool(tokens_obj and access and refresh)
         masked[name] = {
-            "configured": bool(access or refresh),
+            "configured": bool(access and refresh),
             "has_access_token": bool(access),
             "has_refresh_token": bool(refresh),
+            "hermes_shape": hermes_shape,
+            "usable": hermes_shape,
             "hint": (f"{access[:4]}…{access[-4:]}" if len(access) > 8 else ("…" if access else None)),
             "updated_at": state.get("updated_at") or state.get("last_refresh"),
+            "auth_mode": state.get("auth_mode"),
+            "source": state.get("source"),
         }
     return {"providers": masked, "path": str(path), "exists": True}
 
@@ -613,6 +715,18 @@ async def upsert_auth_provider(
     Body: {access_token, refresh_token, expires_in?, token_type?, id_token?, scope?}
     Used by Partners in Biz after a successful device-code OAuth so the
     gateway can use SuperGrok / Codex / etc. without a manual CLI login.
+
+    Hermes expects the nested shape used by hermes_cli.auth:
+
+        providers.<provider> = {
+          "tokens": {"access_token", "refresh_token", "token_type"?},
+          "last_refresh": ISO-8601 Z,
+          "auth_mode": "chatgpt" | "oauth_device_code" | ...,
+          ...
+        }
+
+    Flat access_token/refresh_token at the provider root are rejected by Hermes
+    as "OAuth state is missing tokens".
     """
     _require_auth(profile, x_api_key, authorization)
     if not _OAUTH_PROVIDER_RE.match(provider or ""):
@@ -643,27 +757,45 @@ async def upsert_auth_provider(
         providers = {}
         store["providers"] = providers
     existing = providers.get(provider) if isinstance(providers.get(provider), dict) else {}
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     expires_in = body.get("expires_in")
-    state = {
-        **existing,
-        "access_token": access_token.strip(),
-        "refresh_token": refresh_token.strip(),
-        "token_type": str(body.get("token_type") or existing.get("token_type") or "Bearer"),
-        "updated_at": now,
-        "source": "pib-oauth",
+    token_type = str(body.get("token_type") or "Bearer").strip() or "Bearer"
+    access = access_token.strip()
+    refresh = refresh_token.strip()
+
+    # Preserve non-token metadata, but force Hermes-native token nesting.
+    state = {k: v for k, v in existing.items() if k not in {
+        "access_token", "refresh_token", "token_type", "tokens", "last_auth_error",
+    }}
+    tokens: dict = {
+        "access_token": access,
+        "refresh_token": refresh,
+        "token_type": token_type,
     }
+    if isinstance(body.get("id_token"), str) and body["id_token"].strip():
+        tokens["id_token"] = body["id_token"].strip()
+    if isinstance(body.get("scope"), str) and body["scope"].strip():
+        tokens["scope"] = body["scope"].strip()
+        state["scope"] = body["scope"].strip()
     if isinstance(expires_in, (int, float)) and expires_in > 0:
-        state["expires_at"] = datetime.fromtimestamp(
+        expires_at = datetime.fromtimestamp(
             datetime.now(timezone.utc).timestamp() + float(expires_in),
             tz=timezone.utc,
-        ).isoformat()
-    if isinstance(body.get("id_token"), str) and body["id_token"].strip():
-        state["id_token"] = body["id_token"].strip()
-    if isinstance(body.get("scope"), str) and body["scope"].strip():
-        state["scope"] = body["scope"].strip()
+        ).isoformat().replace("+00:00", "Z")
+        tokens["expires_at"] = expires_at
+        state["expires_at"] = expires_at
+
+    state["tokens"] = tokens
+    state["last_refresh"] = now
+    state["updated_at"] = now
+    state["auth_mode"] = _oauth_auth_mode_for_provider(provider, existing)
+    state["source"] = "pib-oauth"
+    # Clear prior terminal auth markers so Hermes retries the new pair.
+    state.pop("last_auth_error", None)
+
     providers[provider] = state
     store["providers"] = providers
+    _sync_oauth_credential_pool(store, provider, access, refresh, now)
     _atomic_write_json(path, store)
     restarted = _restart_profile(profile)
     return {
@@ -671,7 +803,8 @@ async def upsert_auth_provider(
         "provider": provider,
         "restarted": restarted,
         "path": str(path),
-        "hint": f"{access_token[:4]}…{access_token[-4:]}" if len(access_token) > 8 else "…",
+        "hermes_shape": True,
+        "hint": f"{access[:4]}…{access[-4:]}" if len(access) > 8 else "…",
     }
 
 
