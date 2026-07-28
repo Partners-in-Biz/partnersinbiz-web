@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { filterAgentsByGate } from '@/lib/conversations/new-conversation-agent-gate'
 
 type AgentId = string
@@ -80,6 +80,7 @@ interface ParticipantPickerProps {
   allowedAgentIds?: string[] | null
   agentsUnavailableReason?: string | null
   runtimeTargetId?: string | null
+  initialAgentIds?: string[]
 }
 
 const MAX_SELECTIONS = 5
@@ -92,6 +93,7 @@ export default function ParticipantPicker({
   allowedAgentIds = null,
   agentsUnavailableReason = null,
   runtimeTargetId = null,
+  initialAgentIds = [],
 }: ParticipantPickerProps) {
   const [agents, setAgents] = useState<AgentTeamDoc[]>([])
   const [contacts, setContacts] = useState<OrgContact[]>([])
@@ -99,6 +101,7 @@ export default function ParticipantPicker({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [peopleWarning, setPeopleWarning] = useState<string | null>(null)
+  const initialSelectionAppliedRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -170,6 +173,21 @@ export default function ParticipantPicker({
     () => filterAgentsByGate(agents, allowedAgentIds),
     [agents, allowedAgentIds],
   )
+
+  useEffect(() => {
+    if (initialSelectionAppliedRef.current || loading) return
+    const initialIds = new Set(initialAgentIds)
+    if (initialIds.size === 0) {
+      initialSelectionAppliedRef.current = true
+      return
+    }
+    if (!visibleAgents.some((agent) => initialIds.has(agent.agentId))) return
+    initialSelectionAppliedRef.current = true
+    setSelected(visibleAgents
+      .filter((agent) => initialIds.has(agent.agentId))
+      .slice(0, MAX_SELECTIONS)
+      .map((agent) => ({ kind: 'agent' as const, agentId: agent.agentId, name: agent.name })))
+  }, [initialAgentIds, loading, visibleAgents])
 
   // Drop agent selections that are no longer allowed after context/machine changes.
   useEffect(() => {
