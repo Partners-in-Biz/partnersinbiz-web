@@ -1,3 +1,4 @@
+import {execFileSync} from 'node:child_process'
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import crypto from 'node:crypto'
 function expandHome(value:string,mappingRoot?:string){
   // Portable ~/Cowork/... paths must resolve against the mapped Cowork root on
@@ -32,20 +33,38 @@ function isContained(root:string,candidate:string){return candidate===root||cand
  * the same org nest (…/Cowork/{orgSlug}/), so absolute/portable working directories
  * are allowed when they stay inside that parent.
  */
+/** Collapse …/partners/{Name}/partners/{Name}/… from stale conversation paths. */
+function collapseNestedPartnersPath(value:string){
+  return value
+    .replace(/\/partners\/([^/]+)\/partners\/\1(?=\/|$)/g,'/partners/$1')
+    .replace(/\/partners\/([^/]+)\/\1(?=\/|$)/g,'/partners/$1')
+}
+function ensureTraversableDir(dir:string){
+  // pib-runtime uses UMask=0077 as root; force 0755 so hermes can is_dir() the cwd.
+  try{fs.chmodSync(dir,0o755)}catch{/* ignore */}
+}
 export function resolveMappedWorkingDirectory(mappingRoot:string,relative='',workingDirectory?:string){
   if(workingDirectory&&workingDirectory.trim()){
-    const requested=path.resolve(expandHome(workingDirectory.trim(),mappingRoot))
+    const expanded=expandHome(collapseNestedPartnersPath(workingDirectory.trim()),mappingRoot)
+    const requested=path.resolve(expanded)
     const mappingParent=fs.realpathSync(path.dirname(mappingRoot))
     if(!fs.existsSync(requested)){
       const requestedParent=path.dirname(requested)
       const requestedParentReal=fs.existsSync(requestedParent)?fs.realpathSync(requestedParent):requestedParent
       if(isContained(mappingParent,requestedParentReal)||isContained(mappingRoot,requestedParentReal)){
         fs.mkdirSync(requested,{recursive:true,mode:0o755})
+        ensureTraversableDir(requested)
         for(const sub of ['projects','docs','briefs','assets','marketing','research','operations','deliverables','inbox','archive']){
-          fs.mkdirSync(path.join(requested,sub),{recursive:true,mode:0o755})
+          const subDir=path.join(requested,sub)
+          fs.mkdirSync(subDir,{recursive:true,mode:0o755})
+          ensureTraversableDir(subDir)
         }
         const agents=path.join(requested,'AGENTS.md')
         if(!fs.existsSync(agents))fs.writeFileSync(agents,`# ${path.basename(requested)}\n\nCompany Cowork folder created by Partners in Biz linked runtime.\n`,{mode:0o644})
+        // If we created under /var/lib/hermes as root, hand ownership to hermes.
+        if(typeof process.getuid==='function'&&process.getuid()===0&&requested.startsWith('/var/lib/hermes/')){
+          try{execFileSync('chown',['-R','hermes:hermes',requested],{stdio:'ignore'})}catch{/* best-effort */}
+        }
       }
     }
     const candidate=fs.realpathSync(requested)

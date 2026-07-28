@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { joinCoworkWorkingPath } from '@/lib/client-provisioning/cowork-working-path'
 import { buildClientProvisioningPayload, inferCompanyCoworkDomain } from '@/lib/client-provisioning/provisioner'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
@@ -304,8 +305,8 @@ export async function resolveConversationWorkspaceContext(input: {
     contactIds: Array.isArray(workspace.contactIds) ? workspace.contactIds : [],
     folderScope: projectId ? 'project' : projectCompanyId ? 'company' : 'organisation',
     folderRelativePath,
-    vpsWorkingPath: folderRelativePath ? `${workspaceRoot.vpsPath}/${folderRelativePath}` : workspaceRoot.vpsPath,
-    localWorkingPath: folderRelativePath ? `${workspaceRoot.localPath}/${folderRelativePath}` : workspaceRoot.localPath,
+    vpsWorkingPath: joinCoworkWorkingPath(workspaceRoot.vpsPath, folderRelativePath),
+    localWorkingPath: joinCoworkWorkingPath(workspaceRoot.localPath, folderRelativePath),
     ...(projectId ? { projectId } : {}),
     ...(projectName ? { projectName } : {}),
   }

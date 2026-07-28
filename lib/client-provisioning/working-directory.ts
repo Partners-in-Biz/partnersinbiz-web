@@ -2,6 +2,10 @@ import { lstat, realpath } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 
 import { adminDb } from '@/lib/firebase/admin'
+import {
+  collapseNestedCoworkWorkingPath,
+  joinCoworkWorkingPath,
+} from '@/lib/client-provisioning/cowork-working-path'
 import type {
   ConversationWorkspaceContext,
   WorkspaceDispatchFailureCode,
@@ -31,14 +35,6 @@ function lexicalPath(value: string): string {
     : resolve(value)
 }
 
-function resolveRuntimePath(root: string, child: string): string {
-  if (!isPortableHomePath(root)) return resolve(root, child)
-  const runtimeHome = '/__runtime_home__'
-  const candidate = resolve(lexicalPath(root), child)
-  const homeRelative = relative(runtimeHome, candidate).split(sep).join('/')
-  return `~/${homeRelative}`
-}
-
 async function containsSymlink(root: string, candidate: string): Promise<boolean> {
   const fromRoot = relative(root, candidate)
   if (!fromRoot) return false
@@ -63,14 +59,19 @@ export async function resolveAuthorizedWorkingDirectory(input: {
 
   const localRuntime = workspace.runtimeTarget === 'local'
   const configuredRoot = localRuntime ? workspace.localPath : workspace.vpsPath
-  const persistedDirectory = localRuntime ? workspace.localWorkingPath : workspace.vpsWorkingPath
+  const persistedDirectoryRaw = localRuntime ? workspace.localWorkingPath : workspace.vpsWorkingPath
+  const persistedDirectory = persistedDirectoryRaw
+    ? collapseNestedCoworkWorkingPath(persistedDirectoryRaw)
+    : persistedDirectoryRaw
   const serverProjectId = input.projectId?.trim()
   const effectiveProjectId = serverProjectId || workspace.projectId?.trim()
   const projectPathClass = workspace.folderScope === 'project' || Boolean(serverProjectId)
   const authorizedProjectRelativePath = input.projectRelativePath?.trim()
     || (effectiveProjectId ? `projects/${effectiveProjectId}` : '')
+  // Replica relative paths may be mapping-scoped (partners/{Company}/…). Join
+  // against the company root without nesting, matching conversation context.
   const configuredDirectory = projectPathClass && authorizedProjectRelativePath && configuredRoot
-    ? resolveRuntimePath(configuredRoot, authorizedProjectRelativePath)
+    ? joinCoworkWorkingPath(configuredRoot, authorizedProjectRelativePath)
     : persistedDirectory
   const portableHomePath = Boolean(
     configuredRoot
@@ -101,7 +102,8 @@ export async function resolveAuthorizedWorkingDirectory(input: {
         return failure('workspace_project_missing')
       }
       const projectRelativePath = authorizedProjectRelativePath
-      if (lexicalDirectory !== resolve(lexicalRoot, projectRelativePath)) {
+      const expectedDirectory = lexicalPath(joinCoworkWorkingPath(configuredRoot, projectRelativePath))
+      if (lexicalDirectory !== expectedDirectory) {
         return failure('workspace_directory_outside_root')
       }
 

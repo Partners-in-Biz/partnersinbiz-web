@@ -1,4 +1,8 @@
 import {
+  collapseNestedCoworkWorkingPath,
+  joinCoworkWorkingPath,
+} from '@/lib/client-provisioning/cowork-working-path'
+import {
   getCompanyWorkspaceByCompanyId,
   getOrgWorkspaceById,
   type ConversationWorkspaceContext,
@@ -31,10 +35,10 @@ export function linkedCoworkWorkingDirectory(
   if (!conversationUsesCompanyCoworkFolder(workspace)) return undefined
   if (options?.preferVps) {
     const vps = workspace?.vpsWorkingPath?.trim()
-    if (vps) return vps
+    if (vps) return collapseNestedCoworkWorkingPath(vps)
   }
   const directory = workspace?.localWorkingPath?.trim() || workspace?.vpsWorkingPath?.trim()
-  return directory || undefined
+  return directory ? collapseNestedCoworkWorkingPath(directory) : undefined
 }
 
 export function linkedRuntimeSupportsCoworkWorkingDirectory(version: string): boolean {
@@ -67,6 +71,17 @@ export async function enrichCompanyCoworkWorkspaceContext(
   const companyRootVps = companyWorkspace.vpsPath
   const companyRootLocal = companyWorkspace.localPath
 
+  const vpsWorkingPath = folderRelativePath
+    ? joinCoworkWorkingPath(companyRootVps, folderRelativePath)
+    : (workspace.folderScope === 'company'
+      ? companyRootVps
+      : collapseNestedCoworkWorkingPath(workspace.vpsWorkingPath || companyRootVps))
+  const localWorkingPath = folderRelativePath
+    ? joinCoworkWorkingPath(companyRootLocal, folderRelativePath)
+    : (workspace.folderScope === 'company'
+      ? companyRootLocal
+      : collapseNestedCoworkWorkingPath(workspace.localWorkingPath || companyRootLocal))
+
   return {
     ...workspace,
     companyWorkspaceId: companyWorkspace.workspaceId,
@@ -76,11 +91,7 @@ export async function enrichCompanyCoworkWorkspaceContext(
     localAgentDomainPath: companyWorkspace.localAgentDomainPath || workspace.localAgentDomainPath,
     vpsPath: companyRootVps,
     localPath: companyRootLocal,
-    vpsWorkingPath: folderRelativePath
-      ? `${companyRootVps}/${folderRelativePath}`
-      : (workspace.folderScope === 'company' ? companyRootVps : workspace.vpsWorkingPath || companyRootVps),
-    localWorkingPath: folderRelativePath
-      ? `${companyRootLocal}/${folderRelativePath}`
-      : (workspace.folderScope === 'company' ? companyRootLocal : workspace.localWorkingPath || companyRootLocal),
+    vpsWorkingPath,
+    localWorkingPath,
   }
 }
