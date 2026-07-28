@@ -3713,6 +3713,17 @@ export default function UnifiedChat({
     return () => document.removeEventListener('mousedown', handler)
   }, [headerMenuOpen])
 
+  // Close project folder ⋯ menu on outside click
+  useEffect(() => {
+    if (!projectActionsOpenId) return
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('[data-project-actions]')) setProjectActionsOpenId(null)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [projectActionsOpenId])
+
   // Close header menu when switching conversations
   useEffect(() => { setHeaderMenuOpen(false) }, [activeId])
   useEffect(() => { handledOpenContextActionsRef.current.clear() }, [activeId])
@@ -5744,7 +5755,7 @@ export default function UnifiedChat({
                       data-testid={`hermes-project-${project.id}`}
                       data-folder-accent={`project:${project.id}`}
                       style={folderAccentStyle(`project:${project.id}`)}
-                      className="group/project mx-folder-accent min-w-0 overflow-hidden rounded-md border border-white/[0.06] bg-white/[0.025] py-0.5 pl-1.5 pr-0.5"
+                      className="group/project mx-folder-accent relative min-w-0 overflow-visible rounded-md border border-white/[0.06] bg-white/[0.025] py-0.5 pl-1.5 pr-0.5"
                     >
                     <div className="flex min-w-0 items-center gap-0.5 px-0.5">
                       <button
@@ -5772,67 +5783,85 @@ export default function UnifiedChat({
                       >
                         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">add</span>
                       </button>
-                      <button
-                        type="button"
-                        aria-label={`More actions for ${project.name}`}
-                        title={`More actions for ${project.name}`}
-                        aria-expanded={projectActionsOpenId === project.id}
-                        aria-controls={`project-actions-${project.id}`}
-                        onClick={() => setProjectActionsOpenId((current) => current === project.id ? null : project.id)}
-                        className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-7 xl:w-7 ${projectActionsOpenId === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'}`}
-                      >
-                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">more_horiz</span>
-                      </button>
-                    </div>
-                    {projectActionsOpenId === project.id && (
-                      <div
-                        id={`project-actions-${project.id}`}
-                        role="group"
-                        aria-label={`Actions for ${project.name}`}
-                        className="mx-1 mb-1 grid grid-cols-3 gap-1 rounded-md border border-white/[0.06] bg-black/10 p-1"
-                      >
+                      <div className="relative shrink-0" data-project-actions>
                         <button
                           type="button"
-                          aria-label={`Manage locations for ${project.name}`}
-                          title={`Manage locations for ${project.name}`}
-                          onClick={() => {
-                            setProjectActionsOpenId(null)
-                            if (managedProject?.id === project.id) setManagedProject(null)
-                            else openProjectLocationManager({ id: project.id, name: project.name })
-                          }}
-                          className={`inline-flex min-w-0 items-center justify-center gap-1 rounded px-1.5 py-1.5 text-[10px] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 ${managedProject?.id === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'}`}
+                          aria-label={`More actions for ${project.name}`}
+                          title={`More actions for ${project.name}`}
+                          aria-expanded={projectActionsOpenId === project.id}
+                          aria-haspopup="menu"
+                          aria-controls={`project-actions-${project.id}`}
+                          onClick={() => setProjectActionsOpenId((current) => current === project.id ? null : project.id)}
+                          className={`inline-flex h-8 w-8 items-center justify-center rounded hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-7 xl:w-7 ${projectActionsOpenId === project.id ? 'bg-white/[0.08] text-primary' : 'text-[var(--color-pib-text-muted)]'}`}
                         >
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">devices</span>
-                          <span className="truncate">Locations</span>
+                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">more_horiz</span>
                         </button>
-                        <button
-                          type="button"
-                          aria-label={`Link client organisation to ${project.name}`}
-                          title={`Link client organisation to ${project.name}`}
-                          onClick={() => {
-                            setProjectActionsOpenId(null)
-                            setAccessProject({ id: project.id, name: project.name })
-                          }}
-                          className="inline-flex min-w-0 items-center justify-center gap-1 rounded px-1.5 py-1.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60"
-                        >
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">group_add</span>
-                          <span className="truncate">Access</span>
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${project.name} from my projects`}
-                          title={`Remove ${project.name} from my projects`}
-                          onClick={() => {
-                            setProjectActionsOpenId(null)
-                            void removeProjectFromSidebar(project.id)
-                          }}
-                          className="inline-flex min-w-0 items-center justify-center gap-1 rounded px-1.5 py-1.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-red-200 focus-visible:ring-2 focus-visible:ring-primary/60"
-                        >
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">remove</span>
-                          <span className="truncate">Remove</span>
-                        </button>
+                        {projectActionsOpenId === project.id && (
+                          <div
+                            id={`project-actions-${project.id}`}
+                            role="menu"
+                            aria-label={`Actions for ${project.name}`}
+                            className="absolute right-0 top-full z-40 mt-1 min-w-[13.5rem] overflow-hidden rounded-lg border border-white/[0.1] bg-[var(--color-pib-surface,rgba(18,18,24,0.98))] py-1 shadow-xl shadow-black/40"
+                          >
+                            <button
+                              type="button"
+                              aria-label={`Manage locations for ${project.name}`}
+                              onClick={() => {
+                                setProjectActionsOpenId(null)
+                                if (managedProject?.id === project.id) setManagedProject(null)
+                                else openProjectLocationManager({ id: project.id, name: project.name })
+                              }}
+                              className={`flex w-full items-start gap-2 px-3 py-2 text-left text-xs hover:bg-white/[0.07] focus-visible:bg-white/[0.07] focus-visible:outline-none ${managedProject?.id === project.id ? 'bg-white/[0.06] text-primary' : 'text-[var(--color-pib-text)]'}`}
+                            >
+                              <span className="material-symbols-outlined mt-0.5 shrink-0 text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">devices</span>
+                              <span className="min-w-0">
+                                <span className="block font-medium leading-4">Locations</span>
+                                <span className="mt-0.5 block text-[10px] leading-3.5 text-[var(--color-pib-text-muted)]">
+                                  Link computers &amp; VPS for this project
+                                </span>
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Link client organisation to ${project.name}`}
+                              onClick={() => {
+                                setProjectActionsOpenId(null)
+                                setAccessProject({ id: project.id, name: project.name })
+                              }}
+                              className="flex w-full items-start gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-white/[0.07] focus-visible:bg-white/[0.07] focus-visible:outline-none"
+                            >
+                              <span className="material-symbols-outlined mt-0.5 shrink-0 text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">group_add</span>
+                              <span className="min-w-0">
+                                <span className="block font-medium leading-4">Access</span>
+                                <span className="mt-0.5 block text-[10px] leading-3.5 text-[var(--color-pib-text-muted)]">
+                                  Link client org or team access
+                                </span>
+                              </span>
+                            </button>
+                            <div className="my-1 border-t border-white/[0.06]" role="separator" />
+                            <button
+                              type="button"
+                              aria-label={`Remove ${project.name} from my projects`}
+                              onClick={() => {
+                                setProjectActionsOpenId(null)
+                                void removeProjectFromSidebar(project.id)
+                              }}
+                              className="flex w-full items-start gap-2 px-3 py-2 text-left text-xs text-red-200 hover:bg-red-500/10 focus-visible:bg-red-500/10 focus-visible:outline-none"
+                            >
+                              <span className="material-symbols-outlined mt-0.5 shrink-0 text-[16px]" aria-hidden="true">folder_off</span>
+                              <span className="min-w-0">
+                                <span className="block font-medium leading-4">Remove from sidebar</span>
+                                <span className="mt-0.5 block text-[10px] leading-3.5 text-red-200/70">
+                                  {project.conversations.length === 0
+                                    ? 'Hide this empty project folder. You can add it again later.'
+                                    : 'Unlink from your list. Sessions stay; re-add anytime.'}
+                                </span>
+                              </span>
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                     {(sessionsExpanded && (project.locations?.length ?? 0) > 0) && (
                       <div data-testid={`project-location-badges-${project.id}`} className="flex min-w-0 flex-wrap gap-1 px-1 pb-1">
                         {project.locations?.map((location) => {
