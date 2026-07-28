@@ -68,6 +68,42 @@ describe('project conversation workspace identity', () => {
     }))
   })
 
+  it('does not nest mapping-relative replica paths under the company Cowork root', async () => {
+    mockProjectGet.mockResolvedValue({
+      exists: true,
+      id: 'project-crm',
+      data: () => ({ sourceOrgId: 'pib-platform-owner', sourceCompanyId: 'company-hunt', name: 'Seller CRM' }),
+    })
+    mockCompanyWorkspaceGet.mockResolvedValue({
+      docs: [{
+        id: 'hunt-company',
+        data: () => ({
+          workspaceId: 'hunt-company', orgId: 'client-hunt', orgSlug: 'hunt-and-gun', orgName: 'Hunt and Gun',
+          vpsPath: '/var/lib/hermes/Cowork/partners/Hunt and Gun',
+          localPath: '/Users/peetstander/Cowork/partners/Hunt and Gun',
+          status: 'active', companyId: 'company-hunt',
+        }),
+      }],
+    })
+    const { resolveConversationWorkspaceContext } = await import('@/lib/client-provisioning/workspace-context')
+
+    const context = await resolveConversationWorkspaceContext({
+      orgId: 'pib-platform-owner', workspaceId: 'partners', ownerUserId: 'user-1',
+      projectId: 'project-crm', projectName: 'Seller CRM',
+      // Replica paths are relative to the VPS Cowork mapping root.
+      folderRelativePath: 'partners/Hunt and Gun/hunt-and-gun-seller-crm',
+    })
+
+    expect(context).toEqual(expect.objectContaining({
+      companyId: 'company-hunt',
+      folderScope: 'project',
+      vpsPath: '/var/lib/hermes/Cowork/partners/Hunt and Gun',
+      vpsWorkingPath: '/var/lib/hermes/Cowork/partners/Hunt and Gun/hunt-and-gun-seller-crm',
+      localWorkingPath: '/Users/peetstander/Cowork/partners/Hunt and Gun/hunt-and-gun-seller-crm',
+    }))
+    expect(context?.vpsWorkingPath).not.toContain('/partners/Hunt and Gun/partners/')
+  })
+
   it('binds a company-root session without changing the active organisation identity', async () => {
     mockCompanyWorkspaceGet.mockResolvedValue({
       docs: [{
