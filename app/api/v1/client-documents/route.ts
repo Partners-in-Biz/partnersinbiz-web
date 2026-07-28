@@ -337,5 +337,34 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     theme: versionTheme,
   })
 
-  return apiSuccess({ ...created, orgId: documentOrgId, linked: documentLinked, status: 'internal_draft', actorType: actorType(user) }, 201)
+  // Messages Context Dock: auto-attach open_context when this create is from a chat turn.
+  const handoffOrgId = documentOrgId ?? orgId
+  const handoffIds = handoffOrgId
+    ? (await import('@/lib/messages/openContextHandoff')).parseMessagesHandoffIds(body as Record<string, unknown>)
+    : { conversationId: null, responseMessageId: null }
+  const handoff = handoffOrgId && handoffIds.conversationId && handoffIds.responseMessageId
+    ? await import('@/lib/messages/openContextHandoff')
+      .then((mod) => mod.handoffOpenContextFromCreate({
+        orgId: handoffOrgId,
+        body: body as Record<string, unknown>,
+        kind: 'document',
+        id: created.id,
+        label: title,
+        summary: `status: internal_draft | type: ${body.type}`,
+      }))
+      .catch(() => null)
+    : null
+
+  return apiSuccess({
+    ...created,
+    orgId: documentOrgId,
+    linked: documentLinked,
+    status: 'internal_draft',
+    actorType: actorType(user),
+    ...(handoff ? {
+      contextRef: handoff.contextRef,
+      uiActions: handoff.uiActions,
+      messagesAttach: handoff.messagesAttach,
+    } : {}),
+  }, 201)
 })

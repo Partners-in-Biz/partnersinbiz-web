@@ -267,6 +267,19 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 
 ---
 
+## Messages Context Dock (mandatory when creating from chat)
+
+When this run is inside Partners in Biz **Messages**, every create/version call must open the document side canvas.
+
+1. Include `conversationId` + `responseMessageId` from the injected `[Messages dynamic chat — Context Dock / side canvas]` block (or `conversationOrigin`) on:
+   - `POST /api/v1/client-documents`
+   - `POST /api/v1/client-documents/[id]/versions`
+2. The platform auto-attaches `open_context { kind: "document", id }` to the assistant message and returns `contextRef` + `uiActions`. Echo those in structured form if present.
+3. **Never** paste raw JSON like `{"rich_parts":[{"type":"studio_artifact",...}]}` into chat. Client documents are **not** `studio_artifact` — canvas kind is always **`document`**.
+4. **Never** dump the full document body as the only review surface. Humans review in the Context Dock (`DocumentContextPreview`).
+
+---
+
 ## Default Agent Workflow
 
 ### Internal system/spec document → approval-gated kanban breakdown
@@ -274,7 +287,7 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 Use this for substantial client work when Peet says to plan/spec something before implementation, especially coding, multi-agent work, operational setup, or anything that affects cost, timeline, scope, or the client's live assets.
 
 1. Resolve the active relationship context first. If the current app page is a CRM company, use that company ID. If the context is only a selected client org, resolve its PiB-side platform CRM company when one exists.
-2. Create the client document as `internal_draft` or `internal_review`. For CRM-company work, send `linked.companyId`; for system clients also include/verify `linked.clientOrgId`. Link to the active project with `linked.projectId` when a project exists.
+2. Create the client document as `internal_draft` or `internal_review`. For CRM-company work, send `linked.companyId`; for system clients also include/verify `linked.clientOrgId`. Link to the active project with `linked.projectId` when a project exists. From Messages, always pass conversation handoff ids (see above).
 3. Record assumptions on the document. Any assumption that changes scope, price, timeline, legal terms, final deliverables, or implementation direction must be `severity: "blocks_publish"`.
 4. If there is any `blocks_publish` assumption, do not ask Peet to approve or publish the spec as ready. Return the admin URL and the blocking assumption(s) to resolve first.
 5. Create a Pip approval-gate kanban task linked to the document/spec.
@@ -309,6 +322,8 @@ When a shared spec has client feedback:
      "type": "sales_proposal",
      "templateId": "sales_proposal",
      "orgId": "<orgId if creating from org context>",
+     "conversationId": "<from Messages canvas block when in chat>",
+     "responseMessageId": "<from Messages canvas block when in chat>",
      "linked": {
        "companyId": "<crmCompanyId>",
        "clientOrgId": "<linkedOrgId if system client>",
@@ -322,6 +337,8 @@ When a shared spec has client feedback:
    POST /api/v1/client-documents/[id]/versions
    X-Org-Id: <orgId>
    {
+     "conversationId": "<from Messages canvas block when in chat>",
+     "responseMessageId": "<from Messages canvas block when in chat>",
      "blocks": [ ...filled blocks array... ],
      "theme": {
        "brandName": "<org.name>",
@@ -331,7 +348,7 @@ When a shared spec has client feedback:
      "changeSummary": "Initial agent-generated draft"
    }
    ```
-   Use brand colors from org profile if available.
+   Use brand colors from org profile if available. When in Messages, expect `uiActions` / `contextRef` on the response and rely on the Context Dock — do not invent studio_artifact rich_parts.
 
    **Version payload tolerance (important):** each block should include `id`, `type`, `content`, `required` (boolean), and `display` (object, e.g. `{ "motion": "reveal" }`). If you omit `required` / `display`, the API defaults them (`required: false`, `display: {}`). Top-level `motion` is accepted as an alias for `display.motion`. Theme typography defaults when only `palette` is sent. Still prefer sending the full shape from the examples below. On any 400, read and surface the `error` string — do not retry blindly or hand off as "API rejects payload".
    5b. **If this is a proposal**, also include a `video` block (Loom intro), a `comparison` block, a `pricing_toggle` block, and an `faq` block for maximum impact. See "Make a Standout Proposal" below.

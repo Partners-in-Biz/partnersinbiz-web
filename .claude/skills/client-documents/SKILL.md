@@ -85,10 +85,6 @@ What they can do once authenticated is controlled by `document.clientPermissions
 
 Use for: client review cycles, collaborative editing with external stakeholders, anyone whose feedback you need to attribute.
 
-### Internal member sharing
-
-For an internal draft that needs to be visible to specific workspace members before publication, the creator may set `sharedWithUserIds` on `PATCH /api/v1/client-documents/[id]`. The creator remains the primary owner; each listed member can read the draft. Do not publish merely to make an internal collaborator find a document.
-
 ---
 
 ## Document Types & Templates
@@ -197,7 +193,7 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 | `GET` | `/api/v1/client-documents` | `?orgId=&status=&type=&limit=&page=` | List documents |
 | `POST` | `/api/v1/client-documents` | `{ orgId?, title, type, templateId?, linked? }` | Create document (starts as `internal_draft`). From CRM company context, send `linked.companyId`; the API resolves the owner org and `linked.clientOrgId` when possible. |
 | `GET` | `/api/v1/client-documents/[id]` | — | Fetch single document |
-| `PATCH` | `/api/v1/client-documents/[id]` | `{ title?, linked?, assumptions?, shareEnabled?, sharedWithUserIds? }` | Update metadata; the creator may share an internal draft with named members. |
+| `PATCH` | `/api/v1/client-documents/[id]` | `{ title?, status?, orgId?, linked?, assumptions?, clientPermissions?, shareEnabled? }` | Update metadata |
 | `DELETE` | `/api/v1/client-documents/[id]` | — | Archive (soft delete) |
 | `POST` | `/api/v1/client-documents/[id]/archive` | `{}` | Explicit admin archive action; use this from admin UI/workflows when available |
 | `POST` | `/api/v1/client-documents/[id]/publish` | `{}` | Move to `client_review`, generate shareToken |
@@ -271,6 +267,19 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 
 ---
 
+## Messages Context Dock (mandatory when creating from chat)
+
+When this run is inside Partners in Biz **Messages**, every create/version call must open the document side canvas.
+
+1. Include `conversationId` + `responseMessageId` from the injected `[Messages dynamic chat — Context Dock / side canvas]` block (or `conversationOrigin`) on:
+   - `POST /api/v1/client-documents`
+   - `POST /api/v1/client-documents/[id]/versions`
+2. The platform auto-attaches `open_context { kind: "document", id }` to the assistant message and returns `contextRef` + `uiActions`. Echo those in structured form if present.
+3. **Never** paste raw JSON like `{"rich_parts":[{"type":"studio_artifact",...}]}` into chat. Client documents are **not** `studio_artifact` — canvas kind is always **`document`**.
+4. **Never** dump the full document body as the only review surface. Humans review in the Context Dock (`DocumentContextPreview`).
+
+---
+
 ## Default Agent Workflow
 
 ### Internal system/spec document → approval-gated kanban breakdown
@@ -278,7 +287,7 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 Use this for substantial client work when Peet says to plan/spec something before implementation, especially coding, multi-agent work, operational setup, or anything that affects cost, timeline, scope, or the client's live assets.
 
 1. Resolve the active relationship context first. If the current app page is a CRM company, use that company ID. If the context is only a selected client org, resolve its PiB-side platform CRM company when one exists.
-2. Create the client document as `internal_draft` or `internal_review`. For CRM-company work, send `linked.companyId`; for system clients also include/verify `linked.clientOrgId`. Link to the active project with `linked.projectId` when a project exists.
+2. Create the client document as `internal_draft` or `internal_review`. For CRM-company work, send `linked.companyId`; for system clients also include/verify `linked.clientOrgId`. Link to the active project with `linked.projectId` when a project exists. From Messages, always pass conversation handoff ids (see above).
 3. Record assumptions on the document. Any assumption that changes scope, price, timeline, legal terms, final deliverables, or implementation direction must be `severity: "blocks_publish"`.
 4. If there is any `blocks_publish` assumption, do not ask Peet to approve or publish the spec as ready. Return the admin URL and the blocking assumption(s) to resolve first.
 5. Create a Pip approval-gate kanban task linked to the document/spec.
@@ -313,6 +322,8 @@ When a shared spec has client feedback:
      "type": "sales_proposal",
      "templateId": "sales_proposal",
      "orgId": "<orgId if creating from org context>",
+     "conversationId": "<from Messages canvas block when in chat>",
+     "responseMessageId": "<from Messages canvas block when in chat>",
      "linked": {
        "companyId": "<crmCompanyId>",
        "clientOrgId": "<linkedOrgId if system client>",
@@ -326,6 +337,8 @@ When a shared spec has client feedback:
    POST /api/v1/client-documents/[id]/versions
    X-Org-Id: <orgId>
    {
+     "conversationId": "<from Messages canvas block when in chat>",
+     "responseMessageId": "<from Messages canvas block when in chat>",
      "blocks": [ ...filled blocks array... ],
      "theme": {
        "brandName": "<org.name>",
@@ -335,7 +348,7 @@ When a shared spec has client feedback:
      "changeSummary": "Initial agent-generated draft"
    }
    ```
-   Use brand colors from org profile if available.
+   Use brand colors from org profile if available. When in Messages, expect `uiActions` / `contextRef` on the response and rely on the Context Dock — do not invent studio_artifact rich_parts.
 
    **Version payload tolerance (important):** each block should include `id`, `type`, `content`, `required` (boolean), and `display` (object, e.g. `{ "motion": "reveal" }`). If you omit `required` / `display`, the API defaults them (`required: false`, `display: {}`). Top-level `motion` is accepted as an alias for `display.motion`. Theme typography defaults when only `palette` is sent. Still prefer sending the full shape from the examples below. On any 400, read and surface the `error` string — do not retry blindly or hand off as "API rejects payload".
    5b. **If this is a proposal**, also include a `video` block (Loom intro), a `comparison` block, a `pricing_toggle` block, and an `faq` block for maximum impact. See "Make a Standout Proposal" below.

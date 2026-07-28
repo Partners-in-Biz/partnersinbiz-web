@@ -299,7 +299,9 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
 
   const storedBlocks = serializeBlocksForFirestore(blocks.value)
 
-  let result: { ok: true } | { ok: false; response: ReturnType<typeof apiError> }
+  let result:
+    | { ok: true; orgId?: string; title?: string }
+    | { ok: false; response: ReturnType<typeof apiError> }
   try {
     result = await adminDb.runTransaction(async (transaction) => {
       const snap = await transaction.get(documentRef)
@@ -307,7 +309,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
         return { ok: false as const, response: apiError('Document not found', 404) }
       }
 
-      const access = assertClientDocumentDataAccess(snap.data() as Partial<ClientDocument>, user)
+      const docData = snap.data() as Partial<ClientDocument>
+      const access = assertClientDocumentDataAccess(docData, user)
       if (!access.ok) return access
 
       transaction.set(versionRef, {
@@ -328,7 +331,11 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
         updatedByType: inputActorType,
       })
 
-      return { ok: true as const }
+      return {
+        ok: true as const,
+        orgId: typeof docData.orgId === 'string' ? docData.orgId : undefined,
+        title: typeof docData.title === 'string' ? docData.title : undefined,
+      }
     })
   } catch (err) {
     console.error('[client-documents/versions] POST failed', { documentId: id, error: err })
@@ -337,5 +344,30 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
 
   if (!result.ok) return result.response
 
-  return apiSuccess({ id: versionRef.id }, 201)
+  // Re-open Context Dock after content lands (create shell may have opened empty).
+  const handoffIds = result.orgId
+    ? (await import('@/lib/messages/openContextHandoff')).parseMessagesHandoffIds(body as Record<string, unknown>)
+    : { conversationId: null, responseMessageId: null }
+  const handoff = result.orgId && handoffIds.conversationId && handoffIds.responseMessageId
+    ? await import('@/lib/messages/openContextHandoff')
+      .then((mod) => mod.handoffOpenContextFromCreate({
+        orgId: result.orgId as string,
+        body: body as Record<string, unknown>,
+        kind: 'document',
+        id,
+        label: result.title || id,
+        summary: `version: ${versionRef.id} | draft content updated`,
+      }))
+      .catch(() => null)
+    : null
+
+  return apiSuccess({
+    id: versionRef.id,
+    ...(handoff ? {
+      documentId: id,
+      contextRef: handoff.contextRef,
+      uiActions: handoff.uiActions,
+      messagesAttach: handoff.messagesAttach,
+    } : {}),
+  }, 201)
 })
