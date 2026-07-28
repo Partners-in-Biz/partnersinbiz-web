@@ -28,7 +28,7 @@ export type WorkbenchOperation =
   | { kind: 'fs.write'; path: string; content: string; expectedSha256?: string }
   | { kind: 'git.status' }
   | { kind: 'git.diff'; path?: string; staged?: boolean }
-  | { kind: 'shell.exec'; argv: string[]; cwd?: string; timeoutMs?: number; allowedShellArgv?: string[][] }
+  | { kind: 'shell.exec'; argv: string[]; cwd?: string; timeoutMs?: number }
 
 export type WorkbenchResult =
   | { entries: Array<{ path: string; type: 'file' | 'directory'; size?: number }> }
@@ -213,14 +213,12 @@ export function parseWorkbenchOperation(value: unknown): WorkbenchOperation {
       }
     }
     case 'shell.exec': {
-      if (!exactKeys(input, ['kind', 'argv', 'cwd', 'timeoutMs', 'allowedShellArgv'])
+      if (!exactKeys(input, ['kind', 'argv', 'cwd', 'timeoutMs'])
         || !Array.isArray(input.argv) || !input.argv.every((item) => typeof item === 'string')) {
         return invalidOperation()
       }
       const argv = normalizeShellArgv(input.argv as string[])
-      const policy = input.allowedShellArgv
-      if (policy !== undefined && (!Array.isArray(policy) || !policy.every((entry) => Array.isArray(entry) && entry.every((part) => typeof part === 'string')))) return invalidOperation()
-      if (!argv || !isAllowlistedShellArgv(argv, policy as string[][] | undefined)) return invalidOperation()
+      if (!argv || !isAllowlistedShellArgv(argv)) return invalidOperation()
       let cwd: string | undefined
       if (input.cwd !== undefined) {
         if (typeof input.cwd !== 'string') return invalidOperation()
@@ -232,7 +230,7 @@ export function parseWorkbenchOperation(value: unknown): WorkbenchOperation {
         if (!Number.isSafeInteger(input.timeoutMs)) return invalidOperation()
         timeoutMs = Math.min(MAX_SHELL_TIMEOUT_MS, Math.max(MIN_SHELL_TIMEOUT_MS, Number(input.timeoutMs)))
       }
-      return { kind: 'shell.exec', argv, ...(cwd ? { cwd } : {}), timeoutMs, ...(policy ? { allowedShellArgv: policy as string[][] } : {}) }
+      return { kind: 'shell.exec', argv, ...(cwd ? { cwd } : {}), timeoutMs }
     }
     default:
       return invalidOperation()

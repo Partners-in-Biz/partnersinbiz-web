@@ -49,7 +49,7 @@ interface AuthorizationDependencies {
   requireProjectRuntimeReplica?: typeof requireProjectRuntimeReplica
 }
 
-export const WORKBENCH_MINIMUM_RUNTIME_VERSION = '1.1.12'
+export const WORKBENCH_MINIMUM_RUNTIME_VERSION = '1.1.8'
 export const WORKBENCH_COMPANY_ROOT_MINIMUM_RUNTIME_VERSION = '1.1.10'
 
 export function workbenchRuntimeUpdateRequired(version: string): boolean {
