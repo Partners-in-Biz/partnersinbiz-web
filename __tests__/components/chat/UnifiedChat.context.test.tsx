@@ -720,7 +720,8 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(within(dialog).getByText(/Pick VPS or Mac/i)).toBeInTheDocument()
 
     fireEvent.change(computer, { target: { value: 'device-mac::partners-mac-workspace' } })
-    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Theo Builder/ }))
+    const theo = await within(dialog).findByRole('checkbox', { name: /Theo Builder/ })
+    fireEvent.click(theo)
     fireEvent.click(within(dialog).getByRole('button', { name: 'Start conversation' }))
     await waitFor(() => expect(creates).toEqual([expect.objectContaining({
       scope: 'company',
@@ -1727,12 +1728,15 @@ describe('UnifiedChat message scrolling', () => {
     expect(within(companyFolder).queryByText('AHS Law check-in')).not.toBeInTheDocument()
     fireEvent.click(within(companyFolder).getByRole('button', { name: 'Expand sessions for AHS Law' }))
     expect(within(companyFolder).getByText('AHS Law check-in')).toBeInTheDocument()
-    expect(screen.getByTestId('hermes-session-section-agents')).not.toHaveTextContent('AHS Law check-in')
+    expect(screen.queryByTestId('hermes-session-section-agents')).not.toBeInTheDocument()
     const projectFolder = screen.getByTestId('hermes-project-project-1')
     const expandProject = within(projectFolder).queryByRole('button', { name: 'Expand sessions for Launch Project' })
     if (expandProject) fireEvent.click(expandProject)
     expect(within(projectFolder).getByText('Website project')).toBeInTheDocument()
-    expect(within(screen.getByTestId('hermes-session-section-agents')).getByText('Pip agent run')).toBeInTheDocument()
+    const agentFolder = screen.getByTestId('hermes-agent-pip')
+    expect(within(agentFolder).queryByText('Pip agent run')).not.toBeInTheDocument()
+    fireEvent.click(within(agentFolder).getByRole('button', { name: 'Expand sessions for Pip' }))
+    expect(within(agentFolder).getByText('Pip agent run')).toBeInTheDocument()
     expect(within(screen.getByTestId('hermes-session-section-recent')).getByText('General inbox')).toBeInTheDocument()
 
     expect(within(companyFolder).getByRole('button', { name: 'Start session in AHS Law' })).toBeEnabled()
@@ -1814,16 +1818,25 @@ describe('UnifiedChat message scrolling', () => {
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
 
     const launchProject = await screen.findByTestId('hermes-project-project-1')
-    expect(within(launchProject).getByRole('button', { name: /sessions for Launch Project/ })).toBeInTheDocument()
-    const collapseLaunch = await within(launchProject).findByRole('button', { name: 'Collapse sessions for Launch Project' })
+    // Prefer collapsed-by-default; expand when needed for assertions.
+    const ensureExpanded = () => {
+      const expand = within(launchProject).queryByRole('button', { name: 'Expand sessions for Launch Project' })
+      if (expand) fireEvent.click(expand)
+    }
+    ensureExpanded()
     expect(within(launchProject).getByTestId('conversation-row-conv-project-one')).toHaveTextContent('Homepage implementation')
     expect(within(launchProject).getByTestId('conversation-row-conv-project-one')).toHaveTextContent('Studio Mac')
     expect(within(launchProject).getByTestId('conversation-project-badge-conv-project-one')).toHaveTextContent('Launch Project')
     expect(within(launchProject).getByTestId('conversation-row-conv-project-two')).toHaveTextContent('Launch checklist')
     expect(within(launchProject).getByTestId('conversation-row-conv-project-two')).toHaveTextContent('Partners VPS')
-    fireEvent.click(collapseLaunch)
+    fireEvent.click(within(launchProject).getByRole('button', { name: 'Collapse sessions for Launch Project' }))
     expect(within(launchProject).queryByTestId('conversation-row-conv-project-one')).not.toBeInTheDocument()
-    fireEvent.click(within(launchProject).getByRole('button', { name: 'Expand sessions for Launch Project' }))
+    // Catalogue refresh must not re-open a deliberately collapsed project folder.
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(within(launchProject).queryByTestId('conversation-row-conv-project-one')).not.toBeInTheDocument()
+    ensureExpanded()
 
     expect(within(launchProject).queryByRole('button', { name: 'Link client organisation to Launch Project' })).not.toBeInTheDocument()
     fireEvent.click(within(launchProject).getByRole('button', { name: 'More actions for Launch Project' }))
