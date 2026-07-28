@@ -371,5 +371,24 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
     }
   }
 
-  return apiSuccess({ ...sanitized, id: docRef.id }, 201)
+  const handoff = await import('@/lib/messages/openContextHandoff')
+    .then((mod) => mod.handoffOpenContextFromCreate({
+      orgId: sourceOrgId,
+      body: body as Record<string, unknown>,
+      kind: 'quote',
+      id: docRef.id,
+      label: quoteNumber,
+      summary: `status: draft | total: ${total} ${String(sanitized.currency ?? '')}`,
+    }))
+    .catch(() => null)
+
+  return apiSuccess({
+    ...sanitized,
+    id: docRef.id,
+    ...(handoff ? {
+      contextRef: handoff.contextRef,
+      uiActions: handoff.uiActions,
+      messagesAttach: handoff.messagesAttach,
+    } : {}),
+  }, 201)
 })

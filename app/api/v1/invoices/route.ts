@@ -464,5 +464,26 @@ export const POST = withAuth('client', async (req, user) => {
     console.error('[webhook-dispatch-error] invoice.created', err)
   }
 
-  return apiSuccess(stripUndefined({ id: ref.id, invoiceNumber, claimToken, claimStatus }), 201)
+  const handoff = await import('@/lib/messages/openContextHandoff')
+    .then((mod) => mod.handoffOpenContextFromCreate({
+      orgId: sourceOrgId,
+      body,
+      kind: 'invoice',
+      id: ref.id,
+      label: invoiceNumber,
+      summary: `status: draft | total: ${total} ${doc.currency}`,
+    }))
+    .catch(() => null)
+
+  return apiSuccess(stripUndefined({
+    id: ref.id,
+    invoiceNumber,
+    claimToken,
+    claimStatus,
+    ...(handoff ? {
+      contextRef: handoff.contextRef,
+      uiActions: handoff.uiActions,
+      messagesAttach: handoff.messagesAttach,
+    } : {}),
+  }), 201)
 })

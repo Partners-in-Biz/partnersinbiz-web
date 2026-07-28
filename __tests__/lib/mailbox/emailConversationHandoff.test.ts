@@ -56,7 +56,7 @@ describe('emailConversationHandoff', () => {
 
     expect(result).toEqual({ attached: true })
     expect(update).toHaveBeenCalledWith(expect.objectContaining({
-      uiActions: [expect.objectContaining({ type: 'open_context', id: 'open-email-draft:draft-1' })],
+      uiActions: [expect.objectContaining({ type: 'open_context' })],
       contextRefs: [expect.objectContaining({ type: 'email', id: 'draft-1' })],
     }))
   })

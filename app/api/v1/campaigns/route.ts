@@ -168,7 +168,28 @@ async function createContentEngineCampaign(
     entityTitle: body.name.trim(),
   }).catch(() => {})
 
-  return apiSuccess({ id: ref.id, shareToken, status: 'draft', orgId }, 201)
+  const handoff = await import('@/lib/messages/openContextHandoff')
+    .then((mod) => mod.handoffOpenContextFromCreate({
+      orgId,
+      body: body as Record<string, unknown>,
+      kind: 'campaign',
+      id: ref.id,
+      label: body.name.trim(),
+      summary: 'status: draft | content-engine campaign',
+    }))
+    .catch(() => null)
+
+  return apiSuccess({
+    id: ref.id,
+    shareToken,
+    status: 'draft',
+    orgId,
+    ...(handoff ? {
+      contextRef: handoff.contextRef,
+      uiActions: handoff.uiActions,
+      messagesAttach: handoff.messagesAttach,
+    } : {}),
+  }, 201)
 }
 
 async function createEmailCampaign(
@@ -270,5 +291,23 @@ async function createEmailCampaign(
     entityTitle: name,
   }).catch(() => {})
 
-  return apiSuccess({ id: docRef.id }, 201)
+  const handoff = await import('@/lib/messages/openContextHandoff')
+    .then((mod) => mod.handoffOpenContextFromCreate({
+      orgId,
+      body: body as Record<string, unknown>,
+      kind: 'campaign',
+      id: docRef.id,
+      label: name,
+      summary: 'status: draft | email campaign',
+    }))
+    .catch(() => null)
+
+  return apiSuccess({
+    id: docRef.id,
+    ...(handoff ? {
+      contextRef: handoff.contextRef,
+      uiActions: handoff.uiActions,
+      messagesAttach: handoff.messagesAttach,
+    } : {}),
+  }, 201)
 }

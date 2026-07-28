@@ -540,7 +540,7 @@ For dry-run totals before create, still use `POST /invoices/preview`. Once the i
 2. **Check `payment-instructions` before sending** — confirms banking details are populated on the platform org.
 3. **Verify proof of payment carefully** — confirm amount + reference match the invoice before confirming.
 4. **Use `/invoices/preview` before committing** — lets you show the user the totals first.
-5. **After create in Messages, emit `open_context`** — so the human sees the invoice layout in the side canvas before send.
+5. **After create in Messages, emit `open_context`** — so the human sees the invoice layout in the side canvas before send. Always pass `conversationId` + `responseMessageId` from the Messages dynamic-chat canvas block on `POST /invoices` so the platform auto-attaches the canvas.
 6. **Idempotency on creates** — pass `Idempotency-Key: <uuid>` on `POST /invoices` and `POST /expenses`.
 7. **Webhooks** — subscribe to `invoice.paid`, `invoice.overdue`, `payment.received` (see `platform-ops`).
 8. **Currency consistency** — check client org `settings.currency`; default to `ZAR` for SA clients.

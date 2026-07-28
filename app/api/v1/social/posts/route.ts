@@ -355,5 +355,23 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     entityType: 'social_post',
   }).catch(() => {})
 
-  return apiSuccess({ id: docRef.id }, 201)
+  const handoff = await import('@/lib/messages/openContextHandoff')
+    .then((mod) => mod.handoffOpenContextFromCreate({
+      orgId,
+      body: body as Record<string, unknown>,
+      kind: 'social',
+      id: docRef.id,
+      label: contentText.slice(0, 80) || 'Social post',
+      summary: `status: ${status} | platforms: ${platforms.join(', ')}`,
+    }))
+    .catch(() => null)
+
+  return apiSuccess({
+    id: docRef.id,
+    ...(handoff ? {
+      contextRef: handoff.contextRef,
+      uiActions: handoff.uiActions,
+      messagesAttach: handoff.messagesAttach,
+    } : {}),
+  }, 201)
 }))
