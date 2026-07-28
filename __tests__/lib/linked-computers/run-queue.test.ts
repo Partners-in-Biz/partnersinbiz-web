@@ -83,13 +83,33 @@ describe('linked run queue security transitions', () => {
       .toBe('Preview ready: https://partnersinbiz.online/portal/messages')
     expect(sanitizeLinkedResult('Deployed to https://example.com/docs/guide'))
       .toBe('Deployed to https://example.com/docs/guide')
-    expect(sanitizeLinkedResult('Signed https://storage.example.com/o/x?alt=media&token=abc123 keep going'))
-      .toBe('Signed [redacted-url] keep going')
-    expect(sanitizeLinkedResult('Local http://127.0.0.1:3000/admin and https://user:pass@evil.example/x'))
-      .toBe('Local [redacted-url] and [redacted-url]')
+    // Sensitive/private URLs become click-to-reveal markers (recoverable in UI).
+    const signed = sanitizeLinkedResult('Signed https://storage.example.com/o/x?alt=media&token=abc123 keep going')
+    expect(signed).toMatch(/^Signed \[\[pib-reveal:url\|[A-Za-z0-9_-]+\]\] keep going$/)
+    expect(signed).not.toContain('token=abc123')
+    const local = sanitizeLinkedResult('Local http://127.0.0.1:3000/admin and https://user:pass@evil.example/x')
+    expect(local).toMatch(/^Local \[\[pib-reveal:url\|/)
+    expect(local).toMatch(/\[\[pib-reveal:url\|/)
+    expect(local).not.toContain('127.0.0.1')
+    expect(local).not.toContain('user:pass')
     // Long path segments inside kept URLs must not be eaten by the token scrubber.
     const longPublic = `https://example.com/${'segment-'.repeat(8)}page`
     expect(sanitizeLinkedResult(`Open ${longPublic}`)).toBe(`Open ${longPublic}`)
+  })
+
+  it('keeps API endpoint paths readable and only reveal-masks sensitive filesystem paths', () => {
+    expect(sanitizeLinkedResult('GET /api/v1/countries listCountries'))
+      .toBe('GET /api/v1/countries listCountries')
+    expect(sanitizeLinkedResult('SystemService.listCountries() -> /api/land/countries'))
+      .toBe('SystemService.listCountries() -> /api/land/countries')
+    expect(sanitizeLinkedResult('{apiBaseUrl}/api/v1/ffqv/countries/dropdown'))
+      .toBe('{apiBaseUrl}/api/v1/ffqv/countries/dropdown')
+    const home = sanitizeLinkedResult('open /Users/peet/Cowork/foo/bar')
+    expect(home).toMatch(/^open \[\[pib-reveal:path\|/)
+    expect(home).not.toContain('/Users/peet')
+    const win = sanitizeLinkedResult('file C:\\Users\\Peet\\secret\\file.txt')
+    expect(win).toMatch(/\[\[pib-reveal:path\|/)
+    expect(win).not.toContain('Peet')
   })
 
   it('denies cross-device, stale credential and out-of-order completion while making duplicate completion idempotent', () => {
