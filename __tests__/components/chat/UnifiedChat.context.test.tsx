@@ -1761,6 +1761,78 @@ describe('UnifiedChat message scrolling', () => {
     expect(screen.getByTestId('conversation-row-conv-pinned')).toBeInTheDocument()
   })
 
+  it('aligns workspace and authorised agent folders with start, durable hide, and restore actions', async () => {
+    let hiddenFolderKeys: string[] = []
+    const agents = [{
+      agentId: 'theo', name: 'Theo', role: 'Engineering', persona: 'Builder', iconKey: 'code', colorKey: 'sky',
+      enabled: true, baseUrl: 'https://agent.test', apiKey: 'masked', defaultModel: 'test/model',
+      responsibilities: [], skills: [], cronWatchLoops: [], allowedScopes: [], exampleTaskTypes: [],
+    }, {
+      agentId: 'pip', name: 'Pip', role: 'Coordination', persona: 'Router', iconKey: 'hub', colorKey: 'violet',
+      enabled: true, baseUrl: 'https://agent.test', apiKey: 'masked', defaultModel: 'test/model',
+      responsibilities: [], skills: [], cronWatchLoops: [], allowedScopes: [], exampleTaskTypes: [],
+    }]
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents')) return jsonResponse({ data: agents })
+      if (url.includes('/people')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/account/messages-sidebar-preferences?')) {
+        if (init?.method === 'POST') {
+          hiddenFolderKeys = (JSON.parse(String(init.body)) as { hiddenFolderKeys: string[] }).hiddenFolderKeys
+        }
+        return jsonResponse({ data: { hiddenFolderKeys } })
+      }
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: {
+        workspaces: [{ workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'device-mac', folderVersion: 1 }],
+        runtimeTargetsByWorkspace: { acme: [{ id: 'device-mac', label: 'Studio Mac', selectable: true, enabled: true, isLocal: true, isFresh: true, isHealthy: true, availableAgentIds: ['theo', 'pip'] }] },
+        projects: [],
+      } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="pib-platform-owner" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
+
+    const workspace = await screen.findByTestId('hermes-workspace-acme')
+    const theo = await screen.findByTestId('hermes-agent-theo')
+    expect(within(theo).getByText('0')).toBeInTheDocument()
+
+    fireEvent.click(within(workspace).getByRole('button', { name: 'Start session in Acme' }))
+    let dialog = screen.getByRole('dialog', { name: 'New conversation' })
+    expect(within(dialog).getByLabelText('Conversation context')).toHaveValue('workspace')
+    expect(within(dialog).getByRole('combobox', { name: 'Organisation root' })).toHaveValue('acme')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+
+    fireEvent.click(within(theo).getByRole('button', { name: 'Start direct session with Theo' }))
+    dialog = screen.getByRole('dialog', { name: 'New conversation' })
+    expect(within(dialog).getByLabelText('Conversation context')).toHaveValue('general')
+    const theoCheckbox = await within(dialog).findByRole('checkbox', { name: /Theo/ })
+    await waitFor(() => expect(theoCheckbox).toBeChecked())
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }))
+
+    fireEvent.click(within(theo).getByRole('button', { name: 'More actions for Theo' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Theo from sidebar' }))
+    await waitFor(() => expect(screen.queryByTestId('hermes-agent-theo')).not.toBeInTheDocument())
+    expect(hiddenFolderKeys).toEqual(['agent:theo'])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restore hidden folders' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Theo' }))
+    expect(await screen.findByTestId('hermes-agent-theo')).toBeInTheDocument()
+    expect(hiddenFolderKeys).toEqual([])
+
+    const restoredWorkspace = screen.getByTestId('hermes-workspace-acme')
+    fireEvent.click(within(restoredWorkspace).getByRole('button', { name: 'More actions for Acme' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Acme from sidebar' }))
+    await waitFor(() => expect(screen.queryByTestId('hermes-workspace-acme')).not.toBeInTheDocument())
+    expect(hiddenFolderKeys).toEqual(['workspace:acme'])
+    fireEvent.click(screen.getByRole('button', { name: 'Restore hidden folders' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Acme' }))
+    expect(await screen.findByTestId('hermes-workspace-acme')).toBeInTheDocument()
+    expect(hiddenFolderKeys).toEqual([])
+  })
+
   it('renders catalogue projects first, nests multiple sessions, and preselects an empty project from its add action', async () => {
     window.localStorage.setItem('pib.messages.expandedSessionGroups.v1:org-1', JSON.stringify(['project:project-1']))
     window.localStorage.setItem('pib.messages.pinnedConversations.v1:org-1', JSON.stringify(['conv-general']))

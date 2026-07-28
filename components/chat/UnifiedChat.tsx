@@ -810,11 +810,16 @@ function buildHermesWorkspaceGroups(
 
 function buildHermesAgentGroups(
   conversations: Conversation[],
+  visibleAgents: AgentTeamDoc[],
   filter: string,
   pinnedIds: string[] = [],
 ) {
   const pinnedSet = new Set(pinnedIds)
   const groups = new Map<string, { id: string; name: string; conversations: Conversation[] }>()
+  for (const agent of visibleAgents) {
+    if (agent.enabled === false) continue
+    groups.set(agent.agentId, { id: agent.agentId, name: agent.name || agent.agentId, conversations: [] })
+  }
   for (const conversation of conversations) {
     if (conversation.archived || pinnedSet.has(conversation.id)) continue
     const agent = conversationAgentIdentity(conversation)
@@ -1317,6 +1322,7 @@ export default function UnifiedChat({
   const [showNewModal, setShowNewModal] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newParticipants, setNewParticipants] = useState<SelectedParticipant[]>([])
+  const [newInitialAgentIds, setNewInitialAgentIds] = useState<string[]>([])
   const [newScope, setNewScope] = useState<ConversationScope>(
     scope ?? (projectId ? 'project' : 'general'),
   )
@@ -1362,6 +1368,14 @@ export default function UnifiedChat({
   const [managedProject, setManagedProject] = useState<{ id: string; name: string } | null>(null)
   const [accessProject, setAccessProject] = useState<{ id: string; name: string } | null>(null)
   const [projectActionsOpenId, setProjectActionsOpenId] = useState<string | null>(null)
+  const [folderActionsOpenKey, setFolderActionsOpenKey] = useState<string | null>(null)
+  const [hiddenFolderKeys, setHiddenFolderKeys] = useState<string[]>([])
+  const [hiddenFolderPreferencesLoaded, setHiddenFolderPreferencesLoaded] = useState(false)
+  const [hiddenFolderPreferencesSaving, setHiddenFolderPreferencesSaving] = useState(false)
+  const [showHiddenFolders, setShowHiddenFolders] = useState(false)
+  const hiddenFolderMutationInFlightRef = useRef(false)
+  const activeHiddenFolderOrgIdRef = useRef(orgId)
+  activeHiddenFolderOrgIdRef.current = orgId
   const [managedProjectLocations, setManagedProjectLocations] = useState<ManagedProjectLocation[]>([])
   const [selectedManagedProjectLocationKeys, setSelectedManagedProjectLocationKeys] = useState<string[]>([])
   const [projectLocationsLoading, setProjectLocationsLoading] = useState(false)
@@ -2044,14 +2058,34 @@ export default function UnifiedChat({
     () => buildHermesProjectGroups(visibleConversations, workspaceProjects, conversationFilter),
     [conversationFilter, visibleConversations, workspaceProjects],
   )
-  const hermesWorkspaceGroups = useMemo(
+  const allHermesWorkspaceGroups = useMemo(
     () => buildHermesWorkspaceGroups(visibleConversations, workspaces, conversationFilter, pinnedConversationIds),
     [conversationFilter, pinnedConversationIds, visibleConversations, workspaces],
   )
-  const hermesAgentGroups = useMemo(
-    () => buildHermesAgentGroups(visibleConversations, conversationFilter, pinnedConversationIds),
-    [conversationFilter, pinnedConversationIds, visibleConversations],
+  const allHermesAgentGroups = useMemo(
+    () => buildHermesAgentGroups(visibleConversations, Object.values(agentMap), conversationFilter, pinnedConversationIds),
+    [agentMap, conversationFilter, pinnedConversationIds, visibleConversations],
   )
+  const hiddenFolderKeySet = useMemo(() => new Set(hiddenFolderKeys), [hiddenFolderKeys])
+  const hermesWorkspaceGroups = useMemo(
+    () => allHermesWorkspaceGroups.filter((group) => !hiddenFolderKeySet.has(`workspace:${group.id}`)),
+    [allHermesWorkspaceGroups, hiddenFolderKeySet],
+  )
+  const hermesAgentGroups = useMemo(
+    () => allHermesAgentGroups.filter((group) => !hiddenFolderKeySet.has(`agent:${group.id}`)),
+    [allHermesAgentGroups, hiddenFolderKeySet],
+  )
+  const hiddenFolderOptions = useMemo(() => [
+    ...allHermesWorkspaceGroups
+      .filter((group) => hiddenFolderKeySet.has(`workspace:${group.id}`))
+      .map((group) => ({ key: `workspace:${group.id}`, name: group.name, kind: 'Workspace' })),
+    ...allHermesAgentGroups
+      .filter((group) => hiddenFolderKeySet.has(`agent:${group.id}`))
+      .map((group) => ({ key: `agent:${group.id}`, name: group.name, kind: 'Agent' })),
+  ], [allHermesAgentGroups, allHermesWorkspaceGroups, hiddenFolderKeySet])
+  useEffect(() => {
+    if (hiddenFolderOptions.length === 0) setShowHiddenFolders(false)
+  }, [hiddenFolderOptions.length])
   const hasHermesRailItems = hermesCompanyGroups.length > 0
     || hermesProjectGroups.length > 0
     || hermesWorkspaceGroups.length > 0
@@ -2139,12 +2173,14 @@ export default function UnifiedChat({
     if (orgName?.trim()) setSelectedCompanyName(orgName.trim())
   }, [companyCoworkLocked, orgName, scopeRefId])
 
-  // ── Load agents (for colorKey lookup) ─────────────────────────────────────
+  // ── Load agents (for colorKey lookup and authorized Agent folders) ──────────
   useEffect(() => {
+    let cancelled = false
+    setAgentMap({} as Record<AgentId, AgentTeamDoc>)
     fetch(`/api/v1/orgs/${orgId}/visible-agents`)
       .then((r) => (r.ok ? r.json() : null))
       .then((body) => {
-        if (!body?.data) return
+        if (cancelled || !body?.data) return
         const map = {} as Record<AgentId, AgentTeamDoc>
         for (const agent of body.data as AgentTeamDoc[]) {
           map[agent.agentId] = agent
@@ -2152,6 +2188,7 @@ export default function UnifiedChat({
         setAgentMap(map)
       })
       .catch(() => {})
+    return () => { cancelled = true }
   }, [orgId])
 
   useEffect(() => {
@@ -2274,6 +2311,75 @@ export default function UnifiedChat({
     setExpandedSessionGroupKeys(readExpandedSessionGroupKeys(orgId))
   }, [orgId])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    activeHiddenFolderOrgIdRef.current = orgId
+    hiddenFolderMutationInFlightRef.current = false
+    setHiddenFolderKeys([])
+    setHiddenFolderPreferencesLoaded(false)
+    setHiddenFolderPreferencesSaving(false)
+    setShowHiddenFolders(false)
+    fetch(`/api/v1/account/messages-sidebar-preferences?${new URLSearchParams({ orgId }).toString()}`, {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const body = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(body?.error ?? `Load sidebar preferences: ${response.status}`)
+        return Array.isArray(body?.data?.hiddenFolderKeys) ? body.data.hiddenFolderKeys as string[] : []
+      })
+      .then((keys) => {
+        if (!controller.signal.aborted && activeHiddenFolderOrgIdRef.current === orgId) setHiddenFolderKeys(keys)
+      })
+      .catch((loadError) => {
+        if (loadError instanceof DOMException && loadError.name === 'AbortError') return
+        if (activeHiddenFolderOrgIdRef.current === orgId) setHiddenFolderKeys([])
+      })
+      .finally(() => {
+        if (!controller.signal.aborted && activeHiddenFolderOrgIdRef.current === orgId) setHiddenFolderPreferencesLoaded(true)
+      })
+    return () => controller.abort()
+  }, [orgId])
+
+  const persistHiddenFolderKeys = useCallback(async (nextKeys: string[]) => {
+    if (hiddenFolderMutationInFlightRef.current || !hiddenFolderPreferencesLoaded) return
+    hiddenFolderMutationInFlightRef.current = true
+    setHiddenFolderPreferencesSaving(true)
+    const requestOrgId = orgId
+    const previous = hiddenFolderKeys
+    setHiddenFolderKeys(nextKeys)
+    setFolderActionsOpenKey(null)
+    try {
+      const response = await fetch(`/api/v1/account/messages-sidebar-preferences?${new URLSearchParams({ orgId: requestOrgId }).toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hiddenFolderKeys: nextKeys }),
+      })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(body?.error ?? `Save sidebar preferences: ${response.status}`)
+      const saved = Array.isArray(body?.data?.hiddenFolderKeys) ? body.data.hiddenFolderKeys as string[] : nextKeys
+      if (activeHiddenFolderOrgIdRef.current === requestOrgId) setHiddenFolderKeys(saved)
+    } catch (preferenceError) {
+      if (activeHiddenFolderOrgIdRef.current === requestOrgId) {
+        setHiddenFolderKeys(previous)
+        setError(preferenceError instanceof Error ? preferenceError.message : 'Could not save sidebar preferences')
+      }
+    } finally {
+      if (activeHiddenFolderOrgIdRef.current === requestOrgId) {
+        hiddenFolderMutationInFlightRef.current = false
+        setHiddenFolderPreferencesSaving(false)
+      }
+    }
+  }, [hiddenFolderKeys, hiddenFolderPreferencesLoaded, orgId])
+
+  const hideFolderFromSidebar = useCallback((folderKey: string) => {
+    if (!folderKey.startsWith('workspace:') && !folderKey.startsWith('agent:')) return
+    void persistHiddenFolderKeys(Array.from(new Set([...hiddenFolderKeys, folderKey])))
+  }, [hiddenFolderKeys, persistHiddenFolderKeys])
+
+  const restoreFolderToSidebar = useCallback((folderKey: string) => {
+    void persistHiddenFolderKeys(hiddenFolderKeys.filter((key) => key !== folderKey))
+  }, [hiddenFolderKeys, persistHiddenFolderKeys])
+
   const togglePinnedConversation = useCallback((conversationId: string) => {
     setPinnedConversationIds((current) => {
       const next = current.includes(conversationId)
@@ -2299,6 +2405,7 @@ export default function UnifiedChat({
       setError('Starting new conversations is disabled for your organisation role.')
       return
     }
+    setNewInitialAgentIds([])
     if (forProjectId) {
       setNewScope('project')
       setSelectedProjectId(forProjectId)
@@ -2317,8 +2424,35 @@ export default function UnifiedChat({
       return
     }
     setNewScope('company')
+    setNewInitialAgentIds([])
     setSelectedCompanyId(companyId)
     setSelectedCompanyName(companyName)
+    setModalError(null)
+    setShowNewModal(true)
+  }, [allowStartConversations])
+
+  const openNewWorkspaceConversation = useCallback((workspaceId: string) => {
+    if (!allowStartConversations) {
+      setError('Starting new conversations is disabled for your organisation role.')
+      return
+    }
+    setNewScope('workspace')
+    setSelectedWorkspaceId(workspaceId)
+    setSelectedWorkspaceRuntime('')
+    workspaceRuntimeExplicitRef.current = false
+    setNewInitialAgentIds([])
+    setModalError(null)
+    setShowNewModal(true)
+  }, [allowStartConversations])
+
+  const openNewAgentConversation = useCallback((agentId: string) => {
+    if (!allowStartConversations) {
+      setError('Starting new conversations is disabled for your organisation role.')
+      return
+    }
+    setNewScope('general')
+    setNewParticipants([])
+    setNewInitialAgentIds([agentId])
     setModalError(null)
     setShowNewModal(true)
   }, [allowStartConversations])
@@ -2327,6 +2461,7 @@ export default function UnifiedChat({
     setShowNewModal(false)
     setShowProjectSetupWizard(false)
     setModalError(null)
+    setNewInitialAgentIds([])
   }, [])
 
   const openProjectSetupWizard = useCallback(() => {
@@ -5637,6 +5772,40 @@ export default function UnifiedChat({
           />
         </label>
 
+        {hermesLayout && hiddenFolderPreferencesLoaded && hiddenFolderOptions.length > 0 && (
+          <div className="relative">
+            <button
+              type="button"
+              aria-label="Restore hidden folders"
+              aria-expanded={showHiddenFolders}
+              onClick={() => setShowHiddenFolders((current) => !current)}
+              className="flex h-11 w-full items-center justify-between rounded-md border border-dashed border-white/[0.1] px-2 text-xs text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8"
+            >
+              <span className="inline-flex items-center gap-1.5"><span className="material-symbols-outlined text-[14px]" aria-hidden="true">folder_open</span>Hidden folders</span>
+              <span className="font-mono text-[10px]">{hiddenFolderOptions.length}</span>
+            </button>
+            {showHiddenFolders && (
+              <div className="mt-1 space-y-1 rounded-md border border-white/[0.08] bg-black/10 p-1.5">
+                {hiddenFolderOptions.map((folder) => (
+                  <div key={folder.key} className="flex min-w-0 items-center gap-2 rounded px-1.5 py-1">
+                    <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text)]">{folder.name}</span>
+                    <span className="text-[10px] text-[var(--color-pib-text-muted)]">{folder.kind}</span>
+                    <button
+                      type="button"
+                      aria-label={`Restore ${folder.name}`}
+                      disabled={hiddenFolderPreferencesSaving}
+                      onClick={() => restoreFolderToSidebar(folder.key)}
+                      className="rounded px-2 py-1 text-xs text-primary hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className={hermesLayout ? 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5' : 'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto'}>
           {(hermesLayout ? !hasHermesRailItems : filteredConversations.length === 0) && (
             <div className="text-xs text-[var(--color-pib-text-muted)] px-2 py-3">
@@ -6157,7 +6326,7 @@ export default function UnifiedChat({
                       data-testid={`hermes-workspace-${workspace.id}`}
                       data-folder-accent={`workspace:${workspace.id}`}
                       style={folderAccentStyle(`workspace:${workspace.id}`)}
-                      className="mx-folder-accent min-w-0 overflow-hidden rounded-md border border-white/[0.06] bg-white/[0.025] py-0.5 pl-1.5 pr-0.5"
+                      className="mx-folder-accent min-w-0 overflow-visible rounded-md border border-white/[0.06] bg-white/[0.025] py-0.5 pl-1.5 pr-0.5"
                     >
                       <div className="flex min-w-0 items-center gap-0.5 px-0.5">
                         <button
@@ -6175,6 +6344,40 @@ export default function UnifiedChat({
                             {sessionsExpanded ? 'expand_less' : 'expand_more'}
                           </span>
                         </button>
+                        <button
+                          type="button"
+                          aria-label={`Start session in ${workspace.name}`}
+                          disabled={!allowStartConversations}
+                          onClick={() => openNewWorkspaceConversation(workspace.id)}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-primary focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-45 xl:h-6 xl:w-6"
+                        >
+                          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
+                        </button>
+                        <div className="relative shrink-0">
+                          <button
+                            type="button"
+                            aria-label={`More actions for ${workspace.name}`}
+                            aria-expanded={folderActionsOpenKey === groupKey}
+                            onClick={() => setFolderActionsOpenKey((current) => current === groupKey ? null : groupKey)}
+                            className="flex h-8 w-8 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-6 xl:w-6"
+                          >
+                            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">more_horiz</span>
+                          </button>
+                          {folderActionsOpenKey === groupKey && (
+                            <div className="absolute right-0 top-full z-40 mt-1 w-52 rounded-md border border-white/[0.1] bg-[var(--color-card)] p-1 shadow-xl">
+                              <button
+                                type="button"
+                                aria-label={`Remove ${workspace.name} from sidebar`}
+                                disabled={hiddenFolderPreferencesSaving}
+                                onClick={() => hideFolderFromSidebar(groupKey)}
+                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-[var(--color-pib-text)] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+                              >
+                                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">visibility_off</span>
+                                Remove from sidebar
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       {sessionsExpanded && (
                         <div id={sessionsRegionId} className="mt-0.5 flex min-w-0 flex-col gap-0.5">
@@ -6255,6 +6458,7 @@ export default function UnifiedChat({
               <div className="flex min-w-0 flex-col gap-0.5">
                 {hermesAgentGroups.map((agent) => {
                   const groupKey = `agent:${agent.id}`
+                  const agentIsAuthorized = Boolean(agentMap[agent.id])
                   const sessionsExpanded = Boolean(conversationFilter.trim()) || expandedSessionGroupKeys.includes(groupKey)
                   const sessionsRegionId = `agent-sessions-${agent.id}`
                   return (
@@ -6263,7 +6467,7 @@ export default function UnifiedChat({
                       data-testid={`hermes-agent-${agent.id}`}
                       data-folder-accent={`agent:${agent.id}`}
                       style={folderAccentStyle(`agent:${agent.id}`)}
-                      className="mx-folder-accent min-w-0 overflow-hidden rounded-md border border-white/[0.06] bg-white/[0.025] py-0.5 pl-1.5 pr-0.5"
+                      className="mx-folder-accent min-w-0 overflow-visible rounded-md border border-white/[0.06] bg-white/[0.025] py-0.5 pl-1.5 pr-0.5"
                     >
                       <div className="flex min-w-0 items-center gap-0.5 px-0.5">
                         <button
@@ -6281,6 +6485,40 @@ export default function UnifiedChat({
                             {sessionsExpanded ? 'expand_less' : 'expand_more'}
                           </span>
                         </button>
+                        {agentIsAuthorized && <button
+                          type="button"
+                          aria-label={`Start direct session with ${agent.name}`}
+                          disabled={!allowStartConversations}
+                          onClick={() => openNewAgentConversation(agent.id)}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-primary focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-45 xl:h-6 xl:w-6"
+                        >
+                          <span className="material-symbols-outlined text-[15px]" aria-hidden="true">add</span>
+                        </button>}
+                        <div className="relative shrink-0">
+                          <button
+                            type="button"
+                            aria-label={`More actions for ${agent.name}`}
+                            aria-expanded={folderActionsOpenKey === groupKey}
+                            onClick={() => setFolderActionsOpenKey((current) => current === groupKey ? null : groupKey)}
+                            className="flex h-8 w-8 items-center justify-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-6 xl:w-6"
+                          >
+                            <span className="material-symbols-outlined text-[15px]" aria-hidden="true">more_horiz</span>
+                          </button>
+                          {folderActionsOpenKey === groupKey && (
+                            <div className="absolute right-0 top-full z-40 mt-1 w-52 rounded-md border border-white/[0.1] bg-[var(--color-card)] p-1 shadow-xl">
+                              <button
+                                type="button"
+                                aria-label={`Remove ${agent.name} from sidebar`}
+                                disabled={hiddenFolderPreferencesSaving}
+                                onClick={() => hideFolderFromSidebar(groupKey)}
+                                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-[var(--color-pib-text)] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+                              >
+                                <span className="material-symbols-outlined text-[14px]" aria-hidden="true">visibility_off</span>
+                                Remove from sidebar
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       {sessionsExpanded && (
                         <div id={sessionsRegionId} className="mt-0.5 flex min-w-0 flex-col gap-0.5">
@@ -7710,6 +7948,7 @@ export default function UnifiedChat({
                       />
                     ) : (
                       <select
+                        aria-label="Organisation root"
                         value={selectedWorkspaceId}
                         onChange={(e) => { workspaceRuntimeExplicitRef.current = false; setSelectedWorkspaceId(e.target.value); setSelectedWorkspaceRuntime('') }}
                         disabled={workspacesLoading || workspaces.length === 0}
@@ -8142,6 +8381,7 @@ export default function UnifiedChat({
                   <ParticipantPicker
                     orgId={orgId}
                     onSelect={setNewParticipants}
+                    initialAgentIds={newInitialAgentIds}
                     showAgents={allowAgentParticipants}
                     allowedAgentIds={newConversationAgentGate.allowedAgentIds}
                     agentsUnavailableReason={newConversationAgentGate.reason}
