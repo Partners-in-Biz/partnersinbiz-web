@@ -949,6 +949,8 @@ describe('unified conversation message routing', () => {
   })
 
   it('fails closed when authorization and dispatch resolve the same target id to different hosts', async () => {
+    // Host-identity binding is under test, not Team grants — use platform admin.
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner' }
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
     const update = jest.fn().mockResolvedValue(undefined)
     mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
@@ -975,17 +977,17 @@ describe('unified conversation message routing', () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
       orgId: 'pib-platform-owner',
-      participantUids: ['client-1'],
+      participantUids: ['admin-1'],
       participantAgentIds: ['maya'],
       participants: [
-        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Admin User' },
         { kind: 'agent', agentId: 'maya', name: 'Maya' },
       ],
       workspaceContext: {
         runtimeTarget: 'vps', runtimeLabel: 'Partners VPS', workspaceId: 'partners',
         orgId: 'pib-platform-owner', orgSlug: 'partners', orgName: 'Partners in Biz', agentDomain: 'partners',
         vpsPath: '/srv/partners', localPath: '/Users/partners', sourceOfTruth: 'vps',
-        shareMode: 'private', ownerUserId: 'client-1', companyId: null, contactIds: [],
+        shareMode: 'private', ownerUserId: 'admin-1', companyId: null, contactIds: [],
       },
     })
 
@@ -1008,6 +1010,8 @@ describe('unified conversation message routing', () => {
   })
 
   it('allows Theo VPS dispatch when authorization and agent link share one physical host identity', async () => {
+    // Host-identity binding is under test, not Team grants — use platform admin.
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'pib-platform-owner' }
     const physicalIdentity = 'shared-partners-vps-identity'
     mockAuthorizeWorkspaceRuntime.mockResolvedValue({
       kind: 'execution-location',
@@ -1032,17 +1036,17 @@ describe('unified conversation message routing', () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
       orgId: 'pib-platform-owner',
-      participantUids: ['client-1'],
+      participantUids: ['admin-1'],
       participantAgentIds: ['theo'],
       participants: [
-        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Admin User' },
         { kind: 'agent', agentId: 'theo', name: 'Theo' },
       ],
       workspaceContext: {
         runtimeTarget: 'vps', runtimeLabel: 'Partners VPS', workspaceId: 'partners',
         orgId: 'pib-platform-owner', orgSlug: 'partners', orgName: 'Partners in Biz', agentDomain: 'partners',
         vpsPath: '/srv/partners', localPath: '/Users/partners', sourceOfTruth: 'vps',
-        shareMode: 'private', ownerUserId: 'client-1', companyId: null, contactIds: [],
+        shareMode: 'private', ownerUserId: 'admin-1', companyId: null, contactIds: [],
       },
     })
 

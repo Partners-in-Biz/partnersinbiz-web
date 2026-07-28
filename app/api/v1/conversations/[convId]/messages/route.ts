@@ -226,7 +226,10 @@ async function buildOrgContext(
   }
 }
 
-function buildConversationContext(conversation: Conversation, callerDisplayName: string): string {
+function buildConversationContext(
+  conversation: Conversation,
+  caller: { displayName: string; email?: string; uid: string },
+): string {
   const participants = conversation.participants
     .map((p) =>
       p.kind === 'user'
@@ -234,7 +237,21 @@ function buildConversationContext(conversation: Conversation, callerDisplayName:
         : `${p.name} (agent)`,
     )
     .join(', ')
-  return `[Conversation — convId: ${conversation.id}, participants: ${participants}, initiated by: ${callerDisplayName}]\n\n`
+  const lines = [
+    '[Conversation — human identity (authoritative for this turn)]',
+    `convId: ${conversation.id}`,
+    `participants: ${participants}`,
+    `initiated by: ${caller.displayName}`,
+    `you_are_speaking_with_name: ${caller.displayName}`,
+    caller.email ? `you_are_speaking_with_email: ${caller.email}` : '',
+    `you_are_speaking_with_uid: ${caller.uid}`,
+    'Address this human by their name above. Do not assume they are Peet Stander unless their name is Peet Stander.',
+    'Peet Stander is the Partners in Biz founder; he is not automatically the person in this chat.',
+    'Each Messages turn is bound to the authenticated human who sent the message. Never mix up members, never use another member\'s name or mailbox, and keep personal/private folders separate unless shareMode says otherwise.',
+    '---',
+    '',
+  ].filter(Boolean)
+  return `${lines.join('\n')}\n`
 }
 
 function buildWorkspaceContext(conversation: Conversation): string {
@@ -462,8 +479,9 @@ export const POST = withAuth(
       { conversationId: convId },
     )
 
-    // Resolve author display name from Firestore
+    // Resolve author identity from Firestore (authoritative for agent greetings / isolation)
     let authorDisplayName = user.uid
+    let authorEmail: string | undefined
     const userDoc = await adminDb.collection('users').doc(user.uid).get()
     if (userDoc.exists) {
       const userData = userDoc.data() ?? {}
@@ -471,6 +489,7 @@ export const POST = withAuth(
         (userData.displayName as string | undefined) ||
         (userData.email as string | undefined) ||
         user.uid
+      authorEmail = typeof userData.email === 'string' ? userData.email : undefined
     }
 
     // Resolve dispatch target before storing the message so unauthorized or
@@ -748,7 +767,11 @@ export const POST = withAuth(
         }
       }
       const orgContext = await buildOrgContext(conversation.orgId, conversation.workspaceContext)
-      const convContext = buildConversationContext(conversation, authorDisplayName)
+      const convContext = buildConversationContext(conversation, {
+        displayName: authorDisplayName,
+        uid: user.uid,
+        ...(authorEmail ? { email: authorEmail } : {}),
+      })
       const workspaceContext = buildWorkspaceContext(conversation)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
       const projectChatOrchestrationContext = buildProjectChatOrchestrationContext({

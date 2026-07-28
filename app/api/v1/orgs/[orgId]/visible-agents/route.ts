@@ -127,7 +127,26 @@ export const GET = withAuth(
           return false
         }
         const scopedOrgId = (agent as ScopedAgentRow).scopeOrgId
-        return !scopedOrgId || scopedOrgId === scope.orgId
+        if (scopedOrgId && scopedOrgId !== scope.orgId) return false
+
+        // Members must not see specialists they cannot start. Org chat config
+        // may list specialists for "client" role, but start still requires a
+        // Team grant on a computer (or personal ownership). Align picker UX
+        // with the dispatch 403 so "I can see Quinn but can't start him" stops.
+        if (callerRole === 'client' && agent.agentId !== 'pip' && !orgManager) {
+          const isOrgScopedCustom = Boolean(scopedOrgId)
+          if (isOrgScopedCustom) {
+            // Org custom agents already required grant/ownership above.
+            return true
+          }
+          // Platform specialists (theo, maya, quinn, …): require selected computer + grant.
+          if (!runtimeTargetId) return false
+          if (!scopedAccessPolicy) return false
+          if (!memberCanUseAgentOnRuntime(scopedAccessPolicy, runtimeTargetId, agent.agentId)) {
+            return false
+          }
+        }
+        return true
       })
       .map((agent) => {
         // Strip apiKey entirely — never expose, even masked
