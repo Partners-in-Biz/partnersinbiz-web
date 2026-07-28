@@ -96,18 +96,6 @@ function queueRef(deviceId: string) {
   return adminDb.collection(WORKBENCH_SESSION_QUEUES_COLLECTION).doc(deviceId)
 }
 
-/**
- * Pointer doc tracking "the currently active session" per conversation,
- * stored in the same collection as sessions under a `pointer:` prefixed id
- * (session ids are always prefixed `wbs_`, so there is no collision). This
- * avoids needing a Firestore composite index just to enforce "one active
- * session per conversation", including while a session is merely
- * `awaiting_approval` (an unapproved pending session still blocks a second
- * create).
- */
-function pointerRef(conversationId: string) {
-  return adminDb.collection(WORKBENCH_SESSIONS_COLLECTION).doc(`pointer:${conversationId}`)
-}
 
 export interface CreateWorkbenchSessionInput {
   conversationId: string
@@ -144,24 +132,7 @@ export async function createWorkbenchSession(
   const ttlMs = options.ttlMs ?? DEFAULT_TTL_MS
   const sessionId = `wbs_${crypto.randomBytes(18).toString('base64url')}`
 
-  return adminDb.runTransaction(async (transaction) => {
-    const pRef = pointerRef(input.conversationId)
-    const pointerSnapshot = await transaction.get(pRef)
-
-    const activeSessionId = typeof pointerSnapshot.data()?.activeSessionId === 'string'
-      ? pointerSnapshot.data()!.activeSessionId as string
-      : null
-    if (activeSessionId) {
-      const activeSnapshot = await transaction.get(sessionRef(activeSessionId))
-      if (activeSnapshot.exists) {
-        const active = fromStored(activeSnapshot.id, activeSnapshot.data() ?? {})
-        if (!isTerminalWorkbenchSessionStatus(active.status) && active.ttlExpiresAtMs > nowMs) {
-          throw new Error('workbench: session already active')
-        }
-      }
-    }
-
-    const session: WorkbenchSession = {
+  const session: WorkbenchSession = {
       ...input,
       sessionId,
       status: 'awaiting_approval',
@@ -174,12 +145,8 @@ export async function createWorkbenchSession(
       updatedAtMs: nowMs,
       ttlExpiresAtMs: nowMs + ttlMs,
     }
-    transaction.create(sessionRef(sessionId), toStored(session))
-    transaction.set(pRef, {
-      conversationId: input.conversationId, activeSessionId: sessionId, updatedAt: FieldValue.serverTimestamp(),
-    })
-    return { ...session, pendingControls: [] }
-  })
+  await sessionRef(sessionId).create(toStored(session))
+  return { ...session, pendingControls: [] }
 }
 
 export async function getWorkbenchSession(sessionId: string): Promise<WorkbenchSession | null> {
@@ -189,14 +156,12 @@ export async function getWorkbenchSession(sessionId: string): Promise<WorkbenchS
   return hydrate(fromStored(snapshot.id, snapshot.data() ?? {}))
 }
 
-/** Reads the conversation's active-session pointer; returns `[]` if none, terminal, or expired. */
+/** Reads all live terminal sessions for a conversation. */
 export async function listActiveSessionsForConversation(conversationId: string): Promise<WorkbenchSession[]> {
-  const snapshot = await pointerRef(conversationId).get()
-  const activeSessionId = typeof snapshot.data()?.activeSessionId === 'string' ? snapshot.data()!.activeSessionId as string : null
-  if (!activeSessionId) return []
-  const session = await getWorkbenchSession(activeSessionId)
-  if (!session || session.conversationId !== conversationId || isTerminalWorkbenchSessionStatus(session.status)) return []
-  return [session]
+  const snapshot = await adminDb.collection(WORKBENCH_SESSIONS_COLLECTION).where('conversationId', '==', conversationId).get()
+  return snapshot.docs
+    .map((doc) => hydrate(fromStored(doc.id, doc.data())))
+    .filter((session) => !isTerminalWorkbenchSessionStatus(session.status))
 }
 
 /** Exact durable binding every session mutation re-checks, mirroring `ApproveWorkbenchJobInput` in `job-store.ts`. */

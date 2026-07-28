@@ -2650,6 +2650,7 @@ export default function UnifiedChat({
     workbenchSessionAbortRef.current?.abort()
     const controller = new AbortController()
     workbenchSessionAbortRef.current = controller
+    const startTimeout = window.setTimeout(() => controller.abort(), 15_000)
     workbenchSessionTranscriptRef.current = { text: '', lastSeq: -1 }
     setWorkbenchSession({ sessionId: null, status: 'starting', transcript: '', exitCode: null, error: null, busy: true })
 
@@ -2660,7 +2661,10 @@ export default function UnifiedChat({
       const created = await createWorkbenchSession(activeId, { signal: controller.signal })
       applyWorkbenchSessionUpdate(created)
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setWorkbenchSession((prev) => prev ? { ...prev, status: 'error', error: 'Terminal startup timed out. Check that the linked computer runtime is online, then retry.', busy: false } : prev)
+        return
+      }
       setWorkbenchSession((prev) => ({
         sessionId: prev?.sessionId ?? null,
         status: 'error',
@@ -2669,7 +2673,7 @@ export default function UnifiedChat({
         error: error instanceof Error ? error.message : 'Failed to start the session.',
         busy: false,
       }))
-    }
+    } finally { window.clearTimeout(startTimeout) }
   }, [activeId, applyWorkbenchSessionUpdate, workbenchSession])
 
   const selectWorkbenchSession = useCallback((sessionId: string) => {
