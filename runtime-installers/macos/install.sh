@@ -58,6 +58,22 @@ install_runtime() {
   mkdir -p "$ROOT"; rm -rf "$ROOT/previous.new"; [[ ! -d "$ROOT/current" ]] || mv "$ROOT/current" "$ROOT/previous.new"
   mkdir -p "$stage/release"; cp "$stage/pib-runtime" "$stage/release/pib-runtime";cp "$RELEASE_MANAGER" "$stage/release/pib-release-manager";cp "$(dirname "$0")/pib-credential-helper" "$stage/release/pib-credential-helper";chmod 0755 "$stage/release/"*;cp "$stage/manifest.json" "$stage/release/manifest.json";if [[ "${PIB_ALLOW_UNSIGNED_DEV:-0}" == 1 && -z "$PUBLIC_KEY" ]];then touch "$stage/release/.unsigned-dev";else cp "$stage/manifest.sig" "$stage/release/manifest.sig";fi
   mv "$stage/release" "$ROOT/current"; rm -rf "$ROOT/previous"; [[ ! -d "$ROOT/previous.new" ]] || mv "$ROOT/previous.new" "$ROOT/previous"
+  # Interactive Terminal Session mode needs a Node.js PTY sidecar + node-pty.
+  # The bun-compiled binary cannot load the native addon itself.
+  if [[ -f "$(dirname "$0")/pty-host.cjs" ]]; then
+    cp "$(dirname "$0")/pty-host.cjs" "$ROOT/current/pty-host.cjs"
+    chmod 0644 "$ROOT/current/pty-host.cjs"
+  fi
+  if command -v npm >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+    (
+      cd "$ROOT/current"
+      [[ -f package.json ]] || printf '%s\n' '{"name":"partnersinbiz-runtime-sideload","private":true}' > package.json
+      npm install --omit=dev --no-fund --no-audit node-pty@^1.1.0 >/dev/null 2>&1 || true
+      find node_modules/node-pty -name spawn-helper -exec chmod +x {} \; 2>/dev/null || true
+    ) || true
+  else
+    echo "Note: install Node.js 20+ and run 'npm install node-pty' in $ROOT/current for Terminal Session mode." >&2
+  fi
   local logs="$ROOT/logs";mkdir -p "$logs";chmod 0700 "$ROOT" "$logs";[[ ! -f "$logs/runtime.log" ]]||{ for n in 4 3 2 1;do [[ ! -f "$logs/runtime.log.$n" ]]||mv "$logs/runtime.log.$n" "$logs/runtime.log.$((n+1))";done;mv "$logs/runtime.log" "$logs/runtime.log.1";};touch "$logs/runtime.log";chmod 0600 "$logs/runtime.log"
   mkdir -p "$(dirname "$PLIST")"; sed -e "s|__PIB_RUNTIME_BINARY__|$BIN|g" -e "s|__PIB_RUNTIME_LOG_DIR__|$logs|g" "$(dirname "$0")/$LABEL.plist" > "$PLIST"; chmod 0644 "$PLIST"
   launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true

@@ -22,6 +22,10 @@ for target in $TARGETS;do
     bun build --compile --target="$bun_target" runtime-installers/runtime/cli.ts --outfile "$stage/pib-runtime$extension"
     bun build --compile --target="$bun_target" runtime-installers/runtime/release-manager.ts --outfile "$stage/pib-release-manager$extension"
   fi
+  # Node.js PTY sidecar — required for interactive Terminal Session mode.
+  # The bun-compiled binary cannot load node-pty's native addon; install.sh
+  # should also `npm install node-pty` beside the payload.
+  cp runtime-installers/runtime/pty-host.cjs "$stage/pty-host.cjs"
   if [[ "$target" == macos-* ]];then
     command -v swiftc >/dev/null || { echo 'macOS native helper packaging blocked: install the Swift toolchain.' >&2;exit 1; }
     arch="${target#macos-}";[[ "$arch" != x64 ]]||arch=x86_64

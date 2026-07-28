@@ -109,6 +109,8 @@ export interface CreateWorkbenchSessionInput {
   mappingId: string
   projectId?: string
   projectReplicaId?: string
+  /** Stable company-workspace identity; never a host filesystem path. Mirrors workbench jobs. */
+  rootBindingId?: string
   relativeFolder: string
   /** Server-resolved (never client-supplied) — see `resolveWorkbenchSessionShell`. */
   shell: WorkbenchSessionShell
@@ -176,6 +178,7 @@ export interface WorkbenchSessionBinding {
   mappingId: string
   projectId?: string
   projectReplicaId?: string
+  rootBindingId?: string
   relativeFolder: string
 }
 
@@ -190,6 +193,7 @@ function sessionBindingMatches(session: WorkbenchSession, input: WorkbenchSessio
     && session.mappingId === input.mappingId
     && (session.projectId ?? null) === (input.projectId ?? null)
     && (session.projectReplicaId ?? null) === (input.projectReplicaId ?? null)
+    && (session.rootBindingId ?? null) === (input.rootBindingId ?? null)
     && session.relativeFolder === input.relativeFolder
 }
 
@@ -362,7 +366,17 @@ export function isWorkbenchSessionClaimAuthorized(input: {
   if (workspaceContext?.runtimeTarget !== session.runtimeTargetId && workspaceContext?.runtimeTarget !== session.deviceId) return false
   if ((conversationProjectId(conversation as unknown as Conversation) ?? null) !== (session.projectId ?? null)) return false
   if (!session.projectId) {
-    const currentRelativeFolder = canonicalWorkbenchWorkspaceRelativePath(workspaceContext?.folderRelativePath)
+    // Company-root sessions (folderScope === 'company') store rootBindingId + relativeFolder '.' —
+    // same contract as workbench jobs. Without this branch, claim always fails on company chats
+    // when folderRelativePath is a non-root subpath, leaving the session stuck in `queued`.
+    const currentRootBindingId = typeof workspaceContext?.companyWorkspaceId === 'string' && workspaceContext.companyWorkspaceId.trim()
+      ? workspaceContext.companyWorkspaceId.trim()
+      : typeof workspaceContext?.companyId === 'string' ? workspaceContext.companyId.trim() : ''
+    const currentUsesCompanyRoot = workspaceContext?.folderScope === 'company'
+    if ((session.rootBindingId ?? '') !== (currentUsesCompanyRoot ? currentRootBindingId : '')) return false
+    const currentRelativeFolder = session.rootBindingId
+      ? '.'
+      : canonicalWorkbenchWorkspaceRelativePath(workspaceContext?.folderRelativePath)
     if (currentRelativeFolder !== session.relativeFolder) return false
   }
   if (!session.approvedAtMs || session.approvedByUserId !== session.actorUserId) return false
@@ -445,6 +459,8 @@ export type WorkbenchSessionClaim =
       workspaceId: string
       mappingId: string
       relativeFolder: string
+      /** Absolute host path for company-root sessions; only set when rootBindingId is present. */
+      workingDirectory?: string
       attempt: number
       leaseToken: string
     }
@@ -502,6 +518,18 @@ export async function claimOldestWorkbenchSessionWork(
           kind: 'create', sessionId: claimed.sessionId, shell: createControl.shell, cols: createControl.cols,
           rows: createControl.rows, cwd: createControl.cwd, workspaceId: claimed.workspaceId, mappingId: claimed.mappingId,
           relativeFolder: claimed.relativeFolder, attempt: claimed.attempt, leaseToken: claimed.leaseToken!,
+          ...(claimed.rootBindingId ? {
+            workingDirectory: (() => {
+              const conversationRow = authorization.conversation
+              const workspace = conversationRow?.workspaceContext && typeof conversationRow.workspaceContext === 'object'
+                ? conversationRow.workspaceContext as Record<string, unknown>
+                : undefined
+              const device = authorization.device
+              const value = device?.platform === 'linux' ? workspace?.vpsWorkingPath : workspace?.localWorkingPath
+              if (typeof value !== 'string' || !value.trim()) throw new Error('workbench: company working directory unavailable')
+              return value.trim()
+            })(),
+          } : {}),
         }
         claimedRef = ref
         claimedSession = claimed

@@ -77,6 +77,8 @@ export interface WorkbenchSession {
   mappingId: string
   projectId?: string
   projectReplicaId?: string
+  /** Stable company-workspace identity; never a host filesystem path. Mirrors workbench jobs. */
+  rootBindingId?: string
   /** Server-bound relative workspace folder; never exposed via `publicWorkbenchSession`. */
   relativeFolder: string
   shell: WorkbenchSessionShell

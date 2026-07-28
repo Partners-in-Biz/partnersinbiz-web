@@ -202,6 +202,7 @@ export function isWorkbenchSessionOwnedByContext(
     && session.mappingId === authorization.binding.mappingId
     && (session.projectId ?? null) === authorization.projectId
     && (session.projectReplicaId ?? null) === (authorization.projectReplicaId ?? null)
+    && (session.rootBindingId ?? null) === (authorization.rootBindingId ?? null)
     && session.relativeFolder === authorization.relativeFolder
 }
 

@@ -7105,28 +7105,6 @@ export default function UnifiedChat({
                   <span className={`h-1.5 w-1.5 rounded-full ${hasInFlightAgentRun ? 'bg-amber-300' : 'bg-emerald-300'}`} />
                   {activeRuntimeMessage?.status?.replace('_', ' ') ?? (hasInFlightAgentRun ? 'running' : 'idle')}
                 </span>
-                {activeConnectionWhere && (
-                  <span
-                    data-testid="connection-where-chip-control-bar"
-                    title={activeConnectionWhere.title}
-                    className="inline-flex h-6 max-w-[16rem] items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 text-[11px] text-[var(--color-pib-text)]"
-                  >
-                    <span
-                      className={[
-                        'h-1.5 w-1.5 shrink-0 rounded-full',
-                        activeConnectionWhere.online === true
-                          ? 'bg-emerald-400'
-                          : activeConnectionWhere.online === false
-                            ? 'bg-amber-400'
-                            : 'bg-white/30',
-                      ].join(' ')}
-                    />
-                    <span className="material-symbols-outlined text-[13px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
-                      {activeConnectionWhere.icon}
-                    </span>
-                    <span className="truncate">{activeConnectionWhere.display}</span>
-                  </span>
-                )}
                 {canStopActiveRun && activeRuntimeMessage?.id && activeId && (
                   <button
                     type="button"

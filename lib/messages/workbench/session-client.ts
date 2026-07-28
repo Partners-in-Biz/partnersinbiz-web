@@ -91,6 +91,30 @@ async function readWorkbenchSessionResponse(response: Response): Promise<PublicW
   return body.data
 }
 
+function isTransientNetworkError(error: unknown): boolean {
+  if (!error || (error instanceof DOMException && error.name === 'AbortError')) return false
+  const raw = error instanceof Error ? error.message : String(error)
+  const lower = raw.toLowerCase()
+  return (
+    lower.includes('failed to fetch')
+    || lower.includes('networkerror')
+    || lower.includes('network request failed')
+    || lower.includes('load failed')
+    || lower.includes('fetch failed')
+    || lower.includes('network glitch')
+    || (error instanceof TypeError && lower.includes('fetch'))
+  )
+}
+
+function humanizeWorkbenchSessionError(error: unknown, fallback: string): Error {
+  if (error instanceof DOMException && error.name === 'AbortError') return error
+  if (isTransientNetworkError(error)) {
+    return new Error('Network glitch talking to the terminal session. Retry — the linked computer may still be starting the shell.')
+  }
+  if (error instanceof Error) return error
+  return new Error(fallback)
+}
+
 function wait(delayMs: number, signal?: AbortSignal): Promise<void> {
   if (delayMs <= 0) return Promise.resolve()
   return new Promise((resolve, reject) => {
@@ -102,23 +126,8 @@ function wait(delayMs: number, signal?: AbortSignal): Promise<void> {
   })
 }
 
-/** Starts a new interactive shell session on the linked computer (server-chosen shell binary). Always starts `awaiting_approval`. */
-export async function createWorkbenchSession(
-  conversationId: string,
-  options: WorkbenchSessionCreateOptions = {},
-): Promise<PublicWorkbenchSession> {
-  const { signal, ...body } = options
-  const response = await fetch(workbenchSessionsBase(conversationId), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  })
-  return readWorkbenchSessionResponse(response)
-}
-
-/** Reads the current state (status + any newly buffered progress chunks) of a session. */
-export async function getWorkbenchSession(
+/** Low-level GET that preserves raw network errors so callers can retry. */
+async function getWorkbenchSessionRaw(
   conversationId: string,
   sessionId: string,
   options: { signal?: AbortSignal } = {},
@@ -130,17 +139,72 @@ export async function getWorkbenchSession(
   return readWorkbenchSessionResponse(response)
 }
 
+async function fetchWorkbenchSessionWithRetry(
+  conversationId: string,
+  sessionId: string,
+  options: { signal?: AbortSignal } = {},
+  retries = 3,
+): Promise<PublicWorkbenchSession> {
+  let lastError: unknown
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await getWorkbenchSessionRaw(conversationId, sessionId, options)
+    } catch (error) {
+      lastError = error
+      if (!isTransientNetworkError(error) || attempt >= retries) break
+      await wait(300 * (attempt + 1), options.signal)
+    }
+  }
+  throw humanizeWorkbenchSessionError(lastError, 'Unable to read workbench session')
+}
+
+/** Starts a new interactive shell session on the linked computer (server-chosen shell binary). Always starts `awaiting_approval`. */
+export async function createWorkbenchSession(
+  conversationId: string,
+  options: WorkbenchSessionCreateOptions = {},
+): Promise<PublicWorkbenchSession> {
+  const { signal, ...body } = options
+  try {
+    const response = await fetch(workbenchSessionsBase(conversationId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    })
+    return await readWorkbenchSessionResponse(response)
+  } catch (error) {
+    throw humanizeWorkbenchSessionError(error, 'Failed to start the session.')
+  }
+}
+
+/** Reads the current state (status + any newly buffered progress chunks) of a session. */
+export async function getWorkbenchSession(
+  conversationId: string,
+  sessionId: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<PublicWorkbenchSession> {
+  try {
+    return await getWorkbenchSessionRaw(conversationId, sessionId, options)
+  } catch (error) {
+    throw humanizeWorkbenchSessionError(error, 'Unable to read workbench session')
+  }
+}
+
 /** Approves an `awaiting_approval` session so a device will spawn the pty. */
 export async function approveWorkbenchSession(
   conversationId: string,
   sessionId: string,
   options: { signal?: AbortSignal } = {},
 ): Promise<PublicWorkbenchSession> {
-  const response = await fetch(`${workbenchSessionBase(conversationId, sessionId)}/approve`, {
-    method: 'POST',
-    signal: options.signal,
-  })
-  return readWorkbenchSessionResponse(response)
+  try {
+    const response = await fetch(`${workbenchSessionBase(conversationId, sessionId)}/approve`, {
+      method: 'POST',
+      signal: options.signal,
+    })
+    return await readWorkbenchSessionResponse(response)
+  } catch (error) {
+    throw humanizeWorkbenchSessionError(error, 'Failed to approve the session.')
+  }
 }
 
 /** Polls a session until it reaches a settled status (approval needed, or terminal), or `timeoutMs` elapses. */
@@ -154,12 +218,12 @@ export async function pollWorkbenchSession(
   const settled = options.settledStatuses ?? DEFAULT_SETTLED_STATUSES
   const deadline = Date.now() + timeoutMs
 
-  let session = await getWorkbenchSession(conversationId, sessionId, { signal: options.signal })
+  let session = await fetchWorkbenchSessionWithRetry(conversationId, sessionId, { signal: options.signal })
   options.onProgress?.(session)
   while (!settled.has(session.status)) {
     if (Date.now() >= deadline) throw new Error('Workbench session timed out waiting for the linked computer')
     await wait(intervalMs, options.signal)
-    session = await getWorkbenchSession(conversationId, sessionId, { signal: options.signal })
+    session = await fetchWorkbenchSessionWithRetry(conversationId, sessionId, { signal: options.signal })
     options.onProgress?.(session)
   }
   return session

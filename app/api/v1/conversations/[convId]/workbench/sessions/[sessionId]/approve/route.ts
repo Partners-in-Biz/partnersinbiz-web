@@ -75,6 +75,7 @@ export async function handleApproveWorkbenchSession(
       mappingId: authorization.binding.mappingId,
       ...(authorization.projectId ? { projectId: authorization.projectId } : {}),
       ...(authorization.projectReplicaId ? { projectReplicaId: authorization.projectReplicaId } : {}),
+      ...(authorization.rootBindingId ? { rootBindingId: authorization.rootBindingId } : {}),
       relativeFolder: authorization.relativeFolder,
     })
     return apiSuccess(publicWorkbenchSession(approved))
