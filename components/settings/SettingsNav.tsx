@@ -42,6 +42,7 @@ const WORKSPACE_LINKS = [
   { href: '/portal/settings/audit-log', label: 'Audit log', icon: 'history', minRole: 'admin' },
   { href: '/portal/settings/data-export', label: 'Data export', icon: 'cloud_download', minRole: 'admin' },
   { href: '/portal/settings/permissions', label: 'Permissions', icon: 'shield', minRole: 'owner' },
+  { href: '/portal/settings/terminal-policy', label: 'Terminal policy', icon: 'terminal', minRole: 'owner' },
 ]
 
 const ROLE_RANK: Record<string, number> = { owner: 4, admin: 3, member: 2, viewer: 1 }
