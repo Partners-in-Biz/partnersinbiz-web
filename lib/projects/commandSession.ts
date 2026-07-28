@@ -419,7 +419,7 @@ async function wakeCommandAgent(input: {
 
     let finalContent = typeof payload.output === 'string' ? payload.output.trim() : ''
     if (runId && !finalContent) {
-      finalContent = await pollHermesOutput(link.baseUrl, link.apiKey, runId)
+      finalContent = await pollHermesOutput(link.baseUrl, link.apiKey || '', runId)
     }
     if (!finalContent) finalContent = 'I reviewed the project update and have no further action yet. Tell me how you want to proceed.'
 

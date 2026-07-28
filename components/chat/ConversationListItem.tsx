@@ -46,6 +46,8 @@ export interface Conversation {
   lastMessageAt?: { seconds?: number; _seconds?: number } | string
   messageCount: number
   archived: boolean
+  /** Set when this conversation is the project command session. */
+  commandSessionProjectId?: string
 }
 
 interface ConversationListItemProps {

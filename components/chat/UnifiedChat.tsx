@@ -1357,7 +1357,7 @@ export default function UnifiedChat({
     ),
   )
   const [commandSessionBusy, setCommandSessionBusy] = useState(false)
-  const commandSessionProjectId = (activeConversation as { commandSessionProjectId?: string } | null)?.commandSessionProjectId
+  const commandSessionProjectId = activeConversation?.commandSessionProjectId
   const isCommandSession = Boolean(
     activeConversation
     && activeConversation.scope === 'project'
