@@ -61,4 +61,20 @@ describe('SettingsNav', () => {
     expect(screen.getByRole('link', { name: 'Webhooks' })).toHaveAttribute('href', `/portal/settings/webhooks?${scope}`)
     expect(screen.getByRole('link', { name: 'Account settings' })).toHaveAttribute('href', '/portal/settings/account')
   })
+
+  it('allows members to open personal LLM provider settings without exposing admin settings', () => {
+    render(
+      <SettingsNav
+        name="Member"
+        email="member@example.com"
+        initials="ME"
+        role="member"
+        collapsed={false}
+      />,
+    )
+
+    expect(screen.getByRole('link', { name: 'LLM providers' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'API keys' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Team' })).not.toBeInTheDocument()
+  })
 })

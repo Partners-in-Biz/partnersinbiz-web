@@ -10,6 +10,7 @@ async function unwrap<T>(res: Response): Promise<T> {
 export type LlmProviderCatalogResponse = {
   providers: LlmProviderDefinition[]
   connections: LlmProviderConnectionMasked[]
+  canManageOrgConnections: boolean
   syncTargets?: {
     orgVpsDeviceCount: number
     hasHermesProfileLink: boolean
