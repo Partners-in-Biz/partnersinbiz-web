@@ -72,6 +72,23 @@ activate_verified_release "$TMP/release-2"
 swap_verified_releases
 [[ "$("$PIB_LINUX_ROOT/current/pib-runtime")" == first ]]
 
+# Online staging must retain the public verification key in the activated
+# bundle, and a successful update must not fail later from an unbound RETURN
+# trap after its local staging variable has unwound.
+download() {
+  local destination="$2"
+  case "$(basename "$destination")" in
+    metadata.json) cp "$TMP/release-2/manifest.json" "$destination" ;;
+    pib-runtime) cp "$TMP/release-2/pib-runtime" "$destination" ;;
+    manifest.sig) cp "$TMP/release-2/manifest.sig" "$destination" ;;
+    *) return 2 ;;
+  esac
+}
+install_runtime
+[[ -f "$PIB_LINUX_ROOT/current/release-public.pem" ]]
+[[ "$(cat "$PIB_LINUX_ROOT/current/release-public.pem")" == public ]]
+[[ "$("$PIB_LINUX_ROOT/current/pib-runtime")" == second ]]
+
 mkdir -p "$TMP/unsigned"
 cp "$TMP/release-1/"* "$TMP/unsigned/"
 touch "$TMP/unsigned/.unsigned-dev"

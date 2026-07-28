@@ -223,11 +223,20 @@ stage_downloaded_release() {
   install -m 0755 "$INSTALLER_DIR/install.sh" "$release/install.sh"
   install -m 0644 "$INSTALLER_DIR/pib-runtime.service" "$release/pib-runtime.service"
   install -m 0600 "$metadata" "$release/manifest.json"
-  if [[ -n "$PUBLIC_KEY" ]]; then install -m 0600 "$stage/manifest.sig" "$release/manifest.sig";else touch "$release/.unsigned-dev";fi
+  if [[ -n "$PUBLIC_KEY" ]]; then
+    install -m 0600 "$stage/manifest.sig" "$release/manifest.sig"
+    install -m 0600 "$stage/release-public.pem" "$release/release-public.pem"
+  else
+    touch "$release/.unsigned-dev"
+  fi
 }
 install_runtime() {
   require_host
-  local stage;stage="$(mktemp -d)";trap 'rm -rf "$stage"' RETURN
+  local stage;stage="$(mktemp -d)"
+  # Expand the path while the local exists; RETURN runs after locals unwind
+  # under some Bash versions and `set -u` must not turn successful updates
+  # into a false failure.
+  trap 'rm -rf -- "'"$stage"'"' RETURN
   stage_downloaded_release "$stage"
   "$SYSTEMCTL" stop "$SERVICE" >/dev/null 2>&1 || true
   activate_verified_release "$stage/release"
