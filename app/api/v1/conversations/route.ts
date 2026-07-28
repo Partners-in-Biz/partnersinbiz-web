@@ -41,6 +41,7 @@ import { publicConversationView } from '@/lib/conversations/access'
 import { organizationMemberUids } from '@/lib/conversations/participant-access'
 import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
 import { memberCanUseAgentOnRuntime } from '@/lib/orgMembers/access-policy'
+import { loadOrgMemberAccessPolicy } from '@/lib/orgMembers/org-access-policy'
 import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -83,6 +84,14 @@ export const POST = withAuth(
     const requestedRuntimeTargetForAgentGrant = typeof body.runtimeTarget === 'string' && body.runtimeTarget.trim()
       ? body.runtimeTarget.trim()
       : null
+    // Auth hydrates memberAccessPolicy for activeOrgId only — load the policy
+    // for the conversation org when evaluating Team agent grants.
+    const scopedAccessPolicy = (await loadOrgMemberAccessPolicy(scope.orgId, user.uid))
+      ?? user.memberAccessPolicy
+      ?? null
+    const membershipDoc = await adminDb.collection('orgMembers').doc(`${scope.orgId}_${user.uid}`).get()
+    const memberRole = membershipDoc.data()?.role
+    const orgManager = user.role === 'admin' || memberRole === 'owner' || memberRole === 'admin'
 
     // Load visible agents for the caller's role
     const configDoc = await orgChatConfigDoc(scope.orgId).get()
@@ -152,7 +161,8 @@ export const POST = withAuth(
           return apiError(`Invalid agent agentId: ${agentId}`, 400)
         }
         let delegatedAgentAccess = callerRole === 'client'
-          && memberCanUseAgentOnRuntime(user.memberAccessPolicy, requestedRuntimeTargetForAgentGrant, agentId)
+          && Boolean(scopedAccessPolicy)
+          && memberCanUseAgentOnRuntime(scopedAccessPolicy, requestedRuntimeTargetForAgentGrant, agentId)
         // Pip remains the ordinary member-facing assistant. Specialist profiles
         // require an explicit per-runtime Team grant.
         const baselineMemberAssistant = callerRole === 'client' && agentId === 'pip'
@@ -189,17 +199,26 @@ export const POST = withAuth(
             return apiError(`Agent ${agentId} is not ready on the selected computer`, 409)
           }
         }
+        const managesOrgLinkedAgent = Boolean(
+          orgManager
+          && agentData.provisioningMode === 'linked_device'
+          && agentData.accessScope === 'organization'
+          && scopedOrgId === scope.orgId,
+        )
         const linkedAgentAccess = agentData.provisioningMode === 'linked_device'
-          ? canStartLinkedAgent({
-              accessScope: agentData.accessScope,
-              ownerUserId: agentData.ownerUserId,
-              actorUserId: user.uid,
-              callerRole,
-              selectedDeviceOwnerUserId: typeof selectedLinkedDevice?.ownerUserId === 'string'
-                ? selectedLinkedDevice.ownerUserId
-                : undefined,
-              explicitlyGranted: delegatedAgentAccess,
-            })
+          ? (
+              canStartLinkedAgent({
+                accessScope: agentData.accessScope,
+                ownerUserId: agentData.ownerUserId,
+                actorUserId: user.uid,
+                callerRole,
+                selectedDeviceOwnerUserId: typeof selectedLinkedDevice?.ownerUserId === 'string'
+                  ? selectedLinkedDevice.ownerUserId
+                  : undefined,
+                explicitlyGranted: delegatedAgentAccess,
+              })
+              || managesOrgLinkedAgent
+            )
           : false
         delegatedAgentAccess = delegatedAgentAccess || linkedAgentAccess
         if (agentData.provisioningMode === 'linked_device' && !linkedAgentAccess) {

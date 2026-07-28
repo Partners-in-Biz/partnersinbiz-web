@@ -1,11 +1,11 @@
 /**
- * GET /api/v1/orgs/[orgId]/contacts
+ * GET /api/v1/orgs/[orgId]/people
  *
  * Auth: admin or client
- * Returns: users the caller may start or add to a conversation.
+ * Returns users the caller may start or add to a conversation.
  *
- * Prefer GET /api/v1/orgs/[orgId]/people from browsers — privacy filters often
- * block paths containing "contacts". This route remains for compatibility.
+ * Prefer this path over /contacts — privacy filters often block URLs that
+ * contain the word "contacts".
  */
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'

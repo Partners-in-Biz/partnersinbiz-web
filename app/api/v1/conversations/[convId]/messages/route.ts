@@ -40,6 +40,7 @@ import { safeRuntimeTargetId, type RuntimeTargetSelectionErrorCode } from '@/lib
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
 import { cleanApprovalMode, shouldAutoApproveDangerousCommands } from '@/lib/messages/approval-mode'
 import { memberCanUseAgentOnRuntime } from '@/lib/orgMembers/access-policy'
+import { loadOrgMemberAccessPolicy } from '@/lib/orgMembers/org-access-policy'
 import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
 import {
   contextReferenceKey,
@@ -495,9 +496,45 @@ export const POST = withAuth(
     const requestedRuntimeTarget = conversation.workspaceContext?.runtimeTarget?.trim() || null
     let authorizedWorkspaceRuntime: AuthorizedWorkspaceRuntime | null = null
     if (requestedRuntimeTarget && conversation.workspaceContext?.workspaceId && dispatchAgentId) {
-      if (user.role !== 'admin' && user.memberAccessPolicy && dispatchAgentId !== 'pip'
-        && !memberCanUseAgentOnRuntime(user.memberAccessPolicy, requestedRuntimeTarget, dispatchAgentId)) {
-        return apiError('This member is not allowed to use that agent on the selected computer', 403)
+      const scopedAccessPolicy = (await loadOrgMemberAccessPolicy(conversation.orgId, user.uid))
+        ?? user.memberAccessPolicy
+        ?? null
+      // Platform admins and Pip are always allowed. Everyone else needs a Team
+      // grant, ownership of a personal linked agent, or org-manager rights on a
+      // shared organisation agent.
+      if (user.role !== 'admin' && dispatchAgentId !== 'pip') {
+        const granted = memberCanUseAgentOnRuntime(
+          scopedAccessPolicy,
+          requestedRuntimeTarget,
+          dispatchAgentId,
+        )
+        if (!granted) {
+          const agentSnap = await adminDb.collection('agent_team').doc(dispatchAgentId).get()
+          const agentData = agentSnap.exists
+            ? agentSnap.data() as {
+                accessScope?: string
+                ownerUserId?: string
+                provisioningMode?: string
+                scopeOrgId?: string
+              }
+            : null
+          const ownsPersonalLinkedAgent = agentData?.provisioningMode === 'linked_device'
+            && agentData.accessScope === 'personal'
+            && agentData.ownerUserId === user.uid
+          let managesOrgLinkedAgent = false
+          if (
+            agentData?.provisioningMode === 'linked_device'
+            && agentData.accessScope === 'organization'
+            && agentData.scopeOrgId === conversation.orgId
+          ) {
+            const membership = await adminDb.collection('orgMembers').doc(`${conversation.orgId}_${user.uid}`).get()
+            const memberRole = membership.data()?.role
+            managesOrgLinkedAgent = memberRole === 'owner' || memberRole === 'admin'
+          }
+          if (!ownsPersonalLinkedAgent && !managesOrgLinkedAgent) {
+            return apiError('This member is not allowed to use that agent on the selected computer', 403)
+          }
+        }
       }
       try {
         authorizedWorkspaceRuntime = await authorizeWorkspaceRuntime({

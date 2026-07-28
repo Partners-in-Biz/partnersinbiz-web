@@ -51,6 +51,22 @@ function initials(name?: string): string {
     .join('') || '?'
 }
 
+async function readJsonResponse(response: Response): Promise<{ data?: unknown; error?: string }> {
+  try {
+    return await response.json() as { data?: unknown; error?: string }
+  } catch {
+    return {}
+  }
+}
+
+function formatLoadError(error: unknown, fallback: string): string {
+  if (error instanceof TypeError && /failed to fetch/i.test(error.message)) {
+    return 'Could not reach the server. Check your connection, disable privacy blockers for this site, then retry.'
+  }
+  if (error instanceof Error && error.message.trim()) return error.message
+  return fallback
+}
+
 interface ParticipantPickerProps {
   orgId: string
   onSelect: (selected: SelectedParticipant[]) => void
@@ -82,26 +98,69 @@ export default function ParticipantPicker({
   const [selected, setSelected] = useState<SelectedParticipant[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [peopleWarning, setPeopleWarning] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([
-      showAgents
-        ? fetch(`/api/v1/orgs/${orgId}/visible-agents${runtimeTargetId ? `?runtimeTarget=${encodeURIComponent(runtimeTargetId)}` : ''}`).then((r) => r.json())
-        : Promise.resolve({ data: [] }),
-      fetch(`/api/v1/orgs/${orgId}/contacts`).then((r) => r.json()),
-    ])
-      .then(([agentBody, contactBody]) => {
+    setLoading(true)
+    setError(null)
+    setPeopleWarning(null)
+
+    const agentsUrl = `/api/v1/orgs/${orgId}/visible-agents${
+      runtimeTargetId ? `?runtimeTarget=${encodeURIComponent(runtimeTargetId)}` : ''
+    }`
+    // Prefer /people — some privacy filters block paths containing "contacts".
+    const peopleUrl = `/api/v1/orgs/${orgId}/people`
+
+    async function loadAgents(): Promise<AgentTeamDoc[]> {
+      if (!showAgents) return []
+      const response = await fetch(agentsUrl)
+      const body = await readJsonResponse(response)
+      if (!response.ok) {
+        throw new Error(typeof body.error === 'string' && body.error.trim()
+          ? body.error
+          : `Could not load agents (${response.status})`)
+      }
+      return Array.isArray(body.data) ? body.data as AgentTeamDoc[] : []
+    }
+
+    async function loadPeople(): Promise<OrgContact[]> {
+      const response = await fetch(peopleUrl)
+      const body = await readJsonResponse(response)
+      if (!response.ok) {
+        throw new Error(typeof body.error === 'string' && body.error.trim()
+          ? body.error
+          : `Could not load people (${response.status})`)
+      }
+      return Array.isArray(body.data) ? body.data as OrgContact[] : []
+    }
+
+    // Load independently so a people-list failure (or a privacy filter) cannot
+    // hide agents that the caller is allowed to start a conversation with.
+    Promise.allSettled([loadAgents(), loadPeople()])
+      .then(([agentResult, peopleResult]) => {
         if (cancelled) return
-        setAgents(agentBody.data ?? [])
-        setContacts(contactBody.data ?? [])
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load participants')
+
+        if (agentResult.status === 'fulfilled') {
+          setAgents(agentResult.value)
+        } else {
+          setAgents([])
+          setError(formatLoadError(agentResult.reason, 'Failed to load agents'))
+        }
+
+        if (peopleResult.status === 'fulfilled') {
+          setContacts(peopleResult.value)
+          setPeopleWarning(null)
+        } else {
+          setContacts([])
+          // Soft-fail people so agents remain selectable.
+          setPeopleWarning(formatLoadError(peopleResult.reason, 'Could not load people'))
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
+
     return () => {
       cancelled = true
     }
@@ -166,9 +225,13 @@ export default function ParticipantPicker({
     )
   }
 
-  if (error) {
+  // Only hard-fail the whole panel when agents could not load and there are no
+  // people either. Agents alone remain usable after a soft people failure.
+  if (error && visibleAgents.length === 0 && contacts.length === 0) {
     return (
-      <div className={`text-xs text-red-300 ${className}`}>{error}</div>
+      <div className={`text-xs text-red-300 ${className}`} data-testid="participants-load-error">
+        {error}
+      </div>
     )
   }
 
@@ -204,6 +267,17 @@ export default function ParticipantPicker({
 
       {selected.length >= MAX_SELECTIONS && (
         <p className="text-xs text-amber-300">Max {MAX_SELECTIONS} participants.</p>
+      )}
+
+      {error && (
+        <p className="px-1 text-xs text-amber-200" data-testid="participants-agents-warning">
+          {error}
+        </p>
+      )}
+      {peopleWarning && (
+        <p className="px-1 text-xs text-amber-200" data-testid="participants-people-warning">
+          {peopleWarning}
+        </p>
       )}
 
       {/* Agents section — after context + machine in the parent modal */}
