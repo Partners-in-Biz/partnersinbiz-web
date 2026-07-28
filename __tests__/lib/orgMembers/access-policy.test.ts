@@ -117,6 +117,25 @@ describe('org member access policy', () => {
     expect(memberCanUseAgentOnRuntime(policy, 'linked-device:member-mac', 'my-research-agent')).toBe(true)
   })
 
+  it('matches Team grants when dispatch passes linked-device prefix or bare device id', () => {
+    const linkedPolicy = normalizeMemberAccessPolicy({
+      agentRuntimeAccess: {
+        'linked-device:device-abc': ['qa-release'],
+      },
+    })
+    expect(memberCanUseAgentOnRuntime(linkedPolicy, 'linked-device:device-abc', 'qa-release')).toBe(true)
+    expect(memberCanUseAgentOnRuntime(linkedPolicy, 'device-abc', 'qa-release')).toBe(true)
+    expect(memberCanUseAgentOnRuntime(linkedPolicy, 'linked-device:other', 'qa-release')).toBe(false)
+
+    const barePolicy = normalizeMemberAccessPolicy({
+      agentRuntimeAccess: {
+        'device-xyz': ['theo'],
+      },
+    })
+    expect(memberCanUseAgentOnRuntime(barePolicy, 'device-xyz', 'theo')).toBe(true)
+    expect(memberCanUseAgentOnRuntime(barePolicy, 'linked-device:device-xyz', 'theo')).toBe(true)
+  })
+
   it('defaults allowPersonalLlmOnOrgVps to false for members and true for owners', () => {
     expect(normalizeMemberAccessPolicy({ preset: 'custom', modules: { messages: true } }).allowPersonalLlmOnOrgVps).toBe(false)
     expect(normalizeMemberAccessPolicy({

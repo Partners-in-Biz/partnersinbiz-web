@@ -166,6 +166,22 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
   return { preset, modules, recordScopes, agentRuntimeAccess, allowPersonalLlmOnOrgVps }
 }
 
+/** Normalize runtime target ids so Team grants match dispatch/create.
+ * Team UI and workspace bindings both use `linked-device:{deviceId}`, but some
+ * callers still pass a bare device id. Accept either form. */
+export function runtimeGrantKeys(runtimeTargetId: string): string[] {
+  const trimmed = runtimeTargetId.trim()
+  if (!trimmed) return []
+  const keys = new Set<string>([trimmed])
+  if (trimmed.startsWith('linked-device:')) {
+    const bare = trimmed.slice('linked-device:'.length).trim()
+    if (bare) keys.add(bare)
+  } else {
+    keys.add(`linked-device:${trimmed}`)
+  }
+  return Array.from(keys)
+}
+
 /** True only for an explicit member grant. Owners/admins bypass this at the
  * caller because their role is authoritative and should not need per-device rows. */
 export function memberCanUseAgentOnRuntime(
@@ -175,7 +191,7 @@ export function memberCanUseAgentOnRuntime(
 ): boolean {
   if (!runtimeTargetId) return false
   const grants = normalizeMemberAccessPolicy(policyValue).agentRuntimeAccess ?? {}
-  return grants[runtimeTargetId]?.includes(agentId) === true
+  return runtimeGrantKeys(runtimeTargetId).some((key) => grants[key]?.includes(agentId) === true)
 }
 
 export function defaultAccessPolicyFor(role: RoleWithSystem, accessScope?: unknown): MemberAccessPolicy {
