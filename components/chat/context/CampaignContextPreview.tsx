@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { BlogReaderCard } from '@/components/campaign-preview'
 import { SocialPlatformCard } from '@/components/campaign-preview/pickSocialCard'
 import type { PreviewBlog, PreviewBrand, PreviewSocialPost } from '@/components/campaign-preview/types'
@@ -45,17 +45,31 @@ function asRecords(value: unknown): Record<string, unknown>[] {
   return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
 }
 
-export function CampaignContextPreview({ campaignId }: { campaignId: string }) {
+export function CampaignContextPreview({
+  campaignId,
+  refreshRevision = 0,
+}: {
+  campaignId: string
+  refreshRevision?: number
+}) {
   const [filter, setFilter] = useState<Filter>('all')
   const [brand, setBrand] = useState<PreviewBrand | undefined>()
   const [social, setSocial] = useState<PreviewSocialPost[]>([])
   const [videos, setVideos] = useState<PreviewSocialPost[]>([])
   const [blogs, setBlogs] = useState<PreviewBlog[]>([])
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const loadedKeyRef = useRef<string | null>(null)
+  const [softRefreshing, setSoftRefreshing] = useState(false)
+
+  useEffect(() => {
+    loadedKeyRef.current = null
+  }, [campaignId])
 
   useEffect(() => {
     const controller = new AbortController()
-    setState('loading')
+    const initial = loadedKeyRef.current !== campaignId
+    if (initial) setState('loading')
+    else setSoftRefreshing(true)
     Promise.all([
       fetch(`/api/v1/campaigns/${encodeURIComponent(campaignId)}`, { signal: controller.signal }),
       fetch(`/api/v1/campaigns/${encodeURIComponent(campaignId)}/assets`, { signal: controller.signal }),
@@ -70,13 +84,16 @@ export function CampaignContextPreview({ campaignId }: { campaignId: string }) {
       setVideos(asRecords(assets.videos).map((post) => toPreviewSocialPost(post)))
       setBlogs(asRecords(assets.blogs).map((blog) => toPreviewBlog(blog)))
       setState('ready')
+      loadedKeyRef.current = campaignId
+      setSoftRefreshing(false)
     }).catch((cause) => {
       if (controller.signal.aborted) return
       void cause
-      setState('error')
+      setSoftRefreshing(false)
+      if (initial) setState('error')
     })
     return () => controller.abort()
-  }, [campaignId])
+  }, [campaignId, refreshRevision])
 
   const filters = useMemo(() => ([
     { id: 'all' as const, label: 'All', count: social.length + blogs.length + videos.length },
@@ -116,7 +133,7 @@ export function CampaignContextPreview({ campaignId }: { campaignId: string }) {
           Platform previews
         </h3>
         <span className="text-[10px] text-[var(--color-pib-text-muted)]">
-          {filters[0].count} asset{filters[0].count === 1 ? '' : 's'}
+          {softRefreshing ? 'Updating…' : `${filters[0].count} asset${filters[0].count === 1 ? '' : 's'}`}
         </span>
       </div>
 

@@ -1236,6 +1236,21 @@ export default function UnifiedChat({
   const [executionDockRequest, setExecutionDockRequest] = useState(0)
   const [contextArtifactRequest, setContextArtifactRequest] = useState<{ id: string; nonce: number }>()
   const [contextFocusRequest, setContextFocusRequest] = useState<{ kind: ContextReference['type']; id: string; projectId?: string; nonce: number }>()
+  // Fingerprint recent messages so Context Dock previews soft-reload when agents update records.
+  const contextPreviewRefreshSignal = useMemo(() => {
+    if (messages.length === 0) return 0
+    let hash = messages.length * 17
+    for (const message of messages.slice(-8)) {
+      hash = (hash * 31 + String(message.id ?? '').length) | 0
+      hash = (hash * 31 + String(message.content ?? '').length) | 0
+      hash = (hash * 31 + String(message.status ?? '').length) | 0
+      hash = (hash * 31 + String((message as { updatedAt?: string }).updatedAt ?? message.createdAt ?? '').length) | 0
+      const refs = Array.isArray(message.contextRefs) ? message.contextRefs.length : 0
+      const actions = Array.isArray(message.uiActions) ? message.uiActions.length : Array.isArray((message as { ui_actions?: unknown[] }).ui_actions) ? (message as { ui_actions: unknown[] }).ui_actions.length : 0
+      hash = (hash * 31 + refs * 13 + actions * 19) | 0
+    }
+    return Math.abs(hash)
+  }, [messages])
   const handledOpenContextActionsRef = useRef(new Set<string>())
   const [pinnedConversationIds, setPinnedConversationIds] = useState<string[]>(() => readPinnedConversationIds(orgId))
   const [expandedSessionGroupKeys, setExpandedSessionGroupKeys] = useState<string[]>(() => readExpandedSessionGroupKeys(orgId))
@@ -7086,7 +7101,7 @@ export default function UnifiedChat({
           </div>
         </div>
 
-        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
