@@ -1241,12 +1241,20 @@ export default function UnifiedChat({
     if (messages.length === 0) return 0
     let hash = messages.length * 17
     for (const message of messages.slice(-8)) {
+      const record = message as ConversationMessage & {
+        updatedAt?: string
+        ui_actions?: unknown[]
+      }
       hash = (hash * 31 + String(message.id ?? '').length) | 0
       hash = (hash * 31 + String(message.content ?? '').length) | 0
       hash = (hash * 31 + String(message.status ?? '').length) | 0
-      hash = (hash * 31 + String((message as { updatedAt?: string }).updatedAt ?? message.createdAt ?? '').length) | 0
+      hash = (hash * 31 + String(record.updatedAt ?? message.createdAt ?? '').length) | 0
       const refs = Array.isArray(message.contextRefs) ? message.contextRefs.length : 0
-      const actions = Array.isArray(message.uiActions) ? message.uiActions.length : Array.isArray((message as { ui_actions?: unknown[] }).ui_actions) ? (message as { ui_actions: unknown[] }).ui_actions.length : 0
+      const actions = Array.isArray(message.uiActions)
+        ? message.uiActions.length
+        : Array.isArray(record.ui_actions)
+          ? record.ui_actions.length
+          : 0
       hash = (hash * 31 + refs * 13 + actions * 19) | 0
     }
     return Math.abs(hash)
