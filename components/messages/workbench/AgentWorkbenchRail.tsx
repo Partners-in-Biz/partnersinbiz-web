@@ -125,6 +125,8 @@ export interface AgentWorkbenchRailProps {
   onTerminalModeChange?: (mode: WorkbenchTerminalMode) => void
   /** Current interactive session state, owned by the host (e.g. `UnifiedChat`). */
   terminalSession?: WorkbenchSessionViewState | null
+  terminalSessions?: WorkbenchSessionViewState[]
+  onSelectTerminalSession?: (sessionId: string) => void
   onStartTerminalSession?: () => void
   /** Approves a terminal session currently `awaiting_approval` (Phase 5). */
   onApproveTerminalSession?: () => void
@@ -205,6 +207,8 @@ export function AgentWorkbenchRail({
   terminalMode,
   onTerminalModeChange,
   terminalSession,
+  terminalSessions,
+  onSelectTerminalSession,
   onStartTerminalSession,
   onApproveTerminalSession,
   onSendTerminalSessionInput,
@@ -404,6 +408,8 @@ export function AgentWorkbenchRail({
             mode={terminalMode}
             onModeChange={onTerminalModeChange}
             session={terminalSession}
+            terminalSessions={terminalSessions}
+            onSelectSession={onSelectTerminalSession}
             onStartSession={onStartTerminalSession}
             onApproveSession={onApproveTerminalSession}
             onSendSessionInput={onSendTerminalSessionInput}

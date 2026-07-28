@@ -118,6 +118,8 @@ export interface WorkbenchTerminalPanelProps {
   onModeChange?: (mode: WorkbenchTerminalMode) => void
   /** Current interactive session state, owned by the host component. Omit/null renders the "not started" state. */
   session?: WorkbenchSessionViewState | null
+  terminalSessions?: WorkbenchSessionViewState[]
+  onSelectSession?: (sessionId: string) => void
   /** Starts a new session (server-chosen shell — no client-supplied command). Omit to disable the Start button. */
   onStartSession?: () => void
   /** Approves a session currently `awaiting_approval`. Omit to hide the Approve button. */
@@ -298,6 +300,8 @@ export function WorkbenchTerminalPanel({
   mode: controlledMode,
   onModeChange,
   session,
+  terminalSessions = [],
+  onSelectSession,
   onStartSession,
   onApproveSession,
   onSendSessionInput,
@@ -349,6 +353,14 @@ export function WorkbenchTerminalPanel({
     return (
       <div data-testid="workbench-terminal-panel" className="flex h-full min-h-0 flex-col">
         {modeTabs}
+        <div className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-white/10 p-1.5" aria-label="Terminal sessions">
+          {terminalSessions.map((item, index) => (
+            <button key={item.sessionId ?? `new-${index}`} type="button" onClick={() => item.sessionId && onSelectSession?.(item.sessionId)} className={`rounded px-2 py-1 text-[10px] ${item.sessionId === session?.sessionId ? 'bg-primary/15 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]'}`}>
+              Terminal {index + 1}
+            </button>
+          ))}
+          <button type="button" onClick={onStartSession} disabled={!onStartSession} className="ml-auto rounded border border-white/10 px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] disabled:opacity-40">New terminal</button>
+        </div>
         <WorkbenchSessionView
           session={session}
           onStart={onStartSession}

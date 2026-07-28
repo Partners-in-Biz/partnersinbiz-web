@@ -1023,6 +1023,7 @@ export default function UnifiedChat({
   const [workbenchTerminalRunning, setWorkbenchTerminalRunning] = useState(false)
   const [workbenchTerminalMode, setWorkbenchTerminalMode] = useState<WorkbenchTerminalMode>('jobs')
   const [workbenchSession, setWorkbenchSession] = useState<WorkbenchSessionViewState | null>(null)
+  const [workbenchSessionHistory, setWorkbenchSessionHistory] = useState<WorkbenchSessionViewState[]>([])
   const workbenchSessionTranscriptRef = useRef<WorkbenchSessionTranscriptState>({ text: '', lastSeq: -1 })
   const workbenchSessionAbortRef = useRef<AbortController | null>(null)
   const [workbenchTunnel, setWorkbenchTunnel] = useState<WorkbenchTunnelViewState | null>(null)
@@ -2643,6 +2644,9 @@ export default function UnifiedChat({
 
   const startWorkbenchSession = useCallback(async () => {
     if (!activeId) return
+    if (workbenchSession?.sessionId) {
+      setWorkbenchSessionHistory((current) => current.some((item) => item.sessionId === workbenchSession.sessionId) ? current : [...current, workbenchSession])
+    }
     workbenchSessionAbortRef.current?.abort()
     const controller = new AbortController()
     workbenchSessionAbortRef.current = controller
@@ -2666,7 +2670,16 @@ export default function UnifiedChat({
         busy: false,
       }))
     }
-  }, [activeId, applyWorkbenchSessionUpdate])
+  }, [activeId, applyWorkbenchSessionUpdate, workbenchSession])
+
+  const selectWorkbenchSession = useCallback((sessionId: string) => {
+    const selected = [...workbenchSessionHistory, ...(workbenchSession ? [workbenchSession] : [])].find((item) => item.sessionId === sessionId)
+    if (!selected) return
+    if (workbenchSession?.sessionId && workbenchSession.sessionId !== sessionId) {
+      setWorkbenchSessionHistory((current) => current.filter((item) => item.sessionId !== sessionId).concat(workbenchSession))
+    }
+    setWorkbenchSession(selected)
+  }, [workbenchSession, workbenchSessionHistory])
 
   const approveWorkbenchSession = useCallback(async () => {
     if (!activeId || !workbenchSession?.sessionId) return
@@ -2751,6 +2764,7 @@ export default function UnifiedChat({
     workbenchSessionAbortRef.current?.abort()
     workbenchSessionTranscriptRef.current = { text: '', lastSeq: -1 }
     setWorkbenchSession(null)
+    setWorkbenchSessionHistory([])
   }, [activeId])
 
   /**
@@ -6401,6 +6415,8 @@ export default function UnifiedChat({
           terminalMode={workbenchTerminalMode}
           onTerminalModeChange={setWorkbenchTerminalMode}
           terminalSession={workbenchSession}
+          terminalSessions={[...workbenchSessionHistory, ...(workbenchSession ? [workbenchSession] : [])]}
+          onSelectTerminalSession={selectWorkbenchSession}
           onStartTerminalSession={startWorkbenchSession}
           onApproveTerminalSession={approveWorkbenchSession}
           onSendTerminalSessionInput={sendWorkbenchSessionInput}
