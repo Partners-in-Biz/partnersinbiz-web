@@ -84,10 +84,12 @@ export function CommerceDocumentContextPreview({
   kind,
   documentId,
   orgId,
+  refreshRevision = 0,
 }: {
   kind: CommerceKind
   documentId: string
   orgId?: string
+  refreshRevision?: number
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -97,11 +99,23 @@ export function CommerceDocumentContextPreview({
   const [confirmSend, setConfirmSend] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [softRefreshing, setSoftRefreshing] = useState(false)
+  const loadedKeyRef = useRef<string | null>(null)
+  const loadKey = `${kind}:${documentId}:${orgId ?? ''}`
+
+  useEffect(() => {
+    loadedKeyRef.current = null
+  }, [loadKey])
 
   useEffect(() => {
     const controller = new AbortController()
-    setState('loading')
-    setMeta(null)
+    const initial = loadedKeyRef.current !== loadKey
+    if (initial) {
+      setState('loading')
+      setMeta(null)
+    } else {
+      setSoftRefreshing(true)
+    }
     setConfirmSend(false)
     setActionMessage(null)
     setActionError(null)
@@ -135,14 +149,17 @@ export function CommerceDocumentContextPreview({
           setMeta(parseMeta(kind, body))
         }
         setState('ready')
+        loadedKeyRef.current = loadKey
+        setSoftRefreshing(false)
       })
       .catch((cause) => {
         if (controller.signal.aborted) return
         void cause
-        setState('error')
+        setSoftRefreshing(false)
+        if (initial) setState('error')
       })
     return () => controller.abort()
-  }, [documentId, kind, orgId])
+  }, [documentId, kind, loadKey, orgId, refreshRevision])
 
   const label = kind === 'invoice' ? 'Invoice' : 'Quote'
   const canSend = meta?.status === 'draft' && Boolean(meta.recipientEmail)
@@ -223,10 +240,10 @@ export function CommerceDocumentContextPreview({
         <h3 className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
           {label} preview
         </h3>
-        {state === 'loading' && (
+        {(state === 'loading' || softRefreshing) && (
           <span className="inline-flex items-center gap-1 text-[10px] text-[var(--color-pib-text-muted)]">
             <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[14px]">progress_activity</span>
-            Loading…
+            {state === 'loading' ? 'Loading…' : 'Updating…'}
           </span>
         )}
       </div>
@@ -324,10 +341,40 @@ export function CommerceDocumentContextPreview({
   )
 }
 
-export function InvoiceContextPreview({ invoiceId, orgId }: { invoiceId: string; orgId?: string }) {
-  return <CommerceDocumentContextPreview kind="invoice" documentId={invoiceId} orgId={orgId} />
+export function InvoiceContextPreview({
+  invoiceId,
+  orgId,
+  refreshRevision = 0,
+}: {
+  invoiceId: string
+  orgId?: string
+  refreshRevision?: number
+}) {
+  return (
+    <CommerceDocumentContextPreview
+      kind="invoice"
+      documentId={invoiceId}
+      orgId={orgId}
+      refreshRevision={refreshRevision}
+    />
+  )
 }
 
-export function QuoteContextPreview({ quoteId, orgId }: { quoteId: string; orgId?: string }) {
-  return <CommerceDocumentContextPreview kind="quote" documentId={quoteId} orgId={orgId} />
+export function QuoteContextPreview({
+  quoteId,
+  orgId,
+  refreshRevision = 0,
+}: {
+  quoteId: string
+  orgId?: string
+  refreshRevision?: number
+}) {
+  return (
+    <CommerceDocumentContextPreview
+      kind="quote"
+      documentId={quoteId}
+      orgId={orgId}
+      refreshRevision={refreshRevision}
+    />
+  )
 }

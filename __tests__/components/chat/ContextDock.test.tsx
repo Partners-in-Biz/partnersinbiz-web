@@ -2,6 +2,15 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ContextDock } from '@/components/chat/context/ContextDock'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 
+jest.mock('@/lib/firebase/client', () => ({
+  db: {},
+}))
+
+jest.mock('firebase/firestore', () => ({
+  doc: jest.fn(() => ({ path: 'client_documents/mock' })),
+  onSnapshot: jest.fn(() => jest.fn()),
+}))
+
 const model = {
   context: { kind: 'studio' as const, id: 's1', orgId: 'o1', label: 'Marketing Studio', icon: 'campaign' },
   pulse: { label: 'Marketing Studio', metrics: [] },

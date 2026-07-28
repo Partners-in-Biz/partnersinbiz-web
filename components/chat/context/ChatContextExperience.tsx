@@ -8,13 +8,14 @@ import type { ReturnTypeOfUseChatContexts } from './internalTypes'
 import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 import { chatContextReferenceKey, type ChatContextReadModel, type ChatContextReference } from '@/lib/chat-context/types'
 import type { ChatContextOption } from './ContextSelector'
+import { useOpenDockPolling } from './usePreviewLiveReload'
 
 const executionOnlyModel: ChatContextReadModel = {
   context: { kind: 'studio', id: 'execution', orgId: '', label: 'Conversation', icon: 'developer_board' },
   pulse: { label: 'Execution', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '',
 }
 
-export function ChatContextExperience({ context, compact = false, artifactRequest, focusRequest, execution, executionRequest, closeRequest = 0, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; focusRequest?: { kind: ChatContextReference['kind']; id: string; projectId?: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; closeRequest?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void }) {
+export function ChatContextExperience({ context, compact = false, artifactRequest, focusRequest, execution, executionRequest, closeRequest = 0, previewRefreshSignal = 0, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; focusRequest?: { kind: ChatContextReference['kind']; id: string; projectId?: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; closeRequest?: number; /** Bumps when parent messages/runs change so dock previews soft-reload. */ previewRefreshSignal?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void }) {
   const [open, setOpen] = useState(false)
   const [canvasMode, setCanvasMode] = useState<'single' | 'dual'>('single')
   const [canvasWidth, setCanvasWidth] = useState(520)
@@ -24,6 +25,8 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const [actionError, setActionError] = useState<string | null>(null)
   const [pendingActionId, setPendingActionId] = useState<string>()
   const [secondaryRefreshRevision, setSecondaryRefreshRevision] = useState(0)
+  const [previewRefreshRevision, setPreviewRefreshRevision] = useState(0)
+  const lastExecutionStatusRef = useRef<string | undefined>(undefined)
   const pendingRef = useRef<string | undefined>(undefined)
   const [pendingStoredSecondary, setPendingStoredSecondary] = useState<{ storageKey: string; reference: ChatContextReference; hydrationRevision: string } | null>(null)
   const secondaryOptions = useMemo<ChatContextOption[]>(() => {
@@ -126,8 +129,38 @@ export function ChatContextExperience({ context, compact = false, artifactReques
       ...(focusRequest.projectId ? { projectId: focusRequest.projectId } : {}),
     })
     setOpen(true)
+    setPreviewRefreshRevision((revision) => revision + 1)
   }, [context.setActiveContext, focusRequest])
   useEffect(() => { if (executionRequest) setOpen(true) }, [executionRequest])
+
+  const refreshContext = context.refresh
+
+  // When an agent run finishes, soft-reload dock previews (same id stays focused).
+  useEffect(() => {
+    const status = execution?.activeMessage?.status
+    const prev = lastExecutionStatusRef.current
+    lastExecutionStatusRef.current = status
+    if (!status || status === prev) return
+    if (status === 'completed' || status === 'failed' || status === 'cancelled' || status === 'error') {
+      setPreviewRefreshRevision((revision) => revision + 1)
+      setSecondaryRefreshRevision((revision) => revision + 1)
+      void refreshContext()
+    }
+  }, [execution?.activeMessage?.status, refreshContext])
+
+  // Parent message stream / content updates
+  useEffect(() => {
+    if (!previewRefreshSignal) return
+    setPreviewRefreshRevision((revision) => revision + 1)
+    void refreshContext()
+  }, [previewRefreshSignal, refreshContext])
+
+  // While dock is open, poll so agent mid-run writes still surface.
+  useOpenDockPolling(open, () => {
+    setPreviewRefreshRevision((revision) => revision + 1)
+    setSecondaryRefreshRevision((revision) => revision + 1)
+  }, 6_000)
+
   const hasExecution = Boolean(execution?.activeMessage?.runId)
   if ((!context.model || !context.activeContext) && !hasExecution) return <>
     {context.activeContext && context.contexts.length > 0
@@ -170,6 +203,6 @@ export function ChatContextExperience({ context, compact = false, artifactReques
       ? <ContextStrip options={context.contexts} value={context.activeContext} model={context.model} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} onOpen={() => setOpen(true)} />
       : onAddContext ? <EmptyContextStrip onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} /> : null}
     {!context.model && !context.activeContext && <button type="button" data-testid="execution-context-trigger" onClick={() => setOpen(true)} className="mx-3 mt-2 inline-flex h-11 items-center gap-2 self-start rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs text-[var(--color-pib-text)] outline-none focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8"><span aria-hidden="true" className="material-symbols-outlined text-[15px]">developer_board</span>Execution <span className="text-[var(--color-pib-text-muted)]">{execution?.activeMessage?.status}</span></button>}
-    <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action, actionContext) => { void executeAction(action, actionContext) }} actionError={actionError} pendingActionId={pendingActionId} execution={execution} mode={canvasMode} onModeChange={setCanvasMode} canvasWidth={canvasWidth} onCanvasWidthChange={setCanvasWidth} secondaryContext={secondaryContext} secondaryOptions={secondaryOptions} onSecondaryChange={(next) => { setPendingStoredSecondary(null); setSecondaryContext(next) }} secondaryRefreshRevision={secondaryRefreshRevision} workbenchFolder={context.activeContext?.kind === 'workspace_folder' && context.activeContext.workbenchPath && context.conversationId ? { conversationId: context.conversationId, path: context.activeContext.workbenchPath } : undefined} onClose={() => setOpen(false)} />
+    <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action, actionContext) => { void executeAction(action, actionContext) }} actionError={actionError} pendingActionId={pendingActionId} execution={execution} mode={canvasMode} onModeChange={setCanvasMode} canvasWidth={canvasWidth} onCanvasWidthChange={setCanvasWidth} secondaryContext={secondaryContext} secondaryOptions={secondaryOptions} onSecondaryChange={(next) => { setPendingStoredSecondary(null); setSecondaryContext(next) }} secondaryRefreshRevision={secondaryRefreshRevision} previewRefreshRevision={previewRefreshRevision} workbenchFolder={context.activeContext?.kind === 'workspace_folder' && context.activeContext.workbenchPath && context.conversationId ? { conversationId: context.conversationId, path: context.activeContext.workbenchPath } : undefined} onClose={() => setOpen(false)} />
   </>
 }

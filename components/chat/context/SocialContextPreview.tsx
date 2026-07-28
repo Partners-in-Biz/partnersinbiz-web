@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SocialPlatformCard } from '@/components/campaign-preview/pickSocialCard'
 import type { PreviewBrand, PreviewSocialPost } from '@/components/campaign-preview/types'
 import { toPreviewSocialPost } from '@/lib/campaign-preview/normalizeSocialPost'
@@ -30,14 +30,28 @@ function brandFromPayload(value: unknown): PreviewBrand | undefined {
   }
 }
 
-export function SocialContextPreview({ postId }: { postId: string }) {
+export function SocialContextPreview({
+  postId,
+  refreshRevision = 0,
+}: {
+  postId: string
+  refreshRevision?: number
+}) {
   const [post, setPost] = useState<PreviewSocialPost | null>(null)
   const [brand, setBrand] = useState<PreviewBrand | undefined>()
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [softRefreshing, setSoftRefreshing] = useState(false)
+  const loadedKeyRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    loadedKeyRef.current = null
+  }, [postId])
 
   useEffect(() => {
     const controller = new AbortController()
-    setState('loading')
+    const initial = loadedKeyRef.current !== postId
+    if (initial) setState('loading')
+    else setSoftRefreshing(true)
     fetch(`/api/v1/social/posts/${encodeURIComponent(postId)}`, { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error('Social post unavailable')
@@ -47,6 +61,8 @@ export function SocialContextPreview({ postId }: { postId: string }) {
         setPost(next)
         setBrand(brandFromPayload(raw.brandIdentity ?? raw.brand))
         setState('ready')
+        loadedKeyRef.current = postId
+        setSoftRefreshing(false)
 
         const campaignId = typeof raw.campaignId === 'string'
           ? raw.campaignId
@@ -66,10 +82,11 @@ export function SocialContextPreview({ postId }: { postId: string }) {
       .catch((cause) => {
         if (controller.signal.aborted) return
         void cause
-        setState('error')
+        setSoftRefreshing(false)
+        if (initial) setState('error')
       })
     return () => controller.abort()
-  }, [postId])
+  }, [postId, refreshRevision])
 
   if (state === 'loading') {
     return (
@@ -98,7 +115,7 @@ export function SocialContextPreview({ postId }: { postId: string }) {
     >
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">
-          Platform preview
+          Platform preview{softRefreshing ? ' · updating…' : ''}
         </h3>
         <span className="rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-medium capitalize text-primary">
           {post.platform}

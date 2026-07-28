@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MailboxAccountSafe, MailboxMessageSafe } from '@/lib/mailbox/types'
 
 type MailboxSurface = 'admin' | 'portal'
@@ -45,7 +45,13 @@ function composerFromMessage(message: MailboxMessageSafe): ComposerState {
   }
 }
 
-export function EmailContextComposer({ messageId }: { messageId: string }) {
+export function EmailContextComposer({
+  messageId,
+  refreshRevision = 0,
+}: {
+  messageId: string
+  refreshRevision?: number
+}) {
   const surface = useMemo(() => detectSurface(), [])
   const endpoints = ENDPOINTS[surface]
   const [accounts, setAccounts] = useState<MailboxAccountSafe[]>([])
@@ -53,14 +59,24 @@ export function EmailContextComposer({ messageId }: { messageId: string }) {
   const [compose, setCompose] = useState<ComposerState | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [busy, setBusy] = useState<'save' | 'send' | null>(null)
+  const busyRef = useRef(busy)
+  busyRef.current = busy
   const [error, setError] = useState<string | null>(null)
   const [sentMessageId, setSentMessageId] = useState<string | null>(null)
+  const loadedMessageIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    loadedMessageIdRef.current = null
+  }, [messageId])
 
   useEffect(() => {
     const controller = new AbortController()
-    setState('loading')
     setError(null)
-    setSentMessageId(null)
+    const initial = loadedMessageIdRef.current !== messageId
+    if (initial) {
+      setState('loading')
+      setSentMessageId(null)
+    }
     Promise.all([
       fetch(endpoints.accounts, { signal: controller.signal }),
       fetch(`${endpoints.messages}/${encodeURIComponent(messageId)}`, { signal: controller.signal }),
@@ -73,15 +89,17 @@ export function EmailContextComposer({ messageId }: { messageId: string }) {
       if (!nextMessage?.id) throw new Error('Email draft unavailable')
       setAccounts(nextAccounts)
       setMessage(nextMessage)
-      setCompose(composerFromMessage(nextMessage))
+      // Prefer live server draft so agent edits appear; skip clobber while user is saving/sending.
+      if (!busyRef.current) setCompose(composerFromMessage(nextMessage))
       setState('ready')
+      loadedMessageIdRef.current = messageId
     }).catch((cause) => {
       if (controller.signal.aborted) return
       void cause
-      setState('error')
+      if (initial) setState('error')
     })
     return () => controller.abort()
-  }, [endpoints.accounts, endpoints.messages, messageId])
+  }, [endpoints.accounts, endpoints.messages, messageId, refreshRevision])
 
   const connectedAccounts = accounts.filter((account) => account.status === 'connected')
   const selectedAccount = connectedAccounts.find((account) => account.id === compose?.accountId)
