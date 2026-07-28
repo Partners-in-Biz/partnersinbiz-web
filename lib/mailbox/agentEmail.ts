@@ -230,25 +230,29 @@ export async function summarizeAgentMailboxContext(input: AgentMailboxReadInput,
 
 export async function createAgentMailboxDraft(input: AgentMailboxDraftInput, actor: AgentMailboxActor) {
   requireContext(input)
+  // Prefer a connected mailbox, but still allow canvas-only drafts when none is linked yet
+  // (Approve & send stays disabled in the UI until an account is connected).
   const account = await resolveAccount(input)
-  if (!account) throw new Error('Mailbox account not found for requested user/org context')
+  if (input.accountId && !account) throw new Error('Mailbox account not found for requested user/org context')
   const subject = normalizeText(input.subject)
   const bodyText = normalizeText(input.bodyText)
   const bodyHtml = typeof input.bodyHtml === 'string' ? input.bodyHtml : undefined
   if (!subject && !bodyText) throw new Error('Subject or body is required')
   const now = FieldValue.serverTimestamp()
+  const accountId = account?.id ?? ''
+  const accountEmail = account?.emailAddress ?? ''
   const payload: Record<string, unknown> = {
     orgId: input.orgId,
     uid: input.uid,
     profileId: `${input.orgId}_${input.uid}`,
-    accountId: account.id,
-    accountEmail: account.emailAddress,
+    accountId,
+    accountEmail,
     folder: 'drafts',
     direction: 'draft',
     status: 'draft',
     read: true,
     starred: false,
-    from: account.emailAddress,
+    from: accountEmail,
     to: splitEmails(input.to),
     cc: splitEmails(input.cc),
     bcc: splitEmails(input.bcc),
@@ -259,13 +263,23 @@ export async function createAgentMailboxDraft(input: AgentMailboxDraftInput, act
     createdBy: { id: actor.actorId, type: actor.actorType },
     createdAt: now,
     updatedAt: now,
+    ...(account ? {} : { needsMailboxAccount: true }),
   }
   const ref = await adminDb.collection('mailbox_messages').add(payload)
-  await writeToolEvent(input, actor, { action: 'draft_created', mailboxMessageId: ref.id, accountId: account.id })
+  await writeToolEvent(input, actor, {
+    action: 'draft_created',
+    mailboxMessageId: ref.id,
+    accountId: accountId || null,
+    needsMailboxAccount: !account,
+  })
   const fresh = await ref.get()
   const message = serializeMessage(ref.id, fresh.data() ?? payload)
   const presentation = buildEmailContextPresentation(message)
-  return { message, ...presentation } satisfies { message: MailboxMessageSafe } & EmailContextPresentation
+  return {
+    message,
+    ...presentation,
+    needsMailboxAccount: !account,
+  } satisfies { message: MailboxMessageSafe; needsMailboxAccount: boolean } & EmailContextPresentation
 }
 
 export async function createAgentMailboxReplyDraft(input: AgentMailboxReplyDraftInput, actor: AgentMailboxActor) {

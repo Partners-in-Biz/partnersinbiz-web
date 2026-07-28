@@ -26,6 +26,8 @@ describe('buildMailboxContextPromptBlock', () => {
       uid: 'user-1',
       accounts: [connected],
       mailboxDelegationEvidenceId: 'mailbox-dlg-1',
+      conversationId: 'conv-1',
+      responseMessageId: 'assistant-1',
     })
     expect(block).toContain('status: connected')
     expect(block).toContain('me@example.com')
@@ -37,15 +39,26 @@ describe('buildMailboxContextPromptBlock', () => {
     expect(block).toContain('NEVER ask the user to paste')
     expect(block).toContain('delegationEvidenceId=mailbox-dlg-1')
     expect(block).toContain('Never auto-send')
+    expect(block).toContain('EMAIL CANVAS')
+    expect(block).toContain('conversationId=conv-1')
+    expect(block).toContain('responseMessageId=assistant-1')
+    expect(block).toContain('NEVER paste a full email as chat-only')
   })
 
-  it('reports none when no connected accounts exist', () => {
+  it('reports none when no connected accounts exist but still requires email canvas drafts', () => {
     const block = buildMailboxContextPromptBlock({
       orgId: 'org-1',
       uid: 'user-1',
       accounts: [{ ...connected, status: 'needs_setup' }],
+      conversationId: 'conv-9',
+      responseMessageId: 'asst-9',
     })
     expect(block).toContain('status: none')
     expect(block).toContain('No connected Gmail/SMTP mailbox')
+    expect(block).toContain('POST /api/v1/agent/email/drafts')
+    expect(block).toContain('EMAIL CANVAS')
+    expect(block).toContain('conversationId=conv-9')
+    expect(block).toContain('responseMessageId=asst-9')
+    expect(block).toContain('NEVER paste a full email as chat-only')
   })
 })

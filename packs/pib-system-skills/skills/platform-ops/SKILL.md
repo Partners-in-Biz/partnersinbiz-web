@@ -597,14 +597,14 @@ Agents should not treat mailbox messages as marketing broadcasts. Respect delega
 
 #### Connected mailbox first (operational Gmail / SMTP)
 
-Messages injects a `[Mailbox connections]` block when the acting user has authenticated Google/SMTP accounts.
+Messages always injects a `[Mailbox connections]` block for interactive runs (connected or `status: none`).
 
 1. If the prompt says `status: connected`, call `GET /agent/email/accounts` then `GET /agent/email/messages?summarize=true&q=...` with the injected `pib_dlg_…` Bearer token **before** asking the user to paste email content.
 2. Never claim you cannot access their email when the mailbox block shows a connected account — use `/agent/email/*`.
 3. Portal `/portal/email/*` is browser/session only. Hermes must use `/agent/email/*`.
 4. Message reads auto-refresh stale Google sync (≈5 min) and, when `q` is set, also run a **live Gmail search** that imports matches before filtering. Prefer short queries (`rs@ahslaw.co.za`, `Rikus Stander July 20`) — not full Gmail UI sentences.
 5. `summarize=true` returns `bodyPreview` (up to 8k). For full text use `GET /agent/email/messages/{id}`. If connected + hits exist, **never** ask the user to paste the email.
-6. After drafting, echo returned `uiActions`/`contextRef` so Messages opens the email side canvas. Humans **Approve & send**; do not auto-send.
+6. **Compose / “put this in an email” (mandatory):** `POST /agent/email/drafts` with `to`, `subject`, `bodyText`, plus `conversationId` + `responseMessageId` from the mailbox block when present. Echo returned `uiActions`/`contextRef` (`open_context`) so Messages opens the email side canvas. **Never** paste a full email as chat-only preview. Drafts work even when mailbox status is `none` (send disabled until connect). Humans **Approve & send**; do not auto-send.
 
 ### Admin operations utility routes
 
