@@ -44,6 +44,12 @@ export const MESSAGES_CANVAS_REGISTRY: Record<MessagesCanvasKind, {
     never: 'Never paste multi-platform post copy as chat-only “preview” without open_context',
     humanAction: 'Humans review social cards in the side canvas; approve/schedule in Marketing Studio',
   },
+  document: {
+    intents: 'create a proposal / spec / plan / report / client document for review',
+    create: 'POST /api/v1/client-documents then POST /api/v1/client-documents/{id}/versions with blocks',
+    never: 'Never paste raw rich_parts/studio_artifact JSON or the full document body as chat-only “preview”. Never use studio_artifact for client documents — kind is document',
+    humanAction: 'Humans review the rendered document in the Context Dock; publish/share only after explicit approval',
+  },
 }
 
 export function buildDynamicChatCanvasPromptBlock(input: {

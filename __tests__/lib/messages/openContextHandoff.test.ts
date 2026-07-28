@@ -82,6 +82,35 @@ describe('openContextHandoff', () => {
     expect(result.messagesAttach).toEqual({ attached: true })
     expect(update).toHaveBeenCalled()
   })
+
+  it('handoffOpenContextFromCreate supports document canvas kind', async () => {
+    const update = jest.fn(async () => undefined)
+    ;(getConversation as jest.Mock).mockResolvedValue({ id: 'c1', orgId: 'org-1' })
+    ;(messagesCollection as jest.Mock).mockReturnValue({
+      doc: () => ({
+        get: async () => ({ exists: true, data: () => ({ role: 'assistant' }) }),
+        update,
+      }),
+    })
+
+    const result = await handoffOpenContextFromCreate({
+      orgId: 'org-1',
+      body: { conversationId: 'c1', responseMessageId: 'asst-1' },
+      kind: 'document',
+      id: 'P1TCk1BSCHYouZkNGwG',
+      label: 'Hunt and Gun — Auction Website Corrective Maintenance Plan',
+    })
+    expect(result.contextRef).toMatchObject({
+      type: 'document',
+      id: 'P1TCk1BSCHYouZkNGwG',
+    })
+    expect(result.uiActions[0]).toMatchObject({
+      type: 'open_context',
+      payload: { kind: 'document', id: 'P1TCk1BSCHYouZkNGwG' },
+    })
+    expect(result.messagesAttach).toEqual({ attached: true })
+    expect(MESSAGES_CANVAS_KINDS).toContain('document')
+  })
 })
 
 describe('dynamicChatCanvasPrompt', () => {
