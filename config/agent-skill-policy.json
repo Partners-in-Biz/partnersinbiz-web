@@ -1,6 +1,6 @@
 {
-  "version": "2026-07-24.system-skills-v0.1.3",
-  "catalogVersion": "2026-07-24.system-skills-v0.1.3",
+  "version": "2026-07-28.system-skills-v0.1.4",
+  "catalogVersion": "2026-07-28.system-skills-v0.1.4",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],
@@ -87,6 +87,7 @@
     "platform-admin-users",
     "reports",
     "project-management",
+    "interactive-project-planning",
     "properties",
     "qa-release",
     "research-intelligence",
@@ -655,7 +656,24 @@
         "theo"
       ],
       "riskLevel": "medium",
-      "syncTarget": "vps"
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "core"
+    },
+    "interactive-project-planning": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "docs",
+        "maya",
+        "pip",
+        "qa-release",
+        "sales",
+        "theo"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "core"
     },
     "properties": {
       "ownerAgentId": "theo",
@@ -1020,10 +1038,13 @@
       "syncTarget": "vps"
     },
     "agent-skills/interview-me": {
-      "ownerAgentId": "theo",
+      "ownerAgentId": "pip",
       "allowedAgentIds": [
+        "docs",
+        "maya",
         "pip",
         "qa-release",
+        "sales",
         "theo"
       ],
       "riskLevel": "medium",
@@ -1048,10 +1069,13 @@
       "syncTarget": "vps"
     },
     "agent-skills/planning-and-task-breakdown": {
-      "ownerAgentId": "theo",
+      "ownerAgentId": "pip",
       "allowedAgentIds": [
+        "docs",
+        "maya",
         "pip",
         "qa-release",
+        "sales",
         "theo"
       ],
       "riskLevel": "medium",
@@ -1337,6 +1361,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "interactive-project-planning",
         "properties",
         "research-intelligence",
         "seo-sprint-manager",
@@ -1374,6 +1399,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "interactive-project-planning",
         "properties",
         "research-intelligence",
         "seo-sprint-manager",
@@ -1471,6 +1497,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "interactive-project-planning",
         "properties",
         "qa-release",
         "research-intelligence",
@@ -1502,6 +1529,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "interactive-project-planning",
         "properties",
         "qa-release",
         "research-intelligence",
@@ -1627,6 +1655,7 @@
         "evidence-ledger",
         "google-workspace",
         "project-management",
+        "interactive-project-planning",
         "research-intelligence",
         "social-media-manager",
         "social-recovery-gather",
@@ -1654,6 +1683,7 @@
         "evidence-ledger",
         "google-workspace",
         "project-management",
+        "interactive-project-planning",
         "research-intelligence",
         "social-media-manager",
         "social-recovery-gather",
@@ -1667,7 +1697,9 @@
         "video-editor-ops",
         "creative-canvas-ops",
         "book-studio-ops",
-        "youtube-studio-ops"
+        "youtube-studio-ops",
+        "agent-skills/interview-me",
+        "agent-skills/planning-and-task-breakdown"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -2015,6 +2047,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "interactive-project-planning",
         "properties",
         "qa-release",
         "research-intelligence",
@@ -2062,6 +2095,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "interactive-project-planning",
         "properties",
         "qa-release",
         "research-intelligence",
@@ -2349,6 +2383,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "interactive-project-planning",
         "properties",
         "research-intelligence",
         "studio-artifact-orchestrate",
@@ -2370,6 +2405,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "interactive-project-planning",
         "properties",
         "research-intelligence",
         "research/open-notebook",
@@ -2377,7 +2413,9 @@
         "studio-artifact-review",
         "studio-context-gather",
         "studio-release-handoff",
-        "system-auth"
+        "system-auth",
+        "agent-skills/interview-me",
+        "agent-skills/planning-and-task-breakdown"
       ],
       "globalSkills": [
         "productivity/google-workspace",
@@ -2518,6 +2556,7 @@
         "evidence-ledger",
         "google-workspace",
         "project-management",
+        "interactive-project-planning",
         "research-intelligence"
       ],
       "runtimeSkills": [
@@ -2537,7 +2576,10 @@
         "evidence-ledger",
         "google-workspace",
         "project-management",
-        "research-intelligence"
+        "interactive-project-planning",
+        "research-intelligence",
+        "agent-skills/interview-me",
+        "agent-skills/planning-and-task-breakdown"
       ],
       "globalSkills": [
         "productivity/google-workspace"

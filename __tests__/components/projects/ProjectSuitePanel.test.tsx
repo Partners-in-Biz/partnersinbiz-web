@@ -388,6 +388,52 @@ describe('ProjectSuitePanel', () => {
     })))
   })
 
+  it('renders interview turns and submits answers for the pending planning question', async () => {
+    currentSuiteResponse = suiteResponse({
+      planningDiscovery: {
+        revision: 3,
+        status: 'interviewing',
+        mode: 'interview',
+        pendingQuestionId: 'q-3',
+        turns: [
+          {
+            id: 'q-2',
+            question: 'Who is the primary user of this project?',
+            currentGuess: 'Client operations managers',
+            answer: 'Client operations managers',
+          },
+          {
+            id: 'q-3',
+            question: 'What does success look like in 30 days?',
+            currentGuess: 'Tasks update without refresh',
+          },
+        ],
+      },
+    })
+
+    render(<ProjectSuitePanel projectId="project-1" />)
+
+    await waitFor(() => expect(screen.getByTestId('planning-interview-turns')).toBeInTheDocument())
+    expect(screen.getByText(/Who is the primary user of this project\?/)).toBeInTheDocument()
+    expect(screen.getAllByText(/What does success look like in 30 days\?/).length).toBeGreaterThan(0)
+    expect(screen.getByTestId('planning-answer-form')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Planning interview answer'), {
+      target: { value: 'Kanban and Plan stay live without manual refresh.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Submit answer' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/planning-discovery', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'answer_question',
+        expectedRevision: 3,
+        expectedQuestionId: 'q-3',
+        answer: 'Kanban and Plan stay live without manual refresh.',
+      }),
+    })))
+  })
+
   it('requires an explicit operational-gates acknowledgement before planning with assumptions', async () => {
     const brief = {
       outcome: 'Launch a reliable client portal',

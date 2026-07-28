@@ -1,7 +1,7 @@
 {
   "packName": "pib-system-skills",
-  "packVersion": "0.1.3",
-  "catalogVersion": "2026-07-24.system-skills-v0.1.3",
+  "packVersion": "0.1.4",
+  "catalogVersion": "2026-07-28.system-skills-v0.1.4",
   "minApiVersion": "2026-07-23",
   "channel": "stable",
   "decisions": {
@@ -26,6 +26,7 @@
         "client-manager",
         "crm-sales",
         "project-management",
+        "interactive-project-planning",
         "platform-ops",
         "agent-runtime-ops",
         "platform-admin-users",
@@ -137,6 +138,16 @@
         "projects:read",
         "projects:write"
       ]
+    },
+    "interactive-project-planning": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "medium",
+      "requiredScopes": [
+        "projects:read",
+        "projects:write"
+      ],
+      "summary": "Interview-first Decision Brief gate before substantive project execution and structured playbooks."
     },
     "platform-ops": {
       "tier": "core",

@@ -324,11 +324,44 @@ Returns everything an agent needs to work on a project in one call:
     "agentHeartbeatAt": "...",
     "attachments": []
   }],
+  "plan": {
+    "planningDiscovery": { "status": "confirmed", "brief": { "outcome": "..." }, "revision": 3 },
+    "milestones": [],
+    "approvals": [],
+    "risks": [],
+    "decisions": [],
+    "playbooks": [],
+    "automations": [],
+    "capacities": [],
+    "health": {},
+    "timeline": {},
+    "workload": {},
+    "reports": {}
+  },
   "recentComments": [...]
 }
 ```
 
-**Use this first** whenever an agent is asked to work on a project. It is the gold endpoint for project handoff/QC because it exposes task ids, org/project scope, kanban column/status, agent dispatch input/output, artifact refs, dependencies, labels, review status, and safe agent conversation/heartbeat metadata in one response.
+**Use this first** whenever an agent is asked to work on a project. It is the gold endpoint for project handoff/QC because it exposes task ids, org/project scope, kanban column/status, agent dispatch input/output, artifact refs, dependencies, labels, review status, **Plan suite records**, planning discovery state, and safe agent conversation/heartbeat metadata in one response.
+
+### Interactive planning discovery (mandatory for substantive planning)
+
+For new substantive projects and major replans, load the `interactive-project-planning` skill. The Plan tab polls every 15 seconds while visible.
+
+```
+GET  /projects/{projectId}/planning-discovery
+POST /projects/{projectId}/planning-discovery
+```
+
+Action types: `start`, `record_inspection`, `ask_question`, `answer_question`, `surface_brief`, `submit_brief`, `confirm`, `plan_with_assumptions`, `reopen`.
+
+Rules:
+
+- Inspect brief/docs/files/Plan/tasks/tools/agents/skills before asking.
+- One question + current guess at a time.
+- Human managers only may `confirm` or `PLAN WITH ASSUMPTIONS`.
+- Planning mutations and playbook runs fail closed with `planning_discovery_required` until the Decision Brief is confirmed or assumptions-attested.
+- After confirmation, create **structured** playbook steps (assigneeAgentId, agentInput.spec, dependsOnStepIds, reviewerAgentId, requiredCapability, riskLevel, expectedArtifacts, verifierChecklist) — never bare unassigned titles for agent work.
 
 ### Standalone tasks
 

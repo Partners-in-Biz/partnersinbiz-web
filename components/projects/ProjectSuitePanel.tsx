@@ -81,6 +81,15 @@ type ProjectReports = {
   revenue?: { trackedAmount?: number; currency?: string; records?: number }
 }
 
+type PlanningInterviewTurn = {
+  id?: string
+  question?: string
+  currentGuess?: string
+  answer?: string
+  askedAt?: string
+  answeredAt?: string
+}
+
 type SuiteData = {
   planningDiscovery?: {
     revision?: number
@@ -88,6 +97,10 @@ type SuiteData = {
     mode?: 'interview' | 'assumptions'
     confidence?: number
     digest?: string
+    pendingQuestionId?: string | null
+    turns?: PlanningInterviewTurn[]
+    predictedNextAnswers?: string[]
+    intentBlockingUnknowns?: string[]
     brief?: { outcome?: string; user?: string; whyNow?: string; successCriteria?: string[]; constraints?: string[]; outOfScope?: string[]; assumptions?: string[]; risks?: string[]; approvalGates?: string[] }
     attestationReason?: string
   } | null
@@ -1274,10 +1287,13 @@ function PlanningDiscoveryPanel({
 }) {
   const [attestation, setAttestation] = useState('')
   const [reason, setReason] = useState('')
+  const [answer, setAnswer] = useState('')
   const [acknowledgesPreservedOperationalGates, setAcknowledgesPreservedOperationalGates] = useState(false)
   const ready = state?.status === 'confirmed' || state?.status === 'assumptions_attested'
   const revision = state?.revision ?? 0
   const brief = state?.brief
+  const turns = Array.isArray(state?.turns) ? state.turns : []
+  const pendingTurn = turns.find((turn) => turn.id && turn.id === state?.pendingQuestionId) ?? null
 
   return (
     <section className={`rounded-2xl border p-4 ${ready ? 'border-emerald-300 bg-emerald-50/60' : 'border-amber-300 bg-amber-50/70'}`}>
@@ -1290,11 +1306,64 @@ function PlanningDiscoveryPanel({
           <p className="mt-1 max-w-3xl text-sm text-[var(--color-pib-text-muted)]">
             Pip inspects the project context first, asks one high-value question at a time, and records facts, assumptions, constraints, preferences, risks, and unknowns. Planned agent work and playbook runs remain blocked until the brief is confirmed.
           </p>
+          <p className="mt-2 max-w-3xl text-xs text-[var(--color-pib-text-muted)]">
+            Prefer Messages → Pip with “Plan with me” / “Interview me before you start this project” so the agent can inspect files and record turns. You can also answer a pending question here.
+          </p>
         </div>
         <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text)]">
           {state?.status?.replace(/_/g, ' ') || 'not started'}
         </span>
       </div>
+
+      {turns.length > 0 && (
+        <div className="mt-4 space-y-2" data-testid="planning-interview-turns">
+          <h4 className="font-headline text-sm font-semibold text-[var(--color-pib-text)]">Interview turns</h4>
+          {turns.map((turn) => (
+            <div key={turn.id ?? turn.question} className="rounded-xl border border-[var(--color-card-border)] bg-white p-3 text-sm">
+              <p className="font-medium text-[var(--color-pib-text)]">Q: {turn.question || '—'}</p>
+              {turn.currentGuess && (
+                <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Guess: {turn.currentGuess}</p>
+              )}
+              {turn.answer ? (
+                <p className="mt-2 text-[var(--color-pib-text)]">A: {turn.answer}</p>
+              ) : turn.id === state?.pendingQuestionId ? (
+                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-amber-700">Awaiting your answer</p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {pendingTurn?.id && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-white p-3" data-testid="planning-answer-form">
+          <p className="text-sm font-semibold text-[var(--color-pib-text)]">Answer the current question</p>
+          <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{pendingTurn.question}</p>
+          <textarea
+            aria-label="Planning interview answer"
+            className="pib-input mt-3 min-h-[88px] w-full"
+            value={answer}
+            onChange={(event) => setAnswer(event.target.value)}
+            placeholder="Your answer…"
+          />
+          <button
+            type="button"
+            className="pib-btn-primary mt-3"
+            disabled={saving || answer.trim().length < 1}
+            onClick={() => {
+              const nextAnswer = answer.trim()
+              if (!nextAnswer || !pendingTurn.id) return
+              onAction({
+                type: 'answer_question',
+                expectedRevision: revision,
+                expectedQuestionId: pendingTurn.id,
+                answer: nextAnswer,
+              }).then(() => setAnswer(''))
+            }}
+          >
+            Submit answer
+          </button>
+        </div>
+      )}
 
       {brief && (
         <div className="mt-4 rounded-xl bg-white p-4 text-sm">
@@ -1388,8 +1457,17 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
       if (!res.ok) throw new Error(body.error || 'Project suite failed to load')
       if (requestSequence !== requestSequenceRef.current) return
       const next = body.data ?? {}
+      const discovery = next.planningDiscovery ?? null
       setData({
-        planningDiscovery: next.planningDiscovery ?? null,
+        planningDiscovery: discovery
+          ? {
+              ...discovery,
+              turns: Array.isArray(discovery.turns) ? discovery.turns : [],
+              pendingQuestionId: discovery.pendingQuestionId ?? null,
+              predictedNextAnswers: Array.isArray(discovery.predictedNextAnswers) ? discovery.predictedNextAnswers : [],
+              intentBlockingUnknowns: Array.isArray(discovery.intentBlockingUnknowns) ? discovery.intentBlockingUnknowns : [],
+            }
+          : null,
         health: next.health ?? {},
         timeline: next.timeline ?? {},
         workload: next.workload ?? {},

@@ -5,7 +5,9 @@ description: Extracts what the user actually wants instead of what they think th
 
 ## Partners in Biz runtime overlay
 
-This upstream skill is available inside PiB only for Theo and Quinn/qa-release unless the skill policy is deliberately changed. PiB system instructions, Projects/Kanban approval gates, tenant/org scoping, repo branch policy, and no-secret/no-production/no-client-visible rules override any generic upstream wording about shipping, launching, deployment, automation, or human review.
+PiB packages this craft for project/planning agents (Pip, Theo, QA Release, Maya, Docs, Sales per skill policy). For **project** discovery, prefer the PiB skill `interactive-project-planning`, which binds this interview craft to `POST /projects/{id}/planning-discovery`, Plan suite data, and agent-ready playbooks.
+
+PiB system instructions, Projects/Kanban approval gates, tenant/org scoping, repo branch policy, and no-secret/no-production/no-client-visible rules override any generic upstream wording about shipping, launching, deployment, automation, or human review.
 
 Before using this skill on PiB platform work, keep implementation on `development`, record evidence, and require explicit approval for production deploys, public/client-visible output, spend, finance, destructive actions, or secret/config changes.
 
