@@ -16,6 +16,11 @@ import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
 import { copyToClipboard } from '@/lib/utils/clipboard'
 import { normalizeStudioArtifactPart } from '@/lib/chat-context/artifactPayload'
 import type { ChatArtifactSummary } from '@/lib/chat-context/types'
+import {
+  decodeRevealRedaction,
+  labelForRevealKind,
+  type RevealRedactionKind,
+} from '@/lib/linked-computers/reveal-redaction'
 import { ContextArtifactBundle } from './context/ContextArtifactBundle'
 import { buildThinkingTrace, type MessageThinkingTrace } from '@/lib/conversations/thinking-trace'
 
@@ -516,7 +521,52 @@ function bareUrls(content: string): string[] {
 }
 
 const REDACTED_URL_HINT =
-  'Sensitive or private URL removed from linked-computer output for safety. Public links stay visible; credentialed or private URLs cannot be recovered from chat.'
+  'Sensitive or private URL removed from linked-computer output for safety. Older messages cannot recover the original; new runs store click-to-reveal markers.'
+const REVEAL_HINT = 'Hidden for safety. Click to show the original value.'
+
+function RevealableRedactionChip({
+  kind,
+  encoded,
+}: {
+  kind: RevealRedactionKind
+  encoded: string
+}) {
+  const [open, setOpen] = useState(false)
+  const value = decodeRevealRedaction(encoded)
+  const label = labelForRevealKind(kind)
+  if (!value) {
+    return (
+      <abbr
+        title={REDACTED_URL_HINT}
+        className="cursor-help rounded bg-amber-500/10 px-1 py-0.5 font-mono text-[0.9em] text-amber-200/90 no-underline decoration-dotted"
+      >
+        [{label}]
+      </abbr>
+    )
+  }
+  if (!open) {
+    return (
+      <button
+        type="button"
+        title={REVEAL_HINT}
+        onClick={() => setOpen(true)}
+        className="inline max-w-full cursor-pointer rounded bg-amber-500/15 px-1 py-0.5 font-mono text-[0.9em] text-amber-100 underline decoration-dotted underline-offset-2 hover:bg-amber-500/25"
+      >
+        [{label}]
+      </button>
+    )
+  }
+  return (
+    <button
+      type="button"
+      title="Click to hide again"
+      onClick={() => setOpen(false)}
+      className="inline max-w-full cursor-pointer break-all rounded bg-emerald-500/10 px-1 py-0.5 text-left font-mono text-[0.9em] text-emerald-100 underline decoration-dotted underline-offset-2 [overflow-wrap:anywhere] hover:bg-emerald-500/20"
+    >
+      {value}
+    </button>
+  )
+}
 
 function linkifyBareUrlsOnly(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = []
@@ -546,11 +596,16 @@ function linkifyBareUrlsOnly(text: string, keyPrefix: string): ReactNode[] {
   return nodes
 }
 
-/** Linkify bare URLs and explain lingering `[redacted-url]` safety placeholders. */
+const REVEAL_OR_LEGACY_SPLIT =
+  /(\[\[pib-reveal:(?:path|url|token)\|[A-Za-z0-9_-]{1,12000}\]\]|\[redacted-url\])/g
+
+/** Linkify bare URLs and render redaction chips (click-to-reveal when recoverable). */
 function linkifyBareUrls(text: string, keyPrefix: string): ReactNode[] {
-  if (!text.includes('[redacted-url]')) return linkifyBareUrlsOnly(text, keyPrefix)
+  if (!text.includes('[redacted-url]') && !text.includes('[[pib-reveal:')) {
+    return linkifyBareUrlsOnly(text, keyPrefix)
+  }
   const nodes: ReactNode[] = []
-  const parts = text.split(/(\[redacted-url\])/g)
+  const parts = text.split(REVEAL_OR_LEGACY_SPLIT)
   for (let i = 0; i < parts.length; i += 1) {
     const part = parts[i]
     if (!part) continue
@@ -563,6 +618,17 @@ function linkifyBareUrls(text: string, keyPrefix: string): ReactNode[] {
         >
           [redacted-url]
         </abbr>,
+      )
+      continue
+    }
+    const reveal = part.match(/^\[\[pib-reveal:(path|url|token)\|([A-Za-z0-9_-]+)\]\]$/)
+    if (reveal) {
+      nodes.push(
+        <RevealableRedactionChip
+          key={`${keyPrefix}-reveal-${i}`}
+          kind={reveal[1] as RevealRedactionKind}
+          encoded={reveal[2]!}
+        />,
       )
       continue
     }
@@ -910,12 +976,18 @@ function renderMarkdownBlocks(content: string): ReactNode[] {
   return nodes
 }
 
+function contentNeedsInlineProcessing(content: string): boolean {
+  return hasBareUrl(content)
+    || content.includes('[redacted-url]')
+    || content.includes('[[pib-reveal:')
+}
+
 export function ChatMessageContent({ content }: { content: string }) {
   if (!content) return null
   const authInstruction = extractDeviceAuthInstruction(content)
   if (authInstruction) return <DeviceAuthCard instruction={authInstruction} />
   if (!hasRichChatMarkup(content)) {
-    if (!hasBareUrl(content) && !content.includes('[redacted-url]')) return <>{content}</>
+    if (!contentNeedsInlineProcessing(content)) return <>{content}</>
     return (
       <div className="space-y-1 [&>:first-child]:mt-0 [&>:last-child]:mb-0">
         <p>{linkifyBareUrls(content, 'plain-message')}</p>

@@ -1,4 +1,10 @@
 import crypto, { verify } from 'node:crypto'
+import {
+  encodeRevealRedaction,
+  isApiStylePath,
+  isSecretShapedToken,
+  isSensitiveFilesystemPath,
+} from '@/lib/linked-computers/reveal-redaction'
 
 const CONTEXT = 'linked-computer-run-queue:v1'
 const MAX_RECEIPT_SKEW_MS = 5 * 60 * 1000
@@ -163,16 +169,30 @@ export function shouldRedactLinkedUrl(rawUrl: string): boolean {
   return false
 }
 
+/**
+ * Scrub linked-computer chat output before multi-tenant storage.
+ *
+ * - True secrets (passwords, bearer, private keys, connection URIs) stay permanently scrubbed.
+ * - Public https links stay fully visible.
+ * - API endpoint paths stay fully visible (`/api/...`, `/v1/...`).
+ * - Filesystem paths and private URLs become click-to-reveal markers
+ *   (`[[pib-reveal:path|…]]`) so engineers can inspect them without dumping
+ *   secrets into plain text by default.
+ */
 export function sanitizeLinkedResult(value: string): string {
   const keptUrls: string[] = []
   // Preserve safe public URLs through later token/path scrubbers, then restore them.
   const withUrlMarkers = value.replace(/(?:https?:\/\/)[^\s)\]}]+/gi, (url) => {
-    if (shouldRedactLinkedUrl(url)) return '[redacted-url]'
+    if (shouldRedactLinkedUrl(url)) {
+      // Private / signed / local URLs: hide by default, click-to-reveal in UI.
+      return encodeRevealRedaction('url', url)
+    }
     const index = keptUrls.length
     keptUrls.push(url)
     return `${LINKED_URL_KEEP_MARKER}${index}\u0000`
   })
   const redacted = withUrlMarkers
+    // Permanent secret scrubbers (never click-to-reveal).
     .replace(/-----BEGIN[^\r\n]*PRIVATE KEY-----[\s\S]*?(?:-----END[^\r\n]*PRIVATE KEY-----|$)/gi, '[redacted-private-key]')
     .replace(/(?:-----BEGIN\s*)?PRIVATE KEY-----[\s\S]*$/gi, '[redacted-private-key]')
     .replace(/\bAuthorization\s*:\s*(?:Bearer\s+)?[^\s,;]+/gi, 'Authorization: [redacted]')
@@ -182,11 +202,40 @@ export function sanitizeLinkedResult(value: string): string {
     .replace(/\b(?:DB_PASS|DATABASE_URL|[A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|KEY|CREDENTIAL|AUTH)[A-Z0-9_]*)\s*=\s*[^\s,;]+/gi, '[redacted-assignment]')
     .replace(/(["'](?:api[_-]?key|token|secret|password|credential)["']\s*:\s*["'])((?:\\.|(?!\1)[^"'\\])*)(["'])/gi, '$1[redacted]$3')
     .replace(/(["']?(?:api[_-]?key|token|secret|password|credential)["']?\s*[:=]\s*["']?)[^"'\s,;}]+/gi, '$1[redacted]')
-    .replace(/\\\\[^\\\s]+\\[^\s)\]}]+/g, '[redacted-path]')
-    .replace(/\b[A-Za-z]:\\[^\s)\]}]+/g, '[redacted-path]')
-    .replace(/(^|[\s("'])\/(?!\/)[^\s)\]}"']+/gm, '$1[redacted-path]')
-    .replace(/\b[A-Za-z0-9_+\/.=-]{40,}\b/g, '[redacted-token]')
-  let safe = redacted.slice(0, 1_000_000)
+    // Windows / UNC paths → click-to-reveal
+    .replace(/\\\\[^\\\s]+\\[^\s)\]}]+/g, (match) => encodeRevealRedaction('path', match))
+    .replace(/\b[A-Za-z]:\\[^\s)\]}]+/g, (match) => encodeRevealRedaction('path', match))
+    // Unix absolute paths: keep API endpoints; reveal-mask home/system roots only.
+    .replace(/(^|[\s("'])(\/(?!\/)[^\s)\]}"']+)/gm, (full, prefix: string, path: string) => {
+      if (isApiStylePath(path)) return `${prefix}${path}`
+      if (isSensitiveFilesystemPath(path)) return `${prefix}${encodeRevealRedaction('path', path)}`
+      // Generic absolute paths (e.g. /opt/app/config) — keep readable for engineering.
+      return `${prefix}${path}`
+    })
+
+  // Shield click-to-reveal markers so the long-token scrubber cannot eat their payload.
+  const revealMarkers: string[] = []
+  const withRevealMarkers = redacted.replace(
+    /\[\[pib-reveal:(?:path|url|token)\|[A-Za-z0-9_-]{1,12000}\]\]/g,
+    (marker) => {
+      const index = revealMarkers.length
+      revealMarkers.push(marker)
+      return `${LINKED_URL_KEEP_MARKER}R${index}\u0000`
+    },
+  )
+  const afterTokens = withRevealMarkers.replace(/\b[A-Za-z0-9_+\/.=-]{40,}\b/g, (match) => {
+    if (match.includes(LINKED_URL_KEEP_MARKER)) return match
+    if (!isSecretShapedToken(match)) return match
+    // JWTs stay permanent (no click-to-reveal for credentials).
+    if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(match)) {
+      return '[redacted-token]'
+    }
+    return encodeRevealRedaction('token', match)
+  })
+  let safe = afterTokens.slice(0, 1_000_000)
+  for (let i = 0; i < revealMarkers.length; i += 1) {
+    safe = safe.split(`${LINKED_URL_KEEP_MARKER}R${i}\u0000`).join(revealMarkers[i]!)
+  }
   for (let i = 0; i < keptUrls.length; i += 1) {
     safe = safe.split(`${LINKED_URL_KEEP_MARKER}${i}\u0000`).join(keptUrls[i]!)
   }
