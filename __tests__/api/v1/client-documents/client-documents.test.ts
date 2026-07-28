@@ -497,7 +497,7 @@ describe('client documents API', () => {
     expect(mockWhere).toHaveBeenCalledWith('linked.clientOrgIds', 'array-contains', 'client-org')
   })
 
-  it('lists selected-client documents for admins together with platform-owned documents linked to that client org', async () => {
+  it('lists selected-client documents for admins and only client-visible platform-owned linked docs', async () => {
     mockQueryGet
       .mockResolvedValueOnce({
         docs: [
@@ -515,11 +515,21 @@ describe('client documents API', () => {
       .mockResolvedValueOnce({
         docs: [
           {
-            id: 'doc-linked',
+            id: 'doc-linked-internal',
             data: () => ({
               orgId: 'pib-platform-owner',
-              title: 'PiB-owned linked draft',
+              title: 'PiB-owned linked internal draft',
               status: 'internal_review',
+              linked: { clientOrgId: 'client-org', companyId: 'company-1' },
+              deleted: false,
+            }),
+          },
+          {
+            id: 'doc-linked-published',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              title: 'PiB-owned linked client review doc',
+              status: 'client_review',
               linked: { clientOrgId: 'client-org', companyId: 'company-1' },
               deleted: false,
             }),
@@ -529,7 +539,7 @@ describe('client documents API', () => {
             data: () => ({
               orgId: 'pib-platform-owner',
               title: 'Other client document',
-              status: 'internal_review',
+              status: 'client_review',
               linked: { clientOrgId: 'other-org', companyId: 'company-2' },
               deleted: false,
             }),
@@ -544,7 +554,9 @@ describe('client documents API', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data.map((doc: { id: string }) => doc.id)).toEqual(['doc-direct', 'doc-linked'])
+    // Client-org listing keeps direct client-owned docs, but platform-owned linked docs
+    // only appear after they leave internal draft/review (client-visible statuses).
+    expect(body.data.map((doc: { id: string }) => doc.id)).toEqual(['doc-direct', 'doc-linked-published'])
     expect(mockWhere).toHaveBeenCalledWith('linked.clientOrgId', '==', 'client-org')
     expect(mockWhere).toHaveBeenCalledWith('linked.clientOrgIds', 'array-contains', 'client-org')
   })

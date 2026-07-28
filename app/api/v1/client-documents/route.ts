@@ -5,7 +5,7 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
-import { isClientDocumentVisibleToUser } from '@/lib/client-documents/access'
+import { isClientDocumentVisibleToUser, isClientVisibleClientDocument } from '@/lib/client-documents/access'
 import { normalizeClientDocumentLinks, validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
 import { CLIENT_DOCUMENTS_COLLECTION, createClientDocument } from '@/lib/client-documents/store'
 import { themeFromOrg } from '@/lib/client-documents/themeFromOrg'
@@ -231,7 +231,10 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
         ])
         return linkedOrgIds.has(scope.orgId)
       })
-      .filter((doc) => user.role !== 'client' || isClientDocumentVisibleToUser(doc, user))
+      // When listing under a client org, platform-authored linked docs are only visible
+      // after they leave internal draft/review (client-visible statuses). PiB authors edit
+      // drafts from the platform CRM org, not by switching into the client workspace.
+      .filter((doc) => isClientVisibleClientDocument(doc))
     const byId = new Map<string, ClientDocument & { id: string }>()
     for (const document of [...documents, ...linkedPlatformDocuments]) byId.set(document.id, document)
     documents = Array.from(byId.values())

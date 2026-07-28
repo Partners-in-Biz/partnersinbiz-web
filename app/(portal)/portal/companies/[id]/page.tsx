@@ -1014,25 +1014,34 @@ function ServicesPanel({
   )
 }
 
+function documentOpenHref(document: RelatedDocument, crmOrgScope?: PortalOrgRouteScope | null) {
+  // Open under the document's owning org (PiB/platform for work we author).
+  // Never force the linked client workspace — that switches the portal into the client org
+  // and breaks PiB editing of internal drafts.
+  const ownerOrgId = typeof document.orgId === 'string' && document.orgId.trim()
+    ? document.orgId.trim()
+    : (typeof crmOrgScope?.orgId === 'string' && crmOrgScope.orgId.trim() ? crmOrgScope.orgId.trim() : undefined)
+  return scopedPortalPath(`/portal/documents/${encodeURIComponent(document.id)}`, {
+    orgId: ownerOrgId,
+    orgSlug: crmOrgScope?.orgSlug,
+  })
+}
+
 function DocumentsPanel({
   documents,
   company,
-  workspace,
   creatingDocument,
   documentError,
   onCreateDocument,
+  crmOrgScope,
 }: {
   documents: RelatedDocument[]
   company: Company
-  workspace?: LinkedWorkspace | null
   creatingDocument: boolean
   documentError: string | null
   onCreateDocument: () => void
+  crmOrgScope?: PortalOrgRouteScope | null
 }) {
-  const scopedWorkspaceHref = (path: string) => (
-    workspace ? scopedPortalPath(path, workspace) : path
-  )
-
   if (documents.length === 0) {
     return (
       <CompanyRecordEmptyPanel
@@ -1084,8 +1093,8 @@ function DocumentsPanel({
       {documentError ? <p className="text-xs text-red-300">{documentError}</p> : null}
       <div className="grid gap-3 sm:grid-cols-3">
         {[
-          { label: 'Sent', value: documentDirectionCounts.sent, help: `Created from ${company.name}'s workspace` },
-          { label: 'Received', value: documentDirectionCounts.received, help: 'Created from the linked workspace' },
+          { label: 'Sent', value: documentDirectionCounts.sent, help: `Owned in this CRM workspace (PiB authors; client sees after publish)` },
+          { label: 'Received', value: documentDirectionCounts.received, help: 'Owned in the linked client organisation' },
           { label: 'Linked', value: documentDirectionCounts.linked, help: 'Attached by relationship or company link' },
         ].map((item) => (
           <div key={item.label} className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)] px-4 py-3">
@@ -1102,7 +1111,7 @@ function DocumentsPanel({
         title={(row) => documentTitleLabel(row as RelatedDocument)}
         enableFilters
         searchPlaceholder="Search documents..."
-        hrefFor={(row) => scopedWorkspaceHref(`/portal/documents/${row.id}`)}
+        hrefFor={(row) => documentOpenHref(row as RelatedDocument, crmOrgScope)}
         metaFor={(row) => [
           documentDirectionLabel(row as RelatedDocument, company),
           documentTypeLabel(row as RelatedDocument),
@@ -2771,10 +2780,10 @@ export default function CompanyDetailPage() {
           <DocumentsPanel
             documents={related.documents}
             company={company}
-            workspace={related.linkedWorkspace}
             creatingDocument={creatingDocument}
             documentError={documentError}
             onCreateDocument={createSalesProposalDocument}
+            crmOrgScope={{ orgId: scopedOrgId, orgSlug: orgScope.orgSlug }}
           />
         )}
         {!relatedLoading && tab === 'services' && (
