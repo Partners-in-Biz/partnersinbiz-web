@@ -24,6 +24,12 @@ export interface ChatContextReference {
   // presentation metadata only; the server still re-checks project access
   // before resolving the task.
   projectId?: string
+  /**
+   * A server-sealed relative path from a linked-computer Files search. This is
+   * presentation metadata only: the API reloads the persisted reference and
+   * reauthorises it against the conversation before resolving it.
+   */
+  workbenchPath?: string
 }
 
 export function chatContextReferenceKey(reference: ChatContextReference): string {

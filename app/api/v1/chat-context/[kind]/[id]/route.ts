@@ -4,6 +4,9 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { isChatContextKind, isOpaqueContextId } from '@/lib/chat-context/access'
 import { chatContextRegistry } from '@/lib/chat-context/registry'
+import { canAccessConversation, authorizeConversationProject } from '@/lib/conversations/access'
+import { getConversation } from '@/lib/conversations/conversations'
+import { sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,12 +18,26 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const id = raw.id.trim()
   const artifactId = req.nextUrl.searchParams.get('artifactId')?.trim()
   const projectId = req.nextUrl.searchParams.get('projectId')?.trim()
+  const conversationId = req.nextUrl.searchParams.get('conversationId')?.trim()
   if (!isChatContextKind(kind)) return apiError('Unsupported context kind', 400)
   if (!isOpaqueContextId(id)) return apiError('Invalid context id', 400)
   if (projectId && (kind !== 'task' || !isOpaqueContextId(projectId))) return apiError('Invalid project id', 400)
+  if (conversationId && !isOpaqueContextId(conversationId)) return apiError('Invalid conversation id', 400)
   if (artifactId && (!isOpaqueContextId(artifactId) || artifactId.split(':', 1)[0] !== id.split(':', 1)[0])) return apiError('Invalid artifact id', 400)
 
-  const result = await chatContextRegistry.resolve({ kind, id, ...(projectId ? { projectId } : {}), artifactId, user })
+  let contextReference
+  if (conversationId) {
+    const conversation = await getConversation(conversationId)
+    if (!conversation || !canAccessConversation(user, conversation)) return apiError('Context unavailable', 404)
+    const projectAuthorization = await authorizeConversationProject(user, conversation)
+    if (!projectAuthorization.ok) return apiError('Context unavailable', 404)
+    contextReference = sanitizeContextReferenceSeeds(conversation.contextRefs ?? []).find((reference) => (
+      reference.type === kind && reference.id === id && reference.metadata?.contextKind === 'workbench_path'
+    ))
+    if (!contextReference) return apiError('Context unavailable', 404)
+  }
+
+  const result = await chatContextRegistry.resolve({ kind, id, ...(projectId ? { projectId } : {}), ...(contextReference ? { contextReference } : {}), artifactId, user })
   if (!result.ok) {
     if (result.reason === 'forbidden' || result.reason === 'not_found') {
       return apiError('Context unavailable', 404)

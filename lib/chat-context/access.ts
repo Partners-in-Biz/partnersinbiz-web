@@ -1,6 +1,6 @@
 import type { ApiUser } from '@/lib/api/types'
 import type { ChatContextKind, ChatContextReadModel } from '@/lib/chat-context/types'
-import { CONTEXT_REFERENCE_TYPES } from '@/lib/context-references/types'
+import { CONTEXT_REFERENCE_TYPES, type ContextReferenceSeed } from '@/lib/context-references/types'
 
 export interface ChatContextResolveInput {
   kind: ChatContextKind
@@ -9,6 +9,8 @@ export interface ChatContextResolveInput {
   // subcollection to inspect and is never trusted as an access grant.
   projectId?: string
   artifactId?: string
+  /** A persisted, server-authorised conversation reference for opaque Workbench paths. */
+  contextReference?: ContextReferenceSeed
   user: ApiUser
 }
 
