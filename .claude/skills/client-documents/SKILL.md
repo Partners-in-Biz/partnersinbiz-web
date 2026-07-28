@@ -33,9 +33,10 @@ Projects, campaigns, CRM deals, reports, SEO sprints, and social posts remain th
 
 Document ownership, CRM-company linkage, and client organisation visibility are separate.
 
-- `orgId` is the document source/owner workspace.
+- `orgId` is the document source/owner workspace. **PiB-authored client work must stay owned by the platform/CRM org** (usually `pib-platform-owner` or the Partners in Biz workspace), not the client's org.
 - `linked.companyId` attaches the document to a CRM company and is required for company Documents tabs.
-- `linked.clientOrgId` makes a PiB-owned document visible in a system client's organisation document views once the status is client-visible.
+- `linked.clientOrgId` makes a PiB-owned document visible in a system client's organisation document list **only after status is client-visible** (`client_review`, `changes_requested`, `approved`, `accepted`). Internal drafts never appear under the client org index.
+- Opening a document from PiB CRM company Documents stays in the document owner org — it does **not** switch the portal into the client workspace.
 - Existing documents should not be re-owned just to make them appear in another view. Link them with `linked.companyId` and, where applicable, `linked.clientOrgId`.
 - PiB-prepared documents for system clients should normally be source-owned by `pib-platform-owner` and linked to the client through `linked.companyId` + `linked.clientOrgId`.
 - Non-system CRM businesses have no client organisation. For them, use `linked.companyId` only; they show under the CRM company Documents tab but not in any client portal Documents tab.
