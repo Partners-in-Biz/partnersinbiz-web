@@ -15,7 +15,8 @@ description: >
   webhook signature verification (svix); SMS via Twilio with multi-channel sequences; click-tracked short
   links; analytics dashboard with cohort retention, revenue attribution, click heatmaps, send-time matrix,
   industry benchmark comparison, engagement score. Uses Resend + Twilio + Vercel AI Gateway. Trigger on:
-  "send email/SMS", "draft email/SMS", "email/text a contact", "schedule", "email queue",
+  "send email/SMS", "draft email/SMS", "email/text a contact", "put this in an email",
+  "email preview", "email side canvas", "write an email to", "email to", "schedule", "email queue",
   "create sequence", "drip campaign", "nurture sequence", "welcome series", "enroll contact",
   "broadcast", "newsletter", "blast", "template", "visual builder", "block editor", "merge fields",
   "segment", "behavioral segment", "audience", "engagement", "lead capture", "newsletter signup",
@@ -60,7 +61,12 @@ This skill covers **marketing/ESP** email (broadcasts, sequences, Resend). Opera
 
 1. Check the Messages `[Mailbox connections]` prompt block first.
 2. If connected, use `GET /api/v1/agent/email/accounts` and `GET /api/v1/agent/email/messages?summarize=true` (platform-ops / agent-email toolset) before asking the user to paste emails.
-3. Draft personal 1:1 replies via `POST /api/v1/agent/email/drafts` or `/replies`, then echo `uiActions`/`contextRef` (`open_context`) so Messages opens the email side canvas for human **Approve & send**.
+3. **Personal 1:1 compose (email preview canvas) — mandatory:**
+   - When the user says “put this in an email”, “draft an email”, “email X”, or wants an email preview: call `POST /api/v1/agent/email/drafts` (or `/replies`).
+   - Include `conversationId` + `responseMessageId` from the `[Mailbox connections]` block when present so Messages auto-opens the side canvas.
+   - Echo returned `uiActions` / `contextRef` (`open_context`) into the assistant message.
+   - **Never** paste the full email body as chat-only “preview” text — that is not the email canvas.
+   - Works even when mailbox status is `none` (canvas opens for review; send stays disabled until Gmail/SMTP is connected).
 4. Do not use marketing broadcast/sequence APIs for personal inbox triage.
 
 ## Base URL & Authentication

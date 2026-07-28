@@ -132,10 +132,26 @@ describe('agent email mailbox tool contract', () => {
     const reply = await createAgentMailboxReplyDraft({ orgId: 'org-1', uid: 'user-1', sourceMessageId: 'source-1', bodyText: 'Reply body' }, { actorId: 'agent:theo', actorType: 'agent' })
 
     expect(draft.message).toMatchObject({ orgId: 'org-1', uid: 'user-1', accountId: 'acct-1', folder: 'drafts', to: ['lead@example.com'] })
+    expect(draft.needsMailboxAccount).toBe(false)
     expect(draft.contextRef).toMatchObject({ type: 'email', id: draft.message.id, label: 'Draft' })
     expect(draft.uiActions[0]).toMatchObject({ type: 'open_context', payload: { kind: 'email', id: draft.message.id } })
     expect(reply.message).toMatchObject({ orgId: 'org-1', uid: 'user-1', accountId: 'acct-1', folder: 'drafts', to: ['lead@example.com'], subject: 'Re: Original' })
     expect(reply.uiActions[0]).toMatchObject({ type: 'open_context', payload: { kind: 'email', id: reply.message.id } })
+  })
+
+  it('creates canvas-only drafts when no mailbox account is connected', async () => {
+    stageCollections({ mailbox_messages: [], mailbox_accounts: [], mailbox_agent_tool_events: [], mailbox_send_requests: [] })
+
+    const { createAgentMailboxDraft } = await import('@/lib/mailbox/agentEmail')
+    const draft = await createAgentMailboxDraft(
+      { orgId: 'org-1', uid: 'user-1', to: ['goosenpg@gmail.com'], subject: 'Bevestiging', bodyText: 'Hallo Pieter' },
+      { actorId: 'agent:pip', actorType: 'agent' },
+    )
+
+    expect(draft.needsMailboxAccount).toBe(true)
+    expect(draft.message).toMatchObject({ orgId: 'org-1', uid: 'user-1', folder: 'drafts', subject: 'Bevestiging' })
+    expect(draft.contextRef).toMatchObject({ type: 'email', id: draft.message.id })
+    expect(draft.uiActions[0]).toMatchObject({ type: 'open_context', payload: { kind: 'email', id: draft.message.id } })
   })
 
   it('rejects agent send requests without approval evidence and audits the refusal', async () => {

@@ -781,6 +781,8 @@ export const POST = withAuth(
         uid: user.uid,
         accounts: mailboxAccounts,
         mailboxDelegationEvidenceId: mintedDelegation?.mailboxDelegationEvidenceId,
+        conversationId: convId,
+        responseMessageId: assistantMessage.id,
       })
       const delegationAuthContext = mintedDelegation
         ? buildDelegationAuthPromptBlock({
