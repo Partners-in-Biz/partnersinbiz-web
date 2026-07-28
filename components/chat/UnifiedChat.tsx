@@ -936,16 +936,39 @@ function splitValidConversationAttachments(files: File[]): { validFiles: File[];
 export function formatConversationAttachmentUploadError(error: unknown, fileName: string): string {
   const raw = error instanceof Error ? error.message : String(error || '')
   const lower = raw.toLowerCase()
+  const host = typeof window !== 'undefined' ? window.location.host : ''
+  const onVercelPreview = /\.vercel\.app$/i.test(host) || /vercel\.app/i.test(host)
+  const onProductionHost = /(^|\.)partnersinbiz\.online$/i.test(host)
+
+  if (
+    lower.includes('authentication required') ||
+    lower.includes('deployment protection') ||
+    lower.includes('vercel authentication')
+  ) {
+    return onProductionHost
+      ? `Could not upload ${fileName}: session was rejected (${raw.slice(0, 120)}). Sign out and sign back into https://partnersinbiz.online, then try again.`
+      : `Upload blocked for ${fileName}: this deployment is SSO/protected (${host || 'unknown host'}). Open https://partnersinbiz.online while logged in, or open the preview with Vercel protection bypass, then try again.`
+  }
+
   if (
     lower.includes('failed to fetch') ||
     lower.includes('load failed') ||
     lower.includes('networkerror') ||
-    lower.includes('err_access_denied') ||
-    lower.includes('authentication required') ||
-    lower.includes('deployment protection')
+    lower.includes('err_access_denied')
   ) {
-    return `Upload blocked before the app could receive ${fileName}. This usually means the preview deployment is protected or the request was blocked by the browser. Open the logged-in production app or use an approved preview bypass, then try again.`
+    if (onVercelPreview) {
+      return `Upload blocked before the app could receive ${fileName}. You are on a Vercel preview (${host}), which is often SSO-protected and cannot accept uploads without a bypass cookie. Open https://partnersinbiz.online (production) while logged in and send from there.`
+    }
+    if (onProductionHost) {
+      return `Could not upload ${fileName}: the browser lost the network/session mid-request. Hard-refresh https://partnersinbiz.online, confirm you are still signed in, and try again (or send the message without the attachment first).`
+    }
+    return `Upload blocked before the app could receive ${fileName}. Network/session failure on ${host || 'this host'}. Prefer https://partnersinbiz.online while logged in.`
   }
+
+  if (lower === 'unauthorized' || lower.includes('unauthorized') || lower.includes('(401')) {
+    return `Could not upload ${fileName}: you are not authenticated for this session. Sign in again on https://partnersinbiz.online and retry.`
+  }
+
   return raw || `Upload failed: ${fileName}`
 }
 

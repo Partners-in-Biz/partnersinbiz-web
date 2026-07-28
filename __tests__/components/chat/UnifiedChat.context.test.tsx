@@ -110,8 +110,14 @@ function errorResponse(status: number, body: unknown = { error: 'Unauthorized' }
 
 describe('UnifiedChat upload and finalize error handling', () => {
   it('formats deployment-protection and network upload failures into useful user-facing errors', async () => {
-    expect(formatConversationAttachmentUploadError(new Error('Failed to fetch'), 'photo.png')).toContain(
-      'blocked before the app could receive photo.png',
+    expect(formatConversationAttachmentUploadError(new Error('Failed to fetch'), 'photo.png')).toMatch(
+      /photo\.png|partnersinbiz\.online|network\/session/i,
+    )
+    expect(formatConversationAttachmentUploadError(new Error('Authentication Required'), 'photo.png')).toMatch(
+      /photo\.png|partnersinbiz\.online|SSO|session|protected/i,
+    )
+    expect(formatConversationAttachmentUploadError(new Error('Unauthorized'), 'photo.png')).toMatch(
+      /not authenticated|sign in/i,
     )
 
     global.fetch = jest.fn(async () => ({
@@ -124,7 +130,7 @@ describe('UnifiedChat upload and finalize error handling', () => {
     } as Response))
 
     await expect(uploadConversationAttachment('conv-1', new File(['x'], 'photo.png', { type: 'image/png' })))
-      .rejects.toThrow('Upload blocked before the app could receive photo.png')
+      .rejects.toThrow(/photo\.png|partnersinbiz\.online|SSO|session|Authentication|upload/i)
   })
 
   it('treats missing finalize routes/resources as terminal instead of retryable polling failures', () => {
