@@ -713,24 +713,132 @@ function isAgentConversation(conversation: Conversation): boolean {
   return conversation.orchestration?.mode === 'pip-orchestrator' || conversation.participantAgentIds.length > 0
 }
 
+function conversationWorkspaceIdentity(conversation: Conversation): { id: string; name: string } | null {
+  if (isProjectConversation(conversation) || isCompanyConversation(conversation)) return null
+  if (conversation.scope !== 'workspace') return null
+  const id = conversation.workspaceContext?.workspaceId?.trim()
+    || conversation.scopeRefId?.trim()
+    || conversation.workspaceContext?.orgId?.trim()
+    || conversation.orgId?.trim()
+  if (!id) return null
+  return {
+    id,
+    name: conversation.workspaceContext?.orgName?.trim()
+      || conversation.workspaceContext?.orgSlug?.trim()
+      || 'Workspace',
+  }
+}
+
+function conversationAgentIdentity(conversation: Conversation): { id: string; name: string } | null {
+  if (isProjectConversation(conversation) || isCompanyConversation(conversation)) return null
+  if (conversationWorkspaceIdentity(conversation)) return null
+  if (!isAgentConversation(conversation)) return null
+  const id = conversation.orchestration?.dispatcherAgentId
+    || conversation.orchestration?.requestedAgentIds?.[0]
+    || conversation.participantAgentIds[0]
+  if (!id) return null
+  const named = conversation.participants?.find(
+    (participant) => participant.kind === 'agent' && participant.agentId === id,
+  )
+  return {
+    id,
+    name: (named && 'name' in named && typeof named.name === 'string' && named.name.trim())
+      ? named.name.trim()
+      : id,
+  }
+}
+
 function buildHermesSessionSections(conversations: Conversation[], pinnedIds: string[]) {
   const pinnedSet = new Set(pinnedIds)
-  const visible = conversations.filter((conversation) =>
-    !conversation.archived && !isProjectConversation(conversation) && !isCompanyConversation(conversation))
-  const pinned = visible.filter((conversation) => pinnedSet.has(conversation.id))
-  const unpinned = visible.filter((conversation) => !pinnedSet.has(conversation.id))
-  const workspaces = unpinned.filter((conversation) => conversation.scope === 'workspace')
-  const workspaceIds = new Set(workspaces.map((conversation) => conversation.id))
-  const agents = unpinned.filter((conversation) => !workspaceIds.has(conversation.id) && isAgentConversation(conversation))
-  const agentIds = new Set(agents.map((conversation) => conversation.id))
-  const recent = unpinned.filter((conversation) => !workspaceIds.has(conversation.id) && !agentIds.has(conversation.id))
+  // Same pool as before: everything except project/company folders.
+  // Pinned wins over workspace/agent folders so favourites stay at the top.
+  const core = conversations.filter((conversation) =>
+    !conversation.archived
+    && !isProjectConversation(conversation)
+    && !isCompanyConversation(conversation))
+  const pinned = core.filter((conversation) => pinnedSet.has(conversation.id))
+  const unpinned = core.filter((conversation) => !pinnedSet.has(conversation.id))
+  const recent = unpinned.filter((conversation) =>
+    !conversationWorkspaceIdentity(conversation)
+    && !conversationAgentIdentity(conversation))
 
   return [
     { id: 'pinned', label: 'Pinned', conversations: pinned },
-    { id: 'workspaces', label: 'Workspaces', conversations: workspaces },
-    { id: 'agents', label: 'Agents', conversations: agents },
     { id: 'recent', label: 'Recent', conversations: recent },
   ].filter((section) => section.conversations.length > 0)
+}
+
+function buildHermesWorkspaceGroups(
+  conversations: Conversation[],
+  workspaces: OrgWorkspaceSummary[],
+  filter: string,
+  pinnedIds: string[] = [],
+) {
+  const pinnedSet = new Set(pinnedIds)
+  const groups = new Map<string, { id: string; name: string; conversations: Conversation[] }>()
+  for (const workspace of workspaces) {
+    groups.set(workspace.workspaceId, {
+      id: workspace.workspaceId,
+      name: workspace.orgName || workspace.orgSlug || 'Workspace',
+      conversations: [],
+    })
+  }
+  for (const conversation of conversations) {
+    if (conversation.archived || pinnedSet.has(conversation.id)) continue
+    const workspace = conversationWorkspaceIdentity(conversation)
+    if (!workspace) continue
+    const group = groups.get(workspace.id) ?? { ...workspace, conversations: [] }
+    if (!groups.has(workspace.id)) group.name = workspace.name
+    group.conversations.push(conversation)
+    groups.set(workspace.id, group)
+  }
+
+  const query = filter.trim().toLocaleLowerCase()
+  if (!query) {
+    return Array.from(groups.values()).filter((group) =>
+      group.conversations.length > 0 || workspaces.some((w) => w.workspaceId === group.id))
+  }
+  return Array.from(groups.values()).flatMap((group) => {
+    if (group.name.toLocaleLowerCase().includes(query)) return [group]
+    const matches = group.conversations.filter((conversation) => [
+      conversation.title,
+      conversation.lastMessagePreview,
+      conversation.workspaceContext?.runtimeLabel,
+    ].some((value) => value?.toLocaleLowerCase().includes(query)))
+    return matches.length > 0 ? [{ ...group, conversations: matches }] : []
+  })
+}
+
+function buildHermesAgentGroups(
+  conversations: Conversation[],
+  filter: string,
+  pinnedIds: string[] = [],
+) {
+  const pinnedSet = new Set(pinnedIds)
+  const groups = new Map<string, { id: string; name: string; conversations: Conversation[] }>()
+  for (const conversation of conversations) {
+    if (conversation.archived || pinnedSet.has(conversation.id)) continue
+    const agent = conversationAgentIdentity(conversation)
+    if (!agent) continue
+    const group = groups.get(agent.id) ?? { ...agent, conversations: [] }
+    if (!group.name || group.name === agent.id) group.name = agent.name
+    group.conversations.push(conversation)
+    groups.set(agent.id, group)
+  }
+
+  const query = filter.trim().toLocaleLowerCase()
+  if (!query) return Array.from(groups.values())
+  return Array.from(groups.values()).flatMap((group) => {
+    if (group.name.toLocaleLowerCase().includes(query) || group.id.toLocaleLowerCase().includes(query)) {
+      return [group]
+    }
+    const matches = group.conversations.filter((conversation) => [
+      conversation.title,
+      conversation.lastMessagePreview,
+      conversation.workspaceContext?.runtimeLabel,
+    ].some((value) => value?.toLocaleLowerCase().includes(query)))
+    return matches.length > 0 ? [{ ...group, conversations: matches }] : []
+  })
 }
 
 function buildHermesCompanyGroups(
@@ -1914,27 +2022,33 @@ export default function UnifiedChat({
     () => buildHermesProjectGroups(visibleConversations, workspaceProjects, conversationFilter),
     [conversationFilter, visibleConversations, workspaceProjects],
   )
-  const hasHermesRailItems = hermesCompanyGroups.length > 0 || hermesProjectGroups.length > 0 || hermesSessionSections.length > 0
-  useEffect(() => {
-    const keys = hermesProjectGroups
-      .filter((project) => project.conversations.length > 0)
-      .map((project) => `project:${project.id}`)
-    if (keys.length === 0) return
-    setExpandedSessionGroupKeys((current) => {
-      const missing = keys.filter((key) => !current.includes(key))
-      if (missing.length === 0) return current
-      const next = [...current, ...missing]
-      writeExpandedSessionGroupKeys(orgId, next)
-      return next
-    })
-  }, [hermesProjectGroups, orgId])
+  const hermesWorkspaceGroups = useMemo(
+    () => buildHermesWorkspaceGroups(visibleConversations, workspaces, conversationFilter, pinnedConversationIds),
+    [conversationFilter, pinnedConversationIds, visibleConversations, workspaces],
+  )
+  const hermesAgentGroups = useMemo(
+    () => buildHermesAgentGroups(visibleConversations, conversationFilter, pinnedConversationIds),
+    [conversationFilter, pinnedConversationIds, visibleConversations],
+  )
+  const hasHermesRailItems = hermesCompanyGroups.length > 0
+    || hermesProjectGroups.length > 0
+    || hermesWorkspaceGroups.length > 0
+    || hermesAgentGroups.length > 0
+    || hermesSessionSections.length > 0
+  // Only auto-expand the folder that contains the active conversation.
+  // Do NOT re-expand every project on catalogue/poll refreshes — that fights
+  // the user's collapse preference a few seconds after they close a folder.
   useEffect(() => {
     if (!activeId || layoutVariant !== 'hermes') return
     const company = hermesCompanyGroups.find((group) => group.conversations.some((conversation) => conversation.id === activeId))
     const project = hermesProjectGroups.find((group) => group.conversations.some((conversation) => conversation.id === activeId))
+    const workspace = hermesWorkspaceGroups.find((group) => group.conversations.some((conversation) => conversation.id === activeId))
+    const agent = hermesAgentGroups.find((group) => group.conversations.some((conversation) => conversation.id === activeId))
     const groupKeys = [
       ...(company ? [`company:${company.id}`] : []),
       ...(project ? [`project:${project.id}`] : []),
+      ...(workspace ? [`workspace:${workspace.id}`] : []),
+      ...(agent ? [`agent:${agent.id}`] : []),
     ]
     if (groupKeys.length === 0) return
     setExpandedSessionGroupKeys((current) => {
@@ -1944,7 +2058,7 @@ export default function UnifiedChat({
       writeExpandedSessionGroupKeys(orgId, next)
       return next
     })
-  }, [activeId, hermesCompanyGroups, hermesProjectGroups, layoutVariant, orgId])
+  }, [activeId, hermesAgentGroups, hermesCompanyGroups, hermesProjectGroups, hermesWorkspaceGroups, layoutVariant, orgId])
   const menuConversation = useMemo(
     () => conversations.find((conversation) => conversation.id === menuOpenId) ?? null,
     [conversations, menuOpenId],
@@ -5970,6 +6084,216 @@ export default function UnifiedChat({
                       </div>
                     ))}
                   </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          {hermesLayout && hermesWorkspaceGroups.length > 0 && (
+            <div data-testid="hermes-workspaces" className="min-w-0">
+              <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
+                <span>Workspaces</span>
+                <span className="font-mono text-[10px] tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesWorkspaceGroups.length}</span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                {hermesWorkspaceGroups.map((workspace) => {
+                  const groupKey = `workspace:${workspace.id}`
+                  const sessionsExpanded = Boolean(conversationFilter.trim()) || expandedSessionGroupKeys.includes(groupKey)
+                  const sessionsRegionId = `workspace-sessions-${workspace.id}`
+                  return (
+                    <div
+                      key={workspace.id}
+                      data-testid={`hermes-workspace-${workspace.id}`}
+                      data-folder-accent={`workspace:${workspace.id}`}
+                      style={folderAccentStyle(`workspace:${workspace.id}`)}
+                      className="mx-folder-accent min-w-0 overflow-hidden rounded-md border border-white/[0.06] bg-white/[0.025] py-0.5 pl-1.5 pr-0.5"
+                    >
+                      <div className="flex min-w-0 items-center gap-0.5 px-0.5">
+                        <button
+                          type="button"
+                          aria-expanded={sessionsExpanded}
+                          aria-controls={sessionsRegionId}
+                          aria-label={`${sessionsExpanded ? 'Collapse' : 'Expand'} sessions for ${workspace.name}`}
+                          onClick={() => toggleSessionGroup(groupKey)}
+                          className="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
+                        >
+                          <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">work</span>
+                          <span className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{workspace.name}</span>
+                          <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{workspace.conversations.length}</span>
+                          <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
+                            {sessionsExpanded ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </button>
+                      </div>
+                      {sessionsExpanded && (
+                        <div id={sessionsRegionId} className="mt-0.5 flex min-w-0 flex-col gap-0.5">
+                          {workspace.conversations.length === 0 ? (
+                            <p className="px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]">No sessions yet</p>
+                          ) : workspace.conversations.map((c) => (
+                            <div key={c.id} className="relative group/conv">
+                              {renamingId === c.id ? (
+                                <div className="flex items-center gap-1 rounded-lg px-2 py-1.5">
+                                  <input
+                                    autoFocus
+                                    value={renameValue}
+                                    onChange={(e) => setRenameValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') renameConversation(c.id, renameValue)
+                                      if (e.key === 'Escape') {
+                                        renameCancelledRef.current = true
+                                        setRenamingId(null)
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
+                                      renameCancelledRef.current = false
+                                    }}
+                                    className="h-11 min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none xl:h-8"
+                                  />
+                                </div>
+                              ) : (
+                                <ConversationListItem
+                                  conversation={c}
+                                  active={c.id === activeId}
+                                  onClick={() => {
+                                    setActiveId(c.id)
+                                    closeSessions()
+                                  }}
+                                  currentUserUid={currentUserUid}
+                                  density="compact"
+                                  pinned={pinnedConversationIdSet.has(c.id)}
+                                />
+                              )}
+                              {renamingId !== c.id && (
+                                <button
+                                  type="button"
+                                  data-conv-menu
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (menuOpenId === c.id) {
+                                      setMenuOpenId(null)
+                                      setMenuPosition(null)
+                                    } else {
+                                      const rect = e.currentTarget.getBoundingClientRect()
+                                      setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
+                                      setMenuOpenId(c.id)
+                                    }
+                                  }}
+                                  className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${menuOpenId === c.id ? '!flex' : ''}`}
+                                  aria-label={`Conversation options for ${c.title || 'Untitled'}`}
+                                >
+                                  ⋯
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          {hermesLayout && hermesAgentGroups.length > 0 && (
+            <div data-testid="hermes-agents" className="min-w-0">
+              <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
+                <span>Agents</span>
+                <span className="font-mono text-[10px] tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesAgentGroups.length}</span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                {hermesAgentGroups.map((agent) => {
+                  const groupKey = `agent:${agent.id}`
+                  const sessionsExpanded = Boolean(conversationFilter.trim()) || expandedSessionGroupKeys.includes(groupKey)
+                  const sessionsRegionId = `agent-sessions-${agent.id}`
+                  return (
+                    <div
+                      key={agent.id}
+                      data-testid={`hermes-agent-${agent.id}`}
+                      data-folder-accent={`agent:${agent.id}`}
+                      style={folderAccentStyle(`agent:${agent.id}`)}
+                      className="mx-folder-accent min-w-0 overflow-hidden rounded-md border border-white/[0.06] bg-white/[0.025] py-0.5 pl-1.5 pr-0.5"
+                    >
+                      <div className="flex min-w-0 items-center gap-0.5 px-0.5">
+                        <button
+                          type="button"
+                          aria-expanded={sessionsExpanded}
+                          aria-controls={sessionsRegionId}
+                          aria-label={`${sessionsExpanded ? 'Collapse' : 'Expand'} sessions for ${agent.name}`}
+                          onClick={() => toggleSessionGroup(groupKey)}
+                          className="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
+                        >
+                          <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">smart_toy</span>
+                          <span className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{agent.name}</span>
+                          <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{agent.conversations.length}</span>
+                          <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
+                            {sessionsExpanded ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </button>
+                      </div>
+                      {sessionsExpanded && (
+                        <div id={sessionsRegionId} className="mt-0.5 flex min-w-0 flex-col gap-0.5">
+                          {agent.conversations.map((c) => (
+                            <div key={c.id} className="relative group/conv">
+                              {renamingId === c.id ? (
+                                <div className="flex items-center gap-1 rounded-lg px-2 py-1.5">
+                                  <input
+                                    autoFocus
+                                    value={renameValue}
+                                    onChange={(e) => setRenameValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') renameConversation(c.id, renameValue)
+                                      if (e.key === 'Escape') {
+                                        renameCancelledRef.current = true
+                                        setRenamingId(null)
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      if (!renameCancelledRef.current) renameConversation(c.id, renameValue)
+                                      renameCancelledRef.current = false
+                                    }}
+                                    className="h-11 min-w-0 flex-1 border-b border-primary bg-transparent text-sm text-[var(--color-pib-text)] outline-none xl:h-8"
+                                  />
+                                </div>
+                              ) : (
+                                <ConversationListItem
+                                  conversation={c}
+                                  active={c.id === activeId}
+                                  onClick={() => {
+                                    setActiveId(c.id)
+                                    closeSessions()
+                                  }}
+                                  currentUserUid={currentUserUid}
+                                  density="compact"
+                                  pinned={pinnedConversationIdSet.has(c.id)}
+                                />
+                              )}
+                              {renamingId !== c.id && (
+                                <button
+                                  type="button"
+                                  data-conv-menu
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (menuOpenId === c.id) {
+                                      setMenuOpenId(null)
+                                      setMenuPosition(null)
+                                    } else {
+                                      const rect = e.currentTarget.getBoundingClientRect()
+                                      setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
+                                      setMenuOpenId(c.id)
+                                    }
+                                  }}
+                                  className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${menuOpenId === c.id ? '!flex' : ''}`}
+                                  aria-label={`Conversation options for ${c.title || 'Untitled'}`}
+                                >
+                                  ⋯
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )
                 })}
               </div>
