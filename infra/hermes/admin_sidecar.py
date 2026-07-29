@@ -838,6 +838,58 @@ def _oauth_auth_mode_for_provider(provider: str, existing: dict) -> str:
     return "oauth"
 
 
+# Org OAuth is often synced only to the primary Hermes profile (pip). Specialists
+# (Silas→seo, Blake→sales, Theo→theo, …) then fail with "No xAI OAuth credentials
+# stored" even though Settings shows Connected. Share these providers fleet-wide.
+_FLEET_SHARE_OAUTH_PROVIDERS = frozenset({"xai-oauth", "openai-codex", "nous", "copilot"})
+
+
+def _share_oauth_provider_to_fleet(source_profile: str, provider: str, state: dict) -> list[str]:
+    """Copy OAuth provider state to every other Hermes profile auth.json (no mid-request restarts)."""
+    if provider not in _FLEET_SHARE_OAUTH_PROVIDERS:
+        return []
+    flag = os.environ.get("PIB_FLEET_SHARE_OAUTH", "1").strip().lower()
+    if flag in {"0", "false", "no", "off"}:
+        return []
+    if not isinstance(state, dict) or not state:
+        return []
+    updated: list[str] = []
+    try:
+        profile_dirs = list(PROFILES_ROOT.iterdir())
+    except OSError:
+        return []
+    for profile_dir in profile_dirs:
+        if not profile_dir.is_dir():
+            continue
+        name = profile_dir.name
+        if name == source_profile or not _PROFILE_NAME_RE.match(name):
+            continue
+        auth_path = profile_dir / "auth.json"
+        store: dict = {}
+        if auth_path.exists():
+            try:
+                loaded = json.loads(auth_path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    store = loaded
+            except Exception:
+                store = {}
+        providers = store.get("providers")
+        if not isinstance(providers, dict):
+            providers = {}
+            store["providers"] = providers
+        # Deep-ish copy so nested tokens are not shared by reference.
+        providers[provider] = json.loads(json.dumps(state))
+        store["providers"] = providers
+        try:
+            _atomic_write_json(auth_path, store)
+        except OSError:
+            continue
+        # Defer restart only — never bounce busy gateways from fleet share.
+        _mark_pending_restart(name, f"fleet-oauth-share:{provider}")
+        updated.append(name)
+    return updated
+
+
 def _sync_oauth_credential_pool(
     store: dict,
     provider: str,
@@ -1041,6 +1093,8 @@ async def upsert_auth_provider(
     store["providers"] = providers
     _sync_oauth_credential_pool(store, provider, access, refresh, now)
     _atomic_write_json(path, store)
+    # Propagate to specialist profiles (seo/sales/theo/…) so Silas etc. can use SuperGrok.
+    fleet_shared = _share_oauth_provider_to_fleet(profile, provider, state)
     # Tokens are on disk immediately; only bounce the gateway when it is idle so
     # live Messages runs are never SIGTERM'd mid-tool by OAuth credential sync.
     restart = _restart_profile_detailed(profile, f"auth-provider-upsert:{provider}")
@@ -1052,6 +1106,7 @@ async def upsert_auth_provider(
         "busy": restart["busy"],
         "path": str(path),
         "hermes_shape": True,
+        "fleet_shared": fleet_shared,
         "hint": f"{access[:4]}…{access[-4:]}" if len(access) > 8 else "…",
     }
 
