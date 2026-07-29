@@ -5,6 +5,7 @@ import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/type
 import { applyAssistantTextDelta } from '@/lib/chat/applyAssistantTextDelta'
 import { buildThinkingTrace } from '@/lib/conversations/thinking-trace'
 import {
+  formatClientNetworkError,
   formatCreateConversationNetworkError,
   isNetworkFetchFailure,
   matchReconciledCreatedConversation,
@@ -995,14 +996,15 @@ export function shouldAdoptServerMessageDuringFinalizePoll(
 }
 
 export function formatLiveMessageRefreshError(error: unknown): string {
+  if (isNetworkFetchFailure(error) || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
+    return formatClientNetworkError(
+      error,
+      'Live message refresh failed. The agent may still be working — this view will keep retrying.',
+    )
+  }
   const raw = error instanceof Error ? error.message : String(error || '')
   const lower = raw.toLowerCase()
-  if (
-    lower.includes('failed to fetch') ||
-    lower.includes('load failed') ||
-    lower.includes('networkerror') ||
-    lower.includes('load messages')
-  ) {
+  if (lower.includes('load messages')) {
     return 'Live message refresh failed. The agent may still be working — this view will keep retrying.'
   }
   return raw || 'Failed to load messages'
@@ -3556,7 +3558,7 @@ export default function UnifiedChat({
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load conversations')
+      setError(formatClientNetworkError(e, 'Failed to load conversations'))
     } finally {
       setConversationsHydrated(true)
     }
@@ -3705,7 +3707,7 @@ export default function UnifiedChat({
       if (shouldMutateUi()) {
         setError(options?.softError
           ? formatLiveMessageRefreshError(e)
-          : (e instanceof Error ? e.message : 'Failed to load messages'))
+          : formatClientNetworkError(e, 'Failed to load messages'))
       }
       return null
     } finally {
@@ -3715,6 +3717,31 @@ export default function UnifiedChat({
 
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { loadConversations() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear scary network banners when the browser comes back online and rehydrate.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onOnline = () => {
+      setError((current) => {
+        if (!current) return current
+        const lower = current.toLowerCase()
+        if (
+          lower.includes('offline')
+          || lower.includes('network dropped')
+          || lower.includes('failed to fetch')
+          || lower.includes('check your connection')
+        ) {
+          return null
+        }
+        return current
+      })
+      const convId = activeConversationIdRef.current
+      if (convId) void loadMessages(convId, { silent: true, softError: true })
+      void loadConversations()
+    }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [loadConversations, loadMessages])
 
   // Hermes can restore a saved tab whose conversation is intentionally absent
   // from the current rail catalogue (for example an unlinked project). Hydrate
