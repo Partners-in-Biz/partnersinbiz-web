@@ -53,13 +53,17 @@ describe('linked run queue security transitions', () => {
     }))
   })
 
-  it('renews only the current worker lease and comprehensively redacts results', () => {
+  it('renews only the current worker lease and redacts secrets inline without wiping the reply', () => {
     const claimed = transitionLinkedRun(queued(), { type: 'claim', deviceId: 'device-a', credentialVersion: 3, nowMs: now, leaseMs: 30_000 })
     const progress = transitionLinkedRun(claimed, { type: 'progress', deviceId: 'device-a', credentialVersion: 3, nowMs: now + 20_000, attempt: 1, leaseToken: claimed.leaseToken!, leaseMs: 30_000 })
     expect(progress.leaseExpiresAtMs).toBe(now + 50_000)
     expect(() => transitionLinkedRun(progress, { type: 'progress', deviceId: 'device-a', credentialVersion: 3, nowMs: now + 21_000, attempt: 1, leaseToken: 'stale-worker', leaseMs: 30_000 })).toThrow('lease mismatch')
     const unsafe = 'Authorization: Bearer abc apiKey=xyz /etc/passwd C:\\Users\\Peet\\secret \\\\server\\share\\file PRIVATE KEY----- {"nested":{"token":"nested secret with \\\"escaped\\\" suffix"}}'
-    expect(sanitizeLinkedResult(unsafe)).not.toMatch(/abc|xyz|passwd|Peet|server|nested secret|escaped|suffix|PRIVATE KEY/i)
+    const scrubbed = sanitizeLinkedResult(unsafe)
+    expect(scrubbed).not.toMatch(/\babc\b|xyz|nested secret|PRIVATE KEY/i)
+    expect(scrubbed).toContain('/etc/passwd')
+    expect(scrubbed).toContain('Peet')
+    expect(scrubbed).not.toBe('[redacted output]')
     expect(sanitizeLinkedResult('{"nested":{"password":"value with spaces and \\\"escapes\\\" trailing"}}')).not.toMatch(/value with|escapes|trailing/)
     expect(sanitizeLinkedResult(`safe prefix -----BEGIN PRIVATE KEY-----\n${'A'.repeat(200)}`)).not.toContain('AAAA')
     expect(sanitizeLinkedResult(`unlabelled ${'z9K_'.repeat(20)} tail`)).not.toContain('z9K_')
@@ -74,42 +78,50 @@ describe('linked run queue security transitions', () => {
       .toBe('Authorization: [redacted] done with setup')
     expect(sanitizeLinkedResult('token: leftover-secret still present'))
       .toBe('token: [redacted] still present')
-    // Residual secret-shaped text that field redaction cannot scrub still triggers a full wipe.
-    expect(sanitizeLinkedResult('broken password: ,,,, keep quiet')).toBe('[redacted output]')
+    // Residual odd values must never wipe the whole agent reply.
+    const residual = sanitizeLinkedResult('broken password: ,,,, keep quiet')
+    expect(residual).not.toBe('[redacted output]')
+    expect(residual).toContain('keep quiet')
+    // Ordinary prose about gates must stay fully readable.
+    const prose = sanitizeLinkedResult(
+      'Production credentials, production deployment, secret/config changes, and destructive actions remain gated.',
+    )
+    expect(prose).toContain('Production credentials')
+    expect(prose).toContain('secret/config changes')
+    expect(prose).not.toBe('[redacted output]')
   })
 
-  it('keeps public https links readable while redacting sensitive or private URLs', () => {
+  it('keeps links and hosts readable; only credentialed or signed URLs are masked', () => {
     expect(sanitizeLinkedResult('Preview ready: https://partnersinbiz.online/portal/messages'))
       .toBe('Preview ready: https://partnersinbiz.online/portal/messages')
     expect(sanitizeLinkedResult('Deployed to https://example.com/docs/guide'))
       .toBe('Deployed to https://example.com/docs/guide')
-    // Sensitive/private URLs become click-to-reveal markers (recoverable in UI).
+    // Local/private hosts stay readable so operators can work from chat.
+    expect(sanitizeLinkedResult('Local http://127.0.0.1:3000/admin ready'))
+      .toBe('Local http://127.0.0.1:3000/admin ready')
+    // Signed / credentialed URLs still hide by default (click-to-reveal).
     const signed = sanitizeLinkedResult('Signed https://storage.example.com/o/x?alt=media&token=abc123 keep going')
     expect(signed).toMatch(/^Signed \[\[pib-reveal:url\|[A-Za-z0-9_-]+\]\] keep going$/)
     expect(signed).not.toContain('token=abc123')
-    const local = sanitizeLinkedResult('Local http://127.0.0.1:3000/admin and https://user:pass@evil.example/x')
-    expect(local).toMatch(/^Local \[\[pib-reveal:url\|/)
-    expect(local).toMatch(/\[\[pib-reveal:url\|/)
-    expect(local).not.toContain('127.0.0.1')
-    expect(local).not.toContain('user:pass')
+    const credentialed = sanitizeLinkedResult('Cred https://user:pass@evil.example/x done')
+    expect(credentialed).toMatch(/\[\[pib-reveal:url\|/)
+    expect(credentialed).not.toContain('user:pass')
     // Long path segments inside kept URLs must not be eaten by the token scrubber.
     const longPublic = `https://example.com/${'segment-'.repeat(8)}page`
     expect(sanitizeLinkedResult(`Open ${longPublic}`)).toBe(`Open ${longPublic}`)
   })
 
-  it('keeps API endpoint paths readable and only reveal-masks sensitive filesystem paths', () => {
+  it('keeps API endpoint paths and filesystem paths fully readable', () => {
     expect(sanitizeLinkedResult('GET /api/v1/countries listCountries'))
       .toBe('GET /api/v1/countries listCountries')
     expect(sanitizeLinkedResult('SystemService.listCountries() -> /api/land/countries'))
       .toBe('SystemService.listCountries() -> /api/land/countries')
     expect(sanitizeLinkedResult('{apiBaseUrl}/api/v1/ffqv/countries/dropdown'))
       .toBe('{apiBaseUrl}/api/v1/ffqv/countries/dropdown')
-    const home = sanitizeLinkedResult('open /Users/peet/Cowork/foo/bar')
-    expect(home).toMatch(/^open \[\[pib-reveal:path\|/)
-    expect(home).not.toContain('/Users/peet')
-    const win = sanitizeLinkedResult('file C:\\Users\\Peet\\secret\\file.txt')
-    expect(win).toMatch(/\[\[pib-reveal:path\|/)
-    expect(win).not.toContain('Peet')
+    expect(sanitizeLinkedResult('open /Users/peet/Cowork/foo/bar'))
+      .toBe('open /Users/peet/Cowork/foo/bar')
+    expect(sanitizeLinkedResult('file C:\\Users\\Peet\\secret\\file.txt'))
+      .toBe('file C:\\Users\\Peet\\secret\\file.txt')
   })
 
   it('denies cross-device, stale credential and out-of-order completion while making duplicate completion idempotent', () => {

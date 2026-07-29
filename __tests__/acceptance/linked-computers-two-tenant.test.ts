@@ -133,7 +133,11 @@ describe('linked computers two-user/two-organisation acceptance', () => {
     expect(completeResponse.status).toBe(200)
     expect(complete).toHaveBeenCalledWith(expect.objectContaining({ deviceId: 'device-a', jobId: 'job-a', event: 'complete' }))
 
-    expect(sanitizeLinkedResult('Authorization: Bearer abc /Users/peet/private C:\\secret token=xyz'))
-      .not.toMatch(/abc|peet|C:\\secret|xyz/)
+    // Secrets scrubbed inline; filesystem paths stay readable for operators.
+    const scrubbed = sanitizeLinkedResult('Authorization: Bearer abc /Users/peet/private C:\\secret token=xyz')
+    expect(scrubbed).toContain('/Users/peet/private')
+    expect(scrubbed).toContain('C:\\secret')
+    expect(scrubbed).not.toMatch(/\babc\b|token=xyz/)
+    expect(scrubbed).not.toBe('[redacted output]')
   })
 })
