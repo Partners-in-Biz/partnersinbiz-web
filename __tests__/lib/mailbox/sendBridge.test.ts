@@ -46,7 +46,7 @@ function makeDoc(id: string, data: Record<string, unknown>, store: Doc[]) {
 }
 
 function makeCollection(store: Doc[]) {
-  const collection: CollectionMock = {
+  const collection: CollectionMock & { limit: jest.Mock; update?: jest.Mock } = {
     doc: jest.fn((id: string) => ({
       get: jest.fn(async () => {
         const found = store.find((item) => item.id === id)
@@ -56,6 +56,11 @@ function makeCollection(store: Doc[]) {
         const existing = store.find((item) => item.id === id)
         if (existing && options?.merge) existing.data = { ...existing.data, ...patch }
         else if (existing) existing.data = patch
+        else store.push({ id, data: patch })
+      }),
+      update: jest.fn(async (patch: Record<string, unknown>) => {
+        const existing = store.find((item) => item.id === id)
+        if (existing) existing.data = { ...existing.data, ...patch }
         else store.push({ id, data: patch })
       }),
     })),
@@ -68,17 +73,27 @@ function makeCollection(store: Doc[]) {
       const filtered = store.filter((item) => item.data[field] === value)
       return makeCollection(filtered)
     }),
+    limit: jest.fn(function (n: number) {
+      return makeCollection(store.slice(0, n))
+    }),
     get: jest.fn(async () => ({ docs: store.map((item) => makeDoc(item.id, item.data, store)) })),
   }
   return collection
 }
 
-function stageCollections(accounts: Doc[], messages: Doc[], activities: Doc[] = [], audits: Doc[] = []) {
+function stageCollections(
+  accounts: Doc[],
+  messages: Doc[],
+  activities: Doc[] = [],
+  audits: Doc[] = [],
+  contacts: Doc[] = [],
+) {
   ;(adminDb.collection as jest.Mock).mockImplementation((name: string) => {
     if (name === 'mailbox_accounts') return makeCollection(accounts)
     if (name === 'mailbox_messages') return makeCollection(messages)
     if (name === 'activities') return makeCollection(activities)
     if (name === 'mailbox_audit_events') return makeCollection(audits)
+    if (name === 'contacts') return makeCollection(contacts)
     throw new Error(`Unexpected collection ${name}`)
   })
 }
@@ -143,6 +158,48 @@ describe('sendMailboxMessage', () => {
     expect(messages[0].data).toMatchObject({ orgId: 'org-1', uid: 'uid-1', accountId: 'acct-1', folder: 'sent', status: 'sent', provider: 'google', providerMessageId: 'gmail-sent-1', threadId: 'thread-1', from: 'me@example.com', to: ['client@example.com'], subject: 'Hello' })
     expect(activities[0].data).toMatchObject({ orgId: 'org-1', type: 'email_sent', source: 'mailbox_send_bridge' })
     expect(audits[0].data).toMatchObject({ action: 'send_success', provider: 'google', providerMessageId: 'gmail-sent-1' })
+  })
+
+  it('links matched CRM contact on send: contact activity + lastContactedAt + Gmail id metadata', async () => {
+    const accounts: Doc[] = [{ id: 'acct-1', data: { orgId: 'org-1', uid: 'uid-1', provider: 'google', status: 'connected', emailAddress: 'me@example.com', googleEnc: { credentials: { accessToken: 'token', expiresAt: Date.now() + 600_000 } } } }]
+    const messages: Doc[] = []
+    const activities: Doc[] = []
+    const audits: Doc[] = []
+    const contacts: Doc[] = [
+      { id: 'contact-kgaugelo', data: { orgId: 'org-1', email: 'client@example.com', name: 'Kgaugelo', companyId: 'co-1', deleted: false } },
+    ]
+    stageCollections(accounts, messages, activities, audits, contacts)
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({ id: 'gmail-sent-crm', threadId: 'thread-crm' }),
+    })) as unknown as typeof fetch
+
+    const { sendMailboxMessage } = await import('@/lib/mailbox/sendBridge')
+    const result = await sendMailboxMessage({
+      orgId: 'org-1',
+      uid: 'uid-1',
+      accountId: 'acct-1',
+      approved: true,
+      to: ['Client@Example.com'],
+      subject: 'Website project',
+      bodyText: 'Quick question…',
+    })
+
+    expect(result).toMatchObject({ ok: true, providerMessageId: 'gmail-sent-crm' })
+    // org-level + contact-scoped
+    expect(activities.length).toBeGreaterThanOrEqual(2)
+    const contactActivity = activities.find((row) => row.data.contactId === 'contact-kgaugelo')
+    expect(contactActivity?.data).toMatchObject({
+      type: 'email_sent',
+      contactId: 'contact-kgaugelo',
+      companyId: 'co-1',
+      summary: 'Email sent: Website project',
+      providerMessageId: 'gmail-sent-crm',
+      mailboxMessageId: messages[0].id,
+    })
+    expect(contacts[0].data.lastContactedAt).toBe('SERVER_TIMESTAMP')
+    expect(messages[0].data.linkedContactIds).toEqual(['contact-kgaugelo'])
+    expect(messages[0].data.providerMessageId).toBe('gmail-sent-crm')
   })
 
   it('includes sanitized attachments in Gmail MIME payload and stores only attachment metadata', async () => {
