@@ -86,6 +86,7 @@ type PlanningInterviewTurn = {
   question?: string
   currentGuess?: string
   answer?: string
+  askedBy?: string
   askedAt?: string
   answeredAt?: string
 }
@@ -1361,7 +1362,7 @@ function PlanningDiscoveryPanel({
         </div>
       )}
 
-      {pendingTurn?.id && (
+      {pendingTurn?.id && !pendingTurn.askedBy && (
         <div
           className="mt-4 rounded-xl border border-[var(--color-pib-amber)]/25 bg-[var(--color-pib-surface)] p-3"
           data-testid="planning-answer-form"
@@ -1447,7 +1448,7 @@ function PlanningDiscoveryPanel({
         </div>
       )}
 
-      {pendingTurn?.question && (
+      {pendingTurn?.question && pendingTurn.askedBy && (
         <div className="mt-4 rounded-xl border border-amber-200 bg-white p-4 text-sm">
           <p className="pib-label">Pip’s current question</p>
           <p className="mt-2 font-semibold text-[var(--color-pib-text)]">{pendingTurn.question}</p>

@@ -14,7 +14,6 @@ import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/coll
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
 import { getConversation } from '@/lib/conversations/conversations'
-import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
 import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 
