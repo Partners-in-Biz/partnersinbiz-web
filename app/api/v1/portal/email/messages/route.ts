@@ -90,6 +90,7 @@ export const POST = withPortalAuthAndRole('member', async (req: NextRequest, uid
         subject,
         bodyText,
         ...(bodyHtml ? { bodyHtml } : {}),
+        includeSignature: body.includeSignature !== false,
         attachments,
         actorId: uid,
         actorType: 'user',

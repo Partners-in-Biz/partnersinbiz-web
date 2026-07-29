@@ -11,6 +11,7 @@ import {
   readMailboxGoogleOAuthEnv,
 } from '@/lib/mailbox/googleOAuth'
 import { normalizeEmail } from '@/lib/mailbox/serializers'
+import { warmGmailSignatureCache } from '@/lib/mailbox/gmailSignature'
 
 export const dynamic = 'force-dynamic'
 
@@ -111,12 +112,26 @@ export async function GET(req: NextRequest) {
     updatedAt: FieldValue.serverTimestamp(),
   }
 
+  let accountId = existing?.id
   if (existing) {
     await existing.ref.set(patch, { merge: true })
   } else {
-    await adminDb.collection('mailbox_accounts').add({
+    const created = await adminDb.collection('mailbox_accounts').add({
       ...patch,
       createdAt: FieldValue.serverTimestamp(),
+    })
+    accountId = created.id
+  }
+
+  if (accountId) {
+    await warmGmailSignatureCache({
+      orgId: stateData.orgId,
+      accountId,
+      account: {
+        emailAddress,
+        provider: 'google',
+        googleEnc: patch.googleEnc,
+      },
     })
   }
 

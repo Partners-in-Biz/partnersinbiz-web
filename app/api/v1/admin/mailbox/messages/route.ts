@@ -100,6 +100,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
         subject,
         bodyText,
         ...(bodyHtml ? { bodyHtml } : {}),
+        includeSignature: body.includeSignature !== false,
         actorId: uid,
         actorType: 'user',
         approvalGateTaskId: typeof body.approvalGateTaskId === 'string' ? body.approvalGateTaskId : undefined,
