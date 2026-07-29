@@ -185,6 +185,36 @@ export async function requireDeliverableLlmCredentialBinding(input: {
   return binding
 }
 
+/**
+ * Verify that an asynchronous receipt still belongs to the exact credential
+ * generation it was created for. Unlike delivery authorization this permits
+ * every status because revoke receipts can arrive after local state changes.
+ */
+export async function requireMatchingLlmCredentialBindingGeneration(input: {
+  bindingId: string
+  connectionId: string
+  credentialVersion: number
+  deviceId: string
+  ownerUid: string | null
+  orgId: string
+  scope: 'org' | 'user'
+  agentId: string
+}): Promise<LlmCredentialBinding> {
+  const snapshot = await adminDb.collection(LLM_CREDENTIAL_BINDINGS_COLLECTION).doc(input.bindingId).get()
+  if (!snapshot.exists) throw new Error('Credential binding not found')
+  const binding = { ...(snapshot.data() as LlmCredentialBinding), id: snapshot.id }
+  if (binding.connectionId !== input.connectionId
+    || binding.credentialVersion !== input.credentialVersion
+    || binding.deviceId !== input.deviceId
+    || binding.orgId !== input.orgId
+    || binding.scope !== input.scope
+    || (binding.scope === 'user' && binding.ownerUid !== input.ownerUid)
+    || binding.agentId !== input.agentId) {
+    throw new Error('Credential binding generation does not match this receipt')
+  }
+  return binding
+}
+
 export async function revokeConnectionLlmCredentialBindings(connectionId: string): Promise<void> {
   const snapshot = await adminDb.collection(LLM_CREDENTIAL_BINDINGS_COLLECTION)
     .where('connectionId', '==', connectionId)
