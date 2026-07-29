@@ -2,6 +2,7 @@ import {
   COMPANY_COWORK_ENSURE_BUDGET_MS,
   conversationTimestampMs,
   ensureCompanyCoworkFolderWithinBudget,
+  formatClientNetworkError,
   formatCreateConversationNetworkError,
   isNetworkFetchFailure,
   matchReconciledCreatedConversation,
@@ -12,9 +13,11 @@ describe('conversation create resilience helpers', () => {
   it('detects browser network failures that hide a successful create', () => {
     expect(isNetworkFetchFailure(new TypeError('Failed to fetch'))).toBe(true)
     expect(isNetworkFetchFailure(new Error('NetworkError when attempting to fetch resource.'))).toBe(true)
+    expect(isNetworkFetchFailure(new Error('net::ERR_INTERNET_DISCONNECTED'))).toBe(true)
     expect(isNetworkFetchFailure(new Error('Computer unavailable'))).toBe(false)
     expect(formatCreateConversationNetworkError('checking')).toContain('checking if the chat was created')
     expect(formatCreateConversationNetworkError('unconfirmed')).toContain('may already exist')
+    expect(formatClientNetworkError(new TypeError('Failed to fetch'))).toMatch(/Network dropped|offline/i)
   })
 
   it('parses Firestore-ish timestamps for reconcile windows', () => {

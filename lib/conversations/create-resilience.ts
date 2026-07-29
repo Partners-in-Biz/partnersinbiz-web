@@ -52,8 +52,30 @@ export function isNetworkFetchFailure(error: unknown): boolean {
     || lower.includes('network request failed')
     || lower.includes('load failed')
     || lower.includes('fetch failed')
+    || lower.includes('internet_disconnected')
+    || lower.includes('err_internet')
+    || lower.includes('err_network')
+    || lower.includes('err_connection')
     || (error instanceof TypeError && lower.includes('fetch'))
   )
+}
+
+/**
+ * User-facing copy for browser-side network failures (not Hermes/agent bugs).
+ * Chrome often reports TypeError "Failed to fetch" or net::ERR_INTERNET_DISCONNECTED.
+ */
+export function formatClientNetworkError(
+  error: unknown,
+  fallback = 'Network request failed',
+): string {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return 'Your browser is offline. Reconnect and refresh — the agent reply may already be saved.'
+  }
+  if (!isNetworkFetchFailure(error)) {
+    const raw = error instanceof Error ? error.message : String(error || '')
+    return raw || fallback
+  }
+  return 'Network dropped while talking to Partners in Biz. Check your connection and refresh — the agent may already have finished.'
 }
 
 export function formatCreateConversationNetworkError(phase: 'checking' | 'unconfirmed' = 'unconfirmed'): string {
