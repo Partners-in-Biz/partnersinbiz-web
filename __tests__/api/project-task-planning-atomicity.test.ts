@@ -45,6 +45,12 @@ jest.mock('@/lib/projects/planningDiscoveryStore', () => ({
 }))
 
 jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn(() => Promise.resolve()) }))
+jest.mock('@/lib/llm-providers/store', () => ({
+  listLlmProviderConnections: jest.fn(async () => []),
+}))
+jest.mock('@/lib/llm-providers/sync-hermes', () => ({
+  syncLlmConnectionToHermes: jest.fn(),
+}))
 jest.mock('@/lib/projects/links', () => ({ adminProjectTaskLink: jest.fn(async () => '/admin/task-1') }))
 jest.mock('@/lib/context-references/registry', () => ({ resolveContextReferences: jest.fn(async () => []) }))
 jest.mock('@/lib/conversations/conversations', () => ({ getConversation: jest.fn() }))

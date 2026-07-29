@@ -30,6 +30,7 @@ export interface AgentConfig {
   baseUrl: string
   apiKey: string
   enabled: boolean
+  targetId?: string
 }
 
 interface CacheEntry {
@@ -75,9 +76,11 @@ export async function loadEnabledAgentIds(): Promise<string[]> {
   }
 }
 
-export async function getAgentConfig(agentId: string): Promise<AgentConfig | null> {
+export async function getAgentConfig(agentId: string, requestedTargetId?: string | null): Promise<AgentConfig | null> {
   const now = Date.now()
-  const cached = cache.get(agentId)
+  const request = requestedTargetId?.trim() || ''
+  const cacheKey = `${agentId}:${request || 'default'}`
+  const cached = cache.get(cacheKey)
   if (cached && cached.expiresAt > now) {
     return cached.value
   }
@@ -85,11 +88,14 @@ export async function getAgentConfig(agentId: string): Promise<AgentConfig | nul
   try {
     const snap = await db.collection('agent_dispatch_configs').doc(agentId).get()
     if (!snap.exists) {
-      cache.set(agentId, { value: null, expiresAt: now + CACHE_TTL_MS })
+      cache.set(cacheKey, { value: null, expiresAt: now + CACHE_TTL_MS })
       return null
     }
     const data = snap.data() ?? {}
-    const preference = process.env.PIB_HERMES_RUNTIME_TARGET ?? process.env.PIB_AGENT_RUNTIME_TARGET ?? 'auto'
+    const preference = request
+      || process.env.PIB_HERMES_RUNTIME_TARGET
+      || process.env.PIB_AGENT_RUNTIME_TARGET
+      || 'auto'
     const preferLocal = ['1', 'true', 'yes', 'local'].includes((process.env.PIB_PREFER_LOCAL_HERMES ?? '').toLowerCase())
     const selected = selectAgentRuntimeTarget({
       runtimeTargets: data.runtimeTargets,
@@ -105,14 +111,19 @@ export async function getAgentConfig(agentId: string): Promise<AgentConfig | nul
 
     if (!selected) {
       logger.warn('agent_dispatch_config missing usable runtime target', { agentId })
-      cache.set(agentId, { value: null, expiresAt: now + CACHE_TTL_MS })
+      cache.set(cacheKey, { value: null, expiresAt: now + CACHE_TTL_MS })
       return null
     }
 
     const enabled = data.enabled !== false
 
-    const value: AgentConfig = { baseUrl: selected.baseUrl, apiKey: selected.apiKey, enabled }
-    cache.set(agentId, { value, expiresAt: now + CACHE_TTL_MS })
+    const value: AgentConfig = {
+      baseUrl: selected.baseUrl,
+      apiKey: selected.apiKey,
+      enabled,
+      targetId: selected.targetId,
+    }
+    cache.set(cacheKey, { value, expiresAt: now + CACHE_TTL_MS })
     return value
   } catch (err) {
     logger.error('failed to load agent_dispatch_config', {
@@ -126,7 +137,9 @@ export async function getAgentConfig(agentId: string): Promise<AgentConfig | nul
 
 export function invalidateAgentConfigCache(agentId?: string): void {
   if (agentId) {
-    cache.delete(agentId)
+    for (const key of cache.keys()) {
+      if (key === agentId || key.startsWith(`${agentId}:`)) cache.delete(key)
+    }
   } else {
     cache.clear()
   }

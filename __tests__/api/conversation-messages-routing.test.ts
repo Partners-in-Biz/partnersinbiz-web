@@ -32,6 +32,7 @@ const mockCancelLinkedRun = jest.fn()
 const mockCallAgentPath = jest.fn()
 const mockValidateMessageModelSelection = jest.fn()
 const mockRequireReadyLlmCredentialBinding = jest.fn()
+const mockResolveLlmCredentialRuntimeTarget = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
 let organizationSettings: Record<string, unknown> = {}
@@ -80,6 +81,9 @@ jest.mock('@/lib/messages/model-catalog', () => ({
 }))
 jest.mock('@/lib/llm-providers/bindings', () => ({
   requireReadyLlmCredentialBinding: (...args: unknown[]) => mockRequireReadyLlmCredentialBinding(...args),
+}))
+jest.mock('@/lib/llm-providers/sync-targets', () => ({
+  resolveLlmCredentialRuntimeTarget: (...args: unknown[]) => mockResolveLlmCredentialRuntimeTarget(...args),
 }))
 
 
@@ -147,6 +151,11 @@ beforeEach(() => {
   organizationMembers = [{ userId: 'client-1', role: 'member' }]
   mockMintMessagesDispatchDelegation.mockResolvedValue(null)
   mockRequireReadyLlmCredentialBinding.mockResolvedValue({ id: 'binding-test' })
+  mockResolveLlmCredentialRuntimeTarget.mockImplementation(async (input: { runtimeTargetId?: string }) => ({
+    runtimeTargetId: input.runtimeTargetId || 'vps',
+    deviceId: null,
+    ownerType: input.runtimeTargetId === 'local' ? 'user' : 'organization',
+  }))
   mockValidateMessageModelSelection.mockImplementation(async (input: { model?: unknown; provider?: unknown }) => {
     const model = typeof input.model === 'string' ? input.model : ''
     const provider = typeof input.provider === 'string' ? input.provider : ''

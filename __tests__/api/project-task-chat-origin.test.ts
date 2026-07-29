@@ -47,9 +47,22 @@ jest.mock('@/lib/context-references/registry', () => ({
 }))
 
 jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn(() => Promise.resolve()) }))
+jest.mock('@/lib/llm-providers/store', () => ({
+  listLlmProviderConnections: jest.fn(async () => []),
+}))
+jest.mock('@/lib/llm-providers/sync-hermes', () => ({
+  syncLlmConnectionToHermes: jest.fn(),
+}))
 
 jest.mock('@/lib/projects/planningDiscovery', () => ({
   planningMutationBlocker: jest.fn(() => null),
+}))
+jest.mock('@/lib/projects/planningDiscoveryStore', () => ({
+  planningContextMutationTransition: jest.fn(() => ({
+    allowed: true,
+    state: null,
+    event: null,
+  })),
 }))
 
 const chatOrigin = {
@@ -80,6 +93,7 @@ beforeEach(() => {
     orgId: 'org-1',
     scope: 'general',
     contextRefs: [{ type: 'project', id: 'project-1', orgId: 'org-1', label: 'Launch', origin: 'mention' }],
+    workspaceContext: { runtimeTarget: 'linked-device:mac-1' },
   })
   mockResolveContextReferences.mockResolvedValue([])
   mockDuplicateGet.mockResolvedValue({ empty: true, docs: [] })
@@ -133,7 +147,10 @@ describe('project task chat origin', () => {
     const res = await POST(request(), { params: Promise.resolve({ projectId: 'project-1' }) })
 
     expect(res.status).toBe(201)
-    expect(mockTaskAdd).toHaveBeenCalledWith(expect.objectContaining({ chatOrigin }))
+    expect(mockTaskAdd).toHaveBeenCalledWith(expect.objectContaining({
+      chatOrigin,
+      agentRuntimeTargetId: 'linked-device:mac-1',
+    }))
   })
 
   it('requires explicit matching agent organisation scope', async () => {

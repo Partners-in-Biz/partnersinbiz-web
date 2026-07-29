@@ -99,6 +99,61 @@ describe('executeAgentHostJob', () => {
     fs.rmSync(home, { recursive: true, force: true })
   })
 
+  it('writes xAI OAuth in the exact Hermes-native singleton and pool shape', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-agent-host-xai-oauth-'))
+    const outcome = await executeAgentHostJob({
+      jobId: 'credential-xai-oauth',
+      kind: 'sync-credential',
+      status: 'claimed',
+      agentId: 'theo',
+      policyVersion: null,
+      keepInSync: false,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8756,
+      protocolVersion: 3,
+      credentialDelivery: {
+        bindingId: 'binding-xai-oauth',
+        connectionId: 'user:u1:xai-oauth',
+        credentialVersion: 7,
+        provider: 'xai-oauth',
+        hermesProvider: 'xai-oauth',
+        envVar: null,
+        canaryModel: 'grok-4.20',
+        credentials: {
+          access_token: 'xai-access-token',
+          refresh_token: 'xai-refresh-token',
+        },
+      },
+    }, {
+      env: {
+        ...process.env,
+        PIB_HERMES_HOME: home,
+        HERMES_HOME: home,
+        PIB_RUNTIME_STATE_DIR: path.join(home, 'state'),
+      },
+      startGateway: false,
+      waitForAgentIdle: async () => true,
+      probe: async () => ({ availableAgentIds: ['theo'] }),
+      providerCanary: async () => ({ ok: true, modelIds: ['grok-4.20'] }),
+    })
+
+    expect(outcome.ok).toBe(true)
+    const auth = JSON.parse(fs.readFileSync(path.join(home, 'profiles', 'theo', 'auth.json'), 'utf8'))
+    expect(auth.providers['xai-oauth'].tokens).toMatchObject({
+      access_token: 'xai-access-token',
+      refresh_token: 'xai-refresh-token',
+    })
+    expect(auth.credential_pool['xai-oauth'][0]).toMatchObject({
+      access_token: 'xai-access-token',
+      refresh_token: 'xai-refresh-token',
+      source: 'device_code',
+    })
+    expect(auth.credential_pool.xai).toBeUndefined()
+    fs.rmSync(home, { recursive: true, force: true })
+  })
+
   it('creates a Hermes profile skeleton and policy stamp', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-agent-host-'))
     const env = {

@@ -13,7 +13,7 @@ import { getLlmProvider } from './providers'
 import {
   getDecryptedLlmCredentials,
   getLlmProviderConnection,
-  markLlmConnectionError,
+  markLlmConnectionSyncWarning,
   markLlmConnectionSynced,
 } from './store'
 import { putDesiredLlmCredentialBinding, updateLlmCredentialBinding } from './bindings'
@@ -104,7 +104,7 @@ export async function syncLlmConnectionToHermes(
   })
 
   if (!resolved.targets.length) {
-    await markLlmConnectionError(connectionId, resolved.reasonIfEmpty || 'No personal sync target')
+    await markLlmConnectionSyncWarning(connectionId, resolved.reasonIfEmpty || 'No personal sync target')
     return {
       synced: [],
       queued: [],
@@ -149,7 +149,7 @@ async function pushToTargets(
   resolved: { targets: LlmSyncTarget[]; reasonIfEmpty?: string },
 ): Promise<SyncLlmConnectionResult> {
   if (!resolved.targets.length) {
-    await markLlmConnectionError(connectionId, resolved.reasonIfEmpty || 'No sync target')
+    await markLlmConnectionSyncWarning(connectionId, resolved.reasonIfEmpty || 'No sync target')
     return {
       synced: [],
       queued: [],
@@ -243,7 +243,7 @@ async function pushToTargets(
   if (synced.length) {
     await markLlmConnectionSynced(connectionId, synced)
   } else if (failed.length) {
-    await markLlmConnectionError(connectionId, failed[0].error)
+    await markLlmConnectionSyncWarning(connectionId, failed[0].error)
   }
 
   const verifyNote = verified.some((v) => !v.usable)

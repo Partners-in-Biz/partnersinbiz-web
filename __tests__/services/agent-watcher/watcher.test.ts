@@ -59,6 +59,12 @@ describe('agent watcher transient Hermes errors', () => {
   it('treats a gateway-lost run as retryable after an upstream outage', () => {
     expect(isTransientHermesError('Hermes run run-1 was not found on the agent gateway')).toBe(true)
   })
+
+  it('treats provider authentication repair as retryable', () => {
+    expect(isTransientHermesError(
+      'Provider authentication failed: xAI OAuth state is missing access_token.',
+    )).toBe(true)
+  })
 })
 const dbMock = db as unknown as { collectionGroup?: jest.Mock; collection?: jest.Mock }
 

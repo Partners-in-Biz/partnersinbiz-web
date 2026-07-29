@@ -97,6 +97,9 @@ export interface Task {
   agentModel?: AgentModel | null
   agentProvider?: string | null
   llmCredentialSource?: 'auto' | 'org' | 'personal' | null
+  agentRuntimeTargetId?: string | null
+  llmConnectionId?: string | null
+  llmCredentialBindingId?: string | null
   llmCredentialOwnerUid?: string | null
   requiredCapability?: string | null
   requestedByAgentId?: AgentId | null
