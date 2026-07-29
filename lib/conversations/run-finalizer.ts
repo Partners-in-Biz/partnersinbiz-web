@@ -19,6 +19,7 @@ import {
   CONVERSATION_RUN_LOST_ERROR,
   CONVERSATION_RUN_STALE_ERROR,
   CONVERSATION_RUN_STALE_TIMEOUT_MS,
+  humanizeConversationRunError,
 } from './run-policy'
 import {
   CONVERSATIONS_COLLECTION,
@@ -489,7 +490,10 @@ export async function finalizeConversationRun(input: {
   }
 
   if (isFailedStatus(hermesStatus)) {
-    const error = extractHermesRunError(data) ?? `Run ${hermesStatus}`
+    const rawError = extractHermesRunError(data)
+      || extractHermesRunOutput(data)
+      || `Run ${hermesStatus}`
+    const error = humanizeConversationRunError(rawError)
     const richPatch = richMessagePatchFromRun(data, events)
     await msgRef.update({
       content: error,

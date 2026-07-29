@@ -23,9 +23,11 @@ pib_hermes_profile_api_key() {
 
 pib_hermes_established_count() {
   local port="$1"
-  # Active /v1/runs hold SSE connections against the API port.
-  ss -tn state established "( sport = :${port} )" 2>/dev/null \
-    | awk 'NR>1 {c++} END {print c+0}'
+  # Clients connected TO the API port (dport) carry the peer process name.
+  # Active /v1/runs show up here. Ignore long-lived keepalives (pib-runtime,
+  # caddy, sshd) so profiles are not permanently "busy".
+  ss -tnp state established "( dport = :${port} )" 2>/dev/null \
+    | awk 'NR>1 && $0 !~ /pib-runtime/ && $0 !~ /caddy/ && $0 !~ /sshd/ {c++} END {print c+0}'
 }
 
 # Returns 0 when quiet, 1 when still busy after soft wait.
@@ -92,17 +94,30 @@ pib_hermes_wait_for_health() {
 
 pib_hermes_mark_pending_restart() {
   local profile="$1" reason="${2:-busy}"
-  install -d -m 0700 "$PIB_HERMES_PENDING_DIR"
-  printf 'profile=%s\nreason=%s\nmarked_at=%s\n' \
-    "$profile" "$reason" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    >"${PIB_HERMES_PENDING_DIR}/${profile}"
-  chmod 0600 "${PIB_HERMES_PENDING_DIR}/${profile}"
+  local sidecar_pending="${PIB_HERMES_SIDECAR_PENDING_DIR:-/var/lib/hermes/hermes-restart-pending}"
+  install -d -m 0700 "$PIB_HERMES_PENDING_DIR" 2>/dev/null || true
+  install -d -m 0700 "$sidecar_pending" 2>/dev/null || true
+  local payload
+  payload=$(printf 'profile=%s\nreason=%s\nmarked_at=%s\n' \
+    "$profile" "$reason" "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+  # Root-owned primary queue (skill staging / sweep as root).
+  if [[ -d "$PIB_HERMES_PENDING_DIR" && -w "$PIB_HERMES_PENDING_DIR" ]]; then
+    printf '%s\n' "$payload" >"${PIB_HERMES_PENDING_DIR}/${profile}"
+    chmod 0600 "${PIB_HERMES_PENDING_DIR}/${profile}"
+  fi
+  # Hermes-writable queue for the admin sidecar (user=hermes).
+  if [[ -d "$sidecar_pending" && -w "$sidecar_pending" ]]; then
+    printf '%s\n' "$payload" >"${sidecar_pending}/${profile}"
+    chmod 0600 "${sidecar_pending}/${profile}" || true
+  fi
   echo "deferred restart hermes@${profile} (${reason})"
 }
 
 pib_hermes_clear_pending_restart() {
   local profile="$1"
+  local sidecar_pending="${PIB_HERMES_SIDECAR_PENDING_DIR:-/var/lib/hermes/hermes-restart-pending}"
   rm -f "${PIB_HERMES_PENDING_DIR}/${profile}"
+  rm -f "${sidecar_pending}/${profile}"
 }
 
 # Restart one profile only when quiet. Returns:

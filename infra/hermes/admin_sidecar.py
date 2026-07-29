@@ -62,9 +62,208 @@ def _config_file(profile: str) -> Path:
     return _profile_dir(profile) / "config.yaml"
 
 
-def _restart_profile(profile: str) -> bool:
-    result = subprocess.run(["/usr/bin/systemctl", "restart", f"hermes@{profile}.service"], check=False, capture_output=True, text=True)
-    return result.returncode == 0
+# Busy-safe restarts: never force-kill an in-flight Messages /v1/runs connection.
+# Root-owned sweeper also watches /var/lib/partnersinbiz/hermes-restart-pending;
+# the sidecar runs as hermes so it marks pending under HERMES_HOME (writable).
+_HERMES_HOME = Path(os.environ.get("HERMES_HOME", "/var/lib/hermes"))
+_SIDECAR_PENDING_DIR = Path(
+    os.environ.get(
+        "PIB_HERMES_SIDECAR_PENDING_DIR",
+        str(_HERMES_HOME / "hermes-restart-pending"),
+    )
+)
+_ROOT_PENDING_DIR = Path(
+    os.environ.get("PIB_HERMES_PENDING_DIR", "/var/lib/partnersinbiz/hermes-restart-pending")
+)
+_PROFILE_NAME_RE = re.compile(r"^[a-z][a-z0-9-]{0,63}$")
+
+
+def _profile_api_port(profile: str) -> Optional[int]:
+    env_path = _env_file(profile)
+    if not env_path.exists():
+        return None
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("API_SERVER_PORT="):
+            continue
+        raw = stripped.split("=", 1)[1].strip().strip('"').strip("'")
+        if raw.isdigit():
+            return int(raw)
+    return None
+
+
+# Long-lived local clients that are not Messages agent runs. Ignoring them
+# prevents "always busy" false positives that block all deferred restarts.
+_IDLE_PEER_MARKERS = (
+    "pib-runtime",
+    '"sshd"',
+    "caddy",
+)
+
+
+def _established_connection_count(port: int) -> int:
+    """Count clients connected TO the profile API port (active /v1/runs).
+
+    Uses `dport = :port` so `ss -tnp` labels the *client* process (not hermes itself).
+    Ignores long-lived keepalives (pib-runtime, caddy, sshd) that would otherwise
+    make every profile look permanently busy.
+    """
+    try:
+        result = subprocess.run(
+            ["ss", "-tnp", "state", "established", f"( dport = :{port} )"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return 0
+    lines = [line for line in (result.stdout or "").splitlines() if line.strip()]
+    if not lines:
+        return 0
+    body = lines[1:] if (
+        lines[0].lower().startswith("recv-q") or lines[0].lower().startswith("state")
+    ) else lines
+    count = 0
+    for line in body:
+        lower = line.lower()
+        if any(marker in lower for marker in _IDLE_PEER_MARKERS):
+            continue
+        count += 1
+    return count
+
+
+def _profile_is_busy(profile: str) -> bool:
+    port = _profile_api_port(profile)
+    if port is None:
+        return False
+    return _established_connection_count(port) > 0
+
+
+def _mark_pending_restart(profile: str, reason: str) -> bool:
+    """Queue a deferred restart for the 2-minute sweeper. Prefer hermes-writable dir."""
+    if not _PROFILE_NAME_RE.match(profile or ""):
+        return False
+    payload = (
+        f"profile={profile}\n"
+        f"reason={reason}\n"
+        f"marked_at={datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')}\n"
+        f"source=admin-sidecar\n"
+    )
+    for pending_dir in (_SIDECAR_PENDING_DIR, _ROOT_PENDING_DIR):
+        try:
+            pending_dir.mkdir(parents=True, exist_ok=True)
+            target = pending_dir / profile
+            fd, tmp = tempfile.mkstemp(prefix=f".{profile}_", suffix=".pending", dir=str(pending_dir))
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                    handle.write(payload)
+                os.chmod(tmp, 0o600)
+                os.replace(tmp, target)
+                return True
+            except Exception:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
+        except OSError:
+            continue
+    return False
+
+
+def _clear_pending_restart(profile: str) -> None:
+    for pending_dir in (_SIDECAR_PENDING_DIR, _ROOT_PENDING_DIR):
+        try:
+            (pending_dir / profile).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+_REQUEST_RESTART_HELPER = Path(
+    os.environ.get("PIB_HERMES_REQUEST_RESTART", "/usr/local/sbin/pib-hermes-request-restart")
+)
+
+
+def _restart_profile_detailed(profile: str, reason: str = "admin") -> dict:
+    """Restart a profile only when idle.
+
+    Returns:
+      {restarted: bool, deferred: bool, busy: bool, reason: str}
+    Never force-kills busy gateways — that aborts live Messages chats mid-run.
+
+    Prefer the root helper (sudo) which can see client process names via ss and
+    ignore pib-runtime keepalives. Fall back to in-process busy detection +
+    polkit systemctl when the helper is unavailable.
+    """
+    if not _PROFILE_NAME_RE.match(profile or ""):
+        return {"restarted": False, "deferred": False, "busy": False, "reason": "invalid-profile"}
+
+    # Primary path: root helper with accurate busy detection (dport + process names).
+    if _REQUEST_RESTART_HELPER.is_file():
+        try:
+            result = subprocess.run(
+                ["sudo", "-n", str(_REQUEST_RESTART_HELPER), profile, reason[:80]],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=90,
+            )
+            if result.returncode == 0:
+                return {"restarted": True, "deferred": False, "busy": False, "reason": reason}
+            if result.returncode == 2:
+                return {"restarted": False, "deferred": True, "busy": True, "reason": reason}
+            # Helper failed — queue deferred and do not hard-restart.
+            deferred = _mark_pending_restart(profile, f"helper-failed:{reason}")
+            return {
+                "restarted": False,
+                "deferred": deferred,
+                "busy": False,
+                "reason": f"helper-failed:{reason}",
+            }
+        except (OSError, subprocess.TimeoutExpired):
+            deferred = _mark_pending_restart(profile, f"helper-error:{reason}")
+            return {
+                "restarted": False,
+                "deferred": deferred,
+                "busy": False,
+                "reason": f"helper-error:{reason}",
+            }
+
+    # Fallback without helper: conservative busy check (may treat keepalives as busy).
+    if _profile_is_busy(profile):
+        deferred = _mark_pending_restart(profile, f"busy:{reason}")
+        return {
+            "restarted": False,
+            "deferred": deferred,
+            "busy": True,
+            "reason": reason,
+        }
+
+    result = subprocess.run(
+        ["/usr/bin/systemctl", "restart", f"hermes@{profile}.service"],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode == 0:
+        _clear_pending_restart(profile)
+        return {"restarted": True, "deferred": False, "busy": False, "reason": reason}
+
+    deferred = _mark_pending_restart(profile, f"restart-failed:{reason}")
+    return {
+        "restarted": False,
+        "deferred": deferred,
+        "busy": False,
+        "reason": f"restart-failed:{reason}",
+    }
+
+
+def _restart_profile(profile: str, reason: str = "admin") -> bool:
+    """Back-compat: True when the profile was restarted or a deferred restart was queued."""
+    info = _restart_profile_detailed(profile, reason)
+    return bool(info.get("restarted") or info.get("deferred"))
 
 
 def _redact(value: str) -> str:
@@ -395,9 +594,14 @@ async def upload_skill(profile: str, file: UploadFile = File(...), x_api_key: Op
         dest.parent.mkdir(parents=True, exist_ok=True)
         with zf.open(member) as src, open(dest, "wb") as out:
             out.write(src.read())
-    # Restart profile gateway so the new skill is loaded
-    subprocess.run(["/usr/bin/systemctl", "restart", f"hermes@{profile}.service"], check=False)
-    return JSONResponse({"installed": skill_name, "fileCount": sum(1 for _ in target.rglob("*"))})
+    # Restart when idle so skill packs load without killing live chats.
+    restart = _restart_profile_detailed(profile, "skill-install")
+    return JSONResponse({
+        "installed": skill_name,
+        "fileCount": sum(1 for _ in target.rglob("*")),
+        "restarted": restart["restarted"],
+        "deferred": restart["deferred"],
+    })
 
 @app.delete("/profiles/{profile}/admin/skills/{skill_name}")
 def delete_skill(profile: str, skill_name: str, x_api_key: Optional[str] = Header(default=None), authorization: Optional[str] = Header(default=None)):
@@ -408,8 +612,12 @@ def delete_skill(profile: str, skill_name: str, x_api_key: Optional[str] = Heade
     if not target.exists():
         raise HTTPException(status_code=404, detail="skill not found")
     shutil.rmtree(target)
-    subprocess.run(["/usr/bin/systemctl", "restart", f"hermes@{profile}.service"], check=False)
-    return {"deleted": skill_name}
+    restart = _restart_profile_detailed(profile, "skill-delete")
+    return {
+        "deleted": skill_name,
+        "restarted": restart["restarted"],
+        "deferred": restart["deferred"],
+    }
 
 
 @app.get("/profiles/{profile}/admin/cron")
@@ -540,8 +748,13 @@ async def update_env(profile: str, request: Request, x_api_key: Optional[str] = 
             raise HTTPException(status_code=400, detail=f"invalid env key: {key}")
         values.pop(key, None)
     _write_env(env_path, values, lines)
-    restarted = _restart_profile(profile)
-    return {"updated": True, "restarted": restarted, "env": read_env(profile, x_api_key, authorization)["env"]}
+    restart = _restart_profile_detailed(profile, "env-update")
+    return {
+        "updated": True,
+        "restarted": restart["restarted"],
+        "deferred": restart["deferred"],
+        "env": read_env(profile, x_api_key, authorization)["env"],
+    }
 
 
 _OAUTH_PROVIDER_RE = re.compile(r"^[a-z][a-z0-9._-]{0,63}$")
@@ -797,11 +1010,15 @@ async def upsert_auth_provider(
     store["providers"] = providers
     _sync_oauth_credential_pool(store, provider, access, refresh, now)
     _atomic_write_json(path, store)
-    restarted = _restart_profile(profile)
+    # Tokens are on disk immediately; only bounce the gateway when it is idle so
+    # live Messages runs are never SIGTERM'd mid-tool by OAuth credential sync.
+    restart = _restart_profile_detailed(profile, f"auth-provider-upsert:{provider}")
     return {
         "updated": True,
         "provider": provider,
-        "restarted": restarted,
+        "restarted": restart["restarted"],
+        "deferred": restart["deferred"],
+        "busy": restart["busy"],
         "path": str(path),
         "hermes_shape": True,
         "hint": f"{access[:4]}…{access[-4:]}" if len(access) > 8 else "…",
@@ -831,8 +1048,13 @@ def delete_auth_provider(
     providers.pop(provider, None)
     store["providers"] = providers
     _atomic_write_json(path, store)
-    restarted = _restart_profile(profile)
-    return {"deleted": True, "provider": provider, "restarted": restarted}
+    restart = _restart_profile_detailed(profile, f"auth-provider-delete:{provider}")
+    return {
+        "deleted": True,
+        "provider": provider,
+        "restarted": restart["restarted"],
+        "deferred": restart["deferred"],
+    }
 
 
 @app.get("/profiles/{profile}/admin/config")
@@ -870,8 +1092,14 @@ async def update_config(profile: str, request: Request, x_api_key: Optional[str]
                 os.unlink(tmp)
         except OSError:
             pass
-    restarted = _restart_profile(profile)
-    return {"updated": True, "restarted": restarted, "path": str(cfg_path), "config": config}
+    restart = _restart_profile_detailed(profile, "config-update")
+    return {
+        "updated": True,
+        "restarted": restart["restarted"],
+        "deferred": restart["deferred"],
+        "path": str(cfg_path),
+        "config": config,
+    }
 
 
 @app.get("/profiles/{profile}/admin/files")
@@ -921,8 +1149,13 @@ async def write_profile_file(profile: str, file_path: str, request: Request, x_a
                 os.unlink(tmp)
         except OSError:
             pass
-    restarted = _restart_profile(profile)
-    return {"updated": True, "restarted": restarted, **_profile_file_payload(profile, file_path)}
+    restart = _restart_profile_detailed(profile, f"profile-file:{file_path}")
+    return {
+        "updated": True,
+        "restarted": restart["restarted"],
+        "deferred": restart["deferred"],
+        **_profile_file_payload(profile, file_path),
+    }
 
 
 @app.post("/profiles/{profile}/admin/profiles")
@@ -996,7 +1229,7 @@ async def provision_profile(profile: str, request: Request, x_api_key: Optional[
     override_path = _write_profile_service_override(new_profile, workspace)
     caddy_changed = _ensure_caddy_profile(new_profile, port)
     subprocess.run(["/usr/bin/systemctl", "enable", f"hermes@{new_profile}.service"], check=False, capture_output=True, text=True)
-    restarted = _restart_profile(new_profile)
+    restart = _restart_profile_detailed(new_profile, "profile-provision")
     return {
         "agentId": new_profile,
         "name": name,
@@ -1009,7 +1242,8 @@ async def provision_profile(profile: str, request: Request, x_api_key: Optional[
         "apiKey": api_key,
         "workspacePath": str(workspace),
         "systemdOverride": override_path,
-        "restarted": restarted,
+        "restarted": restart["restarted"],
+        "deferred": restart["deferred"],
         "caddyChanged": caddy_changed,
     }
 
@@ -1287,8 +1521,13 @@ def _configure_profile_workspace(profile: str, workspace: Path, soul: str | None
     override_path = _write_profile_service_override(profile, workspace)
     changed.append(str(override_path))
 
-    restarted = _restart_profile(profile)
-    return {"configured": True, "changed": changed, "restarted": restarted}
+    restart = _restart_profile_detailed(profile, "workspace-configure")
+    return {
+        "configured": True,
+        "changed": changed,
+        "restarted": restart["restarted"],
+        "deferred": restart["deferred"],
+    }
 
 
 

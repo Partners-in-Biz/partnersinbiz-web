@@ -8,6 +8,9 @@ LIB="${PIB_HERMES_RESTART_LIB:-/usr/local/lib/partnersinbiz/pib-hermes-profile-r
 source "$LIB"
 
 PENDING_DIR="${PIB_HERMES_PENDING_DIR:-/var/lib/partnersinbiz/hermes-restart-pending}"
+# Admin sidecar runs as hermes and cannot write the root-owned partnersinbiz dir,
+# so it marks pending under HERMES_HOME. Sweep both.
+SIDECAR_PENDING_DIR="${PIB_HERMES_SIDECAR_PENDING_DIR:-/var/lib/hermes/hermes-restart-pending}"
 quiet_seconds=${PIB_SKILL_RESTART_QUIET_SECONDS:-3}
 # Sweeper does a single quiet check (0s soft wait) — timer retries later.
 # Override with PIB_DEFERRED_RESTART_SOFT_WAIT_SECONDS for longer waits.
@@ -15,13 +18,27 @@ soft_wait=${PIB_DEFERRED_RESTART_SOFT_WAIT_SECONDS:-0}
 health_seconds=${PIB_SKILL_RESTART_HEALTH_SECONDS:-45}
 gap_seconds=${PIB_SKILL_RESTART_GAP_SECONDS:-2}
 
-if [[ ! -d "$PENDING_DIR" ]]; then
-  echo "No pending Hermes restarts"
-  exit 0
-fi
-
 shopt -s nullglob
-pending_files=("$PENDING_DIR"/*)
+declare -A seen_profiles=()
+pending_files=()
+for dir in "$PENDING_DIR" "$SIDECAR_PENDING_DIR"; do
+  [[ -d "$dir" ]] || continue
+  for path in "$dir"/*; do
+    [[ -f "$path" ]] || continue
+    profile=$(basename "$path")
+    [[ "$profile" =~ ^[a-z][a-z0-9-]{0,63}$ ]] || {
+      echo "skip invalid pending name: $profile" >&2
+      continue
+    }
+    # Deduplicate when both dirs mark the same profile.
+    if [[ -n "${seen_profiles[$profile]+x}" ]]; then
+      continue
+    fi
+    seen_profiles["$profile"]=1
+    pending_files+=("$path")
+  done
+done
+
 if (( ${#pending_files[@]} == 0 )); then
   echo "No pending Hermes restarts"
   exit 0
