@@ -5806,30 +5806,33 @@ export default function UnifiedChat({
         )}
         <div className={railCollapsed ? 'hidden' : 'contents'}>
         <div className="mb-1 flex min-h-11 items-center justify-between xl:hidden"><div><p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">Messages</p><h2 className="text-base font-semibold text-[var(--color-pib-text)]">Browse sessions</h2></div>{activeConversation && <button ref={mobileSessionsCloseRef} type="button" aria-label="Close sessions" onClick={closeSessions} className="grid h-11 w-11 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"><span aria-hidden="true" className="material-symbols-outlined">close</span></button>}</div>
-        <button
-          type="button"
-          onClick={() => openNewConversation()}
-          disabled={!allowStartConversations}
-          className={hermesLayout
-            ? 'flex h-11 items-center justify-center gap-1.5 rounded-md border border-[var(--color-card-border)] bg-white/[0.05] px-2 text-xs font-medium text-[var(--color-pib-text)] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45 xl:h-8'
-            : 'rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90 flex items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-45'}
-        >
-          <span className={`material-symbols-outlined ${hermesLayout ? 'text-[14px]' : 'text-[16px]'}`} aria-hidden="true">add</span>
-          New conversation
-        </button>
-
-        {hermesLayout && (
+        <div className={hermesLayout ? 'flex min-w-0 items-center gap-1.5' : 'contents'}>
           <button
             type="button"
-            aria-label="Create new project"
-            onClick={openNewProject}
+            onClick={() => openNewConversation()}
             disabled={!allowStartConversations}
-            className="flex h-11 items-center justify-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 text-sm font-semibold text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-45 xl:h-9"
+            aria-label="New conversation"
+            className={hermesLayout
+              ? 'flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border border-[var(--color-card-border)] bg-white/[0.05] px-1.5 text-xs font-medium text-[var(--color-pib-text)] hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45 xl:h-8'
+              : 'rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary hover:opacity-90 flex items-center justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-45'}
           >
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">create_new_folder</span>
-            New project
+            <span className={`material-symbols-outlined ${hermesLayout ? 'text-[14px]' : 'text-[16px]'}`} aria-hidden="true">add</span>
+            {hermesLayout ? 'Conversation' : 'New conversation'}
           </button>
-        )}
+
+          {hermesLayout && (
+            <button
+              type="button"
+              aria-label="New project"
+              onClick={openNewProject}
+              disabled={!allowStartConversations}
+              className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-1.5 text-xs font-semibold text-primary hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-45 xl:h-8"
+            >
+              <span className="material-symbols-outlined text-[14px]" aria-hidden="true">create_new_folder</span>
+              Project
+            </button>
+          )}
+        </div>
 
         <div className={hermesLayout ? 'mt-1.5 px-1 text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]' : 'text-xs text-[var(--color-pib-text-muted)] mt-2 px-1'}>
           {hermesLayout ? 'Sessions' : 'Conversations'}
