@@ -102,12 +102,30 @@ export function EmailContextComposer({
   }, [endpoints.accounts, endpoints.messages, messageId, refreshRevision])
 
   const connectedAccounts = accounts.filter((account) => account.status === 'connected')
+  const reconnectableAccounts = accounts.filter(
+    (account) => account.provider === 'google' && account.status !== 'connected',
+  )
   const selectedAccount = connectedAccounts.find((account) => account.id === compose?.accountId)
     ?? connectedAccounts.find((account) => account.isDefault)
     ?? connectedAccounts[0]
     ?? null
+  const primaryReconnectAccount = reconnectableAccounts.find((account) => account.id === compose?.accountId)
+    ?? reconnectableAccounts.find((account) => account.emailAddress === message?.accountEmail)
+    ?? reconnectableAccounts[0]
+    ?? null
   const isDraft = message?.status === 'draft' || message?.folder === 'drafts'
   const canSend = Boolean(isDraft && selectedAccount && compose?.to.trim() && (compose.subject.trim() || compose.bodyText.trim()))
+
+  function googleAuthorizeHref(account: { emailAddress: string; displayName?: string }): string {
+    const base = surface === 'admin'
+      ? '/api/v1/admin/mailbox/google/authorize'
+      : '/api/v1/portal/email/google/authorize'
+    const params = new URLSearchParams()
+    if (account.emailAddress.trim()) params.set('emailAddress', account.emailAddress.trim())
+    if (account.displayName?.trim()) params.set('displayName', account.displayName.trim())
+    const query = params.toString()
+    return query ? `${base}?${query}` : base
+  }
 
   async function saveDraft() {
     if (!compose || !message || !isDraft) return
@@ -238,9 +256,11 @@ export function EmailContextComposer({
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
             {selectedAccount
               ? `Sending as ${selectedAccount.emailAddress}`
-              : connectedAccounts.length === 0
-                ? 'No connected mailbox — connect Google or SMTP before sending.'
-                : 'Choose a connected mailbox account.'}
+              : reconnectableAccounts.length > 0
+                ? 'Mailbox needs reconnection — Google access expired or was revoked.'
+                : connectedAccounts.length === 0
+                  ? 'No connected mailbox — connect Google or SMTP before sending.'
+                  : 'Choose a connected mailbox account.'}
           </p>
         </div>
         <a
@@ -259,20 +279,51 @@ export function EmailContextComposer({
 
       {error ? <div role="alert" className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</div> : null}
 
+      {isDraft && !selectedAccount && primaryReconnectAccount ? (
+        <div
+          role="status"
+          data-testid="mailbox-reconnect-banner"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2"
+        >
+          <p className="min-w-0 text-xs text-amber-100">
+            <span className="font-medium">{primaryReconnectAccount.emailAddress}</span>
+            {' '}needs Google reconnection before you can send.
+          </p>
+          <a
+            href={googleAuthorizeHref(primaryReconnectAccount)}
+            className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-amber-300/30 bg-amber-400/15 px-3 text-xs font-semibold text-amber-50 hover:bg-amber-400/25 xl:min-h-8"
+          >
+            Reconnect Google
+          </a>
+        </div>
+      ) : null}
+
       <label className="block space-y-1">
         <span className="text-[10px] font-label uppercase tracking-[0.15em] text-[var(--color-pib-text-muted)]">From</span>
         <select
           aria-label="Sending account"
-          disabled={!isDraft || connectedAccounts.length === 0 || busy !== null}
-          value={compose.accountId || selectedAccount?.id || ''}
+          disabled={!isDraft || (connectedAccounts.length === 0 && reconnectableAccounts.length === 0) || busy !== null}
+          value={compose.accountId || selectedAccount?.id || primaryReconnectAccount?.id || ''}
           onChange={(event) => setCompose((current) => current ? { ...current, accountId: event.target.value } : current)}
           className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-black/20 px-2 text-xs text-[var(--color-pib-text)] xl:h-9"
         >
-          {connectedAccounts.length === 0 ? <option value="">No connected account</option> : null}
+          {connectedAccounts.length === 0 && reconnectableAccounts.length === 0 ? (
+            <option value="">No connected account</option>
+          ) : null}
           {connectedAccounts.map((account) => (
             <option key={account.id} value={account.id}>{account.emailAddress}{account.isDefault ? ' (default)' : ''}</option>
           ))}
+          {reconnectableAccounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.emailAddress} (reconnect required)
+            </option>
+          ))}
         </select>
+        {isDraft && reconnectableAccounts.length > 0 && !selectedAccount ? (
+          <p className="text-[10px] text-[var(--color-pib-text-muted)]">
+            Selected account is listed but cannot send until Google is reconnected.
+          </p>
+        ) : null}
       </label>
 
       <label className="block space-y-1">
