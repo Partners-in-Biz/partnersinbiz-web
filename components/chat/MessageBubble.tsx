@@ -7,6 +7,7 @@ import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/type
 import { normalizeWorkspacePanel, WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
 import {
   dedupeStructured,
+  extractMixedRichContent,
   isRichPayloadText,
   richPartsFromPayload,
   uiActionsFromPayload,
@@ -1600,32 +1601,53 @@ function canRenderRichContentEnvelope(message: ConversationMessage): boolean {
   return message.authorKind === 'agent' || message.role === 'assistant' || message.authorKind === 'system'
 }
 
-function looksLikeRichContentEnvelope(value: string): boolean {
-  const trimmed = value.trim()
-  const candidate = trimmed.replace(/^```(?:json)?\s*/i, '').trim()
-  if (!candidate.startsWith('{')) return false
-  return /"(rich_parts|richParts|ui_actions|uiActions)"/.test(candidate)
+function looksLikeIncompleteRichJsonStream(value: string): boolean {
+  const trimmed = value.trim().replace(/^```(?:json)?\s*/i, '').trim()
+  if (!trimmed.startsWith('{')) return false
+  if (!/"(?:rich_parts|richParts|ui_actions|uiActions)"/.test(trimmed)) return false
+  // Not a complete parseable envelope yet (still streaming).
+  return !isRichPayloadText(trimmed)
 }
 
 function resolvedMessage(message: ConversationMessage): ConversationMessage {
   if (!canRenderRichContentEnvelope(message)) return message
-  const hasCompleteEnvelope = isRichPayloadText(message.content)
-  if (!hasCompleteEnvelope && !looksLikeRichContentEnvelope(message.content)) return message
-  const richParts = hasCompleteEnvelope
-    ? dedupeStructured([
-        ...(message.richParts ?? []),
-        ...richPartsFromPayload(message.content),
-      ])
-    : message.richParts ?? []
-  const uiActions = hasCompleteEnvelope
-    ? dedupeStructured([
-        ...(message.uiActions ?? []),
-        ...uiActionsFromPayload(message.content),
-      ])
-    : message.uiActions ?? []
+  const mixed = extractMixedRichContent(message.content)
+  const hasStoredParts = Array.isArray(message.richParts) && message.richParts.length > 0
+  const hasStoredActions = Array.isArray(message.uiActions) && message.uiActions.length > 0
+
+  // Incomplete pure JSON stream: hide raw fragments until the envelope completes.
+  if (!mixed.extracted && looksLikeIncompleteRichJsonStream(message.content) && !hasStoredParts) {
+    return {
+      ...message,
+      content: '',
+      ...(hasStoredParts ? { richParts: message.richParts } : {}),
+      ...(hasStoredActions ? { uiActions: message.uiActions } : {}),
+    }
+  }
+
+  if (!mixed.extracted && !isRichPayloadText(message.content) && !hasStoredParts && !hasStoredActions) {
+    return message
+  }
+
+  const richParts = dedupeStructured([
+    ...(message.richParts ?? []),
+    ...mixed.richParts,
+    ...(mixed.extracted ? [] : richPartsFromPayload(message.content)),
+  ])
+  const uiActions = dedupeStructured([
+    ...(message.uiActions ?? []),
+    ...mixed.uiActions,
+    ...(mixed.extracted ? [] : uiActionsFromPayload(message.content)),
+  ])
+  // Extracted mixed → keep prose only. Pure envelope → card only (empty prose).
+  const nextContent = mixed.extracted
+    ? mixed.prose
+    : isRichPayloadText(message.content)
+      ? ''
+      : message.content
   return {
     ...message,
-    content: '',
+    content: nextContent,
     ...(richParts.length > 0 ? { richParts } : {}),
     ...(uiActions.length > 0 ? { uiActions } : {}),
   }

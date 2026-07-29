@@ -7,6 +7,7 @@ import { callHermesJson, HERMES_RUNS_COLLECTION } from '@/lib/hermes/server'
 import type { ChatEvent, ChatUiAction, HermesProfileLink, RichMessagePart } from '@/lib/hermes/types'
 import {
   dedupeStructured,
+  extractMixedRichContent,
   richPartsFromEvents,
   richPartsFromPayload,
   isRichPayloadText,
@@ -192,20 +193,26 @@ export function extractOutputFromEvents(events: ChatEvent[] = []): string {
 function richMessagePatchFromRun(data: unknown, events: ChatEvent[] = [], output?: string): {
   richParts?: RichMessagePart[]
   uiActions?: ChatUiAction[]
+  /** Prose with embedded rich_parts JSON stripped (when mixed content was detected). */
+  proseContent?: string
 } {
+  const mixed = typeof output === 'string' ? extractMixedRichContent(output) : null
   const richParts = dedupeStructured([
     ...richPartsFromPayload(data),
     ...richPartsFromPayload(output),
+    ...(mixed?.richParts ?? []),
     ...richPartsFromEvents(events),
   ])
   const uiActions = dedupeStructured([
     ...uiActionsFromPayload(data),
     ...uiActionsFromPayload(output),
+    ...(mixed?.uiActions ?? []),
     ...uiActionsFromEvents(events),
   ])
   return {
     ...(richParts.length > 0 ? { richParts } : {}),
     ...(uiActions.length > 0 ? { uiActions } : {}),
+    ...(mixed?.extracted ? { proseContent: mixed.prose } : {}),
   }
 }
 
@@ -432,9 +439,15 @@ export async function finalizeConversationRun(input: {
       ...(!richPatch.richParts && Array.isArray(msgData.richParts) ? { richParts: msgData.richParts as RichMessagePart[] } : {}),
       ...(!richPatch.uiActions && Array.isArray(msgData.uiActions) ? { uiActions: msgData.uiActions as ChatUiAction[] } : {}),
     }
-    const ledgerRichPatch = { ...existingRichPatch, ...richPatch }
+    const { proseContent: _proseContent, ...richFields } = richPatch
+    const ledgerRichPatch = { ...existingRichPatch, ...richFields }
     const outputIsStructuredJson = isRichPayloadText(rawOutput)
-    const output = outputIsStructuredJson ? '' : rawOutput
+    // Pure JSON envelope → empty prose; mixed prose+rich_parts → keep prose only.
+    const output = outputIsStructuredJson
+      ? ''
+      : typeof richPatch.proseContent === 'string'
+        ? richPatch.proseContent
+        : rawOutput
     const previewOutput = output || richPreviewFromParts(ledgerRichPatch.richParts) || 'Agent returned a rich response.'
 
     if (messageAlreadyCompleted) {
@@ -462,17 +475,17 @@ export async function finalizeConversationRun(input: {
       error: FieldValue.delete(),
       ...eventsPersistPatch,
       ...thinkingPatch,
-      ...richPatch,
+      ...richFields,
     })
     await updateRunDoc(msgData.runDocId, runId, {
       status: 'completed',
       response: data,
       output: previewOutput,
       error: FieldValue.delete(),
-      ...richPatch,
+      ...richFields,
     })
     await touchConversation(input.convId, previewOutput, 'assistant', input.msgId)
-    return { status: 'completed', content: output, runId, hermesStatus, ...richPatch }
+    return { status: 'completed', content: output, runId, hermesStatus, ...richFields }
   }
 
   if (messageAlreadyCompleted) {

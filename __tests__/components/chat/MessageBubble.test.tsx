@@ -788,4 +788,40 @@ describe('MessageBubble', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/chat-context/studio_artifact/book_studio%3Aproject%3Abook-1?artifactId=book_studio%3Acover_pdf%3Abook-1%3A0')
     fetchMock.mockRestore()
   })
+
+  it('renders trailing rich_parts JSON as an approval card and keeps prose', () => {
+    const prose = 'Bark sequence is ready. Human approval is required before any outbound communication.'
+    const envelope = {
+      rich_parts: [{
+        type: 'approval_card',
+        title: 'Approve Isaac follow-up sequence',
+        body: 'Five-step sequence is ready.',
+        statusLabel: 'Needs approval before sending',
+        evidence: ['CRM contact created'],
+        decisions: [{ label: 'Approve activation', required: true }],
+        recommendation: 'Confirm consent first.',
+      }],
+    }
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-mixed-rich',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: `${prose}\n\n${JSON.stringify(envelope)}`,
+          authorKind: 'agent',
+          authorId: 'silas',
+          authorDisplayName: 'Silas',
+          status: 'completed',
+        }}
+      />,
+    )
+
+    expect(screen.getByText(/Bark sequence is ready/i)).toBeInTheDocument()
+    expect(screen.getByText('Approve Isaac follow-up sequence')).toBeInTheDocument()
+    expect(screen.getByText('Needs approval before sending')).toBeInTheDocument()
+    expect(screen.queryByText(/"rich_parts"/)).not.toBeInTheDocument()
+  })
+
 })
