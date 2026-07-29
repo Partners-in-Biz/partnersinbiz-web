@@ -84,9 +84,12 @@ export async function handleAgentHostClaim(
       })
       const credentials = await getDecryptedLlmCredentials(connection)
       if (!credentials) throw new Error('agent-host: credential material unavailable')
+      const deliveredCredentials = connection.provider === 'xai-oauth'
+        ? { ...credentials, refresh_token: '' }
+        : credentials
       responseJob = {
         ...claimed,
-        credentialDelivery: { ...delivery, credentials },
+        credentialDelivery: { ...delivery, credentials: deliveredCredentials },
       }
     }
     return NextResponse.json({ success: true, data: responseJob }, { status: 200, headers: noStoreHeaders })

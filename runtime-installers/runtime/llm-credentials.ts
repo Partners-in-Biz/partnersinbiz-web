@@ -54,6 +54,11 @@ function cleanSecret(value: unknown, label: string): string {
   return secret
 }
 
+function cleanOptionalSecret(value: unknown, label: string): string {
+  if (value == null || value === '') return ''
+  return cleanSecret(value, label)
+}
+
 function updateEnv(file: string, envVar: string, value?: string) {
   if (!SAFE_ENV.test(envVar)) throw new Error('invalid Hermes credential env var')
   const lines = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split(/\r?\n/) : []
@@ -80,7 +85,7 @@ function syncCredentialPool(
     auth_type: 'oauth',
     priority: 0,
     access_token: accessToken,
-    refresh_token: refreshToken,
+    ...(refreshToken ? { refresh_token: refreshToken } : {}),
     last_refresh: now,
     last_status: null,
     last_status_at: null,
@@ -131,12 +136,14 @@ export function applyRuntimeCredential(input: {
       if (pool) delete pool[delivery.hermesProvider]
     } else {
       const accessToken = cleanSecret(delivery.credentials?.access_token, 'OAuth access token')
-      const refreshToken = cleanSecret(delivery.credentials?.refresh_token, 'OAuth refresh token')
+      const refreshToken = delivery.hermesProvider === 'xai-oauth'
+        ? cleanOptionalSecret(delivery.credentials?.refresh_token, 'OAuth refresh token')
+        : cleanSecret(delivery.credentials?.refresh_token, 'OAuth refresh token')
       const now = new Date().toISOString()
       providers[delivery.hermesProvider] = {
         tokens: {
           access_token: accessToken,
-          refresh_token: refreshToken,
+          ...(refreshToken ? { refresh_token: refreshToken } : {}),
           token_type: delivery.credentials?.token_type || 'Bearer',
           ...(delivery.credentials?.id_token ? { id_token: delivery.credentials.id_token } : {}),
           ...(delivery.credentials?.scope ? { scope: delivery.credentials.scope } : {}),

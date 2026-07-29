@@ -9,6 +9,7 @@ import {
 import { enqueueCredentialDelivery } from './linked-delivery'
 import type { LlmProviderConnection, LlmCredentialBinding } from './types'
 import type { LlmSyncTarget } from './sync-targets'
+import { ensureFreshLlmProviderConnection } from './refresh'
 
 const FAILED_RETRY_DELAY_MS = 5 * 60_000
 const IN_FLIGHT_RETRY_DELAY_MS = 15 * 60_000
@@ -74,10 +75,21 @@ export async function reconcileLlmCredentialsForLinkedDevice(input: {
     connectionQuery.get(),
     adminDb.collection('llm_credential_bindings').where('deviceId', '==', input.deviceId).get(),
   ])
-  const connections = connectionsSnapshot.docs
+  const candidates = connectionsSnapshot.docs
     .map((doc) => ({ ...(doc.data() as LlmProviderConnection), id: doc.id }))
-    .filter((connection) => connection.status === 'connected' && Boolean(connection.credentialsEnc))
+    .filter((connection) => (
+      connection.status === 'connected'
+      || (connection.provider === 'xai-oauth' && connection.status === 'invalid')
+    ) && Boolean(connection.credentialsEnc))
     .slice(0, 32)
+  const connections: LlmProviderConnection[] = []
+  for (const connection of candidates) {
+    try {
+      connections.push(await ensureFreshLlmProviderConnection(connection))
+    } catch {
+      // Re-authentication state is recorded on the connection by the refresh broker.
+    }
+  }
   const bindings = new Map(bindingsSnapshot.docs.map((doc) => [
     doc.id,
     { ...(doc.data() as LlmCredentialBinding), id: doc.id },
