@@ -38,7 +38,6 @@ function contextPickerDisclosureProps({ pickerExpanded = false, pickerControls }
 export function EmptyContextStrip({ onAdd, pickerExpanded, pickerControls }: { onAdd: () => void } & ContextPickerDisclosureProps) {
   return (
     <div role="toolbar" aria-label="Pinned conversation context" className="flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto whitespace-nowrap border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-1.5 [scrollbar-width:thin]">
-      <span className="hidden h-7 shrink-0 items-center text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)] sm:inline-flex">Context</span>
       <button
         type="button"
         aria-label="Add conversation context"
@@ -64,7 +63,6 @@ export function ContextStrip({ options, value, onChange, onRemove, onOpen, onAdd
 } & ContextPickerDisclosureProps) {
   return (
     <div data-testid={model ? 'context-pulse' : undefined} role="toolbar" aria-label="Pinned conversation context" className="flex min-h-11 shrink-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-1.5 [scrollbar-width:thin]">
-      <span className="sticky left-0 z-10 hidden h-7 shrink-0 items-center bg-[var(--color-card)]/95 pr-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)] sm:inline-flex">Context</span>
       {options.map((option) => {
         const active = chatContextReferenceKey(option) === chatContextReferenceKey(value)
         return (
