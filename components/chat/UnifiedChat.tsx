@@ -67,6 +67,10 @@ import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspe
 import { folderAccentStyle } from '@/lib/messages/folder-accent'
 import { pickPreferredWorkspaceRuntime } from '@/lib/messages/preferred-workspace-runtime'
 import { buildConnectionWhere, type ConnectionWhere } from '@/lib/chat/connection-where'
+import {
+  computeConversationMenuPosition,
+  type ConversationMenuPosition,
+} from '@/lib/chat/conversationMenuPosition'
 import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAccessPanel'
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
@@ -1333,8 +1337,19 @@ export default function UnifiedChat({
 
   // Conversation context menu
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
+  const [menuPosition, setMenuPosition] = useState<ConversationMenuPosition | null>(null)
   const [accessConversation, setAccessConversation] = useState<Conversation | null>(null)
+
+  const openConversationRowMenu = useCallback((conversationId: string, anchor: HTMLElement) => {
+    if (menuOpenId === conversationId) {
+      setMenuOpenId(null)
+      setMenuPosition(null)
+      return
+    }
+    const rect = anchor.getBoundingClientRect()
+    setMenuPosition(computeConversationMenuPosition(rect))
+    setMenuOpenId(conversationId)
+  }, [menuOpenId])
 
   // Rename state
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -5969,14 +5984,7 @@ export default function UnifiedChat({
                               data-conv-menu
                               onClick={(e) => {
                                 e.stopPropagation()
-                                if (menuOpenId === c.id) {
-                                  setMenuOpenId(null)
-                                  setMenuPosition(null)
-                                } else {
-                                  const rect = e.currentTarget.getBoundingClientRect()
-                                  setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
-                                  setMenuOpenId(c.id)
-                                }
+                                openConversationRowMenu(c.id, e.currentTarget)
                               }}
                               className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${menuOpenId === c.id ? '!flex' : ''}`}
                               aria-label={`Conversation options for ${c.title || 'Untitled'}`}
@@ -6346,16 +6354,9 @@ export default function UnifiedChat({
                                 type="button"
                                 data-conv-menu
                                 onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (menuOpenId === c.id) {
-                                    setMenuOpenId(null)
-                                    setMenuPosition(null)
-                                  } else {
-                                    const rect = e.currentTarget.getBoundingClientRect()
-                                    setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
-                                    setMenuOpenId(c.id)
-                                  }
-                                }}
+                                e.stopPropagation()
+                                openConversationRowMenu(c.id, e.currentTarget)
+                              }}
                                 className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${menuOpenId === c.id ? '!flex' : ''}`}
                                 aria-label={`Conversation options for ${c.title || 'Untitled'}`}
                               >
@@ -6486,16 +6487,9 @@ export default function UnifiedChat({
                                   type="button"
                                   data-conv-menu
                                   onClick={(e) => {
-                                    e.stopPropagation()
-                                    if (menuOpenId === c.id) {
-                                      setMenuOpenId(null)
-                                      setMenuPosition(null)
-                                    } else {
-                                      const rect = e.currentTarget.getBoundingClientRect()
-                                      setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
-                                      setMenuOpenId(c.id)
-                                    }
-                                  }}
+                                e.stopPropagation()
+                                openConversationRowMenu(c.id, e.currentTarget)
+                              }}
                                   className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${menuOpenId === c.id ? '!flex' : ''}`}
                                   aria-label={`Conversation options for ${c.title || 'Untitled'}`}
                                 >
@@ -6625,16 +6619,9 @@ export default function UnifiedChat({
                                   type="button"
                                   data-conv-menu
                                   onClick={(e) => {
-                                    e.stopPropagation()
-                                    if (menuOpenId === c.id) {
-                                      setMenuOpenId(null)
-                                      setMenuPosition(null)
-                                    } else {
-                                      const rect = e.currentTarget.getBoundingClientRect()
-                                      setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
-                                      setMenuOpenId(c.id)
-                                    }
-                                  }}
+                                e.stopPropagation()
+                                openConversationRowMenu(c.id, e.currentTarget)
+                              }}
                                   className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${menuOpenId === c.id ? '!flex' : ''}`}
                                   aria-label={`Conversation options for ${c.title || 'Untitled'}`}
                                 >
@@ -6701,16 +6688,9 @@ export default function UnifiedChat({
                           type="button"
                           data-conv-menu
                           onClick={(e) => {
-                            e.stopPropagation()
-                            if (menuOpenId === c.id) {
-                              setMenuOpenId(null)
-                              setMenuPosition(null)
-                            } else {
-                              const rect = e.currentTarget.getBoundingClientRect()
-                              setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
-                              setMenuOpenId(c.id)
-                            }
-                          }}
+                                e.stopPropagation()
+                                openConversationRowMenu(c.id, e.currentTarget)
+                              }}
                           className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[11px] text-[var(--color-pib-text-muted)] outline-none hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-5 xl:w-5 xl:group-hover/conv:flex xl:focus-visible:flex ${
                             menuOpenId === c.id ? '!flex' : ''
                           }`}
@@ -6765,16 +6745,9 @@ export default function UnifiedChat({
                     type="button"
                     data-conv-menu
                     onClick={(e) => {
-                      e.stopPropagation()
-                      if (menuOpenId === c.id) {
-                        setMenuOpenId(null)
-                        setMenuPosition(null)
-                      } else {
-                        const rect = e.currentTarget.getBoundingClientRect()
-                        setMenuPosition({ top: rect.bottom + 4, left: rect.right - 176 })
-                        setMenuOpenId(c.id)
-                      }
-                    }}
+                                e.stopPropagation()
+                                openConversationRowMenu(c.id, e.currentTarget)
+                              }}
                     className={`absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded text-[var(--color-pib-text-muted)] outline-none hover:bg-[var(--color-card-hover,rgba(255,255,255,0.08))] hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:right-1 xl:hidden xl:h-6 xl:w-6 xl:group-hover/conv:flex xl:focus-visible:flex ${
                       menuOpenId === c.id ? '!flex' : ''
                     }`}
@@ -6789,12 +6762,13 @@ export default function UnifiedChat({
         </div>
       </aside>}
 
-      {/* Context menu — rendered fixed to escape scroll container */}
+      {/* Context menu — fixed, flips above near the bottom of the screen */}
       {menuOpenId && menuPosition && (
         <div
           data-conv-menu
+          data-placement={menuPosition.placement}
           style={{ position: 'fixed', top: menuPosition.top, left: menuPosition.left }}
-          className="z-50 min-w-[176px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl"
+          className="z-50 max-h-[min(22rem,calc(100vh-1rem))] min-w-[176px] overflow-y-auto rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl"
         >
           <button
             type="button"
