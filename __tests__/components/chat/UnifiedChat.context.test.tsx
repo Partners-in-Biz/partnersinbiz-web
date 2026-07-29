@@ -178,13 +178,16 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'New conversation' })
     expect(screen.getByTestId('accessible-dialog-panel')).toHaveClass(
-      'h-[80dvh]',
       'max-h-[calc(100dvh-1rem)]',
       'flex-col',
       'overflow-hidden',
       'sm:max-h-[calc(100dvh-2rem)]',
     )
     expect(screen.getByTestId('accessible-dialog-panel')).not.toHaveClass('overflow-y-auto')
+    expect(screen.getByTestId('accessible-dialog-panel')).not.toHaveClass('my-auto')
+    // Backdrop must not scroll — selecting an agent used to jump the whole card up.
+    expect(dialog).toHaveClass('overflow-hidden')
+    expect(dialog).not.toHaveClass('overflow-y-auto')
     expect(screen.getByTestId('new-conversation-scroll-body')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')
     expect(screen.getByRole('button', { name: 'Start conversation' }).parentElement).toHaveClass('shrink-0')
     // Context before participants: machine-aware agent picking depends on this order.
@@ -196,9 +199,9 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(background).toHaveAttribute('inert')
     // Participants list is capped on phone so the sticky Start conversation footer stays in view.
     expect(screen.getByTestId('new-conversation-participants-scroll')).toHaveClass(
-      'max-h-[min(40dvh,240px)]',
+      'max-h-[min(36dvh,220px)]',
       'overflow-y-auto',
-      'sm:max-h-[300px]',
+      'sm:max-h-[280px]',
     )
 
     fireEvent.keyDown(dialog, { key: 'Escape' })

@@ -258,9 +258,9 @@ export default function ParticipantPicker({
 
   return (
     <div className={`space-y-3 ${className}`}>
-      {/* Selected chips */}
+      {/* Selected chips — sticky so adding a pick does not shove the list off-screen */}
       {selected.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="sticky top-0 z-10 -mx-1 flex flex-wrap gap-1.5 bg-[var(--color-surface,#1c1c1c)]/95 px-1 py-1 backdrop-blur-sm">
           {selected.map((p) => {
             const label = p.kind === 'agent' ? p.name : p.displayName
             return (
@@ -315,6 +315,10 @@ export default function ParticipantPicker({
                 return (
                   <label
                     key={agent.agentId}
+                    onMouseDown={(event) => {
+                      // Keep focus from scrolling parent dialog containers off-screen.
+                      if (!disabled) event.preventDefault()
+                    }}
                     className={`flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
                       isChecked
                         ? 'bg-white/8 border border-white/15'
@@ -374,6 +378,9 @@ export default function ParticipantPicker({
               return (
                 <label
                   key={contact.uid}
+                  onMouseDown={(event) => {
+                    if (!disabled) event.preventDefault()
+                  }}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
                     isChecked
                       ? 'bg-white/8 border border-white/15'
