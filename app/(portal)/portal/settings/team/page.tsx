@@ -474,30 +474,6 @@ export default function TeamPage() {
                   })}
                 </div>
 
-                <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-5">
-                  <div>
-                    <p className="eyebrow !text-[10px]">Personal LLM credentials</p>
-                    <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
-                      Allow this member to sync and use their own LLM provider credentials on the organisation VPS (in addition to their linked computers). Organisation-managed credentials for the same provider still take precedence on the VPS.
-                    </p>
-                  </div>
-                  <label className="flex items-start justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-3 text-sm text-[var(--color-pib-text)]">
-                    <span>
-                      <span className="font-medium">Use personal LLM credentials on organisation VPS</span>
-                      <span className="mt-0.5 block text-[11px] text-[var(--color-pib-text-muted)]">
-                        Off by default for members. Owners always retain this ability.
-                      </span>
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={accessDraft.allowPersonalLlmOnOrgVps === true}
-                      onChange={() => setAccessDraft((policy) => (
-                        policy ? { ...policy, allowPersonalLlmOnOrgVps: !policy.allowPersonalLlmOnOrgVps } : policy
-                      ))}
-                      className="mt-1 h-4 w-4 accent-[var(--color-pib-accent)]"
-                    />
-                  </label>
-                </div>
               </div>
             )}
 

@@ -26,6 +26,7 @@ function oauthVerifyUrl(session: LlmOauthSessionPublic): string {
 export default function LlmProviderConnections({ orgId }: { orgId: string }) {
   const [providers, setProviders] = useState<LlmProviderDefinition[]>([])
   const [connections, setConnections] = useState<LlmProviderConnectionMasked[]>([])
+  const [bindings, setBindings] = useState<LlmProviderCatalogResponse['bindings']>([])
   const [canManageOrgConnections, setCanManageOrgConnections] = useState(false)
   const [syncTargets, setSyncTargets] = useState<LlmProviderCatalogResponse['syncTargets']>()
   const [notes, setNotes] = useState<LlmProviderCatalogResponse['notes'] | null>(null)
@@ -43,6 +44,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
       const data = await listLlmProviderCatalog(orgId)
       setProviders(data.providers)
       setConnections(data.connections)
+      setBindings(data.bindings ?? [])
       setCanManageOrgConnections(data.canManageOrgConnections)
       setSyncTargets(data.syncTargets)
       setNotes(data.notes)
@@ -137,7 +139,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
           <span className="font-medium text-[var(--color-pib-text)]">Linked computers</span>
           {' — '}
           {notes?.userScope
-            || 'Personal credentials sync to your linked computers, and to the organisation VPS when Team access allows it.'}
+            || 'Personal credentials sync only to computers owned by your account.'}
         </p>
         {syncTargets && syncTargets.targetCount === 0 && syncTargets.reasonIfEmpty ? (
           <p className="text-amber-200/90">{syncTargets.reasonIfEmpty}</p>
@@ -223,6 +225,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
                   <ConnectedRow
                     key={conn.id}
                     connection={conn}
+                    bindings={bindings.filter((binding) => binding.connectionId === conn.id)}
                     canManageOrgConnections={canManageOrgConnections}
                     onResync={async () => {
                       type SyncPayload = {
@@ -300,11 +303,13 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
 
 function ConnectedRow({
   connection,
+  bindings,
   canManageOrgConnections,
   onResync,
   onDisconnect,
 }: {
   connection: LlmProviderConnectionMasked
+  bindings: LlmProviderCatalogResponse['bindings']
   canManageOrgConnections: boolean
   onResync: () => Promise<void>
   onDisconnect: () => Promise<void>
@@ -358,13 +363,26 @@ function ConnectedRow({
       <p className="font-mono text-xs text-[var(--color-pib-text-muted)]">{connection.credentialHint}</p>
       {isPersonal ? (
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
-          Syncs to your linked computers. If Team access enables personal LLM credentials on the organisation VPS, sync also writes there (unless an organisation connection already covers this provider).
+          Syncs only to computers owned by your account. The shared organisation VPS never receives this credential.
         </p>
       ) : connection.syncedAgentIds?.length > 0 ? (
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
           Synced to org VPS agents: {connection.syncedAgentIds.join(', ')}
         </p>
       ) : null}
+      {bindings.length > 0 && (
+        <div className="space-y-1">
+          {bindings.map((binding) => (
+            <p key={binding.id} className="text-[11px] text-[var(--color-pib-text-muted)]">
+              {binding.machineLabel} · {binding.agentId}:{' '}
+              <span className={binding.liveAuthVerified ? 'text-emerald-300' : binding.status === 'failed' ? 'text-red-200' : 'text-amber-200'}>
+                {binding.liveAuthVerified ? 'Ready · live verified' : binding.status}
+              </span>
+              {binding.lastError ? ` — ${binding.lastError}` : ''}
+            </p>
+          ))}
+        </div>
+      )}
       {connection.lastError && <p className="text-xs text-amber-200">{connection.lastError}</p>}
       {rowError && <p role="alert" className="text-xs text-red-200">{rowError}</p>}
     </div>
@@ -457,7 +475,7 @@ function ConnectForm({
           <span>
             <span className="font-medium">Just me · linked computers</span>
             <span className="block text-xs text-[var(--color-pib-text-muted)]">
-              Syncs to your linked computers. Also syncs to the organisation VPS when Team access allows personal LLM credentials there.
+              Delivered only to computers owned by your account, then live-tested before it appears in Messages.
             </span>
           </span>
         </label>

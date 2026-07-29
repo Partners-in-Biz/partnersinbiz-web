@@ -32,7 +32,7 @@ import { canPullAgentToDevice } from '@/lib/agents/org-agent-policy'
 
 const DEVICES = 'linked_devices'
 const MEMBERS = 'orgMembers'
-const AGENT_HOST_PROTOCOL_VERSION = 2
+const AGENT_HOST_PROTOCOL_VERSION = 3
 
 async function reservePreferredAgentPort(deviceId: string, agentId: AgentId): Promise<number> {
   const managedPort = resolvePreferredAgentPort(agentId)
@@ -432,6 +432,7 @@ export async function finalizeLinkedAgentProvisioning(input: {
     }
 
     let synced = false
+    let deliveryQueued = false
     const errors: string[] = []
     for (const connection of connections) {
       try {
@@ -439,17 +440,32 @@ export async function finalizeLinkedAgentProvisioning(input: {
           agentIds: [agent.agentId],
         })
         synced = synced || result.synced.includes(agent.agentId)
+        deliveryQueued = deliveryQueued || result.queued.some((queued) => queued.agentId === agent.agentId)
         errors.push(...result.failed.map((failure) => failure.error))
       } catch (error) {
         errors.push(error instanceof Error ? error.message : 'Provider sync failed')
       }
     }
-    if (!synced) throw new Error(errors[0] || 'No connected provider could be synced to this agent')
+    if (!synced && !deliveryQueued) {
+      throw new Error(errors[0] || 'No connected provider could be synced to this agent')
+    }
 
-    await deviceRef.update({
-      credentialReadyAgentIds: FieldValue.arrayUnion(agent.agentId),
-      updatedAt: FieldValue.serverTimestamp(),
-    })
+    if (!synced) {
+      if (isHomeDevice) {
+        await agentRef.update({
+          provisioningStatus: 'installing',
+          provisioningError: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+      }
+      return { ready: false, error: null }
+    }
+    if (synced) {
+      await deviceRef.update({
+        credentialReadyAgentIds: FieldValue.arrayUnion(agent.agentId),
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    }
     if (isHomeDevice) {
       await agentRef.update({
         provisioningStatus: 'ready',
@@ -477,6 +493,66 @@ export async function finalizeLinkedAgentProvisioning(input: {
 
 export async function applyAgentHostJobResult(job: AgentHostJob): Promise<void> {
   const agentId = job.payload.agentId
+  if (job.kind === 'sync-credential' || job.kind === 'revoke-credential') {
+    const delivery = job.payload.credentialDelivery
+    if (!delivery) return
+    const {
+      requireDeliverableLlmCredentialBinding,
+      updateLlmCredentialBinding,
+    } = await import('@/lib/llm-providers/bindings')
+    if (job.kind === 'revoke-credential') {
+      await updateLlmCredentialBinding(delivery.bindingId, {
+        status: 'revoked',
+        liveAuthVerified: false,
+        verifiedModelIds: [],
+        lastError: null,
+      })
+      return
+    }
+    try {
+      await requireDeliverableLlmCredentialBinding({
+        bindingId: delivery.bindingId,
+        connectionId: delivery.connectionId,
+        credentialVersion: delivery.credentialVersion,
+        deviceId: job.deviceId,
+        ownerUid: delivery.connectionId.startsWith('user:') ? job.actorUserId : null,
+        orgId: job.orgId,
+        scope: delivery.connectionId.startsWith('user:') ? 'user' : 'org',
+        agentId,
+      })
+    } catch {
+      // A newer credential generation or revocation superseded this receipt.
+      return
+    }
+    const ready = job.status === 'completed' && resultFlag(job.result, 'liveAuthVerified')
+    const modelIds = Array.isArray(job.result?.modelIds)
+      ? job.result.modelIds.filter((value): value is string => typeof value === 'string')
+      : []
+    await updateLlmCredentialBinding(delivery.bindingId, {
+      status: ready ? 'ready' : 'failed',
+      liveAuthVerified: ready,
+      verifiedModelIds: ready ? modelIds : [],
+      lastError: ready ? null : (job.error ?? 'Live provider authentication failed'),
+      deliveryJobId: job.jobId,
+    })
+    if (ready) {
+      await adminDb.collection(DEVICES).doc(job.deviceId).update({
+        credentialReadyAgentIds: FieldValue.arrayUnion(agentId),
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      const agentRef = adminDb.collection('agent_team').doc(agentId)
+      const agentDoc = await agentRef.get()
+      if (agentDoc.data()?.provisioningMode === 'linked_device'
+        && agentDoc.data()?.homeDeviceId === job.deviceId) {
+        await agentRef.update({
+          provisioningStatus: 'ready',
+          provisioningError: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+      }
+    }
+    return
+  }
   if (job.kind === 'uninstall') {
     // Binding was already removed from desiredAgents; nothing to patch.
     return

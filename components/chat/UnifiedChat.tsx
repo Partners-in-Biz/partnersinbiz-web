@@ -2846,7 +2846,10 @@ export default function UnifiedChat({
       const catalog = body.data as MessageModelCatalog
       setModelCatalog(catalog)
       setSelectedRuntime((previous) => {
-        if (previous && catalog.models.some((model) => model.model === previous.model && model.provider === previous.provider)) {
+        if (previous && catalog.models.some((model) => model.model === previous.model
+          && model.provider === previous.provider
+          && model.connectionId === previous.llmConnectionId
+          && model.credentialBindingId === previous.llmCredentialBindingId)) {
           return previous
         }
         return null
@@ -5524,6 +5527,8 @@ export default function UnifiedChat({
             ...(agentEffort ? { agentEffort } : {}),
             ...(runtimeForSend?.model ? { model: runtimeForSend.model } : {}),
             ...(runtimeForSend?.provider ? { provider: runtimeForSend.provider } : {}),
+            ...(runtimeForSend?.llmConnectionId ? { llmConnectionId: runtimeForSend.llmConnectionId } : {}),
+            ...(runtimeForSend?.llmCredentialBindingId ? { llmCredentialBindingId: runtimeForSend.llmCredentialBindingId } : {}),
           }),
         })
         const body = await res.json()

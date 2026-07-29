@@ -30,6 +30,8 @@ const mockEnqueueLinkedRun = jest.fn()
 const mockWaitForLinkedRunClaim = jest.fn()
 const mockCancelLinkedRun = jest.fn()
 const mockCallAgentPath = jest.fn()
+const mockValidateMessageModelSelection = jest.fn()
+const mockRequireReadyLlmCredentialBinding = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
 let organizationSettings: Record<string, unknown> = {}
@@ -72,6 +74,12 @@ jest.mock('@/lib/agents/team', () => ({
   getAgentDispatchHermesProfileLink: mockGetAgentDispatchHermesProfileLink,
   isConfiguredCompatibilityRuntimeTarget: mockIsConfiguredCompatibilityRuntimeTarget,
   callAgentPath: mockCallAgentPath,
+}))
+jest.mock('@/lib/messages/model-catalog', () => ({
+  validateMessageModelSelection: (...args: unknown[]) => mockValidateMessageModelSelection(...args),
+}))
+jest.mock('@/lib/llm-providers/bindings', () => ({
+  requireReadyLlmCredentialBinding: (...args: unknown[]) => mockRequireReadyLlmCredentialBinding(...args),
 }))
 
 
@@ -138,6 +146,26 @@ beforeEach(() => {
   organizationSettings = {}
   organizationMembers = [{ userId: 'client-1', role: 'member' }]
   mockMintMessagesDispatchDelegation.mockResolvedValue(null)
+  mockRequireReadyLlmCredentialBinding.mockResolvedValue({ id: 'binding-test' })
+  mockValidateMessageModelSelection.mockImplementation(async (input: { model?: unknown; provider?: unknown }) => {
+    const model = typeof input.model === 'string' ? input.model : ''
+    const provider = typeof input.provider === 'string' ? input.provider : ''
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:/@+~=-]{0,191}$/.test(model)) {
+      return { ok: false, status: 400, error: 'Invalid model id.' }
+    }
+    if (model === 'anthropic/not-real') {
+      return { ok: false, status: 400, error: 'Selected model is not available for this agent runtime.' }
+    }
+    return {
+      ok: true,
+      selection: {
+        model,
+        provider,
+        llmConnectionId: 'org:pib-platform-owner:openai-api',
+        llmCredentialBindingId: 'binding-test',
+      },
+    }
+  })
 
   mockCollection.mockImplementation((name: string) => {
     if (name === 'users') {
@@ -313,7 +341,13 @@ function reqWithAttachments() {
 function reqWithModel(model = 'openai/gpt-5.5', provider = 'openai') {
   return new NextRequest('http://localhost/api/v1/conversations/conv-1/messages', {
     method: 'POST',
-    body: JSON.stringify({ content: 'Use the selected model', model, provider }),
+    body: JSON.stringify({
+      content: 'Use the selected model',
+      model,
+      provider,
+      llmConnectionId: 'org:pib-platform-owner:openai-api',
+      llmCredentialBindingId: 'binding-test',
+    }),
   })
 }
 
@@ -1355,7 +1389,11 @@ describe('unified conversation message routing', () => {
     const res = await POST(reqWithModel(), { params: Promise.resolve({ convId: 'conv-1' }) })
 
     expect(res.status).toBe(201)
-    expect(mockCallAgentPath).toHaveBeenCalledWith('pip', '/v1/models', { method: 'GET' }, { runtimeTarget: undefined })
+    expect(mockRequireReadyLlmCredentialBinding).toHaveBeenCalledWith(expect.objectContaining({
+      bindingId: 'binding-test',
+      connectionId: 'org:pib-platform-owner:openai-api',
+      agentId: 'pip',
+    }))
     expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
       role: 'user',
       model: 'openai/gpt-5.5',

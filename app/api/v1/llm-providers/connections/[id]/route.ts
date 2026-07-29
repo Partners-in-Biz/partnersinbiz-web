@@ -11,6 +11,7 @@ import {
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
 import { callAgentPath } from '@/lib/agents/team'
 import type { AgentId } from '@/lib/agents/types'
+import { enqueueCredentialRevocations } from '@/lib/llm-providers/linked-delivery'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,8 +35,11 @@ export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser,
     return apiError('Only organisation admins can disconnect shared organisation VPS credentials.', 403)
   }
 
-  // Best-effort unset on agents previously synced (org VPS and/or personal linked computers).
-  if (existing.syncedAgentIds?.length && existing.authKind !== 'oauth_token') {
+  await enqueueCredentialRevocations(existing)
+
+  // Best-effort unset on shared organisation agents. Personal machines use
+  // signed revoke jobs so an agent id can never accidentally target the VPS.
+  if (existing.scope === 'org' && existing.syncedAgentIds?.length && existing.authKind !== 'oauth_token') {
     const defEnv = existing.provider === 'copilot'
       ? 'COPILOT_GITHUB_TOKEN'
       : existing.provider === 'xai'
@@ -61,7 +65,7 @@ export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser,
       )
     }
   }
-  if (existing.syncedAgentIds?.length && (existing.authKind === 'oauth_token' || existing.provider.includes('oauth') || existing.provider === 'openai-codex' || existing.provider === 'nous')) {
+  if (existing.scope === 'org' && existing.syncedAgentIds?.length && (existing.authKind === 'oauth_token' || existing.provider.includes('oauth') || existing.provider === 'openai-codex' || existing.provider === 'nous')) {
     await Promise.allSettled(
       existing.syncedAgentIds.map((agentId) =>
         callAgentPath(agentId as AgentId, `/admin/auth/providers/${existing.hermesProvider}`, {

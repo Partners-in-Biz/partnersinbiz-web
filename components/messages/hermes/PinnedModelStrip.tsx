@@ -12,7 +12,7 @@ interface PinnedModelStripProps {
 }
 
 function keyFor(model: PublicMessageModelOption): string {
-  return `${model.provider}:${model.model}`
+  return `${model.connectionId || 'unbound'}:${model.provider}:${model.model}`
 }
 
 export default function PinnedModelStrip({
@@ -32,7 +32,9 @@ export default function PinnedModelStrip({
       </div>
       <div className="flex flex-wrap gap-1.5">
         {models.map((model) => {
-          const active = selected?.model === model.model && (!selected.provider || selected.provider === model.provider)
+          const active = selected?.model === model.model
+            && (!selected.provider || selected.provider === model.provider)
+            && (!selected.llmConnectionId || selected.llmConnectionId === model.connectionId)
           const pinned = pinnedKeys.includes(keyFor(model))
           return (
             <span key={keyFor(model)} className="inline-flex max-w-full items-center overflow-hidden rounded-full border border-[var(--color-card-border)] bg-black/10">

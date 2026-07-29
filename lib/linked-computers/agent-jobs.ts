@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 import type { AgentId } from '@/lib/agents/types'
 import { isValidAgentId } from '@/lib/agents/types'
 
-export type AgentHostJobKind = 'install' | 'sync-policy' | 'uninstall'
+export type AgentHostJobKind = 'install' | 'sync-policy' | 'uninstall' | 'sync-credential' | 'revoke-credential'
 export type AgentHostJobStatus = 'queued' | 'claimed' | 'completed' | 'failed' | 'cancelled' | 'expired'
 
 export interface AgentHostJobPayload {
@@ -26,6 +26,15 @@ export interface AgentHostJobPayload {
     artifactPath: string
   } | null
   protocolVersion?: number
+  credentialDelivery?: {
+    bindingId: string
+    connectionId: string
+    credentialVersion: number
+    provider: string
+    hermesProvider: string
+    envVar: string | null
+    canaryModel: string
+  } | null
 }
 
 export interface AgentHostJob {
@@ -65,6 +74,10 @@ export interface PublicAgentHostJob {
   profileConfig?: AgentHostJobPayload['profileConfig']
   skillPack?: AgentHostJobPayload['skillPack']
   protocolVersion?: number
+  credentialDelivery?: AgentHostJobPayload['credentialDelivery'] & {
+    /** Claim-only secret material. Never persisted in the job document. */
+    credentials?: Record<string, string>
+  }
   leaseToken?: string
   createdAt: string
   updatedAt: string
@@ -122,6 +135,7 @@ export function agentHostRequestFingerprint(input: {
   preferredPort: number | null
   packSha256?: string | null
   profileConfig?: AgentHostJobPayload['profileConfig']
+  credentialDelivery?: AgentHostJobPayload['credentialDelivery']
 }): string {
   return crypto.createHash('sha256')
     .update(JSON.stringify({
@@ -136,6 +150,7 @@ export function agentHostRequestFingerprint(input: {
       preferredPort: input.preferredPort,
       packSha256: input.packSha256 ?? null,
       profileConfig: input.profileConfig ?? null,
+      credentialDelivery: input.credentialDelivery ?? null,
     }))
     .digest('hex')
 }
@@ -174,6 +189,21 @@ export function parseAgentHostJobPayload(value: unknown): AgentHostJobPayload {
         return name && role && persona ? { name, role, persona, defaultModel: defaultModel || 'auto' } : null
       })()
     : null
+  const credentialDelivery = row.credentialDelivery && typeof row.credentialDelivery === 'object' && !Array.isArray(row.credentialDelivery)
+    ? (() => {
+        const delivery = row.credentialDelivery as Record<string, unknown>
+        const bindingId = typeof delivery.bindingId === 'string' ? delivery.bindingId.trim() : ''
+        const connectionId = typeof delivery.connectionId === 'string' ? delivery.connectionId.trim() : ''
+        const credentialVersion = Number(delivery.credentialVersion)
+        const provider = typeof delivery.provider === 'string' ? delivery.provider.trim() : ''
+        const hermesProvider = typeof delivery.hermesProvider === 'string' ? delivery.hermesProvider.trim() : ''
+        const envVar = typeof delivery.envVar === 'string' && delivery.envVar.trim() ? delivery.envVar.trim() : null
+        const canaryModel = typeof delivery.canaryModel === 'string' ? delivery.canaryModel.trim() : ''
+        if (!bindingId || !connectionId || !Number.isInteger(credentialVersion) || credentialVersion < 1
+          || !provider || !hermesProvider || !canaryModel) return null
+        return { bindingId, connectionId, credentialVersion, provider, hermesProvider, envVar, canaryModel }
+      })()
+    : null
   return {
     agentId: row.agentId,
     policyVersion: typeof row.policyVersion === 'string' ? row.policyVersion : null,
@@ -185,6 +215,7 @@ export function parseAgentHostJobPayload(value: unknown): AgentHostJobPayload {
     ...(profileConfig ? { profileConfig } : {}),
     ...(skillPack ? { skillPack } : {}),
     ...(typeof row.protocolVersion === 'number' ? { protocolVersion: row.protocolVersion } : {}),
+    ...(credentialDelivery ? { credentialDelivery } : {}),
   }
 }
 
@@ -203,6 +234,7 @@ export function toPublicAgentHostJob(job: AgentHostJob): PublicAgentHostJob {
     ...(job.payload.profileConfig ? { profileConfig: job.payload.profileConfig } : {}),
     ...(job.payload.skillPack ? { skillPack: job.payload.skillPack } : {}),
     ...(job.payload.protocolVersion ? { protocolVersion: job.payload.protocolVersion } : {}),
+    ...(job.payload.credentialDelivery ? { credentialDelivery: job.payload.credentialDelivery } : {}),
     ...(job.leaseToken ? { leaseToken: job.leaseToken } : {}),
     createdAt: new Date(job.createdAtMs).toISOString(),
     updatedAt: new Date(job.updatedAtMs).toISOString(),

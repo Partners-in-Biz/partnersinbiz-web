@@ -60,7 +60,7 @@ export default function LlmProvidersSettingsPage() {
       <PageHeader
         eyebrow="Settings"
         title="LLM providers"
-        description="Organisation credentials sync to your shared VPS. Personal credentials sync to your linked computers, and to the organisation VPS when Team access enables that option. Empty rows here do not mean Hermes has no keys: Auto in Messages still uses Hermes-native credentials on the target machine."
+        description="Organisation credentials sync to your shared VPS. Personal credentials sync only to computers owned by your account. A model becomes selectable in Messages only after that exact machine and agent profile passes a live provider check."
         accent="cyan"
       />
       {resolving ? (

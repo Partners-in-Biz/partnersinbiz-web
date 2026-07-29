@@ -84,6 +84,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, ct
       } catch (err) {
         sync = {
           synced: [],
+          queued: [],
           failed: [{ agentId: '*', error: err instanceof Error ? err.message : 'Sync failed' }],
         }
       }
@@ -132,6 +133,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, ct
       } catch (err) {
         sync = {
           synced: [],
+          queued: [],
           failed: [{ agentId: '*', error: err instanceof Error ? err.message : 'Sync failed' }],
         }
       }

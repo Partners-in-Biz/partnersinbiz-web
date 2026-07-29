@@ -10,6 +10,18 @@ async function unwrap<T>(res: Response): Promise<T> {
 export type LlmProviderCatalogResponse = {
   providers: LlmProviderDefinition[]
   connections: LlmProviderConnectionMasked[]
+  bindings: Array<{
+    id: string
+    connectionId: string
+    runtimeTargetId: string
+    deviceId: string | null
+    machineLabel: string
+    agentId: string
+    status: string
+    liveAuthVerified: boolean
+    lastError: string | null
+    lastVerifiedAt: unknown
+  }>
   canManageOrgConnections: boolean
   syncTargets?: {
     orgVpsDeviceCount: number

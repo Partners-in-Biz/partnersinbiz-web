@@ -12,6 +12,9 @@ export interface MessageModelOption {
   active: boolean
   available: boolean
   connected?: boolean
+  connectionId?: string
+  connectionLabel?: string
+  credentialBindingId?: string
   source: 'hermes' | 'agent-default' | 'connected'
   supportsThinking?: boolean
   supportsVision?: boolean
@@ -41,6 +44,8 @@ export interface MessageModelCatalog {
 export interface ModelRuntimeSelection {
   model: string
   provider?: string
+  llmConnectionId: string
+  llmCredentialBindingId: string
 }
 
 interface ModelProviderPickerProps {
@@ -59,7 +64,7 @@ interface ModelProviderPickerProps {
 const PIN_STORAGE_KEY = 'pib.messages.pinnedModels.v1'
 
 function modelKey(model: MessageModelOption): string {
-  return `${model.provider}:${model.id}`
+  return `${model.connectionId || 'unbound'}:${model.provider}:${model.id}`
 }
 
 function labelForModel(model?: string, provider?: string): string {
@@ -101,11 +106,14 @@ export function ModelProviderPicker({
   const models = catalog?.models ?? []
   const resolvedSelectedModel = selected?.model ?? selectedModel
   const resolvedSelectedProvider = selected?.provider ?? selectedProvider
+  const resolvedConnectionId = selected?.llmConnectionId
   const activeModel = useMemo(() => {
     if (!resolvedSelectedModel) return undefined
     if (!models.length) return undefined
-    return models.find((model) => model.id === resolvedSelectedModel && (!resolvedSelectedProvider || model.provider === resolvedSelectedProvider))
-  }, [models, resolvedSelectedModel, resolvedSelectedProvider])
+    return models.find((model) => model.id === resolvedSelectedModel
+      && (!resolvedSelectedProvider || model.provider === resolvedSelectedProvider)
+      && (!resolvedConnectionId || model.connectionId === resolvedConnectionId))
+  }, [models, resolvedSelectedModel, resolvedSelectedProvider, resolvedConnectionId])
 
   const filteredModels = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -126,13 +134,13 @@ export function ModelProviderPicker({
   }, [models, pinned, query])
 
   const groupedModels = useMemo(() => {
-    const groups: Array<{ provider: string; providerLabel: string; models: MessageModelOption[] }> = []
-    const byProvider = new Map<string, { provider: string; providerLabel: string; models: MessageModelOption[] }>()
+    const groups: Array<{ key: string; provider: string; providerLabel: string; models: MessageModelOption[] }> = []
+    const byProvider = new Map<string, { key: string; provider: string; providerLabel: string; models: MessageModelOption[] }>()
     for (const model of filteredModels) {
-      const key = model.provider
+      const key = `${model.connectionId || 'unbound'}:${model.provider}`
       let group = byProvider.get(key)
       if (!group) {
-        group = { provider: model.provider, providerLabel: model.providerLabel, models: [] }
+        group = { key, provider: model.provider, providerLabel: model.providerLabel, models: [] }
         byProvider.set(key, group)
         groups.push(group)
       }
@@ -264,7 +272,7 @@ export function ModelProviderPicker({
               <div className="px-3 py-8 text-center text-xs text-[var(--color-pib-text-muted)]">No matching models</div>
             )}
             {groupedModels.map((group) => (
-              <section key={group.provider} className="py-1">
+              <section key={group.key} className="py-1">
                 <div className="px-2 pb-1 pib-label">
                   {group.providerLabel}
                 </div>
@@ -287,7 +295,13 @@ export function ModelProviderPicker({
                           type="button"
                           disabled={!canSelect || !model.available}
                           onClick={() => {
-                            onSelect({ model: model.id, provider: model.provider })
+                            if (!model.connectionId || !model.credentialBindingId) return
+                            onSelect({
+                              model: model.id,
+                              provider: model.provider,
+                              llmConnectionId: model.connectionId,
+                              llmCredentialBindingId: model.credentialBindingId,
+                            })
                             setOpen(false)
                           }}
                           className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left disabled:cursor-not-allowed disabled:opacity-50"

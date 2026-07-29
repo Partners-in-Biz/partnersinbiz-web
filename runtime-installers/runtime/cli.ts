@@ -8,7 +8,7 @@ import type{JSONValue}from'./core'
 import { MappingRegistry } from './bridge'
 import { DeviceApiClient, type DeviceIdentity } from './client'
 import { executeJob, pollForever, type Job } from './worker'
-import { callLocalHermes, probeLocalHermes, type LocalHermesProbe } from './hermes'
+import { callLocalHermes, listLocalHermesModels, probeLocalHermes, type LocalHermesProbe } from './hermes'
 import {
   executeWorkbenchJob,
   pollWorkbenchForever,
@@ -46,7 +46,7 @@ import {
 } from './workspace-sync'
 
 const api=process.env.PIB_API_BASE||'https://partnersinbiz.online'
-const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.1.12'
+const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.1.13'
 const stateRoot=process.env.PIB_RUNTIME_STATE_DIR||path.join(os.homedir(),'.partnersinbiz')
 const revocationMarker=path.join(stateRoot,'revocation-pending.json')
 const maps=new MappingRegistry(path.join(stateRoot,'mappings.json'))
@@ -115,13 +115,15 @@ async function downloadAgentSkillPack(artifactPath:string,expectedContentSha256:
   })
 }
 async function localHermes(agentId:string,body:{prompt:string;images?:Array<{url:string;contentType:string}>;model?:string;provider?:string;working_directory:string;yolo?:boolean},helpers?:{onEvents?:(events:unknown[])=>void|Promise<void>}):Promise<unknown>{return callLocalHermes(agentId,body,process.env,fetch,(ms)=>new Promise(r=>setTimeout(r,ms)),helpers?.onEvents)}
-async function run(job:Job){const i=await identity();return executeJob({...job},i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body),(body,helpers)=>localHermes(job.agentId||'pip',body,helpers))}
+const activeHermesAgents=new Map<string,number>()
+async function run(job:Job){const i=await identity(),agentId=job.agentId||'pip';activeHermesAgents.set(agentId,(activeHermesAgents.get(agentId)||0)+1);try{return await executeJob({...job},i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body),(body,helpers)=>localHermes(agentId,body,helpers))}finally{const remaining=(activeHermesAgents.get(agentId)||1)-1;if(remaining>0)activeHermesAgents.set(agentId,remaining);else activeHermesAgents.delete(agentId)}}
 async function syncRun(job:WorkspaceSyncRuntimeJob){const i=await identity();return executeWorkspaceSyncJob(job,{registry:maps,stateRoot,spool:syncSpool,post:(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body)})}
 async function workbenchRun(job:WorkbenchRuntimeJob){const i=await identity();return executeWorkbenchJob(job,i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 async function workbenchSessionsRun(claim:WorkbenchSessionClaim){const i=await identity();return runWorkbenchSessionClaim(claim,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 async function workbenchTunnelsRun(claim:WorkbenchTunnelClaim){const i=await identity();return runWorkbenchTunnelClaim(claim,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 async function workbenchBrowserSessionsRun(claim:WorkbenchBrowserClaim){const i=await identity();return runWorkbenchBrowserClaim(claim,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
-async function agentHostRun(job:AgentHostRuntimeJob){const i=await identity();const outcome=await executeAgentHostJob(job,{downloadSkillPack:async({artifactPath,expectedContentSha256})=>downloadAgentSkillPack(artifactPath,expectedContentSha256)});await post(`/api/v1/linked-computers/${i.deviceId}/agents/jobs/${job.jobId}/complete`,{leaseToken:job.leaseToken,ok:outcome.ok,...(outcome.ok?{result:outcome.result}:{error:outcome.error})})}
+async function waitForAgentIdle(agentId:string,timeoutMs:number){const deadline=Date.now()+timeoutMs;while(Date.now()<deadline){if((activeHermesAgents.get(agentId)||0)===0)return true;await new Promise(r=>setTimeout(r,500))}return false}
+async function agentHostRun(job:AgentHostRuntimeJob){const i=await identity();const outcome=await executeAgentHostJob(job,{downloadSkillPack:async({artifactPath,expectedContentSha256})=>downloadAgentSkillPack(artifactPath,expectedContentSha256),waitForAgentIdle,providerCanary:async({agentId,provider,model})=>{try{const output=await callLocalHermes(agentId,{prompt:'Reply exactly PIB_CREDENTIAL_OK. Do not use tools.',model,provider,working_directory:process.cwd()}, {...process.env,PIB_LOCAL_HERMES_RUN_TIMEOUT_MS:'60000'});const text=typeof output==='string'?output:JSON.stringify(output);if(!text.includes('PIB_CREDENTIAL_OK'))return{ok:false,modelIds:[],error:'Provider canary returned an unexpected response'};return{ok:true,modelIds:await listLocalHermesModels(agentId)}}catch(error){return{ok:false,modelIds:[],error:error instanceof Error?error.message:'Provider canary failed'}}}});await post(`/api/v1/linked-computers/${i.deviceId}/agents/jobs/${job.jobId}/complete`,{leaseToken:job.leaseToken,ok:outcome.ok,...(outcome.ok?{result:outcome.result}:{error:outcome.error})})}
 async function syncFlush(){const i=await identity();return syncSpool.flush((suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body))}
 export async function isRevokeAcknowledged(response:Response){if(!response.ok)return false;try{const body=record(await response.json());return body.revoked===true&&typeof body.code==='string'&&['device_revoked','already_revoked'].includes(body.code)}catch{return false}}
 async function signedRemoteRevoke(){const i=await identity(),response=await new DeviceApiClient(api,i).post(`/api/v1/linked-computers/${i.deviceId}/revoke`,{reason:'local-user-revoked',runtimeVersion});if(!await isRevokeAcknowledged(response))throw new Error('remote revoke unavailable')}

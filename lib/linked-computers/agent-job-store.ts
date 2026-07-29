@@ -15,7 +15,7 @@ import {
 
 export const AGENT_HOST_JOBS = 'linked_device_agent_jobs'
 export const AGENT_HOST_QUEUES = 'linked_device_agent_queues'
-const DEFAULT_LEASE_MS = 120_000
+const DEFAULT_LEASE_MS = 5 * 60_000
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000
 const CLEANUP_RETENTION_MS = 24 * 60 * 60 * 1000
 
@@ -124,6 +124,7 @@ export async function enqueueAgentHostJob(
     preferredPort: input.payload.preferredPort,
     packSha256: input.payload.skillPack?.packSha256 ?? null,
     profileConfig: input.payload.profileConfig ?? null,
+    credentialDelivery: input.payload.credentialDelivery ?? null,
   })
   const job: AgentHostJob = {
     jobId: id,
