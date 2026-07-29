@@ -551,3 +551,135 @@ export function richRecordFromText(value: unknown): PlainRecord | null {
 export function isRichPayloadText(value: unknown): boolean {
   return Boolean(richRecordFromText(value))
 }
+
+export type MixedRichContent = {
+  /** Prose left after stripping structured envelopes (may be empty). */
+  prose: string
+  richParts: RichMessagePart[]
+  uiActions: ChatUiAction[]
+  /** True when any structured envelope was found and removed from prose. */
+  extracted: boolean
+}
+
+function recordFromJsonSlice(slice: string): PlainRecord | null {
+  const candidate = unfenceJsonText(slice)
+  if (!candidate.startsWith('{') || !candidate.endsWith('}')) return null
+  try {
+    const parsed = JSON.parse(candidate)
+    const record = asRecord(parsed)
+    if (!record) return null
+    const richParts = normalizeRichParts(record.richParts ?? record.rich_parts)
+    const uiActions = normalizeUiActions(record.uiActions ?? record.ui_actions ?? record.actions)
+    if (richParts.length === 0 && uiActions.length === 0) return null
+    return record
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Find a balanced `{ ... }` JSON object that starts at `start` (must be `{`).
+ * Returns the end index exclusive, or -1 if not balanced within the string.
+ */
+function findBalancedJsonObjectEnd(text: string, start: number): number {
+  if (text[start] !== '{') return -1
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i]!
+    if (inString) {
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (ch === '\\') {
+        escaped = true
+        continue
+      }
+      if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') {
+      inString = true
+      continue
+    }
+    if (ch === '{') depth += 1
+    else if (ch === '}') {
+      depth -= 1
+      if (depth === 0) return i + 1
+    }
+  }
+  return -1
+}
+
+/**
+ * Parse pure or **mixed** assistant content that embeds `rich_parts` / `ui_actions`
+ * JSON (including trailing blobs after prose, which agents often dump as text).
+ */
+export function extractMixedRichContent(value: unknown): MixedRichContent {
+  const empty: MixedRichContent = { prose: '', richParts: [], uiActions: [], extracted: false }
+  const text = rawString(value)
+  if (!text) return empty
+  const trimmed = text.trim()
+  if (!trimmed) return empty
+
+  // Pure envelope (entire content is the JSON object).
+  const pure = richRecordFromText(trimmed)
+  if (pure) {
+    return {
+      prose: '',
+      richParts: normalizeRichParts(pure.richParts ?? pure.rich_parts),
+      uiActions: normalizeUiActions(pure.uiActions ?? pure.ui_actions ?? pure.actions),
+      extracted: true,
+    }
+  }
+
+  // Trailing fenced ```json ... ``` block.
+  const fencedTail = trimmed.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```\s*$/i)
+  if (fencedTail?.[1]) {
+    const record = recordFromJsonSlice(fencedTail[1])
+    if (record) {
+      const prose = trimmed.slice(0, fencedTail.index).trim()
+      return {
+        prose,
+        richParts: normalizeRichParts(record.richParts ?? record.rich_parts),
+        uiActions: normalizeUiActions(record.uiActions ?? record.ui_actions ?? record.actions),
+        extracted: true,
+      }
+    }
+  }
+
+  // Scan for JSON objects that contain rich_parts / ui_actions (prefer last match).
+  let best: { start: number; end: number; record: PlainRecord } | null = null
+  for (let i = 0; i < trimmed.length; i += 1) {
+    if (trimmed[i] !== '{') continue
+    // Cheap prefilter: remaining text should mention rich parts keys.
+    const rest = trimmed.slice(i)
+    if (!/"(?:rich_parts|richParts|ui_actions|uiActions)"/.test(rest)) break
+    const end = findBalancedJsonObjectEnd(trimmed, i)
+    if (end < 0) continue
+    const slice = trimmed.slice(i, end)
+    if (!/"(?:rich_parts|richParts|ui_actions|uiActions)"/.test(slice)) {
+      i = end - 1
+      continue
+    }
+    const record = recordFromJsonSlice(slice)
+    if (record) {
+      best = { start: i, end, record }
+      i = end - 1
+    }
+  }
+
+  if (!best) {
+    return { prose: trimmed, richParts: [], uiActions: [], extracted: false }
+  }
+
+  const prose = `${trimmed.slice(0, best.start)}${trimmed.slice(best.end)}`.trim()
+  return {
+    prose,
+    richParts: normalizeRichParts(best.record.richParts ?? best.record.rich_parts),
+    uiActions: normalizeUiActions(best.record.uiActions ?? best.record.ui_actions ?? best.record.actions),
+    extracted: true,
+  }
+}
