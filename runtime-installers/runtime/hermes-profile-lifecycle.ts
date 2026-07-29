@@ -168,12 +168,70 @@ function manageSystemdHermesProfile(
       }
 }
 
+function manageLaunchdHermesFleet(
+  env: HermesLifecycleEnv,
+  action: 'restart' | 'stop',
+): { managed: boolean; ok: boolean; error?: string } {
+  const platform = env.PIB_RUNTIME_PLATFORM || process.platform
+  if (platform !== 'darwin' || typeof process.getuid !== 'function') {
+    return { managed: false, ok: false }
+  }
+  const label = env.PIB_HERMES_FLEET_LAUNCHD_LABEL?.trim() || 'ai.hermes.local-runtime'
+  const plist = env.PIB_HERMES_FLEET_LAUNCHD_PLIST?.trim()
+    || path.join(os.homedir(), 'Library', 'LaunchAgents', `${label}.plist`)
+  if (!fs.existsSync(plist)) return { managed: false, ok: false }
+
+  const service = `gui/${process.getuid()}/${label}`
+  const domain = `gui/${process.getuid()}`
+  const isLoaded = () => spawnSync('launchctl', ['print', service], {
+    encoding: 'utf8',
+    env,
+  }).status === 0
+
+  if (action === 'stop') {
+    if (!isLoaded()) return { managed: true, ok: true }
+    const result = spawnSync('launchctl', ['bootout', domain, plist], { encoding: 'utf8', env })
+    return result.status === 0 || !isLoaded()
+      ? { managed: true, ok: true }
+      : {
+          managed: true,
+          ok: false,
+          error: result.stderr.trim() || `Could not stop launchd fleet ${label}`,
+        }
+  }
+
+  if (!isLoaded()) {
+    const bootstrap = spawnSync('launchctl', ['bootstrap', domain, plist], { encoding: 'utf8', env })
+    if (bootstrap.status !== 0 && !isLoaded()) {
+      return {
+        managed: true,
+        ok: false,
+        error: bootstrap.stderr.trim() || `Could not bootstrap launchd fleet ${label}`,
+      }
+    }
+  }
+  const kickstart = spawnSync('launchctl', ['kickstart', '-k', service], { encoding: 'utf8', env })
+  return kickstart.status === 0
+    ? { managed: true, ok: true }
+    : {
+        managed: true,
+        ok: false,
+        error: kickstart.stderr.trim() || `Could not restart launchd fleet ${label}`,
+      }
+}
+
 export function startHermesGateway(input: {
   agentId: string
   env?: HermesLifecycleEnv
 }): { started: boolean; pid: number | null; hermesBin: string | null; error?: string } {
   const env = input.env ?? process.env
   const hermesBin = resolveHermesBinary(env)
+  const launchd = manageLaunchdHermesFleet(env, 'restart')
+  if (launchd.managed) {
+    return launchd.ok
+      ? { started: true, pid: null, hermesBin }
+      : { started: false, pid: null, hermesBin, error: launchd.error }
+  }
   if (!hermesBin) {
     return {
       started: false,
@@ -246,6 +304,12 @@ export function stopHermesGateway(input: {
     return systemd.ok
       ? { stopped: true, hermesBin }
       : { stopped: false, hermesBin, error: systemd.error }
+  }
+  const launchd = manageLaunchdHermesFleet(env, 'stop')
+  if (launchd.managed) {
+    return launchd.ok
+      ? { stopped: true, hermesBin }
+      : { stopped: false, hermesBin, error: launchd.error }
   }
   let stoppedViaCli = false
   if (hermesBin) {

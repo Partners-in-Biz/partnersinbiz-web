@@ -13,6 +13,7 @@ import { getLlmProvider } from './providers'
 import {
   getDecryptedLlmCredentials,
   getLlmProviderConnection,
+  markLlmConnectionSyncQueued,
   markLlmConnectionSyncWarning,
   markLlmConnectionSynced,
 } from './store'
@@ -244,6 +245,8 @@ async function pushToTargets(
 
   if (synced.length) {
     await markLlmConnectionSynced(connectionId, synced)
+  } else if (queued.length && !failed.length) {
+    await markLlmConnectionSyncQueued(connectionId)
   } else if (failed.length) {
     await markLlmConnectionSyncWarning(connectionId, failed[0].error)
   }
@@ -309,7 +312,9 @@ async function verifyCredentialOnTarget(
         }
       }
       const usable = state.usable === true
-        || (state.hermes_shape === true && state.has_access_token === true && state.has_refresh_token === true)
+        || (state.hermes_shape === true
+          && state.has_access_token === true
+          && (input.hermesProvider === 'xai-oauth' || state.has_refresh_token === true))
       if (!usable) {
         return {
           usable: false,

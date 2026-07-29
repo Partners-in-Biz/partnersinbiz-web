@@ -498,9 +498,25 @@ export async function applyAgentHostJobResult(job: AgentHostJob): Promise<void> 
     if (!delivery) return
     const {
       requireDeliverableLlmCredentialBinding,
+      requireMatchingLlmCredentialBindingGeneration,
       updateLlmCredentialBinding,
     } = await import('@/lib/llm-providers/bindings')
     if (job.kind === 'revoke-credential') {
+      try {
+        await requireMatchingLlmCredentialBindingGeneration({
+          bindingId: delivery.bindingId,
+          connectionId: delivery.connectionId,
+          credentialVersion: delivery.credentialVersion,
+          deviceId: job.deviceId,
+          ownerUid: delivery.connectionId.startsWith('user:') ? job.actorUserId : null,
+          orgId: job.orgId,
+          scope: delivery.connectionId.startsWith('user:') ? 'user' : 'org',
+          agentId,
+        })
+      } catch {
+        // A newer OAuth generation superseded this old revoke receipt.
+        return
+      }
       await updateLlmCredentialBinding(delivery.bindingId, {
         status: 'revoked',
         liveAuthVerified: false,

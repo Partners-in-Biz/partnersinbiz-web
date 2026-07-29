@@ -329,6 +329,16 @@ function ConnectedRow({
   const [rowError, setRowError] = useState<string | null>(null)
   const isPersonal = connection.scope === 'user'
   const canManage = isPersonal || canManageOrgConnections
+  const currentBindings = bindings.filter(
+    (binding) => binding.credentialVersion === connection.credentialVersion,
+  )
+  const hasLinkedBindings = currentBindings.some((binding) => Boolean(binding.deviceId))
+  const visibleBindings = hasLinkedBindings
+    ? currentBindings.filter((binding) => Boolean(binding.deviceId))
+    : currentBindings
+  const readyCount = visibleBindings.filter(
+    (binding) => binding.status === 'ready' && binding.liveAuthVerified,
+  ).length
   const run = (fn: () => Promise<void>) => async () => {
     setBusy(true)
     setRowError(null)
@@ -382,14 +392,18 @@ function ConnectedRow({
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
           Syncs only to computers owned by your account. The shared organisation VPS never receives this credential.
         </p>
-      ) : connection.syncedAgentIds?.length > 0 ? (
+      ) : null}
+      {visibleBindings.length > 0 ? (
         <p className="text-[11px] text-[var(--color-pib-text-muted)]">
-          Synced to org VPS agents: {connection.syncedAgentIds.join(', ')}
+          Live verified on {isPersonal ? 'your linked computers' : 'the organisation VPS'}:{' '}
+          <span className={readyCount === visibleBindings.length ? 'text-emerald-300' : 'text-amber-200'}>
+            {readyCount}/{visibleBindings.length} profiles
+          </span>
         </p>
       ) : null}
-      {bindings.length > 0 && (
+      {visibleBindings.length > 0 && (
         <div className="space-y-1">
-          {bindings.map((binding) => (
+          {visibleBindings.map((binding) => (
             <p key={binding.id} className="text-[11px] text-[var(--color-pib-text-muted)]">
               {binding.machineLabel} · {binding.agentId}:{' '}
               <span className={binding.liveAuthVerified ? 'text-emerald-300' : binding.status === 'failed' ? 'text-red-200' : 'text-amber-200'}>
@@ -400,7 +414,9 @@ function ConnectedRow({
           ))}
         </div>
       )}
-      {connection.lastError && <p className="text-xs text-amber-200">{connection.lastError}</p>}
+      {connection.lastError && visibleBindings.length === 0 && (
+        <p className="text-xs text-amber-200">{connection.lastError}</p>
+      )}
       {rowError && <p role="alert" className="text-xs text-red-200">{rowError}</p>}
     </div>
   )

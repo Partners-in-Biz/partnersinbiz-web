@@ -173,6 +173,21 @@ export async function resolveOrgLlmSyncTargets(
     }
   }
 
+  // A linked VPS supersedes the older one-profile admin sidecar link for the
+  // same profile. Delivering to both creates a duplicate Pip binding and lets
+  // stale legacy-sidecar errors obscure the real fleet result.
+  const linkedVpsAgentIds = new Set(
+    targets
+      .filter((target) => target.kind === 'org_linked_vps')
+      .map((target) => target.agentId),
+  )
+  for (let index = targets.length - 1; index >= 0; index -= 1) {
+    const target = targets[index]
+    if (target.kind === 'org_hermes_link' && linkedVpsAgentIds.has(target.agentId)) {
+      targets.splice(index, 1)
+    }
+  }
+
   if (!targets.length) {
     return {
       targets: [],
