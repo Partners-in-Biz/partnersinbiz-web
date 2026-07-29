@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.."&&pwd)";TMP="$(mktemp -d)";trap 'rm -rf "$TMP"' EXIT
-export HOME="$TMP/home" PIB_INSTALLER_LIBRARY=1 PIB_RUNTIME_CURRENT_VERSION=1.0.0 PIB_RELEASE_MANAGER="$TMP/release-manager";mkdir -p "$HOME" "$TMP/release"
+export HOME="$TMP/home" PIB_INSTALLER_LIBRARY=1 PIB_RUNTIME_CURRENT_VERSION=1.0.0 PIB_RELEASE_MANAGER="$TMP/release manager";mkdir -p "$HOME" "$TMP/release"
 cat >"$PIB_RELEASE_MANAGER" <<'EOF'
 #!/bin/bash
 printf '%s\n' "$*" >>"$PIB_HARNESS_LOG"

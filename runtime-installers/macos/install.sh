@@ -33,8 +33,8 @@ verify_release() {
   [[ -x "$RELEASE_MANAGER" ]] || { echo "Signed release manager is missing." >&2; return 1; }
   local current_version="${PIB_RUNTIME_CURRENT_VERSION:-}" rollback_flag=""
   if [[ -z "$current_version" && -x "$ROOT/current/pib-runtime" ]];then
-    if [[ -f "$ROOT/current/.unsigned-dev" ]];then [[ "${PIB_ALLOW_UNSIGNED_DEV:-0}" == 1 ]]||{ echo 'Production refused an installed unsigned development release.' >&2;return 1;};current_version="$($RELEASE_MANAGER installed-version --manifest "$ROOT/current/manifest.json" --payload "$ROOT/current/pib-runtime" --platform macos --architecture "$(uname -m | sed 's/x86_64/x64/')" --channel stable --allow-unsigned-dev)";
-    else [[ -f "$ROOT/current/manifest.sig" ]]||{ echo 'Installed release signature is missing.' >&2;return 1;};current_version="$($RELEASE_MANAGER installed-version --manifest "$ROOT/current/manifest.json" --signature "$ROOT/current/manifest.sig" --payload "$ROOT/current/pib-runtime" --public-key "$key_file" --platform macos --architecture "$ARCH" --channel stable)";fi
+    if [[ -f "$ROOT/current/.unsigned-dev" ]];then [[ "${PIB_ALLOW_UNSIGNED_DEV:-0}" == 1 ]]||{ echo 'Production refused an installed unsigned development release.' >&2;return 1;};current_version="$("$RELEASE_MANAGER" installed-version --manifest "$ROOT/current/manifest.json" --payload "$ROOT/current/pib-runtime" --platform macos --architecture "$(uname -m | sed 's/x86_64/x64/')" --channel stable --allow-unsigned-dev)";
+    else [[ -f "$ROOT/current/manifest.sig" ]]||{ echo 'Installed release signature is missing.' >&2;return 1;};current_version="$("$RELEASE_MANAGER" installed-version --manifest "$ROOT/current/manifest.json" --signature "$ROOT/current/manifest.sig" --payload "$ROOT/current/pib-runtime" --public-key "$key_file" --platform macos --architecture "$ARCH" --channel stable)";fi
   fi
   [[ -n "$current_version" ]]||current_version="$(/usr/bin/plutil -extract minimumVersion raw "$metadata")"
   [[ "${3:-}" != rollback ]] || rollback_flag="--allow-downgrade"
