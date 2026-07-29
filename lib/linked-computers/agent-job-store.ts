@@ -58,7 +58,7 @@ function fromStored(jobId: string, row: Record<string, unknown>): AgentHostJob {
   }
 }
 
-function toStored(job: AgentHostJob): Record<string, unknown> {
+export function agentHostJobToStored(job: AgentHostJob): Record<string, unknown> {
   return {
     jobId: job.jobId,
     idempotencyKey: job.idempotencyKey,
@@ -73,20 +73,14 @@ function toStored(job: AgentHostJob): Record<string, unknown> {
     payload: job.payload,
     ...(job.result ? { result: job.result } : {}),
     ...(job.error ? { error: job.error } : {}),
-    ...(job.leaseToken ? { leaseToken: job.leaseToken } : { leaseToken: FieldValue.delete() }),
+    ...(job.leaseToken ? { leaseToken: job.leaseToken } : {}),
     createdAt: Timestamp.fromMillis(job.createdAtMs),
     updatedAt: Timestamp.fromMillis(job.updatedAtMs),
     expiresAt: Timestamp.fromMillis(job.expiresAtMs),
     cleanupAt: Timestamp.fromMillis(job.expiresAtMs + CLEANUP_RETENTION_MS),
-    ...(job.leaseExpiresAtMs
-      ? { leaseExpiresAt: Timestamp.fromMillis(job.leaseExpiresAtMs) }
-      : { leaseExpiresAt: FieldValue.delete() }),
-    ...(job.claimedAtMs
-      ? { claimedAt: Timestamp.fromMillis(job.claimedAtMs) }
-      : { claimedAt: FieldValue.delete() }),
-    ...(job.completedAtMs
-      ? { completedAt: Timestamp.fromMillis(job.completedAtMs) }
-      : { completedAt: FieldValue.delete() }),
+    ...(job.leaseExpiresAtMs ? { leaseExpiresAt: Timestamp.fromMillis(job.leaseExpiresAtMs) } : {}),
+    ...(job.claimedAtMs ? { claimedAt: Timestamp.fromMillis(job.claimedAtMs) } : {}),
+    ...(job.completedAtMs ? { completedAt: Timestamp.fromMillis(job.completedAtMs) } : {}),
   }
 }
 
@@ -179,7 +173,7 @@ export async function enqueueAgentHostJob(
       if (pendingJobIds.length >= 200 && !pendingJobIds.includes(id)) {
         throw new Error('agent-host: device queue full')
       }
-      transaction.set(jobRef, toStored(reset), { merge: false })
+      transaction.set(jobRef, agentHostJobToStored(reset), { merge: false })
       transaction.set(queueRef, {
         deviceId: input.deviceId,
         pendingJobIds: pendingJobIds.includes(id) ? pendingJobIds : [...pendingJobIds, id],
@@ -189,7 +183,7 @@ export async function enqueueAgentHostJob(
     }
 
     if (pendingJobIds.length >= 200) throw new Error('agent-host: device queue full')
-    transaction.create(jobRef, toStored(job))
+    transaction.create(jobRef, agentHostJobToStored(job))
     transaction.set(queueRef, {
       deviceId: input.deviceId,
       pendingJobIds: [...pendingJobIds, id],
@@ -276,7 +270,7 @@ export async function claimOldestAgentHostJob(
       return null
     }
 
-    transaction.set(selectedRef, toStored(selected), { merge: false })
+    transaction.set(selectedRef, agentHostJobToStored(selected), { merge: false })
     // Keep claimed job at head until complete — mirrors run-queue lease semantics.
     transaction.set(queueRef, {
       deviceId: input.deviceId,
@@ -312,7 +306,7 @@ export async function completeAgentHostJob(input: {
     const next = input.ok
       ? transitionAgentHostJob(job, { type: 'complete', result: input.result, nowMs })
       : transitionAgentHostJob(job, { type: 'fail', error: input.error || 'agent job failed', nowMs })
-    transaction.set(jobRef, toStored(next), { merge: false })
+    transaction.set(jobRef, agentHostJobToStored(next), { merge: false })
 
     const ids = Array.isArray(queueSnapshot.data()?.pendingJobIds)
       ? queueSnapshot.data()!.pendingJobIds as string[]
