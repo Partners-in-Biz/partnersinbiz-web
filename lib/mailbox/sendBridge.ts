@@ -5,6 +5,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { decryptCredentials, type EncryptedCredentials } from '@/lib/integrations/crypto'
 import type { MailboxAttachmentStored } from '@/lib/mailbox/attachments'
 import { appendEmailSignature, resolveGmailSignature } from '@/lib/mailbox/gmailSignature'
+import { linkMailboxSendToContacts } from '@/lib/mailbox/linkMailboxSendToContacts'
 
 const GMAIL_SEND_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
 const REFRESH_SKEW_MS = 2 * 60 * 1000
@@ -184,6 +185,9 @@ async function writeAudit(input: SendMailboxMessageInput, patch: Record<string, 
 
 async function writeSentMessage(input: SendMailboxMessageInput, account: MailboxAccountDoc, provider: 'google' | 'smtp', providerMessageId?: string, threadId?: string | null) {
   const now = FieldValue.serverTimestamp()
+  const to = normalizeList(input.to)
+  const cc = normalizeList(input.cc)
+  const bodySnippet = snippet(input.bodyText)
   const ref = await adminDb.collection('mailbox_messages').add({
     orgId: input.orgId,
     uid: input.uid,
@@ -196,14 +200,14 @@ async function writeSentMessage(input: SendMailboxMessageInput, account: Mailbox
     read: true,
     starred: false,
     from: account.emailAddress ?? '',
-    to: normalizeList(input.to),
-    cc: normalizeList(input.cc),
+    to,
+    cc,
     bcc: normalizeList(input.bcc),
     subject: input.subject,
     bodyText: input.bodyText,
     ...(input.bodyHtml ? { bodyHtml: input.bodyHtml } : {}),
     attachments: (input.attachments ?? []).map((attachment) => ({ name: attachment.name, contentType: attachment.contentType, sizeBytes: attachment.sizeBytes })),
-    snippet: snippet(input.bodyText),
+    snippet: bodySnippet,
     provider,
     providerMessageId: providerMessageId ?? null,
     threadId: threadId ?? null,
@@ -211,18 +215,53 @@ async function writeSentMessage(input: SendMailboxMessageInput, account: Mailbox
     createdAt: now,
     updatedAt: now,
   })
+
+  // Org-level activity (dashboard / audit). Contact-scoped rows are written next when matched.
   await adminDb.collection('activities').add({
     orgId: input.orgId,
     type: 'email_sent',
     source: 'mailbox_send_bridge',
     subject: input.subject,
-    note: snippet(input.bodyText).slice(0, 500),
+    summary: `Email sent: ${(input.subject || '(no subject)').trim()}`.slice(0, 500),
+    note: bodySnippet.slice(0, 500),
     mailboxMessageId: ref.id,
     provider,
     providerMessageId: providerMessageId ?? null,
-    createdBy: { id: input.actorId ?? input.uid, type: input.actorType ?? 'user' },
+    threadId: threadId ?? null,
+    metadata: {
+      source: 'mailbox_send_bridge',
+      mailboxMessageId: ref.id,
+      provider,
+      providerMessageId: providerMessageId ?? null,
+      threadId: threadId ?? null,
+      to,
+      cc,
+      accountId: input.accountId,
+    },
+    createdBy: input.actorId ?? input.uid,
+    createdByRef: { id: input.actorId ?? input.uid, type: input.actorType ?? 'user', uid: input.actorId ?? input.uid },
     createdAt: now,
+    updatedAt: now,
+    deleted: false,
   })
+
+  // Match to/cc recipients to CRM contacts → timeline + lastContactedAt (best-effort).
+  await linkMailboxSendToContacts({
+    orgId: input.orgId,
+    uid: input.uid,
+    accountId: input.accountId,
+    mailboxMessageId: ref.id,
+    provider,
+    providerMessageId: providerMessageId ?? null,
+    threadId: threadId ?? null,
+    subject: input.subject,
+    bodySnippet,
+    to,
+    cc,
+    actorId: input.actorId,
+    actorType: input.actorType,
+  }).catch(() => ({ contactIds: [] as string[], activityIds: [] as string[] }))
+
   return ref.id
 }
 
