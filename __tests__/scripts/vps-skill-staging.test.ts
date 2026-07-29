@@ -29,8 +29,28 @@ describe('VPS skill staging deployment', () => {
     expect(lib).toContain('pib_hermes_restart_profile_when_idle')
     expect(lib).toContain('return 2')
     expect(lib).toContain('hermes-restart-pending')
+    expect(lib).toContain('PIB_HERMES_SIDECAR_PENDING_DIR')
     expect(sweep).toContain('pib_hermes_restart_profile_when_idle')
+    expect(sweep).toContain('SIDECAR_PENDING_DIR')
+    expect(sweep).toContain('/var/lib/hermes/hermes-restart-pending')
     expect(timer).toContain('OnUnitActiveSec=2min')
+  })
+
+  it('admin sidecar never hard-restarts busy profiles', () => {
+    const sidecar = readFileSync(resolve(process.cwd(), 'infra/hermes/admin_sidecar.py'), 'utf8')
+    const requestRestart = readFileSync(resolve(process.cwd(), 'scripts/pib-hermes-request-restart.sh'), 'utf8')
+    const sudoers = readFileSync(resolve(process.cwd(), 'ops/hermes-vps/pib-hermes-request-restart.sudoers'), 'utf8')
+    expect(sidecar).toContain('_restart_profile_detailed')
+    expect(sidecar).toContain('_mark_pending_restart')
+    expect(sidecar).toContain('hermes-restart-pending')
+    expect(sidecar).toContain('auth-provider-upsert')
+    expect(sidecar).toContain('Never force-kills busy gateways')
+    expect(sidecar).toContain('pib-hermes-request-restart')
+    expect(sidecar).toContain('_restart_profile_detailed(profile, "skill-install")')
+    expect(sidecar).toContain('_restart_profile_detailed(profile, f"auth-provider-upsert:{provider}")')
+    expect(requestRestart).toContain('pib_hermes_restart_profile_when_idle')
+    expect(sudoers).toContain('pib-hermes-request-restart')
+    expect(sudoers).toContain('hermes ALL=(root) NOPASSWD')
   })
 
   it('stages outside the private Hermes home and invokes only the root-owned installer', () => {

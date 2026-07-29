@@ -1,0 +1,3 @@
+# Allow hermes admin sidecar to request busy-safe profile restarts without
+# force-killing live Messages chats. Scoped to the root helper only.
+hermes ALL=(root) NOPASSWD: /usr/local/sbin/pib-hermes-request-restart

@@ -7,3 +7,41 @@ export const CONVERSATION_RUN_STALE_ERROR =
 
 export const CONVERSATION_RUN_LOST_ERROR =
   'The agent gateway lost this run after restarting. Please send the message again or requeue the work.'
+
+/** Classic agent-browser / CDP failure text that is often a red herring mid-run kill. */
+export const CONVERSATION_BROWSER_CONNECT_ERROR =
+  'Unable to connect. Is the computer able to access the url?'
+
+export const CONVERSATION_BROWSER_CONNECT_USER_ERROR =
+  'The agent could not open a browser page on the runtime (or the run was interrupted). Retry the message — prefer tasks, git, and the platform API over browser navigation when working on the VPS.'
+
+/**
+ * Map raw Hermes/tool failure strings into stable, user-safe Messages errors.
+ * Never invent secrets; only rewrite known operational failure shapes.
+ */
+export function humanizeConversationRunError(raw: string | null | undefined): string {
+  const text = typeof raw === 'string' ? raw.trim() : ''
+  if (!text) {
+    return 'The agent run failed. Please send the message again.'
+  }
+  const lower = text.toLowerCase()
+  if (
+    lower.includes('unable to connect')
+    && (lower.includes('access the url') || lower.includes('access the url?'))
+  ) {
+    return CONVERSATION_BROWSER_CONNECT_USER_ERROR
+  }
+  if (
+    lower.includes('connection reset')
+    || lower.includes('connection refused')
+    || lower.includes('broken pipe')
+    || lower.includes('server disconnected')
+    || lower.includes('client connector error')
+    || lower.includes('gateway lost this run')
+  ) {
+    return CONVERSATION_RUN_LOST_ERROR
+  }
+  // Cap length so tool dumps never fill the chat bubble.
+  if (text.length > 500) return `${text.slice(0, 500).trim()}…`
+  return text
+}
