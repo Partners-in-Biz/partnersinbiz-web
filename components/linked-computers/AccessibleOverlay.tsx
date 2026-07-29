@@ -49,9 +49,10 @@ export function AccessibleDialog({ label, onClose, children, className = 'w-full
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
   }
-  // Mobile: bottom-sheet alignment + scrollable overlay so tall dialogs (and sticky
-  // footers) stay reachable. twMerge lets callers override overflow (e.g. overflow-hidden
-  // + internal scroll body) without fighting the default overflow-y-auto panel.
+  // Keep the backdrop non-scrolling. Scrolling the overlay (or using my-auto inside
+  // a scrollable flex parent) jumps the whole card off-screen when focus moves —
+  // e.g. selecting an agent in New conversation. Tall content scrolls inside the
+  // panel; callers with sticky footers pass overflow-hidden + an internal body.
   return (
     <div
       ref={ref}
@@ -61,12 +62,12 @@ export function AccessibleDialog({ label, onClose, children, className = 'w-full
       aria-label={label}
       onKeyDown={keyDown}
       onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}
-      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto overscroll-contain bg-black/60 p-2 sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden overscroll-none bg-black/60 p-2 sm:items-center sm:p-4"
     >
       <div
         data-testid="accessible-dialog-panel"
         className={cn(
-          'my-auto max-h-[calc(100dvh-1rem)] min-h-0 w-full overflow-y-auto overscroll-contain sm:max-h-[calc(100dvh-2rem)]',
+          'max-h-[calc(100dvh-1rem)] min-h-0 w-full overflow-y-auto overscroll-contain sm:max-h-[calc(100dvh-2rem)]',
           className,
         )}
       >

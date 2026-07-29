@@ -7904,9 +7904,9 @@ export default function UnifiedChat({
         <AccessibleDialog
           label="New conversation"
           onClose={closeNewConversation}
-          className="flex h-[80dvh] max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
+          className="flex h-[min(80dvh,calc(100dvh-1rem))] max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
         >
-            {/* Modal header */}
+            {/* Modal header — always pinned; body scrolls underneath */}
             <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3 sm:px-5 sm:py-4">
               <h2 id="new-conversation-title" className="text-sm font-medium text-[var(--color-pib-text)]">New conversation</h2>
               <button
@@ -7919,8 +7919,8 @@ export default function UnifiedChat({
               </button>
             </div>
 
-            {/* Modal body */}
-            <div data-testid="new-conversation-scroll-body" className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5">
+            {/* Modal body — only this region scrolls (not the backdrop / whole card) */}
+            <div data-testid="new-conversation-scroll-body" className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain [overflow-anchor:none] p-4 sm:p-5">
               {/* Optional title */}
               <div>
                 <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] block mb-1.5">
@@ -8444,7 +8444,7 @@ export default function UnifiedChat({
                     Showing agents available on the selected computer.
                   </p>
                 )}
-                <div data-testid="new-conversation-participants-scroll" className="max-h-[min(40dvh,240px)] overflow-y-auto overscroll-contain sm:max-h-[300px]">
+                <div data-testid="new-conversation-participants-scroll" className="max-h-[min(36dvh,220px)] overflow-y-auto overscroll-contain [overflow-anchor:none] sm:max-h-[280px]">
                   <ParticipantPicker
                     orgId={orgId}
                     onSelect={setNewParticipants}
