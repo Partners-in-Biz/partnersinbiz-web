@@ -604,7 +604,7 @@ function ControlForms({
   const [playbookTemplateSteps, setPlaybookTemplateSteps] = useState('')
   const [playbookAssigneeAgentId, setPlaybookAssigneeAgentId] = useState('theo')
   const [playbookAgentSpec, setPlaybookAgentSpec] = useState('')
-  const [playbookRequiredCapability, setPlaybookRequiredCapability] = useState('project-management')
+  const [playbookRequiredCapability, setPlaybookRequiredCapability] = useState('engineering')
   const [playbookRiskLevel, setPlaybookRiskLevel] = useState('medium')
   const [playbookReviewerAgentId, setPlaybookReviewerAgentId] = useState('qa-release')
   const [playbookExpectedArtifacts, setPlaybookExpectedArtifacts] = useState('Completion summary, Evidence links')
@@ -758,7 +758,17 @@ function ControlForms({
             </label>
             <label className="mt-2 block">
               <span className="mb-1 block pib-label">Required capability</span>
-              <input value={playbookRequiredCapability} onChange={(event) => setPlaybookRequiredCapability(event.target.value)} className="pib-input" />
+              <select value={playbookRequiredCapability} onChange={(event) => setPlaybookRequiredCapability(event.target.value)} className="pib-input">
+                <option value="engineering">engineering</option>
+                <option value="platform-engineering">platform engineering</option>
+                <option value="platform-ops">platform operations</option>
+                <option value="content">content</option>
+                <option value="research">research</option>
+                <option value="seo">SEO</option>
+                <option value="client_document">client documents</option>
+                <option value="qa">quality assurance</option>
+                <option value="coordination">coordination</option>
+              </select>
             </label>
             <label className="mt-2 block">
               <span className="mb-1 block pib-label">Risk level</span>
@@ -1283,7 +1293,7 @@ function PlanningDiscoveryPanel({
 }: {
   state: SuiteData['planningDiscovery']
   saving: boolean
-  onAction: (action: Record<string, unknown>) => Promise<void>
+  onAction: (action: Record<string, unknown>) => Promise<boolean>
 }) {
   const [attestation, setAttestation] = useState('')
   const [reason, setReason] = useState('')
@@ -1459,13 +1469,13 @@ function PlanningDiscoveryPanel({
               className="pib-btn-primary"
               disabled={saving || answer.trim().length === 0}
               onClick={async () => {
-                await onAction({
+                const submitted = await onAction({
                   type: 'answer_question',
                   expectedRevision: revision,
                   expectedQuestionId: state?.pendingQuestionId,
                   answer: answer.trim(),
                 })
-                setAnswer('')
+                if (submitted) setAnswer('')
               }}
             >
               Answer Pip
@@ -1622,8 +1632,10 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
       if (!res.ok) throw new Error(body.error || 'Planning discovery update failed')
       setError(null)
       await loadSuite({ quiet: true })
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Planning discovery update failed')
+      return false
     } finally {
       setSaving(false)
     }

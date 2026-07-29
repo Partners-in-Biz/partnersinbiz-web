@@ -11,7 +11,7 @@ import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument } from '@/lib/client-documents/types'
 import { getProjectForUser } from '@/lib/projects/access'
 import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
-import { planningMutationBlocker, preparePlanningContextMutation } from '@/lib/projects/planningDiscovery'
+import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,9 +49,6 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const body = await req.json().catch(() => ({}))
   const access = await getProjectForUser(projectId, user)
   if (!access.ok) return apiError(access.error, access.status)
-  const accessProject = (access.doc.data() ?? {}) as Record<string, unknown>
-  const accessBlocker = planningMutationBlocker(accessProject)
-  if (accessBlocker) return apiError(accessBlocker.message, 409, accessBlocker)
 
   if (!body.title?.trim()) return apiError('title is required', 400)
   if (!body.content) return apiError('content is required', 400)
@@ -76,25 +73,29 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     const liveSnapshot = await tx.get(projectRef)
     if (!liveSnapshot.exists) return { ok: false as const, status: 404, error: 'Project not found' }
     const liveProject = (liveSnapshot.data() ?? {}) as Record<string, unknown>
-    const liveBlocker = planningMutationBlocker(liveProject)
-    if (liveBlocker) return { ok: false as const, status: 409, error: liveBlocker.message, details: liveBlocker }
-    const transition = preparePlanningContextMutation(
-      liveProject,
-      { uid: user.uid, now: new Date().toISOString() },
-      'Project document created',
-    )
-    if (!transition.ok) return transition
+    const transition = planningContextMutationTransition(liveProject, {
+      uid: user.uid,
+      now: new Date().toISOString(),
+      reason: 'Project document created',
+    })
+    if (transition.state) {
+      tx.update(projectRef, {
+        planningDiscovery: transition.state,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    }
+    if (transition.event) {
+      tx.set(eventRef, {
+        ...transition.event,
+        projectId,
+        orgId: liveProject.orgId ?? null,
+        schemaVersion: 1,
+      })
+    }
+    if (!transition.allowed) {
+      return { ok: false as const, status: 409, error: transition.blocker.message, details: transition.blocker }
+    }
     tx.set(ref, doc)
-    tx.update(projectRef, {
-      planningDiscovery: transition.state,
-      updatedAt: FieldValue.serverTimestamp(),
-    })
-    tx.set(eventRef, {
-      ...transition.event,
-      projectId,
-      orgId: liveProject.orgId ?? null,
-      schemaVersion: 1,
-    })
     return { ok: true as const }
   })
   if (!mutation.ok) return apiError(mutation.error, mutation.status, 'details' in mutation ? mutation.details : undefined)

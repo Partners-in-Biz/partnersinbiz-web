@@ -63,6 +63,17 @@ const assumptions: PlanningDiscoveryState = {
 
 describe('watcher planning readiness parity', () => {
   it.each([
+    ['unsupported schema version', { ...confirmed, schemaVersion: 2 }],
+    ['non-positive revision', { ...confirmed, revision: 0 }],
+    ['pending question after confirmation', { ...confirmed, pendingQuestionId: 'q-open' }],
+    ['blank confirmed by', { ...confirmed, confirmedBy: ' ' }],
+    ['blank confirmed at in assumption mode', { ...assumptions, confirmedAt: ' ' }],
+  ])('fails closed for %s', (_label, state) => {
+    expect(isPlanningReady(state)).toBe(false)
+    expect(isWatcherPlanningReady(state)).toBe(false)
+  })
+
+  it.each([
     ['canonical confirmed state', confirmed],
     ['canonical assumption state', assumptions],
     ['missing inspection', { ...confirmed, inspection: undefined }],

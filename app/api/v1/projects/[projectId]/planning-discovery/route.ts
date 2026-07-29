@@ -7,7 +7,7 @@ import { canProjectRole } from '@/lib/projects/collaboration'
 import {
   applyPlanningDiscoveryAction,
   isPlanningDiscoveryActionType,
-  type PlanningDiscoveryAction,
+  type PlanningAction,
   type PlanningDiscoveryState,
 } from '@/lib/projects/planningDiscovery'
 import { handoffPlanningConfirmFromDiscovery } from '@/lib/messages/planningConfirmHandoff'
@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ projectId: string }> }
 
-const PIP_INTERVIEW_ACTIONS = new Set<PlanningDiscoveryAction['type']>([
+const PIP_INTERVIEW_ACTIONS = new Set<PlanningAction['type']>([
   'record_inspection',
   'ask_question',
   'surface_brief',

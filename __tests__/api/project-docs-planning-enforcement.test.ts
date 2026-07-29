@@ -113,13 +113,41 @@ function request(method: string, body?: Record<string, unknown>) {
 }
 
 describe('legacy project docs planning enforcement', () => {
-  it('fails closed before creating a planning-context document on a legacy project', async () => {
+  it('initializes enforced discovery transactionally before rejecting a legacy document create', async () => {
     const { POST } = await import('@/app/api/v1/projects/[projectId]/docs/route')
     const res = await POST(request('POST', { title: 'Brief', content: 'New intent', type: 'brief' }), collectionCtx)
 
     expect(res.status).toBe(409)
+    expect(mockRunTransaction).toHaveBeenCalledTimes(1)
+    expect(mockTransactionGet).toHaveBeenCalledWith(projectRef)
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(projectRef, expect.objectContaining({
+      planningDiscovery: expect.objectContaining({ enforced: true, status: 'interviewing', revision: 1 }),
+    }))
+    expect(mockTransactionSet).toHaveBeenCalledWith(eventRef, expect.objectContaining({ type: 'started' }))
     expect(mockLegacyDocAdd).not.toHaveBeenCalled()
     expect(mockTransactionSet).not.toHaveBeenCalledWith(legacyDocRef, expect.anything())
+  })
+
+  it('initializes enforced discovery transactionally before rejecting a legacy document update', async () => {
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/docs/[docId]/route')
+    const res = await PATCH(request('PATCH', { content: 'New intent' }), itemCtx)
+
+    expect(res.status).toBe(409)
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(projectRef, expect.objectContaining({
+      planningDiscovery: expect.objectContaining({ enforced: true, status: 'interviewing', revision: 1 }),
+    }))
+    expect(mockTransactionUpdate).not.toHaveBeenCalledWith(legacyDocRef, expect.anything())
+  })
+
+  it('initializes enforced discovery transactionally before rejecting a legacy document delete', async () => {
+    const { DELETE } = await import('@/app/api/v1/projects/[projectId]/docs/[docId]/route')
+    const res = await DELETE(request('DELETE'), itemCtx)
+
+    expect(res.status).toBe(409)
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(projectRef, expect.objectContaining({
+      planningDiscovery: expect.objectContaining({ enforced: true, status: 'interviewing', revision: 1 }),
+    }))
+    expect(mockTransactionDelete).not.toHaveBeenCalled()
   })
 
   it('atomically updates a context document and reopens confirmed discovery with an audit snapshot', async () => {

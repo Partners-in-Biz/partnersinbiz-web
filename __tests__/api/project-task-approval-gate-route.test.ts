@@ -46,9 +46,17 @@ jest.mock('@/lib/projects/access', () => ({
 }))
 
 jest.mock('@/lib/projects/planningDiscovery', () => ({
+  ...jest.requireActual('@/lib/projects/planningDiscovery'),
   planningMutationBlocker: (project: Record<string, unknown>) => mockPlanningMutationBlocker(project),
-  isProjectTaskPlanningMutation: jest.requireActual('@/lib/projects/planningDiscovery').isProjectTaskPlanningMutation,
-  isProjectTaskContextMutation: jest.requireActual('@/lib/projects/planningDiscovery').isProjectTaskContextMutation,
+}))
+
+jest.mock('@/lib/projects/planningDiscoveryStore', () => ({
+  planningContextMutationTransition: (project: Record<string, unknown>) => {
+    const blocker = mockPlanningMutationBlocker(project)
+    return blocker
+      ? { allowed: false, blocker, state: null, event: null }
+      : { allowed: true, state: null, event: null }
+  },
 }))
 
 jest.mock('@/lib/activity/log', () => ({
@@ -111,7 +119,7 @@ describe('project task approval gate route guards', () => {
     const res = await PATCH(req({ title: 'Changed task intent' }), ctx)
 
     expect(res.status).toBe(409)
-    expect(mockTaskGet).not.toHaveBeenCalled()
+    expect(mockTaskGet).toHaveBeenCalled()
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
@@ -138,11 +146,15 @@ describe('project task approval gate route guards', () => {
     mockPlanningMutationBlocker.mockReturnValue({
       code: 'planning_discovery_required', message: 'Planning discovery required', revision: 2,
     })
+    mockTaskGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ title: 'Ordinary task', labels: [] }),
+    })
     const { DELETE } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
     const res = await DELETE(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', { method: 'DELETE' }), ctx)
 
     expect(res.status).toBe(409)
-    expect(mockTaskGet).not.toHaveBeenCalled()
+    expect(mockTaskGet).toHaveBeenCalled()
     expect(mockTaskDelete).not.toHaveBeenCalled()
   })
 

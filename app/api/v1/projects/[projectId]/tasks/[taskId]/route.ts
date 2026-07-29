@@ -134,7 +134,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!access.ok) return apiError(access.error, access.status)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required to update tasks', 403)
-  const body = await req.json() as Record<string, unknown>
+  }
   const planningSensitive = isProjectTaskPlanningMutation(body)
 
   const ref = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
@@ -391,7 +391,7 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   if (!scope.ok) return scope.response
   const access = await getProjectForUser(projectId, user, scope.orgId)
   if (!access.ok) return apiError(access.error, access.status)
-  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'contribute')) {
+  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required to delete tasks', 403)
   }
 
