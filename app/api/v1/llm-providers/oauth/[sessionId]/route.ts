@@ -74,6 +74,8 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, ct
           ...(result.tokens.expires_in ? { expires_in: String(result.tokens.expires_in) } : {}),
           ...(result.tokens.token_type ? { token_type: result.tokens.token_type } : {}),
           ...(result.tokens.scope ? { scope: result.tokens.scope } : {}),
+          obtained_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + (Number(result.tokens.expires_in) || 21_600) * 1000).toISOString(),
         },
       }, { uid: user.uid, type: 'user' })
 

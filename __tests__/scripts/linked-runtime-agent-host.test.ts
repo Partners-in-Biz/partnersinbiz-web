@@ -99,7 +99,7 @@ describe('executeAgentHostJob', () => {
     fs.rmSync(home, { recursive: true, force: true })
   })
 
-  it('writes xAI OAuth in the exact Hermes-native singleton and pool shape', async () => {
+  it('writes centrally refreshed xAI OAuth access tokens without a refresh token', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-agent-host-xai-oauth-'))
     const outcome = await executeAgentHostJob({
       jobId: 'credential-xai-oauth',
@@ -123,7 +123,6 @@ describe('executeAgentHostJob', () => {
         canaryModel: 'grok-4.20',
         credentials: {
           access_token: 'xai-access-token',
-          refresh_token: 'xai-refresh-token',
         },
       },
     }, {
@@ -143,13 +142,13 @@ describe('executeAgentHostJob', () => {
     const auth = JSON.parse(fs.readFileSync(path.join(home, 'profiles', 'theo', 'auth.json'), 'utf8'))
     expect(auth.providers['xai-oauth'].tokens).toMatchObject({
       access_token: 'xai-access-token',
-      refresh_token: 'xai-refresh-token',
     })
+    expect(auth.providers['xai-oauth'].tokens.refresh_token).toBeUndefined()
     expect(auth.credential_pool['xai-oauth'][0]).toMatchObject({
       access_token: 'xai-access-token',
-      refresh_token: 'xai-refresh-token',
       source: 'device_code',
     })
+    expect(auth.credential_pool['xai-oauth'][0].refresh_token).toBeUndefined()
     expect(auth.credential_pool.xai).toBeUndefined()
     fs.rmSync(home, { recursive: true, force: true })
   })

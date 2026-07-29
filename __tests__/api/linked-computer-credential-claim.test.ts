@@ -116,4 +116,33 @@ describe('linked computer LLM credential claims', () => {
     expect(response.status).toBe(403)
     expect(mockGetCredentials).not.toHaveBeenCalled()
   })
+
+  it('never delivers the rotating xAI refresh token to a linked machine', async () => {
+    mockGetConnection.mockResolvedValue({
+      id: 'user:u1:xai-oauth',
+      provider: 'xai-oauth',
+      scope: 'user',
+      ownerUid: 'u1',
+      orgId: 'org-1',
+      status: 'connected',
+      credentialVersion: 2,
+    })
+    mockGetCredentials.mockResolvedValue({
+      access_token: 'short-lived-access',
+      refresh_token: 'single-use-refresh',
+    })
+    const response = await handleAgentHostClaim(
+      request(),
+      'device-1',
+      async () => ({ deviceId: 'device-1', ownerUserId: 'u1', credentialVersion: 7 }) as never,
+      async () => claimedJob(),
+    )
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.data.credentialDelivery.credentials).toEqual({
+      access_token: 'short-lived-access',
+      refresh_token: '',
+    })
+    expect(JSON.stringify(body)).not.toContain('single-use-refresh')
+  })
 })

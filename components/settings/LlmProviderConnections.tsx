@@ -36,6 +36,9 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
   const [oauthSession, setOauthSession] = useState<LlmOauthSessionPublic | null>(null)
   const [codeCopied, setCodeCopied] = useState(false)
   const oauthBannerRef = useRef<HTMLDivElement | null>(null)
+  const oauthProviderLabel = oauthSession
+    ? providers.find((provider) => provider.key === oauthSession.provider)?.label || 'provider'
+    : 'provider'
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -170,7 +173,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
         >
           <p className="font-semibold text-[var(--color-pib-text)]">Complete sign-in</p>
           <p className="mt-1 text-[var(--color-pib-text-muted)]">
-            Approve this device in OpenAI / ChatGPT. A sign-in tab should have opened — if not, use the link below.
+            Approve this device with {oauthProviderLabel}. A sign-in tab should have opened — if not, use the link below.
           </p>
           {oauthSession.userCode ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -247,6 +250,12 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
                         throw new Error(sync.message ? `${sync.message} ${detail}` : detail)
                       }
                     }}
+                    onReconnect={async () => {
+                      await beginOauth(conn.provider, {
+                        scope: conn.scope,
+                        label: conn.label,
+                      })
+                    }}
                     onDisconnect={async () => {
                       await revokeLlmConnection(orgId, conn.id)
                       await refresh()
@@ -306,12 +315,14 @@ function ConnectedRow({
   bindings,
   canManageOrgConnections,
   onResync,
+  onReconnect,
   onDisconnect,
 }: {
   connection: LlmProviderConnectionMasked
   bindings: LlmProviderCatalogResponse['bindings']
   canManageOrgConnections: boolean
   onResync: () => Promise<void>
+  onReconnect: () => Promise<void>
   onDisconnect: () => Promise<void>
 }) {
   const [busy, setBusy] = useState(false)
@@ -344,9 +355,15 @@ function ConnectedRow({
         </div>
         {canManage ? (
           <div className="flex gap-2">
-            <button type="button" className="btn-pib-secondary text-xs" disabled={busy} onClick={run(onResync)}>
-              {isPersonal ? 'Sync to my computers' : 'Sync to organisation VPS'}
-            </button>
+            {connection.status === 'reauth_required' ? (
+              <button type="button" className="pib-btn-primary text-xs" disabled={busy} onClick={run(onReconnect)}>
+                Reconnect account
+              </button>
+            ) : (
+              <button type="button" className="btn-pib-secondary text-xs" disabled={busy} onClick={run(onResync)}>
+                {isPersonal ? 'Sync to my computers' : 'Sync to organisation VPS'}
+              </button>
+            )}
             <button
               type="button"
               className="btn-pib-secondary text-xs text-red-300"
@@ -484,7 +501,7 @@ function ConnectForm({
       <div className="flex flex-wrap gap-2">
         {wantsOauth && (
           <button type="button" className="pib-btn-primary text-xs" disabled={submitting} onClick={() => void submit('oauth')}>
-            {submitting ? 'Starting OpenAI sign-in…' : 'Sign in with OAuth'}
+            {submitting ? `Starting ${provider.label} sign-in…` : `Sign in with ${provider.label}`}
           </button>
         )}
         {canApiKey && (

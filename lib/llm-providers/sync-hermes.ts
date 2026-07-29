@@ -24,6 +24,7 @@ import {
   type LlmSyncTarget,
 } from './sync-targets'
 import type { LlmProviderConnection } from './types'
+import { ensureFreshLlmProviderConnection } from './refresh'
 
 export type SyncLlmConnectionResult = {
   synced: string[]
@@ -70,10 +71,11 @@ export async function syncLlmConnectionToHermes(
   connectionId: string,
   options: { agentIds?: string[]; accessPolicy?: MemberAccessPolicy; orgRole?: OrgRole | null } = {},
 ): Promise<SyncLlmConnectionResult> {
-  const conn = await getLlmProviderConnection(connectionId)
-  if (!conn || conn.status === 'revoked') {
+  const savedConnection = await getLlmProviderConnection(connectionId)
+  if (!savedConnection || savedConnection.status === 'revoked') {
     throw new Error('Connection not found')
   }
+  const conn = await ensureFreshLlmProviderConnection(savedConnection)
 
   const credentials = await getDecryptedLlmCredentials(conn)
   if (!credentials) {
@@ -433,7 +435,9 @@ async function pushOauthTokens(
   const provider = conn.hermesProvider
   const body = JSON.stringify({
     access_token: credentials.access_token,
-    refresh_token: credentials.refresh_token,
+    // xAI refresh tokens are rotating, single-use credentials. The web app is
+    // their sole owner; runtimes receive only the current access token.
+    ...(conn.provider === 'xai-oauth' ? {} : { refresh_token: credentials.refresh_token }),
     expires_in: credentials.expires_in ? Number(credentials.expires_in) : undefined,
     token_type: credentials.token_type || 'Bearer',
     ...(credentials.id_token ? { id_token: credentials.id_token } : {}),
