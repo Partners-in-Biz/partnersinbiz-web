@@ -164,6 +164,13 @@ export type ChatUiAction = {
   endpoint?: string
   method?: string
   payload?: Record<string, unknown>
+  /**
+   * How the Messages client serializes the request body for custom endpoints.
+   * - envelope (default): { actionId, type, value, payload } — Hermes run actions
+   * - payload: send payload as the JSON body (human-session API calls such as
+   *   Decision Brief confirm, which agents cannot perform)
+   */
+  bodyMode?: 'envelope' | 'payload' | string
   disabled?: boolean
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | string
   [key: string]: unknown

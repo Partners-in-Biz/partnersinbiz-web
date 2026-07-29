@@ -24,10 +24,38 @@ pib_hermes_profile_api_key() {
 pib_hermes_established_count() {
   local port="$1"
   # Clients connected TO the API port (dport) carry the peer process name.
-  # Active /v1/runs show up here. Ignore long-lived keepalives (pib-runtime,
-  # caddy, sshd) so profiles are not permanently "busy".
+  # Active /v1/runs show up here. Ignore pure edge keepalives (caddy, sshd).
+  # Do NOT ignore pib-runtime: linked Messages dispatch often holds that
+  # connection for the duration of a run — treating it as idle caused OAuth
+  # sync to SIGTERM live chats.
   ss -tnp state established "( dport = :${port} )" 2>/dev/null \
-    | awk 'NR>1 && $0 !~ /pib-runtime/ && $0 !~ /caddy/ && $0 !~ /sshd/ {c++} END {print c+0}'
+    | awk 'NR>1 && $0 !~ /caddy/ && $0 !~ /sshd/ {c++} END {print c+0}'
+}
+
+# True when the hermes@profile cgroup has agent-work children (browser, node, shells).
+# TCP can look idle while tools still run in-process after the HTTP claim.
+pib_hermes_profile_has_agent_work() {
+  local profile="$1"
+  local unit="hermes@${profile}.service"
+  local main_pid
+  main_pid=$(systemctl show "$unit" --property=MainPID --value 2>/dev/null || echo 0)
+  if [[ ! "$main_pid" =~ ^[1-9][0-9]*$ ]]; then
+    return 1
+  fi
+  # Direct children of the gateway process.
+  if pgrep -P "$main_pid" >/dev/null 2>&1; then
+    return 0
+  fi
+  # Known agent-work binaries owned by hermes that often outlive the TCP claim.
+  if pgrep -u hermes -f "agent-browser|chrome.*user-data-dir=/tmp/agent-browser|chromedriver" >/dev/null 2>&1; then
+    # Only treat as busy for this profile if chrome data dir or cwd references it — best-effort.
+    if pgrep -u hermes -af "agent-browser|chrome" 2>/dev/null | grep -E "hermes|agent-browser|chrome" >/dev/null 2>&1; then
+      # If ANY chrome agent-browser is up, be conservative for all profiles on this host
+      # when soft_wait is 0 (request path). Deferred sweep can re-check.
+      return 0
+    fi
+  fi
+  return 1
 }
 
 # Returns 0 when quiet, 1 when still busy after soft wait.
@@ -41,17 +69,21 @@ pib_hermes_wait_for_quiet_port() {
   }
   if (( max_wait == 0 )); then
     count=$(pib_hermes_established_count "$port")
-    if (( count == 0 )); then
+    if (( count == 0 )) && ! pib_hermes_profile_has_agent_work "$profile"; then
       echo "drain quiet hermes@${profile} port ${port}"
       return 0
     fi
-    echo "drain busy hermes@${profile} (${count} established)" >&2
+    if pib_hermes_profile_has_agent_work "$profile"; then
+      echo "drain busy hermes@${profile} (agent work in process tree)" >&2
+    else
+      echo "drain busy hermes@${profile} (${count} established)" >&2
+    fi
     return 1
   fi
   started=$(date +%s)
   while true; do
     count=$(pib_hermes_established_count "$port")
-    if (( count == 0 )); then
+    if (( count == 0 )) && ! pib_hermes_profile_has_agent_work "$profile"; then
       quiet_streak=$((quiet_streak + 1))
       if (( quiet_streak >= quiet_needed )); then
         echo "drain quiet hermes@${profile} port ${port}"

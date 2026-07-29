@@ -1296,7 +1296,13 @@ function PlanningDiscoveryPanel({
   const pendingTurn = turns.find((turn) => turn.id && turn.id === state?.pendingQuestionId) ?? null
 
   return (
-    <section className={`rounded-2xl border p-4 ${ready ? 'border-emerald-300 bg-emerald-50/60' : 'border-amber-300 bg-amber-50/70'}`}>
+    <section
+      className={`rounded-[var(--radius-card)] border p-4 ${
+        ready
+          ? 'border-[var(--color-pib-green)]/30 bg-[var(--color-pib-green-soft)]'
+          : 'border-[var(--color-pib-amber)]/30 bg-[var(--color-pib-amber-soft)]'
+      }`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="pib-label">Mandatory planning discovery</p>
@@ -1310,7 +1316,13 @@ function PlanningDiscoveryPanel({
             Prefer Messages → Pip with “Plan with me” / “Interview me before you start this project” so the agent can inspect files and record turns. You can also answer a pending question here.
           </p>
         </div>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-text)]">
+        <span
+          className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+            ready
+              ? 'border-[var(--color-pib-green)]/30 bg-[var(--color-pib-surface)] text-[var(--color-pib-green)]'
+              : 'border-[var(--color-pib-amber)]/30 bg-[var(--color-pib-surface)] text-[var(--color-pib-amber)]'
+          }`}
+        >
           {state?.status?.replace(/_/g, ' ') || 'not started'}
         </span>
       </div>
@@ -1319,7 +1331,10 @@ function PlanningDiscoveryPanel({
         <div className="mt-4 space-y-2" data-testid="planning-interview-turns">
           <h4 className="font-headline text-sm font-semibold text-[var(--color-pib-text)]">Interview turns</h4>
           {turns.map((turn) => (
-            <div key={turn.id ?? turn.question} className="rounded-xl border border-[var(--color-card-border)] bg-white p-3 text-sm">
+            <div
+              key={turn.id ?? turn.question}
+              className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-3 text-sm"
+            >
               <p className="font-medium text-[var(--color-pib-text)]">Q: {turn.question || '—'}</p>
               {turn.currentGuess && (
                 <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Guess: {turn.currentGuess}</p>
@@ -1327,7 +1342,9 @@ function PlanningDiscoveryPanel({
               {turn.answer ? (
                 <p className="mt-2 text-[var(--color-pib-text)]">A: {turn.answer}</p>
               ) : turn.id === state?.pendingQuestionId ? (
-                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-amber-700">Awaiting your answer</p>
+                <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-pib-amber)]">
+                  Awaiting your answer
+                </p>
               ) : null}
             </div>
           ))}
@@ -1335,7 +1352,10 @@ function PlanningDiscoveryPanel({
       )}
 
       {pendingTurn?.id && (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-white p-3" data-testid="planning-answer-form">
+        <div
+          className="mt-4 rounded-xl border border-[var(--color-pib-amber)]/25 bg-[var(--color-pib-surface)] p-3"
+          data-testid="planning-answer-form"
+        >
           <p className="text-sm font-semibold text-[var(--color-pib-text)]">Answer the current question</p>
           <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">{pendingTurn.question}</p>
           <textarea
@@ -1366,20 +1386,53 @@ function PlanningDiscoveryPanel({
       )}
 
       {brief && (
-        <div className="mt-4 rounded-xl bg-white p-4 text-sm">
+        <div className="mt-4 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 text-sm text-[var(--color-pib-text)]">
           <h4 className="font-headline font-semibold text-[var(--color-pib-text)]">Decision Brief</h4>
           <dl className="mt-3 grid gap-3 md:grid-cols-2">
-            <div><dt className="font-semibold">Outcome</dt><dd>{brief.outcome || 'Not recorded'}</dd></div>
-            <div><dt className="font-semibold">User / audience</dt><dd>{brief.user || 'Not recorded'}</dd></div>
-            <div><dt className="font-semibold">Why now</dt><dd>{brief.whyNow || 'Not recorded'}</dd></div>
-            <div><dt className="font-semibold">Success criteria</dt><dd>{(brief.successCriteria ?? []).join(' · ') || 'Not recorded'}</dd></div>
-            <div><dt className="font-semibold">Constraints</dt><dd>{(brief.constraints ?? []).join(' · ') || 'None recorded'}</dd></div>
-            <div><dt className="font-semibold">Out of scope</dt><dd>{(brief.outOfScope ?? []).join(' · ') || 'None recorded'}</dd></div>
-            <div><dt className="font-semibold">Assumptions</dt><dd>{(brief.assumptions ?? []).join(' · ') || 'None recorded'}</dd></div>
-            <div><dt className="font-semibold">Risks</dt><dd>{(brief.risks ?? []).join(' · ') || 'None recorded'}</dd></div>
-            <div><dt className="font-semibold">Approval gates</dt><dd>{(brief.approvalGates ?? []).join(' · ') || 'None recorded'}</dd></div>
-            <div><dt className="font-semibold">Revision</dt><dd>{revision}</dd></div>
-            <div className="md:col-span-2"><dt className="font-semibold">Digest</dt><dd className="break-all font-mono text-xs">{state?.digest || 'Not recorded'}</dd></div>
+            <div>
+              <dt className="font-semibold text-[var(--color-pib-text)]">Outcome</dt>
+              <dd className="text-[var(--color-pib-text-muted)]">{brief.outcome || 'Not recorded'}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-[var(--color-pib-text)]">User / audience</dt>
+              <dd className="text-[var(--color-pib-text-muted)]">{brief.user || 'Not recorded'}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-[var(--color-pib-text)]">Why now</dt>
+              <dd className="text-[var(--color-pib-text-muted)]">{brief.whyNow || 'Not recorded'}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-[var(--color-pib-text)]">Success criteria</dt>
+              <dd className="text-[var(--color-pib-text-muted)]">{(brief.successCriteria ?? []).join(' · ') || 'Not recorded'}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-[var(--color-pib-text)]">Constraints</dt>
+              <dd className="text-[var(--color-pib-text-muted)]">{(brief.constraints ?? []).join(' · ') || 'None recorded'}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-[var(--color-pib-text)]">Out of scope</dt>
+              <dd className="text-[var(--color-pib-text-muted)]">{(brief.outOfScope ?? []).join(' · ') || 'None recorded'}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-[var(--color-pib-text)]">Assumptions</dt>
+              <dd className="text-[var(--color-pib-text-muted)]">{(brief.assumptions ?? []).join(' · ') || 'None recorded'}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-[var(--color-pib-text)]">Risks</dt>
+              <dd className="text-[var(--color-pib-text-muted)]">{(brief.risks ?? []).join(' · ') || 'None recorded'}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-[var(--color-pib-text)]">Approval gates</dt>
+              <dd className="text-[var(--color-pib-text-muted)]">{(brief.approvalGates ?? []).join(' · ') || 'None recorded'}</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-[var(--color-pib-text)]">Revision</dt>
+              <dd className="text-[var(--color-pib-text-muted)]">{revision}</dd>
+            </div>
+            <div className="md:col-span-2">
+              <dt className="font-semibold text-[var(--color-pib-text)]">Digest</dt>
+              <dd className="break-all font-mono text-xs text-[var(--color-pib-text-muted)]">{state?.digest || 'Not recorded'}</dd>
+            </div>
           </dl>
         </div>
       )}
@@ -1393,8 +1446,8 @@ function PlanningDiscoveryPanel({
       </div>
 
       {state && !ready && brief && (
-        <details className="mt-4 rounded-xl border border-amber-200 bg-white p-3">
-          <summary className="cursor-pointer text-sm font-semibold">Plan with assumptions (YOLO)</summary>
+        <details className="mt-4 rounded-xl border border-[var(--color-pib-amber)]/25 bg-[var(--color-pib-surface)] p-3">
+          <summary className="cursor-pointer text-sm font-semibold text-[var(--color-pib-text)]">Plan with assumptions (YOLO)</summary>
           <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">This skips further interview questions only. It never bypasses publishing, spend, finance, destructive-action, client-message, secret, or production approvals.</p>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             <input aria-label="Planning assumptions attestation" className="pib-input" value={attestation} onChange={(event) => setAttestation(event.target.value)} placeholder="Type PLAN WITH ASSUMPTIONS" />

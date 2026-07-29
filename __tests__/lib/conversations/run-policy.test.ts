@@ -15,6 +15,8 @@ describe('humanizeConversationRunError', () => {
       .toBe(CONVERSATION_RUN_LOST_ERROR)
     expect(humanizeConversationRunError('Broken pipe while streaming events'))
       .toBe(CONVERSATION_RUN_LOST_ERROR)
+    expect(humanizeConversationRunError('Tool terminal returned error exit_code": -15'))
+      .toBe(CONVERSATION_RUN_LOST_ERROR)
   })
 
   it('preserves ordinary short errors', () => {

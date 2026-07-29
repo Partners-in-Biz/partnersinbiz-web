@@ -361,6 +361,7 @@ Rules:
 - One question + current guess at a time.
 - Human managers only may `confirm` or `PLAN WITH ASSUMPTIONS`.
 - Planning mutations and playbook runs fail closed with `planning_discovery_required` until the Decision Brief is confirmed or assumptions-attested.
+- Agents cannot confirm Decision Briefs. When status is `brief_ready`, call `POST /api/v1/projects/{id}/planning-discovery` with `{ "type": "request_human_confirm", "conversationId", "responseMessageId" }` so Messages attaches a human-session **Confirm Decision Brief** card. Never ask the operator to dig through Plan tabs when the card can be shown in chat.
 - After confirmation, create **structured** playbook steps (assigneeAgentId, agentInput.spec, dependsOnStepIds, reviewerAgentId, requiredCapability, riskLevel, expectedArtifacts, verifierChecklist) — never bare unassigned titles for agent work.
 
 ### Standalone tasks

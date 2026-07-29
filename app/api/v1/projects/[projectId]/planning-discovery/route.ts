@@ -9,6 +9,7 @@ import {
   isPlanningDiscoveryActionType,
   type PlanningDiscoveryState,
 } from '@/lib/projects/planningDiscovery'
+import { handoffPlanningConfirmFromDiscovery } from '@/lib/messages/planningConfirmHandoff'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,6 +66,40 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const action = await req.json().catch(() => null)
   if (!action || typeof action !== 'object' || typeof action.type !== 'string') return apiError('A planning discovery action is required', 400)
+
+  const projectData = (access.doc.data() ?? {}) as {
+    orgId?: string
+    name?: string
+    title?: string
+    planningDiscovery?: PlanningDiscoveryState
+  }
+  const handoffOrgId = String(projectData.orgId ?? (explicitOrgId || user.orgId || '')).trim()
+  const projectLabel = (projectData.name || projectData.title || projectId).trim()
+
+  // Agents re-surface the human confirm card without mutating planning state.
+  if (action.type === 'request_human_confirm') {
+    const discovery = projectData.planningDiscovery
+    if (!discovery || discovery.status !== 'brief_ready' || !discovery.digest || !discovery.brief) {
+      return apiError('Decision Brief is not ready for confirmation', 409)
+    }
+    if (!handoffOrgId) return apiError('Organisation context is required for confirm handoff', 400)
+    const handoff = await handoffPlanningConfirmFromDiscovery({
+      orgId: handoffOrgId,
+      body: action as Record<string, unknown>,
+      projectId,
+      projectLabel,
+      revision: discovery.revision,
+      digest: discovery.digest,
+      brief: discovery.brief,
+    })
+    return apiSuccess({
+      planningDiscovery: publicSummary(discovery),
+      uiActions: handoff.uiActions,
+      richParts: handoff.richParts,
+      messagesAttach: handoff.messagesAttach,
+    })
+  }
+
   if (!isPlanningDiscoveryActionType(action.type)) return apiError('Unknown planning discovery action', 400)
   const terminalHumanActions = new Set(['confirm', 'plan_with_assumptions', 'reopen'])
   if (terminalHumanActions.has(action.type) && (user.role === 'ai' || user.authKind === 'user_delegation')) {
@@ -116,7 +151,42 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       return transition
     })
     if (!result.ok) return apiError(result.error, result.status)
-    return apiSuccess({ planningDiscovery: publicSummary(result.state), eventId: eventRef.id })
+
+    // When a Decision Brief is ready, attach a human-session confirm card to the
+    // in-flight Messages assistant turn so operators never have to hunt for Plan.
+    const state = result.state
+    const actionType = action.type
+    const shouldHandoffConfirm =
+      state.status === 'brief_ready'
+      && typeof state.digest === 'string'
+      && Boolean(state.brief)
+      && (actionType === 'submit_brief' || actionType === 'surface_brief')
+
+    if (shouldHandoffConfirm && state.brief && state.digest && handoffOrgId) {
+      const handoff = await handoffPlanningConfirmFromDiscovery({
+        orgId: handoffOrgId,
+        body: action as Record<string, unknown>,
+        projectId,
+        projectLabel,
+        revision: state.revision,
+        digest: state.digest,
+        brief: state.brief,
+      }).catch(() => null)
+      if (handoff) {
+        return apiSuccess({
+          planningDiscovery: publicSummary(result.state),
+          eventId: eventRef.id,
+          uiActions: handoff.uiActions,
+          richParts: handoff.richParts,
+          messagesAttach: handoff.messagesAttach,
+        })
+      }
+    }
+
+    return apiSuccess({
+      planningDiscovery: publicSummary(result.state),
+      eventId: eventRef.id,
+    })
   } catch (error) {
     console.error('[planning-discovery-update-error]', error)
     return apiError('Planning discovery update failed', 500)

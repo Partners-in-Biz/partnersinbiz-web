@@ -25,12 +25,14 @@ export function humanizeConversationRunError(raw: string | null | undefined): st
     return 'The agent run failed. Please send the message again.'
   }
   const lower = text.toLowerCase()
+  // agent-browser / CDP — often a red herring when the gateway was SIGTERM'd mid-run
   if (
     lower.includes('unable to connect')
-    && (lower.includes('access the url') || lower.includes('access the url?'))
+    || (lower.includes('is the computer able to access') && lower.includes('url'))
   ) {
     return CONVERSATION_BROWSER_CONNECT_USER_ERROR
   }
+  // Mid-run gateway kill (OAuth restart, skill sync, etc.)
   if (
     lower.includes('connection reset')
     || lower.includes('connection refused')
@@ -38,6 +40,13 @@ export function humanizeConversationRunError(raw: string | null | undefined): st
     || lower.includes('server disconnected')
     || lower.includes('client connector error')
     || lower.includes('gateway lost this run')
+    || lower.includes('signal=sigterm')
+    || lower.includes('sigterm')
+    || lower.includes('exit_code": -15')
+    || lower.includes('exit_code":-15')
+    || lower.includes('exit code -15')
+    || lower.includes('exit_code_meaning')
+    || (lower.includes('shutdown context') && lower.includes('sigterm'))
   ) {
     return CONVERSATION_RUN_LOST_ERROR
   }

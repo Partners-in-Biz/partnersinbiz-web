@@ -174,14 +174,40 @@ Requirements for normal mode:
 - zero intent-blocking unknowns
 - all brief sections populated
 
-Then ask the **human project manager** to confirm in Plan or via:
+Then surface a **human-session confirm card in Messages** — do **not** ask the human to go hunting for the Plan tab, and do **not** claim that typing “I confirm” confirmed the brief.
+
+On `submit_brief` (and when re-surfacing an existing ready brief), include Messages handoff ids and let the platform attach the card:
 
 ```
 POST /api/v1/projects/{projectId}/planning-discovery
-{ "type": "confirm", "expectedRevision": <n>, "expectedDigest": "<digest>" }
+{
+  "type": "submit_brief",
+  "expectedRevision": <n>,
+  "confidence": 95,
+  "predictedNextAnswers": ["…", "…", "…"],
+  "intentBlockingUnknowns": [],
+  "brief": { … },
+  "conversationId": "<from this turn>",
+  "responseMessageId": "<assistant message id for this turn>"
+}
 ```
 
-Agents / delegation tokens **cannot** confirm or YOLO. Humans only.
+If the brief is already `brief_ready` and the human confirmed in prose (or the card is missing):
+
+```
+POST /api/v1/projects/{projectId}/planning-discovery
+{
+  "type": "request_human_confirm",
+  "conversationId": "<from this turn>",
+  "responseMessageId": "<assistant message id for this turn>"
+}
+```
+
+That returns `richParts` (approval_card) + `uiActions` with **Confirm Decision Brief** (browser session → planning-discovery confirm). Echo those into the assistant message if the auto-attach did not land.
+
+**Forbidden:** calling `confirm` / `plan_with_assumptions` / `reopen` with an agent or user-delegation token — the API returns HTTP 403 by design. Humans click the card (or Plan). Agents only *request* the card.
+
+If you already tried `confirm` and got 403, immediately call `request_human_confirm` with handoff ids and tell the human to press **Confirm Decision Brief** on the card.
 
 ### 6. Only after confirmation — create execution structure
 
