@@ -35,7 +35,7 @@ jest.mock('@/lib/llm-providers/store', () => ({
   getLlmProviderConnection: (...args: unknown[]) => mockGetConnection(...args),
   getDecryptedLlmCredentials: (...args: unknown[]) => mockGetCredentials(...args),
   markLlmConnectionSynced: (...args: unknown[]) => mockMarkSynced(...args),
-  markLlmConnectionError: (...args: unknown[]) => mockMarkError(...args),
+  markLlmConnectionSyncWarning: (...args: unknown[]) => mockMarkError(...args),
   listLlmProviderConnections: (...args: unknown[]) => mockListConnections(...args),
 }))
 

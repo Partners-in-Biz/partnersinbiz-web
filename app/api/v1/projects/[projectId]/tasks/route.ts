@@ -50,7 +50,7 @@ async function validateChatOrigin(input: {
   orgId?: string
   chatOrigin: unknown
 }) {
-  if (!isRecord(input.chatOrigin)) return { ok: true as const, duplicateTaskId: null }
+  if (!isRecord(input.chatOrigin)) return { ok: true as const, duplicateTaskId: null, runtimeTargetId: null }
   const conversationId = String(input.chatOrigin.conversationId ?? '')
   const bundleId = String(input.chatOrigin.bundleId ?? '')
   const sequence = Number(input.chatOrigin.sequence)
@@ -66,7 +66,11 @@ async function validateChatOrigin(input: {
     .where('chatOrigin.sequence', '==', sequence)
     .limit(1)
     .get()
-  return { ok: true as const, duplicateTaskId: duplicates.empty ? null : duplicates.docs[0]?.id ?? null }
+  return {
+    ok: true as const,
+    duplicateTaskId: duplicates.empty ? null : duplicates.docs[0]?.id ?? null,
+    runtimeTargetId: conversation.workspaceContext?.runtimeTarget?.trim() || null,
+  }
 }
 
 function attachContextRefsToAgentInput(value: Record<string, unknown>, contextRefs: ContextReference[]) {
@@ -134,6 +138,9 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (chatOriginValidation.duplicateTaskId) {
     return apiSuccess({ id: chatOriginValidation.duplicateTaskId, deduplicated: true })
   }
+  if (chatOriginValidation.runtimeTargetId) {
+    taskData.value.agentRuntimeTargetId = chatOriginValidation.runtimeTargetId
+  }
   const contextRefs = await resolveContextReferences(
     sanitizeContextReferenceSeeds(body.contextRefs),
     user,
@@ -150,6 +157,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     user,
     taskFields: taskData.value,
     syncPersonal: true,
+    runtimeTargetId: chatOriginValidation.runtimeTargetId,
   })
 
   const doc: Record<string, unknown> = {

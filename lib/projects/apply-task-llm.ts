@@ -13,6 +13,7 @@ export async function applyTaskLlmCredentialResolution(input: {
   taskFields: Record<string, unknown>
   /** When true, best-effort sync personal credentials to Hermes before returning. */
   syncPersonal?: boolean
+  runtimeTargetId?: string | null
 }): Promise<{ resolution: TaskLlmResolution; syncMessage?: string }> {
   const resolution = await resolveTaskLlmCredentials({
     orgId: input.orgId,
@@ -21,11 +22,13 @@ export async function applyTaskLlmCredentialResolution(input: {
     requestedProvider: input.taskFields.agentProvider,
     agentModel: typeof input.taskFields.agentModel === 'string' ? input.taskFields.agentModel : null,
     memberAccessPolicy: input.user?.memberAccessPolicy,
+    runtimeTargetId: input.runtimeTargetId,
   })
 
   input.taskFields.llmCredentialSource = resolution.llmCredentialSource
   input.taskFields.llmCredentialOwnerUid = resolution.llmCredentialOwnerUid
   input.taskFields.agentProvider = resolution.agentProvider
+  input.taskFields.llmConnectionId = resolution.connectionId
   if (resolution.resolvedSource === 'personal') {
     input.taskFields.llmResolvedSource = 'personal'
   } else {

@@ -1,8 +1,8 @@
 /**
  * Resolve which LLM credentials a project task should use at dispatch time.
- * - org: shared organisation Hermes credentials on the watcher runtime
- * - personal: unsupported on the shared watcher runtime; safely falls back to org
- * - auto: organisation credentials on the shared watcher runtime
+ * Credentials follow the task's execution machine:
+ * - organisation VPS → organisation account
+ * - member-owned linked computer → that member's personal account
  */
 import { listLlmProviderConnections } from '@/lib/llm-providers/store'
 import { getLlmProvider, listLlmProviders } from '@/lib/llm-providers/providers'
@@ -23,6 +23,7 @@ export type TaskLlmResolution = {
   llmCredentialOwnerUid: string | null
   /** Connection id to sync when personal credentials are required. */
   personalConnectionId: string | null
+  connectionId: string | null
   warning?: string
 }
 
@@ -71,6 +72,7 @@ export async function resolveTaskLlmCredentials(input: {
   agentModel?: string | null
   /** Preloaded member access policy from ApiUser when available. */
   memberAccessPolicy?: MemberAccessPolicy | null
+  runtimeTargetId?: string | null
 }): Promise<TaskLlmResolution> {
   const requestedSource = cleanTaskLlmCredentialSource(input.requestedSource) ?? 'auto'
   const requestedProvider = cleanTaskAgentProvider(input.requestedProvider)
@@ -79,6 +81,10 @@ export async function resolveTaskLlmCredentials(input: {
 
   const connections = await listLlmProviderConnections({ orgId: input.orgId, uid: input.ownerUid })
   const org = connections.filter((c) => c.scope === 'org' && c.status === 'connected' && c.hasCredentials)
+  const personal = connections.filter((c) => c.scope === 'user'
+    && c.ownerUid === input.ownerUid
+    && c.status === 'connected'
+    && c.hasCredentials)
 
   const matchingOrg = desiredProvider
     ? org.find((c) => providersShareCredentialFamily(
@@ -86,6 +92,14 @@ export async function resolveTaskLlmCredentials(input: {
       desiredProvider,
     ))
     : org[0]
+  const matchingPersonal = desiredProvider
+    ? personal.find((c) => providersShareCredentialFamily(
+      c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider,
+      desiredProvider,
+    ))
+    : personal[0]
+  const runtimeIsPersonal = Boolean(input.runtimeTargetId
+    && !['vps', 'auto'].includes(input.runtimeTargetId.trim().toLowerCase()))
 
   if (requestedSource === 'org') {
     return {
@@ -96,19 +110,34 @@ export async function resolveTaskLlmCredentials(input: {
         || null,
       llmCredentialOwnerUid: input.ownerUid,
       personalConnectionId: null,
+      connectionId: matchingOrg?.id ?? null,
     }
   }
 
   if (requestedSource === 'personal') {
     return {
       llmCredentialSource: 'personal',
-      resolvedSource: 'org',
+      resolvedSource: 'personal',
       agentProvider: desiredProvider
-        || (matchingOrg ? normalizeProviderId(matchingOrg.hermesProvider || matchingOrg.provider) : null)
+        || (matchingPersonal ? normalizeProviderId(matchingPersonal.hermesProvider || matchingPersonal.provider) : null)
         || null,
       llmCredentialOwnerUid: input.ownerUid,
-      personalConnectionId: null,
-      warning: 'Project watchers run on the shared organisation runtime, so personal credentials are not copied there. Using organisation credentials.',
+      personalConnectionId: matchingPersonal?.id ?? null,
+      connectionId: matchingPersonal?.id ?? null,
+      ...(!matchingPersonal ? { warning: 'No matching personal LLM account is connected yet.' } : {}),
+    }
+  }
+
+  if ((runtimeIsPersonal && matchingPersonal) || (!matchingOrg && matchingPersonal)) {
+    return {
+      llmCredentialSource: 'auto',
+      resolvedSource: 'personal',
+      agentProvider: desiredProvider
+        || normalizeProviderId(matchingPersonal.hermesProvider || matchingPersonal.provider)
+        || null,
+      llmCredentialOwnerUid: input.ownerUid,
+      personalConnectionId: matchingPersonal.id,
+      connectionId: matchingPersonal.id,
     }
   }
 
@@ -120,6 +149,7 @@ export async function resolveTaskLlmCredentials(input: {
       || null,
     llmCredentialOwnerUid: input.ownerUid,
     personalConnectionId: null,
+    connectionId: matchingOrg?.id ?? null,
   }
 }
 

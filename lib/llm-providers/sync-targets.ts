@@ -50,6 +50,70 @@ function agentIdsFromDevice(device: LinkedDevice): string[] {
     : []
 }
 
+function timestampMillis(value: unknown): number {
+  if (value && typeof (value as { toMillis?: () => number }).toMillis === 'function') {
+    return (value as { toMillis(): number }).toMillis()
+  }
+  if (value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+    return (value as { toDate(): Date }).toDate().getTime()
+  }
+  const parsed = typeof value === 'string' ? Date.parse(value) : Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+/** Resolve a public runtime selector to the physical credential-binding target. */
+export async function resolveLlmCredentialRuntimeTarget(input: {
+  runtimeTargetId?: string | null
+  orgId: string
+  ownerUid: string
+  agentId: string
+}): Promise<{ runtimeTargetId: string; deviceId: string | null; ownerType: 'organization' | 'user' | null }> {
+  const requested = input.runtimeTargetId?.trim() || 'vps'
+  const snapshots = await adminDb.collection('linked_devices').get()
+  const devices = snapshots.docs
+    .map((doc) => asLinkedDevice(doc.id, doc.data() as Record<string, unknown>))
+    .filter((device): device is LinkedDevice => Boolean(
+      device
+      && device.status === 'active'
+      && agentIdsFromDevice(device).includes(input.agentId),
+    ))
+    .sort((left, right) => timestampMillis(right.lastSeenAt) - timestampMillis(left.lastSeenAt))
+
+  const exact = devices.find((device) => (
+    device.deviceId === requested || device.runtimeTargetId === requested
+  ))
+  if (exact) {
+    const ownerType = linkedDeviceOwnerType(exact)
+    return {
+      runtimeTargetId: exact.runtimeTargetId,
+      deviceId: exact.deviceId,
+      ownerType: ownerType === 'organization' ? 'organization' : 'user',
+    }
+  }
+
+  if (requested === 'local') {
+    const personal = devices.find((device) => (
+      linkedDeviceOwnerType(device) === 'user' && device.ownerUserId === input.ownerUid
+    ))
+    return personal
+      ? { runtimeTargetId: personal.runtimeTargetId, deviceId: personal.deviceId, ownerType: 'user' }
+      : { runtimeTargetId: requested, deviceId: null, ownerType: null }
+  }
+
+  if (requested === 'vps' || requested === 'auto') {
+    const shared = devices.find((device) => (
+      device.deviceKind === 'vps'
+      && linkedDeviceOwnerType(device) === 'organization'
+      && device.ownerOrgId === input.orgId
+    ))
+    return shared
+      ? { runtimeTargetId: shared.runtimeTargetId, deviceId: shared.deviceId, ownerType: 'organization' }
+      : { runtimeTargetId: 'vps', deviceId: null, ownerType: 'organization' }
+  }
+
+  return { runtimeTargetId: requested, deviceId: null, ownerType: null }
+}
+
 export async function resolveOrgLlmSyncTargets(
   orgId: string,
   preferredAgentIds?: string[],

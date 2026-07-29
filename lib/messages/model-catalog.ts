@@ -15,6 +15,7 @@ import {
 } from '@/lib/llm-providers/bindings'
 import {
   isOrgVpsConversationRuntime,
+  resolveLlmCredentialRuntimeTarget,
   runtimeBelongsToUserComputer,
 } from '@/lib/llm-providers/sync-targets'
 import {
@@ -387,7 +388,14 @@ export async function getMessageModelCatalog(input: {
   if (orgId) {
     try {
       const connections = await listLlmProviderConnections({ orgId, uid: input.user.uid })
-      const onUserComputer = await runtimeBelongsToUserComputer(input.user.uid, runtimeTarget)
+      const credentialTarget = await resolveLlmCredentialRuntimeTarget({
+        runtimeTargetId: runtimeTarget,
+        orgId,
+        ownerUid: input.user.uid,
+        agentId,
+      })
+      const onUserComputer = credentialTarget.ownerType === 'user'
+        || await runtimeBelongsToUserComputer(input.user.uid, runtimeTarget)
       const onOrgVps = !onUserComputer && isOrgVpsConversationRuntime(runtimeTarget)
       const eligibleConnections = connections.filter((c) => {
         if (c.status !== 'connected' || !c.hasCredentials) return false
@@ -395,7 +403,7 @@ export async function getMessageModelCatalog(input: {
         return c.scope === 'org' && (onOrgVps || !onUserComputer)
       })
       const bindings = await listRuntimeLlmCredentialBindings({
-        runtimeTargetId: runtimeTarget,
+        runtimeTargetId: credentialTarget.runtimeTargetId,
         agentId,
         connectionIds: eligibleConnections.map((connection) => connection.id),
       })

@@ -146,6 +146,12 @@ export interface Task {
   llmCredentialSource?: 'auto' | 'org' | 'personal' | null
   /** Owner whose personal credentials apply when llmCredentialSource is personal/auto. */
   llmCredentialOwnerUid?: string | null
+  /** Exact machine selected for this task (usually inherited from chat). */
+  agentRuntimeTargetId?: string | null
+  /** Exact connected account selected/resolved for the task. */
+  llmConnectionId?: string | null
+  /** Machine/profile proof used by the watcher before dispatch. */
+  llmCredentialBindingId?: string | null
   requiredCapability?: string | null
   requestedByAgentId?: AgentId | null
   approvalGateTaskId?: string | null

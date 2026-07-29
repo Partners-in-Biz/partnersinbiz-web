@@ -69,6 +69,9 @@ beforeEach(() => {
         }),
       }
     }
+    if (name === 'linked_devices') {
+      return { get: async () => ({ docs: [] }) }
+    }
     throw new Error(`Unexpected collection: ${name}`)
   })
   mockCallAgentPath.mockImplementation(async (_agentId: string, path: string) => {
@@ -276,6 +279,11 @@ describe('conversation model catalogue API', () => {
     jest.doMock('@/lib/llm-providers/sync-targets', () => ({
       isOrgVpsConversationRuntime: jest.fn().mockReturnValue(false),
       runtimeBelongsToUserComputer: jest.fn().mockResolvedValue(true),
+      resolveLlmCredentialRuntimeTarget: jest.fn().mockResolvedValue({
+        runtimeTargetId: 'local',
+        deviceId: 'device-local',
+        ownerType: 'user',
+      }),
     }))
 
     const { GET } = await import('@/app/api/v1/conversations/[convId]/models/route')

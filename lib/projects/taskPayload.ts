@@ -82,6 +82,9 @@ export const TASK_SOURCE_LINKAGE_FIELDS = [
   'agentModel',
   'agentProvider',
   'llmCredentialSource',
+  'agentRuntimeTargetId',
+  'llmConnectionId',
+  'llmCredentialBindingId',
   'llmCredentialOwnerUid',
   'requiredCapability',
   'requestedByAgentId',
@@ -278,6 +281,18 @@ function applyProvenanceFields(
       target.llmCredentialOwnerUid = owner
     }
   }
+  for (const field of ['agentRuntimeTargetId', 'llmConnectionId', 'llmCredentialBindingId'] as const) {
+    if (source[field] === undefined) continue
+    if (source[field] === null || source[field] === '') {
+      target[field] = null
+      continue
+    }
+    const value = cleanString(source[field])
+    if (!value || value.length > 256) {
+      return { ok: false, error: `Invalid ${field}`, status: 400 }
+    }
+    target[field] = value
+  }
   if (source.requestedByAgentId !== undefined) {
     const requestedBy = cleanAgentId(source.requestedByAgentId, 'requestedByAgentId')
     if (!requestedBy.ok) return { ok: false, error: requestedBy.error, status: requestedBy.status }
@@ -301,6 +316,9 @@ function applyProvenanceFields(
       || field === 'agentProvider'
       || field === 'llmCredentialSource'
       || field === 'llmCredentialOwnerUid'
+      || field === 'agentRuntimeTargetId'
+      || field === 'llmConnectionId'
+      || field === 'llmCredentialBindingId'
       || field === 'requiredCapability'
       || field === 'requestedByAgentId'
       || field === 'expectedArtifacts'

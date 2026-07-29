@@ -34,6 +34,9 @@ export interface TaskDispatchInput {
   agentProvider?: string | null
   llmCredentialSource?: string | null
   llmResolvedSource?: string | null
+  llmConnectionId?: string | null
+  llmCredentialBindingId?: string | null
+  runtimeTargetId?: string | null
 }
 
 function runTimeoutMs(): number {
@@ -98,6 +101,9 @@ async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<{ ru
       agentId: input.agentId,
       ...(input.llmCredentialSource ? { llmCredentialSource: input.llmCredentialSource } : {}),
       ...(input.llmResolvedSource ? { llmResolvedSource: input.llmResolvedSource } : {}),
+      ...(input.llmConnectionId ? { llmConnectionId: input.llmConnectionId } : {}),
+      ...(input.llmCredentialBindingId ? { llmCredentialBindingId: input.llmCredentialBindingId } : {}),
+      ...(input.runtimeTargetId ? { runtimeTargetId: input.runtimeTargetId } : {}),
       ...(input.context ? { context: input.context } : {}),
       ...(input.constraints && input.constraints.length ? { constraints: input.constraints } : {}),
     },

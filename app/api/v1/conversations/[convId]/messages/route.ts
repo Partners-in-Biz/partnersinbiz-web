@@ -54,6 +54,7 @@ import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { requireReadyLlmCredentialBinding } from '@/lib/llm-providers/bindings'
+import { resolveLlmCredentialRuntimeTarget } from '@/lib/llm-providers/sync-targets'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { resolveAuthorizedWorkingDirectory } from '@/lib/client-provisioning/working-directory'
 import {
@@ -523,12 +524,18 @@ export const POST = withAuth(
       modelSelection = modelValidation.selection
       if (modelSelection) {
         try {
+          const credentialTarget = await resolveLlmCredentialRuntimeTarget({
+            runtimeTargetId: conversation.workspaceContext?.runtimeTarget,
+            orgId: conversation.orgId,
+            ownerUid: user.uid,
+            agentId: dispatchAgentId,
+          })
           await requireReadyLlmCredentialBinding({
             bindingId: modelSelection.llmCredentialBindingId,
             connectionId: modelSelection.llmConnectionId,
             orgId: conversation.orgId,
             ownerUid: user.uid,
-            runtimeTargetId: conversation.workspaceContext?.runtimeTarget,
+            runtimeTargetId: credentialTarget.runtimeTargetId,
             agentId: dispatchAgentId,
           })
         } catch (error) {
