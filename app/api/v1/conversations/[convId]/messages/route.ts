@@ -53,6 +53,8 @@ import { councilModeGuidanceLines, getSlashCommandByToken, slashCommandInstructi
 import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
+import { requireReadyLlmCredentialBinding } from '@/lib/llm-providers/bindings'
+import { resolveLlmCredentialRuntimeTarget } from '@/lib/llm-providers/sync-targets'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { resolveAuthorizedWorkingDirectory } from '@/lib/client-provisioning/working-directory'
 import {
@@ -463,7 +465,12 @@ export const POST = withAuth(
     const yolo = shouldAutoApproveDangerousCommands(approvalMode)
     const requestedModel = (body as Record<string, unknown>).model
     const requestedProvider = (body as Record<string, unknown>).provider
-    const hasModelSelection = requestedModel !== undefined || requestedProvider !== undefined
+    const requestedConnectionId = (body as Record<string, unknown>).llmConnectionId
+    const requestedCredentialBindingId = (body as Record<string, unknown>).llmCredentialBindingId
+    const hasModelSelection = requestedModel !== undefined
+      || requestedProvider !== undefined
+      || requestedConnectionId !== undefined
+      || requestedCredentialBindingId !== undefined
     const attachments = await resolveAttachments((body as Record<string, unknown>).attachments, convId, conversation.orgId)
     if (!attachments) return apiError('One or more attachments are invalid for this conversation', 400)
     const publicAttachments: ConversationAttachment[] = attachments.map(({ storagePath: _storagePath, ...attachment }) => attachment)
@@ -495,19 +502,46 @@ export const POST = withAuth(
     // Resolve dispatch target before storing the message so unauthorized or
     // invalid model/provider overrides fail without creating a partial thread.
     const dispatchAgentId = await resolveConversationDispatchAgentId(conversation)
-    let modelSelection: { model: string; provider?: string } | undefined
-    if (hasModelSelection) {
+    let modelSelection: {
+      model: string
+      provider?: string
+      llmConnectionId: string
+      llmCredentialBindingId: string
+    } | undefined
+    if (dispatchAgentId && hasModelSelection) {
       const modelValidation = await validateMessageModelSelection({
         conversation,
         user,
         agentId: dispatchAgentId,
         model: requestedModel,
         provider: requestedProvider,
+        connectionId: requestedConnectionId,
+        credentialBindingId: requestedCredentialBindingId,
       })
       if (!modelValidation.ok) {
         return apiError(modelValidation.error ?? 'Invalid model selection', modelValidation.status ?? 400)
       }
       modelSelection = modelValidation.selection
+      if (modelSelection) {
+        try {
+          const credentialTarget = await resolveLlmCredentialRuntimeTarget({
+            runtimeTargetId: conversation.workspaceContext?.runtimeTarget,
+            orgId: conversation.orgId,
+            ownerUid: user.uid,
+            agentId: dispatchAgentId,
+          })
+          await requireReadyLlmCredentialBinding({
+            bindingId: modelSelection.llmCredentialBindingId,
+            connectionId: modelSelection.llmConnectionId,
+            orgId: conversation.orgId,
+            ownerUid: user.uid,
+            runtimeTargetId: credentialTarget.runtimeTargetId,
+            agentId: dispatchAgentId,
+          })
+        } catch (error) {
+          return apiError(error instanceof Error ? error.message : 'Selected LLM account is not ready', 409)
+        }
+      }
     }
 
     // A session remains bound to its selected computer. Re-authorize that
@@ -599,6 +633,8 @@ export const POST = withAuth(
       ...(agentEffort ? { agentEffort } : {}),
       ...(modelSelection?.model ? { model: modelSelection.model } : {}),
       ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
+      ...(modelSelection?.llmConnectionId ? { llmConnectionId: modelSelection.llmConnectionId } : {}),
+      ...(modelSelection?.llmCredentialBindingId ? { llmCredentialBindingId: modelSelection.llmCredentialBindingId } : {}),
       authorKind: 'user',
       authorId: user.uid,
       authorDisplayName,
@@ -638,6 +674,8 @@ export const POST = withAuth(
         approvalMode,
         ...(modelSelection?.model ? { model: modelSelection.model } : {}),
         ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
+        ...(modelSelection?.llmConnectionId ? { llmConnectionId: modelSelection.llmConnectionId } : {}),
+        ...(modelSelection?.llmCredentialBindingId ? { llmCredentialBindingId: modelSelection.llmCredentialBindingId } : {}),
         status: 'pending',
       })
 

@@ -591,7 +591,7 @@ export async function runWorkbenchSessionClaim(
 }
 
 export function linkedRuntimeWorkbenchSessionsClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.12', workbenchSessionsProtocolVersion: 1 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.13', workbenchSessionsProtocolVersion: 1 as const }
 }
 
 /** Same idle-backoff shape as pollWorkbenchForever/pollAgentHostForever; sweeps idle sessions each cycle. */

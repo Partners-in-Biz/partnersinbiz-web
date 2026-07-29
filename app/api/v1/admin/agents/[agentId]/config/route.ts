@@ -28,13 +28,17 @@ export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
   try {
     const { response, data } = await callAgentPath(agentId as AgentId, '/v1/models')
     if (response.ok) models = data
-  } catch { /* not all gateways expose /v1/models — ignore */ }
+  } catch (error) {
+    void error // not all gateways expose /v1/models
+  }
 
   let liveConfig: unknown = null
   try {
     const { response, data } = await callAgentPath(agentId as AgentId, '/admin/config')
     if (response.ok) liveConfig = data
-  } catch { /* sidecar may be unavailable locally; keep Firestore fallback */ }
+  } catch (error) {
+    void error // sidecar may be unavailable locally; keep Firestore fallback
+  }
 
   return apiSuccess({
     agentId: agent.agentId,

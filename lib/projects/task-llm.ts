@@ -1,19 +1,13 @@
 /**
  * Resolve which LLM credentials a project task should use at dispatch time.
- * - org: shared organisation Hermes credentials on the watcher runtime
- * - personal: the task owner's personal connections (requires Team access on VPS)
- * - auto: prefer personal when the owner is allowed and has a matching connection; else org
+ * Credentials follow the task's execution machine:
+ * - organisation VPS → organisation account
+ * - member-owned linked computer → that member's personal account
  */
 import { listLlmProviderConnections } from '@/lib/llm-providers/store'
 import { getLlmProvider, listLlmProviders } from '@/lib/llm-providers/providers'
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
-import {
-  memberMayUsePersonalLlmOnOrgVps,
-  resolveMemberAccessPolicy,
-  type MemberAccessPolicy,
-} from '@/lib/orgMembers/access-policy'
-import type { OrgRole } from '@/lib/organizations/types'
-import { adminDb } from '@/lib/firebase/admin'
+import type { MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 import { normalizeProviderId, providersShareCredentialFamily } from '@/lib/messages/model-provider-aliases'
 
 export const VALID_LLM_CREDENTIAL_SOURCES = ['auto', 'org', 'personal'] as const
@@ -29,6 +23,7 @@ export type TaskLlmResolution = {
   llmCredentialOwnerUid: string | null
   /** Connection id to sync when personal credentials are required. */
   personalConnectionId: string | null
+  connectionId: string | null
   warning?: string
 }
 
@@ -69,30 +64,6 @@ export function taskLlmProviderOptions(): Array<{ value: string; label: string }
   }))
 }
 
-async function loadMemberPolicy(orgId: string, uid: string): Promise<{
-  accessPolicy: MemberAccessPolicy
-  orgRole: OrgRole | null
-}> {
-  try {
-    const snap = await adminDb.collection('orgMembers').doc(`${orgId}_${uid}`).get()
-    if (!snap.exists) {
-      return { accessPolicy: resolveMemberAccessPolicy({ role: 'member' }), orgRole: null }
-    }
-    const data = snap.data() ?? {}
-    const orgRole = (typeof data.role === 'string' ? data.role : 'member') as OrgRole
-    return {
-      accessPolicy: resolveMemberAccessPolicy({
-        role: orgRole,
-        accessScope: data.accessScope,
-        accessPolicy: data.accessPolicy,
-      }),
-      orgRole,
-    }
-  } catch {
-    return { accessPolicy: resolveMemberAccessPolicy({ role: 'member' }), orgRole: null }
-  }
-}
-
 export async function resolveTaskLlmCredentials(input: {
   orgId: string
   ownerUid: string
@@ -101,33 +72,34 @@ export async function resolveTaskLlmCredentials(input: {
   agentModel?: string | null
   /** Preloaded member access policy from ApiUser when available. */
   memberAccessPolicy?: MemberAccessPolicy | null
+  runtimeTargetId?: string | null
 }): Promise<TaskLlmResolution> {
   const requestedSource = cleanTaskLlmCredentialSource(input.requestedSource) ?? 'auto'
   const requestedProvider = cleanTaskAgentProvider(input.requestedProvider)
   const inferredProvider = inferHermesProviderFromModel(input.agentModel)
   const desiredProvider = requestedProvider || inferredProvider
 
-  const membership = input.memberAccessPolicy
-    ? { accessPolicy: input.memberAccessPolicy, orgRole: null as OrgRole | null }
-    : await loadMemberPolicy(input.orgId, input.ownerUid)
-  const allowPersonal = memberMayUsePersonalLlmOnOrgVps(membership.accessPolicy, membership.orgRole)
-
   const connections = await listLlmProviderConnections({ orgId: input.orgId, uid: input.ownerUid })
-  const personal = connections.filter((c) => c.scope === 'user' && c.status === 'connected' && c.hasCredentials)
   const org = connections.filter((c) => c.scope === 'org' && c.status === 'connected' && c.hasCredentials)
+  const personal = connections.filter((c) => c.scope === 'user'
+    && c.ownerUid === input.ownerUid
+    && c.status === 'connected'
+    && c.hasCredentials)
 
-  const matchingPersonal = desiredProvider
-    ? personal.find((c) => providersShareCredentialFamily(
-      c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider,
-      desiredProvider,
-    ))
-    : personal[0]
   const matchingOrg = desiredProvider
     ? org.find((c) => providersShareCredentialFamily(
       c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider,
       desiredProvider,
     ))
     : org[0]
+  const matchingPersonal = desiredProvider
+    ? personal.find((c) => providersShareCredentialFamily(
+      c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider,
+      desiredProvider,
+    ))
+    : personal[0]
+  const runtimeIsPersonal = Boolean(input.runtimeTargetId
+    && !['vps', 'auto'].includes(input.runtimeTargetId.trim().toLowerCase()))
 
   if (requestedSource === 'org') {
     return {
@@ -138,47 +110,34 @@ export async function resolveTaskLlmCredentials(input: {
         || null,
       llmCredentialOwnerUid: input.ownerUid,
       personalConnectionId: null,
+      connectionId: matchingOrg?.id ?? null,
     }
   }
 
   if (requestedSource === 'personal') {
-    if (!allowPersonal) {
-      return {
-        llmCredentialSource: 'personal',
-        resolvedSource: 'org',
-        agentProvider: desiredProvider,
-        llmCredentialOwnerUid: input.ownerUid,
-        personalConnectionId: null,
-        warning: 'Personal LLM credentials on the organisation VPS are not enabled for this member. Using organisation credentials.',
-      }
-    }
-    if (!matchingPersonal) {
-      return {
-        llmCredentialSource: 'personal',
-        resolvedSource: 'org',
-        agentProvider: desiredProvider,
-        llmCredentialOwnerUid: input.ownerUid,
-        personalConnectionId: null,
-        warning: 'No personal LLM connection found for this provider. Connect one in Settings → LLM providers, then retry. Using organisation credentials for now.',
-      }
-    }
     return {
       llmCredentialSource: 'personal',
       resolvedSource: 'personal',
-      agentProvider: normalizeProviderId(matchingPersonal.hermesProvider || matchingPersonal.provider) || desiredProvider,
+      agentProvider: desiredProvider
+        || (matchingPersonal ? normalizeProviderId(matchingPersonal.hermesProvider || matchingPersonal.provider) : null)
+        || null,
       llmCredentialOwnerUid: input.ownerUid,
-      personalConnectionId: matchingPersonal.id,
+      personalConnectionId: matchingPersonal?.id ?? null,
+      connectionId: matchingPersonal?.id ?? null,
+      ...(!matchingPersonal ? { warning: 'No matching personal LLM account is connected yet.' } : {}),
     }
   }
 
-  // auto
-  if (allowPersonal && matchingPersonal) {
+  if ((runtimeIsPersonal && matchingPersonal) || (!matchingOrg && matchingPersonal)) {
     return {
       llmCredentialSource: 'auto',
       resolvedSource: 'personal',
-      agentProvider: normalizeProviderId(matchingPersonal.hermesProvider || matchingPersonal.provider) || desiredProvider,
+      agentProvider: desiredProvider
+        || normalizeProviderId(matchingPersonal.hermesProvider || matchingPersonal.provider)
+        || null,
       llmCredentialOwnerUid: input.ownerUid,
       personalConnectionId: matchingPersonal.id,
+      connectionId: matchingPersonal.id,
     }
   }
 
@@ -190,6 +149,7 @@ export async function resolveTaskLlmCredentials(input: {
       || null,
     llmCredentialOwnerUid: input.ownerUid,
     personalConnectionId: null,
+    connectionId: matchingOrg?.id ?? null,
   }
 }
 

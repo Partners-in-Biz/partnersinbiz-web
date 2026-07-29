@@ -13,6 +13,7 @@ import { db, FieldValue } from './firestore'
 import { AGENT_IDS, getAgentConfig, loadEnabledAgentIds, type AgentId } from './config'
 import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
+import { resolveWatcherLlmRoute, resolveWatcherRuntimePreference } from './llm-routing'
 import { logger } from './logger'
 import type { AgentRunTelemetry } from './run-telemetry'
 import { agentStatusUpdate } from './task-updates'
@@ -95,6 +96,9 @@ interface TaskData {
   llmCredentialSource?: string
   llmCredentialOwnerUid?: string
   llmResolvedSource?: string
+  llmConnectionId?: string
+  llmCredentialBindingId?: string
+  agentRuntimeTargetId?: string
   requiredCapability?: string
   requestedByAgentId?: string
   expectedArtifacts?: string[]
@@ -121,6 +125,8 @@ const TRANSIENT_HERMES_ERROR_PATTERNS = [
   /\bservice unavailable\b/i,
   /\bprovider (?:is )?(?:overloaded|temporarily unavailable)\b/i,
   /\bwas not found on the agent gateway\b/i,
+  /\bautomatic credential sync will retry\b/i,
+  /\bProvider authentication failed\b/i,
 ]
 
 export function isTransientHermesError(error: string): boolean {
@@ -580,7 +586,15 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     }
 
     // Load agent config
-    const cfg = await getAgentConfig(agentId)
+    const credentialOwnerUid = taskData.llmCredentialOwnerUid || taskData.createdBy || taskData.reporterId || ''
+    const requestedRuntimeTarget = await resolveWatcherRuntimePreference({
+      runtimeTargetId: taskData.agentRuntimeTargetId,
+      orgId: taskData.orgId ?? '',
+      ownerUid: credentialOwnerUid,
+      agentId,
+      resolvedSource: taskData.llmResolvedSource,
+    })
+    const cfg = await getAgentConfig(agentId, requestedRuntimeTarget)
     if (!cfg || !cfg.enabled) {
       logger.warn('agent has no enabled dispatch config — marking task blocked', { taskId, agentId })
       const blockedSummary = `Watcher error: agent '${agentId}' has no enabled dispatch config in agent_dispatch_configs.`
@@ -600,10 +614,25 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       return
     }
 
+    const credentialRoute = await resolveWatcherLlmRoute({
+      orgId: taskData.orgId ?? '',
+      ownerUid: credentialOwnerUid,
+      agentId,
+      provider: taskData.agentProvider ?? null,
+      connectionId: taskData.llmConnectionId ?? null,
+      runtimeTargetId: taskData.agentRuntimeTargetId || cfg.targetId || requestedRuntimeTarget || 'vps',
+    })
+
     // Move to in-progress + start heartbeat
     await taskRef.update({
       ...agentStatusUpdate('in-progress'),
       agentHeartbeatAt: FieldValue.serverTimestamp(),
+      ...(credentialRoute ? {
+        llmConnectionId: credentialRoute.connectionId,
+        llmCredentialBindingId: credentialRoute.credentialBindingId,
+        llmResolvedSource: credentialRoute.resolvedSource,
+        agentRuntimeTargetId: credentialRoute.runtimeTargetId,
+      } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     })
     notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'in-progress', {
@@ -638,9 +667,12 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       constraints: taskData.agentInput?.constraints,
       agentEffort: taskData.agentEffort ?? null,
       agentModel: taskData.agentModel ?? null,
-      agentProvider: taskData.agentProvider ?? null,
+      agentProvider: credentialRoute?.provider ?? taskData.agentProvider ?? null,
       llmCredentialSource: taskData.llmCredentialSource ?? null,
-      llmResolvedSource: taskData.llmResolvedSource ?? null,
+      llmResolvedSource: credentialRoute?.resolvedSource ?? taskData.llmResolvedSource ?? null,
+      llmConnectionId: credentialRoute?.connectionId ?? taskData.llmConnectionId ?? null,
+      llmCredentialBindingId: credentialRoute?.credentialBindingId ?? taskData.llmCredentialBindingId ?? null,
+      runtimeTargetId: credentialRoute?.runtimeTargetId ?? taskData.agentRuntimeTargetId ?? cfg.targetId ?? null,
     }
 
     // Callback: fires as soon as the Hermes run is created (before polling completes).
@@ -790,6 +822,24 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     const message = err instanceof Error ? err.message : String(err)
     logger.error('dispatchTask threw', { taskId, agentId, error: message })
     try {
+      const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
+      if (isTransientHermesError(message) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
+        const nextRetryCount = priorRetryCount + 1
+        const retryAt = transientRetryAt(priorRetryCount)
+        await taskRef.update({
+          ...agentStatusUpdate('pending'),
+          ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+          agentRetryCount: nextRetryCount,
+          agentRetryAt: retryAt,
+          agentHeartbeatAt: FieldValue.delete(),
+          agentOutput: {
+            summary: `Transient watcher error: ${message} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
+            completedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        return
+      }
       await taskRef.update({
         ...agentStatusUpdate('blocked'),
         ...(activeRunId ? { agentConversationId: activeRunId } : {}),

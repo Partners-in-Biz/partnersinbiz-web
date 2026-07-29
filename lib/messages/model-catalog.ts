@@ -10,10 +10,14 @@ import type { Conversation } from '@/lib/conversations/types'
 import { listLlmProviderConnections } from '@/lib/llm-providers/store'
 import { getLlmProvider, listLlmProviders } from '@/lib/llm-providers/providers'
 import {
+  connectionCredentialVersion,
+  listRuntimeLlmCredentialBindings,
+} from '@/lib/llm-providers/bindings'
+import {
   isOrgVpsConversationRuntime,
+  resolveLlmCredentialRuntimeTarget,
   runtimeBelongsToUserComputer,
 } from '@/lib/llm-providers/sync-targets'
-import { memberMayUsePersonalLlmOnOrgVps } from '@/lib/orgMembers/access-policy'
 import {
   expandProviderAliases,
   normalizeProviderId,
@@ -23,61 +27,7 @@ import {
 const SAFE_MODEL_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:/@+~=-]{0,191}$/
 const SAFE_PROVIDER_ID_RE = /^[A-Za-z][A-Za-z0-9._:-]{0,63}$/
 
-/** OAuth-only Hermes provider ids that require nested auth.json tokens. */
-const OAUTH_HERMES_PROVIDERS = new Set([
-  'xai-oauth',
-  'openai-codex',
-  'nous',
-])
-
 type UnknownRecord = Record<string, unknown>
-
-function isOauthHermesProvider(provider: string): boolean {
-  const normalized = normalizeProviderId(provider)
-  if (!normalized) return false
-  if (OAUTH_HERMES_PROVIDERS.has(normalized)) return true
-  return normalized.endsWith('-oauth')
-}
-
-async function probeRuntimeOauthProviders(
-  agentId: AgentId,
-  runtimeTarget?: string,
-): Promise<{
-  probed: boolean
-  byProvider: Map<string, { usable: boolean; hasAccess: boolean; hasRefresh: boolean }>
-}> {
-  try {
-    const { response, data } = await callAgentPath(
-      agentId,
-      '/admin/auth/providers',
-      { method: 'GET' },
-      { runtimeTarget },
-    )
-    if (!response.ok) {
-      return { probed: false, byProvider: new Map() }
-    }
-    const providers = data && typeof data === 'object' && 'providers' in data
-      ? (data as { providers?: Record<string, UnknownRecord> }).providers
-      : null
-    if (!providers || typeof providers !== 'object') {
-      return { probed: true, byProvider: new Map() }
-    }
-    const byProvider = new Map<string, { usable: boolean; hasAccess: boolean; hasRefresh: boolean }>()
-    for (const [name, state] of Object.entries(providers)) {
-      if (!state || typeof state !== 'object') continue
-      const key = normalizeProviderId(name)
-      if (!key) continue
-      const hasAccess = state.has_access_token === true
-      const hasRefresh = state.has_refresh_token === true
-      const usable = state.usable === true
-        || (state.hermes_shape === true && hasAccess && hasRefresh)
-      byProvider.set(key, { usable, hasAccess, hasRefresh })
-    }
-    return { probed: true, byProvider }
-  } catch {
-    return { probed: false, byProvider: new Map() }
-  }
-}
 
 export interface PublicMessageModelOption {
   id: string
@@ -89,6 +39,9 @@ export interface PublicMessageModelOption {
   active: boolean
   available: boolean
   connected?: boolean
+  connectionId?: string
+  connectionLabel?: string
+  credentialBindingId?: string
   /** True when credentials are personal (linked computer), not on the org VPS. */
   localOnly?: boolean
   source: 'hermes' | 'agent-default' | 'connected'
@@ -125,6 +78,8 @@ export interface PublicMessageModelCatalog {
 export interface ValidatedMessageModelSelection {
   model: string
   provider?: string
+  llmConnectionId: string
+  llmCredentialBindingId: string
 }
 
 export interface MessageModelValidationResult {
@@ -246,8 +201,9 @@ function fallbackModelOption(agentData: Partial<AgentTeamDoc> | null): PublicMes
 function dedupeModels(models: PublicMessageModelOption[]): PublicMessageModelOption[] {
   const byId = new Map<string, PublicMessageModelOption>()
   for (const model of models) {
-    const existing = byId.get(model.id)
-    if (!existing || existing.source === 'agent-default') byId.set(model.id, model)
+    const key = `${model.connectionId || 'unbound'}:${model.provider}:${model.id}`
+    const existing = byId.get(key)
+    if (!existing || existing.source === 'agent-default') byId.set(key, model)
   }
   return Array.from(byId.values()).sort((a, b) => {
     if (a.active !== b.active) return a.active ? -1 : 1
@@ -278,25 +234,36 @@ function providersForModels(
 }
 
 function connectedModelOptions(
-  connectedHermesProviders: Set<string>,
+  accounts: Array<{
+    connectionId: string
+    connectionLabel: string
+    credentialBindingId: string
+    provider: string
+    modelIds: string[]
+  }>,
   currentModel: string,
 ): PublicMessageModelOption[] {
   const options: PublicMessageModelOption[] = []
-  for (const def of listLlmProviders()) {
-    if (!connectedHermesProviders.has(def.hermesProvider)) continue
-    for (const modelId of def.curatedModels) {
+  for (const account of accounts) {
+    const def = listLlmProviders().find((candidate) => candidate.hermesProvider === account.provider)
+    if (!def) continue
+    const modelIds = account.modelIds.length ? account.modelIds : def.curatedModels
+    for (const modelId of modelIds) {
       const id = cleanMessageModelId(modelId)
       if (!id) continue
       options.push({
         id,
         model: id,
         displayName: displayNameFromModelId(id),
-        provider: def.hermesProvider,
-        providerLabel: def.label,
+        provider: account.provider,
+        providerLabel: `${def.label} · ${account.connectionLabel}`,
         configured: true,
         active: id === currentModel,
         available: true,
         connected: true,
+        connectionId: account.connectionId,
+        connectionLabel: account.connectionLabel,
+        credentialBindingId: account.credentialBindingId,
         source: 'connected',
       })
     }
@@ -409,72 +376,62 @@ export async function getMessageModelCatalog(input: {
 
   const orgId = input.conversation.orgId || input.user.orgId || input.user.activeOrgId || ''
   const connectedHermesProviders = new Set<string>()
+  const readyAccounts: Array<{
+    connectionId: string
+    connectionLabel: string
+    credentialBindingId: string
+    provider: string
+    modelIds: string[]
+  }> = []
   const localOnlyProviderLabels: string[] = []
   const personalConnectedProviders = new Set<string>()
   if (orgId) {
     try {
       const connections = await listLlmProviderConnections({ orgId, uid: input.user.uid })
-      const onUserComputer = await runtimeBelongsToUserComputer(input.user.uid, runtimeTarget)
+      const credentialTarget = await resolveLlmCredentialRuntimeTarget({
+        runtimeTargetId: runtimeTarget,
+        orgId,
+        ownerUid: input.user.uid,
+        agentId,
+      })
+      const onUserComputer = credentialTarget.ownerType === 'user'
+        || await runtimeBelongsToUserComputer(input.user.uid, runtimeTarget)
       const onOrgVps = !onUserComputer && isOrgVpsConversationRuntime(runtimeTarget)
-      const allowPersonalOnVps = memberMayUsePersonalLlmOnOrgVps(
-        input.user.memberAccessPolicy,
-        // ApiUser uses portal roles; owners are typically admin with full policy.
-        null,
-      )
+      const eligibleConnections = connections.filter((c) => {
+        if (c.status !== 'connected' || !c.hasCredentials) return false
+        if (onUserComputer) return c.scope === 'user' && c.ownerUid === input.user.uid
+        return c.scope === 'org' && (onOrgVps || !onUserComputer)
+      })
+      const bindings = await listRuntimeLlmCredentialBindings({
+        runtimeTargetId: credentialTarget.runtimeTargetId,
+        agentId,
+        connectionIds: eligibleConnections.map((connection) => connection.id),
+      })
+      const bindingByConnection = new Map(bindings.map((binding) => [binding.connectionId, binding]))
 
       for (const c of connections) {
-        if (c.status !== 'connected' || !c.hasCredentials) continue
         const hermesProvider = normalizeProviderId(
           c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider || c.provider,
         )
         if (!hermesProvider) continue
-
-        if (c.scope === 'org') {
-          // Org credentials unlock Connected models on the organisation VPS.
-          if (onOrgVps || !onUserComputer) {
-            connectedHermesProviders.add(hermesProvider)
-          }
-          continue
-        }
-
-        // Personal credentials
         const def = getLlmProvider(c.provider)
         const label = def?.label || c.label || c.provider
-        personalConnectedProviders.add(hermesProvider)
-
-        if (onUserComputer) {
+        if (c.scope === 'user') personalConnectedProviders.add(hermesProvider)
+        const binding = bindingByConnection.get(c.id)
+        const bindingReady = binding?.status === 'ready'
+          && binding.liveAuthVerified === true
+          && binding.credentialVersion === connectionCredentialVersion(c)
+        if (bindingReady && binding) {
           connectedHermesProviders.add(hermesProvider)
-        } else if (onOrgVps && allowPersonalOnVps) {
-          // Eligible on VPS when Team access allows personal LLM credentials there.
-          // Still mark localOnly=false so the picker treats them as Connected for this chat.
-          connectedHermesProviders.add(hermesProvider)
-        } else if (!localOnlyProviderLabels.includes(label)) {
+          readyAccounts.push({
+            connectionId: c.id,
+            connectionLabel: c.label || label,
+            credentialBindingId: binding.id,
+            provider: hermesProvider,
+            modelIds: binding.verifiedModelIds,
+          })
+        } else if (c.scope === 'user' && !onUserComputer && !localOnlyProviderLabels.includes(label)) {
           localOnlyProviderLabels.push(label)
-        }
-      }
-
-      // Portal "Connected" is not enough for chat: Hermes must actually hold
-      // usable OAuth tokens / keys on this conversation runtime.
-      if (connectedHermesProviders.size > 0) {
-        const runtimeAuth = await probeRuntimeOauthProviders(agentId, runtimeTarget)
-        if (runtimeAuth.probed) {
-          const blocked: string[] = []
-          for (const provider of [...connectedHermesProviders]) {
-            // Only OAuth families need nested-token proof; API-key families
-            // stay unlocked via Hermes config / env.
-            if (!isOauthHermesProvider(provider)) continue
-            const status = runtimeAuth.byProvider.get(provider)
-            const usable = status?.usable === true
-              || [...expandProviderAliases([provider])].some((alias) => runtimeAuth.byProvider.get(alias)?.usable === true)
-            if (!usable) {
-              connectedHermesProviders.delete(provider)
-              blocked.push(provider)
-            }
-          }
-          if (blocked.length) {
-            const blockedNote = `Portal credentials for ${blocked.join(', ')} are not usable on this machine yet (Hermes OAuth tokens missing or wrong shape). Re-sync from Settings → LLM providers after the runtime accepts the connection.`
-            warning = warning ? `${warning} ${blockedNote}` : blockedNote
-          }
         }
       }
     } catch {
@@ -482,24 +439,9 @@ export async function getMessageModelCatalog(input: {
     }
   }
 
-  const usableProviders = expandProviderAliases([
-    ...hermesConfiguredProviders,
-    ...connectedHermesProviders,
-  ])
+  const usableProviders = expandProviderAliases([...connectedHermesProviders])
 
-  // Live Hermes primary is always usable even before /v1/models lists it.
-  if (runtimeSummary.primaryProvider) {
-    for (const alias of expandProviderAliases([runtimeSummary.primaryProvider])) {
-      usableProviders.add(alias)
-    }
-  }
-
-  const connectedExtras = connectedModelOptions(connectedHermesProviders, runtimeSummary.primaryModel || '')
-  for (const extra of connectedExtras) {
-    if (!models.some((model) => model.id === extra.id && model.provider === extra.provider)) {
-      models.push(extra)
-    }
-  }
+  const connectedExtras = connectedModelOptions(readyAccounts, runtimeSummary.primaryModel || '')
   if (liveCatalogUnavailable && connectedExtras.length > 0) {
     warning = 'Live model refresh is unavailable for the selected runtime; showing the supported catalogue for your connected providers.'
   }
@@ -531,10 +473,13 @@ export async function getMessageModelCatalog(input: {
 
   const hasCredentialTruth = usableProviders.size > 0
 
-  models = dedupeModels(models).map((model) => {
+  const unboundModels = models.filter((model) => !connectedExtras.some((extra) =>
+    extra.id === model.id && providersShareCredentialFamily(extra.provider, model.provider),
+  ))
+  models = dedupeModels([...connectedExtras, ...unboundModels]).map((model) => {
     const providerAliases = [...expandProviderAliases([model.provider])]
     const providerUsable = !hasCredentialTruth
-      ? true
+      ? false
       : providerAliases.some((alias) => usableProviders.has(alias))
         || model.connected === true
         || model.source === 'connected'
@@ -543,14 +488,23 @@ export async function getMessageModelCatalog(input: {
     const active = modelMatchesLivePrimary(model, autoModel, autoProvider)
     const unlockedViaConnection = providerAliases.some((alias) => connectedHermesProviders.has(alias))
     const isPersonalProvider = providerAliases.some((alias) => personalConnectedProviders.has(alias))
+    const matchingAccount = model.connectionId
+      ? readyAccounts.find((account) => account.connectionId === model.connectionId)
+      : readyAccounts.find((account) => providersShareCredentialFamily(account.provider, model.provider))
     return {
       ...model,
+      ...(matchingAccount ? {
+        connectionId: matchingAccount.connectionId,
+        connectionLabel: matchingAccount.connectionLabel,
+        credentialBindingId: matchingAccount.credentialBindingId,
+        providerLabel: `${labelFromProvider(model.provider)} · ${matchingAccount.connectionLabel}`,
+      } : {}),
       active,
-      available,
+      available: available && Boolean(matchingAccount),
       configured: hasCredentialTruth ? (providerUsable || model.configured) : model.configured,
       connected: model.connected || unlockedViaConnection,
       localOnly: isPersonalProvider && !unlockedViaConnection,
-      ...(available
+      ...(available && matchingAccount
         ? { reasonUnavailable: undefined }
         : {
           reasonUnavailable: model.reasonUnavailable || unavailableReasonForProvider(model.providerLabel || model.provider),
@@ -566,7 +520,7 @@ export async function getMessageModelCatalog(input: {
   })
 
   if (localOnlyProviderLabels.length) {
-    const localNote = `Personal credentials (${localOnlyProviderLabels.join(', ')}) apply on your linked computers${memberMayUsePersonalLlmOnOrgVps(input.user.memberAccessPolicy, null) ? '' : ' only — ask an admin to enable them on the organisation VPS in Team access'}.`
+    const localNote = `Personal credentials (${localOnlyProviderLabels.join(', ')}) apply on computers owned by your account only. Shared VPS chats use organisation accounts.`
     warning = warning ? `${warning} ${localNote}` : localNote
   }
 
@@ -576,10 +530,10 @@ export async function getMessageModelCatalog(input: {
   }
 
   if (!hasCredentialTruth) {
-    const credNote = 'Live Hermes provider config was unavailable, so model credentials could not be verified. Prefer Auto, or connect providers in Settings.'
+    const credNote = 'No account has passed live authentication on this machine and agent profile. Explicit model selection is locked until you sync a provider in Settings; Auto may still use the runtime-managed default.'
     warning = warning ? `${warning} ${credNote}` : credNote
   } else if (connectedHermesProviders.size === 0 && hermesConfiguredProviders.length > 0) {
-    const hermesNote = `PiB Settings has no portal connections; Auto still uses Hermes-native ${autoLabel || hermesConfiguredProviders.join(', ')} on this agent runtime.`
+    const hermesNote = `Hermes reports ${autoLabel || hermesConfiguredProviders.join(', ')}, but PiB will not dispatch until an account is synced and live-verified for this machine and profile.`
     warning = warning ? `${warning} ${hermesNote}` : hermesNote
   }
 
@@ -615,6 +569,8 @@ export async function validateMessageModelSelection(input: {
   agentId: AgentId | null
   model?: unknown
   provider?: unknown
+  connectionId?: unknown
+  credentialBindingId?: unknown
 }): Promise<MessageModelValidationResult> {
   const hasRequestedModel = input.model !== undefined && input.model !== null && input.model !== ''
   const hasRequestedProvider = input.provider !== undefined && input.provider !== null && input.provider !== ''
@@ -622,11 +578,18 @@ export async function validateMessageModelSelection(input: {
   const requestedProvider = !hasRequestedProvider
     ? ''
     : cleanMessageProviderId(input.provider)
+  const requestedConnectionId = readString(input.connectionId)
+  const requestedBindingId = readString(input.credentialBindingId)
 
   if (hasRequestedModel && !requestedModel) return { ok: false, status: 400, error: 'Invalid model id.' }
   if (hasRequestedProvider && !requestedProvider) return { ok: false, status: 400, error: 'Invalid provider id.' }
-  if (!requestedModel && !requestedProvider) return { ok: true, selection: undefined }
-  if (!requestedModel) return { ok: false, status: 400, error: 'A model is required when selecting a provider.' }
+  if (requestedModel && (!requestedConnectionId || !requestedBindingId)) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'An exact connected account and machine binding are required for model selection.',
+    }
+  }
   if (!input.agentId) return { ok: false, status: 400, error: 'Model selection requires an agent conversation.' }
   if (!canSelectMessageModels(input.user)) {
     return { ok: false, status: 403, error: 'Model selection is not available for this role.' }
@@ -637,11 +600,16 @@ export async function validateMessageModelSelection(input: {
     user: input.user,
     agentId: input.agentId,
   })
-  const match = catalog.models.find((model) => {
-    if (model.id !== requestedModel) return false
-    if (!requestedProvider) return true
-    return model.provider === requestedProvider
-  })
+  const match = requestedModel
+    ? catalog.models.find((model) => {
+        if (model.id !== requestedModel) return false
+        if (requestedProvider && model.provider !== requestedProvider) return false
+        if (requestedConnectionId && model.connectionId !== requestedConnectionId) return false
+        if (requestedBindingId && model.credentialBindingId !== requestedBindingId) return false
+        return true
+      })
+    : catalog.models.find((model) => model.active && model.available && model.connectionId && model.credentialBindingId)
+      ?? catalog.models.find((model) => model.available && model.connectionId && model.credentialBindingId)
 
   if (!match) {
     return { ok: false, status: 400, error: 'Selected model is not available for this agent runtime.', catalog }
@@ -649,12 +617,22 @@ export async function validateMessageModelSelection(input: {
   if (!match.available) {
     return { ok: false, status: 400, error: match.reasonUnavailable || 'Selected model is unavailable for this agent runtime.', catalog }
   }
+  if (!match.connectionId || !match.credentialBindingId) {
+    return {
+      ok: false,
+      status: 409,
+      error: 'The selected account is not live-verified on this machine and agent profile. Sync it in Settings and retry.',
+      catalog,
+    }
+  }
 
   return {
     ok: true,
     selection: {
       model: match.id,
       provider: requestedProvider || match.provider,
+      llmConnectionId: match.connectionId,
+      llmCredentialBindingId: match.credentialBindingId,
     },
     catalog,
   }

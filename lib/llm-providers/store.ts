@@ -40,6 +40,8 @@ export async function upsertLlmProviderConnection(
   if (!def) throw new Error('Unknown provider')
   const id = llmConnectionId(input)
   const scopeKeyRef = llmConnectionScopeKey(input)
+  const ref = adminDb.collection(LLM_PROVIDER_CONNECTIONS_COLLECTION).doc(id)
+  const existing = await ref.get()
   const doc: Omit<LlmProviderConnection, 'createdAt' | 'updatedAt'> = {
     id,
     provider: input.provider,
@@ -54,6 +56,9 @@ export async function upsertLlmProviderConnection(
     scopeKeyRef,
     credentialHint: credentialHint(input.credentials),
     meta: input.meta ?? {},
+    credentialVersion: existing.exists
+      ? Math.max(1, Number((existing.data() as LlmProviderConnection).credentialVersion ?? 1)) + 1
+      : 1,
     syncedAgentIds: [],
     lastValidatedAt: null,
     lastUsedAt: null,
@@ -62,8 +67,6 @@ export async function upsertLlmProviderConnection(
     createdBy: actor.uid,
     createdByType: actor.type,
   }
-  const ref = adminDb.collection(LLM_PROVIDER_CONNECTIONS_COLLECTION).doc(id)
-  const existing = await ref.get()
   await ref.set({
     ...doc,
     syncedAgentIds: existing.exists
@@ -117,6 +120,8 @@ export async function revokeLlmProviderConnection(
     credentialsEnc: null,
     updatedAt: FieldValue.serverTimestamp(),
   })
+  const { revokeConnectionLlmCredentialBindings } = await import('./bindings')
+  await revokeConnectionLlmCredentialBindings(id)
   const updated = await getLlmProviderConnection(id)
   return maskLlmConnection(updated as LlmProviderConnection)
 }
@@ -126,10 +131,19 @@ export async function markLlmConnectionSynced(
   agentIds: string[],
 ): Promise<void> {
   await adminDb.collection(LLM_PROVIDER_CONNECTIONS_COLLECTION).doc(id).update({
+    status: 'connected',
     syncedAgentIds: agentIds,
     lastSyncedAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     lastError: null,
+  })
+}
+
+/** A machine/profile delivery failure does not prove the saved account is invalid. */
+export async function markLlmConnectionSyncWarning(id: string, error: string): Promise<void> {
+  await adminDb.collection(LLM_PROVIDER_CONNECTIONS_COLLECTION).doc(id).update({
+    lastError: error.slice(0, 500),
+    updatedAt: FieldValue.serverTimestamp(),
   })
 }
 

@@ -166,6 +166,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     'agentProvider',
     'agentModel',
     'assigneeAgentId',
+    'agentRuntimeTargetId',
   ].some((field) => body[field] !== undefined)
   if (llmFieldsTouched && typeof projectOrgId === 'string' && projectOrgId) {
     const mergedForResolve: Record<string, unknown> = {
@@ -181,11 +182,13 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
       user,
       taskFields: mergedForResolve,
       syncPersonal: true,
+      runtimeTargetId: typeof existing.agentRuntimeTargetId === 'string' ? existing.agentRuntimeTargetId : null,
     })
     updateValue.llmCredentialSource = mergedForResolve.llmCredentialSource
     updateValue.agentProvider = mergedForResolve.agentProvider
     updateValue.llmCredentialOwnerUid = mergedForResolve.llmCredentialOwnerUid
     updateValue.llmResolvedSource = mergedForResolve.llmResolvedSource
+    updateValue.llmConnectionId = mergedForResolve.llmConnectionId
   }
 
   // Sentinel swap — the payload builder is pure JSON and can't emit FieldValue.serverTimestamp() itself.

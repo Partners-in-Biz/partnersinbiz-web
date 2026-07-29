@@ -12,6 +12,9 @@ const mockCallHermesJson = jest.fn()
 const mockCallAgentPath = jest.fn()
 const mockListConnections = jest.fn()
 const mockOrgMemberGet = jest.fn()
+const mockPutBinding = jest.fn()
+const mockUpdateBinding = jest.fn()
+const mockEnqueueDelivery = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -32,7 +35,7 @@ jest.mock('@/lib/llm-providers/store', () => ({
   getLlmProviderConnection: (...args: unknown[]) => mockGetConnection(...args),
   getDecryptedLlmCredentials: (...args: unknown[]) => mockGetCredentials(...args),
   markLlmConnectionSynced: (...args: unknown[]) => mockMarkSynced(...args),
-  markLlmConnectionError: (...args: unknown[]) => mockMarkError(...args),
+  markLlmConnectionSyncWarning: (...args: unknown[]) => mockMarkError(...args),
   listLlmProviderConnections: (...args: unknown[]) => mockListConnections(...args),
 }))
 
@@ -48,11 +51,25 @@ jest.mock('@/lib/hermes/server', () => ({
 jest.mock('@/lib/agents/team', () => ({
   callAgentPath: (...args: unknown[]) => mockCallAgentPath(...args),
 }))
+jest.mock('@/lib/llm-providers/bindings', () => ({
+  putDesiredLlmCredentialBinding: (...args: unknown[]) => mockPutBinding(...args),
+  updateLlmCredentialBinding: (...args: unknown[]) => mockUpdateBinding(...args),
+}))
+jest.mock('@/lib/llm-providers/linked-delivery', () => ({
+  enqueueCredentialDelivery: (...args: unknown[]) => mockEnqueueDelivery(...args),
+  enqueuePersonalCredentialDelivery: (...args: unknown[]) => mockEnqueueDelivery(...args),
+}))
 
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
 
 function mockAgentPathWithEnvVerify() {
   mockCallAgentPath.mockImplementation(async (_agentId: unknown, path: unknown, init?: { method?: string }) => {
+    if (path === '/v1/responses') {
+      return { response: { ok: true, status: 200 }, data: { output_text: 'PIB_CREDENTIAL_OK' } }
+    }
+    if (path === '/v1/models') {
+      return { response: { ok: true, status: 200 }, data: { data: [{ id: 'grok-build-0.1' }] } }
+    }
     if (path === '/admin/env' && (!init?.method || init.method === 'GET')) {
       return {
         response: { ok: true, status: 200 },
@@ -85,6 +102,12 @@ function mockAgentPathWithEnvVerify() {
     return { response: { ok: true, status: 200 }, data: {} }
   })
   mockCallHermesJson.mockImplementation(async (_link: unknown, path: unknown, init?: { method?: string }) => {
+    if (path === '/v1/responses') {
+      return { response: { ok: true, status: 200 }, data: { output_text: 'PIB_CREDENTIAL_OK' } }
+    }
+    if (path === '/v1/models') {
+      return { response: { ok: true, status: 200 }, data: { data: [{ id: 'grok-build-0.1' }] } }
+    }
     if (path === '/admin/env' && (!init?.method || init.method === 'GET')) {
       return {
         response: { ok: true, status: 200 },
@@ -119,6 +142,9 @@ describe('org VPS vs personal credential sync', () => {
       data: () => ({ role: 'member', accessPolicy: { allowPersonalLlmOnOrgVps: false } }),
     })
     mockListConnections.mockResolvedValue([])
+    mockPutBinding.mockResolvedValue({ id: 'binding-1' })
+    mockUpdateBinding.mockResolvedValue(undefined)
+    mockEnqueueDelivery.mockResolvedValue({ jobId: 'job-1' })
     mockAgentPathWithEnvVerify()
   })
 
@@ -149,17 +175,13 @@ describe('org VPS vs personal credential sync', () => {
 
     const result = await syncLlmConnectionToHermes('user:u1:xai')
 
-    expect(result.synced).toEqual(['pip'])
+    expect(result.synced).toEqual([])
+    expect(result.queued).toEqual([{ agentId: 'pip', bindingId: 'binding-1', jobId: 'job-1' }])
     expect(result.failed).toEqual([])
-    expect(result.verified?.[0]?.usable).toBe(true)
     expect(mockResolveUserTargets).toHaveBeenCalled()
-    expect(mockCallAgentPath).toHaveBeenCalledWith(
-      'pip',
-      '/admin/env',
-      expect.objectContaining({ method: 'PATCH' }),
-      { runtimeTarget: 'mac-1' },
-    )
-    expect(mockMarkSynced).toHaveBeenCalledWith('user:u1:xai', ['pip'])
+    expect(mockResolveUserTargets).toHaveBeenCalledWith(expect.objectContaining({ includeOrgVps: false }))
+    expect(mockCallAgentPath).not.toHaveBeenCalled()
+    expect(mockEnqueueDelivery).toHaveBeenCalled()
   })
 
   it('fails verification when Hermes OAuth tokens are not in native shape', async () => {
@@ -179,16 +201,15 @@ describe('org VPS vs personal credential sync', () => {
     })
     mockResolveOrgTargets.mockResolvedValue({
       targets: [{
-        kind: 'org_linked_vps',
+        kind: 'org_hermes_link',
         agentId: 'pip',
-        runtimeTargetId: 'partners-vps',
-        deviceId: 'device-vps',
         label: 'Org VPS · pip',
+        hermesLink: { orgId: 'acme', profile: 'pip', baseUrl: 'https://vps.example', apiKey: 'k', enabled: true },
       }],
       orgVpsDeviceCount: 1,
       hasHermesProfileLink: false,
     })
-    mockCallAgentPath.mockImplementation(async (_agentId: unknown, path: unknown, init?: { method?: string }) => {
+    mockCallHermesJson.mockImplementation(async (_link: unknown, path: unknown, init?: { method?: string }) => {
       if (String(path).startsWith('/admin/auth/providers/') && init?.method === 'PUT') {
         return { response: { ok: true, status: 200 }, data: { updated: true } }
       }
@@ -217,7 +238,7 @@ describe('org VPS vs personal credential sync', () => {
     expect(mockMarkError).toHaveBeenCalled()
   })
 
-  it('includes org VPS targets when Team access allows personal LLM on VPS', async () => {
+  it('never enables org VPS targets for personal credentials even when legacy Team access allows it', async () => {
     mockOrgMemberGet.mockResolvedValue({
       exists: true,
       data: () => ({
@@ -237,22 +258,13 @@ describe('org VPS vs personal credential sync', () => {
     })
     mockGetCredentials.mockResolvedValue({ apiKey: 'xai-secret' })
     mockResolveUserTargets.mockResolvedValue({
-      targets: [
-        {
-          kind: 'user_linked_computer',
-          agentId: 'pip',
-          runtimeTargetId: 'mac-1',
-          deviceId: 'device-mac',
-          label: 'Peet Mac · pip',
-        },
-        {
-          kind: 'org_linked_vps',
-          agentId: 'pip',
-          runtimeTargetId: 'partners-vps',
-          deviceId: 'device-vps',
-          label: 'Org VPS · pip',
-        },
-      ],
+      targets: [{
+        kind: 'user_linked_computer',
+        agentId: 'pip',
+        runtimeTargetId: 'mac-1',
+        deviceId: 'device-mac',
+        label: 'Peet Mac · pip',
+      }],
       linkedComputerCount: 1,
       includedOrgVps: true,
     })
@@ -260,14 +272,15 @@ describe('org VPS vs personal credential sync', () => {
 
     const result = await syncLlmConnectionToHermes('user:u1:xai')
 
-    expect(result.synced).toEqual(['pip', 'pip'])
-    expect(result.includedOrgVps).toBe(true)
+    expect(result.synced).toEqual([])
+    expect(result.queued).toHaveLength(1)
+    expect(result.includedOrgVps).toBe(false)
     expect(mockResolveUserTargets).toHaveBeenCalledWith(expect.objectContaining({
-      includeOrgVps: true,
+      includeOrgVps: false,
     }))
   })
 
-  it('skips org VPS when an organisation connection already covers the provider', async () => {
+  it('keeps personal delivery off the org VPS regardless of organisation provider coverage', async () => {
     mockOrgMemberGet.mockResolvedValue({
       exists: true,
       data: () => ({
@@ -309,11 +322,11 @@ describe('org VPS vs personal credential sync', () => {
 
     const result = await syncLlmConnectionToHermes('user:u1:xai')
 
-    expect(result.skippedVpsBecauseOrgProvider).toBe(true)
+    expect(result.skippedVpsBecauseOrgProvider).toBe(false)
     expect(mockResolveUserTargets).toHaveBeenCalledWith(expect.objectContaining({
       includeOrgVps: false,
     }))
-    expect(result.message).toMatch(/Skipped organisation VPS/)
+    expect(result.message).toMatch(/never copied to the shared organisation VPS/i)
   })
 
   it('syncs org-scoped credentials only to resolved org VPS targets', async () => {

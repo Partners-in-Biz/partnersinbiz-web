@@ -6,6 +6,8 @@ type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<
 const mockGetConversation = jest.fn()
 const mockCollection = jest.fn()
 const mockCallAgentPath = jest.fn()
+const mockListConnections = jest.fn()
+const mockListBindings = jest.fn()
 
 let mockUser: MockUser = { uid: 'admin-1', role: 'admin', orgId: 'org-1' }
 
@@ -25,6 +27,13 @@ jest.mock('@/lib/conversations/conversations', () => ({
 jest.mock('@/lib/agents/team', () => ({
   callAgentPath: mockCallAgentPath,
 }))
+jest.mock('@/lib/llm-providers/store', () => ({
+  listLlmProviderConnections: (...args: unknown[]) => mockListConnections(...args),
+}))
+jest.mock('@/lib/llm-providers/bindings', () => ({
+  connectionCredentialVersion: (connection: { credentialVersion?: number }) => connection.credentialVersion || 1,
+  listRuntimeLlmCredentialBindings: (...args: unknown[]) => mockListBindings(...args),
+}))
 
 beforeEach(() => {
   jest.resetModules()
@@ -41,6 +50,8 @@ beforeEach(() => {
       { kind: 'agent', agentId: 'pip', name: 'Pip' },
     ],
   })
+  mockListConnections.mockResolvedValue([])
+  mockListBindings.mockResolvedValue([])
   mockCollection.mockImplementation((name: string) => {
     if (name === 'agent_team') {
       return {
@@ -57,6 +68,9 @@ beforeEach(() => {
           }),
         }),
       }
+    }
+    if (name === 'linked_devices') {
+      return { get: async () => ({ docs: [] }) }
     }
     throw new Error(`Unexpected collection: ${name}`)
   })
@@ -120,12 +134,12 @@ describe('conversation model catalogue API', () => {
         id: 'gpt-5.6-luna',
         provider: 'openai-codex',
         active: true,
-        available: true,
+        available: false,
       }),
       expect.objectContaining({
         id: 'gemini-2.5-pro',
         provider: 'gemini',
-        available: true,
+        available: false,
       }),
       expect.objectContaining({
         id: 'claude-sonnet-4-6',
@@ -136,7 +150,7 @@ describe('conversation model catalogue API', () => {
       expect.objectContaining({
         id: 'openai/gpt-5.5',
         provider: 'openai',
-        available: true,
+        available: false,
       }),
     ]))
     const raw = JSON.stringify(body)
@@ -201,7 +215,7 @@ describe('conversation model catalogue API', () => {
     expect(body.data.autoModel).toBe('gpt-5.6-luna')
     expect(body.data.autoProvider).toBe('openai-codex')
     expect(body.data.models).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'gpt-5.6-luna', available: true, active: true }),
+      expect.objectContaining({ id: 'gpt-5.6-luna', available: false, active: true }),
       expect.objectContaining({ id: 'anthropic/claude-sonnet-4.6', source: 'agent-default', available: false }),
     ]))
   })
@@ -220,27 +234,56 @@ describe('conversation model catalogue API', () => {
     })
     mockCallAgentPath.mockRejectedValue(new Error('linked computer loopback endpoint is not public'))
 
-    jest.doMock('@/lib/llm-providers/store', () => ({
-      listLlmProviderConnections: jest.fn().mockResolvedValue([
+    mockListConnections.mockResolvedValue([
         {
+          id: 'user:admin-1:openai-codex',
           provider: 'openai-codex',
           hermesProvider: 'openai-codex',
           scope: 'user',
+          ownerUid: 'admin-1',
           status: 'connected',
           hasCredentials: true,
+          credentialVersion: 1,
+          label: 'Peet ChatGPT',
         },
         {
+          id: 'user:admin-1:xai-oauth',
           provider: 'xai-oauth',
           hermesProvider: 'xai-oauth',
           scope: 'user',
+          ownerUid: 'admin-1',
           status: 'connected',
           hasCredentials: true,
+          credentialVersion: 1,
+          label: 'Peet SuperGrok',
         },
-      ]),
-    }))
+      ])
+    mockListBindings.mockResolvedValue([
+      {
+        id: 'binding-openai',
+        connectionId: 'user:admin-1:openai-codex',
+        credentialVersion: 1,
+        status: 'ready',
+        liveAuthVerified: true,
+        verifiedModelIds: [],
+      },
+      {
+        id: 'binding-xai',
+        connectionId: 'user:admin-1:xai-oauth',
+        credentialVersion: 1,
+        status: 'ready',
+        liveAuthVerified: true,
+        verifiedModelIds: [],
+      },
+    ])
     jest.doMock('@/lib/llm-providers/sync-targets', () => ({
       isOrgVpsConversationRuntime: jest.fn().mockReturnValue(false),
       runtimeBelongsToUserComputer: jest.fn().mockResolvedValue(true),
+      resolveLlmCredentialRuntimeTarget: jest.fn().mockResolvedValue({
+        runtimeTargetId: 'local',
+        deviceId: 'device-local',
+        ownerType: 'user',
+      }),
     }))
 
     const { GET } = await import('@/app/api/v1/conversations/[convId]/models/route')
@@ -254,7 +297,14 @@ describe('conversation model catalogue API', () => {
     expect(body.data.warning).toMatch(/showing the supported catalogue/i)
     expect(body.data.selectableModelCount).toBe(16)
     expect(body.data.models).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: 'gpt-5.6-luna', provider: 'openai-codex', connected: true, available: true }),
+      expect.objectContaining({
+        id: 'gpt-5.6-luna',
+        provider: 'openai-codex',
+        connected: true,
+        available: true,
+        connectionId: 'user:admin-1:openai-codex',
+        credentialBindingId: 'binding-openai',
+      }),
       expect.objectContaining({ id: 'gpt-5.6-sol', provider: 'openai-codex', connected: true, available: true }),
       expect.objectContaining({ id: 'gpt-5.6-terra', provider: 'openai-codex', connected: true, available: true }),
       expect.objectContaining({ id: 'grok-4.20-multi-agent-0309', provider: 'xai-oauth', connected: true, available: true }),

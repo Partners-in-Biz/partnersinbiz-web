@@ -1,26 +1,23 @@
 /**
  * Push LLM credentials onto Hermes runtimes.
  * - Org connections → organisation VPS only
- * - Personal connections → owner's linked computers; optionally org VPS when member access allows
+ * - Personal connections → owner's linked computers through authenticated pull jobs
  */
 import { callAgentPath } from '@/lib/agents/team'
 import { callHermesJson } from '@/lib/hermes/server'
 import type { AgentId } from '@/lib/agents/types'
 import { adminDb } from '@/lib/firebase/admin'
-import {
-  memberMayUsePersonalLlmOnOrgVps,
-  resolveMemberAccessPolicy,
-  type MemberAccessPolicy,
-} from '@/lib/orgMembers/access-policy'
+import { resolveMemberAccessPolicy, type MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 import type { OrgRole } from '@/lib/organizations/types'
 import { getLlmProvider } from './providers'
 import {
   getDecryptedLlmCredentials,
   getLlmProviderConnection,
-  listLlmProviderConnections,
-  markLlmConnectionError,
+  markLlmConnectionSyncWarning,
   markLlmConnectionSynced,
 } from './store'
+import { putDesiredLlmCredentialBinding, updateLlmCredentialBinding } from './bindings'
+import { enqueueCredentialDelivery } from './linked-delivery'
 import {
   resolveOrgLlmSyncTargets,
   resolveUserLlmSyncTargets,
@@ -30,6 +27,7 @@ import type { LlmProviderConnection } from './types'
 
 export type SyncLlmConnectionResult = {
   synced: string[]
+  queued: Array<{ agentId: string; bindingId: string; jobId: string }>
   failed: Array<{ agentId: string; error: string }>
   verified?: Array<{ agentId: string; usable: boolean; detail?: string }>
   skippedReason?: 'no_sync_target' | 'org_provider_covers_vps'
@@ -96,36 +94,23 @@ export async function syncLlmConnectionToHermes(
     ? { accessPolicy: options.accessPolicy, orgRole: options.orgRole ?? null }
     : await loadMemberAccessForSync({ orgId: conn.orgId, uid: ownerUid })
 
-  const allowOrgVps = memberMayUsePersonalLlmOnOrgVps(membership.accessPolicy, membership.orgRole)
-
-  // Never overwrite an organisation-managed provider on the shared VPS.
-  let skipOrgVpsBecauseOrgProvider = false
-  if (allowOrgVps) {
-    const orgConnections = await listLlmProviderConnections({ orgId: conn.orgId, uid: ownerUid })
-    skipOrgVpsBecauseOrgProvider = orgConnections.some(
-      (c) => c.scope === 'org'
-        && c.status === 'connected'
-        && c.hasCredentials
-        && (c.hermesProvider === conn.hermesProvider || c.provider === conn.provider),
-    )
-  }
-
   const resolved = await resolveUserLlmSyncTargets({
     ownerUid,
     orgId: conn.orgId,
     accessPolicy: membership.accessPolicy,
     orgRole: membership.orgRole,
     preferredAgentIds: options.agentIds,
-    includeOrgVps: allowOrgVps && !skipOrgVpsBecauseOrgProvider,
+    includeOrgVps: false,
   })
 
   if (!resolved.targets.length) {
-    await markLlmConnectionError(connectionId, resolved.reasonIfEmpty || 'No personal sync target')
+    await markLlmConnectionSyncWarning(connectionId, resolved.reasonIfEmpty || 'No personal sync target')
     return {
       synced: [],
+      queued: [],
       failed: [],
       skippedReason: 'no_sync_target',
-      skippedVpsBecauseOrgProvider: skipOrgVpsBecauseOrgProvider,
+      skippedVpsBecauseOrgProvider: false,
       includedOrgVps: false,
       message: resolved.reasonIfEmpty,
     }
@@ -136,25 +121,14 @@ export async function syncLlmConnectionToHermes(
     reasonIfEmpty: resolved.reasonIfEmpty,
   })
 
-  const notes: string[] = []
-  if (resolved.includedOrgVps) {
-    notes.push('Personal credentials were also written to the organisation VPS agent profiles.')
-  } else if (skipOrgVpsBecauseOrgProvider) {
-    notes.push(
-      'Skipped organisation VPS — shared organisation credentials already cover this provider. Personal keys still sync to your linked computers.',
-    )
-  } else if (allowOrgVps) {
-    notes.push('Organisation VPS was eligible but no VPS sync targets were available.')
-  } else {
-    notes.push('Personal credentials sync to your linked computers only. Ask an admin to enable personal LLM credentials on the organisation VPS in Team access if needed.')
-  }
+  const notes = ['Personal credentials are delivered only to computers owned by your account. They are never copied to the shared organisation VPS.']
 
   return {
     ...result,
-    skippedVpsBecauseOrgProvider: skipOrgVpsBecauseOrgProvider,
-    includedOrgVps: resolved.includedOrgVps,
+    skippedVpsBecauseOrgProvider: false,
+    includedOrgVps: false,
     message: [result.message, ...notes].filter(Boolean).join(' '),
-    ...(result.synced.length === 0 && result.failed.length === 0
+    ...(result.synced.length === 0 && result.queued.length === 0 && result.failed.length === 0
       ? { skippedReason: 'no_sync_target' as const }
       : {}),
   }
@@ -175,9 +149,10 @@ async function pushToTargets(
   resolved: { targets: LlmSyncTarget[]; reasonIfEmpty?: string },
 ): Promise<SyncLlmConnectionResult> {
   if (!resolved.targets.length) {
-    await markLlmConnectionError(connectionId, resolved.reasonIfEmpty || 'No sync target')
+    await markLlmConnectionSyncWarning(connectionId, resolved.reasonIfEmpty || 'No sync target')
     return {
       synced: [],
+      queued: [],
       failed: [],
       skippedReason: 'no_sync_target',
       message: resolved.reasonIfEmpty,
@@ -186,14 +161,28 @@ async function pushToTargets(
 
   const def = getLlmProvider(conn.provider)
   const synced: string[] = []
+  const queued: Array<{ agentId: string; bindingId: string; jobId: string }> = []
   const failed: Array<{ agentId: string; error: string }> = []
   const verified: Array<{ agentId: string; usable: boolean; detail?: string }> = []
   const isOauth = Boolean(credentials.access_token && credentials.refresh_token)
   const envVar = def?.envVar
     || (conn.provider === 'copilot' ? 'COPILOT_GITHUB_TOKEN' : undefined)
+  const discoveredCanaryModel = Array.isArray(conn.meta?.discoveredModels)
+    ? conn.meta.discoveredModels.find((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+    : undefined
 
   for (const target of resolved.targets) {
+    const binding = await putDesiredLlmCredentialBinding({ connection: conn, target })
     try {
+      if (target.deviceId) {
+        const delivery = await enqueueCredentialDelivery({
+          connection: conn,
+          bindingId: binding.id,
+          target,
+        })
+        queued.push({ agentId: target.agentId, bindingId: binding.id, jobId: delivery.jobId })
+        continue
+      }
       if (isOauth) {
         await pushOauthTokens(target, conn, credentials)
       } else if (envVar && credentials.apiKey) {
@@ -206,6 +195,7 @@ async function pushToTargets(
         hermesProvider: conn.hermesProvider,
         isOauth,
         envVar,
+        canaryModel: discoveredCanaryModel || def?.curatedModels[0],
       })
       verified.push({
         agentId: target.agentId,
@@ -213,6 +203,11 @@ async function pushToTargets(
         ...(check.detail ? { detail: check.detail } : {}),
       })
       if (!check.usable) {
+        await updateLlmCredentialBinding(binding.id, {
+          status: 'failed',
+          liveAuthVerified: false,
+          lastError: check.detail || 'Provider canary failed',
+        })
         failed.push({
           agentId: target.agentId,
           error: check.detail
@@ -220,8 +215,19 @@ async function pushToTargets(
         })
         continue
       }
+      await updateLlmCredentialBinding(binding.id, {
+        status: 'ready',
+        liveAuthVerified: true,
+        verifiedModelIds: check.modelIds ?? [],
+        lastError: null,
+      })
       synced.push(target.agentId)
     } catch (err) {
+      await updateLlmCredentialBinding(binding.id, {
+        status: 'failed',
+        liveAuthVerified: false,
+        lastError: err instanceof Error ? err.message : 'Sync failed',
+      }).catch(() => undefined)
       failed.push({
         agentId: target.agentId,
         error: err instanceof Error ? err.message : 'Sync failed',
@@ -237,7 +243,7 @@ async function pushToTargets(
   if (synced.length) {
     await markLlmConnectionSynced(connectionId, synced)
   } else if (failed.length) {
-    await markLlmConnectionError(connectionId, failed[0].error)
+    await markLlmConnectionSyncWarning(connectionId, failed[0].error)
   }
 
   const verifyNote = verified.some((v) => !v.usable)
@@ -248,6 +254,7 @@ async function pushToTargets(
 
   return {
     synced,
+    queued,
     failed,
     verified,
     ...(verifyNote ? { message: verifyNote } : {}),
@@ -261,8 +268,8 @@ async function pushToTargets(
  */
 async function verifyCredentialOnTarget(
   target: LlmSyncTarget,
-  input: { hermesProvider: string; isOauth: boolean; envVar?: string },
-): Promise<{ usable: boolean; detail?: string }> {
+  input: { hermesProvider: string; isOauth: boolean; envVar?: string; canaryModel?: string },
+): Promise<{ usable: boolean; detail?: string; modelIds?: string[] }> {
   try {
     if (input.isOauth) {
       const path = '/admin/auth/providers'
@@ -307,7 +314,7 @@ async function verifyCredentialOnTarget(
           detail: `Hermes on ${target.label} still reports unusable ${input.hermesProvider} OAuth tokens (missing nested tokens shape). Re-sync after the admin sidecar update.`,
         }
       }
-      return { usable: true, detail: `Hermes accepted ${input.hermesProvider} OAuth on ${target.label}` }
+      return liveProviderCanary(target, input.hermesProvider, input.canaryModel)
     }
 
     if (!input.envVar) {
@@ -335,12 +342,67 @@ async function verifyCredentialOnTarget(
         detail: `${input.envVar} is not set on Hermes for ${target.label} after sync.`,
       }
     }
-    return { usable: true, detail: `${input.envVar} present on ${target.label}` }
+    return liveProviderCanary(target, input.hermesProvider, input.canaryModel)
   } catch (err) {
     return {
       usable: false,
       detail: err instanceof Error ? err.message : 'Post-sync verification failed',
     }
+  }
+}
+
+async function liveProviderCanary(
+  target: LlmSyncTarget,
+  provider: string,
+  model?: string,
+): Promise<{ usable: boolean; detail?: string; modelIds?: string[] }> {
+  if (!model) return { usable: false, detail: `No canary model is registered for ${provider}` }
+  const body = JSON.stringify({
+    provider,
+    model,
+    input: 'Reply exactly PIB_CREDENTIAL_OK. Do not use tools.',
+  })
+  const path = '/v1/responses'
+  const { response, data } = target.hermesLink
+    ? await callHermesJson(target.hermesLink, path, { method: 'POST', body })
+    : await callAgentPath(
+      target.agentId as AgentId,
+      path,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+      { runtimeTarget: target.runtimeTargetId },
+    )
+  if (!response.ok) {
+    return { usable: false, detail: `Live ${provider} canary failed on ${target.label} (HTTP ${response.status})` }
+  }
+  const serialized = JSON.stringify(data)
+  if (!serialized.includes('PIB_CREDENTIAL_OK')) {
+    return { usable: false, detail: `Live ${provider} canary returned an unexpected response on ${target.label}` }
+  }
+  const modelsPath = '/v1/models'
+  const modelsResult = target.hermesLink
+    ? await callHermesJson(target.hermesLink, modelsPath, { method: 'GET' })
+    : await callAgentPath(
+      target.agentId as AgentId,
+      modelsPath,
+      { method: 'GET' },
+      { runtimeTarget: target.runtimeTargetId },
+    )
+  const entries = modelsResult.data && typeof modelsResult.data === 'object'
+    ? ((modelsResult.data as { data?: unknown[]; models?: unknown[] }).data
+      ?? (modelsResult.data as { models?: unknown[] }).models
+      ?? [])
+    : []
+  const modelIds = Array.isArray(entries)
+    ? entries.flatMap((entry) => typeof entry === 'string'
+      ? [entry]
+      : entry && typeof entry === 'object' && typeof (entry as { id?: unknown }).id === 'string'
+        ? [String((entry as { id: string }).id)]
+        : [])
+    : []
+  return {
+    usable: true,
+    detail: `Live ${provider} inference succeeded on ${target.label}`,
+    modelIds,
   }
 }
 
