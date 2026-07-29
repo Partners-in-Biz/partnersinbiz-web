@@ -120,3 +120,31 @@ it('loads the connected mailbox draft and approves a send through the human mail
   expect(calls.some((call) => call.url.endsWith('/messages/draft-1') && call.method === 'PATCH' && String(call.body).includes('Updated body'))).toBe(true)
   expect(calls.some((call) => call.url.endsWith('/messages') && call.method === 'POST' && String(call.body).includes('"sendApproved":true'))).toBe(true)
 })
+
+it('shows a reconnect Google CTA when the only mailbox needs connection', async () => {
+  const disconnected = [{
+    ...accounts[0],
+    status: 'needs_setup',
+    hasGoogleOAuth: false,
+  }]
+  global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    if (url.endsWith('/accounts')) {
+      return { ok: true, json: async () => ({ data: { accounts: disconnected } }) } as Response
+    }
+    if (url.endsWith('/messages/draft-1') && (!init?.method || init.method === 'GET')) {
+      return { ok: true, json: async () => ({ data: { message: draftMessage } }) } as Response
+    }
+    throw new Error(`Unexpected fetch: ${url}`)
+  }) as jest.Mock
+
+  render(<EmailContextComposer messageId="draft-1" />)
+
+  expect(await screen.findByTestId('mailbox-reconnect-banner')).toBeInTheDocument()
+  expect(screen.getByText(/needs Google reconnection before you can send/i)).toBeInTheDocument()
+  const reconnect = screen.getByRole('link', { name: 'Reconnect Google' })
+  expect(reconnect).toHaveAttribute('href', expect.stringContaining('/api/v1/portal/email/google/authorize'))
+  expect(reconnect).toHaveAttribute('href', expect.stringContaining('emailAddress=me%40example.com'))
+  expect(screen.getByLabelText('Sending account')).toHaveDisplayValue('me@example.com (reconnect required)')
+  expect(screen.queryByRole('button', { name: 'Approve & send' })).toBeDisabled()
+})

@@ -355,6 +355,13 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
     await loadMessages()
   }
 
+  function reconnectGoogleAccount(account: MailboxAccountSafe) {
+    const params = new URLSearchParams()
+    if (account.emailAddress.trim()) params.set('emailAddress', account.emailAddress.trim())
+    if (account.displayName.trim()) params.set('displayName', account.displayName.trim())
+    window.location.href = `${config.googleAuthorizeEndpoint}?${params.toString()}`
+  }
+
   async function syncAccount(account: MailboxAccountSafe) {
     if (account.provider !== 'google') {
       setError('Only Google mailbox accounts can sync from the provider right now.')
@@ -500,7 +507,20 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
                   </div>
                   <p className="mt-1 truncate text-[var(--color-pib-text-muted)]">{account.emailAddress}</p>
                   {account.status !== 'connected' ? (
-                    <p className="mt-1 text-[var(--color-pib-text-muted)]">Needs connection</p>
+                    <div className="mt-2 space-y-1.5">
+                      <p className="text-[var(--color-pib-text-muted)]">Needs connection</p>
+                      {account.provider === 'google' ? (
+                        <button
+                          type="button"
+                          onClick={() => reconnectGoogleAccount(account)}
+                          className="btn-pib-primary !px-2 !py-1 text-[10px]"
+                        >
+                          Reconnect Google
+                        </button>
+                      ) : (
+                        <p className="text-[10px] text-[var(--color-pib-text-muted)]">Update SMTP/IMAP credentials to reconnect.</p>
+                      )}
+                    </div>
                   ) : null}
                   {account.provider === 'google' && account.status === 'connected' ? (
                     <div className="mt-2">
