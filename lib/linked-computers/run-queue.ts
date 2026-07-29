@@ -1,9 +1,7 @@
 import crypto, { verify } from 'node:crypto'
 import {
   encodeRevealRedaction,
-  isApiStylePath,
   isSecretShapedToken,
-  isSensitiveFilesystemPath,
 } from '@/lib/linked-computers/reveal-redaction'
 
 const CONTEXT = 'linked-computer-run-queue:v1'
@@ -172,46 +170,46 @@ export function shouldRedactLinkedUrl(rawUrl: string): boolean {
 /**
  * Scrub linked-computer chat output before multi-tenant storage.
  *
- * - True secrets (passwords, bearer, private keys, connection URIs) stay permanently scrubbed.
- * - Public https links stay fully visible.
- * - API endpoint paths stay fully visible (`/api/...`, `/v1/...`).
- * - Filesystem paths and private URLs become click-to-reveal markers
- *   (`[[pib-reveal:path|…]]`) so engineers can inspect them without dumping
- *   secrets into plain text by default.
+ * Operator-first policy (2026-07-29):
+ * - **Never** replace the whole message with `[redacted output]` — that made chat unusable.
+ * - Keep paths, public/private host URLs, and API endpoints fully readable.
+ * - Only scrub true secrets **inline**: private keys, bearer/auth headers, connection URIs
+ *   with embedded credentials, password/token/secret assignments, and JWT-shaped blobs.
+ * - Credentialed URLs (`user:pass@…`) stay click-to-reveal; everything else stays visible.
  */
 export function sanitizeLinkedResult(value: string): string {
   const keptUrls: string[] = []
-  // Preserve safe public URLs through later token/path scrubbers, then restore them.
+  // Preserve ordinary URLs (including localhost/private hosts) through token scrubbers.
+  // Only hide URLs that embed credentials or signed query secrets — and only as
+  // click-to-reveal, never as a full-message wipe.
   const withUrlMarkers = value.replace(/(?:https?:\/\/)[^\s)\]}]+/gi, (url) => {
-    if (shouldRedactLinkedUrl(url)) {
-      // Private / signed / local URLs: hide by default, click-to-reveal in UI.
-      return encodeRevealRedaction('url', url)
-    }
+    const needsHide = (() => {
+      try {
+        const parsed = new URL(url.trim().replace(/[.,;:!?)}\]]+$/g, ''))
+        if (parsed.username || parsed.password) return true
+        if (SENSITIVE_URL_QUERY.test(parsed.search) || SENSITIVE_URL_QUERY.test(parsed.hash)) return true
+        return false
+      } catch {
+        return false
+      }
+    })()
+    if (needsHide) return encodeRevealRedaction('url', url)
     const index = keptUrls.length
     keptUrls.push(url)
     return `${LINKED_URL_KEEP_MARKER}${index}\u0000`
   })
   const redacted = withUrlMarkers
-    // Permanent secret scrubbers (never click-to-reveal).
+    // Permanent secret scrubbers (inline only — never wipe the whole reply).
     .replace(/-----BEGIN[^\r\n]*PRIVATE KEY-----[\s\S]*?(?:-----END[^\r\n]*PRIVATE KEY-----|$)/gi, '[redacted-private-key]')
     .replace(/(?:-----BEGIN\s*)?PRIVATE KEY-----[\s\S]*$/gi, '[redacted-private-key]')
-    .replace(/\bAuthorization\s*:\s*(?:Bearer\s+)?[^\s,;]+/gi, 'Authorization: [redacted]')
+    .replace(/\bAuthorization\s*:\s*(?:Bearer\s+)?[^\s,;\n]+/gi, 'Authorization: [redacted]')
     .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [redacted]')
     .replace(/\b[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s/@:]+:[^\s/@]+@[^\s]+/gi, '[redacted-connection-uri]')
     .replace(/\b(?:DB_PASS|DATABASE_URL|[A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|KEY|CREDENTIAL|AUTH)[A-Z0-9_]*)\s*=\s*"(?:\\.|[^"\\])*"/gi, '[redacted-assignment]')
     .replace(/\b(?:DB_PASS|DATABASE_URL|[A-Z0-9_]*(?:PASSWORD|SECRET|TOKEN|KEY|CREDENTIAL|AUTH)[A-Z0-9_]*)\s*=\s*[^\s,;]+/gi, '[redacted-assignment]')
     .replace(/(["'](?:api[_-]?key|token|secret|password|credential)["']\s*:\s*["'])((?:\\.|(?!\1)[^"'\\])*)(["'])/gi, '$1[redacted]$3')
-    .replace(/(["']?(?:api[_-]?key|token|secret|password|credential)["']?\s*[:=]\s*["']?)[^"'\s,;}]+/gi, '$1[redacted]')
-    // Windows / UNC paths → click-to-reveal
-    .replace(/\\\\[^\\\s]+\\[^\s)\]}]+/g, (match) => encodeRevealRedaction('path', match))
-    .replace(/\b[A-Za-z]:\\[^\s)\]}]+/g, (match) => encodeRevealRedaction('path', match))
-    // Unix absolute paths: keep API endpoints; reveal-mask home/system roots only.
-    .replace(/(^|[\s("'])(\/(?!\/)[^\s)\]}"']+)/gm, (full, prefix: string, path: string) => {
-      if (isApiStylePath(path)) return `${prefix}${path}`
-      if (isSensitiveFilesystemPath(path)) return `${prefix}${encodeRevealRedaction('path', path)}`
-      // Generic absolute paths (e.g. /opt/app/config) — keep readable for engineering.
-      return `${prefix}${path}`
-    })
+    .replace(/(["']?(?:api[_-]?key|token|secret|password|credential)["']?\s*[:=]\s*["']?)[^"'\s,;}\n]+/gi, '$1[redacted]')
+  // Filesystem paths stay fully visible so operators can work from chat.
 
   // Shield click-to-reveal markers so the long-token scrubber cannot eat their payload.
   const revealMarkers: string[] = []
@@ -230,7 +228,8 @@ export function sanitizeLinkedResult(value: string): string {
     if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(match)) {
       return '[redacted-token]'
     }
-    return encodeRevealRedaction('token', match)
+    // High-entropy blobs: permanent scrub (not whole-message wipe).
+    return '[redacted-token]'
   })
   let safe = afterTokens.slice(0, 1_000_000)
   for (let i = 0; i < revealMarkers.length; i += 1) {
@@ -239,15 +238,15 @@ export function sanitizeLinkedResult(value: string): string {
   for (let i = 0; i < keptUrls.length; i += 1) {
     safe = safe.split(`${LINKED_URL_KEEP_MARKER}${i}\u0000`).join(keptUrls[i]!)
   }
-  // Put optional whitespace inside the negative lookahead so JS backtracking cannot
-  // defeat `(?!\[redacted\])` on already-scrubbed `password: [redacted]` / `Authorization: [redacted]`.
-  // Without that, any agent reply mentioning a password wiped the entire message.
-  if (
-    /PRIVATE KEY/i.test(safe)
-    || /Authorization\s*:(?!\s*\[redacted\])/i.test(safe)
-    || /\bBearer\s+[A-Za-z0-9]/i.test(safe)
-    || /(?:token|secret|password|api[_-]?key)\s*[:=](?!\s*\[redacted\])/i.test(safe)
-  ) return '[redacted output]'
+  // Residual secret-shaped fragments → inline scrub only. Never wipe the reply.
+  safe = safe
+    .replace(/Authorization\s*:(?!\s*\[redacted\])[^\n]*/gi, 'Authorization: [redacted]')
+    .replace(/\bBearer\s+[A-Za-z0-9._~+\/=-]{8,}/gi, 'Bearer [redacted]')
+    .replace(/\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token)\s*[:=]\s*(?!\[redacted\])[^\s,;\n]+/gi, (match) => {
+      const sep = match.includes('=') ? '=' : ':'
+      const key = match.split(/[:=]/)[0]!.trim()
+      return `${key}${sep} [redacted]`
+    })
   return safe
 }
 
