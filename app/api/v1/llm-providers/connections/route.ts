@@ -32,6 +32,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   ))).flat().map((binding) => ({
     id: binding.id,
     connectionId: binding.connectionId,
+    credentialVersion: binding.credentialVersion,
     runtimeTargetId: binding.runtimeTargetId,
     deviceId: binding.deviceId,
     machineLabel: binding.machineLabel,

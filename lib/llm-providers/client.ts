@@ -13,6 +13,7 @@ export type LlmProviderCatalogResponse = {
   bindings: Array<{
     id: string
     connectionId: string
+    credentialVersion: number
     runtimeTargetId: string
     deviceId: string | null
     machineLabel: string

@@ -7,6 +7,7 @@ const mockGetCredentials = jest.fn()
 const mockResolveOrgTargets = jest.fn()
 const mockResolveUserTargets = jest.fn()
 const mockMarkSynced = jest.fn()
+const mockMarkQueued = jest.fn()
 const mockMarkError = jest.fn()
 const mockCallHermesJson = jest.fn()
 const mockCallAgentPath = jest.fn()
@@ -35,6 +36,7 @@ jest.mock('@/lib/llm-providers/store', () => ({
   getLlmProviderConnection: (...args: unknown[]) => mockGetConnection(...args),
   getDecryptedLlmCredentials: (...args: unknown[]) => mockGetCredentials(...args),
   markLlmConnectionSynced: (...args: unknown[]) => mockMarkSynced(...args),
+  markLlmConnectionSyncQueued: (...args: unknown[]) => mockMarkQueued(...args),
   markLlmConnectionSyncWarning: (...args: unknown[]) => mockMarkError(...args),
   listLlmProviderConnections: (...args: unknown[]) => mockListConnections(...args),
 }))
@@ -58,6 +60,9 @@ jest.mock('@/lib/llm-providers/bindings', () => ({
 jest.mock('@/lib/llm-providers/linked-delivery', () => ({
   enqueueCredentialDelivery: (...args: unknown[]) => mockEnqueueDelivery(...args),
   enqueuePersonalCredentialDelivery: (...args: unknown[]) => mockEnqueueDelivery(...args),
+}))
+jest.mock('@/lib/llm-providers/refresh', () => ({
+  ensureFreshLlmProviderConnection: async (connection: unknown) => connection,
 }))
 
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
@@ -145,6 +150,7 @@ describe('org VPS vs personal credential sync', () => {
     mockPutBinding.mockResolvedValue({ id: 'binding-1' })
     mockUpdateBinding.mockResolvedValue(undefined)
     mockEnqueueDelivery.mockResolvedValue({ jobId: 'job-1' })
+    mockMarkQueued.mockResolvedValue(undefined)
     mockAgentPathWithEnvVerify()
   })
 
@@ -182,6 +188,7 @@ describe('org VPS vs personal credential sync', () => {
     expect(mockResolveUserTargets).toHaveBeenCalledWith(expect.objectContaining({ includeOrgVps: false }))
     expect(mockCallAgentPath).not.toHaveBeenCalled()
     expect(mockEnqueueDelivery).toHaveBeenCalled()
+    expect(mockMarkQueued).toHaveBeenCalledWith('user:u1:xai')
   })
 
   it('fails verification when Hermes OAuth tokens are not in native shape', async () => {

@@ -926,7 +926,10 @@ def _sync_oauth_credential_pool(
         if source != "device_code":
             continue
         entry["access_token"] = access_token
-        entry["refresh_token"] = refresh_token
+        if refresh_token:
+            entry["refresh_token"] = refresh_token
+        else:
+            entry.pop("refresh_token", None)
         entry["auth_type"] = "oauth"
         entry["last_refresh"] = last_refresh
         entry["last_status"] = None
@@ -949,7 +952,6 @@ def _sync_oauth_credential_pool(
                 "auth_type": "oauth",
                 "priority": 0,
                 "access_token": access_token,
-                "refresh_token": refresh_token,
                 "last_refresh": last_refresh,
                 "last_status": None,
                 "last_status_at": None,
@@ -958,6 +960,7 @@ def _sync_oauth_credential_pool(
                 "last_error_message": None,
                 "last_error_reset_at": None,
                 **({"base_url": base_url} if base_url else {}),
+                **({"refresh_token": refresh_token} if refresh_token else {}),
             }
         )
     pool[provider] = entries
@@ -983,9 +986,10 @@ def list_auth_providers(profile: str, x_api_key: Optional[str] = Header(default=
             continue
         access, refresh = _oauth_tokens_from_provider_state(state)
         tokens_obj = state.get("tokens") if isinstance(state.get("tokens"), dict) else None
-        hermes_shape = bool(tokens_obj and access and refresh)
+        refresh_required = name != "xai-oauth"
+        hermes_shape = bool(tokens_obj and access and (refresh or not refresh_required))
         masked[name] = {
-            "configured": bool(access and refresh),
+            "configured": bool(access and (refresh or not refresh_required)),
             "has_access_token": bool(access),
             "has_refresh_token": bool(refresh),
             "hermes_shape": hermes_shape,
@@ -1034,9 +1038,12 @@ async def upsert_auth_provider(
     refresh_token = body.get("refresh_token")
     if not isinstance(access_token, str) or not access_token.strip():
         raise HTTPException(status_code=400, detail="access_token is required")
-    if not isinstance(refresh_token, str) or not refresh_token.strip():
+    refresh_required = provider != "xai-oauth"
+    if refresh_required and (not isinstance(refresh_token, str) or not refresh_token.strip()):
         raise HTTPException(status_code=400, detail="refresh_token is required")
-    if len(access_token) > 16384 or len(refresh_token) > 16384:
+    if refresh_token is not None and not isinstance(refresh_token, str):
+        raise HTTPException(status_code=400, detail="refresh_token must be a string")
+    if len(access_token) > 16384 or (isinstance(refresh_token, str) and len(refresh_token) > 16384):
         raise HTTPException(status_code=400, detail="token too long")
 
     path = _auth_json_path(profile)
@@ -1057,7 +1064,7 @@ async def upsert_auth_provider(
     expires_in = body.get("expires_in")
     token_type = str(body.get("token_type") or "Bearer").strip() or "Bearer"
     access = access_token.strip()
-    refresh = refresh_token.strip()
+    refresh = refresh_token.strip() if isinstance(refresh_token, str) else ""
 
     # Preserve non-token metadata, but force Hermes-native token nesting.
     state = {k: v for k, v in existing.items() if k not in {
@@ -1065,9 +1072,10 @@ async def upsert_auth_provider(
     }}
     tokens: dict = {
         "access_token": access,
-        "refresh_token": refresh,
         "token_type": token_type,
     }
+    if refresh:
+        tokens["refresh_token"] = refresh
     if isinstance(body.get("id_token"), str) and body["id_token"].strip():
         tokens["id_token"] = body["id_token"].strip()
     if isinstance(body.get("scope"), str) and body["scope"].strip():

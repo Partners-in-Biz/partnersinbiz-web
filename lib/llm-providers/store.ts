@@ -139,6 +139,17 @@ export async function markLlmConnectionSynced(
   })
 }
 
+/** Delivery was accepted by linked runtimes; per-profile bindings carry completion state. */
+export async function markLlmConnectionSyncQueued(id: string): Promise<void> {
+  await adminDb.collection(LLM_PROVIDER_CONNECTIONS_COLLECTION).doc(id).update({
+    status: 'connected',
+    syncedAgentIds: [],
+    lastSyncedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    lastError: null,
+  })
+}
+
 /** A machine/profile delivery failure does not prove the saved account is invalid. */
 export async function markLlmConnectionSyncWarning(id: string, error: string): Promise<void> {
   await adminDb.collection(LLM_PROVIDER_CONNECTIONS_COLLECTION).doc(id).update({
