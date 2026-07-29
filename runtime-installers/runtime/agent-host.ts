@@ -157,16 +157,20 @@ export async function executeAgentHostJob(
         preferredPort: job.preferredPort,
         env,
       })
+      const idle = options.waitForAgentIdle
+        ? await options.waitForAgentIdle(job.agentId, 45_000)
+        : true
+      if (!idle) return { ok: false, error: 'Agent is still busy; credential reload was deferred' }
+      if (startGateway) {
+        const stopped = stopHermesGateway({ agentId: job.agentId, env })
+        if (!stopped.stopped) return { ok: false, error: stopped.error || 'Hermes credential reload could not stop the gateway' }
+      }
       const applied = applyRuntimeCredential({
         agentId: job.agentId,
         delivery: job.credentialDelivery,
         revoke: job.kind === 'revoke-credential',
         env,
       })
-      const idle = options.waitForAgentIdle
-        ? await options.waitForAgentIdle(job.agentId, 45_000)
-        : true
-      if (!idle) return { ok: false, error: 'Agent is still busy; credential reload was deferred' }
       if (startGateway) {
         const gateway = startHermesGateway({ agentId: job.agentId, env })
         if (!gateway.started) return { ok: false, error: gateway.error || 'Hermes credential reload failed' }

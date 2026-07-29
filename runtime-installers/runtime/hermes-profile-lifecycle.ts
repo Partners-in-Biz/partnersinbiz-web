@@ -139,6 +139,35 @@ function pidFile(agentId: string, env: HermesLifecycleEnv = process.env): string
   return path.join(stateRoot(env), 'agent-host', `${agentId}.json`)
 }
 
+function manageSystemdHermesProfile(
+  agentId: string,
+  env: HermesLifecycleEnv,
+  action: 'restart' | 'stop',
+): { managed: boolean; ok: boolean; error?: string } {
+  if (process.platform !== 'linux'
+    || typeof process.getuid !== 'function'
+    || process.getuid() !== 0
+    || !fs.existsSync('/run/systemd/system')) {
+    return { managed: false, ok: false }
+  }
+  const unit = `hermes@${agentId}.service`
+  const loaded = spawnSync('systemctl', ['show', unit, '--property=LoadState', '--value'], {
+    encoding: 'utf8',
+    env,
+  })
+  if (loaded.status !== 0 || loaded.stdout.trim() !== 'loaded') {
+    return { managed: false, ok: false }
+  }
+  const result = spawnSync('systemctl', [action, unit], { encoding: 'utf8', env })
+  return result.status === 0
+    ? { managed: true, ok: true }
+    : {
+        managed: true,
+        ok: false,
+        error: result.stderr.trim() || `Could not ${action} ${unit}`,
+      }
+}
+
 export function startHermesGateway(input: {
   agentId: string
   env?: HermesLifecycleEnv
@@ -155,6 +184,12 @@ export function startHermesGateway(input: {
   }
 
   try {
+    const systemd = manageSystemdHermesProfile(input.agentId, env, 'restart')
+    if (systemd.managed) {
+      return systemd.ok
+        ? { started: true, pid: null, hermesBin }
+        : { started: false, pid: null, hermesBin, error: systemd.error }
+    }
     const child = spawn(
       hermesBin,
       ['-p', input.agentId, 'gateway', 'run', '--replace', '--force', '--quiet'],
@@ -206,6 +241,12 @@ export function stopHermesGateway(input: {
 }): { stopped: boolean; hermesBin: string | null; error?: string } {
   const env = input.env ?? process.env
   const hermesBin = resolveHermesBinary(env)
+  const systemd = manageSystemdHermesProfile(input.agentId, env, 'stop')
+  if (systemd.managed) {
+    return systemd.ok
+      ? { stopped: true, hermesBin }
+      : { stopped: false, hermesBin, error: systemd.error }
+  }
   let stoppedViaCli = false
   if (hermesBin) {
     const result = spawnSync(
