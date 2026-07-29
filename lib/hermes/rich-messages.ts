@@ -396,6 +396,7 @@ function normalizeUiAction(value: unknown, index: number): ChatUiAction | null {
   const type = (cleanString(record.type) ?? cleanString(record.kind) ?? (url ? 'open' : 'choose')).toLowerCase()
   const actionId = cleanString(record.actionId) ?? cleanString(record.action_id)
   const id = cleanString(record.id) ?? callbackData ?? actionId ?? url ?? `${type}:${index}`
+  const bodyMode = cleanString(record.bodyMode) ?? cleanString(record.body_mode)
   const base: PlainRecord = {
     id,
     type,
@@ -406,6 +407,7 @@ function normalizeUiAction(value: unknown, index: number): ChatUiAction | null {
     endpoint: cleanString(record.endpoint),
     method: cleanString(record.method)?.toUpperCase(),
     payload: sanitizeStructuredPayload(record.payload),
+    ...(bodyMode ? { bodyMode } : {}),
     disabled: typeof record.disabled === 'boolean' ? record.disabled : undefined,
     variant: cleanString(record.variant),
   }
@@ -426,6 +428,8 @@ function normalizeUiAction(value: unknown, index: number): ChatUiAction | null {
     'endpoint',
     'method',
     'payload',
+    'bodyMode',
+    'body_mode',
     'disabled',
     'variant',
   ], base) as ChatUiAction

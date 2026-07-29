@@ -92,10 +92,10 @@ def _profile_api_port(profile: str) -> Optional[int]:
     return None
 
 
-# Long-lived local clients that are not Messages agent runs. Ignoring them
-# prevents "always busy" false positives that block all deferred restarts.
+# Long-lived edge keepalives only. Do NOT ignore pib-runtime — linked Messages
+# dispatch holds that connection for live runs; filtering it made OAuth restarts
+# look idle and SIGTERM mid-chat.
 _IDLE_PEER_MARKERS = (
-    "pib-runtime",
     '"sshd"',
     "caddy",
 )
@@ -185,6 +185,26 @@ _REQUEST_RESTART_HELPER = Path(
 )
 
 
+# OAuth/token writes land in auth.json immediately. Restarting the gateway for
+# every credential sync is what SIGTERM'd live Messages runs (seen as the
+# misleading browser "Unable to connect" error). Always defer — never bounce
+# the process on the HTTP request path for these reasons.
+_DEFER_ONLY_RESTART_PREFIXES = (
+    "auth-provider-upsert:",
+    "auth-provider-delete:",
+    "auth-provider-",
+    "oauth-",
+    "token-refresh",
+)
+
+
+def _is_defer_only_restart_reason(reason: str) -> bool:
+    text = (reason or "").strip().lower()
+    if not text:
+        return False
+    return any(text.startswith(prefix) for prefix in _DEFER_ONLY_RESTART_PREFIXES)
+
+
 def _restart_profile_detailed(profile: str, reason: str = "admin") -> dict:
     """Restart a profile only when idle.
 
@@ -198,6 +218,17 @@ def _restart_profile_detailed(profile: str, reason: str = "admin") -> dict:
     """
     if not _PROFILE_NAME_RE.match(profile or ""):
         return {"restarted": False, "deferred": False, "busy": False, "reason": "invalid-profile"}
+
+    # OAuth credential sync: write-only on this request. Queue a deferred restart
+    # for the 2-minute sweeper so live chats are never killed mid-tool.
+    if _is_defer_only_restart_reason(reason):
+        deferred = _mark_pending_restart(profile, f"defer-only:{reason}")
+        return {
+            "restarted": False,
+            "deferred": deferred,
+            "busy": True,
+            "reason": f"defer-only:{reason}",
+        }
 
     # Primary path: root helper with accurate busy detection (dport + process names).
     if _REQUEST_RESTART_HELPER.is_file():

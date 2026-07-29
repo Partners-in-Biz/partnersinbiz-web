@@ -4306,6 +4306,47 @@ export default function UnifiedChat({
       }
       if (actionType === 'open' || actionType === 'download' || actionType === 'copy') return
 
+      // Human-session API actions (Decision Brief confirm, etc.): browser cookie auth,
+      // payload body as-is. Never requires a Hermes run id — agents cannot perform these.
+      const endpoint = typeof action.endpoint === 'string' && action.endpoint.startsWith('/api/')
+        ? action.endpoint
+        : null
+      const bodyMode = String(action.bodyMode ?? action.body_mode ?? 'envelope').toLowerCase()
+      if (endpoint && bodyMode === 'payload') {
+        try {
+          const method = action.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(action.method).toUpperCase())
+            ? String(action.method).toUpperCase()
+            : 'POST'
+          const res = await fetch(endpoint, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(action.payload && typeof action.payload === 'object' ? action.payload : {}),
+          })
+          if (!res.ok) {
+            const body = await readApiResponse(res)
+            throw new Error(typeof body.error === 'string' ? body.error : `action failed: ${res.status}`)
+          }
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id !== message.id) return m
+              const nextActions = Array.isArray(m.uiActions)
+                ? m.uiActions.map((item) => (
+                  item.id === action.id
+                    ? { ...item, disabled: true, label: actionType === 'approve' ? 'Confirmed' : `${item.label} ✓` }
+                    : item
+                ))
+                : m.uiActions
+              return { ...m, uiActions: nextActions }
+            }),
+          )
+          // Refresh project suite / command session so Plan gate unlocks live.
+          void refreshProjectChat().catch(() => undefined)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Action failed')
+        }
+        return
+      }
+
       const runId = message.runId
       if (!runId) {
         setError('This action is missing the Hermes run id.')
@@ -4318,10 +4359,9 @@ export default function UnifiedChat({
         : 'pip'
 
       try {
-        const endpoint = typeof action.endpoint === 'string' && action.endpoint.startsWith('/api/')
-          ? action.endpoint
-          : `/api/v1/admin/agents/${agentId}/runs/${encodeURIComponent(runId)}/actions`
-        const res = await fetch(endpoint, {
+        const runEndpoint = endpoint
+          ?? `/api/v1/admin/agents/${agentId}/runs/${encodeURIComponent(runId)}/actions`
+        const res = await fetch(runEndpoint, {
           method: action.method && ['POST', 'PUT', 'PATCH'].includes(action.method) ? action.method : 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -4347,7 +4387,7 @@ export default function UnifiedChat({
         setError(err instanceof Error ? err.message : 'Action failed')
       }
     },
-    [activeId, initialAgentId, pollFinalize, startEventStream],
+    [activeId, initialAgentId, pollFinalize, refreshProjectChat, startEventStream],
   )
 
   useEffect(() => {
