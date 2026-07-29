@@ -10,6 +10,95 @@ import { applySkillPackArchive } from '@/runtime-installers/runtime/skill-pack-a
 import { materializeSkillPackTarGz } from '@/lib/agents/skill-pack-builder'
 
 describe('executeAgentHostJob', () => {
+  it('stores a claimed account on the exact profile and requires a live provider canary', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-agent-host-credential-'))
+    const env = {
+      ...process.env,
+      PIB_HERMES_HOME: home,
+      HERMES_HOME: home,
+      PIB_RUNTIME_STATE_DIR: path.join(home, 'state'),
+    }
+    const outcome = await executeAgentHostJob({
+      jobId: 'credential-1',
+      kind: 'sync-credential',
+      status: 'claimed',
+      agentId: 'sales',
+      policyVersion: null,
+      keepInSync: false,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8773,
+      protocolVersion: 3,
+      credentialDelivery: {
+        bindingId: 'binding-1',
+        connectionId: 'user:u1:xai',
+        credentialVersion: 4,
+        provider: 'xai',
+        hermesProvider: 'xai',
+        envVar: 'XAI_API_KEY',
+        canaryModel: 'grok-build-0.1',
+        credentials: { apiKey: 'xai-private-secret' },
+      },
+    }, {
+      env,
+      startGateway: false,
+      waitForAgentIdle: async () => true,
+      probe: async () => ({ availableAgentIds: ['sales'] }),
+      providerCanary: async () => ({ ok: true, modelIds: ['grok-build-0.1'] }),
+    })
+
+    expect(outcome.ok).toBe(true)
+    if (!outcome.ok) return
+    expect(outcome.result.liveAuthVerified).toBe(true)
+    expect(fs.readFileSync(path.join(home, 'profiles', 'sales', '.env'), 'utf8'))
+      .toContain('XAI_API_KEY=xai-private-secret')
+    const stamp = fs.readFileSync(path.join(home, 'profiles', 'sales', 'pib-llm-binding.json'), 'utf8')
+    expect(stamp).toContain('"bindingId": "binding-1"')
+    expect(stamp).not.toContain('xai-private-secret')
+    fs.rmSync(home, { recursive: true, force: true })
+  })
+
+  it('does not report credential readiness when the provider canary fails', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-agent-host-canary-fail-'))
+    const outcome = await executeAgentHostJob({
+      jobId: 'credential-2',
+      kind: 'sync-credential',
+      status: 'claimed',
+      agentId: 'sales',
+      policyVersion: null,
+      keepInSync: false,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8773,
+      protocolVersion: 3,
+      credentialDelivery: {
+        bindingId: 'binding-2',
+        connectionId: 'user:u1:xai',
+        credentialVersion: 1,
+        provider: 'xai',
+        hermesProvider: 'xai',
+        envVar: 'XAI_API_KEY',
+        canaryModel: 'grok-build-0.1',
+        credentials: { apiKey: 'xai-private-secret' },
+      },
+    }, {
+      env: {
+        ...process.env,
+        PIB_HERMES_HOME: home,
+        HERMES_HOME: home,
+        PIB_RUNTIME_STATE_DIR: path.join(home, 'state'),
+      },
+      startGateway: false,
+      waitForAgentIdle: async () => true,
+      probe: async () => ({ availableAgentIds: ['sales'] }),
+      providerCanary: async () => ({ ok: false, modelIds: [], error: 'authentication rejected' }),
+    })
+    expect(outcome).toEqual({ ok: false, error: 'authentication rejected' })
+    fs.rmSync(home, { recursive: true, force: true })
+  })
+
   it('creates a Hermes profile skeleton and policy stamp', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-agent-host-'))
     const env = {

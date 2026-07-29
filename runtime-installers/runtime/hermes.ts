@@ -309,6 +309,30 @@ export async function callLocalHermes(
   }
 }
 
+export async function listLocalHermesModels(
+  agentId: string,
+  env: RuntimeEnv = process.env,
+  fetcher: typeof fetch = fetch,
+): Promise<string[]> {
+  const cleanAgent = cleanAgentId(agentId)
+  const route = localHermesRoutes(env).find((candidate) => candidate.agentId === cleanAgent)
+  if (!route) throw new Error(`Hermes agent ${cleanAgent} is not installed on this computer`)
+  const response = await fetcher(`${route.baseUrl}/v1/models`, {
+    headers: authHeaders(route),
+    signal: AbortSignal.timeout(15_000),
+  })
+  const data = await response.json().catch(() => null) as Record<string, unknown> | null
+  if (!response.ok) throw new Error(`Local Hermes ${cleanAgent} model catalogue failed (HTTP ${response.status})`)
+  const entries = Array.isArray(data?.data) ? data.data : Array.isArray(data?.models) ? data.models : []
+  return [...new Set(entries.flatMap((entry) => {
+    if (typeof entry === 'string') return [entry]
+    if (!entry || typeof entry !== 'object') return []
+    const row = entry as Record<string, unknown>
+    const id = typeof row.id === 'string' ? row.id : typeof row.model === 'string' ? row.model : ''
+    return id ? [id] : []
+  }))].slice(0, 256)
+}
+
 async function forwardLocalHermesEvents(
   route: LocalHermesRoute,
   runId: string,

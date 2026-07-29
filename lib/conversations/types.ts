@@ -117,6 +117,10 @@ export interface ConversationMessage {
   approvalMode?: ApprovalMode
   model?: string
   provider?: string
+  /** Exact web-app connected account selected for this turn. */
+  llmConnectionId?: string
+  /** Exact machine/profile credential readiness proof used for dispatch. */
+  llmCredentialBindingId?: string
   runId?: string
   runDocId?: string
   status?: 'pending' | 'streaming' | 'completed' | 'failed' | 'waiting_approval'

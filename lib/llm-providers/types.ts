@@ -2,6 +2,7 @@ import type { LlmProviderAuthKind, LlmProviderKey } from './providers'
 
 export const LLM_PROVIDER_CONNECTIONS_COLLECTION = 'llm_provider_connections'
 export const LLM_OAUTH_SESSIONS_COLLECTION = 'llm_oauth_sessions'
+export const LLM_CREDENTIAL_BINDINGS_COLLECTION = 'llm_credential_bindings'
 
 export type LlmConnectionScope = 'org' | 'user'
 export type LlmConnectionStatus = 'connected' | 'invalid' | 'revoked' | 'reauth_required' | 'pending_oauth'
@@ -20,6 +21,8 @@ export interface LlmProviderConnection {
   scopeKeyRef: string
   credentialHint: string
   meta: Record<string, unknown>
+  /** Monotonic account credential generation. Incremented whenever credentials are replaced. */
+  credentialVersion: number
   /** Agent ids last synced to Hermes (env / auth.json). */
   syncedAgentIds: string[]
   lastValidatedAt: unknown
@@ -83,6 +86,41 @@ export function llmConnectionScopeKey(input: Pick<LlmProviderConnection, 'scope'
 export function maskLlmConnection(connection: LlmProviderConnection): LlmProviderConnectionMasked {
   const { credentialsEnc, ...rest } = connection
   return { ...rest, hasCredentials: Boolean(credentialsEnc) }
+}
+
+export type LlmCredentialBindingStatus =
+  | 'desired'
+  | 'delivering'
+  | 'stored'
+  | 'ready'
+  | 'failed'
+  | 'revoked'
+
+/**
+ * Machine/profile-specific proof that one connected account can be used by chat.
+ * A provider connection is not chat-ready until this exact binding is `ready`.
+ */
+export interface LlmCredentialBinding {
+  id: string
+  connectionId: string
+  credentialVersion: number
+  orgId: string
+  ownerUid: string | null
+  scope: LlmConnectionScope
+  provider: LlmProviderKey
+  hermesProvider: string
+  runtimeTargetId: string
+  deviceId: string | null
+  machineLabel: string
+  agentId: string
+  status: LlmCredentialBindingStatus
+  liveAuthVerified: boolean
+  verifiedModelIds: string[]
+  lastError: string | null
+  deliveryJobId: string | null
+  lastVerifiedAt: unknown
+  createdAt: unknown
+  updatedAt: unknown
 }
 
 export function publicOauthSession(session: LlmOauthSession): LlmOauthSessionPublic {

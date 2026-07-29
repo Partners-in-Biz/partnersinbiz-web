@@ -27,6 +27,9 @@ const catalog: PublicMessageModelCatalog = {
       configured: true,
       active: true,
       available: true,
+      connectionId: 'org:org-1:openai-codex',
+      connectionLabel: 'Company ChatGPT',
+      credentialBindingId: 'binding-openai',
       source: 'hermes',
     },
     {
@@ -50,6 +53,9 @@ const catalog: PublicMessageModelCatalog = {
       configured: true,
       active: false,
       available: true,
+      connectionId: 'org:org-1:openai-api',
+      connectionLabel: 'Company OpenAI',
+      credentialBindingId: 'binding-api',
       source: 'hermes',
     },
   ],
@@ -76,7 +82,12 @@ describe('ModelProviderPicker', () => {
     fireEvent.change(screen.getByPlaceholderText('Search models or providers'), { target: { value: 'gpt-5.5' } })
     fireEvent.click(screen.getByText('GPT-5.5').closest('button') as HTMLButtonElement)
 
-    expect(onSelect).toHaveBeenCalledWith({ model: 'openai/gpt-5.5', provider: 'openai' })
+    expect(onSelect).toHaveBeenCalledWith({
+      model: 'openai/gpt-5.5',
+      provider: 'openai',
+      llmConnectionId: 'org:org-1:openai-api',
+      llmCredentialBindingId: 'binding-api',
+    })
   })
 
   it('persists pinned models in localStorage', () => {
@@ -91,7 +102,7 @@ describe('ModelProviderPicker', () => {
     fireEvent.click(screen.getByRole('button', { name: /Select model and provider/i }))
     fireEvent.click(screen.getByRole('button', { name: /Pin GPT-5.5/i }))
 
-    expect(window.localStorage.getItem('pib.messages.pinnedModels.v1')).toContain('openai:openai/gpt-5.5')
+    expect(window.localStorage.getItem('pib.messages.pinnedModels.v1')).toContain('org:org-1:openai-api:openai:openai/gpt-5.5')
     expect(screen.getByRole('button', { name: /Unpin GPT-5.5/i })).toBeInTheDocument()
   })
 
@@ -112,7 +123,12 @@ describe('ModelProviderPicker', () => {
     render(
       <ModelProviderPicker
         catalog={catalog}
-        selected={{ model: 'openai/gpt-5.5', provider: 'openai' }}
+        selected={{
+          model: 'openai/gpt-5.5',
+          provider: 'openai',
+          llmConnectionId: 'org:org-1:openai-api',
+          llmCredentialBindingId: 'binding-api',
+        }}
         onSelect={onSelect}
       />,
     )

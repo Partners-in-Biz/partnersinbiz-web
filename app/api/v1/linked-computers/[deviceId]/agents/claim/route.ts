@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateSignedDeviceRequest, noStoreHeaders } from '@/lib/linked-computers/http'
 import { claimOldestAgentHostJob } from '@/lib/linked-computers/agent-job-store'
+import {
+  getDecryptedLlmCredentials,
+  getLlmProviderConnection,
+} from '@/lib/llm-providers/store'
+import {
+  connectionCredentialVersion,
+  requireDeliverableLlmCredentialBinding,
+} from '@/lib/llm-providers/bindings'
+import { adminDb } from '@/lib/firebase/admin'
+import { linkedDeviceOwnerType } from '@/lib/linked-computers/policy'
+import type { LinkedDevice } from '@/lib/linked-computers/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +28,7 @@ function deviceError(error: unknown): Response {
   const publicMessage = status === 404 ? 'Agent host job not found'
     : status === 403 ? 'Linked computer access denied'
       : status === 409 ? 'Agent host job lease is no longer current'
-        : /protocol/.test(message) ? 'Agent host protocol version 2 required. Update the linked computer runtime.'
+        : /protocol/.test(message) ? 'Agent host protocol version 3 required. Update the linked computer runtime.'
           : 'Linked computer agent request invalid'
   return NextResponse.json({ success: false, error: publicMessage }, { status, headers: noStoreHeaders })
 }
@@ -33,8 +44,8 @@ export async function handleAgentHostClaim(
     const identity = await authenticate(request, deviceId, rawBody)
     if (identity.deviceId !== deviceId) throw new Error('agent-host: tenant device mismatch')
     const body = JSON.parse(rawBody || '{}') as Record<string, unknown>
-    if (body.agentHostProtocolVersion !== 2) {
-      throw new Error('agent-host: agentHostProtocolVersion 2 required')
+    if (body.agentHostProtocolVersion !== 3) {
+      throw new Error('agent-host: agentHostProtocolVersion 3 required')
     }
     const claimed = await claim({
       deviceId,
@@ -42,7 +53,43 @@ export async function handleAgentHostClaim(
       credentialVersion: identity.credentialVersion,
     })
     if (!claimed) return new Response(null, { status: 204, headers: noStoreHeaders })
-    return NextResponse.json({ success: true, data: claimed }, { status: 200, headers: noStoreHeaders })
+    let responseJob = claimed
+    if (claimed.kind === 'sync-credential') {
+      const delivery = claimed.credentialDelivery
+      if (!delivery) throw new Error('agent-host: credential delivery metadata missing')
+      const connection = await getLlmProviderConnection(delivery.connectionId)
+      if (!connection || connection.status === 'revoked') {
+        throw new Error('agent-host: credential connection unavailable')
+      }
+      const deviceSnapshot = await adminDb.collection('linked_devices').doc(deviceId).get()
+      const device = { deviceId, ...deviceSnapshot.data() } as LinkedDevice
+      const ownerAuthorized = connection.scope === 'user'
+        ? linkedDeviceOwnerType(device) === 'user' && connection.ownerUid === identity.ownerUserId
+        : linkedDeviceOwnerType(device) === 'organization' && device.ownerOrgId === connection.orgId
+      if (!deviceSnapshot.exists || !ownerAuthorized) {
+        throw new Error('agent-host: credential owner mismatch')
+      }
+      if (connectionCredentialVersion(connection) !== delivery.credentialVersion) {
+        throw new Error('agent-host: credential generation mismatch')
+      }
+      await requireDeliverableLlmCredentialBinding({
+        bindingId: delivery.bindingId,
+        connectionId: delivery.connectionId,
+        credentialVersion: delivery.credentialVersion,
+        deviceId,
+        ownerUid: connection.ownerUid,
+        orgId: connection.orgId,
+        scope: connection.scope,
+        agentId: claimed.agentId,
+      })
+      const credentials = await getDecryptedLlmCredentials(connection)
+      if (!credentials) throw new Error('agent-host: credential material unavailable')
+      responseJob = {
+        ...claimed,
+        credentialDelivery: { ...delivery, credentials },
+      }
+    }
+    return NextResponse.json({ success: true, data: responseJob }, { status: 200, headers: noStoreHeaders })
   } catch (error) {
     return deviceError(error)
   }

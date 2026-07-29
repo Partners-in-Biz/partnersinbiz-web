@@ -51,7 +51,7 @@ export function TwoFactorGate() {
           setPhase('required')
         } else {
           // 2FA disabled — nothing to do, mark satisfied to avoid re-checks.
-          try { sessionStorage.setItem(FLAG_KEY, '1') } catch {}
+          try { sessionStorage.setItem(FLAG_KEY, '1') } catch (error) { void error }
           setPhase('satisfied')
         }
       })
@@ -77,7 +77,7 @@ export function TwoFactorGate() {
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error ?? 'Verification failed')
-      try { sessionStorage.setItem(FLAG_KEY, '1') } catch {}
+      try { sessionStorage.setItem(FLAG_KEY, '1') } catch (error) { void error }
       setPhase('satisfied')
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Verification failed')

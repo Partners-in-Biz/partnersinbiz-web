@@ -9,10 +9,11 @@ import {
   waitForAgentHealthy,
 } from './hermes-profile-lifecycle'
 import { applySkillPackArchive, removeAgentSkillTree } from './skill-pack-apply'
+import { applyRuntimeCredential, type RuntimeCredentialDelivery } from './llm-credentials'
 
 export type AgentHostRuntimeJob = {
   jobId: string
-  kind: 'install' | 'sync-policy' | 'uninstall'
+  kind: 'install' | 'sync-policy' | 'uninstall' | 'sync-credential' | 'revoke-credential'
   status: string
   agentId: string
   policyVersion: string | null
@@ -35,6 +36,7 @@ export type AgentHostRuntimeJob = {
   } | null
   protocolVersion?: number
   leaseToken?: string
+  credentialDelivery?: RuntimeCredentialDelivery | null
 }
 
 export type AgentHostSkillPackDownloader = (input: {
@@ -130,6 +132,12 @@ export async function executeAgentHostJob(
     probe?: typeof probeLocalHermes
     downloadSkillPack?: AgentHostSkillPackDownloader
     startGateway?: boolean
+    waitForAgentIdle?: (agentId: string, timeoutMs: number) => Promise<boolean>
+    providerCanary?: (input: { agentId: string; provider: string; model: string }) => Promise<{
+      ok: boolean
+      modelIds: string[]
+      error?: string
+    }>
   } = {},
 ): Promise<{ ok: true; result: Record<string, unknown> } | { ok: false; error: string }> {
   const env = options.env ?? process.env
@@ -139,6 +147,56 @@ export async function executeAgentHostJob(
   try {
     if (!job.agentId || !/^[a-z][a-z0-9._-]{0,39}$/.test(job.agentId)) {
       return { ok: false, error: 'invalid agent id' }
+    }
+
+    if (job.kind === 'sync-credential' || job.kind === 'revoke-credential') {
+      if (job.protocolVersion !== 3) return { ok: false, error: 'credential jobs require agent-host protocol 3' }
+      if (!job.credentialDelivery) return { ok: false, error: 'credential delivery is missing' }
+      ensureHermesProfile({
+        agentId: job.agentId,
+        preferredPort: job.preferredPort,
+        env,
+      })
+      const applied = applyRuntimeCredential({
+        agentId: job.agentId,
+        delivery: job.credentialDelivery,
+        revoke: job.kind === 'revoke-credential',
+        env,
+      })
+      const idle = options.waitForAgentIdle
+        ? await options.waitForAgentIdle(job.agentId, 45_000)
+        : true
+      if (!idle) return { ok: false, error: 'Agent is still busy; credential reload was deferred' }
+      if (startGateway) {
+        const gateway = startHermesGateway({ agentId: job.agentId, env })
+        if (!gateway.started) return { ok: false, error: gateway.error || 'Hermes credential reload failed' }
+      }
+      const healthy = await waitForAgentHealthy({
+        agentId: job.agentId,
+        probe: () => probe(env),
+        timeoutMs: 30_000,
+        intervalMs: 1_000,
+      })
+      if (!healthy) return { ok: false, error: 'Hermes did not become healthy after credential reload' }
+      if (job.kind === 'revoke-credential') {
+        return { ok: true, result: { ...applied, revoked: true, liveAuthVerified: false, modelIds: [] } }
+      }
+      if (!options.providerCanary) return { ok: false, error: 'Provider authentication canary is unavailable' }
+      const canary = await options.providerCanary({
+        agentId: job.agentId,
+        provider: job.credentialDelivery.hermesProvider,
+        model: job.credentialDelivery.canaryModel,
+      })
+      if (!canary.ok) return { ok: false, error: canary.error || 'Provider authentication canary failed' }
+      return {
+        ok: true,
+        result: {
+          ...applied,
+          liveAuthVerified: true,
+          modelIds: canary.modelIds,
+          canaryModel: job.credentialDelivery.canaryModel,
+        },
+      }
     }
 
     if (job.kind === 'uninstall') {
@@ -317,5 +375,5 @@ export async function pollAgentHostForever(
 }
 
 export function linkedRuntimeAgentHostClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.12', agentHostProtocolVersion: 2 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.13', agentHostProtocolVersion: 3 as const }
 }

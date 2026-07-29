@@ -9,6 +9,7 @@ import { clientCanAccessOrg, canWriteOrgLlmConnection } from '@/lib/llm-provider
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
 import { resolveOrgLlmSyncTargets } from '@/lib/llm-providers/sync-targets'
 import type { LlmProviderKey } from '@/lib/llm-providers/providers'
+import { listConnectionLlmCredentialBindings } from '@/lib/llm-providers/bindings'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,9 +27,24 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     resolveOrgLlmSyncTargets(orgId),
     canWriteOrgLlmConnection(user, orgId),
   ])
+  const bindings = (await Promise.all(connections.map((connection) =>
+    listConnectionLlmCredentialBindings(connection.id),
+  ))).flat().map((binding) => ({
+    id: binding.id,
+    connectionId: binding.connectionId,
+    runtimeTargetId: binding.runtimeTargetId,
+    deviceId: binding.deviceId,
+    machineLabel: binding.machineLabel,
+    agentId: binding.agentId,
+    status: binding.status,
+    liveAuthVerified: binding.liveAuthVerified,
+    lastError: binding.lastError,
+    lastVerifiedAt: binding.lastVerifiedAt,
+  }))
   return apiSuccess({
     providers: listLlmProviders(),
     connections,
+    bindings,
     canManageOrgConnections,
     syncTargets: {
       orgVpsDeviceCount: syncTargets.orgVpsDeviceCount,
@@ -40,9 +56,9 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       cursor: UNSUPPORTED_CURSOR_NOTE,
       orgScope: 'Organisation credentials sync only to this organisation’s VPS Hermes profiles and are shared by everyone using that VPS.',
       userScope:
-        'Personal credentials sync to your linked computers. When Team access enables “Personal LLM credentials on organisation VPS”, they can also sync to the org VPS (skipped when an organisation connection already covers that provider).',
+        'Personal credentials sync only to computers owned by your account. They are never copied to the shared organisation VPS.',
       hermesNative:
-        'Empty Connect buttons only mean nothing is saved in PiB Settings. Agents can still run on Hermes-native credentials already configured on the VPS or a linked computer (for example ChatGPT Codex via hermes auth). Connect here when you want portal-managed credentials that sync and show as Connected in Messages.',
+        'Explicit model choices in Messages use only accounts connected here that passed a live check on the selected machine and agent profile. Auto may still use the runtime-managed default.',
     },
   })
 })
@@ -116,6 +132,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     } catch (err) {
       syncResult = {
         synced: [],
+        queued: [],
         failed: [{ agentId: '*', error: err instanceof Error ? err.message : 'Sync failed' }],
       }
     }

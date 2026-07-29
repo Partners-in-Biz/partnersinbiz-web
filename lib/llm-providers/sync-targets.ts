@@ -1,7 +1,7 @@
 /**
  * Resolve where LLM credentials may be written.
  * - Org connections → organisation VPS / Hermes profile link only
- * - Personal connections → the owner's linked computers; optionally org VPS when member access allows it
+ * - Personal connections → the owner's linked computers only
  */
 import { adminDb } from '@/lib/firebase/admin'
 import { getHermesProfileLink } from '@/lib/hermes/server'
@@ -9,10 +9,7 @@ import type { HermesProfileLink } from '@/lib/hermes/types'
 import type { AgentId } from '@/lib/agents/types'
 import type { LinkedDevice } from '@/lib/linked-computers/types'
 import { linkedDeviceOwnerType } from '@/lib/linked-computers/policy'
-import {
-  memberMayUsePersonalLlmOnOrgVps,
-  type MemberAccessPolicy,
-} from '@/lib/orgMembers/access-policy'
+import type { MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 import type { OrgRole } from '@/lib/organizations/types'
 
 export type LlmSyncTargetKind = 'org_hermes_link' | 'org_linked_vps' | 'user_linked_computer'
@@ -93,7 +90,9 @@ export async function resolveOrgLlmSyncTargets(
     orgVpsDeviceCount += 1
 
     const agentIds = agentIdsFromDevice(device)
-    const runtimeTargetId = typeof device.runtimeTargetId === 'string' ? device.runtimeTargetId : undefined
+    const runtimeTargetId = typeof device.runtimeTargetId === 'string' && device.runtimeTargetId
+      ? device.runtimeTargetId
+      : `linked-device:${device.deviceId}`
 
     for (const agentId of agentIds.slice(0, 24)) {
       if (preferred.size && !preferred.has(agentId)) continue
@@ -125,9 +124,8 @@ export async function resolveOrgLlmSyncTargets(
 }
 
 /**
- * Personal credentials sync to the owner's active linked computers.
- * When member access allows personal LLM use on the org VPS, also include org VPS targets
- * (caller should skip providers already covered by org-scoped connections).
+ * Personal credentials sync to the owner's active linked computers only.
+ * Personal secrets are never copied onto an organisation-owned runtime.
  */
 export async function resolveUserLlmSyncTargets(input: {
   ownerUid: string
@@ -158,7 +156,9 @@ export async function resolveUserLlmSyncTargets(input: {
 
     linkedComputerCount += 1
     const agentIds = agentIdsFromDevice(device)
-    const runtimeTargetId = typeof device.runtimeTargetId === 'string' ? device.runtimeTargetId : undefined
+    const runtimeTargetId = typeof device.runtimeTargetId === 'string' && device.runtimeTargetId
+      ? device.runtimeTargetId
+      : `linked-device:${device.deviceId}`
 
     for (const agentId of agentIds.slice(0, 24)) {
       if (preferred.size && !preferred.has(agentId)) continue
@@ -175,20 +175,6 @@ export async function resolveUserLlmSyncTargets(input: {
     }
   }
 
-  const allowOrgVps = input.includeOrgVps === true
-    || memberMayUsePersonalLlmOnOrgVps(input.accessPolicy, input.orgRole)
-  let includedOrgVps = false
-  if (allowOrgVps) {
-    const orgTargets = await resolveOrgLlmSyncTargets(input.orgId, input.preferredAgentIds)
-    for (const target of orgTargets.targets) {
-      const key = `${target.kind}:${target.deviceId || 'link'}:${target.agentId}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      targets.push(target)
-      includedOrgVps = true
-    }
-  }
-
   if (!targets.length) {
     return {
       targets: [],
@@ -196,13 +182,11 @@ export async function resolveUserLlmSyncTargets(input: {
       includedOrgVps: false,
       reasonIfEmpty: linkedComputerCount === 0
         ? 'No linked computers with healthy Hermes agents were found for your account. Pair a computer under Linked Computers, wait until agents appear online, then sync again.'
-        : allowOrgVps
-          ? 'Your linked computers and organisation VPS have no Hermes agent profiles available to sync yet.'
-          : 'Your linked computers have no Hermes agent profiles available to sync yet. Ask an admin to enable personal LLM credentials on the organisation VPS if you need to sync there.',
+        : 'Your linked computers have no Hermes agent profiles available to sync yet.',
     }
   }
 
-  return { targets, linkedComputerCount, includedOrgVps }
+  return { targets, linkedComputerCount, includedOrgVps: false }
 }
 
 /** True when the conversation runtime is the organisation VPS (shared). */
@@ -232,7 +216,6 @@ export async function runtimeBelongsToUserComputer(
     const device = asLinkedDevice(doc.id, doc.data() as Record<string, unknown>)
     if (!device || device.status !== 'active') continue
     if (linkedDeviceOwnerType(device) !== 'user') continue
-    if (device.deviceKind === 'vps') continue
     if (device.runtimeTargetId === runtimeTarget || device.deviceId === runtimeTarget) return true
   }
   return false
