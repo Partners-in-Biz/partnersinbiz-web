@@ -26,18 +26,31 @@ export interface XaiTokenPayload {
   scope?: string
 }
 
-export async function startXaiDeviceCode(): Promise<XaiDeviceCodeStart> {
+export class XaiOAuthRefreshError extends Error {
+  constructor(
+    message: string,
+    readonly terminal: boolean,
+  ) {
+    super(message)
+    this.name = 'XaiOAuthRefreshError'
+  }
+}
+
+async function xaiTokenEndpoint(): Promise<string> {
   const discoveryRes = await fetch(XAI_OAUTH_DISCOVERY_URL, {
     headers: { Accept: 'application/json' },
   })
-  if (!discoveryRes.ok) {
-    throw new Error(`xAI OAuth discovery failed (${discoveryRes.status})`)
-  }
+  if (!discoveryRes.ok) throw new Error(`xAI OAuth discovery failed (${discoveryRes.status})`)
   const discovery = await discoveryRes.json() as { token_endpoint?: string }
-  const tokenEndpoint = discovery.token_endpoint
-  if (!tokenEndpoint || !tokenEndpoint.startsWith('https://')) {
+  const endpoint = discovery.token_endpoint
+  if (!endpoint || !endpoint.startsWith('https://')) {
     throw new Error('xAI OAuth discovery missing token_endpoint')
   }
+  return endpoint
+}
+
+export async function startXaiDeviceCode(): Promise<XaiDeviceCodeStart> {
+  const tokenEndpoint = await xaiTokenEndpoint()
 
   const response = await fetch(XAI_OAUTH_DEVICE_CODE_URL, {
     method: 'POST',
@@ -72,6 +85,36 @@ export async function startXaiDeviceCode(): Promise<XaiDeviceCodeStart> {
     expiresIn: Number(payload.expires_in) || 900,
     intervalSeconds: Math.max(1, Number(payload.interval) || 5),
   }
+}
+
+export async function refreshXaiOAuthToken(refreshToken: string): Promise<XaiTokenPayload> {
+  const tokenEndpoint = await xaiTokenEndpoint()
+  const response = await fetch(tokenEndpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: XAI_OAUTH_CLIENT_ID,
+      refresh_token: refreshToken,
+    }),
+  })
+  const payload = await response.json().catch(() => ({})) as XaiTokenPayload & {
+    error?: string
+    error_description?: string
+  }
+  if (!response.ok || !payload.access_token) {
+    const code = payload.error || ''
+    const terminal = response.status === 401
+      || ['invalid_grant', 'invalid_token', 'unauthorized_client'].includes(code)
+    throw new XaiOAuthRefreshError(
+      payload.error_description || code || `xAI OAuth refresh failed (${response.status})`,
+      terminal,
+    )
+  }
+  return payload
 }
 
 export type XaiPollResult =
