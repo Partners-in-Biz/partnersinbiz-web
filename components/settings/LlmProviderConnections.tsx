@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { LlmProviderConnectionMasked, LlmOauthSessionPublic } from '@/lib/llm-providers/types'
 import type { LlmProviderDefinition } from '@/lib/llm-providers/providers'
 import {
@@ -19,6 +19,10 @@ function statusTone(status: string) {
   return 'bg-white/[0.06] text-[var(--color-pib-text-muted)]'
 }
 
+function oauthVerifyUrl(session: LlmOauthSessionPublic): string {
+  return session.verificationUriComplete || session.verificationUri
+}
+
 export default function LlmProviderConnections({ orgId }: { orgId: string }) {
   const [providers, setProviders] = useState<LlmProviderDefinition[]>([])
   const [connections, setConnections] = useState<LlmProviderConnectionMasked[]>([])
@@ -29,6 +33,8 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [openForm, setOpenForm] = useState<string | null>(null)
   const [oauthSession, setOauthSession] = useState<LlmOauthSessionPublic | null>(null)
+  const [codeCopied, setCodeCopied] = useState(false)
+  const oauthBannerRef = useRef<HTMLDivElement | null>(null)
 
   const refresh = useCallback(async () => {
     setLoading(true)
@@ -53,6 +59,9 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
 
   useEffect(() => {
     if (!oauthSession || oauthSession.status !== 'pending') return
+    // Keep the device-code card in view — previously it sat above a long list
+    // while the connect form stayed open, so "Sign in with OAuth" looked dead.
+    oauthBannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     const intervalMs = Math.max(3000, (oauthSession.intervalSeconds || 5) * 1000)
     const timer = window.setInterval(() => {
       void (async () => {
@@ -74,6 +83,42 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
     }, intervalMs)
     return () => window.clearInterval(timer)
   }, [oauthSession, orgId, refresh])
+
+  const beginOauth = useCallback(async (providerKey: string, payload: { scope: 'org' | 'user'; label?: string }) => {
+    setError(null)
+    const { session } = await startLlmOauth({
+      orgId,
+      provider: providerKey,
+      ...payload,
+    })
+    if (!session?.id || session.status !== 'pending') {
+      throw new Error('OAuth session did not start. Try again, or check the browser console for a blocked request.')
+    }
+    setOauthSession(session)
+    setOpenForm(null)
+    setCodeCopied(false)
+    const url = oauthVerifyUrl(session)
+    // Device-code flows need a visible code + link. Opening the verify page
+    // immediately is the strongest signal that the click worked.
+    if (url) {
+      const opened = window.open(url, '_blank', 'noopener,noreferrer')
+      if (!opened) {
+        // Popup blocked — banner still has the link and code.
+        setError('Browser blocked the OpenAI sign-in tab. Use the link in “Complete sign-in” below and enter the code.')
+      }
+    }
+  }, [orgId])
+
+  const copyUserCode = useCallback(async () => {
+    if (!oauthSession?.userCode) return
+    try {
+      await navigator.clipboard.writeText(oauthSession.userCode)
+      setCodeCopied(true)
+      window.setTimeout(() => setCodeCopied(false), 2000)
+    } catch {
+      setError('Could not copy code — select it manually.')
+    }
+  }, [oauthSession?.userCode])
 
   if (loading) {
     return <p className="text-sm text-[var(--color-pib-text-muted)]">Loading LLM providers…</p>
@@ -115,25 +160,46 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
         </div>
       )}
       {oauthSession?.status === 'pending' && (
-        <div className="rounded-xl border border-[var(--color-pib-accent)]/30 bg-[var(--color-pib-accent-soft)] px-4 py-3 text-sm">
-          <p className="font-medium text-[var(--color-pib-text)]">Complete sign-in</p>
+        <div
+          ref={oauthBannerRef}
+          role="status"
+          aria-live="polite"
+          className="rounded-xl border-2 border-[var(--color-pib-accent)]/50 bg-[var(--color-pib-accent-soft)] px-4 py-4 text-sm shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
+        >
+          <p className="font-semibold text-[var(--color-pib-text)]">Complete sign-in</p>
           <p className="mt-1 text-[var(--color-pib-text-muted)]">
-            Open{' '}
-            <a
-              className="text-[var(--color-pib-accent-hover)] underline"
-              href={oauthSession.verificationUriComplete || oauthSession.verificationUri}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {oauthSession.verificationUri}
-            </a>
-            {oauthSession.userCode ? (
-              <>
-                {' '}and enter code <span className="font-mono text-[var(--color-pib-text)]">{oauthSession.userCode}</span>
-              </>
-            ) : null}
-            . Waiting for approval…
+            Approve this device in OpenAI / ChatGPT. A sign-in tab should have opened — if not, use the link below.
           </p>
+          {oauthSession.userCode ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="rounded-lg border border-[var(--color-pib-line)] bg-black/30 px-3 py-2 font-mono text-lg tracking-wider text-[var(--color-pib-text)]">
+                {oauthSession.userCode}
+              </span>
+              <button type="button" className="btn-pib-secondary text-xs" onClick={() => void copyUserCode()}>
+                {codeCopied ? 'Copied' : 'Copy code'}
+              </button>
+              <a
+                className="pib-btn-primary text-xs"
+                href={oauthVerifyUrl(oauthSession)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open sign-in page
+              </a>
+            </div>
+          ) : (
+            <p className="mt-3">
+              <a
+                className="text-[var(--color-pib-accent-hover)] underline"
+                href={oauthVerifyUrl(oauthSession)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {oauthSession.verificationUri}
+              </a>
+            </p>
+          )}
+          <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Waiting for approval… this page updates automatically.</p>
           <button
             type="button"
             className="mt-3 text-xs text-[var(--color-pib-text-muted)] underline"
@@ -196,14 +262,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
                       setOpenForm(null)
                       await refresh()
                     }}
-                    onOauth={async (payload) => {
-                      const { session } = await startLlmOauth({
-                        orgId,
-                        provider: provider.key,
-                        ...payload,
-                      })
-                      setOauthSession(session)
-                    }}
+                    onOauth={(payload) => beginOauth(provider.key, payload)}
                   />
                 ) : (
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -344,6 +403,9 @@ function ConnectForm({
       }
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Failed to connect')
+    } finally {
+      // Always re-enable controls. Success used to leave submitting=true forever,
+      // so the OAuth button looked dead even when the session started.
       setSubmitting(false)
     }
   }
@@ -404,17 +466,21 @@ function ConnectForm({
       <div className="flex flex-wrap gap-2">
         {wantsOauth && (
           <button type="button" className="pib-btn-primary text-xs" disabled={submitting} onClick={() => void submit('oauth')}>
-            Sign in with OAuth
+            {submitting ? 'Starting OpenAI sign-in…' : 'Sign in with OAuth'}
           </button>
         )}
         {canApiKey && (
           <button type="button" className="pib-btn-primary text-xs" disabled={submitting} onClick={() => void submit('api_key')}>
-            {scope === 'org' ? 'Save & sync to org VPS' : 'Save & sync to my computers'}
+            {submitting
+              ? 'Saving…'
+              : scope === 'org'
+                ? 'Save & sync to org VPS'
+                : 'Save & sync to my computers'}
           </button>
         )}
         {provider.oauthCapable && canApiKey && (
           <button type="button" className="btn-pib-secondary text-xs" disabled={submitting} onClick={() => void submit('oauth')}>
-            Prefer OAuth instead
+            {submitting ? 'Starting OAuth…' : 'Prefer OAuth instead'}
           </button>
         )}
         <button type="button" className="btn-pib-secondary text-xs" disabled={submitting} onClick={onCancel}>
