@@ -12,6 +12,7 @@ type ComposerState = {
   bcc: string
   subject: string
   bodyText: string
+  includeSignature: boolean
 }
 
 const ENDPOINTS: Record<MailboxSurface, { accounts: string; messages: string }> = {
@@ -34,7 +35,7 @@ function joinEmails(values: string[] | undefined): string {
   return (values ?? []).filter(Boolean).join(', ')
 }
 
-function composerFromMessage(message: MailboxMessageSafe): ComposerState {
+function composerFromMessage(message: MailboxMessageSafe, includeSignature = true): ComposerState {
   return {
     accountId: message.accountId,
     to: joinEmails(message.to),
@@ -42,6 +43,7 @@ function composerFromMessage(message: MailboxMessageSafe): ComposerState {
     bcc: joinEmails(message.bcc),
     subject: message.subject ?? '',
     bodyText: message.bodyText || message.snippet || '',
+    includeSignature,
   }
 }
 
@@ -90,7 +92,9 @@ export function EmailContextComposer({
       setAccounts(nextAccounts)
       setMessage(nextMessage)
       // Prefer live server draft so agent edits appear; skip clobber while user is saving/sending.
-      if (!busyRef.current) setCompose(composerFromMessage(nextMessage))
+      if (!busyRef.current) {
+        setCompose((current) => composerFromMessage(nextMessage, current?.includeSignature ?? true))
+      }
       setState('ready')
       loadedMessageIdRef.current = messageId
     }).catch((cause) => {
@@ -148,7 +152,7 @@ export function EmailContextComposer({
       if (!response.ok) throw new Error(typeof body?.error === 'string' ? body.error : 'Could not save draft')
       const nextMessage = (body?.data?.message ?? body?.message) as MailboxMessageSafe
       setMessage(nextMessage)
-      setCompose(composerFromMessage(nextMessage))
+      setCompose(composerFromMessage(nextMessage, compose.includeSignature !== false))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not save draft')
     } finally {
@@ -189,6 +193,7 @@ export function EmailContextComposer({
           subject: compose.subject,
           bodyText: compose.bodyText,
           sendApproved: true,
+          includeSignature: compose.includeSignature !== false,
         }),
       })
       const sendBody = await sendResponse.json().catch(() => null)
@@ -383,6 +388,28 @@ export function EmailContextComposer({
           className="min-h-48 w-full rounded-lg border border-[var(--color-card-border)] bg-black/20 px-3 py-2 text-xs leading-relaxed text-[var(--color-pib-text)]"
         />
       </label>
+
+      {isDraft && selectedAccount?.provider === 'google' ? (
+        <label className="flex min-h-11 cursor-pointer items-start gap-2 rounded-lg border border-[var(--color-card-border)] bg-black/10 px-3 py-2 xl:min-h-0">
+          <input
+            type="checkbox"
+            data-testid="include-gmail-signature"
+            aria-label="Include Gmail signature"
+            disabled={busy !== null}
+            checked={compose.includeSignature !== false}
+            onChange={(event) => setCompose((current) => current
+              ? { ...current, includeSignature: event.target.checked }
+              : current)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--color-card-border)] accent-primary"
+          />
+          <span className="min-w-0">
+            <span className="block text-xs font-medium text-[var(--color-pib-text)]">Include Gmail signature</span>
+            <span className="mt-0.5 block text-[10px] leading-snug text-[var(--color-pib-text-muted)]">
+              Appends your Gmail send-as signature on send (not shown in the draft body). Requires a recent Google reconnect for settings access.
+            </span>
+          </span>
+        </label>
+      ) : null}
 
       {isDraft ? (
         <div className="flex flex-wrap justify-end gap-2 pt-1">

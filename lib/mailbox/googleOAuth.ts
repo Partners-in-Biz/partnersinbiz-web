@@ -20,6 +20,8 @@ export const GOOGLE_WORKSPACE_DRIVE_READ_SCOPES = [
 export const GOOGLE_WORKSPACE_GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.send',
+  // Required to read the user's Gmail "sendAs" signature for API sends.
+  'https://www.googleapis.com/auth/gmail.settings.basic',
 ] as const
 
 export const GOOGLE_WORKSPACE_CALENDAR_SCOPES = [

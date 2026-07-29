@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { decryptCredentials, type EncryptedCredentials } from '@/lib/integrations/crypto'
 import type { MailboxAttachmentStored } from '@/lib/mailbox/attachments'
+import { appendEmailSignature, resolveGmailSignature } from '@/lib/mailbox/gmailSignature'
 
 const GMAIL_SEND_ENDPOINT = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send'
 const REFRESH_SKEW_MS = 2 * 60 * 1000
@@ -21,6 +22,9 @@ type MailboxAccountDoc = {
   deletedAt?: unknown
   googleEnc?: EncryptedCredentials
   smtpEnc?: EncryptedCredentials
+  signatureHtml?: string | null
+  signatureText?: string | null
+  signatureFetchedAt?: unknown
 }
 
 type GoogleCredentials = {
@@ -49,6 +53,8 @@ export type SendMailboxMessageInput = {
   subject: string
   bodyText: string
   bodyHtml?: string
+  /** Default true for Google: append Gmail sendAs signature when available. */
+  includeSignature?: boolean
   attachments?: MailboxAttachmentStored[]
   approvalGateTaskId?: string
   actorId?: string
@@ -344,26 +350,76 @@ export async function sendMailboxMessage(
   }
 
   if (account.provider === 'google') {
-    let credentials: GoogleCredentials | null
-    try {
-      credentials = decryptGoogle(account, input.orgId)
-    } catch {
-      return { ok: false, error: 'Google credentials could not be decrypted; reconnect this mailbox' }
+    const includeSignature = input.includeSignature !== false
+    let sendInput: SendMailboxMessageInput = { ...input }
+    let accessToken: string | null = null
+
+    // Resolve signature (and refresh access token when possible).
+    const resolved = await resolveGmailSignature({
+      orgId: input.orgId,
+      accountId: input.accountId,
+      account: {
+        emailAddress: account.emailAddress,
+        provider: account.provider,
+        googleEnc: account.googleEnc,
+        signatureHtml: account.signatureHtml,
+        signatureText: account.signatureText,
+        signatureFetchedAt: account.signatureFetchedAt,
+      },
+    }).catch(() => null)
+
+    if (resolved?.accessToken) {
+      accessToken = resolved.accessToken
+      if (includeSignature && (resolved.signatureHtml || resolved.signatureText)) {
+        const merged = appendEmailSignature({
+          bodyText: input.bodyText,
+          bodyHtml: input.bodyHtml,
+          signatureHtml: resolved.signatureHtml,
+          signatureText: resolved.signatureText,
+        })
+        sendInput = {
+          ...input,
+          bodyText: merged.bodyText,
+          ...(merged.bodyHtml ? { bodyHtml: merged.bodyHtml } : input.bodyHtml ? { bodyHtml: input.bodyHtml } : {}),
+        }
+      }
+    } else {
+      let credentials: GoogleCredentials | null
+      try {
+        credentials = decryptGoogle(account, input.orgId)
+      } catch {
+        return { ok: false, error: 'Google credentials could not be decrypted; reconnect this mailbox' }
+      }
+      if (!hasFreshAccessToken(credentials)) {
+        return { ok: false, error: 'Google access expired; sync or reconnect this mailbox before sending' }
+      }
+      accessToken = credentials.accessToken
     }
-    if (!hasFreshAccessToken(credentials)) return { ok: false, error: 'Google access expired; sync or reconnect this mailbox before sending' }
+
+    if (!accessToken) {
+      return { ok: false, error: 'Google access expired; sync or reconnect this mailbox before sending' }
+    }
 
     const res = await fetch(GMAIL_SEND_ENDPOINT, {
       method: 'POST',
-      headers: { authorization: `Bearer ${credentials.accessToken}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ raw: base64Url(buildRawEmail(input, account.emailAddress ?? '')) }),
+      headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ raw: base64Url(buildRawEmail(sendInput, account.emailAddress ?? '')) }),
     })
     if (!res.ok) {
-      await writeAudit(input, { action: 'send_failed', provider: 'google', status: res.status })
+      await writeAudit(sendInput, { action: 'send_failed', provider: 'google', status: res.status })
       return { ok: false, error: `Gmail send failed with status ${res.status}` }
     }
     const json = await res.json() as { id?: string; threadId?: string | null }
-    const messageId = await writeSentMessage(input, account, 'google', json.id, json.threadId ?? null)
-    await writeAudit(input, { action: 'send_success', provider: 'google', providerMessageId: json.id ?? null, threadId: json.threadId ?? null, mailboxMessageId: messageId })
+    const messageId = await writeSentMessage(sendInput, account, 'google', json.id, json.threadId ?? null)
+    await writeAudit(sendInput, {
+      action: 'send_success',
+      provider: 'google',
+      providerMessageId: json.id ?? null,
+      threadId: json.threadId ?? null,
+      mailboxMessageId: messageId,
+      includeSignature,
+      signatureAppended: includeSignature && sendInput.bodyText !== input.bodyText,
+    })
     return { ok: true, provider: 'google', providerMessageId: json.id, threadId: json.threadId ?? null, messageId }
   }
 
