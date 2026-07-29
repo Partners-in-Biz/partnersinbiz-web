@@ -13,7 +13,7 @@ export const CONVERSATION_BROWSER_CONNECT_ERROR =
   'Unable to connect. Is the computer able to access the url?'
 
 export const CONVERSATION_BROWSER_CONNECT_USER_ERROR =
-  'The agent could not open a browser page on the runtime (or the run was interrupted). Retry the message — prefer tasks, git, and the platform API over browser navigation when working on the VPS.'
+  'This run was interrupted (gateway restart or browser tool failure). Send the message again. Prefer platform API / CRM tools over browser navigation on the VPS.'
 
 /**
  * Map raw Hermes/tool failure strings into stable, user-safe Messages errors.

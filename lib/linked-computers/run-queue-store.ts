@@ -14,6 +14,7 @@ import {
   type LinkedRunPayload,
   type LinkedRunReceipt,
 } from './run-queue'
+import { humanizeConversationRunError } from '@/lib/conversations/run-policy'
 import { assertDeviceOrgAccess, isActiveOrgMembershipRow, linkedDeviceActorUserId, linkedDeviceOwnerType } from './policy'
 import type { ActiveOrgMembership, LinkedDevice, LinkedDeviceGrant } from './types'
 import { sanitizeLinkedRunChatEvents } from './run-events'
@@ -315,7 +316,8 @@ export async function updateLinkedRunFromDevice(input: {
     const next = input.event === 'progress'
       ? transitionLinkedRun(job, { type: 'progress', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, attempt: input.receipt.attempt, leaseToken: input.receipt.leaseToken, leaseMs: DEFAULT_LEASE_MS })
       : transitionLinkedRun(job, { type: 'complete', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, outcome: input.outcome ?? 'completed', attempt: input.receipt.attempt, leaseToken: input.receipt.leaseToken })
-    const safeOutput = sanitizeLinkedResult(output); const safeError = sanitizeLinkedResult(error)
+    const safeOutput = sanitizeLinkedResult(output)
+    const safeError = humanizeConversationRunError(sanitizeLinkedResult(error))
     const existingEvents = Array.isArray((jobSnap.data() ?? {}).chatEvents)
       ? (jobSnap.data() as { chatEvents: unknown[] }).chatEvents
       : []
@@ -333,9 +335,33 @@ export async function updateLinkedRunFromDevice(input: {
     })
     if (input.event === 'complete') {
       const status = input.outcome === 'completed' ? 'completed' : 'failed'
-      const content = status === 'completed' ? safeOutput : (safeError || `Linked computer run ${input.outcome ?? 'failed'}`)
-      tx.set(adminDb.collection('conversations').doc(job.conversationId).collection('messages').doc(job.assistantMessageId), { content, status, runId: job.jobId, acceptedDevice: { deviceId: job.deviceId, runtimeTargetId: job.runtimeTargetId, acceptedAt: input.receipt.acceptedAt, runtimeVersion: input.receipt.runtimeVersion, machineLabel: input.receipt.machineLabel }, linkedRunReceipt: input.receipt, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
-      tx.set(adminDb.collection('hermes_runs').doc(job.jobId), { status, output: content, response: { status, receipt: input.receipt }, updatedAt: FieldValue.serverTimestamp(), completedAt: FieldValue.serverTimestamp() }, { merge: true })
+      const content = status === 'completed'
+        ? safeOutput
+        : (safeError || `Linked computer run ${input.outcome ?? 'failed'}`)
+      const messageError = status === 'failed' ? safeError : undefined
+      tx.set(adminDb.collection('conversations').doc(job.conversationId).collection('messages').doc(job.assistantMessageId), {
+        content: status === 'completed' ? content : '',
+        status,
+        ...(messageError ? { error: messageError } : { error: FieldValue.delete() }),
+        runId: job.jobId,
+        acceptedDevice: {
+          deviceId: job.deviceId,
+          runtimeTargetId: job.runtimeTargetId,
+          acceptedAt: input.receipt.acceptedAt,
+          runtimeVersion: input.receipt.runtimeVersion,
+          machineLabel: input.receipt.machineLabel,
+        },
+        linkedRunReceipt: input.receipt,
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+      tx.set(adminDb.collection('hermes_runs').doc(job.jobId), {
+        status,
+        output: status === 'completed' ? content : '',
+        ...(messageError ? { error: messageError } : {}),
+        response: { status, receipt: input.receipt },
+        updatedAt: FieldValue.serverTimestamp(),
+        completedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
     }
     return next
   })
