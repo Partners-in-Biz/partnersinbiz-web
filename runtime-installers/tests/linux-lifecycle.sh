@@ -102,7 +102,8 @@ printf 'PIB_CHROME_PATH="/usr/local/bin/pib-workbench-chrome"\n' > "$PIB_RUNTIME
 install_systemd_assets
 grep -q '/opt/partnersinbiz/current/pib-runtime service' "$PIB_LINUX_UNIT_PATH"
 grep -q 'TimeoutStopSec=2h' "$PIB_LINUX_UNIT_PATH"
-grep -q '^PIB_RUNTIME_VERSION="1.0.0"$' "$PIB_RUNTIME_ENV_PATH"
+# After install_runtime activated release-2, env must report that current version.
+grep -q '^PIB_RUNTIME_VERSION="1.1.0"$' "$PIB_RUNTIME_ENV_PATH"
 grep -Fqx "PIB_RUNTIME_STATE_DIR=\"$PIB_LINUX_STATE_ROOT\"" "$PIB_RUNTIME_ENV_PATH"
 grep -Fqx "PIB_CREDENTIAL_HELPER=\"$PIB_LINUX_ROOT/current/pib-credential-helper\"" "$PIB_RUNTIME_ENV_PATH"
 grep -Fqx "PIB_FILE_HELPER=\"$PIB_LINUX_ROOT/current/pib-file-helper\"" "$PIB_RUNTIME_ENV_PATH"
