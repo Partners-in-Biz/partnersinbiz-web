@@ -32,8 +32,9 @@ pib_hermes_established_count() {
     | awk 'NR>1 && $0 !~ /caddy/ && $0 !~ /sshd/ {c++} END {print c+0}'
 }
 
-# True when the hermes@profile cgroup has agent-work children (browser, node, shells).
-# TCP can look idle while tools still run in-process after the HTTP claim.
+# True when THIS profile's gateway still has work in its process tree.
+# Only inspect MainPID descendants — never global chrome/agent-browser on the host
+# (orphans would mark every profile busy forever and block deferred restarts).
 pib_hermes_profile_has_agent_work() {
   local profile="$1"
   local unit="hermes@${profile}.service"
@@ -42,18 +43,9 @@ pib_hermes_profile_has_agent_work() {
   if [[ ! "$main_pid" =~ ^[1-9][0-9]*$ ]]; then
     return 1
   fi
-  # Direct children of the gateway process.
+  # Direct children of this gateway process (tools, shells, browsers launched by it).
   if pgrep -P "$main_pid" >/dev/null 2>&1; then
     return 0
-  fi
-  # Known agent-work binaries owned by hermes that often outlive the TCP claim.
-  if pgrep -u hermes -f "agent-browser|chrome.*user-data-dir=/tmp/agent-browser|chromedriver" >/dev/null 2>&1; then
-    # Only treat as busy for this profile if chrome data dir or cwd references it — best-effort.
-    if pgrep -u hermes -af "agent-browser|chrome" 2>/dev/null | grep -E "hermes|agent-browser|chrome" >/dev/null 2>&1; then
-      # If ANY chrome agent-browser is up, be conservative for all profiles on this host
-      # when soft_wait is 0 (request path). Deferred sweep can re-check.
-      return 0
-    fi
   fi
   return 1
 }

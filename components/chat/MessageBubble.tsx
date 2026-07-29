@@ -24,6 +24,7 @@ import {
 } from '@/lib/linked-computers/reveal-redaction'
 import { ContextArtifactBundle } from './context/ContextArtifactBundle'
 import { buildThinkingTrace, type MessageThinkingTrace } from '@/lib/conversations/thinking-trace'
+import { humanizeConversationRunError } from '@/lib/conversations/run-policy'
 
 // Matches Phase 1 ConversationMessage shape
 export interface ConversationMessage {
@@ -1594,6 +1595,9 @@ function RichActionBar({
 }
 
 function copyableText(message: ConversationMessage): string {
+  if (message.status === 'failed') {
+    return humanizeConversationRunError(message.error || message.content || '')
+  }
   return message.content || message.error || ''
 }
 
@@ -2157,7 +2161,15 @@ export default function MessageBubble({
             {isWaiting && !renderedMessage.content && (
               <span className="opacity-70 italic">Paused — awaiting tool approval…</span>
             )}
-            <ChatMessageContent content={renderedMessage.content || (isFailed && renderedMessage.error) || ''} />
+            <ChatMessageContent
+              content={
+                renderedMessage.content
+                || (isFailed && renderedMessage.error
+                  ? humanizeConversationRunError(renderedMessage.error)
+                  : '')
+                || ''
+              }
+            />
             <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} />
             {attachmentList}
             <RichActionBar actions={renderedMessage.uiActions} message={renderedMessage} onUiAction={onUiAction} />
