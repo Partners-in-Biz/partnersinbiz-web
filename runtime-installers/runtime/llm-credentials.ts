@@ -37,8 +37,12 @@ function readJson(file: string): Record<string, unknown> {
 
 function atomicWrite(file: string, contents: string) {
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
+  const owner = fs.statSync(fs.existsSync(file) ? file : path.dirname(file))
   const temporary = `${file}.pib-${process.pid}-${Date.now()}.tmp`
   fs.writeFileSync(temporary, contents, { encoding: 'utf8', mode: 0o600 })
+  if (typeof process.getuid === 'function' && process.getuid() === 0) {
+    fs.chownSync(temporary, owner.uid, owner.gid)
+  }
   fs.renameSync(temporary, file)
 }
 

@@ -139,6 +139,34 @@ function pidFile(agentId: string, env: HermesLifecycleEnv = process.env): string
   return path.join(stateRoot(env), 'agent-host', `${agentId}.json`)
 }
 
+function restartSystemdHermesProfile(
+  agentId: string,
+  env: HermesLifecycleEnv,
+): { managed: boolean; started: boolean; error?: string } {
+  if (process.platform !== 'linux'
+    || typeof process.getuid !== 'function'
+    || process.getuid() !== 0
+    || !fs.existsSync('/run/systemd/system')) {
+    return { managed: false, started: false }
+  }
+  const unit = `hermes@${agentId}.service`
+  const loaded = spawnSync('systemctl', ['show', unit, '--property=LoadState', '--value'], {
+    encoding: 'utf8',
+    env,
+  })
+  if (loaded.status !== 0 || loaded.stdout.trim() !== 'loaded') {
+    return { managed: false, started: false }
+  }
+  const restarted = spawnSync('systemctl', ['restart', unit], { encoding: 'utf8', env })
+  return restarted.status === 0
+    ? { managed: true, started: true }
+    : {
+        managed: true,
+        started: false,
+        error: restarted.stderr.trim() || `Could not restart ${unit}`,
+      }
+}
+
 export function startHermesGateway(input: {
   agentId: string
   env?: HermesLifecycleEnv
@@ -155,6 +183,12 @@ export function startHermesGateway(input: {
   }
 
   try {
+    const systemd = restartSystemdHermesProfile(input.agentId, env)
+    if (systemd.managed) {
+      return systemd.started
+        ? { started: true, pid: null, hermesBin }
+        : { started: false, pid: null, hermesBin, error: systemd.error }
+    }
     const child = spawn(
       hermesBin,
       ['-p', input.agentId, 'gateway', 'run', '--replace', '--force', '--quiet'],
