@@ -23,11 +23,34 @@ const PIP_INTERVIEW_ACTIONS = new Set<PlanningAction['type']>([
   'submit_brief',
 ])
 
-function isDirectHuman(user: Parameters<typeof getProjectForUser>[1]): boolean {
-  return user.role !== 'ai'
-    && user.authKind !== 'agent_api_key'
-    && user.authKind !== 'legacy_ai_key'
-    && user.authKind !== 'user_delegation'
+/**
+ * Human-binding planning actions (answer / confirm / reopen / assumptions).
+ *
+ * Allowed:
+ * - Browser session or Firebase ID token for the project manager
+ * - Messages user-delegation acting for that same human
+ *   (uid === actingForUserId, with a real delegation id)
+ *
+ * Rejected:
+ * - Pure agent API keys / legacy system keys (cannot impersonate human intent)
+ * - Incomplete or mismatched delegations
+ *
+ * Project manage access is still enforced separately by the route.
+ */
+function isAuthorizedHumanActor(user: Parameters<typeof getProjectForUser>[1]): boolean {
+  if (user.role === 'ai') return false
+  if (user.authKind === 'agent_api_key' || user.authKind === 'legacy_ai_key') return false
+
+  if (user.authKind === 'user_delegation') {
+    const actingFor = typeof user.actingForUserId === 'string' ? user.actingForUserId.trim() : ''
+    const delegationId = typeof user.delegationId === 'string' ? user.delegationId.trim() : ''
+    if (!actingFor || actingFor !== user.uid) return false
+    if (!delegationId) return false
+    return true
+  }
+
+  // session, firebase, or legacy callers without authKind
+  return true
 }
 
 /**
@@ -37,8 +60,9 @@ function isDirectHuman(user: Parameters<typeof getProjectForUser>[1]): boolean {
  * - Messages interactive turn: user-delegation minted for Pip
  *   (`authKind=user_delegation` + `agentId=pip`, acting as the human)
  *
- * Terminal confirm / answer_question stay direct-human only via isDirectHuman.
- * Marketplace `mp-pip-*` instances are intentionally excluded.
+ * Human-binding answer/confirm also accept the same user-delegation token
+ * (see isAuthorizedHumanActor) so Peet can stay in chat end-to-end.
+ * Marketplace `mp-pip-*` instances are intentionally excluded from Pip interview writes.
  */
 function isPipAgent(user: Parameters<typeof getProjectForUser>[1]): boolean {
   if (user.agentId !== 'pip') return false
@@ -136,15 +160,21 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (PIP_INTERVIEW_ACTIONS.has(action.type) && !isPipAgent(user)) {
     return apiError('Pip is required to inspect, interview, and prepare the Decision Brief', 403)
   }
-  if (action.type === 'start' && !isPipAgent(user) && !isDirectHuman(user)) {
-    return apiError('Only Pip or a direct human project manager can start planning discovery', 403)
+  if (action.type === 'start' && !isPipAgent(user) && !isAuthorizedHumanActor(user)) {
+    return apiError('Only Pip or an authorised human project manager can start planning discovery', 403)
   }
-  if (action.type === 'answer_question' && !isDirectHuman(user)) {
-    return apiError('A direct human answer is required for Pip’s planning question', 403)
+  if (action.type === 'answer_question' && !isAuthorizedHumanActor(user)) {
+    return apiError(
+      'An authorised human answer is required for Pip’s planning question (browser session or Messages user-delegation acting for that human)',
+      403,
+    )
   }
   const terminalHumanActions = new Set(['confirm', 'plan_with_assumptions', 'reopen'])
-  if (terminalHumanActions.has(action.type) && !isDirectHuman(user)) {
-    return apiError('A direct human project manager must confirm, reopen, or attest the Decision Brief', 403)
+  if (terminalHumanActions.has(action.type) && !isAuthorizedHumanActor(user)) {
+    return apiError(
+      'An authorised human project manager must confirm, reopen, or attest the Decision Brief (browser session or Messages user-delegation)',
+      403,
+    )
   }
 
   const projectRef = adminDb.collection('projects').doc(projectId)

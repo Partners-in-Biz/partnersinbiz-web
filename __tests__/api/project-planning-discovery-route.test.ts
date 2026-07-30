@@ -12,6 +12,8 @@ let mockUser: {
   orgId?: string
   authKind?: 'session' | 'firebase' | 'agent_api_key' | 'user_delegation'
   agentId?: string
+  actingForUserId?: string
+  delegationId?: string
 } = { uid: 'peet', role: 'admin', orgId: 'owner-org', authKind: 'session' }
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -68,9 +70,9 @@ describe('POST /api/v1/projects/[projectId]/planning-discovery', () => {
   })
 
   it.each([
-    { uid: 'agent:pip', role: 'ai' as const, authKind: 'agent_api_key' as const },
-    { uid: 'peet', role: 'admin' as const, authKind: 'user_delegation' as const },
-  ])('rejects non-direct-human terminal transitions for $authKind', async (user) => {
+    { uid: 'agent:pip', role: 'ai' as const, authKind: 'agent_api_key' as const, agentId: 'pip' },
+    { uid: 'peet', role: 'admin' as const, authKind: 'user_delegation' as const, agentId: 'pip' },
+  ])('rejects pure agent keys and incomplete delegations for terminal transitions ($authKind)', async (user) => {
     mockUser = { ...user, orgId: 'owner-org' }
     const { POST } = await import('@/app/api/v1/projects/[projectId]/planning-discovery/route')
     const res = await POST(request({ type: 'confirm', expectedRevision: 3, expectedDigest: 'digest' }), {
@@ -79,6 +81,92 @@ describe('POST /api/v1/projects/[projectId]/planning-discovery', () => {
 
     expect(res.status).toBe(403)
     expect(mockRunTransaction).not.toHaveBeenCalled()
+  })
+
+  it('allows complete Messages user-delegation to answer a planning question (chat-native)', async () => {
+    mockUser = {
+      uid: 'peet',
+      role: 'admin',
+      orgId: 'owner-org',
+      authKind: 'user_delegation',
+      agentId: 'pip',
+      actingForUserId: 'peet',
+      delegationId: 'dlg-chat-1',
+    }
+    mockRunTransaction.mockImplementation(async (fn: (tx: {
+      get: () => Promise<{ exists: boolean; data: () => Record<string, unknown> }>
+      update: jest.Mock
+      set: jest.Mock
+    }) => Promise<unknown>) => {
+      const tx = {
+        get: async () => ({
+          exists: true,
+          data: () => ({
+            orgId: 'owner-org',
+            planningDiscovery: {
+              schemaVersion: 1,
+              revision: 3,
+              status: 'interviewing',
+              mode: 'interview',
+              enforced: true,
+              inspection: {
+                brief: ['b'], docs: ['d'], files: ['f'], plan: ['p'], tasks: ['t'],
+                tools: ['to'], agents: ['a'], skills: ['s'],
+                inspectedBy: 'pip', inspectedAt: '2026-07-30T00:00:00.000Z',
+              },
+              turns: [{
+                id: 'q-3',
+                question: 'Which matrix should we adopt?',
+                currentGuess: 'Recommended matrix',
+                askedBy: 'pip',
+                askedAt: '2026-07-30T00:01:00.000Z',
+              }],
+              pendingQuestionId: 'q-3',
+            },
+          }),
+        }),
+        update: jest.fn(),
+        set: jest.fn(),
+      }
+      return fn(tx)
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/planning-discovery/route')
+    const res = await POST(request({
+      type: 'answer_question',
+      expectedRevision: 3,
+      expectedQuestionId: 'q-3',
+      answer: 'Yes, adopt the recommended matrix',
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockRunTransaction).toHaveBeenCalled()
+  })
+
+  it('allows complete Messages user-delegation to open confirm transaction', async () => {
+    mockUser = {
+      uid: 'peet',
+      role: 'admin',
+      orgId: 'owner-org',
+      authKind: 'user_delegation',
+      agentId: 'pip',
+      actingForUserId: 'peet',
+      delegationId: 'dlg-chat-1',
+    }
+    mockRunTransaction.mockImplementation(async () => ({
+      ok: false,
+      error: 'Submit the Decision Brief before confirming it',
+      status: 409,
+    }))
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/planning-discovery/route')
+    const res = await POST(request({ type: 'confirm', expectedRevision: 3, expectedDigest: 'digest' }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    // Auth passed; business rule from planning state machine may still 409.
+    expect(res.status).toBe(409)
+    expect(mockRunTransaction).toHaveBeenCalled()
   })
 
   it('allows only Pip to inspect, ask, or submit planning discovery', async () => {
@@ -180,11 +268,8 @@ describe('POST /api/v1/projects/[projectId]/planning-discovery', () => {
     expect(mockRunTransaction).toHaveBeenCalled()
   })
 
-  it.each([
-    { uid: 'agent:pip', role: 'ai' as const, authKind: 'agent_api_key' as const, agentId: 'pip' },
-    { uid: 'peet', role: 'admin' as const, authKind: 'user_delegation' as const, agentId: 'pip' },
-  ])('requires a direct human to answer Pip for $authKind', async (user) => {
-    mockUser = { ...user, orgId: 'owner-org' }
+  it('rejects agent API keys from answering Pip’s planning questions', async () => {
+    mockUser = { uid: 'agent:pip', role: 'ai', orgId: 'owner-org', authKind: 'agent_api_key', agentId: 'pip' }
     const { POST } = await import('@/app/api/v1/projects/[projectId]/planning-discovery/route')
     const res = await POST(request({
       type: 'answer_question',

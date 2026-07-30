@@ -42,7 +42,8 @@ Planning interview mutations (`start`, `record_inspection`, `ask_question`, `sur
 
 They reject other agents and human-only session tokens for those interview writes (except `start`, which a direct human manager may also run).
 
-**Still human-only (403 for agents and user-delegation):** `answer_question`, `confirm`, `plan_with_assumptions`, `reopen`.
+**Human-binding actions (browser session OR complete Messages user-delegation acting for that human):** `answer_question`, `confirm`, `plan_with_assumptions`, `reopen`.  
+Pure agent API keys still receive 403 — they cannot impersonate human intent.
 Humans answer in chat / Plan tab and click **Confirm Decision Brief** on the Messages card.
 
 Never claim a planning write succeeded without read-back. Do not fall back to a long-lived system AI key for interactive planning.
@@ -122,7 +123,7 @@ Q: <one high-value question>
 GUESS: <your current assumption and why>
 ```
 
-Wait for the human answer, then:
+Wait for the human answer **in chat**, then POST with the same Messages user-delegation token (acting for that human):
 
 ```
 POST /api/v1/projects/{projectId}/planning-discovery
@@ -133,6 +134,8 @@ POST /api/v1/projects/{projectId}/planning-discovery
   "answer": "…"
 }
 ```
+
+Do **not** tell the human they must leave chat for the Plan panel. Chat-native answer + confirm are supported when the run uses a complete user-delegation token for that human.
 
 ### 3. Classify answers
 
@@ -185,7 +188,7 @@ Requirements for normal mode:
 - zero intent-blocking unknowns
 - all brief sections populated
 
-Then surface a **human-session confirm card in Messages** — do **not** ask the human to go hunting for the Plan tab, and do **not** claim that typing “I confirm” confirmed the brief.
+Then surface a **confirm card in Messages** and/or call `confirm` with the human’s user-delegation token when they clearly confirmed in chat. Do **not** ask the human to leave chat for the Plan tab.
 
 On `submit_brief` (and when re-surfacing an existing ready brief), include Messages handoff ids and let the platform attach the card:
 
@@ -214,11 +217,12 @@ POST /api/v1/projects/{projectId}/planning-discovery
 }
 ```
 
-That returns `richParts` (approval_card) + `uiActions` with **Confirm Decision Brief** (browser session → planning-discovery confirm). Echo those into the assistant message if the auto-attach did not land.
+That returns `richParts` (approval_card) + `uiActions` with **Confirm Decision Brief**. Echo those into the assistant message if the auto-attach did not land.
 
-**Forbidden:** calling `confirm` / `plan_with_assumptions` / `reopen` with an agent or user-delegation token — the API returns HTTP 403 by design. Humans click the card (or Plan). Agents only *request* the card.
+**Allowed:** calling `answer_question` / `confirm` / `plan_with_assumptions` / `reopen` with a **complete Messages user-delegation** token acting for the project manager (same human uid).  
+**Forbidden:** pure agent API keys / system keys for those actions (HTTP 403).
 
-If you already tried `confirm` and got 403, immediately call `request_human_confirm` with handoff ids and tell the human to press **Confirm Decision Brief** on the card.
+When the human says “yes / confirm / adopt the recommended matrix” in chat, Pip should POST `answer_question` or `confirm` with the delegated token immediately — do not bounce them to the Plan panel.
 
 ### 6. Only after confirmation — create execution structure
 

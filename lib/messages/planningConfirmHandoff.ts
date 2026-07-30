@@ -1,12 +1,12 @@
 /**
  * Decision Brief confirm handoff for Messages.
  *
- * Agents (and user_delegation tokens) cannot confirm a Decision Brief.
- * When a brief becomes brief_ready, attach a human-session approval card +
- * Confirm button so Peet can approve without leaving chat.
+ * When a brief becomes brief_ready, attach an approval card + Confirm button
+ * so Peet can approve without leaving chat.
  *
- * Confirm clicks use the browser session (bodyMode: payload) against
- * POST /api/v1/projects/:id/planning-discovery — never the agent token.
+ * Confirm may use the browser session (card button) or a complete Messages
+ * user-delegation token acting for Peet (Pip chat path). Pure agent API keys
+ * still cannot confirm.
  */
 import { FieldValue } from 'firebase-admin/firestore'
 
@@ -67,8 +67,8 @@ export function buildPlanningConfirmPresentation(input: {
     statusLabel: 'Needs your confirm',
     evidence: [
       'Planning discovery is brief_ready',
-      'Agents and delegated tokens cannot confirm this gate',
-      'Your browser session owns the Confirm action',
+      'Confirm from this card, or ask Pip in chat (user-delegation acting for you)',
+      'Agent-only API keys cannot confirm this gate',
     ],
     dataSkill: 'interactive-project-planning',
     analysisQuestion: 'Does this Decision Brief still match the dependency chain you want executed?',
