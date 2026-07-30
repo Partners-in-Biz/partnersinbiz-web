@@ -1,6 +1,15 @@
 {
   "indexes": [
     {
+      "collectionGroup": "finance_role_assignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "orgId", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "video_editor_render_jobs",
       "queryScope": "COLLECTION",
       "fields": [
