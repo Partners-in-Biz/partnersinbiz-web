@@ -42,10 +42,14 @@ export interface Conversation {
     ownerUserId?: string
   }
   contextRefs?: ContextReference[]
+  lastMessageId?: string
   lastMessagePreview?: string
   lastMessageRole?: string
   lastMessageAt?: { seconds?: number; _seconds?: number } | string
   messageCount: number
+  unreadCount?: number
+  lastReadMessageId?: string
+  lastReadMessageCount?: number
   archived: boolean
   /** Set when this conversation is the project command session. */
   commandSessionProjectId?: string
@@ -199,6 +203,14 @@ export default function ConversationListItem({
               keep
             </span>
           )}
+          {(c.unreadCount ?? 0) > 0 && (
+            <span
+              aria-label={`${c.unreadCount} unread message${c.unreadCount === 1 ? '' : 's'}`}
+              className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-primary px-1 font-mono text-[9px] font-bold leading-none text-on-primary"
+            >
+              {c.unreadCount! > 99 ? '99+' : c.unreadCount}
+            </span>
+          )}
         </div>
 
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] leading-3 text-[var(--color-pib-text-muted)]/85">
@@ -316,11 +328,21 @@ export default function ConversationListItem({
       )}
 
       {/* Title */}
-      <HoverTip label={c.title || 'Untitled'} side="right" className="block min-w-0 max-w-full">
-        <div className={`line-clamp-1 overflow-hidden font-semibold text-[var(--color-pib-text)] ${compact ? 'text-[13px]' : 'text-sm'}`}>
-          {c.title || 'Untitled'}
-        </div>
-      </HoverTip>
+      <div className="flex min-w-0 items-center gap-2">
+        <HoverTip label={c.title || 'Untitled'} side="right" className="block min-w-0 flex-1">
+          <div className={`line-clamp-1 overflow-hidden font-semibold text-[var(--color-pib-text)] ${compact ? 'text-[13px]' : 'text-sm'}`}>
+            {c.title || 'Untitled'}
+          </div>
+        </HoverTip>
+        {(c.unreadCount ?? 0) > 0 && (
+          <span
+            aria-label={`${c.unreadCount} unread message${c.unreadCount === 1 ? '' : 's'}`}
+            className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 font-mono text-[10px] font-bold leading-none text-on-primary"
+          >
+            {c.unreadCount! > 99 ? '99+' : c.unreadCount}
+          </span>
+        )}
+      </div>
 
       {/* Preview + time */}
       <div className="mt-0.5 flex min-w-0 items-center justify-between gap-2 overflow-hidden">

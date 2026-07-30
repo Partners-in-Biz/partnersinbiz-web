@@ -61,8 +61,8 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
 
     return {
       type: 'snapshot',
-      conversations: conversations.map(publicConversationView),
-      conversation: activeConversation ? publicConversationView(activeConversation) : null,
+      conversations: conversations.map((conversation) => publicConversationView(conversation, user.uid)),
+      conversation: activeConversation ? publicConversationView(activeConversation, user.uid) : null,
       messages,
       emittedAtMs: Date.now(),
     }

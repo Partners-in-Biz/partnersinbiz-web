@@ -181,9 +181,11 @@ campaign, document, approval or finance engine.
 
 ### P0 — trustworthy team messenger and universal operating contract
 
-1. Live rail and active-thread stream.
-2. Editable direct/group membership.
-3. Unread/read, mentions, presence and notifications.
+1. Live rail and active-thread stream. Shipped on `development`.
+2. Editable direct/group membership. Shipped on `development`.
+3. Unread/read, mentions, presence and notifications. Per-member unread counters
+   and exact-latest read receipts are shipped on `development`; mentions,
+   presence and notification controls remain.
 4. Shared adapter/action/receipt schema.
 5. Gap-test every existing context adapter against the schema.
 

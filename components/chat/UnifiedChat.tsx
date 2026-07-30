@@ -1465,6 +1465,7 @@ export default function UnifiedChat({
   ) => void) | null>(null)
   const eventSourcesRef = useRef<Record<string, EventSource>>({})
   const sendingRef = useRef(false)
+  const markedReadRef = useRef('')
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
   const COMPOSER_MAX_HEIGHT_PX = 160
@@ -3848,6 +3849,41 @@ export default function UnifiedChat({
     }
   }, [activeId, listQuery])
 
+  // Clear the current member's unread counter only after the exact latest
+  // message is visible in the focused thread. A 409 means a newer message won
+  // the race; the live snapshot will supply its id and trigger a safe retry.
+  const latestVisibleMessageId = messages[messages.length - 1]?.id ?? null
+  useEffect(() => {
+    if (!activeId || !activeConversation) return
+    if (!activeConversation.lastMessageId || latestVisibleMessageId !== activeConversation.lastMessageId) return
+    if (activeConversation.lastReadMessageId === activeConversation.lastMessageId) return
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+    const marker = `${activeId}:${activeConversation.lastMessageId}`
+    if (markedReadRef.current === marker) return
+    markedReadRef.current = marker
+    void fetch(`/api/v1/conversations/${encodeURIComponent(activeId)}/read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lastMessageId: activeConversation.lastMessageId }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          if (response.status !== 409) markedReadRef.current = ''
+          return null
+        }
+        return response.json()
+      })
+      .then((body) => {
+        const updated = body?.data?.conversation as Conversation | undefined
+        if (!updated) return
+        setConversations((current) => current.map((conversation) =>
+          conversation.id === updated.id ? updated : conversation))
+      })
+      .catch(() => {
+        markedReadRef.current = ''
+      })
+  }, [activeConversation, activeId, latestVisibleMessageId])
+
   useEffect(() => {
     setContextRefs((activeConversation?.contextRefs ?? []).map(coerceContextRef))
   }, [activeConversation?.id, activeConversation?.contextRefs, coerceContextRef])
@@ -5917,6 +5953,14 @@ export default function UnifiedChat({
                 <button key={conversation.id} type="button" aria-label={`Open ${conversation.title || 'Untitled session'}`} title={conversation.title || 'Untitled session'} onClick={() => { setActiveId(conversation.id); closeSessions() }} className={`relative grid h-11 w-11 place-items-center rounded-lg xl:h-10 xl:w-10 ${conversation.id === activeId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
                   <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chat_bubble</span>
                   {pinnedConversationIdSet.has(conversation.id) ? <span aria-label="Pinned session" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-300" /> : null}
+                  {(conversation.unreadCount ?? 0) > 0 ? (
+                    <span
+                      aria-label={`${conversation.unreadCount} unread message${conversation.unreadCount === 1 ? '' : 's'}`}
+                      className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-mono text-[8px] font-bold text-on-primary"
+                    >
+                      {conversation.unreadCount! > 9 ? '9+' : conversation.unreadCount}
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>

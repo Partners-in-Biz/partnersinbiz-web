@@ -60,15 +60,37 @@ export function canAccessConversation(user: ApiUser, conversation: Conversation)
   return true
 }
 
-/** Remove server filesystem locations before returning a conversation to browser/API callers. */
-export function publicConversationView(conversation: Conversation): Conversation {
+/** Remove server-only fields and expose only the caller's own read state. */
+export function publicConversationView(conversation: Conversation, userUid?: string): Conversation {
   const participants = (conversation.participants ?? []).map((participant) => {
     if (participant.kind !== 'user') return participant
     const publicParticipant = { ...participant }
     delete publicParticipant.email
     return publicParticipant
   }) as Conversation['participants']
-  if (!conversation.workspaceContext) return { ...conversation, participants }
+  const publicConversation = { ...conversation, participants }
+  delete publicConversation.unreadCounts
+  delete publicConversation.readStateByUser
+  delete publicConversation.unreadCount
+  delete publicConversation.lastReadMessageId
+  delete publicConversation.lastReadMessageCount
+  delete publicConversation.lastReadAt
+  if (userUid) {
+    const readState = conversation.readStateByUser?.[userUid]
+    const explicitUnreadCount = conversation.unreadCounts?.[userUid]
+    const derivedUnreadCount = Number.isFinite(readState?.lastReadMessageCount)
+      ? Math.max(0, (conversation.messageCount ?? 0) - Math.floor(readState?.lastReadMessageCount ?? 0))
+      : 0
+    publicConversation.unreadCount = Number.isFinite(explicitUnreadCount)
+      ? Math.max(0, Math.floor(explicitUnreadCount ?? 0))
+      : derivedUnreadCount
+    if (readState?.lastReadMessageId) publicConversation.lastReadMessageId = readState.lastReadMessageId
+    if (Number.isFinite(readState?.lastReadMessageCount)) {
+      publicConversation.lastReadMessageCount = Math.max(0, Math.floor(readState?.lastReadMessageCount ?? 0))
+    }
+    if (readState?.lastReadAt) publicConversation.lastReadAt = readState.lastReadAt
+  }
+  if (!conversation.workspaceContext) return publicConversation
   const workspaceContext: Partial<Conversation['workspaceContext']> = { ...conversation.workspaceContext }
   delete workspaceContext.vpsPath
   delete workspaceContext.localPath
@@ -76,7 +98,7 @@ export function publicConversationView(conversation: Conversation): Conversation
   delete workspaceContext.localWorkingPath
   delete workspaceContext.agentDomainPath
   delete workspaceContext.localAgentDomainPath
-  return { ...conversation, participants, workspaceContext: workspaceContext as Conversation['workspaceContext'] }
+  return { ...publicConversation, workspaceContext: workspaceContext as Conversation['workspaceContext'] }
 }
 
 /** Replace persisted storage URLs/paths with the authenticated application download route. */

@@ -166,6 +166,6 @@ export const POST = withAuth(
       entityTitle: source.title,
     }).catch(() => undefined)
 
-    return apiSuccess({ conversation: publicConversationView(conversation) }, 201)
+    return apiSuccess({ conversation: publicConversationView(conversation, user.uid) }, 201)
   },
 )

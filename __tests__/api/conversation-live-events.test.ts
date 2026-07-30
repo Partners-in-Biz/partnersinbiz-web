@@ -53,6 +53,11 @@ describe('GET /api/v1/conversations/live', () => {
       ],
       participantUids: ['member-1', 'member-2'],
       participantAgentIds: [],
+      unreadCounts: { 'member-1': 2, 'member-2': 8 },
+      readStateByUser: {
+        'member-1': { lastReadMessageId: 'message-old' },
+        'member-2': { lastReadMessageId: 'message-private' },
+      },
       messageCount: 1,
       archived: false,
       workspaceContext: {
@@ -102,6 +107,9 @@ describe('GET /api/v1/conversations/live', () => {
     expect(frame).not.toContain('one@example.com')
     expect(frame).not.toContain('/srv/private')
     expect(frame).not.toContain('"events"')
+    expect(frame).toContain('"unreadCount":2')
+    expect(frame).not.toContain('"unreadCounts"')
+    expect(frame).not.toContain('message-private')
   })
 
   it('permission-checks a focused conversation outside the current rail filter', async () => {

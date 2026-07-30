@@ -72,4 +72,18 @@ describe('ConversationListItem', () => {
 
     expect(screen.getByTestId('conversation-project-badge-conv-1')).toHaveTextContent('AHS Law - SEO 90-day Sprint')
   })
+
+  it('shows the current member unread count in the session rail', () => {
+    render(
+      <ConversationListItem
+        conversation={makeConversation({ unreadCount: 3 })}
+        active={false}
+        onClick={() => {}}
+        currentUserUid="user-1"
+        density="compact"
+      />,
+    )
+
+    expect(screen.getByLabelText('3 unread messages')).toHaveTextContent('3')
+  })
 })

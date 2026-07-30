@@ -108,6 +108,30 @@ describe('Workspace conversation access', () => {
     expect(publicView.participants[0]).not.toHaveProperty('email')
   })
 
+  it('exposes only the requesting member read state', () => {
+    const privateConversation = conversation('shared')
+    privateConversation.unreadCounts = { 'owner-1': 2, 'member-1': 7 }
+    privateConversation.readStateByUser = {
+      'owner-1': { lastReadMessageId: 'message-owner', lastReadMessageCount: 0 },
+      'member-1': { lastReadMessageId: 'message-member', lastReadMessageCount: 0 },
+    }
+    const publicView = publicConversationView(privateConversation, 'member-1')
+    expect(publicView.unreadCount).toBe(7)
+    expect(publicView.lastReadMessageId).toBe('message-member')
+    expect(publicView).not.toHaveProperty('unreadCounts')
+    expect(publicView).not.toHaveProperty('readStateByUser')
+    expect(JSON.stringify(publicView)).not.toContain('message-owner')
+  })
+
+  it('derives unread state for an org-visible member who is not an explicit participant', () => {
+    const orgConversation = conversation('org')
+    orgConversation.messageCount = 12
+    orgConversation.readStateByUser = {
+      'member-1': { lastReadMessageId: 'message-8', lastReadMessageCount: 8 },
+    }
+    expect(publicConversationView(orgConversation, 'member-1').unreadCount).toBe(4)
+  })
+
   it('replaces persisted attachment bearer URLs and storage paths in public message views', () => {
     const publicMessage = publicConversationMessageView({
       id: 'msg-1',
@@ -138,7 +162,7 @@ describe('Workspace conversation access', () => {
     expect(publicMessage.attachments?.[0]).not.toHaveProperty('storagePath')
     expect(publicMessage.runId).toBe('browser-run-id')
     expect(publicMessage).not.toHaveProperty('runDocId')
-    expect(publicMessage).not.toHaveProperty('dispatchAgentId')
+    expect(publicMessage.dispatchAgentId).toBe('pip')
     expect(publicMessage).not.toHaveProperty('events')
     expect(publicMessage).not.toHaveProperty('toolName')
   })

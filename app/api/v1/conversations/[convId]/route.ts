@@ -54,7 +54,7 @@ export const GET = withAuth(
     const projectAuthorization = await authorizeConversationProject(user, conversation)
     if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
 
-    return apiSuccess({ conversation: publicConversationView(conversation) })
+    return apiSuccess({ conversation: publicConversationView(conversation, user.uid) })
   },
 )
 
@@ -204,7 +204,9 @@ export const PATCH = withAuth(
         entityTitle: conversation.title,
       }).catch(() => undefined)
       const updatedConversation = await getConversation(convId)
-      return apiSuccess({ conversation: updatedConversation ? publicConversationView(updatedConversation) : null })
+      return apiSuccess({
+        conversation: updatedConversation ? publicConversationView(updatedConversation, user.uid) : null,
+      })
     }
 
     if (Object.keys(patch).length === 0) {
@@ -217,7 +219,9 @@ export const PATCH = withAuth(
 
     await patchConversation(convId, patch)
     const updatedConversation = await getConversation(convId)
-    return apiSuccess({ conversation: updatedConversation ? publicConversationView(updatedConversation) : null })
+    return apiSuccess({
+      conversation: updatedConversation ? publicConversationView(updatedConversation, user.uid) : null,
+    })
   },
 )
 

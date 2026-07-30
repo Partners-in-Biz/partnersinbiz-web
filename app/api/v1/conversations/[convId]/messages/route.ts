@@ -666,7 +666,7 @@ export const POST = withAuth(
 
     // Update the conversation's denorm fields
     const preview = content || publicAttachments.map((attachment) => attachment.name).join(', ')
-    await touchConversation(convId, preview, 'user', message.id)
+    await touchConversation(convId, preview, 'user', message.id, user.uid)
 
     const recentMessages = await listMessages(convId, 200).catch(() => [message])
     const conversationHistory = buildConversationHistoryBlock(recentMessages, message.id)

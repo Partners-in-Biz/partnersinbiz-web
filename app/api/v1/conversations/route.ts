@@ -505,7 +505,7 @@ export const POST = withAuth(
       }
     }
 
-    return apiSuccess({ conversation: publicConversationView(conversation) }, 201)
+    return apiSuccess({ conversation: publicConversationView(conversation, user.uid) }, 201)
   }),
 )
 
@@ -534,6 +534,8 @@ export const GET = withAuth(
       projectId,
     })
 
-    return apiSuccess({ conversations: conversations.map(publicConversationView) })
+    return apiSuccess({
+      conversations: conversations.map((conversation) => publicConversationView(conversation, user.uid)),
+    })
   },
 )
