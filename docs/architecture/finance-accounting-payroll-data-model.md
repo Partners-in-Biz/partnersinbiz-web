@@ -230,10 +230,19 @@ Fields:
 - `orgId + legalEntityId + bookId + periodId`
 - deterministic/idempotency source tuple (`sourceType`, `sourceId`, `sourceVersion`, `postingPurpose`)
 - `entryNumber`, `entryType`, `postingDate`, `documentDate`
-- `status: draft | pending_approval | posted | reversed`
+- `status: draft | pending_approval | posted`
 - description, currency and optional exchange-rate snapshot
 - totals in minor units
-- approval, posting, reversal, and hash metadata
+- approval, posting, and hash metadata
+- optional `reversesJournalEntryId` only on the new reversal entry, plus reversal reason and approval references
+
+Append-only reversal lifecycle:
+
+- the original entry remains `posted`; posting and reversal never mutate its stored status, lines, totals, hashes, or metadata;
+- reversal creates a separate balanced reversal entry in an open correction period, with equal-and-opposite lines, `status: posted`, and `reversesJournalEntryId` pointing to the original posted entry;
+- the reversal entry is approved, posted, audited, and emitted through the same atomic transaction contract as every other posted journal;
+- a deterministic source/unique claim on the reversed entry ID prevents more than one direct posted reversal for the same entry; further correction uses a new explicit adjustment or reverses the prior reversal under the same rules;
+- `reversed` and `reversalEntryId` are read-model fields in a derived reversal projection resolved from posted reversal entries; they are not persisted lifecycle mutations on the original journal entry.
 
 #### `journal_lines/{journalLineId}`
 

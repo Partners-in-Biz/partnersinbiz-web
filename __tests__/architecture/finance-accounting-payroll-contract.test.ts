@@ -76,6 +76,18 @@ describe('finance, accounting, and payroll architecture contract', () => {
     for (const invariant of requiredInvariants) expect(content).toContain(invariant)
   })
 
+  it('defines an append-only journal reversal lifecycle', () => {
+    const content = architecture()
+
+    expect(content).toContain('status: draft | pending_approval | posted`')
+    expect(content).not.toContain('status: draft | pending_approval | posted | reversed`')
+    expect(content).toContain('original entry remains `posted`')
+    expect(content).toContain('derived reversal projection')
+    expect(content).toContain(
+      'separate balanced reversal entry in an open correction period, with equal-and-opposite lines, `status: posted`, and `reversesJournalEntryId` pointing to the original posted entry',
+    )
+  })
+
   it('contains an additive migration, affected-file map, security model, and test plan', () => {
     const content = architecture()
     expect(content).toContain('Additive migration strategy')
