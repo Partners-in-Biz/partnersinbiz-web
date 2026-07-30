@@ -7,7 +7,7 @@ import { OrgThemedFrame } from '@/components/admin/OrgThemedFrame'
 import { PageHeader, PageLinkTabs } from '@/components/ui/AppFoundation'
 import { DocumentIndex, type ClientDocumentPartyLabels } from '@/components/client-documents/DocumentIndex'
 import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-documents/types'
-import { formatActorLabel } from '@/lib/api/actor'
+import { formatActorLabel } from '@/lib/api/actor-label'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type ClientDocumentsSurface = 'admin' | 'portal'
