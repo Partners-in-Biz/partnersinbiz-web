@@ -46,7 +46,7 @@ import {
 } from './workspace-sync'
 
 const api=process.env.PIB_API_BASE||'https://partnersinbiz.online'
-const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.1.13'
+const runtimeVersion=process.env.PIB_RUNTIME_VERSION||'1.1.20'
 const stateRoot=process.env.PIB_RUNTIME_STATE_DIR||path.join(os.homedir(),'.partnersinbiz')
 const revocationMarker=path.join(stateRoot,'revocation-pending.json')
 const maps=new MappingRegistry(path.join(stateRoot,'mappings.json'))
@@ -114,7 +114,7 @@ async function downloadAgentSkillPack(artifactPath:string,expectedContentSha256:
     },
   })
 }
-async function localHermes(agentId:string,body:{prompt:string;images?:Array<{url:string;contentType:string}>;model?:string;provider?:string;working_directory:string;yolo?:boolean},helpers?:{onEvents?:(events:unknown[])=>void|Promise<void>}):Promise<unknown>{return callLocalHermes(agentId,body,process.env,fetch,(ms)=>new Promise(r=>setTimeout(r,ms)),helpers?.onEvents)}
+async function localHermes(agentId:string,body:{prompt:string;images?:Array<{url:string;contentType:string}>;model?:string;provider?:string;working_directory:string;yolo?:boolean},helpers?:{onEvents?:(events:unknown[])=>void|Promise<void>;onQueued?:(reason:'agent_capacity'|'gateway_draining'|'runtime_restarting')=>void|Promise<void>;onStarted?:(localHermesRunId:string)=>void|Promise<void>;resumeRunId?:string}):Promise<unknown>{return callLocalHermes(agentId,body,process.env,fetch,(ms)=>new Promise(r=>setTimeout(r,ms)),helpers)}
 const activeHermesAgents=new Map<string,number>()
 async function run(job:Job){const i=await identity(),agentId=job.agentId||'pip';activeHermesAgents.set(agentId,(activeHermesAgents.get(agentId)||0)+1);try{return await executeJob({...job},i,maps,(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body),(body,helpers)=>localHermes(agentId,body,helpers))}finally{const remaining=(activeHermesAgents.get(agentId)||1)-1;if(remaining>0)activeHermesAgents.set(agentId,remaining);else activeHermesAgents.delete(agentId)}}
 async function syncRun(job:WorkspaceSyncRuntimeJob){const i=await identity();return executeWorkspaceSyncJob(job,{registry:maps,stateRoot,spool:syncSpool,post:(suffix,body)=>post(`/api/v1/linked-computers/${i.deviceId}${suffix}`,body)})}

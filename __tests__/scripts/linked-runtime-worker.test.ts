@@ -1,4 +1,4 @@
-import fs from'node:fs';import os from'node:os';import path from'node:path';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunAgentKey,linkedRunPollDelay,pollForever}from'../../runtime-installers/runtime/worker'
+import fs from'node:fs';import os from'node:os';import path from'node:path';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunPollDelay,pollForever}from'../../runtime-installers/runtime/worker'
 import { DeviceApiClient } from '../../runtime-installers/runtime/client'
 import { applyHeartbeatData,handleRotation,heartbeatForever,isRevokeAcknowledged,linkedRuntimeHeartbeatBody,linkedRuntimePlatform,linkedRuntimeSyncClaimBody,nativeWorkspaceSyncSupported,recoverPendingRevocation,runRuntimeServicePollers,sanitizeIdentity } from '../../runtime-installers/runtime/cli'
 import { callLocalHermes, isLocalHermesGatewayDrainingError, localHermesRoutes, probeLocalHermes } from '../../runtime-installers/runtime/hermes'
@@ -70,6 +70,28 @@ it('keeps claiming linked runs while another chat is still executing, up to the 
   while(!stopped)await new Promise(resolve=>setImmediate(resolve))
   await polling
 })
+it('runs eight device-wide jobs and leaves the ninth queued until capacity frees',async()=>{
+  let stopped=false,claims=0
+  const started:string[]=[]
+  const releases=new Map<string,()=>void>()
+  const jobs=Array.from({length:9},(_,index)=>({jobId:`job-${index+1}`,agentId:index<8?'pip':'theo'})) as any[]
+  const claim=jest.fn(async()=>jobs[claims++]??null)
+  const run=jest.fn(async(job:any)=>{
+    started.push(job.jobId)
+    await new Promise<void>(resolve=>releases.set(job.jobId,resolve))
+    if(job.jobId==='job-9')stopped=true
+  })
+  const polling=pollForever(claim,run,()=>stopped)
+  while(started.length<8)await new Promise(resolve=>setImmediate(resolve))
+  expect(started).toEqual(jobs.slice(0,8).map(job=>job.jobId))
+  expect(started).not.toContain('job-9')
+  expect(claim).toHaveBeenCalledTimes(8)
+  releases.get('job-1')?.()
+  while(!started.includes('job-9'))await new Promise(resolve=>setImmediate(resolve))
+  expect(started).toHaveLength(9)
+  for(const release of releases.values())release()
+  await polling
+})
 it('surfaces concrete Hermes start and terminal failure details', async () => {
   const startFail = jest.fn(async () => new Response(JSON.stringify({ error: 'provider quota exhausted' }), { status: 503 })) as any
   await expect(callLocalHermes(
@@ -125,6 +147,85 @@ it('retries Hermes start while the gateway is draining, then succeeds', async ()
   expect(waits.every((ms) => ms >= 200 && ms <= 5_000)).toBe(true)
 })
 
+it('queues on Hermes 429 using Retry-After and reports the accepted local run id', async () => {
+  let starts = 0
+  const queued: string[] = []
+  const started: string[] = []
+  const fetcher = jest.fn(async (url: any) => {
+    const target = String(url)
+    if (target.endsWith('/v1/runs')) {
+      starts += 1
+      if (starts === 1) {
+        return new Response(JSON.stringify({ error: { code: 'rate_limit_exceeded' } }), {
+          status: 429,
+          headers: { 'Retry-After': '1' },
+        })
+      }
+      return new Response(JSON.stringify({ run_id: 'run-after-capacity' }), { status: 200 })
+    }
+    return new Response(JSON.stringify({ status: 'completed', output: 'capacity-ok' }), { status: 200 })
+  }) as any
+  await expect(callLocalHermes(
+    'pip',
+    { prompt: 'queued turn', working_directory: '/tmp' },
+    { PIB_LOCAL_HERMES: 'http://127.0.0.1:8755', PIB_LOCAL_HERMES_START_RETRY_MS: '30000' },
+    fetcher,
+    async () => undefined,
+    {
+      onQueued: async (reason) => { queued.push(reason) },
+      onStarted: async (runId) => { started.push(runId) },
+    },
+  )).resolves.toBe('capacity-ok')
+  expect(queued).toEqual(['agent_capacity'])
+  expect(started).toEqual(['run-after-capacity'])
+})
+
+it('reattaches to an authenticated existing Hermes run and replaces only after a definitive 404', async () => {
+  const restartReasons: string[] = []
+  let restartProbe = 0
+  const existingFetcher = jest.fn(async (url: any) => {
+    const target = String(url)
+    if (target.endsWith('/v1/runs/existing-run')) {
+      restartProbe += 1
+      if (restartProbe === 1) throw new Error('ECONNREFUSED')
+      return new Response(JSON.stringify({ status: 'completed', output: 'reattached' }), { status: 200 })
+    }
+    throw new Error(`unexpected request ${target}`)
+  }) as any
+  await expect(callLocalHermes(
+    'pip',
+    { prompt: 'resume', working_directory: '/tmp' },
+    { PIB_LOCAL_HERMES: 'http://127.0.0.1:8755' },
+    existingFetcher,
+    async () => undefined,
+    {
+      resumeRunId: 'existing-run',
+      onQueued: async (reason) => { restartReasons.push(reason) },
+    },
+  )).resolves.toBe('reattached')
+  expect(restartReasons).toEqual(['runtime_restarting'])
+  expect(existingFetcher.mock.calls.filter(([url]: [unknown]) => String(url).endsWith('/v1/runs'))).toHaveLength(0)
+
+  const missingFetcher = jest.fn(async (url: any, init?: RequestInit) => {
+    const target = String(url)
+    if (target.endsWith('/v1/runs/missing-run')) return new Response('', { status: 404 })
+    if (target.endsWith('/v1/runs') && init?.method === 'POST') {
+      return new Response(JSON.stringify({ run_id: 'replacement-run' }), { status: 200 })
+    }
+    return new Response(JSON.stringify({ status: 'completed', output: 'replacement' }), { status: 200 })
+  }) as any
+  await expect(callLocalHermes(
+    'pip',
+    { prompt: 'replace', working_directory: '/tmp' },
+    { PIB_LOCAL_HERMES: 'http://127.0.0.1:8755' },
+    missingFetcher,
+    async () => undefined,
+    { resumeRunId: 'missing-run' },
+  )).resolves.toBe('replacement')
+  expect(missingFetcher.mock.calls.some(([url, init]: [unknown, RequestInit]) =>
+    String(url).endsWith('/v1/runs') && init?.method === 'POST')).toBe(true)
+})
+
 it('does not hard-fail chat when drain retries are exhausted — leaves job for reclaim', async () => {
   expect(isLocalHermesGatewayDrainingError(
     new Error('Local Hermes theo refused to start (HTTP 503: {"error":{"message":"Gateway is draining existing work; retry shortly.","code":"gateway_draining"}})'),
@@ -151,11 +252,10 @@ it('does not hard-fail chat when drain retries are exhausted — leaves job for 
     hermes,
   )).rejects.toThrow(/gateway_draining|draining existing work/i)
   expect(posts.some(([p]) => String(p).endsWith('/complete'))).toBe(false)
-  expect(posts[0]?.[1]?.receipt?.event).toBe('accepted')
+  expect(posts[0]?.[1]?.receipt).toEqual(expect.objectContaining({ event: 'queued', outcome: 'queued', queueReason: 'runtime_capacity' }))
 })
 
-it('serializes linked runs for the same agent while keeping different agents concurrent', async () => {
-  expect(linkedRunAgentKey({ jobId: 'a', agentId: 'Theo' })).toBe('agent:theo')
+it('runs same-agent and different-agent jobs concurrently within the device cap', async () => {
   let stopped = false
   let claims = 0
   const releases = new Map<string, () => void>()
@@ -186,19 +286,12 @@ it('serializes linked runs for the same agent while keeping different agents con
     deviceActive -= 1
   })
   const polling = pollForever(claim, run, () => stopped, { maxConcurrency: 4 })
-  while (!(started.includes('theo-1') && started.includes('pip-1'))) {
+  while (started.length < 3) {
     await new Promise((resolve) => setImmediate(resolve))
   }
-  // Second Theo must wait for the first; Pip may already be running alongside Theo-1.
-  expect(started).toContain('theo-1')
-  expect(started).toContain('pip-1')
-  expect(started).not.toContain('theo-2')
-  expect(maxByAgent.get('theo')).toBe(1)
-  releases.get('theo-1')?.()
-  while (!started.includes('theo-2')) await new Promise((resolve) => setImmediate(resolve))
   expect(started).toEqual(expect.arrayContaining(['theo-1', 'theo-2', 'pip-1']))
-  expect(maxByAgent.get('theo')).toBe(1)
-  expect(maxDeviceActive).toBeGreaterThanOrEqual(2)
+  expect(maxByAgent.get('theo')).toBe(2)
+  expect(maxDeviceActive).toBe(3)
   for (const release of releases.values()) release()
   while (!stopped) await new Promise((resolve) => setImmediate(resolve))
   await polling
@@ -232,9 +325,31 @@ it('propagates Hermes error text into the linked-run completion payload', async 
   expect(complete?.[1].error).toMatch(/provider quota exhausted/)
 })
 
-it('runs a claimed job only in its contained mapping and retries an output-bound signed completion',async()=>{const d=fs.mkdtempSync(path.join(os.tmpdir(),'worker-')),root=path.join(d,'root');fs.mkdirSync(root);const maps=new MappingRegistry(path.join(d,'maps'));maps.map('m',root);const k=generateKeyPairSync('ed25519'),calls:any[]=[];let completes=0;const post=jest.fn(async(p:string,b:any)=>{calls.push([p,b]);if(p.endsWith('/complete')&&completes++===0)return new Response('',{status:503});return new Response('',{status:200})});const hermes=jest.fn(async b=>({ok:true,cwd:b.working_directory}));const result=await executeJob({jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'p',mappingId:'m',relativeFolder:'',attempt:2,leaseToken:'lease-token-123'},{deviceId:'d',credentialVersion:2,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()},maps,post,hermes);expect(hermes).toHaveBeenCalledWith(expect.objectContaining({working_directory:fs.realpathSync(root)}), expect.any(Object));expect(completes).toBe(2);expect(result.receipt).toEqual(expect.objectContaining({attempt:2,leaseToken:'lease-token-123',event:'completed',outputBytes:Buffer.byteLength(result.output)}));expect(result.receipt.signature).toBeTruthy();expect(calls[0][1].receipt.event).toBe('accepted')})
+it('runs a claimed job only in its contained mapping and retries an output-bound signed completion',async()=>{const d=fs.mkdtempSync(path.join(os.tmpdir(),'worker-')),root=path.join(d,'root');fs.mkdirSync(root);const maps=new MappingRegistry(path.join(d,'maps'));maps.map('m',root);const k=generateKeyPairSync('ed25519'),calls:any[]=[];let completes=0;const post=jest.fn(async(p:string,b:any)=>{calls.push([p,b]);if(p.endsWith('/complete')&&completes++===0)return new Response('',{status:503});return new Response('',{status:200})});const hermes=jest.fn(async(b,helpers)=>{await helpers.onStarted('local-run-1');return{ok:true,cwd:b.working_directory}});const result=await executeJob({jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'p',mappingId:'m',relativeFolder:'',attempt:2,leaseToken:'lease-token-123'},{deviceId:'d',credentialVersion:2,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()},maps,post,hermes);expect(hermes).toHaveBeenCalledWith(expect.objectContaining({working_directory:fs.realpathSync(root)}), expect.any(Object));expect(completes).toBe(2);expect(result.receipt).toEqual(expect.objectContaining({attempt:2,leaseToken:'lease-token-123',event:'completed',localHermesRunId:'local-run-1',outputBytes:Buffer.byteLength(result.output)}));expect(result.receipt.signature).toBeTruthy();expect(calls[0][1].receipt.event).toBe('queued');expect(calls[1][1].receipt.event).toBe('accepted')})
 
 it('honours an absolute company Cowork sibling workingDirectory outside the org mapping root',async()=>{const d=fs.mkdtempSync(path.join(os.tmpdir(),'worker-cowork-')),partners=path.join(d,'Partners in Biz'),hunt=path.join(d,'Hunt and Gun');fs.mkdirSync(partners);fs.mkdirSync(hunt);const maps=new MappingRegistry(path.join(d,'maps'));maps.map('m',partners);const k=generateKeyPairSync('ed25519');const post=jest.fn(async()=>new Response('',{status:200}));const hermes=jest.fn(async b=>({ok:true,cwd:b.working_directory}));await executeJob({jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'',mappingId:'m',relativeFolder:'.',workingDirectory:hunt,attempt:1,leaseToken:'lease'},{deviceId:'d',credentialVersion:1,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()},maps,post,hermes);expect(hermes).toHaveBeenCalledWith(expect.objectContaining({working_directory:fs.realpathSync(hunt)}), expect.any(Object))})
+
+it('isolates simultaneous Pip histories, working directories, and Hermes run identities by project',async()=>{
+  const d=fs.mkdtempSync(path.join(os.tmpdir(),'worker-isolation-')),rootA=path.join(d,'project-a'),rootB=path.join(d,'project-b')
+  fs.mkdirSync(rootA);fs.mkdirSync(rootB)
+  const maps=new MappingRegistry(path.join(d,'maps'));maps.map('map-a',rootA);maps.map('map-b',rootB)
+  const k=generateKeyPairSync('ed25519'),outputs=new Map<string,string>()
+  const post=jest.fn(async(p:string,b:any)=>{if(p.endsWith('/complete'))outputs.set(b.receipt.jobId,b.output);return new Response('',{status:200})})
+  const hermes=jest.fn(async(b:any,helpers:any)=>{
+    const runId=b.working_directory===fs.realpathSync(rootA)?'hermes-project-a':'hermes-project-b'
+    await helpers.onStarted(runId)
+    return `${runId}|${b.working_directory}|${b.prompt}`
+  })
+  const device={deviceId:'d',credentialVersion:1,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()}
+  await Promise.all([
+    executeJob({jobId:'job-a',requestId:'r-a',prompt:'HISTORY_A_ONLY',workspaceId:'w',projectId:'a',mappingId:'map-a',relativeFolder:'.',attempt:1,leaseToken:'lease-a',agentId:'pip'},device,maps,post,hermes),
+    executeJob({jobId:'job-b',requestId:'r-b',prompt:'HISTORY_B_ONLY',workspaceId:'w',projectId:'b',mappingId:'map-b',relativeFolder:'.',attempt:1,leaseToken:'lease-b',agentId:'pip'},device,maps,post,hermes),
+  ])
+  expect(outputs.get('job-a')).toBe(`hermes-project-a|${fs.realpathSync(rootA)}|HISTORY_A_ONLY`)
+  expect(outputs.get('job-a')).not.toContain('HISTORY_B_ONLY')
+  expect(outputs.get('job-b')).toBe(`hermes-project-b|${fs.realpathSync(rootB)}|HISTORY_B_ONLY`)
+  expect(outputs.get('job-b')).not.toContain('HISTORY_A_ONLY')
+})
 
 it('creates a missing company Cowork sibling folder before resolving workingDirectory',async()=>{const d=fs.mkdtempSync(path.join(os.tmpdir(),'worker-cowork-create-')),partners=path.join(d,'Partners in Biz'),missing=path.join(d,'Brand New Co');fs.mkdirSync(partners);const maps=new MappingRegistry(path.join(d,'maps'));maps.map('m',partners);const k=generateKeyPairSync('ed25519');const post=jest.fn(async()=>new Response('',{status:200}));const hermes=jest.fn(async b=>({ok:true,cwd:b.working_directory}));await executeJob({jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'',mappingId:'m',relativeFolder:'.',workingDirectory:missing,attempt:1,leaseToken:'lease'},{deviceId:'d',credentialVersion:1,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()},maps,post,hermes);expect(fs.existsSync(path.join(missing,'AGENTS.md'))).toBe(true);expect(hermes).toHaveBeenCalledWith(expect.objectContaining({working_directory:fs.realpathSync(missing)}), expect.any(Object))})
 
@@ -242,9 +357,9 @@ it('signs every outbound queue request with a nonce and exact body',async()=>{co
 
 it('persists mappings in a private registry and removes them cleanly',()=>{const d=fs.mkdtempSync(path.join(os.tmpdir(),'mapping-mode-')),root=path.join(d,'root'),file=path.join(d,'state','mappings.json');fs.mkdirSync(root);const maps=new MappingRegistry(file);maps.map('m',root);expect(fs.statSync(file).mode&0o777).toBe(0o600);expect(maps.status()).toEqual([{mappingId:'m',root:fs.realpathSync(root)}]);maps.unmap('m');expect(maps.status()).toEqual([])})
 
-it('renews the signed lease while Hermes is still running and stops after completion',async()=>{jest.useFakeTimers();const d=fs.mkdtempSync(path.join(os.tmpdir(),'worker-renew-')),root=path.join(d,'root');fs.mkdirSync(root);const maps=new MappingRegistry(path.join(d,'maps'));maps.map('m',root);const k=generateKeyPairSync('ed25519'),events:string[]=[];let finish!:(v:string)=>void;const hermes=()=>new Promise<string>(r=>{finish=r});const post=jest.fn(async(_p:string,b:any)=>{events.push(b.receipt.event);return new Response('',{status:200})});const promise=executeJob({jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'p',mappingId:'m',relativeFolder:'',attempt:1,leaseToken:'lease'},{deviceId:'d',credentialVersion:1,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()},maps,post,hermes,{progressIntervalMs:1000});await Promise.resolve();await jest.advanceTimersByTimeAsync(3100);expect(events.filter(x=>x==='progress').length).toBeGreaterThanOrEqual(3);finish('done');await promise;const count=events.length;await jest.advanceTimersByTimeAsync(5000);expect(events).toHaveLength(count);jest.useRealTimers()})
+it('renews the signed lease while Hermes is still running and stops after completion',async()=>{jest.useFakeTimers();const d=fs.mkdtempSync(path.join(os.tmpdir(),'worker-renew-')),root=path.join(d,'root');fs.mkdirSync(root);const maps=new MappingRegistry(path.join(d,'maps'));maps.map('m',root);const k=generateKeyPairSync('ed25519'),events:string[]=[];let finish!:(v:string)=>void;const hermes=async(_b:any,helpers:any)=>{await helpers.onStarted('local-run-renew');return new Promise<string>(r=>{finish=r})};const post=jest.fn(async(_p:string,b:any)=>{events.push(b.receipt.event);return new Response('',{status:200})});const promise=executeJob({jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'p',mappingId:'m',relativeFolder:'',attempt:1,leaseToken:'lease'},{deviceId:'d',credentialVersion:1,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()},maps,post,hermes,{progressIntervalMs:1000});await Promise.resolve();await jest.advanceTimersByTimeAsync(3100);expect(events.filter(x=>x==='progress').length).toBeGreaterThanOrEqual(3);finish('done');await promise;const count=events.length;await jest.advanceTimersByTimeAsync(5000);expect(events).toHaveLength(count);jest.useRealTimers()})
 
-it('awaits an in-flight lease renewal before terminal completion',async()=>{jest.useFakeTimers();const d=fs.mkdtempSync(path.join(os.tmpdir(),'renew-race-')),root=path.join(d,'root');fs.mkdirSync(root);const maps=new MappingRegistry(path.join(d,'maps'));maps.map('m',root);const k=generateKeyPairSync('ed25519'),order:string[]=[];let releaseRenew!:(r:Response)=>void,finishHermes!:(v:string)=>void;const post=jest.fn(async(p:string,b:any)=>{if(b.receipt.event==='progress'){order.push('renew-start');return new Promise<Response>(r=>{releaseRenew=r})}if(p.endsWith('/complete'))order.push('complete');return new Response('',{status:200})});const promise=executeJob({jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'p',mappingId:'m',relativeFolder:'',attempt:1,leaseToken:'lease'},{deviceId:'d',credentialVersion:1,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()},maps,post,()=>new Promise<string>(r=>{finishHermes=r}),{progressIntervalMs:1000});await Promise.resolve();await jest.advanceTimersByTimeAsync(1000);expect(order).toEqual(['renew-start']);finishHermes('done');await Promise.resolve();expect(order).toEqual(['renew-start']);releaseRenew(new Response('',{status:200}));await promise;expect(order).toEqual(['renew-start','complete']);jest.useRealTimers()})
+it('awaits an in-flight lease renewal before terminal completion',async()=>{jest.useFakeTimers();const d=fs.mkdtempSync(path.join(os.tmpdir(),'renew-race-')),root=path.join(d,'root');fs.mkdirSync(root);const maps=new MappingRegistry(path.join(d,'maps'));maps.map('m',root);const k=generateKeyPairSync('ed25519'),order:string[]=[];let releaseRenew!:(r:Response)=>void,finishHermes!:(v:string)=>void;const post=jest.fn(async(p:string,b:any)=>{if(b.receipt.event==='progress'){order.push('renew-start');return new Promise<Response>(r=>{releaseRenew=r})}if(p.endsWith('/complete'))order.push('complete');return new Response('',{status:200})});const hermes=async(_b:any,helpers:any)=>{await helpers.onStarted('local-run-race');return new Promise<string>(r=>{finishHermes=r})};const promise=executeJob({jobId:'j',requestId:'r',prompt:'p',workspaceId:'w',projectId:'p',mappingId:'m',relativeFolder:'',attempt:1,leaseToken:'lease'},{deviceId:'d',credentialVersion:1,privateKey:k.privateKey.export({type:'pkcs8',format:'pem'}).toString()},maps,post,hermes,{progressIntervalMs:1000});await Promise.resolve();await jest.advanceTimersByTimeAsync(1000);expect(order).toEqual(['renew-start']);finishHermes('done');await Promise.resolve();expect(order).toEqual(['renew-start']);releaseRenew(new Response('',{status:200}));await promise;expect(order).toEqual(['renew-start','complete']);jest.useRealTimers()})
 
 it('applies a route-shaped one-time rotation without retaining transport tokens',async()=>{const current={deviceId:'d',credential:'old',credentialVersion:1,privateKey:'private',transportToken:'legacy'},next=applyHeartbeatData(current,{rotation:{credential:'new',credentialVersion:2,rotationDeliveryId:'delivery-1',transportToken:'discard'}});expect(next).toEqual({deviceId:'d',credential:'new',credentialVersion:2,privateKey:'private',pendingRotationDeliveryId:'delivery-1'});const fetcher=jest.fn(async()=>new Response('',{status:200})),keys=generateKeyPairSync('ed25519'),client=new DeviceApiClient('https://partnersinbiz.online',{...next,privateKey:keys.privateKey.export({type:'pkcs8',format:'pem'}).toString()},fetcher as any);await client.post('/api/v1/linked-computers/d/runs/claim',{});expect((fetcher.mock.calls[0][1] as any).headers['x-device-credential-version']).toBe('2')})
 

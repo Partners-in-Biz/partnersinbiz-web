@@ -39,6 +39,7 @@ export interface ConversationMessage {
   provider?: string
   runId?: string
   status?: string
+  queuedReason?: 'runtime_capacity' | 'agent_capacity' | 'gateway_draining' | 'runtime_restarting'
   error?: string
   events?: unknown[]
   thinking?: MessageThinkingTrace
@@ -96,13 +97,19 @@ function initials(name: string): string {
     .join('')
 }
 
-function useElapsed(active: boolean): number {
+function useElapsed(active: boolean, createdAt?: ConversationMessage['createdAt']): number {
   const [secs, setSecs] = useState(0)
 
   useEffect(() => {
     if (!active) return
-    const startedAt = Date.now()
-    const reset = setTimeout(() => setSecs(0), 0)
+    const rawSeconds = typeof createdAt === 'object' && createdAt
+      ? createdAt.seconds ?? createdAt._seconds
+      : undefined
+    const parsed = typeof createdAt === 'string' ? Date.parse(createdAt) : Number.NaN
+    const startedAt = Number.isFinite(rawSeconds)
+      ? Number(rawSeconds) * 1000
+      : Number.isFinite(parsed) ? parsed : Date.now()
+    const reset = setTimeout(() => setSecs(Math.max(0, Math.floor((Date.now() - startedAt) / 1000))), 0)
     const tick = setInterval(() => {
       setSecs(Math.floor((Date.now() - startedAt) / 1000))
     }, 1000)
@@ -110,7 +117,7 @@ function useElapsed(active: boolean): number {
       clearTimeout(reset)
       clearInterval(tick)
     }
-  }, [active])
+  }, [active, createdAt])
 
   return active ? secs : 0
 }
@@ -1680,10 +1687,11 @@ export default function MessageBubble({
   const readAloudUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
   const isMine = m.authorId === currentUserUid
   const isTool = m.role === 'tool'
+  const isQueued = m.status === 'queued'
   const isPending = m.status === 'pending' || m.status === 'streaming'
   const isWaiting = m.status === 'waiting_approval'
   const isFailed = m.status === 'failed'
-  const elapsed = useElapsed(isPending || isWaiting)
+  const elapsed = useElapsed(isQueued || isPending || isWaiting, m.createdAt)
   const textToCopy = copyableText(renderedMessage)
 
   const copyMessage = async () => {
@@ -2007,8 +2015,8 @@ export default function MessageBubble({
           {m.authorDisplayName}
         </p>
 
-        {/* Live events (while pending/streaming/waiting) */}
-        {(isPending || isWaiting) && (
+        {/* Durable queue / live events (while queued, pending, streaming, or waiting) */}
+        {(isQueued || isPending || isWaiting) && (
             <div className="mb-1 min-w-0 space-y-1">
               <div className="mx-activity-live min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
               <div className="flex items-start justify-between gap-3">
@@ -2019,14 +2027,24 @@ export default function MessageBubble({
                       <span className="animate-bounce [animation-delay:150ms]">·</span>
                       <span className="animate-bounce [animation-delay:300ms]">·</span>
                     </span>
-                    Current activity
+                    {isQueued ? 'Queued' : 'Current activity'}
                   </div>
                   <p className="mt-1 truncate text-xs font-medium text-[var(--color-pib-text)]">
-                    {activity.label}
+                    {isQueued
+                      ? `Queued on ${m.dispatchRuntimeLabel || m.acceptedDevice?.machineLabel || 'linked computer'}`
+                      : activity.label}
                   </p>
-                  {activity.detail && (
+                  {(isQueued || activity.detail) && (
                     <p className="mt-0.5 truncate text-[11px] text-[var(--color-pib-text-muted)]">
-                      {activity.detail}
+                      {isQueued
+                        ? m.queuedReason === 'gateway_draining'
+                          ? 'The local gateway is draining; this run will start automatically.'
+                          : m.queuedReason === 'agent_capacity'
+                            ? 'Pip is at temporary capacity; this run will start automatically.'
+                            : m.queuedReason === 'runtime_restarting'
+                              ? 'The linked runtime is reconnecting; this run will resume automatically.'
+                              : 'The linked computer is at temporary capacity; this run will start automatically.'
+                        : activity.detail}
                     </p>
                   )}
                 </div>
@@ -2155,6 +2173,9 @@ export default function MessageBubble({
                   ].join(' ')
             }
           >
+            {isQueued && !renderedMessage.content && (
+              <span className="opacity-70 italic text-xs">Queued — it will start automatically when capacity is available.</span>
+            )}
             {isPending && !renderedMessage.content && (
               <span className="opacity-40 italic text-xs">Waiting for agent activity...</span>
             )}

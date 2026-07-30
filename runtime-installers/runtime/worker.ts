@@ -2,7 +2,7 @@ import { createHash, createPrivateKey, sign } from 'node:crypto'
 import os from 'node:os'
 import { MappingRegistry } from './bridge'
 import type { JSONValue } from './core'
-import { isLocalHermesGatewayDrainingError } from './hermes'
+import { isLocalHermesCapacityError, isLocalHermesGatewayDrainingError } from './hermes'
 
 export type Job = {
   jobId: string
@@ -21,6 +21,7 @@ export type Job = {
   provider?: string
   yolo?: boolean
   cancelled?: boolean
+  localHermesRunId?: string
 }
 
 type Device = { deviceId: string; credentialVersion: number; privateKey: string }
@@ -32,7 +33,13 @@ type HermesInput = {
   working_directory: string
   yolo?: boolean
 }
-type HermesHelpers = { onEvents?: (events: unknown[]) => void | Promise<void> }
+type QueueReason = 'runtime_capacity' | 'agent_capacity' | 'gateway_draining' | 'runtime_restarting'
+type HermesHelpers = {
+  onEvents?: (events: unknown[]) => void | Promise<void>
+  onQueued?: (reason: Exclude<QueueReason, 'runtime_capacity'>) => void | Promise<void>
+  onStarted?: (localHermesRunId: string) => void | Promise<void>
+  resumeRunId?: string
+}
 type HermesRunner = (body: HermesInput, helpers?: HermesHelpers) => Promise<unknown>
 
 const digest = (v: string) => createHash('sha256').update(v).digest('hex')
@@ -40,12 +47,13 @@ const digest = (v: string) => createHash('sha256').update(v).digest('hex')
 function receipt(
   job: Job,
   device: Device,
-  event: 'accepted' | 'progress' | 'completed' | 'failed' | 'cancelled',
-  outcome: 'accepted' | 'running' | 'completed' | 'failed' | 'cancelled',
+  event: 'queued' | 'accepted' | 'progress' | 'completed' | 'failed' | 'cancelled',
+  outcome: 'queued' | 'accepted' | 'running' | 'completed' | 'failed' | 'cancelled',
   acceptedAt: string,
   toolStartedAt: string,
   output: string,
   error: string,
+  extra: { queueReason?: QueueReason; localHermesRunId?: string } = {},
 ) {
   const body = {
     jobId: job.jobId,
@@ -60,18 +68,22 @@ function receipt(
     timestamp: new Date().toISOString(),
     acceptedAt,
     toolStartedAt,
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.13',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.20',
     machineLabel: os.hostname(),
     outputSha256: digest(output),
     outputBytes: Buffer.byteLength(output),
     errorSha256: digest(error),
     errorBytes: Buffer.byteLength(error),
+    ...extra,
   }
   const payload = [
     body.jobId, body.requestId, body.deviceId, body.mappingId, String(body.credentialVersion),
     String(body.attempt), body.leaseToken, body.event, body.outcome, body.timestamp,
     body.acceptedAt, body.toolStartedAt, body.runtimeVersion, body.machineLabel,
     body.outputSha256, String(body.outputBytes), body.errorSha256, String(body.errorBytes),
+    ...(body.queueReason !== undefined || body.localHermesRunId !== undefined
+      ? [body.queueReason ?? '', body.localHermesRunId ?? '']
+      : []),
   ].join('\n')
   return {
     ...body,
@@ -89,20 +101,26 @@ export async function executeJob(
 ) {
   if (job.cancelled) return { cancelled: true }
   const working_directory = registry.resolve(job.mappingId, job.relativeFolder, job.workingDirectory)
-  const acceptedAt = new Date().toISOString()
-  const toolStartedAt = new Date().toISOString()
-  const acceptance = receipt(job, device, 'accepted', 'accepted', acceptedAt, toolStartedAt, '', '')
-  const progress = await post(`/runs/${job.jobId}/progress`, { receipt: acceptance })
-  if (!progress.ok && progress.status !== 409) throw new Error('acceptance receipt rejected')
+  let acceptedAt = new Date().toISOString()
+  let toolStartedAt = acceptedAt
+  let queueReason: QueueReason = 'runtime_capacity'
+  let started = false
+  let localHermesRunId = job.localHermesRunId
 
   let renewal: Promise<void> = Promise.resolve()
   let leaseError: Error | undefined
   let eventFlush: Promise<void> = Promise.resolve()
+  const initialQueue = await post(`/runs/${job.jobId}/progress`, {
+    receipt: receipt(job, device, 'queued', 'queued', acceptedAt, toolStartedAt, '', '', { queueReason }),
+  })
+  if (!initialQueue.ok && initialQueue.status !== 409) throw new Error('queued receipt rejected')
   const timer = setInterval(() => {
     renewal = renewal.then(async () => {
       try {
         const response = await post(`/runs/${job.jobId}/progress`, {
-          receipt: receipt(job, device, 'progress', 'running', acceptedAt, toolStartedAt, '', ''),
+          receipt: started
+            ? receipt(job, device, 'progress', 'running', acceptedAt, toolStartedAt, '', '', { localHermesRunId })
+            : receipt(job, device, 'queued', 'queued', acceptedAt, toolStartedAt, '', '', { queueReason }),
         })
         if (!response.ok && response.status !== 409) leaseError = new Error('lease renewal rejected')
       } catch {
@@ -126,11 +144,31 @@ export async function executeJob(
         ...(job.yolo ? { yolo: true } : {}),
       },
       {
+        resumeRunId: job.localHermesRunId,
+        onQueued: async (reason) => {
+          queueReason = reason
+          const response = await post(`/runs/${job.jobId}/progress`, {
+            receipt: receipt(job, device, 'queued', 'queued', acceptedAt, toolStartedAt, '', '', { queueReason }),
+          })
+          if (!response.ok && response.status !== 409) throw new Error('queued receipt rejected')
+        },
+        onStarted: async (runId) => {
+          // Flip before awaiting the acceptance POST so a slow network cannot
+          // emit a later queued renewal that regresses this started run.
+          started = true
+          localHermesRunId = runId
+          acceptedAt = new Date().toISOString()
+          toolStartedAt = acceptedAt
+          const response = await post(`/runs/${job.jobId}/progress`, {
+            receipt: receipt(job, device, 'accepted', 'accepted', acceptedAt, toolStartedAt, '', '', { localHermesRunId: runId }),
+          })
+          if (!response.ok && response.status !== 409) throw new Error('acceptance receipt rejected')
+        },
         onEvents: (events) => {
           if (!Array.isArray(events) || events.length === 0) return
           eventFlush = eventFlush.then(async () => {
             const response = await post(`/runs/${job.jobId}/progress`, {
-              receipt: receipt(job, device, 'progress', 'running', acceptedAt, toolStartedAt, '', ''),
+              receipt: receipt(job, device, 'progress', 'running', acceptedAt, toolStartedAt, '', '', { localHermesRunId }),
               events: events as JSONValue[],
             })
             if (!response.ok && response.status !== 409) leaseError = new Error('event progress rejected')
@@ -145,7 +183,7 @@ export async function executeJob(
     // Gateway drain after the short start-retry window: do not hard-fail the
     // conversation. Drop the lease so the same job can be reclaimed once the
     // agent is accepting turns again (queued message before agent finished).
-    if (isLocalHermesGatewayDrainingError(err)) {
+    if (isLocalHermesGatewayDrainingError(err) || isLocalHermesCapacityError(err)) {
       abandonForReclaim = err instanceof Error ? err : new Error(String(err ?? 'gateway draining'))
     } else {
       status = 'failed'
@@ -164,7 +202,7 @@ export async function executeJob(
   if (abandonForReclaim) throw abandonForReclaim
   if (leaseError) throw leaseError
 
-  const terminal = receipt(job, device, status, status, acceptedAt, toolStartedAt, output, error)
+  const terminal = receipt(job, device, status, status, acceptedAt, toolStartedAt, output, error, { localHermesRunId })
   let response: Response | undefined
   for (let n = 0; n < 3; n++) {
     response = await post(`/runs/${job.jobId}/complete`, { outcome: status, output, error, receipt: terminal })
@@ -184,14 +222,6 @@ export function linkedRunPollDelay(delay: number, random: () => number = Math.ra
   return bounded + Math.floor(random() * bounded)
 }
 
-/** One Hermes gateway per agent — serialize same-agent jobs so the next turn waits for the prior one (and any drain) to settle. */
-export function linkedRunAgentKey(job: Pick<Job, 'jobId' | 'agentId'>): string {
-  const agent = typeof job.agentId === 'string' ? job.agentId.trim().toLowerCase() : ''
-  if (agent) return `agent:${agent}`
-  // Unknown agent: isolate by job so we never invent false sharing across chats.
-  return `job:${job.jobId}`
-}
-
 export async function pollForever(
   claim: () => Promise<Job | null>,
   run: (job: Job) => Promise<unknown>,
@@ -204,8 +234,6 @@ export async function pollForever(
     Math.max(1, Number.isFinite(requestedConcurrency) ? Math.floor(requestedConcurrency) : LINKED_RUN_MAX_CONCURRENCY),
   )
   const inFlight = new Set<Promise<void>>()
-  /** Tail of the per-agent run chain; next same-agent job awaits this before starting Hermes. */
-  const agentTails = new Map<string, Promise<void>>()
   let delay = 250
   while (!stop()) {
     if (inFlight.size >= maxConcurrency) {
@@ -215,16 +243,12 @@ export async function pollForever(
     const job = await claim().catch(() => null)
     if (job) {
       delay = 250
-      const agentKey = linkedRunAgentKey(job)
-      const previous = agentTails.get(agentKey) ?? Promise.resolve()
-      const task: Promise<void> = previous
-        .catch(() => undefined)
+      const task: Promise<void> = Promise.resolve()
         .then(() => run(job))
         .then(() => undefined)
         .catch(() => undefined)
         .finally(() => inFlight.delete(task))
       inFlight.add(task)
-      agentTails.set(agentKey, task)
     } else {
       await new Promise((r) => setTimeout(r, linkedRunPollDelay(delay)))
       delay = Math.min(delay * 2, MAX_IDLE_CLAIM_BASE_DELAY_MS)

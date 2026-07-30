@@ -824,4 +824,33 @@ describe('MessageBubble', () => {
     expect(screen.queryByText(/"rich_parts"/)).not.toBeInTheDocument()
   })
 
+  it('renders a durable linked-computer queue with elapsed state and Stop', () => {
+    const stop = jest.fn()
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        onStopRun={stop}
+        message={{
+          id: 'msg-queued',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'queued',
+          queuedReason: 'gateway_draining',
+          runId: 'linked-run-1',
+          dispatchRuntimeLabel: "Peet's Mac",
+          createdAt: { seconds: Math.floor(Date.now() / 1000) - 12 },
+        }}
+      />,
+    )
+
+    expect(screen.getByText("Queued on Peet's Mac")).toBeInTheDocument()
+    expect(screen.getByText(/gateway is draining/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Stop/i }))
+    expect(stop).toHaveBeenCalledTimes(1)
+  })
+
 })

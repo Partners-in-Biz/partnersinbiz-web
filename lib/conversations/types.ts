@@ -123,7 +123,8 @@ export interface ConversationMessage {
   llmCredentialBindingId?: string
   runId?: string
   runDocId?: string
-  status?: 'pending' | 'streaming' | 'completed' | 'failed' | 'waiting_approval'
+  status?: 'queued' | 'pending' | 'streaming' | 'completed' | 'failed' | 'waiting_approval'
+  queuedReason?: 'runtime_capacity' | 'agent_capacity' | 'gateway_draining' | 'runtime_restarting'
   error?: string
   events?: unknown[]
   /** Browser-safe thinking trail (no tool I/O). Prefer this over raw events. */

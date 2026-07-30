@@ -66,6 +66,17 @@ jest.mock('@/lib/projects/access', () => ({
 
 jest.mock('@/lib/projects/planningDiscovery', () => ({
   planningMutationBlocker: jest.fn(() => null),
+  preparePlanningContextMutation: jest.fn(() => ({
+    ok: true,
+    state: { enforced: true, status: 'interviewing', revision: 2 },
+    event: { type: 'reopened', reason: 'suite.mutation' },
+  })),
+}))
+
+// Suite fixture projects are planning-ready; do not reopen the brief or write
+// planningDiscovery fields during suite CRUD assertions.
+jest.mock('@/lib/projects/planningDiscoveryStore', () => ({
+  planningContextMutationTransition: jest.fn(() => ({ allowed: true })),
 }))
 
 jest.mock('@/lib/projects/playbooks', () => ({

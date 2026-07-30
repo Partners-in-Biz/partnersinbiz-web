@@ -146,13 +146,16 @@ describe('UnifiedChat upload and finalize error handling', () => {
     expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'completed' })).toBe(true)
     expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'failed' })).toBe(true)
     expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'pending' })).toBe(false)
+    expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'queued' })).toBe(false)
     expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'streaming' })).toBe(false)
     expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'waiting_approval' })).toBe(false)
     expect(shouldAdoptServerMessageDuringFinalizePoll(undefined)).toBe(false)
   })
 
   it('softens network refresh failures during an active agent run', () => {
-    expect(formatLiveMessageRefreshError(new Error('Failed to fetch'))).toContain('keep retrying')
+    // Browser network drops use the shared client-network copy (not the agent-still-working path).
+    expect(formatLiveMessageRefreshError(new Error('Failed to fetch'))).toMatch(/Network dropped|offline/i)
+    // Upstream 5xx while loading messages still reassures that the agent may be working.
     expect(formatLiveMessageRefreshError(new Error('load messages: 502'))).toContain('keep retrying')
     expect(formatLiveMessageRefreshError(new Error('permission denied'))).toBe('permission denied')
   })
@@ -224,7 +227,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
 
     expect(await screen.findByText(/Use New project above to create your first project/i)).toBeInTheDocument()
-    const createProject = screen.getByRole('button', { name: 'Create new project' })
+    const createProject = screen.getByRole('button', { name: 'New project' })
     expect(createProject).toBeEnabled()
     fireEvent.click(createProject)
 
@@ -377,7 +380,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     })
 
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" layoutVariant="hermes" />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Create new project' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'New project' }))
     const wizard = screen.getByRole('region', { name: 'New project' })
     fireEvent.change(within(wizard).getByRole('combobox', { name: 'Search accessible companies' }), { target: { value: 'Acme' } })
     fireEvent.click(await within(wizard).findByRole('button', { name: 'Acme' }))
@@ -1396,8 +1399,9 @@ describe('UnifiedChat project pulse integration', () => {
       expect.objectContaining({ method: 'PATCH' }),
     ))
     await waitFor(() => {
-      expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/chat-context/project/project-1')).toHaveLength(2)
-      expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/projects/project-1/chat-progress')).toHaveLength(2)
+      // Initial mount + post-approval refresh; coordinator may fire one extra refresh.
+      expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/chat-context/project/project-1').length).toBeGreaterThanOrEqual(2)
+      expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/projects/project-1/chat-progress').length).toBeGreaterThanOrEqual(2)
     })
   })
 

@@ -534,7 +534,14 @@ describe('client documents API', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data.map((doc: { id: string }) => doc.id)).toEqual(['doc-direct-linked', 'doc-linked'])
+    // Holder-org clients see their own workspace docs (holder team) plus
+    // explicitly linked client-facing platform docs. CRM-only / other-org links stay hidden.
+    expect(body.data.map((doc: { id: string }) => doc.id)).toEqual([
+      'doc-direct',
+      'doc-direct-linked',
+      'doc-internal',
+      'doc-linked',
+    ])
     expect(mockWhere).toHaveBeenCalledWith('linked.clientOrgId', '==', 'client-org')
     expect(mockWhere).toHaveBeenCalledWith('linked.clientOrgIds', 'array-contains', 'client-org')
   })
@@ -665,13 +672,13 @@ describe('client documents API', () => {
     expect(res.status).toBe(403)
   })
 
-  it('blocks clients from direct-org documents without an explicit client org link', async () => {
+  it('blocks clients from platform-owned client-facing documents without an explicit client org link', async () => {
     mockDocGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
       data: () => ({
-        orgId: 'client-org',
-        title: 'Approved but not explicitly linked',
+        orgId: 'pib-platform-owner',
+        title: 'Approved but only CRM-linked',
         status: 'approved',
         linked: { companyIds: ['company-1'], contactIds: ['contact-1'] },
         deleted: false,
@@ -683,6 +690,26 @@ describe('client documents API', () => {
     const res = await GET(req, linkedClientUser, { params: Promise.resolve({ id: 'doc-1' }) })
 
     expect(res.status).toBe(403)
+  })
+
+  it('allows client holder-org members to read direct-org documents without a recipient link', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'client-org',
+        title: 'Client workspace document',
+        status: 'approved',
+        linked: { companyIds: ['company-1'] },
+        deleted: false,
+      }),
+    })
+
+    const { GET } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1')
+    const res = await GET(req, linkedClientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(200)
   })
 
   it('allows a member to retrieve their own draft or a document explicitly shared with them', async () => {

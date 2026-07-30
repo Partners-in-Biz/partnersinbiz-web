@@ -163,9 +163,15 @@ describe('GET /api/v1/client-documents/[id]/access-log', () => {
     expect(mockGet).not.toHaveBeenCalled()
   })
 
-  it('blocks client role via withAuth when not linked to the document org', async () => {
-    // Client role for an org that is not linked/visible on the document → 403.
-    mockGetClientDocument.mockResolvedValueOnce({ id: 'doc-1', orgId: 'org-1', deleted: false, status: 'draft' })
+  it('blocks client role when the document is not in their holder org and not explicitly linked', async () => {
+    // Client is on org-1; document is held by another org without a recipient link → 403.
+    mockGetClientDocument.mockResolvedValueOnce({
+      id: 'doc-1',
+      orgId: 'other-org',
+      deleted: false,
+      status: 'approved',
+      linked: { companyIds: ['company-1'] },
+    })
 
     const { GET } = await import('@/app/api/v1/client-documents/[id]/access-log/route')
     const req = getRequest('http://localhost/api/v1/client-documents/doc-1/access-log')

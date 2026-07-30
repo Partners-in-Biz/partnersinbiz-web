@@ -18,7 +18,7 @@ function queued(overrides: Partial<LinkedRunJob> = {}): LinkedRunJob {
     orgId: 'org-a', actorUserId: 'user-a', workspaceId: 'workspace-a', projectId: 'project-a', mappingId: 'mapping-a',
     relativeFolder: 'Projects/project-a', credentialVersion: 3, status: 'queued', attempt: 0,
     encryptedPayload: { ciphertext: 'cipher', iv: 'iv', tag: 'tag' },
-    createdAtMs: now, updatedAtMs: now, expiresAtMs: now + 3_600_000,
+    createdAtMs: now, updatedAtMs: now, queueExpiresAtMs: now + 2_700_000, expiresAtMs: now + 3_600_000,
     conversationId: 'conv-a', assistantMessageId: 'assistant-a', agentId: 'pip',
     ...overrides,
   }
@@ -142,5 +142,43 @@ describe('linked run queue security transitions', () => {
     const job = queued({ attempt: 1, leaseToken: receipt.leaseToken })
     expect(requireLinkedRunReceipt(job, receipt, keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), now, { output, error: '' })).toEqual(receipt)
     expect(() => requireLinkedRunReceipt(job, { ...receipt, outputBytes: 5 }, keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), now, { output, error: '' })).toThrow('body mismatch')
+  })
+
+  it('verifies both legacy 1.1.19 receipts and signed 1.1.20 queued/run-id extensions', () => {
+    const keys = generateKeyPairSync('ed25519')
+    const empty = createHash('sha256').update('').digest('hex')
+    const base = {
+      jobId: 'job-1', requestId: 'request-1234567890', deviceId: 'device-a', mappingId: 'mapping-a',
+      credentialVersion: 3, attempt: 1, leaseToken: 'lease-token-123456',
+      timestamp: new Date(now).toISOString(), acceptedAt: new Date(now - 2).toISOString(),
+      toolStartedAt: new Date(now - 1).toISOString(), runtimeVersion: '1.1.19', machineLabel: 'Office Mac',
+      outputSha256: empty, outputBytes: 0, errorSha256: empty, errorBytes: 0,
+    }
+    const legacy = { ...base, event: 'accepted' as const, outcome: 'accepted' as const, signature: '' }
+    legacy.signature = sign(null, Buffer.from(linkedRunReceiptPayload(legacy)), keys.privateKey).toString('base64url')
+    const job = queued({ attempt: 1, leaseToken: base.leaseToken })
+    expect(requireLinkedRunReceipt(job, legacy, keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), now)).toEqual(legacy)
+
+    const queuedReceipt = {
+      ...base,
+      runtimeVersion: '1.1.20',
+      event: 'queued' as const,
+      outcome: 'queued' as const,
+      queueReason: 'gateway_draining' as const,
+      signature: '',
+    }
+    queuedReceipt.signature = sign(null, Buffer.from(linkedRunReceiptPayload(queuedReceipt)), keys.privateKey).toString('base64url')
+    expect(requireLinkedRunReceipt(job, queuedReceipt, keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), now)).toEqual(queuedReceipt)
+
+    const accepted = {
+      ...base,
+      runtimeVersion: '1.1.20',
+      event: 'accepted' as const,
+      outcome: 'accepted' as const,
+      localHermesRunId: 'hermes-run-123',
+      signature: '',
+    }
+    accepted.signature = sign(null, Buffer.from(linkedRunReceiptPayload(accepted)), keys.privateKey).toString('base64url')
+    expect(requireLinkedRunReceipt(job, accepted, keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), now)).toEqual(accepted)
   })
 })
