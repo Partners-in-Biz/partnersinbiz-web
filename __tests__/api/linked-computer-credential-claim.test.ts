@@ -7,6 +7,8 @@ const mockGetConnection = jest.fn()
 const mockGetCredentials = jest.fn()
 const mockRequireBinding = jest.fn()
 const mockDeviceGet = jest.fn()
+const mockCompleteJob = jest.fn()
+const mockApplyJobResult = jest.fn()
 
 jest.mock('@/lib/llm-providers/store', () => ({
   getLlmProviderConnection: (...args: unknown[]) => mockGetConnection(...args),
@@ -22,6 +24,13 @@ jest.mock('@/lib/firebase/admin', () => ({
       doc: () => ({ get: (...args: unknown[]) => mockDeviceGet(...args) }),
     }),
   },
+}))
+jest.mock('@/lib/linked-computers/agent-job-store', () => ({
+  claimOldestAgentHostJob: jest.fn(),
+  completeAgentHostJob: (...args: unknown[]) => mockCompleteJob(...args),
+}))
+jest.mock('@/lib/linked-computers/agent-host-service', () => ({
+  applyAgentHostJobResult: (...args: unknown[]) => mockApplyJobResult(...args),
 }))
 
 import { handleAgentHostClaim } from '@/app/api/v1/linked-computers/[deviceId]/agents/claim/route'
@@ -74,6 +83,12 @@ describe('linked computer LLM credential claims', () => {
     })
     mockGetCredentials.mockResolvedValue({ apiKey: 'secret-value' })
     mockRequireBinding.mockResolvedValue({ id: 'binding-1' })
+    mockCompleteJob.mockImplementation(async (input: { jobId: string }) => ({
+      ...claimedJob(),
+      jobId: input.jobId,
+      status: 'failed',
+    }))
+    mockApplyJobResult.mockResolvedValue(undefined)
     mockDeviceGet.mockResolvedValue({
       exists: true,
       data: () => ({
@@ -144,5 +159,36 @@ describe('linked computer LLM credential claims', () => {
       refresh_token: '',
     })
     expect(JSON.stringify(body)).not.toContain('single-use-refresh')
+  })
+
+  it('drains a superseded credential generation instead of blocking newer jobs', async () => {
+    mockGetConnection.mockResolvedValue({
+      id: 'user:u1:xai',
+      provider: 'xai',
+      scope: 'user',
+      ownerUid: 'u1',
+      orgId: 'org-1',
+      status: 'connected',
+      credentialVersion: 3,
+    })
+    const claim = jest.fn()
+      .mockResolvedValueOnce(claimedJob())
+      .mockResolvedValueOnce(null)
+    const response = await handleAgentHostClaim(
+      request(),
+      'device-1',
+      async () => ({ deviceId: 'device-1', ownerUserId: 'u1', credentialVersion: 7 }) as never,
+      claim,
+    )
+    expect(response.status).toBe(204)
+    expect(mockCompleteJob).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: 'device-1',
+      jobId: 'job-1',
+      leaseToken: 'lease-1',
+      ok: false,
+      error: 'Superseded by a newer credential generation',
+    }))
+    expect(mockApplyJobResult).toHaveBeenCalled()
+    expect(mockGetCredentials).not.toHaveBeenCalled()
   })
 })

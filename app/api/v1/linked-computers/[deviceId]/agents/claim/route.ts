@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authenticateSignedDeviceRequest, noStoreHeaders } from '@/lib/linked-computers/http'
-import { claimOldestAgentHostJob } from '@/lib/linked-computers/agent-job-store'
+import {
+  claimOldestAgentHostJob,
+  completeAgentHostJob,
+} from '@/lib/linked-computers/agent-job-store'
 import {
   getDecryptedLlmCredentials,
   getLlmProviderConnection,
@@ -12,11 +15,13 @@ import {
 import { adminDb } from '@/lib/firebase/admin'
 import { linkedDeviceOwnerType } from '@/lib/linked-computers/policy'
 import type { LinkedDevice } from '@/lib/linked-computers/types'
+import { applyAgentHostJobResult } from '@/lib/linked-computers/agent-host-service'
 
 export const dynamic = 'force-dynamic'
 
 type Context = { params: Promise<{ deviceId: string }> }
 type DeviceIdentity = Awaited<ReturnType<typeof authenticateSignedDeviceRequest>>
+const MAX_SUPERSEDED_JOBS_PER_CLAIM = 24
 
 function deviceError(error: unknown): Response {
   const message = error instanceof Error ? error.message : ''
@@ -47,43 +52,76 @@ export async function handleAgentHostClaim(
     if (body.agentHostProtocolVersion !== 3) {
       throw new Error('agent-host: agentHostProtocolVersion 3 required')
     }
-    const claimed = await claim({
-      deviceId,
-      ownerUserId: identity.ownerUserId,
-      credentialVersion: identity.credentialVersion,
-    })
-    if (!claimed) return new Response(null, { status: 204, headers: noStoreHeaders })
-    let responseJob = claimed
-    if (claimed.kind === 'sync-credential') {
+    for (let skipped = 0; skipped <= MAX_SUPERSEDED_JOBS_PER_CLAIM; skipped += 1) {
+      const claimed = await claim({
+        deviceId,
+        ownerUserId: identity.ownerUserId,
+        credentialVersion: identity.credentialVersion,
+      })
+      if (!claimed) return new Response(null, { status: 204, headers: noStoreHeaders })
+      let responseJob = claimed
+      if (claimed.kind !== 'sync-credential') {
+        return NextResponse.json({ success: true, data: responseJob }, { status: 200, headers: noStoreHeaders })
+      }
+
       const delivery = claimed.credentialDelivery
       if (!delivery) throw new Error('agent-host: credential delivery metadata missing')
       const connection = await getLlmProviderConnection(delivery.connectionId)
-      if (!connection || connection.status === 'revoked') {
-        throw new Error('agent-host: credential connection unavailable')
-      }
       const deviceSnapshot = await adminDb.collection('linked_devices').doc(deviceId).get()
       const device = { deviceId, ...deviceSnapshot.data() } as LinkedDevice
-      const ownerAuthorized = connection.scope === 'user'
-        ? linkedDeviceOwnerType(device) === 'user' && connection.ownerUid === identity.ownerUserId
-        : linkedDeviceOwnerType(device) === 'organization' && device.ownerOrgId === connection.orgId
-      if (!deviceSnapshot.exists || !ownerAuthorized) {
+      const ownerAuthorized = connection
+        ? connection.scope === 'user'
+          ? linkedDeviceOwnerType(device) === 'user' && connection.ownerUid === identity.ownerUserId
+          : linkedDeviceOwnerType(device) === 'organization' && device.ownerOrgId === connection.orgId
+        : false
+      if (connection && (!deviceSnapshot.exists || !ownerAuthorized)) {
         throw new Error('agent-host: credential owner mismatch')
       }
-      if (connectionCredentialVersion(connection) !== delivery.credentialVersion) {
-        throw new Error('agent-host: credential generation mismatch')
+      const currentGeneration = Boolean(
+        connection
+        && connection.status !== 'revoked'
+        && connectionCredentialVersion(connection) === delivery.credentialVersion,
+      )
+      let bindingDeliverable = false
+      if (currentGeneration && connection) {
+        bindingDeliverable = await requireDeliverableLlmCredentialBinding({
+          bindingId: delivery.bindingId,
+          connectionId: delivery.connectionId,
+          credentialVersion: delivery.credentialVersion,
+          deviceId,
+          ownerUid: connection.ownerUid,
+          orgId: connection.orgId,
+          scope: connection.scope,
+          agentId: claimed.agentId,
+        }).then(() => true, () => false)
       }
-      await requireDeliverableLlmCredentialBinding({
-        bindingId: delivery.bindingId,
-        connectionId: delivery.connectionId,
-        credentialVersion: delivery.credentialVersion,
-        deviceId,
-        ownerUid: connection.ownerUid,
-        orgId: connection.orgId,
-        scope: connection.scope,
-        agentId: claimed.agentId,
-      })
+      if (!currentGeneration || !bindingDeliverable || !connection) {
+        const completed = await completeAgentHostJob({
+          deviceId,
+          jobId: claimed.jobId,
+          leaseToken: claimed.leaseToken || '',
+          credentialVersion: identity.credentialVersion,
+          ok: false,
+          error: currentGeneration
+            ? 'Credential binding is no longer deliverable'
+            : 'Superseded by a newer credential generation',
+        })
+        await applyAgentHostJobResult(completed)
+        continue
+      }
       const credentials = await getDecryptedLlmCredentials(connection)
-      if (!credentials) throw new Error('agent-host: credential material unavailable')
+      if (!credentials) {
+        const completed = await completeAgentHostJob({
+          deviceId,
+          jobId: claimed.jobId,
+          leaseToken: claimed.leaseToken || '',
+          credentialVersion: identity.credentialVersion,
+          ok: false,
+          error: 'Credential material is unavailable',
+        })
+        await applyAgentHostJobResult(completed)
+        continue
+      }
       const deliveredCredentials = connection.provider === 'xai-oauth'
         ? { ...credentials, refresh_token: '' }
         : credentials
@@ -91,8 +129,9 @@ export async function handleAgentHostClaim(
         ...claimed,
         credentialDelivery: { ...delivery, credentials: deliveredCredentials },
       }
+      return NextResponse.json({ success: true, data: responseJob }, { status: 200, headers: noStoreHeaders })
     }
-    return NextResponse.json({ success: true, data: responseJob }, { status: 200, headers: noStoreHeaders })
+    return new Response(null, { status: 204, headers: noStoreHeaders })
   } catch (error) {
     return deviceError(error)
   }

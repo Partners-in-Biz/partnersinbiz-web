@@ -222,13 +222,20 @@ export async function claimOldestAgentHostJob(
       : []
     if (ids.length === 0) return null
 
+    // Firestore transactions forbid reads after the first write. Load every
+    // queued document up front so expiring one stale row cannot make the next
+    // transaction.get fail and permanently block the device queue.
+    const queuedSnapshots = await Promise.all(ids.map((jobId) =>
+      transaction.get(adminDb.collection(AGENT_HOST_JOBS).doc(jobId)),
+    ))
     let selected: AgentHostJob | null = null
     let selectedRef: DocumentReference | null = null
     const survivors: string[] = []
 
-    for (const jobId of ids) {
+    for (let index = 0; index < ids.length; index += 1) {
+      const jobId = ids[index]
       const jobRef = adminDb.collection(AGENT_HOST_JOBS).doc(jobId)
-      const jobSnapshot = await transaction.get(jobRef)
+      const jobSnapshot = queuedSnapshots[index]
       if (!jobSnapshot.exists) continue
       const job = fromStored(jobSnapshot.id, jobSnapshot.data() ?? {})
       if (job.deviceId !== input.deviceId) continue
