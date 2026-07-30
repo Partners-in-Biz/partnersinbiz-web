@@ -35,6 +35,7 @@ jest.mock('@/lib/api/auth', () => ({
 
 jest.mock('@/lib/client-documents/access', () => ({
   assertClientDocumentDataAccess: jest.fn(() => ({ ok: true })),
+  canManageClientDocument: jest.fn(() => true),
   getAccessibleClientDocument: jest.fn(),
 }))
 
