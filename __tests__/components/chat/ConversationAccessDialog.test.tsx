@@ -31,7 +31,7 @@ describe('ConversationAccessDialog', () => {
   beforeEach(() => {
     jest.spyOn(window, 'confirm').mockReturnValue(true)
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input) === '/api/v1/orgs/org-1/contacts') {
+      if (String(input) === '/api/v1/orgs/org-1/people') {
         return response({ data: [
           { uid: 'member-2', displayName: 'Member Two', email: 'member@example.com', role: 'client' },
         ] })
@@ -84,5 +84,31 @@ describe('ConversationAccessDialog', () => {
       method: 'PATCH',
       body: JSON.stringify({ shareMode: 'shared', participantUids: ['owner-1', 'member-2'], expectedAccessVersion: 0 }),
     }))
+  })
+
+  it('manages explicit participants for a non-Workspace group chat', async () => {
+    const groupConversation = {
+      ...conversation,
+      title: 'Sales team',
+      workspaceContext: undefined,
+    } as Conversation
+    const onUpdated = jest.fn()
+    render(<ConversationAccessDialog conversation={groupConversation} onClose={jest.fn()} onUpdated={onUpdated} />)
+
+    expect(await screen.findByRole('dialog', { name: 'Manage people' })).toBeInTheDocument()
+    expect(screen.queryByText('Organisation')).not.toBeInTheDocument()
+    fireEvent.click(await screen.findByText('Member Two'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save access' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenLastCalledWith(
+      '/api/v1/conversations/conv-1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          participantUids: ['owner-1', 'member-2'],
+          expectedAccessVersion: 0,
+        }),
+      }),
+    ))
   })
 })

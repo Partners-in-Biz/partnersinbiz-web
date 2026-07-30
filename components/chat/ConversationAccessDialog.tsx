@@ -61,6 +61,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
   onUpdated,
 }: ConversationAccessDialogProps<T>) {
   const ownerUid = conversation.workspaceContext?.ownerUserId ?? conversation.startedBy
+  const workspaceConversation = Boolean(conversation.workspaceContext)
   const initialShareMode = conversation.workspaceContext?.shareMode
   const [shareMode, setShareMode] = useState<ShareMode>(
     initialShareMode === 'shared' || initialShareMode === 'org' ? initialShareMode : 'private',
@@ -77,7 +78,9 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
 
   useEffect(() => {
     let cancelled = false
-    fetch(`/api/v1/orgs/${conversation.orgId}/contacts`)
+    // Prefer /people because browser privacy lists sometimes block API paths
+    // containing "contacts".
+    fetch(`/api/v1/orgs/${conversation.orgId}/people`)
       .then(async (response) => {
         const body = await response.json().catch(() => null)
         if (!response.ok) throw new Error(body?.error ?? 'Failed to load people')
@@ -122,7 +125,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
   }
 
   function togglePerson(uid: string) {
-    if (uid === ownerUid || shareMode === 'private') return
+    if (uid === ownerUid || (workspaceConversation && shareMode === 'private')) return
     setSelectedUids((current) => current.includes(uid)
       ? current.filter((value) => value !== uid)
       : [...current, uid])
@@ -130,7 +133,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
   }
 
   async function save() {
-    if (shareMode === 'shared' && selectedUids.every((uid) => uid === ownerUid)) {
+    if (workspaceConversation && shareMode === 'shared' && selectedUids.every((uid) => uid === ownerUid)) {
       setError('Select at least one additional person for selected-people access.')
       return
     }
@@ -138,7 +141,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
     const rank: Record<ShareMode, number> = { private: 0, shared: 1, org: 2 }
     const currentHumans = new Set(conversation.participantUids)
     const addedPeople = selectedUids.some((uid) => !currentHumans.has(uid))
-    if ((rank[shareMode] > rank[currentMode] || addedPeople) && !window.confirm(
+    if (((workspaceConversation && rank[shareMode] > rank[currentMode]) || addedPeople) && !window.confirm(
       'This will give additional people access to the full conversation history. Continue?',
     )) return
     setSaving(true)
@@ -148,8 +151,8 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          shareMode,
-          participantUids: shareMode === 'private' ? [ownerUid] : selectedUids,
+          ...(workspaceConversation ? { shareMode } : {}),
+          participantUids: workspaceConversation && shareMode === 'private' ? [ownerUid] : selectedUids,
           expectedAccessVersion: conversation.accessVersion ?? 0,
         }),
       })
@@ -176,8 +179,8 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--color-card-border)] p-5">
           <div>
-            <p className="text-[10px] font-label uppercase tracking-[0.2em] text-primary">Workspace access</p>
-            <h2 id="conversation-access-title" className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">Manage conversation access</h2>
+            <p className="text-[10px] font-label uppercase tracking-[0.2em] text-primary">{workspaceConversation ? 'Workspace access' : 'Team conversation'}</p>
+            <h2 id="conversation-access-title" className="mt-1 text-lg font-semibold text-[var(--color-pib-text)]">{workspaceConversation ? 'Manage conversation access' : 'Manage people'}</h2>
             <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{conversation.title}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close access manager" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]">
@@ -186,7 +189,7 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
         </header>
 
         <div data-testid="conversation-access-scroll-body" className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
-          <fieldset className="space-y-2">
+          {workspaceConversation && <fieldset className="space-y-2">
             <legend className="mb-2 text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Who can open this conversation?</legend>
             {OPTIONS.map((option) => (
               <label key={option.value} className={`flex cursor-pointer gap-3 rounded-xl border p-3 transition-colors ${shareMode === option.value ? 'border-primary/50 bg-primary/10' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]'}`}>
@@ -198,12 +201,12 @@ export default function ConversationAccessDialog<T extends AccessConversation>({
                 </span>
               </label>
             ))}
-          </fieldset>
+          </fieldset>}
 
-          {shareMode !== 'private' && (
+          {(!workspaceConversation || shareMode !== 'private') && (
             <fieldset>
-              <legend className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Collaborators</legend>
-              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{shareMode === 'shared' ? 'The owner is always retained. Select at least one other person.' : 'The owner is always retained. Selected people are shown as collaborators.'}</p>
+              <legend className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">{workspaceConversation ? 'Collaborators' : 'People in this chat'}</legend>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{workspaceConversation ? (shareMode === 'shared' ? 'The owner is always retained. Select at least one other person.' : 'The owner is always retained. Selected people are shown as collaborators.') : 'The owner is always retained. Add or remove organisation members from the shared history.'}</p>
               <div className="mt-3 space-y-1.5">
                 {loading && <div className="pib-skeleton h-10 w-full" />}
                 {!loading && people.map((person) => {

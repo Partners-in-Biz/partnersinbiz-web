@@ -1327,6 +1327,7 @@ export default function UnifiedChat({
 
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
+  const [conversationLiveConnected, setConversationLiveConnected] = useState(false)
 
   // Live events keyed by assistant message id
   const [liveEvents, setLiveEvents] = useState<Record<string, ChatEvent[]>>({})
@@ -1463,6 +1464,7 @@ export default function UnifiedChat({
     attempts?: number
   ) => void) | null>(null)
   const eventSourcesRef = useRef<Record<string, EventSource>>({})
+  const sendingRef = useRef(false)
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
   const COMPOSER_MAX_HEIGHT_PX = 160
@@ -1476,6 +1478,9 @@ export default function UnifiedChat({
   useEffect(() => {
     resizeComposer()
   }, [input, resizeComposer])
+  useEffect(() => {
+    sendingRef.current = sending
+  }, [sending])
   // User edit generation guards delayed context attachment cleanup. Comparing
   // text alone is insufficient because a user can edit and then restore the
   // exact same bytes while the PATCH is in flight.
@@ -3778,6 +3783,69 @@ export default function UnifiedChat({
     if (activeId) loadMessages(activeId)
   }, [activeId, loadMessages])
 
+  // One permission-checked server stream keeps both the session rail and the
+  // active thread current. This covers agent, direct-human, and group chats,
+  // including conversations another member creates while this screen is open.
+  // EventSource reconnects automatically after the bounded server stream ends.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.EventSource !== 'function') {
+      setConversationLiveConnected(false)
+      return
+    }
+
+    const params = new URLSearchParams(listQuery)
+    if (activeId) params.set('conversationId', activeId)
+    const source = new window.EventSource(`/api/v1/conversations/live?${params.toString()}`)
+    let disposed = false
+
+    source.onopen = () => {
+      if (!disposed) setConversationLiveConnected(true)
+    }
+    source.onmessage = (event) => {
+      if (disposed) return
+      try {
+        const snapshot = JSON.parse(event.data) as {
+          type?: string
+          conversations?: Conversation[]
+          conversation?: Conversation | null
+          messages?: ConversationMessage[] | null
+        }
+        if (snapshot.type !== 'snapshot' || !Array.isArray(snapshot.conversations)) return
+
+        const nextConversations = [...snapshot.conversations]
+        if (
+          snapshot.conversation
+          && !nextConversations.some((conversation) => conversation.id === snapshot.conversation!.id)
+        ) {
+          nextConversations.unshift(snapshot.conversation)
+        }
+        setConversations(nextConversations)
+
+        if (
+          activeConversationIdRef.current
+          && snapshot.conversation?.id === activeConversationIdRef.current
+          && Array.isArray(snapshot.messages)
+          && !sendingRef.current
+        ) {
+          setMessages((current) => current.some((message) => message.id.startsWith('tmp-'))
+            ? current
+            : snapshot.messages!)
+        }
+      } catch {
+        // Ignore malformed frames and let EventSource deliver the next snapshot.
+      }
+    }
+    source.onerror = () => {
+      if (!disposed) setConversationLiveConnected(false)
+    }
+
+    return () => {
+      disposed = true
+      source.close()
+      setConversationLiveConnected(false)
+    }
+  }, [activeId, listQuery])
+
   useEffect(() => {
     setContextRefs((activeConversation?.contextRefs ?? []).map(coerceContextRef))
   }, [activeConversation?.id, activeConversation?.contextRefs, coerceContextRef])
@@ -3888,13 +3956,14 @@ export default function UnifiedChat({
   useEffect(() => {
     if (!activeId) return
     if ((activeConversation?.participantAgentIds?.length ?? 0) > 0) return
+    if (conversationLiveConnected) return
 
     const interval = window.setInterval(() => {
       void loadMessages(activeId, { silent: true })
     }, HUMAN_CHAT_REFRESH_INTERVAL)
 
     return () => window.clearInterval(interval)
-  }, [activeConversation?.participantAgentIds?.length, activeId, loadMessages])
+  }, [activeConversation?.participantAgentIds?.length, activeId, conversationLiveConnected, loadMessages])
 
   // Auto-scroll on new messages. Run after the browser has laid out the loaded
   // message list so returning to an existing chat lands at the latest message,
@@ -6894,7 +6963,7 @@ export default function UnifiedChat({
             <span className="material-symbols-outlined text-[14px]">edit</span>
             Rename
           </button>
-          {menuConversation?.workspaceContext && (allowManageConversationAccess || (menuConversation.workspaceContext.ownerUserId ?? menuConversation.startedBy) === currentUserUid) && (
+          {menuConversation && (allowManageConversationAccess || (menuConversation.workspaceContext?.ownerUserId ?? menuConversation.startedBy) === currentUserUid) && (
             <button
               type="button"
               className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
@@ -6905,7 +6974,7 @@ export default function UnifiedChat({
               }}
             >
               <span className="material-symbols-outlined text-[14px]">manage_accounts</span>
-              Manage access
+              {menuConversation.workspaceContext ? 'Manage access' : 'Manage people'}
             </button>
           )}
           {allowArchiveConversations && (
@@ -7150,7 +7219,7 @@ export default function UnifiedChat({
                       <span className="material-symbols-outlined text-[16px]">edit</span>
                       Rename
                     </button>
-                    {activeConversation.workspaceContext && (allowManageConversationAccess || (activeConversation.workspaceContext.ownerUserId ?? activeConversation.startedBy) === currentUserUid) && (
+                    {(allowManageConversationAccess || (activeConversation.workspaceContext?.ownerUserId ?? activeConversation.startedBy) === currentUserUid) && (
                       <button
                         type="button"
                         className="w-full text-left px-3 py-2 text-sm text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
@@ -7160,7 +7229,7 @@ export default function UnifiedChat({
                         }}
                       >
                         <span className="material-symbols-outlined text-[16px]">manage_accounts</span>
-                        Manage access
+                        {activeConversation.workspaceContext ? 'Manage access' : 'Manage people'}
                       </button>
                     )}
                     {allowArchiveConversations && (

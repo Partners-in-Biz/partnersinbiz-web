@@ -108,16 +108,21 @@ export const PATCH = withAuth(
       if (!canManageConversationAccess(user, conversation)) {
         return apiError('Only the conversation owner or an authorised administrator can manage access', 403)
       }
-      if (!conversation.workspaceContext) return apiError('Access modes can only be managed for Workspace conversations', 400)
       if (!Number.isInteger(body.expectedAccessVersion) || Number(body.expectedAccessVersion) < 0) {
         return apiError('expectedAccessVersion is required when changing conversation access', 400)
       }
 
-      const shareMode = body.shareMode ?? conversation.workspaceContext.shareMode
-      if (shareMode !== 'private' && shareMode !== 'shared' && shareMode !== 'org') {
+      const workspaceConversation = Boolean(conversation.workspaceContext)
+      if (!workspaceConversation && body.shareMode !== undefined) {
+        return apiError('Direct and group chats use explicit participants, not Workspace access modes', 400)
+      }
+      const shareMode = workspaceConversation
+        ? body.shareMode ?? conversation.workspaceContext!.shareMode
+        : undefined
+      if (workspaceConversation && shareMode !== 'private' && shareMode !== 'shared' && shareMode !== 'org') {
         return apiError('shareMode must be private, shared, or org', 400)
       }
-      if (shareMode === 'org' || shareMode === 'shared') {
+      if (conversation.workspaceContext && (shareMode === 'org' || shareMode === 'shared')) {
         try {
           const dispatchAgentId = await resolveConversationDispatchAgentId(conversation)
           const runtime = await authorizeWorkspaceRuntime({
@@ -140,7 +145,7 @@ export const PATCH = withAuth(
         }
       }
 
-      const ownerUid = conversation.workspaceContext.ownerUserId ?? conversation.startedBy
+      const ownerUid = conversation.workspaceContext?.ownerUserId ?? conversation.startedBy
       const currentHumanUids = conversation.participants
         .filter((participant) => participant.kind === 'user')
         .map((participant) => participant.uid)
@@ -191,7 +196,9 @@ export const PATCH = withAuth(
         actorId: user.uid,
         actorName: user.uid,
         actorRole: user.role,
-        description: `Updated Workspace conversation access to ${shareMode} for ${participantUids.length} participant${participantUids.length === 1 ? '' : 's'}`,
+        description: workspaceConversation
+          ? `Updated Workspace conversation access to ${shareMode} for ${participantUids.length} participant${participantUids.length === 1 ? '' : 's'}`
+          : `Updated conversation participants to ${participantUids.length} person${participantUids.length === 1 ? '' : 's'}`,
         entityId: convId,
         entityType: 'conversation',
         entityTitle: conversation.title,

@@ -236,7 +236,8 @@ export async function updateConversationAccess(input: {
   convId: string
   expectedOrgId: string
   expectedVersion: number
-  shareMode: NonNullable<Conversation['workspaceContext']>['shareMode']
+  /** Workspace visibility mode. Omitted for participant-only direct/group chats. */
+  shareMode?: NonNullable<Conversation['workspaceContext']>['shareMode']
   participants: Conversation['participants']
   participantUids: string[]
   participantAgentIds: Conversation['participantAgentIds']
@@ -258,19 +259,20 @@ export async function updateConversationAccess(input: {
     }
     const nextVersion = currentVersion + 1
     const changedAt = FieldValue.serverTimestamp()
-    transaction.update(ref, {
+    const conversationUpdate: Record<string, unknown> = {
       participants: input.participants,
       participantUids: input.participantUids,
       participantAgentIds: input.participantAgentIds,
-      'workspaceContext.shareMode': input.shareMode,
       accessVersion: nextVersion,
       accessUpdatedAt: changedAt,
       accessUpdatedBy: input.actor.uid,
       updatedAt: changedAt,
-    })
+    }
+    if (input.shareMode) conversationUpdate['workspaceContext.shareMode'] = input.shareMode
+    transaction.update(ref, conversationUpdate)
     transaction.set(ref.collection('access_history').doc(), {
       accessVersion: nextVersion,
-      shareMode: input.shareMode,
+      ...(input.shareMode ? { shareMode: input.shareMode } : { accessMode: 'participants' }),
       participantUids: input.participantUids,
       participantAgentIds: input.participantAgentIds,
       actorUid: input.actor.uid,
