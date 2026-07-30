@@ -50,7 +50,9 @@ install_runtime() {
   # Expand path into the trap string so RETURN cannot hit set -u after locals unwind.
   trap 'rm -rf "'"$stage"'"' RETURN
   curl -fsSL --proto '=https' "$METADATA_URL" -o "$stage/metadata.json"
-  local url; url="$(/usr/bin/plutil -extract payloadUrl raw "$stage/metadata.json")"
+  local url runtime_version
+  url="$(/usr/bin/plutil -extract payloadUrl raw "$stage/metadata.json")"
+  runtime_version="$(/usr/bin/plutil -extract version raw "$stage/metadata.json")"
   curl -fsSL --proto '=https' "$url" -o "$stage/pib-runtime"
   chmod 0755 "$stage/pib-runtime"
   verify_release "$stage/metadata.json" "$stage/pib-runtime"
@@ -75,7 +77,7 @@ install_runtime() {
     echo "Note: install Node.js 20+ and run 'npm install node-pty' in $ROOT/current for Terminal Session mode." >&2
   fi
   local logs="$ROOT/logs";mkdir -p "$logs";chmod 0700 "$ROOT" "$logs";[[ ! -f "$logs/runtime.log" ]]||{ for n in 4 3 2 1;do [[ ! -f "$logs/runtime.log.$n" ]]||mv "$logs/runtime.log.$n" "$logs/runtime.log.$((n+1))";done;mv "$logs/runtime.log" "$logs/runtime.log.1";};touch "$logs/runtime.log";chmod 0600 "$logs/runtime.log"
-  mkdir -p "$(dirname "$PLIST")"; sed -e "s|__PIB_RUNTIME_BINARY__|$BIN|g" -e "s|__PIB_RUNTIME_LOG_DIR__|$logs|g" "$(dirname "$0")/$LABEL.plist" > "$PLIST"; chmod 0644 "$PLIST"
+  mkdir -p "$(dirname "$PLIST")"; sed -e "s|__PIB_RUNTIME_BINARY__|$BIN|g" -e "s|__PIB_RUNTIME_LOG_DIR__|$logs|g" -e "s|__PIB_RUNTIME_VERSION__|$runtime_version|g" "$(dirname "$0")/$LABEL.plist" > "$PLIST"; chmod 0644 "$PLIST"
   launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
   launchctl bootstrap "gui/$(id -u)" "$PLIST"; launchctl kickstart -k "gui/$(id -u)/$LABEL"
 }

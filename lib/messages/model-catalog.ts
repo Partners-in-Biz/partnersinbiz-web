@@ -4,7 +4,7 @@ import {
   buildRuntimeModelSummary,
   extractConfiguredRuntimeProviders,
 } from '@/lib/agents/runtime-config'
-import { isValidAgentId, type AgentId, type AgentTeamDoc } from '@/lib/agents/types'
+import { AGENT_IDS, isValidAgentId, type AgentId, type AgentTeamDoc } from '@/lib/agents/types'
 import type { ApiUser } from '@/lib/api/types'
 import type { Conversation } from '@/lib/conversations/types'
 import { listLlmProviderConnections } from '@/lib/llm-providers/store'
@@ -247,7 +247,13 @@ function connectedModelOptions(
   for (const account of accounts) {
     const def = listLlmProviders().find((candidate) => candidate.hermesProvider === account.provider)
     if (!def) continue
-    const modelIds = account.modelIds.length ? account.modelIds : def.curatedModels
+    // `/v1/models` is a machine-wide Hermes catalogue, not proof that every
+    // connected account can authenticate every listed provider. Start with
+    // the maintained provider catalogue, then add only discovered ids that
+    // belong to this credential family.
+    const discovered = account.modelIds.filter((modelId) =>
+      modelBelongsToCredentialProvider(modelId, account.provider))
+    const modelIds = [...new Set([...def.curatedModels, ...discovered])]
     for (const modelId of modelIds) {
       const id = cleanMessageModelId(modelId)
       if (!id) continue
@@ -269,6 +275,31 @@ function connectedModelOptions(
     }
   }
   return options
+}
+
+function modelBelongsToCredentialProvider(modelId: string, provider: string): boolean {
+  const id = cleanMessageModelId(modelId).toLowerCase()
+  if (!id || AGENT_IDS.includes(id)) return false
+  const normalized = normalizeProviderId(provider)
+  if (normalized === 'xai' || normalized === 'xai-oauth') {
+    return id.startsWith('grok-') || id.startsWith('x-ai/') || id.startsWith('xai/')
+  }
+  if (normalized === 'openai-codex' || normalized === 'openai-api') {
+    return /^(gpt-|o[134]-|openai\/)/.test(id)
+  }
+  if (normalized === 'anthropic') {
+    return id.startsWith('claude-') || id.startsWith('anthropic/')
+  }
+  if (normalized === 'gemini') {
+    return id.startsWith('gemini-') || id.startsWith('google/')
+  }
+  if (normalized === 'copilot') {
+    return /^(gpt-|o[134]-|claude-|openai\/|anthropic\/)/.test(id)
+  }
+  // Aggregators intentionally span provider families; their live catalogue
+  // may be broader than the maintained fallback list.
+  if (normalized === 'openrouter' || normalized === 'nous') return true
+  return false
 }
 
 export function canSelectMessageModels(user: ApiUser): boolean {

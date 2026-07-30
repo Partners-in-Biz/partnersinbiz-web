@@ -3,6 +3,9 @@
 <plist version="1.0"><dict>
   <key>Label</key><string>com.partnersinbiz.runtime</string>
   <key>ProgramArguments</key><array><string>__PIB_RUNTIME_BINARY__</string><string>service</string></array>
+  <key>EnvironmentVariables</key><dict>
+    <key>PIB_RUNTIME_VERSION</key><string>__PIB_RUNTIME_VERSION__</string>
+  </dict>
   <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
   <key>ProcessType</key><string>Background</string>
   <key>StandardOutPath</key><string>__PIB_RUNTIME_LOG_DIR__/runtime.log</string>
