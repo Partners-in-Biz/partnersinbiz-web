@@ -19,6 +19,7 @@ import { genericChatContextAdapter } from '@/lib/chat-context/adapters/generic'
 import { campaignChatContextAdapter } from '@/lib/chat-context/adapters/campaign'
 import { socialChatContextAdapter } from '@/lib/chat-context/adapters/social'
 import { seoSprintChatContextAdapter } from '@/lib/chat-context/adapters/seoSprint'
+import { crmChatContextAdapter } from '@/lib/chat-context/adapters/crm'
 import { chatContextCapability } from '@/lib/chat-context/capabilities'
 
 export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
@@ -72,6 +73,9 @@ export const chatContextRegistry = createChatContextRegistry({
   campaign: campaignChatContextAdapter,
   social: socialChatContextAdapter,
   seo_sprint: seoSprintChatContextAdapter,
+  contact: crmChatContextAdapter,
+  company: crmChatContextAdapter,
+  deal: crmChatContextAdapter,
   studio: createStudioRootNamespaceAdapter({
     marketing_studio: marketingStudioChatContextAdapter,
     video_editor: nonMarketingStudioRootChatContextAdapter,

@@ -73,13 +73,16 @@ describe('chat context adapter registry', () => {
     expect(adapters[namespace].resolve).toHaveBeenCalledWith({ kind: 'studio', id: `${namespace}:org-1`, user })
   })
 
-  it('registers specialized campaign and social adapters on the live registry', async () => {
+  it('registers specialized campaign, social, and CRM adapters on the live registry', async () => {
     jest.resetModules()
     jest.doMock('@/lib/chat-context/adapters/campaign', () => ({
       campaignChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('camp-1') }) },
     }))
     jest.doMock('@/lib/chat-context/adapters/social', () => ({
       socialChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('post-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/crm', () => ({
+      crmChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('contact-1') }) },
     }))
     jest.doMock('@/lib/chat-context/adapters/project', () => ({ projectChatContextAdapter: { resolve: jest.fn() } }))
     jest.doMock('@/lib/chat-context/adapters/marketingStudio', () => ({ marketingStudioChatContextAdapter: { resolve: jest.fn() } }))
@@ -94,11 +97,14 @@ describe('chat context adapter registry', () => {
     const { chatContextRegistry } = await import('@/lib/chat-context/registry')
     const { campaignChatContextAdapter } = await import('@/lib/chat-context/adapters/campaign')
     const { socialChatContextAdapter } = await import('@/lib/chat-context/adapters/social')
+    const { crmChatContextAdapter } = await import('@/lib/chat-context/adapters/crm')
 
     await chatContextRegistry.resolve({ kind: 'campaign', id: 'camp-1', user })
     await chatContextRegistry.resolve({ kind: 'social', id: 'post-1', user })
+    await chatContextRegistry.resolve({ kind: 'contact', id: 'contact-1', user })
 
     expect(campaignChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'campaign', id: 'camp-1', user })
     expect(socialChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'social', id: 'post-1', user })
+    expect(crmChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'contact', id: 'contact-1', user })
   })
 })

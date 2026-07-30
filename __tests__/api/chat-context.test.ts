@@ -82,27 +82,27 @@ describe('chat context read-model API', () => {
 
   it('returns a safe generic canvas model for every resolved non-specialised reference', async () => {
     mockResolveContextReferences.mockResolvedValueOnce([{
-      type: 'company', id: 'company-1', orgId: 'client-org', label: 'Partners in Biz',
-      origin: 'mention', href: '/portal/companies/company-1', summary: 'Active client company',
+      type: 'product', id: 'product-1', orgId: 'client-org', label: 'Growth Retainer',
+      origin: 'mention', href: '/portal/settings/products', summary: 'Active service product',
     }])
 
-    const res = await get('company', 'company-1')
+    const res = await get('product', 'product-1')
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data.context).toEqual(expect.objectContaining({ kind: 'company', id: 'company-1', label: 'Partners in Biz' }))
-    expect(body.data.preview).toEqual(expect.objectContaining({ kind: 'summary', text: 'Active client company' }))
-    expect(body.data.context.href).toBe('/portal/companies/company-1')
+    expect(body.data.context).toEqual(expect.objectContaining({ kind: 'product', id: 'product-1', label: 'Growth Retainer' }))
+    expect(body.data.preview).toEqual(expect.objectContaining({ kind: 'summary', text: 'Active service product' }))
+    expect(body.data.context.href).toBe('/portal/settings/products')
     expect(JSON.stringify(body)).not.toContain('providerCredential')
   })
 
   it('projects a safe generic status from the server-resolved summary only', async () => {
     mockResolveContextReferences.mockResolvedValueOnce([{
-      type: 'contact', id: 'contact-1', orgId: 'client-org', label: 'Jane Client',
-      origin: 'mention', href: '/admin/crm/contacts/contact-1', summary: 'jane@example.com | status: active | Internal token is not a projection',
+      type: 'property', id: 'property-1', orgId: 'client-org', label: 'Ballito Office',
+      origin: 'mention', href: '/admin/properties/property-1', summary: 'status: active | Internal token is not a projection',
     }])
 
-    const res = await get('contact', 'contact-1')
+    const res = await get('property', 'property-1')
     const body = await res.json()
 
     expect(res.status).toBe(200)
