@@ -14,7 +14,11 @@ import {
   type LinkedRunPayload,
   type LinkedRunReceipt,
 } from './run-queue'
-import { humanizeConversationRunError } from '@/lib/conversations/run-policy'
+import {
+  CONVERSATION_RUN_MAX_AUTO_RECOVERIES,
+  humanizeConversationRunError,
+  isRecoverableConversationRunError,
+} from '@/lib/conversations/run-policy'
 import { assertDeviceOrgAccess, isActiveOrgMembershipRow, linkedDeviceActorUserId, linkedDeviceOwnerType } from './policy'
 import type { ActiveOrgMembership, LinkedDevice, LinkedDeviceGrant } from './types'
 import { sanitizeLinkedRunChatEvents } from './run-events'
@@ -374,6 +378,78 @@ export async function updateLinkedRunFromDevice(input: {
       return job
     }
     requireLinkedRunReceipt(job, input.receipt, String(device.publicKey ?? ''), nowMs, { output, error })
+    const safeOutput = sanitizeLinkedResult(output)
+    const rawError = sanitizeLinkedResult(error)
+    const recoveryCount = Number(job.recoveryCount ?? 0)
+    // Safety net: never permanently fail a chat on recoverable infrastructure /
+    // browser interruptions. Re-queue the same encrypted job for reclaim.
+    if (
+      input.event === 'complete'
+      && input.outcome === 'failed'
+      && isRecoverableConversationRunError(rawError)
+      && recoveryCount < CONVERSATION_RUN_MAX_AUTO_RECOVERIES
+      && job.encryptedPayload
+    ) {
+      const requeued: LinkedRunJob = {
+        ...job,
+        status: 'queued',
+        recoveryCount: recoveryCount + 1,
+        leaseExpiresAtMs: 0,
+        leaseToken: undefined,
+        claimedAtMs: undefined,
+        completedAtMs: undefined,
+        localHermesRunId: undefined,
+        acceptanceReceipt: undefined,
+        acceptedRuntimeVersion: undefined,
+        acceptedMachineLabel: undefined,
+        updatedAtMs: nowMs,
+        // Keep queue start deadline open for the recovery attempt.
+        queueExpiresAtMs: Math.max(job.queueExpiresAtMs, nowMs + LINKED_RUN_QUEUE_START_DEADLINE_MS),
+        expiresAtMs: Math.max(job.expiresAtMs, nowMs + DEFAULT_TTL_MS),
+      }
+      const queueRef = adminDb.collection(LINKED_RUN_QUEUES).doc(input.deviceId)
+      const queueSnap = await tx.get(queueRef)
+      const pending = Array.isArray(queueSnap.data()?.pendingJobIds)
+        ? (queueSnap.data()!.pendingJobIds as string[]).filter((id) => id !== job.jobId)
+        : []
+      tx.update(jobRef, {
+        ...toStored(requeued),
+        // Force reclaimable lease state (toStored omits zero/undefined lease fields).
+        leaseExpiresAt: Timestamp.fromMillis(0),
+        leaseToken: FieldValue.delete(),
+        claimedAt: FieldValue.delete(),
+        completedAt: FieldValue.delete(),
+        acceptanceReceipt: FieldValue.delete(),
+        acceptedRuntimeVersion: FieldValue.delete(),
+        acceptedMachineLabel: FieldValue.delete(),
+        localHermesRunId: FieldValue.delete(),
+        receipt: FieldValue.delete(),
+        finalizationState: FieldValue.delete(),
+        lastRecoverableError: rawError.slice(0, 400),
+        ...(rotationContinuity ? { rotationContinuedFromCredentialVersion: storedJob.credentialVersion } : {}),
+      })
+      tx.set(queueRef, {
+        pendingJobIds: [job.jobId, ...pending],
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+      tx.set(adminDb.collection('conversations').doc(job.conversationId).collection('messages').doc(job.assistantMessageId), {
+        content: '',
+        status: 'queued',
+        queuedReason: 'runtime_restarting',
+        error: FieldValue.delete(),
+        runId: job.jobId,
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+      tx.set(adminDb.collection('hermes_runs').doc(job.jobId), {
+        status: 'queued',
+        queuedReason: 'runtime_restarting',
+        recoveryCount: requeued.recoveryCount,
+        error: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+      return requeued
+    }
+
     const transitioned = input.event === 'queue'
       ? transitionLinkedRun(job, { type: 'queue', deviceId: input.deviceId, credentialVersion: input.credentialVersion, nowMs, attempt: input.receipt.attempt, leaseToken: input.receipt.leaseToken, leaseMs: DEFAULT_LEASE_MS })
       : input.event === 'progress'
@@ -382,8 +458,7 @@ export async function updateLinkedRunFromDevice(input: {
     const next = input.receipt.event === 'accepted' && !job.acceptanceReceipt
       ? { ...transitioned, expiresAtMs: nowMs + DEFAULT_TTL_MS }
       : transitioned
-    const safeOutput = sanitizeLinkedResult(output)
-    const safeError = humanizeConversationRunError(sanitizeLinkedResult(error))
+    const safeError = humanizeConversationRunError(rawError)
     const existingEvents = Array.isArray((jobSnap.data() ?? {}).chatEvents)
       ? (jobSnap.data() as { chatEvents: unknown[] }).chatEvents
       : []
