@@ -6,6 +6,8 @@ import { PageTabs } from '@/components/ui/AppFoundation'
 import { GlassBar, HudChip } from '@/components/ui/HudChip'
 import type { AgentTeamDoc } from './AgentCard'
 import type { HealthStatus } from './AgentCard'
+import { AgentRuntimeModelForm } from './AgentRuntimeModelForm'
+import type { AgentRuntimeModelSettings } from '@/lib/agents/runtime-config'
 
 const COLOR_ACCENT: Record<string, string> = {
   violet:  'text-violet-400',
@@ -523,7 +525,9 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         toastError(body?.error ?? 'Failed to save agent')
       } else {
         toastSuccess(`${editName} saved.`)
-        onSaved(body.data as AgentTeamDoc)
+        // API returns { agent } or the doc depending on version — accept either.
+        const updated = (body.data?.agent ?? body.data) as AgentTeamDoc
+        onSaved(updated)
         setEditApiKey('')
       }
     } catch (err) {
@@ -531,6 +535,26 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
     } finally {
       setSaving(false)
     }
+  }
+
+  function handleRuntimeModelSaved(result: {
+    settings: AgentRuntimeModelSettings
+    registryDefaultModel?: string | null
+    agent?: unknown
+  }) {
+    const registryLabel = result.registryDefaultModel
+      ?? [result.settings.primaryProvider, result.settings.primaryModel].filter(Boolean).join(' / ')
+    if (registryLabel) setEditModel(registryLabel)
+
+    if (result.agent && typeof result.agent === 'object') {
+      onSaved(result.agent as AgentTeamDoc)
+    } else if (agent) {
+      onSaved({ ...agent, defaultModel: registryLabel || agent.defaultModel })
+    }
+
+    toastSuccess('Auto model settings saved.')
+    loadedTabs.current.delete('config')
+    void loadConfig(agentId)
   }
 
   async function uploadSkill(file: File) {
@@ -1038,10 +1062,19 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
 
             {!configLoading && configData !== null && (
               <div className="space-y-3">
+                <AgentRuntimeModelForm
+                  agentId={agentId}
+                  canEdit={canEdit}
+                  liveConfigSource={configData}
+                  onSaved={(result) => {
+                    handleRuntimeModelSaved(result)
+                  }}
+                />
+
                 <div className="grid grid-cols-2 gap-2">
                   {configModelDefault && (
                     <div className="pib-card p-3">
-                      <p className="text-[10px] pib-label mb-1">Default model</p>
+                      <p className="text-[10px] pib-label mb-1">Registry default model</p>
                       <code className="text-xs font-mono text-[var(--color-pib-text)]">{configModelDefault}</code>
                     </div>
                   )}
@@ -1062,7 +1095,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                   )}
                   {configModels !== undefined && configModels !== null && (
                     <div className="pib-card p-3 col-span-2">
-                      <p className="text-[10px] pib-label mb-1">Live models (VPS)</p>
+                      <p className="text-[10px] pib-label mb-1">Live models probe</p>
                       <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words text-xs font-mono text-[var(--color-pib-text-muted)]/80">
                         {JSON.stringify(configModels, null, 2)}
                       </pre>
@@ -1072,7 +1105,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                 <div className="pib-card p-3 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-[10px] pib-label">Live config JSON</p>
+                      <p className="text-[10px] pib-label">Live config JSON (advanced)</p>
                       {liveConfigPath && <p className="mt-1 text-[10px] font-mono text-[var(--color-pib-text-muted)]/50 break-all">{liveConfigPath}</p>}
                     </div>
                     {canEdit && (
@@ -1096,7 +1129,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                     placeholder='{ "model": { "provider": "openai-codex", "default": "gpt-5.5" } }'
                   />
                   <p className="text-[10px] text-[var(--color-pib-text-muted)]/60">
-                    Provider and model live under <code className="font-mono">model.provider</code>, <code className="font-mono">model.default</code>, and <code className="font-mono">fallback_providers</code>. Saving writes the VPS config and restarts this agent.
+                    Prefer the form above for Auto model, effort, and fallbacks. Advanced JSON still writes the full Hermes config and restarts this agent.
                   </p>
                 </div>
                 {configPersona && (
@@ -1660,14 +1693,18 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
               />
             </FieldRow>
 
-            <FieldRow label="Default Model">
+            <FieldRow label="Registry default model label">
               <input
                 type="text"
                 value={editModel}
                 onChange={(e) => setEditModel(e.target.value)}
                 className="pib-input w-full font-mono text-sm"
-                placeholder="e.g. claude-sonnet-4-6"
+                placeholder="e.g. openai-codex / gpt-5.6-luna"
               />
+              <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)]/70">
+                Display/registry only. To change what Messages <strong className="text-[var(--color-pib-text)]">Auto</strong> uses
+                (live provider, model, effort, fallbacks), open the <button type="button" className="underline text-primary" onClick={() => activateTab('config')}>Config</button> tab.
+              </p>
             </FieldRow>
 
             <FieldRow label="Base URL">
