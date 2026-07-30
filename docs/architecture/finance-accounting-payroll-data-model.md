@@ -142,6 +142,8 @@ Existing Jest/ts-jest route and React Testing Library conventions are reusable. 
 
 Every finance record includes `schemaVersion`, `orgId`, actor references, `createdAt`, and where mutable, `updatedAt` plus integer `version`. Protected relationships repeat the full scope tuple and services verify equality before write.
 
+`finance_unique_claims/{claimId}` stores a deterministic normalized key, claim type, full scope, aggregate reference, and created version. The same transaction that creates a sequence-bearing or unique aggregate must create/touch its claim. Claim types include entity/book/account code, book period range, posting source tuple, supplier reference, provider event, bank source fingerprint, and active assignment. Period creation also increments a per-book calendar head; allocation and reconciliation mutations increment their aggregate version/balance heads. Concurrent-create emulator tests are mandatory for every claim type.
+
 ### 4.1 Entity, branch, book, period, and access
 
 #### `legal_entities/{legalEntityId}`
@@ -180,6 +182,10 @@ Fields:
 
 Invariant: one source transaction posts to one primary book. Consolidation books hold elimination/consolidation entries only.
 
+#### `book_policy_versions/{policyVersionId}`
+
+Effective-dated, approved policy snapshots hold accounting basis, tax-point policy, currency precision/rounding, posting defaults, and jurisdiction module versions. Every posting pins one policy version. A future basis or tax-point change creates a new version; it never mutates or reinterprets prior postings.
+
 #### `accounting_periods/{periodId}`
 
 Fields: full scope, `fiscalYear`, `periodNumber`, `startsAt`, `endsAt`, `status: open | soft_closed | hard_closed`, close/reopen approvals and timestamps.
@@ -193,9 +199,9 @@ Invariants:
 
 #### `finance_role_assignments/{assignmentId}`
 
-Fields: `orgId`, `userId`, optional `legalEntityIds[]`, optional `bookIds[]`, roles (`finance_viewer`, `bookkeeper`, `accountant`, `finance_approver`, `payroll_clerk`, `payroll_approver`, `finance_admin`), effective dates, grant actor/reason.
+Fields: `orgId`, `userId`, `scopeMode: entity | book`, required `legalEntityId`, optional `bookId` only for book scope, one role (`finance_viewer`, `bookkeeper`, `accountant`, `finance_approver`, `payroll_clerk`, `payroll_approver`, `finance_admin`), `status: active | revoked | expired`, effective dates, grant/revoke actor and reason. Deterministic IDs prevent duplicate active grants, and book scope requires that the book belongs to the same entity.
 
-Assignment cannot expand beyond an active org membership. Payroll roles do not imply general finance-admin authority, and finance roles do not imply payslip access.
+Assignment cannot expand beyond an active org membership. Missing scope means no access. Payroll roles do not imply general finance-admin authority, and finance roles do not imply payslip access.
 
 ### 4.2 Chart, tax, journals, and ledger
 
@@ -212,6 +218,10 @@ Tax code fields: full scope, stable code/name, jurisdiction, category (`output_v
 Rule version fields: jurisdiction, tax code, effective date range, rate as integer basis points or exact rational components, rounding policy, tax-point policy, source citation/checksum, approval status.
 
 Invariant: a posted line stores `taxCodeId`, `taxRuleVersionId`, taxable minor units, tax minor units, and calculation trace. Historical postings never recalculate when rules change.
+
+#### `tax_periods/{taxPeriodId}`, `tax_return_snapshots/{returnId}`, and `tax_return_lines/{lineId}`
+
+Tax periods carry entity/book/jurisdiction, period bounds, status (`open | prepared | approved_locked | adjusted`), source cutoff and approvals. A return snapshot pins the tax period, posting cutoff, rule versions, source journals, totals, line evidence, adjustments, preparer/approver, and content hash. An approved return is immutable; corrections create an adjustment/replacement snapshot. These records produce VAT/tax-ready evidence only and expose no SARS submission or payment action.
 
 #### `journal_entries/{journalEntryId}`
 
@@ -280,6 +290,10 @@ Invariants:
 - reversal creates reversing allocation/posting records;
 - provider retries resolve to one payment through a unique source tuple.
 
+#### `open_items/{openItemId}`, `account_credits/{creditId}`, and finance adjustments
+
+`open_items` is the canonical AR/AP subledger row for an invoice, supplier bill, credit/debit note, or opening item. It stores source identity/version, entity/book/counterparty, original and outstanding minor units, due/tax dates, control account and status. `account_credits` represents verified customer/supplier money on account and may later allocate to an open item without double-posting cash. Sales credit notes and supplier debit/credit notes are typed immutable finance documents linked to the source document and their reversing/adjusting journals; they do not mutate issued documents.
+
 #### `bank_accounts/{bankAccountId}` and `bank_transactions/{bankTransactionId}`
 
 Bank account fields: full scope, masked identity, currency, ledger account, import/provider metadata, active status. Secrets/tokens are not stored in domain records.
@@ -291,6 +305,12 @@ Bank transaction fields: full scope, immutable imported/manual statement row, pr
 Reconciliation fields: account/scope, statement period/opening/closing balances in minor units, status (`draft | in_review | approved | reversed`), calculated difference, approvals and lock metadata.
 
 Match fields link bank transactions to payments/journals with allocated minor units. Approved reconciliation locks its match set; corrections reverse and replace it. Statement closing balance equals opening balance plus statement movements, and the approved ledger-to-statement difference must be zero or an explicitly approved reconciling item.
+
+`reconciliation_adjustments/{adjustmentId}` is the canonical lifecycle for an explicitly approved reconciling item. It records type, reason, amount, evidence, proposed journal, preparer, approver, resolution/reversal, and expiry. It cannot become a silent balancing plug.
+
+#### `accounting_rate_sets/{rateSetId}` and `accounting_rates/{rateId}`
+
+The existing `fx_rates` store and `/api/v1/fx/rates` route are operational reporting compatibility only: they are ZAR-based, floating, provider-refreshable, and may fall back unsafely. Canonical accounting rates are immutable approved sets with pair/date/source/version/checksum and exact decimal/rational precision. Journal lines pin rate-set/rate IDs and preserve transaction-currency and functional-currency balancing. Realised and unrealised FX differences post to configured accounts through explicit journal purposes.
 
 ### 4.4 Cash and accrual accounting
 
@@ -341,7 +361,7 @@ Fields: org/legal entity, optional linked user/contact, encrypted or separately 
 
 #### `payroll_employments/{employmentId}`
 
-Fields: employee/entity/branch/book, worker category, pay frequency (`monthly | weekly`), salary/hourly rate in minor units, standard hours, overtime policy, job/cost dimensions, tax directives, UIF/SDL flags, benefit/deduction elections, effective dates.
+Fields identify the current employee/entity/branch/book relationship. Pay-relevant changes create immutable effective-dated `payroll_tax_profile_versions`, `employment_term_versions`, and `pay_component_assignment_versions` containing worker category, jurisdiction-defined frequency code, salary/hourly rate in minor units, standard hours, overtime policy, job/cost dimensions, tax directives, UIF/SDL flags, benefit/deduction elections, and effective dates. A locked run pins these versions or an equivalent complete immutable input snapshot.
 
 #### `payroll_rule_versions/{ruleVersionId}`
 
@@ -358,6 +378,10 @@ Jurisdiction-aware earning/allowance/benefit/deduction/employer-contribution def
 #### `pay_runs/{payRunId}`
 
 Fields: full scope, period/calendar, rule versions, input cutoff/hash, status (`draft | calculating | calculated | in_review | approved_locked | reversed | correction`), totals, approval, lock hash, original/correction/reversal links, ledger posting IDs.
+
+#### `payroll_tax_years/{taxYearId}`, `payroll_ytd_openings/{openingId}`, and `payroll_calculation_manifests/{manifestId}`
+
+Tax years pin jurisdiction dates and status. YTD openings provide employee/component/tax/UIF/SDL balances for approved mid-year cutover with source evidence and approval. Large payroll calculation output is written in bounded immutable batches; each batch has a digest in a calculation manifest. The final small head transaction verifies/pins all batch hashes, totals, rule/input versions and approval, then emits bounded balanced payroll journal batches linked by one posting manifest. It never attempts to lock thousands of documents in one Firestore transaction.
 
 #### `pay_run_items/{itemId}` and `pay_run_item_components/{componentLineId}`
 
@@ -389,11 +413,13 @@ Jurisdiction services live behind interfaces such as `TaxEngine`, `PayrollEngine
 
 #### `finance_audit_events/{eventId}`
 
-Immutable event with full scope, aggregate type/id/version, event type, actor and delegation references, request/idempotency/correlation IDs, before/after digests or redacted changes, timestamp, previous event hash, event hash, and reason/approval reference.
+Immutable event with full scope, aggregate type/id/version, event type, actor and delegation references, request/idempotency/correlation IDs, before/after digests or redacted changes, timestamp, monotonic sequence, `previousEventId`, `previousEventHash`, canonical hash payload/schema version, hash algorithm version, event hash, and reason/approval reference.
+
+`finance_audit_heads/{scopeId}` stores the latest event ID/hash/sequence for a book or payroll scope. Event creation and head advancement occur in the same transaction; sequence zero is the one genesis event and the expected head prevents forks. Periodic signed/exported checkpoints provide external tamper evidence. “Immutable” means append-only through finance services plus detectable tampering; Firestore Admin SDK can bypass client rules, so service boundaries, restricted runtime credentials, checkpoint verification, and audit-chain verification jobs are required. Client rules alone are not claimed as privileged-mutation protection.
 
 #### `finance_outbox_events/{eventId}`
 
-Transactionally created delivery record containing event type/version, aggregate reference, redacted payload, creation time, delivery status/attempts. Workers deliver notifications/projections/webhooks after commit. An outbox failure never changes the ledger outcome and can be retried idempotently.
+Transactionally created delivery record containing event type/version, aggregate reference, redacted payload, creation time, delivery status/attempts. An outbox record creation failure aborts the finance transaction. In development/staging, workers use an internal/test sink with external egress disabled for email, client notifications, webhooks, payment providers, and SARS. An outbox delivery failure never changes the committed ledger outcome and can be retried idempotently.
 
 Existing singular `activity` and plural `activities` may receive best-effort user-facing projections from outbox workers, but neither is finance audit evidence.
 
@@ -474,7 +500,7 @@ These repairs may be separate approved implementation slices, but accounting mus
 
 ### Stage 2: opening balances and dual projection
 
-1. Import an approved opening trial balance into one balanced opening journal.
+1. Import an approved opening trial balance into one balanced opening journal plus source-level opening AR/AP `open_items`, customer/supplier credits, payroll YTD openings, and pre-cutover tax state. Control-account totals must reconcile to these subledgers so later settlement of a legacy invoice clears opening AR/AP without recognising revenue or tax twice.
 2. Backfill invoice/expense canonical minor-unit fields and entity/book bindings in resumable, idempotent batches; log invalid/ambiguous records without guessing.
 3. Continue current UI/report behavior.
 4. In staging, generate shadow ledger postings for new finance events and compare projections without exposing them as canonical.
@@ -516,6 +542,7 @@ Enable only after approved ZA rule versions, golden calculation fixtures, accoun
 - time billing route: accounting adapter and portal-safe service.
 - quote conversion and recurring/duplicate invoice routes: idempotency and complete relationship copying.
 - `lib/reports/*` and finance report routes: keep operational reports; add ledger-backed statements separately.
+- `lib/fx/rates.ts` and `app/api/v1/fx/rates/route.ts`: retain as operational reporting compatibility; never use provider-fallback rows as canonical accounting rates.
 - `lib/api/idempotency.ts`: transactional, org/method/body-bound command idempotency.
 - `PortalLayoutClient.tsx`, `PortalSubnav.tsx`, `SettingsNav.tsx`, `next.config.ts`, briefing expense links: Finance navigation and compatibility.
 - `firestore.rules`, `firestore.indexes.json`: deny client finance/payroll collections and add server query indexes.
@@ -579,7 +606,7 @@ For every resource and action, prove:
 - denial leaks no sensitive record and creates no mutation/outbox side effect;
 - payroll anti-enumeration and field redaction;
 - sender/recipient and CRM assignment behavior remains compatible;
-- no endpoint exists for external payment initiation or direct SARS submission/payment.
+- no new finance/payroll endpoint initiates external payment or performs direct SARS submission/payment. Legacy PayPal routes remain outside the new finance/payroll contract, are not exercised by these tests, and must be separately gated/hardened.
 
 ### Compatibility/regression tests
 
