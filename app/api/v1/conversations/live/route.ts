@@ -89,7 +89,8 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
         req.signal.removeEventListener('abort', close)
         try {
           controller.close()
-        } catch {
+        } catch (error) {
+          void error
           // The reader may already have closed the stream.
         }
       }

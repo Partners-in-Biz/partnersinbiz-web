@@ -3145,7 +3145,8 @@ export default function UnifiedChat({
     try {
       const updated = await resizeWorkbenchSessionApi(activeId, workbenchSession.sessionId, cols, rows)
       applyWorkbenchSessionUpdate(updated)
-    } catch {
+    } catch (error) {
+      void error
       // A resize is cosmetic until the next keystroke: never surface it as a session error.
     }
   }, [activeId, workbenchSession?.sessionId, applyWorkbenchSessionUpdate])
@@ -3831,7 +3832,8 @@ export default function UnifiedChat({
             ? current
             : snapshot.messages!)
         }
-      } catch {
+      } catch (error) {
+        void error
         // Ignore malformed frames and let EventSource deliver the next snapshot.
       }
     }
