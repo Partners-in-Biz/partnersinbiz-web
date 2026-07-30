@@ -165,6 +165,32 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const updates = buildProjectTaskUpdateData(body)
   if (!updates.ok) return apiError(updates.error, updates.status ?? 400)
   const updateValue = applyAgentColumnMoveState(existing, updates.value, body)
+  // Agent completion without a reviewer is final — land in Done so Messages and
+  // dependsOn chains advance without a stuck Review badge.
+  if (
+    updateValue.agentStatus === 'done'
+    && body.columnId === undefined
+    && body.reviewStatus === undefined
+  ) {
+    const nextReviewer = typeof updateValue.reviewerAgentId === 'string'
+      ? updateValue.reviewerAgentId
+      : typeof existing.reviewerAgentId === 'string'
+        ? existing.reviewerAgentId
+        : ''
+    const nextReviewerIds = Array.isArray(updateValue.reviewerIds)
+      ? updateValue.reviewerIds
+      : Array.isArray(existing.reviewerIds)
+        ? existing.reviewerIds
+        : []
+    const hasReviewer = Boolean(
+      nextReviewer.trim()
+      || nextReviewerIds.some((id) => typeof id === 'string' && id.trim()),
+    )
+    if (!hasReviewer) {
+      updateValue.columnId = 'done'
+      updateValue.reviewStatus = 'approved'
+    }
+  }
   const touchesApprovalExecutionState = approvalExecutionFields.some((field) => updateValue[field] !== undefined)
   if (!isDirectHumanAdmin(user) && isApprovalGateCard && touchesApprovalExecutionState) {
     return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
@@ -315,14 +341,25 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   }
 
   // Feed the project command session (and auto-wake lead agent when configured).
-  if (projectOrgId && typeof updateValue.agentStatus === 'string' && updateValue.agentStatus !== existing.agentStatus) {
+  // Publish on agentStatus change, or when a card is accepted into Done (even if
+  // agentStatus was already done with a stale Review badge).
+  const agentStatusChanged = typeof updateValue.agentStatus === 'string' && updateValue.agentStatus !== existing.agentStatus
+  const acceptedIntoDone = updateValue.columnId === 'done' && existing.columnId !== 'done'
+  if (projectOrgId && (agentStatusChanged || acceptedIntoDone)) {
     const agentId = typeof updateValue.assigneeAgentId === 'string'
       ? updateValue.assigneeAgentId
       : typeof existing.assigneeAgentId === 'string'
         ? existing.assigneeAgentId
         : null
     const nextTask = { ...existing, ...updateValue, id: taskId }
-    const recovery = (updateValue.agentStatus === 'blocked' || updateValue.agentStatus === 'awaiting-input')
+    const lifecycleStatus = typeof updateValue.agentStatus === 'string'
+      ? updateValue.agentStatus
+      : acceptedIntoDone
+        ? 'done'
+        : typeof existing.agentStatus === 'string'
+          ? existing.agentStatus
+          : 'done'
+    const recovery = (lifecycleStatus === 'blocked' || lifecycleStatus === 'awaiting-input')
       ? buildBlockedTaskRecovery(nextTask)
       : null
     const chatOrigin = isRecord(existing.chatOrigin) ? existing.chatOrigin : null
@@ -337,7 +374,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
       taskId,
       taskTitle: String(existing.title ?? 'Task'),
       agentId,
-      agentStatus: updateValue.agentStatus,
+      agentStatus: lifecycleStatus,
       previousAgentStatus: typeof existing.agentStatus === 'string' ? existing.agentStatus : null,
       summary: typeof agentOutput?.summary === 'string' ? agentOutput.summary : undefined,
       blockingReason: recovery?.blockingReason,

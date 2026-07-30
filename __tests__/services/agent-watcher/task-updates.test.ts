@@ -8,6 +8,7 @@ describe('agent watcher task updates', () => {
     expect(columnForAgentStatus('awaiting-input')).toBe('blocked')
     expect(columnForAgentStatus('blocked')).toBe('blocked')
     expect(columnForAgentStatus('done')).toBe('review')
+    expect(columnForAgentStatus('done', { hasReviewer: false })).toBe('done')
   })
 
   it('builds Firestore updates that include both agentStatus and columnId', () => {
@@ -15,6 +16,11 @@ describe('agent watcher task updates', () => {
       agentStatus: 'done',
       columnId: 'review',
       reviewStatus: 'pending',
+    })
+    expect(agentStatusUpdate('done', { hasReviewer: false })).toEqual({
+      agentStatus: 'done',
+      columnId: 'done',
+      reviewStatus: 'approved',
     })
     expect(agentStatusUpdate('blocked')).toEqual({
       agentStatus: 'blocked',

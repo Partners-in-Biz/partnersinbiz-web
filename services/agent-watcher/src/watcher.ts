@@ -78,6 +78,7 @@ interface TaskData {
   title?: string
   columnId?: string
   reviewerAgentId?: string
+  reviewerIds?: string[]
   reviewStatus?: string
   agentOutput?: { summary?: string }
   status?: string
@@ -800,8 +801,12 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       return
     }
 
+    const hasReviewer = Boolean(
+      (typeof taskData.reviewerAgentId === 'string' && taskData.reviewerAgentId.trim())
+      || (Array.isArray(taskData.reviewerIds) && taskData.reviewerIds.some((id) => typeof id === 'string' && id.trim())),
+    )
     await taskRef.update({
-      ...agentStatusUpdate('done'),
+      ...agentStatusUpdate('done', { hasReviewer }),
       ...(activeRunId ? { agentConversationId: activeRunId } : {}),
       agentRetryCount: FieldValue.delete(),
       agentRetryAt: FieldValue.delete(),
@@ -817,7 +822,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       summary,
       runId: activeRunId,
     })
-    logger.info('task completed', { taskId, agentId })
+    logger.info('task completed', { taskId, agentId, hasReviewer })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     logger.error('dispatchTask threw', { taskId, agentId, error: message })

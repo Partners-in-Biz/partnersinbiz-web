@@ -80,11 +80,13 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     searchParams,
     orgId: drawerOrgId,
   })
-  // The Creative Canvas is an immersive full-bleed surface — drop the centered
-  // max-width and shell gutter so it can use the whole content area.
+  // Creative Canvas and project boards are immersive full-bleed surfaces —
+  // drop the centered max-width so kanban columns can use the whole content area.
   const isCanvasRoute = pathname.startsWith('/admin/creative-canvas')
-  const mainClassName = isCanvasRoute ? 'p-2' : 'px-4 md:px-8 py-8'
-  const innerClassName = isCanvasRoute ? 'max-w-none' : 'max-w-[1400px]'
+  const isProjectsRoute = /\/admin\/org\/[^/]+\/projects(?:\/|$)/.test(pathname)
+  const isFullBleedRoute = isCanvasRoute || isProjectsRoute
+  const mainClassName = isCanvasRoute ? 'p-2' : isProjectsRoute ? 'px-3 md:px-4 py-4 md:py-5' : 'px-4 md:px-8 py-8'
+  const innerClassName = isFullBleedRoute ? 'max-w-none' : 'max-w-[1400px]'
   const messageAction = (
     <>
       <MailboxDrawer onOpen={closeSidebarForMessages} />

@@ -74,10 +74,12 @@ describe('agent watcher task dispatch eligibility', () => {
   })
 
   it('requires reviewer approval before a reviewed dependency resolves', () => {
-    expect(getUnresolvedDependencyIds(['review-pending', 'review-approved', 'ordinary-done'], {
+    expect(getUnresolvedDependencyIds(['review-pending', 'review-approved', 'ordinary-done', 'done-stale-review'], {
       'review-pending': { columnId: 'review', agentStatus: 'done', reviewerAgentId: 'qa-release', reviewStatus: 'pending' },
       'review-approved': { columnId: 'review', agentStatus: 'done', reviewerAgentId: 'qa-release', reviewStatus: 'approved' },
       'ordinary-done': { columnId: 'review', agentStatus: 'done' },
+      // Board Done is an explicit acceptance — even with a stale pending reviewStatus.
+      'done-stale-review': { columnId: 'done', agentStatus: 'done', reviewerAgentId: 'qa-release', reviewStatus: 'pending' },
     })).toEqual(['review-pending'])
   })
 

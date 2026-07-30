@@ -43,6 +43,15 @@ describe('project chat progress', () => {
           reviewStatus: 'pending',
         },
         {
+          id: 'done-with-stale-review',
+          title: 'Inventory models',
+          columnId: 'done',
+          agentStatus: 'done',
+          assigneeAgentId: 'theo',
+          reviewerAgentId: 'qa-release',
+          reviewStatus: 'pending',
+        },
+        {
           id: 'ready-next',
           title: 'Run QA',
           columnId: 'todo',
@@ -50,12 +59,21 @@ describe('project chat progress', () => {
           assigneeAgentId: 'qa-release',
           dependsOn: ['agent-done'],
         },
+        {
+          id: 'waiting-on-stale',
+          title: 'Peet approval gate',
+          columnId: 'todo',
+          agentStatus: 'pending',
+          dependsOn: ['done-with-stale-review'],
+        },
       ],
     })
 
-    expect(progress.counts).toMatchObject({ total: 5, complete: 2, running: 0, needsYou: 0 })
+    expect(progress.counts).toMatchObject({ total: 7, complete: 3, running: 0, needsYou: 0 })
     expect(progress.tasks.find((task) => task.id === 'agent-failed-in-done')?.state).toBe('blocked')
     expect(progress.tasks.find((task) => task.id === 'review-pending')?.state).toBe('review')
+    expect(progress.tasks.find((task) => task.id === 'done-with-stale-review')?.state).toBe('complete')
+    expect(progress.tasks.find((task) => task.id === 'waiting-on-stale')?.state).toBe('ready')
     expect(progress.tasks.find((task) => task.id === 'ready-next')?.state).toBe('ready')
     expect(progress.next).toMatchObject({ id: 'ready-next', state: 'ready' })
     expect(progress.attention).toMatchObject({ id: 'agent-failed-in-done', state: 'blocked' })

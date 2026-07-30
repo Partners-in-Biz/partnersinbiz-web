@@ -73,6 +73,12 @@ export function getTaskStateTone(task: TaskStateLike): TaskStateTone {
     return 'blocked'
   }
 
+  // Board column is the human-visible source of truth. A card in Done must not
+  // keep showing Review just because reviewStatus was left pending after a move.
+  if (columnId === 'done' || status === 'done' || status === 'completed') {
+    return 'done'
+  }
+
   if (
     columnId === 'review' ||
     status === 'review' ||
@@ -89,7 +95,7 @@ export function getTaskStateTone(task: TaskStateLike): TaskStateTone {
     return 'in-progress'
   }
 
-  if (columnId === 'done' || status === 'done' || status === 'completed' || agentStatus === 'done' || approvalStatus === 'approved' || reviewStatus === 'approved') {
+  if (agentStatus === 'done' || approvalStatus === 'approved' || reviewStatus === 'approved') {
     return 'done'
   }
 
