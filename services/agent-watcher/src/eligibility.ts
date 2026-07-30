@@ -100,8 +100,11 @@ export function getTaskDispatchBlocker(
 export function isDependencyResolved(dep: DependencyState | null | undefined): boolean {
   if (!dep) return false
   if (isApprovalGateDependency(dep) && normalizedApprovalStatus(dep.approvalStatus) !== 'approved') return false
+  // Board Done is the accepted handoff signal. Cards can land in Done with a stale
+  // reviewStatus=pending after a manual drag; that must still unblock dependents.
+  if (dep.columnId === 'done') return true
   if (dep.reviewerAgentId) return dep.agentStatus === 'done' && dep.reviewStatus === 'approved'
-  return dep.columnId === 'done' || dep.agentStatus === 'done'
+  return dep.agentStatus === 'done'
 }
 
 function normalizedApprovalStatus(value: unknown): string | null {

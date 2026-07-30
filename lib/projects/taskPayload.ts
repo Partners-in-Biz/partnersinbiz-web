@@ -728,9 +728,21 @@ export function applyAgentColumnMoveState(
   const hasAgent = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
   const columnId = typeof updates.columnId === 'string' ? updates.columnId : null
   const callerDidNotSetStatus = body.agentStatus === undefined
+  const callerDidNotSetReview = body.reviewStatus === undefined
   const currentStatus = typeof existing.agentStatus === 'string' ? existing.agentStatus : null
 
-  if (!hasAgent || !columnId || !callerDidNotSetStatus) return updates
+  if (!columnId) return updates
+
+  // Human/system drag into Done is an explicit acceptance of the work. Keep agent + review
+  // fields aligned so Messages, dependency release, and kanban state all agree.
+  if (columnId === 'done') {
+    const next: Record<string, unknown> = { ...updates }
+    if (hasAgent && callerDidNotSetStatus) next.agentStatus = 'done'
+    if (callerDidNotSetReview) next.reviewStatus = 'approved'
+    return next
+  }
+
+  if (!hasAgent || !callerDidNotSetStatus) return updates
 
   if (columnId === 'todo') {
     const requeueable = currentStatus === 'done' || currentStatus === 'blocked' || currentStatus === 'awaiting-input'
@@ -750,6 +762,14 @@ export function applyAgentColumnMoveState(
       ...updates,
       agentStatus: 'in-progress',
       reviewStatus: null,
+    }
+  }
+
+  if (columnId === 'review') {
+    return {
+      ...updates,
+      ...(hasAgent && callerDidNotSetStatus ? { agentStatus: 'done' } : {}),
+      ...(callerDidNotSetReview ? { reviewStatus: 'pending' } : {}),
     }
   }
 

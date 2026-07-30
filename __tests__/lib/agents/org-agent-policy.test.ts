@@ -200,6 +200,50 @@ describe('linked agent manage + update fields', () => {
     })).toBe(false)
   })
 
+  it('never allows field-edit of marketplace template instances', () => {
+    expect(canManageLinkedAgent({
+      actorUserId: 'member-a',
+      orgId: 'org-a',
+      role: 'member',
+      agent: {
+        provisioningMode: 'linked_device',
+        scopeOrgId: 'org-a',
+        accessScope: 'personal',
+        ownerUserId: 'member-a',
+        agentKind: 'marketplace',
+        marketplaceTemplateId: 'pip',
+      },
+    })).toBe(false)
+    expect(canManageLinkedAgent({
+      actorUserId: 'admin-a',
+      orgId: 'org-a',
+      role: 'owner',
+      agent: {
+        provisioningMode: 'linked_device',
+        scopeOrgId: 'org-a',
+        accessScope: 'organization',
+        agentKind: 'marketplace',
+        marketplaceTemplateId: 'theo',
+      },
+    })).toBe(false)
+  })
+
+  it('allows members to pull org-scoped marketplace agents', () => {
+    expect(canPullAgentToDevice({
+      actorUserId: 'member-a',
+      orgId: 'org-a',
+      orgManager: false,
+      explicitlyGranted: false,
+      agent: {
+        agentId: 'mp-pip-aaaaaaaaaaaa',
+        scopeOrgId: 'org-a',
+        accessScope: 'organization',
+        agentKind: 'marketplace',
+        marketplaceTemplateId: 'pip',
+      },
+    })).toBe(true)
+  })
+
   it('parses linked agent update fields and computes a stable profile revision', () => {
     const current = {
       name: 'Research',

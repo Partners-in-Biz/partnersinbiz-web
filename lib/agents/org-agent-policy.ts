@@ -54,6 +54,8 @@ export function canPullAgentToDevice(input: {
     scopeOrgId?: string
     ownerUserId?: string
     accessScope?: 'personal' | 'organization'
+    agentKind?: string
+    marketplaceTemplateId?: string
   }
   actorUserId: string
   orgId: string
@@ -64,6 +66,14 @@ export function canPullAgentToDevice(input: {
   if (input.agent.scopeOrgId && input.agent.scopeOrgId !== input.orgId) return false
   if (input.agent.ownerUserId === input.actorUserId) return true
   if (input.orgManager && input.agent.accessScope !== 'personal') return true
+  // Marketplace org-scoped instances are pullable by any active org member once created.
+  if (
+    (input.agent.agentKind === 'marketplace' || input.agent.marketplaceTemplateId)
+    && input.agent.accessScope === 'organization'
+    && input.agent.scopeOrgId === input.orgId
+  ) {
+    return true
+  }
   if (input.agent.agentId === 'pip') return true
   return input.explicitlyGranted
 }
@@ -94,12 +104,18 @@ export function canManageLinkedAgent(input: {
     accessScope?: 'personal' | 'organization' | string | null
     ownerUserId?: string | null
     provisioningMode?: string | null
+    agentKind?: string | null
+    marketplaceTemplateId?: string | null
   }
   actorUserId: string
   orgId: string
   role: OrgRole
 }): boolean {
   if (input.agent.provisioningMode && input.agent.provisioningMode !== 'linked_device') {
+    return false
+  }
+  // Marketplace template instances are pull/uninstall only — never field-edit.
+  if (input.agent.agentKind === 'marketplace' || input.agent.marketplaceTemplateId) {
     return false
   }
   if (input.agent.scopeOrgId && input.agent.scopeOrgId !== input.orgId) return false

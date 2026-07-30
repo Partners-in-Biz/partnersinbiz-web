@@ -3,8 +3,19 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
+import {
+  isMarketplaceAgentId,
+  marketplacePolicyVersion,
+  marketplacePolicyVersionForSkills,
+  marketplacePublicSkillsForAgent,
+} from '@/lib/agents/marketplace'
 import { AGENT_SKILL_POLICY, getAgentSkillPolicy } from '@/lib/agents/skill-policy'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
+
+export type SkillPackBuildOptions = {
+  /** Marketplace skill selection override (public allowlist only). */
+  skillNames?: string[] | null
+}
 
 const SKILLS_ROOT = path.join(process.cwd(), 'packs', 'pib-system-skills', 'skills')
 
@@ -45,7 +56,14 @@ function safeSkillName(name: string): string | null {
   return clean
 }
 
-export function skillNamesForAgent(agentId: AgentId): string[] {
+export function skillNamesForAgent(agentId: AgentId, options?: SkillPackBuildOptions): string[] {
+  // Marketplace instances never inherit full PiB operating skill policy.
+  if (isMarketplaceAgentId(agentId)) {
+    return [...new Set(marketplacePublicSkillsForAgent(agentId, options?.skillNames))]
+      .map(safeSkillName)
+      .filter((value): value is string => Boolean(value))
+      .sort()
+  }
   const policy = getAgentSkillPolicy(agentId)
   const names = [...new Set([
     ...(policy?.runtimeSkills ?? []),
@@ -56,12 +74,15 @@ export function skillNamesForAgent(agentId: AgentId): string[] {
   return names.sort()
 }
 
-export function buildSkillPackManifest(agentId: AgentId): SkillPackManifest {
+export function buildSkillPackManifest(agentId: AgentId, options?: SkillPackBuildOptions): SkillPackManifest {
   if (!isValidAgentId(agentId)) throw new Error('skill-pack: invalid agentId')
-  const skillNames = skillNamesForAgent(agentId)
+  const skillNames = skillNamesForAgent(agentId, options)
   const files: SkillPackFile[] = []
   const hash = crypto.createHash('sha256')
-  hash.update(`agent:${agentId}\npolicy:${AGENT_SKILL_POLICY.version}\n`)
+  const policyVersion = isMarketplaceAgentId(agentId)
+    ? marketplacePolicyVersionForSkills(skillNames)
+    : AGENT_SKILL_POLICY.version
+  hash.update(`agent:${agentId}\npolicy:${policyVersion}\n`)
 
   for (const skillName of skillNames) {
     const skillRoot = path.join(SKILLS_ROOT, skillName)
@@ -80,8 +101,10 @@ export function buildSkillPackManifest(agentId: AgentId): SkillPackManifest {
   const packSha256 = hash.digest('hex')
   return {
     agentId,
-    policyVersion: AGENT_SKILL_POLICY.version,
-    catalogVersion: AGENT_SKILL_POLICY.catalogVersion ?? AGENT_SKILL_POLICY.version,
+    policyVersion,
+    catalogVersion: isMarketplaceAgentId(agentId)
+      ? marketplacePolicyVersion()
+      : (AGENT_SKILL_POLICY.catalogVersion ?? AGENT_SKILL_POLICY.version),
     packSha256,
     skillNames,
     files,
@@ -90,12 +113,16 @@ export function buildSkillPackManifest(agentId: AgentId): SkillPackManifest {
 }
 
 /** Build a gzipped tar of the agent skill pack into a temp file. Caller must unlink. */
-export function materializeSkillPackTarGz(agentId: AgentId, expectedContentSha256?: string): {
+export function materializeSkillPackTarGz(
+  agentId: AgentId,
+  expectedContentSha256?: string,
+  options?: SkillPackBuildOptions,
+): {
   manifest: SkillPackManifest
   archivePath: string
   archiveSha256: string
 } {
-  const manifest = buildSkillPackManifest(agentId)
+  const manifest = buildSkillPackManifest(agentId, options)
   if (expectedContentSha256 && expectedContentSha256 !== manifest.packSha256) {
     throw new Error('skill-pack: digest mismatch')
   }

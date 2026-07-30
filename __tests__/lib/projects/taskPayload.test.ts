@@ -543,6 +543,46 @@ describe('project task payload helpers', () => {
       })
     })
 
+    it('PATCH: moving into Done marks agent work done and review approved so dependents can start', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'done' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentColumnMoveState(
+        {
+          assigneeAgentId: 'theo',
+          agentStatus: 'done',
+          reviewStatus: 'pending',
+          reviewerAgentId: 'qa-release',
+        },
+        raw.value,
+        { columnId: 'done' },
+      )
+
+      expect(result).toEqual({
+        columnId: 'done',
+        agentStatus: 'done',
+        reviewStatus: 'approved',
+      })
+    })
+
+    it('PATCH: moving a human task into Done still approves review status', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'done' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentColumnMoveState(
+        { reviewStatus: 'pending' },
+        raw.value,
+        { columnId: 'done' },
+      )
+
+      expect(result).toEqual({
+        columnId: 'done',
+        reviewStatus: 'approved',
+      })
+    })
+
     it('PATCH: explicit agentStatus is respected when moving columns', () => {
       const raw = buildProjectTaskUpdateData({ columnId: 'todo', agentStatus: 'done' })
       expect(raw.ok).toBe(true)

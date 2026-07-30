@@ -23,17 +23,22 @@ jest.mock('../../../services/agent-watcher/src/firestore', () => ({
 }))
 
 jest.mock('../../../services/agent-watcher/src/task-updates', () => ({
-  agentStatusUpdate: (status: string) => ({
-    agentStatus: status,
-    columnId: status === 'pending'
-      ? 'todo'
-      : status === 'done'
-        ? 'review'
-        : status === 'blocked' || status === 'awaiting-input'
-          ? 'blocked'
-          : 'in_progress',
-    ...(status === 'done' ? { reviewStatus: 'pending' } : {}),
-  }),
+  agentStatusUpdate: (status: string, options?: { hasReviewer?: boolean }) => {
+    if (status === 'done' && options?.hasReviewer === false) {
+      return { agentStatus: status, columnId: 'done', reviewStatus: 'approved' }
+    }
+    return {
+      agentStatus: status,
+      columnId: status === 'pending'
+        ? 'todo'
+        : status === 'done'
+          ? 'review'
+          : status === 'blocked' || status === 'awaiting-input'
+            ? 'blocked'
+            : 'in_progress',
+      ...(status === 'done' ? { reviewStatus: 'pending' } : {}),
+    }
+  },
 }))
 
 jest.mock('../../../services/agent-watcher/src/logger', () => ({
@@ -533,11 +538,44 @@ describe('agent watcher dispatchTask', () => {
       title: 'Implement development fix',
     })
 
+    // No reviewer on the task → completion lands in Done so dependents can start.
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'done',
+      columnId: 'done',
+      reviewStatus: 'approved',
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('Implemented and verified'),
+      }),
+    }))
+  })
+
+  it('routes completed agent work into Review when a reviewer is assigned', async () => {
+    const taskRef = makeTaskRef()
+    runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
+      await onRunCreated('run-complete-reviewer-1')
+      return {
+        runId: 'run-complete-reviewer-1',
+        output: 'Implementation complete and ready for review.',
+        error: null,
+      }
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      assigneeAgentId: 'theo',
+      reviewerAgentId: 'qa-release',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Implement with review gate',
+    })
+
     expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
       agentStatus: 'done',
       columnId: 'review',
+      reviewStatus: 'pending',
       agentOutput: expect.objectContaining({
-        summary: expect.stringContaining('Implemented and verified'),
+        summary: expect.stringContaining('ready for review'),
       }),
     }))
   })

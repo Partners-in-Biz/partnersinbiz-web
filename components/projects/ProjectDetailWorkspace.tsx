@@ -359,7 +359,35 @@ export function ProjectDetailWorkspace({
       throw new Error(typeof body?.error === 'string' ? body.error : `Task move failed (${res.status})`)
     }
     taskMutationVersionRef.current += 1
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, columnId: newColumnId, order: newOrder } : t))
+    // Mirror applyAgentColumnMoveState so Done/Review cards do not keep a stale Review tone
+    // while the next 15s refresh catches up.
+    setTasks(prev => prev.map((task) => {
+      if (task.id !== taskId) return task
+      const next: Task = { ...task, columnId: newColumnId, order: newOrder }
+      if (newColumnId === 'done') {
+        if (task.assigneeAgentId) next.agentStatus = 'done'
+        next.reviewStatus = 'approved'
+      } else if (newColumnId === 'review') {
+        if (task.assigneeAgentId) next.agentStatus = 'done'
+        next.reviewStatus = 'pending'
+      } else if (newColumnId === 'in_progress' && task.assigneeAgentId) {
+        next.agentStatus = 'in-progress'
+        next.reviewStatus = null
+      } else if (newColumnId === 'todo' && task.assigneeAgentId && (task.agentStatus === 'done' || task.agentStatus === 'blocked' || task.agentStatus === 'awaiting-input')) {
+        next.agentStatus = 'pending'
+        next.reviewStatus = 'changes-requested'
+      }
+      return next
+    }))
+    setSelectedTask(prev => {
+      if (!prev || prev.id !== taskId) return prev
+      const next: Task = { ...prev, columnId: newColumnId, order: newOrder }
+      if (newColumnId === 'done') {
+        if (prev.assigneeAgentId) next.agentStatus = 'done'
+        next.reviewStatus = 'approved'
+      }
+      return next
+    })
   }, [projectId])
 
   const handleTaskUpdate = useCallback(async (taskId: string, updates: Partial<Task>) => {

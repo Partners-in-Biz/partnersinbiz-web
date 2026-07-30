@@ -68,7 +68,14 @@ function requiresReview(task: ProjectChatTaskSource): boolean {
 }
 
 export function isProjectChatTaskComplete(task: ProjectChatTaskSource): boolean {
-  if (!task.assigneeAgentId) return task.columnId === 'done'
+  // Failed/blocked work never counts as complete, even if someone parked it in Done.
+  if (task.agentStatus === 'failed' || task.agentStatus === 'blocked' || task.agentStatus === 'awaiting-input') {
+    return false
+  }
+  // Explicit Done column is the human-accepted completion signal used by the board.
+  // This also heals cards that were dragged to Done while reviewStatus was still pending.
+  if (task.columnId === 'done') return true
+  if (!task.assigneeAgentId) return false
   if (requiresReview(task)) return task.reviewStatus === 'approved'
   return task.agentStatus === 'done'
 }
