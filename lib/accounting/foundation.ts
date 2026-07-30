@@ -50,6 +50,16 @@ export function assertCreateVersion(expectedVersion: number, resource: string): 
   if (expectedVersion !== 0) throw new FinanceValidationError(`${resource} create expectedVersion must be 0`)
 }
 
+export function assertEnumValue<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  field: string,
+): asserts value is T {
+  if (typeof value !== 'string' || !allowed.includes(value as T)) {
+    throw new FinanceValidationError(`${field} is invalid`)
+  }
+}
+
 function assertClosedKeys(value: object, allowed: ReadonlySet<string>, resource: string): void {
   const unknown = Object.keys(value).filter((key) => !allowed.has(key))
   if (unknown.length > 0) {
@@ -239,20 +249,29 @@ export function validatePostingContext(input: PostingValidationInput): FinanceAp
     throw new FinanceValidationError('Accounting period not found in exact scope')
   }
   if (book.status !== 'active') throw new FinanceValidationError('Accounting book is not active')
+  const postingEpoch = parseCanonicalDate(input.postingDate, 'postingDate')
+  if (book.cutoverAt && postingEpoch < parseCanonicalDate(book.cutoverAt, 'book.cutoverAt')) {
+    throw new FinanceValidationError('Posting date is before the approved book cutover date')
+  }
+  if (book.bookType === 'consolidation' &&
+      !['consolidation', 'elimination', 'journal_reversal'].includes(input.sourceType)) {
+    throw new FinanceValidationError('Consolidation books accept only consolidation or elimination postings')
+  }
   if (book.functionalCurrency !== input.currency.toUpperCase()) throw new FinanceValidationError('Journal currency does not match book functional currency')
   if (policy.status !== 'approved' || !policy.immutable || policy.orgId !== scope.orgId ||
       policy.legalEntityId !== scope.legalEntityId || policy.bookId !== scope.bookId ||
-      policy.accountingBasis !== book.accountingBasis || policy.taxPointPolicyId !== book.taxPointPolicyId) {
-    throw new FinanceValidationError('Approved book policy version does not match book')
+      !policy.accountingBasis || !policy.taxPointPolicyId) {
+    throw new FinanceValidationError('Approved book policy version is invalid for the book')
   }
-  const postingEpoch = parseCanonicalDate(input.postingDate, 'postingDate')
   const policyFrom = parseCanonicalDate(policy.effectiveFrom, 'policy.effectiveFrom')
   const policyTo = policy.effectiveTo ? parseCanonicalDate(policy.effectiveTo, 'policy.effectiveTo') : undefined
   if (postingEpoch < policyFrom || (policyTo !== undefined && postingEpoch > policyTo)) {
     throw new FinanceValidationError('Posting date is outside the approved policy effective range')
   }
-  assertPeriodAllowsPosting(period, input.postingDate,
-    approval.action === 'journal.reverse' || input.adjustmentApproved === true)
+  if (input.expectedApprovalAction === 'journal.reverse' && period.status !== 'open') {
+    throw new FinanceValidationError('Journal reversals require an open correction period')
+  }
+  assertPeriodAllowsPosting(period, input.postingDate, input.adjustmentApproved === true)
   if (input.accounts.length !== input.lines.length) throw new FinanceValidationError('Every journal line requires a loaded account')
   input.lines.forEach((line, index) => {
     const account = input.accounts[index]

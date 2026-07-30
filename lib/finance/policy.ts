@@ -8,6 +8,8 @@ export type FinanceAction =
   | 'journal.reverse'
   | 'period.adjust'
   | 'period.close'
+  | 'period.reopen'
+  | 'book-policy.approve'
 
 const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'foundation.configure': ['finance_admin'],
@@ -17,6 +19,8 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'journal.reverse': ['accountant', 'finance_approver', 'finance_admin'],
   'period.adjust': ['accountant', 'finance_approver', 'finance_admin'],
   'period.close': ['finance_approver', 'finance_admin'],
+  'period.reopen': ['finance_approver', 'finance_admin'],
+  'book-policy.approve': ['finance_approver', 'finance_admin'],
 }
 
 const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/

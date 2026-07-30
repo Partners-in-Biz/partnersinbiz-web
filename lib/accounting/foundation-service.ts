@@ -56,7 +56,7 @@ export interface CreateBookCommand extends FinanceScope, CommandIdentity {
   id: string; code: string; name: string; branchId?: string; bookType: AccountingBook['bookType']
   functionalCurrency: string; accountingBasis: AccountingBasis; jurisdictionCode: string
   taxPointPolicyId: string; defaultControlAccountIds: AccountingBook['defaultControlAccountIds']
-  status: AccountingBook['status']; expectedVersion: 0
+  status: AccountingBook['status']; cutoverAt?: string; expectedVersion: 0
 }
 export interface CreateBookPolicyVersionCommand extends Required<FinanceScope>, CommandIdentity {
   id: string; versionNumber: number; accountingBasis: AccountingBasis; taxPointPolicyId: string

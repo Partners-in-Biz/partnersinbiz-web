@@ -24,6 +24,7 @@ import {
   assertClosedPostJournalCommand,
   assertCreateVersion,
   assertDefaultControlAccountConfiguration,
+  assertEnumValue,
   assertPostedJournalContentHash,
   assertStoredLineIdentity,
   buildReversalLines,
@@ -96,10 +97,7 @@ function storageRef(db: Firestore, collection: string, scope: FinanceScope, logi
   return db.collection(collection).doc(scopedStorageId(scope, logicalId))
 }
 function approvalPolicyAction(action: FinanceApprovalAction): FinanceAction {
-  if (action === 'journal.post') return 'journal.post'
-  if (action === 'journal.reverse') return 'journal.reverse'
-  if (action === 'period.adjust') return 'period.adjust'
-  return 'period.close'
+  return action
 }
 
 function assertFutureApprovalExpiry(expiresAt: string | undefined, now: string): void {
@@ -129,6 +127,8 @@ export class FirestoreFinanceFoundationRepository {
     if (!Number.isInteger(command.fiscalYearStartMonth) || command.fiscalYearStartMonth < 1 || command.fiscalYearStartMonth > 12) {
       throw new FinanceValidationError('fiscalYearStartMonth must be between 1 and 12')
     }
+    assertEnumValue(command.defaultAccountingBasis, ['cash', 'accrual'], 'defaultAccountingBasis')
+    assertEnumValue(command.status, ['draft', 'active'], 'legalEntity.status')
     const now = this.now(); const code = requiredText(command.code, 'code').toUpperCase()
     const entity: LegalEntity = {
       ...scope, id: command.id, code, legalName: requiredText(command.legalName, 'legalName'),
@@ -147,6 +147,7 @@ export class FirestoreFinanceFoundationRepository {
     const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId }
     assertCreateVersion(command.expectedVersion, 'Branch')
     authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    assertEnumValue(command.status, ['active'], 'branch.status')
     const now = this.now(); const code = requiredText(command.code, 'code').toUpperCase()
     const branch: FinanceBranch = {
       ...scope, id: command.id, code, name: requiredText(command.name, 'name'), status: command.status,
@@ -156,7 +157,9 @@ export class FirestoreFinanceFoundationRepository {
     const parentRef = storageRef(this.db, 'legal_entities', scope, command.legalEntityId)
     return this.createWithClaim(actor, 'finance_branches', branch, command, 'branch.create', 'branch_code', scope,
       code, 'finance_branch', 'finance.branch.created.v1', async (tx) => {
-        const parent = await tx.get(parentRef); entityScope(parent.data(), scope, 'Legal entity', command.legalEntityId)
+        const parent = await tx.get(parentRef)
+        entityScope(parent.data(), scope, 'Legal entity', command.legalEntityId)
+        if (parent.data()?.status !== 'active') throw new FinanceValidationError('Legal entity is not active')
       })
   }
 
@@ -164,13 +167,17 @@ export class FirestoreFinanceFoundationRepository {
     const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.id }
     assertCreateVersion(command.expectedVersion, 'Accounting book')
     authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    assertEnumValue(command.bookType, ['primary', 'branch', 'management', 'consolidation'], 'bookType')
+    assertEnumValue(command.accountingBasis, ['cash', 'accrual'], 'accountingBasis')
+    assertEnumValue(command.status, ['draft', 'active'], 'book.status')
+    if (command.cutoverAt) parseCanonicalDate(command.cutoverAt, 'cutoverAt')
     const now = this.now(); const code = requiredText(command.code, 'code').toUpperCase()
     const book: AccountingBook = {
       ...scope, id: command.id, code, name: requiredText(command.name, 'name'), branchId: command.branchId,
       bookType: command.bookType, functionalCurrency: requiredText(command.functionalCurrency, 'functionalCurrency').toUpperCase(),
       accountingBasis: command.accountingBasis, jurisdictionCode: requiredText(command.jurisdictionCode, 'jurisdictionCode').toUpperCase(),
       taxPointPolicyId: requiredText(command.taxPointPolicyId, 'taxPointPolicyId'),
-      defaultControlAccountIds: clean(command.defaultControlAccountIds), status: command.status,
+      defaultControlAccountIds: clean(command.defaultControlAccountIds), status: command.status, cutoverAt: command.cutoverAt,
       schemaVersion: 1, version: 1, createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
     }
     const entityScopeValue = { orgId: scope.orgId, legalEntityId: scope.legalEntityId }
@@ -183,7 +190,11 @@ export class FirestoreFinanceFoundationRepository {
         const refs = branchRef ? [entityRef, branchRef] : [entityRef]
         const snapshots = await tx.getAll(...refs)
         entityScope(snapshots[0].data(), entityScopeValue, 'Legal entity', command.legalEntityId)
-        if (branchRef) entityScope(snapshots[1].data(), entityScopeValue, 'Branch', command.branchId)
+        if (snapshots[0].data()?.status !== 'active') throw new FinanceValidationError('Legal entity is not active')
+        if (branchRef) {
+          entityScope(snapshots[1].data(), entityScopeValue, 'Branch', command.branchId)
+          if (snapshots[1].data()?.status !== 'active') throw new FinanceValidationError('Branch is not active')
+        }
       })
   }
 
@@ -207,7 +218,7 @@ export class FirestoreFinanceFoundationRepository {
       const [existing, idem] = await tx.getAll(ref, idemRef)
       if (idem.exists) {
         this.assertIdempotency(idem.data(), persistedActor, scope, 'finance.approval.create', command, payloadDigest, now)
-        const stored = record<FinanceApprovalRecord>(existing, 'Idempotency approval result')
+        const stored = this.idempotentSnapshot<FinanceApprovalRecord>(idem.data(), 'approval')
         exactScope(stored, scope, 'Idempotency approval result', command.id)
         if (!stored.immutable || stored.schemaVersion !== 1) throw new FinanceValidationError('Idempotency approval result is corrupt')
         return stored
@@ -229,7 +240,7 @@ export class FirestoreFinanceFoundationRepository {
         'finance.approval.recorded.v1', now, { reason: approval.reason, aggregateDigest: canonicalDigest(approval) })
       tx.create(ref, approval)
       tx.create(idemRef, this.idempotencyData(persistedActor, scope, 'finance.approval.create', command, payloadDigest,
-        approval.id, now))
+        approval.id, now, approval))
       this.writeEvidence(tx, evidence)
       return approval
     })
@@ -243,6 +254,7 @@ export class FirestoreFinanceFoundationRepository {
     assertCreateVersion(command.expectedVersion, 'Book policy version')
     authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
     assertSafeInteger(command.versionNumber, 'versionNumber', 1)
+    assertEnumValue(command.accountingBasis, ['cash', 'accrual'], 'policy.accountingBasis')
     if (!Number.isInteger(command.currencyPrecision) || command.currencyPrecision < 0 || command.currencyPrecision > 6) {
       throw new FinanceValidationError('Policy currencyPrecision is invalid')
     }
@@ -272,9 +284,6 @@ export class FirestoreFinanceFoundationRepository {
         const book = record<AccountingBook>(snap, 'Accounting book')
         exactScope(book, scope, 'Accounting book', command.bookId)
         if (calendarSnap.exists) exactScope(calendarSnap.data(), scope, 'Policy calendar head')
-        if (book.accountingBasis !== policy.accountingBasis || book.taxPointPolicyId !== policy.taxPointPolicyId) {
-          throw new FinanceValidationError('Policy does not match book')
-        }
         if (policiesSnap.docs.some((doc) => policyRangesOverlap(doc.data() as BookPolicyVersion, policy))) {
           throw new FinanceValidationError('Approved book policy effective range overlaps an existing policy')
         }
@@ -293,6 +302,7 @@ export class FirestoreFinanceFoundationRepository {
     assertSafeInteger(command.fiscalYear, 'fiscalYear', 1); assertSafeInteger(command.periodNumber, 'periodNumber', 1)
     const starts = parseCanonicalDate(command.startsAt, 'startsAt'); const ends = parseCanonicalDate(command.endsAt, 'endsAt')
     if (starts > ends) throw new FinanceValidationError('Period start must not be after period end')
+    assertEnumValue(command.status, ['open'], 'period.status')
     const now = this.now()
     const period: AccountingPeriod = {
       ...scope, id: command.id, fiscalYear: command.fiscalYear, periodNumber: command.periodNumber,
@@ -315,7 +325,7 @@ export class FirestoreFinanceFoundationRepository {
       ])
       if (idemSnap.exists) {
         this.assertIdempotency(idemSnap.data(), persistedActor, scope, 'period.create', command, payloadDigest, now)
-        const stored = record<AccountingPeriod>(existing, 'Idempotency period result')
+        const stored = this.idempotentSnapshot<AccountingPeriod>(idemSnap.data(), 'period create')
         exactScope(stored, scope, 'Idempotency period result', command.id)
         return stored
       }
@@ -332,12 +342,9 @@ export class FirestoreFinanceFoundationRepository {
         'finance.period.created.v1', now, { aggregateDigest: canonicalDigest(period) })
       tx.create(claimRef, clean({ schemaVersion: 1, claimType: 'book_period_number', normalizedKey: [command.fiscalYear, command.periodNumber],
         ...scope, aggregateId: period.id, createdAt: now, createdBy: persistedActor.uid }))
-      tx.create(idemRef, this.idempotencyData(persistedActor, scope, 'period.create', command, payloadDigest, period.id, now))
+      tx.create(idemRef, this.idempotencyData(persistedActor, scope, 'period.create', command, payloadDigest, period.id, now, period))
       tx.create(recordRef, period)
       tx.set(calendarRef, { ...scope, revision: Number(calendarSnap.data()?.revision ?? 0) + 1, updatedAt: now }, { merge: false })
-      if (period.status === 'open' && !book.currentPeriodId) {
-        tx.update(bookRef, { currentPeriodId: period.id, updatedAt: now, updatedBy: persistedActor.uid })
-      }
       this.writeEvidence(tx, evidence)
       return period
     })
@@ -373,20 +380,20 @@ export class FirestoreFinanceFoundationRepository {
 
   async changePeriodStatus(actor: FinanceActorContext, command: ChangePeriodStatusCommand): Promise<AccountingPeriod> {
     const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
-    authorizeFinanceAction(actor, scope, 'period.close', this.now())
+    const operation = command.status === 'open' ? 'period.reopen' as const : 'period.close' as const
+    authorizeFinanceAction(actor, scope, operation, this.now())
     const reason = requiredText(command.reason, 'reason'); const now = this.now()
     const ref = storageRef(this.db, 'accounting_periods', scope, command.periodId)
-    const operation = command.status === 'open' ? 'period.reopen' : 'period.close'
     const idemRef = this.idempotencyRef(actor, scope, command.idempotencyKey)
     const payloadDigest = canonicalDigest(clean(command))
     return this.db.runTransaction(async (tx) => {
-      const persistedActor = await revalidateFinanceActorInTransaction(tx, this.db, actor, scope, 'period.close', now)
+      const persistedActor = await revalidateFinanceActorInTransaction(tx, this.db, actor, scope, operation, now)
       const [snap, idemSnap] = await tx.getAll(ref, idemRef)
       const period = record<AccountingPeriod>(snap, 'Accounting period')
       exactScope(period, scope, 'Accounting period', command.periodId)
       if (idemSnap.exists) {
         this.assertIdempotency(idemSnap.data(), persistedActor, scope, operation, command, payloadDigest, now)
-        return period
+        return this.idempotentSnapshot<AccountingPeriod>(idemSnap.data(), 'period transition')
       }
       if (period.version !== command.expectedVersion) throw new FinanceValidationError('Accounting period version conflict')
       const reopening = period.status !== 'open' && command.status === 'open'
@@ -406,7 +413,7 @@ export class FirestoreFinanceFoundationRepository {
       const evidence = await this.prepareEvidence(tx, persistedActor, scope, 'accounting_period', period.id, updated.version,
         'finance.period.status-changed.v1', now, { requestId: command.requestId, idempotencyKey: command.idempotencyKey,
           reason, approval, aggregateDigest: canonicalDigest(updated) })
-      tx.create(idemRef, this.idempotencyData(persistedActor, scope, operation, command, payloadDigest, updated.id, now))
+      tx.create(idemRef, this.idempotencyData(persistedActor, scope, operation, command, payloadDigest, updated.id, now, updated))
       tx.set(ref, updated, { merge: false }); this.writeEvidence(tx, evidence); return updated
     })
   }
@@ -438,12 +445,22 @@ export class FirestoreFinanceFoundationRepository {
       assertStoredLineIdentity(original.id, original.periodId, originalLines)
       if (canonicalDigest(originalLines) !== original.lineDigest) throw new FinanceValidationError('Original journal line digest does not match')
       assertPostedJournalContentHash({ ...original, lines: originalLines })
+      const policyCandidatesSnap = await tx.get(this.db.collection('book_policy_versions')
+        .where('orgId', '==', scope.orgId).where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId))
+      const postingEpoch = parseCanonicalDate(command.postingDate, 'postingDate')
+      const effectivePolicies = policyCandidatesSnap.docs.map((doc) => doc.data() as BookPolicyVersion)
+        .filter((policy) => policy.status === 'approved' && policy.immutable &&
+          postingEpoch >= parseCanonicalDate(policy.effectiveFrom, 'policy.effectiveFrom') &&
+          (!policy.effectiveTo || postingEpoch <= parseCanonicalDate(policy.effectiveTo, 'policy.effectiveTo')))
+      if (effectivePolicies.length !== 1) {
+        throw new FinanceValidationError('Reversal posting date must resolve to one unique approved policy')
+      }
       return this.postInTransaction(tx, actor, {
         id: command.reversalJournalId, ...scope, periodId: command.periodId, sourceType: 'journal_reversal',
         sourceId: original.id, sourceVersion: original.version, postingPurpose: 'reversal', entryType: 'reversal',
         postingDate: command.postingDate, documentDate: command.postingDate,
         description: `Reversal of ${original.description}`, currency: original.currency,
-        policyVersionId: original.policyVersionId, expectedVersion: command.expectedVersion, requestId: command.requestId,
+        policyVersionId: effectivePolicies[0].id, expectedVersion: command.expectedVersion, requestId: command.requestId,
         idempotencyKey: command.idempotencyKey, approvalId: command.approvalId, lines: buildReversalLines(originalLines),
         reversesJournalEntryId: original.id, reversalReason: reason,
       }, financeApprovalSubjectDigest('journal.reverse', command))
@@ -469,7 +486,8 @@ export class FirestoreFinanceFoundationRepository {
     const payloadDigest = canonicalDigest(clean(command))
     const journalRef = storageRef(this.db, 'journal_entries', scope, command.id)
     const idempotencyRef = this.idempotencyRef(persistedActor, scope, command.idempotencyKey)
-    const sourceRef = this.db.collection('finance_unique_claims').doc(scopedClaimId('posting_source', scope,
+    const sourceRef = this.db.collection('finance_unique_claims').doc(scopedClaimId('posting_source',
+      { orgId: scope.orgId, legalEntityId: scope.legalEntityId },
       [command.sourceType, command.sourceId, command.sourceVersion, command.postingPurpose]))
     const reversalRef = command.reversesJournalEntryId
       ? this.db.collection('finance_unique_claims').doc(scopedClaimId('journal_reversal', scope, command.reversesJournalEntryId))
@@ -503,13 +521,24 @@ export class FirestoreFinanceFoundationRepository {
           stored.hashAlgorithmVersion !== HASH_ALGORITHM_VERSION) {
         throw new FinanceValidationError('Idempotency result metadata or line digest does not match')
       }
-      return { ...stored, lines }
+      const result = { ...stored, lines }
+      assertPostedJournalContentHash(result)
+      return result
     }
     if (journalSnap.exists) throw new FinanceValidationError('Journal already exists')
     if (sourceSnap.exists) throw new FinanceValidationError('Posting source already exists')
     if (reversalRef && snaps.at(-1)?.exists) throw new FinanceValidationError('Journal already has a direct reversal')
     if (sequenceSnap.exists) exactScope(sequenceSnap.data(), scope, 'Journal sequence head')
     const book = record<AccountingBook>(bookSnap, 'Accounting book')
+    const entityScopeValue = { orgId: scope.orgId, legalEntityId: scope.legalEntityId }
+    const entitySnap = await tx.get(storageRef(this.db, 'legal_entities', entityScopeValue, scope.legalEntityId))
+    entityScope(entitySnap.data(), entityScopeValue, 'Legal entity', scope.legalEntityId)
+    if (entitySnap.data()?.status !== 'active') throw new FinanceValidationError('Legal entity is not active')
+    if (book.branchId) {
+      const branchSnap = await tx.get(storageRef(this.db, 'finance_branches', entityScopeValue, book.branchId))
+      entityScope(branchSnap.data(), entityScopeValue, 'Branch', book.branchId)
+      if (branchSnap.data()?.status !== 'active') throw new FinanceValidationError('Branch is not active')
+    }
     const period = record<AccountingPeriod>(periodSnap, 'Accounting period')
     const policy = resolveUniqueEffectivePolicy(
       policyCandidatesSnap.docs.map((doc) => doc.data() as BookPolicyVersion), command.postingDate, command.policyVersionId)
@@ -565,7 +594,7 @@ export class FirestoreFinanceFoundationRepository {
     if (reversalRef) tx.create(reversalRef, { schemaVersion: 1, claimType: 'journal_reversal', ...scope,
       aggregateId: journal.id, originalJournalId: command.reversesJournalEntryId, createdAt: now, createdBy: persistedActor.uid })
     tx.create(idempotencyRef, this.idempotencyData(persistedActor, scope, 'journal.post', command,
-      payloadDigest, journal.id, now))
+      payloadDigest, journal.id, now, journal))
     tx.set(sequenceRef, { ...scope, value: entryNumber, updatedAt: now }, { merge: false })
     tx.create(journalRef, clean({ ...journal, lines: undefined }))
     lines.forEach((line) => tx.create(storageRef(this.db, 'journal_lines', scope, line.id), line))
@@ -601,6 +630,25 @@ export class FirestoreFinanceFoundationRepository {
       throw new FinanceValidationError('Persisted approval is missing, expired, mismatched, or invalid')
     }
     if (approval.approvedBy === actorId) throw new FinanceValidationError('Approval violates separation of duties')
+    const [approverMembership, approverAssignment] = await tx.getAll(
+      this.db.collection('orgMembers').doc(`${scope.orgId}_${approval.approvedBy}`),
+      this.db.collection('finance_role_assignments').doc(approval.approverAssignmentId),
+    )
+    const membership = approverMembership.data()
+    const assignment = approverAssignment.data()
+    const moduleEnabled = membership?.accessPolicy?.modules?.billing === true || membership?.accessPolicy?.modules?.finance === true
+    const nowEpoch = parseIsoTimestamp(now, 'approval revalidation timestamp')
+    const assignmentEffective = assignment?.status === 'active' &&
+      (!assignment.effectiveFrom || parseIsoTimestamp(assignment.effectiveFrom, 'assignment.effectiveFrom') <= nowEpoch) &&
+      (!assignment.effectiveTo || parseIsoTimestamp(assignment.effectiveTo, 'assignment.effectiveTo') >= nowEpoch)
+    const assignmentCoversScope = assignment?.id === approval.approverAssignmentId &&
+      assignment?.userId === approval.approvedBy && assignment?.orgId === scope.orgId &&
+      assignment?.legalEntityId === scope.legalEntityId &&
+      (assignment?.scopeMode === 'entity' || (assignment?.scopeMode === 'book' && assignment?.bookId === scope.bookId)) &&
+      assignment?.role === approval.approverRole && ['finance_approver', 'finance_admin'].includes(assignment?.role)
+    if (membership?.status !== 'active' || !moduleEnabled || !assignmentEffective || !assignmentCoversScope) {
+      throw new FinanceValidationError('Persisted approval approver authority is no longer effective')
+    }
     return { approvalId: approval.id, approvedBy: approval.approvedBy, approvedAt: approval.approvedAt,
       action: approval.action, reason: approval.reason }
   }
@@ -632,7 +680,7 @@ export class FirestoreFinanceFoundationRepository {
       const [existing, claimSnap, idemSnap] = await tx.getAll(ref, claimRef, idemRef)
       if (idemSnap.exists) {
         this.assertIdempotency(idemSnap.data(), persistedActor, scope, operation, command, payloadDigest, now)
-        const stored = record<T>(existing, `Idempotency ${aggregateType} result`)
+        const stored = this.idempotentSnapshot<T>(idemSnap.data(), aggregateType)
         exactScope(stored, scope, `Idempotency ${aggregateType} result`, value.id)
         return stored
       }
@@ -645,7 +693,7 @@ export class FirestoreFinanceFoundationRepository {
       metadata.deferredWrite?.(tx)
       tx.create(claimRef, clean({ schemaVersion: 1, claimType, normalizedKey, ...claimScope,
         aggregateId: value.id, createdAt: now, createdBy: persistedActor.uid }))
-      tx.create(idemRef, this.idempotencyData(persistedActor, scope, operation, command, payloadDigest, value.id, now))
+      tx.create(idemRef, this.idempotencyData(persistedActor, scope, operation, command, payloadDigest, value.id, now, value))
       tx.create(ref, clean(value)); this.writeEvidence(tx, evidence)
       return value
     })
@@ -665,14 +713,24 @@ export class FirestoreFinanceFoundationRepository {
     payloadDigest: string,
     aggregateId: string,
     now: string,
+    resultSnapshot: unknown,
   ): DocumentData {
+    const snapshot = clean(structuredClone(resultSnapshot))
     return clean({
       schemaVersion: 1, canonicalPayloadVersion: CANONICAL_PAYLOAD_VERSION,
       hashAlgorithmVersion: HASH_ALGORITHM_VERSION, payloadDigest, aggregateId, operation,
       actorId: actor.uid, orgId: scope.orgId, scopeIdentity: canonicalScopeIdentity(scope),
       requestId: requiredText(command.requestId, 'requestId'), idempotencyKey: requiredText(command.idempotencyKey, 'idempotencyKey'),
       expiresAt: new Date(Date.parse(now) + 24 * 60 * 60 * 1000).toISOString(), createdAt: now,
+      resultSnapshot: snapshot, resultDigest: canonicalDigest(snapshot),
     })
+  }
+
+  private idempotentSnapshot<T>(data: DocumentData | undefined, resource: string): T {
+    if (!data || data.resultSnapshot === undefined || canonicalDigest(data.resultSnapshot) !== data.resultDigest) {
+      throw new FinanceValidationError(`Idempotency ${resource} result snapshot is corrupt`)
+    }
+    return structuredClone(data.resultSnapshot) as T
   }
 
   private assertIdempotency(

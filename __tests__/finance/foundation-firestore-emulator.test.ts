@@ -144,6 +144,13 @@ describe('finance foundation Firestore emulator', () => {
     expect((await db.collection('journal_entries').get()).empty).toBe(true)
   })
 
+  test('revalidates the persisted approver authority inside the posting transaction', async () => {
+    const input = command('revoked-approver'); await approve('journal.post', input, input.approvalId)
+    await db.collection('finance_role_assignments').doc('approver-assignment').update({ status: 'revoked' })
+    await expect(repository.postJournal(actor, input)).rejects.toThrow('approver authority is no longer effective')
+    expect((await db.collection('journal_entries').get()).empty).toBe(true)
+  })
+
   test('rejects reserved sourceType and control-account authority bypasses', async () => {
     const sourceBypass = { ...command('source-bypass'), sourceType: 'journal_reversal' }
     await expect(repository.postJournal(actor, sourceBypass)).rejects.toThrow('reverseJournal')
