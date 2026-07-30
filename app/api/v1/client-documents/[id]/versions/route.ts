@@ -5,7 +5,11 @@ import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
-import { assertClientDocumentDataAccess, getAccessibleClientDocument } from '@/lib/client-documents/access'
+import {
+  assertClientDocumentDataAccess,
+  canManageClientDocument,
+  getAccessibleClientDocument,
+} from '@/lib/client-documents/access'
 import { deserializeBlocksFromFirestore, serializeBlocksForFirestore } from '@/lib/client-documents/firestore-blocks'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import { CANONICAL_DOCUMENT_BLOCK_TYPES } from '@/lib/client-documents/types'
@@ -275,7 +279,11 @@ export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, c
   return apiSuccess(versions)
 })
 
-export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
+// Draft version writes must match document create/PATCH: holder creators and
+// admins/agents can land content. withAuth('admin') alone 403s user-delegation
+// sessions for client-role members (e.g. Stean-owned Saaiman proposal) even
+// when GET versions succeeds via creator/share access.
+export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object' || Array.isArray(body)) return apiError('Invalid JSON', 400)
@@ -312,6 +320,12 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
       const docData = snap.data() as Partial<ClientDocument>
       const access = assertClientDocumentDataAccess(docData, user)
       if (!access.ok) return access
+      if (!canManageClientDocument(docData, user)) {
+        return {
+          ok: false as const,
+          response: apiError('Only the document creator or platform staff can create versions', 403),
+        }
+      }
 
       const created = actorFrom(user)
       const updated = lastActorFrom(user)

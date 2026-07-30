@@ -213,7 +213,7 @@ All responses: `{ success: boolean, data: ... }` — always unwrap `body.data ??
 | Method | Route | Body | Notes |
 |---|---|---|---|
 | `GET` | `/api/v1/client-documents/[id]/versions` | — | List all versions |
-| `POST` | `/api/v1/client-documents/[id]/versions` | `{ blocks, theme, changeSummary? }` | Create new draft version |
+| `POST` | `/api/v1/client-documents/[id]/versions` | `{ blocks, theme, changeSummary? }` | Create new draft version. Allowed for document creator (incl. user-delegation with client role) and admin/ai staff after `canManageClientDocument`. Non-creator clients get 403. Prefer `X-Org-Id` = document `orgId` (usually `pib-platform-owner` for PiB-held drafts). |
 | `GET` | `/api/v1/client-documents/[id]/versions/[versionId]` | — | Fetch specific version |
 | `GET` | `/api/v1/portal/documents/count` | — | Portal-visible document count for the active org |
 | `GET` | `/api/v1/portal/documents/unresolved-count` | — | Portal-visible unresolved document comments/suggestions count |
@@ -372,8 +372,9 @@ When a shared spec has client feedback:
    1. `GET /api/v1/client-documents/[id]/versions` and confirm the **current** version has filled content (not empty template strings).
    2. At least the primary blocks (`hero`/`summary` plus the sections you claimed to write) must be non-empty.
    3. If `POST …/versions` returns 400, surface the exact `error` string, fix the payload, and retry once. Never invent a success URL.
-   4. Do not create additional document shells after a versions failure — update the existing document id.
-   5. Only then return the portal URL. If verification fails, say the document shell exists but content is **not** landed.
+   4. If `POST …/versions` returns **403**, check: (a) you are using the injected user-delegation token (not a mismatched org key), (b) `X-Org-Id` matches the document holder `orgId` from GET (often `pib-platform-owner`, not the CRM client slug), (c) the acting human is the document `createdBy` or platform admin — shared-only collaborators cannot write versions. Do not create a duplicate shell.
+   5. Do not create additional document shells after a versions failure — update the existing document id.
+   6. Only then return the portal URL. If verification fails, say the document shell exists but content is **not** landed.
 8. **Publish/send to client:** only after blockers are resolved and Peet approves, call `POST /api/v1/client-documents/[id]/publish`. This moves the document to `client_review` and enables share. For system clients, verify both the PiB CRM company Documents tab and the client/org Documents list.
 9. **Countersign proposals/SOWs when needed:** if Peet wants a visible PiB signature, use the admin document editor `Countersign` action or call `POST /api/v1/client-documents/[id]/sign` after publish. Default values are Peet Stander, Founder, The Partners in Business. The shared/rendered document appends an `Agreement signatures` section showing PiB signature state and the client's platform acceptance.
 
