@@ -993,7 +993,7 @@ export function shouldAdoptServerMessageDuringFinalizePoll(
 ): boolean {
   const status = serverMessage?.status
   if (!status) return false
-  return status !== 'pending' && status !== 'streaming' && status !== 'waiting_approval'
+  return status !== 'queued' && status !== 'pending' && status !== 'streaming' && status !== 'waiting_approval'
 }
 
 export function formatLiveMessageRefreshError(error: unknown): string {
@@ -1661,6 +1661,7 @@ export default function UnifiedChat({
     const sorted = messages.slice().sort((a, b) => tsSeconds(b.createdAt) - tsSeconds(a.createdAt))
     return sorted.find((message) =>
       message.role === 'assistant' && Boolean(message.runId) && (
+        message.status === 'queued' ||
         message.status === 'pending' ||
         message.status === 'streaming' ||
         message.status === 'waiting_approval' ||
@@ -1687,6 +1688,7 @@ export default function UnifiedChat({
   const hasInFlightAgentRun = useMemo(
     () => messages.some((message) =>
       message.role === 'assistant' && Boolean(message.runId) && (
+        message.status === 'queued' ||
         message.status === 'pending' ||
         message.status === 'streaming' ||
         message.status === 'waiting_approval'
@@ -4116,6 +4118,17 @@ export default function UnifiedChat({
           return
         }
 
+        if (status === 'queued') {
+          pollFailuresRef.current[msgId] = 0
+          if (shouldPaint()) {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === msgId ? { ...m, status: 'queued', runId } : m)),
+            )
+          }
+          scheduleFinalizePoll(convId, msgId, runId, agentId, attempts)
+          return
+        }
+
         if (!status || status === 'running') {
           pollFailuresRef.current[msgId] = 0
           // Safety net: if SSE died, the DB may already have the completed reply.
@@ -4258,7 +4271,7 @@ export default function UnifiedChat({
     for (const m of messages) {
       if (
         m.role === 'assistant' &&
-        (m.status === 'pending' || m.status === 'streaming') &&
+        (m.status === 'queued' || m.status === 'pending' || m.status === 'streaming') &&
         m.runId &&
         !resumedRunsRef.current.has(m.id)
       ) {
@@ -4267,7 +4280,7 @@ export default function UnifiedChat({
         const agentId: AgentId = knownAgentIds.includes(dispatchedAgentId as AgentId)
           ? (dispatchedAgentId as AgentId)
           : 'pip'
-        startEventStream(m.id, m.runId, agentId, activeId)
+        if (m.status !== 'queued') startEventStream(m.id, m.runId, agentId, activeId)
         pollFinalize(activeId, m.id, m.runId, agentId)
       }
     }
@@ -5764,6 +5777,7 @@ export default function UnifiedChat({
     activeRuntimeMessage?.runId &&
     activeId &&
     (activeRuntimeMessage?.status === 'pending' ||
+      activeRuntimeMessage?.status === 'queued' ||
       activeRuntimeMessage?.status === 'streaming' ||
       activeRuntimeMessage?.status === 'waiting_approval'),
   )
@@ -7276,6 +7290,7 @@ export default function UnifiedChat({
                   : null
 
               const isPending =
+                m.status === 'queued' ||
                 m.status === 'pending' ||
                 m.status === 'streaming' ||
                 m.status === 'waiting_approval'

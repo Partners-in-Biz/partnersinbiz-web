@@ -12,7 +12,7 @@ type ChatMessage = {
   id: string
   role: Role
   content: string
-  status?: 'pending' | 'streaming' | 'completed' | 'failed' | 'waiting_approval'
+  status?: 'queued' | 'pending' | 'streaming' | 'completed' | 'failed' | 'waiting_approval'
   runId?: string
   error?: string
   events?: ChatEvent[]
@@ -193,7 +193,12 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
           body: JSON.stringify({ runId, events }),
         })
         const body = await res.json()
-        if (body.data?.pending) {
+        if (body.data?.pending || body.data?.status === 'queued' || body.data?.status === 'running') {
+          if (body.data?.status === 'queued') {
+            setMessages((prev) =>
+              prev.map((m) => (m.id === msgId ? { ...m, status: 'queued', runId } : m)),
+            )
+          }
           pollRef.current = setTimeout(() => pollFinalize(convId, msgId, runId, attempts + 1), POLL_INTERVAL)
           return
         }
@@ -470,7 +475,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                   {m.role === 'assistant' && (() => {
                     const displayEvents = liveEvents[m.id]?.length ? liveEvents[m.id] : (m.events ?? [])
                     if (!displayEvents.length) return null
-                    const isLive = m.status === 'pending' || m.status === 'streaming' || m.status === 'waiting_approval'
+                    const isLive = m.status === 'queued' || m.status === 'pending' || m.status === 'streaming' || m.status === 'waiting_approval'
                     if (isLive) {
                       return (
                         <div className="mb-1 space-y-1 text-xs text-[var(--color-pib-text-muted)]">
@@ -517,6 +522,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
                     }`}
                   >
                     {m.status === 'pending' && !m.content && <span className="opacity-70 italic">Thinking…</span>}
+                    {m.status === 'queued' && !m.content && <span className="opacity-70 italic">Queued — waiting for linked-computer capacity…</span>}
                     {m.status === 'waiting_approval' && !m.content && <span className="opacity-70 italic">Paused — awaiting tool approval…</span>}
                     <ChatMessageContent content={m.content || (m.status === 'failed' && m.error) || ''} />
                   </div>

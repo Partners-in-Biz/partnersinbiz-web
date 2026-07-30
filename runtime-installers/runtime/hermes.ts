@@ -229,14 +229,19 @@ export function isLocalHermesGatewayDrainingError(error: unknown): boolean {
   return /gateway_draining|draining existing work/i.test(message)
 }
 
-/** Default window to wait out Hermes drain/restart before giving up on start. */
-export const LOCAL_HERMES_START_RETRY_DEFAULT_MS = 90_000
+export function isLocalHermesCapacityError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return /rate_limit_exceeded|capacity window|runtime capacity|runtime restarting/i.test(message)
+}
+
+/** Match the server's durable queue-start deadline. */
+export const LOCAL_HERMES_START_RETRY_DEFAULT_MS = 45 * 60_000
 
 function localHermesStartRetryBudgetMs(env: RuntimeEnv): number {
   const raw = Number(env.PIB_LOCAL_HERMES_START_RETRY_MS ?? LOCAL_HERMES_START_RETRY_DEFAULT_MS)
   if (!Number.isFinite(raw)) return LOCAL_HERMES_START_RETRY_DEFAULT_MS
-  // 0 disables drain retries (tests / fail-fast). Cap at 10 minutes.
-  return Math.min(Math.max(0, Math.floor(raw)), 10 * 60_000)
+  // 0 disables retries (tests / fail-fast). Never exceed the public queue window.
+  return Math.min(Math.max(0, Math.floor(raw)), 45 * 60_000)
 }
 
 function gatewayDrainRetryDelayMs(response: Response, attempt: number): number {
@@ -257,8 +262,16 @@ export async function callLocalHermes(
   env: RuntimeEnv = process.env,
   fetcher: typeof fetch = fetch,
   wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-  onEvents?: (events: unknown[]) => void | Promise<void>,
+  helpersOrOnEvents: {
+    onEvents?: (events: unknown[]) => void | Promise<void>
+    onQueued?: (reason: 'agent_capacity' | 'gateway_draining' | 'runtime_restarting') => void | Promise<void>
+    onStarted?: (localHermesRunId: string) => void | Promise<void>
+    resumeRunId?: string
+  } | ((events: unknown[]) => void | Promise<void>) = {},
 ): Promise<unknown> {
+  const helpers = typeof helpersOrOnEvents === 'function'
+    ? { onEvents: helpersOrOnEvents }
+    : helpersOrOnEvents
   const cleanAgent = cleanAgentId(agentId)
   const route = localHermesRoutes(env).find((candidate) => candidate.agentId === cleanAgent)
   if (!route) throw new Error(`Hermes agent ${cleanAgent} is not installed on this computer`)
@@ -279,40 +292,85 @@ export async function callLocalHermes(
   const startDeadline = Date.now() + startRetryBudgetMs
   let startText = ''
   let drainAttempts = 0
-  while (true) {
-    const response = await fetcher(`${route.baseUrl}/v1/runs`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', ...authHeaders(route) },
-      body: startBody,
-    })
+  let runId = ''
+  if (helpers.resumeRunId && /^[A-Za-z0-9_-]{1,128}$/.test(helpers.resumeRunId)) {
+    while (!runId) {
+      let resumed: Response
+      try {
+        resumed = await fetcher(`${route.baseUrl}/v1/runs/${encodeURIComponent(helpers.resumeRunId)}`, {
+          headers: authHeaders(route),
+          signal: AbortSignal.timeout(15_000),
+        })
+      } catch {
+        if (Date.now() >= startDeadline) throw new Error(`Local Hermes ${cleanAgent} runtime restarting; reattachment retry window exhausted`)
+        await helpers.onQueued?.('runtime_restarting')
+        await wait(Math.min(1_000 * (2 ** Math.min(drainAttempts, 3)), 5_000))
+        drainAttempts += 1
+        continue
+      }
+      if (resumed.ok) {
+        runId = helpers.resumeRunId
+      } else if (resumed.status === 404) {
+        break
+      } else {
+        const detail = await resumed.text().catch(() => '')
+        const draining = isLocalHermesGatewayDrainingBody(resumed.status, detail)
+        if (draining && Date.now() < startDeadline) {
+          await helpers.onQueued?.('gateway_draining')
+          await wait(gatewayDrainRetryDelayMs(resumed, drainAttempts))
+          drainAttempts += 1
+          continue
+        }
+        throw hermesHttpFailure(resumed.status, detail, `Local Hermes ${cleanAgent} reattachment failed`)
+      }
+    }
+  }
+  while (!runId) {
+    let response: Response
+    try {
+      response = await fetcher(`${route.baseUrl}/v1/runs`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...authHeaders(route) },
+        body: startBody,
+      })
+    } catch {
+      if (Date.now() >= startDeadline) throw new Error(`Local Hermes ${cleanAgent} runtime restarting; start retry window exhausted`)
+      await helpers.onQueued?.('runtime_restarting')
+      await wait(Math.min(1_000 * (2 ** Math.min(drainAttempts, 3)), 5_000))
+      drainAttempts += 1
+      continue
+    }
     startText = await response.text().catch(() => '')
-    if (response.ok) break
-    if (
-      isLocalHermesGatewayDrainingBody(response.status, startText)
-      && Date.now() < startDeadline
-    ) {
+    if (response.ok) {
+      const started = (() => {
+        try { return startText ? JSON.parse(startText) as Record<string, unknown> : null } catch { return null }
+      })()
+      runId = typeof started?.run_id === 'string' ? started.run_id : typeof started?.id === 'string' ? started.id : ''
+      break
+    }
+    const draining = isLocalHermesGatewayDrainingBody(response.status, startText)
+    const atCapacity = response.status === 429 && /rate_limit_exceeded|capacity/i.test(startText)
+    if ((draining || atCapacity) && Date.now() < startDeadline) {
+      await helpers.onQueued?.(draining ? 'gateway_draining' : 'agent_capacity')
       await wait(gatewayDrainRetryDelayMs(response, drainAttempts))
       drainAttempts += 1
       continue
     }
     throw hermesHttpFailure(response.status, startText, `Local Hermes ${cleanAgent} refused to start`)
   }
-  const started = (() => {
-    try { return startText ? JSON.parse(startText) as Record<string, unknown> : null } catch { return null }
-  })()
-  const runId = typeof started?.run_id === 'string' ? started.run_id : typeof started?.id === 'string' ? started.id : ''
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(runId)) {
-    const detail = hermesFailureDetail(started) || truncateDetail(startText)
+    const detail = truncateDetail(startText)
     throw new Error(detail
       ? `Local Hermes ${cleanAgent} did not return a run id (${detail})`
       : `Local Hermes ${cleanAgent} did not return a run id`)
   }
+  await helpers.onStarted?.(runId)
   const rawTimeout = Number(env.PIB_LOCAL_HERMES_RUN_TIMEOUT_MS ?? 30 * 60_000)
   const timeoutMs = Number.isFinite(rawTimeout) ? Math.min(Math.max(rawTimeout, 30_000), 24 * 60 * 60_000) : 30 * 60_000
   const deadline = Date.now() + timeoutMs
   const abort = new AbortController()
   const autoApprove = Boolean(body.yolo)
-  const eventsTask = onEvents || autoApprove
+  const eventsTask = helpers.onEvents || autoApprove
     ? forwardLocalHermesEvents(route, runId, fetcher, abort.signal, async (events) => {
       if (autoApprove) {
         for (const raw of events) {
@@ -327,7 +385,7 @@ export async function callLocalHermes(
           }
         }
       }
-      if (onEvents) await onEvents(events)
+      if (helpers.onEvents) await helpers.onEvents(events)
     })
     : Promise.resolve()
   try {

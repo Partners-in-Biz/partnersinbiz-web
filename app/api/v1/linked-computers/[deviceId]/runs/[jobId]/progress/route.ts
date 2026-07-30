@@ -18,7 +18,7 @@ export async function handleLinkedRunProgress(req: NextRequest, deviceId: string
       credentialVersion: identity.credentialVersion,
       jobId,
       receipt: body.receipt,
-      event: 'progress',
+      event: body.receipt.event === 'queued' ? 'queue' : 'progress',
       ...(Array.isArray(body.events) ? { events: body.events } : {}),
     })
     return NextResponse.json({ success: true, data: { accepted: true } }, { headers: noStoreHeaders })

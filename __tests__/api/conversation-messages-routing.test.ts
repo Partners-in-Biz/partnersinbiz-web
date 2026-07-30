@@ -614,7 +614,8 @@ describe('unified conversation message routing', () => {
       projectReplicaId: 'replica-project-runtime',
       relativeFolder: 'clients/partners/website',
     }))
-    expect(mockWaitForLinkedRunClaim).toHaveBeenCalledWith(expect.objectContaining({ jobId: 'job-linked-1' }))
+    expect(mockWaitForLinkedRunClaim).not.toHaveBeenCalled()
+    expect(mockCancelLinkedRun).not.toHaveBeenCalled()
     expect(mockGetAgentDispatchHermesProfileLink).not.toHaveBeenCalled()
     expect(mockCreateHermesRun).not.toHaveBeenCalled()
   })

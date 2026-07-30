@@ -146,6 +146,7 @@ describe('UnifiedChat upload and finalize error handling', () => {
     expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'completed' })).toBe(true)
     expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'failed' })).toBe(true)
     expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'pending' })).toBe(false)
+    expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'queued' })).toBe(false)
     expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'streaming' })).toBe(false)
     expect(shouldAdoptServerMessageDuringFinalizePoll({ status: 'waiting_approval' })).toBe(false)
     expect(shouldAdoptServerMessageDuringFinalizePoll(undefined)).toBe(false)

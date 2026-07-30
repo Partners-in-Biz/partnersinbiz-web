@@ -39,6 +39,8 @@ export interface LinkedRunJob {
   createdAtMs: number
   updatedAtMs: number
   expiresAtMs: number
+  /** A queued run must be accepted by Hermes before this deadline. */
+  queueExpiresAtMs: number
   leaseExpiresAtMs?: number
   leaseToken?: string
   claimedAtMs?: number
@@ -46,9 +48,14 @@ export interface LinkedRunJob {
   acceptedRuntimeVersion?: string
   acceptedMachineLabel?: string
   acceptanceReceipt?: LinkedRunReceipt
+  queueReceipt?: LinkedRunReceipt
+  /** Authenticated local Hermes run identity used for restart reattachment. */
+  localHermesRunId?: string
   conversationId: string
   assistantMessageId: string
   agentId: string
+  /** Immutable approval/delegation namespace bound when the message was dispatched. */
+  delegationId?: string
 }
 
 export interface LinkedRunReceipt {
@@ -59,8 +66,10 @@ export interface LinkedRunReceipt {
   credentialVersion: number
   attempt: number
   leaseToken: string
-  event: 'accepted' | 'progress' | 'completed' | 'failed' | 'cancelled'
-  outcome: 'accepted' | 'running' | 'completed' | 'failed' | 'cancelled'
+  event: 'queued' | 'accepted' | 'progress' | 'completed' | 'failed' | 'cancelled'
+  outcome: 'queued' | 'accepted' | 'running' | 'completed' | 'failed' | 'cancelled'
+  queueReason?: 'runtime_capacity' | 'agent_capacity' | 'gateway_draining' | 'runtime_restarting'
+  localHermesRunId?: string
   timestamp: string
   acceptedAt: string
   toolStartedAt: string
@@ -113,6 +122,7 @@ function assertIdentity(job: LinkedRunJob, event: { deviceId: string; credential
 
 export function transitionLinkedRun(job: LinkedRunJob, event:
   | { type: 'claim'; deviceId: string; credentialVersion: number; nowMs: number; leaseMs: number }
+  | { type: 'queue'; deviceId: string; credentialVersion: number; nowMs: number; attempt: number; leaseToken: string; leaseMs: number }
   | { type: 'progress'; deviceId: string; credentialVersion: number; nowMs: number; attempt: number; leaseToken: string; leaseMs: number }
   | { type: 'complete'; deviceId: string; credentialVersion: number; nowMs: number; outcome: 'completed' | 'failed' | 'cancelled'; attempt: number; leaseToken: string }
 ): LinkedRunJob {
@@ -129,6 +139,7 @@ export function transitionLinkedRun(job: LinkedRunJob, event:
   if (!['claimed', 'running'].includes(job.status)) throw new Error('linked computers: run not claimed')
   if (event.attempt !== job.attempt || event.leaseToken !== job.leaseToken) throw new Error('linked computers: run lease mismatch')
   if ((job.leaseExpiresAtMs ?? 0) < event.nowMs) throw new Error('linked computers: run lease expired')
+  if (event.type === 'queue') return { ...job, status: 'claimed', leaseExpiresAtMs: event.nowMs + event.leaseMs, updatedAtMs: event.nowMs }
   if (event.type === 'progress') return { ...job, status: 'running', leaseExpiresAtMs: event.nowMs + event.leaseMs, updatedAtMs: event.nowMs }
   return { ...job, status: event.outcome, encryptedPayload: null, completedAtMs: event.nowMs, updatedAtMs: event.nowMs }
 }
@@ -251,9 +262,13 @@ export function sanitizeLinkedResult(value: string): string {
 }
 
 export function linkedRunReceiptPayload(receipt: Omit<LinkedRunReceipt, 'signature'> | LinkedRunReceipt): string {
-  return [receipt.jobId, receipt.requestId, receipt.deviceId, receipt.mappingId, String(receipt.credentialVersion), String(receipt.attempt), receipt.leaseToken,
+  const legacy = [receipt.jobId, receipt.requestId, receipt.deviceId, receipt.mappingId, String(receipt.credentialVersion), String(receipt.attempt), receipt.leaseToken,
     receipt.event, receipt.outcome, receipt.timestamp, receipt.acceptedAt, receipt.toolStartedAt, receipt.runtimeVersion, receipt.machineLabel,
-    receipt.outputSha256, String(receipt.outputBytes), receipt.errorSha256, String(receipt.errorBytes)].join('\n')
+    receipt.outputSha256, String(receipt.outputBytes), receipt.errorSha256, String(receipt.errorBytes)]
+  if (receipt.queueReason !== undefined || receipt.localHermesRunId !== undefined) {
+    legacy.push(receipt.queueReason ?? '', receipt.localHermesRunId ?? '')
+  }
+  return legacy.join('\n')
 }
 
 export function requireLinkedRunReceipt(job: LinkedRunJob, receipt: LinkedRunReceipt, publicKey: string, nowMs = Date.now(), body: { output?: string; error?: string } = {}): LinkedRunReceipt {
@@ -267,6 +282,9 @@ export function requireLinkedRunReceipt(job: LinkedRunJob, receipt: LinkedRunRec
     || Math.abs(nowMs - receiptMs) > MAX_RECEIPT_SKEW_MS || acceptedMs > toolMs || toolMs > receiptMs
     || acceptedMs < (job.claimedAtMs ?? job.createdAtMs) - 60_000 || !receipt.runtimeVersion || !receipt.machineLabel
     || receipt.event !== receipt.outcome && !(receipt.event === 'progress' && receipt.outcome === 'running')
+    || (receipt.localHermesRunId !== undefined && !/^[A-Za-z0-9_-]{1,128}$/.test(receipt.localHermesRunId))
+    || (receipt.event === 'queued' && !receipt.queueReason)
+    || (receipt.event === 'accepted' && receipt.localHermesRunId !== undefined && !receipt.localHermesRunId)
     || !/^[A-Za-z0-9_-]{16,1024}$/.test(receipt.signature)) throw new Error('linked computers: invalid run receipt')
   const output = body.output ?? ''
   const error = body.error ?? ''
@@ -289,5 +307,6 @@ export function publicClaimedLinkedRun(job: LinkedRunJob, payload: LinkedRunPayl
     ...(payload.images?.length ? { images: payload.images } : {}),
     ...(payload.provider ? { provider: payload.provider } : {}),
     ...(payload.yolo ? { yolo: true } : {}),
+    ...(job.localHermesRunId ? { localHermesRunId: job.localHermesRunId } : {}),
   }
 }

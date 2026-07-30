@@ -29,7 +29,7 @@ import {
 import { createHermesRun } from '@/lib/hermes/server'
 import type { AuthorizedLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
 import { parseLinkedRuntimeVersion } from '@/lib/linked-computers/runtime-targets'
-import { cancelLinkedRun, enqueueLinkedRun, waitForLinkedRunClaim } from '@/lib/linked-computers/run-queue-store'
+import { enqueueLinkedRun } from '@/lib/linked-computers/run-queue-store'
 import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
 import { authorizeWorkspaceRuntime, type AuthorizedWorkspaceRuntime } from '@/lib/workspaces/runtime-authorization'
 import {
@@ -941,36 +941,39 @@ export const POST = withAuth(
           conversationId: convId,
           assistantMessageId: assistantMessage.id,
           agentId,
+          ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
         })
-        try {
-          const claimed = await waitForLinkedRunClaim(queued)
-          const verifiedAcceptance = claimed.acceptanceReceipt
-          if (!verifiedAcceptance) throw new Error('linked computers: signed acceptance required')
-          const acceptedDevice = {
-            deviceId: verifiedAcceptance.deviceId,
-            runtimeTargetId: linkedComputerBinding.runtimeTargetId,
-            machineLabel: verifiedAcceptance.machineLabel,
-            runtimeVersion: verifiedAcceptance.runtimeVersion,
-            acceptedAt: verifiedAcceptance.acceptedAt,
-            outcome: 'accepted',
-          }
-          await messagesCollection(convId).doc(assistantMessage.id).update({
-            runId: queued.jobId, dispatchAgentId: agentId, acceptedDevice,
-            linkedDeviceId: linkedComputerBinding.deviceId,
-            linkedDeviceMappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
-            linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
-            ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
-          })
-          return apiSuccess({ message, assistantMessage: { ...assistantMessage, runId: queued.jobId, dispatchAgentId: agentId, acceptedDevice }, runId: queued.jobId, dispatchAgentId: agentId }, 201)
-        } catch {
-          const cancelled = await cancelLinkedRun(queued.jobId, 'claim timeout')
-          if (!cancelled.won) {
-            return apiSuccess({ message, assistantMessage: { ...assistantMessage, runId: queued.jobId, dispatchAgentId: agentId, status: cancelled.status }, runId: queued.jobId, dispatchAgentId: agentId }, 201)
-          }
-          const error = 'The linked computer did not accept the run in time. It may be restarting, offline, or busy — confirm the selected computer is online and retry in a few seconds.'
-          await messagesCollection(convId).doc(assistantMessage.id).update({ content: '', status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_claim_timeout' })
-          return apiSuccess({ message, assistantMessage: { ...assistantMessage, status: 'failed', error, workspaceDispatchFailureCode: 'linked_device_claim_timeout' } }, 201)
+        const queuedAssistant = {
+          ...assistantMessage,
+          status: 'queued' as const,
+          runId: queued.jobId,
+          dispatchAgentId: agentId,
+          dispatchRuntimeTargetId: linkedComputerBinding.runtimeTargetId,
+          dispatchRuntimeKind: 'linked-computer',
+          dispatchRuntimeLabel: linkedComputerBinding.machineLabel,
+          linkedDeviceId: linkedComputerBinding.deviceId,
+          linkedDeviceMappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
+          linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
+          ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
         }
+        await messagesCollection(convId).doc(assistantMessage.id).update({
+          status: 'queued',
+          runId: queued.jobId,
+          dispatchAgentId: agentId,
+          dispatchRuntimeTargetId: linkedComputerBinding.runtimeTargetId,
+          dispatchRuntimeKind: 'linked-computer',
+          dispatchRuntimeLabel: linkedComputerBinding.machineLabel,
+          linkedDeviceId: linkedComputerBinding.deviceId,
+          linkedDeviceMappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
+          linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
+          ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
+        })
+        return apiSuccess({
+          message,
+          assistantMessage: queuedAssistant,
+          runId: queued.jobId,
+          dispatchAgentId: agentId,
+        }, 201)
       }
       let selectedWorkingDirectory: string | undefined
       let selectedWorkingDirectoryRoot: string | undefined

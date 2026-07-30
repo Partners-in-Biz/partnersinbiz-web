@@ -33,6 +33,7 @@ import { buildThinkingTrace, mergeChatEvents } from './thinking-trace'
 type JsonObject = Record<string, unknown>
 
 export type ConversationRunFinalizeStatus =
+  | 'queued'
   | 'completed'
   | 'failed'
   | 'running'
