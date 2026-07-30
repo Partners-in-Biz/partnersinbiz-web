@@ -35,11 +35,13 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockTransactionGet.mockResolvedValue({ exists: true, data: () => ({ orgId: 'org-1', planningDiscovery: { enforced: true } }) })
   mockPlanningBlocker.mockReturnValue(null)
-  mockPreparePlanningTransition.mockImplementation((_project: unknown, _actor: unknown, reason: string) => ({
-    ok: true,
-    state: { enforced: true, status: 'interviewing', staleReason: reason },
-    event: { type: 'reopened' },
-  }))
+  mockPreparePlanningTransition.mockImplementation((_project: unknown, input: { reason: string; reopenWhenReady?: boolean }) => input.reopenWhenReady === false
+    ? { allowed: true }
+    : {
+        allowed: true,
+        state: { enforced: true, status: 'interviewing', staleReason: input.reason },
+        event: { type: 'reopened' },
+      })
   mockStartPlanningTransition.mockReturnValue({
     ok: true,
     state: { enforced: true, status: 'interviewing', revision: 1 },
@@ -52,7 +54,7 @@ beforeEach(() => {
   }))
 })
 
-it('creates a project-linked client document and invalidates planning in one transaction', async () => {
+it('creates a project-linked client document without reopening the confirmed brief', async () => {
   const { createClientDocument } = await import('@/lib/client-documents/store')
 
   const created = await createClientDocument({
@@ -67,13 +69,10 @@ it('creates a project-linked client document and invalidates planning in one tra
   expect(mockTransactionGet).toHaveBeenCalledWith(projectRef)
   expect(mockTransactionSet).toHaveBeenCalledWith(documentRef, expect.objectContaining({ title: 'Project requirements' }))
   expect(mockTransactionSet).toHaveBeenCalledWith(versionRef, expect.objectContaining({ documentId: 'doc-1' }))
-  expect(mockTransactionUpdate).toHaveBeenCalledWith(projectRef, expect.objectContaining({
-    planningDiscovery: expect.objectContaining({ staleReason: 'client_document.created' }),
+  expect(mockTransactionUpdate).not.toHaveBeenCalledWith(projectRef, expect.objectContaining({
+    planningDiscovery: expect.anything(),
   }))
-  expect(mockTransactionSet).toHaveBeenCalledWith(planningEventRef, expect.objectContaining({
-    projectId: 'project-1',
-    reason: 'client_document.created',
-  }))
+  expect(mockTransactionSet).not.toHaveBeenCalledWith(planningEventRef, expect.anything())
   expect(mockBatchCommit).not.toHaveBeenCalled()
 })
 
