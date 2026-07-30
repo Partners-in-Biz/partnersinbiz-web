@@ -362,11 +362,13 @@ describe('agent skill policy manifest', () => {
       'partnersinbiz/collaboration-runtime',
       'partnersinbiz/crm-sales',
       'partnersinbiz/data-analyst',
+      'partnersinbiz/daily-workflow',
       'partnersinbiz/docs-lead',
       'partnersinbiz/evidence-ledger',
       'partnersinbiz/google-workspace',
       'partnersinbiz/platform-ops',
       'partnersinbiz/project-management',
+      'partnersinbiz/interactive-project-planning',
       'partnersinbiz/properties',
       'partnersinbiz/research-intelligence',
       'partnersinbiz/research/open-notebook',
@@ -374,12 +376,14 @@ describe('agent skill policy manifest', () => {
       'partnersinbiz/studio-artifact-review',
       'partnersinbiz/studio-context-gather',
       'partnersinbiz/studio-release-handoff',
+      'partnersinbiz/agent-skills/interview-me',
+      'partnersinbiz/agent-skills/planning-and-task-breakdown',
       'productivity/google-workspace',
       'productivity/powerpoint',
     ])
 
-    expect(installed.pib).toEqual(AGENT_SKILL_POLICY.agents.docs.runtimeSkills)
-    expect(installed.global).toEqual(AGENT_SKILL_POLICY.agents.docs.globalSkills)
+    expect(installed.pib.slice().sort()).toEqual(AGENT_SKILL_POLICY.agents.docs.runtimeSkills.slice().sort())
+    expect(installed.global.slice().sort()).toEqual(AGENT_SKILL_POLICY.agents.docs.globalSkills.slice().sort())
     expect(computeAgentSkillDrift({
       agentId: 'docs',
       installedPibSkills: installed.pib,

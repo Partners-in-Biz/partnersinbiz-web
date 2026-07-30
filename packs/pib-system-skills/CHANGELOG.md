@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.5 — 2026-07-30
+
+- Add canonical `daily-workflow` v1.2.0 to the core Partners in Biz system skill pack.
+- Allowlist the skill for all 12 managed agents and include it in every linked/client agent skill-pack artifact.
+- Reconcile natural-language “start day” and “end the day” behavior with live workspace resolution, repository-specific git rules, task/wiki evidence, and verified process handling.
+- Remove the unsafe legacy assumptions that routine closeout should blindly stage all files or delete dependencies and build artifacts.
+- Add policy, pack, linked-runtime, contract, installer, and drift coverage for all-agent and client delivery.
+
 ## 0.1.2 — 2026-07-23
 
 - Deepen three stub growth skills into route-mapped skills (no v0.1.2 tag/release

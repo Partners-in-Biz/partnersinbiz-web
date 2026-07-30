@@ -150,9 +150,9 @@ Document these as "Pending Peet actions" in `hot.md` whenever you ship something
 
 ### Daily routine
 
-At session start: invoke `daily-workflow` skill with "start day" → pulls latest code, reads hot.md + index.md + latest log, suggests work, boots dev server.
+At session start: invoke `daily-workflow` with "start day" → resolves live workspace context, follows repository-safe sync rules, reads hot.md + index.md + latest log, suggests work, and starts a verified dev server only when useful.
 
-At session end: invoke `daily-workflow` skill with "end day" → commits + pushes, updates `hot.md`, writes session log, cleans up node_modules.
+At session end: invoke `daily-workflow` with "end day" → verifies the work, updates task/wiki evidence, and commits/pushes only when requested or required by repository instructions. It never deletes dependencies or build artifacts during routine closeout.
 
 ### When you're stuck
 

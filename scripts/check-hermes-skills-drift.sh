@@ -62,11 +62,13 @@ while IFS= read -r skill; do
   fi
 done < <(node -e "const m=require('$PACK/manifest.json'); console.log([...m.tiers.core.skills,...m.tiers.growth.skills].join('\n'))")
 
-# Every agent must mount system-auth
+# Every agent must mount the all-agent baseline skills
 while IFS= read -r agent; do
   [ -z "$agent" ] && continue
-  [ -e "$HERMES_ROOT/agent-skills/$agent/partnersinbiz/system-auth" ] \
-    || fail "Mac agent-skills/$agent missing system-auth"
+  for skill in system-auth daily-workflow; do
+    [ -e "$HERMES_ROOT/agent-skills/$agent/partnersinbiz/$skill" ] \
+      || fail "Mac agent-skills/$agent missing $skill"
+  done
 done < <(node -e "console.log(Object.keys(require('$POLICY').agents).join('\n'))")
 
 # Stale Claude content trees should not be live copies
@@ -83,9 +85,13 @@ set -e
 DRIFT=0
 fail(){ echo "DRIFT: $*"; DRIFT=1; }
 [ -d /var/lib/hermes/pib-system-skills/skills ] || fail "VPS pack missing"
-[ -e /var/lib/hermes/pib-skills/partnersinbiz/system-auth ] || fail "VPS shared cache missing system-auth"
+for skill in system-auth daily-workflow; do
+  [ -e "/var/lib/hermes/pib-skills/partnersinbiz/$skill" ] || fail "VPS shared cache missing $skill"
+done
 for a in pip theo maya sage nora ads qa-release support data docs seo sales; do
-  [ -e /var/lib/hermes/agent-skills/$a/partnersinbiz/system-auth ] || fail "VPS agent $a missing system-auth"
+  for skill in system-auth daily-workflow; do
+    [ -e "/var/lib/hermes/agent-skills/$a/partnersinbiz/$skill" ] || fail "VPS agent $a missing $skill"
+  done
 done
 # profiles must point only at agent-skills
 for a in pip theo maya; do

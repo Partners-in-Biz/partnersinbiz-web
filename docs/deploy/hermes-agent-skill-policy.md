@@ -1,7 +1,7 @@
 # Hermes Agent Skill Policy
 
-Current policy version: `2026-07-24.system-skills-v0.1.3`
-Catalog version: `2026-07-24.system-skills-v0.1.3`
+Current policy version: `2026-07-30.system-skills-v0.1.5`
+Catalog version: `2026-07-30.system-skills-v0.1.5`
 
 Partners in Biz now treats every agent skill as a cataloged, owned, versioned runtime capability. The platform team is 12 specialists:
 
@@ -40,6 +40,8 @@ The manifest is consumed by:
 - `.github/workflows/sync-vps-skills.yml` and `scripts/install-vps-skills.sh` for skill sync
 - `scripts/seed-agent-team.ts` and `scripts/seed-agent-dispatch-configs.ts` for specialist bootstrap metadata
 - `services/agent-watcher` for the enabled-agent dispatch model
+
+`daily-workflow` v1.2.0 is a core all-agent baseline. It recognises natural-language start/end-day requests, resolves the live workspace instead of stale client paths, and forbids routine destructive cleanup or blind stage-all behavior. It is included in both the policy-filtered 12-agent runtime and the client-delivered system skill pack.
 
 ## Runtime Enforcement
 
