@@ -78,8 +78,24 @@ install_runtime() {
   fi
   local logs="$ROOT/logs";mkdir -p "$logs";chmod 0700 "$ROOT" "$logs";[[ ! -f "$logs/runtime.log" ]]||{ for n in 4 3 2 1;do [[ ! -f "$logs/runtime.log.$n" ]]||mv "$logs/runtime.log.$n" "$logs/runtime.log.$((n+1))";done;mv "$logs/runtime.log" "$logs/runtime.log.1";};touch "$logs/runtime.log";chmod 0600 "$logs/runtime.log"
   mkdir -p "$(dirname "$PLIST")"; sed -e "s|__PIB_RUNTIME_BINARY__|$BIN|g" -e "s|__PIB_RUNTIME_LOG_DIR__|$logs|g" -e "s|__PIB_RUNTIME_VERSION__|$runtime_version|g" "$(dirname "$0")/$LABEL.plist" > "$PLIST"; chmod 0644 "$PLIST"
+  # Soft stop: SIGTERM first so the service stops claiming and abandons leases
+  # for reclaim instead of hard-killing mid-run (kickstart -k). Wait up to 90s.
+  if launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1; then
+    launchctl kill SIGTERM "gui/$(id -u)/$LABEL" 2>/dev/null || true
+    local waited=0
+    while (( waited < 90 )); do
+      if ! pgrep -u "$(id -u)" -f "$ROOT/current/pib-runtime|PartnersInBiz/current/pib-runtime" >/dev/null 2>&1 \
+        && ! pgrep -u "$(id -u)" -f "$ROOT/previous/pib-runtime|PartnersInBiz/previous/pib-runtime" >/dev/null 2>&1; then
+        break
+      fi
+      sleep 1
+      waited=$((waited + 1))
+    done
+  fi
   launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
-  launchctl bootstrap "gui/$(id -u)" "$PLIST"; launchctl kickstart -k "gui/$(id -u)/$LABEL"
+  launchctl bootstrap "gui/$(id -u)" "$PLIST"
+  # Start without -k so we never SIGKILL an in-flight drain that just began.
+  launchctl kickstart "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || launchctl kickstart -k "gui/$(id -u)/$LABEL"
 }
 
 pair_runtime() {
@@ -92,7 +108,24 @@ pair_runtime() {
 }
 
 update_runtime() { install_runtime; }
-rollback_runtime() { require_root; [[ -x "$ROOT/previous/pib-runtime" ]] || { echo 'No verified previous release.' >&2; return 1; }; verify_release "$ROOT/previous/manifest.json" "$ROOT/previous/pib-runtime" rollback offline; mv "$ROOT/current" "$ROOT/swap"; mv "$ROOT/previous" "$ROOT/current"; mv "$ROOT/swap" "$ROOT/previous"; launchctl kickstart -k "gui/$(id -u)/$LABEL"; }
+rollback_runtime() {
+  require_root
+  [[ -x "$ROOT/previous/pib-runtime" ]] || { echo 'No verified previous release.' >&2; return 1; }
+  verify_release "$ROOT/previous/manifest.json" "$ROOT/previous/pib-runtime" rollback offline
+  if launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1; then
+    launchctl kill SIGTERM "gui/$(id -u)/$LABEL" 2>/dev/null || true
+    local waited=0
+    while (( waited < 90 )); do
+      pgrep -u "$(id -u)" -f 'PartnersInBiz/.*/pib-runtime' >/dev/null 2>&1 || break
+      sleep 1
+      waited=$((waited + 1))
+    done
+  fi
+  mv "$ROOT/current" "$ROOT/swap"; mv "$ROOT/previous" "$ROOT/current"; mv "$ROOT/swap" "$ROOT/previous"
+  launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
+  launchctl bootstrap "gui/$(id -u)" "$PLIST"
+  launchctl kickstart "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || launchctl kickstart -k "gui/$(id -u)/$LABEL"
+}
 revoke_runtime() { [[ -x "$BIN" ]]||return 0;if ! "$BIN" revoke;then launchctl kickstart -k "gui/$(id -u)/$LABEL" >/dev/null 2>&1||true;return 1;fi; }
 uninstall_runtime() { require_root;local force="${1:-}";if ! revoke_runtime;then if [[ "$force" != --force-local ]];then echo 'Remote revoke pending. Runtime and secure identity retained in revoke-only recovery mode.' >&2;return 1;fi;echo 'WARNING: forcing local removal leaves only a nonsecret recovery marker; revoke this computer in the PiB portal.' >&2;delete_credentials;fi;launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true;rm -f "$PLIST";rm -rf "$ROOT"; }
 

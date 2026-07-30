@@ -180,6 +180,34 @@ it('queues on Hermes 429 using Retry-After and reports the accepted local run id
   expect(started).toEqual(['run-after-capacity'])
 })
 
+it('survives mid-poll gateway blips without failing the run', async () => {
+  let polls = 0
+  const queued: string[] = []
+  const fetcher = jest.fn(async (url: any) => {
+    const target = String(url)
+    if (target.endsWith('/v1/runs') && !target.includes('/v1/runs/')) {
+      return new Response(JSON.stringify({ run_id: 'run-mid-poll' }), { status: 200 })
+    }
+    if (target.endsWith('/v1/runs/run-mid-poll')) {
+      polls += 1
+      if (polls === 1) throw new Error('fetch failed')
+      if (polls === 2) return new Response('bad gateway', { status: 502 })
+      return new Response(JSON.stringify({ status: 'completed', output: 'poll-recovered' }), { status: 200 })
+    }
+    throw new Error(`unexpected ${target}`)
+  }) as any
+  await expect(callLocalHermes(
+    'pip',
+    { prompt: 'stay alive', working_directory: '/tmp' },
+    { PIB_LOCAL_HERMES: 'http://127.0.0.1:8755' },
+    fetcher,
+    async () => undefined,
+    { onQueued: async (reason) => { queued.push(reason) } },
+  )).resolves.toBe('poll-recovered')
+  expect(queued).toEqual(expect.arrayContaining(['runtime_restarting']))
+  expect(polls).toBeGreaterThanOrEqual(3)
+})
+
 it('reattaches to an authenticated existing Hermes run and replaces only after a definitive 404', async () => {
   const restartReasons: string[] = []
   let restartProbe = 0
@@ -253,6 +281,66 @@ it('does not hard-fail chat when drain retries are exhausted — leaves job for 
   )).rejects.toThrow(/gateway_draining|draining existing work/i)
   expect(posts.some(([p]) => String(p).endsWith('/complete'))).toBe(false)
   expect(posts[0]?.[1]?.receipt).toEqual(expect.objectContaining({ event: 'queued', outcome: 'queued', queueReason: 'runtime_capacity' }))
+})
+
+it('retries once on browser-tool whole-run failure instead of completing failed', async () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'worker-browser-'))
+  const root = path.join(d, 'root')
+  fs.mkdirSync(root)
+  const maps = new MappingRegistry(path.join(d, 'maps'))
+  maps.map('m', root)
+  const k = generateKeyPairSync('ed25519')
+  const posts: any[] = []
+  const post = jest.fn(async (p: string, b: any) => {
+    posts.push([p, b])
+    return new Response('', { status: 200 })
+  })
+  let calls = 0
+  const hermes = jest.fn(async (_body: any, helpers?: { resumeRunId?: string }) => {
+    calls += 1
+    if (calls === 1) {
+      throw new Error('Local Hermes theo Unable to connect. Is the computer able to access the url?')
+    }
+    await helpers // keep helpers referenced
+    return 'recovered after browser blip'
+  })
+  const result = await executeJob(
+    { jobId: 'j2', requestId: 'r2', prompt: 'p', workspaceId: 'w', projectId: 'p', mappingId: 'm', relativeFolder: '', attempt: 1, leaseToken: 'lease', agentId: 'theo', localHermesRunId: 'old-run' },
+    { deviceId: 'd', credentialVersion: 1, privateKey: k.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() },
+    maps,
+    post,
+    hermes,
+  )
+  expect(result.status).toBe('completed')
+  expect(result.output).toContain('recovered')
+  expect(hermes).toHaveBeenCalledTimes(2)
+  expect(posts.some(([p, b]) => String(p).endsWith('/complete') && b?.outcome === 'completed')).toBe(true)
+  expect(posts.some(([p, b]) => String(p).endsWith('/complete') && b?.outcome === 'failed')).toBe(false)
+})
+
+it('abandons for reclaim on runtime restart mid-run instead of completing failed', async () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'worker-restart-'))
+  const root = path.join(d, 'root')
+  fs.mkdirSync(root)
+  const maps = new MappingRegistry(path.join(d, 'maps'))
+  maps.map('m', root)
+  const k = generateKeyPairSync('ed25519')
+  const posts: any[] = []
+  const post = jest.fn(async (p: string, b: any) => {
+    posts.push([p, b])
+    return new Response('', { status: 200 })
+  })
+  const hermes = jest.fn(async () => {
+    throw new Error('Local Hermes pip runtime restarting; reattachment retry window exhausted')
+  })
+  await expect(executeJob(
+    { jobId: 'j3', requestId: 'r3', prompt: 'p', workspaceId: 'w', projectId: 'p', mappingId: 'm', relativeFolder: '', attempt: 1, leaseToken: 'lease', agentId: 'pip' },
+    { deviceId: 'd', credentialVersion: 1, privateKey: k.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() },
+    maps,
+    post,
+    hermes,
+  )).rejects.toThrow(/runtime restarting/i)
+  expect(posts.some(([p]) => String(p).endsWith('/complete'))).toBe(false)
 })
 
 it('runs same-agent and different-agent jobs concurrently within the device cap', async () => {

@@ -2,7 +2,13 @@ import { createHash, createPrivateKey, sign } from 'node:crypto'
 import os from 'node:os'
 import { MappingRegistry } from './bridge'
 import type { JSONValue } from './core'
-import { isLocalHermesCapacityError, isLocalHermesGatewayDrainingError } from './hermes'
+import {
+  isLocalHermesBrowserToolFailure,
+  isLocalHermesCapacityError,
+  isLocalHermesGatewayDrainingError,
+  isLocalHermesNonTerminalExecutionError,
+  isLocalHermesTransientInfrastructureError,
+} from './hermes'
 
 export type Job = {
   jobId: string
@@ -68,7 +74,7 @@ function receipt(
     timestamp: new Date().toISOString(),
     acceptedAt,
     toolStartedAt,
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.20',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.21',
     machineLabel: os.hostname(),
     outputSha256: digest(output),
     outputBytes: Buffer.byteLength(output),
@@ -133,57 +139,80 @@ export async function executeJob(
   let error = ''
   let status: 'completed' | 'failed' = 'completed'
   let abandonForReclaim: Error | undefined
+  const runHermes = async (resumeRunId?: string) => hermes(
+    {
+      prompt: job.prompt,
+      images: job.images,
+      model: job.model,
+      provider: job.provider,
+      working_directory,
+      ...(job.yolo ? { yolo: true } : {}),
+    },
+    {
+      resumeRunId,
+      onQueued: async (reason) => {
+        queueReason = reason
+        started = false
+        const response = await post(`/runs/${job.jobId}/progress`, {
+          receipt: receipt(job, device, 'queued', 'queued', acceptedAt, toolStartedAt, '', '', { queueReason }),
+        })
+        if (!response.ok && response.status !== 409) throw new Error('queued receipt rejected')
+      },
+      onStarted: async (runId) => {
+        // Flip before awaiting the acceptance POST so a slow network cannot
+        // emit a later queued renewal that regresses this started run.
+        started = true
+        localHermesRunId = runId
+        acceptedAt = new Date().toISOString()
+        toolStartedAt = acceptedAt
+        const response = await post(`/runs/${job.jobId}/progress`, {
+          receipt: receipt(job, device, 'accepted', 'accepted', acceptedAt, toolStartedAt, '', '', { localHermesRunId: runId }),
+        })
+        if (!response.ok && response.status !== 409) throw new Error('acceptance receipt rejected')
+      },
+      onEvents: (events) => {
+        if (!Array.isArray(events) || events.length === 0) return
+        eventFlush = eventFlush.then(async () => {
+          const response = await post(`/runs/${job.jobId}/progress`, {
+            receipt: receipt(job, device, 'progress', 'running', acceptedAt, toolStartedAt, '', '', { localHermesRunId }),
+            events: events as JSONValue[],
+          })
+          if (!response.ok && response.status !== 409) leaseError = new Error('event progress rejected')
+        }).catch(() => {
+          leaseError = new Error('event progress failed')
+        })
+      },
+    },
+  )
   try {
-    const result = await hermes(
-      {
-        prompt: job.prompt,
-        images: job.images,
-        model: job.model,
-        provider: job.provider,
-        working_directory,
-        ...(job.yolo ? { yolo: true } : {}),
-      },
-      {
-        resumeRunId: job.localHermesRunId,
-        onQueued: async (reason) => {
-          queueReason = reason
-          const response = await post(`/runs/${job.jobId}/progress`, {
-            receipt: receipt(job, device, 'queued', 'queued', acceptedAt, toolStartedAt, '', '', { queueReason }),
-          })
-          if (!response.ok && response.status !== 409) throw new Error('queued receipt rejected')
-        },
-        onStarted: async (runId) => {
-          // Flip before awaiting the acceptance POST so a slow network cannot
-          // emit a later queued renewal that regresses this started run.
-          started = true
-          localHermesRunId = runId
-          acceptedAt = new Date().toISOString()
-          toolStartedAt = acceptedAt
-          const response = await post(`/runs/${job.jobId}/progress`, {
-            receipt: receipt(job, device, 'accepted', 'accepted', acceptedAt, toolStartedAt, '', '', { localHermesRunId: runId }),
-          })
-          if (!response.ok && response.status !== 409) throw new Error('acceptance receipt rejected')
-        },
-        onEvents: (events) => {
-          if (!Array.isArray(events) || events.length === 0) return
-          eventFlush = eventFlush.then(async () => {
-            const response = await post(`/runs/${job.jobId}/progress`, {
-              receipt: receipt(job, device, 'progress', 'running', acceptedAt, toolStartedAt, '', '', { localHermesRunId }),
-              events: events as JSONValue[],
-            })
-            if (!response.ok && response.status !== 409) leaseError = new Error('event progress rejected')
-          }).catch(() => {
-            leaseError = new Error('event progress failed')
-          })
-        },
-      },
-    )
+    let result: unknown
+    try {
+      result = await runHermes(job.localHermesRunId)
+    } catch (firstErr) {
+      // Browser/CDP tool death ends the Hermes run. Retry once with a fresh
+      // local run so the conversation never surfaces a permanent interrupt.
+      if (isLocalHermesBrowserToolFailure(firstErr)) {
+        started = false
+        localHermesRunId = undefined
+        queueReason = 'runtime_restarting'
+        await post(`/runs/${job.jobId}/progress`, {
+          receipt: receipt(job, device, 'queued', 'queued', acceptedAt, toolStartedAt, '', '', { queueReason }),
+        }).catch(() => undefined)
+        result = await runHermes(undefined)
+      } else {
+        throw firstErr
+      }
+    }
     output = typeof result === 'string' ? result : JSON.stringify(result) ?? 'null'
   } catch (err) {
-    // Gateway drain after the short start-retry window: do not hard-fail the
-    // conversation. Drop the lease so the same job can be reclaimed once the
-    // agent is accepting turns again (queued message before agent finished).
-    if (isLocalHermesGatewayDrainingError(err) || isLocalHermesCapacityError(err)) {
+    // Drain / capacity / runtime upgrade / gateway bounce: do not hard-fail the
+    // conversation. Drop the lease so the same job can be reclaimed and reattached.
+    if (
+      isLocalHermesGatewayDrainingError(err)
+      || isLocalHermesCapacityError(err)
+      || isLocalHermesTransientInfrastructureError(err)
+      || isLocalHermesNonTerminalExecutionError(err)
+    ) {
       abandonForReclaim = err instanceof Error ? err : new Error(String(err ?? 'gateway draining'))
     } else {
       status = 'failed'

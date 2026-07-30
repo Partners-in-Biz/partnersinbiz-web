@@ -51,6 +51,11 @@ export interface LinkedRunJob {
   queueReceipt?: LinkedRunReceipt
   /** Authenticated local Hermes run identity used for restart reattachment. */
   localHermesRunId?: string
+  /**
+   * Platform-side automatic recoveries after recoverable infrastructure/browser
+   * failures. Distinct from `attempt` (lease claims).
+   */
+  recoveryCount?: number
   conversationId: string
   assistantMessageId: string
   agentId: string

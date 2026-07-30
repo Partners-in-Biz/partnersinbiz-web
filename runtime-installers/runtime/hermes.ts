@@ -234,6 +234,52 @@ export function isLocalHermesCapacityError(error: unknown): boolean {
   return /rate_limit_exceeded|capacity window|runtime capacity|runtime restarting/i.test(message)
 }
 
+function hermesErrorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error ?? '')
+}
+
+/** agent-browser / CDP death that Hermes elevates to whole-run failure. */
+export function isLocalHermesBrowserToolFailure(error: unknown): boolean {
+  const lower = hermesErrorText(error).toLowerCase()
+  return lower.includes('unable to connect')
+    || (lower.includes('is the computer able to access') && lower.includes('url'))
+}
+
+/**
+ * Transient infrastructure blips during poll/start. Must never complete a chat
+ * as permanently failed — leave the lease for reclaim/reattach.
+ */
+export function isLocalHermesTransientInfrastructureError(error: unknown): boolean {
+  const message = hermesErrorText(error)
+  const lower = message.toLowerCase()
+  if (isLocalHermesGatewayDrainingError(error) || isLocalHermesCapacityError(error)) return true
+  return lower.includes('runtime restarting')
+    || lower.includes('reattachment retry window')
+    || lower.includes('connection refused')
+    || lower.includes('connection reset')
+    || lower.includes('broken pipe')
+    || lower.includes('server disconnected')
+    || lower.includes('client connector error')
+    || lower.includes('econnreset')
+    || lower.includes('econnrefused')
+    || lower.includes('socket hang up')
+    || lower.includes('fetch failed')
+    || lower.includes('networkerror')
+    || lower.includes('signal=sigterm')
+    || lower.includes('sigterm')
+    || lower.includes('exit_code": -15')
+    || lower.includes('exit_code":-15')
+    || lower.includes('exit code -15')
+    // Gateway hop failures only — not application 503s like provider quota.
+    || ((lower.includes('http 502') || lower.includes('http 503') || lower.includes('http 504'))
+      && (lower.includes('gateway') || lower.includes('drain') || lower.includes('unavailable') || lower.includes('bad gateway') || lower.includes('timeout')))
+}
+
+/** Any linked-runtime error that must not hard-fail the conversation. */
+export function isLocalHermesNonTerminalExecutionError(error: unknown): boolean {
+  return isLocalHermesTransientInfrastructureError(error) || isLocalHermesBrowserToolFailure(error)
+}
+
 /** Match the server's durable queue-start deadline. */
 export const LOCAL_HERMES_START_RETRY_DEFAULT_MS = 45 * 60_000
 
@@ -389,13 +435,43 @@ export async function callLocalHermes(
     })
     : Promise.resolve()
   try {
+    let pollMisses = 0
     while (Date.now() < deadline) {
-      const runResponse = await fetcher(`${route.baseUrl}/v1/runs/${encodeURIComponent(runId)}`, {
-        headers: authHeaders(route),
-        signal: AbortSignal.timeout(15_000),
-      })
+      let runResponse: Response
+      try {
+        runResponse = await fetcher(`${route.baseUrl}/v1/runs/${encodeURIComponent(runId)}`, {
+          headers: authHeaders(route),
+          signal: AbortSignal.timeout(15_000),
+        })
+      } catch {
+        // Runtime upgrade / gateway bounce mid-run: keep the lease alive and reattach.
+        await helpers.onQueued?.('runtime_restarting')
+        await wait(Math.min(1_000 * (2 ** Math.min(pollMisses, 3)), 5_000))
+        pollMisses += 1
+        continue
+      }
       const runText = await runResponse.text().catch(() => '')
-      if (!runResponse.ok) throw hermesHttpFailure(runResponse.status, runText, `Local Hermes ${cleanAgent} poll failed`)
+      if (!runResponse.ok) {
+        if (runResponse.status === 404) {
+          // Run identity lost after restart — try reattachment window then fail to reclaim path.
+          await helpers.onQueued?.('runtime_restarting')
+          await wait(Math.min(1_000 * (2 ** Math.min(pollMisses, 3)), 5_000))
+          pollMisses += 1
+          if (pollMisses >= 8) {
+            throw new Error(`Local Hermes ${cleanAgent} runtime restarting; reattachment retry window exhausted`)
+          }
+          continue
+        }
+        if (runResponse.status === 502 || runResponse.status === 503 || runResponse.status === 504
+          || isLocalHermesGatewayDrainingBody(runResponse.status, runText)) {
+          await helpers.onQueued?.(isLocalHermesGatewayDrainingBody(runResponse.status, runText) ? 'gateway_draining' : 'runtime_restarting')
+          await wait(gatewayDrainRetryDelayMs(runResponse, pollMisses))
+          pollMisses += 1
+          continue
+        }
+        throw hermesHttpFailure(runResponse.status, runText, `Local Hermes ${cleanAgent} poll failed`)
+      }
+      pollMisses = 0
       const run = (() => {
         try { return runText ? JSON.parse(runText) as Record<string, unknown> : null } catch { return null }
       })()
