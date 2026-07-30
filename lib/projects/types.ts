@@ -58,6 +58,17 @@ export interface Project {
   tags: string[]
   createdBy: string
   brief?: string              // Quick project brief (1-2 paragraphs, stored on project doc)
+  /** standard = projects/{id}; registered = existing shared app folder on disk */
+  projectFolderMode?: 'standard' | 'registered'
+  /** Relative path under the workspace mapping for project cwd */
+  projectFolderRelativePath?: string | null
+  /** True when multiple PiB Projects intentionally share the same on-disk tree */
+  sharedFolder?: boolean
+  /**
+   * Related monorepo roots relative to the primary project folder
+   * (e.g. frontend + backend under one registered app path).
+   */
+  codeRoots?: Array<{ path: string; label?: string }>
   createdAt?: unknown
   updatedAt?: unknown
 }

@@ -42,6 +42,7 @@ describe('agent skill policy manifest', () => {
       'crm-hygiene-gather',
       'sales-operating-system',
       'data-analyst',
+      'daily-workflow',
       'docs-lead',
       'email-marketing-governance',
       'email-outreach',
@@ -53,6 +54,7 @@ describe('agent skill policy manifest', () => {
       'platform-admin-users',
       'reports',
       'project-management',
+      'interactive-project-planning',
       'properties',
       'qa-release',
       'research-intelligence',
@@ -261,6 +263,43 @@ describe('agent skill policy manifest', () => {
         'data-analyst',
       ]))
     }
+  })
+
+  it('delivers safe daily-workflow v1.2 to every managed agent and the client pack', () => {
+    const agentIds = Object.keys(AGENT_SKILL_POLICY.agents).sort()
+    const catalog = AGENT_SKILL_POLICY.skillCatalog['daily-workflow']
+    const repoSkill = readFileSync(join(
+      process.cwd(),
+      '.claude/skills/daily-workflow/SKILL.md',
+    ), 'utf8')
+    const packSkill = readFileSync(join(
+      process.cwd(),
+      'packs/pib-system-skills/skills/daily-workflow/SKILL.md',
+    ), 'utf8')
+    const packManifest = JSON.parse(readFileSync(join(
+      process.cwd(),
+      'packs/pib-system-skills/manifest.json',
+    ), 'utf8'))
+
+    expect(catalog.allowedAgentIds.slice().sort()).toEqual(agentIds)
+    for (const agentId of agentIds) {
+      expect(AGENT_SKILL_POLICY.agents[agentId].pibSkills).toContain('daily-workflow')
+      expect(AGENT_SKILL_POLICY.agents[agentId].runtimeSkills).toContain('daily-workflow')
+    }
+
+    expect(repoSkill).toContain('version: 1.2.0')
+    expect(packSkill).toBe(repoSkill)
+    expect(packManifest.tiers.core.skills).toContain('daily-workflow')
+    expect(packManifest.skills['daily-workflow']).toEqual(expect.objectContaining({
+      tier: 'core',
+      owner: 'pip',
+      risk: 'high',
+    }))
+
+    expect(repoSkill).not.toContain('rm -rf')
+    expect(repoSkill).not.toContain('git add -A')
+    expect(repoSkill).not.toContain('/Users/peetstander/Cowork')
+    expect(repoSkill).toContain('Only stop development servers started during the current session')
   })
 
   it('builds Firestore policy state and rewrites Hermes external_dirs', () => {

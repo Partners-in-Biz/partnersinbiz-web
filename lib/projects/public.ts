@@ -4,6 +4,7 @@ const PRIVATE_PROJECT_FIELDS = [
   'workspaceFolderId',
   'executionLocationIds',
   'canonicalLocationId',
+  // Keep absolute filesystem bindings private; relative codeRoots are public metadata.
 ] as const
 
 /** Remove bearer credentials and server-side filesystem/runtime bindings. */

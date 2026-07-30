@@ -1,7 +1,7 @@
 {
   "packName": "pib-system-skills",
-  "packVersion": "0.1.4",
-  "catalogVersion": "2026-07-28.system-skills-v0.1.4",
+  "packVersion": "0.1.5",
+  "catalogVersion": "2026-07-30.system-skills-v0.1.5",
   "minApiVersion": "2026-07-23",
   "channel": "stable",
   "decisions": {
@@ -20,6 +20,7 @@
       "description": "SaaS CRUD/ops every PiB agent needs for day-to-day platform work",
       "skills": [
         "system-auth",
+        "daily-workflow",
         "client-documents",
         "docs-lead",
         "billing-finance",
@@ -69,6 +70,13 @@
       "risk": "high",
       "requiredScopes": [],
       "summary": "How agents authenticate: user-delegation for interactive work; system key for cron only."
+    },
+    "daily-workflow": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "high",
+      "requiredScopes": [],
+      "summary": "Safe natural-language start-day and end-day workflow with live workspace resolution, verification, durable context, and non-destructive git/process boundaries."
     },
     "client-documents": {
       "tier": "core",
@@ -364,14 +372,14 @@
       "owner": "theo",
       "risk": "medium",
       "requiredScopes": [],
-      "summary": "Stub: conversation/message runtime — CRUD, streaming lifecycle, attachments, models, agent-message ingestion. Not yet fully documented."
+      "summary": "Stub: conversation/message runtime \u2014 CRUD, streaming lifecycle, attachments, models, agent-message ingestion. Not yet fully documented."
     },
     "life-os-ops": {
       "tier": "growth",
       "owner": "pip",
       "risk": "low",
       "requiredScopes": [],
-      "summary": "Personal Life OS — check-ins, AI coach workflow (with crisis safety boundary), experiments, reminder preferences/scheduling, weekly reviews, and admin-only data retention (route-mapped 2026-07-23; request/response shapes still to confirm)."
+      "summary": "Personal Life OS \u2014 check-ins, AI coach workflow (with crisis safety boundary), experiments, reminder preferences/scheduling, weekly reviews, and admin-only data retention (route-mapped 2026-07-23; request/response shapes still to confirm)."
     },
     "llm-providers-ops": {
       "tier": "growth",

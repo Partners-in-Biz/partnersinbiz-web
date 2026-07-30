@@ -41,7 +41,18 @@ describe('finance, accounting, and payroll architecture contract', () => {
       'payslips',
       'payroll_rule_versions',
       'finance_audit_events',
+      'finance_audit_heads',
       'finance_outbox_events',
+      'finance_unique_claims',
+      'open_items',
+      'account_credits',
+      'reconciliation_adjustments',
+      'book_policy_versions',
+      'tax_periods',
+      'tax_return_snapshots',
+      'accounting_rate_sets',
+      'payroll_tax_years',
+      'payroll_calculation_manifests',
     ]
 
     for (const term of requiredTerms) expect(content).toContain(term)
@@ -58,9 +69,23 @@ describe('finance, accounting, and payroll architecture contract', () => {
       'No automatic external payment initiation',
       'No direct SARS submission or payment',
       'transactionally',
+      'external egress disabled',
+      'Missing scope means no access',
     ]
 
     for (const invariant of requiredInvariants) expect(content).toContain(invariant)
+  })
+
+  it('defines an append-only journal reversal lifecycle', () => {
+    const content = architecture()
+
+    expect(content).toContain('status: draft | pending_approval | posted`')
+    expect(content).not.toContain('status: draft | pending_approval | posted | reversed`')
+    expect(content).toContain('original entry remains `posted`')
+    expect(content).toContain('derived reversal projection')
+    expect(content).toContain(
+      'separate balanced reversal entry in an open correction period, with equal-and-opposite lines, `status: posted`, and `reversesJournalEntryId` pointing to the original posted entry',
+    )
   })
 
   it('contains an additive migration, affected-file map, security model, and test plan', () => {
@@ -70,5 +95,7 @@ describe('finance, accounting, and payroll architecture contract', () => {
     expect(content).toContain('Authorization matrix')
     expect(content).toContain('Test plan')
     expect(content).toContain('Rollback and compatibility')
+    expect(content).toContain('DCAh9tNOlloqSOwYSUP2')
+    expect(content).toContain('Legacy PayPal routes remain outside the new finance/payroll contract')
   })
 })

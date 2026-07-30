@@ -24,6 +24,7 @@ export interface ProjectChatTaskSource {
   dependsOn?: string[]
   labels?: string[]
   agentModel?: string | null
+  agentConversationId?: string | null
   agentOutput?: AgentOutput
   chatOrigin?: TaskChatOrigin
   updatedAt?: unknown
