@@ -884,15 +884,35 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               {canOpenAdminView && (
                 <Link
                   href={adminViewHref}
-                  title="Switch to admin view"
+                  data-tip="Switch to admin view"
+                  data-tip-side="bottom"
                   aria-label="Switch to admin view"
                   className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person</span>
                 </Link>
               )}
-              <Link href={scopedShellHref("/portal/changelog")} title="What's new" aria-label="What's new" className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"><span className="material-symbols-outlined text-[18px]">campaign</span>{changelogUnread > 0 && (<span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">{changelogUnread > 9 ? "9+" : changelogUnread}</span>)}</Link>
-              <button onClick={() => setCmdOpen(true)} title="Search (⌘K)" className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]">
+              <Link
+                href={scopedShellHref('/portal/changelog')}
+                data-tip={changelogUnread > 0 ? `What's new (${changelogUnread} unread)` : "What's new"}
+                data-tip-side="bottom"
+                aria-label="What's new"
+                className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"
+              >
+                <span className="material-symbols-outlined text-[18px]">campaign</span>
+                {changelogUnread > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">
+                    {changelogUnread > 9 ? '9+' : changelogUnread}
+                  </span>
+                )}
+              </Link>
+              <button
+                onClick={() => setCmdOpen(true)}
+                data-tip="Search (⌘K)"
+                data-tip-side="bottom"
+                aria-label="Search"
+                className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"
+              >
                 <span className="material-symbols-outlined text-[18px]">search</span>
               </button>
               <ThemeToggle />
@@ -907,7 +927,9 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               />
               <button
                 onClick={toggleLayout}
-                title="Switch to sidebar layout"
+                data-tip="Switch to sidebar layout"
+                data-tip-side="bottom"
+                aria-label="Switch to sidebar layout"
                 className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">dock_to_right</span>
@@ -918,13 +940,21 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 triggerClassName="hidden sm:inline-flex items-center gap-1 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
               />
               <div className="w-7 h-7 rounded-full bg-[var(--color-pib-accent-soft)] border border-[var(--color-pib-line-strong)] flex items-center justify-center text-[11px] font-medium text-[var(--color-pib-accent-hover)]">
-                <Link href={scopedShellHref('/portal/settings/profile')} title="My profile" className="grid h-full w-full place-items-center rounded-full">
+                <Link
+                  href={scopedShellHref('/portal/settings/profile')}
+                  data-tip="My profile"
+                  data-tip-side="bottom"
+                  aria-label="My profile"
+                  className="grid h-full w-full place-items-center rounded-full"
+                >
                   {initials || '·'}
                 </Link>
               </div>
               <button
                 onClick={handleLogout}
-                title="Sign out"
+                data-tip="Sign out"
+                data-tip-side="bottom"
+                aria-label="Sign out"
                 className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors p-1"
               >
                 <span className="material-symbols-outlined text-[18px]">logout</span>
@@ -1194,7 +1224,13 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                 <p className="text-xs font-medium truncate">{profileName || name || 'Client'}</p>
                 <p className="text-[10px] text-[var(--color-pib-text-muted)] truncate">{email}</p>
               </Link>
-              <button onClick={handleLogout} title="Sign out" className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors p-1" aria-label="Sign out">
+              <button
+                onClick={handleLogout}
+                data-tip="Sign out"
+                data-tip-side="right"
+                aria-label="Sign out"
+                className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors p-1"
+              >
                 <span className="material-symbols-outlined text-[18px]">logout</span>
               </button>
             </div>
@@ -1221,7 +1257,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             type="button"
             onClick={() => router.back()}
             aria-label="Go back"
-            title="Go back"
+            data-tip="Go back"
+            data-tip-side="bottom"
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
           >
             <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
@@ -1235,14 +1272,35 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             {canOpenAdminView && (
               <Link
                 href={adminViewHref}
-                title="Switch to admin view"
+                data-tip="Switch to admin view"
+                data-tip-side="bottom"
+                aria-label="Switch to admin view"
                 className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">person</span>
               </Link>
             )}
-            <Link href={scopedShellHref("/portal/changelog")} title="What's new" aria-label="What's new" className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"><span className="material-symbols-outlined text-[18px]">campaign</span>{changelogUnread > 0 && (<span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">{changelogUnread > 9 ? "9+" : changelogUnread}</span>)}</Link>
-              <button onClick={() => setCmdOpen(true)} title="Search (⌘K)" className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]">
+            <Link
+              href={scopedShellHref('/portal/changelog')}
+              data-tip={changelogUnread > 0 ? `What's new (${changelogUnread} unread)` : "What's new"}
+              data-tip-side="bottom"
+              aria-label="What's new"
+              className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"
+            >
+              <span className="material-symbols-outlined text-[18px]">campaign</span>
+              {changelogUnread > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--color-pib-accent)] text-[10px] font-semibold text-white flex items-center justify-center">
+                  {changelogUnread > 9 ? '9+' : changelogUnread}
+                </span>
+              )}
+            </Link>
+            <button
+              onClick={() => setCmdOpen(true)}
+              data-tip="Search (⌘K)"
+              data-tip-side="bottom"
+              aria-label="Search"
+              className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05]"
+            >
               <span className="material-symbols-outlined text-[18px]">search</span>
             </button>
             <ThemeToggle />

@@ -115,7 +115,8 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
       {/* Bell button */}
       <button
         onClick={togglePanel}
-        title="Notifications"
+        data-tip={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+        data-tip-side="bottom"
         className="relative flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         aria-label="Open notifications"
       >

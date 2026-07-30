@@ -386,7 +386,14 @@ export function SupportDrawer({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={triggerClassName}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        data-tip="Open support"
+        data-tip-side="bottom"
+        aria-label="Need help? Open support"
+        className={triggerClassName}
+      >
         <span className="material-symbols-outlined text-[18px]">support_agent</span>
         <span>Need help?</span>
       </button>

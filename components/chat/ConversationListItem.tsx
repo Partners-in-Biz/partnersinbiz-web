@@ -1,6 +1,7 @@
 'use client'
 
 import type { ContextReference } from '@/lib/context-references/types'
+import { HoverTip } from '@/components/ui/HoverTip'
 
 type AgentId = string
 
@@ -173,7 +174,6 @@ export default function ConversationListItem({
       <button
         type="button"
         data-testid={`conversation-row-${c.id}`}
-        title={title}
         aria-label={title}
         onClick={onClick}
         className={`group min-h-11 w-full overflow-hidden rounded-md py-1.5 pl-2 pr-12 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0 xl:pr-2 ${
@@ -189,9 +189,11 @@ export default function ConversationListItem({
               {context.icon}
             </span>
           )}
-          <span className="min-w-0 flex-1 truncate text-[12px] font-semibold leading-4 text-[var(--color-pib-text)]">
-            {title}
-          </span>
+          <HoverTip label={title} side="right" className="min-w-0 flex-1">
+            <span className="block min-w-0 truncate text-[12px] font-semibold leading-4 text-[var(--color-pib-text)]">
+              {title}
+            </span>
+          </HoverTip>
           {pinned && (
             <span className="material-symbols-outlined shrink-0 text-[12px] text-primary" title="Pinned session">
               keep
@@ -201,18 +203,21 @@ export default function ConversationListItem({
 
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] leading-3 text-[var(--color-pib-text-muted)]/85">
           {workspaceProject && (
-            <span
-              data-testid={`conversation-project-badge-${c.id}`}
-              className="max-w-[48%] shrink truncate font-medium text-[9px] leading-3 text-primary/90"
-              title={`Project: ${workspaceProject}`}
-            >
-              {workspaceProject}
-            </span>
+            <HoverTip label={`Project: ${workspaceProject}`} side="right" className="max-w-[48%] shrink">
+              <span
+                data-testid={`conversation-project-badge-${c.id}`}
+                className="block truncate font-medium text-[9px] leading-3 text-primary/90"
+              >
+                {workspaceProject}
+              </span>
+            </HoverTip>
           )}
           {workspaceRuntime && (
-            <span className="max-w-[40%] shrink truncate pib-pill pib-pill-blue !px-1 !py-0 !text-[8px] !leading-3" title={`Workspace runtime: ${workspaceRuntime}`}>
-              {workspaceRuntime}
-            </span>
+            <HoverTip label={`Workspace runtime: ${workspaceRuntime}`} side="right" className="max-w-[40%] shrink">
+              <span className="block truncate pib-pill pib-pill-blue !px-1 !py-0 !text-[8px] !leading-3">
+                {workspaceRuntime}
+              </span>
+            </HoverTip>
           )}
           {workspaceVisibility && (
             <span className="shrink-0 font-mono text-[8px] uppercase leading-3 text-[var(--color-pib-text-muted)]" title={`Workspace visibility: ${workspaceVisibility}`}>
@@ -311,9 +316,11 @@ export default function ConversationListItem({
       )}
 
       {/* Title */}
-      <div className={`line-clamp-1 overflow-hidden font-semibold text-[var(--color-pib-text)] ${compact ? 'text-[13px]' : 'text-sm'}`} title={c.title || 'Untitled'}>
-        {c.title || 'Untitled'}
-      </div>
+      <HoverTip label={c.title || 'Untitled'} side="right" className="block min-w-0 max-w-full">
+        <div className={`line-clamp-1 overflow-hidden font-semibold text-[var(--color-pib-text)] ${compact ? 'text-[13px]' : 'text-sm'}`}>
+          {c.title || 'Untitled'}
+        </div>
+      </HoverTip>
 
       {/* Preview + time */}
       <div className="mt-0.5 flex min-w-0 items-center justify-between gap-2 overflow-hidden">
