@@ -3,7 +3,8 @@ import { getProjectForUser } from '@/lib/projects/access'
 import { buildProjectChatProgress, type ProjectChatTaskItem, type ProjectChatTaskSource } from '@/lib/projects/chatProgress'
 import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { taskOrderMillis } from '@/lib/projects/taskPayload'
-import type { ContextActivitySummary, ContextDisplayState, ContextItemSummary } from '@/lib/chat-context/types'
+import type { AgentArtifact, AgentOutput } from '@/lib/projects/types'
+import type { ContextActivitySummary, ContextDisplayState, ContextItemAgentSnapshot, ContextItemSummary } from '@/lib/chat-context/types'
 import type { ChatContextAdapter } from '@/lib/chat-context/access'
 
 function cleanString(value: unknown): string {
@@ -34,12 +35,12 @@ const APPROVAL_STATUSES = ['pending', 'approved', 'rejected'] as const
 const RELEASE_STATUSES = ['scheduled', 'released', 'cancelled'] as const
 const ARTIFACT_TYPES = ['url', 'file', 'commit', 'message-thread', 'doc'] as const
 
-function normalizeAgentOutput(value: unknown): ProjectChatTaskSource['agentOutput'] {
+function normalizeAgentOutput(value: unknown): AgentOutput | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
   const raw = value as Record<string, unknown>
   const summary = optionalString(raw.summary)
-  const artifacts = Array.isArray(raw.artifacts)
-    ? raw.artifacts.flatMap((item) => {
+  const artifacts: AgentArtifact[] = Array.isArray(raw.artifacts)
+    ? raw.artifacts.flatMap((item): AgentArtifact[] => {
         if (!item || typeof item !== 'object' || Array.isArray(item)) return []
         const entry = item as Record<string, unknown>
         const type = knownString(entry.type, ARTIFACT_TYPES) ?? 'url'
@@ -48,11 +49,11 @@ function normalizeAgentOutput(value: unknown): ProjectChatTaskSource['agentOutpu
         const label = optionalString(entry.label)
         return [{ type, ref, ...(label ? { label } : {}) }]
       })
-    : undefined
-  if (!summary && !(artifacts && artifacts.length > 0)) return undefined
+    : []
+  if (!summary && artifacts.length === 0) return undefined
   return {
     summary: summary ?? '',
-    ...(artifacts && artifacts.length > 0 ? { artifacts } : {}),
+    ...(artifacts.length > 0 ? { artifacts } : {}),
   }
 }
 
@@ -101,7 +102,7 @@ function summary(task: ProjectChatTaskItem): ContextItemSummary {
   const inputSpec = optionalString(task.agentInput && typeof task.agentInput === 'object'
     ? (task.agentInput as { spec?: unknown }).spec
     : undefined)
-  const artifacts = Array.isArray(task.agentOutput?.artifacts)
+  const artifacts: NonNullable<ContextItemAgentSnapshot['artifacts']> = Array.isArray(task.agentOutput?.artifacts)
     ? task.agentOutput!.artifacts!.flatMap((item) => {
         const type = optionalString(item.type) ?? 'url'
         const ref = optionalString(item.ref)
@@ -109,6 +110,19 @@ function summary(task: ProjectChatTaskItem): ContextItemSummary {
         const label = optionalString(item.label)
         return [{ type, ref, ...(label ? { label } : {}) }]
       })
+    : []
+  const conversationId = optionalString(task.agentConversationId) ?? null
+  const agentId = optionalString(task.assigneeAgentId)
+  const agentStatus = optionalString(task.agentStatus)
+  const agent: ContextItemAgentSnapshot | undefined = (agentId || agentStatus || agentSummary || conversationId)
+    ? {
+        ...(agentId ? { agentId } : {}),
+        ...(agentStatus ? { agentStatus } : {}),
+        conversationId,
+        ...(agentSummary ? { summary: agentSummary } : {}),
+        ...(inputSpec ? { inputSpec } : {}),
+        ...(artifacts.length > 0 ? { artifacts } : {}),
+      }
     : undefined
 
   return {
@@ -122,16 +136,7 @@ function summary(task: ProjectChatTaskItem): ContextItemSummary {
       || (task.state === 'blocked' && agentSummary ? agentSummary : undefined)
       || undefined,
     updatedAt: updatedAt(task.updatedAt),
-    agent: (task.assigneeAgentId || task.agentStatus || agentSummary || task.agentConversationId)
-      ? {
-          ...(task.assigneeAgentId ? { agentId: task.assigneeAgentId } : {}),
-          ...(task.agentStatus ? { agentStatus: task.agentStatus } : {}),
-          conversationId: task.agentConversationId ?? null,
-          ...(agentSummary ? { summary: agentSummary } : {}),
-          ...(inputSpec ? { inputSpec } : {}),
-          ...(artifacts && artifacts.length > 0 ? { artifacts } : {}),
-        }
-      : undefined,
+    agent,
   }
 }
 
