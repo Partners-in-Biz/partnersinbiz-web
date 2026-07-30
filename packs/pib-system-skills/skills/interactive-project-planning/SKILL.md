@@ -32,9 +32,20 @@ This is **not** a generic personality questionnaire. It is evidence-first discov
 
 ## Auth
 
-Interactive runs: user-delegation token (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+Interactive Messages runs: user-delegation token (`Authorization: Bearer pib_dlg_…` + `X-Org-Id`).
+The platform mints that token with `agentId=pip` when Pip is the active Messages agent.
 
-Never claim a planning write succeeded without read-back.
+Planning interview mutations (`start`, `record_inspection`, `ask_question`, `surface_brief`, `submit_brief`) accept:
+
+- Pip agent API key (`role=ai`, `agentId=pip`), or
+- Pip user-delegation (`authKind=user_delegation`, `agentId=pip`)
+
+They reject other agents and human-only session tokens for those interview writes (except `start`, which a direct human manager may also run).
+
+**Still human-only (403 for agents and user-delegation):** `answer_question`, `confirm`, `plan_with_assumptions`, `reopen`.
+Humans answer in chat / Plan tab and click **Confirm Decision Brief** on the Messages card.
+
+Never claim a planning write succeeded without read-back. Do not fall back to a long-lived system AI key for interactive planning.
 
 ## Product rule (mandatory vs skip)
 
