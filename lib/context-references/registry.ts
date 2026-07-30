@@ -8,7 +8,12 @@ import { parseStudioArtifactContextId, studioArtifactContextId } from '@/lib/cha
 import { canAccessModule, type WorkspaceModuleKey } from '@/lib/orgMembers/access-policy'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { isPortalModuleEnabled, type PortalModuleKey } from '@/lib/organizations/portal-modules'
-import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
+import {
+  explicitLinkedClientOrgIds,
+  getAccessibleClientDocument,
+  isClientVisibleToOrg,
+} from '@/lib/client-documents/access'
+import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import { listCompanyDocuments } from '@/lib/companies/command-center'
 import type { Company } from '@/lib/companies/types'
 import { convDoc } from '@/lib/conversations/conversations'
@@ -483,6 +488,19 @@ async function queryBillingByOrg(collection: 'invoices' | 'quotes', orgId: strin
   return Array.from(byId.values()).slice(0, Math.max(limit, 30))
 }
 
+async function queryDocumentsByOrg(orgId: string, limit: number) {
+  const collection = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
+  const queryLimit = Math.max(limit, 30)
+  const batches = await Promise.all([
+    collection.where('orgId', '==', orgId).limit(queryLimit).get(),
+    collection.where('linked.clientOrgId', '==', orgId).limit(queryLimit).get(),
+    collection.where('linked.clientOrgIds', 'array-contains', orgId).limit(queryLimit).get(),
+  ])
+  const byId = new Map<string, FirestoreDoc>()
+  for (const doc of batches.flatMap((batch) => batch.docs as FirestoreDoc[])) byId.set(doc.id, doc)
+  return Array.from(byId.values()).slice(0, queryLimit)
+}
+
 async function queryStudioByOrg(collection: string, orgId: string, limit: number) {
   const snap = await adminDb.collection(collection).where('orgId', '==', orgId).limit(limit).get()
   return snap.docs as FirestoreDoc[]
@@ -709,11 +727,21 @@ async function resolveProduct(input: ResolverInput): Promise<ContextReference | 
 }
 
 async function resolveDocument(input: ResolverInput): Promise<ContextReference | null> {
-  const doc = await getClientDocument(input.seed.id)
-  if (!doc) return null
-  const data = doc as unknown as RawDoc
-  const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
-  if (!orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
+  const access = await getAccessibleClientDocument(input.seed.id, input.user)
+  if (!access.ok) return null
+  const doc = access.document
+  const expectedOrg = expectedOrgId(input.seed, input.defaultOrgId)
+  const holderOrgId = clean(doc.orgId)
+  const linkedClientOrgIds = explicitLinkedClientOrgIds(doc)
+  const expectedIsHolder = Boolean(expectedOrg && expectedOrg === holderOrgId)
+  const expectedIsVisibleClient = Boolean(
+    expectedOrg
+    && linkedClientOrgIds.includes(expectedOrg)
+    && isClientVisibleToOrg(doc, expectedOrg),
+  )
+  if (expectedOrg && !expectedIsHolder && !expectedIsVisibleClient) return null
+  const orgId = expectedOrg || holderOrgId
+  if (!orgId || !canUseOrg(input.user, orgId)) return null
   const linked = doc.linked ?? {}
   const relationshipSeeds: Array<{ type: ContextReferenceType; id: string; relation: string }> = []
   const addRelationshipSeeds = (type: ContextReferenceType, relation: string, ids: Array<string | undefined>) => {
@@ -739,7 +767,7 @@ async function resolveDocument(input: ResolverInput): Promise<ContextReference |
     orgId,
     label: clean(doc.title) || input.seed.label || doc.id,
     origin: origin(input.seed),
-    href: href('document', doc.id, data, input.seed.href),
+    href: `/portal/documents/${encodeURIComponent(doc.id)}?orgId=${encodeURIComponent(orgId)}`,
     summary: compactSummary([
       `type: ${clean(doc.type)}`,
       `status: ${clean(doc.status)}`,
@@ -1187,8 +1215,12 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
           createdAt: null,
           updatedAt: null,
         } as Company, { limit: 80 })
-        return rows
-          .map((row) => refFromSearchRow('document', row.id, row, input.user))
+        const refs = await resolveContextReferences(
+          rows.map((row) => ({ type: 'document' as const, id: row.id, orgId: input.orgId, origin: 'mention' as const })),
+          input.user,
+          input.orgId,
+        )
+        return refs
           .filter((ref): ref is ContextReference => Boolean(ref))
           .filter((ref) => matchesQuery({ name: ref.label, summary: ref.summary }, query))
           .slice(0, limit)
@@ -1200,9 +1232,11 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
   if (!collection) return []
   const docs = type === 'invoice' || type === 'quote'
     ? await queryBillingByOrg(collection as 'invoices' | 'quotes', input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
-    : await queryByOrg(collection, input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
+    : type === 'document'
+      ? await queryDocumentsByOrg(input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
+      : await queryByOrg(collection, input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
   const scopedDocs = await filterSearchDocsForRecordScope(input.user, input.orgId, type, docs)
-  if (type === 'invoice' || type === 'quote') {
+  if (type === 'invoice' || type === 'quote' || type === 'document') {
     const refs = await resolveContextReferences(
       scopedDocs.map((doc) => ({ type, id: doc.id, orgId: input.orgId, origin: 'mention' as const })),
       input.user,

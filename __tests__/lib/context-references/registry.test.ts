@@ -138,6 +138,15 @@ beforeEach(() => {
           linked: {},
           deleted: false,
         }),
+        doc('recipient-doc', {
+          orgId: 'holder-org',
+          title: 'Recipient launch agreement',
+          type: 'sales_proposal',
+          status: 'client_review',
+          approvalMode: 'operational',
+          linked: { clientOrgId: 'recipient-org', clientOrgIds: ['recipient-org'] },
+          deleted: false,
+        }),
       ])
     }
     if (name === 'businessRelationships') {
@@ -537,6 +546,44 @@ describe('context reference registry', () => {
         id: 'doc-1',
         label: 'Elemental Sustainability — Digital Growth Partnership — May 2026',
         summary: expect.stringContaining('client_review'),
+      }),
+    ])
+  })
+
+  it('preserves an explicitly linked recipient organisation perspective for client-visible documents', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = {
+      uid: 'recipient-1',
+      role: 'client' as const,
+      authKind: 'session' as const,
+      orgId: 'recipient-org',
+      activeOrgId: 'recipient-org',
+      orgIds: ['recipient-org'],
+    }
+
+    await expect(resolveContextReferences([
+      { type: 'document', id: 'recipient-doc', orgId: 'recipient-org', origin: 'manual' },
+    ], user, 'recipient-org')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'document',
+        id: 'recipient-doc',
+        orgId: 'recipient-org',
+        label: 'Recipient launch agreement',
+        href: '/portal/documents/recipient-doc?orgId=recipient-org',
+      }),
+    ])
+
+    await expect(searchContextReferences({
+      type: 'document',
+      query: 'launch agreement',
+      orgId: 'recipient-org',
+      limit: 8,
+      user,
+    })).resolves.toEqual([
+      expect.objectContaining({
+        type: 'document',
+        id: 'recipient-doc',
+        orgId: 'recipient-org',
       }),
     ])
   })
