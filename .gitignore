@@ -80,3 +80,6 @@ scripts/client-workspace-backfill-reports/
 scripts/workspace-audit-reports/
 .superpowers/
 qa/_split/
+
+# Agent ownership backfill CSVs (may contain org/user ids)
+scripts/backfill-reports/
