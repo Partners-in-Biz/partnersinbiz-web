@@ -108,11 +108,12 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
         : '/api/v1/client-documents'
       const docsRes = await fetch(documentsUrl)
       const docsBody: { data?: ClientDocument[] } = docsRes.ok ? await docsRes.json() : {}
-      const clientVisibleDocs = (docsBody.data ?? []).filter((document) => CLIENT_STATUSES.includes(document.status))
+      // API already enforces access (creator/shared + client-visible). Do not strip
+      // internal drafts that the server intentionally returned for this member.
       if (!cancelled) {
         setOrgId(activeOrgId || null)
         setOrgName(activeOrgName)
-        setDocuments(clientVisibleDocs)
+        setDocuments(docsBody.data ?? [])
       }
     }
 

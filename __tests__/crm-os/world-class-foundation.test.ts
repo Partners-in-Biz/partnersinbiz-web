@@ -158,6 +158,20 @@ describe('world-class CRM OS foundation gaps', () => {
       documents: [
         { id: 'doc-internal', visibility: 'internal' },
         { id: 'doc-direct-draft', orgId: 'client-org', status: 'internal_draft', currentVersionId: 'version-1' },
+        {
+          id: 'doc-owned-draft',
+          orgId: 'pib-platform-owner',
+          status: 'internal_draft',
+          currentVersionId: 'version-owned',
+          createdBy: 'client-user',
+        },
+        {
+          id: 'doc-shared-draft',
+          orgId: 'pib-platform-owner',
+          status: 'internal_draft',
+          currentVersionId: 'version-shared',
+          sharedWithUserIds: ['client-user'],
+        },
         { id: 'doc-direct-visible', orgId: 'client-org', status: 'approved', currentVersionId: 'version-2' },
         {
           id: 'doc-platform-visible',
@@ -203,7 +217,13 @@ describe('world-class CRM OS foundation gaps', () => {
     })
 
     expect(filtered.contacts).toEqual([])
-    expect(filtered.documents.map((row) => row.id)).toEqual(['doc-direct-visible', 'doc-platform-visible', 'doc-shared'])
+    expect(filtered.documents.map((row) => row.id)).toEqual([
+      'doc-owned-draft',
+      'doc-shared-draft',
+      'doc-direct-visible',
+      'doc-platform-visible',
+      'doc-shared',
+    ])
     expect(filtered.orders.map((row) => row.id)).toEqual(['order-allowed'])
     expect(filtered.analytics.accountValue).toBeUndefined()
     expect(filtered.summary.contacts).toBe(0)
