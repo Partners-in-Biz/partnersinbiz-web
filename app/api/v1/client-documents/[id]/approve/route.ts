@@ -10,6 +10,7 @@ import { generateApprovedDocumentProjectTasks } from '@/lib/client-documents/tas
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { DocumentApproval } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { notifyClientDocumentAccepted } from '@/lib/notifications/client-acceptance'
 import {
   assertUserCanPerformOrganizationModuleAction,
@@ -21,7 +22,7 @@ export const dynamic = 'force-dynamic'
 type RouteContext = { params: Promise<{ id: string }> }
 
 function actorType(user: ApiUser) {
-  return user.role === 'ai' ? 'agent' : 'user'
+  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
 }
 
 function actorRole(user: ApiUser) {
@@ -73,9 +74,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   })
   batch.update(documentRef, {
     status: 'approved',
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: user.uid,
-    updatedByType: actorType(user),
+    ...lastActorFrom(user),
   })
 
   await batch.commit()

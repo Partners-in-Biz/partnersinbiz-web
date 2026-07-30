@@ -12,7 +12,7 @@
 import { Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
-import { delegatedAgentAttribution } from '@/lib/api/actor'
+import { crmCreateAttribution } from '@/lib/api/actor'
 import { apiSuccess, apiError, apiErrorFromException } from '@/lib/api/response'
 import {
   sanitizeCompanyForWrite,
@@ -299,11 +299,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     assignedToRef: ownerRef,
     ownerUid,
     ownerRef,
-    createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
     createdByRef: ctx.actor,
-    ...delegatedAgentAttribution(ctx.user),
-    updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
     updatedByRef: ctx.actor,
+    ...crmCreateAttribution(ctx.user, ctx.actor.uid, ctx.isAgent),
     createdAt: now,
     updatedAt: now,
     deleted: false,

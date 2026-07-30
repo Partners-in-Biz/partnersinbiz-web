@@ -4,14 +4,28 @@ import { YOUTUBE_COLLECTIONS } from '@/lib/youtube-studio/api'
 import { sanitizeYouTubeSourceAssetInput } from '@/lib/youtube-studio/sanitize'
 import type { VideoEditorProject, VideoEditorProjectSettings, VideoEditorRenderJobOutput } from './types'
 
-function agentActorFields(options: { includeCreated?: boolean } = {}) {
+/**
+ * Ownership stays with the project owner (human who asked for the render).
+ * Agent identity is recorded on *AgentId fields, never as the ACL owner.
+ */
+function outputActorFields(
+  project: Pick<VideoEditorProject, 'createdBy' | 'createdByType'>,
+  options: { includeCreated?: boolean } = {},
+) {
+  const ownerUid =
+    typeof project.createdBy === 'string' && project.createdBy.trim() && project.createdByType !== 'agent'
+      ? project.createdBy.trim()
+      : 'agent:pip'
+  const ownerIsAgent = ownerUid.startsWith('agent:') || project.createdByType === 'agent'
   return {
-    updatedBy: 'agent:pip',
-    updatedByType: 'agent',
+    updatedBy: ownerUid,
+    updatedByType: ownerIsAgent ? 'agent' as const : 'user' as const,
+    updatedByAgentId: 'pip',
     updatedAt: FieldValue.serverTimestamp(),
     ...(options.includeCreated === false ? {} : {
-      createdBy: 'agent:pip',
-      createdByType: 'agent',
+      createdBy: ownerUid,
+      createdByType: ownerIsAgent ? 'agent' as const : 'user' as const,
+      createdByAgentId: 'pip',
       createdAt: FieldValue.serverTimestamp(),
     }),
   }
@@ -55,7 +69,7 @@ export async function registerVideoEditorRenderOutputs(
     await assetRef.set({
       ...assetData,
       deleted: false,
-      ...agentActorFields({ includeCreated: !existingAsset.exists }),
+      ...outputActorFields(project, { includeCreated: !existingAsset.exists }),
     }, { merge: true })
     registration.youtubeSourceAssetId = assetId
   }
@@ -77,7 +91,7 @@ export async function registerVideoEditorRenderOutputs(
       altText: provenanceNote,
       relatedTo: { type: 'creative_canvas', id: project.canvasId },
       deleted: false,
-      ...agentActorFields({ includeCreated: !existingUpload.exists }),
+      ...outputActorFields(project, { includeCreated: !existingUpload.exists }),
     }, { merge: true })
     registration.canvasUploadId = assetId
   }
@@ -86,9 +100,18 @@ export async function registerVideoEditorRenderOutputs(
   // scrub-ready when re-imported into a timeline. Never blocks registration.
   try {
     const { ensureMediaPreviews } = await import('./media-previews-server')
+    const previewActorUid =
+      typeof project.createdBy === 'string' && project.createdBy.trim() && project.createdByType !== 'agent'
+        ? project.createdBy.trim()
+        : 'agent:pip'
     await ensureMediaPreviews(project.orgId, [
       { type: 'youtube_source_asset', sourceAssetId: `video-editor-${jobId}`, url: output.url, mediaKind: 'video' },
-    ], { uid: 'agent:pip', role: 'ai' })
+    ], {
+      uid: previewActorUid,
+      role: previewActorUid.startsWith('agent:') ? 'ai' : 'client',
+      authKind: previewActorUid.startsWith('agent:') ? 'agent_api_key' : 'session',
+      agentId: 'pip',
+    })
   } catch (error) {
     console.error('[video-editor] media preview enqueue failed:', error)
   }

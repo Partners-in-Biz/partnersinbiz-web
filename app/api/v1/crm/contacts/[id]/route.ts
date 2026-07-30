@@ -13,6 +13,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
+import { crmUpdateAttribution } from '@/lib/api/actor'
 import { resolveMemberRef } from '@/lib/orgMembers/memberRef'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
@@ -137,7 +138,7 @@ async function handleUpdate(
   // fix (commit 1907d8f).
   const patch: Record<string, unknown> = {
     ...sanitizeContactForWrite(body),
-    updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
+    ...crmUpdateAttribution(ctx.user, ctx.actor.uid, ctx.isAgent),
     updatedByRef: actorRef,
     updatedAt: FieldValue.serverTimestamp(),
   }
@@ -289,7 +290,7 @@ export const DELETE = withCrmAuth<RouteCtx>(
     // Soft delete
     const softDeletePatch: Record<string, unknown> = {
       deleted: true,
-      updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
+      ...crmUpdateAttribution(ctx.user, ctx.actor.uid, ctx.isAgent),
       updatedByRef: actorRef,
       updatedAt: FieldValue.serverTimestamp(),
     }

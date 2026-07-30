@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest } from 'next/server'
 
+import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
@@ -14,17 +15,14 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string; versionId: string }> }
 
-function actorType(user: ApiUser) {
-  return user.role === 'ai' ? 'agent' : 'user'
-}
-
 export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id, versionId } = await ctx.params
 
   const documentRef = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id)
   const sourceVersionRef = documentRef.collection('versions').doc(versionId)
   const newVersionRef = documentRef.collection('versions').doc()
-  const inputActorType = actorType(user)
+  const created = actorFrom(user)
+  const updated = lastActorFrom(user)
 
   let result: { ok: true } | { ok: false; response: ReturnType<typeof apiError> }
   try {
@@ -56,8 +54,9 @@ export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, c
         blocks: storedBlocks,
         ...(theme ? { theme } : {}),
         createdAt: FieldValue.serverTimestamp(),
-        createdBy: user.uid,
-        createdByType: inputActorType,
+        createdBy: created.createdBy,
+        createdByType: created.createdByType,
+        ...(created.createdByAgentId ? { createdByAgentId: created.createdByAgentId } : {}),
         changeSummary:
           sourceVersionNumber != null
             ? `Restored from version ${sourceVersionNumber}`
@@ -65,9 +64,10 @@ export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, c
       })
       transaction.update(documentRef, {
         currentVersionId: newVersionRef.id,
-        updatedAt: FieldValue.serverTimestamp(),
-        updatedBy: user.uid,
-        updatedByType: inputActorType,
+        updatedBy: updated.updatedBy,
+        updatedByType: updated.updatedByType,
+        updatedAt: updated.updatedAt,
+        ...(updated.updatedByAgentId ? { updatedByAgentId: updated.updatedByAgentId } : {}),
       })
 
       return { ok: true as const }

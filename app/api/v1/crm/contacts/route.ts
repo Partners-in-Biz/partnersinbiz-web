@@ -10,7 +10,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
-import { delegatedAgentAttribution } from '@/lib/api/actor'
+import { crmCreateAttribution } from '@/lib/api/actor'
 import { resolveMemberRef } from '@/lib/orgMembers/memberRef'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type {
@@ -400,11 +400,12 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     lastContactedAt: null,
-    createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
+    // Owner is always the human actor for interactive work (user-delegation sets
+    // ctx.actor to the human). Pure agent keys remain system-owned (createdBy omitted).
+    // Agent assist is recorded on createdByAgentId / updatedByAgentId.
     createdByRef: actorRef,
-    ...delegatedAgentAttribution(ctx.user),
-    updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
     updatedByRef: actorRef,
+    ...crmCreateAttribution(ctx.user, ctx.actor.uid, ctx.isAgent),
   }
 
   // Custom field validation (best-effort — Firestore outage must not block core write)

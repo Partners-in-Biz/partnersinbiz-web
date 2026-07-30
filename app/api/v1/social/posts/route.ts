@@ -4,6 +4,7 @@
  */
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { actorFrom } from '@/lib/api/actor'
 import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
@@ -285,7 +286,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     campaignId: typeof body.campaignId === 'string' ? body.campaignId : null,
     pillarId: typeof body.pillarId === 'string' ? body.pillarId : null,
     audience: typeof body.audience === 'string' ? body.audience : null,
-    createdBy: user.uid,
+    ...actorFrom(user),
     assignedTo: null,
     approval: emptyApprovalState(),
     approvedBy: null,

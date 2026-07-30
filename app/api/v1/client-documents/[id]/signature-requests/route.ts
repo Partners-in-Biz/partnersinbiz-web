@@ -24,6 +24,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { sendEmail } from '@/lib/email/send'
 import { isSuppressed } from '@/lib/email/suppressions'
 import type { SignatureRequest } from '@/lib/client-documents/types'
+import { actorFrom } from '@/lib/api/actor'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,7 +33,7 @@ type RouteContext = { params: Promise<{ id: string }> }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function actorType(user: ApiUser) {
-  return user.role === 'ai' ? 'agent' : 'user'
+  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
 }
 
 function requiredText(value: unknown): string {
@@ -150,8 +151,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
     status: 'pending' as const,
     signToken,
     expiresAt: expiresAtIso,
-    createdBy: user.uid,
-    createdByType: actorType(user),
+    ...actorFrom(user),
     createdAt: now,
   }
   await requestRef.set(record)

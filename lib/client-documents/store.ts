@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 
 import type { ApiUser } from '@/lib/api/types'
-import { actorFrom, lastActorFrom } from '@/lib/api/actor'
+import { actorFrom, lastActorFrom, ownerUidFrom } from '@/lib/api/actor'
 import { adminDb } from '@/lib/firebase/admin'
 import {
   canMutateLinkedProjectPlanning,
@@ -75,7 +75,8 @@ export function isClientDocumentMutationError(
 }
 
 function actorType(user: ApiUser): DocumentActorType {
-  return user.role === 'ai' ? 'agent' : 'user'
+  // Ownership type follows actorFrom: user-delegation is always 'user'.
+  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
 }
 
 function withoutUndefined<T extends object>(value: T): Partial<T> {
@@ -86,6 +87,8 @@ function withoutUndefined<T extends object>(value: T): Partial<T> {
 
 function normalizeAssumptions(assumptions: AssumptionInput[] | undefined, user: ApiUser): DocumentAssumption[] {
   const createdAt = new Date().toISOString()
+  const ownerUid = ownerUidFrom(user)
+  const created = actorFrom(user)
 
   return (assumptions ?? [])
     .filter((assumption) => typeof assumption.text === 'string' && assumption.text.trim().length > 0)
@@ -96,7 +99,8 @@ function normalizeAssumptions(assumptions: AssumptionInput[] | undefined, user: 
         severity: assumption.severity ?? 'needs_review',
         status: 'open',
         blockId: assumption.blockId,
-        createdBy: user.uid,
+        createdBy: ownerUid || user.uid,
+        ...(created.createdByAgentId ? { createdByAgentId: created.createdByAgentId } : {}),
         createdAt,
       }) as DocumentAssumption,
     )

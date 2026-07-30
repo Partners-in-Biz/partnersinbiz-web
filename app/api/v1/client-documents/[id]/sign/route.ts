@@ -7,13 +7,14 @@ import type { ApiUser } from '@/lib/api/types'
 import { getAccessibleClientDocument } from '@/lib/client-documents/access'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import { adminDb } from '@/lib/firebase/admin'
+import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
 function actorType(user: ApiUser) {
-  return user.role === 'ai' ? 'agent' : 'user'
+  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
 }
 
 function actorRole(user: ApiUser) {
@@ -109,9 +110,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
       clientAcceptance: FieldValue.delete(),
       status: 'client_review',
     } : {}),
-    updatedAt: now,
-    updatedBy: user.uid,
-    updatedByType: actorType(user),
+    ...lastActorFrom(user),
   })
 
   await batch.commit()

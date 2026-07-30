@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest } from 'next/server'
 
+import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
@@ -53,7 +54,7 @@ const DEFAULT_THEME: DocumentTheme = {
 }
 
 function actorType(user: ApiUser) {
-  return user.role === 'ai' ? 'agent' : 'user'
+  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
 }
 
 function sanitizeBlockContextRefs(value: unknown): ContextReference[] {
@@ -295,7 +296,6 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
 
   const documentRef = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id)
   const versionRef = documentRef.collection('versions').doc()
-  const inputActorType = actorType(user)
 
   const storedBlocks = serializeBlocksForFirestore(blocks.value)
 
@@ -313,6 +313,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
       const access = assertClientDocumentDataAccess(docData, user)
       if (!access.ok) return access
 
+      const created = actorFrom(user)
+      const updated = lastActorFrom(user)
       transaction.set(versionRef, {
         documentId: id,
         versionNumber: body.versionNumber ?? Date.now(),
@@ -320,15 +322,17 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
         blocks: storedBlocks,
         theme: theme.value,
         createdAt: FieldValue.serverTimestamp(),
-        createdBy: user.uid,
-        createdByType: inputActorType,
+        createdBy: created.createdBy,
+        createdByType: created.createdByType,
+        ...(created.createdByAgentId ? { createdByAgentId: created.createdByAgentId } : {}),
         changeSummary: typeof body.changeSummary === 'string' ? body.changeSummary.trim() || 'Draft update' : 'Draft update',
       })
       transaction.update(documentRef, {
         currentVersionId: versionRef.id,
-        updatedAt: FieldValue.serverTimestamp(),
-        updatedBy: user.uid,
-        updatedByType: inputActorType,
+        updatedBy: updated.updatedBy,
+        updatedByType: updated.updatedByType,
+        updatedAt: updated.updatedAt,
+        ...(updated.updatedByAgentId ? { updatedByAgentId: updated.updatedByAgentId } : {}),
       })
 
       return {

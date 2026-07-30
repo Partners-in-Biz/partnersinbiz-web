@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 
+import { actorFrom } from '@/lib/api/actor'
 import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
@@ -76,7 +77,7 @@ type FirestoreListQuery = {
 }
 
 function actorType(user: ApiUser) {
-  return user.role === 'ai' ? 'agent' : 'user'
+  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
 }
 
 async function platformCompanyForClientOrg(clientOrgId: string): Promise<{ id: string } | null> {

@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { apiError } from '@/lib/api/response'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
@@ -24,24 +25,20 @@ export const YOUTUBE_COLLECTIONS = {
 } as const
 
 export function actorFields(user: ApiUser) {
-  const actorType = user.role === 'ai' ? 'agent' : 'user'
-
+  const created = actorFrom(user)
+  const updated = lastActorFrom(user)
   return {
-    createdBy: user.uid,
-    createdByType: actorType,
-    updatedBy: user.uid,
-    updatedByType: actorType,
+    ...created,
+    updatedBy: updated.updatedBy,
+    updatedByType: updated.updatedByType,
+    ...(updated.updatedByAgentId ? { updatedByAgentId: updated.updatedByAgentId } : {}),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   }
 }
 
 export function updateActorFields(user: ApiUser) {
-  return {
-    updatedBy: user.uid,
-    updatedByType: user.role === 'ai' ? 'agent' : 'user',
-    updatedAt: FieldValue.serverTimestamp(),
-  }
+  return lastActorFrom(user)
 }
 
 export async function ensureOrgAccess(user: ApiUser, orgId: string) {
