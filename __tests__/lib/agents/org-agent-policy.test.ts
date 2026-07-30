@@ -1,8 +1,11 @@
 import {
   assertCanCreateAgentOnDevice,
   buildScopedAgentId,
+  canManageLinkedAgent,
   canPullAgentToDevice,
   canStartLinkedAgent,
+  linkedAgentProfileRevision,
+  parseLinkedAgentUpdateFields,
   runtimeSupportsCustomAgentProfiles,
 } from '@/lib/agents/org-agent-policy'
 
@@ -140,5 +143,89 @@ describe('linked agent conversation policy', () => {
       callerRole: 'client',
       explicitlyGranted: false,
     })).toBe(false)
+  })
+})
+
+describe('linked agent manage + update fields', () => {
+  it('lets a member manage only their own personal agent', () => {
+    expect(canManageLinkedAgent({
+      actorUserId: 'member-a',
+      orgId: 'org-a',
+      role: 'member',
+      agent: {
+        provisioningMode: 'linked_device',
+        scopeOrgId: 'org-a',
+        accessScope: 'personal',
+        ownerUserId: 'member-a',
+      },
+    })).toBe(true)
+    expect(canManageLinkedAgent({
+      actorUserId: 'member-a',
+      orgId: 'org-a',
+      role: 'member',
+      agent: {
+        provisioningMode: 'linked_device',
+        scopeOrgId: 'org-a',
+        accessScope: 'personal',
+        ownerUserId: 'member-b',
+      },
+    })).toBe(false)
+  })
+
+  it('does not let org admins edit another members personal agent', () => {
+    expect(canManageLinkedAgent({
+      actorUserId: 'admin-a',
+      orgId: 'org-a',
+      role: 'admin',
+      agent: {
+        provisioningMode: 'linked_device',
+        scopeOrgId: 'org-a',
+        accessScope: 'personal',
+        ownerUserId: 'member-a',
+      },
+    })).toBe(false)
+  })
+
+  it('lets org admins manage organisation agents but not ordinary members', () => {
+    const orgAgent = {
+      provisioningMode: 'linked_device' as const,
+      scopeOrgId: 'org-a',
+      accessScope: 'organization' as const,
+    }
+    expect(canManageLinkedAgent({
+      actorUserId: 'admin-a', orgId: 'org-a', role: 'admin', agent: orgAgent,
+    })).toBe(true)
+    expect(canManageLinkedAgent({
+      actorUserId: 'member-a', orgId: 'org-a', role: 'member', agent: orgAgent,
+    })).toBe(false)
+  })
+
+  it('parses linked agent update fields and computes a stable profile revision', () => {
+    const current = {
+      name: 'Research',
+      role: 'Specialist',
+      persona: 'Helps with research',
+      defaultModel: 'auto',
+      iconKey: 'smart_toy',
+      colorKey: 'sky',
+    }
+    const parsed = parseLinkedAgentUpdateFields({
+      name: 'Research v2',
+      persona: 'Deeper research',
+    }, current)
+    expect(parsed.ok).toBe(true)
+    if (!parsed.ok) return
+    expect(parsed.changed).toBe(true)
+    expect(parsed.fields).toMatchObject({
+      name: 'Research v2',
+      role: 'Specialist',
+      persona: 'Deeper research',
+      defaultModel: 'auto',
+    })
+    expect(linkedAgentProfileRevision(parsed.fields)).toHaveLength(16)
+    expect(linkedAgentProfileRevision(parsed.fields)).toBe(linkedAgentProfileRevision(parsed.fields))
+
+    const invalid = parseLinkedAgentUpdateFields({ name: '' }, current)
+    expect(invalid.ok).toBe(false)
   })
 })

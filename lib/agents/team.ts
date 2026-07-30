@@ -424,6 +424,34 @@ export async function createLinkedAgent(input: CreateLinkedAgentInput): Promise<
   return toPublicDoc(snap.data() as AgentTeamStoredDoc)
 }
 
+/**
+ * Update member/org linked-device agents (name, role, persona, model presentation).
+ * Does not touch platform VPS agents or encrypted gateway credentials.
+ */
+export async function updateLinkedAgent(
+  agentId: string,
+  patch: Partial<Pick<AgentTeamDoc, 'name' | 'role' | 'persona' | 'defaultModel' | 'iconKey' | 'colorKey'>>,
+): Promise<AgentTeamDoc> {
+  const ref = adminDb.collection(COLLECTION).doc(agentId)
+  const existing = await ref.get()
+  if (!existing.exists) throw new Error(`agent_team/${agentId} not found`)
+  const stored = existing.data() as AgentTeamStoredDoc
+  if (stored.provisioningMode !== 'linked_device') {
+    throw new Error('Only linked-device agents can be updated through this path')
+  }
+
+  const writePayload: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() }
+  for (const field of ['name', 'role', 'persona', 'defaultModel', 'iconKey', 'colorKey'] as const) {
+    if (patch[field] !== undefined) writePayload[field] = patch[field]
+  }
+  if (Object.keys(writePayload).length === 1) {
+    return toPublicDoc(stored)
+  }
+  await ref.update(writePayload)
+  const snap = await ref.get()
+  return toPublicDoc(snap.data() as AgentTeamStoredDoc)
+}
+
 export async function recordAgentSkillPolicyApplied(
   agentId: AgentId,
   appliedBy: string,
