@@ -207,6 +207,29 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       .filter((doc: ClientDocument & { id: string }) => doc.deleted !== true)
   }
 
+  /** Client members must never lose their own/shared drafts to the unbounded org scan + limit. */
+  async function listOwnedOrSharedForOrg(orgId: string): Promise<Array<ClientDocument & { id: string }>> {
+    if (user.role !== 'client') return []
+    const base = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
+      .where('orgId', '==', orgId) as unknown as FirestoreListQuery
+    let ownedQuery = base.where('createdBy', '==', user.uid) as unknown as FirestoreListQuery
+    let sharedQuery = base.where('sharedWithUserIds', 'array-contains', user.uid) as unknown as FirestoreListQuery
+    if (status) {
+      ownedQuery = ownedQuery.where('status', '==', status)
+      sharedQuery = sharedQuery.where('status', '==', status)
+    }
+    if (type) {
+      ownedQuery = ownedQuery.where('type', '==', type)
+      sharedQuery = sharedQuery.where('type', '==', type)
+    }
+    ownedQuery = ownedQuery.limit(MAX_LIST_LIMIT)
+    sharedQuery = sharedQuery.limit(MAX_LIST_LIMIT)
+    const [ownedSnap, sharedSnap] = await Promise.all([ownedQuery.get(), sharedQuery.get()])
+    return [...ownedSnap.docs, ...sharedSnap.docs]
+      .map((doc) => ({ id: doc.id, ...doc.data() } as ClientDocument & { id: string }))
+      .filter((doc) => doc.deleted !== true)
+  }
+
   let documents = await listForOrg(scope.orgId)
   if (scope.orgId !== PIB_PLATFORM_ORG_ID) {
     const platformQueries: FirestoreListQuery[] = [
@@ -243,7 +266,13 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     for (const document of [...documents, ...linkedPlatformDocuments]) byId.set(document.id, document)
     documents = Array.from(byId.values())
   }
-  if (user.role === 'client') documents = documents.filter((doc) => isClientDocumentVisibleToUser(doc, user))
+
+  if (user.role === 'client') {
+    const ownedOrShared = await listOwnedOrSharedForOrg(scope.orgId)
+    const byId = new Map<string, ClientDocument & { id: string }>()
+    for (const document of [...documents, ...ownedOrShared]) byId.set(document.id, document)
+    documents = Array.from(byId.values()).filter((doc) => isClientDocumentVisibleToUser(doc, user))
+  }
   const hasMore = documents.length > limit
   const total = hasMore ? limit + 1 : documents.length
   documents = documents.slice(0, limit)
