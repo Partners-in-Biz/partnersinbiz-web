@@ -6185,9 +6185,11 @@ export default function UnifiedChat({
                                 : 'border-amber-400/20 bg-amber-500/10 text-amber-100'}`}
                             >
                               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${runtimeReady ? 'bg-emerald-300' : 'bg-amber-300'}`} aria-hidden="true" />
-                              <span className="truncate">
-                                {machineType} · {location.label} · {runtimeStatus}
-                              </span>
+                              <HoverTip label={`${machineType} · ${location.label} · ${runtimeStatus}`} side="top" className="min-w-0 max-w-full">
+                                <span className="block min-w-0 truncate">
+                                  {machineType} · {location.label} · {runtimeStatus}
+                                </span>
+                              </HoverTip>
                             </span>
                           )
                         })}
@@ -6218,13 +6220,18 @@ export default function UnifiedChat({
                             {managedProjectLocations.length > 0 && (
                               <div className="space-y-1">
                                 <div className="text-xs font-label uppercase tracking-wider text-[var(--color-pib-text-muted)]/70">Linked</div>
-                                {managedProjectLocations.map((location) => (
+                                {managedProjectLocations.map((location) => {
+                                  const statusLabel = !location.authenticatedRuntime
+                                    ? 'Pairing required'
+                                    : location.availability === 'online' ? 'online' : 'Computer unavailable'
+                                  const fullLabel = `${location.label} · ${statusLabel}`
+                                  return (
                                   <div key={location.replicaId} className="flex min-w-0 flex-wrap items-center gap-1 rounded border border-white/[0.06] px-2 py-2 text-xs">
-                                    <span className="min-w-0 flex-1 truncate text-[var(--color-pib-text)]">
-                                      {location.label} · {!location.authenticatedRuntime
-                                        ? 'Pairing required'
-                                        : location.availability === 'online' ? 'online' : 'Computer unavailable'}
-                                    </span>
+                                    <HoverTip label={fullLabel} side="right" className="min-w-0 flex-1">
+                                      <span className="block min-w-0 truncate text-[var(--color-pib-text)]">
+                                        {fullLabel}
+                                      </span>
+                                    </HoverTip>
                                     {!location.authenticatedRuntime && (
                                       <span className="rounded bg-amber-500/10 px-1.5 py-1 text-xs text-amber-100">Legacy · pairing required</span>
                                     )}
@@ -6241,7 +6248,8 @@ export default function UnifiedChat({
                                       Unlink
                                     </button>
                                   </div>
-                                ))}
+                                  )
+                                })}
                               </div>
                             )}
 
@@ -6254,23 +6262,30 @@ export default function UnifiedChat({
                               ) : managedUnlinkedLocationCandidates.length === 0 ? (
                                 <p className="text-xs text-[var(--color-pib-text-muted)]">Every available location is already linked.</p>
                               ) : (
-                                managedUnlinkedLocationCandidates.map((candidate) => (
+                                managedUnlinkedLocationCandidates.map((candidate) => {
+                                  // Keep status casing stable for a11y tests + screen readers.
+                                  const statusLabel = candidate.selectable ? 'online' : 'Computer unavailable'
+                                  const fullLabel = `${candidate.label} · ${statusLabel}`
+                                  return (
                                   <label key={candidate.key} className="flex min-h-11 min-w-0 items-center gap-2 rounded border border-white/[0.06] px-2 py-2 text-xs text-[var(--color-pib-text)] xl:min-h-0">
                                     <input
                                       type="checkbox"
-                                      aria-label={`${candidate.label} · ${candidate.selectable ? 'online' : 'Computer unavailable'}`}
+                                      aria-label={fullLabel}
                                       checked={selectedManagedProjectLocationKeys.includes(candidate.key)}
                                       disabled={!candidate.selectable || projectLocationsMutating}
                                       onChange={(event) => setSelectedManagedProjectLocationKeys((current) => event.target.checked
                                         ? [...current, candidate.key]
                                         : current.filter((key) => key !== candidate.key))}
                                     />
-                                    <span className="min-w-0 flex-1 truncate">{candidate.label}</span>
+                                    <HoverTip label={fullLabel} side="right" className="min-w-0 flex-1">
+                                      <span className="block min-w-0 truncate">{candidate.label}</span>
+                                    </HoverTip>
                                     <span className={candidate.selectable ? 'text-emerald-200' : 'text-amber-100'}>
                                       {candidate.selectable ? 'Online' : 'Computer unavailable'}
                                     </span>
                                   </label>
-                                ))
+                                  )
+                                })
                               )}
                             </div>
 
