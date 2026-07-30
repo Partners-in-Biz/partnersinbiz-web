@@ -80,6 +80,12 @@ export interface AgentTeamDoc extends AgentRegistryEntry {
   provisioningStatus?: 'installing' | 'ready' | 'failed'
   provisioningError?: string | null
   accessScope?: 'personal' | 'organization'
+  /** Custom agent vs marketplace template instance (never editable as a system agent). */
+  agentKind?: 'custom' | 'marketplace'
+  /** Source marketplace template id when agentKind is marketplace (e.g. pip). */
+  marketplaceTemplateId?: string
+  /** Skill pack channel — marketplace pulls use public packs only. */
+  marketplacePack?: 'public'
   createdAt: Timestamp
   updatedAt: Timestamp
 }

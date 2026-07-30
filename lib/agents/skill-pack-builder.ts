@@ -3,6 +3,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
+import {
+  isMarketplaceAgentId,
+  marketplacePolicyVersion,
+  marketplacePublicSkillsForAgent,
+} from '@/lib/agents/marketplace'
 import { AGENT_SKILL_POLICY, getAgentSkillPolicy } from '@/lib/agents/skill-policy'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 
@@ -46,6 +51,13 @@ function safeSkillName(name: string): string | null {
 }
 
 export function skillNamesForAgent(agentId: AgentId): string[] {
+  // Marketplace instances never inherit full PiB operating skill policy.
+  if (isMarketplaceAgentId(agentId)) {
+    return [...new Set(marketplacePublicSkillsForAgent(agentId))]
+      .map(safeSkillName)
+      .filter((value): value is string => Boolean(value))
+      .sort()
+  }
   const policy = getAgentSkillPolicy(agentId)
   const names = [...new Set([
     ...(policy?.runtimeSkills ?? []),
@@ -61,7 +73,10 @@ export function buildSkillPackManifest(agentId: AgentId): SkillPackManifest {
   const skillNames = skillNamesForAgent(agentId)
   const files: SkillPackFile[] = []
   const hash = crypto.createHash('sha256')
-  hash.update(`agent:${agentId}\npolicy:${AGENT_SKILL_POLICY.version}\n`)
+  const policyVersion = isMarketplaceAgentId(agentId)
+    ? marketplacePolicyVersion()
+    : AGENT_SKILL_POLICY.version
+  hash.update(`agent:${agentId}\npolicy:${policyVersion}\n`)
 
   for (const skillName of skillNames) {
     const skillRoot = path.join(SKILLS_ROOT, skillName)
@@ -80,8 +95,10 @@ export function buildSkillPackManifest(agentId: AgentId): SkillPackManifest {
   const packSha256 = hash.digest('hex')
   return {
     agentId,
-    policyVersion: AGENT_SKILL_POLICY.version,
-    catalogVersion: AGENT_SKILL_POLICY.catalogVersion ?? AGENT_SKILL_POLICY.version,
+    policyVersion,
+    catalogVersion: isMarketplaceAgentId(agentId)
+      ? marketplacePolicyVersion()
+      : (AGENT_SKILL_POLICY.catalogVersion ?? AGENT_SKILL_POLICY.version),
     packSha256,
     skillNames,
     files,

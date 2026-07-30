@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { isMarketplaceAgentId, marketplacePolicyVersion } from '@/lib/agents/marketplace'
 import { AGENT_SKILL_POLICY, getAgentSkillPolicy } from '@/lib/agents/skill-policy'
 import { buildSkillPackManifest } from '@/lib/agents/skill-pack-builder'
 import { listAgents } from '@/lib/agents/team'
@@ -64,9 +65,10 @@ async function reservePreferredAgentPort(deviceId: string, agentId: AgentId): Pr
 function skillPackForAgent(agentId: AgentId): AgentHostJobPayload['skillPack'] {
   const policy = getAgentSkillPolicy(agentId)
   const manifest = buildSkillPackManifest(agentId)
-  // Managed agents must ship real skills; custom agents may stamp an empty pack for keep-in-sync.
-  if (policy && manifest.skillNames.length === 0) {
-    throw new Error(`agent-host: managed agent ${agentId} has an empty skill pack`)
+  const marketplace = isMarketplaceAgentId(agentId)
+  // Managed / marketplace agents must ship real skills; custom agents may stamp an empty pack.
+  if ((policy || marketplace) && manifest.skillNames.length === 0) {
+    throw new Error(`agent-host: agent ${agentId} has an empty skill pack`)
   }
   return {
     packSha256: manifest.packSha256,
@@ -79,10 +81,13 @@ function skillPackForAgent(agentId: AgentId): AgentHostJobPayload['skillPack'] {
 async function policyPayload(agentId: AgentId, keepInSync: boolean, deviceId?: string): Promise<AgentHostJobPayload> {
   const policy = getAgentSkillPolicy(agentId)
   const agent = (await listAgents()).find((row) => row.agentId === agentId)
+  const isMarketplace = agent?.agentKind === 'marketplace'
+    || Boolean(agent?.marketplaceTemplateId)
+    || isMarketplaceAgentId(agentId)
   const effectiveKeepInSync = keepInSync === true
-  // Keep-in-sync always ships a pack (managed skills, or empty custom stamp for re-ensure).
-  // Installs without keep-in-sync still omit packs for custom agents.
-  const skillPack = effectiveKeepInSync || policy
+  // Marketplace instances always ship the public pack (never empty / never full PiB ops).
+  // Managed agents ship full policy packs. Custom agents only pack when keep-in-sync.
+  const skillPack = (effectiveKeepInSync || policy || isMarketplace)
     ? skillPackForAgent(agentId)
     : null
   if (effectiveKeepInSync && !skillPack) {
@@ -93,13 +98,19 @@ async function policyPayload(agentId: AgentId, keepInSync: boolean, deviceId?: s
     : null
   const policyVersion = skillPack?.policyVersion
     ?? (policy ? AGENT_SKILL_POLICY.version : null)
+
+  // Marketplace: runtimeSkills = public skills only; pibSkills intentionally empty.
+  const marketplaceSkills = isMarketplace ? (skillPack?.skillNames ?? []) : null
+
   return {
     agentId,
     policyVersion,
-    keepInSync: effectiveKeepInSync,
-    runtimeSkills: policy?.runtimeSkills ?? [],
-    pibSkills: policy?.pibSkills ?? [],
-    vpsExternalDir: policy?.vpsExternalDir ?? null,
+    keepInSync: effectiveKeepInSync || isMarketplace,
+    runtimeSkills: marketplaceSkills ?? policy?.runtimeSkills ?? [],
+    pibSkills: isMarketplace ? [] : (policy?.pibSkills ?? []),
+    vpsExternalDir: isMarketplace
+      ? null
+      : (policy?.vpsExternalDir ?? null),
     preferredPort: deviceId
       ? await reservePreferredAgentPort(deviceId, agentId)
       : resolvePreferredAgentPort(agentId),
@@ -275,6 +286,11 @@ export async function setDeviceDesiredAgents(input: {
   for (const row of filteredDesired) {
     if (!isValidAgentId(row.agentId)) continue
     // Keep-in-sync stamps catalog policy version even for empty custom packs.
+    // Marketplace instances use the public pack version (never full PiB policy).
+    if (isMarketplaceAgentId(row.agentId)) {
+      policyVersionByAgent[row.agentId] = marketplacePolicyVersion()
+      continue
+    }
     policyVersionByAgent[row.agentId] = row.keepInSync || getAgentSkillPolicy(row.agentId)
       ? AGENT_SKILL_POLICY.version
       : null

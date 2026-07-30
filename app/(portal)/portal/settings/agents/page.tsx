@@ -16,7 +16,11 @@ type AgentRow = {
   colorKey?: string
   homeDeviceId?: string
   accessScope?: 'personal' | 'organization'
+  agentKind?: 'custom' | 'marketplace'
+  marketplaceTemplateId?: string
+  isMarketplace?: boolean
   canManage: boolean
+  canEdit?: boolean
   hasAccess: boolean
   provisioningStatus?: 'installing' | 'ready' | 'failed'
   provisioningError?: string | null
@@ -29,6 +33,19 @@ type DeviceRow = {
   ownerType: 'user' | 'organization'
   runtimeVersion?: string
   supportsCustomAgents?: boolean
+}
+
+type MarketplaceRow = {
+  templateId: string
+  name: string
+  role: string
+  summary: string
+  iconKey: string
+  colorKey: string
+  publicSkillCount: number
+  publicSkills: string[]
+  editable: false
+  pack: 'public'
 }
 
 type EditForm = {
@@ -44,9 +61,12 @@ export default function OrganisationAgentsPage() {
   const endpoint = useCallback((path: string) => scopedApiPath(path, scope), [scope])
   const [agents, setAgents] = useState<AgentRow[]>([])
   const [devices, setDevices] = useState<DeviceRow[]>([])
+  const [marketplace, setMarketplace] = useState<MarketplaceRow[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null)
+  const [pullTemplateId, setPullTemplateId] = useState<string | null>(null)
+  const [pullDeviceId, setPullDeviceId] = useState('')
   const [editForm, setEditForm] = useState<EditForm>({
     name: '',
     role: '',
@@ -72,6 +92,7 @@ export default function OrganisationAgentsPage() {
       if (!response.ok) throw new Error(body.error ?? 'Failed to load agents')
       setAgents(Array.isArray(body.data?.agents) ? body.data.agents : [])
       setDevices(Array.isArray(body.data?.devices) ? body.data.devices : [])
+      setMarketplace(Array.isArray(body.data?.marketplace) ? body.data.marketplace : [])
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Failed to load agents')
     } finally {
@@ -81,8 +102,19 @@ export default function OrganisationAgentsPage() {
 
   useEffect(() => { void load() }, [load])
 
+  const customAgents = useMemo(
+    () => agents.filter((agent) => !agent.isMarketplace && agent.agentKind !== 'marketplace'),
+    [agents],
+  )
+  const marketplaceInstalled = useMemo(
+    () => agents.filter((agent) => agent.isMarketplace || agent.agentKind === 'marketplace'),
+    [agents],
+  )
+
   function startEdit(agent: AgentRow) {
+    if (!agent.canEdit && !agent.canManage) return
     setShowCreate(false)
+    setPullTemplateId(null)
     setEditingAgentId(agent.agentId)
     setEditForm({
       name: agent.name,
@@ -170,198 +202,305 @@ export default function OrganisationAgentsPage() {
     }
   }
 
+  async function pullMarketplace(event: FormEvent) {
+    event.preventDefault()
+    if (!pullTemplateId || !pullDeviceId) return
+    setSaving(true)
+    setMessage('')
+    try {
+      const response = await fetch(endpoint('/api/v1/portal/settings/agents/marketplace/pull'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId: pullTemplateId, deviceId: pullDeviceId }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error ?? 'Failed to pull marketplace agent')
+      setPullTemplateId(null)
+      setPullDeviceId('')
+      await load()
+      setMessage(body.data?.message ?? 'Marketplace agent is installing.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to pull marketplace agent')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-5xl space-y-6" data-module-accent="cyan">
       <PageHeader
         accent="cyan"
         eyebrow="Workspace · Agents"
-        title="Organisation agents"
-        description="Create and edit agents on computers you own. Organisation owners and admins can also manage shared VPS agents, then grant each member access per computer from Team settings."
+        title="Agents"
+        description="Pull system agent templates onto computers you own (public skills only), or create your own custom agents. System/platform employees are never edited here."
         actions={(
           <button
             type="button"
             className="btn-pib-primary btn-pib-sm font-label"
             onClick={() => {
               setEditingAgentId(null)
+              setPullTemplateId(null)
               setShowCreate((value) => !value)
             }}
           >
             <span className="material-symbols-outlined text-[16px]">add</span>
-            New agent
+            New custom agent
           </button>
         )}
       />
 
-      {showCreate && (
-        <form onSubmit={createAgent} className="pib-card space-y-4 p-4">
-          <p className="text-sm text-[var(--color-pib-text-muted)]">
-            Personal computers create a private agent owned by you. Shared VPS creation is available only to organisation owners and admins.
+      {message && <p role="status" className="pib-card px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">{message}</p>}
+
+      {/* Marketplace catalog */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Marketplace templates</h2>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            Install a published agent onto your computer. You get runtime skills suitable for general work — not Partners in Biz internal ops, client data, or admin powers. Templates cannot be edited.
           </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1">
-              <span className="pib-label">Agent ID</span>
-              <input required maxLength={20} className="pib-input w-full font-mono" placeholder="my-research-agent" value={form.agentId} onChange={(event) => setForm((value) => ({ ...value, agentId: event.target.value.toLowerCase() }))} />
-            </label>
-            <label className="space-y-1">
-              <span className="pib-label">Name</span>
-              <input required maxLength={100} className="pib-input w-full" placeholder="Research assistant" value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} />
-            </label>
-            <label className="space-y-1">
-              <span className="pib-label">Role</span>
-              <input required maxLength={120} className="pib-input w-full" value={form.role} onChange={(event) => setForm((value) => ({ ...value, role: event.target.value }))} />
-            </label>
-            <label className="space-y-1">
+        </div>
+
+        {pullTemplateId && (
+          <form onSubmit={pullMarketplace} className="pib-card space-y-3 p-4">
+            <p className="text-sm text-[var(--color-pib-text)]">
+              Pull <strong>{marketplace.find((row) => row.templateId === pullTemplateId)?.name ?? pullTemplateId}</strong> to a computer
+            </p>
+            <label className="block space-y-1">
               <span className="pib-label">Computer or VPS</span>
-              <select required className="pib-select w-full" value={form.deviceId} onChange={(event) => setForm((value) => ({ ...value, deviceId: event.target.value }))}>
+              <select
+                required
+                className="pib-select w-full"
+                value={pullDeviceId}
+                onChange={(event) => setPullDeviceId(event.target.value)}
+              >
                 <option value="">Choose a computer</option>
                 {devices.map((device) => (
                   <option key={device.deviceId} value={device.deviceId} disabled={!device.supportsCustomAgents}>
                     {device.label} · {device.ownerType === 'organization' ? 'organisation VPS' : 'owned by you'}
-                    {!device.supportsCustomAgents ? ' · update required' : ''}
+                    {!device.supportsCustomAgents ? ' · runtime update required' : ''}
                   </option>
                 ))}
               </select>
             </label>
+            <p className="text-[10px] text-[var(--color-pib-text-muted)]/80">
+              Pack: public skills only. Your own LLM credentials on that computer are used — never org secrets from another machine.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-pib-ghost btn-pib-sm" onClick={() => { setPullTemplateId(null); setPullDeviceId('') }}>
+                Cancel
+              </button>
+              <button type="submit" disabled={saving || !pullDeviceId} className="btn-pib-primary btn-pib-sm disabled:opacity-50">
+                {saving ? 'Pulling…' : 'Pull to computer'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {loading ? (
+            <p className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)] sm:col-span-2">Loading marketplace…</p>
+          ) : marketplace.map((template) => (
+            <article key={template.templateId} className="pib-card flex flex-col gap-3 p-4">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-[22px] text-primary">{template.iconKey}</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-medium text-[var(--color-pib-text)]">{template.name}</h3>
+                  <p className="text-xs text-[var(--color-pib-text-muted)]">{template.role}</p>
+                  <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{template.summary}</p>
+                  <p className="mt-2 text-[10px] text-[var(--color-pib-text-muted)]/70">
+                    {template.publicSkillCount} public skills · not editable
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={saving || devices.length === 0}
+                  className="btn-pib-secondary btn-pib-sm disabled:opacity-50"
+                  onClick={() => {
+                    setShowCreate(false)
+                    setEditingAgentId(null)
+                    setPullTemplateId(template.templateId)
+                    setPullDeviceId(devices[0]?.deviceId ?? '')
+                  }}
+                >
+                  Pull to computer
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {/* Installed marketplace instances */}
+      {marketplaceInstalled.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Installed from marketplace</h2>
+          <div className="pib-card divide-y divide-[var(--color-pib-line)]">
+            {marketplaceInstalled.map((agent) => {
+              const device = devices.find((row) => row.deviceId === agent.homeDeviceId)
+              return (
+                <article key={agent.agentId} className="flex items-start justify-between gap-4 p-4">
+                  <div>
+                    <h3 className="font-medium text-[var(--color-pib-text)]">{agent.name}</h3>
+                    <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+                      Template · {agent.marketplaceTemplateId ?? agent.agentHandle} · public pack
+                    </p>
+                    <p className="mt-2 line-clamp-2 text-sm text-[var(--color-pib-text-muted)]">{agent.persona}</p>
+                  </div>
+                  <div className="shrink-0 text-right text-xs text-[var(--color-pib-text-muted)]">
+                    <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1">Marketplace</span>
+                    <p className="mt-2">{device?.label ?? 'Linked computer'}</p>
+                    <p className="mt-1 capitalize">{agent.provisioningStatus ?? 'ready'}</p>
+                  </div>
+                </article>
+              )
+            })}
           </div>
-          <label className="block space-y-1">
-            <span className="pib-label">Purpose and behaviour</span>
-            <textarea required maxLength={20000} className="pib-input min-h-24 w-full" placeholder="What this agent owns, which work it should handle, and how it should behave." value={form.persona} onChange={(event) => setForm((value) => ({ ...value, persona: event.target.value }))} />
-          </label>
-          <div className="flex justify-end gap-2">
-            <button type="button" className="btn-pib-ghost btn-pib-sm" onClick={() => setShowCreate(false)}>Cancel</button>
-            <button type="submit" disabled={saving || devices.length === 0} className="btn-pib-primary btn-pib-sm disabled:opacity-50">
-              {saving ? 'Creating…' : 'Create & sync'}
-            </button>
-          </div>
-        </form>
+        </section>
       )}
 
-      {message && <p role="status" className="pib-card px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">{message}</p>}
+      {/* Custom agents */}
+      <section className="space-y-3">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Your custom agents</h2>
+            <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+              Agents you create. Owners can edit purpose and re-sync the profile to their computer.
+            </p>
+          </div>
+        </div>
 
-      <section className="pib-card divide-y divide-[var(--color-pib-line)]">
-        {loading ? (
-          <p className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading agents…</p>
-        ) : agents.length === 0 ? (
-          <p className="p-4 text-sm text-[var(--color-pib-text-muted)]">No personal or shared agents are linked to this organisation yet.</p>
-        ) : agents.map((agent) => {
-          const device = devices.find((row) => row.deviceId === agent.homeDeviceId)
-          const isEditing = editingAgentId === agent.agentId
-          return (
-            <article key={agent.agentId} className="p-4">
-              {isEditing ? (
-                <form onSubmit={saveAgent} className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] pib-label">Edit agent</p>
-                      <p className="mt-0.5 font-mono text-xs text-[var(--color-pib-text-muted)]">
-                        {agent.agentHandle ?? agent.agentId}
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]">
-                      {agent.accessScope === 'organization' ? 'Organisation' : 'Personal'}
-                    </span>
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="space-y-1">
-                      <span className="pib-label">Name</span>
-                      <input
-                        required
-                        maxLength={100}
-                        className="pib-input w-full"
-                        value={editForm.name}
-                        onChange={(event) => setEditForm((value) => ({ ...value, name: event.target.value }))}
-                      />
-                    </label>
-                    <label className="space-y-1">
-                      <span className="pib-label">Role</span>
-                      <input
-                        required
-                        maxLength={120}
-                        className="pib-input w-full"
-                        value={editForm.role}
-                        onChange={(event) => setEditForm((value) => ({ ...value, role: event.target.value }))}
-                      />
-                    </label>
-                    <label className="space-y-1 sm:col-span-2">
-                      <span className="pib-label">Preferred model label</span>
-                      <input
-                        maxLength={200}
-                        className="pib-input w-full font-mono text-sm"
-                        placeholder="auto"
-                        value={editForm.defaultModel}
-                        onChange={(event) => setEditForm((value) => ({ ...value, defaultModel: event.target.value }))}
-                      />
-                      <span className="text-[10px] text-[var(--color-pib-text-muted)]/70">
-                        Stored on the agent profile (SOUL). Live provider credentials still come from LLM settings for that computer.
-                      </span>
-                    </label>
-                  </div>
-                  <label className="block space-y-1">
-                    <span className="pib-label">Purpose and behaviour</span>
-                    <textarea
-                      required
-                      maxLength={20000}
-                      className="pib-input min-h-28 w-full"
-                      value={editForm.persona}
-                      onChange={(event) => setEditForm((value) => ({ ...value, persona: event.target.value }))}
-                    />
-                  </label>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <button type="button" className="btn-pib-ghost btn-pib-sm" onClick={cancelEdit} disabled={saving}>
-                      Cancel
-                    </button>
-                    <button type="submit" disabled={saving} className="btn-pib-primary btn-pib-sm disabled:opacity-50">
-                      {saving ? 'Saving…' : 'Save & sync profile'}
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <h2 className="font-medium text-[var(--color-pib-text)]">{agent.name}</h2>
-                    <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
-                      {agent.agentHandle ?? agent.agentId} · {agent.role}
-                      {agent.defaultModel ? ` · ${agent.defaultModel}` : ''}
-                    </p>
-                    <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{agent.persona}</p>
-                  </div>
-                  <div className="shrink-0 space-y-2 text-right text-xs text-[var(--color-pib-text-muted)]">
-                    <span className="inline-block rounded-full border border-[var(--color-pib-line)] px-2 py-1">
-                      {agent.accessScope === 'organization' ? 'Organisation' : 'Personal'}
-                    </span>
-                    <p>{device?.label ?? 'Linked computer'}</p>
-                    <p className="capitalize">{agent.provisioningStatus ?? 'ready'}</p>
-                    {agent.provisioningError && (
-                      <p className="max-w-48 text-[var(--color-error)]">{agent.provisioningError}</p>
-                    )}
-                    {agent.canManage && (
-                      <div className="flex flex-col items-end gap-2 pt-1">
-                        <button
-                          type="button"
-                          disabled={saving}
-                          onClick={() => startEdit(agent)}
-                          className="btn-pib-secondary btn-pib-sm disabled:opacity-50"
-                        >
-                          Edit
-                        </button>
-                        {agent.provisioningStatus === 'failed' && (
-                          <button
-                            type="button"
-                            disabled={saving}
-                            onClick={() => void retryAgent(agent.agentId)}
-                            className="btn-pib-ghost btn-pib-sm disabled:opacity-50"
-                          >
-                            Retry install
-                          </button>
-                        )}
+        {showCreate && (
+          <form onSubmit={createAgent} className="pib-card space-y-4 p-4">
+            <p className="text-sm text-[var(--color-pib-text-muted)]">
+              Personal computers create a private agent owned by you. Shared VPS creation is available only to organisation owners and admins.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1">
+                <span className="pib-label">Agent ID</span>
+                <input required maxLength={20} className="pib-input w-full font-mono" placeholder="my-research-agent" value={form.agentId} onChange={(event) => setForm((value) => ({ ...value, agentId: event.target.value.toLowerCase() }))} />
+              </label>
+              <label className="space-y-1">
+                <span className="pib-label">Name</span>
+                <input required maxLength={100} className="pib-input w-full" placeholder="Research assistant" value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} />
+              </label>
+              <label className="space-y-1">
+                <span className="pib-label">Role</span>
+                <input required maxLength={120} className="pib-input w-full" value={form.role} onChange={(event) => setForm((value) => ({ ...value, role: event.target.value }))} />
+              </label>
+              <label className="space-y-1">
+                <span className="pib-label">Computer or VPS</span>
+                <select required className="pib-select w-full" value={form.deviceId} onChange={(event) => setForm((value) => ({ ...value, deviceId: event.target.value }))}>
+                  <option value="">Choose a computer</option>
+                  {devices.map((device) => (
+                    <option key={device.deviceId} value={device.deviceId} disabled={!device.supportsCustomAgents}>
+                      {device.label} · {device.ownerType === 'organization' ? 'organisation VPS' : 'owned by you'}
+                      {!device.supportsCustomAgents ? ' · update required' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="block space-y-1">
+              <span className="pib-label">Purpose and behaviour</span>
+              <textarea required maxLength={20000} className="pib-input min-h-24 w-full" placeholder="What this agent owns, which work it should handle, and how it should behave." value={form.persona} onChange={(event) => setForm((value) => ({ ...value, persona: event.target.value }))} />
+            </label>
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-pib-ghost btn-pib-sm" onClick={() => setShowCreate(false)}>Cancel</button>
+              <button type="submit" disabled={saving || devices.length === 0} className="btn-pib-primary btn-pib-sm disabled:opacity-50">
+                {saving ? 'Creating…' : 'Create & sync'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div className="pib-card divide-y divide-[var(--color-pib-line)]">
+          {loading ? (
+            <p className="p-4 text-sm text-[var(--color-pib-text-muted)]">Loading agents…</p>
+          ) : customAgents.length === 0 ? (
+            <p className="p-4 text-sm text-[var(--color-pib-text-muted)]">
+              No custom agents yet. Pull a marketplace template above, or create your own.
+            </p>
+          ) : customAgents.map((agent) => {
+            const device = devices.find((row) => row.deviceId === agent.homeDeviceId)
+            const isEditing = editingAgentId === agent.agentId
+            const canEdit = Boolean(agent.canEdit ?? agent.canManage)
+            return (
+              <article key={agent.agentId} className="p-4">
+                {isEditing ? (
+                  <form onSubmit={saveAgent} className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] pib-label">Edit custom agent</p>
+                        <p className="mt-0.5 font-mono text-xs text-[var(--color-pib-text-muted)]">
+                          {agent.agentHandle ?? agent.agentId}
+                        </p>
                       </div>
-                    )}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="space-y-1">
+                        <span className="pib-label">Name</span>
+                        <input required maxLength={100} className="pib-input w-full" value={editForm.name} onChange={(event) => setEditForm((value) => ({ ...value, name: event.target.value }))} />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="pib-label">Role</span>
+                        <input required maxLength={120} className="pib-input w-full" value={editForm.role} onChange={(event) => setEditForm((value) => ({ ...value, role: event.target.value }))} />
+                      </label>
+                      <label className="space-y-1 sm:col-span-2">
+                        <span className="pib-label">Preferred model label</span>
+                        <input maxLength={200} className="pib-input w-full font-mono text-sm" placeholder="auto" value={editForm.defaultModel} onChange={(event) => setEditForm((value) => ({ ...value, defaultModel: event.target.value }))} />
+                      </label>
+                    </div>
+                    <label className="block space-y-1">
+                      <span className="pib-label">Purpose and behaviour</span>
+                      <textarea required maxLength={20000} className="pib-input min-h-28 w-full" value={editForm.persona} onChange={(event) => setEditForm((value) => ({ ...value, persona: event.target.value }))} />
+                    </label>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button type="button" className="btn-pib-ghost btn-pib-sm" onClick={cancelEdit} disabled={saving}>Cancel</button>
+                      <button type="submit" disabled={saving} className="btn-pib-primary btn-pib-sm disabled:opacity-50">
+                        {saving ? 'Saving…' : 'Save & sync profile'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium text-[var(--color-pib-text)]">{agent.name}</h3>
+                      <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+                        {agent.agentHandle ?? agent.agentId} · {agent.role}
+                        {agent.defaultModel ? ` · ${agent.defaultModel}` : ''}
+                      </p>
+                      <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{agent.persona}</p>
+                    </div>
+                    <div className="shrink-0 space-y-2 text-right text-xs text-[var(--color-pib-text-muted)]">
+                      <span className="inline-block rounded-full border border-[var(--color-pib-line)] px-2 py-1">
+                        {agent.accessScope === 'organization' ? 'Organisation' : 'Personal'}
+                      </span>
+                      <p>{device?.label ?? 'Linked computer'}</p>
+                      <p className="mt-1 capitalize">{agent.provisioningStatus ?? 'ready'}</p>
+                      {agent.provisioningError && (
+                        <p className="max-w-48 text-[var(--color-error)]">{agent.provisioningError}</p>
+                      )}
+                      {canEdit && (
+                        <div className="flex flex-col items-end gap-2 pt-1">
+                          <button type="button" disabled={saving} onClick={() => startEdit(agent)} className="btn-pib-secondary btn-pib-sm disabled:opacity-50">
+                            Edit
+                          </button>
+                          {agent.provisioningStatus === 'failed' && (
+                            <button type="button" disabled={saving} onClick={() => void retryAgent(agent.agentId)} className="btn-pib-ghost btn-pib-sm disabled:opacity-50">
+                              Retry install
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </article>
-          )
-        })}
+                )}
+              </article>
+            )
+          })}
+        </div>
       </section>
     </div>
   )

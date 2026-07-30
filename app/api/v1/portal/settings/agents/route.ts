@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiErrorFromException } from '@/lib/api/response'
 import { createLinkedAgent, updateLinkedAgent } from '@/lib/agents/team'
 import type { AgentTeamStoredDoc } from '@/lib/agents/types'
+import { listMarketplaceTemplates } from '@/lib/agents/marketplace'
 import {
   assertCanCreateAgentOnDevice,
   buildScopedAgentId,
@@ -49,21 +50,38 @@ export const GET = withPortalAuthAndRole(
 
       const agents = agentSnap.docs
         .map((doc) => safeAgent(doc.data() as AgentTeamStoredDoc))
-        .filter((agent) => agent.accessScope === 'personal'
-          ? agent.ownerUserId === uid || grantedAgentIds.has(agent.agentId)
-          : canManageOrgAgents || agent.ownerUserId === uid || grantedAgentIds.has(agent.agentId))
-        .map((agent) => ({
-          ...agent,
-          canManage: canManageLinkedAgent({
-            agent,
-            actorUserId: uid,
-            orgId,
-            role,
-          }),
-          hasAccess: agent.ownerUserId === uid
-            || (canManageOrgAgents && agent.accessScope !== 'personal')
-            || grantedAgentIds.has(agent.agentId),
-        }))
+        .filter((agent) => {
+          const isMarketplace = agent.agentKind === 'marketplace' || Boolean(agent.marketplaceTemplateId)
+          if (agent.accessScope === 'personal') {
+            return agent.ownerUserId === uid || grantedAgentIds.has(agent.agentId)
+          }
+          // Org marketplace instances are visible to every member; other org agents stay admin-gated.
+          if (isMarketplace) return true
+          return canManageOrgAgents || agent.ownerUserId === uid || grantedAgentIds.has(agent.agentId)
+        })
+        .map((agent) => {
+          const isMarketplace = agent.agentKind === 'marketplace' || Boolean(agent.marketplaceTemplateId)
+          return {
+            ...agent,
+            isMarketplace,
+            canManage: canManageLinkedAgent({
+              agent,
+              actorUserId: uid,
+              orgId,
+              role,
+            }),
+            hasAccess: agent.ownerUserId === uid
+              || (canManageOrgAgents && agent.accessScope !== 'personal')
+              || (isMarketplace && agent.accessScope === 'organization')
+              || grantedAgentIds.has(agent.agentId),
+            canEdit: canManageLinkedAgent({
+              agent,
+              actorUserId: uid,
+              orgId,
+              role,
+            }),
+          }
+        })
       const devices = [...personalDeviceSnap.docs, ...orgDeviceSnap.docs]
         .filter((doc, index, all) => all.findIndex((candidate) => candidate.id === doc.id) === index)
         .map((doc) => {
@@ -81,7 +99,27 @@ export const GET = withPortalAuthAndRole(
         })
         .filter((device) => device.status === 'active')
 
-      return NextResponse.json({ data: { agents, devices, canManageOrgAgents } })
+      const marketplace = listMarketplaceTemplates().map((template) => ({
+        templateId: template.templateId,
+        name: template.name,
+        role: template.role,
+        summary: template.summary,
+        iconKey: template.iconKey,
+        colorKey: template.colorKey,
+        publicSkillCount: template.publicSkills.length,
+        publicSkills: template.publicSkills,
+        editable: false,
+        pack: 'public' as const,
+      }))
+
+      return NextResponse.json({
+        data: {
+          agents,
+          devices,
+          canManageOrgAgents,
+          marketplace,
+        },
+      })
     } catch (error) {
       return apiErrorFromException(error)
     }
