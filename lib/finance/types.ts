@@ -29,9 +29,46 @@ export interface FinanceActorContext {
   orgId: string
   membershipRole: 'owner' | 'admin' | 'member' | 'viewer'
   membershipActive: boolean
+  financeModuleEnabled: boolean
   assignments: FinanceRoleAssignment[]
   correlationId?: string
   delegationId?: string
+  delegationOrgId?: string
+  delegationScopes?: string[]
+  authKind?: 'human' | 'delegation' | 'system'
+}
+
+export type FinanceApprovalAction =
+  | 'book-policy.approve'
+  | 'journal.post'
+  | 'journal.reverse'
+  | 'period.reopen'
+  | 'period.close'
+  | 'period.adjust'
+
+export interface FinanceApprovalEvidence {
+  approvalId: string
+  approvedBy: string
+  approvedAt: string
+  action: FinanceApprovalAction
+  reason: string
+}
+
+export interface FinanceApprovalRecord extends Required<FinanceScope> {
+  id: string
+  schemaVersion: 1
+  action: FinanceApprovalAction
+  status: 'approved'
+  approvedBy: string
+  approverRole: FinanceRole
+  approverAssignmentId: string
+  approvedAt: string
+  reason: string
+  subjectDigest: string
+  expiresAt?: string
+  immutable: true
+  canonicalPayloadVersion: 1
+  hashAlgorithmVersion: 'sha256-v1'
 }
 
 export interface VersionedFinanceRecord extends FinanceScope {

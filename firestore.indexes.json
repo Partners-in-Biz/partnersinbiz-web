@@ -1,6 +1,34 @@
 {
   "indexes": [
     {
+      "collectionGroup": "accounting_periods",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "orgId", "order": "ASCENDING" },
+        { "fieldPath": "legalEntityId", "order": "ASCENDING" },
+        { "fieldPath": "bookId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "journal_lines",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "orgId", "order": "ASCENDING" },
+        { "fieldPath": "legalEntityId", "order": "ASCENDING" },
+        { "fieldPath": "bookId", "order": "ASCENDING" },
+        { "fieldPath": "journalEntryId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "finance_audit_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "orgId", "order": "ASCENDING" },
+        { "fieldPath": "legalEntityId", "order": "ASCENDING" },
+        { "fieldPath": "bookId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "finance_role_assignments",
       "queryScope": "COLLECTION",
       "fields": [

@@ -1,56 +1,116 @@
-import { createHash } from 'crypto'
 import type { DocumentData, DocumentReference, Firestore, Transaction } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { authorizeFinanceAction } from '@/lib/finance/policy'
-import type { FinanceActorContext, FinanceScope } from '@/lib/finance/types'
-import { assertBalancedJournal, assertPeriodAllowsPosting, FinanceValidationError } from './foundation'
+import { authorizeFinanceAction, effectiveFinanceAssignments, parseIsoTimestamp, type FinanceAction } from '@/lib/finance/policy'
+import { revalidateFinanceActorInTransaction } from '@/lib/finance/firestore-context'
+import {
+  CANONICAL_PAYLOAD_VERSION,
+  HASH_ALGORITHM_VERSION,
+  canonicalDigest,
+  canonicalScopeIdentity,
+  financeScopeKey,
+  scopedClaimId,
+  scopedStorageId,
+} from '@/lib/finance/integrity'
+import type {
+  FinanceActorContext,
+  FinanceApprovalAction,
+  FinanceApprovalEvidence,
+  FinanceApprovalRecord,
+  FinanceScope,
+} from '@/lib/finance/types'
+import {
+  assertSafeInteger,
+  allowlistedJournalLine,
+  assertClosedPostJournalCommand,
+  assertCreateVersion,
+  assertDefaultControlAccountConfiguration,
+  assertPostedJournalContentHash,
+  assertStoredLineIdentity,
+  buildReversalLines,
+  FinanceValidationError,
+  parseCanonicalDate,
+  policyRangesOverlap,
+  requiredText,
+  resolveUniqueEffectivePolicy,
+  validatePostingContext,
+} from './foundation'
+import type {
+  ChangePeriodStatusCommand,
+  CreateAccountCommand,
+  CreateBookCommand,
+  CreateBookPolicyVersionCommand,
+  CreateBranchCommand,
+  CreateFinanceApprovalCommand,
+  CreateLegalEntityCommand,
+  CreatePeriodCommand,
+  PostJournalCommand,
+  ReverseJournalCommand,
+} from './foundation-service'
+import { financeApprovalSubjectDigest } from './foundation-service'
 import type {
   AccountingBook,
   AccountingPeriod,
+  BookPolicyVersion,
   FinanceAuditEvent,
   FinanceBranch,
   FinanceOutboxEvent,
+  JournalLine,
   LedgerAccount,
   LegalEntity,
   PostedJournalEntry,
 } from './types'
 
-const COLLECTION_BY_TYPE = {
-  legal_entity: 'legal_entities',
-  finance_branch: 'finance_branches',
-  accounting_book: 'accounting_books',
-  accounting_period: 'accounting_periods',
-  ledger_account: 'ledger_accounts',
-} as const
-
-type FoundationRecord = LegalEntity | FinanceBranch | AccountingBook | AccountingPeriod | LedgerAccount
-type FoundationType = keyof typeof COLLECTION_BY_TYPE
-
-interface FirestoreRepositoryOptions {
-  db?: Firestore
-  now?: () => string
+interface FirestoreRepositoryOptions { db?: Firestore; now?: () => string }
+interface EvidenceMetadata {
+  requestId?: string; idempotencyKey?: string; reason?: string
+  approval?: FinanceApprovalEvidence; aggregateDigest?: string
+  deferredWrite?: (tx: Transaction) => void
 }
+interface CommandIdentity { requestId: string; idempotencyKey: string }
 
-function hash(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex')
-}
-
-function scopeKey(scope: FinanceScope): string {
-  return hash(`${scope.orgId}:${scope.legalEntityId}:${scope.bookId ?? 'entity'}`).slice(0, 40)
-}
-
-function assertScope(data: DocumentData | undefined, scope: FinanceScope, resource: string): void {
-  if (!data || data.orgId !== scope.orgId || data.legalEntityId !== scope.legalEntityId) {
-    throw new FinanceValidationError(`${resource} not found in scope`)
-  }
-  if (scope.bookId && data.bookId !== scope.bookId && data.id !== scope.bookId) {
-    throw new FinanceValidationError(`${resource} not found in book scope`)
+function exactScope(data: DocumentData | undefined, scope: FinanceScope, resource: string, expectedId?: string): void {
+  if (!data || data.orgId !== scope.orgId || data.legalEntityId !== scope.legalEntityId ||
+      data.bookId !== scope.bookId || (expectedId !== undefined && data.id !== expectedId)) {
+    throw new FinanceValidationError(`${resource} not found in exact scope`)
   }
 }
-
-function asRecord<T>(snapshot: { exists: boolean; data(): DocumentData | undefined }, resource: string): T {
+function entityScope(data: DocumentData | undefined, scope: Omit<FinanceScope, 'bookId'>, resource: string, expectedId?: string): void {
+  if (!data || data.orgId !== scope.orgId || data.legalEntityId !== scope.legalEntityId ||
+      (expectedId !== undefined && data.id !== expectedId)) {
+    throw new FinanceValidationError(`${resource} not found in entity scope`)
+  }
+}
+function record<T>(snapshot: { exists: boolean; data(): DocumentData | undefined }, resource: string): T {
   if (!snapshot.exists) throw new FinanceValidationError(`${resource} not found in scope`)
   return snapshot.data() as T
+}
+function clean<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(clean) as T
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+      .filter(([, item]) => item !== undefined).map(([key, item]) => [key, clean(item)])) as T
+  }
+  return value
+}
+function storageRef(db: Firestore, collection: string, scope: FinanceScope, logicalId: string): DocumentReference {
+  return db.collection(collection).doc(scopedStorageId(scope, logicalId))
+}
+function approvalPolicyAction(action: FinanceApprovalAction): FinanceAction {
+  if (action === 'journal.post') return 'journal.post'
+  if (action === 'journal.reverse') return 'journal.reverse'
+  if (action === 'period.adjust') return 'period.adjust'
+  return 'period.close'
+}
+
+function assertFutureApprovalExpiry(expiresAt: string | undefined, now: string): void {
+  if (!expiresAt) return
+  try {
+    if (parseIsoTimestamp(expiresAt, 'approval.expiresAt') <= parseIsoTimestamp(now, 'approval timestamp')) {
+      throw new Error('expired')
+    }
+  } catch {
+    throw new FinanceValidationError('Approval expiry must be a future ISO timestamp')
+  }
 }
 
 export class FirestoreFinanceFoundationRepository {
@@ -62,130 +122,575 @@ export class FirestoreFinanceFoundationRepository {
     this.now = options.now ?? (() => new Date().toISOString())
   }
 
-  async createFoundationRecord(
-    actor: FinanceActorContext,
-    type: FoundationType,
-    record: FoundationRecord,
-    uniqueClaimKey: string,
-  ): Promise<FoundationRecord> {
-    authorizeFinanceAction(actor, record, 'foundation.configure', this.now())
-    if (record.version !== 1 || record.schemaVersion !== 1) {
-      throw new FinanceValidationError('New finance foundation records must start at schemaVersion 1 and version 1')
+  async createLegalEntity(actor: FinanceActorContext, command: CreateLegalEntityCommand): Promise<LegalEntity> {
+    const scope = { orgId: command.orgId, legalEntityId: command.id }
+    assertCreateVersion(command.expectedVersion, 'Legal entity')
+    authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    if (!Number.isInteger(command.fiscalYearStartMonth) || command.fiscalYearStartMonth < 1 || command.fiscalYearStartMonth > 12) {
+      throw new FinanceValidationError('fiscalYearStartMonth must be between 1 and 12')
     }
-    const collection = COLLECTION_BY_TYPE[type]
-    const bookId = 'bookId' in record ? record.bookId : undefined
-    const recordRef = this.db.collection(collection).doc(record.id)
-    const claimId = hash(`${type}:${record.orgId}:${record.legalEntityId}:${bookId ?? ''}:${uniqueClaimKey}`)
-    const claimRef = this.db.collection('finance_unique_claims').doc(claimId)
-    const now = this.now()
-
-    await this.db.runTransaction(async (tx) => {
-      const [existing, existingClaim] = await Promise.all([tx.get(recordRef), tx.get(claimRef)])
-      if (existing.exists) throw new FinanceValidationError(`${type} already exists`)
-      if (existingClaim.exists) throw new FinanceValidationError(`${type} unique key already exists`)
-      const evidence = await this.prepareEvidence(
-        tx, actor, record, type, record.id, record.version,
-        `finance.${type.replaceAll('_', '-')}.created.v1`, now,
-      )
-      tx.create(claimRef, {
-        schemaVersion: 1,
-        claimType: type,
-        normalizedKey: uniqueClaimKey,
-        orgId: record.orgId,
-        legalEntityId: record.legalEntityId,
-        bookId,
-        aggregateId: record.id,
-        createdAt: now,
-        createdBy: actor.uid,
-      })
-      tx.create(recordRef, record)
-      this.writeEvidence(tx, evidence)
-    })
-    return record
+    const now = this.now(); const code = requiredText(command.code, 'code').toUpperCase()
+    const entity: LegalEntity = {
+      ...scope, id: command.id, code, legalName: requiredText(command.legalName, 'legalName'),
+      jurisdictionCode: requiredText(command.jurisdictionCode, 'jurisdictionCode').toUpperCase(),
+      functionalCurrency: requiredText(command.functionalCurrency, 'functionalCurrency').toUpperCase(),
+      defaultAccountingBasis: command.defaultAccountingBasis, fiscalYearStartMonth: command.fiscalYearStartMonth,
+      timezone: requiredText(command.timezone, 'timezone'), status: command.status, schemaVersion: 1, version: 1,
+      createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
+    }
+    return this.createWithClaim(actor, 'legal_entities', entity, command, 'legal-entity.create', 'entity_code',
+      { orgId: scope.orgId, legalEntityId: '__organization_scope__' }, code, 'legal_entity',
+      'finance.legal-entity.created.v1')
   }
 
-  async commitPostedJournal(actor: FinanceActorContext, journal: PostedJournalEntry): Promise<PostedJournalEntry> {
-    authorizeFinanceAction(actor, journal, journal.reversesJournalEntryId ? 'journal.reverse' : 'journal.post', this.now())
-    const totals = assertBalancedJournal(journal.lines)
-    if (journal.status !== 'posted' || journal.immutable !== true) throw new FinanceValidationError('Only immutable posted journals may enter the ledger')
-    if (journal.totalDebitMinor !== totals.debitMinor || journal.totalCreditMinor !== totals.creditMinor) {
-      throw new FinanceValidationError('Journal stored totals do not match its lines')
+  async createBranch(actor: FinanceActorContext, command: CreateBranchCommand): Promise<FinanceBranch> {
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId }
+    assertCreateVersion(command.expectedVersion, 'Branch')
+    authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    const now = this.now(); const code = requiredText(command.code, 'code').toUpperCase()
+    const branch: FinanceBranch = {
+      ...scope, id: command.id, code, name: requiredText(command.name, 'name'), status: command.status,
+      reportingOnly: command.reportingOnly, schemaVersion: 1, version: 1,
+      createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
     }
+    const parentRef = storageRef(this.db, 'legal_entities', scope, command.legalEntityId)
+    return this.createWithClaim(actor, 'finance_branches', branch, command, 'branch.create', 'branch_code', scope,
+      code, 'finance_branch', 'finance.branch.created.v1', async (tx) => {
+        const parent = await tx.get(parentRef); entityScope(parent.data(), scope, 'Legal entity', command.legalEntityId)
+      })
+  }
 
-    const scope = { orgId: journal.orgId, legalEntityId: journal.legalEntityId, bookId: journal.bookId }
-    const journalRef = this.db.collection('journal_entries').doc(journal.id)
-    const bookRef = this.db.collection('accounting_books').doc(journal.bookId)
-    const periodRef = this.db.collection('accounting_periods').doc(journal.periodId)
-    const accountRefs = journal.lines.map((line) => this.db.collection('ledger_accounts').doc(line.accountId))
-    const sourceClaimId = hash([
-      journal.orgId, journal.legalEntityId, journal.bookId, journal.sourceType,
-      journal.sourceId, journal.sourceVersion, journal.postingPurpose,
-    ].join(':'))
-    const sourceClaimRef = this.db.collection('finance_unique_claims').doc(`posting_${sourceClaimId}`)
-    const reversalClaimRef = journal.reversesJournalEntryId
-      ? this.db.collection('finance_unique_claims').doc(`reversal_${hash(journal.reversesJournalEntryId)}`)
+  async createBook(actor: FinanceActorContext, command: CreateBookCommand): Promise<AccountingBook> {
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.id }
+    assertCreateVersion(command.expectedVersion, 'Accounting book')
+    authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    const now = this.now(); const code = requiredText(command.code, 'code').toUpperCase()
+    const book: AccountingBook = {
+      ...scope, id: command.id, code, name: requiredText(command.name, 'name'), branchId: command.branchId,
+      bookType: command.bookType, functionalCurrency: requiredText(command.functionalCurrency, 'functionalCurrency').toUpperCase(),
+      accountingBasis: command.accountingBasis, jurisdictionCode: requiredText(command.jurisdictionCode, 'jurisdictionCode').toUpperCase(),
+      taxPointPolicyId: requiredText(command.taxPointPolicyId, 'taxPointPolicyId'),
+      defaultControlAccountIds: clean(command.defaultControlAccountIds), status: command.status,
+      schemaVersion: 1, version: 1, createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
+    }
+    const entityScopeValue = { orgId: scope.orgId, legalEntityId: scope.legalEntityId }
+    const entityRef = storageRef(this.db, 'legal_entities', entityScopeValue, command.legalEntityId)
+    const branchRef = command.branchId
+      ? storageRef(this.db, 'finance_branches', entityScopeValue, command.branchId)
       : null
-    const sequenceRef = this.db.collection('finance_sequences').doc(`journal_${scopeKey(scope)}`)
+    return this.createWithClaim(actor, 'accounting_books', book, command, 'book.create', 'book_code', entityScopeValue,
+      code, 'accounting_book', 'finance.book.created.v1', async (tx) => {
+        const refs = branchRef ? [entityRef, branchRef] : [entityRef]
+        const snapshots = await tx.getAll(...refs)
+        entityScope(snapshots[0].data(), entityScopeValue, 'Legal entity', command.legalEntityId)
+        if (branchRef) entityScope(snapshots[1].data(), entityScopeValue, 'Branch', command.branchId)
+      })
+  }
+
+  async createFinanceApproval(
+    approver: FinanceActorContext,
+    command: CreateFinanceApprovalCommand,
+  ): Promise<FinanceApprovalRecord> {
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
+    const action = approvalPolicyAction(command.action)
     const now = this.now()
-
-    const committedJournal = await this.db.runTransaction(async (tx) => {
-      const refs: DocumentReference[] = [journalRef, bookRef, periodRef, sourceClaimRef, sequenceRef, ...accountRefs]
-      if (reversalClaimRef) refs.push(reversalClaimRef)
-      const snapshots = await tx.getAll(...refs)
-      const [journalSnapshot, bookSnapshot, periodSnapshot, sourceClaimSnapshot, sequenceSnapshot] = snapshots
-      if (journalSnapshot.exists) throw new FinanceValidationError('Journal already exists')
-      if (sourceClaimSnapshot.exists) throw new FinanceValidationError('Posting source already exists')
-      const book = asRecord<AccountingBook>(bookSnapshot, 'Accounting book')
-      const period = asRecord<AccountingPeriod>(periodSnapshot, 'Accounting period')
-      assertScope(book, scope, 'Accounting book')
-      assertScope(period, scope, 'Accounting period')
-      if (book.status !== 'active') throw new FinanceValidationError('Accounting book is not active')
-      if (book.functionalCurrency !== journal.currency) throw new FinanceValidationError('Journal currency does not match book functional currency')
-      assertPeriodAllowsPosting(period, journal.postingDate, journal.entryType === 'reversal' || journal.entryType === 'adjustment')
-
-      const accountOffset = 5
-      journal.lines.forEach((line, index) => {
-        const account = asRecord<LedgerAccount>(snapshots[accountOffset + index], `Ledger account ${line.accountId}`)
-        assertScope(account, scope, `Ledger account ${line.accountId}`)
-        if (!account.postingAllowed) throw new FinanceValidationError(`Ledger account ${line.accountId} does not allow posting`)
-        if (line.orgId !== scope.orgId || line.legalEntityId !== scope.legalEntityId || line.bookId !== scope.bookId || line.periodId !== journal.periodId) {
-          throw new FinanceValidationError('Journal line scope does not match entry scope')
-        }
+    assertCreateVersion(command.expectedVersion, 'Finance approval')
+    authorizeFinanceAction(approver, scope, action, now)
+    requiredText(command.subjectDigest, 'subjectDigest'); requiredText(command.reason, 'reason')
+    if (!/^[a-f0-9]{64}$/.test(command.subjectDigest)) throw new FinanceValidationError('subjectDigest must be SHA-256')
+    assertFutureApprovalExpiry(command.expiresAt, now)
+    const ref = storageRef(this.db, 'finance_approvals', scope, command.id)
+    const idemRef = this.idempotencyRef(approver, scope, command.idempotencyKey)
+    const payloadDigest = canonicalDigest(clean(command))
+    return this.db.runTransaction(async (tx) => {
+      const persistedActor = await revalidateFinanceActorInTransaction(tx, this.db, approver, scope, action, now)
+      const [existing, idem] = await tx.getAll(ref, idemRef)
+      if (idem.exists) {
+        this.assertIdempotency(idem.data(), persistedActor, scope, 'finance.approval.create', command, payloadDigest, now)
+        const stored = record<FinanceApprovalRecord>(existing, 'Idempotency approval result')
+        exactScope(stored, scope, 'Idempotency approval result', command.id)
+        if (!stored.immutable || stored.schemaVersion !== 1) throw new FinanceValidationError('Idempotency approval result is corrupt')
+        return stored
+      }
+      if (existing.exists) throw new FinanceValidationError('Finance approval already exists')
+      const book = await tx.get(storageRef(this.db, 'accounting_books', scope, command.bookId))
+      exactScope(book.data(), scope, 'Accounting book', command.bookId)
+      const assignment = effectiveFinanceAssignments(persistedActor, scope, now)
+        .find((candidate) => candidate.role === 'finance_approver' || candidate.role === 'finance_admin')
+      if (!assignment) throw new FinanceValidationError('Approval requires an effective finance approver assignment')
+      const approval: FinanceApprovalRecord = clean({
+        ...scope, id: command.id, schemaVersion: 1, action: command.action, status: 'approved',
+        approvedBy: persistedActor.uid, approverRole: assignment.role, approverAssignmentId: assignment.id,
+        approvedAt: now, reason: command.reason.trim(), subjectDigest: command.subjectDigest,
+        expiresAt: command.expiresAt, immutable: true, canonicalPayloadVersion: CANONICAL_PAYLOAD_VERSION,
+        hashAlgorithmVersion: HASH_ALGORITHM_VERSION,
       })
-
-      if (reversalClaimRef) {
-        const reversalClaimSnapshot = snapshots.at(-1)
-        if (reversalClaimSnapshot?.exists) throw new FinanceValidationError('Journal already has a direct reversal')
-      }
-      const previousSequence = sequenceSnapshot.exists ? Number(sequenceSnapshot.data()?.value ?? 0) : 0
-      const entryNumber = previousSequence + 1
-      const storedJournal: PostedJournalEntry = {
-        ...journal,
-        entryNumber,
-        contentHash: hash({ ...journal, entryNumber, contentHash: undefined }),
-      }
-      const evidence = await this.prepareEvidence(
-        tx, actor, scope, 'journal_entry', storedJournal.id, storedJournal.version, 'finance.journal.posted.v1', now,
-      )
-
-      tx.create(sourceClaimRef, {
-        schemaVersion: 1, claimType: 'posting_source', aggregateId: journal.id, ...scope,
-        sourceType: journal.sourceType, sourceId: journal.sourceId, sourceVersion: journal.sourceVersion,
-        postingPurpose: journal.postingPurpose, createdAt: now, createdBy: actor.uid,
-      })
-      if (reversalClaimRef) {
-        tx.create(reversalClaimRef, {
-          schemaVersion: 1, claimType: 'journal_reversal', aggregateId: journal.id,
-          originalJournalId: journal.reversesJournalEntryId, ...scope, createdAt: now, createdBy: actor.uid,
-        })
-      }
-      tx.set(sequenceRef, { ...scope, value: entryNumber, updatedAt: now }, { merge: true })
-      tx.create(journalRef, { ...storedJournal, lines: undefined })
-      storedJournal.lines.forEach((line) => tx.create(this.db.collection('journal_lines').doc(line.id), line))
+      const evidence = await this.prepareEvidence(tx, persistedActor, scope, 'finance_approval', approval.id, 1,
+        'finance.approval.recorded.v1', now, { reason: approval.reason, aggregateDigest: canonicalDigest(approval) })
+      tx.create(ref, approval)
+      tx.create(idemRef, this.idempotencyData(persistedActor, scope, 'finance.approval.create', command, payloadDigest,
+        approval.id, now))
       this.writeEvidence(tx, evidence)
-      return storedJournal
+      return approval
     })
-    return committedJournal
+  }
+
+  async createBookPolicyVersion(
+    actor: FinanceActorContext,
+    command: CreateBookPolicyVersionCommand,
+  ): Promise<BookPolicyVersion> {
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
+    assertCreateVersion(command.expectedVersion, 'Book policy version')
+    authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    assertSafeInteger(command.versionNumber, 'versionNumber', 1)
+    if (!Number.isInteger(command.currencyPrecision) || command.currencyPrecision < 0 || command.currencyPrecision > 6) {
+      throw new FinanceValidationError('Policy currencyPrecision is invalid')
+    }
+    const from = parseCanonicalDate(command.effectiveFrom, 'effectiveFrom')
+    const to = command.effectiveTo ? parseCanonicalDate(command.effectiveTo, 'effectiveTo') : undefined
+    if (to !== undefined && to < from) throw new FinanceValidationError('Policy effective range is invalid')
+    const now = this.now()
+    const policy: BookPolicyVersion = {
+      ...scope, id: command.id, versionNumber: command.versionNumber, accountingBasis: command.accountingBasis,
+      taxPointPolicyId: command.taxPointPolicyId, currencyPrecision: command.currencyPrecision,
+      roundingMode: command.roundingMode, effectiveFrom: command.effectiveFrom, effectiveTo: command.effectiveTo,
+      status: 'approved', approvalId: command.approvalId, approvalActorId: '', approvedAt: '', immutable: true,
+      schemaVersion: 1, version: 1, createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
+    }
+    const bookRef = storageRef(this.db, 'accounting_books', scope, command.bookId)
+    const calendarRef = this.db.collection('finance_policy_calendar_heads').doc(financeScopeKey(scope))
+    const policiesQuery = this.db.collection('book_policy_versions').where('orgId', '==', scope.orgId)
+      .where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId)
+    return this.createWithClaim(actor, 'book_policy_versions', policy, command, 'book-policy.create',
+      'book_policy_version', scope, command.versionNumber, 'book_policy_version', 'finance.book-policy.approved.v1',
+      async (tx, persistedActor) => {
+        const approval = await this.loadApproval(tx, command.approvalId, scope, 'book-policy.approve', persistedActor.uid,
+          financeApprovalSubjectDigest('book-policy.approve', command), now)
+        const [snap, calendarSnap, policiesSnap] = await Promise.all([
+          tx.get(bookRef), tx.get(calendarRef), tx.get(policiesQuery),
+        ])
+        const book = record<AccountingBook>(snap, 'Accounting book')
+        exactScope(book, scope, 'Accounting book', command.bookId)
+        if (calendarSnap.exists) exactScope(calendarSnap.data(), scope, 'Policy calendar head')
+        if (book.accountingBasis !== policy.accountingBasis || book.taxPointPolicyId !== policy.taxPointPolicyId) {
+          throw new FinanceValidationError('Policy does not match book')
+        }
+        if (policiesSnap.docs.some((doc) => policyRangesOverlap(doc.data() as BookPolicyVersion, policy))) {
+          throw new FinanceValidationError('Approved book policy effective range overlaps an existing policy')
+        }
+        policy.approvalId = approval.approvalId; policy.approvalActorId = approval.approvedBy; policy.approvedAt = approval.approvedAt
+        policy.createdBy = persistedActor.uid; policy.updatedBy = persistedActor.uid
+        return { approval, reason: approval.reason, aggregateDigest: canonicalDigest(clean(policy)),
+          deferredWrite: (transaction: Transaction) => transaction.set(calendarRef,
+            { ...scope, revision: Number(calendarSnap.data()?.revision ?? 0) + 1, updatedAt: now }, { merge: false }) }
+      })
+  }
+
+  async createPeriod(actor: FinanceActorContext, command: CreatePeriodCommand): Promise<AccountingPeriod> {
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
+    assertCreateVersion(command.expectedVersion, 'Accounting period')
+    authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    assertSafeInteger(command.fiscalYear, 'fiscalYear', 1); assertSafeInteger(command.periodNumber, 'periodNumber', 1)
+    const starts = parseCanonicalDate(command.startsAt, 'startsAt'); const ends = parseCanonicalDate(command.endsAt, 'endsAt')
+    if (starts > ends) throw new FinanceValidationError('Period start must not be after period end')
+    const now = this.now()
+    const period: AccountingPeriod = {
+      ...scope, id: command.id, fiscalYear: command.fiscalYear, periodNumber: command.periodNumber,
+      startsAt: command.startsAt, endsAt: command.endsAt, status: command.status, schemaVersion: 1, version: 1,
+      createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
+    }
+    const recordRef = storageRef(this.db, 'accounting_periods', scope, period.id)
+    const claimRef = this.db.collection('finance_unique_claims').doc(scopedClaimId('book_period_number', scope,
+      [command.fiscalYear, command.periodNumber]))
+    const idemRef = this.idempotencyRef(actor, scope, command.idempotencyKey)
+    const bookRef = storageRef(this.db, 'accounting_books', scope, command.bookId)
+    const calendarRef = this.db.collection('finance_calendar_heads').doc(financeScopeKey(scope))
+    const overlapQuery = this.db.collection('accounting_periods').where('orgId', '==', scope.orgId)
+      .where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId)
+    const payloadDigest = canonicalDigest(clean(command))
+    return this.db.runTransaction(async (tx) => {
+      const persistedActor = await revalidateFinanceActorInTransaction(tx, this.db, actor, scope, 'foundation.configure', now)
+      const [existing, claimSnap, idemSnap, bookSnap, calendarSnap, periodsSnap] = await Promise.all([
+        tx.get(recordRef), tx.get(claimRef), tx.get(idemRef), tx.get(bookRef), tx.get(calendarRef), tx.get(overlapQuery),
+      ])
+      if (idemSnap.exists) {
+        this.assertIdempotency(idemSnap.data(), persistedActor, scope, 'period.create', command, payloadDigest, now)
+        const stored = record<AccountingPeriod>(existing, 'Idempotency period result')
+        exactScope(stored, scope, 'Idempotency period result', command.id)
+        return stored
+      }
+      if (existing.exists) throw new FinanceValidationError('Accounting period already exists')
+      if (claimSnap.exists) throw new FinanceValidationError('Accounting period number already exists')
+      const book = record<AccountingBook>(bookSnap, 'Accounting book'); exactScope(book, scope, 'Accounting book', command.bookId)
+      if (calendarSnap.exists) exactScope(calendarSnap.data(), scope, 'Finance calendar head')
+      if (periodsSnap.docs.some((doc) => {
+        const other = doc.data() as AccountingPeriod
+        return starts <= parseCanonicalDate(other.endsAt, 'period.endsAt') && ends >= parseCanonicalDate(other.startsAt, 'period.startsAt')
+      })) throw new FinanceValidationError('Accounting period overlaps an existing period')
+      period.createdBy = persistedActor.uid; period.updatedBy = persistedActor.uid
+      const evidence = await this.prepareEvidence(tx, persistedActor, scope, 'accounting_period', period.id, 1,
+        'finance.period.created.v1', now, { aggregateDigest: canonicalDigest(period) })
+      tx.create(claimRef, clean({ schemaVersion: 1, claimType: 'book_period_number', normalizedKey: [command.fiscalYear, command.periodNumber],
+        ...scope, aggregateId: period.id, createdAt: now, createdBy: persistedActor.uid }))
+      tx.create(idemRef, this.idempotencyData(persistedActor, scope, 'period.create', command, payloadDigest, period.id, now))
+      tx.create(recordRef, period)
+      tx.set(calendarRef, { ...scope, revision: Number(calendarSnap.data()?.revision ?? 0) + 1, updatedAt: now }, { merge: false })
+      if (period.status === 'open' && !book.currentPeriodId) {
+        tx.update(bookRef, { currentPeriodId: period.id, updatedAt: now, updatedBy: persistedActor.uid })
+      }
+      this.writeEvidence(tx, evidence)
+      return period
+    })
+  }
+
+  async createAccount(actor: FinanceActorContext, command: CreateAccountCommand): Promise<LedgerAccount> {
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
+    assertCreateVersion(command.expectedVersion, 'Ledger account')
+    authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    const from = parseCanonicalDate(command.activeFrom, 'activeFrom')
+    const to = command.activeTo ? parseCanonicalDate(command.activeTo, 'activeTo') : undefined
+    if (to !== undefined && to < from) throw new FinanceValidationError('Account active range is invalid')
+    const now = this.now(); const code = requiredText(command.code, 'code').toUpperCase()
+    const account: LedgerAccount = {
+      ...scope, id: command.id, code, name: requiredText(command.name, 'name'), accountType: command.accountType,
+      normalBalance: command.normalBalance, parentAccountId: command.parentAccountId,
+      controlAccountRole: command.controlAccountRole, currency: requiredText(command.currency, 'currency').toUpperCase(),
+      currencyPolicy: command.currencyPolicy, reportMapping: requiredText(command.reportMapping, 'reportMapping'),
+      postingAllowed: command.postingAllowed, activeFrom: command.activeFrom, activeTo: command.activeTo,
+      schemaVersion: 1, version: 1, createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
+    }
+    const bookRef = storageRef(this.db, 'accounting_books', scope, command.bookId)
+    const parentRef = command.parentAccountId ? storageRef(this.db, 'ledger_accounts', scope, command.parentAccountId) : null
+    return this.createWithClaim(actor, 'ledger_accounts', account, command, 'account.create', 'account_code', scope, code,
+      'ledger_account', 'finance.account.created.v1', async (tx) => {
+        const refs = parentRef ? [bookRef, parentRef] : [bookRef]; const snaps = await tx.getAll(...refs)
+        const book = record<AccountingBook>(snaps[0], 'Accounting book')
+        exactScope(book, scope, 'Accounting book', command.bookId)
+        assertDefaultControlAccountConfiguration(book, account)
+        if (parentRef) exactScope(snaps[1].data(), scope, 'Parent account', command.parentAccountId)
+      })
+  }
+
+  async changePeriodStatus(actor: FinanceActorContext, command: ChangePeriodStatusCommand): Promise<AccountingPeriod> {
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
+    authorizeFinanceAction(actor, scope, 'period.close', this.now())
+    const reason = requiredText(command.reason, 'reason'); const now = this.now()
+    const ref = storageRef(this.db, 'accounting_periods', scope, command.periodId)
+    const operation = command.status === 'open' ? 'period.reopen' : 'period.close'
+    const idemRef = this.idempotencyRef(actor, scope, command.idempotencyKey)
+    const payloadDigest = canonicalDigest(clean(command))
+    return this.db.runTransaction(async (tx) => {
+      const persistedActor = await revalidateFinanceActorInTransaction(tx, this.db, actor, scope, 'period.close', now)
+      const [snap, idemSnap] = await tx.getAll(ref, idemRef)
+      const period = record<AccountingPeriod>(snap, 'Accounting period')
+      exactScope(period, scope, 'Accounting period', command.periodId)
+      if (idemSnap.exists) {
+        this.assertIdempotency(idemSnap.data(), persistedActor, scope, operation, command, payloadDigest, now)
+        return period
+      }
+      if (period.version !== command.expectedVersion) throw new FinanceValidationError('Accounting period version conflict')
+      const reopening = period.status !== 'open' && command.status === 'open'
+      const approvalAction = reopening ? 'period.reopen' as const : 'period.close' as const
+      const approval = await this.loadApproval(tx, command.approvalId, scope, approvalAction, persistedActor.uid,
+        financeApprovalSubjectDigest(approvalAction, command), now)
+      const transitions: Record<AccountingPeriod['status'], AccountingPeriod['status'][]> = {
+        open: ['soft_closed', 'hard_closed'], soft_closed: ['open', 'hard_closed'], hard_closed: ['open'],
+      }
+      if (!transitions[period.status].includes(command.status)) throw new FinanceValidationError('Invalid accounting period transition')
+      const updated: AccountingPeriod = clean({
+        ...period, status: command.status, version: period.version + 1, updatedAt: now, updatedBy: persistedActor.uid,
+        reopenedAt: reopening ? now : period.reopenedAt,
+        reopenApprovalId: reopening ? approval.approvalId : period.reopenApprovalId,
+        closeApprovalId: reopening ? period.closeApprovalId : approval.approvalId,
+      })
+      const evidence = await this.prepareEvidence(tx, persistedActor, scope, 'accounting_period', period.id, updated.version,
+        'finance.period.status-changed.v1', now, { requestId: command.requestId, idempotencyKey: command.idempotencyKey,
+          reason, approval, aggregateDigest: canonicalDigest(updated) })
+      tx.create(idemRef, this.idempotencyData(persistedActor, scope, operation, command, payloadDigest, updated.id, now))
+      tx.set(ref, updated, { merge: false }); this.writeEvidence(tx, evidence); return updated
+    })
+  }
+
+  async postJournal(actor: FinanceActorContext, command: PostJournalCommand): Promise<PostedJournalEntry> {
+    assertClosedPostJournalCommand(command)
+    assertCreateVersion(command.expectedVersion, 'Journal')
+    if (command.reversesJournalEntryId || command.sourceType === 'journal_reversal') {
+      throw new FinanceValidationError('Reversals and journal_reversal sourceType must use reverseJournal')
+    }
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
+    authorizeFinanceAction(actor, scope, 'journal.post', this.now())
+    return this.db.runTransaction((tx) => this.postInTransaction(tx, actor, command))
+  }
+
+  async reverseJournal(actor: FinanceActorContext, command: ReverseJournalCommand): Promise<PostedJournalEntry> {
+    assertCreateVersion(command.expectedVersion, 'Journal reversal')
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
+    const reason = requiredText(command.reason, 'reason')
+    return this.db.runTransaction(async (tx) => {
+      const originalRef = storageRef(this.db, 'journal_entries', scope, command.originalJournalId)
+      const originalSnap = await tx.get(originalRef); const original = record<PostedJournalEntry>(originalSnap, 'Original posted journal')
+      exactScope(original, scope, 'Original posted journal', command.originalJournalId)
+      if (original.status !== 'posted' || !original.immutable) throw new FinanceValidationError('Original journal is not posted and immutable')
+      const lineSnap = await tx.get(this.db.collection('journal_lines').where('orgId', '==', scope.orgId)
+        .where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId)
+        .where('journalEntryId', '==', original.id))
+      const originalLines = lineSnap.docs.map((doc) => doc.data() as JournalLine).sort((a, b) => a.sequence - b.sequence)
+      assertStoredLineIdentity(original.id, original.periodId, originalLines)
+      if (canonicalDigest(originalLines) !== original.lineDigest) throw new FinanceValidationError('Original journal line digest does not match')
+      assertPostedJournalContentHash({ ...original, lines: originalLines })
+      return this.postInTransaction(tx, actor, {
+        id: command.reversalJournalId, ...scope, periodId: command.periodId, sourceType: 'journal_reversal',
+        sourceId: original.id, sourceVersion: original.version, postingPurpose: 'reversal', entryType: 'reversal',
+        postingDate: command.postingDate, documentDate: command.postingDate,
+        description: `Reversal of ${original.description}`, currency: original.currency,
+        policyVersionId: original.policyVersionId, expectedVersion: command.expectedVersion, requestId: command.requestId,
+        idempotencyKey: command.idempotencyKey, approvalId: command.approvalId, lines: buildReversalLines(originalLines),
+        reversesJournalEntryId: original.id, reversalReason: reason,
+      }, financeApprovalSubjectDigest('journal.reverse', command))
+    })
+  }
+
+  private async postInTransaction(
+    tx: Transaction,
+    actor: FinanceActorContext,
+    command: PostJournalCommand,
+    approvedSubjectDigest?: string,
+  ): Promise<PostedJournalEntry> {
+    requiredText(command.requestId, 'requestId'); requiredText(command.idempotencyKey, 'idempotencyKey')
+    assertSafeInteger(command.sourceVersion, 'sourceVersion', 1)
+    parseCanonicalDate(command.postingDate, 'postingDate'); parseCanonicalDate(command.documentDate, 'documentDate')
+    if (command.sourceType === 'journal_reversal' && !command.reversesJournalEntryId) {
+      throw new FinanceValidationError('journal_reversal sourceType must use reverseJournal')
+    }
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
+    const action = command.reversesJournalEntryId ? 'journal.reverse' as const : 'journal.post' as const
+    const now = this.now()
+    const persistedActor = await revalidateFinanceActorInTransaction(tx, this.db, actor, scope, action, now)
+    const payloadDigest = canonicalDigest(clean(command))
+    const journalRef = storageRef(this.db, 'journal_entries', scope, command.id)
+    const idempotencyRef = this.idempotencyRef(persistedActor, scope, command.idempotencyKey)
+    const sourceRef = this.db.collection('finance_unique_claims').doc(scopedClaimId('posting_source', scope,
+      [command.sourceType, command.sourceId, command.sourceVersion, command.postingPurpose]))
+    const reversalRef = command.reversesJournalEntryId
+      ? this.db.collection('finance_unique_claims').doc(scopedClaimId('journal_reversal', scope, command.reversesJournalEntryId))
+      : null
+    const sequenceRef = this.db.collection('finance_sequences').doc(`journal_${financeScopeKey(scope)}`)
+    const policiesQuery = this.db.collection('book_policy_versions').where('orgId', '==', scope.orgId)
+      .where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId)
+    const refs: DocumentReference[] = [journalRef, idempotencyRef, sourceRef, sequenceRef,
+      storageRef(this.db, 'accounting_books', scope, command.bookId),
+      storageRef(this.db, 'accounting_periods', scope, command.periodId),
+      storageRef(this.db, 'book_policy_versions', scope, command.policyVersionId),
+      ...command.lines.map((line) => storageRef(this.db, 'ledger_accounts', scope, line.accountId))]
+    if (reversalRef) refs.push(reversalRef)
+    const [snaps, policyCandidatesSnap] = await Promise.all([tx.getAll(...refs), tx.get(policiesQuery)])
+    const [journalSnap, idemSnap, sourceSnap, sequenceSnap, bookSnap, periodSnap] = snaps
+    if (idemSnap.exists) {
+      this.assertIdempotency(idemSnap.data(), persistedActor, scope, 'journal.post', command, payloadDigest, now)
+      const resultId = idemSnap.data()?.aggregateId
+      const existing = journalSnap.exists && resultId === command.id
+        ? journalSnap
+        : await tx.get(storageRef(this.db, 'journal_entries', scope, resultId))
+      const stored = record<PostedJournalEntry>(existing, 'Idempotency result')
+      exactScope(stored, scope, 'Idempotency result', resultId)
+      const lineSnapshot = await tx.get(this.db.collection('journal_lines').where('orgId', '==', scope.orgId)
+        .where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId)
+        .where('journalEntryId', '==', resultId))
+      const lines = lineSnapshot.docs.map((doc) => doc.data() as JournalLine).sort((left, right) => left.sequence - right.sequence)
+      assertStoredLineIdentity(stored.id, stored.periodId, lines)
+      if (canonicalDigest(lines) !== stored.lineDigest || stored.idempotencyKey !== command.idempotencyKey ||
+          stored.requestId !== command.requestId || stored.canonicalPayloadVersion !== CANONICAL_PAYLOAD_VERSION ||
+          stored.hashAlgorithmVersion !== HASH_ALGORITHM_VERSION) {
+        throw new FinanceValidationError('Idempotency result metadata or line digest does not match')
+      }
+      return { ...stored, lines }
+    }
+    if (journalSnap.exists) throw new FinanceValidationError('Journal already exists')
+    if (sourceSnap.exists) throw new FinanceValidationError('Posting source already exists')
+    if (reversalRef && snaps.at(-1)?.exists) throw new FinanceValidationError('Journal already has a direct reversal')
+    if (sequenceSnap.exists) exactScope(sequenceSnap.data(), scope, 'Journal sequence head')
+    const book = record<AccountingBook>(bookSnap, 'Accounting book')
+    const period = record<AccountingPeriod>(periodSnap, 'Accounting period')
+    const policy = resolveUniqueEffectivePolicy(
+      policyCandidatesSnap.docs.map((doc) => doc.data() as BookPolicyVersion), command.postingDate, command.policyVersionId)
+    const accountOffset = 7
+    const accounts = command.lines.map((line, index) =>
+      record<LedgerAccount>(snaps[accountOffset + index], `Ledger account ${line.accountId}`))
+    const expectedApprovalAction = command.reversesJournalEntryId ? 'journal.reverse' as const : 'journal.post' as const
+    const approval = await this.loadApproval(tx, command.approvalId, scope, expectedApprovalAction, persistedActor.uid,
+      approvedSubjectDigest ?? financeApprovalSubjectDigest(expectedApprovalAction, command), now)
+    const adjustmentApproval = command.adjustmentApprovalId
+      ? await this.loadApproval(tx, command.adjustmentApprovalId, scope, 'period.adjust', persistedActor.uid,
+        financeApprovalSubjectDigest('period.adjust', command), now)
+      : undefined
+    validatePostingContext({
+      scope, journalId: command.id, periodId: command.periodId, postingDate: command.postingDate,
+      currency: command.currency, sourceType: command.sourceType, actorId: persistedActor.uid, approval,
+      adjustmentApproved: Boolean(adjustmentApproval), expectedApprovalAction,
+      book, period, policy, lines: command.lines, accounts,
+    })
+    const entryNumber = Number(sequenceSnap.data()?.value ?? 0) + 1
+    assertSafeInteger(entryNumber, 'entryNumber', 1)
+    const lines: JournalLine[] = command.lines.map((line, index) => clean({
+      ...allowlistedJournalLine(line), ...scope,
+      periodId: command.periodId, id: `${command.id}_${String(index + 1).padStart(4, '0')}`,
+      journalEntryId: command.id, sequence: index + 1,
+    }))
+    const lineDigest = canonicalDigest(lines)
+    const base = clean({
+      ...scope, id: command.id, periodId: command.periodId, sourceType: requiredText(command.sourceType, 'sourceType'),
+      sourceId: requiredText(command.sourceId, 'sourceId'), sourceVersion: command.sourceVersion,
+      postingPurpose: requiredText(command.postingPurpose, 'postingPurpose'), entryNumber,
+      entryType: requiredText(command.entryType, 'entryType'), postingDate: command.postingDate,
+      documentDate: command.documentDate, status: 'posted' as const,
+      description: requiredText(command.description, 'description'), currency: command.currency.toUpperCase(),
+      policyVersionId: policy.id, accountingBasis: policy.accountingBasis,
+      totalDebitMinor: lines.reduce((sum, line) => sum + line.debitMinor, 0),
+      totalCreditMinor: lines.reduce((sum, line) => sum + line.creditMinor, 0), lines, lineDigest,
+      reversesJournalEntryId: command.reversesJournalEntryId, reversalReason: command.reversalReason,
+      approvalId: approval.approvalId, approvalActorId: approval.approvedBy, approvedAt: approval.approvedAt,
+      requestId: command.requestId, idempotencyKey: command.idempotencyKey,
+      correlationId: persistedActor.correlationId, delegationId: persistedActor.delegationId,
+      immutable: true as const, canonicalPayloadVersion: CANONICAL_PAYLOAD_VERSION,
+      hashAlgorithmVersion: HASH_ALGORITHM_VERSION, schemaVersion: 1 as const, version: 1,
+      createdAt: now, createdBy: persistedActor.uid, updatedAt: now, updatedBy: persistedActor.uid,
+    })
+    const journal: PostedJournalEntry = { ...base, contentHash: canonicalDigest(base) }
+    const evidence = await this.prepareEvidence(tx, persistedActor, scope, 'journal_entry', journal.id, 1,
+      'finance.journal.posted.v1', now, { requestId: command.requestId, idempotencyKey: command.idempotencyKey,
+        reason: approval.reason, approval, aggregateDigest: journal.contentHash })
+    tx.create(sourceRef, { schemaVersion: 1, claimType: 'posting_source', ...scope, aggregateId: journal.id,
+      normalizedKey: [command.sourceType, command.sourceId, command.sourceVersion, command.postingPurpose],
+      createdAt: now, createdBy: persistedActor.uid })
+    if (reversalRef) tx.create(reversalRef, { schemaVersion: 1, claimType: 'journal_reversal', ...scope,
+      aggregateId: journal.id, originalJournalId: command.reversesJournalEntryId, createdAt: now, createdBy: persistedActor.uid })
+    tx.create(idempotencyRef, this.idempotencyData(persistedActor, scope, 'journal.post', command,
+      payloadDigest, journal.id, now))
+    tx.set(sequenceRef, { ...scope, value: entryNumber, updatedAt: now }, { merge: false })
+    tx.create(journalRef, clean({ ...journal, lines: undefined }))
+    lines.forEach((line) => tx.create(storageRef(this.db, 'journal_lines', scope, line.id), line))
+    this.writeEvidence(tx, evidence)
+    return journal
+  }
+
+  private async loadApproval(
+    tx: Transaction,
+    approvalId: string | undefined,
+    scope: Required<FinanceScope>,
+    action: FinanceApprovalAction,
+    actorId: string,
+    subjectDigest: string,
+    now: string,
+  ): Promise<FinanceApprovalEvidence> {
+    const id = requiredText(approvalId ?? '', 'approvalId')
+    const snapshot = await tx.get(storageRef(this.db, 'finance_approvals', scope, id))
+    const approval = snapshot.data() as FinanceApprovalRecord | undefined
+    if (!snapshot.exists || !approval || approval.id !== id || approval.status !== 'approved' || !approval.immutable ||
+        approval.schemaVersion !== 1 || approval.canonicalPayloadVersion !== CANONICAL_PAYLOAD_VERSION ||
+        approval.hashAlgorithmVersion !== HASH_ALGORITHM_VERSION || approval.orgId !== scope.orgId ||
+        approval.legalEntityId !== scope.legalEntityId || approval.bookId !== scope.bookId || approval.action !== action ||
+        approval.subjectDigest !== subjectDigest ||
+        !approval.approverAssignmentId || !['finance_approver', 'finance_admin'].includes(approval.approverRole)) {
+      throw new FinanceValidationError('Persisted approval is missing, expired, mismatched, or invalid')
+    }
+    try {
+      if (approval.expiresAt && parseIsoTimestamp(approval.expiresAt, 'approval.expiresAt') <= parseIsoTimestamp(now, 'approval timestamp')) {
+        throw new Error('expired')
+      }
+    } catch {
+      throw new FinanceValidationError('Persisted approval is missing, expired, mismatched, or invalid')
+    }
+    if (approval.approvedBy === actorId) throw new FinanceValidationError('Approval violates separation of duties')
+    return { approvalId: approval.id, approvedBy: approval.approvedBy, approvedAt: approval.approvedAt,
+      action: approval.action, reason: approval.reason }
+  }
+
+  private async createWithClaim<
+    T extends { id: string; orgId: string; legalEntityId: string; bookId?: string; version: number; createdBy: string; updatedBy: string },
+    C extends CommandIdentity & object,
+  >(
+    actor: FinanceActorContext,
+    collection: string,
+    value: T,
+    command: C,
+    operation: string,
+    claimType: string,
+    claimScope: FinanceScope,
+    normalizedKey: unknown,
+    aggregateType: string,
+    eventType: string,
+    validate?: (tx: Transaction, persistedActor: FinanceActorContext) => Promise<EvidenceMetadata | void>,
+  ): Promise<T> {
+    const scope: FinanceScope = clean({ orgId: value.orgId, legalEntityId: value.legalEntityId, bookId: value.bookId })
+    const ref = storageRef(this.db, collection, scope, value.id)
+    const claimRef = this.db.collection('finance_unique_claims').doc(scopedClaimId(claimType, claimScope, normalizedKey))
+    const idemRef = this.idempotencyRef(actor, scope, command.idempotencyKey)
+    const now = this.now(); const payloadDigest = canonicalDigest(clean(command))
+    return this.db.runTransaction(async (tx) => {
+      const persistedActor = await revalidateFinanceActorInTransaction(tx, this.db, actor, scope,
+        'foundation.configure', now)
+      const [existing, claimSnap, idemSnap] = await tx.getAll(ref, claimRef, idemRef)
+      if (idemSnap.exists) {
+        this.assertIdempotency(idemSnap.data(), persistedActor, scope, operation, command, payloadDigest, now)
+        const stored = record<T>(existing, `Idempotency ${aggregateType} result`)
+        exactScope(stored, scope, `Idempotency ${aggregateType} result`, value.id)
+        return stored
+      }
+      if (existing.exists) throw new FinanceValidationError(`${aggregateType} already exists`)
+      if (claimSnap.exists) throw new FinanceValidationError(`${aggregateType} unique key already exists`)
+      const metadata = await validate?.(tx, persistedActor) ?? {}
+      value.createdBy = persistedActor.uid; value.updatedBy = persistedActor.uid
+      const evidence = await this.prepareEvidence(tx, persistedActor, scope, aggregateType, value.id, value.version,
+        eventType, now, { aggregateDigest: canonicalDigest(clean(value)), ...metadata })
+      metadata.deferredWrite?.(tx)
+      tx.create(claimRef, clean({ schemaVersion: 1, claimType, normalizedKey, ...claimScope,
+        aggregateId: value.id, createdAt: now, createdBy: persistedActor.uid }))
+      tx.create(idemRef, this.idempotencyData(persistedActor, scope, operation, command, payloadDigest, value.id, now))
+      tx.create(ref, clean(value)); this.writeEvidence(tx, evidence)
+      return value
+    })
+  }
+
+  private idempotencyRef(actor: FinanceActorContext, scope: FinanceScope, key: string): DocumentReference {
+    requiredText(key, 'idempotencyKey')
+    return this.db.collection('finance_idempotency_claims').doc(scopedClaimId('command_idempotency',
+      { orgId: scope.orgId, legalEntityId: '__org_command_scope__' }, { actorId: actor.uid, key }))
+  }
+
+  private idempotencyData(
+    actor: FinanceActorContext,
+    scope: FinanceScope,
+    operation: string,
+    command: CommandIdentity,
+    payloadDigest: string,
+    aggregateId: string,
+    now: string,
+  ): DocumentData {
+    return clean({
+      schemaVersion: 1, canonicalPayloadVersion: CANONICAL_PAYLOAD_VERSION,
+      hashAlgorithmVersion: HASH_ALGORITHM_VERSION, payloadDigest, aggregateId, operation,
+      actorId: actor.uid, orgId: scope.orgId, scopeIdentity: canonicalScopeIdentity(scope),
+      requestId: requiredText(command.requestId, 'requestId'), idempotencyKey: requiredText(command.idempotencyKey, 'idempotencyKey'),
+      expiresAt: new Date(Date.parse(now) + 24 * 60 * 60 * 1000).toISOString(), createdAt: now,
+    })
+  }
+
+  private assertIdempotency(
+    data: DocumentData | undefined,
+    actor: FinanceActorContext,
+    scope: FinanceScope,
+    operation: string,
+    command: CommandIdentity,
+    payloadDigest: string,
+    now: string,
+  ): void {
+    if (!data || data.schemaVersion !== 1 || data.canonicalPayloadVersion !== CANONICAL_PAYLOAD_VERSION ||
+        data.hashAlgorithmVersion !== HASH_ALGORITHM_VERSION || data.actorId !== actor.uid || data.orgId !== scope.orgId ||
+        data.scopeIdentity !== canonicalScopeIdentity(scope) || data.operation !== operation ||
+        data.requestId !== command.requestId || data.idempotencyKey !== command.idempotencyKey || data.expiresAt <= now) {
+      throw new FinanceValidationError('Idempotency metadata is invalid, mismatched, or expired')
+    }
+    if (data.payloadDigest !== payloadDigest) throw new FinanceValidationError('Idempotency key payload mismatch')
   }
 
   private async prepareEvidence(
@@ -197,41 +702,32 @@ export class FirestoreFinanceFoundationRepository {
     aggregateVersion: number,
     eventType: string,
     now: string,
+    metadata: EvidenceMetadata,
   ): Promise<{ audit: FinanceAuditEvent; outbox: FinanceOutboxEvent; headRef: DocumentReference }> {
-    const headRef = this.db.collection('finance_audit_heads').doc(scopeKey(scope))
-    const headSnapshot = await tx.get(headRef)
-    const head = headSnapshot.data() ?? {}
-    const sequence = headSnapshot.exists ? Number(head.sequence ?? -1) + 1 : 0
-    const auditId = `audit_${hash(`${scopeKey(scope)}:${sequence}:${aggregateType}:${aggregateId}:${eventType}`).slice(0, 40)}`
-    const eventWithoutHash = {
-      ...scope,
-      id: auditId,
-      schemaVersion: 1 as const,
-      aggregateType,
-      aggregateId,
-      aggregateVersion,
-      eventType,
-      actorId: actor.uid,
-      correlationId: actor.correlationId,
-      delegationId: actor.delegationId,
-      occurredAt: now,
-      sequence,
-      previousEventId: head.eventId,
-      previousEventHash: head.eventHash,
+    const headRef = this.db.collection('finance_audit_heads').doc(financeScopeKey(scope)); const headSnap = await tx.get(headRef)
+    if (headSnap.exists) exactScope(headSnap.data(), scope, 'Finance audit head')
+    const head = headSnap.data() ?? {}
+    if (headSnap.exists && (head.canonicalPayloadVersion !== CANONICAL_PAYLOAD_VERSION ||
+        head.hashAlgorithmVersion !== HASH_ALGORITHM_VERSION || !Number.isSafeInteger(head.sequence))) {
+      throw new FinanceValidationError('Finance audit head metadata is corrupt')
     }
-    const eventHash = hash(eventWithoutHash)
-    const audit: FinanceAuditEvent = { ...eventWithoutHash, eventHash }
-    const outbox: FinanceOutboxEvent = {
+    const sequence = headSnap.exists ? Number(head.sequence) + 1 : 0
+    const eventWithoutHash = clean({
       ...scope,
-      id: `outbox_${auditId.slice(6)}`,
-      schemaVersion: 1,
-      eventType,
-      aggregateType,
-      aggregateId,
-      payload: { aggregateId, aggregateVersion, orgId: scope.orgId },
-      deliveryStatus: 'internal_pending',
-      externalEgressAllowed: false,
-      createdAt: now,
+      id: `audit_${canonicalDigest({ scopeKey: financeScopeKey(scope), sequence, aggregateType, aggregateId, eventType }).slice(0, 40)}`,
+      schemaVersion: 1 as const, aggregateType, aggregateId, aggregateVersion,
+      aggregateDigest: metadata.aggregateDigest ?? canonicalDigest({ aggregateType, aggregateId, aggregateVersion }),
+      eventType, actorId: actor.uid, requestId: metadata.requestId, idempotencyKey: metadata.idempotencyKey,
+      correlationId: actor.correlationId, delegationId: actor.delegationId, reason: metadata.reason,
+      approvalReference: metadata.approval?.approvalId, approvalAction: metadata.approval?.action,
+      occurredAt: now, sequence, previousEventId: head.eventId, previousEventHash: head.eventHash,
+      canonicalPayloadVersion: CANONICAL_PAYLOAD_VERSION, hashAlgorithmVersion: HASH_ALGORITHM_VERSION,
+    })
+    const audit: FinanceAuditEvent = { ...eventWithoutHash, eventHash: canonicalDigest(eventWithoutHash) }
+    const outbox: FinanceOutboxEvent = {
+      ...scope, id: `outbox_${audit.id.slice(6)}`, schemaVersion: 1, eventType, aggregateType, aggregateId,
+      payload: clean({ aggregateId, aggregateVersion, aggregateDigest: audit.aggregateDigest, requestId: metadata.requestId }),
+      deliveryStatus: 'internal_pending', externalEgressAllowed: false, createdAt: now,
     }
     return { audit, outbox, headRef }
   }
@@ -240,16 +736,13 @@ export class FirestoreFinanceFoundationRepository {
     tx: Transaction,
     evidence: { audit: FinanceAuditEvent; outbox: FinanceOutboxEvent; headRef: DocumentReference },
   ): void {
-    tx.create(this.db.collection('finance_audit_events').doc(evidence.audit.id), evidence.audit)
-    tx.create(this.db.collection('finance_outbox_events').doc(evidence.outbox.id), evidence.outbox)
-    tx.set(evidence.headRef, {
-      orgId: evidence.audit.orgId,
-      legalEntityId: evidence.audit.legalEntityId,
-      bookId: evidence.audit.bookId,
-      eventId: evidence.audit.id,
-      eventHash: evidence.audit.eventHash,
-      sequence: evidence.audit.sequence,
+    const scope = { orgId: evidence.audit.orgId, legalEntityId: evidence.audit.legalEntityId, bookId: evidence.audit.bookId }
+    tx.create(storageRef(this.db, 'finance_audit_events', scope, evidence.audit.id), evidence.audit)
+    tx.create(storageRef(this.db, 'finance_outbox_events', scope, evidence.outbox.id), evidence.outbox)
+    tx.set(evidence.headRef, clean({
+      ...scope, eventId: evidence.audit.id, eventHash: evidence.audit.eventHash, sequence: evidence.audit.sequence,
+      canonicalPayloadVersion: CANONICAL_PAYLOAD_VERSION, hashAlgorithmVersion: HASH_ALGORITHM_VERSION,
       updatedAt: evidence.audit.occurredAt,
-    }, { merge: false })
+    }), { merge: false })
   }
 }
