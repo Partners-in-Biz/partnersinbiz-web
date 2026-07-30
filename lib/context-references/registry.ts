@@ -323,8 +323,18 @@ async function filterSearchDocsForRecordScope(
   const rows = docs.map((doc) => ({ id: doc.id, ...(doc.data() ?? {}), orgId: (doc.data() ?? {}).orgId ?? orgId }) as AssignableCrmRecord)
 
   if (type === 'invoice' || type === 'quote') {
-    const allowed = await filterBillingRecordsForCrmActor(ctx, rows)
+    const recipientQuoteIds = type === 'quote'
+      ? new Set(rows.filter((row) => {
+          const raw = row as RawDoc
+          const sourceOrg = clean(raw.sourceOrgId) || clean(raw.orgId)
+          const recipients = [clean(raw.recipientOrgId), clean(raw.targetOrgId)]
+          return sourceOrg !== orgId && recipients.includes(orgId)
+        }).map((row) => row.id).filter(Boolean))
+      : new Set<string>()
+    const senderRows = rows.filter((row) => !row.id || !recipientQuoteIds.has(row.id))
+    const allowed = await filterBillingRecordsForCrmActor(ctx, senderRows)
     const allowedIds = new Set(allowed.map((row) => row.id).filter(Boolean))
+    for (const id of recipientQuoteIds) allowedIds.add(id)
     return docs.filter((doc) => allowedIds.has(doc.id))
   }
 
@@ -456,6 +466,21 @@ async function queryByOrg(collection: string, orgId: string, limit: number) {
     .limit(Math.max(limit, 30))
     .get()
   return snap.docs as FirestoreDoc[]
+}
+
+async function queryBillingByOrg(collection: 'invoices' | 'quotes', orgId: string, limit: number) {
+  const fields = ['orgId', 'sourceOrgId', 'recipientOrgId', 'targetOrgId'] as const
+  const batches = await Promise.all(fields.map(async (field) => {
+    const snap = await adminDb
+      .collection(collection)
+      .where(field, '==', orgId)
+      .limit(Math.max(limit, 30))
+      .get()
+    return snap.docs as FirestoreDoc[]
+  }))
+  const byId = new Map<string, FirestoreDoc>()
+  for (const doc of batches.flat()) byId.set(doc.id, doc)
+  return Array.from(byId.values()).slice(0, Math.max(limit, 30))
 }
 
 async function queryStudioByOrg(collection: string, orgId: string, limit: number) {
@@ -756,11 +781,23 @@ async function resolveGeneric(
   const doc = await getDoc(collection, input.seed.id)
   if (!doc) return null
   const data = doc.data() ?? {}
-  const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
-  if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
+  const expectedOrg = expectedOrgId(input.seed, input.defaultOrgId)
+  // Billing records can belong to a sender organisation while being operated
+  // from the recipient organisation. Preserve the explicitly authorised
+  // conversation perspective instead of collapsing every record to data.orgId.
+  const billingPerspectiveOrg = (type === 'invoice' || type === 'quote')
+    && expectedOrg
+    && sameOrg(data, expectedOrg)
+    ? expectedOrg
+    : ''
+  const orgId = billingPerspectiveOrg || docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
+  if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrg) || !canUseOrg(input.user, orgId)) return null
   if (type === 'email' && input.user.role === 'client' && clean(data.uid) !== input.user.uid) return null
   if (type === 'workspace_artifact' && input.user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
-  if ((type === 'deal' || type === 'invoice' || type === 'quote') &&
+  const quoteRecipientPerspective = type === 'quote'
+    && orgId !== (clean(data.sourceOrgId) || clean(data.orgId))
+    && [clean(data.recipientOrgId), clean(data.targetOrgId)].includes(orgId)
+  if ((type === 'deal' || type === 'invoice' || (type === 'quote' && !quoteRecipientPerspective)) &&
     !(await actorCanReadCrmRecord(input.user, orgId, type, doc.id, data))) {
     return null
   }
@@ -1161,8 +1198,20 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
 
   const collection = COLLECTION_BY_TYPE[type]
   if (!collection) return []
-  const docs = await queryByOrg(collection, input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
+  const docs = type === 'invoice' || type === 'quote'
+    ? await queryBillingByOrg(collection as 'invoices' | 'quotes', input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
+    : await queryByOrg(collection, input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
   const scopedDocs = await filterSearchDocsForRecordScope(input.user, input.orgId, type, docs)
+  if (type === 'invoice' || type === 'quote') {
+    const refs = await resolveContextReferences(
+      scopedDocs.map((doc) => ({ type, id: doc.id, orgId: input.orgId, origin: 'mention' as const })),
+      input.user,
+      input.orgId,
+    )
+    return refs
+      .filter((ref) => matchesQuery({ name: ref.label, summary: ref.summary }, query))
+      .slice(0, limit)
+  }
   return scopedDocs
     .map((doc) => refFromSearchDoc(type, doc, input.user))
     .filter((ref): ref is ContextReference => Boolean(ref))

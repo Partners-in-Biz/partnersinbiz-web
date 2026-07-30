@@ -202,6 +202,20 @@ beforeEach(() => {
         }),
       ])
     }
+    if (name === 'quotes') {
+      return queryFor([
+        doc('received-quote', {
+          orgId: 'sender-org',
+          sourceOrgId: 'sender-org',
+          recipientOrgId: 'recipient-org',
+          quoteNumber: 'Q-REC-001',
+          status: 'sent',
+          total: 12000,
+          currency: 'ZAR',
+          deleted: false,
+        }),
+      ])
+    }
     if (name === 'properties') {
       return queryFor([
         doc('property-1', {
@@ -557,6 +571,43 @@ describe('context reference registry', () => {
       expect.objectContaining({ type: 'workspace_broker_job', label: 'create_doc' }),
     ]))
     expect(buildAttachedContextBlock(refs)).toContain('workspace_broker_job: create_doc')
+  })
+
+  it('preserves the recipient organisation perspective for received quote context', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = {
+      uid: 'recipient-1',
+      role: 'client' as const,
+      authKind: 'session' as const,
+      orgId: 'recipient-org',
+      activeOrgId: 'recipient-org',
+      orgIds: ['recipient-org'],
+    }
+
+    await expect(resolveContextReferences([
+      { type: 'quote', id: 'received-quote', orgId: 'recipient-org', origin: 'manual' },
+    ], user, 'recipient-org')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'quote',
+        id: 'received-quote',
+        orgId: 'recipient-org',
+        label: 'Q-REC-001',
+      }),
+    ])
+
+    await expect(searchContextReferences({
+      type: 'quote',
+      query: 'Q-REC',
+      orgId: 'recipient-org',
+      limit: 8,
+      user,
+    })).resolves.toEqual([
+      expect.objectContaining({
+        type: 'quote',
+        id: 'received-quote',
+        orgId: 'recipient-org',
+      }),
+    ])
   })
 
   it('resolves trusted Studio workspaces and exact artifacts from authoritative records', async () => {
