@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 
+import { actorFrom, lastActorFrom, ownerUidFrom } from '@/lib/api/actor'
 import type { ApiUser } from '@/lib/api/types'
 import { adminDb } from '@/lib/firebase/admin'
 import {
@@ -202,6 +203,8 @@ export async function createResearchItem(input: ResearchCreateInput): Promise<{ 
 
   const ref = adminDb.collection(RESEARCH_COLLECTION).doc()
   const now = FieldValue.serverTimestamp()
+  const created = actorFrom(input.user)
+  const updated = lastActorFrom(input.user)
   await ref.set({
     orgId: input.orgId,
     title,
@@ -217,9 +220,11 @@ export async function createResearchItem(input: ResearchCreateInput): Promise<{ 
     recommendations: normalizeRecommendations(input.recommendations),
     obsidian: { exported: false },
     createdAt: now,
-    createdBy: input.user.uid,
+    ...created,
     updatedAt: now,
-    updatedBy: input.user.uid,
+    updatedBy: updated.updatedBy,
+    updatedByType: updated.updatedByType,
+    ...(updated.updatedByAgentId ? { updatedByAgentId: updated.updatedByAgentId } : {}),
     deleted: false,
   })
   return { id: ref.id }
@@ -260,8 +265,7 @@ export async function getResearchItem(id: string, expectedOrgId?: string, includ
 
 export async function updateResearchItem(id: string, input: ResearchUpdateInput, user: ApiUser): Promise<void> {
   const updates: Record<string, unknown> = {
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: user.uid,
+    ...lastActorFrom(user),
   }
   if (typeof input.title === 'string' && input.title.trim()) {
     updates.title = input.title.trim()
@@ -286,8 +290,7 @@ export async function archiveResearchItem(id: string, user: ApiUser): Promise<vo
   await adminDb.collection(RESEARCH_COLLECTION).doc(id).update({
     status: 'archived',
     deleted: true,
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: user.uid,
+    ...lastActorFrom(user),
   })
 }
 
@@ -303,6 +306,8 @@ export async function createResearchSource(researchItemId: string, input: Resear
   if (!title) throw new Error('title is required')
   const ref = adminDb.collection(RESEARCH_COLLECTION).doc(researchItemId).collection('sources').doc()
   const now = FieldValue.serverTimestamp()
+  const created = actorFrom(user)
+  const updated = lastActorFrom(user)
   await ref.set(withoutUndefinedDeep({
     researchItemId,
     type: oneOf(input.type, RESEARCH_SOURCE_TYPES, 'note'),
@@ -317,9 +322,11 @@ export async function createResearchSource(researchItemId: string, input: Resear
     rawText: input.rawText?.trim() || undefined,
     metadata: input.metadata && typeof input.metadata === 'object' && !Array.isArray(input.metadata) ? input.metadata : undefined,
     createdAt: now,
-    createdBy: user.uid,
+    ...created,
     updatedAt: now,
-    updatedBy: user.uid,
+    updatedBy: updated.updatedBy,
+    updatedByType: updated.updatedByType,
+    ...(updated.updatedByAgentId ? { updatedByAgentId: updated.updatedByAgentId } : {}),
     deleted: false,
   }))
   return { id: ref.id }
@@ -327,8 +334,7 @@ export async function createResearchSource(researchItemId: string, input: Resear
 
 export async function updateResearchSource(researchItemId: string, sourceId: string, input: Partial<ResearchSourceInput>, user: ApiUser): Promise<void> {
   const updates: Record<string, unknown> = {
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: user.uid,
+    ...lastActorFrom(user),
   }
   if (typeof input.title === 'string' && input.title.trim()) updates.title = input.title.trim()
   const type = optionalOneOf(input.type, RESEARCH_SOURCE_TYPES)
@@ -346,21 +352,21 @@ export async function updateResearchSource(researchItemId: string, sourceId: str
 export async function archiveResearchSource(researchItemId: string, sourceId: string, user: ApiUser): Promise<void> {
   await adminDb.collection(RESEARCH_COLLECTION).doc(researchItemId).collection('sources').doc(sourceId).update({
     deleted: true,
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: user.uid,
+    ...lastActorFrom(user),
   })
 }
 
 export async function markResearchObsidianExported(id: string, path: string, sourcesPath: string, user: ApiUser): Promise<void> {
+  const updated = lastActorFrom(user)
   await adminDb.collection(RESEARCH_COLLECTION).doc(id).update({
     obsidian: {
       exported: true,
       path,
       sourcesPath,
       exportedAt: FieldValue.serverTimestamp(),
-      exportedBy: user.uid,
+      exportedBy: ownerUidFrom(user) || user.uid,
+      ...(updated.updatedByAgentId ? { exportedByAgentId: updated.updatedByAgentId } : {}),
     },
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: user.uid,
+    ...updated,
   })
 }

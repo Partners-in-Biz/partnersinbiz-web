@@ -7,6 +7,7 @@ import { OrgThemedFrame } from '@/components/admin/OrgThemedFrame'
 import { PageHeader, PageLinkTabs } from '@/components/ui/AppFoundation'
 import { DocumentIndex, type ClientDocumentPartyLabels } from '@/components/client-documents/DocumentIndex'
 import type { ClientDocument, ClientDocumentStatus } from '@/lib/client-documents/types'
+import { formatActorLabel } from '@/lib/api/actor'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type ClientDocumentsSurface = 'admin' | 'portal'
@@ -150,27 +151,33 @@ export function ClientDocumentsWorkspace({ surface, orgSlug = '' }: ClientDocume
   })
 
   const partyLabels: Record<string, ClientDocumentPartyLabels> = Object.fromEntries(
-    filteredDocuments.map((document) => [
-      document.id,
-      {
-        creatorCompanyName: 'Partners in Biz',
-        creatorContactName: document.createdByType === 'agent' ? 'Pip' : 'PiB team',
-        recipientCompanyName: orgName || 'Selected organisation',
-        recipientContactName: 'Client team',
-      },
-    ]),
+    filteredDocuments.map((document) => {
+      const label = formatActorLabel({
+        createdBy: document.createdBy,
+        createdByType: document.createdByType,
+        createdByAgentId: document.createdByAgentId,
+      })
+      return [
+        document.id,
+        {
+          creatorCompanyName: 'Partners in Biz',
+          creatorContactName: label,
+          recipientCompanyName: orgName || 'Selected organisation',
+          recipientContactName: 'Client team',
+        },
+      ]
+    }),
   )
 
   const createdByLabels: Record<string, string> = Object.fromEntries(
-    filteredDocuments.map((document) => {
-      const createdBy = typeof document.createdBy === 'string' ? document.createdBy.trim() : ''
-      const label = createdBy.includes('@')
-        ? createdBy
-        : document.createdByType === 'agent'
-          ? 'Pip (AI agent)'
-          : 'PiB team'
-      return [document.id, label]
-    }),
+    filteredDocuments.map((document) => [
+      document.id,
+      formatActorLabel({
+        createdBy: document.createdBy,
+        createdByType: document.createdByType,
+        createdByAgentId: document.createdByAgentId,
+      }),
+    ]),
   )
 
   const typeOptions = Array.from(new Set(documents.map((document) => document.type).filter(Boolean))).sort()

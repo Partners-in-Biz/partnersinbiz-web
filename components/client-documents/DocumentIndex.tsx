@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
 import type { ClientDocument, ClientDocumentStatus, ClientDocumentType } from '@/lib/client-documents/types'
+import { formatActorLabel } from '@/lib/api/actor'
 
 export interface ClientDocumentPartyLabels {
   creatorCompanyName?: string
@@ -201,9 +202,12 @@ function isArchived(document: ClientDocument) {
 
 /** Derive a human "Created by" label from the document's actor metadata. */
 function deriveCreatedByLabel(document: ClientDocument): string {
-  const createdBy = typeof document.createdBy === 'string' ? document.createdBy.trim() : ''
-  if (createdBy.includes('@')) return createdBy
-  return document.createdByType === 'agent' ? 'Pip (AI agent)' : 'PiB team'
+  // Prefer caller-supplied resolved labels; fall back to ownership + agent assist.
+  return formatActorLabel({
+    createdBy: document.createdBy,
+    createdByType: document.createdByType,
+    createdByAgentId: document.createdByAgentId,
+  })
 }
 
 export function DocumentIndex({

@@ -8,13 +8,14 @@ import type { ApiUser } from '@/lib/api/types'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
 function actorType(user: ApiUser) {
-  return user.role === 'ai' ? 'agent' : 'user'
+  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
 }
 
 function assertDocumentDataAccess(document: Partial<ClientDocument>, user: ApiUser) {
@@ -45,9 +46,7 @@ export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, c
     transaction.update(documentRef, {
       status: 'archived',
       deleted: true,
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedBy: user.uid,
-      updatedByType: actorType(user),
+      ...lastActorFrom(user),
     })
 
     return { ok: true as const }

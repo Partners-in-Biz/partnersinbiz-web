@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import { actorFrom } from '@/lib/api/actor'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
@@ -188,12 +189,15 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     runtimeTargetId: chatOriginValidation.runtimeTargetId,
   })
 
+  const created = actorFrom(user)
   const doc: Record<string, unknown> = {
     ...taskData.value,
-    reporterId: user.uid,
-    createdBy: user.uid,
+    reporterId: created.createdBy,
+    ...created,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
+    updatedBy: created.createdBy,
+    ...(created.createdByAgentId ? { updatedByAgentId: created.createdByAgentId } : {}),
   }
 
   const projectRef = adminDb.collection('projects').doc(projectId)

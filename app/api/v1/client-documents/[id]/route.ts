@@ -6,7 +6,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { assertClientDocumentDataAccess, canManageClientDocument, getAccessibleClientDocument } from '@/lib/client-documents/access'
-import { lastActorFrom } from '@/lib/api/actor'
+import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentAssumption } from '@/lib/client-documents/types'
@@ -36,7 +36,7 @@ const ASSUMPTION_SEVERITIES = new Set(['info', 'needs_review', 'blocks_publish']
 const ASSUMPTION_STATUSES = new Set(['open', 'resolved'])
 
 function actorType(user: ApiUser) {
-  return user.role === 'ai' ? 'agent' : 'user'
+  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
 }
 
 function linkedProjectIds(linked: ClientDocument['linked'] | undefined): string[] {
@@ -206,7 +206,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
     return apiError(`Unsupported field(s): ${invalidFields.join(', ')}`, 400)
   }
 
-  const update: Record<string, unknown> = lastActorFrom(user)
+  const update: Record<string, unknown> = { ...lastActorFrom(user) }
 
   if ('title' in body) {
     const title = typeof body.title === 'string' ? body.title.trim() : ''
@@ -313,9 +313,7 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, user: ApiUser,
     transaction.update(documentRef, {
       status: 'archived',
       deleted: true,
-      updatedAt: FieldValue.serverTimestamp(),
-      updatedBy: user.uid,
-      updatedByType: actorType(user),
+      ...lastActorFrom(user),
     })
 
     return { ok: true as const }

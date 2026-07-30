@@ -5,7 +5,7 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
-import { delegatedAgentAttribution } from '@/lib/api/actor'
+import { crmCreateAttribution } from '@/lib/api/actor'
 import { resolveMemberRef, type MemberRef } from '@/lib/orgMembers/memberRef'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { Deal, Currency, Contact } from '@/lib/crm/types'
@@ -185,11 +185,9 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     ownerUid: ownerUid || undefined,
     ownerRef,
     ...(allowedUserIds.length > 0 ? { allowedUserIds } : {}),
-    createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
     createdByRef: actorRef,
-    ...delegatedAgentAttribution(ctx.user),
-    updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
     updatedByRef: actorRef,
+    ...crmCreateAttribution(ctx.user, ctx.actor.uid, ctx.isAgent),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     stageHistory: [{

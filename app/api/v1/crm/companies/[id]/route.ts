@@ -12,6 +12,7 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { NextRequest } from 'next/server'
 import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
+import { crmUpdateAttribution } from '@/lib/api/actor'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import {
   loadCompany,
@@ -153,7 +154,7 @@ async function handleUpdate(
   const patch: Record<string, unknown> = {
     ...sanitized,
     ...assignmentRefPatch,
-    updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
+    ...crmUpdateAttribution(ctx.user, ctx.actor.uid, ctx.isAgent),
     updatedByRef: ctx.actor,
     updatedAt: Timestamp.now(),
   }
@@ -192,7 +193,7 @@ export const DELETE = withCrmAuth<RouteCtx>(
     // Soft delete
     const softDeletePatch: Record<string, unknown> = {
       deleted: true,
-      updatedBy: ctx.isAgent ? undefined : ctx.actor.uid,
+      ...crmUpdateAttribution(ctx.user, ctx.actor.uid, ctx.isAgent),
       updatedByRef: ctx.actor,
       updatedAt: FieldValue.serverTimestamp(),
     }
