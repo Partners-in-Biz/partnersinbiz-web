@@ -33,9 +33,14 @@ function isExplicitlyLinkedClientVisible(document: Partial<ClientDocument>, user
 }
 
 function isInternalCollaborator(document: Partial<ClientDocument>, user: ApiUser): boolean {
-  if (user.role !== 'client') return false
+  // Creator always retains access (including after agent-assisted creation under user-delegation).
   if (document.createdBy === user.uid) return true
   if ((document.sharedWithUserIds ?? []).includes(user.uid)) return true
+
+  // External client portal accounts only get the collaborator paths above plus
+  // explicit client-visible statuses (handled separately). Platform admins use
+  // org-scope resolution rather than this helper.
+  if (user.role !== 'client') return false
 
   return false
 }
