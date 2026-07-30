@@ -217,16 +217,69 @@ describe('world-class CRM OS foundation gaps', () => {
     })
 
     expect(filtered.contacts).toEqual([])
+    // Company command-center docs are already company-scoped: own/shared drafts +
+    // any client-facing status stay visible (including linked client-org accepted proposals).
     expect(filtered.documents.map((row) => row.id)).toEqual([
       'doc-owned-draft',
       'doc-shared-draft',
       'doc-direct-visible',
       'doc-platform-visible',
+      'doc-platform-other',
       'doc-shared',
     ])
     expect(filtered.orders.map((row) => row.id)).toEqual(['order-allowed'])
     expect(filtered.analytics.accountValue).toBeUndefined()
     expect(filtered.summary.contacts).toBe(0)
+  })
+
+  it('keeps accepted client-org proposals visible on a platform company command center', async () => {
+    const { filterCompanyCommandCenterForVisibility } = await import('@/lib/crm/visibility-policy')
+    const center = {
+      company: { id: 'hPgTdf8KpjXQOJkE1uR0', orgId: 'pib-platform-owner', name: 'Saaiman & Saaiman', linkedOrgId: 'sSpHCUZFsGE3inT1brBq' },
+      documents: [
+        {
+          id: '08gcEpM9aK08nTxG4gKw',
+          title: 'Saaiman & Saaiman Online Presence Management Proposal',
+          status: 'accepted',
+          orgId: 'sSpHCUZFsGE3inT1brBq',
+          createdBy: 'saaiman-agent',
+          createdByType: 'agent',
+          currentVersionId: 'v1',
+          linked: { companyId: 'hPgTdf8KpjXQOJkE1uR0', clientOrgId: 'sSpHCUZFsGE3inT1brBq' },
+        },
+        {
+          id: 'owned-draft',
+          status: 'internal_draft',
+          orgId: 'pib-platform-owner',
+          createdBy: 'stean-1',
+          currentVersionId: 'v2',
+          linked: { companyId: 'hPgTdf8KpjXQOJkE1uR0' },
+        },
+      ],
+      contacts: [],
+      deals: [],
+      projects: [],
+      serviceWorkspaces: [],
+      relationships: [],
+      quotes: [],
+      invoices: [],
+      orders: [],
+      shipments: [],
+      inventoryItems: [],
+      activities: [],
+      analytics: {},
+      summary: { documents: 2 },
+    } as unknown as CompanyCommandCenter
+
+    const filtered = filterCompanyCommandCenterForVisibility(center, {
+      orgId: 'pib-platform-owner',
+      role: 'member',
+      isAgent: false,
+      actor: { uid: 'stean-1', displayName: 'Stean', kind: 'human' },
+      user: { uid: 'stean-1', role: 'client', orgId: 'pib-platform-owner' },
+    })
+
+    expect(filtered.documents.map((row) => row.id)).toEqual(['08gcEpM9aK08nTxG4gKw', 'owned-draft'])
   })
 
   it('requires explicit approval before reconciliation apply mode can mutate data', async () => {
