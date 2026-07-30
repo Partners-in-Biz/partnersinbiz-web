@@ -30,8 +30,21 @@ function isDirectHuman(user: Parameters<typeof getProjectForUser>[1]): boolean {
     && user.authKind !== 'user_delegation'
 }
 
+/**
+ * Who may run Pip’s interview mutations (inspect / ask / surface / submit brief).
+ *
+ * - Platform Pip agent API key: `role=ai` + `agentId=pip`
+ * - Messages interactive turn: user-delegation minted for Pip
+ *   (`authKind=user_delegation` + `agentId=pip`, acting as the human)
+ *
+ * Terminal confirm / answer_question stay direct-human only via isDirectHuman.
+ * Marketplace `mp-pip-*` instances are intentionally excluded.
+ */
 function isPipAgent(user: Parameters<typeof getProjectForUser>[1]): boolean {
-  return user.role === 'ai' && user.agentId === 'pip'
+  if (user.agentId !== 'pip') return false
+  if (user.role === 'ai') return true
+  // Interactive Messages turns inject a human-scoped delegation for Pip.
+  return user.authKind === 'user_delegation'
 }
 
 function publicSummary(value: unknown) {

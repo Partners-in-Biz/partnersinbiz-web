@@ -95,6 +95,91 @@ describe('POST /api/v1/projects/[projectId]/planning-discovery', () => {
     expect(mockRunTransaction).not.toHaveBeenCalled()
   })
 
+  it('rejects non-Pip user-delegation for interview actions', async () => {
+    mockUser = {
+      uid: 'peet',
+      role: 'admin',
+      orgId: 'owner-org',
+      authKind: 'user_delegation',
+      agentId: 'theo',
+    }
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/planning-discovery/route')
+    const res = await POST(request({
+      type: 'record_inspection',
+      expectedRevision: 1,
+      evidence: {
+        brief: ['none observed'],
+        docs: ['none observed'],
+        files: ['none observed'],
+        plan: ['none observed'],
+        tasks: ['none observed'],
+        tools: ['none observed'],
+        agents: ['none observed'],
+        skills: ['none observed'],
+      },
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockRunTransaction).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { uid: 'agent:pip', role: 'ai' as const, authKind: 'agent_api_key' as const, agentId: 'pip' },
+    { uid: 'peet', role: 'admin' as const, authKind: 'user_delegation' as const, agentId: 'pip' },
+  ])('lets Pip interview via $authKind (opens transaction for ask_question)', async (user) => {
+    mockUser = { ...user, orgId: 'owner-org' }
+    mockRunTransaction.mockImplementation(async (fn: (tx: {
+      get: () => Promise<{ exists: boolean; data: () => Record<string, unknown> }>
+      update: jest.Mock
+      set: jest.Mock
+    }) => Promise<unknown>) => {
+      const tx = {
+        get: async () => ({
+          exists: true,
+          data: () => ({
+            orgId: 'owner-org',
+            planningDiscovery: {
+              schemaVersion: 1,
+              revision: 2,
+              status: 'interviewing',
+              mode: 'mandatory',
+              enforced: true,
+              inspection: { completed: true, evidence: {} },
+              turns: [],
+              pendingQuestionId: null,
+              predictedNextAnswers: [],
+              intentBlockingUnknowns: [],
+              confidence: null,
+              brief: null,
+              digest: null,
+              snapshots: [],
+            },
+          }),
+        }),
+        update: jest.fn(),
+        set: jest.fn(),
+      }
+      return fn(tx)
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/planning-discovery/route')
+    const res = await POST(request({
+      type: 'ask_question',
+      expectedRevision: 2,
+      question: 'Which outcome matters most for this implementation?',
+      currentGuess: 'Safe development delivery',
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    // Must not fail the Pip identity gate (403 "Pip is required…").
+    // Transition may still fail with 4xx if state machine rejects, but transaction runs.
+    expect(res.status).not.toBe(403)
+    if (res.status === 403) {
+      const body = await res.json()
+      expect(body.error).not.toMatch(/Pip is required/i)
+    }
+    expect(mockRunTransaction).toHaveBeenCalled()
+  })
+
   it.each([
     { uid: 'agent:pip', role: 'ai' as const, authKind: 'agent_api_key' as const, agentId: 'pip' },
     { uid: 'peet', role: 'admin' as const, authKind: 'user_delegation' as const, agentId: 'pip' },

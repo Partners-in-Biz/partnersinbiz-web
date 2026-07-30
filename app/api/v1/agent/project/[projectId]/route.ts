@@ -154,6 +154,10 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
       agentConversationId: data.agentConversationId ?? null,
       agentHeartbeatAt: data.agentHeartbeatAt ?? null,
       attachments: data.attachments ?? [],
+      chatOrigin: data.chatOrigin ?? null,
+      agentProvider: data.agentProvider ?? null,
+      llmCredentialSource: data.llmCredentialSource ?? null,
+      agentRuntimeTargetId: data.agentRuntimeTargetId ?? null,
     }
   })
 

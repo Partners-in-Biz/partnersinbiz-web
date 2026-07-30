@@ -9,7 +9,15 @@ const mockTasksCollection = jest.fn()
 const mockProjectDoc = jest.fn()
 const mockCollection = jest.fn()
 const mockPlanningMutationBlocker = jest.fn((_project: Record<string, unknown>): null | { code: 'planning_discovery_required'; message: string; revision: number } => null)
-let currentUser: { uid: string; role: 'client' | 'admin' | 'ai'; authKind: string; orgId?: string } = {
+let currentUser: {
+  uid: string
+  role: 'client' | 'admin' | 'ai'
+  authKind: string
+  orgId?: string
+  agentId?: string
+  delegationId?: string
+  actingForUserId?: string
+} = {
   uid: 'client-1', role: 'client', authKind: 'session',
 }
 
@@ -138,7 +146,9 @@ describe('project task approval gate route guards', () => {
     expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
       agentStatus: 'done',
       agentOutput: { summary: 'Completed safely' },
-      columnId: 'review',
+      // Agent completion without a reviewer lands in Done (not stuck Review).
+      columnId: 'done',
+      reviewStatus: 'approved',
     }))
   })
 
@@ -195,7 +205,85 @@ describe('project task approval gate route guards', () => {
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
-  it('blocks delegated agents whose projected role is admin from changing approval-gate metadata', async () => {
+  it('allows a valid delegated admin session to approve an approval-gate task', async () => {
+    currentUser = {
+      uid: 'admin-1',
+      role: 'admin',
+      authKind: 'user_delegation',
+      orgId: 'org-1',
+      agentId: 'pip',
+      delegationId: 'dlg-1',
+      actingForUserId: 'admin-1',
+    }
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', {
+      method: 'PATCH',
+      headers: { 'x-org-id': 'org-1' },
+      body: JSON.stringify({ approvalStatus: 'approved' }),
+    }), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.success).toBe(true)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      approvalStatus: 'approved',
+      columnId: 'done',
+      reviewStatus: 'approved',
+      agentStatus: 'done',
+      approvedBy: 'admin-1',
+      approvedByType: 'delegated_user',
+      approvedByAgentId: 'pip',
+      approvalDelegationId: 'dlg-1',
+    }))
+  })
+
+  it('is idempotent when a delegated admin re-approves an already approved gate', async () => {
+    currentUser = {
+      uid: 'admin-1',
+      role: 'admin',
+      authKind: 'user_delegation',
+      orgId: 'org-1',
+      agentId: 'pip',
+      delegationId: 'dlg-1',
+      actingForUserId: 'admin-1',
+    }
+    mockTaskGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        title: 'Approval task',
+        labels: ['approval-gate'],
+        approvalGate: 'production-deploy',
+        approvalStatus: 'approved',
+        columnId: 'done',
+        reviewStatus: 'approved',
+        agentStatus: 'done',
+      }),
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', {
+      method: 'PATCH',
+      headers: { 'x-org-id': 'org-1' },
+      body: JSON.stringify({ approvalStatus: 'approved', columnId: 'done', reviewStatus: 'approved' }),
+    }), ctx)
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalled()
+  })
+
+  it('blocks agent API keys from setting approvalStatus even when role projects as admin', async () => {
+    currentUser = { uid: 'admin-1', role: 'admin', authKind: 'agent_api_key', orgId: 'org-1', agentId: 'pip' }
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', {
+      method: 'PATCH',
+      headers: { 'x-org-id': 'org-1' },
+      body: JSON.stringify({ approvalStatus: 'approved' }),
+    }), ctx)
+
+    expect(res.status).toBe(403)
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('blocks incomplete delegated sessions from approving', async () => {
     currentUser = { uid: 'admin-1', role: 'admin', authKind: 'user_delegation', orgId: 'org-1' }
     const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
     const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', {
@@ -206,6 +294,90 @@ describe('project task approval gate route guards', () => {
 
     expect(res.status).toBe(403)
     expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('blocks delegated non-admin users from approving', async () => {
+    currentUser = {
+      uid: 'client-1',
+      role: 'client',
+      authKind: 'user_delegation',
+      orgId: 'org-1',
+      agentId: 'pip',
+      delegationId: 'dlg-2',
+      actingForUserId: 'client-1',
+    }
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', {
+      method: 'PATCH',
+      headers: { 'x-org-id': 'org-1' },
+      body: JSON.stringify({ approvalStatus: 'approved' }),
+    }), ctx)
+
+    expect(res.status).toBe(403)
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('rejects moving an approval gate to Done without approvalStatus=approved', async () => {
+    currentUser = { uid: 'admin-1', role: 'admin', authKind: 'session' }
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({ columnId: 'done' }), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/approvalStatus=approved/)
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('allows a direct human admin to approve and persists canonical approval state', async () => {
+    currentUser = { uid: 'admin-1', role: 'admin', authKind: 'session' }
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({
+      approvalStatus: 'approved',
+      reviewStatus: 'approved',
+      columnId: 'done',
+      agentStatus: 'done',
+    }), ctx)
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      approvalStatus: 'approved',
+      reviewStatus: 'approved',
+      columnId: 'done',
+      agentStatus: 'done',
+      approvedBy: 'admin-1',
+      approvedByType: 'user',
+    }))
+  })
+
+  it('allows delegated admin handoff metadata updates when planning is ready without reopening discovery', async () => {
+    currentUser = {
+      uid: 'admin-1',
+      role: 'admin',
+      authKind: 'user_delegation',
+      orgId: 'org-1',
+      agentId: 'pip',
+      delegationId: 'dlg-1',
+      actingForUserId: 'admin-1',
+    }
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', {
+      method: 'PATCH',
+      headers: { 'x-org-id': 'org-1' },
+      body: JSON.stringify({
+        expectedArtifacts: ['ledger module'],
+        verifierChecklist: ['double-entry balances'],
+        sourceDocumentId: 'doc-1',
+        sourceSpecVersion: 'v1',
+      }),
+    }), ctx)
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      expectedArtifacts: ['ledger module'],
+      verifierChecklist: ['double-entry balances'],
+      sourceDocumentId: 'doc-1',
+      sourceSpecVersion: 'v1',
+    }))
   })
 
   it('blocks non-admin users from adding a gate and execution state in the same request', async () => {

@@ -64,6 +64,12 @@ describe('planning mutation classification and transaction guard', () => {
     expect(isProjectTaskContextMutation({ dueDate: '2026-08-01' })).toBe(true)
     expect(isProjectTaskContextMutation({ assigneeAgentId: 'theo' })).toBe(false)
     expect(isProjectTaskContextMutation({ agentStatus: 'done', agentOutput: { summary: 'Done' } })).toBe(false)
+    // Handoff/approval metadata must not stale a confirmed Decision Brief.
+    expect(isProjectTaskContextMutation({ expectedArtifacts: ['ledger'] })).toBe(false)
+    expect(isProjectTaskContextMutation({ approvalGate: 'finance' })).toBe(false)
+    expect(isProjectTaskContextMutation({ sourceDocumentId: 'doc-1' })).toBe(false)
+    expect(isProjectTaskPlanningMutation({ expectedArtifacts: ['ledger'] })).toBe(true)
+    expect(isProjectTaskPlanningMutation({ approvalStatus: 'approved' })).toBe(false)
   })
 
   it('reopens and snapshots a ready discovery state for a material context mutation', () => {
