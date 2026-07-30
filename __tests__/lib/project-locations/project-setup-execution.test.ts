@@ -305,6 +305,53 @@ describe('executeProjectSetup', () => {
     }))
   })
 
+  it('allows a second project to share a registered folder already linked to another project', async () => {
+    const deps = dependencies({
+      createProject: jest.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        data: { id: 'project-2' },
+      }),
+      getWorkspaceFolder: jest.fn().mockResolvedValue({
+        id: 'folder-registered',
+        orgId: 'pib-org',
+        name: 'Shared monorepo',
+        deleted: false,
+        projectId: 'project-1',
+        resourceType: 'project',
+        resourceId: 'project-1',
+        paths: {
+          vpsPath: '/var/lib/hermes/Cowork/partners/Partners in Biz/apps/seller-crm',
+          localPathHint: '/Users/peetstander/Cowork/partners/Partners in Biz/apps/seller-crm',
+        },
+      }),
+    })
+
+    const result = await executeProjectSetup({
+      mode: 'existing_folder',
+      orgId: 'pib-org',
+      projectName: 'Seller CRM QA',
+      workspaceId: 'partners',
+      workspaceFolderId: 'folder-registered',
+      locationIds: ['partners-vps'],
+    }, actor, deps)
+
+    expect([201, 202]).toContain(result.status)
+    expect(deps.createProject).toHaveBeenCalled()
+    expect(deps.linkProjectLocation).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-2',
+      relativePath: 'apps/seller-crm',
+    }))
+    expect(deps.patchProject).toHaveBeenCalledWith('project-2', expect.objectContaining({
+      projectFolderMode: 'registered',
+      sharedFolder: true,
+      projectFolderRelativePath: 'apps/seller-crm',
+    }))
+    expect(deps.patchWorkspaceFolder).toHaveBeenCalledWith('folder-registered', expect.objectContaining({
+      sharedProjectIds: expect.arrayContaining(['project-1', 'project-2']),
+    }))
+  })
+
   it('rejects a registered folder outside the workspace before creating a project', async () => {
     const deps = dependencies({
       getWorkspaceFolder: jest.fn().mockResolvedValue({

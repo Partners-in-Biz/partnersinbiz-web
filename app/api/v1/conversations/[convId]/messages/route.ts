@@ -43,6 +43,7 @@ import { cleanApprovalMode, shouldAutoApproveDangerousCommands } from '@/lib/mes
 import { memberCanUseAgentOnRuntime } from '@/lib/orgMembers/access-policy'
 import { loadOrgMemberAccessPolicy } from '@/lib/orgMembers/org-access-policy'
 import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
+import { buildProjectCodeWorkspacePrompt } from '@/lib/projects/code-workspace'
 import {
   contextReferenceKey,
   MAX_CONTEXT_REFS,
@@ -261,9 +262,26 @@ function buildWorkspaceContext(conversation: Conversation): string {
   if (!workspace) return ''
   const companyCowork = workspace.folderScope === 'company'
     || (workspace.folderScope === 'project' && Boolean(workspace.companyWorkspaceId || workspace.companyId))
-  const bindingLine = companyCowork
+  const projectSession = workspace.folderScope === 'project' && Boolean(workspace.projectId)
+  const bindingLine = companyCowork && !projectSession
     ? `[Workspace context — this chat is bound to the ${workspace.companyName || 'company'} Cowork folder]`
-    : '[Workspace context — this chat is bound to a Partners in Biz Workspace]'
+    : projectSession
+      ? `[Workspace context — this chat is bound to PiB Project${workspace.projectName ? ` “${workspace.projectName}”` : ''}${workspace.companyName ? ` for ${workspace.companyName}` : ''}]`
+      : '[Workspace context — this chat is bound to a Partners in Biz Workspace]'
+
+  const codeMap = projectSession
+    ? buildProjectCodeWorkspacePrompt({
+      projectName: workspace.projectName,
+      projectId: workspace.projectId,
+      folderRelativePath: workspace.folderRelativePath,
+      projectFolderMode: workspace.projectFolderMode,
+      companyName: workspace.companyName,
+      companyId: workspace.companyId,
+      codeRoots: workspace.codeRoots,
+      sharedFolder: workspace.sharedFolder,
+    })
+    : ''
+
   return [
     bindingLine,
     `workspaceId: ${workspace.workspaceId}`,
@@ -280,6 +298,8 @@ function buildWorkspaceContext(conversation: Conversation): string {
     workspace.folderRelativePath ? `folderRelativePath: ${workspace.folderRelativePath}` : '',
     workspace.projectId ? `projectId: ${workspace.projectId}` : '',
     workspace.projectName ? `projectName: ${workspace.projectName}` : '',
+    workspace.projectFolderMode ? `projectFolderMode: ${workspace.projectFolderMode}` : '',
+    workspace.sharedFolder ? 'sharedFolder: true' : '',
     workspace.vpsWorkingPath ? `vpsWorkingPath: ${workspace.vpsWorkingPath}` : '',
     workspace.localWorkingPath ? `localWorkingPath: ${workspace.localWorkingPath}` : '',
     `agentDomain: ${workspace.agentDomain}`,
@@ -291,12 +311,15 @@ function buildWorkspaceContext(conversation: Conversation): string {
     `shareMode: ${workspace.shareMode}`,
     `ownerUserId: ${workspace.ownerUserId}`,
     'The active orgId is the security and operating perspective for this session. crmCompanyId identifies the CRM company folder; a linked organisation mentioned in AGENTS.md is metadata and a delivery relationship, not permission to browse or act inside that organisation.',
-    companyCowork
+    companyCowork && !projectSession
       ? 'This is a company Cowork session. Treat the runtime-matching company working path above as the session working directory. Read that company root AGENTS.md/CLAUDE.md and the company agentDomain hot.md/index.md before answering about prior work. Do not use Partners in Biz platform history unless the user explicitly asks about Partners in Biz.'
-      : 'Treat the runtime-matching working path above as this chat session’s working directory. Keep project artefacts inside it, and read the company root AGENTS.md/CLAUDE.md plus .pib-workspace.json before acting when file access is available.',
+      : projectSession
+        ? 'This is a project delivery session. Treat the runtime-matching project working path as cwd. Read project AGENTS.md, company parent AGENTS.md when nested under Cowork/partners/{Company}, and the agentDomain wiki before inventing company or product facts. Multiple Projects may share this disk path — do not duplicate repositories.'
+        : 'Treat the runtime-matching working path above as this chat session’s working directory. Keep project artefacts inside it, and read the company root AGENTS.md/CLAUDE.md plus .pib-workspace.json before acting when file access is available.',
     'Keep user chat threads separate unless the shareMode or user request says otherwise.',
     '---',
     '',
+    codeMap,
   ].filter(Boolean).join('\n')
 }
 

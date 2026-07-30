@@ -393,10 +393,14 @@ export async function executeProjectSetup(
     const resumedProjectId = optionalClean(progress.projectId)
     const linkedToDifferentProject = Boolean(registeredFolder.projectId && registeredFolder.projectId !== resumedProjectId)
     const claimedByDifferentProject = registeredFolder.resourceType === 'project'
+      && Boolean(registeredFolder.projectId)
       && (!resumedProjectId || registeredFolder.projectId !== resumedProjectId)
-    if (linkedToDifferentProject || claimedByDifferentProject) {
-      throw new ProjectSetupExecutionError('Registered Workspace folder is already linked', 409)
-    }
+    // Multiple PiB Projects may share one registered on-disk folder (same codebase,
+    // separate boards). Only resume/same-project links stay exclusive; cross-project
+    // reuses are allowed and marked shared below.
+    const sharingExistingFolder = (linkedToDifferentProject || claimedByDifferentProject)
+      && Boolean(registeredFolder.projectId)
+      && registeredFolder.projectId !== resumedProjectId
     // Resolve every path exclusively from the server-side registry before any project is created.
     for (const location of locations) {
       relativePaths.set(location.locationId, existingFolderRelativePath(registeredFolder, workspace, location))
@@ -405,6 +409,7 @@ export async function executeProjectSetup(
       type: 'confirm_existing_folder',
       status: 'completed',
       workspaceFolderId,
+      ...(sharingExistingFolder ? { shared: true, sharedWithProjectId: registeredFolder.projectId } : {}),
     })
   }
 
@@ -513,16 +518,34 @@ export async function executeProjectSetup(
     actions.push({ type: 'link_project_location', status: 'blocked', reason: 'project folder was not provisioned' })
   }
 
+  const sharingFolder = Boolean(
+    registeredFolder?.projectId
+    && registeredFolder.projectId !== projectId,
+  )
+  const primaryRelativePath = setupMode === 'existing_folder'
+    ? (relativePaths.values().next().value ?? null)
+    : `projects/${projectId}`
+  // Default monorepo roots when the relative path itself is not frontend/backend.
+  const defaultCodeRoots = (() => {
+    if (setupMode !== 'existing_folder' || !primaryRelativePath) return undefined
+    const base = String(primaryRelativePath).split('/').filter(Boolean).pop()?.toLowerCase() ?? ''
+    if (base === 'frontend' || base === 'backend' || base === 'web' || base === 'api') return undefined
+    return [
+      { path: 'frontend', label: 'Frontend' },
+      { path: 'backend', label: 'Backend' },
+    ]
+  })()
+
   try {
     await dependencies.patchProject(projectId, {
       workspaceId: workspace.workspaceId,
       projectFolderMode: setupMode === 'existing_folder' ? 'registered' : 'standard',
-      projectFolderRelativePath: setupMode === 'existing_folder'
-        ? (relativePaths.values().next().value ?? null)
-        : `projects/${projectId}`,
+      projectFolderRelativePath: primaryRelativePath,
       workspaceFolderId: registeredFolder?.id ?? null,
       executionLocationIds: replicas.map((replica) => replica.locationId),
       canonicalLocationId: canonicalLocationId ?? null,
+      ...(sharingFolder ? { sharedFolder: true } : {}),
+      ...(defaultCodeRoots ? { codeRoots: defaultCodeRoots } : {}),
       setupState: errors.length > 0 ? 'partial' : locationIds.length > 0 ? 'sync_pending' : 'location_selection_pending',
     })
     actions.push({ type: 'record_project_setup', status: 'completed' })
@@ -534,10 +557,26 @@ export async function executeProjectSetup(
 
   if (registeredFolder?.id) {
     try {
-      await dependencies.patchWorkspaceFolder(registeredFolder.id, {
-        projectId,
+      // Keep the first-linked projectId as the primary owner; accumulate sharedProjectIds for multi-board use.
+      const folderPatch: Record<string, unknown> = sharingFolder
+        ? {
+            sharedProjectIds: Array.from(new Set([
+              ...(Array.isArray((registeredFolder as { sharedProjectIds?: unknown }).sharedProjectIds)
+                ? ((registeredFolder as { sharedProjectIds?: string[] }).sharedProjectIds ?? [])
+                : []),
+              registeredFolder.projectId,
+              projectId,
+            ].filter(Boolean))),
+          }
+        : { projectId }
+      if (!registeredFolder.projectId) folderPatch.projectId = projectId
+      await dependencies.patchWorkspaceFolder(registeredFolder.id, folderPatch)
+      actions.push({
+        type: 'link_workspace_folder_record',
+        status: 'completed',
+        workspaceFolderId: registeredFolder.id,
+        ...(sharingFolder ? { shared: true } : {}),
       })
-      actions.push({ type: 'link_workspace_folder_record', status: 'completed', workspaceFolderId: registeredFolder.id })
     } catch (error) {
       const errorMessage = message(error)
       errors.push(errorMessage)

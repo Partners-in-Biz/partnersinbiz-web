@@ -193,6 +193,25 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     updates.brief = body.brief
   }
 
+  if (body.codeRoots !== undefined) {
+    const { normalizeProjectCodeRoots } = await import('@/lib/projects/code-workspace')
+    if (body.codeRoots !== null && !Array.isArray(body.codeRoots)) {
+      return apiError('codeRoots must be an array', 400)
+    }
+    updates.codeRoots = normalizeProjectCodeRoots(body.codeRoots)
+  }
+
+  if (body.sharedFolder !== undefined) {
+    updates.sharedFolder = body.sharedFolder === true
+  }
+
+  if (body.projectFolderMode !== undefined) {
+    if (body.projectFolderMode !== 'standard' && body.projectFolderMode !== 'registered') {
+      return apiError('projectFolderMode must be standard or registered', 400)
+    }
+    updates.projectFolderMode = body.projectFolderMode
+  }
+
   if (body.targetDate !== undefined || body.dueDate !== undefined) {
     const nextTargetDate = normalizeProjectTargetDate(body.targetDate !== undefined ? body.targetDate : body.dueDate)
     if (nextTargetDate === undefined) return apiError('Invalid targetDate', 400)

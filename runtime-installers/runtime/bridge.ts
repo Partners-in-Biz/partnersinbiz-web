@@ -98,7 +98,23 @@ export function ensureStandardProjectFolder(dir:string, label:string){
   if(!fs.existsSync(agents)){
     fs.writeFileSync(
       agents,
-      `# ${label}\n\nProject folder created by Partners in Biz linked runtime.\n`,
+      `# ${label}
+
+PiB delivery project folder created by the linked runtime.
+
+## Company context
+- If this tree is nested under \`Cowork/partners/{Company}/…\`, read the **company** \`AGENTS.md\` / \`CLAUDE.md\` one or more parents up before inventing company facts.
+- Prefer company wiki/hot knowledge from the session agentDomain paths when available.
+
+## Code roots
+- Primary cwd is this folder.
+- If \`frontend/\` and \`backend/\` (or \`web/\` / \`api/\`) exist here, treat them as one product surface.
+- Other PiB Projects may share this same on-disk path with a different board — do not duplicate the repository.
+
+## Rules
+- Keep secrets out of git; use linked-runtime credential channels.
+- Prefer project tasks and evidence over ad-hoc platform history.
+`,
       {mode:0o644},
     )
   }
@@ -117,7 +133,22 @@ function ensureCompanyCoworkFolder(dir:string){
   if(!fs.existsSync(agents)){
     fs.writeFileSync(
       agents,
-      `# ${path.basename(dir)}\n\nCompany Cowork folder created by Partners in Biz linked runtime.\n`,
+      `# ${path.basename(dir)}
+
+Company Cowork folder created by Partners in Biz linked runtime.
+
+## Role
+- This is the **company root**: identity, research, briefs, multi-app knowledge.
+- Delivery codebases (web apps, FE/BE monorepos) may live as subfolders and be linked to one or more PiB Projects that share the same path.
+
+## Knowledge
+- Keep durable company facts here and in the company agentDomain wiki.
+- Project boards own tasks/kanban; this folder owns who the company is.
+
+## Rules
+- Do not invent company facts; read this file and the agentDomain wiki first.
+- Prefer nesting app repos under this company tree so project sessions inherit company context by path.
+`,
       {mode:0o644},
     )
   }

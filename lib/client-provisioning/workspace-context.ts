@@ -3,6 +3,11 @@ import { adminDb } from '@/lib/firebase/admin'
 import { joinCoworkWorkingPath } from '@/lib/client-provisioning/cowork-working-path'
 import { buildClientProvisioningPayload, inferCompanyCoworkDomain } from '@/lib/client-provisioning/provisioner'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import {
+  normalizeProjectCodeRoots,
+  type ProjectCodeRoot,
+  type ProjectFolderMode,
+} from '@/lib/projects/code-workspace'
 
 export type WorkspaceRuntimeTarget = 'vps' | 'local' | 'auto' | string
 
@@ -98,6 +103,12 @@ export type ConversationWorkspaceContext = {
   localWorkingPath?: string
   projectId?: string
   projectName?: string
+  /** standard = projects/{id}; registered = existing shared app folder */
+  projectFolderMode?: ProjectFolderMode
+  /** True when multiple PiB Projects intentionally share this on-disk tree */
+  sharedFolder?: boolean
+  /** Related monorepo roots relative to the primary project folder */
+  codeRoots?: ProjectCodeRoot[]
 }
 
 export const ORG_WORKSPACES_COLLECTION = 'org_workspaces'
@@ -205,15 +216,26 @@ export async function resolveConversationWorkspaceContext(input: {
   if (!workspace || workspace.orgId !== input.orgId) return null
   const runtimeTarget = (input.runtimeTarget || workspace.defaultRuntimeTarget || 'vps') as WorkspaceRuntimeTarget
   const projectId = cleanString(input.projectId)
-  const projectName = cleanString(input.projectName)
+  let projectName = cleanString(input.projectName)
   let projectCompanyId = cleanString(input.companyId)
+  let projectFolderMode: ProjectFolderMode | undefined
+  let sharedFolder = false
+  let codeRoots: ProjectCodeRoot[] = []
   if (projectId && !projectId.includes('/')) {
     const projectSnapshot = await adminDb.collection('projects').doc(projectId).get()
     if (projectSnapshot.exists) {
       const project = projectSnapshot.data() ?? {}
       const projectOrgId = cleanString(project.sourceOrgId) || cleanString(project.orgId)
-      if (projectOrgId === input.orgId) {
-        projectCompanyId = cleanString(project.sourceCompanyId) || cleanString(project.companyId)
+      if (projectOrgId === input.orgId || !projectOrgId) {
+        projectCompanyId = projectCompanyId
+          || cleanString(project.sourceCompanyId)
+          || cleanString(project.companyId)
+        if (!projectName) projectName = cleanString(project.name)
+        const mode = cleanString(project.projectFolderMode)
+        if (mode === 'registered' || mode === 'standard') projectFolderMode = mode
+        sharedFolder = project.sharedFolder === true
+          || (Array.isArray(project.sharedProjectIds) && project.sharedProjectIds.length > 1)
+        codeRoots = normalizeProjectCodeRoots(project.codeRoots)
       }
     }
   }
@@ -309,5 +331,8 @@ export async function resolveConversationWorkspaceContext(input: {
     localWorkingPath: joinCoworkWorkingPath(workspaceRoot.localPath, folderRelativePath),
     ...(projectId ? { projectId } : {}),
     ...(projectName ? { projectName } : {}),
+    ...(projectFolderMode ? { projectFolderMode } : {}),
+    ...(sharedFolder ? { sharedFolder: true } : {}),
+    ...(codeRoots.length > 0 ? { codeRoots } : {}),
   }
 }
