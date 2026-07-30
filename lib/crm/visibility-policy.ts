@@ -96,19 +96,18 @@ function clientDocumentVisibility(row: RowWithVisibility, ctx: VisibilityContext
 }
 
 /**
- * Company command-center documents are already company-scoped (including docs
- * stored on a linked client org). Do not re-require orgId === viewer CRM org,
- * or accepted client proposals on linked client orgs disappear for platform members.
+ * Company command-center documents are already company-scoped and the route
+ * already checked CRM company access. Holder-team members who can open the
+ * company see the full document workspace (internal + sent). Recipient-only
+ * filtering belongs on client portal document lists, not CRM company pages.
  */
 function companyCommandCenterDocumentAllowed(row: RowWithVisibility, ctx: VisibilityContext): boolean {
   if (row.deleted === true || row.archived === true || row.status === 'archived') return false
   if (!isClientDocumentRow(row)) {
     return rowAllowed(row, ctx)
   }
-
-  const actorUid = ctx.actor?.uid || ctx.user?.uid || ''
-  if (actorOwnsOrIsSharedDocument(row, actorUid)) return true
-  return CLIENT_DOCUMENT_VISIBLE_STATUSES.has(cleanString(row.status))
+  // Company-scoped list: show all non-archived client documents on the account.
+  return true
 }
 
 function rowAllowed(row: RowWithVisibility, ctx: VisibilityContext): boolean {

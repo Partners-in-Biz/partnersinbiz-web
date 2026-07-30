@@ -325,20 +325,32 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     assumptions = assumptionsResult.value
   }
 
+  // Holder model: document lives under PiB (or the company holder org), not the
+  // recipient client org. Client org is recorded on linked.clientOrgId only.
   const platformCompany = orgId ? await platformCompanyForClientOrg(orgId) : null
-  const linkedCompany = !orgId && linked.companyId ? await companyForLinkedDocument(linked.companyId) : null
-  const documentOrgId = platformCompany ? PIB_PLATFORM_ORG_ID : linkedCompany?.orgId ?? orgId
+  const companyFromLink = typeof linked.companyId === 'string' && linked.companyId.trim()
+    ? await companyForLinkedDocument(linked.companyId.trim())
+    : null
+  const { resolveDocumentHolderOrgId } = await import('@/lib/client-documents/holder')
+  const documentOrgId = resolveDocumentHolderOrgId({
+    requestedOrgId: orgId,
+    platformCompanyIdForClientOrg: platformCompany?.id ?? null,
+    linkedCompany: companyFromLink,
+    creatorHomeOrgId: user.activeOrgId || user.orgId || null,
+  })
   const rawDocumentLinked: ClientDocumentLinkSet = platformCompany
     ? {
         ...linked,
         companyId: linked.companyId || platformCompany.id,
         clientOrgId: linked.clientOrgId || orgId,
       }
-    : linkedCompany
+    : companyFromLink
       ? {
           ...linked,
-          companyId: linked.companyId || linkedCompany.id,
-          ...(linkedCompany.linkedOrgId ? { clientOrgId: linked.clientOrgId || linkedCompany.linkedOrgId } : {}),
+          companyId: linked.companyId || companyFromLink.id,
+          ...(companyFromLink.linkedOrgId
+            ? { clientOrgId: linked.clientOrgId || companyFromLink.linkedOrgId }
+            : {}),
         }
       : linked
 

@@ -1,15 +1,12 @@
 import { apiError } from '@/lib/api/response'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import type { ApiUser } from '@/lib/api/types'
+import { DOCUMENT_CLIENT_FACING_STATUSES, isDocumentClientFacingStatus } from './holder'
 import { getClientDocument } from './store'
 import type { ClientDocument, ClientDocumentStatus } from './types'
 
-const CLIENT_VISIBLE_STATUSES = new Set<ClientDocumentStatus>([
-  'client_review',
-  'changes_requested',
-  'approved',
-  'accepted',
-])
+const CLIENT_VISIBLE_STATUSES = DOCUMENT_CLIENT_FACING_STATUSES
 
 function userOrgIds(user: ApiUser): string[] {
   return user.orgIds?.length ? user.orgIds : (user.orgId ? [user.orgId] : [])
@@ -25,6 +22,7 @@ function linkedClientOrgIds(document: Partial<ClientDocument>): string[] {
   return Array.from(ids)
 }
 
+/** Recipient org may see only after we move past internal draft/review. */
 function isExplicitlyLinkedClientVisible(document: Partial<ClientDocument>, user: ApiUser): boolean {
   if (user.role !== 'client') return false
   if (!document.status || !CLIENT_VISIBLE_STATUSES.has(document.status)) return false
@@ -32,17 +30,27 @@ function isExplicitlyLinkedClientVisible(document: Partial<ClientDocument>, user
   return linkedClientOrgIds(document).some((orgId) => allowedOrgIds.has(orgId))
 }
 
-function isInternalCollaborator(document: Partial<ClientDocument>, user: ApiUser): boolean {
-  // Creator always retains access (including after agent-assisted creation under user-delegation).
+/**
+ * Holder-team access: creator, explicit share, or member of the document holder org.
+ * Holder org members see internal drafts; external clients only get client-facing via link.
+ */
+function isHolderTeamMember(document: Partial<ClientDocument>, user: ApiUser): boolean {
   if (document.createdBy === user.uid) return true
   if ((document.sharedWithUserIds ?? []).includes(user.uid)) return true
 
-  // External client portal accounts only get the collaborator paths above plus
-  // explicit client-visible statuses (handled separately). Platform admins use
-  // org-scope resolution rather than this helper.
-  if (user.role !== 'client') return false
+  const holderOrgId = typeof document.orgId === 'string' ? document.orgId.trim() : ''
+  if (!holderOrgId) return false
+
+  // Member of the holder workspace (e.g. pib-platform-owner). External client
+  // orgs are not on this list for PiB-held docs — they only get client-facing.
+  if (userOrgIds(user).includes(holderOrgId)) return true
+  if (user.role === 'admin' && canAccessOrg(user, holderOrgId)) return true
 
   return false
+}
+
+function isInternalCollaborator(document: Partial<ClientDocument>, user: ApiUser): boolean {
+  return isHolderTeamMember(document, user)
 }
 
 export function assertClientDocumentDataAccess(document: Partial<ClientDocument>, user: ApiUser) {
@@ -65,6 +73,8 @@ export function assertClientDocumentDataAccess(document: Partial<ClientDocument>
 export function isClientDocumentVisibleToUser(document: Partial<ClientDocument>, user: ApiUser): boolean {
   return isInternalCollaborator(document, user) || isExplicitlyLinkedClientVisible(document, user)
 }
+
+export { isDocumentClientFacingStatus }
 
 /** Internal collaborators may read a shared document; only its creator may manage it. */
 export function canManageClientDocument(document: Partial<ClientDocument>, user: ApiUser): boolean {

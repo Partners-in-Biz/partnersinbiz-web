@@ -217,9 +217,10 @@ describe('world-class CRM OS foundation gaps', () => {
     })
 
     expect(filtered.contacts).toEqual([])
-    // Company command-center docs are already company-scoped: own/shared drafts +
-    // any client-facing status stay visible (including linked client-org accepted proposals).
+    // Company command-center: holder-team with company access sees full document
+    // workspace (internal + client-facing) once company-scoped.
     expect(filtered.documents.map((row) => row.id)).toEqual([
+      'doc-direct-draft',
       'doc-owned-draft',
       'doc-shared-draft',
       'doc-direct-visible',
