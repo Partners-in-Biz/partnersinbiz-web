@@ -1,10 +1,14 @@
 import {
   buildMarketplaceAgentId,
+  canConfigureMarketplaceAgent,
   getMarketplaceTemplate,
   isMarketplaceAgentId,
+  listMarketplaceSkills,
   listMarketplaceTemplates,
+  marketplacePolicyVersionForSkills,
   marketplacePublicSkillsForAgent,
   parseMarketplaceAgentId,
+  sanitizeMarketplaceSkills,
 } from '@/lib/agents/marketplace'
 import { buildSkillPackManifest, skillNamesForAgent } from '@/lib/agents/skill-pack-builder'
 
@@ -63,5 +67,66 @@ describe('agent marketplace catalog', () => {
     expect(names).toEqual(expect.arrayContaining(['client-documents', 'ceo-on-demand-gather']))
     const manifest = buildSkillPackManifest('pip')
     expect(manifest.policyVersion).not.toMatch(/^marketplace-public/)
+  })
+
+  it('lists public skills and rejects tenant ops skill selection', () => {
+    const listings = listMarketplaceSkills()
+    expect(listings.length).toBeGreaterThan(5)
+    expect(listings.every((row) => row.tier === 'public')).toBe(true)
+    expect(listings.some((row) => row.skillId === 'project-management')).toBe(true)
+    expect(listings.some((row) => row.skillId === 'ceo-on-demand-gather')).toBe(false)
+    expect(listings.some((row) => row.skillId === 'client-documents')).toBe(false)
+
+    expect(sanitizeMarketplaceSkills([
+      'project-management',
+      'client-documents',
+      'ceo-on-demand-gather',
+      'project-management',
+      'not-a-skill',
+    ])).toEqual(['project-management'])
+
+    const a = marketplacePolicyVersionForSkills(['project-management', 'daily-workflow'])
+    const b = marketplacePolicyVersionForSkills(['daily-workflow', 'project-management'])
+    const c = marketplacePolicyVersionForSkills(['project-management'])
+    expect(a).toBe(b)
+    expect(a).not.toBe(c)
+    expect(a.startsWith('marketplace-public-v1+')).toBe(true)
+  })
+
+  it('honours marketplace skill overrides in pack builds', () => {
+    const agentId = buildMarketplaceAgentId({ templateId: 'maya', scope: 'user', scopeId: 'u-skills' })
+    const names = skillNamesForAgent(agentId, { skillNames: ['content-engine', 'client-documents', 'data-analyst'] })
+    expect(names).toEqual(['content-engine', 'data-analyst'])
+    expect(names).not.toContain('client-documents')
+    const manifest = buildSkillPackManifest(agentId, { skillNames: names })
+    expect(manifest.skillNames).toEqual(names)
+    expect(manifest.policyVersion).toContain('marketplace-public-v1+')
+  })
+
+  it('only lets owners/admins configure marketplace instances', () => {
+    expect(canConfigureMarketplaceAgent({
+      actorUserId: 'member-a',
+      orgId: 'org-a',
+      role: 'member',
+      agent: {
+        agentKind: 'marketplace',
+        marketplaceTemplateId: 'pip',
+        accessScope: 'personal',
+        ownerUserId: 'member-a',
+        scopeOrgId: 'org-a',
+      },
+    })).toBe(true)
+    expect(canConfigureMarketplaceAgent({
+      actorUserId: 'member-b',
+      orgId: 'org-a',
+      role: 'member',
+      agent: {
+        agentKind: 'marketplace',
+        marketplaceTemplateId: 'pip',
+        accessScope: 'personal',
+        ownerUserId: 'member-a',
+        scopeOrgId: 'org-a',
+      },
+    })).toBe(false)
   })
 })

@@ -86,6 +86,8 @@ export interface AgentTeamDoc extends AgentRegistryEntry {
   marketplaceTemplateId?: string
   /** Skill pack channel — marketplace pulls use public packs only. */
   marketplacePack?: 'public'
+  /** Optional public-skill selection for a marketplace instance (allowlisted only). */
+  marketplaceSkills?: string[]
   createdAt: Timestamp
   updatedAt: Timestamp
 }

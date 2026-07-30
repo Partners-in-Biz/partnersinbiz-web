@@ -264,16 +264,162 @@ export function isMarketplaceAgentId(agentId: string): boolean {
   return parseMarketplaceAgentId(agentId) !== null
 }
 
-/** Public skills for a marketplace instance or template id. Empty for non-marketplace. */
-export function marketplacePublicSkillsForAgent(agentId: string): string[] {
+/**
+ * Full public skill marketplace catalog (union of template defaults).
+ * Anything not listed here can never be attached to a marketplace agent.
+ */
+export function listPublicMarketplaceSkillIds(): string[] {
+  const set = new Set<string>()
+  for (const template of MARKETPLACE_TEMPLATES) {
+    for (const skill of template.publicSkills) set.add(skill)
+  }
+  // Extra optional public skills members may attach beyond a template default.
+  for (const skill of [
+    'project-management',
+    'collaboration-runtime',
+    'evidence-ledger',
+    'daily-workflow',
+    'interactive-project-planning',
+    'research-intelligence',
+    'data-analyst',
+    'content-engine',
+    'platform-ops',
+    'google-workspace',
+    'properties',
+  ]) {
+    set.add(skill)
+  }
+  return [...set].sort()
+}
+
+export type MarketplaceSkillListing = {
+  skillId: string
+  name: string
+  description: string
+  tier: 'public'
+  packVersion: string
+  usedByTemplates: MarketplaceTemplateId[]
+  available: boolean
+}
+
+function readSkillFrontmatter(skillId: string): { name: string; description: string } {
+  // Lazy fs so edge/test environments without packs still work.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('node:fs') as typeof import('node:fs')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('node:path') as typeof import('node:path')
+    const skillPath = path.join(process.cwd(), 'packs', 'pib-system-skills', 'skills', skillId, 'SKILL.md')
+    if (!fs.existsSync(skillPath)) {
+      return { name: skillId, description: 'Public marketplace skill.' }
+    }
+    const raw = fs.readFileSync(skillPath, 'utf8')
+    const match = raw.match(/^---\n([\s\S]*?)\n---/)
+    if (!match) return { name: skillId, description: 'Public marketplace skill.' }
+    const block = match[1]
+    const nameMatch = block.match(/^name:\s*(.+)$/m)
+    const descMatch = block.match(/^description:\s*>?\s*([\s\S]*?)(?=\n[a-zA-Z_]+:|\n*$)/m)
+    const name = nameMatch?.[1]?.trim() || skillId
+    let description = (descMatch?.[1] || '').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
+    if (description.length > 280) description = `${description.slice(0, 277)}…`
+    if (!description) description = 'Public marketplace skill.'
+    return { name, description }
+  } catch {
+    return { name: skillId, description: 'Public marketplace skill.' }
+  }
+}
+
+export function listMarketplaceSkills(): MarketplaceSkillListing[] {
+  const publicIds = listPublicMarketplaceSkillIds()
+  return publicIds.map((skillId) => {
+    const meta = readSkillFrontmatter(skillId)
+    const usedByTemplates = MARKETPLACE_TEMPLATES
+      .filter((template) => template.publicSkills.includes(skillId))
+      .map((template) => template.templateId)
+    let available = true
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require('node:fs') as typeof import('node:fs')
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require('node:path') as typeof import('node:path')
+      available = fs.existsSync(path.join(process.cwd(), 'packs', 'pib-system-skills', 'skills', skillId))
+    } catch {
+      available = false
+    }
+    return {
+      skillId,
+      name: meta.name,
+      description: meta.description,
+      tier: 'public' as const,
+      packVersion: MARKETPLACE_PACK_VERSION,
+      usedByTemplates,
+      available,
+    }
+  })
+}
+
+/** Strip anything outside the public marketplace allowlist. */
+export function sanitizeMarketplaceSkills(skills: unknown): string[] {
+  const allow = new Set(listPublicMarketplaceSkillIds())
+  if (!Array.isArray(skills)) return []
+  const out: string[] = []
+  for (const row of skills) {
+    if (typeof row !== 'string') continue
+    const id = row.trim()
+    if (!id || !allow.has(id) || out.includes(id)) continue
+    out.push(id)
+  }
+  return out.sort()
+}
+
+/**
+ * Resolve skills for a marketplace agent id.
+ * Optional override (from agent_team.marketplaceSkills) must still be public-only.
+ */
+export function marketplacePublicSkillsForAgent(
+  agentId: string,
+  skillOverride?: string[] | null,
+): string[] {
   const parsed = parseMarketplaceAgentId(agentId)
   if (!parsed) return []
+  if (skillOverride && skillOverride.length > 0) {
+    const cleaned = sanitizeMarketplaceSkills(skillOverride)
+    if (cleaned.length > 0) return cleaned
+  }
   const template = getMarketplaceTemplate(parsed.templateId)
-  return template ? [...template.publicSkills] : []
+  return template ? [...template.publicSkills].sort() : []
 }
 
 export function marketplacePolicyVersion(): string {
   return MARKETPLACE_PACK_VERSION
+}
+
+/** Content-addressed pack version so skill selection changes re-sync on devices. */
+export function marketplacePolicyVersionForSkills(skills: string[]): string {
+  const normalized = sanitizeMarketplaceSkills(skills)
+  const digest = crypto.createHash('sha256').update(normalized.join(',')).digest('hex').slice(0, 10)
+  return `${MARKETPLACE_PACK_VERSION}+${digest}`
+}
+
+/** Who may reconfigure skills / uninstall a marketplace instance. */
+export function canConfigureMarketplaceAgent(input: {
+  agent: {
+    agentKind?: string | null
+    marketplaceTemplateId?: string | null
+    accessScope?: string | null
+    ownerUserId?: string | null
+    scopeOrgId?: string | null
+  }
+  actorUserId: string
+  orgId: string
+  role: OrgRole
+}): boolean {
+  if (input.agent.agentKind !== 'marketplace' && !input.agent.marketplaceTemplateId) return false
+  if (input.agent.scopeOrgId && input.agent.scopeOrgId !== input.orgId) return false
+  if (input.agent.accessScope === 'personal') {
+    return input.agent.ownerUserId === input.actorUserId
+  }
+  return input.role === 'owner' || input.role === 'admin'
 }
 
 export function resolveMarketplacePullScope(input: {

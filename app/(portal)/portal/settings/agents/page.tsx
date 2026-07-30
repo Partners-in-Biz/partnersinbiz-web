@@ -18,12 +18,25 @@ type AgentRow = {
   accessScope?: 'personal' | 'organization'
   agentKind?: 'custom' | 'marketplace'
   marketplaceTemplateId?: string
+  marketplaceSkills?: string[]
   isMarketplace?: boolean
   canManage: boolean
   canEdit?: boolean
+  canConfigureMarketplace?: boolean
+  installedSkills?: string[]
   hasAccess: boolean
   provisioningStatus?: 'installing' | 'ready' | 'failed'
   provisioningError?: string | null
+}
+
+type SkillListing = {
+  skillId: string
+  name: string
+  description: string
+  tier: 'public'
+  packVersion: string
+  usedByTemplates: string[]
+  available: boolean
 }
 
 type DeviceRow = {
@@ -62,11 +75,16 @@ export default function OrganisationAgentsPage() {
   const [agents, setAgents] = useState<AgentRow[]>([])
   const [devices, setDevices] = useState<DeviceRow[]>([])
   const [marketplace, setMarketplace] = useState<MarketplaceRow[]>([])
+  const [skills, setSkills] = useState<SkillListing[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null)
+  const [skillsAgentId, setSkillsAgentId] = useState<string | null>(null)
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([])
   const [pullTemplateId, setPullTemplateId] = useState<string | null>(null)
   const [pullDeviceId, setPullDeviceId] = useState('')
+  const [uninstallAgentId, setUninstallAgentId] = useState<string | null>(null)
+  const [uninstallDeviceId, setUninstallDeviceId] = useState('')
   const [editForm, setEditForm] = useState<EditForm>({
     name: '',
     role: '',
@@ -93,6 +111,7 @@ export default function OrganisationAgentsPage() {
       setAgents(Array.isArray(body.data?.agents) ? body.data.agents : [])
       setDevices(Array.isArray(body.data?.devices) ? body.data.devices : [])
       setMarketplace(Array.isArray(body.data?.marketplace) ? body.data.marketplace : [])
+      setSkills(Array.isArray(body.data?.skills) ? body.data.skills : [])
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Failed to load agents')
     } finally {
@@ -226,6 +245,70 @@ export default function OrganisationAgentsPage() {
     }
   }
 
+  function startSkillsConfig(agent: AgentRow) {
+    if (!agent.canConfigureMarketplace) return
+    setSkillsAgentId(agent.agentId)
+    setSelectedSkills(agent.installedSkills ?? agent.marketplaceSkills ?? [])
+    setPullTemplateId(null)
+    setEditingAgentId(null)
+    setUninstallAgentId(null)
+  }
+
+  async function saveMarketplaceSkills(event: FormEvent) {
+    event.preventDefault()
+    if (!skillsAgentId) return
+    setSaving(true)
+    setMessage('')
+    try {
+      const response = await fetch(endpoint('/api/v1/portal/settings/agents/marketplace/skills'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: skillsAgentId, skills: selectedSkills }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error ?? 'Failed to update skills')
+      setSkillsAgentId(null)
+      await load()
+      setMessage(body.data?.message ?? 'Skills updated.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to update skills')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function uninstallMarketplace(event: FormEvent) {
+    event.preventDefault()
+    if (!uninstallAgentId || !uninstallDeviceId) return
+    setSaving(true)
+    setMessage('')
+    try {
+      const response = await fetch(endpoint('/api/v1/portal/settings/agents/marketplace/uninstall'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId: uninstallAgentId, deviceId: uninstallDeviceId }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error ?? 'Failed to uninstall agent')
+      setUninstallAgentId(null)
+      setUninstallDeviceId('')
+      await load()
+      setMessage(body.data?.message ?? 'Uninstall queued.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Failed to uninstall agent')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function toggleSkill(skillId: string) {
+    setSelectedSkills((current) => (
+      current.includes(skillId)
+        ? current.filter((id) => id !== skillId)
+        : [...current, skillId].sort()
+    ))
+  }
+
   return (
     <div className="mx-auto max-w-5xl space-y-6" data-module-accent="cyan">
       <PageHeader
@@ -332,26 +415,148 @@ export default function OrganisationAgentsPage() {
         </div>
       </section>
 
+      {/* Skills marketplace */}
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Skills marketplace</h2>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+            Public skills only. Attach these to marketplace agents you own. PiB ops skills (CRM, client documents, CEO gatherers, etc.) are never listed here.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {loading ? (
+            <p className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)] sm:col-span-2">Loading skills…</p>
+          ) : skills.length === 0 ? (
+            <p className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)] sm:col-span-2">No public skills published yet.</p>
+          ) : skills.map((skill) => (
+            <article key={skill.skillId} className="pib-card p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-medium text-[var(--color-pib-text)]">{skill.name}</h3>
+                  <p className="mt-0.5 font-mono text-[10px] text-[var(--color-pib-text-muted)]">{skill.skillId}</p>
+                </div>
+                <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                  {skill.tier}
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-[var(--color-pib-text-muted)] line-clamp-3">{skill.description}</p>
+              <p className="mt-2 text-[10px] text-[var(--color-pib-text-muted)]/70">
+                {skill.available ? 'Available' : 'Missing pack files'}
+                {skill.usedByTemplates.length > 0 ? ` · defaults on ${skill.usedByTemplates.join(', ')}` : ''}
+                {' · '}{skill.packVersion}
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       {/* Installed marketplace instances */}
       {marketplaceInstalled.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Installed from marketplace</h2>
+
+          {skillsAgentId && (
+            <form onSubmit={saveMarketplaceSkills} className="pib-card space-y-3 p-4">
+              <p className="text-sm text-[var(--color-pib-text)]">
+                Public skills for{' '}
+                <strong>{marketplaceInstalled.find((row) => row.agentId === skillsAgentId)?.name ?? skillsAgentId}</strong>
+              </p>
+              <div className="grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">
+                {skills.filter((skill) => skill.available).map((skill) => (
+                  <label key={skill.skillId} className="flex cursor-pointer items-start gap-2 rounded-md border border-[var(--color-pib-line)] p-2 text-xs">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={selectedSkills.includes(skill.skillId)}
+                      onChange={() => toggleSkill(skill.skillId)}
+                    />
+                    <span>
+                      <span className="font-medium text-[var(--color-pib-text)]">{skill.name}</span>
+                      <span className="mt-0.5 block text-[var(--color-pib-text-muted)]">{skill.skillId}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" className="btn-pib-ghost btn-pib-sm" onClick={() => setSkillsAgentId(null)}>Cancel</button>
+                <button type="submit" disabled={saving || selectedSkills.length === 0} className="btn-pib-primary btn-pib-sm disabled:opacity-50">
+                  {saving ? 'Saving…' : 'Save skills & re-sync'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {uninstallAgentId && (
+            <form onSubmit={uninstallMarketplace} className="pib-card space-y-3 p-4">
+              <p className="text-sm text-[var(--color-pib-text)]">
+                Remove{' '}
+                <strong>{marketplaceInstalled.find((row) => row.agentId === uninstallAgentId)?.name ?? uninstallAgentId}</strong>
+                {' '}from a computer
+              </p>
+              <label className="block space-y-1">
+                <span className="pib-label">Computer</span>
+                <select required className="pib-select w-full" value={uninstallDeviceId} onChange={(event) => setUninstallDeviceId(event.target.value)}>
+                  <option value="">Choose a computer</option>
+                  {devices.map((device) => (
+                    <option key={device.deviceId} value={device.deviceId}>{device.label}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex justify-end gap-2">
+                <button type="button" className="btn-pib-ghost btn-pib-sm" onClick={() => { setUninstallAgentId(null); setUninstallDeviceId('') }}>Cancel</button>
+                <button type="submit" disabled={saving || !uninstallDeviceId} className="btn-pib-secondary btn-pib-sm disabled:opacity-50">
+                  {saving ? 'Removing…' : 'Uninstall from computer'}
+                </button>
+              </div>
+            </form>
+          )}
+
           <div className="pib-card divide-y divide-[var(--color-pib-line)]">
             {marketplaceInstalled.map((agent) => {
               const device = devices.find((row) => row.deviceId === agent.homeDeviceId)
+              const skillList = agent.installedSkills ?? []
               return (
                 <article key={agent.agentId} className="flex items-start justify-between gap-4 p-4">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <h3 className="font-medium text-[var(--color-pib-text)]">{agent.name}</h3>
                     <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
                       Template · {agent.marketplaceTemplateId ?? agent.agentHandle} · public pack
                     </p>
                     <p className="mt-2 line-clamp-2 text-sm text-[var(--color-pib-text-muted)]">{agent.persona}</p>
+                    {skillList.length > 0 && (
+                      <p className="mt-2 text-[10px] text-[var(--color-pib-text-muted)]/80">
+                        Skills: {skillList.join(', ')}
+                      </p>
+                    )}
                   </div>
-                  <div className="shrink-0 text-right text-xs text-[var(--color-pib-text-muted)]">
+                  <div className="shrink-0 space-y-2 text-right text-xs text-[var(--color-pib-text-muted)]">
                     <span className="rounded-full border border-[var(--color-pib-line)] px-2 py-1">Marketplace</span>
                     <p className="mt-2">{device?.label ?? 'Linked computer'}</p>
                     <p className="mt-1 capitalize">{agent.provisioningStatus ?? 'ready'}</p>
+                    {agent.canConfigureMarketplace && (
+                      <div className="flex flex-col items-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          disabled={saving}
+                          className="btn-pib-secondary btn-pib-sm disabled:opacity-50"
+                          onClick={() => startSkillsConfig(agent)}
+                        >
+                          Skills
+                        </button>
+                        <button
+                          type="button"
+                          disabled={saving}
+                          className="btn-pib-ghost btn-pib-sm disabled:opacity-50"
+                          onClick={() => {
+                            setUninstallAgentId(agent.agentId)
+                            setUninstallDeviceId(agent.homeDeviceId ?? devices[0]?.deviceId ?? '')
+                            setSkillsAgentId(null)
+                          }}
+                        >
+                          Uninstall…
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </article>
               )

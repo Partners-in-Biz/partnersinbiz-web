@@ -250,6 +250,7 @@ export type CreateLinkedAgentInput = Pick<
   agentKind?: 'custom' | 'marketplace'
   marketplaceTemplateId?: string
   marketplacePack?: 'public'
+  marketplaceSkills?: string[]
 }
 
 /**
@@ -424,6 +425,7 @@ export async function createLinkedAgent(input: CreateLinkedAgentInput): Promise<
       ? {
           marketplaceTemplateId: input.marketplaceTemplateId,
           marketplacePack: input.marketplacePack ?? 'public',
+          marketplaceSkills: input.marketplaceSkills ?? [],
         }
       : {}),
     createdAt: now,
@@ -485,6 +487,7 @@ export async function ensureMarketplaceAgent(input: {
       agentKind: 'marketplace',
       marketplaceTemplateId: template.templateId,
       marketplacePack: 'public',
+      marketplaceSkills: [...template.publicSkills],
     })
     return { agent, created: true }
   } catch (error) {
@@ -493,6 +496,35 @@ export async function ensureMarketplaceAgent(input: {
     if (raced) return { agent: raced, created: false }
     throw error
   }
+}
+
+/** Update public-skill selection on a marketplace instance (allowlisted only). */
+export async function setMarketplaceAgentSkills(
+  agentId: string,
+  skills: string[],
+): Promise<AgentTeamDoc> {
+  const { sanitizeMarketplaceSkills, isMarketplaceAgentId } = await import('@/lib/agents/marketplace')
+  if (!isMarketplaceAgentId(agentId)) {
+    throw new Error('Only marketplace agents accept skill selection')
+  }
+  const cleaned = sanitizeMarketplaceSkills(skills)
+  if (cleaned.length === 0) {
+    throw new Error('Select at least one public marketplace skill')
+  }
+  const ref = adminDb.collection(COLLECTION).doc(agentId)
+  const existing = await ref.get()
+  if (!existing.exists) throw new Error(`agent_team/${agentId} not found`)
+  const stored = existing.data() as AgentTeamStoredDoc
+  if (stored.agentKind !== 'marketplace' && !stored.marketplaceTemplateId) {
+    throw new Error('Only marketplace agents accept skill selection')
+  }
+  await ref.update({
+    marketplaceSkills: cleaned,
+    marketplacePack: 'public',
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+  const snap = await ref.get()
+  return toPublicDoc(snap.data() as AgentTeamStoredDoc)
 }
 
 /**

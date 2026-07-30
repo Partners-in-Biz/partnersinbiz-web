@@ -4,7 +4,12 @@ import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiErrorFromException } from '@/lib/api/response'
 import { createLinkedAgent, updateLinkedAgent } from '@/lib/agents/team'
 import type { AgentTeamStoredDoc } from '@/lib/agents/types'
-import { listMarketplaceTemplates } from '@/lib/agents/marketplace'
+import {
+  canConfigureMarketplaceAgent,
+  listMarketplaceSkills,
+  listMarketplaceTemplates,
+  marketplacePublicSkillsForAgent,
+} from '@/lib/agents/marketplace'
 import {
   assertCanCreateAgentOnDevice,
   buildScopedAgentId,
@@ -61,6 +66,12 @@ export const GET = withPortalAuthAndRole(
         })
         .map((agent) => {
           const isMarketplace = agent.agentKind === 'marketplace' || Boolean(agent.marketplaceTemplateId)
+          const canConfigure = isMarketplace
+            ? canConfigureMarketplaceAgent({ agent, actorUserId: uid, orgId, role })
+            : false
+          const installedSkills = isMarketplace
+            ? marketplacePublicSkillsForAgent(agent.agentId, agent.marketplaceSkills)
+            : []
           return {
             ...agent,
             isMarketplace,
@@ -80,6 +91,8 @@ export const GET = withPortalAuthAndRole(
               orgId,
               role,
             }),
+            canConfigureMarketplace: canConfigure,
+            installedSkills,
           }
         })
       const devices = [...personalDeviceSnap.docs, ...orgDeviceSnap.docs]
@@ -118,6 +131,7 @@ export const GET = withPortalAuthAndRole(
           devices,
           canManageOrgAgents,
           marketplace,
+          skills: listMarketplaceSkills(),
         },
       })
     } catch (error) {

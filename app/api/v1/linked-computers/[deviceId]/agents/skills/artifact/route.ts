@@ -1,5 +1,7 @@
 import fs from 'node:fs'
 import { NextRequest, NextResponse } from 'next/server'
+import { isMarketplaceAgentId } from '@/lib/agents/marketplace'
+import { getAgent } from '@/lib/agents/team'
 import { isValidAgentId } from '@/lib/agents/types'
 import { buildSkillPackManifest, materializeSkillPackTarGz } from '@/lib/agents/skill-pack-builder'
 import { authenticateSignedDeviceRequest, noStoreHeaders } from '@/lib/linked-computers/http'
@@ -41,12 +43,20 @@ export async function GET(request: NextRequest, context: Context) {
       throw new Error('linked computers: invalid skill pack request')
     }
 
-    const manifest = buildSkillPackManifest(agentId)
+    let skillNames: string[] | null = null
+    if (isMarketplaceAgentId(agentId)) {
+      const agent = await getAgent(agentId)
+      if (Array.isArray(agent?.marketplaceSkills) && agent.marketplaceSkills.length > 0) {
+        skillNames = agent.marketplaceSkills
+      }
+    }
+    const packOptions = skillNames ? { skillNames } : undefined
+    const manifest = buildSkillPackManifest(agentId, packOptions)
     if (manifest.packSha256 !== packSha256) {
       throw new Error('skill-pack: digest mismatch')
     }
 
-    const { archivePath, archiveSha256 } = materializeSkillPackTarGz(agentId, packSha256)
+    const { archivePath, archiveSha256 } = materializeSkillPackTarGz(agentId, packSha256, packOptions)
     try {
       const bytes = fs.readFileSync(archivePath)
       return new NextResponse(bytes, {
