@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
 import type { ClientDocument, ClientDocumentStatus, ClientDocumentType } from '@/lib/client-documents/types'
-import { formatActorLabel } from '@/lib/api/actor'
+import { formatActorLabel } from '@/lib/api/actor-label'
 
 export interface ClientDocumentPartyLabels {
   creatorCompanyName?: string

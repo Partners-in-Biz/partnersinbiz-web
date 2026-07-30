@@ -9,12 +9,12 @@ import {
   crmCreateAttribution,
   crmUpdateAttribution,
   delegatedAgentAttribution,
-  formatActorLabel,
   isAgentAssisted,
   isPureAgentCaller,
   lastActorFrom,
   ownerUidFrom,
 } from '@/lib/api/actor'
+import { formatActorLabel } from '@/lib/api/actor-label'
 import type { ApiUser } from '@/lib/api/types'
 
 jest.mock('firebase-admin/firestore', () => ({

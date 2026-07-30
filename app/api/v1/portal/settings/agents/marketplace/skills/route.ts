@@ -92,8 +92,9 @@ export const PATCH = withPortalAuthAndRole(
             desired,
           })
           enqueuedJobIds.push(...sync.enqueuedJobIds)
-        } catch {
-          // fall through to profile sync
+        } catch (error) {
+          // Desired-agents enqueue is best-effort; profile sync still runs below.
+          console.warn('[marketplace/skills] setDeviceDesiredAgents failed', error)
         }
       }
 
