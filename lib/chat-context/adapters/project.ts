@@ -14,9 +14,9 @@ function optionalString(value: unknown): string | undefined {
   return cleanString(value) || undefined
 }
 
-function knownString(value: unknown, allowed: readonly string[]): string | undefined {
+function knownString<const T extends readonly string[]>(value: unknown, allowed: T): T[number] | undefined {
   const normalized = cleanString(value)
-  return allowed.includes(normalized) ? normalized : undefined
+  return allowed.includes(normalized as T[number]) ? normalized as T[number] : undefined
 }
 
 function stringArray(value: unknown): string[] {
@@ -32,6 +32,7 @@ const AGENT_STATUSES = ['pending', 'picked-up', 'in-progress', 'awaiting-input',
 const REVIEW_STATUSES = ['pending', 'in-progress', 'approved', 'changes-requested', 'rejected'] as const
 const APPROVAL_STATUSES = ['pending', 'approved', 'rejected'] as const
 const RELEASE_STATUSES = ['scheduled', 'released', 'cancelled'] as const
+const ARTIFACT_TYPES = ['url', 'file', 'commit', 'message-thread', 'doc'] as const
 
 function normalizeAgentOutput(value: unknown): ProjectChatTaskSource['agentOutput'] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
@@ -41,7 +42,7 @@ function normalizeAgentOutput(value: unknown): ProjectChatTaskSource['agentOutpu
     ? raw.artifacts.flatMap((item) => {
         if (!item || typeof item !== 'object' || Array.isArray(item)) return []
         const entry = item as Record<string, unknown>
-        const type = optionalString(entry.type) ?? 'url'
+        const type = knownString(entry.type, ARTIFACT_TYPES) ?? 'url'
         const ref = optionalString(entry.ref)
         if (!ref) return []
         const label = optionalString(entry.label)
