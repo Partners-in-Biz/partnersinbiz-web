@@ -64,16 +64,25 @@ function recordValue(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
+function isClientDocumentRow(row: RowWithVisibility): boolean {
+  return Boolean(row.templateId || row.currentVersionId || row.shareToken || row.approvalMode)
+}
+
+function actorOwnsOrIsSharedDocument(row: RowWithVisibility, actorUid: string): boolean {
+  if (!actorUid) return false
+  if (cleanString(row.createdBy) === actorUid) return true
+  if (includesClean(row.sharedWithUserIds, actorUid)) return true
+  if (includesClean(row.allowedUserIds, actorUid)) return true
+  return false
+}
+
 function clientDocumentVisibility(row: RowWithVisibility, ctx: VisibilityContext): boolean | null {
-  const looksLikeClientDocument = Boolean(row.templateId || row.currentVersionId || row.shareToken || row.approvalMode)
-  if (!looksLikeClientDocument) return null
+  if (!isClientDocumentRow(row)) return null
   if (row.deleted === true || row.archived === true || row.status === 'archived') return false
 
   const actorUid = ctx.actor?.uid || ctx.user?.uid || ''
   // Creator / explicit share always keep access (including internal drafts created via agent assist).
-  if (actorUid && cleanString(row.createdBy) === actorUid) return true
-  if (actorUid && includesClean(row.sharedWithUserIds, actorUid)) return true
-  if (actorUid && includesClean(row.allowedUserIds, actorUid)) return true
+  if (actorOwnsOrIsSharedDocument(row, actorUid)) return true
 
   // Everyone else only sees client-facing statuses.
   if (!CLIENT_DOCUMENT_VISIBLE_STATUSES.has(cleanString(row.status))) return false
@@ -84,6 +93,22 @@ function clientDocumentVisibility(row: RowWithVisibility, ctx: VisibilityContext
   if (includesClean(row.allowedOrgIds, ctx.orgId)) return true
 
   return false
+}
+
+/**
+ * Company command-center documents are already company-scoped (including docs
+ * stored on a linked client org). Do not re-require orgId === viewer CRM org,
+ * or accepted client proposals on linked client orgs disappear for platform members.
+ */
+function companyCommandCenterDocumentAllowed(row: RowWithVisibility, ctx: VisibilityContext): boolean {
+  if (row.deleted === true || row.archived === true || row.status === 'archived') return false
+  if (!isClientDocumentRow(row)) {
+    return rowAllowed(row, ctx)
+  }
+
+  const actorUid = ctx.actor?.uid || ctx.user?.uid || ''
+  if (actorOwnsOrIsSharedDocument(row, actorUid)) return true
+  return CLIENT_DOCUMENT_VISIBLE_STATUSES.has(cleanString(row.status))
 }
 
 function rowAllowed(row: RowWithVisibility, ctx: VisibilityContext): boolean {
@@ -172,7 +197,9 @@ export function filterCompanyCommandCenterForVisibility(
     contacts: policy.contacts ? filterRows(center.contacts as RowWithVisibility[], ctx) : [],
     deals: policy.commerce ? filterRows(center.deals as RowWithVisibility[], ctx) : [],
     projects: policy.projects ? filterRows(center.projects as RowWithVisibility[], ctx) : [],
-    documents: policy.documents ? filterRows(center.documents as RowWithVisibility[], ctx) : [],
+    documents: policy.documents
+      ? (center.documents as RowWithVisibility[]).filter((row) => companyCommandCenterDocumentAllowed(row, ctx))
+      : [],
     serviceWorkspaces: filterRows(center.serviceWorkspaces as unknown as RowWithVisibility[], ctx) as unknown as CompanyCommandCenter['serviceWorkspaces'],
     relationships,
     quotes: policy.commerce ? filterRows(center.quotes as RowWithVisibility[], ctx) : [],
