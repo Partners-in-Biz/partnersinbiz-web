@@ -51,6 +51,17 @@ describe('planningContextMutationTransition', () => {
     }))
   })
 
+  it('preserves a ready brief when the caller only needs a live readiness check', () => {
+    const planningDiscovery = readyPlanning()
+    const result = planningContextMutationTransition(
+      { planningDiscovery },
+      { ...actor, reason: 'project_task.created', reopenWhenReady: false },
+    )
+
+    expect(result).toEqual({ allowed: true })
+    expect(planningDiscovery).toEqual(readyPlanning())
+  })
+
   it('reopens a ready brief after linked document context changes', () => {
     const result = planningContextMutationTransition({ planningDiscovery: readyPlanning() }, actor)
 

@@ -14,8 +14,10 @@ const mockTransactionDelete = jest.fn()
 const mockPlanningMutationBlocker = jest.fn((project: Record<string, unknown>) => project.planningReady === true
   ? null
   : { code: 'planning_discovery_required', message: 'Planning discovery required', revision: 0 })
-const mockPlanningContextMutationTransition = jest.fn((project: Record<string, unknown>, input: { reason: string }) => project.planningReady === true
-  ? { allowed: true, state: { enforced: true, status: 'interviewing', revision: 8 }, event: { type: 'reopened', reason: input.reason } }
+const mockPlanningContextMutationTransition = jest.fn((project: Record<string, unknown>, input: { reason: string; reopenWhenReady?: boolean }) => project.planningReady === true
+  ? input.reopenWhenReady === false
+    ? { allowed: true }
+    : { allowed: true, state: { enforced: true, status: 'interviewing', revision: 8 }, event: { type: 'reopened', reason: input.reason } }
   : { allowed: false, blocker: { code: 'planning_discovery_required', message: 'Planning discovery required', revision: 0 }, state: { enforced: true, status: 'interviewing', revision: 1 }, event: { type: 'started' } })
 
 const user = { uid: 'admin-1', role: 'admin' as const, orgId: 'org-1', authKind: 'session' as const }
@@ -41,7 +43,7 @@ jest.mock('@/lib/projects/planningDiscovery', () => ({
   isProjectTaskContextMutation: jest.requireActual('@/lib/projects/planningDiscovery').isProjectTaskContextMutation,
 }))
 jest.mock('@/lib/projects/planningDiscoveryStore', () => ({
-  planningContextMutationTransition: (project: Record<string, unknown>, input: { reason: string }) => mockPlanningContextMutationTransition(project, input),
+  planningContextMutationTransition: (project: Record<string, unknown>, input: { reason: string; reopenWhenReady?: boolean }) => mockPlanningContextMutationTransition(project, input),
 }))
 
 jest.mock('@/lib/activity/log', () => ({ logActivity: jest.fn(() => Promise.resolve()) }))
@@ -122,7 +124,7 @@ function request(method: string, body?: Record<string, unknown>) {
 }
 
 describe('project task planning mutation atomicity', () => {
-  it('checks live planning readiness and creates the task in the same transaction', async () => {
+  it('checks live planning readiness and creates the task without reopening the confirmed brief', async () => {
     const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/route')
     const res = await POST(request('POST', { title: 'Planned task' }), collectionCtx)
 
@@ -130,13 +132,13 @@ describe('project task planning mutation atomicity', () => {
     expect(mockRunTransaction).toHaveBeenCalledTimes(1)
     expect(mockTransactionGet).toHaveBeenCalledWith(projectRef)
     expect(mockTransactionSet).toHaveBeenCalledWith(taskRef, expect.objectContaining({ title: 'Planned task' }))
-    expect(mockTransactionUpdate).toHaveBeenCalledWith(projectRef, expect.objectContaining({
-      planningDiscovery: expect.objectContaining({ status: 'interviewing', revision: 8 }),
+    expect(mockTransactionUpdate).not.toHaveBeenCalledWith(projectRef, expect.objectContaining({
+      planningDiscovery: expect.anything(),
     }))
-    expect(mockTransactionSet).toHaveBeenCalledWith(expect.objectContaining({ path: expect.stringContaining('/planningDiscoveryEvents/') }), expect.objectContaining({
-      type: 'reopened',
-      reason: 'project_task.created',
-    }))
+    expect(mockTransactionSet).not.toHaveBeenCalledWith(
+      expect.objectContaining({ path: expect.stringContaining('/planningDiscoveryEvents/') }),
+      expect.anything(),
+    )
     expect(mockTaskAdd).not.toHaveBeenCalled()
   })
 

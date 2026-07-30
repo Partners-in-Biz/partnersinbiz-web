@@ -34,6 +34,7 @@ function applyPlanningMutation(
     uid: actorUid,
     now: new Date().toISOString(),
     reason,
+    reopenWhenReady: reason !== 'project_task.created',
   })
   if (transition.state) {
     tx.update(projectRef, { planningDiscovery: transition.state, updatedAt: FieldValue.serverTimestamp() })

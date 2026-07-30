@@ -202,6 +202,7 @@ export async function createClientDocument(input: {
             uid: input.user.uid,
             now: nowIso,
             reason: 'client_document.created',
+            reopenWhenReady: false,
           }),
         }
       })
@@ -232,17 +233,21 @@ export async function createClientDocument(input: {
       transaction.set(versionRef, version)
       transitions.forEach(({ project, transition }, index) => {
         if (!transition.allowed) return
-        transaction.update(projectRefs[index], {
-          planningDiscovery: transition.state,
-          updatedAt: FieldValue.serverTimestamp(),
-        })
-        transaction.set(eventRefs[index], {
-          ...transition.event,
-          projectId: projectIds[index],
-          orgId: project.orgId ?? null,
-          schemaVersion: 1,
-          reason: 'client_document.created',
-        })
+        if (transition.state) {
+          transaction.update(projectRefs[index], {
+            planningDiscovery: transition.state,
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+        }
+        if (transition.event) {
+          transaction.set(eventRefs[index], {
+            ...transition.event,
+            projectId: projectIds[index],
+            orgId: project.orgId ?? null,
+            schemaVersion: 1,
+            reason: 'client_document.created',
+          })
+        }
       })
       return { ok: true as const }
     })
