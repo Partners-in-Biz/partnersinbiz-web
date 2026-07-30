@@ -151,5 +151,14 @@ export interface ChatContextReadModel {
   preview?: ChatContextPreview
   relationships?: ChatContextRelationship[]
   capabilities: string[]
+  freshness?: {
+    mode: 'live'
+    authoritative: true
+    source: string
+    refreshedAt: string
+    refreshIntervalMs: number
+    adapterLevel: 'specialized' | 'canonical' | 'sealed_runtime'
+    actionLevel: 'inline' | 'navigate'
+  }
   asOf: string
 }

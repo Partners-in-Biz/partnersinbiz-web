@@ -5,8 +5,8 @@ import { selectActiveContext } from '@/lib/chat-context/selection'
 import { chatContextReferenceKey, type ChatContextReadModel, type ChatContextReference } from '@/lib/chat-context/types'
 import type { ChatContextOption } from './ContextSelector'
 import { contextReferenceTypeFrom } from '@/lib/context-references/types'
+import { CHAT_CONTEXT_LIVE_REFRESH_MS } from '@/lib/chat-context/capabilities'
 
-const REFRESH_MS = 5_000
 interface Conversation { id: string; scope?: string; scopeRefId?: string; contextRefs?: Array<{ type?: string; kind?: string; id: string; label?: string; href?: string; summary?: string; metadata?: { projectId?: unknown; contextKind?: unknown; path?: unknown } }> }
 const selectionKey = (orgId: string, conversationId: string) => `pib.messages.contextSelection.v1:${orgId}:${conversationId}`
 const seenKey = (orgId: string, conversationId: string, context: ChatContextReference) => `pib.messages.contextSeen.v1:${orgId}:${conversationId}:${chatContextReferenceKey(context)}`
@@ -111,7 +111,7 @@ export function useChatContexts(orgId: string, conversation: Conversation | null
     if (!autoPoll || !activeContext) return
     let cancelled = false
     const load = () => { if (!cancelled && document.visibilityState !== 'hidden') void refresh() }
-    load(); const timer = window.setInterval(load, REFRESH_MS)
+    load(); const timer = window.setInterval(load, CHAT_CONTEXT_LIVE_REFRESH_MS)
     const visibility = () => load(); document.addEventListener('visibilitychange', visibility)
     return () => { cancelled = true; window.clearInterval(timer); document.removeEventListener('visibilitychange', visibility) }
   }, [activeContext?.id, activeContext?.kind, activeContext?.projectId, activeContext?.workbenchPath, autoPoll, refresh])

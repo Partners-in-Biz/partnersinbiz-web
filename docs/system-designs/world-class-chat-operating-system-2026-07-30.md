@@ -30,7 +30,7 @@ business object implements the same chat contract:
 | Project management | Project-scoped chats, Project Pulse/Living Thread, task feed, Decision Brief planning, command-session lifecycle events, agent handoff, project Workbench execution | Portfolio commands and every project mutation still need one discoverable chat action catalogue and consistent receipts |
 | Campaigns | Campaign/social context adapters, email marketing, ads, content campaigns, review/launch APIs | Campaign families are fragmented; not every campaign object presents the same live state/action contract in Messages |
 | Studios | Marketing, Video, Book, YouTube and Mobile context namespaces and artifact adapters | Some studio roots are summary-only and several artifact actions still require opening the full module |
-| Live previews | Context models refresh every 5 seconds; open dock previews soft-refresh; document preview already uses Firestore listeners | “Live” is inconsistent and mostly polling. Every adapter needs freshness metadata, event-driven refresh where practical, and a visible stale/offline state |
+| Live previews | All 25 registered context kinds now declare an authoritative source, receive normalized freshness metadata and refresh every 5 seconds; Messages labels the source as Live | Five kinds have specialized inline adapters, one is sealed-runtime, and 20 still navigate to their canonical module. Event-driven context subscriptions plus visible stale/offline states remain |
 | Agent execution | Twelve governed system agents, signed per-agent skill packs, explicit capabilities/approval gates, linked-computer and organisation-VPS grants, public marketplace templates | No canonical role blueprint turns a member’s department/job into a recommended agent team and skill pack. HR and dedicated finance/legal roles are absent |
 | Human messaging | Explicit human participants, direct/group creation, attachments, privacy enforcement, participant-only reply access | Prior to this slice, active human messages were a 3-second poll, new chats did not appear live, and non-Workspace groups could not change membership |
 | Workbench | Files, changes, Jobs, approval-gated terminal Session, browser observation/control, linked folders and machine routing | Workbench remains an expert surface; chat needs higher-level capability discovery and clearer action receipts for ordinary business users |
@@ -115,6 +115,24 @@ Required adapter coverage:
 - properties and bookings;
 - Workbench execution.
 
+First universal-coverage slice implemented on `development`:
+
+- an exhaustive registry maps every one of the 25 context kinds to its domain,
+  authoritative source, refresh interval, adapter/action level and recommended
+  operating agents;
+- successful adapter resolutions receive normalized, server-declared freshness
+  metadata rather than trusting client labels;
+- `/api/v1/chat-context/capabilities` exposes organisation-scoped coverage for
+  readiness and drift checks;
+- Messages identifies authoritative live previews with a source-labelled
+  `Live` badge;
+- current coverage is 25 live-readable, five specialized inline-action, one
+  sealed-runtime and 20 navigation-action kinds.
+
+This registry is the coverage contract, not a claim that all business mutations
+are available inline. The next adapter work promotes navigation-only kinds to
+specialized actions with canonical receipts.
+
 ### 3. Chat action registry
 
 Agent prose must never be the authority for what can be done. A server registry
@@ -186,8 +204,11 @@ campaign, document, approval or finance engine.
 3. Unread/read, mentions, presence and notifications. Per-member unread counters
    and exact-latest read receipts are shipped on `development`; mentions,
    presence and notification controls remain.
-4. Shared adapter/action/receipt schema.
-5. Gap-test every existing context adapter against the schema.
+4. Shared adapter/action/receipt schema. Live-read capability/freshness coverage
+   is shipped; common mutation and receipt contracts remain.
+5. Gap-test every existing context adapter against the schema. Exhaustive
+   registry coverage is shipped; specialized action/read-model gap closure
+   remains.
 
 ### P1 — role-complete agent workforce
 

@@ -18,6 +18,7 @@ import type { StudioKind } from '@/lib/chat-context/types'
 import { genericChatContextAdapter } from '@/lib/chat-context/adapters/generic'
 import { campaignChatContextAdapter } from '@/lib/chat-context/adapters/campaign'
 import { socialChatContextAdapter } from '@/lib/chat-context/adapters/social'
+import { chatContextCapability } from '@/lib/chat-context/capabilities'
 
 export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
 type StudioRootAdapters = Record<StudioKind, ChatContextAdapter>
@@ -40,7 +41,27 @@ export function createChatContextRegistry(adapters: ChatContextAdapters, fallbac
       }
       const adapter = adapters[input.kind]
       if (!adapter && !fallback) return unavailableContextResult()
-      return (adapter ?? fallback)!.resolve(input)
+      const result = await (adapter ?? fallback)!.resolve(input)
+      if (!result.ok) return result
+      const capability = chatContextCapability(input.kind)
+      const refreshedAt = Number.isFinite(Date.parse(result.model.asOf))
+        ? new Date(result.model.asOf).toISOString()
+        : new Date().toISOString()
+      return {
+        ...result,
+        model: {
+          ...result.model,
+          freshness: {
+            mode: 'live',
+            authoritative: true,
+            source: capability.authoritativeSource,
+            refreshedAt,
+            refreshIntervalMs: capability.refreshIntervalMs,
+            adapterLevel: capability.adapterLevel,
+            actionLevel: capability.actionLevel,
+          },
+        },
+      }
     },
   }
 }

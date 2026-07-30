@@ -21,7 +21,21 @@ describe('chat context adapter registry', () => {
     const result = await registry.resolve({ kind: 'project', id: 'project-1', user })
 
     expect(project.resolve).toHaveBeenCalledWith({ kind: 'project', id: 'project-1', user })
-    expect(result).toMatchObject({ ok: true, model: { context: { id: 'project-1' } } })
+    expect(result).toMatchObject({
+      ok: true,
+      model: {
+        context: { id: 'project-1' },
+        freshness: {
+          mode: 'live',
+          authoritative: true,
+          source: 'Projects and Kanban',
+          refreshedAt: '2026-07-13T08:00:00.000Z',
+          refreshIntervalMs: 5000,
+          adapterLevel: 'specialized',
+          actionLevel: 'inline',
+        },
+      },
+    })
   })
 
   it('returns a typed disabled result for an unregistered Studio adapter', async () => {
