@@ -15,6 +15,8 @@ type RowWithVisibility = CommandCenterRow & {
   visibility?: string
   allowedOrgIds?: string[]
   allowedUserIds?: string[]
+  sharedWithUserIds?: string[]
+  createdBy?: string
   deleted?: boolean
   archived?: boolean
   status?: string
@@ -66,6 +68,14 @@ function clientDocumentVisibility(row: RowWithVisibility, ctx: VisibilityContext
   const looksLikeClientDocument = Boolean(row.templateId || row.currentVersionId || row.shareToken || row.approvalMode)
   if (!looksLikeClientDocument) return null
   if (row.deleted === true || row.archived === true || row.status === 'archived') return false
+
+  const actorUid = ctx.actor?.uid || ctx.user?.uid || ''
+  // Creator / explicit share always keep access (including internal drafts created via agent assist).
+  if (actorUid && cleanString(row.createdBy) === actorUid) return true
+  if (actorUid && includesClean(row.sharedWithUserIds, actorUid)) return true
+  if (actorUid && includesClean(row.allowedUserIds, actorUid)) return true
+
+  // Everyone else only sees client-facing statuses.
   if (!CLIENT_DOCUMENT_VISIBLE_STATUSES.has(cleanString(row.status))) return false
 
   const linked = recordValue(row.linked)
@@ -73,8 +83,7 @@ function clientDocumentVisibility(row: RowWithVisibility, ctx: VisibilityContext
   if (cleanString(linked.clientOrgId) === ctx.orgId) return true
   if (includesClean(row.allowedOrgIds, ctx.orgId)) return true
 
-  const actorUid = ctx.actor?.uid || ctx.user?.uid || ''
-  return includesClean(row.allowedUserIds, actorUid)
+  return false
 }
 
 function rowAllowed(row: RowWithVisibility, ctx: VisibilityContext): boolean {
