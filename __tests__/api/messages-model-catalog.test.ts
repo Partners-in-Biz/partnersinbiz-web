@@ -310,4 +310,72 @@ describe('conversation model catalogue API', () => {
       expect.objectContaining({ id: 'grok-4.20-multi-agent-0309', provider: 'xai-oauth', connected: true, available: true }),
     ]))
   })
+
+  it('does not attribute a machine-wide Hermes catalogue to an xAI credential', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'org-1',
+      participantUids: ['admin-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Admin User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      workspaceContext: { runtimeTarget: 'local' },
+    })
+    mockCallAgentPath.mockRejectedValue(new Error('linked computer loopback endpoint is not public'))
+    mockListConnections.mockResolvedValue([{
+      id: 'user:admin-1:xai-oauth',
+      provider: 'xai-oauth',
+      hermesProvider: 'xai-oauth',
+      scope: 'user',
+      ownerUid: 'admin-1',
+      status: 'connected',
+      hasCredentials: true,
+      credentialVersion: 3,
+      label: 'Peet SuperGrok',
+    }])
+    mockListBindings.mockResolvedValue([{
+      id: 'binding-xai',
+      connectionId: 'user:admin-1:xai-oauth',
+      credentialVersion: 3,
+      status: 'ready',
+      liveAuthVerified: true,
+      verifiedModelIds: [
+        'grok-4.20-0309-reasoning',
+        'gpt-5.6-luna',
+        'claude-sonnet-4-6',
+        'pip',
+      ],
+    }])
+    jest.doMock('@/lib/llm-providers/sync-targets', () => ({
+      isOrgVpsConversationRuntime: jest.fn().mockReturnValue(false),
+      runtimeBelongsToUserComputer: jest.fn().mockResolvedValue(true),
+      resolveLlmCredentialRuntimeTarget: jest.fn().mockResolvedValue({
+        runtimeTargetId: 'local',
+        deviceId: 'device-local',
+        ownerType: 'user',
+      }),
+    }))
+
+    const { GET } = await import('@/app/api/v1/conversations/[convId]/models/route')
+    const res = await GET(
+      new NextRequest('http://localhost/api/v1/conversations/conv-1/models'),
+      { params: Promise.resolve({ convId: 'conv-1' }) },
+    )
+    const body = await readJson(res)
+    expect(res.status).toBe(200)
+    expect(body.data.models).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'grok-4.20-0309-reasoning',
+        connectionId: 'user:admin-1:xai-oauth',
+        available: true,
+      }),
+    ]))
+    expect(body.data.models).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'gpt-5.6-luna', connectionId: 'user:admin-1:xai-oauth' }),
+      expect.objectContaining({ id: 'claude-sonnet-4-6', connectionId: 'user:admin-1:xai-oauth' }),
+      expect.objectContaining({ id: 'pip', connectionId: 'user:admin-1:xai-oauth' }),
+    ]))
+  })
 })
