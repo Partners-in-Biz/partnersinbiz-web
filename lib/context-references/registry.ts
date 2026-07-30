@@ -879,22 +879,41 @@ async function resolveGeneric(
 async function resolveSupport(input: ResolverInput): Promise<ContextReference | null> {
   const ticket = await getSupportTicket(input.seed.id)
   if (!ticket) return null
-  const data = ticket as unknown as RawDoc
   const orgId = clean(ticket.orgId) || input.seed.orgId || input.defaultOrgId || ''
   if (!orgId || orgId !== expectedOrgId(input.seed, input.defaultOrgId) || !canUseOrg(input.user, orgId)) return null
   if (input.user.role === 'client' && clean(ticket.createdBy) !== input.user.uid) return null
+  const relationshipSeeds: Array<{ type: ContextReferenceType; id: string; relation: string }> = []
+  const addRelationshipSeeds = (type: ContextReferenceType, relation: string, ids: Array<string | null | undefined>) => {
+    for (const id of ids) {
+      const cleanId = clean(id)
+      if (cleanId && !relationshipSeeds.some((item) => item.type === type && item.id === cleanId)) {
+        relationshipSeeds.push({ type, id: cleanId, relation })
+      }
+      if (relationshipSeeds.length >= 12) return
+    }
+  }
+  addRelationshipSeeds('project', 'Project', [ticket.projectId, ...(ticket.projectIds ?? [])])
+  addRelationshipSeeds('company', 'Company', [ticket.companyId, ...(ticket.companyIds ?? [])])
+  addRelationshipSeeds('contact', 'Contact', [ticket.contactId, ...(ticket.contactIds ?? [])])
+  addRelationshipSeeds('deal', 'Deal', [ticket.dealId, ...(ticket.dealIds ?? [])])
+  addRelationshipSeeds('research', 'Research', ticket.researchItemIds ?? [])
+  addRelationshipSeeds('social', 'Social post', ticket.socialPostIds ?? [])
+  addRelationshipSeeds('email', 'Email thread', ticket.emailThreadIds ?? [])
   return makeRef({
     type: 'support',
     id: ticket.id,
     orgId,
     label: clean(ticket.subject) || input.seed.label || ticket.id,
     origin: origin(input.seed),
-    href: href('support', ticket.id, data, input.seed.href),
+    href: input.user.role === 'client'
+      ? `/portal/dashboard?support=open&ticket=${encodeURIComponent(ticket.id)}&orgId=${encodeURIComponent(orgId)}`
+      : `/admin/support?ticket=${encodeURIComponent(ticket.id)}`,
     summary: compactSummary([
       `status: ${clean(ticket.status)}`,
       `priority: ${clean(ticket.priority)}`,
       ticket.description,
     ]),
+    metadata: relationshipSeeds.length > 0 ? { relationshipSeeds } : undefined,
   })
 }
 
@@ -1236,7 +1255,7 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
       ? await queryDocumentsByOrg(input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
       : await queryByOrg(collection, input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
   const scopedDocs = await filterSearchDocsForRecordScope(input.user, input.orgId, type, docs)
-  if (type === 'invoice' || type === 'quote' || type === 'document') {
+  if (type === 'invoice' || type === 'quote' || type === 'document' || type === 'support') {
     const refs = await resolveContextReferences(
       scopedDocs.map((doc) => ({ type, id: doc.id, orgId: input.orgId, origin: 'mention' as const })),
       input.user,

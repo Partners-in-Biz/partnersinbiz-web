@@ -305,6 +305,33 @@ beforeEach(() => {
         }),
       ])
     }
+    if (name === 'support_tickets') {
+      return queryFor([
+        doc('support-own', {
+          orgId: 'org-1',
+          createdBy: 'client-1',
+          requesterName: 'Jane Client',
+          subject: 'Own support request',
+          description: 'Please help with the launch.',
+          status: 'waiting_on_us',
+          priority: 'high',
+          projectId: 'project-1',
+          messageCount: 2,
+          deleted: false,
+        }),
+        doc('support-other', {
+          orgId: 'org-1',
+          createdBy: 'client-2',
+          requesterName: 'Other Client',
+          subject: 'Private support request',
+          description: 'This must stay private.',
+          status: 'new',
+          priority: 'normal',
+          messageCount: 1,
+          deleted: false,
+        }),
+      ])
+    }
     if (name === 'projects') {
       return {
         ...queryFor([]),
@@ -655,6 +682,36 @@ describe('context reference registry', () => {
         orgId: 'recipient-org',
       }),
     ])
+  })
+
+  it('re-authorizes support search results so members see only tickets they created', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = {
+      uid: 'client-1',
+      role: 'client' as const,
+      authKind: 'session' as const,
+      orgId: 'org-1',
+      activeOrgId: 'org-1',
+      orgIds: ['org-1'],
+    }
+
+    await expect(searchContextReferences({
+      type: 'support',
+      query: 'support request',
+      orgId: 'org-1',
+      limit: 8,
+      user,
+    })).resolves.toEqual([
+      expect.objectContaining({
+        type: 'support',
+        id: 'support-own',
+        href: '/portal/dashboard?support=open&ticket=support-own&orgId=org-1',
+      }),
+    ])
+
+    await expect(resolveContextReferences([
+      { type: 'support', id: 'support-other', orgId: 'org-1' },
+    ], user, 'org-1')).resolves.toEqual([])
   })
 
   it('resolves trusted Studio workspaces and exact artifacts from authoritative records', async () => {

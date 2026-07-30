@@ -72,6 +72,11 @@ export function SupportDrawer({
 
   useEffect(() => {
     setMounted(true)
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('support') === 'open') {
+      setSelectedId(params.get('ticket') ?? '')
+      setOpen(true)
+    }
   }, [])
 
   useEffect(() => {

@@ -62,7 +62,8 @@ export function AdminSupportInbox() {
   }
 
   useEffect(() => {
-    refreshTickets()
+    const initialTicketId = new URLSearchParams(window.location.search).get('ticket') ?? undefined
+    refreshTickets(initialTicketId)
     const id = window.setInterval(() => refreshTickets(), 60_000)
     return () => window.clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
