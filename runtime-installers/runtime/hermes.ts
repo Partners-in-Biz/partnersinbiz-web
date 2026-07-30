@@ -216,6 +216,41 @@ function hermesHttpFailure(status: number, bodyText: string, fallback: string): 
   return new Error(detail ? `${fallback} (HTTP ${status}: ${detail})` : `${fallback} (HTTP ${status})`)
 }
 
+/** True when Hermes is finishing existing work and will accept new turns after a short wait. */
+export function isLocalHermesGatewayDrainingBody(status: number, bodyText: string): boolean {
+  if (status !== 503) return false
+  const clean = bodyText.replace(/\s+/g, ' ').toLowerCase()
+  return clean.includes('gateway_draining') || clean.includes('draining existing work')
+}
+
+/** True when a linked-runtime start error is a temporary gateway drain (retry / reclaim, do not hard-fail chat). */
+export function isLocalHermesGatewayDrainingError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return /gateway_draining|draining existing work/i.test(message)
+}
+
+/** Default window to wait out Hermes drain/restart before giving up on start. */
+export const LOCAL_HERMES_START_RETRY_DEFAULT_MS = 90_000
+
+function localHermesStartRetryBudgetMs(env: RuntimeEnv): number {
+  const raw = Number(env.PIB_LOCAL_HERMES_START_RETRY_MS ?? LOCAL_HERMES_START_RETRY_DEFAULT_MS)
+  if (!Number.isFinite(raw)) return LOCAL_HERMES_START_RETRY_DEFAULT_MS
+  // 0 disables drain retries (tests / fail-fast). Cap at 10 minutes.
+  return Math.min(Math.max(0, Math.floor(raw)), 10 * 60_000)
+}
+
+function gatewayDrainRetryDelayMs(response: Response, attempt: number): number {
+  const retryAfter = response.headers.get('Retry-After')
+  if (retryAfter) {
+    const asNumber = Number(retryAfter)
+    if (Number.isFinite(asNumber) && asNumber >= 0) {
+      return Math.min(Math.max(Math.floor(asNumber * 1000), 200), 5_000)
+    }
+  }
+  // 1s, 2s, 4s, then cap at 5s — Hermes advertises Retry-After: 1 for drain.
+  return Math.min(1_000 * (2 ** Math.min(Math.max(attempt, 0), 3)), 5_000)
+}
+
 export async function callLocalHermes(
   agentId: string,
   body: { prompt: string; images?: Array<{ url: string; contentType: string }>; model?: string; provider?: string; working_directory: string; yolo?: boolean },
@@ -227,25 +262,41 @@ export async function callLocalHermes(
   const cleanAgent = cleanAgentId(agentId)
   const route = localHermesRoutes(env).find((candidate) => candidate.agentId === cleanAgent)
   if (!route) throw new Error(`Hermes agent ${cleanAgent} is not installed on this computer`)
-  const response = await fetcher(`${route.baseUrl}/v1/runs`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...authHeaders(route) },
-    body: JSON.stringify({
-      input: body.images?.length ? [{
-        role: 'user',
-        content: [
-          { type: 'text', text: body.prompt },
-          ...body.images.map((image) => ({ type: 'image_url', image_url: { url: image.url } })),
-        ],
-      }] : body.prompt,
-      ...(body.model ? { model: body.model } : {}),
-      ...(body.provider ? { provider: body.provider } : {}),
-      ...(body.yolo ? { yolo: true } : {}),
-      working_directory: body.working_directory,
-    }),
+  const startBody = JSON.stringify({
+    input: body.images?.length ? [{
+      role: 'user',
+      content: [
+        { type: 'text', text: body.prompt },
+        ...body.images.map((image) => ({ type: 'image_url', image_url: { url: image.url } })),
+      ],
+    }] : body.prompt,
+    ...(body.model ? { model: body.model } : {}),
+    ...(body.provider ? { provider: body.provider } : {}),
+    ...(body.yolo ? { yolo: true } : {}),
+    working_directory: body.working_directory,
   })
-  const startText = await response.text().catch(() => '')
-  if (!response.ok) throw hermesHttpFailure(response.status, startText, `Local Hermes ${cleanAgent} refused to start`)
+  const startRetryBudgetMs = localHermesStartRetryBudgetMs(env)
+  const startDeadline = Date.now() + startRetryBudgetMs
+  let startText = ''
+  let drainAttempts = 0
+  while (true) {
+    const response = await fetcher(`${route.baseUrl}/v1/runs`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...authHeaders(route) },
+      body: startBody,
+    })
+    startText = await response.text().catch(() => '')
+    if (response.ok) break
+    if (
+      isLocalHermesGatewayDrainingBody(response.status, startText)
+      && Date.now() < startDeadline
+    ) {
+      await wait(gatewayDrainRetryDelayMs(response, drainAttempts))
+      drainAttempts += 1
+      continue
+    }
+    throw hermesHttpFailure(response.status, startText, `Local Hermes ${cleanAgent} refused to start`)
+  }
   const started = (() => {
     try { return startText ? JSON.parse(startText) as Record<string, unknown> : null } catch { return null }
   })()

@@ -1,7 +1,7 @@
-import fs from'node:fs';import os from'node:os';import path from'node:path';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunPollDelay,pollForever}from'../../runtime-installers/runtime/worker'
+import fs from'node:fs';import os from'node:os';import path from'node:path';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunAgentKey,linkedRunPollDelay,pollForever}from'../../runtime-installers/runtime/worker'
 import { DeviceApiClient } from '../../runtime-installers/runtime/client'
 import { applyHeartbeatData,handleRotation,heartbeatForever,isRevokeAcknowledged,linkedRuntimeHeartbeatBody,linkedRuntimePlatform,linkedRuntimeSyncClaimBody,nativeWorkspaceSyncSupported,recoverPendingRevocation,runRuntimeServicePollers,sanitizeIdentity } from '../../runtime-installers/runtime/cli'
-import { callLocalHermes, localHermesRoutes, probeLocalHermes } from '../../runtime-installers/runtime/hermes'
+import { callLocalHermes, isLocalHermesGatewayDrainingError, localHermesRoutes, probeLocalHermes } from '../../runtime-installers/runtime/hermes'
 it('fails the managed Mac fleet closed and mirrors every managed profile into native discovery',()=>{const script=fs.readFileSync(path.join(process.cwd(),'scripts/start-local-runtime-fleet.sh'),'utf8');expect(script).toContain('read_shared_env_value AI_API_KEY');expect(script).toContain('read_shared_env_value PIB_AGENT_API_KEY');expect(script).toContain('authenticated PiB actions would fail');expect(script).toContain('export AI_API_KEY="$AI_API_KEY_VALUE"');expect(script).toContain('export PIB_API_BASE="${PIB_API_BASE_VALUE:-https://partnersinbiz.online/api/v1}"');expect(script).toContain("awk '!/^API_SERVER_(ENABLED|HOST|PORT|MODEL_NAME|KEY)=/'");expect(script).toContain("printf 'API_SERVER_MODEL_NAME=%s\\n' \"$agent_name\"");expect(script).toContain('mv "$profile_env_tmp" "$profile_env"')})
 it.each([['darwin','macos'],['win32','windows'],['linux','linux']] as const)('reports Node platform %s as linked runtime platform %s',(nodePlatform,expected)=>{expect(linkedRuntimePlatform(nodePlatform)).toBe(expected)})
 it('attests sync protocol v1 and runs native sync polling beside normal execution polling',async()=>{expect(linkedRuntimeHeartbeatBody()).toEqual(expect.objectContaining({capabilities:['workspace.execute','workspace.sync'],syncProtocolVersion:1}));expect(linkedRuntimeSyncClaimBody()).toEqual(expect.objectContaining({syncProtocolVersion:1}));const calls:string[]=[];await runRuntimeServicePollers(async()=>{calls.push('runs')},async()=>{calls.push('sync')});expect(calls.sort()).toEqual(['runs','sync'])})
@@ -78,6 +78,7 @@ it('surfaces concrete Hermes start and terminal failure details', async () => {
     { PIB_LOCAL_HERMES_ROUTES: JSON.stringify({ sales: { baseUrl: 'http://127.0.0.1:8673', apiKey: 'k' } }) },
     startFail,
   )).rejects.toThrow(/sales.*503.*provider quota exhausted/i)
+  expect(startFail).toHaveBeenCalledTimes(1)
 
   const terminalFail = jest.fn(async (url: any) => {
     const target = String(url)
@@ -91,6 +92,116 @@ it('surfaces concrete Hermes start and terminal failure details', async () => {
     terminalFail,
     async () => undefined,
   )).rejects.toThrow(/Local Hermes sales model refused tools/)
+})
+
+it('retries Hermes start while the gateway is draining, then succeeds', async () => {
+  let starts = 0
+  const waits: number[] = []
+  const fetcher = jest.fn(async (url: any) => {
+    const target = String(url)
+    if (target.endsWith('/v1/runs') && !target.includes('/run-')) {
+      starts += 1
+      if (starts < 3) {
+        return new Response(JSON.stringify({
+          error: { message: 'Gateway is draining existing work; retry shortly.', code: 'gateway_draining' },
+        }), { status: 503, headers: { 'Retry-After': '1' } })
+      }
+      return new Response(JSON.stringify({ run_id: 'run-after-drain' }), { status: 200 })
+    }
+    return new Response(JSON.stringify({ status: 'completed', output: 'ok-after-drain' }), { status: 200 })
+  }) as any
+  await expect(callLocalHermes(
+    'theo',
+    { prompt: 'next turn', working_directory: '/tmp' },
+    {
+      PIB_LOCAL_HERMES_ROUTES: JSON.stringify({ theo: { baseUrl: 'http://127.0.0.1:8756', apiKey: 'k' } }),
+      PIB_LOCAL_HERMES_START_RETRY_MS: '30000',
+    },
+    fetcher,
+    async (ms) => { waits.push(ms) },
+  )).resolves.toBe('ok-after-drain')
+  expect(starts).toBe(3)
+  expect(waits.length).toBe(2)
+  expect(waits.every((ms) => ms >= 200 && ms <= 5_000)).toBe(true)
+})
+
+it('does not hard-fail chat when drain retries are exhausted — leaves job for reclaim', async () => {
+  expect(isLocalHermesGatewayDrainingError(
+    new Error('Local Hermes theo refused to start (HTTP 503: {"error":{"message":"Gateway is draining existing work; retry shortly.","code":"gateway_draining"}})'),
+  )).toBe(true)
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'worker-drain-'))
+  const root = path.join(d, 'root')
+  fs.mkdirSync(root)
+  const maps = new MappingRegistry(path.join(d, 'maps'))
+  maps.map('m', root)
+  const k = generateKeyPairSync('ed25519')
+  const posts: any[] = []
+  const post = jest.fn(async (p: string, b: any) => {
+    posts.push([p, b])
+    return new Response('', { status: 200 })
+  })
+  const hermes = jest.fn(async () => {
+    throw new Error('Local Hermes theo refused to start (HTTP 503: Gateway is draining existing work; retry shortly. code=gateway_draining)')
+  })
+  await expect(executeJob(
+    { jobId: 'j', requestId: 'r', prompt: 'p', workspaceId: 'w', projectId: 'p', mappingId: 'm', relativeFolder: '', attempt: 1, leaseToken: 'lease', agentId: 'theo' },
+    { deviceId: 'd', credentialVersion: 1, privateKey: k.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() },
+    maps,
+    post,
+    hermes,
+  )).rejects.toThrow(/gateway_draining|draining existing work/i)
+  expect(posts.some(([p]) => String(p).endsWith('/complete'))).toBe(false)
+  expect(posts[0]?.[1]?.receipt?.event).toBe('accepted')
+})
+
+it('serializes linked runs for the same agent while keeping different agents concurrent', async () => {
+  expect(linkedRunAgentKey({ jobId: 'a', agentId: 'Theo' })).toBe('agent:theo')
+  let stopped = false
+  let claims = 0
+  const releases = new Map<string, () => void>()
+  const started: string[] = []
+  const activeByAgent = new Map<string, number>()
+  const maxByAgent = new Map<string, number>()
+  let maxDeviceActive = 0
+  let deviceActive = 0
+  const jobs = [
+    { jobId: 'theo-1', agentId: 'theo' },
+    { jobId: 'theo-2', agentId: 'theo' },
+    { jobId: 'pip-1', agentId: 'pip' },
+  ] as any[]
+  const claim = jest.fn(async () => {
+    const job = jobs[claims++] ?? null
+    if (!job && started.length >= 3) stopped = true
+    return job
+  })
+  const run = jest.fn(async (job: any) => {
+    deviceActive += 1
+    maxDeviceActive = Math.max(maxDeviceActive, deviceActive)
+    const agent = job.agentId
+    activeByAgent.set(agent, (activeByAgent.get(agent) ?? 0) + 1)
+    maxByAgent.set(agent, Math.max(maxByAgent.get(agent) ?? 0, activeByAgent.get(agent) ?? 0))
+    started.push(job.jobId)
+    await new Promise<void>((resolve) => { releases.set(job.jobId, resolve) })
+    activeByAgent.set(agent, (activeByAgent.get(agent) ?? 1) - 1)
+    deviceActive -= 1
+  })
+  const polling = pollForever(claim, run, () => stopped, { maxConcurrency: 4 })
+  while (!(started.includes('theo-1') && started.includes('pip-1'))) {
+    await new Promise((resolve) => setImmediate(resolve))
+  }
+  // Second Theo must wait for the first; Pip may already be running alongside Theo-1.
+  expect(started).toContain('theo-1')
+  expect(started).toContain('pip-1')
+  expect(started).not.toContain('theo-2')
+  expect(maxByAgent.get('theo')).toBe(1)
+  releases.get('theo-1')?.()
+  while (!started.includes('theo-2')) await new Promise((resolve) => setImmediate(resolve))
+  expect(started).toEqual(expect.arrayContaining(['theo-1', 'theo-2', 'pip-1']))
+  expect(maxByAgent.get('theo')).toBe(1)
+  expect(maxDeviceActive).toBeGreaterThanOrEqual(2)
+  for (const release of releases.values()) release()
+  while (!stopped) await new Promise((resolve) => setImmediate(resolve))
+  await polling
 })
 
 it('propagates Hermes error text into the linked-run completion payload', async () => {
