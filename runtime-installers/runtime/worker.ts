@@ -2,6 +2,7 @@ import { createHash, createPrivateKey, sign } from 'node:crypto'
 import os from 'node:os'
 import { MappingRegistry } from './bridge'
 import type { JSONValue } from './core'
+import { isLocalHermesGatewayDrainingError } from './hermes'
 
 export type Job = {
   jobId: string
@@ -113,6 +114,7 @@ export async function executeJob(
   let output = ''
   let error = ''
   let status: 'completed' | 'failed' = 'completed'
+  let abandonForReclaim: Error | undefined
   try {
     const result = await hermes(
       {
@@ -140,18 +142,26 @@ export async function executeJob(
     )
     output = typeof result === 'string' ? result : JSON.stringify(result) ?? 'null'
   } catch (err) {
-    status = 'failed'
-    const message = err instanceof Error ? err.message.replace(/\s+/g, ' ').trim() : ''
-    error = message && message.length <= 400
-      ? message
-      : message
-        ? `${message.slice(0, 399)}…`
-        : 'Local Hermes execution failed'
+    // Gateway drain after the short start-retry window: do not hard-fail the
+    // conversation. Drop the lease so the same job can be reclaimed once the
+    // agent is accepting turns again (queued message before agent finished).
+    if (isLocalHermesGatewayDrainingError(err)) {
+      abandonForReclaim = err instanceof Error ? err : new Error(String(err ?? 'gateway draining'))
+    } else {
+      status = 'failed'
+      const message = err instanceof Error ? err.message.replace(/\s+/g, ' ').trim() : ''
+      error = message && message.length <= 400
+        ? message
+        : message
+          ? `${message.slice(0, 399)}…`
+          : 'Local Hermes execution failed'
+    }
   } finally {
     clearInterval(timer)
     await renewal
     await eventFlush
   }
+  if (abandonForReclaim) throw abandonForReclaim
   if (leaseError) throw leaseError
 
   const terminal = receipt(job, device, status, status, acceptedAt, toolStartedAt, output, error)
@@ -174,6 +184,14 @@ export function linkedRunPollDelay(delay: number, random: () => number = Math.ra
   return bounded + Math.floor(random() * bounded)
 }
 
+/** One Hermes gateway per agent — serialize same-agent jobs so the next turn waits for the prior one (and any drain) to settle. */
+export function linkedRunAgentKey(job: Pick<Job, 'jobId' | 'agentId'>): string {
+  const agent = typeof job.agentId === 'string' ? job.agentId.trim().toLowerCase() : ''
+  if (agent) return `agent:${agent}`
+  // Unknown agent: isolate by job so we never invent false sharing across chats.
+  return `job:${job.jobId}`
+}
+
 export async function pollForever(
   claim: () => Promise<Job | null>,
   run: (job: Job) => Promise<unknown>,
@@ -186,6 +204,8 @@ export async function pollForever(
     Math.max(1, Number.isFinite(requestedConcurrency) ? Math.floor(requestedConcurrency) : LINKED_RUN_MAX_CONCURRENCY),
   )
   const inFlight = new Set<Promise<void>>()
+  /** Tail of the per-agent run chain; next same-agent job awaits this before starting Hermes. */
+  const agentTails = new Map<string, Promise<void>>()
   let delay = 250
   while (!stop()) {
     if (inFlight.size >= maxConcurrency) {
@@ -195,12 +215,16 @@ export async function pollForever(
     const job = await claim().catch(() => null)
     if (job) {
       delay = 250
-      const task: Promise<void> = Promise.resolve()
+      const agentKey = linkedRunAgentKey(job)
+      const previous = agentTails.get(agentKey) ?? Promise.resolve()
+      const task: Promise<void> = previous
+        .catch(() => undefined)
         .then(() => run(job))
         .then(() => undefined)
         .catch(() => undefined)
         .finally(() => inFlight.delete(task))
       inFlight.add(task)
+      agentTails.set(agentKey, task)
     } else {
       await new Promise((r) => setTimeout(r, linkedRunPollDelay(delay)))
       delay = Math.min(delay * 2, MAX_IDLE_CLAIM_BASE_DELAY_MS)

@@ -26,6 +26,20 @@ check(manifest.tiers?.core?.skills?.includes('system-auth'), 'core includes syst
 check(manifest.tiers?.core?.skills?.includes('client-documents'), 'core includes client-documents')
 check(manifest.tiers?.core?.skills?.includes('agent-runtime-ops'), 'core includes agent-runtime-ops')
 check(manifest.tiers?.core?.skills?.includes('reports'), 'core includes reports')
+check(manifest.tiers?.core?.skills?.includes('daily-workflow'), 'core includes daily-workflow')
+
+const dailySkillPath = join(root, 'skills/daily-workflow/SKILL.md')
+const dailyRepoPath = join(repoRoot, '.claude/skills/daily-workflow/SKILL.md')
+check(existsSync(dailySkillPath), 'daily-workflow pack skill exists')
+check(existsSync(dailyRepoPath), 'daily-workflow repo skill exists')
+if (existsSync(dailySkillPath) && existsSync(dailyRepoPath)) {
+  const dailyPack = readFileSync(dailySkillPath, 'utf8')
+  const dailyRepo = readFileSync(dailyRepoPath, 'utf8')
+  check(dailyPack.includes('version: 1.2.0'), 'daily-workflow version is 1.2.0')
+  check(dailyPack === dailyRepo, 'daily-workflow repo and pack copies match')
+  check(!dailyPack.includes('rm -rf'), 'daily-workflow forbids destructive cleanup commands')
+  check(!dailyPack.includes('git add -A'), 'daily-workflow forbids blind stage-all')
+}
 
 const policyPath = join(repoRoot, 'config/agent-skill-policy.json')
 check(existsSync(policyPath), 'agent-skill-policy.json present for lockstep')

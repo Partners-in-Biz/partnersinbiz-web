@@ -18,6 +18,7 @@ import {
   listPullableAgentIds,
 } from '@/lib/linked-computers/agent-host-ports'
 import { buildSkillPackManifest } from '@/lib/agents/skill-pack-builder'
+import { AGENT_SKILL_POLICY } from '@/lib/agents/skill-policy'
 
 describe('desired agent bindings', () => {
   it('merges added keep-in-sync agents and reports removals', () => {
@@ -211,6 +212,22 @@ describe('pullable catalog + skill packs', () => {
     expect(first.policyVersion).toBeTruthy()
     expect(first.skillNames.length).toBeGreaterThan(0)
     expect(first.files.length).toBeGreaterThan(0)
+  })
+
+  it('includes daily-workflow content in every managed client agent pack', () => {
+    for (const agentId of Object.keys(AGENT_SKILL_POLICY.agents)) {
+      const first = buildSkillPackManifest(agentId)
+      const second = buildSkillPackManifest(agentId)
+      const skillFile = first.files.find((file) => file.path === 'daily-workflow/SKILL.md')
+
+      expect(first.skillNames).toContain('daily-workflow')
+      expect(skillFile).toEqual(expect.objectContaining({
+        sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        size: expect.any(Number),
+      }))
+      expect(skillFile?.size).toBeGreaterThan(0)
+      expect(first.packSha256).toBe(second.packSha256)
+    }
   })
 
   it('builds an empty but deterministic pack for custom agents without skill policy', () => {

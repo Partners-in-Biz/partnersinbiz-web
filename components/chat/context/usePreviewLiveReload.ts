@@ -46,7 +46,9 @@ export function useOpenDockPolling(
   intervalMs = 6_000,
 ) {
   const onTickRef = useRef(onTick)
-  onTickRef.current = onTick
+  useEffect(() => {
+    onTickRef.current = onTick
+  }, [onTick])
   useEffect(() => {
     if (!open) return
     const id = window.setInterval(() => {
