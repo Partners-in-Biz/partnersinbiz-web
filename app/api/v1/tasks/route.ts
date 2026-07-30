@@ -31,6 +31,7 @@ import {
   applyAgentColumnForCreate,
   applyAgentDispatchDefaultsForStandaloneAssignment,
 } from '@/lib/tasks/agentState'
+import { buildTaskNotificationLink, taskNotificationData } from '@/lib/notifications/task-links'
 import {
   RESOURCE_RELATIONSHIP_ARRAY_FIELDS,
   RESOURCE_RELATIONSHIP_STRING_FIELDS,
@@ -301,6 +302,7 @@ export const POST = withAuth(
 
     // Notify assignee if provided.
     if (assignedTo) {
+      const projectId = typeof docData.projectId === 'string' ? docData.projectId : null
       await adminDb.collection('notifications').add({
         orgId: body.orgId.trim(),
         userId: assignedTo.type === 'user' ? assignedTo.id : null,
@@ -308,9 +310,12 @@ export const POST = withAuth(
         type: 'task.assigned',
         title: 'Task assigned to you',
         body: `"${title}" — due ${dueDate ?? 'no date'}`,
-        link: `/portal/projects?task=${docRef.id}`,
+        link: buildTaskNotificationLink({ taskId: docRef.id, projectId }),
+        data: taskNotificationData({ taskId: docRef.id, projectId, taskTitle: title }),
         status: 'unread',
         priority,
+        snoozedUntil: null,
+        readAt: null,
         createdAt: FieldValue.serverTimestamp(),
       })
     }

@@ -1,8 +1,23 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NotificationBell } from '@/components/crm/NotificationBell'
 
+const push = jest.fn()
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push,
+    replace: jest.fn(),
+    back: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+}))
+
 describe('NotificationBell', () => {
   const originalFetch = global.fetch
+
+  beforeEach(() => {
+    push.mockReset()
+  })
 
   afterEach(() => {
     global.fetch = originalFetch
@@ -33,33 +48,45 @@ describe('NotificationBell', () => {
     expect(screen.getByText('Watching owner, deal, and intake signals')).toBeInTheDocument()
   })
 
-  it('renders notification links so clicking an item opens the relevant page', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        data: {
-          items: [
-            {
-              id: 'notification-1',
-              orgId: 'pib-platform-owner',
-              userId: 'admin-1',
-              agentId: null,
-              type: 'project.task.comment',
-              title: 'New task comment',
-              body: 'Peet replied on a project task',
-              link: '/admin/org/partners-in-biz/projects/project-1?taskId=task-1',
-              data: null,
-              priority: 'normal',
-              status: 'unread',
-              snoozedUntil: null,
-              readAt: null,
-              createdAt: '2026-05-24T10:00:00.000Z',
-            },
-          ],
-          unreadCount: 1,
-        },
-      }),
-    }) as jest.Mock
+  it('opens a notification, marks it read, and navigates to the resolved task destination', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            items: [
+              {
+                id: 'notification-1',
+                orgId: 'pib-platform-owner',
+                userId: 'admin-1',
+                agentId: null,
+                type: 'task.assigned',
+                title: 'Task assigned to you',
+                body: 'Call the client about the website',
+                link: '/portal/projects?task=task-1',
+                data: { taskId: 'task-1', projectId: 'project-1' },
+                priority: 'normal',
+                status: 'unread',
+                snoozedUntil: null,
+                readAt: null,
+                createdAt: '2026-05-24T10:00:00.000Z',
+              },
+            ],
+            unreadCount: 1,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            id: 'notification-1',
+            href: '/admin/org/partners-in-biz/projects/project-1?taskId=task-1',
+            status: 'read',
+          },
+        }),
+      }) as jest.Mock
 
     render(<NotificationBell mode="admin" orgId="pib-platform-owner" userId="admin-1" />)
 
@@ -67,8 +94,15 @@ describe('NotificationBell', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open notifications' }))
 
-    const item = await screen.findByRole('link', { name: /new task comment/i })
-    expect(item).toHaveAttribute('href', '/admin/org/partners-in-biz/projects/project-1?taskId=task-1')
+    const item = await screen.findByRole('button', { name: /task assigned to you/i })
+    fireEvent.click(item)
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/notifications/notification-1/open', { method: 'POST' }),
+    )
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith('/admin/org/partners-in-biz/projects/project-1?taskId=task-1'),
+    )
   })
 
   it('clears visible notifications after marking them read', async () => {

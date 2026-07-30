@@ -36,6 +36,7 @@ import {
   normalizeResourceRelationshipLinks,
 } from '@/lib/client-documents/linkedValidation'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
+import { buildTaskNotificationLink, taskNotificationData } from '@/lib/notifications/task-links'
 
 export const dynamic = 'force-dynamic'
 
@@ -235,11 +236,16 @@ export const PUT = withAuth('admin', async (req, user, context) => {
     }).catch(() => {})
   }
 
+  const projectIdForLink =
+    (typeof finalUpdates.projectId === 'string' ? finalUpdates.projectId : null)
+    || (typeof existing.projectId === 'string' ? existing.projectId : null)
+
   // Notify reporter when agent marks task done.
   const agentJustDone = finalUpdates.agentStatus === 'done' && existing.agentStatus !== 'done'
   if (agentJustDone && existing.orgId) {
     const reporterId = typeof existing.createdBy === 'string' ? existing.createdBy : null
     const agentId = typeof finalUpdates.assigneeAgentId === 'string' ? finalUpdates.assigneeAgentId : typeof existing.assigneeAgentId === 'string' ? existing.assigneeAgentId : 'agent'
+    const taskTitle = (finalUpdates.title as string | undefined) ?? existing.title ?? 'Task'
     if (reporterId && reporterId !== user.uid) {
       adminDb.collection('notifications').add({
         orgId: existing.orgId,
@@ -247,8 +253,9 @@ export const PUT = withAuth('admin', async (req, user, context) => {
         agentId: null,
         type: 'task.agent_done',
         title: `${agentId.charAt(0).toUpperCase() + agentId.slice(1)} finished a task`,
-        body: (finalUpdates.title as string | undefined) ?? existing.title ?? 'Task',
-        link: `/portal/projects?task=${id}`,
+        body: taskTitle,
+        link: buildTaskNotificationLink({ taskId: id, projectId: projectIdForLink }),
+        data: taskNotificationData({ taskId: id, projectId: projectIdForLink, taskTitle }),
         status: 'unread',
         priority: (finalUpdates.priority as string | undefined) ?? existing.priority ?? 'medium',
         snoozedUntil: null,
@@ -264,6 +271,7 @@ export const PUT = withAuth('admin', async (req, user, context) => {
     const reporterId = typeof existing.createdBy === 'string' ? existing.createdBy : null
     const agentId = typeof finalUpdates.assigneeAgentId === 'string' ? finalUpdates.assigneeAgentId : typeof existing.assigneeAgentId === 'string' ? existing.assigneeAgentId : 'agent'
     const recovery = buildBlockedTaskRecovery({ ...existing, ...finalUpdates, id })
+    const taskTitle = (finalUpdates.title as string | undefined) ?? existing.title ?? 'Task'
     if (reporterId && reporterId !== user.uid) {
       adminDb.collection('notifications').add({
         orgId: existing.orgId,
@@ -272,13 +280,16 @@ export const PUT = withAuth('admin', async (req, user, context) => {
         type: 'task.agent_needs_input',
         title: `${agentId.charAt(0).toUpperCase() + agentId.slice(1)} needs Peet to continue`,
         body: `Exact blocker: ${recovery.blockingReason}. Proof needed: ${recovery.requiredEvidence}. Message for agent: ${recovery.messageForAgent}`,
-        link: `/portal/projects?task=${id}`,
-        data: {
+        link: buildTaskNotificationLink({ taskId: id, projectId: projectIdForLink }),
+        data: taskNotificationData({
           taskId: id,
-          taskTitle: (finalUpdates.title as string | undefined) ?? existing.title ?? 'Task',
-          blockerReason: recovery.blockingReason,
-          safeContinuePath: `${recovery.continueActionLabel}: add approval/input evidence in the task drawer, then use the safe continue/unblock action.`,
-        },
+          projectId: projectIdForLink,
+          taskTitle,
+          extra: {
+            blockerReason: recovery.blockingReason,
+            safeContinuePath: `${recovery.continueActionLabel}: add approval/input evidence in the task drawer, then use the safe continue/unblock action.`,
+          },
+        }),
         status: 'unread',
         priority: 'high',
         snoozedUntil: null,
@@ -304,9 +315,12 @@ export const PUT = withAuth('admin', async (req, user, context) => {
       type: 'task.assigned',
       title: 'Task assigned to you',
       body: `"${title}" — due ${dueDate ?? 'no date'}`,
-      link: `/portal/projects?task=${id}`,
+      link: buildTaskNotificationLink({ taskId: id, projectId: projectIdForLink }),
+      data: taskNotificationData({ taskId: id, projectId: projectIdForLink, taskTitle: title }),
       status: 'unread',
       priority,
+      snoozedUntil: null,
+      readAt: null,
       createdAt: FieldValue.serverTimestamp(),
     })
   }

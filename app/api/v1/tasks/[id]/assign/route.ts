@@ -15,6 +15,7 @@ import {
   type TaskAssignee,
 } from '@/lib/tasks/types'
 import { applyAgentDispatchDefaultsForStandaloneAssignment } from '@/lib/tasks/agentState'
+import { buildTaskNotificationLink, taskNotificationData } from '@/lib/notifications/task-links'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,6 +50,7 @@ export const POST = withAuth('admin', async (req, user, context) => {
 
   await ref.update(updates)
 
+  const projectId = typeof existing.projectId === 'string' ? existing.projectId : null
   await adminDb.collection('notifications').add({
     orgId: existing.orgId,
     userId: assignedTo.type === 'user' ? assignedTo.id : null,
@@ -56,9 +58,12 @@ export const POST = withAuth('admin', async (req, user, context) => {
     type: 'task.assigned',
     title: 'Task assigned to you',
     body: `"${existing.title}" — due ${existing.dueDate ?? 'no date'}`,
-    link: `/portal/projects?task=${id}`,
+    link: buildTaskNotificationLink({ taskId: id, projectId }),
+    data: taskNotificationData({ taskId: id, projectId, taskTitle: existing.title }),
     status: 'unread',
     priority: existing.priority,
+    snoozedUntil: null,
+    readAt: null,
     createdAt: FieldValue.serverTimestamp(),
   })
 
