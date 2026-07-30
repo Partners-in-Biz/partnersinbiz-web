@@ -15,8 +15,8 @@ type PlanningEvent = Record<string, unknown>
 export type PlanningContextMutationTransition =
   | {
       allowed: true
-      state: PlanningDiscoveryState
-      event: PlanningEvent
+      state?: PlanningDiscoveryState
+      event?: PlanningEvent
     }
   | {
       allowed: false
@@ -40,7 +40,7 @@ export function canMutateLinkedProjectPlanning(
 
 export function planningContextMutationTransition(
   project: Record<string, unknown>,
-  input: { uid: string; now: string; reason: string },
+  input: { uid: string; now: string; reason: string; reopenWhenReady?: boolean },
 ): PlanningContextMutationTransition {
   const current = project.planningDiscovery as PlanningDiscoveryState | undefined
   const blocker = planningMutationBlocker(project)
@@ -59,6 +59,11 @@ export function planningContextMutationTransition(
     }
     return { allowed: false, blocker }
   }
+
+  // Creating a planned artifact is an output of the confirmed brief, not a
+  // change to the brief's intent. It still requires live planning readiness,
+  // but must not immediately make the gate stale again.
+  if (input.reopenWhenReady === false) return { allowed: true }
 
   const reopened: PlanningActionResult = preparePlanningContextMutation(
     project,
