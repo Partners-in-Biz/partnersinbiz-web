@@ -162,10 +162,52 @@ describe('POST /api/v1/project-setups', () => {
     expect(mockAddProjectToUserLibrary).toHaveBeenCalledWith({
       orgId: 'pib-org', userId: 'peet-user', projectId: 'project-1', companyId: 'company-1',
     })
+    // Standard mode must provision under the organisation workspace identity.
+    // Company Cowork roots (often a sibling client tree) must not rewrite the
+    // path — that caused VPS "manifest identity conflict" and blocked links.
     expect(mockProvisionStandardProjectFolder).toHaveBeenCalledWith(expect.objectContaining({
-      workspaceId: 'partners', workspacePath: '/var/lib/hermes/Cowork/partners/Acme',
+      workspaceId: 'partners',
+      workspacePath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
     }))
   })
+
+  it('keeps organisation workspace paths when the company Cowork root is a different workspace identity', async () => {
+    mockGetCompanyWorkspaceByCompanyId.mockResolvedValue({
+      workspaceId: 'loyalty-plus',
+      orgId: 'client-org-loyalty',
+      vpsPath: '/var/lib/hermes/Cowork/partners/Loyalty Plus',
+      localPath: '/Users/peetstander/Cowork/partners/Loyalty Plus',
+    })
+    const { POST } = await import('@/app/api/v1/project-setups/route')
+    const response = await POST(request({
+      mode: 'standard', orgId: 'pib-org', companyId: 'loyalty-company', projectName: 'Loyalty Plus',
+      workspaceId: 'partners', locationIds: ['partners-vps'],
+    }))
+
+    expect(response.status).toBe(202)
+    expect(mockProvisionStandardProjectFolder).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: 'partners',
+      workspacePath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
+      orgId: 'pib-org',
+    }))
+    expect(mockLinkProjectLocation).toHaveBeenCalled()
+  })
+
+  it('still provisions when the selected company has no registered Cowork workspace', async () => {
+    mockGetCompanyWorkspaceByCompanyId.mockResolvedValue(null)
+    const { POST } = await import('@/app/api/v1/project-setups/route')
+    const response = await POST(request({
+      mode: 'standard', orgId: 'pib-org', companyId: 'company-1', projectName: 'No Cowork Yet',
+      workspaceId: 'partners', locationIds: ['partners-vps'],
+    }))
+
+    expect(response.status).toBe(202)
+    expect(mockProvisionStandardProjectFolder).toHaveBeenCalledWith(expect.objectContaining({
+      workspaceId: 'partners',
+      workspacePath: '/var/lib/hermes/Cowork/partners/Partners in Biz',
+    }))
+  })
+
 
   it('rejects setup when the selected company is outside the user CRM access', async () => {
     mockGetAccessibleCompany.mockResolvedValue(null)

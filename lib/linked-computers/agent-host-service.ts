@@ -637,6 +637,64 @@ export async function applyAgentHostJobResult(job: AgentHostJob): Promise<void> 
   }
 }
 
+/**
+ * Push an updated custom-agent profile (SOUL / persona / model label) to every
+ * active device that still hosts or desires this agent.
+ *
+ * Uses a profile-revision-scoped idempotency key so identity edits re-run even
+ * when the skill-policy version is unchanged.
+ */
+export async function enqueueLinkedAgentProfileSync(input: {
+  agentId: AgentId
+  actorUserId: string
+  orgId: string
+  profileRevision: string
+}): Promise<string[]> {
+  const snapshot = await adminDb.collection(DEVICES)
+    .where('status', '==', 'active')
+    .get()
+  const jobIds: string[] = []
+  const revision = input.profileRevision.trim().slice(0, 32) || 'latest'
+  const policyVersionTag = `profile:${revision}`
+
+  for (const doc of snapshot.docs) {
+    const device = doc.data() as LinkedDevice & { desiredAgents?: unknown }
+    const bindings = parseDesiredAgentBindings(device.desiredAgents)
+    const binding = bindings.find((row) => row.agentId === input.agentId)
+    const available = Array.isArray(device.availableAgentIds)
+      ? device.availableAgentIds.filter((id): id is string => typeof id === 'string')
+      : []
+    if (!binding && !available.includes(input.agentId)) continue
+
+    const resolvedOrgId = await resolveOrgIdForDevice(device, doc.id)
+    if (!resolvedOrgId || resolvedOrgId !== input.orgId) continue
+
+    if (binding) {
+      await patchDesiredAgentBinding(doc.id, input.agentId, {
+        status: 'syncing',
+        lastError: null,
+      })
+    }
+
+    const payload = await policyPayload(input.agentId, binding?.keepInSync === true, doc.id)
+    const job = await enqueueAgentHostJob({
+      idempotencyKey: `sync-policy:profile:${doc.id}:${input.agentId}:${revision}`,
+      deviceId: doc.id,
+      orgId: resolvedOrgId,
+      actorUserId: input.actorUserId || linkedDeviceActorUserId(device),
+      credentialVersion: device.credentialVersion,
+      kind: 'sync-policy',
+      payload: {
+        ...payload,
+        // Keep skill pack behaviour; revision only de-dupes host jobs.
+        policyVersion: payload.policyVersion ?? policyVersionTag,
+      },
+    })
+    jobIds.push(job.jobId)
+  }
+  return jobIds
+}
+
 /** Enqueue sync-policy jobs for every linked device that hosts this agent with keepInSync. */
 export async function enqueueKeepInSyncPolicyJobs(input: {
   agentId: AgentId

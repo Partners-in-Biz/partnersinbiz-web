@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiErrorFromException } from '@/lib/api/response'
-import { createLinkedAgent } from '@/lib/agents/team'
+import { createLinkedAgent, updateLinkedAgent } from '@/lib/agents/team'
 import type { AgentTeamStoredDoc } from '@/lib/agents/types'
 import {
   assertCanCreateAgentOnDevice,
   buildScopedAgentId,
+  canManageLinkedAgent,
+  linkedAgentProfileRevision,
   ORG_AGENT_HANDLE_RE,
+  parseLinkedAgentUpdateFields,
   runtimeSupportsCustomAgentProfiles,
 } from '@/lib/agents/org-agent-policy'
 import {
+  enqueueLinkedAgentProfileSync,
   finalizeLinkedAgentProvisioning,
   listDeviceDesiredAgents,
   setDeviceDesiredAgents,
@@ -50,7 +54,12 @@ export const GET = withPortalAuthAndRole(
           : canManageOrgAgents || agent.ownerUserId === uid || grantedAgentIds.has(agent.agentId))
         .map((agent) => ({
           ...agent,
-          canManage: agent.ownerUserId === uid || (canManageOrgAgents && agent.accessScope !== 'personal'),
+          canManage: canManageLinkedAgent({
+            agent,
+            actorUserId: uid,
+            orgId,
+            role,
+          }),
           hasAccess: agent.ownerUserId === uid
             || (canManageOrgAgents && agent.accessScope !== 'personal')
             || grantedAgentIds.has(agent.agentId),
@@ -210,10 +219,60 @@ export const PATCH = withPortalAuthAndRole(
     if (!agentDoc.exists || !agent || agent.scopeOrgId !== orgId || agent.provisioningMode !== 'linked_device') {
       return apiError('Agent not found', 404)
     }
-    const canRetry = agent.accessScope === 'personal'
-      ? agent.ownerUserId === uid
-      : role === 'owner' || role === 'admin'
-    if (!canRetry) return apiError('You cannot retry this agent', 403)
+    if (!canManageLinkedAgent({ agent, actorUserId: uid, orgId, role })) {
+      return apiError('You cannot manage this agent', 403)
+    }
+
+    const updateKeys = ['name', 'role', 'persona', 'defaultModel', 'iconKey', 'colorKey'] as const
+    const isFieldUpdate = updateKeys.some((key) => body && Object.prototype.hasOwnProperty.call(body, key))
+    const action = typeof body?.action === 'string' ? body.action.trim().toLowerCase() : ''
+
+    // --- Field update (owner / org admin) ---
+    if (isFieldUpdate || action === 'update') {
+      const parsed = parseLinkedAgentUpdateFields(body ?? {}, {
+        name: agent.name,
+        role: agent.role,
+        persona: agent.persona,
+        defaultModel: agent.defaultModel || 'auto',
+        iconKey: agent.iconKey || 'smart_toy',
+        colorKey: agent.colorKey || 'sky',
+      })
+      if (!parsed.ok) return apiError(parsed.error, 400)
+
+      try {
+        const updated = parsed.changed
+          ? await updateLinkedAgent(agentId, parsed.fields)
+          : {
+              ...agent,
+              apiKey: '●●●●●●',
+            }
+
+        let enqueuedJobIds: string[] = []
+        if (parsed.changed) {
+          enqueuedJobIds = await enqueueLinkedAgentProfileSync({
+            agentId: agentId as import('@/lib/agents/types').AgentId,
+            actorUserId: uid,
+            orgId,
+            profileRevision: linkedAgentProfileRevision(parsed.fields),
+          })
+        }
+
+        return NextResponse.json({
+          data: {
+            agent: updated,
+            enqueuedJobIds,
+            status: enqueuedJobIds.length > 0 ? 'syncing' : 'ready',
+            message: enqueuedJobIds.length > 0
+              ? 'Agent saved. Profile sync queued on linked computers.'
+              : 'Agent saved. No profile changes to sync.',
+          },
+        })
+      } catch (error) {
+        return apiErrorFromException(error)
+      }
+    }
+
+    // --- Retry failed install (existing behaviour) ---
     if (!agent.homeDeviceId) return apiError('Agent has no home computer', 409)
 
     const deviceDoc = await adminDb.collection('linked_devices').doc(agent.homeDeviceId).get()
