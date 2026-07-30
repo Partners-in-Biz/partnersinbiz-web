@@ -31,7 +31,7 @@ business object implements the same chat contract:
 | Campaigns | Campaign/social context adapters, email marketing, ads, content campaigns, review/launch APIs | Campaign families are fragmented; not every campaign object presents the same live state/action contract in Messages |
 | Studios | Marketing, Video, Book, YouTube and Mobile context namespaces and artifact adapters | Some studio roots are summary-only and several artifact actions still require opening the full module |
 | Live previews | All 25 registered context kinds now declare an authoritative source, receive normalized freshness metadata and refresh every 5 seconds; Messages labels the source as Live | Five kinds have specialized inline adapters, one is sealed-runtime, and 20 still navigate to their canonical module. Event-driven context subscriptions plus visible stale/offline states remain |
-| Agent execution | Twelve governed system agents, signed per-agent skill packs, explicit capabilities/approval gates, linked-computer and organisation-VPS grants, public marketplace templates | No canonical role blueprint turns a member’s department/job into a recommended agent team and skill pack. HR and dedicated finance/legal roles are absent |
+| Agent execution | Twelve governed system agents, signed per-agent skill packs, explicit capabilities/approval gates, linked-computer and organisation-VPS grants, public marketplace templates, and department/job-aware workforce recommendations in Messages | Dedicated People/HR and Finance specialists are still absent; owner provisioning, runtime readiness and drift remediation must become a complete onboarding workflow |
 | Human messaging | Explicit human participants, direct/group creation, attachments, privacy enforcement, participant-only reply access | Prior to this slice, active human messages were a 3-second poll, new chats did not appear live, and non-Workspace groups could not change membership |
 | Workbench | Files, changes, Jobs, approval-gated terminal Session, browser observation/control, linked folders and machine routing | Workbench remains an expert surface; chat needs higher-level capability discovery and clearer action receipts for ordinary business users |
 | Governance | Module policies, participant checks, per-runtime agent grants, approval gates, delegated human identity, audit logs | Universal chat actions need a common authorization envelope so module-specific routes cannot drift |
@@ -180,6 +180,22 @@ No member receives an agent or capability merely from a text department value.
 An owner/admin reviews the recommended blueprint and the platform records the
 explicit per-agent/per-runtime grants.
 
+First role-blueprint slice implemented on `development`:
+
+- nine deterministic blueprints cover executive, sales, marketing, project
+  delivery, customer support, finance, People/HR, operations and general work;
+- the caller's canonical organisation-member department is matched first, then
+  job title, with a safe general fallback that requests better metadata;
+- each blueprint declares recommended agents, actual governed skill ids,
+  onboarding checks and outstanding specialist gaps;
+- `/api/v1/orgs/[orgId]/workforce-blueprint` returns only the authenticated
+  member's recommendation plus policy-version and skill-coverage evidence;
+- New conversation shows the tailored team, available/required count and
+  explicit setup gaps, sorts selectable recommendations first and never
+  auto-selects or grants an agent;
+- Finance and People/HR deliberately identify their missing dedicated
+  specialist instead of relabelling generalists as complete coverage.
+
 ### 5. Project and business execution from chat
 
 Messages becomes a command layer over canonical module services:
@@ -212,7 +228,8 @@ campaign, document, approval or finance engine.
 
 ### P1 — role-complete agent workforce
 
-1. Role blueprint schema and recommendation UI.
+1. Role blueprint schema and recommendation UI. Shipped in the New conversation
+   participant flow; owner provisioning and broader onboarding surfaces remain.
 2. People/HR and Finance agent templates plus safe skill packs.
 3. Owner approval and per-runtime provisioning.
 4. Readiness/drift checks visible in Messages.

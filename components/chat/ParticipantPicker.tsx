@@ -30,6 +30,23 @@ interface OrgContact {
   role: string
 }
 
+interface WorkforceBlueprintResponse {
+  matchSource: 'department' | 'job_title' | 'default'
+  member: { jobTitle: string | null; department: string | null }
+  blueprint: {
+    id: string
+    label: string
+    summary: string
+    recommendedAgentIds: string[]
+    specialistGaps: Array<{ id: string; label: string; reason: string }>
+  }
+  policyEvidence: {
+    policyReady: boolean
+  }
+  recommendationStatus: 'ready_for_owner_review'
+  requiresOwnerApproval: true
+}
+
 const AGENT_COLOR: Record<string, { dot: string; label: string; icon: string }> = {
   violet:  { dot: 'bg-violet-400', label: 'text-violet-300',  icon: 'text-violet-300' },
   sky:     { dot: 'bg-sky-400',    label: 'text-sky-300',     icon: 'text-sky-300' },
@@ -97,6 +114,7 @@ export default function ParticipantPicker({
 }: ParticipantPickerProps) {
   const [agents, setAgents] = useState<AgentTeamDoc[]>([])
   const [contacts, setContacts] = useState<OrgContact[]>([])
+  const [workforce, setWorkforce] = useState<WorkforceBlueprintResponse | null>(null)
   const [selected, setSelected] = useState<SelectedParticipant[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -108,12 +126,14 @@ export default function ParticipantPicker({
     setLoading(true)
     setError(null)
     setPeopleWarning(null)
+    setWorkforce(null)
 
     const agentsUrl = `/api/v1/orgs/${orgId}/visible-agents${
       runtimeTargetId ? `?runtimeTarget=${encodeURIComponent(runtimeTargetId)}` : ''
     }`
     // Prefer /people — some privacy filters block paths containing "contacts".
     const peopleUrl = `/api/v1/orgs/${orgId}/people`
+    const workforceUrl = `/api/v1/orgs/${orgId}/workforce-blueprint`
 
     async function loadAgents(): Promise<AgentTeamDoc[]> {
       if (!showAgents) return []
@@ -138,10 +158,18 @@ export default function ParticipantPicker({
       return Array.isArray(body.data) ? body.data as OrgContact[] : []
     }
 
+    async function loadWorkforce(): Promise<WorkforceBlueprintResponse | null> {
+      if (!showAgents) return null
+      const response = await fetch(workforceUrl)
+      const body = await readJsonResponse(response)
+      if (!response.ok || !body.data || typeof body.data !== 'object') return null
+      return body.data as WorkforceBlueprintResponse
+    }
+
     // Load independently so a people-list failure (or a privacy filter) cannot
     // hide agents that the caller is allowed to start a conversation with.
-    Promise.allSettled([loadAgents(), loadPeople()])
-      .then(([agentResult, peopleResult]) => {
+    Promise.allSettled([loadAgents(), loadPeople(), loadWorkforce()])
+      .then(([agentResult, peopleResult, workforceResult]) => {
         if (cancelled) return
 
         if (agentResult.status === 'fulfilled') {
@@ -159,6 +187,8 @@ export default function ParticipantPicker({
           // Soft-fail people so agents remain selectable.
           setPeopleWarning(formatLoadError(peopleResult.reason, 'Could not load people'))
         }
+
+        setWorkforce(workforceResult.status === 'fulfilled' ? workforceResult.value : null)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -173,6 +203,26 @@ export default function ParticipantPicker({
     () => filterAgentsByGate(agents, allowedAgentIds),
     [agents, allowedAgentIds],
   )
+  const recommendedAgentIds = useMemo(
+    () => new Set(workforce?.blueprint.recommendedAgentIds ?? []),
+    [workforce],
+  )
+  const orderedAgents = useMemo(() => {
+    const recommendedOrder = new Map(
+      (workforce?.blueprint.recommendedAgentIds ?? []).map((agentId, index) => [agentId, index]),
+    )
+    return visibleAgents
+      .map((agent, index) => ({ agent, index }))
+      .sort((left, right) => {
+        const leftOrder = recommendedOrder.get(left.agent.agentId)
+        const rightOrder = recommendedOrder.get(right.agent.agentId)
+        if (leftOrder != null && rightOrder != null) return leftOrder - rightOrder
+        if (leftOrder != null) return -1
+        if (rightOrder != null) return 1
+        return left.index - right.index
+      })
+      .map(({ agent }) => agent)
+  }, [visibleAgents, workforce])
 
   useEffect(() => {
     if (initialSelectionAppliedRef.current || loading) return
@@ -255,6 +305,12 @@ export default function ParticipantPicker({
 
   const showAgentSection = showAgents
   const agentsBlocked = showAgentSection && visibleAgents.length === 0 && Boolean(agentsUnavailableReason)
+  const recommendedAvailableCount = workforce
+    ? workforce.blueprint.recommendedAgentIds.filter((agentId) => visibleAgents.some((agent) => agent.agentId === agentId)).length
+    : 0
+  const recommendedMissingCount = workforce
+    ? Math.max(0, workforce.blueprint.recommendedAgentIds.length - recommendedAvailableCount)
+    : 0
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -301,6 +357,37 @@ export default function ParticipantPicker({
       {/* Agents section — after context + machine in the parent modal */}
       {showAgentSection && (
         <div>
+          {workforce && (
+            <div
+              data-testid="workforce-blueprint"
+              className="mb-3 rounded-xl border border-primary/20 bg-primary/[0.06] px-3 py-2.5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                <p className="text-xs font-semibold text-[var(--color-pib-text)]">
+                  Recommended for {workforce.blueprint.label}
+                </p>
+                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+                  {recommendedAvailableCount}/{workforce.blueprint.recommendedAgentIds.length} available here
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
+                {workforce.blueprint.summary}
+              </p>
+              {recommendedMissingCount > 0 && (
+                <p className="mt-1.5 text-[10px] text-amber-200">
+                  {recommendedMissingCount} recommended {recommendedMissingCount === 1 ? 'agent needs' : 'agents need'} an owner grant or ready runtime.
+                </p>
+              )}
+              {workforce.blueprint.specialistGaps.map((gap) => (
+                <p key={gap.id} className="mt-1.5 text-[10px] text-amber-200" title={gap.reason}>
+                  Gap: {gap.label} is not provisioned yet.
+                </p>
+              ))}
+              <p className="mt-1.5 text-[10px] text-[var(--color-pib-text-muted)]">
+                Recommendations do not change your access.
+              </p>
+            </div>
+          )}
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2 px-1">Agents</p>
           {agentsBlocked ? (
             <p data-testid="agents-unavailable-reason" className="px-1 text-xs text-[var(--color-pib-text-muted)]">
@@ -308,7 +395,7 @@ export default function ParticipantPicker({
             </p>
           ) : visibleAgents.length > 0 ? (
             <div className="space-y-1">
-              {visibleAgents.map((agent) => {
+              {orderedAgents.map((agent) => {
                 const isChecked = selected.some((s) => s.kind === 'agent' && s.agentId === agent.agentId)
                 const c = AGENT_COLOR[agent.colorKey] ?? AGENT_COLOR.violet
                 const disabled = !isChecked && selected.length >= MAX_SELECTIONS
@@ -338,7 +425,14 @@ export default function ParticipantPicker({
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${c.label}`}>{agent.name}</p>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <p className={`truncate text-sm font-medium ${c.label}`}>{agent.name}</p>
+                        {recommendedAgentIds.has(agent.agentId) && (
+                          <span className="shrink-0 rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                            Recommended
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{agent.role}</p>
                     </div>
                     {agent.lastHealthStatus && (

@@ -31,6 +31,28 @@ describe('ParticipantPicker runtime agent gate', () => {
           }),
         } as Response
       }
+      if (url.includes('/workforce-blueprint')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              matchSource: 'department',
+              member: { department: 'Project Delivery', jobTitle: 'Project Manager' },
+              blueprint: {
+                id: 'project_delivery',
+                label: 'Project delivery',
+                summary: 'Planning, implementation, quality assurance, and documentation.',
+                recommendedAgentIds: ['pip', 'theo', 'qa-release', 'docs'],
+                specialistGaps: [],
+              },
+              policyEvidence: { policyReady: true },
+              recommendationStatus: 'ready_for_owner_review',
+              requiresOwnerApproval: true,
+            },
+          }),
+        } as Response
+      }
       throw new Error(`Unexpected fetch: ${url}`)
     }) as typeof fetch
   })
@@ -118,6 +140,9 @@ describe('ParticipantPicker runtime agent gate', () => {
       if (url.includes('/people') || url.includes('/contacts')) {
         throw new TypeError('Failed to fetch')
       }
+      if (url.includes('/workforce-blueprint')) {
+        return { ok: false, status: 503, json: async () => ({ error: 'Unavailable' }) } as Response
+      }
       throw new Error(`Unexpected fetch: ${url}`)
     }) as typeof fetch
 
@@ -133,5 +158,23 @@ describe('ParticipantPicker runtime agent gate', () => {
     const urls = (global.fetch as jest.Mock).mock.calls.map((call) => String(call[0]))
     expect(urls.some((url) => url.includes('/people'))).toBe(true)
     expect(urls.some((url) => url.includes('/contacts'))).toBe(false)
+  })
+
+  it('shows role recommendations without auto-selecting or expanding access', async () => {
+    const onSelect = jest.fn()
+    render(<ParticipantPicker orgId="org-1" onSelect={onSelect} allowedAgentIds={['theo']} />)
+
+    const blueprint = await screen.findByTestId('workforce-blueprint')
+    expect(blueprint).toHaveTextContent('Recommended for Project delivery')
+    expect(blueprint).toHaveTextContent('1/4 available here')
+    expect(blueprint).toHaveTextContent('3 recommended agents need an owner grant or ready runtime')
+    expect(blueprint).toHaveTextContent('Recommendations do not change your access')
+    expect(screen.getByText('Theo')).toBeInTheDocument()
+    expect(screen.queryByText('Pip')).not.toBeInTheDocument()
+    expect(screen.getByText('Recommended')).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(onSelect).toHaveBeenLastCalledWith([])
+    })
   })
 })
