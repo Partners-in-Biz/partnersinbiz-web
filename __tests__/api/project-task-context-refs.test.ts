@@ -22,9 +22,11 @@ jest.mock('@/lib/firebase/admin', () => ({
     runTransaction: jest.fn(async (callback: (tx: {
       get: (ref: { get: () => unknown }) => unknown
       set: (ref: { set: (value: unknown) => unknown }, value: unknown) => unknown
+      update: (ref: unknown, value: unknown) => unknown
     }) => unknown) => callback({
       get: (ref) => ref.get(),
       set: (ref, value) => ref.set(value),
+      update: jest.fn(),
     })),
   },
 }))
@@ -55,6 +57,35 @@ jest.mock('@/lib/activity/log', () => ({
 
 jest.mock('@/lib/projects/planningDiscovery', () => ({
   planningMutationBlocker: jest.fn(() => null),
+  preparePlanningContextMutation: jest.fn(() => ({
+    ok: true,
+    state: { enforced: true, status: 'interviewing' },
+    event: { type: 'reopened' },
+  })),
+  applyPlanningDiscoveryAction: jest.fn(() => ({
+    ok: true,
+    state: { enforced: true, status: 'interviewing', revision: 1 },
+    event: { type: 'started' },
+  })),
+}))
+
+jest.mock('@/lib/projects/planningDiscoveryStore', () => ({
+  planningContextMutationTransition: jest.fn(() => ({
+    allowed: true,
+    state: { enforced: true, status: 'interviewing' },
+    event: { type: 'context_mutated' },
+  })),
+}))
+
+jest.mock('@/lib/projects/apply-task-llm', () => ({
+  applyTaskLlmCredentialResolution: jest.fn(async () => undefined),
+}))
+
+jest.mock('@/lib/api/actor', () => ({
+  actorFrom: (user: { uid: string }) => ({
+    createdBy: user.uid,
+    createdByType: 'user' as const,
+  }),
 }))
 
 beforeEach(() => {
@@ -91,6 +122,8 @@ beforeEach(() => {
       exists: true,
       data: () => ({ orgId: 'org-1', name: 'Launch Project' }),
     })),
+    set: jest.fn(),
+    update: jest.fn(),
   })
   mockNotificationAdd.mockResolvedValue({ id: 'notification-1' })
   mockUserDoc.mockReturnValue({
