@@ -11,6 +11,7 @@ let mockUser: {
   role: 'admin' | 'client' | 'ai'
   orgId?: string
   authKind?: 'session' | 'firebase' | 'agent_api_key' | 'user_delegation'
+  agentId?: string
 } = { uid: 'peet', role: 'admin', orgId: 'owner-org', authKind: 'session' }
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -75,6 +76,37 @@ describe('POST /api/v1/projects/[projectId]/planning-discovery', () => {
     const res = await POST(request({ type: 'confirm', expectedRevision: 3, expectedDigest: 'digest' }), {
       params: Promise.resolve({ projectId: 'project-1' }),
     })
+
+    expect(res.status).toBe(403)
+    expect(mockRunTransaction).not.toHaveBeenCalled()
+  })
+
+  it('allows only Pip to inspect, ask, or submit planning discovery', async () => {
+    mockUser = { uid: 'agent:theo', role: 'ai', orgId: 'owner-org', authKind: 'agent_api_key', agentId: 'theo' }
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/planning-discovery/route')
+    const res = await POST(request({
+      type: 'ask_question',
+      expectedRevision: 2,
+      question: 'Which outcome matters most for this implementation?',
+      currentGuess: 'Safe development delivery',
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockRunTransaction).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { uid: 'agent:pip', role: 'ai' as const, authKind: 'agent_api_key' as const, agentId: 'pip' },
+    { uid: 'peet', role: 'admin' as const, authKind: 'user_delegation' as const, agentId: 'pip' },
+  ])('requires a direct human to answer Pip for $authKind', async (user) => {
+    mockUser = { ...user, orgId: 'owner-org' }
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/planning-discovery/route')
+    const res = await POST(request({
+      type: 'answer_question',
+      expectedRevision: 2,
+      expectedQuestionId: 'q-2',
+      answer: 'Ship safely on development.',
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
 
     expect(res.status).toBe(403)
     expect(mockRunTransaction).not.toHaveBeenCalled()

@@ -4,6 +4,10 @@ import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiUser } from '@/lib/api/types'
 import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { adminDb } from '@/lib/firebase/admin'
+import {
+  canMutateLinkedProjectPlanning,
+  planningContextMutationTransition,
+} from '@/lib/projects/planningDiscoveryStore'
 
 import { serializeBlocksForFirestore } from './firestore-blocks'
 import { createBlocksFromTemplate, getClientDocumentTemplate } from './templates'
@@ -35,6 +39,39 @@ type AssumptionInput = {
   text: string
   severity?: DocumentAssumption['severity']
   blockId?: string
+}
+
+type PlanningBlockerDetails = {
+  code: 'planning_discovery_required'
+  message: string
+  revision: number
+}
+
+export class ClientDocumentPlanningError extends Error {
+  readonly status = 409
+  readonly details: PlanningBlockerDetails
+
+  constructor(details: PlanningBlockerDetails) {
+    super(details.message)
+    this.name = 'ClientDocumentPlanningError'
+    this.details = details
+  }
+}
+
+export class ClientDocumentProjectAccessError extends Error {
+  readonly status = 403
+  readonly details = { code: 'project_access_denied' as const }
+
+  constructor() {
+    super('Linked project is not accessible')
+    this.name = 'ClientDocumentProjectAccessError'
+  }
+}
+
+export function isClientDocumentMutationError(
+  error: unknown,
+): error is ClientDocumentPlanningError | ClientDocumentProjectAccessError {
+  return error instanceof ClientDocumentPlanningError || error instanceof ClientDocumentProjectAccessError
 }
 
 function actorType(user: ApiUser): DocumentActorType {
@@ -69,6 +106,13 @@ function normalizeLinked(linked: ClientDocumentLinkSet | undefined): ClientDocum
   return withoutUndefined(linked ?? {}) as ClientDocumentLinkSet
 }
 
+function linkedProjectIds(linked: ClientDocumentLinkSet | undefined): string[] {
+  return Array.from(new Set([
+    ...(typeof linked?.projectId === 'string' ? [linked.projectId] : []),
+    ...(Array.isArray(linked?.projectIds) ? linked.projectIds : []),
+  ].map((id) => id.trim()).filter(Boolean)))
+}
+
 export async function createClientDocument(input: {
   title: string
   type: ClientDocumentType
@@ -87,7 +131,6 @@ export async function createClientDocument(input: {
   const template = getClientDocumentTemplate(input.type)
   const documentRef = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc()
   const versionRef = documentRef.collection('versions').doc()
-  const batch = adminDb.batch()
   const shareToken = randomBytes(12).toString('hex')
   const inputActorType = actorType(input.user)
   const createdActor = actorFrom(input.user)
@@ -128,9 +171,83 @@ export async function createClientDocument(input: {
     changeSummary: 'Initial draft',
   }
 
-  batch.set(documentRef, document)
-  batch.set(versionRef, version)
-  await batch.commit()
+  const projectIds = linkedProjectIds(document.linked)
+  if (projectIds.length === 0) {
+    const batch = adminDb.batch()
+    batch.set(documentRef, document)
+    batch.set(versionRef, version)
+    await batch.commit()
+  } else {
+    const projectRefs = projectIds.map((projectId) => adminDb.collection('projects').doc(projectId))
+    const eventRefs = projectRefs.map((projectRef) => projectRef.collection('planningDiscoveryEvents').doc())
+    const nowIso = new Date().toISOString()
+    const result = await adminDb.runTransaction(async (transaction) => {
+      const projectSnapshots = await Promise.all(projectRefs.map((projectRef) => transaction.get(projectRef)))
+      const projects = projectSnapshots.map((snapshot) => snapshot.exists
+        ? (snapshot.data() ?? {}) as Record<string, unknown>
+        : null)
+      if (projects.some((project) => !project || !canMutateLinkedProjectPlanning(project, input.user, input.orgId))) {
+        return { ok: false as const, accessDenied: true as const }
+      }
+
+      const transitions = projects.map((project) => {
+        const accessibleProject = project as Record<string, unknown>
+        return {
+          project: accessibleProject,
+          transition: planningContextMutationTransition(accessibleProject, {
+            uid: input.user.uid,
+            now: nowIso,
+            reason: 'client_document.created',
+          }),
+        }
+      })
+      const blocked = transitions.find(({ transition }) => !transition.allowed)
+
+      if (blocked && !blocked.transition.allowed) {
+        transitions.forEach(({ project, transition }, index) => {
+          if (!transition.allowed && transition.state) {
+            transaction.update(projectRefs[index], {
+              planningDiscovery: transition.state,
+              updatedAt: FieldValue.serverTimestamp(),
+            })
+            if (transition.event) {
+              transaction.set(eventRefs[index], {
+                ...transition.event,
+                projectId: projectIds[index],
+                orgId: project.orgId ?? null,
+                schemaVersion: 1,
+                reason: 'client_document.created',
+              })
+            }
+          }
+        })
+        return { ok: false as const, blocker: blocked.transition.blocker }
+      }
+
+      transaction.set(documentRef, document)
+      transaction.set(versionRef, version)
+      transitions.forEach(({ project, transition }, index) => {
+        if (!transition.allowed) return
+        transaction.update(projectRefs[index], {
+          planningDiscovery: transition.state,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        transaction.set(eventRefs[index], {
+          ...transition.event,
+          projectId: projectIds[index],
+          orgId: project.orgId ?? null,
+          schemaVersion: 1,
+          reason: 'client_document.created',
+        })
+      })
+      return { ok: true as const }
+    })
+
+    if (!result.ok) {
+      if ('accessDenied' in result) throw new ClientDocumentProjectAccessError()
+      throw new ClientDocumentPlanningError(result.blocker)
+    }
+  }
 
   return { id: documentRef.id, versionId: versionRef.id, shareToken }
 }

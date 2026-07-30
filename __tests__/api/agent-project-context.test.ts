@@ -175,10 +175,45 @@ describe('GET /api/v1/agent/project/[projectId]', () => {
     })
 
     expect(res.status).toBe(200)
-    expect(mockGetProjectForUser).toHaveBeenCalledWith('project-1', expect.any(Object), 'org-active')
+    expect(mockGetProjectForUser).toHaveBeenCalledWith('project-1', expect.objectContaining({
+      orgId: 'org-active',
+      activeOrgId: 'org-active',
+      orgIds: ['org-active'],
+      allowedOrgIds: ['org-active'],
+    }), 'org-active')
     expect(mockLoadAgentProjectPlan).toHaveBeenCalledWith(expect.objectContaining({
       projectId: 'project-1',
       activeOrgId: 'org-active',
+      user: expect.objectContaining({
+        orgId: 'org-active',
+        activeOrgId: 'org-active',
+        orgIds: ['org-active'],
+        allowedOrgIds: ['org-active'],
+      }),
+    }))
+  })
+
+  it('clamps owner access and hides owner-only documents when the active organisation is a recipient', async () => {
+    mockTasksGet.mockResolvedValue({ docs: [] })
+    mockDocsGet.mockResolvedValue({
+      docs: [
+        { id: 'owner-doc', data: () => ({ title: 'Owner plan', visibility: 'internal', allowedOrgIds: ['org-1'] }) },
+        { id: 'recipient-doc', data: () => ({ title: 'Recipient plan', visibility: 'project', allowedOrgIds: ['org-active'] }) },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/agent/project/[projectId]/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/agent/project/project-1', {
+      headers: { 'x-org-id': 'org-active' },
+    }), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.documents).toEqual([expect.objectContaining({ id: 'recipient-doc', title: 'Recipient plan' })])
+    expect(mockLoadAgentProjectPlan).toHaveBeenCalledWith(expect.objectContaining({
+      projectAccess: expect.objectContaining({ role: 'contributor', canViewInternal: false }),
     }))
   })
 })

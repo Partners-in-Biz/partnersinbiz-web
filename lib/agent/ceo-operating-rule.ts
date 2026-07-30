@@ -24,7 +24,7 @@ export function buildCeoDataDecisionOperatingRuleLines(input: {
     line('Create temporary throw-away HTML only when useful for the answer.'),
     line('4. Temporary throw-away HTML is allowed only for a named one-off question where visual comparison materially improves the answer; the CEO-readable answer, evidence, recommendation, and next actions must still be returned in Messages.'),
     line('Temporary HTML is allowed only as a throw-away linked/attached artifact inside the chat thread; never make it the only place where the answer lives.'),
-    line('Return the evidence, decision, reusable workflow, next actions, and safety readback in the dynamic Messages window.'),
+    line('Return the decision first, followed by evidence, reusable workflow, next actions, and safety readback in the dynamic Messages window.'),
     line('If CEO approval is needed, return a structured approval_card rich part; do not bury the decision in Markdown.'),
     line('Return the decision, evidence, reusable workflow, and next actions in this dynamic chat window.'),
     line('5. Return the decision, evidence, reusable workflow, next actions, and safety readback in this dynamic chat window.'),

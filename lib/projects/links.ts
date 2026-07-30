@@ -1,4 +1,5 @@
 import type { Firestore } from 'firebase-admin/firestore'
+import { portalProjectTaskLink } from '@/lib/notifications/task-links'
 
 export async function resolveOrgSlugForLink(db: Firestore, orgId: string): Promise<string | null> {
   const cleanOrgId = orgId.trim()
@@ -34,4 +35,9 @@ export async function adminProjectTaskLink(args: {
   }
 
   return `/admin/projects?projectId=${encodedProjectId}&taskId=${encodedTaskId}`
+}
+
+/** Portal deep-link into a project task drawer. */
+export function portalProjectTaskHref(projectId: string, taskId: string): string {
+  return portalProjectTaskLink(projectId, taskId)
 }

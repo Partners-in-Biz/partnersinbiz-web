@@ -80,7 +80,8 @@ export function MessageDrawer({
           setOpen((value) => !value)
         }}
         disabled={disabled}
-        title={disabled ? disabledReason ?? 'Select a workspace first' : open ? 'Close messages' : 'Open messages'}
+        data-tip={disabled ? disabledReason ?? 'Select a workspace first' : open ? 'Close messages' : 'Open messages'}
+        data-tip-side="bottom"
         aria-label={open ? 'Close messages' : 'Open messages'}
         aria-pressed={open}
         className={[

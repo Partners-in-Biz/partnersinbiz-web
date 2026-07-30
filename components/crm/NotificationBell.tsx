@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import type { Notification } from '@/lib/notifications/types'
+import { preferTaskNotificationHref } from '@/lib/notifications/task-links'
 import { fmtTimestamp } from '@/lib/format/timestamp'
 
 type NotificationWithId = Notification & { id: string }
@@ -22,6 +24,14 @@ function notifIcon(type: string): string {
   return TYPE_ICONS[type] ?? 'notifications'
 }
 
+function displayHref(n: NotificationWithId, mode: 'crm' | 'admin'): string | null {
+  return preferTaskNotificationHref({
+    link: n.link,
+    data: n.data,
+    surface: mode === 'admin' ? 'admin' : 'portal',
+  })
+}
+
 interface NotificationBellProps {
   mode?: 'crm' | 'admin'
   orgId?: string
@@ -29,11 +39,13 @@ interface NotificationBellProps {
 }
 
 export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBellProps = {}) {
+  const router = useRouter()
   const [notifications, setNotifications] = useState<NotificationWithId[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [markingRead, setMarkingRead] = useState(false)
+  const [openingId, setOpeningId] = useState<string | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -110,12 +122,59 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
     }
   }
 
+  function markLocalRead(id: string) {
+    setNotifications(prev => prev.map(item => (
+      item.id === id && item.status === 'unread'
+        ? { ...item, status: 'read' as const }
+        : item
+    )))
+    setUnreadCount(prev => Math.max(0, prev - 1))
+  }
+
+  async function openNotification(n: NotificationWithId) {
+    if (openingId) return
+    setOpeningId(n.id)
+
+    const wasUnread = n.status === 'unread'
+    if (wasUnread) markLocalRead(n.id)
+
+    const fallbackHref = displayHref(n, mode) || n.link || null
+    let href = fallbackHref
+
+    try {
+      const endpoint = mode === 'admin'
+        ? `/api/v1/notifications/${encodeURIComponent(n.id)}/open`
+        : `/api/v1/crm/notifications/${encodeURIComponent(n.id)}/open`
+      const res = await fetch(endpoint, { method: 'POST' })
+      if (res.ok) {
+        const body = await res.json() as { data?: { href?: string | null } }
+        if (typeof body.data?.href === 'string' && body.data.href.trim()) {
+          href = body.data.href.trim()
+        }
+      }
+    } catch {
+      // navigate with fallback even if mark/open fails
+    } finally {
+      setOpeningId(null)
+      setOpen(false)
+    }
+
+    if (href) {
+      if (href.startsWith('http://') || href.startsWith('https://')) {
+        window.location.assign(href)
+      } else {
+        router.push(href)
+      }
+    }
+  }
+
   return (
     <div ref={containerRef} className="relative">
       {/* Bell button */}
       <button
         onClick={togglePanel}
-        title="Notifications"
+        data-tip={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+        data-tip-side="bottom"
         className="relative flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
         aria-label="Open notifications"
       >
@@ -186,10 +245,12 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
               </div>
             ) : (
               notifications.map(n => {
+                const href = displayHref(n, mode) || n.link
                 const rowClassName = [
                   'flex items-start gap-2.5 px-3 py-2 border-b border-[var(--color-card-border)] last:border-0 transition-colors text-left w-full',
                   n.status === 'unread' ? 'bg-primary/10' : 'hover:bg-white/[0.02]',
-                  n.link ? 'cursor-pointer hover:bg-white/[0.04]' : '',
+                  href ? 'cursor-pointer hover:bg-white/[0.04]' : '',
+                  openingId === n.id ? 'opacity-70' : '',
                 ].join(' ')
                 const content = (
                   <>
@@ -215,14 +276,36 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
                   </>
                 )
 
-                return n.link ? (
-                  <a key={n.id} href={n.link} className={rowClassName}>
+                return href ? (
+                  <button
+                    key={n.id}
+                    type="button"
+                    className={rowClassName}
+                    disabled={openingId === n.id}
+                    onClick={() => void openNotification(n)}
+                  >
                     {content}
-                  </a>
+                  </button>
                 ) : (
-                  <div key={n.id} className={rowClassName}>
+                  <button
+                    key={n.id}
+                    type="button"
+                    className={rowClassName}
+                    disabled={openingId === n.id}
+                    onClick={() => {
+                      if (n.status === 'unread') {
+                        markLocalRead(n.id)
+                        void fetch(
+                          mode === 'admin'
+                            ? `/api/v1/notifications/${encodeURIComponent(n.id)}/open`
+                            : `/api/v1/crm/notifications/${encodeURIComponent(n.id)}/open`,
+                          { method: 'POST' },
+                        ).catch(() => {})
+                      }
+                    }}
+                  >
                     {content}
-                  </div>
+                  </button>
                 )
               })
             )}

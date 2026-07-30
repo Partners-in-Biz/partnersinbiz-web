@@ -211,7 +211,7 @@ describe('ProjectSuitePanel', () => {
             assigneeAgentId: 'theo',
             agentInput: { spec: 'Run the approved weekly launch step.' },
             dependsOnStepIds: [],
-            requiredCapability: 'project-management',
+            requiredCapability: 'engineering',
             riskLevel: 'medium',
             reviewerAgentId: 'qa-release',
             expectedArtifacts: ['Completion summary', 'Evidence links'],
@@ -259,7 +259,7 @@ describe('ProjectSuitePanel', () => {
     fireEvent.change(screen.getByLabelText('Template steps'), { target: { value: 'Kickoff, QA, Client signoff' } })
     fireEvent.change(screen.getByLabelText('Common assignee agent'), { target: { value: 'maya' } })
     fireEvent.change(screen.getByLabelText('Agent task specification'), { target: { value: 'Execute each launch step using the approved project brief.' } })
-    fireEvent.change(screen.getByLabelText('Required capability'), { target: { value: 'project-delivery' } })
+    fireEvent.change(screen.getByLabelText('Required capability'), { target: { value: 'content' } })
     fireEvent.change(screen.getByLabelText('Risk level'), { target: { value: 'high' } })
     fireEvent.change(screen.getByLabelText('Reviewer agent'), { target: { value: 'qa-release' } })
     fireEvent.change(screen.getByLabelText('Expected artifacts'), { target: { value: 'completion summary, evidence links' } })
@@ -300,7 +300,7 @@ describe('ProjectSuitePanel', () => {
               assigneeAgentId: 'maya',
               agentInput: { spec: 'Execute each launch step using the approved project brief.' },
               dependsOnStepIds: [],
-              requiredCapability: 'project-delivery',
+              requiredCapability: 'content',
               riskLevel: 'high',
               reviewerAgentId: 'qa-release',
               expectedArtifacts: ['completion summary', 'evidence links'],
@@ -315,7 +315,7 @@ describe('ProjectSuitePanel', () => {
               assigneeAgentId: 'maya',
               agentInput: { spec: 'Execute each launch step using the approved project brief.' },
               dependsOnStepIds: ['step-1'],
-              requiredCapability: 'project-delivery',
+              requiredCapability: 'content',
               riskLevel: 'high',
               reviewerAgentId: 'qa-release',
               expectedArtifacts: ['completion summary', 'evidence links'],
@@ -330,7 +330,7 @@ describe('ProjectSuitePanel', () => {
               assigneeAgentId: 'maya',
               agentInput: { spec: 'Execute each launch step using the approved project brief.' },
               dependsOnStepIds: ['step-2'],
-              requiredCapability: 'project-delivery',
+              requiredCapability: 'content',
               riskLevel: 'high',
               reviewerAgentId: 'qa-release',
               expectedArtifacts: ['completion summary', 'evidence links'],
@@ -476,6 +476,74 @@ describe('ProjectSuitePanel', () => {
         brief,
       }),
     })))
+  })
+
+  it('shows Pip’s one pending question and submits the direct human answer', async () => {
+    currentSuiteResponse = suiteResponse({
+      planningDiscovery: {
+        revision: 3,
+        status: 'interviewing',
+        mode: 'interview',
+        pendingQuestionId: 'q-3',
+        turns: [{
+          id: 'q-3',
+          question: 'Which outcome matters most for this release?',
+          currentGuess: 'A safe development-only implementation',
+          askedBy: 'agent:pip',
+          askedAt: '2026-07-27T00:00:00.000Z',
+        }],
+      },
+    })
+
+    render(<ProjectSuitePanel projectId="project-1" />)
+    await waitFor(() => expect(screen.getByText('Which outcome matters most for this release?')).toBeInTheDocument())
+    expect(screen.getByText('A safe development-only implementation')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Planning answer'), { target: { value: 'Ship the approved workflow safely on development.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Answer Pip' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/v1/projects/project-1/planning-discovery', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'answer_question',
+        expectedRevision: 3,
+        expectedQuestionId: 'q-3',
+        answer: 'Ship the approved workflow safely on development.',
+      }),
+    })))
+  })
+
+  it('preserves the unsaved Pip interview answer when the revision conflicts', async () => {
+    currentSuiteResponse = suiteResponse({
+      planningDiscovery: {
+        revision: 3,
+        status: 'interviewing',
+        mode: 'interview',
+        pendingQuestionId: 'q-3',
+        turns: [{
+          id: 'q-3',
+          question: 'Which outcome matters most for this release?',
+          currentGuess: 'A safe development-only implementation',
+          askedBy: 'agent:pip',
+          askedAt: '2026-07-27T00:00:00.000Z',
+        }],
+      },
+    })
+    const baseFetch = global.fetch as jest.Mock
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/projects/project-1/planning-discovery') {
+        return { ok: false, status: 409, json: async () => ({ error: 'Planning discovery revision is stale' }) } as Response
+      }
+      return baseFetch(input, init)
+    }) as jest.Mock
+
+    render(<ProjectSuitePanel projectId="project-1" />)
+    await waitFor(() => expect(screen.getByText('Which outcome matters most for this release?')).toBeInTheDocument())
+    const input = screen.getByLabelText('Planning answer')
+    fireEvent.change(input, { target: { value: 'Keep this answer after the conflict.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Answer Pip' }))
+
+    await waitFor(() => expect(screen.getByText('Planning discovery revision is stale')).toBeInTheDocument())
+    expect(input).toHaveValue('Keep this answer after the conflict.')
   })
 
   it('archives suite control records from the Plan lists', async () => {
@@ -684,7 +752,7 @@ describe('ProjectSuitePanel', () => {
     }
   })
 
-  it('prevents polling and post-mutation refreshes from overlapping the initial Plan request', async () => {
+  it('queues one post-mutation refresh behind the initial Plan request without overlapping it', async () => {
     jest.useFakeTimers()
     const initial = deferred<Response>()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -714,7 +782,10 @@ describe('ProjectSuitePanel', () => {
         initial.resolve(suiteFetchResponse(suiteResponse()))
         await initial.promise
         await Promise.resolve()
+        await Promise.resolve()
       })
+      const refreshedSuiteGets = (global.fetch as jest.Mock).mock.calls.filter(([url, init]) => String(url).endsWith('/suite') && (!init || !init.method || init.method === 'GET'))
+      expect(refreshedSuiteGets).toHaveLength(2)
     } finally {
       jest.useRealTimers()
     }

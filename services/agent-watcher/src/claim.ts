@@ -52,7 +52,7 @@ export async function claimTask(taskRef: DocumentReference, expectedAgentId: str
         const projectSnap = await tx.get(projectRef)
         if (!projectSnap.exists) return false
         const discovery = projectSnap.data()?.planningDiscovery
-        if (discovery?.enforced === true && !isWatcherPlanningReady(discovery)) return false
+        if (!isWatcherPlanningReady(discovery)) return false
       }
 
       const dependsOn = Array.isArray(data.dependsOn) ? data.dependsOn.filter((id): id is string => typeof id === 'string') : []

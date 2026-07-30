@@ -7,6 +7,7 @@ import { canProjectRole } from '@/lib/projects/collaboration'
 import {
   applyPlanningDiscoveryAction,
   isPlanningDiscoveryActionType,
+  type PlanningAction,
   type PlanningDiscoveryState,
 } from '@/lib/projects/planningDiscovery'
 import { handoffPlanningConfirmFromDiscovery } from '@/lib/messages/planningConfirmHandoff'
@@ -14,6 +15,24 @@ import { handoffPlanningConfirmFromDiscovery } from '@/lib/messages/planningConf
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ projectId: string }> }
+
+const PIP_INTERVIEW_ACTIONS = new Set<PlanningAction['type']>([
+  'record_inspection',
+  'ask_question',
+  'surface_brief',
+  'submit_brief',
+])
+
+function isDirectHuman(user: Parameters<typeof getProjectForUser>[1]): boolean {
+  return user.role !== 'ai'
+    && user.authKind !== 'agent_api_key'
+    && user.authKind !== 'legacy_ai_key'
+    && user.authKind !== 'user_delegation'
+}
+
+function isPipAgent(user: Parameters<typeof getProjectForUser>[1]): boolean {
+  return user.role === 'ai' && user.agentId === 'pip'
+}
 
 function publicSummary(value: unknown) {
   if (!value || typeof value !== 'object') return null
@@ -101,8 +120,17 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   }
 
   if (!isPlanningDiscoveryActionType(action.type)) return apiError('Unknown planning discovery action', 400)
+  if (PIP_INTERVIEW_ACTIONS.has(action.type) && !isPipAgent(user)) {
+    return apiError('Pip is required to inspect, interview, and prepare the Decision Brief', 403)
+  }
+  if (action.type === 'start' && !isPipAgent(user) && !isDirectHuman(user)) {
+    return apiError('Only Pip or a direct human project manager can start planning discovery', 403)
+  }
+  if (action.type === 'answer_question' && !isDirectHuman(user)) {
+    return apiError('A direct human answer is required for Pip’s planning question', 403)
+  }
   const terminalHumanActions = new Set(['confirm', 'plan_with_assumptions', 'reopen'])
-  if (terminalHumanActions.has(action.type) && (user.role === 'ai' || user.authKind === 'user_delegation')) {
+  if (terminalHumanActions.has(action.type) && !isDirectHuman(user)) {
     return apiError('A direct human project manager must confirm, reopen, or attest the Decision Brief', 403)
   }
 
@@ -121,9 +149,10 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
       if (!transition.ok) return transition
       tx.update(projectRef, { planningDiscovery: transition.state, updatedAt: new Date() })
       if (transition.state.brief && transition.state.digest) {
-        tx.set(projectRef.collection('decisionBriefs').doc(transition.state.digest), {
+        tx.set(projectRef.collection('decisionBriefs').doc(`${transition.state.revision}-${transition.state.digest}`), {
           projectId,
           orgId: project.orgId ?? null,
+          version: transition.state.revision,
           digest: transition.state.digest,
           revision: transition.state.revision,
           status: transition.state.status,
@@ -140,7 +169,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
           acknowledgesPreservedOperationalGates: transition.state.acknowledgesPreservedOperationalGates === true,
           updatedBy: user.uid,
           updatedAt: new Date(),
-        }, { merge: true })
+        })
       }
       tx.set(eventRef, {
         ...transition.event,

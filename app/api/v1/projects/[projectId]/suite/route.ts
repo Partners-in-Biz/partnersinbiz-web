@@ -5,7 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
 import { normalizeProjectPlaybookTemplate, runProjectPlaybookTemplate, validateProjectPlaybookTemplate } from '@/lib/projects/playbooks'
-import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
+import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 import {
   buildProjectHealth,
   buildProjectReports,
@@ -68,18 +68,50 @@ const MANAGER_SUITE_TYPES = new Set<SuiteType>([
   'revenue',
 ])
 
-const PLANNING_GATED_SUITE_TYPES = new Set<SuiteType>([
+const PLANNING_SENSITIVE_TYPES = new Set<SuiteType>([
   'milestone',
+  'approval',
+  'risk',
+  'decision',
   'baseline',
   'playbook',
   'automation',
+  'permission',
   'notification',
   'capacity',
   'revenue',
 ])
 
+function applyPlanningMutation(
+  tx: FirebaseFirestore.Transaction,
+  projectRef: FirebaseFirestore.DocumentReference,
+  projectId: string,
+  project: Record<string, unknown>,
+  actorUid: string,
+  reason: string,
+) {
+  const transition = planningContextMutationTransition(project, {
+    uid: actorUid,
+    now: new Date().toISOString(),
+    reason,
+  })
+  if (transition.state) {
+    tx.update(projectRef, { planningDiscovery: transition.state, updatedAt: FieldValue.serverTimestamp() })
+  }
+  if (transition.event) {
+    tx.set(projectRef.collection('planningDiscoveryEvents').doc(), {
+      ...transition.event,
+      projectId,
+      orgId: project.orgId ?? null,
+      schemaVersion: 1,
+      reason,
+    })
+  }
+  return transition
+}
+
 function suiteMutationRequiresPlanning(type: SuiteType): boolean {
-  return PLANNING_GATED_SUITE_TYPES.has(type)
+  return PLANNING_SENSITIVE_TYPES.has(type)
 }
 
 function cleanString(value: unknown): string {
@@ -565,8 +597,9 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     if (planningSensitive) {
       const liveProject = await tx.get(projectRef)
       if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
-      const blocker = planningMutationBlocker((liveProject.data() ?? {}) as Record<string, unknown>)
-      if (blocker) return { ok: false as const, status: 409, error: blocker.message, details: blocker }
+      const project = (liveProject.data() ?? {}) as Record<string, unknown>
+      const planning = applyPlanningMutation(tx, projectRef, projectId, project, user.uid, `project_suite.${type}.created`)
+      if (!planning.allowed) return { ok: false as const, status: 409, error: planning.blocker.message, details: planning.blocker }
     }
     tx.set(ref, toWrite)
     return { ok: true as const }
@@ -617,14 +650,18 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!doc.exists) return apiError('Suite record not found', 404)
   const projectRef = adminDb.collection('projects').doc(projectId)
   const mutation = await adminDb.runTransaction(async (tx) => {
+    let liveProject: FirebaseFirestore.DocumentSnapshot | null = null
     if (planningSensitive) {
-      const liveProject = await tx.get(projectRef)
+      liveProject = await tx.get(projectRef)
       if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
-      const blocker = planningMutationBlocker((liveProject.data() ?? {}) as Record<string, unknown>)
-      if (blocker) return { ok: false as const, status: 409, error: blocker.message, details: blocker }
     }
     const liveRecord = await tx.get(ref)
     if (!liveRecord.exists) return { ok: false as const, status: 404, error: 'Suite record not found' }
+    if (liveProject) {
+      const project = (liveProject.data() ?? {}) as Record<string, unknown>
+      const planning = applyPlanningMutation(tx, projectRef, projectId, project, user.uid, `project_suite.${type}.updated`)
+      if (!planning.allowed) return { ok: false as const, status: 409, error: planning.blocker.message, details: planning.blocker }
+    }
     tx.update(ref, updates.value)
     return { ok: true as const }
   })
@@ -682,14 +719,18 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   }
   const projectRef = adminDb.collection('projects').doc(projectId)
   const mutation = await adminDb.runTransaction(async (tx) => {
+    let liveProject: FirebaseFirestore.DocumentSnapshot | null = null
     if (planningSensitive) {
-      const liveProject = await tx.get(projectRef)
+      liveProject = await tx.get(projectRef)
       if (!liveProject.exists) return { ok: false as const, status: 404, error: 'Project not found' }
-      const blocker = planningMutationBlocker((liveProject.data() ?? {}) as Record<string, unknown>)
-      if (blocker) return { ok: false as const, status: 409, error: blocker.message, details: blocker }
     }
     const liveRecord = await tx.get(ref)
     if (!liveRecord.exists) return { ok: false as const, status: 404, error: 'Suite record not found' }
+    if (liveProject) {
+      const project = (liveProject.data() ?? {}) as Record<string, unknown>
+      const planning = applyPlanningMutation(tx, projectRef, projectId, project, user.uid, `project_suite.${type}.archived`)
+      if (!planning.allowed) return { ok: false as const, status: 409, error: planning.blocker.message, details: planning.blocker }
+    }
     tx.update(ref, archiveValue)
     return { ok: true as const }
   })

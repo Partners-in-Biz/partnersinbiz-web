@@ -86,6 +86,7 @@ type PlanningInterviewTurn = {
   question?: string
   currentGuess?: string
   answer?: string
+  askedBy?: string
   askedAt?: string
   answeredAt?: string
 }
@@ -604,7 +605,7 @@ function ControlForms({
   const [playbookTemplateSteps, setPlaybookTemplateSteps] = useState('')
   const [playbookAssigneeAgentId, setPlaybookAssigneeAgentId] = useState('theo')
   const [playbookAgentSpec, setPlaybookAgentSpec] = useState('')
-  const [playbookRequiredCapability, setPlaybookRequiredCapability] = useState('project-management')
+  const [playbookRequiredCapability, setPlaybookRequiredCapability] = useState('engineering')
   const [playbookRiskLevel, setPlaybookRiskLevel] = useState('medium')
   const [playbookReviewerAgentId, setPlaybookReviewerAgentId] = useState('qa-release')
   const [playbookExpectedArtifacts, setPlaybookExpectedArtifacts] = useState('Completion summary, Evidence links')
@@ -758,7 +759,17 @@ function ControlForms({
             </label>
             <label className="mt-2 block">
               <span className="mb-1 block pib-label">Required capability</span>
-              <input value={playbookRequiredCapability} onChange={(event) => setPlaybookRequiredCapability(event.target.value)} className="pib-input" />
+              <select value={playbookRequiredCapability} onChange={(event) => setPlaybookRequiredCapability(event.target.value)} className="pib-input">
+                <option value="engineering">engineering</option>
+                <option value="platform-engineering">platform engineering</option>
+                <option value="platform-ops">platform operations</option>
+                <option value="content">content</option>
+                <option value="research">research</option>
+                <option value="seo">SEO</option>
+                <option value="client_document">client documents</option>
+                <option value="qa">quality assurance</option>
+                <option value="coordination">coordination</option>
+              </select>
             </label>
             <label className="mt-2 block">
               <span className="mb-1 block pib-label">Risk level</span>
@@ -1283,7 +1294,7 @@ function PlanningDiscoveryPanel({
 }: {
   state: SuiteData['planningDiscovery']
   saving: boolean
-  onAction: (action: Record<string, unknown>) => Promise<void>
+  onAction: (action: Record<string, unknown>) => Promise<boolean>
 }) {
   const [attestation, setAttestation] = useState('')
   const [reason, setReason] = useState('')
@@ -1351,7 +1362,7 @@ function PlanningDiscoveryPanel({
         </div>
       )}
 
-      {pendingTurn?.id && (
+      {pendingTurn?.id && !pendingTurn.askedBy && (
         <div
           className="mt-4 rounded-xl border border-[var(--color-pib-amber)]/25 bg-[var(--color-pib-surface)] p-3"
           data-testid="planning-answer-form"
@@ -1437,6 +1448,43 @@ function PlanningDiscoveryPanel({
         </div>
       )}
 
+      {pendingTurn?.question && pendingTurn.askedBy && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-white p-4 text-sm">
+          <p className="pib-label">Pip’s current question</p>
+          <p className="mt-2 font-semibold text-[var(--color-pib-text)]">{pendingTurn.question}</p>
+          {pendingTurn.currentGuess && (
+            <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
+              Current guess: <span className="font-medium text-[var(--color-pib-text)]">{pendingTurn.currentGuess}</span>
+            </p>
+          )}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              aria-label="Planning answer"
+              className="pib-input flex-1"
+              value={answer}
+              onChange={(event) => setAnswer(event.target.value)}
+              placeholder="Answer this question directly"
+            />
+            <button
+              type="button"
+              className="pib-btn-primary"
+              disabled={saving || answer.trim().length === 0}
+              onClick={async () => {
+                const submitted = await onAction({
+                  type: 'answer_question',
+                  expectedRevision: revision,
+                  expectedQuestionId: state?.pendingQuestionId,
+                  answer: answer.trim(),
+                })
+                if (submitted) setAnswer('')
+              }}
+            >
+              Answer Pip
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mt-4 flex flex-wrap gap-2">
         {!state && <button className="pib-btn-primary" disabled={saving} onClick={() => onAction({ type: 'start' })}>Start interview-first planning</button>}
         {state?.status === 'brief_ready' && state.digest && (
@@ -1484,6 +1532,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null)
   const requestSequenceRef = useRef(0)
   const loadInFlightProjectsRef = useRef(new Set<string>())
+  const queuedRefreshProjectsRef = useRef(new Set<string>())
 
   const health = data.health ?? {}
   const score = typeof health.score === 'number' ? health.score : 100
@@ -1500,7 +1549,10 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
   )
 
   const loadSuite = useCallback(async (options?: { quiet?: boolean; poll?: boolean; signal?: AbortSignal }) => {
-    if (loadInFlightProjectsRef.current.has(projectId)) return
+    if (loadInFlightProjectsRef.current.has(projectId)) {
+      queuedRefreshProjectsRef.current.add(projectId)
+      return
+    }
     loadInFlightProjectsRef.current.add(projectId)
     const requestSequence = ++requestSequenceRef.current
     if (!options?.quiet) setLoading(true)
@@ -1547,6 +1599,9 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
     } finally {
       loadInFlightProjectsRef.current.delete(projectId)
       if (requestSequence === requestSequenceRef.current && !options?.quiet) setLoading(false)
+      if (queuedRefreshProjectsRef.current.delete(projectId) && document.visibilityState === 'visible') {
+        loadSuite({ quiet: true }).catch(() => {})
+      }
     }
   }, [projectId])
 
@@ -1560,6 +1615,7 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
     document.addEventListener('visibilitychange', refreshWhenVisible)
     return () => {
       controller.abort()
+      queuedRefreshProjectsRef.current.delete(projectId)
       window.clearInterval(interval)
       document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
@@ -1577,8 +1633,10 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
       if (!res.ok) throw new Error(body.error || 'Planning discovery update failed')
       setError(null)
       await loadSuite({ quiet: true })
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Planning discovery update failed')
+      return false
     } finally {
       setSaving(false)
     }

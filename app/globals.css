@@ -1106,10 +1106,16 @@
 .tiptap-prose strong { font-weight: 600; }
 .tiptap-prose .is-editor-empty:first-child::before { content: attr(data-placeholder); color: #9ca3af; pointer-events: none; height: 0; float: left; }
 
-/* ---- Canvas icon-button tooltips ----------------------------------------
- * Instant, styled tooltips for icon-only controls (node action bars, the
- * generator card, settings panel). Native title tooltips are too slow to
- * discover — data-tip renders on hover/focus immediately.
+/* ---- Instant floating tooltips (data-tip) --------------------------------
+ * Styled tooltips for icon-only controls and truncated labels. Native title
+ * tooltips are too slow to discover — data-tip renders on hover/focus quickly.
+ *
+ * Placement (optional): data-tip-side="top" | "bottom" | "left" | "right"
+ * Default is top (above the trigger), which suits mid-page icon bars.
+ * Top app chrome should use data-tip-side="bottom" so the tip stays on-screen.
+ *
+ * Note: CSS pseudo-tooltips clip inside overflow:auto parents. Prefer the
+ * portal-based <HoverTip> component for sidebar lists and scroll regions.
  */
 [data-tip] { position: relative; }
 [data-tip]::after {
@@ -1117,16 +1123,21 @@
   position: absolute;
   bottom: calc(100% + 7px);
   left: 50%;
+  top: auto;
+  right: auto;
   transform: translateX(-50%) scale(0.96);
   background: #16181d;
   color: #f5f6f8;
   border: 1px solid rgba(255, 255, 255, 0.14);
   font-size: 11px;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.25;
   padding: 5px 8px;
   border-radius: 6px;
   white-space: nowrap;
+  max-width: min(20rem, 80vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: none;
   opacity: 0;
   transition: opacity 120ms ease 60ms, transform 120ms ease 60ms;
@@ -1136,4 +1147,37 @@
 [data-tip]:focus-visible::after {
   opacity: 1;
   transform: translateX(-50%) scale(1);
+}
+[data-tip][data-tip-side='bottom']::after {
+  top: calc(100% + 7px);
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%) scale(0.96);
+}
+[data-tip][data-tip-side='bottom']:hover::after,
+[data-tip][data-tip-side='bottom']:focus-visible::after {
+  transform: translateX(-50%) scale(1);
+}
+[data-tip][data-tip-side='right']::after {
+  top: 50%;
+  bottom: auto;
+  left: calc(100% + 7px);
+  right: auto;
+  transform: translateY(-50%) scale(0.96);
+}
+[data-tip][data-tip-side='right']:hover::after,
+[data-tip][data-tip-side='right']:focus-visible::after {
+  transform: translateY(-50%) scale(1);
+}
+[data-tip][data-tip-side='left']::after {
+  top: 50%;
+  bottom: auto;
+  right: calc(100% + 7px);
+  left: auto;
+  transform: translateY(-50%) scale(0.96);
+}
+[data-tip][data-tip-side='left']:hover::after,
+[data-tip][data-tip-side='left']:focus-visible::after {
+  transform: translateY(-50%) scale(1);
 }

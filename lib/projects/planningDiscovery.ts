@@ -200,6 +200,8 @@ export function isPlanningReady(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const state = value as Partial<PlanningDiscoveryState>
   const brief = normalizeDecisionBrief(state.brief)
+  if (state.schemaVersion !== 1 || !Number.isInteger(state.revision) || Number(state.revision) <= 0) return false
+  if (clean(state.pendingQuestionId)) return false
   if (state.enforced !== true || !brief || !state.digest || planningDiscoveryDigest(brief) !== state.digest) return false
   if (!hasCompleteInspection(state.inspection)) return false
 
@@ -212,14 +214,14 @@ export function isPlanningReady(value: unknown): boolean {
       && state.predictedNextAnswers.every((answer) => clean(answer).length > 0)
       && Array.isArray(state.intentBlockingUnknowns)
       && state.intentBlockingUnknowns.length === 0
-      && Boolean(state.confirmedBy && state.confirmedAt)
+      && Boolean(clean(state.confirmedBy) && clean(state.confirmedAt))
   }
 
   if (state.status === 'assumptions_attested' && state.mode === 'assumptions') {
     return state.attestation === PLAN_WITH_ASSUMPTIONS_ATTESTATION
       && clean(state.attestationReason).length >= 10
       && state.acknowledgesPreservedOperationalGates === true
-      && Boolean(state.confirmedBy && state.confirmedAt)
+      && Boolean(clean(state.confirmedBy) && clean(state.confirmedAt))
   }
 
   return false

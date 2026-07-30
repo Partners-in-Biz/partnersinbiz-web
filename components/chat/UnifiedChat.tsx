@@ -55,6 +55,7 @@ import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
 import { resolveNewConversationAgentGate } from '@/lib/conversations/new-conversation-agent-gate'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
+import { HoverTip } from '@/components/ui/HoverTip'
 import ConversationAccessDialog from './ConversationAccessDialog'
 import VoiceInputButton from './VoiceInputButton'
 import ModelProviderPicker, { type MessageModelCatalog, type ModelRuntimeSelection } from '@/components/messages/hermes/ModelProviderPicker'
@@ -5901,7 +5902,9 @@ export default function UnifiedChat({
               <div className="mt-1 space-y-1 rounded-md border border-white/[0.08] bg-black/10 p-1.5">
                 {hiddenFolderOptions.map((folder) => (
                   <div key={folder.key} className="flex min-w-0 items-center gap-2 rounded px-1.5 py-1">
-                    <span className="min-w-0 flex-1 truncate text-xs text-[var(--color-pib-text)]">{folder.name}</span>
+                    <HoverTip label={folder.name} side="right" className="min-w-0 flex-1">
+                      <span className="block min-w-0 truncate text-xs text-[var(--color-pib-text)]">{folder.name}</span>
+                    </HoverTip>
                     <span className="text-[10px] text-[var(--color-pib-text-muted)]">{folder.kind}</span>
                     <button
                       type="button"
@@ -5960,7 +5963,9 @@ export default function UnifiedChat({
                         className="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
                       >
                         <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">folder</span>
-                        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{company.name}</span>
+                        <HoverTip label={company.name} side="right" className="min-w-0 flex-1">
+                          <span className="block min-w-0 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{company.name}</span>
+                        </HoverTip>
                         <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{company.conversations.length}</span>
                         <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
                           {sessionsExpanded ? 'expand_less' : 'expand_more'}
@@ -6065,7 +6070,9 @@ export default function UnifiedChat({
                         className="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
                       >
                         <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">folder_managed</span>
-                        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]" title={project.name}>{project.name}</span>
+                        <HoverTip label={project.name} side="right" className="min-w-0 flex-1">
+                          <span className="block min-w-0 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{project.name}</span>
+                        </HoverTip>
                         <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{project.conversations.length}</span>
                         <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
                           {sessionsExpanded ? 'expand_less' : 'expand_more'}
@@ -6437,7 +6444,9 @@ export default function UnifiedChat({
                           className="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
                         >
                           <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">work</span>
-                          <span className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{workspace.name}</span>
+                          <HoverTip label={workspace.name} side="right" className="min-w-0 flex-1">
+                            <span className="block min-w-0 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{workspace.name}</span>
+                          </HoverTip>
                           <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{workspace.conversations.length}</span>
                           <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
                             {sessionsExpanded ? 'expand_less' : 'expand_more'}
@@ -6571,7 +6580,9 @@ export default function UnifiedChat({
                           className="flex min-h-8 min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0"
                         >
                           <span className="material-symbols-outlined shrink-0 text-[14px] text-primary" aria-hidden="true">smart_toy</span>
-                          <span className="min-w-0 flex-1 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{agent.name}</span>
+                          <HoverTip label={agent.name} side="right" className="min-w-0 flex-1">
+                            <span className="block min-w-0 truncate text-[11px] font-semibold leading-4 text-[var(--color-pib-text)]">{agent.name}</span>
+                          </HoverTip>
                           <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">{agent.conversations.length}</span>
                           <span className="material-symbols-outlined shrink-0 text-[14px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
                             {sessionsExpanded ? 'expand_less' : 'expand_more'}

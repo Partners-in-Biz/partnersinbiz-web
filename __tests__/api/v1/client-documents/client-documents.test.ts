@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { planningDiscoveryDigest } from '@/lib/projects/planningDiscovery'
 
 const mockCollection = jest.fn()
 const mockBatchSet = jest.fn()
@@ -178,6 +179,47 @@ describe('client documents API', () => {
     })
     expect(mockBatchSet).toHaveBeenCalledTimes(2)
     expect(mockBatchCommit).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns a structured 409 and initializes discovery before linked document creation', async () => {
+    const documentRef = makeDocumentRef()
+    const planningEventRef = { id: 'event-1' }
+    const projectRef = {
+      id: 'project-1',
+      collection: jest.fn(() => ({ doc: jest.fn(() => planningEventRef) })),
+    }
+    mockCollection.mockImplementation((name: string) => ({
+      doc: jest.fn(() => name === 'projects' ? projectRef : documentRef),
+      where: mockWhere,
+    }))
+    mockTransactionGet.mockResolvedValue({ exists: true, data: () => ({ orgId: 'org-1' }) })
+
+    const { POST } = await import('@/app/api/v1/client-documents/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents', {
+      title: 'Project requirements',
+      type: 'build_spec',
+      linked: { projectId: 'project-1' },
+    })
+
+    const res = await POST(req, adminUser)
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body).toEqual(expect.objectContaining({
+      success: false,
+      error: expect.stringContaining('Start planning discovery'),
+      code: 'planning_discovery_required',
+      revision: 0,
+    }))
+    expect(mockTransactionUpdate).toHaveBeenCalledWith(projectRef, expect.objectContaining({
+      planningDiscovery: expect.objectContaining({ status: 'interviewing', enforced: true }),
+    }))
+    expect(mockTransactionSet).toHaveBeenCalledWith(planningEventRef, expect.objectContaining({
+      type: 'started',
+      projectId: 'project-1',
+      reason: 'client_document.created',
+    }))
+    expect(mockBatchCommit).not.toHaveBeenCalled()
   })
 
   it('creates a platform-owned document linked to a CRM company and client org', async () => {
@@ -763,11 +805,48 @@ describe('client documents API', () => {
   })
 
   it('patches normalised multi-relationship fields while preserving scalar primary links', async () => {
-    mockTransactionGet.mockResolvedValueOnce({
-      exists: true,
-      id: 'doc-1',
-      data: () => ({ orgId: 'org-1', title: 'Old', deleted: false }),
-    })
+    const planningBrief = {
+      outcome: 'Keep linked planning context current',
+      user: 'Project managers',
+      whyNow: 'Document relationships changed',
+      successCriteria: ['Project planning reopens'],
+      constraints: ['Preserve approvals'],
+      outOfScope: ['Production deploy'],
+      assumptions: ['Existing work may finish'],
+      risks: ['Stale context'],
+      approvalGates: ['production-deploy'],
+    }
+    mockTransactionGet
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'doc-1',
+        data: () => ({ orgId: 'org-1', title: 'Old', deleted: false }),
+      })
+      .mockResolvedValue({
+        exists: true,
+        data: () => ({
+          orgId: 'org-1',
+          planningDiscovery: {
+            schemaVersion: 1,
+            revision: 4,
+            status: 'assumptions_attested',
+            mode: 'assumptions',
+            enforced: true,
+            attestation: 'PLAN WITH ASSUMPTIONS',
+            attestationReason: 'Proceed with documented assumptions',
+            acknowledgesPreservedOperationalGates: true,
+            confirmedBy: 'admin-1',
+            confirmedAt: '2026-07-27T00:00:00.000Z',
+            brief: planningBrief,
+            digest: planningDiscoveryDigest(planningBrief),
+            inspection: {
+              brief: ['brief'], docs: ['docs'], files: ['files'], plan: ['plan'], tasks: ['tasks'],
+              tools: ['tools'], agents: ['agents'], skills: ['skills'], inspectedBy: 'pip',
+              inspectedAt: '2026-07-27T00:00:00.000Z',
+            },
+          },
+        }),
+      })
     mockDocGet.mockResolvedValue({
       exists: true,
       data: () => ({ orgId: 'org-1', deleted: false }),

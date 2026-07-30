@@ -56,6 +56,8 @@ export function isWatcherPlanningReady(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const state = value as Record<string, unknown>
   const brief = normalizedBrief(state.brief)
+  if (state.schemaVersion !== 1 || !Number.isInteger(state.revision) || Number(state.revision) <= 0) return false
+  if (clean(state.pendingQuestionId)) return false
   if (state.enforced !== true || !brief || !clean(state.digest)) return false
   const digest = createHash('sha256').update(JSON.stringify(stable(brief))).digest('hex')
   if (digest !== state.digest || !completeInspection(state.inspection)) return false
@@ -69,14 +71,14 @@ export function isWatcherPlanningReady(value: unknown): boolean {
       && state.predictedNextAnswers.every((answer) => clean(answer).length > 0)
       && Array.isArray(state.intentBlockingUnknowns)
       && state.intentBlockingUnknowns.length === 0
-      && Boolean(state.confirmedBy && state.confirmedAt)
+      && Boolean(clean(state.confirmedBy) && clean(state.confirmedAt))
   }
 
   if (state.status === 'assumptions_attested' && state.mode === 'assumptions') {
     return state.attestation === ASSUMPTIONS_ATTESTATION
       && clean(state.attestationReason).length >= 10
       && state.acknowledgesPreservedOperationalGates === true
-      && Boolean(state.confirmedBy && state.confirmedAt)
+      && Boolean(clean(state.confirmedBy) && clean(state.confirmedAt))
   }
 
   return false

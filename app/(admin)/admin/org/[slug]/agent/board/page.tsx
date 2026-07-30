@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { AGENT_IDS } from '@/lib/agents/types'
 import type { AgentId, AgentTaskCard } from '@/lib/agent-board/types'
@@ -89,7 +89,9 @@ function formatRel(iso: string | null): string {
 
 export default function AgentBoardPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const slug = params.slug as string
+  const deepLinkedTaskId = searchParams.get('taskId') ?? searchParams.get('task')
 
   const [data, setData] = useState<BoardResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -121,6 +123,13 @@ export default function AgentBoardPage() {
     if (!slug) return
     void load()
   }, [slug, load])
+
+  // Deep-link from notifications: /admin/org/:slug/agent/board?taskId=
+  useEffect(() => {
+    if (!deepLinkedTaskId || !data?.cards?.length) return
+    const match = data.cards.find((card) => card.id === deepLinkedTaskId)
+    if (match) setSelected(match)
+  }, [deepLinkedTaskId, data])
 
   useEffect(() => {
     if (!slug) return

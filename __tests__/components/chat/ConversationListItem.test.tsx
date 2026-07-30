@@ -43,6 +43,8 @@ describe('ConversationListItem', () => {
     expect(row).toHaveTextContent('PEETS-MAC-MINI-LOCAL')
     expect(row.querySelector('.truncate')).not.toBeNull()
     expect(container.querySelector('.overflow-hidden')).not.toBeNull()
+    // Compact rows use HoverTip instead of a slow native title attribute.
+    expect(row).not.toHaveAttribute('title')
   })
 
   it('shows the project name on compact project sessions', () => {

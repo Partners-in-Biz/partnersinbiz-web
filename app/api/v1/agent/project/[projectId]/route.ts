@@ -45,11 +45,23 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const requestedOrgId = explicitOrgId || user.activeOrgId || user.orgId || ''
   if (!requestedOrgId) return apiError('Active organisation is required for agent project context', 400)
 
-  const access = await getProjectForUser(projectId, user, requestedOrgId)
+  const scopedUser = {
+    ...user,
+    orgId: requestedOrgId,
+    activeOrgId: requestedOrgId,
+    orgIds: [requestedOrgId],
+    allowedOrgIds: [requestedOrgId],
+  }
+  const access = await getProjectForUser(projectId, scopedUser, requestedOrgId)
   if (!access.ok) return apiError(access.error, access.status)
   const projectDoc = access.doc
 
   const projectData = projectDoc.data()
+  const ownerOrgId = [projectData?.ownerOrgId, projectData?.sourceOrgId, projectData?.issuerOrgId, projectData?.orgId]
+    .find((value): value is string => typeof value === 'string' && value.trim().length > 0) ?? ''
+  const projectAccess = requestedOrgId !== ownerOrgId && access.projectAccess?.role === 'owner'
+    ? { ...access.projectAccess, role: 'contributor' as const, canViewInternal: false }
+    : access.projectAccess
   const project = {
     name: projectData?.name ?? '',
     status: projectData?.status ?? '',
@@ -70,13 +82,6 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     id: doc.id,
     ...doc.data(),
   } as { id: string; title?: unknown; content?: unknown; type?: unknown } & Record<string, unknown>))
-  const scopedUser = {
-    ...user,
-    orgId: requestedOrgId,
-    activeOrgId: requestedOrgId,
-    orgIds: [requestedOrgId],
-    allowedOrgIds: [requestedOrgId],
-  }
 
   // Get tasks
   const tasksSnapshot = await adminDb
@@ -92,12 +97,17 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     activeOrgId: requestedOrgId,
     projectData: projectData ?? {},
     tasks: taskRecords,
-    user,
-    projectAccess: access.projectAccess,
+    user: scopedUser,
+    projectAccess,
   })
   const visibleDocumentRecords = filterProjectItemsForAccess(
-    applyAgentPermissionPolicies(documentRecords, plan.permissions, 'document'),
-    { projectAccess: access.projectAccess, user: scopedUser },
+    applyAgentPermissionPolicies(documentRecords, plan.permissions, 'document').filter((record) => {
+      const allowedOrgIds = Array.isArray(record.allowedOrgIds)
+        ? record.allowedOrgIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        : []
+      return allowedOrgIds.length === 0 || allowedOrgIds.includes(requestedOrgId)
+    }),
+    { projectAccess, user: scopedUser },
   )
   const documents = visibleDocumentRecords.map(data => ({
     id: data.id,

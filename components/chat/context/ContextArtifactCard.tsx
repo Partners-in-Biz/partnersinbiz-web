@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { ChatArtifactSummary, ChatContextAction } from '@/lib/chat-context/types'
+import { displayStateStyle, displayStateLabel } from '@/lib/chat-context/displayStateStyles'
 import { safePreviewUrl } from '@/lib/chat-context/safeUrl'
 
 function Preview({ artifact }: { artifact: ChatArtifactSummary }) {
@@ -19,11 +20,15 @@ function Preview({ artifact }: { artifact: ChatArtifactSummary }) {
 
 export function ContextArtifactCard({ artifact, selected = false, onActivate, onAction, pendingActionId }: { artifact: ChatArtifactSummary; selected?: boolean; onActivate?: (artifact: ChatArtifactSummary) => void; onAction?: (action: ChatContextAction) => void; pendingActionId?: string }) {
   const [details, setDetails] = useState(false)
-  return <article data-selected={selected || undefined} className={`overflow-hidden rounded-lg border transition-colors ${selected ? 'border-primary/55 bg-primary/[0.08] ring-1 ring-primary/20' : 'border-white/10 bg-black/15'}`}>
+  const stateStyle = displayStateStyle(artifact.state)
+  return <article data-selected={selected || undefined} data-state={artifact.state} className={`overflow-hidden rounded-lg border transition-colors ${selected ? 'border-primary/55 bg-primary/[0.08] ring-1 ring-primary/20' : stateStyle.cardClassName}`}>
+    <div className="flex">
+      <span aria-hidden="true" className="w-1 shrink-0 self-stretch" style={{ background: stateStyle.rail }} />
+      <div className="min-w-0 flex-1">
     <Preview artifact={artifact} />
     <button type="button" aria-label={`Inspect ${artifact.title}`} aria-current={selected ? 'true' : undefined} onClick={() => onActivate?.(artifact)} className="flex min-h-11 w-full items-center gap-2 px-3 py-2.5 text-left outline-none hover:bg-white/[0.035] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60 xl:min-h-0">
       <span className="pib-icon-tint pib-icon-tint-blue" aria-hidden="true"><span className="material-symbols-outlined text-[16px]">draft</span></span>
-      <span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium text-[var(--color-pib-text)]">{artifact.title}</span><span className="text-[10px] text-[var(--color-pib-text-muted)]">{artifact.statusLabel}</span></span>
+      <span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium text-[var(--color-pib-text)]">{artifact.title}</span><span className={`mt-0.5 inline-flex rounded-full border px-1.5 py-0.5 text-[10px] ${stateStyle.badgeClassName}`}>{artifact.statusLabel || displayStateLabel(artifact.state)}</span></span>
     </button>
     <div className="flex flex-wrap gap-x-2 gap-y-1 border-t border-white/[0.06] px-3 py-2 text-[10px] text-[var(--color-pib-text-muted)]">
       {artifact.version && <span>{artifact.version}</span>}
@@ -35,5 +40,7 @@ export function ContextArtifactCard({ artifact, selected = false, onActivate, on
       <button type="button" aria-expanded={details} aria-label={`${details ? 'Hide' : 'Show'} provenance for ${artifact.title}`} onClick={() => setDetails((value) => !value)} className="min-h-11 rounded-sm px-2 text-[10px] text-[var(--color-pib-text-muted)] outline-none hover:text-[var(--color-pib-text)] focus-visible:ring-2 focus-visible:ring-primary/60 xl:min-h-0">{details ? 'Hide' : 'Show'} provenance</button>
       {details && <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)]">{[artifact.provenance.agentId, artifact.provenance.provider, artifact.provenance.model].filter(Boolean).join(' · ')}{artifact.provenance.sourceIds?.length ? ` · Sources: ${artifact.provenance.sourceIds.join(', ')}` : ''}</p>}
     </div>}
+      </div>
+    </div>
   </article>
 }
