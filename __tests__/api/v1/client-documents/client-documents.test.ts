@@ -1455,13 +1455,79 @@ describe('client documents API', () => {
     )
   })
 
-  it('blocks clients from creating document versions', async () => {
+  it('allows document creators with client role to create draft versions (user-delegation path)', async () => {
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'org-1',
+        title: 'Member-owned proposal',
+        deleted: false,
+        createdBy: 'client-1',
+        status: 'internal_draft',
+      }),
+    })
+
     const { POST } = await import('@/app/api/v1/client-documents/[id]/versions/route')
-    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/versions', { blocks: [] })
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/versions', {
+      blocks: [
+        {
+          id: 'summary',
+          type: 'summary',
+          title: 'Summary',
+          content: 'Creator revision via user-delegation',
+          required: true,
+          display: {},
+        },
+      ],
+      theme: {
+        palette: { bg: '#0A0A0B', text: '#F7F4EE', accent: '#F5A623' },
+        typography: { heading: 'Instrument Serif', body: 'Geist' },
+      },
+      changeSummary: 'Creator pricing amendment',
+    })
+
+    const res = await POST(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(body.data).toEqual({ id: 'version-1' })
+    expect(mockTransactionSet).toHaveBeenCalled()
+  })
+
+  it('blocks non-creator clients from creating document versions', async () => {
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'org-1',
+        title: 'Someone else proposal',
+        deleted: false,
+        createdBy: 'other-user',
+        sharedWithUserIds: ['client-1'],
+        status: 'internal_draft',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/versions/route')
+    const req = jsonRequest('http://localhost/api/v1/client-documents/doc-1/versions', {
+      blocks: [
+        {
+          id: 'summary',
+          type: 'summary',
+          content: 'Should not write',
+          required: true,
+          display: {},
+        },
+      ],
+      theme: {
+        palette: { bg: '#0A0A0B', text: '#F7F4EE', accent: '#F5A623' },
+        typography: { heading: 'Instrument Serif', body: 'Geist' },
+      },
+    })
     const res = await POST(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
 
     expect(res.status).toBe(403)
-    expect(mockTransactionGet).not.toHaveBeenCalled()
     expect(mockTransactionSet).not.toHaveBeenCalled()
   })
 
