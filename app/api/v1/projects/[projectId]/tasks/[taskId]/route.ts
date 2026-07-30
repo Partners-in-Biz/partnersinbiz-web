@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { lastActorFrom } from '@/lib/api/actor'
 import { getProjectForUser } from '@/lib/projects/access'
 import {
   applyAgentColumnMoveState,
@@ -14,11 +15,17 @@ import { adminProjectTaskLink } from '@/lib/projects/links'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
-import { isProjectTaskPlanningMutation } from '@/lib/projects/planningDiscovery'
+import {
+  isProjectTaskContextMutation,
+  isProjectTaskPlanningMutation,
+  planningMutationBlocker,
+} from '@/lib/projects/planningDiscovery'
 import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
 import { publishTaskLifecycleToCommandSession } from '@/lib/projects/commandSession'
+import { approvalActorAuditFields, isAuthorizedAdminApprover } from '@/lib/projects/adminApprover'
+import { hasApprovalGateMarker, reconcileApprovalGateUpdate } from '@/lib/projects/approvalState'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,13 +75,6 @@ function projectRequestOrgScope(req: NextRequest, user: Parameters<typeof getPro
   return { ok: true as const, orgId: explicitOrgId || undefined }
 }
 
-function isDirectHumanAdmin(user: Parameters<typeof getProjectForUser>[1]): boolean {
-  return user.role === 'admin'
-    && user.authKind !== 'user_delegation'
-    && user.authKind !== 'agent_api_key'
-    && user.authKind !== 'legacy_ai_key'
-}
-
 function taskIsVisible(
   taskId: string,
   task: Record<string, unknown>,
@@ -102,21 +102,8 @@ function agentInputWithContextRefs(
   }
 }
 
-function hasApprovalGateLabel(labels: string[]): boolean {
-  return labels.some((label) => /approval-gate|approval-required|client-approval|required-approval/.test(label))
-}
-
-function bodySetsApprovalGateLabel(value: unknown): boolean {
-  if (!Array.isArray(value)) return false
-  return hasApprovalGateLabel(value.filter((label): label is string => typeof label === 'string').map((label) => label.toLowerCase()))
-}
-
 function isApprovalGateRecord(data: Record<string, unknown>, nextBody: Record<string, unknown> = {}): boolean {
-  const labels = Array.isArray(data.labels) ? data.labels.map((label) => String(label).toLowerCase()) : []
-  const existingGate = typeof data.approvalGate === 'string' && data.approvalGate && data.approvalGate !== 'none'
-  const nextGate = typeof nextBody.approvalGate === 'string' && nextBody.approvalGate && nextBody.approvalGate !== 'none'
-  const existingApprovalStatus = typeof data.approvalStatus === 'string' && data.approvalStatus.trim().length > 0
-  return hasApprovalGateLabel(labels) || bodySetsApprovalGateLabel(nextBody.labels) || Boolean(existingApprovalStatus || existingGate || nextGate)
+  return hasApprovalGateMarker(data, nextBody)
 }
 
 async function approvalGateTaskApproved(projectId: string, approvalGateTaskId: string): Promise<boolean> {
@@ -143,20 +130,39 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const existing = doc.data() ?? {}
   if (!taskIsVisible(taskId, existing, access, user)) return apiError('Task not found', 404)
-  const labels = Array.isArray(existing.labels) ? existing.labels.map((label) => String(label).toLowerCase()) : []
-  const existingGate = typeof existing.approvalGate === 'string' && existing.approvalGate && existing.approvalGate !== 'none'
-  const nextGate = typeof body.approvalGate === 'string' && body.approvalGate && body.approvalGate !== 'none'
-  const existingApprovalStatus = typeof existing.approvalStatus === 'string' && existing.approvalStatus.trim().length > 0
   const existingApprovalGateTaskId = typeof existing.approvalGateTaskId === 'string' && existing.approvalGateTaskId.trim().length > 0
-  const nextApprovalGateLabel = bodySetsApprovalGateLabel(body.labels)
-  const isApprovalGateCard = hasApprovalGateLabel(labels) || nextApprovalGateLabel || existingApprovalStatus || existingGate || nextGate
+  const isApprovalGateCard = isApprovalGateRecord(existing, body)
   const isApprovalGatedTask = isApprovalGateCard || existingApprovalGateTaskId
-  const approvalMetadataFields = ['approvalGate', 'requiredCapability', 'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'approvalGateTaskId']
-  const approvalExecutionFields = ['columnId', 'reviewStatus', 'labels', 'agentStatus', 'assigneeAgentId', 'agentOutput', 'agentConversationId', 'agentHeartbeatAt', 'agentReleaseAt', 'agentReleaseStatus', 'agentReleasedAt']
-  if (body.approvalStatus !== undefined && !isDirectHumanAdmin(user)) {
+  const adminApprover = isAuthorizedAdminApprover(user)
+  const approvalMetadataFields = [
+    'approvalGate',
+    'requiredCapability',
+    'riskLevel',
+    'expectedArtifacts',
+    'verifierChecklist',
+    'approvalGateTaskId',
+    'sourceDocumentId',
+    'sourceDocumentSectionId',
+    'sourceSpecVersion',
+    'sourceResearchItemId',
+  ]
+  const approvalExecutionFields = [
+    'columnId',
+    'reviewStatus',
+    'labels',
+    'agentStatus',
+    'assigneeAgentId',
+    'agentOutput',
+    'agentConversationId',
+    'agentHeartbeatAt',
+    'agentReleaseAt',
+    'agentReleaseStatus',
+    'agentReleasedAt',
+  ]
+  if (body.approvalStatus !== undefined && !adminApprover) {
     return apiError('Only an admin approver can change approvalStatus on project tasks', 403)
   }
-  if (!isDirectHumanAdmin(user) && approvalMetadataFields.some((field) => body[field] !== undefined)) {
+  if (!adminApprover && approvalMetadataFields.some((field) => body[field] !== undefined)) {
     return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
   if (body.approvalStatus !== undefined && body.approvalStatus !== null && !isApprovalGatedTask) {
@@ -164,11 +170,13 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   }
   const updates = buildProjectTaskUpdateData(body)
   if (!updates.ok) return apiError(updates.error, updates.status ?? 400)
-  const updateValue = applyAgentColumnMoveState(existing, updates.value, body)
+  let updateValue = applyAgentColumnMoveState(existing, updates.value, body)
   // Agent completion without a reviewer is final — land in Done so Messages and
   // dependsOn chains advance without a stuck Review badge.
+  // Approval-gate cards are handled separately by reconcileApprovalGateUpdate.
   if (
-    updateValue.agentStatus === 'done'
+    !isApprovalGateCard
+    && updateValue.agentStatus === 'done'
     && body.columnId === undefined
     && body.reviewStatus === undefined
   ) {
@@ -191,15 +199,41 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
       updateValue.reviewStatus = 'approved'
     }
   }
+
+  // Authorisation before state reconciliation so unauthorised callers get 403,
+  // not a 400 from canonical state rules they were never allowed to attempt.
   const touchesApprovalExecutionState = approvalExecutionFields.some((field) => updateValue[field] !== undefined)
-  if (!isDirectHumanAdmin(user) && isApprovalGateCard && touchesApprovalExecutionState) {
+  if (!adminApprover && isApprovalGateCard && touchesApprovalExecutionState) {
     return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
-  if (!isDirectHumanAdmin(user) && existingApprovalGateTaskId && touchesApprovalExecutionState) {
+  if (!adminApprover && existingApprovalGateTaskId && touchesApprovalExecutionState) {
     const approved = await approvalGateTaskApproved(projectId, String(existing.approvalGateTaskId))
     if (!approved) return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
   }
+
+  const reconciled = reconcileApprovalGateUpdate(existing, updateValue, body, isApprovalGateCard)
+  if (!reconciled.ok) return apiError(reconciled.error, reconciled.status)
+  updateValue = reconciled.value
+
+  // Record human (or delegated-human) approval audit fields when status changes.
+  if (body.approvalStatus !== undefined && adminApprover) {
+    const previous = typeof existing.approvalStatus === 'string' ? existing.approvalStatus.trim().toLowerCase() : ''
+    const next = typeof updateValue.approvalStatus === 'string' ? updateValue.approvalStatus.trim().toLowerCase() : ''
+    if (next && next !== previous) {
+      Object.assign(updateValue, approvalActorAuditFields(user), {
+        approvedAt: next === 'approved' || next === 'rejected' || next === 'denied'
+          ? new Date().toISOString()
+          : null,
+      })
+    }
+  }
   const projectOrgId = access.doc.data()?.orgId as string | undefined
+  const actorFields = lastActorFrom(user)
+  Object.assign(updateValue, {
+    updatedBy: actorFields.updatedBy,
+    updatedByType: actorFields.updatedByType,
+    ...(actorFields.updatedByAgentId ? { updatedByAgentId: actorFields.updatedByAgentId } : {}),
+  })
 
   if (body.contextRefs !== undefined) {
     const contextRefs = await resolveContextReferences(
@@ -248,6 +282,9 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   }
 
   const projectRef = adminDb.collection('projects').doc(projectId)
+  // Material intent fields reopen discovery; other planning-sensitive fields only
+  // require a confirmed brief and must not invalidate it (approval, handoff metadata).
+  const planningContextChange = isProjectTaskContextMutation(body)
   const mutation = await adminDb.runTransaction(async (tx) => {
     let liveProject: FirebaseFirestore.DocumentSnapshot | null = null
     if (planningSensitive) {
@@ -258,9 +295,17 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     if (!liveTask.exists) return { ok: false as const, status: 404, error: 'Task not found' }
     if (liveProject) {
       const project = (liveProject.data() ?? {}) as Record<string, unknown>
-      const planning = applyPlanningMutation(tx, projectRef, projectId, project, user.uid, 'project_task.updated')
-      if (!planning.allowed) {
-        return { ok: false as const, status: 409, error: planning.blocker.message, details: planning.blocker }
+      if (planningContextChange) {
+        const planning = applyPlanningMutation(tx, projectRef, projectId, project, user.uid, 'project_task.updated')
+        if (!planning.allowed) {
+          return { ok: false as const, status: 409, error: planning.blocker.message, details: planning.blocker }
+        }
+      } else {
+        // Require confirmed/assumptions-attested planning; do not reopen the Decision Brief.
+        const blocker = planningMutationBlocker(project)
+        if (blocker) {
+          return { ok: false as const, status: 409, error: blocker.message, details: blocker }
+        }
       }
     }
     tx.update(ref, { ...updateValue, updatedAt: FieldValue.serverTimestamp() })
@@ -269,13 +314,17 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
 
   if (projectOrgId) {
+    const approvalChanged = body.approvalStatus !== undefined
+      && String(existing.approvalStatus ?? '') !== String(updateValue.approvalStatus ?? '')
     logActivity({
       orgId: projectOrgId,
-      type: 'task_updated',
+      type: approvalChanged ? 'task_approval_updated' : 'task_updated',
       actorId: user.uid,
       actorName: user.uid,
       actorRole: user.role === 'ai' ? 'ai' : user.role === 'admin' ? 'admin' : 'client',
-      description: 'Updated task',
+      description: approvalChanged
+        ? `Approval status set to ${String(updateValue.approvalStatus ?? '')}${user.authKind === 'user_delegation' && user.agentId ? ` via delegated agent ${user.agentId}` : ''}`
+        : 'Updated task',
       entityId: taskId,
       entityType: 'task',
       entityTitle: (updateValue.title as string | undefined) ?? undefined,
@@ -442,7 +491,7 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   const existing = doc.data() ?? {}
   if (!taskIsVisible(taskId, existing, access, user)) return apiError('Task not found', 404)
   const hasApprovalGateTaskId = typeof existing.approvalGateTaskId === 'string' && existing.approvalGateTaskId.trim().length > 0
-  if (!isDirectHumanAdmin(user) && (isApprovalGateRecord(existing) || hasApprovalGateTaskId)) {
+  if (!isAuthorizedAdminApprover(user) && (isApprovalGateRecord(existing) || hasApprovalGateTaskId)) {
     return apiError('Only an admin approver can delete approval-gated project tasks', 403)
   }
 

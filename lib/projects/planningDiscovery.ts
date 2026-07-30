@@ -239,14 +239,29 @@ export function planningMutationBlocker(project: Record<string, unknown>): null 
   }
 }
 
+/**
+ * Material intent fields — changing these after a confirmed Decision Brief
+ * reopens discovery (snapshot + re-confirm). Do not put approval/handoff
+ * metadata here or ordinary approval and enrichment will stale the brief.
+ */
 const PROJECT_TASK_CONTEXT_FIELDS = new Set([
   'title', 'description', 'priority', 'dueDate', 'startDate', 'baselineDueDate', 'baselineStartDate',
-  'estimateMinutes', 'order', 'dependsOn', 'approvalGateTaskId', 'approvalGate', 'requiredCapability',
-  'riskLevel', 'expectedArtifacts', 'verifierChecklist', 'labels', 'checklist', 'internalOnly',
+  'estimateMinutes', 'order', 'dependsOn', 'labels', 'checklist', 'internalOnly',
+])
+
+/**
+ * Handoff / approval / provenance metadata. Requires planning readiness when
+ * discovery is enforced, but does not reopen a confirmed Decision Brief.
+ */
+const PROJECT_TASK_HANDOFF_FIELDS = new Set([
+  'approvalGateTaskId', 'approvalGate', 'requiredCapability',
+  'riskLevel', 'expectedArtifacts', 'verifierChecklist',
+  'sourceDocumentId', 'sourceDocumentSectionId', 'sourceSpecVersion', 'sourceResearchItemId',
 ])
 
 const PROJECT_TASK_PLANNING_FIELDS = new Set([
   ...PROJECT_TASK_CONTEXT_FIELDS,
+  ...PROJECT_TASK_HANDOFF_FIELDS,
   'assigneeId', 'assigneeIds', 'assigneeAgentId', 'agentInput', 'agentEffort', 'agentModel',
   'agentProvider', 'llmCredentialSource', 'llmCredentialOwnerUid',
   'agentRuntimeTargetId', 'llmConnectionId', 'llmCredentialBindingId',
@@ -255,6 +270,10 @@ const PROJECT_TASK_PLANNING_FIELDS = new Set([
 
 export function isProjectTaskContextMutation(body: Record<string, unknown>): boolean {
   return Object.keys(body).some((field) => PROJECT_TASK_CONTEXT_FIELDS.has(field))
+}
+
+export function isProjectTaskHandoffMutation(body: Record<string, unknown>): boolean {
+  return Object.keys(body).some((field) => PROJECT_TASK_HANDOFF_FIELDS.has(field))
 }
 
 export function isProjectTaskPlanningMutation(body: Record<string, unknown>): boolean {

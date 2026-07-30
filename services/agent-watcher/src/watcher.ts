@@ -103,6 +103,11 @@ interface TaskData {
   requiredCapability?: string
   requestedByAgentId?: string
   expectedArtifacts?: string[]
+  verifierChecklist?: string[]
+  sourceDocumentId?: string
+  sourceDocumentSectionId?: string
+  sourceSpecVersion?: string
+  sourceResearchItemId?: string
   agentRetryCount?: number
   agentRetryAt?: string | number | { toMillis?: () => number; toDate?: () => Date }
   reporterId?: string
@@ -456,6 +461,35 @@ function buildCeoDataDecisionOperatingRule(orgId: string): string {
   })
 }
 
+/** Durable task handoff metadata for the next agent (not only runtime injection). */
+function buildDurableTaskHandoffBlock(taskData: TaskData): string {
+  const lines: string[] = ['Task handoff (durable):']
+  if (taskData.projectId?.trim()) lines.push(`- projectId: ${taskData.projectId.trim()}`)
+  if (taskData.orgId?.trim()) lines.push(`- orgId: ${taskData.orgId.trim()}`)
+  if (Array.isArray(taskData.dependsOn) && taskData.dependsOn.length > 0) {
+    lines.push(`- dependsOn: ${taskData.dependsOn.filter(Boolean).join(', ')}`)
+  }
+  if (taskData.approvalGateTaskId?.trim()) lines.push(`- approvalGateTaskId: ${taskData.approvalGateTaskId.trim()}`)
+  if (taskData.reviewerAgentId?.trim()) lines.push(`- reviewerAgentId: ${taskData.reviewerAgentId.trim()}`)
+  if (taskData.riskLevel?.trim()) lines.push(`- riskLevel: ${taskData.riskLevel.trim()}`)
+  if (taskData.requiredCapability?.trim()) lines.push(`- requiredCapability: ${taskData.requiredCapability.trim()}`)
+  if (taskData.sourceDocumentId?.trim()) lines.push(`- sourceDocumentId: ${taskData.sourceDocumentId.trim()}`)
+  if (taskData.sourceDocumentSectionId?.trim()) lines.push(`- sourceDocumentSectionId: ${taskData.sourceDocumentSectionId.trim()}`)
+  if (taskData.sourceSpecVersion?.trim()) lines.push(`- sourceSpecVersion: ${taskData.sourceSpecVersion.trim()}`)
+  if (taskData.sourceResearchItemId?.trim()) lines.push(`- sourceResearchItemId: ${taskData.sourceResearchItemId.trim()}`)
+  if (Array.isArray(taskData.expectedArtifacts) && taskData.expectedArtifacts.length > 0) {
+    lines.push(`- expectedArtifacts: ${taskData.expectedArtifacts.join(' | ')}`)
+  }
+  if (Array.isArray(taskData.verifierChecklist) && taskData.verifierChecklist.length > 0) {
+    lines.push(`- verifierChecklist: ${taskData.verifierChecklist.join(' | ')}`)
+  }
+  if (taskData.chatOrigin?.conversationId?.trim()) {
+    lines.push(`- chatOrigin.conversationId: ${taskData.chatOrigin.conversationId.trim()}`)
+  }
+  // Only the header means nothing durable was present.
+  return lines.length > 1 ? lines.join('\n') : ''
+}
+
 async function buildProjectDispatchContext(
   taskRef: DocumentReference,
   taskData: TaskData,
@@ -500,18 +534,25 @@ async function buildProjectDispatchContext(
     })
   }
 
-  const deps = taskData.dependsOn?.filter(Boolean) ?? []
-  if (deps.length > 0) {
+  const depIds = new Set<string>([
+    ...(taskData.dependsOn?.filter(Boolean) ?? []),
+    ...(taskData.approvalGateTaskId?.trim() ? [taskData.approvalGateTaskId.trim()] : []),
+  ])
+  if (depIds.size > 0) {
     const depLines: string[] = []
-    for (const depId of deps) {
+    for (const depId of depIds) {
       try {
         const depSnap = await taskRef.parent.doc(depId).get()
         if (!depSnap.exists) continue
         const dep = depSnap.data() as TaskData
         const summary = dep.agentOutput?.summary?.trim()
-        if (!summary) continue
+        const approval = typeof dep.approvalStatus === 'string' ? dep.approvalStatus.trim() : ''
         const title = dep.title?.trim() || depId
-        depLines.push(`- ${title} (${depId}): ${truncatePromptText(summary)}`)
+        if (summary) {
+          depLines.push(`- ${title} (${depId}): ${truncatePromptText(summary)}`)
+        } else if (approval) {
+          depLines.push(`- ${title} (${depId}): approvalStatus=${approval}`)
+        }
       } catch (err) {
         logger.warn('failed to load dependency summary for dispatch prompt', {
           taskId: taskRef.id,
@@ -645,10 +686,12 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     const baseSpec = taskData.agentInput?.spec?.trim() || taskData.title || `Task ${taskId}`
     const commentBlock = formatTaskComments(await loadRecentTaskComments(taskRef))
     const projectContextBlock = await buildProjectDispatchContext(taskRef, taskData)
+    const durableHandoffBlock = buildDurableTaskHandoffBlock(taskData)
     const spec = [
       buildCeoDataDecisionOperatingRule(taskData.orgId ?? ''),
       baseSpec,
       projectContextBlock,
+      durableHandoffBlock,
       commentBlock ? `Recent task comments / revision notes:\n${commentBlock}` : '',
     ].filter(Boolean).join('\n\n')
     const dispatchInput: TaskDispatchInput = {
@@ -659,11 +702,19 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       context: {
         ...(taskData.agentInput?.context ?? {}),
         ...(taskData.projectId ? { projectId: taskData.projectId } : {}),
+        ...(taskData.orgId ? { orgId: taskData.orgId } : {}),
         ...(taskData.reviewerAgentId ? { reviewerAgentId: taskData.reviewerAgentId } : {}),
         ...(taskData.riskLevel ? { riskLevel: taskData.riskLevel } : {}),
         ...(taskData.requiredCapability ? { requiredCapability: taskData.requiredCapability } : {}),
         ...(taskData.requestedByAgentId ? { requestedByAgentId: taskData.requestedByAgentId } : {}),
+        ...(taskData.approvalGateTaskId ? { approvalGateTaskId: taskData.approvalGateTaskId } : {}),
+        ...(taskData.sourceDocumentId ? { sourceDocumentId: taskData.sourceDocumentId } : {}),
+        ...(taskData.sourceDocumentSectionId ? { sourceDocumentSectionId: taskData.sourceDocumentSectionId } : {}),
+        ...(taskData.sourceSpecVersion ? { sourceSpecVersion: taskData.sourceSpecVersion } : {}),
+        ...(taskData.sourceResearchItemId ? { sourceResearchItemId: taskData.sourceResearchItemId } : {}),
         ...(Array.isArray(taskData.expectedArtifacts) ? { expectedArtifacts: taskData.expectedArtifacts } : {}),
+        ...(Array.isArray(taskData.verifierChecklist) ? { verifierChecklist: taskData.verifierChecklist } : {}),
+        ...(Array.isArray(taskData.dependsOn) && taskData.dependsOn.length > 0 ? { dependsOn: taskData.dependsOn } : {}),
       },
       constraints: taskData.agentInput?.constraints,
       agentEffort: taskData.agentEffort ?? null,

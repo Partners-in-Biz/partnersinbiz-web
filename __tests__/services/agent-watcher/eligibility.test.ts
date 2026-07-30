@@ -90,4 +90,27 @@ describe('agent watcher task dispatch eligibility', () => {
       'labelled-gate': { columnId: 'done', agentStatus: 'done', labels: ['approval-gate'], approvalStatus: 'pending' },
     })).toEqual(['pending-gate', 'labelled-gate'])
   })
+
+  it('does not treat a human approval comment signal as resolved — only approvalStatus=approved', () => {
+    // Board Done + agent done without approvalStatus still blocks gate dependents.
+    expect(getUnresolvedDependencyIds(['comment-only-gate'], {
+      'comment-only-gate': {
+        columnId: 'done',
+        agentStatus: 'done',
+        reviewStatus: 'approved',
+        labels: ['approval-gate'],
+        approvalStatus: 'pending',
+      },
+    })).toEqual(['comment-only-gate'])
+
+    expect(getUnresolvedDependencyIds(['canonical-gate'], {
+      'canonical-gate': {
+        columnId: 'done',
+        agentStatus: 'done',
+        reviewStatus: 'approved',
+        labels: ['approval-gate'],
+        approvalStatus: 'approved',
+      },
+    })).toEqual([])
+  })
 })
