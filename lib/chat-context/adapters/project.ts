@@ -1,10 +1,11 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { getProjectForUser } from '@/lib/projects/access'
 import { buildProjectChatProgress, type ProjectChatTaskItem, type ProjectChatTaskSource } from '@/lib/projects/chatProgress'
-import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
+import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { taskOrderMillis } from '@/lib/projects/taskPayload'
+import { isAuthorizedAdminApprover } from '@/lib/projects/adminApprover'
 import type { AgentArtifact, AgentOutput } from '@/lib/projects/types'
-import type { ContextActivitySummary, ContextDisplayState, ContextItemAgentSnapshot, ContextItemSummary } from '@/lib/chat-context/types'
+import type { ChatContextAction, ContextActivitySummary, ContextDisplayState, ContextItemAgentSnapshot, ContextItemSummary } from '@/lib/chat-context/types'
 import type { ChatContextAdapter } from '@/lib/chat-context/access'
 
 function cleanString(value: unknown): string {
@@ -94,7 +95,47 @@ function updatedAt(value: unknown): string | undefined {
   return undefined
 }
 
-function summary(task: ProjectChatTaskItem): ContextItemSummary {
+export function projectTaskChatActions(input: {
+  projectId: string
+  task: ProjectChatTaskItem
+  canWrite: boolean
+  canApprove: boolean
+}): ChatContextAction[] {
+  if (!input.canWrite) return []
+  const taskHref = `/api/v1/projects/${encodeURIComponent(input.projectId)}/tasks/${encodeURIComponent(input.task.id)}`
+  if (input.task.approvalStatus === 'pending') {
+    return input.canApprove ? [{
+      id: `approve:${input.task.id}`,
+      label: 'Approve next step',
+      href: taskHref,
+      method: 'PATCH',
+      requiresApproval: true,
+      body: { approvalStatus: 'approved' },
+    }] : []
+  }
+  if (input.task.state === 'review') {
+    return [{
+      id: `approve-review:${input.task.id}`,
+      label: 'Approve and complete',
+      href: taskHref,
+      method: 'PATCH',
+      requiresApproval: true,
+      body: { reviewStatus: 'approved', columnId: 'done' },
+    }]
+  }
+  const canUnblock = input.task.agentStatus === 'blocked'
+    || input.task.agentStatus === 'awaiting-input'
+    || input.task.columnId === 'blocked'
+  return canUnblock ? [{
+    id: `unblock:${input.task.id}`,
+    label: input.task.assigneeAgentId ? 'Unblock and requeue' : 'Clear blocker',
+    href: `${taskHref}/unblock`,
+    method: 'POST',
+    requiresApproval: true,
+  }] : []
+}
+
+function summary(task: ProjectChatTaskItem, actions: ChatContextAction[] = []): ContextItemSummary {
   const dependencyDetail = task.unresolvedDependencyIds.length > 0
     ? `Waiting for ${task.unresolvedDependencyIds.length} dependenc${task.unresolvedDependencyIds.length === 1 ? 'y' : 'ies'}`
     : undefined
@@ -137,6 +178,7 @@ function summary(task: ProjectChatTaskItem): ContextItemSummary {
       || undefined,
     updatedAt: updatedAt(task.updatedAt),
     agent,
+    ...(actions.length > 0 ? { actions } : {}),
   }
 }
 
@@ -181,6 +223,12 @@ export const projectChatContextAdapter: ChatContextAdapter = {
       tasks: visibleTasks,
     })
     const asOf = new Date().toISOString()
+    const canWrite = canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')
+    const canApprove = canWrite && isAuthorizedAdminApprover(user)
+    const actionsByTaskId = new Map(progress.tasks.map((task) => [
+      task.id,
+      projectTaskChatActions({ projectId, task, canWrite, canApprove }),
+    ]))
 
     return {
       ok: true,
@@ -202,14 +250,14 @@ export const projectChatContextAdapter: ChatContextAdapter = {
             { id: 'needs-you', label: 'Needs you', value: progress.counts.needsYou },
             { id: 'blocked', label: 'Blocked', value: progress.counts.blocked },
           ],
-          next: progress.next ? summary(progress.next) : undefined,
+          next: progress.next ? summary(progress.next, actionsByTaskId.get(progress.next.id)) : undefined,
         },
         groups: progress.tasks.length > 0
           ? [{
               id: 'tasks',
               label: 'Tasks',
               items: progress.tasks.map((task) => ({
-                ...summary(task),
+                ...summary(task, actionsByTaskId.get(task.id)),
                 href: `/portal/projects/${encodeURIComponent(projectId)}?taskId=${encodeURIComponent(task.id)}`,
               })),
             }]
@@ -219,9 +267,10 @@ export const projectChatContextAdapter: ChatContextAdapter = {
           id: progress.attention.id,
           label: progress.attention.title,
           state: progress.attention.state === 'needs_input' ? 'needs_input' : 'blocked',
+          actions: actionsByTaskId.get(progress.attention.id),
         }] : [],
         activity: projectRoutineActivity(progress.tasks),
-        capabilities: ['view'],
+        capabilities: ['view', ...(Array.from(actionsByTaskId.values()).some((actions) => actions.length > 0) ? ['inline-actions'] : [])],
         asOf,
       },
     }
