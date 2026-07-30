@@ -9,7 +9,6 @@ import { handleProjectCreate } from '@/app/api/v1/projects/route'
 import { handleOrganizationCreate } from '@/app/api/v1/organizations/route'
 import {
   getDefaultOrgWorkspace,
-  getCompanyWorkspaceByCompanyId,
   getOrgWorkspaceById,
   upsertOrgWorkspace,
 } from '@/lib/client-provisioning/workspace-context'
@@ -183,14 +182,23 @@ function dependencies(user: ApiUser, setupOperationId: string, setupInput: Recor
         : await getDefaultOrgWorkspace(orgId)
       if (!runtimeWorkspace || runtimeWorkspace.orgId !== orgId) return null
       if (!companyId) return runtimeWorkspace
-      const companyWorkspace = await getCompanyWorkspaceByCompanyId(companyId)
-      if (!companyWorkspace) return null
-      return {
-        ...runtimeWorkspace,
-        companyId,
-        vpsPath: companyWorkspace.vpsPath,
-        localPath: companyWorkspace.localPath,
-      }
+
+      // CRM company is metadata for the project board. Standard folder
+      // provisioning posts orgId + workspaceId + workspacePath to the VPS
+      // sidecar, which requires an exact .pib-workspace.json identity match.
+      //
+      // Older code overrode only the path with the company Cowork root while
+      // keeping the organisation workspaceId. Sibling/client company roots
+      // (e.g. Loyalty Plus under a different workspaceId/orgId) then failed
+      // with "registered Workspace manifest identity conflict", blocked
+      // location linking, and left projects partial.
+      //
+      // Standard projects always provision under the active organisation
+      // workspace. Client delivery against an existing company tree must use
+      // existing_folder mode (shared Project + company Cowork convention).
+      // Missing company Cowork must not abort setup either — previously
+      // getCompanyWorkspaceByCompanyId → null short-circuited the whole wizard.
+      return { ...runtimeWorkspace, companyId }
     },
     async getWorkspaceFolder(folderId, orgId, actor) {
       if (!safeFolderId(folderId)) return null
