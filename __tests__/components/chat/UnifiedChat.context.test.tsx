@@ -1342,7 +1342,18 @@ describe('UnifiedChat project pulse integration', () => {
         attention: [{ id: 'approval', label: 'Approve sender', severity: 'approval', actions: [{ id: 'approve', label: 'Approve next step', href: '/api/v1/projects/project-1/tasks/approval', method: 'PATCH', requiresApproval: true }] }],
         activity: [], capabilities: [], asOf: progress.asOf,
       } })
-      if (url === '/api/v1/projects/project-1/tasks/approval' && init?.method === 'PATCH') return jsonResponse({ data: { updated: true } })
+      if (url === '/api/v1/conversations/conv-1/context-actions' && init?.method === 'POST') return jsonResponse({ data: { receipt: {
+        id: 'receipt-approval-1',
+        conversationId: 'conv-1',
+        orgId: 'org-1',
+        actor: { uid: 'user-1', role: 'admin' },
+        context: { kind: 'project', id: 'project-1' },
+        action: { id: 'approve', label: 'Approve next step', href: '/api/v1/projects/project-1/tasks/approval', method: 'PATCH', requiresApproval: true },
+        status: 'succeeded',
+        canonicalStatus: 200,
+        createdAt: '2026-07-30T12:00:00.000Z',
+        completedAt: '2026-07-30T12:00:01.000Z',
+      } } })
       throw new Error(`Unhandled fetch: ${url}`)
     })
     global.fetch = fetchMock
@@ -1395,8 +1406,8 @@ describe('UnifiedChat project pulse integration', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Approve next step' })[0])
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/projects/project-1/tasks/approval',
-      expect.objectContaining({ method: 'PATCH' }),
+      '/api/v1/conversations/conv-1/context-actions',
+      expect.objectContaining({ method: 'POST' }),
     ))
     await waitFor(() => {
       // Initial mount + post-approval refresh; coordinator may fire one extra refresh.

@@ -197,6 +197,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Durable Messages action receipts contain execution evidence and are
+    // exposed only through the conversation-authorised API.
+    match /chat_action_receipts/{id} {
+      allow read, write: if false;
+    }
+
     // Unified comments — admin read/write. Clients cannot see each other's
     // comment threads (even on their own resources) without deliberate
     // per-resource exposure later.

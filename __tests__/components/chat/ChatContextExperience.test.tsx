@@ -13,6 +13,32 @@ const conversation = {
 
 const originalMatchMedia = window.matchMedia
 
+function actionReceiptResponse(
+  action: { id: string; label: string; href: string; method: 'POST' | 'PUT' | 'PATCH' | 'DELETE' },
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      data: {
+        receipt: {
+          id: 'receipt-1234567890',
+          conversationId: 'conv-1',
+          orgId: 'org-1',
+          actor: { uid: 'member-1', role: 'client' },
+          context: { kind: 'studio', id: 's1' },
+          action,
+          status: 'succeeded',
+          createdAt: '2026-07-30T12:00:00.000Z',
+          completedAt: '2026-07-30T12:00:01.000Z',
+          ...overrides,
+        },
+      },
+    }),
+  }
+}
+
 afterEach(() => {
   jest.restoreAllMocks()
   Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia })
@@ -164,13 +190,18 @@ describe('useChatContexts', () => {
   it('executes Dock mutations and refreshes the active context immediately', async () => {
     const refresh = jest.fn(async () => undefined)
     const onActionResolved = jest.fn()
-    global.fetch = jest.fn(async () => ({ ok: true })) as jest.Mock
-    const model = { context: { kind: 'studio' as const, id: 's1', orgId: 'o1', label: 'Studio', icon: 'campaign' }, pulse: { label: 'Studio', metrics: [] }, groups: [], artifacts: [], attention: [{ id: 'blocked', label: 'Blocked', state: 'blocked' as const, actions: [{ id: 'retry', label: 'Retry', href: '/api/retry', method: 'POST' as const }] }], activity: [], capabilities: [], asOf: '2026-07-13T00:00:00Z' }
-    const context = { contexts: [{ kind: 'studio' as const, id: 's1', label: 'Studio' }], activeContext: { kind: 'studio' as const, id: 's1' }, setActiveContext: jest.fn(), model, error: null, refresh, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn() }
+    const retryAction = { id: 'retry', label: 'Retry', href: '/api/retry', method: 'POST' as const }
+    global.fetch = jest.fn(async () => actionReceiptResponse(retryAction)) as jest.Mock
+    const model = { context: { kind: 'studio' as const, id: 's1', orgId: 'o1', label: 'Studio', icon: 'campaign' }, pulse: { label: 'Studio', metrics: [] }, groups: [], artifacts: [], attention: [{ id: 'blocked', label: 'Blocked', state: 'blocked' as const, actions: [retryAction] }], activity: [], capabilities: [], asOf: '2026-07-13T00:00:00Z' }
+    const context = { contexts: [{ kind: 'studio' as const, id: 's1', label: 'Studio' }], activeContext: { kind: 'studio' as const, id: 's1' }, setActiveContext: jest.fn(), model, error: null, refresh, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1', conversationId: 'conv-1' }
     render(<ChatContextExperience context={context} onActionResolved={onActionResolved} />)
     fireEvent.click(screen.getByRole('button', { name: 'Open context dock' }))
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/retry', expect.objectContaining({ method: 'POST' })))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context-actions',
+      expect.objectContaining({ method: 'POST', headers: expect.objectContaining({ 'Idempotency-Key': expect.stringMatching(/^chat-action-/) }) }),
+    ))
+    expect(await screen.findByText('Action completed')).toBeInTheDocument()
     expect(refresh).toHaveBeenCalled()
     expect(onActionResolved).toHaveBeenCalledTimes(1)
   })
@@ -190,6 +221,12 @@ describe('useChatContexts', () => {
           groups: [], artifacts: [], attention: relatedReads === 1 ? [{ id: 'ready', label: 'Ready to complete', state: 'review', actions: [relatedAction] }] : [], activity: [], capabilities: [], asOf: `2026-07-19T00:00:0${relatedReads}Z`,
         } }) }
       }
+      if (String(input) === '/api/v1/conversations/conv-related-action/context-actions') {
+        return actionReceiptResponse(relatedAction, {
+          conversationId: 'conv-related-action',
+          context: { kind: 'task', id: 'task-1' },
+        })
+      }
       return { ok: true }
     }) as jest.Mock
     const model = { context: { kind: 'project' as const, id: 'project-1', orgId: 'org-1', label: 'Launch', icon: 'target' }, pulse: { label: 'Project', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '2026-07-19T00:00:00Z' }
@@ -204,16 +241,16 @@ describe('useChatContexts', () => {
 
     await waitFor(() => expect(screen.getByText('Completed and verified')).toBeInTheDocument())
     expect(refresh).toHaveBeenCalledTimes(1)
-    expect(global.fetch).toHaveBeenCalledWith('/api/tasks/task-1/complete', expect.objectContaining({ method: 'POST' }))
+    expect(global.fetch).toHaveBeenCalledWith('/api/v1/conversations/conv-related-action/context-actions', expect.objectContaining({ method: 'POST' }))
     expect((global.fetch as jest.Mock).mock.calls.filter(([input]) => String(input) === '/api/v1/chat-context/task/task-1')).toHaveLength(2)
     expect(screen.getByRole('dialog', { name: 'Launch context' })).toHaveAttribute('data-presentation', 'dual')
   })
 
   it('reports a failed Dock mutation without refreshing or rejecting unhandled', async () => {
     const refresh = jest.fn(async () => undefined)
-    global.fetch = jest.fn(async () => ({ ok: false, status: 409 })) as jest.Mock
+    global.fetch = jest.fn(async () => ({ ok: false, status: 409, json: async () => ({ error: 'Context action failed' }) })) as jest.Mock
     const model = { context: { kind: 'studio' as const, id: 's1', orgId: 'o1', label: 'Studio', icon: 'campaign' }, pulse: { label: 'Studio', metrics: [] }, groups: [], artifacts: [], attention: [{ id: 'blocked', label: 'Blocked', state: 'blocked' as const, actions: [{ id: 'retry', label: 'Retry', href: '/api/retry', method: 'POST' as const }] }], activity: [], capabilities: [], asOf: '2026-07-13T00:00:00Z' }
-    const context = { contexts: [{ kind: 'studio' as const, id: 's1', label: 'Studio' }], activeContext: { kind: 'studio' as const, id: 's1' }, setActiveContext: jest.fn(), model, error: null, refresh, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn() }
+    const context = { contexts: [{ kind: 'studio' as const, id: 's1', label: 'Studio' }], activeContext: { kind: 'studio' as const, id: 's1' }, setActiveContext: jest.fn(), model, error: null, refresh, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1', conversationId: 'conv-1' }
     render(<ChatContextExperience context={context} />)
     fireEvent.click(screen.getByRole('button', { name: 'Open context dock' }))
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
@@ -226,7 +263,7 @@ describe('useChatContexts', () => {
     const refresh = jest.fn(async () => undefined)
     global.fetch = jest.fn(async () => ({ ok: false, status: 422, json: async () => ({ error: `Export blocked: rights review required${'x'.repeat(500)}` }) })) as jest.Mock
     const model = { context: { kind: 'studio' as const, id: 's1', orgId: 'o1', label: 'Studio', icon: 'campaign' }, pulse: { label: 'Studio', metrics: [] }, groups: [], artifacts: [], attention: [{ id: 'blocked', label: 'Blocked', state: 'blocked' as const, actions: [{ id: 'export', label: 'Export', href: '/api/export', method: 'POST' as const }] }], activity: [], capabilities: [], asOf: '2026-07-13T00:00:00Z' }
-    const context = { contexts: [{ kind: 'studio' as const, id: 's1', label: 'Studio' }], activeContext: { kind: 'studio' as const, id: 's1' }, setActiveContext: jest.fn(), model, error: null, refresh, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn() }
+    const context = { contexts: [{ kind: 'studio' as const, id: 's1', label: 'Studio' }], activeContext: { kind: 'studio' as const, id: 's1' }, setActiveContext: jest.fn(), model, error: null, refresh, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1', conversationId: 'conv-1' }
     render(<ChatContextExperience context={context} />)
     fireEvent.click(screen.getByRole('button', { name: 'Open context dock' }))
     fireEvent.click(screen.getByRole('button', { name: 'Export' }))
@@ -245,13 +282,13 @@ describe('useChatContexts', () => {
   })
 
   it('confirms protected actions and deduplicates an in-flight mutation', async () => {
-    let resolve!: (value: { ok: boolean }) => void
-    global.fetch = jest.fn(() => new Promise((done) => { resolve = done })) as jest.Mock
+    let resolve!: (value: ReturnType<typeof actionReceiptResponse>) => void
+    global.fetch = jest.fn(() => new Promise<ReturnType<typeof actionReceiptResponse>>((done) => { resolve = done })) as jest.Mock
     jest.spyOn(window, 'confirm').mockReturnValue(true)
     const refresh = jest.fn()
     const action = { id: 'delete', label: 'Delete', href: '/api/delete', method: 'DELETE' as const, destructive: true }
     const model = { context: { kind: 'studio' as const, id: 's1', orgId: 'o1', label: 'Studio', icon: 'campaign' }, pulse: { label: 'Studio', metrics: [] }, groups: [], artifacts: [], attention: [{ id: 'blocked', label: 'Blocked', state: 'blocked' as const, actions: [action] }], activity: [], capabilities: [], asOf: '2026-07-13T00:00:00Z' }
-    const context = { contexts: [{ kind: 'studio' as const, id: 's1', label: 'Studio' }], activeContext: { kind: 'studio' as const, id: 's1' }, setActiveContext: jest.fn(), model, error: null, refresh, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn() }
+    const context = { contexts: [{ kind: 'studio' as const, id: 's1', label: 'Studio' }], activeContext: { kind: 'studio' as const, id: 's1' }, setActiveContext: jest.fn(), model, error: null, refresh, routineUpdateCount: 0, dismissRoutineUpdates: jest.fn(), orgId: 'org-1', conversationId: 'conv-1' }
     render(<ChatContextExperience context={context} />)
     fireEvent.click(screen.getByRole('button', { name: 'Open context dock' }))
     const button = screen.getByRole('button', { name: 'Delete' })
@@ -259,7 +296,7 @@ describe('useChatContexts', () => {
     expect(window.confirm).toHaveBeenCalledTimes(1)
     expect(global.fetch).toHaveBeenCalledTimes(1)
     expect(button).toBeDisabled()
-    await act(async () => resolve({ ok: true }))
+    await act(async () => resolve(actionReceiptResponse(action)))
   })
 
   it.each([

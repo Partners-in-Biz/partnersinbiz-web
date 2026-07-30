@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ChatArtifactSummary, ChatContextAction } from '@/lib/chat-context/types'
+import type { ChatArtifactSummary, ChatContextAction, ChatContextActionReceipt } from '@/lib/chat-context/types'
 import { ContextDock, CONTEXT_CANVAS_MAX_WIDTH, CONTEXT_CANVAS_MIN_WIDTH } from './ContextDock'
 import { ContextStrip, EmptyContextStrip } from './ContextStrip'
 import type { ReturnTypeOfUseChatContexts } from './internalTypes'
@@ -23,11 +23,13 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const [secondaryContext, setSecondaryContext] = useState<ChatContextOption>()
   const [activeArtifactId, setActiveArtifactId] = useState<string>()
   const [actionError, setActionError] = useState<string | null>(null)
+  const [actionReceipt, setActionReceipt] = useState<ChatContextActionReceipt | null>(null)
   const [pendingActionId, setPendingActionId] = useState<string>()
   const [secondaryRefreshRevision, setSecondaryRefreshRevision] = useState(0)
   const [previewRefreshRevision, setPreviewRefreshRevision] = useState(0)
   const lastExecutionStatusRef = useRef<string | undefined>(undefined)
   const pendingRef = useRef<string | undefined>(undefined)
+  const actionIdempotencyRef = useRef(new Map<string, string>())
   const [pendingStoredSecondary, setPendingStoredSecondary] = useState<{ storageKey: string; reference: ChatContextReference; hydrationRevision: string } | null>(null)
   const secondaryOptions = useMemo<ChatContextOption[]>(() => {
     const options = new Map<string, ChatContextOption>()
@@ -65,6 +67,7 @@ export function ChatContextExperience({ context, compact = false, artifactReques
     pendingRef.current = undefined
     setPendingActionId(undefined)
     setActionError(null)
+    setActionReceipt(null)
   }, [actionOperationIdentity])
   useEffect(() => {
     if (!canvasStorageKey) {
@@ -173,22 +176,85 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const executeAction = async (action: ChatContextAction, actionContext?: ChatContextOption) => {
     if (!action.href || !action.method) return
     if (pendingRef.current) return
-    if ((action.destructive || action.requiresApproval) && !window.confirm(`${action.label} requires confirmation. Continue?`)) return
+    if (!context.conversationId) {
+      setActionError('This action needs a saved conversation. Refresh Messages and try again.')
+      return
+    }
+    const confirmed = action.destructive || action.requiresApproval
+      ? window.confirm(`${action.label} requires confirmation. Continue?`)
+      : false
+    if ((action.destructive || action.requiresApproval) && !confirmed) return
+    const targetContext = actionContext ?? context.activeContext
+    if (!targetContext) return
     const initiatingOperationIdentity = actionOperationIdentity
+    const operationKey = `${initiatingOperationIdentity}:${targetContext.kind}:${targetContext.id}:${action.id}:${action.method}:${action.href}:${JSON.stringify(action.body ?? null)}`
+    let idempotencyKey = actionIdempotencyRef.current.get(operationKey)
+    if (!idempotencyKey) {
+      const randomId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      idempotencyKey = `chat-action-${randomId}`
+      actionIdempotencyRef.current.set(operationKey, idempotencyKey)
+    }
     pendingRef.current = action.id; setPendingActionId(action.id)
     setActionError(null)
+    setActionReceipt(null)
     try {
-      const response = await fetch(action.href, { method: action.method, headers: action.body === undefined ? undefined : { 'Content-Type': 'application/json' }, body: action.body === undefined ? undefined : JSON.stringify(action.body) })
+      const response = await fetch(`/api/v1/conversations/${encodeURIComponent(context.conversationId)}/context-actions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify({
+          context: {
+            kind: targetContext.kind,
+            id: targetContext.id,
+            ...(targetContext.projectId ? { projectId: targetContext.projectId } : {}),
+          },
+          action,
+          confirmed,
+        }),
+      })
+      const body = typeof response.json === 'function'
+        ? await response.json().catch(() => null) as { data?: { receipt?: ChatContextActionReceipt }; receipt?: ChatContextActionReceipt; error?: unknown } | null
+        : null
+      let receipt = body?.data?.receipt ?? body?.receipt
+      if (receipt && actionOperationIdentityRef.current === initiatingOperationIdentity) setActionReceipt(receipt)
       if (!response.ok) {
-        const body = typeof response.json === 'function' ? await response.json().catch(() => null) as { error?: unknown } | null : null
+        actionIdempotencyRef.current.delete(operationKey)
         const safeError = typeof body?.error === 'string' ? body.error.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 180) : ''
         throw new Error(safeError || `Context action failed (${response.status}). Try again.`)
       }
+      if (!receipt) throw new Error('The action completed without a verifiable receipt. Refresh and check the live record.')
+      for (let attempt = 0; receipt.status === 'running' && attempt < 15; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 1_000))
+        if (actionOperationIdentityRef.current !== initiatingOperationIdentity) return
+        const receiptResponse = await fetch(
+          `/api/v1/conversations/${encodeURIComponent(context.conversationId)}/context-actions?receiptId=${encodeURIComponent(receipt.id)}`,
+          { cache: 'no-store' },
+        )
+        if (!receiptResponse.ok) continue
+        const receiptBody = await receiptResponse.json().catch(() => null) as { data?: { receipt?: ChatContextActionReceipt } } | null
+        if (receiptBody?.data?.receipt) {
+          receipt = receiptBody.data.receipt
+          setActionReceipt(receipt)
+        }
+      }
+      if (receipt.status === 'succeeded' || receipt.status === 'failed') {
+        actionIdempotencyRef.current.delete(operationKey)
+      }
       if (actionOperationIdentityRef.current !== initiatingOperationIdentity) return
-      if (actionContext) setSecondaryRefreshRevision((revision) => revision + 1)
-      await context.refresh()
-      if (actionOperationIdentityRef.current !== initiatingOperationIdentity) return
-      onActionResolved?.()
+      if (receipt.status === 'succeeded') {
+        if (actionContext) setSecondaryRefreshRevision((revision) => revision + 1)
+        await context.refresh()
+        if (actionOperationIdentityRef.current !== initiatingOperationIdentity) return
+        onActionResolved?.()
+      } else if (receipt.status === 'indeterminate') {
+        setActionError(receipt.error ?? 'The result is unknown. Check the live record before retrying.')
+      } else if (receipt.status === 'running') {
+        setActionError('This action is still running. Its receipt will be reused if you check again.')
+      }
     } catch (cause) {
       if (actionOperationIdentityRef.current === initiatingOperationIdentity) setActionError(cause instanceof Error ? cause.message : 'Context action failed. Try again.')
     } finally {
@@ -203,6 +269,6 @@ export function ChatContextExperience({ context, compact = false, artifactReques
       ? <ContextStrip options={context.contexts} value={context.activeContext} model={context.model} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} onOpen={() => setOpen(true)} />
       : onAddContext ? <EmptyContextStrip onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} /> : null}
     {!context.model && !context.activeContext && <button type="button" data-testid="execution-context-trigger" onClick={() => setOpen(true)} className="mx-3 mt-2 inline-flex h-11 items-center gap-2 self-start rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs text-[var(--color-pib-text)] outline-none focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8"><span aria-hidden="true" className="material-symbols-outlined text-[15px]">developer_board</span>Execution <span className="text-[var(--color-pib-text-muted)]">{execution?.activeMessage?.status}</span></button>}
-    <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action, actionContext) => { void executeAction(action, actionContext) }} actionError={actionError} pendingActionId={pendingActionId} execution={execution} mode={canvasMode} onModeChange={setCanvasMode} canvasWidth={canvasWidth} onCanvasWidthChange={setCanvasWidth} secondaryContext={secondaryContext} secondaryOptions={secondaryOptions} onSecondaryChange={(next) => { setPendingStoredSecondary(null); setSecondaryContext(next) }} secondaryRefreshRevision={secondaryRefreshRevision} previewRefreshRevision={previewRefreshRevision} workbenchFolder={context.activeContext?.kind === 'workspace_folder' && context.activeContext.workbenchPath && context.conversationId ? { conversationId: context.conversationId, path: context.activeContext.workbenchPath } : undefined} onClose={() => setOpen(false)} />
+    <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action, actionContext) => { void executeAction(action, actionContext) }} actionError={actionError} actionReceipt={actionReceipt} pendingActionId={pendingActionId} execution={execution} mode={canvasMode} onModeChange={setCanvasMode} canvasWidth={canvasWidth} onCanvasWidthChange={setCanvasWidth} secondaryContext={secondaryContext} secondaryOptions={secondaryOptions} onSecondaryChange={(next) => { setPendingStoredSecondary(null); setSecondaryContext(next) }} secondaryRefreshRevision={secondaryRefreshRevision} previewRefreshRevision={previewRefreshRevision} workbenchFolder={context.activeContext?.kind === 'workspace_folder' && context.activeContext.workbenchPath && context.conversationId ? { conversationId: context.conversationId, path: context.activeContext.workbenchPath } : undefined} onClose={() => setOpen(false)} />
   </>
 }
