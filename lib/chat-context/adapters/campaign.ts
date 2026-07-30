@@ -8,6 +8,7 @@ import type {
   ContextItemSummary,
 } from '@/lib/chat-context/types'
 import { primaryPlatformOf } from '@/lib/campaign-preview/normalizeSocialPost'
+import { socialPostChatActions } from '@/lib/chat-context/adapters/social'
 
 function clean(value: unknown, max = 240): string {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, max) : ''
@@ -55,16 +56,19 @@ function campaignHref(id: string, role: string | undefined): string {
   return role === 'client' ? `/portal/campaigns/${encodeURIComponent(id)}` : `/admin/campaigns/${encodeURIComponent(id)}`
 }
 
-function itemFromPost(post: Record<string, unknown>): ContextItemSummary {
-  const id = clean(post.id, 200) || 'post'
+function itemFromPost(post: Record<string, unknown>, role: string | undefined): ContextItemSummary {
+  const postId = clean(post.id, 200)
+  const id = postId || 'post'
   const platform = primaryPlatformOf(post)
   const status = clean(post.status, 80) || 'draft'
   const label = postText(post.content) || clean(post.title, 120) || `${platform} post`
+  const actions = postId ? socialPostChatActions({ id: postId, post, role }) : []
   return {
     id,
     label,
     state: stateForStatus(status),
     detail: `${platform} · ${status.replaceAll('_', ' ')}`,
+    ...(actions.length > 0 ? { actions } : {}),
   }
 }
 
@@ -114,10 +118,11 @@ export const campaignChatContextAdapter: ChatContextAdapter = {
     }
 
     const groups = [
-      { id: 'social', label: 'Social posts', items: social.slice(0, 12).map(itemFromPost) },
+      { id: 'social', label: 'Social posts', items: social.slice(0, 12).map((post) => itemFromPost(post, input.user.role)) },
       { id: 'blogs', label: 'Blog posts', items: blogs.slice(0, 8).map(itemFromBlog) },
-      { id: 'videos', label: 'Videos', items: videos.slice(0, 8).map(itemFromPost) },
+      { id: 'videos', label: 'Videos', items: videos.slice(0, 8).map((post) => itemFromPost(post, input.user.role)) },
     ].filter((group) => group.items.length > 0)
+    const hasInlineActions = groups.some((group) => group.items.some((item) => (item.actions?.length ?? 0) > 0))
 
     const model: ChatContextReadModel = {
       context: {
@@ -156,7 +161,7 @@ export const campaignChatContextAdapter: ChatContextAdapter = {
         text: clean(data.description, 280) || undefined,
         status,
       },
-      capabilities: ['open', 'preview'],
+      capabilities: ['open', 'preview', ...(hasInlineActions ? ['inline-actions'] : [])],
       asOf: new Date().toISOString(),
     }
 

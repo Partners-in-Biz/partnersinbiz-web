@@ -1,6 +1,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import type { ChatContextAdapter } from '@/lib/chat-context/access'
 import type {
+  ChatContextAction,
   ChatContextReadModel,
   ContextAttentionSummary,
   ContextDisplayState,
@@ -55,6 +56,74 @@ function campaignHref(id: string, role: string | undefined): string {
   return role === 'client' ? `/portal/campaigns/${encodeURIComponent(id)}` : `/admin/campaigns/${encodeURIComponent(id)}`
 }
 
+function hasFinalApproval(post: Record<string, unknown>): boolean {
+  const approval = post.approval && typeof post.approval === 'object' && !Array.isArray(post.approval)
+    ? post.approval as Record<string, unknown>
+    : {}
+  return Boolean(
+    post.approvedAt
+    || post.approvedBy
+    || approval.clientApprovedAt
+    || approval.clientApprovedBy
+    || approval.qaApprovedAt
+    || approval.qaApprovedBy
+  )
+}
+
+export function socialPostChatActions(input: {
+  id: string
+  post: Record<string, unknown>
+  role: string | undefined
+}): ChatContextAction[] {
+  const id = clean(input.id, 200)
+  if (!id) return []
+  const status = clean(input.post.status, 80).toLowerCase() || 'draft'
+  const href = `/api/v1/social/posts/${encodeURIComponent(id)}`
+  const canAdminister = input.role === 'admin' || input.role === 'ai'
+  const canParticipate = canAdminister || input.role === 'client'
+
+  if (status === 'draft' && canParticipate) {
+    return [{
+      id: `submit-social:${id}`,
+      label: 'Submit for review',
+      href: `${href}/submit`,
+      method: 'POST',
+    }]
+  }
+  if (status === 'qa_review' && canAdminister) {
+    return [{
+      id: `qa-approve-social:${id}`,
+      label: 'Approve QA review',
+      href: `${href}/qa-approve`,
+      method: 'POST',
+      requiresApproval: true,
+    }]
+  }
+  if ((status === 'client_review' || status === 'pending_approval') && canParticipate) {
+    return [{
+      id: `client-approve-social:${id}`,
+      label: 'Approve post',
+      href: `${href}/client-approve`,
+      method: 'POST',
+      requiresApproval: true,
+    }]
+  }
+  if (
+    canAdminister
+    && hasFinalApproval(input.post)
+    && ['approved', 'vaulted', 'scheduled', 'failed'].includes(status)
+  ) {
+    return [{
+      id: `publish-social:${id}`,
+      label: status === 'failed' ? 'Retry publishing' : 'Publish now',
+      href: `${href}/publish`,
+      method: 'POST',
+      requiresApproval: true,
+    }]
+  }
+  return []
+}
+
 export const socialChatContextAdapter: ChatContextAdapter = {
   async resolve(input) {
     const snap = await adminDb.collection('social_posts').doc(input.id).get()
@@ -75,6 +144,11 @@ export const socialChatContextAdapter: ChatContextAdapter = {
     const label = postText(data.content) || `${platform} post`
     const href = socialHref(snap.id, input.user.role)
     const campaignId = clean(data.campaignId, 200) || clean(data.campaign, 200)
+    const actions = socialPostChatActions({
+      id: snap.id,
+      post: data,
+      role: input.user.role,
+    })
 
     const relationships: ChatContextRelationship[] = []
     if (campaignId) {
@@ -102,6 +176,7 @@ export const socialChatContextAdapter: ChatContextAdapter = {
         state: displayState,
         detail: 'Preview the platform card below, then open the social workspace to approve or edit.',
         href,
+        ...(actions.length > 0 ? { actions } : {}),
       })
     }
 
@@ -132,6 +207,7 @@ export const socialChatContextAdapter: ChatContextAdapter = {
           state: displayState,
           detail: `${platform} · ${status.replaceAll('_', ' ')}`,
           href,
+          ...(actions.length > 0 ? { actions } : {}),
         }],
       }],
       artifacts: [],
@@ -143,7 +219,7 @@ export const socialChatContextAdapter: ChatContextAdapter = {
         status,
       },
       ...(relationships.length > 0 ? { relationships } : {}),
-      capabilities: ['open', 'preview'],
+      capabilities: ['open', 'preview', ...(actions.length > 0 ? ['inline-actions'] : [])],
       asOf: new Date().toISOString(),
     }
 

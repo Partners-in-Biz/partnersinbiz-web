@@ -60,7 +60,14 @@ describe('social chat context adapter', () => {
       expect.objectContaining({ kind: 'campaign', id: 'camp-1', label: 'July Growth Push' }),
     ])
     expect(result.model.attention[0]?.state).toBe('review')
-    expect(result.model.capabilities).toEqual(expect.arrayContaining(['open', 'preview']))
+    expect(result.model.attention[0]?.actions?.[0]).toEqual(expect.objectContaining({
+      label: 'Approve post',
+      href: '/api/v1/social/posts/post-1/client-approve',
+    }))
+    expect(result.model.groups[0].items[0].actions?.[0]).toEqual(expect.objectContaining({
+      label: 'Approve post',
+    }))
+    expect(result.model.capabilities).toEqual(expect.arrayContaining(['open', 'preview', 'inline-actions']))
   })
 
   it('rejects posts outside the caller org', async () => {
