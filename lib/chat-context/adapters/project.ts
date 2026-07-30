@@ -33,7 +33,32 @@ const REVIEW_STATUSES = ['pending', 'in-progress', 'approved', 'changes-requeste
 const APPROVAL_STATUSES = ['pending', 'approved', 'rejected'] as const
 const RELEASE_STATUSES = ['scheduled', 'released', 'cancelled'] as const
 
+function normalizeAgentOutput(value: unknown): ProjectChatTaskSource['agentOutput'] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const raw = value as Record<string, unknown>
+  const summary = optionalString(raw.summary)
+  const artifacts = Array.isArray(raw.artifacts)
+    ? raw.artifacts.flatMap((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return []
+        const entry = item as Record<string, unknown>
+        const type = optionalString(entry.type) ?? 'url'
+        const ref = optionalString(entry.ref)
+        if (!ref) return []
+        const label = optionalString(entry.label)
+        return [{ type, ref, ...(label ? { label } : {}) }]
+      })
+    : undefined
+  if (!summary && !(artifacts && artifacts.length > 0)) return undefined
+  return {
+    summary: summary ?? '',
+    ...(artifacts && artifacts.length > 0 ? { artifacts } : {}),
+  }
+}
+
 function normalizeTask(task: Record<string, unknown>): ProjectChatTaskSource {
+  const agentInput = task.agentInput && typeof task.agentInput === 'object' && !Array.isArray(task.agentInput)
+    ? task.agentInput as Record<string, unknown>
+    : null
   return {
     id: cleanString(task.id),
     title: optionalString(task.title),
@@ -48,6 +73,11 @@ function normalizeTask(task: Record<string, unknown>): ProjectChatTaskSource {
     agentReleaseStatus: knownString(task.agentReleaseStatus, RELEASE_STATUSES),
     dependsOn: stringArray(task.dependsOn),
     labels: stringArray(task.labels),
+    agentConversationId: optionalString(task.agentConversationId) ?? null,
+    agentOutput: normalizeAgentOutput(task.agentOutput),
+    agentInput: agentInput && optionalString(agentInput.spec)
+      ? { spec: optionalString(agentInput.spec)! }
+      : undefined,
     updatedAt: task.updatedAt,
   }
 }
@@ -63,14 +93,44 @@ function updatedAt(value: unknown): string | undefined {
 }
 
 function summary(task: ProjectChatTaskItem): ContextItemSummary {
+  const dependencyDetail = task.unresolvedDependencyIds.length > 0
+    ? `Waiting for ${task.unresolvedDependencyIds.length} dependenc${task.unresolvedDependencyIds.length === 1 ? 'y' : 'ies'}`
+    : undefined
+  const agentSummary = optionalString(task.agentOutput?.summary)
+  const inputSpec = optionalString(task.agentInput && typeof task.agentInput === 'object'
+    ? (task.agentInput as { spec?: unknown }).spec
+    : undefined)
+  const artifacts = Array.isArray(task.agentOutput?.artifacts)
+    ? task.agentOutput!.artifacts!.flatMap((item) => {
+        const type = optionalString(item.type) ?? 'url'
+        const ref = optionalString(item.ref)
+        if (!ref) return []
+        const label = optionalString(item.label)
+        return [{ type, ref, ...(label ? { label } : {}) }]
+      })
+    : undefined
+
   return {
     id: task.id,
     label: task.title,
     state: task.state as ContextDisplayState,
-    detail: task.unresolvedDependencyIds.length > 0
-      ? `Waiting for ${task.unresolvedDependencyIds.length} dependenc${task.unresolvedDependencyIds.length === 1 ? 'y' : 'ies'}`
-      : undefined,
+    detail: dependencyDetail
+      || (task.state === 'running' && agentSummary ? agentSummary : undefined)
+      || (task.state === 'complete' && agentSummary ? agentSummary : undefined)
+      || (task.state === 'needs_input' && agentSummary ? agentSummary : undefined)
+      || (task.state === 'blocked' && agentSummary ? agentSummary : undefined)
+      || undefined,
     updatedAt: updatedAt(task.updatedAt),
+    agent: (task.assigneeAgentId || task.agentStatus || agentSummary || task.agentConversationId)
+      ? {
+          ...(task.assigneeAgentId ? { agentId: task.assigneeAgentId } : {}),
+          ...(task.agentStatus ? { agentStatus: task.agentStatus } : {}),
+          conversationId: task.agentConversationId ?? null,
+          ...(agentSummary ? { summary: agentSummary } : {}),
+          ...(inputSpec ? { inputSpec } : {}),
+          ...(artifacts && artifacts.length > 0 ? { artifacts } : {}),
+        }
+      : undefined,
   }
 }
 
@@ -139,7 +199,14 @@ export const projectChatContextAdapter: ChatContextAdapter = {
           next: progress.next ? summary(progress.next) : undefined,
         },
         groups: progress.tasks.length > 0
-          ? [{ id: 'tasks', label: 'Tasks', items: progress.tasks.map(summary) }]
+          ? [{
+              id: 'tasks',
+              label: 'Tasks',
+              items: progress.tasks.map((task) => ({
+                ...summary(task),
+                href: `/portal/projects/${encodeURIComponent(projectId)}?taskId=${encodeURIComponent(task.id)}`,
+              })),
+            }]
           : [],
         artifacts: [],
         attention: progress.attention ? [{

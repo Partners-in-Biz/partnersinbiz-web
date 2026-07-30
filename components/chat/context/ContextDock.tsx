@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { chatContextReferenceKey, type ChatContextReadModel, type ChatArtifactSummary, type ChatContextAction } from '@/lib/chat-context/types'
+import { chatContextReferenceKey, type ChatContextReadModel, type ChatArtifactSummary, type ChatContextAction, type ContextItemSummary } from '@/lib/chat-context/types'
+import { displayStateLabel, displayStateStyle } from '@/lib/chat-context/displayStateStyles'
 import { ContextArtifactCard } from './ContextArtifactCard'
 import { ContextAttentionMoment } from './ContextAttentionMoment'
+import { ProjectTaskFeed } from './ProjectTaskFeed'
 import { RuntimeExecutionSection, type RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 import { DocumentContextPreview } from './DocumentContextPreview'
 import { EmailContextComposer } from './EmailContextComposer'
@@ -27,6 +29,84 @@ function displayDate(value: string | undefined) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
+function ContextGroupItemCard({
+  item,
+  expanded,
+  onToggle,
+  onAction,
+  pendingActionId,
+  showAgentFeed,
+}: {
+  item: ContextItemSummary
+  expanded: boolean
+  onToggle: () => void
+  onAction?: (action: ChatContextAction) => void
+  pendingActionId?: string
+  showAgentFeed: boolean
+}) {
+  const style = displayStateStyle(item.state)
+  const canExpand = showAgentFeed || Boolean(item.agent) || Boolean(item.detail)
+  return (
+    <li
+      data-testid={`context-group-item-${item.id}`}
+      data-state={item.state}
+      className={`overflow-hidden rounded-lg border transition-colors ${style.cardClassName} ${expanded ? 'ring-1 ring-primary/25' : ''}`}
+    >
+      <div className="flex">
+        <span aria-hidden="true" className="w-1 shrink-0 self-stretch" style={{ background: style.rail }} />
+        <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            aria-expanded={canExpand ? expanded : undefined}
+            aria-label={canExpand ? `${expanded ? 'Hide' : 'Show'} activity for ${item.label}` : item.label}
+            onClick={() => { if (canExpand) onToggle() }}
+            className={`flex min-h-11 w-full items-start gap-2 px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60 xl:min-h-0 ${canExpand ? 'hover:bg-white/[0.03]' : 'cursor-default'}`}
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-medium leading-snug text-[var(--color-pib-text)]">{item.label}</span>
+              {item.detail && !expanded && (
+                <span className="mt-1 line-clamp-2 block text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">{item.detail}</span>
+              )}
+              {displayDate(item.updatedAt) && (
+                <span className="mt-1 block text-[10px] text-[var(--color-pib-text-muted)]">Updated {displayDate(item.updatedAt)}</span>
+              )}
+            </span>
+            <span className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${style.badgeClassName}`}>
+              {displayStateLabel(item.state)}
+            </span>
+            {canExpand && (
+              <span className="material-symbols-outlined mt-0.5 shrink-0 text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
+                {expanded ? 'expand_less' : 'expand_more'}
+              </span>
+            )}
+          </button>
+          {item.actions && item.actions.length > 0 && (
+            <div className="flex flex-wrap gap-2 border-t border-white/[0.06] px-3 py-2">
+              {item.actions.map((action) => (
+                <button
+                  key={action.id}
+                  type="button"
+                  disabled={pendingActionId === action.id}
+                  onClick={() => onAction?.(action)}
+                  className="min-h-11 rounded-lg border border-[var(--color-card-border)] px-3 text-[11px] text-[var(--color-pib-text)] disabled:opacity-50 xl:min-h-8"
+                >
+                  {pendingActionId === action.id ? 'Working…' : action.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {expanded && showAgentFeed && <ProjectTaskFeed item={item} />}
+          {expanded && !showAgentFeed && item.detail && (
+            <div className="border-t border-white/[0.06] px-3 py-2 text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">
+              {item.detail}
+            </div>
+          )}
+        </div>
+      </div>
+    </li>
+  )
+}
+
 export function ContextDock({ model, open, onClose, compact = false, activeArtifactId, onArtifactActivate, onAction, actionError, pendingActionId, execution, mode = 'single', onModeChange, canvasWidth = 520, onCanvasWidthChange, secondaryContext, secondaryOptions = [], onSecondaryChange, secondaryRefreshRevision = 0, previewRefreshRevision = 0, workbenchFolder }: { model: ChatContextReadModel; open: boolean; onClose: () => void; compact?: boolean; activeArtifactId?: string; onArtifactActivate?: (artifact: ChatArtifactSummary) => void; onAction?: (action: ChatContextAction, context?: ChatContextOption) => void; actionError?: string | null; pendingActionId?: string; execution?: RuntimeExecution; mode?: 'single' | 'dual'; onModeChange?: (mode: 'single' | 'dual') => void; canvasWidth?: number; onCanvasWidthChange?: (width: number) => void; secondaryContext?: ChatContextOption; secondaryOptions?: ChatContextOption[]; onSecondaryChange?: (context: ChatContextOption) => void; secondaryRefreshRevision?: number; previewRefreshRevision?: number; workbenchFolder?: { conversationId: string; path: string } }) {
   const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 1023px)').matches)
   const [wideDesktop, setWideDesktop] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1280px)').matches)
@@ -34,6 +114,7 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
   const [secondaryLoading, setSecondaryLoading] = useState(false)
   const [secondaryLoadFailed, setSecondaryLoadFailed] = useState(false)
   const [tabletFocus, setTabletFocus] = useState<'primary' | 'secondary'>('primary')
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
   const sheet = compact || mobile
   const tabletLandscape = !sheet && !wideDesktop
   const dialogRef = useRef<HTMLElement>(null)
@@ -76,6 +157,7 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
   }, [mode, open, secondaryContext, secondaryRefreshRevision, tabletLandscape, wideDesktop])
   useEffect(() => {
     setTabletFocus('primary')
+    setExpandedItemId(null)
   }, [model.context.id, model.context.kind])
   useEffect(() => {
     if (!secondaryContext && tabletFocus === 'secondary') setTabletFocus('primary')
@@ -125,7 +207,27 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
       {visibleModel?.context.kind === 'quote' && <QuoteContextPreview quoteId={visibleModel.context.id} orgId={visibleModel.context.orgId} refreshRevision={previewRefreshRevision} />}
       {visibleModel?.preview?.kind === 'summary' && !DOCK_PREVIEW_KINDS.has(visibleModel.context.kind) && (visibleModel.preview.text || visibleModel.preview.status) && <section aria-label="Context overview" className="rounded-xl border border-[var(--color-card-border)] bg-white/[0.025] p-3"><div className="flex items-center justify-between gap-2"><h3 className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Overview</h3>{visibleModel.preview.status && <span className="rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">{visibleModel.preview.status}</span>}</div>{visibleModel.preview.text && <p className="mt-2 text-xs leading-relaxed text-[var(--color-pib-text)]">{visibleModel.preview.text}</p>}</section>}
       {visibleModel && visibleModel.attention.length > 0 && <section aria-label="Attention" className="space-y-2">{visibleModel.attention.map((item) => <ContextAttentionMoment key={item.id} attention={item} onAction={triggerVisibleAction} pendingActionId={pendingActionId} />)}</section>}
-      {groups.map((group) => <section key={group.id}><h3 className="mb-2 text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{group.label}</h3><ul>{group.items.map((item) => <li key={item.id} className="border-b border-white/[0.06] py-2 text-xs text-[var(--color-pib-text)]"><div className="flex items-start justify-between gap-2"><span className="font-medium">{item.label}</span><span className="shrink-0 text-[10px] capitalize text-[var(--color-pib-text-muted)]">{(item.state ?? 'ready').replaceAll('_', ' ')}</span></div>{item.detail && <p className="mt-1 text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">{item.detail}</p>}{displayDate(item.updatedAt) && <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)]">Updated {displayDate(item.updatedAt)}</p>}{item.actions && item.actions.length > 0 && <div className="mt-2 flex flex-wrap gap-2">{item.actions.map((action) => <button key={action.id} type="button" disabled={pendingActionId === action.id} onClick={() => triggerVisibleAction(action)} className="min-h-11 rounded-lg border border-[var(--color-card-border)] px-3 text-[11px] text-[var(--color-pib-text)] disabled:opacity-50 xl:min-h-8">{pendingActionId === action.id ? 'Working…' : action.label}</button>)}</div>}</li>)}</ul></section>)}
+      {groups.map((group) => {
+        const isProjectTasks = visibleModel?.context.kind === 'project' && group.id === 'tasks'
+        return (
+          <section key={group.id} aria-label={group.label}>
+            <h3 className="mb-2 text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{group.label}</h3>
+            <ul className="space-y-2">
+              {group.items.map((item) => (
+                <ContextGroupItemCard
+                  key={item.id}
+                  item={item}
+                  expanded={expandedItemId === item.id}
+                  onToggle={() => setExpandedItemId((current) => current === item.id ? null : item.id)}
+                  onAction={triggerVisibleAction}
+                  pendingActionId={pendingActionId}
+                  showAgentFeed={isProjectTasks || Boolean(item.agent)}
+                />
+              ))}
+            </ul>
+          </section>
+        )
+      })}
       {visibleModel?.relationships && visibleModel.relationships.length > 0 && <section aria-label="Related context"><h3 className="mb-2 text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Related context</h3><ul className="space-y-2">{visibleModel.relationships.map((relationship) => <li key={`${relationship.kind}:${relationship.id}`} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-card-border)] bg-white/[0.02] px-3 py-2 text-xs"><div className="min-w-0"><p className="truncate font-medium text-[var(--color-pib-text)]">{relationship.label}</p><p className="text-[10px] text-[var(--color-pib-text-muted)]">{relationship.relation}</p></div>{relationship.href && <a href={relationship.href} className="inline-flex min-h-11 shrink-0 items-center text-primary xl:min-h-8" aria-label={`Open ${relationship.label}`}>Open</a>}</li>)}</ul></section>}
       {visibleModel && visibleModel.artifacts.length > 0 && <section><h3 className="mb-2 text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Artifacts</h3><div className="space-y-2">{visibleModel.artifacts.map((artifact) => <div key={artifact.id} data-active={artifact.id === activeArtifactId || undefined}><ContextArtifactCard artifact={artifact} selected={artifact.id === activeArtifactId} onActivate={onArtifactActivate} onAction={triggerVisibleAction} pendingActionId={pendingActionId} /></div>)}</div></section>}
       {visibleModel && (visibleModel.activity.length > 0 || RICH_GENERIC_KINDS.has(visibleModel.context.kind)) && <section aria-label="Recent activity"><h3 className="mb-2 text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">Recent activity</h3>{visibleModel.activity.length > 0 ? <ul>{visibleModel.activity.map((item) => <li key={item.id} className="border-b border-white/[0.06] py-2 text-[11px] text-[var(--color-pib-text-muted)]"><span className="text-[var(--color-pib-text)]">{item.label}</span>{displayDate(item.occurredAt) && <span className="ml-2 text-[10px]">{displayDate(item.occurredAt)}</span>}</li>)}</ul> : <p className="rounded-lg border border-dashed border-[var(--color-card-border)] px-3 py-2 text-[11px] text-[var(--color-pib-text-muted)]">No recent activity is available for this record yet.</p>}</section>}

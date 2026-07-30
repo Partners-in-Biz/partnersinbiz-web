@@ -16,21 +16,22 @@ export interface ProjectOption {
 
 const STATE_LABEL: Record<ProjectChatTaskState, string> = {
   ready: 'Ready',
-  running: 'Running',
+  running: 'In progress',
   waiting: 'Waiting',
-  needs_input: 'Needs you',
+  needs_input: 'Needs input',
   blocked: 'Blocked',
-  review: 'In review',
+  review: 'Review',
   complete: 'Complete',
 }
 
+// Align with project board column colours (todo blue, in-progress amber, blocked red, review purple, done green).
 const STATE_TONE: Record<ProjectChatTaskState, string> = {
-  ready: 'text-primary',
+  ready: 'text-sky-300',
   running: 'text-amber-200',
   waiting: 'text-[var(--color-pib-text-muted)]',
-  needs_input: 'text-amber-200',
+  needs_input: 'text-orange-200',
   blocked: 'text-red-300',
-  review: 'text-sky-300',
+  review: 'text-violet-200',
   complete: 'text-emerald-300',
 }
 

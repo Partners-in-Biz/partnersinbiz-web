@@ -63,6 +63,18 @@ export interface ChatContextAction {
   body?: Record<string, unknown>
 }
 
+export interface ContextItemAgentSnapshot {
+  agentId?: string
+  agentStatus?: string
+  /** Hermes run id / live session id when the agent is or was executing. */
+  conversationId?: string | null
+  /** Latest agent output summary (progress or completion). */
+  summary?: string
+  /** Original agent brief / input when available. */
+  inputSpec?: string
+  artifacts?: Array<{ type: string; ref: string; label?: string }>
+}
+
 export interface ContextItemSummary {
   id: string
   label: string
@@ -71,6 +83,8 @@ export interface ContextItemSummary {
   href?: string
   updatedAt?: string
   actions?: ChatContextAction[]
+  /** Project-task agent execution snapshot for the Messages context canvas. */
+  agent?: ContextItemAgentSnapshot
 }
 
 export interface ChatArtifactSummary {
