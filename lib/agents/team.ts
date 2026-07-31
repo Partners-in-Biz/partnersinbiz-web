@@ -97,10 +97,18 @@ export async function isConfiguredCompatibilityRuntimeTarget(agentId: AgentId, r
 }
 
 function preferredRuntimeTarget(options?: AgentRuntimeCallOptions): string | null {
-  return options?.runtimeTarget
+  const raw = options?.runtimeTarget
     ?? process.env.PIB_HERMES_RUNTIME_TARGET
     ?? process.env.PIB_AGENT_RUNTIME_TARGET
     ?? null
+  if (!raw) return null
+  const cleaned = raw.trim().toLowerCase()
+  // Chat sessions store linked-device:<uuid> as the runtime target. Hermes
+  // dispatch configs only know vps/local — map VPS-hosted linked devices to vps.
+  if (cleaned.startsWith('linked-device:')) {
+    return 'vps'
+  }
+  return raw
 }
 
 function preferLocalRuntime(): boolean {

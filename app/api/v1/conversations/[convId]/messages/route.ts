@@ -1182,6 +1182,27 @@ export const POST = withAuth(
         ? `${goalWorkContext}${content ? `User message:\n${content}` : ''}`.trim()
         : content
       const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + hermesFeaturesContext + decisionDataRuleContext + dynamicChatCanvasContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + userTurnContent + attachmentContext
+      // VPS-hosted "linked computers" (hermes-vps-01) already expose Hermes
+      // /v1/runs publicly. Prefer direct gateway dispatch so chat does not depend
+      // on pib-runtime claim queues. Keep the claim queue for Mac/desktop runtimes.
+      const vpsLinkedComputer = Boolean(
+        linkedComputerBinding
+        && (
+          linkedComputerBinding.platform === 'linux'
+          || /vps/i.test(linkedComputerBinding.machineLabel || '')
+          || /vps/i.test(linkedComputerBinding.runtimeTargetId || '')
+        ),
+      )
+      if (linkedComputerBinding && vpsLinkedComputer) {
+        agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, {
+          runtimeTarget: 'vps',
+        })
+        if (!agentLink) {
+          throw new Error('No VPS Hermes endpoint configured for this agent')
+        }
+        // Preserve VPS cowork path via the direct Hermes working_directory path below.
+        linkedComputerBinding = null
+      }
       if (linkedComputerBinding) {
         const hasImageAttachments = attachments.some((attachment) => (
           /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.contentType) && Boolean(attachment.storagePath)
@@ -1273,8 +1294,7 @@ export const POST = withAuth(
             dispatchAgentId: agentId,
           }, 201)
         } catch (linkedErr) {
-          // Linked-computer queue path failed (encrypt/auth/transaction). Fall
-          // through to direct Hermes gateway dispatch so chat still works.
+          // Desktop linked-computer queue path failed. Fall through to direct Hermes.
           console.error('[conversation-linked-enqueue-fallback]', {
             convId,
             agentId,
@@ -1283,6 +1303,11 @@ export const POST = withAuth(
           agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, {
             runtimeTarget: 'vps',
           })
+          if (!agentLink) {
+            agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, {
+              runtimeTarget: 'local',
+            })
+          }
           if (!agentLink) throw linkedErr
           linkedComputerBinding = null
         }
@@ -1439,10 +1464,15 @@ export const POST = withAuth(
         )
       }
 
+      const rejected = runResult.dispatchError?.message
+        || 'Agent run could not be started on the gateway'
       await messagesCollection(convId).doc(assistantMessage.id).update({
         content: '',
         status: 'failed',
-        error: 'Agent run could not be started on the gateway',
+        error: rejected,
+        ...(runResult.dispatchError?.code
+          ? { workspaceDispatchFailureCode: runResult.dispatchError.code }
+          : { workspaceDispatchFailureCode: 'dispatch_unavailable' }),
       })
 
       return apiSuccess({
@@ -1450,19 +1480,27 @@ export const POST = withAuth(
         assistantMessage: {
           ...assistantMessage,
           status: 'failed',
-          error: 'Agent run could not be started on the gateway',
+          error: rejected,
         },
         ...branchPayload,
       }, 201)
       } catch (dispatchErr) {
         const safeFailure = classifyWorkspaceDispatchFailure(dispatchErr)
+        const detail = dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr)
         console.error('[conversation-agent-dispatch-uncaught]', {
           convId,
           agentId,
           code: safeFailure.code,
-          message: dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr),
+          message: detail,
         })
-        const error = safeFailure.message
+        // Keep a short safe detail so operators can see the real fault in-thread.
+        const safeDetail = detail
+          .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+          .replace(/api[_-]?key[=:]\s*\S+/gi, 'api_key=[redacted]')
+          .slice(0, 180)
+        const error = safeDetail && safeDetail !== safeFailure.message
+          ? `${safeFailure.message} (${safeDetail})`
+          : safeFailure.message
         try {
           await messagesCollection(convId).doc(assistantMessage.id).update({
             content: '',
