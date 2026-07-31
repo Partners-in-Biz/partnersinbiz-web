@@ -224,6 +224,11 @@ export const POST = withAuth(
           && agentData.accessScope === 'organization'
           && scopedOrgId === scope.orgId,
         )
+        const isClientVisibleAgent = callerRole === 'client' && allowedAgentIds.has(agentId)
+        const isOrgScopedManagerAgent = callerRole === 'client'
+          && orgManager
+          && Boolean(scopedOrgId)
+          && agentData.accessScope !== 'personal'
         const linkedAgentAccess = agentData.provisioningMode === 'linked_device'
           ? (
               canStartLinkedAgent({
@@ -243,10 +248,17 @@ export const POST = withAuth(
         if (agentData.provisioningMode === 'linked_device' && !linkedAgentAccess) {
           return apiError('You are not allowed to use that agent on the selected computer', 403)
         }
-        if (callerRole === 'client' && !baselineMemberAssistant && !delegatedAgentAccess) {
+        if (
+          callerRole === 'client'
+          && !baselineMemberAssistant
+          && !delegatedAgentAccess
+          && !isClientVisibleAgent
+          && !isOrgScopedManagerAgent
+          && agentData.provisioningMode !== 'linked_device'
+        ) {
           return apiError('This member is not allowed to use that agent on the selected computer', 403)
         }
-        if (!allowedAgentIds.has(agentId) && !delegatedAgentAccess) {
+        if (callerRole === 'client' && !delegatedAgentAccess && !isClientVisibleAgent && !isOrgScopedManagerAgent) {
           return apiError(`Agent ${agentId} is not visible to your role`, 403)
         }
 

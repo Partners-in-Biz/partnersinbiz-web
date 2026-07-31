@@ -138,17 +138,11 @@ export const GET = withAuth(
         // may list specialists for "client" role, but start still requires a
         // Team grant on a computer (or personal ownership). Align picker UX
         // with the dispatch 403 so "I can see Quinn but can't start him" stops.
-        if (callerRole === 'client' && agent.agentId !== 'pip' && !orgManager) {
-          const isOrgScopedCustom = Boolean(scopedOrgId)
-          if (isOrgScopedCustom) {
-            // Org custom agents already required grant/ownership above.
-            return true
-          }
-          // Platform specialists (theo, maya, quinn, …): require selected computer + grant.
-          if (!runtimeTargetId) return false
-          if (!scopedAccessPolicy) return false
-          if (!memberCanUseAgentOnRuntime(scopedAccessPolicy, runtimeTargetId, agent.agentId)) {
-            return false
+        if (callerRole === 'client' && !orgManager && agent.agentId !== 'pip') {
+          const isLinkedAgent = provisioning.provisioningMode === 'linked_device'
+          if (isLinkedAgent) {
+            if (!runtimeTargetId || !scopedAccessPolicy) return false
+            if (!memberCanUseAgentOnRuntime(scopedAccessPolicy, runtimeTargetId, agent.agentId)) return false
           }
         }
         return true

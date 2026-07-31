@@ -137,8 +137,19 @@ beforeEach(() => {
       return {
         doc: (agentId: string) => ({
           get: async () => ({
-            exists: agentId === 'pip',
-            data: () => ({ agentId, enabled: true, name: 'Pip' }),
+            exists: ['pip', 'sales', 'docs'].includes(agentId),
+            data: () => ({
+              agentId,
+              enabled: true,
+              name:
+                agentId === 'pip'
+                  ? 'Pip'
+                  : agentId === 'sales'
+                  ? 'Sales'
+                  : agentId === 'docs'
+                  ? 'Docs'
+                  : agentId,
+            }),
           }),
         }),
       }
@@ -331,6 +342,63 @@ describe('platform-scoped unified conversations', () => {
     expect(mockCreateConversation.mock.calls[0][0]).not.toHaveProperty('workspaceContext')
     const body = await readJson(res)
     expect(body.data.conversation.id).toBe('conv-1')
+  })
+
+  it('allows a sales-role client to start a role-specific non-linked specialist conversation without runtime grant', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'org-1' }
+    mockResolveVisibleAgents.mockReturnValue(['pip', 'sales'])
+    orgMemberRows = [
+      {
+        id: 'org-1_client-1',
+        data: {
+          orgId: 'org-1',
+          uid: 'client-1',
+          role: 'member',
+          department: 'Sales',
+          jobTitle: 'Account Executive',
+        },
+      },
+    ]
+
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        participants: [{ kind: 'agent', agentId: 'sales' }],
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockCreateConversation).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      startedBy: 'client-1',
+      participants: expect.arrayContaining([
+        expect.objectContaining({ kind: 'user', uid: 'client-1' }),
+        expect.objectContaining({ kind: 'agent', agentId: 'sales' }),
+      ]),
+    }))
+  })
+
+  it('blocks a client from starting a non-visible specialist conversation', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'org-1' }
+    mockResolveVisibleAgents.mockReturnValue(['pip'])
+
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        participants: [{ kind: 'agent', agentId: 'sales' }],
+      }),
+    }))
+
+    expect(res.status).toBe(403)
+    const body = await readJson(res)
+    expect(body.error).toBe('This member is not allowed to use that agent on the selected computer')
+    expect(mockCreateConversation).not.toHaveBeenCalled()
   })
 
   it('lists top-level platform conversations for the current admin', async () => {

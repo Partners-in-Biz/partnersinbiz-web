@@ -439,6 +439,43 @@ describe('unified conversation message routing', () => {
     expect(body.data.dispatchAgentId).toBe('pip')
   })
 
+  it('dispatches a non-linked specialist without requiring a runtime grant', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['sales'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'sales', name: 'Sales' },
+      ],
+      workspaceContext: {
+        runtimeTarget: 'vps',
+        runtimeLabel: 'Office Mac',
+        workspaceId: 'acme',
+        orgId: 'pib-platform-owner',
+        orgName: 'Partners in Biz',
+        orgSlug: 'partners',
+        ownerUserId: 'client-1',
+        shareMode: 'private',
+        sourceOfTruth: 'vps',
+        folderScope: 'workspace',
+        companyId: null,
+        contactIds: [],
+      } as unknown,
+    })
+
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).toHaveBeenCalledTimes(1)
+    const body = await readJson(res)
+    expect(body.data.assistantMessage.id).toBe('assistant-1')
+    expect(body.data.dispatchAgentId).toBe('sales')
+  })
+
   it('gives Pip project task lineage and smart creation rules for tagged project chat', async () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',
