@@ -90,7 +90,7 @@ describe('finance foundation Firestore emulator', () => {
     await repository.createBook(actor, {
       id: 'book-a', orgId: 'org-a', legalEntityId: 'entity-a', code: 'MAIN', name: 'Primary', bookType: 'primary',
       functionalCurrency: 'ZAR', accountingBasis: 'accrual', jurisdictionCode: 'ZA', taxPointPolicyId: 'za-invoice',
-      defaultControlAccountIds: {}, status: 'active', expectedVersion: 0, ...request('book'),
+      defaultControlAccountIds: {}, status: 'active', cutoverAt: '2026-07-01', expectedVersion: 0, ...request('book'),
     })
     const policyCommand = {
       id: 'policy-a-v1', orgId: 'org-a', legalEntityId: 'entity-a', bookId: 'book-a', versionNumber: 1,
@@ -295,7 +295,7 @@ describe('finance foundation Firestore emulator', () => {
     await repository.createBook(actorB, {
       id: 'book-a', orgId: 'org-b', legalEntityId: 'entity-a', code: 'MAIN', name: 'Tenant B book', bookType: 'primary',
       functionalCurrency: 'ZAR', accountingBasis: 'accrual', jurisdictionCode: 'ZA', taxPointPolicyId: 'za-invoice',
-      defaultControlAccountIds: {}, status: 'active', expectedVersion: 0, ...request('b-book'),
+      defaultControlAccountIds: {}, status: 'active', cutoverAt: '2026-07-01', expectedVersion: 0, ...request('b-book'),
     })
     expect((await db.collection('legal_entities').where('id', '==', 'entity-a').get()).size).toBe(2)
     expect((await db.collection('accounting_books').where('id', '==', 'book-a').get()).size).toBe(2)

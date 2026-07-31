@@ -69,6 +69,7 @@ export interface FinanceApprovalRecord extends Required<FinanceScope> {
   immutable: true
   canonicalPayloadVersion: 1
   hashAlgorithmVersion: 'sha256-v1'
+  contentHash: string
 }
 
 export interface VersionedFinanceRecord extends FinanceScope {

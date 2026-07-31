@@ -31,7 +31,7 @@ async function main() {
   await service.createBook(actor, {
     id: 'book', orgId: actor.orgId, legalEntityId: 'entity', code: 'MAIN', name: 'Primary', bookType: 'primary',
     functionalCurrency: 'ZAR', accountingBasis: 'accrual', jurisdictionCode: 'ZA', taxPointPolicyId: 'za-invoice',
-    defaultControlAccountIds: {}, status: 'active', expectedVersion: 0, ...request('book'),
+    defaultControlAccountIds: {}, status: 'active', cutoverAt: '2026-07-01', expectedVersion: 0, ...request('book'),
   })
   const policyCommand = {
     id: 'policy-v1', orgId: actor.orgId, legalEntityId: 'entity', bookId: 'book', versionNumber: 1,

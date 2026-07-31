@@ -21,9 +21,12 @@ import {
   assertClosedPostJournalCommand,
   assertCreateVersion,
   assertDefaultControlAccountConfiguration,
+  assertEnumValue,
+  assertImmutableContentHash,
   assertPostedJournalContentHash,
   assertSafeInteger,
   parseCanonicalDate,
+  immutableContentHash,
   policyRangesOverlap,
   requiredText,
   resolveUniqueEffectivePolicy,
@@ -112,6 +115,8 @@ interface IdempotencyRecord {
   scopeIdentity: string
   requestId: string
   expiresAt: string
+  resultSnapshot: unknown
+  resultDigest: string
 }
 interface FoundationState {
   legalEntities: Map<string, LegalEntity>; branches: Map<string, FinanceBranch>; books: Map<string, AccountingBook>
@@ -245,13 +250,24 @@ function storeIdempotency(
   claimId: string,
   payloadDigest: string,
   now: string,
+  resultSnapshot: unknown,
 ): void {
+  const snapshot = compact(structuredClone(resultSnapshot))
   state.idempotency.set(claimId, {
     schemaVersion: 1, canonicalPayloadVersion: CANONICAL_PAYLOAD_VERSION,
     hashAlgorithmVersion: HASH_ALGORITHM_VERSION, payloadDigest, aggregateId, operation,
     actorId: actor.uid, orgId: scope.orgId, scopeIdentity: canonicalScopeIdentity(scope),
     requestId: command.requestId, expiresAt: new Date(Date.parse(now) + 24 * 60 * 60 * 1000).toISOString(),
+    resultSnapshot: snapshot, resultDigest: canonicalDigest(snapshot),
   })
+}
+
+function idempotentResult<T>(state: FoundationState, claimId: string, resource: string): T {
+  const record = state.idempotency.get(claimId)
+  if (!record || record.resultSnapshot === undefined || canonicalDigest(record.resultSnapshot) !== record.resultDigest) {
+    throw new FinanceValidationError(`Idempotency ${resource} result snapshot is corrupt`)
+  }
+  return structuredClone(record.resultSnapshot) as T
 }
 
 function approvalEvidence(record: FinanceApprovalRecord): FinanceApprovalEvidence {
@@ -296,6 +312,7 @@ function loadApproval(
     throw new FinanceValidationError('Persisted approval is missing, expired, mismatched, or invalid')
   }
   if (approval.approvedBy === actorId) throw new FinanceValidationError('Approval violates separation of duties')
+  assertImmutableContentHash(approval, 'Finance approval')
   return approvalEvidence(approval)
 }
 
@@ -333,9 +350,7 @@ export class FinanceFoundationService {
 
   async createFinanceApproval(approver: FinanceActorContext, command: CreateFinanceApprovalCommand): Promise<FinanceApprovalRecord> {
     const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
-    const policyAction = command.action === 'journal.reverse' ? 'journal.reverse' :
-      command.action === 'journal.post' ? 'journal.post' :
-        command.action === 'period.adjust' ? 'period.adjust' : 'period.close'
+    const policyAction = command.action
     const authorizationAt = this.now()
     assertCreateVersion(command.expectedVersion, 'Finance approval')
     authorizeFinanceAction(approver, scope, policyAction, authorizationAt)
@@ -360,16 +375,17 @@ export class FinanceFoundationService {
       const book = state.books.get(command.bookId)
       if (!book) throw new FinanceValidationError('Accounting book not found in scope')
       assertExactScope(book, scope, 'Accounting book')
-      const approval: FinanceApprovalRecord = {
-        ...scope, id: command.id, schemaVersion: 1, action: command.action, status: 'approved',
+      const approvalBase = {
+        ...scope, id: command.id, schemaVersion: 1 as const, action: command.action, status: 'approved' as const,
         approvedBy: approver.uid, approverRole: assignment.role, approverAssignmentId: assignment.id,
         approvedAt: now, reason: command.reason.trim(), subjectDigest: command.subjectDigest,
-        expiresAt: command.expiresAt, immutable: true, canonicalPayloadVersion: CANONICAL_PAYLOAD_VERSION,
+        expiresAt: command.expiresAt, immutable: true as const, canonicalPayloadVersion: CANONICAL_PAYLOAD_VERSION,
         hashAlgorithmVersion: HASH_ALGORITHM_VERSION,
       }
+      const approval: FinanceApprovalRecord = { ...approvalBase, contentHash: immutableContentHash(compact(approvalBase) as object) }
       state.approvals.set(approval.id, approval)
       storeIdempotency(state, approver, scope, 'finance.approval.create', command, approval.id,
-        idem.claimId, idem.payloadDigest, now)
+        idem.claimId, idem.payloadDigest, now, approval)
       appendEvidence(state, approver, scope, 'finance_approval', approval.id, 1,
         'finance.approval.recorded.v1', now, { reason: approval.reason, aggregateDigest: canonicalDigest(compact(approval)) })
       return approval
@@ -383,6 +399,8 @@ export class FinanceFoundationService {
     if (!Number.isInteger(command.fiscalYearStartMonth) || command.fiscalYearStartMonth < 1 || command.fiscalYearStartMonth > 12) {
       throw new FinanceValidationError('fiscalYearStartMonth must be between 1 and 12')
     }
+    assertEnumValue(command.defaultAccountingBasis, ['cash', 'accrual'], 'defaultAccountingBasis')
+    assertEnumValue(command.status, ['draft', 'active'], 'legalEntity.status')
     return this.store.transact((state) => {
       const now = this.now()
       const idem = idempotencyInput(state, actor, scope, 'legal-entity.create', command, now)
@@ -405,7 +423,7 @@ export class FinanceFoundationService {
         createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
       }
       state.legalEntities.set(entity.id, entity)
-      storeIdempotency(state, actor, scope, 'legal-entity.create', command, entity.id, idem.claimId, idem.payloadDigest, now)
+      storeIdempotency(state, actor, scope, 'legal-entity.create', command, entity.id, idem.claimId, idem.payloadDigest, now, entity)
       appendEvidence(state, actor, scope, 'legal_entity', entity.id, 1, 'finance.legal-entity.created.v1', now)
       return entity
     })
@@ -415,6 +433,8 @@ export class FinanceFoundationService {
     const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId }
     assertCreateVersion(command.expectedVersion, 'Branch')
     authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    assertEnumValue(command.status, ['active'], 'branch.status')
+    if (typeof command.reportingOnly !== 'boolean') throw new FinanceValidationError('reportingOnly must be boolean')
     return this.store.transact((state) => {
       const now = this.now()
       const idem = idempotencyInput(state, actor, scope, 'branch.create', command, now)
@@ -434,7 +454,7 @@ export class FinanceFoundationService {
         status: command.status, reportingOnly: command.reportingOnly, schemaVersion: 1, version: 1,
         createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid }
       state.branches.set(branch.id, branch)
-      storeIdempotency(state, actor, scope, 'branch.create', command, branch.id, idem.claimId, idem.payloadDigest, now)
+      storeIdempotency(state, actor, scope, 'branch.create', command, branch.id, idem.claimId, idem.payloadDigest, now, branch)
       appendEvidence(state, actor, scope, 'finance_branch', branch.id, 1, 'finance.branch.created.v1', now)
       return branch
     })
@@ -444,6 +464,11 @@ export class FinanceFoundationService {
     const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.id }
     assertCreateVersion(command.expectedVersion, 'Accounting book')
     authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    assertEnumValue(command.bookType, ['primary', 'branch', 'management', 'consolidation'], 'bookType')
+    assertEnumValue(command.accountingBasis, ['cash', 'accrual'], 'accountingBasis')
+    assertEnumValue(command.status, ['draft', 'active'], 'book.status')
+    if (command.status === 'active' && !command.cutoverAt) throw new FinanceValidationError('Active book requires cutoverAt')
+    if (command.cutoverAt) parseCanonicalDate(command.cutoverAt, 'cutoverAt')
     return this.store.transact((state) => {
       const now = this.now()
       const idem = idempotencyInput(state, actor, scope, 'book.create', command, now)
@@ -468,11 +493,11 @@ export class FinanceFoundationService {
         bookType: command.bookType, functionalCurrency: normalizeCode(command.functionalCurrency, 'functionalCurrency'),
         accountingBasis: command.accountingBasis, jurisdictionCode: normalizeCode(command.jurisdictionCode, 'jurisdictionCode'),
         taxPointPolicyId: requiredText(command.taxPointPolicyId, 'taxPointPolicyId'),
-        defaultControlAccountIds: structuredClone(command.defaultControlAccountIds), status: command.status,
+        defaultControlAccountIds: structuredClone(command.defaultControlAccountIds), status: command.status, cutoverAt: command.cutoverAt,
         schemaVersion: 1, version: 1, createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
       }
       state.books.set(book.id, book)
-      storeIdempotency(state, actor, scope, 'book.create', command, book.id, idem.claimId, idem.payloadDigest, now)
+      storeIdempotency(state, actor, scope, 'book.create', command, book.id, idem.claimId, idem.payloadDigest, now, book)
       appendEvidence(state, actor, scope, 'accounting_book', book.id, 1, 'finance.book.created.v1', now)
       return book
     })
@@ -483,6 +508,8 @@ export class FinanceFoundationService {
     assertCreateVersion(command.expectedVersion, 'Book policy version')
     authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
     assertSafeInteger(command.versionNumber, 'versionNumber', 1)
+    assertEnumValue(command.accountingBasis, ['cash', 'accrual'], 'policy.accountingBasis')
+    assertEnumValue(command.roundingMode, ['half_up', 'half_even'], 'roundingMode')
     if (!Number.isInteger(command.currencyPrecision) || command.currencyPrecision < 0 || command.currencyPrecision > 6) {
       throw new FinanceValidationError('Policy currencyPrecision is invalid')
     }
@@ -506,25 +533,23 @@ export class FinanceFoundationService {
       const book = state.books.get(command.bookId)
       if (!book) throw new FinanceValidationError('Accounting book not found in scope')
       assertExactScope(book, scope, 'Accounting book')
-      if (book.accountingBasis !== command.accountingBasis || book.taxPointPolicyId !== command.taxPointPolicyId) {
-        throw new FinanceValidationError('Policy does not match book accounting basis and tax point policy')
-      }
       if ([...state.policies.values()].some((candidate) => candidate.orgId === scope.orgId &&
         candidate.legalEntityId === scope.legalEntityId && candidate.bookId === scope.bookId &&
         policyRangesOverlap(candidate, command))) {
         throw new FinanceValidationError('Approved book policy effective range overlaps an existing policy')
       }
       claim(state, 'book_policy_version', scope, command.versionNumber, command.id, 'Book policy version already exists')
-      const policy: BookPolicyVersion = {
+      const policyBase = compact({
         ...scope, id: command.id, versionNumber: command.versionNumber, accountingBasis: command.accountingBasis,
         taxPointPolicyId: command.taxPointPolicyId, currencyPrecision: command.currencyPrecision,
         roundingMode: command.roundingMode, effectiveFrom: command.effectiveFrom, effectiveTo: command.effectiveTo,
         status: 'approved', approvalId: approval.approvalId, approvalActorId: approval.approvedBy,
         approvedAt: approval.approvedAt, immutable: true, schemaVersion: 1, version: 1,
         createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
-      }
+      }) as Omit<BookPolicyVersion, 'contentHash'>
+      const policy: BookPolicyVersion = { ...policyBase, contentHash: immutableContentHash(policyBase) }
       state.policies.set(policy.id, policy)
-      storeIdempotency(state, actor, scope, 'book-policy.create', command, policy.id, idem.claimId, idem.payloadDigest, now)
+      storeIdempotency(state, actor, scope, 'book-policy.create', command, policy.id, idem.claimId, idem.payloadDigest, now, policy)
       appendEvidence(state, actor, scope, 'book_policy_version', policy.id, 1, 'finance.book-policy.approved.v1', now,
         { reason: approval.reason, approval, aggregateDigest: canonicalDigest(compact(policy)) })
       return policy
@@ -537,6 +562,7 @@ export class FinanceFoundationService {
     authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
     assertSafeInteger(command.fiscalYear, 'fiscalYear', 1)
     assertSafeInteger(command.periodNumber, 'periodNumber', 1)
+    assertEnumValue(command.status, ['open'], 'period.status')
     const startsEpoch = parseCanonicalDate(command.startsAt, 'startsAt')
     const endsEpoch = parseCanonicalDate(command.endsAt, 'endsAt')
     if (startsEpoch > endsEpoch) throw new FinanceValidationError('Period start must not be after period end')
@@ -565,7 +591,7 @@ export class FinanceFoundationService {
         schemaVersion: 1, version: 1, createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid }
       state.calendarHeads.set(canonicalScopeIdentity(scope), (state.calendarHeads.get(canonicalScopeIdentity(scope)) ?? 0) + 1)
       state.periods.set(period.id, period)
-      storeIdempotency(state, actor, scope, 'period.create', command, period.id, idem.claimId, idem.payloadDigest, now)
+      storeIdempotency(state, actor, scope, 'period.create', command, period.id, idem.claimId, idem.payloadDigest, now, period)
       if (command.status === 'open' && !book.currentPeriodId) state.books.set(book.id, { ...book, currentPeriodId: period.id })
       appendEvidence(state, actor, scope, 'accounting_period', period.id, 1, 'finance.period.created.v1', now)
       return period
@@ -574,14 +600,14 @@ export class FinanceFoundationService {
 
   async changePeriodStatus(actor: FinanceActorContext, command: ChangePeriodStatusCommand): Promise<AccountingPeriod> {
     const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
-    authorizeFinanceAction(actor, scope, 'period.close', this.now())
+    const operation = command.status === 'open' ? 'period.reopen' as const : 'period.close' as const
+    authorizeFinanceAction(actor, scope, operation, this.now())
     const reason = requiredText(command.reason, 'reason')
     return this.store.transact((state) => {
       const now = this.now()
-      const operation = command.status === 'open' ? 'period.reopen' : 'period.close'
       const idem = idempotencyInput(state, actor, scope, operation, command, now)
       if (idem.retryId) {
-        const stored = state.periods.get(idem.retryId)
+        const stored = idempotentResult<AccountingPeriod>(state, idem.claimId, 'period transition')
         if (!stored || stored.id !== command.periodId) throw new FinanceValidationError('Idempotency period result is corrupt')
         assertExactScope(stored, scope, 'Idempotency period result')
         return stored
@@ -597,12 +623,13 @@ export class FinanceFoundationService {
       const transitions: Record<AccountingPeriod['status'], AccountingPeriod['status'][]> = {
         open: ['soft_closed', 'hard_closed'], soft_closed: ['open', 'hard_closed'], hard_closed: ['open'],
       }
-      if (!transitions[period.status].includes(command.status)) throw new FinanceValidationError('Invalid accounting period transition')
+      const allowed = transitions[period.status]
+      if (!allowed || !allowed.includes(command.status)) throw new FinanceValidationError('Invalid accounting period transition')
       const updated: AccountingPeriod = { ...period, status: command.status, version: period.version + 1,
         updatedAt: now, updatedBy: actor.uid,
         ...(reopening ? { reopenedAt: now, reopenApprovalId: approval.approvalId } : { closeApprovalId: approval.approvalId }) }
       state.periods.set(period.id, updated)
-      storeIdempotency(state, actor, scope, operation, command, updated.id, idem.claimId, idem.payloadDigest, now)
+      storeIdempotency(state, actor, scope, operation, command, updated.id, idem.claimId, idem.payloadDigest, now, updated)
       appendEvidence(state, actor, scope, 'accounting_period', period.id, updated.version,
         'finance.period.status-changed.v1', now, { requestId: command.requestId, idempotencyKey: command.idempotencyKey,
           reason, approval, aggregateDigest: canonicalDigest(updated) })
@@ -614,6 +641,12 @@ export class FinanceFoundationService {
     const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
     assertCreateVersion(command.expectedVersion, 'Ledger account')
     authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    assertEnumValue(command.accountType, ['asset', 'liability', 'equity', 'income', 'expense'], 'accountType')
+    assertEnumValue(command.normalBalance, ['debit', 'credit'], 'normalBalance')
+    if (command.controlAccountRole !== undefined) assertEnumValue(command.controlAccountRole,
+      ['receivables', 'payables', 'tax', 'payroll', 'bank', 'retained_earnings'], 'controlAccountRole')
+    assertEnumValue(command.currencyPolicy, ['functional_only', 'fixed_currency'], 'currencyPolicy')
+    if (typeof command.postingAllowed !== 'boolean') throw new FinanceValidationError('postingAllowed must be boolean')
     const activeFrom = parseCanonicalDate(command.activeFrom, 'activeFrom')
     const activeTo = command.activeTo ? parseCanonicalDate(command.activeTo, 'activeTo') : undefined
     if (activeTo !== undefined && activeTo < activeFrom) throw new FinanceValidationError('Account active range is invalid')
@@ -645,7 +678,7 @@ export class FinanceFoundationService {
         schemaVersion: 1, version: 1, createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid }
       assertDefaultControlAccountConfiguration(book, account)
       state.accounts.set(account.id, account)
-      storeIdempotency(state, actor, scope, 'account.create', command, account.id, idem.claimId, idem.payloadDigest, now)
+      storeIdempotency(state, actor, scope, 'account.create', command, account.id, idem.claimId, idem.payloadDigest, now, account)
       appendEvidence(state, actor, scope, 'ledger_account', account.id, 1, 'finance.account.created.v1', now)
       return account
     })
@@ -713,7 +746,8 @@ export class FinanceFoundationService {
         approval, adjustmentApproved: Boolean(adjustmentApproval), expectedApprovalAction,
         book, period, policy, lines: command.lines, accounts })
       const sourceKey = [command.sourceType, command.sourceId, command.sourceVersion, command.postingPurpose]
-      claim(state, 'posting_source', scope, sourceKey, command.id, 'Posting source already exists')
+      claim(state, 'posting_source', { orgId: scope.orgId, legalEntityId: scope.legalEntityId },
+        sourceKey, command.id, 'Posting source already exists')
       if (command.reversesJournalEntryId) claim(state, 'journal_reversal', scope, command.reversesJournalEntryId,
         command.id, 'Journal already has a direct reversal')
       const entryNumber = (state.sequenceByBook.get(canonicalScopeIdentity(scope)) ?? 0) + 1
@@ -740,7 +774,7 @@ export class FinanceFoundationService {
       const journal: PostedJournalEntry = { ...base, contentHash: canonicalDigest(base) }
       state.journals.set(journal.id, journal)
       storeIdempotency(state, actor, scope, 'journal.post', command, journal.id,
-        idempotencyClaim, payloadDigest, now)
+        idempotencyClaim, payloadDigest, now, journal)
       appendEvidence(state, actor, scope, 'journal_entry', journal.id, 1, 'finance.journal.posted.v1', now,
         { requestId: command.requestId, idempotencyKey: command.idempotencyKey, reason: approval.reason,
           approval, aggregateDigest: journal.contentHash })
@@ -758,12 +792,15 @@ export class FinanceFoundationService {
     assertPostedJournalContentHash(original)
     authorizeFinanceAction(actor, original, 'journal.reverse', this.now())
     const reason = requiredText(command.reason, 'reason')
+    const policy = resolveUniqueEffectivePolicy([...this.store.policies.values()].filter((candidate) =>
+      candidate.orgId === original.orgId && candidate.legalEntityId === original.legalEntityId && candidate.bookId === original.bookId),
+    command.postingDate, undefined)
     return this.commitJournal(actor, {
       id: command.reversalJournalId, orgId: original.orgId, legalEntityId: original.legalEntityId,
       bookId: original.bookId, periodId: command.periodId, sourceType: 'journal_reversal', sourceId: original.id,
       sourceVersion: original.version, postingPurpose: 'reversal', entryType: 'reversal', postingDate: command.postingDate,
       documentDate: command.postingDate, description: `Reversal of ${original.description}`, currency: original.currency,
-      policyVersionId: original.policyVersionId, expectedVersion: command.expectedVersion, requestId: command.requestId,
+      policyVersionId: policy.id, expectedVersion: command.expectedVersion, requestId: command.requestId,
       idempotencyKey: command.idempotencyKey, approvalId: command.approvalId, lines: buildReversalLines(original.lines),
       reversesJournalEntryId: original.id, reversalReason: reason,
     }, financeApprovalSubjectDigest('journal.reverse', command))

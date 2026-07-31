@@ -59,6 +59,7 @@ export interface BookPolicyVersion extends VersionedFinanceRecord {
   approvalActorId: string
   approvedAt: string
   immutable: true
+  contentHash: string
 }
 
 export interface AccountingPeriod extends VersionedFinanceRecord {

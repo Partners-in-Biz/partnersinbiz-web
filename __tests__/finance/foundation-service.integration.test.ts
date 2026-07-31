@@ -32,7 +32,7 @@ async function seededService() {
     timezone: 'Africa/Johannesburg', status: 'active', expectedVersion: 0, ...request('entity') })
   await service.createBook(actor, { id: 'book-a', orgId: 'org-a', legalEntityId: 'entity-a', code: 'MAIN', name: 'Primary',
     bookType: 'primary', functionalCurrency: 'ZAR', accountingBasis: 'accrual', jurisdictionCode: 'ZA',
-    taxPointPolicyId: 'za-invoice', defaultControlAccountIds: {}, status: 'active', expectedVersion: 0, ...request('book') })
+    taxPointPolicyId: 'za-invoice', defaultControlAccountIds: {}, status: 'active', cutoverAt: '2026-07-01', expectedVersion: 0, ...request('book') })
   const policyCommand = { id: 'policy-a-v1', orgId: 'org-a', legalEntityId: 'entity-a', bookId: 'book-a',
     versionNumber: 1, accountingBasis: 'accrual' as const, taxPointPolicyId: 'za-invoice', currencyPrecision: 2,
     roundingMode: 'half_up' as const, effectiveFrom: '2026-07-01', expectedVersion: 0 as const, ...request('policy') }

@@ -45,7 +45,7 @@ async function seeded() {
   await service.createBook(actor, {
     id: 'book-a', orgId: 'org-a', legalEntityId: 'entity-a', code: ' main ', name: 'Primary',
     bookType: 'primary', functionalCurrency: 'ZAR', accountingBasis: 'accrual', jurisdictionCode: 'ZA',
-    taxPointPolicyId: 'za-invoice', defaultControlAccountIds: {}, status: 'active', expectedVersion: 0, ...request('book'),
+    taxPointPolicyId: 'za-invoice', defaultControlAccountIds: {}, status: 'active', cutoverAt: '2026-07-01', expectedVersion: 0, ...request('book'),
   })
   const policyCommand = {
     id: 'policy-a-v1', orgId: 'org-a', legalEntityId: 'entity-a', bookId: 'book-a', versionNumber: 1,

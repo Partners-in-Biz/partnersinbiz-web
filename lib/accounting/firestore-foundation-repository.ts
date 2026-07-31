@@ -25,10 +25,12 @@ import {
   assertCreateVersion,
   assertDefaultControlAccountConfiguration,
   assertEnumValue,
+  assertImmutableContentHash,
   assertPostedJournalContentHash,
   assertStoredLineIdentity,
   buildReversalLines,
   FinanceValidationError,
+  immutableContentHash,
   parseCanonicalDate,
   policyRangesOverlap,
   requiredText,
@@ -170,6 +172,7 @@ export class FirestoreFinanceFoundationRepository {
     assertEnumValue(command.bookType, ['primary', 'branch', 'management', 'consolidation'], 'bookType')
     assertEnumValue(command.accountingBasis, ['cash', 'accrual'], 'accountingBasis')
     assertEnumValue(command.status, ['draft', 'active'], 'book.status')
+    if (command.status === 'active' && !command.cutoverAt) throw new FinanceValidationError('Active book requires cutoverAt')
     if (command.cutoverAt) parseCanonicalDate(command.cutoverAt, 'cutoverAt')
     const now = this.now(); const code = requiredText(command.code, 'code').toUpperCase()
     const book: AccountingBook = {
@@ -229,13 +232,14 @@ export class FirestoreFinanceFoundationRepository {
       const assignment = effectiveFinanceAssignments(persistedActor, scope, now)
         .find((candidate) => candidate.role === 'finance_approver' || candidate.role === 'finance_admin')
       if (!assignment) throw new FinanceValidationError('Approval requires an effective finance approver assignment')
-      const approval: FinanceApprovalRecord = clean({
+      const approvalBase = clean({
         ...scope, id: command.id, schemaVersion: 1, action: command.action, status: 'approved',
         approvedBy: persistedActor.uid, approverRole: assignment.role, approverAssignmentId: assignment.id,
         approvedAt: now, reason: command.reason.trim(), subjectDigest: command.subjectDigest,
         expiresAt: command.expiresAt, immutable: true, canonicalPayloadVersion: CANONICAL_PAYLOAD_VERSION,
         hashAlgorithmVersion: HASH_ALGORITHM_VERSION,
       })
+      const approval: FinanceApprovalRecord = { ...approvalBase, contentHash: immutableContentHash(approvalBase) } as FinanceApprovalRecord
       const evidence = await this.prepareEvidence(tx, persistedActor, scope, 'finance_approval', approval.id, 1,
         'finance.approval.recorded.v1', now, { reason: approval.reason, aggregateDigest: canonicalDigest(approval) })
       tx.create(ref, approval)
@@ -267,6 +271,7 @@ export class FirestoreFinanceFoundationRepository {
       taxPointPolicyId: command.taxPointPolicyId, currencyPrecision: command.currencyPrecision,
       roundingMode: command.roundingMode, effectiveFrom: command.effectiveFrom, effectiveTo: command.effectiveTo,
       status: 'approved', approvalId: command.approvalId, approvalActorId: '', approvedAt: '', immutable: true,
+      contentHash: '',
       schemaVersion: 1, version: 1, createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
     }
     const bookRef = storageRef(this.db, 'accounting_books', scope, command.bookId)
@@ -354,6 +359,12 @@ export class FirestoreFinanceFoundationRepository {
     const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
     assertCreateVersion(command.expectedVersion, 'Ledger account')
     authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    assertEnumValue(command.accountType, ['asset', 'liability', 'equity', 'income', 'expense'], 'accountType')
+    assertEnumValue(command.normalBalance, ['debit', 'credit'], 'normalBalance')
+    if (command.controlAccountRole !== undefined) assertEnumValue(command.controlAccountRole,
+      ['receivables', 'payables', 'tax', 'payroll', 'bank', 'retained_earnings'], 'controlAccountRole')
+    assertEnumValue(command.currencyPolicy, ['functional_only', 'fixed_currency'], 'currencyPolicy')
+    if (typeof command.postingAllowed !== 'boolean') throw new FinanceValidationError('postingAllowed must be boolean')
     const from = parseCanonicalDate(command.activeFrom, 'activeFrom')
     const to = command.activeTo ? parseCanonicalDate(command.activeTo, 'activeTo') : undefined
     if (to !== undefined && to < from) throw new FinanceValidationError('Account active range is invalid')
@@ -630,6 +641,7 @@ export class FirestoreFinanceFoundationRepository {
       throw new FinanceValidationError('Persisted approval is missing, expired, mismatched, or invalid')
     }
     if (approval.approvedBy === actorId) throw new FinanceValidationError('Approval violates separation of duties')
+    assertImmutableContentHash(approval, 'Finance approval')
     const [approverMembership, approverAssignment] = await tx.getAll(
       this.db.collection('orgMembers').doc(`${scope.orgId}_${approval.approvedBy}`),
       this.db.collection('finance_role_assignments').doc(approval.approverAssignmentId),
@@ -688,6 +700,9 @@ export class FirestoreFinanceFoundationRepository {
       if (claimSnap.exists) throw new FinanceValidationError(`${aggregateType} unique key already exists`)
       const metadata = await validate?.(tx, persistedActor) ?? {}
       value.createdBy = persistedActor.uid; value.updatedBy = persistedActor.uid
+      if (aggregateType === 'book_policy_version') {
+        ;(value as unknown as BookPolicyVersion).contentHash = immutableContentHash(value)
+      }
       const evidence = await this.prepareEvidence(tx, persistedActor, scope, aggregateType, value.id, value.version,
         eventType, now, { aggregateDigest: canonicalDigest(clean(value)), ...metadata })
       metadata.deferredWrite?.(tx)

@@ -34,7 +34,7 @@ async function seeded(options: { policyFrom?: string; policyTo?: string } = {}) 
   await service.createBook(actor, {
     id: 'book-a', orgId: 'org-a', legalEntityId: 'entity-a', code: 'MAIN', name: 'Primary', bookType: 'primary',
     functionalCurrency: 'ZAR', accountingBasis: 'accrual', jurisdictionCode: 'ZA', taxPointPolicyId: 'za-invoice',
-    defaultControlAccountIds: {}, status: 'active', expectedVersion: 0, ...request('book'),
+    defaultControlAccountIds: {}, status: 'active', cutoverAt: '2026-07-01', expectedVersion: 0, ...request('book'),
   })
   const policyCommand = {
     id: 'policy-a-v1', orgId: 'org-a', legalEntityId: 'entity-a', bookId: 'book-a', versionNumber: 1,
@@ -123,7 +123,7 @@ describe('finance P1 blocker regressions', () => {
     await service.createBook(actor, {
       id: 'book-a', orgId: 'org-a', legalEntityId: 'entity-a', code: 'MAIN', name: 'Primary', bookType: 'primary',
       functionalCurrency: 'ZAR', accountingBasis: 'accrual', jurisdictionCode: 'ZA', taxPointPolicyId: 'za-invoice',
-      defaultControlAccountIds: {}, status: 'active', expectedVersion: 0, ...request(`book-${startsAt}`),
+      defaultControlAccountIds: {}, status: 'active', cutoverAt: '2026-07-01', expectedVersion: 0, ...request(`book-${startsAt}`),
     })
     await expect(service.createPeriod(actor, {
       id: 'bad-period', orgId: 'org-a', legalEntityId: 'entity-a', bookId: 'book-a', fiscalYear: 2027,
@@ -309,8 +309,81 @@ describe('finance P1 blocker regressions', () => {
     })
     const reopened = await service.changePeriodStatus(actor, reopen)
     await expect(service.changePeriodStatus(actor, reopen)).resolves.toEqual(reopened)
+    await expect(service.changePeriodStatus(actor, close)).resolves.toEqual(closed)
     expect(store.auditEvents.at(-1)).toEqual(expect.objectContaining({
       requestId: reopen.requestId, idempotencyKey: reopen.idempotencyKey,
     }))
+  })
+
+  test('rejects protected or unknown period states at the runtime boundary', async () => {
+    const { service } = await seeded()
+    await expect(service.createPeriod(actor, {
+      id: 'period-protected', orgId: 'org-a', legalEntityId: 'entity-a', bookId: 'book-a', fiscalYear: 2027,
+      periodNumber: 6, startsAt: '2026-08-01', endsAt: '2026-08-31', status: 'hard_closed', expectedVersion: 0,
+      ...request('period-protected'),
+    })).rejects.toThrow(/status|open/i)
+  })
+
+  test('rejects malformed account enums and truthy non-boolean posting flags', async () => {
+    const { service } = await seeded()
+    await expect(service.createAccount(actor, {
+      id: 'malformed-account', code: '1099', name: 'Malformed', accountType: 'asset', normalBalance: 'debit',
+      orgId: 'org-a', legalEntityId: 'entity-a', bookId: 'book-a', currency: 'USD',
+      currencyPolicy: 'bogus', reportMapping: 'asset', postingAllowed: 'false', activeFrom: '2026-07-01',
+      expectedVersion: 0, ...request('malformed-account'),
+    } as never)).rejects.toThrow(/currencyPolicy|postingAllowed/i)
+  })
+
+  test('accepts a future approved basis policy and uses it for a cross-period reversal', async () => {
+    const { service } = await seeded({ policyTo: '2026-07-31' })
+    const original = await service.postJournal(actor, postCommand())
+    await service.createPeriod(actor, {
+      id: 'period-aug', orgId: 'org-a', legalEntityId: 'entity-a', bookId: 'book-a', fiscalYear: 2027,
+      periodNumber: 6, startsAt: '2026-08-01', endsAt: '2026-08-31', status: 'open', expectedVersion: 0,
+      ...request('period-aug'),
+    })
+    const policy = {
+      id: 'policy-a-v2', orgId: 'org-a', legalEntityId: 'entity-a', bookId: 'book-a', versionNumber: 2,
+      accountingBasis: 'cash' as const, taxPointPolicyId: 'za-payment', currencyPrecision: 2,
+      roundingMode: 'half_up' as const, effectiveFrom: '2026-08-01', expectedVersion: 0 as const, ...request('policy-v2'),
+    }
+    await service.createFinanceApproval(approver, {
+      id: 'policy-v2-approval', orgId: 'org-a', legalEntityId: 'entity-a', bookId: 'book-a',
+      action: 'book-policy.approve', subjectDigest: financeApprovalSubjectDigest('book-policy.approve', policy),
+      reason: 'Future basis approved', expectedVersion: 0, ...request('approve-policy-v2'),
+    })
+    await expect(service.createBookPolicyVersion(actor, { ...policy, approvalId: 'policy-v2-approval' })).resolves.toBeDefined()
+    const reverse = { originalJournalId: original.id, reversalJournalId: 'journal-aug-r', orgId: 'org-a',
+      legalEntityId: 'entity-a', bookId: 'book-a', periodId: 'period-aug', postingDate: '2026-08-15',
+      reason: 'August correction', requestId: 'request-aug-r', idempotencyKey: 'idem-aug-r', expectedVersion: 0 as const }
+    await service.createFinanceApproval(approver, {
+      id: 'approval-aug-r', orgId: 'org-a', legalEntityId: 'entity-a', bookId: 'book-a', action: 'journal.reverse',
+      subjectDigest: financeApprovalSubjectDigest('journal.reverse', reverse), reason: 'Cross-period reversal approved',
+      expectedVersion: 0, ...request('approve-aug-r'),
+    })
+    await expect(service.reverseJournal(actor, { ...reverse, approvalId: 'approval-aug-r' }))
+      .resolves.toEqual(expect.objectContaining({ policyVersionId: 'policy-a-v2', accountingBasis: 'cash' }))
+  })
+
+  test('requires a cutover date before an active book can accept postings', async () => {
+    const { store, service } = await seeded()
+    const book = store.books.get('book-a')!
+    store.books.set(book.id, { ...book, cutoverAt: undefined })
+    await expect(service.postJournal(actor, postCommand())).rejects.toThrow(/cutover/i)
+  })
+
+  test('rejects tampered immutable approval and policy snapshots', async () => {
+    const approvalState = await seeded()
+    const approval = approvalState.store.approvals.get('journal-approval')!
+    approvalState.store.approvals.set(approval.id, { ...approval, subjectDigest: canonicalDigest({ forged: true }) })
+    await expect(approvalState.service.postJournal(actor, {
+      ...postCommand(),
+      approvalId: 'journal-approval',
+    })).rejects.toThrow(/content hash|integrity|invalid/i)
+
+    const policyState = await seeded()
+    const policy = policyState.store.policies.get('policy-a-v1')!
+    policyState.store.policies.set(policy.id, { ...policy, accountingBasis: 'cash' })
+    await expect(policyState.service.postJournal(actor, postCommand())).rejects.toThrow(/content hash|integrity|invalid/i)
   })
 })

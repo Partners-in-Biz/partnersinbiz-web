@@ -21,6 +21,27 @@ export class FinanceValidationError extends Error {
   }
 }
 
+function compactImmutableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(compactImmutableValue)
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+      .filter(([, item]) => item !== undefined)
+      .map(([key, item]) => [key, compactImmutableValue(item)]))
+  }
+  return value
+}
+
+export function immutableContentHash(value: object): string {
+  const withoutHash = Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'contentHash'))
+  return canonicalDigest(compactImmutableValue(withoutHash))
+}
+
+export function assertImmutableContentHash(value: object & { contentHash?: string }, resource: string): void {
+  if (!value.contentHash || immutableContentHash(value) !== value.contentHash) {
+    throw new FinanceValidationError(`${resource} content hash is invalid`)
+  }
+}
+
 export function requiredText(value: string, field: string): string {
   const clean = value?.trim()
   if (!clean) throw new FinanceValidationError(`${field} is required`)
@@ -110,16 +131,17 @@ export function policyRangesOverlap(
 export function resolveUniqueEffectivePolicy(
   policies: readonly BookPolicyVersion[],
   postingDate: string,
-  requestedPolicyId: string,
+  requestedPolicyId?: string,
 ): BookPolicyVersion {
   const postingEpoch = parseCanonicalDate(postingDate, 'postingDate')
   const effective = policies.filter((policy) => policy.status === 'approved' && policy.immutable &&
     postingEpoch >= parseCanonicalDate(policy.effectiveFrom, 'policy.effectiveFrom') &&
     (!policy.effectiveTo || postingEpoch <= parseCanonicalDate(policy.effectiveTo, 'policy.effectiveTo')))
   if (effective.length !== 1) throw new FinanceValidationError('Posting date must resolve to one unique policy effective for the book')
-  if (effective[0].id !== requestedPolicyId) {
+  if (requestedPolicyId !== undefined && effective[0].id !== requestedPolicyId) {
     throw new FinanceValidationError('Caller-selected policy is not the unique effective book policy')
   }
+  assertImmutableContentHash(effective[0], 'Approved book policy')
   return effective[0]
 }
 
@@ -250,6 +272,7 @@ export function validatePostingContext(input: PostingValidationInput): FinanceAp
   }
   if (book.status !== 'active') throw new FinanceValidationError('Accounting book is not active')
   const postingEpoch = parseCanonicalDate(input.postingDate, 'postingDate')
+  if (!book.cutoverAt) throw new FinanceValidationError('Accounting book has no approved cutover date')
   if (book.cutoverAt && postingEpoch < parseCanonicalDate(book.cutoverAt, 'book.cutoverAt')) {
     throw new FinanceValidationError('Posting date is before the approved book cutover date')
   }
