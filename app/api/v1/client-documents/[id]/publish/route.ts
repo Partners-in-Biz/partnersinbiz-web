@@ -64,28 +64,40 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     }
   }
 
-  // Client creators: ensure a linked client org so publish lifecycle can complete.
-  // Prefer their home orgId, else first membership org that is not the holder.
-  if (user.role === 'client') {
-    const existingLinked = [
+  // Ensure a real recipient client org before publish when the holder is platform.
+  // Prefer company.linkedOrgId, then client creator home org. Store validates the rest.
+  {
+    const { sanitizeRecipientClientOrgIds } = await import('@/lib/client-documents/holder')
+    const holderOrgId = (document.orgId || '').trim()
+    const existingLinked = sanitizeRecipientClientOrgIds(holderOrgId, [
       ...(document.linked?.clientOrgId ? [document.linked.clientOrgId] : []),
       ...(document.linked?.clientOrgIds ?? []),
-    ].map((orgId) => orgId.trim()).filter(Boolean)
+    ])
+
     if (existingLinked.length === 0) {
-      const preferred =
-        (user.orgId && user.orgId.trim()) ||
-        userOrgIds(user).find((orgId) => orgId !== document!.orgId) ||
-        userOrgIds(user)[0]
-      if (!preferred) {
-        return apiError('A client organisation is required before publishing', 400)
+      let preferred: string | undefined
+      const companyId = (document.linked?.companyId || document.linked?.companyIds?.[0] || '').trim()
+      if (companyId) {
+        const companySnap = await adminDb.collection('companies').doc(companyId).get()
+        const linkedOrgId = companySnap.exists
+          ? String((companySnap.data() as { linkedOrgId?: string }).linkedOrgId || '').trim()
+          : ''
+        if (linkedOrgId && linkedOrgId !== holderOrgId) preferred = linkedOrgId
       }
-      await adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id).update({
-        'linked.clientOrgId': preferred,
-        'linked.clientOrgIds': FieldValue.arrayUnion(preferred),
-        ...lastActorFrom(user),
-      })
-      document = await getClientDocument(id)
-      if (!document) return apiError('Document not found', 404)
+      if (!preferred && user.role === 'client') {
+        preferred =
+          (user.orgId && user.orgId.trim() && user.orgId.trim() !== holderOrgId ? user.orgId.trim() : undefined)
+          || userOrgIds(user).find((orgId) => orgId && orgId !== holderOrgId)
+      }
+      if (preferred) {
+        await adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id).update({
+          'linked.clientOrgId': preferred,
+          'linked.clientOrgIds': FieldValue.arrayUnion(preferred),
+          ...lastActorFrom(user),
+        })
+        document = await getClientDocument(id)
+        if (!document) return apiError('Document not found', 404)
+      }
     }
   }
 

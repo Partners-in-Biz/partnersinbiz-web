@@ -304,13 +304,16 @@ export async function publishClientDocument(
       throw new Error('Resolve blocking assumptions before publishing')
     }
 
-    const clientOrgIds = Array.from(new Set([
+    const { sanitizeRecipientClientOrgIds } = await import('@/lib/client-documents/holder')
+    const clientOrgIds = sanitizeRecipientClientOrgIds(document.orgId, [
       ...(document.linked?.clientOrgId ? [document.linked.clientOrgId] : []),
       ...(document.linked?.clientOrgIds ?? []),
-    ].map((orgId) => orgId.trim()).filter(Boolean)))
+    ])
 
     if (clientOrgIds.length === 0) {
-      throw new Error('Explicit linked client org is required before publishing')
+      throw new Error(
+        'Explicit linked client organisation is required before publishing (must not be the platform holder org alone)',
+      )
     }
 
     if (clientOrgIds.length > 1 && options.acknowledgeMultiOrgPublish !== true) {

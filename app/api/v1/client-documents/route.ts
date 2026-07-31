@@ -331,28 +331,44 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   const companyFromLink = typeof linked.companyId === 'string' && linked.companyId.trim()
     ? await companyForLinkedDocument(linked.companyId.trim())
     : null
-  const { resolveDocumentHolderOrgId } = await import('@/lib/client-documents/holder')
+  const {
+    resolveDocumentHolderOrgId,
+    resolveDocumentRecipientClientOrgId,
+  } = await import('@/lib/client-documents/holder')
   const documentOrgId = resolveDocumentHolderOrgId({
     requestedOrgId: orgId,
     platformCompanyIdForClientOrg: platformCompany?.id ?? null,
     linkedCompany: companyFromLink,
     creatorHomeOrgId: user.activeOrgId || user.orgId || null,
   })
-  const rawDocumentLinked: ClientDocumentLinkSet = platformCompany
-    ? {
-        ...linked,
-        companyId: linked.companyId || platformCompany.id,
-        clientOrgId: linked.clientOrgId || orgId,
-      }
-    : companyFromLink
+  // Never stamp the holder org as linked.clientOrgId — that makes client_review
+  // docs invisible to the real client organisation (Saaiman Stays bug).
+  const recipientClientOrgId = resolveDocumentRecipientClientOrgId({
+    holderOrgId: documentOrgId,
+    linkedClientOrgId: typeof linked.clientOrgId === 'string' ? linked.clientOrgId : orgId,
+    linkedClientOrgIds: linked.clientOrgIds,
+    companyLinkedOrgId: companyFromLink?.linkedOrgId,
+  })
+  const rawDocumentLinked: ClientDocumentLinkSet = {
+    ...linked,
+    ...(platformCompany || companyFromLink
+      ? { companyId: linked.companyId || platformCompany?.id || companyFromLink?.id }
+      : {}),
+    ...(recipientClientOrgId
       ? {
-          ...linked,
-          companyId: linked.companyId || companyFromLink.id,
-          ...(companyFromLink.linkedOrgId
-            ? { clientOrgId: linked.clientOrgId || companyFromLink.linkedOrgId }
-            : {}),
+          clientOrgId: recipientClientOrgId,
+          clientOrgIds: Array.from(new Set([
+            ...(linked.clientOrgIds ?? []).filter((id) => id && id !== documentOrgId),
+            recipientClientOrgId,
+          ])),
         }
-      : linked
+      : {
+          // Drop accidental holder-as-client stamps from the request body.
+          ...(linked.clientOrgId && linked.clientOrgId === documentOrgId
+            ? { clientOrgId: undefined }
+            : {}),
+        }),
+  }
 
   const normalizedDocumentLinked = normalizeClientDocumentLinks(rawDocumentLinked)
   if (normalizedDocumentLinked.ok === false) return apiError(normalizedDocumentLinked.error, 400)
