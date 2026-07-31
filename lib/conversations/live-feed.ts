@@ -1,5 +1,5 @@
 import type { Conversation, ConversationMessage, ConversationScope } from './types'
-import type { ConversationPresence } from '@/lib/conversations/presence'
+import type { ConversationPresence } from '@/lib/conversations/presence-shared'
 
 export const CONVERSATION_LIVE_REFRESH_MS = 2_000
 export const CONVERSATION_LIVE_STREAM_TTL_MS = 55_000

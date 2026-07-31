@@ -16,7 +16,7 @@ import { postConversationMessage } from '@/lib/conversations/message-submit'
 import {
   formatConversationPresenceLine,
   type ConversationPresence,
-} from '@/lib/conversations/presence'
+} from '@/lib/conversations/presence-shared'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import { WORKFORCE_BLUEPRINT_OPTIONS } from '@/lib/agents/role-blueprints'

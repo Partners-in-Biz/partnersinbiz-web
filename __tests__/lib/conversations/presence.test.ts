@@ -14,8 +14,8 @@ jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
 }))
 
+import { formatConversationPresenceLine } from '@/lib/conversations/presence-shared'
 import {
-  formatConversationPresenceLine,
   heartbeatConversationPresence,
   listConversationPresence,
 } from '@/lib/conversations/presence'
