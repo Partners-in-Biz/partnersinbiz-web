@@ -119,6 +119,7 @@ export function MessageDrawer({
                 currentUserUid={currentUserUid}
                 currentUserDisplayName={currentUserDisplayName}
                 orgName={orgName}
+                includeAllScopes
                 allowAgentParticipants={allowAgentParticipants}
                 allowDeleteConversations={allowDeleteConversations}
                 currentPageContext={currentPageContext}

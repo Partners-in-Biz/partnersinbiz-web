@@ -292,6 +292,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     currentUserDisplayName,
     userRole,
     orgName,
+    includeAllScopes: true,
     allowDeleteConversations: surface === 'admin',
     // Anyone in the chat can stop an in-flight agent run.
     allowStopRuns: true,

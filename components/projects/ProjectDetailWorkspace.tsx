@@ -820,6 +820,7 @@ export function ProjectDetailWorkspace({
               projectId={projectId}
               scope="project"
               scopeRefId={projectId}
+              includeAllScopes
               initialAgentId="pip"
               autoCreateScopedConversation
               autoCreateTitle={`Project: ${project.name}`}

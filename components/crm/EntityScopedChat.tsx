@@ -150,6 +150,7 @@ export function EntityScopedChat({
           orgName={isCompanyCowork ? entityLabel : orgName}
           currentUserUid={user.uid}
           currentUserDisplayName={user.displayName}
+          includeAllScopes
           scope={entityType}
           scopeRefId={entityId}
           initialAgentId={allowAgentParticipants ? 'pip' : undefined}

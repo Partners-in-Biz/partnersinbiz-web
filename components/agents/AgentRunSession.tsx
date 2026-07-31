@@ -234,6 +234,7 @@ export default function AgentRunSession({
               currentUserDisplayName={currentUserDisplayName}
               scope="task"
               scopeRefId={taskId}
+              includeAllScopes
               initialAgentId={agentId}
               autoCreateScopedConversation={Boolean(taskId)}
               autoCreateTitle={taskTitle ? `Ticket: ${taskTitle}` : 'Ticket conversation'}

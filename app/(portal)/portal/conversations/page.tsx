@@ -167,6 +167,7 @@ export default function ConversationsPage() {
         currentUserDisplayName={user.name}
         userRole={user.role}
         orgName={org.name}
+        includeAllScopes
         initialConvId={initialConvId}
         allowAgentParticipants={capabilities.canUseAgentHandoff}
         allowStartConversations={capabilities.canStart}

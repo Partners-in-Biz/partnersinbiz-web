@@ -476,6 +476,7 @@ export default function SkillTastingLabClient() {
               orgName="Partners in Biz"
               currentUserUid={session.uid}
               currentUserDisplayName={displayName(session)}
+              includeAllScopes
               initialConvId={labRun.conversationId}
               initialAgentId={labRun.agentId}
               allowDeleteConversations

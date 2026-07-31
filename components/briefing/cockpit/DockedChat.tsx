@@ -33,6 +33,7 @@ export function DockedChat({ orgId, currentUserUid, currentUserDisplayName, orgN
           currentUserUid={currentUserUid}
           currentUserDisplayName={currentUserDisplayName}
           orgName={orgName}
+          includeAllScopes
           scope="general"
           allowStartConversations
           allowSendMessages
