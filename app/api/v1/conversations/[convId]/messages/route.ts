@@ -63,6 +63,8 @@ import {
 } from '@/lib/chat/hermes-goal'
 import { tryHandleHermesFeaturesSlash } from '@/lib/hermes-features/slash'
 import { hermesFeaturesService } from '@/lib/hermes-features/service'
+import { evaluateSlashCommandAccess } from '@/lib/chat/slash-command-access'
+import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { buildAgentSkillsPromptBlock, collectAgentSkillNames } from '@/lib/chat/agent-skills'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
@@ -657,6 +659,47 @@ export const POST = withAuth(
       } catch (error) {
         const mapped = projectRuntimeReplicaApiError(error)
         return apiError(mapped.message, mapped.status)
+      }
+    }
+
+    // Slash access control (operator runtime vs public product commands)
+    if (slashCommand && (slashCommand.executorKind === 'hermes_features' || slashCommand.executorKind === 'hermes_goal')) {
+      const agentIdForAccess = dispatchAgentId || 'pip'
+      const agentSnap = await adminDb.collection('agent_team').doc(agentIdForAccess).get()
+      const agentRow = agentSnap.exists ? (agentSnap.data() as {
+        ownerUserId?: string
+        accessScope?: string
+        provisioningMode?: string
+        scopeOrgId?: string
+      }) : null
+      const memberSnap = await adminDb.collection('orgMembers').doc(`${conversation.orgId}_${user.uid}`).get()
+      const memberRole = memberSnap.exists ? (memberSnap.data() as { role?: string })?.role : undefined
+      const orgManager = user.role === 'admin'
+        || memberRole === 'owner'
+        || memberRole === 'admin'
+      const access = evaluateSlashCommandAccess({
+        commandId: slashCommand.id,
+        args: slashCommand.args,
+        actor: {
+          uid: user.uid,
+          role: user.role,
+          isSuperAdmin: isSuperAdmin(user),
+          isOrgManager: orgManager,
+        },
+        conversation: {
+          startedBy: conversation.startedBy,
+          ownerUserId: conversation.workspaceContext?.ownerUserId ?? null,
+        },
+        agent: {
+          agentId: agentIdForAccess,
+          ownerUserId: agentRow?.ownerUserId ?? null,
+          accessScope: agentRow?.accessScope ?? null,
+          provisioningMode: agentRow?.provisioningMode ?? null,
+          scopeOrgId: agentRow?.scopeOrgId ?? null,
+        },
+      })
+      if (!access.allowed) {
+        return apiError(access.reason, 403)
       }
     }
 

@@ -212,6 +212,9 @@ export function filterSlashCommands(query: string): SlashCommandDefinition[] {
   })
 }
 
+/** Access-aware menu filter — see `slash-command-access.ts`. Re-exported for call sites. */
+export { listSlashCommandsForAccess, filterSlashCommandsByAccess, evaluateSlashCommandAccess } from '@/lib/chat/slash-command-access'
+
 export function getSlashCommandByToken(token: string): SlashCommandDefinition | null {
   const normalized = token.trim().toLowerCase()
   if (!normalized.startsWith('/')) return null

@@ -43,10 +43,11 @@ import {
 } from '@/lib/context-references/types'
 import {
   buildSlashCommandPayload,
-  filterSlashCommands,
   findActiveSlashCommandPrompt,
+  listSlashCommandsForAccess,
   parseLeadingSlashCommand,
   replaceSlashCommandToken,
+  evaluateSlashCommandAccess,
   type ActiveSlashCommandPrompt,
   type SlashCommandDefinition,
   type SlashCommandPayload,
@@ -160,6 +161,10 @@ interface AgentTeamDoc {
   skills?: string[]
   skillPolicy?: AgentSkillPolicyState
   lastHealthStatus?: 'ok' | 'degraded' | 'unreachable'
+  ownerUserId?: string
+  accessScope?: 'personal' | 'organization' | string
+  provisioningMode?: string
+  scopeOrgId?: string
 }
 
 export interface UnifiedChatProps {
@@ -2289,9 +2294,53 @@ export default function UnifiedChat({
   useEffect(() => {
     setContextPickerActiveIndex((current) => Math.max(0, Math.min(current, contextPickerOptionCount - 1)))
   }, [contextPickerOptionCount])
+  const slashAccessAgent = useMemo(() => {
+    const agentId = activeConversation?.participantAgentIds?.[0]
+      || activeConversation?.orchestration?.dispatcherAgentId
+      || initialAgentId
+      || 'pip'
+    const row = agentMap[agentId as AgentId]
+    return {
+      agentId: String(agentId),
+      ownerUserId: row?.ownerUserId ?? null,
+      accessScope: row?.accessScope ?? null,
+      provisioningMode: row?.provisioningMode ?? null,
+      scopeOrgId: row?.scopeOrgId ?? null,
+    }
+  }, [
+    activeConversation?.participantAgentIds,
+    activeConversation?.orchestration?.dispatcherAgentId,
+    agentMap,
+    initialAgentId,
+  ])
+
+  const slashAccessActor = useMemo(() => {
+    const role = userRole || (allowManageConversationAccess ? 'admin' : 'client')
+    // Admin Messages surface: platform staff manage client orgs. Super-admin
+    // is approximated as admin surface + admin role (restricted admins still
+    // get org-manager operator rights for linked/org agents).
+    const isPlatformAdminSurface = allowManageConversationAccess || role === 'admin'
+    return {
+      uid: currentUserUid,
+      role,
+      isSuperAdmin: isPlatformAdminSurface && role === 'admin',
+      isOrgManager: isPlatformAdminSurface || role === 'owner' || role === 'admin',
+    }
+  }, [allowManageConversationAccess, currentUserUid, userRole])
+
   const slashCommandOptions = useMemo(
-    () => (slashPrompt ? filterSlashCommands(slashPrompt.query) : []),
-    [slashPrompt],
+    () => (slashPrompt
+      ? listSlashCommandsForAccess({
+          query: slashPrompt.query,
+          actor: slashAccessActor,
+          conversation: {
+            startedBy: activeConversation?.startedBy ?? null,
+            ownerUserId: activeConversation?.workspaceContext?.ownerUserId ?? null,
+          },
+          agent: slashAccessAgent,
+        })
+      : []),
+    [slashPrompt, slashAccessActor, slashAccessAgent, activeConversation?.startedBy, activeConversation?.workspaceContext?.ownerUserId],
   )
 
   const coerceContextRef = useCallback((ref: ContextReference | ContextReferenceSeed): ContextReference => ({
@@ -5624,6 +5673,23 @@ export default function UnifiedChat({
         const slashPayload: SlashCommandPayload | null = activeSlashCommand
           ? buildSlashCommandPayload(activeSlashCommand, slashArgs)
           : null
+        if (slashPayload) {
+          const access = evaluateSlashCommandAccess({
+            commandId: slashPayload.id,
+            args: slashPayload.args,
+            actor: slashAccessActor,
+            conversation: {
+              startedBy: activeConversation?.startedBy ?? currentUserUid,
+              ownerUserId: activeConversation?.workspaceContext?.ownerUserId ?? null,
+            },
+            agent: slashAccessAgent,
+          })
+          if (!access.allowed) {
+            setError(access.reason)
+            setSending(false)
+            return false
+          }
+        }
         const shouldUseCurrentPage =
           currentPageCommand.shouldUseCurrentPage || activeSlashCommand?.id === 'use-current-page'
         const messageText = currentPageCommand.shouldUseCurrentPage
