@@ -13,6 +13,13 @@ export class ConversationParticipantError extends Error {
   }
 }
 
+export interface ResolveHumanParticipantsPolicy {
+  requestingUserRole?: 'admin' | 'client' | 'ai'
+  enforceClientChatPolicy?: boolean
+  allowClientToAdminChat?: boolean
+  allowClientToPiBTeamChat?: boolean
+}
+
 type UserProfile = {
   role?: unknown
   displayName?: unknown
@@ -71,6 +78,7 @@ export interface ResolveHumanParticipantsInput {
   ownerUid: string
   requestedUids: unknown
   existingParticipants?: Participant[]
+  policy?: ResolveHumanParticipantsPolicy
 }
 
 /**
@@ -83,6 +91,7 @@ export async function resolveHumanConversationParticipants({
   ownerUid,
   requestedUids,
   existingParticipants = [],
+  policy = {},
 }: ResolveHumanParticipantsInput): Promise<HumanParticipant[]> {
   if (!Array.isArray(requestedUids)) {
     throw new ConversationParticipantError('participantUids must be an array')
@@ -105,10 +114,30 @@ export async function resolveHumanConversationParticipants({
   ])
   memberUids.add(ownerUid)
 
+  const policyClient = {
+    enforceClientChatPolicy: false,
+    allowClientToAdminChat: true,
+    allowClientToPiBTeamChat: false,
+    ...policy,
+  }
+
   for (const uid of orderedUids) {
     const allowed = memberUids.has(uid) || superAdminUids.has(uid)
     if (!allowed) {
       throw new ConversationParticipantError(`User ${uid} is not eligible for this organisation`, 403)
+    }
+    const isPlatformAdmin = superAdminUids.has(uid)
+    if (policyClient.enforceClientChatPolicy && uid !== ownerUid && policyClient.requestingUserRole === 'client') {
+      const userDoc = await adminDb.collection('users').doc(uid).get()
+      const userData = userDoc.exists ? userDoc.data() as { role?: unknown } : {}
+      const isAdmin = userData.role === 'admin'
+
+      if (isPlatformAdmin && !policyClient.allowClientToPiBTeamChat) {
+        throw new ConversationParticipantError('Client cannot create chats with the PiB team in this organisation', 403)
+      }
+      if (!isPlatformAdmin && isAdmin && !policyClient.allowClientToAdminChat) {
+        throw new ConversationParticipantError('Client cannot create chats with admins in this organisation', 403)
+      }
     }
   }
 

@@ -20,6 +20,7 @@ import {
   orgChatConfigDoc,
   resolveVisibleAgents,
 } from '@/lib/conversations/conversations'
+import { getOrgChatVisibilityPolicy } from '@/lib/conversations/chat-config'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
