@@ -31,9 +31,10 @@ describe('ConversationAccessDialog', () => {
   beforeEach(() => {
     jest.spyOn(window, 'confirm').mockReturnValue(true)
     global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input) === '/api/v1/orgs/org-1/contacts') {
+      if (String(input) === '/api/v1/orgs/org-1/people') {
         return response({ data: [
           { uid: 'member-2', displayName: 'Member Two', email: 'member@example.com', role: 'client' },
+          { uid: 'member-3', displayName: 'Member Three', email: 'member3@example.com', role: 'client' },
         ] })
       }
       if (String(input) === '/api/v1/conversations/conv-1' && init?.method === 'PATCH') {
@@ -84,5 +85,80 @@ describe('ConversationAccessDialog', () => {
       method: 'PATCH',
       body: JSON.stringify({ shareMode: 'shared', participantUids: ['owner-1', 'member-2'], expectedAccessVersion: 0 }),
     }))
+  })
+
+  it('selects and clears an entire department in access management', async () => {
+    const onUpdated = jest.fn()
+    const onClose = jest.fn()
+    const groupConversation = {
+      ...conversation,
+      workspaceContext: undefined,
+    } as Conversation
+    global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === '/api/v1/orgs/org-1/people') {
+        return response({
+          data: [
+            { uid: 'member-2', displayName: 'Member Two', email: 'member@example.com', role: 'client', department: 'Sales' },
+            { uid: 'member-3', displayName: 'Member Three', email: 'member3@example.com', role: 'client', department: 'Sales' },
+          ],
+        })
+      }
+      if (String(input) === '/api/v1/conversations/conv-1' && init?.method === 'PATCH') {
+        const body = JSON.parse(String(init.body))
+        return response({ data: { conversation: {
+          ...groupConversation,
+          participantUids: body.participantUids,
+          workspaceContext: groupConversation.workspaceContext,
+        } } })
+      }
+      throw new Error(`Unhandled fetch ${String(input)}`)
+    })
+
+    render(<ConversationAccessDialog conversation={groupConversation} onClose={onClose} onUpdated={onUpdated} />)
+    const initialGroupCheckbox = await screen.findByLabelText('Select department Sales (0/2)')
+    fireEvent.click(initialGroupCheckbox)
+    await screen.findByLabelText('Select department Sales (2/2)')
+
+    const groupCheckbox = screen.getByLabelText('Select department Sales (2/2)')
+    fireEvent.click(groupCheckbox)
+    fireEvent.click(screen.getByRole('button', { name: 'Save access' }))
+
+    await waitFor(() => expect(onUpdated).toHaveBeenCalledWith(expect.objectContaining({
+      participantUids: ['owner-1'],
+    })))
+    expect(onClose).toHaveBeenCalled()
+    expect(global.fetch).toHaveBeenLastCalledWith('/api/v1/conversations/conv-1', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({
+        participantUids: ['owner-1'],
+        expectedAccessVersion: 0,
+      }),
+    }))
+  })
+
+  it('manages explicit participants for a non-Workspace group chat', async () => {
+    const groupConversation = {
+      ...conversation,
+      title: 'Sales team',
+      workspaceContext: undefined,
+    } as Conversation
+    const onUpdated = jest.fn()
+    render(<ConversationAccessDialog conversation={groupConversation} onClose={jest.fn()} onUpdated={onUpdated} />)
+
+    expect(await screen.findByRole('dialog', { name: 'Manage people' })).toBeInTheDocument()
+    expect(screen.queryByText('Organisation')).not.toBeInTheDocument()
+    fireEvent.click(await screen.findByText('Member Two'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save access' }))
+
+    await waitFor(() => expect(global.fetch).toHaveBeenLastCalledWith(
+      '/api/v1/conversations/conv-1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          participantUids: ['owner-1', 'member-2'],
+          expectedAccessVersion: 0,
+        }),
+      }),
+    ))
   })
 })

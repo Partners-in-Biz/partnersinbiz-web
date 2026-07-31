@@ -177,12 +177,16 @@ service cloud.firestore {
     match /legal_entities/{id} { allow read, write: if false; }
     match /finance_branches/{id} { allow read, write: if false; }
     match /accounting_books/{id} { allow read, write: if false; }
+    match /book_policy_versions/{id} { allow read, write: if false; }
     match /accounting_periods/{id} { allow read, write: if false; }
     match /finance_role_assignments/{id} { allow read, write: if false; }
+    match /finance_approvals/{id} { allow read, write: if false; }
     match /ledger_accounts/{id} { allow read, write: if false; }
     match /journal_entries/{id} { allow read, write: if false; }
     match /journal_lines/{id} { allow read, write: if false; }
     match /finance_unique_claims/{id} { allow read, write: if false; }
+    match /finance_idempotency_claims/{id} { allow read, write: if false; }
+    match /finance_calendar_heads/{id} { allow read, write: if false; }
     match /finance_sequences/{id} { allow read, write: if false; }
     match /finance_audit_events/{id} { allow read, write: if false; }
     match /finance_audit_heads/{id} { allow read, write: if false; }
@@ -190,6 +194,12 @@ service cloud.firestore {
 
     // Idempotency cache — never client-readable or writable.
     match /idempotency_keys/{id} {
+      allow read, write: if false;
+    }
+
+    // Durable Messages action receipts contain execution evidence and are
+    // exposed only through the conversation-authorised API.
+    match /chat_action_receipts/{id} {
       allow read, write: if false;
     }
 

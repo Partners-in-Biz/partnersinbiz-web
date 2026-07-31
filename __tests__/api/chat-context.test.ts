@@ -5,6 +5,8 @@ const mockCollection = jest.fn()
 const mockProjectDoc = jest.fn()
 const mockTaskCollection = jest.fn()
 const mockTaskGet = jest.fn()
+const mockReportDoc = jest.fn()
+const mockPropertyDoc = jest.fn()
 const mockResolveContextReferences = jest.fn()
 const mockWithAuth = jest.fn((_role: string, handler: any) => async (req: NextRequest, ctx?: unknown) => handler(req, mockUser, ctx))
 const mockUser = { uid: 'client-1', role: 'client' as const, orgId: 'client-org' }
@@ -39,8 +41,37 @@ beforeEach(() => {
   mockTaskCollection.mockReturnValue({ get: mockTaskGet })
   mockResolveContextReferences.mockResolvedValue([])
   mockProjectDoc.mockReturnValue({ collection: mockTaskCollection })
+  mockReportDoc.mockReturnValue({
+    get: async () => ({
+      exists: true,
+      id: 'report-1',
+      data: () => ({
+        orgId: 'client-org',
+        status: 'draft',
+        category: 'analytics',
+        period: { start: '2026-06-01', end: '2026-06-30' },
+        kpis: { sessions: 40, users: 12, invoiced_revenue: 0 },
+        exec_summary: 'Growth trend is positive.',
+      }),
+    }),
+  })
+  mockPropertyDoc.mockReturnValue({
+    get: async () => ({
+      exists: true,
+      id: 'property-1',
+      data: () => ({
+        orgId: 'client-org',
+        name: 'Ballito Office',
+        domain: 'ballito-office.example',
+        status: 'active',
+        type: 'office',
+      }),
+    }),
+  })
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { doc: mockProjectDoc }
+    if (name === 'reports') return { doc: mockReportDoc }
+    if (name === 'properties') return { doc: mockPropertyDoc }
     throw new Error(`Unexpected collection ${name}`)
   })
 })
@@ -80,33 +111,29 @@ describe('chat context read-model API', () => {
     expect(mockTaskGet).not.toHaveBeenCalled()
   })
 
-  it('returns a safe generic canvas model for every resolved non-specialised reference', async () => {
-    mockResolveContextReferences.mockResolvedValueOnce([{
-      type: 'company', id: 'company-1', orgId: 'client-org', label: 'Partners in Biz',
-      origin: 'mention', href: '/portal/companies/company-1', summary: 'Active client company',
-    }])
-
-    const res = await get('company', 'company-1')
+  it('returns a specialized report model', async () => {
+    const res = await get('report', 'report-1')
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data.context).toEqual(expect.objectContaining({ kind: 'company', id: 'company-1', label: 'Partners in Biz' }))
-    expect(body.data.preview).toEqual(expect.objectContaining({ kind: 'summary', text: 'Active client company' }))
-    expect(body.data.context.href).toBe('/portal/companies/company-1')
+    expect(body.data.context).toEqual(expect.objectContaining({ kind: 'report', id: 'report-1', label: expect.stringContaining('2026-06-01 to 2026-06-30') }))
+    expect(body.data.preview).toEqual(expect.objectContaining({ kind: 'summary', status: 'draft' }))
+    expect(body.data.pulse.metrics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'sessions', label: 'Sessions', value: 40 }),
+      expect.objectContaining({ id: 'users', label: 'Users', value: 12 }),
+    ]))
+    expect(body.data.context.href).toBe('/admin/reports/report-1')
     expect(JSON.stringify(body)).not.toContain('providerCredential')
   })
 
-  it('projects a safe generic status from the server-resolved summary only', async () => {
-    mockResolveContextReferences.mockResolvedValueOnce([{
-      type: 'contact', id: 'contact-1', orgId: 'client-org', label: 'Jane Client',
-      origin: 'mention', href: '/admin/crm/contacts/contact-1', summary: 'jane@example.com | status: active | Internal token is not a projection',
-    }])
-
-    const res = await get('contact', 'contact-1')
+  it('returns a specialized property model', async () => {
+    const res = await get('property', 'property-1')
     const body = await res.json()
 
     expect(res.status).toBe(200)
+    expect(body.data.context).toEqual(expect.objectContaining({ kind: 'property', id: 'property-1', label: 'Ballito Office' }))
     expect(body.data.preview).toEqual(expect.objectContaining({ kind: 'summary', status: 'active' }))
+    expect(body.data.context.href).toBe('/admin/properties/property-1')
     expect(JSON.stringify(body)).not.toContain('providerCredential')
   })
 
@@ -114,6 +141,9 @@ describe('chat context read-model API', () => {
     mockResolveContextReferences.mockResolvedValueOnce([{
       type: 'task', id: 'task-in-project', orgId: 'client-org', label: 'Approve launch', origin: 'manual',
     }])
+    mockTaskGet.mockResolvedValueOnce({ docs: [
+      { id: 'task-in-project', data: () => ({ title: 'Approve launch', columnId: 'todo' }) },
+    ] })
 
     const res = await getWithProject('task', 'task-in-project', 'project-1')
 

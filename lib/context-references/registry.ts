@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 
+import { ownerUidFrom } from '@/lib/api/actor'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
 import type { StudioKind } from '@/lib/chat-context/types'
@@ -8,7 +9,12 @@ import { parseStudioArtifactContextId, studioArtifactContextId } from '@/lib/cha
 import { canAccessModule, type WorkspaceModuleKey } from '@/lib/orgMembers/access-policy'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { isPortalModuleEnabled, type PortalModuleKey } from '@/lib/organizations/portal-modules'
-import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
+import {
+  explicitLinkedClientOrgIds,
+  getAccessibleClientDocument,
+  isClientVisibleToOrg,
+} from '@/lib/client-documents/access'
+import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import { listCompanyDocuments } from '@/lib/companies/command-center'
 import type { Company } from '@/lib/companies/types'
 import { convDoc } from '@/lib/conversations/conversations'
@@ -17,6 +23,12 @@ import { getProjectForUser } from '@/lib/projects/access'
 import { filterProjectItemsForAccess, filterProjectsForMemberScope } from '@/lib/projects/collaboration'
 import { getResearchItem, RESEARCH_COLLECTION } from '@/lib/research/store'
 import { getSupportTicket, SUPPORT_TICKETS_COLLECTION } from '@/lib/support/store'
+import {
+  calendarEventVisibleToActor,
+  loadCalendarActorEmails,
+} from '@/lib/calendar/access'
+import type { CalendarEvent } from '@/lib/calendar/types'
+import { canReadWorkspaceArtifact } from '@/lib/workspace-os/artifacts'
 import {
   type AssignableCrmRecord,
   crmActorCanReadCompanyRecord,
@@ -313,6 +325,23 @@ async function filterSearchDocsForRecordScope(
     return docs.filter((doc) => allowedIds.has(doc.id))
   }
 
+  if (type === 'product') {
+    const ctx = await resolveBillingCrmAuthContext(user, orgId)
+    return canAccessModule(ctx.accessPolicy, 'crm') ? docs : []
+  }
+
+  if (type === 'calendar_event') {
+    const actorEmails = await loadCalendarActorEmails(user)
+    return docs.filter((doc) => {
+      const data = doc.data() ?? {}
+      return calendarEventVisibleToActor(
+        { ...data, orgId: docOrgId(data, orgId) } as unknown as CalendarEvent,
+        user,
+        actorEmails,
+      )
+    })
+  }
+
   if (type !== 'contact' && type !== 'company' && type !== 'deal' && type !== 'invoice' && type !== 'quote') {
     return docs
   }
@@ -323,8 +352,18 @@ async function filterSearchDocsForRecordScope(
   const rows = docs.map((doc) => ({ id: doc.id, ...(doc.data() ?? {}), orgId: (doc.data() ?? {}).orgId ?? orgId }) as AssignableCrmRecord)
 
   if (type === 'invoice' || type === 'quote') {
-    const allowed = await filterBillingRecordsForCrmActor(ctx, rows)
+    const recipientQuoteIds = type === 'quote'
+      ? new Set(rows.filter((row) => {
+          const raw = row as RawDoc
+          const sourceOrg = clean(raw.sourceOrgId) || clean(raw.orgId)
+          const recipients = [clean(raw.recipientOrgId), clean(raw.targetOrgId)]
+          return sourceOrg !== orgId && recipients.includes(orgId)
+        }).map((row) => row.id).filter(Boolean))
+      : new Set<string>()
+    const senderRows = rows.filter((row) => !row.id || !recipientQuoteIds.has(row.id))
+    const allowed = await filterBillingRecordsForCrmActor(ctx, senderRows)
     const allowedIds = new Set(allowed.map((row) => row.id).filter(Boolean))
+    for (const id of recipientQuoteIds) allowedIds.add(id)
     return docs.filter((doc) => allowedIds.has(doc.id))
   }
 
@@ -362,7 +401,33 @@ function isDeleted(data: RawDoc): boolean {
   return data.deleted === true || data.archived === true
 }
 
-function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: string): string {
+function calendarEventHref(id: string, data: RawDoc): string {
+  const eventParam = `event=${encodeURIComponent(id)}`
+  const orgId = docOrgId(data)
+  const orgParam = orgId ? `&orgId=${encodeURIComponent(orgId)}` : ''
+  const related = data.relatedTo && typeof data.relatedTo === 'object' && !Array.isArray(data.relatedTo)
+    ? data.relatedTo as RawDoc
+    : {}
+  const relatedType = clean(related.type)
+  const relatedId = clean(related.id)
+  if (relatedType === 'contact' && relatedId) return `/portal/contacts/${encodeURIComponent(relatedId)}?${eventParam}${orgParam}`
+  if (relatedType === 'deal' && relatedId) return `/portal/deals/${encodeURIComponent(relatedId)}?${eventParam}${orgParam}`
+  if (relatedType === 'project' && relatedId) return `/portal/projects/${encodeURIComponent(relatedId)}?${eventParam}${orgParam}`
+  return `/portal/dashboard?${eventParam}${orgParam}`
+}
+
+function mailboxMessageHref(id: string, data: RawDoc, user?: ApiUser): string {
+  const folder = clean(data.folder, 20)
+  const params = new URLSearchParams()
+  if (folder) params.set('folder', folder)
+  params.set('messageId', id)
+  const orgId = docOrgId(data)
+  if (user?.role === 'client' && orgId) params.set('orgId', orgId)
+  const base = user?.role === 'client' ? '/portal/email' : '/admin/email/mailbox'
+  return `${base}?${params.toString()}`
+}
+
+function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: string, user?: ApiUser): string {
   if (seedHref) return seedHref
   const slug = clean(data.orgSlug) || clean(data.slug)
   switch (type) {
@@ -390,7 +455,7 @@ function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: s
     case 'campaign':
       return `/admin/campaigns/${id}`
     case 'email':
-      return `/admin/email/mailbox/${id}`
+      return mailboxMessageHref(id, data, user)
     case 'support':
       return `/admin/support/${id}`
     case 'deal':
@@ -416,7 +481,7 @@ function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: s
     case 'report':
       return `/admin/reports/${id}`
     case 'calendar_event':
-      return `/admin/calendar?eventId=${encodeURIComponent(id)}`
+      return calendarEventHref(id, data)
   }
 }
 
@@ -456,6 +521,34 @@ async function queryByOrg(collection: string, orgId: string, limit: number) {
     .limit(Math.max(limit, 30))
     .get()
   return snap.docs as FirestoreDoc[]
+}
+
+async function queryBillingByOrg(collection: 'invoices' | 'quotes', orgId: string, limit: number) {
+  const fields = ['orgId', 'sourceOrgId', 'recipientOrgId', 'targetOrgId'] as const
+  const batches = await Promise.all(fields.map(async (field) => {
+    const snap = await adminDb
+      .collection(collection)
+      .where(field, '==', orgId)
+      .limit(Math.max(limit, 30))
+      .get()
+    return snap.docs as FirestoreDoc[]
+  }))
+  const byId = new Map<string, FirestoreDoc>()
+  for (const doc of batches.flat()) byId.set(doc.id, doc)
+  return Array.from(byId.values()).slice(0, Math.max(limit, 30))
+}
+
+async function queryDocumentsByOrg(orgId: string, limit: number) {
+  const collection = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
+  const queryLimit = Math.max(limit, 30)
+  const batches = await Promise.all([
+    collection.where('orgId', '==', orgId).limit(queryLimit).get(),
+    collection.where('linked.clientOrgId', '==', orgId).limit(queryLimit).get(),
+    collection.where('linked.clientOrgIds', 'array-contains', orgId).limit(queryLimit).get(),
+  ])
+  const byId = new Map<string, FirestoreDoc>()
+  for (const doc of batches.flatMap((batch) => batch.docs as FirestoreDoc[])) byId.set(doc.id, doc)
+  return Array.from(byId.values()).slice(0, queryLimit)
 }
 
 async function queryStudioByOrg(collection: string, orgId: string, limit: number) {
@@ -667,13 +760,15 @@ async function resolveProduct(input: ResolverInput): Promise<ContextReference | 
   const data = doc.data() ?? {}
   const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
   if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
+  const ctx = await resolveBillingCrmAuthContext(input.user, orgId)
+  if (!canAccessModule(ctx.accessPolicy, 'crm')) return null
   return makeRef({
     type: 'product',
     id: doc.id,
     orgId,
     label: clean(data.name) || input.seed.label || doc.id,
     origin: origin(input.seed),
-    href: href('product', doc.id, data, input.seed.href),
+    href: `/portal/settings/products?product=${encodeURIComponent(doc.id)}&orgId=${encodeURIComponent(orgId)}`,
     summary: compactSummary([
       productPriceSummary(data),
       data.sku ? `sku: ${clean(data.sku)}` : '',
@@ -683,12 +778,52 @@ async function resolveProduct(input: ResolverInput): Promise<ContextReference | 
   })
 }
 
-async function resolveDocument(input: ResolverInput): Promise<ContextReference | null> {
-  const doc = await getClientDocument(input.seed.id)
+async function resolveCalendarEvent(input: ResolverInput): Promise<ContextReference | null> {
+  const doc = await getDoc('calendar_events', input.seed.id)
   if (!doc) return null
-  const data = doc as unknown as RawDoc
+  const data = doc.data() ?? {}
   const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
-  if (!orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
+  if (
+    isDeleted(data)
+    || !orgId
+    || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId))
+    || !canUseOrg(input.user, orgId)
+  ) return null
+  const actorEmails = await loadCalendarActorEmails(input.user)
+  if (!calendarEventVisibleToActor({ ...data, orgId } as unknown as CalendarEvent, input.user, actorEmails)) return null
+  return makeRef({
+    type: 'calendar_event',
+    id: doc.id,
+    orgId,
+    label: clean(data.title) || input.seed.label || doc.id,
+    origin: origin(input.seed),
+    href: calendarEventHref(doc.id, { ...data, orgId }),
+    summary: compactSummary([
+      data.startAt,
+      data.endAt,
+      data.timezone,
+      data.location,
+      data.description,
+    ]),
+  })
+}
+
+async function resolveDocument(input: ResolverInput): Promise<ContextReference | null> {
+  const access = await getAccessibleClientDocument(input.seed.id, input.user)
+  if (!access.ok) return null
+  const doc = access.document
+  const expectedOrg = expectedOrgId(input.seed, input.defaultOrgId)
+  const holderOrgId = clean(doc.orgId)
+  const linkedClientOrgIds = explicitLinkedClientOrgIds(doc)
+  const expectedIsHolder = Boolean(expectedOrg && expectedOrg === holderOrgId)
+  const expectedIsVisibleClient = Boolean(
+    expectedOrg
+    && linkedClientOrgIds.includes(expectedOrg)
+    && isClientVisibleToOrg(doc, expectedOrg),
+  )
+  if (expectedOrg && !expectedIsHolder && !expectedIsVisibleClient) return null
+  const orgId = expectedOrg || holderOrgId
+  if (!orgId || !canUseOrg(input.user, orgId)) return null
   const linked = doc.linked ?? {}
   const relationshipSeeds: Array<{ type: ContextReferenceType; id: string; relation: string }> = []
   const addRelationshipSeeds = (type: ContextReferenceType, relation: string, ids: Array<string | undefined>) => {
@@ -714,7 +849,7 @@ async function resolveDocument(input: ResolverInput): Promise<ContextReference |
     orgId,
     label: clean(doc.title) || input.seed.label || doc.id,
     origin: origin(input.seed),
-    href: href('document', doc.id, data, input.seed.href),
+    href: `/portal/documents/${encodeURIComponent(doc.id)}?orgId=${encodeURIComponent(orgId)}`,
     summary: compactSummary([
       `type: ${clean(doc.type)}`,
       `status: ${clean(doc.status)}`,
@@ -756,11 +891,31 @@ async function resolveGeneric(
   const doc = await getDoc(collection, input.seed.id)
   if (!doc) return null
   const data = doc.data() ?? {}
-  const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
-  if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
-  if (type === 'email' && input.user.role === 'client' && clean(data.uid) !== input.user.uid) return null
-  if (type === 'workspace_artifact' && input.user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
-  if ((type === 'deal' || type === 'invoice' || type === 'quote') &&
+  const expectedOrg = expectedOrgId(input.seed, input.defaultOrgId)
+  // Billing records can belong to a sender organisation while being operated
+  // from the recipient organisation. Preserve the explicitly authorised
+  // conversation perspective instead of collapsing every record to data.orgId.
+  const billingPerspectiveOrg = (type === 'invoice' || type === 'quote')
+    && expectedOrg
+    && sameOrg(data, expectedOrg)
+    ? expectedOrg
+    : ''
+  const orgId = billingPerspectiveOrg || docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
+  if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrg) || !canUseOrg(input.user, orgId)) return null
+  if (type === 'email' && clean(data.uid) !== ownerUidFrom(input.user)) return null
+  if ((type === 'workspace_connection' || type === 'workspace_broker_job') && input.user.role === 'client') return null
+  if (type === 'workspace_artifact' && !canReadWorkspaceArtifact({
+    orgId,
+    visibility: clean(data.visibility) as never,
+    lifecycleStatus: clean(data.lifecycleStatus) as never,
+    permissions: data.permissions && typeof data.permissions === 'object' && !Array.isArray(data.permissions)
+      ? data.permissions as never
+      : { allowedAgentIds: [] } as never,
+  }, input.user)) return null
+  const quoteRecipientPerspective = type === 'quote'
+    && orgId !== (clean(data.sourceOrgId) || clean(data.orgId))
+    && [clean(data.recipientOrgId), clean(data.targetOrgId)].includes(orgId)
+  if ((type === 'deal' || type === 'invoice' || (type === 'quote' && !quoteRecipientPerspective)) &&
     !(await actorCanReadCrmRecord(input.user, orgId, type, doc.id, data))) {
     return null
   }
@@ -783,7 +938,7 @@ async function resolveGeneric(
     orgId,
     label,
     origin: origin(input.seed),
-    href: href(type, doc.id, data, input.seed.href),
+    href: href(type, doc.id, data, input.seed.href, input.user),
     summary: compactSummary([
       data.status ? `status: ${clean(data.status)}` : '',
       data.lifecycleStatus ? `lifecycle: ${clean(data.lifecycleStatus)}` : '',
@@ -814,22 +969,41 @@ async function resolveGeneric(
 async function resolveSupport(input: ResolverInput): Promise<ContextReference | null> {
   const ticket = await getSupportTicket(input.seed.id)
   if (!ticket) return null
-  const data = ticket as unknown as RawDoc
   const orgId = clean(ticket.orgId) || input.seed.orgId || input.defaultOrgId || ''
   if (!orgId || orgId !== expectedOrgId(input.seed, input.defaultOrgId) || !canUseOrg(input.user, orgId)) return null
   if (input.user.role === 'client' && clean(ticket.createdBy) !== input.user.uid) return null
+  const relationshipSeeds: Array<{ type: ContextReferenceType; id: string; relation: string }> = []
+  const addRelationshipSeeds = (type: ContextReferenceType, relation: string, ids: Array<string | null | undefined>) => {
+    for (const id of ids) {
+      const cleanId = clean(id)
+      if (cleanId && !relationshipSeeds.some((item) => item.type === type && item.id === cleanId)) {
+        relationshipSeeds.push({ type, id: cleanId, relation })
+      }
+      if (relationshipSeeds.length >= 12) return
+    }
+  }
+  addRelationshipSeeds('project', 'Project', [ticket.projectId, ...(ticket.projectIds ?? [])])
+  addRelationshipSeeds('company', 'Company', [ticket.companyId, ...(ticket.companyIds ?? [])])
+  addRelationshipSeeds('contact', 'Contact', [ticket.contactId, ...(ticket.contactIds ?? [])])
+  addRelationshipSeeds('deal', 'Deal', [ticket.dealId, ...(ticket.dealIds ?? [])])
+  addRelationshipSeeds('research', 'Research', ticket.researchItemIds ?? [])
+  addRelationshipSeeds('social', 'Social post', ticket.socialPostIds ?? [])
+  addRelationshipSeeds('email', 'Email thread', ticket.emailThreadIds ?? [])
   return makeRef({
     type: 'support',
     id: ticket.id,
     orgId,
     label: clean(ticket.subject) || input.seed.label || ticket.id,
     origin: origin(input.seed),
-    href: href('support', ticket.id, data, input.seed.href),
+    href: input.user.role === 'client'
+      ? `/portal/dashboard?support=open&ticket=${encodeURIComponent(ticket.id)}&orgId=${encodeURIComponent(orgId)}`
+      : `/admin/support?ticket=${encodeURIComponent(ticket.id)}`,
     summary: compactSummary([
       `status: ${clean(ticket.status)}`,
       `priority: ${clean(ticket.priority)}`,
       ticket.description,
     ]),
+    metadata: relationshipSeeds.length > 0 ? { relationshipSeeds } : undefined,
   })
 }
 
@@ -937,8 +1111,9 @@ async function resolveOne(
     case 'workspace_broker_job':
     case 'file':
     case 'report':
-    case 'calendar_event':
       return resolveGeneric(seed.type, { seed, user, defaultOrgId })
+    case 'calendar_event':
+      return resolveCalendarEvent({ seed, user, defaultOrgId })
     case 'support':
       return resolveSupport({ seed, user, defaultOrgId })
     case 'studio':
@@ -980,9 +1155,17 @@ function refFromSearchRow(
   const orgId = docOrgId(data)
   if (!orgId || !canUseOrg(user, orgId)) return null
   if (type === 'research' && user.role === 'client' && clean(data.visibility) !== 'client_visible') return null
-  if (type === 'email' && user.role === 'client' && clean(data.uid) !== user.uid) return null
+  if (type === 'email' && clean(data.uid) !== ownerUidFrom(user)) return null
   if (type === 'support' && user.role === 'client' && clean(data.createdBy) !== user.uid) return null
-  if (type === 'workspace_artifact' && user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
+  if ((type === 'workspace_connection' || type === 'workspace_broker_job') && user.role === 'client') return null
+  if (type === 'workspace_artifact' && !canReadWorkspaceArtifact({
+    orgId,
+    visibility: clean(data.visibility) as never,
+    lifecycleStatus: clean(data.lifecycleStatus) as never,
+    permissions: data.permissions && typeof data.permissions === 'object' && !Array.isArray(data.permissions)
+      ? data.permissions as never
+      : { allowedAgentIds: [] } as never,
+  }, user)) return null
 
   const label = type === 'contact' ? contactDisplayName(data) : ''
   const fallbackLabel = clean(data.name) ||
@@ -1004,7 +1187,7 @@ function refFromSearchRow(
     orgId,
     label: label || fallbackLabel,
     origin: 'mention',
-    href: href(type, id, data),
+    href: href(type, id, data, undefined, user),
     summary: compactSummary([
       type === 'product' ? productPriceSummary(data) : '',
       data.status ? `status: ${clean(data.status)}` : '',
@@ -1150,8 +1333,12 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
           createdAt: null,
           updatedAt: null,
         } as Company, { limit: 80 })
-        return rows
-          .map((row) => refFromSearchRow('document', row.id, row, input.user))
+        const refs = await resolveContextReferences(
+          rows.map((row) => ({ type: 'document' as const, id: row.id, orgId: input.orgId, origin: 'mention' as const })),
+          input.user,
+          input.orgId,
+        )
+        return refs
           .filter((ref): ref is ContextReference => Boolean(ref))
           .filter((ref) => matchesQuery({ name: ref.label, summary: ref.summary }, query))
           .slice(0, limit)
@@ -1161,8 +1348,22 @@ export async function searchContextReferences(input: SearchContextReferencesInpu
 
   const collection = COLLECTION_BY_TYPE[type]
   if (!collection) return []
-  const docs = await queryByOrg(collection, input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
+  const docs = type === 'invoice' || type === 'quote'
+    ? await queryBillingByOrg(collection as 'invoices' | 'quotes', input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
+    : type === 'document'
+      ? await queryDocumentsByOrg(input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
+      : await queryByOrg(collection, input.orgId, SEARCH_SCAN_LIMIT_BY_TYPE[type] ?? 80)
   const scopedDocs = await filterSearchDocsForRecordScope(input.user, input.orgId, type, docs)
+  if (type === 'invoice' || type === 'quote' || type === 'document' || type === 'support') {
+    const refs = await resolveContextReferences(
+      scopedDocs.map((doc) => ({ type, id: doc.id, orgId: input.orgId, origin: 'mention' as const })),
+      input.user,
+      input.orgId,
+    )
+    return refs
+      .filter((ref) => matchesQuery({ name: ref.label, summary: ref.summary }, query))
+      .slice(0, limit)
+  }
   return scopedDocs
     .map((doc) => refFromSearchDoc(type, doc, input.user))
     .filter((ref): ref is ContextReference => Boolean(ref))

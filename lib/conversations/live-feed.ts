@@ -1,0 +1,78 @@
+import type { Conversation, ConversationMessage, ConversationScope } from './types'
+
+export const CONVERSATION_LIVE_REFRESH_MS = 2_000
+export const CONVERSATION_LIVE_STREAM_TTL_MS = 55_000
+
+const VALID_SCOPES = new Set<ConversationScope>([
+  'general',
+  'project',
+  'workspace',
+  'task',
+  'campaign',
+  'company',
+  'contact',
+])
+
+export interface ConversationLiveQuery {
+  orgId: string | null
+  limit: number
+  scope?: ConversationScope
+  scopeRefId?: string
+  projectId?: string
+  conversationId?: string
+}
+
+export interface ConversationLiveSnapshot {
+  type: 'snapshot'
+  conversations: Conversation[]
+  conversation: Conversation | null
+  messages: ConversationMessage[] | null
+  emittedAtMs: number
+}
+
+function clean(value: string | null): string | undefined {
+  const normalized = value?.trim()
+  return normalized || undefined
+}
+
+export function parseConversationLiveQuery(url: string): ConversationLiveQuery {
+  const searchParams = new URL(url).searchParams
+  const rawLimit = Number.parseInt(searchParams.get('limit') ?? '30', 10)
+  const requestedScope = clean(searchParams.get('scope'))
+
+  return {
+    orgId: clean(searchParams.get('orgId')) ?? null,
+    limit: Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 100)) : 30,
+    ...(requestedScope && VALID_SCOPES.has(requestedScope as ConversationScope)
+      ? { scope: requestedScope as ConversationScope }
+      : {}),
+    ...(clean(searchParams.get('scopeRefId'))
+      ? { scopeRefId: clean(searchParams.get('scopeRefId')) }
+      : {}),
+    ...(clean(searchParams.get('projectId'))
+      ? { projectId: clean(searchParams.get('projectId')) }
+      : {}),
+    ...(clean(searchParams.get('conversationId'))
+      ? { conversationId: clean(searchParams.get('conversationId')) }
+      : {}),
+  }
+}
+
+export function conversationLiveSnapshotSignature(
+  snapshot: ConversationLiveSnapshot | Omit<ConversationLiveSnapshot, 'type' | 'emittedAtMs'>,
+): string {
+  const source = snapshot as ConversationLiveSnapshot
+  const stable = {
+    conversations: source.conversations,
+    conversation: source.conversation,
+    messages: source.messages,
+  }
+  return JSON.stringify(stable)
+}
+
+export function encodeConversationLiveEvent(payload: ConversationLiveSnapshot | {
+  type: 'error'
+  error: string
+}): Uint8Array {
+  return new TextEncoder().encode(`data: ${JSON.stringify(payload)}\n\n`)
+}

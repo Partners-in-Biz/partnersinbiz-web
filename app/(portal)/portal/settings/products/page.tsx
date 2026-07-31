@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ProductModal } from '@/components/crm/ProductModal'
 import type { Product } from '@/lib/products/types'
@@ -80,6 +80,8 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('')
   const [currencyFilter, setCurrencyFilter] = useState('')
   const [healthFilter, setHealthFilter] = useState<'all' | 'ready' | 'needs-work'>('all')
+  const openedProductRef = useRef<string | null>(null)
+  const requestedProductId = searchParams.get('product')?.trim() || ''
   const productEndpoint = useCallback((path: string) => scopedApiPath(path, orgScope), [orgScope])
 
   // ── Fetch ─────────────────────────────────────────────────────────────────────
@@ -87,7 +89,7 @@ export default function ProductsPage() {
   const loadProducts = useCallback(() => {
     setLoading(true)
     setFetchError(null)
-    fetch(productEndpoint('/api/v1/crm/products'))
+    fetch(productEndpoint('/api/v1/crm/products?includeInactive=true'))
       .then(async (r) => {
         const body = await r.json().catch(() => ({}))
         if (!r.ok) {
@@ -109,6 +111,15 @@ export default function ProductsPage() {
   useEffect(() => {
     loadProducts()
   }, [loadProducts])
+
+  useEffect(() => {
+    if (!requestedProductId || openedProductRef.current === requestedProductId) return
+    const selected = products.find((product) => product.id === requestedProductId)
+    if (!selected) return
+    openedProductRef.current = requestedProductId
+    setEditingProduct(selected)
+    setShowModal(true)
+  }, [products, requestedProductId])
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
 
@@ -175,21 +186,21 @@ export default function ProductsPage() {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   const activeProducts = products.filter((product) => product.active !== false)
-  const zeroPriceCount = products.filter((product) => !Number.isFinite(product.unitPrice) || product.unitPrice <= 0).length
-  const missingDescriptionCount = products.filter((product) => !product.description?.trim()).length
-  const missingUnitCount = products.filter((product) => !product.unit?.trim()).length
-  const currencyCodes = Array.from(new Set(products.map((product) => product.currency).filter(Boolean))).sort()
+  const zeroPriceCount = activeProducts.filter((product) => !Number.isFinite(product.unitPrice) || product.unitPrice <= 0).length
+  const missingDescriptionCount = activeProducts.filter((product) => !product.description?.trim()).length
+  const missingUnitCount = activeProducts.filter((product) => !product.unit?.trim()).length
+  const currencyCodes = Array.from(new Set(activeProducts.map((product) => product.currency).filter(Boolean))).sort()
   const primaryCurrency = currencyCodes[0] ?? 'ZAR'
-  const totalPrimaryValue = products
+  const totalPrimaryValue = activeProducts
     .filter((product) => product.currency === primaryCurrency)
     .reduce((sum, product) => sum + (Number.isFinite(product.unitPrice) ? product.unitPrice : 0), 0)
-  const avgPrimaryValue = products.filter((product) => product.currency === primaryCurrency).length > 0
-    ? totalPrimaryValue / products.filter((product) => product.currency === primaryCurrency).length
+  const avgPrimaryValue = activeProducts.filter((product) => product.currency === primaryCurrency).length > 0
+    ? totalPrimaryValue / activeProducts.filter((product) => product.currency === primaryCurrency).length
     : 0
-  const healthAverage = products.length > 0
-    ? Math.round(products.reduce((sum, product) => sum + productHealth(product).score, 0) / products.length)
+  const healthAverage = activeProducts.length > 0
+    ? Math.round(activeProducts.reduce((sum, product) => sum + productHealth(product).score, 0) / activeProducts.length)
     : 0
-  const firstIncompleteProduct = products.find((product) => productHealth(product).score < 80)
+  const firstIncompleteProduct = activeProducts.find((product) => productHealth(product).score < 80)
   const firstIncompleteHealth = firstIncompleteProduct ? productHealth(firstIncompleteProduct) : null
   const filteredProducts = products.filter((product) => {
     const q = search.trim().toLowerCase()
@@ -202,7 +213,7 @@ export default function ProductsPage() {
       (healthFilter === 'needs-work' && health.score < 80)
     return matchesSearch && matchesCurrency && matchesHealth
   })
-  const needsWorkCount = products.filter((product) => productHealth(product).score < 80).length
+  const needsWorkCount = activeProducts.filter((product) => productHealth(product).score < 80).length
   const catalogBlueprint = [
     {
       label: 'Pricing',
@@ -485,7 +496,10 @@ export default function ProductsPage() {
                     ].join(' ')}
                   >
                     <td className="px-4 py-3">
-                      <p className="font-medium text-[var(--color-pib-text)]">{displayName}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium text-[var(--color-pib-text)]">{displayName}</p>
+                        {p.active === false && <span className="pib-pill">Inactive</span>}
+                      </div>
                       <div className="mt-1 flex max-w-[360px] flex-wrap items-center gap-x-2 gap-y-1">
                         <p className="max-w-[320px] truncate text-xs text-[var(--color-pib-text-muted)]">
                           {hasDescription ? p.description : 'No product description yet.'}
@@ -507,8 +521,8 @@ export default function ProductsPage() {
                       <div className="min-w-[110px] space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-mono text-xs text-[var(--color-pib-text)]">{health.score}%</span>
-                          <span className={`pib-pill ${health.score >= 80 ? 'pib-pill-success' : 'pib-pill-warn'}`}>
-                            {health.score >= 80 ? 'Ready' : 'Needs work'}
+                          <span className={`pib-pill ${p.active === false ? '' : health.score >= 80 ? 'pib-pill-success' : 'pib-pill-warn'}`}>
+                            {p.active === false ? 'Inactive' : health.score >= 80 ? 'Ready' : 'Needs work'}
                           </span>
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-pib-line)]">
@@ -574,6 +588,7 @@ export default function ProductsPage() {
       {showModal && (
         <ProductModal
           product={editingProduct}
+          orgId={orgScope.orgId ?? undefined}
           onSave={handleSave}
           onClose={handleClose}
         />

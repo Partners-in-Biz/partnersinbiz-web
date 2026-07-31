@@ -196,7 +196,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     // Context before participants: machine-aware agent picking depends on this order.
     const body = screen.getByTestId('new-conversation-scroll-body')
     const contextLabel = within(body).getByText('Conversation context')
-    const participantsLabel = within(body).getByText('Participants (max 5)')
+    const participantsLabel = within(body).getByText('Participants (max 12)')
     expect(contextLabel.compareDocumentPosition(participantsLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(dialog).toContainElement(document.activeElement as HTMLElement)
     expect(background).toHaveAttribute('inert')
@@ -1342,7 +1342,18 @@ describe('UnifiedChat project pulse integration', () => {
         attention: [{ id: 'approval', label: 'Approve sender', severity: 'approval', actions: [{ id: 'approve', label: 'Approve next step', href: '/api/v1/projects/project-1/tasks/approval', method: 'PATCH', requiresApproval: true }] }],
         activity: [], capabilities: [], asOf: progress.asOf,
       } })
-      if (url === '/api/v1/projects/project-1/tasks/approval' && init?.method === 'PATCH') return jsonResponse({ data: { updated: true } })
+      if (url === '/api/v1/conversations/conv-1/context-actions' && init?.method === 'POST') return jsonResponse({ data: { receipt: {
+        id: 'receipt-approval-1',
+        conversationId: 'conv-1',
+        orgId: 'org-1',
+        actor: { uid: 'user-1', role: 'admin' },
+        context: { kind: 'project', id: 'project-1' },
+        action: { id: 'approve', label: 'Approve next step', href: '/api/v1/projects/project-1/tasks/approval', method: 'PATCH', requiresApproval: true },
+        status: 'succeeded',
+        canonicalStatus: 200,
+        createdAt: '2026-07-30T12:00:00.000Z',
+        completedAt: '2026-07-30T12:00:01.000Z',
+      } } })
       throw new Error(`Unhandled fetch: ${url}`)
     })
     global.fetch = fetchMock
@@ -1395,8 +1406,8 @@ describe('UnifiedChat project pulse integration', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Approve next step' })[0])
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      '/api/v1/projects/project-1/tasks/approval',
-      expect.objectContaining({ method: 'PATCH' }),
+      '/api/v1/conversations/conv-1/context-actions',
+      expect.objectContaining({ method: 'POST' }),
     ))
     await waitFor(() => {
       // Initial mount + post-approval refresh; coordinator may fire one extra refresh.
@@ -3411,6 +3422,112 @@ describe('UnifiedChat context references', () => {
       configurable: true,
       value: originalEventSource,
     })
+  })
+
+  it('updates live message snapshots while a new message send is still in-flight', async () => {
+    let liveSource: { onmessage: ((event: MessageEvent) => void) | null } | null = null
+    let sendRequestResolve: ((value: Response) => void) | null = null
+    const sendRequest = new Promise<Response>((resolve) => {
+      sendRequestResolve = resolve
+    })
+    class MockEventSource {
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      close = jest.fn()
+      constructor(_url: string) {
+        liveSource = this
+      }
+    }
+
+    const originalEventSource = window.EventSource
+    Object.defineProperty(window, 'EventSource', {
+      configurable: true,
+      value: MockEventSource,
+    })
+
+    try {
+      let sent = false
+      mockFetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+        if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+        if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+        if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
+        if (url === '/api/v1/conversations/conv-1/messages') {
+          if (init?.method === 'POST') {
+            sent = true
+            return sendRequest
+          }
+          return jsonResponse({ data: { messages: [] } })
+        }
+        throw new Error(`Unhandled fetch: ${url}`)
+      })
+
+      render(
+        <UnifiedChat
+          orgId="org-1"
+          currentUserUid="user-1"
+          currentUserDisplayName="Peet"
+          initialConvId="conv-1"
+        />,
+      )
+
+      const input = await screen.findByPlaceholderText(/Send a message|Message Pip/)
+      fireEvent.change(input, { target: { value: 'Hello from team' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+      await waitFor(() => expect(sent).toBe(true))
+      expect(liveSource).toBeTruthy()
+
+      const snapshotEvent = {
+        data: JSON.stringify({
+          type: 'snapshot',
+          conversations: [conversation],
+          conversation,
+          messages: [{
+            id: 'msg-live',
+            conversationId: 'conv-1',
+            role: 'assistant',
+            content: 'Team member is typing on a live task.',
+            authorKind: 'agent',
+            authorId: 'pip',
+            authorDisplayName: 'Pip',
+            status: 'completed',
+            createdAt: { seconds: 99 },
+          }],
+        }),
+      } as unknown as MessageEvent
+
+      act(() => {
+        void liveSource?.onmessage?.(snapshotEvent)
+      })
+
+      expect(await screen.findByText('Team member is typing on a live task.')).toBeInTheDocument()
+
+      if (sendRequestResolve) {
+        act(() => {
+          sendRequestResolve!(jsonResponse({
+            data: {
+              message: {
+                id: 'msg-user-1',
+                conversationId: 'conv-1',
+                role: 'user',
+                content: 'Hello from team',
+                authorKind: 'user',
+                authorId: 'user-1',
+                authorDisplayName: 'Peet',
+                status: 'completed',
+              },
+            },
+          }))
+        })
+      }
+    } finally {
+      Object.defineProperty(window, 'EventSource', {
+        configurable: true,
+        value: originalEventSource,
+      })
+    }
   })
 
   it('recalls local composer history with ArrowUp and ArrowDown', async () => {

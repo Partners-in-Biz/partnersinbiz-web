@@ -18,6 +18,24 @@ import type { StudioKind } from '@/lib/chat-context/types'
 import { genericChatContextAdapter } from '@/lib/chat-context/adapters/generic'
 import { campaignChatContextAdapter } from '@/lib/chat-context/adapters/campaign'
 import { socialChatContextAdapter } from '@/lib/chat-context/adapters/social'
+import { seoSprintChatContextAdapter } from '@/lib/chat-context/adapters/seoSprint'
+import { crmChatContextAdapter } from '@/lib/chat-context/adapters/crm'
+import { commerceChatContextAdapter } from '@/lib/chat-context/adapters/commerce'
+import { documentChatContextAdapter } from '@/lib/chat-context/adapters/document'
+import { supportChatContextAdapter } from '@/lib/chat-context/adapters/support'
+import { productChatContextAdapter } from '@/lib/chat-context/adapters/product'
+import { calendarEventChatContextAdapter } from '@/lib/chat-context/adapters/calendarEvent'
+import { emailChatContextAdapter } from '@/lib/chat-context/adapters/email'
+import { taskChatContextAdapter } from '@/lib/chat-context/adapters/task'
+import { fileChatContextAdapter } from '@/lib/chat-context/adapters/file'
+import { researchChatContextAdapter } from '@/lib/chat-context/adapters/research'
+import { propertyChatContextAdapter } from '@/lib/chat-context/adapters/property'
+import { reportChatContextAdapter } from '@/lib/chat-context/adapters/report'
+import { workspaceBrokerJobChatContextAdapter } from '@/lib/chat-context/adapters/workspaceBrokerJob'
+import { workspaceArtifactChatContextAdapter } from '@/lib/chat-context/adapters/workspaceArtifact'
+import { workspaceConnectionChatContextAdapter } from '@/lib/chat-context/adapters/workspaceConnection'
+import { workspaceFolderChatContextAdapter } from '@/lib/chat-context/adapters/workspaceFolder'
+import { chatContextCapability } from '@/lib/chat-context/capabilities'
 
 export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
 type StudioRootAdapters = Record<StudioKind, ChatContextAdapter>
@@ -40,7 +58,27 @@ export function createChatContextRegistry(adapters: ChatContextAdapters, fallbac
       }
       const adapter = adapters[input.kind]
       if (!adapter && !fallback) return unavailableContextResult()
-      return (adapter ?? fallback)!.resolve(input)
+      const result = await (adapter ?? fallback)!.resolve(input)
+      if (!result.ok) return result
+      const capability = chatContextCapability(input.kind)
+      const refreshedAt = Number.isFinite(Date.parse(result.model.asOf))
+        ? new Date(result.model.asOf).toISOString()
+        : new Date().toISOString()
+      return {
+        ...result,
+        model: {
+          ...result.model,
+          freshness: {
+            mode: 'live',
+            authoritative: true,
+            source: capability.authoritativeSource,
+            refreshedAt,
+            refreshIntervalMs: capability.refreshIntervalMs,
+            adapterLevel: capability.adapterLevel,
+            actionLevel: capability.actionLevel,
+          },
+        },
+      }
     },
   }
 }
@@ -49,6 +87,26 @@ export const chatContextRegistry = createChatContextRegistry({
   project: projectChatContextAdapter,
   campaign: campaignChatContextAdapter,
   social: socialChatContextAdapter,
+  seo_sprint: seoSprintChatContextAdapter,
+  contact: crmChatContextAdapter,
+  company: crmChatContextAdapter,
+  deal: crmChatContextAdapter,
+  invoice: commerceChatContextAdapter,
+  quote: commerceChatContextAdapter,
+  document: documentChatContextAdapter,
+  support: supportChatContextAdapter,
+  product: productChatContextAdapter,
+  file: fileChatContextAdapter,
+  research: researchChatContextAdapter,
+  property: propertyChatContextAdapter,
+  report: reportChatContextAdapter,
+  calendar_event: calendarEventChatContextAdapter,
+  email: emailChatContextAdapter,
+  task: taskChatContextAdapter,
+  workspace_broker_job: workspaceBrokerJobChatContextAdapter,
+  workspace_artifact: workspaceArtifactChatContextAdapter,
+  workspace_folder: workspaceFolderChatContextAdapter,
+  workspace_connection: workspaceConnectionChatContextAdapter,
   studio: createStudioRootNamespaceAdapter({
     marketing_studio: marketingStudioChatContextAdapter,
     video_editor: nonMarketingStudioRootChatContextAdapter,

@@ -35,6 +35,7 @@ export type AgentRuntimeModelSettings = {
 }
 
 export const COMMON_RUNTIME_PROVIDERS = [
+  'xai-oauth',
   'openai-codex',
   'anthropic',
   'xai',

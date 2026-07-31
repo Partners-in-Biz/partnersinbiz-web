@@ -20,6 +20,7 @@ import {
   orgChatConfigDoc,
   resolveVisibleAgents,
 } from '@/lib/conversations/conversations'
+import { getOrgChatVisibilityPolicy } from '@/lib/conversations/chat-config'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds } from '@/lib/context-references/types'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
@@ -73,6 +74,7 @@ export const POST = withAuth(
       'Conversation starts are disabled for your organisation role',
     )
     if (!startAccess.ok) return apiError(startAccess.error, startAccess.status)
+    const chatPolicy = await getOrgChatVisibilityPolicy(scope.orgId)
 
     // Participants validation
     if (!Array.isArray(body.participants)) {
@@ -98,7 +100,15 @@ export const POST = withAuth(
     const config = configDoc.exists
       ? (configDoc.data() as { visibleAgents?: { admin?: AgentId[]; client?: AgentId[] } })
       : null
-    const allowedAgentIds = new Set<AgentId>(resolveVisibleAgents(config, callerRole))
+    const memberProfile = {
+      department: membershipDoc.exists && typeof membershipDoc.data()?.department === 'string'
+        ? membershipDoc.data()!.department
+        : null,
+      jobTitle: membershipDoc.exists && typeof membershipDoc.data()?.jobTitle === 'string'
+        ? membershipDoc.data()!.jobTitle
+        : null,
+    }
+    const allowedAgentIds = new Set<AgentId>(resolveVisibleAgents(config, callerRole, memberProfile))
     const orgMemberUids = new Set<string>()
     if (callerRole === 'client' || !isPlatformWorkspace(scope.orgId)) {
       const canonicalMemberUids = await organizationMemberUids(scope.orgId)
@@ -144,6 +154,15 @@ export const POST = withAuth(
         const userData = userDoc.data() ?? {}
         const userRole: 'admin' | 'client' =
           userData.role === 'admin' ? 'admin' : 'client'
+        const isPlatformAdmin = platformAdminUids.has(uid)
+        if (callerRole === 'client' && uid !== user.uid && userRole === 'admin'
+          && !isPlatformAdmin && !chatPolicy.enableClientToAdminChat) {
+          return apiError(`Client cannot create chats with admins in this organisation`, 403)
+        }
+        if (callerRole === 'client' && uid !== user.uid && isPlatformAdmin
+          && !chatPolicy.enableClientToPiBTeamChat) {
+          return apiError('Client cannot create chats with PiB team in this organisation', 403)
+        }
         if (isPlatformWorkspace(scope.orgId) && callerRole === 'admin' && userRole !== 'admin') {
           return apiError(`User ${uid} is not a platform admin`, 400)
         }
@@ -505,7 +524,7 @@ export const POST = withAuth(
       }
     }
 
-    return apiSuccess({ conversation: publicConversationView(conversation) }, 201)
+    return apiSuccess({ conversation: publicConversationView(conversation, user.uid) }, 201)
   }),
 )
 
@@ -534,6 +553,8 @@ export const GET = withAuth(
       projectId,
     })
 
-    return apiSuccess({ conversations: conversations.map(publicConversationView) })
+    return apiSuccess({
+      conversations: conversations.map((conversation) => publicConversationView(conversation, user.uid)),
+    })
   },
 )

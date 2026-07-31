@@ -20,6 +20,7 @@ const actor: FinanceActorContext = {
   orgId: 'org-a',
   membershipRole: 'admin',
   membershipActive: true,
+  financeModuleEnabled: true,
   assignments: [{
     id: 'assignment-a',
     orgId: 'org-a',

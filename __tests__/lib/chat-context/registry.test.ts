@@ -21,7 +21,21 @@ describe('chat context adapter registry', () => {
     const result = await registry.resolve({ kind: 'project', id: 'project-1', user })
 
     expect(project.resolve).toHaveBeenCalledWith({ kind: 'project', id: 'project-1', user })
-    expect(result).toMatchObject({ ok: true, model: { context: { id: 'project-1' } } })
+    expect(result).toMatchObject({
+      ok: true,
+      model: {
+        context: { id: 'project-1' },
+        freshness: {
+          mode: 'live',
+          authoritative: true,
+          source: 'Projects and Kanban',
+          refreshedAt: '2026-07-13T08:00:00.000Z',
+          refreshIntervalMs: 5000,
+          adapterLevel: 'specialized',
+          actionLevel: 'inline',
+        },
+      },
+    })
   })
 
   it('returns a typed disabled result for an unregistered Studio adapter', async () => {
@@ -59,13 +73,49 @@ describe('chat context adapter registry', () => {
     expect(adapters[namespace].resolve).toHaveBeenCalledWith({ kind: 'studio', id: `${namespace}:org-1`, user })
   })
 
-  it('registers specialized campaign and social adapters on the live registry', async () => {
+  it('registers specialized campaign, social, CRM, commerce, product, calendar, file, research, property, report and email adapters on the live registry', async () => {
     jest.resetModules()
     jest.doMock('@/lib/chat-context/adapters/campaign', () => ({
       campaignChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('camp-1') }) },
     }))
     jest.doMock('@/lib/chat-context/adapters/social', () => ({
       socialChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('post-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/crm', () => ({
+      crmChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('contact-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/commerce', () => ({
+      commerceChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('invoice-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/product', () => ({
+      productChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('product-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/calendarEvent', () => ({
+      calendarEventChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('event-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/email', () => ({
+      emailChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('email-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/task', () => ({
+      taskChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('task-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/workspaceBrokerJob', () => ({
+      workspaceBrokerJobChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('job-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/workspaceArtifact', () => ({
+      workspaceArtifactChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('artifact-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/file', () => ({
+      fileChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('file-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/research', () => ({
+      researchChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('research-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/property', () => ({
+      propertyChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('property-1') }) },
+    }))
+    jest.doMock('@/lib/chat-context/adapters/report', () => ({
+      reportChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('report-1') }) },
     }))
     jest.doMock('@/lib/chat-context/adapters/project', () => ({ projectChatContextAdapter: { resolve: jest.fn() } }))
     jest.doMock('@/lib/chat-context/adapters/marketingStudio', () => ({ marketingStudioChatContextAdapter: { resolve: jest.fn() } }))
@@ -80,11 +130,47 @@ describe('chat context adapter registry', () => {
     const { chatContextRegistry } = await import('@/lib/chat-context/registry')
     const { campaignChatContextAdapter } = await import('@/lib/chat-context/adapters/campaign')
     const { socialChatContextAdapter } = await import('@/lib/chat-context/adapters/social')
+    const { crmChatContextAdapter } = await import('@/lib/chat-context/adapters/crm')
+    const { commerceChatContextAdapter } = await import('@/lib/chat-context/adapters/commerce')
+    const { productChatContextAdapter } = await import('@/lib/chat-context/adapters/product')
+    const { calendarEventChatContextAdapter } = await import('@/lib/chat-context/adapters/calendarEvent')
+    const { emailChatContextAdapter } = await import('@/lib/chat-context/adapters/email')
+    const { taskChatContextAdapter } = await import('@/lib/chat-context/adapters/task')
+    const { workspaceBrokerJobChatContextAdapter } = await import('@/lib/chat-context/adapters/workspaceBrokerJob')
+    const { workspaceArtifactChatContextAdapter } = await import('@/lib/chat-context/adapters/workspaceArtifact')
+    const { fileChatContextAdapter } = await import('@/lib/chat-context/adapters/file')
+    const { researchChatContextAdapter } = await import('@/lib/chat-context/adapters/research')
+    const { propertyChatContextAdapter } = await import('@/lib/chat-context/adapters/property')
+    const { reportChatContextAdapter } = await import('@/lib/chat-context/adapters/report')
 
     await chatContextRegistry.resolve({ kind: 'campaign', id: 'camp-1', user })
     await chatContextRegistry.resolve({ kind: 'social', id: 'post-1', user })
+    await chatContextRegistry.resolve({ kind: 'contact', id: 'contact-1', user })
+    await chatContextRegistry.resolve({ kind: 'invoice', id: 'invoice-1', user })
+    await chatContextRegistry.resolve({ kind: 'product', id: 'product-1', user })
+    await chatContextRegistry.resolve({ kind: 'calendar_event', id: 'event-1', user })
+    await chatContextRegistry.resolve({ kind: 'email', id: 'email-1', user })
+    await chatContextRegistry.resolve({ kind: 'task', id: 'task-1', projectId: 'project-1', user })
+    await chatContextRegistry.resolve({ kind: 'workspace_broker_job', id: 'job-1', user })
+    await chatContextRegistry.resolve({ kind: 'workspace_artifact', id: 'artifact-1', user })
+    await chatContextRegistry.resolve({ kind: 'file', id: 'file-1', user })
+    await chatContextRegistry.resolve({ kind: 'research', id: 'research-1', user })
+    await chatContextRegistry.resolve({ kind: 'property', id: 'property-1', user })
+    await chatContextRegistry.resolve({ kind: 'report', id: 'report-1', user })
 
     expect(campaignChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'campaign', id: 'camp-1', user })
     expect(socialChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'social', id: 'post-1', user })
+    expect(crmChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'contact', id: 'contact-1', user })
+    expect(commerceChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'invoice', id: 'invoice-1', user })
+    expect(productChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'product', id: 'product-1', user })
+    expect(calendarEventChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'calendar_event', id: 'event-1', user })
+    expect(emailChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'email', id: 'email-1', user })
+    expect(taskChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'task', id: 'task-1', projectId: 'project-1', user })
+    expect(workspaceBrokerJobChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'workspace_broker_job', id: 'job-1', user })
+    expect(workspaceArtifactChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'workspace_artifact', id: 'artifact-1', user })
+    expect(fileChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'file', id: 'file-1', user })
+    expect(researchChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'research', id: 'research-1', user })
+    expect(propertyChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'property', id: 'property-1', user })
+    expect(reportChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'report', id: 'report-1', user })
   })
 })

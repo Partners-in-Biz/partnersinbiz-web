@@ -6,8 +6,8 @@ let products: Product[] = []
 let mockSearchParams = new URLSearchParams()
 
 jest.mock('@/components/crm/ProductModal', () => ({
-  ProductModal: ({ product, onClose }: { product: unknown; onClose: () => void }) => (
-    <div role="dialog" aria-label={product ? 'Edit product' : 'New product'}>
+  ProductModal: ({ product, orgId, onClose }: { product: unknown; orgId?: string; onClose: () => void }) => (
+    <div role="dialog" aria-label={product ? 'Edit product' : 'New product'} data-org-id={orgId}>
       <p>Product modal open</p>
       <button type="button" onClick={onClose}>Close</button>
     </div>
@@ -25,7 +25,7 @@ describe('Portal settings products page', () => {
     mockSearchParams = new URLSearchParams()
     global.fetch = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url === '/api/v1/crm/products') {
+      if (url === '/api/v1/crm/products?includeInactive=true') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { products } }),
@@ -66,7 +66,7 @@ describe('Portal settings products page', () => {
 
     const fetchMock = jest.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url === '/api/v1/crm/products?orgId=org-1') {
+      if (url === '/api/v1/crm/products?includeInactive=true&orgId=org-1') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { products } }),
@@ -87,7 +87,7 @@ describe('Portal settings products page', () => {
 
     expect(await screen.findByText('Launch package')).toBeInTheDocument()
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/products?orgId=org-1')
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/products?includeInactive=true&orgId=org-1')
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete Launch package' }))
@@ -96,6 +96,43 @@ describe('Portal settings products page', () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/v1/crm/products/product-1?orgId=org-1', { method: 'DELETE' })
     })
+  })
+
+  it('opens an exact inactive product from a scoped Messages deep link', async () => {
+    mockSearchParams = new URLSearchParams({
+      product: 'product-inactive',
+      orgId: 'org-1',
+    })
+    products = [{
+      id: 'product-inactive',
+      orgId: 'org-1',
+      name: 'Legacy retainer',
+      description: 'Paused service',
+      unit: 'month',
+      unitPrice: 10000,
+      currency: 'ZAR',
+      active: false,
+      createdAt: null,
+      updatedAt: null,
+    }]
+
+    const fetchMock = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/crm/products?includeInactive=true&orgId=org-1') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { products } }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    })
+    global.fetch = fetchMock as jest.Mock
+
+    render(<ProductsPage />)
+
+    const dialog = await screen.findByRole('dialog', { name: 'Edit product' })
+    expect(dialog).toHaveAttribute('data-org-id', 'org-1')
+    expect(screen.getByText('Legacy retainer')).toBeInTheDocument()
   })
 
   it('turns the empty product catalog into a quote-readiness command center', async () => {
@@ -117,7 +154,7 @@ describe('Portal settings products page', () => {
   it('warns when products fail to load and gives leaders a retry path', async () => {
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/crm/products') {
+      if (url === '/api/v1/crm/products?includeInactive=true') {
         return Promise.resolve({
           ok: false,
           json: async () => ({ error: 'Product catalog unavailable' }),
@@ -370,7 +407,7 @@ describe('Portal settings products page', () => {
 
     ;(global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url === '/api/v1/crm/products') {
+      if (url === '/api/v1/crm/products?includeInactive=true') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { products } }),

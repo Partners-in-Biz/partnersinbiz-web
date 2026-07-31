@@ -138,6 +138,15 @@ beforeEach(() => {
           linked: {},
           deleted: false,
         }),
+        doc('recipient-doc', {
+          orgId: 'holder-org',
+          title: 'Recipient launch agreement',
+          type: 'sales_proposal',
+          status: 'client_review',
+          approvalMode: 'operational',
+          linked: { clientOrgId: 'recipient-org', clientOrgIds: ['recipient-org'] },
+          deleted: false,
+        }),
       ])
     }
     if (name === 'businessRelationships') {
@@ -176,6 +185,64 @@ beforeEach(() => {
         }),
       ])
     }
+    if (name === 'users') {
+      return queryFor([
+        doc('client-1', {
+          email: 'client@example.test',
+        }),
+      ])
+    }
+    if (name === 'calendar_events') {
+      return queryFor([
+        doc('calendar-own', {
+          orgId: 'org-1',
+          title: 'Launch review',
+          description: 'Review the launch package.',
+          startAt: '2026-08-01T08:00:00.000Z',
+          endAt: '2026-08-01T09:00:00.000Z',
+          timezone: 'Africa/Johannesburg',
+          relatedTo: { type: 'project', id: 'project-1' },
+          attendees: [{ name: 'Client', email: 'client@example.test', userId: 'client-1', status: 'pending' }],
+          assignedTo: null,
+          createdBy: 'admin-1',
+          deleted: false,
+        }),
+        doc('calendar-other', {
+          orgId: 'org-1',
+          title: 'Private leadership review',
+          startAt: '2026-08-02T08:00:00.000Z',
+          endAt: '2026-08-02T09:00:00.000Z',
+          attendees: [{ name: 'Other', email: 'other@example.test', userId: 'client-2', status: 'pending' }],
+          assignedTo: null,
+          createdBy: 'admin-1',
+          deleted: false,
+        }),
+      ])
+    }
+    if (name === 'mailbox_messages') {
+      return queryFor([
+        doc('email-admin-own', {
+          orgId: 'org-1',
+          uid: 'admin-1',
+          folder: 'inbox',
+          status: 'received',
+          subject: 'Own launch email',
+          from: 'client@example.test',
+          snippet: 'Please confirm the launch.',
+          deleted: false,
+        }),
+        doc('email-admin-other', {
+          orgId: 'org-1',
+          uid: 'admin-2',
+          folder: 'inbox',
+          status: 'received',
+          subject: 'Private leadership email',
+          from: 'private@example.test',
+          snippet: 'Private message.',
+          deleted: false,
+        }),
+      ])
+    }
     if (name === 'deals') {
       return queryFor([
         doc('deal-1', {
@@ -202,6 +269,20 @@ beforeEach(() => {
         }),
       ])
     }
+    if (name === 'quotes') {
+      return queryFor([
+        doc('received-quote', {
+          orgId: 'sender-org',
+          sourceOrgId: 'sender-org',
+          recipientOrgId: 'recipient-org',
+          quoteNumber: 'Q-REC-001',
+          status: 'sent',
+          total: 12000,
+          currency: 'ZAR',
+          deleted: false,
+        }),
+      ])
+    }
     if (name === 'properties') {
       return queryFor([
         doc('property-1', {
@@ -223,6 +304,15 @@ beforeEach(() => {
           visibility: 'admin_agents',
           lifecycleStatus: 'internal_review',
           google: { url: 'https://docs.google.com/document/d/doc-1/edit' },
+          deleted: false,
+        }),
+        doc('artifact-admin-only', {
+          orgId: 'org-1',
+          title: 'Private board report',
+          artifactType: 'google_doc',
+          visibility: 'admin_only',
+          lifecycleStatus: 'approved',
+          permissions: { allowedAgentIds: ['docs'] },
           deleted: false,
         }),
       ])
@@ -278,6 +368,33 @@ beforeEach(() => {
           status: 'awaiting_approval',
           input: { title: 'Client-facing brief' },
           requiredCapability: 'write',
+          deleted: false,
+        }),
+      ])
+    }
+    if (name === 'support_tickets') {
+      return queryFor([
+        doc('support-own', {
+          orgId: 'org-1',
+          createdBy: 'client-1',
+          requesterName: 'Jane Client',
+          subject: 'Own support request',
+          description: 'Please help with the launch.',
+          status: 'waiting_on_us',
+          priority: 'high',
+          projectId: 'project-1',
+          messageCount: 2,
+          deleted: false,
+        }),
+        doc('support-other', {
+          orgId: 'org-1',
+          createdBy: 'client-2',
+          requesterName: 'Other Client',
+          subject: 'Private support request',
+          description: 'This must stay private.',
+          status: 'new',
+          priority: 'normal',
+          messageCount: 1,
           deleted: false,
         }),
       ])
@@ -488,6 +605,7 @@ describe('context reference registry', () => {
         id: 'product-1',
         label: 'Growth Retainer',
         summary: expect.stringContaining('ZAR'),
+        href: '/portal/settings/products?product=product-1&orgId=org-1',
       }),
     ])
 
@@ -503,6 +621,75 @@ describe('context reference registry', () => {
         id: 'product-1',
         label: 'Growth Retainer',
       }),
+    ])
+  })
+
+  it('limits calendar resolution and search to the authenticated member participation', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = {
+      uid: 'client-1',
+      role: 'client' as const,
+      orgId: 'org-1',
+      orgIds: ['org-1'],
+      authKind: 'session' as const,
+    }
+
+    await expect(resolveContextReferences([
+      { type: 'calendar_event', id: 'calendar-own', orgId: 'org-1', origin: 'mention' },
+      { type: 'calendar_event', id: 'calendar-other', orgId: 'org-1', origin: 'mention' },
+    ], user, 'org-1')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'calendar_event',
+        id: 'calendar-own',
+        label: 'Launch review',
+        href: '/portal/projects/project-1?event=calendar-own&orgId=org-1',
+      }),
+    ])
+
+    await expect(searchContextReferences({
+      type: 'calendar_event',
+      query: 'review',
+      orgId: 'org-1',
+      user,
+    })).resolves.toEqual([
+      expect.objectContaining({ id: 'calendar-own', label: 'Launch review' }),
+    ])
+  })
+
+  it('limits mailbox resolution and search to the human mailbox owner for every role', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const admin = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const, orgId: 'org-1' }
+
+    await expect(resolveContextReferences([
+      { type: 'email', id: 'email-admin-own', orgId: 'org-1' },
+      { type: 'email', id: 'email-admin-other', orgId: 'org-1' },
+    ], admin, 'org-1')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'email',
+        id: 'email-admin-own',
+        href: '/admin/email/mailbox?folder=inbox&messageId=email-admin-own',
+      }),
+    ])
+
+    await expect(searchContextReferences({
+      type: 'email',
+      query: 'email',
+      orgId: 'org-1',
+      user: admin,
+    })).resolves.toEqual([
+      expect.objectContaining({ id: 'email-admin-own' }),
+    ])
+
+    await expect(resolveContextReferences([
+      { type: 'email', id: 'email-admin-own', orgId: 'org-1' },
+    ], {
+      uid: 'admin-1',
+      role: 'ai',
+      authKind: 'user_delegation',
+      actingForUserId: 'admin-1',
+      orgId: 'org-1',
+    }, 'org-1')).resolves.toEqual([
+      expect.objectContaining({ id: 'email-admin-own' }),
     ])
   })
 
@@ -523,6 +710,44 @@ describe('context reference registry', () => {
         id: 'doc-1',
         label: 'Elemental Sustainability — Digital Growth Partnership — May 2026',
         summary: expect.stringContaining('client_review'),
+      }),
+    ])
+  })
+
+  it('preserves an explicitly linked recipient organisation perspective for client-visible documents', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = {
+      uid: 'recipient-1',
+      role: 'client' as const,
+      authKind: 'session' as const,
+      orgId: 'recipient-org',
+      activeOrgId: 'recipient-org',
+      orgIds: ['recipient-org'],
+    }
+
+    await expect(resolveContextReferences([
+      { type: 'document', id: 'recipient-doc', orgId: 'recipient-org', origin: 'manual' },
+    ], user, 'recipient-org')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'document',
+        id: 'recipient-doc',
+        orgId: 'recipient-org',
+        label: 'Recipient launch agreement',
+        href: '/portal/documents/recipient-doc?orgId=recipient-org',
+      }),
+    ])
+
+    await expect(searchContextReferences({
+      type: 'document',
+      query: 'launch agreement',
+      orgId: 'recipient-org',
+      limit: 8,
+      user,
+    })).resolves.toEqual([
+      expect.objectContaining({
+        type: 'document',
+        id: 'recipient-doc',
+        orgId: 'recipient-org',
       }),
     ])
   })
@@ -557,6 +782,115 @@ describe('context reference registry', () => {
       expect.objectContaining({ type: 'workspace_broker_job', label: 'create_doc' }),
     ]))
     expect(buildAttachedContextBlock(refs)).toContain('workspace_broker_job: create_doc')
+  })
+
+  it('keeps Workspace connections and broker jobs out of member context discovery', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const member = {
+      uid: 'client-1',
+      role: 'client' as const,
+      authKind: 'session' as const,
+      orgId: 'org-1',
+      orgIds: ['org-1'],
+    }
+
+    await expect(resolveContextReferences([
+      { type: 'workspace_connection', id: 'connection-1', orgId: 'org-1' },
+      { type: 'workspace_broker_job', id: 'job-1', orgId: 'org-1' },
+    ], member, 'org-1')).resolves.toEqual([])
+    await expect(searchContextReferences({
+      type: 'workspace_connection',
+      query: 'google',
+      orgId: 'org-1',
+      user: member,
+    })).resolves.toEqual([])
+    await expect(searchContextReferences({
+      type: 'workspace_broker_job',
+      query: 'create',
+      orgId: 'org-1',
+      user: member,
+    })).resolves.toEqual([])
+  })
+
+  it('applies the canonical Workspace artifact visibility contract to governed agents', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+
+    await expect(resolveContextReferences([
+      { type: 'workspace_artifact', id: 'artifact-admin-only', orgId: 'org-1' },
+    ], {
+      uid: 'agent:docs',
+      role: 'ai',
+      authKind: 'agent_api_key',
+      agentId: 'docs',
+      orgId: 'org-1',
+    }, 'org-1')).resolves.toEqual([])
+  })
+
+  it('preserves the recipient organisation perspective for received quote context', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = {
+      uid: 'recipient-1',
+      role: 'client' as const,
+      authKind: 'session' as const,
+      orgId: 'recipient-org',
+      activeOrgId: 'recipient-org',
+      orgIds: ['recipient-org'],
+    }
+
+    await expect(resolveContextReferences([
+      { type: 'quote', id: 'received-quote', orgId: 'recipient-org', origin: 'manual' },
+    ], user, 'recipient-org')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'quote',
+        id: 'received-quote',
+        orgId: 'recipient-org',
+        label: 'Q-REC-001',
+      }),
+    ])
+
+    await expect(searchContextReferences({
+      type: 'quote',
+      query: 'Q-REC',
+      orgId: 'recipient-org',
+      limit: 8,
+      user,
+    })).resolves.toEqual([
+      expect.objectContaining({
+        type: 'quote',
+        id: 'received-quote',
+        orgId: 'recipient-org',
+      }),
+    ])
+  })
+
+  it('re-authorizes support search results so members see only tickets they created', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = {
+      uid: 'client-1',
+      role: 'client' as const,
+      authKind: 'session' as const,
+      orgId: 'org-1',
+      activeOrgId: 'org-1',
+      orgIds: ['org-1'],
+    }
+
+    await expect(searchContextReferences({
+      type: 'support',
+      query: 'support request',
+      orgId: 'org-1',
+      limit: 8,
+      user,
+    })).resolves.toEqual([
+      expect.objectContaining({
+        type: 'support',
+        id: 'support-own',
+        href: '/portal/dashboard?support=open&ticket=support-own&orgId=org-1',
+      }),
+    ])
+
+    await expect(resolveContextReferences([
+      { type: 'support', id: 'support-other', orgId: 'org-1' },
+    ], user, 'org-1')).resolves.toEqual([])
   })
 
   it('resolves trusted Studio workspaces and exact artifacts from authoritative records', async () => {

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 
 import { ContextStrip, EmptyContextStrip } from '@/components/chat/context/ContextStrip'
+import type { ChatContextReadModel } from '@/lib/chat-context/types'
 
 const options = [
   { kind: 'project' as const, id: 'project-1', label: 'Evaluate SkillOpt' },
@@ -47,4 +48,32 @@ it('keeps the empty Add context action touch-sized without extra helper copy', (
   expect(action).toHaveAttribute('aria-haspopup', 'listbox')
   expect(action.className).not.toMatch(/(?:sm|md|lg):h-(?:\d|\[)/)
   expect(screen.queryByText(/Pin projects, documents/i)).not.toBeInTheDocument()
+})
+
+it('labels authoritative live data and exposes its refresh cadence', () => {
+  const model: ChatContextReadModel = {
+    context: { kind: 'document', id: 'document-1', orgId: 'org-1', label: 'Evaluation report', icon: 'description' },
+    pulse: { label: 'Ready', metrics: [] },
+    groups: [],
+    artifacts: [],
+    attention: [],
+    activity: [],
+    capabilities: ['view'],
+    freshness: {
+      mode: 'live',
+      authoritative: true,
+      source: 'Client Documents',
+      refreshedAt: '2026-07-30T08:00:00.000Z',
+      refreshIntervalMs: 5000,
+      adapterLevel: 'canonical',
+      actionLevel: 'navigate',
+    },
+    asOf: '2026-07-30T08:00:00.000Z',
+  }
+
+  render(<ContextStrip options={options} value={options[1]} onChange={jest.fn()} onOpen={jest.fn()} model={model} />)
+
+  const live = screen.getByLabelText('Live data from Client Documents')
+  expect(live).toHaveTextContent('Live')
+  expect(live).toHaveAttribute('title', expect.stringContaining('Refreshes every 5 seconds'))
 })

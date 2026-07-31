@@ -6,13 +6,14 @@ import type { Currency } from '@/lib/crm/types'
 
 interface Props {
   product: Product | null
+  orgId?: string
   onSave: (saved: Product) => void
   onClose: () => void
 }
 
 const CURRENCIES: Currency[] = ['ZAR', 'USD', 'EUR']
 
-export function ProductModal({ product, onSave, onClose }: Props) {
+export function ProductModal({ product, orgId, onSave, onClose }: Props) {
   const isEdit = product !== null
 
   const [name, setName] = useState(product?.name ?? '')
@@ -53,9 +54,10 @@ export function ProductModal({ product, onSave, onClose }: Props) {
     }
 
     try {
-      const url = isEdit
+      const path = isEdit
         ? `/api/v1/crm/products/${product.id}`
         : '/api/v1/crm/products'
+      const url = orgId ? `${path}?orgId=${encodeURIComponent(orgId)}` : path
       const res = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },

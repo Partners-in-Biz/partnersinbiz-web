@@ -29,6 +29,9 @@ export const PUT = withCrmAuth<RouteCtx>('admin', async (req, ctx, routeCtx) => 
       return apiError('unitPrice must be a non-negative finite number', 400)
     }
   }
+  if (body.active !== undefined && typeof body.active !== 'boolean') {
+    return apiError('active must be a boolean', 400)
+  }
 
   // NEVER_FROM_BODY: id, orgId, createdAt, updatedAt, createdByRef, updatedByRef
   const {
@@ -48,6 +51,7 @@ export const PUT = withCrmAuth<RouteCtx>('admin', async (req, ctx, routeCtx) => 
   if (rest.description !== undefined) patch.description = rest.description as string
   if (rest.unit !== undefined) patch.unit = rest.unit as string
   if (rest.deleted !== undefined) patch.deleted = rest.deleted as boolean
+  if (rest.active !== undefined) patch.active = rest.active as boolean
 
   try {
     const product = await updateProduct(ctx.orgId, id, patch, ctx.actor)

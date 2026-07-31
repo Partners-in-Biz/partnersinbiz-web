@@ -25,6 +25,19 @@ export interface SupportTicket {
   sourceUrl?: string
   sourcePath?: string
   contextRefs?: ContextReference[]
+  companyId?: string | null
+  contactId?: string | null
+  clientOrgId?: string | null
+  projectId?: string | null
+  dealId?: string | null
+  companyIds?: string[]
+  contactIds?: string[]
+  clientOrgIds?: string[]
+  projectIds?: string[]
+  dealIds?: string[]
+  researchItemIds?: string[]
+  socialPostIds?: string[]
+  emailThreadIds?: string[]
   assignedToType?: 'user' | 'agent' | null
   assigneeUserId?: string | null
   assigneeAgentId?: string | null

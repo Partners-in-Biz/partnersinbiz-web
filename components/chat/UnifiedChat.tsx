@@ -1064,6 +1064,57 @@ function tsSeconds(ts: ConversationMessage['createdAt']): number {
     (ts as { seconds?: number; _seconds?: number })._seconds ?? 0
 }
 
+function hasSameAttachments(a: ConversationMessage, b: ConversationMessage): boolean {
+  const aAttachments = a.attachments ?? []
+  const bAttachments = b.attachments ?? []
+  if (aAttachments.length !== bAttachments.length) return false
+  if (aAttachments.length === 0) return true
+  return aAttachments.every((item, index) =>
+    item.id === bAttachments[index]?.id &&
+    item.name === bAttachments[index]?.name &&
+    item.contentType === bAttachments[index]?.contentType,
+  )
+}
+
+function isServerRowForOptimisticMessage(
+  serverMessage: ConversationMessage,
+  optimisticMessage: ConversationMessage,
+): boolean {
+  if (serverMessage.id.startsWith('tmp-')) return false
+  if (serverMessage.role !== optimisticMessage.role) return false
+  if (serverMessage.authorKind !== optimisticMessage.authorKind) return false
+  if (serverMessage.content !== optimisticMessage.content) return false
+  if (!hasSameAttachments(serverMessage, optimisticMessage)) return false
+
+  if (optimisticMessage.authorKind === 'user' && serverMessage.authorId !== optimisticMessage.authorId) {
+    return false
+  }
+  const serverTs = tsSeconds(serverMessage.createdAt)
+  const optimisticTs = tsSeconds(optimisticMessage.createdAt)
+  if (serverTs > 0 && optimisticTs > 0) {
+    if (Math.abs(serverTs - optimisticTs) > 10) return false
+  }
+
+  if (optimisticMessage.role === 'assistant' && optimisticMessage.authorId === 'pending') {
+    return serverMessage.content === optimisticMessage.content
+  }
+
+  return true
+}
+
+function mergeSnapshotMessages(
+  snapshotMessages: ConversationMessage[],
+  currentMessages: ConversationMessage[],
+): ConversationMessage[] {
+  const optimisticMessages = currentMessages.filter((message) => message.id.startsWith('tmp-'))
+  const keptOptimistic = optimisticMessages.filter((optimisticMessage) =>
+    !snapshotMessages.some((snapshotMessage) =>
+      isServerRowForOptimisticMessage(snapshotMessage, optimisticMessage),
+    ),
+  )
+  return [...snapshotMessages, ...keptOptimistic]
+}
+
 function appendRichItems<T>(current: T[] | undefined, incoming: T[] | undefined): T[] | undefined {
   if (!incoming?.length) return current
   const merged = [...(current ?? []), ...incoming]
@@ -1327,6 +1378,7 @@ export default function UnifiedChat({
 
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
+  const [conversationLiveConnected, setConversationLiveConnected] = useState(false)
 
   // Live events keyed by assistant message id
   const [liveEvents, setLiveEvents] = useState<Record<string, ChatEvent[]>>({})
@@ -1463,6 +1515,8 @@ export default function UnifiedChat({
     attempts?: number
   ) => void) | null>(null)
   const eventSourcesRef = useRef<Record<string, EventSource>>({})
+  const sendingRef = useRef(false)
+  const markedReadRef = useRef('')
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
   const COMPOSER_MAX_HEIGHT_PX = 160
@@ -1476,6 +1530,9 @@ export default function UnifiedChat({
   useEffect(() => {
     resizeComposer()
   }, [input, resizeComposer])
+  useEffect(() => {
+    sendingRef.current = sending
+  }, [sending])
   // User edit generation guards delayed context attachment cleanup. Comparing
   // text alone is insufficient because a user can edit and then restore the
   // exact same bytes while the PATCH is in flight.
@@ -3140,7 +3197,8 @@ export default function UnifiedChat({
     try {
       const updated = await resizeWorkbenchSessionApi(activeId, workbenchSession.sessionId, cols, rows)
       applyWorkbenchSessionUpdate(updated)
-    } catch {
+    } catch (error) {
+      void error
       // A resize is cosmetic until the next keystroke: never surface it as a session error.
     }
   }, [activeId, workbenchSession?.sessionId, applyWorkbenchSessionUpdate])
@@ -3778,6 +3836,102 @@ export default function UnifiedChat({
     if (activeId) loadMessages(activeId)
   }, [activeId, loadMessages])
 
+  // One permission-checked server stream keeps both the session rail and the
+  // active thread current. This covers agent, direct-human, and group chats,
+  // including conversations another member creates while this screen is open.
+  // EventSource reconnects automatically after the bounded server stream ends.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.EventSource !== 'function') {
+      setConversationLiveConnected(false)
+      return
+    }
+
+    const params = new URLSearchParams(listQuery)
+    if (activeId) params.set('conversationId', activeId)
+    const source = new window.EventSource(`/api/v1/conversations/live?${params.toString()}`)
+    let disposed = false
+
+    source.onopen = () => {
+      if (!disposed) setConversationLiveConnected(true)
+    }
+    source.onmessage = (event) => {
+      if (disposed) return
+      try {
+        const snapshot = JSON.parse(event.data) as {
+          type?: string
+          conversations?: Conversation[]
+          conversation?: Conversation | null
+          messages?: ConversationMessage[] | null
+        }
+        if (snapshot.type !== 'snapshot' || !Array.isArray(snapshot.conversations)) return
+
+        const nextConversations = [...snapshot.conversations]
+        if (
+          snapshot.conversation
+          && !nextConversations.some((conversation) => conversation.id === snapshot.conversation!.id)
+        ) {
+          nextConversations.unshift(snapshot.conversation)
+        }
+        setConversations(nextConversations)
+
+        if (
+          activeConversationIdRef.current
+          && snapshot.conversation?.id === activeConversationIdRef.current
+          && Array.isArray(snapshot.messages)
+        ) {
+          setMessages((current) => mergeSnapshotMessages(snapshot.messages!, current))
+        }
+      } catch (error) {
+        void error
+        // Ignore malformed frames and let EventSource deliver the next snapshot.
+      }
+    }
+    source.onerror = () => {
+      if (!disposed) setConversationLiveConnected(false)
+    }
+
+    return () => {
+      disposed = true
+      source.close()
+      setConversationLiveConnected(false)
+    }
+  }, [activeId, listQuery])
+
+  // Clear the current member's unread counter only after the exact latest
+  // message is visible in the focused thread. A 409 means a newer message won
+  // the race; the live snapshot will supply its id and trigger a safe retry.
+  const latestVisibleMessageId = messages[messages.length - 1]?.id ?? null
+  useEffect(() => {
+    if (!activeId || !activeConversation) return
+    if (!activeConversation.lastMessageId || latestVisibleMessageId !== activeConversation.lastMessageId) return
+    if (activeConversation.lastReadMessageId === activeConversation.lastMessageId) return
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+    const marker = `${activeId}:${activeConversation.lastMessageId}`
+    if (markedReadRef.current === marker) return
+    markedReadRef.current = marker
+    void fetch(`/api/v1/conversations/${encodeURIComponent(activeId)}/read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lastMessageId: activeConversation.lastMessageId }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          if (response.status !== 409) markedReadRef.current = ''
+          return null
+        }
+        return response.json()
+      })
+      .then((body) => {
+        const updated = body?.data?.conversation as Conversation | undefined
+        if (!updated) return
+        setConversations((current) => current.map((conversation) =>
+          conversation.id === updated.id ? updated : conversation))
+      })
+      .catch(() => {
+        markedReadRef.current = ''
+      })
+  }, [activeConversation, activeId, latestVisibleMessageId])
+
   useEffect(() => {
     setContextRefs((activeConversation?.contextRefs ?? []).map(coerceContextRef))
   }, [activeConversation?.id, activeConversation?.contextRefs, coerceContextRef])
@@ -3888,13 +4042,14 @@ export default function UnifiedChat({
   useEffect(() => {
     if (!activeId) return
     if ((activeConversation?.participantAgentIds?.length ?? 0) > 0) return
+    if (conversationLiveConnected) return
 
     const interval = window.setInterval(() => {
       void loadMessages(activeId, { silent: true })
     }, HUMAN_CHAT_REFRESH_INTERVAL)
 
     return () => window.clearInterval(interval)
-  }, [activeConversation?.participantAgentIds?.length, activeId, loadMessages])
+  }, [activeConversation?.participantAgentIds?.length, activeId, conversationLiveConnected, loadMessages])
 
   // Auto-scroll on new messages. Run after the browser has laid out the loaded
   // message list so returning to an existing chat lands at the latest message,
@@ -5846,6 +6001,14 @@ export default function UnifiedChat({
                 <button key={conversation.id} type="button" aria-label={`Open ${conversation.title || 'Untitled session'}`} title={conversation.title || 'Untitled session'} onClick={() => { setActiveId(conversation.id); closeSessions() }} className={`relative grid h-11 w-11 place-items-center rounded-lg xl:h-10 xl:w-10 ${conversation.id === activeId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
                   <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chat_bubble</span>
                   {pinnedConversationIdSet.has(conversation.id) ? <span aria-label="Pinned session" className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber-300" /> : null}
+                  {(conversation.unreadCount ?? 0) > 0 ? (
+                    <span
+                      aria-label={`${conversation.unreadCount} unread message${conversation.unreadCount === 1 ? '' : 's'}`}
+                      className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-mono text-[8px] font-bold text-on-primary"
+                    >
+                      {conversation.unreadCount! > 9 ? '9+' : conversation.unreadCount}
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -6894,7 +7057,7 @@ export default function UnifiedChat({
             <span className="material-symbols-outlined text-[14px]">edit</span>
             Rename
           </button>
-          {menuConversation?.workspaceContext && (allowManageConversationAccess || (menuConversation.workspaceContext.ownerUserId ?? menuConversation.startedBy) === currentUserUid) && (
+          {menuConversation && (allowManageConversationAccess || (menuConversation.workspaceContext?.ownerUserId ?? menuConversation.startedBy) === currentUserUid) && (
             <button
               type="button"
               className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] xl:min-h-0"
@@ -6905,7 +7068,7 @@ export default function UnifiedChat({
               }}
             >
               <span className="material-symbols-outlined text-[14px]">manage_accounts</span>
-              Manage access
+              {menuConversation.workspaceContext ? 'Manage access' : 'Manage people'}
             </button>
           )}
           {allowArchiveConversations && (
@@ -7150,7 +7313,7 @@ export default function UnifiedChat({
                       <span className="material-symbols-outlined text-[16px]">edit</span>
                       Rename
                     </button>
-                    {activeConversation.workspaceContext && (allowManageConversationAccess || (activeConversation.workspaceContext.ownerUserId ?? activeConversation.startedBy) === currentUserUid) && (
+                    {(allowManageConversationAccess || (activeConversation.workspaceContext?.ownerUserId ?? activeConversation.startedBy) === currentUserUid) && (
                       <button
                         type="button"
                         className="w-full text-left px-3 py-2 text-sm text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
@@ -7160,7 +7323,7 @@ export default function UnifiedChat({
                         }}
                       >
                         <span className="material-symbols-outlined text-[16px]">manage_accounts</span>
-                        Manage access
+                        {activeConversation.workspaceContext ? 'Manage access' : 'Manage people'}
                       </button>
                     )}
                     {allowArchiveConversations && (
@@ -8478,7 +8641,7 @@ export default function UnifiedChat({
               {/* Participants after context + machine so agents match the selected runtime */}
               <div>
                 <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] block mb-1.5">
-                  Participants (max 5)
+                  Participants (max 12)
                 </label>
                 {newScope === 'general' && allowAgentParticipants && (
                   <p className="mb-2 px-0.5 text-[11px] text-[var(--color-pib-text-muted)]">

@@ -63,6 +63,35 @@ export interface ChatContextAction {
   body?: Record<string, unknown>
 }
 
+export type ChatContextActionReceiptStatus =
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'indeterminate'
+
+export interface ChatContextActionReceipt {
+  id: string
+  conversationId: string
+  orgId: string
+  actor: {
+    uid: string
+    role: string
+    agentId?: string
+  }
+  context: ChatContextReference
+  action: ChatContextAction
+  status: ChatContextActionReceiptStatus
+  canonicalStatus?: number
+  beforeVersion?: string
+  afterVersion?: string
+  resultHref?: string
+  referenceIds?: Record<string, string>
+  responseDigest?: string
+  createdAt: string
+  completedAt?: string
+  error?: string
+}
+
 export interface ContextItemAgentSnapshot {
   agentId?: string
   agentStatus?: string
@@ -151,5 +180,14 @@ export interface ChatContextReadModel {
   preview?: ChatContextPreview
   relationships?: ChatContextRelationship[]
   capabilities: string[]
+  freshness?: {
+    mode: 'live'
+    authoritative: true
+    source: string
+    refreshedAt: string
+    refreshIntervalMs: number
+    adapterLevel: 'specialized' | 'canonical' | 'sealed_runtime'
+    actionLevel: 'inline' | 'navigate'
+  }
   asOf: string
 }

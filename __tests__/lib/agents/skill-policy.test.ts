@@ -189,8 +189,10 @@ describe('agent skill policy manifest', () => {
       'ads',
       'data',
       'docs',
+      'finance',
       'maya',
       'nora',
+      'people',
       'pip',
       'qa-release',
       'sage',
@@ -205,6 +207,8 @@ describe('agent skill policy manifest', () => {
     expect(AGENT_SKILL_POLICY.agents.data.name).toBe('Vera')
     expect(AGENT_SKILL_POLICY.agents.docs.name).toBe('Iris')
     expect(AGENT_SKILL_POLICY.agents.seo.name).toBe('Silas')
+    expect(AGENT_SKILL_POLICY.agents.finance.name).toBe('Finch')
+    expect(AGENT_SKILL_POLICY.agents.people.name).toBe('Nova')
   })
 
   it('assigns Theo the engineering workflow while moving dedicated SEO and ads packs to specialists', () => {

@@ -9,6 +9,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { AGENT_IDS } from '@/lib/agents/types'
+import { resolveWorkforceBlueprint } from '@/lib/agents/role-blueprints'
 import type { AgentId, Conversation, ConversationMessage, Participant } from './types'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
@@ -17,6 +18,10 @@ import { authorizeConversationProject, canAccessConversation } from './access'
 import {
   CONVERSATION_RUN_DISPATCH_GRACE_MS,
 } from './run-policy'
+import {
+  advanceConversationUnreadCounts,
+  retainConversationReadState,
+} from './read-state'
 
 export const CONVERSATIONS_COLLECTION = 'conversations'
 
@@ -69,6 +74,7 @@ export async function createConversation(input: {
     startedBy: input.startedBy,
     title: input.title?.trim() || 'New conversation',
     messageCount: 0,
+    unreadCounts: Object.fromEntries(participantUids.map((uid) => [uid, 0])),
     archived: false,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -236,7 +242,8 @@ export async function updateConversationAccess(input: {
   convId: string
   expectedOrgId: string
   expectedVersion: number
-  shareMode: NonNullable<Conversation['workspaceContext']>['shareMode']
+  /** Workspace visibility mode. Omitted for participant-only direct/group chats. */
+  shareMode?: NonNullable<Conversation['workspaceContext']>['shareMode']
   participants: Conversation['participants']
   participantUids: string[]
   participantAgentIds: Conversation['participantAgentIds']
@@ -258,19 +265,32 @@ export async function updateConversationAccess(input: {
     }
     const nextVersion = currentVersion + 1
     const changedAt = FieldValue.serverTimestamp()
-    transaction.update(ref, {
+    const unreadCounts = Object.fromEntries(input.participantUids.map((uid) => [
+      uid,
+      Number.isFinite(current.unreadCounts?.[uid])
+        ? Math.max(0, Math.floor(current.unreadCounts?.[uid] ?? 0))
+        : 0,
+    ]))
+    const readStateByUser = retainConversationReadState(
+      input.participantUids,
+      current.readStateByUser,
+    )
+    const conversationUpdate: Record<string, unknown> = {
       participants: input.participants,
       participantUids: input.participantUids,
       participantAgentIds: input.participantAgentIds,
-      'workspaceContext.shareMode': input.shareMode,
+      unreadCounts,
+      readStateByUser,
       accessVersion: nextVersion,
       accessUpdatedAt: changedAt,
       accessUpdatedBy: input.actor.uid,
       updatedAt: changedAt,
-    })
+    }
+    if (input.shareMode) conversationUpdate['workspaceContext.shareMode'] = input.shareMode
+    transaction.update(ref, conversationUpdate)
     transaction.set(ref.collection('access_history').doc(), {
       accessVersion: nextVersion,
-      shareMode: input.shareMode,
+      ...(input.shareMode ? { shareMode: input.shareMode } : { accessMode: 'participants' }),
       participantUids: input.participantUids,
       participantAgentIds: input.participantAgentIds,
       actorUid: input.actor.uid,
@@ -354,16 +374,72 @@ export async function touchConversation(
   preview: string,
   role: ConversationMessage['role'],
   messageId?: string,
+  authorUserId?: string,
 ): Promise<void> {
-  const update: Record<string, unknown> = {
-    lastMessagePreview: preview.slice(0, 200),
-    lastMessageRole: role,
-    lastMessageAt: FieldValue.serverTimestamp(),
-    messageCount: FieldValue.increment(1),
-    updatedAt: FieldValue.serverTimestamp(),
+  const ref = convDoc(convId)
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref)
+    if (!snapshot.exists) throw new Error('Conversation not found')
+    const conversation = snapshot.data() as Conversation
+    const unreadCounts = advanceConversationUnreadCounts({
+      participantUids: conversation.participantUids ?? [],
+      current: conversation.unreadCounts,
+      authorUserId,
+    })
+    const update: Record<string, unknown> = {
+      lastMessagePreview: preview.slice(0, 200),
+      lastMessageRole: role,
+      lastMessageAt: FieldValue.serverTimestamp(),
+      messageCount: Math.max(0, Math.floor(conversation.messageCount ?? 0)) + 1,
+      unreadCounts,
+      updatedAt: FieldValue.serverTimestamp(),
+    }
+    if (messageId) update.lastMessageId = messageId
+    transaction.update(ref, update)
+  })
+}
+
+export class ConversationReadConflictError extends Error {
+  constructor(public readonly currentLastMessageId: string | null) {
+    super('Conversation changed before it could be marked read')
+    this.name = 'ConversationReadConflictError'
   }
-  if (messageId) update.lastMessageId = messageId
-  await convDoc(convId).update(update)
+}
+
+/** Mark exactly the latest message seen by one human participant as read. */
+export async function markConversationRead(input: {
+  convId: string
+  userId: string
+  lastMessageId: string | null
+}): Promise<void> {
+  const ref = convDoc(input.convId)
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref)
+    if (!snapshot.exists) throw new Error('Conversation not found')
+    const conversation = snapshot.data() as Conversation
+    const currentLastMessageId = conversation.lastMessageId?.trim() || null
+    if (currentLastMessageId !== input.lastMessageId) {
+      throw new ConversationReadConflictError(currentLastMessageId)
+    }
+    if (!(conversation.participantUids ?? []).includes(input.userId)
+      && conversation.workspaceContext?.shareMode !== 'org') {
+      throw new Error('User is not a conversation participant')
+    }
+    transaction.update(ref, {
+      unreadCounts: {
+        ...(conversation.unreadCounts ?? {}),
+        [input.userId]: 0,
+      },
+      readStateByUser: {
+        ...(conversation.readStateByUser ?? {}),
+        [input.userId]: {
+          ...(currentLastMessageId ? { lastReadMessageId: currentLastMessageId } : {}),
+          lastReadMessageCount: Math.max(0, Math.floor(conversation.messageCount ?? 0)),
+          lastReadAt: FieldValue.serverTimestamp(),
+        },
+      },
+    })
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -386,10 +462,18 @@ export async function getOrgChatConfig(orgId: string) {
 export function resolveVisibleAgents(
   config: { visibleAgents?: { admin?: AgentId[]; client?: AgentId[] } } | null,
   role: 'admin' | 'client',
+  profile?: {
+    department?: string | null
+    jobTitle?: string | null
+  },
 ): AgentId[] {
   const defaults: Record<'admin' | 'client', AgentId[]> = {
     admin: [...AGENT_IDS],
     client: ['pip'],
   }
-  return config?.visibleAgents?.[role] ?? defaults[role]
+  if (role === 'admin') return config?.visibleAgents?.admin ?? defaults.admin
+  return config?.visibleAgents?.client ?? resolveWorkforceBlueprint({
+    department: profile?.department?.trim() || null,
+    jobTitle: profile?.jobTitle?.trim() || null,
+  }).blueprint.recommendedAgentIds
 }

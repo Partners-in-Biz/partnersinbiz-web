@@ -17,6 +17,9 @@
     "proof:creative-canvas": "node scripts/creative-canvas-world-class-proof.mjs",
     "smoke:creative-canvas-fal-byok": "node scripts/creative-canvas-fal-byok-smoke.mjs",
     "okf:validate": "node scripts/okf-validate-export.mjs --json",
+    "test:finance:unit": "jest --runInBand __tests__/finance/foundation-context.test.ts __tests__/finance/foundation-domain.test.ts __tests__/finance/foundation-p1-blockers.test.ts __tests__/finance/foundation-remediation.test.ts __tests__/finance/foundation-service.integration.test.ts __tests__/finance/foundation-storage-contract.test.ts",
+    "test:finance:emulator": "firebase emulators:exec --only firestore --project finance-foundation-emulator \"jest --runInBand __tests__/finance/foundation-firestore-emulator.test.ts\"",
+    "verify:finance:foundation": "npm run test:finance:unit && npm run test:finance:emulator && tsx scripts/finance/verify-foundation.ts",
     "test": "jest",
     "test:watch": "jest --watch"
   },
@@ -56,6 +59,7 @@
     "twilio": "^6.0.2"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -67,12 +71,14 @@
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "firebase-tools": "^15.25.0",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.4.1",
     "jest-environment-node": "^30.3.0",
     "tailwindcss": "^4",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
+    "tsx": "4.20.6",
     "typescript": "^5"
   }
 }

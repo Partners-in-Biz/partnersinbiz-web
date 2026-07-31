@@ -22,7 +22,7 @@ import { selectAgentRuntimeTarget } from './runtime-targets'
 import { db } from './firestore'
 import { logger } from './logger'
 
-export const DEFAULT_AGENT_IDS = ['ads', 'data', 'docs', 'maya', 'nora', 'pip', 'qa-release', 'sage', 'seo', 'support', 'theo', 'sales'] as const
+export const DEFAULT_AGENT_IDS = ['ads', 'data', 'docs', 'maya', 'nora', 'pip', 'qa-release', 'sage', 'seo', 'support', 'theo', 'sales', 'finance', 'people'] as const
 export const AGENT_IDS = DEFAULT_AGENT_IDS
 export type AgentId = string
 

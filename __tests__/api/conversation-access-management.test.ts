@@ -102,6 +102,47 @@ describe('PATCH conversation Workspace access', () => {
     }))
   })
 
+  it('lets the owner add organisation members to a direct or group chat', async () => {
+    const groupConversation = {
+      ...baseConversation,
+      title: 'Sales team',
+      workspaceContext: undefined,
+      participants: baseConversation.participants.filter((participant) => (
+        participant.kind !== 'user' || participant.uid === 'owner-1'
+      )),
+      participantUids: ['owner-1'],
+    }
+    mockGetConversation.mockResolvedValue(groupConversation)
+    mockResolveHumans.mockResolvedValue([
+      { kind: 'user', uid: 'owner-1', role: 'client' },
+      { kind: 'user', uid: 'member-2', role: 'client' },
+    ])
+
+    const { PATCH } = await import('@/app/api/v1/conversations/[convId]/route')
+    const response = await PATCH(request(accessBody({ participantUids: ['owner-1', 'member-2'] })), context())
+
+    expect(response.status).toBe(200)
+    expect(mockAuthorizeWorkspaceRuntime).not.toHaveBeenCalled()
+    expect(mockUpdateConversationAccess).toHaveBeenCalledWith(expect.objectContaining({
+      convId: 'conv-1',
+      participantUids: ['owner-1', 'member-2'],
+      participantAgentIds: ['pip'],
+      shareMode: undefined,
+    }))
+  })
+
+  it('does not allow direct or group chats to become organisation-visible', async () => {
+    mockGetConversation.mockResolvedValue({ ...baseConversation, workspaceContext: undefined })
+    const { PATCH } = await import('@/app/api/v1/conversations/[convId]/route')
+    const response = await PATCH(request(accessBody({
+      shareMode: 'org',
+      participantUids: ['owner-1', 'member-2'],
+    })), context())
+
+    expect(response.status).toBe(400)
+    expect(mockUpdateConversationAccess).not.toHaveBeenCalled()
+  })
+
   it('lets an authorised platform admin manage access', async () => {
     mockUser = { uid: 'admin-1', role: 'admin', orgId: 'platform' }
     mockResolveHumans.mockResolvedValue([

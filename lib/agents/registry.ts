@@ -166,6 +166,68 @@ export const AGENT_REGISTRY: Record<string, AgentRegistryEntry> = {
       'Create operational blocker tasks with exact required evidence',
     ],
   },
+  finance: {
+    responsibilities: [
+      'Run invoice and reconciliation workflows from approved company books and policies',
+      'Prepare finance-ready summaries for proposals, billing, approvals, and payroll checkpoints',
+      'Track finance-sensitive blockers so ownership and evidence are explicit before spend or contract actions',
+    ],
+    skills: [
+      'partnersinbiz/billing-finance',
+      'partnersinbiz/reports',
+      'partnersinbiz/project-management',
+      'partnersinbiz/evidence-ledger',
+      'partnersinbiz/data-analyst',
+      'productivity/google-workspace',
+    ],
+    cronWatchLoops: [
+      'Billing reconciliation follow-up',
+      'Approved-payables and payroll checkpoint checks',
+      'Finance-sensitive blocker escalation',
+    ],
+    allowedScopes: [
+      'billing-and-invoices',
+      'finance-sensitive-reports',
+      'project-admin',
+      'finance-operations-workbooks',
+    ],
+    exampleTaskTypes: [
+      'Create finance-safe invoicing checkpoints for active projects',
+      'Validate reconciliation status before approval gates',
+      'Prepare finance evidence for board-ready monthly summaries',
+    ],
+  },
+  people: {
+    responsibilities: [
+      'Run people operations under explicit privacy controls and legal retention policy',
+      'Prepare onboarding, exit, and role-change checklists with evidence',
+      'Keep people records connected to approvals, documents, and operational handoffs',
+    ],
+    skills: [
+      'partnersinbiz/client-documents',
+      'partnersinbiz/docs-lead',
+      'partnersinbiz/project-management',
+      'partnersinbiz/evidence-ledger',
+      'partnersinbiz/system-auth',
+      'productivity/google-workspace',
+    ],
+    cronWatchLoops: [
+      'People policy and retention checklist reviews',
+      'Access group lifecycle check-in',
+      'HR-sensitive blocker and handoff tracking',
+    ],
+    allowedScopes: [
+      'people-records',
+      'hr-policy-documents',
+      'private-org-documents',
+      'project-admin',
+    ],
+    exampleTaskTypes: [
+      'Create onboarding checklist pack with approval boundaries',
+      'Prepare role-change handoff artifacts with access updates',
+      'Review people-process blockers and route to owner teams',
+    ],
+  },
   sales: {
     responsibilities: [
       'Revenue execution for Partners in Biz and approved client-growth pushes',

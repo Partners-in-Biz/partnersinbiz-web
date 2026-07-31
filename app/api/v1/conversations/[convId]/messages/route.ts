@@ -454,7 +454,7 @@ export const POST = withAuth(
       return apiError('Forbidden', 403)
     }
     if (!canReplyConversation(user, conversation)) {
-      return apiError('Only explicit participants can reply to this conversation', 403)
+      return apiError('You do not have permission to reply in this conversation', 403)
     }
     const replyAccess = await assertUserCanPerformOrganizationModuleAction(
       user,
@@ -666,7 +666,7 @@ export const POST = withAuth(
 
     // Update the conversation's denorm fields
     const preview = content || publicAttachments.map((attachment) => attachment.name).join(', ')
-    await touchConversation(convId, preview, 'user', message.id)
+    await touchConversation(convId, preview, 'user', message.id, user.uid)
 
     const recentMessages = await listMessages(convId, 200).catch(() => [message])
     const conversationHistory = buildConversationHistoryBlock(recentMessages, message.id)

@@ -162,6 +162,41 @@ describe('PUT /api/v1/crm/products/:id', () => {
     expect((await res.json()).error).toMatch(/unitPrice/i)
   })
 
+  it('accepts a boolean active patch for catalog lifecycle controls', async () => {
+    const uid = uidFor('admin-put-active')
+    const member = seedOrgMember('org-1', uid, { role: 'admin' })
+    stageAuth(member)
+    ;(productStore.updateProduct as jest.Mock).mockResolvedValue(buildProduct({ active: false }))
+
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/products/prod-1', {
+      active: false,
+    })
+    const res = await routeModule.PUT(req, makeCtx('prod-1'))
+
+    expect(res.status).toBe(200)
+    expect(productStore.updateProduct).toHaveBeenCalledWith(
+      'org-1',
+      'prod-1',
+      { active: false },
+      expect.objectContaining({ uid }),
+    )
+  })
+
+  it('rejects a non-boolean active patch', async () => {
+    const uid = uidFor('admin-put-invalid-active')
+    const member = seedOrgMember('org-1', uid, { role: 'admin' })
+    stageAuth(member)
+
+    const req = callAsMember(member, 'PUT', '/api/v1/crm/products/prod-1', {
+      active: 'false',
+    })
+    const res = await routeModule.PUT(req, makeCtx('prod-1'))
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/active/i)
+    expect(productStore.updateProduct).not.toHaveBeenCalled()
+  })
+
   it('returns 403 when member tries to PUT', async () => {
     const uid = uidFor('member-put')
     const member = seedOrgMember('org-1', uid, { role: 'member' })

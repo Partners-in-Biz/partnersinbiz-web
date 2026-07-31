@@ -1,4 +1,10 @@
-import type { AccountingBasis, FinanceScope, VersionedFinanceRecord } from '@/lib/finance/types'
+import type {
+  AccountingBasis,
+  FinanceApprovalAction,
+  FinanceScope,
+  VersionedFinanceRecord,
+} from '@/lib/finance/types'
+import type { HASH_ALGORITHM_VERSION } from '@/lib/finance/integrity'
 
 export interface LegalEntity extends Omit<VersionedFinanceRecord, 'bookId'> {
   code: string
@@ -32,8 +38,28 @@ export interface AccountingBook extends VersionedFinanceRecord {
   functionalCurrency: string
   accountingBasis: AccountingBasis
   jurisdictionCode: string
+  taxPointPolicyId: string
+  defaultControlAccountIds: Partial<Record<'receivables' | 'payables' | 'cash' | 'tax' | 'retainedEarnings', string>>
+  currentPeriodId?: string
   status: 'draft' | 'active' | 'locked' | 'archived'
   cutoverAt?: string
+}
+
+export interface BookPolicyVersion extends VersionedFinanceRecord {
+  bookId: string
+  versionNumber: number
+  accountingBasis: AccountingBasis
+  taxPointPolicyId: string
+  currencyPrecision: number
+  roundingMode: 'half_up' | 'half_even'
+  effectiveFrom: string
+  effectiveTo?: string
+  status: 'approved'
+  approvalId: string
+  approvalActorId: string
+  approvedAt: string
+  immutable: true
+  contentHash: string
 }
 
 export interface AccountingPeriod extends VersionedFinanceRecord {
@@ -43,6 +69,9 @@ export interface AccountingPeriod extends VersionedFinanceRecord {
   startsAt: string
   endsAt: string
   status: 'open' | 'soft_closed' | 'hard_closed'
+  closeApprovalId?: string
+  reopenedAt?: string
+  reopenApprovalId?: string
 }
 
 export type LedgerAccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense'
@@ -54,7 +83,10 @@ export interface LedgerAccount extends VersionedFinanceRecord {
   accountType: LedgerAccountType
   normalBalance: 'debit' | 'credit'
   parentAccountId?: string
-  controlAccountRole?: 'receivables' | 'payables' | 'tax' | 'payroll' | 'bank'
+  controlAccountRole?: 'receivables' | 'payables' | 'tax' | 'payroll' | 'bank' | 'retained_earnings'
+  currency: string
+  currencyPolicy: 'functional_only' | 'fixed_currency'
+  reportMapping: string
   postingAllowed: boolean
   activeFrom: string
   activeTo?: string
@@ -88,13 +120,25 @@ export interface PostedJournalEntry extends VersionedFinanceRecord {
   status: 'posted'
   description: string
   currency: string
+  policyVersionId: string
+  accountingBasis: AccountingBasis
   totalDebitMinor: number
   totalCreditMinor: number
   lines: JournalLine[]
+  lineDigest: string
   reversesJournalEntryId?: string
   reversalReason?: string
+  approvalId: string
+  approvalActorId: string
+  approvedAt: string
+  requestId: string
+  idempotencyKey: string
+  correlationId?: string
+  delegationId?: string
   immutable: true
   contentHash: string
+  canonicalPayloadVersion: 1
+  hashAlgorithmVersion: typeof HASH_ALGORITHM_VERSION
 }
 
 export interface FinanceAuditEvent extends FinanceScope {
@@ -103,14 +147,22 @@ export interface FinanceAuditEvent extends FinanceScope {
   aggregateType: string
   aggregateId: string
   aggregateVersion: number
+  aggregateDigest: string
   eventType: string
   actorId: string
+  requestId?: string
+  idempotencyKey?: string
   correlationId?: string
   delegationId?: string
+  reason?: string
+  approvalReference?: string
+  approvalAction?: FinanceApprovalAction
   occurredAt: string
   sequence: number
   previousEventId?: string
   previousEventHash?: string
+  canonicalPayloadVersion: 1
+  hashAlgorithmVersion: typeof HASH_ALGORITHM_VERSION
   eventHash: string
 }
 

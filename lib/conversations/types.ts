@@ -65,6 +65,12 @@ export interface ConversationAttachment {
   storagePath?: string
 }
 
+export interface ConversationReadState {
+  lastReadMessageId?: string
+  lastReadMessageCount?: number
+  lastReadAt?: Timestamp
+}
+
 export interface Conversation {
   id: string
   orgId: string
@@ -96,6 +102,18 @@ export interface Conversation {
   lastMessageRole?: 'user' | 'agent' | 'system' | 'tool'
   lastMessageAt?: Timestamp
   messageCount: number
+  /** Server-only per-member counters. Public serializers expose only the caller's count. */
+  unreadCounts?: Record<string, number>
+  /** Server-only per-member read markers. Public serializers expose only the caller's marker. */
+  readStateByUser?: Record<string, ConversationReadState>
+  /** Caller-specific value added by the public serializer; never persisted as a shared field. */
+  unreadCount?: number
+  /** Caller-specific value added by the public serializer; never persisted as a shared field. */
+  lastReadMessageId?: string
+  /** Caller-specific count used for org-visible conversations without explicit participation. */
+  lastReadMessageCount?: number
+  /** Caller-specific value added by the public serializer; never persisted as a shared field. */
+  lastReadAt?: Timestamp
   archived: boolean
   migratedFromHermes?: boolean
   /** When set, this conversation is the command room for that project. */

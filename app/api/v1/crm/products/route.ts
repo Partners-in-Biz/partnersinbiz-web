@@ -11,9 +11,10 @@ export const dynamic = 'force-dynamic'
 
 // ── GET ─────────────────────────────────────────────────────────────────────────
 
-export const GET = withCrmAuth('member', async (_req, ctx) => {
+export const GET = withCrmAuth('member', async (req, ctx) => {
   try {
-    const products = await listProducts(ctx.orgId)
+    const includeInactive = new URL(req.url).searchParams.get('includeInactive') === 'true'
+    const products = await listProducts(ctx.orgId, { includeInactive })
     return apiSuccess({ products })
   } catch (err) {
     console.error('[products-list-error]', err)

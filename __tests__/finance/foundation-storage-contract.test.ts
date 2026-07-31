@@ -8,7 +8,8 @@ describe('finance foundation storage contract', () => {
     const rules = fs.readFileSync(path.join(root, 'firestore.rules'), 'utf8')
     for (const collection of [
       'legal_entities', 'finance_branches', 'accounting_books', 'accounting_periods',
-      'finance_role_assignments', 'ledger_accounts', 'journal_entries', 'journal_lines',
+      'book_policy_versions', 'finance_calendar_heads', 'finance_idempotency_claims',
+      'finance_role_assignments', 'finance_approvals', 'ledger_accounts', 'journal_entries', 'journal_lines',
       'finance_unique_claims', 'finance_sequences', 'finance_audit_events',
       'finance_audit_heads', 'finance_outbox_events',
     ]) {
@@ -28,8 +29,9 @@ describe('finance foundation storage contract', () => {
     const source = fs.readFileSync(path.join(root, 'lib/accounting/firestore-foundation-repository.ts'), 'utf8')
     expect(source).toContain("this.db.collection('finance_unique_claims')")
     expect(source).toContain("this.db.collection('journal_lines')")
-    expect(source).toContain("this.db.collection('finance_audit_events')")
-    expect(source).toContain("this.db.collection('finance_outbox_events')")
+    expect(source).toContain("storageRef(this.db, 'finance_audit_events'")
+    expect(source).toContain("storageRef(this.db, 'finance_outbox_events'")
+    expect(source).toContain('scopedStorageId(scope, logicalId)')
     expect(source).toContain('externalEgressAllowed: false')
     expect(source).not.toMatch(/\b(update|delete)PostedJournal\b/)
   })

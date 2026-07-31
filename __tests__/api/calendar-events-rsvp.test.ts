@@ -33,7 +33,7 @@ describe('calendar event RSVP route', () => {
       data: () => ({
         orgId: 'org-1',
         title: 'Website retainer check-in',
-        attendees: [{ name: 'Ava Owner', email: 'ava@example.test', status: 'pending' }],
+        attendees: [{ name: 'Ava Owner', email: 'ava@example.test', userId: 'client-1', status: 'pending' }],
         deleted: false,
       }),
     })
@@ -49,8 +49,40 @@ describe('calendar event RSVP route', () => {
 
     expect(res.status).toBe(200)
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      attendees: [{ name: 'Ava Owner', email: 'ava@example.test', status: 'accepted' }],
+      attendees: [{ name: 'Ava Owner', email: 'ava@example.test', userId: 'client-1', status: 'accepted' }],
       updatedBy: 'client-1',
     }))
+  })
+
+  it('does not let a portal member RSVP for another attendee', async () => {
+    const mockUserGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ email: 'client@example.test' }),
+    })
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'calendar_events') return { doc: mockDoc }
+      if (name === 'users') return { doc: () => ({ get: mockUserGet }) }
+      throw new Error(`Unexpected collection: ${name}`)
+    })
+    mockGet.mockResolvedValue({
+      exists: true,
+      id: 'event-1',
+      data: () => ({
+        orgId: 'org-1',
+        title: 'Private leadership session',
+        attendees: [{ name: 'Other Member', email: 'other@example.test', userId: 'client-2', status: 'pending' }],
+        deleted: false,
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/calendar/events/[id]/rsvp/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/calendar/events/event-1/rsvp', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'other@example.test', status: 'accepted' }),
+    }), { params: Promise.resolve({ id: 'event-1' }) })
+
+    expect(res.status).toBe(404)
+    expect(mockUpdate).not.toHaveBeenCalled()
   })
 })
