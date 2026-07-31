@@ -1,8 +1,12 @@
 /**
- * Facade used by API routes and slash handlers — all operations go through
- * pure modules + hermesFeaturesStore for read-back assertions.
+ * Async facade — durable repository + real runtime paths for cron/delegation/workspace.
  */
-import { hermesFeaturesStore } from './store'
+import {
+  getHermesFeaturesRepository,
+  setHermesFeaturesRepositoryForTests,
+  createMemoryRepository,
+  type HermesFeaturesRepository,
+} from './repository'
 import {
   defaultToolsetPolicy,
   enableToolset,
@@ -29,8 +33,22 @@ import {
   type ContextRefExpandDeps,
 } from './context-refs-expand'
 import { createCheckpoint, restoreCheckpoint, checkpointSummary } from './checkpoints'
-import { createCronJob, pauseCronJob, resumeCronJob, editCronJob, parseCronSchedule } from './cron'
+import {
+  createAndScheduleCron,
+  pauseCronRuntime,
+  resumeCronRuntime,
+  editCronRuntime,
+  fireCronJob,
+  processDueCronJobs,
+  type CronHermesSyncDeps,
+} from './cron-runtime'
 import { spawnDelegations, completeChild, delegationDispatchBlock } from './delegation'
+import {
+  spawnObservableDelegations,
+  observeDelegation,
+  completeDelegationChild,
+  type DelegationRunDeps,
+} from './delegation-runtime'
 import { executeCodeSandboxed } from './code-execution'
 import { createHook, setHookEnabled, listHookKinds } from './hooks'
 import { runBatchPrompts } from './batch'
@@ -38,6 +56,7 @@ import {
   assessMediaReadiness,
   browserNavigateExtractContract,
   hermesSpeakPath,
+  mediaConfigFromEnv,
   type MediaBackendConfig,
 } from './media-readiness'
 import { createMcpServer, filterMcpTools } from './mcp'
@@ -50,6 +69,7 @@ import {
 import {
   createMemoryProviderBinding,
   externalMemoryLookup,
+  type ExternalMemoryLookupDeps,
 } from './memory-providers'
 import {
   listPersonalityPresets,
@@ -58,66 +78,94 @@ import {
 } from './personality'
 import { listPlugins, installPlugin, uninstallPlugin } from './plugins'
 import { buildHermesFeaturesDispatchBlock } from './dispatch'
+import {
+  createNodeWorkspaceFs,
+  createMemoryWorkspaceFs,
+  resolveWorkspaceRootFromConversation,
+  type WorkspaceFs,
+} from './workspace-fs'
+import { productionCronDeps, productionDelegationDeps } from './runtime-deps'
+import { parseCronSchedule } from './cron'
+import type { CronJobSpec } from './types'
+
+function repo(): HermesFeaturesRepository {
+  return getHermesFeaturesRepository()
+}
 
 export const hermesFeaturesService = {
-  store: hermesFeaturesStore,
-
-  // Toolsets
-  getToolsets(orgId: string, agentId: string, conversationId?: string) {
-    return hermesFeaturesStore.getToolsetPolicy(orgId, agentId, conversationId)
+  /** Test helpers */
+  useMemoryRepositoryForTests() {
+    const memory = createMemoryRepository()
+    setHermesFeaturesRepositoryForTests(memory)
+    return memory
   },
-  enableToolset(orgId: string, agentId: string, toolset: string, conversationId?: string) {
-    const current = hermesFeaturesStore.getToolsetPolicy(orgId, agentId, conversationId)
+  resetForTests() {
+    const r = repo()
+    if (r.reset) r.reset()
+  },
+  get repository() {
+    return repo()
+  },
+
+  // Toolsets (durable)
+  async getToolsets(orgId: string, agentId: string, conversationId?: string) {
+    return repo().getToolsetPolicy(orgId, agentId, conversationId)
+  },
+  async enableToolset(orgId: string, agentId: string, toolset: string, conversationId?: string) {
+    const current = await repo().getToolsetPolicy(orgId, agentId, conversationId)
     const base = current.conversationId || !conversationId
       ? current
       : { ...defaultToolsetPolicy(orgId, agentId, conversationId), enabled: current.enabled }
-    return hermesFeaturesStore.setToolsetPolicy(enableToolset(base, toolset))
+    return repo().setToolsetPolicy(enableToolset(base, toolset))
   },
-  disableToolset(orgId: string, agentId: string, toolset: string, conversationId?: string) {
-    const current = hermesFeaturesStore.getToolsetPolicy(orgId, agentId, conversationId)
-    return hermesFeaturesStore.setToolsetPolicy(disableToolset(current, toolset))
+  async disableToolset(orgId: string, agentId: string, toolset: string, conversationId?: string) {
+    const current = await repo().getToolsetPolicy(orgId, agentId, conversationId)
+    return repo().setToolsetPolicy(disableToolset(current, toolset))
   },
-  setToolsets(orgId: string, agentId: string, toolsets: string[], conversationId?: string) {
-    const current = hermesFeaturesStore.getToolsetPolicy(orgId, agentId, conversationId)
-    return hermesFeaturesStore.setToolsetPolicy(setToolsets(current, toolsets))
+  async setToolsets(orgId: string, agentId: string, toolsets: string[], conversationId?: string) {
+    const current = await repo().getToolsetPolicy(orgId, agentId, conversationId)
+    return repo().setToolsetPolicy(setToolsets(current, toolsets))
   },
 
   // Skills progressive
-  setSkillCatalog(
+  async setSkillCatalog(
     orgId: string,
     agentId: string,
     docs: Array<{ id: string; name: string; description: string; path?: string; tags?: string[]; body?: string }>,
   ) {
-    return hermesFeaturesStore.setSkills(orgId, agentId, skillCatalogFromDocs(docs))
+    return repo().setSkills(orgId, agentId, skillCatalogFromDocs(docs))
   },
-  listSkills(orgId: string, agentId: string) {
-    return hermesFeaturesStore.getSkills(orgId, agentId)
+  async listSkills(orgId: string, agentId: string) {
+    return repo().getSkills(orgId, agentId)
   },
-  selectAndLoadSkills(orgId: string, agentId: string, query: string, bodies: Record<string, string>) {
-    let catalog = hermesFeaturesStore.getSkills(orgId, agentId)
+  async selectAndLoadSkills(orgId: string, agentId: string, query: string, bodies: Record<string, string>) {
+    let catalog = await repo().getSkills(orgId, agentId)
     const selected = selectSkillsForRequest(catalog, query, 3)
     for (const s of selected) {
       if (bodies[s.id]) catalog = loadSkillBody(catalog, s.id, bodies[s.id])
     }
-    return hermesFeaturesStore.setSkills(orgId, agentId, catalog)
+    return repo().setSkills(orgId, agentId, catalog)
   },
 
-  // Memory
-  getMemory(orgId: string, agentId: string) {
-    return hermesFeaturesStore.getMemory(orgId, agentId)
+  // Memory durable
+  async getMemory(orgId: string, agentId: string) {
+    return repo().getMemory(orgId, agentId)
   },
-  setMemorySection(orgId: string, agentId: string, section: 'memory' | 'user', content: string, updatedBy?: string) {
-    const doc = hermesFeaturesStore.getMemory(orgId, agentId)
-    return hermesFeaturesStore.setMemory(updateMemorySection(doc, section, content, updatedBy))
+  async setMemorySection(orgId: string, agentId: string, section: 'memory' | 'user', content: string, updatedBy?: string) {
+    const doc = await repo().getMemory(orgId, agentId)
+    return repo().setMemory(updateMemorySection(doc, section, content, updatedBy))
   },
-  appendMemory(orgId: string, agentId: string, section: 'memory' | 'user', bullet: string, updatedBy?: string) {
-    const doc = hermesFeaturesStore.getMemory(orgId, agentId)
-    return hermesFeaturesStore.setMemory(appendMemoryBullet(doc, section, bullet, updatedBy))
+  async appendMemory(orgId: string, agentId: string, section: 'memory' | 'user', bullet: string, updatedBy?: string) {
+    const doc = await repo().getMemory(orgId, agentId)
+    return repo().setMemory(appendMemoryBullet(doc, section, bullet, updatedBy))
   },
 
   // Context files
   discoverContextFiles(files: Record<string, string>) {
     return discoverContextFilesFromMap(files)
+  },
+  discoverContextFilesFromWorkspace(fs: WorkspaceFs) {
+    return fs.discoverContextFiles()
   },
 
   // Context refs
@@ -126,173 +174,260 @@ export const hermesFeaturesService = {
   expandAtTokensInMessage,
   contextRefsDispatchBlock,
 
-  // Checkpoints
-  createCheckpoint(input: {
+  // Checkpoints — snapshot from real workspace when provided
+  async createCheckpoint(input: {
     orgId: string
     conversationId: string
-    files: Record<string, string>
+    files?: Record<string, string>
+    workspace?: WorkspaceFs
     label?: string
     createdBy?: string
   }) {
-    hermesFeaturesStore.setWorkspaceFiles(input.orgId, input.conversationId, input.files)
-    const snap = createCheckpoint(input)
-    return hermesFeaturesStore.addCheckpoint(snap)
+    const files = input.workspace
+      ? input.workspace.snapshotTextFiles()
+      : (input.files || await repo().getWorkspaceFiles(input.orgId, input.conversationId))
+    await repo().setWorkspaceFiles(input.orgId, input.conversationId, files)
+    const snap = createCheckpoint({
+      orgId: input.orgId,
+      conversationId: input.conversationId,
+      files,
+      label: input.label,
+      createdBy: input.createdBy,
+    })
+    return repo().addCheckpoint(snap)
   },
-  listCheckpoints(orgId: string, conversationId: string) {
-    return hermesFeaturesStore.listCheckpoints(orgId, conversationId)
+  async listCheckpoints(orgId: string, conversationId: string) {
+    return repo().listCheckpoints(orgId, conversationId)
   },
-  rollback(orgId: string, conversationId: string, checkpointId?: string) {
-    const list = hermesFeaturesStore.listCheckpoints(orgId, conversationId)
-    const snap = checkpointId
-      ? list.find((c) => c.id === checkpointId)
+  async rollback(input: {
+    orgId: string
+    conversationId: string
+    checkpointId?: string
+    workspace?: WorkspaceFs
+  }) {
+    const list = await repo().listCheckpoints(input.orgId, input.conversationId)
+    const snap = input.checkpointId
+      ? list.find((c) => c.id === input.checkpointId) || await repo().getCheckpoint(input.orgId, input.conversationId, input.checkpointId)
       : list[0]
     if (!snap) throw new Error('No checkpoint to rollback')
-    const current = hermesFeaturesStore.getWorkspaceFiles(orgId, conversationId)
+    const current = input.workspace
+      ? input.workspace.snapshotTextFiles()
+      : await repo().getWorkspaceFiles(input.orgId, input.conversationId)
     const restored = restoreCheckpoint(current, snap)
-    hermesFeaturesStore.setWorkspaceFiles(orgId, conversationId, restored.files)
+    if (input.workspace) {
+      input.workspace.applySnapshot(restored.files)
+    }
+    await repo().setWorkspaceFiles(input.orgId, input.conversationId, restored.files)
     return { snapshot: snap, ...restored, summary: checkpointSummary(snap) }
   },
 
-  // Cron
+  // Cron → Hermes
   parseCronSchedule,
-  createCron(input: Parameters<typeof createCronJob>[0]) {
-    const job = createCronJob(input)
-    return hermesFeaturesStore.upsertCron(job)
+  async createCron(
+    input: {
+      orgId: string
+      agentId: string
+      name: string
+      schedule: string
+      prompt: string
+      skillIds?: string[]
+      id?: string
+    },
+    deps?: CronHermesSyncDeps,
+  ) {
+    return createAndScheduleCron(input, repo(), deps ?? (process.env.JEST_WORKER_ID ? {} : productionCronDeps()))
   },
-  listCron(orgId: string) {
-    return hermesFeaturesStore.listCron(orgId)
+  async listCron(orgId: string) {
+    return repo().listCron(orgId)
   },
-  pauseCron(orgId: string, id: string) {
-    const job = hermesFeaturesStore.listCron(orgId).find((j) => j.id === id)
-    if (!job) throw new Error('Cron job not found')
-    return hermesFeaturesStore.upsertCron(pauseCronJob(job))
+  async pauseCron(orgId: string, id: string) {
+    return pauseCronRuntime(orgId, id, repo())
   },
-  resumeCron(orgId: string, id: string) {
-    const job = hermesFeaturesStore.listCron(orgId).find((j) => j.id === id)
-    if (!job) throw new Error('Cron job not found')
-    return hermesFeaturesStore.upsertCron(resumeCronJob(job))
+  async resumeCron(orgId: string, id: string) {
+    return resumeCronRuntime(orgId, id, repo())
   },
-  editCron(orgId: string, id: string, patch: Parameters<typeof editCronJob>[1]) {
-    const job = hermesFeaturesStore.listCron(orgId).find((j) => j.id === id)
-    if (!job) throw new Error('Cron job not found')
-    return hermesFeaturesStore.upsertCron(editCronJob(job, patch))
+  async editCron(orgId: string, id: string, patch: Partial<Pick<CronJobSpec, 'name' | 'schedule' | 'prompt' | 'skillIds' | 'agentId'>>) {
+    return editCronRuntime(orgId, id, patch, repo())
+  },
+  async fireCron(orgId: string, id: string, deps?: CronHermesSyncDeps) {
+    return fireCronJob(orgId, id, repo(), deps ?? productionCronDeps())
+  },
+  async processDueCron(orgId: string, deps?: CronHermesSyncDeps) {
+    return processDueCronJobs(orgId, repo(), deps ?? productionCronDeps())
   },
 
-  // Delegation
+  // Delegation pure + observable
   spawnDelegations,
   completeChild,
   delegationDispatchBlock,
+  async spawnObservableDelegations(
+    input: {
+      orgId: string
+      agentId: string
+      conversationId?: string
+      parentRunHint: string
+      goals: string[]
+      maxConcurrent?: number
+      toolsets?: string[]
+    },
+    deps?: DelegationRunDeps,
+  ) {
+    return spawnObservableDelegations(
+      input,
+      repo(),
+      deps ?? (process.env.JEST_WORKER_ID ? {
+        createRun: async ({ childId, goal }) => ({
+          ok: true,
+          runId: `test-run-${childId}`,
+          runDocId: `test-doc-${childId}`,
+        }),
+      } : productionDelegationDeps()),
+    )
+  },
+  async observeDelegation(orgId: string, id: string) {
+    return observeDelegation(orgId, id, repo())
+  },
+  async completeDelegationChild(orgId: string, delegationId: string, childId: string, result: string, ok = true) {
+    return completeDelegationChild(orgId, delegationId, childId, result, ok, repo())
+  },
 
-  // Code exec
-  executeCode(orgId: string, agentId: string, script: string, conversationId?: string) {
-    const policy = hermesFeaturesStore.getToolsetPolicy(orgId, agentId, conversationId)
+  // Code exec (partial sandboxed + toolset gate)
+  async executeCode(orgId: string, agentId: string, script: string, conversationId?: string) {
+    const policy = await repo().getToolsetPolicy(orgId, agentId, conversationId)
     return executeCodeSandboxed(policy, script)
   },
 
-  // Hooks
+  // Hooks durable
   listHookKinds,
-  createHook(input: Parameters<typeof createHook>[0]) {
-    return hermesFeaturesStore.upsertHook(createHook(input))
+  async createHook(input: Parameters<typeof createHook>[0]) {
+    return repo().upsertHook(createHook(input))
   },
-  listHooks(orgId: string) {
-    return hermesFeaturesStore.listHooks(orgId)
+  async listHooks(orgId: string) {
+    return repo().listHooks(orgId)
   },
-  setHookEnabled(orgId: string, id: string, enabled: boolean) {
-    const hook = hermesFeaturesStore.listHooks(orgId).find((h) => h.id === id)
+  async setHookEnabled(orgId: string, id: string, enabled: boolean) {
+    const hook = (await repo().listHooks(orgId)).find((h) => h.id === id)
     if (!hook) throw new Error('Hook not found')
-    return hermesFeaturesStore.upsertHook(setHookEnabled(hook, enabled))
+    return repo().upsertHook(setHookEnabled(hook, enabled))
   },
 
-  // Batch
-  runBatch(input: Parameters<typeof runBatchPrompts>[0]) {
-    const job = runBatchPrompts(input)
-    return hermesFeaturesStore.addBatchJob(job)
+  // Batch (partial: structured results; inject sync runner for real outputs)
+  async runBatch(input: {
+    orgId: string
+    agentId: string
+    prompts: string[]
+    runner?: (prompt: string, index: number) => { status: 'ok' | 'error'; output: string }
+    id?: string
+  }) {
+    const job = runBatchPrompts({
+      orgId: input.orgId,
+      agentId: input.agentId,
+      prompts: input.prompts,
+      runner: input.runner,
+      id: input.id,
+    })
+    return repo().addBatchJob(job)
   },
-  listBatch(orgId: string) {
-    return hermesFeaturesStore.listBatchJobs(orgId)
+  async listBatch(orgId: string) {
+    return repo().listBatchJobs(orgId)
   },
 
   // Media
   assessMediaReadiness(config?: MediaBackendConfig) {
     return assessMediaReadiness(config)
   },
+  mediaConfigFromEnv,
   browserNavigateExtractContract,
   hermesSpeakPath,
 
-  // MCP
-  registerMcp(input: Parameters<typeof createMcpServer>[0]) {
-    return hermesFeaturesStore.upsertMcp(createMcpServer(input))
+  // MCP durable config (sync to Hermes is separate partial path)
+  async registerMcp(input: Parameters<typeof createMcpServer>[0]) {
+    return repo().upsertMcp(createMcpServer(input))
   },
-  listMcp(orgId: string) {
-    return hermesFeaturesStore.listMcp(orgId)
+  async listMcp(orgId: string) {
+    return repo().listMcp(orgId)
   },
   filterMcpTools,
 
-  // Routing
-  getRouting(orgId: string) {
-    return hermesFeaturesStore.getRouting(orgId)
+  // Routing durable policy
+  async getRouting(orgId: string) {
+    return repo().getRouting(orgId)
   },
-  setRouting(orgId: string, patch: Parameters<typeof createRoutingPolicy>[0]) {
-    const current = hermesFeaturesStore.getRouting(orgId)
+  async setRouting(orgId: string, patch: Parameters<typeof createRoutingPolicy>[0]) {
+    const current = await repo().getRouting(orgId)
     const next = updateRoutingPolicy(
       createRoutingPolicy({ ...current, ...patch, orgId }),
       patch,
     )
-    return hermesFeaturesStore.setRouting(next)
+    return repo().setRouting(next)
   },
   applyRouting: applyRoutingPolicy,
 
-  // Credential pools
-  upsertCredentialPool(input: Parameters<typeof createCredentialPool>[0]) {
-    return hermesFeaturesStore.upsertCredentialPool(createCredentialPool(input))
+  // Credential pools durable (fingerprints only)
+  async upsertCredentialPool(input: Parameters<typeof createCredentialPool>[0]) {
+    return repo().upsertCredentialPool(createCredentialPool(input))
   },
-  listCredentialPools(orgId: string) {
-    return hermesFeaturesStore.listCredentialPools(orgId)
+  async listCredentialPools(orgId: string) {
+    return repo().listCredentialPools(orgId)
   },
   selectCredentialKey,
-  markCredentialStatus(orgId: string, provider: string, keyId: string, status: 'ok' | 'rate_limited' | 'failed' | 'unknown') {
-    const pool = hermesFeaturesStore.listCredentialPools(orgId).find((p) => p.provider === provider)
+  async markCredentialStatus(orgId: string, provider: string, keyId: string, status: 'ok' | 'rate_limited' | 'failed' | 'unknown') {
+    const pool = (await repo().listCredentialPools(orgId)).find((p) => p.provider === provider)
     if (!pool) throw new Error('Credential pool not found')
-    return hermesFeaturesStore.upsertCredentialPool(markCredentialStatus(pool, keyId, status))
+    return repo().upsertCredentialPool(markCredentialStatus(pool, keyId, status))
   },
 
   // Memory providers
-  bindMemoryProvider(input: Parameters<typeof createMemoryProviderBinding>[0]) {
-    return hermesFeaturesStore.upsertMemoryProvider(createMemoryProviderBinding(input))
+  async bindMemoryProvider(input: Parameters<typeof createMemoryProviderBinding>[0]) {
+    return repo().upsertMemoryProvider(createMemoryProviderBinding(input))
   },
-  listMemoryProviders(orgId: string, agentId?: string) {
-    return hermesFeaturesStore.listMemoryProviders(orgId, agentId)
+  async listMemoryProviders(orgId: string, agentId?: string) {
+    return repo().listMemoryProviders(orgId, agentId)
   },
-  externalMemoryLookup,
+  externalMemoryLookup(
+    binding: Parameters<typeof externalMemoryLookup>[0],
+    query: string,
+    deps?: ExternalMemoryLookupDeps,
+  ) {
+    return externalMemoryLookup(binding, query, deps)
+  },
 
   // Personality
   listPersonalityPresets,
   getPersonalityPreset,
-  applyPersonality(orgId: string, agentId: string, presetId: string) {
+  async applyPersonality(orgId: string, agentId: string, presetId: string) {
     const preset = getPersonalityPreset(presetId)
     if (!preset) throw new Error(`Unknown personality preset: ${presetId}`)
-    hermesFeaturesStore.applyPersonality(orgId, agentId, presetId)
+    await repo().applyPersonality(orgId, agentId, presetId)
     return preset
   },
   personalityDispatchBlock,
+  async getAppliedPersonality(orgId: string, agentId: string) {
+    return repo().getAppliedPersonality(orgId, agentId)
+  },
 
-  // Plugins
-  listPlugins(orgId: string) {
-    return listPlugins(hermesFeaturesStore.listPlugins(orgId))
+  // Plugins durable install flags
+  async listPlugins(orgId: string) {
+    return listPlugins(await repo().listPlugins(orgId))
   },
-  installPlugin(orgId: string, pluginId: string) {
-    const next = installPlugin(hermesFeaturesStore.listPlugins(orgId), pluginId)
-    return hermesFeaturesStore.setPlugins(orgId, next)
+  async installPlugin(orgId: string, pluginId: string) {
+    const next = installPlugin(await repo().listPlugins(orgId), pluginId)
+    return repo().setPlugins(orgId, next)
   },
-  uninstallPlugin(orgId: string, pluginId: string) {
-    const next = uninstallPlugin(hermesFeaturesStore.listPlugins(orgId), pluginId)
-    return hermesFeaturesStore.setPlugins(orgId, next)
+  async uninstallPlugin(orgId: string, pluginId: string) {
+    const next = uninstallPlugin(await repo().listPlugins(orgId), pluginId)
+    return repo().setPlugins(orgId, next)
   },
 
   // Dispatch
   buildDispatchBlock: buildHermesFeaturesDispatchBlock,
 
-  // Helpers exported for tests
+  // Workspace helpers
+  createNodeWorkspaceFs,
+  createMemoryWorkspaceFs,
+  resolveWorkspaceRootFromConversation,
+
+  // Export pure helpers for tests
   toolsetDispatchBlock,
   progressiveSkillsDispatchBlock,
   memoryDispatchBlock,

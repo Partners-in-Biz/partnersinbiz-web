@@ -1,7 +1,6 @@
 /**
  * GET/POST /api/v1/admin/hermes-features
- * Control plane for Hermes Features Overview productization in PiB.
- * Architecture: Firestore conversations + /v1/runs adapters (not SessionDB).
+ * Durable control plane for Hermes Features Overview productization in PiB.
  */
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
@@ -19,40 +18,40 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
 
   try {
     if (section === 'toolsets') {
-      return apiSuccess({ toolsets: hermesFeaturesService.getToolsets(orgId, agentId, conversationId) })
+      return apiSuccess({ toolsets: await hermesFeaturesService.getToolsets(orgId, agentId, conversationId) })
     }
     if (section === 'skills') {
-      return apiSuccess({ skills: hermesFeaturesService.listSkills(orgId, agentId) })
+      return apiSuccess({ skills: await hermesFeaturesService.listSkills(orgId, agentId) })
     }
     if (section === 'memory') {
-      return apiSuccess({ memory: hermesFeaturesService.getMemory(orgId, agentId) })
+      return apiSuccess({ memory: await hermesFeaturesService.getMemory(orgId, agentId) })
     }
     if (section === 'cron') {
-      return apiSuccess({ cronJobs: hermesFeaturesService.listCron(orgId) })
+      return apiSuccess({ cronJobs: await hermesFeaturesService.listCron(orgId) })
     }
     if (section === 'hooks') {
-      return apiSuccess({ hooks: hermesFeaturesService.listHooks(orgId), kinds: hermesFeaturesService.listHookKinds() })
+      return apiSuccess({ hooks: await hermesFeaturesService.listHooks(orgId), kinds: hermesFeaturesService.listHookKinds() })
     }
     if (section === 'mcp') {
-      return apiSuccess({ mcpServers: hermesFeaturesService.listMcp(orgId) })
+      return apiSuccess({ mcpServers: await hermesFeaturesService.listMcp(orgId) })
     }
     if (section === 'routing') {
-      return apiSuccess({ routing: hermesFeaturesService.getRouting(orgId) })
+      return apiSuccess({ routing: await hermesFeaturesService.getRouting(orgId) })
     }
     if (section === 'credential-pools') {
-      return apiSuccess({ pools: hermesFeaturesService.listCredentialPools(orgId) })
+      return apiSuccess({ pools: await hermesFeaturesService.listCredentialPools(orgId) })
     }
     if (section === 'memory-providers') {
-      return apiSuccess({ providers: hermesFeaturesService.listMemoryProviders(orgId, agentId) })
+      return apiSuccess({ providers: await hermesFeaturesService.listMemoryProviders(orgId, agentId) })
     }
     if (section === 'personality') {
       return apiSuccess({
         presets: hermesFeaturesService.listPersonalityPresets(),
-        applied: hermesFeaturesService.store.getAppliedPersonality(orgId, agentId),
+        applied: await hermesFeaturesService.getAppliedPersonality(orgId, agentId),
       })
     }
     if (section === 'plugins') {
-      return apiSuccess({ plugins: hermesFeaturesService.listPlugins(orgId) })
+      return apiSuccess({ plugins: await hermesFeaturesService.listPlugins(orgId) })
     }
     if (section === 'media') {
       return apiSuccess({
@@ -67,22 +66,27 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
     }
     if (section === 'checkpoints' && conversationId) {
       return apiSuccess({
-        checkpoints: hermesFeaturesService.listCheckpoints(orgId, conversationId),
+        checkpoints: await hermesFeaturesService.listCheckpoints(orgId, conversationId),
       })
     }
     if (section === 'batch') {
-      return apiSuccess({ batchJobs: hermesFeaturesService.listBatch(orgId) })
+      return apiSuccess({ batchJobs: await hermesFeaturesService.listBatch(orgId) })
+    }
+    if (section === 'delegations') {
+      return apiSuccess({
+        delegations: await hermesFeaturesService.repository.listDelegations(orgId, conversationId),
+      })
     }
 
     return apiSuccess({
-      architecture: 'firestore+/v1/runs',
-      snapshot: hermesFeaturesService.store.snapshot(orgId),
-      toolsets: hermesFeaturesService.getToolsets(orgId, agentId, conversationId),
-      memory: hermesFeaturesService.getMemory(orgId, agentId),
-      skills: hermesFeaturesService.listSkills(orgId, agentId),
+      architecture: 'firestore_hermes_features+/v1/runs',
+      toolsets: await hermesFeaturesService.getToolsets(orgId, agentId, conversationId),
+      memory: await hermesFeaturesService.getMemory(orgId, agentId),
+      skills: await hermesFeaturesService.listSkills(orgId, agentId),
       media: hermesFeaturesService.assessMediaReadiness(),
       personality: hermesFeaturesService.listPersonalityPresets(),
       deferred: ['wake_word', 'discord_voice', 'skins', 'public_openai_api_product', 'acp_ide', 'sharegpt_batch_export'],
+      partial: ['code_execution_sandbox', 'batch_without_runner', 'mcp_profile_sync', 'media_without_env'],
     })
   } catch (err) {
     return apiError(err instanceof Error ? err.message : String(err), 400)
@@ -106,15 +110,15 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
     switch (action) {
       case 'toolsets.enable':
         return apiSuccess({
-          toolsets: hermesFeaturesService.enableToolset(orgId, agentId, String(body.toolset || ''), conversationId),
+          toolsets: await hermesFeaturesService.enableToolset(orgId, agentId, String(body.toolset || ''), conversationId),
         })
       case 'toolsets.disable':
         return apiSuccess({
-          toolsets: hermesFeaturesService.disableToolset(orgId, agentId, String(body.toolset || ''), conversationId),
+          toolsets: await hermesFeaturesService.disableToolset(orgId, agentId, String(body.toolset || ''), conversationId),
         })
       case 'toolsets.set':
         return apiSuccess({
-          toolsets: hermesFeaturesService.setToolsets(
+          toolsets: await hermesFeaturesService.setToolsets(
             orgId,
             agentId,
             Array.isArray(body.toolsets) ? body.toolsets.map(String) : [],
@@ -123,7 +127,7 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
         })
       case 'skills.catalog':
         return apiSuccess({
-          skills: hermesFeaturesService.setSkillCatalog(
+          skills: await hermesFeaturesService.setSkillCatalog(
             orgId,
             agentId,
             Array.isArray(body.docs) ? (body.docs as Array<{ id: string; name: string; description: string; body?: string }>) : [],
@@ -131,7 +135,7 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
         })
       case 'skills.select':
         return apiSuccess({
-          skills: hermesFeaturesService.selectAndLoadSkills(
+          skills: await hermesFeaturesService.selectAndLoadSkills(
             orgId,
             agentId,
             String(body.query || ''),
@@ -140,7 +144,7 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
         })
       case 'memory.set':
         return apiSuccess({
-          memory: hermesFeaturesService.setMemorySection(
+          memory: await hermesFeaturesService.setMemorySection(
             orgId,
             agentId,
             body.section === 'user' ? 'user' : 'memory',
@@ -149,7 +153,7 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
         })
       case 'memory.append':
         return apiSuccess({
-          memory: hermesFeaturesService.appendMemory(
+          memory: await hermesFeaturesService.appendMemory(
             orgId,
             agentId,
             body.section === 'user' ? 'user' : 'memory',
@@ -171,7 +175,7 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
           ),
         })
       case 'checkpoint.create': {
-        const snap = hermesFeaturesService.createCheckpoint({
+        const snap = await hermesFeaturesService.createCheckpoint({
           orgId,
           conversationId: conversationId || 'unknown',
           files: (body.files as Record<string, string>) || {},
@@ -180,16 +184,16 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
         return apiSuccess({ checkpoint: snap })
       }
       case 'checkpoint.rollback': {
-        const result = hermesFeaturesService.rollback(
+        const result = await hermesFeaturesService.rollback({
           orgId,
-          conversationId || 'unknown',
-          typeof body.checkpointId === 'string' ? body.checkpointId : undefined,
-        )
+          conversationId: conversationId || 'unknown',
+          checkpointId: typeof body.checkpointId === 'string' ? body.checkpointId : undefined,
+        })
         return apiSuccess(result)
       }
       case 'cron.create':
         return apiSuccess({
-          job: hermesFeaturesService.createCron({
+          job: await hermesFeaturesService.createCron({
             orgId,
             agentId,
             name: String(body.name || ''),
@@ -199,32 +203,43 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
           }),
         })
       case 'cron.pause':
-        return apiSuccess({ job: hermesFeaturesService.pauseCron(orgId, String(body.id || '')) })
+        return apiSuccess({ job: await hermesFeaturesService.pauseCron(orgId, String(body.id || '')) })
       case 'cron.resume':
-        return apiSuccess({ job: hermesFeaturesService.resumeCron(orgId, String(body.id || '')) })
+        return apiSuccess({ job: await hermesFeaturesService.resumeCron(orgId, String(body.id || '')) })
       case 'cron.edit':
         return apiSuccess({
-          job: hermesFeaturesService.editCron(orgId, String(body.id || ''), {
+          job: await hermesFeaturesService.editCron(orgId, String(body.id || ''), {
             name: typeof body.name === 'string' ? body.name : undefined,
             schedule: typeof body.schedule === 'string' ? body.schedule : undefined,
             prompt: typeof body.prompt === 'string' ? body.prompt : undefined,
           }),
         })
+      case 'cron.fire':
+        return apiSuccess({ job: await hermesFeaturesService.fireCron(orgId, String(body.id || '')) })
+      case 'cron.processDue':
+        return apiSuccess({ fired: await hermesFeaturesService.processDueCron(orgId) })
       case 'delegation.spawn':
         return apiSuccess({
-          spawn: hermesFeaturesService.spawnDelegations({
+          spawn: await hermesFeaturesService.spawnObservableDelegations({
+            orgId,
+            agentId,
+            conversationId,
             parentRunHint: String(body.parentRunHint || 'api'),
             goals: Array.isArray(body.goals) ? body.goals.map(String) : [],
             maxConcurrent: typeof body.maxConcurrent === 'number' ? body.maxConcurrent : undefined,
           }),
         })
+      case 'delegation.observe':
+        return apiSuccess({
+          delegation: await hermesFeaturesService.observeDelegation(orgId, String(body.id || '')),
+        })
       case 'code.execute':
         return apiSuccess({
-          result: hermesFeaturesService.executeCode(orgId, agentId, String(body.script || ''), conversationId),
+          result: await hermesFeaturesService.executeCode(orgId, agentId, String(body.script || ''), conversationId),
         })
       case 'hooks.create':
         return apiSuccess({
-          hook: hermesFeaturesService.createHook({
+          hook: await hermesFeaturesService.createHook({
             orgId,
             kind: String(body.kind || ''),
             name: String(body.name || ''),
@@ -233,11 +248,11 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
         })
       case 'hooks.setEnabled':
         return apiSuccess({
-          hook: hermesFeaturesService.setHookEnabled(orgId, String(body.id || ''), body.enabled !== false),
+          hook: await hermesFeaturesService.setHookEnabled(orgId, String(body.id || ''), body.enabled !== false),
         })
       case 'batch.run':
         return apiSuccess({
-          job: hermesFeaturesService.runBatch({
+          job: await hermesFeaturesService.runBatch({
             orgId,
             agentId,
             prompts: Array.isArray(body.prompts) ? body.prompts.map(String) : [],
@@ -245,7 +260,7 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
         })
       case 'mcp.register':
         return apiSuccess({
-          server: hermesFeaturesService.registerMcp({
+          server: await hermesFeaturesService.registerMcp({
             orgId,
             name: String(body.name || ''),
             transport: String(body.transport || ''),
@@ -256,7 +271,7 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
         })
       case 'routing.set':
         return apiSuccess({
-          routing: hermesFeaturesService.setRouting(orgId, {
+          routing: await hermesFeaturesService.setRouting(orgId, {
             orgId,
             sort: body.sort as 'cost' | 'speed' | 'quality' | 'priority' | undefined,
             allowlist: Array.isArray(body.allowlist) ? body.allowlist.map(String) : undefined,
@@ -267,13 +282,13 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
       case 'routing.apply':
         return apiSuccess({
           ordered: hermesFeaturesService.applyRouting(
-            hermesFeaturesService.getRouting(orgId),
+            await hermesFeaturesService.getRouting(orgId),
             Array.isArray(body.candidates) ? body.candidates.map(String) : [],
           ),
         })
       case 'credentials.upsert':
         return apiSuccess({
-          pool: hermesFeaturesService.upsertCredentialPool({
+          pool: await hermesFeaturesService.upsertCredentialPool({
             orgId,
             provider: String(body.provider || ''),
             keys: Array.isArray(body.keys)
@@ -282,7 +297,7 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
           }),
         })
       case 'credentials.select': {
-        const pool = hermesFeaturesService.listCredentialPools(orgId).find((p) => p.provider === String(body.provider || ''))
+        const pool = (await hermesFeaturesService.listCredentialPools(orgId)).find((p) => p.provider === String(body.provider || ''))
         if (!pool) return apiError('Credential pool not found', 404)
         return apiSuccess({
           key: hermesFeaturesService.selectCredentialKey(pool, {
@@ -292,7 +307,7 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
       }
       case 'memoryProvider.bind':
         return apiSuccess({
-          binding: hermesFeaturesService.bindMemoryProvider({
+          binding: await hermesFeaturesService.bindMemoryProvider({
             orgId,
             agentId,
             provider: String(body.provider || ''),
@@ -300,27 +315,28 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
           }),
         })
       case 'memoryProvider.lookup': {
-        const binding = hermesFeaturesService.listMemoryProviders(orgId, agentId)[0]
+        const binding = (await hermesFeaturesService.listMemoryProviders(orgId, agentId))[0]
         if (!binding) return apiError('No memory provider binding', 404)
         return apiSuccess({
-          result: hermesFeaturesService.externalMemoryLookup(binding, String(body.query || '')),
+          result: await hermesFeaturesService.externalMemoryLookup(binding, String(body.query || '')),
         })
       }
       case 'personality.apply':
         return apiSuccess({
-          preset: hermesFeaturesService.applyPersonality(orgId, agentId, String(body.presetId || '')),
+          preset: await hermesFeaturesService.applyPersonality(orgId, agentId, String(body.presetId || '')),
         })
       case 'plugins.install':
-        return apiSuccess({ plugins: hermesFeaturesService.installPlugin(orgId, String(body.pluginId || '')) })
+        return apiSuccess({ plugins: await hermesFeaturesService.installPlugin(orgId, String(body.pluginId || '')) })
       case 'dispatch.build':
         return apiSuccess({
-          dispatch: hermesFeaturesService.buildDispatchBlock({
+          dispatch: await hermesFeaturesService.buildDispatchBlock({
             orgId,
             agentId,
             conversationId,
             userMessage: String(body.userMessage || ''),
             workspaceFiles: (body.workspaceFiles as Record<string, string>) || undefined,
             skillBodies: (body.skillBodies as Record<string, string>) || undefined,
+            autoCheckpoint: body.autoCheckpoint === true,
           }),
         })
       case 'media.speak':

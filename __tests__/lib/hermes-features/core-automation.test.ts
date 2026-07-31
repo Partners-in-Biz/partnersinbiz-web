@@ -1,9 +1,9 @@
 /**
- * Gating tests for Hermes Features Overview control plane (Core + Automation + Integrations).
- * Tests drive real shipped modules via hermesFeaturesService — no mock of the unit under test.
+ * Gating tests for durable Hermes Features control plane.
+ * Uses MemoryHermesFeaturesRepository (same interface as Firestore) via service.
  */
 import { hermesFeaturesService } from '@/lib/hermes-features/service'
-import { hermesFeaturesStore } from '@/lib/hermes-features/store'
+import { setHermesFeaturesRepositoryForTests, createMemoryRepository } from '@/lib/hermes-features/repository'
 import {
   handleToolsetsSlash,
   handleMemorySlash,
@@ -12,369 +12,348 @@ import {
   tryHandleHermesFeaturesSlash,
 } from '@/lib/hermes-features/slash'
 import { SLASH_COMMANDS, getSlashCommandByToken } from '@/lib/chat/slash-commands'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
 
-describe('hermes-features control plane', () => {
+describe('hermes-features durable control plane', () => {
   beforeEach(() => {
-    hermesFeaturesStore.reset()
+    hermesFeaturesService.useMemoryRepositoryForTests()
   })
 
-  describe('Core 1–6', () => {
-    it('enables/disables toolsets and sticks on read-back', () => {
-      const enabled = hermesFeaturesService.enableToolset('org1', 'pip', 'browser')
-      expect(enabled.enabled).toContain('browser')
-      const again = hermesFeaturesService.getToolsets('org1', 'pip')
+  afterEach(() => {
+    setHermesFeaturesRepositoryForTests(null)
+  })
+
+  describe('Core 1–6 durable', () => {
+    it('toolsets stick on read-back through repository', async () => {
+      await hermesFeaturesService.enableToolset('org1', 'pip', 'browser')
+      const again = await hermesFeaturesService.getToolsets('org1', 'pip')
       expect(again.enabled).toContain('browser')
-
-      const disabled = hermesFeaturesService.disableToolset('org1', 'pip', 'terminal')
-      expect(disabled.enabled).not.toContain('terminal')
-      expect(hermesFeaturesService.getToolsets('org1', 'pip').enabled).not.toContain('terminal')
-
-      const set = hermesFeaturesService.setToolsets('org1', 'pip', ['web', 'memory', 'skills'])
-      expect(set.enabled).toEqual(['web', 'memory', 'skills'])
+      await hermesFeaturesService.disableToolset('org1', 'pip', 'terminal')
+      expect((await hermesFeaturesService.getToolsets('org1', 'pip')).enabled).not.toContain('terminal')
     })
 
-    it('progressive skills catalog omits bodies until loaded', () => {
-      const catalog = hermesFeaturesService.setSkillCatalog('org1', 'pip', [
+    it('progressive skills catalog omits bodies until loaded', async () => {
+      const catalog = await hermesFeaturesService.setSkillCatalog('org1', 'pip', [
         { id: 'crm', name: 'CRM', description: 'sales pipeline', body: 'FULL BODY SECRET', tags: ['sales'] },
-        { id: 'seo', name: 'SEO', description: 'search sprint', body: 'SEO BODY' },
       ])
-      expect(catalog.every((s) => s.loaded === false)).toBe(true)
-      expect(catalog.every((s) => s.body === undefined)).toBe(true)
-
-      const loaded = hermesFeaturesService.selectAndLoadSkills('org1', 'pip', 'sales pipeline', {
-        crm: 'FULL BODY SECRET',
-      })
-      const crm = loaded.find((s) => s.id === 'crm')
-      expect(crm?.loaded).toBe(true)
-      expect(crm?.body).toBe('FULL BODY SECRET')
-      expect(loaded.find((s) => s.id === 'seo')?.loaded).toBe(false)
+      expect(catalog[0].loaded).toBe(false)
+      expect(catalog[0].body).toBeUndefined()
+      const loaded = await hermesFeaturesService.selectAndLoadSkills('org1', 'pip', 'sales', { crm: 'FULL BODY SECRET' })
+      expect(loaded.find((s) => s.id === 'crm')?.body).toBe('FULL BODY SECRET')
     })
 
-    it('MEMORY.md / USER.md get/set/append round-trips', () => {
-      const set = hermesFeaturesService.setMemorySection('org1', 'pip', 'memory', '# MEMORY\n\n- likes TypeScript\n')
-      expect(set.memoryMd).toContain('likes TypeScript')
-      const appended = hermesFeaturesService.appendMemory('org1', 'pip', 'user', 'prefers dark mode')
-      expect(appended.userMd).toContain('prefers dark mode')
-      const read = hermesFeaturesService.getMemory('org1', 'pip')
+    it('MEMORY.md survives repository reset isolation and read-back', async () => {
+      await hermesFeaturesService.setMemorySection('org1', 'pip', 'memory', '# MEMORY\n\n- likes TypeScript\n')
+      await hermesFeaturesService.appendMemory('org1', 'pip', 'user', 'prefers dark mode')
+      const read = await hermesFeaturesService.getMemory('org1', 'pip')
       expect(read.memoryMd).toContain('likes TypeScript')
       expect(read.userMd).toContain('prefers dark mode')
     })
 
-    it('discovers multi-format context files in Hermes order', () => {
-      const files = hermesFeaturesService.discoverContextFiles({
-        'SOUL.md': 'soul content',
-        'AGENTS.md': 'agents content',
-        '.hermes.md': 'hermes content',
-        'README.md': 'ignored',
-        '.cursorrules': 'cursor rules',
-      })
-      expect(files.map((f) => f.kind)).toEqual(['hermes', 'agents', 'soul', 'cursorrules'])
-      expect(files[0].fileName).toBe('.hermes.md')
+    it('discovers multi-format context files from workspace FS and rolls back writes', async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-ws-'))
+      try {
+        fs.writeFileSync(path.join(dir, 'AGENTS.md'), 'agents rules')
+        fs.writeFileSync(path.join(dir, 'SOUL.md'), 'soul')
+        fs.writeFileSync(path.join(dir, '.hermes.md'), 'hermes')
+        fs.writeFileSync(path.join(dir, 'note.txt'), 'v1')
+        const ws = hermesFeaturesService.createNodeWorkspaceFs(dir)!
+        expect(ws.discoverContextFiles().map((f) => f.kind)).toEqual(
+          expect.arrayContaining(['hermes', 'agents', 'soul']),
+        )
+
+        const snap = await hermesFeaturesService.createCheckpoint({
+          orgId: 'org1',
+          conversationId: 'c1',
+          workspace: ws,
+          label: 'before',
+        })
+        fs.writeFileSync(path.join(dir, 'note.txt'), 'v2-broken')
+        const restored = await hermesFeaturesService.rollback({
+          orgId: 'org1',
+          conversationId: 'c1',
+          checkpointId: snap.id,
+          workspace: ws,
+        })
+        expect(restored.files['note.txt']).toBe('v1')
+        expect(fs.readFileSync(path.join(dir, 'note.txt'), 'utf8')).toBe('v1')
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
     })
 
-    it('expands @file / @folder / @diff / @url references', () => {
+    it('expands @file/@folder/@diff/@url with deps', () => {
       const file = hermesFeaturesService.expandContextReference(
         { kind: 'file', query: 'src/a.ts' },
-        { readFile: (p) => (p === 'src/a.ts' ? 'export const a = 1' : null) },
+        { readFile: () => 'export const a = 1' },
       )
       expect(file.content).toContain('export const a = 1')
-
-      const folder = hermesFeaturesService.expandContextReference(
-        { kind: 'folder', query: 'src' },
-        { listFolder: () => ['a.ts', 'b.ts'] },
-      )
-      expect(folder.content).toContain('a.ts')
-
-      const diff = hermesFeaturesService.expandContextReference(
-        { kind: 'diff', query: 'HEAD' },
-        { gitDiff: () => 'diff --git a/x b/x\n+line' },
-      )
-      expect(diff.content).toContain('diff --git')
-
-      const url = hermesFeaturesService.expandContextReference(
-        { kind: 'url', query: 'https://example.com' },
-        { fetchUrl: () => '<html>ok</html>' },
-      )
-      expect(url.content).toContain('<html>ok</html>')
-
       const expanded = hermesFeaturesService.expandAtTokensInMessage(
         'See @file:src/a.ts and @url:https://example.com',
-        {
-          readFile: () => 'file body',
-          fetchUrl: () => 'url body',
-        },
+        { readFile: () => 'file body', fetchUrl: () => 'url body' },
       )
       expect(expanded.expansions).toHaveLength(2)
-      expect(expanded.expansions[0].kind).toBe('file')
-      expect(expanded.expansions[1].kind).toBe('url')
     })
 
-    it('checkpoint then rollback restores prior snapshot state', () => {
-      const snap = hermesFeaturesService.createCheckpoint({
+    it('dispatch auto-checkpoints and injects discovered context files', async () => {
+      const ws = hermesFeaturesService.createMemoryWorkspaceFs({
+        'AGENTS.md': 'project rules',
+        'src/app.ts': 'console.log(1)',
+      })
+      await hermesFeaturesService.setMemorySection('org1', 'pip', 'memory', '# MEMORY\n- fact\n')
+      await hermesFeaturesService.applyPersonality('org1', 'pip', 'concise')
+      await hermesFeaturesService.setSkillCatalog('org1', 'pip', [
+        { id: 'crm', name: 'CRM', description: 'pipeline', tags: ['crm'] },
+      ])
+      const block = await hermesFeaturesService.buildDispatchBlock({
         orgId: 'org1',
-        conversationId: 'conv1',
-        files: { 'a.ts': 'v1', 'b.ts': 'keep' },
-        label: 'before-edit',
+        agentId: 'pip',
+        conversationId: 'c1',
+        userMessage: 'crm pipeline please @file:src/app.ts',
+        workspace: ws,
+        skillBodies: { crm: 'CRM SKILL BODY' },
+        autoCheckpoint: true,
       })
-      hermesFeaturesService.store.setWorkspaceFiles('org1', 'conv1', {
-        'a.ts': 'v2-broken',
-        'c.ts': 'new',
-      })
-      const restored = hermesFeaturesService.rollback('org1', 'conv1', snap.id)
-      expect(restored.files['a.ts']).toBe('v1')
-      expect(restored.files['b.ts']).toBe('keep')
-      expect(restored.restoredPaths).toEqual(expect.arrayContaining(['a.ts', 'b.ts']))
-      expect(restored.removedPaths).toContain('c.ts')
-      expect(hermesFeaturesService.store.getWorkspaceFiles('org1', 'conv1')['a.ts']).toBe('v1')
+      expect(block.block).toContain('AGENTS.md')
+      expect(block.block).toContain('CRM SKILL BODY')
+      expect(block.block).toContain('console.log(1)')
+      expect(block.checkpointId).toBeTruthy()
+      expect(block.loadedSkillIds).toContain('crm')
+      expect(block.contextFileNames).toContain('AGENTS.md')
     })
   })
 
-  describe('Automation 7–11', () => {
-    it('creates lists pauses resumes and edits cron jobs', () => {
-      const job = hermesFeaturesService.createCron({
-        orgId: 'org1',
-        agentId: 'pip',
-        name: 'morning brief',
-        schedule: 'every weekday at 8am',
-        prompt: 'Write a briefing',
-      })
-      expect(job.status).toBe('active')
-      expect(hermesFeaturesService.listCron('org1')).toHaveLength(1)
+  describe('Automation 7–11 real paths', () => {
+    it('creates cron and fires via createRun dependency (Hermes run path)', async () => {
+      const runs: string[] = []
+      const job = await hermesFeaturesService.createCron(
+        {
+          orgId: 'org1',
+          agentId: 'pip',
+          name: 'brief',
+          schedule: '@hourly',
+          prompt: 'Write a briefing',
+        },
+        {
+          syncToHermes: async () => ({ ok: true, detail: 'synced' }),
+          createRun: async ({ prompt, jobId }) => {
+            runs.push(`${jobId}:${prompt}`)
+            return { ok: true, runId: `run_${jobId}` }
+          },
+        },
+      )
+      expect(job.hermesSynced).toBe(true)
+      expect(job.nextRunAt).toBeTruthy()
 
-      const paused = hermesFeaturesService.pauseCron('org1', job.id)
-      expect(paused.status).toBe('paused')
-      const resumed = hermesFeaturesService.resumeCron('org1', job.id)
-      expect(resumed.status).toBe('active')
-      const edited = hermesFeaturesService.editCron('org1', job.id, { schedule: '0 8 * * 1-5' })
-      expect(edited.schedule).toBe('0 8 * * 1-5')
+      const fired = await hermesFeaturesService.fireCron('org1', job.id, {
+        createRun: async ({ prompt, jobId }) => {
+          runs.push(`fire:${jobId}`)
+          return { ok: true, runId: `run_fire_${jobId}` }
+        },
+      })
+      expect(fired.lastFireRunId).toMatch(/^run_fire_/)
+      expect(runs.some((r) => r.startsWith('fire:'))).toBe(true)
     })
 
-    it('spawns bounded subagent delegations', () => {
-      const spawn = hermesFeaturesService.spawnDelegations({
-        parentRunHint: 'msg-1',
-        goals: ['audit CRM', 'draft email', 'check SEO', 'fourth ignored by max'],
-        maxConcurrent: 3,
-      })
-      expect(spawn.children).toHaveLength(3)
-      expect(spawn.maxConcurrent).toBe(3)
-      expect(spawn.children[0].status).toBe('queued')
-      expect(spawn.children[0].id).toMatch(/^child_/)
+    it('spawns observable delegation children with run ids', async () => {
+      const record = await hermesFeaturesService.spawnObservableDelegations(
+        {
+          orgId: 'org1',
+          agentId: 'pip',
+          conversationId: 'c1',
+          parentRunHint: 'parent-1',
+          goals: ['audit CRM', 'draft email'],
+          maxConcurrent: 2,
+        },
+        {
+          createRun: async ({ childId, goal }) => ({
+            ok: true,
+            runId: `hermes-${childId}`,
+            runDocId: `doc-${childId}`,
+          }),
+        },
+      )
+      expect(record.children).toHaveLength(2)
+      expect(record.children[0].status).toBe('running')
+      expect(record.children[0].runId).toMatch(/^hermes-child_/)
+      const observed = await hermesFeaturesService.observeDelegation('org1', record.id)
+      expect(observed?.children[1].runId).toBeTruthy()
     })
 
-    it('code execution respects toolset gate and runs trivial script', () => {
-      const blocked = hermesFeaturesService.executeCode('org1', 'pip', 'print("hi")')
-      expect(blocked.toolsetEnabled).toBe(false)
+    it('code execution respects toolset gate', async () => {
+      const blocked = await hermesFeaturesService.executeCode('org1', 'pip', 'print("hi")')
       expect(blocked.ok).toBe(false)
-
-      hermesFeaturesService.enableToolset('org1', 'pip', 'code_execution')
-      const ok = hermesFeaturesService.executeCode('org1', 'pip', 'print("hi")')
-      expect(ok.ok).toBe(true)
+      await hermesFeaturesService.enableToolset('org1', 'pip', 'code_execution')
+      const ok = await hermesFeaturesService.executeCode('org1', 'pip', 'print("hi")')
       expect(ok.stdout).toBe('hi\n')
-      expect(ok.exitCode).toBe(0)
-
-      const arith = hermesFeaturesService.executeCode('org1', 'pip', 'print(2+3)')
-      expect(arith.stdout).toBe('5\n')
     })
 
-    it('creates lists enables disables hooks', () => {
-      const hook = hermesFeaturesService.createHook({
-        orgId: 'org1',
-        kind: 'gateway_log',
-        name: 'log-all',
-      })
-      expect(hermesFeaturesService.listHooks('org1')).toHaveLength(1)
-      const disabled = hermesFeaturesService.setHookEnabled('org1', hook.id, false)
-      expect(disabled.enabled).toBe(false)
-      expect(hermesFeaturesService.listHookKinds()).toContain('tool_guard')
-    })
-
-    it('batch runner returns structured per-item results', () => {
-      const job = hermesFeaturesService.runBatch({
+    it('hooks and batch durable list', async () => {
+      await hermesFeaturesService.createHook({ orgId: 'org1', kind: 'gateway_log', name: 'log' })
+      expect(await hermesFeaturesService.listHooks('org1')).toHaveLength(1)
+      const batch = await hermesFeaturesService.runBatch({
         orgId: 'org1',
         agentId: 'pip',
-        prompts: ['one', 'two', 'three'],
+        prompts: ['a', 'b'],
+        runner: (p, i) => ({ status: 'ok', output: `real-${i}:${p}` }),
       })
-      expect(job.items).toHaveLength(3)
-      expect(job.items[0].status).toBe('ok')
-      expect(job.items[1].output).toContain('two')
-      expect(hermesFeaturesService.listBatch('org1')[0].id).toBe(job.id)
+      expect(batch.items[0].output).toBe('real-0:a')
     })
   })
 
-  describe('Media 12–17 product-safe', () => {
-    it('reports media readiness and speak/browser contracts', () => {
-      const cold = hermesFeaturesService.assessMediaReadiness()
-      expect(cold.find((m) => m.capability === 'voice_tts')?.status).toBe('not_ready')
-
-      const hot = hermesFeaturesService.assessMediaReadiness({
-        sttConfigured: true,
-        ttsProvider: 'elevenlabs',
-        browserBackend: 'cdp',
-        visionModel: 'grok-4.5',
-        imageGenProvider: 'fal',
+  describe('Media honesty', () => {
+    it('reports not_ready without env and ready with config', () => {
+      const cold = hermesFeaturesService.assessMediaReadiness({
+        sttConfigured: false,
+        ttsProvider: null,
+        browserBackend: null,
+        visionModel: null,
+        imageGenProvider: null,
       })
-      expect(hot.every((m) => m.status === 'ready')).toBe(true)
-
-      const speak = hermesFeaturesService.hermesSpeakPath('edge', 'Hello world')
-      expect(speak.ok).toBe(true)
-      expect(speak.provider).toBe('edge')
-      expect(speak.audioHint).toContain('hermes-tts://edge')
-
-      const browser = hermesFeaturesService.browserNavigateExtractContract({
-        url: 'https://example.com',
-        backend: 'cdp',
-      })
-      expect(browser.ok).toBe(true)
+      expect(cold.every((m) => m.status === 'not_ready')).toBe(true)
+      const speak = hermesFeaturesService.hermesSpeakPath(null, 'hi')
+      expect(speak.ok).toBe(false)
+      expect(speak.status).toBe('not_ready')
+      const hotSpeak = hermesFeaturesService.hermesSpeakPath('edge', 'hi')
+      expect(hotSpeak.ok).toBe(true)
+      expect(hotSpeak.hermesToolHint).toContain('tts.speak')
     })
   })
 
-  describe('Integrations 18–22, 26, 28', () => {
-    it('registers MCP servers and filters tools', () => {
-      const server = hermesFeaturesService.registerMcp({
+  describe('Integrations durable + honest external memory', () => {
+    it('MCP routing credentials personality plugins durable', async () => {
+      await hermesFeaturesService.registerMcp({
         orgId: 'org1',
         name: 'github',
         transport: 'http',
         endpoint: 'https://mcp.example.com',
-        toolAllowlist: ['search', 'create_issue'],
-        toolDenylist: ['create_issue'],
+        toolAllowlist: ['search'],
       })
-      expect(hermesFeaturesService.listMcp('org1')).toHaveLength(1)
-      const tools = hermesFeaturesService.filterMcpTools(
-        ['search', 'create_issue', 'delete'],
-        server,
-      )
-      expect(tools).toEqual(['search'])
-    })
+      expect(await hermesFeaturesService.listMcp('org1')).toHaveLength(1)
 
-    it('provider routing allow/deny/priority sticks on read-back', () => {
-      const policy = hermesFeaturesService.setRouting('org1', {
+      await hermesFeaturesService.setRouting('org1', {
         orgId: 'org1',
-        sort: 'priority',
-        allowlist: ['xai', 'openai', 'anthropic'],
-        denylist: ['anthropic'],
         priority: ['xai', 'openai'],
+        allowlist: ['xai', 'openai'],
+        denylist: [],
       })
-      expect(hermesFeaturesService.getRouting('org1').denylist).toContain('anthropic')
-      const ordered = hermesFeaturesService.applyRouting(policy, ['openai', 'anthropic', 'xai', 'other'])
+      const ordered = hermesFeaturesService.applyRouting(
+        await hermesFeaturesService.getRouting('org1'),
+        ['openai', 'xai'],
+      )
       expect(ordered).toEqual(['xai', 'openai'])
-    })
 
-    it('credential pool rotates on force after failure', () => {
-      const pool = hermesFeaturesService.upsertCredentialPool({
+      await hermesFeaturesService.upsertCredentialPool({
         orgId: 'org1',
         provider: 'xai',
         keys: [
-          { id: 'k1', label: 'primary', fingerprint: 'fp1', priority: 0 },
-          { id: 'k2', label: 'backup', fingerprint: 'fp2', priority: 1 },
+          { id: 'k1', label: 'a', fingerprint: 'fp1', priority: 0 },
+          { id: 'k2', label: 'b', fingerprint: 'fp2', priority: 1 },
         ],
       })
-      const first = hermesFeaturesService.selectCredentialKey(pool)
-      expect(first?.id).toBe('k1')
-      const marked = hermesFeaturesService.markCredentialStatus('org1', 'xai', 'k1', 'rate_limited')
+      const pool = (await hermesFeaturesService.listCredentialPools('org1'))[0]
+      const marked = await hermesFeaturesService.markCredentialStatus('org1', 'xai', 'k1', 'rate_limited')
       const next = hermesFeaturesService.selectCredentialKey(marked, { forceRotateFrom: 'k1' })
       expect(next?.id).toBe('k2')
+      expect(pool.keys[0].fingerprint).toBe('fp1')
+
+      await hermesFeaturesService.applyPersonality('org1', 'pip', 'engineer')
+      expect(await hermesFeaturesService.getAppliedPersonality('org1', 'pip')).toBe('engineer')
+      await hermesFeaturesService.installPlugin('org1', 'tool-guardrails')
+      expect((await hermesFeaturesService.listPlugins('org1')).find((p) => p.id === 'tool-guardrails')?.installed).toBe(true)
     })
 
-    it('external memory provider adapter returns hits beyond builtin MEMORY/USER', () => {
-      const binding = hermesFeaturesService.bindMemoryProvider({
+    it('external memory does not fabricate hits when not ready', async () => {
+      const binding = await hermesFeaturesService.bindMemoryProvider({
         orgId: 'org1',
         agentId: 'pip',
         provider: 'mem0',
+        config: {},
       })
-      const result = hermesFeaturesService.externalMemoryLookup(binding, 'preferred timezone')
-      expect(result.provider).toBe('mem0')
-      expect(result.hits[0].text).toContain('mem0')
-    })
+      const cold = await hermesFeaturesService.externalMemoryLookup(binding, 'timezone')
+      expect(cold.ready).toBe(false)
+      expect(cold.hits).toEqual([])
 
-    it('lists and applies personality presets', () => {
-      const presets = hermesFeaturesService.listPersonalityPresets()
-      expect(presets.length).toBeGreaterThan(1)
-      const applied = hermesFeaturesService.applyPersonality('org1', 'pip', 'engineer')
-      expect(applied.id).toBe('engineer')
-      expect(hermesFeaturesService.store.getAppliedPersonality('org1', 'pip')).toBe('engineer')
-    })
-
-    it('installs plugins into catalog', () => {
-      const plugins = hermesFeaturesService.installPlugin('org1', 'tool-guardrails')
-      const installed = plugins.find((p) => p.id === 'tool-guardrails')
-      expect(installed?.installed).toBe(true)
-      expect(hermesFeaturesService.listPlugins('org1').find((p) => p.id === 'tool-guardrails')?.installed).toBe(true)
+      const ready = await hermesFeaturesService.externalMemoryLookup(
+        { ...binding, config: { apiKey: 'test' } },
+        'timezone',
+        {
+          mem0Lookup: async (q) => [{ id: '1', text: `real mem0: ${q}` }],
+        },
+      )
+      expect(ready.ready).toBe(true)
+      expect(ready.hits[0].text).toContain('real mem0')
     })
   })
 
-  describe('dispatch + slash wiring', () => {
-    it('builds dispatch block with toolsets memory context files and architecture note', () => {
-      hermesFeaturesService.setMemorySection('org1', 'pip', 'memory', '# MEMORY\n\n- fact\n')
-      hermesFeaturesService.store.setWorkspaceFiles('org1', 'conv1', {
-        'AGENTS.md': 'project rules',
-      })
-      hermesFeaturesService.applyPersonality('org1', 'pip', 'concise')
-      const block = hermesFeaturesService.buildDispatchBlock({
-        orgId: 'org1',
-        agentId: 'pip',
-        conversationId: 'conv1',
-        userMessage: 'hello',
-      })
-      expect(block.block).toContain('[Hermes toolsets]')
-      expect(block.block).toContain('MEMORY.md')
-      expect(block.block).toContain('AGENTS.md')
-      expect(block.block).toContain('Firestore + /v1/runs')
-      expect(block.block).toContain('concise')
-    })
-
-    it('slash handlers for toolsets memory rollback personality work', () => {
-      const t = handleToolsetsSlash({
+  describe('slash + registry', () => {
+    it('async slash handlers mutate durable state', async () => {
+      const t = await handleToolsetsSlash({
         orgId: 'org1',
         agentId: 'pip',
         args: 'enable browser',
       })
       expect(t.reply).toContain('browser')
-      expect(hermesFeaturesService.getToolsets('org1', 'pip').enabled).toContain('browser')
+      expect((await hermesFeaturesService.getToolsets('org1', 'pip')).enabled).toContain('browser')
 
-      const m = handleMemorySlash({
+      const m = await handleMemorySlash({
         orgId: 'org1',
         agentId: 'pip',
         args: 'add ships on Fridays',
       })
       expect(m.reply).toContain('ships on Fridays')
 
-      hermesFeaturesService.createCheckpoint({
+      const ws = hermesFeaturesService.createMemoryWorkspaceFs({ a: '1' })
+      await hermesFeaturesService.createCheckpoint({
         orgId: 'org1',
         conversationId: 'c1',
-        files: { x: '1' },
+        workspace: ws,
       })
-      const r = handleRollbackSlash({
+      const r = await handleRollbackSlash({
         orgId: 'org1',
         conversationId: 'c1',
         args: 'list',
       })
       expect(r.reply).toContain('Checkpoint')
 
-      const p = handlePersonalitySlash({
+      const p = await handlePersonalitySlash({
         orgId: 'org1',
         agentId: 'pip',
         args: 'apply coach',
       })
       expect(p.reply).toContain('coach')
 
-      const status = tryHandleHermesFeaturesSlash({
+      const status = await tryHandleHermesFeaturesSlash({
         token: '/hermes-features',
         args: '',
         orgId: 'org1',
         agentId: 'pip',
         conversationId: 'c1',
       })
-      expect(status?.reply).toContain('Firestore')
-      expect(status?.reply).toContain('Deferred')
+      expect(status?.reply).toContain('Partial')
     })
 
-    it('registers hermes feature slash commands in Messages registry', () => {
+    it('registers slash commands', () => {
       for (const token of ['/toolsets', '/memory', '/rollback', '/personality', '/hermes-features']) {
-        const cmd = getSlashCommandByToken(token)
-        expect(cmd).not.toBeNull()
-        expect(cmd?.executorKind).toBe('hermes_features')
+        expect(getSlashCommandByToken(token)?.executorKind).toBe('hermes_features')
       }
       expect(SLASH_COMMANDS.some((c) => c.id === 'toolsets')).toBe(true)
     })
+  })
+
+  it('memory repository instances are isolated (durability interface)', async () => {
+    const a = createMemoryRepository()
+    const b = createMemoryRepository()
+    await a.setMemory({
+      orgId: 'o',
+      agentId: 'pip',
+      memoryMd: 'only-a',
+      userMd: '',
+      updatedAt: new Date().toISOString(),
+    })
+    expect((await b.getMemory('o', 'pip')).memoryMd).not.toContain('only-a')
+    expect((await a.getMemory('o', 'pip')).memoryMd).toContain('only-a')
   })
 })

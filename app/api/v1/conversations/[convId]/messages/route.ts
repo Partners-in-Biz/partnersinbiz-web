@@ -63,7 +63,7 @@ import {
 } from '@/lib/chat/hermes-goal'
 import { tryHandleHermesFeaturesSlash } from '@/lib/hermes-features/slash'
 import { hermesFeaturesService } from '@/lib/hermes-features/service'
-import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
+import { buildAgentSkillsPromptBlock, collectAgentSkillNames } from '@/lib/chat/agent-skills'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { requireReadyLlmCredentialBinding } from '@/lib/llm-providers/bindings'
@@ -662,13 +662,14 @@ export const POST = withAuth(
 
     // Hermes features control plane (/toolsets, /memory, /rollback, /personality, /hermes-features)
     if (slashCommand?.executorKind === 'hermes_features' && dispatchAgentId) {
-      const featureResult = tryHandleHermesFeaturesSlash({
+      const featureResult = await tryHandleHermesFeaturesSlash({
         token: slashCommand.token,
         args: slashCommand.args,
         orgId: conversation.orgId,
         agentId: dispatchAgentId,
         conversationId: convId,
         uid: user.uid,
+        workspaceContext: conversation.workspaceContext ?? null,
       })
       if (featureResult?.handled) {
         const displayContent = hermesFeaturesCommandLine(slashCommand)
@@ -1006,12 +1007,35 @@ export const POST = withAuth(
       const attachmentContext = publicAttachments.length > 0
         ? `\n\n[Attachments]\n${publicAttachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const hermesFeaturesDispatch = hermesFeaturesService.buildDispatchBlock({
+      const workspaceRoot = hermesFeaturesService.resolveWorkspaceRootFromConversation(
+        conversation.workspaceContext ?? null,
+      )
+      const workspaceFs = workspaceRoot
+        ? hermesFeaturesService.createNodeWorkspaceFs(workspaceRoot)
+        : null
+      const skillNames = collectAgentSkillNames(agentData)
+      const skillBodies: Record<string, string> = {}
+      // Progressive: catalog metadata from agent skills; bodies only for selected match later in dispatch
+      if (skillNames.length > 0) {
+        await hermesFeaturesService.setSkillCatalog(
+          conversation.orgId,
+          agentId,
+          skillNames.map((name) => ({
+            id: name,
+            name,
+            description: `Agent skill: ${name}`,
+            tags: [name],
+          })),
+        )
+      }
+      const hermesFeaturesDispatch = await hermesFeaturesService.buildDispatchBlock({
         orgId: conversation.orgId,
         agentId,
         conversationId: convId,
         userMessage: content || hermesGoalWorkPrompt || '',
-        workspaceFiles: hermesFeaturesService.store.getWorkspaceFiles(conversation.orgId, convId),
+        workspace: workspaceFs || undefined,
+        skillBodies,
+        autoCheckpoint: Boolean(workspaceFs),
       })
       const hermesFeaturesContext = hermesFeaturesDispatch.block
         ? `\n\n${hermesFeaturesDispatch.block}\n`
