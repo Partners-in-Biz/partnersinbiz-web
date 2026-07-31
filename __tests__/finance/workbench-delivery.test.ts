@@ -6,6 +6,7 @@ describe('finance workbench delivery contract', () => {
     expect(FINANCE_HTTP_ENTRYPOINTS).toEqual(expect.arrayContaining([
       'app/api/v1/finance/foundation/commands/route.ts',
       'app/api/v1/finance/foundation/queries/route.ts',
+      'app/api/v1/finance/reports/queries/route.ts',
     ]))
     expect(FINANCE_UI_SHIPPED).toBe(true)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)

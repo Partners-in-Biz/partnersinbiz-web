@@ -390,6 +390,7 @@ export default function FinanceWorkbenchPage() {
                 <div className="space-y-2 pt-2">
                   <Link href={scopedPortalPath('/portal/finance/ledger', orgScope)} className="pib-btn-ghost w-full justify-center">Ledger detail</Link>
                   <Link href={scopedPortalPath('/portal/finance/setup', orgScope)} className="pib-btn-ghost w-full justify-center">Setup guide</Link>
+                  <Link href={scopedPortalPath('/portal/finance/reports', orgScope)} className="pib-btn-ghost w-full justify-center">Financial reports</Link>
                 </div>
               </div>
 
@@ -481,7 +482,8 @@ export default function FinanceWorkbenchPage() {
                   <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {[
                       { title: 'Foundation ledger', status: 'Live', body: 'Legal entities, books, periods, accounts, journals, reversals, audit.' },
-                      { title: 'VAT / tax / reports', status: 'Domain ready', body: 'Service layer tested; Firestore HTTP surface still expanding.' },
+                      { title: 'Ledger reports', status: 'Live', body: 'Trial balance, income statement, and balance sheet over posted journals.' },
+                      { title: 'VAT / tax returns', status: 'Domain ready', body: 'Service layer tested; durable tax HTTP adapter still expanding.' },
                       { title: 'AR/AP + reconciliation', status: 'Domain ready', body: 'Documents/payments domain verified; durable HTTP adapters next.' },
                       { title: 'Intercompany', status: 'Domain ready', body: 'Pairs, due-to/due-from, eliminations verified in domain tests.' },
                       { title: 'ZA payroll + statutory', status: 'Domain ready', body: 'Pay runs, payslips, IRP5/EMP201/EMP501 domain verified; no SARS egress.' },
