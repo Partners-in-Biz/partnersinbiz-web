@@ -58,13 +58,15 @@ function normalizeAgentOutput(value: unknown): AgentOutput | undefined {
   }
 }
 
-function normalizeTask(task: Record<string, unknown>): ProjectChatTaskSource {
+export function normalizeTask(task: Record<string, unknown>): ProjectChatTaskSource {
   const agentInput = task.agentInput && typeof task.agentInput === 'object' && !Array.isArray(task.agentInput)
     ? task.agentInput as Record<string, unknown>
     : null
   return {
     id: cleanString(task.id),
     title: optionalString(task.title),
+    description: optionalString(task.description),
+    priority: optionalString(task.priority),
     columnId: knownString(task.columnId, COLUMN_IDS),
     agentStatus: knownString(task.agentStatus, AGENT_STATUSES),
     assigneeAgentId: optionalString(task.assigneeAgentId),
@@ -135,7 +137,7 @@ export function projectTaskChatActions(input: {
   }] : []
 }
 
-function summary(task: ProjectChatTaskItem, actions: ChatContextAction[] = []): ContextItemSummary {
+export function projectTaskSummary(task: ProjectChatTaskItem, actions: ChatContextAction[] = []): ContextItemSummary {
   const dependencyDetail = task.unresolvedDependencyIds.length > 0
     ? `Waiting for ${task.unresolvedDependencyIds.length} dependenc${task.unresolvedDependencyIds.length === 1 ? 'y' : 'ies'}`
     : undefined
@@ -250,14 +252,14 @@ export const projectChatContextAdapter: ChatContextAdapter = {
             { id: 'needs-you', label: 'Needs you', value: progress.counts.needsYou },
             { id: 'blocked', label: 'Blocked', value: progress.counts.blocked },
           ],
-          next: progress.next ? summary(progress.next, actionsByTaskId.get(progress.next.id)) : undefined,
+          next: progress.next ? projectTaskSummary(progress.next, actionsByTaskId.get(progress.next.id)) : undefined,
         },
         groups: progress.tasks.length > 0
           ? [{
               id: 'tasks',
               label: 'Tasks',
               items: progress.tasks.map((task) => ({
-                ...summary(task, actionsByTaskId.get(task.id)),
+                ...projectTaskSummary(task, actionsByTaskId.get(task.id)),
                 href: `/portal/projects/${encodeURIComponent(projectId)}?taskId=${encodeURIComponent(task.id)}`,
               })),
             }]

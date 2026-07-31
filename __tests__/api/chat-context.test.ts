@@ -114,6 +114,9 @@ describe('chat context read-model API', () => {
     mockResolveContextReferences.mockResolvedValueOnce([{
       type: 'task', id: 'task-in-project', orgId: 'client-org', label: 'Approve launch', origin: 'manual',
     }])
+    mockTaskGet.mockResolvedValueOnce({ docs: [
+      { id: 'task-in-project', data: () => ({ title: 'Approve launch', columnId: 'todo' }) },
+    ] })
 
     const res = await getWithProject('task', 'task-in-project', 'project-1')
 

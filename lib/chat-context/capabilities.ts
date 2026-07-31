@@ -48,7 +48,7 @@ function descriptor(kind: ContextReferenceType, input: DescriptorInput): ChatCon
  */
 export const CHAT_CONTEXT_CAPABILITIES = {
   project: descriptor('project', { domain: 'delivery', label: 'Project', adapterLevel: 'specialized', actionLevel: 'inline', authoritativeSource: 'Projects and Kanban', recommendedAgentIds: ['pip', 'theo', 'qa-release', 'docs'] }),
-  task: descriptor('task', { domain: 'delivery', label: 'Task', adapterLevel: 'canonical', actionLevel: 'navigate', authoritativeSource: 'Project task subcollection', recommendedAgentIds: ['pip', 'theo', 'qa-release'] }),
+  task: descriptor('task', { domain: 'delivery', label: 'Task', adapterLevel: 'specialized', actionLevel: 'inline', authoritativeSource: 'Project task subcollection', recommendedAgentIds: ['pip', 'theo', 'qa-release'] }),
   contact: descriptor('contact', { domain: 'crm', label: 'Contact', adapterLevel: 'specialized', actionLevel: 'inline', authoritativeSource: 'CRM contacts', recommendedAgentIds: ['sales', 'nora', 'pip'] }),
   company: descriptor('company', { domain: 'crm', label: 'Company', adapterLevel: 'specialized', actionLevel: 'inline', authoritativeSource: 'CRM companies', recommendedAgentIds: ['sales', 'nora', 'pip'] }),
   product: descriptor('product', { domain: 'commerce', label: 'Product', adapterLevel: 'specialized', actionLevel: 'inline', authoritativeSource: 'Product catalog', recommendedAgentIds: ['nora', 'sales', 'data'] }),

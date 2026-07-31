@@ -96,6 +96,9 @@ describe('chat context adapter registry', () => {
     jest.doMock('@/lib/chat-context/adapters/email', () => ({
       emailChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('email-1') }) },
     }))
+    jest.doMock('@/lib/chat-context/adapters/task', () => ({
+      taskChatContextAdapter: { resolve: jest.fn().mockResolvedValue({ ok: true, model: readModel('task-1') }) },
+    }))
     jest.doMock('@/lib/chat-context/adapters/project', () => ({ projectChatContextAdapter: { resolve: jest.fn() } }))
     jest.doMock('@/lib/chat-context/adapters/marketingStudio', () => ({ marketingStudioChatContextAdapter: { resolve: jest.fn() } }))
     jest.doMock('@/lib/chat-context/adapters/marketingStudioArtifact', () => ({ marketingStudioArtifactChatContextAdapter: { resolve: jest.fn() } }))
@@ -114,6 +117,7 @@ describe('chat context adapter registry', () => {
     const { productChatContextAdapter } = await import('@/lib/chat-context/adapters/product')
     const { calendarEventChatContextAdapter } = await import('@/lib/chat-context/adapters/calendarEvent')
     const { emailChatContextAdapter } = await import('@/lib/chat-context/adapters/email')
+    const { taskChatContextAdapter } = await import('@/lib/chat-context/adapters/task')
 
     await chatContextRegistry.resolve({ kind: 'campaign', id: 'camp-1', user })
     await chatContextRegistry.resolve({ kind: 'social', id: 'post-1', user })
@@ -122,6 +126,7 @@ describe('chat context adapter registry', () => {
     await chatContextRegistry.resolve({ kind: 'product', id: 'product-1', user })
     await chatContextRegistry.resolve({ kind: 'calendar_event', id: 'event-1', user })
     await chatContextRegistry.resolve({ kind: 'email', id: 'email-1', user })
+    await chatContextRegistry.resolve({ kind: 'task', id: 'task-1', projectId: 'project-1', user })
 
     expect(campaignChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'campaign', id: 'camp-1', user })
     expect(socialChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'social', id: 'post-1', user })
@@ -130,5 +135,6 @@ describe('chat context adapter registry', () => {
     expect(productChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'product', id: 'product-1', user })
     expect(calendarEventChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'calendar_event', id: 'event-1', user })
     expect(emailChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'email', id: 'email-1', user })
+    expect(taskChatContextAdapter.resolve).toHaveBeenCalledWith({ kind: 'task', id: 'task-1', projectId: 'project-1', user })
   })
 })
