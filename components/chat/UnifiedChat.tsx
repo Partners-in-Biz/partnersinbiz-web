@@ -263,6 +263,8 @@ interface OrgWorkspaceSummary {
   syncMode: string
   defaultRuntimeTarget: string
   folderVersion: number
+  /** Set for company Cowork trees — those belong under Cowork folders, not Workspaces. */
+  companyId?: string | null
 }
 
 interface WorkspaceProjectSummary {
@@ -812,6 +814,12 @@ function buildHermesSessionSections(conversations: Conversation[], pinnedIds: st
   ].filter((section) => section.conversations.length > 0)
 }
 
+function isOrganisationWorkspace(workspace: OrgWorkspaceSummary): boolean {
+  // Company Cowork provision writes org_workspaces rows with companyId + client
+  // orgName (e.g. "Scholtz Inc"). Those sessions belong under Cowork folders only.
+  return !workspace.companyId?.trim()
+}
+
 function buildHermesWorkspaceGroups(
   conversations: Conversation[],
   workspaces: OrgWorkspaceSummary[],
@@ -819,8 +827,16 @@ function buildHermesWorkspaceGroups(
   pinnedIds: string[] = [],
 ) {
   const pinnedSet = new Set(pinnedIds)
+  // Only organisation-root Workspaces. Company-linked trees are not Workspaces
+  // in the Messages rail — they surface under Cowork folders via company scope.
+  const organisationWorkspaces = workspaces.filter(isOrganisationWorkspace)
+  const companyWorkspaceIds = new Set(
+    workspaces
+      .filter((workspace) => !isOrganisationWorkspace(workspace))
+      .map((workspace) => workspace.workspaceId),
+  )
   const groups = new Map<string, { id: string; name: string; conversations: Conversation[] }>()
-  for (const workspace of workspaces) {
+  for (const workspace of organisationWorkspaces) {
     groups.set(workspace.workspaceId, {
       id: workspace.workspaceId,
       name: workspace.orgName || workspace.orgSlug || 'Workspace',
@@ -831,6 +847,9 @@ function buildHermesWorkspaceGroups(
     if (conversation.archived || pinnedSet.has(conversation.id)) continue
     const workspace = conversationWorkspaceIdentity(conversation)
     if (!workspace) continue
+    // Never promote a company Cowork workspace into the Workspaces rail, even
+    // if a conversation only has workspace scope metadata without companyId.
+    if (companyWorkspaceIds.has(workspace.id)) continue
     const group = groups.get(workspace.id) ?? { ...workspace, conversations: [] }
     if (!groups.has(workspace.id)) group.name = workspace.name
     group.conversations.push(conversation)
@@ -840,7 +859,8 @@ function buildHermesWorkspaceGroups(
   const query = filter.trim().toLocaleLowerCase()
   if (!query) {
     return Array.from(groups.values()).filter((group) =>
-      group.conversations.length > 0 || workspaces.some((w) => w.workspaceId === group.id))
+      group.conversations.length > 0
+      || organisationWorkspaces.some((w) => w.workspaceId === group.id))
   }
   return Array.from(groups.values()).flatMap((group) => {
     if (group.name.toLocaleLowerCase().includes(query)) return [group]
@@ -1798,9 +1818,14 @@ export default function UnifiedChat({
     [messages],
   )
   const activeQueuedDrafts = activeId ? (queuedDraftsByConversation[activeId] ?? []) : []
+  const organisationWorkspaces = useMemo(
+    () => workspaces.filter(isOrganisationWorkspace),
+    [workspaces],
+  )
   const selectedWorkspace = useMemo(
-    () => workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ?? null,
-    [workspaces, selectedWorkspaceId],
+    () => organisationWorkspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId)
+      ?? workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ?? null,
+    [organisationWorkspaces, workspaces, selectedWorkspaceId],
   )
   const selectedWorkspaceProject = useMemo(
     () => workspaceProjects.find((project) => project.id === selectedProjectId) ?? null,
@@ -2433,9 +2458,17 @@ export default function UnifiedChat({
           [workspaceCatalogueAgentId]: runtimeTargetsByWorkspace,
         }))
         setWorkspaceCatalogueLoaded(true)
-        const initialWorkspaceId = next[0]?.workspaceId || ''
-        const initialWorkspace = next.find((workspace) => workspace.workspaceId === initialWorkspaceId) ?? next[0]
-        setSelectedWorkspaceId((current) => current || initialWorkspaceId)
+        // Prefer organisation-root Workspaces; company Cowork trees are not valid
+        // defaults for "Organisation root" / project runtime pickers.
+        const organisationRoots = next.filter(isOrganisationWorkspace)
+        const preferredRoots = organisationRoots.length > 0 ? organisationRoots : next
+        const initialWorkspaceId = preferredRoots[0]?.workspaceId || ''
+        const initialWorkspace = preferredRoots.find((workspace) => workspace.workspaceId === initialWorkspaceId) ?? preferredRoots[0]
+        setSelectedWorkspaceId((current) => {
+          if (current && preferredRoots.some((workspace) => workspace.workspaceId === current)) return current
+          if (current && next.some((workspace) => workspace.workspaceId === current && isOrganisationWorkspace(workspace))) return current
+          return initialWorkspaceId
+        })
         setSelectedProjectId((current) => current || projectId || projects[0]?.id || '')
         setSelectedWorkspaceRuntime((current) => {
           if (workspaceRuntimeExplicitRef.current) return current
@@ -8478,12 +8511,12 @@ export default function UnifiedChat({
                         aria-label="Organisation root"
                         value={selectedWorkspaceId}
                         onChange={(e) => { workspaceRuntimeExplicitRef.current = false; setSelectedWorkspaceId(e.target.value); setSelectedWorkspaceRuntime('') }}
-                        disabled={workspacesLoading || workspaces.length === 0}
+                        disabled={workspacesLoading || organisationWorkspaces.length === 0}
                         className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-primary/60 disabled:opacity-60"
                       >
-                        {workspaces.length === 0 ? (
+                        {organisationWorkspaces.length === 0 ? (
                           <option value="">{workspacesLoading ? 'Loading Workspaces…' : 'No Workspaces available'}</option>
-                        ) : workspaces.map((workspace) => (
+                        ) : organisationWorkspaces.map((workspace) => (
                           <option key={workspace.workspaceId} value={workspace.workspaceId}>{workspace.orgName}</option>
                         ))}
                       </select>
@@ -8722,10 +8755,10 @@ export default function UnifiedChat({
                                   setProjectSetupWorkspaceId(event.target.value)
                                   setProjectSetupLocationIds([])
                                 }}
-                                disabled={workspaces.length === 0}
+                                disabled={organisationWorkspaces.length === 0}
                                 className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60 disabled:opacity-60"
                               >
-                                {workspaces.length === 0 ? <option value="">No mapped Workspaces</option> : workspaces.map((workspace) => (
+                                {organisationWorkspaces.length === 0 ? <option value="">No mapped Workspaces</option> : organisationWorkspaces.map((workspace) => (
                                   <option key={workspace.workspaceId} value={workspace.workspaceId}>{workspace.orgName}</option>
                                 ))}
                               </select>
