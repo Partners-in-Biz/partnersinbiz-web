@@ -1,6 +1,6 @@
 # Partners in Biz Finance, Accounting, and South African Payroll Architecture
 
-Status: approved and implemented (gate e7EEr9HtG0MdCrwyhT63, verification commit following)
+Status: approved and implemented (gate e7EEr9HtG0MdCrwyhT63); foundation verified: 7 suites / 87 tests (65 unit+integration + 22 Firestore emulator) via npm run verify:finance:foundation
 Repository: existing `partnersinbiz-web` application on `development`
 Project: Partners in Biz Finance, Accounting & South African Payroll (`HRCSWl1cNnh6fYEGziAb`)
 Architecture task: Inventory existing web finance models and define additive architecture/data-model delta (`MDgyihpKCbNNJY03ThqT`)
