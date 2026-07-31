@@ -192,7 +192,10 @@ function signedNet(account: LedgerAccount, balance: AccountBalance): number {
 }
 
 function digestInput(input: ReportInputMeta): string {
-  return canonicalDigest(input)
+  const compact = Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined),
+  )
+  return canonicalDigest(compact)
 }
 
 export function buildTrialBalance(input: {

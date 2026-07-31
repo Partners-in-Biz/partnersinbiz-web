@@ -45,6 +45,9 @@ export type FinanceApprovalAction =
   | 'period.reopen'
   | 'period.close'
   | 'period.adjust'
+  | 'tax-rule.approve'
+  | 'tax.return.prepare'
+  | 'tax.return.approve'
 
 export interface FinanceApprovalEvidence {
   approvalId: string

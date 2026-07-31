@@ -12,6 +12,8 @@ describe('finance foundation storage contract', () => {
       'finance_role_assignments', 'finance_approvals', 'ledger_accounts', 'journal_entries', 'journal_lines',
       'finance_unique_claims', 'finance_sequences', 'finance_audit_events',
       'finance_audit_heads', 'finance_outbox_events',
+      'tax_codes', 'tax_rule_versions', 'tax_periods', 'tax_return_snapshots', 'tax_return_lines',
+      'financial_report_snapshots',
     ]) {
       expect(rules).toContain(`match /${collection}/{id} { allow read, write: if false; }`)
     }

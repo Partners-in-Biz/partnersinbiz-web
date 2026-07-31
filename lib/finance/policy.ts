@@ -10,6 +10,11 @@ export type FinanceAction =
   | 'period.close'
   | 'period.reopen'
   | 'book-policy.approve'
+  | 'tax.configure'
+  | 'tax.read'
+  | 'tax.return.prepare'
+  | 'tax.return.approve'
+  | 'report.read'
 
 const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'foundation.configure': ['finance_admin'],
@@ -21,6 +26,11 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'period.close': ['finance_approver', 'finance_admin'],
   'period.reopen': ['finance_approver', 'finance_admin'],
   'book-policy.approve': ['finance_approver', 'finance_admin'],
+  'tax.configure': ['finance_admin', 'accountant'],
+  'tax.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'tax.return.prepare': ['accountant', 'finance_approver', 'finance_admin'],
+  'tax.return.approve': ['finance_approver', 'finance_admin'],
+  'report.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
 }
 
 const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/

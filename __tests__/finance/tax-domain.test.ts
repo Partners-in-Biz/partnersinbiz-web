@@ -1,3 +1,4 @@
+import { immutableContentHash } from '@/lib/accounting/foundation'
 import {
   assertTaxRuleVersionHash,
   calculateTaxAmount,
@@ -37,7 +38,6 @@ function rule(overrides: Partial<TaxRuleVersion> = {}): TaxRuleVersion {
     updatedBy: 'admin',
     ...overrides,
   }
-  const { immutableContentHash } = require('@/lib/accounting/foundation') as typeof import('@/lib/accounting/foundation')
   return { ...base, contentHash: immutableContentHash(base) }
 }
 
@@ -62,7 +62,7 @@ const code: TaxCode = {
 
 describe('VAT and configurable tax rule domain', () => {
   test('pins the unique effective South African rule version and refuses later rate changes', () => {
-    const current = rule()
+    const current = rule({ effectiveTo: '2027-03-31' })
     const later = rule({
       id: 'rule-za-standard-v2',
       versionNumber: 2,
@@ -76,9 +76,8 @@ describe('VAT and configurable tax rule domain', () => {
     expect(resolved.id).toBe(current.id)
     expect(resolved.rateBasisPoints).toBe(1500)
 
-    expect(() => resolveEffectiveTaxRule([current, later], code.id, '2027-05-01').rateBasisPoints)
-      .not.toThrow()
     expect(resolveEffectiveTaxRule([current, later], code.id, '2027-05-01').id).toBe(later.id)
+    expect(resolveEffectiveTaxRule([current, later], code.id, '2027-05-01').rateBasisPoints).toBe(1600)
   })
 
   test('calculates inclusive and exclusive VAT with half-up minor-unit rounding and stores a trace', () => {
