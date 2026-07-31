@@ -609,6 +609,7 @@ function linkifyBareUrlsOnly(text: string, keyPrefix: string, mentions?: Mention
 }
 
 const MENTION_PATTERN = /@(user|agent):[a-zA-Z0-9_-]+/g
+const MENTION_SCAN_PATTERN = /@(user|agent):[a-zA-Z0-9_-]+/
 
 function mentionStyleFor(mentionText: string, mentions?: Mention[]): { border: string; bg: string; text: string; title: string } {
   const match = mentions?.find((item) => item.raw === mentionText)
@@ -858,15 +859,19 @@ function DeviceAuthCard({ instruction }: { instruction: DeviceAuthInstruction })
 }
 
 
-function inlineMarkdown(text: string): ReactNode[] {
+function inlineMarkdown(text: string, mentions?: Mention[]): ReactNode[] {
   const nodes: ReactNode[] = []
   const tokenPattern = /(\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g
   let lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = tokenPattern.exec(text)) !== null) {
-    if (match.index > lastIndex) nodes.push(...linkifyBareUrls(text.slice(lastIndex, match.index), `plain-${match.index}`))
+    if (match.index > lastIndex) nodes.push(...linkifyBareUrls(text.slice(lastIndex, match.index), `plain-${match.index}`, mentions))
     if (match[2]) {
-      nodes.push(<strong key={`strong-${match.index}`} className="font-semibold text-[var(--color-pib-text)]">{match[2]}</strong>)
+      nodes.push(
+        <strong key={`strong-${match.index}`} className="font-semibold text-[var(--color-pib-text)]">
+          {renderMentions(match[2], `strong-${match.index}`, mentions)}
+        </strong>,
+      )
     } else if (match[3]) {
       nodes.push(<code key={`code-${match.index}`} className="rounded bg-black/30 px-1 py-0.5 font-mono text-[0.9em] text-primary">{match[3]}</code>)
     } else if (match[4] && match[5]) {
@@ -878,7 +883,7 @@ function inlineMarkdown(text: string): ReactNode[] {
     }
     lastIndex = match.index + match[0].length
   }
-  if (lastIndex < text.length) nodes.push(...linkifyBareUrls(text.slice(lastIndex), `plain-${lastIndex}`))
+  if (lastIndex < text.length) nodes.push(...linkifyBareUrls(text.slice(lastIndex), `plain-${lastIndex}`, mentions))
   return nodes
 }
 
@@ -961,7 +966,7 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
   )
 }
 
-function renderMarkdownBlocks(content: string): ReactNode[] {
+function renderMarkdownBlocks(content: string, mentions?: Mention[]): ReactNode[] {
   const nodes: ReactNode[] = []
   const fencePattern = /```([^\n`]*)\n([\s\S]*?)```/g
   let lastIndex = 0
@@ -973,7 +978,7 @@ function renderMarkdownBlocks(content: string): ReactNode[] {
     const flushParagraph = () => {
       if (!paragraph.length) return
       const text = paragraph.join('\n').trim()
-      if (text) nodes.push(<p key={`${baseKey}-p-${nodes.length}`} className="my-1.5 whitespace-pre-wrap">{inlineMarkdown(text)}</p>)
+      if (text) nodes.push(<p key={`${baseKey}-p-${nodes.length}`} className="my-1.5 whitespace-pre-wrap">{inlineMarkdown(text, mentions)}</p>)
       paragraph = []
     }
 
@@ -1003,7 +1008,7 @@ function renderMarkdownBlocks(content: string): ReactNode[] {
       } else if (heading) {
         flushParagraph()
         const Tag = (`h${Math.min(heading[1].length + 2, 6)}`) as 'h3' | 'h4' | 'h5' | 'h6'
-        nodes.push(<Tag key={`${baseKey}-h-${nodes.length}`} className="mt-3 mb-1 text-sm font-semibold text-[var(--color-pib-text)]">{inlineMarkdown(heading[2])}</Tag>)
+        nodes.push(<Tag key={`${baseKey}-h-${nodes.length}`} className="mt-3 mb-1 text-sm font-semibold text-[var(--color-pib-text)]">{inlineMarkdown(heading[2], mentions)}</Tag>)
       } else if (listItem) {
         flushParagraph()
         const items: string[] = [listItem[1]]
@@ -1015,7 +1020,7 @@ function renderMarkdownBlocks(content: string): ReactNode[] {
         }
         nodes.push(
           <ul key={`${baseKey}-list-${nodes.length}`} className="my-1.5 list-disc space-y-1 pl-5">
-            {items.map((item, itemIndex) => <li key={itemIndex}>{inlineMarkdown(item)}</li>)}
+            {items.map((item, itemIndex) => <li key={itemIndex}>{inlineMarkdown(item, mentions)}</li>)}
           </ul>,
         )
       } else if (!line.trim()) {
@@ -1040,9 +1045,10 @@ function contentNeedsInlineProcessing(content: string): boolean {
   return hasBareUrl(content)
     || content.includes('[redacted-url]')
     || content.includes('[[pib-reveal:')
+    || MENTION_SCAN_PATTERN.test(content)
 }
 
-export function ChatMessageContent({ content }: { content: string }) {
+export function ChatMessageContent({ content, mentions }: { content: string; mentions?: Mention[] }) {
   if (!content) return null
   const authInstruction = extractDeviceAuthInstruction(content)
   if (authInstruction) return <DeviceAuthCard instruction={authInstruction} />
@@ -1050,12 +1056,12 @@ export function ChatMessageContent({ content }: { content: string }) {
     if (!contentNeedsInlineProcessing(content)) return <>{content}</>
     return (
       <div className="space-y-1 [&>:first-child]:mt-0 [&>:last-child]:mb-0">
-        <p>{linkifyBareUrls(content, 'plain-message')}</p>
+        <p>{linkifyBareUrls(content, 'plain-message', mentions)}</p>
         <BareUrlPreviews content={content} />
       </div>
     )
   }
-  return <div className="space-y-1 [&>:first-child]:mt-0 [&>:last-child]:mb-0">{renderMarkdownBlocks(content)}</div>
+  return <div className="space-y-1 [&>:first-child]:mt-0 [&>:last-child]:mb-0">{renderMarkdownBlocks(content, mentions)}</div>
 }
 
 function partContent(part: RichMessagePart): string {
@@ -1128,9 +1134,11 @@ function ApprovalCardSection({ title, children }: { title: string; children: Rea
 function ApprovalCard({
   part,
   onQuoteSelection,
+  mentions,
 }: {
   part: RichMessagePart
   onQuoteSelection?: (text: string) => void
+  mentions?: Mention[]
 }) {
   const title = part.title ?? 'CEO approval needed'
   const decisionGroupName = useId()
@@ -1160,7 +1168,7 @@ function ApprovalCard({
         </span>
       </div>
 
-      {body && <div className="mt-2 text-xs leading-relaxed text-[var(--color-pib-text-muted)]"><ChatMessageContent content={body} /></div>}
+      {body && <div className="mt-2 text-xs leading-relaxed text-[var(--color-pib-text-muted)]"><ChatMessageContent content={body} mentions={mentions} /></div>}
 
       <div className="mt-3 grid gap-3">
         {evidence.length > 0 && (
@@ -1351,9 +1359,11 @@ function WorkspacePanelCard({ part }: { part: RichMessagePart }) {
 function RichMessagePartView({
   part,
   onQuoteSelection,
+  mentions,
 }: {
   part: RichMessagePart
   onQuoteSelection?: (text: string) => void
+  mentions?: Mention[]
 }) {
   const type = String(part.type).toLowerCase()
   if (type === 'studio_artifact' || type === 'studio_artifact_bundle') {
@@ -1363,7 +1373,7 @@ function RichMessagePartView({
     return <WorkspacePanelCard part={part} />
   }
   if (type === 'markdown') {
-    return <ChatMessageContent content={partContent(part)} />
+    return <ChatMessageContent content={partContent(part)} mentions={mentions} />
   }
   if (type === 'code') {
     return <CodeBlock language={part.language ?? ''} code={part.code ?? partContent(part)} />
@@ -1491,23 +1501,23 @@ function RichMessagePartView({
     )
   }
   if (type === 'approval_card') {
-    return <ApprovalCard part={part} onQuoteSelection={onQuoteSelection} />
+    return <ApprovalCard part={part} onQuoteSelection={onQuoteSelection} mentions={mentions} />
   }
   if (type === 'project_task_proposal') {
     return <ProjectTaskProposal part={part} />
   }
   if (type === 'project_command_event') {
-    return <ProjectCommandEventCard part={part} />
+    return <ProjectCommandEventCard part={part} mentions={mentions} />
   }
-  return partContent(part) ? <ChatMessageContent content={partContent(part)} /> : null
+  return partContent(part) ? <ChatMessageContent content={partContent(part)} mentions={mentions} /> : null
 }
 
-function ProjectCommandEventCard({ part }: { part: RichMessagePart }) {
+function ProjectCommandEventCard({ part, mentions }: { part: RichMessagePart; mentions?: Mention[] }) {
   const event = (part as RichMessagePart & { event?: Record<string, unknown> }).event
     ?? (part as RichMessagePart & { data?: Record<string, unknown> }).data
     ?? null
   if (!event || typeof event !== 'object') {
-    return partContent(part) ? <ChatMessageContent content={partContent(part)} /> : null
+    return partContent(part) ? <ChatMessageContent content={partContent(part)} mentions={mentions} /> : null
   }
   const type = String(event.type ?? 'update')
   const taskTitle = String(event.taskTitle ?? event.taskId ?? 'Task')
@@ -1565,15 +1575,22 @@ function RehydratedStudioArtifacts({ part }: { part: RichMessagePart }) {
 function RichMessageParts({
   parts,
   onQuoteSelection,
+  mentions,
 }: {
   parts?: RichMessagePart[]
   onQuoteSelection?: (text: string) => void
+  mentions?: Mention[]
 }) {
   if (!parts?.length) return null
   return (
     <div className="mt-2 space-y-2 whitespace-normal">
       {parts.map((part, index) => (
-        <RichMessagePartView key={part.id ?? `${part.type}-${index}`} part={part} onQuoteSelection={onQuoteSelection} />
+        <RichMessagePartView
+          key={part.id ?? `${part.type}-${index}`}
+          part={part}
+          onQuoteSelection={onQuoteSelection}
+          mentions={mentions}
+        />
       ))}
     </div>
   )
@@ -1986,8 +2003,8 @@ export default function MessageBubble({
                 onMouseUp={handleTextSelection}
                 className="mx-bubble-mine max-w-full overflow-hidden rounded-2xl rounded-br-md px-4 py-2.5 text-[15px] lg:text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] bg-[var(--color-card-active,rgba(255,255,255,0.08))] lg:bg-primary lg:text-on-primary text-[var(--color-pib-text)]"
               >
-              <ChatMessageContent content={renderedMessage.content} />
-              <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} />
+            <ChatMessageContent content={renderedMessage.content} mentions={renderedMessage.mentions} />
+            <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} mentions={renderedMessage.mentions} />
               {attachmentList}
               <RichActionBar actions={renderedMessage.uiActions} message={renderedMessage} onUiAction={onUiAction} />
               </div>
@@ -2234,6 +2251,7 @@ export default function MessageBubble({
               <span className="opacity-70 italic">Paused — awaiting tool approval…</span>
             )}
             <ChatMessageContent
+              mentions={renderedMessage.mentions}
               content={
                 renderedMessage.content
                 || (isFailed && renderedMessage.error
@@ -2242,7 +2260,7 @@ export default function MessageBubble({
                 || ''
               }
             />
-            <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} />
+            <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} mentions={renderedMessage.mentions} />
             {attachmentList}
             <RichActionBar actions={renderedMessage.uiActions} message={renderedMessage} onUiAction={onUiAction} />
           </div>

@@ -457,6 +457,31 @@ describe('MessageBubble', () => {
     expect(screen.queryByText(/<svg width/)).not.toBeInTheDocument()
   })
 
+  it('renders chat mention tokens as styled chips and tooltips', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-mention',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'Hi @user:client-9, please ask @agent:maya for approval before sending.',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+          mentions: [
+            { type: 'user', id: 'client-9', raw: '@user:client-9' },
+            { type: 'agent', id: 'maya', raw: '@agent:maya' },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByTitle('@user mention (client-9)')).toHaveTextContent('@user:client-9')
+    expect(screen.getByTitle('@agent mention (maya)')).toHaveTextContent('@agent:maya')
+  })
+
   it('renders structured rich parts and dispatches UI actions from the message payload', () => {
     const handleAction = jest.fn()
     const Bubble = MessageBubble as any
