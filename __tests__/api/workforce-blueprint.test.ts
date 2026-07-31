@@ -65,7 +65,7 @@ describe('member workforce blueprint API', () => {
     ]))
   })
 
-  it('returns the explicit People specialist gap', async () => {
+  it('returns finance and people recommendations with dedicated dedicated specialist agents', async () => {
     mockMemberGet.mockResolvedValue({
       exists: true,
       data: () => ({ department: 'Human Resources', jobTitle: 'People Manager' }),
@@ -79,7 +79,28 @@ describe('member workforce blueprint API', () => {
 
     expect(body.data.blueprint).toMatchObject({
       id: 'people',
-      specialistGaps: [expect.objectContaining({ id: 'people_specialist' })],
+      specialistGaps: [],
+      recommendedAgentIds: expect.arrayContaining(['people']),
+    })
+    expect(body.data.policyEvidence.agents.map((agent: { policyDefined: boolean, agentId: string }) => agent.agentId)).toContain('people')
+  })
+
+  it('returns Finance role coverage without specialist placeholder', async () => {
+    mockMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ department: 'Finance', jobTitle: 'Finance Controller' }),
+    })
+    const { GET } = await import('@/app/api/v1/orgs/[orgId]/workforce-blueprint/route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/v1/orgs/org-1/workforce-blueprint'),
+      { params: Promise.resolve({ orgId: 'org-1' }) },
+    )
+    const body = await response.json()
+
+    expect(body.data.blueprint).toMatchObject({
+      id: 'finance',
+      specialistGaps: [],
+      recommendedAgentIds: expect.arrayContaining(['finance']),
     })
   })
 

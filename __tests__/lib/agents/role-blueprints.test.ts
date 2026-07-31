@@ -34,12 +34,10 @@ describe('role-to-agent workforce blueprints', () => {
     expect(match.blueprint.onboardingChecks).toContain('Add department and job title for a tailored team')
   })
 
-  it('declares explicit specialist gaps instead of pretending generalists are dedicated HR or Finance agents', () => {
-    expect(WORKFORCE_BLUEPRINTS.people.specialistGaps).toEqual([
-      expect.objectContaining({ id: 'people_specialist' }),
-    ])
-    expect(WORKFORCE_BLUEPRINTS.finance.specialistGaps).toEqual([
-      expect.objectContaining({ id: 'finance_specialist' }),
-    ])
+  it('does not present specialist placeholders when a dedicated person exists', () => {
+    expect(WORKFORCE_BLUEPRINTS.people.specialistGaps).toEqual([])
+    expect(WORKFORCE_BLUEPRINTS.finance.specialistGaps).toEqual([])
+    expect(WORKFORCE_BLUEPRINTS.people.recommendedAgentIds).toContain('people')
+    expect(WORKFORCE_BLUEPRINTS.finance.recommendedAgentIds).toContain('finance')
   })
 })

@@ -124,11 +124,13 @@
         "ads",
         "data",
         "docs",
+        "finance",
         "maya",
         "nora",
         "pip",
         "qa-release",
         "sage",
+        "people",
         "sales",
         "seo",
         "support",
@@ -154,6 +156,7 @@
     "billing-finance": {
       "ownerAgentId": "nora",
       "allowedAgentIds": [
+        "finance",
         "nora",
         "qa-release"
       ],
@@ -166,11 +169,13 @@
         "ads",
         "data",
         "docs",
+        "finance",
         "maya",
         "nora",
         "pip",
         "qa-release",
         "sage",
+        "people",
         "sales",
         "seo",
         "support",
@@ -252,11 +257,13 @@
         "ads",
         "data",
         "docs",
+        "finance",
         "maya",
         "nora",
         "pip",
         "qa-release",
         "sage",
+        "people",
         "sales",
         "seo",
         "support",
@@ -279,7 +286,9 @@
         "data",
         "docs",
         "seo",
-        "sales"
+        "sales",
+        "finance",
+        "people"
       ],
       "riskLevel": "high",
       "syncTarget": "vps",
@@ -667,11 +676,13 @@
         "ads",
         "data",
         "docs",
+        "finance",
         "maya",
         "nora",
         "pip",
         "qa-release",
         "sage",
+        "people",
         "sales",
         "seo",
         "support",
@@ -1957,6 +1968,165 @@
         "docs",
         "data",
         "sales"
+      ],
+      "reviewerAgentId": "qa-release",
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
+    },
+    "finance": {
+      "name": "Finch",
+      "label": "Finance",
+      "role": "Finance and reconciliation specialist",
+      "vpsExternalDir": "/var/lib/hermes/agent-skills/finance",
+      "pibSkills": [
+        "system-auth",
+        "analytics",
+        "agent-runtime-gather",
+        "agent-skill-drift-gather",
+        "approval-queue-gather",
+        "ceo-on-demand-gather",
+        "chat-surface-gather",
+        "billing-finance",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "data-analyst",
+        "daily-workflow",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management",
+        "reports",
+        "research-intelligence"
+      ],
+      "runtimeSkills": [
+        "system-auth",
+        "analytics",
+        "agent-runtime-gather",
+        "agent-skill-drift-gather",
+        "approval-queue-gather",
+        "ceo-on-demand-gather",
+        "chat-surface-gather",
+        "billing-finance",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "data-analyst",
+        "daily-workflow",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management",
+        "reports",
+        "research-intelligence"
+      ],
+      "globalSkills": [
+        "productivity/google-workspace",
+        "email/himalaya"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "approve",
+        "message_client",
+        "delete",
+        "email_marketing_read"
+      ],
+      "approvalGates": [
+        "approve",
+        "message_client",
+        "delete"
+      ],
+      "primaryOwnerOf": [
+        "billing",
+        "reconciliation",
+        "payroll-sensitive workflows",
+        "finance reporting",
+        "budget guardrails"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "support",
+        "docs",
+        "nora",
+        "data",
+        "qa-release"
+      ],
+      "reviewerAgentId": "qa-release",
+      "deniedSkills": [
+        "red-teaming/godmode",
+        "mlops/inference/obliteratus"
+      ]
+    },
+    "people": {
+      "name": "Nova",
+      "label": "People",
+      "role": "People and HR operations specialist",
+      "vpsExternalDir": "/var/lib/hermes/agent-skills/people",
+      "pibSkills": [
+        "system-auth",
+        "analytics",
+        "agent-runtime-gather",
+        "approval-queue-gather",
+        "ceo-on-demand-gather",
+        "chat-surface-gather",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "data-analyst",
+        "daily-workflow",
+        "docs-lead",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management"
+      ],
+      "runtimeSkills": [
+        "system-auth",
+        "analytics",
+        "agent-runtime-gather",
+        "approval-queue-gather",
+        "ceo-on-demand-gather",
+        "chat-surface-gather",
+        "client-documents",
+        "client-manager",
+        "collaboration-runtime",
+        "data-analyst",
+        "daily-workflow",
+        "docs-lead",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management"
+      ],
+      "globalSkills": [
+        "productivity/google-workspace",
+        "productivity/powerpoint"
+      ],
+      "capabilities": [
+        "read",
+        "draft",
+        "write",
+        "approve",
+        "message_client"
+      ],
+      "approvalGates": [
+        "approve",
+        "message_client"
+      ],
+      "primaryOwnerOf": [
+        "people onboarding",
+        "records and retention",
+        "leave and policy ops",
+        "compliance evidence",
+        "employee lifecycle"
+      ],
+      "mayRequestFrom": [
+        "pip",
+        "support",
+        "docs",
+        "nora",
+        "sales",
+        "qa-release"
       ],
       "reviewerAgentId": "qa-release",
       "deniedSkills": [
