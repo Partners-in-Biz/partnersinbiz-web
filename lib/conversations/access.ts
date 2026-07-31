@@ -150,6 +150,16 @@ export function publicConversationMessageView(message: ConversationMessage): Con
     ...(message.thinking ? { thinking: message.thinking } : {}),
     ...(message.richParts ? { richParts: message.richParts } : {}),
     ...(message.rich_parts ? { rich_parts: message.rich_parts } : {}),
+    // Email/invoice/document canvas buttons — must reach the browser. Dropping
+    // these made "Review email draft" invisible even when Firestore had them.
+    ...((() => {
+      const actions = Array.isArray(message.uiActions) && message.uiActions.length > 0
+        ? message.uiActions
+        : Array.isArray(message.ui_actions) && message.ui_actions.length > 0
+          ? message.ui_actions
+          : null
+      return actions ? { uiActions: actions, ui_actions: actions } : {}
+    })()),
     ...(message.projectCommandEvent ? { projectCommandEvent: message.projectCommandEvent } : {}),
     authorKind: message.authorKind,
     authorId: message.authorId,

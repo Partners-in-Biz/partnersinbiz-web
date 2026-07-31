@@ -476,7 +476,9 @@ export async function finalizeConversationRun(input: {
       error: FieldValue.delete(),
       ...eventsPersistPatch,
       ...thinkingPatch,
-      ...richFields,
+      // Preserve mid-run open_context attachments (email/invoice drafts) that
+      // create routes wrote before Hermes completed.
+      ...ledgerRichPatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
       status: 'completed',
