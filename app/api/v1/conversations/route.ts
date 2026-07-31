@@ -551,6 +551,8 @@ export const GET = withAuth(
       : undefined
     const scopeRefId = searchParams.get('scopeRefId')?.trim() || undefined
     const projectId = searchParams.get('projectId')?.trim() || undefined
+    const includeAllScopes = searchParams.get('includeAllScopes')?.toLowerCase() === 'true'
+      || searchParams.get('includeAllScopes')?.toLowerCase() === '1'
 
     const orgScope = resolveOrgScope(user, orgIdParam)
     if (!orgScope.ok) return apiError(orgScope.error, orgScope.status)
@@ -563,6 +565,7 @@ export const GET = withAuth(
       scope: convScope,
       scopeRefId,
       projectId,
+      includeAllScopes,
     })
 
     return apiSuccess({

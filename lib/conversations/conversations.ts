@@ -107,9 +107,13 @@ export async function listConversations(
     scope?: Conversation['scope']
     scopeRefId?: string
     projectId?: string
+    includeAllScopes?: boolean
   },
 ): Promise<Conversation[]> {
-  const readLimit = Math.max(limit * 4, filters?.scope || filters?.scopeRefId || filters?.projectId ? 100 : limit)
+  const readLimit = Math.max(
+    limit * 4,
+    filters?.scope || filters?.scopeRefId || filters?.projectId ? 100 : limit,
+  )
   const orgQuery = adminDb.collection(CONVERSATIONS_COLLECTION).where('orgId', '==', orgId)
   let snap: FirebaseFirestore.QuerySnapshot
   try {
@@ -137,6 +141,7 @@ export async function listConversations(
     })
     .filter((conversation) => {
       if (!canAccessConversation(user, conversation)) return false
+      if (filters?.includeAllScopes) return true
       if (filters?.scope && conversation.scope !== filters.scope) return false
       if (filters?.scopeRefId && conversation.scopeRefId !== filters.scopeRefId) return false
       if (filters?.projectId && conversation.scopeRefId !== filters.projectId) return false

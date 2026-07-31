@@ -8,13 +8,14 @@ import {
 describe('conversation live feed', () => {
   it('parses and bounds permission-scoped live query parameters', () => {
     expect(parseConversationLiveQuery(
-      'https://partnersinbiz.online/api/v1/conversations/live?orgId=org-1&scope=project&scopeRefId=project-1&projectId=project-1&conversationId=conv-1&limit=500',
+      'https://partnersinbiz.online/api/v1/conversations/live?orgId=org-1&scope=project&scopeRefId=project-1&projectId=project-1&conversationId=conv-1&includeAllScopes=true&limit=500',
     )).toEqual({
       orgId: 'org-1',
       scope: 'project',
       scopeRefId: 'project-1',
       projectId: 'project-1',
       conversationId: 'conv-1',
+      includeAllScopes: true,
       limit: 100,
     })
   })

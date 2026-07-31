@@ -19,6 +19,7 @@ export interface ConversationLiveQuery {
   scope?: ConversationScope
   scopeRefId?: string
   projectId?: string
+  includeAllScopes?: boolean
   conversationId?: string
 }
 
@@ -39,6 +40,8 @@ export function parseConversationLiveQuery(url: string): ConversationLiveQuery {
   const searchParams = new URL(url).searchParams
   const rawLimit = Number.parseInt(searchParams.get('limit') ?? '30', 10)
   const requestedScope = clean(searchParams.get('scope'))
+  const includeAllScopes = clean(searchParams.get('includeAllScopes'))?.toLowerCase() === 'true'
+    || clean(searchParams.get('includeAllScopes')) === '1'
 
   return {
     orgId: clean(searchParams.get('orgId')) ?? null,
@@ -49,6 +52,7 @@ export function parseConversationLiveQuery(url: string): ConversationLiveQuery {
     ...(clean(searchParams.get('scopeRefId'))
       ? { scopeRefId: clean(searchParams.get('scopeRefId')) }
       : {}),
+    ...(includeAllScopes ? { includeAllScopes } : {}),
     ...(clean(searchParams.get('projectId'))
       ? { projectId: clean(searchParams.get('projectId')) }
       : {}),

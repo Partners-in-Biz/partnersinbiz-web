@@ -126,6 +126,31 @@ describe('listConversations', () => {
     expect(mockFallbackGet).not.toHaveBeenCalled()
   })
 
+  it('can bypass scope filters with includeAllScopes', async () => {
+    mockIndexedGet.mockResolvedValue({
+      docs: [
+        conversationDoc('project-chat', 3000, ['admin-1'], {
+          scope: 'project',
+          scopeRefId: 'project-1',
+        }),
+        conversationDoc('task-chat', 2000, ['admin-1'], {
+          scope: 'task',
+          scopeRefId: 'task-1',
+        }),
+      ],
+    })
+
+    const { listConversations } = await import('@/lib/conversations/conversations')
+    const conversations = await listConversations(
+      'pib-platform-owner',
+      { uid: 'admin-1', role: 'admin' },
+      30,
+      { scope: 'project', scopeRefId: 'project-1', includeAllScopes: true },
+    )
+
+    expect(conversations.map((conversation) => conversation.id)).toEqual(['project-chat', 'task-chat'])
+  })
+
   it('drops project conversations when current project access has been revoked', async () => {
     mockIndexedGet.mockResolvedValue({
       docs: [conversationDoc('project-chat', 3000, ['admin-1'], {

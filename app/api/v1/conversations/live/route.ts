@@ -38,6 +38,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       scope: query.scope,
       scopeRefId: query.scopeRefId,
       projectId: query.projectId,
+      includeAllScopes: query.includeAllScopes,
     })
 
     let activeConversation = query.conversationId

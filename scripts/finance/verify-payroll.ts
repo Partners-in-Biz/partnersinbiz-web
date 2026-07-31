@@ -161,7 +161,7 @@ async function main() {
   if (!calc.result.accountantReview.identitiesHold) throw new Error('identity failed')
   if (calc.externalPaymentInitiated !== false) throw new Error('payment initiated')
   if (calc.sarsSubmissionInitiated !== false) throw new Error('sars submit')
-  if (store.auditEvents.some((e) => e.externalEgressAllowed !== false)) throw new Error('egress')
+  if (store.auditEvents.some((e: { externalEgressAllowed?: boolean }) => e.externalEgressAllowed !== false)) throw new Error('egress')
   if (calc.result.totals.payeMinor <= 0) throw new Error('expected PAYE')
   if (calc.result.totals.uifEmployeeMinor <= 0) throw new Error('expected UIF')
   if (calc.result.totals.sdlEmployerMinor <= 0) throw new Error('expected SDL')
@@ -217,7 +217,7 @@ async function main() {
     identitiesHold: calc.result.accountantReview.identitiesHold,
     externalPaymentInitiated: false,
     sarsSubmissionInitiated: false,
-    noEgress: store.auditEvents.every((e) => e.externalEgressAllowed === false),
+    noEgress: store.auditEvents.every((e: { externalEgressAllowed?: boolean }) => e.externalEgressAllowed === false),
     auditEvents: store.auditEvents.length,
     traceSteps: calc.result.trace.length,
   }))

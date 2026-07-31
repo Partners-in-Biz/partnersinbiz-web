@@ -176,6 +176,7 @@ export interface UnifiedChatProps {
   projectId?: string
   scope?: ConversationScope
   scopeRefId?: string
+  includeAllScopes?: boolean
   initialConvId?: string
   initialAgentId?: AgentId
   autoCreateScopedConversation?: boolean
@@ -1202,6 +1203,7 @@ export default function UnifiedChat({
   allowArchiveConversations = true,
   currentPageContext,
   preferCurrentPageContext = false,
+  includeAllScopes = false,
   onContextActionResolved,
   compact = false,
   layoutVariant = 'classic',
@@ -2360,8 +2362,9 @@ export default function UnifiedChat({
     if (projectId) params.set('projectId', projectId)
     if (scope) params.set('scope', scope)
     if (scopeRefId) params.set('scopeRefId', scopeRefId)
+    if (includeAllScopes) params.set('includeAllScopes', 'true')
     return params.toString()
-  }, [orgId, projectId, scope, scopeRefId])
+  }, [includeAllScopes, orgId, projectId, scope, scopeRefId])
 
   useEffect(() => {
     if (!companyCoworkLocked || !scopeRefId) return

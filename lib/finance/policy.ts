@@ -47,6 +47,12 @@ export type FinanceAction =
   | 'consolidation.approve'
   | 'consolidation.run.approve'
   | 'elimination.rule.approve'
+  | 'payroll.rule.approve'
+  | 'payroll.rule.configure'
+  | 'payroll.employee.write'
+  | 'payroll.component.configure'
+  | 'payroll.calendar.configure'
+  | 'payroll.calculate'
   | 'consolidation.read'
 
 const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
@@ -96,6 +102,12 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'consolidation.approve': ['finance_approver', 'finance_admin'],
   'consolidation.run.approve': ['finance_approver', 'finance_admin'],
   'elimination.rule.approve': ['finance_approver', 'finance_admin'],
+  'payroll.rule.approve': ['finance_approver', 'finance_admin', 'payroll_approver'],
+  'payroll.rule.configure': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.employee.write': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.component.configure': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.calendar.configure': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.calculate': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'consolidation.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
 }
 

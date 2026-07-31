@@ -16,7 +16,8 @@ export async function fetchSearchAnalytics(
   startDate: string,
   endDate: string,
 ): Promise<SearchAnalyticsRow[]> {
-  const wm = google.webmasters({ version: 'v3', auth })
+  // Cast auth: googleapis bundles a different google-auth-library type instance than app imports.
+  const wm = google.webmasters({ version: 'v3', auth: auth as never })
   const res = await wm.searchanalytics.query({
     siteUrl,
     requestBody: {
@@ -41,7 +42,7 @@ export async function submitSitemap(
   siteUrl: string,
   sitemapUrl: string,
 ): Promise<void> {
-  const wm = google.webmasters({ version: 'v3', auth })
+  const wm = google.webmasters({ version: 'v3', auth: auth as never })
   await wm.sitemaps.submit({
     siteUrl,
     feedpath: sitemapUrl,

@@ -52,6 +52,7 @@ export type FinanceApprovalAction =
   | 'intercompany.receive'
   | 'elimination.rule.approve'
   | 'consolidation.run.approve'
+  | 'payroll.rule.approve'
 
 export interface FinanceApprovalEvidence {
   approvalId: string
