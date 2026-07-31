@@ -12,6 +12,7 @@ export type FinanceAction =
   | 'book-policy.approve'
   | 'tax.configure'
   | 'tax.read'
+  | 'tax-rule.approve'
   | 'tax.return.prepare'
   | 'tax.return.approve'
   | 'report.read'
@@ -37,12 +38,15 @@ export type FinanceAction =
   | 'intercompany.pair.configure'
   | 'intercompany.propose'
   | 'intercompany.post_source'
+  | 'intercompany.receive'
   | 'intercompany.receive_approve'
   | 'intercompany.post_receiving'
   | 'intercompany.read'
   | 'consolidation.configure'
   | 'consolidation.run'
   | 'consolidation.approve'
+  | 'consolidation.run.approve'
+  | 'elimination.rule.approve'
   | 'consolidation.read'
 
 const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
@@ -57,6 +61,7 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'book-policy.approve': ['finance_approver', 'finance_admin'],
   'tax.configure': ['finance_admin', 'accountant'],
   'tax.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'tax-rule.approve': ['finance_approver', 'finance_admin'],
   'tax.return.prepare': ['accountant', 'finance_approver', 'finance_admin'],
   'tax.return.approve': ['finance_approver', 'finance_admin'],
   'report.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
@@ -82,12 +87,15 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'intercompany.pair.configure': ['finance_admin'],
   'intercompany.propose': ['accountant', 'finance_admin'],
   'intercompany.post_source': ['accountant', 'finance_admin'],
+  'intercompany.receive': ['finance_approver', 'finance_admin'],
   'intercompany.receive_approve': ['finance_approver', 'finance_admin'],
   'intercompany.post_receiving': ['accountant', 'finance_admin'],
   'intercompany.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
   'consolidation.configure': ['finance_admin', 'accountant'],
   'consolidation.run': ['finance_admin', 'accountant'],
   'consolidation.approve': ['finance_approver', 'finance_admin'],
+  'consolidation.run.approve': ['finance_approver', 'finance_admin'],
+  'elimination.rule.approve': ['finance_approver', 'finance_admin'],
   'consolidation.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
 }
 

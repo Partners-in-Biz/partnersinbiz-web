@@ -441,20 +441,49 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
     this.store = store ?? null
   }
 
-  private col(): { doc: (id: string) => { get: () => Promise<{ exists: boolean; data: () => Record<string, unknown> | undefined }>; set: (data: Record<string, unknown>, options?: { merge?: boolean }) => Promise<void> } } {
+  private col(): {
+    doc: (id: string) => {
+      get: () => Promise<{ exists: boolean; data: () => Record<string, unknown> | undefined }>
+      set: (data: Record<string, unknown>, options?: { merge?: boolean }) => Promise<void>
+    }
+  } {
     if (this.store) {
       const store = this.store
       return {
         doc: (id: string) => ({
           get: () => store.get(id),
-          set: (data, options) => store.set(id, data, options),
+          set: async (data, options) => {
+            await store.set(id, data, options)
+          },
         }),
       }
     }
     // Lazy require so unit tests never touch Firebase unless using this class with real store.
+    // Wrap Admin SDK so set(options?) matches our DocStore contract (merge optional).
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { adminDb } = require('@/lib/firebase/admin') as typeof import('@/lib/firebase/admin')
-    return adminDb.collection(HERMES_FEATURES_COLLECTION)
+    const collection = adminDb.collection(HERMES_FEATURES_COLLECTION)
+    return {
+      doc: (id: string) => {
+        const ref = collection.doc(id)
+        return {
+          get: async () => {
+            const snap = await ref.get()
+            return {
+              exists: snap.exists,
+              data: () => snap.data() as Record<string, unknown> | undefined,
+            }
+          },
+          set: async (data, options) => {
+            if (options?.merge) {
+              await ref.set(data, { merge: true })
+            } else {
+              await ref.set(data)
+            }
+          },
+        }
+      },
+    }
   }
 
   private serverTimestamp(): unknown {

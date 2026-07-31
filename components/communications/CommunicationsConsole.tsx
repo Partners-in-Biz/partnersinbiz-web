@@ -233,9 +233,10 @@ export function CommunicationsConsole({
           setBundle(null)
           return
         }
-        if (payload.conversation && payload.conversation.id === selectedId) {
+        const liveConversation = payload.conversation
+        if (liveConversation && liveConversation.id === selectedId) {
           setBundle((previous) => ({
-            conversation: payload.conversation,
+            conversation: liveConversation,
             messages: payload.messages,
             contact: previous?.conversation?.id === selectedId ? previous.contact : null,
             hermesSuggestion: previous?.conversation?.id === selectedId ? previous.hermesSuggestion : undefined,
