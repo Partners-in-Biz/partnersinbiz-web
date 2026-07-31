@@ -3,6 +3,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { loadFinanceActorContext } from '@/lib/finance/firestore-context'
 import { mapFinanceErrorToHttp } from '@/lib/finance/errors'
+import { checkFinanceCommandOrgScope } from '@/lib/finance/http-guards'
 import { FirestoreFinanceFoundationRepository } from '@/lib/accounting/firestore-foundation-repository'
 import type {
   ChangePeriodStatusCommand,
@@ -28,12 +29,6 @@ type FoundationOperation = typeof OPERATIONS[number]
 type FoundationCommand = CreateFinanceApprovalCommand | CreateLegalEntityCommand | CreateBranchCommand |
   CreateBookCommand | CreateBookPolicyVersionCommand | CreateAccountCommand | CreatePeriodCommand |
   ChangePeriodStatusCommand | PostJournalCommand | ReverseJournalCommand
-
-function commandOrgId(command: unknown): string | undefined {
-  if (!command || typeof command !== 'object') return undefined
-  const value = (command as Record<string, unknown>).orgId
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined
-}
 
 async function execute(
   repository: FirestoreFinanceFoundationRepository,
@@ -62,10 +57,12 @@ export const POST = withAuth('client', async (req: NextRequest, user) => {
     if (typeof body.operation !== 'string' || !OPERATIONS.includes(body.operation as FoundationOperation)) {
       return apiError('Unsupported finance foundation operation', 422)
     }
-    const orgId = commandOrgId(body.command)
-    if (!orgId) return apiError('command.orgId is required', 422)
-    const headerOrgId = req.headers.get('x-org-id')?.trim()
-    if (headerOrgId && headerOrgId !== orgId) return apiError('Organization scope mismatch', 403)
+    const commandOrgId = body.command && typeof body.command === 'object'
+      ? (body.command as Record<string, unknown>).orgId
+      : undefined
+    const orgCheck = checkFinanceCommandOrgScope(commandOrgId, req.headers.get('x-org-id'))
+    if (!orgCheck.ok) return apiError(orgCheck.error, orgCheck.status)
+    const orgId = orgCheck.orgId
 
     const actor = await loadFinanceActorContext(user, orgId, {
       correlationId: req.headers.get('x-correlation-id') ?? undefined,

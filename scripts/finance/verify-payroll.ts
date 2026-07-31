@@ -335,7 +335,7 @@ async function main() {
   if (exportManifest.externalEgressAllowed !== false || exportManifest.sarsSubmissionInitiated !== false) {
     throw new Error('export egress')
   }
-  const summary = statutory.getTaxSummary(scope, taxYear.id)
+  const summary = statutory.getTaxSummary(clerk, scope, taxYear.id)
   if (summary.employeeCertificates < 1 || summary.emp201Count < 1 || summary.emp501Reconciled !== true) {
     throw new Error('tax summary incomplete')
   }

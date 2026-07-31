@@ -203,7 +203,7 @@ describe('payroll statutory service integration', () => {
     expect(exportManifest.externalPaymentInitiated).toBe(false)
     expect(exportManifest.contentDigest).toHaveLength(64)
 
-    const summary = statutory.getTaxSummary(scope, taxYear.id)
+    const summary = statutory.getTaxSummary(clerk, scope, taxYear.id)
     expect(summary.employeeCertificates).toBe(1)
     expect(summary.emp201Count).toBe(1)
     expect(summary.emp501Reconciled).toBe(true)

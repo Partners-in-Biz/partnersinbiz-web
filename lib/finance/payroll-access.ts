@@ -100,3 +100,45 @@ export function authorizeEmployeeRead(
   }
   return required
 }
+
+/**
+ * IRP5/IT3(a), EMP201, EMP501, and tax-year summary reads.
+ * Unauthorized callers receive non-enumerating 404.
+ */
+export function authorizeStatutoryRead(
+  actor: FinanceActorContext,
+  scope: FinanceScope,
+  at = new Date().toISOString(),
+): RequiredFinanceScope {
+  const required = normalizeRequiredFinanceScope(scope)
+  try {
+    authorizeFinanceAction(actor, required, 'payroll.statutory.read', at)
+  } catch (error) {
+    if (error instanceof FinanceAuthorizationError) {
+      throw new FinanceNotFoundError('Statutory record not found')
+    }
+    throw error
+  }
+  return required
+}
+
+/**
+ * Export manifests carry employee tax aggregates. Read uses the same role set as generate.
+ * Unauthorized callers receive non-enumerating 404.
+ */
+export function authorizeExportManifestRead(
+  actor: FinanceActorContext,
+  scope: FinanceScope,
+  at = new Date().toISOString(),
+): RequiredFinanceScope {
+  const required = normalizeRequiredFinanceScope(scope)
+  try {
+    authorizeFinanceAction(actor, required, 'payroll.export.generate', at)
+  } catch (error) {
+    if (error instanceof FinanceAuthorizationError) {
+      throw new FinanceNotFoundError('Export manifest not found')
+    }
+    throw error
+  }
+  return required
+}

@@ -1,5 +1,9 @@
 import { authorizeFinanceAction } from '@/lib/finance/policy'
 import {
+  authorizeExportManifestRead,
+  authorizeStatutoryRead,
+} from '@/lib/finance/payroll-access'
+import {
   CANONICAL_PAYLOAD_VERSION,
   HASH_ALGORITHM_VERSION,
   canonicalDigest,
@@ -1315,8 +1319,12 @@ export class FinancePayrollStatutoryService {
     })
   }
 
-  getTaxSummary(scopeInput: Required<FinanceScope>, taxYearId: string): PayrollTaxSummary {
-    const scope = scopeOf(scopeInput)
+  getTaxSummary(
+    actor: FinanceActorContext,
+    scopeInput: Required<FinanceScope>,
+    taxYearId: string,
+  ): PayrollTaxSummary {
+    const scope = authorizeStatutoryRead(actor, scopeInput)
     const taxYear = scopedGet(this.store.taxYears, taxYearId, scope, 'Payroll tax year')
     const certificates = Array.from(this.store.irp5Records.values()).filter(
       (row) =>
@@ -1364,20 +1372,28 @@ export class FinancePayrollStatutoryService {
     }
   }
 
-  getIrp5(scopeInput: Required<FinanceScope>, id: string): Irp5Record {
-    return structuredClone(scopedGet(this.store.irp5Records, id, scopeOf(scopeInput), 'IRP5/IT3(a) record'))
+  getIrp5(actor: FinanceActorContext, scopeInput: Required<FinanceScope>, id: string): Irp5Record {
+    const scope = authorizeStatutoryRead(actor, scopeInput)
+    return structuredClone(scopedGet(this.store.irp5Records, id, scope, 'IRP5/IT3(a) record'))
   }
 
-  getEmp201(scopeInput: Required<FinanceScope>, id: string): Emp201Snapshot {
-    return structuredClone(scopedGet(this.store.emp201Snapshots, id, scopeOf(scopeInput), 'EMP201 snapshot'))
+  getEmp201(actor: FinanceActorContext, scopeInput: Required<FinanceScope>, id: string): Emp201Snapshot {
+    const scope = authorizeStatutoryRead(actor, scopeInput)
+    return structuredClone(scopedGet(this.store.emp201Snapshots, id, scope, 'EMP201 snapshot'))
   }
 
-  getEmp501(scopeInput: Required<FinanceScope>, id: string): Emp501Reconciliation {
-    return structuredClone(scopedGet(this.store.emp501Reconciliations, id, scopeOf(scopeInput), 'EMP501 reconciliation'))
+  getEmp501(actor: FinanceActorContext, scopeInput: Required<FinanceScope>, id: string): Emp501Reconciliation {
+    const scope = authorizeStatutoryRead(actor, scopeInput)
+    return structuredClone(scopedGet(this.store.emp501Reconciliations, id, scope, 'EMP501 reconciliation'))
   }
 
-  getExportManifest(scopeInput: Required<FinanceScope>, id: string): PayrollExportManifest {
-    return structuredClone(scopedGet(this.store.exportManifests, id, scopeOf(scopeInput), 'Payroll export manifest'))
+  getExportManifest(
+    actor: FinanceActorContext,
+    scopeInput: Required<FinanceScope>,
+    id: string,
+  ): PayrollExportManifest {
+    const scope = authorizeExportManifestRead(actor, scopeInput)
+    return structuredClone(scopedGet(this.store.exportManifests, id, scope, 'Payroll export manifest'))
   }
 }
 

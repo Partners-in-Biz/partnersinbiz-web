@@ -30,7 +30,7 @@
     "verify:finance:intercompany": "npm run test:finance:intercompany && tsx scripts/finance/verify-intercompany.ts",
     "test:finance:payroll": "jest --runInBand __tests__/finance/payroll-domain.test.ts __tests__/finance/payroll-service.integration.test.ts __tests__/finance/payroll-payrun-domain.test.ts __tests__/finance/payroll-payrun-service.integration.test.ts __tests__/finance/payroll-statutory-domain.test.ts __tests__/finance/payroll-statutory-service.integration.test.ts __tests__/finance/foundation-storage-contract.test.ts",
     "verify:finance:payroll": "npm run test:finance:payroll && tsx scripts/finance/verify-payroll.ts",
-    "test:finance:security": "jest --runInBand __tests__/finance/security-hardening.test.ts __tests__/finance/foundation-context.test.ts __tests__/finance/foundation-domain.test.ts __tests__/finance/foundation-storage-contract.test.ts",
+    "test:finance:security": "jest --runInBand __tests__/finance/security-hardening.test.ts __tests__/finance/foundation-context.test.ts __tests__/finance/foundation-domain.test.ts __tests__/finance/foundation-storage-contract.test.ts __tests__/finance/foundation-p1-blockers.test.ts __tests__/finance/payroll-payrun-service.integration.test.ts",
     "verify:finance:security": "npm run test:finance:security && tsx scripts/finance/verify-security.ts"
   },
   "dependencies": {

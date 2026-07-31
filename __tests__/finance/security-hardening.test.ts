@@ -1,8 +1,10 @@
 import { FinanceValidationError } from '@/lib/accounting/foundation'
 import {
   FinanceAuthorizationError,
+  ACTION_ROLES_FOR_COVERAGE,
   authorizeFinanceAction,
   effectiveFinanceAssignments,
+  type FinanceAction,
 } from '@/lib/finance/policy'
 import {
   FinanceNotFoundError,
@@ -17,7 +19,10 @@ import {
   scopesEqual,
 } from '@/lib/finance/scope'
 import {
+  authorizeEmployeeRead,
+  authorizeExportManifestRead,
   authorizePayslipRead,
+  authorizeStatutoryRead,
   listPayslipReadableRoles,
   redactSensitivePayrollRecord,
   sensitivePayrollFieldKeys,
@@ -28,12 +33,20 @@ import {
   assertApprovalActionMapped,
   financeActionCoverage,
 } from '@/lib/finance/security-matrix'
-import type { FinanceActorContext, FinanceScope } from '@/lib/finance/types'
+import { checkFinanceCommandOrgScope } from '@/lib/finance/http-guards'
+import {
+  FINANCE_HTTP_ENTRYPOINTS,
+  FINANCE_UI_BOUNDARY_NOTE,
+  FINANCE_UI_SHIPPED,
+  SERVICE_ONLY_FINANCE_MODULES,
+} from '@/lib/finance/service-boundaries'
+import type { FinanceActorContext, FinanceRole, FinanceScope } from '@/lib/finance/types'
 import fs from 'fs'
 import path from 'path'
 
 const orgId = 'org-sec'
 const scope: Required<FinanceScope> = { orgId, legalEntityId: 'entity-a', bookId: 'book-a' }
+const ROOT = path.join(__dirname, '../..')
 
 function actor(
   uid: string,
@@ -85,26 +98,71 @@ describe('finance scope helpers', () => {
 })
 
 describe('role/permission matrix and payroll boundaries', () => {
-  test('finance_viewer cannot mutate, approve payroll, or read payslips', () => {
+  test('full ACTION_ROLES coverage is non-empty for every FinanceAction', () => {
+    const actions = Object.keys(ACTION_ROLES_FOR_COVERAGE) as FinanceAction[]
+    expect(actions.length).toBeGreaterThan(40)
+    for (const action of actions) {
+      expect(ACTION_ROLES_FOR_COVERAGE[action].length).toBeGreaterThan(0)
+    }
+  })
+
+  test('payroll_clerk vs payroll_approver vs finance_viewer matrix samples', () => {
     const viewer = actor('viewer-1', 'finance_viewer')
+    const clerk = actor('clerk-1', 'payroll_clerk')
+    const approver = actor('pap-1', 'payroll_approver')
+
     expect(() => authorizeFinanceAction(viewer, scope, 'report.read')).not.toThrow()
     expect(() => authorizeFinanceAction(viewer, scope, 'journal.post')).toThrow(FinanceAuthorizationError)
     expect(() => authorizeFinanceAction(viewer, scope, 'payroll.run.approve')).toThrow(FinanceAuthorizationError)
+    expect(() => authorizeFinanceAction(viewer, scope, 'payroll.run.create')).toThrow(FinanceAuthorizationError)
     expect(() => authorizePayslipRead(viewer, scope)).toThrow(FinanceNotFoundError)
+
+    expect(() => authorizeFinanceAction(clerk, scope, 'payroll.run.create')).not.toThrow()
+    expect(() => authorizeFinanceAction(clerk, scope, 'payroll.run.submit')).not.toThrow()
+    expect(() => authorizeFinanceAction(clerk, scope, 'payroll.run.approve')).toThrow(FinanceAuthorizationError)
+    expect(() => authorizeFinanceAction(clerk, scope, 'payroll.run.reverse')).toThrow(FinanceAuthorizationError)
+    expect(() => authorizePayslipRead(clerk, scope)).not.toThrow()
+    expect(() => authorizeEmployeeRead(clerk, scope)).not.toThrow()
+
+    expect(() => authorizeFinanceAction(approver, scope, 'payroll.run.approve')).not.toThrow()
+    expect(() => authorizeFinanceAction(approver, scope, 'payroll.run.reverse')).not.toThrow()
+    expect(() => authorizeFinanceAction(approver, scope, 'payroll.statutory.approve')).not.toThrow()
+    expect(() => authorizePayslipRead(approver, scope)).not.toThrow()
   })
 
-  test('accountant cannot read payslips; payroll roles can', () => {
+  test('accountant cannot read payslips or employees; payroll roles can', () => {
     const accountant = actor('acct-1', 'accountant')
     const clerk = actor('clerk-1', 'payroll_clerk')
     const payrollApprover = actor('pap-1', 'payroll_approver')
     expect(() => authorizeFinanceAction(accountant, scope, 'invoice.read')).not.toThrow()
     expect(() => authorizePayslipRead(accountant, scope)).toThrow(FinanceNotFoundError)
+    expect(() => authorizeEmployeeRead(accountant, scope)).toThrow(FinanceNotFoundError)
     expect(() => authorizePayslipRead(clerk, scope)).not.toThrow()
     expect(() => authorizePayslipRead(payrollApprover, scope)).not.toThrow()
     expect(listPayslipReadableRoles()).toEqual(
       expect.arrayContaining(['finance_admin', 'payroll_clerk', 'payroll_approver']),
     )
     expect(listPayslipReadableRoles()).not.toEqual(expect.arrayContaining(['finance_viewer', 'accountant', 'bookkeeper']))
+  })
+
+  test('statutory and export reads deny finance_viewer with non-enumerating 404', () => {
+    const viewer = actor('viewer-stat', 'finance_viewer')
+    const clerk = actor('clerk-stat', 'payroll_clerk')
+    expect(() => authorizeStatutoryRead(viewer, scope)).toThrow(FinanceNotFoundError)
+    expect(() => authorizeExportManifestRead(viewer, scope)).toThrow(FinanceNotFoundError)
+    try {
+      authorizeStatutoryRead(viewer, scope)
+    } catch (error) {
+      expect((error as Error).message).toBe('Statutory record not found')
+      expect((error as Error).message).not.toMatch(/permission|role|forbidden/i)
+    }
+    try {
+      authorizeExportManifestRead(viewer, scope)
+    } catch (error) {
+      expect((error as Error).message).toBe('Export manifest not found')
+    }
+    expect(() => authorizeStatutoryRead(clerk, scope)).not.toThrow()
+    expect(() => authorizeExportManifestRead(clerk, scope)).not.toThrow()
   })
 
   test('book-scoped assignment cannot cover a sibling book; entity-scoped can', () => {
@@ -133,7 +191,38 @@ describe('role/permission matrix and payroll boundaries', () => {
     expect(() => authorizeFinanceAction(inactive, scope, 'foundation.configure')).toThrow(/membership/)
   })
 
-  test('delegation must grant exact finance action or finance:*', () => {
+  test('revoked and expired assignments fail closed', () => {
+    const revoked = actor('rev-1', 'accountant', {
+      assignments: [{
+        id: 'rev-1-a0',
+        orgId,
+        userId: 'rev-1',
+        legalEntityId: scope.legalEntityId,
+        scopeMode: 'entity',
+        role: 'accountant',
+        status: 'revoked',
+      }],
+    })
+    const expired = actor('exp-1', 'accountant', {
+      assignments: [{
+        id: 'exp-1-a0',
+        orgId,
+        userId: 'exp-1',
+        legalEntityId: scope.legalEntityId,
+        scopeMode: 'entity',
+        role: 'accountant',
+        status: 'active',
+        effectiveFrom: '2020-01-01T00:00:00.000Z',
+        effectiveTo: '2020-12-31T23:59:59.000Z',
+      }],
+    })
+    expect(() => authorizeFinanceAction(revoked, scope, 'journal.post', '2026-07-31T10:00:00.000Z'))
+      .toThrow(/No active finance assignment/)
+    expect(() => authorizeFinanceAction(expired, scope, 'journal.post', '2026-07-31T10:00:00.000Z'))
+      .toThrow(/No active finance assignment/)
+  })
+
+  test('delegation must grant exact finance action or finance:* and match org', () => {
     const delegated = actor('dlg-1', 'accountant', {
       delegationId: 'dlg-1',
       delegationOrgId: orgId,
@@ -144,6 +233,9 @@ describe('role/permission matrix and payroll boundaries', () => {
       .toThrow(/Delegation does not grant finance:journal.reverse/)
     const star = { ...delegated, delegationScopes: ['finance:*'] }
     expect(() => authorizeFinanceAction(star, scope, 'journal.reverse')).not.toThrow()
+    const wrongOrg = { ...delegated, delegationOrgId: 'org-other' }
+    expect(() => authorizeFinanceAction(wrongOrg, scope, 'journal.post'))
+      .toThrow(/Delegation organization does not match/)
   })
 })
 
@@ -233,17 +325,28 @@ describe('approval enforcement and audit coverage inventory', () => {
 
   test('foundation HTTP route uses safe finance error mapping and org header equality', () => {
     const source = fs.readFileSync(
-      path.join(__dirname, '../../app/api/v1/finance/foundation/commands/route.ts'),
+      path.join(ROOT, 'app/api/v1/finance/foundation/commands/route.ts'),
       'utf8',
     )
     expect(source).toContain('mapFinanceErrorToHttp')
-    expect(source).toContain('Organization scope mismatch')
+    expect(source).toContain('checkFinanceCommandOrgScope')
     expect(source).toContain("withAuth('client'")
     expect(source).not.toMatch(/withAuth\('admin'/)
   })
 
+  test('HTTP org scope guard rejects missing org and header mismatch', () => {
+    expect(checkFinanceCommandOrgScope(undefined, null)).toEqual({
+      ok: false, status: 422, error: 'command.orgId is required',
+    })
+    expect(checkFinanceCommandOrgScope('org-a', 'org-b')).toEqual({
+      ok: false, status: 403, error: 'Organization scope mismatch',
+    })
+    expect(checkFinanceCommandOrgScope(' org-a ', 'org-a')).toEqual({ ok: true, orgId: 'org-a' })
+    expect(checkFinanceCommandOrgScope('org-a', null)).toEqual({ ok: true, orgId: 'org-a' })
+  })
+
   test('server-only finance/payroll collections remain deny-all in firestore.rules', () => {
-    const rules = fs.readFileSync(path.join(__dirname, '../../firestore.rules'), 'utf8')
+    const rules = fs.readFileSync(path.join(ROOT, 'firestore.rules'), 'utf8')
     for (const collection of [
       'finance_role_assignments',
       'finance_audit_events',
@@ -256,3 +359,96 @@ describe('approval enforcement and audit coverage inventory', () => {
     }
   })
 })
+
+describe('HTTP / service / UI boundaries', () => {
+  test('only allowlisted finance HTTP entrypoints exist under app/api', () => {
+    const financeApiRoot = path.join(ROOT, 'app/api/v1/finance')
+    const found: string[] = []
+    function walk(dir: string) {
+      if (!fs.existsSync(dir)) return
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) walk(full)
+        else if (entry.name === 'route.ts' || entry.name === 'route.js') {
+          found.push(path.relative(ROOT, full).split(path.sep).join('/'))
+        }
+      }
+    }
+    walk(financeApiRoot)
+    expect(found.sort()).toEqual([...FINANCE_HTTP_ENTRYPOINTS].sort())
+    for (const entry of FINANCE_HTTP_ENTRYPOINTS) {
+      const source = fs.readFileSync(path.join(ROOT, entry), 'utf8')
+      expect(source).toContain('checkFinanceCommandOrgScope')
+      expect(source).toContain('mapFinanceErrorToHttp')
+      expect(source).toContain("withAuth('client'")
+    }
+  })
+
+  test('service-only finance modules are not imported from app routes outside allowlist', () => {
+    const appRoot = path.join(ROOT, 'app')
+    const offenders: string[] = []
+    const importPattern = new RegExp(
+      SERVICE_ONLY_FINANCE_MODULES.map((m) => m
+        .replace(/^lib\//, '')
+        .replace(/\.ts$/, '')
+        .replace(/\//g, '[/\\\\]')).join('|'),
+    )
+    function walk(dir: string) {
+      if (!fs.existsSync(dir)) return
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) walk(full)
+        else if (/\.(ts|tsx|js|jsx)$/.test(entry.name)) {
+          const rel = path.relative(ROOT, full).split(path.sep).join('/')
+          if (FINANCE_HTTP_ENTRYPOINTS.includes(rel as typeof FINANCE_HTTP_ENTRYPOINTS[number])) continue
+          const source = fs.readFileSync(full, 'utf8')
+          // foundation route may import foundation repository/service types — only flag payroll/docs/IC/tax/reporting service paths
+          if (/lib\/payroll\/|payroll\/pay-run-service|payroll\/statutory-service|documents-service|intercompany-service|tax-service|reporting-service/.test(source)
+            && /from ['"]@\/lib\/(payroll|accounting)\//.test(source)) {
+            // foundation repository is allowed on foundation route only — already skipped allowlist
+            if (/foundation-service|firestore-foundation-repository/.test(source)
+              && !/pay-run-service|statutory-service|documents-service|intercompany-service|tax-service|reporting-service/.test(source)) {
+              continue
+            }
+            if (/pay-run-service|statutory-service|documents-service|intercompany-service|tax-service|reporting-service|calculation-service/.test(source)) {
+              offenders.push(rel)
+            }
+          }
+          void importPattern
+        }
+      }
+    }
+    walk(appRoot)
+    expect(offenders).toEqual([])
+  })
+
+  test('no finance/payroll UI shipped in this harden slice', () => {
+    expect(FINANCE_UI_SHIPPED).toBe(false)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/No finance\/payroll UI/)
+    const uiRoots = [
+      path.join(ROOT, 'app/(portal)/portal'),
+      path.join(ROOT, 'app/(admin)/admin'),
+      path.join(ROOT, 'components'),
+    ]
+    const hits: string[] = []
+    for (const root of uiRoots) {
+      if (!fs.existsSync(root)) continue
+      function walk(dir: string) {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name)
+          if (entry.isDirectory()) {
+            if (/(^|\/)(finance|payroll|payslip)(\/|$)/i.test(path.relative(ROOT, full))) {
+              hits.push(path.relative(ROOT, full))
+            }
+            walk(full)
+          }
+        }
+      }
+      walk(root)
+    }
+    expect(hits).toEqual([])
+  })
+})
+
+// Keep type import used for coverage compilation.
+void (null as unknown as FinanceRole)
