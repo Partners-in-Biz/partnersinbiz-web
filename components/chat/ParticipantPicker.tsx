@@ -423,10 +423,17 @@ export default function ParticipantPicker({
   }
 
   return (
-    <div className={`space-y-3 ${className}`}>
-      {/* Selected chips — sticky so adding a pick does not shove the list off-screen */}
+    <div className={`space-y-3 ${className}`} data-testid="participant-picker">
+      {/*
+        Selected chips sit in normal flow (not sticky). Sticky chips inside a nested
+        overflow region reflow height on first pick and, with browser focus/scroll
+        anchoring, shoved the whole New conversation dialog off the top of the screen.
+      */}
       {selected.length > 0 && (
-        <div className="sticky top-0 z-10 -mx-1 flex flex-wrap gap-1.5 bg-[var(--color-surface,#1c1c1c)]/95 px-1 py-1 backdrop-blur-sm">
+        <div
+          data-testid="participant-picker-chips"
+          className="-mx-1 flex flex-wrap gap-1.5 px-1 py-1"
+        >
           {selected.map((p) => {
             const label = p.kind === 'agent' ? p.name : p.displayName
             return (
@@ -438,6 +445,7 @@ export default function ParticipantPicker({
                 <button
                   type="button"
                   onClick={() => removeSelected(p)}
+                  onMouseDown={(event) => event.preventDefault()}
                   className="ml-0.5 hover:text-red-300 transition-colors"
                   aria-label={`Remove ${label}`}
                 >
@@ -518,33 +526,36 @@ export default function ParticipantPicker({
               {agentsUnavailableReason}
             </p>
           ) : visibleAgents.length > 0 ? (
-            <div className="space-y-1">
+            <div className="space-y-1" role="group" aria-label="Agents">
               {orderedAgents.map((agent) => {
                 const isChecked = selected.some((s) => s.kind === 'agent' && s.agentId === agent.agentId)
                 const c = AGENT_COLOR[agent.colorKey] ?? AGENT_COLOR.violet
                 const disabled = !isChecked && selected.length >= MAX_SELECTIONS
                 const policy = policyByAgent.get(agent.agentId)
                 const coverage = skillCoverageByAgent.get(agent.agentId) ?? []
+                // Use a button (not a native checkbox) so pick focus cannot
+                // scrollIntoView parent dialog containers off-screen.
                 return (
-                  <label
+                  <button
                     key={agent.agentId}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={isChecked}
+                    aria-label={`${agent.name} ${agent.role}`.trim()}
+                    disabled={disabled}
                     onMouseDown={(event) => {
-                      // Keep focus from scrolling parent dialog containers off-screen.
-                      if (!disabled) event.preventDefault()
+                      // Prevent focus transfer → scroll jump of the dialog.
+                      event.preventDefault()
                     }}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
+                    onClick={() => {
+                      if (!disabled) toggleAgent(agent)
+                    }}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
                       isChecked
                         ? 'bg-white/8 border border-white/15'
                         : 'hover:bg-white/5 border border-transparent'
-                    } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                    } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      disabled={disabled}
-                      onChange={() => toggleAgent(agent)}
-                      className="sr-only"
-                    />
                     <div className="w-7 h-7 rounded-full bg-white/8 flex items-center justify-center shrink-0">
                       <span className={`material-symbols-outlined text-[15px] ${c.icon}`}>
                         {agent.iconKey ?? 'smart_toy'}
@@ -592,7 +603,7 @@ export default function ParticipantPicker({
                     {isChecked && (
                       <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
                     )}
-                  </label>
+                  </button>
                 )
               })}
             </div>
@@ -674,24 +685,23 @@ export default function ParticipantPicker({
                           || (contact.role === 'admin' ? 'Admin' : 'Member')
                         const inits = initials(label)
                         return (
-                          <label
+                          <button
                             key={contact.uid}
-                            onMouseDown={(event) => {
-                              if (!disabled) event.preventDefault()
+                            type="button"
+                            role="checkbox"
+                            aria-checked={isChecked}
+                            aria-label={label}
+                            disabled={disabled}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                              if (!disabled) toggleContact(contact)
                             }}
-                            className={`flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
+                            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ${
                               isChecked
                                 ? 'bg-white/8 border border-white/15'
                                 : 'hover:bg-white/5 border border-transparent'
-                            } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                            } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                           >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              disabled={disabled}
-                              onChange={() => toggleContact(contact)}
-                              className="sr-only"
-                            />
                             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-blue-soft)] text-xs font-bold text-[#93C5FD]">
                               {inits || '?'}
                             </div>
@@ -703,7 +713,7 @@ export default function ParticipantPicker({
                             {isChecked && (
                               <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
                             )}
-                          </label>
+                          </button>
                         )
                       })}
                     </div>

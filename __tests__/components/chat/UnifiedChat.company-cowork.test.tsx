@@ -127,4 +127,89 @@ describe('UnifiedChat CRM company Cowork', () => {
     expect(within(dialog).getByRole('option', { name: /^Peet's Mac/ })).toBeInTheDocument()
     expect(within(dialog).getByText(/Defaults to this organisation’s VPS Cowork copy/i)).toBeInTheDocument()
   })
+
+  it('keeps company Cowork folders out of the Workspaces rail', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse({ data: { agentId: 'pip', canSelect: false, models: [], providers: [] } })
+      if (url.includes('/visible-agents') || url.includes('/contacts') || url.includes('/people')) {
+        return jsonResponse({ data: [] })
+      }
+      if (url.startsWith('/api/v1/workspaces?')) {
+        return jsonResponse({
+          data: {
+            workspaces: [
+              {
+                workspaceId: 'partners', orgId: 'org-1', orgSlug: 'partners', orgName: 'Partners in Biz',
+                agentDomain: 'partners', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps',
+                folderVersion: 1, companyId: null,
+              },
+              {
+                // Company Cowork provision writes a linked org_workspace named after the client.
+                workspaceId: 'scholtz-inc', orgId: 'org-1', orgSlug: 'scholtz-inc', orgName: 'Scholtz Inc',
+                agentDomain: 'scholtz-inc', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps',
+                folderVersion: 1, companyId: 'company-scholtz',
+              },
+            ],
+            runtimeTargetsByWorkspace: {
+              partners: [],
+              'scholtz-inc': [],
+            },
+            projects: [],
+          },
+        })
+      }
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({
+          data: {
+            conversations: [{
+              id: 'conv-scholtz',
+              orgId: 'org-1',
+              participants: [{ kind: 'agent', agentId: 'pip', name: 'Pip' }],
+              participantUids: ['user-1'],
+              participantAgentIds: ['pip'],
+              startedBy: 'user-1',
+              title: 'Scholtz Inc Cowork',
+              scope: 'company',
+              scopeRefId: 'company-scholtz',
+              messageCount: 1,
+              archived: false,
+              contextRefs: [{ type: 'company', id: 'company-scholtz', label: 'Scholtz Inc' }],
+              workspaceContext: {
+                workspaceId: 'scholtz-inc',
+                orgName: 'Scholtz Inc',
+                companyId: 'company-scholtz',
+                companyName: 'Scholtz Inc',
+                runtimeTarget: 'vps',
+                runtimeLabel: 'VPS',
+              },
+            }],
+          },
+        })
+      }
+      if (url.includes('/messages')) return jsonResponse({ data: { messages: [] } })
+      if (url.includes('/account/messages-sidebar-preferences')) {
+        return jsonResponse({ data: { hiddenFolderKeys: [] } })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        layoutVariant="hermes"
+      />,
+    )
+
+    const cowork = await screen.findByTestId('hermes-companies')
+    expect(within(cowork).getByText('Scholtz Inc')).toBeInTheDocument()
+    expect(within(cowork).getByTestId('hermes-company-company-scholtz')).toBeInTheDocument()
+
+    const workspaces = await screen.findByTestId('hermes-workspaces')
+    expect(within(workspaces).getByText('Partners in Biz')).toBeInTheDocument()
+    expect(within(workspaces).queryByText('Scholtz Inc')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('hermes-workspace-scholtz-inc')).not.toBeInTheDocument()
+  })
 })

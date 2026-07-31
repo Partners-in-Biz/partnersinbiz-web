@@ -145,14 +145,13 @@ describe('ParticipantPicker runtime agent gate', () => {
     const { rerender } = render(
       <ParticipantPicker orgId="org-1" onSelect={onSelect} allowedAgentIds={null} />,
     )
-    const pip = await screen.findByText('Pip')
-    fireEvent.click(pip.closest('label')!)
+    const pip = await screen.findByRole('checkbox', { name: /Pip/ })
+    fireEvent.click(pip)
     await waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(
         expect.arrayContaining([expect.objectContaining({ kind: 'agent', agentId: 'pip' })]),
       )
     })
-
     rerender(
       <ParticipantPicker orgId="org-1" onSelect={onSelect} allowedAgentIds={['theo']} />,
     )

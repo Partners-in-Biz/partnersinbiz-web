@@ -200,28 +200,88 @@ for index in "${!REMOTE_PORTS[@]}"; do
 done
 ssh_args+=("$VPS")
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] opening reverse tunnel to $VPS" | tee -a "$LOG_DIR/fleet.log"
-ssh "${ssh_args[@]}" >>"$LOG_DIR/reverse-tunnel.log" 2>&1 &
-pids+=("$!")
+# Reverse tunnel is best-effort. Linked-computer chat claims go through
+# pib-runtime → PiB HTTPS and only need healthy loopback Hermes profiles.
+# Hard-failing the entire fleet when VPS SSH/port-forward is flaky was
+# thrashing all 12 profiles every ~30–40s and marking the Mac offline.
+tunnel_pid=""
+open_reverse_tunnel() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] opening reverse tunnel to $VPS" | tee -a "$LOG_DIR/fleet.log"
+  ssh "${ssh_args[@]}" >>"$LOG_DIR/reverse-tunnel.log" 2>&1 &
+  tunnel_pid=$!
+}
 
-wait_for_vps_profiles
-register_once
+open_reverse_tunnel
+
+vps_tunnel_ok=0
+if wait_for_vps_profiles; then
+  vps_tunnel_ok=1
+  register_once || true
+else
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARN: VPS reverse tunnel not healthy; keeping local Hermes profiles up for linked-computer chat" | tee -a "$LOG_DIR/fleet.log"
+  # Drop a dead/half-open tunnel so supervise can reopen it later without
+  # treating it as a fatal fleet child.
+  if [[ -n "$tunnel_pid" ]] && ! kill -0 "$tunnel_pid" >/dev/null 2>&1; then
+    tunnel_pid=""
+  fi
+fi
 
 (
   while true; do
     sleep "$REGISTER_INTERVAL_SECONDS"
-    register_once || true
+    # Only re-register public local-profiles when the tunnel is known healthy.
+    if [[ -n "$tunnel_pid" ]] && kill -0 "$tunnel_pid" >/dev/null 2>&1; then
+      register_once || true
+    fi
   done
 ) &
-pids+=("$!")
+register_pid=$!
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] local runtime fleet healthy (${#AGENTS[@]} profiles); supervising" | tee -a "$LOG_DIR/fleet.log"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] local runtime fleet healthy (${#AGENTS[@]} profiles); supervising (vps_tunnel_ok=$vps_tunnel_ok)" | tee -a "$LOG_DIR/fleet.log"
 while true; do
   sleep 15
+  # Hermes profile children are fatal — chat cannot run without them.
   for child_pid in "${pids[@]}"; do
     if ! kill -0 "$child_pid" >/dev/null 2>&1; then
-      echo "[$(date '+%Y-%m-%d %H:%M:%S')] local runtime child $child_pid exited; stopping fleet" | tee -a "$LOG_DIR/fleet.log"
+      echo "[$(date '+%Y-%m-%d %H:%M:%S')] local runtime Hermes child $child_pid exited; stopping fleet" | tee -a "$LOG_DIR/fleet.log"
       exit 1
     fi
   done
+  # Register loop is best-effort.
+  if ! kill -0 "$register_pid" >/dev/null 2>&1; then
+    (
+      while true; do
+        sleep "$REGISTER_INTERVAL_SECONDS"
+        if [[ -n "$tunnel_pid" ]] && kill -0 "$tunnel_pid" >/dev/null 2>&1; then
+          register_once || true
+        fi
+      done
+    ) &
+    register_pid=$!
+  fi
+  # Tunnel is optional: reopen without killing profiles.
+  # Use a short probe (not the 90s startup wait) so a dead VPS cannot
+  # block the supervise loop.
+  if [[ -z "$tunnel_pid" ]] || ! kill -0 "$tunnel_pid" >/dev/null 2>&1; then
+    open_reverse_tunnel
+    sleep 5
+    if [[ -n "$tunnel_pid" ]] && kill -0 "$tunnel_pid" >/dev/null 2>&1 \
+      && ssh -o BatchMode=yes -o ConnectTimeout=8 "$VPS" \
+        "curl --silent --show-error --fail --max-time 4 http://127.0.0.1:${REMOTE_PORTS[0]}/v1/health >/dev/null" \
+        >/dev/null 2>&1; then
+      vps_tunnel_ok=1
+      register_once || true
+      echo "[$(date '+%Y-%m-%d %H:%M:%S')] VPS reverse tunnel recovered" | tee -a "$LOG_DIR/fleet.log"
+    else
+      vps_tunnel_ok=0
+      if [[ -n "$tunnel_pid" ]] && kill -0 "$tunnel_pid" >/dev/null 2>&1; then
+        # Tunnel process alive but VPS ports not healthy yet — leave it;
+        # next loop will re-probe without spawning another ssh.
+        :
+      else
+        tunnel_pid=""
+      fi
+      echo "[$(date '+%Y-%m-%d %H:%M:%S')] VPS reverse tunnel still down; local profiles remain up" | tee -a "$LOG_DIR/fleet.log"
+    fi
+  fi
 done

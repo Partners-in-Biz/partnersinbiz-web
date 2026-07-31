@@ -191,6 +191,8 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     // Backdrop must not scroll — selecting an agent used to jump the whole card up.
     expect(dialog).toHaveClass('overflow-hidden')
     expect(dialog).not.toHaveClass('overflow-y-auto')
+    // Portaled to body so Messages layout overflow cannot trap fixed positioning.
+    expect(dialog.parentElement).toBe(document.body)
     expect(screen.getByTestId('new-conversation-scroll-body')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')
     expect(screen.getByRole('button', { name: 'Start conversation' }).parentElement).toHaveClass('shrink-0')
     // Context before participants: machine-aware agent picking depends on this order.
@@ -199,7 +201,11 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     const participantsLabel = within(body).getByText('Participants (max 12)')
     expect(contextLabel.compareDocumentPosition(participantsLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(dialog).toContainElement(document.activeElement as HTMLElement)
-    expect(background).toHaveAttribute('inert')
+    // Body-level siblings of the portaled dialog are inert (app root).
+    const inertRoots = Array.from(document.body.children).filter(
+      (node) => node instanceof HTMLElement && node !== dialog && node.hasAttribute('inert'),
+    )
+    expect(inertRoots.length).toBeGreaterThan(0)
     // Participants list is capped on phone so the sticky Start conversation footer stays in view.
     expect(screen.getByTestId('new-conversation-participants-scroll')).toHaveClass(
       'max-h-[min(36dvh,220px)]',
