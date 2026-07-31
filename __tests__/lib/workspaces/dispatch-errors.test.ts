@@ -30,6 +30,38 @@ describe('workspace dispatch safety', () => {
     expect(JSON.stringify(metadata)).not.toMatch(/var\/lib|Users\/peet|gateway\.example|super-secret|password/)
   })
 
+  it('preserves hermes-features-delegation branch keys so cron can auto-complete children', () => {
+    // Mirrors production createRun metadata in lib/hermes-features/runtime-deps.ts
+    const productionMetadata = {
+      source: 'hermes-features-delegation',
+      delegationId: 'del_1712345678_ab12cd',
+      childId: 'child_1712345678_0',
+      parentRunHint: 'messages:conv-1:msg:msg-9',
+      dispatchAgentId: 'maya',
+      orgId: 'org-1',
+      conversationId: 'conv-1',
+      branchMessageId: 'branch-msg-1',
+      messageId: 'branch-msg-1',
+      // must still be stripped
+      apiKey: 'super-secret',
+      vpsWorkingPath: '/var/lib/hermes/private',
+    }
+    const metadata = sanitizeDispatchMetadata(productionMetadata)
+    expect(metadata).toEqual(expect.objectContaining({
+      source: 'hermes-features-delegation',
+      delegationId: 'del_1712345678_ab12cd',
+      childId: 'child_1712345678_0',
+      parentRunHint: 'messages:conv-1:msg:msg-9',
+      dispatchAgentId: 'maya',
+      orgId: 'org-1',
+      conversationId: 'conv-1',
+      branchMessageId: 'branch-msg-1',
+      messageId: 'branch-msg-1',
+    }))
+    expect(metadata).not.toHaveProperty('apiKey')
+    expect(metadata).not.toHaveProperty('vpsWorkingPath')
+  })
+
   it('reduces arbitrary Hermes payloads to safe run fields', () => {
     expect(safeHermesRunPayload({
       run_id: 'run-1', status: 'started', endpoint: 'https://gateway.example/v1/runs',

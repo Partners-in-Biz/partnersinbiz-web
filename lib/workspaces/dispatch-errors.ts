@@ -58,6 +58,8 @@ const SAFE_METADATA_KEYS = new Set([
   'requestedRuntimeTargetId', 'runtimeTargetId', 'runtimeKind', 'runtimeMachineLabel',
   'dispatchAgentId', 'model', 'provider', 'requestedAgentIds', 'orchestrationMode', 'source',
   'agentEffort', 'slashCommand',
+  // Subagent branch completion (hermes-features-delegation → cron re-entry)
+  'delegationId', 'childId', 'branchMessageId', 'parentRunHint',
 ])
 
 const SAFE_VALUE = /^[A-Za-z0-9][A-Za-z0-9._:@+ -]{0,199}$/
