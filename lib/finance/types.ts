@@ -49,6 +49,9 @@ export type FinanceApprovalAction =
   | 'tax.return.prepare'
   | 'tax.return.approve'
   | 'reconciliation.approve'
+  | 'intercompany.receive'
+  | 'elimination.rule.approve'
+  | 'consolidation.run.approve'
 
 export interface FinanceApprovalEvidence {
   approvalId: string

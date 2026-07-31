@@ -18,6 +18,8 @@ describe('finance foundation storage contract', () => {
       'open_items', 'account_credits', 'finance_payments', 'payment_allocations',
       'bank_accounts', 'bank_transactions', 'reconciliations', 'reconciliation_matches',
       'reconciliation_adjustments',
+      'intercompany_pairs', 'intercompany_transactions', 'elimination_rules',
+      'consolidation_runs', 'consolidation_entries',
     ]) {
       expect(rules).toContain(`match /${collection}/{id} { allow read, write: if false; }`)
     }

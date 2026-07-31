@@ -753,6 +753,24 @@ function conversationAgentIdentity(conversation: Conversation): { id: string; na
   }
 }
 
+type ScopedConversationShareMode = 'private' | 'shared' | 'org'
+
+function isScopedConversation(scope: ConversationScope): scope is 'workspace' | 'company' | 'project' {
+  return scope === 'workspace' || scope === 'company' || scope === 'project'
+}
+
+function isWorkspaceSharedRuntime(target: WorkspaceRuntimePresence | null | undefined): boolean {
+  return target?.visibility === 'organization' || target?.ownerType === 'organization'
+}
+
+function defaultScopedConversationShareMode(
+  scope: ConversationScope,
+  runtimeTarget: WorkspaceRuntimePresence | null,
+): ScopedConversationShareMode {
+  if (!isScopedConversation(scope)) return 'private'
+  return isWorkspaceSharedRuntime(runtimeTarget) ? 'org' : 'private'
+}
+
 function buildHermesSessionSections(conversations: Conversation[], pinnedIds: string[]) {
   const pinnedSet = new Set(pinnedIds)
   // Same pool as before: everything except project/company folders.

@@ -34,6 +34,16 @@ export type FinanceAction =
   | 'reconciliation.submit'
   | 'reconciliation.approve'
   | 'reconciliation.read'
+  | 'intercompany.pair.configure'
+  | 'intercompany.propose'
+  | 'intercompany.post_source'
+  | 'intercompany.receive_approve'
+  | 'intercompany.post_receiving'
+  | 'intercompany.read'
+  | 'consolidation.configure'
+  | 'consolidation.run'
+  | 'consolidation.approve'
+  | 'consolidation.read'
 
 const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'foundation.configure': ['finance_admin'],
@@ -69,6 +79,16 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'reconciliation.submit': ['bookkeeper', 'accountant', 'finance_admin'],
   'reconciliation.approve': ['finance_approver', 'finance_admin'],
   'reconciliation.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'intercompany.pair.configure': ['finance_admin'],
+  'intercompany.propose': ['accountant', 'finance_admin'],
+  'intercompany.post_source': ['accountant', 'finance_admin'],
+  'intercompany.receive_approve': ['finance_approver', 'finance_admin'],
+  'intercompany.post_receiving': ['accountant', 'finance_admin'],
+  'intercompany.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'consolidation.configure': ['finance_admin', 'accountant'],
+  'consolidation.run': ['finance_admin', 'accountant'],
+  'consolidation.approve': ['finance_approver', 'finance_admin'],
+  'consolidation.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
 }
 
 const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/
