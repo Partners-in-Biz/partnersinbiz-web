@@ -9,6 +9,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { AGENT_IDS } from '@/lib/agents/types'
+import { resolveWorkforceBlueprint } from '@/lib/agents/role-blueprints'
 import type { AgentId, Conversation, ConversationMessage, Participant } from './types'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
@@ -461,10 +462,18 @@ export async function getOrgChatConfig(orgId: string) {
 export function resolveVisibleAgents(
   config: { visibleAgents?: { admin?: AgentId[]; client?: AgentId[] } } | null,
   role: 'admin' | 'client',
+  profile?: {
+    department?: string | null
+    jobTitle?: string | null
+  },
 ): AgentId[] {
   const defaults: Record<'admin' | 'client', AgentId[]> = {
     admin: [...AGENT_IDS],
     client: ['pip'],
   }
-  return config?.visibleAgents?.[role] ?? defaults[role]
+  if (role === 'admin') return config?.visibleAgents?.admin ?? defaults.admin
+  return config?.visibleAgents?.client ?? resolveWorkforceBlueprint({
+    department: profile?.department?.trim() || null,
+    jobTitle: profile?.jobTitle?.trim() || null,
+  }).blueprint.recommendedAgentIds
 }

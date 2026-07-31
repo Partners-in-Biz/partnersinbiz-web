@@ -98,7 +98,15 @@ export const POST = withAuth(
     const config = configDoc.exists
       ? (configDoc.data() as { visibleAgents?: { admin?: AgentId[]; client?: AgentId[] } })
       : null
-    const allowedAgentIds = new Set<AgentId>(resolveVisibleAgents(config, callerRole))
+    const memberProfile = {
+      department: membershipDoc.exists && typeof membershipDoc.data()?.department === 'string'
+        ? membershipDoc.data()!.department
+        : null,
+      jobTitle: membershipDoc.exists && typeof membershipDoc.data()?.jobTitle === 'string'
+        ? membershipDoc.data()!.jobTitle
+        : null,
+    }
+    const allowedAgentIds = new Set<AgentId>(resolveVisibleAgents(config, callerRole, memberProfile))
     const orgMemberUids = new Set<string>()
     if (callerRole === 'client' || !isPlatformWorkspace(scope.orgId)) {
       const canonicalMemberUids = await organizationMemberUids(scope.orgId)

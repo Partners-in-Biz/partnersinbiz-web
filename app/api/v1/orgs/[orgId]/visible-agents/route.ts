@@ -53,13 +53,18 @@ export const GET = withAuth(
     const config = configDoc.exists
       ? (configDoc.data() as { visibleAgents?: { admin?: AgentId[]; client?: AgentId[] } })
       : null
-
-    const allowedAgentIds = new Set<AgentId>(resolveVisibleAgents(config, callerRole))
     const runtimeTargetId = req.nextUrl.searchParams.get('runtimeTarget')?.trim() || null
 
     // Auth hydrates memberAccessPolicy for the profile activeOrgId only.
     // Grants must be evaluated against the org being viewed.
     const memberDoc = await adminDb.collection('orgMembers').doc(`${scope.orgId}_${user.uid}`).get()
+    const memberDocData = memberDoc.exists ? memberDoc.data() ?? {} : {}
+    const memberProfile = {
+      department: typeof memberDocData.department === 'string' ? memberDocData.department : null,
+      jobTitle: typeof memberDocData.jobTitle === 'string' ? memberDocData.jobTitle : null,
+    }
+    const visibleAgents = resolveVisibleAgents(config, callerRole, memberProfile)
+    const allowedAgentIds = new Set<AgentId>(visibleAgents)
     const memberRole = memberDoc.data()?.role
     const orgManager = user.role === 'admin' || memberRole === 'owner' || memberRole === 'admin'
     const scopedAccessPolicy = (await loadOrgMemberAccessPolicy(scope.orgId, user.uid))

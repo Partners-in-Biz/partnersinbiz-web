@@ -29,6 +29,7 @@ import { emailChatContextAdapter } from '@/lib/chat-context/adapters/email'
 import { taskChatContextAdapter } from '@/lib/chat-context/adapters/task'
 import { workspaceBrokerJobChatContextAdapter } from '@/lib/chat-context/adapters/workspaceBrokerJob'
 import { workspaceArtifactChatContextAdapter } from '@/lib/chat-context/adapters/workspaceArtifact'
+import { workspaceConnectionChatContextAdapter } from '@/lib/chat-context/adapters/workspaceConnection'
 import { chatContextCapability } from '@/lib/chat-context/capabilities'
 
 export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
@@ -95,6 +96,7 @@ export const chatContextRegistry = createChatContextRegistry({
   task: taskChatContextAdapter,
   workspace_broker_job: workspaceBrokerJobChatContextAdapter,
   workspace_artifact: workspaceArtifactChatContextAdapter,
+  workspace_connection: workspaceConnectionChatContextAdapter,
   studio: createStudioRootNamespaceAdapter({
     marketing_studio: marketingStudioChatContextAdapter,
     video_editor: nonMarketingStudioRootChatContextAdapter,
