@@ -15,6 +15,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 }))
 
 import {
+  formatConversationPresenceLine,
   heartbeatConversationPresence,
   listConversationPresence,
 } from '@/lib/conversations/presence'
@@ -28,6 +29,22 @@ beforeEach(() => {
 })
 
 describe('conversation presence helpers', () => {
+  it('formats typing and viewing lines for other collaborators only', () => {
+    expect(formatConversationPresenceLine([
+      { actorUid: 'me', actorType: 'user', state: 'typing', displayName: 'Peet' },
+      { actorUid: 'u2', actorType: 'user', state: 'typing', displayName: 'Alex' },
+    ], 'me')).toBe('Alex is typing…')
+
+    expect(formatConversationPresenceLine([
+      { actorUid: 'u2', actorType: 'user', state: 'viewing', displayName: 'Alex' },
+      { actorUid: 'u3', actorType: 'user', state: 'active', displayName: 'Sam' },
+    ], 'me')).toBe('2 others are here')
+
+    expect(formatConversationPresenceLine([
+      { actorUid: 'me', actorType: 'user', state: 'viewing', displayName: 'Peet' },
+    ], 'me')).toBeNull()
+  })
+
   it('lists active collaborators and filters stale conversation presence', async () => {
     mockGet.mockResolvedValue({
       docs: [

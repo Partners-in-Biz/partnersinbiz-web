@@ -13,6 +13,10 @@ import {
 } from '@/lib/conversations/create-resilience'
 import { exportChatAsMarkdown } from '@/lib/conversations/export-chat'
 import { postConversationMessage } from '@/lib/conversations/message-submit'
+import {
+  formatConversationPresenceLine,
+  type ConversationPresence,
+} from '@/lib/conversations/presence'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import { WORKFORCE_BLUEPRINT_OPTIONS } from '@/lib/agents/role-blueprints'
@@ -1415,6 +1419,8 @@ export default function UnifiedChat({
   // Agent map for looking up colorKey / iconKey for bubbles
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
   const [conversationLiveConnected, setConversationLiveConnected] = useState(false)
+  const [threadPresence, setThreadPresence] = useState<ConversationPresence[]>([])
+  const presenceTypingRef = useRef(false)
 
   // Live events keyed by assistant message id
   const [liveEvents, setLiveEvents] = useState<Record<string, ChatEvent[]>>({})
@@ -3986,6 +3992,7 @@ export default function UnifiedChat({
           conversations?: Conversation[]
           conversation?: Conversation | null
           messages?: ConversationMessage[] | null
+          presence?: ConversationPresence[] | null
         }
         if (snapshot.type !== 'snapshot' || !Array.isArray(snapshot.conversations)) return
 
@@ -4005,6 +4012,15 @@ export default function UnifiedChat({
         ) {
           setMessages((current) => mergeSnapshotMessages(snapshot.messages!, current))
         }
+        if (
+          activeConversationIdRef.current
+          && snapshot.conversation?.id === activeConversationIdRef.current
+          && Array.isArray(snapshot.presence)
+        ) {
+          setThreadPresence(snapshot.presence)
+        } else if (!snapshot.conversation || snapshot.conversation.id !== activeConversationIdRef.current) {
+          setThreadPresence([])
+        }
       } catch (error) {
         void error
         // Ignore malformed frames and let EventSource deliver the next snapshot.
@@ -4020,6 +4036,73 @@ export default function UnifiedChat({
       setConversationLiveConnected(false)
     }
   }, [activeId, listQuery])
+
+  // Drop stale collaborator chips immediately when switching threads.
+  useEffect(() => {
+    setThreadPresence([])
+    presenceTypingRef.current = false
+  }, [activeId])
+
+  // Presence heartbeat: viewing while the thread is open; typing while the
+  // composer has content. Server TTL is ~12s — refresh well under that.
+  useEffect(() => {
+    if (!activeId || !orgId || !currentUserUid) {
+      setThreadPresence([])
+      return
+    }
+    let cancelled = false
+    const postPresence = async (state: 'viewing' | 'typing' | 'active') => {
+      try {
+        await fetch(`/api/v1/conversations/${encodeURIComponent(activeId)}/presence?orgId=${encodeURIComponent(orgId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            state,
+            displayName: currentUserDisplayName || undefined,
+            lastMessageId: messages[messages.length - 1]?.id,
+          }),
+        })
+      } catch {
+        // Best-effort presence — live chat still works without it.
+      }
+    }
+
+    void postPresence(presenceTypingRef.current ? 'typing' : 'viewing')
+    const timer = window.setInterval(() => {
+      if (cancelled) return
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      void postPresence(presenceTypingRef.current ? 'typing' : 'viewing')
+    }, 5_000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  // messages length intentionally omitted — lastMessageId is optional context only
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, orgId, currentUserUid, currentUserDisplayName])
+
+  useEffect(() => {
+    const typing = Boolean(input.trim())
+    presenceTypingRef.current = typing
+    if (!activeId || !orgId || !typing) return
+    const handle = window.setTimeout(() => {
+      void fetch(`/api/v1/conversations/${encodeURIComponent(activeId)}/presence?orgId=${encodeURIComponent(orgId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          state: 'typing',
+          displayName: currentUserDisplayName || undefined,
+        }),
+      }).catch(() => undefined)
+    }, 350)
+    return () => window.clearTimeout(handle)
+  }, [input, activeId, orgId, currentUserDisplayName])
+
+  const presenceLine = useMemo(
+    () => formatConversationPresenceLine(threadPresence, currentUserUid),
+    [threadPresence, currentUserUid],
+  )
 
   // Clear the current member's unread counter only after the exact latest
   // message is visible in the focused thread. A 409 means a newer message won
@@ -7975,6 +8058,19 @@ export default function UnifiedChat({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {presenceLine && (
+            <div
+              data-testid="conversation-presence-line"
+              className="flex items-center gap-1.5 px-1 text-[11px] text-[var(--color-pib-text-muted)]"
+              aria-live="polite"
+            >
+              <span className="material-symbols-outlined text-[14px] text-emerald-400/90" aria-hidden="true">
+                {presenceLine.includes('typing') ? 'edit' : 'visibility'}
+              </span>
+              <span>{presenceLine}</span>
             </div>
           )}
 
