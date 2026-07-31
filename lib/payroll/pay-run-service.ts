@@ -1,4 +1,5 @@
 import { authorizeFinanceAction } from '@/lib/finance/policy'
+import { authorizePayslipRead, redactSensitivePayrollRecord } from '@/lib/finance/payroll-access'
 import {
   CANONICAL_PAYLOAD_VERSION,
   HASH_ALGORITHM_VERSION,
@@ -1147,7 +1148,18 @@ export class FinancePayRunService {
       .sort((a, b) => a.payRunId.localeCompare(b.payRunId))
   }
 
-  getPayslip(scope: Required<FinanceScope>, payslipId: string): Payslip {
-    return structuredClone(scopedGet(this.store.payslips, payslipId, scope, 'Payslip'))
+  getPayslip(
+    actor: FinanceActorContext,
+    scope: Required<FinanceScope>,
+    payslipId: string,
+    options: { employeeLinkedUserId?: string; includeSensitiveFields?: boolean } = {},
+  ): Payslip {
+    authorizePayslipRead(actor, scope, {
+      payslipId,
+      employeeLinkedUserId: options.employeeLinkedUserId,
+    })
+    const payslip = structuredClone(scopedGet(this.store.payslips, payslipId, scope, 'Payslip'))
+    if (options.includeSensitiveFields) return payslip
+    return redactSensitivePayrollRecord(payslip as unknown as Record<string, unknown>) as unknown as Payslip
   }
 }

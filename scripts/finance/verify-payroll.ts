@@ -229,7 +229,7 @@ async function main() {
   if (locked.externalPaymentInitiated !== false || locked.sarsSubmissionInitiated !== false) {
     throw new Error('egress flags')
   }
-  const payslip = payRuns.getPayslip(scope, locked.payslipIds[0])
+  const payslip = payRuns.getPayslip(clerk, scope, locked.payslipIds[0])
   if (payslip.autoSent !== false || payslip.publicationStatus !== 'internal_only') {
     throw new Error('payslip publication')
   }

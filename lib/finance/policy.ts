@@ -58,6 +58,7 @@ export type FinanceAction =
   | 'payroll.run.approve'
   | 'payroll.run.reverse'
   | 'payroll.run.correct'
+  | 'payroll.employee.read'
   | 'payroll.payslip.read'
   | 'payroll.payment.observe'
   | 'payroll.tax_year.configure'
@@ -129,6 +130,7 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'payroll.run.approve': ['finance_admin', 'payroll_approver'],
   'payroll.run.reverse': ['finance_admin', 'payroll_approver'],
   'payroll.run.correct': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.employee.read': ['finance_admin', 'payroll_clerk', 'payroll_approver'],
   'payroll.payslip.read': ['finance_admin', 'payroll_clerk', 'payroll_approver'],
   'payroll.payment.observe': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'payroll.tax_year.configure': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
@@ -142,6 +144,9 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'payroll.export.approve': ['finance_admin', 'payroll_approver'],
   'consolidation.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
 }
+
+/** Read-only export for security inventory / coverage tests. */
+export const ACTION_ROLES_FOR_COVERAGE: Readonly<Record<FinanceAction, readonly FinanceRole[]>> = ACTION_ROLES
 
 const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/
 

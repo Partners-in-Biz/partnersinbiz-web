@@ -2,9 +2,8 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { loadFinanceActorContext } from '@/lib/finance/firestore-context'
+import { mapFinanceErrorToHttp } from '@/lib/finance/errors'
 import { FirestoreFinanceFoundationRepository } from '@/lib/accounting/firestore-foundation-repository'
-import { FinanceValidationError } from '@/lib/accounting/foundation'
-import { FinanceAuthorizationError } from '@/lib/finance/policy'
 import type {
   ChangePeriodStatusCommand,
   CreateAccountCommand,
@@ -75,11 +74,11 @@ export const POST = withAuth('client', async (req: NextRequest, user) => {
       actor, body.command as FoundationCommand)
     return apiSuccess({ operation: body.operation, result })
   } catch (error) {
-    if (error instanceof FinanceAuthorizationError || error instanceof FinanceValidationError) {
-      return apiError(error.message, error.statusCode)
-    }
     if (error instanceof SyntaxError) return apiError('Invalid JSON body', 400)
-    console.error('[finance/foundation/commands] failed', error)
-    return apiError('Finance foundation command failed', 500)
+    const mapped = mapFinanceErrorToHttp(error)
+    if (mapped.code === 'finance_internal') {
+      console.error('[finance/foundation/commands] failed', error)
+    }
+    return apiError(mapped.error, mapped.status, { code: mapped.code })
   }
 })

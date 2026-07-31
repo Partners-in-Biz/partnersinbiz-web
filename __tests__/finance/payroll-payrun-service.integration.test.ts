@@ -165,7 +165,7 @@ describe('payroll pay-run service integration', () => {
     expect(locked.externalPaymentInitiated).toBe(false)
     expect(locked.sarsSubmissionInitiated).toBe(false)
 
-    const payslip = service.getPayslip(scope, locked.payslipIds[0])
+    const payslip = service.getPayslip(clerk, scope, locked.payslipIds[0])
     expect(payslip.publicationStatus).toBe('internal_only')
     expect(payslip.autoSent).toBe(false)
     expect(payslip.rendered.netPayMinor).toBe(locked.totals.netPayMinor)
