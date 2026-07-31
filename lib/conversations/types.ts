@@ -16,6 +16,7 @@ import type { RichMessagePart } from '@/lib/hermes/types'
 import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
 import type { ApprovalMode } from '@/lib/messages/approval-mode'
 import type { MessageThinkingTrace } from './thinking-trace'
+import type { Mention } from '@/lib/comments/types'
 export type { AgentId }
 
 export interface OrgChatConfig {
@@ -133,6 +134,8 @@ export interface ConversationMessage {
   conversationId: string
   role: 'user' | 'assistant' | 'system' | 'tool'
   content: string
+  mentions?: Mention[]
+  mentionIds?: string[]
   attachments?: ConversationAttachment[]
   contextRefs?: ContextReference[]
   slashCommand?: SlashCommandPayload

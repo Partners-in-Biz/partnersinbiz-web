@@ -51,6 +51,7 @@ import {
   sanitizeContextReferenceSeeds,
   type ContextReferenceSeed,
 } from '@/lib/context-references/types'
+import { parseMentions, notifyMentions } from '@/lib/comments/mentions'
 import { councilModeGuidanceLines, getSlashCommandByToken, hermesFeaturesCommandLine, hermesGoalCommandLine, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
 import {
   applyGoalControl,
@@ -779,10 +780,14 @@ export const POST = withAuth(
     const userVisibleContent = slashCommand?.executorKind === 'hermes_goal'
       ? (hermesGoalCommandLine(slashCommand) || content || slashCommand.token)
       : content
+    const mentions = parseMentions(userVisibleContent)
+    const mentionIds = mentions.map(({ id, type }) => `${type}:${id}`)
     const message = await createMessage(convId, {
       conversationId: convId,
       role: 'user',
       content: userVisibleContent,
+      ...(mentions.length ? { mentions } : {}),
+      ...(mentionIds.length ? { mentionIds } : {}),
       ...(publicAttachments.length > 0 ? { attachments: publicAttachments } : {}),
       ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
       ...(slashCommand ? { slashCommand } : {}),
@@ -800,6 +805,17 @@ export const POST = withAuth(
     // Update the conversation's denorm fields
     const preview = userVisibleContent || publicAttachments.map((attachment) => attachment.name).join(', ')
     await touchConversation(convId, preview, 'user', message.id, user.uid)
+    if (mentions.length > 0) {
+      notifyMentions({
+        orgId: conversation.orgId,
+        mentions,
+        commentId: message.id,
+        resourceType: 'conversation',
+        resourceId: convId,
+        actorName: authorDisplayName,
+        snippet: userVisibleContent.slice(0, 100),
+      }).catch((error) => console.error('notifyMentions failed:', error))
+    }
 
     const recentMessages = await listMessages(convId, 200).catch(() => [message])
     const conversationHistory = buildConversationHistoryBlock(recentMessages, message.id)

@@ -33,6 +33,8 @@ const mockCallAgentPath = jest.fn()
 const mockValidateMessageModelSelection = jest.fn()
 const mockRequireReadyLlmCredentialBinding = jest.fn()
 const mockResolveLlmCredentialRuntimeTarget = jest.fn()
+const mockParseMentions = jest.fn()
+const mockNotifyMentions = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
 let organizationSettings: Record<string, unknown> = {}
@@ -84,6 +86,10 @@ jest.mock('@/lib/llm-providers/bindings', () => ({
 }))
 jest.mock('@/lib/llm-providers/sync-targets', () => ({
   resolveLlmCredentialRuntimeTarget: (...args: unknown[]) => mockResolveLlmCredentialRuntimeTarget(...args),
+}))
+jest.mock('@/lib/comments/mentions', () => ({
+  parseMentions: (...args: unknown[]) => mockParseMentions(...args),
+  notifyMentions: (...args: unknown[]) => mockNotifyMentions(...args),
 }))
 
 
@@ -156,6 +162,8 @@ beforeEach(() => {
     deviceId: null,
     ownerType: input.runtimeTargetId === 'local' ? 'user' : 'organization',
   }))
+  mockParseMentions.mockReturnValue([])
+  mockNotifyMentions.mockResolvedValue(undefined)
   mockValidateMessageModelSelection.mockImplementation(async (input: { model?: unknown; provider?: unknown }) => {
     const model = typeof input.model === 'string' ? input.model : ''
     const provider = typeof input.provider === 'string' ? input.provider : ''
@@ -385,6 +393,67 @@ describe('unified conversation message routing', () => {
     const body = await readJson(res)
     expect(body.data.message.id).toBe('msg-1')
     expect(body.data.assistantMessage).toBeUndefined()
+  })
+
+  it('stores parsed mentions on human messages and emits mention notifications', async () => {
+    mockParseMentions.mockReturnValue([
+      { type: 'user', id: 'client-2', raw: '@user:client-2' },
+      { type: 'agent', id: 'maya', raw: '@agent:maya' },
+    ])
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1', 'admin-1'],
+      participantAgentIds: [],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Admin User' },
+      ],
+    })
+
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+    const res = await POST(req({ content: 'Hi @user:client-2, can @agent:maya review this?' }), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateMessage).toHaveBeenCalledWith('conv-1', expect.objectContaining({
+      role: 'user',
+      mentions: [
+        { type: 'user', id: 'client-2', raw: '@user:client-2' },
+        { type: 'agent', id: 'maya', raw: '@agent:maya' },
+      ],
+      mentionIds: ['user:client-2', 'agent:maya'],
+    }))
+    expect(mockNotifyMentions).toHaveBeenCalledWith({
+      orgId: 'pib-platform-owner',
+      mentions: [
+        { type: 'user', id: 'client-2', raw: '@user:client-2' },
+        { type: 'agent', id: 'maya', raw: '@agent:maya' },
+      ],
+      commentId: 'msg-1',
+      resourceType: 'conversation',
+      resourceId: 'conv-1',
+      actorName: 'Client User',
+      snippet: 'Hi @user:client-2, can @agent:maya review this?',
+    })
+  })
+
+  it('does not notify when no mentions exist in the user message', async () => {
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1', 'admin-1'],
+      participantAgentIds: [],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'user', uid: 'admin-1', role: 'admin', displayName: 'Admin User' },
+      ],
+    })
+
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockNotifyMentions).not.toHaveBeenCalled()
   })
 
   it('blocks client replies when the messages reply policy denies their org role', async () => {

@@ -79,8 +79,11 @@ export function publicConversationView(conversation: Conversation, userUid?: str
     const shareMode = conversation.workspaceContext?.shareMode
     const readState = conversation.readStateByUser?.[userUid]
     const explicitUnreadCount = conversation.unreadCounts?.[userUid]
-    const baseReadMessageCount = Number.isFinite(readState?.lastReadMessageCount)
-      ? Math.max(0, Math.floor(readState.lastReadMessageCount ?? 0))
+    const persistedReadMessageCount = typeof readState?.lastReadMessageCount === 'number'
+      ? readState.lastReadMessageCount
+      : Number.NaN
+    const baseReadMessageCount = Number.isFinite(persistedReadMessageCount)
+      ? Math.max(0, Math.floor(persistedReadMessageCount ?? 0))
       : 0
     const derivedUnreadCount = Number.isFinite(readState?.lastReadMessageCount)
       ? Math.max(0, (conversation.messageCount ?? 0) - baseReadMessageCount)
@@ -131,6 +134,8 @@ export function publicConversationMessageView(message: ConversationMessage): Con
     conversationId: message.conversationId,
     role: message.role,
     content: message.content,
+    ...(message.mentions ? { mentions: message.mentions } : {}),
+    ...(message.mentionIds ? { mentionIds: message.mentionIds } : {}),
     ...(message.attachments
       ? { attachments: message.attachments.map((attachment) => publicConversationAttachmentView(attachment, message.conversationId)) }
       : {}),
