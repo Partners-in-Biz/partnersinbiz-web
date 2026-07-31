@@ -128,9 +128,9 @@ const nextConfig: NextConfig = {
       // P3 intelligence convergence: nav hub — all destinations now in portal
       { source: '/admin/intelligence', destination: '/portal', permanent: false },
       { source: '/admin/intelligence/:path*', destination: '/portal', permanent: false },
-      // P3 finance convergence: hub redirects to portal payments
-      { source: '/admin/finance', destination: '/portal/payments', permanent: false },
-      { source: '/admin/finance/:path*', destination: '/portal/payments', permanent: false },
+      // Finance workbench lives under /portal/finance
+      { source: '/admin/finance', destination: '/portal/finance', permanent: false },
+      { source: '/admin/finance/:path*', destination: '/portal/finance/:path*', permanent: false },
       // P3 analytics convergence: per-org analytics → portal
       { source: '/admin/analytics', destination: '/portal/analytics', permanent: false },
       // P3 invoicing convergence: portal is the only invoicing workspace

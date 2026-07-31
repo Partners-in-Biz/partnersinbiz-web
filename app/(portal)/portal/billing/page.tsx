@@ -4,6 +4,12 @@ export const dynamic = 'force-dynamic'
 
 const BILLING_SECTIONS = [
   {
+    title: 'Finance workbench',
+    href: '/portal/finance',
+    icon: 'account_balance',
+    body: 'Legal entities, books, periods, chart of accounts, and double-entry journal foundation.',
+  },
+  {
     title: 'Invoices',
     href: '/portal/invoicing',
     icon: 'receipt_long',
@@ -46,7 +52,8 @@ export default function PortalBillingPage() {
           One place for EFT invoices, payment review, recurring schedules, quotes, and public invoice handoffs.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/portal/invoicing" className="pib-btn-primary">Open invoices</Link>
+          <Link href="/portal/finance" className="pib-btn-primary">Open finance</Link>
+          <Link href="/portal/invoicing" className="pib-btn-ghost">Open invoices</Link>
           <Link href="/portal/payments" className="pib-btn-ghost">Open payments</Link>
         </div>
       </header>

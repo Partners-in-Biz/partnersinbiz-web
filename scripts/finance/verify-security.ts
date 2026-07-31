@@ -30,6 +30,7 @@ import { matchesExactFinanceScope, normalizeRequiredFinanceScope } from '../../l
 import { checkFinanceCommandOrgScope } from '../../lib/finance/http-guards'
 import {
   FINANCE_HTTP_ENTRYPOINTS,
+  FINANCE_UI_BOUNDARY_NOTE,
   FINANCE_UI_SHIPPED,
   SERVICE_ONLY_FINANCE_MODULES,
 } from '../../lib/finance/service-boundaries'
@@ -159,11 +160,21 @@ function main() {
   const root = path.resolve(__dirname, '../..')
   for (const entry of FINANCE_HTTP_ENTRYPOINTS) {
     const route = fs.readFileSync(path.join(root, entry), 'utf8')
-    assert.ok(route.includes('mapFinanceErrorToHttp'), `${entry} safe errors`)
-    assert.ok(route.includes('checkFinanceCommandOrgScope'), `${entry} org guard`)
+    const usesSharedHelper = route.includes("from '@/lib/finance/http-command'")
+    assert.ok(
+      usesSharedHelper || route.includes('mapFinanceErrorToHttp'),
+      `${entry} safe errors`,
+    )
+    assert.ok(
+      usesSharedHelper || route.includes('checkFinanceCommandOrgScope'),
+      `${entry} org guard`,
+    )
     assert.ok(route.includes("withAuth('client'"), `${entry} client auth`)
     assert.ok(!route.includes("withAuth('admin'"), `${entry} must not be admin-only`)
   }
+  const helper = fs.readFileSync(path.join(root, 'lib/finance/http-command.ts'), 'utf8')
+  assert.ok(helper.includes('mapFinanceErrorToHttp'))
+  assert.ok(helper.includes('checkFinanceCommandOrgScope'))
 
   // Discover any extra finance HTTP routes not in inventory.
   const financeApi = path.join(root, 'app/api/v1/finance')
@@ -196,8 +207,11 @@ function main() {
     )
   }
 
-  assert.strictEqual(FINANCE_UI_SHIPPED, false)
+  assert.strictEqual(FINANCE_UI_SHIPPED, true)
+  assert.ok(/foundation workbench shipped/i.test(FINANCE_UI_BOUNDARY_NOTE))
   assert.ok(SERVICE_ONLY_FINANCE_MODULES.includes('lib/payroll/pay-run-service.ts'))
+  assert.ok(fs.existsSync(path.join(root, 'app/(portal)/portal/finance/page.tsx')))
+  assert.ok(!fs.existsSync(path.join(root, 'app/(portal)/portal/finance/payroll')))
 
   for (const rel of [
     'lib/finance/errors.ts',

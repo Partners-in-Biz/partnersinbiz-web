@@ -1,12 +1,13 @@
 /**
  * Explicit service-only vs HTTP boundary inventory for finance/payroll.
  * Payroll, tax, documents, and intercompany remain library/service-only until
- * dedicated authenticated routes ship. Only foundation commands are HTTP today.
+ * dedicated authenticated routes ship. Foundation commands + queries are HTTP today.
  */
 
 /** Relative paths from repo root — every finance HTTP entrypoint that must pass tenant/auth harness. */
 export const FINANCE_HTTP_ENTRYPOINTS = [
   'app/api/v1/finance/foundation/commands/route.ts',
+  'app/api/v1/finance/foundation/queries/route.ts',
 ] as const
 
 /**
@@ -24,8 +25,8 @@ export const SERVICE_ONLY_FINANCE_MODULES = [
   'lib/accounting/foundation-service.ts',
 ] as const
 
-/** UI claim for this harden slice — no finance/payroll portal or admin screens shipped. */
-export const FINANCE_UI_SHIPPED = false as const
+/** UI claim — foundation workbench is shipped; payroll/tax/intercompany screens remain staged. */
+export const FINANCE_UI_SHIPPED = true as const
 
 export const FINANCE_UI_BOUNDARY_NOTE =
-  'No finance/payroll UI paths shipped in this slice. Sensitive access is enforced at policy + service boundaries; client-visible screens remain out of scope until a dedicated UI task.'
+  'Finance foundation workbench shipped under /portal/finance (overview, setup, ledger). Payroll/tax/intercompany full screens remain staged behind domain services until durable HTTP adapters land. Sensitive access is enforced at policy + service boundaries.'
