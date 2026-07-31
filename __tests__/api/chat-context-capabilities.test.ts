@@ -26,7 +26,7 @@ describe('chat context capabilities API', () => {
       coverage: {
         totalKinds: 25,
         liveReadKinds: 25,
-        specializedKinds: 19,
+        specializedKinds: 23,
         sealedRuntimeKinds: 1,
         inlineActionKinds: 19,
         navigateActionKinds: 6,

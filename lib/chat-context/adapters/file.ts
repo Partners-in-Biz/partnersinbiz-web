@@ -1,3 +1,5 @@
+import type { ApiUser } from '@/lib/api/types'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ChatContextAdapter } from '@/lib/chat-context/access'
 import type { ChatContextAction, ChatContextRelationship } from '@/lib/chat-context/types'
 import { adminDb } from '@/lib/firebase/admin'
@@ -10,82 +12,116 @@ interface UploadDoc {
   mimeType?: string
   size?: number
   folder?: string
-  relatedTo?: { type?: string; id?: string } | null
-  createdAt?: unknown
-  updatedAt?: unknown
   deleted?: boolean
+  updatedAt?: unknown
+  relatedTo?: {
+    type?: unknown
+    id?: unknown
+  } | null
 }
+
+const FILE_RELATIONSHIPS = [
+  'project', 'campaign', 'document', 'report', 'deal',
+  'property', 'contact', 'invoice', 'support', 'social',
+] as const
+
+type FileRelationshipType = (typeof FILE_RELATIONSHIPS)[number]
 
 function clean(value: unknown, max = 240): string {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, max) : ''
 }
 
-function asNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
-}
-
-function asIso(value: unknown): string | undefined {
+function toIso(value: unknown): string | undefined {
   if (typeof value === 'string' && Number.isFinite(Date.parse(value))) return new Date(value).toISOString()
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString()
   if (value && typeof value === 'object') {
-    try {
-      const toDate = (value as { toDate?: () => Date }).toDate
-      if (typeof toDate === 'function') {
-        const parsed = toDate()
-        if (!Number.isNaN(parsed.getTime())) return parsed.toISOString()
-      }
-    } catch {
-      return undefined
+    const toDate = (value as { toDate?: () => Date }).toDate
+    if (typeof toDate === 'function') {
+      const parsed = toDate()
+      return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : undefined
     }
   }
   return undefined
 }
 
-function fileActions(role: string | undefined, id: string): ChatContextAction[] {
-  if (role !== 'admin') return []
-  return [
-    {
-      id: `archive-file:${id}`,
-      label: 'Archive file',
-      href: `/api/v1/files/${encodeURIComponent(id)}`,
-      method: 'DELETE',
-      requiresApproval: true,
-      destructive: true,
-    },
-  ]
+function bytes(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return Math.trunc(value)
+  if (typeof value === 'string' && Number.isFinite(Number(value)) && Number(value) >= 0) return Math.trunc(Number(value))
+  return undefined
 }
 
-function fileMimeMetric(data: UploadDoc): string {
-  return clean(data.mimeType, 120) || 'unknown'
+function fileActions(userRole: string, id: string): ChatContextAction[] {
+  if (userRole !== 'admin') return []
+  return [{
+    id: `archive-file:${id}`,
+    label: 'Archive file',
+    href: `/api/v1/files/${encodeURIComponent(id)}`,
+    method: 'DELETE',
+    requiresApproval: true,
+    destructive: true,
+  }]
+}
+
+function linkable(input: { type: unknown; id: unknown; orgId?: string }) {
+  const type = clean(input.type)
+  const id = clean(input.id)
+  if (!input.orgId || !type || !id) return null
+  if (!FILE_RELATIONSHIPS.includes(type as FileRelationshipType)) return null
+  return { type: type as FileRelationshipType, id, origin: 'manual' as const, orgId: input.orgId }
+}
+
+async function buildRelationships(doc: UploadDoc, user: ApiUser): Promise<ChatContextRelationship[]> {
+  const related = linkable({
+    type: doc.relatedTo?.type,
+    id: doc.relatedTo?.id,
+    orgId: doc.orgId,
+  })
+  if (!related) return []
+
+  const [resolved] = await resolveContextReferences([related], user, doc.orgId)
+  if (!resolved) return []
+
+  return [{
+    kind: resolved.type,
+    id: resolved.id,
+    label: resolved.label,
+    relation: 'Source',
+    ...(resolved.href ? { href: resolved.href } : {}),
+  }]
+}
+
+function maybeUrl(value: unknown): string | undefined {
+  const raw = clean(value, 800)
+  if (!raw) return undefined
+  try {
+    const candidate = new URL(raw)
+    return ['http:', 'https:'].includes(candidate.protocol) ? candidate.toString() : undefined
+  } catch {
+    return undefined
+  }
 }
 
 export const fileChatContextAdapter: ChatContextAdapter = {
   async resolve(input) {
-    const snapshot = await adminDb.collection('uploads').doc(input.id).get()
-    if (!snapshot.exists) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
+    if (input.kind !== 'file') return { ok: false, reason: 'unsupported', status: 400, error: 'Unsupported file context' }
 
-    const doc = { id: snapshot.id, ...(snapshot.data() as UploadDoc) } as UploadDoc
-    if (doc.deleted === true) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
+    const snap = await adminDb.collection('uploads').doc(input.id).get()
+    if (!snap.exists) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
 
-    const userOrg = input.user.activeOrgId || input.user.orgId || ''
-    if (!doc.orgId || (userOrg && doc.orgId !== userOrg)) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
+    const doc = { ...snap.data(), id: snap.id } as UploadDoc
+    if (doc.deleted) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
+    if (!doc.orgId || !canAccessOrg(input.user, doc.orgId)) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
 
-    const updatedAt = asIso(doc.updatedAt)
-    const href = `/admin/files/${encodeURIComponent(doc.id)}`
+    const expectedOrg = input.user.activeOrgId || input.user.orgId
+    if (expectedOrg && doc.orgId !== expectedOrg) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
+
+    const fileName = clean(doc.name, 160) || `File ${doc.id}`
+    const size = bytes(doc.size)
+    const mime = clean(doc.mimeType, 120) || 'unknown'
+    const folder = clean(doc.folder, 120) || 'root'
+    const updatedAt = toIso(doc.updatedAt)
     const actions = fileActions(input.user.role, doc.id)
-
-    const relationships: ChatContextRelationship[] = []
-    const relatedTo = doc.relatedTo ?? {}
-    if (typeof relatedTo === 'object' && !Array.isArray(relatedTo)) {
-      const refType = clean((relatedTo as { type?: unknown }).type, 80)
-      const refId = clean((relatedTo as { id?: unknown }).id, 200)
-      if ((['project', 'campaign', 'document', 'report', 'deal', 'property', 'contact'].includes(refType) || true) && refId) {
-        const [reference] = await resolveContextReferences([{ type: refType as never, id: refId, orgId: doc.orgId, origin: 'manual' }], input.user, doc.orgId)
-        if (reference) {
-          relationships.push({ kind: reference.type, id: reference.id, label: reference.label, relation: 'Related record', ...(reference.href ? { href: reference.href } : {}) })
-        }
-      }
-    }
+    const relationships = await buildRelationships(doc, input.user)
 
     return {
       ok: true,
@@ -94,41 +130,43 @@ export const fileChatContextAdapter: ChatContextAdapter = {
           kind: 'file',
           id: doc.id,
           orgId: doc.orgId,
-          label: clean(doc.name, 160) || `File ${doc.id}`,
+          label: fileName,
           icon: 'attach_file',
-          href,
+          href: `/admin/files/${encodeURIComponent(doc.id)}`,
         },
         pulse: {
           label: 'File',
           metrics: [
-            { id: 'mime', label: 'Mime type', value: fileMimeMetric(doc) },
-            { id: 'size', label: 'Size', value: asNumber(doc.size) ?? 0 },
-            { id: 'folder', label: 'Folder', value: clean(doc.folder, 120) || 'root' },
+            { id: 'type', label: 'MIME', value: mime },
+            { id: 'folder', label: 'Folder', value: folder },
+            ...(size === undefined ? [] : [{ id: 'size', label: 'Size', value: `${size} B` }]),
           ],
-          headline: clean(doc.name, 200) || 'File metadata',
+          headline: fileName,
         },
         groups: [{
           id: 'overview',
           label: 'File',
           items: [{
             id: doc.id,
-            label: clean(doc.name, 160) || 'File',
+            label: fileName,
             state: 'ready',
-            detail: fileMimeMetric(doc),
-            href,
+            detail: [mime, folder].filter(Boolean).join(' · '),
+            href: maybeUrl(doc.name) || `/admin/files/${encodeURIComponent(doc.id)}`,
             ...(updatedAt ? { updatedAt } : {}),
-            ...(actions.length > 0 ? { actions } : {}),
+            ...(actions.length ? { actions } : {}),
           }],
         }],
         artifacts: [],
         attention: [],
         activity: [],
-        preview: { kind: 'document', text: clean(doc.name, 240) || 'Uploaded file' },
-        ...(relationships.length > 0 ? { relationships } : {}),
-        capabilities: ['open', 'preview', ...(actions.length > 0 ? ['inline-actions'] : [])],
+        preview: {
+          kind: 'document',
+          text: fileName,
+        },
+        ...(relationships.length ? { relationships } : {}),
+        capabilities: ['open', 'preview', ...(actions.length ? ['inline-actions'] : [])],
         asOf: updatedAt || new Date().toISOString(),
       },
     }
   },
 }
-

@@ -1,191 +1,202 @@
+import type { ApiUser } from '@/lib/api/types'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ChatContextAdapter } from '@/lib/chat-context/access'
-import type {
-  ChatContextAction,
-  ContextDisplayState,
-  ChatContextRelationship,
-} from '@/lib/chat-context/types'
-import type { ResearchItem } from '@/lib/research/types'
+import type { ChatContextAction, ChatContextRelationship, ContextDisplayState } from '@/lib/chat-context/types'
 import { getResearchItem } from '@/lib/research/store'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 
-type SafeResearchItem = ResearchItem & {
-  linked?: Record<string, unknown>
-  findings?: unknown[]
-  recommendations?: unknown[]
+interface RelationshipSeed {
+  type: 'project' | 'campaign' | 'seo_sprint' | 'deal' | 'company' | 'contact' | 'document' | 'property' | 'social' | 'support'
+  id: string
+  relation: string
 }
 
 function clean(value: unknown, max = 240): string {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, max) : ''
 }
 
 function asIso(value: unknown): string | undefined {
   if (typeof value === 'string' && Number.isFinite(Date.parse(value))) return new Date(value).toISOString()
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString()
-  if (!value || typeof value !== 'object') return undefined
-  try {
-    const converted = (value as { toDate?: () => Date; toMillis?: () => number; seconds?: number; _seconds?: number }).toDate?.()
-      ?? null
-    if (converted && Number.isFinite(converted.getTime())) return converted.toISOString()
-    const millis = (value as { toMillis?: () => number }).toMillis?.()
-    if (typeof millis === 'number' && Number.isFinite(millis)) return new Date(millis).toISOString()
-    const seconds = (value as { seconds?: number; _seconds?: number }).seconds
-      ?? (value as { seconds?: number; _seconds?: number })._seconds
-    if (typeof seconds === 'number' && Number.isFinite(seconds)) return new Date(seconds * 1000).toISOString()
-  } catch {
-    return undefined
+  if (value && typeof value === 'object') {
+    const toDate = (value as { toDate?: () => Date }).toDate
+    if (typeof toDate === 'function') {
+      const parsed = toDate()
+      return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : undefined
+    }
   }
   return undefined
 }
 
-function stateFromStatus(status: string): ContextDisplayState {
-  switch (status) {
-    case 'verified':
-    case 'used_in_document':
-      return 'complete'
-    case 'in_review':
-      return 'needs_approval'
-    case 'archived':
-      return 'archived'
-    default:
-      return 'ready'
-  }
+function countByStatus(items: Array<{ status?: unknown }>) {
+  const total = items.length
+  const open = items.filter((item) => clean(item.status, 24).toLowerCase() === 'open').length
+  return { total, open }
 }
 
-function countOpen(items: unknown[]): { total: number; open: number } {
-  if (!Array.isArray(items)) return { total: 0, open: 0 }
-  const normalized = items
-    .map((item) => (item && typeof item === 'object' ? item as Record<string, unknown> : null))
-    .filter((item): item is Record<string, unknown> => Boolean(item))
-  return {
-    total: normalized.length,
-    open: normalized.filter((item) => clean(item.status).toLowerCase() === 'open').length,
-  }
+function stateFromStatus(status: unknown): ContextDisplayState {
+  const normalized = clean(status, 24).toLowerCase()
+  if (normalized === 'verified' || normalized === 'used_in_document') return 'complete'
+  if (normalized === 'in_review') return 'review'
+  if (normalized === 'archived') return 'archived'
+  return 'ready'
 }
 
-function actionsForResearch(item: SafeResearchItem, role?: string) {
-  if (role !== 'admin') return []
+function canMutateResearch(role: ApiUser['role']) {
+  return role === 'admin' || role === 'ai'
+}
+
+function actionsForResearch(input: { id: string; status: string; role: ApiUser['role'] }): ChatContextAction[] {
+  if (!canMutateResearch(input.role) || input.status === 'archived') return []
   return [
     {
-      id: `create-research-document:${item.id}`,
+      id: `create-research-document:${input.id}`,
       label: 'Create linked document',
-      href: `/api/v1/research/${encodeURIComponent(item.id)}/create-document`,
+      href: `/api/v1/research/${encodeURIComponent(input.id)}/create-document`,
       method: 'POST',
       requiresApproval: true,
     },
     {
-      id: `archive-research:${item.id}`,
+      id: `archive-research:${input.id}`,
       label: 'Archive research item',
-      href: `/api/v1/research/${encodeURIComponent(item.id)}`,
+      href: `/api/v1/research/${encodeURIComponent(input.id)}`,
       method: 'DELETE',
       requiresApproval: true,
       destructive: true,
     },
-  ] as ChatContextAction[]
+  ]
 }
 
-async function buildRelationships(
-  item: SafeResearchItem,
-  actor: Parameters<ChatContextAdapter['resolve']>[0],
-): Promise<ChatContextRelationship[]> {
-  const linked = item.linked ?? {}
-  const pairs: Array<{ type: Parameters<typeof resolveContextReferences>[0][0]['type']; id?: string; relation: string }> = []
+function collectRelationshipSeeds(linked: Record<string, unknown> | null | undefined): RelationshipSeed[] {
+  if (!linked || typeof linked !== 'object') return []
+  const seeds: RelationshipSeed[] = []
+  const seen = new Set<string>()
 
-  function add(type: Parameters<typeof pairs>[number]['type'], id: unknown, relation: string) {
-    if (typeof id !== 'string') return
-    const safeId = id.trim().slice(0, 200)
-    if (safeId) pairs.push({ type, id: safeId, relation })
+  const addSeed = (type: RelationshipSeed['type'], relation: string, rawId: unknown) => {
+    const id = clean(rawId)
+    if (!id) return
+    const key = `${type}:${id}`
+    if (seen.has(key)) return
+    seen.add(key)
+    seeds.push({ type, id, relation })
   }
 
-  add('project', linked.projectId, 'Project')
-  add('contact', linked.contactId, 'Contact')
-  add('company', linked.companyId, 'Company')
-  add('deal', linked.dealId, 'Deal')
-  add('campaign', linked.campaignId, 'Campaign')
-  add('seo_sprint', linked.seoSprintId, 'SEO sprint')
-  if (Array.isArray(linked.projectIds)) {
-    for (const id of linked.projectIds.slice(0, 2)) add('project', id, 'Project')
-  }
-  if (Array.isArray(linked.documentIds)) {
-    for (const id of linked.documentIds.slice(0, 2)) add('document', id, 'Document')
-  }
-
-  const seeds = pairs.slice(0, 8).map((entry) => ({
-    type: entry.type,
-    id: entry.id,
-    orgId: actor.user.orgId,
-    origin: 'manual',
-  }))
-
-  const resolved = await Promise.all(seeds.map(async (seed) => {
-    const [reference] = await resolveContextReferences([seed], actor.user, actor.user.orgId)
-    if (!reference) return null
-    return {
-      kind: reference.type,
-      id: reference.id,
-      label: reference.label,
-      relation: entryRelation(reference, pairs, seed.id),
-      ...(reference.href ? { href: reference.href } : {}),
+  const addArray = (type: RelationshipSeed['type'], relation: string, rawIds: unknown) => {
+    if (!Array.isArray(rawIds)) return
+    for (const rawId of rawIds.slice(0, 3)) {
+      addSeed(type, relation, rawId)
     }
-  }))
+  }
 
-  return resolved.filter((entry): entry is ChatContextRelationship => Boolean(entry))
+  addSeed('project', 'Project', linked.projectId)
+  addArray('project', 'Project', linked.projectIds)
+  addSeed('campaign', 'Campaign', linked.campaignId)
+  addSeed('seo_sprint', 'SEO sprint', linked.seoSprintId)
+  addSeed('deal', 'Deal', linked.dealId)
+  addArray('deal', 'Deal', linked.dealIds)
+  addSeed('company', 'Company', linked.companyId)
+  addArray('company', 'Company', linked.companyIds)
+  addSeed('contact', 'Contact', linked.contactId)
+  addArray('contact', 'Contact', linked.contactIds)
+  addArray('document', 'Document', linked.documentIds)
+  addArray('property', 'Property', linked.propertyIds)
+  addArray('social', 'Social post', linked.socialPostIds)
+  addArray('support', 'Support ticket', linked.supportTicketIds)
+
+  return seeds
 }
 
-function entryRelation(reference: { type: string; id: string }, pairs: { type: string; id: string; relation: string }[], fallback: string) {
-  const hit = pairs.find((pair) => pair.type === reference.type && pair.id === reference.id)
-  return hit?.relation || fallback
+async function buildRelationships(item: { orgId: string; linked?: unknown }, user: ApiUser): Promise<ChatContextRelationship[]> {
+  const seeds = collectRelationshipSeeds(item.linked && typeof item.linked === 'object' && !Array.isArray(item.linked) ? item.linked as Record<string, unknown> : undefined)
+  if (seeds.length === 0) return []
+
+  const refs = await resolveContextReferences(
+    seeds.slice(0, 10).map((seed) => ({
+      type: seed.type,
+      id: seed.id,
+      orgId: item.orgId,
+      origin: 'manual' as const,
+      metadata: { relation: seed.relation },
+    })),
+    user,
+    item.orgId,
+  )
+
+  return refs
+    .map((ref) => ({
+      kind: ref.type,
+      id: ref.id,
+      label: ref.label,
+      relation: clean(ref.metadata?.relation, 80) || 'Related',
+      ...(ref.href ? { href: ref.href } : {}),
+    }))
 }
 
 export const researchChatContextAdapter: ChatContextAdapter = {
   async resolve(input) {
-    const item = await getResearchItem(input.id)
-    if (!item || item.deleted) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
-    const userOrg = input.user.activeOrgId || input.user.orgId || ''
-    if (!item.orgId || (userOrg && item.orgId !== userOrg)) return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
+    if (input.kind !== 'research') {
+      return { ok: false, reason: 'unsupported', status: 400, error: 'Unsupported research context' }
+    }
 
-    const safe = item as SafeResearchItem
-    const status = clean(safe.status || 'draft', 80)
-    const findings = countOpen(Array.isArray(safe.findings) ? safe.findings : [])
-    const recommendations = countOpen(Array.isArray(safe.recommendations) ? safe.recommendations : [])
-    const updatedAt = asIso(safe.updatedAt)
+    const expectedOrg = input.user.activeOrgId || input.user.orgId
+    const item = await getResearchItem(input.id, expectedOrg)
+
+    if (!item || item.deleted) {
+      return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
+    }
+    if (!item.orgId || !canAccessOrg(input.user, item.orgId) || item.orgId !== expectedOrg) {
+      return { ok: false, reason: 'not_found', status: 404, error: 'Context unavailable' }
+    }
+
+    const findings = countByStatus(Array.isArray(item.findings) ? item.findings : [])
+    const recommendations = countByStatus(Array.isArray(item.recommendations) ? item.recommendations : [])
+    const title = clean(item.title, 140) || 'Research item'
+    const kind = clean(item.kind, 80)
+    const status = clean(item.status, 40)
+    const visibility = clean(item.visibility, 20)
+    const summary = clean(item.summary, 260)
+    const notes = clean(item.notesMarkdown, 260)
+    const updatedAt = asIso(item.updatedAt)
     const href = `/admin/research/${encodeURIComponent(item.id)}`
-    const relationships = await buildRelationships(safe, input)
-    const actions = actionsForResearch(safe, input.user.role)
+    const actions = actionsForResearch({ id: item.id, status, role: input.user.role })
+    const relationships = await buildRelationships(item, input.user)
 
     return {
       ok: true,
       model: {
         context: {
           kind: 'research',
-          id: safe.id,
-          orgId: safe.orgId,
-          label: `${clean(safe.title, 120) || 'Research'} · ${clean(safe.kind || '', 40) || 'item'}`,
+          id: item.id,
+          orgId: item.orgId,
+          label: title,
           icon: 'science',
           href,
         },
         pulse: {
           label: 'Research item',
           metrics: [
-            { id: 'status', label: 'Status', value: status || 'Draft' },
-            { id: 'visibility', label: 'Visibility', value: clean(safe.visibility, 20) || 'Internal' },
+            { id: 'status', label: 'Status', value: status || 'draft' },
+            { id: 'visibility', label: 'Visibility', value: visibility || 'internal' },
+            { id: 'kind', label: 'Kind', value: kind || 'research' },
             { id: 'findings', label: 'Findings', value: findings.total },
             { id: 'open-findings', label: 'Open findings', value: findings.open },
             { id: 'recommendations', label: 'Recommendations', value: recommendations.total },
             { id: 'open-recommendations', label: 'Open recommendations', value: recommendations.open },
           ],
-          ...(safe.summary ? { headline: clean(safe.summary, 260) } : {}),
+          headline: summary || title,
         },
         groups: [{
           id: 'overview',
           label: 'Research',
           items: [{
-            id: safe.id,
-            label: clean(safe.title, 140) || 'Research item',
-            state: stateFromStatus(status),
-            detail: clean(safe.summary, 260) || clean(safe.notesMarkdown, 260) || 'No summary notes yet',
-            ...(updatedAt ? { updatedAt } : {}),
+            id: item.id,
+            label: title,
+            state: stateFromStatus(item.status),
+            detail: summary || notes || 'No summary yet',
             href,
-            ...(actions.length > 0 ? { actions } : {}),
+            ...(updatedAt ? { updatedAt } : {}),
+            ...(actions.length ? { actions } : {}),
           }],
         }],
         artifacts: [],
@@ -193,15 +204,13 @@ export const researchChatContextAdapter: ChatContextAdapter = {
         activity: [],
         preview: {
           kind: 'summary',
-          text: clean(safe.summary, 260) || `${clean(safe.title, 100)} · ${status}`,
+          text: summary || notes || title,
           status,
-          ...(updatedAt ? { version: updatedAt } : {}),
         },
-        ...(relationships.length > 0 ? { relationships } : {}),
-        capabilities: ['open', 'preview', ...(actions.length > 0 ? ['inline-actions'] : [])],
-        asOf: asIso(safe.updatedAt) || new Date().toISOString(),
+        ...(relationships.length ? { relationships } : {}),
+        capabilities: ['open', 'preview', ...(actions.length ? ['inline-actions'] : [])],
+        asOf: updatedAt || new Date().toISOString(),
       },
     }
   },
 }
-

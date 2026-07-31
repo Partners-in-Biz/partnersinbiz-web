@@ -27,6 +27,10 @@ import { productChatContextAdapter } from '@/lib/chat-context/adapters/product'
 import { calendarEventChatContextAdapter } from '@/lib/chat-context/adapters/calendarEvent'
 import { emailChatContextAdapter } from '@/lib/chat-context/adapters/email'
 import { taskChatContextAdapter } from '@/lib/chat-context/adapters/task'
+import { fileChatContextAdapter } from '@/lib/chat-context/adapters/file'
+import { researchChatContextAdapter } from '@/lib/chat-context/adapters/research'
+import { propertyChatContextAdapter } from '@/lib/chat-context/adapters/property'
+import { reportChatContextAdapter } from '@/lib/chat-context/adapters/report'
 import { workspaceBrokerJobChatContextAdapter } from '@/lib/chat-context/adapters/workspaceBrokerJob'
 import { workspaceArtifactChatContextAdapter } from '@/lib/chat-context/adapters/workspaceArtifact'
 import { workspaceConnectionChatContextAdapter } from '@/lib/chat-context/adapters/workspaceConnection'
@@ -91,6 +95,10 @@ export const chatContextRegistry = createChatContextRegistry({
   document: documentChatContextAdapter,
   support: supportChatContextAdapter,
   product: productChatContextAdapter,
+  file: fileChatContextAdapter,
+  research: researchChatContextAdapter,
+  property: propertyChatContextAdapter,
+  report: reportChatContextAdapter,
   calendar_event: calendarEventChatContextAdapter,
   email: emailChatContextAdapter,
   task: taskChatContextAdapter,
