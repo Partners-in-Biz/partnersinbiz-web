@@ -1,4 +1,8 @@
-export type SlashCommandExecutorKind = 'context_attachment' | 'agent_intent' | 'hermes_goal'
+export type SlashCommandExecutorKind =
+  | 'context_attachment'
+  | 'agent_intent'
+  | 'hermes_goal'
+  | 'hermes_features'
 
 export type SlashCommandId =
   | 'use-current-page'
@@ -10,6 +14,11 @@ export type SlashCommandId =
   | 'skills'
   | 'goal'
   | 'subgoal'
+  | 'toolsets'
+  | 'memory'
+  | 'rollback'
+  | 'personality'
+  | 'hermes-features'
   | 'help'
 
 export interface SlashCommandDefinition {
@@ -120,6 +129,51 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     aliases: ['/criteria'],
     icon: 'playlist_add_check',
     executorKind: 'hermes_goal',
+  },
+  {
+    id: 'toolsets',
+    token: '/toolsets',
+    label: 'Toolsets',
+    description: 'List or change Hermes toolsets enabled for this agent/chat (enable, disable, set).',
+    aliases: ['/toolset'],
+    icon: 'build',
+    executorKind: 'hermes_features',
+  },
+  {
+    id: 'memory',
+    token: '/memory',
+    label: 'Agent memory',
+    description: 'Show or update curated MEMORY.md / USER.md for the active agent.',
+    aliases: [],
+    icon: 'psychology_alt',
+    executorKind: 'hermes_features',
+  },
+  {
+    id: 'rollback',
+    token: '/rollback',
+    label: 'Checkpoint rollback',
+    description: 'List checkpoints, save a snapshot, or restore workspace files with /rollback.',
+    aliases: ['/checkpoint'],
+    icon: 'history',
+    executorKind: 'hermes_features',
+  },
+  {
+    id: 'personality',
+    token: '/personality',
+    label: 'Personality',
+    description: 'List or apply Hermes SOUL personality presets for the active agent.',
+    aliases: ['/soul'],
+    icon: 'face',
+    executorKind: 'hermes_features',
+  },
+  {
+    id: 'hermes-features',
+    token: '/hermes-features',
+    label: 'Hermes features status',
+    description: 'Show PiB Hermes Features Overview control-plane readiness (toolsets, media, MCP, plugins).',
+    aliases: ['/hermes-features-status'],
+    icon: 'tune',
+    executorKind: 'hermes_features',
   },
   {
     id: 'help',
@@ -236,12 +290,23 @@ export function hermesGoalGuidanceLines(payload: SlashCommandPayload): string[] 
   ]
 }
 
+export function hermesFeaturesCommandLine(payload: SlashCommandPayload): string {
+  const args = payload.args.trim()
+  return args ? `${payload.token} ${args}` : payload.token
+}
+
 export function slashCommandInstruction(payload: SlashCommandPayload): string {
   const commandGuidance = payload.id === 'council'
     ? councilModeGuidanceLines('slash-command')
     : payload.executorKind === 'hermes_goal'
       ? hermesGoalGuidanceLines(payload)
-      : []
+      : payload.executorKind === 'hermes_features'
+        ? [
+          'Hermes Features control plane (PiB adapter on /v1/runs):',
+          '- Prefer /toolsets, /memory, /rollback, /personality over free-form config edits.',
+          '- Architecture remains Firestore + /v1/runs, not SessionDB slash.exec.',
+        ]
+        : []
 
   return [
     '[Slash command]',
@@ -252,7 +317,9 @@ export function slashCommandInstruction(payload: SlashCommandPayload): string {
     payload.args ? `args: ${payload.args}` : 'args: ',
     payload.executorKind === 'hermes_goal'
       ? `native: ${hermesGoalCommandLine(payload)}`
-      : 'Treat this as structured command intent from the composer, not as decorative message text. If it maps to a platform operation, use the relevant typed API/workflow rather than guessing from prose.',
+      : payload.executorKind === 'hermes_features'
+        ? `control: ${hermesFeaturesCommandLine(payload)}`
+        : 'Treat this as structured command intent from the composer, not as decorative message text. If it maps to a platform operation, use the relevant typed API/workflow rather than guessing from prose.',
     ...commandGuidance,
     '---',
     '',

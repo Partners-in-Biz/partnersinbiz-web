@@ -51,7 +51,7 @@ import {
   sanitizeContextReferenceSeeds,
   type ContextReferenceSeed,
 } from '@/lib/context-references/types'
-import { councilModeGuidanceLines, getSlashCommandByToken, hermesGoalCommandLine, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
+import { councilModeGuidanceLines, getSlashCommandByToken, hermesFeaturesCommandLine, hermesGoalCommandLine, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
 import {
   applyGoalControl,
   applySubgoalControl,
@@ -60,6 +60,8 @@ import {
   parseSubgoalControl,
   type HermesGoalState,
 } from '@/lib/chat/hermes-goal'
+import { tryHandleHermesFeaturesSlash } from '@/lib/hermes-features/slash'
+import { hermesFeaturesService } from '@/lib/hermes-features/service'
 import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
@@ -507,8 +509,13 @@ export const POST = withAuth(
     if (!attachments) return apiError('One or more attachments are invalid for this conversation', 400)
     const publicAttachments: ConversationAttachment[] = attachments.map(({ storagePath: _storagePath, ...attachment }) => attachment)
     const slashCommand = sanitizeSlashCommand((body as Record<string, unknown>).slashCommand)
-    // /goal and /subgoal control forms may have empty args (e.g. bare `/goal` = status).
-    if (!content && attachments.length === 0 && slashCommand?.executorKind !== 'hermes_goal') {
+    // /goal, /toolsets, /memory, /rollback, etc. may have empty free-text content.
+    if (
+      !content
+      && attachments.length === 0
+      && slashCommand?.executorKind !== 'hermes_goal'
+      && slashCommand?.executorKind !== 'hermes_features'
+    ) {
       return apiError('content or attachments are required', 400)
     }
     const resolvedContextRefs = await resolveContextReferences(
@@ -649,6 +656,43 @@ export const POST = withAuth(
       } catch (error) {
         const mapped = projectRuntimeReplicaApiError(error)
         return apiError(mapped.message, mapped.status)
+      }
+    }
+
+    // Hermes features control plane (/toolsets, /memory, /rollback, /personality, /hermes-features)
+    if (slashCommand?.executorKind === 'hermes_features' && dispatchAgentId) {
+      const featureResult = tryHandleHermesFeaturesSlash({
+        token: slashCommand.token,
+        args: slashCommand.args,
+        orgId: conversation.orgId,
+        agentId: dispatchAgentId,
+        conversationId: convId,
+        uid: user.uid,
+      })
+      if (featureResult?.handled) {
+        const displayContent = hermesFeaturesCommandLine(slashCommand)
+        const userMessage = await createMessage(convId, {
+          conversationId: convId,
+          role: 'user',
+          content: displayContent,
+          ...(slashCommand ? { slashCommand } : {}),
+          authorKind: 'user',
+          authorId: user.uid,
+          authorDisplayName,
+          status: 'completed',
+        })
+        await touchConversation(convId, displayContent, 'user', userMessage.id, user.uid)
+        const assistantMessage = await createMessage(convId, {
+          conversationId: convId,
+          role: 'assistant',
+          content: featureResult.reply,
+          authorKind: 'system',
+          authorId: 'system',
+          authorDisplayName: 'Hermes Features',
+          status: 'completed',
+        })
+        await touchConversation(convId, featureResult.reply, 'assistant', assistantMessage.id)
+        return apiSuccess({ message: userMessage, assistantMessage, hermesFeatures: featureResult.data ?? null }, 201)
       }
     }
 
@@ -946,6 +990,16 @@ export const POST = withAuth(
       const attachmentContext = publicAttachments.length > 0
         ? `\n\n[Attachments]\n${publicAttachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
+      const hermesFeaturesDispatch = hermesFeaturesService.buildDispatchBlock({
+        orgId: conversation.orgId,
+        agentId,
+        conversationId: convId,
+        userMessage: content || hermesGoalWorkPrompt || '',
+        workspaceFiles: hermesFeaturesService.store.getWorkspaceFiles(conversation.orgId, convId),
+      })
+      const hermesFeaturesContext = hermesFeaturesDispatch.block
+        ? `\n\n${hermesFeaturesDispatch.block}\n`
+        : ''
       const mintedDelegation = await mintMessagesDispatchDelegation({
         user,
         orgId: conversation.orgId,
@@ -980,7 +1034,7 @@ export const POST = withAuth(
       const userTurnContent = hermesGoalWorkPrompt
         ? `${goalWorkContext}${content ? `User message:\n${content}` : ''}`.trim()
         : content
-      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + dynamicChatCanvasContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + userTurnContent + attachmentContext
+      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + hermesFeaturesContext + decisionDataRuleContext + dynamicChatCanvasContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + userTurnContent + attachmentContext
       if (linkedComputerBinding) {
         const hasImageAttachments = attachments.some((attachment) => (
           /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.contentType) && Boolean(attachment.storagePath)
