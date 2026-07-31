@@ -137,6 +137,8 @@ export interface CreatePayPeriodCommand extends Required<FinanceScope>, CommandI
   label: string
   periodStart: string
   periodEnd: string
+  /** ISO cut-off instant; defaults to payDate T23:59:59.000Z when omitted. */
+  cutOffAt?: string
   payDate: string
   taxYearLabel: string
   expectedVersion: 0
@@ -182,6 +184,10 @@ export interface PayrollServiceState {
   calendars: Map<string, PayrollCalendar>
   periods: Map<string, PayPeriod>
   calculations: Map<string, PayrollCalculationRecord>
+  payRuns: Map<string, import('./types').PayRun>
+  payRunItems: Map<string, import('./types').PayRunItem>
+  payslips: Map<string, import('./types').Payslip>
+  adjustments: Map<string, import('./types').PayrollAdjustment>
   approvals: Map<string, FinanceApprovalRecord>
   uniqueClaims: Map<string, string>
   idempotency: Map<string, IdempotencyRecord>
@@ -202,6 +208,10 @@ function cloneState(state: PayrollServiceState): PayrollServiceState {
     calendars: cloneMap(state.calendars),
     periods: cloneMap(state.periods),
     calculations: cloneMap(state.calculations),
+    payRuns: cloneMap(state.payRuns),
+    payRunItems: cloneMap(state.payRunItems),
+    payslips: cloneMap(state.payslips),
+    adjustments: cloneMap(state.adjustments),
     approvals: cloneMap(state.approvals),
     uniqueClaims: new Map(state.uniqueClaims),
     idempotency: cloneMap(state.idempotency),
@@ -218,6 +228,10 @@ export class InMemoryPayrollStore implements PayrollServiceState {
   calendars = new Map<string, PayrollCalendar>()
   periods = new Map<string, PayPeriod>()
   calculations = new Map<string, PayrollCalculationRecord>()
+  payRuns = new Map<string, import('./types').PayRun>()
+  payRunItems = new Map<string, import('./types').PayRunItem>()
+  payslips = new Map<string, import('./types').Payslip>()
+  adjustments = new Map<string, import('./types').PayrollAdjustment>()
   approvals = new Map<string, FinanceApprovalRecord>()
   uniqueClaims = new Map<string, string>()
   idempotency = new Map<string, IdempotencyRecord>()
@@ -753,6 +767,11 @@ export class FinancePayrollCalculationService {
       parseCanonicalDate(command.periodEnd, 'periodEnd')
       parseCanonicalDate(command.payDate, 'payDate')
       if (command.periodEnd < command.periodStart) throw new FinanceValidationError('periodEnd must be on or after periodStart')
+      const cutOffAt = command.cutOffAt?.trim()
+        ? command.cutOffAt.trim()
+        : `${command.payDate}T23:59:59.000Z`
+      // Validate ISO shape loosely via Date parse after optional date-only accept
+      if (Number.isNaN(Date.parse(cutOffAt))) throw new FinanceValidationError('cutOffAt must be a valid ISO timestamp')
       claim(state, 'payroll_period_id', scope, command.id, command.id, 'Pay period id already exists')
       const period: PayPeriod = {
         ...versionedBase(command.id, scope, actor.uid, now),
@@ -761,6 +780,7 @@ export class FinancePayrollCalculationService {
         label: requiredText(command.label, 'label'),
         periodStart: command.periodStart,
         periodEnd: command.periodEnd,
+        cutOffAt,
         payDate: command.payDate,
         taxYearLabel: requiredText(command.taxYearLabel, 'taxYearLabel'),
         status: 'open',

@@ -53,6 +53,13 @@ export type FinanceAction =
   | 'payroll.component.configure'
   | 'payroll.calendar.configure'
   | 'payroll.calculate'
+  | 'payroll.run.create'
+  | 'payroll.run.submit'
+  | 'payroll.run.approve'
+  | 'payroll.run.reverse'
+  | 'payroll.run.correct'
+  | 'payroll.payslip.read'
+  | 'payroll.payment.observe'
   | 'consolidation.read'
 
 const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
@@ -108,6 +115,13 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'payroll.component.configure': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'payroll.calendar.configure': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'payroll.calculate': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.run.create': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.run.submit': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.run.approve': ['finance_admin', 'payroll_approver'],
+  'payroll.run.reverse': ['finance_admin', 'payroll_approver'],
+  'payroll.run.correct': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.payslip.read': ['finance_admin', 'payroll_clerk', 'payroll_approver'],
+  'payroll.payment.observe': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'consolidation.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
 }
 

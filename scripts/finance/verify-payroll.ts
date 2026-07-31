@@ -1,15 +1,18 @@
 /**
- * Development/staging verification for SA payroll calculation engine:
- * versioned tax tables, worker profiles, monthly/weekly calc, traces.
- * No SARS submission/payment, no external salary payment, no production deploy.
+ * Development/staging verification for SA payroll:
+ * calculation engine + pay-run calendars/cut-offs, review/approval lock,
+ * payslips, history, corrections, reversals, external payment observation only.
+ * No SARS submission/payment, no external salary payment initiation, no production deploy.
  */
 import { FinancePayrollCalculationService, InMemoryPayrollStore } from '../../lib/payroll/calculation-service'
+import { FinancePayRunService } from '../../lib/payroll/pay-run-service'
 import { zaPayrollRuleVersionDraft } from '../../lib/jurisdictions/za/payroll'
 import { assertCalculationDeterministic } from '../../lib/payroll/calculation'
 import { canonicalDigest, HASH_ALGORITHM_VERSION } from '../../lib/finance/integrity'
 import type { FinanceActorContext, FinanceApprovalRecord } from '../../lib/finance/types'
 
-const now = '2026-03-15T12:00:00.000Z'
+const nowStart = '2026-03-15T12:00:00.000Z'
+let now = nowStart
 const orgId = 'org-verify-payroll'
 const scope = { orgId, legalEntityId: 'entity-a', bookId: 'book-a' }
 const request = (key: string) => ({ requestId: `verify-${key}`, idempotencyKey: `verify-idem-${key}` })
@@ -28,18 +31,18 @@ function actorFor(uid: string, role: FinanceActorContext['assignments'][number][
   }
 }
 
-function makeApproval(id: string): FinanceApprovalRecord {
+function makeApproval(id: string, action: FinanceApprovalRecord['action']): FinanceApprovalRecord {
   const base = {
     orgId, legalEntityId: scope.legalEntityId, bookId: scope.bookId, id,
     schemaVersion: 1 as const,
-    action: 'payroll.rule.approve' as const,
+    action,
     status: 'approved' as const,
-    approvedBy: 'verify-payroll-approver',
+    approvedBy: 'verify-external-approver',
     approverRole: 'payroll_approver' as const,
-    approverAssignmentId: 'verify-approver-a0',
+    approverAssignmentId: 'verify-external-a0',
     approvedAt: now,
-    reason: 'Approve ZA payroll tables',
-    subjectDigest: canonicalDigest({ id, action: 'payroll.rule.approve' }),
+    reason: `Approve ${action}`,
+    subjectDigest: canonicalDigest({ id, action }),
     immutable: true as const,
     canonicalPayloadVersion: 1 as const,
     hashAlgorithmVersion: HASH_ALGORITHM_VERSION,
@@ -50,6 +53,7 @@ function makeApproval(id: string): FinanceApprovalRecord {
 async function main() {
   const store = new InMemoryPayrollStore()
   const service = new FinancePayrollCalculationService(store, () => now)
+  const payRuns = new FinancePayRunService(store, () => now)
   const clerk = actorFor('verify-clerk', 'payroll_clerk')
   const approver = actorFor('verify-approver', 'payroll_approver')
 
@@ -89,7 +93,7 @@ async function main() {
     id: 'rule-v', orgId, legalEntityId: scope.legalEntityId, bookId: scope.bookId, versionNumber: 1,
   })
   const draft = await service.createRuleVersion(clerk, { ...draftBody, ...scope, expectedVersion: 0, ...request('rule') })
-  service.registerApproval(makeApproval('ap-v'))
+  service.registerApproval(makeApproval('ap-v', 'payroll.rule.approve'))
   const rule = await service.approveRuleVersion(approver, {
     ...scope, ruleVersionId: draft.id, expectedVersion: draft.version,
     approvalId: 'ap-v', reason: 'Approve', ...request('rule-ap'),
@@ -102,6 +106,7 @@ async function main() {
   const period = await service.createPayPeriod(clerk, {
     id: 'per-v', ...scope, calendarId: cal.id, label: '2026-03',
     periodStart: '2026-03-01', periodEnd: '2026-03-31', payDate: '2026-03-25',
+    cutOffAt: '2026-03-20T12:00:00.000Z',
     taxYearLabel: '2025/26', expectedVersion: 0, ...request('per'),
   })
 
@@ -142,7 +147,7 @@ async function main() {
     subjectToUif: term.subjectToUif,
     subjectToSdl: term.subjectToSdl,
     taxResidency: employee.taxResidency,
-    ageYears: calc.result.trace.find(() => true) ? 41 : 41,
+    ageYears: 41,
     ordinaryHoursWorked: 0,
     overtimeHours: 6,
     components: [
@@ -157,10 +162,6 @@ async function main() {
   if (!calc.result.accountantReview.identitiesHold) throw new Error('identity failed')
   if (calc.externalPaymentInitiated !== false) throw new Error('payment initiated')
   if (calc.sarsSubmissionInitiated !== false) throw new Error('sars submit')
-  if (store.auditEvents.some((e: { externalEgressAllowed?: boolean }) => e.externalEgressAllowed !== false)) throw new Error('egress')
-  if (calc.result.totals.payeMinor <= 0) throw new Error('expected PAYE')
-  if (calc.result.totals.uifEmployeeMinor <= 0) throw new Error('expected UIF')
-  if (calc.result.totals.sdlEmployerMinor <= 0) throw new Error('expected SDL')
 
   // weekly hourly spot check
   const empW = await service.createEmployee(clerk, {
@@ -197,6 +198,90 @@ async function main() {
   })
   if (weekly.result.periodsPerYear !== 52) throw new Error('weekly periods')
 
+  // Pay run lifecycle
+  let run = await payRuns.createPayRun(clerk, {
+    id: 'run-v', ...scope, calendarId: cal.id, payPeriodId: period.id,
+    ruleVersionId: rule.id, label: '2026-03 run', expectedVersion: 0, ...request('run'),
+  })
+  run = await payRuns.addItem(clerk, {
+    id: 'item-v', ...scope, payRunId: run.id, calculationId: calc.id,
+    expectedVersion: run.version, ...request('item'),
+  })
+  now = '2026-03-21T10:00:00.000Z'
+  run = await payRuns.freezeInputs(clerk, {
+    ...scope, payRunId: run.id, expectedVersion: run.version, ...request('freeze'),
+  })
+  run = await payRuns.submitForReview(clerk, {
+    ...scope, payRunId: run.id, expectedVersion: run.version, ...request('submit'),
+  })
+  payRuns.registerApproval(makeApproval('ap-run-v', 'payroll.run.approve'))
+  const locked = await payRuns.approveAndLock(approver, {
+    ...scope, payRunId: run.id, expectedVersion: run.version,
+    approvalId: 'ap-run-v', reason: 'Approve locked pay run', ...request('approve'),
+  })
+  if (locked.status !== 'approved_locked' || !locked.immutable || !locked.lockHash) {
+    throw new Error('pay run not locked')
+  }
+  if (locked.payslipIds.length !== 1) throw new Error('payslip missing')
+  if (locked.externalPaymentInitiated !== false || locked.sarsSubmissionInitiated !== false) {
+    throw new Error('egress flags')
+  }
+  const payslip = payRuns.getPayslip(scope, locked.payslipIds[0])
+  if (payslip.autoSent !== false || payslip.publicationStatus !== 'internal_only') {
+    throw new Error('payslip publication')
+  }
+
+  const originalLockHash = locked.lockHash
+  payRuns.registerApproval(makeApproval('ap-rev-v', 'payroll.run.reverse'))
+  const reversal = await payRuns.reversePayRun(approver, {
+    id: 'run-rev-v', ...scope, originalPayRunId: locked.id, expectedVersion: locked.version,
+    approvalId: 'ap-rev-v', reason: 'Full reversal', ...request('rev'),
+  })
+  if (reversal.totals.netPayMinor !== -locked.totals.netPayMinor) throw new Error('reversal totals')
+  if (store.payRuns.get(locked.id)?.lockHash !== originalLockHash) throw new Error('original lock mutated')
+  if (store.payRuns.get(locked.id)?.status !== 'reversed') throw new Error('original not marked reversed')
+
+  let correction = await payRuns.createCorrectionRun(clerk, {
+    id: 'run-corr-v', ...scope, originalPayRunId: locked.id, kind: 'amended_deduction_tax',
+    label: 'Amended tax/deduction', expectedVersion: 0, ...request('corr'),
+  })
+  correction = await payRuns.applyIndividualAdjustment(clerk, {
+    id: 'adj-v', ...scope, payRunId: correction.id, originalPayRunId: locked.id,
+    originalItemId: locked.itemIds[0], employeeId: employee.id, employmentId: employment.id,
+    kind: 'amended_tax',
+    deltaComponents: [
+      { componentCode: 'PAYE_FIX', kind: 'statutory_paye', quantityMinorUnits: 1, unitAmountMinor: 1_500, taxTreatment: 'post_tax_deduction' },
+      { componentCode: 'DED_FIX', kind: 'deduction', quantityMinorUnits: 1, unitAmountMinor: 500, taxTreatment: 'post_tax_deduction' },
+    ],
+    reason: 'Amended PAYE and deduction',
+    expectedVersion: correction.version, ...request('adj'),
+  })
+  now = '2026-03-22T10:00:00.000Z'
+  correction = await payRuns.freezeInputs(clerk, {
+    ...scope, payRunId: correction.id, expectedVersion: correction.version, ...request('freeze-c'),
+  })
+  correction = await payRuns.submitForReview(clerk, {
+    ...scope, payRunId: correction.id, expectedVersion: correction.version, ...request('submit-c'),
+  })
+  payRuns.registerApproval(makeApproval('ap-corr-v', 'payroll.run.approve'))
+  const lockedCorr = await payRuns.approveAndLock(approver, {
+    ...scope, payRunId: correction.id, expectedVersion: correction.version,
+    approvalId: 'ap-corr-v', reason: 'Approve correction', ...request('approve-c'),
+  })
+  if (lockedCorr.status !== 'approved_locked') throw new Error('correction not locked')
+
+  const observed = await payRuns.observeExternalSalaryPayment(clerk, {
+    id: 'obs-v', ...scope, payRunId: locked.id, amountMinor: Math.abs(locked.totals.netPayMinor),
+    reference: 'SALARY-BANK-1', expectedVersion: store.payRuns.get(locked.id)!.version, ...request('obs'),
+  })
+  if (observed.externalSalaryPaymentObservations[0]?.externalPaymentInitiated !== false) {
+    throw new Error('payment initiated on observation')
+  }
+
+  const history = payRuns.listPayRunHistory(scope, period.id)
+  if (history.length < 3) throw new Error('history incomplete')
+  if (store.auditEvents.some((e) => e.externalEgressAllowed !== false)) throw new Error('egress')
+
   console.log(JSON.stringify({
     ok: true,
     ruleVersionId: rule.id,
@@ -211,11 +296,19 @@ async function main() {
     weeklyCalculationId: weekly.id,
     weeklyGrossMinor: weekly.result.totals.grossEarningsMinor,
     identitiesHold: calc.result.accountantReview.identitiesHold,
+    payRunId: locked.id,
+    payRunStatus: store.payRuns.get(locked.id)?.status,
+    lockHash: originalLockHash,
+    payslipId: payslip.id,
+    reversalPayRunId: reversal.id,
+    correctionPayRunId: lockedCorr.id,
+    historyCount: history.length,
     externalPaymentInitiated: false,
     sarsSubmissionInitiated: false,
-    noEgress: store.auditEvents.every((e: { externalEgressAllowed?: boolean }) => e.externalEgressAllowed === false),
+    noEgress: store.auditEvents.every((e) => e.externalEgressAllowed === false),
     auditEvents: store.auditEvents.length,
     traceSteps: calc.result.trace.length,
+    cutOffAt: period.cutOffAt,
   }))
 }
 

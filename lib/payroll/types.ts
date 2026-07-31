@@ -132,7 +132,7 @@ export interface PayrollCalendar extends VersionedFinanceRecord {
   status: 'active' | 'disabled'
 }
 
-export type PayPeriodStatus = 'open' | 'closed'
+export type PayPeriodStatus = 'open' | 'closed' | 'locked'
 
 export interface PayPeriod extends VersionedFinanceRecord {
   bookId: string
@@ -141,9 +141,169 @@ export interface PayPeriod extends VersionedFinanceRecord {
   label: string
   periodStart: string
   periodEnd: string
+  /** Inclusive input cut-off instant (ISO). Inputs freeze at/after this time. */
+  cutOffAt: string
   payDate: string
   taxYearLabel: string
   status: PayPeriodStatus
+}
+
+export type PayRunStatus =
+  | 'draft'
+  | 'calculating'
+  | 'calculated'
+  | 'in_review'
+  | 'approved_locked'
+  | 'reversed'
+  | 'correction'
+
+export type PayRunKind =
+  | 'regular'
+  | 'correction'
+  | 'individual_adjustment'
+  | 'back_pay'
+  | 'overpayment_recovery'
+  | 'amended_deduction_tax'
+  | 'full_reversal'
+
+export type PayrollAdjustmentKind =
+  | 'back_pay'
+  | 'overpayment_recovery'
+  | 'missed_deduction'
+  | 'amended_tax'
+  | 'amended_deduction'
+  | 'individual_correction'
+  | 'full_run_reversal'
+
+export interface PayRunTotals {
+  employeeCount: number
+  grossEarningsMinor: number
+  taxableEarningsMinor: number
+  preTaxDeductionsMinor: number
+  postTaxDeductionsMinor: number
+  payeMinor: number
+  uifEmployeeMinor: number
+  uifEmployerMinor: number
+  sdlEmployerMinor: number
+  netPayMinor: number
+  employerCostMinor: number
+}
+
+export interface PayRun extends VersionedFinanceRecord {
+  bookId: string
+  calendarId: string
+  payPeriodId: string
+  ruleVersionId: string
+  kind: PayRunKind
+  status: PayRunStatus
+  label: string
+  inputCutoffAt: string
+  inputsFrozen: boolean
+  frozenAt?: string
+  inputSetHash?: string
+  lockHash?: string
+  totals: PayRunTotals
+  itemIds: string[]
+  payslipIds: string[]
+  originalPayRunId?: string
+  reversalPayRunId?: string
+  correctionOfPayRunId?: string
+  submittedBy?: string
+  submittedAt?: string
+  approvalId?: string
+  approvalActorId?: string
+  approvedAt?: string
+  lockedAt?: string
+  lockedBy?: string
+  reason?: string
+  immutable: boolean
+  contentHash: string
+  externalPaymentInitiated: false
+  sarsSubmissionInitiated: false
+  /** Observed external salary payments (recorded/reconciled only — never initiated here). */
+  externalSalaryPaymentObservations: ExternalSalaryPaymentObservation[]
+}
+
+export interface PayRunItem extends VersionedFinanceRecord {
+  bookId: string
+  payRunId: string
+  employeeId: string
+  employmentId: string
+  calculationId: string
+  status: 'calculated' | 'approved_locked' | 'reversed' | 'corrected'
+  resultDigest: string
+  inputDigest: string
+  totals: PayrollCalculationTotals
+  lines: PayrollComponentLine[]
+  originalItemId?: string
+  adjustmentId?: string
+  payslipId?: string
+  immutable: boolean
+  contentHash: string
+  externalPaymentInitiated: false
+  sarsSubmissionInitiated: false
+}
+
+export interface Payslip extends VersionedFinanceRecord {
+  bookId: string
+  payRunId: string
+  payRunItemId: string
+  employeeId: string
+  employmentId: string
+  payPeriodId: string
+  payDate: string
+  periodStart: string
+  periodEnd: string
+  status: 'generated' | 'superseded'
+  publicationStatus: 'internal_only'
+  accessVersion: number
+  generationChecksum: string
+  rendered: {
+    employeeDisplayName: string
+    employeeNumber: string
+    currency: 'ZAR'
+    lines: PayrollComponentLine[]
+    totals: PayrollCalculationTotals
+    netPayMinor: number
+  }
+  immutable: boolean
+  contentHash: string
+  externalPaymentInitiated: false
+  sarsSubmissionInitiated: false
+  autoSent: false
+}
+
+export interface PayrollAdjustment extends VersionedFinanceRecord {
+  bookId: string
+  kind: PayrollAdjustmentKind
+  status: 'draft' | 'applied' | 'approved_locked'
+  payRunId?: string
+  originalPayRunId: string
+  originalItemId?: string
+  employeeId?: string
+  employmentId?: string
+  /** Signed delta component lines applied on the correction run (minor units). */
+  deltaComponents: PeriodComponentInput[]
+  reason: string
+  approvalId?: string
+  approvalActorId?: string
+  approvedAt?: string
+  immutable: boolean
+  contentHash: string
+  externalPaymentInitiated: false
+  sarsSubmissionInitiated: false
+}
+
+export interface ExternalSalaryPaymentObservation {
+  id: string
+  observedAt: string
+  amountMinor: number
+  currency: 'ZAR'
+  reference: string
+  bankAccountHint?: string
+  /** Always false — payroll never initiates external salary payments. */
+  externalPaymentInitiated: false
+  recordedBy: string
 }
 
 export interface LeaveRecordInput {

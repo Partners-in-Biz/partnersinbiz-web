@@ -53,6 +53,9 @@ export type FinanceApprovalAction =
   | 'elimination.rule.approve'
   | 'consolidation.run.approve'
   | 'payroll.rule.approve'
+  | 'payroll.run.approve'
+  | 'payroll.run.reverse'
+  | 'payroll.adjustment.approve'
 
 export interface FinanceApprovalEvidence {
   approvalId: string
