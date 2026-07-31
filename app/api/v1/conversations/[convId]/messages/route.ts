@@ -1110,43 +1110,55 @@ export const POST = withAuth(
       const attachmentContext = publicAttachments.length > 0
         ? `\n\n[Attachments]\n${publicAttachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
-      const workspaceRoot = hermesFeaturesService.resolveWorkspaceRootFromConversation(
-        conversation.workspaceContext ?? null,
-      )
-      const workspaceFs = workspaceRoot
-        ? hermesFeaturesService.createNodeWorkspaceFs(workspaceRoot)
-        : null
-      const skillNames = collectAgentSkillNames(agentData)
-      const userTurnForSkills = content || hermesGoalWorkPrompt || ''
-      // Progressive disclosure: catalog metadata always; load SKILL.md bodies only for top matches.
-      const { loadProgressiveSkillBodies } = await import('@/lib/hermes-features/skill-loader')
-      const progressive = loadProgressiveSkillBodies(skillNames, userTurnForSkills)
-      if (progressive.catalog.length > 0) {
-        await hermesFeaturesService.setSkillCatalog(
-          conversation.orgId,
-          agentId,
-          progressive.catalog.map((s) => ({
-            id: s.id,
-            name: s.name,
-            description: s.description,
-            path: s.path,
-            tags: s.tags,
-          })),
+      // Hermes Features control-plane enrichment is best-effort. A durable-store
+      // failure must never block gateway dispatch (that previously surfaced as
+      // "Agent run could not be started on the gateway (... reading 'collection')").
+      let hermesFeaturesContext = ''
+      try {
+        const workspaceRoot = hermesFeaturesService.resolveWorkspaceRootFromConversation(
+          conversation.workspaceContext ?? null,
         )
+        const workspaceFs = workspaceRoot
+          ? hermesFeaturesService.createNodeWorkspaceFs(workspaceRoot)
+          : null
+        const skillNames = collectAgentSkillNames(agentData)
+        const userTurnForSkills = content || hermesGoalWorkPrompt || ''
+        // Progressive disclosure: catalog metadata always; load SKILL.md bodies only for top matches.
+        const { loadProgressiveSkillBodies } = await import('@/lib/hermes-features/skill-loader')
+        const progressive = loadProgressiveSkillBodies(skillNames, userTurnForSkills)
+        if (progressive.catalog.length > 0) {
+          await hermesFeaturesService.setSkillCatalog(
+            conversation.orgId,
+            agentId,
+            progressive.catalog.map((s) => ({
+              id: s.id,
+              name: s.name,
+              description: s.description,
+              path: s.path,
+              tags: s.tags,
+            })),
+          )
+        }
+        const hermesFeaturesDispatch = await hermesFeaturesService.buildDispatchBlock({
+          orgId: conversation.orgId,
+          agentId,
+          conversationId: convId,
+          userMessage: userTurnForSkills,
+          workspace: workspaceFs || undefined,
+          skillBodies: progressive.bodies,
+          skillCatalog: progressive.catalog,
+          autoCheckpoint: Boolean(workspaceFs),
+        })
+        hermesFeaturesContext = hermesFeaturesDispatch.block
+          ? `\n\n${hermesFeaturesDispatch.block}\n`
+          : ''
+      } catch (featuresErr) {
+        console.error('[conversation-hermes-features-enrichment-failed]', {
+          convId,
+          agentId,
+          message: featuresErr instanceof Error ? featuresErr.message : String(featuresErr),
+        })
       }
-      const hermesFeaturesDispatch = await hermesFeaturesService.buildDispatchBlock({
-        orgId: conversation.orgId,
-        agentId,
-        conversationId: convId,
-        userMessage: userTurnForSkills,
-        workspace: workspaceFs || undefined,
-        skillBodies: progressive.bodies,
-        skillCatalog: progressive.catalog,
-        autoCheckpoint: Boolean(workspaceFs),
-      })
-      const hermesFeaturesContext = hermesFeaturesDispatch.block
-        ? `\n\n${hermesFeaturesDispatch.block}\n`
-        : ''
       const mintedDelegation = await mintMessagesDispatchDelegation({
         user,
         orgId: conversation.orgId,

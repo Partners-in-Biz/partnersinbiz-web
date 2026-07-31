@@ -97,6 +97,8 @@ jest.mock('@/lib/comments/conversation-mentions', () => ({
   notifyConversationMentions: (...args: unknown[]) => mockNotifyConversationMentions(...args),
 }))
 const mockAttachDelegationBranchMessage = jest.fn()
+const mockSetSkillCatalog = jest.fn()
+const mockBuildDispatchBlock = jest.fn()
 jest.mock('@/lib/hermes-features/service', () => {
   const actual = jest.requireActual('@/lib/hermes-features/service') as typeof import('@/lib/hermes-features/service')
   return {
@@ -105,6 +107,8 @@ jest.mock('@/lib/hermes-features/service', () => {
       ...actual.hermesFeaturesService,
       spawnObservableDelegations: (...args: unknown[]) => mockSpawnObservableDelegations(...args),
       attachDelegationBranchMessage: (...args: unknown[]) => mockAttachDelegationBranchMessage(...args),
+      setSkillCatalog: (...args: unknown[]) => mockSetSkillCatalog(...args),
+      buildDispatchBlock: (...args: unknown[]) => mockBuildDispatchBlock(...args),
     },
   }
 })
@@ -192,6 +196,14 @@ beforeEach(() => {
     children: [{ id: 'child_1', goal: 'work', status: 'running', agentId: 'maya', runId: 'run-1' }],
     createdAt: '2026-07-31T00:00:00.000Z',
     updatedAt: '2026-07-31T00:00:00.000Z',
+  })
+  mockSetSkillCatalog.mockResolvedValue([])
+  mockBuildDispatchBlock.mockResolvedValue({
+    block: '',
+    expansionsCount: 0,
+    enabledToolsets: [],
+    loadedSkillIds: [],
+    contextFileNames: [],
   })
   mockAttachDelegationBranchMessage.mockImplementation(async (_org: string, id: string, branchMessageId: string) => ({
     id,
@@ -1115,6 +1127,39 @@ describe('unified conversation message routing', () => {
       workspaceDispatchFailureCode: 'dispatch_unavailable',
       error: 'Agent run could not be started on the gateway.',
     }))
+    errorSpy.mockRestore()
+  })
+
+  it('still dispatches Hermes when hermes_features enrichment throws (collection / durable-store faults)', async () => {
+    const update = jest.fn().mockResolvedValue(undefined)
+    mockMessagesCollection.mockReturnValue({ doc: () => ({ update }) })
+    mockSetSkillCatalog.mockRejectedValue(
+      new TypeError("Cannot read properties of undefined (reading 'collection')"),
+    )
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+    })
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+    const body = await readJson(res)
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).toHaveBeenCalledTimes(1)
+    expect(body.data?.assistantMessage?.status).not.toBe('failed')
+    expect(String(body.data?.assistantMessage?.error || '')).not.toMatch(/collection/)
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[conversation-hermes-features-enrichment-failed]',
+      expect.objectContaining({ convId: 'conv-1', agentId: 'pip' }),
+    )
     errorSpy.mockRestore()
   })
 

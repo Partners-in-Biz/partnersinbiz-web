@@ -2,6 +2,8 @@
  * Durable Hermes Features repository.
  * Memory backend for unit tests; Firestore backend for production (survives cold starts).
  */
+import { FieldValue } from 'firebase-admin/firestore'
+import { adminDb } from '@/lib/firebase/admin'
 import type {
   BatchJobResult,
   CheckpointSnapshot,
@@ -460,10 +462,15 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
         }),
       }
     }
-    // Lazy require so unit tests never touch Firebase unless using this class with real store.
-    // Wrap Admin SDK so set(options?) matches our DocStore contract (merge optional).
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { adminDb } = require('@/lib/firebase/admin') as typeof import('@/lib/firebase/admin')
+    // Use the shared static adminDb import. A lazy require() broke under the
+    // Next.js production webpack interop (adminDb came back undefined →
+    // "Cannot read properties of undefined (reading 'collection')" on every
+    // Messages dispatch that wrote hermes_features skill catalog state).
+    // adminDb is a lazy Proxy, so importing it is safe for unit tests that
+    // never call into FirestoreHermesFeaturesRepository without an injected store.
+    if (!adminDb || typeof adminDb.collection !== 'function') {
+      throw new Error('hermes_features: Firebase adminDb is unavailable in this process')
+    }
     const collection = adminDb.collection(HERMES_FEATURES_COLLECTION)
     return {
       doc: (id: string) => {
@@ -490,8 +497,6 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
 
   private serverTimestamp(): unknown {
     if (this.store) return new Date().toISOString()
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { FieldValue } = require('firebase-admin/firestore') as typeof import('firebase-admin/firestore')
     return FieldValue.serverTimestamp()
   }
 
