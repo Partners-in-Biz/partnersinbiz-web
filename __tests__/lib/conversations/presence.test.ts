@@ -58,7 +58,8 @@ describe('conversation presence helpers', () => {
       ],
     })
 
-    const presence = await listConversationPresence('conv-1', 'org-1', 5001)
+    // Active expires at 5000; stale at 3000. now=4000 keeps only the active collaborator.
+    const presence = await listConversationPresence('conv-1', 'org-1', 4000)
 
     expect(mockCollection).toHaveBeenCalledWith('conversation_presence')
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'org-1')
@@ -74,6 +75,7 @@ describe('conversation presence helpers', () => {
   })
 
   it('heartbeats conversation presence state and stores activity', async () => {
+    mockGet.mockResolvedValue({ docs: [] })
     const presence = await heartbeatConversationPresence('conv-1', 'org-1', {
       displayName: 'Peet',
       state: 'typing',

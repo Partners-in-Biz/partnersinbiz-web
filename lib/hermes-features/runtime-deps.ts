@@ -61,17 +61,23 @@ export function productionCronDeps(): CronHermesSyncDeps {
 
 export function productionDelegationDeps(): DelegationRunDeps {
   return {
-    createRun: async ({ orgId, agentId, conversationId, goal, childId, parentRunHint }) => {
+    createRun: async ({ orgId, agentId, conversationId, goal, context, childId, parentRunHint }) => {
       try {
         const link = await getAgentDispatchHermesProfileLink(agentId, orgId)
         if (!link) return { ok: false, error: `No Hermes profile link for agent ${agentId}` }
+        // Isolated child: only goal+context enter the prompt (Hermes-style).
         const prompt = [
           '[Hermes subagent delegation — child run]',
           `parent: ${parentRunHint}`,
           `childId: ${childId}`,
+          `agent: ${agentId}`,
           '',
-          'Complete this bounded goal and return a concise result with evidence:',
+          'You start with a fresh context. Use only the goal and context below.',
+          'Do not re-delegate. Return a structured summary of what you did, findings, and issues.',
+          '',
+          '## Goal',
           goal,
+          ...(context ? ['', '## Context', context] : []),
         ].join('\n')
         const result = await createHermesRun(link, `hermes-features-delegation:${childId}`, {
           prompt,

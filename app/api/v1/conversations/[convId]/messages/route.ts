@@ -51,7 +51,15 @@ import {
   sanitizeContextReferenceSeeds,
   type ContextReferenceSeed,
 } from '@/lib/context-references/types'
-import { parseMentions, notifyMentions } from '@/lib/comments/mentions'
+import { parseMentions } from '@/lib/comments/mentions'
+import { notifyConversationMentions } from '@/lib/comments/conversation-mentions'
+import {
+  buildChatDelegationGoals,
+  buildDelegationBranchSystemMessage,
+  extractAgentMentionsForDelegation,
+  buildAgentDelegationBranchPart,
+} from '@/lib/conversations/agent-delegation'
+import { hermesFeaturesService } from '@/lib/hermes-features/service'
 import { councilModeGuidanceLines, getSlashCommandByToken, hermesFeaturesCommandLine, hermesGoalCommandLine, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
 import {
   applyGoalControl,
@@ -62,7 +70,6 @@ import {
   type HermesGoalState,
 } from '@/lib/chat/hermes-goal'
 import { tryHandleHermesFeaturesSlash } from '@/lib/hermes-features/slash'
-import { hermesFeaturesService } from '@/lib/hermes-features/service'
 import { evaluateSlashCommandAccess } from '@/lib/chat/slash-command-access'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { buildAgentSkillsPromptBlock, collectAgentSkillNames } from '@/lib/chat/agent-skills'
@@ -849,17 +856,57 @@ export const POST = withAuth(
     // Update the conversation's denorm fields
     const preview = userVisibleContent || publicAttachments.map((attachment) => attachment.name).join(', ')
     await touchConversation(convId, preview, 'user', message.id, user.uid)
-    if (mentions.length > 0) {
-      notifyMentions({
+    if (mentions.some((m) => m.type === 'user')) {
+      notifyConversationMentions({
         orgId: conversation.orgId,
+        conversationId: convId,
+        messageId: message.id,
         mentions,
-        commentId: message.id,
-        resourceType: 'conversation',
-        resourceId: convId,
         actorName: authorDisplayName,
         snippet: userVisibleContent.slice(0, 100),
-      }).catch((error) => console.error('notifyMentions failed:', error))
+      }).catch((error) => console.error('notifyConversationMentions failed:', error))
     }
+
+    // Chat-native @agent branches: spawn isolated specialist children for tagged
+    // agents that are not the primary dispatcher (Hermes-style goal+context only).
+    let branchMessage: Awaited<ReturnType<typeof createMessage>> | null = null
+    let branchRecord: Awaited<ReturnType<typeof hermesFeaturesService.spawnObservableDelegations>> | null = null
+    const branchAgentIds = extractAgentMentionsForDelegation(mentions, {
+      excludeAgentIds: dispatchAgentId ? [dispatchAgentId] : [],
+    })
+    if (branchAgentIds.length > 0) {
+      try {
+        const goals = buildChatDelegationGoals({
+          agentIds: branchAgentIds,
+          messageContent: userVisibleContent,
+          parentAgentId: dispatchAgentId,
+          parentMessageId: message.id,
+          conversationId: convId,
+          actorDisplayName: authorDisplayName,
+        })
+        branchRecord = await hermesFeaturesService.spawnObservableDelegations({
+          orgId: conversation.orgId,
+          agentId: dispatchAgentId || 'pip',
+          conversationId: convId,
+          parentRunHint: `messages:${convId}:msg:${message.id}`,
+          goals,
+        })
+        const systemMsg = buildDelegationBranchSystemMessage({
+          conversationId: convId,
+          record: branchRecord,
+        })
+        branchMessage = await createMessage(convId, systemMsg)
+        await touchConversation(convId, branchMessage.content.slice(0, 200), 'system', branchMessage.id)
+      } catch (error) {
+        console.error('agent branch spawn failed:', error)
+      }
+    }
+    const branchPayload = branchMessage
+      ? {
+          branchMessage: publicConversationMessageView(branchMessage),
+          ...(branchRecord ? { branch: buildAgentDelegationBranchPart(branchRecord) } : {}),
+        }
+      : {}
 
     const recentMessages = await listMessages(convId, 200).catch(() => [message])
     const conversationHistory = buildConversationHistoryBlock(recentMessages, message.id)
@@ -871,7 +918,10 @@ export const POST = withAuth(
       // Read agent doc from Firestore
       const agentSnap = await adminDb.collection('agent_team').doc(agentId).get()
       if (!agentSnap.exists) {
-        return apiSuccess({ message }, 201)
+        return apiSuccess({
+          message: publicConversationMessageView(message),
+          ...branchPayload,
+        }, 201)
       }
       const agentData = agentSnap.data() as AgentTeamDoc
 
@@ -1358,6 +1408,7 @@ export const POST = withAuth(
             runId,
             dispatchAgentId: agentId,
             runDocId: runResult.runDocId,
+            ...branchPayload,
           },
           201,
         )
@@ -1376,10 +1427,11 @@ export const POST = withAuth(
           status: 'failed',
           error: 'Agent run could not be started on the gateway',
         },
+        ...branchPayload,
       }, 201)
     }
 
-    return apiSuccess({ message }, 201)
+    return apiSuccess({ message, ...branchPayload }, 201)
   },
 )
 

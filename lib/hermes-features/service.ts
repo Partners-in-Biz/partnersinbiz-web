@@ -266,7 +266,7 @@ export const hermesFeaturesService = {
       agentId: string
       conversationId?: string
       parentRunHint: string
-      goals: string[]
+      goals: Array<string | import('./types').DelegationGoalInput>
       maxConcurrent?: number
       toolsets?: string[]
     },
@@ -276,7 +276,7 @@ export const hermesFeaturesService = {
       input,
       repo(),
       deps ?? (process.env.JEST_WORKER_ID ? {
-        createRun: async ({ childId, goal }) => ({
+        createRun: async ({ childId }) => ({
           ok: true,
           runId: `test-run-${childId}`,
           runDocId: `test-doc-${childId}`,

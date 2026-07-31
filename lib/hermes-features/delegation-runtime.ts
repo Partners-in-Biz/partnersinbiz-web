@@ -2,7 +2,8 @@
  * Subagent delegation that creates observable Hermes child runs (not just IDs).
  */
 import type { HermesFeaturesRepository, DelegationRecord } from './repository'
-import { spawnDelegations as spawnPure, completeChild } from './delegation'
+import type { DelegationGoalInput } from './types'
+import { spawnDelegations as spawnPure, completeChild, markChildUnknown } from './delegation'
 
 export interface DelegationRunDeps {
   createRun: (input: {
@@ -10,6 +11,7 @@ export interface DelegationRunDeps {
     agentId: string
     conversationId?: string
     goal: string
+    context?: string
     childId: string
     parentRunHint: string
   }) => Promise<{ ok: boolean; runId?: string; runDocId?: string; error?: string }>
@@ -22,7 +24,7 @@ export async function spawnObservableDelegations(
     agentId: string
     conversationId?: string
     parentRunHint: string
-    goals: string[]
+    goals: Array<string | DelegationGoalInput>
     maxConcurrent?: number
     toolsets?: string[]
   },
@@ -39,16 +41,19 @@ export async function spawnObservableDelegations(
   const children = []
 
   for (const child of spawn.children) {
+    const childAgentId = child.agentId || input.agentId
     const result = await deps.createRun({
       orgId: input.orgId,
-      agentId: input.agentId,
+      agentId: childAgentId,
       conversationId: input.conversationId,
       goal: child.goal,
+      ...(child.context ? { context: child.context } : {}),
       childId: child.id,
       parentRunHint: input.parentRunHint,
     })
     children.push({
       ...child,
+      agentId: childAgentId,
       status: result.ok ? ('running' as const) : ('failed' as const),
       result: result.ok ? undefined : result.error,
       runId: result.runId,
@@ -68,6 +73,25 @@ export async function spawnObservableDelegations(
     updatedAt: now,
   }
   return repo.saveDelegation(record)
+}
+
+export async function markDelegationChildUnknown(
+  orgId: string,
+  delegationId: string,
+  childId: string,
+  note: string | undefined,
+  repo: HermesFeaturesRepository,
+): Promise<DelegationRecord> {
+  const record = await repo.getDelegation(orgId, delegationId)
+  if (!record) throw new Error('Delegation not found')
+  const children = record.children.map((c) => (
+    c.id === childId ? markChildUnknown(c, note) : c
+  ))
+  return repo.saveDelegation({
+    ...record,
+    children,
+    updatedAt: new Date().toISOString(),
+  })
 }
 
 export async function observeDelegation(

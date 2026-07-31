@@ -79,6 +79,8 @@ export type RichMessagePartType =
   | 'studio_artifact'
   | 'studio_artifact_bundle'
   | 'workspace_panel'
+  | 'agent_delegation_branch'
+  | 'project_command_event'
 
 export type RichMessageChoice = string | {
   id?: string

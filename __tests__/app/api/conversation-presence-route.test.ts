@@ -94,7 +94,16 @@ describe('conversation presence API routes', () => {
     expect(mockHeartbeatConversationPresence).not.toHaveBeenCalled()
   })
 
-  it('requires org id', async () => {
+  it('requires org id when the caller has no org membership', async () => {
+    jest.resetModules()
+    jest.doMock('@/lib/api/auth', () => ({
+      withAuth: (_role: string, handler: (...args: unknown[]) => Promise<Response>) =>
+        (req: NextRequest, context?: unknown) => handler(req, {
+          uid: 'member-1',
+          role: 'client',
+          authKind: 'session',
+        }, context),
+    }))
     const { GET } = await import('@/app/api/v1/conversations/[convId]/presence/route')
     const res = await GET(new NextRequest('http://test.local/api/v1/conversations/conv-1/presence'), {
       params: Promise.resolve({ convId: 'conv-1' }),

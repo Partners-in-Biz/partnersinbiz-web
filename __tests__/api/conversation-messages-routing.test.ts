@@ -35,6 +35,8 @@ const mockRequireReadyLlmCredentialBinding = jest.fn()
 const mockResolveLlmCredentialRuntimeTarget = jest.fn()
 const mockParseMentions = jest.fn()
 const mockNotifyMentions = jest.fn()
+const mockNotifyConversationMentions = jest.fn()
+const mockSpawnObservableDelegations = jest.fn()
 
 let mockUser: MockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
 let organizationSettings: Record<string, unknown> = {}
@@ -91,6 +93,19 @@ jest.mock('@/lib/comments/mentions', () => ({
   parseMentions: (...args: unknown[]) => mockParseMentions(...args),
   notifyMentions: (...args: unknown[]) => mockNotifyMentions(...args),
 }))
+jest.mock('@/lib/comments/conversation-mentions', () => ({
+  notifyConversationMentions: (...args: unknown[]) => mockNotifyConversationMentions(...args),
+}))
+jest.mock('@/lib/hermes-features/service', () => {
+  const actual = jest.requireActual('@/lib/hermes-features/service') as typeof import('@/lib/hermes-features/service')
+  return {
+    ...actual,
+    hermesFeaturesService: {
+      ...actual.hermesFeaturesService,
+      spawnObservableDelegations: (...args: unknown[]) => mockSpawnObservableDelegations(...args),
+    },
+  }
+})
 
 
 jest.mock('@/lib/linked-computers/runtime-targets', () => ({
@@ -164,6 +179,18 @@ beforeEach(() => {
   }))
   mockParseMentions.mockReturnValue([])
   mockNotifyMentions.mockResolvedValue(undefined)
+  mockNotifyConversationMentions.mockResolvedValue({ notifiedUserIds: [], pushAttempted: 0 })
+  mockSpawnObservableDelegations.mockResolvedValue({
+    id: 'del_test_1',
+    orgId: 'pib-platform-owner',
+    agentId: 'pip',
+    conversationId: 'conv-1',
+    parentRunHint: 'messages:conv-1',
+    maxConcurrent: 3,
+    children: [{ id: 'child_1', goal: 'work', status: 'running', agentId: 'maya', runId: 'run-1' }],
+    createdAt: '2026-07-31T00:00:00.000Z',
+    updatedAt: '2026-07-31T00:00:00.000Z',
+  })
   mockValidateMessageModelSelection.mockImplementation(async (input: { model?: unknown; provider?: unknown }) => {
     const model = typeof input.model === 'string' ? input.model : ''
     const provider = typeof input.provider === 'string' ? input.provider : ''
@@ -423,18 +450,25 @@ describe('unified conversation message routing', () => {
       ],
       mentionIds: ['user:client-2', 'agent:maya'],
     }))
-    expect(mockNotifyMentions).toHaveBeenCalledWith({
+    expect(mockNotifyConversationMentions).toHaveBeenCalledWith({
       orgId: 'pib-platform-owner',
+      conversationId: 'conv-1',
+      messageId: 'msg-1',
       mentions: [
         { type: 'user', id: 'client-2', raw: '@user:client-2' },
         { type: 'agent', id: 'maya', raw: '@agent:maya' },
       ],
-      commentId: 'msg-1',
-      resourceType: 'conversation',
-      resourceId: 'conv-1',
       actorName: 'Client User',
       snippet: 'Hi @user:client-2, can @agent:maya review this?',
     })
+    // @agent:maya also opens an isolated specialist branch (not the primary dispatcher).
+    expect(mockSpawnObservableDelegations).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'pib-platform-owner',
+      conversationId: 'conv-1',
+      goals: expect.arrayContaining([
+        expect.objectContaining({ agentId: 'maya' }),
+      ]),
+    }))
   })
 
   it('does not notify when no mentions exist in the user message', async () => {
@@ -454,6 +488,8 @@ describe('unified conversation message routing', () => {
 
     expect(res.status).toBe(201)
     expect(mockNotifyMentions).not.toHaveBeenCalled()
+    expect(mockNotifyConversationMentions).not.toHaveBeenCalled()
+    expect(mockSpawnObservableDelegations).not.toHaveBeenCalled()
   })
 
   it('blocks client replies when the messages reply policy denies their org role', async () => {

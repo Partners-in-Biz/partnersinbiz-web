@@ -1509,7 +1509,117 @@ function RichMessagePartView({
   if (type === 'project_command_event') {
     return <ProjectCommandEventCard part={part} mentions={mentions} />
   }
+  if (type === 'agent_delegation_branch') {
+    return <AgentDelegationBranchCard part={part} />
+  }
   return partContent(part) ? <ChatMessageContent content={partContent(part)} mentions={mentions} /> : null
+}
+
+function AgentDelegationBranchCard({ part }: { part: RichMessagePart }) {
+  const raw = part as RichMessagePart & {
+    delegationId?: string
+    parentAgentId?: string
+    children?: Array<{
+      id: string
+      agentId: string
+      goal: string
+      status: string
+      result?: string
+      runId?: string
+    }>
+    status?: string
+    summary?: string
+    title?: string
+  }
+  const children = Array.isArray(raw.children) ? raw.children : []
+  const overall = String(raw.status ?? 'queued')
+  const tone = overall === 'done'
+    ? 'border-emerald-400/35 bg-emerald-500/10 text-emerald-50'
+    : overall === 'failed' || overall === 'unknown'
+      ? 'border-red-400/35 bg-red-500/10 text-red-50'
+      : overall === 'running' || overall === 'partial'
+        ? 'border-sky-400/35 bg-sky-500/10 text-sky-50'
+        : 'border-amber-400/35 bg-amber-500/10 text-amber-50'
+  const icon = overall === 'done'
+    ? 'account_tree'
+    : overall === 'failed' || overall === 'unknown'
+      ? 'error'
+      : overall === 'running' || overall === 'partial'
+        ? 'lan'
+        : 'hourglass_top'
+
+  return (
+    <div
+      data-testid="agent-delegation-branch"
+      data-delegation-id={raw.delegationId ?? ''}
+      data-branch-status={overall}
+      className={`rounded-xl border px-3 py-3 text-xs shadow-sm ${tone}`}
+    >
+      <div className="flex items-center gap-2">
+        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">{icon}</span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold tracking-tight">
+            {raw.title || 'Subagent branch'}
+          </p>
+          <p className="mt-0.5 text-[10px] uppercase tracking-wide opacity-80">
+            {overall.replace(/_/g, ' ')}
+            {raw.parentAgentId ? ` · via @${raw.parentAgentId}` : ''}
+            {raw.delegationId ? ` · ${raw.delegationId.slice(0, 14)}` : ''}
+          </p>
+        </div>
+      </div>
+
+      {children.length > 0 && (
+        <ul className="mt-3 space-y-2 border-l-2 border-white/15 pl-3">
+          {children.map((child) => {
+            const childTone = child.status === 'done'
+              ? 'text-emerald-200'
+              : child.status === 'failed' || child.status === 'unknown'
+                ? 'text-red-200'
+                : child.status === 'running'
+                  ? 'text-sky-200'
+                  : 'text-amber-100'
+            const childIcon = child.status === 'done'
+              ? 'check_circle'
+              : child.status === 'failed' || child.status === 'unknown'
+                ? 'cancel'
+                : child.status === 'running'
+                  ? 'progress_activity'
+                  : 'schedule'
+            return (
+              <li key={child.id} data-child-id={child.id} data-child-status={child.status} className="min-w-0">
+                <div className={`flex items-center gap-1.5 font-semibold ${childTone}`}>
+                  <span className={`material-symbols-outlined text-[14px] ${child.status === 'running' ? 'animate-spin' : ''}`} aria-hidden="true">
+                    {childIcon}
+                  </span>
+                  <span>@{child.agentId}</span>
+                  <span className="text-[10px] font-medium uppercase opacity-75">{child.status}</span>
+                </div>
+                <p className="mt-0.5 line-clamp-2 opacity-90">{child.goal}</p>
+                {child.result && (
+                  <p className="mt-1 rounded-lg bg-black/20 px-2 py-1.5 text-[11px] leading-relaxed opacity-95 line-clamp-6">
+                    {child.result}
+                  </p>
+                )}
+                {child.runId && (
+                  <p className="mt-0.5 font-mono text-[10px] opacity-60">run {child.runId.slice(0, 18)}</p>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      {raw.summary && (
+        <p className="mt-3 rounded-lg border border-white/10 bg-black/15 px-2.5 py-2 text-[11px] leading-relaxed opacity-95">
+          {raw.summary}
+        </p>
+      )}
+      <p className="mt-2 text-[10px] opacity-70">
+        Isolated child context · leaf agents do not re-delegate · summary returns here
+      </p>
+    </div>
+  )
 }
 
 function ProjectCommandEventCard({ part, mentions }: { part: RichMessagePart; mentions?: Mention[] }) {

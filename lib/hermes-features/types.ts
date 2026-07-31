@@ -112,12 +112,26 @@ export interface CronJobSpec {
   lastRunAt?: string
 }
 
+export type DelegationChildStatus = 'queued' | 'running' | 'done' | 'failed' | 'unknown'
+
 export interface DelegationChild {
   id: string
   goal: string
-  status: 'queued' | 'running' | 'done' | 'failed'
+  /** Full parent-supplied context for isolated child runs (Hermes-style). */
+  context?: string
+  /** Optional specialist agent override for this child (defaults to parent agentId). */
+  agentId?: string
+  status: DelegationChildStatus
   result?: string
   toolsets?: string[]
+  runId?: string
+  runDocId?: string
+}
+
+export interface DelegationGoalInput {
+  goal: string
+  context?: string
+  agentId?: string
 }
 
 export interface DelegationSpawnResult {
