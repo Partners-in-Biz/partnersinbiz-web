@@ -1760,6 +1760,28 @@ function actionClasses(action: ChatUiAction): string {
   return 'border-white/10 bg-white/[0.06] text-[var(--color-pib-text)] hover:border-primary/50 hover:bg-white/[0.09]'
 }
 
+function richActionIcon(action: ChatUiAction): string {
+  const type = String(action.type).toLowerCase()
+  if (type === 'copy') return 'content_copy'
+  if (type === 'retry') return 'refresh'
+  if (type === 'stop') return 'stop_circle'
+  if (type === 'deny') return 'block'
+  if (type === 'download') return 'download'
+  if (type === 'open') return 'open_in_new'
+  if (type === 'open_context') {
+    const kind = action.payload && typeof action.payload === 'object' && !Array.isArray(action.payload)
+      ? String((action.payload as { kind?: string }).kind || '').toLowerCase()
+      : ''
+    if (kind === 'email') return 'mail'
+    if (kind === 'document') return 'description'
+    if (kind === 'invoice' || kind === 'quote') return 'receipt_long'
+    if (kind === 'social') return 'share'
+    if (kind === 'campaign') return 'campaign'
+    return 'open_in_new'
+  }
+  return 'check_circle'
+}
+
 function RichActionBar({
   actions,
   message,
@@ -1780,7 +1802,7 @@ function RichActionBar({
   }
 
   return (
-    <div className="mt-2 flex flex-wrap gap-2 whitespace-normal">
+    <div className="mt-2 flex flex-wrap gap-2 whitespace-normal" data-testid="message-ui-actions">
       {actions.map((action) => {
         const type = String(action.type).toLowerCase()
         const className = [
@@ -1798,7 +1820,7 @@ function RichActionBar({
               onClick={() => { void onUiAction?.(message, action) }}
               className={className}
             >
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{type === 'download' ? 'download' : 'open_in_new'}</span>
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{richActionIcon(action)}</span>
               {action.label}
             </a>
           )
@@ -1810,9 +1832,10 @@ function RichActionBar({
             disabled={action.disabled}
             onClick={() => { void handleAction(action) }}
             className={className}
+            data-action-type={type}
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[14px]">
-              {type === 'copy' ? 'content_copy' : type === 'retry' ? 'refresh' : type === 'stop' ? 'stop_circle' : type === 'deny' ? 'block' : 'check_circle'}
+              {richActionIcon(action)}
             </span>
             {action.label}
           </button>

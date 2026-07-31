@@ -12,7 +12,7 @@ import type { ContextReference } from '@/lib/context-references/types'
 import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
 import type { HermesGoalState } from '@/lib/chat/hermes-goal'
 import type { AgentEffort } from '@/lib/agents/runRouting'
-import type { RichMessagePart } from '@/lib/hermes/types'
+import type { ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
 import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
 import type { ApprovalMode } from '@/lib/messages/approval-mode'
 import type { MessageThinkingTrace } from './thinking-trace'
@@ -158,6 +158,10 @@ export interface ConversationMessage {
   thinking?: MessageThinkingTrace
   richParts?: RichMessagePart[]
   rich_parts?: RichMessagePart[]
+  /** Structured message actions (open_context email/invoice, approve, …). */
+  uiActions?: ChatUiAction[]
+  /** Snake_case alias persisted by some writers; public serializers mirror both. */
+  ui_actions?: ChatUiAction[]
   toolName?: string
   authorKind: 'user' | 'agent' | 'system'
   authorId: string
