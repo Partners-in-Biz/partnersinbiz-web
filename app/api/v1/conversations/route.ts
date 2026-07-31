@@ -74,6 +74,7 @@ export const POST = withAuth(
       'Conversation starts are disabled for your organisation role',
     )
     if (!startAccess.ok) return apiError(startAccess.error, startAccess.status)
+    const chatPolicy = await getOrgChatVisibilityPolicy(scope.orgId)
 
     // Participants validation
     if (!Array.isArray(body.participants)) {
@@ -153,6 +154,15 @@ export const POST = withAuth(
         const userData = userDoc.data() ?? {}
         const userRole: 'admin' | 'client' =
           userData.role === 'admin' ? 'admin' : 'client'
+        const isPlatformAdmin = platformAdminUids.has(uid)
+        if (callerRole === 'client' && uid !== user.uid && userRole === 'admin'
+          && !isPlatformAdmin && !chatPolicy.enableClientToAdminChat) {
+          return apiError(`Client cannot create chats with admins in this organisation`, 403)
+        }
+        if (callerRole === 'client' && uid !== user.uid && isPlatformAdmin
+          && !chatPolicy.enableClientToPiBTeamChat) {
+          return apiError('Client cannot create chats with PiB team in this organisation', 403)
+        }
         if (isPlatformWorkspace(scope.orgId) && callerRole === 'admin' && userRole !== 'admin') {
           return apiError(`User ${uid} is not a platform admin`, 400)
         }
