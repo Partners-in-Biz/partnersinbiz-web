@@ -444,17 +444,31 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
     return next.map((s) => ({ ...s }))
   }
 
+  /**
+   * List helpers query by orgId only (single-field, always indexed), then filter kind
+   * in-process. Compound kind+orgId indexes are declared in firestore.indexes.json for
+   * optional optimized queries, but list* must not fail-precondition before they deploy.
+   */
+  private async listByOrgKind<T extends { id?: string }>(
+    orgId: string,
+    kind: string,
+    limit = 100,
+  ): Promise<Array<{ data: Record<string, unknown>; payload: T }>> {
+    const snap = await this.col().where('orgId', '==', orgId).limit(Math.max(limit * 4, 100)).get()
+    return snap.docs
+      .map((d) => {
+        const data = d.data() as Record<string, unknown>
+        return { data, payload: data.payload as T }
+      })
+      .filter((row) => row.data.kind === kind && row.payload != null)
+      .slice(0, limit)
+  }
+
   async listCheckpoints(orgId: string, conversationId: string): Promise<CheckpointSnapshot[]> {
-    const snap = await this.col()
-      .where('kind', '==', 'checkpoint')
-      .where('orgId', '==', orgId)
-      .where('conversationId', '==', conversationId)
-      .limit(50)
-      .get()
-    const rows = snap.docs
-      .map((d) => (d.data() as { payload?: CheckpointSnapshot }).payload)
-      .filter((p): p is CheckpointSnapshot => Boolean(p?.id))
+    const rows = await this.listByOrgKind<CheckpointSnapshot>(orgId, 'checkpoint', 50)
     return rows
+      .map((r) => r.payload)
+      .filter((p): p is CheckpointSnapshot => Boolean(p?.id) && p.conversationId === conversationId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map((c) => ({ ...c, files: { ...c.files } }))
   }
@@ -485,9 +499,9 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
   }
 
   async listCron(orgId: string): Promise<CronJobSpec[]> {
-    const snap = await this.col().where('kind', '==', 'cron').where('orgId', '==', orgId).limit(100).get()
-    return snap.docs
-      .map((d) => (d.data() as { payload?: CronJobSpec }).payload)
+    const rows = await this.listByOrgKind<CronJobSpec>(orgId, 'cron', 100)
+    return rows
+      .map((r) => r.payload)
       .filter((p): p is CronJobSpec => Boolean(p?.id))
       .map((j) => ({ ...j, skillIds: j.skillIds ? [...j.skillIds] : undefined }))
   }
@@ -503,9 +517,9 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
   }
 
   async listHooks(orgId: string): Promise<EventHookConfig[]> {
-    const snap = await this.col().where('kind', '==', 'hook').where('orgId', '==', orgId).limit(100).get()
-    return snap.docs
-      .map((d) => (d.data() as { payload?: EventHookConfig }).payload)
+    const rows = await this.listByOrgKind<EventHookConfig>(orgId, 'hook', 100)
+    return rows
+      .map((r) => r.payload)
       .filter((p): p is EventHookConfig => Boolean(p?.id))
       .map((h) => ({ ...h, config: { ...h.config } }))
   }
@@ -517,9 +531,9 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
   }
 
   async listBatchJobs(orgId: string): Promise<BatchJobResult[]> {
-    const snap = await this.col().where('kind', '==', 'batch').where('orgId', '==', orgId).limit(50).get()
-    return snap.docs
-      .map((d) => (d.data() as { payload?: BatchJobResult }).payload)
+    const rows = await this.listByOrgKind<BatchJobResult>(orgId, 'batch', 50)
+    return rows
+      .map((r) => r.payload)
       .filter((p): p is BatchJobResult => Boolean(p?.id))
       .map((b) => ({ ...b, items: b.items.map((i) => ({ ...i })) }))
   }
@@ -531,9 +545,9 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
   }
 
   async listMcp(orgId: string): Promise<McpServerConfig[]> {
-    const snap = await this.col().where('kind', '==', 'mcp').where('orgId', '==', orgId).limit(100).get()
-    return snap.docs
-      .map((d) => (d.data() as { payload?: McpServerConfig }).payload)
+    const rows = await this.listByOrgKind<McpServerConfig>(orgId, 'mcp', 100)
+    return rows
+      .map((r) => r.payload)
       .filter((p): p is McpServerConfig => Boolean(p?.id))
   }
 
@@ -575,9 +589,9 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
   }
 
   async listCredentialPools(orgId: string): Promise<CredentialPool[]> {
-    const snap = await this.col().where('kind', '==', 'credential_pool').where('orgId', '==', orgId).limit(50).get()
-    return snap.docs
-      .map((d) => (d.data() as { payload?: CredentialPool }).payload)
+    const rows = await this.listByOrgKind<CredentialPool>(orgId, 'credential_pool', 50)
+    return rows
+      .map((r) => r.payload)
       .filter((p): p is CredentialPool => Boolean(p?.provider))
       .map((p) => ({ ...p, keys: p.keys.map((k) => ({ ...k })) }))
   }
@@ -591,9 +605,8 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
   }
 
   async listMemoryProviders(orgId: string, agentId?: string): Promise<MemoryProviderBinding[]> {
-    const snap = await this.col().where('kind', '==', 'memory_provider').where('orgId', '==', orgId).limit(50).get()
-    let rows = snap.docs
-      .map((d) => (d.data() as { payload?: MemoryProviderBinding }).payload)
+    let rows = (await this.listByOrgKind<MemoryProviderBinding>(orgId, 'memory_provider', 50))
+      .map((r) => r.payload)
       .filter((p): p is MemoryProviderBinding => Boolean(p?.provider))
     if (agentId) rows = rows.filter((b) => b.agentId === agentId)
     return rows.map((b) => ({ ...b, config: { ...b.config } }))
@@ -650,9 +663,8 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
   }
 
   async listDelegations(orgId: string, conversationId?: string): Promise<DelegationRecord[]> {
-    const snap = await this.col().where('kind', '==', 'delegation').where('orgId', '==', orgId).limit(50).get()
-    let rows = snap.docs
-      .map((d) => (d.data() as { payload?: DelegationRecord }).payload)
+    let rows = (await this.listByOrgKind<DelegationRecord>(orgId, 'delegation', 50))
+      .map((r) => r.payload)
       .filter((p): p is DelegationRecord => Boolean(p?.id))
     if (conversationId) rows = rows.filter((d) => d.conversationId === conversationId)
     return rows.map((d) => ({ ...d, children: d.children.map((c) => ({ ...c })) }))

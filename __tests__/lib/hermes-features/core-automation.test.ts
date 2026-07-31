@@ -12,6 +12,11 @@ import {
   tryHandleHermesFeaturesSlash,
 } from '@/lib/hermes-features/slash'
 import { SLASH_COMMANDS, getSlashCommandByToken } from '@/lib/chat/slash-commands'
+import {
+  loadProgressiveSkillBodies,
+  readSkillBody,
+} from '@/lib/hermes-features/skill-loader'
+import { buildDefaultRefDeps } from '@/lib/hermes-features/ref-deps'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -42,6 +47,74 @@ describe('hermes-features durable control plane', () => {
       expect(catalog[0].body).toBeUndefined()
       const loaded = await hermesFeaturesService.selectAndLoadSkills('org1', 'pip', 'sales', { crm: 'FULL BODY SECRET' })
       expect(loaded.find((s) => s.id === 'crm')?.body).toBe('FULL BODY SECRET')
+    })
+
+    it('loads real SKILL.md bodies from packs for progressive selection', async () => {
+      const skillId = 'system-auth'
+      const body = readSkillBody(skillId)
+      expect(body).toBeTruthy()
+      expect(body!.length).toBeGreaterThan(40)
+
+      const progressive = loadProgressiveSkillBodies(
+        [skillId, 'platform-ops', 'crm-sales'],
+        'authenticate API calls with system-auth token',
+      )
+      expect(progressive.catalog.every((s) => s.loaded === false && s.body === undefined)).toBe(true)
+      expect(progressive.bodies[skillId] || Object.keys(progressive.bodies).length).toBeTruthy()
+      // selected ids that have on-disk bodies
+      expect(progressive.selectedIds.length).toBeGreaterThan(0)
+      for (const id of progressive.selectedIds) {
+        expect(progressive.bodies[id]).toBeTruthy()
+        expect(progressive.bodies[id]).not.toMatch(/^Agent skill:/)
+      }
+
+      // Messages path: catalog + bodies into dispatch
+      await hermesFeaturesService.setSkillCatalog(
+        'org1',
+        'pip',
+        progressive.catalog.map((s) => ({
+          id: s.id,
+          name: s.name,
+          description: s.description,
+          tags: s.tags,
+        })),
+      )
+      const block = await hermesFeaturesService.buildDispatchBlock({
+        orgId: 'org1',
+        agentId: 'pip',
+        conversationId: 'c-skills',
+        userMessage: 'authenticate API calls with system-auth token',
+        skillBodies: progressive.bodies,
+        skillCatalog: progressive.catalog,
+      })
+      expect(block.loadedSkillIds.length).toBeGreaterThan(0)
+      expect(block.block).toContain('[Hermes skills — progressive loaded]')
+      expect(block.block).not.toContain('No skill bodies loaded')
+      // body content from real SKILL.md should appear
+      const firstBody = progressive.bodies[progressive.selectedIds[0]!]
+      expect(firstBody).toBeTruthy()
+      expect(block.block).toContain(firstBody!.slice(0, 40))
+    })
+
+    it('default ref deps support @diff and @url (not only file/folder)', () => {
+      const deps = buildDefaultRefDeps({
+        workspaceFiles: { 'src/a.ts': 'export const a = 1' },
+        cwd: process.cwd(),
+      })
+      expect(typeof deps.gitDiff).toBe('function')
+      expect(typeof deps.fetchUrl).toBe('function')
+      const diff = hermesFeaturesService.expandContextReference(
+        { kind: 'diff', query: 'HEAD' },
+        deps,
+      )
+      // git may return empty or content, but must not be the unavailable-without-dep message
+      expect(diff.content).not.toBe('(diff unavailable for HEAD)')
+      const url = hermesFeaturesService.expandContextReference(
+        { kind: 'url', query: 'https://example.com' },
+        deps,
+      )
+      expect(url.content).not.toBe('(url fetch unavailable: https://example.com)')
+      expect(url.content.length).toBeGreaterThan(0)
     })
 
     it('MEMORY.md survives repository reset isolation and read-back', async () => {

@@ -1014,17 +1014,20 @@ export const POST = withAuth(
         ? hermesFeaturesService.createNodeWorkspaceFs(workspaceRoot)
         : null
       const skillNames = collectAgentSkillNames(agentData)
-      const skillBodies: Record<string, string> = {}
-      // Progressive: catalog metadata from agent skills; bodies only for selected match later in dispatch
-      if (skillNames.length > 0) {
+      const userTurnForSkills = content || hermesGoalWorkPrompt || ''
+      // Progressive disclosure: catalog metadata always; load SKILL.md bodies only for top matches.
+      const { loadProgressiveSkillBodies } = await import('@/lib/hermes-features/skill-loader')
+      const progressive = loadProgressiveSkillBodies(skillNames, userTurnForSkills)
+      if (progressive.catalog.length > 0) {
         await hermesFeaturesService.setSkillCatalog(
           conversation.orgId,
           agentId,
-          skillNames.map((name) => ({
-            id: name,
-            name,
-            description: `Agent skill: ${name}`,
-            tags: [name],
+          progressive.catalog.map((s) => ({
+            id: s.id,
+            name: s.name,
+            description: s.description,
+            path: s.path,
+            tags: s.tags,
           })),
         )
       }
@@ -1032,9 +1035,10 @@ export const POST = withAuth(
         orgId: conversation.orgId,
         agentId,
         conversationId: convId,
-        userMessage: content || hermesGoalWorkPrompt || '',
+        userMessage: userTurnForSkills,
         workspace: workspaceFs || undefined,
-        skillBodies,
+        skillBodies: progressive.bodies,
+        skillCatalog: progressive.catalog,
         autoCheckpoint: Boolean(workspaceFs),
       })
       const hermesFeaturesContext = hermesFeaturesDispatch.block

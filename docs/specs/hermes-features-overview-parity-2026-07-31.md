@@ -20,10 +20,10 @@ Durable control-plane state lives in Firestore collection **`hermes_features`** 
 | # | Feature | Status | What is actually operable |
 |---|---------|--------|---------------------------|
 | 1 | Tools & Toolsets | **complete** | Durable enable/disable/set; `/toolsets`; dispatch injection |
-| 2 | Skills progressive disclosure | **complete** | Catalog without bodies; select+load bodies into dispatch; Messages seeds catalog from agent skills |
+| 2 | Skills progressive disclosure | **complete** | Catalog metadata only; `loadProgressiveSkillBodies` reads real `packs/.../SKILL.md` for top matches; Messages injects non-empty `skillBodies` into dispatch (not `{}`) |
 | 3 | Persistent MEMORY/USER | **complete** | Durable get/set/append; `/memory`; dispatch injection |
 | 4 | Context files multi-format | **complete** | Discovers `.hermes.md`/`AGENTS.md`/`CLAUDE.md`/`SOUL.md`/`.cursorrules` from bound workspace FS when path exists |
-| 5 | Context refs @file/@folder/@diff/@url | **complete** | Expansion with FS/git/url deps; dispatch token scan from workspace |
+| 5 | Context refs @file/@folder/@diff/@url | **complete** | Default dispatch deps via `buildDefaultRefDeps`: readFile/listFolder (workspace), gitDiff (`git`), fetchUrl (`curl`/HTTP); token scan in expand |
 | 6 | Checkpoints & /rollback | **complete** | Durable snapshots; auto-checkpoint on dispatch when workspace bound; `/rollback` writes files via workspace FS |
 | 7 | Cron scheduled tasks | **partial→operable** | Durable jobs; optional Hermes admin sync; **`cron.fire` / `/api/cron/hermes-features` creates Hermes `/v1/runs`** with run ids |
 | 8 | Subagent delegation | **partial→operable** | **`delegation.spawn` creates child Hermes runs** with observable `runId`/`runDocId` stored durably |

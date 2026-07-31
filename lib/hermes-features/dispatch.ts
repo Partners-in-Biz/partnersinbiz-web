@@ -22,6 +22,7 @@ import {
 import { getPersonalityPreset, personalityDispatchBlock } from './personality'
 import type { WorkspaceFs } from './workspace-fs'
 import type { DiscoveredContextFile, ProgressiveSkillMeta } from './types'
+import { buildDefaultRefDeps } from './ref-deps'
 
 export interface HermesFeaturesDispatchInput {
   orgId: string
@@ -101,21 +102,11 @@ export async function buildHermesFeaturesDispatchBlock(
     checkpointId = snap.id
   }
 
-  const refDeps: ContextRefExpandDeps = input.refDeps || {
-    readFile: (p) => {
-      if (input.workspace) return input.workspace.readFile(p)
-      return workspaceFiles[p] ?? null
-    },
-    listFolder: (p) => {
-      if (input.workspace) return input.workspace.listFolder(p)
-      const prefix = p.endsWith('/') ? p : `${p}/`
-      const names = Object.keys(workspaceFiles)
-        .filter((key) => key === p || key.startsWith(prefix))
-        .map((key) => (key.startsWith(prefix) ? key.slice(prefix.length).split('/')[0] : key))
-        .filter(Boolean)
-      return names.length ? [...new Set(names)] : null
-    },
-  }
+  const refDeps: ContextRefExpandDeps = input.refDeps || buildDefaultRefDeps({
+    workspace: input.workspace,
+    workspaceFiles,
+    cwd: input.workspace?.root || process.cwd(),
+  })
 
   const { expansions } = expandAtTokensInMessage(input.userMessage, refDeps)
 
