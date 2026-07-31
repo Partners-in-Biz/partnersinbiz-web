@@ -27,7 +27,7 @@ export interface WorkforceBlueprint {
   specialistGaps: WorkforceSpecialistGap[]
 }
 
-export type WorkforceBlueprintMatchSource = 'department' | 'job_title' | 'default'
+export type WorkforceBlueprintMatchSource = 'department' | 'job_title' | 'default' | 'override'
 
 export interface WorkforceBlueprintMatch {
   blueprint: WorkforceBlueprint
@@ -122,6 +122,11 @@ export const WORKFORCE_BLUEPRINTS: Record<WorkforceBlueprintId, WorkforceBluepri
   }),
 }
 
+export const WORKFORCE_BLUEPRINT_OPTIONS = Object.entries(WORKFORCE_BLUEPRINTS).map(([id, blueprint]) => ({
+  id: id as WorkforceBlueprintId,
+  label: blueprint.label,
+}))
+
 const ROLE_PATTERNS: Array<{ id: WorkforceBlueprintId; pattern: RegExp }> = [
   { id: 'people', pattern: /\b(?:hr|human resources|people|talent|recruit(?:er|ing|ment)?|employee|culture)\b/i },
   { id: 'finance', pattern: /\b(?:finance|financial|account(?:ant|ing|s)?|bookkeep(?:er|ing)?|payroll|cfo|tax|treasury)\b/i },
@@ -142,7 +147,18 @@ function matchValue(value: string | null | undefined): WorkforceBlueprintId | nu
 export function resolveWorkforceBlueprint(input: {
   department?: string | null
   jobTitle?: string | null
+  blueprintId?: string | null
 }): WorkforceBlueprintMatch {
+  if (input.blueprintId) {
+    const normalizedBlueprintId = input.blueprintId.trim().toLowerCase()
+    if (Object.prototype.hasOwnProperty.call(WORKFORCE_BLUEPRINTS, normalizedBlueprintId)) {
+      return {
+        blueprint: WORKFORCE_BLUEPRINTS[normalizedBlueprintId as WorkforceBlueprintId],
+        source: 'override',
+      }
+    }
+  }
+
   const departmentMatch = matchValue(input.department)
   if (departmentMatch) return { blueprint: WORKFORCE_BLUEPRINTS[departmentMatch], source: 'department' }
   const titleMatch = matchValue(input.jobTitle)

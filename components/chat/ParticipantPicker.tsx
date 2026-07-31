@@ -122,6 +122,7 @@ interface ParticipantPickerProps {
   agentsUnavailableReason?: string | null
   runtimeTargetId?: string | null
   initialAgentIds?: string[]
+  workforceBlueprintId?: string | null
 }
 
 const MAX_SELECTIONS = 12
@@ -135,6 +136,7 @@ export default function ParticipantPicker({
   agentsUnavailableReason = null,
   runtimeTargetId = null,
   initialAgentIds = [],
+  workforceBlueprintId = null,
 }: ParticipantPickerProps) {
   const [agents, setAgents] = useState<AgentTeamDoc[]>([])
   const [contacts, setContacts] = useState<OrgContact[]>([])
@@ -158,7 +160,8 @@ export default function ParticipantPicker({
     }`
     // Prefer /people — some privacy filters block paths containing "contacts".
     const peopleUrl = `/api/v1/orgs/${orgId}/people`
-    const workforceUrl = `/api/v1/orgs/${orgId}/workforce-blueprint`
+    const workforceBlueprintParam = workforceBlueprintId ? `?blueprint=${encodeURIComponent(workforceBlueprintId)}` : ''
+    const workforceUrl = `/api/v1/orgs/${orgId}/workforce-blueprint${workforceBlueprintParam}`
 
     async function loadAgents(): Promise<AgentTeamDoc[]> {
       if (!showAgents) return []
@@ -222,7 +225,7 @@ export default function ParticipantPicker({
     return () => {
       cancelled = true
     }
-  }, [orgId, runtimeTargetId, showAgents])
+  }, [orgId, runtimeTargetId, showAgents, workforceBlueprintId])
 
   const visibleAgents = useMemo(
     () => filterAgentsByGate(agents, allowedAgentIds),

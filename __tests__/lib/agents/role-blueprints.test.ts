@@ -1,6 +1,7 @@
 import {
   WORKFORCE_BLUEPRINTS,
   resolveWorkforceBlueprint,
+  WORKFORCE_BLUEPRINT_OPTIONS,
 } from '@/lib/agents/role-blueprints'
 
 describe('role-to-agent workforce blueprints', () => {
@@ -27,6 +28,17 @@ describe('role-to-agent workforce blueprints', () => {
     })
   })
 
+  it('supports explicit blueprint override from a provided blueprintId', () => {
+    expect(resolveWorkforceBlueprint({
+      department: 'Finance',
+      jobTitle: 'Generalist',
+      blueprintId: 'marketing',
+    })).toMatchObject({
+      source: 'override',
+      blueprint: { id: 'marketing' },
+    })
+  })
+
   it('fails safely to a general team and requests better member metadata', () => {
     const match = resolveWorkforceBlueprint({})
 
@@ -39,5 +51,11 @@ describe('role-to-agent workforce blueprints', () => {
     expect(WORKFORCE_BLUEPRINTS.finance.specialistGaps).toEqual([])
     expect(WORKFORCE_BLUEPRINTS.people.recommendedAgentIds).toContain('people')
     expect(WORKFORCE_BLUEPRINTS.finance.recommendedAgentIds).toContain('finance')
+  })
+
+  it('keeps UI option metadata aligned with blueprint definitions', () => {
+    const optionIds = WORKFORCE_BLUEPRINT_OPTIONS.map((option) => option.id)
+    const blueprintIds = Object.keys(WORKFORCE_BLUEPRINTS)
+    expect(optionIds).toEqual(blueprintIds)
   })
 })

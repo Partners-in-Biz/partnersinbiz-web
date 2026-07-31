@@ -7,6 +7,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import {
   resolveWorkforceBlueprint,
   type WorkforceBlueprint,
+  type WorkforceBlueprintMatchSource,
 } from '@/lib/agents/role-blueprints'
 import {
   AGENT_SKILL_POLICY,
@@ -58,13 +59,21 @@ export const GET = withAuth('client', async (
   const { orgId: requestedOrgId } = await (context as Params).params
   const scope = resolveOrgScope(user, requestedOrgId)
   if (!scope.ok) return apiError(scope.error, scope.status)
+  const requestedBlueprint = _req.nextUrl.searchParams.get('blueprint')?.trim() || null
 
   const memberSnap = await adminDb.collection('orgMembers').doc(`${scope.orgId}_${user.uid}`).get()
   const member = memberSnap.exists ? memberSnap.data() ?? {} : {}
   const jobTitle = typeof member.jobTitle === 'string' ? member.jobTitle.trim() : ''
   const department = typeof member.department === 'string' ? member.department.trim() : ''
-  const match = resolveWorkforceBlueprint({ jobTitle, department })
+  const match = resolveWorkforceBlueprint({
+    jobTitle,
+    department,
+    blueprintId: requestedBlueprint,
+  })
   const evidence = buildPolicyEvidence(match.blueprint)
+  const matchSourceLabel: WorkforceBlueprintMatchSource = requestedBlueprint && match.source === 'override'
+    ? 'override'
+    : match.source
 
   return apiSuccess({
     orgId: scope.orgId,
@@ -72,7 +81,8 @@ export const GET = withAuth('client', async (
       jobTitle: jobTitle || null,
       department: department || null,
     },
-    matchSource: match.source,
+    requestedBlueprintId: requestedBlueprint,
+    matchSource: matchSourceLabel,
     blueprint: match.blueprint,
     policyEvidence: evidence,
     recommendationStatus: 'ready_for_owner_review' as const,

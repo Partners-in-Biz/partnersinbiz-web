@@ -15,6 +15,7 @@ import { exportChatAsMarkdown } from '@/lib/conversations/export-chat'
 import { postConversationMessage } from '@/lib/conversations/message-submit'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
+import { WORKFORCE_BLUEPRINT_OPTIONS } from '@/lib/agents/role-blueprints'
 import {
   APPROVAL_MODE_OPTIONS,
   cleanApprovalMode,
@@ -1465,6 +1466,7 @@ export default function UnifiedChat({
   const workspaceRuntimeExplicitRef = useRef(false)
   const selectedWorkspaceShareModeTouchedRef = useRef(false)
   const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
+  const [newConversationWorkforceBlueprintId, setNewConversationWorkforceBlueprintId] = useState('')
   const companyCoworkLocked = scope === 'company' && Boolean(scopeRefId)
   const [showProjectSetupWizard, setShowProjectSetupWizard] = useState(false)
   const [projectSetupMode, setProjectSetupMode] = useState<ProjectSetupMode>('existing_folder')
@@ -2315,6 +2317,7 @@ export default function UnifiedChat({
   useEffect(() => {
     if (!companyCoworkLocked || !scopeRefId) return
     selectedWorkspaceShareModeTouchedRef.current = false
+    setNewConversationWorkforceBlueprintId('')
     setNewScope('company')
     setSelectedCompanyId(scopeRefId)
     if (orgName?.trim()) setSelectedCompanyName(orgName.trim())
@@ -2553,6 +2556,7 @@ export default function UnifiedChat({
       return
     }
     selectedWorkspaceShareModeTouchedRef.current = false
+    setNewConversationWorkforceBlueprintId('')
     setNewInitialAgentIds([])
     if (forProjectId) {
       setNewScope('project')
@@ -2572,6 +2576,7 @@ export default function UnifiedChat({
       return
     }
     selectedWorkspaceShareModeTouchedRef.current = false
+    setNewConversationWorkforceBlueprintId('')
     setNewScope('company')
     setNewInitialAgentIds([])
     setSelectedCompanyId(companyId)
@@ -2586,6 +2591,7 @@ export default function UnifiedChat({
       return
     }
     selectedWorkspaceShareModeTouchedRef.current = false
+    setNewConversationWorkforceBlueprintId('')
     setNewScope('workspace')
     setSelectedWorkspaceId(workspaceId)
     setSelectedWorkspaceRuntime('')
@@ -2601,6 +2607,7 @@ export default function UnifiedChat({
       return
     }
     selectedWorkspaceShareModeTouchedRef.current = false
+    setNewConversationWorkforceBlueprintId('')
     setNewScope('general')
     setNewParticipants([])
     setNewInitialAgentIds([agentId])
@@ -2613,6 +2620,7 @@ export default function UnifiedChat({
     setShowProjectSetupWizard(false)
     setModalError(null)
     setNewInitialAgentIds([])
+    setNewConversationWorkforceBlueprintId('')
   }, [])
 
   const openProjectSetupWizard = useCallback(() => {
@@ -2642,6 +2650,7 @@ export default function UnifiedChat({
       return
     }
     selectedWorkspaceShareModeTouchedRef.current = false
+    setNewConversationWorkforceBlueprintId('')
     setNewScope('project')
     setModalError(null)
     setShowNewModal(true)
@@ -2650,6 +2659,7 @@ export default function UnifiedChat({
 
   const setNewConversationScope = useCallback((nextScope: ConversationScope) => {
     selectedWorkspaceShareModeTouchedRef.current = false
+    setNewConversationWorkforceBlueprintId('')
     setNewScope(nextScope)
   }, [])
 
@@ -8395,6 +8405,29 @@ export default function UnifiedChat({
                   </div>
                   <div>
                     <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
+                      Workstream role
+                    </label>
+                    <select
+                      aria-label="Workstream role"
+                      value={newConversationWorkforceBlueprintId || 'auto'}
+                      onChange={(e) => {
+                        setNewConversationWorkforceBlueprintId(e.target.value === 'auto' ? '' : e.target.value)
+                      }}
+                      className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-primary/60"
+                    >
+                      <option value="auto">Auto (profile)</option>
+                      {WORKFORCE_BLUEPRINT_OPTIONS.map((blueprint) => (
+                        <option key={blueprint.id} value={blueprint.id}>
+                          {blueprint.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                      Select a workstream to get role-specific agent recommendations for this chat.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">
                       Visibility
                     </label>
                     <select
@@ -8745,6 +8778,7 @@ export default function UnifiedChat({
                     allowedAgentIds={newConversationAgentGate.allowedAgentIds}
                     agentsUnavailableReason={newConversationAgentGate.reason}
                     runtimeTargetId={selectedWorkspaceRuntimeTarget?.id ?? null}
+                    workforceBlueprintId={newConversationWorkforceBlueprintId || null}
                   />
                 </div>
               </div>

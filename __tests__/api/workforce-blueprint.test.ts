@@ -104,6 +104,23 @@ describe('member workforce blueprint API', () => {
     })
   })
 
+  it('supports explicit blueprint override query parameter', async () => {
+    const { GET } = await import('@/app/api/v1/orgs/[orgId]/workforce-blueprint/route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/v1/orgs/org-1/workforce-blueprint?blueprint=people'),
+      { params: Promise.resolve({ orgId: 'org-1' }) },
+    )
+    const body = await response.json()
+
+    expect(body.data).toMatchObject({
+      requestedBlueprintId: 'people',
+      matchSource: 'override',
+      blueprint: {
+        id: 'people',
+      },
+    })
+  })
+
   it('rejects selecting another organisation', async () => {
     const { GET } = await import('@/app/api/v1/orgs/[orgId]/workforce-blueprint/route')
     const response = await GET(

@@ -317,4 +317,20 @@ describe('ParticipantPicker runtime agent gate', () => {
     expect(screen.getByText('1 recommended agents are missing policy definitions.')).toBeInTheDocument()
     expect(screen.getByText('Policy missing')).toBeInTheDocument()
   })
+
+  it('sends selected workforce blueprint override to workforce API', async () => {
+    const onSelect = jest.fn()
+    render(
+      <ParticipantPicker
+        orgId="org-1"
+        onSelect={onSelect}
+        allowedAgentIds={null}
+        workforceBlueprintId="finance"
+      />,
+    )
+
+    expect(await screen.findByText('Pip')).toBeInTheDocument()
+    const urls = (global.fetch as jest.Mock).mock.calls.map((call) => String(call[0]))
+    expect(urls.some((url) => url.includes('/workforce-blueprint?blueprint=finance'))).toBe(true)
+  })
 })
