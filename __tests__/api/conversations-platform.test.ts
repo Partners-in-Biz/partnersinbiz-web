@@ -17,6 +17,7 @@ const mockResolveVisibleAgents = jest.fn()
 const mockAuthorizeWorkspaceRuntime = jest.fn()
 const mockRequireProjectRuntimeReplica = jest.fn()
 const mockGetProjectForUser = jest.fn()
+const mockGetOrgChatVisibilityPolicy = jest.fn()
 
 let mockUser: MockUser = { uid: 'admin-1', role: 'admin' }
 let organizationMembers: Array<{ userId: string; role: string }> = []
@@ -41,6 +42,9 @@ jest.mock('@/lib/conversations/conversations', () => ({
   listConversations: mockListConversations,
   orgChatConfigDoc: jest.fn(() => ({ get: mockOrgChatConfigGet })),
   resolveVisibleAgents: mockResolveVisibleAgents,
+}))
+jest.mock('@/lib/conversations/chat-config', () => ({
+  getOrgChatVisibilityPolicy: (...args: unknown[]) => mockGetOrgChatVisibilityPolicy(...args),
 }))
 
 jest.mock('@/lib/workspaces/runtime-authorization', () => ({
@@ -101,6 +105,10 @@ beforeEach(() => {
       data: () => ({ orgId: 'org-1', name: 'Website launch' }),
     },
     projectAccess: { role: 'manager', source: 'legacy_org', canViewInternal: true },
+  })
+  mockGetOrgChatVisibilityPolicy.mockResolvedValue({
+    enableClientToAdminChat: true,
+    enableClientToPiBTeamChat: false,
   })
 
   const usersById: Record<string, Record<string, unknown>> = {
@@ -336,6 +344,10 @@ describe('platform-scoped unified conversations', () => {
 
   it('lets a client start a platform-workspace conversation with listed org members', async () => {
     mockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
+    mockGetOrgChatVisibilityPolicy.mockResolvedValueOnce({
+      enableClientToAdminChat: true,
+      enableClientToPiBTeamChat: true,
+    })
     const { POST } = await import('@/app/api/v1/conversations/route')
 
     const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
@@ -398,8 +410,29 @@ describe('platform-scoped unified conversations', () => {
     expect(mockCreateConversation).not.toHaveBeenCalled()
   })
 
-  it('lets a client start a conversation with platform super admins even when admin records have the platform orgId', async () => {
+  it('blocks client chats with PiB team members while that policy is disabled', async () => {
     mockUser = { uid: 'client-1', role: 'client', orgId: 'org-1' }
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'org-1',
+        participants: [{ kind: 'user', uid: 'admin-1' }],
+      }),
+    }))
+
+    expect(res.status).toBe(403)
+    expect((await readJson(res)).error).toBe('Client cannot create chats with PiB team in this organisation')
+    expect(mockCreateConversation).not.toHaveBeenCalled()
+  })
+
+  it('allows client chats with PiB admins when enableClientToPiBTeamChat is enabled', async () => {
+    mockUser = { uid: 'client-1', role: 'client', orgId: 'org-1' }
+    mockGetOrgChatVisibilityPolicy.mockResolvedValueOnce({
+      enableClientToAdminChat: true,
+      enableClientToPiBTeamChat: true,
+    })
     const { POST } = await import('@/app/api/v1/conversations/route')
 
     const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
@@ -664,7 +697,7 @@ describe('platform-scoped unified conversations', () => {
     ])
   })
 
-  it('returns only unrestricted platform super admins as PiB people when their user doc stores the platform orgId', async () => {
+  it('hides PiB team users from people picker when admin-chat-with-PiB is disabled', async () => {
     mockUser = { uid: 'client-1', role: 'client', orgId: 'org-1' }
     const { GET } = await import('@/app/api/v1/orgs/[orgId]/contacts/route')
 
@@ -675,10 +708,10 @@ describe('platform-scoped unified conversations', () => {
     expect(res.status).toBe(200)
     const body = await readJson(res)
     expect(body.data).toEqual(expect.arrayContaining([
-      expect.objectContaining({ uid: 'admin-1', role: 'admin', email: 'peet@example.com' }),
-      expect.objectContaining({ uid: 'admin-2', email: 'ops@example.com' }),
+      expect.objectContaining({ uid: 'admin-2', role: 'client', email: 'ops@example.com' }),
     ]))
     expect(body.data).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ uid: 'admin-1' }),
       expect.objectContaining({ uid: 'restricted-admin' }),
     ]))
   })

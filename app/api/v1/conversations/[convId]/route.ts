@@ -17,6 +17,7 @@ import {
   patchConversation,
   updateConversationAccess,
 } from '@/lib/conversations/conversations'
+import { getOrgChatVisibilityPolicy } from '@/lib/conversations/chat-config'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import {
   authorizeConversationProject,
@@ -150,6 +151,7 @@ export const PATCH = withAuth(
         .filter((participant) => participant.kind === 'user')
         .map((participant) => participant.uid)
       const requestedUids = shareMode === 'private' ? [ownerUid] : (body.participantUids ?? currentHumanUids)
+      const chatPolicy = await getOrgChatVisibilityPolicy(conversation.orgId)
 
       let humanParticipants
       try {
@@ -158,6 +160,12 @@ export const PATCH = withAuth(
           ownerUid,
           requestedUids,
           existingParticipants: conversation.participants,
+          policy: {
+            requestingUserRole: user.role,
+            enforceClientChatPolicy: true,
+            allowClientToAdminChat: chatPolicy.enableClientToAdminChat,
+            allowClientToPiBTeamChat: chatPolicy.enableClientToPiBTeamChat,
+          },
         })
       } catch (error) {
         if (error instanceof ConversationParticipantError) return apiError(error.message, error.status)

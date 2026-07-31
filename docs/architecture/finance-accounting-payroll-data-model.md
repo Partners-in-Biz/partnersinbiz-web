@@ -1,6 +1,6 @@
 # Partners in Biz Finance, Accounting, and South African Payroll Architecture
 
-Status: implementation-ready architecture proposal; awaiting the existing human architecture approval gate before implementation
+Status: approved and implemented (gate e7EEr9HtG0MdCrwyhT63, verification commit following)
 Repository: existing `partnersinbiz-web` application on `development`
 Project: Partners in Biz Finance, Accounting & South African Payroll (`HRCSWl1cNnh6fYEGziAb`)
 Architecture task: Inventory existing web finance models and define additive architecture/data-model delta (`MDgyihpKCbNNJY03ThqT`)

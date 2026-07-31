@@ -6,6 +6,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
+import { getOrgChatVisibilityPolicy } from '@/lib/conversations/chat-config'
 import type { ApiUser } from '@/lib/api/types'
 import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
 
@@ -131,6 +132,9 @@ export async function listConversationPeople(
   user: ApiUser,
 ): Promise<{ ok: true; people: ConversationPerson[] } | { ok: false; error: string; status: number }> {
   const callerIsAdmin = user.role === 'admin' || user.role === 'ai'
+  const chatPolicy = callerIsAdmin ? null : await getOrgChatVisibilityPolicy(orgId)
+  const includeAdminUsers = chatPolicy ? chatPolicy.enableClientToAdminChat : true
+  const includePiBTeamUsers = chatPolicy ? chatPolicy.enableClientToPiBTeamChat : true
 
   if (orgId === PIB_PLATFORM_ORG_ID && callerIsAdmin) {
     const contacts = dedupeContacts([
@@ -178,10 +182,15 @@ export async function listConversationPeople(
         )
       : await listLinkedOrgMemberContacts(orgId)
     const resolvedMembers = memberContacts.filter((m) => m.uid !== user.uid)
-    contacts.push(...resolvedMembers)
+    const visibleMembers = includeAdminUsers
+      ? resolvedMembers
+      : resolvedMembers.filter((member) => member.role !== 'admin')
+    contacts.push(...visibleMembers)
 
     const existingUids = new Set(contacts.map((c) => c.uid))
-    contacts.push(...(await listPlatformAdmins()).filter((a) => a.uid !== user.uid && !existingUids.has(a.uid)))
+    const platformAdmins = (await listPlatformAdmins())
+      .filter((admin) => admin.uid !== user.uid && !existingUids.has(admin.uid) && includePiBTeamUsers)
+    contacts.push(...platformAdmins)
   }
 
   return { ok: true, people: contacts }

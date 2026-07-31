@@ -145,6 +145,54 @@ export class FirestoreFinanceFoundationRepository {
       'finance.legal-entity.created.v1')
   }
 
+  async createApproval(actor: FinanceActorContext, command: CreateFinanceApprovalCommand): Promise<FinanceApprovalRecord> {
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId ?? '__org_scope__', bookId: command.bookId ?? '__org_scope__' }
+    assertCreateVersion(command.expectedVersion, 'Finance approval')
+    authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    const now = this.now()
+    const subjectDigest = command.subjectDigest || financeApprovalSubjectDigest(command.action, command)
+    const approval: FinanceApprovalRecord = {
+      ...scope, id: command.id, action: command.action, subjectDigest, reason: requiredText(command.reason, 'reason'),
+      approvedBy: actor.uid, approvedAt: now, status: 'approved', immutable: true, schemaVersion: 1, version: 1,
+      createdAt: now, createdBy: actor.uid, updatedAt: now, updatedBy: actor.uid,
+    }
+    return this.createWithClaim(actor, 'finance_approvals', approval, command, 'approval.create', 'approval_subject', scope,
+      subjectDigest, 'finance_approval', 'finance.approval.created.v1')
+  }
+
+  async closePeriod(actor: FinanceActorContext, command: ChangePeriodStatusCommand): Promise<AccountingPeriod> {
+    return this.changePeriodStatus(actor, { ...command, status: 'soft_closed' as const })
+  }
+
+  async reopenPeriod(actor: FinanceActorContext, command: ChangePeriodStatusCommand): Promise<AccountingPeriod> {
+    return this.changePeriodStatus(actor, { ...command, status: 'open' as const })
+  }
+
+  private async changePeriodStatus(actor: FinanceActorContext, command: ChangePeriodStatusCommand & { status: AccountingPeriod['status'] }): Promise<AccountingPeriod> {
+    const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
+    authorizeFinanceAction(actor, scope, 'foundation.configure', this.now())
+    const periodRef = storageRef(this.db, 'accounting_periods', scope, command.periodId)
+    return this.db.runTransaction(async (tx) => {
+      const snap = await tx.get(periodRef)
+      const period = record<AccountingPeriod>(snap, 'Accounting period')
+      exactScope(period, scope, 'Accounting period', command.periodId)
+      if (period.version !== command.expectedVersion) throw new FinanceValidationError('Period version mismatch')
+      const now = this.now()
+      const updated: AccountingPeriod = {
+        ...period, status: command.status, version: period.version + 1, updatedAt: now, updatedBy: actor.uid,
+        lastStatusChangeAt: now, lastStatusChangeBy: actor.uid, lastStatusChangeReason: command.reason,
+      }
+      if (command.approvalId) {
+        const approval = await this.loadApprovalForTx(tx, command.approvalId, scope, command.status === 'soft_closed' ? 'period.close' : 'period.reopen')
+        updated.lastStatusChangeApprovalId = approval.id
+      }
+      tx.set(periodRef, clean(updated))
+      const event = this.buildAuditEvent(actor, 'period.status_changed', scope, command.periodId, period.version, updated.version, { status: command.status }, command)
+      this.writeAuditAndOutboxInTx(tx, event, 'finance.period.status-changed.v1')
+      return updated
+    })
+  }
+
   async createBranch(actor: FinanceActorContext, command: CreateBranchCommand): Promise<FinanceBranch> {
     const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId }
     assertCreateVersion(command.expectedVersion, 'Branch')

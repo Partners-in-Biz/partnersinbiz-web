@@ -9,6 +9,7 @@ const mockCanManage = jest.fn()
 const mockLogActivity = jest.fn()
 const mockAuthorizeWorkspaceRuntime = jest.fn()
 const mockAuthorizeConversationProject = jest.fn()
+const mockGetOrgChatVisibilityPolicy = jest.fn()
 
 let mockUser = { uid: 'owner-1', role: 'client' as 'client' | 'admin' | 'ai', orgId: 'org-1' }
 type MockHandler = (req: NextRequest, user: typeof mockUser, context?: unknown) => Promise<Response>
@@ -30,6 +31,9 @@ jest.mock('@/lib/conversations/access', () => ({
   canManageConversationAccess: mockCanManage,
   authorizeConversationProject: (...args: unknown[]) => mockAuthorizeConversationProject(...args),
   publicConversationView: (conversation: unknown) => conversation,
+}))
+jest.mock('@/lib/conversations/chat-config', () => ({
+  getOrgChatVisibilityPolicy: (...args: unknown[]) => mockGetOrgChatVisibilityPolicy(...args),
 }))
 jest.mock('@/lib/conversations/participant-access', () => {
   class ConversationParticipantError extends Error {
@@ -89,6 +93,10 @@ describe('PATCH conversation Workspace access', () => {
     mockResolveHumans.mockImplementation(async ({ requestedUids }: { requestedUids: string[] }) =>
       requestedUids.map((uid) => ({ kind: 'user', uid, role: 'client' })),
     )
+    mockGetOrgChatVisibilityPolicy.mockResolvedValue({
+      enableClientToAdminChat: true,
+      enableClientToPiBTeamChat: false,
+    })
   })
 
   it('lets the canonical owner make a Workspace conversation private and retains agents', async () => {
@@ -96,6 +104,14 @@ describe('PATCH conversation Workspace access', () => {
     const response = await PATCH(request(accessBody({ shareMode: 'private', participantUids: ['owner-1', 'member-2'] })), context())
     expect(response.status).toBe(200)
     expect(mockResolveHumans).toHaveBeenCalledWith(expect.objectContaining({ ownerUid: 'owner-1', requestedUids: ['owner-1'] }))
+    expect(mockResolveHumans).toHaveBeenCalledWith(expect.objectContaining({
+      policy: expect.objectContaining({
+        requestingUserRole: 'client',
+        enforceClientChatPolicy: true,
+        allowClientToAdminChat: true,
+        allowClientToPiBTeamChat: false,
+      }),
+    }))
     expect(mockUpdateConversationAccess).toHaveBeenCalledWith(expect.objectContaining({
       convId: 'conv-1', expectedVersion: 0, participantUids: ['owner-1'], participantAgentIds: ['pip'], shareMode: 'private',
       participants: expect.arrayContaining([expect.objectContaining({ kind: 'agent', agentId: 'pip' })]),
