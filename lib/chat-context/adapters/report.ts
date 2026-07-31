@@ -80,13 +80,38 @@ async function buildRelationships(user: ApiUser, report: ReportRecord): Promise<
 
 function adminActions(report: ReportRecord, input: { userRole: string }): ChatContextAction[] {
   if (input.userRole !== 'admin') return []
-  return [{
-    id: `disable-report-link:${report.id}`,
-    label: 'Disable public link',
-    href: `/api/v1/reports/${encodeURIComponent(report.id)}/share`,
-    method: 'DELETE' as const,
-    requiresApproval: true,
-  }]
+  const id = report.id
+  const status = clean(report.status, 20).toLowerCase()
+  const actions: ChatContextAction[] = []
+
+  if (status !== 'archived') {
+    actions.push({
+      id: `regenerate-report-share:${id}`,
+      label: 'Regenerate public link',
+      href: `/api/v1/reports/${encodeURIComponent(id)}/share`,
+      method: 'POST',
+      requiresApproval: true,
+      body: { action: 'regenerate' },
+    })
+    actions.push({
+      id: `disable-report-link:${id}`,
+      label: 'Disable public link',
+      href: `/api/v1/reports/${encodeURIComponent(id)}/share`,
+      method: 'POST',
+      requiresApproval: true,
+      body: { action: 'disable' },
+    })
+    actions.push({
+      id: `archive-report:${id}`,
+      label: 'Archive report',
+      href: `/api/v1/reports/${encodeURIComponent(id)}`,
+      method: 'DELETE',
+      requiresApproval: true,
+      destructive: true,
+    })
+  }
+
+  return actions
 }
 
 export const reportChatContextAdapter: ChatContextAdapter = {

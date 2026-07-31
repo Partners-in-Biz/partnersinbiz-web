@@ -28,8 +28,8 @@ describe('chat context capabilities API', () => {
         liveReadKinds: 25,
         specializedKinds: 23,
         sealedRuntimeKinds: 1,
-        inlineActionKinds: 19,
-        navigateActionKinds: 6,
+        inlineActionKinds: 24,
+        navigateActionKinds: 1,
       },
     })
     expect(body.data.capabilities).toHaveLength(25)

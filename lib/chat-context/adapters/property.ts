@@ -47,16 +47,30 @@ function stateFromStatus(status: unknown): ContextDisplayState {
   return 'ready'
 }
 
-function actionsForProperty(input: { userRole: ApiUser['role']; id: string }): ChatContextAction[] {
+function actionsForProperty(input: {
+  userRole: ApiUser['role']
+  id: string
+  status: string
+}): ChatContextAction[] {
   if (input.userRole !== 'admin') return []
-  return [{
-    id: `archive-property:${input.id}`,
-    label: 'Archive property',
-    href: `/api/v1/properties/${encodeURIComponent(input.id)}`,
-    method: 'DELETE' as const,
+  const actions: ChatContextAction[] = [{
+    id: `rotate-property-ingest-key:${input.id}`,
+    label: 'Rotate ingest key',
+    href: `/api/v1/properties/${encodeURIComponent(input.id)}/rotate-ingest-key`,
+    method: 'POST' as const,
     requiresApproval: true,
-    destructive: true,
   }]
+  if (input.status !== 'archived' && input.status !== 'disabled') {
+    actions.push({
+      id: `archive-property:${input.id}`,
+      label: 'Archive property',
+      href: `/api/v1/properties/${encodeURIComponent(input.id)}`,
+      method: 'DELETE' as const,
+      requiresApproval: true,
+      destructive: true,
+    })
+  }
+  return actions
 }
 
 export const propertyChatContextAdapter: ChatContextAdapter = {
@@ -82,7 +96,11 @@ export const propertyChatContextAdapter: ChatContextAdapter = {
 
     const status = clean(property.status, 30)
     const asOf = asIso(property.updatedAt)
-    const actions = actionsForProperty({ userRole: input.user.role, id: property.id })
+    const actions = actionsForProperty({
+      userRole: input.user.role,
+      id: property.id,
+      status: status.toLowerCase(),
+    })
     const revenueCurrency = clean(property.config?.revenue?.currency, 16)
     const timezone = clean(property.config?.revenue?.timezone, 60)
 

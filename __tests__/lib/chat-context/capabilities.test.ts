@@ -26,8 +26,17 @@ describe('chat context capability contract', () => {
       liveReadKinds: 25,
       specializedKinds: 23,
       sealedRuntimeKinds: 1,
-      inlineActionKinds: 19,
-      navigateActionKinds: 6,
+      inlineActionKinds: 24,
+      navigateActionKinds: 1,
     })
+  })
+
+  it('promotes research, property, file, report, and workspace_connection to inline actions', () => {
+    const byKind = Object.fromEntries(listChatContextCapabilities().map((c) => [c.kind, c]))
+    for (const kind of ['research', 'property', 'file', 'report', 'workspace_connection'] as const) {
+      expect(byKind[kind].actionLevel).toBe('inline')
+    }
+    expect(byKind.workspace_folder.actionLevel).toBe('navigate')
+    expect(byKind.workspace_folder.adapterLevel).toBe('sealed_runtime')
   })
 })

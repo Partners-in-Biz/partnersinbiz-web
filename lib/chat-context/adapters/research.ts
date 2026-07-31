@@ -49,7 +49,7 @@ function canMutateResearch(role: ApiUser['role']) {
 
 function actionsForResearch(input: { id: string; status: string; role: ApiUser['role'] }): ChatContextAction[] {
   if (!canMutateResearch(input.role) || input.status === 'archived') return []
-  return [
+  const actions: ChatContextAction[] = [
     {
       id: `create-research-document:${input.id}`,
       label: 'Create linked document',
@@ -57,15 +57,25 @@ function actionsForResearch(input: { id: string; status: string; role: ApiUser['
       method: 'POST',
       requiresApproval: true,
     },
-    {
-      id: `archive-research:${input.id}`,
-      label: 'Archive research item',
-      href: `/api/v1/research/${encodeURIComponent(input.id)}`,
-      method: 'DELETE',
-      requiresApproval: true,
-      destructive: true,
-    },
   ]
+  if (input.role === 'admin') {
+    actions.push({
+      id: `export-research-obsidian:${input.id}`,
+      label: 'Export to Obsidian',
+      href: `/api/v1/research/${encodeURIComponent(input.id)}/export-obsidian`,
+      method: 'POST',
+      requiresApproval: false,
+    })
+  }
+  actions.push({
+    id: `archive-research:${input.id}`,
+    label: 'Archive research item',
+    href: `/api/v1/research/${encodeURIComponent(input.id)}`,
+    method: 'DELETE',
+    requiresApproval: true,
+    destructive: true,
+  })
+  return actions
 }
 
 function collectRelationshipSeeds(linked: Record<string, unknown> | null | undefined): RelationshipSeed[] {

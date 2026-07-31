@@ -76,6 +76,7 @@ describe('research chat context adapter', () => {
     expect(result.model.capabilities).toContain('inline-actions')
     expect(result.model.groups[0].items[0].actions).toEqual(expect.arrayContaining([
       expect.objectContaining({ id: 'create-research-document:research-1', method: 'POST' }),
+      expect.objectContaining({ id: 'export-research-obsidian:research-1', method: 'POST' }),
       expect.objectContaining({ id: 'archive-research:research-1', method: 'DELETE' }),
     ]))
     expect(result.model.relationships).toEqual([

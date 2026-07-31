@@ -79,6 +79,16 @@ describe('report chat context adapter', () => {
     expect(result.model.groups[0].items[0].actions).toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: 'disable-report-link:report-1',
+        method: 'POST',
+        body: { action: 'disable' },
+      }),
+      expect.objectContaining({
+        id: 'regenerate-report-share:report-1',
+        method: 'POST',
+        body: { action: 'regenerate' },
+      }),
+      expect.objectContaining({
+        id: 'archive-report:report-1',
         method: 'DELETE',
       }),
     ]))

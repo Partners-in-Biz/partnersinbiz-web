@@ -58,6 +58,11 @@ describe('property chat context adapter', () => {
     }))
     expect(result.model.groups[0].items[0].actions).toEqual(expect.arrayContaining([
       expect.objectContaining({
+        id: 'rotate-property-ingest-key:property-1',
+        method: 'POST',
+        href: '/api/v1/properties/property-1/rotate-ingest-key',
+      }),
+      expect.objectContaining({
         id: 'archive-property:property-1',
         method: 'DELETE',
       }),
