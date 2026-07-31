@@ -13,8 +13,6 @@ import {
   type WorkspaceConnection,
 } from '@/lib/workspace-os/connections'
 
-type RawDoc = Record<string, unknown>
-
 function clean(value: unknown, max = 240): string {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, max) : ''
 }
@@ -42,6 +40,11 @@ function dateString(value: unknown): string | undefined {
     }
   }
   return undefined
+}
+
+function connectionUpdatedAt(connection: WorkspaceConnection): string | undefined {
+  const updatedAt = dateString((connection as { updatedAt?: unknown }).updatedAt)
+  return updatedAt ?? dateString(connection.lastReviewedAt)
 }
 
 function stateForStatus(status: string, tokenStatus: string, deleted: boolean): ContextDisplayState {
@@ -111,7 +114,7 @@ function adminActions(id: string, connection: WorkspaceConnection): ChatContextA
 
 function activityFor(connection: WorkspaceConnection): ContextActivitySummary[] {
   const lastReviewed = dateString(connection.lastReviewedAt)
-  const lastUpdated = dateString(connection.updatedAt)
+  const lastUpdated = connectionUpdatedAt(connection)
   return [
     ...(lastReviewed ? [{
       id: 'workspace-connection-reviewed',
@@ -203,7 +206,7 @@ export const workspaceConnectionChatContextAdapter: ChatContextAdapter = {
     const ownerLabel = connection.ownerUserId || connection.ownerAgentId || 'unassigned'
     const serviceAccount = clean(connection.serviceAccountEmail)
 
-    const relatedProjects: Array<{ type: 'project'; id: string; label: string; relation: string }> = []
+    const relatedProjects: Array<{ type: 'project' | 'task' | 'document'; id: string; label: string; relation: string }> = []
     if (connection.projectId) {
       relatedProjects.push({
         type: 'project',
@@ -236,6 +239,8 @@ export const workspaceConnectionChatContextAdapter: ChatContextAdapter = {
       relation: item.relation,
       ...(item.id ? { href: `/admin/workspace/${item.type === 'task' ? 'broker/jobs' : `${item.type}s`}/${item.id}` } : {}),
     })).filter((item) => item.id)
+    const updatedAt = connectionUpdatedAt(connection)
+    const updateLabel = updatedAt ? `Updated ${updatedAt.slice(0, 10)}` : ''
 
     const capabilities = [
       ...(Object.entries(connection.capabilities).some(([, isEnabled]) => isEnabled) ? ['can-read', 'can-write'] : ['read-only']),
@@ -286,7 +291,7 @@ export const workspaceConnectionChatContextAdapter: ChatContextAdapter = {
               `Provider: ${titleCase(clean(connection.provider))}`,
               `Type: ${titleCase(clean(connection.connectionType))}`,
               `Approval: ${titleCase(clean(connection.approvalStatus) || 'Unknown')}`,
-              connection.updatedAt ? `Updated ${dateString(connection.updatedAt)?.slice(0, 10)}` : '',
+              ...(updateLabel ? [updateLabel] : []),
             ].filter(Boolean).join(' · '),
             href,
             ...(actions.length > 0 ? { actions } : {}),
@@ -304,7 +309,7 @@ export const workspaceConnectionChatContextAdapter: ChatContextAdapter = {
             connection.connectionType ? titleCase(clean(connection.connectionType)) : '',
           ].filter(Boolean).join(' · '),
           status: titleCase(clean(connection.status)),
-          ...(dateString(connection.updatedAt) ? { version: dateString(connection.updatedAt)! } : {}),
+          ...(updatedAt ? { version: updatedAt } : {}),
         },
         ...(relationships.length > 0 ? { relationships } : {}),
         capabilities: ['open', 'preview', ...(actions.length > 0 ? ['inline-actions'] : []), ...capabilities],
