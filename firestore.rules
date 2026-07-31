@@ -197,6 +197,19 @@ service cloud.firestore {
     match /tax_return_snapshots/{id} { allow read, write: if false; }
     match /tax_return_lines/{id} { allow read, write: if false; }
     match /financial_report_snapshots/{id} { allow read, write: if false; }
+    match /supplier_bills/{id} { allow read, write: if false; }
+    match /supplier_bill_lines/{id} { allow read, write: if false; }
+    match /finance_customer_invoices/{id} { allow read, write: if false; }
+    match /finance_customer_invoice_lines/{id} { allow read, write: if false; }
+    match /open_items/{id} { allow read, write: if false; }
+    match /account_credits/{id} { allow read, write: if false; }
+    match /finance_payments/{id} { allow read, write: if false; }
+    match /payment_allocations/{id} { allow read, write: if false; }
+    match /bank_accounts/{id} { allow read, write: if false; }
+    match /bank_transactions/{id} { allow read, write: if false; }
+    match /reconciliations/{id} { allow read, write: if false; }
+    match /reconciliation_matches/{id} { allow read, write: if false; }
+    match /reconciliation_adjustments/{id} { allow read, write: if false; }
 
     // Idempotency cache — never client-readable or writable.
     match /idempotency_keys/{id} {

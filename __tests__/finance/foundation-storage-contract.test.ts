@@ -14,6 +14,10 @@ describe('finance foundation storage contract', () => {
       'finance_audit_heads', 'finance_outbox_events',
       'tax_codes', 'tax_rule_versions', 'tax_periods', 'tax_return_snapshots', 'tax_return_lines',
       'financial_report_snapshots',
+      'supplier_bills', 'supplier_bill_lines', 'finance_customer_invoices', 'finance_customer_invoice_lines',
+      'open_items', 'account_credits', 'finance_payments', 'payment_allocations',
+      'bank_accounts', 'bank_transactions', 'reconciliations', 'reconciliation_matches',
+      'reconciliation_adjustments',
     ]) {
       expect(rules).toContain(`match /${collection}/{id} { allow read, write: if false; }`)
     }

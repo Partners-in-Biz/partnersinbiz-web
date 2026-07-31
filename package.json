@@ -17,13 +17,15 @@
     "proof:creative-canvas": "node scripts/creative-canvas-world-class-proof.mjs",
     "smoke:creative-canvas-fal-byok": "node scripts/creative-canvas-fal-byok-smoke.mjs",
     "okf:validate": "node scripts/okf-validate-export.mjs --json",
-    "test:finance:unit": "jest --runInBand __tests__/finance/foundation-context.test.ts __tests__/finance/foundation-domain.test.ts __tests__/finance/foundation-p1-blockers.test.ts __tests__/finance/foundation-remediation.test.ts __tests__/finance/foundation-service.integration.test.ts __tests__/finance/foundation-storage-contract.test.ts __tests__/finance/tax-domain.test.ts __tests__/finance/tax-service.integration.test.ts __tests__/finance/reporting-domain.test.ts __tests__/finance/reporting-service.integration.test.ts",
+    "test:finance:unit": "jest --runInBand __tests__/finance/foundation-context.test.ts __tests__/finance/foundation-domain.test.ts __tests__/finance/foundation-p1-blockers.test.ts __tests__/finance/foundation-remediation.test.ts __tests__/finance/foundation-service.integration.test.ts __tests__/finance/foundation-storage-contract.test.ts __tests__/finance/tax-domain.test.ts __tests__/finance/tax-service.integration.test.ts __tests__/finance/reporting-domain.test.ts __tests__/finance/reporting-service.integration.test.ts __tests__/finance/documents-domain.test.ts __tests__/finance/documents-service.integration.test.ts",
     "test:finance:emulator": "firebase emulators:exec --only firestore --project finance-foundation-emulator \"jest --runInBand __tests__/finance/foundation-firestore-emulator.test.ts\"",
     "test:finance:tax-reporting": "jest --runInBand __tests__/finance/tax-domain.test.ts __tests__/finance/tax-service.integration.test.ts __tests__/finance/reporting-domain.test.ts __tests__/finance/reporting-service.integration.test.ts",
     "verify:finance:foundation": "npm run test:finance:unit && npm run test:finance:emulator && tsx scripts/finance/verify-foundation.ts",
     "verify:finance:tax-reporting": "npm run test:finance:tax-reporting && tsx scripts/finance/verify-tax-reporting.ts",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:finance:documents": "jest --runInBand __tests__/finance/documents-domain.test.ts __tests__/finance/documents-service.integration.test.ts __tests__/finance/foundation-storage-contract.test.ts",
+    "verify:finance:documents": "npm run test:finance:documents && tsx scripts/finance/verify-documents.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1045.0",

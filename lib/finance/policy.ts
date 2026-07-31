@@ -15,6 +15,25 @@ export type FinanceAction =
   | 'tax.return.prepare'
   | 'tax.return.approve'
   | 'report.read'
+  | 'invoice.create'
+  | 'invoice.issue'
+  | 'invoice.void'
+  | 'invoice.read'
+  | 'supplier_bill.create'
+  | 'supplier_bill.issue'
+  | 'supplier_bill.read'
+  | 'payment.observe'
+  | 'payment.verify'
+  | 'payment.allocate'
+  | 'payment.read'
+  | 'bank.configure'
+  | 'bank.import'
+  | 'bank.read'
+  | 'reconciliation.create'
+  | 'reconciliation.match'
+  | 'reconciliation.submit'
+  | 'reconciliation.approve'
+  | 'reconciliation.read'
 
 const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'foundation.configure': ['finance_admin'],
@@ -31,6 +50,25 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'tax.return.prepare': ['accountant', 'finance_approver', 'finance_admin'],
   'tax.return.approve': ['finance_approver', 'finance_admin'],
   'report.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'invoice.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'invoice.issue': ['bookkeeper', 'accountant', 'finance_admin'],
+  'invoice.void': ['accountant', 'finance_approver', 'finance_admin'],
+  'invoice.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'supplier_bill.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'supplier_bill.issue': ['bookkeeper', 'accountant', 'finance_admin'],
+  'supplier_bill.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'payment.observe': ['bookkeeper', 'accountant', 'finance_admin'],
+  'payment.verify': ['accountant', 'finance_approver', 'finance_admin'],
+  'payment.allocate': ['bookkeeper', 'accountant', 'finance_admin'],
+  'payment.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'bank.configure': ['finance_admin', 'accountant'],
+  'bank.import': ['bookkeeper', 'accountant', 'finance_admin'],
+  'bank.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'reconciliation.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'reconciliation.match': ['bookkeeper', 'accountant', 'finance_admin'],
+  'reconciliation.submit': ['bookkeeper', 'accountant', 'finance_admin'],
+  'reconciliation.approve': ['finance_approver', 'finance_admin'],
+  'reconciliation.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
 }
 
 const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/
