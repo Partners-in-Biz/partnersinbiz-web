@@ -185,6 +185,40 @@ beforeEach(() => {
         }),
       ])
     }
+    if (name === 'users') {
+      return queryFor([
+        doc('client-1', {
+          email: 'client@example.test',
+        }),
+      ])
+    }
+    if (name === 'calendar_events') {
+      return queryFor([
+        doc('calendar-own', {
+          orgId: 'org-1',
+          title: 'Launch review',
+          description: 'Review the launch package.',
+          startAt: '2026-08-01T08:00:00.000Z',
+          endAt: '2026-08-01T09:00:00.000Z',
+          timezone: 'Africa/Johannesburg',
+          relatedTo: { type: 'project', id: 'project-1' },
+          attendees: [{ name: 'Client', email: 'client@example.test', userId: 'client-1', status: 'pending' }],
+          assignedTo: null,
+          createdBy: 'admin-1',
+          deleted: false,
+        }),
+        doc('calendar-other', {
+          orgId: 'org-1',
+          title: 'Private leadership review',
+          startAt: '2026-08-02T08:00:00.000Z',
+          endAt: '2026-08-02T09:00:00.000Z',
+          attendees: [{ name: 'Other', email: 'other@example.test', userId: 'client-2', status: 'pending' }],
+          assignedTo: null,
+          createdBy: 'admin-1',
+          deleted: false,
+        }),
+      ])
+    }
     if (name === 'deals') {
       return queryFor([
         doc('deal-1', {
@@ -554,6 +588,38 @@ describe('context reference registry', () => {
         id: 'product-1',
         label: 'Growth Retainer',
       }),
+    ])
+  })
+
+  it('limits calendar resolution and search to the authenticated member participation', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const user = {
+      uid: 'client-1',
+      role: 'client' as const,
+      orgId: 'org-1',
+      orgIds: ['org-1'],
+      authKind: 'session' as const,
+    }
+
+    await expect(resolveContextReferences([
+      { type: 'calendar_event', id: 'calendar-own', orgId: 'org-1', origin: 'mention' },
+      { type: 'calendar_event', id: 'calendar-other', orgId: 'org-1', origin: 'mention' },
+    ], user, 'org-1')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'calendar_event',
+        id: 'calendar-own',
+        label: 'Launch review',
+        href: '/portal/projects/project-1?event=calendar-own&orgId=org-1',
+      }),
+    ])
+
+    await expect(searchContextReferences({
+      type: 'calendar_event',
+      query: 'review',
+      orgId: 'org-1',
+      user,
+    })).resolves.toEqual([
+      expect.objectContaining({ id: 'calendar-own', label: 'Launch review' }),
     ])
   })
 

@@ -23,6 +23,11 @@ import { filterProjectItemsForAccess, filterProjectsForMemberScope } from '@/lib
 import { getResearchItem, RESEARCH_COLLECTION } from '@/lib/research/store'
 import { getSupportTicket, SUPPORT_TICKETS_COLLECTION } from '@/lib/support/store'
 import {
+  calendarEventVisibleToActor,
+  loadCalendarActorEmails,
+} from '@/lib/calendar/access'
+import type { CalendarEvent } from '@/lib/calendar/types'
+import {
   type AssignableCrmRecord,
   crmActorCanReadCompanyRecord,
   crmActorCanReadRecord,
@@ -323,6 +328,18 @@ async function filterSearchDocsForRecordScope(
     return canAccessModule(ctx.accessPolicy, 'crm') ? docs : []
   }
 
+  if (type === 'calendar_event') {
+    const actorEmails = await loadCalendarActorEmails(user)
+    return docs.filter((doc) => {
+      const data = doc.data() ?? {}
+      return calendarEventVisibleToActor(
+        { ...data, orgId: docOrgId(data, orgId) } as unknown as CalendarEvent,
+        user,
+        actorEmails,
+      )
+    })
+  }
+
   if (type !== 'contact' && type !== 'company' && type !== 'deal' && type !== 'invoice' && type !== 'quote') {
     return docs
   }
@@ -382,6 +399,21 @@ function isDeleted(data: RawDoc): boolean {
   return data.deleted === true || data.archived === true
 }
 
+function calendarEventHref(id: string, data: RawDoc): string {
+  const eventParam = `event=${encodeURIComponent(id)}`
+  const orgId = docOrgId(data)
+  const orgParam = orgId ? `&orgId=${encodeURIComponent(orgId)}` : ''
+  const related = data.relatedTo && typeof data.relatedTo === 'object' && !Array.isArray(data.relatedTo)
+    ? data.relatedTo as RawDoc
+    : {}
+  const relatedType = clean(related.type)
+  const relatedId = clean(related.id)
+  if (relatedType === 'contact' && relatedId) return `/portal/contacts/${encodeURIComponent(relatedId)}?${eventParam}${orgParam}`
+  if (relatedType === 'deal' && relatedId) return `/portal/deals/${encodeURIComponent(relatedId)}?${eventParam}${orgParam}`
+  if (relatedType === 'project' && relatedId) return `/portal/projects/${encodeURIComponent(relatedId)}?${eventParam}${orgParam}`
+  return `/portal/dashboard?${eventParam}${orgParam}`
+}
+
 function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: string): string {
   if (seedHref) return seedHref
   const slug = clean(data.orgSlug) || clean(data.slug)
@@ -436,7 +468,7 @@ function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: s
     case 'report':
       return `/admin/reports/${id}`
     case 'calendar_event':
-      return `/admin/calendar?eventId=${encodeURIComponent(id)}`
+      return calendarEventHref(id, data)
   }
 }
 
@@ -728,6 +760,36 @@ async function resolveProduct(input: ResolverInput): Promise<ContextReference | 
       productPriceSummary(data),
       data.sku ? `sku: ${clean(data.sku)}` : '',
       data.active === false ? 'inactive' : '',
+      data.description,
+    ]),
+  })
+}
+
+async function resolveCalendarEvent(input: ResolverInput): Promise<ContextReference | null> {
+  const doc = await getDoc('calendar_events', input.seed.id)
+  if (!doc) return null
+  const data = doc.data() ?? {}
+  const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
+  if (
+    isDeleted(data)
+    || !orgId
+    || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId))
+    || !canUseOrg(input.user, orgId)
+  ) return null
+  const actorEmails = await loadCalendarActorEmails(input.user)
+  if (!calendarEventVisibleToActor({ ...data, orgId } as unknown as CalendarEvent, input.user, actorEmails)) return null
+  return makeRef({
+    type: 'calendar_event',
+    id: doc.id,
+    orgId,
+    label: clean(data.title) || input.seed.label || doc.id,
+    origin: origin(input.seed),
+    href: calendarEventHref(doc.id, { ...data, orgId }),
+    summary: compactSummary([
+      data.startAt,
+      data.endAt,
+      data.timezone,
+      data.location,
       data.description,
     ]),
   })
@@ -1028,8 +1090,9 @@ async function resolveOne(
     case 'workspace_broker_job':
     case 'file':
     case 'report':
-    case 'calendar_event':
       return resolveGeneric(seed.type, { seed, user, defaultOrgId })
+    case 'calendar_event':
+      return resolveCalendarEvent({ seed, user, defaultOrgId })
     case 'support':
       return resolveSupport({ seed, user, defaultOrgId })
     case 'studio':

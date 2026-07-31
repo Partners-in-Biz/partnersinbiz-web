@@ -71,7 +71,7 @@ export const CHAT_CONTEXT_CAPABILITIES = {
   studio_artifact: descriptor('studio_artifact', { domain: 'studios', label: 'Studio artifact', adapterLevel: 'specialized', actionLevel: 'inline', authoritativeSource: 'Studio production records', recommendedAgentIds: ['maya', 'qa-release', 'docs'] }),
   file: descriptor('file', { domain: 'knowledge', label: 'File', adapterLevel: 'canonical', actionLevel: 'navigate', authoritativeSource: 'Uploads', recommendedAgentIds: ['docs', 'pip', 'theo'] }),
   report: descriptor('report', { domain: 'knowledge', label: 'Report', adapterLevel: 'canonical', actionLevel: 'navigate', authoritativeSource: 'Reports', recommendedAgentIds: ['data', 'sage', 'docs'] }),
-  calendar_event: descriptor('calendar_event', { domain: 'communications', label: 'Calendar event', adapterLevel: 'canonical', actionLevel: 'navigate', authoritativeSource: 'Calendar events', recommendedAgentIds: ['nora', 'sales', 'pip'] }),
+  calendar_event: descriptor('calendar_event', { domain: 'communications', label: 'Calendar event', adapterLevel: 'specialized', actionLevel: 'inline', authoritativeSource: 'Calendar events and attendee responses', recommendedAgentIds: ['nora', 'sales', 'pip'] }),
 } satisfies Record<ContextReferenceType, ChatContextCapabilityDescriptor>
 
 export function chatContextCapability(kind: ContextReferenceType): ChatContextCapabilityDescriptor {

@@ -14,6 +14,10 @@ import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import {
+  calendarAttendeeBelongsToActor,
+  loadCalendarActorEmails,
+} from '@/lib/calendar/access'
+import {
   VALID_ATTENDEE_STATUSES,
   type CalendarAttendee,
   type CalendarAttendeeStatus,
@@ -59,6 +63,16 @@ export const POST = withAuth('client', async (req, user, context) => {
 
   const lowerEmail = email.toLowerCase()
   const attendees = Array.isArray(event.attendees) ? event.attendees : []
+  const targetAttendee = attendees.find((attendee) => (
+    typeof attendee?.email === 'string' && attendee.email.toLowerCase() === lowerEmail
+  ))
+  if (!targetAttendee) return apiError('Attendee not found on this event', 404)
+  if (!calendarAttendeeBelongsToActor(targetAttendee, user, new Set())) {
+    const actorEmails = await loadCalendarActorEmails(user)
+    if (!calendarAttendeeBelongsToActor(targetAttendee, user, actorEmails)) {
+      return apiError('Attendee not found on this event', 404)
+    }
+  }
 
   let matched = false
   const updatedAttendees: CalendarAttendee[] = attendees.map((a) => {

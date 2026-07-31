@@ -24,6 +24,7 @@ import { commerceChatContextAdapter } from '@/lib/chat-context/adapters/commerce
 import { documentChatContextAdapter } from '@/lib/chat-context/adapters/document'
 import { supportChatContextAdapter } from '@/lib/chat-context/adapters/support'
 import { productChatContextAdapter } from '@/lib/chat-context/adapters/product'
+import { calendarEventChatContextAdapter } from '@/lib/chat-context/adapters/calendarEvent'
 import { chatContextCapability } from '@/lib/chat-context/capabilities'
 
 export type ChatContextAdapters = Partial<Record<ChatContextKind, ChatContextAdapter>>
@@ -85,6 +86,7 @@ export const chatContextRegistry = createChatContextRegistry({
   document: documentChatContextAdapter,
   support: supportChatContextAdapter,
   product: productChatContextAdapter,
+  calendar_event: calendarEventChatContextAdapter,
   studio: createStudioRootNamespaceAdapter({
     marketing_studio: marketingStudioChatContextAdapter,
     video_editor: nonMarketingStudioRootChatContextAdapter,
