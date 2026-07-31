@@ -132,6 +132,12 @@ describe('Workspace conversation access', () => {
     expect(publicConversationView(orgConversation, 'member-1').unreadCount).toBe(4)
   })
 
+  it('treats all existing org-visible messages as unread for org members without prior read state', () => {
+    const orgConversation = conversation('org')
+    orgConversation.messageCount = 12
+    expect(publicConversationView(orgConversation, 'member-1').unreadCount).toBe(12)
+  })
+
   it('replaces persisted attachment bearer URLs and storage paths in public message views', () => {
     const publicMessage = publicConversationMessageView({
       id: 'msg-1',

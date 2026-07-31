@@ -454,7 +454,7 @@ export const POST = withAuth(
       return apiError('Forbidden', 403)
     }
     if (!canReplyConversation(user, conversation)) {
-      return apiError('Only explicit participants can reply to this conversation', 403)
+      return apiError('You do not have permission to reply in this conversation', 403)
     }
     const replyAccess = await assertUserCanPerformOrganizationModuleAction(
       user,

@@ -76,14 +76,23 @@ export function publicConversationView(conversation: Conversation, userUid?: str
   delete publicConversation.lastReadMessageCount
   delete publicConversation.lastReadAt
   if (userUid) {
+    const shareMode = conversation.workspaceContext?.shareMode
     const readState = conversation.readStateByUser?.[userUid]
     const explicitUnreadCount = conversation.unreadCounts?.[userUid]
-    const derivedUnreadCount = Number.isFinite(readState?.lastReadMessageCount)
-      ? Math.max(0, (conversation.messageCount ?? 0) - Math.floor(readState?.lastReadMessageCount ?? 0))
+    const baseReadMessageCount = Number.isFinite(readState?.lastReadMessageCount)
+      ? Math.max(0, Math.floor(readState.lastReadMessageCount ?? 0))
       : 0
-    publicConversation.unreadCount = Number.isFinite(explicitUnreadCount)
+    const derivedUnreadCount = Number.isFinite(readState?.lastReadMessageCount)
+      ? Math.max(0, (conversation.messageCount ?? 0) - baseReadMessageCount)
+      : shareMode === 'org'
+        ? Math.max(0, Math.floor(conversation.messageCount ?? 0))
+        : 0
+    const computedUnreadCount = Number.isFinite(explicitUnreadCount)
       ? Math.max(0, Math.floor(explicitUnreadCount ?? 0))
       : derivedUnreadCount
+    if (Number.isFinite(computedUnreadCount)) {
+      publicConversation.unreadCount = computedUnreadCount
+    }
     if (readState?.lastReadMessageId) publicConversation.lastReadMessageId = readState.lastReadMessageId
     if (Number.isFinite(readState?.lastReadMessageCount)) {
       publicConversation.lastReadMessageCount = Math.max(0, Math.floor(readState?.lastReadMessageCount ?? 0))
