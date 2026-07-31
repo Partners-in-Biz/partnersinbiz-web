@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { CommunicationsConsole } from '@/components/communications/CommunicationsConsole'
 
 const useOrgMock = jest.fn()
@@ -115,6 +115,161 @@ describe('CommunicationsConsole organisation scoping', () => {
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/v1/communications/conversations?orgId=lumen-org&status=open&limit=100',
       )
+    })
+  })
+
+  it('shows live messaging fallback when EventSource is unavailable', async () => {
+    const originalEventSource = (global as typeof globalThis & { EventSource?: unknown }).EventSource
+    Object.defineProperty(global, 'EventSource', { value: undefined, configurable: true })
+
+    render(<CommunicationsConsole mode="admin" initialOrgId="org-1" />)
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/communications/conversations?orgId=org-1&status=open&limit=100',
+      )
+    })
+    expect(screen.getByText('Live updates are not supported in this environment; using manual refresh.')).toBeInTheDocument()
+
+    Object.defineProperty(global, 'EventSource', {
+      value: originalEventSource,
+      configurable: true,
+    })
+  })
+
+  it('uses live snapshots to refresh conversations and thread messages', async () => {
+    const instances: Array<{
+      url: string
+      listeners: Record<string, (event: MessageEvent) => void>
+      close: jest.Mock
+    }> = []
+
+    class MockEventSource {
+      url: string
+      listeners: Record<string, (event: MessageEvent) => void> = {}
+      close = jest.fn()
+
+      constructor(url: string) {
+        this.url = url
+        instances.push(this)
+      }
+
+      addEventListener(event: string, listener: EventListener) {
+        this.listeners[event] = listener as (event: MessageEvent) => void
+      }
+    }
+
+    Object.defineProperty(global, 'EventSource', {
+      value: MockEventSource,
+      configurable: true,
+    })
+
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.startsWith('/api/v1/communications/conversations/')) {
+        return jsonResponse({
+          success: true,
+          data: {
+            conversation: {
+              id: 'conv-1',
+              orgId: 'org-1',
+              status: 'open',
+              channel: 'whatsapp',
+              contactSnapshot: { name: 'Ada' },
+            } as Record<string, unknown>,
+            messages: [{
+              id: 'msg-live-1',
+              direction: 'inbound',
+              body: 'Before live',
+              status: 'received',
+            }],
+          },
+        })
+      }
+
+      if (url === '/api/v1/communications/conversations?orgId=org-1&status=open&limit=100') {
+        return jsonResponse({
+          success: true,
+          data: {
+            items: [{
+              id: 'conv-1',
+              orgId: 'org-1',
+              channel: 'whatsapp',
+              status: 'open',
+              contactSnapshot: { name: 'Ada' },
+            }],
+            total: 1,
+          },
+        })
+      }
+
+      return jsonResponse({
+        success: true,
+        data: { items: [], total: 0 },
+      })
+    })
+
+    render(<CommunicationsConsole mode="admin" initialOrgId="org-1" />)
+
+    await waitFor(() => {
+      expect(instances.length).toBeGreaterThanOrEqual(1)
+    })
+
+    const stream = instances[instances.length - 1]
+    expect(stream.url).toContain('/api/v1/communications/live?orgId=org-1&limit=100')
+      
+    await waitFor(() => {
+      expect(screen.getByText('Live updates connected.')).toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Before live')).toBeInTheDocument()
+    })
+
+    act(() => {
+      const message = new MessageEvent('snapshot', {
+        data: JSON.stringify({
+          type: 'snapshot',
+          conversations: [{
+            id: 'conv-1',
+            orgId: 'org-1',
+            channel: 'whatsapp',
+            status: 'pending',
+            contactSnapshot: { name: 'Ada' },
+          }],
+          conversation: {
+            id: 'conv-1',
+            orgId: 'org-1',
+            channel: 'whatsapp',
+            status: 'pending',
+            contactSnapshot: { name: 'Ada' },
+          },
+          messages: [{
+            id: 'msg-live-2',
+            direction: 'inbound',
+            body: 'Live response arrived',
+            status: 'received',
+          }],
+          filter: {
+            orgId: 'org-1',
+            status: 'open',
+            channel: 'whatsapp',
+            limit: 100,
+            conversationId: null,
+          },
+          emittedAtMs: 123,
+        }),
+      })
+
+      for (const source of instances) {
+        source.listeners.snapshot?.(message)
+      }
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Live response arrived')).toBeInTheDocument()
+      expect(screen.getByText('Live updates connected.')).toBeInTheDocument()
     })
   })
 })

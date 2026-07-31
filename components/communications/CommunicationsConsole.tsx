@@ -220,9 +220,12 @@ export function CommunicationsConsole({
     setLiveEnabled(true)
 
     source.addEventListener('snapshot', (event: Event) => {
-      if (!(event instanceof MessageEvent) || !event.data) return
+      const payloadText = typeof (event as MessageEvent).data === 'string'
+        ? (event as MessageEvent).data
+        : null
+      if (!payloadText) return
       try {
-        const payload = JSON.parse(event.data) as CommunicationsLiveSnapshot
+        const payload = JSON.parse(payloadText) as CommunicationsLiveSnapshot
         if (!payload || payload.type !== 'snapshot') return
 
         setConversations(payload.conversations)
@@ -407,6 +410,8 @@ export function CommunicationsConsole({
 
       {feedback && <div className="rounded-lg border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-300">{feedback}</div>}
       {error && <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
+      {liveError && <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">{liveError}</div>}
+      {!liveError && liveEnabled && canLoad && view === 'inbox' && <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">Live updates connected.</div>}
 
       {view === 'inbox' && (
         <InboxView
