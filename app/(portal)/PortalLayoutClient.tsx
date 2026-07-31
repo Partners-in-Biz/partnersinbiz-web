@@ -28,6 +28,7 @@ import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { resolvePortalModules, type PortalModules } from '@/lib/organizations/portal-modules'
 import {
   canRoleUseModule,
+  canRolePerformModuleAction,
   isOrganizationModulePolicyKey,
   resolveOrganizationModulePolicies,
   type OrganizationModulePolicies,
@@ -795,8 +796,12 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const initials = (name || email).split(/[.\s@]/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')
   const canOpenAdminView = userRole === 'admin' && !!activeOrgSlug
   const adminViewHref = activeOrgSlug ? `/admin/org/${activeOrgSlug}/dashboard` : '/admin/dashboard'
-  const allowAgentParticipants = userRole === 'admin'
-    || Object.values(memberAccessPolicy.agentRuntimeAccess).some((agentIds) => agentIds.length > 0)
+  const allowAgentParticipants = canRolePerformModuleAction(
+    modulePolicies,
+    'messages',
+    'agentHandoff',
+    effectiveRole,
+  )
   const portalWorkspaceLabel = activeOrgType === 'platform_owner' || activeOrgId === PIB_PLATFORM_ORG_ID ? 'Platform' : 'Client'
   const currentPageContext = detectCurrentPageContext({
     pathname,

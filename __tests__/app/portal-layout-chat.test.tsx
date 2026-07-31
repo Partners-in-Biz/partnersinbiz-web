@@ -254,4 +254,61 @@ describe('PortalLayout chat drawer', () => {
       })
     })
   })
+
+  it('enables agent participants for non-admin members when message handoff is allowed by module policy', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/org') {
+        return jsonResponse({
+          org: {
+            id: 'org-1',
+            name: 'Acme',
+            slug: 'acme',
+            type: 'client',
+            modulePolicies: {
+              messages: {
+                actions: {
+                  visibility: { owner: true, admin: true, member: true },
+                  start: { owner: true, admin: true, member: true },
+                  reply: { owner: true, admin: true, member: true },
+                  agentHandoff: { owner: true, admin: true, member: true },
+                  templates: { owner: true, admin: true, member: true },
+                  archive: { owner: true, admin: true, member: true },
+                },
+              },
+            },
+          },
+          user: { uid: 'admin-1', role: 'client', name: 'Peet', email: 'peet@example.com' },
+        })
+      }
+      if (url === '/api/v1/portal/orgs') {
+        return jsonResponse({
+          activeOrgId: 'org-1',
+          orgs: [{ id: 'org-1', name: 'Acme', slug: 'acme', type: 'client' }],
+        })
+      }
+      if (url === '/api/v1/portal/settings/profile') {
+        return jsonResponse({ profile: { firstName: 'Peet', lastName: 'Stander', role: 'member' } })
+      }
+      if (url === '/api/v1/portal/documents/count') {
+        return jsonResponse({ data: { count: 0 } })
+      }
+      if (url === '/api/v1/portal/active-org') {
+        return jsonResponse({ orgId: 'org-1' })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(
+      <PortalLayout>
+        <main>Portal content</main>
+      </PortalLayout>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open messages' }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('unified-chat')).toHaveAttribute('data-allow-agent-participants', 'true')
+    })
+  })
 })
