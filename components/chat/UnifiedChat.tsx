@@ -8364,7 +8364,7 @@ export default function UnifiedChat({
         <AccessibleDialog
           label="New conversation"
           onClose={closeNewConversation}
-          className="flex h-[min(80dvh,calc(100dvh-1rem))] max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl sm:max-h-[calc(100dvh-2rem)]"
+          className="flex h-[min(80dvh,calc(100dvh-1rem))] max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden overscroll-none rounded-xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl [overflow-anchor:none] sm:max-h-[calc(100dvh-2rem)]"
         >
             {/* Modal header — always pinned; body scrolls underneath */}
             <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-card-border)] px-4 py-3 sm:px-5 sm:py-4">
@@ -8934,6 +8934,11 @@ export default function UnifiedChat({
                     Showing agents available on the selected computer.
                   </p>
                 )}
+                {/*
+                  Cap the pick list height so the sticky Start footer stays on-screen.
+                  Selected chips live inside the picker above the agent rows (not sticky)
+                  to avoid scroll-anchor jumps when the first agent is toggled.
+                */}
                 <div data-testid="new-conversation-participants-scroll" className="max-h-[min(36dvh,220px)] overflow-y-auto overscroll-contain [overflow-anchor:none] sm:max-h-[280px]">
                   <ParticipantPicker
                     orgId={orgId}

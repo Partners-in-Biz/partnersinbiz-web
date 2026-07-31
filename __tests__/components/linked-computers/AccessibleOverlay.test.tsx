@@ -13,6 +13,9 @@ describe('AccessibleDialog responsive viewport contract', () => {
     // Backdrop must not scroll — that jumps the whole card when focus moves.
     expect(dialog).toHaveClass('overflow-hidden', 'items-end', 'sm:items-center')
     expect(dialog).not.toHaveClass('overflow-y-auto')
+    // Portaled above app chrome so parent overflow/transform cannot trap fixed.
+    expect(dialog.parentElement).toBe(document.body)
+    expect(dialog).toHaveClass('z-[100]')
     expect(screen.getByTestId('accessible-dialog-panel')).toHaveClass(
       'max-h-[calc(100dvh-1rem)]',
       'min-h-0',
@@ -38,5 +41,19 @@ describe('AccessibleDialog responsive viewport contract', () => {
     expect(panel).toHaveClass('overflow-hidden', 'flex-col', 'min-h-0')
     expect(panel).not.toHaveClass('overflow-y-auto')
     expect(panel).not.toHaveClass('my-auto')
+    expect(screen.getByRole('dialog', { name: 'New conversation' }).parentElement).toBe(document.body)
+  })
+
+  it('focuses without scrolling the page when the dialog opens', () => {
+    const focusSpy = jest.spyOn(HTMLElement.prototype, 'focus')
+    render(
+      <AccessibleDialog label="Focus test" onClose={jest.fn()}>
+        <button type="button">Action</button>
+      </AccessibleDialog>,
+    )
+    expect(focusSpy).toHaveBeenCalled()
+    const options = focusSpy.mock.calls.map((call) => call[0]).filter(Boolean)
+    expect(options.some((opts) => opts && typeof opts === 'object' && (opts as FocusOptions).preventScroll === true)).toBe(true)
+    focusSpy.mockRestore()
   })
 })
