@@ -61,6 +61,8 @@ interface WorkforceBlueprintResponse {
   requiresOwnerApproval: true
 }
 
+type DepartmentName = string
+
 const AGENT_COLOR: Record<string, { dot: string; label: string; icon: string }> = {
   violet:  { dot: 'bg-violet-400', label: 'text-violet-300',  icon: 'text-violet-300' },
   sky:     { dot: 'bg-sky-400',    label: 'text-sky-300',     icon: 'text-sky-300' },
@@ -96,6 +98,14 @@ function formatLoadError(error: unknown, fallback: string): string {
   }
   if (error instanceof Error && error.message.trim()) return error.message
   return fallback
+}
+
+function normalizeDepartment(value: string | undefined): DepartmentName {
+  return value?.trim() || 'Unassigned'
+}
+
+function departmentSortKey(department: DepartmentName): string {
+  return department.toLowerCase()
 }
 
 interface ParticipantPickerProps {
@@ -134,6 +144,7 @@ export default function ParticipantPicker({
   const [error, setError] = useState<string | null>(null)
   const [peopleWarning, setPeopleWarning] = useState<string | null>(null)
   const initialSelectionAppliedRef = useRef(false)
+  const [expandedDepartments, setExpandedDepartments] = useState<Set<DepartmentName>>(new Set())
 
   useEffect(() => {
     let cancelled = false
@@ -238,6 +249,36 @@ export default function ParticipantPicker({
       .map(({ agent }) => agent)
   }, [visibleAgents, workforce])
 
+  const peopleByDepartment = useMemo(() => {
+    const byDepartment = new Map<DepartmentName, OrgContact[]>()
+    for (const contact of contacts) {
+      const department = normalizeDepartment(contact.department)
+      const bucket = byDepartment.get(department) ?? []
+      bucket.push(contact)
+      byDepartment.set(department, bucket)
+    }
+    return Array.from(byDepartment.entries())
+      .sort(([left], [right]) => departmentSortKey(left).localeCompare(departmentSortKey(right)))
+      .map(([department, members]) => ({
+        department,
+        members,
+      }))
+  }, [contacts])
+
+  const selectedUserIds = useMemo(
+    () => new Set(selected.filter((participant): participant is Extract<SelectedParticipant, { kind: 'user' }> => participant.kind === 'user').map((participant) => participant.uid)),
+    [selected],
+  )
+
+  const selectedDepartmentIds = useMemo(() => {
+    const map = new Map<DepartmentName, { total: number; selected: number }>()
+    for (const { department, members } of peopleByDepartment) {
+      const selectedCount = members.reduce((count, member) => count + (selectedUserIds.has(member.uid) ? 1 : 0), 0)
+      map.set(department, { total: members.length, selected: selectedCount })
+    }
+    return map
+  }, [peopleByDepartment, selectedUserIds])
+
   useEffect(() => {
     if (initialSelectionAppliedRef.current || loading) return
     const initialIds = new Set(initialAgentIds)
@@ -267,6 +308,11 @@ export default function ParticipantPicker({
     })
   }, [allowedAgentIds, showAgents, visibleAgents])
 
+  useEffect(() => {
+    if (expandedDepartments.size > 0 || peopleByDepartment.length === 0) return
+    setExpandedDepartments(new Set(peopleByDepartment.map(({ department }) => department)))
+  }, [peopleByDepartment, expandedDepartments.size])
+
   // Notify parent whenever selection changes
   useEffect(() => {
     onSelect(selected)
@@ -287,6 +333,29 @@ export default function ParticipantPicker({
       if (exists) return prev.filter((s) => !(s.kind === 'user' && s.uid === contact.uid))
       if (prev.length >= MAX_SELECTIONS) return prev
       return [...prev, { kind: 'user', uid: contact.uid, displayName: contactLabel(contact) }]
+    })
+  }
+
+  function toggleDepartmentSelection(department: DepartmentName, members: OrgContact[]) {
+    setSelected((prev) => {
+      const departmentSelected = members.every((member) => selectedUserIds.has(member.uid))
+      if (departmentSelected) {
+        return prev.filter((participant) => {
+          return !(participant.kind === 'user' && members.some((member) => member.uid === participant.uid))
+        })
+      }
+
+      const next = [...prev]
+      const availableSlots = Math.max(0, MAX_SELECTIONS - next.length)
+      if (availableSlots <= 0) return prev
+      let remaining = availableSlots
+      for (const member of members) {
+        if (selectedUserIds.has(member.uid)) continue
+        if (remaining <= 0) break
+        next.push({ kind: 'user', uid: member.uid, displayName: contactLabel(member) })
+        remaining -= 1
+      }
+      return next
     })
   }
 
@@ -534,46 +603,109 @@ export default function ParticipantPicker({
       {contacts.length > 0 && (
         <div>
           <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] mb-2 px-1 mt-2">People</p>
-          <div className="space-y-1">
-            {contacts.map((contact) => {
-              const isChecked = selected.some((s) => s.kind === 'user' && s.uid === contact.uid)
-              const disabled = !isChecked && selected.length >= MAX_SELECTIONS
-              const label = contactLabel(contact)
-              const roleLabel = contact.jobTitle
-                || contact.department
-                || (contact.role === 'admin' ? 'Admin' : 'Member')
-              const inits = initials(label)
+          <div className="space-y-2">
+            {peopleByDepartment.map(({ department, members }) => {
+              const selectedCount = selectedDepartmentIds.get(department)?.selected ?? 0
+              const totalCount = members.length
+              const allSelected = totalCount > 0 && selectedCount === totalCount
+              const someSelected = selectedCount > 0
+              const groupDisabled = selected.length >= MAX_SELECTIONS && !allSelected
+              const isExpanded = expandedDepartments.has(department)
               return (
-                <label
-                  key={contact.uid}
-                  onMouseDown={(event) => {
-                    if (!disabled) event.preventDefault()
-                  }}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
-                    isChecked
-                      ? 'bg-white/8 border border-white/15'
-                      : 'hover:bg-white/5 border border-transparent'
-                  } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    disabled={disabled}
-                    onChange={() => toggleContact(contact)}
-                    className="sr-only"
-                  />
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-blue-soft)] text-xs font-bold text-[#93C5FD]">
-                    {inits || '?'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[var(--color-pib-text)]">{label}</p>
-                    {contact.email && <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{contact.email}</p>}
-                    <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{roleLabel}</p>
-                  </div>
-                  {isChecked && (
-                    <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                <div key={department} className="space-y-1.5 rounded-xl border border-white/[0.08] px-2 py-2">
+                  <label
+                    onMouseDown={(event) => {
+                      if (!groupDisabled) event.preventDefault()
+                    }}
+                    className={`flex items-center gap-3 rounded-lg px-2 py-1.5 transition-colors ${
+                      allSelected || someSelected
+                        ? 'bg-white/8 border border-white/15'
+                        : 'hover:bg-white/5 border border-transparent'
+                    } ${groupDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(element) => {
+                        if (element) element.indeterminate = Boolean(someSelected && !allSelected)
+                      }}
+                      disabled={groupDisabled}
+                      onChange={() => toggleDepartmentSelection(department, members)}
+                      aria-label={`Select department ${department} (${selectedCount}/${totalCount})`}
+                      className="sr-only"
+                    />
+                    <span className="material-symbols-outlined text-sm text-[var(--color-pib-text-muted)]">
+                      {isExpanded ? 'expand_less' : 'expand_more'}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[var(--color-pib-text)]">
+                        {department}
+                      </span>
+                      <span className="text-[10px] text-[var(--color-pib-text-muted)]">
+                        {selectedCount}/{totalCount} selected
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedDepartments((current) => {
+                        const next = new Set(current)
+                        if (next.has(department)) next.delete(department)
+                        else next.add(department)
+                        return next
+                      })}
+                      className="pib-icon-button text-[11px] text-primary"
+                      aria-label={`Toggle ${department} contacts`}
+                      onMouseDown={(event) => event.preventDefault()}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">{isExpanded ? 'unfold_less' : 'unfold_more'}</span>
+                    </button>
+                  </label>
+                  {isExpanded && (
+                    <div className="space-y-1">
+                      {members.map((contact) => {
+                        const isChecked = selected.some((s) => s.kind === 'user' && s.uid === contact.uid)
+                        const disabled = !isChecked && selected.length >= MAX_SELECTIONS
+                        const label = contactLabel(contact)
+                        const roleLabel = contact.jobTitle
+                          || contact.department
+                          || (contact.role === 'admin' ? 'Admin' : 'Member')
+                        const inits = initials(label)
+                        return (
+                          <label
+                            key={contact.uid}
+                            onMouseDown={(event) => {
+                              if (!disabled) event.preventDefault()
+                            }}
+                            className={`flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer transition-colors ${
+                              isChecked
+                                ? 'bg-white/8 border border-white/15'
+                                : 'hover:bg-white/5 border border-transparent'
+                            } ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={disabled}
+                              onChange={() => toggleContact(contact)}
+                              className="sr-only"
+                            />
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-pib-blue-soft)] text-xs font-bold text-[#93C5FD]">
+                              {inits || '?'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-[var(--color-pib-text)]">{label}</p>
+                              {contact.email && <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{contact.email}</p>}
+                              <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{roleLabel}</p>
+                            </div>
+                            {isChecked && (
+                              <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                            )}
+                          </label>
+                        )
+                      })}
+                    </div>
                   )}
-                </label>
+                </div>
               )
             })}
           </div>

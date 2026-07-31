@@ -108,7 +108,7 @@ describe('ParticipantPicker runtime agent gate', () => {
     )
     expect(await screen.findByText('Pip')).toBeInTheDocument()
     expect(screen.getByText('Theo')).toBeInTheDocument()
-    expect(screen.getByText('Peet Stander')).toBeInTheDocument()
+    expect(screen.getByLabelText('Select department Unassigned (0/1)')).toBeInTheDocument()
   })
 
   it('filters agents to the selected machine inventory and keeps people', async () => {
@@ -121,7 +121,7 @@ describe('ParticipantPicker runtime agent gate', () => {
     )
     expect(await screen.findByText('Theo')).toBeInTheDocument()
     expect(screen.queryByText('Pip')).not.toBeInTheDocument()
-    expect(screen.getByText('Peet Stander')).toBeInTheDocument()
+    expect(screen.getByLabelText('Select department Unassigned (0/1)')).toBeInTheDocument()
   })
 
   it('explains why agents are hidden while awaiting a computer', async () => {
@@ -137,7 +137,7 @@ describe('ParticipantPicker runtime agent gate', () => {
       'Select a computer first to see which agents are available there.',
     )
     expect(screen.queryByText('Pip')).not.toBeInTheDocument()
-    expect(screen.getByText('Peet Stander')).toBeInTheDocument()
+    expect(screen.getByLabelText('Select department Unassigned (0/1)')).toBeInTheDocument()
   })
 
   it('drops a selected agent when the machine inventory no longer includes it', async () => {
@@ -191,6 +191,57 @@ describe('ParticipantPicker runtime agent gate', () => {
     expect(await screen.findByText('Pip')).toBeInTheDocument()
     expect(screen.getByTestId('participants-people-warning')).toHaveTextContent(/privacy blockers|Could not reach/i)
     expect(screen.queryByTestId('participants-load-error')).not.toBeInTheDocument()
+  })
+
+  it('adds and removes a full department group with one click', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
+        } as Response
+      }
+      if (url.includes('/people') || url.includes('/contacts')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: [
+              { uid: 'm-1', displayName: 'Ava One', email: 'ava.one@partner.in', role: 'admin', department: 'Marketing' },
+              { uid: 'm-2', displayName: 'Ben Two', email: 'ben.two@partner.in', role: 'admin', department: 'Marketing' },
+            ],
+          }),
+        } as Response
+      }
+      if (url.includes('/workforce-blueprint')) {
+        return { ok: true, status: 200, json: async () => ({ data: workforceBlueprintSuccess }) } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    }) as typeof fetch
+
+    const onSelect = jest.fn()
+    render(<ParticipantPicker orgId="org-1" onSelect={onSelect} allowedAgentIds={null} />)
+
+    const groupToggle = await screen.findByLabelText('Select department Marketing (0/2)')
+    fireEvent.click(groupToggle)
+    await waitFor(() => {
+      const lastSelection = onSelect.mock.calls.at(-1)?.[0] as Array<{ kind: string; uid?: string }>;
+      expect(lastSelection).toHaveLength(2)
+      expect(lastSelection).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: 'user', uid: 'm-1' }),
+          expect.objectContaining({ kind: 'user', uid: 'm-2' }),
+        ]),
+      )
+    })
+
+    fireEvent.click(groupToggle)
+    await waitFor(() => {
+      const finalSelection = onSelect.mock.calls.at(-1)?.[0] as Array<{ kind: string; uid?: string }>;
+      expect(finalSelection).toEqual([])
+    })
   })
 
   it('requests /people rather than /contacts to avoid privacy-filter blocks', async () => {
