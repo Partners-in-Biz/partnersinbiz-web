@@ -63,7 +63,7 @@ describe('UnifiedChat CRM company Cowork', () => {
               workspaceId: 'partners', orgId: 'org-1', orgSlug: 'partners', orgName: 'Partners in Biz',
               agentDomain: 'partners', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps', folderVersion: 1,
             }],
-            runtimeTargetsByWorkspace: {
+              runtimeTargetsByWorkspace: {
               partners: [{
                 id: 'device-mac', label: "Peet's Mac", mappingId: 'partners-mac-workspace',
                 mappingLabel: 'Partners in Biz', selectable: true, enabled: true, isLocal: true,
@@ -72,6 +72,7 @@ describe('UnifiedChat CRM company Cowork', () => {
                 id: 'partners-vps', label: 'Partners VPS', mappingId: 'partners-vps-workspace',
                 mappingLabel: 'Partners in Biz', selectable: true, enabled: true, isLocal: false,
                 isFresh: true, isHealthy: true, lastSeenAt: null, deviceKind: 'vps',
+                ownerType: 'organization', visibility: 'organization',
                 legacyRuntimeTargetIds: ['vps'],
               }],
             },
@@ -111,6 +112,7 @@ describe('UnifiedChat CRM company Cowork', () => {
       workspaceId: 'partners',
       runtimeTarget: 'partners-vps',
       mappingId: 'partners-vps-workspace',
+      shareMode: 'org',
     })]))
 
     fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))

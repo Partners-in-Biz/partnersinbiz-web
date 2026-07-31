@@ -771,6 +771,16 @@ function defaultScopedConversationShareMode(
   return isWorkspaceSharedRuntime(runtimeTarget) ? 'org' : 'private'
 }
 
+function normalizedScopedConversationShareMode(
+  scope: ConversationScope,
+  runtimeTarget: WorkspaceRuntimePresence | null,
+  selectedShareMode: ScopedConversationShareMode,
+): ScopedConversationShareMode {
+  if (!isScopedConversation(scope)) return 'private'
+  if (selectedShareMode === 'org' && !isWorkspaceSharedRuntime(runtimeTarget)) return 'private'
+  return selectedShareMode
+}
+
 function buildHermesSessionSections(conversations: Conversation[], pinnedIds: string[]) {
   const pinnedSet = new Set(pinnedIds)
   // Same pool as before: everything except project/company folders.
@@ -1453,6 +1463,7 @@ export default function UnifiedChat({
   )
   const [selectedWorkspaceRuntime, setSelectedWorkspaceRuntime] = useState<string>('')
   const workspaceRuntimeExplicitRef = useRef(false)
+  const selectedWorkspaceShareModeTouchedRef = useRef(false)
   const [selectedWorkspaceShareMode, setSelectedWorkspaceShareMode] = useState<'private' | 'shared' | 'org'>('private')
   const companyCoworkLocked = scope === 'company' && Boolean(scopeRefId)
   const [showProjectSetupWizard, setShowProjectSetupWizard] = useState(false)
@@ -1826,10 +1837,22 @@ export default function UnifiedChat({
     workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime && runtime.selectable
   ))
   const selectedWorkspaceRuntimeTarget = useMemo(
-    () => workspaceRuntimeTargets.find((runtime) => (
-      workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime
-    )) ?? null,
+    () => {
+      const exact = workspaceRuntimeTargets.find((runtime) => (
+        workspaceRuntimeSelectionKey(runtime) === selectedWorkspaceRuntime
+      ))
+      if (exact) return exact
+      return workspaceRuntimeTargets.find((runtime) => runtime.id === selectedWorkspaceRuntime) ?? null
+    },
     [selectedWorkspaceRuntime, workspaceRuntimeTargets],
+  )
+  const scopedConversationShareModeDefault = useMemo(
+    () => defaultScopedConversationShareMode(newScope, selectedWorkspaceRuntimeTarget),
+    [newScope, selectedWorkspaceRuntimeTarget],
+  )
+  const scopedConversationShareModeSupportsOrg = useMemo(
+    () => isWorkspaceSharedRuntime(selectedWorkspaceRuntimeTarget),
+    [selectedWorkspaceRuntimeTarget],
   )
   const runtimeRequiredForNewConversation = newScope === 'workspace' || newScope === 'company' || newScope === 'project'
   const newConversationAgentGate = useMemo(
@@ -1843,6 +1866,11 @@ export default function UnifiedChat({
     }),
     [newScope, runtimeRequiredForNewConversation, selectedWorkspaceRuntimeIsValid, selectedWorkspaceRuntimeTarget],
   )
+  useEffect(() => {
+    if (!isScopedConversation(newScope)) return
+    if (selectedWorkspaceShareModeTouchedRef.current) return
+    setSelectedWorkspaceShareMode(scopedConversationShareModeDefault)
+  }, [newScope, scopedConversationShareModeDefault])
   useEffect(() => {
     if (workspaceRuntimeTargets.length === 0) {
       if (newScope === 'project' && selectedWorkspaceRuntime) {
@@ -2286,6 +2314,7 @@ export default function UnifiedChat({
 
   useEffect(() => {
     if (!companyCoworkLocked || !scopeRefId) return
+    selectedWorkspaceShareModeTouchedRef.current = false
     setNewScope('company')
     setSelectedCompanyId(scopeRefId)
     if (orgName?.trim()) setSelectedCompanyName(orgName.trim())
@@ -2523,6 +2552,7 @@ export default function UnifiedChat({
       setError('Starting new conversations is disabled for your organisation role.')
       return
     }
+    selectedWorkspaceShareModeTouchedRef.current = false
     setNewInitialAgentIds([])
     if (forProjectId) {
       setNewScope('project')
@@ -2541,6 +2571,7 @@ export default function UnifiedChat({
       setError('Starting new conversations is disabled for your organisation role.')
       return
     }
+    selectedWorkspaceShareModeTouchedRef.current = false
     setNewScope('company')
     setNewInitialAgentIds([])
     setSelectedCompanyId(companyId)
@@ -2554,6 +2585,7 @@ export default function UnifiedChat({
       setError('Starting new conversations is disabled for your organisation role.')
       return
     }
+    selectedWorkspaceShareModeTouchedRef.current = false
     setNewScope('workspace')
     setSelectedWorkspaceId(workspaceId)
     setSelectedWorkspaceRuntime('')
@@ -2568,6 +2600,7 @@ export default function UnifiedChat({
       setError('Starting new conversations is disabled for your organisation role.')
       return
     }
+    selectedWorkspaceShareModeTouchedRef.current = false
     setNewScope('general')
     setNewParticipants([])
     setNewInitialAgentIds([agentId])
@@ -2608,11 +2641,17 @@ export default function UnifiedChat({
       setError('Creating projects is disabled for your organisation role.')
       return
     }
+    selectedWorkspaceShareModeTouchedRef.current = false
     setNewScope('project')
     setModalError(null)
     setShowNewModal(true)
     openProjectSetupWizard()
   }, [allowStartConversations, openProjectSetupWizard])
+
+  const setNewConversationScope = useCallback((nextScope: ConversationScope) => {
+    selectedWorkspaceShareModeTouchedRef.current = false
+    setNewScope(nextScope)
+  }, [])
 
   const removeProjectFromSidebar = useCallback(async (projectIdToRemove: string) => {
     setError(null)
@@ -3667,17 +3706,21 @@ export default function UnifiedChat({
   // Company Cowork (CRM embed): wait for the workspace catalogue, then create on the
   // org default computer (usually VPS) so sessions bind to the company folder.
   useEffect(() => {
-    if (!autoCreateScopedConversation || !allowStartConversations || !initialAgentId) return
-    if (scope !== 'company' || !scopeRefId) return
-    if (!conversationsHydrated) return
-    if (!workspaceCatalogueLoaded || !selectedWorkspaceId || !selectedWorkspaceRuntimeIsValid) return
-    if (conversations.length > 0 || activeId || autoCreateRef.current) return
+  if (!autoCreateScopedConversation || !allowStartConversations || !initialAgentId) return
+  if (scope !== 'company' || !scopeRefId) return
+  if (!conversationsHydrated) return
+  if (!workspaceCatalogueLoaded || !selectedWorkspaceId || !selectedWorkspaceRuntimeIsValid) return
+  if (conversations.length > 0 || activeId || autoCreateRef.current) return
 
-    autoCreateRef.current = true
-    let cancelled = false
-    let settled = false
-    const idempotencyKey = `company-cowork-autocreate:${orgId}:${scopeRefId}:${currentUserUid}`
-    void (async () => {
+  autoCreateRef.current = true
+  let cancelled = false
+  let settled = false
+  const idempotencyKey = `company-cowork-autocreate:${orgId}:${scopeRefId}:${currentUserUid}`
+  const scopedShareMode = defaultScopedConversationShareMode(
+    'company',
+    selectedWorkspaceRuntimeTarget,
+  )
+  void (async () => {
       try {
         const selected = parseWorkspaceRuntimeSelection(selectedWorkspaceRuntime)
         const createRes = await fetch('/api/v1/conversations', {
@@ -3695,7 +3738,7 @@ export default function UnifiedChat({
             workspaceId: selectedWorkspaceId,
             runtimeTarget: selected.runtimeTargetId,
             ...(selected.mappingId ? { mappingId: selected.mappingId } : {}),
-            shareMode: selectedWorkspaceShareMode,
+            shareMode: scopedShareMode,
             ...(currentPageContext ? { contextRefs: [coerceContextRef(currentPageContext)] } : {}),
           }),
         })
@@ -3742,6 +3785,7 @@ export default function UnifiedChat({
     selectedWorkspaceId,
     selectedWorkspaceRuntime,
     selectedWorkspaceRuntimeIsValid,
+    selectedWorkspaceRuntimeTarget,
     selectedWorkspaceShareMode,
     setActiveId,
     workspaceCatalogueLoaded,
@@ -5423,6 +5467,11 @@ export default function UnifiedChat({
       const agentIds = participants
         .filter((participant): participant is { kind: 'agent'; agentId: string } => participant.kind === 'agent')
         .map((participant) => participant.agentId)
+      const scopedShareMode = normalizedScopedConversationShareMode(
+        newScope,
+        selectedWorkspaceRuntimeTarget,
+        selectedWorkspaceShareMode,
+      )
       const payload: Record<string, unknown> = {
         orgId,
         participants,
@@ -5435,7 +5484,7 @@ export default function UnifiedChat({
         payload.workspaceId = selectedWorkspaceId
         payload.runtimeTarget = selected.runtimeTargetId
         if (selected.mappingId) payload.mappingId = selected.mappingId
-        payload.shareMode = selectedWorkspaceShareMode
+        payload.shareMode = scopedShareMode
       }
       if (newScope === 'company') {
         if (!selectedCompanyId) throw new Error('Select a company before starting a company Cowork chat.')
@@ -5445,7 +5494,7 @@ export default function UnifiedChat({
         payload.workspaceId = selectedWorkspaceId
         payload.runtimeTarget = selected.runtimeTargetId
         if (selected.mappingId) payload.mappingId = selected.mappingId
-        payload.shareMode = selectedWorkspaceShareMode
+        payload.shareMode = scopedShareMode
       }
       if (newScope === 'project') {
         if (!selectedProjectId) throw new Error('Select a project before starting a project chat.')
@@ -5455,7 +5504,7 @@ export default function UnifiedChat({
         payload.workspaceId = selectedWorkspaceId
         payload.runtimeTarget = selected.runtimeTargetId
         if (selected.mappingId) payload.mappingId = selected.mappingId
-        payload.shareMode = selectedWorkspaceShareMode
+        payload.shareMode = scopedShareMode
       }
       if (newScope === scope && scopeRefId) payload.scopeRefId = scopeRefId
       if (newScope === 'project' && projectId && !payload.scopeRefId) payload.scopeRefId = projectId
@@ -5609,6 +5658,11 @@ export default function UnifiedChat({
             participants,
             title: messageText.slice(0, 80) || 'Context conversation',
           }
+          const scopedShareMode = normalizedScopedConversationShareMode(
+            scope ?? 'general',
+            selectedWorkspaceRuntimeTarget,
+            selectedWorkspaceShareMode,
+          )
           if (scope) payload.scope = scope
           if (scopeRefId) payload.scopeRefId = scopeRefId
           if (scope === 'company') {
@@ -5619,7 +5673,7 @@ export default function UnifiedChat({
             payload.workspaceId = selectedWorkspaceId
             payload.runtimeTarget = selected.runtimeTargetId
             if (selected.mappingId) payload.mappingId = selected.mappingId
-            payload.shareMode = selectedWorkspaceShareMode
+            payload.shareMode = scopedShareMode
           }
           if (refsForSend.length > 0) payload.contextRefs = refsForSend
           const r = await fetch('/api/v1/conversations', {
@@ -8189,7 +8243,7 @@ export default function UnifiedChat({
                   <select
                     aria-label="Conversation context"
                     value={newScope}
-                    onChange={(e) => setNewScope(e.target.value as ConversationScope)}
+                    onChange={(e) => setNewConversationScope(e.target.value as ConversationScope)}
                     className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-primary/60"
                   >
                     {availableConversationContexts.map((option) => (
@@ -8345,15 +8399,22 @@ export default function UnifiedChat({
                     </label>
                     <select
                       value={selectedWorkspaceShareMode}
-                      onChange={(e) => setSelectedWorkspaceShareMode(e.target.value as 'private' | 'shared' | 'org')}
+                      onChange={(e) => {
+                        selectedWorkspaceShareModeTouchedRef.current = true
+                        setSelectedWorkspaceShareMode(e.target.value as 'private' | 'shared' | 'org')
+                      }}
                       className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-primary/60"
                     >
                       <option value="private">Private · only me</option>
                       <option value="shared">Shared · selected participants</option>
-                      <option value="org">Organisation · all Workspace members</option>
+                      <option value="org" disabled={!scopedConversationShareModeSupportsOrg}>
+                        Organisation · all Workspace members
+                      </option>
                     </select>
                     <div className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
-                      Private is the default. Organisation conversations are visible to every member with Workspace access.
+                      {scopedConversationShareModeSupportsOrg
+                        ? 'Organisation visibility is default for shared workspace runtimes.'
+                        : 'This runtime is private-only. Pick a shared workspace runtime for Organisation visibility.'}
                     </div>
                   </div>
                   {newScope === 'project' && showProjectSetupWizard && (
