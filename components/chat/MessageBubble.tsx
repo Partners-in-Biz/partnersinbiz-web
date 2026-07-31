@@ -22,6 +22,7 @@ import {
   labelForRevealKind,
   type RevealRedactionKind,
 } from '@/lib/linked-computers/reveal-redaction'
+import type { Mention } from '@/lib/comments/types'
 import { ContextArtifactBundle } from './context/ContextArtifactBundle'
 import { buildThinkingTrace, type MessageThinkingTrace } from '@/lib/conversations/thinking-trace'
 import { humanizeConversationRunError } from '@/lib/conversations/run-policy'
@@ -32,6 +33,8 @@ export interface ConversationMessage {
   conversationId: string
   role: string
   content: string
+  mentions?: Mention[]
+  mentionIds?: string[]
   attachments?: ConversationAttachment[]
   contextRefs?: ContextReference[]
   slashCommand?: SlashCommandPayload
@@ -577,7 +580,7 @@ function RevealableRedactionChip({
   )
 }
 
-function linkifyBareUrlsOnly(text: string, keyPrefix: string): ReactNode[] {
+function linkifyBareUrlsOnly(text: string, keyPrefix: string, mentions?: Mention[]): ReactNode[] {
   const nodes: ReactNode[] = []
   let lastIndex = 0
   BARE_URL_PATTERN.lastIndex = 0
@@ -586,7 +589,7 @@ function linkifyBareUrlsOnly(text: string, keyPrefix: string): ReactNode[] {
     const rawToken = match[0]
     const { url, trailing } = splitUrlToken(rawToken)
     if (!url) continue
-    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index))
+    if (match.index > lastIndex) nodes.push(...renderMentions(text.slice(lastIndex, match.index), `${keyPrefix}-text-${match.index}`, mentions))
     nodes.push(
       <a
         key={`${keyPrefix}-url-${match.index}`}
@@ -601,6 +604,54 @@ function linkifyBareUrlsOnly(text: string, keyPrefix: string): ReactNode[] {
     if (trailing) nodes.push(trailing)
     lastIndex = match.index + rawToken.length
   }
+  if (lastIndex < text.length) nodes.push(...renderMentions(text.slice(lastIndex), `${keyPrefix}-text-end`, mentions))
+  return nodes
+}
+
+const MENTION_PATTERN = /@(user|agent):[a-zA-Z0-9_-]+/g
+
+function mentionStyleFor(mentionText: string, mentions?: Mention[]): { border: string; bg: string; text: string; title: string } {
+  const match = mentions?.find((item) => item.raw === mentionText)
+  const type = match?.type ?? (mentionText.startsWith('@agent:') ? 'agent' : mentionText.startsWith('@user:') ? 'user' : null)
+  if (type === 'agent') {
+    return {
+      border: 'border-violet-400/30',
+      bg: 'bg-violet-500/10',
+      text: 'text-violet-100',
+      title: `@agent mention ${match?.id ? `(${match.id})` : ''}`.trim(),
+    }
+  }
+  return {
+    border: 'border-sky-400/30',
+    bg: 'bg-sky-500/10',
+    text: 'text-sky-100',
+    title: `@user mention ${match?.id ? `(${match.id})` : ''}`.trim(),
+  }
+}
+
+function renderMentions(text: string, keyPrefix: string, mentions?: Mention[]): ReactNode[] {
+  if (!text || !MENTION_PATTERN.test(text)) return [text]
+  MENTION_PATTERN.lastIndex = 0
+  const nodes: ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = MENTION_PATTERN.exec(text)) !== null) {
+    const raw = match[0]
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index))
+    }
+    const style = mentionStyleFor(raw, mentions)
+    nodes.push(
+      <span
+        key={`${keyPrefix}-mention-${match.index}`}
+        className={`inline-flex rounded border ${style.border} ${style.bg} ${style.text} px-1.5 py-0.5 text-[0.85em]`}
+        title={style.title}
+      >
+        {raw}
+      </span>,
+    )
+    lastIndex = match.index + raw.length
+  }
   if (lastIndex < text.length) nodes.push(text.slice(lastIndex))
   return nodes
 }
@@ -609,9 +660,9 @@ const REVEAL_OR_LEGACY_SPLIT =
   /(\[\[pib-reveal:(?:path|url|token)\|[A-Za-z0-9_-]{1,12000}\]\]|\[redacted-url\])/g
 
 /** Linkify bare URLs and render redaction chips (click-to-reveal when recoverable). */
-function linkifyBareUrls(text: string, keyPrefix: string): ReactNode[] {
+function linkifyBareUrls(text: string, keyPrefix: string, mentions?: Mention[]): ReactNode[] {
   if (!text.includes('[redacted-url]') && !text.includes('[[pib-reveal:')) {
-    return linkifyBareUrlsOnly(text, keyPrefix)
+    return linkifyBareUrlsOnly(text, keyPrefix, mentions)
   }
   const nodes: ReactNode[] = []
   const parts = text.split(REVEAL_OR_LEGACY_SPLIT)
@@ -641,7 +692,7 @@ function linkifyBareUrls(text: string, keyPrefix: string): ReactNode[] {
       )
       continue
     }
-    nodes.push(...linkifyBareUrlsOnly(part, `${keyPrefix}-${i}`))
+    nodes.push(...linkifyBareUrlsOnly(part, `${keyPrefix}-${i}`, mentions))
   }
   return nodes
 }
