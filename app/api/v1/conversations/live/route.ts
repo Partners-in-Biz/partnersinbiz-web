@@ -15,6 +15,9 @@ import {
   listMessages,
 } from '@/lib/conversations/conversations'
 import {
+  listConversationPresence,
+} from '@/lib/conversations/presence'
+import {
   CONVERSATION_LIVE_REFRESH_MS,
   CONVERSATION_LIVE_STREAM_TTL_MS,
   conversationLiveSnapshotSignature,
@@ -41,7 +44,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       includeAllScopes: query.includeAllScopes,
     })
 
-    let activeConversation = query.conversationId
+  let activeConversation = query.conversationId
       ? conversations.find((conversation) => conversation.id === query.conversationId) ?? null
       : null
 
@@ -59,12 +62,16 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     const messages = activeConversation
       ? (await listMessages(activeConversation.id, 200)).map(publicConversationMessageView)
       : null
+    const presence = activeConversation
+      ? await listConversationPresence(activeConversation.id, orgScope.orgId)
+      : null
 
     return {
       type: 'snapshot',
       conversations: conversations.map((conversation) => publicConversationView(conversation, user.uid)),
       conversation: activeConversation ? publicConversationView(activeConversation, user.uid) : null,
       messages,
+      presence,
       emittedAtMs: Date.now(),
     }
   }

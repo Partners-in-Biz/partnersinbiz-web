@@ -471,3 +471,192 @@ export interface PayrollAuditEvent extends FinanceScope {
 }
 
 export type PayrollScope = Required<FinanceScope>
+
+export type PayrollTaxYearStatus = 'open' | 'closed' | 'locked'
+export type StatutoryRecordStatus = 'draft' | 'ready' | 'approved_locked' | 'superseded'
+export type CertificateKind = 'IRP5' | 'IT3(a)'
+export type StatutoryExportKind = 'irp5_batch' | 'emp201' | 'emp501' | 'payroll_tax_summary'
+export type YtdOpeningStatus = 'draft' | 'approved'
+
+/** Configurable SARS tax-table reference pinned on statutory-ready outputs (no live feed/submit). */
+export interface TaxTableReference {
+  ruleVersionId: string
+  packageId: string
+  taxYearLabel: string
+  sourceChecksum: string
+  sourceCitation: string
+  jurisdictionCode: string
+}
+
+export interface StatutoryMoneyTotals {
+  grossEarningsMinor: number
+  taxableEarningsMinor: number
+  payeMinor: number
+  uifEmployeeMinor: number
+  uifEmployerMinor: number
+  sdlEmployerMinor: number
+  netPayMinor: number
+  periodsIncluded: number
+}
+
+export interface PayrollTaxYear extends VersionedFinanceRecord {
+  bookId: string
+  jurisdictionCode: string
+  taxYearLabel: string
+  startDate: string
+  endDate: string
+  status: PayrollTaxYearStatus
+  /** Approved payroll rule versions that may be referenced for this year. */
+  ruleVersionIds: string[]
+  packageIds: string[]
+  lockedAt?: string
+  lockedBy?: string
+  approvalId?: string
+  immutable: boolean
+  contentHash: string
+  sarsSubmissionInitiated: false
+  externalPaymentInitiated: false
+}
+
+export interface PayrollYtdOpening extends VersionedFinanceRecord {
+  bookId: string
+  taxYearId: string
+  employeeId: string
+  employmentId: string
+  status: YtdOpeningStatus
+  grossEarningsMinor: number
+  taxableEarningsMinor: number
+  payeMinor: number
+  uifEmployeeMinor: number
+  uifEmployerMinor: number
+  sdlEmployerMinor: number
+  sourceEvidence: string
+  approvalId?: string
+  approvalActorId?: string
+  approvedAt?: string
+  immutable: boolean
+  contentHash: string
+  sarsSubmissionInitiated: false
+  externalPaymentInitiated: false
+}
+
+export interface Irp5Record extends VersionedFinanceRecord {
+  bookId: string
+  taxYearId: string
+  taxYearLabel: string
+  employeeId: string
+  employmentId: string
+  employeeNumber: string
+  displayName: string
+  taxResidency: 'za_resident' | 'non_resident'
+  certificateKind: CertificateKind
+  status: StatutoryRecordStatus
+  totals: StatutoryMoneyTotals
+  ytdOpeningId?: string
+  sourcePayRunIds: string[]
+  sourceItemIds: string[]
+  sourceItemDigests: string[]
+  taxTableReferences: TaxTableReference[]
+  exportManifestId?: string
+  approvalId?: string
+  approvalActorId?: string
+  approvedAt?: string
+  lockedAt?: string
+  immutable: boolean
+  contentHash: string
+  /** Ready record only — never submits to SARS. */
+  sarsSubmissionInitiated: false
+  externalPaymentInitiated: false
+}
+
+export interface Emp201Snapshot extends VersionedFinanceRecord {
+  bookId: string
+  taxYearId: string
+  taxYearLabel: string
+  /** Liability month YYYY-MM (from pay date / period). */
+  taxMonth: string
+  status: StatutoryRecordStatus
+  employeeCount: number
+  totals: StatutoryMoneyTotals
+  sourcePayRunIds: string[]
+  sourceItemIds: string[]
+  sourceItemDigests: string[]
+  taxTableReferences: TaxTableReference[]
+  exportManifestId?: string
+  approvalId?: string
+  approvalActorId?: string
+  approvedAt?: string
+  lockedAt?: string
+  immutable: boolean
+  contentHash: string
+  sarsSubmissionInitiated: false
+  externalPaymentInitiated: false
+}
+
+export interface Emp501Difference {
+  grossEarningsMinor: number
+  taxableEarningsMinor: number
+  payeMinor: number
+  uifEmployeeMinor: number
+  uifEmployerMinor: number
+  sdlEmployerMinor: number
+  netPayMinor: number
+}
+
+export interface Emp501Reconciliation extends VersionedFinanceRecord {
+  bookId: string
+  taxYearId: string
+  taxYearLabel: string
+  status: StatutoryRecordStatus
+  emp201SnapshotIds: string[]
+  irp5RecordIds: string[]
+  monthlyTotals: StatutoryMoneyTotals
+  certificateTotals: StatutoryMoneyTotals
+  difference: Emp501Difference
+  reconciled: boolean
+  taxTableReferences: TaxTableReference[]
+  exportManifestId?: string
+  approvalId?: string
+  approvalActorId?: string
+  approvedAt?: string
+  lockedAt?: string
+  immutable: boolean
+  contentHash: string
+  sarsSubmissionInitiated: false
+  externalPaymentInitiated: false
+}
+
+export interface PayrollExportManifest extends VersionedFinanceRecord {
+  bookId: string
+  taxYearId: string
+  kind: StatutoryExportKind
+  status: 'generated' | 'approved'
+  recordIds: string[]
+  format: 'json_evidence_v1'
+  contentDigest: string
+  /** Internal evidence payload for accountant export — not a SARS submission channel. */
+  evidence: Record<string, unknown>
+  approvalId?: string
+  approvalActorId?: string
+  approvedAt?: string
+  immutable: boolean
+  contentHash: string
+  sarsSubmissionInitiated: false
+  externalPaymentInitiated: false
+  externalEgressAllowed: false
+}
+
+export interface PayrollTaxSummary {
+  taxYearId: string
+  taxYearLabel: string
+  status: PayrollTaxYearStatus
+  employeeCertificates: number
+  irp5Count: number
+  it3aCount: number
+  emp201Count: number
+  emp501Reconciled: boolean | null
+  totals: StatutoryMoneyTotals
+  taxTableReferences: TaxTableReference[]
+  sarsSubmissionInitiated: false
+  externalPaymentInitiated: false
+}

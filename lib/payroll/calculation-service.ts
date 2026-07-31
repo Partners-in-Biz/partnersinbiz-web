@@ -188,6 +188,12 @@ export interface PayrollServiceState {
   payRunItems: Map<string, import('./types').PayRunItem>
   payslips: Map<string, import('./types').Payslip>
   adjustments: Map<string, import('./types').PayrollAdjustment>
+  taxYears: Map<string, import('./types').PayrollTaxYear>
+  ytdOpenings: Map<string, import('./types').PayrollYtdOpening>
+  irp5Records: Map<string, import('./types').Irp5Record>
+  emp201Snapshots: Map<string, import('./types').Emp201Snapshot>
+  emp501Reconciliations: Map<string, import('./types').Emp501Reconciliation>
+  exportManifests: Map<string, import('./types').PayrollExportManifest>
   approvals: Map<string, FinanceApprovalRecord>
   uniqueClaims: Map<string, string>
   idempotency: Map<string, IdempotencyRecord>
@@ -212,6 +218,12 @@ function cloneState(state: PayrollServiceState): PayrollServiceState {
     payRunItems: cloneMap(state.payRunItems),
     payslips: cloneMap(state.payslips),
     adjustments: cloneMap(state.adjustments),
+    taxYears: cloneMap(state.taxYears),
+    ytdOpenings: cloneMap(state.ytdOpenings),
+    irp5Records: cloneMap(state.irp5Records),
+    emp201Snapshots: cloneMap(state.emp201Snapshots),
+    emp501Reconciliations: cloneMap(state.emp501Reconciliations),
+    exportManifests: cloneMap(state.exportManifests),
     approvals: cloneMap(state.approvals),
     uniqueClaims: new Map(state.uniqueClaims),
     idempotency: cloneMap(state.idempotency),
@@ -232,6 +244,12 @@ export class InMemoryPayrollStore implements PayrollServiceState {
   payRunItems = new Map<string, import('./types').PayRunItem>()
   payslips = new Map<string, import('./types').Payslip>()
   adjustments = new Map<string, import('./types').PayrollAdjustment>()
+  taxYears = new Map<string, import('./types').PayrollTaxYear>()
+  ytdOpenings = new Map<string, import('./types').PayrollYtdOpening>()
+  irp5Records = new Map<string, import('./types').Irp5Record>()
+  emp201Snapshots = new Map<string, import('./types').Emp201Snapshot>()
+  emp501Reconciliations = new Map<string, import('./types').Emp501Reconciliation>()
+  exportManifests = new Map<string, import('./types').PayrollExportManifest>()
   approvals = new Map<string, FinanceApprovalRecord>()
   uniqueClaims = new Map<string, string>()
   idempotency = new Map<string, IdempotencyRecord>()

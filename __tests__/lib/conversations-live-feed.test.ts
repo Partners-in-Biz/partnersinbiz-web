@@ -35,6 +35,7 @@ describe('conversation live feed', () => {
       conversations: [],
       conversation: null,
       messages: null,
+      presence: null,
       emittedAtMs: 1,
     }
     expect(conversationLiveSnapshotSignature(base)).toBe(

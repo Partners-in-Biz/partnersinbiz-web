@@ -60,6 +60,15 @@ export type FinanceAction =
   | 'payroll.run.correct'
   | 'payroll.payslip.read'
   | 'payroll.payment.observe'
+  | 'payroll.tax_year.configure'
+  | 'payroll.tax_year.lock'
+  | 'payroll.ytd_opening.write'
+  | 'payroll.ytd_opening.approve'
+  | 'payroll.statutory.prepare'
+  | 'payroll.statutory.approve'
+  | 'payroll.statutory.read'
+  | 'payroll.export.generate'
+  | 'payroll.export.approve'
   | 'consolidation.read'
 
 const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
@@ -122,6 +131,15 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'payroll.run.correct': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'payroll.payslip.read': ['finance_admin', 'payroll_clerk', 'payroll_approver'],
   'payroll.payment.observe': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.tax_year.configure': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.tax_year.lock': ['finance_admin', 'payroll_approver'],
+  'payroll.ytd_opening.write': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.ytd_opening.approve': ['finance_admin', 'payroll_approver'],
+  'payroll.statutory.prepare': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.statutory.approve': ['finance_admin', 'payroll_approver'],
+  'payroll.statutory.read': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver', 'finance_approver'],
+  'payroll.export.generate': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.export.approve': ['finance_admin', 'payroll_approver'],
   'consolidation.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
 }
 

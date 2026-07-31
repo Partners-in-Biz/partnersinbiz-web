@@ -1,4 +1,5 @@
 import type { Conversation, ConversationMessage, ConversationScope } from './types'
+import type { ConversationPresence } from '@/lib/conversations/presence'
 
 export const CONVERSATION_LIVE_REFRESH_MS = 2_000
 export const CONVERSATION_LIVE_STREAM_TTL_MS = 55_000
@@ -28,6 +29,7 @@ export interface ConversationLiveSnapshot {
   conversations: Conversation[]
   conversation: Conversation | null
   messages: ConversationMessage[] | null
+  presence: ConversationPresence[] | null
   emittedAtMs: number
 }
 
@@ -70,6 +72,7 @@ export function conversationLiveSnapshotSignature(
     conversations: source.conversations,
     conversation: source.conversation,
     messages: source.messages,
+    presence: source.presence,
   }
   return JSON.stringify(stable)
 }

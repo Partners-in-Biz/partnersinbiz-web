@@ -4,6 +4,7 @@ const mockListConversations = jest.fn()
 const mockGetConversation = jest.fn()
 const mockListMessages = jest.fn()
 const mockAuthorizeConversationProject = jest.fn()
+const mockListConversationPresence = jest.fn()
 
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: (...args: unknown[]) => unknown) =>
@@ -29,6 +30,9 @@ jest.mock('@/lib/conversations/access', () => {
     authorizeConversationProject: (...args: unknown[]) => mockAuthorizeConversationProject(...args),
   }
 })
+jest.mock('@/lib/conversations/presence', () => ({
+  listConversationPresence: (...args: unknown[]) => mockListConversationPresence(...args),
+}))
 
 import { GET } from '@/app/api/v1/conversations/live/route'
 
@@ -39,6 +43,7 @@ describe('GET /api/v1/conversations/live', () => {
     mockGetConversation.mockResolvedValue(null)
     mockListMessages.mockResolvedValue([])
     mockAuthorizeConversationProject.mockResolvedValue({ ok: true, projectId: null })
+    mockListConversationPresence.mockResolvedValue([])
   })
 
   it('streams a browser-safe active group conversation and its messages', async () => {

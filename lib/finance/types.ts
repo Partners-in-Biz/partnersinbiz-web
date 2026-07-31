@@ -56,6 +56,10 @@ export type FinanceApprovalAction =
   | 'payroll.run.approve'
   | 'payroll.run.reverse'
   | 'payroll.adjustment.approve'
+  | 'payroll.tax_year.lock'
+  | 'payroll.ytd_opening.approve'
+  | 'payroll.statutory.approve'
+  | 'payroll.export.approve'
 
 export interface FinanceApprovalEvidence {
   approvalId: string
