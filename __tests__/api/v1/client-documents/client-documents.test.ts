@@ -1131,7 +1131,19 @@ describe('client documents API', () => {
     expect(mockTransactionUpdate).not.toHaveBeenCalled()
   })
 
-  it('blocks clients from publishing documents before transaction update', async () => {
+  it('blocks non-creator clients from publishing documents', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-2',
+      data: () => ({
+        orgId: 'org-1',
+        createdBy: 'someone-else',
+        currentVersionId: 'version-1',
+        linked: { clientOrgId: 'org-1' },
+        assumptions: [],
+        deleted: false,
+      }),
+    })
     const { POST } = await import('@/app/api/v1/client-documents/[id]/publish/route')
     const req = new NextRequest('http://localhost/api/v1/client-documents/doc-2/publish', { method: 'POST' })
     const res = await POST(req, clientUser, { params: Promise.resolve({ id: 'doc-2' }) })
@@ -1139,6 +1151,46 @@ describe('client documents API', () => {
     expect(res.status).toBe(403)
     expect(mockTransactionGet).not.toHaveBeenCalled()
     expect(mockTransactionUpdate).not.toHaveBeenCalled()
+  })
+
+  it('allows document creators with client role to publish their own drafts', async () => {
+    mockDocGet
+      .mockResolvedValueOnce({
+        exists: true,
+        id: 'doc-own',
+        data: () => ({
+          orgId: 'org-1',
+          createdBy: 'client-1',
+          currentVersionId: 'version-1',
+          linked: { clientOrgId: 'org-1' },
+          assumptions: [],
+          deleted: false,
+        }),
+      })
+    mockTransactionGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        orgId: 'org-1',
+        createdBy: 'client-1',
+        currentVersionId: 'version-1',
+        linked: { clientOrgId: 'org-1' },
+        assumptions: [],
+        deleted: false,
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/client-documents/[id]/publish/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents/doc-own/publish', { method: 'POST' })
+    const res = await POST(req, clientUser, { params: Promise.resolve({ id: 'doc-own' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data).toEqual({
+      id: 'doc-own',
+      versionId: 'version-1',
+      clientOrgIds: ['org-1'],
+      multiOrgPublish: false,
+    })
   })
 
   it('returns 400 when publish transaction sees a different org than the route checked', async () => {

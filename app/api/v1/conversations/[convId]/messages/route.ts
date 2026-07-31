@@ -951,6 +951,10 @@ export const POST = withAuth(
         status: 'pending',
       })
 
+      // Never leave a pending assistant orphan: any throw after createMessage
+      // must mark the message failed with a client-visible error (not a raw 500).
+      try {
+
       let agentLink: Awaited<ReturnType<typeof getAgentDispatchHermesProfileLink>> | null = null
       let linkedComputerBinding: AuthorizedLinkedComputerDispatch | null =
         authorizedWorkspaceRuntime?.kind === 'linked-computer' ? authorizedWorkspaceRuntime : null
@@ -1212,61 +1216,76 @@ export const POST = withAuth(
             },
           }, 201)
         }
-        const queued = await enqueueLinkedRun({
-          requestId: assistantMessage.id,
-          deviceId: linkedComputerBinding.deviceId,
-          runtimeTargetId: linkedComputerBinding.runtimeTargetId,
-          orgId: conversation.orgId,
-          actorUserId: user.uid,
-          workspaceId: linkedComputerBinding.workspaceId,
-          ...(projectId && boundProjectReplica ? { projectId, projectReplicaId: boundProjectReplica.replicaId } : {}),
-          mappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
-          relativeFolder: boundProjectReplica?.relativePath ?? (projectId ? `projects/${projectId}` : '.'),
-          ...(coworkWorkingDirectory ? { workingDirectory: coworkWorkingDirectory } : {}),
-          credentialVersion: linkedComputerBinding.credentialVersion,
-          payload: {
-            prompt: hermesInput,
-            ...(images.length ? { images } : {}),
-            ...(modelSelection?.model ? { model: modelSelection.model } : {}),
-            ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
-            ...(yolo ? { yolo: true } : {}),
-          },
-          conversationId: convId,
-          assistantMessageId: assistantMessage.id,
-          agentId,
-          ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
-        })
-        const queuedAssistant = {
-          ...assistantMessage,
-          status: 'queued' as const,
-          runId: queued.jobId,
-          dispatchAgentId: agentId,
-          dispatchRuntimeTargetId: linkedComputerBinding.runtimeTargetId,
-          dispatchRuntimeKind: 'linked-computer',
-          dispatchRuntimeLabel: linkedComputerBinding.machineLabel,
-          linkedDeviceId: linkedComputerBinding.deviceId,
-          linkedDeviceMappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
-          linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
-          ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
+        try {
+          const queued = await enqueueLinkedRun({
+            requestId: assistantMessage.id,
+            deviceId: linkedComputerBinding.deviceId,
+            runtimeTargetId: linkedComputerBinding.runtimeTargetId,
+            orgId: conversation.orgId,
+            actorUserId: user.uid,
+            workspaceId: linkedComputerBinding.workspaceId,
+            ...(projectId && boundProjectReplica ? { projectId, projectReplicaId: boundProjectReplica.replicaId } : {}),
+            mappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
+            relativeFolder: boundProjectReplica?.relativePath ?? (projectId ? `projects/${projectId}` : '.'),
+            ...(coworkWorkingDirectory ? { workingDirectory: coworkWorkingDirectory } : {}),
+            credentialVersion: linkedComputerBinding.credentialVersion,
+            payload: {
+              prompt: hermesInput,
+              ...(images.length ? { images } : {}),
+              ...(modelSelection?.model ? { model: modelSelection.model } : {}),
+              ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
+              ...(yolo ? { yolo: true } : {}),
+            },
+            conversationId: convId,
+            assistantMessageId: assistantMessage.id,
+            agentId,
+            ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
+          })
+          const queuedAssistant = {
+            ...assistantMessage,
+            status: 'queued' as const,
+            runId: queued.jobId,
+            dispatchAgentId: agentId,
+            dispatchRuntimeTargetId: linkedComputerBinding.runtimeTargetId,
+            dispatchRuntimeKind: 'linked-computer',
+            dispatchRuntimeLabel: linkedComputerBinding.machineLabel,
+            linkedDeviceId: linkedComputerBinding.deviceId,
+            linkedDeviceMappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
+            linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
+            ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
+          }
+          await messagesCollection(convId).doc(assistantMessage.id).update({
+            status: 'queued',
+            runId: queued.jobId,
+            dispatchAgentId: agentId,
+            dispatchRuntimeTargetId: linkedComputerBinding.runtimeTargetId,
+            dispatchRuntimeKind: 'linked-computer',
+            dispatchRuntimeLabel: linkedComputerBinding.machineLabel,
+            linkedDeviceId: linkedComputerBinding.deviceId,
+            linkedDeviceMappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
+            linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
+            ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
+          })
+          return apiSuccess({
+            message,
+            assistantMessage: queuedAssistant,
+            runId: queued.jobId,
+            dispatchAgentId: agentId,
+          }, 201)
+        } catch (linkedErr) {
+          // Linked-computer queue path failed (encrypt/auth/transaction). Fall
+          // through to direct Hermes gateway dispatch so chat still works.
+          console.error('[conversation-linked-enqueue-fallback]', {
+            convId,
+            agentId,
+            message: linkedErr instanceof Error ? linkedErr.message : String(linkedErr),
+          })
+          agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, {
+            runtimeTarget: 'vps',
+          })
+          if (!agentLink) throw linkedErr
+          linkedComputerBinding = null
         }
-        await messagesCollection(convId).doc(assistantMessage.id).update({
-          status: 'queued',
-          runId: queued.jobId,
-          dispatchAgentId: agentId,
-          dispatchRuntimeTargetId: linkedComputerBinding.runtimeTargetId,
-          dispatchRuntimeKind: 'linked-computer',
-          dispatchRuntimeLabel: linkedComputerBinding.machineLabel,
-          linkedDeviceId: linkedComputerBinding.deviceId,
-          linkedDeviceMappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
-          linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
-          ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
-        })
-        return apiSuccess({
-          message,
-          assistantMessage: queuedAssistant,
-          runId: queued.jobId,
-          dispatchAgentId: agentId,
-        }, 201)
       }
       let selectedWorkingDirectory: string | undefined
       let selectedWorkingDirectoryRoot: string | undefined
@@ -1435,6 +1454,36 @@ export const POST = withAuth(
         },
         ...branchPayload,
       }, 201)
+      } catch (dispatchErr) {
+        const safeFailure = classifyWorkspaceDispatchFailure(dispatchErr)
+        console.error('[conversation-agent-dispatch-uncaught]', {
+          convId,
+          agentId,
+          code: safeFailure.code,
+          message: dispatchErr instanceof Error ? dispatchErr.message : String(dispatchErr),
+        })
+        const error = safeFailure.message
+        try {
+          await messagesCollection(convId).doc(assistantMessage.id).update({
+            content: '',
+            status: 'failed',
+            error,
+            workspaceDispatchFailureCode: safeFailure.code,
+          })
+        } catch (updateErr) {
+          console.error('[conversation-agent-dispatch-fail-update]', updateErr)
+        }
+        return apiSuccess({
+          message,
+          assistantMessage: {
+            ...assistantMessage,
+            status: 'failed',
+            error,
+            workspaceDispatchFailureCode: safeFailure.code,
+          },
+          ...branchPayload,
+        }, 201)
+      }
     }
 
     return apiSuccess({ message, ...branchPayload }, 201)

@@ -654,11 +654,23 @@ export async function callAgentPath(
           : (init.headers as Record<string, string>))
     : {}
   const headers: Record<string, string> = { Authorization: `Bearer ${target.apiKey}`, ...existingHeaders }
-  const response = await fetch(url, { ...init, headers })
-  const text = await response.text()
-  let data: unknown = null
-  try { data = JSON.parse(text) } catch { data = { raw: text } }
-  return { response, data }
+  // Bound remote agent calls so chat/provision never hangs to a Vercel 500.
+  const timeoutMs = 20_000
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  if (init.signal) {
+    if (init.signal.aborted) controller.abort()
+    else init.signal.addEventListener('abort', () => controller.abort(), { once: true })
+  }
+  try {
+    const response = await fetch(url, { ...init, headers, signal: controller.signal })
+    const text = await response.text()
+    let data: unknown = null
+    try { data = JSON.parse(text) } catch { data = { raw: text } }
+    return { response, data }
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 /** Like callAgentPath but returns the raw Response for streaming (SSE). */

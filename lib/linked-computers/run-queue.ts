@@ -100,7 +100,12 @@ function jobKey(deviceId: string, jobId: string): Buffer {
 }
 
 export function encryptLinkedRunPayload(payload: LinkedRunPayload, deviceId: string, jobId: string): EncryptedLinkedRunPayload {
-  if (!payload.prompt || payload.prompt.length > 1_000_000) throw new Error('linked computers: invalid run prompt')
+  // Keep under Firestore doc + AES practical limits; prefer a usable run over hard fail.
+  const MAX_PROMPT = 700_000
+  if (!payload.prompt) throw new Error('linked computers: invalid run prompt')
+  if (payload.prompt.length > MAX_PROMPT) {
+    payload = { ...payload, prompt: `${payload.prompt.slice(0, MAX_PROMPT)}\n\n…[prompt truncated for linked dispatch]` }
+  }
   if (payload.images && (payload.images.length > 5 || payload.images.some((image) => (
     !/^image\/(?:png|jpeg|gif|webp)$/i.test(image.contentType)
     || !/^https:\/\//i.test(image.url)

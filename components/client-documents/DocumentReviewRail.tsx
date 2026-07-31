@@ -281,7 +281,9 @@ export function DocumentReviewRail({
             className="mt-4 w-full rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
             style={{ background: 'var(--color-pib-accent)', color: '#000' }}
           >
-            Publish to client
+            {document.status === 'internal_draft' || document.status === 'internal_review'
+              ? 'Send for client review'
+              : 'Publish to client'}
           </button>
         )}
         {onPublish && document.id && (

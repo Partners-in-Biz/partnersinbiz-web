@@ -70,6 +70,8 @@ export default function PortalDocumentDetail({ params }: Props) {
   const [agreed, setAgreed] = useState(false)
   const [approving, setApproving] = useState(false)
   const [approved, setApproved] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
 
   const [pendingAnchor, setPendingAnchor] = useState<PendingAnchor | null>(null)
   const [composerBusy, setComposerBusy] = useState(false)
@@ -260,6 +262,34 @@ export default function PortalDocumentDetail({ params }: Props) {
     if (res.ok) await refreshComments()
   }
 
+  async function handlePublish() {
+    if (!doc || publishing) return
+    setPublishing(true)
+    setPublishError(null)
+    try {
+      const res = await fetch(scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}/publish`, portalScope), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setPublishError(typeof body?.error === 'string' ? body.error : 'Unable to publish document')
+        return
+      }
+      setDoc((prev) => prev
+        ? {
+            ...prev,
+            status: 'client_review',
+            latestPublishedVersionId: prev.currentVersionId,
+            shareEnabled: true,
+          }
+        : prev)
+    } finally {
+      setPublishing(false)
+    }
+  }
+
   async function handleApprove() {
     if (!doc || !canReviewApproval) return
     if (doc.approvalMode === 'formal_acceptance') {
@@ -327,6 +357,10 @@ export default function PortalDocumentDetail({ params }: Props) {
 
   const canComment = doc.clientPermissions.canComment
   const canApprove = canReviewApproval && doc.clientPermissions.canApprove && doc.status === 'client_review' && !approved
+  const canPublishOwnDraft =
+    Boolean(firebaseUid)
+    && doc.createdBy === firebaseUid
+    && (doc.status === 'internal_draft' || doc.status === 'internal_review')
 
   const composerAnchor: AnchorTarget | null = !pendingAnchor
     ? null
@@ -437,10 +471,17 @@ export default function PortalDocumentDetail({ params }: Props) {
             canRequest={Boolean(doc.latestPublishedVersionId) && doc.shareEnabled === true}
           />
 
+          {publishError ? (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              {publishError}
+            </div>
+          ) : null}
+
           <DocumentReviewRail
             document={doc}
             comments={comments}
             activeCommentId={activeCommentId}
+            onPublish={canPublishOwnDraft && !publishing ? handlePublish : undefined}
             onResolve={handleResolve}
             onReply={handleReply}
             onScrollToComment={handleScrollToComment}
