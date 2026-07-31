@@ -2,6 +2,7 @@ import { apiError } from '@/lib/api/response'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import type { ApiUser } from '@/lib/api/types'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { DOCUMENT_CLIENT_FACING_STATUSES, isDocumentClientFacingStatus } from './holder'
 import { getClientDocument } from './store'
 import type { ClientDocument, ClientDocumentStatus } from './types'
@@ -22,17 +23,31 @@ function linkedClientOrgIds(document: Partial<ClientDocument>): string[] {
   return Array.from(ids)
 }
 
+/** Recipient client orgs — never the platform holder stamp. */
+function recipientClientOrgIds(document: Partial<ClientDocument>): string[] {
+  return linkedClientOrgIds(document).filter((orgId) => orgId !== PIB_PLATFORM_ORG_ID)
+}
+
 /** Recipient org may see only after we move past internal draft/review. */
 function isExplicitlyLinkedClientVisible(document: Partial<ClientDocument>, user: ApiUser): boolean {
   if (user.role !== 'client') return false
   if (!document.status || !CLIENT_VISIBLE_STATUSES.has(document.status)) return false
-  const allowedOrgIds = new Set(userOrgIds(user))
-  return linkedClientOrgIds(document).some((orgId) => allowedOrgIds.has(orgId))
+  // Client users who also belong to the platform must still only match *real*
+  // client orgs — never pib-platform-owner as a fake recipient.
+  const allowedOrgIds = new Set(userOrgIds(user).filter((orgId) => orgId !== PIB_PLATFORM_ORG_ID))
+  if (allowedOrgIds.size === 0) return false
+  return recipientClientOrgIds(document).some((orgId) => allowedOrgIds.has(orgId))
 }
 
 /**
- * Holder-team access: creator, explicit share, or member of the document holder org.
- * Holder org members see internal drafts; external clients only get client-facing via link.
+ * Holder-team access: creator, explicit share, or *staff* of the document holder org.
+ *
+ * Client-role users are never treated as holder staff — even if they are also
+ * members of pib-platform-owner (Stean saw every PiB-held proposal because
+ * role=client + orgIds includes the platform holder). Clients only get:
+ *   - docs they created
+ *   - docs shared with their uid
+ *   - client-facing docs explicitly linked to their client org (recipient)
  */
 function isHolderTeamMember(document: Partial<ClientDocument>, user: ApiUser): boolean {
   if (document.createdBy === user.uid) return true
@@ -41,8 +56,14 @@ function isHolderTeamMember(document: Partial<ClientDocument>, user: ApiUser): b
   const holderOrgId = typeof document.orgId === 'string' ? document.orgId.trim() : ''
   if (!holderOrgId) return false
 
-  // Member of the holder workspace (e.g. pib-platform-owner). External client
-  // orgs are not on this list for PiB-held docs — they only get client-facing.
+  // Client-role users may only treat a *client* workspace as their holder home.
+  // Membership of pib-platform-owner must never unlock every PiB-held proposal.
+  if (user.role === 'client') {
+    if (holderOrgId === PIB_PLATFORM_ORG_ID) return false
+    return userOrgIds(user).includes(holderOrgId)
+  }
+
+  // Admin/AI staff of the holder workspace.
   if (userOrgIds(user).includes(holderOrgId)) return true
   if (user.role === 'admin' && canAccessOrg(user, holderOrgId)) return true
 
@@ -97,9 +118,10 @@ export function isClientVisibleClientDocument(document: Pick<ClientDocument, 'st
 
 export function isClientVisibleToOrg(document: Partial<ClientDocument>, orgId: string): boolean {
   if (!document.status || !CLIENT_VISIBLE_STATUSES.has(document.status)) return false
-  return linkedClientOrgIds(document).includes(orgId)
+  if (orgId === PIB_PLATFORM_ORG_ID) return false
+  return recipientClientOrgIds(document).includes(orgId)
 }
 
 export function explicitLinkedClientOrgIds(document: Partial<ClientDocument>): string[] {
-  return linkedClientOrgIds(document)
+  return recipientClientOrgIds(document)
 }

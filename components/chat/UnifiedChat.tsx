@@ -4172,9 +4172,16 @@ export default function UnifiedChat({
       })
   }, [activeConversation, activeId, latestVisibleMessageId])
 
+  // Composer context is per-conversation. Clear immediately on id change so
+  // prior pins cannot flash/stick while the next conversation object loads.
   useEffect(() => {
-    setContextRefs((activeConversation?.contextRefs ?? []).map(coerceContextRef))
-  }, [activeConversation?.id, activeConversation?.contextRefs, coerceContextRef])
+    setContextRefs([])
+  }, [activeId])
+
+  useEffect(() => {
+    if (!activeConversation?.id || activeConversation.id !== activeId) return
+    setContextRefs((activeConversation.contextRefs ?? []).map(coerceContextRef))
+  }, [activeId, activeConversation?.id, activeConversation?.contextRefs, coerceContextRef])
 
   useEffect(() => {
     setHistoryCursor(null)

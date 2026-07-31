@@ -53,14 +53,15 @@ function readable(value: unknown) {
 
 function linkedLabel(document: ClientDocument) {
   const linked = document.linked ?? {}
-  const fields = Object.entries(linked)
-    .filter(([, value]) => {
-      if (Array.isArray(value)) return value.length > 0
-      return Boolean(value)
-    })
-    .map(([key]) => key)
-
-  return fields.join(', ') || 'Standalone'
+  // Never dump raw field names (companyId, clientOrgIds, …) in the card UI.
+  const labels: string[] = []
+  if (linked.companyId || (linked.companyIds && linked.companyIds.length > 0)) labels.push('Company')
+  if (linked.clientOrgId || (linked.clientOrgIds && linked.clientOrgIds.length > 0)) labels.push('Client org')
+  if (linked.projectId || (linked.projectIds && linked.projectIds.length > 0)) labels.push('Project')
+  if (linked.contactId || (linked.contactIds && linked.contactIds.length > 0)) labels.push('Contact')
+  if (linked.dealId || (linked.dealIds && linked.dealIds.length > 0)) labels.push('Deal')
+  if (Array.isArray(linked.researchItemIds) && linked.researchItemIds.length > 0) labels.push('Research')
+  return labels.join(' · ') || 'Standalone'
 }
 
 function relationshipLabelList(labels?: { companyName?: string; clientOrgName?: string }) {

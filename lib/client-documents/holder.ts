@@ -71,3 +71,51 @@ export function resolveDocumentHolderOrgId(input: {
   const home = (input.creatorHomeOrgId || '').trim()
   return home || undefined
 }
+
+/**
+ * Resolve the recipient client org for a document.
+ *
+ * When the holder is the PiB platform workspace, linked.clientOrgId must be a
+ * real client org — never pib-platform-owner (that made client_review docs
+ * invisible to the linked organisation while still "published").
+ *
+ * When the holder is already a client org, the recipient may equal the holder.
+ */
+export function resolveDocumentRecipientClientOrgId(input: {
+  holderOrgId?: string | null
+  linkedClientOrgId?: string | null
+  linkedClientOrgIds?: string[] | null
+  companyLinkedOrgId?: string | null
+}): string | undefined {
+  const holder = (input.holderOrgId || '').trim()
+  const platformHolder = holder === PIB_PLATFORM_ORG_ID
+  const companyLinked = (input.companyLinkedOrgId || '').trim()
+  if (companyLinked && (!platformHolder || companyLinked !== PIB_PLATFORM_ORG_ID)) {
+    return companyLinked
+  }
+
+  const candidates = [
+    (input.linkedClientOrgId || '').trim(),
+    ...((input.linkedClientOrgIds ?? []).map((id) => (typeof id === 'string' ? id.trim() : '')).filter(Boolean)),
+  ]
+  for (const id of candidates) {
+    if (!id) continue
+    if (platformHolder && id === PIB_PLATFORM_ORG_ID) continue
+    return id
+  }
+  return undefined
+}
+
+/** Client-facing recipient orgs, excluding accidental platform-as-recipient stamps. */
+export function sanitizeRecipientClientOrgIds(
+  holderOrgId: string | null | undefined,
+  clientOrgIds: string[],
+): string[] {
+  const holder = (holderOrgId || '').trim()
+  const platformHolder = holder === PIB_PLATFORM_ORG_ID
+  return Array.from(new Set(
+    clientOrgIds
+      .map((id) => (typeof id === 'string' ? id.trim() : ''))
+      .filter((id) => Boolean(id) && !(platformHolder && id === PIB_PLATFORM_ORG_ID)),
+  ))
+}

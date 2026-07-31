@@ -107,6 +107,8 @@ beforeEach(() => {
   mockVersionsGet.mockResolvedValue({ docs: [] })
   mockTransactionGet.mockReset()
   mockDocGet.mockReset()
+  mockQueryGet.mockReset()
+  mockWhere.mockReset()
 
   const documentRef = makeDocumentRef()
   const query = {
@@ -484,15 +486,29 @@ describe('client documents API', () => {
   })
 
   it('lists only client-visible documents explicitly linked to the client org for client users', async () => {
+    // Client list path: (1) owned/shared on scope org (2) owned/shared again via helper
+    // (3-4) platform linked.clientOrgId / clientOrgIds queries.
     mockQueryGet
       .mockResolvedValueOnce({
+        // listForOrg(client-org) — client-held workspace docs
         docs: [
-          { id: 'doc-direct', data: () => ({ orgId: 'client-org', title: 'Direct document without explicit link', status: 'approved', deleted: false }) },
-          { id: 'doc-direct-linked', data: () => ({ orgId: 'client-org', title: 'Direct linked document', status: 'approved', linked: { clientOrgIds: ['client-org'] }, deleted: false }) },
-          { id: 'doc-internal', data: () => ({ orgId: 'client-org', title: 'Internal document with many CRM links', status: 'internal_review', linked: { clientOrgIds: ['client-org'], companyIds: ['company-1', 'company-2'], contactIds: ['contact-1', 'contact-2'] }, deleted: false }) },
+          { id: 'doc-direct', data: () => ({ orgId: 'client-org', title: 'Direct document without explicit link', status: 'approved', createdBy: 'client-2', deleted: false }) },
+          { id: 'doc-direct-linked', data: () => ({ orgId: 'client-org', title: 'Direct linked document', status: 'approved', linked: { clientOrgIds: ['client-org'] }, createdBy: 'client-2', deleted: false }) },
+          { id: 'doc-internal', data: () => ({ orgId: 'client-org', title: 'Internal document with many CRM links', status: 'internal_review', linked: { clientOrgIds: ['client-org'], companyIds: ['company-1', 'company-2'], contactIds: ['contact-1', 'contact-2'] }, createdBy: 'client-2', deleted: false }) },
         ],
       })
       .mockResolvedValueOnce({
+        // owned by user on client-org
+        docs: [
+          { id: 'doc-direct', data: () => ({ orgId: 'client-org', title: 'Direct document without explicit link', status: 'approved', createdBy: 'client-2', deleted: false }) },
+        ],
+      })
+      .mockResolvedValueOnce({
+        // shared with user
+        docs: [],
+      })
+      .mockResolvedValueOnce({
+        // platform linked.clientOrgId == client-org
         docs: [
           {
             id: 'doc-linked',
@@ -504,6 +520,11 @@ describe('client documents API', () => {
               deleted: false,
             }),
           },
+        ],
+      })
+      .mockResolvedValueOnce({
+        // platform array-contains
+        docs: [
           {
             id: 'doc-crm-only',
             data: () => ({
@@ -534,16 +555,76 @@ describe('client documents API', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    // Holder-org clients see their own workspace docs (holder team) plus
-    // explicitly linked client-facing platform docs. CRM-only / other-org links stay hidden.
-    expect(body.data.map((doc: { id: string }) => doc.id)).toEqual([
+    // Client-role never gets full holder dump. Own/client-held + recipient-linked client-facing only.
+    expect(body.data.map((doc: { id: string }) => doc.id).sort()).toEqual([
       'doc-direct',
       'doc-direct-linked',
       'doc-internal',
       'doc-linked',
-    ])
+    ].sort())
     expect(mockWhere).toHaveBeenCalledWith('linked.clientOrgId', '==', 'client-org')
     expect(mockWhere).toHaveBeenCalledWith('linked.clientOrgIds', 'array-contains', 'client-org')
+  })
+
+  it('never dumps platform-held docs to a client-role user who is also a platform member', async () => {
+    // Stean-style: role=client, orgId=pib-platform-owner
+    const platformClientUser = {
+      uid: 'stean-1',
+      role: 'client' as const,
+      orgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner', 'client-org-a'],
+    }
+    mockQueryGet
+      // owned on platform
+      .mockResolvedValueOnce({
+        docs: [
+          { id: 'doc-own', data: () => ({ orgId: 'pib-platform-owner', title: 'Mine', status: 'internal_draft', createdBy: 'stean-1', deleted: false }) },
+        ],
+      })
+      // shared on platform
+      .mockResolvedValueOnce({ docs: [] })
+      // platform linked to client-org-a
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'doc-for-me',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              title: 'Saaiman proposal',
+              status: 'client_review',
+              linked: { clientOrgId: 'client-org-a' },
+              deleted: false,
+            }),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ docs: [] }) // array-contains client-org-a
+      // also queries for pib-platform-owner as recipientOrgIds includes scope — should not expose
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'doc-scholtz',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              title: 'Scholtz secret',
+              status: 'client_review',
+              linked: { clientOrgId: 'pib-platform-owner' },
+              deleted: false,
+            }),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/client-documents/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents?orgId=pib-platform-owner')
+    const res = await GET(req, platformClientUser)
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    const ids = body.data.map((doc: { id: string }) => doc.id)
+    expect(ids).toContain('doc-own')
+    expect(ids).toContain('doc-for-me')
+    expect(ids).not.toContain('doc-scholtz')
   })
 
   it('lists selected-client documents for admins and only client-visible platform-owned linked docs', async () => {
