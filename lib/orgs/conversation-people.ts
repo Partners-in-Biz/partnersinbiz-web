@@ -14,6 +14,8 @@ export interface ConversationPerson {
   displayName?: string
   email?: string
   role: 'admin' | 'client'
+  department?: string
+  jobTitle?: string
   photoURL?: string
 }
 
@@ -75,13 +77,15 @@ async function listPlatformAdmins(): Promise<ConversationPerson[]> {
     })
     .map((d) => {
       const data = d.data()
-      return {
-        uid: d.id,
-        role: 'admin' as const,
-        displayName: data.displayName as string | undefined,
-        email: data.email as string | undefined,
-        photoURL: data.photoURL as string | undefined,
-      }
+    return {
+      uid: d.id,
+      role: 'admin' as const,
+      displayName: data.displayName as string | undefined,
+      email: data.email as string | undefined,
+      department: '',
+      jobTitle: '',
+      photoURL: data.photoURL as string | undefined,
+    }
     })
 }
 
@@ -104,6 +108,8 @@ async function listLinkedOrgMemberContacts(orgId: string): Promise<ConversationP
       role: contactRoleFromOrgRole(isOrgRole(data.role) ? data.role : 'viewer'),
       displayName: displayNameFromProfile(data, details),
       email: details.email,
+      department: cleanString(data.department),
+      jobTitle: cleanString(data.jobTitle),
       photoURL: cleanString(data.avatarUrl) || cleanString(data.photoURL) || details.photoURL,
     } as ConversationPerson
   }))
@@ -148,6 +154,8 @@ export async function listConversationPeople(
             return {
               uid: m.userId,
               role: contactRoleFromOrgRole(m.role),
+              department: cleanString(m.department),
+              jobTitle: cleanString(m.jobTitle),
               ...details,
             } as ConversationPerson
           }),
@@ -159,7 +167,13 @@ export async function listConversationPeople(
       ? await Promise.all(
           members.map(async (m) => {
             const details = await fetchUserDetails(m.userId)
-            return { uid: m.userId, role: contactRoleFromOrgRole(m.role), ...details } as ConversationPerson
+            return {
+              uid: m.userId,
+              role: contactRoleFromOrgRole(m.role),
+              department: cleanString(m.department),
+              jobTitle: cleanString(m.jobTitle),
+              ...details,
+            } as ConversationPerson
           }),
         )
       : await listLinkedOrgMemberContacts(orgId)

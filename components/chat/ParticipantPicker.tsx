@@ -28,6 +28,8 @@ interface OrgContact {
   displayName?: string
   email?: string
   role: string
+  department?: string
+  jobTitle?: string
 }
 
 interface WorkforceBlueprintResponse {
@@ -112,7 +114,7 @@ interface ParticipantPickerProps {
   initialAgentIds?: string[]
 }
 
-const MAX_SELECTIONS = 5
+const MAX_SELECTIONS = 12
 
 export default function ParticipantPicker({
   orgId,
@@ -295,26 +297,6 @@ export default function ParticipantPicker({
     })
   }
 
-  if (loading) {
-    return (
-      <div className={`space-y-2 ${className}`}>
-        <div className="pib-skeleton h-8 w-full" />
-        <div className="pib-skeleton h-8 w-full" />
-        <div className="pib-skeleton h-8 w-full" />
-      </div>
-    )
-  }
-
-  // Only hard-fail the whole panel when agents could not load and there are no
-  // people either. Agents alone remain usable after a soft people failure.
-  if (error && visibleAgents.length === 0 && contacts.length === 0) {
-    return (
-      <div className={`text-xs text-red-300 ${className}`} data-testid="participants-load-error">
-        {error}
-      </div>
-    )
-  }
-
   const showAgentSection = showAgents
   const agentsBlocked = showAgentSection && visibleAgents.length === 0 && Boolean(agentsUnavailableReason)
   const recommendedAvailableCount = workforce
@@ -347,6 +329,26 @@ export default function ParticipantPicker({
     }
     return map
   }, [workforce])
+
+  if (loading) {
+    return (
+      <div className={`space-y-2 ${className}`}>
+        <div className="pib-skeleton h-8 w-full" />
+        <div className="pib-skeleton h-8 w-full" />
+        <div className="pib-skeleton h-8 w-full" />
+      </div>
+    )
+  }
+
+  // Only hard-fail the whole panel when agents could not load and there are no
+  // people either. Agents alone remain usable after a soft people failure.
+  if (error && visibleAgents.length === 0 && contacts.length === 0) {
+    return (
+      <div className={`text-xs text-red-300 ${className}`} data-testid="participants-load-error">
+        {error}
+      </div>
+    )
+  }
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -537,6 +539,9 @@ export default function ParticipantPicker({
               const isChecked = selected.some((s) => s.kind === 'user' && s.uid === contact.uid)
               const disabled = !isChecked && selected.length >= MAX_SELECTIONS
               const label = contactLabel(contact)
+              const roleLabel = contact.jobTitle
+                || contact.department
+                || (contact.role === 'admin' ? 'Admin' : 'Member')
               const inits = initials(label)
               return (
                 <label
@@ -563,6 +568,7 @@ export default function ParticipantPicker({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-[var(--color-pib-text)]">{label}</p>
                     {contact.email && <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{contact.email}</p>}
+                    <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{roleLabel}</p>
                   </div>
                   {isChecked && (
                     <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>

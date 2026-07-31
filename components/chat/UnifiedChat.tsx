@@ -1064,6 +1064,57 @@ function tsSeconds(ts: ConversationMessage['createdAt']): number {
     (ts as { seconds?: number; _seconds?: number })._seconds ?? 0
 }
 
+function hasSameAttachments(a: ConversationMessage, b: ConversationMessage): boolean {
+  const aAttachments = a.attachments ?? []
+  const bAttachments = b.attachments ?? []
+  if (aAttachments.length !== bAttachments.length) return false
+  if (aAttachments.length === 0) return true
+  return aAttachments.every((item, index) =>
+    item.id === bAttachments[index]?.id &&
+    item.name === bAttachments[index]?.name &&
+    item.contentType === bAttachments[index]?.contentType,
+  )
+}
+
+function isServerRowForOptimisticMessage(
+  serverMessage: ConversationMessage,
+  optimisticMessage: ConversationMessage,
+): boolean {
+  if (serverMessage.id.startsWith('tmp-')) return false
+  if (serverMessage.role !== optimisticMessage.role) return false
+  if (serverMessage.authorKind !== optimisticMessage.authorKind) return false
+  if (serverMessage.content !== optimisticMessage.content) return false
+  if (!hasSameAttachments(serverMessage, optimisticMessage)) return false
+
+  if (optimisticMessage.authorKind === 'user' && serverMessage.authorId !== optimisticMessage.authorId) {
+    return false
+  }
+  const serverTs = tsSeconds(serverMessage.createdAt)
+  const optimisticTs = tsSeconds(optimisticMessage.createdAt)
+  if (serverTs > 0 && optimisticTs > 0) {
+    if (Math.abs(serverTs - optimisticTs) > 10) return false
+  }
+
+  if (optimisticMessage.role === 'assistant' && optimisticMessage.authorId === 'pending') {
+    return serverMessage.content === optimisticMessage.content
+  }
+
+  return true
+}
+
+function mergeSnapshotMessages(
+  snapshotMessages: ConversationMessage[],
+  currentMessages: ConversationMessage[],
+): ConversationMessage[] {
+  const optimisticMessages = currentMessages.filter((message) => message.id.startsWith('tmp-'))
+  const keptOptimistic = optimisticMessages.filter((optimisticMessage) =>
+    !snapshotMessages.some((snapshotMessage) =>
+      isServerRowForOptimisticMessage(snapshotMessage, optimisticMessage),
+    ),
+  )
+  return [...snapshotMessages, ...keptOptimistic]
+}
+
 function appendRichItems<T>(current: T[] | undefined, incoming: T[] | undefined): T[] | undefined {
   if (!incoming?.length) return current
   const merged = [...(current ?? []), ...incoming]
@@ -3827,11 +3878,8 @@ export default function UnifiedChat({
           activeConversationIdRef.current
           && snapshot.conversation?.id === activeConversationIdRef.current
           && Array.isArray(snapshot.messages)
-          && !sendingRef.current
         ) {
-          setMessages((current) => current.some((message) => message.id.startsWith('tmp-'))
-            ? current
-            : snapshot.messages!)
+          setMessages((current) => mergeSnapshotMessages(snapshot.messages!, current))
         }
       } catch (error) {
         void error
@@ -8593,7 +8641,7 @@ export default function UnifiedChat({
               {/* Participants after context + machine so agents match the selected runtime */}
               <div>
                 <label className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)] block mb-1.5">
-                  Participants (max 5)
+                  Participants (max 12)
                 </label>
                 {newScope === 'general' && allowAgentParticipants && (
                   <p className="mb-2 px-0.5 text-[11px] text-[var(--color-pib-text-muted)]">
