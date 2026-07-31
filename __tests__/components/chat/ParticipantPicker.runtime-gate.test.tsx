@@ -5,6 +5,62 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import ParticipantPicker from '@/components/chat/ParticipantPicker'
 
 describe('ParticipantPicker runtime agent gate', () => {
+  const workforceBlueprintSuccess = {
+    matchSource: 'department',
+    member: { jobTitle: 'Project Manager', department: 'Project Delivery' },
+    blueprint: {
+      id: 'project_delivery',
+      label: 'Project delivery',
+      summary: 'Planning, implementation, quality assurance, and documentation.',
+      recommendedAgentIds: ['pip', 'theo', 'qa-release', 'docs'],
+      specialistGaps: [],
+    },
+    policyEvidence: {
+      policyReady: true,
+      policyVersion: 'agent-policy-v1',
+      agents: [
+        {
+          agentId: 'pip',
+          policyDefined: true,
+          policyLabel: 'Pip',
+          expectedSkillCount: 3,
+          approvalGates: ['approve'],
+        },
+        {
+          agentId: 'theo',
+          policyDefined: true,
+          policyLabel: 'Theo',
+          expectedSkillCount: 3,
+          approvalGates: ['approve'],
+        },
+      ],
+      skillCoverage: [
+        { skillId: 'project-management', coveredByAgentIds: ['pip'] },
+      ],
+    },
+    recommendationStatus: 'ready_for_owner_review' as const,
+    requiresOwnerApproval: true,
+  }
+
+  const workforceBlueprintMissingPolicy = {
+    ...workforceBlueprintSuccess,
+    policyEvidence: {
+      ...workforceBlueprintSuccess.policyEvidence,
+      policyReady: false,
+      policyVersion: 'agent-policy-v1',
+      agents: [
+        {
+          ...workforceBlueprintSuccess.policyEvidence.agents[0],
+          agentId: 'pip',
+          policyDefined: false,
+          approvalGates: ['approve'],
+        },
+        workforceBlueprintSuccess.policyEvidence.agents[1],
+      ],
+      skillCoverage: [],
+    },
+  }
+
   beforeEach(() => {
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -35,22 +91,7 @@ describe('ParticipantPicker runtime agent gate', () => {
         return {
           ok: true,
           status: 200,
-          json: async () => ({
-            data: {
-              matchSource: 'department',
-              member: { department: 'Project Delivery', jobTitle: 'Project Manager' },
-              blueprint: {
-                id: 'project_delivery',
-                label: 'Project delivery',
-                summary: 'Planning, implementation, quality assurance, and documentation.',
-                recommendedAgentIds: ['pip', 'theo', 'qa-release', 'docs'],
-                specialistGaps: [],
-              },
-              policyEvidence: { policyReady: true },
-              recommendationStatus: 'ready_for_owner_review',
-              requiresOwnerApproval: true,
-            },
-          }),
+          json: async () => ({ data: workforceBlueprintSuccess }),
         } as Response
       }
       throw new Error(`Unexpected fetch: ${url}`)
@@ -141,7 +182,7 @@ describe('ParticipantPicker runtime agent gate', () => {
         throw new TypeError('Failed to fetch')
       }
       if (url.includes('/workforce-blueprint')) {
-        return { ok: false, status: 503, json: async () => ({ error: 'Unavailable' }) } as Response
+        return { ok: true, status: 200, json: async () => ({ data: workforceBlueprintMissingPolicy }) } as Response
       }
       throw new Error(`Unexpected fetch: ${url}`)
     }) as typeof fetch
@@ -168,6 +209,7 @@ describe('ParticipantPicker runtime agent gate', () => {
     expect(blueprint).toHaveTextContent('Recommended for Project delivery')
     expect(blueprint).toHaveTextContent('1/4 available here')
     expect(blueprint).toHaveTextContent('3 recommended agents need an owner grant or ready runtime')
+    expect(blueprint).toHaveTextContent('Policy ready: yes • policy vagent-policy-v1')
     expect(blueprint).toHaveTextContent('Recommendations do not change your access')
     expect(screen.getByText('Theo')).toBeInTheDocument()
     expect(screen.queryByText('Pip')).not.toBeInTheDocument()
@@ -176,5 +218,52 @@ describe('ParticipantPicker runtime agent gate', () => {
     await waitFor(() => {
       expect(onSelect).toHaveBeenLastCalledWith([])
     })
+  })
+
+  it('shows agent policy status and skill coverage in picker rows', async () => {
+    render(<ParticipantPicker orgId="org-1" onSelect={jest.fn()} allowedAgentIds={null} />)
+
+    const theo = await screen.findByText('Theo')
+    expect(theo).toBeInTheDocument()
+    expect(screen.getByText('Covers 1 required skill')).toBeInTheDocument()
+    expect(screen.queryByText('Policy missing')).not.toBeInTheDocument()
+  })
+
+  it('shows policy evidence warning when policy is incomplete', async () => {
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/visible-agents')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: [
+              { agentId: 'pip', name: 'Pip', role: 'Operator', persona: '', iconKey: 'smart_toy', colorKey: 'violet', enabled: true, baseUrl: '', apiKey: '', defaultModel: '' },
+            ],
+          }),
+        } as Response
+      }
+      if (url.includes('/people') || url.includes('/contacts')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: [] }),
+        } as Response
+      }
+      if (url.includes('/workforce-blueprint')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ data: workforceBlueprintMissingPolicy }),
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    }) as typeof fetch
+
+    render(<ParticipantPicker orgId="org-1" onSelect={jest.fn()} allowedAgentIds={null} />)
+
+    expect(await screen.findByText('Policy ready: no • policy vagent-policy-v1')).toBeInTheDocument()
+    expect(screen.getByText('1 recommended agents are missing policy definitions.')).toBeInTheDocument()
+    expect(screen.getByText('Policy missing')).toBeInTheDocument()
   })
 })
