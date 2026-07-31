@@ -21,7 +21,21 @@ export * from './credential-pools'
 export * from './memory-providers'
 export * from './personality'
 export * from './plugins'
-export * from './repository'
+export {
+  HERMES_FEATURES_COLLECTION,
+  MemoryHermesFeaturesRepository,
+  FirestoreHermesFeaturesRepository,
+  createMemoryRepository,
+  createInMemoryDocStore,
+  getHermesFeaturesRepository,
+  setHermesFeaturesRepositoryForTests,
+  docId,
+  readAggregateItems,
+  upsertAggregateItem,
+  type HermesFeaturesRepository,
+  type HermesFeaturesDocStore,
+  type DelegationRecord,
+} from './repository'
 export * from './workspace-fs'
 export * from './dispatch'
 export * from './service'

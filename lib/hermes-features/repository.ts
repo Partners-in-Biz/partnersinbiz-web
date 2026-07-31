@@ -357,23 +357,108 @@ export class MemoryHermesFeaturesRepository implements HermesFeaturesRepository 
   }
 }
 
-function docId(parts: string[]): string {
+export function docId(parts: string[]): string {
   return parts.map((p) => p.replace(/[/\s]/g, '_')).join('__').slice(0, 700)
 }
 
 /**
+ * Pure aggregate list helpers — one document holds the full list for a kind/scope.
+ * Correct-by-construction: list* is a single get, never a multi-kind scan.
+ */
+export function readAggregateItems<T>(payload: { items?: T[] } | T[] | null | undefined): T[] {
+  if (!payload) return []
+  if (Array.isArray(payload)) return [...payload]
+  if (Array.isArray(payload.items)) return [...payload.items]
+  return []
+}
+
+export function upsertAggregateItem<T>(
+  items: T[],
+  item: T,
+  keyOf: (row: T) => string,
+  options: { prepend?: boolean; max?: number } = {},
+): T[] {
+  const key = keyOf(item)
+  const without = items.filter((row) => keyOf(row) !== key)
+  const next = options.prepend ? [item, ...without] : [...without, item]
+  if (options.max && next.length > options.max) {
+    return options.prepend ? next.slice(0, options.max) : next.slice(-options.max)
+  }
+  return next
+}
+
+/** Minimal doc store for tests / production Firestore adapter. */
+export interface HermesFeaturesDocStore {
+  get(id: string): Promise<{ exists: boolean; data: () => Record<string, unknown> | undefined }>
+  set(id: string, data: Record<string, unknown>, options?: { merge?: boolean }): Promise<void>
+  /** Must throw if called — list* must not scan collections. */
+  where?(..._args: unknown[]): never
+}
+
+export function createInMemoryDocStore(): HermesFeaturesDocStore & { docs: Map<string, Record<string, unknown>> } {
+  const docs = new Map<string, Record<string, unknown>>()
+  return {
+    docs,
+    async get(id: string) {
+      const data = docs.get(id)
+      return {
+        exists: data != null,
+        data: () => data,
+      }
+    },
+    async set(id: string, data: Record<string, unknown>, options?: { merge?: boolean }) {
+      if (options?.merge && docs.has(id)) {
+        docs.set(id, { ...docs.get(id), ...data })
+      } else {
+        docs.set(id, { ...data })
+      }
+    },
+    where(): never {
+      throw new Error('list* must not call where() — use aggregate single-doc get')
+    },
+  }
+}
+
+/**
  * Firestore-backed repository. Collection: hermes_features.
- * Document IDs are deterministic for read-back after serverless restarts.
+ *
+ * Listable kinds use **one aggregate document per scope** (same shape as plugins/skills):
+ * - cron__{orgId} → { items: CronJobSpec[] }
+ * - hook__{orgId} → { items: EventHookConfig[] }
+ * - checkpoint__{orgId}__{conversationId} → { items: CheckpointSnapshot[] }
+ * - batch__{orgId} → { items: BatchJobResult[] }
+ * - mcp__{orgId} → { items: McpServerConfig[] }
+ * - credential_pool__{orgId} → { items: CredentialPool[] }
+ * - memory_provider__{orgId} → { items: MemoryProviderBinding[] }
+ * - delegation__{orgId} → { items: DelegationRecord[] }
+ *
+ * list* = single get. upsert* = read-merge-write that aggregate. No multi-kind scans.
  */
 export class FirestoreHermesFeaturesRepository implements HermesFeaturesRepository {
-  private col() {
-    // Lazy require so unit tests using MemoryHermesFeaturesRepository never touch Firebase.
+  private store: HermesFeaturesDocStore | null
+
+  constructor(store?: HermesFeaturesDocStore) {
+    this.store = store ?? null
+  }
+
+  private col(): { doc: (id: string) => { get: () => Promise<{ exists: boolean; data: () => Record<string, unknown> | undefined }>; set: (data: Record<string, unknown>, options?: { merge?: boolean }) => Promise<void> } } {
+    if (this.store) {
+      const store = this.store
+      return {
+        doc: (id: string) => ({
+          get: () => store.get(id),
+          set: (data, options) => store.set(id, data, options),
+        }),
+      }
+    }
+    // Lazy require so unit tests never touch Firebase unless using this class with real store.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { adminDb } = require('@/lib/firebase/admin') as typeof import('@/lib/firebase/admin')
     return adminDb.collection(HERMES_FEATURES_COLLECTION)
   }
 
-  private serverTimestamp() {
+  private serverTimestamp(): unknown {
+    if (this.store) return new Date().toISOString()
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { FieldValue } = require('firebase-admin/firestore') as typeof import('firebase-admin/firestore')
     return FieldValue.serverTimestamp()
@@ -397,6 +482,21 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
       },
       { merge: true },
     )
+  }
+
+  private async getAggregateItems<T>(id: string): Promise<T[]> {
+    const payload = await this.getPayload<{ items: T[] } | T[]>(id)
+    return readAggregateItems(payload)
+  }
+
+  private async setAggregateItems<T>(
+    id: string,
+    kind: string,
+    orgId: string,
+    items: T[],
+    extra: Record<string, unknown> = {},
+  ): Promise<void> {
+    await this.setPayload(id, kind, orgId, { items }, extra)
   }
 
   async getToolsetPolicy(orgId: string, agentId: string, conversationId?: string): Promise<ToolsetPolicy> {
@@ -444,47 +544,31 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
     return next.map((s) => ({ ...s }))
   }
 
-  /**
-   * List helpers query by orgId only (single-field, always indexed), then filter kind
-   * in-process. Compound kind+orgId indexes are declared in firestore.indexes.json for
-   * optional optimized queries, but list* must not fail-precondition before they deploy.
-   */
-  private async listByOrgKind<T extends { id?: string }>(
-    orgId: string,
-    kind: string,
-    limit = 100,
-  ): Promise<Array<{ data: Record<string, unknown>; payload: T }>> {
-    const snap = await this.col().where('orgId', '==', orgId).limit(Math.max(limit * 4, 100)).get()
-    return snap.docs
-      .map((d) => {
-        const data = d.data() as Record<string, unknown>
-        return { data, payload: data.payload as T }
-      })
-      .filter((row) => row.data.kind === kind && row.payload != null)
-      .slice(0, limit)
-  }
-
   async listCheckpoints(orgId: string, conversationId: string): Promise<CheckpointSnapshot[]> {
-    const rows = await this.listByOrgKind<CheckpointSnapshot>(orgId, 'checkpoint', 50)
-    return rows
-      .map((r) => r.payload)
-      .filter((p): p is CheckpointSnapshot => Boolean(p?.id) && p.conversationId === conversationId)
+    const items = await this.getAggregateItems<CheckpointSnapshot>(
+      docId(['checkpoint', orgId, conversationId]),
+    )
+    return items
+      .filter((p) => Boolean(p?.id))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map((c) => ({ ...c, files: { ...c.files } }))
   }
 
   async addCheckpoint(snapshot: CheckpointSnapshot): Promise<CheckpointSnapshot> {
     const next = { ...snapshot, files: { ...snapshot.files } }
-    await this.setPayload(docId(['checkpoint', snapshot.orgId, snapshot.conversationId, snapshot.id]), 'checkpoint', snapshot.orgId, next, {
+    const id = docId(['checkpoint', snapshot.orgId, snapshot.conversationId])
+    const items = await this.getAggregateItems<CheckpointSnapshot>(id)
+    const merged = upsertAggregateItem(items, next, (c) => c.id, { prepend: true, max: 100 })
+    await this.setAggregateItems(id, 'checkpoint', snapshot.orgId, merged, {
       conversationId: snapshot.conversationId,
-      checkpointId: snapshot.id,
     })
     return next
   }
 
   async getCheckpoint(orgId: string, conversationId: string, id: string): Promise<CheckpointSnapshot | null> {
-    const payload = await this.getPayload<CheckpointSnapshot>(docId(['checkpoint', orgId, conversationId, id]))
-    return payload ? { ...payload, files: { ...payload.files } } : null
+    const items = await this.listCheckpoints(orgId, conversationId)
+    const found = items.find((c) => c.id === id)
+    return found ? { ...found, files: { ...found.files } } : null
   }
 
   async getWorkspaceFiles(orgId: string, conversationId: string): Promise<Record<string, string>> {
@@ -499,61 +583,64 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
   }
 
   async listCron(orgId: string): Promise<CronJobSpec[]> {
-    const rows = await this.listByOrgKind<CronJobSpec>(orgId, 'cron', 100)
-    return rows
-      .map((r) => r.payload)
-      .filter((p): p is CronJobSpec => Boolean(p?.id))
+    const items = await this.getAggregateItems<CronJobSpec>(docId(['cron', orgId]))
+    return items
+      .filter((p) => Boolean(p?.id))
       .map((j) => ({ ...j, skillIds: j.skillIds ? [...j.skillIds] : undefined }))
   }
 
   async upsertCron(job: CronJobSpec): Promise<CronJobSpec> {
     const next = { ...job, skillIds: job.skillIds ? [...job.skillIds] : undefined }
-    await this.setPayload(docId(['cron', job.orgId, job.id]), 'cron', job.orgId, next, {
-      agentId: job.agentId,
-      cronId: job.id,
-      status: job.status,
-    })
+    const id = docId(['cron', job.orgId])
+    const items = await this.getAggregateItems<CronJobSpec>(id)
+    const merged = upsertAggregateItem(items, next, (j) => j.id)
+    await this.setAggregateItems(id, 'cron', job.orgId, merged)
     return next
   }
 
   async listHooks(orgId: string): Promise<EventHookConfig[]> {
-    const rows = await this.listByOrgKind<EventHookConfig>(orgId, 'hook', 100)
-    return rows
-      .map((r) => r.payload)
-      .filter((p): p is EventHookConfig => Boolean(p?.id))
+    const items = await this.getAggregateItems<EventHookConfig>(docId(['hook', orgId]))
+    return items
+      .filter((p) => Boolean(p?.id))
       .map((h) => ({ ...h, config: { ...h.config } }))
   }
 
   async upsertHook(hook: EventHookConfig): Promise<EventHookConfig> {
     const next = { ...hook, config: { ...hook.config } }
-    await this.setPayload(docId(['hook', hook.orgId, hook.id]), 'hook', hook.orgId, next, { hookId: hook.id })
+    const id = docId(['hook', hook.orgId])
+    const items = await this.getAggregateItems<EventHookConfig>(id)
+    const merged = upsertAggregateItem(items, next, (h) => h.id)
+    await this.setAggregateItems(id, 'hook', hook.orgId, merged)
     return next
   }
 
   async listBatchJobs(orgId: string): Promise<BatchJobResult[]> {
-    const rows = await this.listByOrgKind<BatchJobResult>(orgId, 'batch', 50)
-    return rows
-      .map((r) => r.payload)
-      .filter((p): p is BatchJobResult => Boolean(p?.id))
+    const items = await this.getAggregateItems<BatchJobResult>(docId(['batch', orgId]))
+    return items
+      .filter((p) => Boolean(p?.id))
       .map((b) => ({ ...b, items: b.items.map((i) => ({ ...i })) }))
   }
 
   async addBatchJob(job: BatchJobResult): Promise<BatchJobResult> {
     const next = { ...job, items: job.items.map((i) => ({ ...i })) }
-    await this.setPayload(docId(['batch', job.orgId, job.id]), 'batch', job.orgId, next, { batchId: job.id })
+    const id = docId(['batch', job.orgId])
+    const items = await this.getAggregateItems<BatchJobResult>(id)
+    const merged = upsertAggregateItem(items, next, (b) => b.id, { prepend: true, max: 50 })
+    await this.setAggregateItems(id, 'batch', job.orgId, merged)
     return next
   }
 
   async listMcp(orgId: string): Promise<McpServerConfig[]> {
-    const rows = await this.listByOrgKind<McpServerConfig>(orgId, 'mcp', 100)
-    return rows
-      .map((r) => r.payload)
-      .filter((p): p is McpServerConfig => Boolean(p?.id))
+    const items = await this.getAggregateItems<McpServerConfig>(docId(['mcp', orgId]))
+    return items.filter((p) => Boolean(p?.id))
   }
 
   async upsertMcp(server: McpServerConfig): Promise<McpServerConfig> {
     const next = { ...server }
-    await this.setPayload(docId(['mcp', server.orgId, server.id]), 'mcp', server.orgId, next, { mcpId: server.id })
+    const id = docId(['mcp', server.orgId])
+    const items = await this.getAggregateItems<McpServerConfig>(id)
+    const merged = upsertAggregateItem(items, next, (s) => s.id)
+    await this.setAggregateItems(id, 'mcp', server.orgId, merged)
     return next
   }
 
@@ -589,38 +676,38 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
   }
 
   async listCredentialPools(orgId: string): Promise<CredentialPool[]> {
-    const rows = await this.listByOrgKind<CredentialPool>(orgId, 'credential_pool', 50)
-    return rows
-      .map((r) => r.payload)
-      .filter((p): p is CredentialPool => Boolean(p?.provider))
+    const items = await this.getAggregateItems<CredentialPool>(docId(['credential_pool', orgId]))
+    return items
+      .filter((p) => Boolean(p?.provider))
       .map((p) => ({ ...p, keys: p.keys.map((k) => ({ ...k })) }))
   }
 
   async upsertCredentialPool(pool: CredentialPool): Promise<CredentialPool> {
     const next = { ...pool, keys: pool.keys.map((k) => ({ ...k })) }
-    await this.setPayload(docId(['credential_pool', pool.orgId, pool.provider]), 'credential_pool', pool.orgId, next, {
-      provider: pool.provider,
-    })
+    const id = docId(['credential_pool', pool.orgId])
+    const items = await this.getAggregateItems<CredentialPool>(id)
+    const merged = upsertAggregateItem(items, next, (p) => p.provider)
+    await this.setAggregateItems(id, 'credential_pool', pool.orgId, merged)
     return next
   }
 
   async listMemoryProviders(orgId: string, agentId?: string): Promise<MemoryProviderBinding[]> {
-    let rows = (await this.listByOrgKind<MemoryProviderBinding>(orgId, 'memory_provider', 50))
-      .map((r) => r.payload)
-      .filter((p): p is MemoryProviderBinding => Boolean(p?.provider))
-    if (agentId) rows = rows.filter((b) => b.agentId === agentId)
-    return rows.map((b) => ({ ...b, config: { ...b.config } }))
+    let items = await this.getAggregateItems<MemoryProviderBinding>(docId(['memory_provider', orgId]))
+    items = items.filter((p) => Boolean(p?.provider))
+    if (agentId) items = items.filter((b) => b.agentId === agentId)
+    return items.map((b) => ({ ...b, config: { ...b.config } }))
   }
 
   async upsertMemoryProvider(binding: MemoryProviderBinding): Promise<MemoryProviderBinding> {
     const next = { ...binding, config: { ...binding.config } }
-    await this.setPayload(
-      docId(['memory_provider', binding.orgId, binding.agentId, binding.provider]),
-      'memory_provider',
-      binding.orgId,
+    const id = docId(['memory_provider', binding.orgId])
+    const items = await this.getAggregateItems<MemoryProviderBinding>(id)
+    const merged = upsertAggregateItem(
+      items,
       next,
-      { agentId: binding.agentId, provider: binding.provider },
+      (b) => `${b.agentId}::${b.provider}`,
     )
+    await this.setAggregateItems(id, 'memory_provider', binding.orgId, merged)
     return next
   }
 
@@ -650,24 +737,24 @@ export class FirestoreHermesFeaturesRepository implements HermesFeaturesReposito
 
   async saveDelegation(record: DelegationRecord): Promise<DelegationRecord> {
     const next = { ...record, children: record.children.map((c) => ({ ...c })) }
-    await this.setPayload(docId(['delegation', record.orgId, record.id]), 'delegation', record.orgId, next, {
-      delegationId: record.id,
-      conversationId: record.conversationId || null,
-    })
+    const id = docId(['delegation', record.orgId])
+    const items = await this.getAggregateItems<DelegationRecord>(id)
+    const merged = upsertAggregateItem(items, next, (d) => d.id, { prepend: true, max: 50 })
+    await this.setAggregateItems(id, 'delegation', record.orgId, merged)
     return next
   }
 
   async getDelegation(orgId: string, id: string): Promise<DelegationRecord | null> {
-    const payload = await this.getPayload<DelegationRecord>(docId(['delegation', orgId, id]))
-    return payload ? { ...payload, children: payload.children.map((c) => ({ ...c })) } : null
+    const items = await this.listDelegations(orgId)
+    const found = items.find((d) => d.id === id)
+    return found ? { ...found, children: found.children.map((c) => ({ ...c })) } : null
   }
 
   async listDelegations(orgId: string, conversationId?: string): Promise<DelegationRecord[]> {
-    let rows = (await this.listByOrgKind<DelegationRecord>(orgId, 'delegation', 50))
-      .map((r) => r.payload)
-      .filter((p): p is DelegationRecord => Boolean(p?.id))
-    if (conversationId) rows = rows.filter((d) => d.conversationId === conversationId)
-    return rows.map((d) => ({ ...d, children: d.children.map((c) => ({ ...c })) }))
+    let items = await this.getAggregateItems<DelegationRecord>(docId(['delegation', orgId]))
+    items = items.filter((p) => Boolean(p?.id))
+    if (conversationId) items = items.filter((d) => d.conversationId === conversationId)
+    return items.map((d) => ({ ...d, children: d.children.map((c) => ({ ...c })) }))
   }
 }
 
