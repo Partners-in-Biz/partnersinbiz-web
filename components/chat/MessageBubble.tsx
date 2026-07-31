@@ -1754,6 +1754,10 @@ function actionClasses(action: ChatUiAction): string {
   if (type === 'deny' || action.variant === 'danger') {
     return 'border-red-500/30 bg-red-500/10 text-red-200 hover:bg-red-500/20'
   }
+  // Email/document/invoice canvas open — brand primary so it cannot hide next to Copy.
+  if (type === 'open_context') {
+    return 'border-primary/40 bg-primary/15 text-primary hover:bg-primary/25'
+  }
   if (type === 'approve' || action.variant === 'primary') {
     return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
   }
