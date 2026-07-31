@@ -59,3 +59,76 @@ export const DELETE = withPortalAuthAndRole(
     }
   }
 )
+
+export const PATCH = withPortalAuthAndRole(
+  'admin',
+  async (req: NextRequest, _uid: string, orgId: string, _role: OrgRole, { params }: { params: Promise<{ uid: string }> }) => {
+    try {
+      const { uid: targetUid } = await params
+      const body = await req.json().catch(() => ({}))
+
+      const hasUpdates = ['jobTitle', 'department', 'accessNotes'].some((field) => Object.prototype.hasOwnProperty.call(body, field))
+      if (!hasUpdates) return apiError('At least one field is required: jobTitle, department, accessNotes', 400)
+
+      const jobTitle = Object.prototype.hasOwnProperty.call(body, 'jobTitle') && typeof body.jobTitle === 'string'
+        ? body.jobTitle.trim()
+        : undefined
+      const department = Object.prototype.hasOwnProperty.call(body, 'department') && typeof body.department === 'string'
+        ? body.department.trim()
+        : undefined
+      const accessNotes = Object.prototype.hasOwnProperty.call(body, 'accessNotes') && typeof body.accessNotes === 'string'
+        ? body.accessNotes.trim()
+        : undefined
+
+      const orgRef = adminDb.collection('organizations').doc(orgId)
+      const orgDoc = await orgRef.get()
+      if (!orgDoc.exists) return apiError('Organisation not found', 404)
+
+      const members = (orgDoc.data()?.members ?? []) as Array<{ userId?: string; uid?: string; role?: string; [k: string]: unknown }>
+      const targetIndex = members.findIndex((member) => {
+        const memberUid = member.userId || (member.uid as string | undefined) || ''
+        return memberUid === targetUid
+      })
+      if (targetIndex === -1) return apiError('Team member not found', 404)
+
+      const metadataPatch: Record<string, string> = {}
+      if (Object.prototype.hasOwnProperty.call(body, 'jobTitle')) {
+        metadataPatch.jobTitle = jobTitle ?? ''
+      }
+      if (Object.prototype.hasOwnProperty.call(body, 'department')) {
+        metadataPatch.department = department ?? ''
+      }
+      if (Object.prototype.hasOwnProperty.call(body, 'accessNotes')) {
+        metadataPatch.accessNotes = accessNotes ?? ''
+      }
+
+      const updatedMembers = [...members]
+      updatedMembers[targetIndex] = {
+        ...updatedMembers[targetIndex],
+        ...metadataPatch,
+      } as typeof updatedMembers[number]
+
+      const batch = adminDb.batch()
+      batch.set(
+        adminDb.collection('orgMembers').doc(`${orgId}_${targetUid}`),
+        {
+          ...metadataPatch,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      )
+      batch.update(orgRef, {
+        members: updatedMembers,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      await batch.commit()
+
+      return NextResponse.json({
+        uid: targetUid,
+        ...metadataPatch,
+      })
+    } catch (err) {
+      return apiErrorFromException(err)
+    }
+  },
+)

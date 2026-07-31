@@ -1,5 +1,5 @@
 /**
- * PATCH /api/v1/organizations/[id]/members/[userId] — update member role
+ * PATCH /api/v1/organizations/[id]/members/[userId] — update member details
  * DELETE /api/v1/organizations/[id]/members/[userId] — remove a member
  */
 import { FieldValue } from 'firebase-admin/firestore'
@@ -31,9 +31,14 @@ export const PATCH = withAuth('admin', async (req, user, ctx) => {
   const body = await req.json().catch(() => ({}))
   const newRole = body.role as OrgRole | undefined
   const hasAccessScopeUpdate = Object.prototype.hasOwnProperty.call(body, 'accessScope')
+  const hasMetadataUpdate = Object.prototype.hasOwnProperty.call(body, 'jobTitle')
+    || Object.prototype.hasOwnProperty.call(body, 'department')
+    || Object.prototype.hasOwnProperty.call(body, 'accessNotes')
   const metadata = parseMemberMetadata(body as Record<string, unknown>)
 
-  if (!newRole && !hasAccessScopeUpdate) return apiError('role or accessScope is required', 400)
+  if (!newRole && !hasAccessScopeUpdate && !hasMetadataUpdate) {
+    return apiError('role, accessScope, jobTitle, department or accessNotes is required', 400)
+  }
 
   const validRoles: OrgRole[] = ['owner', 'admin', 'member', 'viewer']
   if (newRole && !validRoles.includes(newRole)) {
@@ -68,12 +73,23 @@ export const PATCH = withAuth('admin', async (req, user, ctx) => {
   const accessUpdate = hasAccessScopeUpdate
     ? { accessScope: metadata.accessScope, accessPolicy: nextAccessPolicy }
     : {}
+  const metadataUpdate: Record<string, string> = {}
+  if (Object.prototype.hasOwnProperty.call(body, 'jobTitle')) {
+    metadataUpdate.jobTitle = typeof body.jobTitle === 'string' ? body.jobTitle.trim() : ''
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'department')) {
+    metadataUpdate.department = typeof body.department === 'string' ? body.department.trim() : ''
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'accessNotes')) {
+    metadataUpdate.accessNotes = typeof body.accessNotes === 'string' ? body.accessNotes.trim() : ''
+  }
 
   const updatedMembers = [...members]
   updatedMembers[memberIndex] = {
     ...member,
     role: nextRole,
     ...accessUpdate,
+    ...metadataUpdate,
   }
 
   await adminDb.collection('organizations').doc(id).update({
@@ -87,6 +103,7 @@ export const PATCH = withAuth('admin', async (req, user, ctx) => {
       uid: targetUserId,
       role: nextRole,
       ...accessUpdate,
+      ...metadataUpdate,
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },

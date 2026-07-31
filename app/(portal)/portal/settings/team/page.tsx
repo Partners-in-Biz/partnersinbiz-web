@@ -153,6 +153,26 @@ export default function TeamPage() {
     }
   }
 
+  async function handleProfileUpdate(uid: string, updates: { jobTitle: string; department: string }) {
+    const res = await fetch(teamEndpoint(`/api/v1/portal/settings/team/${uid}`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) return false
+    setMembers(prev => prev.map(member => (
+      member.uid === uid
+        ? {
+            ...member,
+            jobTitle: body.jobTitle ?? updates.jobTitle,
+            department: body.department ?? updates.department,
+          }
+        : member
+    )))
+    return true
+  }
+
   async function handleEditAccess(member: Member) {
     setEditingAccessMember(member)
     setAccessDraft(member.accessPolicy ? normalizeMemberAccessPolicy(member.accessPolicy) : null)
@@ -348,6 +368,7 @@ export default function TeamPage() {
                 setRemoveError('')
               }}
               onRoleChange={handleRoleChange}
+              onProfileUpdate={handleProfileUpdate}
               onEditAccess={() => handleEditAccess(m)}
             />
           ))
