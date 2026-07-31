@@ -775,6 +775,34 @@ describe('context reference registry', () => {
     expect(buildAttachedContextBlock(refs)).toContain('workspace_broker_job: create_doc')
   })
 
+  it('keeps Workspace connections and broker jobs out of member context discovery', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const member = {
+      uid: 'client-1',
+      role: 'client' as const,
+      authKind: 'session' as const,
+      orgId: 'org-1',
+      orgIds: ['org-1'],
+    }
+
+    await expect(resolveContextReferences([
+      { type: 'workspace_connection', id: 'connection-1', orgId: 'org-1' },
+      { type: 'workspace_broker_job', id: 'job-1', orgId: 'org-1' },
+    ], member, 'org-1')).resolves.toEqual([])
+    await expect(searchContextReferences({
+      type: 'workspace_connection',
+      query: 'google',
+      orgId: 'org-1',
+      user: member,
+    })).resolves.toEqual([])
+    await expect(searchContextReferences({
+      type: 'workspace_broker_job',
+      query: 'create',
+      orgId: 'org-1',
+      user: member,
+    })).resolves.toEqual([])
+  })
+
   it('preserves the recipient organisation perspective for received quote context', async () => {
     const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
     const user = {

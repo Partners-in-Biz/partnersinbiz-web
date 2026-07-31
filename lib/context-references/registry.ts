@@ -902,6 +902,7 @@ async function resolveGeneric(
   const orgId = billingPerspectiveOrg || docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
   if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrg) || !canUseOrg(input.user, orgId)) return null
   if (type === 'email' && clean(data.uid) !== ownerUidFrom(input.user)) return null
+  if ((type === 'workspace_connection' || type === 'workspace_broker_job') && input.user.role === 'client') return null
   if (type === 'workspace_artifact' && input.user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
   const quoteRecipientPerspective = type === 'quote'
     && orgId !== (clean(data.sourceOrgId) || clean(data.orgId))
@@ -1148,6 +1149,7 @@ function refFromSearchRow(
   if (type === 'research' && user.role === 'client' && clean(data.visibility) !== 'client_visible') return null
   if (type === 'email' && clean(data.uid) !== ownerUidFrom(user)) return null
   if (type === 'support' && user.role === 'client' && clean(data.createdBy) !== user.uid) return null
+  if ((type === 'workspace_connection' || type === 'workspace_broker_job') && user.role === 'client') return null
   if (type === 'workspace_artifact' && user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
 
   const label = type === 'contact' ? contactDisplayName(data) : ''
