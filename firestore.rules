@@ -196,6 +196,7 @@ service cloud.firestore {
     match /tax_periods/{id} { allow read, write: if false; }
     match /tax_return_snapshots/{id} { allow read, write: if false; }
     match /tax_return_lines/{id} { allow read, write: if false; }
+    match /journal_tax_traces/{id} { allow read, write: if false; }
     match /financial_report_snapshots/{id} { allow read, write: if false; }
     match /supplier_bills/{id} { allow read, write: if false; }
     match /supplier_bill_lines/{id} { allow read, write: if false; }

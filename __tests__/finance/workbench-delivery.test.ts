@@ -7,6 +7,8 @@ describe('finance workbench delivery contract', () => {
       'app/api/v1/finance/foundation/commands/route.ts',
       'app/api/v1/finance/foundation/queries/route.ts',
       'app/api/v1/finance/reports/queries/route.ts',
+      'app/api/v1/finance/tax/commands/route.ts',
+      'app/api/v1/finance/tax/queries/route.ts',
     ]))
     expect(FINANCE_UI_SHIPPED).toBe(true)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)

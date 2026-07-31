@@ -9,6 +9,8 @@ export const FINANCE_HTTP_ENTRYPOINTS = [
   'app/api/v1/finance/foundation/commands/route.ts',
   'app/api/v1/finance/foundation/queries/route.ts',
   'app/api/v1/finance/reports/queries/route.ts',
+  'app/api/v1/finance/tax/commands/route.ts',
+  'app/api/v1/finance/tax/queries/route.ts',
 ] as const
 
 /**
@@ -30,4 +32,4 @@ export const SERVICE_ONLY_FINANCE_MODULES = [
 export const FINANCE_UI_SHIPPED = true as const
 
 export const FINANCE_UI_BOUNDARY_NOTE =
-  'Finance foundation workbench shipped under /portal/finance (overview, setup, ledger, reports). Ledger-backed trial balance / income statement / balance sheet are live HTTP. Payroll/tax/intercompany mutation HTTP remain staged until durable adapters land. Sensitive access is enforced at policy + service boundaries.'
+  'Finance foundation workbench shipped under /portal/finance (overview, setup, ledger, reports, tax). Ledger reports and tax command/query HTTP are live. Intercompany/payroll/documents mutation HTTP remain staged until durable adapters land. Sensitive access is enforced at policy + service boundaries.'
