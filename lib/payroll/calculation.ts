@@ -267,8 +267,8 @@ export function calculatePayrollPeriod(
         employerFacing: false,
       })
       push('unpaid_leave', 'Apply unpaid leave reduction to salaried ordinary pay', {
-        unpaidHours,
-        standardHoursPerPeriod: input.standardHoursPerPeriod,
+        unpaidHoursCenti: Math.round(unpaidHours * 100),
+        standardHoursCenti: Math.round(input.standardHoursPerPeriod * 100),
         salaryMinor: input.rateMinor,
         hourlyEquivalent,
       }, { unpaidReductionMinor: unpaidReduction, ordinaryMinor })
@@ -308,7 +308,7 @@ export function calculatePayrollPeriod(
     })
     push('ordinary_hourly', 'Compute ordinary hourly earnings', {
       rateMinor: input.rateMinor,
-      ordinaryHoursWorked: input.ordinaryHoursWorked,
+      ordinaryHoursCenti: Math.round(input.ordinaryHoursWorked * 100),
     }, { ordinaryMinor })
   }
 
@@ -316,8 +316,17 @@ export function calculatePayrollPeriod(
   let overtimeMinor = 0
   if (input.overtimeHours > 0) {
     assertHours(input.overtimeHours, 'overtimeHours')
+    // Hourly workers: rateMinor is hourly. Salaried: convert period salary to hourly equivalent first.
+    let baseHourlyMinor = input.rateMinor
+    if (input.workerCategory === 'salaried') {
+      if (input.standardHoursPerPeriod <= 0) {
+        throw new FinanceValidationError('standardHoursPerPeriod must be positive for salaried overtime')
+      }
+      const standardHoursCenti = Math.round(input.standardHoursPerPeriod * 100)
+      baseHourlyMinor = roundHalfUpDiv(input.rateMinor * 100, standardHoursCenti)
+    }
     const otUnit = multiplyRateByMultiplier(
-      input.rateMinor,
+      baseHourlyMinor,
       input.overtimeMultiplierNumerator,
       input.overtimeMultiplierDenominator,
       'overtimeRate',
@@ -337,10 +346,11 @@ export function calculatePayrollPeriod(
       employerFacing: false,
     })
     push('overtime', 'Compute overtime', {
-      baseRateMinor: input.rateMinor,
+      workerCategory: input.workerCategory,
+      baseHourlyMinor,
       multiplierNumerator: input.overtimeMultiplierNumerator,
       multiplierDenominator: input.overtimeMultiplierDenominator,
-      overtimeHours: input.overtimeHours,
+      overtimeHoursCenti: Math.round(input.overtimeHours * 100),
       otUnitMinor: otUnit,
     }, { overtimeMinor })
   }
@@ -370,7 +380,7 @@ export function calculatePayrollPeriod(
     } else {
       warnings.push('Paid leave on salaried worker recorded for audit; amount included in base salary')
       push('leave_paid_salaried_info', 'Paid leave informational for salaried worker', {
-        hours: leave.hours,
+        hoursCenti: Math.round(leave.hours * 100),
       }, { amountIncludedInSalary: true })
     }
   }
@@ -424,7 +434,7 @@ export function calculatePayrollPeriod(
 
     push('component', `Apply component ${code}`, {
       kind,
-      quantity: component.quantityMinorUnits,
+      quantityCenti: Math.round(component.quantityMinorUnits * 100),
       unitAmountMinor: component.unitAmountMinor,
       taxTreatment: tax,
     }, { amountMinor: signedAmount })
@@ -671,6 +681,10 @@ export function calculatePayrollPeriod(
     ruleContentHash: rule.contentHash,
   })
 
+  const digestSafeLines = lines.map((line) => ({
+    ...line,
+    quantity: Math.round(line.quantity * 100), // stored as centi-units for digest/hash safety
+  }))
   const resultWithoutDigest = {
     jurisdictionCode: rule.jurisdictionCode,
     ruleVersionId: rule.id,
@@ -685,7 +699,7 @@ export function calculatePayrollPeriod(
     annualTaxBeforeRebateMinor,
     annualRebateMinor,
     annualTaxAfterRebateMinor,
-    lines,
+    lines: digestSafeLines,
     totals,
     trace,
     warnings,

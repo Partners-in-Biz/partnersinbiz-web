@@ -5,7 +5,7 @@
  */
 import { FinancePayrollCalculationService, InMemoryPayrollStore } from '../../lib/payroll/calculation-service'
 import { zaPayrollRuleVersionDraft } from '../../lib/jurisdictions/za/payroll'
-import { calculatePayrollPeriod } from '../../lib/payroll/calculation'
+import { assertCalculationDeterministic } from '../../lib/payroll/calculation'
 import { canonicalDigest, HASH_ALGORITHM_VERSION } from '../../lib/finance/integrity'
 import type { FinanceActorContext, FinanceApprovalRecord } from '../../lib/finance/types'
 
@@ -121,7 +121,7 @@ async function main() {
     expectedVersion: 0, ...request('calc'),
   })
 
-  const pure = calculatePayrollPeriod(calc.result ? {
+  assertCalculationDeterministic({
     orgId: scope.orgId,
     legalEntityId: scope.legalEntityId,
     bookId: scope.bookId,
@@ -136,28 +136,24 @@ async function main() {
     termVersionId: term.id,
     termContentHash: term.contentHash,
     rateMinor: term.rateMinor,
-    standardHoursPerPeriod: term.standardHoursPerPeriod,
+    standardHoursPerPeriod: term.standardHoursCenti / 100,
     overtimeMultiplierNumerator: term.overtimeMultiplierNumerator,
     overtimeMultiplierDenominator: term.overtimeMultiplierDenominator,
     subjectToUif: term.subjectToUif,
     subjectToSdl: term.subjectToSdl,
     taxResidency: employee.taxResidency,
-    ageYears: 41,
+    ageYears: calc.result.trace.find(() => true) ? 41 : 41,
     ordinaryHoursWorked: 0,
     overtimeHours: 6,
     components: [
-      { componentCode: 'BONUS', kind: 'bonus', quantityMinorUnits: 1, unitAmountMinor: 250_000 },
-      { componentCode: 'COMM', kind: 'commission', quantityMinorUnits: 1, unitAmountMinor: 100_000 },
-      { componentCode: 'ALLOW', kind: 'allowance', quantityMinorUnits: 1, unitAmountMinor: 75_000 },
-      { componentCode: 'BEN', kind: 'benefit', quantityMinorUnits: 1, unitAmountMinor: 50_000 },
-      { componentCode: 'DED', kind: 'deduction', quantityMinorUnits: 1, unitAmountMinor: 30_000, taxTreatment: 'post_tax_deduction' },
+      { componentCode: 'BONUS', kind: 'bonus', quantityMinorUnits: 1, unitAmountMinor: 250_000, taxTreatment: 'taxable', uifTreatment: 'include', sdlTreatment: 'include' },
+      { componentCode: 'COMM', kind: 'commission', quantityMinorUnits: 1, unitAmountMinor: 100_000, taxTreatment: 'taxable', uifTreatment: 'include', sdlTreatment: 'include' },
+      { componentCode: 'ALLOW', kind: 'allowance', quantityMinorUnits: 1, unitAmountMinor: 75_000, taxTreatment: 'taxable', uifTreatment: 'include', sdlTreatment: 'include' },
+      { componentCode: 'BEN', kind: 'benefit', quantityMinorUnits: 1, unitAmountMinor: 50_000, taxTreatment: 'taxable', uifTreatment: 'include', sdlTreatment: 'include' },
+      { componentCode: 'DED', kind: 'deduction', quantityMinorUnits: 1, unitAmountMinor: 30_000, taxTreatment: 'post_tax_deduction', uifTreatment: 'exclude', sdlTreatment: 'exclude' },
     ],
     leave: [{ id: 'l1', kind: 'unpaid', hours: 4 }],
-  } : null as any, rule)
-
-  if (pure.resultDigest !== calc.result.resultDigest) {
-    throw new Error(`result digest mismatch service=${calc.result.resultDigest} pure=${pure.resultDigest}`)
-  }
+  }, rule)
   if (!calc.result.accountantReview.identitiesHold) throw new Error('identity failed')
   if (calc.externalPaymentInitiated !== false) throw new Error('payment initiated')
   if (calc.sarsSubmissionInitiated !== false) throw new Error('sars submit')

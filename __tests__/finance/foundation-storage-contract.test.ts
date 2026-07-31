@@ -20,6 +20,12 @@ describe('finance foundation storage contract', () => {
       'reconciliation_adjustments',
       'intercompany_pairs', 'intercompany_transactions', 'elimination_rules',
       'consolidation_runs', 'consolidation_entries',
+      'payroll_employees', 'payroll_employments', 'employment_term_versions',
+      'pay_components', 'payroll_rule_versions', 'payroll_calendars', 'pay_periods',
+      'payroll_calculations', 'payroll_tax_years', 'payroll_ytd_openings',
+      'payroll_calculation_manifests', 'pay_runs', 'pay_run_items',
+      'pay_run_item_components', 'payslips', 'payroll_adjustments', 'leave_records',
+      'irp5_records', 'emp201_snapshots', 'emp501_reconciliations',
     ]) {
       expect(rules).toContain(`match /${collection}/{id} { allow read, write: if false; }`)
     }

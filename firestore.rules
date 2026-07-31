@@ -215,6 +215,26 @@ service cloud.firestore {
     match /elimination_rules/{id} { allow read, write: if false; }
     match /consolidation_runs/{id} { allow read, write: if false; }
     match /consolidation_entries/{id} { allow read, write: if false; }
+    match /payroll_employees/{id} { allow read, write: if false; }
+    match /payroll_employments/{id} { allow read, write: if false; }
+    match /employment_term_versions/{id} { allow read, write: if false; }
+    match /pay_components/{id} { allow read, write: if false; }
+    match /payroll_rule_versions/{id} { allow read, write: if false; }
+    match /payroll_calendars/{id} { allow read, write: if false; }
+    match /pay_periods/{id} { allow read, write: if false; }
+    match /payroll_calculations/{id} { allow read, write: if false; }
+    match /payroll_tax_years/{id} { allow read, write: if false; }
+    match /payroll_ytd_openings/{id} { allow read, write: if false; }
+    match /payroll_calculation_manifests/{id} { allow read, write: if false; }
+    match /pay_runs/{id} { allow read, write: if false; }
+    match /pay_run_items/{id} { allow read, write: if false; }
+    match /pay_run_item_components/{id} { allow read, write: if false; }
+    match /payslips/{id} { allow read, write: if false; }
+    match /payroll_adjustments/{id} { allow read, write: if false; }
+    match /leave_records/{id} { allow read, write: if false; }
+    match /irp5_records/{id} { allow read, write: if false; }
+    match /emp201_snapshots/{id} { allow read, write: if false; }
+    match /emp501_reconciliations/{id} { allow read, write: if false; }
 
     // Idempotency cache — never client-readable or writable.
     match /idempotency_keys/{id} {

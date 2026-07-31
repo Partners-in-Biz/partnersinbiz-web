@@ -502,7 +502,13 @@ export class FinancePayrollCalculationService {
       assertCreateVersion(command.expectedVersion, 'employment term version')
       const scope = scopeOf(command)
       authorizeFinanceAction(actor, scope, 'payroll.employee.write', now)
-      const idem = idempotencyInput(state, actor, scope, 'payroll.term.create', command, now)
+      if (!(command.standardHoursPerPeriod > 0)) throw new FinanceValidationError('standardHoursPerPeriod must be positive')
+      const standardHoursCenti = Math.round(command.standardHoursPerPeriod * 100)
+      if (!Number.isSafeInteger(standardHoursCenti) || standardHoursCenti <= 0) {
+        throw new FinanceValidationError('standardHoursPerPeriod must resolve to positive centi-hours')
+      }
+      const normalizedCommand = { ...command, standardHoursPerPeriod: standardHoursCenti }
+      const idem = idempotencyInput(state, actor, scope, 'payroll.term.create', normalizedCommand, now)
       if (idem.retryId) return structuredClone(state.termVersions.get(idem.retryId)!)
       const employment = scopedGet(state.employments, command.employmentId, scope, 'Employment')
       if (employment.employeeId !== command.employeeId) throw new FinanceValidationError('Employment does not belong to employee')
@@ -513,13 +519,6 @@ export class FinancePayrollCalculationService {
       if (!Number.isSafeInteger(command.rateMinor) || command.rateMinor <= 0) {
         throw new FinanceValidationError('rateMinor must be a positive safe integer')
       }
-      if (!(command.standardHoursPerPeriod > 0)) throw new FinanceValidationError('standardHoursPerPeriod must be positive')
-      const standardHoursCenti = Math.round(command.standardHoursPerPeriod * 100)
-      if (!Number.isSafeInteger(standardHoursCenti) || standardHoursCenti <= 0) {
-        throw new FinanceValidationError('standardHoursPerPeriod must resolve to positive centi-hours')
-      }
-      // Persist canonical 2dp hours reconstructed from integer centi-hours (digest-safe).
-      const standardHoursPerPeriod = standardHoursCenti / 100
       if (!Number.isSafeInteger(command.overtimeMultiplierNumerator) || command.overtimeMultiplierNumerator <= 0) {
         throw new FinanceValidationError('overtimeMultiplierNumerator is invalid')
       }
@@ -543,7 +542,6 @@ export class FinancePayrollCalculationService {
         workerCategory: command.workerCategory,
         frequency: command.frequency,
         rateMinor: command.rateMinor,
-        standardHoursPerPeriod,
         standardHoursCenti,
         overtimeMultiplierNumerator: command.overtimeMultiplierNumerator,
         overtimeMultiplierDenominator: command.overtimeMultiplierDenominator,
@@ -582,7 +580,7 @@ export class FinancePayrollCalculationService {
         frequency: term.frequency,
         rateMinor: term.rateMinor,
       })
-      storeIdempotency(state, actor, scope, 'payroll.term.create', command, term.id, idem.claimId, idem.payloadDigest, now, term)
+      storeIdempotency(state, actor, scope, 'payroll.term.create', normalizedCommand, term.id, idem.claimId, idem.payloadDigest, now, term)
       return structuredClone(term)
     })
   }
@@ -786,7 +784,17 @@ export class FinancePayrollCalculationService {
       assertCreateVersion(command.expectedVersion, 'payroll calculation')
       const scope = scopeOf(command)
       authorizeFinanceAction(actor, scope, 'payroll.calculate', now)
-      const idem = idempotencyInput(state, actor, scope, 'payroll.calculate', command, now)
+      const normalizedCommand = compactUndefined({
+        ...command,
+        ordinaryHoursWorked: command.ordinaryHoursWorked === undefined ? undefined : Math.round(command.ordinaryHoursWorked * 100),
+        overtimeHours: command.overtimeHours === undefined ? undefined : Math.round(command.overtimeHours * 100),
+        leave: (command.leave ?? []).map((row) => ({ ...row, hours: Math.round(row.hours * 100) })),
+        components: (command.components ?? []).map((row) => ({
+          ...row,
+          quantityMinorUnits: Math.round(row.quantityMinorUnits * 100),
+        })),
+      })
+      const idem = idempotencyInput(state, actor, scope, 'payroll.calculate', normalizedCommand, now)
       if (idem.retryId) return structuredClone(state.calculations.get(idem.retryId)!)
 
       const employee = scopedGet(state.employees, command.employeeId, scope, 'Employee')
@@ -847,14 +855,14 @@ export class FinancePayrollCalculationService {
         termVersionId: term.id,
         termContentHash: term.contentHash,
         rateMinor: term.rateMinor,
-        standardHoursPerPeriod: term.standardHoursPerPeriod,
+        standardHoursPerPeriod: term.standardHoursCenti / 100,
         overtimeMultiplierNumerator: term.overtimeMultiplierNumerator,
         overtimeMultiplierDenominator: term.overtimeMultiplierDenominator,
         subjectToUif: term.subjectToUif,
         subjectToSdl: term.subjectToSdl,
         taxResidency: employee.taxResidency,
         ageYears: command.ageYears ?? ageYearsFromDob(employee.dateOfBirth, period.periodEnd),
-        ordinaryHoursWorked: command.ordinaryHoursWorked ?? (term.workerCategory === 'hourly' ? term.standardHoursPerPeriod : 0),
+        ordinaryHoursWorked: command.ordinaryHoursWorked ?? (term.workerCategory === 'hourly' ? term.standardHoursCenti / 100 : 0),
         overtimeHours: command.overtimeHours ?? 0,
         components,
         leave: command.leave ?? [],
@@ -898,7 +906,7 @@ export class FinancePayrollCalculationService {
         externalPaymentInitiated: false,
         sarsSubmissionInitiated: false,
       })
-      storeIdempotency(state, actor, scope, 'payroll.calculate', command, record.id, idem.claimId, idem.payloadDigest, now, record)
+      storeIdempotency(state, actor, scope, 'payroll.calculate', normalizedCommand, record.id, idem.claimId, idem.payloadDigest, now, record)
       return structuredClone(record)
     })
   }

@@ -119,11 +119,7 @@ describe('payroll domain calculation', () => {
     expect(result.accountantReview.sarsSubmissionInitiated).toBe(false)
     expect(result.accountantReview.identitiesHold).toBe(true)
     expect(result.totals.overtimeMinor).toBe(
-      multiplyRateByHours(
-        multiplyRateByMultiplier(2_500_000, 150, 100, 'ot'),
-        10,
-        'ot',
-      ),
+      multiplyRateByHours(multiplyRateByMultiplier(15_625, 150, 100, 'ot'), 10, 'ot'),
     )
     // unpaid 8/160 of R25,000.00 salary -> R1,250.00
     expect(result.totals.leaveUnpaidReductionMinor).toBe(125_000)

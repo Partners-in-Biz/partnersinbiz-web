@@ -62,7 +62,8 @@ export interface EmploymentTermVersion extends VersionedFinanceRecord {
   frequency: PayFrequency
   /** Monthly/weekly salary or hourly rate in minor units. */
   rateMinor: number
-  standardHoursPerPeriod: number
+  /** Standard hours for the period in centi-hours (16000 = 160.00). */
+  standardHoursCenti: number
   overtimeMultiplierNumerator: number
   overtimeMultiplierDenominator: number
   subjectToUif: boolean
