@@ -26,10 +26,10 @@ describe('chat context capabilities API', () => {
       coverage: {
         totalKinds: 25,
         liveReadKinds: 25,
-        specializedKinds: 18,
+        specializedKinds: 19,
         sealedRuntimeKinds: 1,
-        inlineActionKinds: 18,
-        navigateActionKinds: 7,
+        inlineActionKinds: 19,
+        navigateActionKinds: 6,
       },
     })
     expect(body.data.capabilities).toHaveLength(25)

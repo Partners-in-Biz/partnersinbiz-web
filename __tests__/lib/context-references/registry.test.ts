@@ -306,6 +306,15 @@ beforeEach(() => {
           google: { url: 'https://docs.google.com/document/d/doc-1/edit' },
           deleted: false,
         }),
+        doc('artifact-admin-only', {
+          orgId: 'org-1',
+          title: 'Private board report',
+          artifactType: 'google_doc',
+          visibility: 'admin_only',
+          lifecycleStatus: 'approved',
+          permissions: { allowedAgentIds: ['docs'] },
+          deleted: false,
+        }),
       ])
     }
     if (name === 'organizations') {
@@ -801,6 +810,20 @@ describe('context reference registry', () => {
       orgId: 'org-1',
       user: member,
     })).resolves.toEqual([])
+  })
+
+  it('applies the canonical Workspace artifact visibility contract to governed agents', async () => {
+    const { resolveContextReferences } = await import('@/lib/context-references/registry')
+
+    await expect(resolveContextReferences([
+      { type: 'workspace_artifact', id: 'artifact-admin-only', orgId: 'org-1' },
+    ], {
+      uid: 'agent:docs',
+      role: 'ai',
+      authKind: 'agent_api_key',
+      agentId: 'docs',
+      orgId: 'org-1',
+    }, 'org-1')).resolves.toEqual([])
   })
 
   it('preserves the recipient organisation perspective for received quote context', async () => {

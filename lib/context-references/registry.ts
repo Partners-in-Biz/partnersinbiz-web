@@ -28,6 +28,7 @@ import {
   loadCalendarActorEmails,
 } from '@/lib/calendar/access'
 import type { CalendarEvent } from '@/lib/calendar/types'
+import { canReadWorkspaceArtifact } from '@/lib/workspace-os/artifacts'
 import {
   type AssignableCrmRecord,
   crmActorCanReadCompanyRecord,
@@ -903,7 +904,14 @@ async function resolveGeneric(
   if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrg) || !canUseOrg(input.user, orgId)) return null
   if (type === 'email' && clean(data.uid) !== ownerUidFrom(input.user)) return null
   if ((type === 'workspace_connection' || type === 'workspace_broker_job') && input.user.role === 'client') return null
-  if (type === 'workspace_artifact' && input.user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
+  if (type === 'workspace_artifact' && !canReadWorkspaceArtifact({
+    orgId,
+    visibility: clean(data.visibility) as never,
+    lifecycleStatus: clean(data.lifecycleStatus) as never,
+    permissions: data.permissions && typeof data.permissions === 'object' && !Array.isArray(data.permissions)
+      ? data.permissions as never
+      : { allowedAgentIds: [] } as never,
+  }, input.user)) return null
   const quoteRecipientPerspective = type === 'quote'
     && orgId !== (clean(data.sourceOrgId) || clean(data.orgId))
     && [clean(data.recipientOrgId), clean(data.targetOrgId)].includes(orgId)
@@ -1150,7 +1158,14 @@ function refFromSearchRow(
   if (type === 'email' && clean(data.uid) !== ownerUidFrom(user)) return null
   if (type === 'support' && user.role === 'client' && clean(data.createdBy) !== user.uid) return null
   if ((type === 'workspace_connection' || type === 'workspace_broker_job') && user.role === 'client') return null
-  if (type === 'workspace_artifact' && user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
+  if (type === 'workspace_artifact' && !canReadWorkspaceArtifact({
+    orgId,
+    visibility: clean(data.visibility) as never,
+    lifecycleStatus: clean(data.lifecycleStatus) as never,
+    permissions: data.permissions && typeof data.permissions === 'object' && !Array.isArray(data.permissions)
+      ? data.permissions as never
+      : { allowedAgentIds: [] } as never,
+  }, user)) return null
 
   const label = type === 'contact' ? contactDisplayName(data) : ''
   const fallbackLabel = clean(data.name) ||
