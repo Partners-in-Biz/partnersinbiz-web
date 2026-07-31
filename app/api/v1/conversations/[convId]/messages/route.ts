@@ -897,6 +897,12 @@ export const POST = withAuth(
         })
         branchMessage = await createMessage(convId, systemMsg)
         await touchConversation(convId, branchMessage.content.slice(0, 200), 'system', branchMessage.id)
+        // Link branch card so cron/finalizer can patch status + re-enter summary.
+        branchRecord = await hermesFeaturesService.attachDelegationBranchMessage(
+          conversation.orgId,
+          branchRecord.id,
+          branchMessage.id,
+        )
       } catch (error) {
         console.error('agent branch spawn failed:', error)
       }

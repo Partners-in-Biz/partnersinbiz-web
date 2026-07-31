@@ -15,11 +15,11 @@ import {
 } from '@/lib/conversations/access'
 import {
   buildAgentDelegationBranchPart,
-  buildChildSummaryParentMessage,
   buildChatDelegationGoals,
   buildDelegationBranchSystemMessage,
   extractAgentMentionsForDelegation,
 } from '@/lib/conversations/agent-delegation'
+import { finalizeDelegationChildRun } from '@/lib/conversations/delegation-finalizer'
 import { hermesFeaturesService } from '@/lib/hermes-features/service'
 import type { Mention } from '@/lib/comments/types'
 
@@ -96,33 +96,33 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     const ok = body.ok !== false
     if (!delegationId || !childId) return apiError('delegationId and childId are required', 400)
 
-    const updated = await hermesFeaturesService.completeDelegationChild(
+    const finalized = await finalizeDelegationChildRun({
       orgId,
       delegationId,
       childId,
       result,
       ok,
-    )
-    if (updated.conversationId && updated.conversationId !== convId) {
+      conversationId: convId,
+      runId: typeof body.runId === 'string' ? body.runId : undefined,
+    })
+    if (finalized.status === 'skipped' && finalized.error === 'Delegation not found') {
+      return apiError('Delegation not found', 404)
+    }
+    if (finalized.record?.conversationId && finalized.record.conversationId !== convId) {
       return apiError('Delegation not found', 404)
     }
 
-    const summaryInput = buildChildSummaryParentMessage({
-      conversationId: convId,
-      record: updated,
-      childId,
-    })
-    let summaryMessage = null
-    if (summaryInput) {
-      const created = await createMessage(convId, summaryInput)
-      await touchConversation(convId, created.content.slice(0, 200), created.role, created.id)
-      summaryMessage = publicConversationMessageView(created)
-    }
-
     return apiSuccess({
-      delegation: updated,
-      branch: buildAgentDelegationBranchPart(updated),
-      summaryMessage,
+      delegation: finalized.record,
+      branch: finalized.record ? buildAgentDelegationBranchPart(finalized.record) : null,
+      summaryMessage: finalized.summaryMessage
+        ? publicConversationMessageView(finalized.summaryMessage)
+        : null,
+      finalize: {
+        status: finalized.status,
+        alreadyFinal: finalized.alreadyFinal === true,
+        summaryMessageId: finalized.summaryMessageId,
+      },
     })
   }
 
@@ -179,10 +179,15 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   })
   const branchMessage = await createMessage(convId, systemMsg)
   await touchConversation(convId, branchMessage.content.slice(0, 200), 'system', branchMessage.id)
+  const linked = await hermesFeaturesService.attachDelegationBranchMessage(
+    orgId,
+    record.id,
+    branchMessage.id,
+  )
 
   return apiSuccess({
-    delegation: record,
-    branch: buildAgentDelegationBranchPart(record),
+    delegation: linked,
+    branch: buildAgentDelegationBranchPart(linked),
     branchMessage: publicConversationMessageView(branchMessage),
   }, 201)
 })

@@ -61,7 +61,17 @@ export function productionCronDeps(): CronHermesSyncDeps {
 
 export function productionDelegationDeps(): DelegationRunDeps {
   return {
-    createRun: async ({ orgId, agentId, conversationId, goal, context, childId, parentRunHint }) => {
+    createRun: async ({
+      orgId,
+      agentId,
+      conversationId,
+      goal,
+      context,
+      childId,
+      parentRunHint,
+      delegationId,
+      branchMessageId,
+    }) => {
       try {
         const link = await getAgentDispatchHermesProfileLink(agentId, orgId)
         if (!link) return { ok: false, error: `No Hermes profile link for agent ${agentId}` }
@@ -69,6 +79,7 @@ export function productionDelegationDeps(): DelegationRunDeps {
         const prompt = [
           '[Hermes subagent delegation — child run]',
           `parent: ${parentRunHint}`,
+          `delegationId: ${delegationId}`,
           `childId: ${childId}`,
           `agent: ${agentId}`,
           '',
@@ -83,12 +94,16 @@ export function productionDelegationDeps(): DelegationRunDeps {
           prompt,
           ...(conversationId ? { conversation_id: conversationId } : {}),
           metadata: {
+            // run-finalizer / delegation-finalizer discover these runs by source
+            // and completeDelegationChild + parent summary re-entry.
             source: 'hermes-features-delegation',
+            delegationId,
             childId,
             parentRunHint,
             dispatchAgentId: agentId,
             orgId,
             ...(conversationId ? { conversationId } : {}),
+            ...(branchMessageId ? { branchMessageId, messageId: branchMessageId } : {}),
           },
         })
         if (!result.ok) {

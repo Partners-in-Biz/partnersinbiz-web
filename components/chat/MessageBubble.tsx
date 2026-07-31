@@ -1518,6 +1518,7 @@ function RichMessagePartView({
 function AgentDelegationBranchCard({ part }: { part: RichMessagePart }) {
   const raw = part as RichMessagePart & {
     delegationId?: string
+    conversationId?: string
     parentAgentId?: string
     children?: Array<{
       id: string
@@ -1531,8 +1532,50 @@ function AgentDelegationBranchCard({ part }: { part: RichMessagePart }) {
     summary?: string
     title?: string
   }
-  const children = Array.isArray(raw.children) ? raw.children : []
-  const overall = String(raw.status ?? 'queued')
+  const [livePart, setLivePart] = useState(raw)
+  const overallSeed = String(raw.status ?? 'queued')
+  const isOpen = overallSeed === 'queued' || overallSeed === 'running' || overallSeed === 'partial'
+  const conversationId = raw.conversationId
+    || (typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('convId') || ''
+      : '')
+
+  // While a branch is open, poll the conversation delegations API so the card
+  // advances without waiting solely for a full live-feed message rewrite.
+  useEffect(() => {
+    setLivePart(raw)
+  }, [raw.delegationId, raw.status, raw.summary, raw.title, raw.children])
+
+  useEffect(() => {
+    if (!isOpen || !raw.delegationId || !conversationId || typeof window === 'undefined') return
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          `/api/v1/conversations/${encodeURIComponent(conversationId)}/delegations?id=${encodeURIComponent(raw.delegationId!)}`,
+          { credentials: 'include' },
+        )
+        if (!res.ok || cancelled) return
+        const body = await res.json().catch(() => null) as {
+          data?: { branch?: typeof raw }
+        } | null
+        if (body?.data?.branch && !cancelled) {
+          setLivePart((current) => ({ ...current, ...body.data!.branch }))
+        }
+      } catch {
+        // best-effort live refresh
+      }
+    }
+    const timer = window.setInterval(poll, 4000)
+    void poll()
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [isOpen, raw.delegationId, conversationId])
+
+  const children = Array.isArray(livePart.children) ? livePart.children : (Array.isArray(raw.children) ? raw.children : [])
+  const overall = String(livePart.status ?? raw.status ?? 'queued')
   const tone = overall === 'done'
     ? 'border-emerald-400/35 bg-emerald-500/10 text-emerald-50'
     : overall === 'failed' || overall === 'unknown'

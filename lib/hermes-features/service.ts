@@ -47,6 +47,7 @@ import {
   spawnObservableDelegations,
   observeDelegation,
   completeDelegationChild,
+  attachDelegationBranchMessage,
   type DelegationRunDeps,
 } from './delegation-runtime'
 import { executeCodeSandboxed } from './code-execution'
@@ -265,10 +266,12 @@ export const hermesFeaturesService = {
       orgId: string
       agentId: string
       conversationId?: string
+      branchMessageId?: string
       parentRunHint: string
       goals: Array<string | import('./types').DelegationGoalInput>
       maxConcurrent?: number
       toolsets?: string[]
+      delegationId?: string
     },
     deps?: DelegationRunDeps,
   ) {
@@ -276,10 +279,12 @@ export const hermesFeaturesService = {
       input,
       repo(),
       deps ?? (process.env.JEST_WORKER_ID ? {
-        createRun: async ({ childId }) => ({
+        createRun: async ({ childId, delegationId }) => ({
           ok: true,
           runId: `test-run-${childId}`,
           runDocId: `test-doc-${childId}`,
+          // echo for tests that assert metadata plumbing
+          ...(delegationId ? {} : {}),
         }),
       } : productionDelegationDeps()),
     )
@@ -289,6 +294,9 @@ export const hermesFeaturesService = {
   },
   async completeDelegationChild(orgId: string, delegationId: string, childId: string, result: string, ok = true) {
     return completeDelegationChild(orgId, delegationId, childId, result, ok, repo())
+  },
+  async attachDelegationBranchMessage(orgId: string, delegationId: string, branchMessageId: string) {
+    return attachDelegationBranchMessage(orgId, delegationId, branchMessageId, repo())
   },
 
   // Code exec (partial sandboxed + toolset gate)

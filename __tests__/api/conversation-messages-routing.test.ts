@@ -96,6 +96,7 @@ jest.mock('@/lib/comments/mentions', () => ({
 jest.mock('@/lib/comments/conversation-mentions', () => ({
   notifyConversationMentions: (...args: unknown[]) => mockNotifyConversationMentions(...args),
 }))
+const mockAttachDelegationBranchMessage = jest.fn()
 jest.mock('@/lib/hermes-features/service', () => {
   const actual = jest.requireActual('@/lib/hermes-features/service') as typeof import('@/lib/hermes-features/service')
   return {
@@ -103,6 +104,7 @@ jest.mock('@/lib/hermes-features/service', () => {
     hermesFeaturesService: {
       ...actual.hermesFeaturesService,
       spawnObservableDelegations: (...args: unknown[]) => mockSpawnObservableDelegations(...args),
+      attachDelegationBranchMessage: (...args: unknown[]) => mockAttachDelegationBranchMessage(...args),
     },
   }
 })
@@ -191,6 +193,18 @@ beforeEach(() => {
     createdAt: '2026-07-31T00:00:00.000Z',
     updatedAt: '2026-07-31T00:00:00.000Z',
   })
+  mockAttachDelegationBranchMessage.mockImplementation(async (_org: string, id: string, branchMessageId: string) => ({
+    id,
+    orgId: 'pib-platform-owner',
+    agentId: 'pip',
+    conversationId: 'conv-1',
+    branchMessageId,
+    parentRunHint: 'messages:conv-1',
+    maxConcurrent: 3,
+    children: [{ id: 'child_1', goal: 'work', status: 'running', agentId: 'maya', runId: 'run-1' }],
+    createdAt: '2026-07-31T00:00:00.000Z',
+    updatedAt: '2026-07-31T00:00:00.000Z',
+  }))
   mockValidateMessageModelSelection.mockImplementation(async (input: { model?: unknown; provider?: unknown }) => {
     const model = typeof input.model === 'string' ? input.model : ''
     const provider = typeof input.provider === 'string' ? input.provider : ''

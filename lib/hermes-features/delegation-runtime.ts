@@ -5,6 +5,8 @@ import type { HermesFeaturesRepository, DelegationRecord } from './repository'
 import type { DelegationGoalInput } from './types'
 import { spawnDelegations as spawnPure, completeChild, markChildUnknown } from './delegation'
 
+export const HERMES_FEATURES_DELEGATION_SOURCE = 'hermes-features-delegation'
+
 export interface DelegationRunDeps {
   createRun: (input: {
     orgId: string
@@ -14,8 +16,14 @@ export interface DelegationRunDeps {
     context?: string
     childId: string
     parentRunHint: string
+    delegationId: string
+    branchMessageId?: string
   }) => Promise<{ ok: boolean; runId?: string; runDocId?: string; error?: string }>
   now?: () => Date
+}
+
+export function newDelegationId(now = Date.now()): string {
+  return `del_${now}_${Math.random().toString(36).slice(2, 8)}`
 }
 
 export async function spawnObservableDelegations(
@@ -23,10 +31,13 @@ export async function spawnObservableDelegations(
     orgId: string
     agentId: string
     conversationId?: string
+    branchMessageId?: string
     parentRunHint: string
     goals: Array<string | DelegationGoalInput>
     maxConcurrent?: number
     toolsets?: string[]
+    /** Optional stable id for tests / pre-linking branch messages. */
+    delegationId?: string
   },
   repo: HermesFeaturesRepository,
   deps: DelegationRunDeps,
@@ -37,7 +48,9 @@ export async function spawnObservableDelegations(
     maxConcurrent: input.maxConcurrent,
     toolsets: input.toolsets,
   })
-  const now = (deps.now?.() ?? new Date()).toISOString()
+  const nowDate = deps.now?.() ?? new Date()
+  const now = nowDate.toISOString()
+  const delegationId = input.delegationId || newDelegationId(nowDate.getTime())
   const children = []
 
   for (const child of spawn.children) {
@@ -50,6 +63,8 @@ export async function spawnObservableDelegations(
       ...(child.context ? { context: child.context } : {}),
       childId: child.id,
       parentRunHint: input.parentRunHint,
+      delegationId,
+      ...(input.branchMessageId ? { branchMessageId: input.branchMessageId } : {}),
     })
     children.push({
       ...child,
@@ -62,10 +77,11 @@ export async function spawnObservableDelegations(
   }
 
   const record: DelegationRecord = {
-    id: `del_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    id: delegationId,
     orgId: input.orgId,
     agentId: input.agentId,
     conversationId: input.conversationId,
+    ...(input.branchMessageId ? { branchMessageId: input.branchMessageId } : {}),
     parentRunHint: input.parentRunHint,
     maxConcurrent: spawn.maxConcurrent,
     children,
@@ -73,6 +89,22 @@ export async function spawnObservableDelegations(
     updatedAt: now,
   }
   return repo.saveDelegation(record)
+}
+
+/** Attach the parent-thread branch card message after spawn. */
+export async function attachDelegationBranchMessage(
+  orgId: string,
+  delegationId: string,
+  branchMessageId: string,
+  repo: HermesFeaturesRepository,
+): Promise<DelegationRecord> {
+  const record = await repo.getDelegation(orgId, delegationId)
+  if (!record) throw new Error('Delegation not found')
+  return repo.saveDelegation({
+    ...record,
+    branchMessageId,
+    updatedAt: new Date().toISOString(),
+  })
 }
 
 export async function markDelegationChildUnknown(

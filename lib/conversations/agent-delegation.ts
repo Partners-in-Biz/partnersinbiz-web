@@ -35,6 +35,7 @@ export interface ChatDelegationBranchPart {
   id: string
   title: string
   delegationId: string
+  conversationId?: string
   parentRunHint: string
   parentAgentId: string
   children: ChatDelegationBranchChild[]
@@ -139,6 +140,7 @@ export function buildAgentDelegationBranchPart(record: DelegationRecord): ChatDe
       ? `Branch · @${children[0].agentId}`
       : `Branch · ${children.length} specialists`,
     delegationId: record.id,
+    ...(record.conversationId ? { conversationId: record.conversationId } : {}),
     parentRunHint: record.parentRunHint,
     parentAgentId: record.agentId,
     children,

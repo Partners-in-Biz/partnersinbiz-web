@@ -27,6 +27,8 @@ export interface DelegationRecord {
   orgId: string
   agentId: string
   conversationId?: string
+  /** System message in the parent thread that holds the branch rich part. */
+  branchMessageId?: string
   parentRunHint: string
   maxConcurrent: number
   children: Array<DelegationChild & { runId?: string; runDocId?: string }>

@@ -735,6 +735,15 @@ export async function reconcilePendingConversationRuns(input: {
     running: 0,
     waitingApproval: 0,
     errors: 0,
+    delegations: {
+      candidates: 0,
+      processed: 0,
+      completed: 0,
+      failed: 0,
+      running: 0,
+      skipped: 0,
+      errors: 0,
+    },
   }
 
   for (const candidate of candidates) {
@@ -754,6 +763,18 @@ export async function reconcilePendingConversationRuns(input: {
         error: err instanceof Error ? err.message : String(err),
       })
     }
+  }
+
+  // Subagent branches: hermes-features-delegation children complete outside the
+  // unified-chat messageId path — re-enter parent thread with branch + summary.
+  try {
+    const { reconcilePendingDelegationRuns } = await import('@/lib/conversations/delegation-finalizer')
+    summary.delegations = await reconcilePendingDelegationRuns({
+      maxRuns: input.maxRuns ?? 25,
+    })
+  } catch (err) {
+    summary.delegations.errors += 1
+    console.error('[delegation-run-reconcile-hook-error]', err)
   }
 
   return summary
