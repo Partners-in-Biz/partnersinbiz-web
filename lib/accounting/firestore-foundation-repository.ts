@@ -98,8 +98,16 @@ function clean<T>(value: T): T {
 function storageRef(db: Firestore, collection: string, scope: FinanceScope, logicalId: string): DocumentReference {
   return db.collection(collection).doc(scopedStorageId(scope, logicalId))
 }
+/** Map approval-gated action ids onto the authorizeFinanceAction policy vocabulary. */
 function approvalPolicyAction(action: FinanceApprovalAction): FinanceAction {
-  return action
+  const aliases: Partial<Record<FinanceApprovalAction, FinanceAction>> = {
+    'intercompany.receive': 'intercompany.receive_approve',
+    'consolidation.run.approve': 'consolidation.approve',
+    'elimination.rule.approve': 'consolidation.approve',
+    'payroll.adjustment.approve': 'payroll.run.approve',
+  }
+  const mapped = aliases[action] ?? (action as FinanceAction)
+  return mapped
 }
 
 function assertFutureApprovalExpiry(expiresAt: string | undefined, now: string): void {

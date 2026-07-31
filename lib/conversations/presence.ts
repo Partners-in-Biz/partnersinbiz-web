@@ -36,6 +36,14 @@ function sanitizeString(value: unknown, max = 160): string | undefined {
   return trimmed.slice(0, max)
 }
 
+function serializeLastSeenAt(value: unknown): ConversationPresence['lastSeenAt'] {
+  if (typeof value === 'string' && value.trim()) return value
+  if (value && typeof value === 'object' && typeof (value as { toISOString?: unknown }).toISOString === 'function') {
+    return value as { toISOString: () => string }
+  }
+  return undefined
+}
+
 function serializePresence(id: string, data: UnknownRecord): ConversationPresence {
   return {
     id,
@@ -48,7 +56,7 @@ function serializePresence(id: string, data: UnknownRecord): ConversationPresenc
       : 'active',
     displayName: sanitizeString(data.displayName, 80),
     lastMessageId: sanitizeString(data.lastMessageId, 120),
-    lastSeenAt: data.lastSeenAt,
+    lastSeenAt: serializeLastSeenAt(data.lastSeenAt),
     lastSeenAtMs: typeof data.lastSeenAtMs === 'number' ? data.lastSeenAtMs : 0,
     expiresAtMs: typeof data.expiresAtMs === 'number' ? data.expiresAtMs : 0,
   }

@@ -1,4 +1,9 @@
-import { authorizeFinanceAction, effectiveFinanceAssignments, parseIsoTimestamp } from '@/lib/finance/policy'
+import {
+  authorizeFinanceAction,
+  effectiveFinanceAssignments,
+  parseIsoTimestamp,
+  type FinanceAction,
+} from '@/lib/finance/policy'
 import {
   CANONICAL_PAYLOAD_VERSION,
   HASH_ALGORITHM_VERSION,
@@ -286,6 +291,17 @@ function assertFutureApprovalExpiry(expiresAt: string | undefined, now: string):
   }
 }
 
+/** Map approval-gated action ids onto authorizeFinanceAction policy vocabulary. */
+function mapApprovalActionToFinanceAction(action: FinanceApprovalAction): FinanceAction {
+  const aliases: Partial<Record<FinanceApprovalAction, FinanceAction>> = {
+    'intercompany.receive': 'intercompany.receive_approve',
+    'consolidation.run.approve': 'consolidation.approve',
+    'elimination.rule.approve': 'consolidation.approve',
+    'payroll.adjustment.approve': 'payroll.run.approve',
+  }
+  return aliases[action] ?? (action as FinanceAction)
+}
+
 function loadApproval(
   state: FoundationState,
   approvalId: string | undefined,
@@ -350,7 +366,7 @@ export class FinanceFoundationService {
 
   async createFinanceApproval(approver: FinanceActorContext, command: CreateFinanceApprovalCommand): Promise<FinanceApprovalRecord> {
     const scope = { orgId: command.orgId, legalEntityId: command.legalEntityId, bookId: command.bookId }
-    const policyAction = command.action
+    const policyAction = mapApprovalActionToFinanceAction(command.action)
     const authorizationAt = this.now()
     assertCreateVersion(command.expectedVersion, 'Finance approval')
     authorizeFinanceAction(approver, scope, policyAction, authorizationAt)

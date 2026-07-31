@@ -947,9 +947,8 @@ export class FinancePayRunService {
         else if (kind === 'statutory_uif_employee') uifEmp += amount
         else if (kind === 'statutory_uif_employer') uifEr += amount
         else if (kind === 'statutory_sdl') sdl += amount
-        else if (component.taxTreatment === 'pre_tax_deduction' || kind === 'deduction' && component.taxTreatment === 'pre_tax_deduction') {
+        else if (component.taxTreatment === 'pre_tax_deduction') {
           preTax += Math.abs(amount)
-          if (amount < 0) preTax = preTax // keep positive bucket; net uses signed below
         } else if (component.taxTreatment === 'post_tax_deduction') {
           postTax += amount
         } else {

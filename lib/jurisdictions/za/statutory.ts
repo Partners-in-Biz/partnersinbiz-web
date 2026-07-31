@@ -106,7 +106,15 @@ export function zaMapEmp501Evidence(input: {
   taxYearLabel: string
   monthlyTotals: StatutoryMoneyTotals
   certificateTotals: StatutoryMoneyTotals
-  difference: Record<string, number>
+  difference: Record<string, number> | {
+    grossEarningsMinor: number
+    taxableEarningsMinor: number
+    payeMinor: number
+    uifEmployeeMinor: number
+    uifEmployerMinor: number
+    sdlEmployerMinor: number
+    netPayMinor: number
+  }
   reconciled: boolean
   taxTableReferences: TaxTableReference[]
 }): Record<string, unknown> {
