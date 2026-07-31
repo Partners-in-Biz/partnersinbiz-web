@@ -592,35 +592,30 @@ export const POST = withAuth(
       // grant, ownership of a personal linked agent, or org-manager rights on a
       // shared organisation agent.
       if (user.role !== 'admin' && dispatchAgentId !== 'pip') {
-        const granted = memberCanUseAgentOnRuntime(
-          scopedAccessPolicy,
-          requestedRuntimeTarget,
-          dispatchAgentId,
-        )
-        if (!granted) {
-          const agentSnap = await adminDb.collection('agent_team').doc(dispatchAgentId).get()
-          const agentData = agentSnap.exists
-            ? agentSnap.data() as {
-                accessScope?: string
-                ownerUserId?: string
-                provisioningMode?: string
-                scopeOrgId?: string
-              }
-            : null
-          const ownsPersonalLinkedAgent = agentData?.provisioningMode === 'linked_device'
-            && agentData.accessScope === 'personal'
+        const agentSnap = await adminDb.collection('agent_team').doc(dispatchAgentId).get()
+        const agentData = agentSnap.exists
+          ? agentSnap.data() as {
+              provisioningMode?: string
+              accessScope?: string
+              ownerUserId?: string
+              scopeOrgId?: string
+            }
+          : null
+        if (agentData?.provisioningMode === 'linked_device') {
+          const granted = memberCanUseAgentOnRuntime(
+            scopedAccessPolicy,
+            requestedRuntimeTarget,
+            dispatchAgentId,
+          )
+          const ownsPersonalLinkedAgent = agentData.accessScope === 'personal'
             && agentData.ownerUserId === user.uid
           let managesOrgLinkedAgent = false
-          if (
-            agentData?.provisioningMode === 'linked_device'
-            && agentData.accessScope === 'organization'
-            && agentData.scopeOrgId === conversation.orgId
-          ) {
+          if (agentData.accessScope === 'organization' && agentData.scopeOrgId === conversation.orgId) {
             const membership = await adminDb.collection('orgMembers').doc(`${conversation.orgId}_${user.uid}`).get()
             const memberRole = membership.data()?.role
             managesOrgLinkedAgent = memberRole === 'owner' || memberRole === 'admin'
           }
-          if (!ownsPersonalLinkedAgent && !managesOrgLinkedAgent) {
+          if (!granted && !ownsPersonalLinkedAgent && !managesOrgLinkedAgent) {
             return apiError('This member is not allowed to use that agent on the selected computer', 403)
           }
         }
@@ -657,11 +652,93 @@ export const POST = withAuth(
       }
     }
 
+    // Hermes /goal + /subgoal: control plane + standing goal state on the conversation.
+    // Control replies can complete without a Hermes run; set/resume/add criteria dispatch.
+    let hermesGoalWorkPrompt: string | null = null
+    if (slashCommand?.executorKind === 'hermes_goal') {
+      const existingGoal = (conversation.goalState ?? null) as HermesGoalState | null
+      if (slashCommand.id === 'subgoal') {
+        const result = applySubgoalControl(existingGoal, parseSubgoalControl(slashCommand.args))
+        if (result.state) await patchConversation(convId, { goalState: result.state })
+        if (!result.shouldDispatch) {
+          const displayContent = hermesGoalCommandLine(slashCommand)
+          const userMessage = await createMessage(convId, {
+            conversationId: convId,
+            role: 'user',
+            content: displayContent,
+            ...(slashCommand ? { slashCommand } : {}),
+            authorKind: 'user',
+            authorId: user.uid,
+            authorDisplayName,
+            status: 'completed',
+          })
+          await touchConversation(convId, displayContent, 'user', userMessage.id, user.uid)
+          const assistantMessage = await createMessage(convId, {
+            conversationId: convId,
+            role: 'assistant',
+            content: result.reply,
+            authorKind: 'system',
+            authorId: 'system',
+            authorDisplayName: 'Goals',
+            status: 'completed',
+          })
+          await touchConversation(convId, result.reply, 'assistant', assistantMessage.id)
+          return apiSuccess({ message: userMessage, assistantMessage, goalState: result.state }, 201)
+        }
+        hermesGoalWorkPrompt = result.state
+          ? buildHermesGoalWorkPrompt(result.state, 'continue')
+          : null
+      } else {
+        const result = applyGoalControl(existingGoal, parseGoalControl(slashCommand.args), { uid: user.uid })
+        if (result.state) await patchConversation(convId, { goalState: result.state })
+        else if (result.state === null && existingGoal) await patchConversation(convId, { goalState: null })
+        if (!result.shouldDispatch) {
+          const displayContent = hermesGoalCommandLine(slashCommand)
+          const userMessage = await createMessage(convId, {
+            conversationId: convId,
+            role: 'user',
+            content: displayContent || '/goal',
+            ...(slashCommand ? { slashCommand } : {}),
+            authorKind: 'user',
+            authorId: user.uid,
+            authorDisplayName,
+            status: 'completed',
+          })
+          await touchConversation(convId, displayContent || '/goal', 'user', userMessage.id, user.uid)
+          const assistantMessage = await createMessage(convId, {
+            conversationId: convId,
+            role: 'assistant',
+            content: result.reply,
+            authorKind: 'system',
+            authorId: 'system',
+            authorDisplayName: 'Goals',
+            status: 'completed',
+          })
+          await touchConversation(convId, result.reply, 'assistant', assistantMessage.id)
+          return apiSuccess({ message: userMessage, assistantMessage, goalState: result.state }, 201)
+        }
+        hermesGoalWorkPrompt = result.state
+          ? buildHermesGoalWorkPrompt(result.state, 'start')
+          : (result.dispatchGoal ? buildHermesGoalWorkPrompt({
+            status: 'active',
+            goal: result.dispatchGoal,
+            maxTurns: 20,
+            turnsUsed: 0,
+            subgoals: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          }, 'start') : null)
+      }
+    }
+
     // Store the user message
+    const userVisibleContent = slashCommand?.executorKind === 'hermes_goal'
+      ? (hermesGoalCommandLine(slashCommand) || content || slashCommand.token)
+      : content
     const message = await createMessage(convId, {
       conversationId: convId,
       role: 'user',
-      content,
+      content: userVisibleContent,
       ...(publicAttachments.length > 0 ? { attachments: publicAttachments } : {}),
       ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),
       ...(slashCommand ? { slashCommand } : {}),
@@ -677,7 +754,7 @@ export const POST = withAuth(
     })
 
     // Update the conversation's denorm fields
-    const preview = content || publicAttachments.map((attachment) => attachment.name).join(', ')
+    const preview = userVisibleContent || publicAttachments.map((attachment) => attachment.name).join(', ')
     await touchConversation(convId, preview, 'user', message.id, user.uid)
 
     const recentMessages = await listMessages(convId, 200).catch(() => [message])
@@ -863,6 +940,9 @@ export const POST = withAuth(
       const decisionDataRuleContext = buildDecisionDataOperatingRuleContext()
       const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
       const commandContext = slashCommand ? slashCommandInstruction(slashCommand) : ''
+      const goalWorkContext = hermesGoalWorkPrompt
+        ? `\n\n${hermesGoalWorkPrompt}\n\n`
+        : ''
       const attachmentContext = publicAttachments.length > 0
         ? `\n\n[Attachments]\n${publicAttachments.map((attachment) => `- ${attachment.name}: ${attachment.url} (${attachment.contentType}, ${attachment.sizeBytes} bytes)`).join('\n')}`
         : ''
@@ -896,7 +976,11 @@ export const POST = withAuth(
           mailboxDelegationEvidenceId: mintedDelegation.mailboxDelegationEvidenceId,
         })
         : ''
-      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + dynamicChatCanvasContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + content + attachmentContext
+      // For /goal set, prefer the goal work prompt as the actionable user request.
+      const userTurnContent = hermesGoalWorkPrompt
+        ? `${goalWorkContext}${content ? `User message:\n${content}` : ''}`.trim()
+        : content
+      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + decisionDataRuleContext + dynamicChatCanvasContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + userTurnContent + attachmentContext
       if (linkedComputerBinding) {
         const hasImageAttachments = attachments.some((attachment) => (
           /^image\/(?:png|jpeg|gif|webp)$/i.test(attachment.contentType) && Boolean(attachment.storagePath)

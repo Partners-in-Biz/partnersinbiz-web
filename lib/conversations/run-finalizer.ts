@@ -486,6 +486,24 @@ export async function finalizeConversationRun(input: {
       ...richFields,
     })
     await touchConversation(input.convId, previewOutput, 'assistant', input.msgId)
+
+    // Standing /goal loop: auto-continue when the conversation has an active Hermes goal.
+    try {
+      const { maybeContinueConversationGoal } = await import('@/lib/chat/hermes-goal-continue')
+      await maybeContinueConversationGoal({
+        convId: input.convId,
+        completedAssistantMessageId: input.msgId,
+        assistantContent: output,
+        runId,
+      })
+    } catch (goalErr) {
+      console.error('[goal-continue-failed]', {
+        convId: input.convId,
+        msgId: input.msgId,
+        error: goalErr instanceof Error ? goalErr.message : String(goalErr),
+      })
+    }
+
     return { status: 'completed', content: output, runId, hermesStatus, ...richFields }
   }
 
