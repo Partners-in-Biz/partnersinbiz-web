@@ -42,6 +42,18 @@ interface WorkforceBlueprintResponse {
   }
   policyEvidence: {
     policyReady: boolean
+    policyVersion: string
+    agents: Array<{
+      agentId: string
+      policyDefined: boolean
+      policyLabel: string
+      expectedSkillCount: number
+      approvalGates: string[]
+    }>
+    skillCoverage: Array<{
+      skillId: string
+      coveredByAgentIds: string[]
+    }>
   }
   recommendationStatus: 'ready_for_owner_review'
   requiresOwnerApproval: true
@@ -311,6 +323,30 @@ export default function ParticipantPicker({
   const recommendedMissingCount = workforce
     ? Math.max(0, workforce.blueprint.recommendedAgentIds.length - recommendedAvailableCount)
     : 0
+  const missingCoverage = useMemo(
+    () => workforce?.policyEvidence.skillCoverage.filter((coverage) => coverage.coveredByAgentIds.length === 0) ?? [],
+    [workforce],
+  )
+  const missingPolicies = useMemo(
+    () => workforce?.policyEvidence.agents.filter((agent) => !agent.policyDefined) ?? [],
+    [workforce],
+  )
+  const policyByAgent = useMemo(
+    () => new Map(workforce?.policyEvidence.agents.map((agent) => [agent.agentId, agent]) ?? []),
+    [workforce],
+  )
+  const skillCoverageByAgent = useMemo(() => {
+    const map = new Map<string, string[]>()
+    if (!workforce) return map
+    for (const coverage of workforce.policyEvidence.skillCoverage) {
+      for (const agentId of coverage.coveredByAgentIds) {
+        const current = map.get(agentId) ?? []
+        current.push(coverage.skillId)
+        map.set(agentId, current)
+      }
+    }
+    return map
+  }, [workforce])
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -373,6 +409,20 @@ export default function ParticipantPicker({
               <p className="mt-1 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
                 {workforce.blueprint.summary}
               </p>
+              <p className="mt-1.5 text-[10px] text-[var(--color-pib-text-muted)]">
+                Policy ready: {workforce.policyEvidence.policyReady ? 'yes' : 'no'}
+                {` • policy v${workforce.policyEvidence.policyVersion}`}
+              </p>
+              {!workforce.policyEvidence.policyReady && missingCoverage.length > 0 && (
+                <p className="mt-1 text-[10px] text-amber-200">
+                  Skill coverage gaps: {missingCoverage.map((coverage) => coverage.skillId).join(', ')}
+                </p>
+              )}
+              {missingPolicies.length > 0 && (
+                <p className="mt-1 text-[10px] text-amber-200">
+                  {missingPolicies.length} recommended agents are missing policy definitions.
+                </p>
+              )}
               {recommendedMissingCount > 0 && (
                 <p className="mt-1.5 text-[10px] text-amber-200">
                   {recommendedMissingCount} recommended {recommendedMissingCount === 1 ? 'agent needs' : 'agents need'} an owner grant or ready runtime.
@@ -399,6 +449,8 @@ export default function ParticipantPicker({
                 const isChecked = selected.some((s) => s.kind === 'agent' && s.agentId === agent.agentId)
                 const c = AGENT_COLOR[agent.colorKey] ?? AGENT_COLOR.violet
                 const disabled = !isChecked && selected.length >= MAX_SELECTIONS
+                const policy = policyByAgent.get(agent.agentId)
+                const coverage = skillCoverageByAgent.get(agent.agentId) ?? []
                 return (
                   <label
                     key={agent.agentId}
@@ -432,8 +484,25 @@ export default function ParticipantPicker({
                             Recommended
                           </span>
                         )}
+                        {policy && !policy.policyDefined && (
+                          <span className="shrink-0 rounded-full border border-red-300/35 bg-red-500/10 px-1.5 py-0.5 text-[9px] font-medium text-red-200">
+                            Policy missing
+                          </span>
+                        )}
+                        {policy && policy.policyDefined && policy.approvalGates.length > 0 && !policy.approvalGates.includes('approve') && (
+                          <span className="shrink-0 rounded-full border border-amber-300/25 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-100">
+                            Approval gated
+                          </span>
+                        )}
                       </div>
-                      <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{agent.role}</p>
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <p className="text-[11px] text-[var(--color-pib-text-muted)] truncate">{agent.role}</p>
+                        {policy && policy.policyDefined && coverage.length > 0 && (
+                          <span className="rounded-full bg-white/[0.08] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)]">
+                            Covers {coverage.length} required skill{coverage.length === 1 ? '' : 's'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {agent.lastHealthStatus && (
                       <span
