@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { PageHeader, PageTabs } from '@/components/ui/AppFoundation'
 import { StatCard } from '@/components/ui/StatCard'
@@ -60,6 +60,14 @@ interface ChannelsResponse {
   routingRules: unknown[]
 }
 
+interface CommunicationsLiveSnapshot {
+  type: 'snapshot'
+  conversations: Conversation[]
+  conversation: Conversation | null
+  messages: ConversationMessage[]
+  emittedAtMs: number
+}
+
 const VIEW_LABELS: Array<{ id: ConsoleView; label: string; icon: string }> = [
   { id: 'inbox', label: 'Inbox', icon: 'inbox' },
   { id: 'templates', label: 'Templates', icon: 'view_quilt' },
@@ -108,10 +116,13 @@ export function CommunicationsConsole({
   const [analytics, setAnalytics] = useState<Record<string, unknown> | null>(null)
   const [reply, setReply] = useState('')
   const [loading, setLoading] = useState(false)
+  const [liveEnabled, setLiveEnabled] = useState(false)
+  const [liveError, setLiveError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [portalOrgId, setPortalOrgId] = useState('')
   const [portalOrgReady, setPortalOrgReady] = useState(mode !== 'portal')
+  const liveSourceRef = useRef<EventSource | null>(null)
 
   const requestedOrgId = initialOrgId.trim()
   const requestedOrgSlug = initialOrgSlug.trim()
@@ -180,6 +191,84 @@ export function CommunicationsConsole({
     void loadConversationBundle(selectedId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, canLoad, orgQuery])
+
+  useEffect(() => {
+    const existing = liveSourceRef.current
+    if (existing) {
+      existing.close()
+      liveSourceRef.current = null
+    }
+    setLiveEnabled(false)
+
+    if (!canLoad || view !== 'inbox') {
+      return
+    }
+    if (typeof EventSource === 'undefined') {
+      setLiveError('Live updates are not supported in this environment; using manual refresh.')
+      return
+    }
+    setLiveError(null)
+
+    const params = new URLSearchParams()
+    if (activeOrgId) params.set('orgId', activeOrgId)
+    if (filter !== 'open') params.set('status', filter)
+    if (channel !== 'all') params.set('channel', channel)
+    if (selectedId) params.set('conversationId', selectedId)
+    params.set('limit', '100')
+    const source = new EventSource(`/api/v1/communications/live?${params}`)
+    liveSourceRef.current = source
+    setLiveEnabled(true)
+
+    source.addEventListener('snapshot', (event: Event) => {
+      if (!(event instanceof MessageEvent) || !event.data) return
+      try {
+        const payload = JSON.parse(event.data) as CommunicationsLiveSnapshot
+        if (!payload || payload.type !== 'snapshot') return
+
+        setConversations(payload.conversations)
+        if (!selectedId) {
+          setBundle(null)
+          return
+        }
+        if (payload.conversation && payload.conversation.id === selectedId) {
+          setBundle((previous) => ({
+            conversation: payload.conversation,
+            messages: payload.messages,
+            contact: previous?.conversation?.id === selectedId ? previous.contact : null,
+            hermesSuggestion: previous?.conversation?.id === selectedId ? previous.hermesSuggestion : undefined,
+          }))
+          return
+        }
+
+        const focused = payload.conversations.find((item) => item.id === selectedId) ?? null
+        if (!focused) {
+          setBundle(null)
+        } else {
+          void loadConversationBundle(selectedId)
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not process live communication updates.')
+      }
+    })
+
+    source.addEventListener('error', () => {
+      setLiveError('Live updates were interrupted. Falling back to manual refresh.')
+      setLiveEnabled(false)
+      source.close()
+      if (liveSourceRef.current === source) {
+        liveSourceRef.current = null
+      }
+    })
+
+    return () => {
+      source.close()
+      if (liveSourceRef.current === source) {
+        liveSourceRef.current = null
+      }
+      setLiveEnabled(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canLoad, view, activeOrgId, filter, channel, selectedId])
 
   useEffect(() => {
     if (!canLoad) return
