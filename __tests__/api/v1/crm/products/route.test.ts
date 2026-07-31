@@ -157,7 +157,19 @@ describe('GET /api/v1/crm/products', () => {
 
     const req = callAsMember(member, 'GET', '/api/v1/crm/products')
     await routeModule.GET(req)
-    expect(productStore.listProducts).toHaveBeenCalledWith('org-specific')
+    expect(productStore.listProducts).toHaveBeenCalledWith('org-specific', { includeInactive: false })
+  })
+
+  it('includes inactive catalog items only when explicitly requested', async () => {
+    const uid = uidFor('member-inactive')
+    const member = seedOrgMember('org-specific', uid, { role: 'member' })
+    stageAuth(member)
+    ;(productStore.listProducts as jest.Mock).mockResolvedValue([])
+
+    const req = callAsMember(member, 'GET', '/api/v1/crm/products?includeInactive=true')
+    await routeModule.GET(req)
+
+    expect(productStore.listProducts).toHaveBeenCalledWith('org-specific', { includeInactive: true })
   })
 })
 

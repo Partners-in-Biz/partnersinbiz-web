@@ -318,6 +318,11 @@ async function filterSearchDocsForRecordScope(
     return docs.filter((doc) => allowedIds.has(doc.id))
   }
 
+  if (type === 'product') {
+    const ctx = await resolveBillingCrmAuthContext(user, orgId)
+    return canAccessModule(ctx.accessPolicy, 'crm') ? docs : []
+  }
+
   if (type !== 'contact' && type !== 'company' && type !== 'deal' && type !== 'invoice' && type !== 'quote') {
     return docs
   }
@@ -710,13 +715,15 @@ async function resolveProduct(input: ResolverInput): Promise<ContextReference | 
   const data = doc.data() ?? {}
   const orgId = docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
   if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrgId(input.seed, input.defaultOrgId)) || !canUseOrg(input.user, orgId)) return null
+  const ctx = await resolveBillingCrmAuthContext(input.user, orgId)
+  if (!canAccessModule(ctx.accessPolicy, 'crm')) return null
   return makeRef({
     type: 'product',
     id: doc.id,
     orgId,
     label: clean(data.name) || input.seed.label || doc.id,
     origin: origin(input.seed),
-    href: href('product', doc.id, data, input.seed.href),
+    href: `/portal/settings/products?product=${encodeURIComponent(doc.id)}&orgId=${encodeURIComponent(orgId)}`,
     summary: compactSummary([
       productPriceSummary(data),
       data.sku ? `sku: ${clean(data.sku)}` : '',

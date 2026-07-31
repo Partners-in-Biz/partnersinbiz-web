@@ -61,6 +61,20 @@ describe('listProducts', () => {
     expect(mockLimit).toHaveBeenCalledWith(1000)
   })
 
+  it('can include inactive non-deleted products for catalog management', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        { id: 'active', data: () => ({ orgId: 'org-a', name: 'Active', unitPrice: 100, currency: 'ZAR' }) },
+        { id: 'inactive', data: () => ({ orgId: 'org-a', name: 'Inactive', unitPrice: 100, currency: 'ZAR', active: false }) },
+        { id: 'deleted', data: () => ({ orgId: 'org-a', name: 'Deleted', unitPrice: 100, currency: 'ZAR', deleted: true }) },
+      ],
+    })
+
+    const results = await listProducts('org-a', { includeInactive: true })
+
+    expect(results.map((product) => product.id)).toEqual(['active', 'inactive'])
+  })
+
   it('returns empty array when no products found', async () => {
     mockGet.mockResolvedValue({ docs: [] })
     const results = await listProducts('org-empty')

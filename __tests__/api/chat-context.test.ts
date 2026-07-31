@@ -82,17 +82,17 @@ describe('chat context read-model API', () => {
 
   it('returns a safe generic canvas model for every resolved non-specialised reference', async () => {
     mockResolveContextReferences.mockResolvedValueOnce([{
-      type: 'product', id: 'product-1', orgId: 'client-org', label: 'Growth Retainer',
-      origin: 'mention', href: '/portal/settings/products', summary: 'Active service product',
+      type: 'report', id: 'report-1', orgId: 'client-org', label: 'Growth Report',
+      origin: 'mention', href: '/admin/reports/report-1', summary: 'Current growth summary',
     }])
 
-    const res = await get('product', 'product-1')
+    const res = await get('report', 'report-1')
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data.context).toEqual(expect.objectContaining({ kind: 'product', id: 'product-1', label: 'Growth Retainer' }))
-    expect(body.data.preview).toEqual(expect.objectContaining({ kind: 'summary', text: 'Active service product' }))
-    expect(body.data.context.href).toBe('/portal/settings/products')
+    expect(body.data.context).toEqual(expect.objectContaining({ kind: 'report', id: 'report-1', label: 'Growth Report' }))
+    expect(body.data.preview).toEqual(expect.objectContaining({ kind: 'summary', text: 'Current growth summary' }))
+    expect(body.data.context.href).toBe('/admin/reports/report-1')
     expect(JSON.stringify(body)).not.toContain('providerCredential')
   })
 

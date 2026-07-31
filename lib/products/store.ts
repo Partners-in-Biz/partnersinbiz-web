@@ -6,7 +6,10 @@ import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 const PRODUCTS = 'products'
 
-export async function listProducts(orgId: string): Promise<Product[]> {
+export async function listProducts(
+  orgId: string,
+  options: { includeInactive?: boolean } = {},
+): Promise<Product[]> {
   const snap = await adminDb
     .collection(PRODUCTS)
     .where('orgId', '==', orgId)
@@ -14,7 +17,7 @@ export async function listProducts(orgId: string): Promise<Product[]> {
     .get()
   return snap.docs
     .map((d) => ({ ...(d.data() as Omit<Product, 'id'>), id: d.id }))
-    .filter((product) => product.deleted !== true && product.active !== false)
+    .filter((product) => product.deleted !== true && (options.includeInactive || product.active !== false))
     .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
 }
 

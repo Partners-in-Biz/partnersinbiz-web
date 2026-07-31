@@ -538,6 +538,7 @@ describe('context reference registry', () => {
         id: 'product-1',
         label: 'Growth Retainer',
         summary: expect.stringContaining('ZAR'),
+        href: '/portal/settings/products?product=product-1&orgId=org-1',
       }),
     ])
 
