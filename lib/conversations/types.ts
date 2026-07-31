@@ -10,6 +10,7 @@ import type { Timestamp } from 'firebase-admin/firestore'
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
+import type { HermesGoalState } from '@/lib/chat/hermes-goal'
 import type { AgentEffort } from '@/lib/agents/runRouting'
 import type { RichMessagePart } from '@/lib/hermes/types'
 import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
@@ -118,6 +119,11 @@ export interface Conversation {
   migratedFromHermes?: boolean
   /** When set, this conversation is the command room for that project. */
   commandSessionProjectId?: string
+  /**
+   * Standing Hermes Persistent Goal (Ralph loop) for this conversation.
+   * Driven by `/goal` and `/subgoal` slash commands in Messages.
+   */
+  goalState?: HermesGoalState | null
   createdAt?: Timestamp
   updatedAt?: Timestamp
 }

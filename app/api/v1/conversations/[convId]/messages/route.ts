@@ -25,6 +25,7 @@ import {
   listMessages,
   touchConversation,
   messagesCollection,
+  patchConversation,
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
 import type { AuthorizedLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
@@ -50,7 +51,15 @@ import {
   sanitizeContextReferenceSeeds,
   type ContextReferenceSeed,
 } from '@/lib/context-references/types'
-import { councilModeGuidanceLines, getSlashCommandByToken, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
+import { councilModeGuidanceLines, getSlashCommandByToken, hermesGoalCommandLine, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
+import {
+  applyGoalControl,
+  applySubgoalControl,
+  buildHermesGoalWorkPrompt,
+  parseGoalControl,
+  parseSubgoalControl,
+  type HermesGoalState,
+} from '@/lib/chat/hermes-goal'
 import { buildAgentSkillsPromptBlock } from '@/lib/chat/agent-skills'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
@@ -498,7 +507,10 @@ export const POST = withAuth(
     if (!attachments) return apiError('One or more attachments are invalid for this conversation', 400)
     const publicAttachments: ConversationAttachment[] = attachments.map(({ storagePath: _storagePath, ...attachment }) => attachment)
     const slashCommand = sanitizeSlashCommand((body as Record<string, unknown>).slashCommand)
-    if (!content && attachments.length === 0) return apiError('content or attachments are required', 400)
+    // /goal and /subgoal control forms may have empty args (e.g. bare `/goal` = status).
+    if (!content && attachments.length === 0 && slashCommand?.executorKind !== 'hermes_goal') {
+      return apiError('content or attachments are required', 400)
+    }
     const resolvedContextRefs = await resolveContextReferences(
       mergeContextReferenceSeeds(
         sanitizeContextReferenceSeeds(conversation.contextRefs ?? []),

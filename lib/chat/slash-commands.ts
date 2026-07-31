@@ -1,4 +1,4 @@
-export type SlashCommandExecutorKind = 'context_attachment' | 'agent_intent'
+export type SlashCommandExecutorKind = 'context_attachment' | 'agent_intent' | 'hermes_goal'
 
 export type SlashCommandId =
   | 'use-current-page'
@@ -8,6 +8,8 @@ export type SlashCommandId =
   | 'briefing'
   | 'search'
   | 'skills'
+  | 'goal'
+  | 'subgoal'
   | 'help'
 
 export interface SlashCommandDefinition {
@@ -100,6 +102,24 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     aliases: ['/agent-skills', '/capabilities'],
     icon: 'psychology',
     executorKind: 'agent_intent',
+  },
+  {
+    id: 'goal',
+    token: '/goal',
+    label: 'Standing goal',
+    description: 'Set a Hermes standing goal that auto-continues until done (Ralph loop). Subcommands: status, pause, resume, clear, draft.',
+    aliases: ['/goals', '/ralph'],
+    icon: 'flag',
+    executorKind: 'hermes_goal',
+  },
+  {
+    id: 'subgoal',
+    token: '/subgoal',
+    label: 'Goal criterion',
+    description: 'Add, list, or remove extra acceptance criteria on the active Hermes goal without resetting the loop.',
+    aliases: ['/criteria'],
+    icon: 'playlist_add_check',
+    executorKind: 'hermes_goal',
   },
   {
     id: 'help',
@@ -197,10 +217,31 @@ export function councilModeGuidanceLines(trigger: 'slash-command' | 'multi-agent
   ]
 }
 
+export function hermesGoalCommandLine(payload: SlashCommandPayload): string {
+  const args = payload.args.trim()
+  if (payload.id === 'subgoal') return args ? `/subgoal ${args}` : '/subgoal'
+  return args ? `/goal ${args}` : '/goal'
+}
+
+export function hermesGoalGuidanceLines(payload: SlashCommandPayload): string[] {
+  const native = hermesGoalCommandLine(payload)
+  return [
+    'Hermes Persistent Goal mode (Ralph loop):',
+    `- Native command line: ${native}`,
+    '- Keep working across automatic continuations until the standing goal is verifiably complete.',
+    '- Prefer tool evidence (tests, commands, file diffs). Do not claim done without proof.',
+    '- If blocked on human approval, secrets, deploy, spend, finance, or destructive actions, stop and report clearly.',
+    '- End with exactly one line: GOAL_STATUS: done|continue|blocked — <reason>.',
+    '- Docs: https://hermes-agent.nousresearch.com/docs/user-guide/features/goals',
+  ]
+}
+
 export function slashCommandInstruction(payload: SlashCommandPayload): string {
   const commandGuidance = payload.id === 'council'
     ? councilModeGuidanceLines('slash-command')
-    : []
+    : payload.executorKind === 'hermes_goal'
+      ? hermesGoalGuidanceLines(payload)
+      : []
 
   return [
     '[Slash command]',
@@ -209,7 +250,9 @@ export function slashCommandInstruction(payload: SlashCommandPayload): string {
     `label: ${payload.label}`,
     `executor: ${payload.executorKind}`,
     payload.args ? `args: ${payload.args}` : 'args: ',
-    'Treat this as structured command intent from the composer, not as decorative message text. If it maps to a platform operation, use the relevant typed API/workflow rather than guessing from prose.',
+    payload.executorKind === 'hermes_goal'
+      ? `native: ${hermesGoalCommandLine(payload)}`
+      : 'Treat this as structured command intent from the composer, not as decorative message text. If it maps to a platform operation, use the relevant typed API/workflow rather than guessing from prose.',
     ...commandGuidance,
     '---',
     '',

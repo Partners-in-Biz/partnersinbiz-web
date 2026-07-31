@@ -5553,6 +5553,10 @@ export default function UnifiedChat({
           ? currentPageCommand.content
           : activeSlashCommand?.id === 'use-current-page'
             ? slashArgs
+            : activeSlashCommand?.executorKind === 'hermes_goal'
+              // Preserve args only (may be empty for `/goal status`-style controls).
+              // Server maps slashCommand token + args into Hermes goal control/state.
+              ? slashArgs
             : activeSlashCommand
               ? slashArgs || activeSlashCommand.description
               : text

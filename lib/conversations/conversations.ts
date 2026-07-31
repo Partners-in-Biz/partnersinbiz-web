@@ -219,6 +219,7 @@ export async function patchConversation(
     participants?: Conversation['participants']
     participantUids?: string[]
     workspaceContext?: Conversation['workspaceContext']
+    goalState?: Conversation['goalState']
   },
 ): Promise<void> {
   const updates: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() }
@@ -227,6 +228,9 @@ export async function patchConversation(
   if (patch.participants !== undefined) updates.participants = patch.participants
   if (patch.participantUids !== undefined) updates.participantUids = patch.participantUids
   if (patch.workspaceContext !== undefined) updates.workspaceContext = patch.workspaceContext
+  if (patch.goalState !== undefined) {
+    updates.goalState = patch.goalState === null ? FieldValue.delete() : patch.goalState
+  }
   await convDoc(convId).update(updates)
 }
 
