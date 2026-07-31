@@ -14,6 +14,7 @@ import { AGENT_IDS, getAgentConfig, loadEnabledAgentIds, type AgentId } from './
 import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { resolveWatcherLlmRoute, resolveWatcherRuntimePreference } from './llm-routing'
+import { formatHermesWatcherError } from './hermes-error'
 import { logger } from './logger'
 import type { AgentRunTelemetry } from './run-telemetry'
 import { agentStatusUpdate } from './task-updates'
@@ -764,6 +765,11 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
 
     if (result.error) {
       const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
+      const humanError = formatHermesWatcherError(result.error, {
+        agentId,
+        provider: credentialRoute?.provider ?? taskData.agentProvider ?? null,
+        model: taskData.agentModel ?? null,
+      })
       if (isTransientHermesError(result.error) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
         const nextRetryCount = priorRetryCount + 1
         const retryAt = transientRetryAt(priorRetryCount)
@@ -782,7 +788,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
           agentRetryAt: retryAt,
           agentHeartbeatAt: FieldValue.delete(),
           agentOutput: {
-            summary: `Transient watcher error: ${result.error} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
+            summary: `Transient watcher error: ${humanError} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
             telemetry,
             completedAt: FieldValue.serverTimestamp(),
           },
@@ -795,7 +801,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         ...agentStatusUpdate('blocked'),
         ...(activeRunId ? { agentConversationId: activeRunId } : {}),
         agentOutput: {
-          summary: `Watcher error: ${result.error}`,
+          summary: `Watcher error: ${humanError}`,
           telemetry,
           completedAt: FieldValue.serverTimestamp(),
         },
@@ -803,8 +809,8 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       })
       notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
         agentId,
-        summary: `Watcher error: ${result.error}`,
-        blockingReason: result.error,
+        summary: `Watcher error: ${humanError}`,
+        blockingReason: humanError,
         runId: activeRunId,
       })
       return
@@ -876,6 +882,11 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     logger.info('task completed', { taskId, agentId, hasReviewer })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
+    const humanError = formatHermesWatcherError(message, {
+      agentId,
+      provider: taskData.agentProvider ?? null,
+      model: taskData.agentModel ?? null,
+    })
     logger.error('dispatchTask threw', { taskId, agentId, error: message })
     try {
       const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
@@ -889,7 +900,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
           agentRetryAt: retryAt,
           agentHeartbeatAt: FieldValue.delete(),
           agentOutput: {
-            summary: `Transient watcher error: ${message} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
+            summary: `Transient watcher error: ${humanError} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
             completedAt: FieldValue.serverTimestamp(),
           },
           updatedAt: FieldValue.serverTimestamp(),
@@ -900,15 +911,15 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         ...agentStatusUpdate('blocked'),
         ...(activeRunId ? { agentConversationId: activeRunId } : {}),
         agentOutput: {
-          summary: `Watcher error: ${message}`,
+          summary: `Watcher error: ${humanError}`,
           completedAt: FieldValue.serverTimestamp(),
         },
         updatedAt: FieldValue.serverTimestamp(),
       })
       notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
         agentId,
-        summary: `Watcher error: ${message}`,
-        blockingReason: message,
+        summary: `Watcher error: ${humanError}`,
+        blockingReason: humanError,
         runId: activeRunId,
       })
     } catch (writeErr) {
