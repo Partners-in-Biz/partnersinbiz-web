@@ -219,6 +219,30 @@ beforeEach(() => {
         }),
       ])
     }
+    if (name === 'mailbox_messages') {
+      return queryFor([
+        doc('email-admin-own', {
+          orgId: 'org-1',
+          uid: 'admin-1',
+          folder: 'inbox',
+          status: 'received',
+          subject: 'Own launch email',
+          from: 'client@example.test',
+          snippet: 'Please confirm the launch.',
+          deleted: false,
+        }),
+        doc('email-admin-other', {
+          orgId: 'org-1',
+          uid: 'admin-2',
+          folder: 'inbox',
+          status: 'received',
+          subject: 'Private leadership email',
+          from: 'private@example.test',
+          snippet: 'Private message.',
+          deleted: false,
+        }),
+      ])
+    }
     if (name === 'deals') {
       return queryFor([
         doc('deal-1', {
@@ -620,6 +644,43 @@ describe('context reference registry', () => {
       user,
     })).resolves.toEqual([
       expect.objectContaining({ id: 'calendar-own', label: 'Launch review' }),
+    ])
+  })
+
+  it('limits mailbox resolution and search to the human mailbox owner for every role', async () => {
+    const { resolveContextReferences, searchContextReferences } = await import('@/lib/context-references/registry')
+    const admin = { uid: 'admin-1', role: 'admin' as const, authKind: 'session' as const, orgId: 'org-1' }
+
+    await expect(resolveContextReferences([
+      { type: 'email', id: 'email-admin-own', orgId: 'org-1' },
+      { type: 'email', id: 'email-admin-other', orgId: 'org-1' },
+    ], admin, 'org-1')).resolves.toEqual([
+      expect.objectContaining({
+        type: 'email',
+        id: 'email-admin-own',
+        href: '/admin/email/mailbox?folder=inbox&messageId=email-admin-own',
+      }),
+    ])
+
+    await expect(searchContextReferences({
+      type: 'email',
+      query: 'email',
+      orgId: 'org-1',
+      user: admin,
+    })).resolves.toEqual([
+      expect.objectContaining({ id: 'email-admin-own' }),
+    ])
+
+    await expect(resolveContextReferences([
+      { type: 'email', id: 'email-admin-own', orgId: 'org-1' },
+    ], {
+      uid: 'admin-1',
+      role: 'ai',
+      authKind: 'user_delegation',
+      actingForUserId: 'admin-1',
+      orgId: 'org-1',
+    }, 'org-1')).resolves.toEqual([
+      expect.objectContaining({ id: 'email-admin-own' }),
     ])
   })
 

@@ -24,10 +24,10 @@ describe('chat context capability contract', () => {
     expect(summarizeChatContextCoverage()).toEqual({
       totalKinds: 25,
       liveReadKinds: 25,
-      specializedKinds: 15,
+      specializedKinds: 16,
       sealedRuntimeKinds: 1,
-      inlineActionKinds: 15,
-      navigateActionKinds: 10,
+      inlineActionKinds: 16,
+      navigateActionKinds: 9,
     })
   })
 })

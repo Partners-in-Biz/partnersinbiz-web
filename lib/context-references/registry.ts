@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 
+import { ownerUidFrom } from '@/lib/api/actor'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
 import type { StudioKind } from '@/lib/chat-context/types'
@@ -414,7 +415,18 @@ function calendarEventHref(id: string, data: RawDoc): string {
   return `/portal/dashboard?${eventParam}${orgParam}`
 }
 
-function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: string): string {
+function mailboxMessageHref(id: string, data: RawDoc, user?: ApiUser): string {
+  const folder = clean(data.folder, 20)
+  const params = new URLSearchParams()
+  if (folder) params.set('folder', folder)
+  params.set('messageId', id)
+  const orgId = docOrgId(data)
+  if (user?.role === 'client' && orgId) params.set('orgId', orgId)
+  const base = user?.role === 'client' ? '/portal/email' : '/admin/email/mailbox'
+  return `${base}?${params.toString()}`
+}
+
+function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: string, user?: ApiUser): string {
   if (seedHref) return seedHref
   const slug = clean(data.orgSlug) || clean(data.slug)
   switch (type) {
@@ -442,7 +454,7 @@ function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: s
     case 'campaign':
       return `/admin/campaigns/${id}`
     case 'email':
-      return `/admin/email/mailbox/${id}`
+      return mailboxMessageHref(id, data, user)
     case 'support':
       return `/admin/support/${id}`
     case 'deal':
@@ -889,7 +901,7 @@ async function resolveGeneric(
     : ''
   const orgId = billingPerspectiveOrg || docOrgId(data, input.seed.orgId ?? input.defaultOrgId)
   if (isDeleted(data) || !orgId || !sameOrg(data, expectedOrg) || !canUseOrg(input.user, orgId)) return null
-  if (type === 'email' && input.user.role === 'client' && clean(data.uid) !== input.user.uid) return null
+  if (type === 'email' && clean(data.uid) !== ownerUidFrom(input.user)) return null
   if (type === 'workspace_artifact' && input.user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
   const quoteRecipientPerspective = type === 'quote'
     && orgId !== (clean(data.sourceOrgId) || clean(data.orgId))
@@ -917,7 +929,7 @@ async function resolveGeneric(
     orgId,
     label,
     origin: origin(input.seed),
-    href: href(type, doc.id, data, input.seed.href),
+    href: href(type, doc.id, data, input.seed.href, input.user),
     summary: compactSummary([
       data.status ? `status: ${clean(data.status)}` : '',
       data.lifecycleStatus ? `lifecycle: ${clean(data.lifecycleStatus)}` : '',
@@ -1134,7 +1146,7 @@ function refFromSearchRow(
   const orgId = docOrgId(data)
   if (!orgId || !canUseOrg(user, orgId)) return null
   if (type === 'research' && user.role === 'client' && clean(data.visibility) !== 'client_visible') return null
-  if (type === 'email' && user.role === 'client' && clean(data.uid) !== user.uid) return null
+  if (type === 'email' && clean(data.uid) !== ownerUidFrom(user)) return null
   if (type === 'support' && user.role === 'client' && clean(data.createdBy) !== user.uid) return null
   if (type === 'workspace_artifact' && user.role === 'client' && (clean(data.visibility) !== 'admin_agents_clients' || clean(data.lifecycleStatus) !== 'client_visible')) return null
 
@@ -1158,7 +1170,7 @@ function refFromSearchRow(
     orgId,
     label: label || fallbackLabel,
     origin: 'mention',
-    href: href(type, id, data),
+    href: href(type, id, data, undefined, user),
     summary: compactSummary([
       type === 'product' ? productPriceSummary(data) : '',
       data.status ? `status: ${clean(data.status)}` : '',

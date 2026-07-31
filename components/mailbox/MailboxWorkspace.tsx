@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { PageHeader } from '@/components/ui/AppFoundation'
-import type { MailboxAccountSafe, MailboxFolder, MailboxMessageSafe } from '@/lib/mailbox/types'
+import { MAILBOX_FOLDERS, type MailboxAccountSafe, type MailboxFolder, type MailboxMessageSafe } from '@/lib/mailbox/types'
 
 type MailboxSurface = 'admin' | 'portal'
 
@@ -153,11 +153,16 @@ function htmlToText(html: string): string {
 export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: MailboxWorkspaceProps) {
   const config = MAILBOX_CONFIG[surface]
   const searchParams = useSearchParams()
+  const requestedFolder = searchParams.get('folder')
+  const initialFolder = MAILBOX_FOLDERS.includes(requestedFolder as MailboxFolder)
+    ? requestedFolder as MailboxFolder
+    : 'inbox'
+  const initialMessageId = searchParams.get('messageId')?.trim() || null
   const [accounts, setAccounts] = useState<MailboxAccountSafe[]>([])
   const [messages, setMessages] = useState<MailboxMessageSafe[]>([])
-  const [folder, setFolder] = useState<MailboxFolder>('inbox')
+  const [folder, setFolder] = useState<MailboxFolder>(initialFolder)
   const [accountId, setAccountId] = useState('all')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(initialMessageId)
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(true)
   const [showAccount, setShowAccount] = useState(false)
@@ -188,7 +193,11 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
     const list = body.data?.messages ?? []
     const freshness = body.data?.freshness
     setMessages(list)
-    setSelectedId((current) => current && list.some((item: MailboxMessageSafe) => item.id === current) ? current : list[0]?.id ?? null)
+    setSelectedId((current) => current && list.some((item: MailboxMessageSafe) => item.id === current)
+      ? current
+      : initialMessageId && list.some((item: MailboxMessageSafe) => item.id === initialMessageId)
+        ? initialMessageId
+        : list[0]?.id ?? null)
     if (options.refresh) {
       const attempted = Number(freshness?.attempted ?? 0)
       const failed = Number(freshness?.failed ?? 0)
@@ -217,6 +226,13 @@ export function MailboxWorkspace({ surface, showCloseAction = false, onClose }: 
     const message = searchParams.get('message')
     if (status === 'connected') setNotice('Google mailbox connected.')
     if (status === 'error') setError(message ? `Google mailbox connection failed: ${message}` : 'Google mailbox connection failed.')
+  }, [searchParams])
+
+  useEffect(() => {
+    const requested = searchParams.get('folder')
+    if (MAILBOX_FOLDERS.includes(requested as MailboxFolder)) setFolder(requested as MailboxFolder)
+    const messageId = searchParams.get('messageId')?.trim()
+    if (messageId) setSelectedId(messageId)
   }, [searchParams])
 
   useEffect(() => {
