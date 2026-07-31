@@ -1,11 +1,13 @@
 /**
  * Development/staging verification for SA payroll:
  * calculation engine + pay-run calendars/cut-offs, review/approval lock,
- * payslips, history, corrections, reversals, external payment observation only.
+ * payslips, history, corrections, reversals, external payment observation only,
+ * plus IRP5/IT3(a), EMP201/EMP501, tax-year controls, exportable evidence.
  * No SARS submission/payment, no external salary payment initiation, no production deploy.
  */
 import { FinancePayrollCalculationService, InMemoryPayrollStore } from '../../lib/payroll/calculation-service'
 import { FinancePayRunService } from '../../lib/payroll/pay-run-service'
+import { FinancePayrollStatutoryService } from '../../lib/payroll/statutory-service'
 import { zaPayrollRuleVersionDraft } from '../../lib/jurisdictions/za/payroll'
 import { assertCalculationDeterministic } from '../../lib/payroll/calculation'
 import { canonicalDigest, HASH_ALGORITHM_VERSION } from '../../lib/finance/integrity'
@@ -54,6 +56,7 @@ async function main() {
   const store = new InMemoryPayrollStore()
   const service = new FinancePayrollCalculationService(store, () => now)
   const payRuns = new FinancePayRunService(store, () => now)
+  const statutory = new FinancePayrollStatutoryService(store, () => now)
   const clerk = actorFor('verify-clerk', 'payroll_clerk')
   const approver = actorFor('verify-approver', 'payroll_approver')
 
@@ -282,6 +285,71 @@ async function main() {
   if (history.length < 3) throw new Error('history incomplete')
   if (store.auditEvents.some((e) => e.externalEgressAllowed !== false)) throw new Error('egress')
 
+  // Statutory-ready year-end / payroll tax records (no SARS submit/payment)
+  now = '2026-03-22T12:00:00.000Z'
+  const taxYear = await statutory.createTaxYear(clerk, {
+    id: 'ty-v', ...scope, taxYearLabel: '2025/26', ruleVersionIds: [rule.id],
+    expectedVersion: 0, ...request('ty'),
+  })
+  // Include original locked run (now reversed), reversal, and correction for year rollup.
+  const irp5 = await statutory.prepareIrp5(clerk, {
+    id: 'irp5-v', ...scope, taxYearId: taxYear.id,
+    employeeId: employee.id, employmentId: employment.id,
+    expectedVersion: 0, ...request('irp5'),
+  })
+  if (irp5.sarsSubmissionInitiated !== false) throw new Error('irp5 sars')
+  if (!irp5.taxTableReferences.some((r) => r.packageId === rule.packageId)) throw new Error('tax table ref')
+  statutory.registerApproval(makeApproval('ap-irp5-v', 'payroll.statutory.approve'))
+  const lockedIrp5 = await statutory.approveIrp5(approver, {
+    id: irp5.id, ...scope, expectedVersion: irp5.version,
+    approvalId: 'ap-irp5-v', reason: 'Approve certificate', ...request('irp5-ap'),
+  })
+  if (lockedIrp5.status !== 'approved_locked') throw new Error('irp5 not locked')
+
+  const emp201 = await statutory.prepareEmp201(clerk, {
+    id: 'emp201-v', ...scope, taxYearId: taxYear.id, taxMonth: '2026-03',
+    expectedVersion: 0, ...request('emp201'),
+  })
+  statutory.registerApproval(makeApproval('ap-emp201-v', 'payroll.statutory.approve'))
+  const lockedEmp201 = await statutory.approveEmp201(approver, {
+    id: emp201.id, ...scope, expectedVersion: emp201.version,
+    approvalId: 'ap-emp201-v', reason: 'Approve EMP201', ...request('emp201-ap'),
+  })
+  if (lockedEmp201.status !== 'approved_locked') throw new Error('emp201 not locked')
+
+  const emp501 = await statutory.prepareEmp501(clerk, {
+    id: 'emp501-v', ...scope, taxYearId: taxYear.id, expectedVersion: 0, ...request('emp501'),
+  })
+  if (!emp501.reconciled) throw new Error(`emp501 not reconciled: ${JSON.stringify(emp501.difference)}`)
+  statutory.registerApproval(makeApproval('ap-emp501-v', 'payroll.statutory.approve'))
+  const lockedEmp501 = await statutory.approveEmp501(approver, {
+    id: emp501.id, ...scope, expectedVersion: emp501.version,
+    approvalId: 'ap-emp501-v', reason: 'Approve EMP501', ...request('emp501-ap'),
+  })
+  if (lockedEmp501.sarsSubmissionInitiated !== false) throw new Error('emp501 sars')
+
+  const exportManifest = await statutory.generateExportManifest(clerk, {
+    id: 'exp-v', ...scope, taxYearId: taxYear.id, kind: 'payroll_tax_summary',
+    expectedVersion: 0, ...request('export'),
+  })
+  if (exportManifest.externalEgressAllowed !== false || exportManifest.sarsSubmissionInitiated !== false) {
+    throw new Error('export egress')
+  }
+  const summary = statutory.getTaxSummary(scope, taxYear.id)
+  if (summary.employeeCertificates < 1 || summary.emp201Count < 1 || summary.emp501Reconciled !== true) {
+    throw new Error('tax summary incomplete')
+  }
+
+  const closedYear = await statutory.closeTaxYear(clerk, {
+    ...scope, taxYearId: taxYear.id, expectedVersion: taxYear.version, ...request('ty-close'),
+  })
+  statutory.registerApproval(makeApproval('ap-ty-lock-v', 'payroll.tax_year.lock'))
+  const lockedYear = await statutory.lockTaxYear(approver, {
+    ...scope, taxYearId: closedYear.id, expectedVersion: closedYear.version,
+    approvalId: 'ap-ty-lock-v', reason: 'Lock tax year', ...request('ty-lock'),
+  })
+  if (lockedYear.status !== 'locked' || lockedYear.immutable !== true) throw new Error('tax year not locked')
+
   console.log(JSON.stringify({
     ok: true,
     ruleVersionId: rule.id,
@@ -303,6 +371,16 @@ async function main() {
     reversalPayRunId: reversal.id,
     correctionPayRunId: lockedCorr.id,
     historyCount: history.length,
+    taxYearId: lockedYear.id,
+    taxYearStatus: lockedYear.status,
+    irp5Id: lockedIrp5.id,
+    certificateKind: lockedIrp5.certificateKind,
+    emp201Id: lockedEmp201.id,
+    emp501Id: lockedEmp501.id,
+    emp501Reconciled: lockedEmp501.reconciled,
+    exportManifestId: exportManifest.id,
+    exportContentDigest: exportManifest.contentDigest,
+    taxSummaryCertificates: summary.employeeCertificates,
     externalPaymentInitiated: false,
     sarsSubmissionInitiated: false,
     noEgress: store.auditEvents.every((e) => e.externalEgressAllowed === false),

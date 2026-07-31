@@ -25,7 +25,7 @@ describe('finance foundation storage contract', () => {
       'payroll_calculations', 'payroll_tax_years', 'payroll_ytd_openings',
       'payroll_calculation_manifests', 'pay_runs', 'pay_run_items',
       'pay_run_item_components', 'payslips', 'payroll_adjustments', 'leave_records',
-      'irp5_records', 'emp201_snapshots', 'emp501_reconciliations',
+      'irp5_records', 'emp201_snapshots', 'emp501_reconciliations', 'payroll_export_manifests',
     ]) {
       expect(rules).toContain(`match /${collection}/{id} { allow read, write: if false; }`)
     }

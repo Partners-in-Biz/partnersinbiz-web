@@ -235,6 +235,7 @@ service cloud.firestore {
     match /irp5_records/{id} { allow read, write: if false; }
     match /emp201_snapshots/{id} { allow read, write: if false; }
     match /emp501_reconciliations/{id} { allow read, write: if false; }
+    match /payroll_export_manifests/{id} { allow read, write: if false; }
 
     // Idempotency cache — never client-readable or writable.
     match /idempotency_keys/{id} {
