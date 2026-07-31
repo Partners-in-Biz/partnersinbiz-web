@@ -199,6 +199,39 @@ describe('Workspace conversation access', () => {
     expect(publicMessage).not.toHaveProperty('events')
   })
 
+  it('keeps open_context uiActions so email draft review buttons reach the client', () => {
+    const publicMessage = publicConversationMessageView({
+      id: 'msg-email',
+      conversationId: 'conv-1',
+      role: 'assistant',
+      content: 'Draft ready. Use Review email draft in the side panel.',
+      authorKind: 'agent',
+      authorId: 'pip',
+      authorDisplayName: 'Pip',
+      uiActions: [{
+        id: 'open-email-draft:draft-1',
+        type: 'open_context',
+        label: 'Review email draft',
+        variant: 'primary',
+        payload: { kind: 'email', id: 'draft-1', label: 'Proposal' },
+      }],
+      contextRefs: [{
+        type: 'email',
+        id: 'draft-1',
+        label: 'Proposal',
+        origin: 'manual',
+      }],
+    })
+    expect(publicMessage.uiActions).toEqual([expect.objectContaining({
+      id: 'open-email-draft:draft-1',
+      type: 'open_context',
+      label: 'Review email draft',
+      payload: expect.objectContaining({ kind: 'email', id: 'draft-1' }),
+    })])
+    expect(publicMessage.ui_actions).toEqual(publicMessage.uiActions)
+    expect(publicMessage.contextRefs).toEqual([expect.objectContaining({ type: 'email', id: 'draft-1' })])
+  })
+
   it('limits access management to the canonical owner or a scoped administrator', () => {
     const scopedAdmin = { uid: 'admin-2', role: 'admin', allowedOrgIds: ['org-1'] } as ApiUser
     const restrictedAdmin = { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-2'] } as ApiUser
