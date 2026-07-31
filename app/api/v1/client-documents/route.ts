@@ -231,48 +231,89 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       .filter((doc) => doc.deleted !== true)
   }
 
-  let documents = await listForOrg(scope.orgId)
-  if (scope.orgId !== PIB_PLATFORM_ORG_ID) {
-    const platformQueries: FirestoreListQuery[] = [
-      adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
-        .where('orgId', '==', PIB_PLATFORM_ORG_ID)
-        .where('linked.clientOrgId', '==', scope.orgId) as unknown as FirestoreListQuery,
-      adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
-        .where('orgId', '==', PIB_PLATFORM_ORG_ID)
-        .where('linked.clientOrgIds', 'array-contains', scope.orgId) as unknown as FirestoreListQuery,
-    ]
-    const platformSnaps = await Promise.all(platformQueries.map((query) => {
-      let nextQuery = query
-      if (status) nextQuery = nextQuery.where('status', '==', status)
-      if (type) nextQuery = nextQuery.where('type', '==', type)
-      return nextQuery.limit(limit + 1).get()
-    }))
-    const platformDocuments = platformSnaps.flatMap((snap) =>
-      snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ClientDocument & { id: string })),
-    )
-    const linkedPlatformDocuments = platformDocuments
-      .filter((doc) => doc.deleted !== true)
-      .filter((doc) => {
-        const linkedOrgIds = new Set([
-          ...(doc.linked?.clientOrgId ? [doc.linked.clientOrgId] : []),
-          ...(doc.linked?.clientOrgIds ?? []),
-        ])
-        return linkedOrgIds.has(scope.orgId)
-      })
-      // When listing under a client org, platform-authored linked docs are only visible
-      // after they leave internal draft/review (client-visible statuses). PiB authors edit
-      // drafts from the platform CRM org, not by switching into the client workspace.
-      .filter((doc) => isClientVisibleClientDocument(doc))
-    const byId = new Map<string, ClientDocument & { id: string }>()
-    for (const document of [...documents, ...linkedPlatformDocuments]) byId.set(document.id, document)
-    documents = Array.from(byId.values())
-  }
-
+  // Client-role users must never receive a full holder-org scan of platform docs
+  // (membership of pib-platform-owner used to dump every proposal). Start from
+  // owned/shared + recipient-linked client-facing platform docs only.
+  let documents: Array<ClientDocument & { id: string }> = []
   if (user.role === 'client') {
     const ownedOrShared = await listOwnedOrSharedForOrg(scope.orgId)
+    // Platform-held docs explicitly addressed to this client org (or any of the
+    // caller's client orgs if they list under a non-platform scope).
+    const recipientOrgIds = Array.from(new Set([
+      ...(scope.orgId !== PIB_PLATFORM_ORG_ID ? [scope.orgId] : []),
+      ...((user.orgIds ?? []).filter((id) => id && id !== PIB_PLATFORM_ORG_ID)),
+      ...((user.orgId && user.orgId !== PIB_PLATFORM_ORG_ID) ? [user.orgId] : []),
+    ].filter(Boolean)))
+
+    const platformQueries: FirestoreListQuery[] = []
+    for (const recipientOrgId of recipientOrgIds) {
+      platformQueries.push(
+        adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
+          .where('orgId', '==', PIB_PLATFORM_ORG_ID)
+          .where('linked.clientOrgId', '==', recipientOrgId) as unknown as FirestoreListQuery,
+        adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
+          .where('orgId', '==', PIB_PLATFORM_ORG_ID)
+          .where('linked.clientOrgIds', 'array-contains', recipientOrgId) as unknown as FirestoreListQuery,
+      )
+    }
+    // Client-org held docs (holder is the client workspace itself).
+    if (scope.orgId !== PIB_PLATFORM_ORG_ID) {
+      documents = await listForOrg(scope.orgId)
+    }
+
+    const platformSnaps = platformQueries.length > 0
+      ? await Promise.all(platformQueries.map((query) => {
+          let nextQuery = query
+          if (status) nextQuery = nextQuery.where('status', '==', status)
+          if (type) nextQuery = nextQuery.where('type', '==', type)
+          return nextQuery.limit(limit + 1).get()
+        }))
+      : []
+    const linkedPlatformDocuments = platformSnaps.flatMap((snap) =>
+      snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ClientDocument & { id: string })),
+    )
+      .filter((doc) => doc.deleted !== true)
+      .filter((doc) => isClientVisibleClientDocument(doc))
+
     const byId = new Map<string, ClientDocument & { id: string }>()
-    for (const document of [...documents, ...ownedOrShared]) byId.set(document.id, document)
+    for (const document of [...documents, ...ownedOrShared, ...linkedPlatformDocuments]) {
+      byId.set(document.id, document)
+    }
     documents = Array.from(byId.values()).filter((doc) => isClientDocumentVisibleToUser(doc, user))
+  } else {
+    documents = await listForOrg(scope.orgId)
+    if (scope.orgId !== PIB_PLATFORM_ORG_ID) {
+      const platformQueries: FirestoreListQuery[] = [
+        adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
+          .where('orgId', '==', PIB_PLATFORM_ORG_ID)
+          .where('linked.clientOrgId', '==', scope.orgId) as unknown as FirestoreListQuery,
+        adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
+          .where('orgId', '==', PIB_PLATFORM_ORG_ID)
+          .where('linked.clientOrgIds', 'array-contains', scope.orgId) as unknown as FirestoreListQuery,
+      ]
+      const platformSnaps = await Promise.all(platformQueries.map((query) => {
+        let nextQuery = query
+        if (status) nextQuery = nextQuery.where('status', '==', status)
+        if (type) nextQuery = nextQuery.where('type', '==', type)
+        return nextQuery.limit(limit + 1).get()
+      }))
+      const platformDocuments = platformSnaps.flatMap((snap) =>
+        snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ClientDocument & { id: string })),
+      )
+      const linkedPlatformDocuments = platformDocuments
+        .filter((doc) => doc.deleted !== true)
+        .filter((doc) => {
+          const linkedOrgIds = new Set([
+            ...(doc.linked?.clientOrgId ? [doc.linked.clientOrgId] : []),
+            ...(doc.linked?.clientOrgIds ?? []),
+          ])
+          return linkedOrgIds.has(scope.orgId)
+        })
+        .filter((doc) => isClientVisibleClientDocument(doc))
+      const byId = new Map<string, ClientDocument & { id: string }>()
+      for (const document of [...documents, ...linkedPlatformDocuments]) byId.set(document.id, document)
+      documents = Array.from(byId.values())
+    }
   }
   const hasMore = documents.length > limit
   const total = hasMore ? limit + 1 : documents.length
