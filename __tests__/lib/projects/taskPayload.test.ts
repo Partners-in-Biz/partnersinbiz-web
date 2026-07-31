@@ -522,6 +522,8 @@ describe('project task payload helpers', () => {
         agentOutput: null,
         agentConversationId: null,
         agentHeartbeatAt: null,
+        agentRetryCount: null,
+        agentRetryAt: null,
       })
     })
 
