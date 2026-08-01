@@ -485,12 +485,12 @@ export default function FinanceWorkbenchPage() {
                   <h2 className="text-base font-semibold">Module status</h2>
                   <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {[
-                      { title: 'Foundation ledger', status: 'Live', body: 'Legal entities, books, periods, accounts, journals, reversals, audit.' },
-                      { title: 'Ledger reports', status: 'Live', body: 'Trial balance, income statement, and balance sheet over posted journals.' },
-                      { title: 'VAT / tax returns', status: 'Live HTTP', body: 'Tax codes, rules, periods, calculate, and return prepare/approve APIs are live.' },
-                      { title: 'AR/AP + reconciliation', status: 'Live HTTP', body: 'Invoices, bills, payments, bank import, and reconciliation APIs + portal page.' },
-                      { title: 'Intercompany', status: 'Live HTTP', body: 'Pairs, due-to/due-from, eliminations, consolidation APIs + portal page.' },
-                      { title: 'ZA payroll + statutory', status: 'Live HTTP', body: 'Pay runs, payslips, IRP5/EMP201/EMP501 APIs + portal page; no SARS egress.' },
+                      { title: 'Foundation ledger', status: 'Live UI', body: 'Legal entities, books, periods, accounts, journals, reversals, audit.' },
+                      { title: 'Ledger reports', status: 'Live UI', body: 'Run trial balance, income statement, and balance sheet over posted journals.' },
+                      { title: 'VAT / tax returns', status: 'Live UI', body: 'Tax codes, periods, calculate, and return prepare/approve with no SARS egress.' },
+                      { title: 'AR/AP + reconciliation', status: 'Live UI', body: 'Invoices, payments, bank import, and reconciliation actions on /portal/finance/documents.' },
+                      { title: 'Intercompany', status: 'Live UI', body: 'Pairs, propose/receive confirm, eliminations, and consolidation visibility.' },
+                      { title: 'ZA payroll + statutory', status: 'Live UI', body: 'Employees, calcs, pay runs, payslip-by-id; no bank pay or SARS submit.' },
                       { title: 'Operational billing', status: 'Live', body: 'Existing invoicing and payments stay at their current portal routes.' },
                     ].map((item) => (
                       <div key={item.title} className="rounded-xl border border-[var(--color-pib-line)] p-3">

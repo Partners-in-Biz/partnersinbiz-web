@@ -37,4 +37,4 @@ export const SERVICE_ONLY_FINANCE_MODULES = [
 export const FINANCE_UI_SHIPPED = true as const
 
 export const FINANCE_UI_BOUNDARY_NOTE =
-  'Finance foundation workbench shipped under /portal/finance (overview, setup, ledger, reports, tax, documents, intercompany, payroll). Durable command/query HTTP is live for foundation, reports, tax, documents, intercompany, and payroll. SARS submission and external payment initiation remain disabled. Sensitive access is enforced at policy + service boundaries.'
+  'Finance foundation workbench shipped under /portal/finance (overview, setup, ledger, reports, tax, documents, intercompany, payroll). Interactive portal workbenches load live bundles and run authenticated commands for foundation, reports, tax, documents, intercompany, and payroll. SARS submission and external payment initiation remain disabled. Sensitive access is enforced at policy + service boundaries.'
