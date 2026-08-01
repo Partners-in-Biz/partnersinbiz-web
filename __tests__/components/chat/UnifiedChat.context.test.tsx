@@ -559,6 +559,42 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
   })
 
+  it('shows a fresh but recovering bound computer as reconnecting without selecting another machine', async () => {
+    let workspaceRequests = 0
+    let resolveRecovery: (() => void) | undefined
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) {
+        workspaceRequests += 1
+        const data = {
+          workspaces: [{ workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps', folderVersion: 1 }],
+          runtimeTargetsByWorkspace: { acme: [
+            { id: 'device-recovering', label: 'Studio Mac', selectable: workspaceRequests > 1, enabled: true, isLocal: true, isFresh: true, isHealthy: workspaceRequests > 1, unavailableReason: workspaceRequests > 1 ? undefined : 'offline', lastSeenAt: '2026-08-01T18:00:00.000Z' },
+            { id: 'device-healthy', label: 'Office PC', selectable: true, enabled: true, isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null },
+          ] }, projects: [],
+        }
+        if (workspaceRequests === 1) return jsonResponse({ data })
+        return new Promise<Response>((resolve) => { resolveRecovery = () => resolve(jsonResponse({ data })) })
+      }
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [{ ...baseConversation, workspaceContext: { workspaceId: 'acme', orgName: 'Acme', runtimeTarget: 'device-recovering', runtimeLabel: 'Studio Mac' } }] } })
+      if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" />)
+    const alert = await screen.findByRole('alert')
+    expect(within(alert).getByText('Computer reconnecting')).toBeInTheDocument()
+    expect(alert).toHaveTextContent('Studio Mac is reconnecting. This session remains linked to it; queued runs will resume automatically when it is ready, within the 45-minute queue window.')
+    expect(screen.queryByText(/Office PC was selected/i)).not.toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Computer unavailable')).toBeDisabled()
+    await waitFor(() => expect(resolveRecovery).toBeDefined())
+    await act(async () => { resolveRecovery?.() })
+    await waitFor(() => expect(screen.getByPlaceholderText('Send a message')).toBeEnabled())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('keeps an adopted legacy-runtime session available through the linked computer alias', async () => {
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
