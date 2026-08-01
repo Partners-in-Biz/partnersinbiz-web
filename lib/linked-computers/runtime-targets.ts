@@ -48,10 +48,17 @@ export interface PublicAuthorizedRuntimeTarget {
   deviceKind: LinkedDeviceKind
   ownerType: AuthorizedProjectRuntimeOwner['type']
   visibility: 'private' | 'organization'
+  /** Safe live-state fields for the Messages catalogue; no endpoint or secret data. */
+  enabled: boolean
+  isLocal: boolean
+  isFresh: boolean
+  isHealthy: boolean
   selectable: boolean
   updateRequired?: boolean
   unavailableReason?: LinkedRuntimeUnavailableReason
   lastSeenAt: string | null
+  ageSeconds: number | null
+  lastHealthStatus: 'ok' | 'degraded' | 'offline'
 }
 
 export type AuthorizedProjectRuntimeOwner =
@@ -174,6 +181,12 @@ async function membership(db: DbLike, orgId: string, userId: string): Promise<Ac
 
 type ResolvedAuthorizedRuntimeTarget = Omit<AuthorizedLinkedComputerDispatch, 'lastSeenAt'> & {
   lastSeenAt: string | null
+  enabled: boolean
+  isLocal: boolean
+  isFresh: boolean
+  isHealthy: boolean
+  ageSeconds: number | null
+  lastHealthStatus: 'ok' | 'degraded' | 'offline'
   legacyRuntimeTargetIds: string[]
   unavailableReason?: LinkedRuntimeUnavailableReason
   owner: AuthorizedProjectRuntimeOwner
@@ -245,7 +258,11 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
       .sort((left, right) => left.mappingId.localeCompare(right.mappingId))
     const credential = credentialById.get(device.deviceId)
     if (!grant || grant.status !== 'active' || !grant.capabilities.includes('workspace.execute')) continue
-    if (device.status !== 'active' || !Array.isArray(device.capabilities) || !device.capabilities.includes('workspace.execute')) continue
+    // A signed degraded heartbeat deliberately withdraws workspace.execute.
+    // Keep that still-authorized, mapped machine in the catalogue so its exact
+    // conversation can show a reconnecting state; dispatch remains denied
+    // below until the capability is restored by a healthy heartbeat.
+    if (device.status !== 'active') continue
     const ownerType = linkedDeviceOwnerType(device)
     if (ownerType === 'user') {
       const ownerMembership = await membership(db, input.orgId, String(device.ownerUserId))
@@ -256,12 +273,16 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
     if (deviceMappings.length === 0) continue
     if (!credential || credential.revokedAt || Number(credential.credentialVersion) !== device.credentialVersion) continue
     const seen = timestampToMs(device.lastSeenAt)
+    const ageMs = seen == null ? null : Math.max(0, now - seen)
+    const isFresh = ageMs != null && ageMs <= (options.staleAfterMs ?? DEVICE_STALE_AFTER_MS)
+    const canExecute = Array.isArray(device.capabilities) && device.capabilities.includes('workspace.execute')
+    const isHealthy = device.health === 'ok' && canExecute
     const updateRequired = linkedRuntimeUpdateRequired(device.runtimeVersion)
     const availableAgentIds = Array.isArray(device.availableAgentIds)
       ? device.availableAgentIds.filter((agentId): agentId is string => typeof agentId === 'string')
       : []
     const requestedAgentUnavailable = Boolean(input.agentId && availableAgentIds.length > 0 && !availableAgentIds.includes(input.agentId))
-    const unavailableReason: LinkedRuntimeUnavailableReason | undefined = device.health !== 'ok' || seen == null
+    const unavailableReason: LinkedRuntimeUnavailableReason | undefined = !canExecute || device.health !== 'ok' || seen == null
       ? 'offline'
       : now - seen > (options.staleAfterMs ?? DEVICE_STALE_AFTER_MS)
         ? 'stale'
@@ -279,6 +300,12 @@ async function resolveCandidates(input: ResolveInput, options: ResolveOptions): 
         legacyRuntimeTargetIds,
         machineLabel: device.label, mappingId: mapping.mappingId, mappingLabel, credentialVersion: device.credentialVersion,
         runtimeVersion: device.runtimeVersion, platform: device.platform, lastSeenAt: seen == null ? null : new Date(seen).toISOString(),
+        enabled: true,
+        isLocal: device.deviceKind !== 'vps',
+        isFresh,
+        isHealthy,
+        ageSeconds: ageMs == null ? null : Math.floor(ageMs / 1_000),
+        lastHealthStatus: isHealthy ? 'ok' : (seen == null ? 'offline' : 'degraded'),
         availableAgentIds,
         deviceKind: device.deviceKind === 'vps' ? 'vps' : 'computer',
         workspaceId: mapping.workspaceId, publicKey: String((device as LinkedDevice & { publicKey?: string }).publicKey ?? ''),
@@ -308,10 +335,16 @@ export async function discoverAuthorizedRuntimeTargets(input: ResolveInput, opti
     deviceKind: target.deviceKind,
     ownerType: target.owner.type,
     visibility: target.accessMode === 'organization' ? 'organization' : 'private',
+    enabled: target.enabled,
+    isLocal: target.isLocal,
+    isFresh: target.isFresh,
+    isHealthy: target.isHealthy,
     selectable: !target.unavailableReason,
     ...(target.updateRequired ? { updateRequired: true } : {}),
     ...(target.unavailableReason ? { unavailableReason: target.unavailableReason } : {}),
     lastSeenAt: target.lastSeenAt,
+    ageSeconds: target.ageSeconds,
+    lastHealthStatus: target.lastHealthStatus,
   }))
 }
 

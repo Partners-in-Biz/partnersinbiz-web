@@ -66,9 +66,36 @@ describe('linked computer runtime authorization', () => {
     expect(targets[0]).toEqual(expect.objectContaining({
       id: 'target-owned', locationId: 'linked-device:owned', workspaceId: 'workspace-a',
       mappingId: 'map-owned', mappingLabel: 'Office Mac folder', selectable: true,
+      enabled: true, isLocal: true, isFresh: true, isHealthy: true,
+      ageSeconds: 30, lastHealthStatus: 'ok',
     }))
     expect(targets[2]).toEqual(expect.objectContaining({ id: 'target-stale', selectable: false, unavailableReason: 'stale' }))
     expect(JSON.stringify(targets)).not.toMatch(/credentialVersion|ownerUserId|baseUrl|apiKey|publicKey|path/i)
+  })
+
+  it('keeps a fresh degraded machine visible while its heartbeat has withdrawn execution', async () => {
+    const rows = structuredClone(base) as any
+    rows.linked_devices.owned = {
+      ...rows.linked_devices.owned,
+      health: 'degraded',
+      capabilities: ['workspace.sync'],
+      availableAgentIds: [],
+    }
+    const targets = await discoverAuthorizedRuntimeTargets(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )
+    expect(targets.find((target) => target.deviceId === 'owned')).toEqual(expect.objectContaining({
+      selectable: false,
+      isFresh: true,
+      isHealthy: false,
+      unavailableReason: 'offline',
+      lastHealthStatus: 'degraded',
+    }))
+    await expect(authorizeLinkedComputerDispatch(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-owned' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )).rejects.toMatchObject({ code: 'linked_device_offline' })
   })
 
   it('lists every active workspace mapping on the same computer and authorizes the chosen mapping', async () => {
@@ -175,7 +202,10 @@ describe('linked computer runtime authorization', () => {
     process.env.LINKED_RUNTIME_MIN_VERSION = '2.0.0'
     try {
       const targets = await discoverAuthorizedRuntimeTargets({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a' }, { db: fakeDb(rows), nowMs: () => now })
-      expect(targets).toContainEqual(expect.objectContaining({ id: 'target-offline', selectable: false, unavailableReason: 'offline' }))
+      expect(targets).toContainEqual(expect.objectContaining({
+        id: 'target-offline', selectable: false, unavailableReason: 'offline',
+        isFresh: true, isHealthy: false, lastHealthStatus: 'degraded', ageSeconds: 30,
+      }))
       expect(targets).toContainEqual(expect.objectContaining({ id: 'target-update', selectable: false, unavailableReason: 'update_required', updateRequired: true }))
       await expect(authorizeLinkedComputerDispatch({ userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-offline' }, { db: fakeDb(rows), nowMs: () => now }))
         .rejects.toMatchObject({ code: 'linked_device_offline' })

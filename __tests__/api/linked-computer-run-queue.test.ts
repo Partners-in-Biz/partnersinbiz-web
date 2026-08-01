@@ -4,7 +4,10 @@ import { handleLinkedRunProgress } from '@/app/api/v1/linked-computers/[deviceId
 import { handleLinkedRunComplete } from '@/app/api/v1/linked-computers/[deviceId]/runs/[jobId]/complete/route'
 import {
   isLinkedRunCancellationBound,
+  hasLinkedRunCredentialRotationContinuity,
+  isLinkedRunAccessAuthorized,
   isLinkedRunClaimAuthorized,
+  linkedRunClaimEligibility,
   linkedRunQueueStartExpired,
 } from '@/lib/linked-computers/run-queue-store'
 
@@ -96,6 +99,51 @@ describe('linked computer outbound run routes', () => {
     expect(isLinkedRunClaimAuthorized({ ...base, device: { ...base.device, availableAgentIds: ['theo'] } })).toBe(false)
     expect(isLinkedRunClaimAuthorized({ ...base, delegation: { ...base.delegation, conversationId: 'conversation-b' } })).toBe(false)
     expect(isLinkedRunClaimAuthorized({ ...base, delegation: { ...base.delegation, status: 'revoked' } })).toBe(false)
+  })
+
+  it('keeps temporary runtime readiness loss queued while real authorization changes remain terminal', () => {
+    const base = {
+      authenticatedDeviceUserId: 'owner-a',
+      device: { deviceId: 'device-a', ownerUserId: 'owner-a', status: 'active', credentialVersion: 3, capabilities: ['workspace.execute'], availableAgentIds: ['pip'] },
+      grant: { deviceId: 'device-a', orgId: 'org-a', status: 'active', accessMode: 'selected_users', allowedUserIds: ['actor-a'], capabilities: ['workspace.execute'] },
+      mapping: { mappingId: 'map-a', deviceId: 'device-a', orgId: 'org-a', workspaceId: 'workspace-a', status: 'active' },
+      deviceMember: { orgId: 'org-a', uid: 'owner-a', status: 'active' },
+      actorMember: { orgId: 'org-a', uid: 'actor-a', status: 'active' },
+      job: { deviceId: 'device-a', orgId: 'org-a', actorUserId: 'actor-a', workspaceId: 'workspace-a', mappingId: 'map-a', agentId: 'pip' },
+      credentialVersion: 3,
+    }
+    expect(linkedRunClaimEligibility(base)).toBe('authorized')
+    const recovering = { ...base, device: { ...base.device, capabilities: [], availableAgentIds: [] } }
+    expect(linkedRunClaimEligibility(recovering)).toBe('execution_unavailable')
+    expect(isLinkedRunClaimAuthorized(recovering)).toBe(false)
+    // A signed in-flight receipt remains safe to accept while its own runtime
+    // is reporting a transient restart; grant/mapping/actor checks still apply.
+    expect(isLinkedRunAccessAuthorized(recovering)).toBe(true)
+    const revoked = { ...recovering, grant: { ...base.grant, status: 'revoked' } }
+    expect(linkedRunClaimEligibility(revoked)).toBe('authorization_changed')
+    expect(isLinkedRunAccessAuthorized(revoked)).toBe(false)
+  })
+
+  it('allows only the exact device credential rotation chain to continue a queued run', () => {
+    const job = { credentialVersion: 3 }
+    expect(hasLinkedRunCredentialRotationContinuity({
+      job,
+      credentialVersion: 4,
+      device: { credentialVersion: 4 },
+      credential: { credentialVersion: 4, previousCredentialVersion: 3 },
+    })).toBe(true)
+    expect(hasLinkedRunCredentialRotationContinuity({
+      job,
+      credentialVersion: 4,
+      device: { credentialVersion: 4 },
+      credential: { credentialVersion: 4, previousCredentialVersion: 2 },
+    })).toBe(false)
+    expect(hasLinkedRunCredentialRotationContinuity({
+      job,
+      credentialVersion: 4,
+      device: { credentialVersion: 4 },
+      credential: { credentialVersion: 4, previousCredentialVersion: 3, revokedAt: 'now' },
+    })).toBe(false)
   })
 
   it('denies project work after its replica is unlinked or organisation access is revoked', () => {

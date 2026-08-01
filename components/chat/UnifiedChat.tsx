@@ -2220,11 +2220,17 @@ export default function UnifiedChat({
     () => activeWorkspaceContext && activeRuntimeCatalogueLoaded && (!activeRuntimePresence || !activeRuntimePresence.selectable)
       ? {
           label: activeRuntimePresence?.label || activeRuntimeLabel || activeConnectionWhere?.label || 'This computer',
-          offline: !activeRuntimePresence || !activeRuntimePresence.isFresh || !activeRuntimePresence.isHealthy,
+          offline: !activeRuntimePresence || !activeRuntimePresence.isFresh,
+          recovering: Boolean(
+            activeRuntimePresence?.isFresh
+            && !activeRuntimePresence.isHealthy
+            && activeRuntimePresence.unavailableReason === 'offline',
+          ),
         }
       : undefined,
     [activeConnectionWhere?.label, activeRuntimeCatalogueLoaded, activeRuntimeLabel, activeRuntimePresence, activeWorkspaceContext],
   )
+  const shouldRefreshUnavailableRuntime = Boolean(unavailableActiveRuntime)
   const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations) && !unavailableActiveRuntime
   const visibleConversations = useMemo(
     () => conversations.filter((conversation) => {
@@ -2441,17 +2447,27 @@ export default function UnifiedChat({
   useEffect(() => {
     let cancelled = false
     let hasLoaded = false
+    let requestSequence = 0
+    let activeRequestId = 0
+    let activeController: AbortController | null = null
     setWorkspaceCatalogueLoaded(false)
 
     const loadWorkspaceCatalogue = async (showLoading: boolean): Promise<WorkspaceCatalogueSnapshot | null> => {
+      const requestId = ++requestSequence
+      activeRequestId = requestId
+      activeController?.abort()
+      const controller = new AbortController()
+      activeController = controller
       if (showLoading) setWorkspacesLoading(true)
       try {
         const response = await fetch(`/api/v1/workspaces?${new URLSearchParams({
           orgId,
           agentId: workspaceCatalogueAgentId,
-        }).toString()}`)
+        }).toString()}`, { signal: controller.signal })
         const body = response.ok ? await response.json() : null
-        if (cancelled || !body?.data) return null
+        // A 5-second recovery refresh can overtake the normal 30-second poll.
+        // Only its newest result may change the bound runtime or composer.
+        if (cancelled || controller.signal.aborted || requestId !== activeRequestId || !body?.data) return null
         const next = Array.isArray(body.data.workspaces)
           ? (body.data.workspaces as OrgWorkspaceSummary[])
           : []
@@ -2496,14 +2512,17 @@ export default function UnifiedChat({
         })
         return snapshot
       } catch {
-        if (!cancelled && !hasLoaded) {
+        if (!cancelled && !controller.signal.aborted && requestId === activeRequestId && !hasLoaded) {
           setWorkspaces([])
           setWorkspaceProjects([])
           setWorkspaceRuntimeTargetsByWorkspace({})
         }
         return null
       } finally {
-        if (!cancelled && showLoading) setWorkspacesLoading(false)
+        if (requestId === activeRequestId) {
+          activeController = null
+          if (!cancelled) setWorkspacesLoading(false)
+        }
       }
     }
 
@@ -2514,6 +2533,7 @@ export default function UnifiedChat({
     }, WORKSPACE_CATALOGUE_REFRESH_INTERVAL)
     return () => {
       cancelled = true
+      activeController?.abort()
       refreshWorkspaceCatalogueRef.current = async () => null
       window.clearInterval(interval)
     }
@@ -2522,6 +2542,19 @@ export default function UnifiedChat({
   useEffect(() => {
     setWorkspaceRuntimeTargetsByAgent({})
   }, [orgId])
+
+  // A signed runtime retries its heartbeat promptly after a temporary outage.
+  // Poll its catalogue a little faster while this exact bound computer is
+  // recovering so the composer re-enables without a manual refresh. This never
+  // selects or fails over to another machine.
+  useEffect(() => {
+    if (!shouldRefreshUnavailableRuntime) return
+    void refreshWorkspaceCatalogueRef.current()
+    const interval = window.setInterval(() => {
+      void refreshWorkspaceCatalogueRef.current()
+    }, 5_000)
+    return () => window.clearInterval(interval)
+  }, [shouldRefreshUnavailableRuntime])
 
   useEffect(() => {
     if (!showProjectSetupWizard) return
@@ -7888,9 +7921,11 @@ export default function UnifiedChat({
         {/* Error bar */}
         {unavailableActiveRuntime && (
           <div role="alert" className="border-t border-red-500/35 bg-red-500/10 px-4 py-2.5 text-xs text-red-200">
-            <div className="font-semibold text-red-100">Computer unavailable</div>
+            <div className="font-semibold text-red-100">{unavailableActiveRuntime.recovering ? 'Computer reconnecting' : 'Computer unavailable'}</div>
             <div className="mt-0.5">
-              {unavailableActiveRuntime.label} is {unavailableActiveRuntime.offline ? 'offline' : 'unavailable'}. This session remains linked to {unavailableActiveRuntime.label}. Try again when it is online.
+              {unavailableActiveRuntime.recovering
+                ? `${unavailableActiveRuntime.label} is reconnecting. This session remains linked to it; queued runs will resume automatically when it is ready, within the 45-minute queue window.`
+                : `${unavailableActiveRuntime.label} is ${unavailableActiveRuntime.offline ? 'offline' : 'unavailable'}. This session remains linked to ${unavailableActiveRuntime.label}. Try again when it is online.`}
             </div>
           </div>
         )}

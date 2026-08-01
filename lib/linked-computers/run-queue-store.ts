@@ -28,6 +28,7 @@ export const LINKED_RUN_QUEUES = 'linked_device_run_queues'
 const DEFAULT_LEASE_MS = 90_000
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
 export const LINKED_RUN_QUEUE_START_DEADLINE_MS = 45 * 60 * 1000
+const LINKED_RUN_CLAIM_SCAN_LIMIT = 64
 
 export function linkedRunQueueStartExpired(
   job: Pick<LinkedRunJob, 'acceptanceReceipt' | 'localHermesRunId' | 'queueExpiresAtMs'>,
@@ -68,10 +69,13 @@ function toStored(job: LinkedRunJob): Record<string, unknown> {
 
 type ClaimAuthorizationRow = Record<string, unknown> | undefined
 
-export function isLinkedRunClaimAuthorized(input: {
+export type LinkedRunClaimEligibility = 'authorized' | 'execution_unavailable' | 'authorization_changed'
+
+type LinkedRunAuthorizationInput = {
   authenticatedDeviceUserId: string
   credentialVersion: number
   device: ClaimAuthorizationRow
+  credential?: ClaimAuthorizationRow
   grant: ClaimAuthorizationRow
   mapping: ClaimAuthorizationRow
   deviceMember: ClaimAuthorizationRow
@@ -84,7 +88,17 @@ export function isLinkedRunClaimAuthorized(input: {
     Pick<LinkedRunJob, 'deviceId' | 'orgId' | 'actorUserId' | 'workspaceId' | 'mappingId' | 'projectId' | 'projectReplicaId' | 'relativeFolder'>
     & Partial<Pick<LinkedRunJob, 'conversationId' | 'agentId' | 'delegationId'>>
   ) | Record<string, unknown>
-}): boolean {
+}
+
+/**
+ * Revalidate the durable security binding separately from live Hermes readiness.
+ *
+ * A runtime heartbeat intentionally removes workspace.execute / agent inventory
+ * while local Hermes is restarting. Those fields must keep new work from
+ * starting, but they must never be mistaken for a revoked device, grant, or
+ * delegation and permanently destroy an otherwise recoverable job.
+ */
+export function linkedRunClaimEligibility(input: LinkedRunAuthorizationInput): LinkedRunClaimEligibility {
   const device = input.device ?? {}
   const grant = input.grant ?? {}
   const mapping = input.mapping ?? {}
@@ -92,23 +106,20 @@ export function isLinkedRunClaimAuthorized(input: {
   try {
     const typedDevice = device as unknown as LinkedDevice
     if (device.deviceId !== job.deviceId || device.status !== 'active' || Number(device.credentialVersion) !== input.credentialVersion
-      || linkedDeviceActorUserId(typedDevice) !== input.authenticatedDeviceUserId
-      || !Array.isArray(device.capabilities) || !device.capabilities.includes('workspace.execute')) return false
-    if (typeof job.agentId === 'string'
-      && (!Array.isArray(device.availableAgentIds) || !device.availableAgentIds.includes(job.agentId))) return false
+      || linkedDeviceActorUserId(typedDevice) !== input.authenticatedDeviceUserId) return 'authorization_changed'
     if (grant.status !== 'active' || grant.orgId !== job.orgId || grant.deviceId !== job.deviceId
-      || !Array.isArray(grant.capabilities) || !grant.capabilities.includes('workspace.execute')) return false
+      || !Array.isArray(grant.capabilities) || !grant.capabilities.includes('workspace.execute')) return 'authorization_changed'
     if (mapping.status !== 'active' || mapping.deviceId !== job.deviceId || mapping.orgId !== job.orgId
       || mapping.workspaceId !== job.workspaceId || mapping.mappingId !== job.mappingId
-      || (job.projectId && mapping.projectId && mapping.projectId !== job.projectId)) return false
+      || (job.projectId && mapping.projectId && mapping.projectId !== job.projectId)) return 'authorization_changed'
     const projectId = typeof job.projectId === 'string' ? job.projectId.trim() : ''
     const projectReplicaId = typeof job.projectReplicaId === 'string' ? job.projectReplicaId.trim() : ''
-    if (!projectId && projectReplicaId) return false
+    if (!projectId && projectReplicaId) return 'authorization_changed'
     if (projectId) {
       const project = input.project
       const projectOrganization = input.projectOrganization
       const projectReplica = input.projectReplica
-      if (!project || !projectReplicaId || !projectReplica) return false
+      if (!project || !projectReplicaId || !projectReplica) return 'authorization_changed'
       const organizationLinked = projectOrganization !== undefined
         ? projectOrganization.projectId === projectId
           && projectOrganization.orgId === job.orgId
@@ -122,7 +133,7 @@ export function isLinkedRunClaimAuthorized(input: {
         || projectReplica.workspaceId !== job.workspaceId
         || projectReplica.mappingId !== job.mappingId
         || projectReplica.locationId !== `linked-device:${String(job.deviceId)}`
-        || projectReplica.relativePath !== job.relativeFolder) return false
+        || projectReplica.relativePath !== job.relativeFolder) return 'authorization_changed'
     }
     if (job.delegationId) {
       const delegation = input.delegation
@@ -135,7 +146,7 @@ export function isLinkedRunClaimAuthorized(input: {
         || delegation.agentId !== job.agentId
         || delegation.conversationId !== job.conversationId
         || !Number.isFinite(expiresAt)
-        || expiresAt <= Date.now()) return false
+        || expiresAt <= Date.now()) return 'authorization_changed'
     }
     const actorMember = input.actorMember
     const actorIdentityMatches = Boolean(actorMember && (actorMember.uid === job.actorUserId || actorMember.userId === job.actorUserId))
@@ -149,11 +160,36 @@ export function isLinkedRunClaimAuthorized(input: {
       const member = input.deviceMember
       const ownerIdentityMatches = Boolean(member && (member.uid === typedDevice.ownerUserId || member.userId === typedDevice.ownerUserId))
       if (!isActiveOrgMembershipRow(member) || member?.orgId !== job.orgId
-        || !ownerIdentityMatches) return false
+        || !ownerIdentityMatches) return 'authorization_changed'
     }
     assertDeviceOrgAccess({ actorUserId: String(job.actorUserId), orgId: String(job.orgId), device: typedDevice, grant: grant as unknown as LinkedDeviceGrant, membership: actorMembership })
-    return true
-  } catch { return false }
+    if (!Array.isArray(device.capabilities) || !device.capabilities.includes('workspace.execute')) return 'execution_unavailable'
+    if (typeof job.agentId === 'string'
+      && (!Array.isArray(device.availableAgentIds) || !device.availableAgentIds.includes(job.agentId))) return 'execution_unavailable'
+    return 'authorized'
+  } catch { return 'authorization_changed' }
+}
+
+export function isLinkedRunClaimAuthorized(input: LinkedRunAuthorizationInput): boolean {
+  return linkedRunClaimEligibility(input) === 'authorized'
+}
+
+/** Security-only check for updates from a job that is already in flight. */
+export function isLinkedRunAccessAuthorized(input: LinkedRunAuthorizationInput): boolean {
+  const device = input.device ?? {}
+  const agentId = typeof (input.job as { agentId?: unknown }).agentId === 'string'
+    ? (input.job as { agentId: string }).agentId
+    : undefined
+  const capabilities = Array.isArray(device.capabilities) ? device.capabilities : []
+  const availableAgentIds = Array.isArray(device.availableAgentIds) ? device.availableAgentIds : []
+  return linkedRunClaimEligibility({
+    ...input,
+    device: {
+      ...device,
+      capabilities: capabilities.includes('workspace.execute') ? capabilities : [...capabilities, 'workspace.execute'],
+      ...(agentId ? { availableAgentIds: availableAgentIds.includes(agentId) ? availableAgentIds : [...availableAgentIds, agentId] } : {}),
+    },
+  }) !== 'authorization_changed'
 }
 
 async function loadLinkedRunAuthorization(
@@ -161,8 +197,9 @@ async function loadLinkedRunAuthorization(
   job: LinkedRunJob,
   authenticatedDeviceUserId: string,
 ): Promise<Omit<Parameters<typeof isLinkedRunClaimAuthorized>[0], 'authenticatedDeviceUserId' | 'credentialVersion' | 'job'>> {
-  const [device, grant, mapping, deviceMember, actorMember, delegation] = await Promise.all([
+  const [device, credential, grant, mapping, deviceMember, actorMember, delegation] = await Promise.all([
     tx.get(adminDb.collection('linked_devices').doc(job.deviceId)),
+    tx.get(adminDb.collection('linked_device_credentials').doc(job.deviceId)),
     tx.get(adminDb.collection('linked_device_grants').doc(`${job.orgId}_${job.deviceId}`)),
     tx.get(adminDb.collection('linked_device_workspace_mappings').doc(job.mappingId)),
     tx.get(adminDb.collection('orgMembers').doc(`${job.orgId}_${authenticatedDeviceUserId}`)),
@@ -182,6 +219,7 @@ async function loadLinkedRunAuthorization(
     : [null, null, null]
   return {
     device: device.exists ? device.data() ?? {} : undefined,
+    credential: credential.exists ? credential.data() ?? {} : undefined,
     grant: grant.exists ? grant.data() ?? {} : undefined,
     mapping: mapping.exists ? mapping.data() ?? {} : undefined,
     deviceMember: deviceMember.exists ? deviceMember.data() ?? {} : undefined,
@@ -190,6 +228,33 @@ async function loadLinkedRunAuthorization(
     project: project?.exists ? project.data() ?? {} : undefined,
     projectOrganization: projectOrganization?.exists ? projectOrganization.data() ?? {} : undefined,
     projectReplica: projectReplica?.exists ? projectReplica.data() ?? {} : undefined,
+  }
+}
+
+export function hasLinkedRunCredentialRotationContinuity(input: {
+  job: Pick<LinkedRunJob, 'credentialVersion'>
+  credentialVersion: number
+  device: ClaimAuthorizationRow
+  credential: ClaimAuthorizationRow
+}): boolean {
+  const device = input.device ?? {}
+  const credential = input.credential ?? {}
+  return input.job.credentialVersion !== input.credentialVersion
+    && Number(device.credentialVersion) === input.credentialVersion
+    && Number(credential.credentialVersion) === input.credentialVersion
+    && Number(credential.previousCredentialVersion) === input.job.credentialVersion
+    && !credential.revokedAt
+}
+
+function requeueLinkedRunForRuntimeRecovery(job: LinkedRunJob, nowMs: number): LinkedRunJob {
+  return {
+    ...job,
+    status: 'queued',
+    leaseExpiresAtMs: 0,
+    leaseToken: undefined,
+    claimedAtMs: undefined,
+    completedAtMs: undefined,
+    updatedAtMs: nowMs,
   }
 }
 
@@ -258,15 +323,24 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
     const ids = Array.isArray(queue.data()?.pendingJobIds) ? queue.data()!.pendingJobIds as string[] : []
     let selected: LinkedRunJob | null = null
     let selectedRef: ReturnType<typeof adminDb.collection> extends never ? never : FirebaseFirestore.DocumentReference | null = null
-    const candidates = ids.slice(0, 12)
+    // A recovering agent must not head-of-line block healthy profiles on the
+    // same machine. Inspect a bounded fair window, then rotate unavailable
+    // work behind untouched jobs when there is nothing runnable in that pass.
+    const candidates = ids.slice(0, LINKED_RUN_CLAIM_SCAN_LIMIT)
     const candidateSurvivors: string[] = []
-    const untouchedTail = ids.slice(12)
+    const recoveringCandidates: string[] = []
+    const untouchedTail = ids.slice(LINKED_RUN_CLAIM_SCAN_LIMIT)
     const expiredRefs: Array<{
       ref: FirebaseFirestore.DocumentReference
       job: LinkedRunJob
       reason: 'ttl' | 'queue_start' | 'authorization_changed'
     }> = []
+    const recoveryRefs: Array<{
+      ref: FirebaseFirestore.DocumentReference
+      job: LinkedRunJob
+    }> = []
     let selectedIsRetry = false
+    let selectedContinuedCredentialVersion: number | undefined
     for (const id of candidates) {
       const ref = adminDb.collection(LINKED_RUN_JOBS).doc(id)
       const snap = await tx.get(ref)
@@ -283,19 +357,48 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
       }
       if (!selected && (current.status === 'queued' || (['claimed', 'running'].includes(current.status) && (current.leaseExpiresAtMs ?? 0) <= nowMs))) {
         const authorization = await loadLinkedRunAuthorization(tx, current, input.ownerUserId)
-        if (!isLinkedRunClaimAuthorized({
-          authenticatedDeviceUserId: input.ownerUserId, credentialVersion: input.credentialVersion,
-          ...authorization, job: current,
-        })) {
+        const credentialRotationContinued = hasLinkedRunCredentialRotationContinuity({
+          job: current,
+          credentialVersion: input.credentialVersion,
+          device: authorization.device,
+          credential: authorization.credential,
+        })
+        // Readiness loss never overrides the credential chain. A device that
+        // has rotated beyond this job without its exact predecessor proof is
+        // still a terminal authorization change.
+        if (current.credentialVersion !== input.credentialVersion && !credentialRotationContinued) {
           expiredRefs.push({ ref, job: current, reason: 'authorization_changed' })
           continue
         }
+        const eligibility = linkedRunClaimEligibility({
+          authenticatedDeviceUserId: input.ownerUserId, credentialVersion: input.credentialVersion,
+          ...authorization, job: current,
+        })
+        if (eligibility === 'authorization_changed') {
+          expiredRefs.push({ ref, job: current, reason: 'authorization_changed' })
+          continue
+        }
+        if (eligibility === 'execution_unavailable') {
+          // The signed runtime is still the same device and every durable
+          // binding remains valid; local Hermes simply has not recovered yet.
+          // Preserve the encrypted job and any local run id for reattachment.
+          if (current.status !== 'queued') recoveryRefs.push({ ref, job: current })
+          recoveringCandidates.push(id)
+          continue
+        }
         selectedIsRetry = current.attempt > 0
-        selected = transitionLinkedRun(current, { type: 'claim', ...input, nowMs, leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS })
+        const claimable = credentialRotationContinued
+          ? { ...current, credentialVersion: input.credentialVersion }
+          : current
+        if (credentialRotationContinued) selectedContinuedCredentialVersion = current.credentialVersion
+        selected = transitionLinkedRun(claimable, { type: 'claim', ...input, nowMs, leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS })
         selectedRef = ref
       } else candidateSurvivors.push(id)
     }
-    const remaining = [...candidateSurvivors, ...untouchedTail]
+    const remaining = selected
+      ? [...candidateSurvivors, ...recoveringCandidates, ...untouchedTail]
+      : [...candidateSurvivors, ...untouchedTail, ...recoveringCandidates]
+    const queueOrderChanged = remaining.length !== ids.length || remaining.some((id, index) => id !== ids[index])
     for (const expired of expiredRefs) {
       const error = expired.reason === 'ttl'
         ? 'The linked computer run expired before it could finish. Please retry.'
@@ -306,8 +409,33 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
       tx.set(adminDb.collection('conversations').doc(expired.job.conversationId).collection('messages').doc(expired.job.assistantMessageId), { content: '', status: 'failed', error, runId: expired.job.jobId, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
       tx.set(adminDb.collection('hermes_runs').doc(expired.job.jobId), { status: 'expired', error, completedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     }
+    for (const recovery of recoveryRefs) {
+      const requeued = requeueLinkedRunForRuntimeRecovery(recovery.job, nowMs)
+      tx.update(recovery.ref, {
+        ...toStored(requeued),
+        leaseExpiresAt: Timestamp.fromMillis(0),
+        leaseToken: FieldValue.delete(),
+        claimedAt: FieldValue.delete(),
+        completedAt: FieldValue.delete(),
+        lastRecoverableError: 'Local Hermes is temporarily unavailable; the runtime will reconnect automatically.',
+      })
+      tx.set(adminDb.collection('conversations').doc(recovery.job.conversationId).collection('messages').doc(recovery.job.assistantMessageId), {
+        content: '',
+        status: 'queued',
+        queuedReason: 'runtime_restarting',
+        error: FieldValue.delete(),
+        runId: recovery.job.jobId,
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+      tx.set(adminDb.collection('hermes_runs').doc(recovery.job.jobId), {
+        status: 'queued',
+        queuedReason: 'runtime_restarting',
+        error: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+    }
     if (!selected || !selectedRef) {
-      if (remaining.length !== ids.length) tx.set(queueRef, { pendingJobIds: remaining, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+      if (queueOrderChanged) tx.set(queueRef, { pendingJobIds: remaining, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
       return null
     }
     tx.update(selectedRef, {
@@ -321,7 +449,17 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
         acceptanceReceipt: FieldValue.delete(),
         queueReceipt: FieldValue.delete(),
       } : {}),
+      ...(selectedContinuedCredentialVersion !== undefined
+        ? { rotationContinuedFromCredentialVersion: selectedContinuedCredentialVersion }
+        : {}),
+      lastRecoverableError: FieldValue.delete(),
     })
+    if (selectedContinuedCredentialVersion !== undefined) {
+      tx.set(adminDb.collection('conversations').doc(selected.conversationId).collection('messages').doc(selected.assistantMessageId), {
+        linkedDeviceCredentialVersion: selected.credentialVersion,
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+    }
     tx.set(queueRef, { pendingJobIds: [selected.jobId, ...remaining], updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     return publicClaimedLinkedRun(selected, decryptLinkedRunPayload(selected.encryptedPayload!, selected.deviceId, selected.jobId))
   })
@@ -349,7 +487,7 @@ export async function updateLinkedRunFromDevice(input: {
     if (!jobSnap.exists || !credentialSnap.exists) throw new Error('linked computers: run not found')
     const storedJob = fromStored(jobSnap.data() ?? {})
     const authorization = await loadLinkedRunAuthorization(tx, storedJob, input.ownerUserId)
-    if (!isLinkedRunClaimAuthorized({
+    if (!isLinkedRunAccessAuthorized({
       authenticatedDeviceUserId: input.ownerUserId,
       credentialVersion: input.credentialVersion,
       ...authorization,
@@ -359,9 +497,12 @@ export async function updateLinkedRunFromDevice(input: {
     const credential = credentialSnap.data() ?? {}
     const issuedMs = timestampMs(credential.issuedAt)
     const acceptedMs = Date.parse(String(storedJob.acceptanceReceipt?.acceptedAt ?? ''))
-    const rotationContinuity = storedJob.credentialVersion !== input.credentialVersion
-      && Number(credential.previousCredentialVersion) === storedJob.credentialVersion
-      && Number(device.credentialVersion) === input.credentialVersion
+    const rotationContinuity = hasLinkedRunCredentialRotationContinuity({
+      job: storedJob,
+      credentialVersion: input.credentialVersion,
+      device,
+      credential,
+    })
       && Number.isFinite(acceptedMs) && issuedMs != null && acceptedMs < issuedMs
     const job = rotationContinuity ? { ...storedJob, credentialVersion: input.credentialVersion } : storedJob
     const output = typeof input.output === 'string' ? input.output : ''

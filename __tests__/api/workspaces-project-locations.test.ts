@@ -137,6 +137,11 @@ describe('GET workspaces with scoped execution locations', () => {
   })
 
   it('preserves the execution location id when a linked-computer row shares the runtime id', async () => {
+    mockDiscoverExecutionLocations.mockResolvedValueOnce([{
+      id: 'vps', locationId: 'partners-vps', mappingId: 'linked-map-vps', label: 'Partners VPS', kind: 'vps', platform: 'linux', ownerType: 'organization',
+      enabled: true, isLocal: false, isFresh: true, isHealthy: true, selectable: true,
+      lastSeenAt: null, ageSeconds: null, lastHealthStatus: 'ok',
+    }])
     mockDiscoverLinkedTargets.mockResolvedValue([{
       id: 'vps',
       deviceId: 'device-vps',
@@ -146,8 +151,14 @@ describe('GET workspaces with scoped execution locations', () => {
       mappingId: 'linked-map-vps',
       workspaceId: 'partners',
       kind: 'linked-computer',
+      enabled: true,
+      isLocal: false,
+      isFresh: true,
+      isHealthy: true,
       selectable: true,
       lastSeenAt: '2026-07-13T20:00:00.000Z',
+      ageSeconds: 4,
+      lastHealthStatus: 'ok',
     }])
 
     const { GET } = await import('@/app/api/v1/workspaces/route')
@@ -159,6 +170,10 @@ describe('GET workspaces with scoped execution locations', () => {
       locationId: 'partners-vps',
       deviceId: 'device-vps',
       mappingId: 'linked-map-vps',
+      isFresh: true,
+      isHealthy: true,
+      ageSeconds: 4,
+      lastHealthStatus: 'ok',
     }))
   })
 
