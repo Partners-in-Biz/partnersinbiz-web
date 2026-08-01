@@ -1,7 +1,6 @@
 /**
  * Explicit service-only vs HTTP boundary inventory for finance/payroll.
- * Payroll, tax, documents, and intercompany remain library/service-only until
- * dedicated authenticated routes ship. Foundation commands + queries are HTTP today.
+ * Domain services remain library-only; authenticated HTTP surfaces go through durable gateways.
  */
 
 /** Relative paths from repo root — every finance HTTP entrypoint that must pass tenant/auth harness. */
@@ -11,6 +10,12 @@ export const FINANCE_HTTP_ENTRYPOINTS = [
   'app/api/v1/finance/reports/queries/route.ts',
   'app/api/v1/finance/tax/commands/route.ts',
   'app/api/v1/finance/tax/queries/route.ts',
+  'app/api/v1/finance/documents/commands/route.ts',
+  'app/api/v1/finance/documents/queries/route.ts',
+  'app/api/v1/finance/intercompany/commands/route.ts',
+  'app/api/v1/finance/intercompany/queries/route.ts',
+  'app/api/v1/finance/payroll/commands/route.ts',
+  'app/api/v1/finance/payroll/queries/route.ts',
 ] as const
 
 /**
@@ -28,8 +33,8 @@ export const SERVICE_ONLY_FINANCE_MODULES = [
   'lib/accounting/foundation-service.ts',
 ] as const
 
-/** UI claim — foundation workbench is shipped; payroll/tax/intercompany screens remain staged. */
+/** UI claim — full finance workbench modules are shipped under /portal/finance. */
 export const FINANCE_UI_SHIPPED = true as const
 
 export const FINANCE_UI_BOUNDARY_NOTE =
-  'Finance foundation workbench shipped under /portal/finance (overview, setup, ledger, reports, tax). Ledger reports and tax command/query HTTP are live. Intercompany/payroll/documents mutation HTTP remain staged until durable adapters land. Sensitive access is enforced at policy + service boundaries.'
+  'Finance foundation workbench shipped under /portal/finance (overview, setup, ledger, reports, tax, documents, intercompany, payroll). Durable command/query HTTP is live for foundation, reports, tax, documents, intercompany, and payroll. SARS submission and external payment initiation remain disabled. Sensitive access is enforced at policy + service boundaries.'

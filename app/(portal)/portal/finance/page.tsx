@@ -392,6 +392,9 @@ export default function FinanceWorkbenchPage() {
                   <Link href={scopedPortalPath('/portal/finance/setup', orgScope)} className="pib-btn-ghost w-full justify-center">Setup guide</Link>
                   <Link href={scopedPortalPath('/portal/finance/reports', orgScope)} className="pib-btn-ghost w-full justify-center">Financial reports</Link>
                   <Link href={scopedPortalPath('/portal/finance/tax', orgScope)} className="pib-btn-ghost w-full justify-center">Tax</Link>
+                  <Link href={scopedPortalPath('/portal/finance/documents', orgScope)} className="pib-btn-ghost w-full justify-center">Documents & recon</Link>
+                  <Link href={scopedPortalPath('/portal/finance/intercompany', orgScope)} className="pib-btn-ghost w-full justify-center">Intercompany</Link>
+                  <Link href={scopedPortalPath('/portal/finance/payroll', orgScope)} className="pib-btn-ghost w-full justify-center">Payroll</Link>
                 </div>
               </div>
 
@@ -485,9 +488,9 @@ export default function FinanceWorkbenchPage() {
                       { title: 'Foundation ledger', status: 'Live', body: 'Legal entities, books, periods, accounts, journals, reversals, audit.' },
                       { title: 'Ledger reports', status: 'Live', body: 'Trial balance, income statement, and balance sheet over posted journals.' },
                       { title: 'VAT / tax returns', status: 'Live HTTP', body: 'Tax codes, rules, periods, calculate, and return prepare/approve APIs are live.' },
-                      { title: 'AR/AP + reconciliation', status: 'Domain ready', body: 'Documents/payments domain verified; durable HTTP adapters next.' },
-                      { title: 'Intercompany', status: 'Domain ready', body: 'Pairs, due-to/due-from, eliminations verified in domain tests.' },
-                      { title: 'ZA payroll + statutory', status: 'Domain ready', body: 'Pay runs, payslips, IRP5/EMP201/EMP501 domain verified; no SARS egress.' },
+                      { title: 'AR/AP + reconciliation', status: 'Live HTTP', body: 'Invoices, bills, payments, bank import, and reconciliation APIs + portal page.' },
+                      { title: 'Intercompany', status: 'Live HTTP', body: 'Pairs, due-to/due-from, eliminations, consolidation APIs + portal page.' },
+                      { title: 'ZA payroll + statutory', status: 'Live HTTP', body: 'Pay runs, payslips, IRP5/EMP201/EMP501 APIs + portal page; no SARS egress.' },
                       { title: 'Operational billing', status: 'Live', body: 'Existing invoicing and payments stay at their current portal routes.' },
                     ].map((item) => (
                       <div key={item.title} className="rounded-xl border border-[var(--color-pib-line)] p-3">

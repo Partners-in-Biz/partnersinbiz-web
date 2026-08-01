@@ -9,9 +9,18 @@ describe('finance workbench delivery contract', () => {
       'app/api/v1/finance/reports/queries/route.ts',
       'app/api/v1/finance/tax/commands/route.ts',
       'app/api/v1/finance/tax/queries/route.ts',
+      'app/api/v1/finance/documents/commands/route.ts',
+      'app/api/v1/finance/documents/queries/route.ts',
+      'app/api/v1/finance/intercompany/commands/route.ts',
+      'app/api/v1/finance/intercompany/queries/route.ts',
+      'app/api/v1/finance/payroll/commands/route.ts',
+      'app/api/v1/finance/payroll/queries/route.ts',
     ]))
+    expect(FINANCE_HTTP_ENTRYPOINTS).toHaveLength(11)
     expect(FINANCE_UI_SHIPPED).toBe(true)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/documents/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/payroll/i)
   })
 
   test('org scope guard remains fail-closed', () => {

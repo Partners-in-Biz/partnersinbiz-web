@@ -211,7 +211,10 @@ function main() {
   assert.ok(/foundation workbench shipped/i.test(FINANCE_UI_BOUNDARY_NOTE))
   assert.ok(SERVICE_ONLY_FINANCE_MODULES.includes('lib/payroll/pay-run-service.ts'))
   assert.ok(fs.existsSync(path.join(root, 'app/(portal)/portal/finance/page.tsx')))
-  assert.ok(!fs.existsSync(path.join(root, 'app/(portal)/portal/finance/payroll')))
+  assert.ok(fs.existsSync(path.join(root, 'app/(portal)/portal/finance/documents/page.tsx')))
+  assert.ok(fs.existsSync(path.join(root, 'app/(portal)/portal/finance/intercompany/page.tsx')))
+  assert.ok(fs.existsSync(path.join(root, 'app/(portal)/portal/finance/payroll/page.tsx')))
+  assert.ok(!fs.existsSync(path.join(root, 'app/(portal)/portal/payroll')))
 
   for (const rel of [
     'lib/finance/errors.ts',

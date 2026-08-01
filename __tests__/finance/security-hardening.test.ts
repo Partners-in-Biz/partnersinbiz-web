@@ -433,14 +433,17 @@ describe('HTTP / service / UI boundaries', () => {
     expect(offenders).toEqual([])
   })
 
-  test('finance foundation UI is shipped; payroll UI remains staged', () => {
+  test('finance workbench UI modules are shipped under /portal/finance', () => {
     expect(FINANCE_UI_SHIPPED).toBe(true)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)
     expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/page.tsx'))).toBe(true)
     expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/setup/page.tsx'))).toBe(true)
     expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/ledger/page.tsx'))).toBe(true)
-    // Full payroll/tax/intercompany portal modules remain unshipped as dedicated screens.
-    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/payroll'))).toBe(false)
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/tax/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/documents/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/intercompany/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/payroll/page.tsx'))).toBe(true)
+    // Standalone /portal/payroll remains unused — payroll lives under the finance workbench.
     expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/payroll'))).toBe(false)
   })
 })
