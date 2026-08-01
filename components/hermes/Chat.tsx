@@ -58,6 +58,8 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+  const stickMessagesToBottomRef = useRef(true)
+  const pendingEnterMessagesScrollRef = useRef(true)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
   const [liveEvents, setLiveEvents] = useState<Record<string, ChatEvent[]>>({})
   const liveEventsRef = useRef<Record<string, ChatEvent[]>>({})
@@ -113,10 +115,27 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
   }, [activeId, loadMessages])
 
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    stickMessagesToBottomRef.current = true
+    pendingEnterMessagesScrollRef.current = true
+  }, [activeId])
+
+  const handleMessagesScroll = useCallback(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+    const nearBottom = distanceFromBottom <= 96
+    stickMessagesToBottomRef.current = nearBottom
+    if (!nearBottom) {
+      pendingEnterMessagesScrollRef.current = false
     }
-  }, [messages])
+  }, [])
+
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    if (!pendingEnterMessagesScrollRef.current && !stickMessagesToBottomRef.current) return
+    container.scrollTop = container.scrollHeight
+  }, [activeId, messages])
 
   useEffect(() => {
     if (!menuOpenId) return
@@ -461,7 +480,7 @@ export default function HermesChat({ orgId, profileEnabled, projectId, projectNa
           <div className="text-[var(--color-pib-text)] font-medium">{activeConversation?.title || 'New chat'}</div>
           <div className="text-xs text-[var(--color-pib-text-muted)]">Hermes</div>
         </div>
-        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[400px]">
+        <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[400px]">
           {loading && <div className="text-xs text-[var(--color-pib-text-muted)]">Loading…</div>}
           {!loading && messages.length === 0 && (
             <div className="text-sm text-[var(--color-pib-text-muted)] py-8 text-center">

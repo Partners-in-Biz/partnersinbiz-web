@@ -1592,6 +1592,10 @@ export default function UnifiedChat({
   const sendingRef = useRef(false)
   const markedReadRef = useRef('')
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+  // Stick-to-bottom only while the human is already near latest (or just entered).
+  // Reading history must not be yanked back down on poll/stream/message updates.
+  const stickMessagesToBottomRef = useRef(true)
+  const pendingEnterMessagesScrollRef = useRef(true)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
   const COMPOSER_MAX_HEIGHT_PX = 160
   const resizeComposer = useCallback(() => {
@@ -4308,12 +4312,30 @@ export default function UnifiedChat({
     return () => window.clearInterval(interval)
   }, [activeConversation?.participantAgentIds?.length, activeId, conversationLiveConnected, loadMessages])
 
-  // Auto-scroll on new messages. Run after the browser has laid out the loaded
-  // message list so returning to an existing chat lands at the latest message,
-  // not at the top with a stale pre-layout scrollHeight.
+  // On conversation enter: force one scroll-to-latest pass after layout.
+  // While reading history (scrolled up), ignore subsequent message updates.
+  useEffect(() => {
+    stickMessagesToBottomRef.current = true
+    pendingEnterMessagesScrollRef.current = true
+  }, [activeId])
+
+  const handleMessagesScroll = useCallback(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+    const nearBottom = distanceFromBottom <= 96
+    stickMessagesToBottomRef.current = nearBottom
+    if (!nearBottom) {
+      pendingEnterMessagesScrollRef.current = false
+    }
+  }, [])
+
+  // Auto-scroll on enter and while still stuck to bottom. Run after layout so
+  // opening an existing chat lands at the latest message, not a stale height.
   useEffect(() => {
     const container = messagesContainerRef.current
     if (!container) return
+    if (!pendingEnterMessagesScrollRef.current && !stickMessagesToBottomRef.current) return
 
     const scrollToLatest = () => {
       container.scrollTop = container.scrollHeight
@@ -4327,7 +4349,7 @@ export default function UnifiedChat({
       window.cancelAnimationFrame(frameId)
       window.clearTimeout(timeoutId)
     }
-  }, [messages])
+  }, [activeId, messages])
 
   // Close context menu on outside click
   useEffect(() => {
@@ -7733,6 +7755,7 @@ export default function UnifiedChat({
           role="log"
           aria-label="Conversation messages"
           aria-live="polite"
+          onScroll={handleMessagesScroll}
           style={contextCanvasReservedStyle}
           className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${rightDockOpen ? 'lg:mr-[var(--context-canvas-width)]' : ''}`}
         >
