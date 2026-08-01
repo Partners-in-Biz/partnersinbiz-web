@@ -1647,6 +1647,114 @@ describe('UnifiedChat message scrolling', () => {
     expect(log.scrollTop).toBe(1200)
   })
 
+  it('does not yank scroll to latest after the human reads history', async () => {
+    let liveSource: { onmessage: ((event: MessageEvent) => void) | null } | null = null
+    class MockEventSource {
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      close = jest.fn()
+      constructor(_url: string) {
+        liveSource = this
+      }
+    }
+    const originalEventSource = window.EventSource
+    Object.defineProperty(window, 'EventSource', {
+      configurable: true,
+      value: MockEventSource,
+    })
+
+    const initialMessages = [
+      {
+        id: 'msg-old',
+        conversationId: 'conv-1',
+        role: 'user' as const,
+        content: 'First message',
+        authorKind: 'user' as const,
+        authorId: 'user-1',
+        authorDisplayName: 'Peet',
+        status: 'completed' as const,
+        createdAt: '2026-06-08T09:00:00.000Z',
+      },
+      {
+        id: 'msg-latest',
+        conversationId: 'conv-1',
+        role: 'assistant' as const,
+        content: 'Latest message',
+        authorKind: 'agent' as const,
+        authorId: 'pip',
+        authorDisplayName: 'Pip',
+        status: 'completed' as const,
+        createdAt: '2026-06-08T09:05:00.000Z',
+      },
+    ]
+
+    try {
+      global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+        if (url.includes('/visible-agents')) return jsonResponse({ data: [] })
+        if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+        if (url.startsWith('/api/v1/conversations?')) {
+          return jsonResponse({ data: { conversations: [baseConversation] } })
+        }
+        if (url === '/api/v1/conversations/conv-1/messages') {
+          return jsonResponse({ data: { messages: initialMessages } })
+        }
+        throw new Error(`Unhandled fetch: ${url}`)
+      })
+
+      render(
+        <UnifiedChat
+          orgId="org-1"
+          currentUserUid="user-1"
+          currentUserDisplayName="Peet"
+        />,
+      )
+
+      await screen.findByText('Latest message')
+      const log = screen.getByRole('log', { name: 'Conversation messages' })
+      await waitFor(() => expect(log.scrollTop).toBe(1200))
+      await waitFor(() => expect(liveSource).toBeTruthy())
+
+      Object.defineProperty(log, 'clientHeight', { configurable: true, value: 400 })
+      log.scrollTop = 80
+      fireEvent.scroll(log)
+      expect(log.scrollTop).toBe(80)
+
+      act(() => {
+        void liveSource?.onmessage?.({
+          data: JSON.stringify({
+            type: 'snapshot',
+            conversations: [baseConversation],
+            conversation: baseConversation,
+            messages: [
+              ...initialMessages,
+              {
+                id: 'msg-new',
+                conversationId: 'conv-1',
+                role: 'assistant',
+                content: 'Streaming update while reading history',
+                authorKind: 'agent',
+                authorId: 'pip',
+                authorDisplayName: 'Pip',
+                status: 'streaming',
+                createdAt: '2026-06-08T09:06:00.000Z',
+              },
+            ],
+          }),
+        } as unknown as MessageEvent)
+      })
+
+      expect(await screen.findByText('Streaming update while reading history')).toBeInTheDocument()
+      expect(log.scrollTop).toBe(80)
+    } finally {
+      Object.defineProperty(window, 'EventSource', {
+        configurable: true,
+        value: originalEventSource,
+      })
+    }
+  })
+
   it('keeps the classic layout by default and exposes the Hermes dense layout variant when requested', async () => {
     const { unmount } = render(
       <UnifiedChat
