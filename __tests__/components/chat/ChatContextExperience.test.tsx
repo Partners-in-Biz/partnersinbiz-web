@@ -519,4 +519,59 @@ describe('useChatContexts', () => {
     fireEvent.change(screen.getByLabelText('Secondary context'), { target: { value: 'contact:contact-1' } })
     await waitFor(() => expect(JSON.parse(window.localStorage.getItem(storageKey) ?? '{}')).toEqual({ ...staleState, open: true, secondary: { kind: 'contact', id: 'contact-1' } }))
   })
+
+  it('does not reopen the dock after close when setActiveContext identity churns under a stale focusRequest', async () => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: jest.fn((query: string) => ({ matches: query.includes('min-width: 1280px'), addEventListener: jest.fn(), removeEventListener: jest.fn() })) })
+    const model = {
+      context: { kind: 'document' as const, id: 'doc-1', orgId: 'org-1', label: 'Proposal', icon: 'description' },
+      pulse: { label: 'Document', metrics: [] },
+      groups: [],
+      artifacts: [],
+      attention: [],
+      activity: [],
+      capabilities: [],
+      asOf: '2026-08-01T00:00:00Z',
+    }
+    const contexts = [{ kind: 'document' as const, id: 'doc-1', label: 'Proposal' }]
+    const firstSetActive = jest.fn()
+    const secondSetActive = jest.fn()
+    const firstContext = {
+      contexts,
+      activeContext: contexts[0],
+      setActiveContext: firstSetActive,
+      model,
+      error: null,
+      refresh: jest.fn(),
+      routineUpdateCount: 0,
+      dismissRoutineUpdates: jest.fn(),
+      orgId: 'org-1',
+      conversationId: 'conv-focus-sticky',
+    }
+
+    const focusRequest = { kind: 'document' as const, id: 'doc-1', nonce: 42 }
+    const { rerender } = render(<ChatContextExperience context={firstContext} focusRequest={focusRequest} />)
+
+    expect(await screen.findByRole('dialog', { name: 'Proposal context' })).toBeInTheDocument()
+    expect(firstSetActive).toHaveBeenCalledWith({ kind: 'document', id: 'doc-1' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close context dock' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Proposal context' })).not.toBeInTheDocument())
+
+    // Simulate conversation contextRefs refresh recreating setActiveContext while focusRequest stays mounted.
+    rerender(<ChatContextExperience
+      context={{ ...firstContext, setActiveContext: secondSetActive, model: { ...model, asOf: '2026-08-01T00:00:05Z' } }}
+      focusRequest={focusRequest}
+    />)
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Proposal context' })).not.toBeInTheDocument())
+    expect(secondSetActive).not.toHaveBeenCalled()
+
+    // A fresh nonce must still open (new open_context handoff).
+    rerender(<ChatContextExperience
+      context={{ ...firstContext, setActiveContext: secondSetActive }}
+      focusRequest={{ kind: 'document', id: 'doc-1', nonce: 43 }}
+    />)
+    expect(await screen.findByRole('dialog', { name: 'Proposal context' })).toBeInTheDocument()
+    expect(secondSetActive).toHaveBeenCalledWith({ kind: 'document', id: 'doc-1' })
+  })
 })

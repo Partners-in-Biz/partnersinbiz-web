@@ -52,17 +52,19 @@ export function useChatContexts(orgId: string, conversation: Conversation | null
     try { const stored = window.sessionStorage.getItem(selectionKey(orgId, conversation.id)); setExplicit(stored ? JSON.parse(stored) : undefined) } catch { setExplicit(undefined) }
   }, [conversation?.id, orgId])
 
+  const conversationId = conversation?.id
   const setActiveContext = useCallback((next: ChatContextReference) => {
     const nextKey = chatContextReferenceKey(next)
     setExplicit(next)
     setModel(modelsByContext.current.get(nextKey) ?? null)
     setError(null)
-    const storedSeen = conversation ? Number(window.localStorage.getItem(seenKey(orgId, conversation.id, next)) ?? 0) : 0
+    const storedSeen = conversationId ? Number(window.localStorage.getItem(seenKey(orgId, conversationId, next)) ?? 0) : 0
     seenByContext.current.set(nextKey, storedSeen)
     const cached = modelsByContext.current.get(nextKey)
     setRoutineUpdateCount(cached ? cached.activity.filter((item) => ['pickup', 'running', 'waiting', 'dependency_released'].includes(item.type) && Date.parse(item.occurredAt) > storedSeen).length : 0)
-    if (conversation) window.sessionStorage.setItem(selectionKey(orgId, conversation.id), JSON.stringify(next))
-  }, [conversation, orgId])
+    // Depend on conversation id only so contextRef refreshes do not churn this callback identity.
+    if (conversationId) window.sessionStorage.setItem(selectionKey(orgId, conversationId), JSON.stringify(next))
+  }, [conversationId, orgId])
 
   useEffect(() => {
     if (!activeContext || !conversation) return

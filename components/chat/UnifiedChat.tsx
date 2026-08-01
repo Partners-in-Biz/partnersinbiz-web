@@ -1378,6 +1378,16 @@ export default function UnifiedChat({
     return Math.abs(hash)
   }, [messages])
   const handledOpenContextActionsRef = useRef(new Set<string>())
+  const previousContextCanvasOpenRef = useRef(contextCanvasOpen)
+  useEffect(() => {
+    // Drop sticky open_context/artifact focus once the human closes the dock so a later
+    // remount or setActiveContext churn cannot auto-reopen the same preview.
+    if (previousContextCanvasOpenRef.current && !contextCanvasOpen) {
+      setContextFocusRequest(undefined)
+      setContextArtifactRequest(undefined)
+    }
+    previousContextCanvasOpenRef.current = contextCanvasOpen
+  }, [contextCanvasOpen])
   const [pinnedConversationIds, setPinnedConversationIds] = useState<string[]>(() => readPinnedConversationIds(orgId))
   const [expandedSessionGroupKeys, setExpandedSessionGroupKeys] = useState<string[]>(() => readExpandedSessionGroupKeys(orgId))
 
@@ -4856,7 +4866,22 @@ export default function UnifiedChat({
     if (!latestAssistant?.uiActions?.length) return
     for (const action of latestAssistant.uiActions) {
       if (String(action.type).toLowerCase() !== 'open_context') continue
-      const key = `${latestAssistant.id}:${action.id}`
+      const payload = action.payload && typeof action.payload === 'object' && !Array.isArray(action.payload)
+        ? action.payload as Record<string, unknown>
+        : {}
+      const kind = String(payload.kind ?? payload.type ?? action.value ?? '').trim().toLowerCase()
+      const targetId = typeof payload.id === 'string'
+        ? payload.id.trim()
+        : typeof action.value === 'string'
+          ? action.value.trim()
+          : ''
+      // Prefer stable canvas identity over message id so finalize/replace of the
+      // assistant bubble cannot re-auto-open a dock the user already dismissed.
+      const key = action.id
+        ? `action:${action.id}`
+        : kind && targetId
+          ? `target:${kind}:${targetId}`
+          : `message:${latestAssistant.id}:${action.id ?? 'open_context'}`
       if (handledOpenContextActionsRef.current.has(key)) continue
       handledOpenContextActionsRef.current.add(key)
       void handleUiAction(latestAssistant, action)

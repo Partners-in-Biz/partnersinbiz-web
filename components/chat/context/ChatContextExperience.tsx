@@ -28,6 +28,11 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   const [secondaryRefreshRevision, setSecondaryRefreshRevision] = useState(0)
   const [previewRefreshRevision, setPreviewRefreshRevision] = useState(0)
   const lastExecutionStatusRef = useRef<string | undefined>(undefined)
+  const lastFocusRequestNonceRef = useRef<number | undefined>(undefined)
+  const lastArtifactRequestNonceRef = useRef<number | undefined>(undefined)
+  const lastExecutionRequestRef = useRef<number | undefined>(undefined)
+  const setActiveContextRef = useRef(context.setActiveContext)
+  setActiveContextRef.current = context.setActiveContext
   const pendingRef = useRef<string | undefined>(undefined)
   const actionIdempotencyRef = useRef(new Map<string, string>())
   const [pendingStoredSecondary, setPendingStoredSecondary] = useState<{ storageKey: string; reference: ChatContextReference; hydrationRevision: string } | null>(null)
@@ -121,20 +126,32 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   }, [canvasMode, canvasStorageKey, canvasWidth, loadedCanvasStorageKey, open, pendingStoredSecondary, secondaryContext])
   useEffect(() => {
     if (!artifactRequest) return
+    // Only open on a new request nonce. Re-renders / unstable parent callbacks must not force the dock back open after the user closes it.
+    if (lastArtifactRequestNonceRef.current === artifactRequest.nonce) return
+    lastArtifactRequestNonceRef.current = artifactRequest.nonce
     setActiveArtifactId(artifactRequest.id)
     setOpen(true)
   }, [artifactRequest])
   useEffect(() => {
     if (!focusRequest) return
-    context.setActiveContext({
+    // Gate on nonce only. focusRequest stays mounted after open_context handoff; setActiveContext identity
+    // changes whenever conversation contextRefs refresh, which previously re-opened the dock after close.
+    if (lastFocusRequestNonceRef.current === focusRequest.nonce) return
+    lastFocusRequestNonceRef.current = focusRequest.nonce
+    setActiveContextRef.current({
       kind: focusRequest.kind,
       id: focusRequest.id,
       ...(focusRequest.projectId ? { projectId: focusRequest.projectId } : {}),
     })
     setOpen(true)
     setPreviewRefreshRevision((revision) => revision + 1)
-  }, [context.setActiveContext, focusRequest])
-  useEffect(() => { if (executionRequest) setOpen(true) }, [executionRequest])
+  }, [focusRequest])
+  useEffect(() => {
+    if (!executionRequest) return
+    if (lastExecutionRequestRef.current === executionRequest) return
+    lastExecutionRequestRef.current = executionRequest
+    setOpen(true)
+  }, [executionRequest])
 
   const refreshContext = context.refresh
 
