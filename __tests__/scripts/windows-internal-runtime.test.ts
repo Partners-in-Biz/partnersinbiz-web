@@ -34,6 +34,7 @@ describe('internal Windows staff runtime channel', () => {
     expect(workflow).toMatch(/Get-AuthenticodeSignature/)
     expect(workflow).toMatch(/\$PSNativeCommandUseErrorActionPreference = \$false/)
     expect(workflow).toMatch(/\$InternalReleaseExitCode = \$LASTEXITCODE/)
+    expect(workflow).toMatch(/\$global:LASTEXITCODE = 0/)
     expect(workflow).not.toMatch(/sslcom|ESIGNER/i)
   })
 })
