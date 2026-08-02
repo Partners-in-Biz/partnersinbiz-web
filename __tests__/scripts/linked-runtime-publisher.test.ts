@@ -1,8 +1,26 @@
 import { generateKeyPairSync, verify } from 'node:crypto'
 import { canonicalJson } from '@/runtime-installers/runtime/core'
-import { createRuntimeReleaseManifest, runtimeReleaseAssetNames } from '@/scripts/package-linked-runtime-release'
+import {
+  createRuntimeReleaseManifest,
+  releasePublicKeyMatchesPrivateKey,
+  runtimeReleaseAssetNames,
+} from '@/scripts/package-linked-runtime-release'
 
 describe('linked runtime release publisher', () => {
+  it('compares parsed release keys independent of PEM line endings', () => {
+    const first = generateKeyPairSync('ed25519')
+    const second = generateKeyPairSync('ed25519')
+    const privateKey = first.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+    const publicKey = first.publicKey.export({ type: 'spki', format: 'pem' }).toString()
+    const windowsPublicKey = publicKey.replace(/\n/g, '\r\n')
+
+    expect(releasePublicKeyMatchesPrivateKey(privateKey, windowsPublicKey)).toBe(true)
+    expect(releasePublicKeyMatchesPrivateKey(
+      second.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+      windowsPublicKey,
+    )).toBe(false)
+  })
+
   it('creates stable, architecture-specific asset names', () => {
     expect(runtimeReleaseAssetNames('linux-arm64')).toEqual({
       payload: 'partnersinbiz-runtime-linux-arm64',
