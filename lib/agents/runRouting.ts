@@ -11,6 +11,7 @@ export const AGENT_EFFORT_OPTIONS: Array<{ value: AgentEffort; label: string }> 
 ]
 
 export const VALID_AGENT_MODELS = [
+  'grok-4.5',
   'claude-sonnet-4-6',
   'gpt-5.5',
   'gpt-5.4',
@@ -21,6 +22,7 @@ export const VALID_AGENT_MODELS = [
 export type AgentModel = (typeof VALID_AGENT_MODELS)[number]
 
 export const AGENT_MODEL_OPTIONS: Array<{ value: AgentModel; label: string }> = [
+  { value: 'grok-4.5', label: 'Grok 4.5 (SuperGrok)' },
   { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
   { value: 'gpt-5.5', label: 'GPT-5.5' },
   { value: 'gpt-5.4', label: 'GPT-5.4' },

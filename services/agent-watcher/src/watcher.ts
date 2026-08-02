@@ -657,14 +657,42 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       return
     }
 
-    const credentialRoute = await resolveWatcherLlmRoute({
-      orgId: taskData.orgId ?? '',
-      ownerUid: credentialOwnerUid,
-      agentId,
-      provider: taskData.agentProvider ?? null,
-      connectionId: taskData.llmConnectionId ?? null,
-      runtimeTargetId: taskData.agentRuntimeTargetId || cfg.targetId || requestedRuntimeTarget || 'vps',
-    })
+    // Pairing rule: never force a provider without an explicit model.
+    // Stamping agentProvider=openai-codex with agentModel=null makes Hermes keep the
+    // profile default model (grok-4.5) on ChatGPT Codex → HTTP 400.
+    // Prefer profile primary (xai-oauth/grok-4.5) when the card only has a provider stamp.
+    const taskModel = taskData.agentModel?.trim() || null
+    const taskProvider = taskData.agentProvider?.trim() || null
+    const safeTaskProvider = taskModel ? taskProvider : null
+    if (taskProvider && !taskModel) {
+      logger.warn('ignoring provider-only task stamp so Hermes profile primary can run', {
+        taskId,
+        agentId,
+        ignoredProvider: taskProvider,
+      })
+    }
+
+    let credentialRoute: Awaited<ReturnType<typeof resolveWatcherLlmRoute>> = null
+    try {
+      credentialRoute = await resolveWatcherLlmRoute({
+        orgId: taskData.orgId ?? '',
+        ownerUid: credentialOwnerUid,
+        agentId,
+        provider: safeTaskProvider,
+        connectionId: taskModel ? (taskData.llmConnectionId ?? null) : null,
+        runtimeTargetId: taskData.agentRuntimeTargetId || cfg.targetId || requestedRuntimeTarget || 'vps',
+      })
+    } catch (routeErr) {
+      // Soft-fallback: profile auth already holds SuperGrok/Codex tokens. Do not block the
+      // whole Kanban chain when a Firestore binding is mid-sync / not live-ready yet.
+      logger.warn('LLM credential route unavailable; dispatching with profile defaults', {
+        taskId,
+        agentId,
+        provider: safeTaskProvider,
+        error: routeErr instanceof Error ? routeErr.message : String(routeErr),
+      })
+      credentialRoute = null
+    }
 
     // Move to in-progress + start heartbeat
     await taskRef.update({
@@ -719,12 +747,13 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       },
       constraints: taskData.agentInput?.constraints,
       agentEffort: taskData.agentEffort ?? null,
-      agentModel: taskData.agentModel ?? null,
-      agentProvider: credentialRoute?.provider ?? taskData.agentProvider ?? null,
+      agentModel: taskModel,
+      // Only pass provider when it came from a verified route or an explicit model+provider pair.
+      agentProvider: credentialRoute?.provider ?? (taskModel ? taskProvider : null),
       llmCredentialSource: taskData.llmCredentialSource ?? null,
       llmResolvedSource: credentialRoute?.resolvedSource ?? taskData.llmResolvedSource ?? null,
-      llmConnectionId: credentialRoute?.connectionId ?? taskData.llmConnectionId ?? null,
-      llmCredentialBindingId: credentialRoute?.credentialBindingId ?? taskData.llmCredentialBindingId ?? null,
+      llmConnectionId: credentialRoute?.connectionId ?? (taskModel ? taskData.llmConnectionId ?? null : null),
+      llmCredentialBindingId: credentialRoute?.credentialBindingId ?? (taskModel ? taskData.llmCredentialBindingId ?? null : null),
       runtimeTargetId: credentialRoute?.runtimeTargetId ?? taskData.agentRuntimeTargetId ?? cfg.targetId ?? null,
     }
 
@@ -767,8 +796,8 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
       const humanError = formatHermesWatcherError(result.error, {
         agentId,
-        provider: credentialRoute?.provider ?? taskData.agentProvider ?? null,
-        model: taskData.agentModel ?? null,
+        provider: credentialRoute?.provider ?? (taskModel ? taskProvider : null),
+        model: taskModel,
       })
       if (isTransientHermesError(result.error) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
         const nextRetryCount = priorRetryCount + 1

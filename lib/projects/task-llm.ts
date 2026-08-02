@@ -9,6 +9,7 @@ import { getLlmProvider, listLlmProviders } from '@/lib/llm-providers/providers'
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
 import type { MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 import { normalizeProviderId, providersShareCredentialFamily } from '@/lib/messages/model-provider-aliases'
+import { SYSTEM_DEFAULT_PRIMARY_PROVIDER } from '@/lib/agents/default-runtime-model'
 
 export const VALID_LLM_CREDENTIAL_SOURCES = ['auto', 'org', 'personal'] as const
 export type TaskLlmCredentialSource = (typeof VALID_LLM_CREDENTIAL_SOURCES)[number]
@@ -64,6 +65,30 @@ export function taskLlmProviderOptions(): Array<{ value: string; label: string }
   }))
 }
 
+function connectionProviderId(connection: { hermesProvider?: string | null; provider?: string | null }): string | null {
+  return normalizeProviderId(connection.hermesProvider || connection.provider || '') || null
+}
+
+function pickPreferredConnection<T extends { hermesProvider?: string | null; provider?: string | null }>(
+  connections: T[],
+  desiredProvider: string | null,
+): T | undefined {
+  if (!connections.length) return undefined
+  if (desiredProvider) {
+    return connections.find((c) => providersShareCredentialFamily(
+      c.hermesProvider || getLlmProvider(c.provider || '')?.hermesProvider,
+      desiredProvider,
+    ))
+  }
+  // Auto with no explicit model/provider must follow the system primary (SuperGrok),
+  // not whichever connected account happens to sort first (often Codex).
+  const systemPrimary = connections.find((c) => providersShareCredentialFamily(
+    c.hermesProvider || getLlmProvider(c.provider || '')?.hermesProvider,
+    SYSTEM_DEFAULT_PRIMARY_PROVIDER,
+  ))
+  return systemPrimary || connections[0]
+}
+
 export async function resolveTaskLlmCredentials(input: {
   orgId: string
   ownerUid: string
@@ -77,7 +102,12 @@ export async function resolveTaskLlmCredentials(input: {
   const requestedSource = cleanTaskLlmCredentialSource(input.requestedSource) ?? 'auto'
   const requestedProvider = cleanTaskAgentProvider(input.requestedProvider)
   const inferredProvider = inferHermesProviderFromModel(input.agentModel)
-  const desiredProvider = requestedProvider || inferredProvider
+  // Prefer explicit request, then model inference, then system Auto primary (xai-oauth/grok).
+  // Never leave desiredProvider empty when SuperGrok is the platform default — that used to
+  // stamp openai-codex from the first personal connection and break profile-default grok runs.
+  const desiredProvider = requestedProvider
+    || inferredProvider
+    || SYSTEM_DEFAULT_PRIMARY_PROVIDER
 
   const connections = await listLlmProviderConnections({ orgId: input.orgId, uid: input.ownerUid })
   const org = connections.filter((c) => c.scope === 'org' && c.status === 'connected' && c.hasCredentials)
@@ -86,18 +116,8 @@ export async function resolveTaskLlmCredentials(input: {
     && c.status === 'connected'
     && c.hasCredentials)
 
-  const matchingOrg = desiredProvider
-    ? org.find((c) => providersShareCredentialFamily(
-      c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider,
-      desiredProvider,
-    ))
-    : org[0]
-  const matchingPersonal = desiredProvider
-    ? personal.find((c) => providersShareCredentialFamily(
-      c.hermesProvider || getLlmProvider(c.provider)?.hermesProvider,
-      desiredProvider,
-    ))
-    : personal[0]
+  const matchingOrg = pickPreferredConnection(org, desiredProvider)
+  const matchingPersonal = pickPreferredConnection(personal, desiredProvider)
   const runtimeIsPersonal = Boolean(input.runtimeTargetId
     && !['vps', 'auto'].includes(input.runtimeTargetId.trim().toLowerCase()))
 
@@ -106,7 +126,7 @@ export async function resolveTaskLlmCredentials(input: {
       llmCredentialSource: 'org',
       resolvedSource: 'org',
       agentProvider: desiredProvider
-        || (matchingOrg ? normalizeProviderId(matchingOrg.hermesProvider || matchingOrg.provider) : null)
+        || (matchingOrg ? connectionProviderId(matchingOrg) : null)
         || null,
       llmCredentialOwnerUid: input.ownerUid,
       personalConnectionId: null,
@@ -119,7 +139,7 @@ export async function resolveTaskLlmCredentials(input: {
       llmCredentialSource: 'personal',
       resolvedSource: 'personal',
       agentProvider: desiredProvider
-        || (matchingPersonal ? normalizeProviderId(matchingPersonal.hermesProvider || matchingPersonal.provider) : null)
+        || (matchingPersonal ? connectionProviderId(matchingPersonal) : null)
         || null,
       llmCredentialOwnerUid: input.ownerUid,
       personalConnectionId: matchingPersonal?.id ?? null,
@@ -133,7 +153,7 @@ export async function resolveTaskLlmCredentials(input: {
       llmCredentialSource: 'auto',
       resolvedSource: 'personal',
       agentProvider: desiredProvider
-        || normalizeProviderId(matchingPersonal.hermesProvider || matchingPersonal.provider)
+        || connectionProviderId(matchingPersonal)
         || null,
       llmCredentialOwnerUid: input.ownerUid,
       personalConnectionId: matchingPersonal.id,
@@ -145,7 +165,7 @@ export async function resolveTaskLlmCredentials(input: {
     llmCredentialSource: 'auto',
     resolvedSource: 'org',
     agentProvider: desiredProvider
-      || (matchingOrg ? normalizeProviderId(matchingOrg.hermesProvider || matchingOrg.provider) : null)
+      || (matchingOrg ? connectionProviderId(matchingOrg) : null)
       || null,
     llmCredentialOwnerUid: input.ownerUid,
     personalConnectionId: null,
