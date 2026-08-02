@@ -187,15 +187,20 @@ describe('project task planning mutation atomicity', () => {
     expect(mockTransactionUpdate).toHaveBeenCalledWith(taskRef, expect.objectContaining({ agentStatus: 'done' }))
   })
 
-  it('checks live readiness and updates a planning-sensitive task in one transaction', async () => {
+  it('checks live readiness and updates a planning-sensitive task without reopening the Decision Brief', async () => {
     const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
     const res = await PATCH(request('PATCH', { title: 'Updated plan' }), itemCtx)
 
     expect(res.status).toBe(200)
     expect(mockTransactionGet).toHaveBeenCalledWith(projectRef)
     expect(mockTransactionUpdate).toHaveBeenCalledWith(taskRef, expect.objectContaining({ title: 'Updated plan' }))
-    expect(mockTransactionUpdate).toHaveBeenCalledWith(projectRef, expect.objectContaining({
-      planningDiscovery: expect.objectContaining({ status: 'interviewing', revision: 8 }),
+    // Ordinary project_task.updated must not stale a confirmed brief.
+    expect(mockPlanningContextMutationTransition).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ reason: 'project_task.updated', reopenWhenReady: false }),
+    )
+    expect(mockTransactionUpdate).not.toHaveBeenCalledWith(projectRef, expect.objectContaining({
+      planningDiscovery: expect.anything(),
     }))
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
