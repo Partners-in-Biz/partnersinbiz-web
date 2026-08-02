@@ -127,7 +127,7 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req: NextRequest, ctx
       ? ctx.actor.uid.replace(/^agent:/, '')
       : typeof (body as { agentId?: unknown }).agentId === 'string'
         ? String((body as { agentId: string }).agentId)
-        : null
+        : undefined
 
   const result = await recordContactFact(
     {
