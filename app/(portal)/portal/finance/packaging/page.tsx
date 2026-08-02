@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { PageHeader } from '@/components/ui/AppFoundation'
+import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
+import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import {
   newFinanceId,
@@ -276,11 +277,15 @@ export default function PackagingWorkbenchPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
-      <PageHeader
-        title="Finance packaging exports"
-        description="SARS-ready download packs, payment instruction exports, and accountant packs. Download only — no eFiling submit and no bank payment initiation."
-      />
+    <FinanceModuleFrame
+      active="packaging"
+      orgScope={scope.orgScope}
+      title="Packaging exports"
+      description="SARS-ready, payment instruction, and accountant download packs. Manifest/download only."
+      error={scope.error}
+      message={scope.message}
+      loading={scope.loading}
+    >
 
       <div className="flex flex-wrap gap-2 text-sm">
         <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-ghost">
@@ -433,6 +438,6 @@ export default function PackagingWorkbenchPage() {
           ) : null}
         </section>
       </div>
-    </div>
+    </FinanceModuleFrame>
   )
 }

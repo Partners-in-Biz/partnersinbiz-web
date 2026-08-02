@@ -3,28 +3,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { PageHeader } from '@/components/ui/AppFoundation'
+import { Surface } from '@/components/ui/AppFoundation'
+import { StatCard } from '@/components/ui/StatCard'
+import { HudChip } from '@/components/ui/HudChip'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { ThemedSelect } from '@/components/ui/ThemedSelect'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
-
-type LegalEntity = {
-  id: string
-  code: string
-  legalName: string
-  status: string
-  jurisdictionCode: string
-  functionalCurrency: string
-}
-
-type AccountingBook = {
-  id: string
-  code: string
-  name: string
-  status: string
-  bookType: string
-  accountingBasis: string
-  functionalCurrency: string
-  cutoverAt?: string
-}
+import {
+  formatMinor,
+  newFinanceId,
+  readFinanceJson,
+  type AccountingBook,
+  type LegalEntity,
+} from '@/components/finance/financeWorkbench'
+import { FinanceModuleFrame } from '@/components/finance/FinanceModuleFrame'
+import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
+import { FinanceHubCommandRail } from '@/components/finance/FinanceHubCommandRail'
+import {
+  buildFinanceHubSnapshot,
+  formatHubMoney,
+  type AgingBucket,
+  type FinanceHubSnapshot,
+} from '@/components/finance/financeHubMetrics'
+import { FINANCE_NAV } from '@/components/finance/financeRoutes'
 
 type AccountingPeriod = {
   id: string
@@ -63,32 +65,48 @@ type RoleAssignment = {
   status: string
 }
 
-function newId(prefix: string) {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`
-  }
-  return `${prefix}_${Date.now().toString(36)}`
+function AgingTable({
+  title,
+  buckets,
+  currency,
+  totalMinor,
+}: {
+  title: string
+  buckets: AgingBucket[]
+  currency: string
+  totalMinor: number
+}) {
+  return (
+    <Card className="p-4" data-testid={`finance-aging-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">{title}</h2>
+        <HudChip tone="accent">{formatHubMoney(totalMinor, currency)}</HudChip>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="text-left text-[var(--color-pib-text-muted)]">
+              <th className="py-1.5 pr-3 font-medium">Bucket</th>
+              <th className="py-1.5 pr-3 font-medium">Count</th>
+              <th className="py-1.5 font-medium">Outstanding</th>
+            </tr>
+          </thead>
+          <tbody>
+            {buckets.map((bucket) => (
+              <tr key={bucket.key} className="border-t border-[var(--color-pib-line)]">
+                <td className="py-1.5 pr-3">{bucket.label}</td>
+                <td className="py-1.5 pr-3 tabular-nums">{bucket.count}</td>
+                <td className="py-1.5 tabular-nums">{formatHubMoney(bucket.amountMinor, currency)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  )
 }
 
-function formatMinor(amount: number | undefined, currency = 'ZAR') {
-  if (typeof amount !== 'number') return '—'
-  return new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount / 100)
-}
-
-async function readJson(res: Response) {
-  const body = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    const message = typeof body?.error === 'string' ? body.error : `Request failed (${res.status})`
-    throw new Error(message)
-  }
-  return body
-}
-
-export default function FinanceWorkbenchPage() {
+export default function FinanceCommandCentrePage() {
   const searchParams = useSearchParams()
   const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const orgId = orgScope.orgId || ''
@@ -105,6 +123,7 @@ export default function FinanceWorkbenchPage() {
   const [selectedEntityId, setSelectedEntityId] = useState('')
   const [selectedBookId, setSelectedBookId] = useState('')
   const [busy, setBusy] = useState(false)
+  const [snapshot, setSnapshot] = useState<FinanceHubSnapshot>(() => buildFinanceHubSnapshot({}))
 
   const [setupCode, setSetupCode] = useState('MAIN')
   const [setupName, setSetupName] = useState('Primary legal entity')
@@ -112,11 +131,14 @@ export default function FinanceWorkbenchPage() {
   const [setupJurisdiction, setSetupJurisdiction] = useState('ZA')
   const [setupBasis, setSetupBasis] = useState<'accrual' | 'cash'>('accrual')
 
-  const queryPath = useCallback((resource: string, extra: Record<string, string> = {}) => {
-    const params = new URLSearchParams({ resource, ...extra })
-    if (orgId) params.set('orgId', orgId)
-    return scopedApiPath(`/api/v1/finance/foundation/queries?${params.toString()}`, orgScope)
-  }, [orgId, orgScope])
+  const queryPath = useCallback(
+    (resource: string, extra: Record<string, string> = {}) => {
+      const params = new URLSearchParams({ resource, ...extra })
+      if (orgId) params.set('orgId', orgId)
+      return scopedApiPath(`/api/v1/finance/foundation/queries?${params.toString()}`, orgScope)
+    },
+    [orgId, orgScope],
+  )
 
   const commandPath = useMemo(
     () => scopedApiPath('/api/v1/finance/foundation/commands', orgScope),
@@ -136,63 +158,175 @@ export default function FinanceWorkbenchPage() {
         fetch(queryPath('assignments.me'), { credentials: 'include' }),
         fetch(queryPath('legal-entities'), { credentials: 'include' }),
       ])
-      const assignBody = await readJson(assignRes)
-      const entityBody = await readJson(entityRes)
+      const assignBody = await readFinanceJson(assignRes)
+      const entityBody = await readFinanceJson(entityRes)
       const nextAssignments = (assignBody?.data?.result ?? []) as RoleAssignment[]
       const nextEntities = (entityBody?.data?.result ?? []) as LegalEntity[]
       setAssignments(nextAssignments)
       setEntities(nextEntities)
-      const preferredEntity = selectedEntityId && nextEntities.some((e) => e.id === selectedEntityId)
-        ? selectedEntityId
-        : nextEntities[0]?.id || nextAssignments[0]?.legalEntityId || ''
+      const preferredEntity =
+        selectedEntityId && nextEntities.some((e) => e.id === selectedEntityId)
+          ? selectedEntityId
+          : nextEntities[0]?.id || nextAssignments[0]?.legalEntityId || ''
       setSelectedEntityId(preferredEntity)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load finance workbench')
+      setError(err instanceof Error ? err.message : 'Failed to load finance command centre')
     } finally {
       setLoading(false)
     }
   }, [orgId, queryPath, selectedEntityId])
 
-  const refreshScope = useCallback(async (entityId: string, bookId?: string) => {
-    if (!orgId || !entityId) {
-      setBooks([])
-      setPeriods([])
-      setAccounts([])
-      setJournals([])
-      return
-    }
-    try {
-      const booksRes = await fetch(queryPath('books', { legalEntityId: entityId }), { credentials: 'include' })
-      const booksBody = await readJson(booksRes)
-      const nextBooks = (booksBody?.data?.result ?? []) as AccountingBook[]
-      setBooks(nextBooks)
-      const preferredBook = bookId && nextBooks.some((b) => b.id === bookId)
-        ? bookId
-        : selectedBookId && nextBooks.some((b) => b.id === selectedBookId)
-          ? selectedBookId
-          : nextBooks[0]?.id || ''
-      setSelectedBookId(preferredBook)
-      if (!preferredBook) {
+  const refreshScope = useCallback(
+    async (entityId: string, bookId?: string) => {
+      if (!orgId || !entityId) {
+        setBooks([])
         setPeriods([])
         setAccounts([])
         setJournals([])
+        setSnapshot(buildFinanceHubSnapshot({}))
         return
       }
-      const [periodsRes, accountsRes, journalsRes] = await Promise.all([
-        fetch(queryPath('periods', { legalEntityId: entityId, bookId: preferredBook }), { credentials: 'include' }),
-        fetch(queryPath('accounts', { legalEntityId: entityId, bookId: preferredBook }), { credentials: 'include' }),
-        fetch(queryPath('journals', { legalEntityId: entityId, bookId: preferredBook, limit: '25' }), { credentials: 'include' }),
-      ])
-      const periodsBody = await readJson(periodsRes)
-      const accountsBody = await readJson(accountsRes)
-      const journalsBody = await readJson(journalsRes)
-      setPeriods((periodsBody?.data?.result ?? []) as AccountingPeriod[])
-      setAccounts((accountsBody?.data?.result ?? []) as LedgerAccount[])
-      setJournals((journalsBody?.data?.result ?? []) as PostedJournal[])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load book scope')
-    }
-  }, [orgId, queryPath, selectedBookId])
+      try {
+        const booksRes = await fetch(queryPath('books', { legalEntityId: entityId }), {
+          credentials: 'include',
+        })
+        const booksBody = await readFinanceJson(booksRes)
+        const nextBooks = (booksBody?.data?.result ?? []) as AccountingBook[]
+        setBooks(nextBooks)
+        const preferredBook =
+          bookId && nextBooks.some((b) => b.id === bookId)
+            ? bookId
+            : selectedBookId && nextBooks.some((b) => b.id === selectedBookId)
+              ? selectedBookId
+              : nextBooks[0]?.id || ''
+        setSelectedBookId(preferredBook)
+        if (!preferredBook) {
+          setPeriods([])
+          setAccounts([])
+          setJournals([])
+          setSnapshot(buildFinanceHubSnapshot({ currency: nextBooks[0]?.functionalCurrency || 'ZAR' }))
+          return
+        }
+
+        const [periodsRes, accountsRes, journalsRes, docsRes, payrollRes, taxRes, packRes] =
+          await Promise.all([
+            fetch(queryPath('periods', { legalEntityId: entityId, bookId: preferredBook }), {
+              credentials: 'include',
+            }),
+            fetch(queryPath('accounts', { legalEntityId: entityId, bookId: preferredBook }), {
+              credentials: 'include',
+            }),
+            fetch(
+              queryPath('journals', { legalEntityId: entityId, bookId: preferredBook, limit: '25' }),
+              { credentials: 'include' },
+            ),
+            fetch(
+              scopedApiPath(
+                `/api/v1/finance/documents/queries?${new URLSearchParams({
+                  resource: 'bundle',
+                  orgId,
+                  legalEntityId: entityId,
+                  bookId: preferredBook,
+                }).toString()}`,
+                orgScope,
+              ),
+              { credentials: 'include' },
+            ),
+            fetch(
+              scopedApiPath(
+                `/api/v1/finance/payroll/queries?${new URLSearchParams({
+                  resource: 'bundle',
+                  orgId,
+                  legalEntityId: entityId,
+                  bookId: preferredBook,
+                }).toString()}`,
+                orgScope,
+              ),
+              { credentials: 'include' },
+            ),
+            fetch(
+              scopedApiPath(
+                `/api/v1/finance/tax/queries?${new URLSearchParams({
+                  resource: 'bundle',
+                  orgId,
+                  legalEntityId: entityId,
+                  bookId: preferredBook,
+                }).toString()}`,
+                orgScope,
+              ),
+              { credentials: 'include' },
+            ),
+            fetch(
+              scopedApiPath(
+                `/api/v1/finance/packaging/queries?${new URLSearchParams({
+                  resource: 'bundle',
+                  orgId,
+                  legalEntityId: entityId,
+                  bookId: preferredBook,
+                }).toString()}`,
+                orgScope,
+              ),
+              { credentials: 'include' },
+            ),
+          ])
+
+        const periodsBody = await readFinanceJson(periodsRes)
+        const accountsBody = await readFinanceJson(accountsRes)
+        const journalsBody = await readFinanceJson(journalsRes)
+        const nextPeriods = (periodsBody?.data?.result ?? []) as AccountingPeriod[]
+        setPeriods(nextPeriods)
+        setAccounts((accountsBody?.data?.result ?? []) as LedgerAccount[])
+        setJournals((journalsBody?.data?.result ?? []) as PostedJournal[])
+
+        const currency =
+          nextBooks.find((book) => book.id === preferredBook)?.functionalCurrency || 'ZAR'
+
+        let openItems: unknown[] = []
+        let bankAccounts: unknown[] = []
+        let payRuns: unknown[] = []
+        let taxReturns: unknown[] = []
+        let packagingPacks: unknown[] = []
+
+        if (docsRes.ok) {
+          const docsBody = await docsRes.json().catch(() => ({}))
+          const bundle = docsBody?.data?.result ?? {}
+          openItems = bundle.openItems ?? []
+          bankAccounts = bundle.bankAccounts ?? []
+        }
+        if (payrollRes.ok) {
+          const payrollBody = await payrollRes.json().catch(() => ({}))
+          payRuns = payrollBody?.data?.result?.payRuns ?? []
+        }
+        if (taxRes.ok) {
+          const taxBody = await taxRes.json().catch(() => ({}))
+          taxReturns = taxBody?.data?.result?.taxReturns ?? []
+        }
+        if (packRes.ok) {
+          const packBody = await packRes.json().catch(() => ({}))
+          const packResult = packBody?.data?.result
+          packagingPacks =
+            packResult?.packs ??
+            packResult?.items ??
+            (Array.isArray(packResult) ? packResult : [])
+        }
+
+        setSnapshot(
+          buildFinanceHubSnapshot({
+            openItems: openItems as any,
+            bankAccounts: bankAccounts as any,
+            periods: nextPeriods,
+            payRuns: payRuns as any,
+            taxReturns: taxReturns as any,
+            packagingPacks: packagingPacks as any,
+            currency,
+          }),
+        )
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load book scope')
+      }
+    },
+    [orgId, orgScope, queryPath, selectedBookId],
+  )
 
   useEffect(() => {
     void refreshCore()
@@ -212,7 +346,7 @@ export default function FinanceWorkbenchPage() {
       },
       body: JSON.stringify({ operation, command: { ...command, orgId } }),
     })
-    const body = await readJson(res)
+    const body = await readFinanceJson(res)
     return body?.data?.result
   }
 
@@ -222,10 +356,10 @@ export default function FinanceWorkbenchPage() {
     setError(null)
     setMessage(null)
     try {
-      const entityId = newId('le')
-      const assignmentId = newId('fra')
-      const bookId = newId('book')
-      const requestBase = newId('req')
+      const entityId = newFinanceId('le')
+      const assignmentId = newFinanceId('fra')
+      const bookId = newFinanceId('book')
+      const requestBase = newFinanceId('req')
       await runCommand('role-assignment.bootstrap', {
         id: assignmentId,
         legalEntityId: entityId,
@@ -278,241 +412,311 @@ export default function FinanceWorkbenchPage() {
 
   const selectedEntity = entities.find((entity) => entity.id === selectedEntityId)
   const selectedBook = books.find((book) => book.id === selectedBookId)
+  const scopeModel = {
+    entities,
+    books,
+    selectedEntityId,
+    setSelectedEntityId,
+    selectedBookId,
+    setSelectedBookId: (id: string) => {
+      setSelectedBookId(id)
+      if (selectedEntityId) void refreshScope(selectedEntityId, id)
+    },
+    selectedEntity,
+    selectedBook,
+    orgId,
+  }
+
+  const moduleLinks = FINANCE_NAV.filter((item) => item.key !== 'hub')
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        eyebrow="Finance module"
-        title="Finance workbench"
-        description="Multi-entity books, double-entry ledger foundation, periods, and audit-ready journal postings. Operational billing remains under Invoicing and Payments."
-        actions={(
-          <div className="flex flex-wrap gap-2">
-            <Link href={scopedPortalPath('/portal/invoicing', orgScope)} className="pib-btn-ghost">Invoicing</Link>
-            <Link href={scopedPortalPath('/portal/payments', orgScope)} className="pib-btn-ghost">Payments</Link>
-            <Link href={scopedPortalPath('/portal/billing', orgScope)} className="pib-btn-ghost">Billing hub</Link>
+    <FinanceModuleFrame
+      active="hub"
+      orgScope={orgScope}
+      title="Finance command centre"
+      description="Cash, AR/AP aging, periods, payroll, tax, and packaging in one operating hub. Operational billing stays on Invoicing and Payments."
+      error={error}
+      message={message}
+      loading={loading}
+      meta={
+        <div className="flex flex-wrap items-center gap-1.5">
+          <HudChip live={!loading}>{loading ? 'Syncing' : 'Live books'}</HudChip>
+          <HudChip>Entities <strong>{entities.length}</strong></HudChip>
+          <HudChip>Books <strong>{books.length}</strong></HudChip>
+          <HudChip>Assignments <strong>{assignments.length}</strong></HudChip>
+          <HudChip tone="accent">No SARS / no payout</HudChip>
+        </div>
+      }
+    >
+      {entities.length === 0 ? (
+        <Card className="space-y-4 p-6" data-testid="finance-bootstrap-panel">
+          <div>
+            <h2 className="text-lg font-semibold">Bootstrap your first legal entity</h2>
+            <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
+              Owner/admin bootstrap creates your finance_admin assignment, legal entity, and primary book.
+              No payments, SARS submissions, or production cutover happen from this screen.
+            </p>
           </div>
-        )}
-      />
-
-      {error ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
-      ) : null}
-      {message ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{message}</div>
-      ) : null}
-
-      {loading ? (
-        <div className="pib-card p-6 text-sm text-[var(--color-pib-text-muted)]">Loading finance foundation…</div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="text-sm">
+              Entity code
+              <input
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                value={setupCode}
+                onChange={(e) => setSetupCode(e.target.value)}
+              />
+            </label>
+            <label className="text-sm">
+              Legal name
+              <input
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                value={setupName}
+                onChange={(e) => setSetupName(e.target.value)}
+              />
+            </label>
+            <label className="text-sm">
+              Currency
+              <input
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                value={setupCurrency}
+                onChange={(e) => setSetupCurrency(e.target.value.toUpperCase())}
+              />
+            </label>
+            <label className="text-sm">
+              Jurisdiction
+              <input
+                className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                value={setupJurisdiction}
+                onChange={(e) => setSetupJurisdiction(e.target.value.toUpperCase())}
+              />
+            </label>
+            <label className="text-sm">
+              Accounting basis
+              <div className="mt-1">
+                <ThemedSelect
+                  ariaLabel="Accounting basis"
+                  value={setupBasis}
+                  options={[
+                    { value: 'accrual', label: 'Accrual' },
+                    { value: 'cash', label: 'Cash' },
+                  ]}
+                  onValueChange={(value) => setSetupBasis(value as 'accrual' | 'cash')}
+                  className="w-full"
+                  buttonClassName="w-full justify-between"
+                />
+              </div>
+            </label>
+          </div>
+          <Button
+            type="button"
+            variant="primary"
+            loading={busy}
+            disabled={busy || !orgId}
+            onClick={() => void bootstrapEntity()}
+          >
+            {busy ? 'Creating…' : 'Create legal entity + primary book'}
+          </Button>
+        </Card>
       ) : (
-        <>
-          <section className="grid gap-4 md:grid-cols-4">
-            <div className="pib-stat-card">
-              <p className="pib-label">Legal entities</p>
-              <p className="mt-3 text-2xl font-semibold">{entities.length}</p>
-            </div>
-            <div className="pib-stat-card">
-              <p className="pib-label">Books</p>
-              <p className="mt-3 text-2xl font-semibold">{books.length}</p>
-            </div>
-            <div className="pib-stat-card">
-              <p className="pib-label">Open periods</p>
-              <p className="mt-3 text-2xl font-semibold">{periods.filter((p) => p.status === 'open').length}</p>
-            </div>
-            <div className="pib-stat-card">
-              <p className="pib-label">Chart accounts</p>
-              <p className="mt-3 text-2xl font-semibold">{accounts.length}</p>
-            </div>
+        <div className="space-y-4">
+          <FinanceScopeBar scope={scopeModel} />
+
+          <section className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" data-testid="finance-hub-stats">
+            <StatCard
+              accent="amber"
+              icon="account_balance_wallet"
+              label="Cash"
+              value={formatHubMoney(snapshot.cashMinor, snapshot.currency)}
+              detail={`${snapshot.cashAccountCount} bank accounts`}
+            />
+            <StatCard
+              accent="amber"
+              icon="south_west"
+              label="AR outstanding"
+              value={formatHubMoney(snapshot.arOutstandingMinor, snapshot.currency)}
+              detail="Customer open items"
+            />
+            <StatCard
+              accent="amber"
+              icon="north_east"
+              label="AP outstanding"
+              value={formatHubMoney(snapshot.apOutstandingMinor, snapshot.currency)}
+              detail="Supplier open items"
+            />
+            <StatCard
+              accent="amber"
+              icon="calendar_month"
+              label="Open periods"
+              value={String(snapshot.openPeriodCount)}
+              detail={`${snapshot.periodCount} total periods`}
+            />
+            <StatCard
+              accent="amber"
+              icon="groups"
+              label="Payroll"
+              value={`${snapshot.payrollRunsInReview}/${snapshot.payrollRunsLocked}`}
+              detail="In review / locked"
+            />
+            <StatCard
+              accent="amber"
+              icon="inventory_2"
+              label="Tax + packs"
+              value={`${snapshot.taxReturnsReady}/${snapshot.packagingReady}`}
+              detail="Tax ready / packs ready"
+            />
           </section>
 
-          {entities.length === 0 ? (
-            <section className="pib-card space-y-4 p-6">
-              <div>
-                <h2 className="text-lg font-semibold">Bootstrap your first legal entity</h2>
-                <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
-                  Owner/admin bootstrap creates your finance_admin assignment, legal entity, and primary book.
-                  No payments, SARS submissions, or production cutover happen from this screen.
+          <FinanceHubCommandRail snapshot={snapshot} orgScope={orgScope} />
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            <AgingTable
+              title="AR aging"
+              buckets={snapshot.arAging}
+              currency={snapshot.currency}
+              totalMinor={snapshot.arOutstandingMinor}
+            />
+            <AgingTable
+              title="AP aging"
+              buckets={snapshot.apAging}
+              currency={snapshot.currency}
+              totalMinor={snapshot.apOutstandingMinor}
+            />
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            <Card className="p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold">Accounting periods</h2>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">{periods.length} total</span>
+              </div>
+              {periods.length === 0 ? (
+                <p className="text-sm text-[var(--color-pib-text-muted)]">
+                  No periods yet. Create periods from Ledger or Setup.
                 </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-[var(--color-pib-text-muted)]">
+                        <th className="py-2 pr-3">FY</th>
+                        <th className="py-2 pr-3">Period</th>
+                        <th className="py-2 pr-3">Start</th>
+                        <th className="py-2 pr-3">End</th>
+                        <th className="py-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {periods.slice(0, 12).map((period) => (
+                        <tr key={period.id} className="border-t border-[var(--color-pib-line)]">
+                          <td className="py-2 pr-3">{period.fiscalYear}</td>
+                          <td className="py-2 pr-3">{period.periodNumber}</td>
+                          <td className="py-2 pr-3">{period.startsAt.slice(0, 10)}</td>
+                          <td className="py-2 pr-3">{period.endsAt.slice(0, 10)}</td>
+                          <td className="py-2">
+                            <span className="pib-pill">{period.status}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold">Recent journals</h2>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">{journals.length}</span>
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="text-sm">
-                  Entity code
-                  <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={setupCode} onChange={(e) => setSetupCode(e.target.value)} />
-                </label>
-                <label className="text-sm">
-                  Legal name
-                  <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={setupName} onChange={(e) => setSetupName(e.target.value)} />
-                </label>
-                <label className="text-sm">
-                  Currency
-                  <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={setupCurrency} onChange={(e) => setSetupCurrency(e.target.value.toUpperCase())} />
-                </label>
-                <label className="text-sm">
-                  Jurisdiction
-                  <input className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={setupJurisdiction} onChange={(e) => setSetupJurisdiction(e.target.value.toUpperCase())} />
-                </label>
-                <label className="text-sm">
-                  Accounting basis
-                  <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={setupBasis} onChange={(e) => setSetupBasis(e.target.value as 'accrual' | 'cash')}>
-                    <option value="accrual">Accrual</option>
-                    <option value="cash">Cash</option>
-                  </select>
-                </label>
-              </div>
-              <button type="button" className="pib-btn-primary" disabled={busy || !orgId} onClick={() => void bootstrapEntity()}>
-                {busy ? 'Creating…' : 'Create legal entity + primary book'}
-              </button>
-            </section>
-          ) : (
-            <section className="grid gap-4 lg:grid-cols-[240px_1fr]">
-              <div className="pib-card space-y-3 p-4">
-                <p className="pib-label">Scope</p>
-                <label className="block text-sm">
-                  Legal entity
-                  <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={selectedEntityId} onChange={(e) => setSelectedEntityId(e.target.value)}>
-                    {entities.map((entity) => (
-                      <option key={entity.id} value={entity.id}>{entity.code} — {entity.legalName}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-sm">
-                  Book
-                  <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={selectedBookId} onChange={(e) => { setSelectedBookId(e.target.value); if (selectedEntityId) void refreshScope(selectedEntityId, e.target.value) }}>
-                    {books.map((book) => (
-                      <option key={book.id} value={book.id}>{book.code} — {book.name}</option>
-                    ))}
-                  </select>
-                </label>
-                <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
-                  <p><span className="font-medium text-[var(--color-pib-text)]">Entity:</span> {selectedEntity?.status ?? '—'}</p>
-                  <p className="mt-1"><span className="font-medium text-[var(--color-pib-text)]">Book:</span> {selectedBook?.status ?? '—'} · {selectedBook?.accountingBasis ?? '—'}</p>
-                  <p className="mt-1"><span className="font-medium text-[var(--color-pib-text)]">Assignments:</span> {assignments.length}</p>
-                </div>
-                <div className="space-y-2 pt-2">
-                  <Link href={scopedPortalPath('/portal/finance/ledger', orgScope)} className="pib-btn-ghost w-full justify-center">Ledger detail</Link>
-                  <Link href={scopedPortalPath('/portal/finance/setup', orgScope)} className="pib-btn-ghost w-full justify-center">Setup guide</Link>
-                  <Link href={scopedPortalPath('/portal/finance/reports', orgScope)} className="pib-btn-ghost w-full justify-center">Financial reports</Link>
-                  <Link href={scopedPortalPath('/portal/finance/tax', orgScope)} className="pib-btn-ghost w-full justify-center">Tax</Link>
-                  <Link href={scopedPortalPath('/portal/finance/documents', orgScope)} className="pib-btn-ghost w-full justify-center">Documents & recon</Link>
-                  <Link href={scopedPortalPath('/portal/finance/intercompany', orgScope)} className="pib-btn-ghost w-full justify-center">Intercompany</Link>
-                  <Link href={scopedPortalPath('/portal/finance/payroll', orgScope)} className="pib-btn-ghost w-full justify-center">Payroll</Link>
-                  <Link href={scopedPortalPath('/portal/finance/personal', orgScope)} className="pib-btn-ghost w-full justify-center">Personal books</Link>
-                  <Link href={scopedPortalPath('/portal/finance/cross-org', orgScope)} className="pib-btn-ghost w-full justify-center">Cross-org payments</Link>
-                  <Link href={scopedPortalPath('/portal/finance/statements', orgScope)} className="pib-btn-ghost w-full justify-center">Statement import</Link>
-                  <Link href={scopedPortalPath('/portal/finance/cutover', orgScope)} className="pib-btn-ghost w-full justify-center">Opening balances / cutover</Link>
-                  <Link href={scopedPortalPath('/portal/finance/packaging', orgScope)} className="pib-btn-ghost w-full justify-center">Packaging exports</Link>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="pib-card p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <h2 className="text-base font-semibold">Accounting periods</h2>
-                    <span className="text-xs text-[var(--color-pib-text-muted)]">{periods.length} total</span>
-                  </div>
-                  {periods.length === 0 ? (
-                    <p className="text-sm text-[var(--color-pib-text-muted)]">No periods yet. Create periods through the foundation commands API or follow Setup.</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full text-sm">
-                        <thead>
-                          <tr className="text-left text-[var(--color-pib-text-muted)]">
-                            <th className="py-2 pr-3">FY</th>
-                            <th className="py-2 pr-3">Period</th>
-                            <th className="py-2 pr-3">Start</th>
-                            <th className="py-2 pr-3">End</th>
-                            <th className="py-2">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {periods.map((period) => (
-                            <tr key={period.id} className="border-t border-[var(--color-pib-line)]">
-                              <td className="py-2 pr-3">{period.fiscalYear}</td>
-                              <td className="py-2 pr-3">{period.periodNumber}</td>
-                              <td className="py-2 pr-3">{period.startsAt.slice(0, 10)}</td>
-                              <td className="py-2 pr-3">{period.endsAt.slice(0, 10)}</td>
-                              <td className="py-2"><span className="pib-pill">{period.status}</span></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <div className="pib-card p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <h2 className="text-base font-semibold">Chart of accounts</h2>
-                      <span className="text-xs text-[var(--color-pib-text-muted)]">{accounts.length}</span>
-                    </div>
-                    {accounts.length === 0 ? (
-                      <p className="text-sm text-[var(--color-pib-text-muted)]">No accounts in this book yet.</p>
-                    ) : (
-                      <ul className="max-h-72 space-y-2 overflow-y-auto text-sm">
-                        {accounts.map((account) => (
-                          <li key={account.id} className="flex items-start justify-between gap-3 border-b border-[var(--color-pib-line)] pb-2">
-                            <div>
-                              <p className="font-medium">{account.code} · {account.name}</p>
-                              <p className="text-xs text-[var(--color-pib-text-muted)]">{account.accountType} · {account.normalBalance}</p>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  <div className="pib-card p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <h2 className="text-base font-semibold">Recent journals</h2>
-                      <span className="text-xs text-[var(--color-pib-text-muted)]">{journals.length}</span>
-                    </div>
-                    {journals.length === 0 ? (
-                      <p className="text-sm text-[var(--color-pib-text-muted)]">No posted journals yet. Posting remains approval-gated and append-only.</p>
-                    ) : (
-                      <ul className="max-h-72 space-y-2 overflow-y-auto text-sm">
-                        {journals.map((journal) => (
-                          <li key={journal.id} className="border-b border-[var(--color-pib-line)] pb-2">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="font-medium">#{journal.entryNumber ?? '—'} · {journal.description}</p>
-                                <p className="text-xs text-[var(--color-pib-text-muted)]">{journal.postingDate?.slice(0, 10)} · {journal.status}</p>
-                              </div>
-                              <p className="text-xs font-medium">{formatMinor(journal.totalDebitMinor, journal.currency)}</p>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pib-card p-4">
-                  <h2 className="text-base font-semibold">Module status</h2>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {[
-                      { title: 'Foundation ledger', status: 'Live UI', body: 'Legal entities, books, periods, accounts, journals, reversals, audit.' },
-                      { title: 'Ledger reports', status: 'Live UI', body: 'Run trial balance, income statement, and balance sheet over posted journals.' },
-                      { title: 'VAT / tax returns', status: 'Live UI', body: 'Tax codes, periods, calculate, and return prepare/approve with no SARS egress.' },
-                      { title: 'AR/AP + reconciliation', status: 'Live UI', body: 'Invoices, payments, bank import, and reconciliation actions on /portal/finance/documents.' },
-                      { title: 'Intercompany', status: 'Live UI', body: 'Pairs, propose/receive confirm, eliminations, and consolidation visibility.' },
-                      { title: 'ZA payroll + statutory', status: 'Live UI', body: 'Employees, calcs, pay runs, payslip-by-id; no bank pay or SARS submit.' },
-                      { title: 'Operational billing', status: 'Live', body: 'Existing invoicing and payments stay at their current portal routes.' },
-                    ].map((item) => (
-                      <div key={item.title} className="rounded-xl border border-[var(--color-pib-line)] p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-medium">{item.title}</p>
-                          <span className="pib-pill pib-pill-cyan">{item.status}</span>
+              {journals.length === 0 ? (
+                <p className="text-sm text-[var(--color-pib-text-muted)]">
+                  No posted journals yet. Posting remains approval-gated and append-only.
+                </p>
+              ) : (
+                <ul className="max-h-72 space-y-2 overflow-y-auto text-sm">
+                  {journals.map((journal) => (
+                    <li key={journal.id} className="border-b border-[var(--color-pib-line)] pb-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">
+                            #{journal.entryNumber ?? '—'} · {journal.description}
+                          </p>
+                          <p className="text-xs text-[var(--color-pib-text-muted)]">
+                            {journal.postingDate?.slice(0, 10)} · {journal.status}
+                          </p>
                         </div>
-                        <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{item.body}</p>
+                        <p className="text-xs font-medium">
+                          {formatMinor(journal.totalDebitMinor, journal.currency || snapshot.currency)}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            <Card className="p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold">Chart of accounts</h2>
+                <span className="text-xs text-[var(--color-pib-text-muted)]">{accounts.length}</span>
               </div>
-            </section>
-          )}
-        </>
+              {accounts.length === 0 ? (
+                <p className="text-sm text-[var(--color-pib-text-muted)]">No accounts in this book yet.</p>
+              ) : (
+                <ul className="max-h-64 space-y-2 overflow-y-auto text-sm">
+                  {accounts.slice(0, 40).map((account) => (
+                    <li
+                      key={account.id}
+                      className="flex items-start justify-between gap-3 border-b border-[var(--color-pib-line)] pb-2"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {account.code} · {account.name}
+                        </p>
+                        <p className="text-xs text-[var(--color-pib-text-muted)]">
+                          {account.accountType} · {account.normalBalance}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            <Card className="p-4">
+              <h2 className="mb-3 text-sm font-semibold">Module lanes</h2>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {moduleLinks.map((item) => (
+                  <Link
+                    key={item.key}
+                    href={scopedPortalPath(item.href, orgScope)}
+                    className="rounded-lg border border-[var(--color-pib-line)] p-3 transition-colors hover:bg-[var(--color-row-hover)]"
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="pib-icon-tint shrink-0" aria-hidden="true">
+                        <span className="material-symbols-outlined text-[16px]">{item.icon}</span>
+                      </span>
+                      <span className="min-w-0">
+                        <p className="text-sm font-medium text-[var(--color-pib-text)]">{item.label}</p>
+                        <p className="mt-0.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">
+                          {item.description}
+                        </p>
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          </section>
+
+          <Surface className="p-4 text-xs text-[var(--color-pib-text-muted)]" data-testid="finance-safety-readback">
+            Safety readback: development/staging finance UI only. No SARS e-file submit, no external payment
+            initiation, no mass payslip/statement email, and no production promote from this surface.
+          </Surface>
+        </div>
       )}
-    </div>
+    </FinanceModuleFrame>
   )
 }

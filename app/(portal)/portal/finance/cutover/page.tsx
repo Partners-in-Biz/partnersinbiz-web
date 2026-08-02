@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { PageHeader } from '@/components/ui/AppFoundation'
+import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
+import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import {
   formatMinor,
@@ -210,11 +211,15 @@ export default function CutoverWizardPage() {
   const selected = packages.find((p) => p.id === selectedId)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
-      <PageHeader
-        title="Opening balances & cutover"
-        description="Import an approved opening trial balance, reconcile AR/AP open items to control accounts, and set book.cutoverAt with approval audit. No SARS e-filing and no external payment initiation."
-      />
+    <FinanceModuleFrame
+      active="cutover"
+      orgScope={scope.orgScope}
+      title="Opening balances / cutover"
+      description="Opening trial balance, open-item recon, and cutover activation controls."
+      error={scope.error}
+      message={scope.message}
+      loading={scope.loading}
+    >
 
       <div className="flex flex-wrap gap-2 text-sm">
         <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-ghost">Finance hub</Link>
@@ -327,6 +332,6 @@ export default function CutoverWizardPage() {
           </div>
         )}
       </section>
-    </div>
+    </FinanceModuleFrame>
   )
 }

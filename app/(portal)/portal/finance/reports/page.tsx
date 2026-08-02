@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { PageHeader } from '@/components/ui/AppFoundation'
+import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
+import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 import { formatMinor, readFinanceJson, todayISODate } from '@/components/finance/financeWorkbench'
 import { useFinanceBookScope } from '@/components/finance/useFinanceBookScope'
@@ -56,34 +57,22 @@ export default function FinanceReportsPage() {
   const bsRows: ReportRow[] = balanceSheet?.lines || balanceSheet?.accounts || balanceSheet?.rows || []
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        eyebrow="Finance"
-        title="Financial reports"
-        description="Trial balance, income statement, and balance sheet from posted journal lines only."
-        actions={<Link href={scopedPortalPath('/portal/finance', scope.orgScope)} className="pib-btn-ghost">Workbench</Link>}
-      />
+    <FinanceModuleFrame
+      active="reports"
+      orgScope={scope.orgScope}
+      title="Financial reports"
+      description="Trial balance, income statement, and balance sheet from posted journal lines only."
+      error={scope.error}
+      message={scope.message}
+      loading={scope.loading}
+    >
 
-      {scope.error ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{scope.error}</div> : null}
-      {scope.message ? <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{scope.message}</div> : null}
-
-      {scope.loading ? (
-        <div className="pib-card p-6 text-sm text-[var(--color-pib-text-muted)]">Loading…</div>
-      ) : !scope.scopeReady ? (
-        <div className="pib-card p-6 text-sm text-[var(--color-pib-text-muted)]">Bootstrap a book on the Finance workbench first.</div>
-      ) : (
+      {!scope.loading && !scope.scopeReady ? (
+        <FinanceEmptyScope orgScope={scope.orgScope} />
+      ) : !scope.loading ? (
         <>
           <section className="pib-card grid gap-3 p-4 md:grid-cols-4">
-            <label className="text-sm">Legal entity
-              <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={scope.selectedEntityId} onChange={(e) => scope.setSelectedEntityId(e.target.value)}>
-                {scope.entities.map((e) => <option key={e.id} value={e.id}>{e.code} — {e.legalName}</option>)}
-              </select>
-            </label>
-            <label className="text-sm">Book
-              <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={scope.selectedBookId} onChange={(e) => scope.setSelectedBookId(e.target.value)}>
-                {scope.books.map((b) => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}
-              </select>
-            </label>
+            <FinanceScopeBar scope={scope} />
             <label className="text-sm">Basis
               <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={basis} onChange={(e) => setBasis(e.target.value as 'cash' | 'accrual')}>
                 <option value="accrual">Accrual</option>
@@ -111,7 +100,7 @@ export default function FinanceReportsPage() {
           <ReportTable title="Balance sheet" rows={bsRows} currency={currency} meta={balanceSheet} />
         </>
       )}
-    </div>
+    </FinanceModuleFrame>
   )
 }
 

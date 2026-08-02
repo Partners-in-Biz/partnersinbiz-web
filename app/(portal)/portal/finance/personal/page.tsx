@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { PageHeader } from '@/components/ui/AppFoundation'
+import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
+import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import {
   formatMinor,
@@ -115,17 +116,15 @@ export default function PersonalFinancePage() {
   const bookAccounts = (bundle?.accounts || []).filter((a) => !selectedBookId || a.bookId === selectedBookId)
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeader
-        eyebrow="Finance · Phase 2"
-        title="Personal books"
-        description="Private multi-account books owned by you. Other org members cannot see this data. Org→member pay transfers are observations only — PiB never initiates bank payments."
-        actions={
-          <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-ghost">
-            Org workbench
-          </Link>
-        }
-      />
+    <FinanceModuleFrame
+      active="personal"
+      orgScope={scope.orgScope}
+      title="Personal books"
+      description="Owner-private personal books workspace with strict privacy boundaries."
+      error={scope.error}
+      message={scope.message}
+      loading={scope.loading}
+    >
 
       {(error || message) && (
         <div className={`pib-card p-4 text-sm ${error ? 'text-red-300' : 'text-emerald-300'}`}>
@@ -388,6 +387,6 @@ export default function PersonalFinancePage() {
           {!bundle?.entries?.length && <li>No entries yet.</li>}
         </ul>
       </section>
-    </div>
+    </FinanceModuleFrame>
   )
 }

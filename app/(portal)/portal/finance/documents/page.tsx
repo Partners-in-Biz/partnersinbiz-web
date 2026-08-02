@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
-import { PageHeader } from '@/components/ui/AppFoundation'
+import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
+import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 import {
   formatMinor,
@@ -262,21 +263,15 @@ export default function FinanceDocumentsPage() {
   const currency = scope.selectedBook?.functionalCurrency || 'ZAR'
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        eyebrow="Finance"
-        title="Invoices, bills, payments & reconciliation"
-        description="Record external money movement, match open items, import bank lines, and approve balanced reconciliations. PiB never initiates bank payments from this screen."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Link href={scopedPortalPath('/portal/finance', scope.orgScope)} className="pib-btn-ghost">Workbench</Link>
-            <Link href={scopedPortalPath('/portal/invoicing', scope.orgScope)} className="pib-btn-ghost">Operational invoicing</Link>
-          </div>
-        }
-      />
-
-      {scope.error ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{scope.error}</div> : null}
-      {scope.message ? <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{scope.message}</div> : null}
+    <FinanceModuleFrame
+      active="documents"
+      orgScope={scope.orgScope}
+      title="Documents & reconciliation"
+      description="Customer invoices, supplier bills, payment matching, bank transactions, and reconciliation — record only, no external payment initiate."
+      error={scope.error}
+      message={scope.message}
+      loading={scope.loading}
+    >
 
       {scope.loading ? (
         <div className="pib-card p-6 text-sm text-[var(--color-pib-text-muted)]">Loading finance scope…</div>
@@ -287,16 +282,7 @@ export default function FinanceDocumentsPage() {
       ) : (
         <>
           <section className="pib-card grid gap-3 p-4 md:grid-cols-3">
-            <label className="text-sm">Legal entity
-              <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={scope.selectedEntityId} onChange={(e) => scope.setSelectedEntityId(e.target.value)}>
-                {scope.entities.map((e) => <option key={e.id} value={e.id}>{e.code} — {e.legalName}</option>)}
-              </select>
-            </label>
-            <label className="text-sm">Book
-              <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={scope.selectedBookId} onChange={(e) => scope.setSelectedBookId(e.target.value)}>
-                {scope.books.map((b) => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}
-              </select>
-            </label>
+            <FinanceScopeBar scope={scope} />
             <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
               <p>externalPaymentInitiated: <strong className="text-[var(--color-pib-text)]">{String(bundle?.externalPaymentInitiated ?? false)}</strong></p>
               <p className="mt-1">Currency: {currency} · Basis: {scope.selectedBook?.accountingBasis}</p>
@@ -520,6 +506,6 @@ export default function FinanceDocumentsPage() {
           </section>
         </>
       )}
-    </div>
+    </FinanceModuleFrame>
   )
 }

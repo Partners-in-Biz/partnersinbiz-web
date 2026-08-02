@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { PageHeader } from '@/components/ui/AppFoundation'
+import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
+import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import {
   formatMinor,
@@ -125,16 +126,15 @@ export default function CrossOrgFinancePage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-6">
-      <PageHeader
-        title="Cross-org payment confirm"
-        description="Notify a linked client/org of an observed payment and let them confirm, dispute, or dismiss. Observe-only — never initiates bank payment."
-        actions={
-          <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-ghost">
-            Finance hub
-          </Link>
-        }
-      />
+    <FinanceModuleFrame
+      active="cross-org"
+      orgScope={scope.orgScope}
+      title="Cross-org payments"
+      description="Notify and confirm cross-org payments. No external payment initiation."
+      error={scope.error}
+      message={scope.message}
+      loading={scope.loading}
+    >
 
       {!orgId && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
@@ -218,6 +218,6 @@ export default function CrossOrgFinancePage() {
           )}
         </section>
       </div>
-    </div>
+    </FinanceModuleFrame>
   )
 }
