@@ -65,7 +65,16 @@ export async function createOrUpdateGraphTemplate(
   return { ok: true, template: saved }
 }
 
-async function finalizeOpsSideEffects(previous: WorkflowRun | null, run: WorkflowRun, now: string): Promise<WorkflowRun> {
+/**
+ * Shared ops side-effects for advance path AND stuck SLA cron.
+ * Applies stuck evaluation, bumps blockRevision on alert transitions,
+ * and writes one deduped workflow_ops_facts row (alert-on-block / quiet success).
+ */
+export async function finalizeOpsSideEffects(
+  previous: WorkflowRun | null,
+  run: WorkflowRun,
+  now: string,
+): Promise<WorkflowRun> {
   let next = applyStuckEvaluation(run, now)
   if (previous) {
     next = bumpBlockRevisionOnAlertTransition(previous, next)

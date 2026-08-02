@@ -7,7 +7,7 @@ import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import {
-  applyStuckEvaluation,
+  finalizeOpsSideEffects,
   handleCronTriggerTick,
   listOpsWorkflowRuns,
   saveWorkflowRun,
@@ -45,18 +45,29 @@ export async function GET(req: NextRequest) {
     .get()
     .catch(() => null)
 
-  const stuckUpdates: Array<{ runId: string; stuckReasonCode?: string }> = []
+  const stuckUpdates: Array<{ runId: string; stuckReasonCode?: string; factDedupeKey?: string }> = []
   if (snap) {
     for (const doc of snap.docs) {
       const run = { id: doc.id, ...(doc.data() as WorkflowRun) }
       if (['succeeded', 'failed', 'cancelled', 'abandoned_candidate'].includes(run.status)) continue
-      const evaluated = applyStuckEvaluation(run, nowIso)
-      if (
-        evaluated.stuckReasonCode !== run.stuckReasonCode
-        || evaluated.stuckAt !== run.stuckAt
-      ) {
-        await saveWorkflowRun({ ...evaluated, updatedAt: nowIso })
-        stuckUpdates.push({ runId: evaluated.id!, stuckReasonCode: evaluated.stuckReasonCode })
+      // Stuck SLA + alert-on-block facts share finalizeOpsSideEffects with advance path
+      // so heartbeat-stale runs that never advance still get workflow_ops_facts.
+      const finalized = await finalizeOpsSideEffects(run, run, nowIso)
+      const stuckChanged =
+        finalized.stuckReasonCode !== run.stuckReasonCode
+        || finalized.stuckAt !== run.stuckAt
+      const alertChanged =
+        finalized.blockRevision !== run.blockRevision
+        || finalized.lastAlertDedupeKey !== run.lastAlertDedupeKey
+      if (stuckChanged || alertChanged) {
+        await saveWorkflowRun({ ...finalized, updatedAt: nowIso })
+        if (stuckChanged || finalized.stuckReasonCode) {
+          stuckUpdates.push({
+            runId: finalized.id!,
+            stuckReasonCode: finalized.stuckReasonCode,
+            factDedupeKey: finalized.lastAlertDedupeKey,
+          })
+        }
       }
     }
   }

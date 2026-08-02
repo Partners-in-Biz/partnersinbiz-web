@@ -16,6 +16,7 @@ export {
   handleKanbanTaskTerminalForWorkflow,
   startRunFromPlaybook,
   applyAdvanceAndMaterialize,
+  finalizeOpsSideEffects,
   listOpsWorkflowRuns,
   buildOpsInspect,
 } from './service'
@@ -26,5 +27,6 @@ export {
   listWorkflowRuns,
   listOpsFacts,
   saveOpsFact,
+  saveWorkflowRun,
   toInspectPayload,
 } from './store'
