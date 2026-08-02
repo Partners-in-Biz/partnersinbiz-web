@@ -4,6 +4,25 @@ import { claimOldestLinkedRun } from '@/lib/linked-computers/run-queue-store'
 
 type Context = { params: Promise<{ deviceId: string }> }
 
+const AGENT_ID = /^[a-z][a-z0-9._-]{0,39}$/
+
+function saturatedAgentIds(rawBody: string): string[] {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(rawBody) as unknown
+  } catch {
+    return []
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return []
+  const values = Array.isArray((parsed as { saturatedAgentIds?: unknown }).saturatedAgentIds)
+    ? (parsed as { saturatedAgentIds: unknown[] }).saturatedAgentIds
+    : []
+  return [...new Set(values.flatMap((value) => {
+    const agentId = typeof value === 'string' ? value.trim().toLowerCase() : ''
+    return AGENT_ID.test(agentId) ? [agentId] : []
+  }))].slice(0, 100)
+}
+
 export async function handleLinkedRunClaim(
   req: NextRequest,
   deviceId: string,
@@ -14,7 +33,10 @@ export async function handleLinkedRunClaim(
     const rawBody = await req.text()
     const identity = await auth(req, deviceId, rawBody)
     if (identity.deviceId !== deviceId) throw new Error('linked computers: tenant scope mismatch')
-    const job = await claim({ deviceId, ownerUserId: identity.ownerUserId, credentialVersion: identity.credentialVersion })
+    const job = await claim(
+      { deviceId, ownerUserId: identity.ownerUserId, credentialVersion: identity.credentialVersion },
+      { saturatedAgentIds: saturatedAgentIds(rawBody) },
+    )
     return NextResponse.json({ success: true, data: job }, { status: job ? 200 : 204, headers: noStoreHeaders })
   } catch (error) { return lifecycleError(error) }
 }

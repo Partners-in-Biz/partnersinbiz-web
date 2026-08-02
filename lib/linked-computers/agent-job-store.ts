@@ -12,12 +12,21 @@ import {
   type AgentHostJobPayload,
   type PublicAgentHostJob,
 } from './agent-jobs'
+import {
+  LINKED_RUN_AGENT_LEASES,
+  LINKED_RUN_JOBS,
+  LINKED_RUN_QUEUES,
+  linkedRunAgentLeaseDocumentId,
+} from './run-queue-store'
 
 export const AGENT_HOST_JOBS = 'linked_device_agent_jobs'
 export const AGENT_HOST_QUEUES = 'linked_device_agent_queues'
 const DEFAULT_LEASE_MS = 5 * 60_000
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000
 const CLEANUP_RETENTION_MS = 24 * 60 * 60 * 1000
+const ACTIVE_LINKED_RUN_STATUSES = new Set(['claimed', 'running'])
+const AGENT_HOST_MAINTENANCE_AGENT_ID = /^[a-z][a-z0-9._-]{0,39}$/
+const AGENT_HOST_MAINTENANCE_JOB_ID = /^[A-Za-z0-9_-]{1,128}$/
 
 function timestampMs(value: unknown): number {
   if (value && typeof (value as { toMillis?: () => number }).toMillis === 'function') {
@@ -31,6 +40,47 @@ function isClaimable(job: AgentHostJob, nowMs: number): boolean {
   if (job.status === 'queued') return true
   if (job.status === 'claimed' && (job.leaseExpiresAtMs ?? 0) <= nowMs) return true
   return false
+}
+
+function requiresQuietProfile(job: AgentHostJob): boolean {
+  // Credential replacement changes the target profile's provider state and
+  // needs a restart. Other maintenance actions have their own explicit
+  // semantics, so do not silently defer a revoke or uninstall here.
+  return job.kind === 'sync-credential'
+}
+
+function maintenanceLeaseTokenHash(leaseToken: string): string {
+  return crypto.createHash('sha256').update(`linked-run-maintenance:v1\n${leaseToken}`).digest('hex')
+}
+
+function hasLiveMaintenanceLease(row: Record<string, unknown> | undefined, nowMs: number): boolean {
+  const maintenance = row?.maintenance
+  if (!maintenance || typeof maintenance !== 'object' || Array.isArray(maintenance)) return false
+  const lock = maintenance as Record<string, unknown>
+  return typeof lock.agentHostJobId === 'string'
+    && AGENT_HOST_MAINTENANCE_JOB_ID.test(lock.agentHostJobId)
+    && typeof lock.leaseTokenHash === 'string'
+    && /^[a-f0-9]{64}$/i.test(lock.leaseTokenHash)
+    && Number.isSafeInteger(Number(lock.expiresAtMs))
+    && Number(lock.expiresAtMs) > nowMs
+}
+
+function hasLiveRunLease(row: Record<string, unknown> | undefined, nowMs: number): boolean {
+  const leases = row?.leases
+  if (!leases || typeof leases !== 'object' || Array.isArray(leases)) return false
+  return Object.entries(leases as Record<string, unknown>).some(([jobId, expiry]) => (
+    AGENT_HOST_MAINTENANCE_JOB_ID.test(jobId)
+    && Number.isSafeInteger(Number(expiry))
+    && Number(expiry) > nowMs
+  ))
+}
+
+function hasActiveBootstrapRun(row: Record<string, unknown> | undefined, agentId: string): boolean {
+  return Boolean(
+    row
+    && row.agentId === agentId
+    && ACTIVE_LINKED_RUN_STATUSES.has(String(row.status ?? '')),
+  )
 }
 
 function fromStored(jobId: string, row: Record<string, unknown>): AgentHostJob {
@@ -228,8 +278,53 @@ export async function claimOldestAgentHostJob(
     const queuedSnapshots = await Promise.all(ids.map((jobId) =>
       transaction.get(adminDb.collection(AGENT_HOST_JOBS).doc(jobId)),
     ))
+    // Claiming a credential update must be atomic with reserving the target
+    // Hermes profile. Read all relevant execution state before any possible
+    // expiration write below (Firestore transactions prohibit read-after-write).
+    const quietProfileAgentIds = [...new Set(queuedSnapshots.flatMap((snapshot) => {
+      if (!snapshot.exists) return []
+      const job = fromStored(snapshot.id, snapshot.data() ?? {})
+      const agentId = job.payload.agentId
+      return job.deviceId === input.deviceId
+        && job.credentialVersion === input.credentialVersion
+        && requiresQuietProfile(job)
+        && AGENT_HOST_MAINTENANCE_AGENT_ID.test(agentId)
+        ? [agentId]
+        : []
+    }))]
+    const linkedRunQueueRef = adminDb.collection(LINKED_RUN_QUEUES).doc(input.deviceId)
+    const preflightSnapshots = await Promise.all([
+      transaction.get(linkedRunQueueRef),
+      ...quietProfileAgentIds.map((agentId) => transaction.get(
+        adminDb.collection(LINKED_RUN_AGENT_LEASES).doc(linkedRunAgentLeaseDocumentId(input.deviceId, agentId)),
+      )),
+    ])
+    const linkedRunQueueSnapshot = preflightSnapshots[0]
+    const maintenanceSnapshots = new Map(quietProfileAgentIds.map((agentId, index) => [agentId, preflightSnapshots[index + 1]]))
+    const linkedRunIds = Array.isArray(linkedRunQueueSnapshot.data()?.pendingJobIds)
+      ? linkedRunQueueSnapshot.data()!.pendingJobIds as string[]
+      : []
+    // The execution queue is bounded at 500 entries. Unlike normal claims,
+    // this maintenance operation is rare and must inspect the entire bounded
+    // queue: completed rows can remain ahead of a live pre-ledger run until a
+    // later execution claim prunes them.
+    const linkedRunSnapshots = await Promise.all(linkedRunIds.map((jobId) =>
+      transaction.get(adminDb.collection(LINKED_RUN_JOBS).doc(jobId)),
+    ))
+    const busyQuietProfiles = new Set(quietProfileAgentIds.filter((agentId) => {
+      const leaseRow = maintenanceSnapshots.get(agentId)?.exists
+        ? maintenanceSnapshots.get(agentId)?.data() as Record<string, unknown>
+        : undefined
+      if (hasLiveMaintenanceLease(leaseRow, nowMs) || hasLiveRunLease(leaseRow, nowMs)) return true
+      // Pre-ledger installations have no counter document. A claimed/running
+      // job anywhere in the bounded execution queue is still active and must prevent a
+      // credential restart until the execution worker has recovered it.
+      return linkedRunSnapshots.some((snapshot) => snapshot.exists
+        && hasActiveBootstrapRun(snapshot.data() ?? {}, agentId))
+    }))
     let selected: AgentHostJob | null = null
     let selectedRef: DocumentReference | null = null
+    let selectedMaintenanceRef: DocumentReference | null = null
     const survivors: string[] = []
 
     for (let index = 0; index < ids.length; index += 1) {
@@ -253,6 +348,11 @@ export async function claimOldestAgentHostJob(
         continue
       }
       if (!selected && isClaimable(job, nowMs)) {
+        if (requiresQuietProfile(job) && (!AGENT_HOST_MAINTENANCE_AGENT_ID.test(job.payload.agentId)
+          || busyQuietProfiles.has(job.payload.agentId))) {
+          survivors.push(jobId)
+          continue
+        }
         const leaseToken = crypto.randomBytes(16).toString('hex')
         selected = transitionAgentHostJob(job, {
           type: 'claim',
@@ -261,6 +361,10 @@ export async function claimOldestAgentHostJob(
           nowMs,
         })
         selectedRef = jobRef
+        if (requiresQuietProfile(job)) {
+          selectedMaintenanceRef = adminDb.collection(LINKED_RUN_AGENT_LEASES)
+            .doc(linkedRunAgentLeaseDocumentId(input.deviceId, job.payload.agentId))
+        }
         continue
       }
       survivors.push(jobId)
@@ -278,6 +382,18 @@ export async function claimOldestAgentHostJob(
     }
 
     transaction.set(selectedRef, agentHostJobToStored(selected), { merge: false })
+    if (selectedMaintenanceRef && requiresQuietProfile(selected)) {
+      transaction.set(selectedMaintenanceRef, {
+        deviceId: input.deviceId,
+        agentId: selected.payload.agentId,
+        maintenance: {
+          agentHostJobId: selected.jobId,
+          leaseTokenHash: maintenanceLeaseTokenHash(selected.leaseToken || ''),
+          expiresAtMs: selected.leaseExpiresAtMs,
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+    }
     // Keep claimed job at head until complete — mirrors run-queue lease semantics.
     transaction.set(queueRef, {
       deviceId: input.deviceId,
@@ -310,10 +426,26 @@ export async function completeAgentHostJob(input: {
     if (job.deviceId !== input.deviceId) throw new Error('agent-host: device mismatch')
     if (job.credentialVersion !== input.credentialVersion) throw new Error('agent-host: credential mismatch')
     if (job.leaseToken !== input.leaseToken) throw new Error('agent-host: lease mismatch')
+    const maintenanceRef = requiresQuietProfile(job) && AGENT_HOST_MAINTENANCE_AGENT_ID.test(job.payload.agentId)
+      ? adminDb.collection(LINKED_RUN_AGENT_LEASES).doc(linkedRunAgentLeaseDocumentId(input.deviceId, job.payload.agentId))
+      : null
+    const maintenanceSnapshot = maintenanceRef ? await transaction.get(maintenanceRef) : null
     const next = input.ok
       ? transitionAgentHostJob(job, { type: 'complete', result: input.result, nowMs })
       : transitionAgentHostJob(job, { type: 'fail', error: input.error || 'agent job failed', nowMs })
     transaction.set(jobRef, agentHostJobToStored(next), { merge: false })
+    const maintenance = maintenanceSnapshot?.exists && maintenanceSnapshot.data()?.maintenance
+    if (maintenanceRef
+      && maintenance
+      && typeof maintenance === 'object'
+      && !Array.isArray(maintenance)
+      && (maintenance as Record<string, unknown>).agentHostJobId === job.jobId
+      && (maintenance as Record<string, unknown>).leaseTokenHash === maintenanceLeaseTokenHash(input.leaseToken)) {
+      transaction.set(maintenanceRef, {
+        maintenance: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true })
+    }
 
     const ids = Array.isArray(queueSnapshot.data()?.pendingJobIds)
       ? queueSnapshot.data()!.pendingJobIds as string[]

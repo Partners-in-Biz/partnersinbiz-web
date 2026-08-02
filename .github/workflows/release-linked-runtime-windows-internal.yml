@@ -6,7 +6,7 @@ on:
       version:
         description: Existing runtime version to publish on the isolated internal Windows channel
         required: true
-        default: '1.1.22'
+        default: '1.1.23'
 
 permissions:
   contents: write

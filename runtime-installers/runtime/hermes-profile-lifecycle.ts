@@ -168,55 +168,208 @@ function manageSystemdHermesProfile(
       }
 }
 
-function manageLaunchdHermesFleet(
-  env: HermesLifecycleEnv,
-  action: 'restart' | 'stop',
-): { managed: boolean; ok: boolean; error?: string } {
+type ManagedLaunchdFleet = {
+  label: string
+  plist: string
+  service: string
+  domain: string
+}
+
+type FleetProfileAction = 'restart' | 'disable' | 'enable'
+
+type FleetProfileControlRequest = {
+  action: FleetProfileAction
+  requestId: string
+}
+
+const DEFAULT_MANAGED_MAC_FLEET_AGENT_IDS = [
+  'pip', 'theo', 'maya', 'sage', 'nora', 'ads',
+  'qa-release', 'support', 'data', 'docs', 'seo', 'sales',
+]
+
+function managedMacFleetAgentIds(env: HermesLifecycleEnv): Set<string> {
+  const configured = env.PIB_HERMES_FLEET_AGENT_IDS?.trim()
+  return new Set((configured ? configured.split(',') : DEFAULT_MANAGED_MAC_FLEET_AGENT_IDS)
+    .map((agentId) => agentId.trim())
+    .filter(Boolean))
+}
+
+export function isManagedLaunchdHermesProfile(input: {
+  agentId: string
+  env?: HermesLifecycleEnv
+}): boolean {
+  const env = input.env ?? process.env
+  return managedMacFleetAgentIds(env).has(input.agentId)
+    && managedLaunchdFleet(input.agentId, env) !== null
+}
+
+function managedLaunchdFleet(agentId: string, env: HermesLifecycleEnv): ManagedLaunchdFleet | null {
   const platform = env.PIB_RUNTIME_PLATFORM || process.platform
   if (platform !== 'darwin' || typeof process.getuid !== 'function') {
-    return { managed: false, ok: false }
+    return null
   }
+  if (!managedMacFleetAgentIds(env).has(agentId)) return null
   const label = env.PIB_HERMES_FLEET_LAUNCHD_LABEL?.trim() || 'ai.hermes.local-runtime'
   const plist = env.PIB_HERMES_FLEET_LAUNCHD_PLIST?.trim()
     || path.join(os.homedir(), 'Library', 'LaunchAgents', `${label}.plist`)
-  if (!fs.existsSync(plist)) return { managed: false, ok: false }
+  if (!fs.existsSync(plist)) return null
 
-  const service = `gui/${process.getuid()}/${label}`
-  const domain = `gui/${process.getuid()}`
-  const isLoaded = () => spawnSync('launchctl', ['print', service], {
+  return {
+    label,
+    plist,
+    service: `gui/${process.getuid()}/${label}`,
+    domain: `gui/${process.getuid()}`,
+  }
+}
+
+function fleetControlRoot(env: HermesLifecycleEnv): string {
+  return env.PIB_HERMES_FLEET_CONTROL_DIR?.trim()
+    || path.join(hermesHome(env), 'runtime-fleet-control')
+}
+
+function writeFleetControlRequest(
+  agentId: string,
+  action: FleetProfileAction,
+  env: HermesLifecycleEnv,
+): FleetProfileControlRequest {
+  const requestId = crypto.randomUUID()
+  // One atomic command per profile means a newer disable/enable/restart
+  // replaces an older intent instead of leaving cross-directory stale work.
+  const requestPath = path.join(fleetControlRoot(env), 'requests', `${agentId}.json`)
+  const request = {
+    version: 1,
+    action,
+    agentId,
+    requestId,
+    requestedAt: new Date().toISOString(),
+  }
+  const temporaryPath = `${requestPath}.${process.pid}.${requestId}.tmp`
+  writeSecure(temporaryPath, `${JSON.stringify(request)}\n`)
+  fs.renameSync(temporaryPath, requestPath)
+  return { action, requestId }
+}
+
+function readFleetControlAck(
+  agentId: string,
+  action: FleetProfileAction,
+  requestId: string,
+  env: HermesLifecycleEnv,
+): { completed: boolean; error?: string } {
+  const ackPath = path.join(fleetControlRoot(env), 'acks', `${agentId}.${requestId}.json`)
+  try {
+    const ack = JSON.parse(fs.readFileSync(ackPath, 'utf8')) as {
+      action?: unknown
+      requestId?: unknown
+      status?: unknown
+      error?: unknown
+    }
+    if (ack.action !== action || ack.requestId !== requestId) return { completed: false }
+    if (
+      (action === 'restart' && ack.status === 'restarted')
+      || (action === 'disable' && ack.status === 'disabled')
+      || (action === 'enable' && ack.status === 'enabled')
+    ) {
+      return { completed: true }
+    }
+    if (ack.status === 'failed') {
+      return {
+        completed: true,
+        error: typeof ack.error === 'string'
+          ? ack.error
+          : `Hermes profile ${agentId} could not ${action}`,
+      }
+    }
+  } catch {
+    // The fleet writes the acknowledgement atomically after it has replaced
+    // the target gateway. A missing or incomplete file simply means wait.
+  }
+  return { completed: false }
+}
+
+async function waitForFleetControlAck(input: {
+  agentId: string
+  action: FleetProfileAction
+  requestId: string
+  env: HermesLifecycleEnv
+  timeoutMs?: number
+  intervalMs?: number
+}): Promise<{ ok: boolean; timedOut?: boolean; error?: string }> {
+  // The fleet checks for a target request every five seconds. If this is an
+  // older supervisor that predates the marker protocol, fall back promptly to
+  // its existing per-profile exit recovery instead of waiting through a long
+  // credential-sync timeout.
+  const timeoutMs = input.timeoutMs ?? 8_000
+  const intervalMs = input.intervalMs ?? 500
+  const started = Date.now()
+  while (Date.now() - started < timeoutMs) {
+    const ack = readFleetControlAck(input.agentId, input.action, input.requestId, input.env)
+    if (ack.completed) return ack.error ? { ok: false, error: ack.error } : { ok: true }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+  }
+  return {
+    ok: false,
+    timedOut: true,
+    error: `Timed out waiting for the local Hermes fleet to ${input.action} ${input.agentId}`,
+  }
+}
+
+function restartManagedProfileViaHermesCli(input: {
+  agentId: string
+  hermesBin: string | null
+  env: HermesLifecycleEnv
+}): { ok: boolean; error?: string } {
+  if (!input.hermesBin) {
+    return { ok: false, error: 'Hermes binary not found for the managed profile recovery fallback' }
+  }
+  const result = spawnSync(
+    input.hermesBin,
+    ['-p', input.agentId, 'gateway', 'stop'],
+    {
+      encoding: 'utf8',
+      env: { ...input.env, HERMES_HOME: hermesHome(input.env) },
+    },
+  )
+  return result.status === 0
+    ? { ok: true }
+    : { ok: false, error: result.stderr.trim() || `Could not restart managed Hermes profile ${input.agentId}` }
+}
+
+function ensureLaunchdHermesFleet(
+  agentId: string,
+  env: HermesLifecycleEnv,
+): { managed: boolean; ok: boolean; error?: string } {
+  const fleet = managedLaunchdFleet(agentId, env)
+  if (!fleet) return { managed: false, ok: false }
+
+  const readState = () => spawnSync('launchctl', ['print', fleet.service], {
     encoding: 'utf8',
     env,
-  }).status === 0
-
-  if (action === 'stop') {
-    if (!isLoaded()) return { managed: true, ok: true }
-    const result = spawnSync('launchctl', ['bootout', domain, plist], { encoding: 'utf8', env })
-    return result.status === 0 || !isLoaded()
-      ? { managed: true, ok: true }
-      : {
-          managed: true,
-          ok: false,
-          error: result.stderr.trim() || `Could not stop launchd fleet ${label}`,
-        }
-  }
-
-  if (!isLoaded()) {
-    const bootstrap = spawnSync('launchctl', ['bootstrap', domain, plist], { encoding: 'utf8', env })
-    if (bootstrap.status !== 0 && !isLoaded()) {
+  })
+  let state = readState()
+  if (state.status !== 0) {
+    const bootstrap = spawnSync('launchctl', ['bootstrap', fleet.domain, fleet.plist], { encoding: 'utf8', env })
+    state = readState()
+    if (bootstrap.status !== 0 && state.status !== 0) {
       return {
         managed: true,
         ok: false,
-        error: bootstrap.stderr.trim() || `Could not bootstrap launchd fleet ${label}`,
+        error: bootstrap.stderr.trim() || `Could not bootstrap launchd fleet ${fleet.label}`,
       }
     }
   }
-  const kickstart = spawnSync('launchctl', ['kickstart', '-k', service], { encoding: 'utf8', env })
+
+  // `kickstart -k` kills the running supervisor. The supervisor owns every
+  // local profile, so using it for a single profile's refresh creates a fleet
+  // outage. A loaded running service needs no action; a loaded but inactive
+  // service can be asked to start without terminating an existing process.
+  if (/\bstate = running\b/.test(state.stdout)) return { managed: true, ok: true }
+  const kickstart = spawnSync('launchctl', ['kickstart', fleet.service], { encoding: 'utf8', env })
   return kickstart.status === 0
     ? { managed: true, ok: true }
     : {
         managed: true,
         ok: false,
-        error: kickstart.stderr.trim() || `Could not restart launchd fleet ${label}`,
+        error: kickstart.stderr.trim() || `Could not start launchd fleet ${fleet.label}`,
       }
 }
 
@@ -226,7 +379,7 @@ export function startHermesGateway(input: {
 }): { started: boolean; pid: number | null; hermesBin: string | null; error?: string } {
   const env = input.env ?? process.env
   const hermesBin = resolveHermesBinary(env)
-  const launchd = manageLaunchdHermesFleet(env, 'restart')
+  const launchd = ensureLaunchdHermesFleet(input.agentId, env)
   if (launchd.managed) {
     return launchd.ok
       ? { started: true, pid: null, hermesBin }
@@ -276,6 +429,106 @@ export function startHermesGateway(input: {
   }
 }
 
+export async function reloadHermesGateway(input: {
+  agentId: string
+  env?: HermesLifecycleEnv
+  timeoutMs?: number
+}): Promise<{ started: boolean; pid: number | null; hermesBin: string | null; error?: string }> {
+  const env = input.env ?? process.env
+  const hermesBin = resolveHermesBinary(env)
+  const launchd = ensureLaunchdHermesFleet(input.agentId, env)
+  if (launchd.managed) {
+    if (!launchd.ok) return { started: false, pid: null, hermesBin, error: launchd.error }
+    const request = writeFleetControlRequest(input.agentId, 'restart', env)
+    const acknowledged = await waitForFleetControlAck({
+      agentId: input.agentId,
+      action: request.action,
+      requestId: request.requestId,
+      env,
+      timeoutMs: input.timeoutMs,
+    })
+    if (acknowledged.ok) return { started: true, pid: null, hermesBin }
+    if (!acknowledged.timedOut) {
+      return { started: false, pid: null, hermesBin, error: acknowledged.error }
+    }
+    // The existing fleet supervisor already treats a single child exit as a
+    // target-only recovery. This maintains safe recovery while an older
+    // supervisor process is still running the pre-marker script.
+    const fallback = restartManagedProfileViaHermesCli({
+      agentId: input.agentId,
+      hermesBin,
+      env,
+    })
+    return fallback.ok
+      ? { started: true, pid: null, hermesBin }
+      : {
+          started: false,
+          pid: null,
+          hermesBin,
+          error: fallback.error || acknowledged.error,
+        }
+  }
+
+  const stopped = stopHermesGateway({ agentId: input.agentId, env })
+  if (!stopped.stopped) {
+    return {
+      started: false,
+      pid: null,
+      hermesBin,
+      error: stopped.error || 'Hermes gateway reload could not stop the profile',
+    }
+  }
+  return startHermesGateway({ agentId: input.agentId, env })
+}
+
+export async function disableManagedHermesProfile(input: {
+  agentId: string
+  env?: HermesLifecycleEnv
+  timeoutMs?: number
+}): Promise<{ disabled: boolean; error?: string }> {
+  const env = input.env ?? process.env
+  const launchd = ensureLaunchdHermesFleet(input.agentId, env)
+  if (!launchd.managed) {
+    return { disabled: false, error: 'This Hermes profile is not managed by the macOS fleet supervisor.' }
+  }
+  if (!launchd.ok) return { disabled: false, error: launchd.error }
+  const request = writeFleetControlRequest(input.agentId, 'disable', env)
+  const acknowledged = await waitForFleetControlAck({
+    agentId: input.agentId,
+    action: request.action,
+    requestId: request.requestId,
+    env,
+    timeoutMs: input.timeoutMs,
+  })
+  return acknowledged.ok
+    ? { disabled: true }
+    : { disabled: false, error: acknowledged.error }
+}
+
+export async function enableManagedHermesProfile(input: {
+  agentId: string
+  env?: HermesLifecycleEnv
+  timeoutMs?: number
+}): Promise<{ started: boolean; error?: string }> {
+  const env = input.env ?? process.env
+  const launchd = ensureLaunchdHermesFleet(input.agentId, env)
+  if (!launchd.managed) {
+    return { started: false, error: 'This Hermes profile is not managed by the macOS fleet supervisor.' }
+  }
+  if (!launchd.ok) return { started: false, error: launchd.error }
+  const request = writeFleetControlRequest(input.agentId, 'enable', env)
+  const acknowledged = await waitForFleetControlAck({
+    agentId: input.agentId,
+    action: request.action,
+    requestId: request.requestId,
+    env,
+    timeoutMs: input.timeoutMs,
+  })
+  return acknowledged.ok
+    ? { started: true }
+    : { started: false, error: acknowledged.error }
+}
+
 export async function waitForAgentHealthy(input: {
   agentId: string
   probe: () => Promise<{ availableAgentIds: string[] }>
@@ -305,17 +558,18 @@ export function stopHermesGateway(input: {
       ? { stopped: true, hermesBin }
       : { stopped: false, hermesBin, error: systemd.error }
   }
-  const launchd = manageLaunchdHermesFleet(env, 'stop')
-  if (launchd.managed) {
-    return launchd.ok
-      ? { stopped: true, hermesBin }
-      : { stopped: false, hermesBin, error: launchd.error }
+  if (isManagedLaunchdHermesProfile({ agentId: input.agentId, env })) {
+    return {
+      stopped: false,
+      hermesBin,
+      error: 'The managed macOS fleet cannot stop one profile directly; use reloadHermesGateway instead.',
+    }
   }
   let stoppedViaCli = false
   if (hermesBin) {
     const result = spawnSync(
       hermesBin,
-      ['-p', input.agentId, 'gateway', 'stop', '--quiet'],
+      ['-p', input.agentId, 'gateway', 'stop'],
       {
         encoding: 'utf8',
         env: { ...env, HERMES_HOME: hermesHome(env) },

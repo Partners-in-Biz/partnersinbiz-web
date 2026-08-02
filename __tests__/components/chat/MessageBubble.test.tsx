@@ -878,4 +878,28 @@ describe('MessageBubble', () => {
     expect(stop).toHaveBeenCalledTimes(1)
   })
 
+  it('does not call a newly accepted linked run a capacity queue', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-starting',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'queued',
+          runId: 'linked-run-2',
+          dispatchRuntimeLabel: "Peet's Mac",
+        }}
+      />,
+    )
+
+    expect(screen.getByText(/waiting for the linked computer to start it automatically/i)).toBeInTheDocument()
+    expect(screen.getByText('Waiting for the linked computer to start…')).toBeInTheDocument()
+    expect(screen.queryByText(/capacity is available/i)).not.toBeInTheDocument()
+  })
+
 })

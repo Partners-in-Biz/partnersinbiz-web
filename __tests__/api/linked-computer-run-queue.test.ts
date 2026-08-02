@@ -215,6 +215,19 @@ describe('linked computer outbound run routes', () => {
     expect(JSON.stringify(body)).not.toMatch(/Users\/|C:\\\\|credential|publicKey|endpoint|token/i)
   })
 
+  it('passes bounded saturated Hermes profiles to queue admission without trusting malformed ids', async () => {
+    const request = new NextRequest('https://app.test/api/v1/linked-computers/device-a/runs/claim', {
+      method: 'POST',
+      body: JSON.stringify({ saturatedAgentIds: ['pip', 'PIP', 'theo', '../not-an-agent', 42] }),
+    })
+    const claimRun = jest.fn(async () => claim)
+    await expect(handleLinkedRunClaim(request, 'device-a', async () => identity, claimRun)).resolves.toHaveProperty('status', 200)
+    expect(claimRun).toHaveBeenCalledWith(
+      { deviceId: 'device-a', ownerUserId: 'user-a', credentialVersion: 3 },
+      { saturatedAgentIds: ['pip', 'theo'] },
+    )
+  })
+
   it('fails closed when signed identity and path device differ', async () => {
     const req = new NextRequest('https://app.test/api/v1/linked-computers/device-a/runs/claim', { method: 'POST', body: '{}' })
     const response = await handleLinkedRunClaim(req, 'device-a', async () => ({ ...identity, deviceId: 'device-b' }), async () => claim)

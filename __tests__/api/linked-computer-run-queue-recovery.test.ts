@@ -1,4 +1,5 @@
 import { Timestamp } from 'firebase-admin/firestore'
+import { createHash } from 'node:crypto'
 
 const mockCollection = jest.fn()
 const mockRunTransaction = jest.fn()
@@ -11,6 +12,11 @@ import { claimOldestLinkedRun } from '@/lib/linked-computers/run-queue-store'
 import { encryptLinkedRunPayload } from '@/lib/linked-computers/run-queue'
 
 const now = Date.parse('2026-08-01T19:00:00.000Z')
+
+function agentLeasePath(deviceId: string, agentId: string): string {
+  const id = createHash('sha256').update(`linked-run-agent-lease:v1\n${deviceId}\n${agentId}`).digest('base64url')
+  return `linked_device_run_agent_leases/${id}`
+}
 
 type Ref = {
   id: string
@@ -107,6 +113,147 @@ describe('linked-computer queue recovery transactions', () => {
     expect(updates.find((entry) => entry.ref.path === `linked_device_run_jobs/${blockedIds[0]}`)).toBeUndefined()
     expect(sets.find((entry) => entry.ref.path === 'linked_device_run_queues/device-a')?.value.pendingJobIds)
       .toEqual([runnableId, ...blockedIds])
+  })
+
+  it('skips a saturated profile so another healthy profile can keep working', async () => {
+    const pipIds = Array.from({ length: 11 }, (_, index) => `pip-${index + 1}`)
+    const theoId = 'theo-1'
+    const rows = authorizedRows([...pipIds, theoId], ['pip', 'theo'])
+    for (const id of pipIds) rows.set(`linked_device_run_jobs/${id}`, storedJob(id, 'pip'))
+    rows.set(`linked_device_run_jobs/${theoId}`, storedJob(theoId, 'theo'))
+    const { sets } = installTransaction(rows)
+
+    const claimed = await claimOldestLinkedRun(
+      { deviceId: 'device-a', ownerUserId: 'owner-a', credentialVersion: 3 },
+      { nowMs: now, saturatedAgentIds: ['pip'] },
+    )
+
+    expect(claimed).toEqual(expect.objectContaining({ jobId: theoId, agentId: 'theo' }))
+    expect(sets.find((entry) => entry.ref.path === 'linked_device_run_queues/device-a')?.value.pendingJobIds)
+      .toEqual([theoId, ...pipIds])
+  })
+
+  it('server-enforces ten active Pip leases while allowing Theo to claim the next turn', async () => {
+    const activePipIds = Array.from({ length: 10 }, (_, index) => `pip-active-${index + 1}`)
+    const blockedPipId = 'pip-11'
+    const theoId = 'theo-1'
+    const rows = authorizedRows([...activePipIds, blockedPipId, theoId], ['pip', 'theo'])
+    for (const id of activePipIds) {
+      rows.set(`linked_device_run_jobs/${id}`, storedJob(id, 'pip', {
+        status: 'running',
+        attempt: 1,
+        leaseToken: `lease-${id}`,
+        leaseExpiresAt: Timestamp.fromMillis(now + 30_000),
+      }))
+    }
+    rows.set(`linked_device_run_jobs/${blockedPipId}`, storedJob(blockedPipId, 'pip'))
+    rows.set(`linked_device_run_jobs/${theoId}`, storedJob(theoId, 'theo'))
+    const { sets } = installTransaction(rows)
+
+    const claimed = await claimOldestLinkedRun(
+      { deviceId: 'device-a', ownerUserId: 'owner-a', credentialVersion: 3 },
+      { nowMs: now },
+    )
+
+    expect(claimed).toEqual(expect.objectContaining({ jobId: theoId, agentId: 'theo' }))
+    expect(sets.find((entry) => entry.ref.path === 'linked_device_run_queues/device-a')?.value.pendingJobIds)
+      .toEqual([theoId, ...activePipIds, blockedPipId])
+    const pipLedger = sets.find((entry) => entry.value.agentId === 'pip')?.value
+    expect(Object.keys(pipLedger?.leases as Record<string, unknown>)).toEqual(activePipIds)
+    expect(pipLedger?.leases).not.toHaveProperty(blockedPipId)
+  })
+
+  it('holds only the credential-maintained profile while another profile continues to claim', async () => {
+    const theoId = 'theo-maintained'
+    const pipId = 'pip-runnable'
+    const rows = authorizedRows([theoId, pipId], ['pip', 'theo'])
+    rows.set(`linked_device_run_jobs/${theoId}`, storedJob(theoId, 'theo'))
+    rows.set(`linked_device_run_jobs/${pipId}`, storedJob(pipId, 'pip'))
+    rows.set(agentLeasePath('device-a', 'theo'), {
+      deviceId: 'device-a',
+      agentId: 'theo',
+      leases: {},
+      maintenance: {
+        agentHostJobId: 'credential-theo',
+        leaseTokenHash: 'a'.repeat(64),
+        expiresAtMs: now + 30_000,
+      },
+    })
+    const { sets } = installTransaction(rows)
+
+    const claimed = await claimOldestLinkedRun(
+      { deviceId: 'device-a', ownerUserId: 'owner-a', credentialVersion: 3 },
+      { nowMs: now },
+    )
+
+    expect(claimed).toEqual(expect.objectContaining({ jobId: pipId, agentId: 'pip' }))
+    expect(sets.find((entry) => entry.ref.path === 'linked_device_run_queues/device-a')?.value.pendingJobIds)
+      .toEqual([pipId, theoId])
+  })
+
+  it('releases a live Pip ledger slot immediately when the claim transaction expires that run', async () => {
+    const id = 'pip-expired-while-leased'
+    const rows = authorizedRows([id], ['pip'])
+    rows.set(`linked_device_run_jobs/${id}`, storedJob(id, 'pip', {
+      status: 'running',
+      attempt: 1,
+      leaseToken: `lease-${id}`,
+      leaseExpiresAt: Timestamp.fromMillis(now + 30_000),
+      expiresAt: Timestamp.fromMillis(now - 1),
+    }))
+    const ledgerPath = agentLeasePath('device-a', 'pip')
+    rows.set(ledgerPath, {
+      deviceId: 'device-a',
+      agentId: 'pip',
+      leases: { [id]: now + 30_000 },
+    })
+    const { sets, updates } = installTransaction(rows)
+
+    await expect(claimOldestLinkedRun(
+      { deviceId: 'device-a', ownerUserId: 'owner-a', credentialVersion: 3 },
+      { nowMs: now },
+    )).resolves.toBeNull()
+
+    expect(updates.find((entry) => entry.ref.path === `linked_device_run_jobs/${id}`)?.value)
+      .toEqual(expect.objectContaining({ status: 'expired' }))
+    expect(updates.find((entry) => entry.ref.path === ledgerPath)?.value.leases).toEqual({})
+  })
+
+  it('replaces the whole lease map when one of several active entries is released', async () => {
+    const expiredId = 'pip-expired-entry'
+    const liveId = 'pip-live-entry'
+    const rows = authorizedRows([expiredId, liveId], ['pip'])
+    rows.set(`linked_device_run_jobs/${expiredId}`, storedJob(expiredId, 'pip', {
+      status: 'running',
+      attempt: 1,
+      leaseToken: `lease-${expiredId}`,
+      leaseExpiresAt: Timestamp.fromMillis(now + 30_000),
+      expiresAt: Timestamp.fromMillis(now - 1),
+    }))
+    rows.set(`linked_device_run_jobs/${liveId}`, storedJob(liveId, 'pip', {
+      status: 'running',
+      attempt: 1,
+      leaseToken: `lease-${liveId}`,
+      leaseExpiresAt: Timestamp.fromMillis(now + 30_000),
+    }))
+    const ledgerPath = agentLeasePath('device-a', 'pip')
+    rows.set(ledgerPath, {
+      deviceId: 'device-a',
+      agentId: 'pip',
+      leases: {
+        [expiredId]: now + 30_000,
+        [liveId]: now + 30_000,
+      },
+    })
+    const { sets, updates } = installTransaction(rows)
+
+    await expect(claimOldestLinkedRun(
+      { deviceId: 'device-a', ownerUserId: 'owner-a', credentialVersion: 3 },
+      { nowMs: now },
+    )).resolves.toBeNull()
+
+    expect(updates.find((entry) => entry.ref.path === ledgerPath)?.value.leases).toEqual({ [liveId]: now + 30_000 })
+    expect(sets.some((entry) => entry.ref.path === ledgerPath)).toBe(false)
   })
 
   it('requeues an expired running job on the same device when its agent is temporarily unavailable', async () => {

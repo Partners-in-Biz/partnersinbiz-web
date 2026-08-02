@@ -3,8 +3,11 @@ import os from 'node:os'
 import path from 'node:path'
 import { probeLocalHermes } from './hermes'
 import {
+  disableManagedHermesProfile,
+  enableManagedHermesProfile,
   ensureHermesProfile,
-  startHermesGateway,
+  isManagedLaunchdHermesProfile,
+  reloadHermesGateway,
   stopHermesGateway,
   waitForAgentHealthy,
 } from './hermes-profile-lifecycle'
@@ -161,10 +164,6 @@ export async function executeAgentHostJob(
         ? await options.waitForAgentIdle(job.agentId, 45_000)
         : true
       if (!idle) return { ok: false, error: 'Agent is still busy; credential reload was deferred' }
-      if (startGateway) {
-        const stopped = stopHermesGateway({ agentId: job.agentId, env })
-        if (!stopped.stopped) return { ok: false, error: stopped.error || 'Hermes credential reload could not stop the gateway' }
-      }
       const applied = applyRuntimeCredential({
         agentId: job.agentId,
         delivery: job.credentialDelivery,
@@ -172,7 +171,9 @@ export async function executeAgentHostJob(
         env,
       })
       if (startGateway) {
-        const gateway = startHermesGateway({ agentId: job.agentId, env })
+        // On macOS the launchd job is a fleet supervisor. A credential update
+        // must reload only this idle profile, never boot out all conversations.
+        const gateway = await reloadHermesGateway({ agentId: job.agentId, env })
         if (!gateway.started) return { ok: false, error: gateway.error || 'Hermes credential reload failed' }
       }
       const healthy = await waitForAgentHealthy({
@@ -204,7 +205,16 @@ export async function executeAgentHostJob(
     }
 
     if (job.kind === 'uninstall') {
-      const stopped = stopHermesGateway({ agentId: job.agentId, env })
+      const managedFleetProfile = isManagedLaunchdHermesProfile({ agentId: job.agentId, env })
+      if (managedFleetProfile) {
+        const disabled = await disableManagedHermesProfile({ agentId: job.agentId, env })
+        if (!disabled.disabled) {
+          return { ok: false, error: disabled.error || 'Managed macOS profile could not be disabled' }
+        }
+      }
+      const stopped: ReturnType<typeof stopHermesGateway> = managedFleetProfile
+        ? { stopped: true, hermesBin: null }
+        : stopHermesGateway({ agentId: job.agentId, env })
       const skills = removeAgentSkillTree({ agentId: job.agentId, env })
       const desiredPath = path.join(profileDir(job.agentId, env), 'pib-desired-agent.json')
       fs.rmSync(desiredPath, { force: true })
@@ -238,7 +248,9 @@ export async function executeAgentHostJob(
           healthy: false,
           note: profileRemoved
             ? 'Custom agent gateway, skills, profile, and credentials removed from this computer.'
-            : 'Agent gateway stopped and skill tree removed from this computer.',
+            : managedFleetProfile
+              ? 'Managed fleet profile disabled and skill tree removed from this computer.'
+              : 'Agent gateway stopped and skill tree removed from this computer.',
         },
       }
     }
@@ -304,10 +316,21 @@ export async function executeAgentHostJob(
     let gatewayPid: number | null = null
     let gatewayError: string | undefined
     if (startGateway && (job.kind === 'install' || job.kind === 'sync-policy')) {
-      const gateway = startHermesGateway({ agentId: job.agentId, env })
-      gatewayStarted = gateway.started
-      gatewayPid = gateway.pid
-      gatewayError = gateway.error
+      const idle = options.waitForAgentIdle
+        ? await options.waitForAgentIdle(job.agentId, 45_000)
+        : true
+      if (!idle) return { ok: false, error: 'Agent is still busy; gateway reload was deferred' }
+      const managedFleetProfile = isManagedLaunchdHermesProfile({ agentId: job.agentId, env })
+      if (managedFleetProfile) {
+        const gateway = await enableManagedHermesProfile({ agentId: job.agentId, env })
+        gatewayStarted = gateway.started
+        gatewayError = gateway.error
+      } else {
+        const gateway = await reloadHermesGateway({ agentId: job.agentId, env })
+        gatewayStarted = gateway.started
+        gatewayPid = gateway.pid
+        gatewayError = gateway.error
+      }
     }
 
     const healthy = await waitForAgentHealthy({
@@ -379,5 +402,5 @@ export async function pollAgentHostForever(
 }
 
 export function linkedRuntimeAgentHostClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.22', agentHostProtocolVersion: 3 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.23', agentHostProtocolVersion: 3 as const }
 }
