@@ -84,8 +84,12 @@ jobs:
           }
           gh release view "runtime-v$env:VERSION" | Out-Null
           if ($LASTEXITCODE -ne 0) { throw "Public runtime-v$env:VERSION must exist first." }
+          $PreviousNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
+          $PSNativeCommandUseErrorActionPreference = $false
           gh release view "runtime-internal-v$env:VERSION" 2>$null | Out-Null
-          if ($LASTEXITCODE -eq 0) { throw 'Immutable internal Windows release already exists.' }
+          $InternalReleaseExitCode = $LASTEXITCODE
+          $PSNativeCommandUseErrorActionPreference = $PreviousNativeErrorPreference
+          if ($InternalReleaseExitCode -eq 0) { throw 'Immutable internal Windows release already exists.' }
       - name: Prepare and pin internal signing identity
         shell: pwsh
         run: |
