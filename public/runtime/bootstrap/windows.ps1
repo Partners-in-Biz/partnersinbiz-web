@@ -56,13 +56,12 @@ function Install-InternalStaffTrust([string]$Stage) {
   Assert-InternalCertificate $Certificate
   Write-Warning 'INTERNAL STAFF CHANNEL: trusting the pinned Partners in Biz certificate on this managed Windows computer.'
   foreach ($StoreName in @('Root','TrustedPublisher')) {
-    $Store = [Security.Cryptography.X509Certificates.X509Store]::new($StoreName, [Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
-    try {
-      $Store.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-      $AlreadyTrusted = $false
-      foreach ($Existing in $Store.Certificates) { if ((Get-CertificateSha256 $Existing) -ceq $InternalCertificateSha256) { $AlreadyTrusted = $true; break } }
-      if (-not $AlreadyTrusted) { $Store.Add($Certificate) }
-    } finally { $Store.Close() }
+    & certutil.exe -f -addstore $StoreName $CertificatePath | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "Windows could not install the PiB certificate in LocalMachine/$StoreName." }
+    $Installed = Get-ChildItem "Cert:\LocalMachine\$StoreName" |
+      Where-Object { (Get-CertificateSha256 $_) -ceq $InternalCertificateSha256 } |
+      Select-Object -First 1
+    if (-not $Installed) { throw "The pinned PiB certificate is missing from LocalMachine/$StoreName after installation." }
   }
 }
 

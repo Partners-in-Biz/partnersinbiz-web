@@ -116,15 +116,17 @@ jobs:
         timeout-minutes: 2
         shell: pwsh
         run: |
-          $PublicCertificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new($env:PIB_INTERNAL_SIGNING_CERT)
           foreach ($StoreName in @('Root','TrustedPublisher')) {
-            $Store = [Security.Cryptography.X509Certificates.X509Store]::new($StoreName, [Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser)
-            try {
-              $Store.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-              $Store.Add($PublicCertificate)
-            } finally {
-              $Store.Close()
-            }
+            & certutil.exe -user -f -addstore $StoreName $env:PIB_INTERNAL_SIGNING_CERT | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw "certutil failed to install internal trust in CurrentUser/$StoreName." }
+            $Installed = Get-ChildItem "Cert:\CurrentUser\$StoreName" |
+              Where-Object {
+                $Hasher = [Security.Cryptography.SHA256]::Create()
+                try { ([BitConverter]::ToString($Hasher.ComputeHash($_.RawData))).Replace('-','') -ceq $env:EXPECTED_CERT_SHA256 }
+                finally { $Hasher.Dispose() }
+              } |
+              Select-Object -First 1
+            if (-not $Installed) { throw "Pinned internal certificate is missing from CurrentUser/$StoreName after installation." }
           }
       - name: Locate bounded Windows signing tool
         timeout-minutes: 2
