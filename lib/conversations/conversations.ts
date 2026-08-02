@@ -110,11 +110,20 @@ export async function listConversations(
     includeAllScopes?: boolean
   },
 ): Promise<Conversation[]> {
-  const readLimit = Math.max(
-    limit * 4,
-    filters?.scope || filters?.scopeRefId || filters?.projectId ? 100 : limit,
-  )
-  const orgQuery = adminDb.collection(CONVERSATIONS_COLLECTION).where('orgId', '==', orgId)
+  const scopedRefId = filters?.includeAllScopes
+    ? undefined
+    : (filters?.scopeRefId ?? filters?.projectId)
+  const readLimit = scopedRefId
+    ? Math.max(limit * 2, 30)
+    : Math.max(limit * 4, filters?.scope ? 100 : limit)
+  const baseOrgQuery = adminDb.collection(CONVERSATIONS_COLLECTION).where('orgId', '==', orgId)
+  // Project and other scoped Messages views previously read up to 100-120
+  // organisation-wide conversations on every refresh, then discarded nearly
+  // all of them in memory. Apply the most selective stable scope in Firestore
+  // so billed reads track the conversations in this project instead.
+  const orgQuery = scopedRefId
+    ? baseOrgQuery.where('scopeRefId', '==', scopedRefId)
+    : baseOrgQuery
   let snap: FirebaseFirestore.QuerySnapshot
   try {
     snap = await orgQuery
@@ -129,7 +138,7 @@ export async function listConversations(
 
     // Keep messaging available while a newly declared composite index is still building.
     // Read the whole org set before sorting so an unordered limit cannot hide newer rows.
-    snap = await orgQuery.get()
+    snap = await baseOrgQuery.get()
   }
 
   const candidates = snap.docs

@@ -147,4 +147,43 @@ describe('GET /api/v1/conversations/live', () => {
     expect(mockListMessages).toHaveBeenCalledWith('conv-focused', 20)
     expect(new TextDecoder().decode(snapshot.value)).toContain('"id":"conv-focused"')
   })
+
+  it('does not reread an unchanged active thread on each heartbeat', async () => {
+    jest.useFakeTimers()
+    const conversation = {
+      id: 'conv-stable',
+      orgId: 'org-1',
+      title: 'Stable thread',
+      startedBy: 'member-1',
+      participants: [{ kind: 'user', uid: 'member-1', role: 'client' }],
+      participantUids: ['member-1'],
+      participantAgentIds: [],
+      messageCount: 1,
+      archived: false,
+      updatedAt: { toMillis: () => 1_000 },
+    }
+    mockListConversations.mockResolvedValue([conversation])
+    mockListMessages.mockResolvedValue([{
+      id: 'message-stable',
+      conversationId: 'conv-stable',
+      role: 'user',
+      content: 'No change',
+      status: 'completed',
+    }])
+
+    const response = await GET(new NextRequest(
+      'https://partnersinbiz.online/api/v1/conversations/live?orgId=org-1&conversationId=conv-stable',
+    ))
+    const reader = response.body!.getReader()
+    await reader.read()
+    await reader.read()
+
+    expect(mockListMessages).toHaveBeenCalledTimes(1)
+    await jest.advanceTimersByTimeAsync(15_000)
+    expect(mockListConversations).toHaveBeenCalledTimes(2)
+    expect(mockListMessages).toHaveBeenCalledTimes(1)
+
+    await reader.cancel()
+    jest.useRealTimers()
+  })
 })

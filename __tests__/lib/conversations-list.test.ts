@@ -3,6 +3,11 @@ const mockFallbackGet = jest.fn()
 const mockIndexedLimit = jest.fn(() => ({ get: mockIndexedGet }))
 const mockOrderBy = jest.fn(() => ({ limit: mockIndexedLimit }))
 const mockWhere = jest.fn()
+const mockQuery = {
+  where: mockWhere,
+  orderBy: mockOrderBy,
+  get: mockFallbackGet,
+}
 const mockCollection = jest.fn(() => ({ where: mockWhere }))
 const mockGetProjectForUser = jest.fn()
 const mockProjectLinkedToOrganization = jest.fn()
@@ -58,10 +63,7 @@ function conversationDoc(
 beforeEach(() => {
   jest.resetModules()
   jest.clearAllMocks()
-  mockWhere.mockReturnValue({
-    orderBy: mockOrderBy,
-    get: mockFallbackGet,
-  })
+  mockWhere.mockReturnValue(mockQuery)
   mockGetProjectForUser.mockResolvedValue({
     ok: true,
     doc: { data: () => ({ orgId: 'pib-platform-owner' }) },
@@ -148,7 +150,30 @@ describe('listConversations', () => {
       { scope: 'project', scopeRefId: 'project-1', includeAllScopes: true },
     )
 
+    expect(mockWhere).toHaveBeenCalledTimes(1)
     expect(conversations.map((conversation) => conversation.id)).toEqual(['project-chat', 'task-chat'])
+  })
+
+  it('filters project conversations in Firestore before applying the read limit', async () => {
+    mockIndexedGet.mockResolvedValue({
+      docs: [conversationDoc('project-chat', 3000, ['admin-1'], {
+        scope: 'project',
+        scopeRefId: 'project-1',
+      })],
+    })
+
+    const { listConversations } = await import('@/lib/conversations/conversations')
+    const conversations = await listConversations(
+      'pib-platform-owner',
+      { uid: 'admin-1', role: 'admin' },
+      30,
+      { scope: 'project', projectId: 'project-1' },
+    )
+
+    expect(mockWhere).toHaveBeenNthCalledWith(1, 'orgId', '==', 'pib-platform-owner')
+    expect(mockWhere).toHaveBeenNthCalledWith(2, 'scopeRefId', '==', 'project-1')
+    expect(mockIndexedLimit).toHaveBeenCalledWith(60)
+    expect(conversations.map((conversation) => conversation.id)).toEqual(['project-chat'])
   })
 
   it('drops project conversations when current project access has been revoked', async () => {
