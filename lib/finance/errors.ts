@@ -24,6 +24,14 @@ import {
   MultiCurrencyFinanceNotFoundError,
   MultiCurrencyFinanceValidationError,
 } from '@/lib/finance/multi-currency/service'
+import {
+  BankRulesNotFoundError,
+  BankRulesValidationError,
+} from '@/lib/finance/bank-rules/service'
+import {
+  BudgetsNotFoundError,
+  BudgetsValidationError,
+} from '@/lib/finance/budgets/service'
 
 /** Non-enumerating denial for sensitive finance/payroll resources. */
 export class FinanceNotFoundError extends Error {

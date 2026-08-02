@@ -12,6 +12,8 @@ export type FinanceRouteKey =
   | 'personal'
   | 'cross-org'
   | 'statements'
+  | 'bank-rules'
+  | 'budgets'
   | 'cutover'
   | 'multi-currency'
   | 'practice'
@@ -109,6 +111,22 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     group: 'ops',
   },
   {
+    key: 'bank-rules',
+    label: 'Bank rules',
+    href: '/portal/finance/bank-rules',
+    icon: 'rule',
+    description: 'Match rules for smarter recon suggestions — human accept only, never auto-pay.',
+    group: 'ops',
+  },
+  {
+    key: 'budgets',
+    label: 'Budgets',
+    href: '/portal/finance/budgets',
+    icon: 'savings',
+    description: 'Budgets, forecast scenarios, and cashflow planner (no payment initiation).',
+    group: 'books',
+  },
+  {
     key: 'intercompany',
     label: 'Intercompany',
     href: '/portal/finance/intercompany',
@@ -177,6 +195,8 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'job-costing',
   'packaging',
   'statements',
+  'bank-rules',
+  'budgets',
   'multi-currency',
   'practice',
   'setup',
