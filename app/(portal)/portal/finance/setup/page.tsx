@@ -140,6 +140,9 @@ export default function FinanceSetupPage() {
           <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-primary btn-pib-sm">
             Command centre
           </Link>
+          <Link href={scopedPortalPath('/portal/finance/runbooks', orgScope)} className="pib-btn-ghost btn-pib-sm">
+            Operator runbooks
+          </Link>
           <Link href={scopedPortalPath('/portal/finance/cutover', orgScope)} className="pib-btn-ghost btn-pib-sm">
             Cutover
           </Link>

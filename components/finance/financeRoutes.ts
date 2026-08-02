@@ -18,6 +18,7 @@ export type FinanceRouteKey =
   | 'multi-currency'
   | 'practice'
   | 'setup'
+  | 'runbooks'
 
 export type FinanceNavItem = {
   key: FinanceRouteKey
@@ -182,6 +183,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     description: 'Bootstrap path for legal entity, book, and periods.',
     group: 'command',
   },
+  {
+    key: 'runbooks',
+    label: 'Runbooks',
+    href: '/portal/finance/runbooks',
+    icon: 'menu_book',
+    description: 'Operator day-0/day-2 runbooks, hard gates, and Phase 4 acceptance pointers.',
+    group: 'command',
+  },
 ]
 
 export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
@@ -200,6 +209,7 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'multi-currency',
   'practice',
   'setup',
+  'runbooks',
 ]
 
 export function financeNavItem(key: FinanceRouteKey): FinanceNavItem {
