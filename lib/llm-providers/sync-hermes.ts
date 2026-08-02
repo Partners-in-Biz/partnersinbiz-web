@@ -25,7 +25,7 @@ import {
   type LlmSyncTarget,
 } from './sync-targets'
 import type { LlmProviderConnection } from './types'
-import { ensureFreshLlmProviderConnection } from './refresh'
+import { ensureFreshLlmProviderConnection, xaiCredentialsNeedRefresh } from './refresh'
 
 export type SyncLlmConnectionResult = {
   synced: string[]
@@ -135,6 +135,48 @@ export async function syncLlmConnectionToHermes(
       ? { skippedReason: 'no_sync_target' as const }
       : {}),
   }
+}
+
+/**
+ * Renew a managed xAI OAuth access token before a selected chat starts.
+ *
+ * xAI refresh tokens rotate and must remain in the control plane. Hermes
+ * profiles deliberately receive access-only credentials, so a profile cannot
+ * recover on its own once that bearer expires. This is the send-time backstop
+ * for the scheduled refresh worker: refresh once centrally, then prove the
+ * exact selected agent profile has received the new generation.
+ */
+export async function ensureFreshXaiCredentialForDispatch(input: {
+  connectionId: string
+  agentId: string
+}): Promise<{ refreshed: boolean }> {
+  const connection = await getLlmProviderConnection(input.connectionId)
+  if (!connection || connection.status === 'revoked') {
+    throw new Error('Selected LLM account is no longer available')
+  }
+  if (connection.provider !== 'xai-oauth') return { refreshed: false }
+  if (connection.status === 'reauth_required' || connection.status === 'pending_oauth') {
+    throw new Error('xAI OAuth account must be reconnected in Settings before this chat can run')
+  }
+
+  const credentials = await getDecryptedLlmCredentials(connection)
+  if (!credentials?.access_token) {
+    throw new Error('xAI OAuth account has no access token. Reconnect this account in Settings.')
+  }
+  if (!xaiCredentialsNeedRefresh(credentials)) return { refreshed: false }
+
+  const sync = await syncLlmConnectionToHermes(connection.id, { agentIds: [input.agentId] })
+  const failed = sync.failed.find((item) => item.agentId === input.agentId)
+  if (failed) {
+    throw new Error(`xAI credential refresh could not reach ${input.agentId}: ${failed.error}`)
+  }
+  if (sync.queued.some((item) => item.agentId === input.agentId)) {
+    throw new Error('xAI credentials are refreshing on this computer. Retry this chat once the profile is live-ready.')
+  }
+  if (!sync.synced.includes(input.agentId)) {
+    throw new Error('xAI credential refresh did not verify the selected agent profile')
+  }
+  return { refreshed: true }
 }
 
 async function resolveOrgTargets(orgId: string, agentIds?: string[]) {
