@@ -397,6 +397,7 @@ export default function FinanceWorkbenchPage() {
                   <Link href={scopedPortalPath('/portal/finance/payroll', orgScope)} className="pib-btn-ghost w-full justify-center">Payroll</Link>
                   <Link href={scopedPortalPath('/portal/finance/personal', orgScope)} className="pib-btn-ghost w-full justify-center">Personal books</Link>
                   <Link href={scopedPortalPath('/portal/finance/cross-org', orgScope)} className="pib-btn-ghost w-full justify-center">Cross-org payments</Link>
+                  <Link href={scopedPortalPath('/portal/finance/statements', orgScope)} className="pib-btn-ghost w-full justify-center">Statement import</Link>
                 </div>
               </div>
 
