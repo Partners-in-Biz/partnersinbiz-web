@@ -160,17 +160,19 @@ npx jest \
 - Workers should pass stable `workerId` (agent id or hostname+pid).
 - Gmail paths fetch full message bodies and run **local** signature → fact proposals (no third-party body egress).
 
-## Ops follow-ups (not product gaps)
+## Production status (2026-08-02)
 
-- **Firestore indexes:** all 7 `contact_facts` / `crm_research_tasks` composites are **live** on `partners-in-biz-85059` (confirmed 2026-08-02). Re-deploy only if definitions change — use surgical subset deploy (see `crm-agent-intelligence` skill reference).
-- **Production promote:** ContactFact routes are on `development` only until an explicit main/prod release. `GET https://partnersinbiz.online/api/v1/crm/cron/process-research-tasks` returns 404 until then.
-- **Firebase function `runCrmResearchQueue`:** source + compiled export exist (`functions/src/index.ts`); **not** listed in live functions yet. Deploy **only after** the API route is on production:
-  - `cd functions && npm ci && npm run build`
-  - `firebase deploy --only functions:runCrmResearchQueue --project partners-in-biz-85059`
-  - Deploying earlier would hit production every 5 minutes with 404 noise.
+- **Firestore indexes:** all 7 `contact_facts` / `crm_research_tasks` composites are **live** on `partners-in-biz-85059`.
+- **API routes:** live on `partnersinbiz.online` (main already included ContactFact via development merge). Unauth cron returns JSON 401; member routes return 200/404 as designed.
+- **Firebase function `runCrmResearchQueue`:** **deployed** (us-central1, every 5 minutes). Scheduler job `firebase-schedule-runCrmResearchQueue-us-central1` ENABLED.
+  - First forced run evidence: `[crm-research-queue] OK 200 {"success":true,"data":{"processed":0,...}}`
+  - Redeploy only if the function source changes: `cd functions && npm run build && firebase deploy --only functions:runCrmResearchQueue --project partners-in-biz-85059`
+- **Hermes multi-machine workers:** may also hit `POST /crm/research-tasks/work` with a stable `workerId` on any environment that has the API.
+
+## Residual product epic (out of Comp import scope)
+
 - **SMTP/IMAP inbound auto-facts:** there is still **no IMAP fetch/sync product** (UI: “Only Google mailbox accounts can sync”). Auto-facts cover:
   - CRM Gmail integration inbound
   - Agent mailbox Gmail sync (import **and** update/full-body re-sync)
   - Manual: `POST .../facts/from-mailbox` or research-task `metadata.bodyText`
   Full IMAP receive is a separate product epic, not part of this Comp import.
-- Hermes multi-machine workers can run immediately on any environment that has the API: `POST /crm/research-tasks/work` with a stable `workerId`.
