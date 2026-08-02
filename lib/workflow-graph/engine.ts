@@ -8,6 +8,7 @@ import {
   WATCHER_TRANSIENT_BACKOFF_MS,
   isGatedCapability,
 } from './constants'
+import { appendTimeline } from './ops-timeline'
 import { attemptIdempotencyKey } from './validation'
 import type {
   AdvanceEvent,
@@ -56,6 +57,8 @@ function cloneRun(run: WorkflowRun): WorkflowRun {
     sla: { ...run.sla },
     gatedCapabilities: [...run.gatedCapabilities],
     trigger: { ...run.trigger },
+    timeline: run.timeline ? run.timeline.map((entry) => ({ ...entry })) : undefined,
+    childRunIds: run.childRunIds ? [...run.childRunIds] : undefined,
   }
 }
 
@@ -184,6 +187,7 @@ function setNodeStatus(
 ): void {
   const node = nodeById(run, nodeId)
   if (!node) return
+  const from = node.status
   node.status = status
   node.lastTransitionAt = now
   if (blockedReasonCode) node.blockedReasonCode = blockedReasonCode
@@ -193,6 +197,16 @@ function setNodeStatus(
   if (evidence?.length) {
     node.evidence.push(...evidence)
     run.lastEvidence = evidence[evidence.length - 1]
+  }
+  if (from !== status) {
+    run.timeline = appendTimeline(run.timeline, {
+      at: now,
+      kind: 'node',
+      nodeId,
+      from,
+      to: status,
+      reason: blockedReasonCode,
+    })
   }
   actions.push({
     type: 'mark_node',
@@ -209,9 +223,19 @@ function setRunStatus(
   status: WorkflowRunStatus,
   opts?: { blockedReasonCode?: string; terminalReason?: string },
 ): void {
+  const from = run.status
   run.status = status
   if (opts?.blockedReasonCode !== undefined) run.blockedReasonCode = opts.blockedReasonCode
   if (opts?.terminalReason !== undefined) run.terminalReason = opts.terminalReason
+  if (from !== status) {
+    run.timeline = appendTimeline(run.timeline, {
+      at: run.updatedAt,
+      kind: 'run',
+      from,
+      to: status,
+      reason: opts?.blockedReasonCode || opts?.terminalReason,
+    })
+  }
   actions.push({
     type: 'set_run_status',
     status,

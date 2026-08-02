@@ -118,7 +118,49 @@ export type GraphTemplateBudgets = {
 export type GraphTemplateNotify = {
   quietSuccess: boolean
   alertOnBlock: boolean
+  /** Default quiet — no durable fact. ops_feed writes a quiet success fact for gatherers. */
+  onSuccess?: 'quiet' | 'ops_feed'
+  onBlock?: 'ops_inbox' | 'ops_inbox_and_ceo'
+  onBudgetWarn?: 'ops_feed'
+  onBudgetExceed?: 'ops_inbox'
+  debounceSeconds?: number
   ceoNotifyOn?: Array<'block' | 'budget' | 'human_gate_sla'>
+}
+
+export type WorkflowTimelineEntry = {
+  at: string
+  kind: 'node' | 'run' | 'cost' | 'alert' | 'trigger'
+  nodeId?: string
+  from?: string
+  to?: string
+  reason?: string
+  summary?: string
+}
+
+export type WorkflowOpsFactKind =
+  | 'block'
+  | 'budget_exceed'
+  | 'budget_warn'
+  | 'stuck'
+  | 'success_quiet'
+  | 'human_gate_sla'
+  | 'unknown_usage'
+
+export type WorkflowOpsFact = {
+  id: string
+  orgId: string
+  kind: WorkflowOpsFactKind
+  workflowRunId: string
+  templateId: string
+  projectId?: string
+  dedupeKey: string
+  blockRevision?: number
+  reasonCode?: string
+  summary: string
+  deepLink?: string
+  nodeId?: string
+  createdAt: string
+  ceoNotify?: boolean
 }
 
 export type GraphTemplateSla = {
@@ -273,6 +315,12 @@ export type WorkflowRun = {
   lastEvidence?: WorkflowEvidence
   /** Client/create idempotency key for run start dedupe */
   createIdempotencyKey?: string
+  /** Compact state transition log (capped); Phase 2 inspector timeline. */
+  timeline?: WorkflowTimelineEntry[]
+  /** Incremented on each new alert-worthy transition for ops alert dedupe. */
+  blockRevision?: number
+  /** Last ops fact dedupe key written for this run (block path). */
+  lastAlertDedupeKey?: string
 }
 
 export type MaterializeIntent = {

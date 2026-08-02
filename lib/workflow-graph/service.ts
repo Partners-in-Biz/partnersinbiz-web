@@ -6,11 +6,24 @@ import {
   inspectWorkflowRun,
 } from './engine'
 import {
+  applyStuckEvaluation,
+  buildBlockAlertFact,
+  buildOpsInspect,
+  buildQuietSuccessFact,
+  bumpBlockRevisionOnAlertTransition,
+  classifyOpsRunBucket,
+  shouldEmitBlockAlert,
+  shouldEmitQuietSuccess,
+} from './ops'
+import {
   findWorkflowRunByIdempotencyKey,
   getGraphTemplate,
   getWorkflowRun,
+  listOpsFacts,
+  listWorkflowRuns,
   materializeKanbanTask,
   saveGraphTemplate,
+  saveOpsFact,
   saveWorkflowRun,
 } from './store'
 import { buildPilotResearchValidateDocApproveFanoutTemplate } from './pilot'
@@ -20,6 +33,7 @@ import type { AdvanceEvent, GraphTemplate, WorkflowApprovalRef, WorkflowRun } fr
 import type { ProjectPlaybookTemplateV1 } from '@/lib/projects/playbooks'
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
+import type { OpsListItem } from './ops'
 
 export async function ensurePilotTemplate(orgId: string, projectId?: string, actorUid = 'system'): Promise<GraphTemplate> {
   const existing = await adminDb
@@ -51,6 +65,29 @@ export async function createOrUpdateGraphTemplate(
   return { ok: true, template: saved }
 }
 
+async function finalizeOpsSideEffects(previous: WorkflowRun | null, run: WorkflowRun, now: string): Promise<WorkflowRun> {
+  let next = applyStuckEvaluation(run, now)
+  if (previous) {
+    next = bumpBlockRevisionOnAlertTransition(previous, next)
+  } else if (shouldEmitBlockAlert(next) && !next.blockRevision) {
+    next = { ...next, blockRevision: 1 }
+  }
+
+  if (shouldEmitBlockAlert(next)) {
+    const fact = buildBlockAlertFact(next, now)
+    if (next.lastAlertDedupeKey !== fact.dedupeKey) {
+      const saved = await saveOpsFact(fact).catch(() => ({ written: false as const, fact }))
+      if (saved.written || saved.fact) {
+        next = { ...next, lastAlertDedupeKey: fact.dedupeKey }
+      }
+    }
+  } else if (shouldEmitQuietSuccess(next)) {
+    await saveOpsFact(buildQuietSuccessFact(next, now)).catch(() => null)
+  }
+
+  return next
+}
+
 export async function startWorkflowRun(input: {
   orgId: string
   templateId: string
@@ -59,7 +96,7 @@ export async function startWorkflowRun(input: {
   trigger?: { type: string; ref?: string }
   idempotencyKey?: string
   approvalRefs?: WorkflowApprovalRef[]
-}): Promise<{ ok: true; run: WorkflowRun; inspect: ReturnType<typeof inspectWorkflowRun>; deduplicated?: boolean } | { ok: false; error: string; status: number }> {
+}): Promise<{ ok: true; run: WorkflowRun; inspect: ReturnType<typeof buildOpsInspect>; deduplicated?: boolean } | { ok: false; error: string; status: number }> {
   const template = await getGraphTemplate(input.templateId)
   if (!template) return { ok: false, error: 'Graph template not found', status: 404 }
   if (template.orgId !== input.orgId) return { ok: false, error: 'Forbidden template org', status: 403 }
@@ -78,7 +115,7 @@ export async function startWorkflowRun(input: {
 
   const existing = await findWorkflowRunByIdempotencyKey(input.orgId, createKey).catch(() => null)
   if (existing) {
-    return { ok: true, run: existing, inspect: inspectWorkflowRun(existing), deduplicated: true }
+    return { ok: true, run: existing, inspect: buildOpsInspect(existing), deduplicated: true }
   }
 
   const runId = `wfr_${createHash('sha256').update(`${createKey}:${randomUUID()}`).digest('hex').slice(0, 24)}`
@@ -104,7 +141,7 @@ export async function startWorkflowRun(input: {
   }, input.actorUid)
 
   await saveWorkflowRun(run)
-  return { ok: true, run, inspect: inspectWorkflowRun(run) }
+  return { ok: true, run, inspect: buildOpsInspect(run) }
 }
 
 export async function applyAdvanceAndMaterialize(
@@ -113,7 +150,6 @@ export async function applyAdvanceAndMaterialize(
   actorUid: string,
 ): Promise<WorkflowRun> {
   let current = run
-  // Bound loops so materialize → bind → tick cannot infinite-loop
   for (let i = 0; i < 20; i += 1) {
     const result = advanceWorkflowRun(current, i === 0 ? event : { type: 'tick', now: event.now })
     current = result.run
@@ -133,7 +169,6 @@ export async function applyAdvanceAndMaterialize(
         actorUid,
       })
       if (!materialized.ok) {
-        // Fail the node closed rather than partial silent success
         const failed = advanceWorkflowRun(current, {
           type: 'kanban_terminal',
           now: event.now,
@@ -152,6 +187,7 @@ export async function applyAdvanceAndMaterialize(
     if (!boundAny) break
   }
 
+  current = await finalizeOpsSideEffects(run, current, event.now)
   await saveWorkflowRun(current)
   return current
 }
@@ -160,18 +196,18 @@ export async function advanceWorkflowRunById(
   runId: string,
   event: AdvanceEvent,
   actorUid: string,
-): Promise<{ ok: true; run: WorkflowRun; inspect: ReturnType<typeof inspectWorkflowRun> } | { ok: false; error: string; status: number }> {
+): Promise<{ ok: true; run: WorkflowRun; inspect: ReturnType<typeof buildOpsInspect> } | { ok: false; error: string; status: number }> {
   const existing = await getWorkflowRun(runId)
   if (!existing) return { ok: false, error: 'Workflow run not found', status: 404 }
   const run = await applyAdvanceAndMaterialize(existing, event, actorUid)
-  return { ok: true, run, inspect: inspectWorkflowRun(run) }
+  return { ok: true, run, inspect: buildOpsInspect(run) }
 }
 
 export async function cancelWorkflowRun(
   runId: string,
   actorUid: string,
   reason: string,
-): Promise<{ ok: true; run: WorkflowRun; inspect: ReturnType<typeof inspectWorkflowRun> } | { ok: false; error: string; status: number }> {
+): Promise<{ ok: true; run: WorkflowRun; inspect: ReturnType<typeof buildOpsInspect> } | { ok: false; error: string; status: number }> {
   return advanceWorkflowRunById(runId, {
     type: 'cancel',
     now: new Date().toISOString(),
@@ -202,7 +238,6 @@ export async function handleKanbanTaskTerminalForWorkflow(input: {
   const now = new Date().toISOString()
   const evidence = (input.evidence ?? []).map((item) => ({ ...item, at: now }))
 
-  // Also map agentOutput.artifacts when present
   const agentOutput = input.task.agentOutput && typeof input.task.agentOutput === 'object'
     ? input.task.agentOutput as Record<string, unknown>
     : null
@@ -216,7 +251,6 @@ export async function handleKanbanTaskTerminalForWorkflow(input: {
     }
   }
 
-  // expectedArtifacts listed as satisfied keys in agentOutput
   if (agentOutput) {
     for (const key of ['research_doc_id', 'draft_doc_id', 'eng_checklist_id', 'content_checklist_id', 'approval_ref']) {
       const value = agentOutput[key]
@@ -253,7 +287,7 @@ export async function startRunFromPlaybook(input: {
   playbookTemplate: ProjectPlaybookTemplateV1
   actorUid: string
   idempotencyKey?: string
-}): Promise<{ ok: true; run: WorkflowRun; template: GraphTemplate; inspect: ReturnType<typeof inspectWorkflowRun> } | { ok: false; error: string; status: number }> {
+}): Promise<{ ok: true; run: WorkflowRun; template: GraphTemplate; inspect: ReturnType<typeof buildOpsInspect> } | { ok: false; error: string; status: number }> {
   const promoted = promotePlaybookTemplateToGraphTemplate({
     orgId: input.orgId,
     name: `playbook:${input.playbookName}`,
@@ -277,7 +311,6 @@ export async function startRunFromPlaybook(input: {
   return { ok: true, run: started.run, template: savedTemplate, inspect: started.inspect }
 }
 
-/** Patch playbook record optionally with executionBackend flag (no dual-write). */
 export async function markPlaybookExecutionBackend(
   projectId: string,
   playbookId: string,
@@ -288,3 +321,58 @@ export async function markPlaybookExecutionBackend(
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true })
 }
+
+export async function listOpsWorkflowRuns(input: {
+  orgId: string
+  status?: string
+  limit?: number
+  now?: string
+}): Promise<{
+  items: OpsListItem[]
+  facts: Awaited<ReturnType<typeof listOpsFacts>>
+  counts: { stuck: number; blocked: number; paused_budget: number }
+}> {
+  const now = input.now || new Date().toISOString()
+  const status = input.status
+  const runs = await listWorkflowRuns({
+    orgId: input.orgId,
+    status: status === 'stuck' || status === 'blocked' ? undefined : status,
+    limit: input.limit ?? 50,
+  })
+
+  const items: OpsListItem[] = []
+  const counts = { stuck: 0, blocked: 0, paused_budget: 0 }
+
+  for (const run of runs) {
+    const evaluated = applyStuckEvaluation(run, now)
+    const bucket = classifyOpsRunBucket(evaluated, now)
+    if (bucket === 'stuck') counts.stuck += 1
+    if (bucket === 'blocked') counts.blocked += 1
+    if (bucket === 'paused_budget') counts.paused_budget += 1
+
+    if (status === 'stuck' && bucket !== 'stuck') continue
+    if (status === 'blocked' && bucket !== 'blocked') continue
+    if ((status === 'paused_budget' || status === 'paused') && bucket !== 'paused_budget') continue
+
+    items.push({
+      runId: evaluated.id,
+      orgId: evaluated.orgId,
+      templateId: evaluated.templateId,
+      projectId: evaluated.projectId,
+      status: evaluated.status,
+      bucket,
+      blockedReasonCode: evaluated.blockedReasonCode,
+      stuckReasonCode: evaluated.stuckReasonCode,
+      stuckAt: evaluated.stuckAt,
+      costTokensTotal: evaluated.cost.tokensTotal,
+      budgetStatus: evaluated.cost.budgetStatus,
+      updatedAt: evaluated.updatedAt,
+      deepLink: evaluated.id ? `/api/v1/workflow-runs/${evaluated.id}` : undefined,
+    })
+  }
+
+  const facts = await listOpsFacts(input.orgId, 30).catch(() => [])
+  return { items, facts, counts }
+}
+
+export { inspectWorkflowRun, buildOpsInspect }

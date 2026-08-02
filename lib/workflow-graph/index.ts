@@ -4,6 +4,9 @@ export * from './validation'
 export * from './engine'
 export * from './pilot'
 export * from './playbook-promote'
+export * from './ops'
+export * from './ops-timeline'
+export * from './triggers'
 export {
   ensurePilotTemplate,
   createOrUpdateGraphTemplate,
@@ -13,5 +16,15 @@ export {
   handleKanbanTaskTerminalForWorkflow,
   startRunFromPlaybook,
   applyAdvanceAndMaterialize,
+  listOpsWorkflowRuns,
+  buildOpsInspect,
 } from './service'
-export { getGraphTemplate, getWorkflowRun, listGraphTemplates, toInspectPayload } from './store'
+export {
+  getGraphTemplate,
+  getWorkflowRun,
+  listGraphTemplates,
+  listWorkflowRuns,
+  listOpsFacts,
+  saveOpsFact,
+  toInspectPayload,
+} from './store'

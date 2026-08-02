@@ -1,5 +1,5 @@
 /**
- * GET  /api/v1/workflow-runs/[id] — run ledger + inspect payload (wave, stuck, evidence)
+ * GET  /api/v1/workflow-runs/[id] — run ledger + Phase 2 ops inspect (one call)
  * POST /api/v1/workflow-runs/[id] — advance tick / approval / kanban terminal (internal)
  */
 import { NextRequest } from 'next/server'
@@ -10,7 +10,7 @@ import { canAccessOrg } from '@/lib/api/platformAdmin'
 import {
   advanceWorkflowRunById,
   getWorkflowRun,
-  inspectWorkflowRun,
+  buildOpsInspect,
 } from '@/lib/workflow-graph'
 import type { AdvanceEvent } from '@/lib/workflow-graph'
 
@@ -30,7 +30,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx
 
   return apiSuccess({
     run,
-    inspect: inspectWorkflowRun(run),
+    inspect: buildOpsInspect(run),
   })
 })
 

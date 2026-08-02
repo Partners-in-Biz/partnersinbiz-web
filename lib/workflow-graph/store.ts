@@ -1,11 +1,13 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
-import type { GraphTemplate, MaterializeIntent, WorkflowRun } from './types'
+import type { GraphTemplate, MaterializeIntent, WorkflowOpsFact, WorkflowRun } from './types'
+import { buildOpsInspect } from './ops'
 import { inspectWorkflowRun } from './engine'
 
 const TEMPLATES = 'graph_templates'
 const RUNS = 'workflow_runs'
+const OPS_FACTS = 'workflow_ops_facts'
 
 function stripUndefined<T extends Record<string, unknown>>(value: T): T {
   const out: Record<string, unknown> = {}
@@ -79,6 +81,61 @@ export async function findWorkflowRunByIdempotencyKey(
   return { id: doc.id, ...(doc.data() as WorkflowRun) }
 }
 
+export async function listWorkflowRuns(input: {
+  orgId: string
+  status?: string
+  limit?: number
+}): Promise<WorkflowRun[]> {
+  const limit = Math.min(Math.max(input.limit ?? 50, 1), 100)
+  let query: {
+    where: (field: string, op: string, value: unknown) => typeof query
+    limit: (n: number) => { get: () => Promise<{ docs: Array<{ id: string; data: () => Record<string, unknown> }> }> }
+  } = adminDb.collection(RUNS).where('orgId', '==', input.orgId) as never
+
+  const virtual = new Set(['stuck', 'blocked', 'paused', 'paused_budget'])
+  if (input.status && !virtual.has(input.status)) {
+    query = query.where('status', '==', input.status)
+  } else if (input.status === 'paused_budget' || input.status === 'paused') {
+    query = query.where('status', '==', 'paused_budget')
+  }
+
+  const snap = await query.limit(limit * 2).get()
+  let runs = snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as WorkflowRun) }))
+
+  if (input.status === 'stuck') {
+    runs = runs.filter((run) => Boolean(run.stuckReasonCode) || Boolean(run.stuckAt))
+  } else if (input.status === 'blocked') {
+    runs = runs.filter(
+      (run) =>
+        run.status === 'failed'
+        || Boolean(run.blockedReasonCode)
+        || run.nodes.some((n) => n.status === 'blocked'),
+    )
+  }
+
+  return runs.slice(0, limit)
+}
+
+export async function saveOpsFact(fact: WorkflowOpsFact): Promise<{ written: boolean; fact: WorkflowOpsFact }> {
+  const ref = adminDb.collection(OPS_FACTS).doc(fact.dedupeKey.replace(/[^a-zA-Z0-9:_-]/g, '_'))
+  const existing = await ref.get()
+  if (existing.exists) {
+    return { written: false, fact: { id: existing.id, ...(existing.data() as WorkflowOpsFact) } }
+  }
+  const payload = stripUndefined({ ...fact, id: ref.id } as Record<string, unknown>)
+  await ref.set(payload)
+  return { written: true, fact: payload as WorkflowOpsFact }
+}
+
+export async function listOpsFacts(orgId: string, limit = 50): Promise<WorkflowOpsFact[]> {
+  const snap = await adminDb
+    .collection(OPS_FACTS)
+    .where('orgId', '==', orgId)
+    .limit(Math.min(Math.max(limit, 1), 100))
+    .get()
+  return snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as WorkflowOpsFact) }))
+}
+
 export async function materializeKanbanTask(input: {
   projectId: string
   orgId: string
@@ -89,7 +146,6 @@ export async function materializeKanbanTask(input: {
   const projectRef = adminDb.collection('projects').doc(input.projectId)
   const tasksRef = projectRef.collection('tasks')
 
-  // Idempotent reuse: look for existing task with workflow labels
   const existing = await tasksRef
     .where('workflowRunId', '==', input.run.id)
     .where('workflowNodeId', '==', intentNodeId(input.intent))
@@ -101,7 +157,6 @@ export async function materializeKanbanTask(input: {
     const doc = existing.docs[0]
     const taskId = doc.id
     if (input.intent.requeueExisting) {
-      // Re-arm watcher pickup for transient_infra retries without dual-board spawn.
       await doc.ref.update({
         agentStatus: input.intent.agentStatus,
         columnId: input.intent.columnId,
@@ -163,5 +218,9 @@ function intentNodeId(intent: MaterializeIntent): string {
 }
 
 export function toInspectPayload(run: WorkflowRun) {
+  return buildOpsInspect(run)
+}
+
+export function toLegacyInspectPayload(run: WorkflowRun) {
   return inspectWorkflowRun(run)
 }

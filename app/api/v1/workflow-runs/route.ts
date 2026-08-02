@@ -1,6 +1,7 @@
 /**
- * POST /api/v1/workflow-runs — start a run from a template
- * GET  /api/v1/workflow-runs?orgId=&id= — lightweight list/read helper (single id via query)
+ * POST /api/v1/workflow-runs — start a run from a template (manual / cron / event caller)
+ * GET  /api/v1/workflow-runs?orgId=&status=stuck|blocked|paused_budget|running — Nora ops list
+ * GET  /api/v1/workflow-runs?orgId=&id= — lightweight single read
  */
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
@@ -10,7 +11,9 @@ import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { withIdempotency } from '@/lib/api/idempotency'
 import {
   getWorkflowRun,
+  listOpsWorkflowRuns,
   startWorkflowRun,
+  buildOpsInspect,
 } from '@/lib/workflow-graph'
 
 function cleanString(value: unknown): string {
@@ -27,11 +30,32 @@ function resolveOrgId(req: NextRequest, body?: Record<string, unknown>): string 
 export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => {
   const url = new URL(req.url)
   const id = cleanString(url.searchParams.get('id'))
-  if (!id) return apiError('id query param is required (use GET /workflow-runs/{id} for full inspect)', 400)
-  const run = await getWorkflowRun(id)
-  if (!run) return apiError('Workflow run not found', 404)
-  if (user.role !== 'ai' && !canAccessOrg(user, run.orgId)) return apiError('Forbidden', 403)
-  return apiSuccess(run)
+  const orgId = resolveOrgId(req)
+  const status = cleanString(url.searchParams.get('status')) || undefined
+  const limit = Number(url.searchParams.get('limit') || 50)
+
+  if (id) {
+    const run = await getWorkflowRun(id)
+    if (!run) return apiError('Workflow run not found', 404)
+    if (user.role !== 'ai' && !canAccessOrg(user, run.orgId)) return apiError('Forbidden', 403)
+    return apiSuccess({ run, inspect: buildOpsInspect(run) })
+  }
+
+  if (!orgId) return apiError('orgId is required (or pass id)', 400)
+  if (user.role !== 'ai' && !canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
+
+  const list = await listOpsWorkflowRuns({
+    orgId,
+    status,
+    limit: Number.isFinite(limit) ? limit : 50,
+  })
+  return apiSuccess({
+    orgId,
+    status: status || 'all',
+    counts: list.counts,
+    items: list.items,
+    facts: list.facts,
+  })
 })
 
 export const POST = withAuth('admin', withIdempotency(async (req: NextRequest, user: ApiUser) => {
