@@ -144,7 +144,7 @@ describe('GET /api/v1/conversations/live', () => {
       expect.objectContaining({ uid: 'member-1' }),
       conversation,
     )
-    expect(mockListMessages).toHaveBeenCalledWith('conv-focused', 200)
+    expect(mockListMessages).toHaveBeenCalledWith('conv-focused', 20)
     expect(new TextDecoder().decode(snapshot.value)).toContain('"id":"conv-focused"')
   })
 })

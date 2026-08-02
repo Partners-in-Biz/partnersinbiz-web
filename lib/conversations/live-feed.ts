@@ -1,8 +1,12 @@
 import type { Conversation, ConversationMessage, ConversationScope } from './types'
 import type { ConversationPresence } from '@/lib/conversations/presence-shared'
 
-export const CONVERSATION_LIVE_REFRESH_MS = 2_000
+// The live feed is a bounded server poll, not a Firestore listener. Keep the
+// cadence responsive without re-reading the entire Messages rail and thread
+// hundreds of times per minute for every open browser tab.
+export const CONVERSATION_LIVE_REFRESH_MS = 5_000
 export const CONVERSATION_LIVE_STREAM_TTL_MS = 55_000
+export const CONVERSATION_LIVE_MESSAGE_LIMIT = 20
 
 const VALID_SCOPES = new Set<ConversationScope>([
   'general',

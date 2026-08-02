@@ -19,6 +19,7 @@ import {
 } from '@/lib/conversations/presence'
 import {
   CONVERSATION_LIVE_REFRESH_MS,
+  CONVERSATION_LIVE_MESSAGE_LIMIT,
   CONVERSATION_LIVE_STREAM_TTL_MS,
   conversationLiveSnapshotSignature,
   encodeConversationLiveEvent,
@@ -60,7 +61,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     }
 
     const messages = activeConversation
-      ? (await listMessages(activeConversation.id, 200)).map(publicConversationMessageView)
+      ? (await listMessages(activeConversation.id, CONVERSATION_LIVE_MESSAGE_LIMIT)).map(publicConversationMessageView)
       : null
     const presence = activeConversation
       ? await listConversationPresence(activeConversation.id, orgScope.orgId)

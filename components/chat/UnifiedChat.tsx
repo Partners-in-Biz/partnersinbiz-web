@@ -1478,6 +1478,7 @@ export default function UnifiedChat({
   const [mentionAgentsStatus, setMentionAgentsStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [mentionAgentsEmptyReason, setMentionAgentsEmptyReason] = useState<string | null>(null)
   const [conversationLiveConnected, setConversationLiveConnected] = useState(false)
+  const [conversationPageVisible, setConversationPageVisible] = useState(true)
   const [threadPresence, setThreadPresence] = useState<ConversationPresence[]>([])
   const presenceTypingRef = useRef(false)
 
@@ -4115,6 +4116,17 @@ export default function UnifiedChat({
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { loadConversations() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Hidden Messages tabs must not keep a server-side Firestore poll alive.
+  // A visibility change reopens the stream and immediately supplies a fresh
+  // snapshot when the user returns to the tab.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const updateVisibility = () => setConversationPageVisible(document.visibilityState !== 'hidden')
+    updateVisibility()
+    document.addEventListener('visibilitychange', updateVisibility)
+    return () => document.removeEventListener('visibilitychange', updateVisibility)
+  }, [])
+
   // Clear scary network banners when the browser comes back online and rehydrate.
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -4185,6 +4197,10 @@ export default function UnifiedChat({
   // including conversations another member creates while this screen is open.
   // EventSource reconnects automatically after the bounded server stream ends.
   useEffect(() => {
+    if (!conversationPageVisible) {
+      setConversationLiveConnected(false)
+      return
+    }
     if (typeof window === 'undefined' || typeof window.EventSource !== 'function') {
       setConversationLiveConnected(false)
       return
@@ -4249,7 +4265,7 @@ export default function UnifiedChat({
       source.close()
       setConversationLiveConnected(false)
     }
-  }, [activeId, listQuery])
+  }, [activeId, conversationPageVisible, listQuery])
 
   // Drop stale collaborator chips immediately when switching threads.
   useEffect(() => {

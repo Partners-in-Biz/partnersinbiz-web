@@ -1,4 +1,6 @@
 import {
+  CONVERSATION_LIVE_MESSAGE_LIMIT,
+  CONVERSATION_LIVE_REFRESH_MS,
   conversationLiveSnapshotSignature,
   encodeConversationLiveEvent,
   parseConversationLiveQuery,
@@ -6,6 +8,11 @@ import {
 } from '@/lib/conversations/live-feed'
 
 describe('conversation live feed', () => {
+  it('bounds recurring message reads while preserving a responsive cadence', () => {
+    expect(CONVERSATION_LIVE_MESSAGE_LIMIT).toBe(20)
+    expect(CONVERSATION_LIVE_REFRESH_MS).toBeGreaterThanOrEqual(5_000)
+  })
+
   it('parses and bounds permission-scoped live query parameters', () => {
     expect(parseConversationLiveQuery(
       'https://partnersinbiz.online/api/v1/conversations/live?orgId=org-1&scope=project&scopeRefId=project-1&projectId=project-1&conversationId=conv-1&includeAllScopes=true&limit=500',
