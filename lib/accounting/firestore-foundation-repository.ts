@@ -1,6 +1,12 @@
 import type { DocumentData, DocumentReference, Firestore, Transaction } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { authorizeFinanceAction, effectiveFinanceAssignments, parseIsoTimestamp, type FinanceAction } from '@/lib/finance/policy'
+import {
+  authorizeFinanceAction,
+  effectiveFinanceAssignments,
+  FinanceAuthorizationError,
+  parseIsoTimestamp,
+  type FinanceAction,
+} from '@/lib/finance/policy'
 import { revalidateFinanceActorInTransaction } from '@/lib/finance/firestore-context'
 import {
   CANONICAL_PAYLOAD_VERSION,
@@ -16,6 +22,7 @@ import type {
   FinanceApprovalAction,
   FinanceApprovalEvidence,
   FinanceApprovalRecord,
+  FinanceRoleAssignment,
   FinanceScope,
 } from '@/lib/finance/types'
 import {
@@ -497,6 +504,191 @@ export class FirestoreFinanceFoundationRepository {
         reversesJournalEntryId: original.id, reversalReason: reason,
       }, financeApprovalSubjectDigest('journal.reverse', command))
     })
+  }
+
+  /**
+   * Bootstrap path for first legal-entity setup: owner/admin may create their own
+   * finance_admin assignment without an existing assignment covering that entity.
+   */
+  async bootstrapRoleAssignment(
+    actor: FinanceActorContext,
+    command: {
+      id: string
+      orgId: string
+      legalEntityId: string
+      role?: FinanceRoleAssignment['role']
+      scopeMode?: FinanceRoleAssignment['scopeMode']
+      bookId?: string
+      requestId: string
+      idempotencyKey: string
+    },
+  ): Promise<FinanceRoleAssignment> {
+    if (actor.membershipRole !== 'owner' && actor.membershipRole !== 'admin') {
+      throw new FinanceAuthorizationError('Role bootstrap requires owner or admin membership')
+    }
+    if (!actor.financeModuleEnabled) {
+      throw new FinanceAuthorizationError('Persisted Finance module capability is required')
+    }
+    if (actor.orgId !== command.orgId) {
+      throw new FinanceAuthorizationError('Actor organization does not match finance scope')
+    }
+    if (actor.delegationId) {
+      if (actor.delegationOrgId !== command.orgId) {
+        throw new FinanceAuthorizationError('Delegation organization does not match finance scope')
+      }
+      if (!actor.delegationScopes?.includes('finance:*') && !actor.delegationScopes?.includes('finance:foundation.configure')) {
+        throw new FinanceAuthorizationError('Delegation does not grant finance:foundation.configure')
+      }
+    }
+    const role = command.role ?? 'finance_admin'
+    const scopeMode = command.scopeMode ?? 'entity'
+    if (role !== 'finance_admin' && role !== 'finance_approver') {
+      throw new FinanceValidationError('Bootstrap role must be finance_admin or finance_approver')
+    }
+    if (scopeMode !== 'entity' && scopeMode !== 'book') {
+      throw new FinanceValidationError('scopeMode must be entity or book')
+    }
+    if (scopeMode === 'book' && !command.bookId) {
+      throw new FinanceValidationError('book scope bootstrap requires bookId')
+    }
+    const legalEntityId = requiredText(command.legalEntityId, 'legalEntityId')
+    const assignmentId = requiredText(command.id, 'id')
+    const now = this.now()
+    const assignment: FinanceRoleAssignment = clean({
+      id: assignmentId,
+      orgId: command.orgId,
+      userId: actor.uid,
+      legalEntityId,
+      bookId: scopeMode === 'book' ? requiredText(command.bookId!, 'bookId') : undefined,
+      scopeMode,
+      role,
+      status: 'active' as const,
+      effectiveFrom: now,
+    })
+    const ref = this.db.collection('finance_role_assignments').doc(assignmentId)
+    const idemRef = this.idempotencyRef(
+      actor,
+      { orgId: command.orgId, legalEntityId: '__org_command_scope__' },
+      command.idempotencyKey,
+    )
+    const payloadDigest = canonicalDigest(clean(command))
+    return this.db.runTransaction(async (tx) => {
+      const [existing, idemSnap] = await tx.getAll(ref, idemRef)
+      if (idemSnap.exists) {
+        this.assertIdempotency(
+          idemSnap.data(),
+          actor,
+          { orgId: command.orgId, legalEntityId: '__org_command_scope__' },
+          'role-assignment.bootstrap',
+          command,
+          payloadDigest,
+          now,
+        )
+        return this.idempotentSnapshot<FinanceRoleAssignment>(idemSnap.data(), 'finance_role_assignment')
+      }
+      if (existing.exists) throw new FinanceValidationError('Finance role assignment already exists')
+      tx.create(ref, assignment)
+      tx.create(
+        idemRef,
+        this.idempotencyData(
+          actor,
+          { orgId: command.orgId, legalEntityId: '__org_command_scope__' },
+          'role-assignment.bootstrap',
+          command,
+          payloadDigest,
+          assignmentId,
+          now,
+          assignment,
+        ),
+      )
+      return assignment
+    })
+  }
+
+  async listLegalEntities(actor: FinanceActorContext, orgId: string): Promise<LegalEntity[]> {
+    this.assertOrgRead(actor, orgId)
+    const snap = await this.db.collection('legal_entities').where('orgId', '==', orgId).get()
+    return snap.docs
+      .map((doc) => doc.data() as LegalEntity)
+      .filter((entity) => this.canReadScope(actor, { orgId, legalEntityId: entity.id }))
+      .sort((a, b) => a.code.localeCompare(b.code))
+  }
+
+  async listBooks(actor: FinanceActorContext, orgId: string, legalEntityId: string): Promise<AccountingBook[]> {
+    this.assertOrgRead(actor, orgId)
+    authorizeFinanceAction(actor, { orgId, legalEntityId }, 'foundation.read', this.now())
+    const snap = await this.db.collection('accounting_books')
+      .where('orgId', '==', orgId).where('legalEntityId', '==', legalEntityId).get()
+    return snap.docs
+      .map((doc) => doc.data() as AccountingBook)
+      .filter((book) => this.canReadScope(actor, { orgId, legalEntityId, bookId: book.id }))
+      .sort((a, b) => a.code.localeCompare(b.code))
+  }
+
+  async listPeriods(
+    actor: FinanceActorContext,
+    orgId: string,
+    legalEntityId: string,
+    bookId: string,
+  ): Promise<AccountingPeriod[]> {
+    authorizeFinanceAction(actor, { orgId, legalEntityId, bookId }, 'foundation.read', this.now())
+    const snap = await this.db.collection('accounting_periods')
+      .where('orgId', '==', orgId).where('legalEntityId', '==', legalEntityId).where('bookId', '==', bookId).get()
+    return snap.docs
+      .map((doc) => doc.data() as AccountingPeriod)
+      .sort((a, b) => a.periodNumber - b.periodNumber || a.fiscalYear - b.fiscalYear)
+  }
+
+  async listAccounts(
+    actor: FinanceActorContext,
+    orgId: string,
+    legalEntityId: string,
+    bookId: string,
+  ): Promise<LedgerAccount[]> {
+    authorizeFinanceAction(actor, { orgId, legalEntityId, bookId }, 'foundation.read', this.now())
+    const snap = await this.db.collection('ledger_accounts')
+      .where('orgId', '==', orgId).where('legalEntityId', '==', legalEntityId).where('bookId', '==', bookId).get()
+    return snap.docs
+      .map((doc) => doc.data() as LedgerAccount)
+      .sort((a, b) => a.code.localeCompare(b.code))
+  }
+
+  async listJournals(
+    actor: FinanceActorContext,
+    orgId: string,
+    legalEntityId: string,
+    bookId: string,
+    limit = 50,
+  ): Promise<PostedJournalEntry[]> {
+    authorizeFinanceAction(actor, { orgId, legalEntityId, bookId }, 'foundation.read', this.now())
+    const capped = Math.min(Math.max(limit, 1), 200)
+    const snap = await this.db.collection('journal_entries')
+      .where('orgId', '==', orgId).where('legalEntityId', '==', legalEntityId).where('bookId', '==', bookId)
+      .limit(capped)
+      .get()
+    return snap.docs
+      .map((doc) => doc.data() as PostedJournalEntry)
+      .sort((a, b) => (b.entryNumber ?? 0) - (a.entryNumber ?? 0))
+  }
+
+  async listMyAssignments(actor: FinanceActorContext, orgId: string): Promise<FinanceRoleAssignment[]> {
+    this.assertOrgRead(actor, orgId)
+    return actor.assignments.filter((assignment) => assignment.orgId === orgId && assignment.status === 'active')
+  }
+
+  private assertOrgRead(actor: FinanceActorContext, orgId: string): void {
+    if (!actor.membershipActive) throw new FinanceAuthorizationError('Active organization membership is required')
+    if (actor.orgId !== orgId) throw new FinanceAuthorizationError('Actor organization does not match finance scope')
+    if (!actor.financeModuleEnabled) throw new FinanceAuthorizationError('Persisted Finance module capability is required')
+  }
+
+  private canReadScope(actor: FinanceActorContext, scope: FinanceScope): boolean {
+    try {
+      authorizeFinanceAction(actor, scope, 'foundation.read', this.now())
+      return true
+    } catch {
+      return false
+    }
   }
 
   private async postInTransaction(

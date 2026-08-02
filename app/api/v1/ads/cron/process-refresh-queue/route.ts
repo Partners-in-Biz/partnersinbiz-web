@@ -9,7 +9,11 @@ async function runProcessRefreshQueue(req: NextRequest) {
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return apiError('Unauthorized', 401)
   }
-  const result = await runWithFirestoreReadAudit('api/v1/ads/cron/process-refresh-queue', () => drainRefreshQueue())
+  const result = await runWithFirestoreReadAudit(
+    'api/v1/ads/cron/process-refresh-queue',
+    () => drainRefreshQueue(),
+    { logEveryRun: true },
+  )
   return apiSuccess(result)
 }
 

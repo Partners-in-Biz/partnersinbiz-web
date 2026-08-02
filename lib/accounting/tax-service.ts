@@ -290,9 +290,13 @@ export function taxRuleRangesOverlap(
   return leftFrom <= rightTo && rightFrom <= leftTo
 }
 
+export type TaxTransactionalStore = TaxServiceState & {
+  transact<T>(operation: (state: TaxServiceState) => T | Promise<T>): Promise<T>
+}
+
 export class FinanceTaxService {
   constructor(
-    private readonly store: InMemoryTaxStore,
+    private readonly store: TaxTransactionalStore,
     private readonly now: () => string = () => new Date().toISOString(),
   ) {}
 

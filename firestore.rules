@@ -196,6 +196,7 @@ service cloud.firestore {
     match /tax_periods/{id} { allow read, write: if false; }
     match /tax_return_snapshots/{id} { allow read, write: if false; }
     match /tax_return_lines/{id} { allow read, write: if false; }
+    match /journal_tax_traces/{id} { allow read, write: if false; }
     match /financial_report_snapshots/{id} { allow read, write: if false; }
     match /supplier_bills/{id} { allow read, write: if false; }
     match /supplier_bill_lines/{id} { allow read, write: if false; }
@@ -212,6 +213,7 @@ service cloud.firestore {
     match /reconciliation_adjustments/{id} { allow read, write: if false; }
     match /intercompany_pairs/{id} { allow read, write: if false; }
     match /intercompany_transactions/{id} { allow read, write: if false; }
+    match /intercompany_control_balances/{id} { allow read, write: if false; }
     match /elimination_rules/{id} { allow read, write: if false; }
     match /consolidation_runs/{id} { allow read, write: if false; }
     match /consolidation_entries/{id} { allow read, write: if false; }

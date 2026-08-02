@@ -2,6 +2,21 @@ const publishPost = jest.fn()
 const queueUpdate = jest.fn()
 const postUpdate = jest.fn()
 const txnUpdate = jest.fn()
+let mockSocialQueueGetCount = 0
+const mockSocialQueueQuery = {
+  where: jest.fn(),
+  orderBy: jest.fn(),
+  limit: jest.fn(),
+  get: jest.fn(),
+}
+mockSocialQueueQuery.where.mockReturnValue(mockSocialQueueQuery)
+mockSocialQueueQuery.orderBy.mockReturnValue(mockSocialQueueQuery)
+mockSocialQueueQuery.limit.mockReturnValue(mockSocialQueueQuery)
+mockSocialQueueQuery.get.mockImplementation(async () => ({
+  docs: mockSocialQueueGetCount++ === 0
+    ? [{ id: 'post-youtube-1', data: () => queueEntry }]
+    : [],
+}))
 
 class FakeTimestamp {
   seconds: number
@@ -44,13 +59,7 @@ jest.mock('@/lib/firebase/admin', () => ({
     collection: jest.fn((name: string) => {
       if (name === 'social_queue') {
         return {
-          where: jest.fn((field: string, _op: string, value: string) => ({
-            get: jest.fn().mockResolvedValue({
-              docs: value === 'pending'
-                ? [{ id: 'post-youtube-1', data: () => queueEntry }]
-                : [],
-            }),
-          })),
+          where: mockSocialQueueQuery.where,
           doc: jest.fn(() => ({
             get: jest.fn().mockResolvedValue({ exists: true, data: () => queueEntry }),
             update: queueUpdate.mockResolvedValue(undefined),
@@ -113,6 +122,10 @@ jest.mock('@/lib/social/first-comment', () => ({
 describe('social queue YouTube publish metadata', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSocialQueueGetCount = 0
+    mockSocialQueueQuery.where.mockReturnValue(mockSocialQueueQuery)
+    mockSocialQueueQuery.orderBy.mockReturnValue(mockSocialQueueQuery)
+    mockSocialQueueQuery.limit.mockReturnValue(mockSocialQueueQuery)
     publishPost.mockResolvedValue({ platformPostId: 'youtube-video-1' })
   })
 
@@ -122,6 +135,8 @@ describe('social queue YouTube publish metadata', () => {
     const result = await processQueue()
 
     expect(result.processed).toBe(1)
+    expect(mockSocialQueueQuery.where).toHaveBeenCalledWith('scheduledAt', '<=', expect.anything())
+    expect(mockSocialQueueQuery.limit).toHaveBeenCalledWith(50)
     expect(publishPost).toHaveBeenCalledWith(expect.objectContaining({
       text: 'Description for the growth video',
       mediaUrls: ['https://cdn.example.com/growth-video.mp4'],

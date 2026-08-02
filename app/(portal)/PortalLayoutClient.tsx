@@ -146,7 +146,7 @@ const NAV_LINKS: NavItem[] = [
     group: 'data',
   },
   { href: '/portal/wiki',      label: 'Wiki',      icon: 'menu_book',       group: 'data' },
-  { href: '/portal/payments', label: 'Billing', icon: 'payments', group: 'comms' },
+  { href: '/portal/finance', label: 'Finance', icon: 'account_balance', group: 'comms', activePatterns: ['/portal/finance', '/portal/payments', '/portal/invoicing', '/portal/billing'] },
 ]
 
 const NAV_MODULES: Partial<Record<string, WorkspaceModuleKey>> = {
@@ -163,6 +163,9 @@ const NAV_MODULES: Partial<Record<string, WorkspaceModuleKey>> = {
   '/portal/reports': 'reports',
   '/portal/properties': 'properties',
   '/portal/payments': 'billing',
+  '/portal/finance': 'billing',
+  '/portal/invoicing': 'billing',
+  '/portal/billing': 'billing',
 }
 
 const GROUP_LABELS: Record<NavItem['group'], string> = {

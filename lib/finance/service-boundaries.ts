@@ -1,12 +1,21 @@
 /**
  * Explicit service-only vs HTTP boundary inventory for finance/payroll.
- * Payroll, tax, documents, and intercompany remain library/service-only until
- * dedicated authenticated routes ship. Only foundation commands are HTTP today.
+ * Domain services remain library-only; authenticated HTTP surfaces go through durable gateways.
  */
 
 /** Relative paths from repo root — every finance HTTP entrypoint that must pass tenant/auth harness. */
 export const FINANCE_HTTP_ENTRYPOINTS = [
   'app/api/v1/finance/foundation/commands/route.ts',
+  'app/api/v1/finance/foundation/queries/route.ts',
+  'app/api/v1/finance/reports/queries/route.ts',
+  'app/api/v1/finance/tax/commands/route.ts',
+  'app/api/v1/finance/tax/queries/route.ts',
+  'app/api/v1/finance/documents/commands/route.ts',
+  'app/api/v1/finance/documents/queries/route.ts',
+  'app/api/v1/finance/intercompany/commands/route.ts',
+  'app/api/v1/finance/intercompany/queries/route.ts',
+  'app/api/v1/finance/payroll/commands/route.ts',
+  'app/api/v1/finance/payroll/queries/route.ts',
 ] as const
 
 /**
@@ -24,8 +33,8 @@ export const SERVICE_ONLY_FINANCE_MODULES = [
   'lib/accounting/foundation-service.ts',
 ] as const
 
-/** UI claim for this harden slice — no finance/payroll portal or admin screens shipped. */
-export const FINANCE_UI_SHIPPED = false as const
+/** UI claim — full finance workbench modules are shipped under /portal/finance. */
+export const FINANCE_UI_SHIPPED = true as const
 
 export const FINANCE_UI_BOUNDARY_NOTE =
-  'No finance/payroll UI paths shipped in this slice. Sensitive access is enforced at policy + service boundaries; client-visible screens remain out of scope until a dedicated UI task.'
+  'Finance foundation workbench shipped under /portal/finance (overview, setup, ledger, reports, tax, documents, intercompany, payroll). Interactive portal workbenches load live bundles and run authenticated commands for foundation, reports, tax, documents, intercompany, and payroll. SARS submission and external payment initiation remain disabled. Sensitive access is enforced at policy + service boundaries.'

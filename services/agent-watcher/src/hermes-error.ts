@@ -140,10 +140,14 @@ export function formatHermesWatcherError(error: string, context?: {
     return parts.join(' ')
   }
 
-  if (lower.includes('missing refresh_token') && lower.includes('xai')) {
+  if (
+    (lower.includes('missing refresh_token') || lower.includes('access_expired_no_refresh') || lower.includes('managed multi-device'))
+    && lower.includes('xai')
+  ) {
     return [
-      `xAI SuperGrok OAuth on ${where || 'this runtime'} is missing a refresh token.`,
-      'Reconnect SuperGrok in Settings → LLM providers (do not copy refresh tokens between machines).',
+      `xAI SuperGrok OAuth on ${where || 'this runtime'} needs a fresh access token from Partners in Biz.`,
+      'Multi-machine mode keeps the SuperGrok refresh token only in web Settings; runtimes receive access-only credentials.',
+      'Fix: Settings → LLM providers → re-sync SuperGrok, or wait for the linked-computer credential reconcile to push a fresh access token. Do not copy refresh tokens between machines.',
       `Detail: ${raw}`.slice(0, 400),
     ].join(' ')
   }

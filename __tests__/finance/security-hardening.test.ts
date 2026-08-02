@@ -328,10 +328,12 @@ describe('approval enforcement and audit coverage inventory', () => {
       path.join(ROOT, 'app/api/v1/finance/foundation/commands/route.ts'),
       'utf8',
     )
-    expect(source).toContain('mapFinanceErrorToHttp')
-    expect(source).toContain('checkFinanceCommandOrgScope')
+    const helper = fs.readFileSync(path.join(ROOT, 'lib/finance/http-command.ts'), 'utf8')
+    expect(source).toContain("from '@/lib/finance/http-command'")
     expect(source).toContain("withAuth('client'")
     expect(source).not.toMatch(/withAuth\('admin'/)
+    expect(helper).toContain('mapFinanceErrorToHttp')
+    expect(helper).toContain('checkFinanceCommandOrgScope')
   })
 
   test('HTTP org scope guard rejects missing org and header mismatch', () => {
@@ -378,10 +380,19 @@ describe('HTTP / service / UI boundaries', () => {
     expect(found.sort()).toEqual([...FINANCE_HTTP_ENTRYPOINTS].sort())
     for (const entry of FINANCE_HTTP_ENTRYPOINTS) {
       const source = fs.readFileSync(path.join(ROOT, entry), 'utf8')
-      expect(source).toContain('checkFinanceCommandOrgScope')
-      expect(source).toContain('mapFinanceErrorToHttp')
+      const usesSharedHelper = source.includes("from '@/lib/finance/http-command'")
+      expect(
+        usesSharedHelper || source.includes('checkFinanceCommandOrgScope'),
+      ).toBe(true)
+      expect(
+        usesSharedHelper || source.includes('mapFinanceErrorToHttp'),
+      ).toBe(true)
       expect(source).toContain("withAuth('client'")
     }
+    // Shared finance HTTP helper must enforce org scope + safe error mapping.
+    const helper = fs.readFileSync(path.join(ROOT, 'lib/finance/http-command.ts'), 'utf8')
+    expect(helper).toContain('checkFinanceCommandOrgScope')
+    expect(helper).toContain('mapFinanceErrorToHttp')
   })
 
   test('service-only finance modules are not imported from app routes outside allowlist', () => {
@@ -422,31 +433,18 @@ describe('HTTP / service / UI boundaries', () => {
     expect(offenders).toEqual([])
   })
 
-  test('no finance/payroll UI shipped in this harden slice', () => {
-    expect(FINANCE_UI_SHIPPED).toBe(false)
-    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/No finance\/payroll UI/)
-    const uiRoots = [
-      path.join(ROOT, 'app/(portal)/portal'),
-      path.join(ROOT, 'app/(admin)/admin'),
-      path.join(ROOT, 'components'),
-    ]
-    const hits: string[] = []
-    for (const root of uiRoots) {
-      if (!fs.existsSync(root)) continue
-      function walk(dir: string) {
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-          const full = path.join(dir, entry.name)
-          if (entry.isDirectory()) {
-            if (/(^|\/)(finance|payroll|payslip)(\/|$)/i.test(path.relative(ROOT, full))) {
-              hits.push(path.relative(ROOT, full))
-            }
-            walk(full)
-          }
-        }
-      }
-      walk(root)
-    }
-    expect(hits).toEqual([])
+  test('finance workbench UI modules are shipped under /portal/finance', () => {
+    expect(FINANCE_UI_SHIPPED).toBe(true)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/setup/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/ledger/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/tax/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/documents/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/intercompany/page.tsx'))).toBe(true)
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/finance/payroll/page.tsx'))).toBe(true)
+    // Standalone /portal/payroll remains unused — payroll lives under the finance workbench.
+    expect(fs.existsSync(path.join(ROOT, 'app/(portal)/portal/payroll'))).toBe(false)
   })
 })
 

@@ -21,6 +21,14 @@ describe('formatHermesWatcherError', () => {
     expect(out).toContain('separate from SuperGrok')
   })
 
+  it('explains xAI managed multi-device access-token delivery', () => {
+    const raw = 'Provider authentication failed: xAI OAuth state is missing refresh_token. Re-authenticate with `hermes model`.'
+    const out = formatHermesWatcherError(raw, { agentId: 'pip', provider: 'xai-oauth' })
+    expect(out).toContain('fresh access token')
+    expect(out).toContain('access-only')
+    expect(out).toContain('Do not copy refresh tokens between machines')
+  })
+
   it('passes through unknown errors unchanged', () => {
     expect(formatHermesWatcherError('gateway failed')).toBe('gateway failed')
   })

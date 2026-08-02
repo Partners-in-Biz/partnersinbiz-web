@@ -22,7 +22,11 @@ export async function GET(req: NextRequest) {
   const validApiAuth = auth === `Bearer ${process.env.AI_API_KEY}`
   if (!validCronAuth && !validApiAuth) return apiError('Unauthorized', 401)
 
-  const result = await runWithFirestoreReadAudit('api/cron/social', () => processQueue())
+  const result = await runWithFirestoreReadAudit(
+    'api/cron/social',
+    () => processQueue(),
+    { logEveryRun: true },
+  )
 
   return apiSuccess(result)
 }

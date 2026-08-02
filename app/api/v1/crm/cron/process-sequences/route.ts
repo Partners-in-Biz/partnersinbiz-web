@@ -103,5 +103,5 @@ export async function GET(req: NextRequest) {
   }
 
   return apiSuccess({ processed, succeeded, failed, errors })
-  })
+  }, { logEveryRun: true })
 }
