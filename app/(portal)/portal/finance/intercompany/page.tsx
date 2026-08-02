@@ -170,21 +170,13 @@ export default function FinanceIntercompanyPage() {
         <FinanceEmptyScope orgScope={scope.orgScope} />
       ) : !scope.loading ? (
         <>
-          <section className="pib-card grid gap-3 p-4 md:grid-cols-3">
-            <label className="text-sm">Viewer entity
-              <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={scope.selectedEntityId} onChange={(e) => scope.setSelectedEntityId(e.target.value)}>
-                {scope.entities.map((e) => <option key={e.id} value={e.id}>{e.code} — {e.legalName}</option>)}
-              </select>
-            </label>
-            <label className="text-sm">Viewer book
-              <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={scope.selectedBookId} onChange={(e) => scope.setSelectedBookId(e.target.value)}>
-                {scope.books.map((b) => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}
-              </select>
-            </label>
-            <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
-              externalEgressAllowed: <strong className="text-[var(--color-pib-text)]">{String(bundle?.externalEgressAllowed ?? false)}</strong>
-              <button type="button" className="pib-btn-ghost mt-2 block" disabled={busy} onClick={() => void loadBundle()}>Refresh</button>
-            </div>
+          <FinanceScopeBar scope={scope} />
+          <section className="pib-card flex flex-wrap items-center justify-between gap-3 p-4">
+            <p className="text-xs text-[var(--color-pib-text-muted)]">
+              externalEgressAllowed:{' '}
+              <strong className="text-[var(--color-pib-text)]">{String(bundle?.externalEgressAllowed ?? false)}</strong>
+            </p>
+            <button type="button" className="pib-btn-ghost" disabled={busy} onClick={() => void loadBundle()}>Refresh</button>
           </section>
 
           <section className="pib-card space-y-3 p-4">

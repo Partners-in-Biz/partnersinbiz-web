@@ -2,8 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
-import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
+import { FinanceModuleFrame } from '@/components/finance/FinanceModuleFrame'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import {
   formatMinor,
@@ -128,12 +127,11 @@ export default function CrossOrgFinancePage() {
   return (
     <FinanceModuleFrame
       active="cross-org"
-      orgScope={scope.orgScope}
+      orgScope={orgScope}
       title="Cross-org payments"
       description="Notify and confirm cross-org payments. No external payment initiation."
-      error={scope.error}
-      message={scope.message}
-      loading={scope.loading}
+      error={error}
+      message={message}
     >
 
       {!orgId && (

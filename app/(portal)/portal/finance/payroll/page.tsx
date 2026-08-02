@@ -138,8 +138,8 @@ export default function FinancePayrollPage() {
         <FinanceEmptyScope orgScope={scope.orgScope} />
       ) : !scope.loading ? (
         <>
+          <FinanceScopeBar scope={scope} />
           <section className="pib-card grid gap-3 p-4 md:grid-cols-3">
-            <FinanceScopeBar scope={scope} />
             <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
               <p>externalPaymentInitiated: <strong className="text-[var(--color-pib-text)]">{String(bundle?.externalPaymentInitiated ?? false)}</strong></p>
               <p>sarsSubmissionInitiated: <strong className="text-[var(--color-pib-text)]">{String(bundle?.sarsSubmissionInitiated ?? false)}</strong></p>

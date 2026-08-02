@@ -71,8 +71,8 @@ export default function FinanceReportsPage() {
         <FinanceEmptyScope orgScope={scope.orgScope} />
       ) : !scope.loading ? (
         <>
+          <FinanceScopeBar scope={scope} />
           <section className="pib-card grid gap-3 p-4 md:grid-cols-4">
-            <FinanceScopeBar scope={scope} />
             <label className="text-sm">Basis
               <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={basis} onChange={(e) => setBasis(e.target.value as 'cash' | 'accrual')}>
                 <option value="accrual">Accrual</option>
@@ -88,7 +88,7 @@ export default function FinanceReportsPage() {
             <label className="text-sm">IS to
               <input type="date" className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={toDate} onChange={(e) => setToDate(e.target.value)} />
             </label>
-            <div className="flex flex-wrap items-end gap-2 md:col-span-2">
+            <div className="flex flex-wrap items-end gap-2 md:col-span-4">
               <button type="button" className="pib-btn-primary" disabled={busy} onClick={() => void runReport('trial-balance')}>Trial balance</button>
               <button type="button" className="pib-btn-primary" disabled={busy} onClick={() => void runReport('income-statement')}>Income statement</button>
               <button type="button" className="pib-btn-primary" disabled={busy} onClick={() => void runReport('balance-sheet')}>Balance sheet</button>

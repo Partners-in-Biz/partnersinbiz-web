@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import Link from 'next/link'
 import { ModuleShell } from '@/components/ui/ModuleShell'
 import { PageHeader, PageLinkTabs, Surface } from '@/components/ui/AppFoundation'
@@ -180,6 +180,6 @@ export function FinanceEmptyScope({
 }
 
 /** Small helper for pages that still need a plain primary action button. */
-export function FinancePrimaryButton(props: React.ComponentProps<typeof Button>) {
+export function FinancePrimaryButton(props: ComponentProps<typeof Button>) {
   return <Button variant="primary" size="sm" {...props} />
 }

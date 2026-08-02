@@ -224,10 +224,11 @@ export default function StatementImportPage() {
       orgScope={scope.orgScope}
       title="Statement import"
       description="Bank statement import and human-gated reconciliation suggestions."
-      error={scope.error}
-      message={scope.message}
+      error={error || scope.error}
+      message={message || scope.message}
       loading={scope.loading}
     >
+      <FinanceScopeBar scope={scope} />
 
       <div className="flex flex-wrap gap-2 text-sm">
         <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-ghost">

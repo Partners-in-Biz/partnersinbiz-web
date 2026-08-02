@@ -282,34 +282,18 @@ export default function PackagingWorkbenchPage() {
       orgScope={scope.orgScope}
       title="Packaging exports"
       description="SARS-ready, payment instruction, and accountant download packs. Manifest/download only."
-      error={scope.error}
-      message={scope.message}
+      error={error || scope.error}
+      message={message || scope.message}
       loading={scope.loading}
     >
 
-      <div className="flex flex-wrap gap-2 text-sm">
-        <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-ghost">
-          Finance hub
-        </Link>
-        <Link href={scopedPortalPath('/portal/finance/cutover', orgScope)} className="pib-btn-ghost">
-          Cutover
-        </Link>
-        <Link href={scopedPortalPath('/portal/finance/payroll', orgScope)} className="pib-btn-ghost">
-          Payroll
-        </Link>
-        <Link href={scopedPortalPath('/portal/finance/tax', orgScope)} className="pib-btn-ghost">
-          Tax
-        </Link>
-      </div>
-
       {!orgId ? (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm">
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
           Select an organisation scope to manage packaging exports.
         </div>
       ) : null}
 
-      {error ? <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</div> : null}
-      {message ? <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">{message}</div> : null}
+      <FinanceScopeBar scope={scope} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="space-y-3 rounded-xl border border-[var(--color-border)] p-4">

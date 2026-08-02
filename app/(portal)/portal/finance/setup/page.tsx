@@ -1,6 +1,13 @@
-import Link from 'next/link'
+'use client'
 
-export const dynamic = 'force-dynamic'
+import Link from 'next/link'
+import { useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { HudChip } from '@/components/ui/HudChip'
+import { FinanceModuleFrame } from '@/components/finance/FinanceModuleFrame'
+import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 const STEPS = [
   {
@@ -9,7 +16,7 @@ const STEPS = [
   },
   {
     title: '2. Create legal entity + primary book',
-    body: 'Use the Finance workbench bootstrap action or POST /api/v1/finance/foundation/commands with legal-entity.create and book.create.',
+    body: 'Use the Finance command centre bootstrap action or POST /api/v1/finance/foundation/commands with legal-entity.create and book.create.',
   },
   {
     title: '3. Chart of accounts and periods',
@@ -20,33 +27,61 @@ const STEPS = [
     body: 'Journal post and reverse require separate approval evidence. Posted journals are immutable; reversals create opposite entries.',
   },
   {
-    title: '5. Later slices',
-    body: 'VAT returns, supplier bills, bank reconciliation, intercompany, and ZA payroll domain engines are implemented and tested. Durable HTTP + UI for those slices ships next without changing the ledger contract.',
+    title: '5. Operating lanes',
+    body: 'Use Documents for AR/AP, Tax for VAT returns, Payroll for ZA runs, and Packaging for download-only SARS/accountant packs. No SARS submit and no external payment initiate from these screens.',
   },
 ]
 
 export default function FinanceSetupPage() {
+  const searchParams = useSearchParams()
+  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="pib-card p-6">
-        <p className="eyebrow">Finance</p>
-        <h1 className="pib-page-title mt-2">Finance setup guide</h1>
-        <p className="mt-3 text-sm text-[var(--color-pib-text-muted)]">
-          Safe internal bootstrap path for the Partners in Biz finance foundation. No automatic payments, no SARS submission, no production cutover from this guide.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link href="/portal/finance" className="pib-btn-primary">Open workbench</Link>
-          <Link href="/portal/invoicing" className="pib-btn-ghost">Operational invoicing</Link>
+    <FinanceModuleFrame
+      active="setup"
+      orgScope={orgScope}
+      title="Finance setup guide"
+      description="Safe internal bootstrap path for the Partners in Biz finance foundation. No automatic payments, no SARS submission, no production cutover from this guide."
+      meta={
+        <div className="flex flex-wrap items-center gap-1.5">
+          <HudChip tone="accent">Bootstrap only</HudChip>
+          <HudChip>No SARS submit</HudChip>
+          <HudChip>No external payout</HudChip>
         </div>
-      </header>
+      }
+      actions={
+        <div className="flex flex-wrap gap-1.5">
+          <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-primary btn-pib-sm">
+            Open command centre
+          </Link>
+          <Link href={scopedPortalPath('/portal/invoicing', orgScope)} className="pib-btn-ghost btn-pib-sm">
+            Operational invoicing
+          </Link>
+        </div>
+      }
+    >
+      <Card className="space-y-3 p-5">
+        <h2 className="text-base font-semibold">Recommended sequence</h2>
+        <p className="text-sm text-[var(--color-pib-text-muted)]">
+          Keep tenant scope on every finance URL via org query params. Commands send X-Org-Id and exact legal entity/book scope.
+        </p>
+      </Card>
       <section className="space-y-3">
         {STEPS.map((step) => (
-          <article key={step.title} className="pib-card p-5">
+          <Card key={step.title} className="p-5">
             <h2 className="text-base font-semibold">{step.title}</h2>
             <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">{step.body}</p>
-          </article>
+          </Card>
         ))}
       </section>
-    </div>
+      <div className="flex flex-wrap gap-2">
+        <Link href={scopedPortalPath('/portal/finance', orgScope)}>
+          <Button variant="primary">Go to command centre</Button>
+        </Link>
+        <Link href={scopedPortalPath('/portal/finance/ledger', orgScope)}>
+          <Button variant="ghost">Open ledger</Button>
+        </Link>
+      </div>
+    </FinanceModuleFrame>
   )
 }

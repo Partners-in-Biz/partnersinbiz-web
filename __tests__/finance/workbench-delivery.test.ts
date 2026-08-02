@@ -61,16 +61,23 @@ describe('finance workbench delivery contract', () => {
       'app/(portal)/portal/finance/statements/page.tsx',
       'app/(portal)/portal/finance/cutover/page.tsx',
       'app/(portal)/portal/finance/packaging/page.tsx',
+      'app/(portal)/portal/finance/setup/page.tsx',
     ]
     for (const rel of pages) {
       expect(existsSync(path.join(root, rel))).toBe(true)
       const src = pageSource(rel)
       expect(src).toMatch(/['"]use client['"]/)
-      expect(src).toMatch(/fetch\(/)
+      expect(src).toMatch(/FinanceModuleFrame/)
+      if (!rel.endsWith('/setup/page.tsx')) {
+        expect(src).toMatch(/fetch\(/)
+      }
       expect(src).not.toMatch(/Authenticated APIs:/)
     }
     expect(existsSync(path.join(root, 'components/finance/useFinanceBookScope.ts'))).toBe(true)
     expect(existsSync(path.join(root, 'components/finance/financeWorkbench.ts'))).toBe(true)
+    expect(existsSync(path.join(root, 'components/finance/FinanceModuleFrame.tsx'))).toBe(true)
+    expect(existsSync(path.join(root, 'components/finance/FinanceScopeBar.tsx'))).toBe(true)
+    expect(existsSync(path.join(root, 'components/finance/FinanceHubCommandRail.tsx'))).toBe(true)
   })
 
   test('org scope guard remains fail-closed', () => {

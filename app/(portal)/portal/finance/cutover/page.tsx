@@ -216,10 +216,11 @@ export default function CutoverWizardPage() {
       orgScope={scope.orgScope}
       title="Opening balances / cutover"
       description="Opening trial balance, open-item recon, and cutover activation controls."
-      error={scope.error}
-      message={scope.message}
+      error={error || scope.error}
+      message={message || scope.message}
       loading={scope.loading}
     >
+      <FinanceScopeBar scope={scope} />
 
       <div className="flex flex-wrap gap-2 text-sm">
         <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-ghost">Finance hub</Link>

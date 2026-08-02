@@ -2,8 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
-import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
+import { FinanceModuleFrame } from '@/components/finance/FinanceModuleFrame'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import {
   formatMinor,
@@ -118,12 +117,11 @@ export default function PersonalFinancePage() {
   return (
     <FinanceModuleFrame
       active="personal"
-      orgScope={scope.orgScope}
+      orgScope={orgScope}
       title="Personal books"
       description="Owner-private personal books workspace with strict privacy boundaries."
-      error={scope.error}
-      message={scope.message}
-      loading={scope.loading}
+      error={error}
+      message={message}
     >
 
       {(error || message) && (

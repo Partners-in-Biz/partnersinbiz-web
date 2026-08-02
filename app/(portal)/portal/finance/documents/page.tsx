@@ -273,21 +273,17 @@ export default function FinanceDocumentsPage() {
       loading={scope.loading}
     >
 
-      {scope.loading ? (
-        <div className="pib-card p-6 text-sm text-[var(--color-pib-text-muted)]">Loading finance scope…</div>
-      ) : !scope.scopeReady ? (
-        <div className="pib-card p-6 text-sm text-[var(--color-pib-text-muted)]">
-          Bootstrap a legal entity and book on the <Link className="underline" href={scopedPortalPath('/portal/finance', scope.orgScope)}>Finance workbench</Link> first.
-        </div>
-      ) : (
+      {!scope.loading && !scope.scopeReady ? (
+        <FinanceEmptyScope orgScope={scope.orgScope} />
+      ) : !scope.loading ? (
         <>
-          <section className="pib-card grid gap-3 p-4 md:grid-cols-3">
-            <FinanceScopeBar scope={scope} />
+          <FinanceScopeBar scope={scope} />
+          <section className="pib-card grid gap-3 p-4 md:grid-cols-[1fr_auto] items-center">
             <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
               <p>externalPaymentInitiated: <strong className="text-[var(--color-pib-text)]">{String(bundle?.externalPaymentInitiated ?? false)}</strong></p>
               <p className="mt-1">Currency: {currency} · Basis: {scope.selectedBook?.accountingBasis}</p>
-              <button type="button" className="pib-btn-ghost mt-2" disabled={busy} onClick={() => void loadBundle()}>Refresh</button>
             </div>
+            <button type="button" className="pib-btn-ghost" disabled={busy} onClick={() => void loadBundle()}>Refresh</button>
           </section>
 
           <section className="grid gap-4 md:grid-cols-4">

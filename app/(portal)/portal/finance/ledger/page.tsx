@@ -106,8 +106,8 @@ export default function FinanceLedgerPage() {
         <FinanceEmptyScope orgScope={scope.orgScope} />
       ) : !scope.loading ? (
         <>
+          <FinanceScopeBar scope={scope} />
           <section className="pib-card grid gap-3 p-4 md:grid-cols-3">
-            <FinanceScopeBar scope={scope} />
             <div className="flex items-end">
               <button type="button" className="pib-btn-ghost" disabled={busy} onClick={() => void load()}>Refresh</button>
             </div>
