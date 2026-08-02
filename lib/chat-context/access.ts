@@ -9,6 +9,12 @@ export interface ChatContextResolveInput {
   // subcollection to inspect and is never trusted as an access grant.
   projectId?: string
   artifactId?: string
+  /**
+   * Conversation the context is being viewed from (Messages dock). Used for
+   * conversation-scoped actions such as linking a project to the chat computer.
+   * Never trusted as an access grant — adapters re-authorise the conversation.
+   */
+  conversationId?: string
   /** A persisted, server-authorised conversation reference for opaque Workbench paths. */
   contextReference?: ContextReferenceSeed
   user: ApiUser

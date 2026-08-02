@@ -86,10 +86,13 @@ export function useChatContexts(orgId: string, conversation: Conversation | null
       const taskProjectId = activeContext.kind === 'task' ? activeContext.projectId?.trim() : ''
       const queryParams = new URLSearchParams()
       if (taskProjectId) queryParams.set('projectId', taskProjectId)
-      // Workbench path IDs are deliberately opaque. Give the server the
-      // conversation so it can recover the persisted sealed binding instead
-      // of treating the ID as a generic Firestore record.
-      if (activeContext.workbenchPath) queryParams.set('conversationId', conversation.id)
+      // Conversation scope powers:
+      // - workbench paths (opaque sealed binding recovery)
+      // - project preview "Link to this computer" when the project lacks a
+      //   location replica on the chat's bound machine
+      if (activeContext.workbenchPath || activeContext.kind === 'project') {
+        queryParams.set('conversationId', conversation.id)
+      }
       const query = queryParams.size > 0 ? `?${queryParams.toString()}` : ''
       const response = await fetch(`/api/v1/chat-context/${encodeURIComponent(activeContext.kind)}/${encodeURIComponent(activeContext.id)}${query}`, { signal: controller.signal })
       if (!response.ok) throw new Error(`context refresh failed: ${response.status}`)
