@@ -331,16 +331,16 @@ Research (this) → Spec update BKF7… → UX hub (parallel foundation)
 | Repo durable doc | `docs/research/finance-phase4-competitor-gap-map-2026-08-02.md` |
 | Matrix HTML (throwaway visual) | `docs/research/finance-phase4-competitor-gap-map-matrix-2026-08-02.html` |
 | Repo commits | `6cc8307ea961630ff8b3c169d9dfbead320f1741`, `adae5cb954e05334475d19cfc52a4e83e5c3e259` |
-| Mac Cowork wiki topic | `/Users/peetstander/.hermes/cowork-wiki/agents/partners/wiki/finance-phase4-competitor-gap-map-2026-08-02.md` |
-| Mac hot / log / index | `.../wiki/hot.md`, `.../logs/2026-08-02.md`, `.../index.md` |
-| VPS wiki path | `/var/lib/hermes/cowork-wiki/agents/partners/wiki/finance-phase4-competitor-gap-map-2026-08-02.md` (sync when SSH available; not verified if offline) |
+| GitHub blob | https://github.com/Partners-in-Biz/partnersinbiz-web/blob/adae5cb954e05334475d19cfc52a4e83e5c3e259/docs/research/finance-phase4-competitor-gap-map-2026-08-02.md |
+| VPS Cowork wiki topic (shared durable home) | `/var/lib/hermes/cowork-wiki/agents/partners/wiki/finance-phase4-competitor-gap-map-2026-08-02.md` |
+| VPS hot / log / index | `/var/lib/hermes/cowork-wiki/agents/partners/wiki/hot.md`, `.../logs/2026-08-02.md`, `.../index.md` |
 
 ### Evidence hygiene (Pip review rework 2026-08-02)
 
-- Durable repo paths are real on `origin/development` at the SHAs above.
+- Durable repo paths are real on `origin/development` at the two SHAs above only (do not cite thrash SHAs in the evidence pack).
 - Findings f1–f4 and recommendations r1–r3 on Research `6OjqsbjAGkZue9vmTUbD` carry non-empty `sourceIds`.
-- Source `fh62QHuK1Q9p4Vgr9mo5` is verified for repo markdown/HTML + commits only.
-- Mac Cowork wiki topic + hot.md + 2026-08-02 log + index.md are the Sage-runtime knowledge persistence surface.
+- Source `fh62QHuK1Q9p4Vgr9mo5` is verified for repo markdown/HTML + commits `6cc8307ea…` / `adae5cb954…` only.
+- VPS Cowork wiki topic + hot.md + 2026-08-02 log + index.md are the shared durable knowledge persistence surface for Pip verification on hermes-vps.
 - Non-goals unchanged: no SARS e-file submit; no payment initiation; no mass client-visible statement/payslip email; no production deploy from this card.
 
 ## Safety readback
