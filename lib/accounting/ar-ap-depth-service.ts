@@ -675,7 +675,7 @@ export class ArApDepthService {
 
     let document: FinanceCustomerInvoice | SupplierBill
     if (existingBefore.documentKind === 'customer_invoice') {
-      document = await this.docsService.createCustomerInvoice(actor, {
+      document = await this.docsService.createCustomerInvoice(actor, compactUndefined({
         ...scope, id: command.documentId,
         customerCompanyId: existingBefore.template.counterpartyCompanyId,
         customerSnapshot: existingBefore.template.counterpartySnapshot,
@@ -683,16 +683,16 @@ export class ArApDepthService {
         accountingBasis: existingBefore.template.accountingBasis,
         numberPrefix: existingBefore.template.numberPrefix, lines: existingBefore.template.lines,
         expectedVersion: 0, requestId: `${command.requestId}:doc`, idempotencyKey: `${command.idempotencyKey}:doc`,
-      } as CreateCustomerInvoiceCommand)
+      }) as CreateCustomerInvoiceCommand)
       if (command.autoIssue) {
         if (!command.controlAccountId) throw new FinanceValidationError('controlAccountId is required when autoIssue is true')
-        document = await this.docsService.issueCustomerInvoice(actor, {
+        document = await this.docsService.issueCustomerInvoice(actor, compactUndefined({
           ...scope, invoiceId: document.id, expectedVersion: document.version, controlAccountId: command.controlAccountId,
           requestId: `${command.requestId}:issue`, idempotencyKey: `${command.idempotencyKey}:issue`,
-        } as IssueCustomerInvoiceCommand)
+        }) as IssueCustomerInvoiceCommand)
       }
     } else {
-      document = await this.docsService.createSupplierBill(actor, {
+      document = await this.docsService.createSupplierBill(actor, compactUndefined({
         ...scope, id: command.documentId,
         supplierCompanyId: existingBefore.template.counterpartyCompanyId,
         supplierSnapshot: existingBefore.template.counterpartySnapshot,
@@ -703,13 +703,13 @@ export class ArApDepthService {
         accountingBasis: existingBefore.template.accountingBasis,
         numberPrefix: existingBefore.template.numberPrefix, lines: existingBefore.template.lines,
         expectedVersion: 0, requestId: `${command.requestId}:doc`, idempotencyKey: `${command.idempotencyKey}:doc`,
-      } as CreateSupplierBillCommand)
+      }) as CreateSupplierBillCommand)
       if (command.autoIssue) {
         if (!command.controlAccountId) throw new FinanceValidationError('controlAccountId is required when autoIssue is true')
-        document = await this.docsService.issueSupplierBill(actor, {
+        document = await this.docsService.issueSupplierBill(actor, compactUndefined({
           ...scope, billId: document.id, expectedVersion: document.version, controlAccountId: command.controlAccountId,
           requestId: `${command.requestId}:issue`, idempotencyKey: `${command.idempotencyKey}:issue`,
-        } as IssueSupplierBillCommand)
+        }) as IssueSupplierBillCommand)
       }
     }
 
@@ -943,12 +943,12 @@ export class ArApDepthService {
     if (command.allocations.length > 50) throw new FinanceValidationError('bulk allocate limited to 50 allocations')
     const results: PaymentAllocation[] = []
     for (const [index, item] of command.allocations.entries()) {
-      const allocation = await this.docsService.allocatePayment(actor, {
+      const allocation = await this.docsService.allocatePayment(actor, compactUndefined({
         ...scope, id: item.id, paymentId: item.paymentId, targetType: item.targetType, targetId: item.targetId,
         allocatedMinor: item.allocatedMinor, discountMinor: item.discountMinor, writeOffMinor: item.writeOffMinor,
         settlementJournalEntryId: item.settlementJournalEntryId, expectedVersion: 0,
         requestId: `${command.requestId}:${index}`, idempotencyKey: `${command.idempotencyKey}:${index}`,
-      } as AllocatePaymentCommand)
+      }) as AllocatePaymentCommand)
       results.push(allocation)
     }
     await this.depthStore.transact((state) => {

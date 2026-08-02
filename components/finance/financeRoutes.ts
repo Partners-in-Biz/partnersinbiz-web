@@ -41,7 +41,7 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     label: 'AR / AP',
     href: '/portal/finance/documents',
     icon: 'receipt_long',
-    description: 'Invoices, bills, payments, bank transactions, and reconciliation.',
+    description: 'Invoices, bills, credit/debit notes, recurring docs, statements, bulk ops, aging, attachments.',
     group: 'ops',
   },
   {

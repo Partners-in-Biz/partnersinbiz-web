@@ -18,12 +18,19 @@ import { readFinanceJson } from '@/components/finance/financeWorkbench'
 type DocumentsBundle = {
   invoices: Array<Record<string, any>>
   bills: Array<Record<string, any>>
+  creditNotes?: Array<Record<string, any>>
+  debitNotes?: Array<Record<string, any>>
+  recurringSchedules?: Array<Record<string, any>>
+  statementDrafts?: Array<Record<string, any>>
+  attachments?: Array<Record<string, any>>
   openItems: Array<Record<string, any>>
   payments: Array<Record<string, any>>
   bankAccounts: Array<Record<string, any>>
   bankTransactions: Array<Record<string, any>>
   reconciliations: Array<Record<string, any>>
+  aging?: { ar?: any; ap?: any }
   externalPaymentInitiated?: boolean
+  massEmailAllowed?: boolean
 }
 
 export default function FinanceDocumentsPage() {
@@ -267,7 +274,7 @@ export default function FinanceDocumentsPage() {
       active="documents"
       orgScope={scope.orgScope}
       title="Documents & reconciliation"
-      description="Customer invoices, supplier bills, payment matching, bank transactions, and reconciliation — record only, no external payment initiate."
+      description="AR/AP depth: invoices, bills, credit/debit notes, recurring schedules, statement export drafts, bulk ops, aging, attachments — record only; no external payment initiate or mass email."
       error={scope.error}
       message={scope.message}
       loading={scope.loading}
@@ -291,6 +298,10 @@ export default function FinanceDocumentsPage() {
               ['Invoices', bundle?.invoices?.length ?? 0],
               ['Bills', bundle?.bills?.length ?? 0],
               ['Payments', bundle?.payments?.length ?? 0],
+              ['Credit notes', bundle?.creditNotes?.length ?? 0],
+              ['Debit notes', bundle?.debitNotes?.length ?? 0],
+              ['Recurring', bundle?.recurringSchedules?.length ?? 0],
+              ['Statements', bundle?.statementDrafts?.length ?? 0],
               ['Bank txns', bundle?.bankTransactions?.length ?? 0],
             ].map(([label, n]) => (
               <div key={String(label)} className="pib-stat-card">
@@ -298,6 +309,38 @@ export default function FinanceDocumentsPage() {
                 <p className="mt-3 text-2xl font-semibold">{n}</p>
               </div>
             ))}
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2">
+            <div className="pib-card p-4">
+              <h2 className="mb-2 text-base font-semibold">AR aging</h2>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">Total {formatMinor(bundle?.aging?.ar?.totalOutstandingMinor ?? 0, currency)}</p>
+              <div className="grid grid-cols-5 gap-2 text-center text-xs">
+                {(bundle?.aging?.ar?.buckets || []).map((b: any) => (
+                  <div key={b.key} className="rounded-lg border border-[var(--color-pib-line)] p-2">
+                    <p className="text-[var(--color-pib-text-muted)]">{b.label}</p>
+                    <p className="mt-1 font-semibold">{formatMinor(b.amountMinor ?? 0, currency)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="pib-card p-4">
+              <h2 className="mb-2 text-base font-semibold">AP aging</h2>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">Total {formatMinor(bundle?.aging?.ap?.totalOutstandingMinor ?? 0, currency)}</p>
+              <div className="grid grid-cols-5 gap-2 text-center text-xs">
+                {(bundle?.aging?.ap?.buckets || []).map((b: any) => (
+                  <div key={b.key} className="rounded-lg border border-[var(--color-pib-line)] p-2">
+                    <p className="text-[var(--color-pib-text-muted)]">{b.label}</p>
+                    <p className="mt-1 font-semibold">{formatMinor(b.amountMinor ?? 0, currency)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">
+            Credit notes, debit notes, recurring schedules, counterparty statement drafts (export only), bulk issue/void/allocate, attachments, and portal filters are available via documents commands/queries. massEmailAllowed=false · no SARS submit · no external payment initiate.
+            Credit notes: {bundle?.creditNotes?.length ?? 0} · Debit notes: {bundle?.debitNotes?.length ?? 0} · Recurring: {bundle?.recurringSchedules?.length ?? 0} · Statement drafts: {bundle?.statementDrafts?.length ?? 0} · Attachments: {bundle?.attachments?.length ?? 0}.
           </section>
 
           <section className="grid gap-4 xl:grid-cols-2">
