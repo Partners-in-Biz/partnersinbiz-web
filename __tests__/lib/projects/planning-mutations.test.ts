@@ -58,13 +58,13 @@ describe('planning mutation classification and transaction guard', () => {
     expect(isProjectTaskPlanningMutation({ agentStatus: 'blocked' })).toBe(false)
   })
 
-  it('limits context staleness to material task-intent fields', () => {
+  it('classifies task content fields without treating agent telemetry as planning content', () => {
     expect(isProjectTaskContextMutation({ title: 'Changed intent' })).toBe(true)
     expect(isProjectTaskContextMutation({ description: 'Changed scope' })).toBe(true)
     expect(isProjectTaskContextMutation({ dueDate: '2026-08-01' })).toBe(true)
     expect(isProjectTaskContextMutation({ assigneeAgentId: 'theo' })).toBe(false)
     expect(isProjectTaskContextMutation({ agentStatus: 'done', agentOutput: { summary: 'Done' } })).toBe(false)
-    // Handoff/approval metadata must not stale a confirmed Decision Brief.
+    // Handoff/approval metadata is planning-sensitive but not "context content".
     expect(isProjectTaskContextMutation({ expectedArtifacts: ['ledger'] })).toBe(false)
     expect(isProjectTaskContextMutation({ approvalGate: 'finance' })).toBe(false)
     expect(isProjectTaskContextMutation({ sourceDocumentId: 'doc-1' })).toBe(false)
@@ -72,12 +72,14 @@ describe('planning mutation classification and transaction guard', () => {
     expect(isProjectTaskPlanningMutation({ approvalStatus: 'approved' })).toBe(false)
   })
 
-  it('reopens and snapshots a ready discovery state for a material context mutation', () => {
+  it('can still reopen discovery when an explicit material reason is prepared', () => {
+    // Direct preparePlanningContextMutation remains available for docs/suite writers.
+    // Task PATCH no longer routes ordinary updates through this path.
     const current = readyPlanning()
     const result = preparePlanningContextMutation(
       { planningDiscovery: current },
       { uid: 'peet', now: '2026-07-27T01:00:00.000Z' },
-      'Task description materially changed',
+      'Linked document scope changed',
     )
 
     expect(result).toEqual(expect.objectContaining({
@@ -89,7 +91,7 @@ describe('planning mutation classification and transaction guard', () => {
         snapshots: [expect.objectContaining({
           revision: current.revision,
           digest: current.digest,
-          staleReason: 'Task description materially changed',
+          staleReason: 'Linked document scope changed',
         })],
       }),
       event: expect.objectContaining({ type: 'reopened', previousRevision: current.revision }),

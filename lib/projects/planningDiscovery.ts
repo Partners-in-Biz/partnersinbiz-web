@@ -240,9 +240,10 @@ export function planningMutationBlocker(project: Record<string, unknown>): null 
 }
 
 /**
- * Material intent fields — changing these after a confirmed Decision Brief
- * reopens discovery (snapshot + re-confirm). Do not put approval/handoff
- * metadata here or ordinary approval and enrichment will stale the brief.
+ * Task intent / content fields. PATCH requires a confirmed Decision Brief when
+ * discovery is enforced, but does **not** reopen/stale that brief (false-stale
+ * from ordinary project_task.updated was re-blocking approved projects).
+ * Intentional brief reopen remains on docs/suite/linked-document writers.
  */
 const PROJECT_TASK_CONTEXT_FIELDS = new Set([
   'title', 'description', 'priority', 'dueDate', 'startDate', 'baselineDueDate', 'baselineStartDate',
@@ -268,6 +269,7 @@ const PROJECT_TASK_PLANNING_FIELDS = new Set([
   'agentReleaseAt', 'reviewerIds', 'reviewerAgentId',
 ])
 
+/** True when the PATCH body includes task content/intent fields (not agent telemetry). */
 export function isProjectTaskContextMutation(body: Record<string, unknown>): boolean {
   return Object.keys(body).some((field) => PROJECT_TASK_CONTEXT_FIELDS.has(field))
 }
