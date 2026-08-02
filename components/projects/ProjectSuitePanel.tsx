@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { WorkflowGraphAuthoringPanel } from '@/components/projects/WorkflowGraphAuthoringPanel'
 
 export const PLAN_REFRESH_INTERVAL_MS = 15_000
 
@@ -1524,7 +1525,7 @@ function PlanningDiscoveryPanel({
   )
 }
 
-export function ProjectSuitePanel({ projectId }: { projectId: string }) {
+export function ProjectSuitePanel({ projectId, orgId }: { projectId: string; orgId?: string }) {
   const [data, setData] = useState<SuiteData>(EMPTY_SUITE)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -1762,6 +1763,8 @@ export function ProjectSuitePanel({ projectId }: { projectId: string }) {
         </div>
 
         <ReportsPanel reports={data.reports} />
+
+        <WorkflowGraphAuthoringPanel projectId={projectId} orgId={orgId} />
 
         <ControlForms onCreateSuiteItem={(payload) => mutateSuite(payload)} saving={saving} workload={data.workload} />
 

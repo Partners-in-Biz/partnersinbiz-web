@@ -97,6 +97,19 @@ export function normalizeGraphNode(raw: unknown, index: number): GraphNodeTempla
     limits: cleanRecord(source.limits).maxConcurrent !== undefined
       ? { maxConcurrent: Number(cleanRecord(source.limits).maxConcurrent) }
       : undefined,
+    budgets: (() => {
+      const budgets = cleanRecord(source.budgets)
+      const maxTokens = budgets.maxTokens !== undefined ? Number(budgets.maxTokens) : undefined
+      const maxCost = budgets.maxCost !== undefined ? Number(budgets.maxCost) : undefined
+      if (maxTokens === undefined && maxCost === undefined) return undefined
+      return {
+        ...(Number.isFinite(maxTokens) ? { maxTokens } : {}),
+        ...(Number.isFinite(maxCost) ? { maxCost } : {}),
+      }
+    })(),
+    retryPolicy: Object.keys(cleanRecord(source.retryPolicy)).length
+      ? (cleanRecord(source.retryPolicy) as GraphNodeTemplate['retryPolicy'])
+      : undefined,
   }
 }
 
