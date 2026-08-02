@@ -127,7 +127,7 @@ export default function StatementImportPage() {
       if (!bankAccountId) throw new Error('Select a bank account')
       if (!scope.legalEntityId || !scope.bookId) throw new Error('Select legal entity and book')
       const id = newFinanceId('sib')
-      const ids = requestIdentity()
+      const ids = requestIdentity('stmt')
       const body = await runCommand('statement.import.parse', {
         id,
         legalEntityId: scope.legalEntityId,
@@ -149,7 +149,7 @@ export default function StatementImportPage() {
       if (!bankAccountId) throw new Error('Select a bank account')
       if (!scope.legalEntityId || !scope.bookId) throw new Error('Select legal entity and book')
       const id = newFinanceId('sib')
-      const parseIds = requestIdentity()
+      const parseIds = requestIdentity('stmt_parse')
       await runCommand('statement.import.parse', {
         id,
         legalEntityId: scope.legalEntityId,
@@ -160,7 +160,7 @@ export default function StatementImportPage() {
         format,
         ...parseIds,
       })
-      const applyIds = requestIdentity()
+      const applyIds = requestIdentity('stmt_apply')
       const body = await runCommand('statement.import.apply', {
         id,
         ...applyIds,
@@ -177,7 +177,7 @@ export default function StatementImportPage() {
     await withBusy(async () => {
       const id = lastBatchId || batches[0]?.id
       if (!id) throw new Error('No batch to apply')
-      const ids = requestIdentity()
+      const ids = requestIdentity('stmt')
       const body = await runCommand('statement.import.apply', { id, ...ids })
       const batch = body?.data?.result?.batch
       setMessage(
@@ -190,7 +190,7 @@ export default function StatementImportPage() {
     await withBusy(async () => {
       if (!bankAccountId) throw new Error('Select a bank account')
       if (!scope.legalEntityId || !scope.bookId) throw new Error('Select legal entity and book')
-      const ids = requestIdentity()
+      const ids = requestIdentity('stmt')
       const body = await runCommand('recon.suggestion.generate', {
         idPrefix: newFinanceId('rsg'),
         legalEntityId: scope.legalEntityId,
@@ -207,7 +207,7 @@ export default function StatementImportPage() {
 
   async function resolveSuggestion(id: string, op: 'recon.suggestion.accept' | 'recon.suggestion.dismiss') {
     await withBusy(async () => {
-      const ids = requestIdentity()
+      const ids = requestIdentity('stmt')
       await runCommand(op, {
         id,
         resolutionNote: op.endsWith('accept') ? 'Human accepted suggestion' : 'Human dismissed suggestion',

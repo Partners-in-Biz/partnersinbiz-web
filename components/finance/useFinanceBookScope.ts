@@ -143,6 +143,9 @@ export function useFinanceBookScope() {
     setSelectedEntityId,
     selectedBookId,
     setSelectedBookId,
+    // Convenience aliases used by phase-2/3 workbench pages
+    legalEntityId: selectedEntityId,
+    bookId: selectedBookId,
     selectedEntity,
     selectedBook,
     scopeReady,
