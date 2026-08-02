@@ -2926,41 +2926,6 @@ describe('UnifiedChat context references', () => {
     ]))
   })
 
-  it('clears unsent composer state when switching conversations', async () => {
-    const conversationA = { ...baseConversation, title: 'Finance conversation', contextRefs: [projectRef] }
-    const conversationB = { ...baseConversation, id: 'conv-2', title: 'Website conversation', contextRefs: [] }
-    const defaultFetch = mockFetch
-    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(request)
-      if (url.startsWith('/api/v1/conversations?')) {
-        return jsonResponse({ data: { conversations: [conversationA, conversationB] } })
-      }
-      if (url === '/api/v1/conversations/conv-2/messages') {
-        return jsonResponse({ data: { messages: [] } })
-      }
-      return defaultFetch(request, init)
-    })
-    global.fetch = mockFetch
-
-    const { container } = render(
-      <UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />,
-    )
-
-    const input = await screen.findByPlaceholderText('Send a message')
-    await screen.findByRole('button', { name: 'Remove Launch Project context' })
-    fireEvent.change(input, { target: { value: 'Draft that belongs only to Finance' } })
-    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement
-    fireEvent.change(fileInput, { target: { files: [new File(['brief'], 'finance-brief.pdf', { type: 'application/pdf' })] } })
-    expect(await screen.findByText('finance-brief.pdf')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByTestId('conversation-row-conv-2'))
-    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-2/messages'))
-
-    expect(input).toHaveValue('')
-    expect(screen.queryByText('finance-brief.pdf')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Remove Launch Project context' })).not.toBeInTheDocument()
-  })
-
   it('does not show a delayed context removal failure in a different conversation', async () => {
     let rejectPatch: ((reason?: unknown) => void) | undefined
     const patchResponse = new Promise<Response>((_resolve, reject) => { rejectPatch = reject })

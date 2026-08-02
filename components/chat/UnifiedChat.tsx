@@ -1248,7 +1248,6 @@ export default function UnifiedChat({
   const activeId = activeConversationId === undefined ? uncontrolledActiveId : activeConversationId
   const activeConversationIdRef = useRef(activeId)
   activeConversationIdRef.current = activeId
-  const composerStateConversationIdRef = useRef(activeId)
   const setActiveId = useCallback((value: string | null) => {
     if (activeConversationId === undefined) setUncontrolledActiveId(value)
     onActiveConversationChange?.(value)
@@ -4220,26 +4219,10 @@ export default function UnifiedChat({
       })
   }, [activeConversation, activeId, latestVisibleMessageId])
 
-  // Composer state is per-conversation. Clear immediately on id change so an
-  // unsent draft, pending file, or context picker from the prior chat cannot
-  // be sent into the next conversation while its object loads.
+  // Composer context is per-conversation. Clear immediately on id change so
+  // prior pins cannot flash/stick while the next conversation object loads.
   useEffect(() => {
-    const previousConversationId = composerStateConversationIdRef.current
-    composerStateConversationIdRef.current = activeId
     setContextRefs([])
-    // Do not erase a composer that was opened before the initial session has
-    // hydrated (or one that is creating its first conversation on send).
-    if (!previousConversationId || previousConversationId === activeId) return
-    setInput('')
-    setAttachments([])
-    setContextMention(null)
-    setContextTypePrompt(null)
-    setSlashPrompt(null)
-    setSelectedSlashCommand(null)
-    setContextSearchResults([])
-    setContextSearchMessage(null)
-    setContextSearchLoading(false)
-    setContextPickerActiveIndex(0)
   }, [activeId])
 
   useEffect(() => {
