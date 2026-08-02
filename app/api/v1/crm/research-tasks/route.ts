@@ -95,7 +95,7 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
       metadata:
         (body as { metadata?: unknown }).metadata &&
         typeof (body as { metadata: unknown }).metadata === 'object'
-          ? ((body as { metadata: Record<string, unknown> }).metadata)
+          ? (body as { metadata: Record<string, unknown> }).metadata
           : undefined,
       createdByRef: ctx.actor,
       agentId,

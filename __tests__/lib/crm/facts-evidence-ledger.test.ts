@@ -167,4 +167,21 @@ describe('Mailbox evidence parser', () => {
   it('does not invent candidates from empty body', () => {
     expect(parseMailboxEvidence({ bodyText: '   ' })).toEqual([])
   })
+
+  it('dedupes same field+value candidates', () => {
+    const body = ['Jane Doe', 'Title: CEO', 'CEO | Acme'].join('\n')
+    const candidates = parseMailboxEvidence({ bodyText: body })
+    const titles = candidates.filter((c) => c.field === 'title')
+    const values = new Set(titles.map((c) => c.value.toLowerCase()))
+    expect(values.size).toBe(titles.length)
+  })
+})
+
+describe('Evidence kind guards', () => {
+  it('rejects unknown evidence kinds', () => {
+    const { isEvidenceKind } = require('@/lib/crm/facts/evidence') as typeof import('@/lib/crm/facts/evidence')
+    expect(isEvidenceKind('crm.signature-block')).toBe(true)
+    expect(isEvidenceKind('model.confidence')).toBe(false)
+    expect(isEvidenceKind('')).toBe(false)
+  })
 })

@@ -48,6 +48,10 @@ GET  /api/v1/crm/contacts/:id/graph?includeResearchTasks=true
 GET  /api/v1/crm/research-tasks?contactId=&status=pending&due=true
 POST /api/v1/crm/research-tasks
   { "contactId", "reason": "Rep-visible why", "kind"?, "delaySeconds"?, "budgetUnits"? }
+POST /api/v1/crm/research-tasks/lease
+  { "workerId"?, "leaseSeconds"? }  // multi-worker safe lease of next due pending task
+POST /api/v1/crm/research-tasks/:id/complete
+  { "resultSummary"?, "budgetSpentDelta"?, "failed"?, "error"? }
 ```
 
 ### POST fact body (no confidence)
@@ -113,7 +117,7 @@ npx jest __tests__/lib/crm/facts-evidence-ledger.test.ts --no-coverage
 
 ## Out of scope / follow-ups
 
-- Background worker that leases `crm_research_tasks` and runs Hermes enrichment loops
+- Hermes background worker loop that repeatedly leases `crm_research_tasks` and runs enrichment (lease/complete APIs are ready)
 - Auto-ingest of connected Gmail into from-mailbox on inbound webhooks
 - Admin contact detail parity panel (portal shipped first)
-- Firestore composite indexes if list filters grow beyond current in-memory patterns
+- Deploy Firestore composite indexes: `firebase deploy --only firestore:indexes` (indexes added to `firestore.indexes.json`)

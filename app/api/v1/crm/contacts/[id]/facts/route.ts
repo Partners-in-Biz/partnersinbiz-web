@@ -5,24 +5,17 @@
  * Auth: member+
  */
 import { NextRequest } from 'next/server'
-import { adminDb } from '@/lib/firebase/admin'
-import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
+import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
-import {
-  crmActorCanReadRecord,
-  crmRecordCompanyIds,
-  isCrmPrivilegedActor,
-  loadCompanyAssignmentMap,
-} from '@/lib/crm/assignment-access'
 import {
   EVIDENCE_KINDS,
   FACT_FIELDS,
   isEvidenceKind,
   isFactField,
   listContactFacts,
+  loadAccessibleFactContact,
   recordContactFact,
   type Evidence,
-  type FactContactView,
   type FactStatus,
 } from '@/lib/crm/facts'
 import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
@@ -30,25 +23,6 @@ import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 export const dynamic = 'force-dynamic'
 
 type RouteCtx = { params: Promise<{ id: string }> }
-
-async function loadAccessibleContact(
-  ctx: CrmAuthContext,
-  contactId: string,
-): Promise<{ ok: true; contact: FactContactView } | { ok: false; res: Response }> {
-  const snap = await adminDb.collection('contacts').doc(contactId).get()
-  if (!snap.exists) return { ok: false, res: apiError('Contact not found', 404) }
-  const data = snap.data()!
-  if (data.orgId !== ctx.orgId || data.deleted === true) {
-    return { ok: false, res: apiError('Contact not found', 404) }
-  }
-  if (!isCrmPrivilegedActor(ctx)) {
-    const companies = await loadCompanyAssignmentMap(ctx.orgId, crmRecordCompanyIds(data))
-    if (!crmActorCanReadRecord(ctx, { id: snap.id, ...data }, { companies })) {
-      return { ok: false, res: apiError('Contact not found', 404) }
-    }
-  }
-  return { ok: true, contact: { id: snap.id, orgId: ctx.orgId, ...data } as FactContactView }
-}
 
 function parseStatusFilter(raw: string | null): FactStatus | FactStatus[] | undefined {
   if (!raw) return undefined
@@ -63,7 +37,7 @@ export const GET = withCrmAuth<RouteCtx>('member', async (req, ctx, routeCtx) =>
   const { id: contactId } = await routeCtx!.params
   if (!contactId) return apiError('Contact ID is required', 400)
 
-  const access = await loadAccessibleContact(ctx, contactId)
+  const access = await loadAccessibleFactContact(ctx, contactId)
   if (!access.ok) return access.res
 
   const url = new URL(req.url)
@@ -101,7 +75,7 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req: NextRequest, ctx
   const { id: contactId } = await routeCtx!.params
   if (!contactId) return apiError('Contact ID is required', 400)
 
-  const access = await loadAccessibleContact(ctx, contactId)
+  const access = await loadAccessibleFactContact(ctx, contactId)
   if (!access.ok) return access.res
 
   const body = await req.json().catch(() => null)
@@ -175,8 +149,11 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req: NextRequest, ctx
     await safeTouchCrmLiveUpdate(ctx.orgId, 'contacts', 'contact.fact_recorded')
   }
 
-  return apiSuccess({
-    result,
-    contactId,
-  }, result.stored ? 201 : 200)
+  return apiSuccess(
+    {
+      result,
+      contactId,
+    },
+    result.stored ? 201 : 200,
+  )
 })

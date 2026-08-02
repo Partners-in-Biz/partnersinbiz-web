@@ -119,6 +119,16 @@ Current contact quick-action routes:
 | `POST` | `/crm/contacts/[id]/recompute-score` | Recompute engagement/lead score for one contact. |
 | `GET` | `/crm/contacts/[id]/suggestions` | Agent/CRM suggestions for the contact. |
 | `POST` | `/crm/contacts/[id]/tags` | Add/update contact tags. |
+| `GET` | `/crm/contacts/[id]/facts` | ContactFact evidence ledger rows (status/field filters). |
+| `POST` | `/crm/contacts/[id]/facts` | Record observation-backed fact (no model confidence). |
+| `POST` | `/crm/contacts/[id]/facts/[factId]/decide` | Accept or dismiss a proposed fact. |
+| `POST` | `/crm/contacts/[id]/facts/from-mailbox` | Parse mailbox signature/reply into fact proposals (egress-safe). |
+| `POST` | `/crm/contacts/[id]/facts/job-change` | Employer/title change with optional recheck task. |
+| `GET` | `/crm/contacts/[id]/graph` | Graph-safe neighbour IDs for Hermes tools. |
+| `GET` | `/crm/research-tasks` | List CRM research/recheck queue. |
+| `POST` | `/crm/research-tasks` | schedule_recheck with rep-visible reason + budget. |
+| `POST` | `/crm/research-tasks/lease` | Multi-worker lease of next due research task. |
+| `POST` | `/crm/research-tasks/[id]/complete` | Complete or fail a research task. |
 
 CRM report routes:
 
@@ -1688,6 +1698,29 @@ Response:
 ```
 
 Use to surface a prioritised to-do list in the contact detail panel. No side-effects — read-only.
+
+---
+
+### ContactFact evidence ledger (Comp AI patterns)
+
+Multi-tenant observation → band → apply/propose ledger. Tools never send model confidence.
+
+Hard rules in code:
+1. Score/band from evidence kinds only (`lib/crm/facts/evidence.ts`)
+2. Never re-propose dismissed field+value
+3. Never auto-apply over `humanOwnedFields` (human edits + accepted proposals mark ownership)
+4. VERIFIED requires a primary source
+5. Contradictions hold under PROBABLE ceiling
+
+Agent patterns:
+1. `GET /crm/contacts/:id/graph` before acting — neighbour IDs always returned
+2. `POST /crm/contacts/:id/facts` with `evidence: [{ kind, detail, sourceUrl? }]` only
+3. Mailbox: `POST .../facts/from-mailbox` with `bodyText` (local parse; `dryRun: true` ok)
+4. Uncertain follow-up: `POST /crm/research-tasks` with rep-visible `reason` + optional budget
+5. Workers: `POST /crm/research-tasks/lease` then `POST /crm/research-tasks/:id/complete`
+6. Humans accept/dismiss in portal contact detail **Agent proposals** panel
+
+Full contract: `docs/crm/contact-fact-evidence-ledger.md`.
 
 ---
 
