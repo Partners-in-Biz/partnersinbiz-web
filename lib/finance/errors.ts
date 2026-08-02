@@ -1,5 +1,9 @@
 import { FinanceValidationError } from '@/lib/accounting/foundation'
 import { FinanceAuthorizationError } from './policy'
+import {
+  PersonalFinanceNotFoundError,
+  PersonalFinanceValidationError,
+} from '@/lib/finance/personal/service'
 
 /** Non-enumerating denial for sensitive finance/payroll resources. */
 export class FinanceNotFoundError extends Error {
@@ -22,7 +26,9 @@ export function isFinanceHttpError(error: unknown): error is Error & { statusCod
   return (
     error instanceof FinanceAuthorizationError ||
     error instanceof FinanceNotFoundError ||
-    error instanceof FinanceValidationError
+    error instanceof FinanceValidationError ||
+    error instanceof PersonalFinanceNotFoundError ||
+    error instanceof PersonalFinanceValidationError
   )
 }
 
@@ -34,10 +40,10 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
   if (error instanceof FinanceAuthorizationError) {
     return { status: error.statusCode, error: error.message, code: 'finance_forbidden' }
   }
-  if (error instanceof FinanceNotFoundError) {
+  if (error instanceof FinanceNotFoundError || error instanceof PersonalFinanceNotFoundError) {
     return { status: error.statusCode, error: error.message, code: 'finance_not_found' }
   }
-  if (error instanceof FinanceValidationError) {
+  if (error instanceof FinanceValidationError || error instanceof PersonalFinanceValidationError) {
     return { status: error.statusCode, error: error.message, code: 'finance_validation' }
   }
   return { status: 500, error: 'Finance request failed', code: 'finance_internal' }
