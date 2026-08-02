@@ -162,6 +162,15 @@ npx jest \
 
 ## Ops follow-ups (not product gaps)
 
-- Confirm Firestore composite indexes for `contact_facts` / `crm_research_tasks` are live: `firebase deploy --only firestore:indexes` (definitions already in `firestore.indexes.json`).
-- Production promote remains explicit (development only until release approval).
-- SMTP/IMAP inbound auto-facts: only Gmail full-body import paths today; other providers use `from-mailbox` API or research-task metadata body.
+- **Firestore indexes:** all 7 `contact_facts` / `crm_research_tasks` composites are **live** on `partners-in-biz-85059` (confirmed 2026-08-02). Re-deploy only if definitions change — use surgical subset deploy (see `crm-agent-intelligence` skill reference).
+- **Production promote:** ContactFact routes are on `development` only until an explicit main/prod release. `GET https://partnersinbiz.online/api/v1/crm/cron/process-research-tasks` returns 404 until then.
+- **Firebase function `runCrmResearchQueue`:** source + compiled export exist (`functions/src/index.ts`); **not** listed in live functions yet. Deploy **only after** the API route is on production:
+  - `cd functions && npm ci && npm run build`
+  - `firebase deploy --only functions:runCrmResearchQueue --project partners-in-biz-85059`
+  - Deploying earlier would hit production every 5 minutes with 404 noise.
+- **SMTP/IMAP inbound auto-facts:** there is still **no IMAP fetch/sync product** (UI: “Only Google mailbox accounts can sync”). Auto-facts cover:
+  - CRM Gmail integration inbound
+  - Agent mailbox Gmail sync (import **and** update/full-body re-sync)
+  - Manual: `POST .../facts/from-mailbox` or research-task `metadata.bodyText`
+  Full IMAP receive is a separate product epic, not part of this Comp import.
+- Hermes multi-machine workers can run immediately on any environment that has the API: `POST /crm/research-tasks/work` with a stable `workerId`.
