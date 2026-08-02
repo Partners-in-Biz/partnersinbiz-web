@@ -42,6 +42,16 @@ export {
   type ResearchTaskKind,
 } from './research-tasks'
 export {
+  listGlobalLeasableResearchTasks,
+  leaseResearchTaskById,
+  leaseNextResearchTaskGlobal,
+  processLeasedResearchTask,
+  workNextResearchTaskForOrg,
+  runResearchTaskWorkerBatch,
+  type ProcessResearchTaskResult,
+  type ResearchWorkerBatchResult,
+} from './research-worker'
+export {
   loadContactGraph,
   loadCompanyGraph,
   loadDealGraph,

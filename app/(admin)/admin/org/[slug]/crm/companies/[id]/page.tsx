@@ -158,7 +158,10 @@ function adminCompanyRecordHref(row: Row, tab: CompanyTab, adminOrgSlug: string,
   const encodedSlug = encodeURIComponent(adminOrgSlug)
   const encodedCompanyId = encodeURIComponent(companyId)
   const encodedRecordId = encodeURIComponent(row.id)
-  if (tab === 'contacts' || tab === 'deals') {
+  if (tab === 'contacts') {
+    return `/admin/org/${encodedSlug}/crm/contacts/${encodedRecordId}`
+  }
+  if (tab === 'deals') {
     return `/admin/org/${encodedSlug}/crm/companies/${encodedCompanyId}?tab=${encodeURIComponent(tab)}&record=${encodedRecordId}`
   }
   if (tab === 'projects') return `/admin/org/${encodedSlug}/projects/${encodedRecordId}`
