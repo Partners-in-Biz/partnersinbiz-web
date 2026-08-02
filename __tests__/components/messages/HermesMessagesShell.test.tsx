@@ -301,6 +301,60 @@ describe('HermesMessagesShell', () => {
     expect(tab).toHaveClass('mx-folder-accent')
     expect(tab.style.getPropertyValue('--mx-folder-accent')).toMatch(/^#/)
   })
+
+  it('pulses a background tab while running and underlines it until opened', async () => {
+    render(
+      <HermesMessagesShell
+        surface="portal"
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        capabilities={{
+          allowStartConversations: true,
+          allowSendMessages: true,
+          allowAgentParticipants: true,
+          allowArchiveConversations: true,
+        }}
+      />,
+    )
+
+    const open = mockUnifiedChat.mock.calls[0]?.[0]?.onActiveConversationChange as
+      | ((conversationId: string | null) => void)
+      | undefined
+    const lifecycle = mockUnifiedChat.mock.calls[0]?.[0]?.onConversationLifecycle as
+      | ((event: { conversationId: string; phase: 'running' | 'completed' | 'idle' }) => void)
+      | undefined
+
+    act(() => {
+      open?.('conv-1')
+      open?.('conv-2')
+    })
+
+    act(() => {
+      lifecycle?.({ conversationId: 'conv-1', phase: 'running' })
+    })
+
+    const backgroundWhileRunning = screen.getByTestId('workspace-tab-conv-1')
+    expect(backgroundWhileRunning).toHaveAttribute('data-tab-activity', 'running')
+    expect(backgroundWhileRunning).toHaveClass('mx-tab-running')
+
+    act(() => {
+      lifecycle?.({ conversationId: 'conv-1', phase: 'completed' })
+    })
+
+    const backgroundWhileUnread = screen.getByTestId('workspace-tab-conv-1')
+    expect(backgroundWhileUnread).toHaveAttribute('data-tab-activity', 'unread')
+    expect(backgroundWhileUnread).toHaveClass('mx-tab-unread')
+    expect(backgroundWhileUnread).not.toHaveClass('mx-tab-running')
+
+    act(() => {
+      fireEvent.click(screen.getByTestId('workspace-tab-conv-1').querySelector('[role="tab"]')!)
+    })
+
+    // After opening, activity chrome is cleared (active tab never shows it).
+    expect(screen.getByTestId('workspace-tab-conv-1')).not.toHaveAttribute('data-tab-activity')
+  })
 })
 
 describe('MessagesWorkspace', () => {
