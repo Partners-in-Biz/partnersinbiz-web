@@ -16,9 +16,7 @@ import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
 import {
-  isProjectTaskContextMutation,
   isProjectTaskPlanningMutation,
-  planningMutationBlocker,
 } from '@/lib/projects/planningDiscovery'
 import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
@@ -38,11 +36,15 @@ function applyPlanningMutation(
   project: Record<string, unknown>,
   actorUid: string,
   reason: string,
+  options: { reopenWhenReady?: boolean } = {},
 ) {
   const transition = planningContextMutationTransition(project, {
     uid: actorUid,
     now: new Date().toISOString(),
     reason,
+    // Task create/update are outputs of a confirmed brief, not brief rewrites.
+    // Only explicit scope writers (docs/suite/delete) should reopen when ready.
+    reopenWhenReady: options.reopenWhenReady,
   })
   if (transition.state) {
     tx.update(projectRef, { planningDiscovery: transition.state, updatedAt: FieldValue.serverTimestamp() })
@@ -282,9 +284,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   }
 
   const projectRef = adminDb.collection('projects').doc(projectId)
-  // Material intent fields reopen discovery; other planning-sensitive fields only
-  // require a confirmed brief and must not invalidate it (approval, handoff metadata).
-  const planningContextChange = isProjectTaskContextMutation(body)
+  // Planning-sensitive task patches require a live confirmed Decision Brief, but
+  // ordinary project_task.updated must NOT reopen/stale that brief. False reopen
+  // made approved projects look blocked again after routine title/label/dueDate
+  // or enrichment writes. Intentional brief invalidation stays on docs/suite/delete.
   const mutation = await adminDb.runTransaction(async (tx) => {
     let liveProject: FirebaseFirestore.DocumentSnapshot | null = null
     if (planningSensitive) {
@@ -295,17 +298,17 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     if (!liveTask.exists) return { ok: false as const, status: 404, error: 'Task not found' }
     if (liveProject) {
       const project = (liveProject.data() ?? {}) as Record<string, unknown>
-      if (planningContextChange) {
-        const planning = applyPlanningMutation(tx, projectRef, projectId, project, user.uid, 'project_task.updated')
-        if (!planning.allowed) {
-          return { ok: false as const, status: 409, error: planning.blocker.message, details: planning.blocker }
-        }
-      } else {
-        // Require confirmed/assumptions-attested planning; do not reopen the Decision Brief.
-        const blocker = planningMutationBlocker(project)
-        if (blocker) {
-          return { ok: false as const, status: 409, error: blocker.message, details: blocker }
-        }
+      const planning = applyPlanningMutation(
+        tx,
+        projectRef,
+        projectId,
+        project,
+        user.uid,
+        'project_task.updated',
+        { reopenWhenReady: false },
+      )
+      if (!planning.allowed) {
+        return { ok: false as const, status: 409, error: planning.blocker.message, details: planning.blocker }
       }
     }
     tx.update(ref, { ...updateValue, updatedAt: FieldValue.serverTimestamp() })
