@@ -399,6 +399,7 @@ export default function FinanceWorkbenchPage() {
                   <Link href={scopedPortalPath('/portal/finance/cross-org', orgScope)} className="pib-btn-ghost w-full justify-center">Cross-org payments</Link>
                   <Link href={scopedPortalPath('/portal/finance/statements', orgScope)} className="pib-btn-ghost w-full justify-center">Statement import</Link>
                   <Link href={scopedPortalPath('/portal/finance/cutover', orgScope)} className="pib-btn-ghost w-full justify-center">Opening balances / cutover</Link>
+                  <Link href={scopedPortalPath('/portal/finance/packaging', orgScope)} className="pib-btn-ghost w-full justify-center">Packaging exports</Link>
                 </div>
               </div>
 
