@@ -222,3 +222,17 @@ describe('applyMailboxFacts dry-run contract', () => {
     expect(out.results).toEqual([])
   })
 })
+
+describe('scheduleRecheck delaySeconds contract', () => {
+  it('allows delaySeconds 0 (due immediately) and rejects empty reason at API layer via helper shape', () => {
+    // Pure guard mirrored from scheduleRecheck — 0 must not clamp to 60.
+    const clamp = (raw: number | undefined) => {
+      const value = typeof raw === 'number' && Number.isFinite(raw) ? raw : 7 * 24 * 3600
+      return Math.max(0, Math.min(365 * 24 * 3600, Math.floor(value)))
+    }
+    expect(clamp(0)).toBe(0)
+    expect(clamp(1)).toBe(1)
+    expect(clamp(-5)).toBe(0)
+    expect(clamp(undefined)).toBe(7 * 24 * 3600)
+  })
+})

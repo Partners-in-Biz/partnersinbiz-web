@@ -108,7 +108,12 @@ export async function scheduleRecheck(input: ScheduleRecheckInput): Promise<{ id
     throw new Error('contactId, companyId, or dealId is required')
   }
 
-  const delaySeconds = Math.max(60, input.delaySeconds ?? 7 * 24 * 3600)
+  // 0 = due immediately (worker/cron eligible on next poll). Cap far-future noise at 365d.
+  const rawDelay =
+    typeof input.delaySeconds === 'number' && Number.isFinite(input.delaySeconds)
+      ? input.delaySeconds
+      : 7 * 24 * 3600
+  const delaySeconds = Math.max(0, Math.min(365 * 24 * 3600, Math.floor(rawDelay)))
   const dueMs = Date.now() + delaySeconds * 1000
   const budgetUnits = Math.max(0, Math.min(100, input.budgetUnits ?? 3))
 
@@ -193,6 +198,9 @@ function dueAtMs(value: unknown): number {
 /**
  * List pending + expired-leased tasks that are eligible for work on any machine.
  * Multi-worker safe when paired with transactional lease.
+ *
+ * Pending due work uses orgId+status+dueAt (indexed) so large queues of not-yet-due
+ * tasks cannot starve the leasable head.
  */
 export async function listLeasableResearchTasks(args: {
   orgId: string
@@ -203,18 +211,33 @@ export async function listLeasableResearchTasks(args: {
   const nowMs = now.getTime()
   const limit = Math.min(Math.max(args.limit ?? 40, 1), 100)
 
-  const pending = await listResearchTasks({
-    orgId: args.orgId,
-    status: 'pending',
-    dueBefore: now,
-    limit,
-  })
+  let pending: CrmResearchTask[] = []
+  try {
+    const pendingSnap = await col()
+      .where('orgId', '==', args.orgId)
+      .where('status', '==', 'pending')
+      .where('dueAt', '<=', now)
+      .orderBy('dueAt', 'asc')
+      .limit(limit)
+      .get()
+    pending = pendingSnap.docs
+      .map((d) => serialize(d.id, d.data()))
+      .filter((r) => !r.deleted)
+  } catch {
+    // Index lag / emulator — fall back to status scan + in-memory due filter.
+    pending = await listResearchTasks({
+      orgId: args.orgId,
+      status: 'pending',
+      dueBefore: now,
+      limit,
+    })
+  }
 
   // Expired leases become reclaimable so multi-machine workers cannot stall.
   const leasedSnap = await col()
     .where('orgId', '==', args.orgId)
     .where('status', '==', 'leased')
-    .limit(limit)
+    .limit(Math.min(limit * 2, 100))
     .get()
 
   const expiredLeased = leasedSnap.docs

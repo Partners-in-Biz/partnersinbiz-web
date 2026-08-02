@@ -13,7 +13,7 @@ Shipped on `development` as implementation of research `lZLfr9HK6Izd4RTatIwq`.
 - Human-edited identity fields become `humanOwnedFields` and block agent overwrite.
 - Mailbox signatures/replies feed proposals via local heuristics (no third-party egress of body text).
 - Graph endpoint always returns neighbour IDs.
-- Research queue supports `schedule_recheck` with rep-visible reasons + budget.
+- Research queue supports `schedule_recheck` with rep-visible reasons + budget (`delaySeconds: 0` = due immediately).
 - Multi-machine worker loop leases due work, applies payload-backed enrichment, and completes tasks.
 
 ## Collections
@@ -50,7 +50,7 @@ GET  /api/v1/crm/deals/:id/graph
 ```
 GET  /api/v1/crm/research-tasks?contactId=&status=pending&due=true
 POST /api/v1/crm/research-tasks
-  { "contactId", "reason": "Rep-visible why", "kind"?, "delaySeconds"?, "budgetUnits"?, "metadata"? }
+  { "contactId", "reason": "Rep-visible why", "kind"?, "delaySeconds"? /* 0 = due now */, "budgetUnits"?, "metadata"? }
 POST /api/v1/crm/research-tasks/lease
   { "workerId"?, "leaseSeconds"? }  // multi-worker safe lease of next due pending task
 POST /api/v1/crm/research-tasks/claim
@@ -153,24 +153,27 @@ npx jest \
 
 ## Multi-machine / multi-worker notes
 
-- Research lease walks due **pending** tasks and **expired leases**, then claims via Firestore transaction.
-- Global cron (`runCrmResearchQueue` / `process-research-tasks`) walks cross-tenant candidates the same way.
+- Research lease walks due **pending** tasks (indexed `dueAt <= now`) and **expired leases**, then claims via Firestore transaction.
+- Global cron (`runCrmResearchQueue` / `process-research-tasks`) walks cross-tenant candidates with `status + dueAt` (falls back to status-only scan if the composite index is building).
 - Contention on one task continues to the next candidate (no single-point stall).
 - `POST /crm/research-tasks/claim` is an alias of `/lease` for Comp-style naming.
 - Workers should pass stable `workerId` (agent id or hostname+pid).
+- `delaySeconds: 0` schedules work due immediately (next worker/cron poll).
 - Gmail paths fetch full message bodies and run **local** signature → fact proposals (no third-party body egress).
 
-## Ops follow-ups (not product gaps)
+## Production status (2026-08-02)
 
-- **Firestore indexes:** all 7 `contact_facts` / `crm_research_tasks` composites are **live** on `partners-in-biz-85059` (confirmed 2026-08-02). Re-deploy only if definitions change — use surgical subset deploy (see `crm-agent-intelligence` skill reference).
-- **Production promote:** ContactFact routes are on `development` only until an explicit main/prod release. `GET https://partnersinbiz.online/api/v1/crm/cron/process-research-tasks` returns 404 until then.
-- **Firebase function `runCrmResearchQueue`:** source + compiled export exist (`functions/src/index.ts`); **not** listed in live functions yet. Deploy **only after** the API route is on production:
-  - `cd functions && npm ci && npm run build`
-  - `firebase deploy --only functions:runCrmResearchQueue --project partners-in-biz-85059`
-  - Deploying earlier would hit production every 5 minutes with 404 noise.
+- **Firestore indexes:** `contact_facts` / `crm_research_tasks` composites live on `partners-in-biz-85059`, including global cron `status + dueAt` for due-work head (not starved by not-yet-due backlog).
+- **API routes:** live on `partnersinbiz.online` (main already included ContactFact via development merge). Unauth cron returns JSON 401; member routes return 200/404 as designed.
+- **Firebase function `runCrmResearchQueue`:** **deployed** (us-central1, every 5 minutes). Scheduler job `firebase-schedule-runCrmResearchQueue-us-central1` ENABLED.
+  - First forced run evidence: `[crm-research-queue] OK 200 {"success":true,"data":{"processed":0,...}}`
+  - Redeploy only if the function source changes: `cd functions && npm run build && firebase deploy --only functions:runCrmResearchQueue --project partners-in-biz-85059`
+- **Hermes multi-machine workers:** may also hit `POST /crm/research-tasks/work` with a stable `workerId` on any environment that has the API.
+
+## Residual product epic (out of Comp import scope)
+
 - **SMTP/IMAP inbound auto-facts:** there is still **no IMAP fetch/sync product** (UI: “Only Google mailbox accounts can sync”). Auto-facts cover:
   - CRM Gmail integration inbound
   - Agent mailbox Gmail sync (import **and** update/full-body re-sync)
   - Manual: `POST .../facts/from-mailbox` or research-task `metadata.bodyText`
   Full IMAP receive is a separate product epic, not part of this Comp import.
-- Hermes multi-machine workers can run immediately on any environment that has the API: `POST /crm/research-tasks/work` with a stable `workerId`.
