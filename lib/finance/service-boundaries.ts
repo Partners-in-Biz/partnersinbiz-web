@@ -22,6 +22,8 @@ export const FINANCE_HTTP_ENTRYPOINTS = [
   'app/api/v1/finance/cross-org/queries/route.ts',
   'app/api/v1/finance/statements/commands/route.ts',
   'app/api/v1/finance/statements/queries/route.ts',
+  'app/api/v1/finance/cutover/commands/route.ts',
+  'app/api/v1/finance/cutover/queries/route.ts',
 ] as const
 
 /**
@@ -40,10 +42,11 @@ export const SERVICE_ONLY_FINANCE_MODULES = [
   'lib/finance/personal/service.ts',
   'lib/finance/cross-org/service.ts',
   'lib/finance/statements/service.ts',
+  'lib/finance/cutover/service.ts',
 ] as const
 
 /** UI claim — full finance workbench modules are shipped under /portal/finance. */
 export const FINANCE_UI_SHIPPED = true as const
 
 export const FINANCE_UI_BOUNDARY_NOTE =
-  'Finance foundation workbench shipped under /portal/finance (overview, setup, ledger, reports, tax, documents, intercompany, payroll, personal, cross-org, statements). Interactive portal workbenches load live bundles and run authenticated commands for foundation, reports, tax, documents, intercompany, payroll, personal books, cross-org payment notify/confirm, and statement import + human-gated recon suggestions. SARS submission and external payment initiation remain disabled. Personal books are owner-private. Cross-org notices require CRM linkedOrgId or active businessRelationships. Statement suggestions never auto-post. Sensitive access is enforced at policy + service boundaries.'
+  'Finance foundation workbench shipped under /portal/finance (overview, setup, ledger, reports, tax, documents, intercompany, payroll, personal, cross-org, statements, cutover). Interactive portal workbenches load live bundles and run authenticated commands for foundation, reports, tax, documents, intercompany, payroll, personal books, cross-org payment notify/confirm, statement import + human-gated recon suggestions, and opening trial balance / cutover activation. SARS submission and external payment initiation remain disabled. Personal books are owner-private. Cross-org notices require CRM linkedOrgId or active businessRelationships. Statement suggestions never auto-post. Cutover requires balanced TB + AR/AP open-item recon + approval before book.cutoverAt. Sensitive access is enforced at policy + service boundaries.'

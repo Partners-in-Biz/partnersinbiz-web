@@ -29,8 +29,10 @@ describe('finance workbench delivery contract', () => {
       'app/api/v1/finance/cross-org/queries/route.ts',
       'app/api/v1/finance/statements/commands/route.ts',
       'app/api/v1/finance/statements/queries/route.ts',
+      'app/api/v1/finance/cutover/commands/route.ts',
+      'app/api/v1/finance/cutover/queries/route.ts',
     ]))
-    expect(FINANCE_HTTP_ENTRYPOINTS).toHaveLength(17)
+    expect(FINANCE_HTTP_ENTRYPOINTS).toHaveLength(19)
     expect(FINANCE_UI_SHIPPED).toBe(true)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/documents/i)
@@ -38,6 +40,7 @@ describe('finance workbench delivery contract', () => {
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/personal/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/cross-org/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/statement/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/cutover/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/Interactive portal workbenches/i)
   })
 
@@ -53,6 +56,7 @@ describe('finance workbench delivery contract', () => {
       'app/(portal)/portal/finance/personal/page.tsx',
       'app/(portal)/portal/finance/cross-org/page.tsx',
       'app/(portal)/portal/finance/statements/page.tsx',
+      'app/(portal)/portal/finance/cutover/page.tsx',
     ]
     for (const rel of pages) {
       expect(existsSync(path.join(root, rel))).toBe(true)

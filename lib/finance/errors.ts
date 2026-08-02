@@ -12,6 +12,10 @@ import {
   StatementFinanceNotFoundError,
   StatementFinanceValidationError,
 } from '@/lib/finance/statements/service'
+import {
+  CutoverFinanceNotFoundError,
+  CutoverFinanceValidationError,
+} from '@/lib/finance/cutover/service'
 
 /** Non-enumerating denial for sensitive finance/payroll resources. */
 export class FinanceNotFoundError extends Error {
@@ -40,7 +44,9 @@ export function isFinanceHttpError(error: unknown): error is Error & { statusCod
     error instanceof CrossOrgFinanceNotFoundError ||
     error instanceof CrossOrgFinanceValidationError ||
     error instanceof StatementFinanceNotFoundError ||
-    error instanceof StatementFinanceValidationError
+    error instanceof StatementFinanceValidationError ||
+    error instanceof CutoverFinanceNotFoundError ||
+    error instanceof CutoverFinanceValidationError
   )
 }
 
@@ -56,7 +62,8 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof FinanceNotFoundError ||
     error instanceof PersonalFinanceNotFoundError ||
     error instanceof CrossOrgFinanceNotFoundError ||
-    error instanceof StatementFinanceNotFoundError
+    error instanceof StatementFinanceNotFoundError ||
+    error instanceof CutoverFinanceNotFoundError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_not_found' }
   }
@@ -64,7 +71,8 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof FinanceValidationError ||
     error instanceof PersonalFinanceValidationError ||
     error instanceof CrossOrgFinanceValidationError ||
-    error instanceof StatementFinanceValidationError
+    error instanceof StatementFinanceValidationError ||
+    error instanceof CutoverFinanceValidationError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_validation' }
   }
