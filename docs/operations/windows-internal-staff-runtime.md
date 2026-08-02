@@ -16,7 +16,7 @@ The private PFX exists only in GitHub Actions encrypted secrets. The public cert
 
 The internal workflow is `.github/workflows/release-linked-runtime-windows-internal.yml`. It must run from `main`, requires an existing public `runtime-v<version>` source release, and creates a separate prerelease tag `runtime-internal-v<version>`.
 
-The unattended release runner adds the exact pinned certificate only to its ephemeral CurrentUser TrustedPeople store, which Microsoft documents for explicitly trusted people and test package verification. The runner then requires Authenticode `Valid` plus the exact signer publisher and SHA-256 certificate fingerprint. Any unsigned, changed, unsupported, untrusted, or differently signed artifact fails publication. Persistent machine-wide trust is installed only during the explicit staff bootstrap below.
+The unattended release runner adds the exact pinned certificate only to its ephemeral CurrentUser TrustedPeople and TrustedPublisher stores. Microsoft documents TrustedPeople for explicitly trusted entities and test package verification, while TrustedPublisher authorizes the Authenticode publisher. The runner then requires Authenticode `Valid` plus the exact signer publisher and SHA-256 certificate fingerprint. Any unsigned, changed, unsupported, untrusted, or differently signed artifact fails publication. Persistent machine-wide trust is installed only during the explicit staff bootstrap below.
 
 Required GitHub secrets:
 

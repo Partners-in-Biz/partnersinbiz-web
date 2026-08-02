@@ -143,7 +143,7 @@ const internalWindowsWorkflow = read('.github/workflows/release-linked-runtime-w
 requireText('Windows internal isolated tag', internalWindowsWorkflow, /runtime-internal-v\$env:VERSION/)
 requireText('Windows internal PFX secret', internalWindowsWorkflow, /PIB_WINDOWS_INTERNAL_SIGNING_PFX_BASE64/)
 requireText('Windows internal Authenticode', internalWindowsWorkflow, /signtool\.exe[\s\S]*SHA256/)
-requireText('Windows internal temporary peer trust', internalWindowsWorkflow, /certutil\.exe -user -f -addstore TrustedPeople/)
+requireText('Windows internal temporary peer and publisher trust', internalWindowsWorkflow, /@\('TrustedPeople','TrustedPublisher'\)[\s\S]*certutil\.exe -user -f -addstore \$StoreName/)
 requireText('Windows internal prerelease', internalWindowsWorkflow, /--prerelease/)
 rejectText('Windows internal SSL.com dependency', internalWindowsWorkflow, /sslcom|ESIGNER/i)
 const windowsPackager = read('scripts/package-windows-installer.ps1')
