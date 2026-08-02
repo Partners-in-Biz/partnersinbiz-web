@@ -20,6 +20,28 @@ export type FinanceAction =
   | 'invoice.issue'
   | 'invoice.void'
   | 'invoice.read'
+  | 'credit_note.create'
+  | 'credit_note.issue'
+  | 'credit_note.apply'
+  | 'credit_note.void'
+  | 'credit_note.read'
+  | 'debit_note.create'
+  | 'debit_note.issue'
+  | 'debit_note.apply'
+  | 'debit_note.void'
+  | 'debit_note.read'
+  | 'recurring.create'
+  | 'recurring.generate'
+  | 'recurring.update'
+  | 'recurring.read'
+  | 'statement.draft'
+  | 'statement.read'
+  | 'documents.bulk_issue'
+  | 'documents.bulk_void'
+  | 'documents.bulk_allocate'
+  | 'attachment.add'
+  | 'attachment.read'
+  | 'aging.read'
   | 'supplier_bill.create'
   | 'supplier_bill.issue'
   | 'supplier_bill.read'
@@ -112,6 +134,28 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'invoice.issue': ['bookkeeper', 'accountant', 'finance_admin'],
   'invoice.void': ['accountant', 'finance_approver', 'finance_admin'],
   'invoice.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'credit_note.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'credit_note.issue': ['bookkeeper', 'accountant', 'finance_admin'],
+  'credit_note.apply': ['bookkeeper', 'accountant', 'finance_admin'],
+  'credit_note.void': ['accountant', 'finance_approver', 'finance_admin'],
+  'credit_note.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'debit_note.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'debit_note.issue': ['bookkeeper', 'accountant', 'finance_admin'],
+  'debit_note.apply': ['bookkeeper', 'accountant', 'finance_admin'],
+  'debit_note.void': ['accountant', 'finance_approver', 'finance_admin'],
+  'debit_note.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'recurring.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'recurring.generate': ['bookkeeper', 'accountant', 'finance_admin'],
+  'recurring.update': ['bookkeeper', 'accountant', 'finance_admin'],
+  'recurring.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'statement.draft': ['bookkeeper', 'accountant', 'finance_admin'],
+  'statement.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'documents.bulk_issue': ['bookkeeper', 'accountant', 'finance_admin'],
+  'documents.bulk_void': ['accountant', 'finance_approver', 'finance_admin'],
+  'documents.bulk_allocate': ['bookkeeper', 'accountant', 'finance_admin'],
+  'attachment.add': ['bookkeeper', 'accountant', 'finance_admin'],
+  'attachment.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'aging.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
   'supplier_bill.create': ['bookkeeper', 'accountant', 'finance_admin'],
   'supplier_bill.issue': ['bookkeeper', 'accountant', 'finance_admin'],
   'supplier_bill.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
