@@ -25,6 +25,11 @@ import { publicProjectView } from '@/lib/projects/public'
 import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
+import { getConversation } from '@/lib/conversations/conversations'
+import {
+  autoLinkProjectToConversationComputer,
+  conversationIdFromProjectCreateBody,
+} from '@/lib/project-locations/auto-link-conversation-computer'
 
 const VALID_STATUSES = [
   'discovery',
@@ -641,7 +646,44 @@ export async function handleProjectCreate(
     entityTitle: name,
   }).catch(() => {})
 
-  return apiSuccess(stripUndefined({ id: docRef.id, claimToken, claimStatus }), setupReplay ? 200 : 201)
+  // Agents creating projects from Messages often pin the project next and then
+  // send — that requires a project↔computer replica. Auto-link when the create
+  // body carries conversation origin / conversationId.
+  let computerLink: { linked: boolean; locationId?: string; reason?: string } | undefined
+  const sourceConversationId = conversationIdFromProjectCreateBody(body as Record<string, unknown>)
+  if (sourceConversationId && !setupReplay) {
+    try {
+      const conversation = await getConversation(sourceConversationId)
+      if (conversation && conversation.orgId === orgId) {
+        const linkResult = await autoLinkProjectToConversationComputer({
+          projectId: docRef.id,
+          orgId,
+          actorUserId: user.uid,
+          workspaceContext: conversation.workspaceContext,
+          projectFolderRelativePath: typeof projectDocument.projectFolderRelativePath === 'string'
+            ? projectDocument.projectFolderRelativePath
+            : null,
+        })
+        computerLink = linkResult.linked
+          ? { linked: true, locationId: linkResult.locationId }
+          : { linked: false, reason: linkResult.reason }
+      } else {
+        computerLink = { linked: false, reason: 'conversation_not_found_or_org_mismatch' }
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'test') {
+        console.error('[project-create-auto-link-computer]', error)
+      }
+      computerLink = { linked: false, reason: 'auto_link_error' }
+    }
+  }
+
+  return apiSuccess(stripUndefined({
+    id: docRef.id,
+    claimToken,
+    claimStatus,
+    ...(computerLink ? { computerLink } : {}),
+  }), setupReplay ? 200 : 201)
 }
 
 export const POST = withAuth(

@@ -175,13 +175,16 @@ Body:
   "startAt": "2026-04-01",
   "endAt": "2026-06-30",
   "assignedTo": { "type": "user", "id": "uid123" },
-  "tags": ["campaign", "q2"]
+  "tags": ["campaign", "q2"],
+  "conversationId": "conv_messages_session"
 }
 ```
 
 For PiB/admin-created client projects, the request `orgId` is the client/recipient org; the API resolves the platform owner as `sourceOrgId` and stores the client in `recipientOrgId`/`targetOrgId`/`clientOrgId`. For CRM-targeted project sharing, pass `companyId`/`contactId` and optional `recipientOrgId`; a Company `linkedOrgId` is reused when already present.
 
-Response (201): `{ id }`.
+**Messages computer link (required for computer-bound chats):** when creating a project from an interactive Messages turn, always pass `conversationId` (or `conversationOrigin.conversationId` / `sourceConversationId`). The API auto-links the new project to that conversation’s bound computer so the next send does not fail with `Project is not linked to this computer`. Pinning a project into conversation context also auto-links when the chat has a computer. Response may include `computerLink: { linked, locationId?, reason? }`.
+
+Response (201): `{ id, computerLink? }`.
 
 After creation, read the returned project back with `GET /projects/[id]` before creating nested tasks or claiming success. If the route returns `500 Project setup resource identity is invalid`, do not keep retrying and do not describe a standalone escalation task as the requested project or as completed scoping work. That response means the deployed public route is incorrectly forwarding ordinary Next.js context as trusted setup identity; record the exact response and escalate the production release gap.
 
