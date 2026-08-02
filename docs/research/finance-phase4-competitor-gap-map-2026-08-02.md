@@ -329,16 +329,19 @@ Research (this) → Spec update BKF7… → UX hub (parallel foundation)
 | Dependency hygiene | `0z3fMPX4siAUcWIlfaES` |
 | Downstream spec update | `BKF7tuwiI5DPguKgktQF` |
 | Repo durable doc | `docs/research/finance-phase4-competitor-gap-map-2026-08-02.md` |
-| Wiki | `cowork-wiki/agents/partners/wiki/finance-phase4-competitor-gap-map-2026-08-02.md` |
-| Throwaway matrix HTML | `docs/research/finance-phase4-competitor-gap-map-matrix-2026-08-02.html` (chat-only visual; not a permanent dashboard) |
+| Matrix HTML (throwaway visual) | `docs/research/finance-phase4-competitor-gap-map-matrix-2026-08-02.html` |
+| Repo commits | `6cc8307ea961630ff8b3c169d9dfbead320f1741`, `adae5cb954e05334475d19cfc52a4e83e5c3e259` |
+| Mac Cowork wiki topic | `/Users/peetstander/.hermes/cowork-wiki/agents/partners/wiki/finance-phase4-competitor-gap-map-2026-08-02.md` |
+| Mac hot / log / index | `.../wiki/hot.md`, `.../logs/2026-08-02.md`, `.../index.md` |
+| VPS wiki path | `/var/lib/hermes/cowork-wiki/agents/partners/wiki/finance-phase4-competitor-gap-map-2026-08-02.md` (sync when SSH available; not verified if offline) |
 
 ### Evidence hygiene (Pip review rework 2026-08-02)
 
-- Durable repo path is real and tracked on `development`.
-- Findings/recommendations on Research `6OjqsbjAGkZue9vmTUbD` carry `sourceIds` for audit.
-- Source `fh62QHuK1Q9p4Vgr9mo5` (repo gap map markdown) is verified only because this path exists on `origin/development`.
+- Durable repo paths are real on `origin/development` at the SHAs above.
+- Findings f1–f4 and recommendations r1–r3 on Research `6OjqsbjAGkZue9vmTUbD` carry non-empty `sourceIds`.
+- Source `fh62QHuK1Q9p4Vgr9mo5` is verified for repo markdown/HTML + commits only.
+- Mac Cowork wiki topic + hot.md + 2026-08-02 log + index.md are the Sage-runtime knowledge persistence surface.
 - Non-goals unchanged: no SARS e-file submit; no payment initiation; no mass client-visible statement/payslip email; no production deploy from this card.
-- Commit on origin/development: `6cc8307ea961630ff8b3c169d9dfbead320f1741` (also in task agentOutput.artifacts; do not trust narrative alone).
 
 ## Safety readback
 
