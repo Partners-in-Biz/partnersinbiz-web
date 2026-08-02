@@ -336,17 +336,39 @@ function canStartAgentNode(
   return { ok: true }
 }
 
+function latestAttempt(run: WorkflowRun, nodeId: string): WorkflowAttempt | undefined {
+  const attempts = run.attempts[nodeId] ?? []
+  return attempts[attempts.length - 1]
+}
+
+function isAgentRetryDue(run: WorkflowRun, node: WorkflowNodeState, now: string): boolean {
+  const retryAt = node.retryAt || latestAttempt(run, node.nodeId)?.retryAt
+  if (!retryAt) return true
+  const dueMs = Date.parse(retryAt)
+  const nowMs = Date.parse(now)
+  if (Number.isNaN(dueMs) || Number.isNaN(nowMs)) return true
+  return nowMs >= dueMs
+}
+
+function transientBackoffMs(attemptNumber: number): number {
+  // attempt 1 failure → index 0 (1m); attempt 2 → index 1 (5m); attempt 3 → index 2 (15m)
+  return WATCHER_TRANSIENT_BACKOFF_MS[Math.min(Math.max(attemptNumber - 1, 0), WATCHER_TRANSIENT_BACKOFF_MS.length - 1)] ?? 60_000
+}
+
 function buildMaterializeIntent(run: WorkflowRun, node: WorkflowNodeState): MaterializeIntent {
   const dependsOnKanbanTaskIds = node.dependsOnNodeIds
     .map((depId) => nodeById(run, depId)?.kanbanTaskId)
     .filter((id): id is string => Boolean(id))
 
   const isGate = node.kind === 'human_gate'
+  const nextAttempt = node.currentAttempt + 1
+  const requeueExisting = Boolean(node.lastKanbanTaskId) || node.status === 'retry_wait'
   const labels = [
     `workflow-run:${run.id}`,
     `workflow-node:${node.nodeId}`,
     `workflow-template:${run.templateId}`,
     ...(isGate ? ['approval-gate', 'human_gate'] : ['workflow-agent']),
+    ...(requeueExisting ? [`workflow-attempt:${nextAttempt}`, 'workflow-retry'] : []),
   ]
 
   return {
@@ -371,13 +393,17 @@ function buildMaterializeIntent(run: WorkflowRun, node: WorkflowNodeState): Mate
             ...(node.agentInput.context ?? {}),
             workflowRunId: run.id,
             workflowNodeId: node.nodeId,
-            workflowAttempt: node.currentAttempt + 1,
+            workflowAttempt: nextAttempt,
             expectedArtifacts: node.expectedArtifacts,
             verifierChecklist: node.verifierChecklist,
+            ...(requeueExisting ? { retryReason: 'transient_infra' } : {}),
           },
         }
       : undefined,
-    idempotencyKey: `${run.id}:${node.nodeId}`,
+    // Attempt-scoped so retries do not collide with the first dispatch key.
+    idempotencyKey: attemptIdempotencyKey(run.id || 'run', node.nodeId, nextAttempt),
+    requeueExisting,
+    previousKanbanTaskId: node.lastKanbanTaskId,
   }
 }
 
@@ -533,44 +559,70 @@ function activateReadyNodes(
     }
 
     if (node.kind === 'agent' || node.kind === 'human_gate') {
-      if (!node.kanbanTaskId && (node.status === 'pending' || node.status === 'ready' || node.status === 'queued_capacity')) {
-        if (node.kind === 'agent') {
-          const capacity = canStartAgentNode(
-            run,
-            event.orgInFlightAgentClaims ?? 0,
-            event.agentInFlightByAssignee ?? {},
-            node.assigneeAgentId,
-          )
-          if (!capacity.ok) {
-            if (capacity.runStatus) {
-              setRunStatus(run, actions, capacity.runStatus, {
-                blockedReasonCode: capacity.reason,
-                terminalReason: capacity.runStatus === 'failed' ? capacity.reason : undefined,
-              })
-              if (capacity.runStatus === 'failed') {
-                setNodeStatus(run, actions, node.nodeId, 'blocked', event.now, capacity.reason)
-                continue
-              }
-            }
-            setNodeStatus(run, actions, node.nodeId, 'queued_capacity', event.now, capacity.reason)
-            continue
+      const baseEligible =
+        node.status === 'pending'
+        || node.status === 'ready'
+        || node.status === 'queued_capacity'
+      const retryEligible = node.status === 'retry_wait' && isAgentRetryDue(run, node, event.now)
+
+      if (baseEligible || retryEligible) {
+        // Re-arm retry_wait: clear bind so activate can emit materialize/requeue intent.
+        // lastKanbanTaskId keeps the prior task for store requeue.
+        if (retryEligible) {
+          if (node.kanbanTaskId) {
+            node.lastKanbanTaskId = node.kanbanTaskId
+            node.kanbanTaskId = undefined
           }
+          node.retryAt = undefined
         }
 
-        const intent = buildMaterializeIntent(run, node)
-        // Reuse existing materialize action if already queued this tick
-        if (!materialize.some((item) => item.nodeId === node.nodeId)) {
-          materialize.push(intent)
-          actions.push({ type: 'materialize', intent })
+        if (!node.kanbanTaskId) {
+          if (node.kind === 'agent') {
+            const capacity = canStartAgentNode(
+              run,
+              event.orgInFlightAgentClaims ?? 0,
+              event.agentInFlightByAssignee ?? {},
+              node.assigneeAgentId,
+            )
+            if (!capacity.ok) {
+              if (capacity.runStatus) {
+                setRunStatus(run, actions, capacity.runStatus, {
+                  blockedReasonCode: capacity.reason,
+                  terminalReason: capacity.runStatus === 'failed' ? capacity.reason : undefined,
+                })
+                if (capacity.runStatus === 'failed') {
+                  setNodeStatus(run, actions, node.nodeId, 'blocked', event.now, capacity.reason)
+                  continue
+                }
+              }
+              // Preserve retry_wait identity when capacity is full so later ticks still re-arm.
+              setNodeStatus(
+                run,
+                actions,
+                node.nodeId,
+                retryEligible ? 'retry_wait' : 'queued_capacity',
+                event.now,
+                capacity.reason,
+              )
+              continue
+            }
+          }
+
+          const intent = buildMaterializeIntent(run, node)
+          // Reuse existing materialize action if already queued this tick
+          if (!materialize.some((item) => item.nodeId === node.nodeId)) {
+            materialize.push(intent)
+            actions.push({ type: 'materialize', intent })
+          }
+          startAttempt(run, actions, node, event.now, node.kind === 'human_gate' ? 'awaiting_gate' : 'waiting_watcher')
+          setNodeStatus(
+            run,
+            actions,
+            node.nodeId,
+            node.kind === 'human_gate' ? 'awaiting_gate' : 'waiting_watcher',
+            event.now,
+          )
         }
-        startAttempt(run, actions, node, event.now, node.kind === 'human_gate' ? 'awaiting_gate' : 'waiting_watcher')
-        setNodeStatus(
-          run,
-          actions,
-          node.nodeId,
-          node.kind === 'human_gate' ? 'awaiting_gate' : 'waiting_watcher',
-          event.now,
-        )
       }
       continue
     }
@@ -755,21 +807,29 @@ function handleKanbanTerminal(
   // blocked
   const family: ErrorFamily = event.errorFamily || 'unknown'
   const maxAttempts = family === 'transient_infra' ? 3 : family === 'agent_incomplete' || family === 'verifier_fail' ? 2 : 1
-  const retryable = family === 'transient_infra' && node.currentAttempt < maxAttempts
-  completeAttempt(run, actions, node.nodeId, Math.max(node.currentAttempt, 1), {
-    status: 'blocked',
+  const attemptNumber = Math.max(node.currentAttempt, 1)
+  // Retry while completed attempts remain under max (attempt 1 and 2 may retry; attempt 3 blocks).
+  const retryable = family === 'transient_infra' && attemptNumber < maxAttempts
+  const retryAt = retryable
+    ? new Date(Date.parse(event.now) + transientBackoffMs(attemptNumber)).toISOString()
+    : undefined
+  completeAttempt(run, actions, node.nodeId, attemptNumber, {
+    status: retryable ? 'retry_wait' : 'blocked',
     completedAt: event.now,
     errorFamily: family,
     retryable,
     summary: event.summary,
     hermesRunId: event.hermesRunId,
-    retryAt: retryable
-      ? new Date(Date.parse(event.now) + (WATCHER_TRANSIENT_BACKOFF_MS[Math.min(node.currentAttempt - 1, 2)] ?? 60_000)).toISOString()
-      : undefined,
+    retryAt,
   })
 
   if (retryable) {
-    setNodeStatus(run, actions, node.nodeId, 'retry_wait', event.now, 'transient_infra_exhausted')
+    // Keep last bind for store requeue; clear active bind so activateReadyNodes can re-dispatch after backoff.
+    if (node.kanbanTaskId) {
+      node.lastKanbanTaskId = node.kanbanTaskId
+    }
+    node.retryAt = retryAt
+    setNodeStatus(run, actions, node.nodeId, 'retry_wait', event.now, 'transient_infra_retry')
   } else {
     const reason =
       family === 'transient_infra'
@@ -778,7 +838,14 @@ function handleKanbanTerminal(
           ? 'capability_denied'
           : family === 'budget'
             ? 'budget_exceeded'
-            : `missing_artifact:blocked`
+            : family === 'policy'
+              ? 'invalid_spec'
+              : family === 'approval_denied'
+                ? 'approval_denied'
+                : family === 'unknown'
+                  ? 'unknown'
+                  : `missing_artifact:blocked`
+    node.retryAt = undefined
     setNodeStatus(run, actions, node.nodeId, 'blocked', event.now, reason, event.evidence)
     run.blockedReasonCode = reason
   }
@@ -842,13 +909,16 @@ export function advanceWorkflowRun(runInput: WorkflowRun, event: AdvanceEvent): 
   return { run, actions, materialize }
 }
 
-/** Bind a kanban task id onto a node after successful materialize (idempotent). */
+/** Bind a kanban task id onto a node after successful materialize (idempotent per active bind). */
 export function bindKanbanTask(runInput: WorkflowRun, nodeId: string, kanbanTaskId: string, now: string): WorkflowRun {
   const run = cloneRun(runInput)
   const node = nodeById(run, nodeId)
   if (!node) return run
+  // Allow rebind after retry re-arm cleared kanbanTaskId; reject only conflicting active binds.
   if (node.kanbanTaskId && node.kanbanTaskId !== kanbanTaskId) return run
   node.kanbanTaskId = kanbanTaskId
+  node.lastKanbanTaskId = kanbanTaskId
+  node.retryAt = undefined
   node.lastTransitionAt = now
   const attempts = run.attempts[nodeId] ?? []
   const latest = attempts[attempts.length - 1]
@@ -878,6 +948,8 @@ export function inspectWorkflowRun(run: WorkflowRun): {
     attempts: number
     assigneeAgentId?: string
     kanbanTaskId?: string
+    lastKanbanTaskId?: string
+    retryAt?: string
     blockedReasonCode?: string
     expectedArtifacts: string[]
     evidenceTypes: string[]
@@ -910,6 +982,8 @@ export function inspectWorkflowRun(run: WorkflowRun): {
       attempts: node.currentAttempt,
       assigneeAgentId: node.assigneeAgentId,
       kanbanTaskId: node.kanbanTaskId,
+      lastKanbanTaskId: node.lastKanbanTaskId,
+      retryAt: node.retryAt,
       blockedReasonCode: node.blockedReasonCode,
       expectedArtifacts: node.expectedArtifacts,
       evidenceTypes: node.evidence.map((item) => item.type),

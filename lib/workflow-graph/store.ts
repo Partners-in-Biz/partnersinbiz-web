@@ -98,7 +98,25 @@ export async function materializeKanbanTask(input: {
     .catch(() => null)
 
   if (existing && !existing.empty) {
-    return { ok: true, taskId: existing.docs[0].id, created: false }
+    const doc = existing.docs[0]
+    const taskId = doc.id
+    if (input.intent.requeueExisting) {
+      // Re-arm watcher pickup for transient_infra retries without dual-board spawn.
+      await doc.ref.update({
+        agentStatus: input.intent.agentStatus,
+        columnId: input.intent.columnId,
+        reviewStatus: 'changes-requested',
+        labels: input.intent.labels,
+        agentInput: input.intent.agentInput ?? FieldValue.delete(),
+        workflowAttempt: input.intent.agentInput?.context?.workflowAttempt ?? FieldValue.increment(1),
+        agentOutput: FieldValue.delete(),
+        agentConversationId: FieldValue.delete(),
+        agentHeartbeatAt: FieldValue.delete(),
+        blockedReason: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    }
+    return { ok: true, taskId, created: false }
   }
 
   const taskRef = tasksRef.doc()

@@ -196,6 +196,10 @@ export type WorkflowNodeState = {
   currentAttempt: number
   dependsOnNodeIds: string[]
   kanbanTaskId?: string
+  /** Prior Kanban bind retained across retry_wait so store can requeue the same task. */
+  lastKanbanTaskId?: string
+  /** Earliest ISO time the node may leave retry_wait for another attempt. */
+  retryAt?: string
   blockedReasonCode?: string
   lastTransitionAt: string
   evidence: WorkflowEvidence[]
@@ -292,6 +296,9 @@ export type MaterializeIntent = {
     constraints?: string[]
   }
   idempotencyKey: string
+  /** When true, materializer must requeue an existing workflow node task instead of no-op reuse. */
+  requeueExisting?: boolean
+  previousKanbanTaskId?: string
 }
 
 export type EngineAction =

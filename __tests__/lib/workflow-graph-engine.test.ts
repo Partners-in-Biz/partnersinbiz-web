@@ -404,4 +404,110 @@ describe('workflow graph phase 1 engine', () => {
     const again = advanceWorkflowRun(cancelled.run, { type: 'tick', now: LATER })
     expect(again.materialize).toEqual([])
   })
+
+  test('fail-closed: transient_infra 3x → blocked with exhausted reason and rematerialize between attempts', () => {
+    let run = startPilotRun()
+    let step = advanceWorkflowRun(run, { type: 'tick', now: NOW })
+    run = bindKanbanTask(step.run, 'research_brief', 'task-research', NOW)
+
+    const failAt = (iso: string) =>
+      advanceWorkflowRun(run, {
+        type: 'kanban_terminal',
+        now: iso,
+        nodeId: 'research_brief',
+        kanbanTaskId: 'task-research',
+        outcome: 'blocked',
+        errorFamily: 'transient_infra',
+        summary: 'broken pipe / stream idle',
+      })
+
+    // Attempt 1 fails → retry_wait with retry reason (not exhausted)
+    step = failAt('2026-08-02T12:10:00.000Z')
+    run = step.run
+    let node = run.nodes.find((n) => n.nodeId === 'research_brief')!
+    expect(node.status).toBe('retry_wait')
+    expect(node.blockedReasonCode).toBe('transient_infra_retry')
+    expect(node.blockedReasonCode).not.toBe('transient_infra_exhausted')
+    expect(node.currentAttempt).toBe(1)
+    expect(node.retryAt).toBeTruthy()
+    expect(node.lastKanbanTaskId).toBe('task-research')
+    // Same-tick activate must NOT re-dispatch before backoff
+    expect(step.materialize.find((m) => m.nodeId === 'research_brief')).toBeUndefined()
+
+    const attempt1 = run.attempts.research_brief?.[0]
+    expect(attempt1?.errorFamily).toBe('transient_infra')
+    expect(attempt1?.retryable).toBe(true)
+    expect(attempt1?.retryAt).toBe(node.retryAt)
+
+    // Before backoff: still no materialize
+    step = advanceWorkflowRun(run, { type: 'tick', now: '2026-08-02T12:10:30.000Z' })
+    run = step.run
+    expect(step.materialize.find((m) => m.nodeId === 'research_brief')).toBeUndefined()
+    expect(run.nodes.find((n) => n.nodeId === 'research_brief')?.status).toBe('retry_wait')
+
+    // After backoff: rematerialize / requeue intent
+    const afterBackoff1 = node.retryAt!
+    step = advanceWorkflowRun(run, { type: 'tick', now: afterBackoff1 })
+    run = step.run
+    const requeue1 = step.materialize.find((m) => m.nodeId === 'research_brief')
+    expect(requeue1).toBeTruthy()
+    expect(requeue1?.requeueExisting).toBe(true)
+    expect(requeue1?.previousKanbanTaskId).toBe('task-research')
+    expect(requeue1?.idempotencyKey).toBe('wfr_pilot_1:research_brief:2')
+    node = run.nodes.find((n) => n.nodeId === 'research_brief')!
+    expect(node.status).toBe('waiting_watcher')
+    expect(node.currentAttempt).toBe(2)
+    expect(node.kanbanTaskId).toBeUndefined() // cleared until bind
+
+    run = bindKanbanTask(run, 'research_brief', 'task-research', afterBackoff1)
+
+    // Attempt 2 fails → still retryable
+    step = failAt('2026-08-02T12:20:00.000Z')
+    run = step.run
+    node = run.nodes.find((n) => n.nodeId === 'research_brief')!
+    expect(node.status).toBe('retry_wait')
+    expect(node.blockedReasonCode).toBe('transient_infra_retry')
+    expect(node.currentAttempt).toBe(2)
+
+    const afterBackoff2 = node.retryAt!
+    step = advanceWorkflowRun(run, { type: 'tick', now: afterBackoff2 })
+    run = step.run
+    const requeue2 = step.materialize.find((m) => m.nodeId === 'research_brief')
+    expect(requeue2).toBeTruthy()
+    expect(requeue2?.requeueExisting).toBe(true)
+    expect(requeue2?.idempotencyKey).toBe('wfr_pilot_1:research_brief:3')
+    node = run.nodes.find((n) => n.nodeId === 'research_brief')!
+    expect(node.currentAttempt).toBe(3)
+
+    run = bindKanbanTask(run, 'research_brief', 'task-research', afterBackoff2)
+
+    // Attempt 3 fails → blocked exhausted (no further materialize)
+    step = failAt('2026-08-02T12:40:00.000Z')
+    run = step.run
+    node = run.nodes.find((n) => n.nodeId === 'research_brief')!
+    expect(node.status).toBe('blocked')
+    expect(node.blockedReasonCode).toBe('transient_infra_exhausted')
+    expect(node.currentAttempt).toBe(3)
+    expect(run.blockedReasonCode).toBe('transient_infra_exhausted')
+    expect(step.materialize.find((m) => m.nodeId === 'research_brief')).toBeUndefined()
+
+    const attempts = run.attempts.research_brief ?? []
+    expect(attempts).toHaveLength(3)
+    expect(attempts.every((a) => a.errorFamily === 'transient_infra')).toBe(true)
+    expect(attempts[0]?.retryable).toBe(true)
+    expect(attempts[1]?.retryable).toBe(true)
+    expect(attempts[2]?.retryable).toBe(false)
+    expect(attempts[2]?.status).toBe('blocked')
+
+    // Later ticks must not re-dispatch exhausted node; no false-done
+    step = advanceWorkflowRun(run, { type: 'tick', now: '2026-08-02T13:00:00.000Z' })
+    expect(step.materialize.find((m) => m.nodeId === 'research_brief')).toBeUndefined()
+    expect(step.run.nodes.find((n) => n.nodeId === 'research_brief')?.status).toBe('blocked')
+    expect(step.run.status).not.toBe('succeeded')
+
+    const inspect = inspectWorkflowRun(step.run)
+    const inspectNode = inspect.nodes.find((n) => n.nodeId === 'research_brief')
+    expect(inspectNode?.blockedReasonCode).toBe('transient_infra_exhausted')
+    expect(inspectNode?.status).toBe('blocked')
+  })
 })
