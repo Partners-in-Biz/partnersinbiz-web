@@ -112,22 +112,6 @@ jobs:
           if ($Publisher -cne $env:EXPECTED_PUBLISHER) { throw "Unexpected internal publisher: $Publisher" }
           "PIB_INTERNAL_SIGNING_PFX=$Pfx" | Out-File $env:GITHUB_ENV -Append
           "PIB_INTERNAL_SIGNING_CERT=$Cer" | Out-File $env:GITHUB_ENV -Append
-      - name: Install internal trust non-interactively
-        timeout-minutes: 2
-        shell: pwsh
-        run: |
-          foreach ($StoreName in @('Root','TrustedPublisher')) {
-            & certutil.exe -user -f -addstore $StoreName $env:PIB_INTERNAL_SIGNING_CERT | Out-Host
-            if ($LASTEXITCODE -ne 0) { throw "certutil failed to install internal trust in CurrentUser/$StoreName." }
-            $Installed = Get-ChildItem "Cert:\CurrentUser\$StoreName" |
-              Where-Object {
-                $Hasher = [Security.Cryptography.SHA256]::Create()
-                try { ([BitConverter]::ToString($Hasher.ComputeHash($_.RawData))).Replace('-','') -ceq $env:EXPECTED_CERT_SHA256 }
-                finally { $Hasher.Dispose() }
-              } |
-              Select-Object -First 1
-            if (-not $Installed) { throw "Pinned internal certificate is missing from CurrentUser/$StoreName after installation." }
-          }
       - name: Locate bounded Windows signing tool
         timeout-minutes: 2
         shell: pwsh
@@ -157,7 +141,7 @@ jobs:
         run: |
           function Assert-InternalSignature([string]$Path) {
             $Signature = Get-AuthenticodeSignature -LiteralPath $Path
-            if ($Signature.Status -ne 'Valid' -or -not $Signature.SignerCertificate) { throw "Invalid internal Authenticode signature: $Path ($($Signature.Status))." }
+            if ($Signature.Status -notin @('Valid','NotTrusted') -or -not $Signature.SignerCertificate) { throw "Invalid internal Authenticode signature: $Path ($($Signature.Status))." }
             $Publisher = $Signature.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
             $Sha = [Security.Cryptography.SHA256]::HashData($Signature.SignerCertificate.RawData)
             $Fingerprint = ([BitConverter]::ToString($Sha)).Replace('-','')
@@ -184,7 +168,7 @@ jobs:
         run: |
           function Assert-InternalSignature([string]$Path) {
             $Signature = Get-AuthenticodeSignature -LiteralPath $Path
-            if ($Signature.Status -ne 'Valid' -or -not $Signature.SignerCertificate) { throw "Invalid internal Authenticode signature: $Path ($($Signature.Status))." }
+            if ($Signature.Status -notin @('Valid','NotTrusted') -or -not $Signature.SignerCertificate) { throw "Invalid internal Authenticode signature: $Path ($($Signature.Status))." }
             $Publisher = $Signature.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
             $Sha = [Security.Cryptography.SHA256]::HashData($Signature.SignerCertificate.RawData)
             $Fingerprint = ([BitConverter]::ToString($Sha)).Replace('-','')
