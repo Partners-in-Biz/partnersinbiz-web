@@ -269,6 +269,41 @@ export async function runProjectPlaybookTemplate(input: {
   const template = normalizeProjectPlaybookTemplate(input.playbook.template ?? input.playbook)
   const validation = validateProjectPlaybookTemplate(template)
   if (!validation.ok) return { ok: false as const, error: validation.error, status: 400 }
+
+  // Path A: optional graph-backed execution. Single source of truth is WorkflowRun —
+  // do not also write playbookRuns for the same execution.
+  const executionBackend = cleanString(input.playbook.executionBackend) || 'playbook'
+  if (executionBackend === 'workflow_graph') {
+    const orgId = cleanString(input.project.orgId) || projectOwnerOrgId(input.project)
+    if (!orgId) return { ok: false as const, error: 'Project organisation is required to run a playbook', status: 400 }
+    const { startRunFromPlaybook } = await import('@/lib/workflow-graph')
+    const graphRun = await startRunFromPlaybook({
+      orgId,
+      projectId: input.projectId,
+      playbookId: input.playbookId,
+      playbookName: title,
+      playbookTemplate: template,
+      actorUid: input.actorUid,
+      idempotencyKey: cleanString(input.runKey) || undefined,
+    })
+    if (!graphRun.ok) return { ok: false as const, error: graphRun.error, status: graphRun.status }
+    return {
+      ok: true as const,
+      data: {
+        playbookId: input.playbookId,
+        playbookRunId: graphRun.run.id,
+        workflowRunId: graphRun.run.id,
+        executionBackend: 'workflow_graph' as const,
+        createdTaskIds: graphRun.run.nodes
+          .map((node) => node.kanbanTaskId)
+          .filter((id): id is string => Boolean(id)),
+        taskCount: graphRun.run.nodes.filter((node) => node.kanbanTaskId).length,
+        deduplicated: false,
+        inspect: graphRun.inspect,
+      },
+    }
+  }
+
   const steps = template.steps
 
   const projectRef = adminDb.collection('projects').doc(input.projectId)
