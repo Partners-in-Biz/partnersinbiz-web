@@ -35,6 +35,8 @@ describe('internal Windows staff runtime channel', () => {
     expect(workflow).toMatch(/\$PSNativeCommandUseErrorActionPreference = \$false/)
     expect(workflow).toMatch(/\$InternalReleaseExitCode = \$LASTEXITCODE/)
     expect(workflow).toMatch(/\$global:LASTEXITCODE = 0/)
+    expect(workflow).toMatch(/Windows Kits\\10\\bin\\\*\\x64\\signtool\.exe/)
+    expect(workflow).not.toMatch(/Get-ChildItem[^\r\n]+-Recurse/)
     expect(workflow).not.toMatch(/sslcom|ESIGNER/i)
   })
 })
