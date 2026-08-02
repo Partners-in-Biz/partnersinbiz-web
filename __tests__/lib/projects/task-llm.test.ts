@@ -74,17 +74,65 @@ describe('project task LLM credential helpers', () => {
     })
   })
 
-  it('keeps a VPS task on the organisation account', async () => {
+  it('defaults Auto (no model/provider) to SuperGrok primary, not first Codex connection', async () => {
+    mockListConnections.mockResolvedValue([
+      {
+        id: 'user:user-1:openai-codex',
+        provider: 'openai-codex',
+        hermesProvider: 'openai-codex',
+        scope: 'user',
+        ownerUid: 'user-1',
+        status: 'connected',
+        hasCredentials: true,
+      },
+      {
+        id: 'user:user-1:xai-oauth',
+        provider: 'xai-oauth',
+        hermesProvider: 'xai-oauth',
+        scope: 'user',
+        ownerUid: 'user-1',
+        status: 'connected',
+        hasCredentials: true,
+      },
+      {
+        id: 'org:org-1:openai-codex',
+        provider: 'openai-codex',
+        hermesProvider: 'openai-codex',
+        scope: 'org',
+        ownerUid: null,
+        status: 'connected',
+        hasCredentials: true,
+      },
+      {
+        id: 'org:org-1:xai-oauth',
+        provider: 'xai-oauth',
+        hermesProvider: 'xai-oauth',
+        scope: 'org',
+        ownerUid: null,
+        status: 'connected',
+        hasCredentials: true,
+      },
+    ])
+
     await expect(resolveTaskLlmCredentials({
       orgId: 'org-1',
       ownerUid: 'user-1',
       requestedSource: 'auto',
-      requestedProvider: 'xai-oauth',
+      runtimeTargetId: 'linked-device:mac-1',
+    })).resolves.toMatchObject({
+      resolvedSource: 'personal',
+      connectionId: 'user:user-1:xai-oauth',
+      agentProvider: 'xai-oauth',
+    })
+
+    await expect(resolveTaskLlmCredentials({
+      orgId: 'org-1',
+      ownerUid: 'user-1',
+      requestedSource: 'auto',
       runtimeTargetId: 'vps',
     })).resolves.toMatchObject({
       resolvedSource: 'org',
       connectionId: 'org:org-1:xai-oauth',
-      personalConnectionId: null,
       agentProvider: 'xai-oauth',
     })
   })
