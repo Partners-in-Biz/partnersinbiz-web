@@ -2926,6 +2926,94 @@ describe('UnifiedChat context references', () => {
     ]))
   })
 
+  it('does not auto-pin open_context from a previous chat onto the newly focused conversation', async () => {
+    const emailRef = {
+      type: 'email' as const,
+      id: 'email-scholtz',
+      orgId: 'org-1',
+      label: 'Scholtz Inc website — how the quote works',
+      origin: 'mention' as const,
+    }
+    const projectOnFinance = { ...projectRef, id: 'project-finance', label: 'Partners in Biz Finance' }
+    const conversationA = {
+      ...baseConversation,
+      title: 'Finance conversation',
+      contextRefs: [emailRef, projectOnFinance],
+    }
+    const conversationB = {
+      ...baseConversation,
+      id: 'conv-2',
+      title: 'CRM research',
+      contextRefs: [] as ContextReference[],
+    }
+    const financeAssistant = {
+      id: 'msg-finance-open',
+      conversationId: 'conv-1',
+      role: 'assistant' as const,
+      content: 'Opened the Scholtz email draft',
+      authorKind: 'agent' as const,
+      authorId: 'pip',
+      authorDisplayName: 'Pip',
+      status: 'completed' as const,
+      createdAt: '2026-08-02T09:00:00.000Z',
+      uiActions: [{
+        id: 'open-email:email-scholtz',
+        type: 'open_context',
+        label: 'Review email draft',
+        payload: { kind: 'email', id: 'email-scholtz', label: emailRef.label },
+      }],
+    }
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(request)
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [conversationA, conversationB] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        return jsonResponse({ data: { messages: [financeAssistant] } })
+      }
+      if (url === '/api/v1/conversations/conv-2/messages') {
+        // Delay so the previous thread's assistant bubble is still mounted for
+        // one tick after activeId flips — the race this test guards against.
+        await new Promise((resolve) => setTimeout(resolve, 40))
+        return jsonResponse({ data: { messages: [] } })
+      }
+      if (url === '/api/v1/conversations/conv-2/context' && init?.method === 'PATCH') {
+        return jsonResponse({ data: { contextRefs: [emailRef] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') {
+        return jsonResponse({ data: { contextRefs: conversationA.contextRefs } })
+      }
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+
+    await screen.findByText('Opened the Scholtz email draft')
+    // Finance chat may auto-pin its own open_context; that is in-thread and fine.
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+
+    fireEvent.click(screen.getByTestId('conversation-row-conv-2'))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/v1/conversations/conv-2/messages'))
+    await waitFor(() => expect(screen.queryByText('Opened the Scholtz email draft')).not.toBeInTheDocument())
+
+    // Give the open_context auto-handler a chance to mis-fire if the race returns.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80))
+    })
+
+    expect(mockFetch).not.toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-2/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    )
+    expect(screen.queryByRole('button', { name: 'Remove Scholtz Inc website — how the quote works context' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('CRM research').length).toBeGreaterThan(0)
+  })
+
   it('isolates unsent composer state when switching conversations and restores it on return', async () => {
     const conversationA = { ...baseConversation, title: 'Finance conversation', contextRefs: [projectRef] }
     const conversationB = { ...baseConversation, id: 'conv-2', title: 'CRM research', contextRefs: [] }
