@@ -60,14 +60,9 @@ export default function StatementImportPage() {
   }, [orgId, bankAccountId])
 
   const loadDocuments = useCallback(async () => {
-    if (!orgId || !scope.legalEntityId || !scope.bookId) return
+    if (!orgId || !scope.scopeReady) return
     try {
-      const q = new URLSearchParams()
-      q.set('resource', 'bundle')
-      q.set('orgId', orgId)
-      q.set('legalEntityId', scope.legalEntityId)
-      q.set('bookId', scope.bookId)
-      const res = await fetch(`/api/v1/finance/documents/queries?${q.toString()}`, {
+      const res = await fetch(scope.queryUrl('/api/v1/finance/documents/queries', 'bundle'), {
         credentials: 'include',
       })
       const body = await readFinanceJson(res)
@@ -80,7 +75,7 @@ export default function StatementImportPage() {
     } catch {
       // documents scope may be empty until setup
     }
-  }, [orgId, scope.legalEntityId, scope.bookId, bankAccountId])
+  }, [orgId, scope.scopeReady, scope.queryUrl, scope.selectedEntityId, scope.selectedBookId, bankAccountId])
 
   useEffect(() => {
     void loadBundle()
@@ -125,13 +120,13 @@ export default function StatementImportPage() {
   async function parseOnly() {
     await withBusy(async () => {
       if (!bankAccountId) throw new Error('Select a bank account')
-      if (!scope.legalEntityId || !scope.bookId) throw new Error('Select legal entity and book')
+      if (!scope.selectedEntityId || !scope.selectedBookId) throw new Error('Select legal entity and book')
       const id = newFinanceId('sib')
-      const ids = requestIdentity()
+      const ids = requestIdentity('sib-parse')
       const body = await runCommand('statement.import.parse', {
         id,
-        legalEntityId: scope.legalEntityId,
-        bookId: scope.bookId,
+        legalEntityId: scope.selectedEntityId,
+        bookId: scope.selectedBookId,
         bankAccountId,
         fileName,
         contentText,
@@ -147,20 +142,20 @@ export default function StatementImportPage() {
   async function parseAndApply() {
     await withBusy(async () => {
       if (!bankAccountId) throw new Error('Select a bank account')
-      if (!scope.legalEntityId || !scope.bookId) throw new Error('Select legal entity and book')
+      if (!scope.selectedEntityId || !scope.selectedBookId) throw new Error('Select legal entity and book')
       const id = newFinanceId('sib')
-      const parseIds = requestIdentity()
+      const parseIds = requestIdentity('sib-parse')
       await runCommand('statement.import.parse', {
         id,
-        legalEntityId: scope.legalEntityId,
-        bookId: scope.bookId,
+        legalEntityId: scope.selectedEntityId,
+        bookId: scope.selectedBookId,
         bankAccountId,
         fileName,
         contentText,
         format,
         ...parseIds,
       })
-      const applyIds = requestIdentity()
+      const applyIds = requestIdentity('sib-apply')
       const body = await runCommand('statement.import.apply', {
         id,
         ...applyIds,
@@ -177,7 +172,7 @@ export default function StatementImportPage() {
     await withBusy(async () => {
       const id = lastBatchId || batches[0]?.id
       if (!id) throw new Error('No batch to apply')
-      const ids = requestIdentity()
+      const ids = requestIdentity('sib-apply')
       const body = await runCommand('statement.import.apply', { id, ...ids })
       const batch = body?.data?.result?.batch
       setMessage(
@@ -189,12 +184,12 @@ export default function StatementImportPage() {
   async function generateSuggestions() {
     await withBusy(async () => {
       if (!bankAccountId) throw new Error('Select a bank account')
-      if (!scope.legalEntityId || !scope.bookId) throw new Error('Select legal entity and book')
-      const ids = requestIdentity()
+      if (!scope.selectedEntityId || !scope.selectedBookId) throw new Error('Select legal entity and book')
+      const ids = requestIdentity('rsg')
       const body = await runCommand('recon.suggestion.generate', {
         idPrefix: newFinanceId('rsg'),
-        legalEntityId: scope.legalEntityId,
-        bookId: scope.bookId,
+        legalEntityId: scope.selectedEntityId,
+        bookId: scope.selectedBookId,
         bankAccountId,
         bankTransactions: bankTxns,
         payments,
@@ -207,7 +202,7 @@ export default function StatementImportPage() {
 
   async function resolveSuggestion(id: string, op: 'recon.suggestion.accept' | 'recon.suggestion.dismiss') {
     await withBusy(async () => {
-      const ids = requestIdentity()
+      const ids = requestIdentity('rsg-resolve')
       await runCommand(op, {
         id,
         resolutionNote: op.endsWith('accept') ? 'Human accepted suggestion' : 'Human dismissed suggestion',
