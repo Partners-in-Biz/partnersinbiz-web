@@ -93,6 +93,11 @@ describe('finance portal design-system parity', () => {
     'app/(portal)/portal/finance/runbooks/page.tsx',
     'app/(portal)/portal/finance/practice/page.tsx',
     'app/(portal)/portal/finance/job-costing/page.tsx',
+    // Phase 4 competitor-parity surfaces (must keep FinanceModuleFrame + tenant scope helpers)
+    'app/(portal)/portal/finance/assets/page.tsx',
+    'app/(portal)/portal/finance/bank-rules/page.tsx',
+    'app/(portal)/portal/finance/budgets/page.tsx',
+    'app/(portal)/portal/finance/multi-currency/page.tsx',
   ]
 
   test('shared shell components exist', () => {
@@ -121,7 +126,8 @@ describe('finance portal design-system parity', () => {
       const src = read(rel)
       expect(src).toMatch(/FinanceModuleFrame/)
       expect(src).toMatch(/ModuleShell|FinanceModuleFrame/)
-      expect(src).toMatch(/scopedPortalPath|scopeFromSearchParams|orgScope/)
+      // Tenant helpers may be direct (scopedPortalPath/orgScope) or via useFinanceBookScope.
+      expect(src).toMatch(/scopedPortalPath|scopeFromSearchParams|orgScope|useFinanceBookScope/)
       expect(src).not.toMatch(/Authenticated APIs:/)
     }
 
@@ -153,11 +159,20 @@ describe('finance portal design-system parity', () => {
       'app/(portal)/portal/finance/payroll/page.tsx',
       'app/(portal)/portal/finance/packaging/page.tsx',
       'app/(portal)/portal/finance/job-costing/page.tsx',
+      'app/(portal)/portal/finance/assets/page.tsx',
+      'app/(portal)/portal/finance/bank-rules/page.tsx',
+      'app/(portal)/portal/finance/budgets/page.tsx',
+      'app/(portal)/portal/finance/multi-currency/page.tsx',
     ]
     for (const rel of bookScoped) {
       const src = read(rel)
       expect(src).toMatch(/FinanceScopeBar/)
       expect(src).toMatch(/useFinanceBookScope/)
+    }
+
+    // Nav lock: Phase 4 routes remain discoverable from the shared finance nav.
+    for (const key of ['assets', 'bank-rules', 'budgets', 'multi-currency', 'job-costing', 'practice', 'runbooks', 'setup'] as const) {
+      expect(financeNavItem(key).href).toMatch(/^\/portal\/finance/)
     }
   })
 })

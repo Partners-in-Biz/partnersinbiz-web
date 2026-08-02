@@ -81,13 +81,16 @@ describe('finance workbench delivery contract', () => {
       'app/(portal)/portal/finance/multi-currency/page.tsx',
       'app/(portal)/portal/finance/bank-rules/page.tsx',
       'app/(portal)/portal/finance/budgets/page.tsx',
+      'app/(portal)/portal/finance/assets/page.tsx',
+      'app/(portal)/portal/finance/runbooks/page.tsx',
     ]
     for (const rel of pages) {
       expect(existsSync(path.join(root, rel))).toBe(true)
       const src = pageSource(rel)
       expect(src).toMatch(/['"]use client['"]/)
       expect(src).toMatch(/FinanceModuleFrame/)
-      if (!rel.endsWith('/setup/page.tsx')) {
+      // setup + runbooks are guided/static operator surfaces; interactive workbenches must fetch.
+      if (!rel.endsWith('/setup/page.tsx') && !rel.endsWith('/runbooks/page.tsx')) {
         expect(src).toMatch(/fetch\(/)
       }
       expect(src).not.toMatch(/Authenticated APIs:/)
