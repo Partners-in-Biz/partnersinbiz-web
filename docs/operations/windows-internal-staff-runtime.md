@@ -7,7 +7,7 @@ This is a temporary, zero-license-cost Windows channel for computers managed by 
 The channel uses three independent checks:
 
 1. A dedicated internal Authenticode certificate signs the CAB and every executable.
-2. The bootstrap pins SHA-256 fingerprint `F40112CCB174A9FF5B7F56388D66BBA9CC98D9655C817B66B5F0A3D5A4DB7042` before adding the public certificate to the managed machine's Root and TrustedPublisher stores.
+2. The bootstrap pins SHA-256 fingerprint `F40112CCB174A9FF5B7F56388D66BBA9CC98D9655C817B66B5F0A3D5A4DB7042` before adding the public certificate to the managed machine's TrustedPeople and TrustedPublisher stores.
 3. The normal PiB Ed25519 release signature binds runtime metadata to the exact payload hash and immutable internal release tag.
 
 The private PFX exists only in GitHub Actions encrypted secrets. The public certificate is committed as base64 DER and published with each internal Windows release.
@@ -16,7 +16,7 @@ The private PFX exists only in GitHub Actions encrypted secrets. The public cert
 
 The internal workflow is `.github/workflows/release-linked-runtime-windows-internal.yml`. It must run from `main`, requires an existing public `runtime-v<version>` source release, and creates a separate prerelease tag `runtime-internal-v<version>`.
 
-The unattended release runner never adds the internal certificate to a trust store. It accepts only the Authenticode `Valid` or `NotTrusted` states and then requires the signer publisher and SHA-256 certificate fingerprint to match the pinned identity exactly. Any unsigned, changed, unsupported, or differently signed artifact fails publication. Machine trust is installed only during the explicit staff bootstrap below.
+The unattended release runner adds the exact pinned certificate only to its ephemeral CurrentUser TrustedPeople store, which Microsoft documents for explicitly trusted people and test package verification. The runner then requires Authenticode `Valid` plus the exact signer publisher and SHA-256 certificate fingerprint. Any unsigned, changed, unsupported, untrusted, or differently signed artifact fails publication. Persistent machine-wide trust is installed only during the explicit staff bootstrap below.
 
 Required GitHub secrets:
 
