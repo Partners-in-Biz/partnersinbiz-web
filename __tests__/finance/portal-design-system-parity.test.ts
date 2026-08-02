@@ -90,6 +90,7 @@ describe('finance portal design-system parity', () => {
     'app/(portal)/portal/finance/statements/page.tsx',
     'app/(portal)/portal/finance/cutover/page.tsx',
     'app/(portal)/portal/finance/setup/page.tsx',
+    'app/(portal)/portal/finance/runbooks/page.tsx',
     'app/(portal)/portal/finance/practice/page.tsx',
     'app/(portal)/portal/finance/job-costing/page.tsx',
   ]
@@ -107,9 +108,11 @@ describe('finance portal design-system parity', () => {
     expect(FINANCE_NAV.length).toBeGreaterThanOrEqual(10)
     expect(FINANCE_PRIMARY_TABS).toContain('hub')
     expect(FINANCE_PRIMARY_TABS).toContain('practice')
+    expect(FINANCE_PRIMARY_TABS).toContain('runbooks')
     expect(financeNavItem('packaging').href).toBe('/portal/finance/packaging')
     expect(financeNavItem('job-costing').href).toBe('/portal/finance/job-costing')
     expect(financeNavItem('practice').href).toBe('/portal/finance/practice')
+    expect(financeNavItem('runbooks').href).toBe('/portal/finance/runbooks')
   })
 
   test('all finance portal pages mount FinanceModuleFrame + design-system primitives', () => {
