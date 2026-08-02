@@ -13,7 +13,8 @@ Shipped on `development` as implementation of research `lZLfr9HK6Izd4RTatIwq`.
 - Human-edited identity fields become `humanOwnedFields` and block agent overwrite.
 - Mailbox signatures/replies feed proposals via local heuristics (no third-party egress of body text).
 - Graph endpoint always returns neighbour IDs.
-- Optional research queue supports `schedule_recheck` with rep-visible reasons + budget.
+- Research queue supports `schedule_recheck` with rep-visible reasons + budget.
+- Multi-machine worker loop leases due work, applies payload-backed enrichment, and completes tasks.
 
 ## Collections
 
@@ -29,7 +30,7 @@ Shipped on `development` as implementation of research `lZLfr9HK6Izd4RTatIwq`.
 
 ## API
 
-All routes: `withCrmAuth('member')`, org-scoped, assignment-access aware.
+All routes: `withCrmAuth('member')`, org-scoped, assignment-access aware (except cron).
 
 ### Facts
 
@@ -44,19 +45,31 @@ GET  /api/v1/crm/companies/:id/graph
 GET  /api/v1/crm/deals/:id/graph
 ```
 
-### Research queue
+### Research queue + worker
 
 ```
 GET  /api/v1/crm/research-tasks?contactId=&status=pending&due=true
 POST /api/v1/crm/research-tasks
-  { "contactId", "reason": "Rep-visible why", "kind"?, "delaySeconds"?, "budgetUnits"? }
+  { "contactId", "reason": "Rep-visible why", "kind"?, "delaySeconds"?, "budgetUnits"?, "metadata"? }
 POST /api/v1/crm/research-tasks/lease
   { "workerId"?, "leaseSeconds"? }  // multi-worker safe lease of next due pending task
 POST /api/v1/crm/research-tasks/claim
   // alias of lease (Comp-style naming)
+POST /api/v1/crm/research-tasks/work
+  { "workerId"?, "leaseSeconds"? }  // org-scoped Hermes: lease next + process payload
 POST /api/v1/crm/research-tasks/:id/complete
   { "resultSummary"?, "budgetSpentDelta"?, "failed"?, "error"? }
+GET  /api/v1/crm/cron/process-research-tasks
+  // Bearer CRON_SECRET — global multi-tenant batch (Firebase scheduledCron every 5 min)
 ```
+
+### Worker payload contract (`metadata` on research tasks)
+
+Auto-enrichment is **payload-backed only** (no invented external enrichment):
+
+- `bodyText` / `mailboxBodyText` — local signature/reply parse via `applyMailboxFactsToContact`
+- `observations` / `evidenceEntries` / `facts` — array of `{ field, value, evidence[] }`
+- Optional: `fromName`, `fromEmail`, `direction`, `sourceUrl`
 
 ### POST fact body (no confidence)
 
@@ -93,16 +106,27 @@ See `lib/crm/facts/evidence.ts` `WEIGHTS`. Primaries include signature, thread-r
 
 ## UI
 
-Portal contact detail (`/portal/contacts/[id]`): **Agent proposals** panel
-(`ContactFactProposalsPanel`) — accept/dismiss with evidence and band chips.
+- Portal contact detail (`/portal/contacts/[id]`): **Agent proposals** + **Research queue** panels
+- Admin selected-org contact (`/admin/org/[slug]/crm/contacts/[id]`): same proposals + research panels
+- Company command center contact rows deep-link to admin contact detail
+
+## Mailbox coverage
+
+| Path | Behaviour |
+|---|---|
+| `POST .../facts/from-mailbox` | Explicit API (supports `dryRun`) |
+| CRM Gmail integration inbound | Full body fetch → local signature facts |
+| Agent mailbox Gmail sync (new inbound) | Match From email → local signature facts |
+| Research worker task metadata body | Same local parse when task runs |
 
 ## Hermes agent usage
 
 1. Prefer `GET .../graph` before acting — neighbour IDs are already there.
 2. Record facts with observation kinds only.
 3. For mailbox identity: `POST .../facts/from-mailbox` with `bodyText` (or `dryRun: true`).
-4. For uncertain future work: `POST /crm/research-tasks` with a clear `reason`.
-5. Job changes: `POST .../facts/job-change` (employer fact-only + optional title + recheck).
+4. For uncertain future work: `POST /crm/research-tasks` with a clear `reason` and optional observation payload in `metadata`.
+5. Org workers: `POST /crm/research-tasks/work` (lease+process) or lease → act → complete.
+6. Job changes: `POST .../facts/job-change` (employer fact-only + optional title + recheck).
 
 ## Hard rules (code)
 
@@ -112,30 +136,32 @@ Portal contact detail (`/portal/contacts/[id]`): **Agent proposals** panel
 4. VERIFIED requires a primary evidence source.
 5. Contradictions hold (score capped); no auto-apply path via VERIFIED.
 6. Multi-tenant: every read/write checks `orgId` (+ assignment access).
+7. Cron is CRON_SECRET only; workers never invent external facts without payload evidence.
 
 ## Tests
 
 ```
-npx jest __tests__/lib/crm/facts-evidence-ledger.test.ts __tests__/api/v1/crm/contacts/facts.test.ts --no-coverage
+npx jest \
+  __tests__/lib/crm/facts-evidence-ledger.test.ts \
+  __tests__/api/v1/crm/contacts/facts.test.ts \
+  __tests__/lib/crm/research-worker.test.ts \
+  __tests__/api/v1/crm/cron/process-research-tasks.test.ts \
+  __tests__/lib/mailbox/applyInboundContactFacts.test.ts \
+  __tests__/api/integrations-gmail.test.ts \
+  --no-coverage
 ```
-
-## Out of scope / follow-ups
-
-- Hermes background worker loop that repeatedly leases `crm_research_tasks` and runs enrichment (lease/complete APIs are ready)
-- Deepen Gmail auto-ingest coverage (inbound sync now best-effort applies mailbox signature facts; expand to all mailbox providers)
-- Admin contact detail parity panel (portal shipped first)
-- Deploy Firestore composite indexes: `firebase deploy --only firestore:indexes` (indexes added to `firestore.indexes.json`)
 
 ## Multi-machine / multi-worker notes
 
 - Research lease walks due **pending** tasks and **expired leases**, then claims via Firestore transaction.
+- Global cron (`runCrmResearchQueue` / `process-research-tasks`) walks cross-tenant candidates the same way.
 - Contention on one task continues to the next candidate (no single-point stall).
 - `POST /crm/research-tasks/claim` is an alias of `/lease` for Comp-style naming.
 - Workers should pass stable `workerId` (agent id or hostname+pid).
-- Gmail inbound sync fetches full message bodies and runs **local** signature → fact proposals (no third-party body egress).
+- Gmail paths fetch full message bodies and run **local** signature → fact proposals (no third-party body egress).
 
-## Out of scope / follow-ups
+## Ops follow-ups (not product gaps)
 
-- Hermes/cron background worker loop that repeatedly leases `crm_research_tasks` and runs enrichment (lease/claim/complete APIs are production-ready)
-- Admin contact detail parity panel (portal contact page ships Agent proposals first; company command center still uses portal contact deep-links)
-- Deploy Firestore composite indexes if not yet live: `firebase deploy --only firestore:indexes` (indexes already in `firestore.indexes.json`)
+- Confirm Firestore composite indexes for `contact_facts` / `crm_research_tasks` are live: `firebase deploy --only firestore:indexes` (definitions already in `firestore.indexes.json`).
+- Production promote remains explicit (development only until release approval).
+- SMTP/IMAP inbound auto-facts: only Gmail full-body import paths today; other providers use `from-mailbox` API or research-task metadata body.

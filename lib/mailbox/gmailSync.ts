@@ -343,8 +343,44 @@ async function importGmailIds(input: {
       await existing.ref.set(patch, { merge: true })
       result.updated += 1
     } else {
-      await adminDb.collection('mailbox_messages').add(payload)
+      const created = await adminDb.collection('mailbox_messages').add(payload)
       result.imported += 1
+
+      // Best-effort: inbound body → ContactFact proposals for matched CRM contacts.
+      // Local parse only; never blocks mailbox import.
+      if (payload.direction === 'inbound' && typeof payload.bodyText === 'string' && payload.bodyText.trim()) {
+        try {
+          const { applyInboundMailboxFactsForMatchedContacts } = await import(
+            '@/lib/mailbox/applyInboundContactFacts'
+          )
+          const facts = await applyInboundMailboxFactsForMatchedContacts({
+            orgId: input.orgId,
+            fromEmail: typeof payload.from === 'string' ? payload.from : null,
+            fromName: typeof payload.fromName === 'string' ? payload.fromName : null,
+            bodyText: payload.bodyText,
+            sourceUrl: gmail.threadId
+              ? `mailbox:gmail:thread:${gmail.threadId}`
+              : `mailbox:gmail:message:${gmail.id}`,
+            agentId: 'agent-mailbox-gmail',
+          })
+          if (facts.contactIds.length > 0) {
+            const messageId = typeof created?.id === 'string' ? created.id : null
+            if (messageId) {
+              await adminDb.collection('mailbox_messages').doc(messageId).set(
+                {
+                  linkedContactIds: facts.contactIds,
+                  contactFactsStored: facts.storedCount,
+                  crmLinkedAt: FieldValue.serverTimestamp(),
+                  updatedAt: FieldValue.serverTimestamp(),
+                },
+                { merge: true },
+              )
+            }
+          }
+        } catch (err) {
+          console.error('[gmail-mailbox-sync] inbound contact facts failed', gmail.id, err)
+        }
+      }
     }
     if (gmail.threadId) {
       const current = threadCounts.get(gmail.threadId) ?? { count: 0, subject: String(payload.subject ?? '') }

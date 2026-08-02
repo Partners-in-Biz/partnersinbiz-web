@@ -71,11 +71,12 @@ export function ContactResearchTasksPanel({
     setLoading(true)
     setError(null)
     try {
+      // Fetch without a single status filter so leased/failed open work is visible.
+      // listResearchTasks only supports one status equality at a time.
       const qs = new URLSearchParams({
         contactId,
-        limit: '30',
+        limit: includeDone ? '40' : '30',
       })
-      if (!includeDone) qs.set('status', 'pending')
       const res = await fetch(apiPath(`/api/v1/crm/research-tasks?${qs.toString()}`))
       const body = await res.json().catch(() => null)
       if (!res.ok) {

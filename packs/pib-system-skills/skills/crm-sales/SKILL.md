@@ -131,7 +131,9 @@ Current contact quick-action routes:
 | `POST` | `/crm/research-tasks` | schedule_recheck with rep-visible reason + budget. |
 | `POST` | `/crm/research-tasks/lease` | Multi-worker lease of next due research task (reclaims expired leases). |
 | `POST` | `/crm/research-tasks/claim` | Alias of lease (Comp-style naming). |
+| `POST` | `/crm/research-tasks/work` | Org-scoped Hermes worker: lease next due task + process payload-backed enrichment. |
 | `POST` | `/crm/research-tasks/[id]/complete` | Complete or fail a research task. |
+| `GET` | `/crm/cron/process-research-tasks` | CRON_SECRET multi-tenant batch (Firebase `runCrmResearchQueue` every 5 min). |
 
 CRM report routes:
 
@@ -1723,8 +1725,8 @@ Agent patterns:
 2. `POST /crm/contacts/:id/facts` with `evidence: [{ kind, detail, sourceUrl? }]` only (never send confidence/score/band)
 3. Mailbox: `POST .../facts/from-mailbox` with `bodyText` (local parse; `dryRun: true` ok). Connected Gmail inbound sync also runs this pipeline locally.
 4. Uncertain follow-up: `POST /crm/research-tasks` with rep-visible `reason` + optional budget
-5. Workers (multi-machine): `POST /crm/research-tasks/lease` or `/claim`, then `POST /crm/research-tasks/:id/complete`. Expired leases are reclaimable.
-6. Humans accept/dismiss in portal contact detail **Agent proposals** panel
+5. Workers (multi-machine): prefer `POST /crm/research-tasks/work` (lease+process), or `lease`/`claim` then `complete`. Expired leases are reclaimable. Cron: `GET /crm/cron/process-research-tasks` (CRON_SECRET).
+6. Humans accept/dismiss in portal **and** admin contact detail **Agent proposals** + **Research queue** panels
 
 Full contract: `docs/crm/contact-fact-evidence-ledger.md`.
 
