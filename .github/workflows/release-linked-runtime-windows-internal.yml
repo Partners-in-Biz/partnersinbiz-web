@@ -116,7 +116,7 @@ jobs:
         timeout-minutes: 2
         shell: pwsh
         run: |
-          & certutil.exe -user -silent -f -addstore TrustedPeople $env:PIB_INTERNAL_SIGNING_CERT | Out-Host
+          & certutil.exe -user -f -addstore TrustedPeople $env:PIB_INTERNAL_SIGNING_CERT | Out-Host
           if ($LASTEXITCODE -ne 0) { throw 'certutil failed to install temporary CurrentUser/TrustedPeople verification trust.' }
           $Installed = Get-ChildItem 'Cert:\CurrentUser\TrustedPeople' |
             Where-Object {
