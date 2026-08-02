@@ -4050,6 +4050,17 @@ export default function UnifiedChat({
     return () => { cancelled = true }
   }, [activeId, conversations])
 
+  // Drop the previous thread's transcript immediately. loadMessages is async —
+  // if open_context auto-handlers still see the prior assistant bubble after
+  // activeId flips, they PATCH that context onto the newly focused chat.
+  useEffect(() => {
+    setMessages([])
+    setLoading(Boolean(activeId))
+    setContextFocusRequest(undefined)
+    setContextArtifactRequest(undefined)
+    handledOpenContextActionsRef.current.clear()
+  }, [activeId])
+
   useEffect(() => {
     if (activeId) loadMessages(activeId)
   }, [activeId, loadMessages])
@@ -4468,7 +4479,6 @@ export default function UnifiedChat({
 
   // Close header menu when switching conversations
   useEffect(() => { setHeaderMenuOpen(false) }, [activeId])
-  useEffect(() => { handledOpenContextActionsRef.current.clear() }, [activeId])
 
   // Cleanup polling + SSE on unmount
   useEffect(() => () => {
@@ -4841,6 +4851,15 @@ export default function UnifiedChat({
     async (message: ConversationMessage, action: ChatUiAction) => {
       const actionType = String(action.type).toLowerCase()
       if (actionType === 'open_context') {
+        // Never pin context for a bubble that belongs to another thread (stale
+        // transcript after a tab switch, or a late SSE/finalize paint).
+        if (
+          message.conversationId
+          && activeConversationIdRef.current
+          && message.conversationId !== activeConversationIdRef.current
+        ) {
+          return
+        }
         const payload = action.payload && typeof action.payload === 'object' && !Array.isArray(action.payload)
           ? action.payload as Record<string, unknown>
           : {}
@@ -4865,6 +4884,13 @@ export default function UnifiedChat({
             ...(label ? { label } : {}),
             ...(projectId ? { metadata: { projectId } } : {}),
           }])
+          if (
+            message.conversationId
+            && activeConversationIdRef.current
+            && message.conversationId !== activeConversationIdRef.current
+          ) {
+            return
+          }
           setContextFocusRequest({
             kind,
             id,
@@ -4963,7 +4989,16 @@ export default function UnifiedChat({
   )
 
   useEffect(() => {
-    const latestAssistant = [...messages].reverse().find((message) => message.role === 'assistant' && Array.isArray(message.uiActions) && message.uiActions.length > 0)
+    if (!activeId) return
+    // Require conversationId match. After a tab switch the previous transcript
+    // is still mounted until the clear+load effects commit; without this gate
+    // chat A's open_context would PATCH onto chat B.
+    const latestAssistant = [...messages].reverse().find((message) => (
+      message.role === 'assistant'
+      && message.conversationId === activeId
+      && Array.isArray(message.uiActions)
+      && message.uiActions.length > 0
+    ))
     if (!latestAssistant?.uiActions?.length) return
     for (const action of latestAssistant.uiActions) {
       if (String(action.type).toLowerCase() !== 'open_context') continue
@@ -4978,17 +5013,20 @@ export default function UnifiedChat({
           : ''
       // Prefer stable canvas identity over message id so finalize/replace of the
       // assistant bubble cannot re-auto-open a dock the user already dismissed.
-      const key = action.id
+      // Scope by conversation so switch-time handled-set clears cannot re-pin
+      // chat A's open_context onto chat B while A's messages are still mounted.
+      const identity = action.id
         ? `action:${action.id}`
         : kind && targetId
           ? `target:${kind}:${targetId}`
           : `message:${latestAssistant.id}:${action.id ?? 'open_context'}`
+      const key = `${activeId}:${identity}`
       if (handledOpenContextActionsRef.current.has(key)) continue
       handledOpenContextActionsRef.current.add(key)
       void handleUiAction(latestAssistant, action)
       break
     }
-  }, [handleUiAction, messages])
+  }, [activeId, handleUiAction, messages])
 
   const projectTaskHref = useCallback((taskId: string) => {
     const projectId = projectChat.activeProjectId ?? ''
