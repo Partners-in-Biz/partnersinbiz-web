@@ -338,7 +338,7 @@ Research (this) → Spec update BKF7… → UX hub (parallel foundation)
 - Findings/recommendations on Research `6OjqsbjAGkZue9vmTUbD` carry `sourceIds` for audit.
 - Source `fh62QHuK1Q9p4Vgr9mo5` (repo gap map markdown) is verified only because this path exists on `origin/development`.
 - Non-goals unchanged: no SARS e-file submit; no payment initiation; no mass client-visible statement/payslip email; no production deploy from this card.
-- Commit SHA is recorded in task `agentOutput.artifacts` after push (do not trust narrative alone).
+- Commit on origin/development: `6cc8307ea961630ff8b3c169d9dfbead320f1741` (also in task agentOutput.artifacts; do not trust narrative alone).
 
 ## Safety readback
 
