@@ -185,6 +185,51 @@ export async function probeLocalHermes(
       }
 }
 
+/**
+ * True when the local Hermes profile still owns live API runs / agents.
+ * Linked-chat capacity alone is insufficient: Kanban watcher runs arrive over
+ * the reverse tunnel and must block credential/policy profile reloads.
+ */
+export async function localHermesAgentHasActiveWork(
+  agentId: string,
+  env: RuntimeEnv = process.env,
+  fetcher: typeof fetch = fetch,
+): Promise<boolean> {
+  let routes: LocalHermesRoute[]
+  try {
+    routes = localHermesRoutes(env)
+  } catch {
+    return false
+  }
+  const route = routes.find((entry) => entry.agentId === cleanAgentId(agentId))
+  if (!route) return false
+  try {
+    const response = await fetcher(`${route.baseUrl}/health/detailed`, {
+      headers: authHeaders(route),
+      signal: AbortSignal.timeout(3_000),
+    })
+    if (!response.ok) return false
+    const body = await response.json().catch(() => null) as Record<string, unknown> | null
+    if (!body || typeof body !== 'object') return false
+    if (body.gateway_busy === true) return true
+    const activeAgents = Number(body.active_agents ?? 0)
+    if (Number.isFinite(activeAgents) && activeAgents > 0) return true
+    const readiness = body.readiness && typeof body.readiness === 'object'
+      ? body.readiness as Record<string, unknown>
+      : null
+    const checks = readiness?.checks && typeof readiness.checks === 'object'
+      ? readiness.checks as Record<string, unknown>
+      : null
+    const queues = checks?.background_queues && typeof checks.background_queues === 'object'
+      ? checks.background_queues as Record<string, unknown>
+      : null
+    const activeRuns = Number(queues?.active_api_runs ?? 0)
+    return Number.isFinite(activeRuns) && activeRuns > 0
+  } catch {
+    return false
+  }
+}
+
 function truncateDetail(value: string, max = 280): string {
   const clean = value.replace(/\s+/g, ' ').trim()
   if (!clean) return ''

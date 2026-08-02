@@ -36,7 +36,11 @@ const MAX_READY_SWEEP_DOCS = 100
 const MAX_SCHEDULED_RELEASE_SWEEP_DOCS = 100
 const MAX_DEPENDENCY_RELEASE_SWEEP_DOCS = 100
 const MAX_TRANSIENT_RETRIES = 3
+// Normal provider blips stay short. Mid-run gateway loss / 502 storms need a
+// longer cool-down so the watcher does not re-claim while local-runtime is
+// still bouncing the profile.
 const TRANSIENT_RETRY_DELAYS_MS = [60_000, 5 * 60_000, 15 * 60_000] as const
+const GATEWAY_STORM_RETRY_DELAYS_MS = [5 * 60_000, 15 * 60_000, 30 * 60_000] as const
 
 const inFlight = new Set<string>()
 const perAgentInFlight = new Map<AgentId, number>()
@@ -140,8 +144,22 @@ export function isTransientHermesError(error: string): boolean {
   return TRANSIENT_HERMES_ERROR_PATTERNS.some((pattern) => pattern.test(error))
 }
 
-function transientRetryAt(retryCount: number, now = Date.now()): string {
-  const delay = TRANSIENT_RETRY_DELAYS_MS[Math.min(retryCount, TRANSIENT_RETRY_DELAYS_MS.length - 1)]
+export function isGatewayRestartStormError(error: string): boolean {
+  return (
+    /\bwas not found on the agent gateway\b/i.test(error)
+    || /\brun_not_found\b/i.test(error)
+    || /\breturned 502 repeatedly while polling\b/i.test(error)
+    || /\breturned 503 repeatedly while polling\b/i.test(error)
+    || /\bgateway_draining\b/i.test(error)
+    || /\baddress already in use\b/i.test(error)
+  )
+}
+
+function transientRetryAt(retryCount: number, now = Date.now(), error?: string): string {
+  const table = error && isGatewayRestartStormError(error)
+    ? GATEWAY_STORM_RETRY_DELAYS_MS
+    : TRANSIENT_RETRY_DELAYS_MS
+  const delay = table[Math.min(retryCount, table.length - 1)]
   return new Date(now + delay).toISOString()
 }
 
@@ -801,7 +819,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       })
       if (isTransientHermesError(result.error) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
         const nextRetryCount = priorRetryCount + 1
-        const retryAt = transientRetryAt(priorRetryCount)
+        const retryAt = transientRetryAt(priorRetryCount, Date.now(), result.error)
         logger.warn('transient Hermes run failure — scheduling durable retry', {
           taskId,
           agentId,
@@ -921,7 +939,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
       if (isTransientHermesError(message) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
         const nextRetryCount = priorRetryCount + 1
-        const retryAt = transientRetryAt(priorRetryCount)
+        const retryAt = transientRetryAt(priorRetryCount, Date.now(), message)
         await taskRef.update({
           ...agentStatusUpdate('pending'),
           ...(activeRunId ? { agentConversationId: activeRunId } : {}),

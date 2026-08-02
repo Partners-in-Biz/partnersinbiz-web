@@ -8,12 +8,12 @@ import { buildAgentRunTelemetry, type AgentRunTelemetry } from './run-telemetry'
 
 const POLL_INTERVAL_MS = 2_000
 const DEFAULT_RUN_TIMEOUT_MS = 90 * 60 * 1_000
-const MAX_NOT_FOUND_POLLS = 3
-const MAX_RETRYABLE_HTTP_POLLS = 3
+const MAX_NOT_FOUND_POLLS = 5
+const MAX_RETRYABLE_HTTP_POLLS = 5
 const RETRYABLE_HTTP_STATUSES = new Set([429, 502, 503, 504])
 
-const TERMINAL_STATUSES = new Set(['completed', 'failed', 'succeeded', 'success', 'error', 'cancelled', 'canceled'])
-const FAILURE_STATUSES = new Set(['failed', 'error', 'cancelled', 'canceled'])
+const TERMINAL_STATUSES = new Set(['completed', 'failed', 'succeeded', 'success', 'error', 'cancelled', 'canceled', 'interrupted'])
+const FAILURE_STATUSES = new Set(['failed', 'error', 'cancelled', 'canceled', 'interrupted'])
 
 export interface RunResult {
   runId: string | null
