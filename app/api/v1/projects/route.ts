@@ -655,14 +655,13 @@ export async function handleProjectCreate(
     try {
       const conversation = await getConversation(sourceConversationId)
       if (conversation && conversation.orgId === orgId) {
+        // Create payloads do not set projectFolderRelativePath; auto-link falls
+        // back to the canonical projects/{id} relative path.
         const linkResult = await autoLinkProjectToConversationComputer({
           projectId: docRef.id,
           orgId,
           actorUserId: user.uid,
           workspaceContext: conversation.workspaceContext,
-          projectFolderRelativePath: typeof projectDocument.projectFolderRelativePath === 'string'
-            ? projectDocument.projectFolderRelativePath
-            : null,
         })
         computerLink = linkResult.linked
           ? { linked: true, locationId: linkResult.locationId }
