@@ -92,6 +92,7 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $PreviousNativeErrorPreference
           if ($InternalReleaseExitCode -eq 0) { throw 'Immutable internal Windows release already exists.' }
       - name: Prepare and pin internal signing identity
+        timeout-minutes: 2
         shell: pwsh
         run: |
           $Pfx = Join-Path $env:RUNNER_TEMP 'partnersinbiz-internal-signing.pfx'
@@ -109,6 +110,13 @@ jobs:
           if (-not $SigningCertificate.HasPrivateKey -or $SigningFingerprint -cne $Fingerprint) { throw 'Internal signing PFX does not match the pinned public certificate.' }
           $Publisher = $PublicCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
           if ($Publisher -cne $env:EXPECTED_PUBLISHER) { throw "Unexpected internal publisher: $Publisher" }
+          "PIB_INTERNAL_SIGNING_PFX=$Pfx" | Out-File $env:GITHUB_ENV -Append
+          "PIB_INTERNAL_SIGNING_CERT=$Cer" | Out-File $env:GITHUB_ENV -Append
+      - name: Install internal trust non-interactively
+        timeout-minutes: 2
+        shell: pwsh
+        run: |
+          $PublicCertificate = [Security.Cryptography.X509Certificates.X509Certificate2]::new($env:PIB_INTERNAL_SIGNING_CERT)
           foreach ($StoreName in @('Root','TrustedPublisher')) {
             $Store = [Security.Cryptography.X509Certificates.X509Store]::new($StoreName, [Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser)
             try {
@@ -118,11 +126,13 @@ jobs:
               $Store.Close()
             }
           }
+      - name: Locate bounded Windows signing tool
+        timeout-minutes: 2
+        shell: pwsh
+        run: |
           $SignTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -File |
             Sort-Object FullName -Descending | Select-Object -First 1
           if (-not $SignTool) { throw 'signtool.exe was not found on the Windows release runner.' }
-          "PIB_INTERNAL_SIGNING_PFX=$Pfx" | Out-File $env:GITHUB_ENV -Append
-          "PIB_INTERNAL_SIGNING_CERT=$Cer" | Out-File $env:GITHUB_ENV -Append
           "PIB_SIGNTOOL=$($SignTool.FullName)" | Out-File $env:GITHUB_ENV -Append
       - name: Build Windows x64 and arm64 runtimes
         shell: bash
