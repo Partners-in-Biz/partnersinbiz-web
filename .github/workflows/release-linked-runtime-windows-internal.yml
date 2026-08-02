@@ -116,16 +116,18 @@ jobs:
         timeout-minutes: 2
         shell: pwsh
         run: |
-          & certutil.exe -user -f -addstore TrustedPeople $env:PIB_INTERNAL_SIGNING_CERT | Out-Host
-          if ($LASTEXITCODE -ne 0) { throw 'certutil failed to install temporary CurrentUser/TrustedPeople verification trust.' }
-          $Installed = Get-ChildItem 'Cert:\CurrentUser\TrustedPeople' |
-            Where-Object {
-              $Hasher = [Security.Cryptography.SHA256]::Create()
-              try { ([BitConverter]::ToString($Hasher.ComputeHash($_.RawData))).Replace('-','') -ceq $env:EXPECTED_CERT_SHA256 }
-              finally { $Hasher.Dispose() }
-            } |
-            Select-Object -First 1
-          if (-not $Installed) { throw 'Pinned certificate is missing from temporary peer trust after installation.' }
+          foreach ($StoreName in @('TrustedPeople','TrustedPublisher')) {
+            & certutil.exe -user -f -addstore $StoreName $env:PIB_INTERNAL_SIGNING_CERT | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw "certutil failed to install temporary CurrentUser/$StoreName verification trust." }
+            $Installed = Get-ChildItem "Cert:\CurrentUser\$StoreName" |
+              Where-Object {
+                $Hasher = [Security.Cryptography.SHA256]::Create()
+                try { ([BitConverter]::ToString($Hasher.ComputeHash($_.RawData))).Replace('-','') -ceq $env:EXPECTED_CERT_SHA256 }
+                finally { $Hasher.Dispose() }
+              } |
+              Select-Object -First 1
+            if (-not $Installed) { throw "Pinned certificate is missing from temporary CurrentUser/$StoreName trust after installation." }
+          }
       - name: Locate bounded Windows signing tool
         timeout-minutes: 2
         shell: pwsh
