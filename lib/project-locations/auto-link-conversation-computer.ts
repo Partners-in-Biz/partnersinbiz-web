@@ -15,6 +15,7 @@ import { canonicalProjectRelativePath } from '@/lib/project-locations/model'
 import {
   linkProjectLocation,
   listExecutionLocationsForWorkspace,
+  listProjectLocations,
   ProjectLocationStoreError,
   type LinkProjectLocationInput,
   type ProjectLocationStoreOptions,
@@ -154,4 +155,83 @@ export function conversationIdFromProjectCreateBody(body: Record<string, unknown
     if (conversationId) return conversationId
   }
   return null
+}
+
+export type ProjectConversationComputerLinkStatus =
+  | {
+      status: 'linked'
+      locationId: string
+      computerLabel?: string
+    }
+  | {
+      status: 'not_linked'
+      locationId: string
+      computerLabel?: string
+      reason: 'no_replica'
+    }
+  | {
+      status: 'no_computer'
+      reason: 'conversation_has_no_computer' | 'runtime_not_linkable'
+    }
+  | {
+      status: 'unavailable'
+      reason: string
+    }
+
+export type ProjectConversationComputerLinkStatusDependencies = {
+  listProjectLocations?: typeof listProjectLocations
+}
+
+/**
+ * Whether a project already has an active location replica on the computer
+ * bound to a Messages conversation. Used by the project chat-context preview
+ * to surface a one-click "Link to this computer" action when missing.
+ */
+export async function getProjectConversationComputerLinkStatus(
+  input: AutoLinkProjectToConversationComputerInput,
+  dependencies: ProjectConversationComputerLinkStatusDependencies = {},
+): Promise<ProjectConversationComputerLinkStatus> {
+  const workspaceId = cleanString(input.workspaceContext?.workspaceId)
+  const runtimeTarget = cleanString(input.workspaceContext?.runtimeTarget)
+  if (!workspaceId || !runtimeTarget) {
+    return { status: 'no_computer', reason: 'conversation_has_no_computer' }
+  }
+
+  const locationId = resolveConversationComputerLocationId(runtimeTarget)
+  if (!locationId) {
+    return { status: 'no_computer', reason: 'runtime_not_linkable' }
+  }
+
+  const computerLabel = cleanString(input.workspaceContext?.runtimeLabel) || undefined
+  const listLocations = dependencies.listProjectLocations ?? listProjectLocations
+
+  try {
+    const replicas = await listLocations(input.projectId, input.orgId, input.actorUserId)
+    const replica = replicas.find((candidate) => (
+      candidate.active
+      && candidate.workspaceId === workspaceId
+      && (
+        candidate.locationId === locationId
+        || candidate.locationId === runtimeTarget
+      )
+    ))
+    if (replica) {
+      return {
+        status: 'linked',
+        locationId: replica.locationId,
+        computerLabel: cleanString(replica.locationLabel) || computerLabel,
+      }
+    }
+    return {
+      status: 'not_linked',
+      locationId,
+      ...(computerLabel ? { computerLabel } : {}),
+      reason: 'no_replica',
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.error('[project-conversation-computer-link-status]', error)
+    }
+    return { status: 'unavailable', reason: 'location_list_failed' }
+  }
 }

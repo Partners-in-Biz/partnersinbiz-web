@@ -5,8 +5,18 @@ import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/coll
 import { taskOrderMillis } from '@/lib/projects/taskPayload'
 import { isAuthorizedAdminApprover } from '@/lib/projects/adminApprover'
 import type { AgentArtifact, AgentOutput } from '@/lib/projects/types'
-import type { ChatContextAction, ContextActivitySummary, ContextDisplayState, ContextItemAgentSnapshot, ContextItemSummary } from '@/lib/chat-context/types'
+import type {
+  ChatContextAction,
+  ContextActivitySummary,
+  ContextAttentionSummary,
+  ContextDisplayState,
+  ContextItemAgentSnapshot,
+  ContextItemSummary,
+} from '@/lib/chat-context/types'
 import type { ChatContextAdapter } from '@/lib/chat-context/access'
+import { canAccessConversation } from '@/lib/conversations/access'
+import { getConversation } from '@/lib/conversations/conversations'
+import { getProjectConversationComputerLinkStatus } from '@/lib/project-locations/auto-link-conversation-computer'
 
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -195,8 +205,60 @@ export function projectRoutineActivity(tasks: ProjectChatTaskItem[]): ContextAct
   })
 }
 
+/**
+ * One-click action to create the project↔computer location replica for the
+ * computer bound on the Messages conversation (so agent turns can execute).
+ */
+export function projectLinkToConversationComputerAction(input: {
+  projectId: string
+  conversationId: string
+  computerLabel?: string
+}): ChatContextAction {
+  const computer = optionalString(input.computerLabel)
+  return {
+    id: 'link-to-chat-computer',
+    label: computer ? `Link to ${computer}` : 'Link to this computer',
+    href: `/api/v1/projects/${encodeURIComponent(input.projectId)}/link-to-conversation`,
+    method: 'POST',
+    body: { conversationId: input.conversationId },
+  }
+}
+
+export async function resolveProjectConversationComputerAttention(input: {
+  projectId: string
+  conversationId: string
+  orgId: string
+  actorUserId: string
+  canWrite: boolean
+  workspaceContext: Parameters<typeof getProjectConversationComputerLinkStatus>[0]['workspaceContext']
+}): Promise<ContextAttentionSummary | null> {
+  if (!input.canWrite || !input.conversationId) return null
+
+  const linkStatus = await getProjectConversationComputerLinkStatus({
+    projectId: input.projectId,
+    orgId: input.orgId,
+    actorUserId: input.actorUserId,
+    workspaceContext: input.workspaceContext,
+  })
+
+  if (linkStatus.status !== 'not_linked') return null
+
+  const computer = optionalString(linkStatus.computerLabel) ?? 'this chat’s computer'
+  return {
+    id: 'project-computer-link',
+    label: `Project is not on ${computer}`,
+    state: 'needs_input',
+    detail: 'Link this project to the computer bound on this chat so agents can run tasks, sync files, and write AGENTS.md on that machine.',
+    actions: [projectLinkToConversationComputerAction({
+      projectId: input.projectId,
+      conversationId: input.conversationId,
+      computerLabel: linkStatus.computerLabel,
+    })],
+  }
+}
+
 export const projectChatContextAdapter: ChatContextAdapter = {
-  async resolve({ id: projectId, user }) {
+  async resolve({ id: projectId, user, conversationId }) {
     const access = await getProjectForUser(projectId, user)
     if (!access.ok) {
       return {
@@ -232,13 +294,50 @@ export const projectChatContextAdapter: ChatContextAdapter = {
       projectTaskChatActions({ projectId, task, canWrite, canApprove }),
     ]))
 
+    const orgId = cleanString(projectData.orgId) || cleanString(projectData.ownerOrgId) || ''
+    const attention: ContextAttentionSummary[] = []
+    if (progress.attention) {
+      attention.push({
+        id: progress.attention.id,
+        label: progress.attention.title,
+        state: progress.attention.state === 'needs_input' ? 'needs_input' : 'blocked',
+        actions: actionsByTaskId.get(progress.attention.id),
+      })
+    }
+
+    const conversationIdClean = optionalString(conversationId)
+    if (conversationIdClean) {
+      try {
+        const conversation = await getConversation(conversationIdClean)
+        // conversationId is presentation scope only — re-authorise before using it.
+        if (conversation && canAccessConversation(user, conversation)) {
+          const computerAttention = await resolveProjectConversationComputerAttention({
+            projectId,
+            conversationId: conversationIdClean,
+            orgId: conversation.orgId || orgId,
+            actorUserId: user.uid,
+            canWrite,
+            workspaceContext: conversation.workspaceContext,
+          })
+          if (computerAttention) attention.unshift(computerAttention)
+        }
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'test') {
+          console.error('[project-chat-context-computer-link]', error)
+        }
+      }
+    }
+
+    const hasInlineActions = Array.from(actionsByTaskId.values()).some((actions) => actions.length > 0)
+      || attention.some((item) => (item.actions?.length ?? 0) > 0)
+
     return {
       ok: true,
       model: {
         context: {
           kind: 'project',
           id: projectId,
-          orgId: cleanString(projectData.orgId) || cleanString(projectData.ownerOrgId) || '',
+          orgId,
           label: progress.project.name,
           icon: 'account_tree',
           href: `/portal/projects/${encodeURIComponent(projectId)}`,
@@ -265,14 +364,9 @@ export const projectChatContextAdapter: ChatContextAdapter = {
             }]
           : [],
         artifacts: [],
-        attention: progress.attention ? [{
-          id: progress.attention.id,
-          label: progress.attention.title,
-          state: progress.attention.state === 'needs_input' ? 'needs_input' : 'blocked',
-          actions: actionsByTaskId.get(progress.attention.id),
-        }] : [],
+        attention,
         activity: projectRoutineActivity(progress.tasks),
-        capabilities: ['view', ...(Array.from(actionsByTaskId.values()).some((actions) => actions.length > 0) ? ['inline-actions'] : [])],
+        capabilities: ['view', ...(hasInlineActions ? ['inline-actions'] : [])],
         asOf,
       },
     }

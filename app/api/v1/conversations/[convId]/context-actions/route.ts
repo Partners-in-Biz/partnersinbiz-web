@@ -120,11 +120,16 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
         ? attachedProjectId === contextReference.projectId
         : !attachedProjectId
     })
-  if (!attachedReference) return apiError('Context unavailable', 404)
+  // Projects can also be bound as conversation.scope without a contextRef pin.
+  const scopedProjectAttached = contextReference.kind === 'project'
+    && conversation.scope === 'project'
+    && conversation.scopeRefId === contextReference.id
+  if (!attachedReference && !scopedProjectAttached) return apiError('Context unavailable', 404)
 
   const resolved = await chatContextRegistry.resolve({
     ...contextReference,
-    contextReference: attachedReference,
+    conversationId: convId,
+    ...(attachedReference ? { contextReference: attachedReference } : {}),
     user,
   })
   if (!resolved.ok) return apiError('Context unavailable', 404)
@@ -251,7 +256,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
 
   const refreshed = await chatContextRegistry.resolve({
     ...contextReference,
-    contextReference: attachedReference,
+    conversationId: convId,
+    ...(attachedReference ? { contextReference: attachedReference } : {}),
     user,
   })
   const succeededReceipt = {
