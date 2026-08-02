@@ -56,7 +56,7 @@ function Install-InternalStaffTrust([string]$Stage) {
   Assert-InternalCertificate $Certificate
   Write-Warning 'INTERNAL STAFF CHANNEL: trusting the pinned Partners in Biz certificate on this managed Windows computer.'
   foreach ($StoreName in @('TrustedPeople','TrustedPublisher')) {
-    & certutil.exe -silent -f -addstore $StoreName $CertificatePath | Out-Host
+    & certutil.exe -f -addstore $StoreName $CertificatePath | Out-Host
     if ($LASTEXITCODE -ne 0) { throw "Windows could not install the PiB certificate in LocalMachine/$StoreName." }
     $Installed = Get-ChildItem "Cert:\LocalMachine\$StoreName" |
       Where-Object { (Get-CertificateSha256 $_) -ceq $InternalCertificateSha256 } |
