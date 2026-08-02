@@ -7,7 +7,7 @@ This is a temporary, zero-license-cost Windows channel for computers managed by 
 The channel uses three independent checks:
 
 1. A dedicated internal Authenticode certificate signs the CAB and every executable.
-2. The bootstrap pins SHA-256 fingerprint `F40112CCB174A9FF5B7F56388D66BBA9CC98D9655C817B66B5F0A3D5A4DB7042` before adding the public certificate to the managed machine's TrustedPeople and TrustedPublisher stores.
+2. The bootstrap pins SHA-256 fingerprint `F40112CCB174A9FF5B7F56388D66BBA9CC98D9655C817B66B5F0A3D5A4DB7042` before adding the public certificate to the managed machine's Root and TrustedPublisher stores.
 3. The normal PiB Ed25519 release signature binds runtime metadata to the exact payload hash and immutable internal release tag.
 
 The private PFX exists only in GitHub Actions encrypted secrets. The public certificate is committed as base64 DER and published with each internal Windows release.
@@ -16,7 +16,7 @@ The private PFX exists only in GitHub Actions encrypted secrets. The public cert
 
 The internal workflow is `.github/workflows/release-linked-runtime-windows-internal.yml`. It must run from `main`, requires an existing public `runtime-v<version>` source release, and creates a separate prerelease tag `runtime-internal-v<version>`.
 
-The unattended release runner adds the exact pinned certificate only to its ephemeral CurrentUser TrustedPeople and TrustedPublisher stores. Microsoft documents TrustedPeople for explicitly trusted entities and test package verification, while TrustedPublisher authorizes the Authenticode publisher. The runner then requires Authenticode `Valid` plus the exact signer publisher and SHA-256 certificate fingerprint. Any unsigned, changed, unsupported, untrusted, or differently signed artifact fails publication. Persistent machine-wide trust is installed only during the explicit staff bootstrap below.
+The unattended release runner does not mutate its Root store. It accepts `Valid`, or only the specific Windows untrusted-private-root result (`0x800B0109`), and always requires the exact signer publisher and SHA-256 certificate fingerprint. It also flips a byte in a copied signed executable and requires Windows to return `HashMismatch`, proving the verifier fails closed on tampering. Any unsigned, changed, unsupported, differently signed, or differently failing artifact blocks publication. Persistent machine-wide root and publisher trust is installed only during the explicit staff bootstrap below.
 
 Required GitHub secrets:
 
