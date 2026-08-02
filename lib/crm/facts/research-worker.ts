@@ -5,6 +5,7 @@
 import { FieldValue, type DocumentData } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { applyMailboxFactsToContact } from './apply-mailbox'
+import { isEvidenceKind } from './evidence'
 import { isFactField } from './fields'
 import { recordContactFact } from './record'
 import {
@@ -73,9 +74,10 @@ function parseEvidenceList(raw: unknown): Evidence[] {
     const row = asRecord(item)
     const kind = typeof row.kind === 'string' ? row.kind.trim() : ''
     const detail = typeof row.detail === 'string' ? row.detail.trim() : ''
-    if (!kind || !detail) continue
+    // Reject unknown kinds (including model.confidence) — same contract as the facts API.
+    if (!kind || !detail || !isEvidenceKind(kind)) continue
     out.push({
-      kind: kind as Evidence['kind'],
+      kind,
       detail: detail.slice(0, 2000),
       ...(typeof row.sourceUrl === 'string' && row.sourceUrl.trim()
         ? { sourceUrl: row.sourceUrl.trim().slice(0, 2000) }
@@ -135,7 +137,8 @@ async function logResearchActivity(args: {
 
 /**
  * Global candidate scan for cron (cross-tenant).
- * Uses status filters + in-memory due/expiry checks to stay index-safe.
+ * Pending due work prefers status+dueAt (indexed) so not-yet-due backlog cannot starve workers.
+ * Falls back to status-only scan when the composite index is not ready.
  */
 export async function listGlobalLeasableResearchTasks(args?: {
   limit?: number
@@ -144,16 +147,6 @@ export async function listGlobalLeasableResearchTasks(args?: {
   const now = args?.now ?? new Date()
   const nowMs = now.getTime()
   const limit = Math.min(Math.max(args?.limit ?? 40, 1), 100)
-
-  const pendingSnap = await col()
-    .where('status', '==', 'pending')
-    .limit(Math.min(limit * 3, 200))
-    .get()
-
-  const leasedSnap = await col()
-    .where('status', '==', 'leased')
-    .limit(Math.min(limit * 2, 100))
-    .get()
 
   const serialize = (id: string, data: DocumentData): CrmResearchTask => ({
     id,
@@ -180,9 +173,31 @@ export async function listGlobalLeasableResearchTasks(args?: {
     deleted: data.deleted === true,
   })
 
-  const pending = pendingSnap.docs
-    .map((d) => serialize(d.id, d.data()))
-    .filter((r) => !r.deleted && r.orgId && dueAtMs(r.dueAt) <= nowMs)
+  let pending: CrmResearchTask[] = []
+  try {
+    const pendingDueSnap = await col()
+      .where('status', '==', 'pending')
+      .where('dueAt', '<=', now)
+      .orderBy('dueAt', 'asc')
+      .limit(Math.min(limit * 2, 100))
+      .get()
+    pending = pendingDueSnap.docs
+      .map((d) => serialize(d.id, d.data()))
+      .filter((r) => !r.deleted && r.orgId)
+  } catch {
+    const pendingSnap = await col()
+      .where('status', '==', 'pending')
+      .limit(Math.min(limit * 3, 200))
+      .get()
+    pending = pendingSnap.docs
+      .map((d) => serialize(d.id, d.data()))
+      .filter((r) => !r.deleted && r.orgId && dueAtMs(r.dueAt) <= nowMs)
+  }
+
+  const leasedSnap = await col()
+    .where('status', '==', 'leased')
+    .limit(Math.min(limit * 2, 100))
+    .get()
 
   const expiredLeased = leasedSnap.docs
     .map((d) => serialize(d.id, d.data()))
