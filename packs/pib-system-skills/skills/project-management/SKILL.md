@@ -184,7 +184,34 @@ For PiB/admin-created client projects, the request `orgId` is the client/recipie
 
 **Messages computer link (required for computer-bound chats):** when creating a project from an interactive Messages turn, always pass `conversationId` (or `conversationOrigin.conversationId` / `sourceConversationId`). The API auto-links the new project to that conversation’s bound computer so the next send does not fail with `Project is not linked to this computer`. Pinning a project into conversation context also auto-links when the chat has a computer. Response may include `computerLink: { linked, locationId?, reason? }`.
 
+If a project is already pinned in chat but still unlinked, the project context preview shows **Link to this computer** (calls `POST /projects/{projectId}/link-to-conversation` with `{ conversationId }`). Prefer fixing via that action or the same endpoint rather than telling the human the project is broken.
+
 Response (201): `{ id, computerLink? }`.
+
+#### `POST /projects/[projectId]/link-to-conversation` — auth: client
+
+Creates (or confirms) the project↔computer **location replica** for the computer bound on a Messages conversation.
+
+Body:
+```json
+{ "conversationId": "conv_messages_session", "orgId": "org_abc" }
+```
+
+- `conversationId` required; `orgId` optional (defaults to the conversation org).
+- Idempotent: if already linked, returns `{ linked: true, alreadyLinked: true, locationId }`.
+- On success may include `replica` plus `agentGuidance` listing what to document in on-disk `AGENTS.md`.
+
+**Agent duty after link (AGENTS.md):** once the project folder exists on the machine (linked-runtime creates a starter `AGENTS.md` if missing), update `AGENTS.md` in the project working directory so future agents know what this project is linked to:
+
+1. **Project identity** — project id, name, PiB portal URL
+2. **Computer / location** — linked computer label + `locationId` (e.g. `linked-device:…`)
+3. **Workspace** — workspace id / org slug used for the mapping
+4. **Company links** — CRM company id, company Cowork path, company `AGENTS.md` parent
+5. **Code roots** — monorepo `frontend/` / `backend/` (or `codeRoots` on the project)
+6. **Shared path peers** — other PiB projects that share the same on-disk folder
+7. **Related platform records** — docs, research, campaigns, SEO sprints with stable ids when known
+
+Do not invent links. Read project + company AGENTS / wiki first; only write facts you verified from the API or the filesystem.
 
 After creation, read the returned project back with `GET /projects/[id]` before creating nested tasks or claiming success. If the route returns `500 Project setup resource identity is invalid`, do not keep retrying and do not describe a standalone escalation task as the requested project or as completed scoping work. That response means the deployed public route is incorrectly forwarding ordinary Next.js context as trusted setup identity; record the exact response and escalate the production release gap.
 

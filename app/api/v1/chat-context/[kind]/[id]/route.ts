@@ -26,18 +26,33 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (artifactId && (!isOpaqueContextId(artifactId) || artifactId.split(':', 1)[0] !== id.split(':', 1)[0])) return apiError('Invalid artifact id', 400)
 
   let contextReference
+  let authorisedConversationId: string | undefined
   if (conversationId) {
     const conversation = await getConversation(conversationId)
     if (!conversation || !canAccessConversation(user, conversation)) return apiError('Context unavailable', 404)
     const projectAuthorization = await authorizeConversationProject(user, conversation)
     if (!projectAuthorization.ok) return apiError('Context unavailable', 404)
+    authorisedConversationId = conversationId
+    // Workbench path IDs are deliberately opaque — recover the sealed binding
+    // from the conversation when present. Other kinds (e.g. project) only need
+    // the conversation id for conversation-scoped preview actions.
     contextReference = sanitizeContextReferenceSeeds(conversation.contextRefs ?? []).find((reference) => (
       reference.type === kind && reference.id === id && reference.metadata?.contextKind === 'workbench_path'
     ))
-    if (!contextReference) return apiError('Context unavailable', 404)
+    if (!contextReference && kind === 'workspace_folder') {
+      return apiError('Context unavailable', 404)
+    }
   }
 
-  const result = await chatContextRegistry.resolve({ kind, id, ...(projectId ? { projectId } : {}), ...(contextReference ? { contextReference } : {}), artifactId, user })
+  const result = await chatContextRegistry.resolve({
+    kind,
+    id,
+    ...(projectId ? { projectId } : {}),
+    ...(authorisedConversationId ? { conversationId: authorisedConversationId } : {}),
+    ...(contextReference ? { contextReference } : {}),
+    artifactId,
+    user,
+  })
   if (!result.ok) {
     if (result.reason === 'forbidden' || result.reason === 'not_found') {
       return apiError('Context unavailable', 404)
