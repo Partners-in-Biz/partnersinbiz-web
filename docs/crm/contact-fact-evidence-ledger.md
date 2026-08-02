@@ -125,3 +125,17 @@ npx jest __tests__/lib/crm/facts-evidence-ledger.test.ts __tests__/api/v1/crm/co
 - Deepen Gmail auto-ingest coverage (inbound sync now best-effort applies mailbox signature facts; expand to all mailbox providers)
 - Admin contact detail parity panel (portal shipped first)
 - Deploy Firestore composite indexes: `firebase deploy --only firestore:indexes` (indexes added to `firestore.indexes.json`)
+
+## Multi-machine / multi-worker notes
+
+- Research lease walks due **pending** tasks and **expired leases**, then claims via Firestore transaction.
+- Contention on one task continues to the next candidate (no single-point stall).
+- `POST /crm/research-tasks/claim` is an alias of `/lease` for Comp-style naming.
+- Workers should pass stable `workerId` (agent id or hostname+pid).
+- Gmail inbound sync fetches full message bodies and runs **local** signature → fact proposals (no third-party body egress).
+
+## Out of scope / follow-ups
+
+- Hermes/cron background worker loop that repeatedly leases `crm_research_tasks` and runs enrichment (lease/claim/complete APIs are production-ready)
+- Admin contact detail parity panel (portal contact page ships Agent proposals first; company command center still uses portal contact deep-links)
+- Deploy Firestore composite indexes if not yet live: `firebase deploy --only firestore:indexes` (indexes already in `firestore.indexes.json`)

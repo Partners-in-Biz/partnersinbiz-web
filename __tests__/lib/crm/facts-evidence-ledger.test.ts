@@ -185,3 +185,40 @@ describe('Evidence kind guards', () => {
     expect(isEvidenceKind('')).toBe(false)
   })
 })
+
+describe('applyMailboxFacts dry-run contract', () => {
+  it('returns candidates without requiring Firestore when dryRun', async () => {
+    const { applyMailboxFactsToContact } = await import('@/lib/crm/facts/apply-mailbox')
+    const contact = {
+      id: 'c1',
+      orgId: 'org1',
+      name: 'Alex Rivera',
+      email: 'alex@example.com',
+    }
+    const body = ['Thanks', '', 'Alex Rivera', 'Title: VP Engineering', 'https://linkedin.com/in/alex'].join('\n')
+    const out = await applyMailboxFactsToContact({
+      orgId: 'org1',
+      contact,
+      bodyText: body,
+      dryRun: true,
+      direction: 'inbound',
+      fromName: 'Alex Rivera',
+    })
+    expect(out.dryRun).toBe(true)
+    expect(out.storedCount).toBe(0)
+    expect(out.candidateCount).toBeGreaterThan(0)
+    expect(out.candidates.some((c) => c.field === 'title')).toBe(true)
+  })
+
+  it('returns empty result for blank body', async () => {
+    const { applyMailboxFactsToContact } = await import('@/lib/crm/facts/apply-mailbox')
+    const out = await applyMailboxFactsToContact({
+      orgId: 'org1',
+      contact: { id: 'c1', orgId: 'org1' },
+      bodyText: '   ',
+      dryRun: true,
+    })
+    expect(out.candidateCount).toBe(0)
+    expect(out.results).toEqual([])
+  })
+})
