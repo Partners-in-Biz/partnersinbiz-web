@@ -170,6 +170,16 @@ describe('linked run queue security transitions', () => {
     queuedReceipt.signature = sign(null, Buffer.from(linkedRunReceiptPayload(queuedReceipt)), keys.privateKey).toString('base64url')
     expect(requireLinkedRunReceipt(job, queuedReceipt, keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), now)).toEqual(queuedReceipt)
 
+    const startingReceipt = {
+      ...base,
+      runtimeVersion: '1.1.23',
+      event: 'queued' as const,
+      outcome: 'queued' as const,
+      signature: '',
+    }
+    startingReceipt.signature = sign(null, Buffer.from(linkedRunReceiptPayload(startingReceipt)), keys.privateKey).toString('base64url')
+    expect(requireLinkedRunReceipt(job, startingReceipt, keys.publicKey.export({ type: 'spki', format: 'pem' }).toString(), now)).toEqual(startingReceipt)
+
     const accepted = {
       ...base,
       runtimeVersion: '1.1.20',

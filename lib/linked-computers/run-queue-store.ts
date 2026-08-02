@@ -25,10 +25,180 @@ import { sanitizeLinkedRunChatEvents } from './run-events'
 
 export const LINKED_RUN_JOBS = 'linked_device_run_jobs'
 export const LINKED_RUN_QUEUES = 'linked_device_run_queues'
+export const LINKED_RUN_AGENT_LEASES = 'linked_device_run_agent_leases'
 const DEFAULT_LEASE_MS = 90_000
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
 export const LINKED_RUN_QUEUE_START_DEADLINE_MS = 45 * 60 * 1000
 const LINKED_RUN_CLAIM_SCAN_LIMIT = 64
+const CLAIM_AGENT_ID = /^[a-z][a-z0-9._-]{0,39}$/
+export const LINKED_RUN_MAX_CONCURRENCY_PER_AGENT = 10
+const AGENT_LEASE_JOB_ID = /^[A-Za-z0-9_-]{1,128}$/
+
+export type LinkedRunClaimOptions = {
+  nowMs?: number
+  leaseMs?: number
+  /** Local Hermes profiles already at their bounded session capacity. */
+  saturatedAgentIds?: readonly string[]
+}
+
+function normalizedSaturatedAgentIds(agentIds: readonly string[] | undefined): Set<string> {
+  return new Set((agentIds ?? []).flatMap((value) => {
+    const agentId = typeof value === 'string' ? value.trim().toLowerCase() : ''
+    return CLAIM_AGENT_ID.test(agentId) ? [agentId] : []
+  }))
+}
+
+function normalizedAgentLeaseAgentId(value: unknown): string {
+  const agentId = typeof value === 'string' ? value.trim().toLowerCase() : ''
+  if (!CLAIM_AGENT_ID.test(agentId)) throw new Error('linked computers: invalid run agent')
+  return agentId
+}
+
+export function linkedRunAgentLeaseDocumentId(deviceId: string, agentId: string): string {
+  return crypto.createHash('sha256').update(`linked-run-agent-lease:v1\n${deviceId}\n${agentId}`).digest('base64url')
+}
+
+type AgentMaintenanceLease = {
+  agentHostJobId: string
+  leaseTokenHash: string
+  expiresAtMs: number
+}
+
+type AgentLeaseState = {
+  ref: FirebaseFirestore.DocumentReference
+  deviceId: string
+  agentId: string
+  leases: Map<string, number>
+  maintenance?: AgentMaintenanceLease
+  exists: boolean
+  dirty: boolean
+}
+
+type AgentLeaseBootstrap = Pick<LinkedRunJob, 'jobId' | 'agentId' | 'status' | 'leaseExpiresAtMs'>
+
+function parseAgentLeaseEntries(value: unknown, nowMs: number): { leases: Map<string, number>; dirty: boolean } {
+  const row = value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+  const leases = new Map<string, number>()
+  let dirty = false
+  for (const [jobId, rawExpiry] of Object.entries(row)) {
+    const expiry = Number(rawExpiry)
+    if (!AGENT_LEASE_JOB_ID.test(jobId) || !Number.isSafeInteger(expiry) || expiry <= nowMs) {
+      dirty = true
+      continue
+    }
+    leases.set(jobId, expiry)
+  }
+  return { leases, dirty }
+}
+
+function parseAgentMaintenanceLease(value: unknown, nowMs: number): { maintenance?: AgentMaintenanceLease; dirty: boolean } {
+  if (!value) return { dirty: false }
+  if (typeof value !== 'object' || Array.isArray(value)) return { dirty: true }
+  const row = value as Record<string, unknown>
+  const agentHostJobId = typeof row.agentHostJobId === 'string' ? row.agentHostJobId : ''
+  const leaseTokenHash = typeof row.leaseTokenHash === 'string' ? row.leaseTokenHash : ''
+  const expiresAtMs = Number(row.expiresAtMs)
+  if (!AGENT_LEASE_JOB_ID.test(agentHostJobId)
+    || !/^[a-f0-9]{64}$/i.test(leaseTokenHash)
+    || !Number.isSafeInteger(expiresAtMs)
+    || expiresAtMs <= nowMs) {
+    return { dirty: true }
+  }
+  return { maintenance: { agentHostJobId, leaseTokenHash, expiresAtMs }, dirty: false }
+}
+
+function activeBootstrapLeases(agentId: string, jobs: readonly AgentLeaseBootstrap[], nowMs: number): Map<string, number> {
+  const leases = new Map<string, number>()
+  for (const job of jobs) {
+    if (normalizedAgentLeaseAgentId(job.agentId) !== agentId) continue
+    const expiry = Number(job.leaseExpiresAtMs)
+    if (!['claimed', 'running'].includes(job.status) || !AGENT_LEASE_JOB_ID.test(job.jobId)
+      || !Number.isSafeInteger(expiry) || expiry <= nowMs) continue
+    leases.set(job.jobId, expiry)
+  }
+  return leases
+}
+
+async function loadAgentLeaseState(
+  tx: FirebaseFirestore.Transaction,
+  states: Map<string, AgentLeaseState>,
+  deviceId: string,
+  rawAgentId: unknown,
+  nowMs: number,
+  bootstrap: readonly AgentLeaseBootstrap[] = [],
+): Promise<AgentLeaseState> {
+  const agentId = normalizedAgentLeaseAgentId(rawAgentId)
+  const key = `${deviceId}\n${agentId}`
+  const cached = states.get(key)
+  if (cached) return cached
+  const ref = adminDb.collection(LINKED_RUN_AGENT_LEASES).doc(linkedRunAgentLeaseDocumentId(deviceId, agentId))
+  const snapshot = await tx.get(ref)
+  const data = snapshot.exists ? snapshot.data() as Record<string, unknown> : {}
+  const hasLeaseMap = data.leases && typeof data.leases === 'object' && !Array.isArray(data.leases)
+  const parsed = parseAgentLeaseEntries(data.leases, nowMs)
+  const maintenance = parseAgentMaintenanceLease(data.maintenance, nowMs)
+  // On first deployment there is no ledger. Active leases are kept at the
+  // head of the bounded queue scan, which allows the first claim to seed the
+  // counter without granting extra slots to an already-running profile.
+  if (!snapshot.exists || !hasLeaseMap) {
+    for (const [jobId, expiry] of activeBootstrapLeases(agentId, bootstrap, nowMs)) {
+      if (!parsed.leases.has(jobId)) parsed.leases.set(jobId, expiry)
+    }
+  }
+  const state: AgentLeaseState = {
+    ref,
+    deviceId,
+    agentId,
+    leases: parsed.leases,
+    maintenance: maintenance.maintenance,
+    exists: snapshot.exists,
+    dirty: parsed.dirty || maintenance.dirty || !snapshot.exists || !hasLeaseMap,
+  }
+  states.set(key, state)
+  return state
+}
+
+function reserveAgentLease(state: AgentLeaseState, jobId: string, expiresAtMs: number): boolean {
+  if (state.leases.size >= LINKED_RUN_MAX_CONCURRENCY_PER_AGENT) return false
+  state.leases.set(jobId, expiresAtMs)
+  state.dirty = true
+  return true
+}
+
+function renewAgentLease(state: AgentLeaseState, jobId: string, expiresAtMs: number): void {
+  state.leases.set(jobId, expiresAtMs)
+  state.dirty = true
+}
+
+function releaseAgentLease(state: AgentLeaseState, jobId: string): void {
+  if (state.leases.delete(jobId)) state.dirty = true
+}
+
+function persistAgentLeaseStates(tx: FirebaseFirestore.Transaction, states: Iterable<AgentLeaseState>): void {
+  for (const state of states) {
+    if (!state.dirty) continue
+    const stored = {
+      deviceId: state.deviceId,
+      agentId: state.agentId,
+      // Update the map as one top-level field. A Firestore `{ merge: true }`
+      // map merge keeps omitted nested keys, which would otherwise retain
+      // released leases forever while another chat is active.
+      leases: Object.fromEntries(state.leases),
+      ...(state.maintenance ? { maintenance: state.maintenance } : { maintenance: FieldValue.delete() }),
+      updatedAt: FieldValue.serverTimestamp(),
+    }
+    if (state.exists) tx.update(state.ref, stored)
+    else tx.set(state.ref, {
+      deviceId: state.deviceId,
+      agentId: state.agentId,
+      leases: Object.fromEntries(state.leases),
+      ...(state.maintenance ? { maintenance: state.maintenance } : {}),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: false })
+  }
+}
 
 export function linkedRunQueueStartExpired(
   job: Pick<LinkedRunJob, 'acceptanceReceipt' | 'localHermesRunId' | 'queueExpiresAtMs'>,
@@ -315,8 +485,9 @@ export async function enqueueLinkedRun(input: {
   return job
 }
 
-export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserId: string; credentialVersion: number }, options: { nowMs?: number; leaseMs?: number } = {}) {
+export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserId: string; credentialVersion: number }, options: LinkedRunClaimOptions = {}) {
   const nowMs = options.nowMs ?? Date.now()
+  const saturatedAgentIds = normalizedSaturatedAgentIds(options.saturatedAgentIds)
   return adminDb.runTransaction(async (tx) => {
     const queueRef = adminDb.collection(LINKED_RUN_QUEUES).doc(input.deviceId)
     const queue = await tx.get(queueRef)
@@ -330,6 +501,8 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
     const candidateSurvivors: string[] = []
     const recoveringCandidates: string[] = []
     const untouchedTail = ids.slice(LINKED_RUN_CLAIM_SCAN_LIMIT)
+    const agentLeaseStates = new Map<string, AgentLeaseState>()
+    const observedActiveLeases: AgentLeaseBootstrap[] = []
     const expiredRefs: Array<{
       ref: FirebaseFirestore.DocumentReference
       job: LinkedRunJob
@@ -347,12 +520,23 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
       if (!snap.exists) continue
       const current = fromStored(snap.data() ?? {})
       if (current.deviceId !== input.deviceId || ['completed', 'failed', 'cancelled', 'expired'].includes(current.status)) continue
+      if (['claimed', 'running'].includes(current.status) && (current.leaseExpiresAtMs ?? 0) > nowMs) {
+        observedActiveLeases.push(current)
+      }
       if (current.expiresAtMs <= nowMs) {
         expiredRefs.push({ ref, job: current, reason: 'ttl' })
         continue
       }
       if (linkedRunQueueStartExpired(current, nowMs)) {
         expiredRefs.push({ ref, job: current, reason: 'queue_start' })
+        continue
+      }
+      // Do not lease an eleventh conversation to a profile that the signed
+      // runtime has already reserved to its local Hermes limit. Preserve this
+      // job in order and continue the fair scan so another healthy profile can
+      // work instead of being blocked behind it.
+      if (saturatedAgentIds.has(String(current.agentId ?? '').trim().toLowerCase())) {
+        candidateSurvivors.push(id)
         continue
       }
       if (!selected && (current.status === 'queued' || (['claimed', 'running'].includes(current.status) && (current.leaseExpiresAtMs ?? 0) <= nowMs))) {
@@ -386,6 +570,25 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
           recoveringCandidates.push(id)
           continue
         }
+        const agentLeaseState = await loadAgentLeaseState(
+          tx,
+          agentLeaseStates,
+          input.deviceId,
+          current.agentId,
+          nowMs,
+          observedActiveLeases,
+        )
+        // A credential rotation holds an atomic, short-lived maintenance
+        // lease only after this profile is truly idle. Do not race a newly
+        // arriving chat into a profile while that targeted reload is pending.
+        if (agentLeaseState.maintenance) {
+          candidateSurvivors.push(id)
+          continue
+        }
+        if (!reserveAgentLease(agentLeaseState, current.jobId, nowMs + (options.leaseMs ?? DEFAULT_LEASE_MS))) {
+          candidateSurvivors.push(id)
+          continue
+        }
         selectedIsRetry = current.attempt > 0
         const claimable = credentialRotationContinued
           ? { ...current, credentialVersion: input.credentialVersion }
@@ -399,6 +602,21 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
       ? [...candidateSurvivors, ...recoveringCandidates, ...untouchedTail]
       : [...candidateSurvivors, ...untouchedTail, ...recoveringCandidates]
     const queueOrderChanged = remaining.length !== ids.length || remaining.some((id, index) => id !== ids[index])
+    // Terminal expiry and runtime-recovery transitions can happen while a
+    // lease still has time left. Free that profile slot in this transaction
+    // rather than making the next chat wait for an obsolete 90-second lease.
+    for (const job of [...expiredRefs, ...recoveryRefs].map((entry) => entry.job)) {
+      if (!['claimed', 'running'].includes(job.status)) continue
+      const agentLeaseState = await loadAgentLeaseState(
+        tx,
+        agentLeaseStates,
+        job.deviceId,
+        job.agentId,
+        nowMs,
+        [job],
+      )
+      releaseAgentLease(agentLeaseState, job.jobId)
+    }
     for (const expired of expiredRefs) {
       const error = expired.reason === 'ttl'
         ? 'The linked computer run expired before it could finish. Please retry.'
@@ -435,6 +653,7 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
       }, { merge: true })
     }
     if (!selected || !selectedRef) {
+      persistAgentLeaseStates(tx, agentLeaseStates.values())
       if (queueOrderChanged) tx.set(queueRef, { pendingJobIds: remaining, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
       return null
     }
@@ -454,6 +673,7 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
         : {}),
       lastRecoverableError: FieldValue.delete(),
     })
+    persistAgentLeaseStates(tx, agentLeaseStates.values())
     if (selectedContinuedCredentialVersion !== undefined) {
       tx.set(adminDb.collection('conversations').doc(selected.conversationId).collection('messages').doc(selected.assistantMessageId), {
         linkedDeviceCredentialVersion: selected.credentialVersion,
@@ -519,6 +739,15 @@ export async function updateLinkedRunFromDevice(input: {
       return job
     }
     requireLinkedRunReceipt(job, input.receipt, String(device.publicKey ?? ''), nowMs, { output, error })
+    const agentLeaseStates = new Map<string, AgentLeaseState>()
+    const agentLeaseState = await loadAgentLeaseState(
+      tx,
+      agentLeaseStates,
+      input.deviceId,
+      job.agentId,
+      nowMs,
+      [job],
+    )
     const safeOutput = sanitizeLinkedResult(output)
     const rawError = sanitizeLinkedResult(error)
     const recoveryCount = Number(job.recoveryCount ?? 0)
@@ -588,6 +817,8 @@ export async function updateLinkedRunFromDevice(input: {
         error: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true })
+      releaseAgentLease(agentLeaseState, job.jobId)
+      persistAgentLeaseStates(tx, agentLeaseStates.values())
       return requeued
     }
 
@@ -606,6 +837,9 @@ export async function updateLinkedRunFromDevice(input: {
     const chatEvents = incomingEvents.length > 0
       ? [...existingEvents, ...incomingEvents].slice(-200)
       : undefined
+    const queuedReason = input.receipt.queueReason
+      ? { queuedReason: input.receipt.queueReason }
+      : { queuedReason: FieldValue.delete() }
     tx.update(jobRef, {
       ...toStored(next),
       ...(rotationContinuity ? { rotationContinuedFromCredentialVersion: storedJob.credentialVersion } : {}),
@@ -622,15 +856,18 @@ export async function updateLinkedRunFromDevice(input: {
       error: safeError,
       ...(chatEvents ? { chatEvents } : {}),
     })
+    if (input.event === 'complete') releaseAgentLease(agentLeaseState, job.jobId)
+    else renewAgentLease(agentLeaseState, job.jobId, next.leaseExpiresAtMs ?? (nowMs + DEFAULT_LEASE_MS))
+    persistAgentLeaseStates(tx, agentLeaseStates.values())
     if (input.event === 'queue') {
       tx.set(adminDb.collection('conversations').doc(job.conversationId).collection('messages').doc(job.assistantMessageId), {
         status: 'queued',
-        queuedReason: input.receipt.queueReason,
+        ...queuedReason,
         runId: job.jobId,
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true })
       tx.set(adminDb.collection('hermes_runs').doc(job.jobId), {
-        status: 'queued', queuedReason: input.receipt.queueReason, updatedAt: FieldValue.serverTimestamp(),
+        status: 'queued', ...queuedReason, updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true })
     } else if (input.event === 'progress') {
       tx.set(adminDb.collection('conversations').doc(job.conversationId).collection('messages').doc(job.assistantMessageId), {
@@ -779,9 +1016,17 @@ export async function cancelLinkedRun(
     const queueRef = adminDb.collection(LINKED_RUN_QUEUES).doc(job.deviceId)
     const queue = await tx.get(queueRef)
     const ids = Array.isArray(queue.data()?.pendingJobIds) ? queue.data()!.pendingJobIds as string[] : []
+    const agentLeaseStates = new Map<string, AgentLeaseState>()
+    const agentLeaseState = ['claimed', 'running'].includes(job.status)
+      ? await loadAgentLeaseState(tx, agentLeaseStates, job.deviceId, job.agentId, Date.now(), [job])
+      : null
     const error = sanitizeLinkedResult(reason.slice(0, 500))
     tx.update(ref, { status: 'cancelled', encryptedPayload: null, error, finalizationState: 'complete', completedAt: FieldValue.serverTimestamp(), cleanupAt: Timestamp.fromMillis(Date.now() + DEFAULT_TTL_MS), updatedAt: FieldValue.serverTimestamp() })
     tx.set(queueRef, { pendingJobIds: ids.filter((id) => id !== jobIdValue), updatedAt: FieldValue.serverTimestamp() }, { merge: true })
+    if (agentLeaseState) {
+      releaseAgentLease(agentLeaseState, job.jobId)
+      persistAgentLeaseStates(tx, agentLeaseStates.values())
+    }
     tx.set(adminDb.collection('conversations').doc(job.conversationId).collection('messages').doc(job.assistantMessageId), { content: '', status: 'failed', error: 'The linked computer run was cancelled.', runId: job.jobId, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
     tx.set(adminDb.collection('hermes_runs').doc(job.jobId), { status: 'cancelled', error: 'The linked computer run was cancelled.', updatedAt: FieldValue.serverTimestamp(), completedAt: FieldValue.serverTimestamp() }, { merge: true })
     return { won: true, status: 'cancelled' as const }

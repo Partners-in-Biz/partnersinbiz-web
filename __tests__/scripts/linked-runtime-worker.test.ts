@@ -1,6 +1,6 @@
-import fs from'node:fs';import os from'node:os';import path from'node:path';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunPollDelay,pollForever}from'../../runtime-installers/runtime/worker'
+import fs from'node:fs';import os from'node:os';import path from'node:path';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunPollDelay,LinkedRunProfileCapacity,pollForever}from'../../runtime-installers/runtime/worker'
 import { DeviceApiClient } from '../../runtime-installers/runtime/client'
-import { applyHeartbeatData,handleRotation,heartbeatForever,isRevokeAcknowledged,linkedRuntimeHeartbeatBody,linkedRuntimePlatform,linkedRuntimeSyncClaimBody,nativeWorkspaceSyncSupported,recoverPendingRevocation,runRuntimeServicePollers,sanitizeIdentity } from '../../runtime-installers/runtime/cli'
+import { applyHeartbeatData,handleRotation,heartbeatForever,isRevokeAcknowledged,linkedRunMaxTotalConcurrency,linkedRuntimeHeartbeatBody,linkedRuntimePlatform,linkedRuntimeSyncClaimBody,nativeWorkspaceSyncSupported,recoverPendingRevocation,runRuntimeServicePollers,sanitizeIdentity } from '../../runtime-installers/runtime/cli'
 import { callLocalHermes, isLocalHermesGatewayDrainingError, localHermesRoutes, probeLocalHermes } from '../../runtime-installers/runtime/hermes'
 it('self-heals the managed Mac fleet without taking down healthy profiles or publishing false legacy health',()=>{
   const script=fs.readFileSync(path.join(process.cwd(),'scripts/start-local-runtime-fleet.sh'),'utf8')
@@ -19,10 +19,17 @@ it('self-heals the managed Mac fleet without taking down healthy profiles or pub
   expect(script).toContain('exec "$REPO/node_modules/.bin/tsx" scripts/register-local-agent-runtime.ts')
   expect(script).toContain('supervise_profile_at_index')
   expect(script).toContain('restarting only this profile')
+  expect(script).toContain('FLEET_CONTROL_DIR')
+  expect(script).toContain('consume_profile_control_request_at_index')
+  expect(script).toContain('$FLEET_CONTROL_DIR/requests/${agent_name}.json')
+  expect(script).toContain('profile_is_disabled')
+  expect(script).toContain('restarting requested local Hermes profile $agent_name only')
+  expect(script).toContain('mv "$request_path" "$claimed_path"')
   expect(script).toContain('skipping legacy public registration')
   expect(script).not.toContain('exited; stopping fleet')
 })
 it.each([['darwin','macos'],['win32','windows'],['linux','linux']] as const)('reports Node platform %s as linked runtime platform %s',(nodePlatform,expected)=>{expect(linkedRuntimePlatform(nodePlatform)).toBe(expected)})
+it('uses a safe 64-chat host ceiling even when the environment is malformed or too high',()=>{expect(linkedRunMaxTotalConcurrency('not-a-number')).toBe(64);expect(linkedRunMaxTotalConcurrency('120')).toBe(64);expect(linkedRunMaxTotalConcurrency('0')).toBe(64);expect(linkedRunMaxTotalConcurrency('9999')).toBe(64)})
 it('attests sync protocol v1 and runs native sync polling beside normal execution polling',async()=>{expect(linkedRuntimeHeartbeatBody()).toEqual(expect.objectContaining({capabilities:['workspace.execute','workspace.sync'],syncProtocolVersion:1}));expect(linkedRuntimeSyncClaimBody()).toEqual(expect.objectContaining({syncProtocolVersion:1}));const calls:string[]=[];await runRuntimeServicePollers(async()=>{calls.push('runs')},async()=>{calls.push('sync')});expect(calls.sort()).toEqual(['runs','sync'])})
 it('withholds workspace.sync attestation on platforms without race-free apply support',()=>{expect(nativeWorkspaceSyncSupported('darwin')).toBe(true);expect(nativeWorkspaceSyncSupported('linux')).toBe(true);expect(nativeWorkspaceSyncSupported('win32')).toBe(false);expect(linkedRuntimeHeartbeatBody('win32')).toEqual(expect.objectContaining({capabilities:['workspace.execute']}));expect(linkedRuntimeHeartbeatBody('win32')).not.toHaveProperty('syncProtocolVersion')})
 it('withholds execution and reports degraded health when Hermes has no healthy local agent',()=>{expect(linkedRuntimeHeartbeatBody('darwin',{availableAgentIds:[],healthReason:'hermes_unavailable'})).toEqual(expect.objectContaining({health:'degraded',capabilities:['workspace.sync'],availableAgentIds:[],healthReason:'hermes_unavailable'}))})
@@ -90,25 +97,86 @@ it('keeps claiming linked runs while another chat is still executing, up to the 
   while(!stopped)await new Promise(resolve=>setImmediate(resolve))
   await polling
 })
-it('runs eight device-wide jobs and leaves the ninth queued until capacity frees',async()=>{
-  let stopped=false,claims=0
+it('keeps an eleventh Pip chat queued while ten Theo chats run, without a ten-job device cap',async()=>{
+  let stopped=false
   const started:string[]=[]
   const releases=new Map<string,()=>void>()
-  const jobs=Array.from({length:9},(_,index)=>({jobId:`job-${index+1}`,agentId:index<8?'pip':'theo'})) as any[]
-  const claim=jest.fn(async()=>jobs[claims++]??null)
+  const jobs=[
+    ...Array.from({length:11},(_,index)=>({jobId:`pip-${index+1}`,agentId:'pip'})),
+    ...Array.from({length:10},(_,index)=>({jobId:`theo-${index+1}`,agentId:'theo'})),
+  ] as any[]
+  const claim=jest.fn(async({saturatedAgentIds=[]}:{saturatedAgentIds?:string[]})=>{
+    const next=jobs.findIndex(job=>!saturatedAgentIds.includes(job.agentId))
+    return next<0?null:jobs.splice(next,1)[0]
+  })
   const run=jest.fn(async(job:any)=>{
     started.push(job.jobId)
     await new Promise<void>(resolve=>releases.set(job.jobId,resolve))
-    if(job.jobId==='job-9')stopped=true
   })
-  const polling=pollForever(claim,run,()=>stopped)
-  while(started.length<8)await new Promise(resolve=>setImmediate(resolve))
-  expect(started).toEqual(jobs.slice(0,8).map(job=>job.jobId))
-  expect(started).not.toContain('job-9')
-  expect(claim).toHaveBeenCalledTimes(8)
-  releases.get('job-1')?.()
-  while(!started.includes('job-9'))await new Promise(resolve=>setImmediate(resolve))
-  expect(started).toHaveLength(9)
+  const capacity=new LinkedRunProfileCapacity(10,64)
+  capacity.setHealthyAgentIds(['pip','theo'])
+  const polling=pollForever(claim,run,()=>stopped,{capacity})
+  while(started.length<20)await new Promise(resolve=>setImmediate(resolve))
+  expect(started.filter(jobId=>jobId.startsWith('pip-'))).toHaveLength(10)
+  expect(started.filter(jobId=>jobId.startsWith('theo-'))).toHaveLength(10)
+  expect(started).not.toContain('pip-11')
+  expect(jobs).toEqual([{jobId:'pip-11',agentId:'pip'}])
+  expect(claim).toHaveBeenCalledWith(expect.objectContaining({saturatedAgentIds:expect.arrayContaining(['pip'])}))
+  expect(capacity.totalConcurrencyLimit()).toBe(20)
+  stopped=true
+  for(const release of releases.values())release()
+  await polling
+})
+it('wakes after first heartbeat discovery so idle Hermes profiles are not stranded behind ten startup chats',async()=>{
+  let stopped=false
+  const started:string[]=[]
+  const releases=new Map<string,()=>void>()
+  const jobs=[
+    ...Array.from({length:10},(_,index)=>({jobId:`pip-${index+1}`,agentId:'pip'})),
+    ...Array.from({length:10},(_,index)=>({jobId:`theo-${index+1}`,agentId:'theo'})),
+  ] as any[]
+  const claim=jest.fn(async({saturatedAgentIds=[]}:{saturatedAgentIds?:string[]})=>{
+    const next=jobs.findIndex(job=>!saturatedAgentIds.includes(job.agentId))
+    return next<0?null:jobs.splice(next,1)[0]
+  })
+  const run=jest.fn(async(job:any)=>{
+    started.push(job.jobId)
+    await new Promise<void>(resolve=>releases.set(job.jobId,resolve))
+  })
+  const capacity=new LinkedRunProfileCapacity(10,64)
+  const polling=pollForever(claim,run,()=>stopped,{capacity})
+  while(started.length<10)await new Promise(resolve=>setImmediate(resolve))
+  expect(started.every(jobId=>jobId.startsWith('pip-'))).toBe(true)
+  capacity.setHealthyAgentIds(['pip','theo'])
+  while(started.length<20)await new Promise(resolve=>setImmediate(resolve))
+  expect(started.filter(jobId=>jobId.startsWith('theo-'))).toHaveLength(10)
+  stopped=true
+  for(const release of releases.values())release()
+  await polling
+})
+it('keeps the runtime alive when an older server returns a locally saturated profile',async()=>{
+  let stopped=false
+  const started:string[]=[]
+  const releases=new Map<string,()=>void>()
+  const jobs=[
+    ...Array.from({length:10},(_,index)=>({jobId:`pip-${index+1}`,agentId:'pip'})),
+    {jobId:'pip-11',agentId:'pip'},
+    {jobId:'theo-1',agentId:'theo'},
+  ] as any[]
+  const claim=jest.fn(async()=>jobs.shift()??null)
+  const run=jest.fn(async(job:any)=>{
+    started.push(job.jobId)
+    await new Promise<void>(resolve=>releases.set(job.jobId,resolve))
+  })
+  const capacity=new LinkedRunProfileCapacity(10,64)
+  capacity.setHealthyAgentIds(['pip','theo'])
+  const polling=pollForever(claim,run,()=>stopped,{capacity})
+  while(started.length<10)await new Promise(resolve=>setImmediate(resolve))
+  releases.get('pip-1')?.()
+  while(!started.includes('theo-1'))await new Promise(resolve=>setImmediate(resolve))
+  expect(started).not.toContain('pip-11')
+  expect(run).toHaveBeenCalledWith(expect.objectContaining({jobId:'theo-1'}))
+  stopped=true
   for(const release of releases.values())release()
   await polling
 })
@@ -300,7 +368,8 @@ it('does not hard-fail chat when drain retries are exhausted — leaves job for 
     hermes,
   )).rejects.toThrow(/gateway_draining|draining existing work/i)
   expect(posts.some(([p]) => String(p).endsWith('/complete'))).toBe(false)
-  expect(posts[0]?.[1]?.receipt).toEqual(expect.objectContaining({ event: 'queued', outcome: 'queued', queueReason: 'runtime_capacity' }))
+  expect(posts[0]?.[1]?.receipt).toEqual(expect.objectContaining({ event: 'queued', outcome: 'queued' }))
+  expect(posts[0]?.[1]?.receipt).not.toHaveProperty('queueReason')
 })
 
 it('retries once on browser-tool whole-run failure instead of completing failed', async () => {

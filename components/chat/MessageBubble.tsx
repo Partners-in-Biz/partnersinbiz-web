@@ -100,6 +100,27 @@ function initials(name: string): string {
     .join('')
 }
 
+function queuedRunDetail(reason: ConversationMessage['queuedReason']): string {
+  switch (reason) {
+    case 'gateway_draining':
+      return 'The local gateway is draining; this run will start automatically.'
+    case 'agent_capacity':
+      return 'The selected agent is at its temporary chat limit; this run will start automatically.'
+    case 'runtime_restarting':
+      return 'The linked runtime is reconnecting; this run will resume automatically.'
+    case 'runtime_capacity':
+      return 'The linked computer is at its configured chat limit; this run will start automatically.'
+    default:
+      return 'This request is waiting for the linked computer to start it automatically.'
+  }
+}
+
+function queuedRunPlaceholder(reason: ConversationMessage['queuedReason']): string {
+  return reason
+    ? 'Queued — it will start automatically when the linked computer is ready.'
+    : 'Waiting for the linked computer to start…'
+}
+
 function useElapsed(active: boolean, createdAt?: ConversationMessage['createdAt']): number {
   const [secs, setSecs] = useState(0)
 
@@ -2284,15 +2305,7 @@ export default function MessageBubble({
                   </p>
                   {(isQueued || activity.detail) && (
                     <p className="mt-0.5 truncate text-[11px] text-[var(--color-pib-text-muted)]">
-                      {isQueued
-                        ? m.queuedReason === 'gateway_draining'
-                          ? 'The local gateway is draining; this run will start automatically.'
-                          : m.queuedReason === 'agent_capacity'
-                            ? 'Pip is at temporary capacity; this run will start automatically.'
-                            : m.queuedReason === 'runtime_restarting'
-                              ? 'The linked runtime is reconnecting; this run will resume automatically.'
-                              : 'The linked computer is at temporary capacity; this run will start automatically.'
-                        : activity.detail}
+                      {isQueued ? queuedRunDetail(m.queuedReason) : activity.detail}
                     </p>
                   )}
                 </div>
@@ -2422,7 +2435,7 @@ export default function MessageBubble({
             }
           >
             {isQueued && !renderedMessage.content && (
-              <span className="opacity-70 italic text-xs">Queued — it will start automatically when capacity is available.</span>
+              <span className="opacity-70 italic text-xs">{queuedRunPlaceholder(m.queuedReason)}</span>
             )}
             {isPending && !renderedMessage.content && (
               <span className="opacity-40 italic text-xs">Waiting for agent activity...</span>

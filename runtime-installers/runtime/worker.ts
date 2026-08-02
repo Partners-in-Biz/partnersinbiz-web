@@ -74,7 +74,7 @@ function receipt(
     timestamp: new Date().toISOString(),
     acceptedAt,
     toolStartedAt,
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.22',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.23',
     machineLabel: os.hostname(),
     outputSha256: digest(output),
     outputBytes: Buffer.byteLength(output),
@@ -109,7 +109,9 @@ export async function executeJob(
   const working_directory = registry.resolve(job.mappingId, job.relativeFolder, job.workingDirectory)
   let acceptedAt = new Date().toISOString()
   let toolStartedAt = acceptedAt
-  let queueReason: QueueReason = 'runtime_capacity'
+  // A claim has reached this runtime, but it has not yet been rejected by a
+  // Hermes gateway. Do not present that normal hand-off as a capacity limit.
+  let queueReason: QueueReason | undefined
   let started = false
   let localHermesRunId = job.localHermesRunId
 
@@ -117,7 +119,8 @@ export async function executeJob(
   let leaseError: Error | undefined
   let eventFlush: Promise<void> = Promise.resolve()
   const initialQueue = await post(`/runs/${job.jobId}/progress`, {
-    receipt: receipt(job, device, 'queued', 'queued', acceptedAt, toolStartedAt, '', '', { queueReason }),
+    receipt: receipt(job, device, 'queued', 'queued', acceptedAt, toolStartedAt, '', '',
+      queueReason ? { queueReason } : {}),
   })
   if (!initialQueue.ok && initialQueue.status !== 409) throw new Error('queued receipt rejected')
   const timer = setInterval(() => {
@@ -126,7 +129,8 @@ export async function executeJob(
         const response = await post(`/runs/${job.jobId}/progress`, {
           receipt: started
             ? receipt(job, device, 'progress', 'running', acceptedAt, toolStartedAt, '', '', { localHermesRunId })
-            : receipt(job, device, 'queued', 'queued', acceptedAt, toolStartedAt, '', '', { queueReason }),
+            : receipt(job, device, 'queued', 'queued', acceptedAt, toolStartedAt, '', '',
+              queueReason ? { queueReason } : {}),
         })
         if (!response.ok && response.status !== 409) leaseError = new Error('lease renewal rejected')
       } catch {
@@ -243,8 +247,105 @@ export async function executeJob(
 }
 
 const MAX_IDLE_CLAIM_BASE_DELAY_MS = 1_000
-/** Bound device-wide chat parallelism while allowing independent agent gateways to stay productive. */
-export const LINKED_RUN_MAX_CONCURRENCY = 8
+
+/** A healthy Hermes profile has its own ten-session admission budget. */
+export const LINKED_RUN_MAX_CONCURRENCY_PER_AGENT = 10
+/**
+ * Default host protection. The effective total is this ceiling or ten times
+ * the number of healthy profiles, whichever is lower.
+ */
+export const LINKED_RUN_DEFAULT_MAX_TOTAL_CONCURRENCY = 64
+
+export type LinkedRunClaimCapacity = {
+  /** Hermes profiles whose local ten-session budget is fully reserved. */
+  saturatedAgentIds: string[]
+}
+
+function linkedRunAgentId(job: Pick<Job, 'agentId'> | { agentId?: string }): string {
+  const agentId = typeof job.agentId === 'string' ? job.agentId.trim().toLowerCase() : ''
+  return agentId || 'pip'
+}
+
+/**
+ * Shared local admission state. A reservation begins immediately after a
+ * claim, before its asynchronous Hermes call begins, preventing a rapid
+ * series of claims from overbooking one profile.
+ */
+export class LinkedRunProfileCapacity {
+  private readonly active = new Map<string, number>()
+  private healthyAgentIds = new Set<string>(['pip'])
+  private readonly changeListeners = new Set<() => void>()
+
+  constructor(
+    readonly maxPerAgent = LINKED_RUN_MAX_CONCURRENCY_PER_AGENT,
+    readonly maxTotal = LINKED_RUN_DEFAULT_MAX_TOTAL_CONCURRENCY,
+  ) {}
+
+  setHealthyAgentIds(agentIds: readonly string[]): void {
+    const normalized = agentIds
+      .map((agentId) => linkedRunAgentId({ agentId }))
+      .filter(Boolean)
+    const next = new Set(normalized.length ? normalized : ['pip'])
+    const changed = next.size !== this.healthyAgentIds.size
+      || Array.from(next).some((agentId) => !this.healthyAgentIds.has(agentId))
+    this.healthyAgentIds = next
+    if (changed) {
+      for (const listener of this.changeListeners) listener()
+      this.changeListeners.clear()
+    }
+  }
+
+  /**
+   * Lets the poller wake immediately when a heartbeat discovers another
+   * healthy Hermes profile. Without this, a cold runtime could reach its
+   * provisional ten-Pip limit and wait for a long chat to finish even after
+   * Theo and the rest of the machine were known to be healthy.
+   */
+  watchForChange(): { promise: Promise<void>; cancel: () => void } {
+    let listener: () => void = () => undefined
+    const promise = new Promise<void>((resolve) => {
+      listener = () => {
+        this.changeListeners.delete(listener)
+        resolve()
+      }
+      this.changeListeners.add(listener)
+    })
+    return {
+      promise,
+      cancel: () => this.changeListeners.delete(listener),
+    }
+  }
+
+  activeCount(agentId: string): number {
+    return this.active.get(linkedRunAgentId({ agentId })) ?? 0
+  }
+
+  totalConcurrencyLimit(): number {
+    return Math.max(1, Math.min(this.maxTotal, this.healthyAgentIds.size * this.maxPerAgent))
+  }
+
+  saturatedAgentIds(): string[] {
+    return Array.from(this.active.entries())
+      .filter(([, count]) => count >= this.maxPerAgent)
+      .map(([agentId]) => agentId)
+      .sort()
+  }
+
+  tryReserve(job: Pick<Job, 'agentId'>): (() => void) | null {
+    const agentId = linkedRunAgentId(job)
+    const active = this.activeCount(agentId)
+    if (active >= this.maxPerAgent) return null
+    this.active.set(agentId, active + 1)
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      const remaining = (this.active.get(agentId) ?? 1) - 1
+      if (remaining > 0) this.active.set(agentId, remaining)
+      else this.active.delete(agentId)
+    }
+  }
+}
 
 export function linkedRunPollDelay(delay: number, random: () => number = Math.random) {
   const bounded = Math.min(Math.max(250, delay), MAX_IDLE_CLAIM_BASE_DELAY_MS)
@@ -252,31 +353,56 @@ export function linkedRunPollDelay(delay: number, random: () => number = Math.ra
 }
 
 export async function pollForever(
-  claim: () => Promise<Job | null>,
+  claim: (capacity: LinkedRunClaimCapacity) => Promise<Job | null>,
   run: (job: Job) => Promise<unknown>,
   stop: () => boolean = () => false,
-  options: { maxConcurrency?: number } = {},
+  options: { maxConcurrency?: number; capacity?: LinkedRunProfileCapacity } = {},
 ) {
-  const requestedConcurrency = options.maxConcurrency ?? LINKED_RUN_MAX_CONCURRENCY
-  const maxConcurrency = Math.min(
-    LINKED_RUN_MAX_CONCURRENCY,
-    Math.max(1, Number.isFinite(requestedConcurrency) ? Math.floor(requestedConcurrency) : LINKED_RUN_MAX_CONCURRENCY),
-  )
+  const capacity = options.capacity ?? new LinkedRunProfileCapacity()
   const inFlight = new Set<Promise<void>>()
   let delay = 250
   while (!stop()) {
+    // Subscribe before reading the limit so no just-arrived heartbeat can be
+    // missed between checking capacity and going to sleep.
+    const capacityChange = capacity.watchForChange()
+    const maxConcurrency = options.maxConcurrency === undefined
+      ? capacity.totalConcurrencyLimit()
+      : Math.max(1, Number.isFinite(options.maxConcurrency) ? Math.floor(options.maxConcurrency) : 1)
     if (inFlight.size >= maxConcurrency) {
-      await Promise.race(inFlight)
+      await Promise.race([Promise.race(inFlight), capacityChange.promise])
+      capacityChange.cancel()
       continue
     }
-    const job = await claim().catch(() => null)
+    capacityChange.cancel()
+    const job = await claim({ saturatedAgentIds: capacity.saturatedAgentIds() }).catch(() => null)
     if (job) {
       delay = 250
+      const release = capacity.tryReserve(job)
+      // The control plane receives saturatedAgentIds before claiming. If an
+      // older or misconfigured server ignores that signed admission hint, do
+      // not overload Hermes or tear down the entire runtime. Leave the lease
+      // to expire/reclaim and wait for a local slot or a fresh profile
+      // heartbeat before asking again. The current control plane has a
+      // durable server-side guard, so this is a safe mixed-version fallback.
+      if (!release) {
+        const nextCapacityChange = capacity.watchForChange()
+        if (inFlight.size > 0) {
+          await Promise.race([Promise.race(inFlight), nextCapacityChange.promise])
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, linkedRunPollDelay(delay)))
+          delay = Math.min(delay * 2, MAX_IDLE_CLAIM_BASE_DELAY_MS)
+        }
+        nextCapacityChange.cancel()
+        continue
+      }
       const task: Promise<void> = Promise.resolve()
         .then(() => run(job))
         .then(() => undefined)
         .catch(() => undefined)
-        .finally(() => inFlight.delete(task))
+        .finally(() => {
+          release()
+          inFlight.delete(task)
+        })
       inFlight.add(task)
     } else {
       await new Promise((r) => setTimeout(r, linkedRunPollDelay(delay)))

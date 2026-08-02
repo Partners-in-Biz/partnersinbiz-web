@@ -87,6 +87,13 @@ export interface LinkedRunReceipt {
   signature: string
 }
 
+const LINKED_RUN_QUEUE_REASONS = new Set<NonNullable<LinkedRunReceipt['queueReason']>>([
+  'runtime_capacity',
+  'agent_capacity',
+  'gateway_draining',
+  'runtime_restarting',
+])
+
 function masterKey(): Buffer {
   const value = process.env.SOCIAL_TOKEN_MASTER_KEY?.trim()
   if (!value) throw new Error('Missing env var: SOCIAL_TOKEN_MASTER_KEY')
@@ -293,7 +300,7 @@ export function requireLinkedRunReceipt(job: LinkedRunJob, receipt: LinkedRunRec
     || acceptedMs < (job.claimedAtMs ?? job.createdAtMs) - 60_000 || !receipt.runtimeVersion || !receipt.machineLabel
     || receipt.event !== receipt.outcome && !(receipt.event === 'progress' && receipt.outcome === 'running')
     || (receipt.localHermesRunId !== undefined && !/^[A-Za-z0-9_-]{1,128}$/.test(receipt.localHermesRunId))
-    || (receipt.event === 'queued' && !receipt.queueReason)
+    || (receipt.queueReason !== undefined && !LINKED_RUN_QUEUE_REASONS.has(receipt.queueReason))
     || (receipt.event === 'accepted' && receipt.localHermesRunId !== undefined && !receipt.localHermesRunId)
     || !/^[A-Za-z0-9_-]{16,1024}$/.test(receipt.signature)) throw new Error('linked computers: invalid run receipt')
   const output = body.output ?? ''
