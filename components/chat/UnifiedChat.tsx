@@ -1248,6 +1248,10 @@ export default function UnifiedChat({
   const activeId = activeConversationId === undefined ? uncontrolledActiveId : activeConversationId
   const activeConversationIdRef = useRef(activeId)
   activeConversationIdRef.current = activeId
+  // Tracks which conversation owns the live composer fields so switches cannot
+  // carry an unsent draft/attachment/picker into the next chat.
+  const composerStateConversationIdRef = useRef(activeId)
+  const composerDraftsByConversationRef = useRef(new Map<string, { text: string; attachments: File[] }>())
   const setActiveId = useCallback((value: string | null) => {
     if (activeConversationId === undefined) setUncontrolledActiveId(value)
     onActiveConversationChange?.(value)
@@ -1563,6 +1567,10 @@ export default function UnifiedChat({
 
   // Attachment state
   const [attachments, setAttachments] = useState<File[]>([])
+  const inputRef = useRef(input)
+  const attachmentsRef = useRef(attachments)
+  inputRef.current = input
+  attachmentsRef.current = attachments
   const [draggingAttachments, setDraggingAttachments] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const attachmentInputId = useId()
@@ -4219,10 +4227,48 @@ export default function UnifiedChat({
       })
   }, [activeConversation, activeId, latestVisibleMessageId])
 
-  // Composer context is per-conversation. Clear immediately on id change so
-  // prior pins cannot flash/stick while the next conversation object loads.
+  // Composer state is per-conversation. On id change, stash the prior draft,
+  // restore the next chat's draft (or empty), and drop context pins until the
+  // new conversation's refs hydrate — so nothing from chat A can be sent as chat B.
   useEffect(() => {
+    const previousConversationId = composerStateConversationIdRef.current
+    composerStateConversationIdRef.current = activeId
+
     setContextRefs([])
+    setContextMention(null)
+    setContextTypePrompt(null)
+    setSlashPrompt(null)
+    setSelectedSlashCommand(null)
+    setContextSearchResults([])
+    setContextSearchMessage(null)
+    setContextSearchLoading(false)
+    setContextPickerActiveIndex(0)
+    setHistoryCursor(null)
+    historyDraftRef.current = ''
+    contextPickerInsertedSeparatorRef.current = undefined
+    composerEditRevisionRef.current += 1
+
+    // Keep a pre-hydration draft (or a first-send auto-create) intact when there
+    // was no prior session — only isolate when leaving a real conversation.
+    if (!previousConversationId || previousConversationId === activeId) return
+
+    const previousText = inputRef.current
+    const previousAttachments = attachmentsRef.current
+    if (previousText.trim() || previousAttachments.length > 0) {
+      composerDraftsByConversationRef.current.set(previousConversationId, {
+        text: previousText,
+        attachments: previousAttachments,
+      })
+    } else {
+      composerDraftsByConversationRef.current.delete(previousConversationId)
+    }
+
+    const nextDraft = activeId
+      ? composerDraftsByConversationRef.current.get(activeId)
+      : undefined
+    if (activeId) composerDraftsByConversationRef.current.delete(activeId)
+    setInput(nextDraft?.text ?? '')
+    setAttachments(nextDraft?.attachments ?? [])
   }, [activeId])
 
   useEffect(() => {
