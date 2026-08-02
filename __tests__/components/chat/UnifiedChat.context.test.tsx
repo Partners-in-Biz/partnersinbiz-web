@@ -3482,6 +3482,98 @@ describe('UnifiedChat context references', () => {
     await waitFor(() => expect(input).toHaveValue('@agent:maya '))
   })
 
+  it('creates proposed project tasks from Create tasks without resuming a completed Hermes run', async () => {
+    conversation = {
+      ...baseConversation,
+      scope: 'project',
+      scopeRefId: 'project-finance',
+      contextRefs: [projectRef],
+    }
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(request)
+      if (url === '/api/v1/conversations/conv-1/messages' && !init?.method) {
+        return jsonResponse({
+          data: {
+            messages: [
+              {
+                id: 'msg-user-1',
+                conversationId: 'conv-1',
+                role: 'user',
+                content: 'Propose the next tasks',
+                authorKind: 'user',
+                authorId: 'user-1',
+                authorDisplayName: 'Peet',
+                status: 'completed',
+              },
+              {
+                id: 'msg-proposal',
+                conversationId: 'conv-1',
+                role: 'assistant',
+                content: '',
+                authorKind: 'agent',
+                authorId: 'pip',
+                authorDisplayName: 'Pip',
+                status: 'completed',
+                runId: 'run-already-done',
+                richParts: [{
+                  type: 'project_task_proposal',
+                  title: 'Finance follow-ups',
+                  projectId: 'project-finance',
+                  bundleId: 'bundle-finance-1',
+                  tasks: [
+                    { title: 'Job costing link', assigneeAgentId: 'theo', dependencySequence: [] },
+                    { title: 'Fixed assets register', assigneeAgentId: 'theo', dependencySequence: [0], reviewerAgentId: 'qa-release' },
+                  ],
+                }],
+                uiActions: [{
+                  id: 'create-chain',
+                  type: 'custom',
+                  label: 'Create tasks',
+                  actionId: 'create-chain',
+                  variant: 'primary',
+                }],
+              },
+            ],
+          },
+        })
+      }
+      if (url === '/api/v1/projects/project-finance/tasks' && init?.method === 'POST') {
+        const body = JSON.parse(String(init.body ?? '{}')) as { chatOrigin?: { sequence?: number } }
+        return jsonResponse({ data: { id: `task-${body.chatOrigin?.sequence ?? 0}` } }, true)
+      }
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    expect(await screen.findByRole('button', { name: 'Create tasks' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Create tasks' }))
+
+    await waitFor(() => {
+      const taskPosts = mockFetch.mock.calls.filter(([url, init]) =>
+        String(url) === '/api/v1/projects/project-finance/tasks' && init?.method === 'POST',
+      )
+      expect(taskPosts).toHaveLength(2)
+    })
+
+    expect(mockFetch.mock.calls.some(([url]) =>
+      String(url).includes('/admin/agents/') && String(url).includes('/actions'),
+    )).toBe(false)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Tasks created' })).toBeDisabled()
+    })
+    expect(screen.queryByText('Agent action failed')).not.toBeInTheDocument()
+  })
+
   it('shows slash commands and sends structured command metadata', async () => {
     render(
       <UnifiedChat

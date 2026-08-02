@@ -2,6 +2,11 @@
 
 import { DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { ChatEvent, ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
+import {
+  createProposedTasksFromMessage,
+  extractProjectTaskProposal,
+  isCreateTasksUiAction,
+} from '@/lib/projects/chatTaskProposal'
 import { applyAssistantTextDelta } from '@/lib/chat/applyAssistantTextDelta'
 import { buildThinkingTrace } from '@/lib/conversations/thinking-trace'
 import {
@@ -5045,6 +5050,45 @@ export default function UnifiedChat({
       }
       if (actionType === 'open' || actionType === 'download' || actionType === 'copy') return
 
+      // Project task proposals: create durable tasks on the platform. Do not require
+      // Hermes run resume — the proposal run is often already completed when Peet clicks.
+      if (isCreateTasksUiAction(action) && extractProjectTaskProposal(message)) {
+        const conversationId = message.conversationId || activeId
+        if (!conversationId) {
+          setError('Select the conversation that owns this task proposal before creating tasks.')
+          return
+        }
+        try {
+          setError(null)
+          const result = await createProposedTasksFromMessage({
+            orgId,
+            conversationId,
+            message,
+            messages,
+          })
+          setMessages((prev) =>
+            prev.map((row) => {
+              if (row.id !== message.id) return row
+              const nextActions = Array.isArray(row.uiActions)
+                ? row.uiActions.map((item) => (
+                  item.id === action.id || item.actionId === action.actionId
+                    ? { ...item, disabled: true, label: 'Tasks created' }
+                    : item
+                ))
+                : row.uiActions
+              return { ...row, uiActions: nextActions }
+            }),
+          )
+          void refreshProjectChat().catch(() => undefined)
+          if (result.deduplicatedCount > 0 && result.deduplicatedCount === result.createdTaskIds.length) {
+            setError(null)
+          }
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to create proposed tasks')
+        }
+        return
+      }
+
       // Human-session API actions (Decision Brief confirm, etc.): browser cookie auth,
       // payload body as-is. Never requires a Hermes run id — agents cannot perform these.
       const endpoint = typeof action.endpoint === 'string' && action.endpoint.startsWith('/api/')
@@ -5126,7 +5170,7 @@ export default function UnifiedChat({
         setError(err instanceof Error ? err.message : 'Action failed')
       }
     },
-    [activeId, initialAgentId, pollFinalize, refreshProjectChat, startEventStream],
+    [activeId, initialAgentId, messages, orgId, pollFinalize, refreshProjectChat, startEventStream],
   )
 
   useEffect(() => {
