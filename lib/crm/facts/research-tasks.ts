@@ -1,7 +1,7 @@
 // lib/crm/facts/research-tasks.ts
 // Optional resident CRM research queue with schedule_recheck reasons + budget.
 
-import { FieldValue, type Query } from 'firebase-admin/firestore'
+import { FieldValue, type DocumentData, type Query } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
@@ -71,7 +71,7 @@ function col() {
   return adminDb.collection(CRM_RESEARCH_TASKS_COLLECTION)
 }
 
-function serialize(id: string, data: FirebaseFirestore.DocumentData): CrmResearchTask {
+function serialize(id: string, data: DocumentData): CrmResearchTask {
   return {
     id,
     orgId: String(data.orgId ?? ''),
@@ -174,50 +174,137 @@ export async function listResearchTasks(args: {
   return rows.slice(0, limit)
 }
 
+function dueAtMs(value: unknown): number {
+  if (!value) return 0
+  if (value instanceof Date) return value.getTime()
+  if (typeof (value as { toMillis?: () => number }).toMillis === 'function') {
+    return (value as { toMillis: () => number }).toMillis()
+  }
+  if (typeof (value as { getTime?: () => number }).getTime === 'function') {
+    return (value as { getTime: () => number }).getTime()
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const n = new Date(value).getTime()
+    return Number.isFinite(n) ? n : 0
+  }
+  return 0
+}
+
 /**
- * Lease due pending work (best-effort single-doc transaction).
- * Multi-worker safe via transaction check on status + lease.
+ * List pending + expired-leased tasks that are eligible for work on any machine.
+ * Multi-worker safe when paired with transactional lease.
+ */
+export async function listLeasableResearchTasks(args: {
+  orgId: string
+  limit?: number
+  now?: Date
+}): Promise<CrmResearchTask[]> {
+  const now = args.now ?? new Date()
+  const nowMs = now.getTime()
+  const limit = Math.min(Math.max(args.limit ?? 40, 1), 100)
+
+  const pending = await listResearchTasks({
+    orgId: args.orgId,
+    status: 'pending',
+    dueBefore: now,
+    limit,
+  })
+
+  // Expired leases become reclaimable so multi-machine workers cannot stall.
+  const leasedSnap = await col()
+    .where('orgId', '==', args.orgId)
+    .where('status', '==', 'leased')
+    .limit(limit)
+    .get()
+
+  const expiredLeased = leasedSnap.docs
+    .map((d) => serialize(d.id, d.data()))
+    .filter((r) => !r.deleted)
+    .filter((r) => {
+      if (dueAtMs(r.dueAt) > nowMs) return false
+      const exp = dueAtMs(r.leaseExpiresAt)
+      return exp > 0 && exp <= nowMs
+    })
+
+  const merged = [...pending, ...expiredLeased]
+  const byId = new Map<string, CrmResearchTask>()
+  for (const row of merged) byId.set(row.id, row)
+
+  return Array.from(byId.values())
+    .sort((a, b) => {
+      const p = (b.priority ?? 0) - (a.priority ?? 0)
+      if (p !== 0) return p
+      return dueAtMs(a.dueAt) - dueAtMs(b.dueAt)
+    })
+    .slice(0, limit)
+}
+
+/**
+ * Lease due pending (or expired-leased) work.
+ * Multi-worker / multi-machine safe via transaction + candidate walk.
+ * Mirrors Comp-style claim: one worker wins; others continue to next due task.
  */
 export async function leaseNextResearchTask(args: {
   orgId: string
   workerId: string
   leaseSeconds?: number
 }): Promise<CrmResearchTask | null> {
-  const due = await listResearchTasks({
+  const candidates = await listLeasableResearchTasks({
     orgId: args.orgId,
-    status: 'pending',
-    dueBefore: new Date(),
-    limit: 20,
+    limit: 40,
   })
-  if (due.length === 0) return null
+  if (candidates.length === 0) return null
 
-  const leaseSeconds = Math.max(30, args.leaseSeconds ?? 300)
-  const leaseExpires = new Date(Date.now() + leaseSeconds * 1000)
-  const candidate = due[0]!
+  const leaseSeconds = Math.max(30, Math.min(3600, args.leaseSeconds ?? 300))
+  const nowMs = Date.now()
+  const leaseExpires = new Date(nowMs + leaseSeconds * 1000)
+  const workerId = String(args.workerId || '').trim().slice(0, 120)
+  if (!workerId) return null
 
-  try {
-    await adminDb.runTransaction(async (tx) => {
-      const ref = col().doc(candidate.id)
-      const snap = await tx.get(ref)
-      if (!snap.exists) throw new Error('gone')
-      const data = snap.data()!
-      if (data.orgId !== args.orgId || data.status !== 'pending' || data.deleted === true) {
-        throw new Error('not_pending')
-      }
-      tx.update(ref, {
-        status: 'leased',
-        leaseOwner: args.workerId,
-        leaseExpiresAt: leaseExpires,
-        updatedAt: FieldValue.serverTimestamp(),
+  for (const candidate of candidates) {
+    try {
+      const leasedId = await adminDb.runTransaction(async (tx) => {
+        const ref = col().doc(candidate.id)
+        const snap = await tx.get(ref)
+        if (!snap.exists) throw new Error('gone')
+        const data = snap.data()!
+        if (data.orgId !== args.orgId || data.deleted === true) {
+          throw new Error('scope')
+        }
+
+        const status = String(data.status || '')
+        if (status === 'pending') {
+          // ok
+        } else if (status === 'leased') {
+          const exp = dueAtMs(data.leaseExpiresAt)
+          if (!(exp > 0 && exp <= nowMs)) throw new Error('still_leased')
+        } else {
+          throw new Error('not_leasable')
+        }
+
+        // Due check inside txn so late dueAt changes cannot be claimed early.
+        if (dueAtMs(data.dueAt) > nowMs) throw new Error('not_due')
+
+        tx.update(ref, {
+          status: 'leased',
+          leaseOwner: workerId,
+          leaseExpiresAt: leaseExpires,
+          lastError: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        return candidate.id
       })
-    })
-  } catch {
-    return null
+
+      const refreshed = await col().doc(leasedId).get()
+      if (!refreshed.exists) continue
+      return serialize(refreshed.id, refreshed.data()!)
+    } catch {
+      // Contention or race — try next candidate (multi-machine safe).
+      continue
+    }
   }
 
-  const refreshed = await col().doc(candidate.id).get()
-  if (!refreshed.exists) return null
-  return serialize(refreshed.id, refreshed.data()!)
+  return null
 }
 
 export async function completeResearchTask(args: {

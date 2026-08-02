@@ -25,8 +25,14 @@ export {
   type ParseMailboxEvidenceInput,
 } from './mailbox-evidence'
 export {
+  applyMailboxFactsToContact,
+  type ApplyMailboxFactsInput,
+  type ApplyMailboxFactsResult,
+} from './apply-mailbox'
+export {
   scheduleRecheck,
   listResearchTasks,
+  listLeasableResearchTasks,
   leaseNextResearchTask,
   completeResearchTask,
   CRM_RESEARCH_TASKS_COLLECTION,
@@ -37,7 +43,11 @@ export {
 } from './research-tasks'
 export {
   loadContactGraph,
+  loadCompanyGraph,
+  loadDealGraph,
   type ContactGraphPayload,
+  type CompanyGraphPayload,
+  type DealGraphPayload,
   type CrmGraphNeighbour,
 } from './graph'
 export {

@@ -1,7 +1,7 @@
 // lib/crm/facts/store.ts
 // Firestore access for contact_facts (multi-tenant, org-scoped).
 
-import { FieldValue, type Query } from 'firebase-admin/firestore'
+import { FieldValue, type DocumentData, type Query } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { ContactFact, FactField, FactStatus } from './types'
 
@@ -13,7 +13,7 @@ function col() {
   return adminDb.collection(CONTACT_FACTS_COLLECTION)
 }
 
-export function serializeFact(id: string, data: FirebaseFirestore.DocumentData): ContactFact {
+export function serializeFact(id: string, data: DocumentData): ContactFact {
   return {
     id,
     orgId: String(data.orgId ?? ''),

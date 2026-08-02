@@ -185,3 +185,197 @@ export async function loadContactGraph(args: {
     neighbours,
   }
 }
+
+export interface CompanyGraphPayload {
+  company: {
+    id: string
+    orgId: string
+    name?: string
+    domain?: string | null
+    contactIds: string[]
+    dealIds: string[]
+  }
+  neighbours: CrmGraphNeighbour[]
+}
+
+export interface DealGraphPayload {
+  deal: {
+    id: string
+    orgId: string
+    title?: string
+    contactId?: string | null
+    companyId?: string | null
+    pipelineId?: string | null
+    stageId?: string | null
+  }
+  neighbours: CrmGraphNeighbour[]
+}
+
+/**
+ * Company-centric graph — contacts and deals always carry ids.
+ */
+export async function loadCompanyGraph(args: {
+  orgId: string
+  companyId: string
+  contactLimit?: number
+  dealLimit?: number
+}): Promise<CompanyGraphPayload | null> {
+  const snap = await adminDb.collection('companies').doc(args.companyId).get()
+  if (!snap.exists) return null
+  const company = snap.data()!
+  if (company.orgId !== args.orgId || company.deleted === true) return null
+
+  const neighbours: CrmGraphNeighbour[] = []
+  const contactIds: string[] = []
+  const dealIds: string[] = []
+
+  const contactLimit = Math.min(Math.max(args.contactLimit ?? 50, 1), 100)
+  try {
+    const contactsSnap = await adminDb
+      .collection('contacts')
+      .where('orgId', '==', args.orgId)
+      .where('companyId', '==', args.companyId)
+      .limit(contactLimit)
+      .get()
+    for (const d of contactsSnap.docs) {
+      const data = d.data()
+      if (data.deleted === true) continue
+      contactIds.push(d.id)
+      neighbours.push({
+        type: 'contact',
+        id: d.id,
+        label: typeof data.name === 'string' ? data.name : undefined,
+        rel: 'company_contact',
+        meta: {
+          email: typeof data.email === 'string' ? data.email : null,
+          jobTitle: typeof data.jobTitle === 'string' ? data.jobTitle : null,
+        },
+      })
+    }
+  } catch {
+    // missing index — do not fail graph
+  }
+
+  const dealLimit = Math.min(Math.max(args.dealLimit ?? 50, 1), 100)
+  try {
+    const dealsSnap = await adminDb
+      .collection('deals')
+      .where('orgId', '==', args.orgId)
+      .where('companyId', '==', args.companyId)
+      .limit(dealLimit)
+      .get()
+    for (const d of dealsSnap.docs) {
+      const data = d.data()
+      if (data.deleted === true) continue
+      dealIds.push(d.id)
+      neighbours.push({
+        type: 'deal',
+        id: d.id,
+        label: typeof data.title === 'string' ? data.title : undefined,
+        rel: 'company_deal',
+        meta: {
+          contactId: typeof data.contactId === 'string' ? data.contactId : null,
+          pipelineId: data.pipelineId ?? null,
+          stageId: data.stageId ?? null,
+        },
+      })
+      if (typeof data.contactId === 'string' && data.contactId && !contactIds.includes(data.contactId)) {
+        neighbours.push({
+          type: 'contact',
+          id: data.contactId,
+          rel: 'deal_contact',
+        })
+      }
+    }
+  } catch {
+    // optional
+  }
+
+  return {
+    company: {
+      id: snap.id,
+      orgId: args.orgId,
+      name: typeof company.name === 'string' ? company.name : undefined,
+      domain: typeof company.domain === 'string' ? company.domain : null,
+      contactIds,
+      dealIds,
+    },
+    neighbours,
+  }
+}
+
+/**
+ * Deal-centric graph — contact and company neighbours always include ids.
+ */
+export async function loadDealGraph(args: {
+  orgId: string
+  dealId: string
+}): Promise<DealGraphPayload | null> {
+  const snap = await adminDb.collection('deals').doc(args.dealId).get()
+  if (!snap.exists) return null
+  const deal = snap.data()!
+  if (deal.orgId !== args.orgId || deal.deleted === true) return null
+
+  const neighbours: CrmGraphNeighbour[] = []
+  const contactId = typeof deal.contactId === 'string' ? deal.contactId : null
+  const companyId = typeof deal.companyId === 'string' ? deal.companyId : null
+
+  if (contactId) {
+    neighbours.push({
+      type: 'contact',
+      id: contactId,
+      rel: 'deal_contact',
+    })
+    try {
+      const cSnap = await adminDb.collection('contacts').doc(contactId).get()
+      if (cSnap.exists) {
+        const c = cSnap.data()!
+        if (c.orgId === args.orgId && c.deleted !== true) {
+          const idx = neighbours.findIndex((n) => n.type === 'contact' && n.id === contactId)
+          if (idx >= 0) {
+            neighbours[idx] = {
+              ...neighbours[idx]!,
+              label: typeof c.name === 'string' ? c.name : undefined,
+              meta: {
+                email: typeof c.email === 'string' ? c.email : null,
+                companyId: typeof c.companyId === 'string' ? c.companyId : null,
+              },
+            }
+          }
+          if (!companyId && typeof c.companyId === 'string' && c.companyId) {
+            neighbours.push({
+              type: 'company',
+              id: c.companyId,
+              label: typeof c.companyName === 'string' ? c.companyName : undefined,
+              rel: 'contact_company',
+            })
+          }
+        }
+      }
+    } catch {
+      // keep bare id
+    }
+  }
+
+  if (companyId) {
+    neighbours.push({
+      type: 'company',
+      id: companyId,
+      label: typeof deal.companyName === 'string' ? deal.companyName : undefined,
+      rel: 'deal_company',
+    })
+  }
+
+  return {
+    deal: {
+      id: snap.id,
+      orgId: args.orgId,
+      title: typeof deal.title === 'string' ? deal.title : undefined,
+      contactId,
+      companyId,
+      pipelineId: typeof deal.pipelineId === 'string' ? deal.pipelineId : null,
+      stageId: typeof deal.stageId === 'string' ? deal.stageId : null,
+    },
+    neighbours,
+  }
+}

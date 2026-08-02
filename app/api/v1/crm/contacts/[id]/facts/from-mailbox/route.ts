@@ -18,10 +18,8 @@ import { NextRequest } from 'next/server'
 import { withCrmAuth } from '@/lib/auth/crm-middleware'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import {
+  applyMailboxFactsToContact,
   loadAccessibleFactContact,
-  parseMailboxEvidence,
-  recordContactFact,
-  type RecordFactResult,
 } from '@/lib/crm/facts'
 import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
@@ -54,7 +52,16 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req: NextRequest, ctx
       ? directionRaw
       : 'unknown'
 
-  const candidates = parseMailboxEvidence({
+  const dryRun = (body as { dryRun?: unknown }).dryRun === true
+
+  const agentId =
+    ctx.isAgent || ctx.actor.kind === 'agent'
+      ? ctx.actor.uid.replace(/^agent:/, '')
+      : 'mailbox-pipeline'
+
+  const applied = await applyMailboxFactsToContact({
+    orgId: ctx.orgId,
+    contact: access.contact,
     bodyText,
     fromName:
       typeof (body as { fromName?: unknown }).fromName === 'string'
@@ -69,50 +76,34 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req: NextRequest, ctx
         ? (body as { sourceUrl: string }).sourceUrl
         : null,
     direction,
+    dryRun,
+    agentId,
+    createdByRef: ctx.actor,
   })
 
-  const dryRun = (body as { dryRun?: unknown }).dryRun === true
-  if (dryRun) {
-    return apiSuccess({ dryRun: true, candidates, contactId })
+  if (applied.dryRun) {
+    return apiSuccess({
+      dryRun: true,
+      candidates: applied.candidates,
+      contactId,
+      candidateCount: applied.candidateCount,
+    })
   }
 
-  const agentId =
-    ctx.isAgent || ctx.actor.kind === 'agent'
-      ? ctx.actor.uid.replace(/^agent:/, '')
-      : 'mailbox-pipeline'
-
-  const results: Array<{ candidate: (typeof candidates)[number]; result: RecordFactResult }> = []
-  let stored = 0
-  for (const candidate of candidates) {
-    const result = await recordContactFact(
-      {
-        orgId: ctx.orgId,
-        contactId,
-        field: candidate.field,
-        value: candidate.value,
-        evidence: candidate.evidence,
-        method: candidate.method,
-        sourceUrl: candidate.evidence[0]?.sourceUrl,
-        agentId,
-        createdByRef: ctx.actor,
-      },
-      access.contact,
-    )
-    results.push({ candidate, result })
-    if (result.stored) stored += 1
-  }
-
-  if (stored > 0) {
+  if (applied.storedCount > 0) {
     await safeTouchCrmLiveUpdate(ctx.orgId, 'contacts', 'contact.mailbox_facts')
   }
 
   return apiSuccess(
     {
       contactId,
-      candidateCount: candidates.length,
-      storedCount: stored,
-      results,
+      candidateCount: applied.candidateCount,
+      storedCount: applied.storedCount,
+      results: applied.results.map((row) => ({
+        candidate: { field: row.field, value: row.value },
+        result: row.result,
+      })),
     },
-    stored > 0 ? 201 : 200,
+    applied.storedCount > 0 ? 201 : 200,
   )
 })

@@ -1,14 +1,6 @@
 /**
  * POST /api/v1/crm/research-tasks/[id]/complete
- * Mark a leased research task done or failed and optionally spend budget.
- *
- * Body: {
- *   resultSummary?: string
- *   budgetSpentDelta?: number
- *   failed?: boolean
- *   error?: string
- * }
- *
+ * Mark a leased/open research task done or failed; optional budget spend.
  * Auth: member+
  */
 import { NextRequest } from 'next/server'
@@ -25,24 +17,31 @@ export const POST = withCrmAuth<RouteCtx>('member', async (req: NextRequest, ctx
   if (!taskId) return apiError('Task ID is required', 400)
 
   const body = await req.json().catch(() => ({}))
-  const bodyObj = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
+  if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
+
+  const failed = (body as { failed?: unknown }).failed === true
+  const resultSummary = (body as { resultSummary?: unknown }).resultSummary
+  const error = (body as { error?: unknown }).error
+  const budgetSpentDelta = (body as { budgetSpentDelta?: unknown }).budgetSpentDelta
 
   try {
     await completeResearchTask({
       orgId: ctx.orgId,
       taskId,
-      resultSummary:
-        typeof bodyObj.resultSummary === 'string' ? bodyObj.resultSummary : undefined,
+      failed,
+      resultSummary: typeof resultSummary === 'string' ? resultSummary : undefined,
+      error: typeof error === 'string' ? error : undefined,
       budgetSpentDelta:
-        typeof bodyObj.budgetSpentDelta === 'number' ? bodyObj.budgetSpentDelta : undefined,
-      failed: bodyObj.failed === true,
-      error: typeof bodyObj.error === 'string' ? bodyObj.error : undefined,
+        typeof budgetSpentDelta === 'number' && Number.isFinite(budgetSpentDelta)
+          ? budgetSpentDelta
+          : undefined,
     })
-    return apiSuccess({ id: taskId, completed: true })
+    return apiSuccess({ id: taskId, completed: true, failed })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Complete failed'
-    if (msg === 'not_found') return apiError('Research task not found', 404)
-    if (msg === 'scope_mismatch') return apiError('Research task not found', 404)
+    const msg = err instanceof Error ? err.message : 'complete_failed'
+    if (msg === 'not_found' || msg === 'scope_mismatch') {
+      return apiError('Research task not found', 404)
+    }
     return apiError(msg, 400)
   }
 })
