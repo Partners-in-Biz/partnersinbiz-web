@@ -109,8 +109,15 @@ jobs:
           if (-not $SigningCertificate.HasPrivateKey -or $SigningFingerprint -cne $Fingerprint) { throw 'Internal signing PFX does not match the pinned public certificate.' }
           $Publisher = $PublicCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
           if ($Publisher -cne $env:EXPECTED_PUBLISHER) { throw "Unexpected internal publisher: $Publisher" }
-          Import-Certificate -FilePath $Cer -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
-          Import-Certificate -FilePath $Cer -CertStoreLocation Cert:\CurrentUser\TrustedPublisher | Out-Null
+          foreach ($StoreName in @('Root','TrustedPublisher')) {
+            $Store = [Security.Cryptography.X509Certificates.X509Store]::new($StoreName, [Security.Cryptography.X509Certificates.StoreLocation]::CurrentUser)
+            try {
+              $Store.Open([Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+              $Store.Add($PublicCertificate)
+            } finally {
+              $Store.Close()
+            }
+          }
           $SignTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -File |
             Sort-Object FullName -Descending | Select-Object -First 1
           if (-not $SignTool) { throw 'signtool.exe was not found on the Windows release runner.' }
