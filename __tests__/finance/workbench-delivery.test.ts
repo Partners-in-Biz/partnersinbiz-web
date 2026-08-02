@@ -23,12 +23,15 @@ describe('finance workbench delivery contract', () => {
       'app/api/v1/finance/intercompany/queries/route.ts',
       'app/api/v1/finance/payroll/commands/route.ts',
       'app/api/v1/finance/payroll/queries/route.ts',
+      'app/api/v1/finance/personal/commands/route.ts',
+      'app/api/v1/finance/personal/queries/route.ts',
     ]))
-    expect(FINANCE_HTTP_ENTRYPOINTS).toHaveLength(11)
+    expect(FINANCE_HTTP_ENTRYPOINTS).toHaveLength(13)
     expect(FINANCE_UI_SHIPPED).toBe(true)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/documents/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/payroll/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/personal/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/Interactive portal workbenches/i)
   })
 
@@ -41,6 +44,7 @@ describe('finance workbench delivery contract', () => {
       'app/(portal)/portal/finance/payroll/page.tsx',
       'app/(portal)/portal/finance/intercompany/page.tsx',
       'app/(portal)/portal/finance/ledger/page.tsx',
+      'app/(portal)/portal/finance/personal/page.tsx',
     ]
     for (const rel of pages) {
       expect(existsSync(path.join(root, rel))).toBe(true)
