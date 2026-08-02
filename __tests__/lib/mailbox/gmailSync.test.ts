@@ -13,6 +13,17 @@ jest.mock('firebase-admin/firestore', () => ({
   },
 }))
 
+const mockApplyInboundMailboxFacts = jest.fn(async () => ({
+  contactIds: ['contact-1'],
+  candidateCount: 1,
+  storedCount: 1,
+  appliedCount: 0,
+}))
+
+jest.mock('@/lib/mailbox/applyInboundContactFacts', () => ({
+  applyInboundMailboxFactsForMatchedContacts: (...args: unknown[]) => mockApplyInboundMailboxFacts(...args),
+}))
+
 import { adminDb } from '@/lib/firebase/admin'
 import { decryptCredentials, encryptCredentials } from '@/lib/integrations/crypto'
 
@@ -151,6 +162,8 @@ describe('syncGmailMailboxAccount', () => {
       orgId: 'org-1', uid: 'uid-1', accountId: 'acct-1', accountEmail: 'me@example.com',
       folder: 'inbox', direction: 'inbound', status: 'received', read: false, starred: true,
       from: 'client@example.com', fromName: 'Client', to: ['me@example.com'], subject: 'Inbound subject', providerMessageId: 'gmail-in-1', threadId: 'thread-1',
+      linkedContactIds: ['contact-1'],
+      contactFactsStored: 1,
     })
     expect(messages.find((item) => item.data.providerMessageId === 'gmail-sent-1')!.data).toMatchObject({
       orgId: 'org-1', uid: 'uid-1', accountId: 'acct-1', folder: 'sent', direction: 'outbound', status: 'sent',
@@ -158,6 +171,14 @@ describe('syncGmailMailboxAccount', () => {
     })
     expect(threads).toHaveLength(1)
     expect(threads[0].data).toMatchObject({ orgId: 'org-1', uid: 'uid-1', accountId: 'acct-1', providerThreadId: 'thread-1', messageCount: 2 })
+    // Inbound facts must run on update (existing provider id) as well as fresh import.
+    expect(mockApplyInboundMailboxFacts).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'org-1',
+        fromEmail: 'client@example.com',
+        bodyText: 'Hello from Gmail',
+      }),
+    )
   })
 
   it('refreshes expired Gmail access tokens and persists refreshed encrypted credentials before syncing', async () => {

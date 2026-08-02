@@ -12,6 +12,8 @@ import { ContactNotesPanel } from '@/components/crm/ContactNotesPanel'
 import { ContactMergePanel } from '@/components/crm/ContactMergePanel'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { ContactEngagementPanel } from '@/components/crm/ContactEngagementPanel'
+import { ContactFactProposalsPanel } from '@/components/crm/ContactFactProposalsPanel'
+import { ContactResearchTasksPanel } from '@/components/crm/ContactResearchTasksPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { ContactIdentityPanel } from '@/components/crm/ContactIdentityPanel'
@@ -2330,6 +2332,21 @@ export default function PortalContactDetailPage() {
               onScheduleMeeting: openFirstMeetingComposer,
               onStartSuggestion: startSuggestion,
             }}
+          />
+
+          <ContactFactProposalsPanel
+            contactId={id}
+            contactName={contactName}
+            apiPath={contactApiPath}
+            onApplied={() => {
+              void loadContact()
+            }}
+          />
+
+          <ContactResearchTasksPanel
+            contactId={id}
+            contactName={contactName}
+            apiPath={contactApiPath}
           />
 
           <div className="overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-soft)]">

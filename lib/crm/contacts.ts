@@ -11,6 +11,8 @@ const NEVER_FROM_BODY = new Set([
   'createdBy', 'createdByRef', 'createdAt',
   'updatedBy', 'updatedByRef', 'updatedAt',
   'deleted',
+  // Evidence-ledger ownership is computed server-side from human edits / accept decisions.
+  'humanOwnedFields',
 ])
 
 export const CONTACT_AGREEMENT_ROLES = [
@@ -45,7 +47,14 @@ export function sanitizeContactForWrite(input: Record<string, unknown>): Record<
   for (const [k, v] of Object.entries(input)) {
     if (v === undefined) continue
     if (NEVER_FROM_BODY.has(k)) continue
-    if ((k === 'jobTitle' || k === 'department') && typeof v === 'string') {
+    if (
+      (k === 'jobTitle' ||
+        k === 'department' ||
+        k === 'linkedinUrl' ||
+        k === 'twitterUrl' ||
+        k === 'githubUrl') &&
+      typeof v === 'string'
+    ) {
       out[k] = v.trim()
       continue
     }

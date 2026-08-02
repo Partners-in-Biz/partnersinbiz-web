@@ -238,6 +238,12 @@ export const runCrmSequenceQueue = scheduledCron(
   "every 5 minutes"
 );
 
+export const runCrmResearchQueue = scheduledCron(
+  "crm-research-queue",
+  "/api/v1/crm/cron/process-research-tasks",
+  "every 5 minutes"
+);
+
 /**
  * Scheduled function: daily check for stale social account tokens.
  * Runs at 3 AM UTC. The actual refresh is handled during publish attempts.

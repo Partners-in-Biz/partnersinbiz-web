@@ -205,6 +205,8 @@ service cloud.firestore {
     match /open_items/{id} { allow read, write: if false; }
     match /account_credits/{id} { allow read, write: if false; }
     match /finance_payments/{id} { allow read, write: if false; }
+    match /finance_export_packs/{id} { allow read, write: if false; }
+    match /finance_export_pack_claims/{id} { allow read, write: if false; }
     match /payment_allocations/{id} { allow read, write: if false; }
     match /bank_accounts/{id} { allow read, write: if false; }
     match /bank_transactions/{id} { allow read, write: if false; }

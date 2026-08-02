@@ -119,6 +119,21 @@ Current contact quick-action routes:
 | `POST` | `/crm/contacts/[id]/recompute-score` | Recompute engagement/lead score for one contact. |
 | `GET` | `/crm/contacts/[id]/suggestions` | Agent/CRM suggestions for the contact. |
 | `POST` | `/crm/contacts/[id]/tags` | Add/update contact tags. |
+| `GET` | `/crm/contacts/[id]/facts` | ContactFact evidence ledger rows (status/field filters). |
+| `POST` | `/crm/contacts/[id]/facts` | Record observation-backed fact (no model confidence). |
+| `POST` | `/crm/contacts/[id]/facts/[factId]/decide` | Accept or dismiss a proposed fact. |
+| `POST` | `/crm/contacts/[id]/facts/from-mailbox` | Parse mailbox signature/reply into fact proposals (egress-safe). |
+| `POST` | `/crm/contacts/[id]/facts/job-change` | Employer/title change with optional recheck task. |
+| `GET` | `/crm/contacts/[id]/graph` | Graph-safe neighbour IDs for Hermes tools. |
+| `GET` | `/crm/companies/[id]/graph` | Company-centric neighbour IDs (contacts/deals). |
+| `GET` | `/crm/deals/[id]/graph` | Deal-centric neighbour IDs (contact/company). |
+| `GET` | `/crm/research-tasks` | List CRM research/recheck queue. |
+| `POST` | `/crm/research-tasks` | schedule_recheck with rep-visible reason + budget. |
+| `POST` | `/crm/research-tasks/lease` | Multi-worker lease of next due research task (reclaims expired leases). |
+| `POST` | `/crm/research-tasks/claim` | Alias of lease (Comp-style naming). |
+| `POST` | `/crm/research-tasks/work` | Org-scoped Hermes worker: lease next due task + process payload-backed enrichment. |
+| `POST` | `/crm/research-tasks/[id]/complete` | Complete or fail a research task. |
+| `GET` | `/crm/cron/process-research-tasks` | CRON_SECRET multi-tenant batch (Firebase `runCrmResearchQueue` every 5 min). |
 
 CRM report routes:
 
@@ -1688,6 +1703,32 @@ Response:
 ```
 
 Use to surface a prioritised to-do list in the contact detail panel. No side-effects — read-only.
+
+---
+
+### ContactFact evidence ledger (Comp AI patterns)
+
+Multi-tenant observation → band → apply/propose ledger. Tools never send model confidence.
+
+Hard rules in code:
+1. Score/band from evidence kinds only (`lib/crm/facts/evidence.ts`)
+2. Never re-propose dismissed field+value
+3. Never auto-apply over `humanOwnedFields` (human edits + accepted proposals mark ownership)
+4. VERIFIED requires a primary source
+5. Contradictions hold under PROBABLE ceiling
+
+Agent patterns:
+1. Prefer graph endpoints before acting — neighbour IDs always returned:
+   - `GET /crm/contacts/:id/graph`
+   - `GET /crm/companies/:id/graph`
+   - `GET /crm/deals/:id/graph`
+2. `POST /crm/contacts/:id/facts` with `evidence: [{ kind, detail, sourceUrl? }]` only (never send confidence/score/band)
+3. Mailbox: `POST .../facts/from-mailbox` with `bodyText` (local parse; `dryRun: true` ok). Connected Gmail inbound sync also runs this pipeline locally.
+4. Uncertain follow-up: `POST /crm/research-tasks` with rep-visible `reason` + optional budget
+5. Workers (multi-machine): prefer `POST /crm/research-tasks/work` (lease+process), or `lease`/`claim` then `complete`. Expired leases are reclaimable. Cron: `GET /crm/cron/process-research-tasks` (CRON_SECRET).
+6. Humans accept/dismiss in portal **and** admin contact detail **Agent proposals** + **Research queue** panels
+
+Full contract: `docs/crm/contact-fact-evidence-ledger.md`.
 
 ---
 

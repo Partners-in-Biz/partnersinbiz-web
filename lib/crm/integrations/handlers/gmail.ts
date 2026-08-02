@@ -54,12 +54,22 @@ interface GmailHeader {
   value?: string
 }
 
+interface GmailMessagePart {
+  mimeType?: string
+  filename?: string
+  body?: { data?: string; size?: number }
+  parts?: GmailMessagePart[]
+}
+
 interface GmailMessage {
   id?: string
   threadId?: string
   internalDate?: string
   payload?: {
     headers?: GmailHeader[]
+    mimeType?: string
+    body?: { data?: string; size?: number }
+    parts?: GmailMessagePart[]
   }
   snippet?: string
 }
@@ -355,7 +365,8 @@ async function syncInboundGmailMessage(
   accessToken: string,
   item: GmailMessageListItem,
 ): Promise<'created' | 'skipped'> {
-  const message = await fetchGmailMessage(accessToken, item.id!)
+  // Full payload so we can run local signature → ContactFact proposals (no third-party egress).
+  const message = await fetchGmailMessage(accessToken, item.id!, 'full')
   const headers = indexGmailHeaders(message.payload?.headers ?? [])
   const fromEmail = extractEmailAddress(headers.from ?? '')
   if (!fromEmail) return 'skipped'
@@ -370,6 +381,8 @@ async function syncInboundGmailMessage(
 
   const subject = headers.subject || '(no subject)'
   const sentAt = parseGmailDate(headers.date, message.internalDate)
+  const fromName = extractDisplayName(headers.from ?? '')
+  const bodyText = extractGmailPlainText(message).slice(0, 100_000)
 
   await adminDb.collection('activities').add({
     orgId: integration.orgId,
@@ -387,6 +400,7 @@ async function syncInboundGmailMessage(
       fromEmail,
       subject,
       snippet: message.snippet ?? '',
+      mailboxFactsAttempted: Boolean(bodyText.trim()),
     },
     createdBy: 'integration-sync',
     createdAt: FieldValue.serverTimestamp(),
@@ -394,26 +408,117 @@ async function syncInboundGmailMessage(
     deleted: false,
   })
 
+  // Best-effort identity proposals from signature/reply — never blocks activity logging.
+  if (bodyText.trim()) {
+    try {
+      const { applyMailboxFactsToContact } = await import('@/lib/crm/facts/apply-mailbox')
+      const contactSnap = await adminDb.collection('contacts').doc(contact.id).get()
+      if (contactSnap.exists) {
+        const data = contactSnap.data()!
+        if (data.orgId === integration.orgId && data.deleted !== true) {
+          await applyMailboxFactsToContact({
+            orgId: integration.orgId,
+            contact: { id: contactSnap.id, orgId: integration.orgId, ...data },
+            bodyText,
+            fromName,
+            fromEmail,
+            direction: 'inbound',
+            agentId: 'gmail-sync',
+            sourceUrl: threadId
+              ? `gmail:thread:${threadId}`
+              : `gmail:message:${messageId}`,
+          })
+        }
+      }
+    } catch (err) {
+      console.error('[gmail-sync] mailbox fact pipeline failed', { contactId: contact.id, messageId }, err)
+    }
+  }
+
   return 'created'
 }
 
-async function fetchGmailMessage(accessToken: string, messageId: string): Promise<GmailMessage> {
-  const params = new URLSearchParams({
-    format: 'metadata',
-    metadataHeaders: 'From',
-  })
-  params.append('metadataHeaders', 'Subject')
-  params.append('metadataHeaders', 'Date')
-  params.append('metadataHeaders', 'Message-ID')
+function decodeGmailBodyData(data?: string): string {
+  if (!data) return ''
+  try {
+    const normalized = data.replace(/-/g, '+').replace(/_/g, '/')
+    return Buffer.from(normalized, 'base64').toString('utf8')
+  } catch {
+    return ''
+  }
+}
 
-  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}?${params}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
+function walkGmailParts(part: GmailMessagePart | undefined, out: { plain: string[]; html: string[] }): void {
+  if (!part) return
+  const mime = (part.mimeType || '').toLowerCase()
+  const text = decodeGmailBodyData(part.body?.data)
+  if (text) {
+    if (mime === 'text/plain') out.plain.push(text)
+    else if (mime === 'text/html') out.html.push(text)
+  }
+  if (Array.isArray(part.parts)) {
+    for (const child of part.parts) walkGmailParts(child, out)
+  }
+}
+
+/** Prefer text/plain; fall back to stripped HTML. Local only. */
+function extractGmailPlainText(message: GmailMessage): string {
+  const buckets = { plain: [] as string[], html: [] as string[] }
+  walkGmailParts(message.payload as GmailMessagePart | undefined, buckets)
+  if (buckets.plain.length > 0) return buckets.plain.join('\n\n')
+  if (buckets.html.length > 0) {
+    return buckets.html
+      .join('\n')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  }
+  return typeof message.snippet === 'string' ? message.snippet : ''
+}
+
+function extractDisplayName(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const angle = trimmed.match(/^"?([^"<]+)"?\s*<[^>]+>$/)
+  if (angle?.[1]) {
+    const name = angle[1].trim().replace(/^"|"$/g, '')
+    return name || null
+  }
+  if (!trimmed.includes('@')) return trimmed
+  return null
+}
+
+async function fetchGmailMessage(
+  accessToken: string,
+  messageId: string,
+  format: 'metadata' | 'full' = 'full',
+): Promise<GmailMessage> {
+  const params = new URLSearchParams({ format })
+  if (format === 'metadata') {
+    params.append('metadataHeaders', 'From')
+    params.append('metadataHeaders', 'Subject')
+    params.append('metadataHeaders', 'Date')
+    params.append('metadataHeaders', 'Message-ID')
+  }
+
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}?${params}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
   if (!res.ok) {
     const body = await res.text().catch(() => '')
     throw new Error(`Gmail API message ${res.status}: ${body.slice(0, 200)}`)
   }
-  return await res.json() as GmailMessage
+  return (await res.json()) as GmailMessage
 }
 
 function indexGmailHeaders(headers: GmailHeader[]): Record<string, string> {

@@ -93,7 +93,7 @@ export default function CrossOrgFinancePage() {
   async function notify() {
     await withBusy(async () => {
       const id = newFinanceId('xon')
-      const ids = requestIdentity('xon')
+      const ids = requestIdentity()
       await runCommand('cross_org.payment.notify', {
         id,
         recipientOrgId: recipientOrgId || undefined,
@@ -113,7 +113,7 @@ export default function CrossOrgFinancePage() {
 
   async function resolve(id: string, operation: 'cross_org.payment.confirm' | 'cross_org.payment.dispute' | 'cross_org.payment.dismiss') {
     await withBusy(async () => {
-      const ids = requestIdentity('xon-resolve')
+      const ids = requestIdentity()
       await runCommand(operation, {
         id,
         resolutionNote: operation === 'cross_org.payment.confirm' ? 'Receipt confirmed' : undefined,
