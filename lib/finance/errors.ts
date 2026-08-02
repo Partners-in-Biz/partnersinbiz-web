@@ -66,7 +66,11 @@ export function isFinanceHttpError(error: unknown): error is Error & { statusCod
     error instanceof PackagingFinanceNotFoundError ||
     error instanceof PackagingFinanceValidationError ||
     error instanceof MultiCurrencyFinanceNotFoundError ||
-    error instanceof MultiCurrencyFinanceValidationError
+    error instanceof MultiCurrencyFinanceValidationError ||
+    error instanceof BankRulesNotFoundError ||
+    error instanceof BankRulesValidationError ||
+    error instanceof BudgetsNotFoundError ||
+    error instanceof BudgetsValidationError
   )
 }
 
@@ -85,7 +89,9 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof StatementFinanceNotFoundError ||
     error instanceof CutoverFinanceNotFoundError ||
     error instanceof PackagingFinanceNotFoundError ||
-    error instanceof MultiCurrencyFinanceNotFoundError
+    error instanceof MultiCurrencyFinanceNotFoundError ||
+    error instanceof BankRulesNotFoundError ||
+    error instanceof BudgetsNotFoundError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_not_found' }
   }
@@ -96,7 +102,9 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof StatementFinanceValidationError ||
     error instanceof CutoverFinanceValidationError ||
     error instanceof PackagingFinanceValidationError ||
-    error instanceof MultiCurrencyFinanceValidationError
+    error instanceof MultiCurrencyFinanceValidationError ||
+    error instanceof BankRulesValidationError ||
+    error instanceof BudgetsValidationError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_validation' }
   }
