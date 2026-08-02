@@ -12,6 +12,13 @@ import {
 import { ModuleShell } from '@/components/ui/ModuleShell'
 import { HudChip, SignalMeter } from '@/components/ui/HudChip'
 import { conversationFolderAccentSeed, folderAccentStyle } from '@/lib/messages/folder-accent'
+import {
+  applyConversationLifecycle,
+  clearTabActivity,
+  messagesIndicateInFlightRun,
+  type ConversationLifecycleEvent,
+  type TabActivityPhase,
+} from '@/lib/messages/tab-activity'
 import type { HermesMessagesShellProps, MessagesSurface } from './types'
 
 const SURFACE_META: Record<MessagesSurface, { title: string; description: string }> = {
@@ -143,6 +150,8 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
   const [conversationAccentSeeds, setConversationAccentSeeds] = useState<Record<string, string>>({})
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null)
   const [renameTabValue, setRenameTabValue] = useState('')
+  /** Background-tab attention: pulse while running, underline until opened. */
+  const [tabActivityByConversationId, setTabActivityByConversationId] = useState<Record<string, TabActivityPhase>>({})
   const renameTabCancelledRef = useRef(false)
   const dragRef = useRef<{ origin: number; percent: number; size: number } | null>(null)
 
@@ -159,9 +168,31 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     }
   }, [conversationRailMode, direction, panes, splitPercent, storageKey])
 
+  const focusedConversationIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const pane of panes) {
+      const active = pane.tabs.find((tab) => tab.id === pane.activeTabId)
+      if (active?.kind === 'conversation') ids.add(active.conversationId)
+    }
+    return ids
+  }, [panes])
+  // Keep focus in a ref so UnifiedChat's stable lifecycle callback always sees
+  // the latest active tabs (mock/first-render handlers must not freeze focus).
+  const focusedConversationIdsRef = useRef(focusedConversationIds)
+  focusedConversationIdsRef.current = focusedConversationIds
+
+  const handleConversationLifecycle = useCallback((event: ConversationLifecycleEvent) => {
+    setTabActivityByConversationId((current) => applyConversationLifecycle(
+      current,
+      event,
+      focusedConversationIdsRef.current,
+    ))
+  }, [])
+
   const openConversation = useCallback((paneId: string, conversationId: string | null) => {
     if (!conversationId) return
     setFocusedPaneId(paneId)
+    setTabActivityByConversationId((current) => clearTabActivity(current, conversationId))
     setPanes((current) => current.map((pane) => {
       if (pane.id !== paneId) return pane
       const tab = conversationTab(
@@ -312,6 +343,54 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
   const focusedPane = panes.find((pane) => pane.id === focusedPaneId) ?? panes[0]
   const focusedTabTitle = focusedPane?.tabs.find((tab) => tab.id === focusedPane.activeTabId)?.title ?? 'No session'
 
+  // Poll background tabs still marked running so we can flip to unread when the agent finishes.
+  useEffect(() => {
+    const runningIds = Object.entries(tabActivityByConversationId)
+      .filter(([, phase]) => phase === 'running')
+      .map(([conversationId]) => conversationId)
+      .filter((conversationId) => !focusedConversationIds.has(conversationId))
+    if (runningIds.length === 0) return undefined
+
+    let cancelled = false
+    const check = async () => {
+      await Promise.all(runningIds.map(async (conversationId) => {
+        try {
+          const response = await fetch(
+            `/api/v1/conversations/${encodeURIComponent(conversationId)}/messages?limit=20`,
+            { cache: 'no-store' },
+          )
+          if (!response.ok || cancelled) return
+          const body = await response.json().catch(() => null) as {
+            data?: Array<{ role?: string; runId?: string | null; status?: string | null }>
+              | { messages?: Array<{ role?: string; runId?: string | null; status?: string | null }> }
+            messages?: Array<{ role?: string; runId?: string | null; status?: string | null }>
+          } | null
+          const raw = body?.data
+          const messages = Array.isArray(raw)
+            ? raw
+            : (raw && typeof raw === 'object' && Array.isArray(raw.messages) ? raw.messages : (body?.messages ?? []))
+          if (cancelled) return
+          if (!messagesIndicateInFlightRun(messages)) {
+            setTabActivityByConversationId((current) => applyConversationLifecycle(
+              current,
+              { conversationId, phase: 'completed' },
+              focusedConversationIds,
+            ))
+          }
+        } catch {
+          // Network blips must not clear activity; next poll retries.
+        }
+      }))
+    }
+
+    void check()
+    const timer = window.setInterval(() => { void check() }, 4_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [focusedConversationIds, tabActivityByConversationId])
+
   return (
     <ModuleShell
       tier={2}
@@ -366,14 +445,24 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                   <div role="tablist" aria-label={`${pane.id} pane tabs`} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
                     {pane.tabs.map((tab) => {
                       const accentSeed = tab.kind === 'conversation' ? tab.accentSeed : null
+                      const isActiveTab = tab.id === pane.activeTabId
+                      const activity = tab.kind === 'conversation' && !isActiveTab
+                        ? tabActivityByConversationId[tab.conversationId]
+                        : undefined
+                      const activityClass = activity === 'running'
+                        ? 'mx-tab-running'
+                        : activity === 'unread'
+                          ? 'mx-tab-unread'
+                          : ''
                       return (
                       <div
                         key={tab.id}
                         role="presentation"
                         data-testid={tab.kind === 'conversation' ? `workspace-tab-${tab.conversationId}` : `workspace-tab-panel-${tab.panel.id}`}
                         data-folder-accent={accentSeed || undefined}
+                        data-tab-activity={activity || undefined}
                         style={folderAccentStyle(accentSeed)}
-                        className={`group/tab relative flex min-h-11 min-w-[92px] max-w-[220px] items-center overflow-hidden rounded-md border px-1.5 xl:h-6 xl:min-h-0 ${accentSeed ? 'mx-folder-accent pl-2' : ''} ${tab.id === pane.activeTabId ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'}`}
+                        className={`group/tab relative flex min-h-11 min-w-[92px] max-w-[220px] items-center overflow-hidden rounded-md border px-1.5 xl:h-6 xl:min-h-0 ${accentSeed ? 'mx-folder-accent pl-2' : ''} ${isActiveTab ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'} ${activityClass}`}
                       >
                         {renamingTabId === tab.id && tab.kind === 'conversation' ? (
                           <input
@@ -408,12 +497,16 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                             title={tab.kind === 'conversation' ? 'Double-click to rename' : tab.title}
                             onClick={() => {
                               setFocusedPaneId(pane.id)
+                              if (tab.kind === 'conversation') {
+                                setTabActivityByConversationId((current) => clearTabActivity(current, tab.conversationId))
+                              }
                               setPanes((current) => current.map((item) => item.id === pane.id ? { ...item, activeTabId: tab.id } : item))
                             }}
                             onDoubleClick={(event) => {
                               if (tab.kind !== 'conversation') return
                               event.preventDefault()
                               setFocusedPaneId(pane.id)
+                              setTabActivityByConversationId((current) => clearTabActivity(current, tab.conversationId))
                               setPanes((current) => current.map((item) => item.id === pane.id ? { ...item, activeTabId: tab.id } : item))
                               beginRenameTab(tab)
                             }}
@@ -445,6 +538,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                       initialConvId={activeTab?.kind === 'conversation' ? activeTab.conversationId : paneIndex === 0 ? initialConvId : undefined}
                       activeConversationId={activeTab?.kind === 'conversation' ? activeTab.conversationId : null}
                       onActiveConversationChange={(conversationId) => openConversation(pane.id, conversationId)}
+                      onConversationLifecycle={handleConversationLifecycle}
                       onConversationsChange={paneIndex === 0 ? handleConversationCatalogue : undefined}
                       syncedConversationTitles={conversationTitles}
                       showConversationList={paneIndex === 0}

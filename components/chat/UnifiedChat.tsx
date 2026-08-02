@@ -213,6 +213,14 @@ export interface UnifiedChatProps {
   activeConversationId?: string | null
   onActiveConversationChange?: (conversationId: string | null) => void
   onConversationsChange?: (conversations: Conversation[]) => void
+  /**
+   * Hermes workspace tab activity: report agent-run lifecycle so background
+   * tabs can pulse while running and show an unread underline when complete.
+   */
+  onConversationLifecycle?: (event: {
+    conversationId: string
+    phase: 'running' | 'completed' | 'idle'
+  }) => void
   /** Title map from the Hermes tab strip so shell renames stay in sync with chat. */
   syncedConversationTitles?: Record<string, string>
   /** A secondary pane reuses the chat surface without duplicating the session rail. */
@@ -1245,6 +1253,7 @@ export default function UnifiedChat({
   activeConversationId,
   onActiveConversationChange,
   onConversationsChange,
+  onConversationLifecycle,
   syncedConversationTitles,
   showConversationList = true,
   conversationRailMode = 'expanded',
@@ -1855,6 +1864,24 @@ export default function UnifiedChat({
     ),
     [messages],
   )
+  // Report agent-run lifecycle to Hermes tab chrome (pulse / unread underline).
+  const inFlightByConversationRef = useRef<Record<string, boolean>>({})
+  const onConversationLifecycleRef = useRef(onConversationLifecycle)
+  onConversationLifecycleRef.current = onConversationLifecycle
+  useEffect(() => {
+    if (!activeId) return
+    const wasInFlight = inFlightByConversationRef.current[activeId] === true
+    inFlightByConversationRef.current[activeId] = hasInFlightAgentRun
+    const report = onConversationLifecycleRef.current
+    if (!report) return
+    if (hasInFlightAgentRun && !wasInFlight) {
+      report({ conversationId: activeId, phase: 'running' })
+      return
+    }
+    if (!hasInFlightAgentRun && wasInFlight) {
+      report({ conversationId: activeId, phase: 'completed' })
+    }
+  }, [activeId, hasInFlightAgentRun])
   const activeQueuedDrafts = activeId ? (queuedDraftsByConversation[activeId] ?? []) : []
   const organisationWorkspaces = useMemo(
     () => workspaces.filter(isOrganisationWorkspace),
