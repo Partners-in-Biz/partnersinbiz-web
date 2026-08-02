@@ -77,6 +77,7 @@ import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } 
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { requireReadyLlmCredentialBinding } from '@/lib/llm-providers/bindings'
 import { resolveLlmCredentialRuntimeTarget } from '@/lib/llm-providers/sync-targets'
+import { ensureFreshXaiCredentialForDispatch } from '@/lib/llm-providers/sync-hermes'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { resolveAuthorizedWorkingDirectory } from '@/lib/client-provisioning/working-directory'
 import {
@@ -576,6 +577,10 @@ export const POST = withAuth(
       modelSelection = modelValidation.selection
       if (modelSelection) {
         try {
+          await ensureFreshXaiCredentialForDispatch({
+            connectionId: modelSelection.llmConnectionId,
+            agentId: dispatchAgentId,
+          })
           const credentialTarget = await resolveLlmCredentialRuntimeTarget({
             runtimeTargetId: conversation.workspaceContext?.runtimeTarget,
             orgId: conversation.orgId,

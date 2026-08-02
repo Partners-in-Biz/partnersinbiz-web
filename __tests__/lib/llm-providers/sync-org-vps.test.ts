@@ -16,6 +16,7 @@ const mockOrgMemberGet = jest.fn()
 const mockPutBinding = jest.fn()
 const mockUpdateBinding = jest.fn()
 const mockEnqueueDelivery = jest.fn()
+const mockXaiCredentialsNeedRefresh = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: {
@@ -63,9 +64,10 @@ jest.mock('@/lib/llm-providers/linked-delivery', () => ({
 }))
 jest.mock('@/lib/llm-providers/refresh', () => ({
   ensureFreshLlmProviderConnection: async (connection: unknown) => connection,
+  xaiCredentialsNeedRefresh: (...args: unknown[]) => mockXaiCredentialsNeedRefresh(...args),
 }))
 
-import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
+import { ensureFreshXaiCredentialForDispatch, syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
 
 function mockAgentPathWithEnvVerify() {
   mockCallAgentPath.mockImplementation(async (_agentId: unknown, path: unknown, init?: { method?: string }) => {
@@ -151,6 +153,7 @@ describe('org VPS vs personal credential sync', () => {
     mockUpdateBinding.mockResolvedValue(undefined)
     mockEnqueueDelivery.mockResolvedValue({ jobId: 'job-1' })
     mockMarkQueued.mockResolvedValue(undefined)
+    mockXaiCredentialsNeedRefresh.mockReturnValue(false)
     mockAgentPathWithEnvVerify()
   })
 
@@ -394,5 +397,43 @@ describe('org VPS vs personal credential sync', () => {
     expect(result.skippedReason).toBe('no_sync_target')
     expect(result.synced).toEqual([])
     expect(mockMarkError).toHaveBeenCalled()
+  })
+
+  it('refreshes and verifies a due xAI account on the selected profile before dispatch', async () => {
+    mockGetConnection.mockResolvedValue({
+      id: 'org:acme:xai-oauth',
+      provider: 'xai-oauth',
+      hermesProvider: 'xai-oauth',
+      scope: 'org',
+      orgId: 'acme',
+      ownerUid: null,
+      status: 'connected',
+      authKind: 'oauth_token',
+    })
+    mockGetCredentials.mockResolvedValue({ access_token: 'at-1', refresh_token: 'rt-1' })
+    mockXaiCredentialsNeedRefresh.mockReturnValue(true)
+    mockResolveOrgTargets.mockResolvedValue({
+      targets: [{
+        kind: 'org_hermes_link',
+        agentId: 'pip',
+        label: 'Organisation Hermes · pip',
+        hermesLink: { orgId: 'acme', profile: 'pip', baseUrl: 'https://vps.example', apiKey: 'k', enabled: true },
+      }],
+      orgVpsDeviceCount: 0,
+      hasHermesProfileLink: true,
+    })
+    mockMarkSynced.mockResolvedValue(undefined)
+
+    await expect(ensureFreshXaiCredentialForDispatch({
+      connectionId: 'org:acme:xai-oauth',
+      agentId: 'pip',
+    })).resolves.toEqual({ refreshed: true })
+
+    expect(mockResolveOrgTargets).toHaveBeenCalledWith('acme', ['pip'])
+    expect(mockCallHermesJson).toHaveBeenCalledWith(
+      expect.anything(),
+      '/admin/auth/providers/xai-oauth',
+      expect.objectContaining({ method: 'PUT' }),
+    )
   })
 })

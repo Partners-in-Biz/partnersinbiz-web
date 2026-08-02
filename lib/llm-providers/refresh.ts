@@ -5,7 +5,10 @@ import { decryptLlmCredentials, encryptLlmCredentials } from './crypto'
 import { refreshXaiOAuthToken, XaiOAuthRefreshError } from './oauth/xai'
 import { LLM_PROVIDER_CONNECTIONS_COLLECTION, type LlmProviderConnection } from './types'
 
-const REFRESH_SKEW_MS = 15 * 60_000
+// Managed runtimes receive access-only xAI credentials. Keep a generous
+// delivery window so the control plane can refresh, sync, and live-verify a
+// profile before Hermes reaches the bearer expiry boundary.
+const REFRESH_SKEW_MS = 30 * 60_000
 const REFRESH_LEASE_MS = 2 * 60_000
 
 export function oauthAccessTokenExpiresAt(accessToken: string): number {
