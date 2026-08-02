@@ -36,6 +36,13 @@ export interface FinanceDocumentLine {
   grossMinor: number
   revenueOrExpenseAccountId: string
   taxTrace: TaxCalculationTrace
+  projectId?: string
+  taskId?: string
+  costCentreCode?: string
+  branchId?: string
+  companyId?: string
+  contactId?: string
+  employeeId?: string
 }
 
 export interface FinanceCustomerInvoice extends VersionedFinanceRecord {

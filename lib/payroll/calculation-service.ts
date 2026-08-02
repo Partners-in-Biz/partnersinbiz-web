@@ -25,6 +25,7 @@ import {
   calculatePayrollPeriod,
   buildPayrollRuleContentHash,
 } from './calculation'
+import { approvedLeaveToCalcInputs, mergeLeaveInputs } from './leave'
 import type {
   EmploymentTermVersion,
   PayComponentDefinition,
@@ -52,6 +53,7 @@ export interface CreatePayrollEmployeeCommand extends Required<FinanceScope>, Co
   taxResidency: 'za_resident' | 'non_resident'
   dateOfBirth?: string
   startDate: string
+  linkedUserId?: string
   expectedVersion: 0
 }
 
@@ -188,6 +190,10 @@ export interface PayrollServiceState {
   payRunItems: Map<string, import('./types').PayRunItem>
   payslips: Map<string, import('./types').Payslip>
   adjustments: Map<string, import('./types').PayrollAdjustment>
+  leaveTypes: Map<string, import('./types').LeaveType>
+  leaveBalances: Map<string, import('./types').LeaveBalance>
+  leaveRecords: Map<string, import('./types').LeaveRecord>
+  payslipPacks: Map<string, import('./types').PayslipDownloadPack>
   taxYears: Map<string, import('./types').PayrollTaxYear>
   ytdOpenings: Map<string, import('./types').PayrollYtdOpening>
   irp5Records: Map<string, import('./types').Irp5Record>
@@ -218,6 +224,10 @@ function cloneState(state: PayrollServiceState): PayrollServiceState {
     payRunItems: cloneMap(state.payRunItems),
     payslips: cloneMap(state.payslips),
     adjustments: cloneMap(state.adjustments),
+    leaveTypes: cloneMap(state.leaveTypes),
+    leaveBalances: cloneMap(state.leaveBalances),
+    leaveRecords: cloneMap(state.leaveRecords),
+    payslipPacks: cloneMap(state.payslipPacks),
     taxYears: cloneMap(state.taxYears),
     ytdOpenings: cloneMap(state.ytdOpenings),
     irp5Records: cloneMap(state.irp5Records),
@@ -244,6 +254,10 @@ export class InMemoryPayrollStore implements PayrollServiceState {
   payRunItems = new Map<string, import('./types').PayRunItem>()
   payslips = new Map<string, import('./types').Payslip>()
   adjustments = new Map<string, import('./types').PayrollAdjustment>()
+  leaveTypes = new Map<string, import('./types').LeaveType>()
+  leaveBalances = new Map<string, import('./types').LeaveBalance>()
+  leaveRecords = new Map<string, import('./types').LeaveRecord>()
+  payslipPacks = new Map<string, import('./types').PayslipDownloadPack>()
   taxYears = new Map<string, import('./types').PayrollTaxYear>()
   ytdOpenings = new Map<string, import('./types').PayrollYtdOpening>()
   irp5Records = new Map<string, import('./types').Irp5Record>()
@@ -485,6 +499,9 @@ export class FinancePayrollCalculationService {
       if (command.dateOfBirth) parseCanonicalDate(command.dateOfBirth, 'dateOfBirth')
       claim(state, 'payroll_employee_number', scope, command.employeeNumber.trim().toUpperCase(), command.id, 'Employee number already exists')
       claim(state, 'payroll_employee_id', scope, command.id, command.id, 'Employee id already exists')
+      if (command.linkedUserId) {
+        claim(state, 'payroll_employee_linked_user', scope, command.linkedUserId, command.id, 'User already linked to another employee')
+      }
       const employee: PayrollEmployee = {
         ...versionedBase(command.id, scope, actor.uid, now),
         employeeNumber: requiredText(command.employeeNumber, 'employeeNumber'),
@@ -492,6 +509,7 @@ export class FinancePayrollCalculationService {
         status: 'active',
         taxResidency: command.taxResidency,
         ...(command.dateOfBirth ? { dateOfBirth: command.dateOfBirth } : {}),
+        ...(command.linkedUserId ? { linkedUserId: command.linkedUserId } : {}),
         startDate: command.startDate,
       }
       state.employees.set(employee.id, employee)
@@ -878,6 +896,19 @@ export class FinancePayrollCalculationService {
         }
       }
 
+      const approvedLeave = approvedLeaveToCalcInputs(
+        [...state.leaveRecords.values()].filter(
+          (row) =>
+            row.orgId === scope.orgId &&
+            row.legalEntityId === scope.legalEntityId &&
+            row.bookId === scope.bookId &&
+            row.employeeId === employee.id,
+        ),
+        period.periodStart,
+        period.periodEnd,
+      )
+      const leaveForCalc = mergeLeaveInputs(command.leave, approvedLeave)
+
       const calcInput: PayrollCalculationInput = {
         orgId: scope.orgId,
         legalEntityId: scope.legalEntityId,
@@ -903,7 +934,7 @@ export class FinancePayrollCalculationService {
         ordinaryHoursWorked: command.ordinaryHoursWorked ?? (term.workerCategory === 'hourly' ? term.standardHoursCenti / 100 : 0),
         overtimeHours: command.overtimeHours ?? 0,
         components,
-        leave: command.leave ?? [],
+        leave: leaveForCalc,
       }
 
       const result = calculatePayrollPeriod(calcInput, rule)

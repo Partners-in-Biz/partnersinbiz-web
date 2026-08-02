@@ -5,14 +5,17 @@ export type FinanceRouteKey =
   | 'reports'
   | 'tax'
   | 'payroll'
+  | 'assets'
+  | 'job-costing'
   | 'packaging'
   | 'intercompany'
   | 'personal'
   | 'cross-org'
   | 'statements'
   | 'cutover'
-  | 'setup'
+  | 'multi-currency'
   | 'practice'
+  | 'setup'
 
 export type FinanceNavItem = {
   key: FinanceRouteKey
@@ -74,6 +77,22 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     group: 'ops',
   },
   {
+    key: 'assets',
+    label: 'Assets',
+    href: '/portal/finance/assets',
+    icon: 'precision_manufacturing',
+    description: 'Fixed asset register, straight-line depreciation, disposal, NBV reports.',
+    group: 'books',
+  },
+  {
+    key: 'job-costing',
+    label: 'Job costing',
+    href: '/portal/finance/job-costing',
+    icon: 'work',
+    description: 'Project dimensions, project P&L / WIP, and optional time costing without double-billing.',
+    group: 'books',
+  },
+  {
     key: 'packaging',
     label: 'Packaging',
     href: '/portal/finance/packaging',
@@ -122,6 +141,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     group: 'books',
   },
   {
+    key: 'multi-currency',
+    label: 'Multi-currency',
+    href: '/portal/finance/multi-currency',
+    icon: 'currency_exchange',
+    description: 'FX rate sets, revaluation journals, and functional currency reports.',
+    group: 'books',
+  },
+  {
     key: 'practice',
     label: 'Practice',
     href: '/portal/finance/practice',
@@ -146,8 +173,11 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'reports',
   'tax',
   'payroll',
+  'assets',
+  'job-costing',
   'packaging',
   'statements',
+  'multi-currency',
   'practice',
   'setup',
 ]

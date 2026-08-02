@@ -91,6 +91,7 @@ describe('finance portal design-system parity', () => {
     'app/(portal)/portal/finance/cutover/page.tsx',
     'app/(portal)/portal/finance/setup/page.tsx',
     'app/(portal)/portal/finance/practice/page.tsx',
+    'app/(portal)/portal/finance/job-costing/page.tsx',
   ]
 
   test('shared shell components exist', () => {
@@ -107,6 +108,7 @@ describe('finance portal design-system parity', () => {
     expect(FINANCE_PRIMARY_TABS).toContain('hub')
     expect(FINANCE_PRIMARY_TABS).toContain('practice')
     expect(financeNavItem('packaging').href).toBe('/portal/finance/packaging')
+    expect(financeNavItem('job-costing').href).toBe('/portal/finance/job-costing')
     expect(financeNavItem('practice').href).toBe('/portal/finance/practice')
   })
 
@@ -147,6 +149,7 @@ describe('finance portal design-system parity', () => {
       'app/(portal)/portal/finance/tax/page.tsx',
       'app/(portal)/portal/finance/payroll/page.tsx',
       'app/(portal)/portal/finance/packaging/page.tsx',
+      'app/(portal)/portal/finance/job-costing/page.tsx',
     ]
     for (const rel of bookScoped) {
       const src = read(rel)

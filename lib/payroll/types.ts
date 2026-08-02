@@ -51,6 +51,8 @@ export interface PayrollEmployee extends VersionedFinanceRecord {
   dateOfBirth?: string
   startDate: string
   endDate?: string
+  /** Portal user id for employee self-serve payslip read (optional). */
+  linkedUserId?: string
 }
 
 export interface EmploymentTermVersion extends VersionedFinanceRecord {
@@ -238,6 +240,11 @@ export interface PayRunItem extends VersionedFinanceRecord {
   originalItemId?: string
   adjustmentId?: string
   payslipId?: string
+  /** Optional job/project costing dimensions for project P&L / WIP. */
+  projectId?: string
+  taskId?: string
+  costCentreCode?: string
+  branchId?: string
   immutable: boolean
   contentHash: string
   externalPaymentInitiated: false
@@ -312,6 +319,70 @@ export interface LeaveRecordInput {
   hours: number
   componentCode?: string
   description?: string
+}
+
+export type LeavePayEffect = 'paid' | 'unpaid' | 'none'
+export type LeaveUnit = 'hours' | 'days'
+export type LeaveRequestStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'cancelled' | 'applied'
+
+export interface LeaveType extends VersionedFinanceRecord {
+  bookId: string
+  code: string
+  name: string
+  unit: LeaveUnit
+  payEffect: LeavePayEffect
+  hoursPerDay: number
+  componentCode?: string
+  accrues: boolean
+  active: boolean
+}
+
+export interface LeaveBalance extends VersionedFinanceRecord {
+  bookId: string
+  employeeId: string
+  leaveTypeId: string
+  unit: LeaveUnit
+  balanceQuantity: number
+  balanceHours: number
+  asOfDate: string
+}
+
+export interface LeaveRecord extends VersionedFinanceRecord {
+  bookId: string
+  employeeId: string
+  leaveTypeId: string
+  leaveTypeCode: string
+  startDate: string
+  endDate: string
+  unit: LeaveUnit
+  quantity: number
+  hours: number
+  payEffect: LeavePayEffect
+  componentCode?: string
+  status: LeaveRequestStatus
+  note?: string
+  requestedBy: string
+  decidedBy?: string
+  decidedAt?: string
+  decisionReason?: string
+}
+
+export interface PayslipDownloadPack extends VersionedFinanceRecord {
+  bookId: string
+  payslipId: string
+  employeeId: string
+  payRunId: string
+  files: Array<{ name: string; contentType: string; content: string }>
+  rowCount: number
+  status: 'ready' | 'downloaded'
+  publicationStatus: 'internal_only'
+  autoSent: false
+  externalEgressAllowed: false
+  sarsSubmissionInitiated: false
+  externalPaymentInitiated: false
+  contentHash: string
+  downloadedAt?: string
+  downloadedBy?: string
 }
 
 export interface PeriodComponentInput {

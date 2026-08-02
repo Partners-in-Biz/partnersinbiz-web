@@ -5,29 +5,33 @@
 
 /** Relative paths from repo root — every finance HTTP entrypoint that must pass tenant/auth harness. */
 export const FINANCE_HTTP_ENTRYPOINTS = [
-  'app/api/v1/finance/foundation/commands/route.ts',
-  'app/api/v1/finance/foundation/queries/route.ts',
-  'app/api/v1/finance/reports/queries/route.ts',
-  'app/api/v1/finance/tax/commands/route.ts',
-  'app/api/v1/finance/tax/queries/route.ts',
+  'app/api/v1/finance/assets/commands/route.ts',
+  'app/api/v1/finance/assets/queries/route.ts',
+  'app/api/v1/finance/cross-org/commands/route.ts',
+  'app/api/v1/finance/cross-org/queries/route.ts',
+  'app/api/v1/finance/cutover/commands/route.ts',
+  'app/api/v1/finance/cutover/queries/route.ts',
   'app/api/v1/finance/documents/commands/route.ts',
   'app/api/v1/finance/documents/queries/route.ts',
+  'app/api/v1/finance/foundation/commands/route.ts',
+  'app/api/v1/finance/foundation/queries/route.ts',
   'app/api/v1/finance/intercompany/commands/route.ts',
   'app/api/v1/finance/intercompany/queries/route.ts',
+  'app/api/v1/finance/job-costing/commands/route.ts',
+  'app/api/v1/finance/job-costing/queries/route.ts',
+  'app/api/v1/finance/packaging/commands/route.ts',
+  'app/api/v1/finance/packaging/queries/route.ts',
   'app/api/v1/finance/payroll/commands/route.ts',
   'app/api/v1/finance/payroll/queries/route.ts',
   'app/api/v1/finance/personal/commands/route.ts',
   'app/api/v1/finance/personal/queries/route.ts',
-  'app/api/v1/finance/cross-org/commands/route.ts',
-  'app/api/v1/finance/cross-org/queries/route.ts',
-  'app/api/v1/finance/statements/commands/route.ts',
-  'app/api/v1/finance/statements/queries/route.ts',
-  'app/api/v1/finance/cutover/commands/route.ts',
-  'app/api/v1/finance/cutover/queries/route.ts',
-  'app/api/v1/finance/packaging/commands/route.ts',
-  'app/api/v1/finance/packaging/queries/route.ts',
   'app/api/v1/finance/practice/commands/route.ts',
   'app/api/v1/finance/practice/queries/route.ts',
+  'app/api/v1/finance/reports/queries/route.ts',
+  'app/api/v1/finance/statements/commands/route.ts',
+  'app/api/v1/finance/statements/queries/route.ts',
+  'app/api/v1/finance/tax/commands/route.ts',
+  'app/api/v1/finance/tax/queries/route.ts',
 ] as const
 
 /**
@@ -49,6 +53,8 @@ export const SERVICE_ONLY_FINANCE_MODULES = [
   'lib/finance/cutover/service.ts',
   'lib/finance/packaging/service.ts',
   'lib/finance/practice/service.ts',
+  'lib/accounting/job-costing-service.ts',
+  'lib/accounting/assets-service.ts',
 ] as const
 
 /** UI claim — full finance workbench modules are shipped under /portal/finance. */

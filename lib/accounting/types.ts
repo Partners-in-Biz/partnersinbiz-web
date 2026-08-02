@@ -97,6 +97,14 @@ export interface JournalLineInput {
   debitMinor: number
   creditMinor: number
   description?: string
+  /** Optional analytical dimensions (project/job costing, branch, counterparty, employee). */
+  projectId?: string
+  taskId?: string
+  costCentreCode?: string
+  branchId?: string
+  companyId?: string
+  contactId?: string
+  employeeId?: string
 }
 
 export interface JournalLine extends JournalLineInput, FinanceScope {
