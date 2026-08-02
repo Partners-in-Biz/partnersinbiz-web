@@ -22,7 +22,7 @@ Required GitHub secrets:
 
 - `PIB_WINDOWS_INTERNAL_SIGNING_PFX_BASE64`
 - `PIB_WINDOWS_INTERNAL_SIGNING_PFX_PASSWORD`
-- `LINKED_RUNTIME_RELEASE_PRIVATE_KEY` (existing Ed25519 release key)
+- `PIB_WINDOWS_INTERNAL_RELEASE_PRIVATE_KEY_BASE64` (the existing Ed25519 release key encoded as a single line for reliable Windows secret transport)
 
 ## Staff installation
 
