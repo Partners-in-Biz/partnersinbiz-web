@@ -324,12 +324,21 @@ Research (this) → Spec update BKF7… → UX hub (parallel foundation)
 | Project | `HRCSWl1cNnh6fYEGziAb` |
 | Spec | `Flie3SblIDXvplYmqOhy` |
 | This research task | `IzVNzZRz2dmhhrgJuxHA` |
+| Research item | `6OjqsbjAGkZue9vmTUbD` (status verified, internal) |
+| Project wiki doc | `LWonOIrWrCWXkIZYL3JA` |
 | Dependency hygiene | `0z3fMPX4siAUcWIlfaES` |
 | Downstream spec update | `BKF7tuwiI5DPguKgktQF` |
 | Repo durable doc | `docs/research/finance-phase4-competitor-gap-map-2026-08-02.md` |
 | Wiki | `cowork-wiki/agents/partners/wiki/finance-phase4-competitor-gap-map-2026-08-02.md` |
+| Throwaway matrix HTML | `docs/research/finance-phase4-competitor-gap-map-matrix-2026-08-02.html` (chat-only visual; not a permanent dashboard) |
 
----
+### Evidence hygiene (Pip review rework 2026-08-02)
+
+- Durable repo path is real and tracked on `development`.
+- Findings/recommendations on Research `6OjqsbjAGkZue9vmTUbD` carry `sourceIds` for audit.
+- Source `fh62QHuK1Q9p4Vgr9mo5` (repo gap map markdown) is verified only because this path exists on `origin/development`.
+- Non-goals unchanged: no SARS e-file submit; no payment initiation; no mass client-visible statement/payslip email; no production deploy from this card.
+- Commit SHA is recorded in task `agentOutput.artifacts` after push (do not trust narrative alone).
 
 ## Safety readback
 
