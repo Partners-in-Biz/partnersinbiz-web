@@ -92,6 +92,12 @@ export interface Contact {
   aiLeadScore?: number        // 0-100, LLM-based (only set if scoringConfig.aiEnabled)
   scoreUpdatedAt?: Timestamp  // last computed
   scoreSignals?: Record<string, number>  // per-signal contribution (debug)
+  // ContactFact evidence ledger (additive)
+  /** Contact columns a human typed — agent auto-apply must not overwrite these. */
+  humanOwnedFields?: string[]
+  linkedinUrl?: string
+  twitterUrl?: string
+  githubUrl?: string
   // UTM capture-source attribution (US-097 — additive, backward-compatible).
   // Written by the public capture form / lead-capture pipeline; all optional so
   // existing contacts without UTM data continue to work.

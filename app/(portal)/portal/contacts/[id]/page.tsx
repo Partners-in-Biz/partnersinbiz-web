@@ -12,6 +12,7 @@ import { ContactNotesPanel } from '@/components/crm/ContactNotesPanel'
 import { ContactMergePanel } from '@/components/crm/ContactMergePanel'
 import { ContactDealsPanel } from '@/components/crm/ContactDealsPanel'
 import { ContactEngagementPanel } from '@/components/crm/ContactEngagementPanel'
+import { ContactFactProposalsPanel } from '@/components/crm/ContactFactProposalsPanel'
 import { CompanyPanel } from '@/components/crm/CompanyPanel'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import { ContactIdentityPanel } from '@/components/crm/ContactIdentityPanel'
@@ -2329,6 +2330,15 @@ export default function PortalContactDetailPage() {
               onSendEmail: email.trim() ? openFirstEmailComposer : undefined,
               onScheduleMeeting: openFirstMeetingComposer,
               onStartSuggestion: startSuggestion,
+            }}
+          />
+
+          <ContactFactProposalsPanel
+            contactId={id}
+            contactName={contactName}
+            apiPath={contactApiPath}
+            onApplied={() => {
+              void loadContact()
             }}
           />
 

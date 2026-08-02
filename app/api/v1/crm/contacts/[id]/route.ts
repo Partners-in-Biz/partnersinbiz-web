@@ -32,6 +32,7 @@ import {
 } from '@/lib/crm/assignment-access'
 import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
+import { humanOwnedFieldsAfterHumanEdit } from '@/lib/crm/facts'
 
 type RouteCtx = { params: Promise<{ id: string }> }
 
@@ -198,6 +199,20 @@ async function handleUpdate(
     } catch (err) {
       console.error('custom-field-validation-skipped', err)
     }
+  }
+
+  // Human-edited identity fields become human-owned (agents cannot auto-overwrite).
+  // Agents must not set humanOwnedFields via body injection.
+  delete (patch as { humanOwnedFields?: unknown }).humanOwnedFields
+  const ownedNext = humanOwnedFieldsAfterHumanEdit({
+    existingOwned: Array.isArray(existing.humanOwnedFields)
+      ? (existing.humanOwnedFields as string[])
+      : null,
+    patch,
+    isHumanActor: !ctx.isAgent && ctx.actor.kind !== 'agent',
+  })
+  if (ownedNext) {
+    patch.humanOwnedFields = ownedNext
   }
 
   // Firestore rejects undefined values — strip them before write
