@@ -4,6 +4,10 @@ import {
   PersonalFinanceNotFoundError,
   PersonalFinanceValidationError,
 } from '@/lib/finance/personal/service'
+import {
+  CrossOrgFinanceNotFoundError,
+  CrossOrgFinanceValidationError,
+} from '@/lib/finance/cross-org/service'
 
 /** Non-enumerating denial for sensitive finance/payroll resources. */
 export class FinanceNotFoundError extends Error {
@@ -28,7 +32,9 @@ export function isFinanceHttpError(error: unknown): error is Error & { statusCod
     error instanceof FinanceNotFoundError ||
     error instanceof FinanceValidationError ||
     error instanceof PersonalFinanceNotFoundError ||
-    error instanceof PersonalFinanceValidationError
+    error instanceof PersonalFinanceValidationError ||
+    error instanceof CrossOrgFinanceNotFoundError ||
+    error instanceof CrossOrgFinanceValidationError
   )
 }
 
@@ -40,10 +46,18 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
   if (error instanceof FinanceAuthorizationError) {
     return { status: error.statusCode, error: error.message, code: 'finance_forbidden' }
   }
-  if (error instanceof FinanceNotFoundError || error instanceof PersonalFinanceNotFoundError) {
+  if (
+    error instanceof FinanceNotFoundError ||
+    error instanceof PersonalFinanceNotFoundError ||
+    error instanceof CrossOrgFinanceNotFoundError
+  ) {
     return { status: error.statusCode, error: error.message, code: 'finance_not_found' }
   }
-  if (error instanceof FinanceValidationError || error instanceof PersonalFinanceValidationError) {
+  if (
+    error instanceof FinanceValidationError ||
+    error instanceof PersonalFinanceValidationError ||
+    error instanceof CrossOrgFinanceValidationError
+  ) {
     return { status: error.statusCode, error: error.message, code: 'finance_validation' }
   }
   return { status: 500, error: 'Finance request failed', code: 'finance_internal' }
