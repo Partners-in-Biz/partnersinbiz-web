@@ -1,7 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { chatContextReferenceKey, type ChatContextReadModel, type ChatArtifactSummary, type ChatContextAction, type ChatContextActionReceipt, type ContextItemSummary } from '@/lib/chat-context/types'
+import {
+  chatContextReferenceKey,
+  type ChatContextReadModel,
+  type ChatArtifactSummary,
+  type ChatContextAction,
+  type ChatContextActionReceipt,
+  type ContextDisplayState,
+  type ContextItemSummary,
+} from '@/lib/chat-context/types'
 import { displayStateLabel, displayStateStyle } from '@/lib/chat-context/displayStateStyles'
 import { ContextArtifactCard } from './ContextArtifactCard'
 import { ContextAttentionMoment } from './ContextAttentionMoment'
@@ -47,6 +55,123 @@ export function nextContextItemExpandLevel(
     return 'collapsed'
   }
   return 'collapsed'
+}
+
+/** Stable order for task-state filter chips (matches kanban-ish flow). */
+export const CONTEXT_ITEM_STATE_FILTER_ORDER: ContextDisplayState[] = [
+  'ready',
+  'running',
+  'waiting',
+  'needs_input',
+  'needs_approval',
+  'blocked',
+  'review',
+  'complete',
+  'published',
+  'archived',
+]
+
+export type ContextItemStateCount = { state: ContextDisplayState; count: number; label: string }
+
+/** Count states present in a group; empty selected set means “show all”. */
+export function countContextItemStates(items: ContextItemSummary[]): ContextItemStateCount[] {
+  const counts = new Map<string, number>()
+  for (const item of items) {
+    const state = item.state || 'ready'
+    counts.set(state, (counts.get(state) ?? 0) + 1)
+  }
+  const known = CONTEXT_ITEM_STATE_FILTER_ORDER
+    .filter((state) => counts.has(state))
+    .map((state) => ({
+      state,
+      count: counts.get(state)!,
+      label: displayStateLabel(state),
+    }))
+  const extras = Array.from(counts.entries())
+    .filter(([state]) => !CONTEXT_ITEM_STATE_FILTER_ORDER.includes(state as ContextDisplayState))
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([state, count]) => ({
+      state: state as ContextDisplayState,
+      count,
+      label: displayStateLabel(state),
+    }))
+  return [...known, ...extras]
+}
+
+export function filterContextItemsByStates(
+  items: ContextItemSummary[],
+  selectedStates: ReadonlySet<string>,
+): ContextItemSummary[] {
+  if (selectedStates.size === 0) return items
+  return items.filter((item) => selectedStates.has(item.state || 'ready'))
+}
+
+export function toggleContextItemStateFilter(
+  selected: ReadonlySet<string>,
+  state: string,
+): Set<string> {
+  const next = new Set(selected)
+  if (next.has(state)) next.delete(state)
+  else next.add(state)
+  return next
+}
+
+function ContextItemStateFilterBar({
+  counts,
+  selected,
+  onToggle,
+  onClear,
+}: {
+  counts: ContextItemStateCount[]
+  selected: ReadonlySet<string>
+  onToggle: (state: string) => void
+  onClear: () => void
+}) {
+  if (counts.length < 2) return null
+  const allActive = selected.size === 0
+  const total = counts.reduce((sum, row) => sum + row.count, 0)
+  return (
+    <div
+      data-testid="context-item-state-filter"
+      role="group"
+      aria-label="Filter tasks by state"
+      className="mb-2 flex flex-wrap items-center gap-1"
+    >
+      <button
+        type="button"
+        aria-pressed={allActive}
+        onClick={onClear}
+        className={`inline-flex min-h-8 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+          allActive
+            ? 'border-primary/40 bg-primary/15 text-primary'
+            : 'border-white/10 bg-white/[0.03] text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]'
+        }`}
+      >
+        All
+        <span className="tabular-nums opacity-80">{total}</span>
+      </button>
+      {counts.map((row) => {
+        const active = selected.has(row.state)
+        const style = displayStateStyle(row.state)
+        return (
+          <button
+            key={row.state}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onToggle(row.state)}
+            className={`inline-flex min-h-8 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
+              active
+                ? style.badgeClassName
+                : 'border-white/10 bg-white/[0.03] text-[var(--color-pib-text-muted)] hover:bg-white/[0.06]'
+            }`}
+          >
+            {row.label}
+            <span className="tabular-nums opacity-80">{row.count}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 function expandLevelIcon(level: ContextItemExpandLevel): string {
@@ -163,6 +288,8 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
   const [secondaryLoadFailed, setSecondaryLoadFailed] = useState(false)
   const [tabletFocus, setTabletFocus] = useState<'primary' | 'secondary'>('primary')
   const [itemExpandLevels, setItemExpandLevels] = useState<Record<string, ContextItemExpandLevel>>({})
+  /** Empty set = show all states. Non-empty = multi-select include filter. */
+  const [itemStateFilter, setItemStateFilter] = useState<Set<string>>(() => new Set())
   const sheet = compact || mobile
   const tabletLandscape = !sheet && !wideDesktop
   const dialogRef = useRef<HTMLElement>(null)
@@ -206,6 +333,7 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
   useEffect(() => {
     setTabletFocus('primary')
     setItemExpandLevels({})
+    setItemStateFilter(new Set())
   }, [model.context.id, model.context.kind])
   useEffect(() => {
     if (!secondaryContext && tabletFocus === 'secondary') setTabletFocus('primary')
@@ -258,36 +386,62 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
       {visibleModel && visibleModel.attention.length > 0 && <section aria-label="Attention" className="space-y-2">{visibleModel.attention.map((item) => <ContextAttentionMoment key={item.id} attention={item} onAction={triggerVisibleAction} pendingActionId={pendingActionId} />)}</section>}
       {groups.map((group) => {
         const isProjectTasks = visibleModel?.context.kind === 'project' && group.id === 'tasks'
+        const showStateFilter = isProjectTasks || group.id === 'tasks'
+        const stateCounts = showStateFilter ? countContextItemStates(group.items) : []
+        const visibleItems = showStateFilter
+          ? filterContextItemsByStates(group.items, itemStateFilter)
+          : group.items
         return (
           <section key={group.id} aria-label={group.label}>
-            <h3 className="mb-2 text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{group.label}</h3>
-            <ul className="space-y-2">
-              {group.items.map((item) => {
-                const showAgentFeed = isProjectTasks || Boolean(item.agent)
-                const summaryText = item.detail || item.agent?.summary
-                const canSummary = Boolean(summaryText) || Boolean(item.actions?.length) || Boolean(item.updatedAt)
-                const canFull = showAgentFeed || Boolean(item.agent) || Boolean(item.detail)
-                return (
-                  <ContextGroupItemCard
-                    key={item.id}
-                    item={item}
-                    expandLevel={itemExpandLevels[item.id] ?? 'collapsed'}
-                    onCycleExpand={() => setItemExpandLevels((current) => {
-                      const level = current[item.id] ?? 'collapsed'
-                      const next = nextContextItemExpandLevel(level, { canSummary, canFull })
-                      if (next === 'collapsed') {
-                        const { [item.id]: _removed, ...rest } = current
-                        return rest
-                      }
-                      return { ...current, [item.id]: next }
-                    })}
-                    onAction={triggerVisibleAction}
-                    pendingActionId={pendingActionId}
-                    showAgentFeed={showAgentFeed}
-                  />
-                )
-              })}
-            </ul>
+            <div className="mb-2 flex items-baseline justify-between gap-2">
+              <h3 className="text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{group.label}</h3>
+              {showStateFilter && itemStateFilter.size > 0 && (
+                <span className="text-[10px] tabular-nums text-[var(--color-pib-text-muted)]">
+                  {visibleItems.length} of {group.items.length}
+                </span>
+              )}
+            </div>
+            {showStateFilter && (
+              <ContextItemStateFilterBar
+                counts={stateCounts}
+                selected={itemStateFilter}
+                onToggle={(state) => setItemStateFilter((current) => toggleContextItemStateFilter(current, state))}
+                onClear={() => setItemStateFilter(new Set())}
+              />
+            )}
+            {visibleItems.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-[var(--color-card-border)] px-3 py-2 text-[11px] text-[var(--color-pib-text-muted)]">
+                No tasks match the selected states.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {visibleItems.map((item) => {
+                  const showAgentFeed = isProjectTasks || Boolean(item.agent)
+                  const summaryText = item.detail || item.agent?.summary
+                  const canSummary = Boolean(summaryText) || Boolean(item.actions?.length) || Boolean(item.updatedAt)
+                  const canFull = showAgentFeed || Boolean(item.agent) || Boolean(item.detail)
+                  return (
+                    <ContextGroupItemCard
+                      key={item.id}
+                      item={item}
+                      expandLevel={itemExpandLevels[item.id] ?? 'collapsed'}
+                      onCycleExpand={() => setItemExpandLevels((current) => {
+                        const level = current[item.id] ?? 'collapsed'
+                        const next = nextContextItemExpandLevel(level, { canSummary, canFull })
+                        if (next === 'collapsed') {
+                          const { [item.id]: _removed, ...rest } = current
+                          return rest
+                        }
+                        return { ...current, [item.id]: next }
+                      })}
+                      onAction={triggerVisibleAction}
+                      pendingActionId={pendingActionId}
+                      showAgentFeed={showAgentFeed}
+                    />
+                  )
+                })}
+              </ul>
+            )}
           </section>
         )
       })}
