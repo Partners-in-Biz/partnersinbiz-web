@@ -13,6 +13,7 @@ type FirestoreReadEntry = {
 
 type FirestoreReadAuditContext = {
   scope: string
+  logEveryRun: boolean
   startedAt: number
   operationCount: number
   totalReadEstimate: number
@@ -115,7 +116,7 @@ function recordRead(descriptor: FirestoreReadDescriptor, operation: string, snap
 
 function flushAudit(context: FirestoreReadAuditContext): void {
   if (!auditEnabled()) return
-  if (context.totalReadEstimate < minimumReadsToLog()) return
+  if (!context.logEveryRun && context.totalReadEstimate < minimumReadsToLog()) return
 
   const topTargets = Array.from(context.entries.values())
     .sort((a, b) => b.readEstimate - a.readEstimate)
@@ -133,6 +134,7 @@ function flushAudit(context: FirestoreReadAuditContext): void {
 export async function runWithFirestoreReadAudit<T>(
   scope: string,
   fn: () => Promise<T> | T,
+  options: { logEveryRun?: boolean } = {},
 ): Promise<T> {
   if (!auditEnabled()) return await fn()
 
@@ -141,6 +143,7 @@ export async function runWithFirestoreReadAudit<T>(
 
   const context: FirestoreReadAuditContext = {
     scope,
+    logEveryRun: options.logEveryRun === true,
     startedAt: Date.now(),
     operationCount: 0,
     totalReadEstimate: 0,

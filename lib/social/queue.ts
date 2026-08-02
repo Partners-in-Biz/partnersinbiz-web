@@ -26,6 +26,7 @@ import crypto from 'crypto'
 
 /** Backoff schedule in seconds: 1min, 5min, 15min, 1hr */
 const BACKOFF_SCHEDULE = [60, 300, 900, 3600]
+const DUE_QUEUE_BATCH_SIZE = 50
 
 /** Locks older than this are considered stale and can be reclaimed */
 const STALE_LOCK_SECONDS = 5 * 60
@@ -100,28 +101,29 @@ export async function processQueue(): Promise<QueueProcessResult> {
   const now = Timestamp.now()
   const result: QueueProcessResult = { processed: 0, failed: 0, skipped: 0, errors: [] }
 
-  // Fetch pending + stale-processing entries
+  // Only read work that can actually be published or reclaimed. The previous
+  // status-only queries scanned every historic pending/processing queue entry
+  // every five minutes, then discarded future and actively locked work here.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pendingSnap = await (adminDb.collection('social_queue') as any)
     .where('status', '==', 'pending')
+    .where('scheduledAt', '<=', now)
+    .orderBy('scheduledAt', 'asc')
+    .limit(DUE_QUEUE_BATCH_SIZE)
     .get()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const processingSnap = await (adminDb.collection('social_queue') as any)
     .where('status', '==', 'processing')
+    .where('lockedAt', '<=', Timestamp.fromMillis(Date.now() - STALE_LOCK_SECONDS * 1000))
+    .orderBy('lockedAt', 'asc')
+    .limit(DUE_QUEUE_BATCH_SIZE)
     .get()
 
   const allDocs = [...pendingSnap.docs, ...processingSnap.docs]
 
   for (const queueDoc of allDocs) {
     const entry = queueDoc.data()
-
-    if (entry.status === 'pending' && entry.scheduledAt > now) continue
-
-    if (entry.status === 'processing' && entry.lockedAt) {
-      const lockAge = now.seconds - entry.lockedAt.seconds
-      if (lockAge < STALE_LOCK_SECONDS) { result.skipped++; continue }
-    }
 
     const lockRef = adminDb.collection('social_queue').doc(queueDoc.id)
 

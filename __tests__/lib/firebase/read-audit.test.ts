@@ -81,6 +81,25 @@ describe('Firestore read audit', () => {
     }))
   })
 
+  it('logs a scheduled scope even when its reads are below the normal threshold', async () => {
+    process.env.FIRESTORE_READ_AUDIT_MIN_READS = '25'
+    const db = {
+      collection: jest.fn(() => ({
+        get: jest.fn(async () => ({ docs: [], empty: true })),
+      })),
+    }
+    const auditedDb = wrapFirestoreReadTarget(db, { target: 'firestore' })
+
+    await runWithFirestoreReadAudit('api/cron/social', async () => {
+      return auditedDb.collection('social_queue').get()
+    }, { logEveryRun: true })
+
+    expect(console.info).toHaveBeenCalledWith('[firestore-read-audit]', expect.objectContaining({
+      scope: 'api/cron/social',
+      totalReadEstimate: 1,
+    }))
+  })
+
   it('counts getAll document batch reads', async () => {
     const db = {
       getAll: jest.fn(async () => [

@@ -28,7 +28,7 @@ async function runProviderDrain(req: NextRequest) {
       pollLimit: Number.isFinite(pollLimit) ? pollLimit : undefined,
     })
     return { ...higgsfield, direct }
-  })
+  }, { logEveryRun: true })
   return apiSuccess(result)
 }
 

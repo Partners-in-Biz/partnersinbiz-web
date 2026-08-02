@@ -2,6 +2,19 @@ const mockQueueUpdate = jest.fn()
 const mockPostUpdate = jest.fn()
 const mockTxnUpdate = jest.fn()
 const mockPublishPost = jest.fn()
+let mockSocialQueueGetCount = 0
+const mockSocialQueueQuery = {
+  where: jest.fn(),
+  orderBy: jest.fn(),
+  limit: jest.fn(),
+  get: jest.fn(),
+}
+mockSocialQueueQuery.where.mockReturnValue(mockSocialQueueQuery)
+mockSocialQueueQuery.orderBy.mockReturnValue(mockSocialQueueQuery)
+mockSocialQueueQuery.limit.mockReturnValue(mockSocialQueueQuery)
+mockSocialQueueQuery.get.mockImplementation(async () => ({
+  docs: mockSocialQueueGetCount++ === 0 ? [dueQueueDoc] : [],
+}))
 
 const dueQueueDoc = {
   id: 'queue-youtube-post',
@@ -46,11 +59,7 @@ jest.mock('@/lib/firebase/admin', () => ({
     collection: jest.fn((name: string) => {
       if (name === 'social_queue') {
         return {
-          where: jest.fn((field: string, op: string, value: string) => ({
-            get: jest.fn().mockResolvedValue({
-              docs: value === 'pending' ? [dueQueueDoc] : [],
-            }),
-          })),
+          where: mockSocialQueueQuery.where,
           doc: jest.fn(() => ({
             update: mockQueueUpdate.mockResolvedValue(undefined),
           })),
@@ -116,6 +125,10 @@ jest.mock('@/lib/social/first-comment', () => ({
 describe('social queue publish options', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockSocialQueueGetCount = 0
+    mockSocialQueueQuery.where.mockReturnValue(mockSocialQueueQuery)
+    mockSocialQueueQuery.orderBy.mockReturnValue(mockSocialQueueQuery)
+    mockSocialQueueQuery.limit.mockReturnValue(mockSocialQueueQuery)
   })
 
   it('passes YouTube upload metadata from the post to the provider', async () => {
@@ -124,6 +137,8 @@ describe('social queue publish options', () => {
     const result = await processQueue()
 
     expect(result.processed).toBe(1)
+    expect(mockSocialQueueQuery.where).toHaveBeenCalledWith('scheduledAt', '<=', expect.anything())
+    expect(mockSocialQueueQuery.limit).toHaveBeenCalledWith(50)
     expect(mockPublishPost).toHaveBeenCalledWith(expect.objectContaining({
       text: scheduledYoutubePost.content.text,
       mediaUrls: ['https://storage.googleapis.com/pib/video.mp4'],
