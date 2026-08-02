@@ -40,6 +40,8 @@ POST /api/v1/crm/contacts/:id/facts/:factId/decide   { "decision": "accept"|"dis
 POST /api/v1/crm/contacts/:id/facts/from-mailbox
 POST /api/v1/crm/contacts/:id/facts/job-change
 GET  /api/v1/crm/contacts/:id/graph?includeResearchTasks=true
+GET  /api/v1/crm/companies/:id/graph
+GET  /api/v1/crm/deals/:id/graph
 ```
 
 ### Research queue
@@ -50,6 +52,8 @@ POST /api/v1/crm/research-tasks
   { "contactId", "reason": "Rep-visible why", "kind"?, "delaySeconds"?, "budgetUnits"? }
 POST /api/v1/crm/research-tasks/lease
   { "workerId"?, "leaseSeconds"? }  // multi-worker safe lease of next due pending task
+POST /api/v1/crm/research-tasks/claim
+  // alias of lease (Comp-style naming)
 POST /api/v1/crm/research-tasks/:id/complete
   { "resultSummary"?, "budgetSpentDelta"?, "failed"?, "error"? }
 ```
@@ -112,12 +116,12 @@ Portal contact detail (`/portal/contacts/[id]`): **Agent proposals** panel
 ## Tests
 
 ```
-npx jest __tests__/lib/crm/facts-evidence-ledger.test.ts --no-coverage
+npx jest __tests__/lib/crm/facts-evidence-ledger.test.ts __tests__/api/v1/crm/contacts/facts.test.ts --no-coverage
 ```
 
 ## Out of scope / follow-ups
 
 - Hermes background worker loop that repeatedly leases `crm_research_tasks` and runs enrichment (lease/complete APIs are ready)
-- Auto-ingest of connected Gmail into from-mailbox on inbound webhooks
+- Deepen Gmail auto-ingest coverage (inbound sync now best-effort applies mailbox signature facts; expand to all mailbox providers)
 - Admin contact detail parity panel (portal shipped first)
 - Deploy Firestore composite indexes: `firebase deploy --only firestore:indexes` (indexes added to `firestore.indexes.json`)
