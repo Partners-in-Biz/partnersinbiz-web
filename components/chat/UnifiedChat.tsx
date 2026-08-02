@@ -61,7 +61,10 @@ import {
 import MessageBubble, { type ConversationAttachment, type ConversationMessage } from './MessageBubble'
 import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
-import { resolveNewConversationAgentGate } from '@/lib/conversations/new-conversation-agent-gate'
+import {
+  filterAgentsByGate,
+  resolveNewConversationAgentGate,
+} from '@/lib/conversations/new-conversation-agent-gate'
 import ConversationListItem, { type Conversation } from './ConversationListItem'
 import { HoverTip } from '@/components/ui/HoverTip'
 import ConversationAccessDialog from './ConversationAccessDialog'
@@ -1454,8 +1457,12 @@ export default function UnifiedChat({
     })
   }, [syncedConversationTitles])
 
-  // Agent map for looking up colorKey / iconKey for bubbles
+  // Agent map for looking up colorKey / iconKey for bubbles (org catalogue).
   const [agentMap, setAgentMap] = useState<Record<AgentId, AgentTeamDoc>>({} as Record<AgentId, AgentTeamDoc>)
+  // @agent: picker candidates for the *active chat's* bound computer — not a global roster.
+  const [mentionAgents, setMentionAgents] = useState<AgentTeamDoc[]>([])
+  const [mentionAgentsStatus, setMentionAgentsStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [mentionAgentsEmptyReason, setMentionAgentsEmptyReason] = useState<string | null>(null)
   const [conversationLiveConnected, setConversationLiveConnected] = useState(false)
   const [threadPresence, setThreadPresence] = useState<ConversationPresence[]>([])
   const presenceTypingRef = useRef(false)
@@ -2458,6 +2465,75 @@ export default function UnifiedChat({
       .catch(() => {})
     return () => { cancelled = true }
   }, [orgId])
+
+  // Active chat machine for @agent mentions — same rule as New Conversation:
+  // context → computer → agents available on that runtime (not a hard-coded roster).
+  const mentionRuntimeTargetId = useMemo(() => {
+    const fromContext = activeConversation?.workspaceContext?.runtimeTarget?.trim()
+    if (fromContext) return fromContext
+    const fromPresence = activeRuntimePresence?.id?.trim()
+    return fromPresence || null
+  }, [activeConversation?.workspaceContext?.runtimeTarget, activeRuntimePresence?.id])
+
+  const mentionRuntimeLabel = activeConversation?.workspaceContext?.runtimeLabel
+    ?? activeRuntimePresence?.label
+    ?? null
+
+  useEffect(() => {
+    let cancelled = false
+    setMentionAgentsStatus('loading')
+    setMentionAgentsEmptyReason(null)
+    const params = new URLSearchParams()
+    if (mentionRuntimeTargetId) params.set('runtimeTarget', mentionRuntimeTargetId)
+    const query = params.size > 0 ? `?${params.toString()}` : ''
+    fetch(`/api/v1/orgs/${orgId}/visible-agents${query}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => {
+        if (cancelled) return
+        const rows = Array.isArray(body?.data) ? (body.data as AgentTeamDoc[]) : []
+        // Live heartbeat inventory is authoritative when the bound machine reports it.
+        const liveIds = activeRuntimePresence && Array.isArray(activeRuntimePresence.availableAgentIds)
+          ? activeRuntimePresence.availableAgentIds
+          : null
+        const gated = filterAgentsByGate(
+          rows.filter((agent) => agent.enabled !== false),
+          liveIds,
+        )
+        setMentionAgents(gated)
+        setMentionAgentsStatus('ready')
+        if (gated.length === 0) {
+          if (liveIds && liveIds.length === 0) {
+            setMentionAgentsEmptyReason(
+              mentionRuntimeLabel
+                ? `No agents are running on ${mentionRuntimeLabel} yet`
+                : 'No agents are running on this chat’s computer yet',
+            )
+          } else if (mentionRuntimeTargetId) {
+            setMentionAgentsEmptyReason(
+              mentionRuntimeLabel
+                ? `No agents available on ${mentionRuntimeLabel} for your account`
+                : 'No agents available on this chat’s computer for your account',
+            )
+          } else {
+            setMentionAgentsEmptyReason('No agents loaded for this organisation yet')
+          }
+        } else {
+          setMentionAgentsEmptyReason(null)
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        setMentionAgents([])
+        setMentionAgentsStatus('error')
+        setMentionAgentsEmptyReason('Could not load agents for this chat’s computer')
+      })
+    return () => { cancelled = true }
+  }, [
+    activeRuntimePresence,
+    mentionRuntimeLabel,
+    mentionRuntimeTargetId,
+    orgId,
+  ])
 
   useEffect(() => {
     let cancelled = false
@@ -4314,11 +4390,18 @@ export default function UnifiedChat({
     }
 
     const controller = new AbortController()
-    // @agent: — filter org-visible specialists already loaded for the rail.
+    // @agent: — only specialists available on *this chat's* bound computer
+    // (visible-agents?runtimeTarget=… + live inventory), never a hard-coded roster.
     if (contextMention.kind === 'agent' || isAgentMentionNamespace(contextMention.namespace)) {
       const q = contextMention.query.trim().toLowerCase()
-      const hits = Object.values(agentMap)
-        .filter((agent) => agent.enabled !== false)
+      if (mentionAgentsStatus === 'loading') {
+        setContextSearchResults([])
+        setAgentMentionResults([])
+        setContextSearchLoading(true)
+        setContextSearchMessage(null)
+        return () => controller.abort()
+      }
+      const hits = mentionAgents
         .filter((agent) => {
           if (!q) return true
           return (
@@ -4332,18 +4415,19 @@ export default function UnifiedChat({
         .map((agent) => ({
           agentId: agent.agentId,
           label: agent.name?.trim() || agent.agentId,
-          summary: [agent.role, agent.agentId !== agent.name ? `@agent:${agent.agentId}` : null]
-            .filter(Boolean)
-            .join(' · '),
+          summary: [
+            agent.role,
+            mentionRuntimeLabel ? `on ${mentionRuntimeLabel}` : null,
+            `@agent:${agent.agentId}`,
+          ].filter(Boolean).join(' · '),
         }))
       setContextSearchResults([])
       setAgentMentionResults(hits)
       setContextSearchLoading(false)
       setContextSearchMessage(
         hits.length === 0
-          ? (Object.keys(agentMap).length === 0
-            ? 'No agents loaded for this organisation yet'
-            : 'No matching agents')
+          ? (mentionAgentsEmptyReason
+            ?? (q ? 'No matching agents on this computer' : 'No agents available on this computer'))
           : null,
       )
       return () => controller.abort()
@@ -4433,7 +4517,19 @@ export default function UnifiedChat({
       })
 
     return () => controller.abort()
-  }, [activeConversation?.workspaceContext, activeId, agentMap, contextMention, coerceContextRef, currentPageContext?.id, currentPageContext?.type, orgId])
+  }, [
+    activeConversation?.workspaceContext,
+    activeId,
+    coerceContextRef,
+    contextMention,
+    currentPageContext?.id,
+    currentPageContext?.type,
+    mentionAgents,
+    mentionAgentsEmptyReason,
+    mentionAgentsStatus,
+    mentionRuntimeLabel,
+    orgId,
+  ])
 
   useEffect(() => {
     if (!activeId) return
@@ -8261,7 +8357,7 @@ export default function UnifiedChat({
           {contextMention && isAgentComposerMention && (
             <div id={contextPickerPanelId} role="listbox" aria-label="Agents" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
               <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-                @agent: specialists
+                @agent: specialists{mentionRuntimeLabel ? ` · ${mentionRuntimeLabel}` : ''}
               </div>
               {contextSearchLoading && (
                 <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">Loading agents…</div>

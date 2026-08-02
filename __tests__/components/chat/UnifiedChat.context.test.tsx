@@ -3370,7 +3370,93 @@ describe('UnifiedChat context references', () => {
     expect(input).toHaveValue('@products:')
   })
 
-  it('lists org agents for @agent mentions and inserts a branch token', async () => {
+  it('lists machine-scoped agents for @agent mentions and inserts a branch token', async () => {
+    conversation = {
+      ...baseConversation,
+      workspaceContext: {
+        workspaceId: 'ws-1',
+        runtimeTarget: 'linked-device:mac-studio',
+        runtimeLabel: 'Studio Mac',
+      },
+    }
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(request)
+      if (url.startsWith('/api/v1/workspaces?')) {
+        return jsonResponse({
+          data: {
+            workspaces: [{ workspaceId: 'ws-1', name: 'Org root' }],
+            projects: [],
+            runtimeTargetsByWorkspace: {
+              'ws-1': [{
+                id: 'linked-device:mac-studio',
+                label: 'Studio Mac',
+                baseUrl: 'https://runtime.example.com',
+                enabled: true,
+                isLocal: true,
+                isFresh: true,
+                isHealthy: true,
+                selectable: true,
+                lastSeenAt: new Date().toISOString(),
+                ageSeconds: 1,
+                lastHealthStatus: 'ok',
+                availableAgentIds: ['maya'],
+              }],
+            },
+          },
+        })
+      }
+      if (url.includes('/visible-agents')) {
+        const runtimeTarget = new URL(url, 'https://example.test').searchParams.get('runtimeTarget')
+        if (runtimeTarget === 'linked-device:mac-studio') {
+          return jsonResponse({
+            data: [
+              {
+                agentId: 'maya',
+                name: 'Maya',
+                role: 'Marketing',
+                persona: '',
+                iconKey: 'campaign',
+                colorKey: 'violet',
+                enabled: true,
+                baseUrl: 'https://agent.example.com',
+                defaultModel: 'gpt-5',
+              },
+            ],
+          })
+        }
+        // Org-wide catalogue (no runtime) — broader set must not leak into the picker.
+        return jsonResponse({
+          data: [
+            {
+              agentId: 'pip',
+              name: 'Pip',
+              role: 'Operator',
+              persona: '',
+              iconKey: 'robot_2',
+              colorKey: 'violet',
+              enabled: true,
+              baseUrl: 'https://agent.example.com',
+              defaultModel: 'gpt-5',
+            },
+            {
+              agentId: 'maya',
+              name: 'Maya',
+              role: 'Marketing',
+              persona: '',
+              iconKey: 'campaign',
+              colorKey: 'violet',
+              enabled: true,
+              baseUrl: 'https://agent.example.com',
+              defaultModel: 'gpt-5',
+            },
+          ],
+        })
+      }
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+
     render(
       <UnifiedChat
         orgId="org-1"
@@ -3380,7 +3466,9 @@ describe('UnifiedChat context references', () => {
     )
 
     const input = await screen.findByPlaceholderText('Send a message')
-    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/visible-agents')))
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/visible-agents?runtimeTarget=linked-device%3Amac-studio'),
+    ))
 
     fireEvent.change(input, { target: { value: '@ag' } })
     expect(await screen.findByRole('option', { name: 'Use @agent:' })).toBeInTheDocument()
@@ -3388,9 +3476,10 @@ describe('UnifiedChat context references', () => {
     await waitFor(() => expect(input).toHaveValue('@agent:'))
 
     expect(await screen.findByRole('listbox', { name: 'Agents' })).toBeInTheDocument()
-    expect(await screen.findByRole('option', { name: 'Tag @agent:pip' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('option', { name: 'Tag @agent:pip' }))
-    await waitFor(() => expect(input).toHaveValue('@agent:pip '))
+    expect(await screen.findByRole('option', { name: 'Tag @agent:maya' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Tag @agent:pip' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('option', { name: 'Tag @agent:maya' }))
+    await waitFor(() => expect(input).toHaveValue('@agent:maya '))
   })
 
   it('shows slash commands and sends structured command metadata', async () => {
