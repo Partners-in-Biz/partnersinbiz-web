@@ -8,6 +8,10 @@ import {
   CrossOrgFinanceNotFoundError,
   CrossOrgFinanceValidationError,
 } from '@/lib/finance/cross-org/service'
+import {
+  StatementFinanceNotFoundError,
+  StatementFinanceValidationError,
+} from '@/lib/finance/statements/service'
 
 /** Non-enumerating denial for sensitive finance/payroll resources. */
 export class FinanceNotFoundError extends Error {
@@ -34,7 +38,9 @@ export function isFinanceHttpError(error: unknown): error is Error & { statusCod
     error instanceof PersonalFinanceNotFoundError ||
     error instanceof PersonalFinanceValidationError ||
     error instanceof CrossOrgFinanceNotFoundError ||
-    error instanceof CrossOrgFinanceValidationError
+    error instanceof CrossOrgFinanceValidationError ||
+    error instanceof StatementFinanceNotFoundError ||
+    error instanceof StatementFinanceValidationError
   )
 }
 
@@ -49,14 +55,16 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
   if (
     error instanceof FinanceNotFoundError ||
     error instanceof PersonalFinanceNotFoundError ||
-    error instanceof CrossOrgFinanceNotFoundError
+    error instanceof CrossOrgFinanceNotFoundError ||
+    error instanceof StatementFinanceNotFoundError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_not_found' }
   }
   if (
     error instanceof FinanceValidationError ||
     error instanceof PersonalFinanceValidationError ||
-    error instanceof CrossOrgFinanceValidationError
+    error instanceof CrossOrgFinanceValidationError ||
+    error instanceof StatementFinanceValidationError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_validation' }
   }
