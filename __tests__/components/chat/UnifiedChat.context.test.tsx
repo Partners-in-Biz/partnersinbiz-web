@@ -2550,7 +2550,7 @@ describe('UnifiedChat context references', () => {
     expect(input).toHaveValue('@')
     await waitFor(() => expect(input).toHaveFocus())
     expect(addContext).toHaveAttribute('aria-expanded', 'true')
-    const referenceTypeMenu = screen.getByRole('listbox', { name: 'Reference types' })
+    const referenceTypeMenu = screen.getByRole('listbox', { name: 'Mention types' })
     expect(referenceTypeMenu).toHaveClass('max-h-[min(60dvh,32rem)]', 'overflow-y-auto', 'overscroll-contain')
     expect(addContext).toHaveAttribute('aria-controls', referenceTypeMenu.id)
     expect(await screen.findByRole('option', { name: 'Use @projects:' })).toBeInTheDocument()
@@ -2726,13 +2726,13 @@ describe('UnifiedChat context references', () => {
     fireEvent.change(input, { target: { value: draft } })
     fireEvent.click(screen.getByRole('button', { name: 'Add conversation context' }))
     expect(input).toHaveValue(`${draft}@`)
-    expect(await screen.findByRole('listbox', { name: 'Reference types' })).toBeInTheDocument()
+    expect(await screen.findByRole('listbox', { name: 'Mention types' })).toBeInTheDocument()
 
     expect(fireEvent.keyDown(input, { key: 'Escape' })).toBe(false)
     fireEvent.keyUp(input, { key: 'Escape' })
 
     expect(input).toHaveValue(draft)
-    expect(screen.queryByRole('listbox', { name: 'Reference types' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('listbox', { name: 'Mention types' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Add conversation context' })).toHaveAttribute('aria-expanded', 'false')
   })
 
@@ -2747,13 +2747,13 @@ describe('UnifiedChat context references', () => {
 
     const input = await screen.findByPlaceholderText('Send a message')
     fireEvent.change(input, { target: { value: 'Draft @pro' } })
-    expect(await screen.findByRole('listbox', { name: 'Reference types' })).toBeInTheDocument()
+    expect(await screen.findByRole('listbox', { name: 'Mention types' })).toBeInTheDocument()
 
     expect(fireEvent.keyDown(input, { key: 'Escape' })).toBe(false)
     fireEvent.keyUp(input, { key: 'Escape' })
 
     expect(input).toHaveValue('Draft @pro')
-    expect(screen.queryByRole('listbox', { name: 'Reference types' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('listbox', { name: 'Mention types' })).not.toBeInTheDocument()
 
     fireEvent.change(input, { target: { value: 'Draft @proj' } })
     expect(await screen.findByRole('option', { name: 'Use @projects:' })).toBeInTheDocument()
@@ -3167,22 +3167,23 @@ describe('UnifiedChat context references', () => {
     const input = await screen.findByPlaceholderText('Send a message')
     input.focus()
     fireEvent.change(input, { target: { value: '@' } })
-    const listbox = await screen.findByRole('listbox', { name: 'Reference types' })
+    const listbox = await screen.findByRole('listbox', { name: 'Mention types' })
 
     expect(input).toHaveFocus()
     expect(input).toHaveAttribute('role', 'combobox')
     expect(input).toHaveAttribute('aria-expanded', 'true')
     expect(input).toHaveAttribute('aria-controls', listbox.id)
-    expect(input).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'Use @projects:' }).id)
+    // Agents is first so specialists are discoverable from bare @.
+    expect(input).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'Use @agent:' }).id)
 
     fireEvent.keyDown(input, { key: 'ArrowDown' })
-    expect(input).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'Use @tasks:' }).id)
+    expect(input).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'Use @projects:' }).id)
     fireEvent.keyDown(input, { key: 'End' })
     expect(input).toHaveAttribute('aria-activedescendant', screen.getByRole('option', { name: 'Use @events:' }).id)
     fireEvent.keyDown(input, { key: 'Home' })
     fireEvent.keyDown(input, { key: 'Enter' })
 
-    expect(input).toHaveValue('@projects:')
+    expect(input).toHaveValue('@agent:')
     expect(input).toHaveFocus()
   })
 
@@ -3352,7 +3353,8 @@ describe('UnifiedChat context references', () => {
     const input = await screen.findByPlaceholderText('Send a message')
     fireEvent.change(input, { target: { value: '@' } })
 
-    expect(await screen.findByRole('option', { name: 'Use @projects:' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Use @agent:' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Use @projects:' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Use @contacts:' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Use @tasks:' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Use @businesses:' })).toBeInTheDocument()
@@ -3366,6 +3368,29 @@ describe('UnifiedChat context references', () => {
     })
 
     expect(input).toHaveValue('@products:')
+  })
+
+  it('lists org agents for @agent mentions and inserts a branch token', async () => {
+    render(
+      <UnifiedChat
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    const input = await screen.findByPlaceholderText('Send a message')
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/visible-agents')))
+
+    fireEvent.change(input, { target: { value: '@ag' } })
+    expect(await screen.findByRole('option', { name: 'Use @agent:' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('option', { name: 'Use @agent:' }))
+    await waitFor(() => expect(input).toHaveValue('@agent:'))
+
+    expect(await screen.findByRole('listbox', { name: 'Agents' })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'Tag @agent:pip' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('option', { name: 'Tag @agent:pip' }))
+    await waitFor(() => expect(input).toHaveValue('@agent:pip '))
   })
 
   it('shows slash commands and sends structured command metadata', async () => {
