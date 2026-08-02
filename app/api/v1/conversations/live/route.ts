@@ -37,6 +37,9 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     return apiError('AI credentials are not authorised for this organisation', 403)
   }
 
+  let cachedMessageVersion: string | null = null
+  let cachedMessages: ConversationLiveSnapshot['messages'] = null
+
   const loadSnapshot = async (): Promise<ConversationLiveSnapshot> => {
     const conversations = await listConversations(orgScope.orgId, user, query.limit, {
       scope: query.scope,
@@ -45,7 +48,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       includeAllScopes: query.includeAllScopes,
     })
 
-  let activeConversation = query.conversationId
+    let activeConversation = query.conversationId
       ? conversations.find((conversation) => conversation.id === query.conversationId) ?? null
       : null
 
@@ -60,9 +63,22 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       }
     }
 
-    const messages = activeConversation
-      ? (await listMessages(activeConversation.id, CONVERSATION_LIVE_MESSAGE_LIMIT)).map(publicConversationMessageView)
-      : null
+    let messages: ConversationLiveSnapshot['messages'] = null
+    if (activeConversation) {
+      const updatedAtMs = activeConversation.updatedAt?.toMillis?.() ?? 0
+      const messageVersion = `${activeConversation.id}:${updatedAtMs}`
+      if (messageVersion !== cachedMessageVersion) {
+        cachedMessages = (await listMessages(
+          activeConversation.id,
+          CONVERSATION_LIVE_MESSAGE_LIMIT,
+        )).map(publicConversationMessageView)
+        cachedMessageVersion = messageVersion
+      }
+      messages = cachedMessages
+    } else {
+      cachedMessageVersion = null
+      cachedMessages = null
+    }
     const presence = activeConversation
       ? await listConversationPresence(activeConversation.id, orgScope.orgId)
       : null
