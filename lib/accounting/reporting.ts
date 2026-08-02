@@ -9,7 +9,7 @@ import type {
   PostedJournalEntry,
 } from './types'
 
-export interface ReportScope extends Required<FinanceScope> {}
+export type ReportScope = Required<FinanceScope>
 
 export interface ReportInputMeta {
   orgId: string
