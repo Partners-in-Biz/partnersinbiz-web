@@ -141,7 +141,10 @@ describe('context reference composer helpers', () => {
 
   it('lists businesses and products in bare @reference type prompts', () => {
     expect(filterContextReferenceMentionOptions('').map((option) => option.namespace)).toEqual(
-      expect.arrayContaining(['businesses', 'products']),
+      expect.arrayContaining(['agent', 'businesses', 'products']),
+    )
+    expect(filterContextReferenceMentionOptions('')[0]).toEqual(
+      expect.objectContaining({ namespace: 'agent', type: 'agent', label: 'Agents', kind: 'agent' }),
     )
     expect(filterContextReferenceMentionOptions('bus')).toEqual([
       expect.objectContaining({ namespace: 'businesses', type: 'company' }),
@@ -149,6 +152,24 @@ describe('context reference composer helpers', () => {
     expect(filterContextReferenceMentionOptions('prod')).toEqual([
       expect.objectContaining({ namespace: 'products', type: 'product' }),
     ])
+    expect(filterContextReferenceMentionOptions('ag')).toEqual([
+      expect.objectContaining({ namespace: 'agent', type: 'agent', kind: 'agent' }),
+    ])
+  })
+
+  it('recognises @agent: mentions for specialist branch handoff', () => {
+    expect(findActiveContextMention('@agent:maya please review', 11)).toMatchObject({
+      namespace: 'agent',
+      type: 'agent',
+      kind: 'agent',
+      query: 'maya',
+    })
+    expect(findActiveContextMention('Hand to @agents:th', 18)).toMatchObject({
+      namespace: 'agent',
+      type: 'agent',
+      kind: 'agent',
+      query: 'th',
+    })
   })
 
   it('offers Studio and Studio artifact mention namespaces', () => {
