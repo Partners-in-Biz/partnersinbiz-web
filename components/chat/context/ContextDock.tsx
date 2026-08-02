@@ -30,58 +30,90 @@ function displayDate(value: string | undefined) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
+/** Three-step card density for project/context items (default = title only). */
+export type ContextItemExpandLevel = 'collapsed' | 'summary' | 'full'
+
+export function nextContextItemExpandLevel(
+  current: ContextItemExpandLevel,
+  options: { canSummary: boolean; canFull: boolean },
+): ContextItemExpandLevel {
+  if (current === 'collapsed') {
+    if (options.canSummary) return 'summary'
+    if (options.canFull) return 'full'
+    return 'collapsed'
+  }
+  if (current === 'summary') {
+    if (options.canFull) return 'full'
+    return 'collapsed'
+  }
+  return 'collapsed'
+}
+
+function expandLevelIcon(level: ContextItemExpandLevel): string {
+  if (level === 'collapsed') return 'expand_more'
+  if (level === 'summary') return 'unfold_more'
+  return 'expand_less'
+}
+
+function expandLevelAriaLabel(level: ContextItemExpandLevel, label: string): string {
+  if (level === 'collapsed') return `Show summary for ${label}`
+  if (level === 'summary') return `Show full activity for ${label}`
+  return `Collapse ${label}`
+}
+
 function ContextGroupItemCard({
   item,
-  expanded,
-  onToggle,
+  expandLevel,
+  onCycleExpand,
   onAction,
   pendingActionId,
   showAgentFeed,
 }: {
   item: ContextItemSummary
-  expanded: boolean
-  onToggle: () => void
+  expandLevel: ContextItemExpandLevel
+  onCycleExpand: () => void
   onAction?: (action: ChatContextAction) => void
   pendingActionId?: string
   showAgentFeed: boolean
 }) {
   const style = displayStateStyle(item.state)
-  const canExpand = showAgentFeed || Boolean(item.agent) || Boolean(item.detail)
+  const summaryText = item.detail
+    || (item.agent?.summary ? item.agent.summary : undefined)
+  const canSummary = Boolean(summaryText) || Boolean(item.actions?.length) || Boolean(item.updatedAt)
+  const canFull = showAgentFeed || Boolean(item.agent) || Boolean(item.detail)
+  const canExpand = canSummary || canFull
+  const showSummary = expandLevel === 'summary' || expandLevel === 'full'
+  const showFull = expandLevel === 'full'
   return (
     <li
       data-testid={`context-group-item-${item.id}`}
       data-state={item.state}
-      className={`overflow-hidden rounded-lg border transition-colors ${style.cardClassName} ${expanded ? 'ring-1 ring-primary/25' : ''}`}
+      data-expand-level={expandLevel}
+      className={`overflow-hidden rounded-lg border transition-colors ${style.cardClassName} ${expandLevel !== 'collapsed' ? 'ring-1 ring-primary/25' : ''}`}
     >
       <div className="flex">
         <span aria-hidden="true" className="w-1 shrink-0 self-stretch" style={{ background: style.rail }} />
         <div className="min-w-0 flex-1">
           <button
             type="button"
-            aria-expanded={canExpand ? expanded : undefined}
-            aria-label={canExpand ? `${expanded ? 'Hide' : 'Show'} activity for ${item.label}` : item.label}
-            onClick={() => { if (canExpand) onToggle() }}
-            className={`flex min-h-11 w-full items-start gap-2 px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60 xl:min-h-0 ${canExpand ? 'hover:bg-white/[0.03]' : 'cursor-default'}`}
+            aria-expanded={canExpand ? expandLevel !== 'collapsed' : undefined}
+            aria-label={canExpand ? expandLevelAriaLabel(expandLevel, item.label) : item.label}
+            onClick={() => { if (canExpand) onCycleExpand() }}
+            className={`flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60 xl:min-h-0 ${canExpand ? 'hover:bg-white/[0.03]' : 'cursor-default'}`}
           >
             <span className="min-w-0 flex-1">
               <span className="block text-xs font-medium leading-snug text-[var(--color-pib-text)]">{item.label}</span>
-              {item.detail && !expanded && (
-                <span className="mt-1 line-clamp-2 block text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">{item.detail}</span>
-              )}
-              {displayDate(item.updatedAt) && (
-                <span className="mt-1 block text-[10px] text-[var(--color-pib-text-muted)]">Updated {displayDate(item.updatedAt)}</span>
-              )}
             </span>
-            <span className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${style.badgeClassName}`}>
+            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${style.badgeClassName}`}>
               {displayStateLabel(item.state)}
             </span>
             {canExpand && (
-              <span className="material-symbols-outlined mt-0.5 shrink-0 text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
-                {expanded ? 'expand_less' : 'expand_more'}
+              <span className="material-symbols-outlined shrink-0 text-[16px] text-[var(--color-pib-text-muted)]" aria-hidden="true">
+                {expandLevelIcon(expandLevel)}
               </span>
             )}
           </button>
-          {item.actions && item.actions.length > 0 && (
+          {showSummary && item.actions && item.actions.length > 0 && (
             <div className="flex flex-wrap gap-2 border-t border-white/[0.06] px-3 py-2">
               {item.actions.map((action) => (
                 <button
@@ -96,8 +128,23 @@ function ContextGroupItemCard({
               ))}
             </div>
           )}
-          {expanded && showAgentFeed && <ProjectTaskFeed item={item} />}
-          {expanded && !showAgentFeed && item.detail && (
+          {/* Mid level: compact detail only (previous default collapsed preview). */}
+          {showSummary && !showFull && summaryText && (
+            <div className="border-t border-white/[0.06] px-3 py-2 text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">
+              <p className="line-clamp-4 whitespace-pre-wrap">{summaryText}</p>
+              {displayDate(item.updatedAt) && (
+                <p className="mt-1.5 text-[10px] text-[var(--color-pib-text-muted)]">Updated {displayDate(item.updatedAt)}</p>
+              )}
+            </div>
+          )}
+          {showSummary && !showFull && !summaryText && displayDate(item.updatedAt) && (
+            <div className="border-t border-white/[0.06] px-3 py-2 text-[10px] text-[var(--color-pib-text-muted)]">
+              Updated {displayDate(item.updatedAt)}
+            </div>
+          )}
+          {/* Full level: agent activity feed / full detail (previous expand). */}
+          {showFull && showAgentFeed && <ProjectTaskFeed item={item} />}
+          {showFull && !showAgentFeed && item.detail && (
             <div className="border-t border-white/[0.06] px-3 py-2 text-[11px] leading-relaxed text-[var(--color-pib-text-muted)]">
               {item.detail}
             </div>
@@ -115,7 +162,7 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
   const [secondaryLoading, setSecondaryLoading] = useState(false)
   const [secondaryLoadFailed, setSecondaryLoadFailed] = useState(false)
   const [tabletFocus, setTabletFocus] = useState<'primary' | 'secondary'>('primary')
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
+  const [itemExpandLevels, setItemExpandLevels] = useState<Record<string, ContextItemExpandLevel>>({})
   const sheet = compact || mobile
   const tabletLandscape = !sheet && !wideDesktop
   const dialogRef = useRef<HTMLElement>(null)
@@ -158,7 +205,7 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
   }, [mode, open, secondaryContext, secondaryRefreshRevision, tabletLandscape, wideDesktop])
   useEffect(() => {
     setTabletFocus('primary')
-    setExpandedItemId(null)
+    setItemExpandLevels({})
   }, [model.context.id, model.context.kind])
   useEffect(() => {
     if (!secondaryContext && tabletFocus === 'secondary') setTabletFocus('primary')
@@ -215,17 +262,31 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
           <section key={group.id} aria-label={group.label}>
             <h3 className="mb-2 text-[10px] font-label uppercase tracking-[0.18em] text-[var(--color-pib-text-muted)]">{group.label}</h3>
             <ul className="space-y-2">
-              {group.items.map((item) => (
-                <ContextGroupItemCard
-                  key={item.id}
-                  item={item}
-                  expanded={expandedItemId === item.id}
-                  onToggle={() => setExpandedItemId((current) => current === item.id ? null : item.id)}
-                  onAction={triggerVisibleAction}
-                  pendingActionId={pendingActionId}
-                  showAgentFeed={isProjectTasks || Boolean(item.agent)}
-                />
-              ))}
+              {group.items.map((item) => {
+                const showAgentFeed = isProjectTasks || Boolean(item.agent)
+                const summaryText = item.detail || item.agent?.summary
+                const canSummary = Boolean(summaryText) || Boolean(item.actions?.length) || Boolean(item.updatedAt)
+                const canFull = showAgentFeed || Boolean(item.agent) || Boolean(item.detail)
+                return (
+                  <ContextGroupItemCard
+                    key={item.id}
+                    item={item}
+                    expandLevel={itemExpandLevels[item.id] ?? 'collapsed'}
+                    onCycleExpand={() => setItemExpandLevels((current) => {
+                      const level = current[item.id] ?? 'collapsed'
+                      const next = nextContextItemExpandLevel(level, { canSummary, canFull })
+                      if (next === 'collapsed') {
+                        const { [item.id]: _removed, ...rest } = current
+                        return rest
+                      }
+                      return { ...current, [item.id]: next }
+                    })}
+                    onAction={triggerVisibleAction}
+                    pendingActionId={pendingActionId}
+                    showAgentFeed={showAgentFeed}
+                  />
+                )
+              })}
             </ul>
           </section>
         )
