@@ -37,8 +37,10 @@ describe('finance workbench delivery contract', () => {
       'app/api/v1/finance/practice/queries/route.ts',
       'app/api/v1/finance/job-costing/commands/route.ts',
       'app/api/v1/finance/job-costing/queries/route.ts',
+      'app/api/v1/finance/assets/commands/route.ts',
+      'app/api/v1/finance/assets/queries/route.ts',
     ]))
-    expect(FINANCE_HTTP_ENTRYPOINTS).toHaveLength(25)
+    expect(FINANCE_HTTP_ENTRYPOINTS).toHaveLength(27)
     expect(FINANCE_UI_SHIPPED).toBe(true)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/documents/i)
