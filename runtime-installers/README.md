@@ -22,6 +22,12 @@ The release private key is stored in GitHub Actions as `LINKED_RUNTIME_RELEASE_P
 
 Unsigned packages are never silently accepted. macOS requires `PIB_ALLOW_UNSIGNED_DEV=1`; Windows requires `-AllowUnsignedDev`, and both print a prominent warning. This mode is development-only. macOS packages are Developer ID signed and notarised. Windows production uses an Authenticode-signed CAB: the bootstrap validates the CAB publisher before extraction and then validates every executable again. Updates additionally require the Ed25519 manifest signature and payload checksum. Those OS and release trust gates are independent and may not be bypassed.
 
+### Internal Windows staff channel
+
+Until the public Windows CA-signing channel is funded, managed Partners in Biz staff computers may use the isolated `runtime-internal-v<semver>` prerelease channel. It is not unsigned development mode. Executables and CABs are Authenticode-signed with a dedicated PiB internal code-signing certificate, while runtime metadata and payload hashes retain the normal Ed25519 release signature. The bootstrap requires both `-InternalStaff` and `-ConfirmInternalTrust`, pins the certificate's SHA-256 fingerprint before importing it into the machine Root and TrustedPublisher stores, and then verifies the CAB plus every executable against the same certificate.
+
+The internal certificate is intentionally not trusted by Windows globally. Never expose this channel as the public/customer Windows download, never ask a customer to install the PiB private trust root, and never weaken public publisher verification to accept it implicitly. A future Microsoft Store MSIX or public-CA Authenticode release continues on the existing production channel without changing the internal trust boundary.
+
 ## Windows package
 
 Windows x64 and arm64 packages are flat CAB files containing the signed runtime, signed release manager, signed SCM service, signed Credential Manager helper, installer, release public key, and README. The expected Authenticode publisher is exactly `The Partners in Business (PTY) LTD`. The public bootstrap rejects an invalid or differently named publisher before extracting or executing package content. The installed updater repeats executable publisher validation and verifies the Ed25519 release manifest and SHA-256 before activation.
