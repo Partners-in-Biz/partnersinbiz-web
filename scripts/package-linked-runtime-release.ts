@@ -41,6 +41,13 @@ export function createRuntimeReleaseManifest(input: {
   }
 }
 
+export function releasePublicKeyMatchesPrivateKey(privateKeyPem: string, publicKeyPem: string) {
+  const privateKey = createPrivateKey(privateKeyPem)
+  const expected = createPublicKey(publicKeyPem).export({ type: 'spki', format: 'der' })
+  const actual = createPublicKey(privateKey).export({ type: 'spki', format: 'der' })
+  return actual.equals(expected)
+}
+
 function argument(name: string, fallback = '') {
   const index = process.argv.indexOf(name)
   return index >= 0 ? process.argv[index + 1] ?? '' : fallback
@@ -94,9 +101,10 @@ export function packageRuntimeRelease(input: {
   privateKeyPem: string
 }) {
   const key = createPrivateKey(input.privateKeyPem)
-  const expectedPublicKey = fs.readFileSync(path.join(input.root, 'runtime-installers/release-public.pem'), 'utf8').trim()
-  const actualPublicKey = createPublicKey(key).export({ type: 'spki', format: 'pem' }).toString().trim()
-  if (actualPublicKey !== expectedPublicKey) throw new Error('Runtime release private key does not match the committed public key')
+  const expectedPublicKey = fs.readFileSync(path.join(input.root, 'runtime-installers/release-public.pem'), 'utf8')
+  if (!releasePublicKeyMatchesPrivateKey(input.privateKeyPem, expectedPublicKey)) {
+    throw new Error('Runtime release private key does not match the committed public key')
+  }
   fs.mkdirSync(input.outputDir, { recursive: true })
   for (const target of input.targets) {
     if (!TARGET.test(target)) throw new Error(`Unsupported runtime target: ${target}`)
