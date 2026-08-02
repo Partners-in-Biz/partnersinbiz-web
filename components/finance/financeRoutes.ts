@@ -12,6 +12,7 @@ export type FinanceRouteKey =
   | 'statements'
   | 'cutover'
   | 'setup'
+  | 'practice'
 
 export type FinanceNavItem = {
   key: FinanceRouteKey
@@ -121,6 +122,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     group: 'books',
   },
   {
+    key: 'practice',
+    label: 'Practice',
+    href: '/portal/finance/practice',
+    icon: 'admin_panel_settings',
+    description: 'Role matrix, multi-client switcher, notifications, and audit explorer.',
+    group: 'command',
+  },
+  {
     key: 'setup',
     label: 'Setup',
     href: '/portal/finance/setup',
@@ -139,6 +148,7 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'payroll',
   'packaging',
   'statements',
+  'practice',
   'setup',
 ]
 

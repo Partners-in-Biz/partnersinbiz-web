@@ -90,6 +90,7 @@ describe('finance portal design-system parity', () => {
     'app/(portal)/portal/finance/statements/page.tsx',
     'app/(portal)/portal/finance/cutover/page.tsx',
     'app/(portal)/portal/finance/setup/page.tsx',
+    'app/(portal)/portal/finance/practice/page.tsx',
   ]
 
   test('shared shell components exist', () => {
@@ -104,7 +105,9 @@ describe('finance portal design-system parity', () => {
     }
     expect(FINANCE_NAV.length).toBeGreaterThanOrEqual(10)
     expect(FINANCE_PRIMARY_TABS).toContain('hub')
+    expect(FINANCE_PRIMARY_TABS).toContain('practice')
     expect(financeNavItem('packaging').href).toBe('/portal/finance/packaging')
+    expect(financeNavItem('practice').href).toBe('/portal/finance/practice')
   })
 
   test('all finance portal pages mount FinanceModuleFrame + design-system primitives', () => {

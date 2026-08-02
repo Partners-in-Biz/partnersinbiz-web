@@ -60,6 +60,10 @@ export type FinanceAction =
   | 'payroll.run.correct'
   | 'payroll.employee.read'
   | 'payroll.payslip.read'
+  | 'payroll.leave.configure'
+  | 'payroll.leave.write'
+  | 'payroll.leave.approve'
+  | 'payroll.leave.read'
   | 'payroll.payment.observe'
   | 'payroll.tax_year.configure'
   | 'payroll.tax_year.lock'
@@ -71,6 +75,22 @@ export type FinanceAction =
   | 'payroll.export.generate'
   | 'payroll.export.approve'
   | 'consolidation.read'
+  | 'job_costing.read'
+  | 'job_costing.time_cost.apply'
+  | 'asset.class.configure'
+  | 'asset.create'
+  | 'asset.activate'
+  | 'asset.read'
+  | 'asset.depreciation.run.create'
+  | 'asset.depreciation.run.calculate'
+  | 'asset.depreciation.run.post'
+  | 'asset.dispose'
+  | 'asset.report.read'
+  | 'role.read'
+  | 'role.assign'
+  | 'audit.read'
+  | 'notification.read'
+  | 'notification.emit'
 
 const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'foundation.configure': ['finance_admin'],
@@ -132,6 +152,10 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'payroll.run.correct': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'payroll.employee.read': ['finance_admin', 'payroll_clerk', 'payroll_approver'],
   'payroll.payslip.read': ['finance_admin', 'payroll_clerk', 'payroll_approver'],
+  'payroll.leave.configure': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.leave.write': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.leave.approve': ['finance_admin', 'payroll_approver', 'payroll_clerk'],
+  'payroll.leave.read': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'payroll.payment.observe': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'payroll.tax_year.configure': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'payroll.tax_year.lock': ['finance_admin', 'payroll_approver'],
@@ -143,6 +167,22 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'payroll.export.generate': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'payroll.export.approve': ['finance_admin', 'payroll_approver'],
   'consolidation.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'job_costing.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'job_costing.time_cost.apply': ['bookkeeper', 'accountant', 'finance_admin'],
+  'asset.class.configure': ['finance_admin', 'accountant'],
+  'asset.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'asset.activate': ['bookkeeper', 'accountant', 'finance_admin'],
+  'asset.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'asset.depreciation.run.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'asset.depreciation.run.calculate': ['bookkeeper', 'accountant', 'finance_admin'],
+  'asset.depreciation.run.post': ['accountant', 'finance_approver', 'finance_admin'],
+  'asset.dispose': ['accountant', 'finance_approver', 'finance_admin'],
+  'asset.report.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'role.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'role.assign': ['finance_admin'],
+  'audit.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'notification.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin', 'payroll_clerk', 'payroll_approver'],
+  'notification.emit': ['bookkeeper', 'accountant', 'finance_approver', 'finance_admin', 'payroll_clerk', 'payroll_approver'],
 }
 
 /** Read-only export for security inventory / coverage tests. */

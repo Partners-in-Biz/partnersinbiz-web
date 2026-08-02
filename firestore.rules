@@ -204,6 +204,12 @@ service cloud.firestore {
     match /finance_customer_invoice_lines/{id} { allow read, write: if false; }
     match /open_items/{id} { allow read, write: if false; }
     match /account_credits/{id} { allow read, write: if false; }
+    match /finance_credit_notes/{id} { allow read, write: if false; }
+    match /finance_debit_notes/{id} { allow read, write: if false; }
+    match /finance_note_applications/{id} { allow read, write: if false; }
+    match /finance_recurring_schedules/{id} { allow read, write: if false; }
+    match /finance_statement_drafts/{id} { allow read, write: if false; }
+    match /finance_document_attachments/{id} { allow read, write: if false; }
     match /finance_payments/{id} { allow read, write: if false; }
     match /finance_export_packs/{id} { allow read, write: if false; }
     match /finance_export_pack_claims/{id} { allow read, write: if false; }
@@ -236,10 +242,31 @@ service cloud.firestore {
     match /payslips/{id} { allow read, write: if false; }
     match /payroll_adjustments/{id} { allow read, write: if false; }
     match /leave_records/{id} { allow read, write: if false; }
+    match /leave_types/{id} { allow read, write: if false; }
+    match /leave_balances/{id} { allow read, write: if false; }
+    match /payslip_download_packs/{id} { allow read, write: if false; }
     match /irp5_records/{id} { allow read, write: if false; }
     match /emp201_snapshots/{id} { allow read, write: if false; }
     match /emp501_reconciliations/{id} { allow read, write: if false; }
     match /payroll_export_manifests/{id} { allow read, write: if false; }
+    match /asset_classes/{id} { allow read, write: if false; }
+    match /fixed_assets/{id} { allow read, write: if false; }
+    match /depreciation_runs/{id} { allow read, write: if false; }
+    match /asset_disposals/{id} { allow read, write: if false; }
+    match /finance_assets_claims/{id} { allow read, write: if false; }
+    match /finance_assets_idempotency/{id} { allow read, write: if false; }
+    match /finance_operator_notifications/{id} { allow read, write: if false; }
+    match /finance_practice_claims/{id} { allow read, write: if false; }
+    match /fx_book_policies/{id} { allow read, write: if false; }
+    match /accounting_rate_sets/{id} { allow read, write: if false; }
+    match /accounting_rates/{id} { allow read, write: if false; }
+    match /fx_monetary_positions/{id} { allow read, write: if false; }
+    match /fx_foreign_documents/{id} { allow read, write: if false; }
+    match /fx_settlements/{id} { allow read, write: if false; }
+    match /fx_revaluation_runs/{id} { allow read, write: if false; }
+    match /fx_functional_reports/{id} { allow read, write: if false; }
+    match /fx_unique_claims/{id} { allow read, write: if false; }
+    match /fx_audit_events/{id} { allow read, write: if false; }
 
     // Idempotency cache — never client-readable or writable.
     match /idempotency_keys/{id} {
@@ -404,6 +431,10 @@ service cloud.firestore {
     // ── Agent Team (2026-05-13) ───────────────────────────────────────────────
     // Any authenticated user can read agent team docs (names, personas, status).
     // Only admins can write — all production writes go through Admin SDK / API routes.
+    match /finance_time_cost_applications/{id} { allow read, write: if false; }
+    match /finance_time_cost_claims/{id} { allow read, write: if false; }
+    match /finance_job_costing_audit_events/{id} { allow read, write: if false; }
+    match /finance_time_cost_idempotency/{id} { allow read, write: if false; }
     match /agent_team/{agentId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null

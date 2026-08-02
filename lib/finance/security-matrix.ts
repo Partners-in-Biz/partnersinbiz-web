@@ -45,6 +45,9 @@ export const AUDITED_MUTATION_ACTIONS: readonly FinanceAction[] = [
   'payroll.employee.write',
   'payroll.component.configure',
   'payroll.calendar.configure',
+  'payroll.leave.configure',
+  'payroll.leave.write',
+  'payroll.leave.approve',
   'payroll.calculate',
   'payroll.run.create',
   'payroll.run.submit',
@@ -60,6 +63,16 @@ export const AUDITED_MUTATION_ACTIONS: readonly FinanceAction[] = [
   'payroll.statutory.approve',
   'payroll.export.generate',
   'payroll.export.approve',
+  'job_costing.time_cost.apply',
+  'asset.class.configure',
+  'asset.create',
+  'asset.activate',
+  'asset.depreciation.run.create',
+  'asset.depreciation.run.calculate',
+  'asset.depreciation.run.post',
+  'asset.dispose',
+  'role.assign',
+  'notification.emit',
 ] as const
 
 /** Actions that require separate FinanceApprovalEvidence / SOD at commit time. */
@@ -85,6 +98,8 @@ export const APPROVAL_GATED_ACTIONS: readonly FinanceApprovalAction[] = [
   'payroll.ytd_opening.approve',
   'payroll.statutory.approve',
   'payroll.export.approve',
+  'asset.depreciation.run.post',
+  'asset.dispose',
 ] as const
 
 export function financeActionCoverage(): Record<string, readonly FinanceRole[]> {

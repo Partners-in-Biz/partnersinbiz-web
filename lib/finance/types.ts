@@ -60,6 +60,8 @@ export type FinanceApprovalAction =
   | 'payroll.ytd_opening.approve'
   | 'payroll.statutory.approve'
   | 'payroll.export.approve'
+  | 'asset.depreciation.run.post'
+  | 'asset.dispose'
 
 export interface FinanceApprovalEvidence {
   approvalId: string
