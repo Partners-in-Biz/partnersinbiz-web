@@ -27,10 +27,12 @@ import {
   type ApprovalMode,
 } from '@/lib/messages/approval-mode'
 import {
+  completeAgentMentionToken,
   extractCurrentPageContextCommand,
   filterContextReferenceMentionOptions,
   findActiveContextMention,
   findActiveContextTypePrompt,
+  isAgentMentionNamespace,
   removeMentionToken,
   removeMentionTokenFromLatest,
   replaceTypePromptToken,
@@ -169,6 +171,7 @@ interface AgentTeamDoc {
   accessScope?: 'personal' | 'organization' | string
   provisioningMode?: string
   scopeOrgId?: string
+  agentHandle?: string
 }
 
 export interface UnifiedChatProps {
@@ -1325,6 +1328,7 @@ export default function UnifiedChat({
   const [slashPrompt, setSlashPrompt] = useState<ActiveSlashCommandPrompt | null>(null)
   const [selectedSlashCommand, setSelectedSlashCommand] = useState<SlashCommandDefinition | null>(null)
   const [contextSearchResults, setContextSearchResults] = useState<ContextReference[]>([])
+  const [agentMentionResults, setAgentMentionResults] = useState<Array<{ agentId: string; label: string; summary?: string }>>([])
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
   const [contextSearchMessage, setContextSearchMessage] = useState<string | null>(null)
   const [contextPickerActiveIndex, setContextPickerActiveIndex] = useState(0)
@@ -2341,10 +2345,13 @@ export default function UnifiedChat({
     [activeConversation?.workspaceContext, contextTypePrompt],
   )
   const contextPickerOpen = Boolean(contextTypePrompt || contextMention)
+  const isAgentComposerMention = Boolean(contextMention && (
+    contextMention.kind === 'agent' || isAgentMentionNamespace(contextMention.namespace)
+  ))
   const contextPickerOptionCount = contextTypePrompt
     ? contextTypeOptions.length
     : contextMention && !contextSearchLoading
-      ? contextSearchResults.length
+      ? (isAgentComposerMention ? agentMentionResults.length : contextSearchResults.length)
       : 0
   const contextPickerActiveOptionId = contextPickerOpen && contextPickerOptionCount > 0
     ? `${contextPickerPanelId}-option-${Math.min(contextPickerActiveIndex, contextPickerOptionCount - 1)}`
@@ -4300,12 +4307,48 @@ export default function UnifiedChat({
   useEffect(() => {
     if (!contextMention) {
       setContextSearchResults([])
+      setAgentMentionResults([])
       setContextSearchLoading(false)
       setContextSearchMessage(null)
       return
     }
 
     const controller = new AbortController()
+    // @agent: — filter org-visible specialists already loaded for the rail.
+    if (contextMention.kind === 'agent' || isAgentMentionNamespace(contextMention.namespace)) {
+      const q = contextMention.query.trim().toLowerCase()
+      const hits = Object.values(agentMap)
+        .filter((agent) => agent.enabled !== false)
+        .filter((agent) => {
+          if (!q) return true
+          return (
+            agent.agentId.toLowerCase().includes(q)
+            || agent.name?.toLowerCase().includes(q)
+            || agent.role?.toLowerCase().includes(q)
+            || (typeof agent.agentHandle === 'string' && agent.agentHandle.toLowerCase().includes(q))
+          )
+        })
+        .slice(0, 12)
+        .map((agent) => ({
+          agentId: agent.agentId,
+          label: agent.name?.trim() || agent.agentId,
+          summary: [agent.role, agent.agentId !== agent.name ? `@agent:${agent.agentId}` : null]
+            .filter(Boolean)
+            .join(' · '),
+        }))
+      setContextSearchResults([])
+      setAgentMentionResults(hits)
+      setContextSearchLoading(false)
+      setContextSearchMessage(
+        hits.length === 0
+          ? (Object.keys(agentMap).length === 0
+            ? 'No agents loaded for this organisation yet'
+            : 'No matching agents')
+          : null,
+      )
+      return () => controller.abort()
+    }
+
     const isWorkbenchPathSearch = Boolean(
       activeId
       && activeConversation?.workspaceContext
@@ -4313,6 +4356,7 @@ export default function UnifiedChat({
     )
     if (isWorkbenchPathSearch && !contextMention.query.trim()) {
       setContextSearchResults([])
+      setAgentMentionResults([])
       setContextSearchLoading(false)
       setContextSearchMessage('Type part of a linked file or folder name')
       return () => controller.abort()
@@ -4329,6 +4373,7 @@ export default function UnifiedChat({
     }
     setContextSearchLoading(true)
     setContextSearchMessage(null)
+    setAgentMentionResults([])
     if (isWorkbenchPathSearch) {
       const timer = window.setTimeout(() => {
         void runConversationWorkbenchJob(activeId!, {
@@ -4388,7 +4433,7 @@ export default function UnifiedChat({
       })
 
     return () => controller.abort()
-  }, [activeConversation?.workspaceContext, activeId, contextMention, coerceContextRef, currentPageContext?.id, currentPageContext?.type, orgId])
+  }, [activeConversation?.workspaceContext, activeId, agentMap, contextMention, coerceContextRef, currentPageContext?.id, currentPageContext?.type, orgId])
 
   useEffect(() => {
     if (!activeId) return
@@ -5352,6 +5397,7 @@ export default function UnifiedChat({
         setContextMention(null)
         setContextTypePrompt(null)
         setContextSearchResults([])
+        setAgentMentionResults([])
         requestAnimationFrame(() => composerRef.current?.focus())
       })
       .catch((err) => {
@@ -5360,10 +5406,32 @@ export default function UnifiedChat({
       })
   }, [activeId, contextMention, input, patchContextRefs])
 
+  /** Insert @agent:<id> into the draft — does not pin context; send spawns the branch. */
+  const selectAgentMention = useCallback((agentId: string) => {
+    if (!contextMention || (contextMention.kind !== 'agent' && !isAgentMentionNamespace(contextMention.namespace))) {
+      return
+    }
+    const completed = completeAgentMentionToken(input, contextMention, agentId)
+    setInput(completed.value)
+    setContextMention(null)
+    setContextTypePrompt(null)
+    setContextSearchResults([])
+    setAgentMentionResults([])
+    setSlashPrompt(null)
+    contextPickerInsertedSeparatorRef.current = undefined
+    composerEditRevisionRef.current += 1
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      composerRef.current?.setSelectionRange(completed.caret, completed.caret)
+    })
+  }, [contextMention, input])
+
   const selectContextType = useCallback((option: ContextReferenceMentionOption) => {
     if (!contextTypePrompt) return
-    const nextInput = replaceTypePromptToken(input, contextTypePrompt, option.namespace)
-    const caret = contextTypePrompt.start + option.namespace.length + 2
+    // Agents use the singular @agent: token that parseMentions understands on send.
+    const namespace = option.kind === 'agent' ? 'agent' : option.namespace
+    const nextInput = replaceTypePromptToken(input, contextTypePrompt, namespace)
+    const caret = contextTypePrompt.start + namespace.length + 2
     setInput(nextInput)
     setContextTypePrompt(null)
     setSlashPrompt(null)
@@ -5397,12 +5465,15 @@ export default function UnifiedChat({
     if (contextTypePrompt) {
       const option = contextTypeOptions[activeIndex]
       if (option) selectContextType(option)
+    } else if (contextMention && isAgentComposerMention) {
+      const agent = agentMentionResults[activeIndex]
+      if (agent) selectAgentMention(agent.agentId)
     } else if (contextMention) {
       const ref = contextSearchResults[activeIndex]
       if (ref) selectMentionContext(ref)
     }
     return true
-  }, [contextMention, contextPickerActiveIndex, contextPickerOpen, contextPickerOptionCount, contextSearchResults, contextTypeOptions, contextTypePrompt, selectContextType, selectMentionContext])
+  }, [agentMentionResults, contextMention, contextPickerActiveIndex, contextPickerOpen, contextPickerOptionCount, contextSearchResults, contextTypeOptions, contextTypePrompt, isAgentComposerMention, selectAgentMention, selectContextType, selectMentionContext])
 
   const selectSlashCommand = useCallback((command: SlashCommandDefinition) => {
     if (!slashPrompt) return
@@ -8152,12 +8223,12 @@ export default function UnifiedChat({
           )}
 
           {contextTypePrompt && (
-            <div id={contextPickerPanelId} role="listbox" aria-label="Reference types" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+            <div id={contextPickerPanelId} role="listbox" aria-label="Mention types" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
               <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-                Reference types
+                Mention types
               </div>
               {contextTypeOptions.length === 0 ? (
-                <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">No matching reference types</div>
+                <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">No matching mention types</div>
               ) : (
                 contextTypeOptions.map((option, index) => (
                   <button
@@ -8167,15 +8238,19 @@ export default function UnifiedChat({
                     role="option"
                     aria-selected={index === contextPickerActiveIndex}
                     tabIndex={-1}
-                    aria-label={`Use @${option.namespace}:`}
+                    aria-label={option.kind === 'agent' ? 'Use @agent:' : `Use @${option.namespace}:`}
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => selectContextType(option)}
                     className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06] ${index === contextPickerActiveIndex ? 'bg-white/[0.06]' : ''}`}
                   >
-                    <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">alternate_email</span>
+                    <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">
+                      {option.kind === 'agent' ? 'smart_toy' : 'alternate_email'}
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-xs font-medium">{option.label}</span>
-                      <span className="block truncate text-[11px] text-[var(--color-pib-text-muted)]">@{option.namespace}:</span>
+                      <span className="block truncate text-[11px] text-[var(--color-pib-text-muted)]">
+                        {option.kind === 'agent' ? '@agent: · hand off to a specialist' : `@${option.namespace}:`}
+                      </span>
                     </span>
                   </button>
                 ))
@@ -8183,7 +8258,45 @@ export default function UnifiedChat({
             </div>
           )}
 
-          {contextMention && (
+          {contextMention && isAgentComposerMention && (
+            <div id={contextPickerPanelId} role="listbox" aria-label="Agents" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+              <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                @agent: specialists
+              </div>
+              {contextSearchLoading && (
+                <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">Loading agents…</div>
+              )}
+              {!contextSearchLoading && agentMentionResults.length === 0 && (
+                <div className="px-2 py-2 text-xs text-[var(--color-pib-text-muted)]">
+                  {contextSearchMessage ?? 'No matching agents'}
+                </div>
+              )}
+              {!contextSearchLoading && agentMentionResults.map((agent, index) => (
+                <button
+                  key={agent.agentId}
+                  id={`${contextPickerPanelId}-option-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={index === contextPickerActiveIndex}
+                  tabIndex={-1}
+                  aria-label={`Tag @agent:${agent.agentId}`}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => selectAgentMention(agent.agentId)}
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06] ${index === contextPickerActiveIndex ? 'bg-white/[0.06]' : ''}`}
+                >
+                  <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">smart_toy</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-medium">{agent.label}</span>
+                    <span className="block truncate text-[11px] text-[var(--color-pib-text-muted)]">
+                      {agent.summary || `@agent:${agent.agentId}`}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {contextMention && !isAgentComposerMention && (
             <div id={contextPickerPanelId} role="listbox" aria-label="Context references" className="max-h-[min(60dvh,32rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
               <div role="presentation" className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 @{contextMention.namespace}: references
