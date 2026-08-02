@@ -34,13 +34,13 @@ function actor(uid: string, orgId: string): FinanceActorContext {
 }
 
 async function main() {
-  assert.strictEqual(convertTxnToFunctional(100_000, 1_850_000_00, 8), 1_850_000)
+  assert.strictEqual(convertTxnToFunctional(100_000, 1_850_000_000, 8), 1_850_000)
   const realized = computeRealizedFxMinor({
     role: 'receivable',
     settledTxnMinor: 100_000,
-    originalRateScaled: 1_850_000_00,
+    originalRateScaled: 1_850_000_000,
     originalRateScale: 8,
-    settlementRateScaled: 1_900_000_00,
+    settlementRateScaled: 1_900_000_000,
     settlementRateScale: 8,
   })
   assert.strictEqual(realized.realizedFxMinor, 50_000)
@@ -85,7 +85,7 @@ async function main() {
     rateId: 'r1',
     fromCurrency: 'USD',
     rateDate: '2026-08-01',
-    rateScaled: 1_850_000_00,
+    rateScaled: 1_850_000_000,
     source: 'manual',
     requestId: '3',
     idempotencyKey: 'r1',
@@ -96,7 +96,7 @@ async function main() {
     rateId: 'r2',
     fromCurrency: 'USD',
     rateDate: '2026-08-20',
-    rateScaled: 1_900_000_00,
+    rateScaled: 1_900_000_000,
     source: 'manual',
     requestId: '4',
     idempotencyKey: 'r2',
@@ -159,7 +159,7 @@ async function main() {
     rateId: 'r3',
     fromCurrency: 'USD',
     rateDate: '2026-08-31',
-    rateScaled: 1_950_000_00,
+    rateScaled: 1_950_000_000,
     source: 'manual',
     requestId: '9',
     idempotencyKey: 'r3-fail-expected',
@@ -182,7 +182,7 @@ async function main() {
     rateId: 'rr',
     fromCurrency: 'USD',
     rateDate: '2026-08-31',
-    rateScaled: 1_950_000_00,
+    rateScaled: 1_950_000_000,
     source: 'manual',
     requestId: '11',
     idempotencyKey: 'rr',
@@ -194,7 +194,7 @@ async function main() {
     rateId: 'rr0',
     fromCurrency: 'USD',
     rateDate: '2026-08-01',
-    rateScaled: 1_850_000_00,
+    rateScaled: 1_850_000_000,
     source: 'manual',
     requestId: '12',
     idempotencyKey: 'rr0',

@@ -44,18 +44,18 @@ function serviceWith(storeRef: { current: MultiCurrencyFinanceStore }) {
 
 describe('multi-currency pure math', () => {
   test('convertTxnToFunctional uses integer scaled rate with half_up', () => {
-    // 100000 USD cents * 18.5 (185000000 / 1e8) = 1_850_000 ZAR cents
-    expect(convertTxnToFunctional(100_000, 1_850_000_00, 8)).toBe(1_850_000)
-    expect(convertTxnToFunctional(1, 15_000_000_00, 8)).toBe(15) // 0.01 * 15 = 0.15 → 15 minor if scale implies units
+    // 100000 USD cents * 18.5 (1_850_000_000 / 1e8) = 1_850_000 ZAR cents
+    expect(convertTxnToFunctional(100_000, 1_850_000_000, 8)).toBe(1_850_000)
+    expect(convertTxnToFunctional(1, 1_500_000_000, 8)).toBe(15) // 0.01 * 15 = 0.15 → 15 minor if scale implies units
   })
 
   test('realized FX gain on AR when settlement rate rises', () => {
     const fx = computeRealizedFxMinor({
       role: 'receivable',
       settledTxnMinor: 100_000,
-      originalRateScaled: 1_850_000_00,
+      originalRateScaled: 1_850_000_000,
       originalRateScale: 8,
-      settlementRateScaled: 1_900_000_00,
+      settlementRateScaled: 1_900_000_000,
       settlementRateScale: 8,
     })
     expect(fx.originalFunctionalPortionMinor).toBe(1_850_000)
@@ -67,9 +67,9 @@ describe('multi-currency pure math', () => {
     const fx = computeRealizedFxMinor({
       role: 'payable',
       settledTxnMinor: 100_000,
-      originalRateScaled: 1_850_000_00,
+      originalRateScaled: 1_850_000_000,
       originalRateScale: 8,
-      settlementRateScaled: 1_800_000_00,
+      settlementRateScaled: 1_800_000_000,
       settlementRateScale: 8,
     })
     expect(fx.realizedFxMinor).toBe(50_000)
@@ -114,7 +114,7 @@ describe('multi-currency lifecycle', () => {
       fromCurrency: 'USD',
       toCurrency: 'ZAR',
       rateDate: '2026-08-01',
-      rateScaled: 1_850_000_00,
+      rateScaled: 1_850_000_000,
       rateScale: 8,
       source: 'manual',
       requestId: 'r3',
@@ -127,7 +127,7 @@ describe('multi-currency lifecycle', () => {
       fromCurrency: 'USD',
       toCurrency: 'ZAR',
       rateDate: '2026-08-15',
-      rateScaled: 1_900_000_00,
+      rateScaled: 1_900_000_000,
       rateScale: 8,
       source: 'manual',
       requestId: 'r4',
@@ -140,7 +140,7 @@ describe('multi-currency lifecycle', () => {
       fromCurrency: 'USD',
       toCurrency: 'ZAR',
       rateDate: '2026-08-31',
-      rateScaled: 1_920_000_00,
+      rateScaled: 1_920_000_000,
       rateScale: 8,
       source: 'import',
       sourceRef: 'manual-import-csv',
@@ -271,7 +271,7 @@ describe('multi-currency lifecycle', () => {
         rateId: 'rate_late',
         fromCurrency: 'USD',
         rateDate: '2026-09-01',
-        rateScaled: 2_000_000_00,
+        rateScaled: 2_000_000_000,
         source: 'manual',
         requestId: 'r12',
         idempotencyKey: 'idem-late',

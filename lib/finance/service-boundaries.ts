@@ -19,6 +19,8 @@ export const FINANCE_HTTP_ENTRYPOINTS = [
   'app/api/v1/finance/intercompany/queries/route.ts',
   'app/api/v1/finance/job-costing/commands/route.ts',
   'app/api/v1/finance/job-costing/queries/route.ts',
+  'app/api/v1/finance/multi-currency/commands/route.ts',
+  'app/api/v1/finance/multi-currency/queries/route.ts',
   'app/api/v1/finance/packaging/commands/route.ts',
   'app/api/v1/finance/packaging/queries/route.ts',
   'app/api/v1/finance/payroll/commands/route.ts',
@@ -53,6 +55,7 @@ export const SERVICE_ONLY_FINANCE_MODULES = [
   'lib/finance/cutover/service.ts',
   'lib/finance/packaging/service.ts',
   'lib/finance/practice/service.ts',
+  'lib/finance/multi-currency/service.ts',
   'lib/accounting/job-costing-service.ts',
   'lib/accounting/assets-service.ts',
 ] as const
