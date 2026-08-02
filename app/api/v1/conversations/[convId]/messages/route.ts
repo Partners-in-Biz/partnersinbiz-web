@@ -449,7 +449,7 @@ function buildProjectChatOrchestrationContext(input: {
     'Create a clear, bounded, low-risk single task immediately when the request is unambiguous.',
     'For ambiguous work, more than one task, sensitive capabilities, or approval-gated work, preview the chain and wait for confirmation before creating tasks.',
     'Every created project task must include chatOrigin with the IDs above plus a zero-based sequence. Preserve assigneeAgentId, agentModel, agentEffort, dependsOn, reviewerAgentId, riskLevel, requiredCapability, approvalGateTaskId, and expectedArtifacts as applicable.',
-    'For a preview, return a structured rich part with type "project_task_proposal", projectId, bundleId, and tasks. Each task must include title, assigneeAgentId, dependencySequence, reviewerAgentId, requiredCapability, agentEffort, and modelPolicy. Include one custom UI action labelled "Create tasks" so confirmation resumes this run.',
+    'For a preview, return a structured rich part with type "project_task_proposal", projectId, bundleId, and tasks. Each task must include title, assigneeAgentId, dependencySequence, reviewerAgentId, requiredCapability, agentEffort, and modelPolicy. Include one custom UI action labelled "Create tasks" (actionId create-chain). Messages creates the durable project tasks from that proposal when Peet confirms — do not require the Hermes run to stay open after the proposal is shown.',
     'Do not manually dispatch dependent tasks from chat. The existing watcher releases and dispatches them when their dependencies and approval gates clear.',
     '---',
     '',
