@@ -47,7 +47,7 @@ jobs:
     timeout-minutes: 45
     env:
       VERSION: ${{ inputs.version }}
-      PIB_RUNTIME_RELEASE_PRIVATE_KEY: ${{ secrets.LINKED_RUNTIME_RELEASE_PRIVATE_KEY }}
+      RUNTIME_RELEASE_PRIVATE_KEY_BASE64: ${{ secrets.PIB_WINDOWS_INTERNAL_RELEASE_PRIVATE_KEY_BASE64 }}
       INTERNAL_SIGNING_PFX_BASE64: ${{ secrets.PIB_WINDOWS_INTERNAL_SIGNING_PFX_BASE64 }}
       INTERNAL_SIGNING_PFX_PASSWORD: ${{ secrets.PIB_WINDOWS_INTERNAL_SIGNING_PFX_PASSWORD }}
       EXPECTED_PUBLISHER: The Partners in Business (PTY) LTD
@@ -79,7 +79,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if ($env:VERSION -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') { throw 'Version must be SemVer.' }
-          foreach ($Name in @('PIB_RUNTIME_RELEASE_PRIVATE_KEY','INTERNAL_SIGNING_PFX_BASE64','INTERNAL_SIGNING_PFX_PASSWORD')) {
+          foreach ($Name in @('RUNTIME_RELEASE_PRIVATE_KEY_BASE64','INTERNAL_SIGNING_PFX_BASE64','INTERNAL_SIGNING_PFX_PASSWORD')) {
             if ([string]::IsNullOrWhiteSpace((Get-Item "env:$Name").Value)) { throw "$Name is not configured." }
           }
           gh release view "runtime-v$env:VERSION" | Out-Null
@@ -169,7 +169,13 @@ jobs:
         shell: pwsh
         run: |
           $Minimum = ($env:VERSION -replace '^(\d+\.\d+)\.\d+.*$', '$1.0')
-          npx tsx scripts/package-linked-runtime-release.ts --version $env:VERSION --minimum-version $Minimum --tag "runtime-internal-v$env:VERSION" --targets windows-x64,windows-arm64
+          try {
+            $env:PIB_RUNTIME_RELEASE_PRIVATE_KEY = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:RUNTIME_RELEASE_PRIVATE_KEY_BASE64))
+            npx tsx scripts/package-linked-runtime-release.ts --version $env:VERSION --minimum-version $Minimum --tag "runtime-internal-v$env:VERSION" --targets windows-x64,windows-arm64
+            if ($LASTEXITCODE -ne 0) { throw 'Signed runtime metadata packaging failed.' }
+          } finally {
+            Remove-Item Env:PIB_RUNTIME_RELEASE_PRIVATE_KEY -ErrorAction SilentlyContinue
+          }
           Copy-Item $env:PIB_INTERNAL_SIGNING_CERT runtime-installers/release-dist/partnersinbiz-internal-windows-signing.cer
       - name: Sign and verify internal CABs
         shell: pwsh
