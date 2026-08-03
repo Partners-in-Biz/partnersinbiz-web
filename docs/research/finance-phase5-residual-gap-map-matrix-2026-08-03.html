@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PiB Finance Phase 5 residual gap matrix (throwaway)</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; color: #0f172a; background: #f8fafc; }
+    h1 { font-size: 1.25rem; margin: 0 0 4px; }
+    p.meta { color: #64748b; font-size: 0.85rem; margin: 0 0 16px; }
+    .decision { background: #fff7ed; border: 1px solid #fdba74; padding: 12px 14px; border-radius: 8px; margin-bottom: 16px; }
+    table { border-collapse: collapse; width: 100%; background: #fff; font-size: 0.82rem; }
+    th, td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #0f172a; color: #fff; position: sticky; top: 0; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    .must { background: #fef2f2 !important; font-weight: 600; }
+    .diff { background: #eff6ff !important; }
+    .stretch { background: #f5f3ff !important; }
+    .nongoal { background: #f1f5f9 !important; color: #64748b; }
+    .hold { background: #ecfdf5 !important; }
+    .legend span { display: inline-block; margin-right: 10px; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
+    footer { margin-top: 16px; font-size: 0.8rem; color: #64748b; }
+  </style>
+</head>
+<body>
+  <h1>Phase 5 residual gap matrix — throwaway visual</h1>
+  <p class="meta">Task rJGYtdSsd6hMqcCgqivH · Project HRCSWl1cNnh6fYEGziAb · 2026-08-03 · Not CEO SoT — see markdown research doc</p>
+  <div class="decision"><strong>Decision:</strong> Finance is <em>not</em> world-class after Phase 4 feature close. Phase 5 = proving kit + e2e + operator density + mock bank-feed framework + role UX + payroll bureau lite + payment file formats + Vera/Quinn/Peet. Inventory/COGS = differentiator. Non-goals: SARS submit, pay initiate, unapproved paid bank-feed contracts.</div>
+  <p class="legend">
+    <span class="must">Must-have</span>
+    <span class="diff">Differentiator</span>
+    <span class="stretch">Stretch</span>
+    <span class="nongoal">Non-goal</span>
+    <span class="hold">Hold (shipped)</span>
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Capability</th>
+        <th>PiB post-P4</th>
+        <th>Xero</th>
+        <th>Sage A+P</th>
+        <th>QBO</th>
+        <th>SimplePay</th>
+        <th>PaySpace</th>
+        <th>Phase 5 rank</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="hold"><td>AR/AP depth, FX, assets, budgets, bank rules, job cost, practice, IC</td><td>S</td><td>S</td><td>S</td><td>S</td><td>N</td><td>N</td><td>Hold</td></tr>
+      <tr class="hold"><td>Multi-entity + eliminations</td><td>S</td><td>P</td><td>P–S</td><td>W–P</td><td>P</td><td>S</td><td>Hold / Diff</td></tr>
+      <tr class="hold"><td>Cross-org pay confirm</td><td>S</td><td>W</td><td>W</td><td>W</td><td>W</td><td>W</td><td>Hold / Diff</td></tr>
+      <tr class="hold"><td>ZA payroll core in-product</td><td>S</td><td>Partner</td><td>S</td><td>W ZA</td><td>S</td><td>S</td><td>Hold</td></tr>
+      <tr class="must"><td>Continuous bank feeds</td><td>W file</td><td>S</td><td>S</td><td>S</td><td>N</td><td>N</td><td>Must-have (mock-first)</td></tr>
+      <tr class="must"><td>Operator bulk / period-close density</td><td>P</td><td>S</td><td>S</td><td>S</td><td>P</td><td>S</td><td>Must-have</td></tr>
+      <tr class="must"><td>Browser e2e golden paths</td><td>W</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>Must-have</td></tr>
+      <tr class="must"><td>Proving kit multi-period close</td><td>W–P</td><td>S demos</td><td>S</td><td>S</td><td>S</td><td>S</td><td>Must-have</td></tr>
+      <tr class="must"><td>Role-specific guided UX</td><td>P</td><td>S</td><td>S</td><td>S</td><td>S</td><td>S</td><td>Must-have</td></tr>
+      <tr class="must"><td>Payroll bureau multi-entity batch</td><td>P</td><td>partner</td><td>S</td><td>W</td><td>S</td><td>S</td><td>Must-have lite</td></tr>
+      <tr class="must"><td>Payment bank-file formats (export only)</td><td>P</td><td>rails</td><td>NetCash</td><td>rails</td><td>files</td><td>files</td><td>Must-have observe-only</td></tr>
+      <tr class="must"><td>Vera calc audit + Quinn + Peet</td><td>P/W</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>Must-have internal</td></tr>
+      <tr class="diff"><td>Inventory + COGS lite</td><td>W CRM only</td><td>S</td><td>Adv Inv</td><td>S lite</td><td>N</td><td>N</td><td>Differentiator</td></tr>
+      <tr class="stretch"><td>Mobile ESS</td><td>W</td><td>partner</td><td>P–S</td><td>P</td><td>S app</td><td>S</td><td>Stretch</td></tr>
+      <tr class="nongoal"><td>SARS e-file submit</td><td>N</td><td>partner</td><td>path</td><td>N/W</td><td>helpers</td><td>path</td><td>Non-goal</td></tr>
+      <tr class="nongoal"><td>Payment initiation</td><td>N</td><td>S</td><td>S</td><td>S</td><td>files</td><td>files</td><td>Non-goal</td></tr>
+      <tr class="nongoal"><td>Unapproved paid bank-feed vendor</td><td>N</td><td>S</td><td>S</td><td>S</td><td>N</td><td>N</td><td>Non-goal</td></tr>
+      <tr class="nongoal"><td>Full WMS / manufacturing</td><td>N</td><td>P</td><td>P</td><td>W–P</td><td>N</td><td>N</td><td>Non-goal</td></tr>
+    </tbody>
+  </table>
+  <footer>Canonical markdown: docs/research/finance-phase5-residual-gap-map-2026-08-03.md · Inventory HEAD f49c146e3dfe3725481f28250d87cd0532117b05</footer>
+</body>
+</html>

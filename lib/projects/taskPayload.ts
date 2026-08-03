@@ -24,7 +24,7 @@ const VALID_AGENT_STATUSES = [
 ] as const
 
 const VALID_RISK_LEVELS = ['low', 'medium', 'high', 'critical'] as const
-const VALID_APPROVAL_GATES = [
+export const VALID_APPROVAL_GATES = [
   'none',
   'human-review',
   'client-visible',
@@ -37,7 +37,7 @@ const VALID_APPROVAL_GATES = [
   'none-until-production-or-client-visible',
 ] as const
 
-const VALID_AGENT_CAPABILITIES = [
+export const VALID_AGENT_CAPABILITIES = [
   'read',
   'draft',
   'write',
@@ -69,6 +69,16 @@ const VALID_AGENT_CAPABILITIES = [
   'public-publishing',
   'production-deploy',
 ] as const
+
+export function isValidAgentCapability(value: unknown): value is (typeof VALID_AGENT_CAPABILITIES)[number] {
+  const cleaned = typeof value === 'string' ? value.trim() : ''
+  return Boolean(cleaned) && VALID_AGENT_CAPABILITIES.includes(cleaned as (typeof VALID_AGENT_CAPABILITIES)[number])
+}
+
+export function isValidApprovalGate(value: unknown): value is (typeof VALID_APPROVAL_GATES)[number] {
+  const cleaned = typeof value === 'string' ? value.trim() : ''
+  return Boolean(cleaned) && VALID_APPROVAL_GATES.includes(cleaned as (typeof VALID_APPROVAL_GATES)[number])
+}
 
 export const TASK_SOURCE_LINKAGE_FIELDS = [
   'sourceDocumentId',

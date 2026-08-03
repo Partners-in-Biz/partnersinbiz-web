@@ -79,6 +79,8 @@ export type GraphNodeTemplate = {
   verifierChecklist?: string[]
   reviewerAgentId?: string
   requiredCapability?: string
+  /** Kanban ApprovalGate for human_gate nodes (from playbook step.approvalGate). Not a capability. */
+  approvalGate?: string
   riskLevel?: RiskLevel
   systemAction?: string
   checkType?: string
@@ -250,6 +252,8 @@ export type WorkflowNodeState = {
   approvalRef?: string
   assigneeAgentId?: string
   requiredCapability?: string
+  /** Kanban ApprovalGate carried from template (human_gate); never stuffed into requiredCapability. */
+  approvalGate?: string
   riskLevel?: RiskLevel
   systemAction?: string
   checkType?: string
