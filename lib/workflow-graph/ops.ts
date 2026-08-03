@@ -593,7 +593,7 @@ export function cronWindowBucket(now: Date = new Date()): string {
   return `${y}${m}${d}T${h}`
 }
 
-export function appendTimeline(
+function appendTimeline(
   timeline: WorkflowTimelineEntry[] | undefined,
   entry: WorkflowTimelineEntry,
   cap = TIMELINE_CAP,

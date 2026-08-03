@@ -23,7 +23,7 @@ export const COST_DIMENSION_KEYS = [
 
 function optionalId(value: unknown, field: string): string | undefined {
   if (value === undefined || value === null || value === '') return undefined
-  return requiredText(value, field)
+  return requiredText(String(value), field)
 }
 
 export function normalizeCostDimensions(input: CostDimensions | undefined | null): CostDimensions {

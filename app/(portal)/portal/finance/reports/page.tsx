@@ -99,7 +99,7 @@ export default function FinanceReportsPage() {
           <ReportTable title="Income statement" rows={isRows} currency={currency} meta={incomeStatement} />
           <ReportTable title="Balance sheet" rows={bsRows} currency={currency} meta={balanceSheet} />
         </>
-      )}
+      ) : null}
     </FinanceModuleFrame>
   )
 }

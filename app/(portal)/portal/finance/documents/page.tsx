@@ -544,7 +544,7 @@ export default function FinanceDocumentsPage() {
             Open items: {(bundle?.openItems || []).length}. Match bank lines to payments via API operation <code>reconciliation.match</code>, then submit and approve with foundation approval evidence (SOD). Approval never auto-sends money.
           </section>
         </>
-      )}
+      ) : null}
     </FinanceModuleFrame>
   )
 }

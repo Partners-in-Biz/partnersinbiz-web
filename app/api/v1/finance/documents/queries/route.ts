@@ -6,7 +6,8 @@ import { runFinanceQueryHandler } from '@/lib/finance/http-command'
 
 export const dynamic = 'force-dynamic'
 
-const RESOURCES = ['bundle', 'aging'] as const
+/** Bundle only until AR/AP depth Firestore adapter exposes aging + filtered list. */
+const RESOURCES = ['bundle'] as const
 
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const gateway = new FirestoreFinanceDocumentsGateway()
@@ -19,22 +20,12 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
       if (!legalEntityId || !bookId) throw new FinanceValidationError('legalEntityId and bookId are required')
       const scope = { orgId, legalEntityId, bookId }
       if (resource === 'aging') {
-        const role = params.get('role') === 'supplier' ? 'supplier' : 'customer'
-        const asOfDate = params.get('asOfDate') || new Date().toISOString().slice(0, 10)
-        const currency = params.get('currency') || 'ZAR'
-        return gateway.buildAgingReport(actor, { ...scope, role, asOfDate, currency })
+        throw new FinanceValidationError(
+          'Documents aging query is not available until the AR/AP depth Firestore adapter is wired',
+        )
       }
       if (resource !== 'bundle') throw new FinanceValidationError('Unsupported documents query resource')
-      const filters = {
-        ...(params.get('status') ? { status: params.get('status') as string } : {}),
-        ...(params.get('counterpartyCompanyId') ? { counterpartyCompanyId: params.get('counterpartyCompanyId')! } : {}),
-        ...(params.get('fromDate') ? { fromDate: params.get('fromDate')! } : {}),
-        ...(params.get('toDate') ? { toDate: params.get('toDate')! } : {}),
-        ...(params.get('documentNumberContains') ? { documentNumberContains: params.get('documentNumberContains')! } : {}),
-        ...(params.get('minOutstandingMinor') ? { minOutstandingMinor: Number(params.get('minOutstandingMinor')) } : {}),
-        ...(params.get('maxOutstandingMinor') ? { maxOutstandingMinor: Number(params.get('maxOutstandingMinor')) } : {}),
-      }
-      return gateway.listBundle(actor, scope, filters)
+      return gateway.listBundle(actor, scope)
     },
   })
 })

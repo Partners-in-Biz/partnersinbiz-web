@@ -95,7 +95,7 @@ export function buildDocumentLine(input: {
     ...(line.taskId
       ? {
           taskId: requiredText(line.taskId, 'line.taskId'),
-          projectId: requiredText(line.projectId, 'line.projectId'),
+          projectId: requiredText(line.projectId || '', 'line.projectId'),
         }
       : {}),
     ...(line.costCentreCode ? { costCentreCode: requiredText(line.costCentreCode, 'line.costCentreCode') } : {}),

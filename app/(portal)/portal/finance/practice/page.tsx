@@ -113,7 +113,7 @@ export default function FinancePracticePage() {
     }
   }
 
-  async function assignRole() {
+  async function submitRoleAssignment() {
     await withBusy(async () => {
       const id = newFinanceId('asg')
       const ids = requestIdentity('asg')
@@ -377,7 +377,7 @@ export default function FinancePracticePage() {
                 variant="primary"
                 size="sm"
                 disabled={busy || !orgId || !assignUserId || !assignEntityId}
-                onClick={() => void assignRole()}
+                onClick={() => void submitRoleAssignment()}
               >
                 Assign role
               </Button>

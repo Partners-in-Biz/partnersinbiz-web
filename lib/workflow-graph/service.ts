@@ -164,14 +164,15 @@ export async function applyAdvanceAndMaterialize(
     current = result.run
 
     if (!result.materialize.length) break
-    if (!current.projectId) break
+    const projectId = current.projectId
+    if (!projectId) break
 
     let boundAny = false
     for (const intent of result.materialize) {
       const node = current.nodes.find((item) => item.nodeId === intent.nodeId)
       if (node?.kanbanTaskId) continue
       const materialized = await materializeKanbanTask({
-        projectId: current.projectId,
+        projectId,
         orgId: current.orgId,
         run: current,
         intent,

@@ -120,7 +120,8 @@ export async function saveOpsFact(fact: WorkflowOpsFact): Promise<{ written: boo
   const ref = adminDb.collection(OPS_FACTS).doc(fact.dedupeKey.replace(/[^a-zA-Z0-9:_-]/g, '_'))
   const existing = await ref.get()
   if (existing.exists) {
-    return { written: false, fact: { id: existing.id, ...(existing.data() as WorkflowOpsFact) } }
+    const data = existing.data() as WorkflowOpsFact
+    return { written: false, fact: { ...data, id: existing.id } }
   }
   const payload = stripUndefined({ ...fact, id: ref.id } as Record<string, unknown>)
   await ref.set(payload)
@@ -133,7 +134,10 @@ export async function listOpsFacts(orgId: string, limit = 50): Promise<WorkflowO
     .where('orgId', '==', orgId)
     .limit(Math.min(Math.max(limit, 1), 100))
     .get()
-  return snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as WorkflowOpsFact) }))
+  return snap.docs.map((doc) => {
+    const data = doc.data() as WorkflowOpsFact
+    return { ...data, id: doc.id }
+  })
 }
 
 export async function materializeKanbanTask(input: {
