@@ -101,6 +101,7 @@ describe('finance portal design-system parity', () => {
     'app/(portal)/portal/finance/budgets/page.tsx',
     'app/(portal)/portal/finance/multi-currency/page.tsx',
     'app/(portal)/portal/finance/period-close/page.tsx',
+    'app/(portal)/portal/finance/proving/page.tsx',
   ]
 
   test('shared shell components exist', () => {
@@ -128,6 +129,8 @@ describe('finance portal design-system parity', () => {
     expect(financeNavItem('runbooks').href).toBe('/portal/finance/runbooks')
     expect(financeNavItem('period-close').href).toBe('/portal/finance/period-close')
     expect(FINANCE_PRIMARY_TABS).toContain('period-close')
+    expect(financeNavItem('proving').href).toBe('/portal/finance/proving')
+    expect(FINANCE_PRIMARY_TABS).toContain('proving')
   })
 
   test('all finance portal pages mount FinanceModuleFrame + design-system primitives', () => {
@@ -181,6 +184,7 @@ describe('finance portal design-system parity', () => {
       'app/(portal)/portal/finance/inventory/page.tsx',
       'app/(portal)/portal/finance/assets/page.tsx',
       'app/(portal)/portal/finance/bank-rules/page.tsx',
+      'app/(portal)/portal/finance/bank-feeds/page.tsx',
       'app/(portal)/portal/finance/budgets/page.tsx',
       'app/(portal)/portal/finance/multi-currency/page.tsx',
       'app/(portal)/portal/finance/period-close/page.tsx',

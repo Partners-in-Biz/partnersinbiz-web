@@ -216,6 +216,13 @@ service cloud.firestore {
     match /payment_allocations/{id} { allow read, write: if false; }
     match /bank_accounts/{id} { allow read, write: if false; }
     match /bank_transactions/{id} { allow read, write: if false; }
+    match /finance_bank_feed_connections/{id} { allow read, write: if false; }
+    match /finance_bank_feed_sync_runs/{id} { allow read, write: if false; }
+    match /finance_bank_feed_lines/{id} { allow read, write: if false; }
+    match /finance_bank_feed_suggestions/{id} { allow read, write: if false; }
+    match /finance_bank_feed_audit_events/{id} { allow read, write: if false; }
+    match /finance_bank_feed_claims/{id} { allow read, write: if false; }
+    match /finance_bank_feed_fingerprints/{id} { allow read, write: if false; }
     match /reconciliations/{id} { allow read, write: if false; }
     match /reconciliation_matches/{id} { allow read, write: if false; }
     match /reconciliation_adjustments/{id} { allow read, write: if false; }
@@ -245,6 +252,8 @@ service cloud.firestore {
     match /leave_types/{id} { allow read, write: if false; }
     match /leave_balances/{id} { allow read, write: if false; }
     match /payslip_download_packs/{id} { allow read, write: if false; }
+    match /salary_structure_templates/{id} { allow read, write: if false; }
+    match /bulk_payslip_run_packs/{id} { allow read, write: if false; }
     match /irp5_records/{id} { allow read, write: if false; }
     match /emp201_snapshots/{id} { allow read, write: if false; }
     match /emp501_reconciliations/{id} { allow read, write: if false; }

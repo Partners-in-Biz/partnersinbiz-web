@@ -14,6 +14,7 @@ export type FinanceRouteKey =
   | 'cross-org'
   | 'statements'
   | 'bank-rules'
+  | 'bank-feeds'
   | 'budgets'
   | 'cutover'
   | 'multi-currency'
@@ -131,6 +132,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     group: 'ops',
   },
   {
+    key: 'bank-feeds',
+    label: 'Bank feeds',
+    href: '/portal/finance/bank-feeds',
+    icon: 'account_balance_wallet',
+    description: 'Mock-first bank feed connector: sync SA lines + suggestions — human accept/dismiss only, no paid vendor.',
+    group: 'ops',
+  },
+  {
     key: 'budgets',
     label: 'Budgets',
     href: '/portal/finance/budgets',
@@ -210,6 +219,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     description: 'Operator day-0/day-2 runbooks, hard gates, and Phase 4 acceptance pointers.',
     group: 'command',
   },
+  {
+    key: 'proving',
+    label: 'Proving kit',
+    href: '/portal/finance/proving',
+    icon: 'verified',
+    description: 'Deterministic demo company, multi-period close fixture, packaging dry-run, accountant acceptance checklist.',
+    group: 'command',
+  },
 ]
 
 export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
@@ -225,12 +242,14 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'packaging',
   'statements',
   'bank-rules',
+  'bank-feeds',
   'budgets',
   'multi-currency',
   'practice',
   'period-close',
   'setup',
   'runbooks',
+  'proving',
 ]
 
 export function financeNavItem(key: FinanceRouteKey): FinanceNavItem {

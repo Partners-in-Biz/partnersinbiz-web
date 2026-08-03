@@ -46,13 +46,20 @@ describe('finance workbench delivery contract', () => {
       'app/api/v1/finance/personal/queries/route.ts',
       'app/api/v1/finance/practice/commands/route.ts',
       'app/api/v1/finance/practice/queries/route.ts',
+      'app/api/v1/finance/proving/commands/route.ts',
+      'app/api/v1/finance/proving/queries/route.ts',
       'app/api/v1/finance/reports/queries/route.ts',
       'app/api/v1/finance/statements/commands/route.ts',
       'app/api/v1/finance/statements/queries/route.ts',
       'app/api/v1/finance/tax/commands/route.ts',
       'app/api/v1/finance/tax/queries/route.ts',
     ]))
-    expect(FINANCE_HTTP_ENTRYPOINTS).toHaveLength(37)
+    const unique = new Set(FINANCE_HTTP_ENTRYPOINTS)
+    expect(unique.size).toBe(FINANCE_HTTP_ENTRYPOINTS.length)
+    expect(FINANCE_HTTP_ENTRYPOINTS.length).toBeGreaterThanOrEqual(41)
+    for (const rel of FINANCE_HTTP_ENTRYPOINTS) {
+      expect(existsSync(path.join(root, rel))).toBe(true)
+    }
     expect(FINANCE_UI_SHIPPED).toBe(true)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/documents/i)
@@ -64,6 +71,7 @@ describe('finance workbench delivery contract', () => {
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/packaging/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/practice/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/multi-currency/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/proving/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/Interactive portal workbenches/i)
   })
 
@@ -87,10 +95,12 @@ describe('finance workbench delivery contract', () => {
       'app/(portal)/portal/finance/inventory/page.tsx',
       'app/(portal)/portal/finance/multi-currency/page.tsx',
       'app/(portal)/portal/finance/bank-rules/page.tsx',
+      'app/(portal)/portal/finance/bank-feeds/page.tsx',
       'app/(portal)/portal/finance/budgets/page.tsx',
       'app/(portal)/portal/finance/assets/page.tsx',
       'app/(portal)/portal/finance/period-close/page.tsx',
       'app/(portal)/portal/finance/runbooks/page.tsx',
+      'app/(portal)/portal/finance/proving/page.tsx',
     ]
     for (const rel of pages) {
       expect(existsSync(path.join(root, rel))).toBe(true)
