@@ -291,11 +291,48 @@ export async function handleKanbanTaskTerminalForWorkflow(input: {
   }
 
   if (agentOutput) {
-    for (const key of ['research_doc_id', 'draft_doc_id', 'eng_checklist_id', 'content_checklist_id', 'approval_ref']) {
+    for (const key of [
+      'research_doc_id',
+      'draft_doc_id',
+      'eng_checklist_id',
+      'content_checklist_id',
+      'approval_ref',
+      'qa_probe_id',
+      'publish_noop_receipt',
+    ]) {
       const value = agentOutput[key]
       if (typeof value === 'string' && value.trim()) {
         evidence.push({ type: key, ref: value.trim(), at: now })
       }
+    }
+    // Recover typed proof from summary prose when artifacts array was thrashed.
+    if (typeof agentOutput.summary === 'string') {
+      const summary = agentOutput.summary
+      for (const m of summary.matchAll(
+        /\{\s*type\s*[:=]\s*["']?([a-zA-Z0-9_.-]+)["']?\s*,\s*ref\s*[:=]\s*["']([^"'}]+)["']\s*\}/g,
+      )) {
+        evidence.push({ type: m[1], ref: m[2].trim(), at: now })
+      }
+      for (const key of [
+        'research_doc_id',
+        'draft_doc_id',
+        'eng_checklist_id',
+        'content_checklist_id',
+        'approval_ref',
+        'qa_probe_id',
+      ]) {
+        if (evidence.some((e) => e.type === key)) continue
+        const hit = summary.match(new RegExp(`${key}\\s*[:=]\\s*["']?([a-zA-Z0-9_.:\\/-]+)`, 'i'))
+        if (hit?.[1]) evidence.push({ type: key, ref: hit[1].trim(), at: now })
+      }
+    }
+  }
+
+  if (input.summary && evidence.length === 0) {
+    for (const m of input.summary.matchAll(
+      /\{\s*type\s*[:=]\s*["']?([a-zA-Z0-9_.-]+)["']?\s*,\s*ref\s*[:=]\s*["']([^"'}]+)["']\s*\}/g,
+    )) {
+      evidence.push({ type: m[1], ref: m[2].trim(), at: now })
     }
   }
 

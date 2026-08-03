@@ -34,7 +34,7 @@ import {
 } from './eligibility'
 import { buildCeoDataDecisionOperatingRule as buildSharedCeoDataDecisionOperatingRule } from './ceo-operating-rule'
 import { notifyCommandSessionFromTask } from './command-session'
-import { notifyWorkflowGraphTerminal } from './workflow-writeback'
+import { buildCompletionArtifacts, notifyWorkflowGraphTerminal } from './workflow-writeback'
 
 const MAX_CONCURRENT_PER_AGENT = 5
 const READY_TASK_SWEEP_MS = 60_000
@@ -1093,10 +1093,25 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       (typeof taskData.reviewerAgentId === 'string' && taskData.reviewerAgentId.trim())
       || (Array.isArray(taskData.reviewerIds) && taskData.reviewerIds.some((id) => typeof id === 'string' && id.trim())),
     )
-    const doneAgentOutput = {
+    // Preserve typed artifacts for dual-GET review + Workflow Graph write-back.
+    // Never write summary/telemetry-only agentOutput — that thrash wiped golden stubs.
+    const artifacts = buildCompletionArtifacts({
+      agentOutput: taskData.agentOutput,
+      summary,
+      expectedArtifacts: taskData.expectedArtifacts,
+    })
+    const doneAgentOutput: Record<string, unknown> = {
       summary,
       telemetry,
       completedAt: FieldValue.serverTimestamp(),
+    }
+    if (artifacts.length > 0) {
+      doneAgentOutput.artifacts = artifacts
+      for (const item of artifacts) {
+        if (typeof item.type === 'string' && item.type && typeof item.ref === 'string' && item.ref) {
+          doneAgentOutput[item.type] = item.ref
+        }
+      }
     }
     await taskRef.update({
       ...agentStatusUpdate('done', { hasReviewer }),
@@ -1118,7 +1133,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         taskId,
         taskData: {
           ...(taskData as unknown as Record<string, unknown>),
-          agentOutput: { summary, telemetry },
+          agentOutput: doneAgentOutput,
         },
         outcome: 'done',
         summary,
@@ -1261,10 +1276,46 @@ export async function dispatchReview(taskRef: DocumentReference, taskData: TaskD
       })
       return
     }
+    // Fresh agentOutput (Quinn may have PATCHed artifacts after claim snapshot).
+    const liveSnap = await taskRef.get().catch(() => null)
+    const liveData = (liveSnap?.data() ?? taskData) as TaskData
+    // Human already accepted while we were starting — do not thrash back to review/CR.
+    if (liveData.reviewStatus === 'approved' || liveData.columnId === 'done') {
+      logger.info('review skipped — human already approved', { taskId, agentId })
+      return
+    }
+    const liveArtifacts = buildCompletionArtifacts({
+      agentOutput: liveData.agentOutput,
+      summary: liveData.agentOutput?.summary,
+      expectedArtifacts: liveData.expectedArtifacts ?? taskData.expectedArtifacts,
+    })
+    // If store lost artifacts but expected stubs are recoverable, heal agentOutput before judging.
+    if (
+      liveArtifacts.length > 0
+      && (!Array.isArray(liveData.agentOutput?.artifacts) || liveData.agentOutput.artifacts.length === 0)
+    ) {
+      const healed: Record<string, unknown> = {
+        ...(liveData.agentOutput && typeof liveData.agentOutput === 'object' ? liveData.agentOutput : {}),
+        artifacts: liveArtifacts,
+      }
+      for (const item of liveArtifacts) healed[item.type] = item.ref
+      await taskRef.update({
+        agentOutput: healed,
+        updatedAt: FieldValue.serverTimestamp(),
+      }).catch(() => undefined)
+      liveData.agentOutput = healed as TaskData['agentOutput']
+    }
     const spec = [
       `Review this completed task. Return APPROVED if it passes, or CHANGES_REQUESTED followed by clear feedback if it fails.`,
       `Task: ${taskData.title ?? taskId}`,
-      taskData.agentOutput?.summary ? `Implementation summary:\n${taskData.agentOutput.summary}` : '',
+      liveData.agentOutput?.summary ? `Implementation summary:\n${liveData.agentOutput.summary}` : '',
+      liveArtifacts.length > 0
+        ? `Structured agentOutput.artifacts (authoritative store field):\n${JSON.stringify(liveArtifacts, null, 2)}`
+        : 'Structured agentOutput.artifacts: (none in store — fail if expectedArtifacts required)',
+      Array.isArray(liveData.expectedArtifacts) && liveData.expectedArtifacts.length > 0
+        ? `expectedArtifacts: ${liveData.expectedArtifacts.join(' | ')}`
+        : '',
+      'If expectedArtifacts are present in structured artifacts (or typed top-level agentOutput keys), APPROVE. Do not CHANGES_REQUESTED solely because dual GET earlier in chat failed if live store now has artifacts.',
     ].filter(Boolean).join('\n\n')
     const result = await runAndPoll(cfg, {
       taskId,
@@ -1276,6 +1327,19 @@ export async function dispatchReview(taskRef: DocumentReference, taskData: TaskD
       agentEffort: 'medium',
     })
     const output = (result.error ? `Reviewer error: ${result.error}` : result.output ?? '').slice(0, 4_000)
+
+    // Re-check human acceptance after long review run — never undo Peet accept.
+    const postSnap = await taskRef.get().catch(() => null)
+    const postData = (postSnap?.data() ?? {}) as TaskData
+    if (postData.reviewStatus === 'approved' || postData.columnId === 'done') {
+      await addAgentReviewComment(
+        taskRef,
+        agentId,
+        `Reviewer finished after human already accepted. Leaving approved/done (no CR thrash).\n\nReviewer draft (not applied):\n${output.slice(0, 1500)}`,
+      ).catch(() => undefined)
+      logger.info('review result discarded — human already approved', { taskId, agentId })
+      return
+    }
 
     if (result.error) {
       const priorRetryCount = Number.isFinite(taskData.reviewRetryCount)
@@ -1334,17 +1398,39 @@ export async function dispatchReview(taskRef: DocumentReference, taskData: TaskD
         reviewRetryAt: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       })
+      // Fresh agentOutput for write-back (artifacts may have been healed mid-review).
+      const approvedSnap = await taskRef.get().catch(() => null)
+      const approvedData = (approvedSnap?.data() ?? liveData) as TaskData
+      const writebackOutput = {
+        ...(approvedData.agentOutput && typeof approvedData.agentOutput === 'object' ? approvedData.agentOutput : {}),
+      } as Record<string, unknown>
+      const approvedArtifacts = buildCompletionArtifacts({
+        agentOutput: writebackOutput,
+        summary: typeof writebackOutput.summary === 'string' ? writebackOutput.summary : liveData.agentOutput?.summary,
+        expectedArtifacts: approvedData.expectedArtifacts ?? taskData.expectedArtifacts,
+      })
+      if (approvedArtifacts.length > 0) {
+        writebackOutput.artifacts = approvedArtifacts
+        for (const item of approvedArtifacts) writebackOutput[item.type] = item.ref
+      }
       // Graph node proven-done when reviewer approves implementer output.
       void notifyWorkflowGraphTerminal({
         taskRef,
         taskId,
-        taskData: taskData as unknown as Record<string, unknown>,
+        taskData: {
+          ...(approvedData as unknown as Record<string, unknown>),
+          agentOutput: writebackOutput,
+        },
         outcome: 'done',
         summary:
-          typeof (taskData as { agentOutput?: { summary?: string } }).agentOutput?.summary === 'string'
-            ? (taskData as { agentOutput: { summary: string } }).agentOutput.summary
+          typeof writebackOutput.summary === 'string'
+            ? writebackOutput.summary
             : 'Review approved',
-        hermesRunId: typeof taskData.agentConversationId === 'string' ? taskData.agentConversationId : null,
+        hermesRunId: typeof approvedData.agentConversationId === 'string'
+          ? approvedData.agentConversationId
+          : typeof taskData.agentConversationId === 'string'
+            ? taskData.agentConversationId
+            : null,
         actorUid: agentId,
       })
       return
@@ -1367,6 +1453,13 @@ export async function dispatchReview(taskRef: DocumentReference, taskData: TaskD
     const message = err instanceof Error ? err.message : String(err)
     logger.error('dispatchReview threw', { taskId, agentId, error: message })
     try {
+      // Do not thrash human-accepted cards back to pending review.
+      const errSnap = await taskRef.get().catch(() => null)
+      const errData = (errSnap?.data() ?? {}) as TaskData
+      if (errData.reviewStatus === 'approved' || errData.columnId === 'done') {
+        await addAgentReviewComment(taskRef, agentId, `Reviewer error after human accept (ignored): ${message}`)
+        return
+      }
       await addAgentReviewComment(taskRef, agentId, `Reviewer error: ${message}`)
       await taskRef.update({
         columnId: 'review',
