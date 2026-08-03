@@ -4,6 +4,7 @@ import {
   ensureCompanyCoworkFolderWithinBudget,
   formatClientNetworkError,
   formatCreateConversationNetworkError,
+  isAbortError,
   isNetworkFetchFailure,
   matchReconciledCreatedConversation,
   newConversationCreateIdempotencyKey,
@@ -18,6 +19,14 @@ describe('conversation create resilience helpers', () => {
     expect(formatCreateConversationNetworkError('checking')).toContain('checking if the chat was created')
     expect(formatCreateConversationNetworkError('unconfirmed')).toContain('may already exist')
     expect(formatClientNetworkError(new TypeError('Failed to fetch'))).toMatch(/Network dropped|offline/i)
+  })
+
+  it('treats intentional AbortSignal cancellations as non-errors (no toast)', () => {
+    const aborted = new DOMException('signal is aborted without reason', 'AbortError')
+    expect(isAbortError(aborted)).toBe(true)
+    expect(isAbortError(new Error('The user aborted a request.'))).toBe(true)
+    expect(isAbortError(new Error('Computer unavailable'))).toBe(false)
+    expect(formatClientNetworkError(aborted, 'Failed to load messages')).toBeNull()
   })
 
   it('parses Firestore-ish timestamps for reconcile windows', () => {

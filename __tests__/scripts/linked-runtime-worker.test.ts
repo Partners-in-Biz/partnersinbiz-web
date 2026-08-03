@@ -32,6 +32,11 @@ it('self-heals the managed Mac fleet without taking down healthy profiles or pub
   expect(script).toContain('missed health but still has active work')
   expect(script).toContain('mv "$request_path" "$claimed_path"')
   expect(script).toContain('skipping legacy public registration')
+  expect(script).toContain('probe_reverse_tunnel_http')
+  expect(script).toContain('kill_orphaned_reverse_tunnels')
+  expect(script).toContain('wait_for_tunnel_http')
+  expect(script).toContain('VPS reverse tunnel HTTP health ok')
+  expect(script).toContain('REGISTRATION_RETRY_SECONDS')
   expect(script).not.toContain('exited; stopping fleet')
 })
 it('detects live Hermes API work before credential reloads', async () => {

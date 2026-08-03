@@ -10,7 +10,7 @@ import {
 } from './constants'
 import { appendTimeline } from './ops-timeline'
 import { attemptIdempotencyKey } from './validation'
-import { isValidAgentCapability, isValidApprovalGate } from '@/lib/projects/taskPayload'
+import { isValidAgentCapability, isValidApprovalGate } from '@/lib/projects/task-allowlists'
 import type {
   AdvanceEvent,
   AdvanceResult,
