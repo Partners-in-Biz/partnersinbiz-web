@@ -81,8 +81,8 @@ gcloud secrets describe "$REDIS_SECRET" --project="$PROJECT_ID" >/dev/null 2>&1 
   gcloud secrets create "$REDIS_SECRET" --replication-policy=automatic --project="$PROJECT_ID"
 printf 'redis://:%s@%s:6379' "$REDIS_AUTH" "$REDIS_HOST" | gcloud secrets versions add "$REDIS_SECRET" --data-file=- --project="$PROJECT_ID"
 
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$PUBLISHER_SA" --role="roles/pubsub.publisher"
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$GATEWAY_SA" --role="roles/secretmanager.secretAccessor"
+gcloud pubsub topics add-iam-policy-binding "$TOPIC" --member="serviceAccount:$PUBLISHER_SA" --role="roles/pubsub.publisher" --project="$PROJECT_ID"
+gcloud secrets add-iam-policy-binding "$REDIS_SECRET" --member="serviceAccount:$GATEWAY_SA" --role="roles/secretmanager.secretAccessor" --project="$PROJECT_ID"
 gcloud iam service-accounts add-iam-policy-binding "$PUSH_SA" --member="serviceAccount:service-$PROJECT_NUMBER@gcp-sa-pubsub.iam.gserviceaccount.com" --role="roles/iam.serviceAccountTokenCreator" --project="$PROJECT_ID"
 
 IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/pib-realtime/realtime-gateway-v1:$(git rev-parse --short HEAD)"

@@ -20,9 +20,6 @@ const REDIS_CHANNEL = 'pib:realtime:v1:deliveries'
 const DEDUPE_KEY_PREFIX = 'pib:realtime:v1:dedupe:'
 
 if (!REDIS_URL) throw new Error('REDIS_URL is required')
-if (!PUBSUB_PUSH_SERVICE_ACCOUNT || !PUBSUB_AUDIENCE) {
-  throw new Error('PUBSUB_PUSH_SERVICE_ACCOUNT and PUBSUB_AUDIENCE are required')
-}
 if (!Number.isSafeInteger(PORT) || PORT < 1) throw new Error('PORT must be a valid port')
 
 if (!getApps().length) initializeApp()
@@ -101,6 +98,12 @@ async function readJsonBody(request: IncomingMessage): Promise<unknown> {
 }
 
 async function handlePubSub(request: IncomingMessage, response: ServerResponse) {
+  // Cloud Run assigns its permanent URL only after the first healthy revision.
+  // Keep the receiving endpoint fail-closed until the deployment config is
+  // updated with that exact OIDC audience.
+  if (!PUBSUB_PUSH_SERVICE_ACCOUNT || !PUBSUB_AUDIENCE) {
+    return json(response, 503, { error: 'Pub/Sub delivery is not configured' })
+  }
   if (!(await verifyPubSubRequest(request))) return json(response, 401, { error: 'unauthorised' })
   let delivery: GatewayDelivery | null = null
   try {
