@@ -26,7 +26,7 @@ import {
   saveOpsFact,
   saveWorkflowRun,
 } from './store'
-import { buildPilotResearchValidateDocApproveFanoutTemplate } from './pilot'
+import { buildGoldenE2EStubPilotTemplate, buildPilotResearchValidateDocApproveFanoutTemplate } from './pilot'
 import { promotePlaybookTemplateToGraphTemplate } from './playbook-promote'
 import { normalizeGraphTemplate, runCreateIdempotencyKey, validateGraphTemplate } from './validation'
 import type { AdvanceEvent, GraphTemplate, WorkflowApprovalRef, WorkflowRun } from './types'
@@ -49,6 +49,29 @@ export async function ensurePilotTemplate(orgId: string, projectId?: string, act
   }
 
   const template = buildPilotResearchValidateDocApproveFanoutTemplate({ orgId, projectId })
+  return saveGraphTemplate(template, actorUid)
+}
+
+/** Ensure deterministic golden E2E stub template exists (world-class live pilot). */
+export async function ensureGoldenE2ETemplate(orgId: string, projectId?: string, actorUid = 'system'): Promise<GraphTemplate> {
+  const existing = await adminDb
+    .collection('graph_templates')
+    .where('orgId', '==', orgId)
+    .where('name', '==', 'workflow-graph-golden-e2e')
+    .limit(1)
+    .get()
+    .catch(() => null)
+
+  if (existing && !existing.empty) {
+    const current = { id: existing.docs[0].id, ...(existing.docs[0].data() as GraphTemplate) }
+    // Refresh projectId binding when provided and missing/stale.
+    if (projectId && current.projectId !== projectId) {
+      return saveGraphTemplate({ ...current, projectId, status: 'active' }, actorUid)
+    }
+    return current
+  }
+
+  const template = buildGoldenE2EStubPilotTemplate({ orgId, projectId })
   return saveGraphTemplate(template, actorUid)
 }
 

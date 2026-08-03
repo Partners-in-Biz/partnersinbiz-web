@@ -287,30 +287,22 @@ describe('workflow graph phase 3 harden acceptance', () => {
       },
     })
     run = step.run
-    step = advanceWorkflowRun(run, {
-      type: 'kanban_terminal',
-      now: LATER,
-      nodeId: 'approve_publish_intent',
-      kanbanTaskId: 't-gate',
-      outcome: 'done',
-      evidence: [{ type: 'approval_ref', ref: 'apr_p3', at: LATER }],
-    })
-    run = step.run
+    expect(run.nodes.find((n) => n.nodeId === 'approve_publish_intent')?.status).toBe('done')
 
-    step = advanceWorkflowRun(run, {
-      type: 'tick',
-      now: LATER,
-      systemResults: {
-        noop_publish_system: {
-          ok: true,
-          evidence: [{ type: 'publish_noop_receipt', ref: 'rcpt', at: LATER }],
-        },
-      },
-    })
-    run = step.run
+    // Allowlisted noop may complete on the same approval tick; otherwise on next tick.
+    if (run.nodes.find((n) => n.nodeId === 'noop_publish_system')?.status !== 'done') {
+      step = advanceWorkflowRun(run, { type: 'tick', now: LATER })
+      run = step.run
+    }
+    expect(run.nodes.find((n) => n.nodeId === 'noop_publish_system')?.status).toBe('done')
 
-    // fan-out agents
-    const fan = step.materialize.filter((m) => m.kind === 'agent')
+    // fan-out agents (may already be on step.materialize from approval/system advance)
+    let fan = step.materialize.filter((m) => m.kind === 'agent')
+    if (fan.length < 1) {
+      step = advanceWorkflowRun(run, { type: 'tick', now: LATER })
+      run = step.run
+      fan = step.materialize.filter((m) => m.kind === 'agent')
+    }
     expect(fan.length).toBeGreaterThanOrEqual(1)
     for (const m of fan) {
       run = bindKanbanTask(run, m.nodeId, `t-${m.nodeId}`, LATER)
@@ -334,16 +326,10 @@ describe('workflow graph phase 3 harden acceptance', () => {
       step = advanceWorkflowRun(run, {
         type: 'tick',
         now: LATER,
-        artifactPresence: {
-          eng_checklist_id: true,
-          content_checklist_id: true,
-          research_doc_id: true,
-          draft_doc_id: true,
-        },
       })
       run = step.run
-      for (const m of step.materialize) {
-        if (m.kind !== 'agent') continue
+      for (const m of step.materialize.filter((x) => x.kind === 'agent')) {
+        if (run.nodes.find((n) => n.nodeId === m.nodeId)?.kanbanTaskId) continue
         run = bindKanbanTask(run, m.nodeId, `t-${m.nodeId}`, LATER)
         const art = m.nodeId === 'eng_checklist' ? 'eng_checklist_id' : 'content_checklist_id'
         step = advanceWorkflowRun(run, {
@@ -363,6 +349,9 @@ describe('workflow graph phase 3 harden acceptance', () => {
     }
 
     expect(run.status).toBe('succeeded')
+    expect(run.terminalReason).toBe('all_nodes_proven')
+    expect(run.notify.quietSuccess).toBe(true)
+
     const inspect = buildOpsInspect(run)
     expect(inspect.status).toBe('succeeded')
     expect(inspect.nodes.every((n) => n.status === 'done')).toBe(true)

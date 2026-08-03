@@ -11,6 +11,7 @@ export { appendTimeline } from './ops-timeline'
 export * from './triggers'
 export {
   ensurePilotTemplate,
+  ensureGoldenE2ETemplate,
   createOrUpdateGraphTemplate,
   startWorkflowRun,
   advanceWorkflowRunById,
