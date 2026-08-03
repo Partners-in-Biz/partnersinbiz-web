@@ -4124,6 +4124,15 @@ export default function UnifiedChat({
     }
   }, [])
 
+  // The realtime connection must not be recreated when the canonical loaders
+  // receive fresh callback identities during normal chat state updates. Keep
+  // their latest implementations available for the eventual `enabled` refresh
+  // path without putting them in the socket effect dependency array.
+  const loadConversationsRef = useRef(loadConversations)
+  const loadMessagesRef = useRef(loadMessages)
+  loadConversationsRef.current = loadConversations
+  loadMessagesRef.current = loadMessages
+
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { loadConversations() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -4303,8 +4312,8 @@ export default function UnifiedChat({
         refreshTimer = undefined
         if (disposed || document.visibilityState === 'hidden') return
         const convId = activeConversationIdRef.current
-        if (convId) void loadMessages(convId, { silent: true, softError: true })
-        void loadConversations()
+        if (convId) void loadMessagesRef.current(convId, { silent: true, softError: true })
+        void loadConversationsRef.current()
       }, 250)
     }
     const connect = async () => {
@@ -4353,7 +4362,7 @@ export default function UnifiedChat({
       if (refreshTimer !== undefined) window.clearTimeout(refreshTimer)
       socket?.close()
     }
-  }, [conversationPageVisible, loadConversations, loadMessages])
+  }, [conversationPageVisible])
 
   // Drop stale collaborator chips immediately when switching threads.
   useEffect(() => {
