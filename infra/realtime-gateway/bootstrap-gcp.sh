@@ -21,6 +21,7 @@ done
 
 require() { command -v "$1" >/dev/null || { echo "Missing required command: $1" >&2; exit 1; }; }
 require gcloud
+require node
 
 echo "Realtime GCP preflight: project=$PROJECT_ID region=$REGION"
 gcloud firestore databases list --project="$PROJECT_ID"
@@ -76,10 +77,18 @@ gcloud redis instances describe "$REDIS_INSTANCE" --region="$REGION" --project="
   gcloud redis instances create "$REDIS_INSTANCE" --tier=standard --size=1 --region="$REGION" --network="$NETWORK" --redis-version=redis_7_2 --enable-auth --connect-mode=DIRECT_PEERING --reserved-ip-range="$REDIS_RANGE" --project="$PROJECT_ID"
 
 REDIS_HOST="$(gcloud redis instances describe "$REDIS_INSTANCE" --region="$REGION" --project="$PROJECT_ID" --format='value(host)')"
-REDIS_AUTH="$(gcloud redis instances describe "$REDIS_INSTANCE" --region="$REGION" --project="$PROJECT_ID" --format='value(authString)')"
+REDIS_AUTH="$(gcloud redis instances get-auth-string "$REDIS_INSTANCE" --region="$REGION" --project="$PROJECT_ID" --format='value(authString)')"
 gcloud secrets describe "$REDIS_SECRET" --project="$PROJECT_ID" >/dev/null 2>&1 || \
   gcloud secrets create "$REDIS_SECRET" --replication-policy=automatic --project="$PROJECT_ID"
-printf 'redis://:%s@%s:6379' "$REDIS_AUTH" "$REDIS_HOST" | gcloud secrets versions add "$REDIS_SECRET" --data-file=- --project="$PROJECT_ID"
+# Redis AUTH strings are opaque and can contain URL-reserved characters. Encode
+# in a pipe so the raw credential is never written to disk or command output.
+printf '%s' "$REDIS_AUTH" | REDIS_HOST="$REDIS_HOST" node -e '
+  let value = "";
+  process.stdin.on("data", (chunk) => { value += chunk; });
+  process.stdin.on("end", () => {
+    process.stdout.write(`redis://:${encodeURIComponent(value)}@${process.env.REDIS_HOST}:6379`);
+  });
+' | gcloud secrets versions add "$REDIS_SECRET" --data-file=- --project="$PROJECT_ID"
 
 gcloud pubsub topics add-iam-policy-binding "$TOPIC" --member="serviceAccount:$PUBLISHER_SA" --role="roles/pubsub.publisher" --project="$PROJECT_ID"
 gcloud secrets add-iam-policy-binding "$REDIS_SECRET" --member="serviceAccount:$GATEWAY_SA" --role="roles/secretmanager.secretAccessor" --project="$PROJECT_ID"
@@ -87,8 +96,9 @@ gcloud iam service-accounts add-iam-policy-binding "$PUSH_SA" --member="serviceA
 
 IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/pib-realtime/realtime-gateway-v1:$(git rev-parse --short HEAD)"
 gcloud builds submit services/realtime-gateway --tag="$IMAGE" --project="$PROJECT_ID"
-gcloud run deploy "$GATEWAY_SERVICE" --image="$IMAGE" --region="$REGION" --project="$PROJECT_ID" --allow-unauthenticated \
-  --service-account="$GATEWAY_SA" --min=1 --max=100 --concurrency=80 --timeout=3600 \
+# Private first: browser access is a separate, deliberate canary decision.
+gcloud run deploy "$GATEWAY_SERVICE" --image="$IMAGE" --region="$REGION" --project="$PROJECT_ID" --no-allow-unauthenticated \
+  --service-account="$GATEWAY_SA" --min-instances=0 --max-instances=100 --concurrency=80 --timeout=3600 \
   --network="$NETWORK" --subnet="$SUBNET" --vpc-egress=private-ranges-only \
   --set-env-vars="PUBSUB_PUSH_SERVICE_ACCOUNT=$PUSH_SA,PUBSUB_AUDIENCE=https://placeholder.invalid,ALLOWED_ORIGINS=https://partnersinbiz.online" \
   --set-secrets="REDIS_URL=$REDIS_SECRET:latest"
@@ -99,4 +109,6 @@ gcloud run services add-iam-policy-binding "$GATEWAY_SERVICE" --member="serviceA
 gcloud pubsub subscriptions describe "$SUBSCRIPTION" --project="$PROJECT_ID" >/dev/null 2>&1 || \
   gcloud pubsub subscriptions create "$SUBSCRIPTION" --topic="$TOPIC" --push-endpoint="$GATEWAY_URL/internal/events/pubsub" \
     --push-auth-service-account="$PUSH_SA" --push-auth-token-audience="$GATEWAY_URL" --dead-letter-topic="$DLQ_TOPIC" --max-delivery-attempts=10 --project="$PROJECT_ID"
-echo "Gateway deployed at $GATEWAY_URL. Next: deploy the Firebase outbox publisher, then set the app transport to shadow for one canary user only."
+gcloud pubsub subscriptions update "$SUBSCRIPTION" --project="$PROJECT_ID" \
+  --push-endpoint="$GATEWAY_URL/internal/events/pubsub" --push-auth-service-account="$PUSH_SA" --push-auth-token-audience="$GATEWAY_URL"
+echo "Private gateway deployed at $GATEWAY_URL. Next: deploy the Firebase outbox publisher, validate its Eventarc trigger, then explicitly approve an authenticated browser canary."
