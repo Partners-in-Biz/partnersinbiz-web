@@ -1224,14 +1224,7 @@ export const POST = withAuth(
       // VPS-hosted "linked computers" (hermes-vps-01) already expose Hermes
       // /v1/runs publicly. Prefer direct gateway dispatch so chat does not depend
       // on pib-runtime claim queues. Keep the claim queue for Mac/desktop runtimes.
-      const vpsLinkedComputer = Boolean(
-        linkedComputerBinding
-        && (
-          linkedComputerBinding.platform === 'linux'
-          || /vps/i.test(linkedComputerBinding.machineLabel || '')
-          || /vps/i.test(linkedComputerBinding.runtimeTargetId || '')
-        ),
-      )
+      const vpsLinkedComputer = linkedComputerBinding?.deviceKind === 'vps'
       if (linkedComputerBinding && vpsLinkedComputer) {
         agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, {
           runtimeTarget: 'vps',
@@ -1255,7 +1248,7 @@ export const POST = withAuth(
         }
         const images = await linkedRunImages(attachments)
         const projectId = boundProjectId
-        const preferVps = linkedComputerBinding.platform === 'linux'
+        const preferVps = linkedComputerBinding.deviceKind === 'vps'
         const coworkWorkingDirectory = linkedCoworkWorkingDirectory(conversation.workspaceContext, { preferVps })
         if (coworkWorkingDirectory
           && !linkedRuntimeSupportsCoworkWorkingDirectory(linkedComputerBinding.runtimeVersion)) {
