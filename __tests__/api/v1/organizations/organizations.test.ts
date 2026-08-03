@@ -5,7 +5,7 @@ import { GET as getById, PUT, DELETE } from '@/app/api/v1/organizations/[id]/rou
 import { POST as addMember } from '@/app/api/v1/organizations/[id]/members/route'
 import { GET as searchClientMembers, POST as addClientMember } from '@/app/api/v1/organizations/[id]/members/client/route'
 import { POST as createLogin } from '@/app/api/v1/organizations/[id]/create-login/route'
-import { DELETE as removeMember } from '@/app/api/v1/organizations/[id]/members/[userId]/route'
+import { PATCH as patchMember, DELETE as removeMember } from '@/app/api/v1/organizations/[id]/members/[userId]/route'
 import { POST as linkClient } from '@/app/api/v1/organizations/[id]/link-client/route'
 import { GET as getOrgAccounts } from '@/app/api/v1/organizations/[id]/accounts/route'
 import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
@@ -1041,6 +1041,104 @@ describe('POST /api/v1/organizations/[id]/create-login', () => {
     )
 
     expect(res.status).toBe(409)
+  })
+})
+
+describe('PATCH /api/v1/organizations/[id]/members/[userId]', () => {
+  const mockOrgGet = jest.fn()
+  const mockUserGet = jest.fn()
+  const mockOrgUpdate = jest.fn()
+  const mockMemberSet = jest.fn()
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockOrgGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen',
+        slug: 'lumen',
+        active: true,
+        members: [
+          { userId: 'ai-agent', role: 'owner' },
+          {
+            userId: 'stean-member',
+            role: 'member',
+            accessPolicy: {
+              preset: 'custom',
+              modules: { billing: true, crm: true },
+              recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+            },
+          },
+        ],
+        description: '',
+        logoUrl: '',
+        website: '',
+        createdBy: 'ai-agent',
+        linkedClientId: '',
+      }),
+    })
+    mockUserGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'client',
+        email: 'stean@example.com',
+        displayName: 'Stean',
+        orgId: 'org-1',
+      }),
+    })
+    mockOrgUpdate.mockResolvedValue(undefined)
+    mockMemberSet.mockResolvedValue(undefined)
+    mockCollection.mockImplementation((collName: string) => {
+      if (collName === 'organizations') {
+        return { doc: jest.fn().mockReturnValue({ get: mockOrgGet, update: mockOrgUpdate }) }
+      }
+      if (collName === 'users') {
+        return { doc: jest.fn().mockReturnValue({ get: mockUserGet, set: jest.fn() }) }
+      }
+      if (collName === 'orgMembers') {
+        return { doc: jest.fn().mockReturnValue({ set: mockMemberSet }) }
+      }
+      throw new Error(`Unexpected collection: ${collName}`)
+    })
+  })
+
+  it('persists explicit accessPolicy capabilities for a member', async () => {
+    const res = await patchMember(
+      adminReq('PATCH', {
+        accessPolicy: {
+          preset: 'custom',
+          modules: { billing: true, crm: true, projects: true },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+          capabilities: { invoices: true, quotes: true },
+        },
+      }, 'http://localhost/api/v1/organizations/org-1/members/stean-member'),
+      routeCtx({ id: 'org-1', userId: 'stean-member' }),
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.data.accessPolicy.capabilities).toEqual({ invoices: true, quotes: true })
+    expect(mockOrgUpdate).toHaveBeenCalled()
+    expect(mockMemberSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessPolicy: expect.objectContaining({
+          capabilities: { invoices: true, quotes: true },
+        }),
+      }),
+      { merge: true },
+    )
+  })
+
+  it('rejects sending both accessScope and accessPolicy', async () => {
+    const res = await patchMember(
+      adminReq('PATCH', {
+        accessScope: 'billing',
+        accessPolicy: { capabilities: { invoices: true } },
+      }, 'http://localhost/api/v1/organizations/org-1/members/stean-member'),
+      routeCtx({ id: 'org-1', userId: 'stean-member' }),
+    )
+    expect(res.status).toBe(400)
   })
 })
 
