@@ -9,6 +9,14 @@ export type PackagingKind =
   | 'sars.vat_return'
   | 'payment.eft_instructions'
   | 'payment.payroll_net'
+  /** AP supplier payment batch — ACB-style CSV/TXT templates (download only). */
+  | 'payment.acb_ap'
+  /** AP supplier payment batch — NetCash-style CSV/TXT templates (download only). */
+  | 'payment.netcash_ap'
+  /** Payroll net-pay batch — ACB-style CSV/TXT templates (download only). */
+  | 'payment.acb_payroll'
+  /** Payroll net-pay batch — NetCash-style CSV/TXT templates (download only). */
+  | 'payment.netcash_payroll'
   | 'accountant.trial_balance'
   | 'accountant.general_ledger'
   | 'accountant.open_items'

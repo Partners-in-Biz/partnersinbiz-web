@@ -8,6 +8,10 @@ import type {
   PackagingFinanceAction,
   PackagingKind,
 } from './types'
+import {
+  SA_BANK_OPERATOR_NOTICE,
+  buildSaBankFormatFiles,
+} from './sa-bank-formats'
 
 export class PackagingFinanceValidationError extends Error {
   readonly statusCode = 400
@@ -26,7 +30,14 @@ export class PackagingFinanceNotFoundError extends Error {
 }
 
 const SARS_KINDS: PackagingKind[] = ['sars.emp201', 'sars.emp501', 'sars.irp5_it3a', 'sars.vat_return']
-const PAYMENT_KINDS: PackagingKind[] = ['payment.eft_instructions', 'payment.payroll_net']
+const PAYMENT_KINDS: PackagingKind[] = [
+  'payment.eft_instructions',
+  'payment.payroll_net',
+  'payment.acb_ap',
+  'payment.netcash_ap',
+  'payment.acb_payroll',
+  'payment.netcash_payroll',
+]
 const ACCOUNTANT_KINDS: PackagingKind[] = [
   'accountant.trial_balance',
   'accountant.general_ledger',
@@ -277,6 +288,8 @@ export function buildPackFiles(kind: PackagingKind, payload: Record<string, unkn
       return { files, rowCount: rows.length || asRowArray(payload, 'boxRows').length }
     }
     case 'payment.eft_instructions': {
+      const actionDateFallback =
+        typeof payload.actionDate === 'string' ? payload.actionDate : typeof payload.periodTo === 'string' ? payload.periodTo : '1970-01-01'
       const files = [
         buildJsonFile('eft-instructions.json', { ...meta, instructions: rows }),
         buildCsvFile(
@@ -284,14 +297,21 @@ export function buildPackFiles(kind: PackagingKind, payload: Record<string, unkn
           ['beneficiaryName', 'bankName', 'accountNumber', 'branchCode', 'amountMinor', 'currency', 'reference', 'sourceDocumentId'],
           rows,
         ),
+        ...buildSaBankFormatFiles(rows, { purpose: 'ap', family: 'all', actionDateFallback }),
         buildJsonFile('README.json', {
-          notice: 'Payment instruction export only. Bank/payment initiation is disabled.',
+          notice: SA_BANK_OPERATOR_NOTICE,
+          operatorAction: 'Download these files, then upload manually in your banking channel. PiB does not initiate payments.',
           externalPaymentInitiated: false,
+          externalEgressAllowed: false,
+          bankSessionOpened: false,
+          autoUploadToBank: false,
         }),
       ]
       return { files, rowCount: rows.length }
     }
     case 'payment.payroll_net': {
+      const actionDateFallback =
+        typeof payload.actionDate === 'string' ? payload.actionDate : typeof payload.periodTo === 'string' ? payload.periodTo : '1970-01-01'
       const files = [
         buildJsonFile('payroll-net-pay.json', { ...meta, pays: rows }),
         buildCsvFile(
@@ -299,9 +319,82 @@ export function buildPackFiles(kind: PackagingKind, payload: Record<string, unkn
           ['employeeId', 'employeeName', 'bankName', 'accountNumber', 'branchCode', 'netPayMinor', 'currency', 'payRunId', 'reference'],
           rows,
         ),
+        ...buildSaBankFormatFiles(rows, { purpose: 'payroll', family: 'all', preferNetPay: true, actionDateFallback }),
         buildJsonFile('README.json', {
-          notice: 'Payroll net-pay observation export. Does not initiate salary payments.',
+          notice: SA_BANK_OPERATOR_NOTICE,
+          operatorAction: 'Download payroll batch files and upload manually in banking/payroll channel. Does not initiate salary payments.',
           externalPaymentInitiated: false,
+          externalEgressAllowed: false,
+          bankSessionOpened: false,
+          autoUploadToBank: false,
+        }),
+      ]
+      return { files, rowCount: rows.length }
+    }
+    case 'payment.acb_ap': {
+      const actionDateFallback =
+        typeof payload.actionDate === 'string' ? payload.actionDate : typeof payload.periodTo === 'string' ? payload.periodTo : '1970-01-01'
+      const files = [
+        buildJsonFile('acb-ap-payload.json', { ...meta, instructions: rows }),
+        ...buildSaBankFormatFiles(rows, { purpose: 'ap', family: 'acb', actionDateFallback }),
+        buildJsonFile('README.json', {
+          notice: SA_BANK_OPERATOR_NOTICE,
+          format: 'ACB-style AP payment batch (CSV + TXT templates)',
+          operatorAction: 'Download, then upload manually via ACB/internet banking bulk payments. No auto-upload.',
+          externalPaymentInitiated: false,
+          externalEgressAllowed: false,
+          bankSessionOpened: false,
+          autoUploadToBank: false,
+        }),
+      ]
+      return { files, rowCount: rows.length }
+    }
+    case 'payment.netcash_ap': {
+      const files = [
+        buildJsonFile('netcash-ap-payload.json', { ...meta, instructions: rows }),
+        ...buildSaBankFormatFiles(rows, { purpose: 'ap', family: 'netcash' }),
+        buildJsonFile('README.json', {
+          notice: SA_BANK_OPERATOR_NOTICE,
+          format: 'NetCash-style AP payment batch (CSV + TXT templates)',
+          operatorAction: 'Download, then upload manually in NetCash / banking channel. PiB never opens a NetCash session.',
+          externalPaymentInitiated: false,
+          externalEgressAllowed: false,
+          bankSessionOpened: false,
+          autoUploadToBank: false,
+        }),
+      ]
+      return { files, rowCount: rows.length }
+    }
+    case 'payment.acb_payroll': {
+      const actionDateFallback =
+        typeof payload.actionDate === 'string' ? payload.actionDate : typeof payload.periodTo === 'string' ? payload.periodTo : '1970-01-01'
+      const files = [
+        buildJsonFile('acb-payroll-payload.json', { ...meta, pays: rows }),
+        ...buildSaBankFormatFiles(rows, { purpose: 'payroll', family: 'acb', preferNetPay: true, actionDateFallback }),
+        buildJsonFile('README.json', {
+          notice: SA_BANK_OPERATOR_NOTICE,
+          format: 'ACB-style payroll net-pay batch (CSV + TXT templates)',
+          operatorAction: 'Download payroll ACB files and upload manually. Does not initiate salary payments.',
+          externalPaymentInitiated: false,
+          externalEgressAllowed: false,
+          bankSessionOpened: false,
+          autoUploadToBank: false,
+        }),
+      ]
+      return { files, rowCount: rows.length }
+    }
+    case 'payment.netcash_payroll': {
+      const files = [
+        buildJsonFile('netcash-payroll-payload.json', { ...meta, pays: rows }),
+        ...buildSaBankFormatFiles(rows, { purpose: 'payroll', family: 'netcash', preferNetPay: true }),
+        buildJsonFile('README.json', {
+          notice: SA_BANK_OPERATOR_NOTICE,
+          format: 'NetCash-style payroll net-pay batch (CSV + TXT templates)',
+          operatorAction: 'Download payroll NetCash files and upload manually. Does not initiate salary payments.',
+          externalPaymentInitiated: false,
+          externalEgressAllowed: false,
+          bankSessionOpened: false,
+          autoUploadToBank: false,
         }),
       ]
       return { files, rowCount: rows.length }
@@ -382,6 +475,14 @@ function defaultTitle(kind: PackagingKind): string {
       return 'EFT payment instruction pack'
     case 'payment.payroll_net':
       return 'Payroll net-pay instruction pack'
+    case 'payment.acb_ap':
+      return 'ACB-style AP payment batch pack'
+    case 'payment.netcash_ap':
+      return 'NetCash-style AP payment batch pack'
+    case 'payment.acb_payroll':
+      return 'ACB-style payroll net-pay batch pack'
+    case 'payment.netcash_payroll':
+      return 'NetCash-style payroll net-pay batch pack'
     case 'accountant.trial_balance':
       return 'Accountant trial balance pack'
     case 'accountant.general_ledger':

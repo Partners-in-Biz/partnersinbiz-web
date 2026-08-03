@@ -20,8 +20,12 @@ const KIND_OPTIONS = [
   { value: 'sars.emp501', label: 'SARS EMP501' },
   { value: 'sars.irp5_it3a', label: 'SARS IRP5/IT3(a)' },
   { value: 'sars.vat_return', label: 'SARS VAT return' },
-  { value: 'payment.eft_instructions', label: 'Payment EFT instructions' },
-  { value: 'payment.payroll_net', label: 'Payroll net-pay instructions' },
+  { value: 'payment.eft_instructions', label: 'Payment EFT + SA bank formats (AP)' },
+  { value: 'payment.payroll_net', label: 'Payroll net-pay + SA bank formats' },
+  { value: 'payment.acb_ap', label: 'ACB-style AP batch (CSV/TXT)' },
+  { value: 'payment.netcash_ap', label: 'NetCash-style AP batch (CSV/TXT)' },
+  { value: 'payment.acb_payroll', label: 'ACB-style payroll batch (CSV/TXT)' },
+  { value: 'payment.netcash_payroll', label: 'NetCash-style payroll batch (CSV/TXT)' },
   { value: 'accountant.trial_balance', label: 'Accountant trial balance' },
   { value: 'accountant.general_ledger', label: 'Accountant general ledger' },
   { value: 'accountant.open_items', label: 'Accountant open items' },
@@ -84,24 +88,28 @@ function samplePayload(kind: string): Record<string, unknown> {
       ],
     }
   }
-  if (kind.startsWith('payment.eft')) {
+  if (kind.startsWith('payment.eft') || kind === 'payment.acb_ap' || kind === 'payment.netcash_ap') {
     return {
+      actionDate: '2026-08-05',
       rows: [
         {
           beneficiaryName: 'Supplier Pty Ltd',
           bankName: 'FNB',
           accountNumber: '62800123456',
           branchCode: '250655',
+          accountType: 1,
           amountMinor: 2500000,
           currency: 'ZAR',
           reference: 'BILL-1001',
           sourceDocumentId: 'bill_1001',
+          actionDate: '2026-08-05',
         },
       ],
     }
   }
-  if (kind.startsWith('payment.payroll')) {
+  if (kind.startsWith('payment.payroll') || kind === 'payment.acb_payroll' || kind === 'payment.netcash_payroll') {
     return {
+      actionDate: '2026-08-05',
       rows: [
         {
           employeeId: 'emp_1',
@@ -109,10 +117,12 @@ function samplePayload(kind: string): Record<string, unknown> {
           bankName: 'Standard Bank',
           accountNumber: '100200300',
           branchCode: '051001',
+          accountType: 1,
           netPayMinor: 3200000,
           currency: 'ZAR',
           payRunId: 'pr_2026_07',
           reference: 'NET-emp_1-2026-07',
+          actionDate: '2026-08-05',
         },
       ],
     }
@@ -272,7 +282,7 @@ export default function PackagingWorkbenchPage() {
         id: selected.id,
         ...ids,
       })
-      setMessage('Download started. Pack marked downloaded (no external submit/payment).')
+      setMessage('Browser download started. Operator must upload bank files manually. Pack marked downloaded (no external submit/payment/auto-upload).')
     })
   }
 
@@ -281,7 +291,7 @@ export default function PackagingWorkbenchPage() {
       active="packaging"
       orgScope={scope.orgScope}
       title="Packaging exports"
-      description="SARS-ready, payment instruction, and accountant download packs. Manifest/download only."
+      description="SARS-ready, payment instruction, and accountant download packs. Export/download only — operators upload bank files manually. No payment initiate, no bank session, no auto-upload."
       error={error || scope.error}
       message={message || scope.message}
       loading={scope.loading}
@@ -298,6 +308,9 @@ export default function PackagingWorkbenchPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="space-y-3 rounded-xl border border-[var(--color-border)] p-4">
           <h2 className="text-lg font-semibold">Create export pack</h2>
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <strong>Payment packs are download-only.</strong> Download ACB/NetCash/EFT files here, then upload them yourself in your banking channel (internet banking, ACB bulk, or NetCash). Partners in Biz never initiates payments, opens bank sessions, or auto-uploads to banks.
+          </div>
           <p className="text-sm text-[var(--color-muted)]">
             Entity: {scope.legalEntityId || '—'} · Book: {scope.bookId || '—'}
           </p>
@@ -346,14 +359,14 @@ export default function PackagingWorkbenchPage() {
                 })
                 const pack = body?.data?.result
                 if (pack?.id) setSelectedId(pack.id)
-                setMessage(`Created ${pack?.kind || kind} pack ${pack?.id || id}. Gates: no SARS submit, no payment initiate.`)
+                setMessage(`Created ${pack?.kind || kind} pack ${pack?.id || id}. Gates: no SARS submit, no payment initiate, no bank auto-upload.`)
               })
             }
           >
             {busy ? 'Working…' : 'Create download pack'}
           </button>
           <p className="text-xs text-[var(--color-muted)]">
-            Sample payload is used for interactive demos. Production callers supply EMP/VAT/payable/ledger snapshots via API.
+            Sample payload is used for interactive demos. Production callers supply EMP/VAT/payable/ledger/payroll snapshots via API. Payment ACB/NetCash files are templates for manual bank upload only.
           </p>
         </section>
 
