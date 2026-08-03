@@ -11,6 +11,7 @@ Internal operator runbooks and acceptance evidence for Partners in Biz Finance, 
 | [Phase 4 product spec mirror](../../specs/finance-phase4-product-spec-2026-08-02.md) | Spec index for document `Flie3SblIDXvplYmqOhy` |
 | [Competitor gap map](../../research/finance-phase4-competitor-gap-map-2026-08-02.md) | Research basis for Phase 4 |
 | [Phase 5 residual gap map](../../research/finance-phase5-residual-gap-map-2026-08-03.md) | Research basis for Phase 5 |
+| [E2E golden paths (Playwright)](./e2e-golden-paths.md) | Six hermetic golden paths + optional live smoke; `npm run verify:finance:e2e` |
 | [Canonical data model](../../architecture/finance-accounting-payroll-data-model.md) | Architecture |
 
 ## Portal surfaces
