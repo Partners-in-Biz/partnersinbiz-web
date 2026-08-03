@@ -16,6 +16,8 @@ import {
   shouldEmitBlockAlert,
   shouldEmitQuietSuccess,
   classifyOpsRunBucket,
+  resolveAlert,
+  bumpBlockRevisionOnAlertTransition,
 } from '@/lib/workflow-graph/ops'
 import { buildPilotResearchValidateDocApproveFanoutTemplate } from '@/lib/workflow-graph/pilot'
 import { DEFAULT_SLA } from '@/lib/workflow-graph/constants'
@@ -257,5 +259,111 @@ describe('workflow graph phase 2 ops', () => {
     run.stuckReasonCode = 'agent_heartbeat_stale'
     run.stuckAt = NOW
     expect(classifyOpsRunBucket(run, NOW)).toBe('stuck')
+  })
+
+  test('alert signature: missing_artifact stays one revision across status/stuck thrash', () => {
+    let run = startPilotRun()
+    run.status = 'running'
+    run.notify = { quietSuccess: true, alertOnBlock: true }
+    const agent = run.nodes.find((n) => n.kind === 'agent')!
+    agent.status = 'blocked'
+    agent.blockedReasonCode = 'missing_artifact:qa_probe_id'
+    run.blockedReasonCode = 'missing_artifact:qa_probe_id'
+
+    const alert1 = resolveAlert(run)!
+    expect(alert1.kind).toBe('block')
+    expect(alert1.reasonCode).toBe('missing_artifact:qa_probe_id')
+    expect(alert1.signature).toBe('block:missing_artifact:qa_probe_id')
+
+    // First transition from clean → alert
+    const clean = startPilotRun()
+    clean.notify = { quietSuccess: true, alertOnBlock: true }
+    let next = bumpBlockRevisionOnAlertTransition(clean, run)
+    expect(next.blockRevision).toBe(1)
+    expect(next.lastAlertSignature).toBe('block:missing_artifact:qa_probe_id')
+
+    // running → failed same code must NOT bump
+    const failed = {
+      ...next,
+      status: 'failed' as const,
+      terminalReason: 'blocked_without_open_paths',
+      nodes: next.nodes.map((n) => ({ ...n })),
+    }
+    next = bumpBlockRevisionOnAlertTransition(next, failed)
+    expect(next.blockRevision).toBe(1)
+
+    // stuck set + clear while blocked must NOT bump or change signature
+    const withStuck = {
+      ...next,
+      stuckReasonCode: 'run_no_transition',
+      stuckAt: NOW,
+      nodes: next.nodes.map((n) => ({ ...n })),
+    }
+    next = bumpBlockRevisionOnAlertTransition(next, withStuck)
+    expect(next.blockRevision).toBe(1)
+    expect(resolveAlert(withStuck)!.signature).toBe('block:missing_artifact:qa_probe_id')
+
+    const stuckCleared = {
+      ...next,
+      stuckReasonCode: undefined,
+      stuckAt: undefined,
+      nodes: next.nodes.map((n) => ({ ...n })),
+    }
+    next = bumpBlockRevisionOnAlertTransition(next, stuckCleared)
+    expect(next.blockRevision).toBe(1)
+
+    const fact = buildBlockAlertFact(next, NOW)
+    expect(fact.dedupeKey).toBe('wfr_ops_1:block:1')
+    expect(fact.kind).toBe('block')
+    expect(fact.reasonCode).toBe('missing_artifact:qa_probe_id')
+    expect(fact.reasonCode).not.toBe('running')
+  })
+
+  test('never emit kind=block with reasonCode=running; node block code wins', () => {
+    const run = startPilotRun()
+    run.status = 'running'
+    run.notify = { quietSuccess: true, alertOnBlock: true }
+    run.blockedReasonCode = undefined
+    const check = run.nodes.find((n) => n.kind === 'code_check') || run.nodes[0]
+    check.status = 'blocked'
+    check.blockedReasonCode = 'missing_artifact:qa_probe_id'
+
+    const alert = resolveAlert(run)!
+    expect(alert.reasonCode).toBe('missing_artifact:qa_probe_id')
+    expect(alert.reasonCode).not.toBe('running')
+    expect(alert.kind).toBe('block')
+
+    const fact = buildBlockAlertFact({ ...run, blockRevision: 1 }, NOW)
+    expect(fact.reasonCode).toBe('missing_artifact:qa_probe_id')
+    expect(fact.kind).toBe('block')
+  })
+
+  test('stuck-only alert uses kind=stuck never block+running', () => {
+    const run = startPilotRun()
+    run.status = 'running'
+    run.notify = { quietSuccess: true, alertOnBlock: true }
+    run.stuckReasonCode = 'run_no_transition'
+    run.stuckAt = NOW
+    for (const n of run.nodes) {
+      n.status = 'pending'
+      n.blockedReasonCode = undefined
+    }
+    run.blockedReasonCode = undefined
+
+    const alert = resolveAlert(run)!
+    expect(alert.kind).toBe('stuck')
+    expect(alert.reasonCode).toBe('run_no_transition')
+    expect(alert.signature).toBe('stuck:run_no_transition')
+
+    const fact = buildBlockAlertFact({ ...run, blockRevision: 1 }, NOW, alert)
+    expect(fact.kind).toBe('stuck')
+    expect(fact.reasonCode).toBe('run_no_transition')
+
+    // Healthy in-progress with no stuck/block is not alert-worthy
+    const healthy = startPilotRun()
+    healthy.status = 'running'
+    healthy.notify = { quietSuccess: true, alertOnBlock: true }
+    expect(resolveAlert(healthy)).toBeNull()
+    expect(shouldEmitBlockAlert(healthy)).toBe(false)
   })
 })

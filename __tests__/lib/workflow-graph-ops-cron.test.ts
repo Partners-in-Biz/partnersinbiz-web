@@ -29,6 +29,8 @@ jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
     serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP'),
     arrayUnion: jest.fn((...args: unknown[]) => args),
+    delete: jest.fn(() => 'FIELD_DELETE'),
+    increment: jest.fn((n: number) => n),
   },
 }))
 
@@ -125,6 +127,7 @@ describe('workflow graph phase 2 cron orchestration', () => {
     expect(finalized.stuckAt).toBeTruthy()
     expect(finalized.blockRevision).toBe(1)
     expect(finalized.lastAlertDedupeKey).toBe('wfr_cron_1:block:1')
+    expect(finalized.lastAlertSignature).toMatch(/^stuck:/)
 
     expect(saveOpsFactMock).toHaveBeenCalledTimes(1)
     const fact = saveOpsFactMock.mock.calls[0][0] as {
@@ -137,11 +140,65 @@ describe('workflow graph phase 2 cron orchestration', () => {
     expect(fact.dedupeKey).toBe('wfr_cron_1:block:1')
     expect(fact.workflowRunId).toBe('wfr_cron_1')
     expect(String(fact.reasonCode)).toMatch(/agent_heartbeat_stale|agent_running_stale/)
+    expect(fact.reasonCode).not.toBe('running')
 
     // Second call same revision must not write again (dedupe key already on run)
     saveOpsFactMock.mockClear()
     const again = await workflowGraph.finalizeOpsSideEffects(finalized, finalized, later)
     expect(again.lastAlertDedupeKey).toBe('wfr_cron_1:block:1')
+    expect(again.blockRevision).toBe(1)
+    expect(saveOpsFactMock).not.toHaveBeenCalled()
+  })
+
+  test('missing_artifact multi-tick emits one fact; stuck thrash does not mint running facts', async () => {
+    let run = startPilotRun()
+    run.status = 'running'
+    run.notify = { quietSuccess: true, alertOnBlock: true }
+    const agent = run.nodes.find((n) => n.kind === 'agent')!
+    agent.status = 'blocked'
+    agent.blockedReasonCode = 'missing_artifact:qa_probe_id'
+    run.blockedReasonCode = 'missing_artifact:qa_probe_id'
+
+    const t1 = await workflowGraph.finalizeOpsSideEffects(null, run, NOW)
+    expect(t1.blockRevision).toBe(1)
+    expect(saveOpsFactMock).toHaveBeenCalledTimes(1)
+    const f1 = saveOpsFactMock.mock.calls[0][0] as { kind: string; reasonCode?: string; dedupeKey: string }
+    expect(f1.kind).toBe('block')
+    expect(f1.reasonCode).toBe('missing_artifact:qa_probe_id')
+    expect(f1.dedupeKey).toBe('wfr_cron_1:block:1')
+
+    // Multi tick: failed + stuck set/clear
+    saveOpsFactMock.mockClear()
+    const failed = {
+      ...t1,
+      status: 'failed' as const,
+      terminalReason: 'blocked_without_open_paths',
+      nodes: t1.nodes.map((n) => ({ ...n })),
+    }
+    const t2 = await workflowGraph.finalizeOpsSideEffects(t1, failed, NOW)
+    expect(t2.blockRevision).toBe(1)
+    expect(saveOpsFactMock).not.toHaveBeenCalled()
+
+    const withStuck = {
+      ...t2,
+      status: 'running' as const,
+      stuckReasonCode: 'run_no_transition',
+      stuckAt: NOW,
+      nodes: t2.nodes.map((n) => ({ ...n })),
+    }
+    // blocked node still present — signature stays block:missing...
+    const t3 = await workflowGraph.finalizeOpsSideEffects(t2, withStuck, NOW)
+    expect(t3.blockRevision).toBe(1)
+    expect(saveOpsFactMock).not.toHaveBeenCalled()
+
+    const cleared = {
+      ...t3,
+      stuckReasonCode: undefined,
+      stuckAt: undefined,
+      nodes: t3.nodes.map((n) => ({ ...n })),
+    }
+    const t4 = await workflowGraph.finalizeOpsSideEffects(t3, cleared, NOW)
+    expect(t4.blockRevision).toBe(1)
     expect(saveOpsFactMock).not.toHaveBeenCalled()
   })
 })

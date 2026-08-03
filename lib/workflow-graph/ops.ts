@@ -468,17 +468,98 @@ export function nextBlockRevision(run: WorkflowRun): number {
   return (run.blockRevision ?? 0) + 1
 }
 
+/** Non-alert lifecycle statuses — never use these as reasonCode. */
+const NON_ALERT_REASON_STATUSES = new Set([
+  'running',
+  'created',
+  'succeeded',
+  'cancelled',
+  'abandoned_candidate',
+  'paused_capacity',
+  'paused_approval',
+])
+
+export type ResolvedAlert = {
+  kind: WorkflowOpsFact['kind']
+  reasonCode: string
+  signature: string
+  nodeId?: string
+}
+
+/**
+ * Resolve a stable alert identity for quiet-success / alert-on-block.
+ * Signature changes ⇒ new blockRevision; same signature ⇒ at most one fact (overwrite OK).
+ * Never emits bare lifecycle status like reasonCode=running.
+ */
+export function resolveAlert(run: WorkflowRun): ResolvedAlert | null {
+  if (run.status === 'paused_budget') {
+    return {
+      kind: 'budget_exceed',
+      reasonCode: run.blockedReasonCode || 'budget_exceeded',
+      signature: 'budget:exceeded',
+    }
+  }
+
+  if (run.cost?.budgetStatus === 'unknown_usage') {
+    return {
+      kind: 'unknown_usage',
+      reasonCode: 'unknown_usage',
+      signature: 'budget:unknown_usage',
+    }
+  }
+
+  const blockedNode =
+    run.nodes.find((n) => n.status === 'blocked' && n.blockedReasonCode)
+    || run.nodes.find((n) => n.status === 'blocked')
+    || run.nodes.find((n) => Boolean(n.blockedReasonCode) && n.status !== 'done' && n.status !== 'cancelled')
+
+  const blockCode =
+    run.blockedReasonCode
+    || blockedNode?.blockedReasonCode
+    || (blockedNode ? `node_blocked:${blockedNode.nodeId}` : undefined)
+
+  // Concrete block outranks stuck so stuck clear/set does not thrash revisions.
+  if (blockCode) {
+    return {
+      kind: 'block',
+      reasonCode: blockCode,
+      signature: `block:${blockCode}`,
+      nodeId: blockedNode?.nodeId,
+    }
+  }
+
+  if (run.status === 'failed') {
+    const code = run.terminalReason || 'failed'
+    if (NON_ALERT_REASON_STATUSES.has(code)) return null
+    return {
+      kind: 'block',
+      reasonCode: code,
+      signature: `block:${code}`,
+    }
+  }
+
+  if (run.stuckReasonCode) {
+    const stuckCode = run.stuckReasonCode
+    const kind: WorkflowOpsFact['kind'] =
+      stuckCode.startsWith('human_gate') ? 'human_gate_sla' : 'stuck'
+    return {
+      kind,
+      reasonCode: stuckCode,
+      signature: `stuck:${stuckCode}`,
+      nodeId: undefined,
+    }
+  }
+
+  return null
+}
+
 export function isAlertWorthyStatus(run: WorkflowRun): boolean {
-  if (run.status === 'failed' || run.status === 'paused_budget') return true
-  if (run.cost.budgetStatus === 'unknown_usage') return true
-  if (run.nodes.some((n) => n.status === 'blocked')) return true
-  if (run.stuckReasonCode) return true
-  return false
+  return resolveAlert(run) !== null
 }
 
 export function shouldEmitBlockAlert(run: WorkflowRun): boolean {
   if (!run.notify.alertOnBlock) return false
-  return isAlertWorthyStatus(run)
+  return resolveAlert(run) !== null
 }
 
 export function shouldEmitQuietSuccess(run: WorkflowRun): boolean {
@@ -487,22 +568,39 @@ export function shouldEmitQuietSuccess(run: WorkflowRun): boolean {
   return run.notify.onSuccess === 'ops_feed'
 }
 
-export function buildBlockAlertFact(run: WorkflowRun, now: string): WorkflowOpsFact {
+export function buildBlockAlertFact(
+  run: WorkflowRun,
+  now: string,
+  alert?: ResolvedAlert | null,
+): WorkflowOpsFact {
+  const resolved = alert === undefined ? resolveAlert(run) : alert
   const revision = run.blockRevision && run.blockRevision > 0 ? run.blockRevision : 1
-  const code = run.blockedReasonCode || run.stuckReasonCode || run.status
+  const code = resolved?.reasonCode
+    || run.blockedReasonCode
+    || run.stuckReasonCode
+    || 'alert'
+  // Never persist bare lifecycle statuses as the alert reason.
+  const reasonCode = NON_ALERT_REASON_STATUSES.has(code) ? (resolved?.reasonCode || 'alert') : code
+  const kind = resolved?.kind
+    || (run.status === 'paused_budget'
+      ? 'budget_exceed'
+      : run.stuckReasonCode
+        ? (run.stuckReasonCode.startsWith('human_gate') ? 'human_gate_sla' : 'stuck')
+        : 'block')
   return {
     id: `${run.id}:block:${revision}`,
     orgId: run.orgId,
-    kind: run.status === 'paused_budget' ? 'budget_exceed' : run.stuckReasonCode ? 'stuck' : 'block',
+    kind,
     workflowRunId: run.id || 'unknown',
     templateId: run.templateId,
     projectId: run.projectId,
     dedupeKey: `${run.id}:block:${revision}`,
     blockRevision: revision,
-    reasonCode: code,
-    summary: `Workflow run ${run.id} ${run.status}: ${code}`,
+    reasonCode,
+    summary: `Workflow run ${run.id} ${run.status}: ${reasonCode}`,
     deepLink: run.id ? `/api/v1/workflow-runs/${run.id}` : undefined,
-    nodeId: run.nodes.find((n) => n.status === 'blocked' || n.blockedReasonCode)?.nodeId,
+    nodeId: resolved?.nodeId
+      || run.nodes.find((n) => n.status === 'blocked' || n.blockedReasonCode)?.nodeId,
     createdAt: now,
     ceoNotify: run.notify.onBlock === 'ops_inbox_and_ceo'
       || (run.notify.ceoNotifyOn || []).includes('block'),
@@ -601,26 +699,46 @@ function appendTimeline(
   return appendTimelineShared(timeline, entry, cap)
 }
 
+/**
+ * Bump blockRevision only when the stable alert signature changes.
+ * Status thrash (running→failed) and stuck clear/set with the same block code
+ * must not mint new revisions (ADR §19 once-only alert-on-block).
+ */
 export function bumpBlockRevisionOnAlertTransition(
   previous: WorkflowRun,
   next: WorkflowRun,
 ): WorkflowRun {
-  const wasAlert = isAlertWorthyStatus(previous)
-  const isAlert = isAlertWorthyStatus(next)
-  if (isAlert && !wasAlert) {
-    return { ...next, blockRevision: nextBlockRevision(previous) }
+  const nextAlert = resolveAlert(next)
+  if (!nextAlert) {
+    return next
   }
-  // Status change while still alert-worthy with different code → new revision
-  if (
-    isAlert
-    && wasAlert
-    && (previous.status !== next.status
-      || previous.blockedReasonCode !== next.blockedReasonCode
-      || previous.stuckReasonCode !== next.stuckReasonCode)
-  ) {
-    return { ...next, blockRevision: nextBlockRevision(previous) }
+
+  // Already stamped this exact signature — keep revision (cron re-entry / merge residue).
+  if (next.lastAlertSignature === nextAlert.signature && (next.blockRevision ?? 0) > 0) {
+    return next
   }
-  return next
+
+  const prevAlert = resolveAlert(previous)
+  const prevSignature = previous.lastAlertSignature || prevAlert?.signature || null
+
+  if (prevSignature === nextAlert.signature) {
+    // Same condition as previous snapshot: adopt existing revision or start at 1.
+    const revision = (previous.blockRevision && previous.blockRevision > 0)
+      ? previous.blockRevision
+      : (next.blockRevision && next.blockRevision > 0 ? next.blockRevision : 1)
+    return {
+      ...next,
+      blockRevision: revision,
+      lastAlertSignature: nextAlert.signature,
+    }
+  }
+
+  // New alert condition (or first alert after clear).
+  return {
+    ...next,
+    blockRevision: nextBlockRevision(previous),
+    lastAlertSignature: nextAlert.signature,
+  }
 }
 
 export function nodeAgeMs(node: WorkflowNodeState, now: string): number {

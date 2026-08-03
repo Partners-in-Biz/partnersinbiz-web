@@ -67,7 +67,14 @@ export async function saveWorkflowRun(run: WorkflowRun): Promise<WorkflowRun> {
   const payload = stripUndefined({
     ...run,
     updatedAt: run.updatedAt || new Date().toISOString(),
-  } as Record<string, unknown>)
+  } as Record<string, unknown>) as Record<string, unknown>
+
+  // merge:true will not clear omitted keys — explicitly delete cleared ops fields
+  // so stuck clear cannot leave residue that thrash-bumps blockRevision every cron.
+  if (!run.stuckReasonCode) payload.stuckReasonCode = FieldValue.delete()
+  if (!run.stuckAt) payload.stuckAt = FieldValue.delete()
+  if (!run.blockedReasonCode) payload.blockedReasonCode = FieldValue.delete()
+
   await ref.set(payload, { merge: true })
   return run
 }
@@ -133,11 +140,12 @@ export async function listWorkflowRuns(input: {
 export async function saveOpsFact(fact: WorkflowOpsFact): Promise<{ written: boolean; fact: WorkflowOpsFact }> {
   const ref = adminDb.collection(OPS_FACTS).doc(fact.dedupeKey.replace(/[^a-zA-Z0-9:_-]/g, '_'))
   const existing = await ref.get()
-  if (existing.exists) {
-    const data = existing.data() as WorkflowOpsFact
-    return { written: false, fact: { ...data, id: existing.id } }
-  }
   const payload = stripUndefined({ ...fact, id: ref.id } as Record<string, unknown>)
+  if (existing.exists) {
+    // Stable dedupe overwrite OK — same blockRevision keeps one row.
+    await ref.set(payload, { merge: true })
+    return { written: false, fact: payload as WorkflowOpsFact }
+  }
   await ref.set(payload)
   return { written: true, fact: payload as WorkflowOpsFact }
 }
@@ -152,6 +160,32 @@ export async function listOpsFacts(orgId: string, limit = 50): Promise<WorkflowO
     const data = doc.data() as WorkflowOpsFact
     return { ...data, id: doc.id }
   })
+}
+
+/** Facts for one workflow run (GET /workflow-runs/{id} facts surface). */
+export async function listOpsFactsForRun(
+  workflowRunId: string,
+  limit = 50,
+): Promise<WorkflowOpsFact[]> {
+  try {
+    const snap = await adminDb
+      .collection(OPS_FACTS)
+      .where('workflowRunId', '==', workflowRunId)
+      .limit(Math.min(Math.max(limit, 1), 100))
+      .get()
+    return snap.docs.map((doc) => {
+      const data = doc.data() as WorkflowOpsFact
+      return { ...data, id: doc.id }
+    })
+  } catch {
+    // Fallback if composite index missing: scan recent docs and filter.
+    const all = await adminDb.collection(OPS_FACTS).limit(200).get().catch(() => null)
+    if (!all) return []
+    return all.docs
+      .map((doc) => ({ ...(doc.data() as WorkflowOpsFact), id: doc.id }))
+      .filter((fact) => fact.workflowRunId === workflowRunId || fact.dedupeKey?.startsWith(`${workflowRunId}:`))
+      .slice(0, Math.min(Math.max(limit, 1), 100))
+  }
 }
 
 export async function materializeKanbanTask(input: {

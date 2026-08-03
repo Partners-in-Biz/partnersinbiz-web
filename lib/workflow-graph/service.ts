@@ -12,6 +12,7 @@ import {
   buildQuietSuccessFact,
   bumpBlockRevisionOnAlertTransition,
   classifyOpsRunBucket,
+  resolveAlert,
   shouldEmitBlockAlert,
   shouldEmitQuietSuccess,
 } from './ops'
@@ -90,7 +91,7 @@ export async function createOrUpdateGraphTemplate(
 
 /**
  * Shared ops side-effects for advance path AND stuck SLA cron.
- * Applies stuck evaluation, bumps blockRevision on alert transitions,
+ * Applies stuck evaluation, bumps blockRevision only when alert signature changes,
  * and writes one deduped workflow_ops_facts row (alert-on-block / quiet success).
  */
 export async function finalizeOpsSideEffects(
@@ -99,18 +100,41 @@ export async function finalizeOpsSideEffects(
   now: string,
 ): Promise<WorkflowRun> {
   let next = applyStuckEvaluation(run, now)
+
   if (previous) {
     next = bumpBlockRevisionOnAlertTransition(previous, next)
-  } else if (shouldEmitBlockAlert(next) && !next.blockRevision) {
-    next = { ...next, blockRevision: 1 }
+  } else if (shouldEmitBlockAlert(next)) {
+    const alert = resolveAlert(next)
+    if (alert) {
+      const keepRevision =
+        next.lastAlertSignature === alert.signature && (next.blockRevision ?? 0) > 0
+      if (!keepRevision) {
+        next = {
+          ...next,
+          blockRevision: 1,
+          lastAlertSignature: alert.signature,
+        }
+      }
+    }
   }
 
   if (shouldEmitBlockAlert(next)) {
-    const fact = buildBlockAlertFact(next, now)
+    const resolved = resolveAlert(next)
+    if (resolved && next.lastAlertSignature !== resolved.signature) {
+      next = { ...next, lastAlertSignature: resolved.signature }
+    }
+    if (resolved && !(next.blockRevision && next.blockRevision > 0)) {
+      next = { ...next, blockRevision: 1 }
+    }
+    const fact = buildBlockAlertFact(next, now, resolved)
     if (next.lastAlertDedupeKey !== fact.dedupeKey) {
       const saved = await saveOpsFact(fact).catch(() => ({ written: false as const, fact }))
       if (saved.written || saved.fact) {
-        next = { ...next, lastAlertDedupeKey: fact.dedupeKey }
+        next = {
+          ...next,
+          lastAlertDedupeKey: fact.dedupeKey,
+          lastAlertSignature: resolved?.signature || next.lastAlertSignature,
+        }
       }
     }
   } else if (shouldEmitQuietSuccess(next)) {

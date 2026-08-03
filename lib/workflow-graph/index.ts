@@ -30,6 +30,7 @@ export {
   listGraphTemplates,
   listWorkflowRuns,
   listOpsFacts,
+  listOpsFactsForRun,
   saveOpsFact,
   saveWorkflowRun,
   toInspectPayload,

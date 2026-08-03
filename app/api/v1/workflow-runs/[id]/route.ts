@@ -11,6 +11,7 @@ import {
   advanceWorkflowRunById,
   getWorkflowRun,
   buildOpsInspect,
+  listOpsFactsForRun,
 } from '@/lib/workflow-graph'
 import type { AdvanceEvent } from '@/lib/workflow-graph'
 
@@ -28,9 +29,13 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx
   const scoped = cleanString(url.searchParams.get('orgId')) || cleanString(req.headers.get('x-org-id'))
   if (scoped && scoped !== run.orgId) return apiError('Forbidden', 403)
 
+  // Always include per-run facts for ADR §19 quiet/alert verify (Quinn/Nora gather path).
+  const facts = await listOpsFactsForRun(id, 50).catch(() => [])
+
   return apiSuccess({
     run,
     inspect: buildOpsInspect(run),
+    facts,
   })
 })
 
@@ -101,5 +106,6 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
 
   const result = await advanceWorkflowRunById(id, event, user.uid)
   if (!result.ok) return apiError(result.error, result.status)
-  return apiSuccess({ run: result.run, inspect: result.inspect })
+  const facts = await listOpsFactsForRun(id, 50).catch(() => [])
+  return apiSuccess({ run: result.run, inspect: result.inspect, facts })
 })
