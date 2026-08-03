@@ -29,9 +29,22 @@ import {
   BankRulesValidationError,
 } from '@/lib/finance/bank-rules/service'
 import {
+  BankFeedNotFoundError,
+  BankFeedValidationError,
+} from '@/lib/finance/bank-feeds/service'
+import {
   BudgetsNotFoundError,
   BudgetsValidationError,
 } from '@/lib/finance/budgets/service'
+import {
+  OperatorDepthNotFoundError,
+  OperatorDepthValidationError,
+} from '@/lib/finance/operator-depth/service'
+import {
+  ProvingFinanceNotFoundError,
+  ProvingFinanceValidationError,
+} from '@/lib/finance/proving/service'
+import { InventoryFinanceNotFoundError } from '@/lib/accounting/inventory-service'
 
 /** Non-enumerating denial for sensitive finance/payroll resources. */
 export class FinanceNotFoundError extends Error {
@@ -69,8 +82,15 @@ export function isFinanceHttpError(error: unknown): error is Error & { statusCod
     error instanceof MultiCurrencyFinanceValidationError ||
     error instanceof BankRulesNotFoundError ||
     error instanceof BankRulesValidationError ||
+    error instanceof BankFeedNotFoundError ||
+    error instanceof BankFeedValidationError ||
     error instanceof BudgetsNotFoundError ||
-    error instanceof BudgetsValidationError
+    error instanceof BudgetsValidationError ||
+    error instanceof OperatorDepthNotFoundError ||
+    error instanceof OperatorDepthValidationError ||
+    error instanceof ProvingFinanceNotFoundError ||
+    error instanceof ProvingFinanceValidationError ||
+    error instanceof InventoryFinanceNotFoundError
   )
 }
 
@@ -91,7 +111,11 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof PackagingFinanceNotFoundError ||
     error instanceof MultiCurrencyFinanceNotFoundError ||
     error instanceof BankRulesNotFoundError ||
-    error instanceof BudgetsNotFoundError
+    error instanceof BankFeedNotFoundError ||
+    error instanceof BudgetsNotFoundError ||
+    error instanceof OperatorDepthNotFoundError ||
+    error instanceof ProvingFinanceNotFoundError ||
+    error instanceof InventoryFinanceNotFoundError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_not_found' }
   }
@@ -104,7 +128,10 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof PackagingFinanceValidationError ||
     error instanceof MultiCurrencyFinanceValidationError ||
     error instanceof BankRulesValidationError ||
-    error instanceof BudgetsValidationError
+    error instanceof BankFeedValidationError ||
+    error instanceof BudgetsValidationError ||
+    error instanceof OperatorDepthValidationError ||
+    error instanceof ProvingFinanceValidationError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_validation' }
   }

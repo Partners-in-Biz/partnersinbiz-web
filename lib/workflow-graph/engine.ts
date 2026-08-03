@@ -418,14 +418,14 @@ function enforceBudget(run: WorkflowRun, actions: EngineAction[], now: string): 
   if (exceeded) {
     run.cost.budgetStatus = 'exceeded'
     run.cost.lastBudgetEventAt = now
-  } else if (run.cost.budgetStatus === 'unknown_usage') {
+  } else if (prevStatus === 'unknown_usage') {
     // keep unknown_usage until exact usage clears it in recordUsage
   } else if (ratio >= run.cost.warnAtRatio) {
-    if (run.cost.budgetStatus === 'within_budget' || run.cost.budgetStatus === 'warn') {
+    if (prevStatus === 'within_budget' || prevStatus === 'warn') {
       run.cost.budgetStatus = 'warn'
       if (prevStatus !== 'warn') run.cost.lastBudgetEventAt = now
     }
-  } else if (run.cost.budgetStatus !== 'unknown_usage') {
+  } else {
     run.cost.budgetStatus = 'within_budget'
   }
 

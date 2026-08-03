@@ -1,24 +1,24 @@
 // components/ui/Card.tsx
+import type { ComponentPropsWithoutRef } from 'react'
 import { cn } from '@/lib/utils'
 
-interface CardProps {
+type CardProps = ComponentPropsWithoutRef<'div'> & {
   children: React.ReactNode
   className?: string
   hover?: boolean
   onClick?: () => void
-  id?: string
 }
 
-export function Card({ children, className, hover, onClick, id }: CardProps) {
+export function Card({ children, className, hover, onClick, ...props }: CardProps) {
   return (
     <div
-      id={id}
       onClick={onClick}
       className={cn(
         'pib-card',
         (hover || onClick) && 'pib-card-hover',
         className,
       )}
+      {...props}
     >
       {children}
     </div>

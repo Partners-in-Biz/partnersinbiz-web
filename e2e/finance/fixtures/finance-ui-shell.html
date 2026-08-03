@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Finance golden-path UI shell (hermetic)</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 24px; color: #111; }
+      .chip { display: inline-block; border: 1px solid #ccc; border-radius: 999px; padding: 2px 10px; margin-right: 6px; font-size: 12px; }
+      nav a { margin-right: 12px; }
+      section { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin: 16px 0; }
+      button { margin-right: 8px; }
+      .muted { color: #666; font-size: 13px; }
+    </style>
+  </head>
+  <body data-testid="finance-ui-shell" data-mode="hermetic">
+    <header data-testid="finance-module-shell" data-finance-route="hub">
+      <p class="muted">Finance command centre · hermetic Playwright shell</p>
+      <h1>Command</h1>
+      <div>
+        <span class="chip" data-testid="hard-gate-sars">No SARS submit</span>
+        <span class="chip" data-testid="hard-gate-pay">No external payment initiate</span>
+        <span class="chip">Tenant scoped</span>
+      </div>
+      <nav aria-label="Finance module sections" data-testid="finance-primary-tabs">
+        <a data-testid="deeplink-hub" href="/portal/finance">Command</a>
+        <a data-testid="deeplink-documents" href="/portal/finance/documents">AR / AP</a>
+        <a data-testid="deeplink-bank-rules" href="/portal/finance/bank-rules">Bank rules</a>
+        <a data-testid="deeplink-payroll" href="/portal/finance/payroll">Payroll</a>
+        <a data-testid="deeplink-packaging" href="/portal/finance/packaging">Packaging</a>
+        <a data-testid="deeplink-statements" href="/portal/finance/statements">Statements</a>
+        <a data-testid="deeplink-proving" href="/portal/finance/proving">Proving</a>
+      </nav>
+    </header>
+
+    <section data-testid="finance-scope-bar">
+      <label>Legal entity
+        <select aria-label="Legal entity">
+          <option value="ent-hold">HOLD — Holding</option>
+          <option value="ent-ops" selected>OPS — Operations</option>
+          <option value="ent-svc">SVC — Services</option>
+        </select>
+      </label>
+      <label>Book
+        <select aria-label="Accounting book">
+          <option value="book-ops" selected>OPS-MAIN — Ops primary book</option>
+        </select>
+      </label>
+      <span class="chip">Org org-e2e-demo</span>
+    </section>
+
+    <section data-testid="finance-hub-stats">
+      <div>Cash ZAR 0</div>
+      <div>AR open</div>
+      <div>AP open</div>
+    </section>
+
+    <section data-testid="bank-rules-human-gate">
+      <h2>Bank rule suggestions</h2>
+      <p class="muted">Accept/dismiss is human-gated — never auto-posts journals and never initiates payments.</p>
+      <div data-testid="suggestion-pending">
+        <strong>Rent · pending</strong>
+        <div>
+          <button type="button" data-testid="suggestion-accept">Accept</button>
+          <button type="button" data-testid="suggestion-dismiss">Dismiss</button>
+        </div>
+      </div>
+      <p data-testid="suggestion-status" class="muted">pending · autoPosted=false</p>
+    </section>
+
+    <section data-testid="finance-safety-readback">
+      Safety readback: development/staging finance UI only. No SARS e-file submit, no external payment
+      initiate, no mass client email.
+    </section>
+
+    <script>
+      const status = document.querySelector('[data-testid="suggestion-status"]')
+      document.querySelector('[data-testid="suggestion-accept"]').addEventListener('click', () => {
+        status.textContent = 'accepted · autoPosted=false · externalPaymentInitiated=false · sarsSubmissionInitiated=false'
+        status.dataset.state = 'accepted'
+      })
+      document.querySelector('[data-testid="suggestion-dismiss"]').addEventListener('click', () => {
+        status.textContent = 'dismissed · autoPosted=false'
+        status.dataset.state = 'dismissed'
+      })
+    </script>
+  </body>
+</html>

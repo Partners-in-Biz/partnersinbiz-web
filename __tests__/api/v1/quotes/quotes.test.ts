@@ -130,11 +130,12 @@ describe('GET /api/v1/quotes', () => {
   it('viewer can GET list (own org scoped)', async () => {
     const viewer = {
       ...seedOrgMember('org-1', 'uid-v', { role: 'viewer' }),
-      // Org-isolation list test: full CRM record scope (not owned_or_linked).
+      // Org-isolation list test: full CRM record scope + issuer grant.
       accessPolicy: {
         preset: 'custom',
         modules: { crm: true, reports: true },
         recordScopes: { crm: 'all', projects: 'owned_or_linked' },
+        capabilities: { invoices: true, quotes: true },
       },
     }
     stageAuth(viewer, {

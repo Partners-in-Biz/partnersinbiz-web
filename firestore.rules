@@ -216,6 +216,13 @@ service cloud.firestore {
     match /payment_allocations/{id} { allow read, write: if false; }
     match /bank_accounts/{id} { allow read, write: if false; }
     match /bank_transactions/{id} { allow read, write: if false; }
+    match /finance_bank_feed_connections/{id} { allow read, write: if false; }
+    match /finance_bank_feed_sync_runs/{id} { allow read, write: if false; }
+    match /finance_bank_feed_lines/{id} { allow read, write: if false; }
+    match /finance_bank_feed_suggestions/{id} { allow read, write: if false; }
+    match /finance_bank_feed_audit_events/{id} { allow read, write: if false; }
+    match /finance_bank_feed_claims/{id} { allow read, write: if false; }
+    match /finance_bank_feed_fingerprints/{id} { allow read, write: if false; }
     match /reconciliations/{id} { allow read, write: if false; }
     match /reconciliation_matches/{id} { allow read, write: if false; }
     match /reconciliation_adjustments/{id} { allow read, write: if false; }
@@ -245,6 +252,8 @@ service cloud.firestore {
     match /leave_types/{id} { allow read, write: if false; }
     match /leave_balances/{id} { allow read, write: if false; }
     match /payslip_download_packs/{id} { allow read, write: if false; }
+    match /salary_structure_templates/{id} { allow read, write: if false; }
+    match /bulk_payslip_run_packs/{id} { allow read, write: if false; }
     match /irp5_records/{id} { allow read, write: if false; }
     match /emp201_snapshots/{id} { allow read, write: if false; }
     match /emp501_reconciliations/{id} { allow read, write: if false; }
@@ -255,8 +264,19 @@ service cloud.firestore {
     match /asset_disposals/{id} { allow read, write: if false; }
     match /finance_assets_claims/{id} { allow read, write: if false; }
     match /finance_assets_idempotency/{id} { allow read, write: if false; }
+    match /finance_inventory_items/{id} { allow read, write: if false; }
+    match /finance_stock_movements/{id} { allow read, write: if false; }
+    match /finance_stock_adjustments/{id} { allow read, write: if false; }
+    match /finance_cogs_postings/{id} { allow read, write: if false; }
+    match /finance_inventory_audit_events/{id} { allow read, write: if false; }
+    match /finance_inventory_claims/{id} { allow read, write: if false; }
+    match /finance_inventory_idempotency/{id} { allow read, write: if false; }
+    match /finance_cogs_journal_markers/{id} { allow read, write: if false; }
     match /finance_operator_notifications/{id} { allow read, write: if false; }
     match /finance_practice_claims/{id} { allow read, write: if false; }
+    match /finance_operator_depth_claims/{id} { allow read, write: if false; }
+    match /finance_operator_depth_audit/{id} { allow read, write: if false; }
+    match /finance_operator_saved_views/{id} { allow read, write: if false; }
     match /fx_book_policies/{id} { allow read, write: if false; }
     match /accounting_rate_sets/{id} { allow read, write: if false; }
     match /accounting_rates/{id} { allow read, write: if false; }

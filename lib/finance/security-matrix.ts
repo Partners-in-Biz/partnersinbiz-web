@@ -79,6 +79,7 @@ export const AUDITED_MUTATION_ACTIONS: readonly FinanceAction[] = [
   'payroll.statutory.approve',
   'payroll.export.generate',
   'payroll.export.approve',
+  'payroll.structure.configure',
   'job_costing.time_cost.apply',
   'asset.class.configure',
   'asset.create',
@@ -87,8 +88,16 @@ export const AUDITED_MUTATION_ACTIONS: readonly FinanceAction[] = [
   'asset.depreciation.run.calculate',
   'asset.depreciation.run.post',
   'asset.dispose',
+  'inventory.item.create',
+  'inventory.item.update',
+  'inventory.bill_receipt.apply',
+  'inventory.invoice_issue.apply',
+  'inventory.adjustment.create',
   'role.assign',
   'notification.emit',
+  'operator_view.write',
+  'operator_bulk.plan',
+  'operator_allocate.plan',
 ] as const
 
 /** Actions that require separate FinanceApprovalEvidence / SOD at commit time. */

@@ -13,6 +13,10 @@
 # testing
 /coverage
 /test-results
+/playwright-report
+/artifacts/finance-e2e-last-run.json
+/artifacts/finance-e2e-playwright-report.json
+/artifacts/finance-e2e-test-results/
 
 # next.js
 /.next/

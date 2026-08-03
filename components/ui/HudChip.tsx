@@ -1,19 +1,30 @@
 import type { ComponentPropsWithoutRef, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
+type HudChipTone = 'default' | 'accent' | 'live' | 'neutral' | 'success' | 'warning' | 'warn'
+
 type HudChipProps = ComponentPropsWithoutRef<'span'> & {
-  tone?: 'default' | 'accent' | 'live'
+  tone?: HudChipTone
   live?: boolean
   children: ReactNode
 }
 
+function resolveHudTone(tone: HudChipTone, live?: boolean): 'default' | 'accent' | 'live' {
+  if (live) return 'live'
+  if (tone === 'neutral') return 'default'
+  if (tone === 'success') return 'live'
+  if (tone === 'warning' || tone === 'warn') return 'accent'
+  return tone
+}
+
 /** Compact meta chip for dense HUDs and page headers. */
 export function HudChip({ tone = 'default', live, children, className, ...props }: HudChipProps) {
-  const resolved = live ? 'live' : tone
+  const resolved = resolveHudTone(tone, live)
   return (
     <span
       className={cn('pib-hud-chip messages-info-chip', className)}
       data-tone={resolved === 'default' ? undefined : resolved}
+      data-source-tone={tone === 'default' ? undefined : tone}
       {...props}
     >
       {live || resolved === 'live' ? <span className="pib-live-dot messages-hud-pulse" aria-hidden="true" /> : null}

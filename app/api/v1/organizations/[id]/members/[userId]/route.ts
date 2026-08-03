@@ -14,7 +14,10 @@ import {
 } from '@/lib/platform-owner/relationships'
 import type { Organization, OrgRole } from '@/lib/organizations/types'
 import { parseMemberMetadata } from '@/lib/organizations/memberMetadata'
-import { policyFromAccessScope } from '@/lib/orgMembers/access-policy'
+import {
+  normalizeMemberAccessPolicy,
+  policyFromAccessScope,
+} from '@/lib/orgMembers/access-policy'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,13 +34,18 @@ export const PATCH = withAuth('admin', async (req, user, ctx) => {
   const body = await req.json().catch(() => ({}))
   const newRole = body.role as OrgRole | undefined
   const hasAccessScopeUpdate = Object.prototype.hasOwnProperty.call(body, 'accessScope')
+  const hasAccessPolicyUpdate = Object.prototype.hasOwnProperty.call(body, 'accessPolicy')
   const hasMetadataUpdate = Object.prototype.hasOwnProperty.call(body, 'jobTitle')
     || Object.prototype.hasOwnProperty.call(body, 'department')
     || Object.prototype.hasOwnProperty.call(body, 'accessNotes')
   const metadata = parseMemberMetadata(body as Record<string, unknown>)
 
-  if (!newRole && !hasAccessScopeUpdate && !hasMetadataUpdate) {
-    return apiError('role, accessScope, jobTitle, department or accessNotes is required', 400)
+  if (!newRole && !hasAccessScopeUpdate && !hasAccessPolicyUpdate && !hasMetadataUpdate) {
+    return apiError('role, accessScope, accessPolicy, jobTitle, department or accessNotes is required', 400)
+  }
+
+  if (hasAccessScopeUpdate && hasAccessPolicyUpdate) {
+    return apiError('Send either accessScope or accessPolicy, not both', 400)
   }
 
   const validRoles: OrgRole[] = ['owner', 'admin', 'member', 'viewer']
@@ -62,17 +70,21 @@ export const PATCH = withAuth('admin', async (req, user, ctx) => {
     }
   }
 
-  if (member.role === 'owner' && hasAccessScopeUpdate) {
-    return apiError('Cannot change the access scope of the workspace owner', 403)
+  if (member.role === 'owner' && (hasAccessScopeUpdate || hasAccessPolicyUpdate)) {
+    return apiError('Cannot change the access policy of the workspace owner', 403)
   }
 
   const nextRole = newRole ?? member.role
-  const nextAccessPolicy = hasAccessScopeUpdate
-    ? policyFromAccessScope(metadata.accessScope, nextRole)
-    : undefined
-  const accessUpdate = hasAccessScopeUpdate
-    ? { accessScope: metadata.accessScope, accessPolicy: nextAccessPolicy }
-    : {}
+  // Prefer explicit accessPolicy (Team capabilities / module matrix). Legacy
+  // accessScope presets still map through policyFromAccessScope.
+  const accessUpdate = hasAccessPolicyUpdate
+    ? { accessPolicy: normalizeMemberAccessPolicy((body as { accessPolicy?: unknown }).accessPolicy) }
+    : hasAccessScopeUpdate
+      ? {
+          accessScope: metadata.accessScope,
+          accessPolicy: policyFromAccessScope(metadata.accessScope, nextRole),
+        }
+      : {}
   const metadataUpdate: Record<string, string> = {}
   if (Object.prototype.hasOwnProperty.call(body, 'jobTitle')) {
     metadataUpdate.jobTitle = typeof body.jobTitle === 'string' ? body.jobTitle.trim() : ''

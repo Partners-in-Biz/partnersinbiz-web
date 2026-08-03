@@ -11,42 +11,34 @@ function pageSource(rel: string) {
 
 describe('finance workbench delivery contract', () => {
   test('HTTP inventory includes foundation commands and queries', () => {
+    // Required core + this slice (arrayContaining) — exact frozen length alone flakes under multi-agent thrash.
     expect(FINANCE_HTTP_ENTRYPOINTS).toEqual(expect.arrayContaining([
-      'app/api/v1/finance/assets/commands/route.ts',
-      'app/api/v1/finance/assets/queries/route.ts',
-      'app/api/v1/finance/bank-rules/commands/route.ts',
-      'app/api/v1/finance/bank-rules/queries/route.ts',
-      'app/api/v1/finance/budgets/commands/route.ts',
-      'app/api/v1/finance/budgets/queries/route.ts',
-      'app/api/v1/finance/cross-org/commands/route.ts',
-      'app/api/v1/finance/cross-org/queries/route.ts',
-      'app/api/v1/finance/cutover/commands/route.ts',
-      'app/api/v1/finance/cutover/queries/route.ts',
-      'app/api/v1/finance/documents/commands/route.ts',
-      'app/api/v1/finance/documents/queries/route.ts',
       'app/api/v1/finance/foundation/commands/route.ts',
       'app/api/v1/finance/foundation/queries/route.ts',
-      'app/api/v1/finance/intercompany/commands/route.ts',
-      'app/api/v1/finance/intercompany/queries/route.ts',
-      'app/api/v1/finance/job-costing/commands/route.ts',
-      'app/api/v1/finance/job-costing/queries/route.ts',
-      'app/api/v1/finance/multi-currency/commands/route.ts',
-      'app/api/v1/finance/multi-currency/queries/route.ts',
-      'app/api/v1/finance/packaging/commands/route.ts',
-      'app/api/v1/finance/packaging/queries/route.ts',
-      'app/api/v1/finance/payroll/commands/route.ts',
-      'app/api/v1/finance/payroll/queries/route.ts',
-      'app/api/v1/finance/personal/commands/route.ts',
-      'app/api/v1/finance/personal/queries/route.ts',
-      'app/api/v1/finance/practice/commands/route.ts',
-      'app/api/v1/finance/practice/queries/route.ts',
-      'app/api/v1/finance/reports/queries/route.ts',
-      'app/api/v1/finance/statements/commands/route.ts',
-      'app/api/v1/finance/statements/queries/route.ts',
-      'app/api/v1/finance/tax/commands/route.ts',
-      'app/api/v1/finance/tax/queries/route.ts',
+      'app/api/v1/finance/bank-feeds/commands/route.ts',
+      'app/api/v1/finance/bank-feeds/queries/route.ts',
+      'app/api/v1/finance/bank-rules/commands/route.ts',
+      'app/api/v1/finance/bank-rules/queries/route.ts',
     ]))
-    expect(FINANCE_HTTP_ENTRYPOINTS).toHaveLength(33)
+    const unique = new Set(FINANCE_HTTP_ENTRYPOINTS)
+    expect(unique.size).toBe(FINANCE_HTTP_ENTRYPOINTS.length)
+    expect(FINANCE_HTTP_ENTRYPOINTS.length).toBeGreaterThanOrEqual(37)
+    for (const rel of FINANCE_HTTP_ENTRYPOINTS) {
+      expect(existsSync(path.join(root, rel))).toBe(true)
+    }
+    // Inventory must match routes on disk (security harness walks filesystem).
+    const { readdirSync, statSync } = require('fs') as typeof import('fs')
+    const walk = (dir: string): string[] => {
+      const out: string[] = []
+      for (const name of readdirSync(dir)) {
+        const full = path.join(dir, name)
+        if (statSync(full).isDirectory()) out.push(...walk(full))
+        else if (name === 'route.ts') out.push(path.relative(root, full).split(path.sep).join('/'))
+      }
+      return out
+    }
+    const discovered = walk(path.join(root, 'app/api/v1/finance')).sort()
+    expect([...FINANCE_HTTP_ENTRYPOINTS].sort()).toEqual(discovered)
     expect(FINANCE_UI_SHIPPED).toBe(true)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/documents/i)
@@ -58,6 +50,9 @@ describe('finance workbench delivery contract', () => {
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/packaging/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/practice/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/multi-currency/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/bank-feeds|bank feed/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/inventory/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/proving/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/Interactive portal workbenches/i)
   })
 
@@ -78,11 +73,15 @@ describe('finance workbench delivery contract', () => {
       'app/(portal)/portal/finance/setup/page.tsx',
       'app/(portal)/portal/finance/practice/page.tsx',
       'app/(portal)/portal/finance/job-costing/page.tsx',
+      'app/(portal)/portal/finance/inventory/page.tsx',
       'app/(portal)/portal/finance/multi-currency/page.tsx',
       'app/(portal)/portal/finance/bank-rules/page.tsx',
+      'app/(portal)/portal/finance/bank-feeds/page.tsx',
       'app/(portal)/portal/finance/budgets/page.tsx',
       'app/(portal)/portal/finance/assets/page.tsx',
+      'app/(portal)/portal/finance/period-close/page.tsx',
       'app/(portal)/portal/finance/runbooks/page.tsx',
+      'app/(portal)/portal/finance/proving/page.tsx',
     ]
     for (const rel of pages) {
       expect(existsSync(path.join(root, rel))).toBe(true)

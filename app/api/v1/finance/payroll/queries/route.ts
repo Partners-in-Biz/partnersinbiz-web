@@ -6,7 +6,11 @@ import { runFinanceQueryHandler } from '@/lib/finance/http-command'
 
 export const dynamic = 'force-dynamic'
 
-const RESOURCES = ['bundle','payslip','my-payslips','payslip-pack','irp5','emp201','emp501','export-manifest'] as const
+const RESOURCES = [
+  'bundle','payslip','my-payslips','payslip-pack','bulk-payslip-pack',
+  'pay-run-board','leave-month','salary-structures','vera-fixtures','vera-fixture',
+  'irp5','emp201','emp501','export-manifest',
+] as const
 
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const gateway = new FirestoreFinancePayrollGateway()
@@ -30,6 +34,32 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
           const id = params.get('id')
           if (!id) throw new FinanceValidationError('id is required for payslip-pack')
           return gateway.getPayslipPack(actor, scope, id)
+        }
+        case 'bulk-payslip-pack': {
+          const id = params.get('id')
+          if (!id) throw new FinanceValidationError('id is required for bulk-payslip-pack')
+          return gateway.getBulkPayslipRunPack(actor, scope, id)
+        }
+        case 'pay-run-board': {
+          return gateway.getPayRunBoard(actor, scope, {
+            windowStart: params.get('windowStart') || undefined,
+            windowEnd: params.get('windowEnd') || undefined,
+          })
+        }
+        case 'leave-month': {
+          const year = Number(params.get('year'))
+          const month = Number(params.get('month'))
+          if (!Number.isInteger(year) || !Number.isInteger(month)) {
+            throw new FinanceValidationError('year and month are required for leave-month')
+          }
+          return gateway.getLeaveMonth(actor, scope, year, month)
+        }
+        case 'salary-structures': return gateway.listSalaryStructures(actor, scope)
+        case 'vera-fixtures': return gateway.listVeraFixtures(actor, scope)
+        case 'vera-fixture': {
+          const id = params.get('id')
+          if (!id) throw new FinanceValidationError('id is required for vera-fixture')
+          return gateway.runVeraFixture(actor, scope, id)
         }
         case 'irp5': {
           const id = params.get('id')

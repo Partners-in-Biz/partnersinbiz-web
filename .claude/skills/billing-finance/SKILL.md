@@ -71,6 +71,10 @@ PiB-issued invoices and quotes are source/recipient records:
 
 Do not treat `allowedOrgIds` as client portal/CRM access. It scopes admin billing visibility only. Client users and explicit client members see received billing through `view=received`.
 
+## Member-owned-client issuer (staff stay members)
+
+Org owners/admins grant members explicit `capabilities.invoices` / `capabilities.quotes` on Team access. That grant does **not** come from `modules.billing` alone. Granted members create/list issuer invoices and quotes only for CRM **owned_or_linked** clients. See skill `pib-staff-billing-access` for the full matrix, UI toggles, and Stean-shaped workflow. Do not promote staff to Platform User admin solely to issue client invoices.
+
 ## Invoice status machine
 
 ```

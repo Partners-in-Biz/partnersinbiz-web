@@ -7,18 +7,22 @@ export type FinanceRouteKey =
   | 'payroll'
   | 'assets'
   | 'job-costing'
+  | 'inventory'
   | 'packaging'
   | 'intercompany'
   | 'personal'
   | 'cross-org'
   | 'statements'
   | 'bank-rules'
+  | 'bank-feeds'
   | 'budgets'
   | 'cutover'
   | 'multi-currency'
   | 'practice'
   | 'setup'
   | 'runbooks'
+  | 'period-close'
+  | 'proving'
 
 export type FinanceNavItem = {
   key: FinanceRouteKey
@@ -96,6 +100,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     group: 'books',
   },
   {
+    key: 'inventory',
+    label: 'Inventory',
+    href: '/portal/finance/inventory',
+    icon: 'shelves',
+    description: 'SKU master, stock on hand, bill/invoice qty movements, COGS on issue, audited adjustments — no WMS/POS.',
+    group: 'books',
+  },
+  {
     key: 'packaging',
     label: 'Packaging',
     href: '/portal/finance/packaging',
@@ -117,6 +129,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     href: '/portal/finance/bank-rules',
     icon: 'rule',
     description: 'Match rules for smarter recon suggestions — human accept only, never auto-pay.',
+    group: 'ops',
+  },
+  {
+    key: 'bank-feeds',
+    label: 'Bank feeds',
+    href: '/portal/finance/bank-feeds',
+    icon: 'account_balance_wallet',
+    description: 'Mock-first bank feed connector: sync SA lines + suggestions — human accept/dismiss only, no paid vendor.',
     group: 'ops',
   },
   {
@@ -176,6 +196,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     group: 'command',
   },
   {
+    key: 'period-close',
+    label: 'Period close',
+    href: '/portal/finance/period-close',
+    icon: 'event_available',
+    description: 'Close-week blockers with deep links — unreconciled banks, unapproved journals, open pay runs, FX reval, cutover.',
+    group: 'command',
+  },
+  {
     key: 'setup',
     label: 'Setup',
     href: '/portal/finance/setup',
@@ -191,6 +219,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     description: 'Operator day-0/day-2 runbooks, hard gates, and Phase 4 acceptance pointers.',
     group: 'command',
   },
+  {
+    key: 'proving',
+    label: 'Proving kit',
+    href: '/portal/finance/proving',
+    icon: 'verified',
+    description: 'Deterministic demo company, multi-period close fixture, packaging dry-run, accountant acceptance checklist.',
+    group: 'command',
+  },
 ]
 
 export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
@@ -202,14 +238,18 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'payroll',
   'assets',
   'job-costing',
+  'inventory',
   'packaging',
   'statements',
   'bank-rules',
+  'bank-feeds',
   'budgets',
   'multi-currency',
   'practice',
+  'period-close',
   'setup',
   'runbooks',
+  'proving',
 ]
 
 export function financeNavItem(key: FinanceRouteKey): FinanceNavItem {

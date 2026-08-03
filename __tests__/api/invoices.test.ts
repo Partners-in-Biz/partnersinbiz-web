@@ -23,6 +23,7 @@ const mockCompanyGet = jest.fn()
 const mockContactDoc = jest.fn()
 const mockContactGet = jest.fn()
 const mockEnsureClaimableRelationship = jest.fn()
+const mockOrgMemberGet = jest.fn()
 
 let mockUser: MockUser = { uid: 'admin-1', role: 'admin' }
 
@@ -85,6 +86,7 @@ beforeEach(() => {
   mockContactDoc.mockReturnValue({ get: mockContactGet })
   mockCompanyGet.mockResolvedValue({ exists: false, data: () => undefined })
   mockContactGet.mockResolvedValue({ exists: false, data: () => undefined })
+  mockOrgMemberGet.mockResolvedValue({ exists: false })
   mockEnsureClaimableRelationship.mockResolvedValue({
     id: 'relationship-1',
     claimToken: 'claim-token-1',
@@ -104,7 +106,7 @@ beforeEach(() => {
     if (name === 'orgMembers') {
       return {
         doc: () => ({
-          get: async () => ({ exists: false }),
+          get: mockOrgMemberGet,
         }),
       }
     }
@@ -465,6 +467,178 @@ describe('POST /api/v1/invoices', () => {
       id: 'invoice-1',
       claimToken: 'claim-token-1',
       claimStatus: 'claimed',
+    }))
+  })
+
+  it('allows member with invoice grant to create for owned CRM client', async () => {
+    mockUser = { uid: 'stean', role: 'client', orgId: 'pib-platform-owner', activeOrgId: 'pib-platform-owner' }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        status: 'active',
+        role: 'member',
+        accessPolicy: {
+          preset: 'custom',
+          modules: { crm: true, billing: true },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+          capabilities: { invoices: true, quotes: true },
+        },
+      }),
+    })
+    mockOrgDoc.mockImplementation((orgId: string) => ({
+      get: jest.fn().mockResolvedValue({
+        exists: true,
+        data: () => ({
+          name: orgId === 'pib-platform-owner' ? 'Partners in Biz' : 'Client',
+          settings: { currency: 'ZAR' },
+        }),
+      }),
+    }))
+    mockCompanyGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        name: 'Stean Client Co',
+        ownerUid: 'stean',
+        email: 'billing@client.test',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'pib-platform-owner',
+        companyId: 'company-owned',
+        recipientEmail: 'billing@client.test',
+        lineItems: [{ description: 'Retainer', quantity: 1, unitPrice: 1000 }],
+      }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    expect(mockInvoiceAdd).toHaveBeenCalled()
+  })
+
+  it('denies member without invoice grant', async () => {
+    mockUser = { uid: 'stean', role: 'client', orgId: 'pib-platform-owner', activeOrgId: 'pib-platform-owner' }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        status: 'active',
+        role: 'member',
+        accessPolicy: {
+          preset: 'custom',
+          modules: { crm: true, billing: true },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+          capabilities: { invoices: false, quotes: false },
+        },
+      }),
+    })
+    mockCompanyGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        name: 'Stean Client Co',
+        ownerUid: 'stean',
+        email: 'billing@client.test',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'pib-platform-owner',
+        companyId: 'company-owned',
+        recipientEmail: 'billing@client.test',
+        lineItems: [{ description: 'Retainer', quantity: 1, unitPrice: 1000 }],
+      }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(403)
+    expect(mockInvoiceAdd).not.toHaveBeenCalled()
+  })
+
+  it('denies member with grant for other staff client', async () => {
+    mockUser = { uid: 'stean', role: 'client', orgId: 'pib-platform-owner', activeOrgId: 'pib-platform-owner' }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        status: 'active',
+        role: 'member',
+        accessPolicy: {
+          preset: 'custom',
+          modules: { crm: true, billing: true },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+          capabilities: { invoices: true, quotes: true },
+        },
+      }),
+    })
+    mockCompanyGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        name: 'Someone Else Co',
+        ownerUid: 'other-staff',
+        email: 'other@client.test',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'pib-platform-owner',
+        companyId: 'company-other',
+        recipientEmail: 'other@client.test',
+        lineItems: [{ description: 'Retainer', quantity: 1, unitPrice: 1000 }],
+      }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(403)
+    expect(mockInvoiceAdd).not.toHaveBeenCalled()
+  })
+
+  it('keeps client-org owner path (Humanaut-style) without CRM target', async () => {
+    mockUser = { uid: 'stean', role: 'client', orgId: 'humanaut-org', activeOrgId: 'humanaut-org' }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        status: 'active',
+        role: 'owner',
+      }),
+    })
+    mockOrgDoc.mockImplementation(() => ({
+      get: jest.fn().mockResolvedValue({
+        exists: true,
+        data: () => ({
+          name: 'Humanaut AI',
+          settings: { currency: 'ZAR' },
+        }),
+      }),
+    }))
+
+    const { POST } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'humanaut-org',
+        lineItems: [{ description: 'Humanaut service', quantity: 1, unitPrice: 500 }],
+      }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    expect(mockInvoiceAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'humanaut-org',
+      sourceOrgId: 'humanaut-org',
     }))
   })
 })

@@ -121,6 +121,75 @@ const DAY2: Runbook[] = [
   },
 ]
 
+const PHASE5_CLOSE: Runbook[] = [
+  {
+    id: 'P5-A',
+    title: 'P5-A · Monthly close (by role)',
+    summary:
+      'Owner approvals, bookkeeper capture/bank, accountant period-close blockers → TB freeze, practice multi-client handoff. Use the period-close command centre before hard close.',
+    href: '/portal/finance/period-close',
+    cta: 'Period-close centre',
+    emptyState: 'Load sources first; blockers appear after evaluate against open period activity.',
+    gates: ['SOD approvals', 'No SARS submit', 'No payment initiate'],
+  },
+  {
+    id: 'P5-B',
+    title: 'P5-B · Bank feed sync + human recon',
+    summary:
+      'Mock-first connector: configure → sync staged lines → Accept/Dismiss suggestions only → finish zero-difference recon on statements. Never auto-post, never pay out.',
+    href: '/portal/finance/bank-feeds',
+    cta: 'Bank feeds',
+    emptyState: 'No connection until finance_admin configures the mock (or later vendor) feed for a bank account.',
+    gates: ['Human accept only', 'Never auto-post', 'noEgress'],
+  },
+  {
+    id: 'P5-C',
+    title: 'P5-C · Multi-entity consolidation',
+    summary:
+      'Close each entity book, confirm IC pairs, post eliminations only on the consolidation book, review consolidated TB, package multi-entity manifest.',
+    href: '/portal/finance/intercompany',
+    cta: 'Intercompany',
+    gates: ['Elims on consol only', 'No payment initiate'],
+  },
+  {
+    id: 'P5-D',
+    title: 'P5-D · Payroll bureau month-end',
+    summary:
+      'Multi-entity batch board, leave calendar, SOD lock, bulk payslip ZIP download, EMP201/EMP501 + IRP5 batch prepare/export only.',
+    href: '/portal/finance/payroll',
+    cta: 'Payroll bureau',
+    gates: ['No bank payout', 'No mass email', 'No SARS submit'],
+  },
+  {
+    id: 'P5-E',
+    title: 'P5-E · Accountant external review pack',
+    summary:
+      'Walk TB, journals, open items, bank recon, payroll statutory prepares, IC summary, and audit CSV. Download-only packaging with externalEgressAllowed=false.',
+    href: '/portal/finance/packaging',
+    cta: 'Packaging',
+    gates: ['Download only', 'No SARS submit', 'egress=false'],
+  },
+  {
+    id: 'P5-F',
+    title: 'P5-F · Incident / rollback (bad imports)',
+    summary:
+      'Reverse-not-delete for posted journals; duplicate fingerprints on re-import; dismiss bad feed suggestions; correction runs for locked payroll. Full notes in repo Phase 5 close runbooks.',
+    href: '/portal/finance/statements',
+    cta: 'Statements / recon',
+    gates: ['Immutable posted journals', 'Audited reversals'],
+  },
+  {
+    id: 'P5-P',
+    title: 'P5-P · Proving kit + checklist',
+    summary:
+      'Seed deterministic multi-entity demo, multi-period close fixture (blockers → hard_closed + frozen TB), packaging dry-run, printable accountant acceptance checklist.',
+    href: '/portal/finance/proving',
+    cta: 'Open proving kit',
+    emptyState: 'No seed until finance_admin runs Seed demo company (idempotent by seedKey).',
+    gates: ['No SARS submit', 'No payment initiate', 'Throw-away fixture'],
+  },
+]
+
 const DIFFERENTIATORS: Runbook[] = [
   {
     id: 'M',
@@ -191,10 +260,11 @@ export default function FinanceRunbooksPage() {
       active="runbooks"
       orgScope={orgScope}
       title="Finance operator runbooks"
-      description="Phase 4 day-0 and day-2 operator paths for books, AR/AP, bank, payroll, packaging, and practice. Development/staging first. No SARS submit, no external payment initiate, no mass payslip/statement email."
+      description="Phase 4 day-0/day-2 paths plus Phase 5 world-class close procedures: role-specific month-end, bank feeds, multi-entity consolidation, payroll bureau, accountant packs, and import incident notes. Development/staging first. No SARS submit, no external payment initiate, no mass payslip/statement email."
       meta={
         <div className="flex flex-wrap items-center gap-1.5">
           <HudChip tone="accent">Operator runbooks</HudChip>
+          <HudChip>Phase 5 close</HudChip>
           <HudChip>No SARS submit</HudChip>
           <HudChip>No external payout</HudChip>
           <HudChip>Human-gated recon</HudChip>
@@ -205,47 +275,57 @@ export default function FinanceRunbooksPage() {
           <Link href={scopedPortalPath('/portal/finance/setup', orgScope)} className="pib-btn-primary btn-pib-sm">
             Setup guide
           </Link>
+          <Link href={scopedPortalPath('/portal/finance/period-close', orgScope)} className="pib-btn-ghost btn-pib-sm">
+            Period close
+          </Link>
+          <Link href={scopedPortalPath('/portal/finance/proving', orgScope)} className="pib-btn-ghost btn-pib-sm">
+            Proving kit
+          </Link>
+          <Link href={scopedPortalPath('/portal/finance/bank-feeds', orgScope)} className="pib-btn-ghost btn-pib-sm">
+            Bank feeds
+          </Link>
           <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-ghost btn-pib-sm">
             Command centre
-          </Link>
-          <Link href={scopedPortalPath('/portal/finance/packaging', orgScope)} className="pib-btn-ghost btn-pib-sm">
-            Packaging
           </Link>
         </div>
       }
     >
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="finance-runbook-stats">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" data-testid="finance-runbook-stats">
         <StatCard label="Day-0 paths" value={String(DAY0.length)} detail="Bootstrap + cutover" icon="flag" />
         <StatCard label="Day-2 lanes" value={String(DAY2.length)} detail="Ops workbenches" icon="route" />
-        <StatCard label="Differentiators" value={String(DIFFERENTIATORS.length)} detail="IC, cross-org, agents" icon="hub" />
+        <StatCard label="Phase 5 close" value={String(PHASE5_CLOSE.length)} detail="Month-end world-class" icon="lock_clock" />
+        <StatCard label="Differentiators" value={String(DIFFERENTIATORS.length)} detail="IC, agents" icon="hub" />
         <StatCard label="Hard gates" value="4" detail="SARS / pay / email / auto-post" icon="shield" />
       </div>
 
       <Card className="space-y-3 p-5" data-testid="finance-runbook-intro">
         <h2 className="text-base font-semibold">How to use</h2>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
-          Follow setup first if the tenant is empty, then cutover, then day-2 lanes. Keep tenant scope on every finance URL.
-          Commands send X-Org-Id with exact legal entity and book scope. For Quinn staging acceptance, use the Phase 4 acceptance pack
-          in the repo under docs/operations/finance/ — this page is the operator map, not a permanent CEO dashboard.
+          Follow setup first if the tenant is empty, then cutover, then day-2 lanes. For month-end, use Phase 5 close lanes and the
+          period-close command centre. Keep tenant scope on every finance URL. Commands send X-Org-Id with exact legal entity and book
+          scope. For Quinn staging acceptance, use the Phase 5 acceptance pack under docs/operations/finance/ — this page is the
+          operator map, not a permanent CEO dashboard.
         </p>
         <div className="flex flex-wrap gap-1.5">
           <HudChip>Tenant scoped</HudChip>
           <HudChip>ModuleShell parity</HudChip>
           <HudChip>Spec Flie3SblIDXvplYmqOhy</HudChip>
           <HudChip>Project HRCSWl1cNnh6fYEGziAb</HudChip>
+          <HudChip>Task iaR4dsqPlUyGWuTlUENY</HudChip>
         </div>
       </Card>
 
       <RunbookSection heading="Day-0 foundation" items={DAY0} orgScope={orgScope} />
       <RunbookSection heading="Day-2 operating lanes" items={DAY2} orgScope={orgScope} />
+      <RunbookSection heading="Phase 5 world-class close" items={PHASE5_CLOSE} orgScope={orgScope} />
       <RunbookSection heading="Differentiators and agent ops" items={DIFFERENTIATORS} orgScope={orgScope} />
 
       <Card className="space-y-3 p-5" data-testid="finance-runbook-hard-gates">
         <h2 className="text-base font-semibold">Hard gates (always on)</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--color-pib-text-muted)]">
-          <li>No SARS e-filing submit from Tax, Payroll, or Packaging.</li>
-          <li>No external bank payment initiation from Documents, Statements, Bank rules, Payroll, or Packaging.</li>
-          <li>Bank rule and recon suggestion accept never auto-posts journals.</li>
+          <li>No SARS e-filing submit from Tax, Payroll, Packaging, or Proving.</li>
+          <li>No external bank payment initiation from Documents, Statements, Bank feeds, Bank rules, Payroll, or Packaging.</li>
+          <li>Bank feed, bank rule, and recon suggestion accept never auto-posts journals.</li>
           <li>Budgets and cashflow plans are planning-only.</li>
           <li>Mass email of payslips or customer statements stays separately gated.</li>
           <li>Production promote and main merge remain a separate Peet gate after Quinn acceptance.</li>
@@ -256,19 +336,25 @@ export default function FinanceRunbooksPage() {
         <h2 className="text-base font-semibold">Acceptance pack pointer</h2>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           Quinn runs automated verifies (verify:finance:security, test:finance:unit, portal-design-system-parity, workbench-delivery,
-          module verifies) plus golden-path smoke on staging. Durable checklist:
-          docs/operations/finance/phase4-acceptance-pack-2026-08-02.md. Durable narrative runbooks:
-          docs/operations/finance/operator-runbooks-phase4-2026-08-02.md.
+          proving, operator-depth, bank-feeds, payroll, plus foundation modules) and golden-path smoke on staging. Durable checklist:
+          docs/operations/finance/phase5-acceptance-pack-2026-08-03.md. Durable narrative close runbooks:
+          docs/operations/finance/operator-runbooks-phase5-close-2026-08-03.md. Phase 4 baseline remains under the 2026-08-02 filenames.
         </p>
         <div className="flex flex-wrap gap-2">
+          <Link href={scopedPortalPath('/portal/finance/proving', orgScope)}>
+            <Button variant="primary">Accountant acceptance checklist</Button>
+          </Link>
+          <Link href={scopedPortalPath('/portal/finance/period-close', orgScope)}>
+            <Button variant="ghost">Period-close centre</Button>
+          </Link>
           <Link href={scopedPortalPath('/portal/finance/setup', orgScope)}>
-            <Button variant="primary">Guided setup</Button>
+            <Button variant="ghost">Guided setup</Button>
           </Link>
           <Link href={scopedPortalPath('/portal/finance/practice', orgScope)}>
             <Button variant="ghost">Practice / audit</Button>
           </Link>
-          <Link href={scopedPortalPath('/portal/finance/cross-org', orgScope)}>
-            <Button variant="ghost">Cross-org confirm</Button>
+          <Link href={scopedPortalPath('/portal/finance/bank-feeds', orgScope)}>
+            <Button variant="ghost">Bank feeds</Button>
           </Link>
         </div>
       </Card>

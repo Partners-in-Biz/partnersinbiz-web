@@ -74,6 +74,37 @@ describe('portal billing permissions', () => {
     })
   })
 
+  it('allows privileged admin/ai to correct bill-to clientDetails on paid invoices without reopening commercial terms', () => {
+    const admin = { uid: 'admin-1', role: 'admin' as const }
+    const paid = { status: 'paid', createdBy: 'agent:nora' }
+    const clientDetails = {
+      name: 'Elemental Sustainability',
+      email: 'dutoit@elemental-s.co.za',
+      vatNumber: '4160278588',
+    }
+
+    expect(sanitizeInvoicePortalPatch(admin, paid, { clientDetails })).toEqual({
+      ok: true,
+      patch: { clientDetails },
+    })
+    expect(sanitizeInvoicePortalPatch(admin, paid, { clientDetails, notes: 'nope' })).toMatchObject({
+      ok: false,
+      status: 403,
+    })
+    expect(sanitizeInvoicePortalPatch(admin, paid, { lineItems: [{ description: 'x', quantity: 1, unitPrice: 1 }] })).toMatchObject({
+      ok: false,
+      status: 403,
+    })
+    expect(sanitizeInvoicePortalPatch(actor, paid, { clientDetails })).toMatchObject({
+      ok: false,
+      status: 403,
+    })
+    expect(sanitizeInvoicePortalPatch(admin, { status: 'cancelled' }, { clientDetails })).toMatchObject({
+      ok: false,
+      status: 403,
+    })
+  })
+
   it('allows sender-side draft quote editing and sending, while recipient users may only accept or decline sent quotes', () => {
     const senderQuote = { status: 'draft' }
     expect(quotePortalCapabilities('sender', senderQuote)).toMatchObject({
