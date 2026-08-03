@@ -23,6 +23,7 @@ import {
   normalizeProviderId,
   providersShareCredentialFamily,
 } from '@/lib/messages/model-provider-aliases'
+import { buildDeepSeekUsageAdvisory, type DeepSeekUsageAdvisory } from '@/lib/llm-providers/deepseek-usage'
 
 const SAFE_MODEL_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:/@+~=-]{0,191}$/
 const SAFE_PROVIDER_ID_RE = /^[A-Za-z][A-Za-z0-9._:-]{0,63}$/
@@ -73,6 +74,8 @@ export interface PublicMessageModelCatalog {
   hermesConfiguredProviders?: string[]
   /** Count of models that are actually selectable with credentials/config. */
   selectableModelCount?: number
+  /** Provider-specific usage tips (e.g. DeepSeek peak/off-peak) when those APIs are connected. */
+  usageAdvisories?: DeepSeekUsageAdvisory[]
 }
 
 export interface ValidatedMessageModelSelection {
@@ -293,6 +296,9 @@ function modelBelongsToCredentialProvider(modelId: string, provider: string): bo
   if (normalized === 'gemini') {
     return id.startsWith('gemini-') || id.startsWith('google/')
   }
+  if (normalized === 'deepseek') {
+    return id.startsWith('deepseek') || id.startsWith('deepseek/')
+  }
   if (normalized === 'copilot') {
     return /^(gpt-|o[134]-|claude-|openai\/|anthropic\/)/.test(id)
   }
@@ -416,6 +422,7 @@ export async function getMessageModelCatalog(input: {
   }> = []
   const localOnlyProviderLabels: string[] = []
   const personalConnectedProviders = new Set<string>()
+  let deepseekConnected = false
   if (orgId) {
     try {
       const connections = await listLlmProviderConnections({ orgId, uid: input.user.uid })
@@ -448,6 +455,14 @@ export async function getMessageModelCatalog(input: {
         const def = getLlmProvider(c.provider)
         const label = def?.label || c.label || c.provider
         if (c.scope === 'user') personalConnectedProviders.add(hermesProvider)
+        if (
+          c.status === 'connected'
+          && c.hasCredentials
+          && (hermesProvider === 'deepseek' || c.provider === 'deepseek')
+          && (c.scope === 'org' || (c.scope === 'user' && c.ownerUid === input.user.uid))
+        ) {
+          deepseekConnected = true
+        }
         const binding = bindingByConnection.get(c.id)
         const bindingReady = binding?.status === 'ready'
           && binding.liveAuthVerified === true
@@ -573,6 +588,9 @@ export async function getMessageModelCatalog(input: {
     ?? models.find((model) => model.active)
     ?? models.find((model) => model.available)
     ?? models[0]
+  const usageAdvisories = deepseekConnected || connectedHermesProviders.has('deepseek')
+    ? [buildDeepSeekUsageAdvisory()]
+    : undefined
 
   return {
     agentId,
@@ -590,6 +608,7 @@ export async function getMessageModelCatalog(input: {
     selectableModelCount,
     ...(hermesConfiguredProviders.length ? { hermesConfiguredProviders } : {}),
     ...(localOnlyProviderLabels.length ? { localOnlyProviderLabels } : {}),
+    ...(usageAdvisories ? { usageAdvisories } : {}),
     ...(warning ? { warning } : {}),
   }
 }

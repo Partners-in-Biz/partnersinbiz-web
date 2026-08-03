@@ -6,6 +6,7 @@ const PROVIDER_ALIAS_GROUPS: string[][] = [
   ['anthropic', 'claude'],
   ['gemini', 'google', 'google-gemini', 'google-ai'],
   ['xai', 'xai-oauth', 'grok'],
+  ['deepseek', 'deep-seek'],
   ['openrouter', 'open-router'],
   ['nous', 'nous-portal', 'nousresearch'],
   ['copilot', 'github-copilot', 'github_copilot'],

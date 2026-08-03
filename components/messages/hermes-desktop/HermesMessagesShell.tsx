@@ -11,6 +11,7 @@ import {
 } from '@/lib/hermes/workspace-panels'
 import { ModuleShell } from '@/components/ui/ModuleShell'
 import { HudChip, SignalMeter } from '@/components/ui/HudChip'
+import DeepSeekUsageChip from '@/components/messages/hermes/DeepSeekUsageChip'
 import { conversationFolderAccentSeed, folderAccentStyle } from '@/lib/messages/folder-accent'
 import {
   applyConversationLifecycle,
@@ -409,12 +410,17 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
             <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{copy.title}</h1>
             {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
           </div>
-          <div className="messages-info-constellation" aria-hidden="true">
-            <HudChip live>Live</HudChip>
-            <HudChip>Panes <strong>{panes.length}</strong></HudChip>
-            <HudChip>Tabs <strong>{openTabCount}</strong></HudChip>
-            <HudChip className="max-w-[10rem] truncate" title={focusedTabTitle}>Focus <strong className="truncate">{focusedTabTitle}</strong></HudChip>
-            <SignalMeter title="Signal field" />
+          <div className="messages-info-constellation">
+            <span aria-hidden="true" className="contents">
+              <HudChip live>Live</HudChip>
+              <HudChip>Panes <strong>{panes.length}</strong></HudChip>
+              <HudChip>Tabs <strong>{openTabCount}</strong></HudChip>
+            </span>
+            <DeepSeekUsageChip orgId={orgId} />
+            <span aria-hidden="true" className="contents">
+              <HudChip className="max-w-[10rem] truncate" title={focusedTabTitle}>Focus <strong className="truncate">{focusedTabTitle}</strong></HudChip>
+              <SignalMeter title="Signal field" />
+            </span>
           </div>
         </div>
         <div className="flex min-w-0 items-center gap-1.5">
