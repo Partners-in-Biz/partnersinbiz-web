@@ -22,6 +22,10 @@ import {
   advanceConversationUnreadCounts,
   retainConversationReadState,
 } from './read-state'
+import {
+  appendConversationRealtimeOutboxEvent,
+  realtimeOutboxEnabled,
+} from '@/lib/realtime/outbox'
 
 export const CONVERSATIONS_COLLECTION = 'conversations'
 
@@ -85,7 +89,20 @@ export async function createConversation(input: {
   if (input.workspaceContext) data.workspaceContext = input.workspaceContext
   if (input.contextRefs?.length) data.contextRefs = input.contextRefs
 
-  await ref.set(data)
+  if (realtimeOutboxEnabled()) {
+    await adminDb.runTransaction(async (transaction) => {
+      appendConversationRealtimeOutboxEvent({
+        transaction,
+        conversationRef: ref,
+        conversation: data,
+        conversationId: ref.id,
+        kind: 'conversation.created',
+        writeConversation: (realtimeSequence) => transaction.create(ref, { ...data, realtimeSequence }),
+      })
+    })
+  } else {
+    await ref.set(data)
+  }
   return { id: ref.id, ...data } as Conversation
 }
 
@@ -179,7 +196,25 @@ export async function createMessage(
     ...msg,
     createdAt: FieldValue.serverTimestamp(),
   }
-  await ref.set(data)
+  if (realtimeOutboxEnabled()) {
+    const conversationRef = convDoc(convId)
+    await adminDb.runTransaction(async (transaction) => {
+      const conversationSnapshot = await transaction.get(conversationRef)
+      if (!conversationSnapshot.exists) throw new Error('Conversation not found')
+      transaction.create(ref, data)
+      appendConversationRealtimeOutboxEvent({
+        transaction,
+        conversationRef,
+        conversation: conversationSnapshot.data() as Conversation,
+        conversationId: convId,
+        kind: 'message.created',
+        subject: { messageId: ref.id },
+        writeConversation: (realtimeSequence) => transaction.update(conversationRef, { realtimeSequence }),
+      })
+    })
+  } else {
+    await ref.set(data)
+  }
   return { id: ref.id, ...data } as ConversationMessage
 }
 
@@ -245,7 +280,23 @@ export async function patchConversation(
   if (patch.goalState !== undefined) {
     updates.goalState = patch.goalState === null ? FieldValue.delete() : patch.goalState
   }
-  await convDoc(convId).update(updates)
+  const ref = convDoc(convId)
+  if (!realtimeOutboxEnabled()) {
+    await ref.update(updates)
+    return
+  }
+  await adminDb.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref)
+    if (!snapshot.exists) throw new Error('Conversation not found')
+    appendConversationRealtimeOutboxEvent({
+      transaction,
+      conversationRef: ref,
+      conversation: snapshot.data() as Conversation,
+      conversationId: convId,
+      kind: 'conversation.updated',
+      writeConversation: (realtimeSequence) => transaction.update(ref, { ...updates, realtimeSequence }),
+    })
+  })
 }
 
 export class ConversationAccessConflictError extends Error {
@@ -305,7 +356,6 @@ export async function updateConversationAccess(input: {
       updatedAt: changedAt,
     }
     if (input.shareMode) conversationUpdate['workspaceContext.shareMode'] = input.shareMode
-    transaction.update(ref, conversationUpdate)
     transaction.set(ref.collection('access_history').doc(), {
       accessVersion: nextVersion,
       ...(input.shareMode ? { shareMode: input.shareMode } : { accessMode: 'participants' }),
@@ -314,6 +364,22 @@ export async function updateConversationAccess(input: {
       actorUid: input.actor.uid,
       actorRole: input.actor.role,
       createdAt: changedAt,
+    })
+    appendConversationRealtimeOutboxEvent({
+      transaction,
+      conversationRef: ref,
+      conversation: current,
+      conversationId: input.convId,
+      kind: 'conversation.access_changed',
+      accessVersion: nextVersion,
+      recipientUserIds: Array.from(new Set([
+        ...(current.participantUids ?? []),
+        ...input.participantUids,
+      ])),
+      writeConversation: (realtimeSequence) => transaction.update(ref, {
+        ...conversationUpdate,
+        ...(realtimeSequence !== undefined ? { realtimeSequence } : {}),
+      }),
     })
     return nextVersion
   })
@@ -369,6 +435,24 @@ async function deleteConversationAttachmentDocs(convId: string): Promise<void> {
 /** Delete a conversation, its messages, attachment metadata, and attachment blobs. */
 export async function deleteConversation(convId: string): Promise<void> {
   const ref = convDoc(convId)
+  if (realtimeOutboxEnabled()) {
+    await adminDb.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref)
+      if (!snapshot.exists) return
+      const conversation = snapshot.data() as Conversation
+      appendConversationRealtimeOutboxEvent({
+        transaction,
+        conversationRef: ref,
+        conversation,
+        conversationId: convId,
+        kind: 'conversation.deleted',
+        writeConversation: (realtimeSequence) => transaction.update(ref, {
+          realtimeDeletedAt: FieldValue.serverTimestamp(),
+          realtimeSequence,
+        }),
+      })
+    })
+  }
   await deleteConversationAttachmentDocs(convId)
 
   while (true) {
@@ -413,7 +497,18 @@ export async function touchConversation(
       updatedAt: FieldValue.serverTimestamp(),
     }
     if (messageId) update.lastMessageId = messageId
-    transaction.update(ref, update)
+    appendConversationRealtimeOutboxEvent({
+      transaction,
+      conversationRef: ref,
+      conversation,
+      conversationId: convId,
+      kind: 'conversation.updated',
+      ...(messageId ? { subject: { messageId } } : {}),
+      writeConversation: (realtimeSequence) => transaction.update(ref, {
+        ...update,
+        ...(realtimeSequence !== undefined ? { realtimeSequence } : {}),
+      }),
+    })
   })
 }
 
@@ -443,7 +538,7 @@ export async function markConversationRead(input: {
       && conversation.workspaceContext?.shareMode !== 'org') {
       throw new Error('User is not a conversation participant')
     }
-    transaction.update(ref, {
+    const readStateUpdate = {
       unreadCounts: {
         ...(conversation.unreadCounts ?? {}),
         [input.userId]: 0,
@@ -456,6 +551,18 @@ export async function markConversationRead(input: {
           lastReadAt: FieldValue.serverTimestamp(),
         },
       },
+    }
+    appendConversationRealtimeOutboxEvent({
+      transaction,
+      conversationRef: ref,
+      conversation,
+      conversationId: input.convId,
+      kind: 'conversation.read_changed',
+      recipientUserIds: [input.userId],
+      writeConversation: (realtimeSequence) => transaction.update(ref, {
+        ...readStateUpdate,
+        ...(realtimeSequence !== undefined ? { realtimeSequence } : {}),
+      }),
     })
   })
 }

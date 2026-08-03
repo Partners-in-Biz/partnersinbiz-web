@@ -101,6 +101,7 @@ import {
 } from '@/lib/messages/workbench/from-events'
 import { attachWorkbenchDiffs, mergeWorkbenchDirectory, runConversationWorkbenchJob, WORKBENCH_ROOT_PATH, workbenchEntriesToTree, workbenchJobResult, workbenchStatusToChanges } from '@/lib/messages/workbench/client'
 import { formatWorkbenchOperationResult, formatWorkbenchProgressBody, pollWorkbenchJob } from '@/lib/messages/workbench/browser-client'
+import { auth } from '@/lib/firebase/config'
 import {
   appendWorkbenchSessionOutput,
   approveWorkbenchSession as approveWorkbenchSessionApi,
@@ -158,6 +159,8 @@ const WORKBENCH_BROWSER_FALLBACK_VIEWPORT = { width: 1280, height: 720 } as cons
 const WORKBENCH_BROWSER_FOLLOW_INTERVAL_MS = 800
 /** Frame poll cadence when the Browser tab is open but not following. */
 const WORKBENCH_BROWSER_IDLE_POLL_INTERVAL_MS = 2_500
+const CONVERSATION_REALTIME_GATEWAY_URL = process.env.NEXT_PUBLIC_CONVERSATION_REALTIME_GATEWAY_URL?.trim() ?? ''
+const CONVERSATION_REALTIME_TRANSPORT = process.env.NEXT_PUBLIC_CONVERSATION_REALTIME_TRANSPORT?.trim().toLowerCase() ?? 'off'
 
 type AgentId = string
 
@@ -4266,6 +4269,83 @@ export default function UnifiedChat({
       setConversationLiveConnected(false)
     }
   }, [activeId, conversationPageVisible, listQuery])
+
+  // The GCP gateway is an optional, read-only invalidation transport. It does
+  // not carry conversation data; every refresh still goes through the existing
+  // permission-checked HTTP APIs. In shadow mode it exercises the connection
+  // and delivery path but deliberately leaves the proven SSE feed authoritative.
+  useEffect(() => {
+    const mode = CONVERSATION_REALTIME_TRANSPORT
+    if (
+      !conversationPageVisible
+      || !CONVERSATION_REALTIME_GATEWAY_URL
+      || (mode !== 'shadow' && mode !== 'enabled')
+      || typeof window === 'undefined'
+      || typeof window.WebSocket !== 'function'
+    ) return
+
+    let disposed = false
+    let socket: WebSocket | null = null
+    let reconnectTimer: number | undefined
+    let refreshTimer: number | undefined
+    let retryMs = 1_000
+    const scheduleCanonicalRefresh = () => {
+      if (mode !== 'enabled' || refreshTimer !== undefined) return
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = undefined
+        if (disposed || document.visibilityState === 'hidden') return
+        const convId = activeConversationIdRef.current
+        if (convId) void loadMessages(convId, { silent: true, softError: true })
+        void loadConversations()
+      }, 250)
+    }
+    const connect = async () => {
+      if (disposed) return
+      const user = auth.currentUser
+      if (!user) {
+        reconnectTimer = window.setTimeout(() => void connect(), retryMs)
+        return
+      }
+      try {
+        const token = await user.getIdToken()
+        if (disposed) return
+        const nextSocket = new window.WebSocket(CONVERSATION_REALTIME_GATEWAY_URL)
+        socket = nextSocket
+        nextSocket.onopen = () => nextSocket.send(JSON.stringify({ type: 'authenticate', token }))
+        nextSocket.onmessage = (event) => {
+          try {
+            const frame = JSON.parse(event.data) as { type?: string; eventId?: string }
+            if (frame.type === 'ready') retryMs = 1_000
+            if (frame.type === 'invalidate' && typeof frame.eventId === 'string') scheduleCanonicalRefresh()
+          } catch {
+            // The gateway is an optimisation. Ignore malformed frames and retain SSE.
+          }
+        }
+        nextSocket.onclose = () => {
+          if (disposed) return
+          reconnectTimer = window.setTimeout(() => {
+            retryMs = Math.min(retryMs * 2, 30_000)
+            void connect()
+          }, retryMs)
+        }
+        nextSocket.onerror = () => nextSocket.close()
+      } catch {
+        if (!disposed) {
+          reconnectTimer = window.setTimeout(() => {
+            retryMs = Math.min(retryMs * 2, 30_000)
+            void connect()
+          }, retryMs)
+        }
+      }
+    }
+    void connect()
+    return () => {
+      disposed = true
+      if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer)
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer)
+      socket?.close()
+    }
+  }, [conversationPageVisible, loadConversations, loadMessages])
 
   // Drop stale collaborator chips immediately when switching threads.
   useEffect(() => {
