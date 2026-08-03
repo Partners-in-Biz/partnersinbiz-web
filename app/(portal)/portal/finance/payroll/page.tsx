@@ -261,11 +261,14 @@ export default function FinancePayrollPage() {
 
   return (
     <FinanceModuleFrame active="payroll" orgScope={scope.orgScope} title="Payroll"
-      description="Bureau board, leave calendar, salary structures, bulk payslip ZIP packs, EMP501 annual readiness. Download only — no bank payout or SARS submit."
+      description="Bureau board, leave calendar, salary structures, bulk payslip ZIP packs, EMP501 annual readiness. Download only — no bank payout or SARS submit. Employees use ESS for self-serve."
       error={scope.error} message={scope.message} loading={scope.loading}>
       {!scope.loading && !scope.scopeReady ? <FinanceEmptyScope orgScope={scope.orgScope} /> : !scope.loading ? (
         <>
           <FinanceScopeBar scope={scope} />
+          <section className="pib-card p-3 text-sm">
+            <a className="pib-btn-secondary btn-pib-sm inline-flex" href="/portal/finance/ess">Open mobile ESS (payslips + leave)</a>
+          </section>
           <section className="grid gap-4 md:grid-cols-4">
             {[['Employees', bundle?.employees?.length ?? 0],['Pay periods', bundle?.periods?.length ?? 0],['Leave records', bundle?.leaveRecords?.length ?? 0],['Payslips', bundle?.payslipCount ?? 0]].map(([label,n]) => (
               <div key={String(label)} className="pib-stat-card"><p className="pib-label">{label}</p><p className="mt-3 text-2xl font-semibold">{n}</p></div>

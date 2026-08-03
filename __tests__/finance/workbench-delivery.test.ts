@@ -43,6 +43,7 @@ describe('finance workbench delivery contract', () => {
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/documents/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/payroll/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/ESS|employee self-service/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/personal/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/cross-org/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/statement/i)
@@ -64,6 +65,7 @@ describe('finance workbench delivery contract', () => {
       'app/(portal)/portal/finance/tax/page.tsx',
       'app/(portal)/portal/finance/reports/page.tsx',
       'app/(portal)/portal/finance/payroll/page.tsx',
+      'app/(portal)/portal/finance/ess/page.tsx',
       'app/(portal)/portal/finance/intercompany/page.tsx',
       'app/(portal)/portal/finance/ledger/page.tsx',
       'app/(portal)/portal/finance/personal/page.tsx',

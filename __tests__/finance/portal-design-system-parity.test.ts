@@ -83,6 +83,7 @@ describe('finance portal design-system parity', () => {
     'app/(portal)/portal/finance/reports/page.tsx',
     'app/(portal)/portal/finance/tax/page.tsx',
     'app/(portal)/portal/finance/payroll/page.tsx',
+    'app/(portal)/portal/finance/ess/page.tsx',
     'app/(portal)/portal/finance/packaging/page.tsx',
     'app/(portal)/portal/finance/intercompany/page.tsx',
     'app/(portal)/portal/finance/personal/page.tsx',
@@ -133,8 +134,10 @@ describe('finance portal design-system parity', () => {
     expect(FINANCE_PRIMARY_TABS).toContain('period-close')
     expect(financeNavItem('proving').href).toBe('/portal/finance/proving')
     expect(financeNavItem('expense-claims').href).toBe('/portal/finance/expense-claims')
+    expect(financeNavItem('ess').href).toBe('/portal/finance/ess')
     expect(financeNavItem('revenue-recognition').href).toBe('/portal/finance/revenue-recognition')
     expect(FINANCE_PRIMARY_TABS).toContain('proving')
+    expect(FINANCE_PRIMARY_TABS).toContain('ess')
     expect(FINANCE_PRIMARY_TABS).toContain('revenue-recognition')
   })
 
@@ -184,6 +187,7 @@ describe('finance portal design-system parity', () => {
       'app/(portal)/portal/finance/documents/page.tsx',
       'app/(portal)/portal/finance/tax/page.tsx',
       'app/(portal)/portal/finance/payroll/page.tsx',
+      'app/(portal)/portal/finance/ess/page.tsx',
       'app/(portal)/portal/finance/packaging/page.tsx',
       'app/(portal)/portal/finance/job-costing/page.tsx',
       'app/(portal)/portal/finance/inventory/page.tsx',
@@ -202,7 +206,7 @@ describe('finance portal design-system parity', () => {
     }
 
     // Nav lock: Phase 4/5 routes remain discoverable from the shared finance nav.
-    for (const key of ['assets', 'revenue-recognition', 'bank-rules', 'budgets', 'multi-currency', 'job-costing', 'practice', 'period-close', 'runbooks', 'setup', 'proving'] as const) {
+    for (const key of ['assets', 'revenue-recognition', 'bank-rules', 'budgets', 'multi-currency', 'job-costing', 'practice', 'period-close', 'runbooks', 'setup', 'proving', 'ess'] as const) {
       expect(financeNavItem(key).href).toMatch(/^\/portal\/finance/)
     }
   })

@@ -6,6 +6,7 @@ export type FinanceRouteKey =
   | 'reports'
   | 'tax'
   | 'payroll'
+  | 'ess'
   | 'assets'
   | 'job-costing'
   | 'inventory'
@@ -91,6 +92,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     href: '/portal/finance/payroll',
     icon: 'groups',
     description: 'ZA payroll calcs, pay runs, and payslips — no bank payout.',
+    group: 'ops',
+  },
+  {
+    key: 'ess',
+    label: 'ESS',
+    href: '/portal/finance/ess',
+    icon: 'badge',
+    description: 'Mobile/PWA employee self-service: own payslips + leave request/approval routing — no admin payroll controls.',
     group: 'ops',
   },
   {
@@ -255,6 +264,7 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'reports',
   'tax',
   'payroll',
+  'ess',
   'assets',
   'revenue-recognition',
   'job-costing',

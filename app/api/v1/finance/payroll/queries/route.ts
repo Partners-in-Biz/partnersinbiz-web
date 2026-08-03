@@ -7,7 +7,7 @@ import { runFinanceQueryHandler } from '@/lib/finance/http-command'
 export const dynamic = 'force-dynamic'
 
 const RESOURCES = [
-  'bundle','payslip','my-payslips','payslip-pack','bulk-payslip-pack',
+  'bundle','payslip','my-payslips','ess-bundle','payslip-pack','bulk-payslip-pack',
   'pay-run-board','leave-month','salary-structures','vera-fixtures','vera-fixture',
   'irp5','emp201','emp501','export-manifest',
 ] as const
@@ -30,6 +30,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
           return gateway.getPayslip(actor, scope, id)
         }
         case 'my-payslips': return gateway.listMyPayslips(actor, scope)
+        case 'ess-bundle': return gateway.listEssBundle(actor, scope)
         case 'payslip-pack': {
           const id = params.get('id')
           if (!id) throw new FinanceValidationError('id is required for payslip-pack')

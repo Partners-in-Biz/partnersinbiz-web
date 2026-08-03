@@ -41,6 +41,13 @@
   ],
   "shortcuts": [
     {
+      "name": "Employee self-service",
+      "short_name": "ESS",
+      "description": "Payslips and leave — installable employee self-service",
+      "url": "/portal/finance/ess?source=pwa-shortcut",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
       "name": "Open portal",
       "short_name": "Portal",
       "description": "Open your client portal",

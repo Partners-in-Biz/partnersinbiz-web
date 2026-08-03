@@ -597,6 +597,11 @@ export class FirestoreFinancePayrollGateway {
     return new FinancePayrollLeaveService(store).listMyPayslips(actor, scope)
   }
 
+  async listEssBundle(actor: FinanceActorContext, scope: Required<FinanceScope>) {
+    const store = await hydratePayrollStore(this.db, scope)
+    return new FinancePayrollLeaveService(store).listEssBundle(actor, scope)
+  }
+
   async getPayslipPack(actor: FinanceActorContext, scope: Required<FinanceScope>, packId: string) {
     const store = await hydratePayrollStore(this.db, scope)
     const pack = store.payslipPacks.get(packId)
