@@ -6,7 +6,7 @@ import { runFinanceQueryHandler } from '@/lib/finance/http-command'
 
 export const dynamic = 'force-dynamic'
 
-const RESOURCES = ['bundle', 'provider-accounts'] as const
+const RESOURCES = ['bundle', 'provider-accounts', 'recon-centre'] as const
 
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const gateway = new FirestoreBankFeedFinanceGateway()
@@ -20,6 +20,10 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
 
       if (resource === 'bundle') {
         return gateway.getBundle(actor, orgId, legalEntityId, bookId)
+      }
+
+      if (resource === 'recon-centre') {
+        return gateway.getReconCentre(actor, orgId, legalEntityId, bookId)
       }
 
       if (resource === 'provider-accounts') {

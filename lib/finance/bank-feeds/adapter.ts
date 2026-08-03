@@ -178,6 +178,12 @@ export function createBankFeedAdapterRegistry(
   return {
     mock: () => new MockBankFeedProvider(),
     live_stub: () => new LiveStubBankFeedProvider(),
+    // Lazy require avoids circular import with providers/za-aggregator-stub.ts
+    za_aggregator_stub: () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const mod = require('./providers/za-aggregator-stub') as typeof import('./providers/za-aggregator-stub')
+      return new mod.ZaAggregatorStubBankFeedProvider()
+    },
     ...overrides,
   }
 }

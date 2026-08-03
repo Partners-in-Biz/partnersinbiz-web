@@ -70,15 +70,16 @@ Org + legal entity + book scoped:
 ## Plugging in a future live provider
 
 1. **Do not** sign Yodlee/Stitch/etc. or spend without a separate Peet approval task.
-2. Implement `BankFeedConnectorAdapter` in e.g. `lib/finance/bank-feeds/providers/stitch.ts`.
-3. On real HTTP calls, require `ctx.noEgress === false` **and** a resolved secret from the approved secret store via `ctx.secretRefId` only (never log secret material).
-4. Register: `createBankFeedAdapterRegistry({ stitch: () => new StitchAdapter() })` and extend `BankFeedProviderId`.
-5. Keep unit tests on mock + `live_stub` with `noEgress: true` (assert no network).
-6. Connection create for live providers already requires `secretRefId`.
-7. Map provider payloads through `mapToBankLines` / shared fingerprint helper so import idempotency stays stable.
-8. Wire optional `importBankTxn` in the Firestore gateway to `FinanceDocumentsService.importBankTransaction` when promoting lines into the documents bank register.
-9. Continue to run bank-rules evaluate (or feed suggestions) as **suggestions only**.
-10. Security gate: tenant isolation, deny-all collections, `verify:finance:bank-feeds` green.
+2. Read the Phase 6 boundary doc first: `docs/architecture/finance-bank-feed-za-aggregator-boundary.md` (provider registry, credential vault stub, org provider selection flags, Peet checklist).
+3. Implement `BankFeedConnectorAdapter` in e.g. `lib/finance/bank-feeds/providers/<vendor>.ts` (not by hard-coding vendor secrets into `za_aggregator_stub`).
+4. On real HTTP calls, require `ctx.noEgress === false` **and** effective live egress (compile-time master switch + org `allowLiveEgress`) **and** a resolved secret via `ctx.secretRefId` only (never log secret material).
+5. Register: `createBankFeedAdapterRegistry({ … })` and extend `BankFeedProviderId`.
+6. Keep unit tests on mock + `live_stub` + `za_aggregator_stub` with `noEgress: true` (assert no network).
+7. Connection create for live providers already requires `secretRefId`; mock forbids it. Org settings default to mock-only until `allowNonMockProviders` is enabled.
+8. Map provider payloads through `mapToBankLines` / shared fingerprint helper so import idempotency stays stable.
+9. Wire optional `importBankTxn` in the Firestore gateway to `FinanceDocumentsService.importBankTransaction` when promoting lines into the documents bank register.
+10. Continue to run bank-rules evaluate (or feed suggestions) as **suggestions only**.
+11. Security gate: tenant isolation, deny-all collections, `verify:finance:bank-feeds` green.
 
 ## Verify
 

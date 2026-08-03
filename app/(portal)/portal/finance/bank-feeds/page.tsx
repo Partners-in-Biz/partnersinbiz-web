@@ -1,7 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  FinanceModuleFrame,
+  FinanceEmptyScope,
+  FinancePrimaryButton,
+} from '@/components/finance/FinanceModuleFrame'
 import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
 import {
   newFinanceId,
@@ -9,22 +13,64 @@ import {
   requestIdentity,
 } from '@/components/finance/financeWorkbench'
 import { useFinanceBookScope } from '@/components/finance/useFinanceBookScope'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { HudChip } from '@/components/ui/HudChip'
+import { StatCard } from '@/components/ui/StatCard'
+import { scopedPortalPath } from '@/lib/portal/scoped-routing'
+
+type Health = {
+  status: string
+  label: string
+  detail: string
+  needsReconnect?: boolean
+  lastSyncAt?: string
+  lastError?: string
+}
 
 type Bundle = {
-  connections: Array<Record<string, any>>
+  connections: Array<Record<string, any> & { health?: Health; accounts?: any[] }>
   syncRuns: Array<Record<string, any>>
   lines: Array<Record<string, any>>
   suggestions: Array<Record<string, any>>
   auditEvents: Array<Record<string, any>>
+  reconCentre?: {
+    unreconciledCount: number
+    pendingSuggestionCount: number
+    aging: Array<{ bucket: string; count: number; amountMinor: number }>
+    items: Array<Record<string, any>>
+    safeBulkAcceptIds: string[]
+    pendingSuggestionIds: string[]
+    fileImportFallbackPath?: string
+    hardGates?: Record<string, boolean>
+  }
   hardGates?: Record<string, boolean>
+}
+
+function healthTone(status?: string): 'live' | 'warning' | 'danger' | 'default' | 'accent' {
+  if (status === 'healthy') return 'live'
+  if (status === 'syncing') return 'accent'
+  if (status === 'stale') return 'warning'
+  if (status === 'error' || status === 'needs_reconnect' || status === 'disconnected') return 'danger'
+  return 'default'
 }
 
 export default function FinanceBankFeedsPage() {
   const scope = useFinanceBookScope()
   const [busy, setBusy] = useState(false)
   const [bundle, setBundle] = useState<Bundle | null>(null)
-  const [label, setLabel] = useState('Mock FNB cheque (proving kit)')
+  const [label, setLabel] = useState('Mock FNB multi-account (daily path)')
   const [bankAccountId, setBankAccountId] = useState('bank_main')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  const statementsHref = useMemo(
+    () => scopedPortalPath('/portal/finance/statements', scope.orgScope),
+    [scope.orgScope],
+  )
+  const bankRulesHref = useMemo(
+    () => scopedPortalPath('/portal/finance/bank-rules', scope.orgScope),
+    [scope.orgScope],
+  )
 
   const loadBundle = useCallback(async () => {
     if (!scope.scopeReady) {
@@ -70,20 +116,23 @@ export default function FinanceBankFeedsPage() {
         bankAccountId,
         ...requestIdentity('bank-feed-conn'),
       })
-      scope.setMessage(`Mock connection created — no secrets, no real bank egress`)
+      scope.setMessage('Mock multi-account connection created — no secrets, no real bank egress')
     })
   }
 
-  async function syncNow(connectionId: string) {
+  async function syncNow(connectionId: string, externalAccountId?: string) {
     await withBusy(async () => {
       const id = newFinanceId('bfsrun')
       await scope.runCommand('/api/v1/finance/bank-feeds/commands', 'bank-feed.sync', {
         id,
         connectionId,
+        ...(externalAccountId ? { externalAccountId } : {}),
         noEgress: true,
         ...requestIdentity('bank-feed-sync'),
       })
-      scope.setMessage('Sync complete — lines staged + suggestions pending human accept/dismiss (never auto-post)')
+      scope.setMessage(
+        'Sync complete — lines materialized into recon centre; suggestions pending human accept/dismiss (never auto-post)',
+      )
     })
   }
 
@@ -94,6 +143,27 @@ export default function FinanceBankFeedsPage() {
         ...requestIdentity('bank-feed-disc'),
       })
       scope.setMessage(`Disconnected ${connectionId}`)
+    })
+  }
+
+  async function reconnect(connectionId: string) {
+    await withBusy(async () => {
+      await scope.runCommand('/api/v1/finance/bank-feeds/commands', 'bank-feed.connection.reconnect', {
+        id: connectionId,
+        ...requestIdentity('bank-feed-reconn'),
+      })
+      scope.setMessage(`Reconnected ${connectionId} — ready for Sync now`)
+    })
+  }
+
+  async function refreshAccounts(connectionId: string) {
+    await withBusy(async () => {
+      await scope.runCommand('/api/v1/finance/bank-feeds/commands', 'bank-feed.accounts.refresh', {
+        id: connectionId,
+        defaultBankAccountId: bankAccountId,
+        ...requestIdentity('bank-feed-accts'),
+      })
+      scope.setMessage('Provider accounts refreshed — per-account cursor/status updated')
     })
   }
 
@@ -114,15 +184,42 @@ export default function FinanceBankFeedsPage() {
     })
   }
 
+  async function bulk(resolution: 'accept' | 'dismiss', onlySelected: boolean) {
+    await withBusy(async () => {
+      const payload: Record<string, unknown> = {
+        resolution,
+        ...requestIdentity(`bank-feed-bulk-${resolution}`),
+      }
+      if (onlySelected && selected.size > 0) {
+        payload.suggestionIds = [...selected]
+      }
+      const result = await scope.runCommand(
+        '/api/v1/finance/bank-feeds/commands',
+        'bank-feed.suggestion.bulk',
+        payload,
+      )
+      const resolved = (result as any)?.resolved?.length ?? (result as any)?.data?.result?.resolved?.length ?? 0
+      setSelected(new Set())
+      scope.setMessage(
+        resolution === 'accept'
+          ? `Bulk accept (safe only): ${resolved} resolved — never auto-post`
+          : `Bulk dismiss: ${resolved} resolved — never auto-post`,
+      )
+    })
+  }
+
   const fmtZar = (minor: number) =>
     new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format((minor || 0) / 100)
+
+  const recon = bundle?.reconCentre
+  const pending = (bundle?.suggestions || []).filter((s) => s.status === 'pending')
 
   return (
     <FinanceModuleFrame
       active="bank-feeds"
       orgScope={scope.orgScope}
       title="Bank feeds"
-      description="Connector framework (mock SA bank first). Sync pulls lines and bank-rule style suggestions — human accept/dismiss only. Never auto-posts journals and never initiates payments. No paid open-banking vendor."
+      description="Daily operator path on the mock SA connector. Connection health, multi-account cursors, recon centre aging, and human-gated bulk accept/dismiss. File import remains the fallback. Never auto-posts journals and never initiates payments. No paid open-banking vendor."
       error={scope.error}
       message={scope.message}
       loading={scope.loading || busy}
@@ -133,159 +230,363 @@ export default function FinanceBankFeedsPage() {
         <div className="space-y-6">
           <FinanceScopeBar scope={scope} />
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-2 text-sm font-semibold">Hard gates</h2>
-            <p className="text-xs text-[var(--color-pib-text-muted)]">
-              noEgress={String(bundle?.hardGates?.noEgress ?? true)} · autoPosted=
-              {String(bundle?.hardGates?.autoPosted ?? false)} · externalPaymentInitiated=
-              {String(bundle?.hardGates?.externalPaymentInitiated ?? false)} · SARS submit=false · paid vendor=not
-              connected
-            </p>
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              label="Connections"
+              value={String(bundle?.connections?.length ?? 0)}
+              detail="Mock-first feeds"
+            />
+            <StatCard
+              label="Unreconciled"
+              value={String(recon?.unreconciledCount ?? 0)}
+              detail="Recon centre queue"
+            />
+            <StatCard
+              label="Pending suggestions"
+              value={String(recon?.pendingSuggestionCount ?? pending.length)}
+              detail="Human accept/dismiss only"
+            />
+            <StatCard
+              label="Safe bulk accept"
+              value={String(recon?.safeBulkAcceptIds?.length ?? 0)}
+              detail="High confidence, non-SARS"
+            />
           </section>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">Create mock connection</h2>
+          <Card className="space-y-2 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-semibold">Hard gates</h2>
+              <HudChip tone="live">noEgress={String(bundle?.hardGates?.noEgress ?? true)}</HudChip>
+              <HudChip>autoPosted={String(bundle?.hardGates?.autoPosted ?? false)}</HudChip>
+              <HudChip>
+                paymentInit={String(bundle?.hardGates?.externalPaymentInitiated ?? false)}
+              </HudChip>
+              <HudChip tone="accent">No SARS submit</HudChip>
+              <HudChip>File import fallback</HudChip>
+            </div>
+            <p className="text-xs text-[var(--color-pib-text-muted)]">
+              Prefer continuous mock feeds for daily recon. CSV/OFX file import stays available under{' '}
+              <a className="underline" href={statementsHref}>
+                Statements
+              </a>
+              . Bank-rules evaluate surface:{' '}
+              <a className="underline" href={bankRulesHref}>
+                Bank rules
+              </a>
+              .
+            </p>
+          </Card>
+
+          <Card className="space-y-3 p-4">
+            <h2 className="text-sm font-semibold">Create mock multi-account connection</h2>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="text-xs">
                 Label
                 <input
-                  className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+                  className="mt-1 w-full rounded border border-[var(--color-pib-line)] bg-transparent px-2 py-1.5 text-sm"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                 />
               </label>
               <label className="text-xs">
-                PiB bank account id
+                Default PiB bank account id
                 <input
-                  className="mt-1 w-full rounded border px-2 py-1.5 text-sm"
+                  className="mt-1 w-full rounded border border-[var(--color-pib-line)] bg-transparent px-2 py-1.5 text-sm"
                   value={bankAccountId}
                   onChange={(e) => setBankAccountId(e.target.value)}
                 />
               </label>
             </div>
-            <button
-              type="button"
-              disabled={busy}
-              className="mt-3 rounded bg-[var(--color-pib-accent)] px-3 py-1.5 text-sm text-white disabled:opacity-50"
-              onClick={() => void createMockConnection()}
-            >
-              Connect mock SA bank
-            </button>
-          </section>
+            <FinancePrimaryButton disabled={busy} onClick={() => void createMockConnection()}>
+              Connect mock SA bank (cheque + savings)
+            </FinancePrimaryButton>
+          </Card>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">Connections ({bundle?.connections?.length ?? 0})</h2>
-            <ul className="space-y-2 text-sm">
-              {(bundle?.connections || []).map((c) => (
-                <li key={c.id} className="rounded border border-[var(--color-pib-line)] px-3 py-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <div className="font-medium">
-                        {c.label}{' '}
-                        <span className="text-[var(--color-pib-text-muted)]">
-                          · {c.providerId} · {c.status}
-                        </span>
+          <Card className="space-y-3 p-4">
+            <h2 className="text-sm font-semibold">Connections & health ({bundle?.connections?.length ?? 0})</h2>
+            <ul className="space-y-3 text-sm">
+              {(bundle?.connections || []).map((c) => {
+                const health = c.health as Health | undefined
+                const accounts = (c.accounts || c.linkedAccounts || []) as Array<Record<string, any>>
+                return (
+                  <li
+                    key={c.id}
+                    className="rounded-lg border border-[var(--color-pib-line)] px-3 py-3"
+                    data-testid={`bank-feed-connection-${c.id}`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2 font-medium">
+                          <span>{c.label}</span>
+                          <HudChip>{c.providerId}</HudChip>
+                          <HudChip tone={healthTone(health?.status)}>{health?.label || c.status}</HudChip>
+                          {health?.needsReconnect ? <HudChip tone="danger">Needs reconnect</HudChip> : null}
+                        </div>
+                        <div className="text-xs text-[var(--color-pib-text-muted)]">
+                          lastSync={health?.lastSyncAt || c.lastSyncAt || 'never'} · primary cursor=
+                          {c.cursor || '—'} · default bank={c.bankAccountId}
+                        </div>
+                        {health?.detail ? (
+                          <div className="text-xs text-[var(--color-pib-text-muted)]">{health.detail}</div>
+                        ) : null}
+                        {c.lastError || health?.lastError ? (
+                          <div className="text-xs text-red-600">{c.lastError || health?.lastError}</div>
+                        ) : null}
                       </div>
-                      <div className="text-xs text-[var(--color-pib-text-muted)]">
-                        bank={c.bankAccountId} · external={c.externalAccountId || '—'} · lastSync=
-                        {c.lastSyncAt || 'never'} · cursor={c.cursor || '—'}
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={busy || c.status === 'disconnected'}
+                          onClick={() => void syncNow(c.id)}
+                        >
+                          Sync now
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={busy || c.status === 'disconnected'}
+                          onClick={() => void refreshAccounts(c.id)}
+                        >
+                          Refresh accounts
+                        </Button>
+                        {health?.needsReconnect || c.status === 'error' || c.status === 'disconnected' ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            disabled={busy}
+                            onClick={() => void reconnect(c.id)}
+                          >
+                            Reconnect
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={busy || c.status === 'disconnected'}
+                          onClick={() => void disconnect(c.id)}
+                        >
+                          Disconnect
+                        </Button>
                       </div>
-                      {c.lastError ? <div className="text-xs text-red-600">{c.lastError}</div> : null}
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={busy || c.status === 'disconnected'}
-                        className="rounded border px-2 py-1 text-xs disabled:opacity-50"
-                        onClick={() => void syncNow(c.id)}
-                      >
-                        Sync now
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy || c.status === 'disconnected'}
-                        className="rounded border px-2 py-1 text-xs disabled:opacity-50"
-                        onClick={() => void disconnect(c.id)}
-                      >
-                        Disconnect
-                      </button>
+
+                    <div className="mt-3 overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]">
+                            <th className="py-1 pr-2">Account</th>
+                            <th className="py-1 pr-2">Status</th>
+                            <th className="py-1 pr-2">Cursor</th>
+                            <th className="py-1 pr-2">Last sync</th>
+                            <th className="py-1 pr-2">Bank id</th>
+                            <th className="py-1 pr-2" />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {accounts.map((a) => (
+                            <tr key={a.externalAccountId} className="border-b border-[var(--color-pib-line)]/50">
+                              <td className="py-1 pr-2">
+                                {a.name || a.externalAccountId}
+                                {a.maskedAccountNumber ? ` · ${a.maskedAccountNumber}` : ''}
+                              </td>
+                              <td className="py-1 pr-2">
+                                <HudChip tone={a.status === 'error' ? 'danger' : a.status === 'active' ? 'live' : 'default'}>
+                                  {a.status}
+                                </HudChip>
+                              </td>
+                              <td className="py-1 pr-2 whitespace-nowrap">{a.cursor || '—'}</td>
+                              <td className="py-1 pr-2 whitespace-nowrap">{a.lastSyncAt || 'never'}</td>
+                              <td className="py-1 pr-2">{a.bankAccountId}</td>
+                              <td className="py-1 pr-2 text-right">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  disabled={busy || c.status === 'disconnected' || a.status === 'disconnected'}
+                                  onClick={() => void syncNow(c.id, a.externalAccountId)}
+                                >
+                                  Sync account
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                          {!accounts.length ? (
+                            <tr>
+                              <td colSpan={6} className="py-2 text-[var(--color-pib-text-muted)]">
+                                No linked accounts — refresh after connect.
+                              </td>
+                            </tr>
+                          ) : null}
+                        </tbody>
+                      </table>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
               {!bundle?.connections?.length ? (
                 <li className="text-[var(--color-pib-text-muted)]">No connections yet — create a mock feed above.</li>
               ) : null}
             </ul>
-          </section>
+          </Card>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">Synced lines ({bundle?.lines?.length ?? 0})</h2>
+          <Card className="space-y-3 p-4" data-testid="bank-feed-recon-centre">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">
+                Operator recon centre ({recon?.unreconciledCount ?? 0} unreconciled)
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy || !(recon?.safeBulkAcceptIds?.length || selected.size)}
+                  onClick={() => void bulk('accept', selected.size > 0)}
+                >
+                  Bulk accept safe
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy || !(recon?.pendingSuggestionCount || selected.size)}
+                  onClick={() => void bulk('dismiss', selected.size > 0)}
+                >
+                  Bulk dismiss
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {(recon?.aging || []).map((bucket) => (
+                <HudChip key={bucket.bucket} tone={bucket.count > 0 ? 'warning' : 'default'}>
+                  {bucket.bucket}d: {bucket.count} ({fmtZar(bucket.amountMinor)})
+                </HudChip>
+              ))}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]">
+                    <th className="py-1 pr-2" />
+                    <th className="py-1 pr-2">Age</th>
+                    <th className="py-1 pr-2">Date</th>
+                    <th className="py-1 pr-2">Description</th>
+                    <th className="py-1 pr-2">Amount</th>
+                    <th className="py-1 pr-2">Suggestion</th>
+                    <th className="py-1 pr-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(recon?.items || []).slice(0, 50).map((item) => (
+                    <tr key={item.bankLineId} className="border-b border-[var(--color-pib-line)]/60">
+                      <td className="py-1 pr-2">
+                        {item.suggestionId && item.suggestionStatus === 'pending' ? (
+                          <input
+                            type="checkbox"
+                            checked={selected.has(item.suggestionId)}
+                            onChange={(e) => {
+                              setSelected((prev) => {
+                                const next = new Set(prev)
+                                if (e.target.checked) next.add(item.suggestionId)
+                                else next.delete(item.suggestionId)
+                                return next
+                              })
+                            }}
+                            aria-label={`Select suggestion ${item.suggestionId}`}
+                          />
+                        ) : null}
+                      </td>
+                      <td className="py-1 pr-2 whitespace-nowrap">
+                        <HudChip tone={item.agingDays > 30 ? 'danger' : item.agingDays > 7 ? 'warning' : 'default'}>
+                          {item.agingBucket} ({item.agingDays}d)
+                        </HudChip>
+                      </td>
+                      <td className="py-1 pr-2 whitespace-nowrap">{item.effectiveDate}</td>
+                      <td className="py-1 pr-2">{item.description}</td>
+                      <td className="py-1 pr-2 whitespace-nowrap">{fmtZar(item.amountMinor)}</td>
+                      <td className="py-1 pr-2">
+                        {item.suggestionKind ? (
+                          <span>
+                            {item.suggestionKind} · {item.suggestionStatus} ·{' '}
+                            {Math.round((item.suggestionConfidence || 0) * 100)}%
+                            {item.safeBulkAccept ? ' · safe' : ''}
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className="py-1 pr-2">
+                        {item.suggestionId && item.suggestionStatus === 'pending' ? (
+                          <div className="flex gap-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => void resolve(item.suggestionId, 'bank-feed.suggestion.accept')}
+                            >
+                              Accept
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              disabled={busy}
+                              onClick={() => void resolve(item.suggestionId, 'bank-feed.suggestion.dismiss')}
+                            >
+                              Dismiss
+                            </Button>
+                          </div>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!recon?.items?.length ? (
+                <p className="text-[var(--color-pib-text-muted)]">
+                  No unreconciled feed lines — run Sync now, or use{' '}
+                  <a className="underline" href={statementsHref}>
+                    file import fallback
+                  </a>
+                  .
+                </p>
+              ) : null}
+            </div>
+          </Card>
+
+          <Card className="space-y-3 p-4">
+            <h2 className="mb-1 text-sm font-semibold">Recent synced lines ({bundle?.lines?.length ?? 0})</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]">
                     <th className="py-1 pr-2">Date</th>
+                    <th className="py-1 pr-2">Account</th>
                     <th className="py-1 pr-2">Description</th>
                     <th className="py-1 pr-2">Amount</th>
-                    <th className="py-1 pr-2">Status</th>
+                    <th className="py-1 pr-2">Import</th>
+                    <th className="py-1 pr-2">Recon</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(bundle?.lines || []).slice(0, 40).map((l) => (
                     <tr key={l.id} className="border-b border-[var(--color-pib-line)]/60">
                       <td className="py-1 pr-2 whitespace-nowrap">{l.effectiveDate}</td>
+                      <td className="py-1 pr-2 whitespace-nowrap">{l.externalAccountId}</td>
                       <td className="py-1 pr-2">{l.description}</td>
                       <td className="py-1 pr-2 whitespace-nowrap">{fmtZar(l.amountMinor)}</td>
                       <td className="py-1 pr-2">{l.importStatus}</td>
+                      <td className="py-1 pr-2">{l.reconState || (l.reconMaterializedAt ? 'materialized' : '—')}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {!bundle?.lines?.length ? (
-                <p className="text-[var(--color-pib-text-muted)]">No lines yet — run Sync now on a connection.</p>
-              ) : null}
             </div>
-          </section>
+          </Card>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">Suggestions ({bundle?.suggestions?.length ?? 0})</h2>
-            <ul className="space-y-2 text-sm">
-              {(bundle?.suggestions || []).map((s) => (
-                <li key={s.id} className="rounded border border-[var(--color-pib-line)] px-3 py-2">
-                  <div className="font-medium">
-                    {s.kind} · {s.status} · conf {Math.round((s.confidence || 0) * 100)}%
-                  </div>
-                  <div className="text-xs text-[var(--color-pib-text-muted)]">{s.reason}</div>
-                  {s.status === 'pending' ? (
-                    <div className="mt-2 flex gap-2">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className="rounded border px-2 py-1 text-xs disabled:opacity-50"
-                        onClick={() => void resolve(s.id, 'bank-feed.suggestion.accept')}
-                      >
-                        Accept
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className="rounded border px-2 py-1 text-xs disabled:opacity-50"
-                        onClick={() => void resolve(s.id, 'bank-feed.suggestion.dismiss')}
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  ) : null}
-                </li>
-              ))}
-              {!bundle?.suggestions?.length ? (
-                <li className="text-[var(--color-pib-text-muted)]">No suggestions yet.</li>
-              ) : null}
-            </ul>
-          </section>
-
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
+          <Card className="p-4">
             <h2 className="mb-3 text-sm font-semibold">Audit log ({bundle?.auditEvents?.length ?? 0})</h2>
             <ul className="max-h-64 space-y-1 overflow-y-auto text-xs">
               {(bundle?.auditEvents || []).map((a) => (
@@ -297,17 +598,17 @@ export default function FinanceBankFeedsPage() {
                 <li className="text-[var(--color-pib-text-muted)]">No audit events yet.</li>
               ) : null}
             </ul>
-          </section>
+          </Card>
 
-          <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4 text-xs text-[var(--color-pib-text-muted)]">
-            <h2 className="mb-2 text-sm font-semibold text-[var(--color-pib-text)]">Future live provider</h2>
+          <Card className="space-y-2 p-4 text-xs text-[var(--color-pib-text-muted)]">
+            <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Safety + future live provider</h2>
             <p>
-              Implement <code>BankFeedConnectorAdapter</code>, register in{' '}
-              <code>createBankFeedAdapterRegistry</code>, store credentials only via approved secretRefId, keep
-              noEgress in unit tests. See <code>docs/architecture/finance-bank-feed-connector.md</code>. Do not sign
-              Yodlee/Stitch contracts from this surface.
+              Accept/Dismiss and bulk actions update suggestion status only — never post journals and never initiate
+              payments. Mock needs no secrets. A future live provider plugs in via{' '}
+              <code>BankFeedConnectorAdapter</code> + approved <code>secretRefId</code> only after a separate Peet vendor
+              gate. See <code>docs/architecture/finance-bank-feed-connector.md</code>.
             </p>
-          </section>
+          </Card>
         </div>
       ) : null}
     </FinanceModuleFrame>

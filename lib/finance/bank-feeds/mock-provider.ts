@@ -1,6 +1,6 @@
 /**
  * Deterministic mock SA bank feed provider for proving kit.
- * Generates realistic ZAR cheque-account lines with no network I/O.
+ * Multi-account (cheque + savings) ZAR lines with no network I/O.
  */
 
 import type {
@@ -17,7 +17,7 @@ import {
   type BankFeedFetchResult,
 } from './adapter'
 
-const MOCK_ACCOUNT: BankFeedProviderAccount = {
+const MOCK_CHEQUE: BankFeedProviderAccount = {
   externalAccountId: 'mock-za-cheque-001',
   name: 'Business Cheque ****4821',
   currency: 'ZAR',
@@ -27,10 +27,22 @@ const MOCK_ACCOUNT: BankFeedProviderAccount = {
   currentBalanceMinor: 248_550_00,
 }
 
+const MOCK_SAVINGS: BankFeedProviderAccount = {
+  externalAccountId: 'mock-za-savings-002',
+  name: 'Business Savings ****9104',
+  currency: 'ZAR',
+  maskedAccountNumber: '****9104',
+  accountType: 'savings',
+  availableBalanceMinor: 512_000_00,
+  currentBalanceMinor: 512_000_00,
+}
+
 /** Seed catalogue of SA-flavoured movements (amounts in ZAR cents). */
-const SA_SEED: Array<Omit<BankFeedProviderTransaction, 'externalAccountId' | 'bookedAt' | 'valueDate' | 'currency'> & {
-  dayOffset: number
-}> = [
+const SA_CHEQUE_SEED: Array<
+  Omit<BankFeedProviderTransaction, 'externalAccountId' | 'bookedAt' | 'valueDate' | 'currency'> & {
+    dayOffset: number
+  }
+> = [
   {
     dayOffset: 0,
     externalTransactionId: 'mock_tx_salary_in',
@@ -95,6 +107,34 @@ const SA_SEED: Array<Omit<BankFeedProviderTransaction, 'externalAccountId' | 'bo
   },
 ]
 
+const SA_SAVINGS_SEED: Array<
+  Omit<BankFeedProviderTransaction, 'externalAccountId' | 'bookedAt' | 'valueDate' | 'currency'> & {
+    dayOffset: number
+  }
+> = [
+  {
+    dayOffset: 1,
+    externalTransactionId: 'mock_sv_interest',
+    amountMinor: 420_55,
+    description: 'CREDIT INTEREST SAVINGS',
+    reference: 'INT-AUG',
+  },
+  {
+    dayOffset: 2,
+    externalTransactionId: 'mock_sv_transfer_in',
+    amountMinor: 25_000_00,
+    description: 'INTERNAL TRANSFER FROM CHEQUE',
+    reference: 'XFER-IN',
+  },
+  {
+    dayOffset: 4,
+    externalTransactionId: 'mock_sv_fee',
+    amountMinor: -45_00,
+    description: 'FNB SAVINGS ADMIN FEE',
+    reference: 'FEE-SV',
+  },
+]
+
 function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n)
 }
@@ -105,13 +145,19 @@ function addDaysUtc(isoDate: string, days: number): string {
   return `${base.getUTCFullYear()}-${pad2(base.getUTCMonth() + 1)}-${pad2(base.getUTCDate())}`
 }
 
+function seedsForAccount(externalAccountId: string) {
+  if (externalAccountId === MOCK_CHEQUE.externalAccountId) return SA_CHEQUE_SEED
+  if (externalAccountId === MOCK_SAVINGS.externalAccountId) return SA_SAVINGS_SEED
+  return []
+}
+
 export class MockBankFeedProvider implements BankFeedConnectorAdapter {
   readonly providerId = 'mock' as const
 
   async listAccounts(ctx: BankFeedAdapterContext): Promise<BankFeedProviderAccount[]> {
     assertNoEgress(ctx, this.providerId)
-    // Mock never opens sockets — pure in-process catalogue.
-    return [{ ...MOCK_ACCOUNT }]
+    // Mock never opens sockets — pure in-process multi-account catalogue.
+    return [{ ...MOCK_CHEQUE }, { ...MOCK_SAVINGS }]
   }
 
   async fetchTransactions(
@@ -120,7 +166,8 @@ export class MockBankFeedProvider implements BankFeedConnectorAdapter {
     cursor: BankFeedFetchCursor,
   ): Promise<BankFeedFetchResult> {
     assertNoEgress(ctx, this.providerId)
-    if (externalAccountId !== MOCK_ACCOUNT.externalAccountId) {
+    const seeds = seedsForAccount(externalAccountId)
+    if (seeds.length === 0) {
       return { transactions: [], nextCursor: cursor.value, hasMore: false }
     }
 
@@ -129,7 +176,7 @@ export class MockBankFeedProvider implements BankFeedConnectorAdapter {
     const since = (cursor.value || cursor.sinceIso || '1970-01-01').slice(0, 10)
 
     const transactions: BankFeedProviderTransaction[] = []
-    for (const seed of SA_SEED) {
+    for (const seed of seeds) {
       // Anchor seed days relative to "today - 7" so proving kit always has recent lines.
       const anchor = addDaysUtc(today, -7)
       const valueDate = addDaysUtc(anchor, seed.dayOffset)
@@ -148,9 +195,7 @@ export class MockBankFeedProvider implements BankFeedConnectorAdapter {
     }
 
     const nextCursor =
-      transactions.length > 0
-        ? transactions.map((t) => t.valueDate).sort().slice(-1)[0]
-        : since
+      transactions.length > 0 ? transactions.map((t) => t.valueDate).sort().slice(-1)[0] : since
 
     return {
       transactions,
@@ -174,4 +219,9 @@ export class MockBankFeedProvider implements BankFeedConnectorAdapter {
   }
 }
 
-export { MOCK_ACCOUNT as MOCK_BANK_FEED_ACCOUNT, SA_SEED as MOCK_BANK_FEED_SA_SEED }
+export {
+  MOCK_CHEQUE as MOCK_BANK_FEED_ACCOUNT,
+  MOCK_SAVINGS as MOCK_BANK_FEED_SAVINGS_ACCOUNT,
+  SA_CHEQUE_SEED as MOCK_BANK_FEED_SA_SEED,
+  SA_SAVINGS_SEED as MOCK_BANK_FEED_SAVINGS_SEED,
+}
