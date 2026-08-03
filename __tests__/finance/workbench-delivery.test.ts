@@ -51,6 +51,7 @@ describe('finance workbench delivery contract', () => {
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/practice/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/multi-currency/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/bank-feeds|bank feed/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/inventory/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/proving/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/Interactive portal workbenches/i)
   })
