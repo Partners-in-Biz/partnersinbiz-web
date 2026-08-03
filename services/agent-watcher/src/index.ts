@@ -5,9 +5,46 @@
  * accepting new work and waits up to 30 seconds for in-flight tasks to finish before
  * exiting.
  */
+import fs from 'node:fs'
+import path from 'node:path'
 import { startWatcher, inFlightCount } from './watcher'
 import { startStaleSweeper } from './claim'
 import { logger } from './logger'
+
+/** Load optional key=value files into process.env without overriding existing values. */
+function loadOptionalEnvFiles(): void {
+  const candidates = [
+    path.join(process.cwd(), '.env'),
+    path.join(process.cwd(), 'secrets', 'watcher.env'),
+    '/var/lib/hermes/agent-watcher/.env',
+    '/var/lib/hermes/agent-watcher/secrets/watcher.env',
+  ]
+  for (const filePath of candidates) {
+    try {
+      if (!fs.existsSync(filePath)) continue
+      const text = fs.readFileSync(filePath, 'utf8')
+      for (const rawLine of text.split(/\r?\n/)) {
+        const line = rawLine.trim()
+        if (!line || line.startsWith('#')) continue
+        const eq = line.indexOf('=')
+        if (eq <= 0) continue
+        const key = line.slice(0, eq).trim()
+        let value = line.slice(eq + 1).trim()
+        if (
+          (value.startsWith('"') && value.endsWith('"'))
+          || (value.startsWith("'") && value.endsWith("'"))
+        ) {
+          value = value.slice(1, -1)
+        }
+        if (!process.env[key]) process.env[key] = value
+      }
+    } catch {
+      // optional
+    }
+  }
+}
+
+loadOptionalEnvFiles()
 
 const SHUTDOWN_DEADLINE_MS = 30_000
 const SHUTDOWN_POLL_MS = 500

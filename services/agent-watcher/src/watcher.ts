@@ -14,6 +14,11 @@ import { AGENT_IDS, getAgentConfig, loadEnabledAgentIds, type AgentId } from './
 import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { resolveWatcherLlmRoute, resolveWatcherRuntimePreference } from './llm-routing'
+import {
+  resolveLinkedComputerDispatchTarget,
+  runKanbanLinkedAndPoll,
+  type LinkedDeviceDispatchTarget,
+} from './linked-run'
 import { formatHermesWatcherError } from './hermes-error'
 import { logger } from './logger'
 import type { AgentRunTelemetry } from './run-telemetry'
@@ -653,17 +658,99 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       return
     }
 
-    // Load agent config
+    // Load agent config / linked-computer target
     const credentialOwnerUid = taskData.llmCredentialOwnerUid || taskData.createdBy || taskData.reporterId || ''
-    const requestedRuntimeTarget = await resolveWatcherRuntimePreference({
-      runtimeTargetId: taskData.agentRuntimeTargetId,
-      orgId: taskData.orgId ?? '',
-      ownerUid: credentialOwnerUid,
-      agentId,
-      resolvedSource: taskData.llmResolvedSource,
-    })
-    const cfg = await getAgentConfig(agentId, requestedRuntimeTarget)
-    if (!cfg || !cfg.enabled) {
+
+    // Pairing rule: never force a provider without an explicit model.
+    // Stamping agentProvider=openai-codex with agentModel=null makes Hermes keep the
+    // profile default model (grok-4.5) on ChatGPT Codex → HTTP 400.
+    // Prefer profile primary (xai-oauth/grok-4.5) when the card only has a provider stamp.
+    const taskModel = taskData.agentModel?.trim() || null
+    const taskProvider = taskData.agentProvider?.trim() || null
+    const safeTaskProvider = taskModel ? taskProvider : null
+    if (taskProvider && !taskModel) {
+      logger.warn('ignoring provider-only task stamp so Hermes profile primary can run', {
+        taskId,
+        agentId,
+        ignoredProvider: taskProvider,
+      })
+    }
+
+    let linkedTarget: LinkedDeviceDispatchTarget | null = null
+    try {
+      linkedTarget = await resolveLinkedComputerDispatchTarget({
+        runtimeTargetId: taskData.agentRuntimeTargetId,
+        orgId: taskData.orgId ?? '',
+        ownerUid: credentialOwnerUid,
+        agentId,
+        projectId: taskData.projectId ?? null,
+      })
+    } catch (linkedResolveErr) {
+      const message = linkedResolveErr instanceof Error ? linkedResolveErr.message : String(linkedResolveErr)
+      // Offline/stale Mac pins must not silently fall back to VPS.
+      if (String(taskData.agentRuntimeTargetId || '').startsWith('linked-device:')) {
+        logger.warn('linked-device pin is not dispatchable — marking blocked/retryable', {
+          taskId,
+          agentId,
+          runtimeTargetId: taskData.agentRuntimeTargetId,
+          error: message,
+        })
+        if (isTransientHermesError(message) || /offline|stale|heartbeat|retry/i.test(message)) {
+          const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
+          if (priorRetryCount < MAX_TRANSIENT_RETRIES) {
+            const nextRetryCount = priorRetryCount + 1
+            const retryAt = transientRetryAt(priorRetryCount, Date.now(), message)
+            await taskRef.update({
+              ...agentStatusUpdate('pending'),
+              agentRetryCount: nextRetryCount,
+              agentRetryAt: retryAt,
+              agentHeartbeatAt: FieldValue.delete(),
+              agentRuntimeTargetId: taskData.agentRuntimeTargetId,
+              agentOutput: {
+                summary: `Transient watcher error: ${message} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
+                completedAt: FieldValue.serverTimestamp(),
+              },
+              updatedAt: FieldValue.serverTimestamp(),
+            })
+            return
+          }
+        }
+        await taskRef.update({
+          ...agentStatusUpdate('blocked'),
+          agentRuntimeTargetId: taskData.agentRuntimeTargetId,
+          agentOutput: {
+            summary: `Watcher error: ${message}`,
+            completedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+          agentId,
+          summary: `Watcher error: ${message}`,
+          blockingReason: message,
+        })
+        return
+      }
+      logger.warn('linked-device resolve skipped; continuing VPS path', {
+        taskId,
+        agentId,
+        error: message,
+      })
+      linkedTarget = null
+    }
+
+    const requestedRuntimeTarget = linkedTarget
+      ? null
+      : await resolveWatcherRuntimePreference({
+        runtimeTargetId: taskData.agentRuntimeTargetId,
+        orgId: taskData.orgId ?? '',
+        ownerUid: credentialOwnerUid,
+        agentId,
+        resolvedSource: taskData.llmResolvedSource,
+      })
+
+    const cfg = linkedTarget ? null : await getAgentConfig(agentId, requestedRuntimeTarget)
+    if (!linkedTarget && (!cfg || !cfg.enabled)) {
       logger.warn('agent has no enabled dispatch config — marking task blocked', { taskId, agentId })
       const blockedSummary = `Watcher error: agent '${agentId}' has no enabled dispatch config in agent_dispatch_configs.`
       await taskRef.update({
@@ -694,58 +781,58 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       return
     }
 
-    // Pairing rule: never force a provider without an explicit model.
-    // Stamping agentProvider=openai-codex with agentModel=null makes Hermes keep the
-    // profile default model (grok-4.5) on ChatGPT Codex → HTTP 400.
-    // Prefer profile primary (xai-oauth/grok-4.5) when the card only has a provider stamp.
-    const taskModel = taskData.agentModel?.trim() || null
-    const taskProvider = taskData.agentProvider?.trim() || null
-    const safeTaskProvider = taskModel ? taskProvider : null
-    if (taskProvider && !taskModel) {
-      logger.warn('ignoring provider-only task stamp so Hermes profile primary can run', {
-        taskId,
-        agentId,
-        ignoredProvider: taskProvider,
-      })
-    }
-
     let credentialRoute: Awaited<ReturnType<typeof resolveWatcherLlmRoute>> = null
-    try {
-      credentialRoute = await resolveWatcherLlmRoute({
-        orgId: taskData.orgId ?? '',
-        ownerUid: credentialOwnerUid,
-        agentId,
-        provider: safeTaskProvider,
-        connectionId: taskModel ? (taskData.llmConnectionId ?? null) : null,
-        runtimeTargetId: taskData.agentRuntimeTargetId || cfg.targetId || requestedRuntimeTarget || 'vps',
-      })
-    } catch (routeErr) {
-      // Soft-fallback: profile auth already holds SuperGrok/Codex tokens. Do not block the
-      // whole Kanban chain when a Firestore binding is mid-sync / not live-ready yet.
-      logger.warn('LLM credential route unavailable; dispatching with profile defaults', {
-        taskId,
-        agentId,
-        provider: safeTaskProvider,
-        error: routeErr instanceof Error ? routeErr.message : String(routeErr),
-      })
-      credentialRoute = null
+    if (!linkedTarget) {
+      try {
+        credentialRoute = await resolveWatcherLlmRoute({
+          orgId: taskData.orgId ?? '',
+          ownerUid: credentialOwnerUid,
+          agentId,
+          provider: safeTaskProvider,
+          connectionId: taskModel ? (taskData.llmConnectionId ?? null) : null,
+          runtimeTargetId: taskData.agentRuntimeTargetId || cfg?.targetId || requestedRuntimeTarget || 'vps',
+        })
+      } catch (routeErr) {
+        // Soft-fallback: profile auth already holds SuperGrok/Codex tokens. Do not block the
+        // whole Kanban chain when a Firestore binding is mid-sync / not live-ready yet.
+        logger.warn('LLM credential route unavailable; dispatching with profile defaults', {
+          taskId,
+          agentId,
+          provider: safeTaskProvider,
+          error: routeErr instanceof Error ? routeErr.message : String(routeErr),
+        })
+        credentialRoute = null
+      }
     }
 
-    // Move to in-progress + start heartbeat
+    // Move to in-progress + start heartbeat. Always preserve an explicit linked-device pin.
     await taskRef.update({
       ...agentStatusUpdate('in-progress'),
       agentHeartbeatAt: FieldValue.serverTimestamp(),
+      ...(taskData.agentRuntimeTargetId
+        ? { agentRuntimeTargetId: taskData.agentRuntimeTargetId }
+        : credentialRoute
+          ? { agentRuntimeTargetId: credentialRoute.runtimeTargetId }
+          : {}),
+      ...(linkedTarget
+        ? {
+            agentDispatchRuntimeKind: 'linked-computer',
+            agentLinkedDeviceId: linkedTarget.deviceId,
+            agentLinkedDeviceLabel: linkedTarget.machineLabel,
+          }
+        : {}),
       ...(credentialRoute ? {
         llmConnectionId: credentialRoute.connectionId,
         llmCredentialBindingId: credentialRoute.credentialBindingId,
         llmResolvedSource: credentialRoute.resolvedSource,
-        agentRuntimeTargetId: credentialRoute.runtimeTargetId,
       } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     })
     notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'in-progress', {
       agentId,
-      summary: 'Agent claimed the task and started work.',
+      summary: linkedTarget
+        ? `Agent claimed the task for linked computer ${linkedTarget.machineLabel}.`
+        : 'Agent claimed the task and started work.',
     })
     stopHeartbeat = startHeartbeat(taskRef)
 
@@ -753,12 +840,25 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     const commentBlock = formatTaskComments(await loadRecentTaskComments(taskRef))
     const projectContextBlock = await buildProjectDispatchContext(taskRef, taskData)
     const durableHandoffBlock = buildDurableTaskHandoffBlock(taskData)
+    const linkedHostBlock = linkedTarget
+      ? [
+          '## Linked computer dispatch',
+          `You are running on linked computer **${linkedTarget.machineLabel}** (${linkedTarget.runtimeTargetId}).`,
+          `Platform: ${linkedTarget.platform || 'unknown'}; runtime ${linkedTarget.runtimeVersion || 'unknown'}.`,
+          linkedTarget.workingDirectory
+            ? ('Working directory hint: `' + linkedTarget.workingDirectory + '`.')
+            : 'Use the device workspace mapping root unless the task specifies another path.',
+          'Do not invent missing repos on the VPS. Prefer the machine-local Cowork/product roots.',
+          'In agentOutput, identify this host (machine label), not hermes-vps-01.',
+        ].join('\n')
+      : ''
     const spec = [
       buildCeoDataDecisionOperatingRule(taskData.orgId ?? ''),
       baseSpec,
       projectContextBlock,
       durableHandoffBlock,
-      commentBlock ? `Recent task comments / revision notes:\n${commentBlock}` : '',
+      linkedHostBlock,
+      commentBlock ? ('Recent task comments / revision notes:\n' + commentBlock) : '',
     ].filter(Boolean).join('\n\n')
     const dispatchInput: TaskDispatchInput = {
       taskId,
@@ -781,17 +881,29 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         ...(Array.isArray(taskData.expectedArtifacts) ? { expectedArtifacts: taskData.expectedArtifacts } : {}),
         ...(Array.isArray(taskData.verifierChecklist) ? { verifierChecklist: taskData.verifierChecklist } : {}),
         ...(Array.isArray(taskData.dependsOn) && taskData.dependsOn.length > 0 ? { dependsOn: taskData.dependsOn } : {}),
+        ...(linkedTarget
+          ? {
+              linkedDeviceId: linkedTarget.deviceId,
+              linkedDeviceLabel: linkedTarget.machineLabel,
+              dispatchRuntimeKind: 'linked-computer',
+            }
+          : {}),
       },
       constraints: taskData.agentInput?.constraints,
       agentEffort: taskData.agentEffort ?? null,
       agentModel: taskModel,
       // Only pass provider when it came from a verified route or an explicit model+provider pair.
+      // Linked Mac runs keep explicit model+provider pairs (e.g. grok-4.5/xai-oauth); provider-only stamps stay null.
       agentProvider: credentialRoute?.provider ?? (taskModel ? taskProvider : null),
       llmCredentialSource: taskData.llmCredentialSource ?? null,
       llmResolvedSource: credentialRoute?.resolvedSource ?? taskData.llmResolvedSource ?? null,
       llmConnectionId: credentialRoute?.connectionId ?? (taskModel ? taskData.llmConnectionId ?? null : null),
       llmCredentialBindingId: credentialRoute?.credentialBindingId ?? (taskModel ? taskData.llmCredentialBindingId ?? null : null),
-      runtimeTargetId: credentialRoute?.runtimeTargetId ?? taskData.agentRuntimeTargetId ?? cfg.targetId ?? null,
+      runtimeTargetId: linkedTarget?.runtimeTargetId
+        ?? credentialRoute?.runtimeTargetId
+        ?? taskData.agentRuntimeTargetId
+        ?? cfg?.targetId
+        ?? null,
     }
 
     // Callback: fires as soon as the Hermes run is created (before polling completes).
@@ -814,8 +926,34 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       }
     }
 
-    logger.info('dispatching task to Hermes', { taskId, agentId, orgId: dispatchInput.orgId })
-    const result = await runAndPoll(cfg, dispatchInput, onRunCreated)
+    let result: Awaited<ReturnType<typeof runAndPoll>>
+    if (linkedTarget) {
+      logger.info('dispatching task to linked computer queue', {
+        taskId,
+        agentId,
+        orgId: dispatchInput.orgId,
+        deviceId: linkedTarget.deviceId,
+        machineLabel: linkedTarget.machineLabel,
+        runtimeTargetId: linkedTarget.runtimeTargetId,
+      })
+      result = await runKanbanLinkedAndPoll({
+        target: linkedTarget,
+        taskId,
+        taskPath: taskRef.path,
+        agentId,
+        projectId: taskData.projectId ?? null,
+        payload: {
+          prompt: `[Task ${taskId}] ${spec}`,
+          ...(taskModel ? { model: taskModel } : {}),
+          ...(dispatchInput.agentProvider ? { provider: dispatchInput.agentProvider } : {}),
+          yolo: true,
+        },
+        onRunCreated,
+      })
+    } else {
+      logger.info('dispatching task to Hermes', { taskId, agentId, orgId: dispatchInput.orgId })
+      result = await runAndPoll(cfg!, dispatchInput, onRunCreated)
+    }
     activeRunId = result.runId ?? activeRunId
     const telemetry = result.telemetry ?? fallbackTelemetry(dispatchInput)
     stopHeartbeat?.()

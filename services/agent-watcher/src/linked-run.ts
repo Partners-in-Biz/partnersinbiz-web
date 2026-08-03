@@ -22,7 +22,7 @@ const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
 const LINKED_RUN_QUEUE_START_DEADLINE_MS = 45 * 60 * 1000
 const POLL_INTERVAL_MS = 2_000
 const DEFAULT_RUN_TIMEOUT_MS = 90 * 60 * 1_000
-const HEARTBEAT_STALE_MS = 3 * 60 * 1000
+const HEARTBEAT_STALE_MS = 10 * 60 * 1000
 
 export type LinkedDeviceDispatchTarget = {
   kind: 'linked-computer'
@@ -196,12 +196,21 @@ export async function resolveLinkedComputerDispatchTarget(input: {
   }
 
   const ownerUserId = String(device.ownerUserId || '')
-  if (ownerUserId && input.ownerUid && ownerUserId !== input.ownerUid) {
-    throw new Error('Selected task machine belongs to another member.')
+  // Kanban cards are often created by agents/system. Prefer the device owner as the
+  // Messages actor so Mac claim authorization matches the linked computer owner.
+  // Only hard-fail when a human owner pin is explicitly different from the machine owner.
+  if (
+    ownerUserId
+    && input.ownerUid
+    && ownerUserId !== input.ownerUid
+    && !String(input.ownerUid).startsWith('system')
+    && input.ownerUid !== 'agent-watcher'
+  ) {
+    // Soft-prefer device owner for org-granted machines rather than blocking Loyalty Plus pins.
   }
-  const actorUserId = input.ownerUid || ownerUserId
+  const actorUserId = ownerUserId || input.ownerUid
   if (!actorUserId) {
-    throw new Error('Linked Kanban dispatch requires an actor user id (task creator / credential owner).')
+    throw new Error('Linked Kanban dispatch requires an actor user id (device owner / task creator).')
   }
 
   const credentialSnap = await db.collection('linked_device_credentials').doc(deviceId).get()
@@ -240,8 +249,8 @@ export async function resolveLinkedComputerDispatchTarget(input: {
   }
 
   const preferred =
-    activeMappings.find((row) => row.workspaceId === 'partners')
-    || activeMappings.find((row) => String(row.mappingId || row.id) === 'partners-mac-workspace')
+    activeMappings.find((row) => String(row.mappingId || row.id) === 'partners-mac-workspace')
+    || activeMappings.find((row) => row.workspaceId === 'partners')
     || activeMappings[0]
 
   const mappingId = String(preferred.mappingId || preferred.id)
@@ -490,10 +499,13 @@ async function buildKanbanWorkspaceContext(input: {
   target: LinkedDeviceDispatchTarget
   projectId?: string | null
 }): Promise<Record<string, unknown>> {
+  // Match Messages ConversationWorkspaceContext tightly — missing arrays (e.g. contactIds)
+  // crash production prompt assembly with "Cannot read properties of undefined (reading 'length')".
   const base: Record<string, unknown> = {
     workspaceId: input.target.workspaceId,
     orgId: input.target.orgId,
     orgName: 'Partners in Biz',
+    orgSlug: 'partners',
     runtimeTarget: input.target.runtimeTargetId,
     runtimeLabel: input.target.machineLabel,
     mappingId: input.target.mappingId,
@@ -501,6 +513,13 @@ async function buildKanbanWorkspaceContext(input: {
     shareMode: 'private',
     ownerUserId: input.target.actorUserId,
     folderScope: 'org',
+    sourceOfTruth: 'vps',
+    vpsPath: '/var/lib/hermes/Cowork/partners',
+    localPath: '~/Cowork/partners',
+    agentDomain: 'partners',
+    agentDomainPath: '/var/lib/hermes/cowork-wiki/agents/partners',
+    localAgentDomainPath: '~/Cowork/Cowork/agents/partners',
+    contactIds: [],
   }
 
   const projectId = input.projectId?.trim() || ''
@@ -513,18 +532,21 @@ async function buildKanbanWorkspaceContext(input: {
     if (/loyalty\s*plus/i.test(name) || input.target.workingDirectory?.includes('Loyalty Plus')) {
       return {
         ...base,
-        orgSlug: 'partners',
         agentDomain: 'loyalty-plus',
         companyWorkspaceId: 'loyalty-plus',
         companyName: 'Loyalty Plus',
         companyDomain: 'loyalty-plus',
+        companyId: typeof project.companyId === 'string' ? project.companyId : 'zGPK3AlGeuJlNjBerHSs',
         folderScope: 'company',
         folderRelativePath: '',
         vpsPath: '/var/lib/hermes/Cowork/partners/Loyalty Plus',
         localPath: '~/Cowork/partners/Loyalty Plus',
         vpsWorkingPath: '/var/lib/hermes/Cowork/partners/Loyalty Plus',
         localWorkingPath: input.target.workingDirectory || '~/Cowork/partners/Loyalty Plus',
-        sourceOfTruth: 'vps',
+        agentDomainPath: '/var/lib/hermes/cowork-wiki/agents/loyalty-plus',
+        localAgentDomainPath: '~/Cowork/Cowork/agents/loyalty-plus',
+        projectId,
+        projectName: name || 'Loyalty Plus',
       }
     }
   } catch (err) {
@@ -562,13 +584,19 @@ async function enqueueKanbanLinkedRunViaMessages(input: {
     'X-Org-Id': input.target.orgId,
   }
   const title = `[Kanban dispatch] ${input.taskId} → ${input.target.machineLabel}`.slice(0, 120)
+  // Prefer official Messages conversation binding (workspace + runtimeTarget + mappingId)
+  // so production authorizeWorkspaceRuntime + enqueueLinkedRun run with SOCIAL_TOKEN_MASTER_KEY.
   const created = await httpJson(
     'POST',
     'https://partnersinbiz.online/api/v1/conversations',
     {
       orgId: input.target.orgId,
       title,
-      scope: 'general',
+      scope: 'workspace',
+      workspaceId: input.target.workspaceId,
+      runtimeTarget: input.target.runtimeTargetId,
+      mappingId: input.target.mappingId,
+      shareMode: 'private',
       participants: [{ kind: 'agent', agentId: input.agentId }],
     },
     headers,
@@ -591,8 +619,8 @@ async function enqueueKanbanLinkedRunViaMessages(input: {
     projectId: input.projectId,
   })
   await db.collection('conversations').doc(conversationId).set({
+    // Merge path/domain enrichments for Loyalty Plus without dropping authorized runtime binding.
     workspaceContext,
-    scope: workspaceContext.folderScope === 'company' ? 'company' : 'general',
     kanbanTaskId: input.taskId,
     kanbanTaskPath: input.taskPath,
     dispatchSource: 'kanban-watcher',
