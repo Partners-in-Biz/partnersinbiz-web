@@ -46,6 +46,11 @@
     "verify:finance:inventory": "npm run test:finance:inventory && tsx scripts/finance/verify-inventory.ts",
     "test:finance:bank-feeds": "jest --runInBand __tests__/finance/bank-feeds-domain.test.ts __tests__/finance/foundation-storage-contract.test.ts __tests__/finance/portal-design-system-parity.test.ts __tests__/finance/workbench-delivery.test.ts",
     "verify:finance:bank-feeds": "npm run test:finance:bank-feeds && tsx scripts/finance/verify-bank-feeds.ts",
+    "test:finance:e2e:domain": "tsx scripts/finance/e2e-golden-paths.ts",
+    "test:finance:e2e:jest": "jest --runInBand __tests__/e2e/finance-golden-paths.test.ts",
+    "test:finance:e2e": "playwright test -c playwright.config.ts",
+    "test:finance:e2e:live": "playwright test -c playwright.config.ts --grep-invert \"hermetic UI shell\"",
+    "verify:finance:e2e": "npm run test:finance:e2e:domain && npm run test:finance:e2e:jest && npm run test:finance:e2e",
     "test:finance:vera-calc-audit": "jest --runInBand __tests__/finance/vera-phase45-calc-audit.test.ts",
     "verify:finance:vera-calc-audit": "npm run test:finance:vera-calc-audit && tsx scripts/finance/verify-vera-calc-audit.ts"
   },
@@ -86,6 +91,7 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
