@@ -1,0 +1,136 @@
+{
+  "ok": true,
+  "auditId": "vera-phase6-calc-recon-pSz1QwT7wC6Q98og327J",
+  "packageId": "vera-phase6-expansion-v1",
+  "taskId": "pSz1QwT7wC6Q98og327J",
+  "projectId": "HRCSWl1cNnh6fYEGziAb",
+  "phase": 6,
+  "phase45": {
+    "passCount": 28,
+    "failCount": 0,
+    "packageMatches2025_26Tables": true,
+    "packageMatches2026_27Tables": false,
+    "materialFindings": [
+      {
+        "severity": "high",
+        "code": "PAYROLL_TAX_YEAR_PACKAGE_GAP",
+        "summary": "Pinned package is 2025/26 (open-ended effectiveTo=null). Calendar periods from 2026-03-01 fall in 2026/27 but still calculate on 2025/26 brackets/rebates. Engine math variance=0 vs 2025/26; material PAYE drift vs Budget 2026/27 tables (e.g. R40k/mo age35 PAYE 783933 vs ~760225 cents)."
+      },
+      {
+        "severity": "high",
+        "code": "VAT_RETURN_TRACE_NOT_PERIOD_SCOPED",
+        "summary": "prepareTaxReturn sums journalTaxTraces filtered only by tax-code org/entity/book. JournalTaxTraceLine has no taxPointDate/periodId; sourceCutoffAt is validated against the period but not applied as a filter. Multi-period books can overstate VAT return totals."
+      },
+      {
+        "severity": "medium",
+        "code": "VERA_FIXTURE_RANGE_ONLY",
+        "summary": "lib/payroll/vera-calc-fixtures.ts uses min/max gates rather than exact golden expected totals. This pack adds exact rows for regression."
+      },
+      {
+        "severity": "low",
+        "code": "SDL_EMPLOYER_EXEMPTION_NOT_MODELED",
+        "summary": "SDL is flat 1% of leviable amount with no employer annual payroll exemption threshold. Documented product gap unless intentionally out of scope."
+      }
+    ]
+  },
+  "passCount": 46,
+  "failCount": 0,
+  "failures": [],
+  "fixtureIds": [
+    "vera-phase45-aggregate",
+    "paye-25k-monthly-age35-in-year",
+    "paye-40k-monthly-age35-in-year",
+    "uif-at-ceiling-remuneration",
+    "uif-above-ceiling-50k",
+    "paye-secondary-rebate-age66",
+    "paye-tertiary-rebate-age76",
+    "drift-probe-40k-aug-2026-calendar",
+    "vat15-exclusive-10000",
+    "vat15-inclusive-11500",
+    "vat15-exclusive-3333",
+    "vat15-exclusive-1c",
+    "vat15-exclusive-999999",
+    "fx-ar-realized-gain",
+    "fx-ap-realized-gain-rate-fall",
+    "fx-ar-partial-settle-40pct",
+    "fx-ar-unrealized-open-60pct-reval",
+    "sl-divisible-10000-3m",
+    "sl-remainder-catchup-10000-3m",
+    "sl-9000-3m-equal",
+    "dispose-gain",
+    "dispose-loss",
+    "dispose-after-m1-9000",
+    "labor-60m-850",
+    "labor-30m-850",
+    "labor-1m-100",
+    "labor-90m-600",
+    "wip-single-te-balanced",
+    "pnl-rev-cost-margin",
+    "exp-gl-fuel-std15-payable",
+    "exp-gl-multi-line-mixed-vat",
+    "exp-gl-zero-vat-only",
+    "revrec-sl-3mo-1200000-across-periods",
+    "revrec-sl-remainder-10000-3mo",
+    "bf-safe-bulk-high-conf-rent",
+    "bf-safe-bulk-block-sars",
+    "bf-safe-bulk-block-low-conf",
+    "bf-safe-bulk-block-flag-review",
+    "bf-safe-bulk-block-already-accepted",
+    "bf-age-3",
+    "bf-age-7",
+    "bf-age-8",
+    "bf-age-30",
+    "bf-age-31",
+    "bf-age-61",
+    "bf-materialize-recon-mock-p6"
+  ],
+  "materialFindings": [
+    {
+      "severity": "high",
+      "code": "PAYROLL_TAX_YEAR_PACKAGE_GAP",
+      "summary": "Pinned package is 2025/26 (open-ended effectiveTo=null). Calendar periods from 2026-03-01 fall in 2026/27 but still calculate on 2025/26 brackets/rebates. Engine math variance=0 vs 2025/26; material PAYE drift vs Budget 2026/27 tables (e.g. R40k/mo age35 PAYE 783933 vs ~760225 cents).",
+      "source": "phase45"
+    },
+    {
+      "severity": "high",
+      "code": "VAT_RETURN_TRACE_NOT_PERIOD_SCOPED",
+      "summary": "prepareTaxReturn sums journalTaxTraces filtered only by tax-code org/entity/book. JournalTaxTraceLine has no taxPointDate/periodId; sourceCutoffAt is validated against the period but not applied as a filter. Multi-period books can overstate VAT return totals.",
+      "source": "phase45"
+    },
+    {
+      "severity": "medium",
+      "code": "VERA_FIXTURE_RANGE_ONLY",
+      "summary": "lib/payroll/vera-calc-fixtures.ts uses min/max gates rather than exact golden expected totals. This pack adds exact rows for regression.",
+      "source": "phase45"
+    },
+    {
+      "severity": "low",
+      "code": "SDL_EMPLOYER_EXEMPTION_NOT_MODELED",
+      "summary": "SDL is flat 1% of leviable amount with no employer annual payroll exemption threshold. Documented product gap unless intentionally out of scope.",
+      "source": "phase45"
+    },
+    {
+      "severity": "low",
+      "code": "EXPENSE_POST_IS_PROPOSAL_NOT_LEDGER_JOURNAL",
+      "summary": "Expense claim post builds a balanced journalProposal on the claim record. Full foundation ledger journal posting path is separate; this pack certifies proposal balance + VAT line shape, not dual-write into foundation journals.",
+      "source": "phase6"
+    },
+    {
+      "severity": "low",
+      "code": "BANK_SUGGESTIONS_RULE_HEURISTIC",
+      "summary": "Mock bank-feed suggestions are deterministic description heuristics (rent/sars/fee/interest). Match quality is rule-based, not ML; integrity = 1:1 line→suggestion, unique fingerprints, human-gated accept, SARS excluded from safe bulk.",
+      "source": "phase6"
+    }
+  ],
+  "hardGates": {
+    "sarsSubmissionInitiated": false,
+    "externalPaymentInitiated": false,
+    "autoPosted": false,
+    "externalEgressAllowed": false,
+    "noEgress": true
+  },
+  "externalPaymentInitiated": false,
+  "sarsSubmissionInitiated": false,
+  "autoPosted": false,
+  "noEgress": true
+}
