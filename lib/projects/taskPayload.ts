@@ -5,8 +5,20 @@ import {
   cleanTaskLlmCredentialSource,
   VALID_LLM_CREDENTIAL_SOURCES,
 } from '@/lib/projects/task-llm'
+import {
+  VALID_AGENT_CAPABILITIES,
+  VALID_APPROVAL_GATES,
+} from '@/lib/projects/task-allowlists'
 import { columnForAgentStatus } from '@/lib/tasks/agentState'
 import type { AgentStatus } from '@/lib/tasks/types'
+
+// Re-export client-safe allowlists so existing server imports keep working.
+export {
+  VALID_AGENT_CAPABILITIES,
+  VALID_APPROVAL_GATES,
+  isValidAgentCapability,
+  isValidApprovalGate,
+} from '@/lib/projects/task-allowlists'
 
 type PayloadResult<T> =
   | { ok: true; value: T }
@@ -24,61 +36,6 @@ const VALID_AGENT_STATUSES = [
 ] as const
 
 const VALID_RISK_LEVELS = ['low', 'medium', 'high', 'critical'] as const
-export const VALID_APPROVAL_GATES = [
-  'none',
-  'human-review',
-  'client-visible',
-  'public-publishing',
-  'paid-spend',
-  'production-deploy',
-  'finance',
-  'destructive',
-  'secret-config',
-  'none-until-production-or-client-visible',
-] as const
-
-export const VALID_AGENT_CAPABILITIES = [
-  'read',
-  'draft',
-  'write',
-  'approve',
-  'publish',
-  'deploy',
-  'spend',
-  'message_client',
-  'access_secret',
-  'delete',
-  'software_build',
-  'client_document',
-  'research',
-  'seo',
-  'geo_seo',
-  'qa',
-  'content',
-  'engineering',
-  'quality-assurance',
-  'research-recommendation-followup',
-  'research-intelligence',
-  'agent-evolution-review',
-  'business-insight-review',
-  'platform-engineering',
-  'platform-ops',
-  'coordination',
-  'decision-routing',
-  'review',
-  'public-publishing',
-  'production-deploy',
-] as const
-
-export function isValidAgentCapability(value: unknown): value is (typeof VALID_AGENT_CAPABILITIES)[number] {
-  const cleaned = typeof value === 'string' ? value.trim() : ''
-  return Boolean(cleaned) && VALID_AGENT_CAPABILITIES.includes(cleaned as (typeof VALID_AGENT_CAPABILITIES)[number])
-}
-
-export function isValidApprovalGate(value: unknown): value is (typeof VALID_APPROVAL_GATES)[number] {
-  const cleaned = typeof value === 'string' ? value.trim() : ''
-  return Boolean(cleaned) && VALID_APPROVAL_GATES.includes(cleaned as (typeof VALID_APPROVAL_GATES)[number])
-}
 
 export const TASK_SOURCE_LINKAGE_FIELDS = [
   'sourceDocumentId',
