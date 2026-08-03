@@ -29,6 +29,7 @@ import {
 } from './eligibility'
 import { buildCeoDataDecisionOperatingRule as buildSharedCeoDataDecisionOperatingRule } from './ceo-operating-rule'
 import { notifyCommandSessionFromTask } from './command-session'
+import { notifyWorkflowGraphTerminal } from './workflow-writeback'
 
 const MAX_CONCURRENT_PER_AGENT = 5
 const READY_TASK_SWEEP_MS = 60_000
@@ -85,7 +86,10 @@ interface TaskData {
   reviewerAgentId?: string
   reviewerIds?: string[]
   reviewStatus?: string
-  agentOutput?: { summary?: string }
+  agentOutput?: { summary?: string; artifacts?: unknown[]; telemetry?: unknown; [key: string]: unknown }
+  agentConversationId?: string
+  workflowRunId?: string
+  workflowNodeId?: string
   status?: string
   deleted?: boolean
   requiresApproval?: boolean
@@ -675,6 +679,18 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         summary: blockedSummary,
         blockingReason: blockedSummary,
       })
+      void notifyWorkflowGraphTerminal({
+        taskRef,
+        taskId,
+        taskData: {
+          ...(taskData as unknown as Record<string, unknown>),
+          agentOutput: { summary: blockedSummary },
+        },
+        outcome: 'blocked',
+        summary: blockedSummary,
+        errorFamily: 'unknown',
+        actorUid: agentId,
+      })
       return
     }
 
@@ -863,6 +879,20 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         blockingReason: humanError,
         runId: activeRunId,
       })
+      void notifyWorkflowGraphTerminal({
+        taskRef,
+        taskId,
+        taskData: {
+          ...(taskData as unknown as Record<string, unknown>),
+          agentOutput: { summary: `Watcher error: ${humanError}`, telemetry },
+        },
+        outcome: 'blocked',
+        summary: `Watcher error: ${humanError}`,
+        hermesRunId: activeRunId,
+        telemetry,
+        errorFamily: isTransientHermesError(result.error) ? 'transient_infra' : 'unknown',
+        actorUid: agentId,
+      })
       return
     }
 
@@ -904,6 +934,19 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         messageForAgent,
         runId: activeRunId,
       })
+      void notifyWorkflowGraphTerminal({
+        taskRef,
+        taskId,
+        taskData: {
+          ...(taskData as unknown as Record<string, unknown>),
+          agentOutput: { summary, telemetry, needsPeet: true, blockingReason, requiredEvidence, messageForAgent },
+        },
+        outcome: 'awaiting_input',
+        summary,
+        hermesRunId: activeRunId,
+        telemetry,
+        actorUid: agentId,
+      })
       logger.info('task needs Peet input before continuing', { taskId, agentId, blockingReason })
       return
     }
@@ -912,16 +955,17 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       (typeof taskData.reviewerAgentId === 'string' && taskData.reviewerAgentId.trim())
       || (Array.isArray(taskData.reviewerIds) && taskData.reviewerIds.some((id) => typeof id === 'string' && id.trim())),
     )
+    const doneAgentOutput = {
+      summary,
+      telemetry,
+      completedAt: FieldValue.serverTimestamp(),
+    }
     await taskRef.update({
       ...agentStatusUpdate('done', { hasReviewer }),
       ...(activeRunId ? { agentConversationId: activeRunId } : {}),
       agentRetryCount: FieldValue.delete(),
       agentRetryAt: FieldValue.delete(),
-      agentOutput: {
-        summary,
-        telemetry,
-        completedAt: FieldValue.serverTimestamp(),
-      },
+      agentOutput: doneAgentOutput,
       updatedAt: FieldValue.serverTimestamp(),
     })
     notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'done', {
@@ -929,6 +973,22 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       summary,
       runId: activeRunId,
     })
+    // With a reviewer, graph proven-done waits for reviewStatus=approved write-back.
+    if (!hasReviewer) {
+      void notifyWorkflowGraphTerminal({
+        taskRef,
+        taskId,
+        taskData: {
+          ...(taskData as unknown as Record<string, unknown>),
+          agentOutput: { summary, telemetry },
+        },
+        outcome: 'done',
+        summary,
+        hermesRunId: activeRunId,
+        telemetry,
+        actorUid: agentId,
+      })
+    }
     logger.info('task completed', { taskId, agentId, hasReviewer })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -971,6 +1031,19 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         summary: `Watcher error: ${humanError}`,
         blockingReason: humanError,
         runId: activeRunId,
+      })
+      void notifyWorkflowGraphTerminal({
+        taskRef,
+        taskId,
+        taskData: {
+          ...(taskData as unknown as Record<string, unknown>),
+          agentOutput: { summary: `Watcher error: ${humanError}` },
+        },
+        outcome: 'blocked',
+        summary: `Watcher error: ${humanError}`,
+        hermesRunId: activeRunId,
+        errorFamily: isTransientHermesError(message) ? 'transient_infra' : 'unknown',
+        actorUid: agentId,
       })
     } catch (writeErr) {
       logger.error('failed to write blocked status after dispatch error', {
@@ -1122,6 +1195,19 @@ export async function dispatchReview(taskRef: DocumentReference, taskData: TaskD
         reviewRetryCount: FieldValue.delete(),
         reviewRetryAt: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
+      })
+      // Graph node proven-done when reviewer approves implementer output.
+      void notifyWorkflowGraphTerminal({
+        taskRef,
+        taskId,
+        taskData: taskData as unknown as Record<string, unknown>,
+        outcome: 'done',
+        summary:
+          typeof (taskData as { agentOutput?: { summary?: string } }).agentOutput?.summary === 'string'
+            ? (taskData as { agentOutput: { summary: string } }).agentOutput.summary
+            : 'Review approved',
+        hermesRunId: typeof taskData.agentConversationId === 'string' ? taskData.agentConversationId : null,
+        actorUid: agentId,
       })
       return
     }

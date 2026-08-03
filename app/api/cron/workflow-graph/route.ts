@@ -10,6 +10,7 @@ import {
   finalizeOpsSideEffects,
   handleCronTriggerTick,
   listOpsWorkflowRuns,
+  processWorkflowWritebackOutbox,
   saveWorkflowRun,
   type WorkflowRun,
 } from '@/lib/workflow-graph'
@@ -33,6 +34,14 @@ export async function GET(req: NextRequest) {
   const orgId = cleanString(url.searchParams.get('orgId')) || 'pib-platform-owner'
   const limit = Math.min(Math.max(Number(url.searchParams.get('limit') || 40), 1), 100)
   const nowIso = new Date().toISOString()
+
+  // 0) Drain watcher outbox so live agent terminal states advance the ledger
+  const writeback = await processWorkflowWritebackOutbox({ limit: 40, actorUid: 'cron' }).catch((err) => ({
+    processed: 0,
+    applied: 0,
+    failed: 0,
+    errors: [err instanceof Error ? err.message : String(err)],
+  }))
 
   // 1) Cron template starts (idempotent per hour bucket)
   const cronResult = await handleCronTriggerTick({ orgId, actorUid: 'cron', now: new Date() })
@@ -80,6 +89,7 @@ export async function GET(req: NextRequest) {
 
   return apiSuccess({
     orgId,
+    writeback,
     cron: cronResult,
     stuckUpdates,
     counts: ops.counts,

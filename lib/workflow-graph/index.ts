@@ -16,6 +16,7 @@ export {
   advanceWorkflowRunById,
   cancelWorkflowRun,
   handleKanbanTaskTerminalForWorkflow,
+  processWorkflowWritebackOutbox,
   startRunFromPlaybook,
   applyAdvanceAndMaterialize,
   finalizeOpsSideEffects,

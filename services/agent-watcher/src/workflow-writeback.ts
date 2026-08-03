@@ -1,0 +1,258 @@
+/**
+ * Workflow Graph write-back from the agent-watcher.
+ *
+ * Watcher writes task terminal state directly to Firestore and never hits the
+ * Next.js task PATCH route. Without this hook, agent/human graph nodes never
+ * advance the WorkflowRun ledger after a live Hermes completion.
+ *
+ * Strategy (fail-closed, dual path):
+ * 1. Always enqueue an outbox doc (cron + API reconcile even if HTTP is down).
+ * 2. Best-effort HTTP POST to /api/v1/workflow-runs/{id} when PIB_API_BASE + AI_API_KEY are set.
+ * 3. Never throw into the watcher completion path — log and rely on outbox.
+ */
+import type { DocumentReference } from 'firebase-admin/firestore'
+import { db, FieldValue } from './firestore'
+import { logger } from './logger'
+
+export type WorkflowWritebackOutcome = 'done' | 'blocked' | 'awaiting_input' | 'rejected'
+
+export type WorkflowWritebackInput = {
+  taskRef: DocumentReference
+  taskId: string
+  taskData: Record<string, unknown>
+  outcome: WorkflowWritebackOutcome
+  summary?: string
+  hermesRunId?: string | null
+  telemetry?: unknown
+  errorFamily?:
+    | 'transient_infra'
+    | 'verifier_fail'
+    | 'agent_incomplete'
+    | 'policy'
+    | 'approval_denied'
+    | 'budget'
+    | 'capability'
+    | 'invalid_spec'
+    | 'unknown'
+  actorUid?: string
+}
+
+export type WorkflowEvidenceItem = { type: string; ref: string; label?: string }
+
+const OUTBOX = 'workflow_writeback_outbox'
+
+export function extractWorkflowStamp(taskData: Record<string, unknown>): {
+  runId: string
+  nodeId: string
+  orgId: string
+} | null {
+  const runId = typeof taskData.workflowRunId === 'string' ? taskData.workflowRunId.trim() : ''
+  const nodeId = typeof taskData.workflowNodeId === 'string' ? taskData.workflowNodeId.trim() : ''
+  if (!runId || !nodeId) return null
+  const orgId = typeof taskData.orgId === 'string' ? taskData.orgId.trim() : ''
+  return { runId, nodeId, orgId }
+}
+
+export function extractEvidenceFromAgentOutput(agentOutput: unknown): WorkflowEvidenceItem[] {
+  const evidence: WorkflowEvidenceItem[] = []
+  if (!agentOutput || typeof agentOutput !== 'object') return evidence
+  const output = agentOutput as Record<string, unknown>
+
+  if (Array.isArray(output.artifacts)) {
+    for (const raw of output.artifacts) {
+      if (!raw || typeof raw !== 'object') continue
+      const artifact = raw as Record<string, unknown>
+      const type =
+        typeof artifact.type === 'string'
+          ? artifact.type
+          : typeof artifact.label === 'string'
+            ? artifact.label
+            : ''
+      const ref = typeof artifact.ref === 'string' ? artifact.ref : ''
+      if (type && ref) {
+        evidence.push({
+          type,
+          ref,
+          label: typeof artifact.label === 'string' ? artifact.label : undefined,
+        })
+      }
+    }
+  }
+
+  for (const key of [
+    'research_doc_id',
+    'draft_doc_id',
+    'eng_checklist_id',
+    'content_checklist_id',
+    'approval_ref',
+  ]) {
+    const value = output[key]
+    if (typeof value === 'string' && value.trim()) {
+      evidence.push({ type: key, ref: value.trim() })
+    }
+  }
+
+  return evidence
+}
+
+function apiBase(): string {
+  return (process.env.PIB_API_BASE || process.env.PARTNERSINBIZ_API_BASE || 'https://partnersinbiz.online/api/v1')
+    .replace(/\/$/, '')
+}
+
+function apiKey(): string {
+  return (process.env.AI_API_KEY || process.env.PIB_AGENT_API_KEY || '').trim()
+}
+
+export async function notifyWorkflowGraphTerminal(input: WorkflowWritebackInput): Promise<void> {
+  const stamp = extractWorkflowStamp(input.taskData)
+  if (!stamp) return
+
+  const now = new Date().toISOString()
+  const agentOutput =
+    input.taskData.agentOutput && typeof input.taskData.agentOutput === 'object'
+      ? input.taskData.agentOutput
+      : null
+  const evidence = extractEvidenceFromAgentOutput(agentOutput)
+  const telemetry =
+    input.telemetry && typeof input.telemetry === 'object'
+      ? (input.telemetry as Record<string, unknown>)
+      : null
+  const dedupeKey = [
+    stamp.runId,
+    stamp.nodeId,
+    input.taskId,
+    input.outcome,
+    input.hermesRunId || 'norun',
+  ].join(':')
+
+  const num = (value: unknown): number | undefined =>
+    typeof value === 'number' && Number.isFinite(value) ? value : undefined
+  const str = (value: unknown): string | undefined =>
+    typeof value === 'string' && value.trim() ? value.trim() : undefined
+
+  const payload = {
+    dedupeKey,
+    orgId: stamp.orgId || undefined,
+    workflowRunId: stamp.runId,
+    workflowNodeId: stamp.nodeId,
+    kanbanTaskId: input.taskId,
+    outcome: input.outcome,
+    summary: input.summary,
+    evidence,
+    tokensIn: num(telemetry?.inputTokens),
+    tokensOut: num(telemetry?.outputTokens),
+    tokensTotal: num(telemetry?.totalTokens),
+    estimatedCost: num(telemetry?.costUsd),
+    model: str(telemetry?.model),
+    provider: str(telemetry?.provider),
+    hermesRunId: input.hermesRunId || undefined,
+    errorFamily: input.errorFamily,
+    actorUid: input.actorUid || 'agent-watcher',
+    taskPath: input.taskRef.path,
+    status: 'pending' as const,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+    source: 'agent-watcher',
+  }
+
+  try {
+    const ref = db.collection(OUTBOX).doc(dedupeKey.replace(/[^a-zA-Z0-9:_-]/g, '_'))
+    const existing = await ref.get()
+    if (!existing.exists) {
+      await ref.set(payload)
+    } else {
+      await ref.set(
+        {
+          ...payload,
+          createdAt: existing.data()?.createdAt ?? FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+          status: existing.data()?.status === 'applied' ? 'applied' : 'pending',
+        },
+        { merge: true },
+      )
+    }
+  } catch (err) {
+    logger.error('workflow writeback outbox failed', {
+      taskId: input.taskId,
+      runId: stamp.runId,
+      nodeId: stamp.nodeId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+
+  const key = apiKey()
+  if (!key) {
+    logger.info('workflow writeback queued (no AI_API_KEY for live HTTP)', {
+      taskId: input.taskId,
+      runId: stamp.runId,
+      nodeId: stamp.nodeId,
+      outcome: input.outcome,
+    })
+    return
+  }
+
+  try {
+    const url = `${apiBase()}/workflow-runs/${encodeURIComponent(stamp.runId)}`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        ...(stamp.orgId ? { 'X-Org-Id': stamp.orgId } : {}),
+      },
+      body: JSON.stringify({
+        action: 'kanban_terminal',
+        now,
+        nodeId: stamp.nodeId,
+        kanbanTaskId: input.taskId,
+        outcome: input.outcome,
+        evidence,
+        summary: input.summary,
+        tokensIn: payload.tokensIn,
+        tokensOut: payload.tokensOut,
+        tokensTotal: payload.tokensTotal,
+        estimatedCost: payload.estimatedCost,
+        model: payload.model,
+        provider: payload.provider,
+        hermesRunId: payload.hermesRunId,
+        errorFamily: payload.errorFamily,
+      }),
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      logger.warn('workflow writeback HTTP non-ok (outbox retained)', {
+        taskId: input.taskId,
+        runId: stamp.runId,
+        status: res.status,
+        body: text.slice(0, 400),
+      })
+      return
+    }
+    try {
+      await db.collection(OUTBOX).doc(dedupeKey.replace(/[^a-zA-Z0-9:_-]/g, '_')).set(
+        {
+          status: 'applied',
+          appliedAt: FieldValue.serverTimestamp(),
+          appliedVia: 'http',
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      )
+    } catch {
+      // ignore outbox mark failure after successful advance
+    }
+    logger.info('workflow writeback applied via HTTP', {
+      taskId: input.taskId,
+      runId: stamp.runId,
+      nodeId: stamp.nodeId,
+      outcome: input.outcome,
+    })
+  } catch (err) {
+    logger.warn('workflow writeback HTTP failed (outbox retained)', {
+      taskId: input.taskId,
+      runId: stamp.runId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
