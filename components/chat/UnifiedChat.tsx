@@ -1080,7 +1080,10 @@ export function shouldAdoptServerMessageDuringFinalizePoll(
   return status !== 'queued' && status !== 'pending' && status !== 'streaming' && status !== 'waiting_approval'
 }
 
-export function formatLiveMessageRefreshError(error: unknown): string {
+export function formatLiveMessageRefreshError(error: unknown): string | null {
+  // Intentional abort (conversation switch / superseded poll) — do not toast.
+  const aborted = formatClientNetworkError(error, '')
+  if (aborted === null) return null
   if (isNetworkFetchFailure(error) || (typeof navigator !== 'undefined' && navigator.onLine === false)) {
     return formatClientNetworkError(
       error,
@@ -3957,7 +3960,8 @@ export default function UnifiedChat({
         }
       }
     } catch (e) {
-      setError(formatClientNetworkError(e, 'Failed to load conversations'))
+      const networkError = formatClientNetworkError(e, 'Failed to load conversations')
+      if (networkError) setError(networkError)
     } finally {
       setConversationsHydrated(true)
     }
@@ -4109,9 +4113,10 @@ export default function UnifiedChat({
       return nextMessages
     } catch (e) {
       if (shouldMutateUi()) {
-        setError(options?.softError
+        const networkError = options?.softError
           ? formatLiveMessageRefreshError(e)
-          : formatClientNetworkError(e, 'Failed to load messages'))
+          : formatClientNetworkError(e, 'Failed to load messages')
+        if (networkError) setError(networkError)
       }
       return null
     } finally {

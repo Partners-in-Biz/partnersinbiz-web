@@ -61,13 +61,37 @@ export function isNetworkFetchFailure(error: unknown): boolean {
 }
 
 /**
+ * True when a fetch/stream was intentionally cancelled (tab change, conversation
+ * switch, superseded catalogue poll, computer-offline reconnect). Browsers often
+ * surface this as DOMException AbortError with message
+ * "signal is aborted without reason" — not a user-actionable failure.
+ */
+export function isAbortError(error: unknown): boolean {
+  if (!error) return false
+  if (typeof DOMException !== 'undefined' && error instanceof DOMException && error.name === 'AbortError') {
+    return true
+  }
+  if (error instanceof Error && error.name === 'AbortError') return true
+  const raw = error instanceof Error ? error.message : String(error)
+  const lower = raw.toLowerCase()
+  return (
+    lower.includes('signal is aborted')
+    || lower.includes('aborted without reason')
+    || lower.includes('the operation was aborted')
+    || lower.includes('the user aborted a request')
+  )
+}
+
+/**
  * User-facing copy for browser-side network failures (not Hermes/agent bugs).
  * Chrome often reports TypeError "Failed to fetch" or net::ERR_INTERNET_DISCONNECTED.
+ * Returns null for intentional aborts so callers can skip scary banners.
  */
 export function formatClientNetworkError(
   error: unknown,
   fallback = 'Network request failed',
-): string {
+): string | null {
+  if (isAbortError(error)) return null
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     return 'Your browser is offline. Reconnect and refresh — the agent reply may already be saved.'
   }

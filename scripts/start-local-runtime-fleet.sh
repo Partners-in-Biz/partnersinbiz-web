@@ -27,8 +27,14 @@ PROFILE_HEALTH_FAILURES_BEFORE_RESTART="${PIB_LOCAL_RUNTIME_PROFILE_HEALTH_FAILU
 PROFILE_DRAIN_GRACE_SECONDS="${PIB_LOCAL_RUNTIME_PROFILE_DRAIN_GRACE_SECONDS:-120}"
 PROFILE_BUSY_DEFER_SECONDS="${PIB_LOCAL_RUNTIME_PROFILE_BUSY_DEFER_SECONDS:-30}"
 FLEET_SHUTDOWN_GRACE_SECONDS="${PIB_LOCAL_RUNTIME_SHUTDOWN_GRACE_SECONDS:-90}"
-TUNNEL_PROBE_INTERVAL_SECONDS="${PIB_LOCAL_RUNTIME_TUNNEL_PROBE_INTERVAL_SECONDS:-30}"
-REGISTRATION_MAX_SECONDS="${PIB_LOCAL_RUNTIME_REGISTRATION_MAX_SECONDS:-30}"
+TUNNEL_PROBE_INTERVAL_SECONDS="${PIB_LOCAL_RUNTIME_TUNNEL_PROBE_INTERVAL_SECONDS:-20}"
+# HTTP health must succeed after open before we mark the tunnel healthy.
+TUNNEL_OPEN_GRACE_SECONDS="${PIB_LOCAL_RUNTIME_TUNNEL_OPEN_GRACE_SECONDS:-25}"
+# How many reverse ports to HTTP-probe (pip + theo + maya covers the first three).
+TUNNEL_PROBE_PORT_COUNT="${PIB_LOCAL_RUNTIME_TUNNEL_PROBE_PORT_COUNT:-3}"
+REGISTRATION_MAX_SECONDS="${PIB_LOCAL_RUNTIME_REGISTRATION_MAX_SECONDS:-90}"
+# After a failed/killed registration, wait this long before retrying (shorter than success interval).
+REGISTRATION_RETRY_SECONDS="${PIB_LOCAL_RUNTIME_REGISTRATION_RETRY_SECONDS:-20}"
 LOG_DIR="$HERMES_ROOT/logs/local-runtime"
 MANAGED_ROOT="$REPO/.runtime/local-hermes-managed"
 # The runtime writes one atomically-replaced request per profile here. Keeping
@@ -582,50 +588,136 @@ ssh_args+=("$VPS")
 # pib-runtime → PiB HTTPS and only need healthy loopback Hermes profiles.
 # Hard-failing the entire fleet when VPS SSH/port-forward is flaky was
 # thrashing all 12 profiles every ~30–40s and marking the Mac offline.
-open_reverse_tunnel() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] opening reverse tunnel to $VPS" | tee -a "$LOG_DIR/fleet.log"
-  ssh "${ssh_args[@]}" >>"$LOG_DIR/reverse-tunnel.log" 2>&1 &
-  tunnel_pid=$!
+#
+# Durable health rule: a live SSH PID (or a listening remote port) is NOT
+# enough. We require real HTTP 200 from VPS loopback → reverse-forward → Mac
+# Hermes /health before marking the tunnel healthy or running registration.
+
+# Kill this fleet's reverse-tunnel SSH processes (tracked + orphans left after
+# launchd restarts). Pattern matches the multi -R port map to the VPS.
+kill_orphaned_reverse_tunnels() {
+  local keep_pid="${1:-}"
+  local pid cmd
+  # pgrep -f against the distinctive remote forward for pip (18755→8755).
+  while read -r pid; do
+    [[ -n "$pid" ]] || continue
+    if [[ -n "$keep_pid" && "$pid" == "$keep_pid" ]]; then continue; fi
+    cmd="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    if [[ "$cmd" == *"-R 127.0.0.1:18755:127.0.0.1:8755"* && "$cmd" == *"$VPS"* ]]; then
+      echo "[$(date '+%Y-%m-%d %H:%M:%S')] killing orphan reverse-tunnel ssh pid=$pid" | tee -a "$LOG_DIR/fleet.log"
+      kill "$pid" >/dev/null 2>&1 || true
+      wait_for_pid_exit "$pid" 5
+    fi
+  done < <(pgrep -f "ssh .*127.0.0.1:18755:127.0.0.1:8755" 2>/dev/null || true)
 }
 
-stop_reverse_tunnel() {
-  [[ -n "$tunnel_pid" ]] || return 0
-  kill "$tunnel_pid" >/dev/null 2>&1 || true
-  wait_for_pid_exit "$tunnel_pid" 5
-  tunnel_pid=""
+# HTTP probe from the VPS into reverse-forwarded Mac Hermes ports.
+# Returns 0 only when every sampled port answers healthy HTTP 200.
+probe_reverse_tunnel_http() {
+  local count="${1:-$TUNNEL_PROBE_PORT_COUNT}"
+  local i ports="" remote_port
+  if (( count < 1 )); then count=1; fi
+  if (( count > ${#REMOTE_PORTS[@]} )); then count=${#REMOTE_PORTS[@]}; fi
+  for (( i = 0; i < count; i++ )); do
+    remote_port="${REMOTE_PORTS[$i]}"
+    ports+=" ${remote_port}"
+  done
+  # shellcheck disable=SC2086
+  ssh -o BatchMode=yes -o ConnectTimeout=8 "$VPS" \
+    "set -e; for port in${ports}; do
+       code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 http://127.0.0.1:\$port/health || echo 000)
+       if [ \"\$code\" != 200 ]; then
+         code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 http://127.0.0.1:\$port/v1/health || echo 000)
+       fi
+       if [ \"\$code\" != 200 ]; then
+         echo \"FAIL:\$port:\$code\" >&2
+         exit 1
+       fi
+     done; echo OK" \
+    >>"$LOG_DIR/reverse-tunnel.log" 2>&1
 }
 
 probe_reverse_tunnel() {
   [[ -n "$tunnel_pid" ]] && kill -0 "$tunnel_pid" >/dev/null 2>&1 || return 1
-  ssh -o BatchMode=yes -o ConnectTimeout=8 "$VPS" \
-    "curl --silent --show-error --fail --max-time 4 http://127.0.0.1:${REMOTE_PORTS[0]}/v1/health >/dev/null" \
-    >/dev/null 2>&1
+  probe_reverse_tunnel_http "$TUNNEL_PROBE_PORT_COUNT"
+}
+
+wait_for_tunnel_http() {
+  local deadline=$((SECONDS + TUNNEL_OPEN_GRACE_SECONDS))
+  while (( SECONDS < deadline )); do
+    if probe_reverse_tunnel; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+open_reverse_tunnel() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] opening reverse tunnel to $VPS" | tee -a "$LOG_DIR/fleet.log"
+  # Drop zombie/orphan tunnels that still hold remote listen ports but no longer
+  # forward traffic (the failure mode that produced public 502 while local 200).
+  kill_orphaned_reverse_tunnels ""
+  ssh "${ssh_args[@]}" >>"$LOG_DIR/reverse-tunnel.log" 2>&1 &
+  tunnel_pid=$!
+  # Give SSH a moment to establish remote listeners before the first probe.
+  sleep 2
+  if ! kill -0 "$tunnel_pid" >/dev/null 2>&1; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARN: reverse tunnel ssh exited immediately; see reverse-tunnel.log" | tee -a "$LOG_DIR/fleet.log"
+    tunnel_pid=""
+    vps_tunnel_ok=0
+    return 1
+  fi
+  kill_orphaned_reverse_tunnels "$tunnel_pid"
+  if wait_for_tunnel_http; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] VPS reverse tunnel HTTP health ok (${TUNNEL_PROBE_PORT_COUNT} ports)" | tee -a "$LOG_DIR/fleet.log"
+    vps_tunnel_ok=1
+    last_tunnel_probe_at="$SECONDS"
+    return 0
+  fi
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARN: reverse tunnel opened but HTTP health failed within ${TUNNEL_OPEN_GRACE_SECONDS}s" | tee -a "$LOG_DIR/fleet.log"
+  vps_tunnel_ok=0
+  return 1
+}
+
+stop_reverse_tunnel() {
+  [[ -n "$tunnel_pid" ]] || {
+    kill_orphaned_reverse_tunnels ""
+    return 0
+  }
+  kill "$tunnel_pid" >/dev/null 2>&1 || true
+  wait_for_pid_exit "$tunnel_pid" 5
+  tunnel_pid=""
+  kill_orphaned_reverse_tunnels ""
 }
 
 maintain_reverse_tunnel() {
   if [[ -z "$tunnel_pid" ]] || ! kill -0 "$tunnel_pid" >/dev/null 2>&1; then
     tunnel_pid=""
     vps_tunnel_ok=0
-    open_reverse_tunnel
+    open_reverse_tunnel || true
     return 0
   fi
   # A live SSH PID is not proof that its forwards are usable. Probe the VPS
-  # periodically from the parent process so registration sees the current PID.
+  # periodically with real HTTP health before trusting the tunnel.
   if (( vps_tunnel_ok == 1 && SECONDS - last_tunnel_probe_at < TUNNEL_PROBE_INTERVAL_SECONDS )); then return 0; fi
   last_tunnel_probe_at="$SECONDS"
   if probe_reverse_tunnel; then
     if (( vps_tunnel_ok != 1 )); then
-      echo "[$(date '+%Y-%m-%d %H:%M:%S')] VPS reverse tunnel recovered" | tee -a "$LOG_DIR/fleet.log"
+      echo "[$(date '+%Y-%m-%d %H:%M:%S')] VPS reverse tunnel recovered (HTTP health ok)" | tee -a "$LOG_DIR/fleet.log"
     fi
     vps_tunnel_ok=1
     return 0
   fi
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] VPS reverse tunnel unhealthy; restarting it while local profiles remain up" | tee -a "$LOG_DIR/fleet.log"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] VPS reverse tunnel unhealthy (HTTP probe failed); restarting it while local profiles remain up" | tee -a "$LOG_DIR/fleet.log"
   vps_tunnel_ok=0
   stop_reverse_tunnel
+  open_reverse_tunnel || true
 }
 
 register_if_due() {
+  local register_status=0
+  local interval="$REGISTER_INTERVAL_SECONDS"
   if [[ -n "$register_pid" ]]; then
     if kill -0 "$register_pid" >/dev/null 2>&1; then
       if (( SECONDS - registration_started_at >= REGISTRATION_MAX_SECONDS )); then
@@ -634,18 +726,29 @@ register_if_due() {
         wait_for_pid_exit "$register_pid" 5
         register_pid=""
         registration_started_at=0
+        # Allow a quicker retry after timeout (do not treat as a successful cycle).
+        last_registration_at=$((SECONDS - REGISTER_INTERVAL_SECONDS + REGISTRATION_RETRY_SECONDS))
+        if (( last_registration_at < 0 )); then last_registration_at=0; fi
       else
         return 0
       fi
     else
-      wait "$register_pid" >/dev/null 2>&1 || true
+      wait "$register_pid" >/dev/null 2>&1 || register_status=$?
       register_pid=""
       registration_started_at=0
+      if (( register_status == 0 )); then
+        last_registration_at="$SECONDS"
+      else
+        # Failed registration: retry sooner than the success interval.
+        last_registration_at=$((SECONDS - REGISTER_INTERVAL_SECONDS + REGISTRATION_RETRY_SECONDS))
+        if (( last_registration_at < 0 )); then last_registration_at=0; fi
+      fi
     fi
   fi
   (( vps_tunnel_ok == 1 )) || return 0
-  if (( last_registration_at > 0 && SECONDS - last_registration_at < REGISTER_INTERVAL_SECONDS )); then return 0; fi
-  last_registration_at="$SECONDS"
+  if (( last_registration_at > 0 && SECONDS - last_registration_at < interval )); then return 0; fi
+  # Only stamp last_registration_at when the child exits (success or fail above).
+  # Starting a register must not block retries if the child is killed mid-flight.
   registration_started_at="$SECONDS"
   # Firebase/DNS stalls in optional legacy registration must not block the
   # parent supervisor that owns profile and reverse-tunnel recovery.
