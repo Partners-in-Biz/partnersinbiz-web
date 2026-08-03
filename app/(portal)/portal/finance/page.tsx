@@ -20,6 +20,8 @@ import {
 import { FinanceModuleFrame } from '@/components/finance/FinanceModuleFrame'
 import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
 import { FinanceHubCommandRail } from '@/components/finance/FinanceHubCommandRail'
+import { FinanceRoleHubModules } from '@/components/finance/FinanceRoleHubModules'
+import { FinanceGuidedWorkflowStepper } from '@/components/finance/FinanceGuidedWorkflowStepper'
 import {
   buildFinanceHubSnapshot,
   formatHubMoney,
@@ -27,6 +29,12 @@ import {
   type FinanceHubSnapshot,
 } from '@/components/finance/financeHubMetrics'
 import { FINANCE_NAV } from '@/components/finance/financeRoutes'
+import {
+  buildRoleHubModules,
+  resolveFinancePersona,
+} from '@/lib/finance/role-ux/catalog'
+import type { FinancePersona, FinanceRoleUxContext } from '@/lib/finance/role-ux/types'
+import type { FinanceRole } from '@/lib/finance/types'
 
 type AccountingPeriod = {
   id: string
@@ -124,6 +132,7 @@ export default function FinanceCommandCentrePage() {
   const [selectedBookId, setSelectedBookId] = useState('')
   const [busy, setBusy] = useState(false)
   const [snapshot, setSnapshot] = useState<FinanceHubSnapshot>(() => buildFinanceHubSnapshot({}))
+  const [personaOverride, setPersonaOverride] = useState<FinancePersona | null>(null)
 
   const [setupCode, setSetupCode] = useState('MAIN')
   const [setupName, setSetupName] = useState('Primary legal entity')
@@ -429,12 +438,35 @@ export default function FinanceCommandCentrePage() {
 
   const moduleLinks = FINANCE_NAV.filter((item) => item.key !== 'hub')
 
+  const roleUxContext = useMemo<FinanceRoleUxContext>(() => {
+    const roles = [
+      ...new Set(
+        assignments
+          .filter((a) => a.status === 'active')
+          .map((a) => a.role as FinanceRole)
+          .filter(Boolean),
+      ),
+    ]
+    // Owner/admin bootstrap often lands finance_admin; treat missing roles as viewer-safe.
+    return {
+      membershipRole: roles.includes('finance_admin') ? 'admin' : roles.length ? 'member' : 'member',
+      roles: roles.length ? roles : (['finance_viewer'] as FinanceRole[]),
+      practiceClientCount: 1,
+    }
+  }, [assignments])
+
+  const resolvedPersona = personaOverride ?? resolveFinancePersona(roleUxContext)
+  const roleModules = useMemo(
+    () => buildRoleHubModules(roleUxContext, { persona: resolvedPersona }),
+    [roleUxContext, resolvedPersona],
+  )
+
   return (
     <FinanceModuleFrame
       active="hub"
       orgScope={orgScope}
       title="Finance command centre"
-      description="Cash, AR/AP aging, periods, payroll, tax, and packaging in one operating hub. Operational billing stays on Invoicing and Payments."
+      description="Role-dense cash, AR/AP, periods, payroll, tax, and packaging hub. Guided first close / pay run / bank recon. Operational billing stays on Invoicing and Payments."
       error={error}
       message={message}
       loading={loading}
@@ -444,6 +476,7 @@ export default function FinanceCommandCentrePage() {
           <HudChip>Entities <strong>{entities.length}</strong></HudChip>
           <HudChip>Books <strong>{books.length}</strong></HudChip>
           <HudChip>Assignments <strong>{assignments.length}</strong></HudChip>
+          <HudChip tone="accent">Role: {resolvedPersona}</HudChip>
           <HudChip tone="accent">No SARS / no payout</HudChip>
         </div>
       }
@@ -520,6 +553,19 @@ export default function FinanceCommandCentrePage() {
       ) : (
         <div className="space-y-4">
           <FinanceScopeBar scope={scopeModel} />
+
+          <FinanceRoleHubModules
+            persona={resolvedPersona}
+            modules={roleModules}
+            orgScope={orgScope}
+            onPersonaChange={(next) => setPersonaOverride(next)}
+          />
+
+          <FinanceGuidedWorkflowStepper
+            persona={resolvedPersona}
+            ctx={roleUxContext}
+            orgScope={orgScope}
+          />
 
           <section className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6" data-testid="finance-hub-stats">
             <StatCard

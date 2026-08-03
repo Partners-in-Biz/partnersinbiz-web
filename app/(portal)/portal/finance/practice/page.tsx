@@ -15,6 +15,14 @@ import { HudChip } from '@/components/ui/HudChip'
 import { Button } from '@/components/ui/Button'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import type { FinanceRole } from '@/lib/finance/types'
+import {
+  exportAuditEventsCsv,
+  filterNotificationsForCentre,
+  uniqueAuditActors,
+  uniqueAuditEntities,
+  uniqueAuditEventTypes,
+} from '@/lib/finance/role-ux/catalog'
+import type { PracticeAuditEventView } from '@/lib/finance/practice/types'
 
 type Bundle = {
   orgId: string
@@ -50,6 +58,9 @@ export default function FinancePracticePage() {
   const [filterActor, setFilterActor] = useState('')
   const [filterEvent, setFilterEvent] = useState('')
   const [filterEntity, setFilterEntity] = useState('')
+  const [noticeStatus, setNoticeStatus] = useState<'all' | 'unread' | 'read' | 'dismissed'>('all')
+  const [noticeKind, setNoticeKind] = useState('')
+  const [noticeQuery, setNoticeQuery] = useState('')
 
   const [assignUserId, setAssignUserId] = useState('')
   const [assignEntityId, setAssignEntityId] = useState('')
@@ -146,6 +157,34 @@ export default function FinancePracticePage() {
     })
   }
 
+  async function markAllUnreadRead() {
+    const unread = (bundle?.notifications ?? []).filter((n) => n.status === 'unread')
+    if (unread.length === 0) {
+      setMessage('No unread notifications')
+      return
+    }
+    await withBusy(async () => {
+      for (const n of unread) {
+        const ids = requestIdentity('ntf')
+        await runCommand('practice.notification.mark', { id: n.id, status: 'read', ...ids })
+      }
+      setMessage(`Marked ${unread.length} notification(s) read`)
+    })
+  }
+
+  function downloadAuditCsv() {
+    const events = (bundle?.auditEvents ?? []) as PracticeAuditEventView[]
+    const csv = exportAuditEventsCsv(events)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `finance-audit-${orgId || 'org'}-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    setMessage(`Exported ${events.length} audit row(s) to CSV (current org only)`)
+  }
+
   async function emitSampleNotification(kind: 'payroll.run.submitted' | 'reconciliation.awaiting_approval' | 'cutover.ready') {
     await withBusy(async () => {
       const id = newFinanceId('ntf')
@@ -182,12 +221,27 @@ export default function FinancePracticePage() {
   const assignmentCount = bundle?.assignments?.length ?? 0
   const auditCount = bundle?.auditEvents?.length ?? 0
 
+  const filteredNotifications = useMemo(
+    () =>
+      filterNotificationsForCentre(bundle?.notifications ?? [], {
+        status: noticeStatus,
+        kind: noticeKind || undefined,
+        query: noticeQuery || undefined,
+      }),
+    [bundle?.notifications, noticeStatus, noticeKind, noticeQuery],
+  )
+
+  const auditEvents = (bundle?.auditEvents ?? []) as PracticeAuditEventView[]
+  const actorOptions = useMemo(() => uniqueAuditActors(auditEvents), [auditEvents])
+  const eventTypeOptions = useMemo(() => uniqueAuditEventTypes(auditEvents), [auditEvents])
+  const entityOptions = useMemo(() => uniqueAuditEntities(auditEvents), [auditEvents])
+
   return (
     <FinanceModuleFrame
       active="practice"
       orgScope={orgScope}
       title="Practice & roles"
-      description="Role matrix, multi-client switcher, operator notifications, and audit explorer. Tenant-scoped — no SARS submit, no payment initiate."
+      description="Role matrix, multi-client switcher, polished notification centre, and dense audit explorer with CSV export. Tenant-scoped — no SARS submit, no payment initiate, no client mass email."
       error={error}
       message={message}
       meta={
@@ -196,6 +250,7 @@ export default function FinancePracticePage() {
           <HudChip>No external payment initiate</HudChip>
           <HudChip>Tenant scoped</HudChip>
           <HudChip>Practice switcher</HudChip>
+          <HudChip>Audit CSV</HudChip>
         </div>
       }
     >
@@ -263,10 +318,13 @@ export default function FinancePracticePage() {
               )}
             </Card>
 
-            <Card className="space-y-3 p-4" data-testid="practice-notifications">
+            <Card className="space-y-3 p-4" data-testid="practice-notifications" id="notifications">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-semibold">Operator notifications</h2>
+                <h2 className="text-base font-semibold">Notification centre</h2>
                 <div className="flex flex-wrap gap-1.5">
+                  <Button size="sm" variant="secondary" disabled={busy || !orgId || unreadCount === 0} onClick={() => void markAllUnreadRead()}>
+                    Mark all read
+                  </Button>
                   <Button size="sm" variant="ghost" disabled={busy || !orgId} onClick={() => void emitSampleNotification('payroll.run.submitted')}>
                     Pay run submitted
                   </Button>
@@ -278,19 +336,67 @@ export default function FinancePracticePage() {
                   </Button>
                 </div>
               </div>
-              <p className="text-xs text-[var(--color-pib-text-muted)]">In-app only. No client-visible email blast.</p>
-              {(bundle?.notifications ?? []).length === 0 ? (
-                <p className="text-sm text-[var(--color-pib-text-muted)]">No notifications in this org.</p>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">
+                In-app operator inbox only. Filter by status, kind, and text. No client-visible email blast.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-3" data-testid="practice-notification-filters">
+                <select
+                  className="rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
+                  value={noticeStatus}
+                  onChange={(e) => setNoticeStatus(e.target.value as typeof noticeStatus)}
+                  aria-label="Notification status filter"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="unread">Unread</option>
+                  <option value="read">Read</option>
+                  <option value="dismissed">Dismissed</option>
+                </select>
+                <select
+                  className="rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
+                  value={noticeKind}
+                  onChange={(e) => setNoticeKind(e.target.value)}
+                  aria-label="Notification kind filter"
+                >
+                  <option value="">All kinds</option>
+                  <option value="payroll.run.submitted">payroll.run.submitted</option>
+                  <option value="reconciliation.awaiting_approval">reconciliation.awaiting_approval</option>
+                  <option value="cutover.ready">cutover.ready</option>
+                  <option value="role.assigned">role.assigned</option>
+                  <option value="role.revoked">role.revoked</option>
+                  <option value="practice.generic">practice.generic</option>
+                </select>
+                <input
+                  className="rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
+                  placeholder="Search title or body"
+                  value={noticeQuery}
+                  onChange={(e) => setNoticeQuery(e.target.value)}
+                  aria-label="Notification text search"
+                />
+              </div>
+              {filteredNotifications.length === 0 ? (
+                <p className="text-sm text-[var(--color-pib-text-muted)]">No notifications match this filter.</p>
               ) : (
                 <ul className="max-h-80 space-y-2 overflow-auto">
-                  {(bundle?.notifications ?? []).map((n) => (
-                    <li key={n.id} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm">
+                  {filteredNotifications.map((n) => (
+                    <li key={n.id} className="rounded-lg border border-[var(--color-pib-line)] p-3 text-sm" data-testid={`practice-notification-${n.id}`}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-medium">{n.title}</span>
-                        <HudChip>{n.status}</HudChip>
+                        <div className="flex flex-wrap gap-1">
+                          <HudChip>{n.status}</HudChip>
+                          <HudChip>{n.kind}</HudChip>
+                        </div>
                       </div>
                       <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{n.body}</p>
+                      <div className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                        {n.createdAt} · {n.legalEntityId}
+                        {n.bookId ? ` / ${n.bookId}` : ''}
+                      </div>
                       <div className="mt-2 flex flex-wrap gap-1.5">
+                        {n.href ? (
+                          <Link href={scopedPortalPath(String(n.href).replace(/#.*$/, ''), { ...orgScope, orgId })} className="pib-btn-secondary btn-pib-sm">
+                            Open
+                          </Link>
+                        ) : null}
                         {n.status === 'unread' && (
                           <Button size="sm" variant="secondary" disabled={busy} onClick={() => void markNotification(n.id, 'read')}>
                             Mark read
@@ -409,51 +515,94 @@ export default function FinancePracticePage() {
               </div>
             </Card>
 
-            <Card className="space-y-3 p-4" data-testid="practice-audit-explorer">
-              <h2 className="text-base font-semibold">Audit explorer</h2>
+            <Card className="space-y-3 p-4" data-testid="practice-audit-explorer" id="audit">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-base font-semibold">Audit explorer</h2>
+                <Button size="sm" variant="primary" disabled={!orgId || auditEvents.length === 0} onClick={downloadAuditCsv} data-testid="practice-audit-export-csv">
+                  Export CSV
+                </Button>
+              </div>
               <p className="text-xs text-[var(--color-pib-text-muted)]">
-                Filters finance_audit_events for the current org only. Cross-tenant rows never appear.
+                Density filters: actor, event type, legal entity. Rows are current-org only — cross-tenant never appears. CSV is a local download.
               </p>
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-3" data-testid="practice-audit-filters">
                 <input
                   className="rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
                   placeholder="Actor id"
+                  list="practice-audit-actors"
                   value={filterActor}
                   onChange={(e) => setFilterActor(e.target.value)}
+                  aria-label="Audit actor filter"
                 />
                 <input
                   className="rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
                   placeholder="Event type"
+                  list="practice-audit-event-types"
                   value={filterEvent}
                   onChange={(e) => setFilterEvent(e.target.value)}
+                  aria-label="Audit event type filter"
                 />
                 <input
                   className="rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2 text-sm"
                   placeholder="Legal entity id"
+                  list="practice-audit-entities"
                   value={filterEntity}
                   onChange={(e) => setFilterEntity(e.target.value)}
+                  aria-label="Audit legal entity filter"
                 />
               </div>
+              <datalist id="practice-audit-actors">
+                {actorOptions.map((id) => (
+                  <option key={id} value={id} />
+                ))}
+              </datalist>
+              <datalist id="practice-audit-event-types">
+                {eventTypeOptions.map((id) => (
+                  <option key={id} value={id} />
+                ))}
+              </datalist>
+              <datalist id="practice-audit-entities">
+                {entityOptions.map((id) => (
+                  <option key={id} value={id} />
+                ))}
+              </datalist>
               <Button size="sm" variant="secondary" disabled={busy || !orgId} onClick={() => void load()}>
                 Refresh audit
               </Button>
-              {(bundle?.auditEvents ?? []).length === 0 ? (
+              {auditEvents.length === 0 ? (
                 <p className="text-sm text-[var(--color-pib-text-muted)]">No audit events match this filter.</p>
               ) : (
-                <ul className="max-h-96 space-y-2 overflow-auto">
-                  {(bundle?.auditEvents ?? []).map((event) => (
-                    <li key={event.id} className="rounded-lg border border-[var(--color-pib-line)] p-2 text-xs">
-                      <div className="font-medium">{event.eventType}</div>
-                      <div className="text-[var(--color-pib-text-muted)]">
-                        {event.occurredAt} · actor {event.actorId} · {event.legalEntityId}
-                        {event.bookId ? ` / ${event.bookId}` : ''}
-                      </div>
-                      <div className="text-[var(--color-pib-text-muted)]">
-                        {event.aggregateType}:{event.aggregateId}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <div className="max-h-96 overflow-auto" data-testid="practice-audit-table">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-[var(--color-surface,var(--color-pib-bg))] text-[var(--color-pib-text-muted)]">
+                      <tr>
+                        <th className="px-2 py-1.5 font-medium">When</th>
+                        <th className="px-2 py-1.5 font-medium">Event</th>
+                        <th className="px-2 py-1.5 font-medium">Actor</th>
+                        <th className="px-2 py-1.5 font-medium">Entity</th>
+                        <th className="px-2 py-1.5 font-medium">Aggregate</th>
+                        <th className="px-2 py-1.5 font-medium">Seq</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditEvents.map((event) => (
+                        <tr key={event.id} className="border-t border-[var(--color-pib-line)]">
+                          <td className="px-2 py-1.5 whitespace-nowrap">{String(event.occurredAt).slice(0, 19).replace('T', ' ')}</td>
+                          <td className="px-2 py-1.5 font-mono">{event.eventType}</td>
+                          <td className="px-2 py-1.5 font-mono">{event.actorId}</td>
+                          <td className="px-2 py-1.5 font-mono">
+                            {event.legalEntityId}
+                            {event.bookId ? ` / ${event.bookId}` : ''}
+                          </td>
+                          <td className="px-2 py-1.5 font-mono">
+                            {event.aggregateType}:{event.aggregateId}
+                          </td>
+                          <td className="px-2 py-1.5 tabular-nums">{event.sequence}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </Card>
           </section>

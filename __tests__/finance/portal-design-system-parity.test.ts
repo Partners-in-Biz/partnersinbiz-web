@@ -96,8 +96,10 @@ describe('finance portal design-system parity', () => {
     // Phase 4 competitor-parity surfaces (must keep FinanceModuleFrame + tenant scope helpers)
     'app/(portal)/portal/finance/assets/page.tsx',
     'app/(portal)/portal/finance/bank-rules/page.tsx',
+    'app/(portal)/portal/finance/bank-feeds/page.tsx',
     'app/(portal)/portal/finance/budgets/page.tsx',
     'app/(portal)/portal/finance/multi-currency/page.tsx',
+    'app/(portal)/portal/finance/period-close/page.tsx',
   ]
 
   test('shared shell components exist', () => {
@@ -105,8 +107,12 @@ describe('finance portal design-system parity', () => {
       'components/finance/FinanceModuleFrame.tsx',
       'components/finance/FinanceScopeBar.tsx',
       'components/finance/FinanceHubCommandRail.tsx',
+      'components/finance/FinanceRoleHubModules.tsx',
+      'components/finance/FinanceGuidedWorkflowStepper.tsx',
       'components/finance/financeHubMetrics.ts',
       'components/finance/financeRoutes.ts',
+      'lib/finance/role-ux/catalog.ts',
+      'lib/finance/role-ux/types.ts',
     ]) {
       expect(existsSync(path.join(root, rel))).toBe(true)
     }
@@ -118,6 +124,8 @@ describe('finance portal design-system parity', () => {
     expect(financeNavItem('job-costing').href).toBe('/portal/finance/job-costing')
     expect(financeNavItem('practice').href).toBe('/portal/finance/practice')
     expect(financeNavItem('runbooks').href).toBe('/portal/finance/runbooks')
+    expect(financeNavItem('period-close').href).toBe('/portal/finance/period-close')
+    expect(FINANCE_PRIMARY_TABS).toContain('period-close')
   })
 
   test('all finance portal pages mount FinanceModuleFrame + design-system primitives', () => {
@@ -133,11 +141,20 @@ describe('finance portal design-system parity', () => {
 
     const hub = read('app/(portal)/portal/finance/page.tsx')
     expect(hub).toMatch(/FinanceHubCommandRail/)
+    expect(hub).toMatch(/FinanceRoleHubModules/)
+    expect(hub).toMatch(/FinanceGuidedWorkflowStepper/)
     expect(hub).toMatch(/finance-hub-stats|StatCard/)
     expect(hub).toMatch(/AR aging|AP aging|buildFinanceHubSnapshot/)
     expect(hub).toMatch(/No SARS/)
     expect(hub).toMatch(/scopedApiPath/)
     expect(hub).toMatch(/X-Org-Id/)
+
+    const practice = read('app/(portal)/portal/finance/practice/page.tsx')
+    expect(practice).toMatch(/Notification centre|practice-notifications/)
+    expect(practice).toMatch(/practice-audit-export-csv|Export CSV/)
+    expect(practice).toMatch(/exportAuditEventsCsv/)
+    expect(practice).toMatch(/filterNotificationsForCentre/)
+    expect(practice).toMatch(/practice-audit-table|Audit explorer/)
 
     const frame = read('components/finance/FinanceModuleFrame.tsx')
     expect(frame).toMatch(/ModuleShell/)
@@ -161,6 +178,8 @@ describe('finance portal design-system parity', () => {
       'app/(portal)/portal/finance/job-costing/page.tsx',
       'app/(portal)/portal/finance/assets/page.tsx',
       'app/(portal)/portal/finance/bank-rules/page.tsx',
+      'app/(portal)/portal/finance/bank-feeds/page.tsx',
+    'app/(portal)/portal/finance/bank-feeds/page.tsx',
       'app/(portal)/portal/finance/budgets/page.tsx',
       'app/(portal)/portal/finance/multi-currency/page.tsx',
     ]
@@ -171,7 +190,7 @@ describe('finance portal design-system parity', () => {
     }
 
     // Nav lock: Phase 4 routes remain discoverable from the shared finance nav.
-    for (const key of ['assets', 'bank-rules', 'budgets', 'multi-currency', 'job-costing', 'practice', 'runbooks', 'setup'] as const) {
+    for (const key of ['assets', 'bank-rules', 'bank-feeds', 'budgets', 'multi-currency', 'job-costing', 'practice', 'runbooks', 'setup'] as const) {
       expect(financeNavItem(key).href).toMatch(/^\/portal\/finance/)
     }
   })
