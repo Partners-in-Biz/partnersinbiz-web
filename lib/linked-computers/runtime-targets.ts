@@ -101,6 +101,8 @@ export interface AuthorizedLinkedComputerDispatch {
   runtimeVersion: string
   availableAgentIds: string[]
   platform: LinkedDevicePlatform
+  /** Exact machine class; never infer VPS routing from an OS name or label. */
+  deviceKind: LinkedDeviceKind
   lastSeenAt: string
   publicKey: string
   accessMode: DeviceGrantAccessMode
@@ -385,6 +387,7 @@ function authorizedLinkedComputerDispatchFrom(target: ResolvedAuthorizedRuntimeT
     runtimeVersion: target.runtimeVersion,
     availableAgentIds: target.availableAgentIds,
     platform: target.platform,
+    deviceKind: target.deviceKind,
     lastSeenAt: target.lastSeenAt!,
     publicKey: target.publicKey,
     accessMode: target.accessMode,
@@ -510,6 +513,7 @@ export async function authorizeAdoptedLinkedComputerDispatch(
     runtimeVersion: selected.runtimeVersion,
     availableAgentIds: selected.availableAgentIds,
     platform: selected.platform,
+    deviceKind: selected.deviceKind,
     lastSeenAt: selected.lastSeenAt!,
     publicKey: selected.publicKey,
     accessMode: selected.accessMode,

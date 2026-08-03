@@ -116,6 +116,7 @@ requireText('Windows service', read('runtime-installers/windows/PartnersInBizRun
 requireText('Windows worker supervision', read('runtime-installers/windows/PartnersInBizRuntimeService.cs'), /Supervise\(stopping\.Token\)/)
 requireText('Windows heartbeat watchdog', read('runtime-installers/windows/PartnersInBizRuntimeService.cs'), /RuntimeInfo\("supervise"\)/)
 requireText('Windows worker restart', read('runtime-installers/windows/PartnersInBizRuntimeService.cs'), /WaitForExit\(500\)[\s\S]*restarting/)
+requireText('Windows supervisor tree stop', read('runtime-installers/windows/PartnersInBizRuntimeService.cs'), /Kill\(true\)/)
 requireText('Windows clean service stop', read('runtime-installers/windows/PartnersInBizRuntimeService.cs'), /stopping\?\.Cancel\(\)[\s\S]*supervisor\?\.Join/)
 requireText('Windows wrapper crash recovery', win, /sc\.exe failure PartnersInBizRuntime[\s\S]*actions= restart\/5000\/restart\/10000\/restart\/30000/)
 requireText('Windows wrapper failure flag', win, /sc\.exe failureflag PartnersInBizRuntime 1/)
