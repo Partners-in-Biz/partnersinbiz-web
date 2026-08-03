@@ -1,4 +1,5 @@
 import {
+  DEFAULT_ESTIMATED_USD_PER_MILLION_TOKENS,
   DEFAULT_ORG_GRAPH_AGENT_CAP,
   GLOBAL_AGENT_CONCURRENCY,
   IN_FLIGHT_AGENT_STATUSES,
@@ -305,6 +306,22 @@ function isAllowlistedSystemNoop(systemAction?: string): boolean {
   return ENGINE_ALLOWLISTED_SYSTEM_NOOPS.has(systemAction)
 }
 
+function estimateCostFromTokens(run: WorkflowRun, tokensTotal: number): number {
+  if (tokensTotal <= 0) return 0
+  const model = run.budgets.estimatedCostModel || 'tokens_only'
+  // tokens_only and tokens_plus_fixed both get a ledger estimate when telemetry omits cost.
+  // This is explicitly not billing (ADR §8).
+  if (model === 'tokens_only' || model === 'tokens_plus_fixed') {
+    return (tokensTotal / 1_000_000) * DEFAULT_ESTIMATED_USD_PER_MILLION_TOKENS
+  }
+  return 0
+}
+
+/**
+ * Record attempt token/cost telemetry into run.cost counters.
+ * Does NOT increment attemptCount* — those are owned by startAttempt (one per real start).
+ * Returns true when any usage was applied.
+ */
 function recordUsage(
   run: WorkflowRun,
   actions: EngineAction[],
@@ -316,18 +333,29 @@ function recordUsage(
     estimatedCost?: number
     isAgent: boolean
   },
-): void {
+): boolean {
   const tokensIn = usage.tokensIn ?? 0
   const tokensOut = usage.tokensOut ?? 0
-  const tokensTotal = usage.tokensTotal ?? tokensIn + tokensOut
-  const hasExact = tokensTotal > 0 || (usage.tokensIn !== undefined || usage.tokensOut !== undefined)
+  const tokensTotal = usage.tokensTotal ?? (usage.tokensIn !== undefined || usage.tokensOut !== undefined
+    ? tokensIn + tokensOut
+    : 0)
+  const hasExact = tokensTotal > 0 || usage.tokensIn !== undefined || usage.tokensOut !== undefined
+  const hasCost = usage.estimatedCost !== undefined && usage.estimatedCost !== null
+  if (!hasExact && !hasCost && !usage.isAgent) {
+    // Nothing to book; still let enforceBudget run from caller if needed.
+    return false
+  }
 
-  run.cost.tokensIn += tokensIn
-  run.cost.tokensOut += tokensOut
-  run.cost.tokensTotal += tokensTotal
-  run.cost.estimatedCost += usage.estimatedCost ?? 0
-  run.cost.attemptCountTotal += 1
-  if (usage.isAgent) run.cost.attemptCountAgent += 1
+  if (hasExact || hasCost) {
+    run.cost.tokensIn += tokensIn
+    run.cost.tokensOut += tokensOut
+    run.cost.tokensTotal += tokensTotal
+    if (hasCost) {
+      run.cost.estimatedCost += usage.estimatedCost ?? 0
+    } else if (tokensTotal > 0) {
+      run.cost.estimatedCost += estimateCostFromTokens(run, tokensTotal)
+    }
+  }
 
   if (hasExact) {
     run.cost.usageCompleteness = 'exact'
@@ -342,16 +370,111 @@ function recordUsage(
     }
   }
 
+  enforceBudget(run, actions, now)
+  return true
+}
+
+/**
+ * Honest budget policy (ADR §8):
+ * - pause_run: on exceed → status paused_budget before any further agent materialize/advance;
+ *   never auto-succeed while exceeded.
+ * - block_new_agent_nodes: only blocks new agent starts; run may stay running and can succeed over budget.
+ * - fail_run: on exceed → failed.
+ * Cost counters are ledger estimates, not billing.
+ */
+function enforceBudget(run: WorkflowRun, actions: EngineAction[], now: string): void {
+  if (TERMINAL_RUN_STATUSES.has(run.status as 'succeeded' | 'failed' | 'cancelled' | 'abandoned_candidate')) {
+    // Accounting-only after true terminal — refresh strip, do not resurrect the run.
+    const ratioTerminal = run.cost.maxTokensPerRun > 0
+      ? run.cost.tokensTotal / run.cost.maxTokensPerRun
+      : 0
+    if (
+      run.cost.tokensTotal >= run.cost.maxTokensPerRun
+      || (run.cost.maxCostPerRun !== undefined && run.cost.estimatedCost >= run.cost.maxCostPerRun)
+    ) {
+      run.cost.budgetStatus = 'exceeded'
+      run.cost.lastBudgetEventAt = now
+    } else if (ratioTerminal >= run.cost.warnAtRatio && run.cost.budgetStatus === 'within_budget') {
+      run.cost.budgetStatus = 'warn'
+      run.cost.lastBudgetEventAt = now
+    }
+    actions.push({ type: 'update_cost', cost: { ...run.cost } })
+    return
+  }
+
+  const prevStatus = run.cost.budgetStatus
   const ratio = run.cost.maxTokensPerRun > 0
     ? run.cost.tokensTotal / run.cost.maxTokensPerRun
     : 0
-  if (run.cost.tokensTotal >= run.cost.maxTokensPerRun
-    || (run.cost.maxCostPerRun !== undefined && run.cost.estimatedCost >= run.cost.maxCostPerRun)) {
+  const tokenExceeded = run.cost.maxTokensPerRun > 0 && run.cost.tokensTotal >= run.cost.maxTokensPerRun
+  const costExceeded = run.cost.maxCostPerRun !== undefined && run.cost.estimatedCost >= run.cost.maxCostPerRun
+  const exceeded = tokenExceeded || costExceeded
+
+  if (exceeded) {
     run.cost.budgetStatus = 'exceeded'
     run.cost.lastBudgetEventAt = now
-  } else if (ratio >= run.cost.warnAtRatio && run.cost.budgetStatus === 'within_budget') {
-    run.cost.budgetStatus = 'warn'
-    run.cost.lastBudgetEventAt = now
+  } else if (run.cost.budgetStatus === 'unknown_usage') {
+    // keep unknown_usage until exact usage clears it in recordUsage
+  } else if (ratio >= run.cost.warnAtRatio) {
+    if (run.cost.budgetStatus === 'within_budget' || run.cost.budgetStatus === 'warn') {
+      run.cost.budgetStatus = 'warn'
+      if (prevStatus !== 'warn') run.cost.lastBudgetEventAt = now
+    }
+  } else if (run.cost.budgetStatus !== 'unknown_usage') {
+    run.cost.budgetStatus = 'within_budget'
+  }
+
+  if (prevStatus !== run.cost.budgetStatus && (run.cost.budgetStatus === 'exceeded' || run.cost.budgetStatus === 'warn')) {
+    run.timeline = appendTimeline(run.timeline, {
+      at: now,
+      kind: 'cost',
+      from: prevStatus,
+      to: run.cost.budgetStatus,
+      reason: run.cost.budgetStatus === 'exceeded' ? 'budget_exceeded' : 'budget_warn',
+      summary: `tokensTotal=${run.cost.tokensTotal}/${run.cost.maxTokensPerRun} estimatedCost=${run.cost.estimatedCost} onExceed=${run.cost.onExceed}`,
+    })
+  }
+
+  if (run.cost.budgetStatus === 'exceeded') {
+    if (run.cost.onExceed === 'fail_run') {
+      setRunStatus(run, actions, 'failed', {
+        blockedReasonCode: 'budget_exceeded',
+        terminalReason: 'budget_exceeded',
+      })
+      run.completedAt = now
+      for (const node of run.nodes) {
+        if (node.kind === 'agent' && !TERMINAL_NODE_STATUSES.has(node.status as 'done' | 'blocked' | 'cancelled') && !node.kanbanTaskId) {
+          setNodeStatus(run, actions, node.nodeId, 'blocked', now, 'budget_exceeded')
+        }
+      }
+    } else if (run.cost.onExceed === 'pause_run') {
+      if (run.status !== 'paused_budget') {
+        setRunStatus(run, actions, 'paused_budget', { blockedReasonCode: 'budget_exceeded' })
+      } else if (run.blockedReasonCode !== 'budget_exceeded') {
+        run.blockedReasonCode = 'budget_exceeded'
+      }
+      // Queue any unbound agent nodes so inspect shows a single clear blocker (no new materialize).
+      for (const node of run.nodes) {
+        if (node.kind !== 'agent') continue
+        if (TERMINAL_NODE_STATUSES.has(node.status as 'done' | 'blocked' | 'cancelled')) continue
+        if (node.kanbanTaskId) continue // already in-flight — may finish; no new starts
+        if (
+          node.status === 'pending'
+          || node.status === 'ready'
+          || node.status === 'queued_capacity'
+          || node.status === 'retry_wait'
+          || node.status === 'waiting_watcher'
+          || node.status === 'awaiting_gate'
+        ) {
+          setNodeStatus(run, actions, node.nodeId, 'queued_capacity', now, 'budget_exceeded')
+        }
+      }
+    }
+    // block_new_agent_nodes: counters + canStartAgentNode only; do not flip run status.
+  } else if (run.cost.budgetStatus === 'unknown_usage' && run.cost.onExceed !== 'block_new_agent_nodes') {
+    if (run.status !== 'paused_budget' && run.status !== 'failed') {
+      setRunStatus(run, actions, 'paused_budget', { blockedReasonCode: 'unknown_usage' })
+    }
   }
 
   actions.push({ type: 'update_cost', cost: { ...run.cost } })
@@ -364,19 +487,34 @@ function canStartAgentNode(
   assigneeAgentId?: string,
 ): { ok: true } | { ok: false; reason: string; runStatus?: WorkflowRunStatus } {
   if (run.cost.budgetStatus === 'exceeded') {
-    return {
-      ok: false,
-      reason: 'budget_exceeded',
-      runStatus: run.cost.onExceed === 'fail_run' ? 'failed' : 'paused_budget',
+    if (run.cost.onExceed === 'fail_run') {
+      return { ok: false, reason: 'budget_exceeded', runStatus: 'failed' }
     }
+    if (run.cost.onExceed === 'pause_run') {
+      return { ok: false, reason: 'budget_exceeded', runStatus: 'paused_budget' }
+    }
+    // block_new_agent_nodes — queue only; do not claim the whole run is paused.
+    return { ok: false, reason: 'budget_exceeded' }
   }
   if (run.cost.budgetStatus === 'unknown_usage') {
-    return { ok: false, reason: 'unknown_usage', runStatus: 'paused_budget' }
+    return {
+      ok: false,
+      reason: 'unknown_usage',
+      runStatus: run.cost.onExceed === 'block_new_agent_nodes' ? undefined : 'paused_budget',
+    }
   }
 
   const maxAgentAttempts = run.budgets.maxAgentNodeAttemptsPerRun ?? 40
   if (run.cost.attemptCountAgent >= maxAgentAttempts) {
-    return { ok: false, reason: 'budget_exceeded', runStatus: 'paused_budget' }
+    return {
+      ok: false,
+      reason: 'budget_exceeded',
+      runStatus: run.cost.onExceed === 'fail_run'
+        ? 'failed'
+        : run.cost.onExceed === 'block_new_agent_nodes'
+          ? undefined
+          : 'paused_budget',
+    }
   }
 
   if (inFlightAgentCount(run) >= run.limits.maxConcurrentAgentNodes) {
@@ -568,7 +706,11 @@ function startAttempt(
   const existing = run.attempts[node.nodeId].find((item) => item.attemptNumber === attemptNumber)
   if (existing) return existing
   run.attempts[node.nodeId].push(attempt)
+  // Attempt counters are start-scoped (not terminal re-entry) to avoid inflate on writeback/outbox.
+  run.cost.attemptCountTotal += 1
+  if (node.kind === 'agent') run.cost.attemptCountAgent += 1
   actions.push({ type: 'start_attempt', nodeId: node.nodeId, attempt })
+  actions.push({ type: 'update_cost', cost: { ...run.cost } })
   return attempt
 }
 
@@ -635,6 +777,30 @@ function evaluateCodeCheck(
 function markRunTerminalIfComplete(run: WorkflowRun, actions: EngineAction[], now: string): void {
   const allDone = run.nodes.every((node) => node.status === 'done')
   if (allDone) {
+    // Honest onExceed models:
+    // - pause_run: never auto-succeed while over ceiling (ops must see paused_budget).
+    // - fail_run: already terminal via enforceBudget when exceeded mid-run; still guard here.
+    // - block_new_agent_nodes: may succeed over budget (agents were blocked; ledger drained).
+    if (run.cost.budgetStatus === 'exceeded') {
+      if (run.cost.onExceed === 'pause_run') {
+        if (run.status !== 'paused_budget') {
+          setRunStatus(run, actions, 'paused_budget', { blockedReasonCode: 'budget_exceeded' })
+        }
+        run.blockedReasonCode = 'budget_exceeded'
+        // Proven work may be complete, but spend exceeded pause_run — do not claim succeeded.
+        return
+      }
+      if (run.cost.onExceed === 'fail_run') {
+        if (run.status !== 'failed') {
+          setRunStatus(run, actions, 'failed', {
+            blockedReasonCode: 'budget_exceeded',
+            terminalReason: 'budget_exceeded',
+          })
+          run.completedAt = now
+        }
+        return
+      }
+    }
     setRunStatus(run, actions, 'succeeded', { terminalReason: 'all_nodes_proven' })
     run.completedAt = now
     run.blockedReasonCode = undefined
@@ -660,11 +826,14 @@ function activateReadyNodes(
   event: Extract<AdvanceEvent, { type: 'tick' }>,
 ): void {
   if (TERMINAL_RUN_STATUSES.has(run.status as 'succeeded' | 'failed' | 'cancelled' | 'abandoned_candidate')) return
-  if (run.status === 'paused_budget' && run.cost.onExceed === 'pause_run') {
-    // Still allow non-agent ledger nodes to drain; block new agent starts via canStartAgentNode
-  }
 
-  if (run.status === 'created') {
+  // pause_run over ceiling: freeze new agent/human_gate starts. Ledger nodes (code_check/system/delay)
+  // may still drain so inspect stays coherent; canStartAgentNode + bind checks block agent spend.
+  const pauseRunBudgetFreeze =
+    run.cost.onExceed === 'pause_run'
+    && (run.status === 'paused_budget' || run.cost.budgetStatus === 'exceeded' || run.cost.budgetStatus === 'unknown_usage')
+
+  if (run.status === 'created' && !pauseRunBudgetFreeze) {
     setRunStatus(run, actions, 'running')
   }
 
@@ -695,6 +864,7 @@ function activateReadyNodes(
       && isGatedCapability(node.requiredCapability)
       && !hasApprovalForCapability(run, node.requiredCapability)
     ) {
+      if (pauseRunBudgetFreeze && node.kind === 'agent') continue
       if (node.status !== 'awaiting_gate') {
         setNodeStatus(
           run,
@@ -709,6 +879,24 @@ function activateReadyNodes(
     }
 
     if (node.kind === 'agent' || node.kind === 'human_gate') {
+      // Under pause_run freeze: never emit new materialize for agent/human_gate.
+      // Already-bound in-flight agents may still complete via kanban_terminal.
+      if (pauseRunBudgetFreeze) {
+        if (node.kind === 'agent' && !node.kanbanTaskId) {
+          if (node.status !== 'queued_capacity' || node.blockedReasonCode !== 'budget_exceeded') {
+            setNodeStatus(
+              run,
+              actions,
+              node.nodeId,
+              'queued_capacity',
+              event.now,
+              run.cost.budgetStatus === 'unknown_usage' ? 'unknown_usage' : 'budget_exceeded',
+            )
+          }
+        }
+        continue
+      }
+
       // Re-emit materialize if we entered waiting_* without a bind (caller discarded intents).
       if (
         (node.status === 'waiting_watcher' || node.status === 'awaiting_gate')
@@ -903,6 +1091,44 @@ function handleKanbanTerminal(
   if (!node.kanbanTaskId) node.kanbanTaskId = event.kanbanTaskId
 
   const isAgent = node.kind === 'agent'
+
+  // Idempotent terminal: already-terminal nodes only accept one-shot late telemetry (no double-count).
+  if (TERMINAL_NODE_STATUSES.has(node.status as 'done' | 'blocked' | 'cancelled')) {
+    const attempt = latestAttempt(run, node.nodeId)
+    const lateTokens = event.tokensTotal ?? ((event.tokensIn ?? 0) + (event.tokensOut ?? 0))
+    const hasLateTokens = Boolean(
+      (event.tokensTotal !== undefined && event.tokensTotal > 0)
+      || (event.tokensIn !== undefined)
+      || (event.tokensOut !== undefined),
+    )
+    const hasLateCost = event.estimatedCost !== undefined && event.estimatedCost !== null
+    const attemptMissingUsage = attempt
+      && (attempt.tokensTotal === undefined || attempt.tokensTotal === null || attempt.tokensTotal === 0)
+      && (attempt.tokensIn === undefined || attempt.tokensIn === null)
+    if (attempt && attemptMissingUsage && (hasLateTokens || hasLateCost)) {
+      recordUsage(run, actions, event.now, {
+        tokensIn: event.tokensIn,
+        tokensOut: event.tokensOut,
+        tokensTotal: event.tokensTotal ?? lateTokens,
+        estimatedCost: event.estimatedCost,
+        isAgent,
+      })
+      completeAttempt(run, actions, node.nodeId, attempt.attemptNumber, {
+        tokensIn: event.tokensIn,
+        tokensOut: event.tokensOut,
+        tokensTotal: event.tokensTotal ?? lateTokens,
+        estimatedCost: event.estimatedCost,
+        model: event.model ?? attempt.model,
+        provider: event.provider ?? attempt.provider,
+        hermesRunId: event.hermesRunId ?? attempt.hermesRunId,
+      })
+    } else {
+      // Still re-evaluate budget strip if counters already hold truth (no double book).
+      enforceBudget(run, actions, event.now)
+    }
+    return
+  }
+
   recordUsage(run, actions, event.now, {
     tokensIn: event.tokensIn,
     tokensOut: event.tokensOut,

@@ -40,6 +40,12 @@ export const DEFAULT_BUDGETS: GraphTemplateBudgets = {
   estimatedCostModel: 'tokens_only',
 }
 
+/**
+ * Non-billing ledger estimate only (ADR §8). Not invoices, not live provider billing.
+ * Used when attempt telemetry omits estimatedCost and model is tokens_only.
+ */
+export const DEFAULT_ESTIMATED_USD_PER_MILLION_TOKENS = 1.5
+
 export const DEFAULT_NOTIFY: GraphTemplateNotify = {
   quietSuccess: true,
   alertOnBlock: true,
