@@ -211,3 +211,20 @@ describe('finance portal design-system parity', () => {
     }
   })
 })
+
+
+describe('budgets cash scenarios portal density', () => {
+  test('budgets page exposes named scenarios panel and temporary analysis chips', () => {
+    const src = require('fs').readFileSync('app/(portal)/portal/finance/budgets/page.tsx', 'utf8')
+    expect(src).toContain('cash-scenarios-panel')
+    expect(src).toContain('Temporary analysis')
+    expect(src).toContain('No permanent CEO dashboard')
+    expect(src).toContain('cashflow.scenario.upsert')
+    expect(src).toContain('cashflow.scenario.compare')
+    expect(src).toContain('cashflow.scenario.snapshot')
+    expect(src).toContain('cashflow.actuals.attach')
+    expect(src).toContain('StatCard')
+    expect(src).toContain('Owner')
+    expect(src).toContain('Bookkeeper')
+  })
+})

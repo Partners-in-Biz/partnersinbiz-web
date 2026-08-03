@@ -58,12 +58,16 @@
     "test:finance:e2e:live": "playwright test -c playwright.config.ts --grep-invert \"hermetic UI shell\"",
     "verify:finance:e2e": "npm run test:finance:e2e:domain && npm run test:finance:e2e:jest && npm run test:finance:e2e",
     "test:finance:vera-calc-audit": "jest --runInBand __tests__/finance/vera-phase45-calc-audit.test.ts",
-    "verify:finance:vera-calc-audit": "npm run test:finance:vera-calc-audit && tsx scripts/finance/verify-vera-calc-audit.ts",
+    "verify:finance:vera-calc-audit": "npm run test:finance:vera-calc-audit && tsx scripts/finance/verify-vera-calc-audit.ts && npm run verify:finance:vera-phase6-audit",
     "test:finance:a11y": "jest --runInBand __tests__/finance/operator-table-a11y.test.ts __tests__/finance/portal-design-system-parity.test.ts",
     "verify:finance:a11y": "npm run test:finance:a11y",
     "test:finance:scale-perf": "jest --runInBand __tests__/finance/statements-domain.test.ts __tests__/finance/bank-rules-domain.test.ts && tsx scripts/finance/perf-scale-smoke.ts",
     "verify:finance:scale-perf": "npm run test:finance:scale-perf",
-    "finance:multi-month-close": "tsx scripts/finance/run-multi-month-close-program.ts"
+    "finance:multi-month-close": "tsx scripts/finance/run-multi-month-close-program.ts",
+    "test:finance:budgets": "jest __tests__/finance/budgets-domain.test.ts --runInBand",
+    "verify:finance:budgets": "npm run test:finance:budgets && tsx scripts/finance/verify-budgets.ts",
+    "test:finance:vera-phase6-audit": "jest --runInBand __tests__/finance/vera-phase6-calc-audit.test.ts",
+    "verify:finance:vera-phase6-audit": "npm run test:finance:vera-phase6-audit && tsx scripts/finance/verify-vera-phase6-audit.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1045.0",

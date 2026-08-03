@@ -223,6 +223,13 @@ service cloud.firestore {
     match /finance_bank_feed_audit_events/{id} { allow read, write: if false; }
     match /finance_bank_feed_claims/{id} { allow read, write: if false; }
     match /finance_bank_feed_fingerprints/{id} { allow read, write: if false; }
+    match /finance_budgets/{id} { allow read, write: if false; }
+    match /finance_budget_forecasts/{id} { allow read, write: if false; }
+    match /finance_cashflow_plans/{id} { allow read, write: if false; }
+    match /finance_cash_scenarios/{id} { allow read, write: if false; }
+    match /finance_cash_scenario_comparisons/{id} { allow read, write: if false; }
+    match /finance_cash_scenario_snapshots/{id} { allow read, write: if false; }
+    match /finance_budgets_claims/{id} { allow read, write: if false; }
     match /reconciliations/{id} { allow read, write: if false; }
     match /reconciliation_matches/{id} { allow read, write: if false; }
     match /reconciliation_adjustments/{id} { allow read, write: if false; }
