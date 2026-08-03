@@ -1,6 +1,7 @@
 export type FinanceRouteKey =
   | 'hub'
   | 'documents'
+  | 'expense-claims'
   | 'ledger'
   | 'reports'
   | 'tax'
@@ -53,6 +54,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     group: 'ops',
   },
   {
+    key: 'expense-claims',
+    label: 'Expense claims',
+    href: '/portal/finance/expense-claims',
+    icon: 'receipt',
+    description: 'Staff claims: draft → submit → approve → post; VAT lines; receipts + OCR assist (confirm-only); no payment initiate.',
+    group: 'ops',
+  },
+  {
     key: 'ledger',
     label: 'Ledger',
     href: '/portal/finance/ledger',
@@ -90,6 +99,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     href: '/portal/finance/assets',
     icon: 'precision_manufacturing',
     description: 'Fixed asset register, straight-line depreciation, disposal, NBV reports.',
+    group: 'books',
+  },
+  {
+    key: 'revenue-recognition',
+    label: 'Revenue recognition',
+    href: '/portal/finance/revenue-recognition',
+    icon: 'trending_up',
+    description: 'Lite deferred revenue schedules (straight-line / milestone) linked to AR contracts; period runs, reverse, deferred vs billed.',
     group: 'books',
   },
   {
@@ -217,16 +234,8 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     label: 'Runbooks',
     href: '/portal/finance/runbooks',
     icon: 'menu_book',
-    description: 'Operator day-0/day-2 runbooks, hard gates, and Phase 4 acceptance pointers.',
+    description: 'Operator day-0 through Phase 6 market-proof runbooks, hard gates, and acceptance pack pointers.',
     group: 'command',
-  },
-  {
-    key: 'revenue-recognition',
-    label: 'Revenue recognition',
-    href: '/portal/finance/revenue-recognition',
-    icon: 'trending_up',
-    description: 'Lite deferred revenue schedules (straight-line / milestone) linked to AR contracts; period runs, reverse, deferred vs billed.',
-    group: 'books',
   },
   {
     key: 'proving',
@@ -241,6 +250,7 @@ export const FINANCE_NAV: FinanceNavItem[] = [
 export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'hub',
   'documents',
+  'expense-claims',
   'ledger',
   'reports',
   'tax',
@@ -260,7 +270,6 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'setup',
   'runbooks',
   'proving',
-  'revenue-recognition',
 ]
 
 export function financeNavItem(key: FinanceRouteKey): FinanceNavItem {

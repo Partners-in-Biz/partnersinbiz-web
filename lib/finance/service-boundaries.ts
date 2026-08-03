@@ -19,6 +19,8 @@ export const FINANCE_HTTP_ENTRYPOINTS = [
   'app/api/v1/finance/cutover/queries/route.ts',
   'app/api/v1/finance/documents/commands/route.ts',
   'app/api/v1/finance/documents/queries/route.ts',
+  'app/api/v1/finance/expense-claims/commands/route.ts',
+  'app/api/v1/finance/expense-claims/queries/route.ts',
   'app/api/v1/finance/foundation/commands/route.ts',
   'app/api/v1/finance/foundation/queries/route.ts',
   'app/api/v1/finance/intercompany/commands/route.ts',
