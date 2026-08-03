@@ -44,6 +44,11 @@ new_allow = '''_DEFAULT_RUN_MODEL_ALLOWLIST = {
     "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-3-flash-preview",
+    # DeepSeek (API key · base https://api.deepseek.com)
+    "deepseek-v4-flash",
+    "deepseek-v4-pro",
+    "deepseek-chat",
+    "deepseek-reasoner",
 }'''
 
 if old_allow not in text:
@@ -73,6 +78,8 @@ new_infer = '''    @staticmethod
             return "xai"
         if lowered.startswith("gemini-") or lowered.startswith("google/gemini"):
             return "gemini"
+        if lowered.startswith("deepseek") or lowered.startswith("deepseek/"):
+            return "deepseek"
         if lowered.startswith("gpt-"):
             return "openai-codex"
         if "/" in lowered:

@@ -39,6 +39,13 @@ export interface MessageModelCatalog {
   localOnlyProviderLabels?: string[]
   hermesConfiguredProviders?: string[]
   selectableModelCount?: number
+  usageAdvisories?: Array<{
+    provider: string
+    phase: string
+    chipLabel: string
+    summary: string
+    detail: string
+  }>
 }
 
 export interface ModelRuntimeSelection {
@@ -241,6 +248,22 @@ export function ModelProviderPicker({
                 {catalog.warning}
               </div>
             )}
+            {catalog?.usageAdvisories?.map((advisory) => (
+              <div
+                key={`${advisory.provider}-${advisory.phase}`}
+                data-testid={`model-provider-usage-${advisory.provider}`}
+                title={advisory.detail}
+                className={`mt-2 rounded-lg border px-2 py-1.5 text-[11px] ${
+                  advisory.phase === 'peak'
+                    ? 'border-amber-400/25 bg-amber-500/10 text-amber-100'
+                    : 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
+                }`}
+              >
+                <span className="font-medium">{advisory.chipLabel}</span>
+                {' · '}
+                {advisory.summary}
+              </div>
+            ))}
           </div>
 
           <div data-testid="model-provider-options" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5">
