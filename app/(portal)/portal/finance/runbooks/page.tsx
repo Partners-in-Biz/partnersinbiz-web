@@ -147,15 +147,6 @@ const DIFFERENTIATORS: Runbook[] = [
     href: '/portal/finance',
     cta: 'Command centre',
   },
-  {
-    id: 'O',
-    title: 'O · Phase 5 proving kit',
-    summary: 'Seed multi-entity demo company, run multi-period close fixture, packaging dry-run, and printable accountant acceptance checklist with evidence checkboxes.',
-    href: '/portal/finance/proving',
-    cta: 'Proving kit',
-    emptyState: 'Empty seed snapshot means the demo company has not been seeded for this org yet.',
-    gates: ['No SARS submit', 'No payment initiate', 'Idempotent seed'],
-  },
 ]
 
 function RunbookSection({

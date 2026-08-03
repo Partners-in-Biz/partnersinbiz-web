@@ -1,24 +1,26 @@
 import type { FinanceActorContext } from '@/lib/finance/types'
 import { FinanceAuthorizationError } from '@/lib/finance/policy'
 import {
-  DEFAULT_PROVING_SEED_KEY,
-  PROVING_HARD_GATES,
-  PROVING_SEED_VERSION,
-  applyChecklistCheck,
-  buildAccountantAcceptanceChecklistItems,
-  buildDemoCompanySeed,
-  buildPackagingWalkthrough,
-  emptyChecklistState,
-  runMultiPeriodCloseFixture,
-  stableSeedDigest,
-} from '@/lib/finance/proving/domain'
+  PROVING_SEED_KEY,
+  buildAcceptanceChecklist,
+  buildDemoArAp,
+  buildDemoAssets,
+  buildDemoBankLines,
+  buildDemoEntities,
+  buildDemoFx,
+  buildDemoJobCosts,
+  buildDemoPayroll,
+  defaultCloseBlockers,
+  freezeTrialBalance,
+} from '@/lib/finance/proving/demo-blueprint'
 import {
-  ProvingFinanceService,
+  FinanceProvingService,
   createEmptyProvingStore,
   cloneProvingStore,
-  type ProvingFinanceStore,
+  createInMemoryProvingService,
+  seedSnapshotDigest,
+  type ProvingStore,
 } from '@/lib/finance/proving/service'
-import { assertPeriodAllowsPosting } from '@/lib/accounting/foundation'
 import { ALL_PACKAGING_KINDS } from '@/lib/finance/packaging/service'
 
 function actor(uid: string, orgId: string, role: FinanceActorContext['membershipRole'] = 'admin'): FinanceActorContext {
@@ -45,164 +47,98 @@ function actor(uid: string, orgId: string, role: FinanceActorContext['membership
   }
 }
 
-function memoryService(storeRef: { current: ProvingFinanceStore }, now = '2026-08-03T12:00:00.000Z') {
-  return new ProvingFinanceService(
-    async () => cloneProvingStore(storeRef.current),
-    async (_before, after) => {
-      storeRef.current = cloneProvingStore(after)
-    },
-    () => now,
-  )
-}
+describe('proving kit blueprint', () => {
+  test('multi-entity demo data covers AR/AP, bank, payroll, FX, assets, jobs', () => {
+    const entities = buildDemoEntities('org_pib')
+    expect(entities).toHaveLength(3)
+    expect(entities.map((e) => e.code).sort()).toEqual(['HOLD', 'OPS', 'SVC'])
+    expect(buildDemoArAp(entities).length).toBeGreaterThan(0)
+    expect(buildDemoBankLines(entities).length).toBeGreaterThan(0)
+    expect(buildDemoPayroll(entities).length).toBeGreaterThan(0)
+    expect(buildDemoFx(entities).length).toBeGreaterThan(0)
+    expect(buildDemoAssets(entities).length).toBeGreaterThan(0)
+    expect(buildDemoJobCosts(entities).length).toBeGreaterThan(0)
 
-describe('proving kit domain — demo company seed', () => {
-  test('builds multi-entity books with AR/AP, bank, payroll, FX, assets, jobs', () => {
-    const company = buildDemoCompanySeed({ orgId: 'org_pib', seedKey: 'kit-a' })
-    expect(company.version).toBe(PROVING_SEED_VERSION)
-    expect(company.entities).toHaveLength(3)
-    expect(company.books.length).toBeGreaterThanOrEqual(3)
-    expect(company.arDocuments.length).toBeGreaterThan(0)
-    expect(company.apDocuments.length).toBeGreaterThan(0)
-    expect(company.bankLines.length).toBeGreaterThan(0)
-    expect(company.payRun.employeeCount).toBeGreaterThan(0)
-    expect(company.fxRates[0]?.status).toBe('approved')
-    expect(company.assets[0]?.method).toBe('straight_line')
-    expect(company.jobDimensions.length).toBeGreaterThan(0)
-    expect(company.hardGates).toEqual(PROVING_HARD_GATES)
-    expect(company.periods.some((p) => p.status === 'open')).toBe(true)
-    expect(company.periods.some((p) => p.status === 'hard_closed')).toBe(true)
-  })
-
-  test('seed is deterministic for the same seedKey', () => {
-    const a = buildDemoCompanySeed({ orgId: 'org_pib', seedKey: 'stable' })
-    const b = buildDemoCompanySeed({ orgId: 'org_pib', seedKey: 'stable' })
-    expect(stableSeedDigest(a)).toBe(stableSeedDigest(b))
-    expect(a.entities[0]?.id).toBe(b.entities[0]?.id)
-    const c = buildDemoCompanySeed({ orgId: 'org_pib', seedKey: 'other' })
-    expect(a.entities[0]?.id).not.toBe(c.entities[0]?.id)
-  })
-})
-
-describe('proving kit domain — multi-period close fixture', () => {
-  test('open → blockers → clear → close → freeze invariants', () => {
-    const company = buildDemoCompanySeed({ orgId: 'org_pib', seedKey: 'close-a' })
-    const result = runMultiPeriodCloseFixture({ company, closeMode: 'soft_closed' })
-
-    expect(result.periodBeforeStatus).toBe('open')
-    expect(result.periodAfterStatus).toBe('soft_closed')
-    expect(result.blockersBefore.map((b) => b.code)).toEqual(
-      expect.arrayContaining(['unreconciled_bank', 'unapproved_journals', 'open_pay_runs', 'missing_fx_reval']),
+    const ops = entities.find((e) => e.code === 'OPS')!
+    const blockers = defaultCloseBlockers({
+      bankLines: buildDemoBankLines(entities),
+      payrollRuns: buildDemoPayroll(entities),
+      fxPositions: buildDemoFx(entities),
+      assets: buildDemoAssets(entities),
+      periodKey: '2026-07',
+      entityId: ops.id,
+      cutoverComplete: true,
+    })
+    expect(blockers.some((b) => !b.resolved)).toBe(true)
+    expect(blockers.map((b) => b.code)).toEqual(
+      expect.arrayContaining(['unreconciled_bank', 'unapproved_pay_run', 'open_fx_revaluation']),
     )
-    expect(result.blockersAfter).toHaveLength(0)
-    expect(result.timeline.map((t) => t.step)).toEqual([
-      'open_period',
-      'post_activity',
-      'evaluate_blockers',
-      'clear_blockers',
-      'close_period',
-      'freeze_reports',
-    ])
-    expect(result.reportFreeze.trialBalanceBalanced).toBe(true)
-    expect(result.reportFreeze.postingBlockedWithoutAdjustment).toBe(true)
-    expect(result.reportFreeze.hardClosedBlocksAllPosting).toBe(true)
-    expect(result.reportFreeze.inputDigest).toMatch(/^[a-f0-9]{64}$/)
-    expect(result.hardGates.sarsSubmissionInitiated).toBe(false)
-    expect(result.hardGates.externalPaymentInitiated).toBe(false)
-
-    const open = company.periods.find((p) => p.status === 'open')!
-    expect(() =>
-      assertPeriodAllowsPosting(
-        {
-          id: open.id,
-          orgId: company.orgId,
-          legalEntityId: open.legalEntityId,
-          bookId: open.bookId,
-          fiscalYear: open.fiscalYear,
-          periodNumber: open.periodNumber,
-          startsAt: open.startsAt,
-          endsAt: open.endsAt,
-          status: 'soft_closed',
-        },
-        open.startsAt,
-        false,
-      ),
-    ).toThrow(/soft closed/)
   })
 
-  test('hard close freezes posting completely', () => {
-    const company = buildDemoCompanySeed({ orgId: 'org_pib', seedKey: 'close-hard' })
-    const result = runMultiPeriodCloseFixture({ company, closeMode: 'hard_closed' })
-    expect(result.periodAfterStatus).toBe('hard_closed')
-    expect(result.reportFreeze.periodStatus).toBe('hard_closed')
-    expect(result.reportFreeze.hardClosedBlocksAllPosting).toBe(true)
+  test('freeze trial balance is balanced and gate-safe', () => {
+    const freeze = freezeTrialBalance({
+      periodKey: '2026-07',
+      entityId: 'e1',
+      bookId: 'b1',
+      frozenAt: '2026-08-03T12:00:00.000Z',
+      journalCount: 2,
+      lines: [
+        { accountCode: '1000', debitMinor: 5000, creditMinor: 0 },
+        { accountCode: '4000', debitMinor: 0, creditMinor: 5000 },
+      ],
+    })
+    expect(freeze.totalDebitMinor).toBe(freeze.totalCreditMinor)
+    expect(freeze.immutable).toBe(true)
+    expect(freeze.sarsSubmissionInitiated).toBe(false)
+    expect(freeze.externalPaymentInitiated).toBe(false)
+    expect(freeze.trialBalanceHash).toMatch(/^[a-f0-9]{64}$/)
   })
-})
 
-describe('proving kit domain — packaging walkthrough', () => {
-  test('builds realistic SARS/payment/accountant packs without submit/initiate', () => {
-    const company = buildDemoCompanySeed({ orgId: 'org_pib', seedKey: 'pack-a' })
-    const walk = buildPackagingWalkthrough({ company })
-    expect(walk.packs.length).toBe(ALL_PACKAGING_KINDS.length)
-    const families = new Set(walk.packs.map((p) => p.family))
-    expect(families.has('sars')).toBe(true)
-    expect(families.has('payment')).toBe(true)
-    expect(families.has('accountant')).toBe(true)
-    for (const pack of walk.packs) {
-      expect(pack.fileNames.length).toBeGreaterThan(0)
-      expect(pack.rowCount).toBeGreaterThan(0)
-      expect(pack.digests.length).toBe(pack.fileNames.length)
-      expect(pack.sarsSubmissionInitiated).toBe(false)
-      expect(pack.externalPaymentInitiated).toBe(false)
-      expect(pack.externalEgressAllowed).toBe(false)
-      expect(pack.contentPreview.length).toBeGreaterThan(20)
-      expect(pack.contentPreview).not.toMatch(/sarsSubmissionInitiated": true/)
-      expect(pack.contentPreview).not.toMatch(/externalPaymentInitiated": true/)
-    }
-    expect(walk.hardGates).toEqual(PROVING_HARD_GATES)
-  })
-})
-
-describe('proving kit domain — acceptance checklist', () => {
-  test('required items drive sign-off readiness', () => {
-    const items = buildAccountantAcceptanceChecklistItems()
+  test('acceptance checklist is printable ordered steps', () => {
+    const items = buildAcceptanceChecklist()
     expect(items.length).toBeGreaterThanOrEqual(10)
-    expect(items.every((i, idx) => i.printableOrder === idx + 1)).toBe(true)
-    let state = emptyChecklistState('org_pib', DEFAULT_PROVING_SEED_KEY, '2026-08-03T12:00:00.000Z')
-    expect(state.readyForAccountantSignoff).toBe(false)
-    for (const item of items.filter((i) => i.required)) {
-      state = applyChecklistCheck(state, {
-        itemId: item.id,
-        checked: true,
-        now: '2026-08-03T12:01:00.000Z',
-        checkedBy: 'u1',
-      })
-    }
-    expect(state.readyForAccountantSignoff).toBe(true)
-    expect(state.completedRequiredCount).toBe(state.requiredCount)
+    expect(items.every((i, idx) => i.step === idx + 1)).toBe(true)
+    expect(items.filter((i) => i.required).length).toBeGreaterThan(5)
+    expect(items.every((i) => i.checked === false)).toBe(true)
   })
 })
 
-describe('proving kit service — seed idempotency + auth', () => {
-  test('seed is idempotent for same org+seedKey and refuses viewers on write', async () => {
-    const storeRef = { current: createEmptyProvingStore() }
-    const svc = memoryService(storeRef)
+describe('proving kit service — seed idempotency + close + packaging', () => {
+  test('seed is deterministic/idempotent and blocks viewers on write', async () => {
+    const svc = createInMemoryProvingService()
     const admin = actor('u1', 'org_pib')
-
     const first = await svc.seedDemoCompany(admin, {
       orgId: 'org_pib',
-      seedKey: 'idem-1',
+      seedKey: PROVING_SEED_KEY,
       requestId: 'r1',
-      idempotencyKey: 'idem-seed-1',
+      idempotencyKey: 'seed-1',
     })
+    expect(first.seed.entities).toHaveLength(3)
+    expect(first.seed.arAp.length).toBeGreaterThan(0)
+    expect(first.seed.bankLines.length).toBeGreaterThan(0)
+    expect(first.seed.payrollRuns.length).toBeGreaterThan(0)
+    expect(first.seed.fxPositions.length).toBeGreaterThan(0)
+    expect(first.seed.assets.length).toBeGreaterThan(0)
+    expect(first.seed.jobCosts.length).toBeGreaterThan(0)
+    expect(first.seed.hardGates.sarsSubmissionInitiated).toBe(false)
+    expect(first.seed.hardGates.externalPaymentInitiated).toBe(false)
+    expect(first.idempotentReplay).toBe(false)
+
     const second = await svc.seedDemoCompany(admin, {
       orgId: 'org_pib',
-      seedKey: 'idem-1',
+      seedKey: PROVING_SEED_KEY,
       requestId: 'r2',
-      idempotencyKey: 'idem-seed-2',
+      idempotencyKey: 'seed-2',
     })
-    expect(second).toEqual(first)
-    expect(storeRef.current.companies.size).toBe(1)
-    expect(storeRef.current.auditEvents.filter((e) => e.action === 'proving.seed')).toHaveLength(1)
+    expect(second.idempotentReplay).toBe(true)
+    expect(seedSnapshotDigest(second.seed)).toBe(seedSnapshotDigest(first.seed))
+
+    const sameIdem = await svc.seedDemoCompany(admin, {
+      orgId: 'org_pib',
+      requestId: 'r1b',
+      idempotencyKey: 'seed-1',
+    })
+    expect(sameIdem.idempotentReplay).toBe(true)
 
     const viewer: FinanceActorContext = {
       uid: 'v1',
@@ -226,66 +162,88 @@ describe('proving kit service — seed idempotency + auth', () => {
       svc.seedDemoCompany(viewer, {
         orgId: 'org_pib',
         requestId: 'r3',
-        idempotencyKey: 'idem-seed-3',
+        idempotencyKey: 'seed-viewer',
       }),
     ).rejects.toBeInstanceOf(FinanceAuthorizationError)
   })
 
-  test('close fixture + packaging walkthrough + checklist write durable bundle', async () => {
-    const storeRef = { current: createEmptyProvingStore() }
-    const svc = memoryService(storeRef)
-    const admin = actor('u1', 'org_pib')
-
+  test('close fixture blockers then freeze; packaging dry-run holds hard gates', async () => {
+    const svc = createInMemoryProvingService()
+    const admin = actor('u1', 'org_close')
     await svc.seedDemoCompany(admin, {
-      orgId: 'org_pib',
-      seedKey: 'full',
-      requestId: 'r1',
+      orgId: 'org_close',
+      requestId: 's1',
       idempotencyKey: 's1',
     })
-    const close = await svc.runCloseFixture(admin, {
-      orgId: 'org_pib',
-      seedKey: 'full',
-      closeMode: 'soft_closed',
-      requestId: 'r2',
-      idempotencyKey: 'c1',
-    })
-    expect(close.reportFreeze.trialBalanceBalanced).toBe(true)
 
-    // same idempotency key returns same fixture without double claim error path via map
-    const closeAgain = await svc.runCloseFixture(admin, {
-      orgId: 'org_pib',
-      seedKey: 'full',
-      requestId: 'r2b',
-      idempotencyKey: 'c1',
+    const blocked = await svc.runCloseFixture(admin, {
+      orgId: 'org_close',
+      entityCode: 'OPS',
+      periodKey: '2026-07',
+      resolveBlockers: false,
+      requestId: 'c-block',
+      idempotencyKey: 'c-block',
     })
-    expect(closeAgain.id).toBe(close.id)
+    expect(blocked.closeRun.status).toBe('blocked')
+    expect(blocked.closeRun.blockers.some((b) => !b.resolved)).toBe(true)
 
-    const pack = await svc.runPackagingWalkthrough(admin, {
-      orgId: 'org_pib',
-      seedKey: 'full',
-      requestId: 'r3',
+    const closed = await svc.runCloseFixture(admin, {
+      orgId: 'org_close',
+      entityCode: 'OPS',
+      periodKey: '2026-07',
+      resolveBlockers: true,
+      requestId: 'c-close',
+      idempotencyKey: 'c-close',
+    })
+    expect(['closed', 'reports_frozen']).toContain(closed.closeRun.status)
+    expect(closed.closeRun.blockers.every((b) => b.resolved)).toBe(true)
+    expect(closed.closeRun.freeze?.immutable).toBe(true)
+    expect(closed.closeRun.freeze?.totalDebitMinor).toBe(closed.closeRun.freeze?.totalCreditMinor)
+    expect(closed.closeRun.freeze?.sarsSubmissionInitiated).toBe(false)
+    expect(closed.closeRun.freeze?.externalPaymentInitiated).toBe(false)
+
+    const pack = await svc.packagingDryRun(admin, {
+      orgId: 'org_close',
+      requestId: 'p1',
       idempotencyKey: 'p1',
     })
-    expect(pack.packs.length).toBeGreaterThan(5)
+    expect(pack.packs.length).toBe(ALL_PACKAGING_KINDS.length)
+    const families = new Set(pack.packs.map((p) => p.family))
+    expect(families.has('sars')).toBe(true)
+    expect(families.has('payment')).toBe(true)
+    expect(families.has('accountant')).toBe(true)
+    for (const p of pack.packs) {
+      expect(p.fileNames.length).toBeGreaterThan(0)
+      expect(p.sarsSubmissionInitiated).toBe(false)
+      expect(p.externalPaymentInitiated).toBe(false)
+      expect(p.externalEgressAllowed).toBe(false)
+    }
 
-    const checklist = await svc.setChecklistItem(admin, {
-      orgId: 'org_pib',
-      seedKey: 'full',
-      itemId: 'hard_gates',
+    const toggled = await svc.toggleChecklist(admin, {
+      orgId: 'org_close',
+      itemId: 'acc_11',
       checked: true,
-      note: 'Gates held on dry-run',
-      requestId: 'r4',
-      idempotencyKey: 'k1',
+      requestId: 't1',
+      idempotencyKey: 't1',
     })
-    expect(checklist.checks.hard_gates?.checked).toBe(true)
+    expect(toggled.item.checked).toBe(true)
 
-    const bundle = await svc.getBundle(admin, 'org_pib', 'full')
-    expect(bundle.company?.seedKey).toBe('full')
-    expect(bundle.latestCloseFixture?.periodAfterStatus).toBe('soft_closed')
-    expect(bundle.latestPackagingWalkthrough?.packs.length).toBe(pack.packs.length)
-    expect(bundle.checklist.checks.hard_gates?.checked).toBe(true)
+    const bundle = await svc.getBundle(admin, 'org_close')
+    expect(bundle.workspace.seed?.entities).toHaveLength(3)
+    expect(bundle.workspace.closeRuns.length).toBeGreaterThanOrEqual(2)
+    expect(bundle.workspace.packagingDryRuns.length).toBe(ALL_PACKAGING_KINDS.length)
+    expect(bundle.workspace.acceptanceChecklist.find((i) => i.id === 'acc_11')?.checked).toBe(true)
     expect(bundle.hardGates.externalEgressAllowed).toBe(false)
-    expect(bundle.company?.payRun.status).toBe('approved_locked')
-    expect(bundle.company?.periods.find((p) => p.id === close.periodId)?.status).toBe('soft_closed')
+    expect(bundle.printReady).toBe(true)
+  })
+
+  test('createInMemory store clone helper keeps isolation shape', () => {
+    const store = createEmptyProvingStore()
+    const cloned = cloneProvingStore(store)
+    expect(cloned.workspaces).not.toBe(store.workspaces)
+    expect(cloned.claims).not.toBe(store.claims)
+    const typed: ProvingStore = cloned
+    expect(typed.foundationByOrg.size).toBe(0)
+    expect(new FinanceProvingService(async () => store, async () => undefined)).toBeInstanceOf(FinanceProvingService)
   })
 })

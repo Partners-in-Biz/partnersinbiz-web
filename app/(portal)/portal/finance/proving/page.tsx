@@ -13,65 +13,58 @@ import { useSearchParams } from 'next/navigation'
 import { DEFAULT_PROVING_SEED_KEY } from '@/lib/finance/proving/constants'
 
 type Bundle = {
-  company: null | {
-    label: string
-    seedKey: string
-    version: string
-    entities: unknown[]
-    books: unknown[]
-    periods: Array<{ id: string; label: string; status: string }>
-    arDocuments: unknown[]
-    apDocuments: unknown[]
-    bankLines: unknown[]
-    payRun: { id: string; status: string; netPayMinor: number }
-    fxRates: unknown[]
-    assets: unknown[]
-    jobDimensions: unknown[]
-    hardGates: Record<string, boolean>
-  }
-  latestCloseFixture: null | {
-    periodId: string
-    periodAfterStatus: string
-    blockersBefore: Array<{ code: string; title: string }>
-    blockersAfter: Array<{ code: string; title: string }>
-    timeline: Array<{ step: string; detail: string }>
-    reportFreeze: {
-      periodStatus: string
-      trialBalanceBalanced: boolean
-      inputDigest: string
-      postingBlockedWithoutAdjustment: boolean
-      hardClosedBlocksAllPosting: boolean
+  workspace: {
+    orgId: string
+    seed?: {
+      seedKey: string
+      companyName: string
+      entities: Array<{ code: string; legalName: string; bookCode: string }>
+      periods: Array<{ periodKey: string; status: string }>
+      arAp: unknown[]
+      bankLines: unknown[]
+      payrollRuns: Array<{ id: string; status: string; netMinor: number }>
+      fxPositions: unknown[]
+      assets: unknown[]
+      jobCosts: unknown[]
+      journals: unknown[]
+      hardGates: Record<string, boolean>
     }
-    hardGates: Record<string, boolean>
-  }
-  latestPackagingWalkthrough: null | {
-    packs: Array<{
+    closeRuns: Array<{
+      id: string
+      status: string
+      periodKey: string
+      blockers: Array<{ code: string; label: string; resolved: boolean }>
+      freeze?: {
+        trialBalanceHash: string
+        totalDebitMinor: number
+        totalCreditMinor: number
+        immutable: boolean
+      }
+    }>
+    packagingDryRuns: Array<{
       kind: string
       family: string
       fileNames: string[]
       rowCount: number
+      sampleSha256: string
       sarsSubmissionInitiated: boolean
       externalPaymentInitiated: boolean
     }>
-    hardGates: Record<string, boolean>
-  }
-  checklist: {
-    items: Array<{
+    acceptanceChecklist: Array<{
       id: string
       section: string
+      step: number
       title: string
       detail: string
       evidenceHint: string
       required: boolean
-      printableOrder: number
+      checked: boolean
     }>
-    checks: Record<string, { checked: boolean; note?: string }>
-    completedRequiredCount: number
-    requiredCount: number
-    readyForAccountantSignoff: boolean
-    hardGates: Record<string, boolean>
+    audit: Array<{ at: string; action: string; summary: string }>
   }
+  seedDigest: string | null
   hardGates: Record<string, boolean>
+  printReady: boolean
 }
 
 async function readJson(res: Response) {
@@ -98,11 +91,10 @@ export default function FinanceProvingKitPage() {
       const base = scopedApiPath('/api/v1/finance/proving/queries', orgScope)
       const url = new URL(base, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
       url.searchParams.set('resource', resource)
-      url.searchParams.set('seedKey', seedKey)
       if (orgId) url.searchParams.set('orgId', orgId)
       return `${url.pathname}${url.search}`
     },
-    [orgScope, orgId, seedKey],
+    [orgScope, orgId],
   )
 
   const runCommand = useCallback(
@@ -117,12 +109,12 @@ export default function FinanceProvingKitPage() {
         },
         body: JSON.stringify({
           operation,
-          command: { ...command, orgId, seedKey },
+          command: { ...command, orgId },
         }),
       })
       return readJson(res)
     },
-    [orgId, orgScope, seedKey],
+    [orgId, orgScope],
   )
 
   const loadBundle = useCallback(async () => {
@@ -166,31 +158,43 @@ export default function FinanceProvingKitPage() {
 
   async function seedCompany() {
     await withBusy(async () => {
-      await runCommand('proving.seed', { ...requestIdentity('prov-seed') })
-      setMessage('Demo company seeded (idempotent). Multi-entity books + AR/AP/bank/payroll/FX/assets/jobs.')
+      const body = await runCommand('proving.seed', {
+        seedKey,
+        ...requestIdentity('prov-seed'),
+      })
+      const replay = Boolean(body?.data?.result?.idempotentReplay)
+      setMessage(replay ? 'Seed replayed idempotently (same seedKey digest).' : 'Demo company seeded — multi-entity books + sample activity.')
     })
   }
 
-  async function runClose() {
+  async function runClose(resolveBlockers: boolean) {
     await withBusy(async () => {
-      await runCommand('proving.close_fixture', {
-        closeMode: 'soft_closed',
-        ...requestIdentity('prov-close'),
+      const body = await runCommand('proving.close_fixture.run', {
+        entityCode: 'OPS',
+        periodKey: '2026-07',
+        resolveBlockers,
+        ...requestIdentity(resolveBlockers ? 'prov-close' : 'prov-block'),
       })
-      setMessage('Multi-period close fixture complete — blockers cleared, period soft-closed, reports frozen.')
+      const status = body?.data?.result?.closeRun?.status
+      setMessage(
+        resolveBlockers
+          ? `Close fixture finished with status ${status}. Reports freeze when closed.`
+          : `Close blockers evaluated — status ${status}. Resolve then re-run with blockers cleared.`,
+      )
     })
   }
 
   async function runPackaging() {
     await withBusy(async () => {
-      await runCommand('proving.packaging_walkthrough', { ...requestIdentity('prov-pack') })
-      setMessage('Packaging dry-run built SARS / payment / accountant packs (download only — no submit/initiate).')
+      const body = await runCommand('proving.packaging.dry_run', { ...requestIdentity('prov-pack') })
+      const n = body?.data?.result?.packs?.length ?? 0
+      setMessage(`Packaging dry-run built ${n} packs (download only — no submit/initiate).`)
     })
   }
 
   async function toggleCheck(itemId: string, checked: boolean) {
     await withBusy(async () => {
-      await runCommand('proving.checklist.set', {
+      await runCommand('proving.checklist.toggle', {
         itemId,
         checked,
         ...requestIdentity('prov-check'),
@@ -203,10 +207,12 @@ export default function FinanceProvingKitPage() {
     if (typeof window !== 'undefined') window.print()
   }
 
-  const company = bundle?.company
-  const closeFx = bundle?.latestCloseFixture
-  const packs = bundle?.latestPackagingWalkthrough
-  const checklist = bundle?.checklist
+  const seed = bundle?.workspace.seed
+  const latestClose = bundle?.workspace.closeRuns?.[bundle.workspace.closeRuns.length - 1]
+  const packs = bundle?.workspace.packagingDryRuns ?? []
+  const checklist = bundle?.workspace.acceptanceChecklist ?? []
+  const requiredDone = checklist.filter((i) => i.required && i.checked).length
+  const requiredTotal = checklist.filter((i) => i.required).length
 
   return (
     <FinanceModuleFrame
@@ -248,28 +254,18 @@ export default function FinanceProvingKitPage() {
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="proving-stats">
+            <StatCard label="Entities" value={String(seed?.entities.length ?? 0)} detail="Multi-entity seed" icon="apartment" />
             <StatCard
-              label="Entities"
-              value={String(company?.entities.length ?? 0)}
-              detail="Multi-entity seed"
-              icon="apartment"
-            />
-            <StatCard
-              label="Close ready"
-              value={closeFx ? closeFx.periodAfterStatus : '—'}
-              detail={closeFx ? 'Fixture run' : 'Not run'}
+              label="Close"
+              value={latestClose?.status ?? '—'}
+              detail={latestClose ? latestClose.periodKey : 'Not run'}
               icon="event_available"
             />
-            <StatCard
-              label="Packs"
-              value={String(packs?.packs.length ?? 0)}
-              detail="Dry-run downloads"
-              icon="inventory_2"
-            />
+            <StatCard label="Packs" value={String(packs.length)} detail="Dry-run downloads" icon="inventory_2" />
             <StatCard
               label="Checklist"
-              value={checklist ? `${checklist.completedRequiredCount}/${checklist.requiredCount}` : '—'}
-              detail={checklist?.readyForAccountantSignoff ? 'Sign-off ready' : 'In progress'}
+              value={requiredTotal ? `${requiredDone}/${requiredTotal}` : '—'}
+              detail={requiredDone === requiredTotal && requiredTotal > 0 ? 'Sign-off ready' : 'In progress'}
               icon="checklist"
             />
           </div>
@@ -288,8 +284,11 @@ export default function FinanceProvingKitPage() {
               <Button variant="primary" size="sm" disabled={busy} onClick={() => void seedCompany()} data-testid="proving-seed-btn">
                 Seed demo company
               </Button>
-              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void runClose()} data-testid="proving-close-btn">
-                Run close fixture
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void runClose(false)} data-testid="proving-blockers-btn">
+                Evaluate blockers
+              </Button>
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void runClose(true)} data-testid="proving-close-btn">
+                Resolve + close + freeze
               </Button>
               <Button variant="secondary" size="sm" disabled={busy} onClick={() => void runPackaging()} data-testid="proving-pack-btn">
                 Packaging dry-run
@@ -299,75 +298,68 @@ export default function FinanceProvingKitPage() {
               </Button>
             </div>
             <p className="text-xs text-[var(--color-pib-text-muted)]">
-              Seed is idempotent per org + seed key. Close fixture clears blockers then freezes reports. Packaging builds
-              realistic SARS / payment-instruction / accountant files with egress and initiate flags forced false.
+              Seed is idempotent per org + seed key and posts foundation journals. Close fixture shows blockers, then hard-closes OPS 2026-07
+              and freezes TB. Packaging builds realistic SARS / payment / accountant files with initiate flags forced false.
             </p>
+            {bundle?.seedDigest ? (
+              <p className="text-xs text-[var(--color-pib-text-muted)]">Seed digest: {bundle.seedDigest}</p>
+            ) : null}
           </Card>
 
-          {company ? (
+          {seed ? (
             <Card className="space-y-3 p-5" data-testid="proving-company">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-semibold">{company.label}</h2>
+                <h2 className="text-base font-semibold">{seed.companyName}</h2>
                 <div className="flex flex-wrap gap-1.5">
-                  <HudChip>{company.version}</HudChip>
-                  <HudChip>{company.seedKey}</HudChip>
+                  <HudChip>{seed.seedKey}</HudChip>
                 </div>
               </div>
               <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                <div>Books: {company.books.length}</div>
-                <div>Open/closed periods: {company.periods.map((p) => `${p.label}:${p.status}`).join(', ')}</div>
-                <div>AR docs: {company.arDocuments.length}</div>
-                <div>AP docs: {company.apDocuments.length}</div>
-                <div>Bank lines: {company.bankLines.length}</div>
+                <div>Entities: {seed.entities.map((e) => e.code).join(', ')}</div>
                 <div>
-                  Pay run: {company.payRun.status} · net R{(company.payRun.netPayMinor / 100).toFixed(2)}
+                  Periods:{' '}
+                  {seed.periods
+                    .slice(0, 6)
+                    .map((p) => `${p.periodKey}:${p.status}`)
+                    .join(', ')}
                 </div>
-                <div>FX rates: {company.fxRates.length}</div>
-                <div>Assets: {company.assets.length}</div>
-                <div>Job dimensions: {company.jobDimensions.length}</div>
+                <div>AR/AP lines: {seed.arAp.length}</div>
+                <div>Bank lines: {seed.bankLines.length}</div>
+                <div>Payroll runs: {seed.payrollRuns.length}</div>
+                <div>Journals: {seed.journals.length}</div>
+                <div>FX positions: {seed.fxPositions.length}</div>
+                <div>Assets: {seed.assets.length}</div>
+                <div>Job costs: {seed.jobCosts.length}</div>
               </div>
             </Card>
           ) : null}
 
-          {closeFx ? (
+          {latestClose ? (
             <Card className="space-y-3 p-5" data-testid="proving-close-fixture">
               <h2 className="text-base font-semibold">Multi-period close fixture</h2>
               <div className="flex flex-wrap gap-1.5">
-                <HudChip tone="accent">{closeFx.periodAfterStatus}</HudChip>
-                <HudChip>
-                  TB {closeFx.reportFreeze.trialBalanceBalanced ? 'balanced' : 'unbalanced'}
-                </HudChip>
-                <HudChip>posting blocked: {String(closeFx.reportFreeze.postingBlockedWithoutAdjustment)}</HudChip>
+                <HudChip tone="accent">{latestClose.status}</HudChip>
+                <HudChip>{latestClose.periodKey}</HudChip>
+                {latestClose.freeze ? (
+                  <HudChip>
+                    TB {latestClose.freeze.totalDebitMinor === latestClose.freeze.totalCreditMinor ? 'balanced' : 'unbalanced'}
+                  </HudChip>
+                ) : null}
               </div>
-              <div className="grid gap-3 lg:grid-cols-2">
-                <div>
-                  <h3 className="text-sm font-medium">Blockers before</h3>
-                  <ul className="mt-1 list-disc pl-5 text-sm text-[var(--color-pib-text-muted)]">
-                    {closeFx.blockersBefore.map((b) => (
-                      <li key={b.code}>
-                        {b.code} — {b.title}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium">Timeline</h3>
-                  <ol className="mt-1 list-decimal pl-5 text-sm text-[var(--color-pib-text-muted)]">
-                    {closeFx.timeline.map((step) => (
-                      <li key={step.step}>
-                        <strong>{step.step}</strong>: {step.detail}
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              </div>
-              <p className="text-xs text-[var(--color-pib-text-muted)]">
-                Freeze digest: {closeFx.reportFreeze.inputDigest}
-              </p>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--color-pib-text-muted)]">
+                {latestClose.blockers.map((b) => (
+                  <li key={b.code}>
+                    {b.resolved ? '✓' : '•'} {b.code} — {b.label}
+                  </li>
+                ))}
+              </ul>
+              {latestClose.freeze ? (
+                <p className="text-xs text-[var(--color-pib-text-muted)]">Freeze hash: {latestClose.freeze.trialBalanceHash}</p>
+              ) : null}
             </Card>
           ) : null}
 
-          {packs ? (
+          {packs.length > 0 ? (
             <Card className="space-y-3 p-5" data-testid="proving-packaging">
               <h2 className="text-base font-semibold">Packaging dry-run</h2>
               <div className="overflow-x-auto">
@@ -382,7 +374,7 @@ export default function FinanceProvingKitPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {packs.packs.map((pack) => (
+                    {packs.map((pack) => (
                       <tr key={pack.kind} className="border-b border-[var(--color-pib-line)]/60">
                         <td className="py-2 pr-3 font-medium">{pack.kind}</td>
                         <td className="py-2 pr-3">{pack.family}</td>
@@ -400,59 +392,55 @@ export default function FinanceProvingKitPage() {
             </Card>
           ) : null}
 
-          {checklist ? (
-            <Card className="space-y-4 p-5 print:shadow-none" data-testid="proving-acceptance-checklist">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-base font-semibold">Accountant acceptance checklist</h2>
-                  <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
-                    Printable evidence checkboxes for a one-sitting proving run. Not a permanent CEO dashboard.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <HudChip tone={checklist.readyForAccountantSignoff ? 'accent' : undefined}>
-                    {checklist.readyForAccountantSignoff ? 'Sign-off ready' : 'Incomplete'}
-                  </HudChip>
-                  <Button variant="ghost" size="sm" onClick={printChecklist} data-testid="proving-print-checklist">
-                    Print checklist
-                  </Button>
-                </div>
+          <Card className="space-y-4 p-5 print:shadow-none" data-testid="proving-acceptance-checklist">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold">Accountant acceptance checklist</h2>
+                <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                  Printable evidence checkboxes for a one-sitting proving run. Not a permanent CEO dashboard.
+                </p>
               </div>
-              <div className="space-y-3">
-                {checklist.items.map((item) => {
-                  const checked = Boolean(checklist.checks[item.id]?.checked)
-                  return (
-                    <label
-                      key={item.id}
-                      className="flex gap-3 rounded-lg border border-[var(--color-pib-line)] p-3"
-                      data-testid={`proving-check-${item.id}`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-1"
-                        checked={checked}
-                        disabled={busy}
-                        onChange={(e) => void toggleCheck(item.id, e.target.checked)}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium">
-                            {item.printableOrder}. {item.title}
-                          </span>
-                          <HudChip>{item.section}</HudChip>
-                          {item.required ? <HudChip>Required</HudChip> : <HudChip>Optional</HudChip>}
-                        </span>
-                        <span className="mt-1 block text-sm text-[var(--color-pib-text-muted)]">{item.detail}</span>
-                        <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">
-                          Evidence: {item.evidenceHint}
-                        </span>
+              <div className="flex flex-wrap gap-1.5">
+                <HudChip tone={requiredDone === requiredTotal && requiredTotal > 0 ? 'accent' : undefined}>
+                  {requiredDone === requiredTotal && requiredTotal > 0 ? 'Sign-off ready' : 'Incomplete'}
+                </HudChip>
+                <Button variant="ghost" size="sm" onClick={printChecklist} data-testid="proving-print-checklist">
+                  Print checklist
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {(checklist.length ? checklist : []).map((item) => (
+                <label
+                  key={item.id}
+                  className="flex gap-3 rounded-lg border border-[var(--color-pib-line)] p-3"
+                  data-testid={`proving-check-${item.id}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={item.checked}
+                    disabled={busy || !checklist.length}
+                    onChange={(e) => void toggleCheck(item.id, e.target.checked)}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">
+                        {item.step}. {item.title}
                       </span>
-                    </label>
-                  )
-                })}
-              </div>
-            </Card>
-          ) : null}
+                      <HudChip>{item.section}</HudChip>
+                      {item.required ? <HudChip>Required</HudChip> : <HudChip>Optional</HudChip>}
+                    </span>
+                    <span className="mt-1 block text-sm text-[var(--color-pib-text-muted)]">{item.detail}</span>
+                    <span className="mt-1 block text-xs text-[var(--color-pib-text-muted)]">Evidence: {item.evidenceHint}</span>
+                  </span>
+                </label>
+              ))}
+              {!checklist.length ? (
+                <p className="text-sm text-[var(--color-pib-text-muted)]">Load or seed the proving kit to populate checklist items.</p>
+              ) : null}
+            </div>
+          </Card>
         </>
       )}
     </FinanceModuleFrame>
