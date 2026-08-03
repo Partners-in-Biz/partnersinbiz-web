@@ -47,6 +47,7 @@ describe('finance foundation storage contract', () => {
       'finance_job_costing_audit_events',
       'finance_time_cost_idempotency',
       'finance_operator_notifications', 'finance_practice_claims',
+      'finance_practice_grants', 'finance_practice_client_links', 'finance_practice_grant_access_events',
       'finance_operator_saved_views', 'finance_operator_depth_audit', 'finance_operator_depth_claims',
       'fx_book_policies', 'accounting_rate_sets', 'accounting_rates',
       'fx_monetary_positions', 'fx_foreign_documents', 'fx_settlements',

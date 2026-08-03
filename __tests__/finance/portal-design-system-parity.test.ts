@@ -168,6 +168,9 @@ describe('finance portal design-system parity', () => {
     expect(practice).toMatch(/exportAuditEventsCsv/)
     expect(practice).toMatch(/filterNotificationsForCentre/)
     expect(practice).toMatch(/practice-audit-table|Audit explorer/)
+    expect(practice).toMatch(/practice-grants|Firm→client grants|firm→client grants/)
+    expect(practice).toMatch(/practice-queue|Practice queue/)
+    expect(practice).toMatch(/prepare|review|file-export/)
 
     const frame = read('components/finance/FinanceModuleFrame.tsx')
     expect(frame).toMatch(/ModuleShell/)

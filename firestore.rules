@@ -287,6 +287,9 @@ service cloud.firestore {
     match /finance_cogs_journal_markers/{id} { allow read, write: if false; }
     match /finance_operator_notifications/{id} { allow read, write: if false; }
     match /finance_practice_claims/{id} { allow read, write: if false; }
+    match /finance_practice_grants/{id} { allow read, write: if false; }
+    match /finance_practice_client_links/{id} { allow read, write: if false; }
+    match /finance_practice_grant_access_events/{id} { allow read, write: if false; }
     match /finance_operator_depth_claims/{id} { allow read, write: if false; }
     match /finance_operator_depth_audit/{id} { allow read, write: if false; }
     match /finance_operator_saved_views/{id} { allow read, write: if false; }

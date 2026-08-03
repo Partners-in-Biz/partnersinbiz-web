@@ -3482,6 +3482,62 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "finance_practice_grants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "firmOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "finance_practice_grants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "granteeUserId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "finance_practice_client_links",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "firmOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "finance_practice_grant_access_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "firmOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "occurredAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
