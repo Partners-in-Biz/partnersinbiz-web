@@ -19,6 +19,7 @@ export type FinanceRouteKey =
   | 'practice'
   | 'setup'
   | 'runbooks'
+  | 'period-close'
 
 export type FinanceNavItem = {
   key: FinanceRouteKey
@@ -176,6 +177,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     group: 'command',
   },
   {
+    key: 'period-close',
+    label: 'Period close',
+    href: '/portal/finance/period-close',
+    icon: 'event_available',
+    description: 'Close-week blockers with deep links — unreconciled banks, unapproved journals, open pay runs, FX reval, cutover.',
+    group: 'command',
+  },
+  {
     key: 'setup',
     label: 'Setup',
     href: '/portal/finance/setup',
@@ -208,6 +217,7 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'budgets',
   'multi-currency',
   'practice',
+  'period-close',
   'setup',
   'runbooks',
 ]

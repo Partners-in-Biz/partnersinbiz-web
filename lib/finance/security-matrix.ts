@@ -89,6 +89,9 @@ export const AUDITED_MUTATION_ACTIONS: readonly FinanceAction[] = [
   'asset.dispose',
   'role.assign',
   'notification.emit',
+  'operator_view.write',
+  'operator_bulk.plan',
+  'operator_allocate.plan',
 ] as const
 
 /** Actions that require separate FinanceApprovalEvidence / SOD at commit time. */

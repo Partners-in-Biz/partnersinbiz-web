@@ -32,6 +32,10 @@ import {
   BudgetsNotFoundError,
   BudgetsValidationError,
 } from '@/lib/finance/budgets/service'
+import {
+  OperatorDepthNotFoundError,
+  OperatorDepthValidationError,
+} from '@/lib/finance/operator-depth/service'
 
 /** Non-enumerating denial for sensitive finance/payroll resources. */
 export class FinanceNotFoundError extends Error {
@@ -70,7 +74,9 @@ export function isFinanceHttpError(error: unknown): error is Error & { statusCod
     error instanceof BankRulesNotFoundError ||
     error instanceof BankRulesValidationError ||
     error instanceof BudgetsNotFoundError ||
-    error instanceof BudgetsValidationError
+    error instanceof BudgetsValidationError ||
+    error instanceof OperatorDepthNotFoundError ||
+    error instanceof OperatorDepthValidationError
   )
 }
 
@@ -91,7 +97,8 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof PackagingFinanceNotFoundError ||
     error instanceof MultiCurrencyFinanceNotFoundError ||
     error instanceof BankRulesNotFoundError ||
-    error instanceof BudgetsNotFoundError
+    error instanceof BudgetsNotFoundError ||
+    error instanceof OperatorDepthNotFoundError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_not_found' }
   }
@@ -104,7 +111,8 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof PackagingFinanceValidationError ||
     error instanceof MultiCurrencyFinanceValidationError ||
     error instanceof BankRulesValidationError ||
-    error instanceof BudgetsValidationError
+    error instanceof BudgetsValidationError ||
+    error instanceof OperatorDepthValidationError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_validation' }
   }

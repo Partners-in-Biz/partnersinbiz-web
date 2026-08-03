@@ -113,6 +113,11 @@ export type FinanceAction =
   | 'audit.read'
   | 'notification.read'
   | 'notification.emit'
+  | 'operator_view.read'
+  | 'operator_view.write'
+  | 'period_close.read'
+  | 'operator_bulk.plan'
+  | 'operator_allocate.plan'
 
 const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'foundation.configure': ['finance_admin'],
@@ -227,6 +232,11 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'audit.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
   'notification.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin', 'payroll_clerk', 'payroll_approver'],
   'notification.emit': ['bookkeeper', 'accountant', 'finance_approver', 'finance_admin', 'payroll_clerk', 'payroll_approver'],
+  'operator_view.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'operator_view.write': ['bookkeeper', 'accountant', 'finance_admin'],
+  'period_close.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'operator_bulk.plan': ['bookkeeper', 'accountant', 'finance_admin'],
+  'operator_allocate.plan': ['bookkeeper', 'accountant', 'finance_admin'],
 }
 
 /** Read-only export for security inventory / coverage tests. */

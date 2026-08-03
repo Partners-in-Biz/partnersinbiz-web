@@ -178,10 +178,9 @@ describe('finance portal design-system parity', () => {
       'app/(portal)/portal/finance/job-costing/page.tsx',
       'app/(portal)/portal/finance/assets/page.tsx',
       'app/(portal)/portal/finance/bank-rules/page.tsx',
-      'app/(portal)/portal/finance/bank-feeds/page.tsx',
-    'app/(portal)/portal/finance/bank-feeds/page.tsx',
       'app/(portal)/portal/finance/budgets/page.tsx',
       'app/(portal)/portal/finance/multi-currency/page.tsx',
+      'app/(portal)/portal/finance/period-close/page.tsx',
     ]
     for (const rel of bookScoped) {
       const src = read(rel)
@@ -189,8 +188,8 @@ describe('finance portal design-system parity', () => {
       expect(src).toMatch(/useFinanceBookScope/)
     }
 
-    // Nav lock: Phase 4 routes remain discoverable from the shared finance nav.
-    for (const key of ['assets', 'bank-rules', 'bank-feeds', 'budgets', 'multi-currency', 'job-costing', 'practice', 'runbooks', 'setup'] as const) {
+    // Nav lock: Phase 4/5 routes remain discoverable from the shared finance nav.
+    for (const key of ['assets', 'bank-rules', 'budgets', 'multi-currency', 'job-costing', 'practice', 'period-close', 'runbooks', 'setup'] as const) {
       expect(financeNavItem(key).href).toMatch(/^\/portal\/finance/)
     }
   })

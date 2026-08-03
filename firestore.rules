@@ -257,6 +257,9 @@ service cloud.firestore {
     match /finance_assets_idempotency/{id} { allow read, write: if false; }
     match /finance_operator_notifications/{id} { allow read, write: if false; }
     match /finance_practice_claims/{id} { allow read, write: if false; }
+    match /finance_operator_depth_claims/{id} { allow read, write: if false; }
+    match /finance_operator_depth_audit/{id} { allow read, write: if false; }
+    match /finance_operator_saved_views/{id} { allow read, write: if false; }
     match /fx_book_policies/{id} { allow read, write: if false; }
     match /accounting_rate_sets/{id} { allow read, write: if false; }
     match /accounting_rates/{id} { allow read, write: if false; }

@@ -37,7 +37,9 @@
     "test:finance:multi-currency": "jest --runInBand __tests__/finance/multi-currency-domain.test.ts __tests__/finance/foundation-storage-contract.test.ts",
     "verify:finance:multi-currency": "npm run test:finance:multi-currency && tsx scripts/finance/verify-multi-currency.ts",
     "test:finance:assets": "jest --runInBand __tests__/finance/assets-domain.test.ts __tests__/finance/foundation-storage-contract.test.ts",
-    "verify:finance:assets": "npm run test:finance:assets && tsx scripts/finance/verify-assets.ts"
+    "verify:finance:assets": "npm run test:finance:assets && tsx scripts/finance/verify-assets.ts",
+    "test:finance:operator-depth": "jest --runInBand __tests__/finance/operator-depth-domain.test.ts __tests__/finance/portal-design-system-parity.test.ts __tests__/finance/workbench-delivery.test.ts __tests__/finance/foundation-storage-contract.test.ts",
+    "verify:finance:operator-depth": "npm run test:finance:operator-depth && tsx scripts/finance/verify-operator-depth.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1045.0",
