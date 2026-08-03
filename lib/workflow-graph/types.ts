@@ -325,6 +325,11 @@ export type WorkflowRun = {
   blockRevision?: number
   /** Last ops fact dedupe key written for this run (block path). */
   lastAlertDedupeKey?: string
+  /**
+   * Stable alert identity (e.g. block:missing_artifact:x / stuck:run_no_transition).
+   * Prevents blockRevision thrash when status/stuck fields oscillate without a new condition.
+   */
+  lastAlertSignature?: string
 }
 
 export type MaterializeIntent = {

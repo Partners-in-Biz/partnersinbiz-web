@@ -37,6 +37,11 @@ __tests__/lib/workflow-graph-ops.test.ts
   Example: `GET https://<host>/api/cron/workflow-graph?orgId=pib-platform-owner`
 - Cron stuck path calls `finalizeOpsSideEffects(previous, run, now)` so SLA breach writes  
   one `workflow_ops_facts` row (`runId:block:revision`) and updates `blockRevision` / `lastAlertDedupeKey`.
+- **ADR §19 residual fix (2026-08-03):** alert identity is a stable `lastAlertSignature`
+  (`block:<code>` / `stuck:<code>` / `budget:…`). Same signature ⇒ at most one fact per
+  `blockRevision` (overwrite OK). Never `kind=block` + `reasonCode=running`. Stuck-only
+  alerts use `kind=stuck`. `saveWorkflowRun` deletes cleared stuck/blocked fields under
+  merge. `GET /api/v1/workflow-runs/{id}` returns `facts[]` via `listOpsFactsForRun`.
 
 ## Bans respected
 

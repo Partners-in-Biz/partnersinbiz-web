@@ -41,7 +41,9 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
     const run = await getWorkflowRun(id)
     if (!run) return apiError('Workflow run not found', 404)
     if (user.role !== 'ai' && !canAccessOrg(user, run.orgId)) return apiError('Forbidden', 403)
-    return apiSuccess({ run, inspect: buildOpsInspect(run) })
+    const { listOpsFactsForRun } = await import('@/lib/workflow-graph')
+    const facts = await listOpsFactsForRun(id, 50).catch(() => [])
+    return apiSuccess({ run, inspect: buildOpsInspect(run), facts })
   }
 
   if (!orgId) return apiError('orgId is required (or pass id)', 400)
