@@ -150,16 +150,24 @@ describe('UnifiedChat CRM company Cowork', () => {
                 agentDomain: 'scholtz-inc', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps',
                 folderVersion: 1, companyId: 'company-scholtz',
               },
+              {
+                // Catalogue-only company folder with no chat in the current page must still appear.
+                workspaceId: 'cmp', orgId: 'org-1', orgSlug: 'cmp', orgName: 'CMP',
+                agentDomain: 'cmp', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps',
+                folderVersion: 1, companyId: 'company-cmp',
+              },
             ],
             runtimeTargetsByWorkspace: {
               partners: [],
               'scholtz-inc': [],
+              cmp: [],
             },
             projects: [],
           },
         })
       }
       if (url.startsWith('/api/v1/conversations?')) {
+        expect(url).toContain('limit=100')
         return jsonResponse({
           data: {
             conversations: [{
@@ -200,12 +208,15 @@ describe('UnifiedChat CRM company Cowork', () => {
         currentUserUid="user-1"
         currentUserDisplayName="Peet"
         layoutVariant="hermes"
+        includeAllScopes
       />,
     )
 
     const cowork = await screen.findByTestId('hermes-companies')
     expect(within(cowork).getByText('Scholtz Inc')).toBeInTheDocument()
     expect(within(cowork).getByTestId('hermes-company-company-scholtz')).toBeInTheDocument()
+    expect(within(cowork).getByText('CMP')).toBeInTheDocument()
+    expect(within(cowork).getByTestId('hermes-company-company-cmp')).toBeInTheDocument()
 
     const workspaces = await screen.findByTestId('hermes-workspaces')
     expect(within(workspaces).getByText('Partners in Biz')).toBeInTheDocument()

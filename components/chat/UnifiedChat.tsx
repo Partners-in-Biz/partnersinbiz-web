@@ -937,21 +937,43 @@ function buildHermesAgentGroups(
 
 function buildHermesCompanyGroups(
   conversations: Conversation[],
+  workspaces: OrgWorkspaceSummary[],
   filter: string,
 ) {
   const groups = new Map<string, { id: string; name: string; conversations: Conversation[] }>()
+
+  // Seed from company-linked Workspace catalogue so Cowork folders remain
+  // visible even when no company-scope chat is in the current conversation page.
+  for (const workspace of workspaces) {
+    const companyId = workspace.companyId?.trim()
+    if (!companyId) continue
+    groups.set(companyId, {
+      id: companyId,
+      name: workspace.orgName?.trim() || workspace.orgSlug || 'Company Cowork',
+      conversations: [],
+    })
+  }
+
   for (const conversation of conversations) {
     if (conversation.archived) continue
     const company = conversationCompanyIdentity(conversation)
+      || conversationCompanyIdentityFromProject(conversation)
     if (!company) continue
     const group = groups.get(company.id) ?? { ...company, conversations: [] }
-    group.conversations.push(conversation)
+    // Prefer a concrete companyName from live chat context over catalogue labels.
+    if (company.name && company.name !== 'Company Cowork') group.name = company.name
+    if (conversationCompanyIdentity(conversation)) {
+      group.conversations.push(conversation)
+    }
     groups.set(company.id, group)
   }
 
+  const values = Array.from(groups.values()).sort((left, right) =>
+    left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }))
+
   const query = filter.trim().toLocaleLowerCase()
-  if (!query) return Array.from(groups.values())
-  return Array.from(groups.values()).flatMap((group) => {
+  if (!query) return values
+  return values.flatMap((group) => {
     if (group.name.toLocaleLowerCase().includes(query)) return [group]
     const matches = group.conversations.filter((conversation) => [
       conversation.title,
@@ -960,6 +982,20 @@ function buildHermesCompanyGroups(
     ].some((value) => value?.toLocaleLowerCase().includes(query)))
     return matches.length > 0 ? [{ ...group, conversations: matches }] : []
   })
+}
+
+/** Project sessions still belong to a company Cowork root — surface the folder even when only project chats exist. */
+function conversationCompanyIdentityFromProject(conversation: Conversation): { id: string; name: string } | null {
+  if (!isProjectConversation(conversation)) return null
+  const id = conversation.workspaceContext?.companyId?.trim()
+    || conversation.contextRefs?.find((ref) => ref.type === 'company')?.id?.trim()
+  if (!id) return null
+  return {
+    id,
+    name: conversation.workspaceContext?.companyName?.trim()
+      || conversation.contextRefs?.find((ref) => ref.type === 'company')?.label?.trim()
+      || 'Company Cowork',
+  }
 }
 
 function buildHermesProjectGroups(
@@ -2328,8 +2364,8 @@ export default function UnifiedChat({
     [filteredConversations, pinnedConversationIds],
   )
   const hermesCompanyGroups = useMemo(
-    () => buildHermesCompanyGroups(visibleConversations, conversationFilter),
-    [conversationFilter, visibleConversations],
+    () => buildHermesCompanyGroups(visibleConversations, workspaces, conversationFilter),
+    [conversationFilter, visibleConversations, workspaces],
   )
   const hermesProjectGroups = useMemo(
     () => buildHermesProjectGroups(visibleConversations, workspaceProjects, conversationFilter),
@@ -2488,8 +2524,12 @@ export default function UnifiedChat({
     if (scope) params.set('scope', scope)
     if (scopeRefId) params.set('scopeRefId', scopeRefId)
     if (includeAllScopes) params.set('includeAllScopes', 'true')
+    // Hermes/Messages rails derive Cowork folders from the conversation page.
+    // Default API limit is 30; older company chats fall off the rail unless we
+    // request the full allowed page (and keep live SSE on the same limit).
+    if (includeAllScopes || layoutVariant === 'hermes') params.set('limit', '100')
     return params.toString()
-  }, [includeAllScopes, orgId, projectId, scope, scopeRefId])
+  }, [includeAllScopes, layoutVariant, orgId, projectId, scope, scopeRefId])
 
   useEffect(() => {
     if (!companyCoworkLocked || !scopeRefId) return

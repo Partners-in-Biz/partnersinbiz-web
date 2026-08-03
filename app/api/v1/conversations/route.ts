@@ -560,7 +560,11 @@ export const GET = withAuth(
       return apiError('AI credentials are not authorised for this organisation', 403)
     }
 
-    const limit = Math.min(parseInt(searchParams.get('limit') ?? '30'), 100)
+    // includeAllScopes powers the Hermes Messages rail (Cowork folders / projects).
+    // Default 30 drops older company folders from the sidebar; prefer the full
+    // allowed page unless the client asked for a smaller limit.
+    const rawLimit = parseInt(searchParams.get('limit') ?? (includeAllScopes ? '100' : '30'), 10)
+    const limit = Math.min(Number.isFinite(rawLimit) ? rawLimit : (includeAllScopes ? 100 : 30), 100)
     const conversations = await listConversations(orgScope.orgId, user, limit, {
       scope: convScope,
       scopeRefId,
