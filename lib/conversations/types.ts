@@ -81,6 +81,10 @@ export interface Conversation {
   participantAgentIds: AgentId[]
   /** Monotonic version used to prevent stale access-management writes. */
   accessVersion?: number
+  /** Server-only per-conversation event sequence for the realtime outbox. */
+  realtimeSequence?: number
+  /** Server-only deletion tombstone retained long enough to notify recipients. */
+  realtimeDeletedAt?: Timestamp
   orchestration?: {
     mode: 'pip-orchestrator'
     dispatcherAgentId: AgentId

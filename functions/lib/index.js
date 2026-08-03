@@ -33,14 +33,51 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.checkStaleTokens = exports.runCrmResearchQueue = exports.runCrmSequenceQueue = exports.runCrmAutomationQueue = exports.runCrmScoreRecompute = exports.runAdsExperimentSignificance = exports.runAdsBudgetPacing = exports.runAdsDailyInsights = exports.runAdsRefreshQueue = exports.runSeoWeekly = exports.runSeoDaily = exports.runAnomalyChecks = exports.runMonthlyReports = exports.runCrmIntegrationSync = exports.runIntegrationSync = exports.runWebhookQueue = exports.runRecurringInvoices = exports.runSocialInboxPoll = exports.runSocialAnalytics = exports.runSocialRss = exports.runEmailBroadcasts = exports.runEmailQueue = exports.runEmailSequences = exports.publishSocialQueue = void 0;
+exports.checkStaleTokens = exports.runCrmResearchQueue = exports.runCrmSequenceQueue = exports.runCrmAutomationQueue = exports.runCrmScoreRecompute = exports.runAdsExperimentSignificance = exports.runAdsBudgetPacing = exports.runAdsDailyInsights = exports.runAdsRefreshQueue = exports.runSeoWeekly = exports.runSeoDaily = exports.runAnomalyChecks = exports.runMonthlyReports = exports.runCrmIntegrationSync = exports.runIntegrationSync = exports.runWebhookQueue = exports.runRecurringInvoices = exports.runSocialInboxPoll = exports.runSocialAnalytics = exports.runSocialRss = exports.runEmailBroadcasts = exports.runEmailQueue = exports.runEmailSequences = exports.publishSocialQueue = exports.publishConversationRealtimeOutbox = void 0;
 const scheduler_1 = require("firebase-functions/v2/scheduler");
+const firestore_1 = require("firebase-functions/v2/firestore");
+const pubsub_1 = require("@google-cloud/pubsub");
 const admin = __importStar(require("firebase-admin"));
 // Initialize Firebase Admin (only once)
 if (!admin.apps.length) {
     admin.initializeApp();
 }
 const APP_URL = "https://partnersinbiz.online";
+const REALTIME_EVENT_SCHEMA_VERSION = 1;
+const REALTIME_PUBSUB_TOPIC = process.env.REALTIME_PUBSUB_TOPIC || "pib-realtime-events-v1";
+function realtimeGatewayDelivery(document) {
+    const eventId = typeof document.eventId === "string" ? document.eventId.trim() : "";
+    if (document.schemaVersion !== REALTIME_EVENT_SCHEMA_VERSION || !eventId)
+        return null;
+    const recipientUserIds = Array.isArray(document.recipientUserIds)
+        ? Array.from(new Set(document.recipientUserIds.filter((uid) => typeof uid === "string" && uid.trim().length > 0))).sort()
+        : [];
+    return { schemaVersion: REALTIME_EVENT_SCHEMA_VERSION, eventId, recipientUserIds };
+}
+/**
+ * Publishes the transactional conversation outbox to Pub/Sub. This is the only
+ * bridge from Firestore/Vercel into the gateway: Vercel gets no GCP key and the
+ * browser never receives the Firestore document or a raw chat payload.
+ */
+exports.publishConversationRealtimeOutbox = (0, firestore_1.onDocumentCreated)({
+    document: "realtime_outbox/{eventId}",
+    region: "us-central1",
+    retry: true,
+    serviceAccount: "pib-realtime-publisher@partners-in-biz-85059.iam.gserviceaccount.com",
+}, async (event) => {
+    const delivery = realtimeGatewayDelivery(event.data?.data() ?? {});
+    if (!delivery) {
+        console.error("[realtime-outbox] rejected malformed event", event.params.eventId);
+        return;
+    }
+    await new pubsub_1.PubSub().topic(REALTIME_PUBSUB_TOPIC).publishMessage({
+        data: Buffer.from(JSON.stringify(delivery), "utf8"),
+        attributes: {
+            schemaVersion: String(REALTIME_EVENT_SCHEMA_VERSION),
+            eventId: delivery.eventId,
+        },
+    });
+});
 async function callCronEndpoint(path, label, init = {}) {
     const cronSecret = process.env.CRON_SECRET;
     if (!cronSecret) {
