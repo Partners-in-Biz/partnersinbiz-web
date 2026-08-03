@@ -1,0 +1,68 @@
+{
+  "id": "mmclose_6bf27ccff5",
+  "orgId": "org_verify_proving",
+  "seedKey": "pib-demo-proving-v1",
+  "programKey": "pib-multi-month-close-v1",
+  "entityCodes": [
+    "OPS",
+    "SVC"
+  ],
+  "periodKeys": [
+    "2026-05",
+    "2026-06",
+    "2026-07"
+  ],
+  "status": "completed",
+  "closeRunIds": [
+    "close_OPS_2026-05_d6dd7016",
+    "close_OPS_2026-06_88868285",
+    "close_OPS_2026-07_e0db0bca",
+    "close_SVC_2026-05_dc4a5a16",
+    "close_SVC_2026-06_142098a2",
+    "close_SVC_2026-07_641d64df"
+  ],
+  "closedPeriodCount": 3,
+  "closedEntityCount": 2,
+  "minClosedPeriodsRequired": 3,
+  "minEntitiesRequired": 2,
+  "packagingPackCount": 15,
+  "evidence": {
+    "icMatchedCount": 3,
+    "fxClosedCount": 1,
+    "payrollLockedCount": 6,
+    "bankMatchedCount": 8,
+    "bankHistoryPeriods": [
+      "2026-05",
+      "2026-06",
+      "2026-07"
+    ],
+    "freezeHashes": [
+      "ebd8461221af9a2900ef9647cf0912d0968ca75419b0073aedd046058c711525",
+      "99c14520b8097689abd05c988acfd2e21e921c9ea0de7218b619019ce8853018",
+      "c5b1453d6bf080afba71819172b673fb4d21a9347ac653536b81536e764155f0",
+      "c0369d1f3a06770cde68661c65358676d47d03f7b4e1880e224afc9111609a91",
+      "9740e5b7f75aaa3be1dad5f811ca0b6eda5d4a81ffb78fe6b45828a390098ede",
+      "d3332c6bb28b28890d0ac4831d6124a7ac8f4bb20c2d0d043b3d95bce4433bdc"
+    ]
+  },
+  "gaps": [
+    {
+      "code": "ic_fixture_not_live_service",
+      "summary": "IC evidence is proving-kit fixture markers (matched due-to/due-from), not a full live intercompany propose/receive journal chain in this program path.",
+      "followUp": "Optional follow-up: wire proving multi-month program through FinanceIntercompanyService for OPS↔SVC."
+    },
+    {
+      "code": "proving_store_process_local",
+      "summary": "ProvingFinanceGateway store is process-local (dev/staging fixture), not durable multi-instance Firestore workspace state.",
+      "followUp": "Acceptable for accountant sitting on one runtime; durable demo org is a later ops choice."
+    }
+  ],
+  "hardGates": {
+    "sarsSubmissionInitiated": false,
+    "externalPaymentInitiated": false,
+    "externalEgressAllowed": false,
+    "massEmailAllowed": false
+  },
+  "createdAt": "2026-08-03T15:00:00.000Z",
+  "completedAt": "2026-08-03T15:00:00.000Z"
+}

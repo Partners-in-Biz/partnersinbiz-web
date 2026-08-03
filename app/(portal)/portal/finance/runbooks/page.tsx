@@ -188,6 +188,16 @@ const PHASE5_CLOSE: Runbook[] = [
     emptyState: 'No seed until finance_admin runs Seed demo company (idempotent by seedKey).',
     gates: ['No SARS submit', 'No payment initiate', 'Throw-away fixture'],
   },
+  {
+    id: 'P6-M',
+    title: 'P6-M · Multi-month close program',
+    summary:
+      'Beyond single fixtures: seed → multi-month close (OPS+SVC × May–July) with IC/FX/payroll lock/bank recon history → packaging dry-run → export accountant acceptance pack (sign-off artifact). Evidence under artifacts/finance/multi-month-close/.',
+    href: '/portal/finance/proving',
+    cta: 'Multi-month proving',
+    emptyState: 'Run Seed then Multi-month close program on /portal/finance/proving, or npm run verify:finance:proving.',
+    gates: ['≥3 periods', '≥2 entities', 'No SARS submit', 'No payment initiate'],
+  },
 ]
 
 const PHASE6_WORLD: Runbook[] = [
