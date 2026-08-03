@@ -66,7 +66,7 @@ gcloud pubsub topics describe "$DLQ_TOPIC" --project="$PROJECT_ID" >/dev/null 2>
 gcloud pubsub subscriptions describe "$DLQ_TOPIC" --project="$PROJECT_ID" >/dev/null 2>&1 || \
   gcloud pubsub subscriptions create "$DLQ_TOPIC" --topic="$DLQ_TOPIC" --message-retention-duration=7d --project="$PROJECT_ID"
 
-gcloud compute networks subnets describe "$SUBNET" --network="$NETWORK" --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1 || \
+gcloud compute networks subnets describe "$SUBNET" --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1 || \
   gcloud compute networks subnets create "$SUBNET" --network="$NETWORK" --range="$SUBNET_RANGE" --region="$REGION" --project="$PROJECT_ID"
 gcloud redis instances describe "$REDIS_INSTANCE" --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1 || \
   gcloud redis instances create "$REDIS_INSTANCE" --tier=standard --size=1 --region="$REGION" --network="$NETWORK" --redis-version=redis_7_2 --enable-auth --connect-mode=DIRECT_PEERING --reserved-ip-range="$REDIS_RANGE" --project="$PROJECT_ID"
