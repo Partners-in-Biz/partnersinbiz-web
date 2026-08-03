@@ -517,7 +517,8 @@ export async function listOpsWorkflowRuns(input: {
   counts: { stuck: number; blocked: number; paused_budget: number }
 }> {
   const now = input.now || new Date().toISOString()
-  const status = input.status
+  // status=all aliases unfiltered default so ops can enumerate the full ledger
+  const status = input.status && input.status !== 'all' ? input.status : undefined
   const runs = await listWorkflowRuns({
     orgId: input.orgId,
     status: status === 'stuck' || status === 'blocked' ? undefined : status,

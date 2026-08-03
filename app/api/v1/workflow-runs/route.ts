@@ -1,6 +1,7 @@
 /**
  * POST /api/v1/workflow-runs — start a run from a template (manual / cron / event caller)
- * GET  /api/v1/workflow-runs?orgId=&status=stuck|blocked|paused_budget|running — Nora ops list
+ * GET  /api/v1/workflow-runs?orgId=&status=stuck|blocked|paused_budget|running|succeeded|failed|cancelled|all
+ *      status omitted or status=all → full ledger (unfiltered). Never treats "all" as a stored status.
  * GET  /api/v1/workflow-runs?orgId=&id= — lightweight single read
  */
 import { NextRequest } from 'next/server'
@@ -31,7 +32,9 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
   const url = new URL(req.url)
   const id = cleanString(url.searchParams.get('id'))
   const orgId = resolveOrgId(req)
-  const status = cleanString(url.searchParams.get('status')) || undefined
+  const statusRaw = cleanString(url.searchParams.get('status'))
+  // status=all is an ops alias for unfiltered ledger (same as omitting status)
+  const status = !statusRaw || statusRaw === 'all' ? undefined : statusRaw
   const limit = Number(url.searchParams.get('limit') || 50)
 
   if (id) {
