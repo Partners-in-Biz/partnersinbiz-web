@@ -24,8 +24,12 @@
     "node_modules",
     "functions",
     "__tests__",
+    "e2e",
+    "playwright.config.ts",
     ".next",
     ".vercel",
-    "coverage"
+    "coverage",
+    "partnersinbiz-web-realtime-main-20260803",
+    "partnersinbiz-web-realtime-merge-20260803"
   ]
 }

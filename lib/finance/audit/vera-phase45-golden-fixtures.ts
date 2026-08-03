@@ -762,8 +762,10 @@ export function runAllVeraPhase45Goldens(): {
     ZA_PAYROLL_PACKAGE_V2026.rebates.secondaryMinor === SARS_TABLES_2025_26.rebates.secondaryMinor &&
     ZA_PAYROLL_PACKAGE_V2026.rebates.tertiaryMinor === SARS_TABLES_2025_26.rebates.tertiaryMinor
   const packageMatches2025_26Tables = pkgBracketsMatch && pkgRebateMatch
-  const packageMatches2026_27Tables =
-    ZA_PAYROLL_PACKAGE_V2026.rebates.primaryMinor === SARS_TABLES_2026_27_REFERENCE.rebates.primaryMinor
+  // Runtime compare (package may intentionally lag the next-year reference tables).
+  const packagePrimary = Number(ZA_PAYROLL_PACKAGE_V2026.rebates.primaryMinor)
+  const reference2026_27Primary = Number(SARS_TABLES_2026_27_REFERENCE.rebates.primaryMinor)
+  const packageMatches2026_27Tables = packagePrimary === reference2026_27Primary
 
   for (const row of PAYROLL_GOLDEN_ROWS) {
     const run = runPayrollGolden(row)

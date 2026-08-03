@@ -6,7 +6,7 @@ export { FinanceValidationError }
 export function costForQuantityMilli(unitCostMinor: number, quantityMilli: number): number {
   assertNonNegativeInt(unitCostMinor, 'unitCostMinor')
   assertPositiveInt(quantityMilli, 'quantityMilli')
-  return Number((BigInt(unitCostMinor) * BigInt(quantityMilli) + 500n) / 1000n)
+  return Number((BigInt(unitCostMinor) * BigInt(quantityMilli) + BigInt(500)) / BigInt(1000))
 }
 
 /** Weighted-average unit cost in minor units; 0 when no quantity. */
@@ -14,7 +14,10 @@ export function averageUnitCostMinor(inventoryValueMinor: number, quantityOnHand
   assertNonNegativeInt(inventoryValueMinor, 'inventoryValueMinor')
   if (quantityOnHandMilli === 0) return 0
   if (quantityOnHandMilli < 0) throw new FinanceValidationError('quantityOnHandMilli cannot be negative')
-  return Number((BigInt(inventoryValueMinor) * 1000n + BigInt(quantityOnHandMilli) / 2n) / BigInt(quantityOnHandMilli))
+  return Number(
+    (BigInt(inventoryValueMinor) * BigInt(1000) + BigInt(quantityOnHandMilli) / BigInt(2)) /
+      BigInt(quantityOnHandMilli),
+  )
 }
 
 export interface StockPosition {

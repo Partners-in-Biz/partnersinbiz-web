@@ -22,15 +22,15 @@ import {
   uniqueAuditEntities,
   uniqueAuditEventTypes,
 } from '@/lib/finance/role-ux/catalog'
-import type { PracticeAuditEventView } from '@/lib/finance/practice/types'
+import type { FinanceOperatorNotification, PracticeAuditEventView } from '@/lib/finance/practice/types'
 
 type Bundle = {
   orgId: string
   matrix: Array<{ action: string; roles: string[]; approvalGated: boolean; audited: boolean }>
   assignments: Array<Record<string, any>>
   myAssignments: Array<Record<string, any>>
-  notifications: Array<Record<string, any>>
-  auditEvents: Array<Record<string, any>>
+  notifications: FinanceOperatorNotification[]
+  auditEvents: PracticeAuditEventView[]
   practiceClients: Array<Record<string, any>>
   safety: { noSarsSubmit: true; noExternalPaymentInitiate: true; tenantScoped: true }
 }
