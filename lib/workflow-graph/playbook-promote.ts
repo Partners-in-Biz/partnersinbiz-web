@@ -37,7 +37,13 @@ export function promotePlaybookTemplateToGraphTemplate(input: {
       expectedArtifacts: step.expectedArtifacts,
       verifierChecklist: step.verifierChecklist,
       reviewerAgentId: step.reviewerAgentId,
-      requiredCapability: step.requiredCapability || (kind === 'human_gate' ? (step.approvalGate || 'approval') : undefined),
+      // Keep requiredCapability as a capability (publish/spend/…), never the invalid
+      // default "approval" string — approvalGate mapping happens at materialize time.
+      requiredCapability:
+        step.requiredCapability
+        || (kind === 'human_gate' && step.approvalGate && step.approvalGate !== 'none' && step.approvalGate !== 'approval'
+          ? step.approvalGate
+          : undefined),
       riskLevel: (step.riskLevel as GraphNodeTemplate['riskLevel']) || undefined,
     }
   })

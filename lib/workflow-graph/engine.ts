@@ -379,6 +379,67 @@ function transientBackoffMs(attemptNumber: number): number {
   return WATCHER_TRANSIENT_BACKOFF_MS[Math.min(Math.max(attemptNumber - 1, 0), WATCHER_TRANSIENT_BACKOFF_MS.length - 1)] ?? 60_000
 }
 
+/** Kanban taskPayload VALID_APPROVAL_GATES (minus none-until… legacy alias). */
+const KANBAN_APPROVAL_GATES = new Set([
+  'none',
+  'human-review',
+  'client-visible',
+  'public-publishing',
+  'paid-spend',
+  'production-deploy',
+  'finance',
+  'destructive',
+  'secret-config',
+  'none-until-production-or-client-visible',
+])
+
+/**
+ * Map human_gate requiredCapability (or playbook approval aliases) onto a Kanban
+ * ApprovalGate. requiredCapability stays separate on the task — never copy raw
+ * capability strings like "publish" / default "approval" into approvalGate.
+ */
+export function mapCapabilityToHumanGateApprovalGate(
+  requiredCapability?: string | null,
+): string {
+  const raw = typeof requiredCapability === 'string' ? requiredCapability.trim().toLowerCase() : ''
+  if (!raw || raw === 'approval' || raw === 'approve' || raw === 'review' || raw === 'human_gate' || raw === 'human-gate') {
+    return 'human-review'
+  }
+  if (KANBAN_APPROVAL_GATES.has(raw)) {
+    return raw
+  }
+  switch (raw) {
+    case 'publish':
+    case 'public_publishing':
+    case 'publicpublishing':
+      return 'public-publishing'
+    case 'spend':
+    case 'paid_spend':
+    case 'ads':
+      return 'paid-spend'
+    case 'deploy':
+    case 'production_deploy':
+      return 'production-deploy'
+    case 'access_secret':
+    case 'secret':
+    case 'secrets':
+    case 'secret_config':
+      return 'secret-config'
+    case 'delete':
+    case 'destructive-data':
+    case 'destructive_data':
+      return 'destructive'
+    case 'message_client':
+    case 'client_message':
+    case 'client_visible':
+      return 'client-visible'
+    case 'finance':
+      return 'finance'
+    default:
+      return 'human-review'
+  }
+}
+
 function buildMaterializeIntent(run: WorkflowRun, node: WorkflowNodeState): MaterializeIntent {
   const dependsOnKanbanTaskIds = node.dependsOnNodeIds
     .map((depId) => nodeById(run, depId)?.kanbanTaskId)
@@ -408,7 +469,7 @@ function buildMaterializeIntent(run: WorkflowRun, node: WorkflowNodeState): Mate
     reviewerAgentId: node.reviewerAgentId,
     requiredCapability: node.requiredCapability,
     riskLevel: node.riskLevel,
-    approvalGate: isGate ? (node.requiredCapability || 'approval') : undefined,
+    approvalGate: isGate ? mapCapabilityToHumanGateApprovalGate(node.requiredCapability) : undefined,
     labels,
     agentInput: node.agentInput
       ? {
