@@ -39,6 +39,12 @@ const INVOICE_DRAFT_FIELDS = new Set([
   'companyId',
 ])
 
+/** Privileged-only metadata fields that may be corrected after issue without reopening commercial terms. */
+const INVOICE_PRIVILEGED_METADATA_FIELDS = new Set([
+  'clientDetails',
+  'contactId',
+])
+
 const PORTAL_INVOICE_STATUS_OPTIONS = new Set([
   'draft',
   'sent',
@@ -134,6 +140,18 @@ export function sanitizeInvoicePortalPatch(
   }
 
   if (!canEdit) {
+    // Admin/AI may correct bill-to / contact metadata on issued invoices (incl. paid)
+    // without flipping payment or commercial fields. Members cannot.
+    if (isPrivileged(actor) && status !== 'cancelled') {
+      const metaOnly = bodyKeys.every((key) => INVOICE_PRIVILEGED_METADATA_FIELDS.has(key))
+      if (metaOnly) {
+        const patch = sanitizeDraftFields(body, INVOICE_PRIVILEGED_METADATA_FIELDS)
+        if (Object.keys(patch).length === 0) {
+          return { ok: false, status: 400, error: 'No editable invoice fields supplied' }
+        }
+        return { ok: true, patch }
+      }
+    }
     return { ok: false, status: 403, error: 'Draft invoice fields can only be edited while the invoice is still in Draft' }
   }
 
