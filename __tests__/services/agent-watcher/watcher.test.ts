@@ -207,8 +207,14 @@ type FilteringQuery = {
   get: jest.Mock
 }
 
-function makeTaskRef(comments: Array<Record<string, unknown>> = []) {
-  const update = jest.fn(async () => undefined)
+function makeTaskRef(
+  comments: Array<Record<string, unknown>> = [],
+  initialData: Record<string, unknown> = {},
+) {
+  let data: Record<string, unknown> = { ...initialData }
+  const update = jest.fn(async (patch: Record<string, unknown>) => {
+    data = { ...data, ...patch }
+  })
   return {
     id: 'task-1',
     path: 'orgs/org-1/projects/project-1/tasks/task-1',
@@ -224,6 +230,11 @@ function makeTaskRef(comments: Array<Record<string, unknown>> = []) {
           })),
         })),
       })),
+    })),
+    // dispatchReview re-reads live store before/after reviewer runs (thrash guard).
+    get: jest.fn(async () => ({
+      exists: true,
+      data: () => data,
     })),
     update,
   }
