@@ -501,6 +501,7 @@ function hasRichChatMarkup(content: string): boolean {
     || /(^|\n)\s{0,3}#{1,4}\s+\S/.test(content)
     || /(^|\n)\s*[-*]\s+\S/.test(content)
     || /(^|\n)\s*\d+\.\s+\S/.test(content)
+    || /(^|\n)\s*\|?.+\|.+\|?\s*\n\s*\|?\s*:?-{3,}:?\s*\|/.test(content)
     || /(^|\n)\s*(flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i.test(content)
     || /<svg\b[\s\S]*<\/svg>/i.test(content)
     || /\[[^\]]+\]\(https?:\/\/[^)]+\)/.test(content)
@@ -987,6 +988,96 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
   )
 }
 
+function tableCells(line: string): string[] | null {
+  const trimmed = line.trim()
+  if (!trimmed.includes('|')) return null
+  const unwrapped = trimmed.replace(/^\|/, '').replace(/\|$/, '')
+  const cells: string[] = []
+  let cell = ''
+  let escaped = false
+
+  for (const char of unwrapped) {
+    if (escaped) {
+      cell += char
+      escaped = false
+    } else if (char === '\\') {
+      escaped = true
+    } else if (char === '|') {
+      cells.push(cell.trim())
+      cell = ''
+    } else {
+      cell += char
+    }
+  }
+  if (escaped) cell += '\\'
+  cells.push(cell.trim())
+  return cells.length >= 2 ? cells : null
+}
+
+function tableAlignment(line: string): ('left' | 'center' | 'right')[] | null {
+  const cells = tableCells(line)
+  if (!cells || !cells.every((cell) => /^:?-{3,}:?$/.test(cell))) return null
+  return cells.map((cell) => {
+    if (cell.startsWith(':') && cell.endsWith(':')) return 'center'
+    if (cell.endsWith(':')) return 'right'
+    return 'left'
+  })
+}
+
+function MarkdownTable({
+  headers,
+  alignments,
+  rows,
+  mentions,
+}: {
+  headers: string[]
+  alignments: ('left' | 'center' | 'right')[]
+  rows: string[][]
+  mentions?: Mention[]
+}) {
+  const normalizeRow = (row: string[]) => {
+    const normalized = row.slice(0, headers.length)
+    while (normalized.length < headers.length) normalized.push('')
+    return normalized
+  }
+
+  return (
+    <div className="my-3 max-w-full overflow-x-auto rounded-xl border border-white/10 bg-black/15 shadow-sm">
+      <table className="min-w-full border-collapse text-left text-sm">
+        <thead className="bg-white/[0.06] text-[var(--color-pib-text)]">
+          <tr>
+            {headers.map((header, index) => (
+              <th
+                key={`${header}-${index}`}
+                scope="col"
+                className="border-b border-white/10 px-3 py-2 align-top text-xs font-semibold"
+                style={{ textAlign: alignments[index] ?? 'left' }}
+              >
+                {inlineMarkdown(header, mentions)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/10 text-[var(--color-pib-text-muted)]">
+          {rows.map((row, rowIndex) => (
+            <tr key={`row-${rowIndex}`} className="align-top">
+              {normalizeRow(row).map((cell, cellIndex) => (
+                <td
+                  key={`cell-${rowIndex}-${cellIndex}`}
+                  className="max-w-[20rem] break-words px-3 py-2 leading-relaxed [overflow-wrap:anywhere]"
+                  style={{ textAlign: alignments[cellIndex] ?? 'left' }}
+                >
+                  {inlineMarkdown(cell, mentions)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function renderMarkdownBlocks(content: string, mentions?: Mention[]): ReactNode[] {
   const nodes: ReactNode[] = []
   const fencePattern = /```([^\n`]*)\n([\s\S]*?)```/g
@@ -1007,6 +1098,8 @@ function renderMarkdownBlocks(content: string, mentions?: Mention[]): ReactNode[
       const line = lines[index]
       const heading = line.match(/^\s{0,3}(#{1,4})\s+(.+)$/)
       const listItem = line.match(/^\s*(?:[-*]|\d+\.)\s+(.+)$/)
+      const headerCells = tableCells(line)
+      const separatorAlignments = index + 1 < lines.length ? tableAlignment(lines[index + 1]) : null
       const diagramStart = line.match(/^\s*(flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i)
       const svgStart = line.match(/^\s*<svg\b/i)
 
@@ -1030,6 +1123,32 @@ function renderMarkdownBlocks(content: string, mentions?: Mention[]): ReactNode[
         flushParagraph()
         const Tag = (`h${Math.min(heading[1].length + 2, 6)}`) as 'h3' | 'h4' | 'h5' | 'h6'
         nodes.push(<Tag key={`${baseKey}-h-${nodes.length}`} className="mt-3 mb-1 text-sm font-semibold text-[var(--color-pib-text)]">{inlineMarkdown(heading[2], mentions)}</Tag>)
+      } else if (headerCells && separatorAlignments && headerCells.length === separatorAlignments.length) {
+        flushParagraph()
+        const rows: string[][] = []
+        index += 1
+        while (index + 1 < lines.length) {
+          const next = lines[index + 1]
+          if (!next.trim()) {
+            const following = index + 2 < lines.length ? tableCells(lines[index + 2]) : null
+            if (!following) break
+            index += 1
+            continue
+          }
+          const row = tableCells(next)
+          if (!row) break
+          rows.push(row)
+          index += 1
+        }
+        nodes.push(
+          <MarkdownTable
+            key={`${baseKey}-table-${nodes.length}`}
+            headers={headerCells}
+            alignments={separatorAlignments}
+            rows={rows}
+            mentions={mentions}
+          />,
+        )
       } else if (listItem) {
         flushParagraph()
         const items: string[] = [listItem[1]]
