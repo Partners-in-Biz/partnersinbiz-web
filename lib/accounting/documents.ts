@@ -25,6 +25,13 @@ export interface DocumentLineInput {
   taxCodeId: string
   taxIncluded: boolean
   revenueOrExpenseAccountId: string
+  projectId?: string
+  taskId?: string
+  costCentreCode?: string
+  branchId?: string
+  companyId?: string
+  contactId?: string
+  employeeId?: string
 }
 
 export function assertPositiveMinor(value: number, field: string): void {
@@ -84,6 +91,18 @@ export function buildDocumentLine(input: {
     grossMinor: calc.grossMinor,
     revenueOrExpenseAccountId: line.revenueOrExpenseAccountId,
     taxTrace: calc.trace,
+    ...(line.projectId ? { projectId: requiredText(line.projectId, 'line.projectId') } : {}),
+    ...(line.taskId
+      ? {
+          taskId: requiredText(line.taskId, 'line.taskId'),
+          projectId: requiredText(line.projectId, 'line.projectId'),
+        }
+      : {}),
+    ...(line.costCentreCode ? { costCentreCode: requiredText(line.costCentreCode, 'line.costCentreCode') } : {}),
+    ...(line.branchId ? { branchId: requiredText(line.branchId, 'line.branchId') } : {}),
+    ...(line.companyId ? { companyId: requiredText(line.companyId, 'line.companyId') } : {}),
+    ...(line.contactId ? { contactId: requiredText(line.contactId, 'line.contactId') } : {}),
+    ...(line.employeeId ? { employeeId: requiredText(line.employeeId, 'line.employeeId') } : {}),
   }
 }
 

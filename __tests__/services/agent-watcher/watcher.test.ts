@@ -50,13 +50,22 @@ jest.mock('../../../services/agent-watcher/src/logger', () => ({
 }))
 
 import { getAgentConfig } from '../../../services/agent-watcher/src/config'
-import { claimTask, startHeartbeat } from '../../../services/agent-watcher/src/claim'
+import { claimTask, claimReviewTask, startHeartbeat } from '../../../services/agent-watcher/src/claim'
 import { db } from '../../../services/agent-watcher/src/firestore'
 import { runAndPoll } from '../../../services/agent-watcher/src/hermes'
-import { dispatchTask, isTransientHermesError, startWatcher, sweepReadyPendingTasks } from '../../../services/agent-watcher/src/watcher'
+import {
+  dispatchReview,
+  dispatchTask,
+  isTransientHermesError,
+  reviewApproved,
+  reviewFailed,
+  startWatcher,
+  sweepReadyPendingTasks,
+} from '../../../services/agent-watcher/src/watcher'
 
 const getAgentConfigMock = getAgentConfig as jest.Mock
 const claimTaskMock = claimTask as jest.Mock
+const claimReviewTaskMock = claimReviewTask as jest.Mock
 const startHeartbeatMock = startHeartbeat as jest.Mock
 const runAndPollMock = runAndPoll as jest.Mock
 
@@ -71,6 +80,123 @@ describe('agent watcher transient Hermes errors', () => {
     )).toBe(true)
   })
 })
+
+describe('agent watcher dispatchReview verdict hygiene', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    getAgentConfigMock.mockResolvedValue({ enabled: true, baseUrl: 'https://hermes.local', apiKey: 'k' })
+    claimReviewTaskMock.mockResolvedValue(true)
+    runAndPollMock.mockResolvedValue({ runId: 'rev-1', output: 'APPROVED', error: null })
+  })
+
+  it('parses explicit product verdicts', () => {
+    expect(reviewApproved('APPROVED — looks good')).toBe(true)
+    expect(reviewFailed('CHANGES_REQUESTED: fix tests')).toBe(true)
+    expect(reviewApproved('LGTM')).toBe(false)
+  })
+
+  it('does not requeue implementer when reviewer hits xAI OAuth auth failure', async () => {
+    const taskRef = makeTaskRef()
+    runAndPollMock.mockResolvedValue({
+      runId: 'rev-oauth',
+      output: null,
+      error: 'Provider authentication failed: xAI OAuth state is missing refresh_token. Re-authenticate with `hermes model`.',
+    })
+
+    await dispatchReview(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      reviewerAgentId: 'qa-release',
+      agentStatus: 'done',
+      columnId: 'review',
+      reviewStatus: 'pending',
+      title: 'Phase 3 authoring',
+      agentOutput: { summary: 'done' },
+    })
+
+    expect(claimReviewTaskMock).toHaveBeenCalled()
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      columnId: 'review',
+      agentStatus: 'done',
+      reviewStatus: 'pending',
+      reviewRetryCount: 1,
+      reviewRetryAt: expect.any(String),
+    }))
+    const updates = taskRef.update.mock.calls.map((call: unknown[]) => call[0] as Record<string, unknown>)
+    expect(updates.some((u) => u.columnId === 'todo' || u.agentStatus === 'pending' || u.reviewStatus === 'changes-requested')).toBe(false)
+  })
+
+  it('requeues implementer only on explicit CHANGES_REQUESTED', async () => {
+    const taskRef = makeTaskRef()
+    runAndPollMock.mockResolvedValue({
+      runId: 'rev-cr',
+      output: 'CHANGES_REQUESTED: missing Nora SLA fields in UI',
+      error: null,
+    })
+
+    await dispatchReview(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      reviewerAgentId: 'qa-release',
+      agentStatus: 'done',
+      columnId: 'review',
+      reviewStatus: 'pending',
+      title: 'Phase 3 authoring',
+      agentOutput: { summary: 'done' },
+    })
+
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      columnId: 'todo',
+      agentStatus: 'pending',
+      reviewStatus: 'changes-requested',
+    }))
+  })
+
+  it('approves without touching implementer assignee state', async () => {
+    const taskRef = makeTaskRef()
+    runAndPollMock.mockResolvedValue({
+      runId: 'rev-ok',
+      output: 'APPROVED',
+      error: null,
+    })
+
+    await dispatchReview(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      reviewerAgentId: 'qa-release',
+      agentStatus: 'done',
+      columnId: 'review',
+      reviewStatus: 'pending',
+      title: 'Phase 3 authoring',
+      agentOutput: { summary: 'done' },
+    })
+
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      columnId: 'done',
+      reviewStatus: 'approved',
+    }))
+  })
+
+  it('skips dispatch while reviewRetryAt backoff is active', async () => {
+    const taskRef = makeTaskRef()
+    const future = new Date(Date.now() + 60_000).toISOString()
+
+    await dispatchReview(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      reviewerAgentId: 'qa-release',
+      agentStatus: 'done',
+      columnId: 'review',
+      reviewStatus: 'pending',
+      reviewRetryAt: future,
+      title: 'Phase 3 authoring',
+    })
+
+    expect(claimReviewTaskMock).not.toHaveBeenCalled()
+    expect(runAndPollMock).not.toHaveBeenCalled()
+  })
+})
+
 const dbMock = db as unknown as { collectionGroup?: jest.Mock; collection?: jest.Mock }
 
 type FilteringQueryDoc = { ref: Record<string, unknown>; data: () => Record<string, unknown> }
@@ -90,6 +216,7 @@ function makeTaskRef(comments: Array<Record<string, unknown>> = []) {
       doc: jest.fn(),
     },
     collection: jest.fn(() => ({
+      add: jest.fn(async () => ({ id: 'comment-1' })),
       orderBy: jest.fn(() => ({
         limit: jest.fn(() => ({
           get: jest.fn(async () => ({

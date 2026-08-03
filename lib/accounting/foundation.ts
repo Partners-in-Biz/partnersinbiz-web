@@ -94,7 +94,19 @@ const POST_JOURNAL_KEYS = new Set([
   'expectedVersion', 'requestId', 'idempotencyKey', 'approvalId', 'adjustmentApprovalId', 'lines',
   'reversesJournalEntryId', 'reversalReason',
 ])
-const JOURNAL_LINE_INPUT_KEYS = new Set(['accountId', 'debitMinor', 'creditMinor', 'description'])
+const JOURNAL_LINE_INPUT_KEYS = new Set([
+  'accountId',
+  'debitMinor',
+  'creditMinor',
+  'description',
+  'projectId',
+  'taskId',
+  'costCentreCode',
+  'branchId',
+  'companyId',
+  'contactId',
+  'employeeId',
+])
 
 export function assertClosedPostJournalCommand(command: object): void {
   assertClosedKeys(command, POST_JOURNAL_KEYS, 'Journal command')
@@ -109,11 +121,28 @@ export function assertClosedPostJournalCommand(command: object): void {
 }
 
 export function allowlistedJournalLine(line: JournalLineInput): JournalLineInput {
+  const dims: Partial<JournalLineInput> = {}
+  if (line.projectId !== undefined && line.projectId !== '') dims.projectId = requiredText(line.projectId, 'projectId')
+  if (line.taskId !== undefined && line.taskId !== '') {
+    if (!dims.projectId && !(line.projectId && line.projectId !== '')) {
+      throw new FinanceValidationError('taskId requires projectId')
+    }
+    dims.taskId = requiredText(line.taskId, 'taskId')
+    if (!dims.projectId) dims.projectId = requiredText(line.projectId, 'projectId')
+  }
+  if (line.costCentreCode !== undefined && line.costCentreCode !== '') {
+    dims.costCentreCode = requiredText(line.costCentreCode, 'costCentreCode')
+  }
+  if (line.branchId !== undefined && line.branchId !== '') dims.branchId = requiredText(line.branchId, 'branchId')
+  if (line.companyId !== undefined && line.companyId !== '') dims.companyId = requiredText(line.companyId, 'companyId')
+  if (line.contactId !== undefined && line.contactId !== '') dims.contactId = requiredText(line.contactId, 'contactId')
+  if (line.employeeId !== undefined && line.employeeId !== '') dims.employeeId = requiredText(line.employeeId, 'employeeId')
   return {
     accountId: line.accountId,
     debitMinor: line.debitMinor,
     creditMinor: line.creditMinor,
     ...(line.description === undefined ? {} : { description: line.description }),
+    ...dims,
   }
 }
 
@@ -338,10 +367,17 @@ export function resolveRecognitionTiming(basis: 'cash' | 'accrual', event: Recog
 }
 
 export function buildReversalLines(lines: readonly JournalLineInput[]): JournalLineInput[] {
-  return lines.map((line) => ({
+  return lines.map((line) => allowlistedJournalLine({
     accountId: line.accountId,
     debitMinor: line.creditMinor,
     creditMinor: line.debitMinor,
     description: line.description ? `Reversal: ${line.description}` : 'Reversal',
+    projectId: line.projectId,
+    taskId: line.taskId,
+    costCentreCode: line.costCentreCode,
+    branchId: line.branchId,
+    companyId: line.companyId,
+    contactId: line.contactId,
+    employeeId: line.employeeId,
   }))
 }

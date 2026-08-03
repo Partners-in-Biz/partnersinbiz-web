@@ -1153,9 +1153,22 @@ export class FinancePayRunService {
     payslipId: string,
     options: { employeeLinkedUserId?: string; includeSensitiveFields?: boolean } = {},
   ): Payslip {
+    let linkedUserId = options.employeeLinkedUserId
+    if (!linkedUserId) {
+      const candidate = this.store.payslips.get(payslipId)
+      if (
+        candidate &&
+        candidate.orgId === scope.orgId &&
+        candidate.legalEntityId === scope.legalEntityId &&
+        candidate.bookId === scope.bookId
+      ) {
+        const employee = this.store.employees.get(candidate.employeeId)
+        if (employee?.linkedUserId === actor.uid) linkedUserId = actor.uid
+      }
+    }
     authorizePayslipRead(actor, scope, {
       payslipId,
-      employeeLinkedUserId: options.employeeLinkedUserId,
+      employeeLinkedUserId: linkedUserId,
     })
     const payslip = structuredClone(scopedGet(this.store.payslips, payslipId, scope, 'Payslip'))
     if (options.includeSensitiveFields) return payslip

@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
-import { PageHeader } from '@/components/ui/AppFoundation'
+import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
+import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 import {
   formatMinor,
@@ -17,12 +18,19 @@ import { readFinanceJson } from '@/components/finance/financeWorkbench'
 type DocumentsBundle = {
   invoices: Array<Record<string, any>>
   bills: Array<Record<string, any>>
+  creditNotes?: Array<Record<string, any>>
+  debitNotes?: Array<Record<string, any>>
+  recurringSchedules?: Array<Record<string, any>>
+  statementDrafts?: Array<Record<string, any>>
+  attachments?: Array<Record<string, any>>
   openItems: Array<Record<string, any>>
   payments: Array<Record<string, any>>
   bankAccounts: Array<Record<string, any>>
   bankTransactions: Array<Record<string, any>>
   reconciliations: Array<Record<string, any>>
+  aging?: { ar?: any; ap?: any }
   externalPaymentInitiated?: boolean
+  massEmailAllowed?: boolean
 }
 
 export default function FinanceDocumentsPage() {
@@ -262,46 +270,27 @@ export default function FinanceDocumentsPage() {
   const currency = scope.selectedBook?.functionalCurrency || 'ZAR'
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        eyebrow="Finance"
-        title="Invoices, bills, payments & reconciliation"
-        description="Record external money movement, match open items, import bank lines, and approve balanced reconciliations. PiB never initiates bank payments from this screen."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Link href={scopedPortalPath('/portal/finance', scope.orgScope)} className="pib-btn-ghost">Workbench</Link>
-            <Link href={scopedPortalPath('/portal/invoicing', scope.orgScope)} className="pib-btn-ghost">Operational invoicing</Link>
-          </div>
-        }
-      />
+    <FinanceModuleFrame
+      active="documents"
+      orgScope={scope.orgScope}
+      title="Documents & reconciliation"
+      description="AR/AP depth: invoices, bills, credit/debit notes, recurring schedules, statement export drafts, bulk ops, aging, attachments — record only; no external payment initiate or mass email."
+      error={scope.error}
+      message={scope.message}
+      loading={scope.loading}
+    >
 
-      {scope.error ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{scope.error}</div> : null}
-      {scope.message ? <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{scope.message}</div> : null}
-
-      {scope.loading ? (
-        <div className="pib-card p-6 text-sm text-[var(--color-pib-text-muted)]">Loading finance scope…</div>
-      ) : !scope.scopeReady ? (
-        <div className="pib-card p-6 text-sm text-[var(--color-pib-text-muted)]">
-          Bootstrap a legal entity and book on the <Link className="underline" href={scopedPortalPath('/portal/finance', scope.orgScope)}>Finance workbench</Link> first.
-        </div>
-      ) : (
+      {!scope.loading && !scope.scopeReady ? (
+        <FinanceEmptyScope orgScope={scope.orgScope} />
+      ) : !scope.loading ? (
         <>
-          <section className="pib-card grid gap-3 p-4 md:grid-cols-3">
-            <label className="text-sm">Legal entity
-              <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={scope.selectedEntityId} onChange={(e) => scope.setSelectedEntityId(e.target.value)}>
-                {scope.entities.map((e) => <option key={e.id} value={e.id}>{e.code} — {e.legalName}</option>)}
-              </select>
-            </label>
-            <label className="text-sm">Book
-              <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={scope.selectedBookId} onChange={(e) => scope.setSelectedBookId(e.target.value)}>
-                {scope.books.map((b) => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}
-              </select>
-            </label>
+          <FinanceScopeBar scope={scope} />
+          <section className="pib-card grid gap-3 p-4 md:grid-cols-[1fr_auto] items-center">
             <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
               <p>externalPaymentInitiated: <strong className="text-[var(--color-pib-text)]">{String(bundle?.externalPaymentInitiated ?? false)}</strong></p>
               <p className="mt-1">Currency: {currency} · Basis: {scope.selectedBook?.accountingBasis}</p>
-              <button type="button" className="pib-btn-ghost mt-2" disabled={busy} onClick={() => void loadBundle()}>Refresh</button>
             </div>
+            <button type="button" className="pib-btn-ghost" disabled={busy} onClick={() => void loadBundle()}>Refresh</button>
           </section>
 
           <section className="grid gap-4 md:grid-cols-4">
@@ -309,6 +298,10 @@ export default function FinanceDocumentsPage() {
               ['Invoices', bundle?.invoices?.length ?? 0],
               ['Bills', bundle?.bills?.length ?? 0],
               ['Payments', bundle?.payments?.length ?? 0],
+              ['Credit notes', bundle?.creditNotes?.length ?? 0],
+              ['Debit notes', bundle?.debitNotes?.length ?? 0],
+              ['Recurring', bundle?.recurringSchedules?.length ?? 0],
+              ['Statements', bundle?.statementDrafts?.length ?? 0],
               ['Bank txns', bundle?.bankTransactions?.length ?? 0],
             ].map(([label, n]) => (
               <div key={String(label)} className="pib-stat-card">
@@ -316,6 +309,38 @@ export default function FinanceDocumentsPage() {
                 <p className="mt-3 text-2xl font-semibold">{n}</p>
               </div>
             ))}
+          </section>
+
+          <section className="grid gap-4 md:grid-cols-2">
+            <div className="pib-card p-4">
+              <h2 className="mb-2 text-base font-semibold">AR aging</h2>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">Total {formatMinor(bundle?.aging?.ar?.totalOutstandingMinor ?? 0, currency)}</p>
+              <div className="grid grid-cols-5 gap-2 text-center text-xs">
+                {(bundle?.aging?.ar?.buckets || []).map((b: any) => (
+                  <div key={b.key} className="rounded-lg border border-[var(--color-pib-line)] p-2">
+                    <p className="text-[var(--color-pib-text-muted)]">{b.label}</p>
+                    <p className="mt-1 font-semibold">{formatMinor(b.amountMinor ?? 0, currency)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="pib-card p-4">
+              <h2 className="mb-2 text-base font-semibold">AP aging</h2>
+              <p className="text-xs text-[var(--color-pib-text-muted)] mb-3">Total {formatMinor(bundle?.aging?.ap?.totalOutstandingMinor ?? 0, currency)}</p>
+              <div className="grid grid-cols-5 gap-2 text-center text-xs">
+                {(bundle?.aging?.ap?.buckets || []).map((b: any) => (
+                  <div key={b.key} className="rounded-lg border border-[var(--color-pib-line)] p-2">
+                    <p className="text-[var(--color-pib-text-muted)]">{b.label}</p>
+                    <p className="mt-1 font-semibold">{formatMinor(b.amountMinor ?? 0, currency)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">
+            Credit notes, debit notes, recurring schedules, counterparty statement drafts (export only), bulk issue/void/allocate, attachments, and portal filters are available via documents commands/queries. massEmailAllowed=false · no SARS submit · no external payment initiate.
+            Credit notes: {bundle?.creditNotes?.length ?? 0} · Debit notes: {bundle?.debitNotes?.length ?? 0} · Recurring: {bundle?.recurringSchedules?.length ?? 0} · Statement drafts: {bundle?.statementDrafts?.length ?? 0} · Attachments: {bundle?.attachments?.length ?? 0}.
           </section>
 
           <section className="grid gap-4 xl:grid-cols-2">
@@ -520,6 +545,6 @@ export default function FinanceDocumentsPage() {
           </section>
         </>
       )}
-    </div>
+    </FinanceModuleFrame>
   )
 }

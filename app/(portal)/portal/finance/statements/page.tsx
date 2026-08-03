@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { PageHeader } from '@/components/ui/AppFoundation'
+import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
+import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
 import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import {
   formatMinor,
@@ -218,11 +219,16 @@ export default function StatementImportPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
-      <PageHeader
-        title="Bank statements & recon suggestions"
-        description="Parse CSV/OFX/MT940 into observed bank lines, then generate human-gated match/expense suggestions. Never initiates payments or auto-posts journals."
-      />
+    <FinanceModuleFrame
+      active="statements"
+      orgScope={scope.orgScope}
+      title="Statement import"
+      description="Bank statement import and human-gated reconciliation suggestions."
+      error={error || scope.error}
+      message={message || scope.message}
+      loading={scope.loading}
+    >
+      <FinanceScopeBar scope={scope} />
 
       <div className="flex flex-wrap gap-2 text-sm">
         <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-ghost">
@@ -380,6 +386,6 @@ export default function StatementImportPage() {
           </ul>
         </div>
       </section>
-    </div>
+    </FinanceModuleFrame>
   )
 }

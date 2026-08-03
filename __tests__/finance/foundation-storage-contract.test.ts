@@ -15,7 +15,7 @@ describe('finance foundation storage contract', () => {
       'tax_codes', 'tax_rule_versions', 'tax_periods', 'tax_return_snapshots', 'tax_return_lines', 'journal_tax_traces',
       'financial_report_snapshots',
       'supplier_bills', 'supplier_bill_lines', 'finance_customer_invoices', 'finance_customer_invoice_lines',
-      'open_items', 'account_credits', 'finance_payments', 'payment_allocations',
+      'open_items', 'account_credits', 'finance_credit_notes', 'finance_debit_notes', 'finance_note_applications', 'finance_recurring_schedules', 'finance_statement_drafts', 'finance_document_attachments', 'finance_payments', 'payment_allocations',
       'bank_accounts', 'bank_transactions', 'reconciliations', 'reconciliation_matches',
       'reconciliation_adjustments',
       'intercompany_pairs', 'intercompany_transactions', 'elimination_rules',
@@ -25,7 +25,18 @@ describe('finance foundation storage contract', () => {
       'payroll_calculations', 'payroll_tax_years', 'payroll_ytd_openings',
       'payroll_calculation_manifests', 'pay_runs', 'pay_run_items',
       'pay_run_item_components', 'payslips', 'payroll_adjustments', 'leave_records',
+      'leave_types', 'leave_balances', 'payslip_download_packs',
       'irp5_records', 'emp201_snapshots', 'emp501_reconciliations', 'payroll_export_manifests',
+      'asset_classes', 'fixed_assets', 'depreciation_runs', 'asset_disposals',
+      'finance_assets_claims', 'finance_assets_idempotency',
+      'finance_time_cost_applications',
+      'finance_time_cost_claims',
+      'finance_job_costing_audit_events',
+      'finance_time_cost_idempotency',
+      'finance_operator_notifications', 'finance_practice_claims',
+      'fx_book_policies', 'accounting_rate_sets', 'accounting_rates',
+      'fx_monetary_positions', 'fx_foreign_documents', 'fx_settlements',
+      'fx_revaluation_runs', 'fx_functional_reports', 'fx_unique_claims', 'fx_audit_events',
     ]) {
       expect(rules).toContain(`match /${collection}/{id} { allow read, write: if false; }`)
     }

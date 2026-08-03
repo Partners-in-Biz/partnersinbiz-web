@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
-import { PageHeader } from '@/components/ui/AppFoundation'
+import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
+import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 import {
   formatMinor,
@@ -155,43 +156,27 @@ export default function FinanceIntercompanyPage() {
   const currency = scope.selectedBook?.functionalCurrency || 'ZAR'
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        eyebrow="Finance"
-        title="Intercompany"
-        description="Linked pairs, propose/post/receive workflows, elimination rules, and consolidation runs. Receiving side must confirm before mirror entries finalise."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Link href={scopedPortalPath('/portal/finance', scope.orgScope)} className="pib-btn-ghost">Workbench</Link>
-            <Link href={scopedPortalPath('/portal/finance/documents', scope.orgScope)} className="pib-btn-ghost">Documents</Link>
-          </div>
-        }
-      />
+    <FinanceModuleFrame
+      active="intercompany"
+      orgScope={scope.orgScope}
+      title="Intercompany"
+      description="Pairs, propose/receive confirm, eliminations, and consolidation visibility."
+      error={scope.error}
+      message={scope.message}
+      loading={scope.loading}
+    >
 
-      {scope.error ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{scope.error}</div> : null}
-      {scope.message ? <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{scope.message}</div> : null}
-
-      {scope.loading ? (
-        <div className="pib-card p-6 text-sm text-[var(--color-pib-text-muted)]">Loading…</div>
-      ) : !scope.scopeReady ? (
-        <div className="pib-card p-6 text-sm text-[var(--color-pib-text-muted)]">Bootstrap books on the Finance workbench first.</div>
-      ) : (
+      {!scope.loading && !scope.scopeReady ? (
+        <FinanceEmptyScope orgScope={scope.orgScope} />
+      ) : !scope.loading ? (
         <>
-          <section className="pib-card grid gap-3 p-4 md:grid-cols-3">
-            <label className="text-sm">Viewer entity
-              <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={scope.selectedEntityId} onChange={(e) => scope.setSelectedEntityId(e.target.value)}>
-                {scope.entities.map((e) => <option key={e.id} value={e.id}>{e.code} — {e.legalName}</option>)}
-              </select>
-            </label>
-            <label className="text-sm">Viewer book
-              <select className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2" value={scope.selectedBookId} onChange={(e) => scope.setSelectedBookId(e.target.value)}>
-                {scope.books.map((b) => <option key={b.id} value={b.id}>{b.code} — {b.name}</option>)}
-              </select>
-            </label>
-            <div className="rounded-lg border border-[var(--color-pib-line)] p-3 text-xs text-[var(--color-pib-text-muted)]">
-              externalEgressAllowed: <strong className="text-[var(--color-pib-text)]">{String(bundle?.externalEgressAllowed ?? false)}</strong>
-              <button type="button" className="pib-btn-ghost mt-2 block" disabled={busy} onClick={() => void loadBundle()}>Refresh</button>
-            </div>
+          <FinanceScopeBar scope={scope} />
+          <section className="pib-card flex flex-wrap items-center justify-between gap-3 p-4">
+            <p className="text-xs text-[var(--color-pib-text-muted)]">
+              externalEgressAllowed:{' '}
+              <strong className="text-[var(--color-pib-text)]">{String(bundle?.externalEgressAllowed ?? false)}</strong>
+            </p>
+            <button type="button" className="pib-btn-ghost" disabled={busy} onClick={() => void loadBundle()}>Refresh</button>
           </section>
 
           <section className="pib-card space-y-3 p-4">
@@ -299,6 +284,6 @@ export default function FinanceIntercompanyPage() {
           </section>
         </>
       )}
-    </div>
+    </FinanceModuleFrame>
   )
 }

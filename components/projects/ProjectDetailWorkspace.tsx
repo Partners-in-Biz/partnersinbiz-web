@@ -792,7 +792,7 @@ export function ProjectDetailWorkspace({
       )}
 
       {activeTab === 'plan' && (
-        <ProjectSuitePanel projectId={projectId} />
+        <ProjectSuitePanel projectId={projectId} orgId={project?.orgId} />
       )}
 
       {activeTab === 'agent' && (

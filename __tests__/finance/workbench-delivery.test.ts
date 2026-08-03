@@ -12,29 +12,41 @@ function pageSource(rel: string) {
 describe('finance workbench delivery contract', () => {
   test('HTTP inventory includes foundation commands and queries', () => {
     expect(FINANCE_HTTP_ENTRYPOINTS).toEqual(expect.arrayContaining([
-      'app/api/v1/finance/foundation/commands/route.ts',
-      'app/api/v1/finance/foundation/queries/route.ts',
-      'app/api/v1/finance/reports/queries/route.ts',
-      'app/api/v1/finance/tax/commands/route.ts',
-      'app/api/v1/finance/tax/queries/route.ts',
+      'app/api/v1/finance/assets/commands/route.ts',
+      'app/api/v1/finance/assets/queries/route.ts',
+      'app/api/v1/finance/bank-rules/commands/route.ts',
+      'app/api/v1/finance/bank-rules/queries/route.ts',
+      'app/api/v1/finance/budgets/commands/route.ts',
+      'app/api/v1/finance/budgets/queries/route.ts',
+      'app/api/v1/finance/cross-org/commands/route.ts',
+      'app/api/v1/finance/cross-org/queries/route.ts',
+      'app/api/v1/finance/cutover/commands/route.ts',
+      'app/api/v1/finance/cutover/queries/route.ts',
       'app/api/v1/finance/documents/commands/route.ts',
       'app/api/v1/finance/documents/queries/route.ts',
+      'app/api/v1/finance/foundation/commands/route.ts',
+      'app/api/v1/finance/foundation/queries/route.ts',
       'app/api/v1/finance/intercompany/commands/route.ts',
       'app/api/v1/finance/intercompany/queries/route.ts',
+      'app/api/v1/finance/job-costing/commands/route.ts',
+      'app/api/v1/finance/job-costing/queries/route.ts',
+      'app/api/v1/finance/multi-currency/commands/route.ts',
+      'app/api/v1/finance/multi-currency/queries/route.ts',
+      'app/api/v1/finance/packaging/commands/route.ts',
+      'app/api/v1/finance/packaging/queries/route.ts',
       'app/api/v1/finance/payroll/commands/route.ts',
       'app/api/v1/finance/payroll/queries/route.ts',
       'app/api/v1/finance/personal/commands/route.ts',
       'app/api/v1/finance/personal/queries/route.ts',
-      'app/api/v1/finance/cross-org/commands/route.ts',
-      'app/api/v1/finance/cross-org/queries/route.ts',
+      'app/api/v1/finance/practice/commands/route.ts',
+      'app/api/v1/finance/practice/queries/route.ts',
+      'app/api/v1/finance/reports/queries/route.ts',
       'app/api/v1/finance/statements/commands/route.ts',
       'app/api/v1/finance/statements/queries/route.ts',
-      'app/api/v1/finance/cutover/commands/route.ts',
-      'app/api/v1/finance/cutover/queries/route.ts',
-      'app/api/v1/finance/packaging/commands/route.ts',
-      'app/api/v1/finance/packaging/queries/route.ts',
+      'app/api/v1/finance/tax/commands/route.ts',
+      'app/api/v1/finance/tax/queries/route.ts',
     ]))
-    expect(FINANCE_HTTP_ENTRYPOINTS).toHaveLength(21)
+    expect(FINANCE_HTTP_ENTRYPOINTS).toHaveLength(33)
     expect(FINANCE_UI_SHIPPED).toBe(true)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/documents/i)
@@ -44,6 +56,8 @@ describe('finance workbench delivery contract', () => {
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/statement/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/cutover/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/packaging/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/practice/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/multi-currency/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/Interactive portal workbenches/i)
   })
 
@@ -61,16 +75,31 @@ describe('finance workbench delivery contract', () => {
       'app/(portal)/portal/finance/statements/page.tsx',
       'app/(portal)/portal/finance/cutover/page.tsx',
       'app/(portal)/portal/finance/packaging/page.tsx',
+      'app/(portal)/portal/finance/setup/page.tsx',
+      'app/(portal)/portal/finance/practice/page.tsx',
+      'app/(portal)/portal/finance/job-costing/page.tsx',
+      'app/(portal)/portal/finance/multi-currency/page.tsx',
+      'app/(portal)/portal/finance/bank-rules/page.tsx',
+      'app/(portal)/portal/finance/budgets/page.tsx',
+      'app/(portal)/portal/finance/assets/page.tsx',
+      'app/(portal)/portal/finance/runbooks/page.tsx',
     ]
     for (const rel of pages) {
       expect(existsSync(path.join(root, rel))).toBe(true)
       const src = pageSource(rel)
       expect(src).toMatch(/['"]use client['"]/)
-      expect(src).toMatch(/fetch\(/)
+      expect(src).toMatch(/FinanceModuleFrame/)
+      // setup + runbooks are guided/static operator surfaces; interactive workbenches must fetch.
+      if (!rel.endsWith('/setup/page.tsx') && !rel.endsWith('/runbooks/page.tsx')) {
+        expect(src).toMatch(/fetch\(/)
+      }
       expect(src).not.toMatch(/Authenticated APIs:/)
     }
     expect(existsSync(path.join(root, 'components/finance/useFinanceBookScope.ts'))).toBe(true)
     expect(existsSync(path.join(root, 'components/finance/financeWorkbench.ts'))).toBe(true)
+    expect(existsSync(path.join(root, 'components/finance/FinanceModuleFrame.tsx'))).toBe(true)
+    expect(existsSync(path.join(root, 'components/finance/FinanceScopeBar.tsx'))).toBe(true)
+    expect(existsSync(path.join(root, 'components/finance/FinanceHubCommandRail.tsx'))).toBe(true)
   })
 
   test('org scope guard remains fail-closed', () => {

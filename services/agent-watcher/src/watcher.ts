@@ -36,7 +36,11 @@ const MAX_READY_SWEEP_DOCS = 100
 const MAX_SCHEDULED_RELEASE_SWEEP_DOCS = 100
 const MAX_DEPENDENCY_RELEASE_SWEEP_DOCS = 100
 const MAX_TRANSIENT_RETRIES = 3
+// Normal provider blips stay short. Mid-run gateway loss / 502 storms need a
+// longer cool-down so the watcher does not re-claim while local-runtime is
+// still bouncing the profile.
 const TRANSIENT_RETRY_DELAYS_MS = [60_000, 5 * 60_000, 15 * 60_000] as const
+const GATEWAY_STORM_RETRY_DELAYS_MS = [5 * 60_000, 15 * 60_000, 30 * 60_000] as const
 
 const inFlight = new Set<string>()
 const perAgentInFlight = new Map<AgentId, number>()
@@ -111,6 +115,9 @@ interface TaskData {
   sourceResearchItemId?: string
   agentRetryCount?: number
   agentRetryAt?: string | number | { toMillis?: () => number; toDate?: () => Date }
+  /** Reviewer-only retry budget; does not requeue the implementer. */
+  reviewRetryCount?: number
+  reviewRetryAt?: string | number | { toMillis?: () => number; toDate?: () => Date }
   reporterId?: string
   createdBy?: string
   chatOrigin?: {
@@ -140,8 +147,22 @@ export function isTransientHermesError(error: string): boolean {
   return TRANSIENT_HERMES_ERROR_PATTERNS.some((pattern) => pattern.test(error))
 }
 
-function transientRetryAt(retryCount: number, now = Date.now()): string {
-  const delay = TRANSIENT_RETRY_DELAYS_MS[Math.min(retryCount, TRANSIENT_RETRY_DELAYS_MS.length - 1)]
+export function isGatewayRestartStormError(error: string): boolean {
+  return (
+    /\bwas not found on the agent gateway\b/i.test(error)
+    || /\brun_not_found\b/i.test(error)
+    || /\breturned 502 repeatedly while polling\b/i.test(error)
+    || /\breturned 503 repeatedly while polling\b/i.test(error)
+    || /\bgateway_draining\b/i.test(error)
+    || /\baddress already in use\b/i.test(error)
+  )
+}
+
+function transientRetryAt(retryCount: number, now = Date.now(), error?: string): string {
+  const table = error && isGatewayRestartStormError(error)
+    ? GATEWAY_STORM_RETRY_DELAYS_MS
+    : TRANSIENT_RETRY_DELAYS_MS
+  const delay = table[Math.min(retryCount, table.length - 1)]
   return new Date(now + delay).toISOString()
 }
 
@@ -801,7 +822,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       })
       if (isTransientHermesError(result.error) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
         const nextRetryCount = priorRetryCount + 1
-        const retryAt = transientRetryAt(priorRetryCount)
+        const retryAt = transientRetryAt(priorRetryCount, Date.now(), result.error)
         logger.warn('transient Hermes run failure — scheduling durable retry', {
           taskId,
           agentId,
@@ -921,7 +942,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
       if (isTransientHermesError(message) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
         const nextRetryCount = priorRetryCount + 1
-        const retryAt = transientRetryAt(priorRetryCount)
+        const retryAt = transientRetryAt(priorRetryCount, Date.now(), message)
         await taskRef.update({
           ...agentStatusUpdate('pending'),
           ...(activeRunId ? { agentConversationId: activeRunId } : {}),
@@ -978,19 +999,30 @@ async function addAgentReviewComment(taskRef: DocumentReference, agentId: AgentI
   })
 }
 
-function reviewFailed(output: string): boolean {
+export function reviewFailed(output: string): boolean {
   return /^\s*(CHANGES[_ -]?REQUESTED|REJECTED|NOT[_ -]?APPROVED)\b/i.test(output)
 }
 
-function reviewApproved(output: string): boolean {
+export function reviewApproved(output: string): boolean {
   return /^\s*APPROVED\b/i.test(output) && !reviewFailed(output)
 }
 
-async function dispatchReview(taskRef: DocumentReference, taskData: TaskData): Promise<void> {
+/**
+ * Reviewer transport/auth failures must NOT requeue the implementer.
+ * Only an explicit CHANGES_REQUESTED / REJECTED verdict moves the card back to todo.
+ */
+export async function dispatchReview(taskRef: DocumentReference, taskData: TaskData): Promise<void> {
   const taskId = taskRef.id
   const agentId = taskData.reviewerAgentId as AgentId | undefined
   if (!isActiveAgentId(agentId)) return
   if (taskData.columnId !== 'review' || taskData.reviewStatus !== 'pending') return
+  // Claim requires agentStatus=done; skip while implementer is still running.
+  if (taskData.agentStatus !== undefined && taskData.agentStatus !== 'done') return
+  const reviewRetryAtMs = releaseMillis(taskData.reviewRetryAt)
+  if (reviewRetryAtMs !== null && reviewRetryAtMs > Date.now()) {
+    logger.info('review backoff active — skipping dispatch', { taskId, agentId, reviewRetryAtMs })
+    return
+  }
   if (inFlight.has(`${taskRef.path}:review`)) return
   if ((perAgentInFlight.get(agentId) ?? 0) >= MAX_CONCURRENT_PER_AGENT) return
 
@@ -1005,8 +1037,17 @@ async function dispatchReview(taskRef: DocumentReference, taskData: TaskData): P
 
     const cfg = await getAgentConfig(agentId)
     if (!cfg || !cfg.enabled) {
-      await addAgentReviewComment(taskRef, agentId, `Review could not run: reviewer agent '${agentId}' has no enabled dispatch config.`)
-      await taskRef.update({ reviewStatus: 'changes-requested', updatedAt: FieldValue.serverTimestamp() })
+      await addAgentReviewComment(
+        taskRef,
+        agentId,
+        `Review could not run: reviewer agent '${agentId}' has no enabled dispatch config. Leaving task in review (implementer not requeued).`,
+      )
+      // Stay in review — missing reviewer config is ops, not product CHANGES_REQUESTED.
+      await taskRef.update({
+        reviewStatus: 'pending',
+        reviewRetryAt: transientRetryAt(0),
+        updatedAt: FieldValue.serverTimestamp(),
+      })
       return
     }
     const spec = [
@@ -1024,21 +1065,78 @@ async function dispatchReview(taskRef: DocumentReference, taskData: TaskData): P
       agentEffort: 'medium',
     })
     const output = (result.error ? `Reviewer error: ${result.error}` : result.output ?? '').slice(0, 4_000)
-    if (result.error || reviewFailed(output) || !reviewApproved(output)) {
+
+    if (result.error) {
+      const priorRetryCount = Number.isFinite(taskData.reviewRetryCount)
+        ? Math.max(0, Number(taskData.reviewRetryCount))
+        : 0
+      const nextRetryCount = priorRetryCount + 1
+      const retryAt = transientRetryAt(priorRetryCount, Date.now(), result.error)
+      const transient = isTransientHermesError(result.error)
+      await addAgentReviewComment(
+        taskRef,
+        agentId,
+        transient
+          ? `${output}\n\nTransient reviewer failure — implementer stays done in review. Automatic review retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} at ${retryAt}.`
+          : `${output}\n\nReviewer run failed without a product verdict. Implementer stays done in review (not requeued). Ops must fix reviewer runtime, then leave reviewStatus=pending.`,
+      )
+      await taskRef.update({
+        // Keep board + implementer completion intact.
+        columnId: 'review',
+        agentStatus: 'done',
+        reviewStatus: 'pending',
+        reviewRetryCount: nextRetryCount,
+        reviewRetryAt: retryAt,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      logger.warn('reviewer run error — not requeuing implementer', {
+        taskId,
+        agentId,
+        transient,
+        nextRetryCount,
+        retryAt,
+        error: result.error,
+      })
+      return
+    }
+
+    if (reviewFailed(output)) {
       await addAgentReviewComment(taskRef, agentId, output || 'CHANGES_REQUESTED: Review failed without details.')
       await taskRef.update({
         columnId: 'todo',
         agentStatus: 'pending',
         reviewStatus: 'changes-requested',
+        reviewRetryCount: FieldValue.delete(),
+        reviewRetryAt: FieldValue.delete(),
         agentHeartbeatAt: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       })
       return
     }
-    await addAgentReviewComment(taskRef, agentId, output || 'APPROVED')
+
+    if (reviewApproved(output)) {
+      await addAgentReviewComment(taskRef, agentId, output || 'APPROVED')
+      await taskRef.update({
+        columnId: 'done',
+        reviewStatus: 'approved',
+        reviewRetryCount: FieldValue.delete(),
+        reviewRetryAt: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      return
+    }
+
+    // Ambiguous non-error output: do not pretend the implementer failed.
+    await addAgentReviewComment(
+      taskRef,
+      agentId,
+      `${output || '(empty reviewer output)'}\n\nReviewer did not return APPROVED or CHANGES_REQUESTED. Leaving task in review; implementer not requeued.`,
+    )
     await taskRef.update({
-      columnId: 'done',
-      reviewStatus: 'approved',
+      columnId: 'review',
+      agentStatus: 'done',
+      reviewStatus: 'pending',
+      reviewRetryAt: transientRetryAt(0),
       updatedAt: FieldValue.serverTimestamp(),
     })
   } catch (err) {
@@ -1046,7 +1144,13 @@ async function dispatchReview(taskRef: DocumentReference, taskData: TaskData): P
     logger.error('dispatchReview threw', { taskId, agentId, error: message })
     try {
       await addAgentReviewComment(taskRef, agentId, `Reviewer error: ${message}`)
-      await taskRef.update({ reviewStatus: 'pending', updatedAt: FieldValue.serverTimestamp() })
+      await taskRef.update({
+        columnId: 'review',
+        agentStatus: 'done',
+        reviewStatus: 'pending',
+        reviewRetryAt: isTransientHermesError(message) ? transientRetryAt(0, Date.now(), message) : transientRetryAt(0),
+        updatedAt: FieldValue.serverTimestamp(),
+      })
     } catch {}
   } finally {
     inFlight.delete(`${taskRef.path}:review`)

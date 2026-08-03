@@ -6,7 +6,7 @@ import { runFinanceQueryHandler } from '@/lib/finance/http-command'
 
 export const dynamic = 'force-dynamic'
 
-const RESOURCES = ['bundle', 'payslip', 'irp5', 'emp201', 'emp501', 'export-manifest'] as const
+const RESOURCES = ['bundle','payslip','my-payslips','payslip-pack','irp5','emp201','emp501','export-manifest'] as const
 
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const gateway = new FirestoreFinancePayrollGateway()
@@ -19,12 +19,17 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
       if (!legalEntityId || !bookId) throw new FinanceValidationError('legalEntityId and bookId are required')
       const scope = { orgId, legalEntityId, bookId }
       switch (resource) {
-        case 'bundle':
-          return gateway.listBundle(actor, scope)
+        case 'bundle': return gateway.listBundle(actor, scope)
         case 'payslip': {
           const id = params.get('id')
           if (!id) throw new FinanceValidationError('id is required for payslip')
           return gateway.getPayslip(actor, scope, id)
+        }
+        case 'my-payslips': return gateway.listMyPayslips(actor, scope)
+        case 'payslip-pack': {
+          const id = params.get('id')
+          if (!id) throw new FinanceValidationError('id is required for payslip-pack')
+          return gateway.getPayslipPack(actor, scope, id)
         }
         case 'irp5': {
           const id = params.get('id')
@@ -46,8 +51,7 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
           if (!id) throw new FinanceValidationError('id is required for export-manifest')
           return gateway.getExportManifest(actor, scope, id)
         }
-        default:
-          throw new FinanceValidationError('Unsupported payroll query resource')
+        default: throw new FinanceValidationError('Unsupported payroll query resource')
       }
     },
   })

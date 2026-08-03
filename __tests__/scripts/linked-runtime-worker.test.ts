@@ -1,7 +1,7 @@
 import fs from'node:fs';import os from'node:os';import path from'node:path';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunPollDelay,LinkedRunProfileCapacity,pollForever}from'../../runtime-installers/runtime/worker'
 import { DeviceApiClient } from '../../runtime-installers/runtime/client'
 import { applyHeartbeatData,handleRotation,heartbeatForever,isRevokeAcknowledged,linkedRunMaxTotalConcurrency,linkedRuntimeHeartbeatBody,linkedRuntimePlatform,linkedRuntimeSyncClaimBody,nativeWorkspaceSyncSupported,recoverPendingRevocation,runRuntimeServicePollers,sanitizeIdentity } from '../../runtime-installers/runtime/cli'
-import { callLocalHermes, isLocalHermesGatewayDrainingError, localHermesRoutes, probeLocalHermes } from '../../runtime-installers/runtime/hermes'
+import { callLocalHermes, isLocalHermesGatewayDrainingError, localHermesAgentHasActiveWork, localHermesRoutes, probeLocalHermes } from '../../runtime-installers/runtime/hermes'
 it('self-heals the managed Mac fleet without taking down healthy profiles or publishing false legacy health',()=>{
   const script=fs.readFileSync(path.join(process.cwd(),'scripts/start-local-runtime-fleet.sh'),'utf8')
   expect(script).toContain('read_shared_env_value AI_API_KEY')
@@ -24,9 +24,34 @@ it('self-heals the managed Mac fleet without taking down healthy profiles or pub
   expect(script).toContain('$FLEET_CONTROL_DIR/requests/${agent_name}.json')
   expect(script).toContain('profile_is_disabled')
   expect(script).toContain('restarting requested local Hermes profile $agent_name only')
+  expect(script).toContain('deferring requested restart for busy local Hermes profile')
+  expect(script).toContain('profile_has_active_work')
+  expect(script).toContain('PROFILE_DRAIN_GRACE_SECONDS')
+  expect(script).toContain('ensure_profile_port_free')
+  expect(script).toContain('drain_stop_profile_pid')
+  expect(script).toContain('missed health but still has active work')
   expect(script).toContain('mv "$request_path" "$claimed_path"')
   expect(script).toContain('skipping legacy public registration')
   expect(script).not.toContain('exited; stopping fleet')
+})
+it('detects live Hermes API work before credential reloads', async () => {
+  const fetcher = jest.fn(async () => new Response(JSON.stringify({
+    gateway_busy: false,
+    active_agents: 0,
+    readiness: { checks: { background_queues: { active_api_runs: 2 } } },
+  }), { status: 200 })) as any
+  await expect(localHermesAgentHasActiveWork('docs', {
+    PIB_LOCAL_HERMES_ROUTES: JSON.stringify({ docs: { baseUrl: 'http://127.0.0.1:8771', apiKey: 'k' } }),
+  }, fetcher)).resolves.toBe(true)
+  expect(String(fetcher.mock.calls[0][0])).toContain('/health/detailed')
+  const idleFetcher = jest.fn(async () => new Response(JSON.stringify({
+    gateway_busy: false,
+    active_agents: 0,
+    readiness: { checks: { background_queues: { active_api_runs: 0 } } },
+  }), { status: 200 })) as any
+  await expect(localHermesAgentHasActiveWork('docs', {
+    PIB_LOCAL_HERMES_ROUTES: JSON.stringify({ docs: { baseUrl: 'http://127.0.0.1:8771', apiKey: 'k' } }),
+  }, idleFetcher)).resolves.toBe(false)
 })
 it.each([['darwin','macos'],['win32','windows'],['linux','linux']] as const)('reports Node platform %s as linked runtime platform %s',(nodePlatform,expected)=>{expect(linkedRuntimePlatform(nodePlatform)).toBe(expected)})
 it('uses a safe 64-chat host ceiling even when the environment is malformed or too high',()=>{expect(linkedRunMaxTotalConcurrency('not-a-number')).toBe(64);expect(linkedRunMaxTotalConcurrency('120')).toBe(64);expect(linkedRunMaxTotalConcurrency('0')).toBe(64);expect(linkedRunMaxTotalConcurrency('9999')).toBe(64)})

@@ -271,12 +271,17 @@ function readFleetControlAck(
     ) {
       return { completed: true }
     }
-    if (ack.status === 'failed') {
+    // Fleet defers mid-run restarts instead of SIGTERM'ing active /v1/runs.
+    // Treat deferred like failed so credential/policy jobs wait and retry —
+    // never fall through to a hard per-profile stop fallback.
+    if (ack.status === 'failed' || ack.status === 'deferred') {
       return {
         completed: true,
         error: typeof ack.error === 'string'
           ? ack.error
-          : `Hermes profile ${agentId} could not ${action}`,
+          : ack.status === 'deferred'
+            ? `Hermes profile ${agentId} still has active work; ${action} deferred`
+            : `Hermes profile ${agentId} could not ${action}`,
       }
     }
   } catch {

@@ -42,11 +42,24 @@ import {
   type PrepareEmp501Command,
   type PrepareIrp5Command,
 } from './statutory-service'
+import {
+  FinancePayrollLeaveService,
+  type BuildPayslipPackCommand,
+  type CreateLeaveTypeCommand,
+  type DecideLeaveCommand,
+  type LinkEmployeeUserCommand,
+  type RequestLeaveCommand,
+  type SetLeaveBalanceCommand,
+} from './leave-service'
+import { FinanceNotFoundError } from '@/lib/finance/errors'
 import type {
   Emp201Snapshot,
   Emp501Reconciliation,
   EmploymentTermVersion,
   Irp5Record,
+  LeaveBalance,
+  LeaveRecord,
+  LeaveType,
   PayComponentDefinition,
   PayPeriod,
   PayRun,
@@ -61,6 +74,7 @@ import type {
   PayrollTaxYear,
   PayrollYtdOpening,
   Payslip,
+  PayslipDownloadPack,
 } from './types'
 
 export type {
@@ -70,10 +84,12 @@ export type {
   ApprovePayrollRuleVersionCommand,
   ApproveStatutoryCommand,
   ApproveYtdOpeningCommand,
+  BuildPayslipPackCommand,
   CalculateEmployeePayrollCommand,
   CloseTaxYearCommand,
   CreateCorrectionPayRunCommand,
   CreateEmploymentTermVersionCommand,
+  CreateLeaveTypeCommand,
   CreatePayComponentCommand,
   CreatePayPeriodCommand,
   CreatePayRunCommand,
@@ -83,14 +99,18 @@ export type {
   CreatePayrollRuleVersionCommand,
   CreateTaxYearCommand,
   CreateYtdOpeningCommand,
+  DecideLeaveCommand,
   FreezePayRunInputsCommand,
   GenerateExportCommand,
+  LinkEmployeeUserCommand,
   LockTaxYearCommand,
   ObserveExternalSalaryPaymentCommand,
   PrepareEmp201Command,
   PrepareEmp501Command,
   PrepareIrp5Command,
+  RequestLeaveCommand,
   ReversePayRunCommand,
+  SetLeaveBalanceCommand,
   SubmitPayRunCommand,
 }
 
@@ -136,6 +156,10 @@ async function hydratePayrollStore(db: Firestore, scope: Required<FinanceScope>)
     db.collection('emp201_snapshots').where('orgId', '==', scope.orgId).where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId).get(),
     db.collection('emp501_reconciliations').where('orgId', '==', scope.orgId).where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId).get(),
     db.collection('payroll_export_manifests').where('orgId', '==', scope.orgId).where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId).get(),
+    db.collection('leave_types').where('orgId', '==', scope.orgId).where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId).get(),
+    db.collection('leave_balances').where('orgId', '==', scope.orgId).where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId).get(),
+    db.collection('leave_records').where('orgId', '==', scope.orgId).where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId).get(),
+    db.collection('payslip_download_packs').where('orgId', '==', scope.orgId).where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId).get(),
     db.collection('finance_approvals').where('orgId', '==', scope.orgId).where('legalEntityId', '==', scope.legalEntityId).where('bookId', '==', scope.bookId).get(),
     db.collection('finance_unique_claims').where('orgId', '==', scope.orgId).where('legalEntityId', '==', scope.legalEntityId).get(),
     db.collection('finance_idempotency_claims').where('orgId', '==', scope.orgId).get(),
@@ -145,6 +169,7 @@ async function hydratePayrollStore(db: Firestore, scope: Required<FinanceScope>)
   const [
     employees, employments, terms, components, rules, calendars, periods, calcs,
     runs, items, payslips, adjustments, taxYears, ytd, irp5, emp201, emp501, exports,
+    leaveTypes, leaveBalances, leaveRecords, payslipPacks,
     approvals, claims, idempotency, audit,
   ] = loads
 
@@ -173,6 +198,10 @@ async function hydratePayrollStore(db: Firestore, scope: Required<FinanceScope>)
   put(emp201, store.emp201Snapshots, (d) => d as Emp201Snapshot)
   put(emp501, store.emp501Reconciliations, (d) => d as Emp501Reconciliation)
   put(exports, store.exportManifests, (d) => d as PayrollExportManifest)
+  put(leaveTypes, store.leaveTypes, (d) => d as LeaveType)
+  put(leaveBalances, store.leaveBalances, (d) => d as LeaveBalance)
+  put(leaveRecords, store.leaveRecords, (d) => d as LeaveRecord)
+  put(payslipPacks, store.payslipPacks, (d) => d as PayslipDownloadPack)
   put(approvals, store.approvals, (d) => d as FinanceApprovalRecord)
 
   for (const doc of claims.docs) {
@@ -238,6 +267,10 @@ async function persistPayrollStore(
   writeMap('emp201_snapshots', before.emp201Snapshots, after.emp201Snapshots)
   writeMap('emp501_reconciliations', before.emp501Reconciliations, after.emp501Reconciliations)
   writeMap('payroll_export_manifests', before.exportManifests, after.exportManifests)
+  writeMap('leave_types', before.leaveTypes, after.leaveTypes)
+  writeMap('leave_balances', before.leaveBalances, after.leaveBalances)
+  writeMap('leave_records', before.leaveRecords, after.leaveRecords)
+  writeMap('payslip_download_packs', before.payslipPacks, after.payslipPacks)
 
   for (const [claimId, aggregateId] of after.uniqueClaims) {
     if (before.uniqueClaims.get(claimId) === aggregateId) continue
@@ -283,6 +316,10 @@ function snapshotState(store: InMemoryPayrollStore): PayrollServiceState {
     payRunItems: new Map(store.payRunItems),
     payslips: new Map(store.payslips),
     adjustments: new Map(store.adjustments),
+    leaveTypes: new Map(store.leaveTypes),
+    leaveBalances: new Map(store.leaveBalances),
+    leaveRecords: new Map(store.leaveRecords),
+    payslipPacks: new Map(store.payslipPacks),
     taxYears: new Map(store.taxYears),
     ytdOpenings: new Map(store.ytdOpenings),
     irp5Records: new Map(store.irp5Records),
@@ -415,28 +452,70 @@ export class FirestoreFinancePayrollGateway {
     return this.withStore(actor, this.scopeOf(command), (store) => new FinancePayrollStatutoryService(store).generateExportManifest(actor, command))
   }
 
+  createLeaveType(actor: FinanceActorContext, command: CreateLeaveTypeCommand) {
+    return this.withStore(actor, this.scopeOf(command), (store) => new FinancePayrollLeaveService(store).createLeaveType(actor, command))
+  }
+  setLeaveBalance(actor: FinanceActorContext, command: SetLeaveBalanceCommand) {
+    return this.withStore(actor, this.scopeOf(command), (store) => new FinancePayrollLeaveService(store).setLeaveBalance(actor, command))
+  }
+  requestLeave(actor: FinanceActorContext, command: RequestLeaveCommand) {
+    return this.withStore(actor, this.scopeOf(command), (store) => new FinancePayrollLeaveService(store).requestLeave(actor, command))
+  }
+  decideLeave(actor: FinanceActorContext, command: DecideLeaveCommand) {
+    return this.withStore(actor, this.scopeOf(command), (store) => new FinancePayrollLeaveService(store).decideLeave(actor, command))
+  }
+  linkEmployeeUser(actor: FinanceActorContext, command: LinkEmployeeUserCommand) {
+    return this.withStore(actor, this.scopeOf(command), (store) => new FinancePayrollLeaveService(store).linkEmployeeUser(actor, command))
+  }
+  buildPayslipPack(actor: FinanceActorContext, command: BuildPayslipPackCommand) {
+    return this.withStore(actor, this.scopeOf(command), (store) => new FinancePayrollLeaveService(store).buildPayslipPack(actor, command))
+  }
+  markPayslipPackDownloaded(
+    actor: FinanceActorContext,
+    command: Required<FinanceScope> & { packId: string; requestId: string; idempotencyKey: string },
+  ) {
+    return this.withStore(actor, this.scopeOf(command), (store) =>
+      new FinancePayrollLeaveService(store).markPayslipPackDownloaded(actor, this.scopeOf(command), command.packId, {
+        requestId: command.requestId,
+        idempotencyKey: command.idempotencyKey,
+      }),
+    )
+  }
+
   async listBundle(actor: FinanceActorContext, scope: Required<FinanceScope>) {
     authorizeFinanceAction(actor, scope, 'payroll.employee.read')
     const store = await hydratePayrollStore(this.db, scope)
-    const calc = new FinancePayrollCalculationService(store)
     const payRuns = new FinancePayRunService(store)
     const statutory = new FinancePayrollStatutoryService(store)
-    void calc
+    const leave = new FinancePayrollLeaveService(store)
+    const leaveBundle = leave.listLeaveBundle(scope)
     return {
-      employees: [...store.employees.values()],
+      employees: [...store.employees.values()].map((e) => ({
+        id: e.id,
+        employeeNumber: e.employeeNumber,
+        displayName: e.displayName,
+        status: e.status,
+        startDate: e.startDate,
+        taxResidency: e.taxResidency,
+        linkedUserId: e.linkedUserId ?? null,
+        version: e.version,
+      })),
       employments: [...store.employments.values()],
       termVersions: [...store.termVersions.values()],
       components: [...store.components.values()],
       ruleVersions: [...store.ruleVersions.values()],
       calendars: [...store.calendars.values()],
       periods: [...store.periods.values()],
+      calendarProjection: leaveBundle.calendarProjection,
+      leaveTypes: leaveBundle.leaveTypes,
+      leaveBalances: leaveBundle.leaveBalances,
+      leaveRecords: leaveBundle.leaveRecords,
       calculations: [...store.calculations.values()],
       payRuns: [...store.payRuns.values()],
       payRunItems: [...store.payRunItems.values()],
       adjustments: [...store.adjustments.values()],
       taxYears: [...store.taxYears.values()],
       ytdOpenings: [...store.ytdOpenings.values()],
-      // payslips / statutory via dedicated getters with stronger auth
       payslipCount: store.payslips.size,
       irp5Count: store.irp5Records.size,
       emp201Count: store.emp201Snapshots.size,
@@ -445,6 +524,7 @@ export class FirestoreFinancePayrollGateway {
       externalPaymentInitiated: false,
       sarsSubmissionInitiated: false,
       externalEgressAllowed: false,
+      autoSent: false,
       payRunsService: Boolean(payRuns),
       statutoryService: Boolean(statutory),
     }
@@ -453,6 +533,21 @@ export class FirestoreFinancePayrollGateway {
   async getPayslip(actor: FinanceActorContext, scope: Required<FinanceScope>, payslipId: string) {
     const store = await hydratePayrollStore(this.db, scope)
     return new FinancePayRunService(store).getPayslip(actor, scope, payslipId)
+  }
+
+  async listMyPayslips(actor: FinanceActorContext, scope: Required<FinanceScope>) {
+    const store = await hydratePayrollStore(this.db, scope)
+    return new FinancePayrollLeaveService(store).listMyPayslips(actor, scope)
+  }
+
+  async getPayslipPack(actor: FinanceActorContext, scope: Required<FinanceScope>, packId: string) {
+    const store = await hydratePayrollStore(this.db, scope)
+    const pack = store.payslipPacks.get(packId)
+    if (!pack || pack.orgId !== scope.orgId || pack.legalEntityId !== scope.legalEntityId || pack.bookId !== scope.bookId) {
+      throw new FinanceNotFoundError('Payslip pack not found')
+    }
+    new FinancePayRunService(store).getPayslip(actor, scope, pack.payslipId)
+    return structuredClone(pack)
   }
 
   async getIrp5(actor: FinanceActorContext, scope: Required<FinanceScope>, id: string) {

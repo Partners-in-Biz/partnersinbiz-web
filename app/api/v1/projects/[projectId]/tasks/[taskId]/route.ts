@@ -439,6 +439,45 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
           : null,
       chatOriginConversationId: typeof chatOrigin?.conversationId === 'string' ? chatOrigin.conversationId : null,
     }).catch(() => {})
+
+    // Workflow Graph engine write-back: only for tasks stamped with workflowRunId.
+    // Proven-done is enforced in the engine (expectedArtifacts); false-done is rejected.
+    if (typeof existing.workflowRunId === 'string' && existing.workflowRunId) {
+      const workflowOutcome =
+        lifecycleStatus === 'done' || acceptedIntoDone
+          ? 'done' as const
+          : lifecycleStatus === 'awaiting-input'
+            ? 'awaiting_input' as const
+            : lifecycleStatus === 'blocked'
+              ? 'blocked' as const
+              : null
+      if (workflowOutcome) {
+        const telemetry = isRecord(agentOutput?.telemetry) ? agentOutput.telemetry : null
+        void import('@/lib/workflow-graph').then(({ handleKanbanTaskTerminalForWorkflow }) =>
+          handleKanbanTaskTerminalForWorkflow({
+            task: { ...existing, ...updateValue, id: taskId, agentOutput },
+            outcome:
+              workflowOutcome === 'done'
+              && String(updateValue.approvalStatus ?? existing.approvalStatus ?? '') === 'rejected'
+                ? 'rejected'
+                : workflowOutcome,
+            summary: typeof agentOutput?.summary === 'string' ? agentOutput.summary : undefined,
+            tokensIn: typeof telemetry?.inputTokens === 'number' ? telemetry.inputTokens : undefined,
+            tokensOut: typeof telemetry?.outputTokens === 'number' ? telemetry.outputTokens : undefined,
+            tokensTotal: typeof telemetry?.totalTokens === 'number' ? telemetry.totalTokens : undefined,
+            estimatedCost: typeof telemetry?.costUsd === 'number' ? telemetry.costUsd : undefined,
+            model: typeof telemetry?.model === 'string' ? telemetry.model : undefined,
+            provider: typeof telemetry?.provider === 'string' ? telemetry.provider : undefined,
+            hermesRunId: typeof updateValue.agentConversationId === 'string'
+              ? updateValue.agentConversationId
+              : typeof existing.agentConversationId === 'string'
+                ? existing.agentConversationId
+                : undefined,
+            actorUid: user.uid,
+          }),
+        ).catch(() => {})
+      }
+    }
   }
 
   const previousAssignees = new Set(Array.isArray(existing.assigneeIds) ? existing.assigneeIds : existing.assigneeId ? [existing.assigneeId] : [])

@@ -113,6 +113,35 @@ describe('macOS Hermes launchd fleet lifecycle', () => {
     expect(mockSpawnSync.mock.calls.some(([, args]) => Array.isArray(args) && args.includes('-k'))).toBe(false)
   })
 
+  it('surfaces deferred busy restarts without falling back to a hard profile stop', async () => {
+    let request: { requestId: string } | null = null
+    mockSpawnSync
+      .mockReturnValueOnce({ status: 1, stdout: '', stderr: '' }) // which hermes
+      .mockReturnValueOnce({ status: 0, stdout: 'state = running\n', stderr: '' }) // launchctl print
+    mockWriteFileSync.mockImplementation((_file: unknown, contents: unknown) => {
+      request = JSON.parse(String(contents)) as { requestId: string }
+    })
+    mockReadFileSync.mockImplementation((file: unknown) => {
+      if (String(file).includes('/acks/')) {
+        return JSON.stringify({
+          action: 'restart',
+          requestId: request?.requestId,
+          status: 'deferred',
+          error: 'profile has active /v1/runs; restart deferred',
+        })
+      }
+      return ''
+    })
+
+    await expect(reloadHermesGateway({ agentId: 'docs', env })).resolves.toEqual({
+      started: false,
+      pid: null,
+      hermesBin: null,
+      error: 'profile has active /v1/runs; restart deferred',
+    })
+    expect(mockSpawnSync.mock.calls.some(([, args]) => Array.isArray(args) && args.includes('gateway'))).toBe(false)
+  })
+
   it('uses the existing target-only supervisor recovery while an older fleet script is still running', async () => {
     const fallbackEnv = { ...env, PIB_HERMES_BIN: '/tmp/hermes' }
     mockExistsSync.mockImplementation((file: unknown) =>

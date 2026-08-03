@@ -20,6 +20,18 @@ import {
   PackagingFinanceNotFoundError,
   PackagingFinanceValidationError,
 } from '@/lib/finance/packaging/service'
+import {
+  MultiCurrencyFinanceNotFoundError,
+  MultiCurrencyFinanceValidationError,
+} from '@/lib/finance/multi-currency/service'
+import {
+  BankRulesNotFoundError,
+  BankRulesValidationError,
+} from '@/lib/finance/bank-rules/service'
+import {
+  BudgetsNotFoundError,
+  BudgetsValidationError,
+} from '@/lib/finance/budgets/service'
 
 /** Non-enumerating denial for sensitive finance/payroll resources. */
 export class FinanceNotFoundError extends Error {
@@ -52,7 +64,13 @@ export function isFinanceHttpError(error: unknown): error is Error & { statusCod
     error instanceof CutoverFinanceNotFoundError ||
     error instanceof CutoverFinanceValidationError ||
     error instanceof PackagingFinanceNotFoundError ||
-    error instanceof PackagingFinanceValidationError
+    error instanceof PackagingFinanceValidationError ||
+    error instanceof MultiCurrencyFinanceNotFoundError ||
+    error instanceof MultiCurrencyFinanceValidationError ||
+    error instanceof BankRulesNotFoundError ||
+    error instanceof BankRulesValidationError ||
+    error instanceof BudgetsNotFoundError ||
+    error instanceof BudgetsValidationError
   )
 }
 
@@ -70,7 +88,10 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof CrossOrgFinanceNotFoundError ||
     error instanceof StatementFinanceNotFoundError ||
     error instanceof CutoverFinanceNotFoundError ||
-    error instanceof PackagingFinanceNotFoundError
+    error instanceof PackagingFinanceNotFoundError ||
+    error instanceof MultiCurrencyFinanceNotFoundError ||
+    error instanceof BankRulesNotFoundError ||
+    error instanceof BudgetsNotFoundError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_not_found' }
   }
@@ -80,7 +101,10 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof CrossOrgFinanceValidationError ||
     error instanceof StatementFinanceValidationError ||
     error instanceof CutoverFinanceValidationError ||
-    error instanceof PackagingFinanceValidationError
+    error instanceof PackagingFinanceValidationError ||
+    error instanceof MultiCurrencyFinanceValidationError ||
+    error instanceof BankRulesValidationError ||
+    error instanceof BudgetsValidationError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_validation' }
   }
