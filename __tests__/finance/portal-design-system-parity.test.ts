@@ -93,6 +93,7 @@ describe('finance portal design-system parity', () => {
     'app/(portal)/portal/finance/runbooks/page.tsx',
     'app/(portal)/portal/finance/practice/page.tsx',
     'app/(portal)/portal/finance/job-costing/page.tsx',
+    'app/(portal)/portal/finance/inventory/page.tsx',
     // Phase 4 competitor-parity surfaces (must keep FinanceModuleFrame + tenant scope helpers)
     'app/(portal)/portal/finance/assets/page.tsx',
     'app/(portal)/portal/finance/bank-rules/page.tsx',
@@ -122,6 +123,7 @@ describe('finance portal design-system parity', () => {
     expect(FINANCE_PRIMARY_TABS).toContain('runbooks')
     expect(financeNavItem('packaging').href).toBe('/portal/finance/packaging')
     expect(financeNavItem('job-costing').href).toBe('/portal/finance/job-costing')
+    expect(financeNavItem('inventory').href).toBe('/portal/finance/inventory')
     expect(financeNavItem('practice').href).toBe('/portal/finance/practice')
     expect(financeNavItem('runbooks').href).toBe('/portal/finance/runbooks')
     expect(financeNavItem('period-close').href).toBe('/portal/finance/period-close')
@@ -176,6 +178,7 @@ describe('finance portal design-system parity', () => {
       'app/(portal)/portal/finance/payroll/page.tsx',
       'app/(portal)/portal/finance/packaging/page.tsx',
       'app/(portal)/portal/finance/job-costing/page.tsx',
+      'app/(portal)/portal/finance/inventory/page.tsx',
       'app/(portal)/portal/finance/assets/page.tsx',
       'app/(portal)/portal/finance/bank-rules/page.tsx',
       'app/(portal)/portal/finance/budgets/page.tsx',

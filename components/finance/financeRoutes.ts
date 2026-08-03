@@ -7,6 +7,7 @@ export type FinanceRouteKey =
   | 'payroll'
   | 'assets'
   | 'job-costing'
+  | 'inventory'
   | 'packaging'
   | 'intercompany'
   | 'personal'
@@ -20,6 +21,7 @@ export type FinanceRouteKey =
   | 'setup'
   | 'runbooks'
   | 'period-close'
+  | 'proving'
 
 export type FinanceNavItem = {
   key: FinanceRouteKey
@@ -94,6 +96,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     href: '/portal/finance/job-costing',
     icon: 'work',
     description: 'Project dimensions, project P&L / WIP, and optional time costing without double-billing.',
+    group: 'books',
+  },
+  {
+    key: 'inventory',
+    label: 'Inventory',
+    href: '/portal/finance/inventory',
+    icon: 'shelves',
+    description: 'SKU master, stock on hand, bill/invoice qty movements, COGS on issue, audited adjustments — no WMS/POS.',
     group: 'books',
   },
   {
@@ -211,6 +221,7 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'payroll',
   'assets',
   'job-costing',
+  'inventory',
   'packaging',
   'statements',
   'bank-rules',

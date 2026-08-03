@@ -36,6 +36,7 @@ import {
   OperatorDepthNotFoundError,
   OperatorDepthValidationError,
 } from '@/lib/finance/operator-depth/service'
+import { InventoryFinanceNotFoundError } from '@/lib/accounting/inventory-service'
 
 /** Non-enumerating denial for sensitive finance/payroll resources. */
 export class FinanceNotFoundError extends Error {
@@ -76,7 +77,8 @@ export function isFinanceHttpError(error: unknown): error is Error & { statusCod
     error instanceof BudgetsNotFoundError ||
     error instanceof BudgetsValidationError ||
     error instanceof OperatorDepthNotFoundError ||
-    error instanceof OperatorDepthValidationError
+    error instanceof OperatorDepthValidationError ||
+    error instanceof InventoryFinanceNotFoundError
   )
 }
 
@@ -98,7 +100,8 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof MultiCurrencyFinanceNotFoundError ||
     error instanceof BankRulesNotFoundError ||
     error instanceof BudgetsNotFoundError ||
-    error instanceof OperatorDepthNotFoundError
+    error instanceof OperatorDepthNotFoundError ||
+    error instanceof InventoryFinanceNotFoundError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_not_found' }
   }

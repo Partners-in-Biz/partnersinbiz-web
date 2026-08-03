@@ -96,6 +96,9 @@ export type FinanceAction =
   | 'payroll.statutory.read'
   | 'payroll.export.generate'
   | 'payroll.export.approve'
+  | 'payroll.bureau.read'
+  | 'payroll.structure.configure'
+  | 'payroll.structure.read'
   | 'consolidation.read'
   | 'job_costing.read'
   | 'job_costing.time_cost.apply'
@@ -108,6 +111,13 @@ export type FinanceAction =
   | 'asset.depreciation.run.post'
   | 'asset.dispose'
   | 'asset.report.read'
+  | 'inventory.item.create'
+  | 'inventory.item.update'
+  | 'inventory.bill_receipt.apply'
+  | 'inventory.invoice_issue.apply'
+  | 'inventory.adjustment.create'
+  | 'inventory.read'
+  | 'inventory.report.read'
   | 'role.read'
   | 'role.assign'
   | 'audit.read'
@@ -215,6 +225,9 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'payroll.statutory.read': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver', 'finance_approver'],
   'payroll.export.generate': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
   'payroll.export.approve': ['finance_admin', 'payroll_approver'],
+  'payroll.bureau.read': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver', 'finance_approver'],
+  'payroll.structure.configure': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver'],
+  'payroll.structure.read': ['finance_admin', 'accountant', 'payroll_clerk', 'payroll_approver', 'finance_approver'],
   'consolidation.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
   'job_costing.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
   'job_costing.time_cost.apply': ['bookkeeper', 'accountant', 'finance_admin'],
@@ -227,6 +240,13 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'asset.depreciation.run.post': ['accountant', 'finance_approver', 'finance_admin'],
   'asset.dispose': ['accountant', 'finance_approver', 'finance_admin'],
   'asset.report.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'inventory.item.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'inventory.item.update': ['bookkeeper', 'accountant', 'finance_admin'],
+  'inventory.bill_receipt.apply': ['bookkeeper', 'accountant', 'finance_admin'],
+  'inventory.invoice_issue.apply': ['bookkeeper', 'accountant', 'finance_admin'],
+  'inventory.adjustment.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'inventory.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'inventory.report.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
   'role.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
   'role.assign': ['finance_admin'],
   'audit.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
