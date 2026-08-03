@@ -44,14 +44,15 @@ function clean(value: string | null): string | undefined {
 
 export function parseConversationLiveQuery(url: string): ConversationLiveQuery {
   const searchParams = new URL(url).searchParams
-  const rawLimit = Number.parseInt(searchParams.get('limit') ?? '30', 10)
-  const requestedScope = clean(searchParams.get('scope'))
   const includeAllScopes = clean(searchParams.get('includeAllScopes'))?.toLowerCase() === 'true'
     || clean(searchParams.get('includeAllScopes')) === '1'
+  const defaultLimit = includeAllScopes ? 100 : 30
+  const rawLimit = Number.parseInt(searchParams.get('limit') ?? String(defaultLimit), 10)
+  const requestedScope = clean(searchParams.get('scope'))
 
   return {
     orgId: clean(searchParams.get('orgId')) ?? null,
-    limit: Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 100)) : 30,
+    limit: Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 100)) : defaultLimit,
     ...(requestedScope && VALID_SCOPES.has(requestedScope as ConversationScope)
       ? { scope: requestedScope as ConversationScope }
       : {}),

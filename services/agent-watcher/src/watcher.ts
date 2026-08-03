@@ -36,6 +36,97 @@ import { buildCeoDataDecisionOperatingRule as buildSharedCeoDataDecisionOperatin
 import { notifyCommandSessionFromTask } from './command-session'
 import { buildCompletionArtifacts, notifyWorkflowGraphTerminal } from './workflow-writeback'
 
+
+function expectedArtifactsFromTask(taskData: TaskData): string[] | undefined {
+  const top = Array.isArray(taskData.expectedArtifacts)
+    ? taskData.expectedArtifacts.filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    : []
+  if (top.length > 0) return top
+  const ctx = taskData.agentInput?.context
+  const nested = ctx && Array.isArray(ctx.expectedArtifacts)
+    ? ctx.expectedArtifacts.filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+    : []
+  return nested.length > 0 ? nested : undefined
+}
+
+function normalizeArtifactList(value: unknown): Array<{ type: string; ref: string; label?: string }> {
+  if (!Array.isArray(value)) return []
+  const out: Array<{ type: string; ref: string; label?: string }> = []
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue
+    const rec = item as Record<string, unknown>
+    const type = typeof rec.type === 'string' ? rec.type.trim() : ''
+    const ref = typeof rec.ref === 'string' ? rec.ref.trim() : ''
+    if (!type || !ref) continue
+    const label = typeof rec.label === 'string' && rec.label.trim() ? rec.label.trim() : undefined
+    out.push(label ? { type, ref, label } : { type, ref })
+  }
+  return out
+}
+
+/**
+ * Build completion agentOutput without wiping producer-patched artifacts.
+ * Race class: Hermes run ends after Quinn PATCH cleanAgentOutput(artifacts) →
+ * summary/telemetry-only replace thrash. Always re-read live store and merge.
+ */
+async function buildMergedDoneAgentOutput(input: {
+  taskRef: DocumentReference
+  taskData: TaskData
+  summary: string
+  telemetry: AgentRunTelemetry | Record<string, unknown> | null | undefined
+}): Promise<Record<string, unknown>> {
+  const liveSnap = await input.taskRef.get().catch(() => null)
+  const liveData = (liveSnap?.data() ?? input.taskData) as TaskData
+  const liveAo =
+    liveData.agentOutput && typeof liveData.agentOutput === 'object'
+      ? ({ ...liveData.agentOutput } as Record<string, unknown>)
+      : {}
+  const claimAo =
+    input.taskData.agentOutput && typeof input.taskData.agentOutput === 'object'
+      ? ({ ...input.taskData.agentOutput } as Record<string, unknown>)
+      : {}
+  const mergedBase: Record<string, unknown> = { ...claimAo, ...liveAo }
+  const summary = (input.summary || '').trim() || (typeof mergedBase.summary === 'string' ? mergedBase.summary : '')
+  if (summary) mergedBase.summary = summary
+
+  const expected = expectedArtifactsFromTask(liveData) ?? expectedArtifactsFromTask(input.taskData)
+  const built = buildCompletionArtifacts({
+    agentOutput: mergedBase,
+    summary,
+    expectedArtifacts: expected,
+  })
+  const liveArtifacts = normalizeArtifactList(liveAo.artifacts)
+  const claimArtifacts = normalizeArtifactList(claimAo.artifacts)
+  // Prefer non-empty structured arrays already on the store (producer dual-hold gold).
+  const artifacts =
+    liveArtifacts.length > 0
+      ? liveArtifacts
+      : built.length > 0
+        ? built
+        : claimArtifacts
+
+  const doneAgentOutput: Record<string, unknown> = {
+    summary: summary || 'Task completed',
+    completedAt: new Date().toISOString(),
+  }
+  if (input.telemetry && typeof input.telemetry === 'object') {
+    doneAgentOutput.telemetry = input.telemetry
+  }
+  // Preserve producer typed top-level keys (go_no_go, commit, etc.) when present.
+  for (const [key, value] of Object.entries(mergedBase)) {
+    if (key === 'summary' || key === 'telemetry' || key === 'completedAt' || key === 'artifacts') continue
+    if (typeof value === 'string' && value.trim()) doneAgentOutput[key] = value.trim()
+  }
+  if (artifacts.length > 0) {
+    doneAgentOutput.artifacts = artifacts
+    for (const item of artifacts) {
+      if (!doneAgentOutput[item.type]) doneAgentOutput[item.type] = item.ref
+    }
+  }
+  return doneAgentOutput
+}
+
+
 const MAX_CONCURRENT_PER_AGENT = 5
 const READY_TASK_SWEEP_MS = 60_000
 const MAX_READY_SWEEP_DOCS = 100
@@ -1093,26 +1184,14 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       (typeof taskData.reviewerAgentId === 'string' && taskData.reviewerAgentId.trim())
       || (Array.isArray(taskData.reviewerIds) && taskData.reviewerIds.some((id) => typeof id === 'string' && id.trim())),
     )
-    // Preserve typed artifacts for dual-GET review + Workflow Graph write-back.
-    // Never write summary/telemetry-only agentOutput — that thrash wiped golden stubs.
-    const artifacts = buildCompletionArtifacts({
-      agentOutput: taskData.agentOutput,
-      summary,
-      expectedArtifacts: taskData.expectedArtifacts,
-    })
-    const doneAgentOutput: Record<string, unknown> = {
+    // Preserve producer-patched artifacts (merge live store). Never replace with
+    // summary/telemetry-only — that thrash wiped Quinn dual-hold gold repeatedly.
+    const doneAgentOutput = await buildMergedDoneAgentOutput({
+      taskRef,
+      taskData,
       summary,
       telemetry,
-      completedAt: FieldValue.serverTimestamp(),
-    }
-    if (artifacts.length > 0) {
-      doneAgentOutput.artifacts = artifacts
-      for (const item of artifacts) {
-        if (typeof item.type === 'string' && item.type && typeof item.ref === 'string' && item.ref) {
-          doneAgentOutput[item.type] = item.ref
-        }
-      }
-    }
+    })
     await taskRef.update({
       ...agentStatusUpdate('done', { hasReviewer }),
       ...(activeRunId ? { agentConversationId: activeRunId } : {}),
