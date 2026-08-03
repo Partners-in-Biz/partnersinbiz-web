@@ -53,6 +53,15 @@ export function extractWorkflowStamp(taskData: Record<string, unknown>): {
   return { runId, nodeId, orgId }
 }
 
+/** Firestore rejects `undefined` field values; drop them before set/merge. */
+export function omitUndefined<T extends Record<string, unknown>>(input: T): T {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(input)) {
+    if (value !== undefined) out[key] = value
+  }
+  return out as T
+}
+
 export function extractEvidenceFromAgentOutput(agentOutput: unknown): WorkflowEvidenceItem[] {
   const evidence: WorkflowEvidenceItem[] = []
   if (!agentOutput || typeof agentOutput !== 'object') return evidence
@@ -70,11 +79,11 @@ export function extractEvidenceFromAgentOutput(agentOutput: unknown): WorkflowEv
             : ''
       const ref = typeof artifact.ref === 'string' ? artifact.ref : ''
       if (type && ref) {
-        evidence.push({
-          type,
-          ref,
-          label: typeof artifact.label === 'string' ? artifact.label : undefined,
-        })
+        const item: WorkflowEvidenceItem = { type, ref }
+        if (typeof artifact.label === 'string' && artifact.label.trim()) {
+          item.label = artifact.label
+        }
+        evidence.push(item)
       }
     }
   }
@@ -131,7 +140,7 @@ export async function notifyWorkflowGraphTerminal(input: WorkflowWritebackInput)
   const str = (value: unknown): string | undefined =>
     typeof value === 'string' && value.trim() ? value.trim() : undefined
 
-  const payload = {
+  const payload = omitUndefined({
     dedupeKey,
     orgId: stamp.orgId || undefined,
     workflowRunId: stamp.runId,
@@ -154,7 +163,7 @@ export async function notifyWorkflowGraphTerminal(input: WorkflowWritebackInput)
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     source: 'agent-watcher',
-  }
+  })
 
   try {
     const ref = db.collection(OUTBOX).doc(dedupeKey.replace(/[^a-zA-Z0-9:_-]/g, '_'))
@@ -163,12 +172,12 @@ export async function notifyWorkflowGraphTerminal(input: WorkflowWritebackInput)
       await ref.set(payload)
     } else {
       await ref.set(
-        {
+        omitUndefined({
           ...payload,
           createdAt: existing.data()?.createdAt ?? FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
           status: existing.data()?.status === 'applied' ? 'applied' : 'pending',
-        },
+        }),
         { merge: true },
       )
     }

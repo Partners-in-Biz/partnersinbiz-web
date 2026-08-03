@@ -124,5 +124,49 @@ describe('workflow graph write-back perfection', () => {
     expect(watcher).toContain('notifyWorkflowGraphTerminal')
     expect(writeback).toContain('workflow_writeback_outbox')
     expect(writeback).toContain('/workflow-runs/')
+    // Firestore rejects undefined field values — outbox payload must omit them.
+    expect(writeback).toContain('omitUndefined')
+  })
+
+  test('omitUndefined drops undefined keys for Firestore-safe outbox docs', () => {
+    function omitUndefined<T extends Record<string, unknown>>(input: T): T {
+      const out: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(input)) {
+        if (value !== undefined) out[key] = value
+      }
+      return out as T
+    }
+
+    const payload = omitUndefined({
+      dedupeKey: 'run:node:task:blocked:norun',
+      orgId: 'pib-platform-owner',
+      workflowRunId: 'run',
+      workflowNodeId: 'node',
+      kanbanTaskId: 'task',
+      outcome: 'blocked',
+      summary: 'probe',
+      evidence: [],
+      hermesRunId: undefined,
+      errorFamily: undefined,
+      tokensIn: undefined,
+      actorUid: 'agent-watcher',
+      status: 'pending',
+      source: 'agent-watcher',
+    })
+
+    expect(payload).toEqual({
+      dedupeKey: 'run:node:task:blocked:norun',
+      orgId: 'pib-platform-owner',
+      workflowRunId: 'run',
+      workflowNodeId: 'node',
+      kanbanTaskId: 'task',
+      outcome: 'blocked',
+      summary: 'probe',
+      evidence: [],
+      actorUid: 'agent-watcher',
+      status: 'pending',
+      source: 'agent-watcher',
+    })
+    expect(Object.values(payload).every((v) => v !== undefined)).toBe(true)
   })
 })
