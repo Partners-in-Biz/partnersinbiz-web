@@ -161,6 +161,9 @@ const WORKBENCH_BROWSER_FOLLOW_INTERVAL_MS = 800
 const WORKBENCH_BROWSER_IDLE_POLL_INTERVAL_MS = 2_500
 const CONVERSATION_REALTIME_GATEWAY_URL = process.env.NEXT_PUBLIC_CONVERSATION_REALTIME_GATEWAY_URL?.trim() ?? ''
 const CONVERSATION_REALTIME_TRANSPORT = process.env.NEXT_PUBLIC_CONVERSATION_REALTIME_TRANSPORT?.trim().toLowerCase() ?? 'off'
+const CONVERSATION_REALTIME_WEBSOCKET_URL = CONVERSATION_REALTIME_GATEWAY_URL
+  .replace(/^https:/i, 'wss:')
+  .replace(/^http:/i, 'ws:')
 
 type AgentId = string
 
@@ -4278,7 +4281,7 @@ export default function UnifiedChat({
     const mode = CONVERSATION_REALTIME_TRANSPORT
     if (
       !conversationPageVisible
-      || !CONVERSATION_REALTIME_GATEWAY_URL
+      || !CONVERSATION_REALTIME_WEBSOCKET_URL
       || (mode !== 'shadow' && mode !== 'enabled')
       || typeof window === 'undefined'
       || typeof window.WebSocket !== 'function'
@@ -4309,7 +4312,7 @@ export default function UnifiedChat({
       try {
         const token = await user.getIdToken()
         if (disposed) return
-        const nextSocket = new window.WebSocket(CONVERSATION_REALTIME_GATEWAY_URL)
+        const nextSocket = new window.WebSocket(CONVERSATION_REALTIME_WEBSOCKET_URL)
         socket = nextSocket
         nextSocket.onopen = () => nextSocket.send(JSON.stringify({ type: 'authenticate', token }))
         nextSocket.onmessage = (event) => {
