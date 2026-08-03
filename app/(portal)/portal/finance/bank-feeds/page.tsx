@@ -47,11 +47,11 @@ type Bundle = {
   hardGates?: Record<string, boolean>
 }
 
-function healthTone(status?: string): 'live' | 'warning' | 'danger' | 'default' | 'accent' {
+function healthTone(status?: string): 'live' | 'warning' | 'default' | 'accent' {
   if (status === 'healthy') return 'live'
   if (status === 'syncing') return 'accent'
   if (status === 'stale') return 'warning'
-  if (status === 'error' || status === 'needs_reconnect' || status === 'disconnected') return 'danger'
+  if (status === 'error' || status === 'needs_reconnect' || status === 'disconnected') return 'warning'
   return 'default'
 }
 
@@ -320,7 +320,7 @@ export default function FinanceBankFeedsPage() {
                           <span>{c.label}</span>
                           <HudChip>{c.providerId}</HudChip>
                           <HudChip tone={healthTone(health?.status)}>{health?.label || c.status}</HudChip>
-                          {health?.needsReconnect ? <HudChip tone="danger">Needs reconnect</HudChip> : null}
+                          {health?.needsReconnect ? <HudChip tone="warning">Needs reconnect</HudChip> : null}
                         </div>
                         <div className="text-xs text-[var(--color-pib-text-muted)]">
                           lastSync={health?.lastSyncAt || c.lastSyncAt || 'never'} · primary cursor=
@@ -394,7 +394,7 @@ export default function FinanceBankFeedsPage() {
                                 {a.maskedAccountNumber ? ` · ${a.maskedAccountNumber}` : ''}
                               </td>
                               <td className="py-1 pr-2">
-                                <HudChip tone={a.status === 'error' ? 'danger' : a.status === 'active' ? 'live' : 'default'}>
+                                <HudChip tone={a.status === 'error' ? 'warning' : a.status === 'active' ? 'live' : 'default'}>
                                   {a.status}
                                 </HudChip>
                               </td>
@@ -499,7 +499,7 @@ export default function FinanceBankFeedsPage() {
                         ) : null}
                       </td>
                       <td className="py-1 pr-2 whitespace-nowrap">
-                        <HudChip tone={item.agingDays > 30 ? 'danger' : item.agingDays > 7 ? 'warning' : 'default'}>
+                        <HudChip tone={item.agingDays > 30 ? 'warning' : item.agingDays > 7 ? 'warning' : 'default'}>
                           {item.agingBucket} ({item.agingDays}d)
                         </HudChip>
                       </td>
