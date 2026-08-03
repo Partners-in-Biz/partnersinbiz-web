@@ -33,3 +33,4 @@ export {
   saveWorkflowRun,
   toInspectPayload,
 } from './store'
+export { sanitizeMaterializeApprovalGate } from './materialize-sanitize'
