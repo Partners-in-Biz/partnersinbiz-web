@@ -290,6 +290,10 @@ describe('workflow graph phase 1 engine', () => {
     })
     run = step.run
     expect(run.cost.budgetStatus).toBe('exceeded')
+    // pause_run must flip on the exceeding terminal — not only on a later tick.
+    expect(run.status).toBe('paused_budget')
+    expect(run.cost.estimatedCost).toBeGreaterThan(0)
+    expect(run.timeline?.some((e) => e.kind === 'cost' && e.to === 'exceeded')).toBe(true)
 
     step = advanceWorkflowRun(run, { type: 'tick', now: LATER })
     run = step.run
@@ -298,6 +302,152 @@ describe('workflow graph phase 1 engine', () => {
     expect(a2?.status).toBe('queued_capacity')
     expect(a2?.blockedReasonCode).toBe('budget_exceeded')
     expect(step.materialize.find((m) => m.nodeId === 'a2')).toBeUndefined()
+  })
+
+  test('pause_run: golden-like overspend pauses before fan-out agent materialize', () => {
+    const template = buildPilotResearchValidateDocApproveFanoutTemplate({
+      orgId: 'pib-platform-owner',
+      projectId: 'proj-pilot',
+    })
+    template.id = 'tmpl-golden-budget'
+    template.budgets.maxTokensPerRun = 200_000
+    template.budgets.onExceed = 'pause_run'
+    let run = createWorkflowRunFromTemplate({
+      runId: 'wfr_golden_budget',
+      template,
+      orgId: 'pib-platform-owner',
+      projectId: 'proj-pilot',
+      trigger: { type: 'manual', at: NOW },
+      now: NOW,
+    })
+
+    let step = advanceWorkflowRun(run, { type: 'tick', now: NOW })
+    run = bindKanbanTask(step.run, 'research_brief', 't-research', NOW)
+    run = completeAgent(run, 'research_brief', 't-research', [
+      { type: 'research_doc_id', ref: 'doc_r' },
+    ], 56_000) // tokensTotal = 112_000 via completeAgent (*2)
+
+    step = advanceWorkflowRun(run, { type: 'tick', now: LATER })
+    // research check auto-done; draft should materialize while still under ceiling
+    run = step.run
+    const draftMat = step.materialize.find((m) => m.nodeId === 'draft_build_note')
+      || (run.nodes.find((n) => n.nodeId === 'draft_build_note')?.status === 'waiting_watcher'
+        ? { nodeId: 'draft_build_note' }
+        : undefined)
+    // draft may already be waiting from completeAgent's activate
+    const draftNode = run.nodes.find((n) => n.nodeId === 'draft_build_note')
+    if (draftNode && !draftNode.kanbanTaskId && draftNode.status === 'waiting_watcher') {
+      run = bindKanbanTask(run, 'draft_build_note', 't-draft', LATER)
+    } else if (draftMat) {
+      run = bindKanbanTask(run, 'draft_build_note', 't-draft', LATER)
+    } else {
+      // force materialize path
+      step = advanceWorkflowRun(run, { type: 'tick', now: LATER })
+      run = bindKanbanTask(step.run, 'draft_build_note', 't-draft', LATER)
+    }
+
+    run = completeAgent(run, 'draft_build_note', 't-draft', [
+      { type: 'draft_doc_id', ref: 'doc_d' },
+    ], 56_000) // cumulative ~224k > 200k
+
+    expect(run.cost.tokensTotal).toBeGreaterThanOrEqual(200_000)
+    expect(run.cost.budgetStatus).toBe('exceeded')
+    expect(run.status).toBe('paused_budget')
+    expect(run.cost.estimatedCost).toBeGreaterThan(0)
+
+    step = advanceWorkflowRun(run, { type: 'tick', now: LATER })
+    run = step.run
+    expect(step.materialize.find((m) => m.nodeId === 'eng_checklist')).toBeUndefined()
+    expect(step.materialize.find((m) => m.nodeId === 'content_checklist')).toBeUndefined()
+    const eng = run.nodes.find((n) => n.nodeId === 'eng_checklist')
+    const content = run.nodes.find((n) => n.nodeId === 'content_checklist')
+    // Fan-out must not be in-flight after exceed under pause_run.
+    expect(eng?.status === 'waiting_watcher' || eng?.status === 'running').toBe(false)
+    expect(content?.status === 'waiting_watcher' || content?.status === 'running').toBe(false)
+    expect(run.status).not.toBe('succeeded')
+  })
+
+  test('block_new_agent_nodes: may succeed over budget without claiming pause_run', () => {
+    const template = buildTinyBudgetPilotTemplate()
+    template.id = 'tmpl-block-agents'
+    template.budgets.onExceed = 'block_new_agent_nodes'
+    // Single agent so exceed on complete can still all-done succeed
+    template.nodes = [template.nodes[0]]
+    let run = createWorkflowRunFromTemplate({
+      runId: 'wfr_block_agents',
+      template,
+      orgId: 'pib-platform-owner',
+      projectId: 'proj',
+      trigger: { type: 'manual', at: NOW },
+      now: NOW,
+    })
+    let step = advanceWorkflowRun(run, { type: 'tick', now: NOW })
+    run = bindKanbanTask(step.run, 'a1', 't1', NOW)
+    step = advanceWorkflowRun(run, {
+      type: 'kanban_terminal',
+      now: LATER,
+      nodeId: 'a1',
+      kanbanTaskId: 't1',
+      outcome: 'done',
+      evidence: [{ type: 'a_art', ref: 'a', at: LATER }],
+      tokensTotal: 250,
+      tokensIn: 200,
+      tokensOut: 50,
+    })
+    run = step.run
+    expect(run.cost.budgetStatus).toBe('exceeded')
+    expect(run.status).toBe('succeeded')
+    expect(run.terminalReason).toBe('all_nodes_proven')
+    expect(run.status).not.toBe('paused_budget')
+  })
+
+  test('kanban_terminal is idempotent: no double tokens or attempt inflate', () => {
+    const template = buildTinyBudgetPilotTemplate()
+    template.id = 'tmpl-idem'
+    template.budgets.maxTokensPerRun = 1_000_000
+    template.nodes = [template.nodes[0]]
+    let run = createWorkflowRunFromTemplate({
+      runId: 'wfr_idem',
+      template,
+      orgId: 'pib-platform-owner',
+      projectId: 'proj',
+      trigger: { type: 'manual', at: NOW },
+      now: NOW,
+    })
+    let step = advanceWorkflowRun(run, { type: 'tick', now: NOW })
+    run = bindKanbanTask(step.run, 'a1', 't1', NOW)
+    const agentStarts = run.cost.attemptCountAgent
+    expect(agentStarts).toBe(1)
+    step = advanceWorkflowRun(run, {
+      type: 'kanban_terminal',
+      now: LATER,
+      nodeId: 'a1',
+      kanbanTaskId: 't1',
+      outcome: 'done',
+      evidence: [{ type: 'a_art', ref: 'a', at: LATER }],
+      tokensTotal: 40,
+      tokensIn: 30,
+      tokensOut: 10,
+    })
+    run = step.run
+    const tokensAfterFirst = run.cost.tokensTotal
+    const attemptsAfterFirst = run.cost.attemptCountAgent
+    expect(attemptsAfterFirst).toBe(agentStarts) // counted at start, not terminal
+
+    step = advanceWorkflowRun(run, {
+      type: 'kanban_terminal',
+      now: LATER,
+      nodeId: 'a1',
+      kanbanTaskId: 't1',
+      outcome: 'done',
+      evidence: [{ type: 'a_art', ref: 'a', at: LATER }],
+      tokensTotal: 40,
+      tokensIn: 30,
+      tokensOut: 10,
+    })
+    run = step.run
+    expect(run.cost.tokensTotal).toBe(tokensAfterFirst)
+    expect(run.cost.attemptCountAgent).toBe(attemptsAfterFirst)
   })
 
   test('concurrency: per-run cap queues rather than fails', () => {
