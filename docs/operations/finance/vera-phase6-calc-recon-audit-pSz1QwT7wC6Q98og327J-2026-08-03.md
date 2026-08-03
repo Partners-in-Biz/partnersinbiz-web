@@ -8,6 +8,25 @@
 - **Predecessor audit:** `IjQ1F1sGvrZNS16inQ36` (Phase 4+5)
 - **Mode:** independent correctness + recon integrity. No production changes. No SARS submit. No external payment initiation. No auto-post.
 
+## Run results (this audit)
+
+| Command | Result |
+|---|---|
+| `npm run test:finance:vera-calc-audit` | 25/25 PASS |
+| `npx tsx scripts/finance/verify-vera-calc-audit.ts` | ok passCount=**28** failCount=**0** |
+| `npm run test:finance:vera-phase6-audit` | 19/19 PASS |
+| `npx tsx scripts/finance/verify-vera-phase6-audit.ts` | ok passCount=**46** failCount=**0** |
+| `npx tsx scripts/finance/verify-expense-claims.ts` | ok balanced vat=12750 gross=97750 |
+| `npx tsx scripts/finance/verify-revenue-recognition.ts` | ok recognized=800000 deferred=400000 (post-reverse) |
+| `npx tsx scripts/finance/verify-bank-feeds.ts` | ok fetched/imported/suggestions=11 safeBulk=3 multiAccount=2 |
+
+- **Commit:** `765c16a5d9e03e9c7294155ea1d26ee79e1e4f75` on `origin/development`
+- **Host:** Peets-Mac-mini.local
+- **Task comment:** `Hz1Cah239aGkr0fUMNyl`
+- **Board:** agentStatus=done, column=review (Quinn)
+
+
+
 ## Decision
 
 **Phase 6 depth is calc-clean inside hermetic goldens:**
