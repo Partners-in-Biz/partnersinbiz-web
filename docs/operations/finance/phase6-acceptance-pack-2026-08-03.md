@@ -76,6 +76,9 @@ npm run verify:finance:bank-feeds   # productization cases should fold here or s
 npx jest __tests__/finance/portal-design-system-parity.test.ts \
   __tests__/finance/workbench-delivery.test.ts --runInBand
 
+# Operator table a11y / density / keyboard (documents, ledger, bank-feeds recon)
+npm run verify:finance:a11y
+
 # Optional e2e golden paths
 npm run verify:finance:e2e || true
 ```
@@ -89,6 +92,7 @@ npm run verify:finance:e2e || true
 | Unit finance | EXIT 0 |
 | Design-system parity | EXIT 0; runbooks page lists Phase 6 lanes when portal pointer shipped |
 | Workbench delivery | EXIT 0; HTTP inventory matches `FINANCE_HTTP_ENTRYPOINTS` for shipped modules |
+| Operator a11y | EXIT 0 on `verify:finance:a11y` (`operator-table-a11y` + design-system parity); `FinanceResponsiveTable` density + keyboard contract green |
 | Proving | EXIT 0; multi-period path still green |
 | Operator depth | EXIT 0; period-close blockers + deep links |
 | Bank feeds | EXIT 0; health/recon centre/safe bulk when productized; human accept only; noEgress |
@@ -122,7 +126,7 @@ Record HEAD SHA: `____________________`
 | Cash scenarios | Named scenarios | base/downside/upside compare; planning-only; optional actuals read-only | budgets | |
 | Job-cost loop | Closed loop | quote→time→WIP→invoice→cash; no double-bill/double-cost | job-costing | |
 | Scale | Large ledgers/imports | No silent corruption; batching caps documented | scale task evidence | |
-| A11y / keyboard | Power-user density | Focus order; primary recon actions keyboardable when shipped | a11y task evidence | |
+| A11y / keyboard | Power-user density | Focus order; dense mode desktop-only; primary recon/docs/ledger actions keyboardable; `verify:finance:a11y` green + manual checklist below | a11y task + section B1 | |
 | Vera | Calc/recon expansion | Phase 6 audit task green or linked residual | `pSz1QwT7wC6Q98og327J` | |
 | Non-goal APIs | Negative tests | No SARS submit; no payment initiate; no mass email; no auto-post | security + module verifies | |
 | Packaging | Egress flag | Exports succeed with `externalEgressAllowed=false` | packaging / proving | |
@@ -130,6 +134,26 @@ Record HEAD SHA: `____________________`
 | CEO delivery rule | No permanent dashboard | Acceptance evidence in QA task + Messages | process | |
 | Promote | Separate gate | This pack does not approve `main` / production | `oITb4OznO8sTtoTmQwxH` open until Peet | |
 | Evidence | agentOutput | Commit SHAs, commands, routes, hard-gate confirmation, `artifacts[]` | QA task | |
+
+### B1. Manual a11y checklist (close-week operator tables)
+
+Run after `npm run verify:finance:a11y`. Surfaces: `/portal/finance/documents`, `/portal/finance/ledger`, `/portal/finance/bank-feeds` (recon centre).
+
+| # | Check | Pass criteria | P/F/NA |
+| --- | --- | --- | --- |
+| 1 | Focus order | Tab reaches scope bar → filters/actions → table rows/actions without keyboard traps | |
+| 2 | Row focus | Arrow keys or j/k move focus between rows; Home/End jump ends; focus ring visible (`focus-visible`) | |
+| 3 | Selection (recon) | Space/Enter toggles row selection when selectable; checkbox has accessible name | |
+| 4 | Dense mode | Dense rows toggle tightens desktop cells only; mobile cards keep full padding/touch targets | |
+| 5 | Density persist | Reload keeps dense/comfortable preference (`localStorage` key `pib.finance.tableDensity.v1`) | |
+| 6 | Empty states | Empty lists use titled empty state + next-action description (not blank card) | |
+| 7 | Error states | Load/command errors surface with `role="alert"` or frame error; no silent failure | |
+| 8 | Labels | Tables have accessible name (`aria-labelledby` / caption); icon-only controls labelled | |
+| 9 | Contrast | Text/borders use design tokens (`--color-pib-text`, `--color-pib-text-muted`, `--color-pib-line`, `--color-pib-surface`) — no one-off greys | |
+| 10 | Shortcuts help | Keyboard shortcuts control exposes legend; `?` inside table shell also toggles help | |
+| 11 | Hard gates | Accept/dismiss recon still human-gated; no payment initiate / SARS / mass email from table actions | |
+
+Components: `FinanceResponsiveTable`, `FinanceOperatorTableChrome`, `lib/finance/operator-table-a11y.ts`.
 
 ---
 

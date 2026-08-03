@@ -4,7 +4,11 @@ import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
 import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
-import { scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { FinanceResponsiveTable } from '@/components/finance/FinanceResponsiveTable'
+import {
+  FinanceOperatorTableChrome,
+  useFinanceTableDensity,
+} from '@/components/finance/FinanceOperatorTableChrome'
 import {
   formatMinor,
   newFinanceId,
@@ -17,6 +21,7 @@ import { useFinanceBookScope } from '@/components/finance/useFinanceBookScope'
 
 export default function FinanceLedgerPage() {
   const scope = useFinanceBookScope()
+  const { density, setDensity } = useFinanceTableDensity()
   const [busy, setBusy] = useState(false)
   const [periods, setPeriods] = useState<Array<Record<string, any>>>([])
   const [accounts, setAccounts] = useState<Array<Record<string, any>>>([])
@@ -144,32 +149,75 @@ export default function FinanceLedgerPage() {
             <button type="button" className="pib-btn-primary" disabled={busy} onClick={() => void postJournal()}>{busy ? 'Posting…' : 'Post journal'}</button>
           </section>
 
+          <section className="pib-card space-y-3 p-4">
+            <FinanceOperatorTableChrome surface="ledger" density={density} onDensityChange={setDensity} />
+          </section>
+
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card p-4">
               <h2 className="mb-3 text-base font-semibold">Chart of accounts ({accounts.length})</h2>
-              <ul className="max-h-96 space-y-2 overflow-y-auto text-sm">
-                {accounts.map((a) => (
-                  <li key={a.id} className="border-b border-[var(--color-pib-line)] pb-2">
-                    <p className="font-medium">{a.code} · {a.name}</p>
-                    <p className="text-xs text-[var(--color-pib-text-muted)]">{a.accountType} · {a.normalBalance}</p>
-                  </li>
-                ))}
-              </ul>
+              <FinanceResponsiveTable
+                ariaLabel="Chart of accounts"
+                density={density}
+                onDensityChange={setDensity}
+                rows={accounts as Array<Record<string, any> & { id: string }>}
+                getRowLabel={(a) => `${a.code} ${a.name}`}
+                emptyTitle="No accounts yet"
+                emptyDescription="Seed or create a chart of accounts for this book before posting journals."
+                columns={[
+                  {
+                    key: 'code',
+                    header: 'Account',
+                    render: (a) => (
+                      <span className="font-medium">
+                        {a.code} · {a.name}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'type',
+                    header: 'Type',
+                    render: (a) => (
+                      <span className="text-[var(--color-pib-text-muted)]">
+                        {a.accountType} · {a.normalBalance}
+                      </span>
+                    ),
+                  },
+                ]}
+              />
             </div>
             <div className="pib-card p-4">
               <h2 className="mb-3 text-base font-semibold">Recent journals ({journals.length})</h2>
-              {journals.length === 0 ? (
-                <p className="text-sm text-[var(--color-pib-text-muted)]">No journals yet.</p>
-              ) : (
-                <ul className="max-h-96 space-y-2 overflow-y-auto text-sm">
-                  {journals.map((j) => (
-                    <li key={j.id} className="border-b border-[var(--color-pib-line)] pb-2">
-                      <p className="font-medium">#{j.entryNumber ?? '—'} · {j.description}</p>
-                      <p className="text-xs text-[var(--color-pib-text-muted)]">{j.postingDate?.slice?.(0, 10)} · {j.status} · {formatMinor(j.totalDebitMinor, j.currency || currency)}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <FinanceResponsiveTable
+                ariaLabel="Recent journals"
+                density={density}
+                onDensityChange={setDensity}
+                rows={journals as Array<Record<string, any> & { id: string }>}
+                getRowLabel={(j) => `${j.entryNumber ?? j.id} ${j.description || ''}`}
+                emptyTitle="No journals yet"
+                emptyDescription="Post a balanced journal above. Reverse, do not delete, if a correction is needed."
+                columns={[
+                  {
+                    key: 'entry',
+                    header: 'Entry',
+                    render: (j) => (
+                      <span className="font-medium">
+                        #{j.entryNumber ?? '—'} · {j.description}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'meta',
+                    header: 'Date / status / debit',
+                    render: (j) => (
+                      <span className="text-[var(--color-pib-text-muted)]">
+                        {j.postingDate?.slice?.(0, 10)} · {j.status} ·{' '}
+                        {formatMinor(j.totalDebitMinor, j.currency || currency)}
+                      </span>
+                    ),
+                  },
+                ]}
+              />
             </div>
           </section>
         </>

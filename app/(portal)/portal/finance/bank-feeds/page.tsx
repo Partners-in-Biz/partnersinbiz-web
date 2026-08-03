@@ -1,12 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  FinanceModuleFrame,
-  FinanceEmptyScope,
-  FinancePrimaryButton,
-} from '@/components/finance/FinanceModuleFrame'
+import { FinanceModuleFrame, FinanceEmptyScope, FinancePrimaryButton } from '@/components/finance/FinanceModuleFrame'
 import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
+import { FinanceResponsiveTable } from '@/components/finance/FinanceResponsiveTable'
+import {
+  FinanceOperatorTableChrome,
+  useFinanceTableDensity,
+} from '@/components/finance/FinanceOperatorTableChrome'
 import {
   newFinanceId,
   readFinanceJson,
@@ -57,6 +58,7 @@ function healthTone(status?: string): 'live' | 'warning' | 'default' | 'accent' 
 
 export default function FinanceBankFeedsPage() {
   const scope = useFinanceBookScope()
+  const { density, setDensity } = useFinanceTableDensity()
   const [busy, setBusy] = useState(false)
   const [bundle, setBundle] = useState<Bundle | null>(null)
   const [label, setLabel] = useState('Mock FNB multi-account (daily path)')
@@ -458,6 +460,11 @@ export default function FinanceBankFeedsPage() {
                 </Button>
               </div>
             </div>
+            <FinanceOperatorTableChrome
+              surface="bank-feeds"
+              density={density}
+              onDensityChange={setDensity}
+            />
             <div className="flex flex-wrap gap-2 text-xs">
               {(recon?.aging || []).map((bucket) => (
                 <HudChip key={bucket.bucket} tone={bucket.count > 0 ? 'warning' : 'default'}>
@@ -465,95 +472,95 @@ export default function FinanceBankFeedsPage() {
                 </HudChip>
               ))}
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)]">
-                    <th className="py-1 pr-2" />
-                    <th className="py-1 pr-2">Age</th>
-                    <th className="py-1 pr-2">Date</th>
-                    <th className="py-1 pr-2">Description</th>
-                    <th className="py-1 pr-2">Amount</th>
-                    <th className="py-1 pr-2">Suggestion</th>
-                    <th className="py-1 pr-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(recon?.items || []).slice(0, 50).map((item) => (
-                    <tr key={item.bankLineId} className="border-b border-[var(--color-pib-line)]/60">
-                      <td className="py-1 pr-2">
-                        {item.suggestionId && item.suggestionStatus === 'pending' ? (
-                          <input
-                            type="checkbox"
-                            checked={selected.has(item.suggestionId)}
-                            onChange={(e) => {
-                              setSelected((prev) => {
-                                const next = new Set(prev)
-                                if (e.target.checked) next.add(item.suggestionId)
-                                else next.delete(item.suggestionId)
-                                return next
-                              })
-                            }}
-                            aria-label={`Select suggestion ${item.suggestionId}`}
-                          />
-                        ) : null}
-                      </td>
-                      <td className="py-1 pr-2 whitespace-nowrap">
-                        <HudChip tone={item.agingDays > 30 ? 'warning' : item.agingDays > 7 ? 'warning' : 'default'}>
-                          {item.agingBucket} ({item.agingDays}d)
-                        </HudChip>
-                      </td>
-                      <td className="py-1 pr-2 whitespace-nowrap">{item.effectiveDate}</td>
-                      <td className="py-1 pr-2">{item.description}</td>
-                      <td className="py-1 pr-2 whitespace-nowrap">{fmtZar(item.amountMinor)}</td>
-                      <td className="py-1 pr-2">
-                        {item.suggestionKind ? (
-                          <span>
-                            {item.suggestionKind} · {item.suggestionStatus} ·{' '}
-                            {Math.round((item.suggestionConfidence || 0) * 100)}%
-                            {item.safeBulkAccept ? ' · safe' : ''}
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td className="py-1 pr-2">
-                        {item.suggestionId && item.suggestionStatus === 'pending' ? (
-                          <div className="flex gap-1">
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => void resolve(item.suggestionId, 'bank-feed.suggestion.accept')}
-                            >
-                              Accept
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="secondary"
-                              disabled={busy}
-                              onClick={() => void resolve(item.suggestionId, 'bank-feed.suggestion.dismiss')}
-                            >
-                              Dismiss
-                            </Button>
-                          </div>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {!recon?.items?.length ? (
-                <p className="text-[var(--color-pib-text-muted)]">
-                  No unreconciled feed lines — run Sync now, or use{' '}
-                  <a className="underline" href={statementsHref}>
-                    file import fallback
-                  </a>
-                  .
-                </p>
-              ) : null}
-            </div>
+            <FinanceResponsiveTable
+              ariaLabel="Bank feed reconciliation suggestions"
+              density={density}
+              onDensityChange={setDensity}
+              rows={((recon?.items || []).slice(0, 50) as Array<Record<string, any>>).map((item) => ({
+                ...item,
+                id: String(item.suggestionId || item.bankLineId),
+              }))}
+              selectedIds={selected}
+              onToggle={(id) => {
+                setSelected((prev) => {
+                  const next = new Set(prev)
+                  if (next.has(id)) next.delete(id)
+                  else next.add(id)
+                  return next
+                })
+              }}
+              getRowLabel={(item) =>
+                String(item.description || item.suggestionId || item.bankLineId)
+              }
+              emptyTitle="No unreconciled feed lines"
+              emptyDescription={`Run Sync now, or use file import fallback at ${statementsHref}.`}
+              columns={[
+                {
+                  key: 'age',
+                  header: 'Age',
+                  render: (item) => (
+                    <HudChip tone={item.agingDays > 30 ? 'warning' : item.agingDays > 7 ? 'warning' : 'default'}>
+                      {item.agingBucket} ({item.agingDays}d)
+                    </HudChip>
+                  ),
+                },
+                {
+                  key: 'date',
+                  header: 'Date',
+                  render: (item) => <span className="whitespace-nowrap">{item.effectiveDate}</span>,
+                },
+                {
+                  key: 'desc',
+                  header: 'Description',
+                  render: (item) => item.description,
+                },
+                {
+                  key: 'amount',
+                  header: 'Amount',
+                  render: (item) => <span className="whitespace-nowrap">{fmtZar(item.amountMinor)}</span>,
+                },
+                {
+                  key: 'suggestion',
+                  header: 'Suggestion',
+                  render: (item) =>
+                    item.suggestionKind ? (
+                      <span>
+                        {item.suggestionKind} · {item.suggestionStatus} ·{' '}
+                        {Math.round((item.suggestionConfidence || 0) * 100)}%
+                        {item.safeBulkAccept ? ' · safe' : ''}
+                      </span>
+                    ) : (
+                      '—'
+                    ),
+                },
+                {
+                  key: 'actions',
+                  header: 'Actions',
+                  render: (item) =>
+                    item.suggestionId && item.suggestionStatus === 'pending' ? (
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => void resolve(item.suggestionId, 'bank-feed.suggestion.accept')}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={busy}
+                          onClick={() => void resolve(item.suggestionId, 'bank-feed.suggestion.dismiss')}
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
+                    ) : null,
+                },
+              ]}
+            />
           </Card>
 
           <Card className="space-y-3 p-4">
