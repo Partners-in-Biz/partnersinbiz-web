@@ -52,6 +52,7 @@ SUBSCRIPTION="pib-realtime-gateway-v1"
 REDIS_INSTANCE="pib-realtime-v1"
 SUBNET="pib-realtime-subnet"
 REDIS_SECRET="pib-realtime-redis-url-v1"
+REDIS_FIREWALL="pib-realtime-redis-from-gateway"
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
 
 gcloud services enable run.googleapis.com pubsub.googleapis.com redis.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com cloudfunctions.googleapis.com eventarc.googleapis.com secretmanager.googleapis.com --project="$PROJECT_ID"
@@ -68,6 +69,9 @@ gcloud pubsub subscriptions describe "$DLQ_TOPIC" --project="$PROJECT_ID" >/dev/
 
 gcloud compute networks subnets describe "$SUBNET" --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1 || \
   gcloud compute networks subnets create "$SUBNET" --network="$NETWORK" --range="$SUBNET_RANGE" --region="$REGION" --project="$PROJECT_ID"
+gcloud compute firewall-rules describe "$REDIS_FIREWALL" --project="$PROJECT_ID" >/dev/null 2>&1 || \
+  gcloud compute firewall-rules create "$REDIS_FIREWALL" --network="$NETWORK" --direction=INGRESS --priority=1000 \
+    --action=ALLOW --rules=tcp:6379 --source-ranges="$SUBNET_RANGE" --destination-ranges="$REDIS_RANGE" --project="$PROJECT_ID"
 gcloud redis instances describe "$REDIS_INSTANCE" --region="$REGION" --project="$PROJECT_ID" >/dev/null 2>&1 || \
   gcloud redis instances create "$REDIS_INSTANCE" --tier=standard --size=1 --region="$REGION" --network="$NETWORK" --redis-version=redis_7_2 --enable-auth --connect-mode=DIRECT_PEERING --reserved-ip-range="$REDIS_RANGE" --project="$PROJECT_ID"
 
