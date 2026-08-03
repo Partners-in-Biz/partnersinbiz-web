@@ -484,7 +484,7 @@ export function exportAuditEventsCsv(events: readonly PracticeAuditEventView[]):
   const body = events
     .map((row) =>
       columns
-        .map((c) => escape((row as Record<string, unknown>)[c.key]))
+        .map((c) => escape((row as unknown as Record<string, unknown>)[c.key]))
         .join(','),
     )
     .join('\n')

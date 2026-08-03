@@ -6,11 +6,13 @@ interface CardProps {
   className?: string
   hover?: boolean
   onClick?: () => void
+  id?: string
 }
 
-export function Card({ children, className, hover, onClick }: CardProps) {
+export function Card({ children, className, hover, onClick, id }: CardProps) {
   return (
     <div
+      id={id}
       onClick={onClick}
       className={cn(
         'pib-card',

@@ -22,14 +22,14 @@ import {
   uniqueAuditEntities,
   uniqueAuditEventTypes,
 } from '@/lib/finance/role-ux/catalog'
-import type { PracticeAuditEventView } from '@/lib/finance/practice/types'
+import type { FinanceOperatorNotification, PracticeAuditEventView } from '@/lib/finance/practice/types'
 
 type Bundle = {
   orgId: string
   matrix: Array<{ action: string; roles: string[]; approvalGated: boolean; audited: boolean }>
   assignments: Array<Record<string, any>>
   myAssignments: Array<Record<string, any>>
-  notifications: Array<Record<string, any>>
+  notifications: FinanceOperatorNotification[]
   auditEvents: Array<Record<string, any>>
   practiceClients: Array<Record<string, any>>
   safety: { noSarsSubmit: true; noExternalPaymentInitiate: true; tenantScoped: true }
@@ -318,7 +318,8 @@ export default function FinancePracticePage() {
               )}
             </Card>
 
-            <Card className="space-y-3 p-4" data-testid="practice-notifications" id="notifications">
+            <div id="notifications" />
+            <Card className="space-y-3 p-4" data-testid="practice-notifications">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-base font-semibold">Notification centre</h2>
                 <div className="flex flex-wrap gap-1.5">
@@ -515,7 +516,8 @@ export default function FinancePracticePage() {
               </div>
             </Card>
 
-            <Card className="space-y-3 p-4" data-testid="practice-audit-explorer" id="audit">
+            <div id="audit" />
+            <Card className="space-y-3 p-4" data-testid="practice-audit-explorer">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-base font-semibold">Audit explorer</h2>
                 <Button size="sm" variant="primary" disabled={!orgId || auditEvents.length === 0} onClick={downloadAuditCsv} data-testid="practice-audit-export-csv">
