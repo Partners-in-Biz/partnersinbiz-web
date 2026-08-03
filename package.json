@@ -40,6 +40,8 @@
     "verify:finance:assets": "npm run test:finance:assets && tsx scripts/finance/verify-assets.ts",
     "test:finance:operator-depth": "jest --runInBand __tests__/finance/operator-depth-domain.test.ts __tests__/finance/portal-design-system-parity.test.ts __tests__/finance/workbench-delivery.test.ts __tests__/finance/foundation-storage-contract.test.ts",
     "verify:finance:operator-depth": "npm run test:finance:operator-depth && tsx scripts/finance/verify-operator-depth.ts",
+    "test:finance:proving": "jest --runInBand __tests__/finance/proving-domain.test.ts __tests__/finance/portal-design-system-parity.test.ts __tests__/finance/workbench-delivery.test.ts",
+    "verify:finance:proving": "npm run test:finance:proving && tsx scripts/finance/verify-proving.ts",
     "test:finance:inventory": "jest --runInBand __tests__/finance/inventory-domain.test.ts __tests__/finance/foundation-storage-contract.test.ts __tests__/finance/portal-design-system-parity.test.ts __tests__/finance/workbench-delivery.test.ts",
     "verify:finance:inventory": "npm run test:finance:inventory && tsx scripts/finance/verify-inventory.ts",
     "test:finance:bank-feeds": "jest --runInBand __tests__/finance/bank-feeds-domain.test.ts __tests__/finance/foundation-storage-contract.test.ts __tests__/finance/portal-design-system-parity.test.ts __tests__/finance/workbench-delivery.test.ts",

@@ -39,6 +39,8 @@ export const FINANCE_HTTP_ENTRYPOINTS = [
   'app/api/v1/finance/personal/queries/route.ts',
   'app/api/v1/finance/practice/commands/route.ts',
   'app/api/v1/finance/practice/queries/route.ts',
+  'app/api/v1/finance/proving/commands/route.ts',
+  'app/api/v1/finance/proving/queries/route.ts',
   'app/api/v1/finance/reports/queries/route.ts',
   'app/api/v1/finance/statements/commands/route.ts',
   'app/api/v1/finance/statements/queries/route.ts',

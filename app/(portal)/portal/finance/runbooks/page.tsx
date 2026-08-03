@@ -119,6 +119,16 @@ const DAY2: Runbook[] = [
     cta: 'Packaging',
     gates: ['No SARS submit', 'No payment initiate', 'egress=false'],
   },
+  {
+    id: 'P',
+    title: 'P · Phase 5 proving kit',
+    summary:
+      'Seed deterministic multi-entity demo company, run multi-period close fixture (blockers → freeze), packaging dry-run, and printable accountant acceptance checklist with evidence checkboxes.',
+    href: '/portal/finance/proving',
+    cta: 'Open proving kit',
+    emptyState: 'No seed until finance_admin runs Seed demo company (idempotent by seedKey).',
+    gates: ['No SARS submit', 'No payment initiate', 'egress=false', 'Throw-away fixture'],
+  },
 ]
 
 const DIFFERENTIATORS: Runbook[] = [
@@ -205,6 +215,9 @@ export default function FinanceRunbooksPage() {
           <Link href={scopedPortalPath('/portal/finance/setup', orgScope)} className="pib-btn-primary btn-pib-sm">
             Setup guide
           </Link>
+          <Link href={scopedPortalPath('/portal/finance/proving', orgScope)} className="pib-btn-ghost btn-pib-sm">
+            Proving kit
+          </Link>
           <Link href={scopedPortalPath('/portal/finance', orgScope)} className="pib-btn-ghost btn-pib-sm">
             Command centre
           </Link>
@@ -261,8 +274,11 @@ export default function FinanceRunbooksPage() {
           docs/operations/finance/operator-runbooks-phase4-2026-08-02.md.
         </p>
         <div className="flex flex-wrap gap-2">
+          <Link href={scopedPortalPath('/portal/finance/proving', orgScope)}>
+            <Button variant="primary">Accountant acceptance checklist</Button>
+          </Link>
           <Link href={scopedPortalPath('/portal/finance/setup', orgScope)}>
-            <Button variant="primary">Guided setup</Button>
+            <Button variant="ghost">Guided setup</Button>
           </Link>
           <Link href={scopedPortalPath('/portal/finance/practice', orgScope)}>
             <Button variant="ghost">Practice / audit</Button>

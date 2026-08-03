@@ -196,7 +196,7 @@ describe('finance portal design-system parity', () => {
     }
 
     // Nav lock: Phase 4/5 routes remain discoverable from the shared finance nav.
-    for (const key of ['assets', 'bank-rules', 'budgets', 'multi-currency', 'job-costing', 'practice', 'period-close', 'runbooks', 'setup'] as const) {
+    for (const key of ['assets', 'bank-rules', 'budgets', 'multi-currency', 'job-costing', 'practice', 'period-close', 'runbooks', 'setup', 'proving'] as const) {
       expect(financeNavItem(key).href).toMatch(/^\/portal\/finance/)
     }
   })
