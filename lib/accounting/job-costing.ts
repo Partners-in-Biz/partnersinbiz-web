@@ -16,7 +16,12 @@ import type {
 } from './documents-types'
 import type { DocumentLineInput } from './documents'
 import type {
+  JobCostAgingBucket,
+  JobCostAgingBucketKey,
+  JobCostClosedLoopStep,
+  JobCostClosedLoopTrace,
   JobCostingScope,
+  ProjectInvoiceCashSlice,
   ProjectProfitAndLossReport,
   ProjectPnLSectionLine,
   ProjectWipReport,
@@ -26,6 +31,82 @@ import type {
   TimeCostSourceEntry,
 } from './job-costing-types'
 import type { JournalLineInput, LedgerAccount, PostedJournalEntry } from './types'
+
+const WIP_AGING_LABELS: Record<JobCostAgingBucketKey, string> = {
+  current: 'Current',
+  d1_30: '1–30',
+  d31_60: '31–60',
+  d61_90: '61–90',
+  d90_plus: '90+',
+}
+
+export function emptyWipAgingBuckets(): JobCostAgingBucket[] {
+  return (Object.keys(WIP_AGING_LABELS) as JobCostAgingBucketKey[]).map((key) => ({
+    key,
+    label: WIP_AGING_LABELS[key],
+    amountMinor: 0,
+    count: 0,
+    applicationIds: [],
+  }))
+}
+
+export function wipAgingBucketKey(ageDays: number): JobCostAgingBucketKey {
+  if (!Number.isFinite(ageDays) || ageDays <= 0) return 'current'
+  if (ageDays <= 30) return 'd1_30'
+  if (ageDays <= 60) return 'd31_60'
+  if (ageDays <= 90) return 'd61_90'
+  return 'd90_plus'
+}
+
+/** Whole calendar days from ISO date/datetime (start) to as-of date (YYYY-MM-DD). */
+export function calendarAgeDays(fromIso: string, asOfDate: string): number {
+  const start = parseCanonicalDate(fromIso.slice(0, 10), 'applicationDate')
+  const end = parseCanonicalDate(asOfDate, 'asOfDate')
+  return Math.floor((end - start) / 86_400_000)
+}
+
+export function billedTimeEntryIdsFromApplications(
+  applications: readonly TimeCostApplication[],
+  scope: JobCostingScope,
+  projectId: string,
+  asOfDate: string,
+): Set<string> {
+  const billed = new Set<string>()
+  for (const app of applications) {
+    if (app.status !== 'applied') continue
+    if (app.purpose !== 'draft_invoice_lines') continue
+    if (
+      app.orgId !== scope.orgId ||
+      app.legalEntityId !== scope.legalEntityId ||
+      app.bookId !== scope.bookId
+    ) {
+      continue
+    }
+    if (app.createdAt.slice(0, 10) > asOfDate) continue
+    for (const line of app.lines) {
+      if (line.projectId === projectId) billed.add(line.timeEntryId)
+    }
+  }
+  return billed
+}
+
+function projectShareOfInvoice(invoice: FinanceCustomerInvoice, projectId: string): {
+  projectGrossMinor: number
+  invoiceTotalMinor: number
+} {
+  let projectGrossMinor = 0
+  for (const line of invoice.lines) {
+    if (!hasProjectDimension(line, projectId)) continue
+    projectGrossMinor += line.grossMinor ?? line.taxableMinor
+  }
+  return { projectGrossMinor, invoiceTotalMinor: invoice.totalMinor }
+}
+
+function proRataMinor(totalPart: number, shareNumerator: number, shareDenominator: number): number {
+  if (shareNumerator <= 0 || shareDenominator <= 0 || totalPart <= 0) return 0
+  // half-up
+  return Math.floor((totalPart * shareNumerator + Math.floor(shareDenominator / 2)) / shareDenominator)
+}
 
 export function laborCostMinor(durationMinutes: number, costRateMinorPerHour: number): number {
   assertSafeInteger(durationMinutes, 'durationMinutes', 1)
@@ -290,6 +371,40 @@ export function buildProjectProfitAndLoss(input: {
   const costLines = [...costMap.values()].sort((a, b) => a.accountCode.localeCompare(b.accountCode))
   const totalRevenueMinor = revenueLines.reduce((s, l) => s + l.amountMinor, 0)
   const totalCostMinor = costLines.reduce((s, l) => s + l.amountMinor, 0)
+
+  const invoiceCashSlices: ProjectInvoiceCashSlice[] = []
+  let cashAppliedMinor = 0
+  let outstandingArMinor = 0
+  for (const invoice of input.invoices ?? []) {
+    if (
+      invoice.orgId !== input.scope.orgId ||
+      invoice.legalEntityId !== input.scope.legalEntityId ||
+      invoice.bookId !== input.scope.bookId
+    ) {
+      continue
+    }
+    if (invoice.status === 'voided' || invoice.status === 'draft') continue
+    if (!inDateRange(invoice.issueDate, input.fromDate, input.toDate)) continue
+    const { projectGrossMinor, invoiceTotalMinor } = projectShareOfInvoice(invoice, projectId)
+    if (projectGrossMinor <= 0 || invoiceTotalMinor <= 0) continue
+    const paidMinor = Math.max(0, invoice.totalMinor - Math.max(0, invoice.outstandingMinor))
+    const cashSlice = proRataMinor(paidMinor, projectGrossMinor, invoiceTotalMinor)
+    const outstandingSlice = proRataMinor(Math.max(0, invoice.outstandingMinor), projectGrossMinor, invoiceTotalMinor)
+    cashAppliedMinor += cashSlice
+    outstandingArMinor += outstandingSlice
+    invoiceCashSlices.push({
+      invoiceId: invoice.id,
+      projectGrossMinor,
+      invoiceTotalMinor,
+      cashAppliedMinor: cashSlice,
+      outstandingMinor: outstandingSlice,
+    })
+  }
+  invoiceCashSlices.sort((a, b) => a.invoiceId.localeCompare(b.invoiceId))
+  if (!Number.isSafeInteger(cashAppliedMinor) || !Number.isSafeInteger(outstandingArMinor)) {
+    throw new FinanceValidationError('Project cash application exceeded safe integer precision')
+  }
+
   journalEntryIds.sort()
   invoiceIds.sort()
   billIds.sort()
@@ -306,6 +421,8 @@ export function buildProjectProfitAndLoss(input: {
     billIds,
     totalRevenueMinor,
     totalCostMinor,
+    cashAppliedMinor,
+    outstandingArMinor,
   }
   return {
     kind: 'project_profit_and_loss',
@@ -319,6 +436,9 @@ export function buildProjectProfitAndLoss(input: {
     totalRevenueMinor,
     totalCostMinor,
     grossMarginMinor: totalRevenueMinor - totalCostMinor,
+    cashAppliedMinor,
+    outstandingArMinor,
+    invoiceCashSlices,
     journalEntryIds,
     invoiceIds,
     billIds,
@@ -335,8 +455,18 @@ export function buildProjectWip(input: {
 }): ProjectWipReport {
   const projectId = requiredText(input.projectId, 'projectId')
   parseCanonicalDate(input.asOfDate, 'asOfDate')
+  const billedTimeEntryIds = billedTimeEntryIdsFromApplications(
+    input.applications,
+    input.scope,
+    projectId,
+    input.asOfDate,
+  )
   const openIds: string[] = []
   let unbilledLaborCostMinor = 0
+  let releasedLaborCostMinor = 0
+  const aging = emptyWipAgingBuckets()
+  const agingIndex = new Map(aging.map((bucket) => [bucket.key, bucket]))
+
   for (const app of input.applications) {
     if (app.status !== 'applied') continue
     if (app.purpose !== 'wip_cost') continue
@@ -350,14 +480,31 @@ export function buildProjectWip(input: {
     if (app.createdAt.slice(0, 10) > input.asOfDate) continue
     const projectLines = app.lines.filter((line) => line.projectId === projectId)
     if (projectLines.length === 0) continue
-    const amount = projectLines.reduce((s, l) => s + l.amountMinor, 0)
-    unbilledLaborCostMinor += amount
+
+    let openAmount = 0
+    let releasedAmount = 0
+    for (const line of projectLines) {
+      if (billedTimeEntryIds.has(line.timeEntryId)) releasedAmount += line.amountMinor
+      else openAmount += line.amountMinor
+    }
+    releasedLaborCostMinor += releasedAmount
+    if (openAmount <= 0) continue
+
+    unbilledLaborCostMinor += openAmount
     openIds.push(app.id)
+    const ageDays = calendarAgeDays(app.createdAt, input.asOfDate)
+    const bucket = agingIndex.get(wipAgingBucketKey(ageDays))
+    if (bucket) {
+      bucket.amountMinor += openAmount
+      bucket.count += 1
+      bucket.applicationIds.push(app.id)
+    }
   }
-  if (!Number.isSafeInteger(unbilledLaborCostMinor)) {
+  if (!Number.isSafeInteger(unbilledLaborCostMinor) || !Number.isSafeInteger(releasedLaborCostMinor)) {
     throw new FinanceValidationError('WIP total exceeded safe integer precision')
   }
   openIds.sort()
+  for (const bucket of aging) bucket.applicationIds.sort()
   const meta = {
     orgId: input.scope.orgId,
     legalEntityId: input.scope.legalEntityId,
@@ -365,9 +512,11 @@ export function buildProjectWip(input: {
     projectId,
     asOfDate: input.asOfDate,
     unbilledLaborCostMinor,
+    releasedLaborCostMinor,
     recognizedRevenueMinor: input.pnl.totalRevenueMinor,
     recognizedCostMinor: input.pnl.totalCostMinor,
     openTimeCostApplicationIds: openIds,
+    aging: aging.map((b) => ({ key: b.key, amountMinor: b.amountMinor, count: b.count })),
   }
   return {
     kind: 'project_wip',
@@ -375,10 +524,151 @@ export function buildProjectWip(input: {
     projectId,
     asOfDate: input.asOfDate,
     unbilledLaborCostMinor,
+    releasedLaborCostMinor,
     recognizedRevenueMinor: input.pnl.totalRevenueMinor,
     recognizedCostMinor: input.pnl.totalCostMinor,
     wipMinor: unbilledLaborCostMinor,
     openTimeCostApplicationIds: openIds,
+    aging,
+    inputDigest: canonicalDigest(meta),
+  }
+}
+
+export function buildJobCostClosedLoopTrace(input: {
+  scope: JobCostingScope
+  projectId: string
+  asOfDate: string
+  quoteId?: string
+  applications: readonly TimeCostApplication[]
+  pnl: ProjectProfitAndLossReport
+  wip: ProjectWipReport
+}): JobCostClosedLoopTrace {
+  const projectId = requiredText(input.projectId, 'projectId')
+  parseCanonicalDate(input.asOfDate, 'asOfDate')
+  const quoteId = input.quoteId?.trim() || undefined
+  const scopedApps = input.applications.filter(
+    (app) =>
+      app.status === 'applied' &&
+      app.orgId === input.scope.orgId &&
+      app.legalEntityId === input.scope.legalEntityId &&
+      app.bookId === input.scope.bookId &&
+      app.projectIds.includes(projectId) &&
+      app.createdAt.slice(0, 10) <= input.asOfDate,
+  )
+  const wipApps = scopedApps.filter((a) => a.purpose === 'wip_cost')
+  const draftApps = scopedApps.filter((a) => a.purpose === 'draft_invoice_lines')
+  const timeEntryIds = [...new Set(scopedApps.flatMap((a) => a.timeEntryIds))].sort()
+
+  const steps: JobCostClosedLoopStep[] = [
+    {
+      id: 'quote_project',
+      label: 'Quote / project',
+      status: projectId ? 'done' : 'missing',
+      detail: quoteId
+        ? `Project ${projectId} linked; quote ${quoteId} recorded for operator trace.`
+        : `Project ${projectId} is the job dimension. Optional quote id can be attached for CRM/quote traceability.`,
+      refs: [projectId, ...(quoteId ? [quoteId] : [])],
+    },
+    {
+      id: 'time_cost',
+      label: 'Time cost',
+      status: scopedApps.length > 0 ? 'done' : 'pending',
+      detail:
+        scopedApps.length > 0
+          ? `${scopedApps.length} time-cost application(s); ${timeEntryIds.length} time entr${timeEntryIds.length === 1 ? 'y' : 'ies'}.`
+          : 'Apply stopped billable/non-billable time as wip_cost (labor) and/or draft_invoice_lines (billable only).',
+      refs: [...timeEntryIds, ...scopedApps.map((a) => a.id)].slice(0, 24),
+    },
+    {
+      id: 'wip',
+      label: 'WIP',
+      status:
+        input.wip.unbilledLaborCostMinor > 0
+          ? 'open'
+          : input.wip.releasedLaborCostMinor > 0
+            ? 'done'
+            : wipApps.length > 0
+              ? 'done'
+              : 'pending',
+      detail:
+        input.wip.unbilledLaborCostMinor > 0
+          ? `Open WIP ${input.wip.unbilledLaborCostMinor} minor; aging buckets sum open applications only.`
+          : input.wip.releasedLaborCostMinor > 0
+            ? `WIP released ${input.wip.releasedLaborCostMinor} minor via draft invoice lines on the same time entries (no double-cost).`
+            : 'No open WIP labor for this project.',
+      refs: input.wip.openTimeCostApplicationIds,
+    },
+    {
+      id: 'invoice',
+      label: 'Invoice',
+      status:
+        input.pnl.invoiceIds.length > 0 || draftApps.length > 0
+          ? 'done'
+          : 'pending',
+      detail:
+        input.pnl.invoiceIds.length > 0
+          ? `${input.pnl.invoiceIds.length} issued project invoice(s); ${draftApps.length} draft-invoice time application(s).`
+          : draftApps.length > 0
+            ? `${draftApps.length} draft invoice line proposal(s) ready — issue via Documents (not auto-issued).`
+            : 'No project-tagged invoices or draft invoice applications yet.',
+      refs: [...input.pnl.invoiceIds, ...draftApps.map((a) => a.id)].slice(0, 24),
+    },
+    {
+      id: 'cash',
+      label: 'Cash application',
+      status:
+        input.pnl.cashAppliedMinor > 0
+          ? 'done'
+          : input.pnl.outstandingArMinor > 0
+            ? 'open'
+            : input.pnl.invoiceIds.length > 0
+              ? 'pending'
+              : 'pending',
+      detail:
+        input.pnl.cashAppliedMinor > 0 || input.pnl.outstandingArMinor > 0
+          ? `Cash applied ${input.pnl.cashAppliedMinor} minor; open AR ${input.pnl.outstandingArMinor} minor (pro-rata project lines). Allocate receipts on Documents — no payment initiate.`
+          : 'Cash appears after payment allocation on project-tagged invoices (Documents). Observe-only — no bank payout from job costing.',
+      refs: input.pnl.invoiceCashSlices.map((s) => s.invoiceId),
+    },
+  ]
+
+  const meta = {
+    orgId: input.scope.orgId,
+    legalEntityId: input.scope.legalEntityId,
+    bookId: input.scope.bookId,
+    projectId,
+    quoteId: quoteId ?? null,
+    asOfDate: input.asOfDate,
+    stepStatuses: steps.map((s) => ({ id: s.id, status: s.status })),
+    totals: {
+      unbilledLaborCostMinor: input.wip.unbilledLaborCostMinor,
+      releasedLaborCostMinor: input.wip.releasedLaborCostMinor,
+      totalRevenueMinor: input.pnl.totalRevenueMinor,
+      totalCostMinor: input.pnl.totalCostMinor,
+      grossMarginMinor: input.pnl.grossMarginMinor,
+      cashAppliedMinor: input.pnl.cashAppliedMinor,
+      outstandingArMinor: input.pnl.outstandingArMinor,
+    },
+  }
+
+  return {
+    kind: 'job_cost_closed_loop',
+    scope: input.scope,
+    projectId,
+    ...(quoteId ? { quoteId } : {}),
+    asOfDate: input.asOfDate,
+    steps,
+    doubleBillGuards: {
+      wipClaimPerTimeEntry: true,
+      draftInvoiceClaimPerTimeEntry: true,
+      sourceInvoiceIdBlocksDraft: true,
+    },
+    hardGates: {
+      externalEgressAllowed: false,
+      externalPaymentInitiated: false,
+      sarsSubmissionInitiated: false,
+    },
+    totals: meta.totals,
     inputDigest: canonicalDigest(meta),
   }
 }

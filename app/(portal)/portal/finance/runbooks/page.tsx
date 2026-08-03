@@ -84,10 +84,12 @@ const DAY2: Runbook[] = [
   },
   {
     id: 'H',
-    title: 'H · Job costing',
-    summary: 'projectId on lines, optional time → WIP/draft invoice, project P&L without double-billing.',
+    title: 'H · Job costing closed loop',
+    summary:
+      'Quote/project → time cost → WIP aging → draft invoice → cash on Documents. Load closed loop on /portal/finance/job-costing. Guards: no double-bill, no double-cost, no payout/SARS.',
     href: '/portal/finance/job-costing',
     cta: 'Job costing',
+    gates: ['No double-bill', 'No double-cost', 'No payment initiate'],
   },
   {
     id: 'I',
@@ -225,10 +227,20 @@ const PHASE6_WORLD: Runbook[] = [
     id: 'P6-C',
     title: 'P6-C · Claims, rev-rec, grants, ESS, cash, jobs',
     summary:
-      'Expense claims (OCR confirm-only, post to books/payable, no payout), revenue recognition lite period runs, practice firm→client grants, employee ESS payslips/leave downloads, cash forecast scenarios (planning-only), job-cost quote→time→WIP→invoice→cash.',
+      'Expense claims (OCR confirm-only, post to books/payable, no payout), revenue recognition lite period runs, practice firm→client grants, employee ESS payslips/leave downloads, cash forecast scenarios (planning-only), job-cost closed loop on /portal/finance/job-costing (quote→time→WIP aging→invoice→cash; draft invoice releases WIP).',
     href: '/portal/finance/job-costing',
     cta: 'Job costing hub',
-    gates: ['No payout from claims', 'OCR never auto-apply', 'Cash planning-only', 'ESS least privilege'],
+    gates: ['No payout from claims', 'OCR never auto-apply', 'Cash planning-only', 'ESS least privilege', 'No double-bill'],
+  },
+  {
+    id: 'P6-C6',
+    title: 'P6-C6 · Job costing closed loop only',
+    summary:
+      'Operator path: set project (+ optional quote) → apply WIP time cost → Load closed loop (trace + P&L + aging) → draft invoice lines for billable time (releases WIP) → issue/allocate cash on Documents → re-load loop. Regression: same TE cannot double-apply per purpose.',
+    href: '/portal/finance/job-costing',
+    cta: 'Open closed loop',
+    emptyState: 'Empty applications until time cost is applied for the selected book/project.',
+    gates: ['No double-bill', 'No double-cost', 'No payment initiate', 'No SARS submit'],
   },
   {
     id: 'P6-D',

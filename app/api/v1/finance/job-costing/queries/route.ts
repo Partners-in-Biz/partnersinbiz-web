@@ -7,7 +7,7 @@ import type { AccountingBasis } from '@/lib/finance/types'
 
 export const dynamic = 'force-dynamic'
 
-const RESOURCES = ['bundle', 'project-pnl', 'project-wip'] as const
+const RESOURCES = ['bundle', 'project-pnl', 'project-wip', 'closed-loop'] as const
 
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const gateway = new FirestoreJobCostingGateway()
@@ -65,6 +65,21 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
           asOfDate,
           accountingBasis: basis,
           fromDate: params.get('fromDate') || undefined,
+        })
+      }
+
+      if (resource === 'closed-loop') {
+        const asOfDate = params.get('asOfDate')
+        if (!asOfDate) throw new FinanceValidationError('asOfDate is required')
+        return gateway.closedLoop(actor, {
+          orgId,
+          legalEntityId,
+          bookId,
+          projectId,
+          asOfDate,
+          accountingBasis: basis,
+          fromDate: params.get('fromDate') || undefined,
+          quoteId: params.get('quoteId') || undefined,
         })
       }
 

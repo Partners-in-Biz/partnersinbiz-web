@@ -143,6 +143,22 @@ export class FirestoreJobCostingGateway {
     return this.service.projectWip(actor, input)
   }
 
+  closedLoop(
+    actor: FinanceActorContext,
+    input: {
+      orgId: string
+      legalEntityId: string
+      bookId: string
+      projectId: string
+      asOfDate: string
+      accountingBasis: AccountingBasis
+      fromDate?: string
+      quoteId?: string
+    },
+  ) {
+    return this.service.closedLoop(actor, input)
+  }
+
   listApplications(
     actor: FinanceActorContext,
     orgId: string,

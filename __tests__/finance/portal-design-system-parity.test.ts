@@ -205,6 +205,13 @@ describe('finance portal design-system parity', () => {
       expect(src).toMatch(/useFinanceBookScope/)
     }
 
+    const jobCosting = read('app/(portal)/portal/finance/job-costing/page.tsx')
+    expect(jobCosting).toMatch(/StatCard/)
+    expect(jobCosting).toMatch(/HudChip/)
+    expect(jobCosting).toMatch(/closed-loop|closed loop/i)
+    expect(jobCosting).toMatch(/draft_invoice_lines/)
+    expect(jobCosting).toMatch(/No SARS/)
+
     // Nav lock: Phase 4/5 routes remain discoverable from the shared finance nav.
     for (const key of ['assets', 'revenue-recognition', 'bank-rules', 'budgets', 'multi-currency', 'job-costing', 'practice', 'period-close', 'runbooks', 'setup', 'proving', 'ess'] as const) {
       expect(financeNavItem(key).href).toMatch(/^\/portal\/finance/)

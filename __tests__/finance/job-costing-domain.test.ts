@@ -264,8 +264,72 @@ describe('project P&L and WIP', () => {
     expect(pnl.totalCostMinor).toBe(10000)
     expect(pnl.totalRevenueMinor).toBe(20000)
     expect(pnl.grossMarginMinor).toBe(10000)
+    expect(pnl.cashAppliedMinor).toBe(0)
+    expect(pnl.outstandingArMinor).toBe(20000)
+    expect(pnl.invoiceCashSlices).toHaveLength(1)
     expect(pnl.journalEntryIds).toContain('je_1')
     expect(pnl.invoiceIds).toContain('inv_1')
+  })
+
+  test('project P&L pro-rates cash application on partially paid invoices', () => {
+    const invoice = {
+      id: 'inv_paid',
+      orgId: 'org_1',
+      legalEntityId: 'le_1',
+      bookId: 'book_1',
+      documentNumber: 'INV-2',
+      customerCompanyId: 'co_1',
+      customerSnapshot: { companyId: 'co_1', legalName: 'Client' },
+      issueDate: '2026-08-05',
+      dueDate: '2026-08-30',
+      currency: 'ZAR',
+      accountingBasis: 'accrual' as const,
+      status: 'partially_paid' as const,
+      postingState: 'posted' as const,
+      lines: [
+        {
+          id: 'l1',
+          sequence: 1,
+          description: 'Billable work',
+          quantityMilli: 1000,
+          unitPriceMinor: 10000,
+          taxCodeId: 'tax',
+          taxIncluded: false,
+          taxableMinor: 10000,
+          taxMinor: 0,
+          grossMinor: 10000,
+          revenueOrExpenseAccountId: 'acc_rev',
+          taxTrace: {} as any,
+          projectId: 'proj_a',
+        },
+      ],
+      subtotalMinor: 10000,
+      taxMinor: 0,
+      totalMinor: 10000,
+      outstandingMinor: 4000,
+      settlementJournalEntryIds: ['je_pay'],
+      immutable: true,
+      schemaVersion: 1 as const,
+      version: 1,
+      createdAt: '2026-08-05T00:00:00.000Z',
+      createdBy: 'u',
+      updatedAt: '2026-08-05T00:00:00.000Z',
+      updatedBy: 'u',
+    } satisfies FinanceCustomerInvoice
+
+    const pnl = buildProjectProfitAndLoss({
+      scope: { orgId: 'org_1', legalEntityId: 'le_1', bookId: 'book_1' },
+      projectId: 'proj_a',
+      fromDate: '2026-08-01',
+      toDate: '2026-08-31',
+      accountingBasis: 'accrual',
+      accounts: [income, expense, clearing],
+      journals: [],
+      invoices: [invoice],
+    })
+    expect(pnl.totalRevenueMinor).toBe(10000)
+    expect(pnl.cashAppliedMinor).toBe(6000)
+    expect(pnl.outstandingArMinor).toBe(4000)
   })
 
   test('WIP uses open wip_cost applications for the project', () => {
@@ -318,7 +382,83 @@ describe('project P&L and WIP', () => {
     })
     expect(wip.unbilledLaborCostMinor).toBe(5000)
     expect(wip.wipMinor).toBe(5000)
+    expect(wip.releasedLaborCostMinor).toBe(0)
     expect(wip.openTimeCostApplicationIds).toEqual(['tca_1'])
+    expect(wip.aging.find((b) => b.key === 'd1_30')?.amountMinor).toBe(5000)
+  })
+
+  test('WIP ages 90+ and releases when draft invoice covers same time entry', () => {
+    const baseApp = {
+      orgId: 'org_1',
+      legalEntityId: 'le_1',
+      bookId: 'book_1',
+      status: 'applied' as const,
+      currency: 'ZAR',
+      projectIds: ['proj_a'],
+      requestId: 'r',
+      idempotencyKey: 'k',
+      immutable: true as const,
+      contentHash: 'h',
+      externalEgressAllowed: false as const,
+      externalPaymentInitiated: false as const,
+      canonicalPayloadVersion: 1 as const,
+      hashAlgorithmVersion: HASH_ALGORITHM_VERSION,
+      schemaVersion: 1 as const,
+      version: 1,
+      createdBy: 'u',
+      updatedBy: 'u',
+    }
+    const wipApp = {
+      ...baseApp,
+      id: 'tca_old',
+      purpose: 'wip_cost' as const,
+      timeEntryIds: ['te_old'],
+      lines: [
+        {
+          timeEntryId: 'te_old',
+          projectId: 'proj_a',
+          durationMinutes: 60,
+          costRateMinorPerHour: 10000,
+          amountMinor: 10000,
+          currency: 'ZAR',
+          description: 'old',
+          dimensions: { projectId: 'proj_a' },
+        },
+      ],
+      totalCostMinor: 10000,
+      createdAt: '2026-04-01T00:00:00.000Z',
+      updatedAt: '2026-04-01T00:00:00.000Z',
+    }
+    const draftApp = {
+      ...baseApp,
+      id: 'tca_bill',
+      purpose: 'draft_invoice_lines' as const,
+      timeEntryIds: ['te_old'],
+      lines: wipApp.lines,
+      totalCostMinor: 10000,
+      createdAt: '2026-08-20T00:00:00.000Z',
+      updatedAt: '2026-08-20T00:00:00.000Z',
+    }
+    const openOnly = buildProjectWip({
+      scope: { orgId: 'org_1', legalEntityId: 'le_1', bookId: 'book_1' },
+      projectId: 'proj_a',
+      asOfDate: '2026-08-31',
+      applications: [wipApp],
+      pnl: { totalRevenueMinor: 0, totalCostMinor: 0 },
+    })
+    expect(openOnly.unbilledLaborCostMinor).toBe(10000)
+    expect(openOnly.aging.find((b) => b.key === 'd90_plus')?.amountMinor).toBe(10000)
+
+    const released = buildProjectWip({
+      scope: { orgId: 'org_1', legalEntityId: 'le_1', bookId: 'book_1' },
+      projectId: 'proj_a',
+      asOfDate: '2026-08-31',
+      applications: [wipApp, draftApp],
+      pnl: { totalRevenueMinor: 0, totalCostMinor: 0 },
+    })
+    expect(released.unbilledLaborCostMinor).toBe(0)
+    expect(released.releasedLaborCostMinor).toBe(10000)
+    expect(released.openTimeCostApplicationIds).toEqual([])
   })
 })
 
@@ -455,5 +595,85 @@ describe('FinanceJobCostingService time cost apply', () => {
         ],
       }),
     ).rejects.toBeInstanceOf(FinanceAuthorizationError)
+  })
+
+  test('draft invoice lines refuse double-bill and closed loop reports release', async () => {
+    const storeRef = { current: createEmptyJobCostingStore() }
+    const svc = serviceWith(storeRef)
+    const entry = {
+      timeEntryId: 'te_loop',
+      orgId: 'org_1',
+      projectId: 'proj_loop',
+      billable: true,
+      durationMinutes: 60,
+      costRateMinorPerHour: 10000,
+      currency: 'ZAR',
+      endAt: '2026-08-01T12:00:00.000Z',
+      description: 'Loop',
+    }
+    await svc.applyTimeCost(actor(), {
+      id: 'tca_wip_loop',
+      orgId: 'org_1',
+      legalEntityId: 'le_1',
+      bookId: 'book_1',
+      purpose: 'wip_cost',
+      currency: 'ZAR',
+      laborExpenseAccountId: 'acc_exp',
+      wipAssetAccountId: 'acc_wip',
+      expectedVersion: 0,
+      requestId: 'req_wip_loop',
+      idempotencyKey: 'idem_wip_loop',
+      entries: [entry],
+    })
+    const draft = await svc.applyTimeCost(actor(), {
+      id: 'tca_draft_loop',
+      orgId: 'org_1',
+      legalEntityId: 'le_1',
+      bookId: 'book_1',
+      purpose: 'draft_invoice_lines',
+      currency: 'ZAR',
+      revenueAccountId: 'acc_rev',
+      taxCodeId: 'tax',
+      expectedVersion: 0,
+      requestId: 'req_draft_loop',
+      idempotencyKey: 'idem_draft_loop',
+      entries: [entry],
+    })
+    expect(draft.proposedInvoiceLines?.length).toBe(1)
+
+    await expect(
+      svc.applyTimeCost(actor(), {
+        id: 'tca_draft_loop_2',
+        orgId: 'org_1',
+        legalEntityId: 'le_1',
+        bookId: 'book_1',
+        purpose: 'draft_invoice_lines',
+        currency: 'ZAR',
+        revenueAccountId: 'acc_rev',
+        taxCodeId: 'tax',
+        expectedVersion: 0,
+        requestId: 'req_draft_loop_2',
+        idempotencyKey: 'idem_draft_loop_2',
+        entries: [entry],
+      }),
+    ).rejects.toThrow(/double-billing|double-costing/)
+
+    const loop = await svc.closedLoop(actor(), {
+      orgId: 'org_1',
+      legalEntityId: 'le_1',
+      bookId: 'book_1',
+      projectId: 'proj_loop',
+      asOfDate: '2026-08-31',
+      accountingBasis: 'accrual',
+      fromDate: '2026-08-01',
+      quoteId: 'quo_demo',
+    })
+    expect(loop.wip.releasedLaborCostMinor).toBe(10000)
+    expect(loop.wip.unbilledLaborCostMinor).toBe(0)
+    expect(loop.trace.steps.find((s) => s.id === 'quote_project')?.refs).toContain('quo_demo')
+    expect(loop.trace.steps.find((s) => s.id === 'time_cost')?.status).toBe('done')
+    expect(loop.trace.steps.find((s) => s.id === 'wip')?.status).toBe('done')
+    expect(loop.trace.steps.find((s) => s.id === 'invoice')?.status).toBe('done')
+    expect(loop.trace.hardGates.externalPaymentInitiated).toBe(false)
   })
 })

@@ -317,20 +317,22 @@ Phase 5 membership switcher remains. Phase 6 adds **grants** so a firm org can a
 ### C6. Job costing closed loop (quote → time → WIP → invoice → cash)
 
 **Board task:** `ioOg7I9jaHtMwQoS2tVU`  
-**Portal:** `/portal/finance/job-costing` (+ Projects/time)
+**Portal:** `/portal/finance/job-costing` (+ Projects/time + Documents for issue/cash)
 
-| Step | Traceability | Pass |
-| --- | --- | --- |
-| 1 | Quote/project linked | `projectId` stable |
-| 2 | Time cost applied | Labor cost on job |
-| 3 | WIP recognition | WIP aging visible |
-| 4 | Invoice draft from billable / WIP release | No double-bill |
-| 5 | Cash application on receipt | Job P&L updates; no double-cost |
-| 6 | Month-end job P&L review | Accountant pack optional job summary |
+| Step | Traceability | Operator action | Pass |
+| --- | --- | --- | --- |
+| 1 | Quote/project linked | Enter stable `projectId` (+ optional quote id) | Project dimension on finance lines |
+| 2 | Time cost applied | Purpose `wip_cost` → Apply time cost | Labor cost application + proposed journal lines |
+| 3 | WIP recognition + aging | **Load closed loop** or WIP only | Open WIP + aging buckets; released when billed |
+| 4 | Invoice draft / WIP release | Purpose `draft_invoice_lines` on same TE | No double-bill claim; open WIP drops for that TE |
+| 5 | Cash application on receipt | Documents → allocate payment on project invoice | Job P&L cash applied / open AR updates |
+| 6 | Month-end job P&L review | Closed loop stats + line detail | Margin + cash slices; accountant pack optional |
 
-Regression tests must hold: no double-bill time, no double-cost WIP release.
+Regression tests must hold: no double-bill time, no double-cost WIP release (verify: `npm run verify:finance:job-costing`).
 
-HTTP: `/api/v1/finance/job-costing/commands|queries` plus documents/payments as needed.
+HTTP: `/api/v1/finance/job-costing/commands|queries` (`bundle`, `project-pnl`, `project-wip`, `closed-loop`) plus documents/payments as needed.
+
+In-app runbooks: **H**, **P6-C**, **P6-C6** on `/portal/finance/runbooks`.
 
 ---
 
