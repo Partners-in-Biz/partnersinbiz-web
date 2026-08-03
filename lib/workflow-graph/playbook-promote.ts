@@ -37,13 +37,15 @@ export function promotePlaybookTemplateToGraphTemplate(input: {
       expectedArtifacts: step.expectedArtifacts,
       verifierChecklist: step.verifierChecklist,
       reviewerAgentId: step.reviewerAgentId,
-      // Keep requiredCapability as a capability (publish/spend/…), never the invalid
-      // default "approval" string — approvalGate mapping happens at materialize time.
-      requiredCapability:
-        step.requiredCapability
-        || (kind === 'human_gate' && step.approvalGate && step.approvalGate !== 'none' && step.approvalGate !== 'approval'
+      // Keep requiredCapability as a real capability only — never copy playbook
+      // approvalGate (human-review / paid-spend / finance / …) into it.
+      requiredCapability: step.requiredCapability || undefined,
+      // Carry Kanban gate on the graph node so materialize can set task.approvalGate
+      // the same way classic playbook materialize does.
+      approvalGate:
+        kind === 'human_gate' && step.approvalGate && step.approvalGate !== 'none'
           ? step.approvalGate
-          : undefined),
+          : undefined,
       riskLevel: (step.riskLevel as GraphNodeTemplate['riskLevel']) || undefined,
     }
   })

@@ -10,6 +10,7 @@ import {
 } from './constants'
 import { appendTimeline } from './ops-timeline'
 import { attemptIdempotencyKey } from './validation'
+import { isValidAgentCapability, isValidApprovalGate } from '@/lib/projects/taskPayload'
 import type {
   AdvanceEvent,
   AdvanceResult,
@@ -122,6 +123,7 @@ export function createWorkflowRunFromTemplate(input: {
     verifierChecklist: [...(node.verifierChecklist ?? [])],
     assigneeAgentId: node.assigneeAgentId,
     requiredCapability: node.requiredCapability,
+    approvalGate: node.approvalGate,
     riskLevel: node.riskLevel,
     systemAction: node.systemAction,
     checkType: node.checkType,
@@ -440,6 +442,22 @@ export function mapCapabilityToHumanGateApprovalGate(
   }
 }
 
+function resolveHumanGateApprovalGate(node: WorkflowNodeState): string {
+  const fromNode = typeof node.approvalGate === 'string' ? node.approvalGate.trim() : ''
+  if (fromNode && isValidApprovalGate(fromNode) && fromNode !== 'none') {
+    return fromNode
+  }
+  return mapCapabilityToHumanGateApprovalGate(node.requiredCapability)
+}
+
+function resolveMaterializeRequiredCapability(node: WorkflowNodeState): string | undefined {
+  // Only emit real capabilities — gate names must never become requiredCapability.
+  if (isValidAgentCapability(node.requiredCapability)) {
+    return node.requiredCapability!.trim()
+  }
+  return undefined
+}
+
 function buildMaterializeIntent(run: WorkflowRun, node: WorkflowNodeState): MaterializeIntent {
   const dependsOnKanbanTaskIds = node.dependsOnNodeIds
     .map((depId) => nodeById(run, depId)?.kanbanTaskId)
@@ -467,9 +485,9 @@ function buildMaterializeIntent(run: WorkflowRun, node: WorkflowNodeState): Mate
     expectedArtifacts: [...node.expectedArtifacts],
     verifierChecklist: [...node.verifierChecklist],
     reviewerAgentId: node.reviewerAgentId,
-    requiredCapability: node.requiredCapability,
+    requiredCapability: resolveMaterializeRequiredCapability(node),
     riskLevel: node.riskLevel,
-    approvalGate: isGate ? mapCapabilityToHumanGateApprovalGate(node.requiredCapability) : undefined,
+    approvalGate: isGate ? resolveHumanGateApprovalGate(node) : undefined,
     labels,
     agentInput: node.agentInput
       ? {

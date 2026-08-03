@@ -486,6 +486,142 @@ describe('workflow graph phase 1 engine', () => {
     }
   })
 
+  test('playbook promote approvalGate-only steps materialize valid Kanban payloads (no gate-as-capability)', () => {
+    const gates = [
+      'human-review',
+      'paid-spend',
+      'finance',
+      'client-visible',
+      'secret-config',
+      'destructive',
+      'production-deploy',
+      'public-publishing',
+    ] as const
+
+    for (const gate of gates) {
+      const promoted = promotePlaybookTemplateToGraphTemplate({
+        orgId: 'pib-platform-owner',
+        name: `promote-gate-${gate}`,
+        playbookId: `pb-gate-${gate}`,
+        projectId: 'proj-gate',
+        playbookTemplate: {
+          schemaVersion: 1,
+          steps: [
+            {
+              stepId: 'gate',
+              taskKind: 'approval-gate',
+              title: `Approve ${gate}`,
+              dependsOnStepIds: [],
+              approvalGate: gate,
+              // intentionally no requiredCapability — classic playbook shape
+              expectedArtifacts: ['approval_ref'],
+              verifierChecklist: ['scoped'],
+              labels: [],
+            },
+          ],
+        },
+      })
+      expect(promoted.ok).toBe(true)
+      if (!promoted.ok) return
+      const node = promoted.template.nodes.find((n) => n.nodeId === 'gate')
+      expect(node?.kind).toBe('human_gate')
+      expect(node?.approvalGate).toBe(gate)
+      expect(node?.requiredCapability).toBeUndefined()
+
+      const template = { ...promoted.template, id: `tmpl-${gate}` }
+      const run = createWorkflowRunFromTemplate({
+        runId: `wfr_${gate}`,
+        template,
+        orgId: 'pib-platform-owner',
+        projectId: 'proj-gate',
+        trigger: { type: 'manual', at: NOW },
+        now: NOW,
+      })
+      expect(run.nodes.find((n) => n.nodeId === 'gate')?.approvalGate).toBe(gate)
+
+      const advanced = advanceWorkflowRun(run, { type: 'tick', now: NOW })
+      const intent = advanced.materialize.find((m) => m.nodeId === 'gate')
+      expect(intent?.kind).toBe('human_gate')
+      expect(intent?.approvalGate).toBe(gate)
+      expect(intent?.requiredCapability).toBeUndefined()
+
+      const payload = buildProjectTaskCreateData({
+        title: intent!.title,
+        columnId: intent!.columnId,
+        agentStatus: intent!.agentStatus,
+        approvalGate: intent!.approvalGate,
+        requiredCapability: intent!.requiredCapability,
+        expectedArtifacts: intent!.expectedArtifacts,
+        labels: intent!.labels,
+      }, 'proj-gate', 'pib-platform-owner')
+      expect(payload.ok).toBe(true)
+      if (payload.ok) {
+        expect(payload.value.approvalGate).toBe(gate)
+        expect(payload.value.requiredCapability).toBeUndefined()
+      }
+    }
+  })
+
+  test('pilot publish capability path still maps approvalGate + keeps requiredCapability publish', () => {
+    const promoted = promotePlaybookTemplateToGraphTemplate({
+      orgId: 'pib-platform-owner',
+      name: 'pilot-publish',
+      playbookId: 'pb-publish',
+      projectId: 'proj-gate',
+      playbookTemplate: {
+        schemaVersion: 1,
+        steps: [
+          {
+            stepId: 'approve_publish',
+            taskKind: 'approval-gate',
+            title: 'Approve publish',
+            dependsOnStepIds: [],
+            approvalGate: 'public-publishing',
+            requiredCapability: 'publish',
+            riskLevel: 'high',
+            expectedArtifacts: ['approval'],
+            verifierChecklist: ['scoped'],
+            labels: [],
+          },
+        ],
+      },
+    })
+    expect(promoted.ok).toBe(true)
+    if (!promoted.ok) return
+    const node = promoted.template.nodes.find((n) => n.nodeId === 'approve_publish')
+    expect(node?.requiredCapability).toBe('publish')
+    expect(node?.approvalGate).toBe('public-publishing')
+
+    const run = createWorkflowRunFromTemplate({
+      runId: 'wfr_publish_cap',
+      template: { ...promoted.template, id: 'tmpl-publish' },
+      orgId: 'pib-platform-owner',
+      projectId: 'proj-gate',
+      trigger: { type: 'manual', at: NOW },
+      now: NOW,
+    })
+    const intent = advanceWorkflowRun(run, { type: 'tick', now: NOW }).materialize.find(
+      (m) => m.nodeId === 'approve_publish',
+    )
+    expect(intent?.approvalGate).toBe('public-publishing')
+    expect(intent?.requiredCapability).toBe('publish')
+    const payload = buildProjectTaskCreateData({
+      title: intent!.title,
+      columnId: intent!.columnId,
+      agentStatus: intent!.agentStatus,
+      approvalGate: intent!.approvalGate,
+      requiredCapability: intent!.requiredCapability,
+      expectedArtifacts: intent!.expectedArtifacts,
+      labels: intent!.labels,
+      riskLevel: intent!.riskLevel,
+    }, 'proj-gate', 'pib-platform-owner')
+    expect(payload.ok).toBe(true)
+    if (payload.ok) {
+      expect(payload.value.approvalGate).toBe('public-publishing')
+      expect(payload.value.requiredCapability).toBe('publish')
+    }
+  })
+
   test('fail-closed: transient_infra 3x → blocked with exhausted reason and rematerialize between attempts', () => {
     let run = startPilotRun()
     let step = advanceWorkflowRun(run, { type: 'tick', now: NOW })

@@ -85,6 +85,7 @@ export function normalizeGraphNode(raw: unknown, index: number): GraphNodeTempla
     verifierChecklist: cleanStringArray(source.verifierChecklist),
     reviewerAgentId: cleanString(source.reviewerAgentId) || undefined,
     requiredCapability: cleanString(source.requiredCapability) || undefined,
+    approvalGate: cleanString(source.approvalGate) || undefined,
     riskLevel: (cleanString(source.riskLevel) as GraphNodeTemplate['riskLevel']) || undefined,
     systemAction: cleanString(source.systemAction) || undefined,
     checkType: cleanString(source.checkType) || undefined,
@@ -214,8 +215,11 @@ export function validateGraphTemplate(template: GraphTemplate): TemplateValidati
     }
 
     if (node.kind === 'human_gate') {
-      if (!node.requiredCapability && !node.expectedArtifacts?.length) {
-        return { ok: false, error: `human_gate ${node.nodeId} requires requiredCapability or expectedArtifacts` }
+      if (!node.requiredCapability && !node.approvalGate && !node.expectedArtifacts?.length) {
+        return {
+          ok: false,
+          error: `human_gate ${node.nodeId} requires requiredCapability, approvalGate, or expectedArtifacts`,
+        }
       }
     }
 

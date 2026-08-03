@@ -37,6 +37,7 @@ export type GraphNodeDraft = {
   verifierChecklist?: string[]
   reviewerAgentId?: string
   requiredCapability?: string
+  approvalGate?: string
   riskLevel?: 'low' | 'medium' | 'high'
   systemAction?: string
   checkType?: string
@@ -152,6 +153,7 @@ export function draftFromTemplate(template: GraphTemplate): GraphTemplateDraft {
       verifierChecklist: node.verifierChecklist ? [...node.verifierChecklist] : [],
       reviewerAgentId: node.reviewerAgentId,
       requiredCapability: node.requiredCapability,
+      approvalGate: node.approvalGate,
       riskLevel: node.riskLevel,
       systemAction: node.systemAction,
       checkType: node.checkType,
@@ -218,6 +220,7 @@ export function serializeAuthoringPayload(
       verifierChecklist: node.verifierChecklist || [],
       reviewerAgentId: node.reviewerAgentId,
       requiredCapability: node.requiredCapability,
+      approvalGate: node.approvalGate,
       riskLevel: node.riskLevel,
       systemAction: node.systemAction,
       checkType: node.checkType,
