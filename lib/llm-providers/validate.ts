@@ -22,6 +22,10 @@ const TARGETS: Partial<Record<LlmProviderKey, { url: string; auth: (c: LlmConnec
     url: 'https://openrouter.ai/api/v1/models',
     auth: (c) => ({ Authorization: `Bearer ${c.apiKey}` }),
   },
+  deepseek: {
+    url: 'https://api.deepseek.com/v1/models',
+    auth: (c) => ({ Authorization: `Bearer ${c.apiKey}` }),
+  },
   copilot: {
     url: 'https://api.githubcopilot.com/models',
     auth: (c) => ({

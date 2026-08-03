@@ -13,6 +13,7 @@ export type LlmProviderKey =
   | 'openai-api'
   | 'anthropic'
   | 'gemini'
+  | 'deepseek'
   | 'openrouter'
   | 'nous'
   | 'copilot'
@@ -70,6 +71,15 @@ const OPENAI_CODEX_CURATED_MODELS = [
   'gpt-5.3-codex',
   'gpt-5.3-codex-spark',
   'gpt-5.2-codex',
+]
+
+/** DeepSeek API model ids — Flash first (latest cheap default), then Pro + legacy aliases. */
+const DEEPSEEK_CURATED_MODELS = [
+  'deepseek-v4-flash',
+  'deepseek-v4-pro',
+  // Server-side aliases of Flash non-thinking / thinking modes
+  'deepseek-chat',
+  'deepseek-reasoner',
 ]
 
 export const LLM_PROVIDERS: LlmProviderDefinition[] = [
@@ -144,6 +154,20 @@ export const LLM_PROVIDERS: LlmProviderDefinition[] = [
     credentialFields: [{ key: 'apiKey', label: 'Gemini API key', secret: true, placeholder: 'AIza…' }],
     consoleUrl: 'https://aistudio.google.com/apikey',
     curatedModels: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3-flash-preview'],
+    oauthCapable: false,
+  },
+  {
+    key: 'deepseek',
+    label: 'DeepSeek',
+    description:
+      'DeepSeek V4 Flash + Pro via DEEPSEEK_API_KEY. Base URL https://api.deepseek.com (OpenAI-compatible). Peak-hour pricing (2×) may apply — see Messages usage chip when connected.',
+    hermesProvider: 'deepseek',
+    authKind: 'api_key',
+    envVar: 'DEEPSEEK_API_KEY',
+    credentialFields: [{ key: 'apiKey', label: 'DeepSeek API key', secret: true, placeholder: 'sk-…' }],
+    consoleUrl: 'https://platform.deepseek.com/api_keys',
+    docsUrl: 'https://api-docs.deepseek.com/quick_start/pricing/',
+    curatedModels: DEEPSEEK_CURATED_MODELS,
     oauthCapable: false,
   },
   {

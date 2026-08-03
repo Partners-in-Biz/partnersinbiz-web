@@ -53,6 +53,7 @@ export function inferHermesProviderFromModel(model: string | null | undefined): 
   if (lower.startsWith('grok')) return 'xai-oauth'
   if (lower.startsWith('gpt') || lower.includes('codex')) return 'openai-codex'
   if (lower.startsWith('gemini')) return 'gemini'
+  if (lower.startsWith('deepseek')) return 'deepseek'
   const prefix = model.includes('/') ? model.split('/')[0] : ''
   return normalizeProviderId(prefix) || null
 }
