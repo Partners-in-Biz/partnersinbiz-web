@@ -17,6 +17,10 @@ import type { Contact, DealLineItem } from '@/lib/crm/types'
 import type { LineItem } from '@/lib/invoices/types'
 import { decorateQuotePortalCapabilities, type QuoteAccessKind } from '@/lib/billing/portal-permissions'
 import { filterBillingRecordsForCrmActor } from '@/lib/billing/crm-record-scope'
+import {
+  resolveQuoteCreateAccess,
+  shouldExposeIssuerBillingBook,
+} from '@/lib/billing/member-issuer'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -132,6 +136,9 @@ export const GET = withCrmAuth('viewer', async (req: NextRequest, ctx) => {
   if (view === 'received') {
     quotes = await loadReceivedQuotesForOrg(requestedOrgId)
   } else {
+    if (!shouldExposeIssuerBillingBook(ctx, 'quotes')) {
+      return apiSuccess({ quotes: [] })
+    }
     const query: FirebaseFirestore.Query = adminDb.collection('quotes')
       .where('orgId', '==', requestedOrgId)
     const snapshot = await query.get()
@@ -263,11 +270,13 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
   // Company association: explicit companyId wins; otherwise auto-derive from contact
   let derivedCompanyId: string | undefined
   let derivedCompanyName: string | undefined
+  let loadedCompany: Record<string, unknown> | null = null
   if (body.companyId && typeof body.companyId === 'string') {
     const loaded = await loadCompany(body.companyId, sourceOrgId)
     if (!loaded) return apiError('Invalid companyId', 400)
     derivedCompanyId = body.companyId
     derivedCompanyName = loaded.data.name
+    loadedCompany = loaded.data as unknown as Record<string, unknown>
   } else if (contactId) {
     const derived = await deriveCompanyFromContact(contactId, sourceOrgId)
     derivedCompanyId = derived.companyId
@@ -287,6 +296,26 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
     })
     derivedCompanyId = platformCompany?.companyId
     derivedCompanyName = platformCompany?.companyName
+  }
+
+  let contactRecord: Record<string, unknown> | null = null
+  if (contactId) {
+    const contactSnap = await adminDb.collection('contacts').doc(contactId).get()
+    if (contactSnap.exists) {
+      const data = contactSnap.data() as Record<string, unknown>
+      if (data.orgId === sourceOrgId) contactRecord = data
+    }
+  }
+
+  const quoteAccess = await resolveQuoteCreateAccess({
+    ctx,
+    companyId: derivedCompanyId,
+    contactId,
+    company: loadedCompany,
+    contact: contactRecord,
+  })
+  if (!quoteAccess.ok) {
+    return apiError(quoteAccess.error, quoteAccess.status)
   }
 
   const quoteData: Record<string, unknown> = {

@@ -31,6 +31,13 @@ export type AccessPolicyPreset =
 
 export type LegacyAccessScope = 'none' | 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
 
+/** Explicit issuer grants. Billing module alone does not allow create/list of
+ * the workspace invoice/quote book — org owner/admin must toggle these. */
+export type MemberBillingCapabilities = {
+  invoices: boolean
+  quotes: boolean
+}
+
 export interface MemberAccessPolicy {
   preset: AccessPolicyPreset
   modules: Record<WorkspaceModuleKey, boolean>
@@ -44,6 +51,12 @@ export interface MemberAccessPolicy {
    * Default false for members; owners/full-access policies default true.
    */
   allowPersonalLlmOnOrgVps: boolean
+  /**
+   * Invoice/quote issuer rights for members. Independent of modules.billing
+   * (UI open). Fail closed unless true; still AND with CRM owned_or_linked
+   * scope for non-privileged actors.
+   */
+  capabilities: MemberBillingCapabilities
 }
 
 type RoleWithSystem = OrgRole | 'system'
@@ -73,8 +86,17 @@ function policy(input: {
   modules: Partial<Record<WorkspaceModuleKey, boolean>>
   recordScopes?: Partial<Record<RecordScopedModuleKey, RecordScope>>
   allowPersonalLlmOnOrgVps?: boolean
+  capabilities?: Partial<MemberBillingCapabilities>
 }): MemberAccessPolicy {
   return normalizeMemberAccessPolicy(input)
+}
+
+function emptyBillingCapabilities(): MemberBillingCapabilities {
+  return { invoices: false, quotes: false }
+}
+
+function fullBillingCapabilities(): MemberBillingCapabilities {
+  return { invoices: true, quotes: true }
 }
 
 /** Owners/full-access and explicitly opted-in members may use personal LLM keys on the org VPS. */
@@ -92,6 +114,7 @@ export const FULL_ACCESS_POLICY: MemberAccessPolicy = {
   recordScopes: { crm: 'all', projects: 'all' },
   agentRuntimeAccess: {},
   allowPersonalLlmOnOrgVps: true,
+  capabilities: fullBillingCapabilities(),
 }
 
 export const OWNED_OR_LINKED_DEFAULT_SCOPES: Record<RecordScopedModuleKey, RecordScope> = {
@@ -107,6 +130,7 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
       recordScopes: { ...OWNED_OR_LINKED_DEFAULT_SCOPES },
       agentRuntimeAccess: {},
       allowPersonalLlmOnOrgVps: false,
+      capabilities: emptyBillingCapabilities(),
     }
   }
 
@@ -116,6 +140,7 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
     recordScopes?: unknown
     agentRuntimeAccess?: unknown
     allowPersonalLlmOnOrgVps?: unknown
+    capabilities?: unknown
   }
   const modulesInput =
     input.modules && typeof input.modules === 'object' && !Array.isArray(input.modules)
@@ -128,6 +153,10 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
   const agentRuntimeAccessInput =
     input.agentRuntimeAccess && typeof input.agentRuntimeAccess === 'object' && !Array.isArray(input.agentRuntimeAccess)
       ? input.agentRuntimeAccess as Record<string, unknown>
+      : {}
+  const capabilitiesInput =
+    input.capabilities && typeof input.capabilities === 'object' && !Array.isArray(input.capabilities)
+      ? input.capabilities as Record<string, unknown>
       : {}
 
   const modules = moduleFlags(false)
@@ -163,7 +192,14 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
 
   const allowPersonalLlmOnOrgVps = input.allowPersonalLlmOnOrgVps === true
 
-  return { preset, modules, recordScopes, agentRuntimeAccess, allowPersonalLlmOnOrgVps }
+  // Explicit capability flags only. modules.billing opens UI; it does not imply
+  // issuer rights. Full-access presets set both true via FULL_ACCESS_POLICY.
+  const capabilities: MemberBillingCapabilities = {
+    invoices: capabilitiesInput.invoices === true,
+    quotes: capabilitiesInput.quotes === true,
+  }
+
+  return { preset, modules, recordScopes, agentRuntimeAccess, allowPersonalLlmOnOrgVps, capabilities }
 }
 
 /** Normalize runtime target ids so Team grants match dispatch/create.
@@ -239,10 +275,12 @@ export function defaultAccessPolicyFor(role: RoleWithSystem, accessScope?: unkno
     })
   }
   if (scope === 'billing') {
+    // Legacy finance scope opens billing UI only — issuer rights stay explicit.
     return policy({
       preset: 'finance',
       modules: { billing: true, reports: true },
       recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+      capabilities: emptyBillingCapabilities(),
     })
   }
   if (scope === 'readonly') {
@@ -293,9 +331,34 @@ export function canAccessAllModuleRecords(policyValue: MemberAccessPolicy | unkn
   return recordScopeFor(policyValue, moduleKey) === 'all'
 }
 
+/** True when policy is the unrestricted full workspace grant (includes issuer). */
+export function isFullWorkspaceAccessPolicy(policyValue: MemberAccessPolicy | unknown): boolean {
+  const policy = normalizePolicyOrFull(policyValue)
+  return WORKSPACE_MODULE_KEYS.every((key) => policy.modules[key])
+    && policy.recordScopes.crm === 'all'
+    && policy.recordScopes.projects === 'all'
+}
+
+/**
+ * Member may create/list issuer invoices. Owners/admins/system bypass via role
+ * at call sites; full workspace policy implies grant; otherwise explicit flag.
+ */
+export function memberCanIssueInvoices(policyValue: MemberAccessPolicy | unknown): boolean {
+  const policy = normalizePolicyOrFull(policyValue)
+  if (isFullWorkspaceAccessPolicy(policy)) return true
+  return policy.capabilities.invoices === true
+}
+
+/** Member may create/list issuer quotes (same grant model as invoices). */
+export function memberCanIssueQuotes(policyValue: MemberAccessPolicy | unknown): boolean {
+  const policy = normalizePolicyOrFull(policyValue)
+  if (isFullWorkspaceAccessPolicy(policy)) return true
+  return policy.capabilities.quotes === true
+}
+
 export function accessSummaryForPolicy(policyValue: MemberAccessPolicy | unknown): string {
   const policy = normalizePolicyOrFull(policyValue)
-  if (WORKSPACE_MODULE_KEYS.every((key) => policy.modules[key]) && policy.recordScopes.crm === 'all' && policy.recordScopes.projects === 'all') {
+  if (isFullWorkspaceAccessPolicy(policy)) {
     return 'Full workspace access'
   }
 
@@ -307,7 +370,14 @@ export function accessSummaryForPolicy(policyValue: MemberAccessPolicy | unknown
   const scoped: string[] = []
   if (policy.modules.crm && policy.recordScopes.crm === 'owned_or_linked') scoped.push('CRM')
   if (policy.modules.projects && policy.recordScopes.projects === 'owned_or_linked') scoped.push('Projects')
-  return scoped.length > 0 ? `${moduleText} - owned or linked records` : moduleText
+  const issuerBits: string[] = []
+  if (policy.capabilities.invoices) issuerBits.push('invoices')
+  if (policy.capabilities.quotes) issuerBits.push('quotes')
+  const issuerText = issuerBits.length > 0
+    ? `Issuer: ${issuerBits.join('+')} (owned/linked clients)`
+    : ''
+  const base = scoped.length > 0 ? `${moduleText} - owned or linked records` : moduleText
+  return issuerText ? `${base}; ${issuerText}` : base
 }
 
 export function policyFromAccessScope(accessScope?: unknown, role: RoleWithSystem = 'member'): MemberAccessPolicy {

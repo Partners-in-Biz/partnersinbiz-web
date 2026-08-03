@@ -220,6 +220,16 @@ export default function TeamPage() {
     }))
   }
 
+  function toggleBillingCapability(key: 'invoices' | 'quotes') {
+    updateAccessDraft(policy => ({
+      ...policy,
+      capabilities: {
+        ...policy.capabilities,
+        [key]: !policy.capabilities[key],
+      },
+    }))
+  }
+
   function toggleRuntimeAgent(runtimeTargetId: string, agentId: AgentId) {
     updateAccessDraft(policy => {
       const current = policy.agentRuntimeAccess[runtimeTargetId] ?? []
@@ -456,6 +466,42 @@ export default function TeamPage() {
                       <option value="all">All projects</option>
                     </select>
                   </InviteField>
+                </div>
+
+                <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-5">
+                  <div>
+                    <p className="eyebrow !text-[10px]">Invoice and quote issuer rights</p>
+                    <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
+                      Allow this member to create and manage invoices or quotes for clients they own or are linked to in CRM.
+                      Billing module access alone does not grant issuer rights. Members never see the full book of other staff clients.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label
+                      className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-pib-text)]"
+                      data-testid="team-access-capability-invoices"
+                    >
+                      <span>Invoices (owned/linked clients)</span>
+                      <input
+                        type="checkbox"
+                        checked={accessDraft.capabilities.invoices === true}
+                        onChange={() => toggleBillingCapability('invoices')}
+                        className="h-4 w-4 accent-[var(--color-pib-accent)]"
+                      />
+                    </label>
+                    <label
+                      className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-pib-line)] bg-white/[0.03] px-3 py-2 text-sm text-[var(--color-pib-text)]"
+                      data-testid="team-access-capability-quotes"
+                    >
+                      <span>Quotes (owned/linked clients)</span>
+                      <input
+                        type="checkbox"
+                        checked={accessDraft.capabilities.quotes === true}
+                        onChange={() => toggleBillingCapability('quotes')}
+                        className="h-4 w-4 accent-[var(--color-pib-accent)]"
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 <div className="space-y-3 border-t border-[var(--color-pib-line)] pt-5">

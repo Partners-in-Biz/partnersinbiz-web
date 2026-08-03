@@ -20,6 +20,10 @@ import {
   filterBillingRecordsForCrmActor,
   resolveBillingCrmAuthContext,
 } from '@/lib/billing/crm-record-scope'
+import {
+  resolveInvoiceCreateAccess,
+  shouldExposeIssuerBillingBook,
+} from '@/lib/billing/member-issuer'
 
 export const dynamic = 'force-dynamic'
 
@@ -218,6 +222,10 @@ export const GET = withAuth('client', async (req, user) => {
         .slice(0, 50)
       return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
     }
+    // Issuer/sent book: members need explicit invoice grant; still CRM-scoped.
+    if (!shouldExposeIssuerBillingBook(crmCtx, 'invoices')) {
+      return apiSuccess([])
+    }
     query = query.where(orgField, '==', requestedOrgId)
   } else {
     // Admin / AI can filter freely by orgId / billingOrgId query params.
@@ -280,8 +288,39 @@ export const POST = withAuth('client', async (req, user) => {
   const platformIssuedInvoice = !claimableInvoice && (user.role === 'admin' || user.role === 'ai')
   const sourceOrgId = platformIssuedInvoice ? platformOwnerOrgId : requestedOrgId
   const recipientOrgId = platformIssuedInvoice ? requestedOrgId : cleanString(body.recipientOrgId)
-  if (!(await canManageOrgAs(user, platformIssuedInvoice ? recipientOrgId : sourceOrgId))) {
-    return apiError('Forbidden', 403)
+
+  // Resolve CRM target early so member-owned issuer checks can fail closed.
+  const crmTargetPreview = claimableInvoice ? await resolveInvoiceCrmTarget(body, sourceOrgId) : null
+  if (claimableInvoice && crmTargetPreview?.companyId && !crmTargetPreview.company) {
+    return apiError('CRM company not found', 404)
+  }
+  if (claimableInvoice && crmTargetPreview?.contactId && !crmTargetPreview.contact) {
+    return apiError('CRM contact not found', 404)
+  }
+
+  const createAccess = await resolveInvoiceCreateAccess({
+    user,
+    sourceOrgId: platformIssuedInvoice ? platformOwnerOrgId : sourceOrgId,
+    claimable: claimableInvoice,
+    companyId: crmTargetPreview?.companyId || undefined,
+    contactId: crmTargetPreview?.contactId || undefined,
+    company: crmTargetPreview?.company ?? null,
+    contact: crmTargetPreview?.contact ?? null,
+  })
+
+  if (!createAccess.ok) {
+    // Preserve prior platform-admin canManageOrg gate for unscoped create.
+    if (user.role === 'admin' || user.role === 'ai') {
+      if (!(await canManageOrgAs(user, platformIssuedInvoice ? recipientOrgId : sourceOrgId))) {
+        return apiError('Forbidden', 403)
+      }
+    } else {
+      return apiError(createAccess.error, createAccess.status)
+    }
+  } else if (createAccess.mode === 'platform_admin') {
+    if (!(await canManageOrgAs(user, platformIssuedInvoice ? recipientOrgId : sourceOrgId))) {
+      return apiError('Forbidden', 403)
+    }
   }
 
   // Fetch sender + client org snapshots.
@@ -293,13 +332,7 @@ export const POST = withAuth('client', async (req, user) => {
   if (!clientOrgDoc.exists) return apiError('Client organisation not found', 404)
   const clientOrg = (clientOrgDoc.data() ?? {}) as Record<string, unknown>
   const clientBilling = asRecord(clientOrg.billingDetails)
-  const crmTarget = claimableInvoice ? await resolveInvoiceCrmTarget(body, sourceOrgId) : null
-  if (claimableInvoice && crmTarget?.companyId && !crmTarget.company) {
-    return apiError('CRM company not found', 404)
-  }
-  if (claimableInvoice && crmTarget?.contactId && !crmTarget.contact) {
-    return apiError('CRM contact not found', 404)
-  }
+  const crmTarget = crmTargetPreview
   if (claimableInvoice && !crmTarget?.recipientEmail) {
     return apiError('recipientEmail is required for CRM invoices', 400)
   }
