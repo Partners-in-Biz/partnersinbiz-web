@@ -269,6 +269,42 @@ function missingArtifacts(
   })
 }
 
+/** Evidence from done nodes — used so code_check proves upstream agent/system proof without manual tick.artifactPresence. */
+function collectProvenEvidence(run: WorkflowRun, opts?: { onlyNodeIds?: Set<string> }): WorkflowEvidence[] {
+  const out: WorkflowEvidence[] = []
+  for (const node of run.nodes) {
+    if (node.status !== 'done') continue
+    if (opts?.onlyNodeIds && !opts.onlyNodeIds.has(node.nodeId)) continue
+    for (const item of node.evidence) {
+      if (item?.type && item.ref) out.push(item)
+    }
+  }
+  return out
+}
+
+/** Direct + transitive dependency closure for a node. */
+function dependencyClosure(run: WorkflowRun, nodeId: string): Set<string> {
+  const byId = new Map(run.nodes.map((n) => [n.nodeId, n]))
+  const out = new Set<string>()
+  const stack = [...(byId.get(nodeId)?.dependsOnNodeIds ?? [])]
+  while (stack.length) {
+    const id = stack.pop()!
+    if (out.has(id)) continue
+    out.add(id)
+    const dep = byId.get(id)
+    if (dep) stack.push(...dep.dependsOnNodeIds)
+  }
+  return out
+}
+
+/** Allowlisted pure system actions the engine may complete without an external executor. */
+const ENGINE_ALLOWLISTED_SYSTEM_NOOPS = new Set(['system:publish_noop', 'publish_noop'])
+
+function isAllowlistedSystemNoop(systemAction?: string): boolean {
+  if (!systemAction) return false
+  return ENGINE_ALLOWLISTED_SYSTEM_NOOPS.has(systemAction)
+}
+
 function recordUsage(
   run: WorkflowRun,
   actions: EngineAction[],
@@ -552,6 +588,7 @@ function completeAttempt(
 
 function evaluateCodeCheck(
   node: WorkflowNodeState,
+  run: WorkflowRun,
   artifactPresence?: Record<string, boolean>,
 ): { ok: boolean; missing: string[]; evidence: WorkflowEvidence[] } {
   const expected = node.expectedArtifacts.length
@@ -569,7 +606,13 @@ function evaluateCodeCheck(
     }
   }
 
-  const missing = missingArtifacts(expected, node.evidence, artifactPresence)
+  // Prefer dependency-closure evidence (upstream proven nodes); fall back to all done-node evidence.
+  const depIds = dependencyClosure(run, node.nodeId)
+  const upstream = depIds.size
+    ? collectProvenEvidence(run, { onlyNodeIds: depIds })
+    : collectProvenEvidence(run)
+  const combinedEvidence = [...node.evidence, ...upstream]
+  const missing = missingArtifacts(expected, combinedEvidence, artifactPresence)
   if (missing.length) {
     return { ok: false, missing, evidence: [] }
   }
@@ -577,12 +620,15 @@ function evaluateCodeCheck(
   return {
     ok: true,
     missing: [],
-    evidence: expected.map((type) => ({
-      type,
-      ref: `verified:${type}`,
-      label: 'code_check',
-      at: new Date().toISOString(),
-    })),
+    evidence: expected.map((type) => {
+      const hit = combinedEvidence.find((item) => item.type === type && item.ref)
+      return {
+        type,
+        ref: hit?.ref ? `verified:${hit.ref}` : `verified:${type}`,
+        label: 'code_check',
+        at: new Date().toISOString(),
+      }
+    }),
   }
 }
 
@@ -663,6 +709,19 @@ function activateReadyNodes(
     }
 
     if (node.kind === 'agent' || node.kind === 'human_gate') {
+      // Re-emit materialize if we entered waiting_* without a bind (caller discarded intents).
+      if (
+        (node.status === 'waiting_watcher' || node.status === 'awaiting_gate')
+        && !node.kanbanTaskId
+      ) {
+        const intent = buildMaterializeIntent(run, node)
+        if (!materialize.some((item) => item.nodeId === node.nodeId)) {
+          materialize.push(intent)
+          actions.push({ type: 'materialize', intent })
+        }
+        continue
+      }
+
       const baseEligible =
         node.status === 'pending'
         || node.status === 'ready'
@@ -735,7 +794,7 @@ function activateReadyNodes(
       if (node.status === 'pending' || node.status === 'ready' || node.status === 'retry_wait') {
         startAttempt(run, actions, node, event.now, 'running')
         setNodeStatus(run, actions, node.nodeId, 'running', event.now)
-        const check = evaluateCodeCheck(node, event.artifactPresence)
+        const check = evaluateCodeCheck(node, run, event.artifactPresence)
         if (check.ok) {
           completeAttempt(run, actions, node.nodeId, node.currentAttempt, {
             status: 'done',
@@ -768,9 +827,22 @@ function activateReadyNodes(
         setNodeStatus(run, actions, node.nodeId, 'running', event.now)
       }
       if (node.status === 'running') {
-        const result = event.systemResults?.[node.nodeId] ?? event.systemResults?.[node.systemAction || '']
+        let result = event.systemResults?.[node.nodeId] ?? event.systemResults?.[node.systemAction || '']
+        // Built-in allowlisted noops (e.g. system:publish_noop) after gated approval already cleared above.
+        if (!result && isAllowlistedSystemNoop(node.systemAction)) {
+          const receiptType = (node.expectedArtifacts && node.expectedArtifacts[0]) || 'publish_noop_receipt'
+          result = {
+            ok: true,
+            evidence: [{
+              type: receiptType,
+              ref: `noop:${run.id}:${node.nodeId}:${event.now}`,
+              label: node.systemAction,
+              at: event.now,
+            }],
+          }
+        }
         if (!result) {
-          // leave running until external executor reports; for pure engine tests supply systemResults
+          // Unknown system actions still need an external executor via systemResults.
           continue
         }
         if (result.ok) {
@@ -981,12 +1053,58 @@ export function advanceWorkflowRun(runInput: WorkflowRun, event: AdvanceEvent): 
   if (event.type === 'approval_granted') {
     const exists = run.approvalRefs.some((ref) => ref.ref === event.approval.ref)
     if (!exists) run.approvalRefs.push(event.approval)
-    // Release nodes waiting on this capability
+    const approvalEvidence: WorkflowEvidence = {
+      type: 'approval_ref',
+      ref: event.approval.ref,
+      label: event.approval.capability,
+      at: event.now,
+    }
+    // Release nodes waiting on this capability; complete human_gate nodes that only needed approval_ref.
     for (const node of run.nodes) {
+      const capMatch =
+        Boolean(node.requiredCapability)
+        && node.requiredCapability === event.approval.capability
+      if (!capMatch && node.kind !== 'human_gate') continue
+
       if (
         node.status === 'awaiting_gate'
-        && node.requiredCapability
-        && node.requiredCapability === event.approval.capability
+        && node.kind !== 'human_gate'
+        && capMatch
+      ) {
+        setNodeStatus(run, actions, node.nodeId, 'ready', event.now)
+        continue
+      }
+
+      if (node.kind === 'human_gate' && !TERMINAL_NODE_STATUSES.has(node.status as 'done' | 'blocked' | 'cancelled')) {
+        // Only complete gates that match this approval's capability (or bare human-review gates).
+        const matchesGate =
+          capMatch
+          || (
+            !node.requiredCapability
+            && (event.approval.capability === 'approval' || event.approval.capability === 'human-review')
+          )
+        if (!matchesGate) continue
+
+        const nextEvidence = [...node.evidence]
+        if (!nextEvidence.some((item) => item.type === 'approval_ref' && item.ref === event.approval.ref)) {
+          nextEvidence.push(approvalEvidence)
+        }
+        const missing = missingArtifacts(node.expectedArtifacts, nextEvidence)
+        if (missing.length === 0) {
+          completeAttempt(run, actions, node.nodeId, Math.max(node.currentAttempt, 1), {
+            status: 'done',
+            completedAt: event.now,
+            summary: `approval_granted:${event.approval.ref}`,
+          })
+          setNodeStatus(run, actions, node.nodeId, 'done', event.now, undefined, nextEvidence)
+        } else if (node.status === 'awaiting_gate' || node.status === 'waiting_watcher') {
+          // Keep waiting but attach partial proof for inspect.
+          node.evidence = nextEvidence
+          node.lastTransitionAt = event.now
+        }
+      } else if (
+        node.status === 'awaiting_gate'
+        && capMatch
       ) {
         setNodeStatus(run, actions, node.nodeId, 'ready', event.now)
       }

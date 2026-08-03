@@ -96,11 +96,10 @@ describe('workflow graph phase 1 engine', () => {
       { type: 'research_doc_id', ref: 'doc_research_1' },
     ])
 
-    // code_check auto-runs on tick after agent done
+    // code_check auto-runs from upstream agent evidence (no manual artifactPresence)
     step = advanceWorkflowRun(run, {
       type: 'tick',
       now: LATER,
-      artifactPresence: { research_doc_id: true },
     })
     run = step.run
     expect(run.nodes.find((n) => n.nodeId === 'check_research')?.status).toBe('done')
@@ -115,7 +114,6 @@ describe('workflow graph phase 1 engine', () => {
     step = advanceWorkflowRun(run, {
       type: 'tick',
       now: LATER,
-      artifactPresence: { draft_doc_id: true },
     })
     run = step.run
     expect(run.nodes.find((n) => n.nodeId === 'check_draft')?.status).toBe('done')
@@ -146,7 +144,7 @@ describe('workflow graph phase 1 engine', () => {
     }
     run = bindKanbanTask(run, 'approve_publish_intent', 'task-gate', LATER)
 
-    // Approve gate via kanban done + approval ref
+    // approval_granted injects approval_ref and completes human_gate (no separate kanban_terminal required)
     step = advanceWorkflowRun(run, {
       type: 'approval_granted',
       now: LATER,
@@ -159,26 +157,25 @@ describe('workflow graph phase 1 engine', () => {
       },
     })
     run = step.run
-    run = completeAgent(run, 'approve_publish_intent', 'task-gate', [
-      { type: 'approval_ref', ref: 'apr_1' },
-    ])
+    expect(run.nodes.find((n) => n.nodeId === 'approve_publish_intent')?.status).toBe('done')
+    expect(run.nodes.find((n) => n.nodeId === 'approve_publish_intent')?.evidence.some((e) => e.type === 'approval_ref' && e.ref === 'apr_1')).toBe(true)
 
-    // gated system needs systemResults
-    step = advanceWorkflowRun(run, {
-      type: 'tick',
-      now: LATER,
-      systemResults: {
-        noop_publish_system: {
-          ok: true,
-          evidence: [{ type: 'publish_noop_receipt', ref: 'receipt_1', at: LATER }],
-        },
-      },
-    })
-    run = step.run
+    // allowlisted system:publish_noop may complete on approval tick or next tick
+    if (run.nodes.find((n) => n.nodeId === 'noop_publish_system')?.status !== 'done') {
+      step = advanceWorkflowRun(run, { type: 'tick', now: LATER })
+      run = step.run
+    }
     expect(run.nodes.find((n) => n.nodeId === 'noop_publish_system')?.status).toBe('done')
+    expect(run.nodes.find((n) => n.nodeId === 'noop_publish_system')?.evidence.some((e) => e.type === 'publish_noop_receipt')).toBe(true)
 
-    // fan-out both agents
-    expect(step.materialize.map((m) => m.nodeId).sort()).toEqual(['content_checklist', 'eng_checklist'])
+    // fan-out both agents (re-tick if materialize already consumed)
+    let fanIds = step.materialize.map((m) => m.nodeId).filter((id) => id === 'content_checklist' || id === 'eng_checklist').sort()
+    if (fanIds.length < 2) {
+      step = advanceWorkflowRun(run, { type: 'tick', now: LATER })
+      run = step.run
+      fanIds = step.materialize.map((m) => m.nodeId).filter((id) => id === 'content_checklist' || id === 'eng_checklist').sort()
+    }
+    expect(fanIds).toEqual(['content_checklist', 'eng_checklist'])
     run = bindKanbanTask(run, 'eng_checklist', 'task-eng', LATER)
     run = bindKanbanTask(run, 'content_checklist', 'task-content', LATER)
     run = completeAgent(run, 'eng_checklist', 'task-eng', [{ type: 'eng_checklist_id', ref: 'eng_1' }])
@@ -187,10 +184,6 @@ describe('workflow graph phase 1 engine', () => {
     step = advanceWorkflowRun(run, {
       type: 'tick',
       now: LATER,
-      artifactPresence: {
-        eng_checklist_id: true,
-        content_checklist_id: true,
-      },
     })
     run = step.run
 
