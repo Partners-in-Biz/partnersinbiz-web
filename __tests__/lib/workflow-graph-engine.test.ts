@@ -12,9 +12,10 @@ import {
   buildTinyBudgetPilotTemplate,
 } from '@/lib/workflow-graph/pilot'
 import { promotePlaybookTemplateToGraphTemplate } from '@/lib/workflow-graph/playbook-promote'
+import { sanitizeMaterializeApprovalGate } from '@/lib/workflow-graph/materialize-sanitize'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
 import { normalizeGraphTemplate, validateGraphTemplate, attemptIdempotencyKey } from '@/lib/workflow-graph/validation'
-import type { WorkflowRun } from '@/lib/workflow-graph/types'
+import type { MaterializeIntent, WorkflowRun } from '@/lib/workflow-graph/types'
 
 const NOW = '2026-08-02T12:00:00.000Z'
 const LATER = '2026-08-02T12:05:00.000Z'
@@ -620,6 +621,136 @@ describe('workflow graph phase 1 engine', () => {
       expect(payload.value.approvalGate).toBe('public-publishing')
       expect(payload.value.requiredCapability).toBe('publish')
     }
+  })
+
+  test('store sanitize maps stale intent approvalGate aliases (publish/approval) before taskPayload', () => {
+    const base: Omit<MaterializeIntent, 'approvalGate' | 'requiredCapability' | 'kind'> = {
+      nodeId: 'g',
+      title: 'Gate',
+      agentStatus: 'awaiting-input',
+      columnId: 'blocked',
+      dependsOnKanbanTaskIds: [],
+      expectedArtifacts: ['approval_ref'],
+      verifierChecklist: [],
+      labels: ['human_gate'],
+      idempotencyKey: 'k',
+      requeueExisting: false,
+    }
+    expect(
+      sanitizeMaterializeApprovalGate({
+        ...base,
+        kind: 'human_gate',
+        approvalGate: 'publish',
+        requiredCapability: undefined,
+      }),
+    ).toBe('public-publishing')
+    expect(
+      sanitizeMaterializeApprovalGate({
+        ...base,
+        kind: 'human_gate',
+        approvalGate: 'approval',
+      }),
+    ).toBe('human-review')
+    expect(
+      sanitizeMaterializeApprovalGate({
+        ...base,
+        kind: 'human_gate',
+        approvalGate: undefined,
+        requiredCapability: 'publish',
+      }),
+    ).toBe('public-publishing')
+    expect(
+      sanitizeMaterializeApprovalGate({
+        ...base,
+        kind: 'human_gate',
+        approvalGate: 'public-publishing',
+        requiredCapability: 'publish',
+      }),
+    ).toBe('public-publishing')
+
+    for (const gate of ['publish', 'approval', undefined] as const) {
+      const sanitized = sanitizeMaterializeApprovalGate({
+        ...base,
+        kind: 'human_gate',
+        approvalGate: gate,
+        requiredCapability: gate === 'publish' || gate === undefined ? 'publish' : undefined,
+      })
+      const payload = buildProjectTaskCreateData({
+        title: 'G',
+        columnId: 'blocked',
+        agentStatus: 'awaiting-input',
+        approvalGate: sanitized,
+        expectedArtifacts: ['approval_ref'],
+        labels: ['human_gate'],
+      }, 'proj-gate', 'pib-platform-owner')
+      expect(payload.ok).toBe(true)
+      if (payload.ok) {
+        expect(payload.value.approvalGate).toMatch(/public-publishing|human-review/)
+      }
+    }
+  })
+
+  test('invalid node.approvalGate publish (no requiredCapability) still maps at materialize', () => {
+    const template = normalizeGraphTemplate({
+      orgId: 'pib-platform-owner',
+      name: 'bad-gate-field',
+      status: 'active',
+      nodes: [
+        {
+          nodeId: 'bad',
+          kind: 'human_gate',
+          name: 'Bad stored gate',
+          dependsOnNodeIds: [],
+          approvalGate: 'publish',
+          expectedArtifacts: ['approval_ref'],
+        },
+      ],
+    })
+    template.id = 'tmpl-bad-gate'
+    const run = createWorkflowRunFromTemplate({
+      runId: 'wfr_bad_gate',
+      template,
+      orgId: 'pib-platform-owner',
+      projectId: 'proj-gate',
+      trigger: { type: 'manual', at: NOW },
+      now: NOW,
+    })
+    expect(run.nodes[0]?.approvalGate).toBe('publish')
+    const intent = advanceWorkflowRun(run, { type: 'tick', now: NOW }).materialize[0]
+    expect(intent?.approvalGate).toBe('public-publishing')
+    expect(sanitizeMaterializeApprovalGate(intent!)).toBe('public-publishing')
+  })
+
+  test('normalizeGraphTemplate persists approvalGate on human_gate nodes', () => {
+    const template = normalizeGraphTemplate({
+      orgId: 'pib-platform-owner',
+      name: 'persist-gate',
+      status: 'active',
+      nodes: [
+        {
+          nodeId: 'g1',
+          kind: 'human_gate',
+          name: 'G',
+          dependsOnNodeIds: [],
+          approvalGate: 'human-review',
+          expectedArtifacts: ['approval_ref'],
+        },
+      ],
+    })
+    expect(template.nodes[0]?.approvalGate).toBe('human-review')
+    const validated = validateGraphTemplate(template)
+    expect(validated.ok).toBe(true)
+  })
+
+  test('pilot template human_gate carries explicit public-publishing approvalGate', () => {
+    const template = buildPilotResearchValidateDocApproveFanoutTemplate({
+      orgId: 'pib-platform-owner',
+      projectId: 'proj-pilot',
+    })
+    const gate = template.nodes.find((n) => n.nodeId === 'approve_publish_intent')
+    expect(gate?.kind).toBe('human_gate')
+    expect(gate?.requiredCapability).toBe('publish')
+    expect(gate?.approvalGate).toBe('public-publishing')
   })
 
   test('fail-closed: transient_infra 3x → blocked with exhausted reason and rematerialize between attempts', () => {

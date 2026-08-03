@@ -447,7 +447,8 @@ function resolveHumanGateApprovalGate(node: WorkflowNodeState): string {
   if (fromNode && isValidApprovalGate(fromNode) && fromNode !== 'none') {
     return fromNode
   }
-  return mapCapabilityToHumanGateApprovalGate(node.requiredCapability)
+  // Invalid stored values (publish/approval/spend) must map via the same alias table.
+  return mapCapabilityToHumanGateApprovalGate(fromNode || node.requiredCapability)
 }
 
 function resolveMaterializeRequiredCapability(node: WorkflowNodeState): string | undefined {

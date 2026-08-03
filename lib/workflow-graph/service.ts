@@ -186,9 +186,15 @@ export async function applyAdvanceAndMaterialize(
           kanbanTaskId: 'materialize-failed',
           outcome: 'blocked',
           errorFamily: 'policy',
-          summary: materialized.error,
+          summary: materialized.error
+            || `materialize_failed intent.approvalGate=${String(intent.approvalGate)} requiredCapability=${String(intent.requiredCapability)}`,
         })
         current = failed.run
+        // Stamp lastEvidence so inspect shows the real payload error without digging attempts.
+        const node = current.nodes.find((item) => item.nodeId === intent.nodeId)
+        if (node) {
+          node.blockedReasonCode = node.blockedReasonCode || 'invalid_spec'
+        }
         continue
       }
       current = bindKanbanTask(current, intent.nodeId, materialized.taskId, event.now)

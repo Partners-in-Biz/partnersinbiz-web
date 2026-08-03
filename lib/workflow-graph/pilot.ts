@@ -82,6 +82,8 @@ export function buildPilotResearchValidateDocApproveFanoutTemplate(input?: {
         name: 'Human gate: publish-intent sample',
         dependsOnNodeIds: ['check_draft'],
         requiredCapability: 'publish',
+        // Explicit Kanban gate — never rely on capability-string passthrough.
+        approvalGate: 'public-publishing',
         riskLevel: 'high',
         expectedArtifacts: ['approval_ref'],
         verifierChecklist: ['scoped publish approval present'],

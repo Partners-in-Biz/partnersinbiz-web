@@ -4,18 +4,30 @@ import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
 import type { GraphTemplate, MaterializeIntent, WorkflowOpsFact, WorkflowRun } from './types'
 import { buildOpsInspect } from './ops'
 import { inspectWorkflowRun } from './engine'
+import { sanitizeMaterializeApprovalGate } from './materialize-sanitize'
 
 const TEMPLATES = 'graph_templates'
 const RUNS = 'workflow_runs'
 const OPS_FACTS = 'workflow_ops_facts'
 
-function stripUndefined<T extends Record<string, unknown>>(value: T): T {
-  const out: Record<string, unknown> = {}
-  for (const [key, entry] of Object.entries(value)) {
-    if (entry !== undefined) out[key] = entry
+function stripUndefinedDeep(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefinedDeep(item))
   }
-  return out as T
+  if (!value || typeof value !== 'object') return value
+  const out: Record<string, unknown> = {}
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (entry === undefined) continue
+    out[key] = stripUndefinedDeep(entry)
+  }
+  return out
 }
+
+function stripUndefined<T extends Record<string, unknown>>(value: T): T {
+  return stripUndefinedDeep(value) as T
+}
+
+export { sanitizeMaterializeApprovalGate } from './materialize-sanitize'
 
 export async function saveGraphTemplate(template: GraphTemplate, actorUid: string): Promise<GraphTemplate> {
   const ref = template.id
@@ -180,6 +192,7 @@ export async function materializeKanbanTask(input: {
 
   const taskRef = tasksRef.doc()
   const isGate = input.intent.kind === 'human_gate'
+  const approvalGate = sanitizeMaterializeApprovalGate(input.intent)
   const built = buildProjectTaskCreateData({
     title: input.intent.title,
     description: `Workflow run ${input.run.id} node ${input.intent.nodeId}`,
@@ -191,7 +204,7 @@ export async function materializeKanbanTask(input: {
     reviewerAgentId: input.intent.reviewerAgentId,
     requiredCapability: input.intent.requiredCapability,
     riskLevel: input.intent.riskLevel,
-    approvalGate: input.intent.approvalGate,
+    approvalGate,
     expectedArtifacts: input.intent.expectedArtifacts,
     verifierChecklist: input.intent.verifierChecklist,
     dependsOn: input.intent.dependsOnKanbanTaskIds,
