@@ -128,7 +128,7 @@ export function allowlistedJournalLine(line: JournalLineInput): JournalLineInput
       throw new FinanceValidationError('taskId requires projectId')
     }
     dims.taskId = requiredText(line.taskId, 'taskId')
-    if (!dims.projectId) dims.projectId = requiredText(line.projectId, 'projectId')
+    if (!dims.projectId) dims.projectId = requiredText(line.projectId || '', 'projectId')
   }
   if (line.costCentreCode !== undefined && line.costCentreCode !== '') {
     dims.costCentreCode = requiredText(line.costCentreCode, 'costCentreCode')

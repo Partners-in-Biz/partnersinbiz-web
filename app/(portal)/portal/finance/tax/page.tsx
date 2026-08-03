@@ -275,7 +275,7 @@ export default function FinanceTaxPage() {
             </div>
           </section>
         </>
-      )}
+      ) : null}
     </FinanceModuleFrame>
   )
 }

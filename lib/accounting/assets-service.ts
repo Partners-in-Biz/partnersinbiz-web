@@ -437,9 +437,6 @@ export class AssetsFinanceService {
     if (run.status !== 'draft' && run.status !== 'calculated') {
       throw new FinanceValidationError('Only draft or calculated runs can be recalculated')
     }
-    if (run.status === 'approved_posted') {
-      throw new FinanceValidationError('Posted depreciation runs are immutable')
-    }
 
     const items: DepreciationRunItem[] = []
     let total = 0

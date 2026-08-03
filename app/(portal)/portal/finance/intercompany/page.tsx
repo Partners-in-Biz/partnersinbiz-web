@@ -283,7 +283,7 @@ export default function FinanceIntercompanyPage() {
             </div>
           </section>
         </>
-      )}
+      ) : null}
     </FinanceModuleFrame>
   )
 }

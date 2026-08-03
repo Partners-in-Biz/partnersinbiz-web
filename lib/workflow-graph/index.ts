@@ -6,7 +6,8 @@ export * from './pilot'
 export * from './playbook-promote'
 export * from './authoring'
 export * from './ops'
-export * from './ops-timeline'
+// appendTimeline lives only in ops-timeline (ops re-exports would clash)
+export { appendTimeline } from './ops-timeline'
 export * from './triggers'
 export {
   ensurePilotTemplate,

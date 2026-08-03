@@ -173,7 +173,7 @@ export default function FinanceLedgerPage() {
             </div>
           </section>
         </>
-      )}
+      ) : null}
     </FinanceModuleFrame>
   )
 }

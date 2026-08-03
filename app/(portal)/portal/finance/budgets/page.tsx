@@ -145,18 +145,19 @@ export default function FinanceBudgetsPage() {
 
   return (
     <FinanceModuleFrame
+      active="budgets"
+      orgScope={scope.orgScope}
       title="Budgets & cashflow"
       description="Operating budgets, forecast scenarios, and cashflow planner. Planning surface only — does not initiate bank payments or SARS submits."
-      busy={busy}
       error={scope.error}
       message={scope.message}
-      testId="finance-budgets-page"
+      loading={scope.loading || busy}
     >
-      <FinanceScopeBar scope={scope} />
-      {!scope.scopeReady ? (
-        <FinanceEmptyScope />
-      ) : (
+      {!scope.loading && !scope.scopeReady ? (
+        <FinanceEmptyScope orgScope={scope.orgScope} />
+      ) : !scope.loading ? (
         <div className="space-y-6">
+          <FinanceScopeBar scope={scope} />
           <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
             <h2 className="mb-3 text-sm font-semibold">Budget</h2>
             <div className="grid gap-3 md:grid-cols-4">
@@ -218,7 +219,7 @@ export default function FinanceBudgetsPage() {
             <div>Cashflow plans: {bundle?.cashflowPlans?.length ?? 0}</div>
           </section>
         </div>
-      )}
+      ) : null}
     </FinanceModuleFrame>
   )
 }

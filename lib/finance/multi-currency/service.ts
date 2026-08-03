@@ -208,10 +208,10 @@ export function convertTxnToFunctional(
   if (!Number.isSafeInteger(rateScale) || rateScale < 0 || rateScale > 18) {
     throw new MultiCurrencyFinanceValidationError('rateScale must be an integer 0..18')
   }
-  const den = 10n ** BigInt(rateScale)
+  const den = BigInt(10) ** BigInt(rateScale)
   const num = BigInt(txnMinor) * BigInt(rateScaled)
-  const half = den / 2n
-  if (num >= 0n) return Number((num + half) / den)
+  const half = den / BigInt(2)
+  if (num >= BigInt(0)) return Number((num + half) / den)
   return -Number((-num + half) / den)
 }
 

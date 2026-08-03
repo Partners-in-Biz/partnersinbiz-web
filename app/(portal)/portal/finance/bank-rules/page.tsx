@@ -106,18 +106,19 @@ export default function FinanceBankRulesPage() {
 
   return (
     <FinanceModuleFrame
+      active="bank-rules"
+      orgScope={scope.orgScope}
       title="Bank rules"
       description="Match rules for smarter recon suggestions. Accept/dismiss is human-gated — never auto-posts journals and never initiates payments."
-      busy={busy}
       error={scope.error}
       message={scope.message}
-      testId="finance-bank-rules-page"
+      loading={scope.loading || busy}
     >
-      <FinanceScopeBar scope={scope} />
-      {!scope.scopeReady ? (
-        <FinanceEmptyScope />
-      ) : (
+      {!scope.loading && !scope.scopeReady ? (
+        <FinanceEmptyScope orgScope={scope.orgScope} />
+      ) : !scope.loading ? (
         <div className="space-y-6">
+          <FinanceScopeBar scope={scope} />
           <section className="rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] p-4">
             <h2 className="mb-3 text-sm font-semibold">Create / update rule</h2>
             <div className="grid gap-3 md:grid-cols-3">
@@ -194,7 +195,7 @@ export default function FinanceBankRulesPage() {
             </ul>
           </section>
         </div>
-      )}
+      ) : null}
     </FinanceModuleFrame>
   )
 }

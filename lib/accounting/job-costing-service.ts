@@ -189,14 +189,14 @@ export class FinanceJobCostingService {
       if (command.purpose === 'wip_cost') {
         proposedJournalLines = buildWipJournalLines({
           lines,
-          laborExpenseAccountId: requiredText(command.laborExpenseAccountId, 'laborExpenseAccountId'),
-          wipAssetAccountId: requiredText(command.wipAssetAccountId, 'wipAssetAccountId'),
+          laborExpenseAccountId: requiredText(command.laborExpenseAccountId || '', 'laborExpenseAccountId'),
+          wipAssetAccountId: requiredText(command.wipAssetAccountId || '', 'wipAssetAccountId'),
         })
       } else {
         proposedInvoiceLines = buildDraftInvoiceLinesFromTime({
           lines,
-          revenueAccountId: requiredText(command.revenueAccountId, 'revenueAccountId'),
-          taxCodeId: requiredText(command.taxCodeId, 'taxCodeId'),
+          revenueAccountId: requiredText(command.revenueAccountId || '', 'revenueAccountId'),
+          taxCodeId: requiredText(command.taxCodeId || '', 'taxCodeId'),
         })
       }
 
