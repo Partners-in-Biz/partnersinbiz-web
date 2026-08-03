@@ -74,3 +74,14 @@ Completion checklist for Pip, Theo, Maya, Sage, Nora, ads, qa-release, support, 
 3. Update the read-first layer when needed: `/var/lib/hermes/cowork-wiki/agents/<domain>/wiki/hot.md` for immediate next-agent context and `/var/lib/hermes/cowork-wiki/agents/<domain>/index.md` for discoverability.
 
 Use `agents/partners/` for parent Partners platform decisions, the orgId-resolved client domain for client work, and `shared/wiki/` only for genuinely cross-domain knowledge. Keep binaries/source assets in Google Drive, not Obsidian. Canonical standard: `/var/lib/hermes/cowork-wiki/agents/partners/wiki/agent-wiki-update-standard-2026-05-25.md`.
+
+## Agent Memory Doctrine
+
+Memory is a system with metabolism — not a bigger context window and not infinite transcripts.
+
+- Canonical wiki: `agents/partners/wiki/agent-memory-doctrine-2026-08-03.md` (Cowork vault / VPS cowork-wiki).
+- End of material work: extract **facts / skills / decisions** (and surface contradictions) → write durable wiki/Research/CRM → refresh `hot.md` (≤500 words) / `index.md` → short daily log. Template: `wiki/templates/memory-extract.md`.
+- Live context budget: task payload + `hot.md` + linked IDs + specific pages. Do **not** load Hermes `request_dump` JSON or multi-week logs into the model.
+- Ephemeral dumps: 30-day TTL. Fleet prune tool: `scripts/agent-memory-hygiene.py`. Weekly install (PiB-owned Mac/VPS only): `scripts/install-agent-memory-hygiene.sh`. Ops note: `docs/ops/agent-memory-hygiene.md`.
+- **Not** part of the public Windows/macOS/Linux customer runtime download. Vector `agent_memory_chunks` is an index on durable files, not the source of truth.
+- When memory work is material, note quality **and** cost (tokens, Firestore reads, wall time).
