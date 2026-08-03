@@ -1,0 +1,4 @@
+# The realtime gateway is built and deployed exclusively to Cloud Run. Keeping
+# it out of the Vercel upload prevents the CLI from treating it as a second
+# Vercel service in this Next.js project.
+services/realtime-gateway
