@@ -46,6 +46,12 @@ function closeSocket(socket: WebSocket, code: number, reason: string) {
   }
 }
 
+function safeErrorCode(error: unknown): string {
+  if (!error || typeof error !== 'object' || !('code' in error)) return 'unknown'
+  const code = (error as { code?: unknown }).code
+  return typeof code === 'string' && code.length <= 120 ? code : 'unknown'
+}
+
 function detachSocket(socket: WebSocket) {
   const uid = socketUser.get(socket)
   if (!uid) return
@@ -184,8 +190,10 @@ webSocketServer.on('connection', (socket) => {
         socketUser.set(socket, uid)
         authenticated = true
         clearTimeout(authenticationDeadline)
+        console.info('[realtime-gateway] WebSocket authenticated')
         socket.send(JSON.stringify({ type: 'ready', schemaVersion: REALTIME_PROTOCOL_VERSION }))
-      } catch {
+      } catch (error) {
+        console.warn('[realtime-gateway] WebSocket authentication failed', { code: safeErrorCode(error) })
         closeSocket(socket, 1008, 'invalid authentication')
       }
       return
@@ -197,12 +205,21 @@ webSocketServer.on('connection', (socket) => {
     // Gateway is never an alternate message/action/Hermes mutation channel.
     closeSocket(socket, 1008, 'read-only gateway')
   })
-  socket.on('close', () => {
+  socket.on('close', (code, reason) => {
+    // Do not log raw client-provided close reasons, user IDs, tokens, or payloads.
+    console.info('[realtime-gateway] WebSocket closed', {
+      code,
+      authenticated,
+      reasonProvided: reason.length > 0,
+    })
     clearTimeout(authenticationDeadline)
     clearTimeout(reconnectDeadline)
     detachSocket(socket)
   })
-  socket.on('error', () => detachSocket(socket))
+  socket.on('error', () => {
+    console.warn('[realtime-gateway] WebSocket transport error', { authenticated })
+    detachSocket(socket)
+  })
 })
 
 async function start() {

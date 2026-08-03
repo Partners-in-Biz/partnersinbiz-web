@@ -92,6 +92,10 @@ printf '%s' "$REDIS_AUTH" | REDIS_HOST="$REDIS_HOST" node -e '
 
 gcloud pubsub topics add-iam-policy-binding "$TOPIC" --member="serviceAccount:$PUBLISHER_SA" --role="roles/pubsub.publisher" --project="$PROJECT_ID"
 gcloud secrets add-iam-policy-binding "$REDIS_SECRET" --member="serviceAccount:$GATEWAY_SA" --role="roles/secretmanager.secretAccessor" --project="$PROJECT_ID"
+# Revocation-aware Firebase ID-token verification calls the Firebase Auth user
+# read endpoint. This role contains only Firebase/Auth configuration and user
+# read permissions; it does not grant writes, key management, or database access.
+gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:$GATEWAY_SA" --role="roles/firebaseauth.viewer"
 gcloud iam service-accounts add-iam-policy-binding "$PUSH_SA" --member="serviceAccount:service-$PROJECT_NUMBER@gcp-sa-pubsub.iam.gserviceaccount.com" --role="roles/iam.serviceAccountTokenCreator" --project="$PROJECT_ID"
 
 IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/pib-realtime/realtime-gateway-v1:$(git rev-parse --short HEAD)"
