@@ -8,7 +8,7 @@ After=network-online.target
 Type=simple
 User=root
 Group=root
-ExecStart=/opt/partnersinbiz/current/pib-runtime service
+ExecStart=/opt/partnersinbiz/current/pib-runtime supervise
 Restart=always
 RestartSec=5s
 # A linked Hermes run can remain active for much longer than a normal process

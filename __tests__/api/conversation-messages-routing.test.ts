@@ -23,6 +23,7 @@ const mockResolveAuthorizedWorkingDirectory = jest.fn()
 const mockGetAgentDispatchHermesProfileLink = jest.fn()
 const mockIsConfiguredCompatibilityRuntimeTarget = jest.fn()
 const mockAuthorizeLinkedComputerDispatch = jest.fn()
+const mockAuthorizeLinkedComputerRecoveryQueue = jest.fn()
 const mockAuthorizeWorkspaceRuntime = jest.fn()
 const mockRequireProjectRuntimeReplica = jest.fn()
 const mockGetProjectForUser = jest.fn()
@@ -117,6 +118,7 @@ jest.mock('@/lib/hermes-features/service', () => {
 jest.mock('@/lib/linked-computers/runtime-targets', () => ({
   ...jest.requireActual('@/lib/linked-computers/runtime-targets'),
   authorizeLinkedComputerDispatch: mockAuthorizeLinkedComputerDispatch,
+  authorizeLinkedComputerRecoveryQueue: mockAuthorizeLinkedComputerRecoveryQueue,
 }))
 
 jest.mock('@/lib/linked-computers/run-queue-store', () => ({
@@ -171,6 +173,7 @@ beforeEach(() => {
     projectAccess: { role: 'manager' },
   })
   mockEnqueueLinkedRun.mockResolvedValue({ jobId: 'job-linked-1' })
+  mockAuthorizeLinkedComputerRecoveryQueue.mockReset()
   mockWaitForLinkedRunClaim.mockResolvedValue({ status: 'running', acceptanceReceipt: { deviceId: 'device-a', machineLabel: 'Verified Mac', runtimeVersion: '2.0.0', acceptedAt: '2026-07-13T09:00:00.000Z' } })
   mockCancelLinkedRun.mockResolvedValue(undefined)
   mockUser = { uid: 'client-1', role: 'client', orgId: 'pib-platform-owner' }
@@ -1037,6 +1040,72 @@ describe('unified conversation message routing', () => {
     expect(mockCreateMessage).not.toHaveBeenCalled()
     expect(mockTouchConversation).not.toHaveBeenCalled()
     expect(mockCreateHermesRun).not.toHaveBeenCalled()
+  })
+
+  it('queues a message on the exact authorised computer while it reconnects', async () => {
+    const binding = {
+      kind: 'linked-computer',
+      deviceId: 'device-recovering',
+      locationId: 'linked-device:device-recovering',
+      runtimeTargetId: 'target-recovering',
+      machineLabel: 'Peets-Mac-mini.local',
+      mappingId: 'map-recovering',
+      mappingLabel: 'Client Growth',
+      workspaceId: 'partners',
+      credentialVersion: 2,
+      runtimeVersion: '1.1.24',
+      platform: 'macos',
+      lastSeenAt: new Date().toISOString(),
+      publicKey: 'pk',
+      availableAgentIds: [],
+      accessMode: 'owner',
+    }
+    const actual = jest.requireActual('@/lib/linked-computers/runtime-targets') as typeof import('@/lib/linked-computers/runtime-targets')
+    mockAuthorizeWorkspaceRuntime.mockRejectedValue(new actual.LinkedComputerDispatchError('linked_device_stale'))
+    mockAuthorizeLinkedComputerRecoveryQueue.mockResolvedValue(binding)
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      workspaceContext: {
+        runtimeTarget: 'target-recovering',
+        runtimeLabel: 'Peets-Mac-mini.local',
+        workspaceId: 'partners',
+        orgId: 'pib-platform-owner',
+        orgSlug: 'partners',
+        orgName: 'Partners in Biz',
+        agentDomain: 'partners',
+        sourceOfTruth: 'vps',
+        shareMode: 'private',
+        ownerUserId: 'client-1',
+        companyId: null,
+        contactIds: [],
+      },
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const response = await POST(req(), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(response.status).toBe(201)
+    expect(mockAuthorizeLinkedComputerRecoveryQueue).toHaveBeenCalledWith(expect.objectContaining({
+      runtimeTargetId: 'target-recovering', workspaceId: 'partners', agentId: 'pip',
+    }))
+    expect(mockEnqueueLinkedRun).toHaveBeenCalledWith(expect.objectContaining({
+      deviceId: 'device-recovering',
+      runtimeTargetId: 'target-recovering',
+      mappingId: 'map-recovering',
+      queuedReason: 'runtime_restarting',
+    }))
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+    expect((await readJson(response)).data.assistantMessage).toEqual(expect.objectContaining({
+      status: 'queued',
+      queuedReason: 'runtime_restarting',
+    }))
   })
 
   it('rejects an unlinked project computer before storing the user message', async () => {

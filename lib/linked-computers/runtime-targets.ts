@@ -371,6 +371,66 @@ export async function discoverAuthorizedProjectRuntimeTargets(
   }))
 }
 
+function authorizedLinkedComputerDispatchFrom(target: ResolvedAuthorizedRuntimeTarget): AuthorizedLinkedComputerDispatch {
+  return {
+    kind: target.kind,
+    locationId: target.locationId,
+    deviceId: target.deviceId,
+    runtimeTargetId: target.runtimeTargetId,
+    machineLabel: target.machineLabel,
+    mappingId: target.mappingId,
+    mappingLabel: target.mappingLabel,
+    workspaceId: target.workspaceId,
+    credentialVersion: target.credentialVersion,
+    runtimeVersion: target.runtimeVersion,
+    availableAgentIds: target.availableAgentIds,
+    platform: target.platform,
+    lastSeenAt: target.lastSeenAt!,
+    publicKey: target.publicKey,
+    accessMode: target.accessMode,
+    ...(target.updateRequired ? { updateRequired: true } : {}),
+  }
+}
+
+/**
+ * Authorize a durable, same-computer recovery queue while a previously paired
+ * runtime is temporarily offline. This is intentionally narrower than normal
+ * dispatch: it preserves every ownership, grant, credential, and mapping
+ * check, but permits only liveness loss that a restarted runtime can recover.
+ */
+export async function authorizeLinkedComputerRecoveryQueue(
+  input: ResolveInput & { runtimeTargetId: string },
+  options: ResolveOptions = {},
+): Promise<AuthorizedLinkedComputerDispatch> {
+  const candidates = await resolveCandidates(input, options)
+  const matches = candidates.filter((target) => target.runtimeTargetId === input.runtimeTargetId
+    || target.deviceId === input.runtimeTargetId
+    || target.legacyRuntimeTargetIds.includes(input.runtimeTargetId))
+  const preferredMappingId = typeof input.mappingId === 'string' ? input.mappingId.trim() : ''
+  const selected = preferredMappingId
+    ? matches.find((target) => target.mappingId === preferredMappingId)
+    : matches[0]
+  if (!selected) {
+    // Preserve the normal fail-closed error for revoked credentials, paused
+    // grants, membership loss, guessed targets, and missing mappings.
+    return authorizeLinkedComputerDispatch(input, options)
+  }
+  // VPS-linked targets use their own direct gateway path; a recovery queue is
+  // deliberately for the supervised desktop/runtime worker contract only.
+  if (selected.deviceKind === 'vps') return authorizeLinkedComputerDispatch(input, options)
+  if (selected.updateRequired) throw new LinkedComputerDispatchError('linked_device_update_required')
+  if (input.agentId && selected.availableAgentIds.length > 0 && !selected.availableAgentIds.includes(input.agentId)) {
+    throw new LinkedComputerDispatchError('linked_device_agent_unavailable')
+  }
+  if (selected.unavailableReason !== 'offline' && selected.unavailableReason !== 'stale') {
+    if (selected.unavailableReason) throw new LinkedComputerDispatchError(`linked_device_${selected.unavailableReason}`)
+    return authorizedLinkedComputerDispatchFrom(selected)
+  }
+  // A device that has never sent a heartbeat is not a reconnecting runtime.
+  if (!selected.lastSeenAt) throw new LinkedComputerDispatchError('linked_device_offline')
+  return authorizedLinkedComputerDispatchFrom(selected)
+}
+
 export async function authorizeLinkedComputerDispatch(input: ResolveInput & { runtimeTargetId: string }, options: ResolveOptions = {}): Promise<AuthorizedLinkedComputerDispatch> {
   const candidates = await resolveCandidates(input, options)
   const matches = candidates.filter((target) => target.runtimeTargetId === input.runtimeTargetId || target.deviceId === input.runtimeTargetId)
@@ -380,24 +440,22 @@ export async function authorizeLinkedComputerDispatch(input: ResolveInput & { ru
     : matches[0]
   if (selected) {
     if (selected.unavailableReason) throw new LinkedComputerDispatchError(`linked_device_${selected.unavailableReason}`)
-    return {
-      kind: selected.kind, locationId: selected.locationId,
-      deviceId: selected.deviceId, runtimeTargetId: selected.runtimeTargetId,
-      machineLabel: selected.machineLabel, mappingId: selected.mappingId, mappingLabel: selected.mappingLabel, workspaceId: selected.workspaceId,
-      credentialVersion: selected.credentialVersion, runtimeVersion: selected.runtimeVersion, platform: selected.platform,
-      availableAgentIds: selected.availableAgentIds,
-      lastSeenAt: selected.lastSeenAt!, publicKey: selected.publicKey,
-      accessMode: selected.accessMode,
-      ...(selected.updateRequired ? { updateRequired: true } : {}),
-    }
+    return authorizedLinkedComputerDispatchFrom(selected)
   }
   const db = options.db ?? (adminDb as unknown as DbLike)
-  const devices = await allRows<LinkedDevice & { health?: string }>(db, 'linked_devices')
+  const [devices, credentials] = await Promise.all([
+    allRows<LinkedDevice & { health?: string }>(db, 'linked_devices'),
+    allRows<Record<string, unknown>>(db, 'linked_device_credentials'),
+  ])
   const device = devices.find((row) => row.runtimeTargetId === input.runtimeTargetId || row.deviceId === input.runtimeTargetId)
   if (!device) throw new LinkedComputerDispatchError('linked_device_not_authorized')
   const grants = await allRows<LinkedDeviceGrant>(db, 'linked_device_grants')
   const grant = grants.find((row) => row.deviceId === device.deviceId && row.orgId === input.orgId)
   if (!grant) throw new LinkedComputerDispatchError('linked_device_not_authorized')
+  const credential = credentials.find((row) => String(row.deviceId ?? row.__id ?? '') === device.deviceId)
+  if (!credential || credential.revokedAt || Number(credential.credentialVersion) !== device.credentialVersion) {
+    throw new LinkedComputerDispatchError('linked_device_not_authorized')
+  }
   if (linkedDeviceOwnerType(device) === 'user') {
     const ownerMembership = await membership(db, input.orgId, String(device.ownerUserId))
     if (!ownerMembership.active) throw new LinkedComputerDispatchError('linked_device_membership_required')

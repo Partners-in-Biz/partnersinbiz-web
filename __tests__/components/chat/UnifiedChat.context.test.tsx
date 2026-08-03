@@ -559,7 +559,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
   })
 
-  it('shows a fresh but recovering bound computer as reconnecting without selecting another machine', async () => {
+  it('keeps a stale bound computer selected and lets its messages queue while it reconnects', async () => {
     let workspaceRequests = 0
     let resolveRecovery: (() => void) | undefined
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
@@ -571,7 +571,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
         const data = {
           workspaces: [{ workspaceId: 'acme', orgId: 'org-1', orgSlug: 'acme', orgName: 'Acme', agentDomain: 'acme', sourceOfTruth: 'vps', syncMode: 'hybrid', defaultRuntimeTarget: 'vps', folderVersion: 1 }],
           runtimeTargetsByWorkspace: { acme: [
-            { id: 'device-recovering', label: 'Studio Mac', selectable: workspaceRequests > 1, enabled: true, isLocal: true, isFresh: true, isHealthy: workspaceRequests > 1, unavailableReason: workspaceRequests > 1 ? undefined : 'offline', lastSeenAt: '2026-08-01T18:00:00.000Z' },
+            { id: 'device-recovering', label: 'Studio Mac', selectable: workspaceRequests > 1, enabled: true, isLocal: true, isFresh: workspaceRequests > 1, isHealthy: workspaceRequests > 1, unavailableReason: workspaceRequests > 1 ? undefined : 'stale', lastSeenAt: '2026-08-01T18:00:00.000Z' },
             { id: 'device-healthy', label: 'Office PC', selectable: true, enabled: true, isLocal: true, isFresh: true, isHealthy: true, lastSeenAt: null },
           ] }, projects: [],
         }
@@ -586,9 +586,10 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" />)
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByText('Computer reconnecting')).toBeInTheDocument()
-    expect(alert).toHaveTextContent('Studio Mac is reconnecting. This session remains linked to it; queued runs will resume automatically when it is ready, within the 45-minute queue window.')
+    expect(alert).toHaveTextContent('Studio Mac is reconnecting. This session remains linked to it; messages will queue on this computer and resume automatically when it is ready, within the 45-minute queue window.')
     expect(screen.queryByText(/Office PC was selected/i)).not.toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Computer unavailable')).toBeDisabled()
+    expect(screen.getByPlaceholderText('Computer reconnecting — messages will queue')).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
     await waitFor(() => expect(resolveRecovery).toBeDefined())
     await act(async () => { resolveRecovery?.() })
     await waitFor(() => expect(screen.getByPlaceholderText('Send a message')).toBeEnabled())

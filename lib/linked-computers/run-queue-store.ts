@@ -432,6 +432,7 @@ export async function enqueueLinkedRun(input: {
   requestId: string; deviceId: string; runtimeTargetId: string; orgId: string; actorUserId: string; workspaceId: string; projectId?: string; projectReplicaId?: string
   mappingId: string; relativeFolder: string; workingDirectory?: string; credentialVersion: number; payload: LinkedRunPayload
   conversationId: string; assistantMessageId: string; agentId: string; delegationId?: string
+  queuedReason?: 'runtime_restarting'
 }, options: { nowMs?: number; ttlMs?: number; queueStartDeadlineMs?: number } = {}): Promise<LinkedRunJob> {
   if (Boolean(input.projectId?.trim()) !== Boolean(input.projectReplicaId?.trim())) {
     throw new Error('linked computers: project runs require an active replica')
@@ -459,6 +460,7 @@ export async function enqueueLinkedRun(input: {
       linkedDeviceMappingId: input.mappingId,
       linkedDeviceCredentialVersion: input.credentialVersion,
       ...(input.delegationId ? { delegationId: input.delegationId } : {}),
+      ...(input.queuedReason ? { queuedReason: input.queuedReason } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     }
     const [existing, queue] = await Promise.all([tx.get(ref), tx.get(queueRef)])
@@ -479,6 +481,7 @@ export async function enqueueLinkedRun(input: {
       hermesRunId: id, runId: id, status: 'queued', orgId: input.orgId, profile: input.agentId,
       conversationId: input.conversationId, messageId: input.assistantMessageId,
       runtimeKind: 'linked-computer', linkedDeviceId: input.deviceId, linkedDeviceMappingId: input.mappingId,
+      ...(input.queuedReason ? { queuedReason: input.queuedReason } : {}),
       createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
     })
   })

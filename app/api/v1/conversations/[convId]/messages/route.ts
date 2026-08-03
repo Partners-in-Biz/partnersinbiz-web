@@ -28,8 +28,12 @@ import {
   patchConversation,
 } from '@/lib/conversations/conversations'
 import { createHermesRun } from '@/lib/hermes/server'
-import type { AuthorizedLinkedComputerDispatch } from '@/lib/linked-computers/runtime-targets'
-import { parseLinkedRuntimeVersion } from '@/lib/linked-computers/runtime-targets'
+import {
+  authorizeLinkedComputerRecoveryQueue,
+  LinkedComputerDispatchError,
+  parseLinkedRuntimeVersion,
+  type AuthorizedLinkedComputerDispatch,
+} from '@/lib/linked-computers/runtime-targets'
 import { enqueueLinkedRun } from '@/lib/linked-computers/run-queue-store'
 import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
 import { authorizeWorkspaceRuntime, type AuthorizedWorkspaceRuntime } from '@/lib/workspaces/runtime-authorization'
@@ -606,6 +610,7 @@ export const POST = withAuth(
     // cross-tenant target cannot leave a misleading partial exchange behind.
     const requestedRuntimeTarget = conversation.workspaceContext?.runtimeTarget?.trim() || null
     let authorizedWorkspaceRuntime: AuthorizedWorkspaceRuntime | null = null
+    let recoveringLinkedComputerQueue = false
     if (requestedRuntimeTarget && conversation.workspaceContext?.workspaceId && dispatchAgentId) {
       const scopedAccessPolicy = (await loadOrgMemberAccessPolicy(conversation.orgId, user.uid))
         ?? user.memberAccessPolicy
@@ -653,8 +658,25 @@ export const POST = withAuth(
             : {}),
           agentId: dispatchAgentId,
         })
-      } catch {
-        return apiError('Computer unavailable', 409)
+      } catch (error) {
+        const isRecoverableReadinessLoss = error instanceof LinkedComputerDispatchError
+          && (error.code === 'linked_device_offline' || error.code === 'linked_device_stale')
+        if (!isRecoverableReadinessLoss) return apiError('Computer unavailable', 409)
+        try {
+          authorizedWorkspaceRuntime = await authorizeLinkedComputerRecoveryQueue({
+            userId: user.uid,
+            orgId: conversation.orgId,
+            workspaceId: conversation.workspaceContext.workspaceId,
+            runtimeTargetId: requestedRuntimeTarget,
+            ...(conversation.workspaceContext.mappingId
+              ? { mappingId: conversation.workspaceContext.mappingId }
+              : {}),
+            agentId: dispatchAgentId,
+          })
+          recoveringLinkedComputerQueue = true
+        } catch {
+          return apiError('Computer unavailable', 409)
+        }
       }
     }
 
@@ -1278,6 +1300,7 @@ export const POST = withAuth(
             assistantMessageId: assistantMessage.id,
             agentId,
             ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
+            ...(recoveringLinkedComputerQueue ? { queuedReason: 'runtime_restarting' as const } : {}),
           })
           const queuedAssistant = {
             ...assistantMessage,
@@ -1291,6 +1314,7 @@ export const POST = withAuth(
             linkedDeviceMappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
             linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
             ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
+            ...(recoveringLinkedComputerQueue ? { queuedReason: 'runtime_restarting' as const } : {}),
           }
           await messagesCollection(convId).doc(assistantMessage.id).update({
             status: 'queued',
@@ -1303,6 +1327,7 @@ export const POST = withAuth(
             linkedDeviceMappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
             linkedDeviceCredentialVersion: linkedComputerBinding.credentialVersion,
             ...(mintedDelegation ? { delegationId: mintedDelegation.id } : {}),
+            ...(recoveringLinkedComputerQueue ? { queuedReason: 'runtime_restarting' as const } : {}),
           })
           return apiSuccess({
             message,
@@ -1311,22 +1336,32 @@ export const POST = withAuth(
             dispatchAgentId: agentId,
           }, 201)
         } catch (linkedErr) {
-          // Desktop linked-computer queue path failed. Fall through to direct Hermes.
+          // A selected linked computer is an exact dispatch binding. Never
+          // silently send its work to another machine if its durable queue is
+          // unavailable; the user can retry without losing that boundary.
           console.error('[conversation-linked-enqueue-fallback]', {
             convId,
             agentId,
             message: linkedErr instanceof Error ? linkedErr.message : String(linkedErr),
           })
-          agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, {
-            runtimeTarget: 'vps',
+          const error = recoveringLinkedComputerQueue
+            ? 'This computer is reconnecting, but its local queue is temporarily unavailable. It was not sent to another computer; please retry shortly.'
+            : 'The selected computer could not accept this message. It was not sent to another computer; please retry shortly.'
+          await messagesCollection(convId).doc(assistantMessage.id).update({
+            content: '',
+            status: 'failed',
+            error,
+            workspaceDispatchFailureCode: 'linked_device_queue_unavailable',
           })
-          if (!agentLink) {
-            agentLink = await getAgentDispatchHermesProfileLink(agentId, conversation.orgId, {
-              runtimeTarget: 'local',
-            })
-          }
-          if (!agentLink) throw linkedErr
-          linkedComputerBinding = null
+          return apiSuccess({
+            message,
+            assistantMessage: {
+              ...assistantMessage,
+              status: 'failed',
+              error,
+              workspaceDispatchFailureCode: 'linked_device_queue_unavailable',
+            },
+          }, 201)
         }
       }
       let selectedWorkingDirectory: string | undefined

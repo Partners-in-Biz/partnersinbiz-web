@@ -327,12 +327,49 @@ export function isLocalHermesNonTerminalExecutionError(error: unknown): boolean 
 
 /** Match the server's durable queue-start deadline. */
 export const LOCAL_HERMES_START_RETRY_DEFAULT_MS = 45 * 60_000
+export const LOCAL_HERMES_REQUEST_TIMEOUT_DEFAULT_MS = 15_000
 
 function localHermesStartRetryBudgetMs(env: RuntimeEnv): number {
   const raw = Number(env.PIB_LOCAL_HERMES_START_RETRY_MS ?? LOCAL_HERMES_START_RETRY_DEFAULT_MS)
   if (!Number.isFinite(raw)) return LOCAL_HERMES_START_RETRY_DEFAULT_MS
   // 0 disables retries (tests / fail-fast). Never exceed the public queue window.
   return Math.min(Math.max(0, Math.floor(raw)), 45 * 60_000)
+}
+
+function localHermesRequestTimeoutMs(env: RuntimeEnv): number {
+  const raw = Number(env.PIB_LOCAL_HERMES_REQUEST_TIMEOUT_MS ?? LOCAL_HERMES_REQUEST_TIMEOUT_DEFAULT_MS)
+  if (!Number.isFinite(raw)) return LOCAL_HERMES_REQUEST_TIMEOUT_DEFAULT_MS
+  return Math.min(Math.max(Math.floor(raw), 1_000), 60_000)
+}
+
+/**
+ * Bound both headers and body consumption. A local gateway can accept a
+ * connection then stall while streaming its body; AbortSignal on fetch alone
+ * is not sufficient for every runtime implementation in that state.
+ */
+async function fetchLocalHermesText(
+  fetcher: typeof fetch,
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<{ response: Response; text: string }> {
+  const controller = new AbortController()
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  const request = Promise.resolve().then(async () => {
+    const response = await fetcher(url, { ...init, signal: controller.signal })
+    return { response, text: await response.text() }
+  })
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort()
+      reject(new Error('Local Hermes request timed out'))
+    }, timeoutMs)
+  })
+  try {
+    return await Promise.race([request, deadline])
+  } finally {
+    if (timeout) clearTimeout(timeout)
+  }
 }
 
 function gatewayDrainRetryDelayMs(response: Response, attempt: number): number {
@@ -380,6 +417,7 @@ export async function callLocalHermes(
     working_directory: body.working_directory,
   })
   const startRetryBudgetMs = localHermesStartRetryBudgetMs(env)
+  const requestTimeoutMs = localHermesRequestTimeoutMs(env)
   const startDeadline = Date.now() + startRetryBudgetMs
   let startText = ''
   let drainAttempts = 0
@@ -387,11 +425,13 @@ export async function callLocalHermes(
   if (helpers.resumeRunId && /^[A-Za-z0-9_-]{1,128}$/.test(helpers.resumeRunId)) {
     while (!runId) {
       let resumed: Response
+      let resumedText = ''
       try {
-        resumed = await fetcher(`${route.baseUrl}/v1/runs/${encodeURIComponent(helpers.resumeRunId)}`, {
+        const result = await fetchLocalHermesText(fetcher, `${route.baseUrl}/v1/runs/${encodeURIComponent(helpers.resumeRunId)}`, {
           headers: authHeaders(route),
-          signal: AbortSignal.timeout(15_000),
-        })
+        }, requestTimeoutMs)
+        resumed = result.response
+        resumedText = result.text
       } catch {
         if (Date.now() >= startDeadline) throw new Error(`Local Hermes ${cleanAgent} runtime restarting; reattachment retry window exhausted`)
         await helpers.onQueued?.('runtime_restarting')
@@ -404,7 +444,7 @@ export async function callLocalHermes(
       } else if (resumed.status === 404) {
         break
       } else {
-        const detail = await resumed.text().catch(() => '')
+        const detail = resumedText
         const draining = isLocalHermesGatewayDrainingBody(resumed.status, detail)
         if (draining && Date.now() < startDeadline) {
           await helpers.onQueued?.('gateway_draining')
@@ -419,11 +459,13 @@ export async function callLocalHermes(
   while (!runId) {
     let response: Response
     try {
-      response = await fetcher(`${route.baseUrl}/v1/runs`, {
+      const result = await fetchLocalHermesText(fetcher, `${route.baseUrl}/v1/runs`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...authHeaders(route) },
         body: startBody,
-      })
+      }, requestTimeoutMs)
+      response = result.response
+      startText = result.text
     } catch {
       if (Date.now() >= startDeadline) throw new Error(`Local Hermes ${cleanAgent} runtime restarting; start retry window exhausted`)
       await helpers.onQueued?.('runtime_restarting')
@@ -431,7 +473,6 @@ export async function callLocalHermes(
       drainAttempts += 1
       continue
     }
-    startText = await response.text().catch(() => '')
     if (response.ok) {
       const started = (() => {
         try { return startText ? JSON.parse(startText) as Record<string, unknown> : null } catch { return null }
@@ -483,11 +524,13 @@ export async function callLocalHermes(
     let pollMisses = 0
     while (Date.now() < deadline) {
       let runResponse: Response
+      let runText = ''
       try {
-        runResponse = await fetcher(`${route.baseUrl}/v1/runs/${encodeURIComponent(runId)}`, {
+        const result = await fetchLocalHermesText(fetcher, `${route.baseUrl}/v1/runs/${encodeURIComponent(runId)}`, {
           headers: authHeaders(route),
-          signal: AbortSignal.timeout(15_000),
-        })
+        }, requestTimeoutMs)
+        runResponse = result.response
+        runText = result.text
       } catch {
         // Runtime upgrade / gateway bounce mid-run: keep the lease alive and reattach.
         await helpers.onQueued?.('runtime_restarting')
@@ -495,7 +538,6 @@ export async function callLocalHermes(
         pollMisses += 1
         continue
       }
-      const runText = await runResponse.text().catch(() => '')
       if (!runResponse.ok) {
         if (runResponse.status === 404) {
           // Run identity lost after restart — try reattachment window then fail to reclaim path.
@@ -547,11 +589,12 @@ export async function listLocalHermesModels(
   const cleanAgent = cleanAgentId(agentId)
   const route = localHermesRoutes(env).find((candidate) => candidate.agentId === cleanAgent)
   if (!route) throw new Error(`Hermes agent ${cleanAgent} is not installed on this computer`)
-  const response = await fetcher(`${route.baseUrl}/v1/models`, {
+  const { response, text } = await fetchLocalHermesText(fetcher, `${route.baseUrl}/v1/models`, {
     headers: authHeaders(route),
-    signal: AbortSignal.timeout(15_000),
-  })
-  const data = await response.json().catch(() => null) as Record<string, unknown> | null
+  }, localHermesRequestTimeoutMs(env))
+  const data = (() => {
+    try { return text ? JSON.parse(text) as Record<string, unknown> : null } catch { return null }
+  })()
   if (!response.ok) throw new Error(`Local Hermes ${cleanAgent} model catalogue failed (HTTP ${response.status})`)
   const entries = Array.isArray(data?.data) ? data.data : Array.isArray(data?.models) ? data.models : []
   return [...new Set(entries.flatMap((entry) => {
