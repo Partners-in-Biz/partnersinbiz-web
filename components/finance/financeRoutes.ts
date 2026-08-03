@@ -23,6 +23,7 @@ export type FinanceRouteKey =
   | 'runbooks'
   | 'period-close'
   | 'proving'
+  | 'revenue-recognition'
 
 export type FinanceNavItem = {
   key: FinanceRouteKey
@@ -220,6 +221,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     group: 'command',
   },
   {
+    key: 'revenue-recognition',
+    label: 'Revenue recognition',
+    href: '/portal/finance/revenue-recognition',
+    icon: 'trending_up',
+    description: 'Lite deferred revenue schedules (straight-line / milestone) linked to AR contracts; period runs, reverse, deferred vs billed.',
+    group: 'books',
+  },
+  {
     key: 'proving',
     label: 'Proving kit',
     href: '/portal/finance/proving',
@@ -237,6 +246,7 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'tax',
   'payroll',
   'assets',
+  'revenue-recognition',
   'job-costing',
   'inventory',
   'packaging',
@@ -250,6 +260,7 @@ export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'setup',
   'runbooks',
   'proving',
+  'revenue-recognition',
 ]
 
 export function financeNavItem(key: FinanceRouteKey): FinanceNavItem {

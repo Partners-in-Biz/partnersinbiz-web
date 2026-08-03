@@ -53,6 +53,7 @@ describe('finance workbench delivery contract', () => {
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/bank-feeds|bank feed/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/inventory/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/proving/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/revenue recognition|revenue-recognition/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/Interactive portal workbenches/i)
   })
 
@@ -79,9 +80,11 @@ describe('finance workbench delivery contract', () => {
       'app/(portal)/portal/finance/bank-feeds/page.tsx',
       'app/(portal)/portal/finance/budgets/page.tsx',
       'app/(portal)/portal/finance/assets/page.tsx',
+      'app/(portal)/portal/finance/revenue-recognition/page.tsx',
       'app/(portal)/portal/finance/period-close/page.tsx',
       'app/(portal)/portal/finance/runbooks/page.tsx',
       'app/(portal)/portal/finance/proving/page.tsx',
+    'app/(portal)/portal/finance/expense-claims/page.tsx',
     ]
     for (const rel of pages) {
       expect(existsSync(path.join(root, rel))).toBe(true)

@@ -96,12 +96,14 @@ describe('finance portal design-system parity', () => {
     'app/(portal)/portal/finance/inventory/page.tsx',
     // Phase 4 competitor-parity surfaces (must keep FinanceModuleFrame + tenant scope helpers)
     'app/(portal)/portal/finance/assets/page.tsx',
+    'app/(portal)/portal/finance/revenue-recognition/page.tsx',
     'app/(portal)/portal/finance/bank-rules/page.tsx',
     'app/(portal)/portal/finance/bank-feeds/page.tsx',
     'app/(portal)/portal/finance/budgets/page.tsx',
     'app/(portal)/portal/finance/multi-currency/page.tsx',
     'app/(portal)/portal/finance/period-close/page.tsx',
     'app/(portal)/portal/finance/proving/page.tsx',
+    'app/(portal)/portal/finance/expense-claims/page.tsx',
   ]
 
   test('shared shell components exist', () => {
@@ -130,7 +132,10 @@ describe('finance portal design-system parity', () => {
     expect(financeNavItem('period-close').href).toBe('/portal/finance/period-close')
     expect(FINANCE_PRIMARY_TABS).toContain('period-close')
     expect(financeNavItem('proving').href).toBe('/portal/finance/proving')
+    expect(financeNavItem('expense-claims').href).toBe('/portal/finance/expense-claims')
+    expect(financeNavItem('revenue-recognition').href).toBe('/portal/finance/revenue-recognition')
     expect(FINANCE_PRIMARY_TABS).toContain('proving')
+    expect(FINANCE_PRIMARY_TABS).toContain('revenue-recognition')
   })
 
   test('all finance portal pages mount FinanceModuleFrame + design-system primitives', () => {
@@ -183,6 +188,7 @@ describe('finance portal design-system parity', () => {
       'app/(portal)/portal/finance/job-costing/page.tsx',
       'app/(portal)/portal/finance/inventory/page.tsx',
       'app/(portal)/portal/finance/assets/page.tsx',
+      'app/(portal)/portal/finance/revenue-recognition/page.tsx',
       'app/(portal)/portal/finance/bank-rules/page.tsx',
       'app/(portal)/portal/finance/bank-feeds/page.tsx',
       'app/(portal)/portal/finance/budgets/page.tsx',
@@ -196,7 +202,7 @@ describe('finance portal design-system parity', () => {
     }
 
     // Nav lock: Phase 4/5 routes remain discoverable from the shared finance nav.
-    for (const key of ['assets', 'bank-rules', 'budgets', 'multi-currency', 'job-costing', 'practice', 'period-close', 'runbooks', 'setup', 'proving'] as const) {
+    for (const key of ['assets', 'revenue-recognition', 'bank-rules', 'budgets', 'multi-currency', 'job-costing', 'practice', 'period-close', 'runbooks', 'setup', 'proving'] as const) {
       expect(financeNavItem(key).href).toMatch(/^\/portal\/finance/)
     }
   })

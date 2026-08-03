@@ -264,6 +264,12 @@ service cloud.firestore {
     match /asset_disposals/{id} { allow read, write: if false; }
     match /finance_assets_claims/{id} { allow read, write: if false; }
     match /finance_assets_idempotency/{id} { allow read, write: if false; }
+    match /finance_revenue_schedules/{id} { allow read, write: if false; }
+    match /finance_recognition_runs/{id} { allow read, write: if false; }
+    match /finance_revenue_recognition_audit/{id} { allow read, write: if false; }
+    match /finance_revenue_recognition_claims/{id} { allow read, write: if false; }
+    match /finance_revenue_recognition_idempotency/{id} { allow read, write: if false; }
+    match /finance_revenue_recognition_journal_markers/{id} { allow read, write: if false; }
     match /finance_inventory_items/{id} { allow read, write: if false; }
     match /finance_stock_movements/{id} { allow read, write: if false; }
     match /finance_stock_adjustments/{id} { allow read, write: if false; }
@@ -451,6 +457,12 @@ service cloud.firestore {
     // ── Agent Team (2026-05-13) ───────────────────────────────────────────────
     // Any authenticated user can read agent team docs (names, personas, status).
     // Only admins can write — all production writes go through Admin SDK / API routes.
+    match /finance_expense_claims/{id} { allow read, write: if false; }
+    match /finance_expense_claim_receipts/{id} { allow read, write: if false; }
+    match /finance_expense_claim_ocr_assists/{id} { allow read, write: if false; }
+    match /finance_expense_claim_audit_events/{id} { allow read, write: if false; }
+    match /finance_expense_claim_unique_keys/{id} { allow read, write: if false; }
+    match /finance_expense_claim_idempotency/{id} { allow read, write: if false; }
     match /finance_time_cost_applications/{id} { allow read, write: if false; }
     match /finance_time_cost_claims/{id} { allow read, write: if false; }
     match /finance_job_costing_audit_events/{id} { allow read, write: if false; }

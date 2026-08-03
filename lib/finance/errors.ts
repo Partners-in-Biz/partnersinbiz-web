@@ -45,6 +45,11 @@ import {
   ProvingFinanceValidationError,
 } from '@/lib/finance/proving/service'
 import { InventoryFinanceNotFoundError } from '@/lib/accounting/inventory-service'
+import { RevenueRecognitionNotFoundError } from '@/lib/accounting/revenue-recognition-service'
+import {
+  ExpenseClaimNotFoundError,
+  ExpenseClaimValidationError,
+} from '@/lib/finance/expense-claims/service'
 
 /** Non-enumerating denial for sensitive finance/payroll resources. */
 export class FinanceNotFoundError extends Error {
@@ -90,7 +95,9 @@ export function isFinanceHttpError(error: unknown): error is Error & { statusCod
     error instanceof OperatorDepthValidationError ||
     error instanceof ProvingFinanceNotFoundError ||
     error instanceof ProvingFinanceValidationError ||
-    error instanceof InventoryFinanceNotFoundError
+    error instanceof InventoryFinanceNotFoundError ||
+    error instanceof ExpenseClaimNotFoundError ||
+    error instanceof ExpenseClaimValidationError
   )
 }
 
@@ -115,7 +122,8 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof BudgetsNotFoundError ||
     error instanceof OperatorDepthNotFoundError ||
     error instanceof ProvingFinanceNotFoundError ||
-    error instanceof InventoryFinanceNotFoundError
+    error instanceof InventoryFinanceNotFoundError ||
+    error instanceof ExpenseClaimNotFoundError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_not_found' }
   }
@@ -131,7 +139,8 @@ export function mapFinanceErrorToHttp(error: unknown): FinanceHttpErrorBody {
     error instanceof BankFeedValidationError ||
     error instanceof BudgetsValidationError ||
     error instanceof OperatorDepthValidationError ||
-    error instanceof ProvingFinanceValidationError
+    error instanceof ProvingFinanceValidationError ||
+    error instanceof ExpenseClaimValidationError
   ) {
     return { status: error.statusCode, error: error.message, code: 'finance_validation' }
   }
