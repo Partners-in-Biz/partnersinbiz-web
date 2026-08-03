@@ -26,7 +26,10 @@ echo "Realtime GCP preflight: project=$PROJECT_ID region=$REGION"
 gcloud firestore databases list --project="$PROJECT_ID"
 gcloud run services list --project="$PROJECT_ID" --region="$REGION"
 gcloud pubsub topics list --project="$PROJECT_ID"
-gcloud redis instances list --project="$PROJECT_ID" --region="$REGION"
+# Memorystore may be intentionally disabled before this first bootstrap. Keep
+# that inventory condition read-only and let the apply phase enable it.
+gcloud redis instances list --project="$PROJECT_ID" --region="$REGION" || \
+  echo "Memorystore API is not enabled yet; no Redis inventory is available."
 gcloud compute networks list --project="$PROJECT_ID"
 gcloud compute networks subnets list --project="$PROJECT_ID" --regions="$REGION"
 
