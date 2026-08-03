@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto'
 import {
   DEFAULT_GATED_CAPABILITIES,
   applyTemplateDefaults,
 } from './constants'
+import { sha256Hex } from './sha256'
 import type {
   GatedCapability,
   GraphNodeTemplate,
@@ -55,7 +55,7 @@ export function hashGraphTemplateContent(input: {
     sla: input.sla,
     gatedCapabilities: input.gatedCapabilities,
   })
-  return createHash('sha256').update(payload).digest('hex')
+  return sha256Hex(payload)
 }
 
 export function normalizeGraphNode(raw: unknown, index: number): GraphNodeTemplate {
@@ -265,5 +265,5 @@ export function runCreateIdempotencyKey(input: {
     cleanString(input.triggerRef) || 'manual',
     cleanString(input.windowBucket) || 'open',
   ].join('|')
-  return createHash('sha256').update(raw).digest('hex').slice(0, 40)
+  return sha256Hex(raw).slice(0, 40)
 }

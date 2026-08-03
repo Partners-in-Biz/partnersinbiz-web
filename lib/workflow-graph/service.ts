@@ -239,11 +239,11 @@ export async function handleKanbanTaskTerminalForWorkflow(input: {
   hermesRunId?: string
   errorFamily?: 'transient_infra' | 'verifier_fail' | 'agent_incomplete' | 'policy' | 'approval_denied' | 'budget' | 'capability' | 'invalid_spec' | 'unknown'
   actorUid: string
-}): Promise<void> {
+}): Promise<{ ok: true; runId: string } | { ok: false; error: string; skipped?: boolean }> {
   const runId = typeof input.task.workflowRunId === 'string' ? input.task.workflowRunId : ''
   const nodeId = typeof input.task.workflowNodeId === 'string' ? input.task.workflowNodeId : ''
   const taskId = typeof input.task.id === 'string' ? input.task.id : ''
-  if (!runId || !nodeId || !taskId) return
+  if (!runId || !nodeId || !taskId) return { ok: false, error: 'missing workflow stamp', skipped: true }
 
   const now = new Date().toISOString()
   const evidence = (input.evidence ?? []).map((item) => ({ ...item, at: now }))
@@ -270,7 +270,7 @@ export async function handleKanbanTaskTerminalForWorkflow(input: {
     }
   }
 
-  await advanceWorkflowRunById(runId, {
+  const advanced = await advanceWorkflowRunById(runId, {
     type: 'kanban_terminal',
     now,
     nodeId,
@@ -287,6 +287,114 @@ export async function handleKanbanTaskTerminalForWorkflow(input: {
     hermesRunId: input.hermesRunId,
     errorFamily: input.errorFamily,
   }, input.actorUid)
+
+  if (!advanced.ok) return { ok: false, error: advanced.error }
+  return { ok: true, runId }
+}
+
+const WRITEBACK_OUTBOX = 'workflow_writeback_outbox'
+
+/**
+ * Drain watcher outbox docs so graph advances even when task PATCH/HTTP write-back missed.
+ * Idempotent: engine advances are safe to re-apply for already-terminal nodes.
+ */
+export async function processWorkflowWritebackOutbox(input?: {
+  limit?: number
+  actorUid?: string
+}): Promise<{ processed: number; applied: number; failed: number; errors: string[] }> {
+  const limit = Math.min(Math.max(input?.limit ?? 40, 1), 100)
+  const actorUid = input?.actorUid || 'workflow-writeback-outbox'
+  const snap = await adminDb
+    .collection(WRITEBACK_OUTBOX)
+    .where('status', '==', 'pending')
+    .limit(limit)
+    .get()
+    .catch(() => null)
+
+  const result = { processed: 0, applied: 0, failed: 0, errors: [] as string[] }
+  if (!snap || snap.empty) return result
+
+  for (const doc of snap.docs) {
+    result.processed += 1
+    const data = doc.data() as Record<string, unknown>
+    const runId = typeof data.workflowRunId === 'string' ? data.workflowRunId : ''
+    const nodeId = typeof data.workflowNodeId === 'string' ? data.workflowNodeId : ''
+    const taskId = typeof data.kanbanTaskId === 'string' ? data.kanbanTaskId : ''
+    const outcome = (typeof data.outcome === 'string' ? data.outcome : 'done') as
+      | 'done'
+      | 'blocked'
+      | 'awaiting_input'
+      | 'rejected'
+    if (!runId || !nodeId || !taskId) {
+      result.failed += 1
+      result.errors.push(`${doc.id}: missing stamp`)
+      await doc.ref.set({
+        status: 'failed',
+        lastError: 'missing stamp',
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true }).catch(() => undefined)
+      continue
+    }
+
+    try {
+      const advanced = await handleKanbanTaskTerminalForWorkflow({
+        task: {
+          id: taskId,
+          workflowRunId: runId,
+          workflowNodeId: nodeId,
+          agentOutput: {
+            summary: typeof data.summary === 'string' ? data.summary : undefined,
+            artifacts: Array.isArray(data.evidence) ? data.evidence : [],
+          },
+        },
+        outcome,
+        evidence: Array.isArray(data.evidence)
+          ? (data.evidence as Array<{ type: string; ref: string; label?: string }>)
+          : undefined,
+        summary: typeof data.summary === 'string' ? data.summary : undefined,
+        tokensIn: typeof data.tokensIn === 'number' ? data.tokensIn : undefined,
+        tokensOut: typeof data.tokensOut === 'number' ? data.tokensOut : undefined,
+        tokensTotal: typeof data.tokensTotal === 'number' ? data.tokensTotal : undefined,
+        estimatedCost: typeof data.estimatedCost === 'number' ? data.estimatedCost : undefined,
+        model: typeof data.model === 'string' ? data.model : undefined,
+        provider: typeof data.provider === 'string' ? data.provider : undefined,
+        hermesRunId: typeof data.hermesRunId === 'string' ? data.hermesRunId : undefined,
+        errorFamily: typeof data.errorFamily === 'string' ? data.errorFamily as never : undefined,
+        actorUid: typeof data.actorUid === 'string' ? data.actorUid : actorUid,
+      })
+      if (!advanced.ok && !advanced.skipped) {
+        result.failed += 1
+        result.errors.push(`${doc.id}: ${advanced.error}`)
+        await doc.ref.set({
+          status: 'pending',
+          lastError: advanced.error,
+          attemptCount: FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true }).catch(() => undefined)
+        continue
+      }
+      result.applied += 1
+      await doc.ref.set({
+        status: 'applied',
+        appliedAt: FieldValue.serverTimestamp(),
+        appliedVia: 'outbox',
+        updatedAt: FieldValue.serverTimestamp(),
+        lastError: FieldValue.delete(),
+      }, { merge: true }).catch(() => undefined)
+    } catch (err) {
+      result.failed += 1
+      const message = err instanceof Error ? err.message : String(err)
+      result.errors.push(`${doc.id}: ${message}`)
+      await doc.ref.set({
+        status: 'pending',
+        lastError: message,
+        attemptCount: FieldValue.increment(1),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true }).catch(() => undefined)
+    }
+  }
+
+  return result
 }
 
 export async function startRunFromPlaybook(input: {

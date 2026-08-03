@@ -442,6 +442,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
 
     // Workflow Graph engine write-back: only for tasks stamped with workflowRunId.
     // Proven-done is enforced in the engine (expectedArtifacts); false-done is rejected.
+    // Await + surface errors — do not fire-and-forget (silent ledger stall).
     if (typeof existing.workflowRunId === 'string' && existing.workflowRunId) {
       const workflowOutcome =
         lifecycleStatus === 'done' || acceptedIntoDone
@@ -453,8 +454,9 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
               : null
       if (workflowOutcome) {
         const telemetry = isRecord(agentOutput?.telemetry) ? agentOutput.telemetry : null
-        void import('@/lib/workflow-graph').then(({ handleKanbanTaskTerminalForWorkflow }) =>
-          handleKanbanTaskTerminalForWorkflow({
+        try {
+          const { handleKanbanTaskTerminalForWorkflow } = await import('@/lib/workflow-graph')
+          const writeback = await handleKanbanTaskTerminalForWorkflow({
             task: { ...existing, ...updateValue, id: taskId, agentOutput },
             outcome:
               workflowOutcome === 'done'
@@ -474,8 +476,21 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
                 ? existing.agentConversationId
                 : undefined,
             actorUid: user.uid,
-          }),
-        ).catch(() => {})
+          })
+          if (!writeback.ok && !writeback.skipped) {
+            console.error('[workflow-graph] kanban write-back failed', {
+              taskId,
+              runId: existing.workflowRunId,
+              error: writeback.error,
+            })
+          }
+        } catch (err) {
+          console.error('[workflow-graph] kanban write-back threw', {
+            taskId,
+            runId: existing.workflowRunId,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        }
       }
     }
   }
