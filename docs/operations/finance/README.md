@@ -8,7 +8,8 @@ Internal operator runbooks and acceptance evidence for Partners in Biz Finance, 
 | [Phase 5 acceptance pack](./phase5-acceptance-pack-2026-08-03.md) | Quinn staging checklist for Phase 5 close surfaces + verifies |
 | [Operator runbooks (Phase 4)](./operator-runbooks-phase4-2026-08-02.md) | Day-0 setup through day-2 ops, hard gates, HTTP map, empty-state guidance |
 | [Phase 4 acceptance pack](./phase4-acceptance-pack-2026-08-02.md) | Quinn / Peet staging acceptance checklist with verify commands |
-| [Phase 4 product spec mirror](../../specs/finance-phase4-product-spec-2026-08-02.md) | Spec index for document `Flie3SblIDXvplYmqOhy` |
+| [Phase 5 product spec mirror](../../specs/finance-phase5-product-spec-2026-08-03.md) | Spec index for document `Flie3SblIDXvplYmqOhy` (currentVersion `pg1w4wGEJ8NoybhPNlji`) |
+| [Phase 4 product spec mirror](../../specs/finance-phase4-product-spec-2026-08-02.md) | Prior Phase 4 spec index for the same document |
 | [Competitor gap map](../../research/finance-phase4-competitor-gap-map-2026-08-02.md) | Research basis for Phase 4 |
 | [Phase 5 residual gap map](../../research/finance-phase5-residual-gap-map-2026-08-03.md) | Research basis for Phase 5 |
 | [E2E golden paths (Playwright)](./e2e-golden-paths.md) | Six hermetic golden paths + optional live smoke; `npm run verify:finance:e2e` |
