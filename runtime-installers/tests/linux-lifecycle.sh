@@ -100,7 +100,7 @@ PIB_ALLOW_UNSIGNED_DEV=1 verify_release "$TMP/unsigned/manifest.json" "$TMP/unsi
 
 printf 'PIB_CHROME_PATH="/usr/local/bin/pib-workbench-chrome"\n' > "$PIB_RUNTIME_ENV_PATH"
 install_systemd_assets
-grep -q '/opt/partnersinbiz/current/pib-runtime service' "$PIB_LINUX_UNIT_PATH"
+grep -q '/opt/partnersinbiz/current/pib-runtime supervise' "$PIB_LINUX_UNIT_PATH"
 grep -q 'TimeoutStopSec=2h' "$PIB_LINUX_UNIT_PATH"
 # After install_runtime activated release-2, env must report that current version.
 grep -q '^PIB_RUNTIME_VERSION="1.1.0"$' "$PIB_RUNTIME_ENV_PATH"

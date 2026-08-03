@@ -2282,6 +2282,15 @@ export default function UnifiedChat({
       ? {
           label: activeRuntimePresence?.label || activeRuntimeLabel || activeConnectionWhere?.label || 'This computer',
           offline: !activeRuntimePresence || !activeRuntimePresence.isFresh,
+          // The server rechecks the exact device, mapping, credential and
+          // membership before accepting this recovery queue. Never enable a
+          // guessed/missing target; only a catalogue entry with temporary
+          // liveness loss may take another message while it reconnects.
+          queueable: Boolean(
+            activeRuntimePresence
+            && (activeRuntimePresence.unavailableReason === 'offline'
+              || activeRuntimePresence.unavailableReason === 'stale'),
+          ),
           recovering: Boolean(
             activeRuntimePresence?.isFresh
             && !activeRuntimePresence.isHealthy
@@ -2292,7 +2301,8 @@ export default function UnifiedChat({
     [activeConnectionWhere?.label, activeRuntimeCatalogueLoaded, activeRuntimeLabel, activeRuntimePresence, activeWorkspaceContext],
   )
   const shouldRefreshUnavailableRuntime = Boolean(unavailableActiveRuntime)
-  const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations) && !unavailableActiveRuntime
+  const runtimeBlocksComposer = Boolean(unavailableActiveRuntime && !unavailableActiveRuntime.queueable)
+  const canUseComposer = allowSendMessages && (Boolean(activeConversation) || allowStartConversations) && !runtimeBlocksComposer
   const visibleConversations = useMemo(
     () => conversations.filter((conversation) => {
       if (conversation.archived) return false
@@ -6294,7 +6304,7 @@ export default function UnifiedChat({
         setError('Replies are disabled for your organisation role.')
         return false
       }
-      if (unavailableActiveRuntime) {
+      if (runtimeBlocksComposer) {
         setError('Computer unavailable')
         return false
       }
@@ -6551,7 +6561,7 @@ export default function UnifiedChat({
       allowAgentParticipants,
       allowStartConversations,
       allowSendMessages,
-      unavailableActiveRuntime,
+      runtimeBlocksComposer,
       orgId,
       currentUserUid,
       currentUserDisplayName,
@@ -6585,7 +6595,7 @@ export default function UnifiedChat({
         setError('Replies are disabled for your organisation role.')
         return
       }
-      if (unavailableActiveRuntime) {
+      if (runtimeBlocksComposer) {
         setError('Computer unavailable')
         return
       }
@@ -6605,7 +6615,7 @@ export default function UnifiedChat({
       attachments,
       sending,
       allowSendMessages,
-      unavailableActiveRuntime,
+      runtimeBlocksComposer,
       hasInFlightAgentRun,
       queueCurrentComposerDraft,
       dispatchComposerMessage,
@@ -6628,7 +6638,7 @@ export default function UnifiedChat({
       return
     }
     if (sending || flushingQueuedDraftRef.current) return
-    if (!activeId || !allowSendMessages || unavailableActiveRuntime) return
+    if (!activeId || !allowSendMessages || runtimeBlocksComposer) return
     const nextDraft = (queuedDraftsRef.current[activeId] ?? [])[0]
     if (!nextDraft || autoFlushBlockedDraftIdsRef.current.has(nextDraft.id)) return
 
@@ -6672,7 +6682,7 @@ export default function UnifiedChat({
     sending,
     activeId,
     allowSendMessages,
-    unavailableActiveRuntime,
+    runtimeBlocksComposer,
     queuedDraftsByConversation,
   ])
 
@@ -8356,10 +8366,10 @@ export default function UnifiedChat({
         {/* Error bar */}
         {unavailableActiveRuntime && (
           <div role="alert" className="border-t border-red-500/35 bg-red-500/10 px-4 py-2.5 text-xs text-red-200">
-            <div className="font-semibold text-red-100">{unavailableActiveRuntime.recovering ? 'Computer reconnecting' : 'Computer unavailable'}</div>
+            <div className="font-semibold text-red-100">{unavailableActiveRuntime.queueable || unavailableActiveRuntime.recovering ? 'Computer reconnecting' : 'Computer unavailable'}</div>
             <div className="mt-0.5">
-              {unavailableActiveRuntime.recovering
-                ? `${unavailableActiveRuntime.label} is reconnecting. This session remains linked to it; queued runs will resume automatically when it is ready, within the 45-minute queue window.`
+              {unavailableActiveRuntime.queueable || unavailableActiveRuntime.recovering
+                ? `${unavailableActiveRuntime.label} is reconnecting. This session remains linked to it; messages will queue on this computer and resume automatically when it is ready, within the 45-minute queue window.`
                 : `${unavailableActiveRuntime.label} is ${unavailableActiveRuntime.offline ? 'offline' : 'unavailable'}. This session remains linked to ${unavailableActiveRuntime.label}. Try again when it is online.`}
             </div>
           </div>
@@ -8800,7 +8810,9 @@ export default function UnifiedChat({
                 }
               }}
               placeholder={
-                unavailableActiveRuntime
+                unavailableActiveRuntime?.queueable
+                  ? 'Computer reconnecting — messages will queue'
+                  : unavailableActiveRuntime
                   ? 'Computer unavailable'
                   : !allowSendMessages
                   ? 'Replies disabled for your role'

@@ -1,6 +1,7 @@
 import {
   authorizeAdoptedLinkedComputerDispatch,
   authorizeLinkedComputerDispatch,
+  authorizeLinkedComputerRecoveryQueue,
   discoverAuthorizedRuntimeTargets,
   linkedComputerReceiptPayload,
   requireMatchingExecutionReceipt,
@@ -96,6 +97,60 @@ describe('linked computer runtime authorization', () => {
       { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-owned' },
       { db: fakeDb(rows), nowMs: () => now },
     )).rejects.toMatchObject({ code: 'linked_device_offline' })
+  })
+
+  it('authorizes only an exact, previously seen linked computer for its recovery queue', async () => {
+    const rows = structuredClone(base) as any
+    rows.linked_devices.owned = {
+      ...rows.linked_devices.owned,
+      health: 'degraded',
+      capabilities: ['workspace.sync'],
+      lastSeenAt: new Date(now - 30_000).toISOString(),
+      availableAgentIds: [],
+    }
+    await expect(authorizeLinkedComputerRecoveryQueue(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-owned', mappingId: 'map-owned', agentId: 'pip' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )).resolves.toEqual(expect.objectContaining({ deviceId: 'owned', mappingId: 'map-owned' }))
+
+    await expect(authorizeLinkedComputerRecoveryQueue(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-guessed', mappingId: 'map-owned', agentId: 'pip' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )).rejects.toMatchObject({ code: 'linked_device_not_authorized' })
+  })
+
+  it('keeps recovery queueing fail-closed for known agent, upgrade, and credential changes', async () => {
+    const rows = structuredClone(base) as any
+    rows.linked_devices.owned = {
+      ...rows.linked_devices.owned,
+      health: 'degraded',
+      capabilities: ['workspace.sync'],
+      availableAgentIds: ['pip'],
+    }
+    await expect(authorizeLinkedComputerRecoveryQueue(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-owned', agentId: 'theo' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )).rejects.toMatchObject({ code: 'linked_device_agent_unavailable' })
+
+    rows.linked_devices.owned.runtimeVersion = '1.0.0'
+    const previousMinimum = process.env.LINKED_RUNTIME_MIN_VERSION
+    process.env.LINKED_RUNTIME_MIN_VERSION = '2.0.0'
+    try {
+      await expect(authorizeLinkedComputerRecoveryQueue(
+        { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-owned', agentId: 'pip' },
+        { db: fakeDb(rows), nowMs: () => now },
+      )).rejects.toMatchObject({ code: 'linked_device_update_required' })
+    } finally {
+      if (previousMinimum === undefined) delete process.env.LINKED_RUNTIME_MIN_VERSION
+      else process.env.LINKED_RUNTIME_MIN_VERSION = previousMinimum
+    }
+
+    rows.linked_devices.owned.runtimeVersion = '2.0.0'
+    rows.linked_device_credentials.owned.revokedAt = new Date(now).toISOString()
+    await expect(authorizeLinkedComputerRecoveryQueue(
+      { userId: 'user-a', orgId: 'org-a', workspaceId: 'workspace-a', runtimeTargetId: 'target-owned', agentId: 'pip' },
+      { db: fakeDb(rows), nowMs: () => now },
+    )).rejects.toMatchObject({ code: 'linked_device_not_authorized' })
   })
 
   it('lists every active workspace mapping on the same computer and authorizes the chosen mapping', async () => {

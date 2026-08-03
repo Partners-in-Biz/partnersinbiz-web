@@ -394,6 +394,10 @@ export async function pollAgentHostForever(
     if (claimed) {
       delay = 1_000
       await run(claimed).catch(() => undefined)
+      // A failed delivery can be reclaimed immediately. Always yield before
+      // polling again so one bad credential job cannot spin the shared runtime
+      // event loop and starve its heartbeat.
+      if (!stop()) await wait(250)
       continue
     }
     await wait(delay)
@@ -402,5 +406,5 @@ export async function pollAgentHostForever(
 }
 
 export function linkedRuntimeAgentHostClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.23', agentHostProtocolVersion: 3 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.24', agentHostProtocolVersion: 3 as const }
 }
