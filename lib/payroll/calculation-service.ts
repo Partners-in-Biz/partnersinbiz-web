@@ -194,6 +194,8 @@ export interface PayrollServiceState {
   leaveBalances: Map<string, import('./types').LeaveBalance>
   leaveRecords: Map<string, import('./types').LeaveRecord>
   payslipPacks: Map<string, import('./types').PayslipDownloadPack>
+  salaryStructures: Map<string, import('./bureau-types').SalaryStructureTemplate>
+  bulkPayslipPacks: Map<string, import('./bureau-types').BulkPayslipRunPack>
   taxYears: Map<string, import('./types').PayrollTaxYear>
   ytdOpenings: Map<string, import('./types').PayrollYtdOpening>
   irp5Records: Map<string, import('./types').Irp5Record>
@@ -228,6 +230,8 @@ function cloneState(state: PayrollServiceState): PayrollServiceState {
     leaveBalances: cloneMap(state.leaveBalances),
     leaveRecords: cloneMap(state.leaveRecords),
     payslipPacks: cloneMap(state.payslipPacks),
+    salaryStructures: cloneMap(state.salaryStructures),
+    bulkPayslipPacks: cloneMap(state.bulkPayslipPacks),
     taxYears: cloneMap(state.taxYears),
     ytdOpenings: cloneMap(state.ytdOpenings),
     irp5Records: cloneMap(state.irp5Records),
@@ -258,6 +262,8 @@ export class InMemoryPayrollStore implements PayrollServiceState {
   leaveBalances = new Map<string, import('./types').LeaveBalance>()
   leaveRecords = new Map<string, import('./types').LeaveRecord>()
   payslipPacks = new Map<string, import('./types').PayslipDownloadPack>()
+  salaryStructures = new Map<string, import('./bureau-types').SalaryStructureTemplate>()
+  bulkPayslipPacks = new Map<string, import('./bureau-types').BulkPayslipRunPack>()
   taxYears = new Map<string, import('./types').PayrollTaxYear>()
   ytdOpenings = new Map<string, import('./types').PayrollYtdOpening>()
   irp5Records = new Map<string, import('./types').Irp5Record>()

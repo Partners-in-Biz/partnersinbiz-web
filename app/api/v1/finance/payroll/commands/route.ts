@@ -2,12 +2,15 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import {
   FirestoreFinancePayrollGateway,
+  type ActivateSalaryStructureCommand,
   type AddPayRunItemCommand,
   type ApplyIndividualAdjustmentCommand,
   type ApproveLockPayRunCommand,
   type ApprovePayrollRuleVersionCommand,
   type ApproveStatutoryCommand,
   type ApproveYtdOpeningCommand,
+  type BuildBulkPayslipRunPackCommand,
+  type BuildEmp501AnnualPackCommand,
   type BuildPayslipPackCommand,
   type CalculateEmployeePayrollCommand,
   type CloseTaxYearCommand,
@@ -21,13 +24,16 @@ import {
   type CreatePayrollEmployeeCommand,
   type CreatePayrollEmploymentCommand,
   type CreatePayrollRuleVersionCommand,
+  type CreateSalaryStructureCommand,
   type CreateTaxYearCommand,
   type CreateYtdOpeningCommand,
   type DecideLeaveCommand,
+  type ExpandSalaryStructureCommand,
   type FreezePayRunInputsCommand,
   type GenerateExportCommand,
   type LinkEmployeeUserCommand,
   type LockTaxYearCommand,
+  type MarkBulkPayslipRunPackDownloadedCommand,
   type ObserveExternalSalaryPaymentCommand,
   type PrepareEmp201Command,
   type PrepareEmp501Command,
@@ -46,6 +52,8 @@ const OPERATIONS = [
   'calendar.create','period.create','calculate','pay-run.create','pay-run.add-item','pay-run.freeze','pay-run.submit',
   'pay-run.approve-lock','pay-run.reverse','pay-run.correct','pay-run.adjust','salary-payment.observe',
   'leave-type.create','leave-balance.set','leave.request','leave.decide','payslip.pack','payslip.pack.mark-downloaded',
+  'salary-structure.create','salary-structure.activate','salary-structure.expand',
+  'payslip.bulk-pack','payslip.bulk-pack.mark-downloaded','emp501.annual-pack',
   'tax-year.create','tax-year.close','tax-year.lock','ytd-opening.create','ytd-opening.approve','irp5.prepare','irp5.approve',
   'emp201.prepare','emp201.approve','emp501.prepare','emp501.approve','export.generate',
 ] as const
@@ -84,6 +92,12 @@ export const POST = withAuth('client', async (req: NextRequest, user) => {
         case 'leave.decide': return gateway.decideLeave(actor, command as unknown as DecideLeaveCommand)
         case 'payslip.pack': return gateway.buildPayslipPack(actor, command as unknown as BuildPayslipPackCommand)
         case 'payslip.pack.mark-downloaded': return gateway.markPayslipPackDownloaded(actor, command as any)
+        case 'salary-structure.create': return gateway.createSalaryStructure(actor, command as unknown as CreateSalaryStructureCommand)
+        case 'salary-structure.activate': return gateway.activateSalaryStructure(actor, command as unknown as ActivateSalaryStructureCommand)
+        case 'salary-structure.expand': return gateway.expandSalaryStructure(actor, command as unknown as ExpandSalaryStructureCommand)
+        case 'payslip.bulk-pack': return gateway.buildBulkPayslipRunPack(actor, command as unknown as BuildBulkPayslipRunPackCommand)
+        case 'payslip.bulk-pack.mark-downloaded': return gateway.markBulkPayslipRunPackDownloaded(actor, command as unknown as MarkBulkPayslipRunPackDownloadedCommand)
+        case 'emp501.annual-pack': return gateway.buildEmp501AnnualPack(actor, command as unknown as BuildEmp501AnnualPackCommand)
         case 'tax-year.create': return gateway.createTaxYear(actor, command as unknown as CreateTaxYearCommand)
         case 'tax-year.close': return gateway.closeTaxYear(actor, command as unknown as CloseTaxYearCommand)
         case 'tax-year.lock': return gateway.lockTaxYear(actor, command as unknown as LockTaxYearCommand)
