@@ -250,5 +250,97 @@ describe('statement import + recon suggestion domain', () => {
     const other = actor('u2', 'org_other')
     const listed = await svc.listForOrg(other, 'org_other')
     expect(listed.batches).toHaveLength(0)
+    expect(listed.totals.lines).toBe(0)
+  })
+
+  test('listForOrg paginates lines and generateSuggestions scales with amount index', async () => {
+    const storeRef = { current: createEmptyStatementStore() }
+    const svc = serviceWith(storeRef, async (input) => ({ id: input.id }))
+    const admin = actor('u1', 'org_pib')
+
+    // Seed 250 lines without full CSV parse path.
+    for (let i = 0; i < 250; i++) {
+      storeRef.current.lines.set(`sib_bulk_L${i}`, {
+        id: `sib_bulk_L${i}`,
+        batchId: 'sib_bulk',
+        orgId: 'org_pib',
+        legalEntityId: 'le_1',
+        bookId: 'book_1',
+        bankAccountId: 'bank_1',
+        lineIndex: i,
+        statementDate: '2026-08-01',
+        effectiveDate: '2026-08-01',
+        amountMinor: -(1000 + i),
+        description: `Line ${i}`,
+        sourceFingerprint: `fp_${i}`,
+        raw: '',
+        importStatus: 'pending',
+        schemaVersion: 1,
+        version: 1,
+      })
+    }
+    storeRef.current.batches.set('sib_bulk', {
+      id: 'sib_bulk',
+      orgId: 'org_pib',
+      legalEntityId: 'le_1',
+      bookId: 'book_1',
+      bankAccountId: 'bank_1',
+      format: 'csv',
+      fileName: 'bulk.csv',
+      contentDigest: 'digest',
+      status: 'parsed',
+      lineCount: 250,
+      importedCount: 0,
+      skippedDuplicateCount: 0,
+      errorCount: 0,
+      createdBy: 'u1',
+      createdAt: '2026-08-02T15:00:00.000Z',
+      schemaVersion: 1,
+      version: 1,
+      externalPaymentInitiated: false,
+    })
+
+    const page = await svc.listForOrg(admin, 'org_pib', { lineLimit: 50, lineOffset: 50 })
+    expect(page.totals.lines).toBe(250)
+    expect(page.lines).toHaveLength(50)
+    expect(page.lines[0].lineIndex).toBe(50)
+    expect(page.linePage.hasMore).toBe(true)
+    expect(page.linePage.nextOffset).toBe(100)
+
+    const N = 3000
+    const bankTransactions = Array.from({ length: N }, (_, i) => ({
+      id: `btx_${i}`,
+      bankAccountId: 'bank_1',
+      amountMinor: i % 2 === 0 ? -(5000 + (i % 17)) : 5000 + (i % 17),
+      statementDate: '2026-08-01',
+      description: i % 50 === 0 ? `Client paid REF-${i}` : `Misc ${i}`,
+      reference: i % 50 === 0 ? `REF-${i}` : undefined,
+      reconciliationState: 'unmatched' as const,
+    }))
+    const payments = Array.from({ length: 800 }, (_, i) => ({
+      id: `pay_${i}`,
+      amountMinor: 5000 + (i % 17),
+      description: `Client paid REF-${i * 50}`,
+      externalReference: `REF-${i * 50}`,
+      status: 'verified' as const,
+    }))
+
+    const started = Date.now()
+    const suggestions = await svc.generateSuggestions(admin, {
+      orgId: 'org_pib',
+      legalEntityId: 'le_1',
+      bookId: 'book_1',
+      bankAccountId: 'bank_1',
+      bankTransactions,
+      payments,
+      requestId: 'r-scale',
+      idempotencyKey: 'k-scale',
+      idPrefix: 'rsg_scale',
+    })
+    const elapsedMs = Date.now() - started
+    expect(suggestions.autoPosted).toBe(false)
+    expect(suggestions.suggestions.length).toBe(N)
+    // Indexed matching should finish well under a few seconds on a dev laptop for 3k×800.
+    expect(elapsedMs).toBeLessThan(8_000)
   })
 })

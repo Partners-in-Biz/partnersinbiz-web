@@ -662,13 +662,31 @@ export class FirestoreFinanceFoundationRepository {
   ): Promise<PostedJournalEntry[]> {
     authorizeFinanceAction(actor, { orgId, legalEntityId, bookId }, 'foundation.read', this.now())
     const capped = Math.min(Math.max(limit, 1), 200)
-    const snap = await this.db.collection('journal_entries')
-      .where('orgId', '==', orgId).where('legalEntityId', '==', legalEntityId).where('bookId', '==', bookId)
-      .limit(capped)
-      .get()
-    return snap.docs
-      .map((doc) => doc.data() as PostedJournalEntry)
-      .sort((a, b) => (b.entryNumber ?? 0) - (a.entryNumber ?? 0))
+    // Prefer server-side order so large COAs return newest journals, not an arbitrary first-N.
+    // Composite index note: journal_entries (orgId ASC, legalEntityId ASC, bookId ASC, entryNumber DESC).
+    // Falls back to in-memory sort if the index is not yet deployed.
+    try {
+      const snap = await this.db
+        .collection('journal_entries')
+        .where('orgId', '==', orgId)
+        .where('legalEntityId', '==', legalEntityId)
+        .where('bookId', '==', bookId)
+        .orderBy('entryNumber', 'desc')
+        .limit(capped)
+        .get()
+      return snap.docs.map((doc) => doc.data() as PostedJournalEntry)
+    } catch {
+      const snap = await this.db
+        .collection('journal_entries')
+        .where('orgId', '==', orgId)
+        .where('legalEntityId', '==', legalEntityId)
+        .where('bookId', '==', bookId)
+        .limit(capped)
+        .get()
+      return snap.docs
+        .map((doc) => doc.data() as PostedJournalEntry)
+        .sort((a, b) => (b.entryNumber ?? 0) - (a.entryNumber ?? 0))
+    }
   }
 
   async listMyAssignments(actor: FinanceActorContext, orgId: string): Promise<FinanceRoleAssignment[]> {

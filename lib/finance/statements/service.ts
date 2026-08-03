@@ -1,5 +1,12 @@
 import { FinanceAuthorizationError } from '@/lib/finance/policy'
 import type { FinanceActorContext } from '@/lib/finance/types'
+import {
+  STATEMENT_IMPORT_MAX_LINES,
+  STATEMENT_LINES_UI_DEFAULT,
+  paginateArray,
+  type PageResult,
+} from '@/lib/finance/scale/pagination'
+import { bestPaymentMatch, indexPaymentsByAbsAmount } from '@/lib/finance/scale/recon-index'
 import { parseStatementFile, StatementParseError } from './parse'
 import type {
   ReconSuggestion,
@@ -180,31 +187,6 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
-function scoreMatch(
-  txn: GenerateReconSuggestionsCommand['bankTransactions'][number],
-  payment: GenerateReconSuggestionsCommand['payments'][number],
-): { score: number; reason: string; kind: ReconSuggestionKind } | null {
-  if (payment.status !== 'verified') return null
-  if (Math.abs(txn.amountMinor) !== Math.abs(payment.amountMinor)) return null
-
-  const txnRef = normalize(txn.reference || '')
-  const payRef = normalize(payment.externalReference || '')
-  const txnDesc = normalize(txn.description || '')
-  const payDesc = normalize(payment.description || '')
-
-  if (txnRef && payRef && txnRef === payRef) {
-    return { score: 0.95, reason: 'Exact external reference match on equal amount', kind: 'match_payment' }
-  }
-  if (txnDesc && payDesc && (txnDesc.includes(payDesc) || payDesc.includes(txnDesc))) {
-    return { score: 0.8, reason: 'Description overlap on equal amount', kind: 'match_payment' }
-  }
-  if (txn.counterpartyName && payDesc && normalize(txn.counterpartyName) === payDesc) {
-    return { score: 0.75, reason: 'Counterparty matches payment description on equal amount', kind: 'match_payment' }
-  }
-  // Equal amount only — lower confidence, still human-gated.
-  return { score: 0.55, reason: 'Equal amount only; human review required', kind: 'match_payment' }
-}
-
 function recurringKey(txn: GenerateReconSuggestionsCommand['bankTransactions'][number]): string {
   const desc = normalize(txn.description).split(' ').slice(0, 4).join(' ')
   return `${Math.abs(txn.amountMinor)}|${desc}`
@@ -240,6 +222,11 @@ export class StatementFinanceService {
     } catch (err) {
       if (err instanceof StatementParseError) throw new StatementFinanceValidationError(err.message)
       throw err
+    }
+    if (parsed.lines.length > STATEMENT_IMPORT_MAX_LINES) {
+      throw new StatementFinanceValidationError(
+        `Statement file has ${parsed.lines.length} lines; max is ${STATEMENT_IMPORT_MAX_LINES} per batch`,
+      )
     }
 
     const before = await this.load()
@@ -446,6 +433,8 @@ export class StatementFinanceService {
         (t.reconciliationState === 'unmatched' || t.reconciliationState === 'open'),
     )
     const payments = command.payments.filter((p) => p.status === 'verified')
+    // Amount-bucket index: candidate payments are O(bucket) not O(all payments).
+    const paymentsByAbs = indexPaymentsByAbsAmount(payments)
     const now = this.now()
     const prefix = (command.idPrefix || 'rsg').trim() || 'rsg'
     const created: ReconSuggestion[] = []
@@ -462,27 +451,7 @@ export class StatementFinanceService {
 
     let seq = 0
     for (const txn of unmatched) {
-      let best:
-        | {
-            paymentId: string
-            score: number
-            reason: string
-            kind: ReconSuggestionKind
-          }
-        | null = null
-      for (const payment of payments) {
-        if (usedPaymentIds.has(payment.id)) continue
-        const scored = scoreMatch(txn, payment)
-        if (!scored) continue
-        if (!best || scored.score > best.score) {
-          best = {
-            paymentId: payment.id,
-            score: scored.score,
-            reason: scored.reason,
-            kind: scored.kind,
-          }
-        }
-      }
+      const best = bestPaymentMatch(txn, paymentsByAbs, usedPaymentIds)
 
       // Require stronger than equal-amount-only before locking a payment candidate.
       if (best && best.score >= 0.75) {
@@ -496,7 +465,7 @@ export class StatementFinanceService {
           bookId,
           bankAccountId,
           bankTransactionId: txn.id,
-          kind: best.kind,
+          kind: 'match_payment' satisfies ReconSuggestionKind,
           status: 'pending',
           confidence: best.score,
           reason: best.reason,
@@ -623,11 +592,24 @@ export class StatementFinanceService {
   async listForOrg(
     actor: FinanceActorContext,
     orgId: string,
-    opts?: { bankAccountId?: string; batchId?: string },
+    opts?: {
+      bankAccountId?: string
+      batchId?: string
+      lineLimit?: number
+      lineOffset?: number
+      suggestionLimit?: number
+      suggestionOffset?: number
+      batchLimit?: number
+      batchOffset?: number
+    },
   ): Promise<{
     batches: StatementImportBatch[]
     lines: StatementImportLineRecord[]
     suggestions: ReconSuggestion[]
+    linePage: PageResult<StatementImportLineRecord>
+    suggestionPage: PageResult<ReconSuggestion>
+    batchPage: PageResult<StatementImportBatch>
+    totals: { batches: number; lines: number; suggestions: number }
     externalPaymentInitiated: false
     autoPosted: false
   }> {
@@ -646,12 +628,33 @@ export class StatementFinanceService {
       lines = lines.filter((l) => l.batchId === opts.batchId)
     }
     batches.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    lines.sort((a, b) => a.lineIndex - b.lineIndex)
+    lines.sort((a, b) => a.lineIndex - b.lineIndex || a.id.localeCompare(b.id))
     suggestions.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+
+    const batchPage = paginateArray(batches, {
+      limit: opts?.batchLimit,
+      offset: opts?.batchOffset,
+      defaultLimit: 50,
+    })
+    const linePage = paginateArray(lines, {
+      limit: opts?.lineLimit,
+      offset: opts?.lineOffset,
+      defaultLimit: STATEMENT_LINES_UI_DEFAULT,
+    })
+    const suggestionPage = paginateArray(suggestions, {
+      limit: opts?.suggestionLimit,
+      offset: opts?.suggestionOffset,
+      defaultLimit: STATEMENT_LINES_UI_DEFAULT,
+    })
+
     return {
-      batches,
-      lines,
-      suggestions,
+      batches: batchPage.items,
+      lines: linePage.items,
+      suggestions: suggestionPage.items,
+      linePage,
+      suggestionPage,
+      batchPage,
+      totals: { batches: batchPage.total, lines: linePage.total, suggestions: suggestionPage.total },
       externalPaymentInitiated: false,
       autoPosted: false,
     }

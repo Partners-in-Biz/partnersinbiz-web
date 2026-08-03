@@ -1,5 +1,6 @@
 import { adminDb } from '@/lib/firebase/admin'
 import type { FinanceActorContext } from '@/lib/finance/types'
+import { createChunkedBatchWriter } from '@/lib/finance/scale/firestore-write'
 import {
   BankRulesFinanceService,
   createEmptyBankRulesStore,
@@ -20,12 +21,16 @@ function asMap<T extends { id: string }>(docs: FirebaseFirestore.QuerySnapshot):
   return map
 }
 
+/**
+ * Org-scoped bank rules load.
+ * Single-field equality on orgId (no composite index required for these reads).
+ */
 async function loadStore(orgId: string): Promise<BankRulesStore> {
   const db = adminDb
   const [rules, suggestions, claims] = await Promise.all([
-    db.collection('finance_bank_rules').where('orgId', '==', orgId).get(),
-    db.collection('finance_bank_rule_suggestions').where('orgId', '==', orgId).get(),
-    db.collection('finance_bank_rules_claims').where('orgId', '==', orgId).get(),
+    db.collection('finance_bank_rules').where('orgId', '==', orgId).limit(2000).get(),
+    db.collection('finance_bank_rule_suggestions').where('orgId', '==', orgId).limit(10_000).get(),
+    db.collection('finance_bank_rules_claims').where('orgId', '==', orgId).limit(10_000).get(),
   ])
   const store = createEmptyBankRulesStore()
   store.rules = asMap<BankRule>(rules)
@@ -38,27 +43,28 @@ async function loadStore(orgId: string): Promise<BankRulesStore> {
 }
 
 async function saveStore(orgId: string, before: BankRulesStore, after: BankRulesStore): Promise<void> {
-  const db = adminDb
-  const batch = db.batch()
-  const writeMap = <T extends { id: string }>(collection: string, prev: Map<string, T>, next: Map<string, T>) => {
-    for (const [id, value] of next) {
-      const prior = prev.get(id)
-      if (prior && JSON.stringify(prior) === JSON.stringify(value)) continue
-      batch.set(db.collection(collection).doc(id), value, { merge: true })
-    }
+  const writer = createChunkedBatchWriter(adminDb)
+  for (const [id, value] of after.rules) {
+    const prior = before.rules.get(id)
+    if (prior && JSON.stringify(prior) === JSON.stringify(value)) continue
+    await writer.set('finance_bank_rules', id, value)
   }
-  writeMap('finance_bank_rules', before.rules, after.rules)
-  writeMap('finance_bank_rule_suggestions', before.suggestions, after.suggestions)
+  for (const [id, value] of after.suggestions) {
+    const prior = before.suggestions.get(id)
+    if (prior && JSON.stringify(prior) === JSON.stringify(value)) continue
+    await writer.set('finance_bank_rule_suggestions', id, value)
+  }
   for (const key of after.claims) {
     if (before.claims.has(key)) continue
     const claimId = Buffer.from(key).toString('base64url').slice(0, 700)
-    batch.set(
-      db.collection('finance_bank_rules_claims').doc(claimId),
-      { id: claimId, orgId, key, createdAt: new Date().toISOString() },
-      { merge: true },
-    )
+    await writer.set('finance_bank_rules_claims', claimId, {
+      id: claimId,
+      orgId,
+      key,
+      createdAt: new Date().toISOString(),
+    })
   }
-  await batch.commit()
+  await writer.flush()
 }
 
 export class FirestoreBankRulesFinanceGateway {

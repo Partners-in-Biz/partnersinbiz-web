@@ -28,9 +28,17 @@ export default function StatementImportPage() {
   const [batches, setBatches] = useState<AnyRec[]>([])
   const [lines, setLines] = useState<AnyRec[]>([])
   const [suggestions, setSuggestions] = useState<AnyRec[]>([])
+  const [totals, setTotals] = useState({ batches: 0, lines: 0, suggestions: 0 })
+  const [lineOffset, setLineOffset] = useState(0)
+  const [suggestionOffset, setSuggestionOffset] = useState(0)
+  const [lineHasMore, setLineHasMore] = useState(false)
+  const [suggestionHasMore, setSuggestionHasMore] = useState(false)
   const [bankAccounts, setBankAccounts] = useState<AnyRec[]>([])
   const [payments, setPayments] = useState<AnyRec[]>([])
   const [bankTxns, setBankTxns] = useState<AnyRec[]>([])
+
+  const LINE_PAGE = 100
+  const SUGGESTION_PAGE = 100
 
   const [bankAccountId, setBankAccountId] = useState('')
   const [format, setFormat] = useState<'auto' | 'csv' | 'ofx' | 'mt940'>('auto')
@@ -47,6 +55,11 @@ export default function StatementImportPage() {
       q.set('resource', 'bundle')
       q.set('orgId', orgId)
       if (bankAccountId) q.set('bankAccountId', bankAccountId)
+      q.set('lineLimit', String(LINE_PAGE))
+      q.set('lineOffset', String(lineOffset))
+      q.set('suggestionLimit', String(SUGGESTION_PAGE))
+      q.set('suggestionOffset', String(suggestionOffset))
+      q.set('batchLimit', '50')
       const res = await fetch(`/api/v1/finance/statements/queries?${q.toString()}`, {
         credentials: 'include',
       })
@@ -55,10 +68,13 @@ export default function StatementImportPage() {
       setBatches(result.batches || [])
       setLines(result.lines || [])
       setSuggestions(result.suggestions || [])
+      setTotals(result.totals || { batches: 0, lines: 0, suggestions: 0 })
+      setLineHasMore(Boolean(result.linePage?.hasMore))
+      setSuggestionHasMore(Boolean(result.suggestionPage?.hasMore))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load statement bundle')
     }
-  }, [orgId, bankAccountId])
+  }, [orgId, bankAccountId, lineOffset, suggestionOffset])
 
   const loadDocuments = useCallback(async () => {
     if (!orgId || !scope.legalEntityId || !scope.bookId) return
@@ -252,7 +268,11 @@ export default function StatementImportPage() {
             <select
               className="mt-1 w-full rounded border px-2 py-1"
               value={bankAccountId}
-              onChange={(e) => setBankAccountId(e.target.value)}
+              onChange={(e) => {
+                setBankAccountId(e.target.value)
+                setLineOffset(0)
+                setSuggestionOffset(0)
+              }}
             >
               <option value="">Select…</option>
               {bankAccounts.map((a) => (
@@ -354,6 +374,27 @@ export default function StatementImportPage() {
               </div>
             ))}
           </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+            <span>
+              Showing {suggestions.length} of {totals.suggestions} suggestions
+            </span>
+            <button
+              type="button"
+              className="pib-btn-ghost text-xs"
+              disabled={busy || suggestionOffset === 0}
+              onClick={() => setSuggestionOffset((o) => Math.max(0, o - SUGGESTION_PAGE))}
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              className="pib-btn-ghost text-xs"
+              disabled={busy || !suggestionHasMore}
+              onClick={() => setSuggestionOffset((o) => o + SUGGESTION_PAGE)}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </section>
 
@@ -376,6 +417,9 @@ export default function StatementImportPage() {
         </div>
         <div className="rounded-xl border border-zinc-200 bg-white p-4">
           <h3 className="mb-2 font-semibold">Parsed / imported lines</h3>
+          <p className="mb-2 text-xs text-zinc-500">
+            Showing {lines.length} of {totals.lines} (paged server-side — large imports do not dump 10k rows into the DOM)
+          </p>
           <ul className="max-h-72 space-y-1 overflow-auto text-xs">
             {lines.map((l) => (
               <li key={l.id} className="border-b border-zinc-100 py-1">
@@ -384,6 +428,24 @@ export default function StatementImportPage() {
             ))}
             {lines.length === 0 && <li className="text-zinc-500">No lines yet.</li>}
           </ul>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="pib-btn-ghost text-xs"
+              disabled={busy || lineOffset === 0}
+              onClick={() => setLineOffset((o) => Math.max(0, o - LINE_PAGE))}
+            >
+              Prev page
+            </button>
+            <button
+              type="button"
+              className="pib-btn-ghost text-xs"
+              disabled={busy || !lineHasMore}
+              onClick={() => setLineOffset((o) => o + LINE_PAGE)}
+            >
+              Next page
+            </button>
+          </div>
         </div>
       </section>
     </FinanceModuleFrame>

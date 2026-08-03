@@ -1,6 +1,8 @@
 import { adminDb } from '@/lib/firebase/admin'
 import type { FinanceActorContext } from '@/lib/finance/types'
 import { FirestoreFinanceDocumentsGateway } from '@/lib/accounting/firestore-documents-gateway'
+import { createChunkedBatchWriter } from '@/lib/finance/scale/firestore-write'
+import { STATEMENT_LINES_RESPONSE_PREVIEW } from '@/lib/finance/scale/pagination'
 import {
   StatementFinanceService,
   cloneStatementStore,
@@ -24,13 +26,24 @@ function asMap<T extends { id: string }>(docs: FirebaseFirestore.QuerySnapshot):
   return map
 }
 
-async function loadStore(): Promise<StatementFinanceStore> {
+/**
+ * Org-scoped load. Avoids global collection scans that break multi-tenant scale.
+ *
+ * Query notes (single-field equality on orgId; composite indexes not required for these):
+ * - finance_statement_import_batches where orgId ==
+ * - finance_statement_import_lines where orgId ==
+ * - finance_recon_suggestions where orgId ==
+ * - finance_statement_claims where orgId ==
+ *
+ * Soft caps guard runaway orgs; pagination lives in StatementFinanceService.listForOrg.
+ */
+async function loadStore(orgId: string): Promise<StatementFinanceStore> {
   const db = adminDb
   const [batches, lines, suggestions, claims] = await Promise.all([
-    db.collection('finance_statement_import_batches').limit(2000).get(),
-    db.collection('finance_statement_import_lines').limit(10000).get(),
-    db.collection('finance_recon_suggestions').limit(5000).get(),
-    db.collection('finance_statement_claims').limit(10000).get(),
+    db.collection('finance_statement_import_batches').where('orgId', '==', orgId).limit(2000).get(),
+    db.collection('finance_statement_import_lines').where('orgId', '==', orgId).limit(25_000).get(),
+    db.collection('finance_recon_suggestions').where('orgId', '==', orgId).limit(10_000).get(),
+    db.collection('finance_statement_claims').where('orgId', '==', orgId).limit(25_000).get(),
   ])
   const store = createEmptyStatementStore()
   store.batches = asMap<StatementImportBatch>(batches)
@@ -43,35 +56,40 @@ async function loadStore(): Promise<StatementFinanceStore> {
   return store
 }
 
-async function saveStore(before: StatementFinanceStore, after: StatementFinanceStore): Promise<void> {
+async function saveStore(
+  orgId: string,
+  before: StatementFinanceStore,
+  after: StatementFinanceStore,
+): Promise<void> {
   const db = adminDb
-  const batch = db.batch()
-  let ops = 0
-  const touch = (col: string, id: string, value: object, prior?: object) => {
-    if (prior && JSON.stringify(prior) === JSON.stringify(value)) return
-    batch.set(db.collection(col).doc(id), value, { merge: true })
-    ops++
-  }
+  const writer = createChunkedBatchWriter(db)
+
   for (const [id, value] of after.batches) {
-    touch('finance_statement_import_batches', id, value, before.batches.get(id))
+    const prior = before.batches.get(id)
+    if (prior && JSON.stringify(prior) === JSON.stringify(value)) continue
+    await writer.set('finance_statement_import_batches', id, value)
   }
   for (const [id, value] of after.lines) {
-    touch('finance_statement_import_lines', id, value, before.lines.get(id))
+    const prior = before.lines.get(id)
+    if (prior && JSON.stringify(prior) === JSON.stringify(value)) continue
+    await writer.set('finance_statement_import_lines', id, value)
   }
   for (const [id, value] of after.suggestions) {
-    touch('finance_recon_suggestions', id, value, before.suggestions.get(id))
+    const prior = before.suggestions.get(id)
+    if (prior && JSON.stringify(prior) === JSON.stringify(value)) continue
+    await writer.set('finance_recon_suggestions', id, value)
   }
   for (const key of after.claims) {
     if (before.claims.has(key)) continue
     const claimId = Buffer.from(key).toString('base64url').slice(0, 700)
-    batch.set(
-      db.collection('finance_statement_claims').doc(claimId),
-      { id: claimId, key, createdAt: new Date().toISOString() },
-      { merge: true },
-    )
-    ops++
+    await writer.set('finance_statement_claims', claimId, {
+      id: claimId,
+      orgId,
+      key,
+      createdAt: new Date().toISOString(),
+    })
   }
-  if (ops > 0) await batch.commit()
+  await writer.flush()
 }
 
 const defaultImporter: BankTransactionImporter = async (input) => {
@@ -104,43 +122,71 @@ const defaultImporter: BankTransactionImporter = async (input) => {
   }
 }
 
+function previewLines<T extends { lineIndex?: number }>(lines: T[]) {
+  if (lines.length <= STATEMENT_LINES_RESPONSE_PREVIEW) {
+    return {
+      lines,
+      linesReturned: lines.length,
+      linesTotal: lines.length,
+      linesTruncated: false as const,
+    }
+  }
+  return {
+    lines: lines.slice(0, STATEMENT_LINES_RESPONSE_PREVIEW),
+    linesReturned: STATEMENT_LINES_RESPONSE_PREVIEW,
+    linesTotal: lines.length,
+    linesTruncated: true as const,
+  }
+}
+
 export class FirestoreStatementFinanceGateway {
   constructor(private readonly importer: BankTransactionImporter = defaultImporter) {}
 
-  private service() {
+  private service(orgId: string) {
     return new StatementFinanceService(
-      () => loadStore(),
-      (before, after) => saveStore(before, after),
+      () => loadStore(orgId),
+      (before, after) => saveStore(orgId, before, after),
       this.importer,
     )
   }
 
-  parseStatement(actor: FinanceActorContext, command: ParseStatementCommand) {
-    return this.service().parseStatement(actor, command)
+  async parseStatement(actor: FinanceActorContext, command: ParseStatementCommand) {
+    const result = await this.service(command.orgId).parseStatement(actor, command)
+    return { batch: result.batch, ...previewLines(result.lines) }
   }
 
-  applyStatement(actor: FinanceActorContext, command: ApplyStatementCommand) {
-    return this.service().applyStatement(actor, command)
+  async applyStatement(actor: FinanceActorContext, command: ApplyStatementCommand) {
+    const result = await this.service(command.orgId).applyStatement(actor, command)
+    return { batch: result.batch, ...previewLines(result.lines) }
   }
 
   generateSuggestions(actor: FinanceActorContext, command: GenerateReconSuggestionsCommand) {
-    return this.service().generateSuggestions(actor, command)
+    return this.service(command.orgId).generateSuggestions(actor, command)
   }
 
   acceptSuggestion(actor: FinanceActorContext, command: ResolveReconSuggestionCommand) {
-    return this.service().acceptSuggestion(actor, command)
+    return this.service(command.orgId).acceptSuggestion(actor, command)
   }
 
   dismissSuggestion(actor: FinanceActorContext, command: ResolveReconSuggestionCommand) {
-    return this.service().dismissSuggestion(actor, command)
+    return this.service(command.orgId).dismissSuggestion(actor, command)
   }
 
   listForOrg(
     actor: FinanceActorContext,
     orgId: string,
-    opts?: { bankAccountId?: string; batchId?: string },
+    opts?: {
+      bankAccountId?: string
+      batchId?: string
+      lineLimit?: number
+      lineOffset?: number
+      suggestionLimit?: number
+      suggestionOffset?: number
+      batchLimit?: number
+      batchOffset?: number
+    },
   ) {
-    return this.service().listForOrg(actor, orgId, opts)
+    return this.service(orgId).listForOrg(actor, orgId, opts)
   }
 }
 
