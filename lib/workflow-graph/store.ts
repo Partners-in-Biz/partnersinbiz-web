@@ -104,19 +104,21 @@ export async function listWorkflowRuns(input: {
     limit: (n: number) => { get: () => Promise<{ docs: Array<{ id: string; data: () => Record<string, unknown> }> }> }
   } = adminDb.collection(RUNS).where('orgId', '==', input.orgId) as never
 
-  const virtual = new Set(['stuck', 'blocked', 'paused', 'paused_budget'])
-  if (input.status && !virtual.has(input.status)) {
-    query = query.where('status', '==', input.status)
-  } else if (input.status === 'paused_budget' || input.status === 'paused') {
+  // status=all (and omitted) = full ledger; never query Firestore for status == "all"
+  const status = input.status && input.status !== 'all' ? input.status : undefined
+  const virtual = new Set(['stuck', 'blocked'])
+  if (status === 'paused_budget' || status === 'paused') {
     query = query.where('status', '==', 'paused_budget')
+  } else if (status && !virtual.has(status)) {
+    query = query.where('status', '==', status)
   }
 
   const snap = await query.limit(limit * 2).get()
   let runs = snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as WorkflowRun) }))
 
-  if (input.status === 'stuck') {
+  if (status === 'stuck') {
     runs = runs.filter((run) => Boolean(run.stuckReasonCode) || Boolean(run.stuckAt))
-  } else if (input.status === 'blocked') {
+  } else if (status === 'blocked') {
     runs = runs.filter(
       (run) =>
         run.status === 'failed'
