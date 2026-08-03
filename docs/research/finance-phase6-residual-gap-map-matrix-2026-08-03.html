@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Phase 6 residual gap matrix (throwaway) — 2026-08-03</title>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; color: #111; background: #fafafa; }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    p { color: #444; max-width: 90ch; }
+    table { border-collapse: collapse; width: 100%; background: #fff; font-size: 13px; }
+    th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #111; color: #fff; position: sticky; top: 0; }
+    tr:nth-child(even) { background: #f6f6f6; }
+    .must { background: #fee2e2; font-weight: 600; }
+    .diff { background: #fef9c3; }
+    .stretch { background: #e0e7ff; }
+    .nongoal { background: #e5e7eb; color: #555; }
+    .hold { background: #dcfce7; }
+    .note { margin-top: 16px; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>PiB Finance Phase 6 residual gap matrix (post-Phase-5)</h1>
+  <p>Throwaway visual only — canonical decision is in <code>docs/research/finance-phase6-residual-gap-map-2026-08-03.md</code> and Research/Messages. Not a permanent CEO dashboard. Hard gates: no SARS submit, no payment initiate, no unapproved paid bank-feed vendor.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Capability</th><th>PiB post-P5</th><th>Xero</th><th>Sage ZA</th><th>QBO Adv</th><th>SimplePay</th><th>PaySpace</th><th>Rank</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="must"><td>1</td><td>Multi-month LIVE books + external accountant sign-off</td><td>W–P synthetic</td><td>S</td><td>S</td><td>S</td><td>S pay</td><td>S</td><td>Must-have</td></tr>
+      <tr class="must"><td>2</td><td>Bank feeds daily product</td><td>P framework</td><td>S</td><td>S ZA banks</td><td>S</td><td>N</td><td>N</td><td>Must-have</td></tr>
+      <tr class="must"><td>2b</td><td>Real-provider adapter stub (no paid bind)</td><td>P LiveStub</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>Must-have</td></tr>
+      <tr class="nongoal"><td>2c</td><td>Paid live aggregator</td><td>N</td><td>S</td><td>S</td><td>S</td><td>N</td><td>N</td><td>Non-goal until Peet</td></tr>
+      <tr class="must"><td>3</td><td>Expense claims + receipts</td><td>W</td><td>S</td><td>P–S</td><td>S</td><td>claims</td><td>P</td><td>Must-have</td></tr>
+      <tr class="must"><td>4</td><td>Revenue recognition lite</td><td>W</td><td>P</td><td>P</td><td>S</td><td>N</td><td>N</td><td>Must-have lite</td></tr>
+      <tr class="must"><td>5</td><td>Firm→client practice grant ACL</td><td>W–P membership</td><td>S HQ</td><td>P</td><td>S Acct</td><td>P</td><td>P</td><td>Must-have</td></tr>
+      <tr class="stretch"><td>6</td><td>Mobile/PWA ESS</td><td>W portal read</td><td>partner</td><td>P–S</td><td>P</td><td>S app</td><td>S</td><td>Stretch</td></tr>
+      <tr class="diff"><td>7</td><td>Cash scenario depth</td><td>P planner</td><td>S</td><td>P</td><td>S</td><td>N</td><td>N</td><td>Differentiator</td></tr>
+      <tr class="diff"><td>8</td><td>Job-cost closed loop polish</td><td>P–S</td><td>S</td><td>P</td><td>S</td><td>N</td><td>N</td><td>Differentiator</td></tr>
+      <tr class="must"><td>9</td><td>Scale/perf bulk load</td><td>P</td><td>S</td><td>S</td><td>S</td><td>S</td><td>S</td><td>Must-have</td></tr>
+      <tr class="must"><td>10</td><td>A11y/keyboard density</td><td>P</td><td>S</td><td>S</td><td>S</td><td>P</td><td>P</td><td>Must-have</td></tr>
+      <tr class="hold"><td>—</td><td>P5 modules (proving, e2e, bureau, inventory lite, packaging observe-only)</td><td>S</td><td>S</td><td>S</td><td>S</td><td>partial</td><td>partial</td><td>Hold</td></tr>
+      <tr class="nongoal"><td>—</td><td>SARS submit / pay initiate / WMS</td><td>N</td><td>varies</td><td>varies</td><td>varies</td><td>helpers</td><td>product</td><td>Non-goal</td></tr>
+    </tbody>
+  </table>
+  <p class="note">Task ENqHqSQMrpK49AyIMhBm · Project HRCSWl1cNnh6fYEGziAb · Spec Flie3SblIDXvplYmqOhy · 2026-08-03 Sage</p>
+</body>
+</html>
