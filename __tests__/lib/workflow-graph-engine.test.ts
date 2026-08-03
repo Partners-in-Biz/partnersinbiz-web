@@ -573,6 +573,164 @@ describe('workflow graph phase 1 engine', () => {
     expect(again.materialize).toEqual([])
   })
 
+  test('cancel mid waiting_watcher survives tick + empty de-arm write-back (never failed/running/succeeded)', () => {
+    const template = normalizeGraphTemplate({
+      orgId: 'pib-platform-owner',
+      name: 'cancel-dearm-durable',
+      status: 'active',
+      nodes: [
+        {
+          nodeId: 'n_agent',
+          kind: 'agent',
+          name: 'Agent',
+          dependsOnNodeIds: [],
+          expectedArtifacts: ['qa_probe_id'],
+          assigneeAgentId: 'theo',
+        },
+        {
+          nodeId: 'n_check',
+          kind: 'code_check',
+          name: 'Check',
+          dependsOnNodeIds: ['n_agent'],
+          expectedArtifacts: ['qa_probe_id'],
+        },
+        {
+          nodeId: 'n_gate',
+          kind: 'human_gate',
+          name: 'Gate',
+          dependsOnNodeIds: ['n_check'],
+          expectedArtifacts: ['approval_ref'],
+        },
+      ],
+    })
+    template.id = 'tmpl-cancel-dearm'
+    let run = createWorkflowRunFromTemplate({
+      runId: 'wfr_cancel_dearm',
+      template,
+      orgId: 'pib-platform-owner',
+      projectId: 'proj-cancel-dearm',
+      trigger: { type: 'manual', at: NOW },
+      now: NOW,
+    })
+
+    let step = advanceWorkflowRun(run, { type: 'tick', now: NOW })
+    run = bindKanbanTask(step.run, 'n_agent', 'task-agent-dearm', NOW)
+    expect(run.nodes.find((n) => n.nodeId === 'n_agent')?.status).toBe('waiting_watcher')
+
+    step = advanceWorkflowRun(run, {
+      type: 'cancel',
+      now: LATER,
+      reason: 'operator_cancel_mid_waiting_watcher',
+    })
+    run = step.run
+    expect(run.status).toBe('cancelled')
+    expect(run.terminalReason).toBe('operator_cancel_mid_waiting_watcher')
+    expect(run.nodes.every((n) => n.status === 'cancelled')).toBe(true)
+
+    // Post-cancel tick must not resurrect or re-materialize.
+    step = advanceWorkflowRun(run, { type: 'tick', now: LATER })
+    run = step.run
+    expect(run.status).toBe('cancelled')
+    expect(step.materialize).toEqual([])
+    expect(run.nodes.every((n) => n.status === 'cancelled')).toBe(true)
+
+    // Empty board de-arm write-back (done, no artifacts) must not un-cancel or flip run to failed.
+    step = advanceWorkflowRun(run, {
+      type: 'kanban_terminal',
+      now: LATER,
+      nodeId: 'n_agent',
+      kanbanTaskId: 'task-agent-dearm',
+      outcome: 'done',
+      summary: 'board closed empty de-arm',
+      evidence: [],
+    })
+    run = step.run
+    expect(run.status).toBe('cancelled')
+    expect(run.terminalReason).toBe('operator_cancel_mid_waiting_watcher')
+    expect(run.nodes.find((n) => n.nodeId === 'n_agent')?.status).toBe('cancelled')
+    expect(run.nodes.every((n) => n.status === 'cancelled')).toBe(true)
+    expect(['running', 'succeeded', 'failed']).not.toContain(run.status)
+  })
+
+  test('cancelled latches through tick when a prior false-done left a blocked node', () => {
+    const template = normalizeGraphTemplate({
+      orgId: 'pib-platform-owner',
+      name: 'cancel-after-false-done',
+      status: 'active',
+      nodes: [
+        {
+          nodeId: 'n_agent',
+          kind: 'agent',
+          name: 'Agent',
+          dependsOnNodeIds: [],
+          expectedArtifacts: ['qa_probe_id'],
+          assigneeAgentId: 'theo',
+        },
+        {
+          nodeId: 'n_check',
+          kind: 'code_check',
+          name: 'Check',
+          dependsOnNodeIds: ['n_agent'],
+          expectedArtifacts: ['qa_probe_id'],
+        },
+        {
+          nodeId: 'n_gate',
+          kind: 'human_gate',
+          name: 'Gate',
+          dependsOnNodeIds: ['n_check'],
+          expectedArtifacts: ['approval_ref'],
+        },
+      ],
+    })
+    template.id = 'tmpl-cancel-after-false-done'
+    let run = createWorkflowRunFromTemplate({
+      runId: 'wfr_cancel_after_false_done',
+      template,
+      orgId: 'pib-platform-owner',
+      projectId: 'proj-cancel-after-false-done',
+      trigger: { type: 'manual', at: NOW },
+      now: NOW,
+    })
+
+    let step = advanceWorkflowRun(run, { type: 'tick', now: NOW })
+    run = bindKanbanTask(step.run, 'n_agent', 'task-agent-fd', NOW)
+
+    // Preserve missing_artifact false-done: empty done while running → blocked, not succeeded.
+    step = advanceWorkflowRun(run, {
+      type: 'kanban_terminal',
+      now: LATER,
+      nodeId: 'n_agent',
+      kanbanTaskId: 'task-agent-fd',
+      outcome: 'done',
+      summary: 'url-only de-arm without qa_probe_id',
+      evidence: [],
+    })
+    run = step.run
+    expect(run.status).not.toBe('succeeded')
+    expect(run.nodes.find((n) => n.nodeId === 'n_agent')?.status).toBe('blocked')
+    expect(run.nodes.find((n) => n.nodeId === 'n_agent')?.blockedReasonCode).toMatch(/^missing_artifact:/)
+
+    step = advanceWorkflowRun(run, {
+      type: 'cancel',
+      now: LATER,
+      reason: 'operator_cancel_after_false_done',
+    })
+    run = step.run
+    expect(run.status).toBe('cancelled')
+    // Already-blocked agent stays blocked (terminal); open nodes cancel.
+    expect(run.nodes.find((n) => n.nodeId === 'n_agent')?.status).toBe('blocked')
+    expect(run.nodes.find((n) => n.nodeId === 'n_check')?.status).toBe('cancelled')
+    expect(run.nodes.find((n) => n.nodeId === 'n_gate')?.status).toBe('cancelled')
+
+    // Critical latch: post-cancel tick must not re-derive failed via blocked_without_open_paths.
+    step = advanceWorkflowRun(run, { type: 'tick', now: LATER })
+    run = step.run
+    expect(run.status).toBe('cancelled')
+    expect(run.terminalReason).toBe('operator_cancel_after_false_done')
+    expect(run.nodes.find((n) => n.nodeId === 'n_agent')?.blockedReasonCode).toMatch(/^missing_artifact:/)
+    expect(['running', 'succeeded', 'failed']).not.toContain(run.status)
+  })
+
   test('human_gate approvalGate maps capability aliases to VALID_APPROVAL_GATES (not publish/approval)', () => {
     expect(mapCapabilityToHumanGateApprovalGate('publish')).toBe('public-publishing')
     expect(mapCapabilityToHumanGateApprovalGate('spend')).toBe('paid-spend')

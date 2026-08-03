@@ -227,6 +227,11 @@ function setRunStatus(
   opts?: { blockedReasonCode?: string; terminalReason?: string },
 ): void {
   const from = run.status
+  // Operator cancel is a durable latch. Never re-derive failed/succeeded/running after cancel
+  // (post-cancel tick + kanban de-arm write-back must not overwrite).
+  if (from === 'cancelled' && status !== 'cancelled') {
+    return
+  }
   run.status = status
   if (opts?.blockedReasonCode !== undefined) run.blockedReasonCode = opts.blockedReasonCode
   if (opts?.terminalReason !== undefined) run.terminalReason = opts.terminalReason
@@ -775,6 +780,12 @@ function evaluateCodeCheck(
 }
 
 function markRunTerminalIfComplete(run: WorkflowRun, actions: EngineAction[], now: string): void {
+  // True terminals are sticky. Cancelled especially must survive post-cancel tick and
+  // de-arm write-back even when a blocked node remains from a prior false-done.
+  if (TERMINAL_RUN_STATUSES.has(run.status as 'succeeded' | 'failed' | 'cancelled' | 'abandoned_candidate')) {
+    return
+  }
+
   const allDone = run.nodes.every((node) => node.status === 'done')
   if (allDone) {
     // Honest onExceed models:
@@ -1091,6 +1102,41 @@ function handleKanbanTerminal(
   if (!node.kanbanTaskId) node.kanbanTaskId = event.kanbanTaskId
 
   const isAgent = node.kind === 'agent'
+
+  // Cancelled runs are fully latched: de-arm write-back may deliver late telemetry only.
+  // Never un-cancel nodes or flip the run via missing_artifact / blocked_without_open_paths.
+  if (run.status === 'cancelled') {
+    const attempt = latestAttempt(run, node.nodeId)
+    const lateTokens = event.tokensTotal ?? ((event.tokensIn ?? 0) + (event.tokensOut ?? 0))
+    const hasLateTokens = Boolean(
+      (event.tokensTotal !== undefined && event.tokensTotal > 0)
+      || (event.tokensIn !== undefined)
+      || (event.tokensOut !== undefined),
+    )
+    const hasLateCost = event.estimatedCost !== undefined && event.estimatedCost !== null
+    const attemptMissingUsage = attempt
+      && (attempt.tokensTotal === undefined || attempt.tokensTotal === null || attempt.tokensTotal === 0)
+      && (attempt.tokensIn === undefined || attempt.tokensIn === null)
+    if (attempt && attemptMissingUsage && (hasLateTokens || hasLateCost)) {
+      recordUsage(run, actions, event.now, {
+        tokensIn: event.tokensIn,
+        tokensOut: event.tokensOut,
+        tokensTotal: event.tokensTotal ?? lateTokens,
+        estimatedCost: event.estimatedCost,
+        isAgent,
+      })
+      completeAttempt(run, actions, node.nodeId, attempt.attemptNumber, {
+        tokensIn: event.tokensIn,
+        tokensOut: event.tokensOut,
+        tokensTotal: event.tokensTotal ?? lateTokens,
+        estimatedCost: event.estimatedCost,
+        model: event.model ?? attempt.model,
+        provider: event.provider ?? attempt.provider,
+        hermesRunId: event.hermesRunId ?? attempt.hermesRunId,
+      })
+    }
+    return
+  }
 
   // Idempotent terminal: already-terminal nodes only accept one-shot late telemetry (no double-count).
   if (TERMINAL_NODE_STATUSES.has(node.status as 'done' | 'blocked' | 'cancelled')) {
