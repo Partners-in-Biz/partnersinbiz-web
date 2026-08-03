@@ -457,6 +457,44 @@ describe('MessageBubble', () => {
     expect(screen.queryByText(/<svg width/)).not.toBeInTheDocument()
   })
 
+  it('renders GitHub-style Markdown tables as responsive tables, including spaced rows', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-markdown-table',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: [
+            'Phase 1 items to prepare',
+            '',
+            '| Need | What to give me | Notes |',
+            '| --- | :---: | ---: |',
+            '| Staging Postgres | Confirm **DATABASE_URL** | New empty CRM DB |',
+            '',
+            '| SSL flag | Prefer true | Confirm with provider |',
+            '',
+            'Do not send yet.',
+          ].join('\n'),
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+        }}
+      />,
+    )
+
+    const table = screen.getByRole('table')
+    expect(table.parentElement).toHaveClass('overflow-x-auto')
+    expect(screen.getByRole('columnheader', { name: 'Need' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'What to give me' })).toHaveStyle({ textAlign: 'center' })
+    expect(screen.getByRole('columnheader', { name: 'Notes' })).toHaveStyle({ textAlign: 'right' })
+    expect(screen.getByText('Staging Postgres').closest('td')).toBeInTheDocument()
+    expect(screen.getByText('DATABASE_URL')).toHaveClass('font-semibold')
+    expect(screen.getByText('SSL flag').closest('td')).toBeInTheDocument()
+    expect(screen.getByText('Do not send yet.')).toBeInTheDocument()
+  })
+
   it('renders chat mention tokens as styled chips and tooltips', () => {
     render(
       <MessageBubble
