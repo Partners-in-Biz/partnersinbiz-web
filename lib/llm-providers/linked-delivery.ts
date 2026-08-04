@@ -46,6 +46,13 @@ export async function enqueueCredentialDelivery(input: {
   const canaryModel = canaryModelFor(connection)
   if (!definition || !canaryModel) throw new Error('Provider has no verified canary model')
   const credentialVersion = connectionCredentialVersion(connection)
+  // API-key providers (DeepSeek, xAI key, OpenAI API, etc.) are applied to the
+  // running gateway's env without a profile restart. OAuth-token providers
+  // (xai-oauth, openai-codex) need the profile idle so its gateway can reload
+  // the refreshed token. Use the stored connection auth kind so api_key_or_oauth
+  // providers (e.g. Anthropic with an API key) take the fast env path.
+  const oauthConnection = connection.authKind === 'oauth' || connection.authKind === 'oauth_token'
+  const applyMode: 'env' | 'restart' = oauthConnection || !definition.envVar ? 'restart' : 'env'
   const job = await enqueueAgentHostJob({
     idempotencyKey: `sync-credential:${input.bindingId}:v${credentialVersion}`,
     deviceId: target.deviceId,
@@ -72,6 +79,7 @@ export async function enqueueCredentialDelivery(input: {
         hermesProvider: connection.hermesProvider,
         envVar: definition.envVar ?? null,
         canaryModel,
+        applyMode,
       },
     },
   })
@@ -92,6 +100,8 @@ export async function enqueueCredentialRevocations(
   const definition = getLlmProvider(connection.provider)
   const canaryModel = canaryModelFor(connection)
   if (!definition || !canaryModel) return []
+  const oauthConnection = connection.authKind === 'oauth' || connection.authKind === 'oauth_token'
+  const applyMode: 'env' | 'restart' = oauthConnection || !definition.envVar ? 'restart' : 'env'
   const bindings = await listConnectionLlmCredentialBindings(connection.id)
   const jobIds: string[] = []
   for (const binding of bindings) {
@@ -133,6 +143,7 @@ export async function enqueueCredentialRevocations(
           hermesProvider: connection.hermesProvider,
           envVar: definition.envVar ?? null,
           canaryModel,
+          applyMode,
         },
       },
     })

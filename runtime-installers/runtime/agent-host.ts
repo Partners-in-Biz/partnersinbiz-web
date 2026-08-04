@@ -136,7 +136,7 @@ export async function executeAgentHostJob(
     downloadSkillPack?: AgentHostSkillPackDownloader
     startGateway?: boolean
     waitForAgentIdle?: (agentId: string, timeoutMs: number) => Promise<boolean>
-    providerCanary?: (input: { agentId: string; provider: string; model: string }) => Promise<{
+    providerCanary?: (input: { agentId: string; provider: string; model: string; applyMode?: 'env' | 'restart' }) => Promise<{
       ok: boolean
       modelIds: string[]
       error?: string
@@ -160,17 +160,24 @@ export async function executeAgentHostJob(
         preferredPort: job.preferredPort,
         env,
       })
-      const idle = options.waitForAgentIdle
+      const delivery = job.credentialDelivery
+      // API-key/env-var providers (DeepSeek, xAI key, OpenAI API, ...) are
+      // applied live to the already-running gateway: no idle wait and no
+      // profile restart. OAuth providers (xai-oauth, openai-codex) still need
+      // the profile idle so its gateway can reload the refreshed token.
+      const applyMode = delivery.applyMode ?? (delivery.envVar ? 'env' : 'restart')
+      const envApply = applyMode === 'env'
+      const idle = !envApply && options.waitForAgentIdle
         ? await options.waitForAgentIdle(job.agentId, 45_000)
         : true
       if (!idle) return { ok: false, error: 'Agent is still busy; credential reload was deferred' }
       const applied = applyRuntimeCredential({
         agentId: job.agentId,
-        delivery: job.credentialDelivery,
+        delivery,
         revoke: job.kind === 'revoke-credential',
         env,
       })
-      if (startGateway) {
+      if (startGateway && !envApply) {
         // On macOS the launchd job is a fleet supervisor. A credential update
         // must reload only this idle profile, never boot out all conversations.
         const gateway = await reloadHermesGateway({ agentId: job.agentId, env })
@@ -189,8 +196,9 @@ export async function executeAgentHostJob(
       if (!options.providerCanary) return { ok: false, error: 'Provider authentication canary is unavailable' }
       const canary = await options.providerCanary({
         agentId: job.agentId,
-        provider: job.credentialDelivery.hermesProvider,
-        model: job.credentialDelivery.canaryModel,
+        provider: delivery.hermesProvider,
+        model: delivery.canaryModel,
+        applyMode,
       })
       if (!canary.ok) return { ok: false, error: canary.error || 'Provider authentication canary failed' }
       return {
@@ -199,7 +207,8 @@ export async function executeAgentHostJob(
           ...applied,
           liveAuthVerified: true,
           modelIds: canary.modelIds,
-          canaryModel: job.credentialDelivery.canaryModel,
+          canaryModel: delivery.canaryModel,
+          applyMode,
         },
       }
     }

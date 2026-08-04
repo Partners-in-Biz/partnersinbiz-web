@@ -606,6 +606,34 @@ export async function listLocalHermesModels(
   }))].slice(0, 256)
 }
 
+/**
+ * Read the running gateway's /admin/config payload. Used by the env-var
+ * credential canary to confirm the provider is advertised without taking a
+ * profile restart or competing with an active /v1/runs conversation.
+ */
+export async function probeLocalHermesAdminConfig(
+  agentId: string,
+  env: RuntimeEnv = process.env,
+  fetcher: typeof fetch = fetch,
+): Promise<Record<string, unknown> | null> {
+  const cleanAgent = cleanAgentId(agentId)
+  const route = localHermesRoutes(env).find((candidate) => candidate.agentId === cleanAgent)
+  if (!route) return null
+  try {
+    const { response, text } = await fetchLocalHermesText(fetcher, `${route.baseUrl}/admin/config`, {
+      headers: authHeaders(route),
+    }, localHermesRequestTimeoutMs(env))
+    if (!response.ok) return null
+    const data = (() => {
+      try { return text ? JSON.parse(text) as Record<string, unknown> : null } catch { return null }
+    })()
+    if (!data || typeof data !== 'object') return null
+    return data
+  } catch {
+    return null
+  }
+}
+
 async function forwardLocalHermesEvents(
   route: LocalHermesRoute,
   runId: string,

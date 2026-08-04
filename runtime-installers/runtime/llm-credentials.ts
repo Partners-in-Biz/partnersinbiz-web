@@ -2,6 +2,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
+export type RuntimeCredentialApplyMode = 'env' | 'restart'
+
 export type RuntimeCredentialDelivery = {
   bindingId: string
   connectionId: string
@@ -10,6 +12,12 @@ export type RuntimeCredentialDelivery = {
   hermesProvider: string
   envVar: string | null
   canaryModel: string
+  /**
+   * 'env' — API-key/env-var provider applied to the running gateway without a
+   * restart (DeepSeek etc.). 'restart' — OAuth provider that needs the profile
+   * idle so its gateway can reload the refreshed token (xai-oauth etc.).
+   */
+  applyMode?: RuntimeCredentialApplyMode
   credentials?: Record<string, string>
 }
 

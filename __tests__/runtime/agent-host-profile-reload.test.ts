@@ -66,6 +66,7 @@ describe('agent-host profile reloads', () => {
         hermesProvider: 'provider',
         envVar: 'PROVIDER_API_KEY',
         canaryModel: 'model-1',
+        applyMode: 'restart',
         credentials: { apiKey: 'test-credential' },
       },
     }, {
@@ -77,6 +78,94 @@ describe('agent-host profile reloads', () => {
     expect(result.ok).toBe(true)
     expect(reloadHermesGateway).toHaveBeenCalledWith({ agentId: 'theo', env })
     expect(stopHermesGateway).not.toHaveBeenCalled()
+    fs.rmSync(home, { recursive: true, force: true })
+  })
+
+  it('applies an env-var/API-key provider live without waiting for idle or restarting the running gateway', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-agent-host-env-live-'))
+    const env = { ...process.env, PIB_HERMES_HOME: home, HERMES_HOME: home }
+    const idle = jest.fn().mockResolvedValue(true)
+
+    const result = await executeAgentHostJob({
+      jobId: 'credential-env-live',
+      kind: 'sync-credential',
+      status: 'claimed',
+      agentId: 'theo',
+      policyVersion: null,
+      keepInSync: false,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8756,
+      protocolVersion: 3,
+      credentialDelivery: {
+        bindingId: 'binding-env',
+        connectionId: 'user:u1:deepseek',
+        credentialVersion: 9,
+        provider: 'deepseek',
+        hermesProvider: 'deepseek',
+        envVar: 'DEEPSEEK_API_KEY',
+        canaryModel: 'deepseek-v4-flash',
+        applyMode: 'env',
+        credentials: { apiKey: 'sk-test-live' },
+      },
+    }, {
+      env,
+      waitForAgentIdle: idle,
+      providerCanary: async ({ applyMode }) => ({ ok: true, modelIds: ['deepseek-v4-flash'], ...(applyMode ? { applyMode } : {}) }),
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.result.liveAuthVerified).toBe(true)
+    expect(result.result.applyMode).toBe('env')
+    // The key is written without an idle wait and without a gateway restart.
+    expect(fs.readFileSync(path.join(home, 'profiles', 'theo', '.env'), 'utf8'))
+      .toContain('DEEPSEEK_API_KEY=sk-test-live')
+    expect(idle).not.toHaveBeenCalled()
+    expect(reloadHermesGateway).not.toHaveBeenCalled()
+    fs.rmSync(home, { recursive: true, force: true })
+  })
+
+  it('keeps the OAuth restart path for token providers even when the delivery carries an envVar', async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-agent-host-oauth-restart-'))
+    const env = { ...process.env, PIB_HERMES_HOME: home, HERMES_HOME: home }
+    const idle = jest.fn().mockResolvedValue(true)
+
+    const result = await executeAgentHostJob({
+      jobId: 'credential-oauth-restart',
+      kind: 'sync-credential',
+      status: 'claimed',
+      agentId: 'theo',
+      policyVersion: null,
+      keepInSync: false,
+      runtimeSkills: [],
+      pibSkills: [],
+      vpsExternalDir: null,
+      preferredPort: 8756,
+      protocolVersion: 3,
+      credentialDelivery: {
+        bindingId: 'binding-xai-oauth',
+        connectionId: 'user:u1:xai-oauth',
+        credentialVersion: 3,
+        provider: 'xai-oauth',
+        hermesProvider: 'xai-oauth',
+        envVar: null,
+        canaryModel: 'grok-4.20',
+        applyMode: 'restart',
+        credentials: { access_token: 'xai-live-token' },
+      },
+    }, {
+      env,
+      waitForAgentIdle: idle,
+      providerCanary: async () => ({ ok: true, modelIds: ['grok-4.20'] }),
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.result.liveAuthVerified).toBe(true)
+    expect(idle).toHaveBeenCalledWith('theo', 45_000)
+    expect(reloadHermesGateway).toHaveBeenCalledWith({ agentId: 'theo', env })
     fs.rmSync(home, { recursive: true, force: true })
   })
 
