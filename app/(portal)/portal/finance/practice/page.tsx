@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { FinanceModuleFrame } from '@/components/finance/FinanceModuleFrame'
 import {
   newFinanceId,
@@ -13,7 +12,8 @@ import { Card } from '@/components/ui/Card'
 import { StatCard } from '@/components/ui/StatCard'
 import { HudChip } from '@/components/ui/HudChip'
 import { Button } from '@/components/ui/Button'
-import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 import type { FinanceRole } from '@/lib/finance/types'
 import {
   exportAuditEventsCsv,
@@ -61,8 +61,7 @@ const GRANT_ROLE_OPTIONS = ['prepare', 'review', 'file-export'] as const
 type GrantRoleOption = (typeof GRANT_ROLE_OPTIONS)[number]
 
 export default function FinancePracticePage() {
-  const searchParams = useSearchParams()
-  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const orgScope = usePortalOrgScope()
   const orgId = orgScope.orgId || ''
 
   const [busy, setBusy] = useState(false)

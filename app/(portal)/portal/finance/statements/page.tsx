@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
 import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
 import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
-import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 import {
   formatMinor,
   newFinanceId,
@@ -17,8 +17,7 @@ import { useFinanceBookScope } from '@/components/finance/useFinanceBookScope'
 type AnyRec = Record<string, any>
 
 export default function StatementImportPage() {
-  const searchParams = useSearchParams()
-  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const orgScope = usePortalOrgScope()
   const scope = useFinanceBookScope()
   const orgId = orgScope.orgId || scope.orgId || ''
 

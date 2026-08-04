@@ -1,15 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { FinanceModuleFrame } from '@/components/finance/FinanceModuleFrame'
 import { requestIdentity } from '@/components/finance/financeWorkbench'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { HudChip } from '@/components/ui/HudChip'
 import { StatCard } from '@/components/ui/StatCard'
-import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
-import { useSearchParams } from 'next/navigation'
+import { scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 import { DEFAULT_PROVING_SEED_KEY } from '@/lib/finance/proving/constants'
 
 type Bundle = {
@@ -86,8 +86,7 @@ async function readJson(res: Response) {
 }
 
 export default function FinanceProvingKitPage() {
-  const searchParams = useSearchParams()
-  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const orgScope = usePortalOrgScope()
   const orgId = orgScope.orgId || ''
   const [seedKey, setSeedKey] = useState(DEFAULT_PROVING_SEED_KEY)
   const [bundle, setBundle] = useState<Bundle | null>(null)

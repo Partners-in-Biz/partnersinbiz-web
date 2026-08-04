@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
-import { useSearchParams } from 'next/navigation'
+
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { HudChip } from '@/components/ui/HudChip'
 import { FinanceModuleFrame } from '@/components/finance/FinanceModuleFrame'
-import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 
 type Step = {
   title: string
@@ -90,7 +90,7 @@ const OPERATING_STEPS: Step[] = [
   },
 ]
 
-function StepList({ steps, orgScope }: { steps: Step[]; orgScope: ReturnType<typeof scopeFromSearchParams> }) {
+function StepList({ steps, orgScope }: { steps: Step[]; orgScope: PortalOrgRouteScope }) {
   return (
     <section className="space-y-3">
       {steps.map((step) => (
@@ -118,8 +118,7 @@ function StepList({ steps, orgScope }: { steps: Step[]; orgScope: ReturnType<typ
 }
 
 export default function FinanceSetupPage() {
-  const searchParams = useSearchParams()
-  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const orgScope = usePortalOrgScope()
 
   return (
     <FinanceModuleFrame

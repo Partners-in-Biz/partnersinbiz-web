@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { FinanceModuleFrame } from '@/components/finance/FinanceModuleFrame'
-import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 import {
   formatMinor,
   newFinanceId,
@@ -12,13 +13,11 @@ import {
   requestIdentity,
   todayISODate,
 } from '@/components/finance/financeWorkbench'
-import { useSearchParams } from 'next/navigation'
 
 type Notice = Record<string, any>
 
 export default function CrossOrgFinancePage() {
-  const searchParams = useSearchParams()
-  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const orgScope = usePortalOrgScope()
   const orgId = orgScope.orgId || ''
 
   const [busy, setBusy] = useState(false)
