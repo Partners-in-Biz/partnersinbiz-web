@@ -302,6 +302,53 @@ describe('HermesMessagesShell', () => {
     expect(tab.style.getPropertyValue('--mx-folder-accent')).toMatch(/^#/)
   })
 
+  it('parks a workspace tab in the right rail and resumes it in the focused pane', () => {
+    render(
+      <HermesMessagesShell
+        surface="portal"
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        capabilities={{ allowStartConversations: true, allowSendMessages: true, allowAgentParticipants: true, allowArchiveConversations: true }}
+      />,
+    )
+
+    const catalogue = mockUnifiedChat.mock.calls[0]?.[0]?.onConversationsChange as ((conversations: Conversation[]) => void) | undefined
+    act(() => {
+      catalogue?.([
+        { id: 'conv-1', title: 'Graphs' } as Conversation,
+        { id: 'conv-2', title: 'Sanparks' } as Conversation,
+      ])
+    })
+    const open = mockUnifiedChat.mock.calls.at(-1)?.[0]?.onActiveConversationChange as ((conversationId: string | null) => void) | undefined
+    act(() => open?.('conv-2'))
+
+    const graphsTab = screen.getByTestId('workspace-tab-conv-1')
+    fireEvent.click(graphsTab.querySelector('[aria-label="Park Graphs"]')!)
+
+    expect(screen.queryByTestId('workspace-tab-conv-1')).not.toBeInTheDocument()
+    expect(screen.getByTestId('messages-parked-tabs-rail')).toHaveTextContent('Paused — no live messages or run polling.')
+    expect(screen.getByTestId('parked-workspace-tab-conv-1')).toHaveTextContent('Graphs')
+    expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Parked 1')
+    expect(mockUnifiedChat).toHaveBeenLastCalledWith(expect.objectContaining({ activeConversationId: 'conv-2' }))
+
+    // Selecting the same session from the normal Sessions rail also resumes it
+    // instead of leaving a duplicate tab in the parked rail.
+    const resumeFromSessionsRail = mockUnifiedChat.mock.calls.at(-1)?.[0]?.onActiveConversationChange as ((conversationId: string | null) => void) | undefined
+    act(() => resumeFromSessionsRail?.('conv-1'))
+    expect(screen.queryByTestId('messages-parked-tabs-rail')).not.toBeInTheDocument()
+    expect(screen.getByTestId('workspace-tab-conv-1')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('workspace-tab-conv-1').querySelector('[aria-label="Park Graphs"]')!)
+    fireEvent.click(screen.getByRole('button', { name: 'Resume Graphs' }))
+
+    expect(screen.queryByTestId('messages-parked-tabs-rail')).not.toBeInTheDocument()
+    expect(screen.getByTestId('workspace-tab-conv-1')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Graphs' })).toHaveAttribute('aria-selected', 'true')
+    expect(mockUnifiedChat).toHaveBeenLastCalledWith(expect.objectContaining({ activeConversationId: 'conv-1' }))
+  })
+
   it('pulses a background tab while running and underlines it until opened', async () => {
     render(
       <HermesMessagesShell
