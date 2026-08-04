@@ -236,27 +236,60 @@ function providersForModels(
   })
 }
 
-function connectedModelOptions(
+function normalizeAccountModelIds(modelIds: unknown, provider: string): string[] {
+  const raw = Array.isArray(modelIds)
+    ? modelIds.filter((value): value is string => typeof value === 'string')
+    : []
+  return raw.filter((modelId) => modelBelongsToCredentialProvider(modelId, provider))
+}
+
+function bindingUnavailableReason(input: {
+  connectionLabel: string
+  status?: string | null
+  lastError?: string | null
+}): string {
+  const label = input.connectionLabel || 'This provider'
+  const err = typeof input.lastError === 'string' ? input.lastError.trim() : ''
+  if (err) {
+    if (/active \/v1\/runs|restart deferred/i.test(err)) {
+      return `${label} is connected, but live verify is waiting because this agent profile has an active run. Finish or idle the chat, Sync in Settings, then Refresh Models.`
+    }
+    return `${label} is connected, but this machine/agent is not live-verified yet: ${err.slice(0, 180)}`
+  }
+  if (input.status === 'delivering' || input.status === 'desired' || input.status === 'stored') {
+    return `${label} is connected, but credentials are still syncing to this machine/agent (${input.status}). Wait for idle, Sync in Settings, then Refresh Models.`
+  }
+  if (input.status === 'failed') {
+    return `${label} is connected, but the last live verify on this machine/agent failed. Sync again when the profile is idle, then Refresh Models.`
+  }
+  return `${label} is connected in Settings, but not live-verified on this machine and agent profile yet. Sync when idle, then Refresh Models.`
+}
+
+/** Ready (selectable) + pending (visible Needs credentials) rows for PiB-connected accounts. */
+export function connectedModelOptions(
   accounts: Array<{
     connectionId: string
     connectionLabel: string
-    credentialBindingId: string
+    credentialBindingId?: string
     provider: string
-    modelIds: string[]
+    modelIds?: string[] | null
+    available?: boolean
+    reasonUnavailable?: string
   }>,
   currentModel: string,
 ): PublicMessageModelOption[] {
   const options: PublicMessageModelOption[] = []
   for (const account of accounts) {
     const def = listLlmProviders().find((candidate) => candidate.hermesProvider === account.provider)
+      || listLlmProviders().find((candidate) => candidate.key === account.provider)
     if (!def) continue
     // `/v1/models` is a machine-wide Hermes catalogue, not proof that every
     // connected account can authenticate every listed provider. Start with
     // the maintained provider catalogue, then add only discovered ids that
     // belong to this credential family.
-    const discovered = account.modelIds.filter((modelId) =>
-      modelBelongsToCredentialProvider(modelId, account.provider))
+    const discovered = normalizeAccountModelIds(account.modelIds, account.provider)
     const modelIds = [...new Set([...def.curatedModels, ...discovered])]
+    const available = account.available !== false
     for (const modelId of modelIds) {
       const id = cleanMessageModelId(modelId)
       if (!id) continue
@@ -268,12 +301,15 @@ function connectedModelOptions(
         providerLabel: `${def.label} · ${account.connectionLabel}`,
         configured: true,
         active: id === currentModel,
-        available: true,
-        connected: true,
+        available,
+        connected: available,
         connectionId: account.connectionId,
         connectionLabel: account.connectionLabel,
-        credentialBindingId: account.credentialBindingId,
+        ...(account.credentialBindingId ? { credentialBindingId: account.credentialBindingId } : {}),
         source: 'connected',
+        ...(!available && account.reasonUnavailable
+          ? { reasonUnavailable: account.reasonUnavailable }
+          : {}),
       })
     }
   }
@@ -416,9 +452,20 @@ export async function getMessageModelCatalog(input: {
   const readyAccounts: Array<{
     connectionId: string
     connectionLabel: string
-    credentialBindingId: string
+    credentialBindingId?: string
     provider: string
-    modelIds: string[]
+    modelIds?: string[] | null
+    available?: boolean
+    reasonUnavailable?: string
+  }> = []
+  const pendingAccounts: Array<{
+    connectionId: string
+    connectionLabel: string
+    credentialBindingId?: string
+    provider: string
+    modelIds?: string[] | null
+    available?: boolean
+    reasonUnavailable?: string
   }> = []
   const localOnlyProviderLabels: string[] = []
   const personalConnectedProviders = new Set<string>()
@@ -446,6 +493,7 @@ export async function getMessageModelCatalog(input: {
         connectionIds: eligibleConnections.map((connection) => connection.id),
       })
       const bindingByConnection = new Map(bindings.map((binding) => [binding.connectionId, binding]))
+      const eligibleIds = new Set(eligibleConnections.map((connection) => connection.id))
 
       for (const c of connections) {
         const hermesProvider = normalizeProviderId(
@@ -467,6 +515,13 @@ export async function getMessageModelCatalog(input: {
         const bindingReady = binding?.status === 'ready'
           && binding.liveAuthVerified === true
           && binding.credentialVersion === connectionCredentialVersion(c)
+        const discoveredFromConnection = Array.isArray((c as { meta?: { discoveredModels?: unknown } }).meta?.discoveredModels)
+          ? ((c as { meta?: { discoveredModels?: unknown } }).meta?.discoveredModels as unknown[])
+          : []
+        const modelIds = [
+          ...(Array.isArray(binding?.verifiedModelIds) ? binding!.verifiedModelIds : []),
+          ...discoveredFromConnection.filter((value): value is string => typeof value === 'string'),
+        ]
         if (bindingReady && binding) {
           connectedHermesProviders.add(hermesProvider)
           readyAccounts.push({
@@ -474,7 +529,25 @@ export async function getMessageModelCatalog(input: {
             connectionLabel: c.label || label,
             credentialBindingId: binding.id,
             provider: hermesProvider,
-            modelIds: binding.verifiedModelIds,
+            modelIds,
+            available: true,
+          })
+        } else if (eligibleIds.has(c.id)) {
+          // Connection is in-scope for this chat runtime but not live-ready yet.
+          // Still surface curated models so the picker shows the provider (Needs credentials)
+          // instead of disappearing entirely (DeepSeek/BYOK when Hermes /v1/models omits them).
+          pendingAccounts.push({
+            connectionId: c.id,
+            connectionLabel: c.label || label,
+            ...(binding?.id ? { credentialBindingId: binding.id } : {}),
+            provider: hermesProvider,
+            modelIds,
+            available: false,
+            reasonUnavailable: bindingUnavailableReason({
+              connectionLabel: c.label || label,
+              status: binding?.status,
+              lastError: binding?.lastError,
+            }),
           })
         } else if (c.scope === 'user' && !onUserComputer && !localOnlyProviderLabels.includes(label)) {
           localOnlyProviderLabels.push(label)
@@ -487,7 +560,10 @@ export async function getMessageModelCatalog(input: {
 
   const usableProviders = expandProviderAliases([...connectedHermesProviders])
 
-  const connectedExtras = connectedModelOptions(readyAccounts, runtimeSummary.primaryModel || '')
+  const connectedExtras = connectedModelOptions(
+    [...readyAccounts, ...pendingAccounts],
+    runtimeSummary.primaryModel || '',
+  )
   if (liveCatalogUnavailable && connectedExtras.length > 0) {
     warning = 'Live model refresh is unavailable for the selected runtime; showing the supported catalogue for your connected providers.'
   }
