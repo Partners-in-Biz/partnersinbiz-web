@@ -13,6 +13,7 @@ import {
   type TemplateValidation,
 } from './validation'
 import type {
+  AgentModel,
   GraphNodeTemplate,
   GraphTemplate,
   GraphTemplateBudgets,
@@ -32,6 +33,8 @@ export type GraphNodeDraft = {
   name: string
   dependsOnNodeIds: string[]
   assigneeAgentId?: string
+  /** Per-node LLM routing; allowlist options in the Suite editor. */
+  agentModel?: AgentModel
   agentInput?: { spec: string; context?: Record<string, unknown>; constraints?: string[] }
   expectedArtifacts?: string[]
   verifierChecklist?: string[]
@@ -142,6 +145,7 @@ export function draftFromTemplate(template: GraphTemplate): GraphTemplateDraft {
       name: node.name,
       dependsOnNodeIds: [...(node.dependsOnNodeIds || [])],
       assigneeAgentId: node.assigneeAgentId,
+      agentModel: node.agentModel,
       agentInput: node.agentInput
         ? {
             spec: node.agentInput.spec,
@@ -215,6 +219,7 @@ export function serializeAuthoringPayload(
       name: node.name,
       dependsOnNodeIds: node.dependsOnNodeIds || [],
       assigneeAgentId: node.assigneeAgentId,
+      agentModel: node.agentModel,
       agentInput: node.agentInput,
       expectedArtifacts: node.expectedArtifacts || [],
       verifierChecklist: node.verifierChecklist || [],

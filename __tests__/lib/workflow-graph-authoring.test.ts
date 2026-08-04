@@ -225,6 +225,90 @@ describe('workflow graph phase 3 authoring', () => {
     expect(template.nodes[0]?.budgets?.maxTokens).toBe(5000)
     expect(template.nodes[0]?.budgets?.maxCost).toBe(1)
   })
+
+  test('authoring round-trip preserves per-node agentModel (cost-tiered routing)', () => {
+    const draft = blankGraphTemplateDraft({
+      orgId: 'pib-platform-owner',
+      projectId: 'proj-1',
+      name: 'model-routed-graph',
+    })
+    draft.nodes = [
+      {
+        nodeId: 'impl',
+        kind: 'agent',
+        name: 'Implement',
+        dependsOnNodeIds: [],
+        assigneeAgentId: 'theo',
+        agentModel: 'gpt-5.3-codex-spark',
+        expectedArtifacts: ['impl_commit_sha'],
+        agentInput: { spec: 'Implement the change on development only' },
+      },
+      {
+        nodeId: 'review',
+        kind: 'agent',
+        name: 'Review',
+        dependsOnNodeIds: ['impl'],
+        assigneeAgentId: 'qa-release',
+        agentModel: 'claude-sonnet-4-6',
+        expectedArtifacts: ['review_verdict'],
+        agentInput: { spec: 'Judge the implementation' },
+      },
+    ]
+    const built = buildTemplateFromDraft(draft, 'pib-platform-owner')
+    expect(built.ok).toBe(true)
+    if (!built.ok) return
+    expect(built.template.nodes[0]?.agentModel).toBe('gpt-5.3-codex-spark')
+    expect(built.template.nodes[1]?.agentModel).toBe('claude-sonnet-4-6')
+
+    const roundTrip = draftFromTemplate(built.template)
+    const again = buildTemplateFromDraft(roundTrip, 'pib-platform-owner')
+    expect(again.ok).toBe(true)
+    if (!again.ok) return
+    expect(again.template.nodes[0]?.agentModel).toBe('gpt-5.3-codex-spark')
+    expect(again.template.nodes[1]?.agentModel).toBe('claude-sonnet-4-6')
+    expect(again.template.versionHash).toBe(built.template.versionHash)
+  })
+
+  test('normalize preserves agentModel and validate rejects non-allowlisted models', () => {
+    const template = normalizeGraphTemplate({
+      orgId: 'pib-platform-owner',
+      name: 'model-allowlist',
+      nodes: [
+        {
+          nodeId: 'a1',
+          kind: 'agent',
+          name: 'A',
+          dependsOnNodeIds: [],
+          assigneeAgentId: 'theo',
+          agentModel: 'gpt-5.3-codex-spark',
+          expectedArtifacts: ['x'],
+          agentInput: { spec: 'do' },
+        },
+      ],
+    })
+    expect(template.nodes[0]?.agentModel).toBe('gpt-5.3-codex-spark')
+
+    const invalid = normalizeGraphTemplate({
+      orgId: 'pib-platform-owner',
+      name: 'model-invalid',
+      nodes: [
+        {
+          nodeId: 'a1',
+          kind: 'agent',
+          name: 'A',
+          dependsOnNodeIds: [],
+          assigneeAgentId: 'theo',
+          agentModel: 'not-a-real-model',
+          expectedArtifacts: ['x'],
+          agentInput: { spec: 'do' },
+        },
+      ],
+    })
+    expect(invalid.nodes[0]?.agentModel).toBe('not-a-real-model')
+    const validated = validateGraphTemplate(invalid)
+    expect(validated.ok).toBe(false)
+    if (!validated.ok) expect(validated.error).toContain('outside the allowlist')
+  })
 })
 
 describe('workflow graph phase 3 harden acceptance', () => {

@@ -57,6 +57,8 @@ export type GatedCapability =
   | 'client_message'
   | 'secrets'
 
+export type AgentModel = import('@/lib/agents/runRouting').AgentModel
+
 export type RetryPolicy = {
   maxAttempts: number
   backoffMs: number[] | 'watcher_transient_default'
@@ -70,6 +72,8 @@ export type GraphNodeTemplate = {
   name: string
   dependsOnNodeIds: string[]
   assigneeAgentId?: string
+  /** Per-node LLM routing (cost-tiered packs). Allowlist-validated on save; absent = platform default. */
+  agentModel?: AgentModel
   agentInput?: {
     spec: string
     context?: Record<string, unknown>
@@ -251,6 +255,8 @@ export type WorkflowNodeState = {
   verifierChecklist: string[]
   approvalRef?: string
   assigneeAgentId?: string
+  /** Per-node LLM routing carried from GraphNodeTemplate; absent = platform default. */
+  agentModel?: AgentModel
   requiredCapability?: string
   /** Kanban ApprovalGate carried from template (human_gate); never stuffed into requiredCapability. */
   approvalGate?: string
@@ -337,6 +343,8 @@ export type MaterializeIntent = {
   kind: 'agent' | 'human_gate'
   title: string
   assigneeAgentId?: string
+  /** Per-node LLM routing; passes through to the Kanban task's agentModel so the watcher dispatches the right model. */
+  agentModel?: AgentModel
   agentStatus: 'pending' | 'awaiting-input'
   columnId: 'todo' | 'blocked'
   dependsOnKanbanTaskIds: string[]
