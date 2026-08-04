@@ -166,10 +166,10 @@ GET    /seo/sprints?status=active&clientId={orgId}    find an active sprint to a
 POST   /seo/sprints                                   create sprint — REQUIRES siteUrl + siteName
 POST   /seo/sprints/{sprintId}/content                create blog (with campaignId)
 POST   /seo/content/[id]/draft                        generate AI body — returns draftPostId
-PATCH  /seo/content/[id]                              ⚠ allow-list: only [title, type, targetKeywordId,
-                                                        targetUrl, publishDate, status, liUrl, xUrl,
-                                                        internalLinksAdded, phase, campaignId, pillarId]
-                                                        — does NOT accept heroImageUrl or draftPostId
+PATCH  /seo/content/[id]                              ⚠ allow-list now includes heroImageUrl +
+                                                        draftPostId (verified 2026-08-04 in
+                                                        app/api/v1/seo/content/[id]/route.ts ALLOWED)
+                                                        — no Firebase Admin write needed anymore
 
 # Social (existing)
 POST   /social/posts                                  create social post (with campaignId)
