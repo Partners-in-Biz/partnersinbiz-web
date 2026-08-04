@@ -62,12 +62,23 @@ Org `pib-platform-owner` reference pack (pilot=false, status=active). Prefer the
 |---|---|---|
 | `prod-research-draft-approve` | `8TotIMWJIik8NSf7XWB9` | sage research → code_check → docs draft → code_check → human-review gate |
 | `prod-content-prepare-publish-gate` | `fSsBZNRla4aTf9jJAks9` | maya prepare → code_check → public-publishing gate → system publish_noop |
-| `prod-engineering-change-promote` | `PoH0NQdlrOZvq9GZMN07` | theo implement → code_check → production-deploy gate (no auto-merge) |
+| `prod-engineering-change-promote` | `PoH0NQdlrOZvq9GZMN07` | theo implement (gpt-5.3-codex-spark) → code_check → qa-release review (claude-sonnet-4-6) → production-deploy gate (no auto-merge) |
 | `workflow-graph-golden-e2e` | `wIihkjJ93tulKVpJrhC4` | Deterministic QA reference only — not day-to-day client work |
 
 Archived pilot/QA templates must stay archived. Do not reactivate hgate/qa-live debris for normal ops.
 
 Other orgs may have their own templates — always `GET /api/v1/graph-templates` with the resolved `orgId` before starting a run.
+
+## Per-node model routing (cost-tiered packs)
+
+Each `agent` node may declare `agentModel` (allowlist: grok-4.5, claude-sonnet-4-6, gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.3-codex-spark). The Suite/Plan graph editor shows an `agentModel` picker on agent nodes; absent = platform default.
+
+- Cheap code/implementation workers → `gpt-5.3-codex-spark`
+- Strong judge/review nodes → `claude-sonnet-4-6`
+- `human_gate` nodes never carry a model (the human approves)
+- The model flows: GraphNodeTemplate.agentModel → WorkflowRun node → MaterializeIntent → Kanban task `agentModel` → watcher dispatch
+- API validates: non-allowlisted `agentModel` on an agent node is rejected with 400 (`outside the allowlist`)
+- Live stamping verified 2026-08-04: production `partnersinbiz.online` persists `agentModel` on template PATCH/GET (pack promoted via PR #278; template `PoH0NQdlrOZvq9GZMN07` v3 carries implement→gpt-5.3-codex-spark, review→claude-sonnet-4-6). Before the promote, the live API stripped `agentModel` on save while keeping structure — if a template looks like it lost models, re-PATCH the per-node values.
 
 ## How operators start a run
 
@@ -177,4 +188,5 @@ Otherwise operate with this skill only.
 Build project (historical): Workflow Graph Engine `8f4vajS3vyOIBUoMrIs1` — status live; Path A complete. Day-to-day runs should target **the project Peet cares about**, not only the engine build board.
 
 Wiki: `agents/partners/wiki/workflow-graph-productization-cleanup-2026-08-04.md`  
+Wiki: `agents/partners/wiki/workflow-graph-per-node-model-routing-2026-08-04.md` (per-node model routing + chain status)  
 Ops residual (if needed): skill `pib-workflow-graph-operations`
