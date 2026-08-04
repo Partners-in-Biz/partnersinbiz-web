@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
 import { Surface } from '@/components/ui/AppFoundation'
 import { StatCard } from '@/components/ui/StatCard'
 import { HudChip } from '@/components/ui/HudChip'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { ThemedSelect } from '@/components/ui/ThemedSelect'
-import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 import {
   formatMinor,
   newFinanceId,
@@ -115,8 +115,7 @@ function AgingTable({
 }
 
 export default function FinanceCommandCentrePage() {
-  const searchParams = useSearchParams()
-  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const orgScope = usePortalOrgScope()
   const orgId = orgScope.orgId || ''
 
   const [loading, setLoading] = useState(true)

@@ -1,14 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
-import { useSearchParams } from 'next/navigation'
+
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { HudChip } from '@/components/ui/HudChip'
 import { StatCard } from '@/components/ui/StatCard'
 import { FinanceModuleFrame } from '@/components/finance/FinanceModuleFrame'
-import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 
 type Runbook = {
   id: string
@@ -287,7 +287,7 @@ function RunbookSection({
 }: {
   heading: string
   items: Runbook[]
-  orgScope: ReturnType<typeof scopeFromSearchParams>
+  orgScope: PortalOrgRouteScope
 }) {
   return (
     <section className="space-y-3" data-testid="finance-runbook-section">
@@ -324,8 +324,7 @@ function RunbookSection({
 }
 
 export default function FinanceRunbooksPage() {
-  const searchParams = useSearchParams()
-  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const orgScope = usePortalOrgScope()
 
   return (
     <FinanceModuleFrame

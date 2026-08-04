@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { useCallback, useEffect, useState } from 'react'
+import { scopedApiPath } from '@/lib/portal/scoped-routing'
+import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
 import {
   type AccountingBook,
   type LegalEntity,
@@ -10,8 +10,7 @@ import {
 } from '@/components/finance/financeWorkbench'
 
 export function useFinanceBookScope() {
-  const searchParams = useSearchParams()
-  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
+  const orgScope = usePortalOrgScope()
   const orgId = orgScope.orgId || ''
 
   const [loading, setLoading] = useState(true)

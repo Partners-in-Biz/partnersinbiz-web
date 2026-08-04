@@ -51,3 +51,18 @@ export function scopedApiPath(path: string, scope: Pick<PortalOrgRouteScope, 'or
     orgId: cleanScopeValue(scope.orgId) || cleanScopeValue(scope.id),
   })
 }
+
+// Selected-workspace inheritance for portal client surfaces.
+//
+// Explicit URL scope stays authoritative (tenant-safe). When the URL carries no
+// orgId, portal pages inherit the user's active selected workspace so direct
+// navigation (bookmarks, nav links, deep links) does not fail with "select an
+// organisation workspace" even though the portal shell resolved the active org.
+export function resolvePortalOrgScope(
+  urlScope: PortalOrgRouteScope,
+  activeOrgId: string,
+): PortalOrgRouteScope {
+  if (urlScope.orgId) return urlScope
+  if (activeOrgId) return { ...urlScope, orgId: activeOrgId }
+  return urlScope
+}
