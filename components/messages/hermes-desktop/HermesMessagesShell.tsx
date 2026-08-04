@@ -531,6 +531,9 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
         <div className={`flex h-full min-h-0 min-w-0 flex-1 ${direction === 'row' ? 'flex-row' : 'flex-col'}`}>
           {panes.map((pane, paneIndex) => {
             const activeTab = pane.tabs.find((tab) => tab.id === pane.activeTabId) ?? null
+            // Parked tabs stay in the primary tab strip so they remain one click
+            // away without taking a column from the workspace.
+            const parkedTabsForPane = pane.id === 'primary' ? parkedTabs : []
             const paneBasis = panes.length === 1 ? 100 : paneIndex === 0 ? splitPercent : 100 - splitPercent
             // The desktop resizer contributes a net 4px to the flex line
             // (8px size with -2px margins on both sides). Split that cost
@@ -647,6 +650,27 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                       )
                     })}
                     {pane.tabs.length === 0 && <span className="px-2 text-[11px] text-[var(--color-pib-text-muted)]">Select a session</span>}
+                    {parkedTabsForPane.length > 0 && (
+                      <div data-testid="messages-parked-tabs-inline" aria-label="Parked tabs" className="mx-parked-tabs-inline-enter ml-4 flex min-w-0 shrink-0 items-center gap-1 border-l border-[var(--color-card-border)] pl-4">
+                        <span aria-hidden="true" title="Parked tabs" className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)]">pause_circle</span>
+                        {parkedTabsForPane.map((tab) => (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            data-testid={`parked-workspace-tab-${tab.conversationId}`}
+                            aria-label={`Resume ${tab.title}`}
+                            title={`Resume ${tab.title}`}
+                            onClick={() => restoreParkedTab(tab)}
+                            style={folderAccentStyle(tab.accentSeed)}
+                            disabled={tabTransfer !== null}
+                            className={`group/parked relative flex min-h-11 min-w-[92px] max-w-[180px] items-center gap-1 overflow-hidden rounded-md border border-dashed border-white/[0.1] px-2 text-left text-[11px] text-[var(--color-pib-text-muted)] hover:border-primary/35 hover:bg-primary/[0.08] hover:text-[var(--color-pib-text)] disabled:pointer-events-none xl:h-6 xl:min-h-0 ${tab.accentSeed ? 'mx-folder-accent' : ''} ${tabTransfer?.id === tab.id && tabTransfer.direction === 'restoring' ? 'mx-parked-tab-restoring' : 'mx-parked-tab-enter'}`}
+                          >
+                            <span aria-hidden="true" className="material-symbols-outlined text-[13px] text-primary">switch_left</span>
+                            <span className="min-w-0 flex-1 truncate">{tab.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {panes.length > 1 && <button type="button" aria-label={`Show ${alternatePaneId} pane`} onClick={() => setFocusedPaneId(alternatePaneId)} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:hidden"><span aria-hidden="true" className="material-symbols-outlined text-[18px]">swap_horiz</span></button>}
                   {pane.id === 'secondary' && <button type="button" aria-label="Close split pane" onClick={() => { setPanes((current) => current.filter((item) => item.id !== 'secondary')); setFocusedPaneId('primary') }} className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.06] xl:h-6 xl:w-6"><span className="material-symbols-outlined text-[14px]">close_fullscreen</span></button>}
@@ -673,32 +697,6 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
           })}
           {panes.length > 1 && <button type="button" aria-label="Resize workspace panes" style={{ order: 1 }} onPointerDown={startResize} onPointerMove={continueResize} onPointerUp={finishResize} onPointerCancel={finishResize} className={`z-10 hidden shrink-0 touch-none rounded-full bg-transparent hover:bg-primary/20 focus-visible:bg-primary/20 xl:block ${direction === 'row' ? '-mx-0.5 cursor-col-resize xl:w-2 xl:min-w-0' : '-my-0.5 cursor-row-resize xl:h-2 xl:min-h-0'}`} />}
         </div>
-        {parkedTabs.length > 0 && (
-          <aside data-testid="messages-parked-tabs-rail" aria-label="Parked tabs" className="mx-parked-rail-enter hidden w-44 shrink-0 flex-col border-l border-[var(--color-card-border)] bg-black/[0.11] xl:flex">
-            <div className="border-b border-[var(--color-card-border)] px-3 py-2">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[15px] text-primary">pause_circle</span>Parked tabs</div>
-              <p className="mt-1 text-[10px] leading-snug text-[var(--color-pib-text-muted)]">Paused — no live messages or run polling.</p>
-            </div>
-            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
-              {parkedTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  data-testid={`parked-workspace-tab-${tab.conversationId}`}
-                  aria-label={`Resume ${tab.title}`}
-                  title="Resume this tab in the current pane"
-                  onClick={() => restoreParkedTab(tab)}
-                  style={folderAccentStyle(tab.accentSeed)}
-                  disabled={tabTransfer !== null}
-                  className={`group mx-parked-tab-enter flex w-full items-center gap-1.5 rounded-md border border-transparent px-2 py-2 text-left text-[11px] text-[var(--color-pib-text-muted)] hover:border-primary/30 hover:bg-primary/10 hover:text-[var(--color-pib-text)] disabled:pointer-events-none ${tab.accentSeed ? 'mx-folder-accent' : ''} ${tabTransfer?.id === tab.id && tabTransfer.direction === 'restoring' ? 'mx-parked-tab-restoring' : ''}`}
-                >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-primary">switch_left</span>
-                  <span className="min-w-0 flex-1 truncate">{tab.title}</span>
-                </button>
-              ))}
-            </div>
-          </aside>
-        )}
       </section>
     </ModuleShell>
   )

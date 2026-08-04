@@ -329,7 +329,7 @@ describe('HermesMessagesShell', () => {
     fireEvent.click(graphsTab.querySelector('[aria-label="Park Graphs"]')!)
 
     await waitFor(() => expect(screen.queryByTestId('workspace-tab-conv-1')).not.toBeInTheDocument())
-    expect(screen.getByTestId('messages-parked-tabs-rail')).toHaveTextContent('Paused — no live messages or run polling.')
+    expect(screen.getByTestId('messages-parked-tabs-inline')).toBeInTheDocument()
     expect(screen.getByTestId('parked-workspace-tab-conv-1')).toHaveTextContent('Graphs')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Parked 1')
     expect(mockUnifiedChat).toHaveBeenLastCalledWith(expect.objectContaining({ activeConversationId: 'conv-2' }))
@@ -338,14 +338,14 @@ describe('HermesMessagesShell', () => {
     // instead of leaving a duplicate tab in the parked rail.
     const resumeFromSessionsRail = mockUnifiedChat.mock.calls.at(-1)?.[0]?.onActiveConversationChange as ((conversationId: string | null) => void) | undefined
     act(() => resumeFromSessionsRail?.('conv-1'))
-    expect(screen.queryByTestId('messages-parked-tabs-rail')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('messages-parked-tabs-inline')).not.toBeInTheDocument()
     expect(screen.getByTestId('workspace-tab-conv-1')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('workspace-tab-conv-1').querySelector('[aria-label="Park Graphs"]')!)
     await screen.findByRole('button', { name: 'Resume Graphs' })
     fireEvent.click(screen.getByRole('button', { name: 'Resume Graphs' }))
 
-    await waitFor(() => expect(screen.queryByTestId('messages-parked-tabs-rail')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByTestId('messages-parked-tabs-inline')).not.toBeInTheDocument())
     expect(screen.getByTestId('workspace-tab-conv-1')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Graphs' })).toHaveAttribute('aria-selected', 'true')
     expect(mockUnifiedChat).toHaveBeenLastCalledWith(expect.objectContaining({ activeConversationId: 'conv-1' }))
