@@ -512,6 +512,58 @@
   opacity: 1;
 }
 
+/* Parked workspace tabs are explicitly moved out of the live surface. The
+   directional motion makes the pause/resume state change legible without
+   relying on a sudden disappearance. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-messages-experience] .mx-workspace-tab-parking {
+    pointer-events: none;
+    animation: mx-workspace-tab-park 220ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+
+  [data-messages-experience] .mx-workspace-tab-return {
+    animation: mx-workspace-tab-return 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  [data-messages-experience] .mx-parked-rail-enter {
+    animation: mx-parked-rail-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  [data-messages-experience] .mx-parked-tab-enter {
+    animation: mx-parked-tab-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  [data-messages-experience] .mx-parked-tab-restoring {
+    pointer-events: none;
+    animation: mx-parked-tab-restore 220ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+}
+
+@keyframes mx-workspace-tab-park {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 0; transform: translateX(28px) scale(0.96); }
+}
+
+@keyframes mx-workspace-tab-return {
+  from { opacity: 0; transform: translateX(28px) scale(0.96); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes mx-parked-rail-enter {
+  from { opacity: 0; transform: translateX(18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes mx-parked-tab-enter {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes mx-parked-tab-restore {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to { opacity: 0; transform: translateX(-20px) scale(0.96); }
+}
+
 @keyframes mx-tab-activity-pulse {
   0%, 100% {
     border-color: color-mix(in oklab, var(--mx-tab-activity) 40%, transparent);
