@@ -13,7 +13,7 @@
 import type { BankFeedProviderId } from './types'
 
 /** Master kill-switch. Never flip true without Peet paid-vendor + live-credential gate. */
-export const BANK_FEED_LIVE_EGRESS_MASTER_SWITCH = false as const
+export const BANK_FEED_LIVE_EGRESS_MASTER_SWITCH: boolean = false
 
 export const BANK_FEED_PROVIDER_IDS: readonly BankFeedProviderId[] = [
   'mock',
@@ -170,7 +170,7 @@ export function normalizeBankFeedOrgProviderSettings(input: {
     orgId,
     defaultProviderId,
     enabledProviderIds,
-    allowNonMockProviders: true,
+    allowNonMockProviders,
     allowLiveEgress: allowLiveEgressRequested === true && BANK_FEED_LIVE_EGRESS_MASTER_SWITCH === true,
     schemaVersion: 1,
     updatedAt: input.nowIso,

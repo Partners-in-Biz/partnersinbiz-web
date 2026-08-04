@@ -479,7 +479,7 @@ export default function FinanceBankFeedsPage() {
               rows={((recon?.items || []).slice(0, 50) as Array<Record<string, any>>).map((item) => ({
                 ...item,
                 id: String(item.suggestionId || item.bankLineId),
-              }))}
+              })) as Array<Record<string, any> & { id: string }>}
               selectedIds={selected}
               onToggle={(id) => {
                 setSelected((prev) => {

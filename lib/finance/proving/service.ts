@@ -655,22 +655,19 @@ export class FinanceProvingService {
         membershipRole: 'admin',
       }
 
-      // Reload live period from foundation (seed projection can lag under multi-month nesting).
+      // Reload live period from foundation store (seed projection can lag under multi-month nesting).
+      // FinanceFoundationService has no public getPeriod; read the in-memory period map when present.
       let liveVersion = period.version
       let liveStatus = period.status
       try {
-        const live = await foundationService.getPeriod(adminScoped, {
-          orgId: command.orgId,
-          legalEntityId: entity.id,
-          bookId: entity.bookId,
-          periodId: period.id,
-        } as never)
-        if (live && typeof live === 'object' && 'version' in (live as object)) {
-          liveVersion = (live as { version: number; status: typeof period.status }).version
-          liveStatus = (live as { version: number; status: typeof period.status }).status
+        const store = foundation as { periods?: Map<string, { version: number; status: typeof period.status }> }
+        const live = store.periods?.get(period.id)
+        if (live) {
+          liveVersion = live.version
+          liveStatus = live.status
         }
       } catch {
-        // getPeriod may not exist — fall through with seed projection
+        // fall through with seed projection
       }
 
       if (liveStatus === 'hard_closed') {

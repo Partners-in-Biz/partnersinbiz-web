@@ -739,8 +739,9 @@ export class BankFeedFinanceService {
 
     const accounts = normalizeLinkedAccounts(connection)
     let targets = accounts.filter((a) => a.status === 'active' || a.status === 'error')
-    if (command.externalAccountId?.trim()) {
-      targets = targets.filter((a) => a.externalAccountId === command.externalAccountId.trim())
+    const externalAccountIdFilter = command.externalAccountId?.trim()
+    if (externalAccountIdFilter) {
+      targets = targets.filter((a) => a.externalAccountId === externalAccountIdFilter)
     }
     if (targets.length === 0 && connection.externalAccountId) {
       targets = [

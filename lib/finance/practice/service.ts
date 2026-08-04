@@ -35,7 +35,6 @@ import {
   newGrantAccessEvent,
   PRACTICE_GRANT_HARD_DENY_ACTIONS,
 } from './grants'
-import type { FinanceAction } from '@/lib/finance/policy'
 
 export class PracticeFinanceValidationError extends FinanceValidationError {
   constructor(message: string) {
