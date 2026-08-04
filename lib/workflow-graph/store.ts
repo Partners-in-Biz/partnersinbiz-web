@@ -236,6 +236,7 @@ export async function materializeKanbanTask(input: {
     priority: input.intent.riskLevel === 'high' ? 'high' : 'medium',
     labels: input.intent.labels,
     assigneeAgentId: input.intent.assigneeAgentId,
+    agentModel: input.intent.agentModel,
     agentStatus: input.intent.agentStatus,
     reviewerAgentId: input.intent.reviewerAgentId,
     requiredCapability: input.intent.requiredCapability,

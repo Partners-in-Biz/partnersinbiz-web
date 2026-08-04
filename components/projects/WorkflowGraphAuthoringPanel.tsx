@@ -13,6 +13,7 @@ import {
   type GraphTemplateDraft,
 } from '@/lib/workflow-graph/authoring'
 import type { GraphTemplate, WorkflowNodeKind } from '@/lib/workflow-graph/types'
+import { AGENT_MODEL_OPTIONS } from '@/lib/agents/runRouting'
 
 const NODE_KINDS: WorkflowNodeKind[] = [
   'agent',
@@ -621,6 +622,19 @@ export function WorkflowGraphAuthoringPanel({
                               >
                                 {AGENT_OPTIONS.map((agent) => (
                                   <option key={agent} value={agent}>{agent}</option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="block">
+                              <span className="mb-1 block pib-label">agentModel</span>
+                              <select
+                                className="pib-input"
+                                value={node.agentModel || ''}
+                                onChange={(e) => updateNode(index, { agentModel: (e.target.value || undefined) as GraphNodeDraft['agentModel'] })}
+                              >
+                                <option value="">Platform default</option>
+                                {AGENT_MODEL_OPTIONS.map((model) => (
+                                  <option key={model.value} value={model.value}>{model.label}</option>
                                 ))}
                               </select>
                             </label>

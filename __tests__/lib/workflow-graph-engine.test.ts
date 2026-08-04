@@ -80,6 +80,95 @@ describe('workflow graph phase 1 engine', () => {
     expect(ledgerOnly.every((n) => n.kind !== 'agent' && n.kind !== 'human_gate')).toBe(true)
   })
 
+  test('per-node agentModel flows into materialize intent and Kanban task create data', () => {
+    const template = normalizeGraphTemplate({
+      orgId: 'pib-platform-owner',
+      name: 'model-routed-impl-review',
+      nodes: [
+        {
+          nodeId: 'impl',
+          kind: 'agent',
+          name: 'Implement',
+          dependsOnNodeIds: [],
+          assigneeAgentId: 'theo',
+          agentModel: 'gpt-5.3-codex-spark',
+          expectedArtifacts: ['impl_commit_sha'],
+          agentInput: { spec: 'Implement on development only' },
+        },
+        {
+          nodeId: 'review',
+          kind: 'agent',
+          name: 'Verify & review',
+          dependsOnNodeIds: ['impl'],
+          assigneeAgentId: 'qa-release',
+          agentModel: 'claude-sonnet-4-6',
+          expectedArtifacts: ['review_verdict'],
+          agentInput: { spec: 'Judge the implementation' },
+        },
+        {
+          nodeId: 'promote_gate',
+          kind: 'human_gate',
+          name: 'Production promote gate',
+          dependsOnNodeIds: ['review'],
+          requiredCapability: 'deploy',
+          approvalGate: 'production-deploy',
+          expectedArtifacts: ['approval_ref'],
+          riskLevel: 'high',
+        },
+      ],
+    })
+    const validated = validateGraphTemplate(template)
+    expect(validated.ok).toBe(true)
+    if (!validated.ok) return
+    template.id = 'tmpl-model-routed'
+
+    let run = createWorkflowRunFromTemplate({
+      runId: 'wfr_model_routed_1',
+      template,
+      orgId: 'pib-platform-owner',
+      projectId: 'proj-model',
+      trigger: { type: 'manual', at: NOW },
+      now: NOW,
+      createdBy: 'theo',
+    })
+
+    let step = advanceWorkflowRun(run, { type: 'tick', now: NOW })
+    run = step.run
+    const implIntent = step.materialize.find((m) => m.nodeId === 'impl')
+    expect(implIntent?.agentModel).toBe('gpt-5.3-codex-spark')
+    // human_gate never carries a model
+    expect(step.materialize.some((m) => m.kind === 'human_gate')).toBe(false)
+
+    // Kanban create data carries the node model through to the task
+    const built = buildProjectTaskCreateData(
+      {
+        title: implIntent!.title,
+        assigneeAgentId: implIntent!.assigneeAgentId,
+        agentModel: implIntent!.agentModel,
+        agentStatus: implIntent!.agentStatus,
+        columnId: implIntent!.columnId,
+        priority: 'medium',
+        labels: implIntent!.labels,
+        expectedArtifacts: implIntent!.expectedArtifacts,
+        verifierChecklist: implIntent!.verifierChecklist,
+        agentInput: implIntent!.agentInput,
+      },
+      'proj-model',
+      'pib-platform-owner',
+    )
+    expect(built.ok).toBe(true)
+    if (!built.ok) return
+    expect(built.value.agentModel).toBe('gpt-5.3-codex-spark')
+
+    // Complete impl, review materializes with its own model
+    run = bindKanbanTask(run, 'impl', 'task-impl', NOW)
+    run = completeAgent(run, 'impl', 'task-impl', [{ type: 'impl_commit_sha', ref: 'abc123' }])
+    step = advanceWorkflowRun(run, { type: 'tick', now: LATER })
+    run = step.run
+    const reviewIntent = step.materialize.find((m) => m.nodeId === 'review')
+    expect(reviewIntent?.agentModel).toBe('claude-sonnet-4-6')
+  })
+
   test('golden path: research → checks → draft → gate → gated system → fan-out → succeed quiet', () => {
     let run = startPilotRun()
     let step = advanceWorkflowRun(run, { type: 'tick', now: NOW })
