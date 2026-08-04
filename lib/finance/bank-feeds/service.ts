@@ -6,13 +6,39 @@ import {
   type BankFeedAdapterFactory,
   type BankFeedConnectorAdapter,
 } from './adapter'
+import {
+  BankFeedCredentialVaultError,
+  BankFeedCredentialVaultStub,
+  createEmptyBankFeedCredentialVault,
+  looksLikeInlineSecret,
+} from './credential-vault-stub'
+import {
+  buildAccountFeedFromProvider,
+  buildReconCentre,
+  computeConnectionHealth,
+  isSafeBulkAcceptSuggestion,
+  markLinesMaterialized,
+  normalizeLinkedAccounts,
+  toBankRulesEvaluatePayload,
+} from './productization'
+import {
+  bankFeedProviderSettingsHardGates,
+  defaultBankFeedOrgProviderSettings,
+  normalizeBankFeedOrgProviderSettings,
+  resolveConnectionProviderId,
+  type BankFeedOrgProviderSettings,
+  BankFeedProviderSettingsError,
+} from './provider-settings'
+import { ZaAggregatorStubBankFeedProvider } from './providers/za-aggregator-stub'
 import type {
+  BankFeedAccountFeed,
   BankFeedAuditEvent,
   BankFeedBankLine,
   BankFeedConnection,
   BankFeedConnectionStatus,
   BankFeedFinanceAction,
   BankFeedProviderId,
+  BankFeedReconCentre,
   BankFeedSuggestion,
   BankFeedSyncRun,
 } from './types'
@@ -46,7 +72,11 @@ function assertFinanceMembership(actor: FinanceActorContext, orgId: string, acti
   const writeRoles = new Set(['finance_admin', 'accountant', 'bookkeeper'])
   const readRoles = new Set(['finance_admin', 'accountant', 'bookkeeper', 'finance_approver', 'finance_viewer'])
   const rolesNeeded =
-    action === 'bank_feed.connection.read' || action === 'bank_feed.audit.read' ? readRoles : writeRoles
+    action === 'bank_feed.connection.read' ||
+    action === 'bank_feed.audit.read' ||
+    action === 'bank_feed.recon.read'
+      ? readRoles
+      : writeRoles
   const has = actor.assignments.some(
     (a) => a.orgId === orgId && a.userId === actor.uid && a.status === 'active' && rolesNeeded.has(a.role),
   )
@@ -75,6 +105,8 @@ export interface BankFeedStore {
   claims: Set<string>
   /** Fingerprints already imported (org+bankAccount scoped key). */
   importedFingerprints: Set<string>
+  /** Org provider selection feature flags (mock default). */
+  providerSettingsByOrg: Map<string, BankFeedOrgProviderSettings>
 }
 
 export function createEmptyBankFeedStore(): BankFeedStore {
@@ -86,6 +118,7 @@ export function createEmptyBankFeedStore(): BankFeedStore {
     auditEvents: new Map(),
     claims: new Set(),
     importedFingerprints: new Set(),
+    providerSettingsByOrg: new Map(),
   }
 }
 
@@ -98,6 +131,7 @@ export function cloneBankFeedStore(store: BankFeedStore): BankFeedStore {
     auditEvents: new Map(store.auditEvents),
     claims: new Set(store.claims),
     importedFingerprints: new Set(store.importedFingerprints),
+    providerSettingsByOrg: new Map(store.providerSettingsByOrg ?? []),
   }
 }
 
@@ -186,12 +220,22 @@ function suggestForLine(line: BankFeedBankLine): {
       suggestedAccountId: 'acc_bank_charges',
     }
   }
+  if (d.includes('interest')) {
+    return {
+      kind: 'suggest_expense_account',
+      confidence: 0.82,
+      reason: 'Interest credit pattern — suggest interest income (human accept only)',
+      suggestedAccountId: 'acc_interest_income',
+    }
+  }
   return {
     kind: 'flag_review',
     confidence: 0.4,
     reason: 'No strong rule match — queue for human coding',
   }
 }
+
+const SUPPORTED_PROVIDERS = new Set<BankFeedProviderId>(['mock', 'live_stub', 'za_aggregator_stub'])
 
 export interface CreateBankFeedConnectionCommand {
   id: string
@@ -202,6 +246,8 @@ export interface CreateBankFeedConnectionCommand {
   label: string
   bankAccountId: string
   externalAccountId?: string
+  /** Optional multi-account links: externalAccountId → bankAccountId (defaults to bankAccountId). */
+  accountLinks?: Array<{ externalAccountId: string; bankAccountId?: string }>
   secretRefId?: string
   status?: BankFeedConnectionStatus
   requestId: string
@@ -214,6 +260,8 @@ export interface SyncBankFeedCommand {
   legalEntityId: string
   bookId: string
   connectionId: string
+  /** When set, sync only this external account; otherwise all active linked accounts. */
+  externalAccountId?: string
   /** Force noEgress (default true). Live providers blocked when true. */
   noEgress?: boolean
   requestId: string
@@ -228,6 +276,19 @@ export interface ResolveBankFeedSuggestionCommand {
   idempotencyKey: string
 }
 
+export interface BulkResolveBankFeedSuggestionsCommand {
+  orgId: string
+  legalEntityId: string
+  bookId: string
+  /** accept | dismiss */
+  resolution: 'accept' | 'dismiss'
+  /** When empty on accept, resolves only safeBulkAccept candidates. On dismiss, all pending when empty. */
+  suggestionIds?: string[]
+  resolutionNote?: string
+  requestId: string
+  idempotencyKey: string
+}
+
 export interface DisconnectBankFeedCommand {
   id: string
   orgId: string
@@ -235,17 +296,103 @@ export interface DisconnectBankFeedCommand {
   idempotencyKey: string
 }
 
+export interface ReconnectBankFeedCommand {
+  id: string
+  orgId: string
+  requestId: string
+  idempotencyKey: string
+}
+
+export interface RefreshBankFeedAccountsCommand {
+  id: string
+  orgId: string
+  legalEntityId: string
+  bookId: string
+  /** Default bank account for newly discovered provider accounts. */
+  defaultBankAccountId?: string
+  /** Explicit external→bank mappings. */
+  accountLinks?: Array<{ externalAccountId: string; bankAccountId?: string }>
+  requestId: string
+  idempotencyKey: string
+}
+
 export class BankFeedFinanceService {
+  private readonly adapters: Record<BankFeedProviderId, BankFeedAdapterFactory>
+  private readonly vault: BankFeedCredentialVaultStub
+
   constructor(
     private readonly load: () => Promise<BankFeedStore>,
     private readonly save: (before: BankFeedStore, after: BankFeedStore) => Promise<void>,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly adapters: Record<BankFeedProviderId, BankFeedAdapterFactory> = createBankFeedAdapterRegistry(),
+    adapters?: Record<BankFeedProviderId, BankFeedAdapterFactory>,
     private readonly importBankTxn?: BankFeedTransactionImporter,
-  ) {}
+    vault?: BankFeedCredentialVaultStub,
+  ) {
+    this.vault = vault ?? createEmptyBankFeedCredentialVault()
+    this.adapters =
+      adapters ??
+      createBankFeedAdapterRegistry({
+        za_aggregator_stub: () => new ZaAggregatorStubBankFeedProvider(this.vault),
+      })
+  }
 
   private adapter(providerId: BankFeedProviderId): BankFeedConnectorAdapter {
     return resolveBankFeedAdapter(providerId, this.adapters)
+  }
+
+  private settingsForOrg(store: BankFeedStore, orgId: string): BankFeedOrgProviderSettings {
+    return store.providerSettingsByOrg.get(orgId) ?? defaultBankFeedOrgProviderSettings(orgId, this.now())
+  }
+
+  async getProviderSettings(actor: FinanceActorContext, orgId: string): Promise<BankFeedOrgProviderSettings> {
+    assertFinanceMembership(actor, orgId, 'bank_feed.connection.read')
+    const store = await this.load()
+    return this.settingsForOrg(store, orgId)
+  }
+
+  async updateProviderSettings(
+    actor: FinanceActorContext,
+    command: {
+      orgId: string
+      defaultProviderId?: BankFeedProviderId
+      enabledProviderIds?: BankFeedProviderId[]
+      allowNonMockProviders?: boolean
+      allowLiveEgress?: boolean
+      requestId: string
+      idempotencyKey: string
+    },
+  ): Promise<BankFeedOrgProviderSettings> {
+    assertFinanceMembership(actor, command.orgId, 'bank_feed.connection.configure')
+    const orgId = requiredText(command.orgId, 'orgId')
+    const before = await this.load()
+    const store = cloneBankFeedStore(before)
+    claim(store, `idem:${orgId}:provider-settings:${command.idempotencyKey}`, 'Duplicate provider settings update')
+    const previous = this.settingsForOrg(store, orgId)
+    let next: BankFeedOrgProviderSettings
+    try {
+      next = normalizeBankFeedOrgProviderSettings({
+        orgId,
+        defaultProviderId: command.defaultProviderId,
+        enabledProviderIds: command.enabledProviderIds,
+        allowNonMockProviders: command.allowNonMockProviders,
+        allowLiveEgress: command.allowLiveEgress,
+        updatedBy: actor.uid,
+        nowIso: this.now(),
+        previous,
+      })
+    } catch (err) {
+      if (err instanceof BankFeedProviderSettingsError) {
+        throw new BankFeedValidationError(err.message)
+      }
+      throw err
+    }
+    store.providerSettingsByOrg.set(orgId, next)
+    await this.save(before, store)
+    return next
+  }
+
+  getCredentialVault(): BankFeedCredentialVaultStub {
+    return this.vault
   }
 
   async createConnection(actor: FinanceActorContext, command: CreateBankFeedConnectionCommand): Promise<BankFeedConnection> {
@@ -256,8 +403,20 @@ export class BankFeedFinanceService {
     const bookId = requiredText(command.bookId, 'bookId')
     const label = requiredText(command.label, 'label')
     const bankAccountId = requiredText(command.bankAccountId, 'bankAccountId')
-    const providerId: BankFeedProviderId = command.providerId || 'mock'
-    if (providerId !== 'mock' && providerId !== 'live_stub') {
+
+    const before = await this.load()
+    const store = cloneBankFeedStore(before)
+    const settings = this.settingsForOrg(store, orgId)
+    let providerId: BankFeedProviderId
+    try {
+      providerId = resolveConnectionProviderId(settings, command.providerId)
+    } catch (err) {
+      if (err instanceof BankFeedProviderSettingsError) {
+        throw new BankFeedValidationError(err.message)
+      }
+      throw err
+    }
+    if (!SUPPORTED_PROVIDERS.has(providerId)) {
       throw new BankFeedValidationError('Unsupported providerId')
     }
     if (providerId !== 'mock' && !command.secretRefId?.trim()) {
@@ -266,16 +425,32 @@ export class BankFeedFinanceService {
     if (providerId === 'mock' && command.secretRefId) {
       throw new BankFeedValidationError('mock provider must not carry secretRefId')
     }
+    if (command.secretRefId && looksLikeInlineSecret(command.secretRefId)) {
+      throw new BankFeedValidationError('secretRefId must be an opaque reference id, not inline credential material')
+    }
+    if (providerId === 'za_aggregator_stub') {
+      try {
+        this.vault.assertUsableForProvider({
+          orgId,
+          secretRefId: command.secretRefId,
+          providerId,
+        })
+      } catch (err) {
+        if (err instanceof BankFeedCredentialVaultError) {
+          throw new BankFeedValidationError(err.message)
+        }
+        throw err
+      }
+    }
 
-    const before = await this.load()
-    const store = cloneBankFeedStore(before)
     claim(store, `idem:${orgId}:${command.idempotencyKey}`, 'Duplicate bank feed connection request')
     if (store.connections.has(id)) throw new BankFeedValidationError('Bank feed connection already exists')
 
     const ts = this.now()
-    // Optionally discover mock external account when not provided.
+    let linkedAccounts: BankFeedAccountFeed[] = []
     let externalAccountId = command.externalAccountId?.trim()
-    if (!externalAccountId && providerId === 'mock') {
+
+    if (providerId === 'mock') {
       const adapter = this.adapter(providerId)
       const accounts = await adapter.listAccounts({
         orgId,
@@ -285,7 +460,36 @@ export class BankFeedFinanceService {
         nowIso: ts,
         noEgress: true,
       })
-      externalAccountId = accounts[0]?.externalAccountId
+      const linkMap = new Map(
+        (command.accountLinks || []).map((l) => [l.externalAccountId, l.bankAccountId?.trim() || bankAccountId]),
+      )
+      // When operator picks a single external account, still link only that one; else multi-account catalogue.
+      const selected = externalAccountId
+        ? accounts.filter((a) => a.externalAccountId === externalAccountId)
+        : accounts
+      const useAccounts = selected.length > 0 ? selected : accounts.slice(0, 1)
+      linkedAccounts = useAccounts.map((a) =>
+        buildAccountFeedFromProvider({
+          externalAccountId: a.externalAccountId,
+          name: a.name,
+          currency: a.currency,
+          maskedAccountNumber: a.maskedAccountNumber,
+          accountType: a.accountType,
+          bankAccountId: linkMap.get(a.externalAccountId) || bankAccountId,
+          status: 'active',
+        }),
+      )
+      if (!externalAccountId) externalAccountId = linkedAccounts[0]?.externalAccountId
+    } else if (externalAccountId) {
+      linkedAccounts = [
+        buildAccountFeedFromProvider({
+          externalAccountId,
+          name: label,
+          currency: 'ZAR',
+          bankAccountId,
+          status: 'active',
+        }),
+      ]
     }
 
     const connection: BankFeedConnection = {
@@ -298,6 +502,7 @@ export class BankFeedFinanceService {
       status: command.status === 'draft' ? 'draft' : 'connected',
       bankAccountId,
       ...(externalAccountId ? { externalAccountId } : {}),
+      ...(linkedAccounts.length ? { linkedAccounts } : {}),
       ...(command.secretRefId?.trim() ? { secretRefId: command.secretRefId.trim() } : {}),
       schemaVersion: 1,
       version: 1,
@@ -320,7 +525,7 @@ export class BankFeedFinanceService {
       eventType: 'connection.created',
       actorId: actor.uid,
       at: ts,
-      detail: `Created ${providerId} connection "${label}" (noEgress, no payment initiate)`,
+      detail: `Created ${providerId} connection "${label}" accounts=${linkedAccounts.length} (noEgress, no payment initiate)`,
     })
     await this.save(before, store)
     return connection
@@ -336,9 +541,16 @@ export class BankFeedFinanceService {
     const existing = store.connections.get(id)
     if (!existing || existing.orgId !== orgId) throw new BankFeedNotFoundError('Bank feed connection not found')
     const ts = this.now()
+    const linked = normalizeLinkedAccounts(existing).map((a) => ({
+      ...a,
+      status: 'disconnected' as const,
+      lastError: undefined,
+    }))
     const next: BankFeedConnection = {
       ...existing,
       status: 'disconnected',
+      linkedAccounts: linked,
+      lastError: undefined,
       version: existing.version + 1,
       updatedAt: ts,
       updatedBy: actor.uid,
@@ -358,6 +570,139 @@ export class BankFeedFinanceService {
       actorId: actor.uid,
       at: ts,
       detail: 'Connection disconnected',
+    })
+    await this.save(before, store)
+    return next
+  }
+
+  async reconnectConnection(actor: FinanceActorContext, command: ReconnectBankFeedCommand): Promise<BankFeedConnection> {
+    assertFinanceMembership(actor, command.orgId, 'bank_feed.connection.configure')
+    const id = requiredText(command.id, 'id')
+    const orgId = requiredText(command.orgId, 'orgId')
+    const before = await this.load()
+    const store = cloneBankFeedStore(before)
+    claim(store, `idem:${orgId}:${command.idempotencyKey}`, 'Duplicate bank feed reconnect')
+    const existing = store.connections.get(id)
+    if (!existing || existing.orgId !== orgId) throw new BankFeedNotFoundError('Bank feed connection not found')
+    const ts = this.now()
+    const linked = normalizeLinkedAccounts(existing).map((a) => ({
+      ...a,
+      status: 'active' as const,
+      lastError: undefined,
+    }))
+    const next: BankFeedConnection = {
+      ...existing,
+      status: 'connected',
+      lastError: undefined,
+      linkedAccounts: linked,
+      version: existing.version + 1,
+      updatedAt: ts,
+      updatedBy: actor.uid,
+      externalEgressAllowed: false,
+      externalPaymentInitiated: false,
+      sarsSubmissionInitiated: false,
+      noEgress: true,
+    }
+    store.connections.set(id, next)
+    appendAudit(store, {
+      id: `aud_${id}_reconn_${existing.version + 1}`,
+      orgId,
+      legalEntityId: existing.legalEntityId,
+      bookId: existing.bookId,
+      connectionId: id,
+      eventType: 'connection.reconnected',
+      actorId: actor.uid,
+      at: ts,
+      detail: 'Connection reconnected — error cleared; ready for Sync now (no auto-post)',
+    })
+    await this.save(before, store)
+    return next
+  }
+
+  async refreshLinkedAccounts(
+    actor: FinanceActorContext,
+    command: RefreshBankFeedAccountsCommand,
+  ): Promise<BankFeedConnection> {
+    assertFinanceMembership(actor, command.orgId, 'bank_feed.connection.configure')
+    const id = requiredText(command.id, 'id')
+    const orgId = requiredText(command.orgId, 'orgId')
+    const legalEntityId = requiredText(command.legalEntityId, 'legalEntityId')
+    const bookId = requiredText(command.bookId, 'bookId')
+    const before = await this.load()
+    const store = cloneBankFeedStore(before)
+    claim(store, `idem:${orgId}:${command.idempotencyKey}`, 'Duplicate bank feed account refresh')
+    const existing = store.connections.get(id)
+    if (
+      !existing ||
+      existing.orgId !== orgId ||
+      existing.legalEntityId !== legalEntityId ||
+      existing.bookId !== bookId
+    ) {
+      throw new BankFeedNotFoundError('Bank feed connection not found')
+    }
+    if (existing.status === 'disconnected') {
+      throw new BankFeedValidationError('Reconnect before refreshing linked accounts')
+    }
+
+    const ts = this.now()
+    const adapter = this.adapter(existing.providerId)
+    const providerAccounts = await adapter.listAccounts({
+      orgId,
+      legalEntityId,
+      bookId,
+      connectionId: id,
+      secretRefId: existing.secretRefId,
+      nowIso: ts,
+      noEgress: true,
+    })
+    const prior = normalizeLinkedAccounts(existing)
+    const priorByExt = new Map(prior.map((a) => [a.externalAccountId, a]))
+    const defaultBank = command.defaultBankAccountId?.trim() || existing.bankAccountId
+    const linkMap = new Map(
+      (command.accountLinks || []).map((l) => [l.externalAccountId, l.bankAccountId?.trim() || defaultBank]),
+    )
+
+    const linkedAccounts: BankFeedAccountFeed[] = providerAccounts.map((a) => {
+      const prev = priorByExt.get(a.externalAccountId)
+      return buildAccountFeedFromProvider({
+        externalAccountId: a.externalAccountId,
+        name: a.name,
+        currency: a.currency,
+        maskedAccountNumber: a.maskedAccountNumber,
+        accountType: a.accountType,
+        bankAccountId: linkMap.get(a.externalAccountId) || prev?.bankAccountId || defaultBank,
+        status: prev?.status === 'paused' ? 'paused' : 'active',
+        cursor: prev?.cursor,
+        lastSyncAt: prev?.lastSyncAt,
+        lastSyncRunId: prev?.lastSyncRunId,
+        lastError: undefined,
+      })
+    })
+
+    const next: BankFeedConnection = {
+      ...existing,
+      linkedAccounts,
+      externalAccountId: existing.externalAccountId || linkedAccounts[0]?.externalAccountId,
+      bankAccountId: existing.bankAccountId || linkedAccounts[0]?.bankAccountId || defaultBank,
+      version: existing.version + 1,
+      updatedAt: ts,
+      updatedBy: actor.uid,
+      noEgress: true,
+      externalEgressAllowed: false,
+      externalPaymentInitiated: false,
+      sarsSubmissionInitiated: false,
+    }
+    store.connections.set(id, next)
+    appendAudit(store, {
+      id: `aud_${id}_accts_${existing.version + 1}`,
+      orgId,
+      legalEntityId,
+      bookId,
+      connectionId: id,
+      eventType: 'accounts.linked',
+      actorId: actor.uid,
+      at: ts,
+      detail: `Linked ${linkedAccounts.length} provider accounts (per-account cursor/status)`,
     })
     await this.save(before, store)
     return next
@@ -389,9 +734,28 @@ export class BankFeedFinanceService {
       throw new BankFeedNotFoundError('Bank feed connection not found')
     }
     if (connection.status === 'disconnected') {
-      throw new BankFeedValidationError('Cannot sync a disconnected connection')
+      throw new BankFeedValidationError('Cannot sync a disconnected connection — reconnect first')
     }
-    if (!connection.externalAccountId) {
+
+    const accounts = normalizeLinkedAccounts(connection)
+    let targets = accounts.filter((a) => a.status === 'active' || a.status === 'error')
+    const externalAccountIdFilter = command.externalAccountId?.trim()
+    if (externalAccountIdFilter) {
+      targets = targets.filter((a) => a.externalAccountId === externalAccountIdFilter)
+    }
+    if (targets.length === 0 && connection.externalAccountId) {
+      targets = [
+        buildAccountFeedFromProvider({
+          externalAccountId: connection.externalAccountId,
+          name: connection.label,
+          currency: 'ZAR',
+          bankAccountId: connection.bankAccountId,
+          status: 'active',
+          cursor: connection.cursor,
+        }),
+      ]
+    }
+    if (targets.length === 0) {
       throw new BankFeedValidationError('Connection has no externalAccountId — list/select provider account first')
     }
 
@@ -405,7 +769,7 @@ export class BankFeedFinanceService {
       providerId: connection.providerId,
       status: 'running',
       startedAt: ts,
-      cursorBefore: connection.cursor,
+      cursorBefore: targets.map((t) => t.cursor || '').join(',') || connection.cursor,
       fetchedCount: 0,
       stagedCount: 0,
       importedCount: 0,
@@ -443,33 +807,207 @@ export class BankFeedFinanceService {
       eventType: 'sync.started',
       actorId: actor.uid,
       at: ts,
-      detail: `Sync started provider=${connection.providerId} noEgress=${noEgress}`,
+      detail: `Sync started provider=${connection.providerId} accounts=${targets.length} noEgress=${noEgress}`,
     })
-    // Persist running state before adapter work (in-memory this is one save at end).
 
     const adapter = this.adapter(connection.providerId)
-    let fetched
-    try {
-      fetched = await adapter.fetchTransactions(
-        {
-          orgId,
-          legalEntityId,
-          bookId,
-          connectionId,
-          secretRefId: connection.secretRefId,
-          nowIso: ts,
-          noEgress,
-        },
-        connection.externalAccountId,
-        { value: connection.cursor },
-      )
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Sync fetch failed'
+    let staged = 0
+    let imported = 0
+    let duplicates = 0
+    let errors = 0
+    let fetchedTotal = 0
+    const createdSuggestions: BankFeedSuggestion[] = []
+    const createdLines: BankFeedBankLine[] = []
+    const updatedAccounts = normalizeLinkedAccounts(connection)
+    const accountByExt = new Map(updatedAccounts.map((a) => [a.externalAccountId, { ...a }]))
+    const cursorAfterParts: string[] = []
+    let hardFailMessage: string | undefined
+
+    for (const target of targets) {
+      let fetched
+      try {
+        fetched = await adapter.fetchTransactions(
+          {
+            orgId,
+            legalEntityId,
+            bookId,
+            connectionId,
+            secretRefId: connection.secretRefId,
+            nowIso: ts,
+            noEgress,
+          },
+          target.externalAccountId,
+          { value: target.cursor },
+        )
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Sync fetch failed'
+        hardFailMessage = msg
+        const acc = accountByExt.get(target.externalAccountId)
+        if (acc) {
+          accountByExt.set(target.externalAccountId, {
+            ...acc,
+            status: 'error',
+            lastError: msg,
+            lastSyncAt: this.now(),
+            lastSyncRunId: runId,
+          })
+        }
+        errors++
+        continue
+      }
+
+      fetchedTotal += fetched.transactions.length
+      const mapped = adapter.mapToBankLines({
+        orgId,
+        legalEntityId,
+        bookId,
+        connectionId,
+        syncRunId: runId,
+        bankAccountId: target.bankAccountId,
+        transactions: fetched.transactions,
+        actorId: actor.uid,
+        nowIso: ts,
+      })
+
+      for (const line of mapped) {
+        if (store.lines.has(line.id)) {
+          duplicates++
+          continue
+        }
+        const fpKey = `${orgId}|${line.bankAccountId}|${line.sourceFingerprint}`
+        let nextLine: BankFeedBankLine = { ...line }
+
+        if (store.importedFingerprints.has(fpKey)) {
+          nextLine = { ...nextLine, importStatus: 'duplicate' }
+          duplicates++
+        } else if (this.importBankTxn) {
+          try {
+            const result = await this.importBankTxn({
+              actor,
+              orgId: line.orgId,
+              legalEntityId: line.legalEntityId,
+              bookId: line.bookId,
+              bankAccountId: line.bankAccountId,
+              id: `btx_${line.sourceFingerprint}`.slice(0, 80),
+              statementDate: line.statementDate,
+              effectiveDate: line.effectiveDate,
+              amountMinor: line.amountMinor,
+              description: line.description,
+              sourceFingerprint: line.sourceFingerprint,
+              reference: line.reference,
+              counterpartyName: line.counterpartyName,
+              requestId: `${command.requestId}:${line.externalTransactionId}`,
+              idempotencyKey: `${command.idempotencyKey}:${line.sourceFingerprint}`,
+            })
+            store.importedFingerprints.add(fpKey)
+            nextLine = {
+              ...nextLine,
+              importStatus: result.duplicate ? 'duplicate' : 'imported',
+              bankTransactionId: result.id,
+            }
+            if (result.duplicate) duplicates++
+            else imported++
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Import failed'
+            if (/already imported|fingerprint|already exists|duplicate/i.test(msg)) {
+              store.importedFingerprints.add(fpKey)
+              nextLine = { ...nextLine, importStatus: 'duplicate', errorMessage: msg }
+              duplicates++
+            } else {
+              nextLine = { ...nextLine, importStatus: 'error', errorMessage: msg }
+              errors++
+            }
+          }
+        } else {
+          // In-memory proving path: mark imported into feed store only (observation).
+          store.importedFingerprints.add(fpKey)
+          nextLine = {
+            ...nextLine,
+            importStatus: 'imported',
+            bankTransactionId: `btx_${line.sourceFingerprint}`.slice(0, 80),
+          }
+          imported++
+        }
+
+        // Statement materialization continuity into recon centre.
+        if (nextLine.importStatus === 'imported' || nextLine.importStatus === 'staged') {
+          nextLine = {
+            ...nextLine,
+            reconMaterializedAt: ts,
+            reconState: 'unreconciled',
+          }
+        }
+
+        staged++
+        store.lines.set(nextLine.id, nextLine)
+        createdLines.push(nextLine)
+
+        if (nextLine.importStatus === 'imported' || nextLine.importStatus === 'staged') {
+          const hint = suggestForLine(nextLine)
+          const suggestion: BankFeedSuggestion = {
+            id: `bfs_${runId}_${nextLine.id}`.slice(0, 120),
+            orgId,
+            legalEntityId,
+            bookId,
+            connectionId,
+            syncRunId: runId,
+            bankLineId: nextLine.id,
+            ...(nextLine.bankTransactionId ? { bankTransactionId: nextLine.bankTransactionId } : {}),
+            status: 'pending',
+            kind: hint.kind,
+            confidence: hint.confidence,
+            reason: hint.reason,
+            ...(hint.suggestedAccountId ? { suggestedAccountId: hint.suggestedAccountId } : {}),
+            ...(hint.suggestedCounterpartyName
+              ? { suggestedCounterpartyName: hint.suggestedCounterpartyName }
+              : {}),
+            createdBy: actor.uid,
+            createdAt: ts,
+            schemaVersion: 1,
+            version: 1,
+            autoPosted: false,
+            externalPaymentInitiated: false,
+          }
+          store.suggestions.set(suggestion.id, suggestion)
+          createdSuggestions.push(suggestion)
+          store.lines.set(nextLine.id, {
+            ...nextLine,
+            reconState: 'suggestion_pending',
+          })
+        }
+      }
+
+      const nextCursor = fetched.nextCursor || target.cursor
+      if (nextCursor) cursorAfterParts.push(nextCursor)
+      const acc = accountByExt.get(target.externalAccountId)
+      if (acc) {
+        accountByExt.set(target.externalAccountId, {
+          ...acc,
+          status: 'active',
+          cursor: nextCursor,
+          lastSyncAt: this.now(),
+          lastSyncRunId: runId,
+          lastError: undefined,
+        })
+      }
+    }
+
+    const finishedAt = this.now()
+    const allFailed = fetchedTotal === 0 && errors > 0 && imported === 0 && staged === 0 && !!hardFailMessage
+    const status: BankFeedSyncRun['status'] = allFailed
+      ? 'failed'
+      : errors > 0 && imported + duplicates > 0
+        ? 'partial'
+        : errors > 0 && imported === 0 && staged === 0
+          ? 'failed'
+          : 'succeeded'
+
+    if (allFailed) {
       const failed: BankFeedSyncRun = {
         ...run,
         status: 'failed',
-        finishedAt: this.now(),
-        errorMessage: msg,
+        finishedAt,
+        errorMessage: hardFailMessage,
         version: 2,
         autoPosted: false,
         externalPaymentInitiated: false,
@@ -480,11 +1018,12 @@ export class BankFeedFinanceService {
       store.connections.set(connectionId, {
         ...store.connections.get(connectionId)!,
         status: 'error',
-        lastError: msg,
-        lastSyncAt: failed.finishedAt,
+        lastError: hardFailMessage,
+        lastSyncAt: finishedAt,
         lastSyncRunId: runId,
+        linkedAccounts: [...accountByExt.values()],
         version: connection.version + 2,
-        updatedAt: failed.finishedAt!,
+        updatedAt: finishedAt,
         updatedBy: actor.uid,
         noEgress: true,
         externalEgressAllowed: false,
@@ -500,138 +1039,19 @@ export class BankFeedFinanceService {
         syncRunId: runId,
         eventType: 'sync.failed',
         actorId: actor.uid,
-        at: failed.finishedAt!,
-        detail: msg,
+        at: finishedAt,
+        detail: hardFailMessage || 'Sync failed',
       })
       await this.save(before, store)
-      throw err instanceof BankFeedValidationError ? err : new BankFeedValidationError(msg)
+      throw new BankFeedValidationError(hardFailMessage || 'Sync failed')
     }
 
-    const mapped = adapter.mapToBankLines({
-      orgId,
-      legalEntityId,
-      bookId,
-      connectionId,
-      syncRunId: runId,
-      bankAccountId: connection.bankAccountId,
-      transactions: fetched.transactions,
-      actorId: actor.uid,
-      nowIso: ts,
-    })
-
-    let staged = 0
-    let imported = 0
-    let duplicates = 0
-    let errors = 0
-    const createdSuggestions: BankFeedSuggestion[] = []
-    const createdLines: BankFeedBankLine[] = []
-
-    for (const line of mapped) {
-      // Skip if line already exists
-      if (store.lines.has(line.id)) {
-        duplicates++
-        continue
-      }
-      const fpKey = `${orgId}|${line.bankAccountId}|${line.sourceFingerprint}`
-      let nextLine: BankFeedBankLine = { ...line }
-
-      if (store.importedFingerprints.has(fpKey)) {
-        nextLine = { ...nextLine, importStatus: 'duplicate' }
-        duplicates++
-      } else if (this.importBankTxn) {
-        try {
-          const result = await this.importBankTxn({
-            actor,
-            orgId: line.orgId,
-            legalEntityId: line.legalEntityId,
-            bookId: line.bookId,
-            bankAccountId: line.bankAccountId,
-            id: `btx_${line.sourceFingerprint}`.slice(0, 80),
-            statementDate: line.statementDate,
-            effectiveDate: line.effectiveDate,
-            amountMinor: line.amountMinor,
-            description: line.description,
-            sourceFingerprint: line.sourceFingerprint,
-            reference: line.reference,
-            counterpartyName: line.counterpartyName,
-            requestId: `${command.requestId}:${line.externalTransactionId}`,
-            idempotencyKey: `${command.idempotencyKey}:${line.sourceFingerprint}`,
-          })
-          store.importedFingerprints.add(fpKey)
-          nextLine = {
-            ...nextLine,
-            importStatus: result.duplicate ? 'duplicate' : 'imported',
-            bankTransactionId: result.id,
-          }
-          if (result.duplicate) duplicates++
-          else imported++
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : 'Import failed'
-          if (/already imported|fingerprint|already exists|duplicate/i.test(msg)) {
-            store.importedFingerprints.add(fpKey)
-            nextLine = { ...nextLine, importStatus: 'duplicate', errorMessage: msg }
-            duplicates++
-          } else {
-            nextLine = { ...nextLine, importStatus: 'error', errorMessage: msg }
-            errors++
-          }
-        }
-      } else {
-        // In-memory proving path: mark imported into feed store only (observation).
-        store.importedFingerprints.add(fpKey)
-        nextLine = {
-          ...nextLine,
-          importStatus: 'imported',
-          bankTransactionId: `btx_${line.sourceFingerprint}`.slice(0, 80),
-        }
-        imported++
-      }
-
-      staged++
-      store.lines.set(nextLine.id, nextLine)
-      createdLines.push(nextLine)
-
-      // Bank-rules style suggestions — NEVER auto-post.
-      if (nextLine.importStatus === 'imported' || nextLine.importStatus === 'staged') {
-        const hint = suggestForLine(nextLine)
-        const suggestion: BankFeedSuggestion = {
-          id: `bfs_${runId}_${nextLine.id}`.slice(0, 120),
-          orgId,
-          legalEntityId,
-          bookId,
-          connectionId,
-          syncRunId: runId,
-          bankLineId: nextLine.id,
-          ...(nextLine.bankTransactionId ? { bankTransactionId: nextLine.bankTransactionId } : {}),
-          status: 'pending',
-          kind: hint.kind,
-          confidence: hint.confidence,
-          reason: hint.reason,
-          ...(hint.suggestedAccountId ? { suggestedAccountId: hint.suggestedAccountId } : {}),
-          ...(hint.suggestedCounterpartyName
-            ? { suggestedCounterpartyName: hint.suggestedCounterpartyName }
-            : {}),
-          createdBy: actor.uid,
-          createdAt: ts,
-          schemaVersion: 1,
-          version: 1,
-          autoPosted: false,
-          externalPaymentInitiated: false,
-        }
-        store.suggestions.set(suggestion.id, suggestion)
-        createdSuggestions.push(suggestion)
-      }
-    }
-
-    const finishedAt = this.now()
-    const status: BankFeedSyncRun['status'] =
-      errors > 0 && imported + duplicates > 0 ? 'partial' : errors > 0 && imported === 0 ? 'failed' : 'succeeded'
     const finished: BankFeedSyncRun = {
       ...run,
       status,
       finishedAt,
-      cursorAfter: fetched.nextCursor || connection.cursor,
-      fetchedCount: fetched.transactions.length,
+      cursorAfter: cursorAfterParts.slice(-1)[0] || connection.cursor,
+      fetchedCount: fetchedTotal,
       stagedCount: staged,
       importedCount: imported,
       duplicateCount: duplicates,
@@ -645,14 +1065,18 @@ export class BankFeedFinanceService {
     }
     store.syncRuns.set(runId, finished)
 
+    const linkedList = [...accountByExt.values()]
+    const primary = linkedList.find((a) => a.externalAccountId === connection.externalAccountId) || linkedList[0]
     const connNow = store.connections.get(connectionId)!
     store.connections.set(connectionId, {
       ...connNow,
       status: status === 'failed' ? 'error' : 'connected',
-      cursor: finished.cursorAfter,
+      cursor: primary?.cursor || finished.cursorAfter,
       lastSyncAt: finishedAt,
       lastSyncRunId: runId,
       lastError: status === 'failed' ? 'Sync completed with errors' : undefined,
+      linkedAccounts: linkedList,
+      externalAccountId: connNow.externalAccountId || primary?.externalAccountId,
       version: connNow.version + 1,
       updatedAt: finishedAt,
       updatedBy: actor.uid,
@@ -671,7 +1095,7 @@ export class BankFeedFinanceService {
       eventType: 'sync.finished',
       actorId: actor.uid,
       at: finishedAt,
-      detail: `Sync ${status}: fetched=${finished.fetchedCount} imported=${imported} suggestions=${createdSuggestions.length} autoPosted=false`,
+      detail: `Sync ${status}: fetched=${finished.fetchedCount} imported=${imported} suggestions=${createdSuggestions.length} materialized=${createdLines.filter((l) => l.reconMaterializedAt).length} autoPosted=false`,
     })
 
     await this.save(before, store)
@@ -684,6 +1108,94 @@ export class BankFeedFinanceService {
 
   async dismissSuggestion(actor: FinanceActorContext, command: ResolveBankFeedSuggestionCommand): Promise<BankFeedSuggestion> {
     return this.resolveSuggestion(actor, command, 'dismissed', 'bank_feed.suggestion.dismiss')
+  }
+
+  async bulkResolveSuggestions(
+    actor: FinanceActorContext,
+    command: BulkResolveBankFeedSuggestionsCommand,
+  ): Promise<{ resolved: BankFeedSuggestion[]; skipped: string[]; autoPosted: false; externalPaymentInitiated: false }> {
+    assertFinanceMembership(actor, command.orgId, 'bank_feed.suggestion.bulk')
+    const orgId = requiredText(command.orgId, 'orgId')
+    const legalEntityId = requiredText(command.legalEntityId, 'legalEntityId')
+    const bookId = requiredText(command.bookId, 'bookId')
+    if (command.resolution !== 'accept' && command.resolution !== 'dismiss') {
+      throw new BankFeedValidationError('resolution must be accept or dismiss')
+    }
+
+    const before = await this.load()
+    const store = cloneBankFeedStore(before)
+    claim(store, `idem:${orgId}:${command.idempotencyKey}`, 'Duplicate bank feed bulk resolve')
+
+    const pending = [...store.suggestions.values()].filter(
+      (s) =>
+        s.orgId === orgId &&
+        s.legalEntityId === legalEntityId &&
+        s.bookId === bookId &&
+        s.status === 'pending',
+    )
+
+    let candidates = pending
+    if (command.suggestionIds && command.suggestionIds.length > 0) {
+      const want = new Set(command.suggestionIds)
+      candidates = pending.filter((s) => want.has(s.id))
+    } else if (command.resolution === 'accept') {
+      candidates = pending.filter(isSafeBulkAcceptSuggestion)
+    }
+
+    const resolved: BankFeedSuggestion[] = []
+    const skipped: string[] = []
+    const ts = this.now()
+    const status = command.resolution === 'accept' ? 'accepted' : 'dismissed'
+
+    for (const existing of candidates) {
+      if (command.resolution === 'accept' && !isSafeBulkAcceptSuggestion(existing)) {
+        skipped.push(existing.id)
+        continue
+      }
+      const next: BankFeedSuggestion = {
+        ...existing,
+        status,
+        resolvedAt: ts,
+        resolvedBy: actor.uid,
+        resolutionNote:
+          command.resolutionNote?.trim() ||
+          (status === 'accepted'
+            ? 'Bulk accept (safe confidence only; no journal/payment auto-post)'
+            : 'Bulk dismiss (human-gated; no journal/payment)'),
+        version: existing.version + 1,
+        autoPosted: false,
+        externalPaymentInitiated: false,
+      }
+      store.suggestions.set(existing.id, next)
+      resolved.push(next)
+      const line = store.lines.get(existing.bankLineId)
+      if (line && line.orgId === orgId) {
+        store.lines.set(line.id, {
+          ...line,
+          reconState: status === 'accepted' ? 'suggestion_accepted' : 'suggestion_dismissed',
+          version: line.version + 1,
+        })
+      }
+    }
+
+    if (command.suggestionIds) {
+      for (const id of command.suggestionIds) {
+        if (!resolved.some((r) => r.id === id) && !skipped.includes(id)) skipped.push(id)
+      }
+    }
+
+    appendAudit(store, {
+      id: `aud_bulk_${command.requestId}`.slice(0, 120),
+      orgId,
+      legalEntityId,
+      bookId,
+      eventType: status === 'accepted' ? 'suggestion.bulk_accepted' : 'suggestion.bulk_dismissed',
+      actorId: actor.uid,
+      at: ts,
+      detail: `Bulk ${status}: resolved=${resolved.length} skipped=${skipped.length} autoPosted=false externalPaymentInitiated=false`,
+    })
+    await this.save(before, store)
+    return { resolved, skipped, autoPosted: false, externalPaymentInitiated: false }
   }
 
   private async resolveSuggestion(
@@ -715,6 +1227,14 @@ export class BankFeedFinanceService {
       externalPaymentInitiated: false,
     }
     store.suggestions.set(id, next)
+    const line = store.lines.get(existing.bankLineId)
+    if (line && line.orgId === orgId) {
+      store.lines.set(line.id, {
+        ...line,
+        reconState: status === 'accepted' ? 'suggestion_accepted' : 'suggestion_dismissed',
+        version: line.version + 1,
+      })
+    }
     appendAudit(store, {
       id: `aud_${id}_${status}`,
       orgId,
@@ -737,11 +1257,19 @@ export class BankFeedFinanceService {
     legalEntityId: string,
     bookId: string,
   ): Promise<{
-    connections: BankFeedConnection[]
+    connections: Array<
+      BankFeedConnection & {
+        health: ReturnType<typeof computeConnectionHealth>
+        accounts: BankFeedAccountFeed[]
+      }
+    >
     syncRuns: BankFeedSyncRun[]
     lines: BankFeedBankLine[]
     suggestions: BankFeedSuggestion[]
     auditEvents: BankFeedAuditEvent[]
+    reconCentre: BankFeedReconCentre
+    providerSettings: BankFeedOrgProviderSettings
+    providerSelection: ReturnType<typeof bankFeedProviderSettingsHardGates>
     hardGates: {
       noEgress: true
       autoPosted: false
@@ -754,13 +1282,38 @@ export class BankFeedFinanceService {
     const store = await this.load()
     const inScope = <T extends { orgId: string; legalEntityId: string; bookId: string }>(rows: T[]) =>
       rows.filter((r) => r.orgId === orgId && r.legalEntityId === legalEntityId && r.bookId === bookId)
+    const providerSettings = this.settingsForOrg(store, orgId)
+
+    const ts = this.now()
+    const connections = inScope([...store.connections.values()])
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map((c) => ({
+        ...c,
+        linkedAccounts: normalizeLinkedAccounts(c),
+        health: computeConnectionHealth(c, ts),
+        accounts: normalizeLinkedAccounts(c),
+      }))
+    const lines = inScope([...store.lines.values()]).sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate))
+    const suggestions = inScope([...store.suggestions.values()]).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    const reconCentre = buildReconCentre({
+      orgId,
+      legalEntityId,
+      bookId,
+      asOfIso: ts,
+      lines,
+      suggestions,
+      connections: connections.map(({ health: _h, accounts: _a, ...c }) => c),
+    })
 
     return {
-      connections: inScope([...store.connections.values()]).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+      connections,
       syncRuns: inScope([...store.syncRuns.values()]).sort((a, b) => b.startedAt.localeCompare(a.startedAt)),
-      lines: inScope([...store.lines.values()]).sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate)),
-      suggestions: inScope([...store.suggestions.values()]).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      lines,
+      suggestions,
       auditEvents: inScope([...store.auditEvents.values()]).sort((a, b) => b.at.localeCompare(a.at)),
+      reconCentre,
+      providerSettings,
+      providerSelection: bankFeedProviderSettingsHardGates(providerSettings),
       hardGates: {
         noEgress: true,
         autoPosted: false,
@@ -769,6 +1322,58 @@ export class BankFeedFinanceService {
         sarsSubmissionInitiated: false,
       },
     }
+  }
+
+  async getReconCentre(
+    actor: FinanceActorContext,
+    orgId: string,
+    legalEntityId: string,
+    bookId: string,
+  ): Promise<BankFeedReconCentre> {
+    assertFinanceMembership(actor, orgId, 'bank_feed.recon.read')
+    const bundle = await this.getBundle(actor, orgId, legalEntityId, bookId)
+    return bundle.reconCentre
+  }
+
+  /** Ensure imported lines carry recon materialization markers (idempotent). */
+  async materializeReconContinuity(
+    actor: FinanceActorContext,
+    input: { orgId: string; legalEntityId: string; bookId: string; requestId: string; idempotencyKey: string },
+  ): Promise<{ updated: number; bankRulesPayloadCount: number; autoPosted: false }> {
+    assertFinanceMembership(actor, input.orgId, 'bank_feed.sync')
+    const orgId = requiredText(input.orgId, 'orgId')
+    const legalEntityId = requiredText(input.legalEntityId, 'legalEntityId')
+    const bookId = requiredText(input.bookId, 'bookId')
+    const before = await this.load()
+    const store = cloneBankFeedStore(before)
+    claim(store, `idem:${orgId}:${input.idempotencyKey}`, 'Duplicate materialize recon')
+    const ts = this.now()
+    let updated = 0
+    const scoped = [...store.lines.values()].filter(
+      (l) => l.orgId === orgId && l.legalEntityId === legalEntityId && l.bookId === bookId,
+    )
+    const nextLines = markLinesMaterialized(scoped, ts)
+    for (const line of nextLines) {
+      const prev = store.lines.get(line.id)
+      if (!prev) continue
+      if (prev.reconMaterializedAt !== line.reconMaterializedAt || prev.version !== line.version) {
+        store.lines.set(line.id, line)
+        updated++
+      }
+    }
+    const payload = toBankRulesEvaluatePayload([...store.lines.values()].filter((l) => l.orgId === orgId))
+    appendAudit(store, {
+      id: `aud_mat_${input.requestId}`.slice(0, 120),
+      orgId,
+      legalEntityId,
+      bookId,
+      eventType: 'connection.updated',
+      actorId: actor.uid,
+      at: ts,
+      detail: `Materialized recon continuity updated=${updated} bankRulesPayload=${payload.length} autoPosted=false`,
+    })
+    await this.save(before, store)
+    return { updated, bankRulesPayloadCount: payload.length, autoPosted: false }
   }
 
   async listProviderAccounts(

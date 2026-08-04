@@ -1,8 +1,11 @@
-/** Phase 5 proving kit — demo company, multi-period close, packaging walkthrough, accountant acceptance. */
+/** Phase 5/6 proving kit — demo company, multi-month close program, packaging, accountant acceptance. */
 export type ProvingFinanceAction =
   | 'proving.seed'
   | 'proving.close_fixture.run'
+  | 'proving.multi_month_close.run'
   | 'proving.packaging.dry_run'
+  | 'proving.acceptance_pack.export'
+  | 'proving.reset'
   | 'proving.checklist.read'
   | 'proving.checklist.toggle'
   | 'proving.read'
@@ -14,6 +17,7 @@ export type CloseBlockerCode =
   | 'incomplete_cutover'
   | 'open_ar_dispute'
   | 'missing_depreciation'
+  | 'open_intercompany'
 
 export type CloseBlocker = {
   code: CloseBlockerCode
@@ -56,6 +60,9 @@ export type DemoBankLine = {
   amountMinor: number
   currency: 'ZAR'
   matched: boolean
+  /** Period bucket for multi-month recon history. */
+  periodKey?: ProvingPeriodKey
+  statementRef?: string
 }
 
 export type DemoPayrollRun = {
@@ -80,6 +87,7 @@ export type DemoFxPosition = {
   rateScaled: number
   rateScale: number
   revaluationOpen: boolean
+  asOfPeriodKey?: ProvingPeriodKey
 }
 
 export type DemoAsset = {
@@ -100,6 +108,20 @@ export type DemoJobCost = {
   wipMinor: number
   billedMinor: number
   labourHours: number
+}
+
+/** Fixture IC (intercompany) marker — proving kit evidence, not live SARS/payment rail. */
+export type DemoIcTransaction = {
+  id: string
+  sourceEntityId: string
+  receivingEntityId: string
+  periodKey: ProvingPeriodKey
+  description: string
+  amountMinor: number
+  currency: 'ZAR'
+  status: 'proposed' | 'matched' | 'open'
+  dueToAccountCode: string
+  dueFromAccountCode: string
 }
 
 export type ReportFreezeSnapshot = {
@@ -143,7 +165,7 @@ export type PackagingDryRunResult = {
 }
 
 export type ProvingSeedSnapshot = {
-  schemaVersion: 1
+  schemaVersion: 1 | 2
   seedKey: string
   orgId: string
   companyName: string
@@ -176,6 +198,7 @@ export type ProvingSeedSnapshot = {
   fxPositions: DemoFxPosition[]
   assets: DemoAsset[]
   jobCosts: DemoJobCost[]
+  icTransactions: DemoIcTransaction[]
   hardGates: {
     sarsSubmissionInitiated: false
     externalPaymentInitiated: false
@@ -197,13 +220,80 @@ export type ProvingCloseRun = {
   freeze?: ReportFreezeSnapshot
   createdAt: string
   updatedAt: string
+  programId?: string
+}
+
+export type MultiMonthCloseProgramResult = {
+  id: string
+  orgId: string
+  seedKey: string
+  programKey: string
+  entityCodes: string[]
+  periodKeys: ProvingPeriodKey[]
+  status: 'blocked' | 'completed'
+  closeRunIds: string[]
+  closedPeriodCount: number
+  closedEntityCount: number
+  minClosedPeriodsRequired: number
+  minEntitiesRequired: number
+  packagingPackCount: number
+  evidence: {
+    icMatchedCount: number
+    fxClosedCount: number
+    payrollLockedCount: number
+    bankMatchedCount: number
+    bankHistoryPeriods: ProvingPeriodKey[]
+    freezeHashes: string[]
+  }
+  gaps: Array<{ code: string; summary: string; followUp?: string }>
+  hardGates: {
+    sarsSubmissionInitiated: false
+    externalPaymentInitiated: false
+    externalEgressAllowed: false
+    massEmailAllowed: false
+  }
+  createdAt: string
+  completedAt?: string
+}
+
+/** Downloadable accountant pack (checklist artifact for human sign-off — not wet signature product). */
+export type AcceptancePackExport = {
+  id: string
+  orgId: string
+  seedKey: string
+  programId?: string
+  title: string
+  exportedAt: string
+  exportedBy: string
+  format: 'markdown' | 'json'
+  markdown: string
+  json: Record<string, unknown>
+  checklist: AcceptanceCheckItem[]
+  signOff: {
+    accountantNameLine: string
+    firmNameLine: string
+    dateLine: string
+    signatureLine: string
+    notesLine: string
+    wetSignatureProduct: false
+  }
+  evidenceFolderPaths: string[]
+  hardGates: {
+    sarsSubmissionInitiated: false
+    externalPaymentInitiated: false
+    externalEgressAllowed: false
+    massEmailAllowed: false
+  }
+  contentSha256: string
 }
 
 export type ProvingWorkspace = {
   orgId: string
   seed?: ProvingSeedSnapshot
   closeRuns: ProvingCloseRun[]
+  multiMonthPrograms: MultiMonthCloseProgramResult[]
   packagingDryRuns: PackagingDryRunResult[]
   acceptanceChecklist: AcceptanceCheckItem[]
+  acceptancePackExports: AcceptancePackExport[]
   audit: Array<{ at: string; action: string; actorId: string; summary: string; externalEgressAllowed: false }>
 }

@@ -78,6 +78,24 @@ export interface ProjectPnLSectionLine {
   source: 'journal' | 'document'
 }
 
+export type JobCostAgingBucketKey = 'current' | 'd1_30' | 'd31_60' | 'd61_90' | 'd90_plus'
+
+export interface JobCostAgingBucket {
+  key: JobCostAgingBucketKey
+  label: string
+  amountMinor: number
+  count: number
+  applicationIds: string[]
+}
+
+export interface ProjectInvoiceCashSlice {
+  invoiceId: string
+  projectGrossMinor: number
+  invoiceTotalMinor: number
+  cashAppliedMinor: number
+  outstandingMinor: number
+}
+
 export interface ProjectProfitAndLossReport {
   kind: 'project_profit_and_loss'
   scope: JobCostingScope
@@ -90,6 +108,11 @@ export interface ProjectProfitAndLossReport {
   totalRevenueMinor: number
   totalCostMinor: number
   grossMarginMinor: number
+  /** Cash applied to project-tagged customer invoices (pro-rata by project line share). */
+  cashAppliedMinor: number
+  /** Remaining AR on project-tagged invoices (pro-rata). */
+  outstandingArMinor: number
+  invoiceCashSlices: ProjectInvoiceCashSlice[]
   journalEntryIds: string[]
   invoiceIds: string[]
   billIds: string[]
@@ -101,15 +124,65 @@ export interface ProjectWipReport {
   scope: JobCostingScope
   projectId: string
   asOfDate: string
-  /** Unbilled labor cost still held as WIP (time cost applications purpose=wip_cost). */
+  /** Unbilled labor cost still held as WIP (time cost applications purpose=wip_cost not yet released by draft invoice). */
   unbilledLaborCostMinor: number
+  /** Labor cost that had wip_cost then was released by draft_invoice_lines on the same time entries. */
+  releasedLaborCostMinor: number
   /** Recognized project revenue through as-of (from P&L). */
   recognizedRevenueMinor: number
   /** Recognized project cost through as-of (from P&L). */
   recognizedCostMinor: number
-  /** Simple WIP = unbilled labor cost (time costing) + max(0, recognizedCost - recognizedRevenue) optional add-on is not used; keep unbilled labor only. */
+  /** Open WIP = unbilled labor cost only. */
   wipMinor: number
   openTimeCostApplicationIds: string[]
+  /** Aging of still-open WIP applications by application createdAt date. */
+  aging: JobCostAgingBucket[]
+  inputDigest: string
+}
+
+export type JobCostClosedLoopStepId =
+  | 'quote_project'
+  | 'time_cost'
+  | 'wip'
+  | 'invoice'
+  | 'cash'
+
+export type JobCostClosedLoopStepStatus = 'missing' | 'pending' | 'open' | 'done' | 'blocked'
+
+export interface JobCostClosedLoopStep {
+  id: JobCostClosedLoopStepId
+  label: string
+  status: JobCostClosedLoopStepStatus
+  detail: string
+  refs: string[]
+}
+
+export interface JobCostClosedLoopTrace {
+  kind: 'job_cost_closed_loop'
+  scope: JobCostingScope
+  projectId: string
+  quoteId?: string
+  asOfDate: string
+  steps: JobCostClosedLoopStep[]
+  doubleBillGuards: {
+    wipClaimPerTimeEntry: true
+    draftInvoiceClaimPerTimeEntry: true
+    sourceInvoiceIdBlocksDraft: true
+  }
+  hardGates: {
+    externalEgressAllowed: false
+    externalPaymentInitiated: false
+    sarsSubmissionInitiated: false
+  }
+  totals: {
+    unbilledLaborCostMinor: number
+    releasedLaborCostMinor: number
+    totalRevenueMinor: number
+    totalCostMinor: number
+    grossMarginMinor: number
+    cashAppliedMinor: number
+    outstandingArMinor: number
+  }
   inputDigest: string
 }
 

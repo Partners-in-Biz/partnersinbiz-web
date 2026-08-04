@@ -5,7 +5,9 @@
 import assert from 'node:assert/strict'
 import { allowlistedJournalLine, buildReversalLines } from '../../lib/accounting/foundation'
 import {
+  buildJobCostClosedLoopTrace,
   buildProjectProfitAndLoss,
+  buildProjectWip,
   buildTimeCostLines,
   laborCostMinor,
 } from '../../lib/accounting/job-costing'
@@ -240,6 +242,104 @@ async function main() {
   })
   assert.equal(pnl.totalCostMinor, 20000)
 
+  const wipOpen = buildProjectWip({
+    scope: { orgId: 'org_1', legalEntityId: 'le_1', bookId: 'book_1' },
+    projectId: 'proj_a',
+    asOfDate: '2026-08-31',
+    applications: [app],
+    pnl,
+  })
+  assert.equal(wipOpen.unbilledLaborCostMinor, 20000)
+  assert.ok((wipOpen.aging || []).some((b) => b.amountMinor > 0))
+
+  const draft = await svc.applyTimeCost(actor, {
+    id: 'tca_draft',
+    orgId: 'org_1',
+    legalEntityId: 'le_1',
+    bookId: 'book_1',
+    purpose: 'draft_invoice_lines',
+    currency: 'ZAR',
+    revenueAccountId: 'acc_rev',
+    taxCodeId: 'tax',
+    expectedVersion: 0,
+    requestId: 'r_draft',
+    idempotencyKey: 'k_draft',
+    entries: [
+      {
+        timeEntryId: 'te_verify',
+        orgId: 'org_1',
+        projectId: 'proj_a',
+        billable: true,
+        durationMinutes: 60,
+        costRateMinorPerHour: 20000,
+        currency: 'ZAR',
+        endAt: '2026-08-01T00:00:00.000Z',
+        description: 'Build',
+      },
+    ],
+  })
+  assert.ok(draft.proposedInvoiceLines && draft.proposedInvoiceLines.length === 1)
+
+  let doubleDraftBlocked = false
+  try {
+    await svc.applyTimeCost(actor, {
+      id: 'tca_draft2',
+      orgId: 'org_1',
+      legalEntityId: 'le_1',
+      bookId: 'book_1',
+      purpose: 'draft_invoice_lines',
+      currency: 'ZAR',
+      revenueAccountId: 'acc_rev',
+      taxCodeId: 'tax',
+      expectedVersion: 0,
+      requestId: 'r_draft2',
+      idempotencyKey: 'k_draft2',
+      entries: [
+        {
+          timeEntryId: 'te_verify',
+          orgId: 'org_1',
+          projectId: 'proj_a',
+          billable: true,
+          durationMinutes: 60,
+          costRateMinorPerHour: 20000,
+          currency: 'ZAR',
+          endAt: '2026-08-01T00:00:00.000Z',
+        },
+      ],
+    })
+  } catch {
+    doubleDraftBlocked = true
+  }
+  assert.equal(doubleDraftBlocked, true)
+
+  const wipReleased = buildProjectWip({
+    scope: { orgId: 'org_1', legalEntityId: 'le_1', bookId: 'book_1' },
+    projectId: 'proj_a',
+    asOfDate: '2026-08-31',
+    applications: [app, draft],
+    pnl,
+  })
+  assert.equal(wipReleased.unbilledLaborCostMinor, 0)
+  assert.equal(wipReleased.releasedLaborCostMinor, 20000)
+
+  const trace = buildJobCostClosedLoopTrace({
+    scope: { orgId: 'org_1', legalEntityId: 'le_1', bookId: 'book_1' },
+    projectId: 'proj_a',
+    asOfDate: '2026-08-31',
+    quoteId: 'quo_v',
+    applications: [app, draft],
+    pnl: {
+      ...pnl,
+      cashAppliedMinor: 0,
+      outstandingArMinor: 0,
+      invoiceCashSlices: [],
+    },
+    wip: wipReleased,
+  })
+  assert.equal(trace.steps.find((s) => s.id === 'time_cost')?.status, 'done')
+  assert.equal(trace.steps.find((s) => s.id === 'invoice')?.status, 'done')
+  assert.equal(trace.hardGates.sarsSubmissionInitiated, false)
+
   console.log(
     JSON.stringify(
       {
@@ -247,7 +347,10 @@ async function main() {
         suite: 'job-costing',
         totalCostMinor: app.totalCostMinor,
         doubleBillingBlocked,
+        doubleDraftBlocked,
         projectCostMinor: pnl.totalCostMinor,
+        wipReleasedMinor: wipReleased.releasedLaborCostMinor,
+        closedLoopSteps: trace.steps.map((s) => s.id),
         externalPaymentInitiated: false,
         externalEgressAllowed: false,
         sarsSubmissionInitiated: false,

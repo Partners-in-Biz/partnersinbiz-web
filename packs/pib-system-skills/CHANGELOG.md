@@ -1,3 +1,8 @@
+## 0.1.6 — 2026-08-04
+
+- Add `workflow-graph-operator` (core): day-to-day Workflow Graph usage for pip/theo/nora/qa-release.
+- Residual diagnosis remains on profile skill `pib-workflow-graph-operations`.
+
 # Changelog
 
 ## 0.1.5 — 2026-07-30

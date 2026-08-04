@@ -54,6 +54,7 @@ describe('agent skill policy manifest', () => {
       'platform-admin-users',
       'reports',
       'project-management',
+      'workflow-graph-operator',
       'interactive-project-planning',
       'properties',
       'qa-release',

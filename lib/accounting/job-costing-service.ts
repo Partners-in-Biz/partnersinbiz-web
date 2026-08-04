@@ -10,6 +10,7 @@ import {
 } from './foundation'
 import {
   buildDraftInvoiceLinesFromTime,
+  buildJobCostClosedLoopTrace,
   buildProjectProfitAndLoss,
   buildProjectWip,
   buildTimeCostLines,
@@ -17,6 +18,7 @@ import {
   timeEntryClaimKey,
 } from './job-costing'
 import type {
+  JobCostClosedLoopTrace,
   JobCostingAuditEvent,
   JobCostingScope,
   ProjectProfitAndLossReport,
@@ -337,6 +339,64 @@ export class FinanceJobCostingService {
       applications: [...store.applications.values()],
       pnl,
     })
+  }
+
+  async closedLoop(
+    actor: FinanceActorContext,
+    input: {
+      orgId: string
+      legalEntityId: string
+      bookId: string
+      projectId: string
+      asOfDate: string
+      accountingBasis: AccountingBasis
+      fromDate?: string
+      quoteId?: string
+    },
+  ): Promise<{
+    trace: JobCostClosedLoopTrace
+    pnl: ProjectProfitAndLossReport
+    wip: ProjectWipReport
+  }> {
+    const store = await this.load()
+    const scope: JobCostingScope = {
+      orgId: input.orgId,
+      legalEntityId: input.legalEntityId,
+      bookId: input.bookId,
+    }
+    authorizeFinanceAction(actor, scope, 'job_costing.read', this.now())
+    parseCanonicalDate(input.asOfDate, 'asOfDate')
+    const fromDate = input.fromDate ?? '1970-01-01'
+    const pnl = await this.projectProfitAndLoss(
+      actor,
+      {
+        orgId: input.orgId,
+        legalEntityId: input.legalEntityId,
+        bookId: input.bookId,
+        projectId: input.projectId,
+        fromDate,
+        toDate: input.asOfDate,
+        accountingBasis: input.accountingBasis,
+      },
+      store,
+    )
+    const wip = buildProjectWip({
+      scope,
+      projectId: input.projectId,
+      asOfDate: input.asOfDate,
+      applications: [...store.applications.values()],
+      pnl,
+    })
+    const trace = buildJobCostClosedLoopTrace({
+      scope,
+      projectId: input.projectId,
+      asOfDate: input.asOfDate,
+      quoteId: input.quoteId,
+      applications: [...store.applications.values()],
+      pnl,
+      wip,
+    })
+    return { trace, pnl, wip }
   }
 
   async listApplications(

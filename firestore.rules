@@ -223,6 +223,13 @@ service cloud.firestore {
     match /finance_bank_feed_audit_events/{id} { allow read, write: if false; }
     match /finance_bank_feed_claims/{id} { allow read, write: if false; }
     match /finance_bank_feed_fingerprints/{id} { allow read, write: if false; }
+    match /finance_budgets/{id} { allow read, write: if false; }
+    match /finance_budget_forecasts/{id} { allow read, write: if false; }
+    match /finance_cashflow_plans/{id} { allow read, write: if false; }
+    match /finance_cash_scenarios/{id} { allow read, write: if false; }
+    match /finance_cash_scenario_comparisons/{id} { allow read, write: if false; }
+    match /finance_cash_scenario_snapshots/{id} { allow read, write: if false; }
+    match /finance_budgets_claims/{id} { allow read, write: if false; }
     match /reconciliations/{id} { allow read, write: if false; }
     match /reconciliation_matches/{id} { allow read, write: if false; }
     match /reconciliation_adjustments/{id} { allow read, write: if false; }
@@ -264,6 +271,12 @@ service cloud.firestore {
     match /asset_disposals/{id} { allow read, write: if false; }
     match /finance_assets_claims/{id} { allow read, write: if false; }
     match /finance_assets_idempotency/{id} { allow read, write: if false; }
+    match /finance_revenue_schedules/{id} { allow read, write: if false; }
+    match /finance_recognition_runs/{id} { allow read, write: if false; }
+    match /finance_revenue_recognition_audit/{id} { allow read, write: if false; }
+    match /finance_revenue_recognition_claims/{id} { allow read, write: if false; }
+    match /finance_revenue_recognition_idempotency/{id} { allow read, write: if false; }
+    match /finance_revenue_recognition_journal_markers/{id} { allow read, write: if false; }
     match /finance_inventory_items/{id} { allow read, write: if false; }
     match /finance_stock_movements/{id} { allow read, write: if false; }
     match /finance_stock_adjustments/{id} { allow read, write: if false; }
@@ -274,6 +287,9 @@ service cloud.firestore {
     match /finance_cogs_journal_markers/{id} { allow read, write: if false; }
     match /finance_operator_notifications/{id} { allow read, write: if false; }
     match /finance_practice_claims/{id} { allow read, write: if false; }
+    match /finance_practice_grants/{id} { allow read, write: if false; }
+    match /finance_practice_client_links/{id} { allow read, write: if false; }
+    match /finance_practice_grant_access_events/{id} { allow read, write: if false; }
     match /finance_operator_depth_claims/{id} { allow read, write: if false; }
     match /finance_operator_depth_audit/{id} { allow read, write: if false; }
     match /finance_operator_saved_views/{id} { allow read, write: if false; }
@@ -451,6 +467,12 @@ service cloud.firestore {
     // ── Agent Team (2026-05-13) ───────────────────────────────────────────────
     // Any authenticated user can read agent team docs (names, personas, status).
     // Only admins can write — all production writes go through Admin SDK / API routes.
+    match /finance_expense_claims/{id} { allow read, write: if false; }
+    match /finance_expense_claim_receipts/{id} { allow read, write: if false; }
+    match /finance_expense_claim_ocr_assists/{id} { allow read, write: if false; }
+    match /finance_expense_claim_audit_events/{id} { allow read, write: if false; }
+    match /finance_expense_claim_unique_keys/{id} { allow read, write: if false; }
+    match /finance_expense_claim_idempotency/{id} { allow read, write: if false; }
     match /finance_time_cost_applications/{id} { allow read, write: if false; }
     match /finance_time_cost_claims/{id} { allow read, write: if false; }
     match /finance_job_costing_audit_events/{id} { allow read, write: if false; }

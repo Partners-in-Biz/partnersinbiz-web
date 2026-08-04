@@ -1,13 +1,17 @@
 import type { FinanceActorContext } from '@/lib/finance/types'
 import { FinanceAuthorizationError } from '@/lib/finance/policy'
 import {
+  MULTI_MONTH_PROGRAM_KEY,
+  PROVING_EVIDENCE_FOLDER_PATHS,
   PROVING_SEED_KEY,
   buildAcceptanceChecklist,
+  buildAcceptancePackMarkdown,
   buildDemoArAp,
   buildDemoAssets,
   buildDemoBankLines,
   buildDemoEntities,
   buildDemoFx,
+  buildDemoIc,
   buildDemoJobCosts,
   buildDemoPayroll,
   defaultCloseBlockers,
@@ -58,6 +62,9 @@ describe('proving kit blueprint', () => {
     expect(buildDemoFx(entities).length).toBeGreaterThan(0)
     expect(buildDemoAssets(entities).length).toBeGreaterThan(0)
     expect(buildDemoJobCosts(entities).length).toBeGreaterThan(0)
+    expect(buildDemoIc(entities).length).toBeGreaterThanOrEqual(3)
+    expect(buildDemoBankLines(entities).filter((b) => b.periodKey).length).toBeGreaterThanOrEqual(6)
+    expect(buildDemoPayroll(entities).length).toBeGreaterThanOrEqual(6)
 
     const ops = entities.find((e) => e.code === 'OPS')!
     const blockers = defaultCloseBlockers({
@@ -65,13 +72,18 @@ describe('proving kit blueprint', () => {
       payrollRuns: buildDemoPayroll(entities),
       fxPositions: buildDemoFx(entities),
       assets: buildDemoAssets(entities),
+      icTransactions: buildDemoIc(entities),
       periodKey: '2026-07',
       entityId: ops.id,
       cutoverComplete: true,
     })
     expect(blockers.some((b) => !b.resolved)).toBe(true)
     expect(blockers.map((b) => b.code)).toEqual(
-      expect.arrayContaining(['unreconciled_bank', 'unapproved_pay_run', 'open_fx_revaluation']),
+      expect.arrayContaining([
+        'unreconciled_bank',
+        'unapproved_pay_run',
+        'open_intercompany',
+      ]),
     )
   })
 
@@ -96,10 +108,31 @@ describe('proving kit blueprint', () => {
 
   test('acceptance checklist is printable ordered steps', () => {
     const items = buildAcceptanceChecklist()
-    expect(items.length).toBeGreaterThanOrEqual(10)
+    expect(items.length).toBeGreaterThanOrEqual(14)
     expect(items.every((i, idx) => i.step === idx + 1)).toBe(true)
-    expect(items.filter((i) => i.required).length).toBeGreaterThan(5)
+    expect(items.filter((i) => i.required).length).toBeGreaterThan(8)
     expect(items.every((i) => i.checked === false)).toBe(true)
+    expect(items.some((i) => i.id === 'acc_12')).toBe(true)
+  })
+
+  test('acceptance pack markdown is sign-off artifact not wet signature product', () => {
+    const md = buildAcceptancePackMarkdown({
+      orgId: 'org_pib',
+      seedKey: PROVING_SEED_KEY,
+      companyName: 'Demo',
+      programId: 'mm_1',
+      exportedAt: '2026-08-03T12:00:00.000Z',
+      checklist: buildAcceptanceChecklist().slice(0, 3),
+      freezeHashes: ['abc'],
+      packagingDigests: ['def'],
+      evidenceFolderPaths: [...PROVING_EVIDENCE_FOLDER_PATHS],
+      gaps: [{ code: 'sample', summary: 'documented gap' }],
+    })
+    expect(md).toContain('External accountant acceptance pack')
+    expect(md).toContain('Wet-signature product: false')
+    expect(md).toContain('Accountant name')
+    expect(md).toContain('sample')
+    expect(PROVING_EVIDENCE_FOLDER_PATHS.length).toBeGreaterThan(5)
   })
 })
 
@@ -120,6 +153,7 @@ describe('proving kit service — seed idempotency + close + packaging', () => {
     expect(first.seed.fxPositions.length).toBeGreaterThan(0)
     expect(first.seed.assets.length).toBeGreaterThan(0)
     expect(first.seed.jobCosts.length).toBeGreaterThan(0)
+    expect(first.seed.icTransactions.length).toBeGreaterThan(0)
     expect(first.seed.hardGates.sarsSubmissionInitiated).toBe(false)
     expect(first.seed.hardGates.externalPaymentInitiated).toBe(false)
     expect(first.idempotentReplay).toBe(false)
@@ -247,3 +281,98 @@ describe('proving kit service — seed idempotency + close + packaging', () => {
     expect(new FinanceProvingService(async () => store, async () => undefined)).toBeInstanceOf(FinanceProvingService)
   })
 })
+
+describe('proving kit — multi-month close program + reset + acceptance pack', () => {
+  test('multi-month program closes ≥3 periods across ≥2 entities with evidence', async () => {
+    const svc = createInMemoryProvingService()
+    const admin = actor('u1', 'org_mm')
+    await svc.seedDemoCompany(admin, {
+      orgId: 'org_mm',
+      requestId: 's1',
+      idempotencyKey: 's1',
+    })
+    const blockedProg = await svc.runMultiMonthCloseProgram(admin, {
+      orgId: 'org_mm',
+      resolveBlockers: false,
+      runPackaging: false,
+      requestId: 'mm-block',
+      idempotencyKey: 'mm-block',
+    })
+    expect(blockedProg.program.status).toBe('blocked')
+
+    const completed = await svc.runMultiMonthCloseProgram(admin, {
+      orgId: 'org_mm',
+      entityCodes: ['OPS', 'SVC'],
+      periodKeys: ['2026-05', '2026-06', '2026-07'],
+      resolveBlockers: true,
+      runPackaging: true,
+      requestId: 'mm-ok',
+      idempotencyKey: 'mm-ok',
+    })
+    expect(completed.program.programKey).toBe(MULTI_MONTH_PROGRAM_KEY)
+    expect(completed.program.status).toBe('completed')
+    expect(completed.program.closedPeriodCount).toBeGreaterThanOrEqual(3)
+    expect(completed.program.closedEntityCount).toBeGreaterThanOrEqual(2)
+    expect(completed.program.closeRunIds.length).toBe(6)
+    expect(completed.program.packagingPackCount).toBe(ALL_PACKAGING_KINDS.length)
+    expect(completed.program.evidence.icMatchedCount).toBeGreaterThan(0)
+    expect(completed.program.evidence.payrollLockedCount).toBeGreaterThanOrEqual(6)
+    expect(completed.program.evidence.bankHistoryPeriods.length).toBeGreaterThanOrEqual(3)
+    expect(completed.program.evidence.freezeHashes.length).toBeGreaterThanOrEqual(6)
+    expect(completed.program.hardGates.sarsSubmissionInitiated).toBe(false)
+    expect(completed.program.hardGates.externalPaymentInitiated).toBe(false)
+    expect(completed.program.gaps.some((g) => g.code === 'ic_fixture_not_live_service')).toBe(true)
+
+    const pack = await svc.exportAcceptancePack(admin, {
+      orgId: 'org_mm',
+      programId: completed.program.id,
+      requestId: 'acc1',
+      idempotencyKey: 'acc1',
+    })
+    expect(pack.pack.signOff.wetSignatureProduct).toBe(false)
+    expect(pack.pack.markdown).toContain('Accountant name')
+    expect(pack.pack.contentSha256).toMatch(/^[a-f0-9]{64}$/)
+    expect(pack.pack.evidenceFolderPaths.length).toBeGreaterThan(5)
+    expect(pack.pack.hardGates.externalEgressAllowed).toBe(false)
+
+    const viewer: FinanceActorContext = {
+      uid: 'v1',
+      orgId: 'org_mm',
+      membershipRole: 'member',
+      membershipActive: true,
+      financeModuleEnabled: true,
+      assignments: [
+        {
+          id: 'asg_v',
+          orgId: 'org_mm',
+          userId: 'v1',
+          legalEntityId: 'le',
+          scopeMode: 'entity',
+          role: 'finance_viewer',
+          status: 'active',
+        },
+      ],
+    }
+    await expect(
+      svc.resetDemoCompany(viewer, {
+        orgId: 'org_mm',
+        confirm: true,
+        requestId: 'rst-v',
+        idempotencyKey: 'rst-v',
+      }),
+    ).rejects.toBeInstanceOf(FinanceAuthorizationError)
+
+    const reset = await svc.resetDemoCompany(admin, {
+      orgId: 'org_mm',
+      confirm: true,
+      requestId: 'rst',
+      idempotencyKey: 'rst',
+    })
+    expect(reset.reset).toBe(true)
+    const bundle = await svc.getBundle(admin, 'org_mm')
+    expect(bundle.workspace.seed).toBeUndefined()
+    expect(bundle.workspace.closeRuns).toHaveLength(0)
+    expect(bundle.workspace.multiMonthPrograms).toHaveLength(0)
+  })
+})
+

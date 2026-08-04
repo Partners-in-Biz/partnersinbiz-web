@@ -43,6 +43,7 @@ describe('finance workbench delivery contract', () => {
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/foundation workbench shipped/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/documents/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/payroll/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/ESS|employee self-service/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/personal/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/cross-org/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/statement/i)
@@ -53,6 +54,7 @@ describe('finance workbench delivery contract', () => {
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/bank-feeds|bank feed/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/inventory/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/proving/i)
+    expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/revenue recognition|revenue-recognition/i)
     expect(FINANCE_UI_BOUNDARY_NOTE).toMatch(/Interactive portal workbenches/i)
   })
 
@@ -63,6 +65,7 @@ describe('finance workbench delivery contract', () => {
       'app/(portal)/portal/finance/tax/page.tsx',
       'app/(portal)/portal/finance/reports/page.tsx',
       'app/(portal)/portal/finance/payroll/page.tsx',
+      'app/(portal)/portal/finance/ess/page.tsx',
       'app/(portal)/portal/finance/intercompany/page.tsx',
       'app/(portal)/portal/finance/ledger/page.tsx',
       'app/(portal)/portal/finance/personal/page.tsx',
@@ -79,9 +82,11 @@ describe('finance workbench delivery contract', () => {
       'app/(portal)/portal/finance/bank-feeds/page.tsx',
       'app/(portal)/portal/finance/budgets/page.tsx',
       'app/(portal)/portal/finance/assets/page.tsx',
+      'app/(portal)/portal/finance/revenue-recognition/page.tsx',
       'app/(portal)/portal/finance/period-close/page.tsx',
       'app/(portal)/portal/finance/runbooks/page.tsx',
       'app/(portal)/portal/finance/proving/page.tsx',
+    'app/(portal)/portal/finance/expense-claims/page.tsx',
     ]
     for (const rel of pages) {
       expect(existsSync(path.join(root, rel))).toBe(true)

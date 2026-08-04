@@ -4,8 +4,11 @@ import {
   BankFeedFinanceService,
   createEmptyBankFeedStore,
   type BankFeedStore,
+  type BulkResolveBankFeedSuggestionsCommand,
   type CreateBankFeedConnectionCommand,
   type DisconnectBankFeedCommand,
+  type ReconnectBankFeedCommand,
+  type RefreshBankFeedAccountsCommand,
   type ResolveBankFeedSuggestionCommand,
   type SyncBankFeedCommand,
 } from './service'
@@ -107,6 +110,14 @@ export class FirestoreBankFeedFinanceGateway {
     return this.service(command.orgId).disconnectConnection(actor, command)
   }
 
+  reconnectConnection(actor: FinanceActorContext, command: ReconnectBankFeedCommand) {
+    return this.service(command.orgId).reconnectConnection(actor, command)
+  }
+
+  refreshLinkedAccounts(actor: FinanceActorContext, command: RefreshBankFeedAccountsCommand) {
+    return this.service(command.orgId).refreshLinkedAccounts(actor, command)
+  }
+
   syncNow(actor: FinanceActorContext, command: SyncBankFeedCommand) {
     return this.service(command.orgId).syncNow(actor, command)
   }
@@ -119,8 +130,29 @@ export class FirestoreBankFeedFinanceGateway {
     return this.service(command.orgId).dismissSuggestion(actor, command)
   }
 
+  bulkResolveSuggestions(actor: FinanceActorContext, command: BulkResolveBankFeedSuggestionsCommand) {
+    return this.service(command.orgId).bulkResolveSuggestions(actor, command)
+  }
+
+  materializeReconContinuity(
+    actor: FinanceActorContext,
+    command: {
+      orgId: string
+      legalEntityId: string
+      bookId: string
+      requestId: string
+      idempotencyKey: string
+    },
+  ) {
+    return this.service(command.orgId).materializeReconContinuity(actor, command)
+  }
+
   getBundle(actor: FinanceActorContext, orgId: string, legalEntityId: string, bookId: string) {
     return this.service(orgId).getBundle(actor, orgId, legalEntityId, bookId)
+  }
+
+  getReconCentre(actor: FinanceActorContext, orgId: string, legalEntityId: string, bookId: string) {
+    return this.service(orgId).getReconCentre(actor, orgId, legalEntityId, bookId)
   }
 
   listProviderAccounts(
@@ -132,8 +164,11 @@ export class FirestoreBankFeedFinanceGateway {
 }
 
 export type {
+  BulkResolveBankFeedSuggestionsCommand,
   CreateBankFeedConnectionCommand,
   DisconnectBankFeedCommand,
+  ReconnectBankFeedCommand,
+  RefreshBankFeedAccountsCommand,
   ResolveBankFeedSuggestionCommand,
   SyncBankFeedCommand,
 }

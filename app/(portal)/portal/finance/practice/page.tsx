@@ -32,7 +32,19 @@ type Bundle = {
   notifications: FinanceOperatorNotification[]
   auditEvents: PracticeAuditEventView[]
   practiceClients: Array<Record<string, any>>
-  safety: { noSarsSubmit: true; noExternalPaymentInitiate: true; tenantScoped: true }
+  grants?: Array<Record<string, any>>
+  myGrants?: Array<Record<string, any>>
+  clientLinks?: Array<Record<string, any>>
+  practiceQueue?: Array<Record<string, any>>
+  grantAccessEvents?: Array<Record<string, any>>
+  safety: {
+    noSarsSubmit: true
+    noExternalPaymentInitiate: true
+    tenantScoped: true
+    clientVisibleMessagesAllowed?: false
+    externalEgressAllowed?: false
+    practiceGrantsEnabled?: true
+  }
 }
 
 const ROLE_OPTIONS: FinanceRole[] = [
@@ -44,6 +56,9 @@ const ROLE_OPTIONS: FinanceRole[] = [
   'payroll_approver',
   'finance_admin',
 ]
+
+const GRANT_ROLE_OPTIONS = ['prepare', 'review', 'file-export'] as const
+type GrantRoleOption = (typeof GRANT_ROLE_OPTIONS)[number]
 
 export default function FinancePracticePage() {
   const searchParams = useSearchParams()
@@ -68,6 +83,15 @@ export default function FinancePracticePage() {
   const [assignRole, setAssignRole] = useState<FinanceRole>('bookkeeper')
   const [scopeMode, setScopeMode] = useState<'entity' | 'book'>('entity')
   const [matrixQuery, setMatrixQuery] = useState('')
+
+  const [linkClientOrgId, setLinkClientOrgId] = useState('')
+  const [linkClientName, setLinkClientName] = useState('')
+  const [linkOpenPeriods, setLinkOpenPeriods] = useState('0')
+  const [linkCloseBlockers, setLinkCloseBlockers] = useState('0')
+  const [linkReconBacklog, setLinkReconBacklog] = useState('0')
+  const [grantClientOrgId, setGrantClientOrgId] = useState('')
+  const [grantUserId, setGrantUserId] = useState('')
+  const [grantRole, setGrantRole] = useState<GrantRoleOption>('prepare')
 
   const queryUrl = useCallback(() => {
     const q = new URLSearchParams()
@@ -149,6 +173,56 @@ export default function FinancePracticePage() {
     })
   }
 
+  async function upsertClientLink() {
+    await withBusy(async () => {
+      const id = newFinanceId('plink')
+      const ids = requestIdentity('plink')
+      await runCommand('practice.client_link.upsert', {
+        id,
+        firmOrgId: orgId,
+        clientOrgId: linkClientOrgId.trim(),
+        clientName: linkClientName.trim() || linkClientOrgId.trim(),
+        openPeriodCount: Number(linkOpenPeriods) || 0,
+        closeBlockerCount: Number(linkCloseBlockers) || 0,
+        reconBacklogCount: Number(linkReconBacklog) || 0,
+        ...ids,
+      })
+      setMessage(`Linked client ${linkClientOrgId.trim()}`)
+      setLinkClientOrgId('')
+      setLinkClientName('')
+    })
+  }
+
+  async function createPracticeGrant() {
+    await withBusy(async () => {
+      const id = newFinanceId('pgrant')
+      const ids = requestIdentity('pgrant')
+      await runCommand('practice.grant.create', {
+        id,
+        firmOrgId: orgId,
+        clientOrgId: grantClientOrgId.trim(),
+        granteeUserId: grantUserId.trim(),
+        role: grantRole,
+        ...ids,
+      })
+      setMessage(`Granted ${grantRole} on ${grantClientOrgId.trim()} to ${grantUserId.trim()}`)
+      setGrantUserId('')
+    })
+  }
+
+  async function revokePracticeGrant(id: string) {
+    await withBusy(async () => {
+      const ids = requestIdentity('pgrev')
+      await runCommand('practice.grant.revoke', {
+        id,
+        firmOrgId: orgId,
+        reason: 'Revoked from practice workspace',
+        ...ids,
+      })
+      setMessage(`Revoked practice grant ${id}`)
+    })
+  }
+
   async function markNotification(id: string, status: 'read' | 'dismissed') {
     await withBusy(async () => {
       const ids = requestIdentity('ntf')
@@ -220,6 +294,8 @@ export default function FinancePracticePage() {
   const clientCount = bundle?.practiceClients?.length ?? 0
   const assignmentCount = bundle?.assignments?.length ?? 0
   const auditCount = bundle?.auditEvents?.length ?? 0
+  const grantCount = (bundle?.grants ?? []).filter((g) => g.status === 'active').length
+  const queueHigh = (bundle?.practiceQueue ?? []).filter((q) => q.severity === 'high').length
 
   const filteredNotifications = useMemo(
     () =>
@@ -241,7 +317,7 @@ export default function FinancePracticePage() {
       active="practice"
       orgScope={orgScope}
       title="Practice & roles"
-      description="Role matrix, multi-client switcher, polished notification centre, and dense audit explorer with CSV export. Tenant-scoped — no SARS submit, no payment initiate, no client mass email."
+      description="Role matrix, multi-client switcher, firm→client grants (prepare/review/file-export), practice queue, polished notification centre, and dense audit explorer with CSV export. Tenant-scoped — no SARS submit, no payment initiate, no client mass email, packaging egress closed."
       error={error}
       message={message}
       meta={
@@ -250,6 +326,7 @@ export default function FinancePracticePage() {
           <HudChip>No external payment initiate</HudChip>
           <HudChip>Tenant scoped</HudChip>
           <HudChip>Practice switcher</HudChip>
+          <HudChip>Firm→client grants</HudChip>
           <HudChip>Audit CSV</HudChip>
         </div>
       }
@@ -262,8 +339,10 @@ export default function FinancePracticePage() {
 
       {orgId && (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="practice-stats">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" data-testid="practice-stats">
             <StatCard label="Practice clients" value={clientCount} detail="Memberships with finance module" icon="swap_horiz" />
+            <StatCard label="Active grants" value={grantCount} detail="Firm→client ACL" icon="key" />
+            <StatCard label="Queue high" value={queueHigh} detail="Close blockers first" icon="priority_high" />
             <StatCard label="Role assignments" value={assignmentCount} detail="Active + revoked in this org" icon="badge" />
             <StatCard label="Unread notices" value={unreadCount} detail="In-app operator inbox" icon="notifications" />
             <StatCard label="Audit rows" value={auditCount} detail="Filtered explorer page" icon="policy" />
@@ -411,6 +490,198 @@ export default function FinancePracticePage() {
                     </li>
                   ))}
                 </ul>
+              )}
+            </Card>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2" data-testid="practice-grants" id="grants">
+            <Card className="space-y-3 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-base font-semibold">Firm→client grants</h2>
+                <HudChip>Beyond membership</HudChip>
+              </div>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">
+                Grant firm staff prepare / review / file-export on client books without full client org membership.
+                Access is audited; revoke is immediate. No client-visible messages; packaging egress stays closed.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="block text-sm">
+                  Client org id (link)
+                  <input
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                    value={linkClientOrgId}
+                    onChange={(e) => setLinkClientOrgId(e.target.value)}
+                    placeholder="client_org_..."
+                    aria-label="Practice client org id"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Client name
+                  <input
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                    value={linkClientName}
+                    onChange={(e) => setLinkClientName(e.target.value)}
+                    placeholder="Acme Books"
+                    aria-label="Practice client name"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Open periods
+                  <input
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                    value={linkOpenPeriods}
+                    onChange={(e) => setLinkOpenPeriods(e.target.value)}
+                    aria-label="Open period count"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Close blockers
+                  <input
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                    value={linkCloseBlockers}
+                    onChange={(e) => setLinkCloseBlockers(e.target.value)}
+                    aria-label="Close blocker count"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Recon backlog
+                  <input
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                    value={linkReconBacklog}
+                    onChange={(e) => setLinkReconBacklog(e.target.value)}
+                    aria-label="Recon backlog count"
+                  />
+                </label>
+              </div>
+              <Button
+                size="sm"
+                disabled={busy || !orgId || !linkClientOrgId.trim()}
+                onClick={() => void upsertClientLink()}
+              >
+                Upsert client link
+              </Button>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <label className="block text-sm sm:col-span-1">
+                  Grant client org
+                  <input
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                    value={grantClientOrgId}
+                    onChange={(e) => setGrantClientOrgId(e.target.value)}
+                    placeholder="client_org_..."
+                    aria-label="Grant client org id"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Grantee user id
+                  <input
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                    value={grantUserId}
+                    onChange={(e) => setGrantUserId(e.target.value)}
+                    placeholder="uid_..."
+                    aria-label="Grant grantee user id"
+                  />
+                </label>
+                <label className="block text-sm">
+                  Role
+                  <select
+                    className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-transparent px-3 py-2"
+                    value={grantRole}
+                    onChange={(e) => setGrantRole(e.target.value as GrantRoleOption)}
+                    aria-label="Practice grant role"
+                  >
+                    {GRANT_ROLE_OPTIONS.map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <Button
+                size="sm"
+                disabled={busy || !orgId || !grantClientOrgId.trim() || !grantUserId.trim()}
+                onClick={() => void createPracticeGrant()}
+              >
+                Create grant
+              </Button>
+              {(bundle?.grants ?? []).length === 0 ? (
+                <p className="text-sm text-[var(--color-pib-text-muted)]">No firm→client grants yet.</p>
+              ) : (
+                <ul className="max-h-64 space-y-2 overflow-auto" data-testid="practice-grant-list">
+                  {(bundle?.grants ?? []).map((g) => (
+                    <li
+                      key={g.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-sm"
+                      data-testid={`practice-grant-${g.id}`}
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium">
+                          {g.role} → {g.granteeUserId}
+                        </div>
+                        <div className="text-xs text-[var(--color-pib-text-muted)]">
+                          {g.clientOrgId} · {g.status}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <HudChip>{g.status}</HudChip>
+                        {g.status === 'active' && (
+                          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void revokePracticeGrant(g.id)}>
+                            Revoke
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            <Card className="space-y-3 p-4" data-testid="practice-queue">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-base font-semibold">Practice queue</h2>
+                <HudChip>Attention first</HudChip>
+              </div>
+              <p className="text-xs text-[var(--color-pib-text-muted)]">
+                Clients needing attention: close blockers, open periods, recon backlog. Preserves multi-entity and cross-org confirm models.
+              </p>
+              {(bundle?.practiceQueue ?? []).length === 0 ? (
+                <p className="text-sm text-[var(--color-pib-text-muted)]">No linked clients in the firm queue.</p>
+              ) : (
+                <ul className="max-h-80 space-y-2 overflow-auto">
+                  {(bundle?.practiceQueue ?? []).map((item) => (
+                    <li
+                      key={item.clientOrgId}
+                      className="rounded-lg border border-[var(--color-pib-line)] px-3 py-2 text-sm"
+                      data-testid={`practice-queue-${item.clientOrgId}`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium">{item.clientName}</span>
+                        <div className="flex flex-wrap gap-1">
+                          <HudChip tone={item.severity === 'high' ? 'warning' : undefined}>{item.severity}</HudChip>
+                          <HudChip>{item.attention}</HudChip>
+                        </div>
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">{item.summary}</p>
+                      <div className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                        {item.clientOrgId} · grants {(item.grantIds as string[] | undefined)?.length ?? 0}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {(bundle?.grantAccessEvents ?? []).length > 0 && (
+                <div className="border-t border-[var(--color-pib-line)] pt-3" data-testid="practice-grant-access">
+                  <h3 className="text-sm font-semibold">Recent grant access audit</h3>
+                  <ul className="mt-2 max-h-40 space-y-1 overflow-auto text-xs text-[var(--color-pib-text-muted)]">
+                    {(bundle?.grantAccessEvents ?? []).slice(0, 12).map((e) => (
+                      <li key={e.id}>
+                        {e.occurredAt} · {e.action} · {e.clientOrgId}
+                        {e.financeAction ? ` · ${e.financeAction}` : ''}
+                        {e.reason ? ` · ${e.reason}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </Card>
           </section>

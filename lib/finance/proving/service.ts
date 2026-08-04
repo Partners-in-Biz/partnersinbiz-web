@@ -17,15 +17,19 @@ import { FinanceAuthorizationError } from '@/lib/finance/policy'
 import type { FinanceActorContext } from '@/lib/finance/types'
 import {
   COA_TEMPLATE,
+  MULTI_MONTH_PROGRAM_KEY,
   PROVING_COMPANY_NAME,
+  PROVING_EVIDENCE_FOLDER_PATHS,
   PROVING_PERIODS,
   PROVING_SEED_KEY,
   buildAcceptanceChecklist,
+  buildAcceptancePackMarkdown,
   buildDemoArAp,
   buildDemoAssets,
   buildDemoBankLines,
   buildDemoEntities,
   buildDemoFx,
+  buildDemoIc,
   buildDemoJobCosts,
   buildDemoPayroll,
   defaultCloseBlockers,
@@ -35,6 +39,8 @@ import {
 } from './demo-blueprint'
 import type {
   AcceptanceCheckItem,
+  AcceptancePackExport,
+  MultiMonthCloseProgramResult,
   PackagingDryRunResult,
   ProvingCloseRun,
   ProvingFinanceAction,
@@ -87,8 +93,10 @@ function emptyWorkspace(orgId: string): ProvingWorkspace {
   return {
     orgId,
     closeRuns: [],
+    multiMonthPrograms: [],
     packagingDryRuns: [],
     acceptanceChecklist: buildAcceptanceChecklist(),
+    acceptancePackExports: [],
     audit: [],
   }
 }
@@ -124,7 +132,11 @@ export function authorizeProvingAction(
   if (actor.orgId !== orgId) throw new FinanceAuthorizationError('Actor organization does not match finance scope')
   if (!actor.financeModuleEnabled) throw new FinanceAuthorizationError('Persisted Finance module capability is required')
   const write = action !== 'proving.read' && action !== 'proving.checklist.read'
-  if (write && !hasWriteRole(actor, orgId)) {
+  if (action === 'proving.reset') {
+    if (actor.membershipRole !== 'owner' && actor.membershipRole !== 'admin') {
+      throw new FinanceAuthorizationError('Org owner/admin required for proving.reset (dev/staging only)')
+    }
+  } else if (write && !hasWriteRole(actor, orgId)) {
     throw new FinanceAuthorizationError(`Finance role or org admin required for ${action}`)
   }
   if (!write && !hasReadRole(actor, orgId)) {
@@ -204,6 +216,30 @@ export type ToggleChecklistCommand = {
   orgId: string
   itemId: string
   checked: boolean
+  requestId: string
+  idempotencyKey: string
+}
+
+export type RunMultiMonthCloseCommand = {
+  orgId: string
+  entityCodes?: string[]
+  periodKeys?: ProvingPeriodKey[]
+  resolveBlockers?: boolean
+  runPackaging?: boolean
+  requestId: string
+  idempotencyKey: string
+}
+
+export type ResetProvingCommand = {
+  orgId: string
+  confirm: true
+  requestId: string
+  idempotencyKey: string
+}
+
+export type ExportAcceptancePackCommand = {
+  orgId: string
+  programId?: string
   requestId: string
   idempotencyKey: string
 }
@@ -483,7 +519,7 @@ export class FinanceProvingService {
     }
 
     const seed: ProvingSeedSnapshot = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       seedKey,
       orgId,
       companyName: PROVING_COMPANY_NAME,
@@ -499,6 +535,7 @@ export class FinanceProvingService {
       fxPositions: buildDemoFx(entities),
       assets: buildDemoAssets(entities),
       jobCosts: buildDemoJobCosts(entities),
+      icTransactions: buildDemoIc(entities),
       hardGates: {
         sarsSubmissionInitiated: false,
         externalPaymentInitiated: false,
@@ -551,9 +588,14 @@ export class FinanceProvingService {
     let assets = seed.assets
     let cutoverComplete = true
 
+    let icTransactions = seed.icTransactions ?? []
+
     if (command.resolveBlockers) {
       bankLines = bankLines.map((b) =>
-        b.entityId === entity.id ? { ...b, matched: true } : b,
+        b.entityId === entity.id &&
+        (b.periodKey === undefined || b.periodKey === periodKey)
+          ? { ...b, matched: true }
+          : b,
       )
       payrollRuns = payrollRuns.map((p) =>
         p.entityId === entity.id && p.periodKey === periodKey
@@ -561,10 +603,19 @@ export class FinanceProvingService {
           : p,
       )
       fxPositions = fxPositions.map((f) =>
-        f.entityId === entity.id ? { ...f, revaluationOpen: false } : f,
+        f.entityId === entity.id &&
+        (f.asOfPeriodKey === undefined || f.asOfPeriodKey === periodKey)
+          ? { ...f, revaluationOpen: false }
+          : f,
       )
       assets = assets.map((a) =>
         a.entityId === entity.id ? { ...a, depreciationPostedThrough: periodKey } : a,
+      )
+      icTransactions = icTransactions.map((ic) =>
+        ic.periodKey === periodKey &&
+        (ic.sourceEntityId === entity.id || ic.receivingEntityId === entity.id)
+          ? { ...ic, status: 'matched' as const }
+          : ic,
       )
       cutoverComplete = true
     }
@@ -574,6 +625,7 @@ export class FinanceProvingService {
       payrollRuns,
       fxPositions,
       assets,
+      icTransactions,
       periodKey,
       entityId: entity.id,
       cutoverComplete,
@@ -602,15 +654,61 @@ export class FinanceProvingService {
         ...actorWithEntity({ ...actor, uid: approverUid }, entity.id, 'finance_approver'),
         membershipRole: 'admin',
       }
+
+      // Reload live period from foundation store (seed projection can lag under multi-month nesting).
+      // FinanceFoundationService has no public getPeriod; read the in-memory period map when present.
+      let liveVersion = period.version
+      let liveStatus = period.status
+      try {
+        const store = foundation as { periods?: Map<string, { version: number; status: typeof period.status }> }
+        const live = store.periods?.get(period.id)
+        if (live) {
+          liveVersion = live.version
+          liveStatus = live.status
+        }
+      } catch {
+        // fall through with seed projection
+      }
+
+      if (liveStatus === 'hard_closed') {
+        const periodJournals = seed.journals.filter(
+          (j) => j.entityId === entity.id && j.periodKey === periodKey,
+        )
+        const lines = [
+          {
+            accountCode: '1100',
+            debitMinor: periodJournals.reduce((n, j) => n + j.debitMinor, 0),
+            creditMinor: 0,
+          },
+          {
+            accountCode: '4000',
+            debitMinor: 0,
+            creditMinor: periodJournals.reduce((n, j) => n + j.creditMinor, 0),
+          },
+        ]
+        const freeze = freezeTrialBalance({
+          periodKey,
+          entityId: entity.id,
+          bookId: entity.bookId,
+          frozenAt: now,
+          lines,
+          journalCount: periodJournals.length,
+        })
+        closeRun.freeze = freeze
+        closeRun.status = 'reports_frozen'
+        closeRun.closedAt = now
+        period.status = 'hard_closed'
+        period.version = liveVersion
+      } else {
       const closeCmd = {
         orgId: command.orgId,
         legalEntityId: entity.id,
         bookId: entity.bookId,
         periodId: period.id,
         status: 'hard_closed' as const,
-        expectedVersion: period.version,
+        expectedVersion: liveVersion,
         reason: 'Proving kit multi-period close',
-        approvalId: `close_appr_${period.id}`,
+        approvalId: `close_appr_${period.id}_${sha256Hex(command.idempotencyKey).slice(0, 8)}`,
         requestId: command.requestId,
         idempotencyKey: `close-${command.idempotencyKey}`,
       }
@@ -623,7 +721,7 @@ export class FinanceProvingService {
         subjectDigest: financeApprovalSubjectDigest('period.close', closeCmd),
         reason: 'Proving close approved',
         expectedVersion: 0,
-        ...req(`close-appr-${period.id}`),
+        ...req(`close-appr-${period.id}-${sha256Hex(command.idempotencyKey).slice(0, 8)}`),
       })
       const closedPeriod = await foundationService.changePeriodStatus(adminScoped, closeCmd)
       period.status = closedPeriod.status
@@ -657,7 +755,7 @@ export class FinanceProvingService {
       closeRun.closedAt = now
 
       // Invariant: posting into hard-closed period must fail
-      const rejectId = `${entity.bookId}_jnl_post_close_reject`
+      const rejectId = `${entity.bookId}_jnl_post_close_reject_${periodKey}_${sha256Hex(command.idempotencyKey).slice(0, 8)}`
       const rejectCmd = {
         id: rejectId,
         orgId: command.orgId,
@@ -665,7 +763,7 @@ export class FinanceProvingService {
         bookId: entity.bookId,
         periodId: period.id,
         sourceType: 'manual' as const,
-        sourceId: `post-close-${periodKey}`,
+        sourceId: `post-close-${periodKey}-${command.idempotencyKey}`,
         sourceVersion: 1,
         postingPurpose: 'manual_adjustment',
         entryType: 'standard' as const,
@@ -675,7 +773,7 @@ export class FinanceProvingService {
         currency: 'ZAR',
         policyVersionId: `${entity.bookId}_policy_v1`,
         expectedVersion: 0 as const,
-        ...req(`post-close-${period.id}`),
+        ...req(`post-close-${period.id}-${sha256Hex(command.idempotencyKey).slice(0, 8)}`),
         approvalId: `${rejectId}_appr`,
         lines: [
           { accountId: `${entity.bookId}_acc_5000`, debitMinor: 100, creditMinor: 0 },
@@ -691,7 +789,7 @@ export class FinanceProvingService {
         subjectDigest: financeApprovalSubjectDigest('journal.post', rejectCmd),
         reason: 'Attempt post-close',
         expectedVersion: 0,
-        ...req(`post-close-appr-${period.id}`),
+        ...req(`post-close-appr-${period.id}-${sha256Hex(command.idempotencyKey).slice(0, 8)}`),
       })
       try {
         await foundationService.postJournal(adminScoped, rejectCmd)
@@ -701,12 +799,14 @@ export class FinanceProvingService {
         if (!(error instanceof FinanceValidationError) && !(error instanceof Error)) throw error
         // expected: hard closed / soft closed rejection
       }
+      } // end else (period not already hard_closed)
     }
 
     seed.bankLines = bankLines
     seed.payrollRuns = payrollRuns
     seed.fxPositions = fxPositions
     seed.assets = assets
+    seed.icTransactions = icTransactions
     seed.periods = seed.periods.map((p) =>
       p.id === period.id ? { ...p, status: period.status, version: period.version } : p,
     )
@@ -727,6 +827,308 @@ export class FinanceProvingService {
     after.workspaces.set(command.orgId, next)
     await this.save(before, after)
     return { closeRun, idempotentReplay: false }
+  }
+
+
+  async runMultiMonthCloseProgram(actor: FinanceActorContext, command: RunMultiMonthCloseCommand) {
+    authorizeProvingAction(actor, command.orgId, 'proving.multi_month_close.run')
+    const before = await this.load()
+    const claim = `proving_idem:${command.orgId}:${command.idempotencyKey}`
+    if (before.claims.has(claim)) {
+      const program = before.workspaces.get(command.orgId)?.multiMonthPrograms.at(-1)
+      if (!program) throw new ProvingFinanceValidationError('Idempotency claim present without multi-month program')
+      return { program, idempotentReplay: true }
+    }
+    if (!before.workspaces.get(command.orgId)?.seed) {
+      throw new ProvingFinanceValidationError('Seed demo company before multi-month close program')
+    }
+
+    const entityCodes = command.entityCodes?.length ? command.entityCodes : ['OPS', 'SVC']
+    const periodKeys = command.periodKeys?.length ? command.periodKeys : [...PROVING_PERIODS]
+    const resolveBlockers = command.resolveBlockers !== false
+    const runPackaging = command.runPackaging !== false
+    const programId = `mmclose_${sha256Hex(command.idempotencyKey).slice(0, 10)}`
+    const createdAt = this.now()
+    const closeRunIds: string[] = []
+    const freezeHashes: string[] = []
+    let lastStatus: MultiMonthCloseProgramResult['status'] = 'completed'
+
+    // Sequential closes via internal fixture (each has own idempotency)
+    let working = before
+    for (const entityCode of entityCodes) {
+      for (const periodKey of periodKeys) {
+        const stepKey = `${command.idempotencyKey}:${entityCode}:${periodKey}`
+        const stepService = new FinanceProvingService(
+          async () => working,
+          async (_b, after) => {
+            working = after
+          },
+          () => this.now(),
+        )
+        const step = await stepService.runCloseFixture(actor, {
+          orgId: command.orgId,
+          entityCode,
+          periodKey,
+          resolveBlockers,
+          requestId: `${command.requestId}:${entityCode}:${periodKey}`,
+          idempotencyKey: stepKey,
+        })
+        closeRunIds.push(step.closeRun.id)
+        if (step.closeRun.freeze?.trialBalanceHash) freezeHashes.push(step.closeRun.freeze.trialBalanceHash)
+        if (step.closeRun.status === 'blocked') lastStatus = 'blocked'
+      }
+    }
+
+    let packagingPackCount = 0
+    if (runPackaging && lastStatus === 'completed') {
+      const packService = new FinanceProvingService(
+        async () => working,
+        async (_b, after) => {
+          working = after
+        },
+        () => this.now(),
+      )
+      const packs = await packService.packagingDryRun(actor, {
+        orgId: command.orgId,
+        requestId: `${command.requestId}:pack`,
+        idempotencyKey: `${command.idempotencyKey}:pack`,
+      })
+      packagingPackCount = packs.packs.length
+    }
+
+    const ws = working.workspaces.get(command.orgId)
+    if (!ws?.seed) throw new ProvingFinanceValidationError('Workspace missing after multi-month program')
+    const seed = ws.seed
+    const entityIds = new Set(
+      seed.entities.filter((e) => entityCodes.includes(e.code)).map((e) => e.id),
+    )
+    const closedEntityIds = new Set(
+      seed.periods
+        .filter((p) => entityIds.has(p.entityId) && p.status === 'hard_closed' && periodKeys.includes(p.periodKey))
+        .map((p) => p.entityId),
+    )
+    const closedPeriodKeys = new Set(
+      seed.periods
+        .filter((p) => entityIds.has(p.entityId) && p.status === 'hard_closed' && periodKeys.includes(p.periodKey))
+        .map((p) => p.periodKey),
+    )
+    const bankHistoryPeriods = Array.from(
+      new Set(
+        seed.bankLines
+          .map((b) => b.periodKey)
+          .filter((k): k is ProvingPeriodKey => Boolean(k)),
+      ),
+    ).sort() as ProvingPeriodKey[]
+
+    const gaps: MultiMonthCloseProgramResult['gaps'] = [
+      {
+        code: 'ic_fixture_not_live_service',
+        summary:
+          'IC evidence is proving-kit fixture markers (matched due-to/due-from), not a full live intercompany propose/receive journal chain in this program path.',
+        followUp: 'Optional follow-up: wire proving multi-month program through FinanceIntercompanyService for OPS↔SVC.',
+      },
+      {
+        code: 'proving_store_process_local',
+        summary:
+          'ProvingFinanceGateway store is process-local (dev/staging fixture), not durable multi-instance Firestore workspace state.',
+        followUp: 'Acceptable for accountant sitting on one runtime; durable demo org is a later ops choice.',
+      },
+    ]
+    if (lastStatus === 'blocked') {
+      gaps.push({
+        code: 'program_blocked',
+        summary: 'One or more entity/period close fixtures remained blocked.',
+        followUp: 'Re-run with resolveBlockers=true after reviewing blocker codes.',
+      })
+    }
+    if (closedPeriodKeys.size < 3 || closedEntityIds.size < 2) {
+      gaps.push({
+        code: 'coverage_short',
+        summary: `Closed periods=${closedPeriodKeys.size}, entities=${closedEntityIds.size}; world-class bar is ≥3 periods × ≥2 entities.`,
+      })
+      lastStatus = 'blocked'
+    }
+
+    const program: MultiMonthCloseProgramResult = {
+      id: programId,
+      orgId: command.orgId,
+      seedKey: seed.seedKey,
+      programKey: MULTI_MONTH_PROGRAM_KEY,
+      entityCodes,
+      periodKeys,
+      status: lastStatus,
+      closeRunIds,
+      closedPeriodCount: closedPeriodKeys.size,
+      closedEntityCount: closedEntityIds.size,
+      minClosedPeriodsRequired: 3,
+      minEntitiesRequired: 2,
+      packagingPackCount,
+      evidence: {
+        icMatchedCount: (seed.icTransactions ?? []).filter((i) => i.status === 'matched').length,
+        fxClosedCount: seed.fxPositions.filter((f) => !f.revaluationOpen).length,
+        payrollLockedCount: seed.payrollRuns.filter((p) => p.status === 'approved_locked').length,
+        bankMatchedCount: seed.bankLines.filter((b) => b.matched).length,
+        bankHistoryPeriods,
+        freezeHashes,
+      },
+      gaps,
+      hardGates: {
+        sarsSubmissionInitiated: false,
+        externalPaymentInitiated: false,
+        externalEgressAllowed: false,
+        massEmailAllowed: false,
+      },
+      createdAt,
+      completedAt: this.now(),
+    }
+
+    // Stamp programId onto close runs created in this program
+    const after = cloneProvingStore(working)
+    after.claims.add(claim)
+    const next = after.workspaces.get(command.orgId) ?? emptyWorkspace(command.orgId)
+    next.closeRuns = next.closeRuns.map((r) =>
+      closeRunIds.includes(r.id) ? { ...r, programId } : r,
+    )
+    next.multiMonthPrograms = [...(next.multiMonthPrograms ?? []), program]
+    next.audit.push({
+      at: this.now(),
+      action: 'proving.multi_month_close.run',
+      actorId: actor.uid,
+      summary: `Multi-month program ${programId} → ${program.status} (periods=${program.closedPeriodCount}, entities=${program.closedEntityCount})`,
+      externalEgressAllowed: false,
+    })
+    after.workspaces.set(command.orgId, next)
+    await this.save(before, after)
+    return { program, idempotentReplay: false }
+  }
+
+  async resetDemoCompany(actor: FinanceActorContext, command: ResetProvingCommand) {
+    authorizeProvingAction(actor, command.orgId, 'proving.reset')
+    if (command.confirm !== true) {
+      throw new ProvingFinanceValidationError('proving.reset requires confirm=true (admin/dev only)')
+    }
+    const before = await this.load()
+    const claim = `proving_idem:${command.orgId}:${command.idempotencyKey}`
+    if (before.claims.has(claim)) {
+      return { reset: true, idempotentReplay: true }
+    }
+    const after = cloneProvingStore(before)
+    after.claims.add(claim)
+    after.workspaces.set(command.orgId, emptyWorkspace(command.orgId))
+    after.foundationByOrg.delete(command.orgId)
+    // Drop org-scoped idempotency claims except the reset claim itself
+    for (const c of Array.from(after.claims)) {
+      if (c.startsWith(`proving_idem:${command.orgId}:`) && c !== claim) after.claims.delete(c)
+    }
+    const ws = after.workspaces.get(command.orgId)!
+    ws.audit.push({
+      at: this.now(),
+      action: 'proving.reset',
+      actorId: actor.uid,
+      summary: 'Proving workspace reset (admin/dev deterministic seed path)',
+      externalEgressAllowed: false,
+    })
+    after.workspaces.set(command.orgId, ws)
+    await this.save(before, after)
+    return { reset: true as const, idempotentReplay: false }
+  }
+
+  async exportAcceptancePack(actor: FinanceActorContext, command: ExportAcceptancePackCommand) {
+    authorizeProvingAction(actor, command.orgId, 'proving.acceptance_pack.export')
+    const before = await this.load()
+    const claim = `proving_idem:${command.orgId}:${command.idempotencyKey}`
+    if (before.claims.has(claim)) {
+      const pack = before.workspaces.get(command.orgId)?.acceptancePackExports.at(-1)
+      if (!pack) throw new ProvingFinanceValidationError('Idempotency claim present without acceptance pack')
+      return { pack, idempotentReplay: true }
+    }
+    const ws = before.workspaces.get(command.orgId)
+    if (!ws?.seed) throw new ProvingFinanceValidationError('Seed demo company before acceptance pack export')
+    const program =
+      (command.programId
+        ? ws.multiMonthPrograms?.find((p) => p.id === command.programId)
+        : ws.multiMonthPrograms?.at(-1)) ?? undefined
+    const checklist = ws.acceptanceChecklist.length ? ws.acceptanceChecklist : buildAcceptanceChecklist()
+    const freezeHashes =
+      program?.evidence.freezeHashes ??
+      ws.closeRuns.map((r) => r.freeze?.trialBalanceHash).filter((h): h is string => Boolean(h))
+    const packagingDigests = ws.packagingDryRuns.map((p) => p.sampleSha256).slice(0, 20)
+    const gaps = (program?.gaps ?? []).map((g) => ({ code: g.code, summary: g.summary }))
+    const exportedAt = this.now()
+    const markdown = buildAcceptancePackMarkdown({
+      orgId: command.orgId,
+      seedKey: ws.seed.seedKey,
+      companyName: ws.seed.companyName,
+      programId: program?.id,
+      exportedAt,
+      checklist,
+      freezeHashes,
+      packagingDigests,
+      evidenceFolderPaths: [...PROVING_EVIDENCE_FOLDER_PATHS],
+      gaps,
+    })
+    const json: Record<string, unknown> = {
+      title: 'External accountant acceptance pack',
+      orgId: command.orgId,
+      seedKey: ws.seed.seedKey,
+      programId: program?.id ?? null,
+      exportedAt,
+      checklist,
+      freezeHashes,
+      packagingDigests,
+      evidenceFolderPaths: [...PROVING_EVIDENCE_FOLDER_PATHS],
+      gaps,
+      hardGates: {
+        sarsSubmissionInitiated: false,
+        externalPaymentInitiated: false,
+        externalEgressAllowed: false,
+        massEmailAllowed: false,
+      },
+      wetSignatureProduct: false,
+    }
+    const pack: AcceptancePackExport = {
+      id: `accpack_${sha256Hex(command.idempotencyKey).slice(0, 10)}`,
+      orgId: command.orgId,
+      seedKey: ws.seed.seedKey,
+      programId: program?.id,
+      title: 'External accountant acceptance pack — multi-month close',
+      exportedAt,
+      exportedBy: actor.uid,
+      format: 'markdown',
+      markdown,
+      json,
+      checklist,
+      signOff: {
+        accountantNameLine: '_______________________________',
+        firmNameLine: '_______________________________',
+        dateLine: '_______________________________',
+        signatureLine: '_______________________________',
+        notesLine: '_______________________________',
+        wetSignatureProduct: false,
+      },
+      evidenceFolderPaths: [...PROVING_EVIDENCE_FOLDER_PATHS],
+      hardGates: {
+        sarsSubmissionInitiated: false,
+        externalPaymentInitiated: false,
+        externalEgressAllowed: false,
+        massEmailAllowed: false,
+      },
+      contentSha256: sha256Hex(markdown),
+    }
+    const after = cloneProvingStore(before)
+    after.claims.add(claim)
+    const next = after.workspaces.get(command.orgId) ?? emptyWorkspace(command.orgId)
+    next.acceptancePackExports = [...(next.acceptancePackExports ?? []), pack]
+    next.audit.push({
+      at: exportedAt,
+      action: 'proving.acceptance_pack.export',
+      actorId: actor.uid,
+      summary: `Acceptance pack ${pack.id} sha=${pack.contentSha256.slice(0, 12)}`,
+      externalEgressAllowed: false,
+    })
+    after.workspaces.set(command.orgId, next)
+    await this.save(before, after)
+    return { pack, idempotentReplay: false }
   }
 
   async packagingDryRun(actor: FinanceActorContext, command: PackagingDryRunCommand) {

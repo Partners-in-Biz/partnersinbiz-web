@@ -1181,3 +1181,39 @@
 [data-tip][data-tip-side='left']:focus-visible::after {
   transform: translateY(-50%) scale(1);
 }
+
+/* Finance operator tables — density + focus (WCAG-minded via design tokens). */
+.pib-finance-table {
+  color: var(--color-pib-text);
+}
+.pib-finance-table .finance-table-cell {
+  color: inherit;
+}
+.pib-finance-table[data-density='comfortable'] .finance-table-cell,
+.pib-finance-table--comfortable .finance-table-cell {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+.pib-finance-table[data-density='dense'] .finance-table-cell,
+.pib-finance-table--dense .finance-table-cell {
+  padding-top: 0.2rem;
+  padding-bottom: 0.2rem;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+/* Dense mode never collapses mobile card padding (touch targets). */
+.pib-finance-table[data-testid='finance-responsive-table'] [data-testid='finance-table-mobile'] article {
+  padding: 0.75rem;
+}
+.pib-finance-table tr:focus-visible,
+.pib-finance-table article:focus-visible {
+  outline: 2px solid var(--color-pib-accent, var(--color-pib-text));
+  outline-offset: 2px;
+}
+.pib-finance-table thead {
+  color: var(--color-pib-text-muted);
+  background: var(--color-pib-surface);
+}
+.pib-finance-table tbody tr {
+  border-color: var(--color-pib-line);
+}

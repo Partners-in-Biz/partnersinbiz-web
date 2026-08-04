@@ -1,7 +1,7 @@
 {
   "packName": "pib-system-skills",
-  "packVersion": "0.1.5",
-  "catalogVersion": "2026-07-30.system-skills-v0.1.5",
+  "packVersion": "0.1.6",
+  "catalogVersion": "2026-08-04.system-skills-v0.1.6",
   "minApiVersion": "2026-07-23",
   "channel": "stable",
   "decisions": {
@@ -27,6 +27,7 @@
         "client-manager",
         "crm-sales",
         "project-management",
+        "workflow-graph-operator",
         "interactive-project-planning",
         "platform-ops",
         "agent-runtime-ops",
@@ -387,6 +388,13 @@
       "risk": "high",
       "requiredScopes": [],
       "summary": "LLM provider credential connections, device-code OAuth (xAI Grok, OpenAI Codex), and org/user-scoped Hermes VPS credential sync (route-mapped 2026-07-23; request/response shapes still to confirm)."
+    },
+    "workflow-graph-operator": {
+      "tier": "core",
+      "owner": "pip",
+      "risk": "medium",
+      "requiredScopes": [],
+      "summary": "Day-to-day Workflow Graph operator: prod templates, start/list/inspect runs, opt-in Kanban sequencer usage. Residual/build stays on pib-workflow-graph-operations."
     }
   },
   "verificationContract": {

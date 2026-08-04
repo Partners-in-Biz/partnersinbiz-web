@@ -4,7 +4,11 @@ import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { FinanceModuleFrame, FinanceEmptyScope } from '@/components/finance/FinanceModuleFrame'
 import { FinanceScopeBar } from '@/components/finance/FinanceScopeBar'
-import { scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { FinanceResponsiveTable } from '@/components/finance/FinanceResponsiveTable'
+import {
+  FinanceOperatorTableChrome,
+  useFinanceTableDensity,
+} from '@/components/finance/FinanceOperatorTableChrome'
 import {
   formatMinor,
   newFinanceId,
@@ -35,6 +39,7 @@ type DocumentsBundle = {
 
 export default function FinanceDocumentsPage() {
   const scope = useFinanceBookScope()
+  const { density, setDensity } = useFinanceTableDensity()
   const [busy, setBusy] = useState(false)
   const [bundle, setBundle] = useState<DocumentsBundle | null>(null)
 
@@ -459,86 +464,193 @@ export default function FinanceDocumentsPage() {
             </div>
           </section>
 
+          <section className="pib-card space-y-3 p-4">
+            <FinanceOperatorTableChrome
+              surface="documents"
+              density={density}
+              onDensityChange={setDensity}
+            />
+          </section>
+
           <section className="grid gap-4 xl:grid-cols-2">
             <div className="pib-card p-4">
               <h2 className="mb-3 text-base font-semibold">Invoices</h2>
-              {(bundle?.invoices || []).length === 0 ? (
-                <p className="text-sm text-[var(--color-pib-text-muted)]">No accounting invoices yet.</p>
-              ) : (
-                <ul className="max-h-80 space-y-2 overflow-y-auto text-sm">
-                  {bundle!.invoices.map((inv) => (
-                    <li key={inv.id} className="flex items-start justify-between gap-3 border-b border-[var(--color-pib-line)] pb-2">
-                      <div>
-                        <p className="font-medium">{inv.documentNumber || inv.id} · {inv.status}</p>
-                        <p className="text-xs text-[var(--color-pib-text-muted)]">{inv.issueDate} · {formatMinor(inv.totalMinor ?? inv.grossMinor, inv.currency || currency)}</p>
-                      </div>
-                      {inv.status === 'draft' ? (
-                        <button type="button" className="pib-btn-ghost" disabled={busy} onClick={() => void issueInvoice(inv)}>Issue</button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <FinanceResponsiveTable
+                ariaLabel="Customer invoices"
+                density={density}
+                onDensityChange={setDensity}
+                rows={(bundle?.invoices || []) as Array<Record<string, any> & { id: string }>}
+                getRowLabel={(inv) => String(inv.documentNumber || inv.id)}
+                emptyTitle="No customer invoices yet"
+                emptyDescription="Create a draft invoice above, then issue when ready. No external payment initiate."
+                columns={[
+                  {
+                    key: 'doc',
+                    header: 'Document',
+                    render: (inv) => (
+                      <span className="font-medium">{inv.documentNumber || inv.id} · {inv.status}</span>
+                    ),
+                  },
+                  {
+                    key: 'meta',
+                    header: 'Date / amount',
+                    render: (inv) => (
+                      <span className="text-[var(--color-pib-text-muted)]">
+                        {inv.issueDate} · {formatMinor(inv.totalMinor ?? inv.grossMinor, inv.currency || currency)}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'actions',
+                    header: 'Actions',
+                    render: (inv) =>
+                      inv.status === 'draft' ? (
+                        <button
+                          type="button"
+                          className="pib-btn-ghost"
+                          disabled={busy}
+                          onClick={() => void issueInvoice(inv)}
+                        >
+                          Issue
+                        </button>
+                      ) : (
+                        '—'
+                      ),
+                  },
+                ]}
+              />
             </div>
 
             <div className="pib-card p-4">
               <h2 className="mb-3 text-base font-semibold">Payments</h2>
-              {(bundle?.payments || []).length === 0 ? (
-                <p className="text-sm text-[var(--color-pib-text-muted)]">No observed payments yet.</p>
-              ) : (
-                <ul className="max-h-80 space-y-2 overflow-y-auto text-sm">
-                  {bundle!.payments.map((pay) => (
-                    <li key={pay.id} className="flex items-start justify-between gap-3 border-b border-[var(--color-pib-line)] pb-2">
-                      <div>
-                        <p className="font-medium">{pay.direction} · {pay.status}</p>
-                        <p className="text-xs text-[var(--color-pib-text-muted)]">{pay.observedDate} · {formatMinor(pay.amountMinor, pay.currency || currency)}</p>
-                      </div>
-                      {pay.status === 'observed' ? (
-                        <button type="button" className="pib-btn-ghost" disabled={busy} onClick={() => void verifyPayment(pay)}>Verify</button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <FinanceResponsiveTable
+                ariaLabel="Observed payments"
+                density={density}
+                onDensityChange={setDensity}
+                rows={(bundle?.payments || []) as Array<Record<string, any> & { id: string }>}
+                getRowLabel={(pay) => `${pay.direction} ${pay.id}`}
+                emptyTitle="No observed payments yet"
+                emptyDescription="Observe an external payment above. Verification never initiates payout."
+                columns={[
+                  {
+                    key: 'dir',
+                    header: 'Direction',
+                    render: (pay) => (
+                      <span className="font-medium">
+                        {pay.direction} · {pay.status}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'meta',
+                    header: 'Date / amount',
+                    render: (pay) => (
+                      <span className="text-[var(--color-pib-text-muted)]">
+                        {pay.observedDate} · {formatMinor(pay.amountMinor, pay.currency || currency)}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'actions',
+                    header: 'Actions',
+                    render: (pay) =>
+                      pay.status === 'observed' ? (
+                        <button
+                          type="button"
+                          className="pib-btn-ghost"
+                          disabled={busy}
+                          onClick={() => void verifyPayment(pay)}
+                        >
+                          Verify
+                        </button>
+                      ) : (
+                        '—'
+                      ),
+                  },
+                ]}
+              />
             </div>
 
             <div className="pib-card p-4">
               <h2 className="mb-3 text-base font-semibold">Bank transactions</h2>
-              {(bundle?.bankTransactions || []).length === 0 ? (
-                <p className="text-sm text-[var(--color-pib-text-muted)]">Import statement lines to start matching.</p>
-              ) : (
-                <ul className="max-h-80 space-y-2 overflow-y-auto text-sm">
-                  {bundle!.bankTransactions.map((txn) => (
-                    <li key={txn.id} className="border-b border-[var(--color-pib-line)] pb-2">
-                      <p className="font-medium">{txn.description}</p>
-                      <p className="text-xs text-[var(--color-pib-text-muted)]">{txn.statementDate} · {formatMinor(txn.amountMinor, currency)} · {txn.reconciliationState || 'unmatched'}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <FinanceResponsiveTable
+                ariaLabel="Bank transactions"
+                density={density}
+                onDensityChange={setDensity}
+                rows={(bundle?.bankTransactions || []) as Array<Record<string, any> & { id: string }>}
+                getRowLabel={(txn) => String(txn.description || txn.id)}
+                emptyTitle="No bank transactions yet"
+                emptyDescription="Import statement lines to start matching."
+                columns={[
+                  {
+                    key: 'desc',
+                    header: 'Description',
+                    render: (txn) => <span className="font-medium">{txn.description}</span>,
+                  },
+                  {
+                    key: 'meta',
+                    header: 'Date / amount / state',
+                    render: (txn) => (
+                      <span className="text-[var(--color-pib-text-muted)]">
+                        {txn.statementDate} · {formatMinor(txn.amountMinor, currency)} ·{' '}
+                        {txn.reconciliationState || 'unmatched'}
+                      </span>
+                    ),
+                  },
+                ]}
+              />
             </div>
 
             <div className="pib-card p-4">
               <h2 className="mb-3 text-base font-semibold">Reconciliations</h2>
-              {(bundle?.reconciliations || []).length === 0 ? (
-                <p className="text-sm text-[var(--color-pib-text-muted)]">No reconciliations yet.</p>
-              ) : (
-                <ul className="max-h-80 space-y-2 overflow-y-auto text-sm">
-                  {bundle!.reconciliations.map((recon) => (
-                    <li key={recon.id} className="flex items-start justify-between gap-3 border-b border-[var(--color-pib-line)] pb-2">
-                      <div>
-                        <p className="font-medium">{recon.status} · diff {formatMinor(recon.differenceMinor, currency)}</p>
-                        <p className="text-xs text-[var(--color-pib-text-muted)]">{recon.statementStartsAt} → {recon.statementEndsAt}</p>
-                      </div>
-                      {recon.status === 'open' || recon.status === 'in_progress' ? (
-                        <button type="button" className="pib-btn-ghost" disabled={busy} onClick={() => void submitRecon(recon)}>Submit</button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <FinanceResponsiveTable
+                ariaLabel="Bank reconciliations"
+                density={density}
+                onDensityChange={setDensity}
+                rows={(bundle?.reconciliations || []) as Array<Record<string, any> & { id: string }>}
+                getRowLabel={(recon) => `${recon.status} ${recon.id}`}
+                emptyTitle="No reconciliations yet"
+                emptyDescription="Start a reconciliation above, then match and submit with SOD approval."
+                columns={[
+                  {
+                    key: 'status',
+                    header: 'Status',
+                    render: (recon) => (
+                      <span className="font-medium">
+                        {recon.status} · diff {formatMinor(recon.differenceMinor, currency)}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'window',
+                    header: 'Statement window',
+                    render: (recon) => (
+                      <span className="text-[var(--color-pib-text-muted)]">
+                        {recon.statementStartsAt} → {recon.statementEndsAt}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: 'actions',
+                    header: 'Actions',
+                    render: (recon) =>
+                      recon.status === 'open' || recon.status === 'in_progress' ? (
+                        <button
+                          type="button"
+                          className="pib-btn-ghost"
+                          disabled={busy}
+                          onClick={() => void submitRecon(recon)}
+                        >
+                          Submit
+                        </button>
+                      ) : (
+                        '—'
+                      ),
+                  },
+                ]}
+              />
             </div>
-          </section>
+                    </section>
 
           <section className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">
             Open items: {(bundle?.openItems || []).length}. Match bank lines to payments via API operation <code>reconciliation.match</code>, then submit and approve with foundation approval evidence (SOD). Approval never auto-sends money.

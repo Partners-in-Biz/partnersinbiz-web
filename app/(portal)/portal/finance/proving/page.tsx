@@ -41,6 +41,15 @@ type Bundle = {
         immutable: boolean
       }
     }>
+    multiMonthPrograms?: Array<{
+      id: string
+      status: string
+      closedPeriodCount: number
+      closedEntityCount: number
+      packagingPackCount: number
+      entityCodes: string[]
+      periodKeys: string[]
+    }>
     packagingDryRuns: Array<{
       kind: string
       family: string
@@ -60,6 +69,7 @@ type Bundle = {
       required: boolean
       checked: boolean
     }>
+    acceptancePackExports?: Array<{ id: string; contentSha256: string; title: string }>
     audit: Array<{ at: string; action: string; summary: string }>
   }
   seedDigest: string | null
@@ -192,6 +202,42 @@ export default function FinanceProvingKitPage() {
     })
   }
 
+  async function runMultiMonth() {
+    await withBusy(async () => {
+      const body = await runCommand('proving.multi_month_close.run', {
+        entityCodes: ['OPS', 'SVC'],
+        periodKeys: ['2026-05', '2026-06', '2026-07'],
+        resolveBlockers: true,
+        runPackaging: true,
+        ...requestIdentity('prov-mm'),
+      })
+      const p = body?.data?.result?.program
+      setMessage(
+        `Multi-month program ${p?.status ?? '?'}: periods=${p?.closedPeriodCount ?? 0}, entities=${p?.closedEntityCount ?? 0}, packs=${p?.packagingPackCount ?? 0}.`,
+      )
+    })
+  }
+
+  async function exportAcceptance() {
+    await withBusy(async () => {
+      const body = await runCommand('proving.acceptance_pack.export', {
+        ...requestIdentity('prov-acc'),
+      })
+      const sha = body?.data?.result?.pack?.contentSha256?.slice?.(0, 12)
+      setMessage(`Acceptance pack exported (sign-off artifact). sha=${sha ?? 'ok'}`)
+    })
+  }
+
+  async function resetWorkspace() {
+    await withBusy(async () => {
+      await runCommand('proving.reset', {
+        confirm: true,
+        ...requestIdentity('prov-reset'),
+      })
+      setMessage('Proving workspace reset (admin/dev). Re-seed to continue.')
+    })
+  }
+
   async function toggleCheck(itemId: string, checked: boolean) {
     await withBusy(async () => {
       await runCommand('proving.checklist.toggle', {
@@ -209,6 +255,8 @@ export default function FinanceProvingKitPage() {
 
   const seed = bundle?.workspace.seed
   const latestClose = bundle?.workspace.closeRuns?.[bundle.workspace.closeRuns.length - 1]
+  const latestProgram = bundle?.workspace.multiMonthPrograms?.[bundle.workspace.multiMonthPrograms.length - 1]
+  const latestAccPack = bundle?.workspace.acceptancePackExports?.[bundle.workspace.acceptancePackExports.length - 1]
   const packs = bundle?.workspace.packagingDryRuns ?? []
   const checklist = bundle?.workspace.acceptanceChecklist ?? []
   const requiredDone = checklist.filter((i) => i.required && i.checked).length
@@ -219,13 +267,13 @@ export default function FinanceProvingKitPage() {
       active="proving"
       orgScope={orgScope}
       title="Finance proving kit"
-      description="Deterministic demo company, multi-period close fixture, packaging dry-run, and accountant acceptance checklist. Development/staging proof path — no SARS submit, no payment initiate."
+      description="Deterministic demo company, multi-month close program (≥3 periods × ≥2 entities), packaging dry-run, and accountant acceptance pack export. Development/staging proof path — no SARS submit, no payment initiate."
       loading={loading}
       error={error}
       message={message}
       meta={
         <div className="flex flex-wrap items-center gap-1.5">
-          <HudChip tone="accent">Phase 5 proving kit</HudChip>
+          <HudChip tone="accent">Phase 6 multi-month</HudChip>
           <HudChip>No SARS submit</HudChip>
           <HudChip>No external payout</HudChip>
           <HudChip>Idempotent seed</HudChip>
@@ -293,13 +341,23 @@ export default function FinanceProvingKitPage() {
               <Button variant="secondary" size="sm" disabled={busy} onClick={() => void runPackaging()} data-testid="proving-pack-btn">
                 Packaging dry-run
               </Button>
+              <Button variant="primary" size="sm" disabled={busy} onClick={() => void runMultiMonth()} data-testid="proving-mm-btn">
+                Multi-month close program
+              </Button>
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void exportAcceptance()} data-testid="proving-acc-btn">
+                Export acceptance pack
+              </Button>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={() => void resetWorkspace()} data-testid="proving-reset-btn">
+                Reset (admin)
+              </Button>
               <Button variant="ghost" size="sm" disabled={busy} onClick={() => void loadBundle()}>
                 Refresh
               </Button>
             </div>
             <p className="text-xs text-[var(--color-pib-text-muted)]">
-              Seed is idempotent per org + seed key and posts foundation journals. Close fixture shows blockers, then hard-closes OPS 2026-07
-              and freezes TB. Packaging builds realistic SARS / payment / accountant files with initiate flags forced false.
+              Seed is idempotent per org + seed key and posts foundation journals with IC/FX/payroll/bank history. Single close fixture still
+              covers OPS 2026-07 blockers. Multi-month program hard-closes OPS+SVC across May–July, freezes TB each period, runs packaging,
+              and exports a human sign-off checklist artifact (not wet signature). Reset is owner/admin only.
             </p>
             {bundle?.seedDigest ? (
               <p className="text-xs text-[var(--color-pib-text-muted)]">Seed digest: {bundle.seedDigest}</p>
@@ -334,9 +392,30 @@ export default function FinanceProvingKitPage() {
             </Card>
           ) : null}
 
+          {latestProgram ? (
+            <Card className="space-y-3 p-5" data-testid="proving-multi-month">
+              <h2 className="text-base font-semibold">Multi-month close program</h2>
+              <div className="flex flex-wrap gap-1.5">
+                <HudChip tone="accent">{latestProgram.status}</HudChip>
+                <HudChip>
+                  {latestProgram.closedPeriodCount} periods · {latestProgram.closedEntityCount} entities
+                </HudChip>
+                <HudChip>packs {latestProgram.packagingPackCount}</HudChip>
+              </div>
+              <p className="text-sm text-[var(--color-pib-text-muted)]">
+                {latestProgram.entityCodes?.join(', ')} × {latestProgram.periodKeys?.join(', ')} · id {latestProgram.id}
+              </p>
+              {latestAccPack ? (
+                <p className="text-xs text-[var(--color-pib-text-muted)]">
+                  Acceptance pack {latestAccPack.id} sha {latestAccPack.contentSha256}
+                </p>
+              ) : null}
+            </Card>
+          ) : null}
+
           {latestClose ? (
             <Card className="space-y-3 p-5" data-testid="proving-close-fixture">
-              <h2 className="text-base font-semibold">Multi-period close fixture</h2>
+              <h2 className="text-base font-semibold">Latest close fixture</h2>
               <div className="flex flex-wrap gap-1.5">
                 <HudChip tone="accent">{latestClose.status}</HudChip>
                 <HudChip>{latestClose.periodKey}</HudChip>

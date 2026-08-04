@@ -1,0 +1,212 @@
+{
+  "title": "External accountant acceptance pack",
+  "orgId": "org_verify_proving",
+  "seedKey": "pib-demo-proving-v1",
+  "programId": "mmclose_6bf27ccff5",
+  "exportedAt": "2026-08-03T15:00:00.000Z",
+  "checklist": [
+    {
+      "id": "acc_1",
+      "section": "Environment",
+      "step": 1,
+      "title": "Confirm development/staging tenant",
+      "detail": "Org is non-production. Finance module enabled. No main/prod deploy planned from this run.",
+      "evidenceHint": "Portal URL + orgId chip",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_2",
+      "section": "Seed",
+      "step": 2,
+      "title": "Run deterministic proving seed",
+      "detail": "Multi-entity HOLD/OPS/SVC books, COA, three periods, sample AR/AP, bank, payroll, FX, assets, job costing dims.",
+      "evidenceHint": "Seed snapshot seedKey + entity codes",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_3",
+      "section": "Seed",
+      "step": 3,
+      "title": "Re-run seed is idempotent",
+      "detail": "Second seed with same seedKey returns identical snapshot digest without duplicate journals.",
+      "evidenceHint": "Jest proving-domain or UI re-seed message",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_4",
+      "section": "Close",
+      "step": 4,
+      "title": "Open period has activity",
+      "detail": "Posted journals exist in the target period before close.",
+      "evidenceHint": "Ledger journal count > 0",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_5",
+      "section": "Close",
+      "step": 5,
+      "title": "Close checklist shows real blockers",
+      "detail": "Unreconciled bank / unapproved pay run / open FX reval / incomplete cutover / missing depreciation block close.",
+      "evidenceHint": "Close run status=blocked with unresolved codes",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_6",
+      "section": "Close",
+      "step": 6,
+      "title": "Resolve blockers then hard-close",
+      "detail": "After resolving blockers, period transitions to hard_closed with approval evidence.",
+      "evidenceHint": "Close run status=closed + period.status",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_7",
+      "section": "Close",
+      "step": 7,
+      "title": "Reports freeze after close",
+      "detail": "Trial balance freeze snapshot hash is stable; further ordinary posts to hard-closed period fail.",
+      "evidenceHint": "freeze.trialBalanceHash + rejected post",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_8",
+      "section": "Packaging",
+      "step": 8,
+      "title": "Dry-run SARS EMP201 pack",
+      "detail": "Download pack contains realistic PAYE/UIF/SDL rows. sarsSubmissionInitiated remains false.",
+      "evidenceHint": "packaging dry-run file list + hard gates",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_9",
+      "section": "Packaging",
+      "step": 9,
+      "title": "Dry-run payment instruction pack",
+      "detail": "EFT instruction CSV/JSON generated. externalPaymentInitiated remains false.",
+      "evidenceHint": "payment.eft_instructions dry-run",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_10",
+      "section": "Packaging",
+      "step": 10,
+      "title": "Dry-run accountant pack set",
+      "detail": "Trial balance, GL, open items, audit extract packs download with content.",
+      "evidenceHint": "accountant.* dry-run rowCount > 0",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_11",
+      "section": "Hard gates",
+      "step": 11,
+      "title": "Hard gates still false",
+      "detail": "No SARS submit, no external payment initiate, no mass email, externalEgressAllowed=false across seed/close/packs.",
+      "evidenceHint": "hardGates object on snapshot + packs",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_12",
+      "section": "Multi-month",
+      "step": 12,
+      "title": "Run multi-month close program (≥3 periods × ≥2 entities)",
+      "detail": "OPS+SVC (or equivalent) close 2026-05/06/07 with IC matched, FX closed where applicable, payroll locked, bank recon history, packaging dry-run.",
+      "evidenceHint": "program.closedPeriodCount ≥ 3 and closedEntityCount ≥ 2",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_13",
+      "section": "Multi-month",
+      "step": 13,
+      "title": "Confirm IC + FX + payroll lock evidence",
+      "detail": "Program evidence shows matched IC, locked payroll runs, and FX reval closed on participating entities.",
+      "evidenceHint": "program.evidence ic/fx/payroll counters",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_14",
+      "section": "Handoff",
+      "step": 14,
+      "title": "Export accountant acceptance pack (sign-off artifact)",
+      "detail": "Export markdown+JSON pack with checklist, freeze hashes, packaging digests, and blank human sign-off lines. Not a wet-signature product.",
+      "evidenceHint": "acceptancePackExport.contentSha256 + evidence folder paths",
+      "required": true,
+      "checked": false
+    },
+    {
+      "id": "acc_15",
+      "section": "Handoff",
+      "step": 15,
+      "title": "Print/export checklist for accountant sitting",
+      "detail": "Use browser print or exported pack; attach seedKey, program id, close run ids, pack digests to Quinn evidence.",
+      "evidenceHint": "Printed checklist / exported pack path",
+      "required": false,
+      "checked": false
+    }
+  ],
+  "freezeHashes": [
+    "ebd8461221af9a2900ef9647cf0912d0968ca75419b0073aedd046058c711525",
+    "99c14520b8097689abd05c988acfd2e21e921c9ea0de7218b619019ce8853018",
+    "c5b1453d6bf080afba71819172b673fb4d21a9347ac653536b81536e764155f0",
+    "c0369d1f3a06770cde68661c65358676d47d03f7b4e1880e224afc9111609a91",
+    "9740e5b7f75aaa3be1dad5f811ca0b6eda5d4a81ffb78fe6b45828a390098ede",
+    "d3332c6bb28b28890d0ac4831d6124a7ac8f4bb20c2d0d043b3d95bce4433bdc"
+  ],
+  "packagingDigests": [
+    "e07f718e72ab613045add87c6f85b11cca2a0214dc35c4bae0da03c0ba301813",
+    "2ca0536bac7849f250a4f65a89521eb0de3d2193c1e92b3e3fdb748448cd106a",
+    "dab4ac5bd51e4d1a15347fa101e5ae31ae435a08d99a16d5edacc58f2a657209",
+    "fe7ceedec7f01f37857d1fc3cbf46a05dd6611c98122be36721da1614a845090",
+    "0829ef3cac4e6a3d6ee9e073648e0b0fb9ba065cf305e33b9097785993c51585",
+    "e729955236cfd41f0f5819fc5c96b7be0f061ff7691e28077f940745426334a2",
+    "da15e0b2f9a0588764199ed24d4c2fc33c0ca9f5bd0b9cb1ad778156db8c4d55",
+    "57d690d68d741a9f0d7b8d0adc85e01d933d2fb964bd859fc397b85eb2722d61",
+    "ad6b772d766e6a04399629befc8c4c603a315855ce6dd7923db3710f9126f9fc",
+    "ef5f28f7f502dbf5cdf0cc6526e094bb91732b2617df19ec3131c58e426a9082",
+    "5fbf1f0fe941ac59fb0193e34eeac5bbc6d7ef577c8c1e852e6e20a98e33f2e6",
+    "72cef71decbddfe8e69766ac1598646c0faccc346b817b7c23c1b2ad2548e5ba",
+    "2889ec67f86ab36183bb36c7bdda08e52c8fdd5d043684f4791a5c8569647bbc",
+    "02f88c23f5c5e4e2483583a2c0a61f235f204ba34f5f3bcbd90a9a09e7ce961b",
+    "9ce75c1329906043756e459efb9d8b8510a3def2aec9c8961b16faf92bb7220d"
+  ],
+  "evidenceFolderPaths": [
+    "artifacts/finance/multi-month-close/",
+    "artifacts/finance/multi-month-close/seed/",
+    "artifacts/finance/multi-month-close/close-runs/",
+    "artifacts/finance/multi-month-close/packaging/",
+    "artifacts/finance/multi-month-close/acceptance/",
+    "docs/operations/finance/multi-month-close-program-2026-08-03.md",
+    "docs/operations/finance/phase6-accountant-acceptance-pack-2026-08-03.md",
+    "/portal/finance/proving",
+    "/portal/finance/runbooks"
+  ],
+  "gaps": [
+    {
+      "code": "ic_fixture_not_live_service",
+      "summary": "IC evidence is proving-kit fixture markers (matched due-to/due-from), not a full live intercompany propose/receive journal chain in this program path."
+    },
+    {
+      "code": "proving_store_process_local",
+      "summary": "ProvingFinanceGateway store is process-local (dev/staging fixture), not durable multi-instance Firestore workspace state."
+    }
+  ],
+  "hardGates": {
+    "sarsSubmissionInitiated": false,
+    "externalPaymentInitiated": false,
+    "externalEgressAllowed": false,
+    "massEmailAllowed": false
+  },
+  "wetSignatureProduct": false
+}

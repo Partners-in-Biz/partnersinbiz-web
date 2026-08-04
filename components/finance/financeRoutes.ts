@@ -1,10 +1,12 @@
 export type FinanceRouteKey =
   | 'hub'
   | 'documents'
+  | 'expense-claims'
   | 'ledger'
   | 'reports'
   | 'tax'
   | 'payroll'
+  | 'ess'
   | 'assets'
   | 'job-costing'
   | 'inventory'
@@ -23,6 +25,7 @@ export type FinanceRouteKey =
   | 'runbooks'
   | 'period-close'
   | 'proving'
+  | 'revenue-recognition'
 
 export type FinanceNavItem = {
   key: FinanceRouteKey
@@ -49,6 +52,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     href: '/portal/finance/documents',
     icon: 'receipt_long',
     description: 'Invoices, bills, credit/debit notes, recurring docs, statements, bulk ops, aging, attachments.',
+    group: 'ops',
+  },
+  {
+    key: 'expense-claims',
+    label: 'Expense claims',
+    href: '/portal/finance/expense-claims',
+    icon: 'receipt',
+    description: 'Staff claims: draft → submit → approve → post; VAT lines; receipts + OCR assist (confirm-only); no payment initiate.',
     group: 'ops',
   },
   {
@@ -84,11 +95,27 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     group: 'ops',
   },
   {
+    key: 'ess',
+    label: 'ESS',
+    href: '/portal/finance/ess',
+    icon: 'badge',
+    description: 'Mobile/PWA employee self-service: own payslips + leave request/approval routing — no admin payroll controls.',
+    group: 'ops',
+  },
+  {
     key: 'assets',
     label: 'Assets',
     href: '/portal/finance/assets',
     icon: 'precision_manufacturing',
     description: 'Fixed asset register, straight-line depreciation, disposal, NBV reports.',
+    group: 'books',
+  },
+  {
+    key: 'revenue-recognition',
+    label: 'Revenue recognition',
+    href: '/portal/finance/revenue-recognition',
+    icon: 'trending_up',
+    description: 'Lite deferred revenue schedules (straight-line / milestone) linked to AR contracts; period runs, reverse, deferred vs billed.',
     group: 'books',
   },
   {
@@ -216,7 +243,7 @@ export const FINANCE_NAV: FinanceNavItem[] = [
     label: 'Runbooks',
     href: '/portal/finance/runbooks',
     icon: 'menu_book',
-    description: 'Operator day-0/day-2 runbooks, hard gates, and Phase 4 acceptance pointers.',
+    description: 'Operator day-0 through Phase 6 market-proof runbooks, hard gates, and acceptance pack pointers.',
     group: 'command',
   },
   {
@@ -232,11 +259,14 @@ export const FINANCE_NAV: FinanceNavItem[] = [
 export const FINANCE_PRIMARY_TABS: FinanceRouteKey[] = [
   'hub',
   'documents',
+  'expense-claims',
   'ledger',
   'reports',
   'tax',
   'payroll',
+  'ess',
   'assets',
+  'revenue-recognition',
   'job-costing',
   'inventory',
   'packaging',

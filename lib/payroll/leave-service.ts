@@ -1,4 +1,4 @@
-import { authorizeFinanceAction } from '@/lib/finance/policy'
+import { authorizeFinanceAction, FinanceAuthorizationError } from '@/lib/finance/policy'
 import { authorizePayslipRead, redactSensitivePayrollRecord } from '@/lib/finance/payroll-access'
 import { FinanceNotFoundError } from '@/lib/finance/errors'
 import {
@@ -25,6 +25,7 @@ import {
   type LeaveRequestStatus,
   type LeaveUnit,
 } from './leave'
+import { emptyEssBundle, type EssBundle } from './ess'
 import type {
   LeaveBalance,
   LeaveRecord,
@@ -276,6 +277,160 @@ export class FinancePayrollLeaveService {
         return redactSensitivePayrollRecord(structuredClone(p) as unknown as Record<string, unknown>) as unknown as Payslip
       })
       .sort((a, b) => b.payDate.localeCompare(a.payDate) || a.id.localeCompare(b.id))
+  }
+
+  /**
+   * Mobile/PWA ESS bundle: linked employee payslips + leave only.
+   * Never returns admin payroll controls, other employees' payslips, or bank/tax identity fields.
+   */
+  listEssBundle(actor: FinanceActorContext, scope: Required<FinanceScope>): EssBundle {
+    if (!actor.membershipActive || actor.orgId !== scope.orgId || !actor.financeModuleEnabled) {
+      throw new FinanceNotFoundError('Employee self-service not available')
+    }
+
+    let canApproveLeave = false
+    try {
+      authorizeFinanceAction(actor, scope, 'payroll.leave.approve')
+      canApproveLeave = true
+    } catch (error) {
+      if (!(error instanceof FinanceAuthorizationError)) throw error
+    }
+
+    const mine = [...this.store.employees.values()].filter(
+      (row) =>
+        row.orgId === scope.orgId &&
+        row.legalEntityId === scope.legalEntityId &&
+        row.bookId === scope.bookId &&
+        row.linkedUserId === actor.uid,
+    )
+
+    const leaveTypesAll = [...this.store.leaveTypes.values()].filter(
+      (row) => row.orgId === scope.orgId && row.legalEntityId === scope.legalEntityId && row.bookId === scope.bookId && row.active,
+    )
+    const leaveTypeById = new Map(leaveTypesAll.map((t) => [t.id, t]))
+
+    const bundle = emptyEssBundle(canApproveLeave)
+    bundle.leaveTypes = leaveTypesAll
+      .map((t) => ({
+        id: t.id,
+        code: t.code,
+        name: t.name,
+        unit: t.unit,
+        payEffect: t.payEffect,
+        hoursPerDay: t.hoursPerDay,
+        accrues: t.accrues,
+      }))
+      .sort((a, b) => a.code.localeCompare(b.code))
+
+    if (mine.length === 0 && !canApproveLeave) {
+      return bundle
+    }
+
+    if (mine.length > 0) {
+      bundle.linked = true
+      bundle.employees = mine
+        .map((e) => ({
+          id: e.id,
+          employeeNumber: e.employeeNumber,
+          displayName: e.displayName,
+          status: e.status,
+        }))
+        .sort((a, b) => a.employeeNumber.localeCompare(b.employeeNumber))
+
+      const employeeIds = new Set(mine.map((e) => e.id))
+
+      bundle.leaveBalances = [...this.store.leaveBalances.values()]
+        .filter(
+          (row) =>
+            row.orgId === scope.orgId &&
+            row.legalEntityId === scope.legalEntityId &&
+            row.bookId === scope.bookId &&
+            employeeIds.has(row.employeeId),
+        )
+        .map((row) => ({
+          id: row.id,
+          leaveTypeId: row.leaveTypeId,
+          leaveTypeCode: leaveTypeById.get(row.leaveTypeId)?.code ?? row.leaveTypeId,
+          unit: row.unit,
+          balanceQuantity: row.balanceQuantity,
+          balanceHours: row.balanceHours,
+          asOfDate: row.asOfDate,
+        }))
+        .sort((a, b) => a.leaveTypeCode.localeCompare(b.leaveTypeCode))
+
+      bundle.leaveRecords = [...this.store.leaveRecords.values()]
+        .filter(
+          (row) =>
+            row.orgId === scope.orgId &&
+            row.legalEntityId === scope.legalEntityId &&
+            row.bookId === scope.bookId &&
+            employeeIds.has(row.employeeId),
+        )
+        .map((row) => ({
+          id: row.id,
+          leaveTypeId: row.leaveTypeId,
+          leaveTypeCode: row.leaveTypeCode,
+          startDate: row.startDate,
+          endDate: row.endDate,
+          unit: row.unit,
+          quantity: row.quantity,
+          hours: row.hours,
+          payEffect: row.payEffect,
+          status: row.status,
+          ...(row.note ? { note: row.note } : {}),
+          version: row.version,
+        }))
+        .sort((a, b) => b.startDate.localeCompare(a.startDate) || a.id.localeCompare(b.id))
+
+      bundle.payslips = this.listMyPayslips(actor, scope).map((p) => ({
+        id: p.id,
+        payDate: p.payDate,
+        periodStart: p.periodStart,
+        periodEnd: p.periodEnd,
+        employeeId: p.employeeId,
+        netPayMinor: p.rendered?.netPayMinor,
+        currency: p.rendered?.currency,
+        status: p.status,
+      }))
+    }
+
+    if (canApproveLeave) {
+      const empById = new Map(
+        [...this.store.employees.values()]
+          .filter((row) => row.orgId === scope.orgId && row.legalEntityId === scope.legalEntityId && row.bookId === scope.bookId)
+          .map((e) => [e.id, e]),
+      )
+      bundle.pendingApprovals = [...this.store.leaveRecords.values()]
+        .filter(
+          (row) =>
+            row.orgId === scope.orgId &&
+            row.legalEntityId === scope.legalEntityId &&
+            row.bookId === scope.bookId &&
+            (row.status === 'pending' || row.status === 'draft'),
+        )
+        .map((row) => {
+          const emp = empById.get(row.employeeId)
+          return {
+            id: row.id,
+            employeeId: row.employeeId,
+            employeeLabel: emp ? `${emp.employeeNumber} · ${emp.displayName}` : row.employeeId,
+            leaveTypeId: row.leaveTypeId,
+            leaveTypeCode: row.leaveTypeCode,
+            startDate: row.startDate,
+            endDate: row.endDate,
+            unit: row.unit,
+            quantity: row.quantity,
+            hours: row.hours,
+            payEffect: row.payEffect,
+            status: row.status,
+            ...(row.note ? { note: row.note } : {}),
+            version: row.version,
+          }
+        })
+        .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.id.localeCompare(b.id))
+    }
+
+    return bundle
   }
 
   async buildPayslipPack(actor: FinanceActorContext, command: BuildPayslipPackCommand): Promise<PayslipDownloadPack> {

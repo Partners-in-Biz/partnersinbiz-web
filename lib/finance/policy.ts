@@ -128,6 +128,28 @@ export type FinanceAction =
   | 'period_close.read'
   | 'operator_bulk.plan'
   | 'operator_allocate.plan'
+  | 'revenue.schedule.create'
+  | 'revenue.schedule.activate'
+  | 'revenue.schedule.cancel'
+  | 'revenue.recognition.run.create'
+  | 'revenue.recognition.run.calculate'
+  | 'revenue.recognition.run.post'
+  | 'revenue.recognition.run.reverse'
+  | 'revenue.read'
+  | 'revenue.report.read'
+  | 'expense_claim.create'
+  | 'expense_claim.update'
+  | 'expense_claim.submit'
+  | 'expense_claim.approve'
+  | 'expense_claim.reject'
+  | 'expense_claim.bulk_approve'
+  | 'expense_claim.post'
+  | 'expense_claim.receipt.attach'
+  | 'expense_claim.ocr.assist'
+  | 'expense_claim.ocr.confirm'
+  | 'expense_claim.ocr.dismiss'
+  | 'expense_claim.payment_instruction.export'
+  | 'expense_claim.read'
 
 const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'foundation.configure': ['finance_admin'],
@@ -257,6 +279,28 @@ const ACTION_ROLES: Record<FinanceAction, readonly FinanceRole[]> = {
   'period_close.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
   'operator_bulk.plan': ['bookkeeper', 'accountant', 'finance_admin'],
   'operator_allocate.plan': ['bookkeeper', 'accountant', 'finance_admin'],
+  'revenue.schedule.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'revenue.schedule.activate': ['bookkeeper', 'accountant', 'finance_admin'],
+  'revenue.schedule.cancel': ['accountant', 'finance_approver', 'finance_admin'],
+  'revenue.recognition.run.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'revenue.recognition.run.calculate': ['bookkeeper', 'accountant', 'finance_admin'],
+  'revenue.recognition.run.post': ['accountant', 'finance_approver', 'finance_admin'],
+  'revenue.recognition.run.reverse': ['accountant', 'finance_approver', 'finance_admin'],
+  'revenue.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'revenue.report.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
+  'expense_claim.create': ['bookkeeper', 'accountant', 'finance_admin'],
+  'expense_claim.update': ['bookkeeper', 'accountant', 'finance_admin'],
+  'expense_claim.submit': ['bookkeeper', 'accountant', 'finance_admin'],
+  'expense_claim.approve': ['accountant', 'finance_approver', 'finance_admin'],
+  'expense_claim.reject': ['accountant', 'finance_approver', 'finance_admin'],
+  'expense_claim.bulk_approve': ['accountant', 'finance_approver', 'finance_admin'],
+  'expense_claim.post': ['accountant', 'finance_approver', 'finance_admin'],
+  'expense_claim.receipt.attach': ['bookkeeper', 'accountant', 'finance_admin'],
+  'expense_claim.ocr.assist': ['bookkeeper', 'accountant', 'finance_admin'],
+  'expense_claim.ocr.confirm': ['bookkeeper', 'accountant', 'finance_admin'],
+  'expense_claim.ocr.dismiss': ['bookkeeper', 'accountant', 'finance_admin'],
+  'expense_claim.payment_instruction.export': ['accountant', 'finance_approver', 'finance_admin'],
+  'expense_claim.read': ['finance_viewer', 'bookkeeper', 'accountant', 'finance_approver', 'finance_admin'],
 }
 
 /** Read-only export for security inventory / coverage tests. */

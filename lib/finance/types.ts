@@ -62,6 +62,8 @@ export type FinanceApprovalAction =
   | 'payroll.export.approve'
   | 'asset.depreciation.run.post'
   | 'asset.dispose'
+  | 'revenue.recognition.run.post'
+  | 'revenue.recognition.run.reverse'
 
 export interface FinanceApprovalEvidence {
   approvalId: string

@@ -7,6 +7,91 @@ export type FinanceOperatorNotificationKind =
   | 'role.assigned'
   | 'role.revoked'
   | 'practice.generic'
+  | 'practice.grant.created'
+  | 'practice.grant.revoked'
+
+/** Firm→client practice grant roles (least privilege; not full org membership). */
+export type PracticeGrantRole = 'prepare' | 'review' | 'file-export'
+
+export type PracticeGrantStatus = 'active' | 'revoked'
+
+export type PracticeGrantAccessAction =
+  | 'grant.create'
+  | 'grant.revoke'
+  | 'grant.access'
+  | 'grant.denied'
+  | 'grant.link.upsert'
+  | 'grant.queue.read'
+
+export interface PracticeClientLink {
+  id: string
+  schemaVersion: 1
+  firmOrgId: string
+  clientOrgId: string
+  clientName: string
+  status: 'active' | 'inactive'
+  /** Optional CRM / business relationship id — does not open packaging egress. */
+  relationshipId?: string
+  openPeriodCount?: number
+  closeBlockerCount?: number
+  reconBacklogCount?: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PracticeClientGrant {
+  id: string
+  schemaVersion: 1
+  firmOrgId: string
+  clientOrgId: string
+  granteeUserId: string
+  role: PracticeGrantRole
+  status: PracticeGrantStatus
+  /** Empty / omitted = all entities under the client link. */
+  legalEntityIds?: string[]
+  bookIds?: string[]
+  relationshipId?: string
+  createdBy: string
+  createdAt: string
+  revokedBy?: string
+  revokedAt?: string
+  revokeReason?: string
+  /** Hard safety flags — always false. */
+  clientVisibleMessagesAllowed: false
+  externalEgressAllowed: false
+  externalPaymentInitiated: false
+  sarsSubmissionInitiated: false
+}
+
+export interface PracticeGrantAccessEvent {
+  id: string
+  schemaVersion: 1
+  firmOrgId: string
+  clientOrgId: string
+  grantId: string
+  actorUserId: string
+  action: PracticeGrantAccessAction
+  resource?: string
+  financeAction?: string
+  occurredAt: string
+  reason?: string
+  sequence: number
+  externalEgressAllowed: false
+  clientVisibleMessagesAllowed: false
+}
+
+export interface PracticeQueueItem {
+  firmOrgId: string
+  clientOrgId: string
+  clientName: string
+  attention: 'open_period' | 'close_blocker' | 'recon_backlog' | 'grant_only'
+  severity: 'info' | 'warning' | 'high'
+  summary: string
+  grantIds: string[]
+  openPeriodCount?: number
+  closeBlockerCount?: number
+  reconBacklogCount?: number
+}
 
 export type FinanceOperatorNotificationStatus = 'unread' | 'read' | 'dismissed'
 
@@ -80,9 +165,19 @@ export interface PracticeWorkspaceBundle {
   notifications: FinanceOperatorNotification[]
   auditEvents: PracticeAuditEventView[]
   practiceClients: PracticeClientSummary[]
+  /** Firm→client grants issued by this firm org (active + revoked). */
+  grants: PracticeClientGrant[]
+  /** Active grants where the actor is grantee (may span client orgs). */
+  myGrants: PracticeClientGrant[]
+  clientLinks: PracticeClientLink[]
+  practiceQueue: PracticeQueueItem[]
+  grantAccessEvents: PracticeGrantAccessEvent[]
   safety: {
     noSarsSubmit: true
     noExternalPaymentInitiate: true
     tenantScoped: true
+    clientVisibleMessagesAllowed: false
+    externalEgressAllowed: false
+    practiceGrantsEnabled: true
   }
 }

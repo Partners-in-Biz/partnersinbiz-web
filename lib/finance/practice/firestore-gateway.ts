@@ -3,16 +3,25 @@ import type { FinanceAuditEvent } from '@/lib/accounting/types'
 import type { FinanceActorContext, FinanceRoleAssignment } from '@/lib/finance/types'
 import {
   PracticeFinanceService,
-  clonePracticeStore,
   createEmptyPracticeStore,
   type AssignFinanceRoleCommand,
+  type AuthorizePracticeGrantAccessCommand,
+  type CreatePracticeGrantCommand,
   type EmitFinanceNotificationCommand,
   type MarkFinanceNotificationCommand,
   type PracticeFinanceStore,
   type PracticeMembershipRow,
   type RevokeFinanceRoleCommand,
+  type RevokePracticeGrantCommand,
+  type UpsertPracticeClientLinkCommand,
 } from './service'
-import type { FinanceOperatorNotification, PracticeAuditQuery } from './types'
+import type {
+  FinanceOperatorNotification,
+  PracticeAuditQuery,
+  PracticeClientGrant,
+  PracticeClientLink,
+  PracticeGrantAccessEvent,
+} from './types'
 import { isActiveOrgMembershipRow } from '@/lib/linked-computers/policy'
 import { canAccessModule, resolveMemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 
@@ -68,11 +77,22 @@ async function loadMembershipsForUser(uid: string): Promise<Map<string, Practice
 
 async function loadStoreForActor(actor: FinanceActorContext, orgId: string): Promise<PracticeFinanceStore> {
   const db = adminDb
-  const [assignmentsSnap, notificationsSnap, auditSnap, memberships] = await Promise.all([
+  const [
+    assignmentsSnap,
+    notificationsSnap,
+    auditSnap,
+    memberships,
+    grantsSnap,
+    linksSnap,
+    grantAccessSnap,
+  ] = await Promise.all([
     db.collection('finance_role_assignments').where('orgId', '==', orgId).limit(1000).get(),
     db.collection('finance_operator_notifications').where('orgId', '==', orgId).limit(500).get(),
     db.collection('finance_audit_events').where('orgId', '==', orgId).limit(500).get(),
     loadMembershipsForUser(actor.uid),
+    db.collection('finance_practice_grants').where('firmOrgId', '==', orgId).limit(1000).get(),
+    db.collection('finance_practice_client_links').where('firmOrgId', '==', orgId).limit(500).get(),
+    db.collection('finance_practice_grant_access_events').where('firmOrgId', '==', orgId).limit(500).get(),
   ])
 
   // Also load actor's own assignments across memberships for practice switcher (uid-scoped only).
@@ -91,6 +111,14 @@ async function loadStoreForActor(actor: FinanceActorContext, orgId: string): Pro
       ),
   )
 
+  // Actor's grants as grantee (any firm) — uid-scoped only.
+  const myGrantsSnap = await db
+    .collection('finance_practice_grants')
+    .where('granteeUserId', '==', actor.uid)
+    .where('status', '==', 'active')
+    .limit(200)
+    .get()
+
   const store = createEmptyPracticeStore()
   store.assignments = asMap<FinanceRoleAssignment>(assignmentsSnap)
   for (const snap of crossAssignmentSnaps) {
@@ -105,6 +133,15 @@ async function loadStoreForActor(actor: FinanceActorContext, orgId: string): Pro
   store.notifications = asMap<FinanceOperatorNotification>(notificationsSnap)
   store.auditEvents = asMap<FinanceAuditEvent>(auditSnap)
   store.memberships = memberships
+  store.grants = asMap<PracticeClientGrant>(grantsSnap)
+  for (const doc of myGrantsSnap.docs) {
+    const data = doc.data() as PracticeClientGrant
+    const id = data.id || doc.id
+    if (data.granteeUserId !== actor.uid) continue
+    store.grants.set(id, { ...data, id })
+  }
+  store.clientLinks = asMap<PracticeClientLink>(linksSnap)
+  store.grantAccessEvents = asMap<PracticeGrantAccessEvent>(grantAccessSnap)
   return store
 }
 
@@ -123,10 +160,21 @@ async function saveStore(before: PracticeFinanceStore, after: PracticeFinanceSto
   for (const [id, value] of after.notifications) {
     touch('finance_operator_notifications', id, value, before.notifications.get(id))
   }
+  for (const [id, value] of after.grants) {
+    touch('finance_practice_grants', id, value, before.grants.get(id))
+  }
+  for (const [id, value] of after.clientLinks) {
+    touch('finance_practice_client_links', id, value, before.clientLinks.get(id))
+  }
   for (const [id, value] of after.auditEvents) {
     if (before.auditEvents.has(id)) continue
     // Append-only audit rows created by practice role mutations.
     batch.set(db.collection('finance_audit_events').doc(id), value, { merge: false })
+    ops++
+  }
+  for (const [id, value] of after.grantAccessEvents) {
+    if (before.grantAccessEvents.has(id)) continue
+    batch.set(db.collection('finance_practice_grant_access_events').doc(id), value, { merge: false })
     ops++
   }
   for (const key of after.claims) {
@@ -173,11 +221,35 @@ export class FirestorePracticeFinanceGateway {
   listAudit(actor: FinanceActorContext, query: PracticeAuditQuery) {
     return this.serviceFor(actor, query.orgId).listAudit(actor, query)
   }
+
+  upsertClientLink(actor: FinanceActorContext, command: UpsertPracticeClientLinkCommand) {
+    return this.serviceFor(actor, command.firmOrgId).upsertClientLink(actor, command)
+  }
+
+  createGrant(actor: FinanceActorContext, command: CreatePracticeGrantCommand) {
+    return this.serviceFor(actor, command.firmOrgId).createGrant(actor, command)
+  }
+
+  revokeGrant(actor: FinanceActorContext, command: RevokePracticeGrantCommand) {
+    return this.serviceFor(actor, command.firmOrgId).revokeGrant(actor, command)
+  }
+
+  authorizeGrantAccess(actor: FinanceActorContext, command: AuthorizePracticeGrantAccessCommand) {
+    return this.serviceFor(actor, command.firmOrgId).authorizeGrantAccess(actor, command)
+  }
+
+  getPracticeQueue(actor: FinanceActorContext, firmOrgId: string) {
+    return this.serviceFor(actor, firmOrgId).getPracticeQueue(actor, firmOrgId)
+  }
 }
 
 export type {
   AssignFinanceRoleCommand,
+  AuthorizePracticeGrantAccessCommand,
+  CreatePracticeGrantCommand,
   EmitFinanceNotificationCommand,
   MarkFinanceNotificationCommand,
   RevokeFinanceRoleCommand,
+  RevokePracticeGrantCommand,
+  UpsertPracticeClientLinkCommand,
 }

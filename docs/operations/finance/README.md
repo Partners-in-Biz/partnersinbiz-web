@@ -4,6 +4,8 @@ Internal operator runbooks and acceptance evidence for Partners in Biz Finance, 
 
 | Doc | Purpose |
 | --- | --- |
+| [Operator runbooks (Phase 6 world-class)](./operator-runbooks-phase6-world-class-2026-08-03.md) | Multi-month close program, bank-feed daily recon, expense claims/rev-rec/grants/ESS/cash/job-cost, external accountant sign-off, hard gates, Quinn inputs |
+| [Phase 6 acceptance pack](./phase6-acceptance-pack-2026-08-03.md) | Quinn staging checklist for Phase 6 market-proof + product-depth surfaces |
 | [Operator runbooks (Phase 5 close)](./operator-runbooks-phase5-close-2026-08-03.md) | World-class monthly close by role, bank feed recon, multi-entity consolidation, payroll bureau month-end, accountant pack walkthrough, import incident/rollback |
 | [Phase 5 acceptance pack](./phase5-acceptance-pack-2026-08-03.md) | Quinn staging checklist for Phase 5 close surfaces + verifies |
 | [Operator runbooks (Phase 4)](./operator-runbooks-phase4-2026-08-02.md) | Day-0 setup through day-2 ops, hard gates, HTTP map, empty-state guidance |
@@ -20,8 +22,9 @@ Internal operator runbooks and acceptance evidence for Partners in Biz Finance, 
 - Setup / guided onboarding: `/portal/finance/setup`
 - Operator runbooks (in-app): `/portal/finance/runbooks`
 - Period-close command centre: `/portal/finance/period-close`
-- Bank feeds (mock-first): `/portal/finance/bank-feeds`
+- Bank feeds (daily product + mock-first): `/portal/finance/bank-feeds`
 - Proving kit + accountant checklist: `/portal/finance/proving`
+- Job costing: `/portal/finance/job-costing`
 - Canonical product spec (internal): https://partnersinbiz.online/portal/documents/Flie3SblIDXvplYmqOhy
 - Project board: `HRCSWl1cNnh6fYEGziAb`
 
@@ -31,4 +34,5 @@ Internal operator runbooks and acceptance evidence for Partners in Biz Finance, 
 - No external payment initiation (export packs only)
 - No mass client-visible payslip/statement email without separate approval
 - No production promote / main merge from ordinary implementation cards
+- No paid bank-feed / open-banking vendor without separate Peet commercial gate
 - No permanent CEO dashboard as the finance delivery surface (Messages + operator runbooks)

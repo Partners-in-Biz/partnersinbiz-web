@@ -6,7 +6,7 @@ import { runFinanceQueryHandler } from '@/lib/finance/http-command'
 
 export const dynamic = 'force-dynamic'
 
-const RESOURCES = ['bundle', 'audit', 'matrix'] as const
+const RESOURCES = ['bundle', 'audit', 'matrix', 'queue', 'grants'] as const
 
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const gateway = new FirestorePracticeFinanceGateway()
@@ -29,6 +29,20 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
           to: params.get('to') || undefined,
           limit: Number(params.get('limit') ?? '50') || 50,
         })
+      }
+      if (resource === 'queue') {
+        return { queue: await gateway.getPracticeQueue(actor, orgId) }
+      }
+      if (resource === 'grants') {
+        const bundle = await gateway.getBundle(actor, orgId)
+        return {
+          grants: bundle.grants,
+          myGrants: bundle.myGrants,
+          clientLinks: bundle.clientLinks,
+          practiceQueue: bundle.practiceQueue,
+          grantAccessEvents: bundle.grantAccessEvents,
+          safety: bundle.safety,
+        }
       }
       if (resource !== 'bundle') {
         throw new PracticeFinanceValidationError('Unsupported practice finance query resource')

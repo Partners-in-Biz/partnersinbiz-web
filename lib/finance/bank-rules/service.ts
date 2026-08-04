@@ -1,5 +1,6 @@
 import { FinanceAuthorizationError } from '@/lib/finance/policy'
 import type { FinanceActorContext } from '@/lib/finance/types'
+import { pendingRuleSuggestionKey } from '@/lib/finance/scale/recon-index'
 import type {
   BankRule,
   BankRuleAction,
@@ -275,6 +276,12 @@ export class BankRulesFinanceService {
     const rules = [...store.rules.values()]
       .filter((r) => r.orgId === orgId && r.legalEntityId === legalEntityId && r.bookId === bookId && r.status === 'active')
       .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name))
+    // O(1) pending de-dupe instead of scanning all suggestions per txn (N+1 style).
+    const pendingKeys = new Set<string>()
+    for (const s of store.suggestions.values()) {
+      if (s.orgId !== orgId || s.status !== 'pending') continue
+      pendingKeys.add(pendingRuleSuggestionKey(s.bankTransactionId, s.ruleId))
+    }
     const ts = this.now()
     const prefix = (command.idPrefix || 'brs').trim() || 'brs'
     const created: BankRuleSuggestion[] = []
@@ -283,15 +290,8 @@ export class BankRulesFinanceService {
       if (txn.reconciliationState === 'matched' || txn.reconciliationState === 'reconciled') continue
       const rule = rules.find((r) => matchesBankRule(r.match, txn))
       if (!rule) continue
-      // Skip if pending suggestion already exists for txn+rule
-      const already = [...store.suggestions.values()].some(
-        (s) =>
-          s.orgId === orgId &&
-          s.bankTransactionId === txn.id &&
-          s.ruleId === rule.id &&
-          s.status === 'pending',
-      )
-      if (already) continue
+      const dedupeKey = pendingRuleSuggestionKey(txn.id, rule.id)
+      if (pendingKeys.has(dedupeKey)) continue
       const suggestion: BankRuleSuggestion = {
         id: `${prefix}_${txn.id}_${rule.id}`.slice(0, 120),
         orgId,
@@ -314,6 +314,7 @@ export class BankRulesFinanceService {
         sarsSubmissionInitiated: false,
       }
       store.suggestions.set(suggestion.id, suggestion)
+      pendingKeys.add(dedupeKey)
       created.push(suggestion)
     }
     await this.save(before, store)

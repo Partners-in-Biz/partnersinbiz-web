@@ -84,10 +84,12 @@ const DAY2: Runbook[] = [
   },
   {
     id: 'H',
-    title: 'H · Job costing',
-    summary: 'projectId on lines, optional time → WIP/draft invoice, project P&L without double-billing.',
+    title: 'H · Job costing closed loop',
+    summary:
+      'Quote/project → time cost → WIP aging → draft invoice → cash on Documents. Load closed loop on /portal/finance/job-costing. Guards: no double-bill, no double-cost, no payout/SARS.',
     href: '/portal/finance/job-costing',
     cta: 'Job costing',
+    gates: ['No double-bill', 'No double-cost', 'No payment initiate'],
   },
   {
     id: 'I',
@@ -188,6 +190,76 @@ const PHASE5_CLOSE: Runbook[] = [
     emptyState: 'No seed until finance_admin runs Seed demo company (idempotent by seedKey).',
     gates: ['No SARS submit', 'No payment initiate', 'Throw-away fixture'],
   },
+  {
+    id: 'P6-M',
+    title: 'P6-M · Multi-month close program',
+    summary:
+      'Beyond single fixtures: seed → multi-month close (OPS+SVC × May–July) with IC/FX/payroll lock/bank recon history → packaging dry-run → export accountant acceptance pack (sign-off artifact). Evidence under artifacts/finance/multi-month-close/.',
+    href: '/portal/finance/proving',
+    cta: 'Multi-month proving',
+    emptyState: 'Run Seed then Multi-month close program on /portal/finance/proving, or npm run verify:finance:proving.',
+    gates: ['≥3 periods', '≥2 entities', 'No SARS submit', 'No payment initiate'],
+  },
+]
+
+const PHASE6_WORLD: Runbook[] = [
+  {
+    id: 'P6-A',
+    title: 'P6-A · Multi-month close program',
+    summary:
+      'Market proof: ≥3 closed periods across ≥2 entities with IC, payroll lock, bank recon history, packaging, and frozen TB continuity. Prefer proving kit or internal demo org — not live client tenants without Peet OK.',
+    href: '/portal/finance/proving',
+    cta: 'Proving / program',
+    emptyState: 'Seed demo company first (idempotent seedKey), then multi-period close fixture or manual M1→M3 loop.',
+    gates: ['≥3 periods', '≥2 entities', 'No SARS submit', 'No payment initiate'],
+  },
+  {
+    id: 'P6-B',
+    title: 'P6-B · Bank feed daily recon product',
+    summary:
+      'Morning path: connection health, multi-account sync, recon centre aging, safe bulk accept/dismiss (confidence ≥0.8, never flag_review), then zero-diff statement recon. File import remains fallback. Never auto-post; paid vendor is a separate Peet gate.',
+    href: '/portal/finance/bank-feeds',
+    cta: 'Bank feeds',
+    emptyState: 'No connection until finance_admin configures mock (default) feed for a bank account.',
+    gates: ['Human accept only', 'Never auto-post', 'Mock default', 'noEgress'],
+  },
+  {
+    id: 'P6-C',
+    title: 'P6-C · Claims, rev-rec, grants, ESS, cash, jobs',
+    summary:
+      'Expense claims (OCR confirm-only, post to books/payable, no payout), revenue recognition lite period runs, practice firm→client grants, employee ESS payslips/leave downloads, cash forecast scenarios (planning-only), job-cost closed loop on /portal/finance/job-costing (quote→time→WIP aging→invoice→cash; draft invoice releases WIP).',
+    href: '/portal/finance/job-costing',
+    cta: 'Job costing hub',
+    gates: ['No payout from claims', 'OCR never auto-apply', 'Cash planning-only', 'ESS least privilege', 'No double-bill'],
+  },
+  {
+    id: 'P6-C6',
+    title: 'P6-C6 · Job costing closed loop only',
+    summary:
+      'Operator path: set project (+ optional quote) → apply WIP time cost → Load closed loop (trace + P&L + aging) → draft invoice lines for billable time (releases WIP) → issue/allocate cash on Documents → re-load loop. Regression: same TE cannot double-apply per purpose.',
+    href: '/portal/finance/job-costing',
+    cta: 'Open closed loop',
+    emptyState: 'Empty applications until time cost is applied for the selected book/project.',
+    gates: ['No double-bill', 'No double-cost', 'No payment initiate', 'No SARS submit'],
+  },
+  {
+    id: 'P6-D',
+    title: 'P6-D · External accountant sign-off pack',
+    summary:
+      'One-sitting walkthrough: multi-month TB, period-close blockers, bank recon, payroll statutory prepare, packaging download-only. Checklist artifact (typed name OK) — not wet-signature product. externalEgressAllowed=false.',
+    href: '/portal/finance/packaging',
+    cta: 'Packaging',
+    gates: ['Download only', 'No SARS submit', 'egress=false'],
+  },
+  {
+    id: 'P6-E',
+    title: 'P6-E · Scale + keyboard / a11y density',
+    summary:
+      'Large ledger and statement import batching under load; bookkeeper keyboard paths and focus-visible controls when shipped. Reverse-not-delete still applies under stress.',
+    href: '/portal/finance/documents',
+    cta: 'Documents / bulk',
+    gates: ['Batch caps', 'Audited reversals'],
+  },
 ]
 
 const DIFFERENTIATORS: Runbook[] = [
@@ -260,10 +332,11 @@ export default function FinanceRunbooksPage() {
       active="runbooks"
       orgScope={orgScope}
       title="Finance operator runbooks"
-      description="Phase 4 day-0/day-2 paths plus Phase 5 world-class close procedures: role-specific month-end, bank feeds, multi-entity consolidation, payroll bureau, accountant packs, and import incident notes. Development/staging first. No SARS submit, no external payment initiate, no mass payslip/statement email."
+      description="Phase 4 day-0/day-2 paths, Phase 5 world-class close, and Phase 6 market-proof depth: multi-month close program, bank-feed daily recon product, expense claims/rev-rec/grants/ESS/cash/job-cost, and external accountant sign-off. Development/staging first. No SARS submit, no external payment initiate, no mass payslip/statement email, no paid bank-feed vendor without Peet gate."
       meta={
         <div className="flex flex-wrap items-center gap-1.5">
           <HudChip tone="accent">Operator runbooks</HudChip>
+          <HudChip>Phase 6 market proof</HudChip>
           <HudChip>Phase 5 close</HudChip>
           <HudChip>No SARS submit</HudChip>
           <HudChip>No external payout</HudChip>
@@ -290,44 +363,49 @@ export default function FinanceRunbooksPage() {
         </div>
       }
     >
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" data-testid="finance-runbook-stats">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6" data-testid="finance-runbook-stats">
         <StatCard label="Day-0 paths" value={String(DAY0.length)} detail="Bootstrap + cutover" icon="flag" />
         <StatCard label="Day-2 lanes" value={String(DAY2.length)} detail="Ops workbenches" icon="route" />
         <StatCard label="Phase 5 close" value={String(PHASE5_CLOSE.length)} detail="Month-end world-class" icon="lock_clock" />
+        <StatCard label="Phase 6 depth" value={String(PHASE6_WORLD.length)} detail="Market proof + daily ops" icon="verified" />
         <StatCard label="Differentiators" value={String(DIFFERENTIATORS.length)} detail="IC, agents" icon="hub" />
-        <StatCard label="Hard gates" value="4" detail="SARS / pay / email / auto-post" icon="shield" />
+        <StatCard label="Hard gates" value="5" detail="SARS / pay / email / auto-post / vendor" icon="shield" />
       </div>
 
       <Card className="space-y-3 p-5" data-testid="finance-runbook-intro">
         <h2 className="text-base font-semibold">How to use</h2>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
-          Follow setup first if the tenant is empty, then cutover, then day-2 lanes. For month-end, use Phase 5 close lanes and the
-          period-close command centre. Keep tenant scope on every finance URL. Commands send X-Org-Id with exact legal entity and book
-          scope. For Quinn staging acceptance, use the Phase 5 acceptance pack under docs/operations/finance/ — this page is the
-          operator map, not a permanent CEO dashboard.
+          Follow setup first if the tenant is empty, then cutover, then day-2 lanes. For single-period month-end, use Phase 5 close
+          lanes and the period-close command centre. For market-proof multi-month close, bank-feed daily product path, expense
+          claims/rev-rec/grants/ESS/cash/job-cost, and external accountant sign-off, use Phase 6 lanes. Keep tenant scope on every
+          finance URL. Commands send X-Org-Id with exact legal entity and book scope. For Quinn staging acceptance, use the Phase 6
+          acceptance pack under docs/operations/finance/ (Phase 5 pack remains the close baseline) — this page is the operator map,
+          not a permanent CEO dashboard.
         </p>
         <div className="flex flex-wrap gap-1.5">
           <HudChip>Tenant scoped</HudChip>
           <HudChip>ModuleShell parity</HudChip>
           <HudChip>Spec Flie3SblIDXvplYmqOhy</HudChip>
           <HudChip>Project HRCSWl1cNnh6fYEGziAb</HudChip>
-          <HudChip>Task iaR4dsqPlUyGWuTlUENY</HudChip>
+          <HudChip>Task upcYUjl6v1R44SC7kd3Z</HudChip>
         </div>
       </Card>
 
       <RunbookSection heading="Day-0 foundation" items={DAY0} orgScope={orgScope} />
       <RunbookSection heading="Day-2 operating lanes" items={DAY2} orgScope={orgScope} />
       <RunbookSection heading="Phase 5 world-class close" items={PHASE5_CLOSE} orgScope={orgScope} />
+      <RunbookSection heading="Phase 6 market proof + product depth" items={PHASE6_WORLD} orgScope={orgScope} />
       <RunbookSection heading="Differentiators and agent ops" items={DIFFERENTIATORS} orgScope={orgScope} />
 
       <Card className="space-y-3 p-5" data-testid="finance-runbook-hard-gates">
         <h2 className="text-base font-semibold">Hard gates (always on)</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--color-pib-text-muted)]">
-          <li>No SARS e-filing submit from Tax, Payroll, Packaging, or Proving.</li>
-          <li>No external bank payment initiation from Documents, Statements, Bank feeds, Bank rules, Payroll, or Packaging.</li>
-          <li>Bank feed, bank rule, and recon suggestion accept never auto-posts journals.</li>
-          <li>Budgets and cashflow plans are planning-only.</li>
+          <li>No SARS e-filing submit from Tax, Payroll, Packaging, Proving, or ESS.</li>
+          <li>No external bank payment initiation from Documents, Expense claims, Statements, Bank feeds, Bank rules, Payroll, or Packaging.</li>
+          <li>Bank feed, bank rule, OCR assist, and recon suggestion accept never auto-posts journals.</li>
+          <li>Budgets, cashflow plans, and cash scenarios are planning-only.</li>
           <li>Mass email of payslips or customer statements stays separately gated.</li>
+          <li>Paid bank-feed / open-banking vendor contracts require a separate Peet commercial gate (mock default).</li>
           <li>Production promote and main merge remain a separate Peet gate after Quinn acceptance.</li>
         </ul>
       </Card>
@@ -336,9 +414,11 @@ export default function FinanceRunbooksPage() {
         <h2 className="text-base font-semibold">Acceptance pack pointer</h2>
         <p className="text-sm text-[var(--color-pib-text-muted)]">
           Quinn runs automated verifies (verify:finance:security, test:finance:unit, portal-design-system-parity, workbench-delivery,
-          proving, operator-depth, bank-feeds, payroll, plus foundation modules) and golden-path smoke on staging. Durable checklist:
-          docs/operations/finance/phase5-acceptance-pack-2026-08-03.md. Durable narrative close runbooks:
-          docs/operations/finance/operator-runbooks-phase5-close-2026-08-03.md. Phase 4 baseline remains under the 2026-08-02 filenames.
+          proving, operator-depth, bank-feeds, payroll, job-costing, plus foundation modules and Phase 6 module scripts when present)
+          and golden-path smoke on staging. Durable Phase 6 checklist:
+          docs/operations/finance/phase6-acceptance-pack-2026-08-03.md. Durable Phase 6 narrative runbooks:
+          docs/operations/finance/operator-runbooks-phase6-world-class-2026-08-03.md. Phase 5 close baseline remains under the
+          2026-08-03 phase5 filenames; Phase 4 under 2026-08-02.
         </p>
         <div className="flex flex-wrap gap-2">
           <Link href={scopedPortalPath('/portal/finance/proving', orgScope)}>

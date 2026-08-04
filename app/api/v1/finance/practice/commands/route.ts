@@ -3,9 +3,13 @@ import { withAuth } from '@/lib/api/auth'
 import {
   FirestorePracticeFinanceGateway,
   type AssignFinanceRoleCommand,
+  type AuthorizePracticeGrantAccessCommand,
+  type CreatePracticeGrantCommand,
   type EmitFinanceNotificationCommand,
   type MarkFinanceNotificationCommand,
   type RevokeFinanceRoleCommand,
+  type RevokePracticeGrantCommand,
+  type UpsertPracticeClientLinkCommand,
 } from '@/lib/finance/practice/firestore-gateway'
 import { runFinanceCommandHandler } from '@/lib/finance/http-command'
 
@@ -16,6 +20,10 @@ const OPERATIONS = [
   'practice.role.revoke',
   'practice.notification.emit',
   'practice.notification.mark',
+  'practice.client_link.upsert',
+  'practice.grant.create',
+  'practice.grant.revoke',
+  'practice.grant.authorize',
 ] as const
 
 type PracticeOperation = (typeof OPERATIONS)[number]
@@ -35,6 +43,14 @@ export const POST = withAuth('client', async (req: NextRequest, user) => {
           return gateway.emitNotification(actor, command as unknown as EmitFinanceNotificationCommand)
         case 'practice.notification.mark':
           return gateway.markNotification(actor, command as unknown as MarkFinanceNotificationCommand)
+        case 'practice.client_link.upsert':
+          return gateway.upsertClientLink(actor, command as unknown as UpsertPracticeClientLinkCommand)
+        case 'practice.grant.create':
+          return gateway.createGrant(actor, command as unknown as CreatePracticeGrantCommand)
+        case 'practice.grant.revoke':
+          return gateway.revokeGrant(actor, command as unknown as RevokePracticeGrantCommand)
+        case 'practice.grant.authorize':
+          return gateway.authorizeGrantAccess(actor, command as unknown as AuthorizePracticeGrantAccessCommand)
       }
     },
   })

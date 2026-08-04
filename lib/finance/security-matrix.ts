@@ -98,6 +98,25 @@ export const AUDITED_MUTATION_ACTIONS: readonly FinanceAction[] = [
   'operator_view.write',
   'operator_bulk.plan',
   'operator_allocate.plan',
+  'expense_claim.create',
+  'expense_claim.update',
+  'expense_claim.submit',
+  'expense_claim.approve',
+  'expense_claim.reject',
+  'expense_claim.bulk_approve',
+  'expense_claim.post',
+  'expense_claim.receipt.attach',
+  'expense_claim.ocr.assist',
+  'expense_claim.ocr.confirm',
+  'expense_claim.ocr.dismiss',
+  'expense_claim.payment_instruction.export',
+  'revenue.schedule.create',
+  'revenue.schedule.activate',
+  'revenue.schedule.cancel',
+  'revenue.recognition.run.create',
+  'revenue.recognition.run.calculate',
+  'revenue.recognition.run.post',
+  'revenue.recognition.run.reverse',
 ] as const
 
 /** Actions that require separate FinanceApprovalEvidence / SOD at commit time. */
@@ -125,6 +144,8 @@ export const APPROVAL_GATED_ACTIONS: readonly FinanceApprovalAction[] = [
   'payroll.export.approve',
   'asset.depreciation.run.post',
   'asset.dispose',
+  'revenue.recognition.run.post',
+  'revenue.recognition.run.reverse',
 ] as const
 
 export function financeActionCoverage(): Record<string, readonly FinanceRole[]> {

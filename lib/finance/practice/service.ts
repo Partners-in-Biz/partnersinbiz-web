@@ -19,9 +19,22 @@ import type {
   FinanceRoleMatrixRow,
   PracticeAuditEventView,
   PracticeAuditQuery,
+  PracticeClientGrant,
+  PracticeClientLink,
   PracticeClientSummary,
+  PracticeGrantAccessEvent,
+  PracticeGrantRole,
+  PracticeQueueItem,
   PracticeWorkspaceBundle,
 } from './types'
+import {
+  authorizePracticeGrantAction,
+  buildPracticeQueue,
+  grantSafetyFlags,
+  isPracticeGrantRole,
+  newGrantAccessEvent,
+  PRACTICE_GRANT_HARD_DENY_ACTIONS,
+} from './grants'
 
 export class PracticeFinanceValidationError extends FinanceValidationError {
   constructor(message: string) {
@@ -45,6 +58,9 @@ export interface PracticeFinanceStore {
   auditEvents: Map<string, FinanceAuditEvent>
   memberships: Map<string, PracticeMembershipRow>
   claims: Set<string>
+  grants: Map<string, PracticeClientGrant>
+  clientLinks: Map<string, PracticeClientLink>
+  grantAccessEvents: Map<string, PracticeGrantAccessEvent>
 }
 
 export function createEmptyPracticeStore(): PracticeFinanceStore {
@@ -54,6 +70,9 @@ export function createEmptyPracticeStore(): PracticeFinanceStore {
     auditEvents: new Map(),
     memberships: new Map(),
     claims: new Set(),
+    grants: new Map(),
+    clientLinks: new Map(),
+    grantAccessEvents: new Map(),
   }
 }
 
@@ -64,6 +83,9 @@ export function clonePracticeStore(store: PracticeFinanceStore): PracticeFinance
     auditEvents: new Map(store.auditEvents),
     memberships: new Map(store.memberships),
     claims: new Set(store.claims),
+    grants: new Map(store.grants),
+    clientLinks: new Map(store.clientLinks),
+    grantAccessEvents: new Map(store.grantAccessEvents),
   }
 }
 
@@ -111,6 +133,26 @@ function canManageRoles(actor: FinanceActorContext, scope: FinanceScope, at: str
     }
   }
   authorizeFinanceAction(actor, scope, 'role.assign', at)
+}
+
+/** Firm-level grant/link admin: owner/admin + finance_admin assignment in firm (any entity). */
+function canManagePracticeGrants(actor: FinanceActorContext, firmOrgId: string, at: string): void {
+  assertOrgMembership(actor, firmOrgId)
+  if (actor.membershipRole !== 'owner' && actor.membershipRole !== 'admin') {
+    throw new FinanceAuthorizationError('Practice grants require owner or admin membership on the firm')
+  }
+  const firmAdminAssignment = actor.assignments.find(
+    (a) => a.orgId === firmOrgId && a.status === 'active' && a.role === 'finance_admin',
+  )
+  if (!firmAdminAssignment) {
+    throw new FinanceAuthorizationError('Practice grants require an active finance_admin assignment on the firm')
+  }
+  authorizeFinanceAction(
+    actor,
+    { orgId: firmOrgId, legalEntityId: firmAdminAssignment.legalEntityId, bookId: firmAdminAssignment.bookId },
+    'role.assign',
+    at,
+  )
 }
 
 function canReadRoles(actor: FinanceActorContext, orgId: string, at: string, legalEntityId?: string): void {
@@ -293,6 +335,52 @@ export interface MarkFinanceNotificationCommand {
   status: 'read' | 'dismissed'
 }
 
+export interface UpsertPracticeClientLinkCommand {
+  id: string
+  firmOrgId: string
+  clientOrgId: string
+  clientName: string
+  status?: 'active' | 'inactive'
+  relationshipId?: string
+  openPeriodCount?: number
+  closeBlockerCount?: number
+  reconBacklogCount?: number
+  requestId: string
+  idempotencyKey: string
+}
+
+export interface CreatePracticeGrantCommand {
+  id: string
+  firmOrgId: string
+  clientOrgId: string
+  granteeUserId: string
+  role: PracticeGrantRole
+  legalEntityIds?: string[]
+  bookIds?: string[]
+  relationshipId?: string
+  requestId: string
+  idempotencyKey: string
+}
+
+export interface RevokePracticeGrantCommand {
+  id: string
+  firmOrgId: string
+  reason?: string
+  requestId: string
+  idempotencyKey: string
+}
+
+export interface AuthorizePracticeGrantAccessCommand {
+  firmOrgId: string
+  clientOrgId: string
+  action: FinanceAction
+  legalEntityId?: string
+  bookId?: string
+  resource?: string
+  requestId: string
+  idempotencyKey: string
+}
+
 export class PracticeFinanceService {
   constructor(
     private readonly load: () => Promise<PracticeFinanceStore>,
@@ -330,6 +418,25 @@ export class PracticeFinanceService {
       assignments: [...store.assignments.values()],
     })
 
+    const grants = [...store.grants.values()]
+      .filter((g) => g.firmOrgId === orgId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id))
+    const myGrants = [...store.grants.values()]
+      .filter((g) => g.granteeUserId === actor.uid && g.status === 'active')
+      .sort((a, b) => a.clientOrgId.localeCompare(b.clientOrgId) || a.role.localeCompare(b.role))
+    const clientLinks = [...store.clientLinks.values()]
+      .filter((l) => l.firmOrgId === orgId)
+      .sort((a, b) => a.clientName.localeCompare(b.clientName))
+    const practiceQueue = buildPracticeQueue({
+      firmOrgId: orgId,
+      links: clientLinks,
+      grants: store.grants.values(),
+    })
+    const grantAccessEvents = [...store.grantAccessEvents.values()]
+      .filter((e) => e.firmOrgId === orgId)
+      .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || b.sequence - a.sequence)
+      .slice(0, 100)
+
     return {
       orgId,
       matrix: buildFinanceRoleMatrix(),
@@ -338,10 +445,18 @@ export class PracticeFinanceService {
       notifications,
       auditEvents,
       practiceClients,
+      grants,
+      myGrants,
+      clientLinks,
+      practiceQueue,
+      grantAccessEvents,
       safety: {
         noSarsSubmit: true,
         noExternalPaymentInitiate: true,
         tenantScoped: true,
+        clientVisibleMessagesAllowed: false,
+        externalEgressAllowed: false,
+        practiceGrantsEnabled: true,
       },
     }
   }
@@ -592,4 +707,365 @@ export class PracticeFinanceService {
     canReadAudit(actor, orgId, at, query.legalEntityId, query.bookId)
     return filterAuditEventsForQuery(store.auditEvents.values(), query)
   }
+
+  /** Firm admin links a client org for practice work without forcing membership sprawl. */
+  async upsertClientLink(
+    actor: FinanceActorContext,
+    command: UpsertPracticeClientLinkCommand,
+  ): Promise<PracticeClientLink> {
+    const before = await this.load()
+    const after = clonePracticeStore(before)
+    const at = this.now()
+    const firmOrgId = requiredText(command.firmOrgId, 'firmOrgId')
+    const clientOrgId = requiredText(command.clientOrgId, 'clientOrgId')
+    if (firmOrgId === clientOrgId) {
+      throw new PracticeFinanceValidationError('firmOrgId and clientOrgId must differ')
+    }
+    assertOrgMembership(actor, firmOrgId)
+    canManagePracticeGrants(actor, firmOrgId, at)
+    claim(after, `idem:${firmOrgId}:${command.idempotencyKey}`, 'Duplicate practice client link request')
+
+    const existing = after.clientLinks.get(command.id)
+    if (existing && existing.firmOrgId !== firmOrgId) {
+      throw new PracticeFinanceValidationError('Client link id collision across firms')
+    }
+
+    const link: PracticeClientLink = {
+      id: requiredText(command.id, 'id'),
+      schemaVersion: 1,
+      firmOrgId,
+      clientOrgId,
+      clientName: requiredText(command.clientName, 'clientName'),
+      status: command.status ?? 'active',
+      relationshipId: command.relationshipId,
+      openPeriodCount: Math.max(0, command.openPeriodCount ?? existing?.openPeriodCount ?? 0),
+      closeBlockerCount: Math.max(0, command.closeBlockerCount ?? existing?.closeBlockerCount ?? 0),
+      reconBacklogCount: Math.max(0, command.reconBacklogCount ?? existing?.reconBacklogCount ?? 0),
+      createdAt: existing?.createdAt ?? at,
+      updatedAt: at,
+    }
+    after.clientLinks.set(link.id, link)
+
+    const eventId = `gae_link_${link.id}_${after.grantAccessEvents.size + 1}`
+    after.grantAccessEvents.set(
+      eventId,
+      newGrantAccessEvent({
+        id: eventId,
+        grant: {
+          id: 'link',
+          schemaVersion: 1,
+          firmOrgId,
+          clientOrgId,
+          granteeUserId: actor.uid,
+          role: 'review',
+          status: 'active',
+          createdBy: actor.uid,
+          createdAt: at,
+          ...grantSafetyFlags(),
+        },
+        actorUserId: actor.uid,
+        action: 'grant.link.upsert',
+        resource: link.id,
+        occurredAt: at,
+        reason: `Upsert client link ${clientOrgId}`,
+        sequence: after.grantAccessEvents.size + 1,
+      }),
+    )
+
+    await this.save(before, after)
+    return link
+  }
+
+  async createGrant(actor: FinanceActorContext, command: CreatePracticeGrantCommand): Promise<PracticeClientGrant> {
+    const before = await this.load()
+    const after = clonePracticeStore(before)
+    const at = this.now()
+    const firmOrgId = requiredText(command.firmOrgId, 'firmOrgId')
+    const clientOrgId = requiredText(command.clientOrgId, 'clientOrgId')
+    const granteeUserId = requiredText(command.granteeUserId, 'granteeUserId')
+    if (!isPracticeGrantRole(command.role)) {
+      throw new PracticeFinanceValidationError('role must be prepare, review, or file-export')
+    }
+    if (firmOrgId === clientOrgId) {
+      throw new PracticeFinanceValidationError('firmOrgId and clientOrgId must differ')
+    }
+    assertOrgMembership(actor, firmOrgId)
+    canManagePracticeGrants(actor, firmOrgId, at)
+    claim(after, `idem:${firmOrgId}:${command.idempotencyKey}`, 'Duplicate practice grant request')
+
+    const activeLink = [...after.clientLinks.values()].find(
+      (l) => l.firmOrgId === firmOrgId && l.clientOrgId === clientOrgId && l.status === 'active',
+    )
+    if (!activeLink) {
+      throw new PracticeFinanceValidationError('Active firm→client link required before creating a grant')
+    }
+
+    const existing = after.grants.get(command.id)
+    if (existing) {
+      if (existing.firmOrgId !== firmOrgId) throw new PracticeFinanceValidationError('Grant id collision across firms')
+      return existing
+    }
+
+    // One active grant per grantee+client+role+entity scope key
+    const scopeKey = `${granteeUserId}|${clientOrgId}|${command.role}|${(command.legalEntityIds ?? []).slice().sort().join(',')}|${(command.bookIds ?? []).slice().sort().join(',')}`
+    for (const g of after.grants.values()) {
+      if (g.status !== 'active' || g.firmOrgId !== firmOrgId) continue
+      const otherKey = `${g.granteeUserId}|${g.clientOrgId}|${g.role}|${(g.legalEntityIds ?? []).slice().sort().join(',')}|${(g.bookIds ?? []).slice().sort().join(',')}`
+      if (otherKey === scopeKey) {
+        throw new PracticeFinanceValidationError('Active practice grant already exists for this scope')
+      }
+    }
+
+    const grant: PracticeClientGrant = {
+      id: requiredText(command.id, 'id'),
+      schemaVersion: 1,
+      firmOrgId,
+      clientOrgId,
+      granteeUserId,
+      role: command.role,
+      status: 'active',
+      legalEntityIds: command.legalEntityIds?.map((id) => requiredText(id, 'legalEntityId')),
+      bookIds: command.bookIds?.map((id) => requiredText(id, 'bookId')),
+      relationshipId: command.relationshipId ?? activeLink.relationshipId,
+      createdBy: actor.uid,
+      createdAt: at,
+      ...grantSafetyFlags(),
+    }
+    after.grants.set(grant.id, grant)
+
+    const auditId = `aud_grant_${grant.id}`
+    after.auditEvents.set(auditId, {
+      id: auditId,
+      schemaVersion: 1,
+      orgId: firmOrgId,
+      legalEntityId: 'practice_firm',
+      aggregateType: 'practice_client_grant',
+      aggregateId: grant.id,
+      aggregateVersion: 1,
+      aggregateDigest: grant.id,
+      eventType: 'practice.grant.created',
+      actorId: actor.uid,
+      requestId: command.requestId,
+      idempotencyKey: command.idempotencyKey,
+      correlationId: actor.correlationId,
+      occurredAt: at,
+      sequence: after.auditEvents.size + 1,
+      canonicalPayloadVersion: 1,
+      hashAlgorithmVersion: 'sha256-v1',
+      eventHash: `hash_grant_${grant.id}`,
+      reason: `Granted ${grant.role} on client ${clientOrgId} to ${granteeUserId}`,
+    } as FinanceAuditEvent)
+
+    const eventId = `gae_${grant.id}_create`
+    after.grantAccessEvents.set(
+      eventId,
+      newGrantAccessEvent({
+        id: eventId,
+        grant,
+        actorUserId: actor.uid,
+        action: 'grant.create',
+        resource: grant.id,
+        occurredAt: at,
+        reason: `create ${grant.role}`,
+        sequence: after.grantAccessEvents.size + 1,
+      }),
+    )
+
+    const notificationId = `ntf_grant_${grant.id}`
+    after.notifications.set(notificationId, {
+      id: notificationId,
+      schemaVersion: 1,
+      orgId: firmOrgId,
+      legalEntityId: 'practice_firm',
+      kind: 'practice.grant.created',
+      status: 'unread',
+      title: 'Practice grant created',
+      body: `${grant.role} on ${clientOrgId} → ${granteeUserId}`,
+      href: '/portal/finance/practice#grants',
+      targetUserId: granteeUserId,
+      actorId: actor.uid,
+      aggregateType: 'practice_client_grant',
+      aggregateId: grant.id,
+      createdAt: at,
+      externalEgressAllowed: false,
+    })
+
+    await this.save(before, after)
+    return grant
+  }
+
+  async revokeGrant(actor: FinanceActorContext, command: RevokePracticeGrantCommand): Promise<PracticeClientGrant> {
+    const before = await this.load()
+    const after = clonePracticeStore(before)
+    const at = this.now()
+    const firmOrgId = requiredText(command.firmOrgId, 'firmOrgId')
+    const id = requiredText(command.id, 'id')
+    const existing = after.grants.get(id)
+    if (!existing || existing.firmOrgId !== firmOrgId) {
+      throw new PracticeFinanceValidationError('Practice grant not found')
+    }
+    assertOrgMembership(actor, firmOrgId)
+    canManagePracticeGrants(actor, firmOrgId, at)
+    claim(after, `idem:${firmOrgId}:${command.idempotencyKey}`, 'Duplicate practice grant revoke')
+
+    if (existing.status === 'revoked') return existing
+
+    const revoked: PracticeClientGrant = {
+      ...existing,
+      status: 'revoked',
+      revokedBy: actor.uid,
+      revokedAt: at,
+      revokeReason: command.reason,
+      ...grantSafetyFlags(),
+    }
+    after.grants.set(id, revoked)
+
+    const auditId = `aud_grant_rev_${id}_${after.auditEvents.size + 1}`
+    after.auditEvents.set(auditId, {
+      id: auditId,
+      schemaVersion: 1,
+      orgId: firmOrgId,
+      legalEntityId: 'practice_firm',
+      aggregateType: 'practice_client_grant',
+      aggregateId: id,
+      aggregateVersion: 2,
+      aggregateDigest: id,
+      eventType: 'practice.grant.revoked',
+      actorId: actor.uid,
+      requestId: command.requestId,
+      idempotencyKey: command.idempotencyKey,
+      correlationId: actor.correlationId,
+      occurredAt: at,
+      sequence: after.auditEvents.size + 1,
+      canonicalPayloadVersion: 1,
+      hashAlgorithmVersion: 'sha256-v1',
+      eventHash: `hash_grant_rev_${id}`,
+      reason: command.reason || `Revoked ${existing.role}`,
+    } as FinanceAuditEvent)
+
+    const eventId = `gae_${id}_revoke_${after.grantAccessEvents.size + 1}`
+    after.grantAccessEvents.set(
+      eventId,
+      newGrantAccessEvent({
+        id: eventId,
+        grant: revoked,
+        actorUserId: actor.uid,
+        action: 'grant.revoke',
+        resource: id,
+        occurredAt: at,
+        reason: command.reason || 'revoked',
+        sequence: after.grantAccessEvents.size + 1,
+      }),
+    )
+
+    const notificationId = `ntf_grant_rev_${id}`
+    after.notifications.set(notificationId, {
+      id: notificationId,
+      schemaVersion: 1,
+      orgId: firmOrgId,
+      legalEntityId: 'practice_firm',
+      kind: 'practice.grant.revoked',
+      status: 'unread',
+      title: 'Practice grant revoked',
+      body: `${existing.role} on ${existing.clientOrgId} revoked for ${existing.granteeUserId}`,
+      href: '/portal/finance/practice#grants',
+      targetUserId: existing.granteeUserId,
+      actorId: actor.uid,
+      aggregateType: 'practice_client_grant',
+      aggregateId: id,
+      createdAt: at,
+      externalEgressAllowed: false,
+    })
+
+    await this.save(before, after)
+    return revoked
+  }
+
+  /**
+   * Recorded authorize path for grantee acting on client books.
+   * Mutating client modules should call this (or the pure helper) before side effects.
+   */
+  async authorizeGrantAccess(
+    actor: FinanceActorContext,
+    command: AuthorizePracticeGrantAccessCommand,
+  ): Promise<{ allowed: true; grant: PracticeClientGrant; event: PracticeGrantAccessEvent }> {
+    const before = await this.load()
+    const after = clonePracticeStore(before)
+    const at = this.now()
+    const firmOrgId = requiredText(command.firmOrgId, 'firmOrgId')
+    const clientOrgId = requiredText(command.clientOrgId, 'clientOrgId')
+    claim(after, `idem:${firmOrgId}:${command.idempotencyKey}`, 'Duplicate practice grant access claim')
+
+    try {
+      const grant = authorizePracticeGrantAction({
+        actor,
+        firmOrgId,
+        clientOrgId,
+        action: command.action,
+        grants: after.grants.values(),
+        legalEntityId: command.legalEntityId,
+        bookId: command.bookId,
+      })
+      const eventId = `gae_access_${grant.id}_${after.grantAccessEvents.size + 1}`
+      const event = newGrantAccessEvent({
+        id: eventId,
+        grant,
+        actorUserId: actor.uid,
+        action: 'grant.access',
+        resource: command.resource,
+        financeAction: command.action,
+        occurredAt: at,
+        sequence: after.grantAccessEvents.size + 1,
+      })
+      after.grantAccessEvents.set(eventId, event)
+      await this.save(before, after)
+      return { allowed: true as const, grant, event }
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'denied'
+      const synthetic: PracticeClientGrant = {
+        id: 'denied',
+        schemaVersion: 1,
+        firmOrgId,
+        clientOrgId,
+        granteeUserId: actor.uid,
+        role: 'review',
+        status: 'active',
+        createdBy: actor.uid,
+        createdAt: at,
+        ...grantSafetyFlags(),
+      }
+      const eventId = `gae_denied_${firmOrgId}_${clientOrgId}_${after.grantAccessEvents.size + 1}`
+      after.grantAccessEvents.set(
+        eventId,
+        newGrantAccessEvent({
+          id: eventId,
+          grant: synthetic,
+          actorUserId: actor.uid,
+          action: 'grant.denied',
+          resource: command.resource,
+          financeAction: command.action,
+          occurredAt: at,
+          reason,
+          sequence: after.grantAccessEvents.size + 1,
+        }),
+      )
+      await this.save(before, after)
+      throw err
+    }
+  }
+
+  async getPracticeQueue(actor: FinanceActorContext, firmOrgId: string): Promise<PracticeQueueItem[]> {
+    const store = await this.load()
+    const at = this.now()
+    const orgId = requiredText(firmOrgId, 'firmOrgId')
+    canReadRoles(actor, orgId, at)
+    const queue = buildPracticeQueue({
+      firmOrgId: orgId,
+      links: store.clientLinks.values(),
+      grants: store.grants.values(),
+    })
+    return queue
+  }
 }
+
+export { PRACTICE_GRANT_HARD_DENY_ACTIONS, authorizePracticeGrantAction, grantAllowsAction } from './grants'
