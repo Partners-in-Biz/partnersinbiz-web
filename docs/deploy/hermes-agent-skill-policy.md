@@ -1,7 +1,7 @@
 # Hermes Agent Skill Policy
 
-Current policy version: `2026-07-30.system-skills-v0.1.5`
-Catalog version: `2026-07-30.system-skills-v0.1.5`
+Current policy version: `2026-08-04.system-skills-v0.1.6`
+Catalog version: `2026-08-04.system-skills-v0.1.6`
 
 Partners in Biz now treats every agent skill as a cataloged, owned, versioned runtime capability. The platform team is 12 specialists:
 
@@ -42,6 +42,8 @@ The manifest is consumed by:
 - `services/agent-watcher` for the enabled-agent dispatch model
 
 `daily-workflow` v1.2.0 is a core all-agent baseline. It recognises natural-language start/end-day requests, resolves the live workspace instead of stale client paths, and forbids routine destructive cleanup or blind stage-all behavior. It is included in both the policy-filtered 12-agent runtime and the client-delivered system skill pack.
+
+`workflow-graph-operator` v1.0.0 is the day-to-day Workflow Graph operator skill (opt-in GraphTemplate + WorkflowRun on Kanban). Runtime agents: `pip`, `theo`, `nora`, `qa-release`. Residual/perfect-bar diagnosis stays on profile skill `pib-workflow-graph-operations`; do not reopen Path A engine work from ordinary usage questions.
 
 ## Runtime Enforcement
 

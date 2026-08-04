@@ -1,6 +1,6 @@
 {
-  "version": "2026-07-30.system-skills-v0.1.5",
-  "catalogVersion": "2026-07-30.system-skills-v0.1.5",
+  "version": "2026-08-04.system-skills-v0.1.6",
+  "catalogVersion": "2026-08-04.system-skills-v0.1.6",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],
@@ -88,6 +88,7 @@
     "platform-admin-users",
     "reports",
     "project-management",
+    "workflow-graph-operator",
     "interactive-project-planning",
     "properties",
     "qa-release",
@@ -1366,6 +1367,29 @@
       "syncTarget": "vps",
       "pack": "pib-system-skills",
       "packTier": "growth"
+    },
+    "workflow-graph-operator": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "pip",
+        "theo",
+        "nora",
+        "qa-release"
+      ],
+      "riskLevel": "medium",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "core"
+    },
+    "pib-staff-billing-access": {
+      "ownerAgentId": "nora",
+      "allowedAgentIds": [
+        "nora",
+        "pip",
+        "finance"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
     }
   },
   "agents": {
@@ -1395,6 +1419,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "workflow-graph-operator",
         "interactive-project-planning",
         "properties",
         "research-intelligence",
@@ -1434,6 +1459,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "workflow-graph-operator",
         "interactive-project-planning",
         "properties",
         "research-intelligence",
@@ -1456,7 +1482,8 @@
         "life-os-ops",
         "agent-runtime-ops",
         "platform-admin-users",
-        "reports"
+        "reports",
+        "pib-staff-billing-access"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -1488,7 +1515,8 @@
         "client context",
         "approvals",
         "kanban orchestration",
-        "blocker follow-up"
+        "blocker follow-up",
+        "workflow-graph-operator"
       ],
       "mayRequestFrom": [
         "theo",
@@ -1533,6 +1561,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "workflow-graph-operator",
         "interactive-project-planning",
         "properties",
         "qa-release",
@@ -1566,6 +1595,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "workflow-graph-operator",
         "interactive-project-planning",
         "properties",
         "qa-release",
@@ -1902,6 +1932,7 @@
         "evidence-ledger",
         "google-workspace",
         "project-management",
+        "workflow-graph-operator",
         "research-intelligence",
         "reports"
       ],
@@ -1914,6 +1945,7 @@
         "ceo-on-demand-gather",
         "chat-surface-gather",
         "billing-finance",
+        "pib-staff-billing-access",
         "client-documents",
         "client-manager",
         "collaboration-runtime",
@@ -1926,6 +1958,7 @@
         "evidence-ledger",
         "google-workspace",
         "project-management",
+        "workflow-graph-operator",
         "research-intelligence",
         "reports"
       ],
@@ -2252,6 +2285,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "workflow-graph-operator",
         "interactive-project-planning",
         "properties",
         "qa-release",
@@ -2301,6 +2335,7 @@
         "google-workspace",
         "platform-ops",
         "project-management",
+        "workflow-graph-operator",
         "interactive-project-planning",
         "properties",
         "qa-release",
