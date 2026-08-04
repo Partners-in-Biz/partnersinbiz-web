@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import HermesMessagesShell from '@/components/messages/hermes-desktop/HermesMessagesShell'
 import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
 import { WORKSPACE_PANEL_EVENT } from '@/lib/hermes/workspace-panels'
@@ -70,7 +70,8 @@ describe('HermesMessagesShell', () => {
     expect(screen.getByRole('button', { name: 'Stack panes vertically' })).toHaveClass('h-11', 'w-11', 'xl:h-7', 'xl:w-7')
     expect(screen.getByRole('button', { name: 'Open active session in split pane' })).toHaveClass('h-11', 'w-11', 'xl:h-7', 'xl:w-7')
     expect(screen.getByRole('tab', { name: 'Session' }).parentElement).toHaveClass('min-h-11', 'xl:h-6', 'xl:min-h-0')
-    expect(screen.getByRole('button', { name: 'Close Session' })).toHaveClass('h-11', 'w-11', 'xl:h-3', 'xl:w-3', 'xl:opacity-0')
+    expect(screen.getByRole('button', { name: 'Close Session' })).toHaveClass('ml-1', 'h-11', 'w-11', 'xl:h-5', 'xl:w-5', 'xl:opacity-0')
+    expect(screen.getByRole('button', { name: 'Park Session' })).toHaveClass('ml-1', 'h-11', 'w-11', 'xl:h-5', 'xl:w-5', 'xl:opacity-0')
     expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-org-id', 'org-1')
     expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-layout-variant', 'hermes')
     expect(screen.getByTestId('mock-unified-chat')).toHaveAttribute('data-allow-stop', 'true')
@@ -302,7 +303,7 @@ describe('HermesMessagesShell', () => {
     expect(tab.style.getPropertyValue('--mx-folder-accent')).toMatch(/^#/)
   })
 
-  it('parks a workspace tab in the right rail and resumes it in the focused pane', () => {
+  it('parks a workspace tab in the right rail and resumes it in the focused pane', async () => {
     render(
       <HermesMessagesShell
         surface="portal"
@@ -327,7 +328,7 @@ describe('HermesMessagesShell', () => {
     const graphsTab = screen.getByTestId('workspace-tab-conv-1')
     fireEvent.click(graphsTab.querySelector('[aria-label="Park Graphs"]')!)
 
-    expect(screen.queryByTestId('workspace-tab-conv-1')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByTestId('workspace-tab-conv-1')).not.toBeInTheDocument())
     expect(screen.getByTestId('messages-parked-tabs-rail')).toHaveTextContent('Paused — no live messages or run polling.')
     expect(screen.getByTestId('parked-workspace-tab-conv-1')).toHaveTextContent('Graphs')
     expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Parked 1')
@@ -341,9 +342,10 @@ describe('HermesMessagesShell', () => {
     expect(screen.getByTestId('workspace-tab-conv-1')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('workspace-tab-conv-1').querySelector('[aria-label="Park Graphs"]')!)
+    await screen.findByRole('button', { name: 'Resume Graphs' })
     fireEvent.click(screen.getByRole('button', { name: 'Resume Graphs' }))
 
-    expect(screen.queryByTestId('messages-parked-tabs-rail')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByTestId('messages-parked-tabs-rail')).not.toBeInTheDocument())
     expect(screen.getByTestId('workspace-tab-conv-1')).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Graphs' })).toHaveAttribute('aria-selected', 'true')
     expect(mockUnifiedChat).toHaveBeenLastCalledWith(expect.objectContaining({ activeConversationId: 'conv-1' }))

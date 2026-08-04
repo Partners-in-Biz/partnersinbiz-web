@@ -39,6 +39,9 @@ type WorkspaceTab = ConversationTab | PanelTab
 type WorkspacePane = { id: string; tabs: WorkspaceTab[]; activeTabId: string | null }
 type ParkedConversationTab = ConversationTab & { parkedFromPaneId: string }
 type WorkspaceDirection = 'row' | 'column'
+type TabTransfer = { id: string; direction: 'parking' | 'restoring' }
+
+const TAB_TRANSFER_DURATION_MS = 220
 
 function conversationTab(conversationId: string, title = 'Session', accentSeed: string | null = null): ConversationTab {
   return { id: `conversation:${conversationId}`, kind: 'conversation', conversationId, title, accentSeed }
@@ -175,6 +178,8 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
   const [renameTabValue, setRenameTabValue] = useState('')
   /** Background-tab attention: pulse while running, underline until opened. */
   const [tabActivityByConversationId, setTabActivityByConversationId] = useState<Record<string, TabActivityPhase>>({})
+  const [tabTransfer, setTabTransfer] = useState<TabTransfer | null>(null)
+  const [resumedTabId, setResumedTabId] = useState<string | null>(null)
   const renameTabCancelledRef = useRef(false)
   const dragRef = useRef<{ origin: number; percent: number; size: number } | null>(null)
 
@@ -314,30 +319,38 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
   }
 
   const parkConversationTab = useCallback((paneId: string, tab: ConversationTab) => {
-    setTabActivityByConversationId((current) => clearTabActivity(current, tab.conversationId))
-    setPanes((current) => {
-      const next = current.map((pane) => {
-        if (pane.id !== paneId) return pane
-        const index = pane.tabs.findIndex((item) => item.id === tab.id)
-        const tabs = pane.tabs.filter((item) => item.id !== tab.id)
-        const activeTabId = pane.activeTabId === tab.id
-          ? tabs[Math.max(0, index - 1)]?.id ?? tabs[0]?.id ?? null
-          : pane.activeTabId
-        return { ...pane, tabs, activeTabId }
+    if (tabTransfer) return
+    setTabTransfer({ id: tab.id, direction: 'parking' })
+    window.setTimeout(() => {
+      setTabActivityByConversationId((current) => clearTabActivity(current, tab.conversationId))
+      setPanes((current) => {
+        const next = current.map((pane) => {
+          if (pane.id !== paneId) return pane
+          const index = pane.tabs.findIndex((item) => item.id === tab.id)
+          const tabs = pane.tabs.filter((item) => item.id !== tab.id)
+          const activeTabId = pane.activeTabId === tab.id
+            ? tabs[Math.max(0, index - 1)]?.id ?? tabs[0]?.id ?? null
+            : pane.activeTabId
+          return { ...pane, tabs, activeTabId }
+        })
+        return next.length > 1 && next[1].tabs.length === 0 ? [next[0]] : next
       })
-      return next.length > 1 && next[1].tabs.length === 0 ? [next[0]] : next
-    })
-    setParkedTabs((current) => {
-      const parked = { ...tab, parkedFromPaneId: paneId }
-      return current.some((item) => item.id === tab.id)
-        ? current.map((item) => item.id === tab.id ? parked : item)
-        : [...current, parked].slice(-12)
-    })
-    if (paneId === 'secondary') setFocusedPaneId('primary')
-    if (renamingTabId === tab.id) setRenamingTabId(null)
-  }, [renamingTabId])
+      setParkedTabs((current) => {
+        const parked = { ...tab, parkedFromPaneId: paneId }
+        return current.some((item) => item.id === tab.id)
+          ? current.map((item) => item.id === tab.id ? parked : item)
+          : [...current, parked].slice(-12)
+      })
+      if (paneId === 'secondary') setFocusedPaneId('primary')
+      if (renamingTabId === tab.id) setRenamingTabId(null)
+      setTabTransfer(null)
+    }, TAB_TRANSFER_DURATION_MS)
+  }, [renamingTabId, tabTransfer])
 
   const restoreParkedTab = useCallback((tab: ParkedConversationTab) => {
+    if (tabTransfer) return
+    setTabTransfer({ id: tab.id, direction: 'restoring' })
+    window.setTimeout(() => {
     const targetPaneId = focusedPaneId
     setPanes((current) => {
       const targetExists = current.some((pane) => pane.id === targetPaneId)
@@ -352,7 +365,11 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     })
     setParkedTabs((current) => current.filter((item) => item.id !== tab.id))
     setTabActivityByConversationId((current) => clearTabActivity(current, tab.conversationId))
-  }, [focusedPaneId])
+    setResumedTabId(tab.id)
+    setTabTransfer(null)
+    window.setTimeout(() => setResumedTabId((current) => current === tab.id ? null : current), TAB_TRANSFER_DURATION_MS)
+    }, TAB_TRANSFER_DURATION_MS)
+  }, [focusedPaneId, tabTransfer])
 
   const beginRenameTab = (tab: WorkspaceTab) => {
     if (tab.kind !== 'conversation') return
@@ -510,8 +527,8 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
         </div>
       </header>
       <div className="sr-only" data-testid="hermes-messages-shell-description">{copy.description}</div>
-      <section data-testid="hermes-messages-shell-body" className="min-h-0 min-w-0 flex-1 overflow-hidden p-1">
-        <div className={`flex h-full min-h-0 min-w-0 ${direction === 'row' ? 'flex-row' : 'flex-col'}`}>
+      <section data-testid="hermes-messages-shell-body" className="flex min-h-0 min-w-0 flex-1 overflow-hidden p-1">
+        <div className={`flex h-full min-h-0 min-w-0 flex-1 ${direction === 'row' ? 'flex-row' : 'flex-col'}`}>
           {panes.map((pane, paneIndex) => {
             const activeTab = pane.tabs.find((tab) => tab.id === pane.activeTabId) ?? null
             const paneBasis = panes.length === 1 ? 100 : paneIndex === 0 ? splitPercent : 100 - splitPercent
@@ -539,6 +556,11 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                         : activity === 'unread'
                           ? 'mx-tab-unread'
                           : ''
+                      const transferClass = tabTransfer?.id === tab.id && tabTransfer.direction === 'parking'
+                        ? 'mx-workspace-tab-parking'
+                        : resumedTabId === tab.id
+                          ? 'mx-workspace-tab-return'
+                          : ''
                       return (
                       <div
                         key={tab.id}
@@ -547,7 +569,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                         data-folder-accent={accentSeed || undefined}
                         data-tab-activity={activity || undefined}
                         style={folderAccentStyle(accentSeed)}
-                        className={`group/tab relative flex min-h-11 min-w-[92px] max-w-[220px] items-center overflow-hidden rounded-md border px-1.5 xl:h-6 xl:min-h-0 ${accentSeed ? 'mx-folder-accent pl-2' : ''} ${isActiveTab ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'} ${activityClass}`}
+                        className={`group/tab relative flex min-h-11 min-w-[92px] max-w-[220px] items-center overflow-hidden rounded-md border px-1.5 xl:h-6 xl:min-h-0 ${accentSeed ? 'mx-folder-accent pl-2' : ''} ${isActiveTab ? 'border-white/[0.1] bg-white/[0.07]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:bg-white/[0.04]'} ${activityClass} ${transferClass}`}
                       >
                         {renamingTabId === tab.id && tab.kind === 'conversation' ? (
                           <input
@@ -606,18 +628,20 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                             aria-label={`Park ${tab.title}`}
                             title="Park this tab to stop background activity"
                             onClick={() => parkConversationTab(pane.id, tab)}
-                            className="ml-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center self-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/10 hover:text-[var(--color-pib-text)] xl:h-3 xl:w-3 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"
+                            disabled={tabTransfer !== null}
+                            className="ml-1 inline-flex h-11 w-11 shrink-0 items-center justify-center self-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/10 hover:text-[var(--color-pib-text)] disabled:pointer-events-none xl:h-5 xl:w-5 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"
                           >
-                            <span aria-hidden="true" className="material-symbols-outlined block text-[11px] leading-none">switch_right</span>
+                            <span aria-hidden="true" className="material-symbols-outlined block text-[13px] leading-none">switch_right</span>
                           </button>
                         )}
                         <button
                           type="button"
                           aria-label={`Close ${tab.title}`}
                           onClick={() => closeTab(pane.id, tab.id)}
-                          className="ml-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center self-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/10 hover:text-[var(--color-pib-text)] xl:h-3 xl:w-3 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"
+                          disabled={tabTransfer !== null}
+                          className="ml-1 inline-flex h-11 w-11 shrink-0 items-center justify-center self-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/10 hover:text-[var(--color-pib-text)] disabled:pointer-events-none xl:h-5 xl:w-5 xl:opacity-0 xl:group-hover/tab:opacity-100 xl:focus:opacity-100"
                         >
-                          <span aria-hidden="true" className="material-symbols-outlined block text-[10px] leading-none">close</span>
+                          <span aria-hidden="true" className="material-symbols-outlined block text-[12px] leading-none">close</span>
                         </button>
                       </div>
                       )
@@ -650,7 +674,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
           {panes.length > 1 && <button type="button" aria-label="Resize workspace panes" style={{ order: 1 }} onPointerDown={startResize} onPointerMove={continueResize} onPointerUp={finishResize} onPointerCancel={finishResize} className={`z-10 hidden shrink-0 touch-none rounded-full bg-transparent hover:bg-primary/20 focus-visible:bg-primary/20 xl:block ${direction === 'row' ? '-mx-0.5 cursor-col-resize xl:w-2 xl:min-w-0' : '-my-0.5 cursor-row-resize xl:h-2 xl:min-h-0'}`} />}
         </div>
         {parkedTabs.length > 0 && (
-          <aside data-testid="messages-parked-tabs-rail" aria-label="Parked tabs" className="hidden w-44 shrink-0 flex-col border-l border-[var(--color-card-border)] bg-black/[0.11] xl:flex">
+          <aside data-testid="messages-parked-tabs-rail" aria-label="Parked tabs" className="mx-parked-rail-enter hidden w-44 shrink-0 flex-col border-l border-[var(--color-card-border)] bg-black/[0.11] xl:flex">
             <div className="border-b border-[var(--color-card-border)] px-3 py-2">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-pib-text)]"><span aria-hidden="true" className="material-symbols-outlined text-[15px] text-primary">pause_circle</span>Parked tabs</div>
               <p className="mt-1 text-[10px] leading-snug text-[var(--color-pib-text-muted)]">Paused — no live messages or run polling.</p>
@@ -665,7 +689,8 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                   title="Resume this tab in the current pane"
                   onClick={() => restoreParkedTab(tab)}
                   style={folderAccentStyle(tab.accentSeed)}
-                  className={`group flex w-full items-center gap-1.5 rounded-md border border-transparent px-2 py-2 text-left text-[11px] text-[var(--color-pib-text-muted)] hover:border-primary/30 hover:bg-primary/10 hover:text-[var(--color-pib-text)] ${tab.accentSeed ? 'mx-folder-accent' : ''}`}
+                  disabled={tabTransfer !== null}
+                  className={`group mx-parked-tab-enter flex w-full items-center gap-1.5 rounded-md border border-transparent px-2 py-2 text-left text-[11px] text-[var(--color-pib-text-muted)] hover:border-primary/30 hover:bg-primary/10 hover:text-[var(--color-pib-text)] disabled:pointer-events-none ${tab.accentSeed ? 'mx-folder-accent' : ''} ${tabTransfer?.id === tab.id && tabTransfer.direction === 'restoring' ? 'mx-parked-tab-restoring' : ''}`}
                 >
                   <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-primary">switch_left</span>
                   <span className="min-w-0 flex-1 truncate">{tab.title}</span>
