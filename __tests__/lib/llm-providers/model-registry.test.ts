@@ -50,7 +50,13 @@ describe('canonical model registry', () => {
       'openai/gpt-5.4',
     ])
     expect(curatedModelsForProvider('copilot')).toEqual(['gpt-5.4', 'gpt-5.4-mini', 'claude-sonnet-4'])
-    expect(curatedModelsForProvider('nous')).toEqual([])
+    expect(curatedModelsForProvider('nous')).toEqual(expect.arrayContaining([
+      'anthropic/claude-opus-5',
+      'openai/gpt-5.6-terra',
+      'google/gemini-3.6-flash',
+      'z-ai/glm-5.2',
+    ]))
+    expect(curatedModelsForProvider('nous')).toHaveLength(30)
 
     // The live provider definitions consume the same derived lists.
     expect(getLlmProvider('openai-codex')?.curatedModels).toContain('gpt-5.6-terra')

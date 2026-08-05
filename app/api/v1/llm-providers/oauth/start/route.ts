@@ -7,6 +7,7 @@ import { clientCanAccessOrg, canWriteOrgLlmConnection } from '@/lib/llm-provider
 import { createOauthSession } from '@/lib/llm-providers/oauth/sessions'
 import { startXaiDeviceCode } from '@/lib/llm-providers/oauth/xai'
 import { startCodexDeviceCode } from '@/lib/llm-providers/oauth/codex'
+import { startNousDeviceCode } from '@/lib/llm-providers/oauth/nous'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,6 +74,26 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
         verificationUri: started.verificationUri,
         verificationUriComplete: null,
         tokenEndpoint: 'codex',
+        expiresIn: started.expiresIn,
+        intervalSeconds: started.intervalSeconds,
+      })
+      return apiSuccess({ session }, 201)
+    }
+
+    if (def.key === 'nous') {
+      const started = await startNousDeviceCode()
+      const session = await createOauthSession({
+        provider: def.key,
+        hermesProvider: def.hermesProvider,
+        orgId,
+        ownerUid: user.uid,
+        scope,
+        label: typeof label === 'string' && label.trim() ? label : def.label,
+        deviceCode: started.deviceCode,
+        userCode: started.userCode,
+        verificationUri: started.verificationUri,
+        verificationUriComplete: started.verificationUriComplete,
+        tokenEndpoint: started.tokenEndpoint,
         expiresIn: started.expiresIn,
         intervalSeconds: started.intervalSeconds,
       })

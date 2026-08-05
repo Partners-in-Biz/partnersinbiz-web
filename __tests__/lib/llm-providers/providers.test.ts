@@ -2,11 +2,16 @@ import { getLlmProvider, listLlmProviders, UNSUPPORTED_CURSOR_NOTE, hermesProvid
 import { llmConnectionId, llmConnectionScopeKey, maskLlmConnection } from '@/lib/llm-providers/types'
 
 describe('llm providers catalogue', () => {
-  it('includes xAI OAuth, xAI API key, Codex OAuth, and DeepSeek', () => {
+  it('includes xAI OAuth, xAI API key, Codex OAuth, DeepSeek, and Nous Portal', () => {
     const keys = listLlmProviders().map((p) => p.key)
-    expect(keys).toEqual(expect.arrayContaining(['xai', 'xai-oauth', 'openai-codex', 'gemini', 'openrouter', 'deepseek']))
+    expect(keys).toEqual(expect.arrayContaining(['xai', 'xai-oauth', 'openai-codex', 'gemini', 'openrouter', 'deepseek', 'nous']))
     expect(getLlmProvider('xai')?.envVar).toBe('XAI_API_KEY')
     expect(getLlmProvider('deepseek')?.envVar).toBe('DEEPSEEK_API_KEY')
+    expect(getLlmProvider('nous')).toEqual(expect.objectContaining({
+      authKind: 'oauth',
+      oauthCapable: true,
+      credentialFields: [],
+    }))
     expect(hermesProviderForConnection('xai-oauth')).toBe('xai-oauth')
   })
 
