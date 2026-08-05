@@ -100,5 +100,5 @@ Pre-existing environment failures verified identical with changes stashed:
 
 ## Commit
 
-- SHA: <fill after commit>
-- Pushed to origin/development: <fill after push>
+- SHA: 437aed2f0 (feat(platform): canonical model catalogue/resolver — chat + agent-task single source)
+- Pushed to origin/development: yes — `a79f44321..437aed2f0 development -> development` (github-hermes:Partners-in-Biz/partnersinbiz-web)
