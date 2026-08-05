@@ -11,6 +11,7 @@ import { NextRequest } from 'next/server'
 import { getStorage } from 'firebase-admin/storage'
 import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
+import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 import {
   buildDelegationAuthPromptBlock,
   mintMessagesDispatchDelegation,
@@ -1573,7 +1574,7 @@ export const POST = withAuth(
   },
 )
 
-export const GET = withAuth(
+const listMessagesHandler = withAuth(
   'client',
   async (_req: NextRequest, user: ApiUser, context?: unknown) => {
     const { convId } = await (context as Params).params
@@ -1591,3 +1592,10 @@ export const GET = withAuth(
     return apiSuccess({ messages: messages.map(publicConversationMessageView) })
   },
 )
+
+export const GET = (req: NextRequest, context?: unknown) =>
+  runWithFirestoreReadAudit(
+    'api/v1/conversations/:id/messages:get',
+    () => listMessagesHandler(req, context),
+    { logEveryRun: true },
+  )

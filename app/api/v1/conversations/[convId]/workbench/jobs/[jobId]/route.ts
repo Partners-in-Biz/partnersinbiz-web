@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
+import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { authorizeWorkbenchConversation, WorkbenchAuthorizationError } from '@/lib/messages/workbench/authorization'
@@ -58,7 +59,14 @@ export async function handleGetWorkbenchJob(
   }
 }
 
-export const GET = withAuth('client', async (request: NextRequest, user: ApiUser, context?: unknown) => {
+const getWorkbenchJobHandler = withAuth('client', async (request: NextRequest, user: ApiUser, context?: unknown) => {
   const { convId, jobId } = await (context as Context).params
   return handleGetWorkbenchJob(request, user, convId, jobId)
 })
+
+export const GET = (request: NextRequest, context?: unknown) =>
+  runWithFirestoreReadAudit(
+    'api/v1/conversations/:id/workbench/jobs/:id:get',
+    () => getWorkbenchJobHandler(request, context),
+    { logEveryRun: true },
+  )

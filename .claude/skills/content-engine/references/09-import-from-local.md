@@ -99,10 +99,12 @@ calendar = [
 ]
 ```
 
-## Firebase Admin SDK — required for heroImageUrl + draftPostId
+## Firebase Admin SDK — legacy for heroImageUrl + draftPostId
 
-These two fields are **not in the PATCH `/seo/content/[id]` allow-list**. The
-endpoint silently drops them. You must use Firebase Admin SDK directly.
+As of 2026-08-04 the `PATCH /seo/content/[id]` allow-list includes
+`heroImageUrl` and `draftPostId` (see route ALLOWED const), so the Firebase
+Admin direct write below is no longer required. Keep it as a fallback if a
+deployed API version lags the repo.
 
 ```python
 from pathlib import Path
