@@ -69,9 +69,10 @@ app-side validation in the watcher.
 
 ```
 npm run typecheck
-# Pre-existing only (unchanged vs baseline): services/realtime-gateway/src/server.ts
-# TS2307 'redis', TS7016/TS7006 'ws' (8 lines; identical error set with changes stashed).
-# Zero new type errors from this change.
+# PASS (exit 0). services/realtime-gateway is a standalone Docker service with
+# its own tsconfig/package.json (deps redis/ws never installed in the web repo);
+# it is now excluded from the web typecheck project (same pattern as the earlier
+# realtime worktree excludes) and still typechecks in its own `npm run build`.
 
 npx jest --runInBand __tests__/lib/llm-providers/providers.test.ts \
   __tests__/lib/llm-providers/model-registry.test.ts \
@@ -92,6 +93,8 @@ npx jest --runInBand __tests__/app/qa-wfg-model-picker.test.tsx \
 # ("stops polling after repeated retryable gateway failures", fetch count 6 vs 4) —
 # fails identically with changes stashed (baseline).
 ```
+
+Combined affected suites (final, fresh): 9 suites / 127 tests PASS with `npm run typecheck` green.
 
 Pre-existing environment failures verified identical with changes stashed:
 - `__tests__/services/agent-watcher/hermes.test.ts` — 1 failure (polling/retry timing).
