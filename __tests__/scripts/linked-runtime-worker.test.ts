@@ -57,8 +57,18 @@ it('detects live Hermes API work before credential reloads', async () => {
     readiness: { checks: { background_queues: { active_api_runs: 0 } } },
   }), { status: 200 })) as any
   await expect(localHermesAgentHasActiveWork('docs', {
-    PIB_LOCAL_HERMES_ROUTES: JSON.stringify({ docs: { baseUrl: 'http://127.0.0.1:8771', apiKey: 'k' } }),
+    PIB_LOCAL_HERMES_ROUTES: JSON.stringify({ docs: { baseUrl: 'http://127.0.0.1:8771', apiKey: 'local-key' } }),
   }, idleFetcher)).resolves.toBe(false)
+})
+it('fails closed when the busy probe cannot be completed (no restart for unverifiable profiles)', async () => {
+  const env = { PIB_LOCAL_HERMES_ROUTES: JSON.stringify({ docs: { baseUrl: 'http://127.0.0.1:8771', apiKey: 'local-key' } }) }
+  const errorFetcher = jest.fn(async () => { throw new Error('tunnel flap: connection reset') }) as any
+  await expect(localHermesAgentHasActiveWork('docs', env, errorFetcher)).resolves.toBe(true)
+  const httpErrorFetcher = jest.fn(async () => new Response('gateway busy or dying', { status: 502 })) as any
+  await expect(localHermesAgentHasActiveWork('docs', env, httpErrorFetcher)).resolves.toBe(true)
+  const garbageFetcher = jest.fn(async () => new Response('<html>not json</html>', { status: 200 })) as any
+  await expect(localHermesAgentHasActiveWork('docs', env, garbageFetcher)).resolves.toBe(true)
+  await expect(localHermesAgentHasActiveWork('unknown-agent', env, jest.fn() as any)).resolves.toBe(true)
 })
 it.each([['darwin','macos'],['win32','windows'],['linux','linux']] as const)('reports Node platform %s as linked runtime platform %s',(nodePlatform,expected)=>{expect(linkedRuntimePlatform(nodePlatform)).toBe(expected)})
 it('uses a safe 64-chat host ceiling even when the environment is malformed or too high',()=>{expect(linkedRunMaxTotalConcurrency('not-a-number')).toBe(64);expect(linkedRunMaxTotalConcurrency('120')).toBe(64);expect(linkedRunMaxTotalConcurrency('0')).toBe(64);expect(linkedRunMaxTotalConcurrency('9999')).toBe(64)})

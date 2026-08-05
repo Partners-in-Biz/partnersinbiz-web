@@ -151,6 +151,27 @@ export function bindingsNeedingPolicySync(input: {
   })
 }
 
+/**
+ * Cooldown applied by the heartbeat reconcile after a keep-in-sync sync-policy
+ * job failed because the target Hermes profile was busy ("Agent is still busy…
+ * deferred"). Without it, every heartbeat re-enqueues the same job for a
+ * mid-run profile and the fleet receives a fresh restart intent on a loop —
+ * the Mac restart-request storm. The window is deliberately longer than the
+ * fleet's per-request defer cadence so the profile can drain between attempts.
+ */
+export const HEARTBEAT_BUSY_DEFER_BACKOFF_MS = 5 * 60_000
+
+export function bindingPolicySyncBusyBackedOff(
+  binding: DesiredAgentBinding,
+  nowMs = Date.now(),
+  busyBackoffMs = HEARTBEAT_BUSY_DEFER_BACKOFF_MS,
+): boolean {
+  return binding.status === 'error'
+    && typeof binding.lastError === 'string'
+    && binding.lastError.includes('busy')
+    && nowMs - binding.updatedAtMs < busyBackoffMs
+}
+
 export function publicManagedAgentIds(): AgentId[] {
   return [...AGENT_IDS]
 }
