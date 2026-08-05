@@ -5184,7 +5184,7 @@ export default function UnifiedChat({
     refs?: Array<ContextReference | ContextReferenceSeed>,
   ) => Promise<ContextReference[]>) | null>(null)
   const handleUiAction = useCallback(
-    async (message: ConversationMessage, action: ChatUiAction) => {
+    async (message: ConversationMessage, action: ChatUiAction, options?: { openDock?: boolean }) => {
       const actionType = String(action.type).toLowerCase()
       if (actionType === 'open_context') {
         // Never pin context for a bubble that belongs to another thread (stale
@@ -5227,6 +5227,10 @@ export default function UnifiedChat({
           ) {
             return
           }
+          // Auto-attach pins the ref (so the strip chip appears) but must NOT
+          // force the Context Dock open. The human clicks the chip or the
+          // action button to open the preview.
+          if (options?.openDock === false) return
           setContextFocusRequest({
             kind,
             id,
@@ -5398,7 +5402,9 @@ export default function UnifiedChat({
       const key = `${activeId}:${identity}`
       if (handledOpenContextActionsRef.current.has(key)) continue
       handledOpenContextActionsRef.current.add(key)
-      void handleUiAction(latestAssistant, action)
+      // Auto-handler: attach the ref (chip appears) but do NOT auto-open the
+      // Context Dock. Peet opens the preview by clicking the chip/button.
+      void handleUiAction(latestAssistant, action, { openDock: false })
       break
     }
   }, [activeId, handleUiAction, messages])
