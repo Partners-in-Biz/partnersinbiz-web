@@ -40,9 +40,10 @@ const ROLE_LABELS: Record<OrganizationPolicyRole, string> = {
   owner: 'Owner',
   admin: 'Admin',
   member: 'Member',
+  viewer: 'Viewer',
 }
 
-const ALL_ROLES: OrganizationRoleSelection = { owner: true, admin: true, member: true }
+const ALL_ROLES: OrganizationRoleSelection = { owner: true, admin: true, member: true, viewer: true }
 const LEGACY_PORTAL_MODULE_KEYS: OrganizationModulePolicyKey[] = ['mobileApps', 'youtubeStudio', 'bookStudio']
 
 function isRecord(value: unknown): value is Record<string, unknown> {

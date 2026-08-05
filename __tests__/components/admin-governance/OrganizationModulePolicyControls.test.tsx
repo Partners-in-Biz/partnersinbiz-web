@@ -87,6 +87,7 @@ describe('OrganizationModulePolicyControls', () => {
     fireEvent.click(within(visibilityRow).getByRole('checkbox', { name: 'Owner' }))
     fireEvent.click(within(visibilityRow).getByRole('checkbox', { name: 'Admin' }))
     fireEvent.click(within(visibilityRow).getByRole('checkbox', { name: 'Member' }))
+    fireEvent.click(within(visibilityRow).getByRole('checkbox', { name: 'Viewer' }))
     fireEvent.click(screen.getByRole('button', { name: /Save settings/ }))
 
     await waitFor(() => {
@@ -104,7 +105,7 @@ describe('OrganizationModulePolicyControls', () => {
         modulePolicies: {
           bookStudio: {
             actions: {
-              visibility: { owner: false, admin: false, member: false },
+              visibility: { owner: false, admin: false, member: false, viewer: false },
             },
           },
         },

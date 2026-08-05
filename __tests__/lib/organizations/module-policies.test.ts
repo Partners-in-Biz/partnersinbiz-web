@@ -58,10 +58,43 @@ describe('organization module policies', () => {
       },
     })
 
-    expect(policies.documents.actions.create).toEqual({ owner: true, admin: false, member: false })
-    expect(policies.documents.actions.visibility).toEqual({ owner: true, admin: true, member: true })
+    expect(policies.documents.actions.create).toEqual({ owner: true, admin: false, member: false, viewer: false })
+    expect(policies.documents.actions.visibility).toEqual({ owner: true, admin: true, member: true, viewer: true })
     expect(policies.documents.customItems).toEqual([
       { id: 'custom-brief', label: 'Custom brief', description: 'Organisation-specific document template.' },
     ])
+  })
+
+  it('maps legacy selections without a viewer key to the member grant', () => {
+    const policies = resolveOrganizationModulePolicies({
+      modulePolicies: {
+        documents: {
+          actions: {
+            create: { owner: true, admin: false, member: false },
+          },
+        },
+      },
+    })
+    expect(policies.documents.actions.create.viewer).toBe(false)
+  })
+
+  it('uses an explicit viewer grant independently of member', () => {
+    const policies = resolveOrganizationModulePolicies({
+      modulePolicies: {
+        documents: {
+          actions: {
+            visibility: { owner: true, admin: true, member: false, viewer: true },
+          },
+        },
+      },
+    })
+    expect(canRoleUseModule(policies, 'documents', 'viewer')).toBe(true)
+    expect(canRoleUseModule(policies, 'documents', 'member')).toBe(false)
+  })
+
+  it('normalizes unknown roles to member for the role matrix', () => {
+    const policies = resolveOrganizationModulePolicies(undefined)
+    expect(canRoleUseModule(policies, 'projects', 'client')).toBe(canRoleUseModule(policies, 'projects', 'member'))
+    expect(canRoleUseModule(policies, 'projects', '')).toBe(canRoleUseModule(policies, 'projects', 'member'))
   })
 })

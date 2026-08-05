@@ -8,6 +8,8 @@ import {
   actorHasIssuerGrant,
   shouldExposeIssuerBillingBook,
   crmActorCanIssueForTarget,
+  memberCanDeleteBilling,
+  memberCanPerformBillingAction,
   resolveQuoteCreateAccess,
 } from '@/lib/billing/member-issuer'
 import type { CrmAuthContext } from '@/lib/auth/crm-middleware'
@@ -173,5 +175,43 @@ describe('member billing issuer capabilities', () => {
   it('keeps org owner path open without CRM target', async () => {
     const ctx = memberCtx({ role: 'owner', accessPolicy: FULL_ACCESS_POLICY })
     await expect(resolveQuoteCreateAccess({ ctx })).resolves.toEqual({ ok: true, mode: 'org_manager' })
+  })
+
+  it('allows billing edit/send by default and refines with explicit member flags', () => {
+    const defaultMember = memberCtx()
+    const restrictedMember = memberCtx({
+      accessPolicy: normalizeMemberAccessPolicy({
+        preset: 'custom',
+        modules: { billing: true, crm: true },
+        recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+        moduleActions: { billing: { edit: false, send: false } },
+      }),
+    })
+
+    // Module on + no explicit flag = current behaviour (allowed).
+    expect(memberCanPerformBillingAction(defaultMember, 'edit')).toBe(true)
+    expect(memberCanPerformBillingAction(defaultMember, 'send')).toBe(true)
+    // Explicit member flag refines.
+    expect(memberCanPerformBillingAction(restrictedMember, 'edit')).toBe(false)
+    expect(memberCanPerformBillingAction(restrictedMember, 'send')).toBe(false)
+    // Owners/admin bypass regardless of flags.
+    expect(memberCanPerformBillingAction({ ...defaultMember, role: 'owner' }, 'edit')).toBe(true)
+  })
+
+  it('keeps billing delete fail-closed for members and open for managers', () => {
+    const noGrant = memberCtx()
+    const withGrant = memberCtx({
+      accessPolicy: normalizeMemberAccessPolicy({
+        preset: 'custom',
+        modules: { billing: true, crm: true },
+        recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+        moduleActions: { billing: { delete: true } },
+      }),
+    })
+
+    expect(memberCanDeleteBilling(noGrant)).toBe(false)
+    expect(memberCanDeleteBilling(withGrant)).toBe(true)
+    expect(memberCanDeleteBilling({ ...noGrant, role: 'owner' })).toBe(true)
+    expect(memberCanDeleteBilling({ ...noGrant, isAgent: true })).toBe(true)
   })
 })

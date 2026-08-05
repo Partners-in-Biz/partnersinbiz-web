@@ -167,7 +167,7 @@ export const FULL_ACCESS_POLICY: MemberAccessPolicy = {
     documents: 'all',
     marketing: 'all',
   },
-  moduleActions: {},
+  moduleActions: emptyModuleActions(),
   agentRuntimeAccess: {},
   allowPersonalLlmOnOrgVps: true,
   capabilities: fullBillingCapabilities(),
@@ -264,7 +264,12 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
   const recordScopes: Record<RecordScopedModuleKey, RecordScope> = { ...DEFAULT_RECORD_SCOPES }
   for (const key of RECORD_SCOPED_MODULE_KEYS) {
     const scope = recordScopesInput[key]
-    recordScopes[key] = scope === 'all' ? 'all' : 'owned_or_linked'
+    // Only override when the stored policy actually carries the key; missing
+    // keys keep DEFAULT_RECORD_SCOPES so legacy partial policies never lose
+    // effective access (research/documents/marketing stay 'all').
+    if (scope === 'all' || scope === 'owned_or_linked') {
+      recordScopes[key] = scope
+    }
   }
   const agentRuntimeAccess: Record<string, AgentId[]> = {}
   for (const [runtimeTargetId, rawAgentIds] of Object.entries(agentRuntimeAccessInput)) {
@@ -465,6 +470,10 @@ export function resolveEffectiveMemberPolicy(input: {
     : 'member'
   const baseWithActions: MemberAccessPolicy = {
     ...base,
+    // Clone nested objects so applying org defaults never mutates the shared
+    // FULL_ACCESS_POLICY singleton (which owners/admins also resolve to).
+    modules: { ...base.modules },
+    recordScopes: { ...base.recordScopes },
     moduleActions: normalizeModuleActions(base.moduleActions),
   }
 
