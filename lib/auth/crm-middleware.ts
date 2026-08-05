@@ -14,7 +14,7 @@ import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-acce
 import {
   FULL_ACCESS_POLICY,
   canAccessModule,
-  resolveMemberAccessPolicy,
+  resolveEffectiveMemberPolicy,
   type MemberAccessPolicy,
 } from '@/lib/orgMembers/access-policy'
 
@@ -65,15 +65,17 @@ function apiError(message: string, status: number): Response {
 
 async function loadOrgPermissions(orgId: string): Promise<{
   permissions: OrgPermissions
+  modulePolicies?: unknown
   members: Array<{ userId: string; role: OrgRole; accessScope?: unknown; accessPolicy?: unknown }> | null
   exists: boolean
 }> {
   const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
-  if (!orgDoc.exists) return { permissions: {}, members: null, exists: false }
+  if (!orgDoc.exists) return { permissions: {}, modulePolicies: undefined, members: null, exists: false }
   const data = orgDoc.data() ?? {}
+  const settings = (data.settings as Record<string, unknown> | undefined) ?? {}
   return {
-    permissions:
-      ((data.settings as Record<string, unknown> | undefined)?.permissions as OrgPermissions) ?? {},
+    permissions: (settings.permissions as OrgPermissions) ?? {},
+    modulePolicies: settings.modulePolicies,
     members: (data.members as Array<{ userId: string; role: OrgRole }> | undefined) ?? null,
     exists: true,
   }
@@ -129,7 +131,7 @@ async function resolveHumanCrmMembership(input: {
     storedAccessPolicy = m.accessPolicy
   }
 
-  const { permissions, members, exists: orgExists } = await loadOrgPermissions(orgId)
+  const { permissions, modulePolicies, members, exists: orgExists } = await loadOrgPermissions(orgId)
   if (!orgExists) return { ok: false, response: apiError('Organization not found', 404) }
 
   if (!role) {
@@ -144,7 +146,12 @@ async function resolveHumanCrmMembership(input: {
 
   if (!role || !actor) return { ok: false, response: apiError('Workspace membership not found', 403) }
   if (rankOf(role) < rankOf(minRole)) return { ok: false, response: apiError('Insufficient permissions', 403) }
-  const accessPolicy = resolveMemberAccessPolicy({ role, accessScope, accessPolicy: storedAccessPolicy })
+  const accessPolicy = resolveEffectiveMemberPolicy({
+    role,
+    accessScope,
+    accessPolicy: storedAccessPolicy,
+    orgModulePolicies: modulePolicies,
+  })
   if (!canAccessModule(accessPolicy, 'crm')) {
     return { ok: false, response: apiError('CRM module access is disabled for this team member', 403) }
   }

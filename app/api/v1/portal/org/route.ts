@@ -7,7 +7,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 import { resolvePortalModules } from '@/lib/organizations/portal-modules'
 import { resolveOrganizationModulePolicies } from '@/lib/organizations/module-policies'
-import { resolveMemberAccessPolicy } from '@/lib/orgMembers/access-policy'
+import { resolveEffectiveMemberPolicy } from '@/lib/orgMembers/access-policy'
 import type { OrgRole } from '@/lib/organizations/types'
 
 export const dynamic = 'force-dynamic'
@@ -49,10 +49,13 @@ export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
   const orgMembers = Array.isArray(org.members) ? org.members as Array<{ userId?: string; uid?: string; role?: OrgRole; accessScope?: unknown; accessPolicy?: unknown }> : []
   const memberFallback = orgMembers.find((member) => (member.userId || member.uid) === uid)
   const memberRole = (memberData.role as OrgRole | undefined) ?? memberFallback?.role
-  const accessPolicy = resolveMemberAccessPolicy({
+  const storedAccessPolicy = memberData.accessPolicy ?? memberFallback?.accessPolicy
+  const resolvedSettings = (org.settings ?? {}) as Record<string, unknown>
+  const accessPolicy = resolveEffectiveMemberPolicy({
     role: memberRole ?? 'viewer',
     accessScope: memberData.accessScope ?? memberFallback?.accessScope,
-    accessPolicy: memberData.accessPolicy ?? memberFallback?.accessPolicy,
+    accessPolicy: storedAccessPolicy,
+    orgModulePolicies: resolvedSettings.modulePolicies,
   })
 
   return NextResponse.json({
@@ -78,6 +81,9 @@ export const GET = withPortalAuth(async (req: NextRequest, uid: string) => {
       role: user.role ?? 'client',
       memberRole: memberRole ?? null,
       accessPolicy,
+      // True when this member has an explicit per-member policy; the portal nav
+      // treats it as the source of truth and skips the org modulePolicies AND.
+      hasExplicitAccessPolicy: Boolean(storedAccessPolicy && typeof storedAccessPolicy === 'object'),
     },
   })
 })
