@@ -5,6 +5,7 @@ const mockListConversationPresence = jest.fn()
 const mockHeartbeatConversationPresence = jest.fn()
 const mockCanAccessConversation = jest.fn()
 const mockAuthorizeConversationProject = jest.fn()
+const mockRunWithFirestoreReadAudit = jest.fn((_scope: string, fn: () => Promise<Response>) => fn())
 
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: (...args: unknown[]) => Promise<Response>) =>
@@ -31,6 +32,11 @@ jest.mock('@/lib/conversations/presence', () => ({
   heartbeatConversationPresence: (...args: unknown[]) => mockHeartbeatConversationPresence(...args),
 }))
 
+jest.mock('@/lib/firebase/read-audit', () => ({
+  runWithFirestoreReadAudit: (...args: [string, () => Promise<Response>, { logEveryRun?: boolean }]) =>
+    mockRunWithFirestoreReadAudit(...args),
+}))
+
 describe('conversation presence API routes', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -52,6 +58,11 @@ describe('conversation presence API routes', () => {
     expect(mockCanAccessConversation).toHaveBeenCalled()
     expect(mockAuthorizeConversationProject).toHaveBeenCalled()
     expect(mockListConversationPresence).toHaveBeenCalledWith('conv-1', 'org-1')
+    expect(mockRunWithFirestoreReadAudit).toHaveBeenCalledWith(
+      'api/v1/conversations/:id/presence:get',
+      expect.any(Function),
+      { logEveryRun: true },
+    )
     expect(body.data.presence).toEqual([{ id: 'presence-1', actorUid: 'maya' }])
   })
 
@@ -73,6 +84,11 @@ describe('conversation presence API routes', () => {
       'org-1',
       { state: 'typing' },
       { uid: 'member-1', type: 'user' },
+    )
+    expect(mockRunWithFirestoreReadAudit).toHaveBeenCalledWith(
+      'api/v1/conversations/:id/presence:post',
+      expect.any(Function),
+      { logEveryRun: true },
     )
     expect(body.data.presence).toEqual([{ id: 'conv-1_user-1', actorUid: 'user-1' }])
   })

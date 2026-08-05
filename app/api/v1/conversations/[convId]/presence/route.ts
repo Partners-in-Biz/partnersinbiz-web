@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 import { getConversation } from '@/lib/conversations/conversations'
 import {
   authorizeConversationProject,
@@ -31,7 +32,7 @@ function actorFromUser(user: ApiUser): { uid: string; type: ConversationPresence
   }
 }
 
-export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
+const getPresenceHandler = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
   const { convId } = await (context as RouteContext).params
   const orgId = resolveOrgId(req, user)
   if (!orgId) return apiError('orgId is required', 400)
@@ -49,7 +50,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, co
   return apiSuccess<PresenceRouteResult>({ presence })
 })
 
-export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
+const postPresenceHandler = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
   const { convId } = await (context as RouteContext).params
   const orgId = resolveOrgId(req, user)
   if (!orgId) return apiError('orgId is required', 400)
@@ -67,3 +68,20 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const presence = await heartbeatConversationPresence(convId, orgId, body, actorFromUser(user))
   return apiSuccess<PresenceRouteResult>({ presence: [presence] })
 })
+
+// Presence is intentionally short-lived and high-frequency. Logging every
+// request is temporary observability that lets us price its reads precisely;
+// it only writes an application log and never a Firestore telemetry document.
+export const GET = (req: NextRequest, context?: unknown) =>
+  runWithFirestoreReadAudit(
+    'api/v1/conversations/:id/presence:get',
+    () => getPresenceHandler(req, context),
+    { logEveryRun: true },
+  )
+
+export const POST = (req: NextRequest, context?: unknown) =>
+  runWithFirestoreReadAudit(
+    'api/v1/conversations/:id/presence:post',
+    () => postPresenceHandler(req, context),
+    { logEveryRun: true },
+  )

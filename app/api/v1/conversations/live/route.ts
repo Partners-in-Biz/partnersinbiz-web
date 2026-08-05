@@ -17,6 +17,7 @@ import {
 import {
   listConversationPresence,
 } from '@/lib/conversations/presence'
+import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 import {
   CONVERSATION_LIVE_REFRESH_MS,
   CONVERSATION_LIVE_MESSAGE_LIMIT,
@@ -40,58 +41,59 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   let cachedMessageVersion: string | null = null
   let cachedMessages: ConversationLiveSnapshot['messages'] = null
 
-  const loadSnapshot = async (): Promise<ConversationLiveSnapshot> => {
-    const conversations = await listConversations(orgScope.orgId, user, query.limit, {
-      scope: query.scope,
-      scopeRefId: query.scopeRefId,
-      projectId: query.projectId,
-      includeAllScopes: query.includeAllScopes,
-    })
+  const loadSnapshot = async (): Promise<ConversationLiveSnapshot> =>
+    runWithFirestoreReadAudit('api/v1/conversations/live/snapshot', async () => {
+      const conversations = await listConversations(orgScope.orgId, user, query.limit, {
+        scope: query.scope,
+        scopeRefId: query.scopeRefId,
+        projectId: query.projectId,
+        includeAllScopes: query.includeAllScopes,
+      })
 
-    let activeConversation = query.conversationId
-      ? conversations.find((conversation) => conversation.id === query.conversationId) ?? null
-      : null
+      let activeConversation = query.conversationId
+        ? conversations.find((conversation) => conversation.id === query.conversationId) ?? null
+        : null
 
     // A saved/focused chat can intentionally sit outside the current rail
     // filter. Resolve it independently, but only through the same access and
     // mutable project-link checks as the canonical conversation endpoints.
-    if (query.conversationId && !activeConversation) {
-      const candidate = await getConversation(query.conversationId)
-      if (candidate && candidate.orgId === orgScope.orgId && canAccessConversation(user, candidate)) {
-        const projectAccess = await authorizeConversationProject(user, candidate)
-        if (projectAccess.ok) activeConversation = candidate
+      if (query.conversationId && !activeConversation) {
+        const candidate = await getConversation(query.conversationId)
+        if (candidate && candidate.orgId === orgScope.orgId && canAccessConversation(user, candidate)) {
+          const projectAccess = await authorizeConversationProject(user, candidate)
+          if (projectAccess.ok) activeConversation = candidate
+        }
       }
-    }
 
-    let messages: ConversationLiveSnapshot['messages'] = null
-    if (activeConversation) {
-      const updatedAtMs = activeConversation.updatedAt?.toMillis?.() ?? 0
-      const messageVersion = `${activeConversation.id}:${updatedAtMs}`
-      if (messageVersion !== cachedMessageVersion) {
-        cachedMessages = (await listMessages(
-          activeConversation.id,
-          CONVERSATION_LIVE_MESSAGE_LIMIT,
-        )).map(publicConversationMessageView)
-        cachedMessageVersion = messageVersion
+      let messages: ConversationLiveSnapshot['messages'] = null
+      if (activeConversation) {
+        const updatedAtMs = activeConversation.updatedAt?.toMillis?.() ?? 0
+        const messageVersion = `${activeConversation.id}:${updatedAtMs}`
+        if (messageVersion !== cachedMessageVersion) {
+          cachedMessages = (await listMessages(
+            activeConversation.id,
+            CONVERSATION_LIVE_MESSAGE_LIMIT,
+          )).map(publicConversationMessageView)
+          cachedMessageVersion = messageVersion
+        }
+        messages = cachedMessages
+      } else {
+        cachedMessageVersion = null
+        cachedMessages = null
       }
-      messages = cachedMessages
-    } else {
-      cachedMessageVersion = null
-      cachedMessages = null
-    }
-    const presence = activeConversation
-      ? await listConversationPresence(activeConversation.id, orgScope.orgId)
-      : null
+      const presence = activeConversation
+        ? await listConversationPresence(activeConversation.id, orgScope.orgId)
+        : null
 
-    return {
-      type: 'snapshot',
-      conversations: conversations.map((conversation) => publicConversationView(conversation, user.uid)),
-      conversation: activeConversation ? publicConversationView(activeConversation, user.uid) : null,
-      messages,
-      presence,
-      emittedAtMs: Date.now(),
-    }
-  }
+      return {
+        type: 'snapshot',
+        conversations: conversations.map((conversation) => publicConversationView(conversation, user.uid)),
+        conversation: activeConversation ? publicConversationView(activeConversation, user.uid) : null,
+        messages,
+        presence,
+        emittedAtMs: Date.now(),
+      }
+    }, { logEveryRun: true })
 
   // Resolve once before returning a stream so permission/index failures remain
   // ordinary HTTP errors rather than opaque EventSource disconnects.

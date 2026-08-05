@@ -6,6 +6,7 @@
  */
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
+import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 import { withAuth } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
 import { resolveOrgScope } from '@/lib/api/orgScope'
@@ -540,7 +541,7 @@ export const POST = withAuth(
   }),
 )
 
-export const GET = withAuth(
+const listConversationsHandler = withAuth(
   'client',
   async (req: NextRequest, user: ApiUser) => {
     const { searchParams } = new URL(req.url)
@@ -577,3 +578,12 @@ export const GET = withAuth(
     })
   },
 )
+
+// This route is an initial/fallback rail load. Keep its Firestore work visible
+// beside the long-lived live-stream snapshots while investigating read costs.
+export const GET = (req: NextRequest, context?: unknown) =>
+  runWithFirestoreReadAudit(
+    'api/v1/conversations:get',
+    () => listConversationsHandler(req, context),
+    { logEveryRun: true },
+  )
