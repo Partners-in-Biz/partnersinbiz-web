@@ -756,6 +756,18 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     // Stamping agentProvider=openai-codex with agentModel=null makes Hermes keep the
     // profile default model (grok-4.5) on ChatGPT Codex → HTTP 400.
     // Prefer profile primary (xai-oauth/grok-4.5) when the card only has a provider stamp.
+    //
+    // Model allowlist boundary: the canonical model catalogue lives in the web app
+    // (lib/llm-providers/model-registry.ts) and is enforced at task create/update +
+    // workflow-graph authoring. This daemon is a separate CommonJS service with no
+    // user-delegation context and cannot import that module, so it intentionally does
+    // NOT keep a second copied model allowlist. Dispatch trusts the persisted card and
+    // Hermes api_server's own _DEFAULT_RUN_MODEL_ALLOWLIST (patched by
+    // infra/hermes/patch_llm_model_allowlist.py) rejects unsupported models fail-closed
+    // as a run error, which this daemon surfaces as task failure/retry.
+    // Dependency contract: extract a shared TS package (e.g. packages/model-catalogue)
+    // that both the web app and this watcher import, then re-enable app-side validation
+    // here. Do not partially duplicate the allowlist in this service first.
     const taskModel = taskData.agentModel?.trim() || null
     const taskProvider = taskData.agentProvider?.trim() || null
     const safeTaskProvider = taskModel ? taskProvider : null

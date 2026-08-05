@@ -3,7 +3,7 @@ import {
   applyTemplateDefaults,
 } from './constants'
 import { sha256Hex } from './sha256'
-import { VALID_AGENT_MODELS } from '@/lib/agents/runRouting'
+import { isAgentTaskModel } from '@/lib/llm-providers/model-registry'
 import type {
   GatedCapability,
   GraphNodeTemplate,
@@ -215,7 +215,7 @@ export function validateGraphTemplate(template: GraphTemplate): TemplateValidati
       if (!node.expectedArtifacts?.length) {
         return { ok: false, error: `Agent node ${node.nodeId} requires expectedArtifacts` }
       }
-      if (node.agentModel && !(VALID_AGENT_MODELS as readonly string[]).includes(node.agentModel)) {
+      if (node.agentModel && !isAgentTaskModel(node.agentModel)) {
         return { ok: false, error: `Agent node ${node.nodeId} has agentModel ${node.agentModel} outside the allowlist` }
       }
     }

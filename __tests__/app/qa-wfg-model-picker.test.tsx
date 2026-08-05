@@ -35,12 +35,13 @@ describe('WorkflowGraphAuthoringPanel per-node model picker (QA render check)', 
       value: (o as HTMLOptionElement).value,
       text: (o as HTMLOptionElement).text,
     }))
-    // Platform default + the six allowlisted models
+    // Platform default + the seven allowlisted models (canonical registry)
     expect(options[0]?.value).toBe('')
     const values = options.map((o) => o.value).filter(Boolean)
     expect(values).toEqual([
       'grok-4.5',
       'claude-sonnet-4-6',
+      'gpt-5.6-terra',
       'gpt-5.5',
       'gpt-5.4',
       'gpt-5.4-mini',

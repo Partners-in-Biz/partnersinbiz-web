@@ -1,3 +1,12 @@
+import {
+  agentTaskModelIds,
+  agentTaskModelOptions,
+  cleanAgentTaskModel,
+  isAgentTaskModel,
+} from '@/lib/llm-providers/model-registry'
+
+export { resolveAgentTaskModelEligibility } from '@/lib/llm-providers/model-registry'
+
 export const VALID_AGENT_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const
 
 export type AgentEffort = (typeof VALID_AGENT_EFFORTS)[number]
@@ -10,25 +19,16 @@ export const AGENT_EFFORT_OPTIONS: Array<{ value: AgentEffort; label: string }> 
   { value: 'xhigh', label: 'XHigh' },
 ]
 
-export const VALID_AGENT_MODELS = [
-  'grok-4.5',
-  'claude-sonnet-4-6',
-  'gpt-5.5',
-  'gpt-5.4',
-  'gpt-5.4-mini',
-  'gpt-5.3-codex-spark',
-] as const
+/**
+ * Agent-task model allowlist, derived from the canonical model registry
+ * (lib/llm-providers/model-registry.ts). Do NOT add models here — add them to
+ * the registry so Messages and agent-task routing share one source of truth.
+ */
+export const VALID_AGENT_MODELS = agentTaskModelIds()
 
 export type AgentModel = (typeof VALID_AGENT_MODELS)[number]
 
-export const AGENT_MODEL_OPTIONS: Array<{ value: AgentModel; label: string }> = [
-  { value: 'grok-4.5', label: 'Grok 4.5 (SuperGrok)' },
-  { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-  { value: 'gpt-5.5', label: 'GPT-5.5' },
-  { value: 'gpt-5.4', label: 'GPT-5.4' },
-  { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
-  { value: 'gpt-5.3-codex-spark', label: 'GPT-5.3 Spark' },
-]
+export const AGENT_MODEL_OPTIONS = agentTaskModelOptions()
 
 export function cleanAgentEffort(value: unknown): AgentEffort | null {
   if (value === undefined || value === null || value === '') return null
@@ -38,8 +38,6 @@ export function cleanAgentEffort(value: unknown): AgentEffort | null {
 }
 
 export function cleanAgentModel(value: unknown): AgentModel | null {
-  if (value === undefined || value === null || value === '') return null
-  if (typeof value !== 'string') return null
-  const cleaned = value.trim()
-  return VALID_AGENT_MODELS.includes(cleaned as AgentModel) ? cleaned as AgentModel : null
+  const cleaned = cleanAgentTaskModel(value)
+  return cleaned !== null && isAgentTaskModel(cleaned) ? cleaned as AgentModel : null
 }

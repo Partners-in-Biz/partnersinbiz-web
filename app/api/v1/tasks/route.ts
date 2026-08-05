@@ -12,7 +12,7 @@ import { actorFrom } from '@/lib/api/actor'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
-import { cleanAgentEffort, cleanAgentModel, VALID_AGENT_EFFORTS, VALID_AGENT_MODELS } from '@/lib/agents/runRouting'
+import { cleanAgentEffort, VALID_AGENT_EFFORTS, resolveAgentTaskModelEligibility } from '@/lib/agents/runRouting'
 import {
   VALID_TASK_STATUSES,
   VALID_TASK_PRIORITIES,
@@ -210,11 +210,11 @@ export const POST = withAuth(
     if (raw.agentEffort !== undefined && raw.agentEffort !== null && raw.agentEffort !== '' && !agentEffortValue) {
       return apiError(`Invalid agentEffort; expected one of ${VALID_AGENT_EFFORTS.join(' | ')}`)
     }
-    const agentModelValue = raw.agentModel === undefined || raw.agentModel === null || raw.agentModel === ''
-      ? null
-      : cleanAgentModel(raw.agentModel)
-    if (raw.agentModel !== undefined && raw.agentModel !== null && raw.agentModel !== '' && !agentModelValue) {
-      return apiError(`Invalid agentModel; expected one of ${VALID_AGENT_MODELS.join(' | ')}`)
+    let agentModelValue: string | null = null
+    if (raw.agentModel !== undefined && raw.agentModel !== null && raw.agentModel !== '') {
+      const resolution = resolveAgentTaskModelEligibility({ model: raw.agentModel })
+      if (!resolution.ok) return apiError(resolution.reason, resolution.status)
+      agentModelValue = resolution.model.id
     }
     let agentInputValue: { spec: string; context?: Record<string, unknown>; constraints?: string[] } | null = null
     const rawInput = raw.agentInput
