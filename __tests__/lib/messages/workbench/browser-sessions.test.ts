@@ -2,10 +2,14 @@ import {
   appendWorkbenchBrowserProgressChunk,
   appendWorkbenchBrowserSessionControl,
   generateWorkbenchBrowserSessionId,
+  isPrivateWorkbenchBrowserUrl,
   isTerminalWorkbenchBrowserSessionStatus,
+  isWorkbenchBrowserDrivingControl,
   parseWorkbenchBrowserProgressChunk,
   parseWorkbenchBrowserSessionControl,
   publicWorkbenchBrowserSession,
+  sanitizeWorkbenchBrowserClickRef,
+  sanitizeWorkbenchBrowserDialog,
   sanitizeWorkbenchBrowserFollowIntervalMs,
   sanitizeWorkbenchBrowserKey,
   sanitizeWorkbenchBrowserMouseButton,
@@ -16,6 +20,7 @@ import {
   sanitizeWorkbenchBrowserUrl,
   sanitizeWorkbenchBrowserViewport,
   transitionWorkbenchBrowserSession,
+  workbenchBrowserActorKindFromHeader,
   WORKBENCH_BROWSER_ALLOWED_KEYS,
   type WorkbenchBrowserSession,
 } from '@/lib/messages/workbench/browser-sessions'
@@ -35,6 +40,9 @@ function awaitingApprovalSession(overrides: Partial<WorkbenchBrowserSession> = {
     relativeFolder: 'projects/project-a',
     startUrl: null,
     viewport: { width: 1280, height: 720 },
+    initiator: 'user',
+    driver: 'idle',
+    allowPrivateNetwork: true,
     status: 'awaiting_approval',
     attempt: 0,
     encryptedCreateControl: { ciphertext: 'cipher', iv: 'iv', tag: 'tag' },
@@ -128,6 +136,12 @@ describe('parseWorkbenchBrowserSessionControl', () => {
     [{ kind: 'follow_start', intervalMs: 10 }, { kind: 'follow_start', intervalMs: 500 }],
     [{ kind: 'follow_start', intervalMs: 60_000 }, { kind: 'follow_start', intervalMs: 5_000 }],
     [{ kind: 'follow_stop' }, { kind: 'follow_stop' }],
+    [{ kind: 'snapshot' }, { kind: 'snapshot' }],
+    [{ kind: 'console' }, { kind: 'console' }],
+    [{ kind: 'dialog', accept: true }, { kind: 'dialog', accept: true }],
+    [{ kind: 'dialog', accept: false, promptText: 'my answer' }, { kind: 'dialog', accept: false, promptText: 'my answer' }],
+    [{ kind: 'click_ref', ref: '@e3' }, { kind: 'click_ref', ref: '@e3' }],
+    [{ kind: 'click_ref', ref: 'e3' }, { kind: 'click_ref', ref: '@e3' }],
   ])('accepts Phase 5 interaction/follow control %j, resolving optional fields to defaults', (input, expected) => {
     expect(parseWorkbenchBrowserSessionControl(input)).toEqual(expected)
   })
@@ -168,6 +182,18 @@ describe('parseWorkbenchBrowserSessionControl', () => {
     { kind: 'follow_start', intervalMs: 'fast' },
     { kind: 'follow_start', intervalMs: 1_000, extra: true },
     { kind: 'follow_stop', extra: true },
+    { kind: 'dialog' },
+    { kind: 'dialog', accept: 'yes' },
+    { kind: 'dialog', accept: 1 },
+    { kind: 'dialog', accept: true, promptText: 42 },
+    { kind: 'dialog', accept: true, promptText: 'x'.repeat(1_001) },
+    { kind: 'dialog', accept: true, extra: true },
+    { kind: 'click_ref' },
+    { kind: 'click_ref', ref: 'a.b' },
+    { kind: 'click_ref', ref: 'a b' },
+    { kind: 'click_ref', ref: '' },
+    { kind: 'snapshot', extra: true },
+    { kind: 'console', extra: true },
   ])('rejects out-of-range or unsafe interaction control %j', (input) => {
     expect(() => parseWorkbenchBrowserSessionControl(input)).toThrow('workbench: invalid browser session control')
   })
@@ -212,6 +238,127 @@ describe('interaction sanitizers', () => {
   })
 })
 
+describe('sanitizeWorkbenchBrowserDialog', () => {
+  it('accepts a boolean accept, with or without promptText', () => {
+    expect(sanitizeWorkbenchBrowserDialog({ accept: true })).toEqual({ accept: true })
+    expect(sanitizeWorkbenchBrowserDialog({ accept: false })).toEqual({ accept: false })
+    expect(sanitizeWorkbenchBrowserDialog({ accept: false, promptText: 'my answer' })).toEqual({ accept: false, promptText: 'my answer' })
+  })
+
+  it('rejects non-object input and non-boolean accept', () => {
+    expect(sanitizeWorkbenchBrowserDialog(null)).toBeNull()
+    expect(sanitizeWorkbenchBrowserDialog('accept')).toBeNull()
+    expect(sanitizeWorkbenchBrowserDialog([])).toBeNull()
+    expect(sanitizeWorkbenchBrowserDialog({ accept: 'yes' })).toBeNull()
+    expect(sanitizeWorkbenchBrowserDialog({ accept: 1 })).toBeNull()
+    expect(sanitizeWorkbenchBrowserDialog({})).toBeNull()
+  })
+
+  it('rejects oversized or control-character promptText', () => {
+    expect(sanitizeWorkbenchBrowserDialog({ accept: true, promptText: 'x'.repeat(1_001) })).toBeNull()
+    expect(sanitizeWorkbenchBrowserDialog({ accept: true, promptText: 'yes\u0007bell' })).toBeNull()
+    expect(sanitizeWorkbenchBrowserDialog({ accept: true, promptText: 'red \u001b[31mtext' })).toBeNull()
+    expect(sanitizeWorkbenchBrowserDialog({ accept: true, promptText: 42 })).toBeNull()
+  })
+})
+
+describe('sanitizeWorkbenchBrowserClickRef', () => {
+  it('normalizes a bare ref to @-prefixed and keeps an already-prefixed one', () => {
+    expect(sanitizeWorkbenchBrowserClickRef('e12')).toBe('@e12')
+    expect(sanitizeWorkbenchBrowserClickRef('@e12')).toBe('@e12')
+    expect(sanitizeWorkbenchBrowserClickRef('A1_b-c')).toBe('@A1_b-c')
+  })
+
+  it('rejects refs with slashes, dots, spaces, empty, oversized, or non-string input', () => {
+    expect(sanitizeWorkbenchBrowserClickRef('')).toBeNull()
+    expect(sanitizeWorkbenchBrowserClickRef('a.b')).toBeNull()
+    expect(sanitizeWorkbenchBrowserClickRef('a/b')).toBeNull()
+    expect(sanitizeWorkbenchBrowserClickRef('a b')).toBeNull()
+    expect(sanitizeWorkbenchBrowserClickRef('@')).toBeNull()
+    expect(sanitizeWorkbenchBrowserClickRef('a@b')).toBeNull()
+    expect(sanitizeWorkbenchBrowserClickRef('x'.repeat(33))).toBeNull()
+    expect(sanitizeWorkbenchBrowserClickRef('x'.repeat(32))).toBe('@' + 'x'.repeat(32))
+    expect(sanitizeWorkbenchBrowserClickRef(42)).toBeNull()
+  })
+})
+
+describe('isPrivateWorkbenchBrowserUrl', () => {
+  it('treats localhost, .localhost, .local, loopback, and unspecified addresses as private', () => {
+    expect(isPrivateWorkbenchBrowserUrl('http://localhost:3000')).toBe(true)
+    expect(isPrivateWorkbenchBrowserUrl('http://myapp.localhost')).toBe(true)
+    expect(isPrivateWorkbenchBrowserUrl('http://printer.local')).toBe(true)
+    expect(isPrivateWorkbenchBrowserUrl('http://127.0.0.1:8080')).toBe(true)
+    expect(isPrivateWorkbenchBrowserUrl('http://0.0.0.0:8080')).toBe(true)
+    expect(isPrivateWorkbenchBrowserUrl('http://[::1]')).toBe(true)
+    expect(isPrivateWorkbenchBrowserUrl('http://[::]')).toBe(true)
+  })
+
+  it('treats RFC1918, CGNAT, link-local, documentation, benchmarking, and multicast ranges as private', () => {
+    for (const url of [
+      'http://10.0.0.5',
+      'http://172.16.0.1',
+      'http://172.31.255.255',
+      'http://192.168.1.1',
+      'http://100.64.0.1',
+      'http://100.127.255.1',
+      'http://169.254.169.254',
+      'http://192.0.0.1',
+      'http://192.0.2.1',
+      'http://198.18.0.1',
+      'http://198.19.255.255',
+      'http://198.51.100.1',
+      'http://203.0.113.5',
+      'http://224.0.0.1',
+      'http://239.255.255.250',
+    ]) {
+      expect(isPrivateWorkbenchBrowserUrl(url)).toBe(true)
+    }
+  })
+
+  it('treats literal IPv6 addresses and invalid URLs as private (conservative)', () => {
+    expect(isPrivateWorkbenchBrowserUrl('http://[2001:db8::1]')).toBe(true)
+    expect(isPrivateWorkbenchBrowserUrl('https://[2606:4700:4700::1111]')).toBe(true)
+    expect(isPrivateWorkbenchBrowserUrl('not a url')).toBe(true)
+    expect(isPrivateWorkbenchBrowserUrl('')).toBe(true)
+  })
+
+  it('treats public hosts and out-of-range IPv4 as non-private', () => {
+    expect(isPrivateWorkbenchBrowserUrl('https://example.com')).toBe(false)
+    expect(isPrivateWorkbenchBrowserUrl('https://example.com:8443/path?q=1')).toBe(false)
+    expect(isPrivateWorkbenchBrowserUrl('https://sub.example.co.uk')).toBe(false)
+    expect(isPrivateWorkbenchBrowserUrl('http://8.8.8.8')).toBe(false)
+    expect(isPrivateWorkbenchBrowserUrl('http://1.1.1.1')).toBe(false)
+    expect(isPrivateWorkbenchBrowserUrl('http://11.0.0.1')).toBe(false)
+    expect(isPrivateWorkbenchBrowserUrl('http://172.32.0.1')).toBe(false)
+    expect(isPrivateWorkbenchBrowserUrl('http://192.169.1.1')).toBe(false)
+    expect(isPrivateWorkbenchBrowserUrl('http://100.128.0.1')).toBe(false)
+    expect(isPrivateWorkbenchBrowserUrl('http://203.0.114.1')).toBe(false)
+    expect(isPrivateWorkbenchBrowserUrl('http://198.50.100.1')).toBe(false)
+  })
+})
+
+describe('isWorkbenchBrowserDrivingControl', () => {
+  it('classifies page-driving controls as driving and read-only controls as not', () => {
+    for (const kind of ['navigate', 'click', 'click_ref', 'type', 'press', 'scroll', 'dialog']) {
+      expect(isWorkbenchBrowserDrivingControl({ kind } as never)).toBe(true)
+    }
+    for (const kind of ['snapshot', 'console', 'capture', 'follow_start', 'follow_stop', 'kill']) {
+      expect(isWorkbenchBrowserDrivingControl({ kind } as never)).toBe(false)
+    }
+  })
+})
+
+describe('workbenchBrowserActorKindFromHeader', () => {
+  it('resolves any non-empty header value to agent and null/empty to undefined', () => {
+    expect(workbenchBrowserActorKindFromHeader('agent-1')).toBe('agent')
+    expect(workbenchBrowserActorKindFromHeader('  agent-1  ')).toBe('agent')
+    expect(workbenchBrowserActorKindFromHeader(undefined)).toBeUndefined()
+    expect(workbenchBrowserActorKindFromHeader(null)).toBeUndefined()
+    expect(workbenchBrowserActorKindFromHeader('')).toBeUndefined()
+    expect(workbenchBrowserActorKindFromHeader('   ')).toBeUndefined()
+  })
+})
+
 describe('parseWorkbenchBrowserProgressChunk', () => {
   it('accepts frame/status/stderr chunks and truncates oversized text', () => {
     expect(parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'frame', imageUrl: 'https://cdn.example.com/f.jpg', contentType: 'image/jpeg', atMs: 1_000 }))
@@ -232,17 +379,68 @@ describe('parseWorkbenchBrowserProgressChunk', () => {
     expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'bogus', atMs: 1_000 })).toThrow()
     expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'status', atMs: -1 })).toThrow()
   })
+
+  it('accepts a snapshot stream chunk with a valid payload and round-trips it', () => {
+    const payload = {
+      url: 'https://example.com',
+      title: 'Example',
+      ax: '<button>Sign in</button>',
+      refs: { '@e1': { backendDOMNodeId: 42, role: 'button', name: 'Sign in' } },
+      pendingDialog: { type: 'prompt', message: 'Enter your name' },
+      frames: [{ frameId: 'f1', parentId: null, url: 'https://example.com', name: 'main' }],
+      console: [{ level: 'error', text: 'boom', url: 'https://example.com/app.js', line: 12 }],
+    }
+    expect(parseWorkbenchBrowserProgressChunk({ seq: 5, stream: 'snapshot', atMs: 5_000, snapshot: payload }))
+      .toEqual({ seq: 5, stream: 'snapshot', atMs: 5_000, snapshot: payload })
+  })
+
+  it('accepts a console stream chunk with valid entries', () => {
+    const entries = [
+      { level: 'log', text: 'hello' },
+      { level: 'error', text: 'uncaught ReferenceError: x is not defined', url: 'https://example.com/app.js', line: 3 },
+    ]
+    expect(parseWorkbenchBrowserProgressChunk({ seq: 6, stream: 'console', atMs: 6_000, entries }))
+      .toEqual({ seq: 6, stream: 'console', atMs: 6_000, entries })
+  })
+
+  it('rejects a snapshot stream without a payload or with an invalid one', () => {
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'snapshot', atMs: 1_000 })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'snapshot', atMs: 1_000, snapshot: null })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'snapshot', atMs: 1_000, snapshot: { ax: 'x'.repeat(12_001), refs: {} } })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'snapshot', atMs: 1_000, snapshot: { ax: 'ok', refs: [] } })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'snapshot', atMs: 1_000, snapshot: { ax: 'ok', refs: { 'bad ref': {} } } })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'snapshot', atMs: 1_000, snapshot: { ax: 'ok', refs: { '@e1': 'not-an-object' } } })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'snapshot', atMs: 1_000, snapshot: { ax: 'ok', refs: { '@e1': { backendDOMNodeId: 1.5 } } } })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'snapshot', atMs: 1_000, snapshot: { ax: 'ok', refs: {}, pendingDialog: 'nope' } })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'snapshot', atMs: 1_000, snapshot: { ax: 'ok', refs: {}, frames: [{ frameId: '' }] } })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'snapshot', atMs: 1_000, snapshot: { ax: 'ok', refs: {}, console: [{ level: 'log', text: 'x'.repeat(301) }] } })).toThrow('workbench: invalid browser progress chunk')
+  })
+
+  it('rejects a console stream without entries or with invalid entries', () => {
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'console', atMs: 1_000 })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'console', atMs: 1_000, entries: 'nope' })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'console', atMs: 1_000, entries: [{ level: 'log', text: 'x'.repeat(301) }] })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'console', atMs: 1_000, entries: [{ level: 'l'.repeat(65), text: 'ok' }] })).toThrow('workbench: invalid browser progress chunk')
+    expect(() => parseWorkbenchBrowserProgressChunk({ seq: 0, stream: 'console', atMs: 1_000, entries: [{ level: 'log', text: 'ok', line: -1 }] })).toThrow('workbench: invalid browser progress chunk')
+  })
 })
 
 describe('appendWorkbenchBrowserSessionControl', () => {
   it('caps the FIFO at 64 entries, dropping the oldest first', () => {
     let controls: ReturnType<typeof appendWorkbenchBrowserSessionControl> | undefined
     for (let seq = 0; seq < 70; seq += 1) {
-      controls = appendWorkbenchBrowserSessionControl(controls, { seq, control: { kind: 'capture' }, actorUserId: 'user-a', enqueuedAtMs: seq })
+      controls = appendWorkbenchBrowserSessionControl(controls, { seq, control: { kind: 'capture' }, actorUserId: 'user-a', actorKind: 'user', enqueuedAtMs: seq })
     }
     expect(controls).toHaveLength(64)
     expect(controls![0].seq).toBe(6)
     expect(controls![63].seq).toBe(69)
+  })
+
+  it('carries the actorKind of the enqueuer through the FIFO', () => {
+    const controls = appendWorkbenchBrowserSessionControl(undefined, { seq: 0, control: { kind: 'snapshot' }, actorUserId: 'user-a', actorKind: 'agent', enqueuedAtMs: 1_000 })
+    expect(controls).toHaveLength(1)
+    expect(controls[0].actorKind).toBe('agent')
+    expect(controls[0].control).toEqual({ kind: 'snapshot' })
   })
 })
 
@@ -280,6 +478,16 @@ describe('publicWorkbenchBrowserSession', () => {
     expect(view).toMatchObject({ sessionId: 'wbbs_a', status: 'queued', viewport: { width: 1280, height: 720 }, currentPageUrl: 'https://example.com' })
     expect(view.progress).toEqual([{ seq: 0, stream: 'frame', imageUrl: 'https://cdn.example.com/f.jpg', atMs: 1_000 }])
     expect(JSON.stringify(view)).not.toMatch(/encrypted|credential|relativeFolder|Users\//i)
+  })
+
+  it('exposes the actor control-plane fields: initiator, driver, and allowPrivateNetwork', () => {
+    const view = publicWorkbenchBrowserSession(queuedSession({ driver: 'agent', driverSinceMs: 5_000, allowPrivateNetwork: false }))
+    expect(view.initiator).toBe('user')
+    expect(view.driver).toBe('agent')
+    expect(view.allowPrivateNetwork).toBe(false)
+    const idle = publicWorkbenchBrowserSession(queuedSession())
+    expect(idle.driver).toBe('idle')
+    expect(idle.allowPrivateNetwork).toBe(true)
   })
 })
 

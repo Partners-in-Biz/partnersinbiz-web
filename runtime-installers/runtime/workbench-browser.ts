@@ -17,9 +17,13 @@ export type WorkbenchBrowserControl =
   | { kind: 'navigate'; url: string }
   | { kind: 'capture' }
   | { kind: 'click'; x: number; y: number; button?: WorkbenchBrowserMouseButton }
+  | { kind: 'click_ref'; ref: string }
   | { kind: 'type'; text: string }
   | { kind: 'press'; key: string }
   | { kind: 'scroll'; x: number; y: number; deltaX?: number; deltaY: number }
+  | { kind: 'snapshot' }
+  | { kind: 'console' }
+  | { kind: 'dialog'; accept: boolean; promptText?: string }
   | { kind: 'follow_start'; intervalMs?: number }
   | { kind: 'follow_stop' }
   | { kind: 'kill' }
@@ -224,7 +228,8 @@ function validDelta(value: unknown, required: boolean): boolean {
 function assertValidControl(value: unknown): WorkbenchBrowserControl {
   const input = record(value)
   if (!input || typeof input.kind !== 'string') throw new Error('invalid workbench browser control')
-  if (input.kind === 'capture' || input.kind === 'kill' || input.kind === 'follow_stop') {
+  if (input.kind === 'capture' || input.kind === 'kill' || input.kind === 'follow_stop'
+    || input.kind === 'snapshot' || input.kind === 'console') {
     if (!exactKeys(input, ['kind'])) throw new Error('invalid workbench browser control')
     return { kind: input.kind }
   }
@@ -242,6 +247,12 @@ function assertValidControl(value: unknown): WorkbenchBrowserControl {
       y: input.y as number,
       button: (input.button as WorkbenchBrowserMouseButton | undefined) ?? 'left',
     }
+  }
+  if (
+    input.kind === 'click_ref' && exactKeys(input, ['kind', 'ref'])
+    && typeof input.ref === 'string' && input.ref.length > 0 && input.ref.length <= 32 && /^@?[A-Za-z0-9_-]+$/.test(input.ref)
+  ) {
+    return { kind: 'click_ref', ref: input.ref.startsWith('@') ? input.ref : `@${input.ref}` }
   }
   if (
     input.kind === 'type' && exactKeys(input, ['kind', 'text'])
@@ -266,6 +277,17 @@ function assertValidControl(value: unknown): WorkbenchBrowserControl {
       y: input.y as number,
       deltaX: (input.deltaX as number | undefined) ?? 0,
       deltaY: input.deltaY as number,
+    }
+  }
+  if (
+    input.kind === 'dialog' && exactKeys(input, ['kind', 'accept', 'promptText'])
+    && typeof input.accept === 'boolean'
+    && (input.promptText === undefined || (typeof input.promptText === 'string' && input.promptText.length <= 1_000 && !UNSAFE_TEXT.test(input.promptText)))
+  ) {
+    return {
+      kind: 'dialog',
+      accept: input.accept as boolean,
+      ...(input.promptText !== undefined ? { promptText: input.promptText as string } : {}),
     }
   }
   if (input.kind === 'follow_start' && exactKeys(input, ['kind', 'intervalMs'])) {
@@ -322,6 +344,7 @@ class CdpConnection {
   private nextId = 0
   private pending = new Map<number, PendingCommand>()
   private eventWaiters = new Set<EventWaiter>()
+  private readonly eventHandlers = new Map<string, Set<(event: Record<string, unknown>, sessionId?: string) => void>>()
 
   private constructor(private readonly socket: BrowserWebSocket) {
     socket.addEventListener('message', this.onMessage)
@@ -370,6 +393,17 @@ class CdpConnection {
     })
   }
 
+  /** Persistent CDP event subscription (supervisor state: dialogs, console, frames, targets). */
+  onEvent(method: string, handler: (event: Record<string, unknown>, sessionId?: string) => void): () => void {
+    let handlers = this.eventHandlers.get(method)
+    if (!handlers) {
+      handlers = new Set()
+      this.eventHandlers.set(method, handlers)
+    }
+    handlers.add(handler)
+    return () => { handlers?.delete(handler) }
+  }
+
   close(): void {
     this.socket.removeEventListener('message', this.onMessage)
     this.socket.removeEventListener('close', this.onClose)
@@ -393,8 +427,16 @@ class CdpConnection {
         return
       }
       if (typeof message.method === 'string') {
+        const sessionId = typeof message.sessionId === 'string' ? message.sessionId : undefined
         for (const waiter of this.eventWaiters) {
-          if (waiter.method === message.method && (!waiter.sessionId || waiter.sessionId === message.sessionId)) waiter.resolve()
+          if (waiter.method === message.method && (!waiter.sessionId || waiter.sessionId === sessionId)) waiter.resolve()
+        }
+        const handlers = this.eventHandlers.get(message.method)
+        if (handlers && handlers.size > 0) {
+          const event = record(message.params) ?? {}
+          for (const handler of handlers) {
+            try { handler(event, sessionId) } catch { /* supervisor handlers must never break the CDP loop */ }
+          }
         }
       }
     } catch {
@@ -409,6 +451,7 @@ class CdpConnection {
     this.pending.clear()
     for (const waiter of this.eventWaiters) waiter.reject(error)
     this.eventWaiters.clear()
+    this.eventHandlers.clear()
   }
 }
 
@@ -468,6 +511,21 @@ type BrowserEntry = {
   followTimer: ReturnType<typeof setInterval> | null
   /** Guards the follow loop against overlapping captures when one tick outlives its interval. */
   followCapturing: boolean
+  // ---- CDP supervisor state (the "agent is aware" layer) ----
+  /** Sessions already wired with supervisor event subscriptions (top page + OOPIF children). */
+  supervisedSessions: Set<string>
+  /** Cross-origin iframe child sessions discovered via Target.setAutoAttach. */
+  childSessions: Map<string, { sessionId: string; targetId: string; targetInfo?: Record<string, unknown> }>
+  /** Native JS dialogs currently blocking the page (alert/confirm/prompt/beforeunload). */
+  pendingDialog: { type?: string; message?: string } | null
+  /** CDP session that owns the pending dialog — Page.handleJavaScriptDialog must target it. */
+  dialogSessionId?: string
+  /** Ring buffer of recent console messages/errors (capped MAX_CONSOLE_RING). */
+  consoleRing: SupervisorConsoleEntry[]
+  /** Frame tree from Page.frameAttached/frameNavigated/frameDetached. */
+  frames: Map<string, SupervisorFrame>
+  /** @eN refs from the most recent accessibility snapshot, used to resolve click_ref. */
+  lastRefs: Record<string, SupervisorRef>
 }
 
 const browsers = new Map<string, BrowserEntry>()
@@ -557,6 +615,305 @@ async function pressKey(entry: BrowserEntry, key: string): Promise<void> {
   }
   await entry.cdp.send('Input.dispatchKeyEvent', { ...base, type: 'keyDown' }, entry.targetSessionId)
   await entry.cdp.send('Input.dispatchKeyEvent', { ...base, type: 'keyUp' }, entry.targetSessionId)
+}
+
+// ---------------------------------------------------------------------------
+// CDP Supervisor — the "agent is aware" layer. A persistent per-session
+// subscription set tracks native dialogs, the frame tree (including
+// cross-origin OOPIF children) and a console ring, and merges that state
+// into every accessibility snapshot. This mirrors Hermes' browser_supervisor
+// pattern: without it the agent goes blind on alert()/confirm()/prompt()
+// (which block the page's JS thread) and cannot see inside cross-origin
+// iframes or read console errors that explain a broken page.
+// ---------------------------------------------------------------------------
+
+const MAX_CONSOLE_RING = 50
+const MAX_SNAPSHOT_AX_CHARS = 12_000
+const MAX_SNAPSHOT_REFS = 400
+const MAX_SNAPSHOT_FRAMES = 50
+const MAX_SNAPSHOT_CONSOLE_ENTRIES = 8
+const MAX_CONSOLE_ENTRY_CHARS = 300
+const MAX_FRAME_TREE = 50
+
+/** Roles worth surfacing to the agent as clickable/typeable refs. */
+const AX_INTERESTING_ROLES = new Set([
+  'button', 'link', 'textbox', 'combobox', 'checkbox', 'radio', 'menuitem', 'menuitemcheckbox',
+  'menuitemradio', 'tab', 'switch', 'searchbox', 'spinbutton', 'slider', 'option', 'listboxoption',
+  'heading', 'banner', 'main', 'navigation', 'complementary', 'img', 'image', 'form', 'dialog',
+  'alertdialog', 'alert', 'status', 'timer', 'progressbar', 'meter', 'treeitem', 'listitem',
+  'gridcell', 'columnheader', 'rowheader', 'tabpanel', 'tooltip', 'article', 'section', 'region',
+  'contentinfo', 'search', 'textbox', 'statictext',
+])
+
+function truncateChars(value: string, max: number): string {
+  if (value.length <= max) return value
+  return `${value.slice(0, max).trimEnd()}\n… truncated`
+}
+
+/** Scrubs likely secrets from browser-originated text before it reaches the agent (Hermes' redact_sensitive_text). */
+export function redactWorkbenchBrowserText(value: string): string {
+  return value
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]')
+    .replace(/\b(sk-[A-Za-z0-9_-]{8,}|ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{20,}|AKIA[0-9A-Z]{16})\b/g, '[key]')
+    // Bearer tokens first: the generic key-value rule below stops its value at
+    // whitespace, so "Authorization: Bearer <jwt>" would otherwise consume just
+    // "Bearer" and let the credential through.
+    .replace(/\bBearer\s+[A-Za-z0-9._~+/-]+=*/gi, 'Bearer [redacted]')
+    // `$1$3[redacted]` keeps the key and the separator, and only drops the
+    // secret VALUE — `password=…` becomes `password=[redacted]`. The
+    // `(?!Bearer\b)` guard stops the generic rule from swallowing the word
+    // "Bearer" as a value after the token rule already scrubbed it, so the
+    // whole pass stays idempotent.
+    .replace(/(pass(word)?|pwd|token|secret|api[_-]?key|authorization|bearer)(["'\s:=]+)((?!Bearer\b)[^&\s"'<>]{6,})/gi, '$1$3[redacted]')
+}
+
+type SupervisorConsoleEntry = { level: string; text: string; url?: string; line?: number }
+type SupervisorFrame = { frameId: string; parentId?: string | null; url?: string; name?: string }
+type SupervisorRef = { backendDOMNodeId?: number; sessionId?: string; role?: string; name?: string }
+
+function consoleMessageText(entry: Record<string, unknown>): string {
+  const args = Array.isArray(entry.args) ? entry.args : []
+  const parts: string[] = []
+  for (const arg of args.slice(0, 8)) {
+    const row = record(arg)
+    if (!row) continue
+    const value = row.value
+    if (typeof value === 'string') { parts.push(value); continue }
+    if (typeof value === 'number' || typeof value === 'boolean') { parts.push(String(value)); continue }
+    if (row.description && typeof row.description === 'string') { parts.push(row.description); continue }
+    if (typeof row.type === 'string') parts.push(`<${row.type}>`)
+  }
+  return parts.join(' ').slice(0, MAX_CONSOLE_ENTRY_CHARS)
+}
+
+function exceptionText(entry: Record<string, unknown>): string {
+  const details = record(entry.exceptionDetails)
+  if (!details) return 'Uncaught exception'
+  const text = typeof details.text === 'string' ? details.text : 'Uncaught exception'
+  const exception = record(details.exception)
+  const description = typeof exception?.description === 'string'
+    ? exception.description
+    : typeof exception?.value === 'string' ? exception.value : ''
+  const firstLine = description.split('\n')[0] ?? ''
+  const combined = [text, firstLine].filter(Boolean).join(': ').slice(0, MAX_CONSOLE_ENTRY_CHARS)
+  return combined
+}
+
+/** Registers the supervisor's event subscriptions on the CDP connection for one page session. */
+function superviseSession(entry: BrowserEntry, sessionId: string): void {
+  const cdp = entry.cdp
+  if (entry.supervisedSessions.has(sessionId)) return
+  entry.supervisedSessions.add(sessionId)
+  void cdp.send('Runtime.enable', {}, sessionId).catch(() => undefined)
+  void cdp.send('Page.enable', {}, sessionId).catch(() => undefined)
+  // A dialog belongs to the session that opened it; handleJavaScriptDialog must target that session.
+  cdp.onEvent('Page.javascriptDialogOpening', (event, eventSessionId) => {
+    const active = eventSessionId ?? sessionId
+    entry.pendingDialog = {
+      type: typeof event.type === 'string' ? event.type : 'alert',
+      message: typeof event.message === 'string' ? redactWorkbenchBrowserText(event.message).slice(0, 1_000) : '',
+    }
+    entry.dialogSessionId = active
+  })
+  cdp.onEvent('Page.javascriptDialogClosed', () => {
+    entry.pendingDialog = null
+    entry.dialogSessionId = undefined
+  })
+  cdp.onEvent('Runtime.consoleAPICalled', (event) => {
+    const level = typeof event.type === 'string' ? event.type : 'log'
+    entry.consoleRing.push({
+      level,
+      text: redactWorkbenchBrowserText(consoleMessageText(event)),
+      ...(typeof event.url === 'string' ? { url: event.url.slice(0, MAX_URL_LENGTH) } : {}),
+      ...(typeof event.lineNumber === 'number' ? { line: event.lineNumber + 1 } : {}),
+    })
+    if (entry.consoleRing.length > MAX_CONSOLE_RING) entry.consoleRing.splice(0, entry.consoleRing.length - MAX_CONSOLE_RING)
+  })
+  cdp.onEvent('Runtime.exceptionThrown', (event) => {
+    entry.consoleRing.push({
+      level: 'exception',
+      text: redactWorkbenchBrowserText(exceptionText(event)),
+      ...(typeof record(event.exceptionDetails)?.url === 'string' ? { url: String(record(event.exceptionDetails)?.url).slice(0, MAX_URL_LENGTH) } : {}),
+    })
+    if (entry.consoleRing.length > MAX_CONSOLE_RING) entry.consoleRing.splice(0, entry.consoleRing.length - MAX_CONSOLE_RING)
+  })
+  cdp.onEvent('Page.frameAttached', (event) => {
+    const frameId = typeof event.frameId === 'string' ? event.frameId : ''
+    if (!frameId) return
+    entry.frames.set(frameId, {
+      frameId,
+      parentId: typeof event.parentFrameId === 'string' ? event.parentFrameId : null,
+    })
+    trimFrames(entry)
+  })
+  cdp.onEvent('Page.frameNavigated', (event) => {
+    const frame = record(event.frame)
+    if (!frame || typeof frame.id !== 'string') return
+    entry.frames.set(frame.id, {
+      frameId: frame.id,
+      parentId: typeof frame.parentId === 'string' ? frame.parentId : null,
+      url: typeof frame.url === 'string' ? redactWorkbenchBrowserText(frame.url).slice(0, MAX_URL_LENGTH) : undefined,
+      name: typeof frame.name === 'string' ? frame.name.slice(0, 500) : undefined,
+    })
+    trimFrames(entry)
+  })
+  cdp.onEvent('Page.frameDetached', (event) => {
+    const frameId = typeof event.frameId === 'string' ? event.frameId : ''
+    if (frameId) entry.frames.delete(frameId)
+  })
+}
+
+function trimFrames(entry: BrowserEntry): void {
+  if (entry.frames.size <= MAX_FRAME_TREE) return
+  const sorted = [...entry.frames.entries()].sort((a, b) => (a[1].url ? 0 : 1) - (b[1].url ? 0 : 1))
+  while (entry.frames.size > MAX_FRAME_TREE) {
+    const oldest = sorted.shift()
+    if (!oldest) break
+    entry.frames.delete(oldest[0])
+  }
+}
+
+interface AxNodeShape {
+  nodeId: string
+  role?: { value?: string }
+  name?: { value?: string }
+  value?: { value?: string }
+  backendDOMNodeId?: number
+  childIds?: string[]
+}
+
+/** Builds the accessibility-tree text snapshot with stable @eN refs, merged across the top page and OOPIF children. */
+async function buildAccessibilitySnapshot(entry: BrowserEntry): Promise<{
+  ax: string
+  refs: Record<string, SupervisorRef>
+  pendingDialog: { type?: string; message?: string } | null
+  frames: SupervisorFrame[]
+  console: SupervisorConsoleEntry[]
+  url?: string
+  title?: string
+}> {
+  const refs: Record<string, SupervisorRef> = {}
+  const lines: string[] = []
+  let refCounter = 0
+  const sessionsToVisit = [
+    { sessionId: entry.targetSessionId, label: '' },
+    ...[...entry.childSessions.values()].map((child) => ({ sessionId: child.sessionId, label: child.targetInfo?.type === 'iframe' ? '[iframe] ' : '[frame] ' })),
+  ]
+  const seenNodeIds = new Set<string>()
+
+  for (const { sessionId, label } of sessionsToVisit) {
+    let result: Record<string, unknown>
+    try {
+      result = await entry.cdp.send('Accessibility.getFullAXTree', {}, sessionId)
+    } catch {
+      continue // a child frame may have navigated away mid-snapshot
+    }
+    const nodes = Array.isArray(result.nodes) ? result.nodes as AxNodeShape[] : []
+    const byId = new Map(nodes.map((node) => [node.nodeId, node]))
+    const roots = nodes.filter((node) => !node.childIds || node.childIds.length === 0 || true)
+    void roots
+    const visit = (node: AxNodeShape, depth: number): void => {
+      if (seenNodeIds.has(`${sessionId}:${node.nodeId}`)) return
+      seenNodeIds.add(`${sessionId}:${node.nodeId}`)
+      const role = node.role?.value ?? ''
+      const name = typeof node.name?.value === 'string' ? node.name.value : ''
+      const value = typeof node.value?.value === 'string' && node.value.value !== name ? node.value.value : ''
+      const interesting = (AX_INTERESTING_ROLES.has(role) && (name || value || role === 'statictext'))
+        || (role !== '' && name !== '')
+      if (interesting) {
+        refCounter += 1
+        const ref = `@e${refCounter}`
+        refs[ref] = {
+          ...(typeof node.backendDOMNodeId === 'number' ? { backendDOMNodeId: node.backendDOMNodeId } : {}),
+          ...(sessionId !== entry.targetSessionId ? { sessionId } : {}),
+          ...(role ? { role } : {}),
+          ...(name ? { name: redactWorkbenchBrowserText(name) } : {}),
+        }
+        const roleText = role || 'element'
+        const nameText = name ? redactWorkbenchBrowserText(name).slice(0, 200) : ''
+        const valueText = value && role !== 'statictext' ? ` value="${redactWorkbenchBrowserText(value).slice(0, 200)}"` : ''
+        const indent = '  '.repeat(Math.min(depth, 4))
+        lines.push(`${indent}[${ref}] ${label}${roleText}${nameText ? ` "${nameText}"` : ''}${valueText}`)
+      }
+      if (lines.join('\n').length >= MAX_SNAPSHOT_AX_CHARS) return
+      if (node.childIds) {
+        for (const childId of node.childIds.slice(0, 64)) {
+          const child = byId.get(childId)
+          if (child) visit(child, depth + 1)
+          if (lines.join('\n').length >= MAX_SNAPSHOT_AX_CHARS) return
+        }
+      }
+    }
+    for (const node of nodes) {
+      // Visit every top-level node (AX roots aren't strictly ordered).
+      if (![...seenNodeIds].some((id) => id === `${sessionId}:${node.nodeId}`)) visit(node, 0)
+      if (lines.join('\n').length >= MAX_SNAPSHOT_AX_CHARS) break
+    }
+  }
+
+  const ax = truncateChars(lines.join('\n') || '(page has no accessible content)', MAX_SNAPSHOT_AX_CHARS)
+  const frames = [...entry.frames.values()].slice(0, MAX_SNAPSHOT_FRAMES)
+  const console = entry.consoleRing.slice(-MAX_SNAPSHOT_CONSOLE_ENTRIES)
+  const page = evaluatedPage(await entry.cdp.send('Runtime.evaluate', {
+    expression: '({url: location.href, title: document.title})',
+    returnByValue: true,
+  }, entry.targetSessionId))
+  return {
+    ax,
+    refs,
+    pendingDialog: entry.pendingDialog,
+    frames,
+    console,
+    ...(page.pageUrl ? { url: redactWorkbenchBrowserText(page.pageUrl) } : {}),
+    ...(page.title ? { title: redactWorkbenchBrowserText(page.title) } : {}),
+  }
+}
+
+async function snapshotAndPost(sessionId: string, entry: BrowserEntry): Promise<void> {
+  const snapshot = await buildAccessibilitySnapshot(entry)
+  entry.lastRefs = snapshot.refs
+  const chunk = {
+    stream: 'snapshot',
+    snapshot: {
+      ...snapshot,
+      ...(Object.keys(snapshot.refs).length ? { refs: snapshot.refs } : {}),
+    } as Record<string, unknown>,
+  }
+  await postProgress(sessionId, entry, chunk)
+}
+
+async function consoleAndPost(sessionId: string, entry: BrowserEntry): Promise<void> {
+  await postProgress(sessionId, entry, {
+    stream: 'console',
+    entries: entry.consoleRing.slice(-MAX_CONSOLE_RING),
+  })
+}
+
+async function respondDialog(entry: BrowserEntry, accept: boolean, promptText?: string): Promise<void> {
+  if (!entry.pendingDialog) throw new Error('no pending browser dialog')
+  await entry.cdp.send('Page.handleJavaScriptDialog', {
+    accept,
+    ...(typeof promptText === 'string' ? { promptText } : {}),
+  }, entry.dialogSessionId ?? entry.targetSessionId)
+  entry.pendingDialog = null
+  entry.dialogSessionId = undefined
+}
+
+/** Resolves an @eN ref from the last snapshot to real viewport coordinates and clicks there. */
+async function clickRef(entry: BrowserEntry, ref: string): Promise<void> {
+  const target = entry.lastRefs[ref]
+  if (!target || typeof target.backendDOMNodeId !== 'number') {
+    throw new Error(`browser ref ${ref} is not in the last snapshot — take a new snapshot first`)
+  }
+  const sessionId = target.sessionId ?? entry.targetSessionId
+  await entry.cdp.send('DOM.scrollIntoViewIfNeeded', { backendNodeId: target.backendDOMNodeId }, sessionId).catch(() => undefined)
+  const box = await entry.cdp.send('DOM.getBoxModel', { backendNodeId: target.backendDOMNodeId }, sessionId).catch(() => null)
+  const model = record(box?.model)
+  const quad = Array.isArray(model?.content) ? model.content as number[] : null
+  if (!quad || quad.length < 4) throw new Error(`browser ref ${ref} has no clickable box`)
+  const x = Math.round((quad[0] + quad[2]) / 2)
+  const y = Math.round((quad[1] + quad[7]) / 2)
+  await click(entry, x, y, 'left')
 }
 
 function evaluatedPage(result: Record<string, unknown>): { pageUrl?: string; title?: string } {
@@ -690,9 +1047,37 @@ export async function handleWorkbenchBrowserCreate(
       heartbeatTimer: null,
       followTimer: null,
       followCapturing: false,
+      supervisedSessions: new Set(),
+      childSessions: new Map(),
+      pendingDialog: null,
+      consoleRing: [],
+      frames: new Map(),
+      lastRefs: {},
     }
     createdEntry = entry
     browsers.set(claim.sessionId, entry)
+
+    // ---- CDP supervisor wiring: dialogs, console, frames, cross-origin iframes ----
+    superviseSession(entry, entry.targetSessionId)
+    await cdp.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true }).catch(() => undefined)
+    cdp.onEvent('Target.attachedToTarget', (event, eventSessionId) => {
+      const targetInfo = record(event.targetInfo) ?? undefined
+      const childSessionId = typeof eventSessionId === 'string' ? eventSessionId : typeof event.sessionId === 'string' ? event.sessionId : ''
+      const targetId = typeof targetInfo?.targetId === 'string' ? targetInfo.targetId : ''
+      const type = typeof targetInfo?.type === 'string' ? targetInfo.type : ''
+      if (!childSessionId || !targetId) return
+      if (type === 'iframe' || type === 'page' || type === 'webview') {
+        entry.childSessions.set(targetId, { sessionId: childSessionId, targetId, targetInfo })
+        superviseSession(entry, childSessionId)
+      }
+    })
+    cdp.onEvent('Target.detachedFromTarget', (event) => {
+      const targetId = typeof event.targetId === 'string' ? event.targetId : ''
+      if (!targetId) return
+      const child = entry.childSessions.get(targetId)
+      if (child) entry.childSessions.delete(targetId)
+    })
+    // ----
     child.stderr?.on('data', (raw) => {
       const text = raw.toString().trim()
       if (text) postProgress(claim.sessionId, entry, { stream: 'stderr', text: text.slice(0, 2_000) }).catch(() => undefined)
@@ -767,9 +1152,22 @@ export async function runWorkbenchBrowserClaim(
   }
   if (control.kind === 'navigate') await navigate(entry, control.url)
   if (control.kind === 'click') await click(entry, control.x, control.y, control.button ?? 'left')
+  if (control.kind === 'click_ref') await clickRef(entry, control.ref)
   if (control.kind === 'type') await insertText(entry, control.text)
   if (control.kind === 'press') await pressKey(entry, control.key)
   if (control.kind === 'scroll') await scroll(entry, control.x, control.y, control.deltaX ?? 0, control.deltaY)
+  if (control.kind === 'snapshot') {
+    await snapshotAndPost(claim.sessionId, entry)
+    return undefined
+  }
+  if (control.kind === 'console') {
+    await consoleAndPost(claim.sessionId, entry)
+    return undefined
+  }
+  if (control.kind === 'dialog') {
+    await respondDialog(entry, control.accept, control.promptText)
+    return undefined
+  }
   await captureAndUpload(claim.sessionId, entry)
   return undefined
 }

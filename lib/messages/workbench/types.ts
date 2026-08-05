@@ -92,6 +92,12 @@ export interface WorkbenchBrowserSessionViewState {
   viewport?: { width: number; height: number } | null
   /** True while device-side frame following is on — the panel polls faster and labels the view as live. */
   following?: boolean
+  /** Who created the session — 'agent' means the agent opened it and the rail should offer the tab. */
+  initiator?: 'user' | 'agent'
+  /** Last actor to drive the page; 'idle' until the first driving control. Drives the arbitration badge. */
+  driver?: 'user' | 'agent' | 'idle'
+  /** When true the agent may navigate/interact with private hosts on this session. */
+  allowPrivateNetwork?: boolean
   error?: string | null
   /** True while a start/approve/navigate/capture/kill request is in flight. */
   busy: boolean

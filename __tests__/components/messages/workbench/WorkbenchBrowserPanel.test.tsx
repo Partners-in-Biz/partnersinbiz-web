@@ -424,3 +424,228 @@ describe('WorkbenchBrowserPanel — Design Mode still works alongside the new st
     expect(screen.getByText('Move this button')).toBeInTheDocument()
   })
 })
+
+describe('WorkbenchBrowserPanel — agent driver arbitration (slice-2)', () => {
+  it('shows the Agent is driving badge and withholds human drive controls while the agent drives', () => {
+    render(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState({ driver: 'agent', initiator: 'agent', latestFrameUrl: 'https://cdn.example.com/f1.png', frameCount: 1 })}
+        onStartBrowserSession={jest.fn()}
+        onClickAt={jest.fn()}
+        onNavigateBrowserSession={jest.fn()}
+        onTakeControl={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByTestId('workbench-agent-driving')).toHaveTextContent('Agent is driving')
+    expect(screen.queryByTestId('workbench-user-driving')).not.toBeInTheDocument()
+
+    // The drive strip (click/type) is not offered at all while the agent drives.
+    fireEvent.click(screen.getByTestId('workbench-agent-browser-follow'))
+    fireEvent.click(screen.getByLabelText('Enable Design Mode'))
+    expect(screen.queryByTestId('workbench-design-drive')).not.toBeInTheDocument()
+
+    // Navigate is disabled too, even with a URL typed in.
+    fireEvent.change(screen.getByLabelText('Agent browser navigate URL'), { target: { value: 'https://example.com/next' } })
+    expect(screen.getByTestId('workbench-agent-browser-navigate')).toBeDisabled()
+  })
+
+  it('calls onTakeControl from the Take control affordance', () => {
+    const onTakeControl = jest.fn()
+    render(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState({ driver: 'agent' })}
+        onStartBrowserSession={jest.fn()}
+        onTakeControl={onTakeControl}
+      />,
+    )
+
+    expect(screen.getByTestId('workbench-agent-take-control')).toHaveTextContent('Take control')
+    fireEvent.click(screen.getByTestId('workbench-agent-take-control'))
+    expect(onTakeControl).toHaveBeenCalled()
+  })
+
+  it('still shows the agent badge without the Take control button when onTakeControl is omitted', () => {
+    render(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState({ driver: 'agent' })}
+        onStartBrowserSession={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByTestId('workbench-agent-driving')).toBeInTheDocument()
+    expect(screen.queryByTestId('workbench-agent-take-control')).not.toBeInTheDocument()
+  })
+
+  it("shows the You're driving badge once the human is driving", () => {
+    render(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState({ driver: 'user' })}
+        onStartBrowserSession={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByTestId('workbench-user-driving')).toHaveTextContent("You're driving")
+    expect(screen.queryByTestId('workbench-agent-driving')).not.toBeInTheDocument()
+  })
+
+  it('shows no driver badge while the session is idle', () => {
+    render(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState({ driver: 'idle' })}
+        onStartBrowserSession={jest.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId('workbench-agent-driving')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('workbench-user-driving')).not.toBeInTheDocument()
+  })
+})
+
+describe('WorkbenchBrowserPanel — agent view accessibility snapshot (slice-2)', () => {
+  function renderWithSnapshot(props: Partial<React.ComponentProps<typeof WorkbenchBrowserPanel>> = {}) {
+    return render(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState()}
+        onStartBrowserSession={jest.fn()}
+        onRefreshSnapshot={jest.fn()}
+        {...props}
+      />,
+    )
+  }
+
+  it('renders a Show agent view toggle that calls onRefreshSnapshot', () => {
+    const onRefreshSnapshot = jest.fn()
+    renderWithSnapshot({ onRefreshSnapshot })
+
+    const toggle = screen.getByTestId('workbench-agent-view-toggle')
+    expect(toggle).toHaveTextContent('Show agent view')
+    expect(toggle).toBeEnabled()
+    fireEvent.click(toggle)
+    expect(onRefreshSnapshot).toHaveBeenCalled()
+    // No snapshot text yet — nothing to show.
+    expect(screen.queryByTestId('workbench-agent-view-text')).not.toBeInTheDocument()
+  })
+
+  it('reveals the accessibility text and flips to Hide agent view once a snapshot lands', () => {
+    const { rerender } = renderWithSnapshot({ snapshotText: null })
+
+    expect(screen.getByTestId('workbench-agent-view-toggle')).toHaveTextContent('Show agent view')
+    expect(screen.queryByTestId('workbench-agent-view-text')).not.toBeInTheDocument()
+
+    rerender(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState()}
+        onStartBrowserSession={jest.fn()}
+        onRefreshSnapshot={jest.fn()}
+        snapshotText={'Hello world\n[button] Sign in\n[link] Pricing'}
+      />,
+    )
+
+    expect(screen.getByTestId('workbench-agent-view-toggle')).toHaveTextContent('Hide agent view')
+    const view = screen.getByTestId('workbench-agent-view-text')
+    expect(view).toHaveTextContent('Hello world')
+    expect(view).toHaveTextContent('[button] Sign in')
+    expect(view).toHaveTextContent('[link] Pricing')
+  })
+
+  it('disables the toggle and shows Reading the page as text… while a snapshot loads', () => {
+    const onRefreshSnapshot = jest.fn()
+    const { rerender } = renderWithSnapshot({ snapshotText: null, snapshotLoading: false, onRefreshSnapshot })
+
+    rerender(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState()}
+        onStartBrowserSession={jest.fn()}
+        onRefreshSnapshot={onRefreshSnapshot}
+        snapshotLoading={true}
+        snapshotText={null}
+      />,
+    )
+
+    const toggle = screen.getByTestId('workbench-agent-view-toggle')
+    expect(toggle).toHaveTextContent('Reading the page as text…')
+    expect(toggle).toBeDisabled()
+    fireEvent.click(toggle)
+    expect(onRefreshSnapshot).not.toHaveBeenCalled()
+  })
+
+  it('disables the toggle while the session is not controllable', () => {
+    renderWithSnapshot({ browserSession: browserSessionState({ status: 'queued' }) })
+    expect(screen.getByTestId('workbench-agent-view-toggle')).toBeDisabled()
+  })
+
+  it('does not render the agent view at all when onRefreshSnapshot is omitted', () => {
+    render(
+      <WorkbenchBrowserPanel targets={[]} browserSession={browserSessionState()} onStartBrowserSession={jest.fn()} snapshotText={'must not leak'} />,
+    )
+    expect(screen.queryByTestId('workbench-agent-view-toggle')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('workbench-agent-view-text')).not.toBeInTheDocument()
+  })
+})
+
+describe('WorkbenchBrowserPanel — agent private-network toggle (slice-2)', () => {
+  it('offers Allow local while private access is blocked and calls onToggleAllowPrivate', () => {
+    const onToggleAllowPrivate = jest.fn()
+    render(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState({ initiator: 'agent', allowPrivateNetwork: false })}
+        onStartBrowserSession={jest.fn()}
+        onToggleAllowPrivate={onToggleAllowPrivate}
+      />,
+    )
+
+    expect(screen.getByTestId('workbench-agent-allow-private')).toHaveTextContent('Allow local')
+    expect(screen.getByText('blocked')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('workbench-agent-allow-private'))
+    expect(onToggleAllowPrivate).toHaveBeenCalled()
+  })
+
+  it('offers Revoke while private access is allowed', () => {
+    render(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState({ initiator: 'agent', allowPrivateNetwork: true })}
+        onStartBrowserSession={jest.fn()}
+        onToggleAllowPrivate={jest.fn()}
+      />,
+    )
+
+    expect(screen.getByTestId('workbench-agent-allow-private')).toHaveTextContent('Revoke')
+    expect(screen.getByText('allowed')).toBeInTheDocument()
+  })
+
+  it('does not render the allow-private control for a user-initiated session', () => {
+    render(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState({ initiator: 'user', allowPrivateNetwork: false })}
+        onStartBrowserSession={jest.fn()}
+        onToggleAllowPrivate={jest.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId('workbench-agent-allow-private')).not.toBeInTheDocument()
+  })
+
+  it('does not render the allow-private control when onToggleAllowPrivate is omitted', () => {
+    render(
+      <WorkbenchBrowserPanel
+        targets={[]}
+        browserSession={browserSessionState({ initiator: 'agent', allowPrivateNetwork: false })}
+        onStartBrowserSession={jest.fn()}
+      />,
+    )
+
+    expect(screen.queryByTestId('workbench-agent-allow-private')).not.toBeInTheDocument()
+  })
+})

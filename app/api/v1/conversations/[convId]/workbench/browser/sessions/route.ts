@@ -8,6 +8,7 @@ import {
   publicWorkbenchBrowserSession,
   sanitizeWorkbenchBrowserStartUrl,
   sanitizeWorkbenchBrowserViewport,
+  workbenchBrowserActorKindFromHeader,
 } from '@/lib/messages/workbench/browser-sessions'
 
 export const dynamic = 'force-dynamic'
@@ -31,11 +32,17 @@ function routeError(error: unknown) {
 /**
  * Requests a new long-lived headless-Chrome browser control session (Phase
  * 4b) on the linked computer. Body: `{ startUrl?, viewport?: { width,
- * height } }`. Always starts `awaiting_approval` — a real browser reaching
- * the open internet from the linked computer is at least as sensitive as an
- * unattended file write, so a human must explicitly approve it via the
- * `/approve` route before any device claims it. The browser itself is
- * always headless; there is no client-controllable option to disable that.
+ * height }, allowPrivateNetwork? }`. Always starts `awaiting_approval` — a
+ * real browser reaching the open internet from the linked computer is at
+ * least as sensitive as an unattended file write, so a human must
+ * explicitly approve it via the `/approve` route before any device claims
+ * it. The browser itself is always headless; there is no
+ * client-controllable option to disable that.
+ *
+ * Agent-initiated sessions (X-Agent-Actor header) default to
+ * `allowPrivateNetwork: false` and can never self-grant private-network
+ * access — the human flips it via the `/allow-private` route when the agent
+ * may reach the user's own dev server.
  */
 export async function handleCreateBrowserSession(
   request: NextRequest,
@@ -55,6 +62,8 @@ export async function handleCreateBrowserSession(
 
     const authorization = await dependencies.authorize(user, conversationId)
     if (user.role !== 'admin' && user.role !== 'client') return apiError('Forbidden', 403)
+    const initiator = workbenchBrowserActorKindFromHeader(request.headers.get('x-agent-actor')) ?? 'user'
+    const allowPrivateNetwork = body.allowPrivateNetwork === true
     const session = await dependencies.create({
       conversationId: authorization.conversation.id,
       orgId: authorization.conversation.orgId,
@@ -70,6 +79,10 @@ export async function handleCreateBrowserSession(
       relativeFolder: authorization.relativeFolder,
       startUrl: startUrlResult.url,
       viewport,
+      initiator,
+      // Only the human's own create may grant private-network access; an
+      // agent-initiated session always starts locked down.
+      allowPrivateNetwork: initiator === 'user' ? allowPrivateNetwork : false,
     })
     return apiSuccess(publicWorkbenchBrowserSession(session), 202)
   } catch (error) {

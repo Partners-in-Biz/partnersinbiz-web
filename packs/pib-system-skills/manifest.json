@@ -1,7 +1,7 @@
 {
   "packName": "pib-system-skills",
-  "packVersion": "0.1.6",
-  "catalogVersion": "2026-08-04.system-skills-v0.1.6",
+  "packVersion": "0.1.7",
+  "catalogVersion": "2026-08-05.system-skills-v0.1.7",
   "minApiVersion": "2026-07-23",
   "channel": "stable",
   "decisions": {
@@ -60,7 +60,8 @@
         "youtube-studio-ops",
         "conversations-runtime",
         "life-os-ops",
-        "llm-providers-ops"
+        "llm-providers-ops",
+        "browser-agent"
       ]
     }
   },

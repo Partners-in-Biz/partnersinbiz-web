@@ -18,6 +18,7 @@ import {
   sanitizeWorkbenchBrowserPoint,
   type WorkbenchBrowserSession,
 } from '@/lib/messages/workbench/browser-sessions'
+import { workbenchBrowserActorKindFromHeader } from '@/lib/messages/workbench/browser-sessions'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,6 +76,7 @@ export async function handleClickBrowserSession(
       ...(authorization.projectId ? { projectId: authorization.projectId } : {}),
       ...(authorization.projectReplicaId ? { projectReplicaId: authorization.projectReplicaId } : {}),
       relativeFolder: authorization.relativeFolder,
+      actorKind: workbenchBrowserActorKindFromHeader(request.headers.get('x-agent-actor')),
       x: point.x,
       y: point.y,
       button,

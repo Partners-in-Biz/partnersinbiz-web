@@ -111,6 +111,15 @@ export interface AgentWorkbenchRailProps {
   /** Toggles device-side frame following for the agent browser session. */
   onStartBrowserAgentSessionFollow?: () => void
   onStopBrowserAgentSessionFollow?: () => void
+  /** Slice-2 arbitration: the human explicitly takes the wheel from the agent. */
+  onTakeControlBrowserAgentSession?: () => void
+  /** Human-only toggle: allow the agent to reach private/internal hosts on this session. */
+  onToggleAllowPrivateBrowserAgentSession?: () => void
+  /** Requests a fresh accessibility snapshot for the Agent view (the text the agent sees). */
+  onRefreshBrowserAgentSnapshot?: () => void
+  /** Latest accessibility snapshot text for the Agent view; null until the first refresh. */
+  browserAgentSnapshotText?: string | null
+  browserAgentSnapshotLoading?: boolean
   compact?: boolean
   /** Runs an allowlisted terminal command (git status/diff, ls, pwd) against the linked computer. */
   onRunTerminalCommand?: (command: string) => void
@@ -199,6 +208,11 @@ export function AgentWorkbenchRail({
   onTypeBrowserAgentSession,
   onStartBrowserAgentSessionFollow,
   onStopBrowserAgentSessionFollow,
+  onTakeControlBrowserAgentSession,
+  onToggleAllowPrivateBrowserAgentSession,
+  onRefreshBrowserAgentSnapshot,
+  browserAgentSnapshotText,
+  browserAgentSnapshotLoading,
   compact = false,
   onRunTerminalCommand,
   onClearTerminal,
@@ -436,6 +450,11 @@ export function AgentWorkbenchRail({
             onTypeAt={onTypeBrowserAgentSession}
             onFollowStart={onStartBrowserAgentSessionFollow}
             onFollowStop={onStopBrowserAgentSessionFollow}
+            onTakeControl={onTakeControlBrowserAgentSession}
+            onToggleAllowPrivate={onToggleAllowPrivateBrowserAgentSession}
+            onRefreshSnapshot={onRefreshBrowserAgentSnapshot}
+            snapshotText={browserAgentSnapshotText}
+            snapshotLoading={browserAgentSnapshotLoading}
           />
         )}
         {activeTabMeta.id === 'changes' && (

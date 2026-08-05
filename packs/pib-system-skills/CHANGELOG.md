@@ -5,6 +5,14 @@
 
 # Changelog
 
+## 0.1.7 — 2026-08-05
+
+- Add `browser-agent` (growth): drive the workbench browser (headless Chrome
+  over loopback CDP) from Messages — accessibility-tree text snapshots with
+  stable @eN refs, click-by-ref, JS dialog handling, console ring, driver
+  arbitration (slice 2 attach), private-network guard, `X-Agent-Actor` header
+  requirement. Mirrors the Hermes Desktop in-app browser pattern.
+
 ## 0.1.5 — 2026-07-30
 
 - Add canonical `daily-workflow` v1.2.0 to the core Partners in Biz system skill pack.
