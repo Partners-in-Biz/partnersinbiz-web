@@ -302,7 +302,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
         return jsonResponse({ data: { conversation: savedProjectConversation } })
       }
       if (url === '/api/v1/conversations/conv-saved-project/messages') return jsonResponse({ data: { messages: [] } })
-      if (url === '/api/v1/chat-context/project/hidden-project') return jsonResponse({ data: {
+      if (url.startsWith('/api/v1/chat-context/project/hidden-project')) return jsonResponse({ data: {
         context: {
           kind: 'project', id: 'hidden-project', orgId: 'org-1', label: 'Hidden migrated project', icon: 'rocket_launch',
         },
@@ -331,7 +331,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
     fireEvent.click(openContextDock)
     const dock = await screen.findByRole('dialog', { name: 'Hidden migrated project context' })
     expect(within(dock).getByRole('region', { name: 'Context overview' })).toHaveTextContent('Saved project live context')
-    expect(global.fetch).toHaveBeenCalledWith('/api/v1/chat-context/project/hidden-project', expect.anything())
+    expect(global.fetch).toHaveBeenCalledWith(expect.stringContaining('/api/v1/chat-context/project/hidden-project'), expect.anything())
     expect(screen.queryByTestId('hermes-project-hidden-project')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Open SkillOpt' })).not.toBeInTheDocument()
   })
@@ -1378,7 +1378,7 @@ describe('UnifiedChat project pulse integration', () => {
         ] } })
       }
       if (url === '/api/v1/projects/project-1/chat-progress') return jsonResponse({ data: progress })
-      if (url === '/api/v1/chat-context/project/project-1') return jsonResponse({ data: {
+      if (url.startsWith('/api/v1/chat-context/project/project-1')) return jsonResponse({ data: {
         context: { kind: 'project', id: 'project-1', orgId: 'org-1', label: 'Launch Project', icon: 'rocket_launch' },
         pulse: { label: 'Launch Project', metrics: [{ id: 'complete', label: 'complete', value: '0/2' }], progress: { complete: 0, total: 2 } },
         groups: [], artifacts: [],
@@ -1454,7 +1454,7 @@ describe('UnifiedChat project pulse integration', () => {
     ))
     await waitFor(() => {
       // Initial mount + post-approval refresh; coordinator may fire one extra refresh.
-      expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/chat-context/project/project-1').length).toBeGreaterThanOrEqual(2)
+      expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/v1/chat-context/project/project-1')).length).toBeGreaterThanOrEqual(2)
       expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/projects/project-1/chat-progress').length).toBeGreaterThanOrEqual(2)
     })
   })
@@ -1479,7 +1479,7 @@ describe('UnifiedChat project pulse integration', () => {
       if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [], projects: [{ id: 'project-1', name: 'Launch Project' }] } })
       if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
       if (url === '/api/v1/conversations/conv-1/messages') return jsonResponse({ data: { messages: [] } })
-      if (url === '/api/v1/chat-context/project/project-1') return jsonResponse({ data: { ...contextModel, asOf: `2026-07-13T10:00:0${contextRevision++}.000Z` } })
+      if (url.startsWith('/api/v1/chat-context/project/project-1')) return jsonResponse({ data: { ...contextModel, asOf: `2026-07-13T10:00:0${contextRevision++}.000Z` } })
       if (url === '/api/v1/projects/project-1/chat-progress') return jsonResponse({ data: progress })
       throw new Error(`Unhandled fetch: ${url}`)
     })
@@ -1487,15 +1487,15 @@ describe('UnifiedChat project pulse integration', () => {
 
     render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" initialConvId="conv-1" layoutVariant="hermes" />)
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve() })
-    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/chat-context/project/project-1')).toHaveLength(1)
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/v1/chat-context/project/project-1'))).toHaveLength(1)
     expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/projects/project-1/chat-progress')).toHaveLength(1)
 
     await act(async () => { jest.advanceTimersByTime(5_100); await Promise.resolve(); await Promise.resolve(); await Promise.resolve() })
-    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/chat-context/project/project-1')).toHaveLength(2)
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/v1/chat-context/project/project-1'))).toHaveLength(2)
     expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/projects/project-1/chat-progress')).toHaveLength(1)
 
     await act(async () => { jest.advanceTimersByTime(25_000); await Promise.resolve(); await Promise.resolve(); await Promise.resolve() })
-    expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/chat-context/project/project-1')).toHaveLength(7)
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/v1/chat-context/project/project-1'))).toHaveLength(7)
     expect(fetchMock.mock.calls.filter(([url]) => String(url) === '/api/v1/projects/project-1/chat-progress')).toHaveLength(2)
     jest.useRealTimers()
   })
@@ -3013,6 +3013,87 @@ describe('UnifiedChat context references', () => {
     )
     expect(screen.queryByRole('button', { name: 'Remove Scholtz Inc website — how the quote works context' })).not.toBeInTheDocument()
     expect(screen.getAllByText('CRM research').length).toBeGreaterThan(0)
+  })
+
+  it('attaches an open_context handoff ref but does not auto-open the Context Dock until the human clicks', async () => {
+    // Earlier suites open the dock on conv-1 and persist open:true in the
+    // canvas storage key; a fresh render would restore it and auto-open the
+    // dock, masking what this test guards. Clear it so mount starts closed.
+    window.localStorage.removeItem('pib.messages.contextCanvas.v1:org-1:conv-1')
+    const emailRef = {
+      type: 'email' as const,
+      id: 'email-scholtz',
+      orgId: 'org-1',
+      label: 'Scholtz Inc website — how the quote works',
+      origin: 'mention' as const,
+    }
+    const conversationWithHandoff = {
+      ...baseConversation,
+      title: 'Finance conversation',
+      contextRefs: [] as ContextReference[],
+    }
+    const financeAssistant = {
+      id: 'msg-finance-open',
+      conversationId: 'conv-1',
+      role: 'assistant' as const,
+      content: 'Opened the Scholtz email draft',
+      authorKind: 'agent' as const,
+      authorId: 'pip',
+      authorDisplayName: 'Pip',
+      status: 'completed' as const,
+      createdAt: '2026-08-02T09:00:00.000Z',
+      uiActions: [{
+        id: 'open-email:email-scholtz',
+        type: 'open_context',
+        label: 'Review email draft',
+        payload: { kind: 'email', id: 'email-scholtz', label: emailRef.label },
+      }],
+    }
+    const defaultFetch = mockFetch
+    mockFetch = jest.fn(async (request: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(request)
+      if (url.startsWith('/api/v1/conversations?')) {
+        return jsonResponse({ data: { conversations: [conversationWithHandoff] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        return jsonResponse({ data: { messages: [financeAssistant] } })
+      }
+      if (url === '/api/v1/conversations/conv-1/context' && init?.method === 'PATCH') {
+        conversationWithHandoff.contextRefs = [emailRef]
+        return jsonResponse({ data: { contextRefs: [emailRef] } })
+      }
+      if (url.startsWith('/api/v1/chat-context/email/email-scholtz')) {
+        return jsonResponse({ data: {
+          context: { kind: 'email', id: 'email-scholtz', orgId: 'org-1', label: emailRef.label, icon: 'mail' },
+          pulse: { label: 'Email draft', metrics: [] }, groups: [], artifacts: [],
+          attention: [], activity: [], capabilities: [], asOf: '2026-08-02T09:00:01.000Z',
+        } })
+      }
+      return defaultFetch(request, init)
+    })
+    global.fetch = mockFetch
+
+    render(<UnifiedChat orgId="org-1" currentUserUid="user-1" currentUserDisplayName="Peet" />)
+
+    await screen.findByText('Opened the Scholtz email draft')
+
+    // The auto-handler still attaches the ref (chip appears) …
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(
+      '/api/v1/conversations/conv-1/context',
+      expect.objectContaining({ method: 'PATCH' }),
+    ))
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Remove Scholtz Inc website — how the quote works context' }).length).toBeGreaterThan(0))
+
+    // … but it must NOT auto-open the Context Dock. The human clicks to open.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 80))
+    })
+    expect(screen.queryByRole('dialog', { name: /Scholtz Inc website/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Close context dock' })).not.toBeInTheDocument()
+
+    // Clicking the review button in the message bubble opens the dock.
+    fireEvent.click(screen.getByRole('button', { name: 'Review email draft' }))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: /Scholtz Inc website/i })).toBeInTheDocument())
   })
 
   it('isolates unsent composer state when switching conversations and restores it on return', async () => {
