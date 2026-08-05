@@ -12,10 +12,13 @@ import {
   appendWorkbenchBrowserSessionControl,
   decryptWorkbenchBrowserSessionValue,
   encryptWorkbenchBrowserSessionValue,
+  isPrivateWorkbenchBrowserUrl,
   isTerminalWorkbenchBrowserSessionStatus,
+  isWorkbenchBrowserDrivingControl,
   parseWorkbenchBrowserProgressChunk,
   transitionWorkbenchBrowserSession,
   WORKBENCH_BROWSER_DEFAULT_FOLLOW_INTERVAL_MS,
+  type WorkbenchBrowserActorKind,
   type WorkbenchBrowserKey,
   type WorkbenchBrowserMouseButton,
   type WorkbenchBrowserProgressChunk,
@@ -125,6 +128,14 @@ export interface CreateWorkbenchBrowserSessionInput {
   relativeFolder: string
   startUrl: string | null
   viewport: WorkbenchBrowserViewport
+  /** Who created the session — 'agent' only when the request carried X-Agent-Actor. */
+  initiator: WorkbenchBrowserActorKind
+  /**
+   * Optional override for the private-network allowance. Only meaningful for
+   * user-initiated sessions (an agent can never self-grant); user sessions
+   * default to true to keep the existing localhost dev-preview flow.
+   */
+  allowPrivateNetwork?: boolean
 }
 
 /**
@@ -163,6 +174,11 @@ export async function createWorkbenchBrowserSession(
     const session: WorkbenchBrowserSession = {
       ...input,
       sessionId,
+      initiator: input.initiator,
+      driver: 'idle',
+      allowPrivateNetwork: input.initiator === 'agent'
+        ? false
+        : (input.allowPrivateNetwork ?? true),
       status: 'awaiting_approval',
       attempt: 0,
       encryptedCreateControl: encryptWorkbenchBrowserSessionValue(
@@ -268,11 +284,13 @@ export async function approveWorkbenchBrowserSession(
 }
 
 async function enqueueControl(
-  binding: WorkbenchBrowserSessionBinding & { sessionId: string },
+  binding: WorkbenchBrowserSessionBinding & { sessionId: string; actorKind?: WorkbenchBrowserActorKind },
   control: Exclude<WorkbenchBrowserSessionControl, { kind: 'create' }>,
   options: { nowMs?: number } = {},
 ): Promise<WorkbenchBrowserSession> {
   const nowMs = options.nowMs ?? Date.now()
+  // UI calls never send X-Agent-Actor -> user. Agent skill calls always do.
+  const actorKind: WorkbenchBrowserActorKind = binding.actorKind ?? 'user'
   return adminDb.runTransaction(async (transaction) => {
     const sRef = sessionRef(binding.sessionId)
     const qRef = queueRef(binding.deviceId)
@@ -297,17 +315,39 @@ async function enqueueControl(
     }
     if (session.status !== 'claimed' && session.status !== 'running') throw new Error('workbench: browser session not running')
 
+    // Slice-2 driver arbitration: a page-driving control from the actor who
+    // does not currently own the wheel is rejected. Read-only controls
+    // (snapshot/console/capture/follow/kill) are always allowed — watching a
+    // page while the other side drives is the whole point.
+    const driving = isWorkbenchBrowserDrivingControl(control)
+    if (driving && session.driver !== 'idle' && session.driver !== actorKind) {
+      const owner = session.driver === 'agent' ? 'the agent' : 'you'
+      throw new Error(`workbench: browser session is being driven by ${owner} — take control first`)
+    }
+    // Private-network guard for agent actors: an agent may not navigate to —
+    // or interact with — private/internal hosts unless the human allowed it.
+    if (actorKind === 'agent' && !session.allowPrivateNetwork) {
+      const currentIsPrivate = session.currentPageUrl ? isPrivateWorkbenchBrowserUrl(session.currentPageUrl) : false
+      if (control.kind === 'navigate' && isPrivateWorkbenchBrowserUrl(control.url)) {
+        throw new Error('workbench: private network navigation is blocked for agents on this session')
+      }
+      if (currentIsPrivate && driving) {
+        throw new Error('workbench: interaction with a private network page is blocked for agents on this session')
+      }
+    }
+
     const existingControls = session.encryptedControls
       ? decryptWorkbenchBrowserSessionValue<WorkbenchBrowserSessionQueuedControl[]>(session.encryptedControls, session.deviceId, session.sessionId, 'control')
       : []
     if (existingControls.length >= MAX_SESSION_CONTROL_QUEUE) throw new Error('workbench: browser session control queue full')
     const nextSeq = (existingControls.at(-1)?.seq ?? -1) + 1
     const nextControls = appendWorkbenchBrowserSessionControl(existingControls, {
-      seq: nextSeq, control, actorUserId: binding.actorUserId, enqueuedAtMs: nowMs,
+      seq: nextSeq, control, actorUserId: binding.actorUserId, actorKind, enqueuedAtMs: nowMs,
     })
     const next: WorkbenchBrowserSession = {
       ...session,
       encryptedControls: encryptWorkbenchBrowserSessionValue(nextControls, session.deviceId, session.sessionId, 'control'),
+      ...(driving ? { driver: binding.actorKind, driverSinceMs: nowMs } : {}),
       updatedAtMs: nowMs,
     }
     transaction.update(sRef, toStored(next))
@@ -323,6 +363,8 @@ async function enqueueControl(
 export interface EnqueueBrowserSessionNavigateInput extends WorkbenchBrowserSessionBinding {
   sessionId: string
   url: string
+  /** Who is driving — 'agent' only when the request carried X-Agent-Actor. Defaults to 'user'. */
+  actorKind?: WorkbenchBrowserActorKind
 }
 
 export async function enqueueBrowserSessionNavigate(input: EnqueueBrowserSessionNavigateInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
@@ -331,6 +373,7 @@ export async function enqueueBrowserSessionNavigate(input: EnqueueBrowserSession
 
 export interface EnqueueBrowserSessionCaptureInput extends WorkbenchBrowserSessionBinding {
   sessionId: string
+  actorKind?: WorkbenchBrowserActorKind
 }
 
 export async function enqueueBrowserSessionCapture(input: EnqueueBrowserSessionCaptureInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
@@ -342,6 +385,7 @@ export interface EnqueueBrowserSessionClickInput extends WorkbenchBrowserSession
   x: number
   y: number
   button?: WorkbenchBrowserMouseButton
+  actorKind?: WorkbenchBrowserActorKind
 }
 
 export async function enqueueBrowserSessionClick(input: EnqueueBrowserSessionClickInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
@@ -351,6 +395,7 @@ export async function enqueueBrowserSessionClick(input: EnqueueBrowserSessionCli
 export interface EnqueueBrowserSessionTypeInput extends WorkbenchBrowserSessionBinding {
   sessionId: string
   text: string
+  actorKind?: WorkbenchBrowserActorKind
 }
 
 export async function enqueueBrowserSessionType(input: EnqueueBrowserSessionTypeInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
@@ -360,6 +405,7 @@ export async function enqueueBrowserSessionType(input: EnqueueBrowserSessionType
 export interface EnqueueBrowserSessionPressInput extends WorkbenchBrowserSessionBinding {
   sessionId: string
   key: WorkbenchBrowserKey
+  actorKind?: WorkbenchBrowserActorKind
 }
 
 export async function enqueueBrowserSessionPress(input: EnqueueBrowserSessionPressInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
@@ -372,6 +418,7 @@ export interface EnqueueBrowserSessionScrollInput extends WorkbenchBrowserSessio
   y: number
   deltaX?: number
   deltaY: number
+  actorKind?: WorkbenchBrowserActorKind
 }
 
 export async function enqueueBrowserSessionScroll(input: EnqueueBrowserSessionScrollInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
@@ -385,6 +432,7 @@ export async function enqueueBrowserSessionScroll(input: EnqueueBrowserSessionSc
 export interface EnqueueBrowserSessionFollowStartInput extends WorkbenchBrowserSessionBinding {
   sessionId: string
   intervalMs?: number
+  actorKind?: WorkbenchBrowserActorKind
 }
 
 /**
@@ -392,6 +440,7 @@ export interface EnqueueBrowserSessionFollowStartInput extends WorkbenchBrowserS
  * browser entry rather than as repeated `capture` controls, so a follow that
  * outlives its enqueue call cannot fill the 200-entry control queue.
  */
+
 export async function enqueueBrowserSessionFollowStart(
   input: EnqueueBrowserSessionFollowStartInput,
   options: { nowMs?: number } = {},
@@ -405,6 +454,7 @@ export async function enqueueBrowserSessionFollowStart(
 
 export interface EnqueueBrowserSessionFollowStopInput extends WorkbenchBrowserSessionBinding {
   sessionId: string
+  actorKind?: WorkbenchBrowserActorKind
 }
 
 export async function enqueueBrowserSessionFollowStop(input: EnqueueBrowserSessionFollowStopInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
@@ -413,10 +463,132 @@ export async function enqueueBrowserSessionFollowStop(input: EnqueueBrowserSessi
 
 export interface EnqueueBrowserSessionKillInput extends WorkbenchBrowserSessionBinding {
   sessionId: string
+  actorKind?: WorkbenchBrowserActorKind
 }
 
 export async function enqueueBrowserSessionKill(input: EnqueueBrowserSessionKillInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
   return enqueueControl(input, { kind: 'kill' }, options)
+}
+
+export interface EnqueueBrowserSessionSnapshotInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  actorKind?: WorkbenchBrowserActorKind
+}
+
+/** Requests an accessibility-tree snapshot; the device posts the result as a `snapshot` progress chunk. */
+export async function enqueueBrowserSessionSnapshot(input: EnqueueBrowserSessionSnapshotInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
+  return enqueueControl(input, { kind: 'snapshot' }, options)
+}
+
+export interface EnqueueBrowserSessionConsoleInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  actorKind?: WorkbenchBrowserActorKind
+}
+
+/** Requests the device's console ring; the device posts the result as a `console` progress chunk. */
+export async function enqueueBrowserSessionConsole(input: EnqueueBrowserSessionConsoleInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
+  return enqueueControl(input, { kind: 'console' }, options)
+}
+
+export interface EnqueueBrowserSessionDialogInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  accept: boolean
+  promptText?: string
+  actorKind?: WorkbenchBrowserActorKind
+}
+
+/** Responds to a pending native JS dialog (alert/confirm/prompt) via Page.handleJavaScriptDialog. */
+export async function enqueueBrowserSessionDialog(input: EnqueueBrowserSessionDialogInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
+  return enqueueControl(
+    input,
+    { kind: 'dialog', accept: input.accept, ...(input.promptText !== undefined ? { promptText: input.promptText } : {}) },
+    options,
+  )
+}
+
+export interface EnqueueBrowserSessionClickRefInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  ref: string
+  actorKind?: WorkbenchBrowserActorKind
+}
+
+/** Clicks an element identified by its accessibility snapshot ref (@e1…) — resolved to real coordinates on the device. */
+export async function enqueueBrowserSessionClickRef(input: EnqueueBrowserSessionClickRefInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
+  return enqueueControl(input, { kind: 'click_ref', ref: input.ref }, options)
+}
+
+export interface SetWorkbenchBrowserSessionDriverInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  driver: WorkbenchBrowserActorKind
+  actorKind?: WorkbenchBrowserActorKind
+}
+
+/**
+ * Explicitly hands the wheel to `driver` (user or agent) — the UI's "Take
+ * control" button and the agent skill's browser_take_control tool. The
+ * driver field is also stamped implicitly by every page-driving control, so
+ * a takeover is only a prelude: the next driving control from the new owner
+ * actually moves the page. An agent can never take control of a session the
+ * human is actively driving — the human's explicit Take Control always wins.
+ */
+export async function setWorkbenchBrowserSessionDriver(
+  input: SetWorkbenchBrowserSessionDriverInput,
+  options: { nowMs?: number } = {},
+): Promise<WorkbenchBrowserSession> {
+  const nowMs = options.nowMs ?? Date.now()
+  const actorKind: WorkbenchBrowserActorKind = input.actorKind ?? 'user'
+  if (input.driver !== 'user' && input.driver !== 'agent') throw new Error('workbench: invalid browser session driver')
+  if (actorKind === 'agent' && input.driver === 'agent') {
+    // Agents must not seize the wheel from an active human driver.
+    return adminDb.runTransaction(async (transaction) => {
+      const sRef = sessionRef(input.sessionId)
+      const snapshot = await transaction.get(sRef)
+      if (!snapshot.exists) throw new Error('workbench: browser session not found')
+      const session = fromStored(snapshot.id, snapshot.data() ?? {})
+      if (!sessionBindingMatches(session, input)) throw new Error('workbench: browser session binding mismatch')
+      if (session.driver === 'user') throw new Error('workbench: browser session is being driven by the user')
+      const next: WorkbenchBrowserSession = { ...session, driver: 'agent', driverSinceMs: nowMs, updatedAtMs: nowMs }
+      transaction.update(sRef, toStored(next))
+      return hydrate(next)
+    })
+  }
+  // Humans may always take control (they own the computer the browser runs on).
+  return adminDb.runTransaction(async (transaction) => {
+    const sRef = sessionRef(input.sessionId)
+    const snapshot = await transaction.get(sRef)
+    if (!snapshot.exists) throw new Error('workbench: browser session not found')
+    const session = fromStored(snapshot.id, snapshot.data() ?? {})
+    if (!sessionBindingMatches(session, input)) throw new Error('workbench: browser session binding mismatch')
+    const next: WorkbenchBrowserSession = { ...session, driver: input.driver, driverSinceMs: nowMs, updatedAtMs: nowMs }
+    transaction.update(sRef, toStored(next))
+    return hydrate(next)
+  })
+}
+
+export interface SetWorkbenchBrowserSessionAllowPrivateInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  allow: boolean
+}
+
+/**
+ * Human-only toggle that lets the agent reach private/internal hosts on this
+ * session (e.g. the user's own dev server). Agents can never self-grant.
+ */
+export async function setWorkbenchBrowserSessionAllowPrivate(
+  input: SetWorkbenchBrowserSessionAllowPrivateInput,
+  options: { nowMs?: number } = {},
+): Promise<WorkbenchBrowserSession> {
+  const nowMs = options.nowMs ?? Date.now()
+  return adminDb.runTransaction(async (transaction) => {
+    const sRef = sessionRef(input.sessionId)
+    const snapshot = await transaction.get(sRef)
+    if (!snapshot.exists) throw new Error('workbench: browser session not found')
+    const session = fromStored(snapshot.id, snapshot.data() ?? {})
+    if (!sessionBindingMatches(session, input)) throw new Error('workbench: browser session binding mismatch')
+    const next: WorkbenchBrowserSession = { ...session, allowPrivateNetwork: input.allow, updatedAtMs: nowMs }
+    transaction.update(sRef, toStored(next))
+    return hydrate(next)
+  })
 }
 
 export interface WorkbenchBrowserSessionStoredAuthorization {
@@ -622,6 +794,13 @@ export async function claimOldestWorkbenchBrowserSessionWork(
         : []
       if (existingControls.length === 0) { survivors.push(id); continue }
       const [popped, ...rest] = existingControls
+      // Slice-2 arbitration at claim time: a driving control from the actor
+      // who is not currently driving is left in the queue (it fires once the
+      // wheel changes hands), never executed behind the current driver's back.
+      if (isWorkbenchBrowserDrivingControl(popped.control) && session.driver !== 'idle' && session.driver !== popped.actorKind) {
+        survivors.push(id)
+        continue
+      }
       claim = { kind: 'control', sessionId: session.sessionId, control: popped.control, attempt: session.attempt, leaseToken: session.leaseToken! }
       claimedRef = ref
       claimedSession = {

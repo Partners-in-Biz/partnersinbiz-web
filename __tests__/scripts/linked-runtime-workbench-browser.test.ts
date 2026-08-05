@@ -9,6 +9,7 @@ import {
   handleWorkbenchBrowserCreate,
   linkedRuntimeWorkbenchBrowserClaimBody,
   pollWorkbenchBrowserForever,
+  redactWorkbenchBrowserText,
   runWorkbenchBrowserClaim,
   type BrowserChildProcess,
   type BrowserWebSocket,
@@ -77,6 +78,10 @@ class FakeWebSocket implements BrowserWebSocket {
   captureCount = 0
   pageUrl = 'about:blank'
   pageTitle = ''
+  /** Accessibility.getFullAXTree payload served to the supervisor. */
+  axTree: Array<Record<string, unknown>> = []
+  /** DOM.getBoxModel `content` quads keyed by backendDOMNodeId. */
+  boxModels = new Map<number, number[]>()
   private listeners = new Map<string, Listener[]>()
 
   addEventListener(event: string, listener: Listener): void {
@@ -85,6 +90,11 @@ class FakeWebSocket implements BrowserWebSocket {
 
   removeEventListener(event: string, listener: Listener): void {
     this.listeners.set(event, (this.listeners.get(event) ?? []).filter((candidate) => candidate !== listener))
+  }
+
+  /** Simulates Chrome pushing a CDP event (dialogs, console, frames, …). */
+  emitCdpEvent(method: string, params: Record<string, unknown>, sessionId?: string): void {
+    this.emit('message', { data: JSON.stringify({ method, params, ...(sessionId ? { sessionId } : {}) }) })
   }
 
   send(data: string): void {
@@ -108,6 +118,11 @@ class FakeWebSocket implements BrowserWebSocket {
         ? Buffer.alloc(1_500_001, 1)
         : Buffer.from(`jpeg-${this.captureCount}`)
       result = { data: bytes.toString('base64') }
+    }
+    if (method === 'Accessibility.getFullAXTree') result = { nodes: this.axTree }
+    if (method === 'DOM.getBoxModel') {
+      const content = this.boxModels.get(Number(params.backendNodeId))
+      if (content) result = { model: { content } }
     }
     queueMicrotask(() => {
       this.emit('message', { data: JSON.stringify({ id, result }) })
@@ -439,5 +454,268 @@ describe('linked-computer headless Chrome workbench browser runtime', () => {
       async () => undefined,
     )
     expect(run).toHaveBeenCalledWith(claimed)
+  })
+
+  it('redacts passwords, tokens, api keys, bearer tokens, and emails while leaving plain text and short values intact', () => {
+    // The generic key-value rule keeps the key and separator (`$1$3[redacted]`)
+    // and drops only the secret VALUE, so `password=…` becomes
+    // `password=[redacted]`. Bearer tokens are scrubbed first so
+    // "Authorization: Bearer <jwt>" cannot leak the credential past the
+    // whitespace-stopping generic rule.
+    expect(redactWorkbenchBrowserText('password=hunter2')).toBe('password=[redacted]')
+    expect(redactWorkbenchBrowserText('pass=hunter2')).toBe('pass=[redacted]')
+    expect(redactWorkbenchBrowserText('pwd: abc123def456ghi')).toBe('pwd: [redacted]')
+    expect(redactWorkbenchBrowserText('token=abcdef123456')).toBe('token=[redacted]')
+    expect(redactWorkbenchBrowserText('secret 0123456789abcdef')).toBe('secret [redacted]')
+    expect(redactWorkbenchBrowserText('api_key = 0123456789abcdef')).toBe('api_key = [redacted]')
+    expect(redactWorkbenchBrowserText('apiKey=0123456789abcdef')).toBe('apiKey=[redacted]')
+    expect(redactWorkbenchBrowserText('authorization: abcdefghijkl')).toBe('authorization: [redacted]')
+    expect(redactWorkbenchBrowserText('Bearer abc.def.ghi')).toBe('Bearer [redacted]')
+    // Regression: a JWT after "Authorization: Bearer " must never reach the agent.
+    expect(redactWorkbenchBrowserText('Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.abc.def')).toBe('Authorization: Bearer [redacted]')
+    expect(redactWorkbenchBrowserText('Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.abc.def')).not.toContain('eyJhbGciOiJIUzI1NiJ9')
+    expect(redactWorkbenchBrowserText('sk-abcdefghijklmnopqrstuvwxyz')).toBe('[key]')
+    expect(redactWorkbenchBrowserText('ghp_1234567890123456789012345678901234567890')).toBe('[key]')
+    expect(redactWorkbenchBrowserText('AIzaSyA12345678901234567890')).toBe('[key]')
+    expect(redactWorkbenchBrowserText('AKIAABCDEFGHIJKLMNOP')).toBe('[key]')
+    expect(redactWorkbenchBrowserText('contact alice@example.com now')).toBe('contact [email] now')
+    // The secret value is gone no matter the separator quirk.
+    expect(redactWorkbenchBrowserText('password=hunter2')).not.toContain('hunter2')
+    // Plain text and secrets shorter than the 6-char minimum stay untouched.
+    expect(redactWorkbenchBrowserText('plain text')).toBe('plain text')
+    expect(redactWorkbenchBrowserText('pwd=short')).toBe('pwd=short')
+    expect(redactWorkbenchBrowserText('no secrets here')).toBe('no secrets here')
+  })
+
+  it('validates the new agent-aware control kinds (snapshot/console/dialog/click_ref) before touching CDP', async () => {
+    const post = jest.fn(async () => Response.json({ success: true }))
+    // Valid controls pass claim/control validation and only fail on the missing session.
+    for (const control of [
+      { kind: 'snapshot' },
+      { kind: 'console' },
+      { kind: 'dialog', accept: true },
+      { kind: 'dialog', accept: false, promptText: 'yes' },
+      { kind: 'click_ref', ref: '@e1' },
+      { kind: 'click_ref', ref: 'e1' }, // bare refs are normalized to @eN
+    ] as Array<Extract<WorkbenchBrowserClaim, { kind: 'control' }>['control']>) {
+      await expect(runWorkbenchBrowserClaim(controlClaim(control), registry(), post)).rejects.toThrow(/session not found/)
+    }
+    for (const control of [
+      { kind: 'snapshot', extra: true },
+      { kind: 'console', extra: true },
+      { kind: 'dialog' },
+      { kind: 'dialog', accept: 'yes' },
+      { kind: 'dialog', accept: true, promptText: 'bad\u0001text' },
+      { kind: 'click_ref' },
+      { kind: 'click_ref', ref: 'bad ref!' },
+      { kind: 'click_ref', ref: 'x'.repeat(33) },
+      { kind: 'click_ref', ref: '@e1', extra: true },
+      { kind: 'unknown-kind' },
+    ] as unknown as Array<Extract<WorkbenchBrowserClaim, { kind: 'control' }>['control']>) {
+      await expect(runWorkbenchBrowserClaim(controlClaim(control), registry(), post)).rejects.toThrow(/invalid workbench browser/i)
+    }
+  })
+
+  it('publishes an accessibility snapshot with @eN refs resolved to backendDOMNodeIds and truncates huge trees', async () => {
+    const { socket } = installFakeBrowser()
+    const posts: Array<[string, Record<string, unknown>]> = []
+    const post = jest.fn(async (endpoint: string, body: Record<string, unknown>) => {
+      posts.push([endpoint, body])
+      if (endpoint.endsWith('/frames')) {
+        return Response.json({ success: true, data: { imageUrl: `https://frames.example/${posts.length}.jpg`, contentType: 'image/jpeg' } })
+      }
+      return Response.json({ success: true, data: { accepted: true } })
+    })
+    socket.axTree = [
+      { nodeId: 'n1', role: { value: 'button' }, name: { value: 'Search' }, backendDOMNodeId: 42, childIds: [] },
+      { nodeId: 'n2', role: { value: 'textbox' }, name: { value: 'Query' }, value: { value: 'cats' }, backendDOMNodeId: 43, childIds: [] },
+      { nodeId: 'n3', role: { value: 'statictext' }, name: { value: 'Hello world' }, backendDOMNodeId: 44, childIds: [] },
+    ]
+    await runWorkbenchBrowserClaim(createClaim(), registry(), post)
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'snapshot' }), registry(), post)
+
+    const snapshotPosts = posts.filter(([endpoint, body]) => endpoint.endsWith('/progress') && (body.chunk as { stream?: string }).stream === 'snapshot')
+    const snapshot = (snapshotPosts[0][1].chunk as { snapshot: { ax: string; refs: Record<string, unknown>; url?: string } }).snapshot
+    expect(snapshot.ax).toContain('[@e1] button "Search"')
+    expect(snapshot.ax).toContain('[@e2] textbox "Query" value="cats"')
+    expect(snapshot.ax).toContain('[@e3] statictext "Hello world"')
+    expect(snapshot.refs).toMatchObject({
+      '@e1': { backendDOMNodeId: 42, role: 'button', name: 'Search' },
+      '@e2': { backendDOMNodeId: 43, role: 'textbox', name: 'Query' },
+      '@e3': { backendDOMNodeId: 44, role: 'statictext', name: 'Hello world' },
+    })
+    expect((snapshot.refs['@e1'] as { backendDOMNodeId?: number }).backendDOMNodeId).toBe(42)
+    expect(snapshot.url).toBe('https://example.com/start')
+
+    // A huge tree must be capped with a truncation marker, not shipped whole.
+    const hugeTree: Array<Record<string, unknown>> = []
+    for (let index = 1; index <= 1_200; index += 1) {
+      hugeTree.push({
+        nodeId: `h${index}`,
+        role: { value: 'button' },
+        name: { value: `Item number ${index} ${'x'.repeat(30)}` },
+        backendDOMNodeId: 1_000 + index,
+        childIds: [],
+      })
+    }
+    socket.axTree = hugeTree
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'snapshot' }), registry(), post)
+    const allSnapshotPosts = posts.filter(([endpoint, body]) => endpoint.endsWith('/progress') && (body.chunk as { stream?: string }).stream === 'snapshot')
+    const truncated = (allSnapshotPosts[allSnapshotPosts.length - 1][1].chunk as { snapshot: { ax: string } }).snapshot.ax
+    expect(truncated).toMatch(/… truncated$/)
+    expect(truncated.length).toBeGreaterThan(10_000)
+    expect(truncated.length).toBeLessThan(12_100)
+    expect(truncated).not.toContain('Item number 1200')
+  })
+
+  it('tracks native JS dialogs, includes them in snapshots, and answers them via Page.handleJavaScriptDialog', async () => {
+    const { socket } = installFakeBrowser()
+    const posts: Array<[string, Record<string, unknown>]> = []
+    const post = jest.fn(async (endpoint: string, body: Record<string, unknown>) => {
+      posts.push([endpoint, body])
+      if (endpoint.endsWith('/frames')) {
+        return Response.json({ success: true, data: { imageUrl: `https://frames.example/${posts.length}.jpg`, contentType: 'image/jpeg' } })
+      }
+      return Response.json({ success: true, data: { accepted: true } })
+    })
+    await runWorkbenchBrowserClaim(createClaim(), registry(), post)
+
+    socket.emitCdpEvent('Page.javascriptDialogOpening', { type: 'confirm', message: 'Are you sure?' }, 'cdp-session-a')
+    await flushAsyncWork()
+
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'snapshot' }), registry(), post)
+    const snapshotPost = posts.find(([endpoint, body]) => endpoint.endsWith('/progress') && (body.chunk as { stream?: string }).stream === 'snapshot')
+    expect((snapshotPost?.[1].chunk as { snapshot: { pendingDialog: unknown } }).snapshot.pendingDialog)
+      .toEqual({ type: 'confirm', message: 'Are you sure?' })
+
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'dialog', accept: true }), registry(), post)
+    const handled = socket.sent.filter((message) => message.method === 'Page.handleJavaScriptDialog')
+    expect(handled).toHaveLength(1)
+    expect(handled[0].params).toEqual({ accept: true })
+    expect(handled[0].sessionId).toBe('cdp-session-a')
+
+    // prompt dialogs forward promptText to the browser.
+    socket.emitCdpEvent('Page.javascriptDialogOpening', { type: 'prompt', message: 'Enter your age' }, 'cdp-session-a')
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'dialog', accept: false, promptText: '42' }), registry(), post)
+    const handledMessages = socket.sent.filter((message) => message.method === 'Page.handleJavaScriptDialog')
+    expect(handledMessages[handledMessages.length - 1].params).toEqual({ accept: false, promptText: '42' })
+
+    // Answering a dialog that is not open is a supervised error.
+    await expect(runWorkbenchBrowserClaim(controlClaim({ kind: 'dialog', accept: true }), registry(), post))
+      .rejects.toThrow(/no pending browser dialog/)
+  })
+
+  it('resolves click_ref from the last snapshot to viewport coordinates and clicks the box center', async () => {
+    const { socket } = installFakeBrowser()
+    const posts: Array<[string, Record<string, unknown>]> = []
+    const post = jest.fn(async (endpoint: string, body: Record<string, unknown>) => {
+      posts.push([endpoint, body])
+      if (endpoint.endsWith('/frames')) {
+        return Response.json({ success: true, data: { imageUrl: `https://frames.example/${posts.length}.jpg`, contentType: 'image/jpeg' } })
+      }
+      return Response.json({ success: true, data: { accepted: true } })
+    })
+    await runWorkbenchBrowserClaim(createClaim(), registry(), post)
+
+    // No snapshot yet: every ref is unknown.
+    await expect(runWorkbenchBrowserClaim(controlClaim({ kind: 'click_ref', ref: '@e1' }), registry(), post))
+      .rejects.toThrow(/not in the last snapshot/)
+
+    socket.axTree = [
+      { nodeId: 'n1', role: { value: 'button' }, name: { value: 'Search' }, backendDOMNodeId: 42, childIds: [] },
+    ]
+    socket.boxModels.set(42, [100, 200, 300, 200, 300, 400, 100, 400])
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'snapshot' }), registry(), post)
+
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'click_ref', ref: '@e1' }), registry(), post)
+    const clicks = socket.sent.filter((message) =>
+      message.method === 'Input.dispatchMouseEvent' && (message.params as Record<string, unknown>).type !== 'mouseWheel')
+    expect(clicks.map((message) => (message.params as Record<string, unknown>).type)).toEqual(['mousePressed', 'mouseReleased'])
+    expect(clicks[0].params).toMatchObject({ x: 200, y: 300, button: 'left', clickCount: 1 })
+    expect(clicks.every((message) => message.sessionId === 'cdp-session-a')).toBe(true)
+    expect(socket.sent.find((message) => message.method === 'DOM.getBoxModel')?.params).toEqual({ backendNodeId: 42 })
+
+    // A ref that is not in the last snapshot must be rejected.
+    await expect(runWorkbenchBrowserClaim(controlClaim({ kind: 'click_ref', ref: '@e99' }), registry(), post))
+      .rejects.toThrow(/not in the last snapshot/)
+  })
+
+  it('keeps a capped console ring from consoleAPICalled and exceptionThrown and streams it on demand', async () => {
+    const { socket } = installFakeBrowser()
+    const posts: Array<[string, Record<string, unknown>]> = []
+    const post = jest.fn(async (endpoint: string, body: Record<string, unknown>) => {
+      posts.push([endpoint, body])
+      if (endpoint.endsWith('/frames')) {
+        return Response.json({ success: true, data: { imageUrl: `https://frames.example/${posts.length}.jpg`, contentType: 'image/jpeg' } })
+      }
+      return Response.json({ success: true, data: { accepted: true } })
+    })
+    await runWorkbenchBrowserClaim(createClaim(), registry(), post)
+
+    for (let index = 1; index <= 55; index += 1) {
+      socket.emitCdpEvent('Runtime.consoleAPICalled', {
+        type: 'error',
+        args: [{ type: 'string', value: `msg-${index}` }],
+        executionContextId: 1,
+        timestamp: 1,
+      }, 'cdp-session-a')
+    }
+    socket.emitCdpEvent('Runtime.exceptionThrown', {
+      exceptionDetails: {
+        text: 'Uncaught',
+        exception: { description: 'TypeError: boom is not a function\n    at <anonymous>:1:1' },
+        url: 'https://example.com/app.js',
+      },
+    }, 'cdp-session-a')
+    await flushAsyncWork()
+
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'console' }), registry(), post)
+    const consolePost = posts.find(([endpoint, body]) => endpoint.endsWith('/progress') && (body.chunk as { stream?: string }).stream === 'console')
+    const entries = (consolePost?.[1].chunk as { entries: Array<{ level: string; text: string; url?: string }> }).entries
+    expect(entries).toHaveLength(50)
+    expect(entries[0]).toEqual({ level: 'error', text: 'msg-7' })
+    expect(entries[48]).toEqual({ level: 'error', text: 'msg-55' })
+    expect(entries[49]).toEqual({ level: 'exception', text: 'Uncaught: TypeError: boom is not a function', url: 'https://example.com/app.js' })
+    expect(entries.some((entry) => entry.text === 'msg-6')).toBe(false)
+  })
+
+  it('redacts secrets in snapshot names and console entries before they reach the agent', async () => {
+    const { socket } = installFakeBrowser()
+    const posts: Array<[string, Record<string, unknown>]> = []
+    const post = jest.fn(async (endpoint: string, body: Record<string, unknown>) => {
+      posts.push([endpoint, body])
+      if (endpoint.endsWith('/frames')) {
+        return Response.json({ success: true, data: { imageUrl: `https://frames.example/${posts.length}.jpg`, contentType: 'image/jpeg' } })
+      }
+      return Response.json({ success: true, data: { accepted: true } })
+    })
+    socket.axTree = [
+      { nodeId: 'n1', role: { value: 'button' }, name: { value: 'Login password=secret123' }, backendDOMNodeId: 42, childIds: [] },
+    ]
+    await runWorkbenchBrowserClaim(createClaim(), registry(), post)
+
+    socket.emitCdpEvent('Runtime.consoleAPICalled', {
+      type: 'error',
+      args: [{ type: 'string', value: 'login failed password=secret123' }],
+      executionContextId: 1,
+      timestamp: 1,
+    }, 'cdp-session-a')
+    await flushAsyncWork()
+
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'snapshot' }), registry(), post)
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'console' }), registry(), post)
+
+    const snapshotPost = posts.find(([endpoint, body]) => endpoint.endsWith('/progress') && (body.chunk as { stream?: string }).stream === 'snapshot')
+    const snapshot = (snapshotPost?.[1].chunk as { snapshot: { ax: string; refs: Record<string, unknown> } }).snapshot
+    // The secret value is scrubbed from both the AX line and the refs map.
+    expect(snapshot.ax).toContain('[redacted]')
+    expect(snapshot.ax).not.toContain('secret123')
+    expect(snapshot.ax).not.toContain('password=secret123')
+    expect((snapshot.refs['@e1'] as { name: string }).name).toBe('Login password=[redacted]')
+
+    const consolePost = posts.find(([endpoint, body]) => endpoint.endsWith('/progress') && (body.chunk as { stream?: string }).stream === 'console')
+    const entries = (consolePost?.[1].chunk as { entries: Array<{ text: string }> }).entries
+    expect(entries[0].text).toBe('login failed password=[redacted]')
+    expect(entries[0].text).not.toContain('secret123')
   })
 })

@@ -8,62 +8,61 @@ import {
   WorkbenchAuthorizationError,
 } from '@/lib/messages/workbench/authorization'
 import {
-  enqueueBrowserSessionScroll,
   getWorkbenchBrowserSession,
-  type EnqueueBrowserSessionScrollInput,
+  setWorkbenchBrowserSessionDriver,
+  type SetWorkbenchBrowserSessionDriverInput,
 } from '@/lib/messages/workbench/browser-session-store'
 import {
   publicWorkbenchBrowserSession,
-  sanitizeWorkbenchBrowserPoint,
-  sanitizeWorkbenchBrowserScrollDeltas,
+  workbenchBrowserActorKindFromHeader,
   type WorkbenchBrowserSession,
 } from '@/lib/messages/workbench/browser-sessions'
-import { workbenchBrowserActorKindFromHeader } from '@/lib/messages/workbench/browser-sessions'
 
 export const dynamic = 'force-dynamic'
 
 type Context = { params: Promise<{ convId: string; sessionId: string }> }
 type Authorization = Awaited<ReturnType<typeof authorizeWorkbenchConversation>>
-interface ScrollDependencies {
+interface DriverDependencies {
   authorize: (user: ApiUser, conversationId: string) => Promise<Authorization>
   get: (sessionId: string) => Promise<WorkbenchBrowserSession | null>
-  enqueue: (input: EnqueueBrowserSessionScrollInput) => Promise<WorkbenchBrowserSession>
+  set: (input: SetWorkbenchBrowserSessionDriverInput) => Promise<WorkbenchBrowserSession>
 }
 
 function routeError(error: unknown) {
   if (error instanceof WorkbenchAuthorizationError) return apiError(error.message, error.status)
   const message = error instanceof Error ? error.message : ''
-  if (message.includes('not running')) return apiError('Workbench browser session is not running', 409)
-  if (message.includes('control queue full')) return apiError('Workbench browser session control queue is full', 429)
-  console.error('[workbench-browser-scroll-failed]', error)
-  return apiError('Unable to scroll workbench browser session', 500)
+  if (message.includes('driven by the user')) return apiError('This browser session is being driven by you — the agent cannot take over while you are active', 409)
+  console.error('[workbench-browser-driver-failed]', error)
+  return apiError('Unable to change workbench browser driver', 500)
 }
 
-/** Queues a `scroll` control for a claimed/running browser session's owning device. Body: `{ x, y, deltaX?, deltaY }`. */
-export async function handleScrollBrowserSession(
+/**
+ * Explicitly hands the wheel to `driver` ('user' | 'agent') — the UI's
+ * "Take control" button and the agent skill's browser_take_control tool.
+ * Body: `{ driver }`. The human's Take Control always wins; an agent can
+ * never seize a session the human is actively driving.
+ */
+export async function handleSetBrowserDriver(
   request: NextRequest,
   user: ApiUser,
   conversationId: string,
   sessionId: string,
-  dependencies: ScrollDependencies = {
+  dependencies: DriverDependencies = {
     authorize: authorizeWorkbenchConversation,
     get: getWorkbenchBrowserSession,
-    enqueue: enqueueBrowserSessionScroll,
+    set: setWorkbenchBrowserSessionDriver,
   },
 ): Promise<Response> {
   try {
     const body = await request.json().catch(() => ({})) as Record<string, unknown>
-    const point = sanitizeWorkbenchBrowserPoint(body.x, body.y)
-    if (!point) return apiError('x and y must be viewport pixel coordinates within 0-1920 x 0-1200', 400)
-    const deltas = sanitizeWorkbenchBrowserScrollDeltas(body.deltaX, body.deltaY)
-    if (!deltas) return apiError('deltaY is required and deltas must be finite numbers within +/-100000', 400)
+    if (body.driver !== 'user' && body.driver !== 'agent') return apiError('driver must be user or agent', 400)
 
     const authorization = await dependencies.authorize(user, conversationId)
     const existing = await dependencies.get(sessionId)
     if (!existing || !isWorkbenchBrowserSessionOwnedByContext(existing, user, conversationId, authorization)) {
       return apiError('Workbench browser session not found', 404)
     }
-    const session = await dependencies.enqueue({
+    const session = await dependencies.set({
       sessionId,
       conversationId: authorization.conversation.id,
       orgId: authorization.conversation.orgId,
@@ -76,11 +75,8 @@ export async function handleScrollBrowserSession(
       ...(authorization.projectId ? { projectId: authorization.projectId } : {}),
       ...(authorization.projectReplicaId ? { projectReplicaId: authorization.projectReplicaId } : {}),
       relativeFolder: authorization.relativeFolder,
+      driver: body.driver as 'user' | 'agent',
       actorKind: workbenchBrowserActorKindFromHeader(request.headers.get('x-agent-actor')),
-      x: point.x,
-      y: point.y,
-      deltaX: deltas.deltaX,
-      deltaY: deltas.deltaY,
     })
     return apiSuccess(publicWorkbenchBrowserSession(session))
   } catch (error) {
@@ -90,5 +86,5 @@ export async function handleScrollBrowserSession(
 
 export const POST = withAuth('client', async (request: NextRequest, user: ApiUser, context?: unknown) => {
   const { convId, sessionId } = await (context as Context).params
-  return handleScrollBrowserSession(request, user, convId, sessionId)
+  return handleSetBrowserDriver(request, user, convId, sessionId)
 })

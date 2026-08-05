@@ -64,6 +64,9 @@ const OPENAI_CODEX_CURATED_MODELS = curatedModelsForProvider('openai-codex')
 /** DeepSeek API model ids — Flash first (latest cheap default), then Pro + legacy aliases. */
 const DEEPSEEK_CURATED_MODELS = curatedModelsForProvider('deepseek')
 
+/** Nous Portal subscription model ids — derived from the canonical registry. */
+const NOUS_CURATED_MODELS = curatedModelsForProvider('nous')
+
 export const LLM_PROVIDERS: LlmProviderDefinition[] = [
   {
     key: 'xai-oauth',
@@ -172,7 +175,8 @@ export const LLM_PROVIDERS: LlmProviderDefinition[] = [
     authKind: 'oauth',
     credentialFields: [],
     consoleUrl: 'https://portal.nousresearch.com/manage-subscription',
-    curatedModels: [],
+    docsUrl: 'https://hermes-agent.nousresearch.com/docs/integrations/providers',
+    curatedModels: NOUS_CURATED_MODELS,
     oauthCapable: true,
   },
   {

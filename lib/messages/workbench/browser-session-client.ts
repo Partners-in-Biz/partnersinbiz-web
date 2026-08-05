@@ -36,8 +36,10 @@
  */
 import type {
   PublicWorkbenchBrowserSession as ServerPublicWorkbenchBrowserSession,
+  WorkbenchBrowserConsoleEntry as ServerWorkbenchBrowserConsoleEntry,
   WorkbenchBrowserProgressChunk as ServerWorkbenchBrowserProgressChunk,
   WorkbenchBrowserSessionStatus as ServerWorkbenchBrowserSessionStatus,
+  WorkbenchBrowserSnapshotPayload as ServerWorkbenchBrowserSnapshotPayload,
   WorkbenchBrowserViewport as ServerWorkbenchBrowserViewport,
 } from './browser-sessions'
 
@@ -45,6 +47,8 @@ export type WorkbenchBrowserSessionStatus = ServerWorkbenchBrowserSessionStatus
 export type PublicWorkbenchBrowserSession = ServerPublicWorkbenchBrowserSession
 export type WorkbenchBrowserProgressChunk = ServerWorkbenchBrowserProgressChunk
 export type WorkbenchBrowserViewport = ServerWorkbenchBrowserViewport
+export type WorkbenchBrowserSnapshotPayload = ServerWorkbenchBrowserSnapshotPayload
+export type WorkbenchBrowserConsoleEntry = ServerWorkbenchBrowserConsoleEntry
 
 export const WORKBENCH_BROWSER_SESSION_TERMINAL_STATUSES: ReadonlySet<WorkbenchBrowserSessionStatus> = new Set([
   'exited', 'killed', 'expired', 'failed',
@@ -299,6 +303,116 @@ export async function killWorkbenchBrowserSession(
 ): Promise<PublicWorkbenchBrowserSession> {
   const response = await fetch(`${workbenchBrowserSessionBase(conversationId, sessionId)}/kill`, {
     method: 'POST',
+    signal: options.signal,
+  })
+  return readWorkbenchBrowserSessionResponse(response)
+}
+
+/** Requests a fresh accessibility-tree snapshot; the device posts the result as a `snapshot` progress chunk. */
+export async function requestWorkbenchBrowserSnapshot(
+  conversationId: string,
+  sessionId: string,
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  return postWorkbenchBrowserSessionControl(conversationId, sessionId, 'snapshot', {}, options)
+}
+
+/** Reads the latest accessibility snapshot chunk: `{ snapshot, seq, atMs, status }`. */
+export async function getWorkbenchBrowserSnapshot(
+  conversationId: string,
+  sessionId: string,
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<{ snapshot: WorkbenchBrowserSnapshotPayload | null; seq: number; atMs: number; status: string }> {
+  const response = await fetch(`${workbenchBrowserSessionBase(conversationId, sessionId)}/snapshot`, {
+    cache: 'no-store',
+    signal: options.signal,
+  })
+  const body = await response.json().catch(() => null) as { data?: { snapshot?: WorkbenchBrowserSnapshotPayload | null; seq?: number; atMs?: number; status?: string }; error?: string } | null
+  if (!response.ok || !body?.data) throw new Error(body?.error || `Workbench browser snapshot request failed (${response.status})`)
+  return {
+    snapshot: body.data.snapshot ?? null,
+    seq: body.data.seq ?? 0,
+    atMs: body.data.atMs ?? 0,
+    status: body.data.status ?? 'unknown',
+  }
+}
+
+/** Requests the device's console ring; the device posts the result as a `console` progress chunk. */
+export async function requestWorkbenchBrowserConsole(
+  conversationId: string,
+  sessionId: string,
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  return postWorkbenchBrowserSessionControl(conversationId, sessionId, 'console', {}, options)
+}
+
+/** Reads the latest console ring chunk: `{ entries, seq, atMs, status }`. */
+export async function getWorkbenchBrowserConsole(
+  conversationId: string,
+  sessionId: string,
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<{ entries: WorkbenchBrowserConsoleEntry[] | null; seq: number; atMs: number; status: string }> {
+  const response = await fetch(`${workbenchBrowserSessionBase(conversationId, sessionId)}/console`, {
+    cache: 'no-store',
+    signal: options.signal,
+  })
+  const body = await response.json().catch(() => null) as { data?: { entries?: WorkbenchBrowserConsoleEntry[] | null; seq?: number; atMs?: number; status?: string }; error?: string } | null
+  if (!response.ok || !body?.data) throw new Error(body?.error || `Workbench browser console request failed (${response.status})`)
+  return {
+    entries: body.data.entries ?? null,
+    seq: body.data.seq ?? 0,
+    atMs: body.data.atMs ?? 0,
+    status: body.data.status ?? 'unknown',
+  }
+}
+
+/** Responds to a pending native JS dialog (alert/confirm/prompt). */
+export async function dialogWorkbenchBrowserSession(
+  conversationId: string,
+  sessionId: string,
+  input: { accept: boolean; promptText?: string },
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  return postWorkbenchBrowserSessionControl(conversationId, sessionId, 'dialog', input, options)
+}
+
+/** Clicks an element by its accessibility snapshot ref (@e1…). */
+export async function clickRefWorkbenchBrowserSession(
+  conversationId: string,
+  sessionId: string,
+  input: { ref: string },
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  return postWorkbenchBrowserSessionControl(conversationId, sessionId, 'click-ref', input, options)
+}
+
+/** Explicitly hands the wheel to `driver` — the UI's Take Control and the agent's browser_take_control. */
+export async function setWorkbenchBrowserSessionDriver(
+  conversationId: string,
+  sessionId: string,
+  input: { driver: 'user' | 'agent' },
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  const response = await fetch(`${workbenchBrowserSessionBase(conversationId, sessionId)}/driver`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+    signal: options.signal,
+  })
+  return readWorkbenchBrowserSessionResponse(response)
+}
+
+/** Human-only toggle letting the agent reach private/internal hosts on this session. */
+export async function setWorkbenchBrowserSessionAllowPrivate(
+  conversationId: string,
+  sessionId: string,
+  input: { allow: boolean },
+  options: WorkbenchBrowserSessionRequestOptions = {},
+): Promise<PublicWorkbenchBrowserSession> {
+  const response = await fetch(`${workbenchBrowserSessionBase(conversationId, sessionId)}/allow-private`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
     signal: options.signal,
   })
   return readWorkbenchBrowserSessionResponse(response)

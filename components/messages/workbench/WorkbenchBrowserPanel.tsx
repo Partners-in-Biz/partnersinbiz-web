@@ -230,6 +230,15 @@ export interface WorkbenchBrowserPanelProps {
   onFollowStart?: () => void
   /** Turns device-side frame following back off. */
   onFollowStop?: () => void
+  /** Slice-2 arbitration: the human explicitly takes the wheel from the agent. */
+  onTakeControl?: () => void
+  /** Human-only toggle: allow the agent to reach private/internal hosts on this session. */
+  onToggleAllowPrivate?: () => void
+  /** Requests a fresh accessibility snapshot for the Agent view (the exact text the agent sees). */
+  onRefreshSnapshot?: () => void
+  /** Latest accessibility snapshot text; null until the first refresh. */
+  snapshotText?: string | null
+  snapshotLoading?: boolean
 }
 
 export function WorkbenchBrowserPanel({
@@ -249,6 +258,11 @@ export function WorkbenchBrowserPanel({
   onTypeAt,
   onFollowStart,
   onFollowStop,
+  onTakeControl,
+  onToggleAllowPrivate,
+  onRefreshSnapshot,
+  snapshotText,
+  snapshotLoading,
 }: WorkbenchBrowserPanelProps) {
   const [selectedId, setSelectedId] = useState<string | null>(targets[0]?.id ?? null)
   const [draftUrl, setDraftUrl] = useState('')
@@ -523,9 +537,17 @@ export function WorkbenchBrowserPanel({
   const browserSessionControlsDisabled = !browserSessionControllable || !browserSession?.sessionId
   const browserSessionFollowVisible = Boolean(browserSession) && (browserSessionControllable || Boolean(browserSession?.latestFrameUrl))
 
+  // Slice-2 driver arbitration: while the agent drives, the human's drive
+  // controls are disabled (the server would reject them anyway) and a
+  // Take Control affordance appears instead.
+  const agentDriving = browserSession?.driver === 'agent'
+  const userDriving = browserSession?.driver === 'user'
+  const agentPreview = browserSession?.initiator === 'agent'
+  const agentViewOpen = Boolean(snapshotText)
+
   // Driving only makes sense on a live agent frame: percentages map to the session's viewport,
   // which is meaningless for a tunnel iframe or a historical screenshot artifact.
-  const driveEnabled = Boolean(onClickAt) && followingSession && browserSessionControllable && Boolean(preparedImageUrl)
+  const driveEnabled = Boolean(onClickAt) && followingSession && browserSessionControllable && Boolean(preparedImageUrl) && !agentDriving
   const draftPointStale = Boolean(draftPoint) && draftPoint?.frameId !== currentFrameId
 
   const driveClick = () => {
@@ -638,7 +660,73 @@ export function WorkbenchBrowserPanel({
             <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-pib-text-muted)]">Agent browser</p>
             <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${BROWSER_SESSION_STATUS_DOT[browserSessionStatus]}`} />
             <span data-testid="workbench-agent-browser-status" aria-live="polite" className="text-[10px] text-[var(--color-pib-text-muted)]">{BROWSER_SESSION_STATUS_LABEL[browserSessionStatus]}</span>
+            {agentDriving && (
+              <span data-testid="workbench-agent-driving" className="ml-auto inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[9px] font-semibold text-amber-200">
+                <span aria-hidden="true" className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" />
+                Agent is driving
+              </span>
+            )}
+            {userDriving && (
+              <span data-testid="workbench-user-driving" className="ml-auto inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-400/[0.06] px-2 py-0.5 text-[9px] font-medium text-emerald-200">
+                You're driving
+              </span>
+            )}
           </div>
+          {(agentDriving && onTakeControl) && (
+            <div className="flex items-center gap-1.5 rounded-md border border-amber-400/25 bg-amber-400/[0.06] px-2 py-1">
+              <p className="min-w-0 flex-1 text-[10px] leading-snug text-amber-200/90">
+                The agent is controlling this page. Your clicks and typing are paused — take control to drive it yourself.
+              </p>
+              <button
+                type="button"
+                onClick={() => onTakeControl?.()}
+                data-testid="workbench-agent-take-control"
+                className="shrink-0 rounded-md border border-amber-400/40 bg-amber-400/15 px-2 py-1 text-[10px] font-semibold text-amber-200 hover:bg-amber-400/25"
+              >
+                Take control
+              </button>
+            </div>
+          )}
+          {(agentPreview && !agentDriving && onToggleAllowPrivate) && (
+            <div className="flex items-center gap-1.5">
+              <p className="min-w-0 flex-1 text-[10px] text-[var(--color-pib-text-muted)]">
+                Agent preview session. Private-network access is{' '}
+                <span className={browserSession?.allowPrivateNetwork ? 'text-emerald-300' : 'text-amber-200'}>
+                  {browserSession?.allowPrivateNetwork ? 'allowed' : 'blocked'}
+                </span>{' '}
+                — the agent cannot reach localhost/private hosts until you allow it.
+              </p>
+              <button
+                type="button"
+                onClick={() => onToggleAllowPrivate?.()}
+                data-testid="workbench-agent-allow-private"
+                className="shrink-0 rounded-md border border-[var(--color-card-border)] px-2 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05]"
+              >
+                {browserSession?.allowPrivateNetwork ? 'Revoke' : 'Allow local'}
+              </button>
+            </div>
+          )}
+          {onRefreshSnapshot && (
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => onRefreshSnapshot?.()}
+                disabled={!browserSessionControllable || snapshotLoading}
+                data-testid="workbench-agent-view-toggle"
+                className="shrink-0 self-start rounded-md border border-[var(--color-card-border)] px-2 py-1 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {snapshotLoading ? 'Reading the page as text…' : agentViewOpen ? 'Hide agent view' : 'Show agent view'}
+              </button>
+              {agentViewOpen && (
+                <pre
+                  data-testid="workbench-agent-view-text"
+                  className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-[var(--color-card-border)] bg-black/30 p-2 font-mono text-[10px] leading-relaxed text-[var(--color-pib-text)]"
+                >
+                  {snapshotText}
+                </pre>
+              )}
+            </div>
+          )}
           <form onSubmit={submitBrowserStartUrl} className="flex items-center gap-1.5">
             <input
               aria-label="Agent browser start URL"
@@ -687,7 +775,7 @@ export function WorkbenchBrowserPanel({
             />
             <button
               type="submit"
-              disabled={browserSessionControlsDisabled || !browserNavigateUrlInput.trim() || !onNavigateBrowserSession}
+              disabled={browserSessionControlsDisabled || agentDriving || !browserNavigateUrlInput.trim() || !onNavigateBrowserSession}
               data-testid="workbench-agent-browser-navigate"
               className="min-h-8 shrink-0 rounded-md border border-[var(--color-card-border)] px-2 text-[10px] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
             >

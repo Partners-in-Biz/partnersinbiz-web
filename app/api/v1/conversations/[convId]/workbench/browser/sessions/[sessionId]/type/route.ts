@@ -17,6 +17,7 @@ import {
   sanitizeWorkbenchBrowserTypeText,
   type WorkbenchBrowserSession,
 } from '@/lib/messages/workbench/browser-sessions'
+import { workbenchBrowserActorKindFromHeader } from '@/lib/messages/workbench/browser-sessions'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +73,7 @@ export async function handleTypeBrowserSession(
       ...(authorization.projectId ? { projectId: authorization.projectId } : {}),
       ...(authorization.projectReplicaId ? { projectReplicaId: authorization.projectReplicaId } : {}),
       relativeFolder: authorization.relativeFolder,
+      actorKind: workbenchBrowserActorKindFromHeader(request.headers.get('x-agent-actor')),
       text,
     })
     return apiSuccess(publicWorkbenchBrowserSession(session))

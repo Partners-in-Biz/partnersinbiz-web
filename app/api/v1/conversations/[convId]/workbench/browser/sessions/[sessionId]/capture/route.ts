@@ -13,6 +13,7 @@ import {
   type EnqueueBrowserSessionCaptureInput,
 } from '@/lib/messages/workbench/browser-session-store'
 import { publicWorkbenchBrowserSession, type WorkbenchBrowserSession } from '@/lib/messages/workbench/browser-sessions'
+import { workbenchBrowserActorKindFromHeader } from '@/lib/messages/workbench/browser-sessions'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,7 +36,7 @@ function routeError(error: unknown) {
 
 /** Queues a `capture` control (on-demand screenshot) for a claimed/running browser session's owning device. */
 export async function handleCaptureBrowserSession(
-  _request: NextRequest,
+  request: NextRequest,
   user: ApiUser,
   conversationId: string,
   sessionId: string,
@@ -64,6 +65,7 @@ export async function handleCaptureBrowserSession(
       ...(authorization.projectId ? { projectId: authorization.projectId } : {}),
       ...(authorization.projectReplicaId ? { projectReplicaId: authorization.projectReplicaId } : {}),
       relativeFolder: authorization.relativeFolder,
+      actorKind: workbenchBrowserActorKindFromHeader(request.headers.get('x-agent-actor')),
     })
     return apiSuccess(publicWorkbenchBrowserSession(session))
   } catch (error) {

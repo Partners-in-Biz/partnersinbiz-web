@@ -13,6 +13,7 @@ import {
   type EnqueueBrowserSessionKillInput,
 } from '@/lib/messages/workbench/browser-session-store'
 import { publicWorkbenchBrowserSession, type WorkbenchBrowserSession } from '@/lib/messages/workbench/browser-sessions'
+import { workbenchBrowserActorKindFromHeader } from '@/lib/messages/workbench/browser-sessions'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,7 +41,7 @@ function routeError(error: unknown) {
  * then the device reports the final outcome via `complete`.
  */
 export async function handleKillBrowserSession(
-  _request: NextRequest,
+  request: NextRequest,
   user: ApiUser,
   conversationId: string,
   sessionId: string,
@@ -69,6 +70,7 @@ export async function handleKillBrowserSession(
       ...(authorization.projectId ? { projectId: authorization.projectId } : {}),
       ...(authorization.projectReplicaId ? { projectReplicaId: authorization.projectReplicaId } : {}),
       relativeFolder: authorization.relativeFolder,
+      actorKind: workbenchBrowserActorKindFromHeader(request.headers.get('x-agent-actor')),
     })
     return apiSuccess(publicWorkbenchBrowserSession(session))
   } catch (error) {

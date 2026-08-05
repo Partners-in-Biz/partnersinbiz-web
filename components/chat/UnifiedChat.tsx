@@ -129,11 +129,17 @@ import {
   clickWorkbenchBrowserSession as clickWorkbenchBrowserSessionApi,
   createWorkbenchBrowserSession,
   followWorkbenchBrowserSession as followWorkbenchBrowserSessionApi,
+  getWorkbenchBrowserConsole,
   getWorkbenchBrowserSession,
+  getWorkbenchBrowserSnapshot,
   killWorkbenchBrowserSession as killWorkbenchBrowserSessionApi,
   latestWorkbenchBrowserSessionFrameUrl,
   navigateWorkbenchBrowserSession as navigateWorkbenchBrowserSessionApi,
   pollWorkbenchBrowserSession,
+  requestWorkbenchBrowserConsole as requestWorkbenchBrowserConsoleApi,
+  requestWorkbenchBrowserSnapshot as requestWorkbenchBrowserSnapshotApi,
+  setWorkbenchBrowserSessionAllowPrivate as setWorkbenchBrowserSessionAllowPrivateApi,
+  setWorkbenchBrowserSessionDriver as setWorkbenchBrowserSessionDriverApi,
   typeWorkbenchBrowserSession as typeWorkbenchBrowserSessionApi,
   EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS,
   type PublicWorkbenchBrowserSession,
@@ -1355,6 +1361,10 @@ export default function UnifiedChat({
   const workbenchBrowserSessionAbortRef = useRef<AbortController | null>(null)
   // Device-side frame following, driven by the Browser panel's Follow toggle.
   const [workbenchBrowserFollowing, setWorkbenchBrowserFollowing] = useState(false)
+  const [workbenchBrowserSnapshotText, setWorkbenchBrowserSnapshotText] = useState<string | null>(null)
+  const [workbenchBrowserSnapshotLoading, setWorkbenchBrowserSnapshotLoading] = useState(false)
+  /** Session ids whose agent-preview tab was already opened — auto-open exactly once per session ("offer, don't hijack"). */
+  const workbenchBrowserAutoOpenedRef = useRef<Set<string>>(new Set())
   const [contextCanvasCloseRequest, setContextCanvasCloseRequest] = useState(0)
   // Icon strip stays visible whenever the workbench is enabled; expand margin when a dock opens.
   const rightDockOpen = contextCanvasOpen || workbenchOpen || showAgentWorkbench
@@ -3709,7 +3719,7 @@ export default function UnifiedChat({
     workbenchBrowserSessionProgressRef.current = appendWorkbenchBrowserSessionProgress(workbenchBrowserSessionProgressRef.current, remote)
     const chunks = workbenchBrowserSessionProgressRef.current.chunks
     const frameCount = chunks.filter((chunk) => chunk.stream === 'frame' && chunk.imageUrl).length
-    setWorkbenchBrowserSession({
+    setWorkbenchBrowserSession((prev) => ({
       sessionId: remote.sessionId,
       status: remote.status,
       startUrl: remote.startUrl ?? null,
@@ -3717,9 +3727,12 @@ export default function UnifiedChat({
       latestFrameUrl: latestWorkbenchBrowserSessionFrameUrl(chunks) ?? null,
       frameCount,
       viewport: remote.viewport ?? null,
+      initiator: remote.initiator ?? prev?.initiator,
+      driver: remote.driver ?? prev?.driver ?? 'idle',
+      allowPrivateNetwork: remote.allowPrivateNetwork ?? prev?.allowPrivateNetwork,
       error: remote.error ?? null,
       busy: false,
-    })
+    }))
   }, [])
 
   const startWorkbenchBrowserSession = useCallback(async (startUrl?: string) => {
@@ -3780,6 +3793,84 @@ export default function UnifiedChat({
         : prev)
     }
   }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  /** Slice-2 arbitration: the human explicitly takes the wheel back from the agent. */
+  const takeControlWorkbenchBrowserSession = useCallback(async () => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    try {
+      const updated = await setWorkbenchBrowserSessionDriverApi(activeId, workbenchBrowserSession.sessionId, { driver: 'user' })
+      applyWorkbenchBrowserSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to take control of the browser session.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, applyWorkbenchBrowserSessionUpdate])
+
+  /** Human-only toggle: allow/revoke the agent's access to private/internal hosts. */
+  const toggleAllowPrivateWorkbenchBrowserSession = useCallback(async () => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    try {
+      const updated = await setWorkbenchBrowserSessionAllowPrivateApi(activeId, workbenchBrowserSession.sessionId, {
+        allow: !(workbenchBrowserSession.allowPrivateNetwork ?? false),
+      })
+      applyWorkbenchBrowserSessionUpdate(updated)
+    } catch (error) {
+      setWorkbenchBrowserSession((prev) => prev
+        ? { ...prev, error: error instanceof Error ? error.message : 'Failed to update the private-network allowance.', busy: false }
+        : prev)
+    }
+  }, [activeId, workbenchBrowserSession, applyWorkbenchBrowserSessionUpdate])
+
+  /** Requests a fresh accessibility snapshot and renders it in the Agent view — the exact text the agent sees. */
+  const refreshWorkbenchBrowserSnapshot = useCallback(async () => {
+    if (!activeId || !workbenchBrowserSession?.sessionId) return
+    if (workbenchBrowserSnapshotText) {
+      setWorkbenchBrowserSnapshotText(null)
+      return
+    }
+    setWorkbenchBrowserSnapshotLoading(true)
+    try {
+      await requestWorkbenchBrowserSnapshotApi(activeId, workbenchBrowserSession.sessionId)
+      // The device posts the result as a progress chunk; poll the read side
+      // until a fresh snapshot (seq advanced) lands or the session ends.
+      const deadline = Date.now() + 20_000
+      let previousSeq = 0
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 700))
+        const result = await getWorkbenchBrowserSnapshot(activeId, workbenchBrowserSession.sessionId)
+        if (result.snapshot && result.seq > previousSeq) {
+          const lines = [
+            `URL: ${result.snapshot.url ?? 'about:blank'}`,
+            result.snapshot.title ? `Title: ${result.snapshot.title}` : '',
+            result.snapshot.pendingDialog ? `⚠ Pending dialog (${result.snapshot.pendingDialog.type}): ${result.snapshot.pendingDialog.message ?? ''}` : '',
+            '',
+            result.snapshot.ax,
+          ].filter((line) => line !== '').join('\n')
+          setWorkbenchBrowserSnapshotText(lines)
+          break
+        }
+        if (Date.now() >= deadline) {
+          setWorkbenchBrowserSnapshotText(result.snapshot?.ax ?? 'The session has no snapshot yet — is the agent browser running?')
+          break
+        }
+      }
+    } catch (error) {
+      setWorkbenchBrowserSnapshotText(error instanceof Error ? `Snapshot failed: ${error.message}` : 'Snapshot failed')
+    } finally {
+      setWorkbenchBrowserSnapshotLoading(false)
+    }
+  }, [activeId, workbenchBrowserSession?.sessionId, workbenchBrowserSnapshotText])
+
+  // Agent preview auto-open: when an agent-initiated session appears, offer the
+  // browser tab once per session (the user can close it; we never re-hijack).
+  useEffect(() => {
+    if (!workbenchBrowserSession?.sessionId || workbenchBrowserSession.initiator !== 'agent') return
+    if (workbenchBrowserAutoOpenedRef.current.has(workbenchBrowserSession.sessionId)) return
+    workbenchBrowserAutoOpenedRef.current.add(workbenchBrowserSession.sessionId)
+    setWorkbenchTab('browser')
+    setWorkbenchOpen(true)
+  }, [workbenchBrowserSession?.sessionId, workbenchBrowserSession?.initiator])
 
   const navigateWorkbenchBrowserSession = useCallback(async (url: string) => {
     if (!activeId || !workbenchBrowserSession?.sessionId) return

@@ -100,6 +100,26 @@ const pibMarkers = [
     path: 'components/chat/UnifiedChat.tsx',
     contains: ['resolveApproval', '/approval', 'waiting_approval'],
   },
+  {
+    feature: 'Agent-aware workbench browser (display tab beside chat)',
+    path: 'components/messages/workbench/WorkbenchBrowserPanel.tsx',
+    contains: ['WorkbenchBrowserPanel', 'snapshot', 'onTakeControl', 'onToggleAllowPrivate'],
+  },
+  {
+    feature: 'Accessibility-tree text snapshot + click-by-ref control plane',
+    path: 'app/api/v1/conversations/[convId]/workbench/browser/sessions/[sessionId]/snapshot/route.ts',
+    contains: ['enqueueBrowserSessionSnapshot', 'workbenchBrowserActorKindFromHeader', 'x-agent-actor'],
+  },
+  {
+    feature: 'CDP supervisor device worker (dialogs, frames, console ring)',
+    path: 'runtime-installers/runtime/workbench-browser.ts',
+    contains: ['Page.javascriptDialogOpening', 'Target.setAutoAttach', 'Runtime.consoleAPICalled', 'redactWorkbenchBrowserText'],
+  },
+  {
+    feature: 'Driver arbitration + private-network guard',
+    path: 'lib/messages/workbench/browser-session-store.ts',
+    contains: ['isWorkbenchBrowserDrivingControl', 'isPrivateWorkbenchBrowserUrl', "driver: binding.actorKind"],
+  },
 ]
 
 function decodeEntities(value) {

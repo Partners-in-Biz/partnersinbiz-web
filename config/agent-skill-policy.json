@@ -1,6 +1,6 @@
 {
   "version": "2026-08-04.system-skills-v0.1.6",
-  "catalogVersion": "2026-08-04.system-skills-v0.1.6",
+  "catalogVersion": "2026-08-05.system-skills-v0.1.7",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],

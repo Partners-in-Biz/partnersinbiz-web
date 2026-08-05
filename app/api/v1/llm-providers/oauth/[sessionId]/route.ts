@@ -6,6 +6,7 @@ import { clientCanAccessOrg } from '@/lib/llm-providers/org-guard'
 import { getOauthSession, updateOauthSession } from '@/lib/llm-providers/oauth/sessions'
 import { pollXaiDeviceToken } from '@/lib/llm-providers/oauth/xai'
 import { pollCodexDeviceToken } from '@/lib/llm-providers/oauth/codex'
+import { pollNousDeviceToken } from '@/lib/llm-providers/oauth/nous'
 import { upsertLlmProviderConnection } from '@/lib/llm-providers/store'
 import { syncLlmConnectionToHermes } from '@/lib/llm-providers/sync-hermes'
 import { publicOauthSession } from '@/lib/llm-providers/types'
@@ -125,6 +126,61 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, ct
           ...(result.tokens.expires_in ? { expires_in: String(result.tokens.expires_in) } : {}),
           ...(result.tokens.token_type ? { token_type: result.tokens.token_type } : {}),
           ...(result.tokens.id_token ? { id_token: result.tokens.id_token } : {}),
+        },
+      }, { uid: user.uid, type: 'user' })
+
+      await updateOauthSession(sessionId, { status: 'completed', error: null })
+      let sync: Awaited<ReturnType<typeof syncLlmConnectionToHermes>> | undefined
+      try {
+        sync = await syncLlmConnectionToHermes(connection.id)
+      } catch (err) {
+        sync = {
+          synced: [],
+          queued: [],
+          failed: [{ agentId: '*', error: err instanceof Error ? err.message : 'Sync failed' }],
+        }
+      }
+      return apiSuccess({
+        session: publicOauthSession({ ...session, status: 'completed' }),
+        connection,
+        sync,
+      })
+    }
+
+    if (session.provider === 'nous') {
+      const result = await pollNousDeviceToken({
+        tokenEndpoint: session.tokenEndpoint,
+        deviceCode: session.deviceCode,
+      })
+      if (result.status === 'pending') {
+        return apiSuccess({ session: publicOauthSession(session), pending: true })
+      }
+      if (result.status === 'slow_down') {
+        await updateOauthSession(sessionId, { intervalSeconds: Math.min(session.intervalSeconds + 1, 30) })
+        return apiSuccess({ session: publicOauthSession(session), pending: true, slowDown: true })
+      }
+      if (result.status === 'failed') {
+        await updateOauthSession(sessionId, { status: 'failed', error: result.error })
+        return apiSuccess({
+          session: publicOauthSession({ ...session, status: 'failed', error: result.error }),
+        })
+      }
+
+      const connection = await upsertLlmProviderConnection({
+        provider: 'nous',
+        scope: session.scope,
+        orgId: session.orgId,
+        ownerUid: session.scope === 'user' ? session.ownerUid : null,
+        label: session.label,
+        authKind: 'oauth_token',
+        credentials: {
+          access_token: result.tokens.access_token,
+          refresh_token: result.tokens.refresh_token,
+          ...(result.tokens.expires_in ? { expires_in: String(result.tokens.expires_in) } : {}),
+          ...(result.tokens.token_type ? { token_type: result.tokens.token_type } : {}),
+          ...(result.tokens.scope ? { scope: result.tokens.scope } : {}),
+          obtained_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + (Number(result.tokens.expires_in) || 21_600) * 1000).toISOString(),
         },
       }, { uid: user.uid, type: 'user' })
 

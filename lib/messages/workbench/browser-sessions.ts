@@ -26,6 +26,16 @@ const MAX_PROGRESS_CHUNKS = 30
 const MAX_PROGRESS_TEXT_BYTES = 2_000
 const MAX_URL_LENGTH = 2_048
 const MAX_TITLE_LENGTH = 500
+/** Accessibility-tree snapshot text cap — matches Hermes' browser_snapshot budget; the agent reads the page as text. */
+const MAX_SNAPSHOT_AX_CHARS = 12_000
+const MAX_SNAPSHOT_REFS = 400
+const MAX_SNAPSHOT_FRAMES = 50
+/** Snapshot chunks embed a short console tail so the agent sees recent errors in one call; full ring via the console stream. */
+const MAX_SNAPSHOT_CONSOLE_ENTRIES = 8
+const MAX_CONSOLE_ENTRIES = 50
+const MAX_CONSOLE_ENTRY_CHARS = 300
+const MAX_CLICK_REF_LENGTH = 32
+const MAX_DIALOG_PROMPT_TEXT_LENGTH = 1_000
 
 const MIN_VIEWPORT_WIDTH = 320
 const MAX_VIEWPORT_WIDTH = 1920
@@ -102,18 +112,52 @@ export type WorkbenchBrowserSessionControl =
   | { kind: 'navigate'; url: string }
   | { kind: 'capture' }
   | { kind: 'click'; x: number; y: number; button?: WorkbenchBrowserMouseButton }
+  | { kind: 'click_ref'; ref: string }
   | { kind: 'type'; text: string }
   | { kind: 'press'; key: WorkbenchBrowserKey }
   | { kind: 'scroll'; x: number; y: number; deltaX?: number; deltaY: number }
+  | { kind: 'snapshot' }
+  | { kind: 'console' }
+  | { kind: 'dialog'; accept: boolean; promptText?: string }
   | { kind: 'follow_start'; intervalMs?: number }
   | { kind: 'follow_stop' }
   | { kind: 'kill' }
+
+/**
+ * Who enqueued a control: the human in Messages (`user`) or an agent
+ * (`agent`, signalled via the `X-Agent-Actor` header on API calls). Drives
+ * both the private-network guard and slice-2 driver arbitration — the user
+ * and the agent must never click/type the same live page at the same time.
+ */
+export type WorkbenchBrowserActorKind = 'user' | 'agent'
+
+/** A single browser-originated console message captured by the CDP supervisor. */
+export interface WorkbenchBrowserConsoleEntry {
+  level: string
+  text: string
+  url?: string
+  line?: number
+}
+
+/** Accessibility-tree snapshot payload produced by the device's `snapshot` control. */
+export interface WorkbenchBrowserSnapshotPayload {
+  url?: string
+  title?: string
+  /** Text rendering of the page's accessibility tree with stable refs (@e1, @e2…) — the agent reads the page as text. */
+  ax: string
+  /** @eN -> backend DOM node id + label, used to resolve click_ref controls to real coordinates. */
+  refs: Record<string, { backendDOMNodeId?: number; role?: string; name?: string }>
+  pendingDialog?: { type?: string; message?: string } | null
+  frames?: Array<{ frameId: string; parentId?: string | null; url?: string; name?: string }>
+  console?: WorkbenchBrowserConsoleEntry[]
+}
 
 /** A single not-yet-delivered control, FIFO-ordered by `seq`. */
 export interface WorkbenchBrowserSessionQueuedControl {
   seq: number
   control: Exclude<WorkbenchBrowserSessionControl, { kind: 'create' }>
   actorUserId: string
+  actorKind: WorkbenchBrowserActorKind
   enqueuedAtMs: number
 }
 
@@ -134,6 +178,19 @@ export interface WorkbenchBrowserSession {
   relativeFolder: string
   startUrl: string | null
   viewport: WorkbenchBrowserViewport
+  /** Who created the session: the human in Messages or an agent (via X-Agent-Actor). */
+  initiator: WorkbenchBrowserActorKind
+  /** Last actor to drive the page (navigate/click/type/…); 'idle' until the first driving control. */
+  driver: WorkbenchBrowserActorKind | 'idle'
+  driverSinceMs?: number
+  /**
+   * When true, agent navigation/interaction may target private/internal
+   * hosts (e.g. the user's own dev server). Default false for agent-created
+   * sessions; default true for user-created sessions so the existing
+   * localhost dev-preview flow keeps working. The human can flip it with the
+   * allow-private route — an agent can never self-grant.
+   */
+  allowPrivateNetwork: boolean
   status: WorkbenchBrowserSessionStatus
   attempt: number
   leaseToken?: string
@@ -164,12 +221,16 @@ export interface WorkbenchBrowserSession {
 /** Progress chunk streamed by a device worker while a browser session runs. */
 export interface WorkbenchBrowserProgressChunk {
   seq: number
-  stream: 'frame' | 'status' | 'stderr'
+  stream: 'frame' | 'status' | 'stderr' | 'snapshot' | 'console'
   imageUrl?: string
   contentType?: string
   pageUrl?: string
   title?: string
   text?: string
+  /** `stream === 'snapshot'`: accessibility-tree payload (see WorkbenchBrowserSnapshotPayload). */
+  snapshot?: WorkbenchBrowserSnapshotPayload | null
+  /** `stream === 'console'`: console ring tail. */
+  entries?: WorkbenchBrowserConsoleEntry[] | null
   atMs: number
 }
 
@@ -178,6 +239,9 @@ export interface PublicWorkbenchBrowserSession {
   status: WorkbenchBrowserSessionStatus
   startUrl: string | null
   viewport: WorkbenchBrowserViewport
+  initiator: WorkbenchBrowserActorKind
+  driver: WorkbenchBrowserActorKind | 'idle'
+  allowPrivateNetwork: boolean
   progress?: WorkbenchBrowserProgressChunk[]
   currentPageUrl?: string
   currentPageTitle?: string
@@ -301,6 +365,78 @@ export function sanitizeWorkbenchBrowserKey(value: unknown): WorkbenchBrowserKey
   return value as WorkbenchBrowserKey
 }
 
+/** Validates a dialog response: `accept` must be a boolean; `promptText` optional, bounded, and text-safe. */
+export function sanitizeWorkbenchBrowserDialog(value: unknown): { accept: boolean; promptText?: string } | null {
+  const input = record(value)
+  if (!input || typeof input.accept !== 'boolean') return null
+  if (input.promptText === undefined) return { accept: input.accept }
+  if (typeof input.promptText !== 'string' || input.promptText.length > MAX_DIALOG_PROMPT_TEXT_LENGTH) return null
+  if (/[\u0000-\u0008\u000B-\u001F\u007F]/.test(input.promptText)) return null
+  return { accept: input.accept, promptText: input.promptText }
+}
+
+/** Validates a click-by-ref target: a short @eN-style ref (allowlist of [A-Za-z0-9_-], no slashes or dots). */
+export function sanitizeWorkbenchBrowserClickRef(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length === 0 || value.length > MAX_CLICK_REF_LENGTH) return null
+  if (!/^@?[A-Za-z0-9_-]+$/.test(value)) return null
+  return value.startsWith('@') ? value : `@${value}`
+}
+
+/**
+ * True when a URL targets a private/internal host — localhost, .local,
+ * RFC1918 ranges, link-local, CGNAT, loopback, multicast, etc. Mirrors the
+ * observer panel's `privateHostname` guard in WorkbenchBrowserPanel.tsx.
+ * Used by the agent private-network guard: an agent may not navigate or
+ * click inside a private network unless the human allowed it.
+ */
+export function isPrivateWorkbenchBrowserUrl(value: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(value)
+  } catch {
+    return true
+  }
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '')
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host === '::' || host === '::1' || host === '0.0.0.0') return true
+  // Literal IPv6 addresses are conservatively treated as private.
+  if (host.includes(':')) return true
+  const ipv4 = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/)?.slice(1).map(Number)
+  if (!ipv4) return false
+  const [a, b, c] = ipv4
+  return a === 0
+    || a === 10
+    || a === 127
+    || (a === 100 && b >= 64 && b <= 127)
+    || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 0 && (c === 0 || c === 2))
+    || (a === 192 && b === 168)
+    || (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100)))
+    || (a === 203 && b === 0 && c === 113)
+    || a >= 224
+}
+
+/** Controls that visibly drive the page — subject to driver arbitration. */
+export function isWorkbenchBrowserDrivingControl(control: Exclude<WorkbenchBrowserSessionControl, { kind: 'create' }>): boolean {
+  return control.kind === 'navigate'
+    || control.kind === 'click'
+    || control.kind === 'click_ref'
+    || control.kind === 'type'
+    || control.kind === 'press'
+    || control.kind === 'scroll'
+    || control.kind === 'dialog'
+}
+
+/**
+ * Resolves the acting side from the `X-Agent-Actor` header. UI calls from
+ * Messages never send it -> 'user'. The agent skill always sends it -> 'agent'.
+ * Any non-empty value counts; the value is the agent id (never trusted as an
+ * identity claim — authorization still comes from the delegation token).
+ */
+export function workbenchBrowserActorKindFromHeader(header: string | null | undefined): WorkbenchBrowserActorKind | undefined {
+  return header && header.trim().length > 0 ? 'agent' : undefined
+}
+
 /** Clamps a follow-loop interval into 500-5000ms, defaulting to 1000ms when omitted. */
 export function sanitizeWorkbenchBrowserFollowIntervalMs(value: unknown): number | null {
   if (value === undefined) return WORKBENCH_BROWSER_DEFAULT_FOLLOW_INTERVAL_MS
@@ -356,6 +492,12 @@ export function parseWorkbenchBrowserSessionControl(value: unknown): WorkbenchBr
       if (!point || !button) throw new Error('workbench: invalid browser session control')
       return { kind: 'click', ...point, button }
     }
+    case 'click_ref': {
+      if (!exactKeys(input, ['kind', 'ref'])) throw new Error('workbench: invalid browser session control')
+      const ref = sanitizeWorkbenchBrowserClickRef(input.ref)
+      if (!ref) throw new Error('workbench: invalid browser session control')
+      return { kind: 'click_ref', ref }
+    }
     case 'type': {
       if (!exactKeys(input, ['kind', 'text'])) throw new Error('workbench: invalid browser session control')
       const text = sanitizeWorkbenchBrowserTypeText(input.text)
@@ -374,6 +516,18 @@ export function parseWorkbenchBrowserSessionControl(value: unknown): WorkbenchBr
       const deltas = sanitizeWorkbenchBrowserScrollDeltas(input.deltaX, input.deltaY)
       if (!point || !deltas) throw new Error('workbench: invalid browser session control')
       return { kind: 'scroll', ...point, ...deltas }
+    }
+    case 'snapshot':
+      if (!exactKeys(input, ['kind'])) throw new Error('workbench: invalid browser session control')
+      return { kind: 'snapshot' }
+    case 'console':
+      if (!exactKeys(input, ['kind'])) throw new Error('workbench: invalid browser session control')
+      return { kind: 'console' }
+    case 'dialog': {
+      if (!exactKeys(input, ['kind', 'accept', 'promptText'])) throw new Error('workbench: invalid browser session control')
+      const dialog = sanitizeWorkbenchBrowserDialog({ accept: input.accept, promptText: input.promptText })
+      if (!dialog) throw new Error('workbench: invalid browser session control')
+      return { kind: 'dialog', ...dialog }
     }
     case 'follow_start': {
       if (!exactKeys(input, ['kind', 'intervalMs'])) throw new Error('workbench: invalid browser session control')
@@ -401,7 +555,7 @@ function truncateProgressText(text: string, maxBytes: number): string {
 export function parseWorkbenchBrowserProgressChunk(value: unknown): WorkbenchBrowserProgressChunk {
   const input = record(value)
   if (!input || !Number.isSafeInteger(input.seq) || Number(input.seq) < 0
-    || typeof input.stream !== 'string' || !['frame', 'status', 'stderr'].includes(input.stream)
+    || typeof input.stream !== 'string' || !['frame', 'status', 'stderr', 'snapshot', 'console'].includes(input.stream)
     || !Number.isSafeInteger(input.atMs) || Number(input.atMs) < 0) {
     throw new Error('workbench: invalid browser progress chunk')
   }
@@ -421,6 +575,16 @@ export function parseWorkbenchBrowserProgressChunk(value: unknown): WorkbenchBro
     throw new Error('workbench: invalid browser progress chunk')
   }
   if (input.stream === 'frame' && !input.imageUrl) throw new Error('workbench: invalid browser progress chunk')
+  if (input.stream === 'snapshot') {
+    if (input.snapshot === undefined || !parseWorkbenchBrowserSnapshotPayload(input.snapshot)) {
+      throw new Error('workbench: invalid browser progress chunk')
+    }
+  }
+  if (input.stream === 'console') {
+    if (input.entries === undefined || !Array.isArray(input.entries) || !input.entries.every(parseWorkbenchBrowserConsoleEntry)) {
+      throw new Error('workbench: invalid browser progress chunk')
+    }
+  }
   return {
     seq: Number(input.seq),
     stream: input.stream as WorkbenchBrowserProgressChunk['stream'],
@@ -429,8 +593,63 @@ export function parseWorkbenchBrowserProgressChunk(value: unknown): WorkbenchBro
     ...(input.pageUrl ? { pageUrl: input.pageUrl as string } : {}),
     ...(input.title ? { title: input.title as string } : {}),
     ...(typeof input.text === 'string' ? { text: truncateProgressText(input.text, MAX_PROGRESS_TEXT_BYTES) } : {}),
+    ...(input.snapshot ? { snapshot: input.snapshot as WorkbenchBrowserSnapshotPayload } : {}),
+    ...(input.entries ? { entries: input.entries as WorkbenchBrowserConsoleEntry[] } : {}),
     atMs: Number(input.atMs),
   }
+}
+
+/** Validates a console entry: bounded text, optional url/line, level is a short string. */
+function parseWorkbenchBrowserConsoleEntry(value: unknown): value is WorkbenchBrowserConsoleEntry {
+  const entry = record(value)
+  if (!entry || typeof entry.text !== 'string' || entry.text.length > MAX_CONSOLE_ENTRY_CHARS) return false
+  if (typeof entry.level !== 'string' || entry.level.length > 64) return false
+  if (entry.url !== undefined && (typeof entry.url !== 'string' || entry.url.length > MAX_URL_LENGTH)) return false
+  if (entry.line !== undefined && (typeof entry.line !== 'number' || !Number.isSafeInteger(entry.line) || entry.line < 0)) return false
+  return true
+}
+
+/** Validates a snapshot payload: bounded ax text, ref map, frame list, console tail. */
+function parseWorkbenchBrowserSnapshotPayload(value: unknown): value is WorkbenchBrowserSnapshotPayload {
+  const payload = record(value)
+  if (!payload || typeof payload.ax !== 'string' || payload.ax.length > MAX_SNAPSHOT_AX_CHARS) return false
+  if (payload.url !== undefined && (typeof payload.url !== 'string' || payload.url.length > MAX_URL_LENGTH)) return false
+  if (payload.title !== undefined && (typeof payload.title !== 'string' || payload.title.length > MAX_TITLE_LENGTH)) return false
+  if (payload.refs !== undefined) {
+    if (!record(payload.refs)) return false
+    const refs = payload.refs as Record<string, unknown>
+    const refKeys = Object.keys(refs)
+    if (refKeys.length > MAX_SNAPSHOT_REFS) return false
+    for (const key of refKeys) {
+      if (key.length === 0 || key.length > MAX_CLICK_REF_LENGTH || !/^@?[A-Za-z0-9_-]+$/.test(key)) return false
+      const ref = record(refs[key])
+      if (!ref) return false
+      if (ref.backendDOMNodeId !== undefined && (typeof ref.backendDOMNodeId !== 'number' || !Number.isSafeInteger(ref.backendDOMNodeId))) return false
+      if (ref.role !== undefined && (typeof ref.role !== 'string' || ref.role.length > 128)) return false
+      if (ref.name !== undefined && (typeof ref.name !== 'string' || ref.name.length > 500)) return false
+    }
+  }
+  if (payload.pendingDialog !== undefined && payload.pendingDialog !== null) {
+    const dialog = record(payload.pendingDialog)
+    if (!dialog) return false
+    if (dialog.type !== undefined && (typeof dialog.type !== 'string' || dialog.type.length > 64)) return false
+    if (dialog.message !== undefined && (typeof dialog.message !== 'string' || dialog.message.length > 1_000)) return false
+  }
+  if (payload.frames !== undefined) {
+    if (!Array.isArray(payload.frames) || payload.frames.length > MAX_SNAPSHOT_FRAMES) return false
+    for (const frame of payload.frames) {
+      const row = record(frame)
+      if (!row || typeof row.frameId !== 'string' || row.frameId.length === 0 || row.frameId.length > 256) return false
+      if (row.parentId !== undefined && row.parentId !== null && (typeof row.parentId !== 'string' || row.parentId.length > 256)) return false
+      if (row.url !== undefined && (typeof row.url !== 'string' || row.url.length > MAX_URL_LENGTH)) return false
+      if (row.name !== undefined && (typeof row.name !== 'string' || row.name.length > 500)) return false
+    }
+  }
+  if (payload.console !== undefined) {
+    if (!Array.isArray(payload.console) || payload.console.length > MAX_SNAPSHOT_CONSOLE_ENTRIES) return false
+    if (!payload.console.every(parseWorkbenchBrowserConsoleEntry)) return false
+  }
+  return true
 }
 
 /** Appends a queued control to the FIFO, capped at 64 entries (oldest dropped first). */
@@ -457,6 +676,9 @@ export function publicWorkbenchBrowserSession(session: WorkbenchBrowserSession):
     status: session.status,
     startUrl: session.startUrl,
     viewport: session.viewport,
+    initiator: session.initiator,
+    driver: session.driver,
+    allowPrivateNetwork: session.allowPrivateNetwork,
     ...(session.progressChunks?.length ? { progress: session.progressChunks } : {}),
     ...(session.currentPageUrl ? { currentPageUrl: session.currentPageUrl } : {}),
     ...(session.currentPageTitle ? { currentPageTitle: session.currentPageTitle } : {}),
