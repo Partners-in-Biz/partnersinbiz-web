@@ -104,6 +104,7 @@
     "video-editor-ops",
     "creative-canvas-ops",
     "book-studio-ops",
+    "browser-agent",
     "youtube-studio-ops",
     "conversations-runtime",
     "life-os-ops",
@@ -1390,6 +1391,24 @@
       ],
       "riskLevel": "high",
       "syncTarget": "vps"
+    },
+    "browser-agent": {
+      "ownerAgentId": "sage",
+      "allowedAgentIds": [
+        "data",
+        "docs",
+        "maya",
+        "pip",
+        "qa-release",
+        "sage",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "growth"
     }
   },
   "agents": {
@@ -1434,7 +1453,8 @@
         "life-os-ops",
         "agent-runtime-ops",
         "platform-admin-users",
-        "reports"
+        "reports",
+        "browser-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1483,7 +1503,8 @@
         "agent-runtime-ops",
         "platform-admin-users",
         "reports",
-        "pib-staff-billing-access"
+        "pib-staff-billing-access",
+        "browser-agent"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -1574,7 +1595,8 @@
         "conversations-runtime",
         "llm-providers-ops",
         "agent-runtime-ops",
-        "platform-admin-users"
+        "platform-admin-users",
+        "browser-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1644,7 +1666,8 @@
         "conversations-runtime",
         "llm-providers-ops",
         "agent-runtime-ops",
-        "platform-admin-users"
+        "platform-admin-users",
+        "browser-agent"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -1734,7 +1757,8 @@
         "video-editor-ops",
         "creative-canvas-ops",
         "book-studio-ops",
-        "youtube-studio-ops"
+        "youtube-studio-ops",
+        "browser-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1768,7 +1792,8 @@
         "book-studio-ops",
         "youtube-studio-ops",
         "agent-skills/interview-me",
-        "agent-skills/planning-and-task-breakdown"
+        "agent-skills/planning-and-task-breakdown",
+        "browser-agent"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -1848,7 +1873,8 @@
         "seo-sprint-manager",
         "studio-artifact-orchestrate",
         "studio-artifact-review",
-        "studio-context-gather"
+        "studio-context-gather",
+        "browser-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1870,7 +1896,8 @@
         "research/open-notebook",
         "studio-artifact-orchestrate",
         "studio-artifact-review",
-        "studio-context-gather"
+        "studio-context-gather",
+        "browser-agent"
       ],
       "globalSkills": [
         "note-taking/obsidian",
@@ -2307,7 +2334,8 @@
         "llm-providers-ops",
         "agent-runtime-ops",
         "platform-admin-users",
-        "reports"
+        "reports",
+        "browser-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2385,7 +2413,8 @@
         "llm-providers-ops",
         "agent-runtime-ops",
         "platform-admin-users",
-        "reports"
+        "reports",
+        "browser-agent"
       ],
       "globalSkills": [
         "app-store-connect-cli",
@@ -2459,7 +2488,8 @@
         "platform-ops",
         "project-management",
         "research-intelligence",
-        "support-manager"
+        "support-manager",
+        "browser-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2477,7 +2507,8 @@
         "platform-ops",
         "project-management",
         "research-intelligence",
-        "support-manager"
+        "support-manager",
+        "browser-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace"
@@ -2546,7 +2577,8 @@
         "properties",
         "research-intelligence",
         "social-recovery-gather",
-        "reports"
+        "reports",
+        "browser-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2572,7 +2604,8 @@
         "marketing/ads-math",
         "marketing/ads-test",
         "platform/headroom",
-        "reports"
+        "reports",
+        "browser-agent"
       ],
       "globalSkills": [
         "data-science/jupyter-live-kernel",
@@ -2636,7 +2669,8 @@
         "studio-artifact-review",
         "studio-context-gather",
         "studio-release-handoff",
-        "system-auth"
+        "system-auth",
+        "browser-agent"
       ],
       "runtimeSkills": [
         "analytics",
@@ -2662,7 +2696,8 @@
         "studio-release-handoff",
         "system-auth",
         "agent-skills/interview-me",
-        "agent-skills/planning-and-task-breakdown"
+        "agent-skills/planning-and-task-breakdown",
+        "browser-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace",
@@ -2724,7 +2759,8 @@
         "project-management",
         "properties",
         "research-intelligence",
-        "seo-sprint-manager"
+        "seo-sprint-manager",
+        "browser-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2745,7 +2781,8 @@
         "seo-sprint-manager",
         "marketing/local-seo-system",
         "research/last30days",
-        "research/open-notebook"
+        "research/open-notebook",
+        "browser-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace",
