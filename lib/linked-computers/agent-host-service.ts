@@ -12,6 +12,7 @@ import { listAgents } from '@/lib/agents/team'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 import {
   applyBindingJobProgress,
+  bindingPolicySyncBusyBackedOff,
   bindingsNeedingInstall,
   bindingsNeedingPolicySync,
   mergeDesiredAgentBindings,
@@ -809,6 +810,12 @@ export async function reconcileDesiredAgentsAfterHeartbeat(input: {
   }
 
   // Online hosts with keep-in-sync but version drift get a sync-policy job.
+  // A profile that is mid-run defers the reload, the job fails with a busy
+  // error, and the binding lands in 'error'. Without a backoff the next
+  // heartbeat re-enqueues the same job and the fleet keeps receiving new
+  // restart intents for the busy profile — the restart-request storm. Once a
+  // busy deferral has been recorded, hold off for a few minutes so the
+  // profile can drain instead of hammering it every heartbeat.
   const driftTargets = bindings.filter((binding) => (
     binding.keepInSync
     && input.availableAgentIds.includes(binding.agentId)
@@ -816,6 +823,7 @@ export async function reconcileDesiredAgentsAfterHeartbeat(input: {
     && binding.desiredPolicyVersion !== binding.appliedPolicyVersion
     && binding.status !== 'syncing'
     && binding.status !== 'installing'
+    && !bindingPolicySyncBusyBackedOff(binding)
   ))
   for (const binding of driftTargets) {
     if (Date.now() - binding.updatedAtMs < 120_000 && binding.status === 'drifted') continue

@@ -26,9 +26,12 @@ import { validateCustomFields } from '@/lib/customFields/validation'
 import {
   crmActorCanReadCompanyRecord,
   isCrmPrivilegedActor,
+  isCrmRolePrivilegedActor,
   normalizeAllowedUserIds,
   normalizeAllowedUserPatch,
+  normalizeSharedWithUserPatch,
 } from '@/lib/crm/assignment-access'
+import { memberCanPerformModuleAction } from '@/lib/orgMembers/access-policy'
 import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 type RouteCtx = { params: Promise<{ id: string }> }
@@ -65,6 +68,9 @@ async function handleUpdate(
 
   const loaded = await loadCompany(id, ctx.orgId)
   if (!loaded || !(await crmActorCanReadCompanyRecord(ctx, id, loaded.data))) return apiError('Company not found', 404)
+  if (!isCrmRolePrivilegedActor(ctx) && !memberCanPerformModuleAction(ctx.accessPolicy, 'crm', 'edit')) {
+    return apiError('CRM edit is disabled for this team member', 403)
+  }
   if (typeof body.ownerUid === 'string' && body.ownerUid.trim() && !isCrmPrivilegedActor(ctx) && body.ownerUid.trim() !== ctx.actor.uid) {
     return apiError('You can only own companies assigned to yourself with your current CRM access', 403)
   }
@@ -129,11 +135,25 @@ async function handleUpdate(
       nextAllowedUserIds.push(uid.trim())
     }
   }
+  // First-class share: sharedWithUserIds is a first-class field AND merged into
+  // allowedUserIds so the read path honors it everywhere.
+  const sharedWithUserPatch = normalizeSharedWithUserPatch(body.sharedWithUserIds)
+  if (body.sharedWithUserIds !== undefined && sharedWithUserPatch === null) {
+    return apiError('sharedWithUserIds must be an array of user IDs', 400)
+  }
+  const nextSharedWithUserIds = sharedWithUserPatch ?? normalizeAllowedUserIds(loaded.data.sharedWithUserIds)
+  if (sharedWithUserPatch !== null) {
+    for (const uid of nextSharedWithUserIds) {
+      if (uid && !nextAllowedUserIds.includes(uid)) nextAllowedUserIds.push(uid)
+    }
+    sanitized.sharedWithUserIds = nextSharedWithUserIds
+  }
   if (
     body.allowedUserIds !== undefined
     || typeof body.accountManagerUid === 'string'
     || typeof body.ownerUid === 'string'
     || typeof body.assignedTo === 'string'
+    || sharedWithUserPatch !== null
   ) {
     sanitized.allowedUserIds = nextAllowedUserIds
   }
@@ -180,11 +200,19 @@ export const PATCH = withCrmAuth<RouteCtx>(
   (req, ctx, routeCtx) => handleUpdate(req, ctx, routeCtx),
 )
 
-// ── DELETE (admin+ with cascade) ────────────────────────────────────────────────
+// ── DELETE (member+ with delete-action gate + cascade) ────────────────────────
 
 export const DELETE = withCrmAuth<RouteCtx>(
-  'admin',
+  'member',
   async (_req, ctx, routeCtx) => {
+    // Action gate: members need the crm delete grant. Org default matches the
+    // membersCanDeleteContacts guardrail (fail-closed); an explicit per-member
+    // flag overrides it. Admin/owner/system bypass.
+    if (!isCrmRolePrivilegedActor(ctx)
+      && !memberCanPerformModuleAction(ctx.accessPolicy, 'crm', 'delete', ctx.permissions.membersCanDeleteContacts ?? false)) {
+      return apiError('Members are not allowed to delete companies in this workspace', 403)
+    }
+
     const { id } = await routeCtx!.params
 
     const loaded = await loadCompany(id, ctx.orgId)

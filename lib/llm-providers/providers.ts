@@ -2,7 +2,11 @@
  * Hermes-compatible chat LLM providers for org/user OAuth + BYOK.
  * Catalogue mirrors https://hermes-agent.nousresearch.com/docs/integrations/providers
  * Cursor IDE subscriptions are NOT an inference provider — see unsupported note.
+ *
+ * Per-provider curated model fallbacks are DERIVED from the canonical model
+ * registry (lib/llm-providers/model-registry.ts) — do not edit model lists here.
  */
+import { curatedModelsForProvider } from './model-registry'
 
 export type LlmProviderAuthKind = 'api_key' | 'oauth' | 'api_key_or_oauth'
 
@@ -47,40 +51,18 @@ export const UNSUPPORTED_CURSOR_NOTE =
   'Cursor IDE subscriptions cannot power Hermes agents. There is no Cursor model API. Use xAI Grok (SuperGrok OAuth or API key), OpenAI Codex (ChatGPT OAuth), GitHub Copilot, Anthropic, Gemini, or OpenRouter instead.'
 
 /**
- * App-side catalogue used when a selected linked computer cannot expose its
- * loopback Hermes `/v1/models` endpoint to the web runtime. Keep this aligned
- * with `infra/hermes/patch_llm_model_allowlist.py`.
+ * Curated model fallback lists used when a selected linked computer cannot
+ * expose its loopback Hermes `/v1/models` endpoint to the web runtime, and as
+ * the maintained base the picker extends with discovered ids. All lists are
+ * derived from the canonical model registry. Keep the Hermes-side runtime
+ * allowlist aligned in `infra/hermes/patch_llm_model_allowlist.py`.
  */
-const XAI_CURATED_MODELS = [
-  'grok-build-0.1',
-  'grok-4.5',
-  'grok-4.3',
-  'grok-composer-2.5-fast',
-  'grok-4.20-0309-reasoning',
-  'grok-4.20-0309-non-reasoning',
-  'grok-4.20-multi-agent-0309',
-]
+const XAI_CURATED_MODELS = curatedModelsForProvider('xai-oauth')
 
-const OPENAI_CODEX_CURATED_MODELS = [
-  'gpt-5.6-luna',
-  'gpt-5.6-sol',
-  'gpt-5.6-terra',
-  'gpt-5.5',
-  'gpt-5.4',
-  'gpt-5.4-mini',
-  'gpt-5.3-codex',
-  'gpt-5.3-codex-spark',
-  'gpt-5.2-codex',
-]
+const OPENAI_CODEX_CURATED_MODELS = curatedModelsForProvider('openai-codex')
 
 /** DeepSeek API model ids — Flash first (latest cheap default), then Pro + legacy aliases. */
-const DEEPSEEK_CURATED_MODELS = [
-  'deepseek-v4-flash',
-  'deepseek-v4-pro',
-  // Server-side aliases of Flash non-thinking / thinking modes
-  'deepseek-chat',
-  'deepseek-reasoner',
-]
+const DEEPSEEK_CURATED_MODELS = curatedModelsForProvider('deepseek')
 
 export const LLM_PROVIDERS: LlmProviderDefinition[] = [
   {
@@ -129,7 +111,7 @@ export const LLM_PROVIDERS: LlmProviderDefinition[] = [
     envVar: 'OPENAI_API_KEY',
     credentialFields: [{ key: 'apiKey', label: 'OpenAI API key', secret: true, placeholder: 'sk-…' }],
     consoleUrl: 'https://platform.openai.com/api-keys',
-    curatedModels: ['gpt-5.4', 'gpt-5.4-mini', 'gpt-4.1', 'gpt-4o'],
+    curatedModels: curatedModelsForProvider('openai-api'),
     oauthCapable: false,
   },
   {
@@ -141,7 +123,7 @@ export const LLM_PROVIDERS: LlmProviderDefinition[] = [
     envVar: 'ANTHROPIC_API_KEY',
     credentialFields: [{ key: 'apiKey', label: 'Anthropic API key', secret: true, placeholder: 'sk-ant-…' }],
     consoleUrl: 'https://console.anthropic.com/settings/keys',
-    curatedModels: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5'],
+    curatedModels: curatedModelsForProvider('anthropic'),
     oauthCapable: true,
   },
   {
@@ -153,7 +135,7 @@ export const LLM_PROVIDERS: LlmProviderDefinition[] = [
     envVar: 'GEMINI_API_KEY',
     credentialFields: [{ key: 'apiKey', label: 'Gemini API key', secret: true, placeholder: 'AIza…' }],
     consoleUrl: 'https://aistudio.google.com/apikey',
-    curatedModels: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3-flash-preview'],
+    curatedModels: curatedModelsForProvider('gemini'),
     oauthCapable: false,
   },
   {
@@ -179,12 +161,7 @@ export const LLM_PROVIDERS: LlmProviderDefinition[] = [
     envVar: 'OPENROUTER_API_KEY',
     credentialFields: [{ key: 'apiKey', label: 'OpenRouter API key', secret: true, placeholder: 'sk-or-…' }],
     consoleUrl: 'https://openrouter.ai/keys',
-    curatedModels: [
-      'anthropic/claude-sonnet-4-6',
-      'google/gemini-2.5-flash',
-      'x-ai/grok-4.5',
-      'openai/gpt-5.4',
-    ],
+    curatedModels: curatedModelsForProvider('openrouter'),
     oauthCapable: false,
   },
   {
@@ -215,7 +192,7 @@ export const LLM_PROVIDERS: LlmProviderDefinition[] = [
       },
     ],
     consoleUrl: 'https://github.com/settings/copilot',
-    curatedModels: ['gpt-5.4', 'gpt-5.4-mini', 'claude-sonnet-4'],
+    curatedModels: curatedModelsForProvider('copilot'),
     oauthCapable: true,
   },
 ]

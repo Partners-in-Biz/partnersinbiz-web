@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import {
   agentHostJobId,
   agentHostRequestFingerprint,
+  credentialDeliveryApplyMode,
   parseAgentHostJobPayload,
   toPublicAgentHostJob,
   transitionAgentHostJob,
@@ -43,10 +44,14 @@ function isClaimable(job: AgentHostJob, nowMs: number): boolean {
 }
 
 function requiresQuietProfile(job: AgentHostJob): boolean {
-  // Credential replacement changes the target profile's provider state and
-  // needs a restart. Other maintenance actions have their own explicit
+  // OAuth credential replacement changes the target profile's provider state
+  // and needs a restart. Env-var/API-key providers (DeepSeek, xAI key, ...)
+  // are applied live to the already-running gateway with no restart, so a busy
+  // profile must not block claiming those jobs — that is the whole point of
+  // the env-only path. Other maintenance actions have their own explicit
   // semantics, so do not silently defer a revoke or uninstall here.
-  return job.kind === 'sync-credential'
+  if (job.kind !== 'sync-credential') return false
+  return credentialDeliveryApplyMode(job.payload.credentialDelivery) === 'restart'
 }
 
 function maintenanceLeaseTokenHash(leaseToken: string): string {

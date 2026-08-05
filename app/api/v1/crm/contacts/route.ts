@@ -29,10 +29,13 @@ import { validateCustomFields } from '@/lib/customFields/validation'
 import {
   filterCrmRowsForActor,
   isCrmPrivilegedActor,
+  isCrmRolePrivilegedActor,
   loadCompanyAssignmentMap,
   normalizeAllowedUserIds,
+  normalizeSharedWithUserPatch,
   crmRecordCompanyIds,
 } from '@/lib/crm/assignment-access'
+import { memberCanPerformModuleAction } from '@/lib/orgMembers/access-policy'
 import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
@@ -268,6 +271,12 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
 })
 
 export const POST = withCrmAuth('member', async (req, ctx) => {
+  // Action-level gate: members with CRM module on may create by default; an
+  // explicit per-member create=false blocks it.
+  if (!isCrmRolePrivilegedActor(ctx) && !memberCanPerformModuleAction(ctx.accessPolicy, 'crm', 'create')) {
+    return apiError('CRM create is disabled for this team member', 403)
+  }
+
   const body = await req.json() as ContactInput
 
   if (!body.name?.trim()) return apiError('Name is required')

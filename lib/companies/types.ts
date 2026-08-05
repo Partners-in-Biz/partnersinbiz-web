@@ -83,6 +83,9 @@ export interface Company {
   accountManagerUid?: string
   accountManagerRef?: MemberRef
   allowedUserIds?: string[]
+  // First-class share list: explicit users this record is shared with. Merged
+  // with allowedUserIds on write; honored by assignment/visibility read paths.
+  sharedWithUserIds?: string[]
   // Health & custom
   healthScore?: number    // 0-100, nullable until A6 lifecycle automation
   customFields?: Record<string, unknown>  // A2 will add definitions

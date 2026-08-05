@@ -106,6 +106,11 @@ profile_started_at=()
 profile_retry_after=()
 profile_restart_attempts=()
 profile_health_failures=()
+# The last restart request this supervisor already logged as deferred. A busy
+# profile re-queues the SAME requestId until its run drains; without this we
+# re-log + re-ack every PROFILE_BUSY_DEFER_SECONDS and manufacture a
+# restart-request storm out of a single stale intent.
+last_deferred_request=()
 tunnel_pid=""
 vps_tunnel_ok=0
 last_tunnel_probe_at=0
@@ -463,7 +468,15 @@ consume_profile_control_request_at_index() {
       # Never kill a profile with live /v1/runs. Credential sync only knows about
       # linked-chat capacity; Kanban watcher runs arrive over the reverse tunnel.
       if profile_has_active_work "$agent_name" "${PORTS[$index]}" "${pids[$index]:-}"; then
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] deferring requested restart for busy local Hermes profile $agent_name (active run)" | tee -a "$LOG_DIR/fleet.log"
+        # Log + ack a deferral once per requestId. The busy profile keeps the
+        # same intent on disk and the supervisor re-processes it after
+        # PROFILE_BUSY_DEFER_SECONDS; re-printing the same line every cycle is
+        # what turned one credential/policy reload into thousands of
+        # 'deferring requested restart' entries in fleet.log.
+        if [[ "${last_deferred_request[$index]:-}" != "$request_id" ]]; then
+          echo "[$(date '+%Y-%m-%d %H:%M:%S')] deferring requested restart for busy local Hermes profile $agent_name (active run)" | tee -a "$LOG_DIR/fleet.log"
+          last_deferred_request[$index]="$request_id"
+        fi
         # Re-queue the same intent so the supervisor retries after the run drains.
         printf '{"version":1,"action":"restart","agentId":"%s","requestId":"%s","requestedAt":"%s","deferred":true}\n'           "$agent_name" "$request_id" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$FLEET_CONTROL_DIR/requests/${agent_name}.json"
         chmod 600 "$FLEET_CONTROL_DIR/requests/${agent_name}.json"
@@ -472,6 +485,7 @@ consume_profile_control_request_at_index() {
         return 0
       fi
       echo "[$(date '+%Y-%m-%d %H:%M:%S')] restarting requested local Hermes profile $agent_name only" | tee -a "$LOG_DIR/fleet.log"
+      last_deferred_request[$index]=""
       stop_profile_at_index "$index"
       if start_agent_at_index "$index"; then
         write_profile_control_ack "$agent_name" "restart" "$request_id" "restarted"

@@ -1,6 +1,8 @@
 import {
   bindingsNeedingInstall,
   bindingsNeedingPolicySync,
+  bindingPolicySyncBusyBackedOff,
+  HEARTBEAT_BUSY_DEFER_BACKOFF_MS,
   mergeDesiredAgentBindings,
   parseDesiredAgentBindings,
 } from '@/lib/linked-computers/agent-bindings'
@@ -50,6 +52,41 @@ describe('desired agent bindings', () => {
     ])
     expect(bindingsNeedingInstall({ bindings, availableAgentIds: ['theo'] }).map((row) => row.agentId).sort()).toEqual(['maya', 'pip'])
     expect(bindingsNeedingPolicySync({ bindings, availableAgentIds: ['theo', 'maya'] }).map((row) => row.agentId)).toEqual(['theo'])
+  })
+
+  it('backs off a keep-in-sync binding whose last sync failed because the profile was busy', () => {
+    const nowMs = 1_000_000
+    const busy = parseDesiredAgentBindings([{
+      agentId: 'theo',
+      keepInSync: true,
+      status: 'error',
+      desiredPolicyVersion: 'v2',
+      appliedPolicyVersion: 'v1',
+      lastError: 'Agent is still busy; gateway reload was deferred',
+      updatedAtMs: nowMs - 60_000,
+    }])[0]
+    const drained = parseDesiredAgentBindings([{
+      agentId: 'theo',
+      keepInSync: true,
+      status: 'error',
+      desiredPolicyVersion: 'v2',
+      appliedPolicyVersion: 'v1',
+      lastError: 'Agent is still busy; gateway reload was deferred',
+      updatedAtMs: nowMs - HEARTBEAT_BUSY_DEFER_BACKOFF_MS - 1,
+    }])[0]
+    const nonBusyError = parseDesiredAgentBindings([{
+      agentId: 'theo',
+      keepInSync: true,
+      status: 'error',
+      desiredPolicyVersion: 'v2',
+      appliedPolicyVersion: 'v1',
+      lastError: 'Skill pack download failed',
+      updatedAtMs: nowMs - 60_000,
+    }])[0]
+
+    expect(bindingPolicySyncBusyBackedOff(busy, nowMs)).toBe(true)
+    expect(bindingPolicySyncBusyBackedOff(drained, nowMs)).toBe(false)
+    expect(bindingPolicySyncBusyBackedOff(nonBusyError, nowMs)).toBe(false)
   })
 })
 

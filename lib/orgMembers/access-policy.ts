@@ -1,5 +1,10 @@
 import type { OrgRole } from '@/lib/organizations/types'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
+import {
+  canRolePerformModuleAction,
+  resolveOrganizationModulePolicies,
+  type OrganizationModulePolicyKey,
+} from '@/lib/organizations/module-policies'
 
 export const WORKSPACE_MODULE_KEYS = [
   'crm',
@@ -18,8 +23,35 @@ export const WORKSPACE_MODULE_KEYS = [
 ] as const
 
 export type WorkspaceModuleKey = (typeof WORKSPACE_MODULE_KEYS)[number]
-export type RecordScopedModuleKey = 'crm' | 'projects'
+
+/** Modules whose members see only owned/linked records when scope is owned_or_linked. */
+export const RECORD_SCOPED_MODULE_KEYS = [
+  'crm',
+  'projects',
+  'research',
+  'documents',
+  'marketing',
+] as const
+export type RecordScopedModuleKey = (typeof RECORD_SCOPED_MODULE_KEYS)[number]
 export type RecordScope = 'all' | 'owned_or_linked'
+
+/**
+ * Per-module action vocabulary shared with the organisation modulePolicies
+ * matrix. A module toggle is the top-level allow; per-action grants refine it.
+ */
+export const MEMBER_MODULE_ACTION_KEYS = [
+  'create',
+  'edit',
+  'delete',
+  'export',
+  'approve',
+  'send',
+  'archiveDelete',
+  'share',
+] as const
+export type MemberModuleActionKey = (typeof MEMBER_MODULE_ACTION_KEYS)[number]
+export type MemberModuleActions = Record<WorkspaceModuleKey, Partial<Record<MemberModuleActionKey, boolean>>>
+
 export type AccessPolicyPreset =
   | 'full'
   | 'crm_sales'
@@ -28,6 +60,15 @@ export type AccessPolicyPreset =
   | 'finance'
   | 'reviewer'
   | 'custom'
+
+export const ACCESS_POLICY_PRESETS: readonly Exclude<AccessPolicyPreset, 'custom'>[] = [
+  'full',
+  'crm_sales',
+  'project_delivery',
+  'marketing',
+  'finance',
+  'reviewer',
+]
 
 export type LegacyAccessScope = 'none' | 'all' | 'crm' | 'marketing' | 'projects' | 'billing' | 'readonly'
 
@@ -42,6 +83,13 @@ export interface MemberAccessPolicy {
   preset: AccessPolicyPreset
   modules: Record<WorkspaceModuleKey, boolean>
   recordScopes: Record<RecordScopedModuleKey, RecordScope>
+  /**
+   * Optional per-module action grants. Missing module key or missing action =
+   * module-level default (see memberCanPerformModuleAction). Fail-closed
+   * actions (billing.delete, crm.delete/export via org guardrails) fall back
+   * to their org default when no explicit flag is stored.
+   */
+  moduleActions?: MemberModuleActions
   /** Explicit specialist-agent grants by authorised runtime target. Members
    * never receive agent execution merely because they can use Messages. */
   agentRuntimeAccess: Record<string, AgentId[]>
@@ -85,6 +133,7 @@ function policy(input: {
   preset: AccessPolicyPreset
   modules: Partial<Record<WorkspaceModuleKey, boolean>>
   recordScopes?: Partial<Record<RecordScopedModuleKey, RecordScope>>
+  moduleActions?: Partial<MemberModuleActions>
   allowPersonalLlmOnOrgVps?: boolean
   capabilities?: Partial<MemberBillingCapabilities>
 }): MemberAccessPolicy {
@@ -111,15 +160,61 @@ export function memberMayUsePersonalLlmOnOrgVps(
 export const FULL_ACCESS_POLICY: MemberAccessPolicy = {
   preset: 'full',
   modules: moduleFlags(true),
-  recordScopes: { crm: 'all', projects: 'all' },
+  recordScopes: {
+    crm: 'all',
+    projects: 'all',
+    research: 'all',
+    documents: 'all',
+    marketing: 'all',
+  },
+  moduleActions: emptyModuleActions(),
   agentRuntimeAccess: {},
   allowPersonalLlmOnOrgVps: true,
   capabilities: fullBillingCapabilities(),
 }
 
+/**
+ * Default record scopes. CRM/Projects default to owned_or_linked because
+ * assignment ownership is core to their workflows. Research/Documents/Marketing
+ * default to 'all' so existing members never lose access on deploy; org admins
+ * may narrow them per member in the Team editor.
+ */
+export const DEFAULT_RECORD_SCOPES: Record<RecordScopedModuleKey, RecordScope> = {
+  crm: 'owned_or_linked',
+  projects: 'owned_or_linked',
+  research: 'all',
+  documents: 'all',
+  marketing: 'all',
+}
+
+/** Back-compat alias used by older callers. */
 export const OWNED_OR_LINKED_DEFAULT_SCOPES: Record<RecordScopedModuleKey, RecordScope> = {
   crm: 'owned_or_linked',
   projects: 'owned_or_linked',
+  research: 'owned_or_linked',
+  documents: 'owned_or_linked',
+  marketing: 'owned_or_linked',
+}
+
+function emptyModuleActions(): MemberModuleActions {
+  return Object.fromEntries(WORKSPACE_MODULE_KEYS.map((key) => [key, {}])) as MemberModuleActions
+}
+
+function normalizeModuleActions(value: unknown): MemberModuleActions {
+  const actions = emptyModuleActions()
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return actions
+  for (const [moduleKey, rawActions] of Object.entries(value as Record<string, unknown>)) {
+    if (!WORKSPACE_MODULE_KEYS.includes(moduleKey as WorkspaceModuleKey)) continue
+    if (!rawActions || typeof rawActions !== 'object' || Array.isArray(rawActions)) continue
+    const perModule: Partial<Record<MemberModuleActionKey, boolean>> = {}
+    for (const [actionKey, flag] of Object.entries(rawActions as Record<string, unknown>)) {
+      if (MEMBER_MODULE_ACTION_KEYS.includes(actionKey as MemberModuleActionKey) && typeof flag === 'boolean') {
+        perModule[actionKey as MemberModuleActionKey] = flag
+      }
+    }
+    actions[moduleKey as WorkspaceModuleKey] = perModule
+  }
+  return actions
 }
 
 export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy {
@@ -127,7 +222,8 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
     return {
       preset: 'custom',
       modules: moduleFlags(false),
-      recordScopes: { ...OWNED_OR_LINKED_DEFAULT_SCOPES },
+      recordScopes: { ...DEFAULT_RECORD_SCOPES },
+      moduleActions: emptyModuleActions(),
       agentRuntimeAccess: {},
       allowPersonalLlmOnOrgVps: false,
       capabilities: emptyBillingCapabilities(),
@@ -138,6 +234,7 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
     preset?: unknown
     modules?: unknown
     recordScopes?: unknown
+    moduleActions?: unknown
     agentRuntimeAccess?: unknown
     allowPersonalLlmOnOrgVps?: unknown
     capabilities?: unknown
@@ -164,10 +261,15 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
     modules[key] = modulesInput[key] === true
   }
 
-  const recordScopes: Record<RecordScopedModuleKey, RecordScope> = { ...OWNED_OR_LINKED_DEFAULT_SCOPES }
-  for (const key of Object.keys(recordScopes) as RecordScopedModuleKey[]) {
+  const recordScopes: Record<RecordScopedModuleKey, RecordScope> = { ...DEFAULT_RECORD_SCOPES }
+  for (const key of RECORD_SCOPED_MODULE_KEYS) {
     const scope = recordScopesInput[key]
-    recordScopes[key] = scope === 'all' ? 'all' : 'owned_or_linked'
+    // Only override when the stored policy actually carries the key; missing
+    // keys keep DEFAULT_RECORD_SCOPES so legacy partial policies never lose
+    // effective access (research/documents/marketing stay 'all').
+    if (scope === 'all' || scope === 'owned_or_linked') {
+      recordScopes[key] = scope
+    }
   }
   const agentRuntimeAccess: Record<string, AgentId[]> = {}
   for (const [runtimeTargetId, rawAgentIds] of Object.entries(agentRuntimeAccessInput)) {
@@ -199,7 +301,15 @@ export function normalizeMemberAccessPolicy(value: unknown): MemberAccessPolicy 
     quotes: capabilitiesInput.quotes === true,
   }
 
-  return { preset, modules, recordScopes, agentRuntimeAccess, allowPersonalLlmOnOrgVps, capabilities }
+  return {
+    preset,
+    modules,
+    recordScopes,
+    moduleActions: normalizeModuleActions(input.moduleActions),
+    agentRuntimeAccess,
+    allowPersonalLlmOnOrgVps,
+    capabilities,
+  }
 }
 
 /** Normalize runtime target ids so Team grants match dispatch/create.
@@ -305,16 +415,94 @@ export function defaultAccessPolicyFor(role: RoleWithSystem, accessScope?: unkno
   })
 }
 
-export function resolveMemberAccessPolicy(input: {
+/** Organisation modulePolicies keys that map to a workspace module key. */
+const ORG_POLICY_TO_WORKSPACE: Record<OrganizationModulePolicyKey, WorkspaceModuleKey> = {
+  projects: 'projects',
+  documents: 'documents',
+  research: 'research',
+  mobileApps: 'mobileApps',
+  youtubeStudio: 'youtubeStudio',
+  bookStudio: 'bookStudio',
+  marketing: 'marketing',
+  messages: 'messages',
+}
+
+/** Map an organisation matrix action to member action flags it gates. */
+const ORG_ACTION_TO_MEMBER_ACTIONS: Record<string, MemberModuleActionKey[]> = {
+  create: ['create'],
+  edit: ['edit'],
+  delete: ['delete', 'archiveDelete'],
+  archiveDelete: ['delete', 'archiveDelete'],
+  export: ['export'],
+  approve: ['approve'],
+  approvePublish: ['approve', 'send'],
+  reviewApproval: ['approve'],
+  publishApprovals: ['approve'],
+  send: ['send'],
+  start: ['send'],
+  reply: ['send'],
+  shareLinks: ['share'],
+}
+
+/**
+ * The unified resolver. Per-member accessPolicy is the source of truth when it
+ * exists. Members without an explicit policy fall back to the legacy role /
+ * accessScope defaults, with organisation modulePolicies acting as the default
+ * visibility + action matrix (so org-level toggles still govern them).
+ */
+export function resolveEffectiveMemberPolicy(input: {
   role: RoleWithSystem
   accessScope?: unknown
   accessPolicy?: unknown
+  orgModulePolicies?: unknown
 }): MemberAccessPolicy {
   if (input.role === 'system' || input.role === 'owner') return FULL_ACCESS_POLICY
   if (input.accessPolicy && typeof input.accessPolicy === 'object') {
     return normalizeMemberAccessPolicy(input.accessPolicy)
   }
-  return defaultAccessPolicyFor(input.role, input.accessScope)
+
+  const base = defaultAccessPolicyFor(input.role, input.accessScope)
+  if (!input.orgModulePolicies) return base
+
+  const policies = resolveOrganizationModulePolicies({ modulePolicies: input.orgModulePolicies })
+  const normalizedRole = input.role === 'admin' || input.role === 'member' || input.role === 'viewer'
+    ? input.role
+    : 'member'
+  const baseWithActions: MemberAccessPolicy = {
+    ...base,
+    // Clone nested objects so applying org defaults never mutates the shared
+    // FULL_ACCESS_POLICY singleton (which owners/admins also resolve to).
+    modules: { ...base.modules },
+    recordScopes: { ...base.recordScopes },
+    moduleActions: normalizeModuleActions(base.moduleActions),
+  }
+
+  for (const orgKey of Object.keys(ORG_POLICY_TO_WORKSPACE) as OrganizationModulePolicyKey[]) {
+    const workspaceKey = ORG_POLICY_TO_WORKSPACE[orgKey]
+    if (!canRolePerformModuleAction(policies, orgKey, 'visibility', normalizedRole)) {
+      baseWithActions.modules[workspaceKey] = false
+      continue
+    }
+    for (const [actionId, selection] of Object.entries(policies[orgKey]?.actions ?? {})) {
+      const memberActions = ORG_ACTION_TO_MEMBER_ACTIONS[actionId]
+      if (!memberActions) continue
+      if (selection[normalizedRole] !== true) {
+        for (const memberAction of memberActions) {
+          baseWithActions.moduleActions![workspaceKey][memberAction] = false
+        }
+      }
+    }
+  }
+
+  return baseWithActions
+}
+
+export function resolveMemberAccessPolicy(input: {
+  role: RoleWithSystem
+  accessScope?: unknown
+  accessPolicy?: unknown
+}): MemberAccessPolicy {
+  return resolveEffectiveMemberPolicy(input)
 }
 
 export function canAccessModule(policyValue: MemberAccessPolicy | unknown, moduleKey: WorkspaceModuleKey): boolean {
@@ -324,19 +512,45 @@ export function canAccessModule(policyValue: MemberAccessPolicy | unknown, modul
 
 export function recordScopeFor(policyValue: MemberAccessPolicy | unknown, moduleKey: RecordScopedModuleKey): RecordScope {
   const policy = normalizePolicyOrFull(policyValue)
-  return policy.recordScopes[moduleKey] ?? 'owned_or_linked'
+  return policy.recordScopes[moduleKey] ?? DEFAULT_RECORD_SCOPES[moduleKey] ?? 'owned_or_linked'
 }
 
 export function canAccessAllModuleRecords(policyValue: MemberAccessPolicy | unknown, moduleKey: RecordScopedModuleKey): boolean {
   return recordScopeFor(policyValue, moduleKey) === 'all'
 }
 
+/**
+ * Per-module action grant for a member. Module toggle is the top-level allow;
+ * an explicit per-action flag refines it; otherwise the caller-supplied org
+ * default applies (default true = current behaviour when module is on).
+ * Privileged roles bypass via call sites (they resolve FULL_ACCESS_POLICY).
+ */
+export function memberCanPerformModuleAction(
+  policyValue: MemberAccessPolicy | unknown,
+  moduleKey: WorkspaceModuleKey,
+  actionKey: MemberModuleActionKey,
+  orgDefault = true,
+): boolean {
+  const policy = normalizePolicyOrFull(policyValue)
+  if (isFullWorkspaceAccessPolicy(policy)) return true
+  if (policy.modules[moduleKey] !== true) return false
+  const explicit = policy.moduleActions?.[moduleKey]?.[actionKey]
+  if (typeof explicit === 'boolean') return explicit
+  return orgDefault
+}
+
+/** Billing delete is fail-closed: members need an explicit grant (full workspace implies it). */
+export function memberCanDeleteBillingRecord(policyValue: MemberAccessPolicy | unknown): boolean {
+  const policy = normalizePolicyOrFull(policyValue)
+  if (isFullWorkspaceAccessPolicy(policy)) return true
+  return policy.moduleActions?.billing?.delete === true
+}
+
 /** True when policy is the unrestricted full workspace grant (includes issuer). */
 export function isFullWorkspaceAccessPolicy(policyValue: MemberAccessPolicy | unknown): boolean {
   const policy = normalizePolicyOrFull(policyValue)
   return WORKSPACE_MODULE_KEYS.every((key) => policy.modules[key])
-    && policy.recordScopes.crm === 'all'
-    && policy.recordScopes.projects === 'all'
+    && RECORD_SCOPED_MODULE_KEYS.every((key) => policy.recordScopes[key] === 'all')
 }
 
 /**
@@ -356,6 +570,67 @@ export function memberCanIssueQuotes(policyValue: MemberAccessPolicy | unknown):
   return policy.capabilities.quotes === true
 }
 
+/** Named starting points for the Team access editor. */
+export function presetPolicy(preset: AccessPolicyPreset): MemberAccessPolicy {
+  switch (preset) {
+    case 'full':
+      return FULL_ACCESS_POLICY
+    case 'crm_sales':
+      return policy({
+        preset: 'crm_sales',
+        modules: { crm: true, reports: true },
+        recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+      })
+    case 'project_delivery':
+      return policy({
+        preset: 'project_delivery',
+        modules: { projects: true, documents: true, messages: true, reports: true },
+        recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+      })
+    case 'marketing':
+      return policy({
+        preset: 'marketing',
+        modules: { marketing: true, messages: true, email: true, reports: true, research: true },
+        recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+      })
+    case 'finance':
+      return policy({
+        preset: 'finance',
+        modules: { billing: true, reports: true },
+        recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+        capabilities: emptyBillingCapabilities(),
+      })
+    case 'reviewer':
+      return policy({
+        preset: 'reviewer',
+        modules: {
+          crm: true,
+          projects: true,
+          documents: true,
+          reports: true,
+          research: true,
+          properties: true,
+        },
+        recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+      })
+    default:
+      return normalizeMemberAccessPolicy({
+        preset: 'custom',
+        modules: {},
+        recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+      })
+  }
+}
+
+export const ACCESS_PRESET_LABELS: Record<Exclude<AccessPolicyPreset, 'custom'>, string> = {
+  full: 'Full workspace',
+  crm_sales: 'CRM & sales',
+  project_delivery: 'Project delivery',
+  marketing: 'Marketing',
+  finance: 'Finance',
+  reviewer: 'Read-only reviewer',
+}
+
 export function accessSummaryForPolicy(policyValue: MemberAccessPolicy | unknown): string {
   const policy = normalizePolicyOrFull(policyValue)
   if (isFullWorkspaceAccessPolicy(policy)) {
@@ -368,8 +643,11 @@ export function accessSummaryForPolicy(policyValue: MemberAccessPolicy | unknown
 
   const moduleText = enabled.length > 0 ? enabled.join(', ') : 'No modules'
   const scoped: string[] = []
-  if (policy.modules.crm && policy.recordScopes.crm === 'owned_or_linked') scoped.push('CRM')
-  if (policy.modules.projects && policy.recordScopes.projects === 'owned_or_linked') scoped.push('Projects')
+  for (const key of RECORD_SCOPED_MODULE_KEYS) {
+    if (policy.modules[key] && policy.recordScopes[key] === 'owned_or_linked') {
+      scoped.push(MODULE_LABELS[key])
+    }
+  }
   const issuerBits: string[] = []
   if (policy.capabilities.invoices) issuerBits.push('invoices')
   if (policy.capabilities.quotes) issuerBits.push('quotes')

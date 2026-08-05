@@ -189,6 +189,15 @@ export async function probeLocalHermes(
  * True when the local Hermes profile still owns live API runs / agents.
  * Linked-chat capacity alone is insufficient: Kanban watcher runs arrive over
  * the reverse tunnel and must block credential/policy profile reloads.
+ *
+ * Fails CLOSED: any probe we could not complete (timeout, connection error,
+ * non-OK response, unparseable body, missing route) is treated as active
+ * work. During tunnel flaps, DNS hiccups, or memory pressure the Mac gateway
+ * may be slow to answer /health/detailed while a watcher-run is very much
+ * alive; concluding "idle" from a failed probe is what made the supervisor
+ * write restart requests for busy profiles every heartbeat. A genuinely
+ * crashed gateway is recovered by the fleet's own health-restart path, so a
+ * control-request reload must never assume idle from an unanswered probe.
  */
 export async function localHermesAgentHasActiveWork(
   agentId: string,
@@ -199,18 +208,18 @@ export async function localHermesAgentHasActiveWork(
   try {
     routes = localHermesRoutes(env)
   } catch {
-    return false
+    return true
   }
   const route = routes.find((entry) => entry.agentId === cleanAgentId(agentId))
-  if (!route) return false
+  if (!route) return true
   try {
     const response = await fetcher(`${route.baseUrl}/health/detailed`, {
       headers: authHeaders(route),
       signal: AbortSignal.timeout(3_000),
     })
-    if (!response.ok) return false
+    if (!response.ok) return true
     const body = await response.json().catch(() => null) as Record<string, unknown> | null
-    if (!body || typeof body !== 'object') return false
+    if (!body || typeof body !== 'object') return true
     if (body.gateway_busy === true) return true
     const activeAgents = Number(body.active_agents ?? 0)
     if (Number.isFinite(activeAgents) && activeAgents > 0) return true
@@ -226,7 +235,7 @@ export async function localHermesAgentHasActiveWork(
     const activeRuns = Number(queues?.active_api_runs ?? 0)
     return Number.isFinite(activeRuns) && activeRuns > 0
   } catch {
-    return false
+    return true
   }
 }
 
@@ -604,6 +613,34 @@ export async function listLocalHermesModels(
     const id = typeof row.id === 'string' ? row.id : typeof row.model === 'string' ? row.model : ''
     return id ? [id] : []
   }))].slice(0, 256)
+}
+
+/**
+ * Read the running gateway's /admin/config payload. Used by the env-var
+ * credential canary to confirm the provider is advertised without taking a
+ * profile restart or competing with an active /v1/runs conversation.
+ */
+export async function probeLocalHermesAdminConfig(
+  agentId: string,
+  env: RuntimeEnv = process.env,
+  fetcher: typeof fetch = fetch,
+): Promise<Record<string, unknown> | null> {
+  const cleanAgent = cleanAgentId(agentId)
+  const route = localHermesRoutes(env).find((candidate) => candidate.agentId === cleanAgent)
+  if (!route) return null
+  try {
+    const { response, text } = await fetchLocalHermesText(fetcher, `${route.baseUrl}/admin/config`, {
+      headers: authHeaders(route),
+    }, localHermesRequestTimeoutMs(env))
+    if (!response.ok) return null
+    const data = (() => {
+      try { return text ? JSON.parse(text) as Record<string, unknown> : null } catch { return null }
+    })()
+    if (!data || typeof data !== 'object') return null
+    return data
+  } catch {
+    return null
+  }
 }
 
 async function forwardLocalHermesEvents(

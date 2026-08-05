@@ -9,8 +9,9 @@ import { discoverAuthorizedRuntimeTargets, type PublicAuthorizedRuntimeTarget } 
 import {
   accessSummaryForPolicy,
   normalizeMemberAccessPolicy,
-  resolveMemberAccessPolicy,
+  resolveEffectiveMemberPolicy,
 } from '@/lib/orgMembers/access-policy'
+import { resolveOrganizationModulePolicies } from '@/lib/organizations/module-policies'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,21 +77,34 @@ async function loadMemberRuntimeTargets(orgId: string, userId: string): Promise<
     .sort((left, right) => left.label.localeCompare(right.label))
 }
 
-async function loadMemberAccess(orgId: string, targetUid: string) {
+async function loadOrgModulePolicies(orgId: string): Promise<unknown> {
+  try {
+    const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
+    if (!orgDoc.exists) return undefined
+    const settings = (orgDoc.data()?.settings ?? {}) as Record<string, unknown>
+    return settings.modulePolicies
+  } catch {
+    return undefined
+  }
+}
+
+async function loadMemberAccess(orgId: string, targetUid: string, orgModulePolicies?: unknown) {
   const memberDoc = await adminDb.collection('orgMembers').doc(`${orgId}_${targetUid}`).get()
   if (memberDoc.exists) {
     const data = memberDoc.data() ?? {}
     const role = data.role as OrgRole
-    const accessPolicy = resolveMemberAccessPolicy({
+    const accessPolicy = resolveEffectiveMemberPolicy({
       role,
       accessScope: data.accessScope,
       accessPolicy: data.accessPolicy,
+      orgModulePolicies,
     })
     return {
       exists: true,
       role,
       accessScope: typeof data.accessScope === 'string' ? data.accessScope : '',
       accessPolicy,
+      hasExplicitAccessPolicy: Boolean(data.accessPolicy && typeof data.accessPolicy === 'object'),
     }
   }
 
@@ -100,16 +114,18 @@ async function loadMemberAccess(orgId: string, targetUid: string) {
   if (!fallback) return { exists: false as const }
 
   const role = fallback.role as OrgRole
-  const accessPolicy = resolveMemberAccessPolicy({
+  const accessPolicy = resolveEffectiveMemberPolicy({
     role,
     accessScope: fallback.accessScope,
     accessPolicy: fallback.accessPolicy,
+    orgModulePolicies,
   })
   return {
     exists: true,
     role,
     accessScope: fallback.accessScope ?? '',
     accessPolicy,
+    hasExplicitAccessPolicy: Boolean(fallback.accessPolicy && typeof fallback.accessPolicy === 'object'),
   }
 }
 
@@ -118,7 +134,8 @@ export const GET = withPortalAuthAndRole(
   async (_req: NextRequest, _uid: string, orgId: string, _role: OrgRole, { params }: RouteCtx) => {
     try {
       const { uid: targetUid } = await params
-      const loaded = await loadMemberAccess(orgId, targetUid)
+      const orgModulePolicies = await loadOrgModulePolicies(orgId)
+      const loaded = await loadMemberAccess(orgId, targetUid, orgModulePolicies)
       if (!loaded.exists) return apiError('Team member not found', 404)
 
       return NextResponse.json({
@@ -126,6 +143,10 @@ export const GET = withPortalAuthAndRole(
         role: loaded.role,
         accessScope: loaded.accessScope,
         accessPolicy: loaded.accessPolicy,
+        hasExplicitAccessPolicy: loaded.hasExplicitAccessPolicy,
+        // Org modulePolicies act as the default matrix when the member has no
+        // explicit per-action flags — the editor shows these as effective defaults.
+        orgModulePolicies: resolveOrganizationModulePolicies({ modulePolicies: orgModulePolicies }),
         accessSummary: accessSummaryForPolicy(loaded.accessPolicy),
         // A missing/stale catalogue must not prevent access-policy editing.
         // Dispatch independently reauthorizes the live computer grant.

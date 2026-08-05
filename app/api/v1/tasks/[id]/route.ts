@@ -11,7 +11,7 @@ import { withAuth } from '@/lib/api/auth'
 import { lastActorFrom } from '@/lib/api/actor'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
-import { cleanAgentEffort, cleanAgentModel, VALID_AGENT_EFFORTS, VALID_AGENT_MODELS } from '@/lib/agents/runRouting'
+import { cleanAgentEffort, cleanAgentModel, VALID_AGENT_EFFORTS, resolveAgentTaskModelEligibility } from '@/lib/agents/runRouting'
 import {
   VALID_TASK_STATUSES,
   VALID_TASK_PRIORITIES,
@@ -153,9 +153,8 @@ export const PUT = withAuth('admin', async (req, user, context) => {
     }
   }
   if (body.agentModel !== undefined && body.agentModel !== null && body.agentModel !== '') {
-    if (!cleanAgentModel(body.agentModel)) {
-      return apiError(`Invalid agentModel; expected one of ${VALID_AGENT_MODELS.join(' | ')}`)
-    }
+    const resolution = resolveAgentTaskModelEligibility({ model: body.agentModel })
+    if (!resolution.ok) return apiError(resolution.reason, resolution.status)
   }
   if (body.agentInput !== undefined && body.agentInput !== null) {
     const ai = body.agentInput as Record<string, unknown>

@@ -337,6 +337,20 @@ describe('project task payload helpers', () => {
       if (!model.ok) expect(model.error).toMatch(/Invalid agentModel/)
     })
 
+    it('accepts gpt-5.6-terra from the canonical catalogue (chat-selectable → agent-task route)', () => {
+      const result = buildProjectTaskCreateData(
+        { title: 'Terra model task', agentModel: 'gpt-5.6-terra' },
+        'project-1',
+        'org-1',
+      )
+      expect(result.ok).toBe(true)
+      if (result.ok) expect(result.value.agentModel).toBe('gpt-5.6-terra')
+
+      const update = buildProjectTaskUpdateData({ agentModel: 'gpt-5.6-terra' })
+      expect(update.ok).toBe(true)
+      if (update.ok) expect(update.value.agentModel).toBe('gpt-5.6-terra')
+    })
+
     it('CREATE: explicit gated agentStatus controls the starting column', () => {
       const result = buildProjectTaskCreateData(
         {

@@ -126,6 +126,95 @@ describe('linked-computer credential maintenance lease', () => {
     expect(sets.some((entry) => entry.ref.path.startsWith('linked_device_run_agent_leases/'))).toBe(false)
   })
 
+  it('claims an env-var/API-key credential job while the target profile is busy (no restart needed)', async () => {
+    const jobId = 'credential-deepseek-pip'
+    const rows = new Map<string, Record<string, unknown>>([
+      ['linked_devices/device-a', { deviceId: 'device-a', status: 'active', credentialVersion: 3 }],
+      ['linked_device_agent_queues/device-a', { pendingJobIds: [jobId] }],
+      [`linked_device_agent_jobs/${jobId}`, agentJob(jobId, 'pip', {
+        payload: {
+          agentId: 'pip',
+          policyVersion: null,
+          keepInSync: false,
+          runtimeSkills: [],
+          pibSkills: [],
+          vpsExternalDir: null,
+          preferredPort: 8755,
+          protocolVersion: 3,
+          credentialDelivery: {
+            bindingId: 'binding-deepseek',
+            connectionId: 'user:u1:deepseek',
+            credentialVersion: 9,
+            provider: 'deepseek',
+            hermesProvider: 'deepseek',
+            envVar: 'DEEPSEEK_API_KEY',
+            canaryModel: 'deepseek-v4-flash',
+            applyMode: 'env',
+          },
+        },
+      })],
+      ['linked_device_run_queues/device-a', { pendingJobIds: ['run-pip'] }],
+      ['linked_device_run_jobs/run-pip', activeRun('run-pip', 'pip')],
+      [`linked_device_run_agent_leases/${linkedRunAgentLeaseDocumentId('device-a', 'pip')}`, {
+        deviceId: 'device-a', agentId: 'pip', leases: { 'run-pip': now + 30_000 },
+      }],
+    ])
+    const { sets } = installTransaction(rows)
+
+    const claimed = await claimOldestAgentHostJob(
+      { deviceId: 'device-a', ownerUserId: 'owner-a', credentialVersion: 3 },
+      { nowMs: now },
+    )
+
+    expect(claimed).toEqual(expect.objectContaining({ jobId, agentId: 'pip' }))
+    // Env-only apply must not take a maintenance lease: the running gateway is
+    // not restarted, so run claims on the profile must keep flowing.
+    expect(sets.some((entry) => entry.ref.path.startsWith('linked_device_run_agent_leases/'))).toBe(false)
+  })
+
+  it('defers an OAuth restart credential job while the target profile is busy', async () => {
+    const jobId = 'credential-xai-oauth-pip'
+    const rows = new Map<string, Record<string, unknown>>([
+      ['linked_devices/device-a', { deviceId: 'device-a', status: 'active', credentialVersion: 3 }],
+      ['linked_device_agent_queues/device-a', { pendingJobIds: [jobId] }],
+      [`linked_device_agent_jobs/${jobId}`, agentJob(jobId, 'pip', {
+        payload: {
+          agentId: 'pip',
+          policyVersion: null,
+          keepInSync: false,
+          runtimeSkills: [],
+          pibSkills: [],
+          vpsExternalDir: null,
+          preferredPort: 8755,
+          protocolVersion: 3,
+          credentialDelivery: {
+            bindingId: 'binding-xai-oauth',
+            connectionId: 'user:u1:xai-oauth',
+            credentialVersion: 25,
+            provider: 'xai-oauth',
+            hermesProvider: 'xai-oauth',
+            envVar: null,
+            canaryModel: 'grok-4.20',
+            applyMode: 'restart',
+          },
+        },
+      })],
+      ['linked_device_run_queues/device-a', { pendingJobIds: ['run-pip'] }],
+      ['linked_device_run_jobs/run-pip', activeRun('run-pip', 'pip')],
+      [`linked_device_run_agent_leases/${linkedRunAgentLeaseDocumentId('device-a', 'pip')}`, {
+        deviceId: 'device-a', agentId: 'pip', leases: { 'run-pip': now + 30_000 },
+      }],
+    ])
+    const { sets } = installTransaction(rows)
+
+    await expect(claimOldestAgentHostJob(
+      { deviceId: 'device-a', ownerUserId: 'owner-a', credentialVersion: 3 },
+      { nowMs: now },
+    )).resolves.toBeNull()
+
+    expect(sets.some((entry) => entry.ref.path.startsWith('linked_device_run_agent_leases/'))).toBe(false)
+  })
+
   it('finds a live pre-ledger run behind completed queue rows before permitting maintenance', async () => {
     const jobId = 'credential-theo'
     const completedIds = Array.from({ length: 64 }, (_, index) => `completed-${index + 1}`)

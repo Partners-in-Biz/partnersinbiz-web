@@ -30,6 +30,7 @@
     ".vercel",
     "coverage",
     "partnersinbiz-web-realtime-main-20260803",
-    "partnersinbiz-web-realtime-merge-20260803"
+    "partnersinbiz-web-realtime-merge-20260803",
+    "services/realtime-gateway"
   ]
 }

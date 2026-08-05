@@ -34,7 +34,29 @@ export interface AgentHostJobPayload {
     hermesProvider: string
     envVar: string | null
     canaryModel: string
+    /**
+     * How the credential is applied on the host.
+     * - 'env' — API-key/env-var provider (e.g. DeepSeek). The key is written to
+     *   the profile .env and verified against the already-running gateway; no
+     *   profile restart or idle window is required.
+     * - 'restart' — OAuth provider (e.g. xai-oauth / openai-codex). The profile
+     *   must be idle so its gateway can reload the refreshed token.
+     */
+    applyMode?: 'env' | 'restart'
   } | null
+}
+
+export type CredentialApplyMode = 'env' | 'restart'
+
+/** Resolve the apply mode for a credential delivery, defaulting new payloads to restart. */
+export function credentialDeliveryApplyMode(delivery: {
+  applyMode?: 'env' | 'restart'
+  envVar?: string | null
+} | null | undefined): CredentialApplyMode {
+  if (delivery?.applyMode === 'env' || delivery?.applyMode === 'restart') return delivery.applyMode
+  // Older payloads predate applyMode; env-var deliveries are live-applied,
+  // everything else keeps the restart path.
+  return delivery?.envVar ? 'env' : 'restart'
 }
 
 export interface AgentHostJob {
@@ -199,9 +221,12 @@ export function parseAgentHostJobPayload(value: unknown): AgentHostJobPayload {
         const hermesProvider = typeof delivery.hermesProvider === 'string' ? delivery.hermesProvider.trim() : ''
         const envVar = typeof delivery.envVar === 'string' && delivery.envVar.trim() ? delivery.envVar.trim() : null
         const canaryModel = typeof delivery.canaryModel === 'string' ? delivery.canaryModel.trim() : ''
+        const applyMode: 'env' | 'restart' | undefined = delivery.applyMode === 'env' || delivery.applyMode === 'restart'
+          ? delivery.applyMode
+          : undefined
         if (!bindingId || !connectionId || !Number.isInteger(credentialVersion) || credentialVersion < 1
           || !provider || !hermesProvider || !canaryModel) return null
-        return { bindingId, connectionId, credentialVersion, provider, hermesProvider, envVar, canaryModel }
+        return { bindingId, connectionId, credentialVersion, provider, hermesProvider, envVar, canaryModel, ...(applyMode ? { applyMode } : {}) }
       })()
     : null
   return {

@@ -247,9 +247,30 @@ function bindingUnavailableReason(input: {
   connectionLabel: string
   status?: string | null
   lastError?: string | null
+  /**
+   * True when the provider is an env-var/API-key provider (DeepSeek etc.) that
+   * is applied live to the running gateway without a profile restart. The
+   * "wait for idle / finish the chat" wording only applies to OAuth providers.
+   */
+  envApply?: boolean
 }): string {
   const label = input.connectionLabel || 'This provider'
   const err = typeof input.lastError === 'string' ? input.lastError.trim() : ''
+  if (input.envApply) {
+    if (err) {
+      if (/active \/v1\/runs|restart deferred/i.test(err)) {
+        return `${label} is connected, and the API key is being applied live to this running agent. Refresh Models shortly.`
+      }
+      return `${label} is connected, but this machine/agent is not live-verified yet: ${err.slice(0, 180)}`
+    }
+    if (input.status === 'delivering' || input.status === 'desired' || input.status === 'stored') {
+      return `${label} is connected; the API key is being applied live to this running agent (${input.status}). Refresh Models shortly.`
+    }
+    if (input.status === 'failed') {
+      return `${label} is connected, but the last live verify on this machine/agent failed. Sync again in Settings, then Refresh Models.`
+    }
+    return `${label} is connected in Settings, but not live-verified on this machine and agent profile yet. Sync, then Refresh Models.`
+  }
   if (err) {
     if (/active \/v1\/runs|restart deferred/i.test(err)) {
       return `${label} is connected, but live verify is waiting because this agent profile has an active run. Finish or idle the chat, Sync in Settings, then Refresh Models.`
@@ -547,6 +568,9 @@ export async function getMessageModelCatalog(input: {
               connectionLabel: c.label || label,
               status: binding?.status,
               lastError: binding?.lastError,
+              envApply: Boolean(getLlmProvider(c.provider)?.envVar)
+                && c.authKind !== 'oauth'
+                && c.authKind !== 'oauth_token',
             }),
           })
         } else if (c.scope === 'user' && !onUserComputer && !localOnlyProviderLabels.includes(label)) {

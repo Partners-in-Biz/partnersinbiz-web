@@ -9,7 +9,7 @@ export const ORGANIZATION_MODULE_POLICY_KEYS = [
   'messages',
 ] as const
 
-export const ORGANIZATION_POLICY_ROLE_KEYS = ['owner', 'admin', 'member'] as const
+export const ORGANIZATION_POLICY_ROLE_KEYS = ['owner', 'admin', 'member', 'viewer'] as const
 
 export type OrganizationModulePolicyKey = (typeof ORGANIZATION_MODULE_POLICY_KEYS)[number]
 export type OrganizationPolicyRole = (typeof ORGANIZATION_POLICY_ROLE_KEYS)[number]
@@ -32,7 +32,7 @@ export type OrganizationModulePolicies = Record<OrganizationModulePolicyKey, Org
 type RawPolicy = Partial<OrganizationModulePolicy> & Record<string, unknown>
 type RawPolicies = Partial<Record<OrganizationModulePolicyKey, RawPolicy>>
 
-const ALL_ROLES: OrganizationRoleSelection = { owner: true, admin: true, member: true }
+const ALL_ROLES: OrganizationRoleSelection = { owner: true, admin: true, member: true, viewer: true }
 
 const DEFAULT_ACTIONS: Record<OrganizationModulePolicyKey, string[]> = {
   projects: ['visibility', 'create', 'archiveDelete'],
@@ -50,15 +50,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function cloneRoles(value: OrganizationRoleSelection = ALL_ROLES): OrganizationRoleSelection {
-  return { owner: value.owner, admin: value.admin, member: value.member }
+  return { owner: value.owner, admin: value.admin, member: value.member, viewer: value.viewer }
 }
 
 function normalizeRoleSelection(value: unknown, fallback: OrganizationRoleSelection = ALL_ROLES): OrganizationRoleSelection {
   if (!isRecord(value)) return cloneRoles(fallback)
+  // Legacy stored selections predate the viewer key; viewer inherits the
+  // member grant when absent (preserving old viewer→member mapping).
+  const viewer = typeof value.viewer === 'boolean'
+    ? value.viewer
+    : typeof value.member === 'boolean'
+      ? value.member
+      : fallback.viewer
   return {
     owner: typeof value.owner === 'boolean' ? value.owner : fallback.owner,
     admin: typeof value.admin === 'boolean' ? value.admin : fallback.admin,
     member: typeof value.member === 'boolean' ? value.member : fallback.member,
+    viewer,
   }
 }
 
@@ -127,7 +135,7 @@ export function resolveOrganizationModulePolicies(settings: unknown): Organizati
 }
 
 export function normalizeOrganizationPolicyRole(role: unknown): OrganizationPolicyRole {
-  return role === 'owner' || role === 'admin' || role === 'member' ? role : 'member'
+  return role === 'owner' || role === 'admin' || role === 'member' || role === 'viewer' ? role : 'member'
 }
 
 export function isOrganizationModulePolicyKey(value: unknown): value is OrganizationModulePolicyKey {

@@ -31,8 +31,11 @@ import {
   crmRecordCompanyIds,
   filterCrmRowsForActor,
   isCrmPrivilegedActor,
+  isCrmRolePrivilegedActor,
   normalizeAllowedUserIds,
+  normalizeSharedWithUserPatch,
 } from '@/lib/crm/assignment-access'
+import { memberCanPerformModuleAction } from '@/lib/orgMembers/access-policy'
 import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
 
 // ── GET ─────────────────────────────────────────────────────────────────────────
@@ -222,6 +225,12 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
 // ── POST ────────────────────────────────────────────────────────────────────────
 
 export const POST = withCrmAuth('member', async (req, ctx) => {
+  // Action-level gate: members with CRM module on may create by default; an
+  // explicit per-member create=false blocks it.
+  if (!isCrmRolePrivilegedActor(ctx) && !memberCanPerformModuleAction(ctx.accessPolicy, 'crm', 'create')) {
+    return apiError('CRM create is disabled for this team member', 403)
+  }
+
   let body: Partial<CompanyInput>
   try {
     body = await req.json()
@@ -275,6 +284,11 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
       allowedUserIds.push(uid.trim())
     }
   }
+  // First-class share: sharedWithUserIds also becomes an allowed user (read path).
+  const sharedWithUserIds = normalizeSharedWithUserPatch((body as Record<string, unknown>).sharedWithUserIds) ?? []
+  for (const uid of sharedWithUserIds) {
+    if (uid && !allowedUserIds.includes(uid)) allowedUserIds.push(uid)
+  }
 
   // Custom field validation (best-effort — Firestore outage must not block core write)
   if (body.customFields !== undefined && body.customFields !== null) {
@@ -295,6 +309,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     ...sanitized,
     accountManagerRef,
     ...(allowedUserIds.length > 0 ? { allowedUserIds } : {}),
+    ...(sharedWithUserIds.length > 0 ? { sharedWithUserIds } : {}),
     assignedTo: ownerUid,
     assignedToRef: ownerRef,
     ownerUid,

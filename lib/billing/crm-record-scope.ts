@@ -14,7 +14,7 @@ import {
 import { isActiveOrgMembershipRow } from '@/lib/linked-computers/policy'
 import {
   FULL_ACCESS_POLICY,
-  resolveMemberAccessPolicy,
+  resolveEffectiveMemberPolicy,
 } from '@/lib/orgMembers/access-policy'
 import { AGENT_PIP_REF, buildHumanRef } from '@/lib/orgMembers/memberRef'
 import type { OrgRole } from '@/lib/organizations/types'
@@ -51,13 +51,27 @@ export async function resolveBillingCrmAuthContext(
   const role: OrgRole = active
     ? ((memberData?.role as OrgRole | undefined) ?? 'member')
     : 'member'
+
+  // Org modulePolicies act as defaults for members without an explicit policy.
+  let orgModulePolicies: unknown
+  try {
+    const orgSnap = await adminDb.collection('organizations').doc(orgId).get()
+    if (orgSnap.exists) {
+      const orgSettings = (orgSnap.data()?.settings ?? {}) as Record<string, unknown>
+      orgModulePolicies = orgSettings.modulePolicies
+    }
+  } catch {
+    orgModulePolicies = undefined
+  }
+
   const accessPolicy = active
-    ? resolveMemberAccessPolicy({
+    ? resolveEffectiveMemberPolicy({
         role,
         accessScope: memberData?.accessScope,
         accessPolicy: memberData?.accessPolicy,
+        orgModulePolicies,
       })
-    : (user.memberAccessPolicy ?? resolveMemberAccessPolicy({ role: 'member' }))
+    : (user.memberAccessPolicy ?? resolveEffectiveMemberPolicy({ role: 'member' }))
 
   return {
     orgId,

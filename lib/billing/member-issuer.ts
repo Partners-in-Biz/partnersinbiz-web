@@ -9,9 +9,12 @@ import {
   loadContactAssignmentMap,
 } from '@/lib/crm/assignment-access'
 import {
+  memberCanDeleteBillingRecord,
   memberCanIssueInvoices,
   memberCanIssueQuotes,
+  memberCanPerformModuleAction,
   type MemberAccessPolicy,
+  type MemberModuleActionKey,
 } from '@/lib/orgMembers/access-policy'
 import { canManageOrgAs } from '@/lib/orgMembers/permissions'
 import { loadOrgMemberAccessPolicy } from '@/lib/orgMembers/org-access-policy'
@@ -32,6 +35,27 @@ export function actorHasIssuerGrant(ctx: CrmAuthContext, kind: BillingIssuerKind
   if (isBillingBookManager(ctx)) return true
   if (isCrmPrivilegedActor(ctx) && hasIssuerGrant(ctx.accessPolicy, kind)) return true
   return hasIssuerGrant(ctx.accessPolicy, kind)
+}
+
+/** Billing action gate for members (edit/send/approve). Module on + no explicit
+ * flag = allowed (current behaviour); an explicit per-member flag refines it. */
+export function memberCanPerformBillingAction(
+  ctx: CrmAuthContext,
+  action: Exclude<MemberModuleActionKey, 'delete'>,
+): boolean {
+  if (isBillingBookManager(ctx)) return true
+  return memberCanPerformModuleAction(ctx.accessPolicy, 'billing', action, true)
+}
+
+/**
+ * Billing hard-delete is fail-closed for members: an explicit per-member
+ * billing delete grant is required (full workspace access implies it).
+ * Org owner/admin/system bypass via role.
+ */
+export function memberCanDeleteBilling(ctx: CrmAuthContext): boolean {
+  if (isBillingBookManager(ctx)) return true
+  if (memberCanDeleteBillingRecord(ctx.accessPolicy)) return true
+  return false
 }
 
 /**

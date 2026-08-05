@@ -21,6 +21,7 @@ export type AssignableCrmRecord = {
   memberRef?: AssignmentRef
   allowedUserIds?: unknown
   assignedUserIds?: unknown
+  sharedWithUserIds?: unknown
   companyId?: unknown
   companyName?: unknown
   sourceCompanyId?: unknown
@@ -41,6 +42,12 @@ export function isCrmPrivilegedActor(ctx: CrmAuthContext): boolean {
     ctx.role === 'system' ||
     ctx.role === 'owner' ||
     recordScopeFor(ctx.accessPolicy, 'crm') === 'all'
+}
+
+/** Role-only bypass for action gates: agents/system/owner/admin. A member with
+ * all-scope CRM is still a member and must pass per-action grants. */
+export function isCrmRolePrivilegedActor(ctx: CrmAuthContext): boolean {
+  return ctx.isAgent || ctx.role === 'system' || ctx.role === 'owner' || ctx.role === 'admin'
 }
 
 export function crmActorUid(ctx: CrmAuthContext): string {
@@ -67,6 +74,13 @@ export function normalizeAllowedUserPatch(value: unknown): string[] | null {
   return normalizeAllowedUserIds(value)
 }
 
+/** Normalize a sharedWithUserIds patch; null when absent or not an array. */
+export function normalizeSharedWithUserPatch(value: unknown): string[] | null {
+  if (value === undefined) return null
+  if (!Array.isArray(value)) return null
+  return normalizeAllowedUserIds(value)
+}
+
 export function crmRecordAssignedToUid(record: AssignableCrmRecord | null | undefined, uid: string): boolean {
   if (!record || !uid) return false
 
@@ -87,6 +101,8 @@ export function crmRecordAssignedToUid(record: AssignableCrmRecord | null | unde
   if (directValues.some((value) => stringValue(value) === uid)) return true
   if (normalizeAllowedUserIds(record.allowedUserIds).includes(uid)) return true
   if (normalizeAllowedUserIds(record.assignedUserIds).includes(uid)) return true
+  // First-class 'shared with me' path — explicit shares written by the share UI.
+  if (normalizeAllowedUserIds(record.sharedWithUserIds).includes(uid)) return true
 
   return false
 }
