@@ -820,7 +820,7 @@ async function buildAccessibilitySnapshot(entry: BrowserEntry): Promise<{
       const value = typeof node.value?.value === 'string' && node.value.value !== name ? node.value.value : ''
       const interesting = (AX_INTERESTING_ROLES.has(role) && (name || value || role === 'statictext'))
         || (role !== '' && name !== '')
-      if (interesting) {
+      if (interesting && refCounter < MAX_SNAPSHOT_REFS) {
         refCounter += 1
         const ref = `@e${refCounter}`
         refs[ref] = {
@@ -835,19 +835,19 @@ async function buildAccessibilitySnapshot(entry: BrowserEntry): Promise<{
         const indent = '  '.repeat(Math.min(depth, 4))
         lines.push(`${indent}[${ref}] ${label}${roleText}${nameText ? ` "${nameText}"` : ''}${valueText}`)
       }
-      if (lines.join('\n').length >= MAX_SNAPSHOT_AX_CHARS) return
+      if (lines.join('\n').length >= MAX_SNAPSHOT_AX_CHARS || refCounter >= MAX_SNAPSHOT_REFS) return
       if (node.childIds) {
         for (const childId of node.childIds.slice(0, 64)) {
           const child = byId.get(childId)
           if (child) visit(child, depth + 1)
-          if (lines.join('\n').length >= MAX_SNAPSHOT_AX_CHARS) return
+          if (lines.join('\n').length >= MAX_SNAPSHOT_AX_CHARS || refCounter >= MAX_SNAPSHOT_REFS) return
         }
       }
     }
     for (const node of nodes) {
       // Visit every top-level node (AX roots aren't strictly ordered).
       if (![...seenNodeIds].some((id) => id === `${sessionId}:${node.nodeId}`)) visit(node, 0)
-      if (lines.join('\n').length >= MAX_SNAPSHOT_AX_CHARS) break
+      if (lines.join('\n').length >= MAX_SNAPSHOT_AX_CHARS || refCounter >= MAX_SNAPSHOT_REFS) break
     }
   }
 
@@ -1200,7 +1200,7 @@ export function __resetWorkbenchBrowsersForTests(): void {
 
 export function linkedRuntimeWorkbenchBrowserClaimBody() {
   return {
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.25',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.26',
     workbenchBrowserSessionsProtocolVersion: 1 as const,
   }
 }

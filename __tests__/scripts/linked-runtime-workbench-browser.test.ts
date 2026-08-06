@@ -561,11 +561,47 @@ describe('linked-computer headless Chrome workbench browser runtime', () => {
     socket.axTree = hugeTree
     await runWorkbenchBrowserClaim(controlClaim({ kind: 'snapshot' }), registry(), post)
     const allSnapshotPosts = posts.filter(([endpoint, body]) => endpoint.endsWith('/progress') && (body.chunk as { stream?: string }).stream === 'snapshot')
-    const truncated = (allSnapshotPosts[allSnapshotPosts.length - 1][1].chunk as { snapshot: { ax: string } }).snapshot.ax
+    const truncatedChunk = allSnapshotPosts[allSnapshotPosts.length - 1][1].chunk as { snapshot: { ax: string; refs: Record<string, unknown> } }
+    const truncated = truncatedChunk.snapshot.ax
     expect(truncated).toMatch(/… truncated$/)
     expect(truncated.length).toBeGreaterThan(10_000)
     expect(truncated.length).toBeLessThan(12_100)
     expect(truncated).not.toContain('Item number 1200')
+    // The server validator rejects snapshots with more than MAX_SNAPSHOT_REFS
+    // (400) refs, so the ref map must be capped too — a dense page like the
+    // HN front page generates thousands of interesting AX nodes.
+    expect(Object.keys(truncatedChunk.snapshot.refs).length).toBeLessThanOrEqual(400)
+  })
+
+  it('caps the snapshot ref map at MAX_SNAPSHOT_REFS even when every node is interesting', async () => {
+    const { socket } = installFakeBrowser()
+    const posts: Array<[string, Record<string, unknown>]> = []
+    const post = jest.fn(async (endpoint: string, body: Record<string, unknown>) => {
+      posts.push([endpoint, body])
+      if (endpoint.endsWith('/frames')) {
+        return Response.json({ success: true, data: { imageUrl: `https://frames.example/${posts.length}.jpg`, contentType: 'image/jpeg' } })
+      }
+      return Response.json({ success: true, data: { accepted: true } })
+    })
+    // Short names keep each AX line small so the 12,000-char cap would allow
+    // far more than 400 refs — this is the HN-front-page shape that previously
+    // shipped a >400-ref snapshot and got rejected by the server validator.
+    socket.axTree = Array.from({ length: 1_200 }, (_, index) => ({
+      nodeId: `n${index + 1}`,
+      role: { value: 'link' },
+      name: { value: `L${index + 1}` },
+      backendDOMNodeId: 500 + index,
+      childIds: [],
+    }))
+    await runWorkbenchBrowserClaim(createClaim(), registry(), post)
+    await runWorkbenchBrowserClaim(controlClaim({ kind: 'snapshot' }), registry(), post)
+    const snapshotPosts = posts.filter(([endpoint, body]) => endpoint.endsWith('/progress') && (body.chunk as { stream?: string }).stream === 'snapshot')
+    const snapshot = (snapshotPosts[snapshotPosts.length - 1][1].chunk as { snapshot: { ax: string; refs: Record<string, unknown> } }).snapshot
+    expect(Object.keys(snapshot.refs).length).toBe(400)
+    expect(snapshot.refs['@e400']).toMatchObject({ role: 'link', name: 'L400' })
+    expect(snapshot.refs['@e401']).toBeUndefined()
+    expect(snapshot.ax).toContain('[@e400] link "L400"')
+    expect(snapshot.ax).not.toContain('[@e401]')
   })
 
   it('tracks native JS dialogs, includes them in snapshots, and answers them via Page.handleJavaScriptDialog', async () => {
