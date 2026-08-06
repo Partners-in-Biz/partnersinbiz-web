@@ -9,6 +9,10 @@ interface SettingsNavProps {
   email: string
   initials: string
   role: string | null
+  /** When true the member may see CRM configuration links (pipelines, scoring,
+   * products, automations, sequences, webhooks, custom fields, CRM setup).
+   * Owner/admin always pass true via their full-access policy. */
+  canAccessConfiguration?: boolean
   collapsed: boolean
 }
 
@@ -28,14 +32,14 @@ const WORKSPACE_LINKS = [
   { href: '/portal/settings/agents', label: 'Agents', icon: 'smart_toy', minRole: null },
   { href: '/portal/settings/team', label: 'Team', icon: 'group', minRole: 'admin' },
   { href: '/portal/communications', label: 'Communications', icon: 'forum', minRole: 'admin' },
-  { href: '/portal/settings/custom-fields', label: 'Custom fields', icon: 'tune', minRole: 'admin' },
-  { href: '/portal/settings/crm-setup', label: 'CRM setup', icon: 'rocket_launch', minRole: 'admin' },
-  { href: '/portal/settings/pipelines', label: 'Pipelines', icon: 'sync_alt', minRole: 'admin' },
-  { href: '/portal/settings/scoring', label: 'Scoring', icon: 'star_rate', minRole: 'admin' },
-  { href: '/portal/settings/products', label: 'Products', icon: 'inventory_2', minRole: 'admin' },
-  { href: '/portal/settings/automations', label: 'Automations', icon: 'bolt', minRole: 'admin' },
-  { href: '/portal/settings/sequences', label: 'Sequences', icon: 'route', minRole: 'admin' },
-  { href: '/portal/settings/webhooks', label: 'Webhooks', icon: 'webhook', minRole: 'admin' },
+  { href: '/portal/settings/custom-fields', label: 'Custom fields', icon: 'tune', configAccess: true },
+  { href: '/portal/settings/crm-setup', label: 'CRM setup', icon: 'rocket_launch', configAccess: true },
+  { href: '/portal/settings/pipelines', label: 'Pipelines', icon: 'sync_alt', configAccess: true },
+  { href: '/portal/settings/scoring', label: 'Scoring', icon: 'star_rate', configAccess: true },
+  { href: '/portal/settings/products', label: 'Products', icon: 'inventory_2', configAccess: true },
+  { href: '/portal/settings/automations', label: 'Automations', icon: 'bolt', configAccess: true },
+  { href: '/portal/settings/sequences', label: 'Sequences', icon: 'route', configAccess: true },
+  { href: '/portal/settings/webhooks', label: 'Webhooks', icon: 'webhook', configAccess: true },
   { href: '/portal/settings/llm-providers', label: 'LLM providers', icon: 'smart_toy', minRole: null },
   { href: '/portal/settings/api-keys', label: 'API keys', icon: 'key', minRole: 'admin' },
   { href: '/portal/settings/domain', label: 'Custom domain', icon: 'language', minRole: 'admin' },
@@ -53,12 +57,34 @@ function canSee(linkMinRole: string | null, userRole: string | null): boolean {
   return (ROLE_RANK[userRole] ?? 0) >= (ROLE_RANK[linkMinRole] ?? 0)
 }
 
-export function SettingsNav({ name, email, initials, role, collapsed }: SettingsNavProps) {
+type SettingsWorkspaceLink = {
+  href: string
+  label: string
+  icon: string
+  minRole?: string | null
+  configAccess?: boolean
+}
+
+export function SettingsNav({
+  name,
+  email,
+  initials,
+  role,
+  canAccessConfiguration = false,
+  collapsed,
+}: SettingsNavProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const routeScope = scopeFromSearchParams(searchParams)
-  const scopedWorkspaceLinks = WORKSPACE_LINKS
-    .filter((link) => canSee(link.minRole, role))
+  const scopedWorkspaceLinks = (WORKSPACE_LINKS as SettingsWorkspaceLink[])
+    .filter((link) => {
+      if (!canSee(link.minRole ?? null, role)) return false
+      // CRM configuration links require the dedicated configuration module
+      // grant; role alone is not enough for plain members. Owner/admin always
+      // pass because their policy resolves to full workspace access.
+      if (link.configAccess && !canAccessConfiguration && role !== 'owner' && role !== 'admin') return false
+      return true
+    })
     .map((link) => ({
       ...link,
       scopedHref: scopedPortalPath(link.href, routeScope),

@@ -34,6 +34,7 @@ describe('org member access policy', () => {
       'mobileApps',
       'youtubeStudio',
       'bookStudio',
+      'configuration',
     ])
   })
 

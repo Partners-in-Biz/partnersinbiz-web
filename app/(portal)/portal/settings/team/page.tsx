@@ -68,6 +68,7 @@ const MODULE_LABELS: Record<WorkspaceModuleKey, string> = {
   mobileApps: 'Mobile Apps',
   youtubeStudio: 'YouTube Studio',
   bookStudio: 'Book Studio',
+  configuration: 'Configuration',
 }
 
 function memberDisplayName(member: Pick<Member, 'uid' | 'firstName' | 'lastName'>) {

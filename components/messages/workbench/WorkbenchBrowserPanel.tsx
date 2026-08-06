@@ -1112,12 +1112,12 @@ export function WorkbenchBrowserPanel({
         ) : (
           <div data-testid="workbench-browser-empty-state" className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-[11px] text-[var(--color-pib-text-muted)]">
             <span aria-hidden="true" className="material-symbols-outlined text-[24px]">visibility_off</span>
-            <p>Nothing is loaded yet. Targets and screenshots never load automatically.</p>
+            <p>Nothing is loaded yet. Start a browser session — once it is running, its latest frame loads here automatically.</p>
             <ol className="w-full max-w-[260px] space-y-1.5 text-left text-[10px]">
               {[
-                { label: 'Open tunnel', hint: 'Publishes a local port so the preview iframe has a public URL.' },
+                { label: 'Open tunnel', hint: 'Only needed to preview a local app in the iframe — agent frames stream without it.' },
                 { label: 'Start browser', hint: 'Runs headless Chrome on your Mac after you approve it.' },
-                { label: 'Follow frames', hint: 'Streams the agent\u2019s frames here, and lets Design Mode drive clicks.' },
+                { label: 'Follow frames', hint: 'Starts automatically when the session is running — frames stream here live.' },
               ].map((step, index) => (
                 <li key={step.label} className="flex items-start gap-2 rounded-md border border-[var(--color-card-border)] bg-black/20 px-2 py-1.5">
                   <span aria-hidden="true" className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border border-primary/40 text-[8px] font-bold text-primary">{index + 1}</span>

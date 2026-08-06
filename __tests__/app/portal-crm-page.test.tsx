@@ -37,6 +37,35 @@ describe('Portal CRM hub', () => {
           }),
         } as Response)
       }
+      if (url === '/api/v1/portal/org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            user: {
+              accessPolicy: {
+                preset: 'full',
+                modules: {
+                  crm: true,
+                  projects: true,
+                  documents: true,
+                  marketing: true,
+                  messages: true,
+                  email: true,
+                  reports: true,
+                  research: true,
+                  properties: true,
+                  billing: true,
+                  mobileApps: true,
+                  youtubeStudio: true,
+                  bookStudio: true,
+                  configuration: true,
+                },
+                recordScopes: { crm: 'all', projects: 'all' },
+              },
+            },
+          }),
+        } as Response)
+      }
       return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     }) as jest.Mock
   })
