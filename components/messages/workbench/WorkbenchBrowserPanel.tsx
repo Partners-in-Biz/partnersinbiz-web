@@ -668,7 +668,7 @@ export function WorkbenchBrowserPanel({
             )}
             {userDriving && (
               <span data-testid="workbench-user-driving" className="ml-auto inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-400/[0.06] px-2 py-0.5 text-[9px] font-medium text-emerald-200">
-                You're driving
+                You&apos;re driving
               </span>
             )}
           </div>

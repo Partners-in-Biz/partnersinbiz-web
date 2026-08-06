@@ -215,7 +215,9 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
   // Keep focus in a ref so UnifiedChat's stable lifecycle callback always sees
   // the latest active tabs (mock/first-render handlers must not freeze focus).
   const focusedConversationIdsRef = useRef(focusedConversationIds)
-  focusedConversationIdsRef.current = focusedConversationIds
+  useEffect(() => {
+    focusedConversationIdsRef.current = focusedConversationIds
+  }, [focusedConversationIds])
 
   const handleConversationLifecycle = useCallback((event: ConversationLifecycleEvent) => {
     setTabActivityByConversationId((current) => applyConversationLifecycle(

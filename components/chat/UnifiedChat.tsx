@@ -3852,7 +3852,7 @@ export default function UnifiedChat({
       // The device posts the result as a progress chunk; poll the read side
       // until a fresh snapshot (seq advanced) lands or the session ends.
       const deadline = Date.now() + 20_000
-      let previousSeq = 0
+      const previousSeq = 0
       for (;;) {
         await new Promise((resolve) => setTimeout(resolve, 700))
         const result = await getWorkbenchBrowserSnapshot(activeId, workbenchBrowserSession.sessionId)
