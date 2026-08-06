@@ -18,6 +18,8 @@ export type SlashCommandId =
   | 'memory'
   | 'rollback'
   | 'personality'
+  | 'context'
+  | 'compress'
   | 'hermes-features'
   | 'help'
 
@@ -53,7 +55,7 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     token: '/use-current-page',
     label: 'Use current page',
     description: 'Attach the current admin/portal page as structured chat context.',
-    aliases: ['/page', '/context', '/attach-current-page'],
+    aliases: ['/page', '/attach-current-page'],
     icon: 'add_link',
     executorKind: 'context_attachment',
     requiresCurrentPage: true,
@@ -164,6 +166,24 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     description: 'List or apply Hermes SOUL personality presets for the active agent.',
     aliases: ['/soul'],
     icon: 'face',
+    executorKind: 'hermes_features',
+  },
+  {
+    id: 'context',
+    token: '/context',
+    label: 'Context usage',
+    description: 'Show what is consuming this conversation context window and how close it is to the history limit.',
+    aliases: ['/ctx'],
+    icon: 'speed',
+    executorKind: 'hermes_features',
+  },
+  {
+    id: 'compress',
+    token: '/compress',
+    label: 'Compress context',
+    description: 'Summarize older messages and keep the latest exchanges in full (/compress here 5, /compress focus <topic>).',
+    aliases: ['/compact'],
+    icon: 'compress',
     executorKind: 'hermes_features',
   },
   {
@@ -311,7 +331,8 @@ export function slashCommandInstruction(payload: SlashCommandPayload): string {
       : payload.executorKind === 'hermes_features'
         ? [
           'Hermes Features control plane (PiB adapter on /v1/runs):',
-          '- Prefer /toolsets, /memory, /rollback, /personality over free-form config edits.',
+          '- Prefer /toolsets, /memory, /rollback, /personality, /context, /compress over free-form config edits.',
+          '- /context shows what is consuming the context window; /compress here 5 or /compress focus <topic> shrinks it. For /compress, summarize the older-message block and reply with only the summary text.',
           '- Architecture remains Firestore + /v1/runs, not SessionDB slash.exec.',
         ]
         : []

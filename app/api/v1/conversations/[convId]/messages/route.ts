@@ -67,6 +67,12 @@ import {
 import { hermesFeaturesService } from '@/lib/hermes-features/service'
 import { councilModeGuidanceLines, getSlashCommandByToken, hermesFeaturesCommandLine, hermesGoalCommandLine, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
 import {
+  buildCompressionInputBlock,
+  buildCompressionTaskPromptBlock,
+  buildConversationHistoryBlock,
+  computeCompressionPlan,
+} from '@/lib/chat/context-compression'
+import {
   applyGoalControl,
   applySubgoalControl,
   buildHermesGoalWorkPrompt,
@@ -102,7 +108,7 @@ import {
 } from '@/lib/conversations/access'
 import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
 import type { AgentTeamDoc } from '@/lib/agents/types'
-import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
+import type { AgentId, Conversation, ConversationAttachment } from '@/lib/conversations/types'
 import { selectActiveProjectId } from '@/lib/projects/chatProgress'
 
 export const dynamic = 'force-dynamic'
@@ -348,46 +354,6 @@ function buildWorkspaceContext(conversation: Conversation): string {
     '',
     codeMap,
   ].filter(Boolean).join('\n')
-}
-
-function messageAuthorLabel(message: ConversationMessage): string {
-  if (message.authorDisplayName?.trim()) return message.authorDisplayName.trim()
-  if (message.authorId?.trim()) return message.authorId.trim()
-  return message.role
-}
-
-function normalizeHistoryContent(message: ConversationMessage): string {
-  const content = typeof message.content === 'string' ? message.content.trim() : ''
-  if (content) return content.replace(/\s+$/g, '')
-  if (message.error) return `[${message.status ?? 'failed'}: ${message.error}]`
-  if (message.attachments?.length) return `[attachments: ${message.attachments.map((attachment) => attachment.name).join(', ')}]`
-  return ''
-}
-
-function buildConversationHistoryBlock(messages: ConversationMessage[], currentMessageId: string): string {
-  const priorMessages = messages
-    .filter((message) => message.id !== currentMessageId)
-    .filter((message) => message.role === 'user' || message.role === 'assistant')
-    .map((message) => ({ message, content: normalizeHistoryContent(message) }))
-    .filter(({ content }) => content.length > 0)
-    .slice(-30)
-
-  if (priorMessages.length === 0) return ''
-
-  const lines = priorMessages.map(({ message, content }) => {
-    const label = message.role === 'assistant'
-      ? `${messageAuthorLabel(message)} (assistant)`
-      : `${messageAuthorLabel(message)} (user)`
-    const clipped = content.length > 2000 ? `${content.slice(0, 2000).trimEnd()}…` : content
-    return `${label}: ${clipped}`
-  })
-
-  return [
-    '[Recent conversation history — use this to preserve context and answer the latest user message as part of the ongoing thread]',
-    ...lines,
-    '---',
-    '',
-  ].join('\n')
 }
 
 function buildOrchestrationContext(conversation: Conversation, dispatchAgentId: AgentId): string {
@@ -943,7 +909,18 @@ export const POST = withAuth(
       : {}
 
     const recentMessages = await listMessages(convId, 200).catch(() => [message])
-    const conversationHistory = buildConversationHistoryBlock(recentMessages, message.id)
+    // /compress: plan where to cut (older messages → summary input; latest
+    // exchanges stay intact). A real compress falls through to dispatch; the
+    // run's reply is stored as durable conversation context compression.
+    const compressPlan = slashCommand?.id === 'compress'
+      ? computeCompressionPlan(recentMessages, message.id, slashCommand.args)
+      : null
+    const conversationHistory = compressPlan
+      ? buildCompressionInputBlock(recentMessages, message.id, compressPlan)
+      : buildConversationHistoryBlock(recentMessages, message.id, conversation.contextCompression ?? null)
+    const compressionTaskContext = compressPlan
+      ? buildCompressionTaskPromptBlock(compressPlan)
+      : ''
 
     // Phase 2: dispatch a Hermes run. Multi-agent conversations route via Pip.
     if (dispatchAgentId) {
@@ -972,6 +949,7 @@ export const POST = withAuth(
         dispatchAgentId: agentId,
         ...(agentEffort ? { agentEffort } : {}),
         approvalMode,
+        ...(compressPlan ? { contextCompressionPlan: compressPlan } : {}),
         ...(modelSelection?.model ? { model: modelSelection.model } : {}),
         ...(modelSelection?.provider ? { provider: modelSelection.provider } : {}),
         ...(modelSelection?.llmConnectionId ? { llmConnectionId: modelSelection.llmConnectionId } : {}),
@@ -1221,7 +1199,7 @@ export const POST = withAuth(
       const userTurnContent = hermesGoalWorkPrompt
         ? `${goalWorkContext}${content ? `User message:\n${content}` : ''}`.trim()
         : content
-      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + hermesFeaturesContext + decisionDataRuleContext + dynamicChatCanvasContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + userTurnContent + attachmentContext
+      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + hermesFeaturesContext + decisionDataRuleContext + dynamicChatCanvasContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + compressionTaskContext + userTurnContent + attachmentContext
       // VPS-hosted "linked computers" (hermes-vps-01) already expose Hermes
       // /v1/runs publicly. Prefer direct gateway dispatch so chat does not depend
       // on pib-runtime claim queues. Keep the claim queue for Mac/desktop runtimes.

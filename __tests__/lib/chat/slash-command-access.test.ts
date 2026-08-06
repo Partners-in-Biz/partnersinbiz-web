@@ -61,6 +61,21 @@ describe('slash-command-access', () => {
     expect(slashCommandAccessTier('toolsets')).toBe('operator_write')
     expect(slashCommandAccessTier('rollback')).toBe('operator_write')
     expect(slashCommandAccessTier('hermes-features')).toBe('operator_read')
+    expect(slashCommandAccessTier('context')).toBe('public')
+    expect(slashCommandAccessTier('compress')).toBe('dispatch')
+  })
+
+  it('exposes /context and /compress in the registry with distinct identities', () => {
+    const context = SLASH_COMMANDS.find((command) => command.id === 'context')
+    const compress = SLASH_COMMANDS.find((command) => command.id === 'compress')
+    const useCurrentPage = SLASH_COMMANDS.find((command) => command.id === 'use-current-page')
+    expect(context?.token).toBe('/context')
+    expect(context?.executorKind).toBe('hermes_features')
+    expect(compress?.token).toBe('/compress')
+    expect(compress?.executorKind).toBe('hermes_features')
+    // /context must resolve to the context command, not the use-current-page alias.
+    expect(useCurrentPage?.aliases).not.toContain('/context')
+    expect(SLASH_COMMANDS.filter((command) => command.token === '/context' || command.aliases.includes('/context'))).toHaveLength(1)
   })
 
   it('personal agent: only owner can operate runtime', () => {

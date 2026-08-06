@@ -8,6 +8,12 @@ import {
   createNodeWorkspaceFs,
   resolveWorkspaceRootFromConversation,
 } from './workspace-fs'
+import { getConversation, listMessages, convDoc } from '@/lib/conversations/conversations'
+import {
+  buildContextReport,
+  buildContextUsageSnapshot,
+  parseCompressArgs,
+} from '@/lib/chat/context-compression'
 
 export interface HermesFeaturesSlashResult {
   handled: boolean
@@ -304,6 +310,84 @@ export async function handlePersonalitySlash(input: {
   }
 }
 
+export async function handleContextSlash(input: {
+  orgId: string
+  agentId: string
+  conversationId: string
+}): Promise<HermesFeaturesSlashResult> {
+  const [conversation, messages] = await Promise.all([
+    getConversation(input.conversationId),
+    listMessages(input.conversationId, 200).catch(() => []),
+  ])
+  // Model selection is stored per-message; surface the latest message's
+  // selection (if any) instead of a conversation-level field.
+  const latestSelection = [...messages].reverse().find((message) => message.model || message.provider)
+  const snapshot = buildContextUsageSnapshot({
+    messages,
+    conversation: conversation
+      ? {
+          contextCompression: conversation.contextCompression ?? null,
+          model: latestSelection?.model ?? null,
+          provider: latestSelection?.provider ?? null,
+        }
+      : null,
+  })
+  return {
+    handled: true,
+    shouldDispatch: false,
+    reply: buildContextReport(snapshot),
+    data: snapshot,
+  }
+}
+
+export async function handleCompressControlSlash(input: {
+  orgId: string
+  conversationId: string
+  args: string
+}): Promise<HermesFeaturesSlashResult> {
+  const parsed = parseCompressArgs(input.args)
+  const conversation = await getConversation(input.conversationId)
+  const compression = conversation?.contextCompression ?? null
+
+  if (parsed.action === 'clear') {
+    await convDoc(input.conversationId).update({ contextCompression: null })
+    return {
+      handled: true,
+      shouldDispatch: false,
+      reply: 'Cleared the stored context compression for this conversation. The next dispatch uses the raw recent history again.',
+    }
+  }
+
+  // status / show
+  if (!compression) {
+    return {
+      handled: true,
+      shouldDispatch: false,
+      reply: [
+        '**Context compression**',
+        'No compression stored for this conversation yet.',
+        'Usage: `/compress` · `/compress here 5` (keep the latest 5 exchanges) · `/compress focus <topic>`',
+      ].join('\n'),
+    }
+  }
+
+  return {
+    handled: true,
+    shouldDispatch: false,
+    reply: [
+      '**Context compression (active)**',
+      `Summary: ${compression.summary.length} chars`,
+      `Compressed through message: ${compression.compressedThroughMessageId}`,
+      `Kept exchanges: ${compression.keepTurns}`,
+      compression.focusTopic ? `Focus topic: ${compression.focusTopic}` : '',
+      `Stored: ${compression.createdAt}${compression.runId ? ` (run ${compression.runId})` : ''}`,
+      '',
+      'Clear: `/compress clear` · Re-compress with a different window: `/compress here <N>` or `/compress focus <topic>`',
+    ].filter(Boolean).join('\n'),
+    data: compression,
+  }
+}
+
 export async function handleHermesFeaturesSlash(input: {
   orgId: string
   agentId: string
@@ -360,6 +444,19 @@ export async function tryHandleHermesFeaturesSlash(input: {
   }
   if (token === '/personality' || token === '/soul') {
     return handlePersonalitySlash(input)
+  }
+  if (token === '/context' || token === '/ctx') {
+    return handleContextSlash(input)
+  }
+  if (token === '/compress' || token === '/compact') {
+    // status/show/clear complete synchronously; a real /compress (or
+    // /compress here N / focus <topic>) dispatches a Hermes run via the
+    // messages route, so it is intentionally NOT handled here.
+    const parsed = parseCompressArgs(input.args)
+    if (parsed.action === 'status' || parsed.action === 'clear') {
+      return handleCompressControlSlash(input)
+    }
+    return null
   }
   if (token === '/hermes-features' || token === '/hermes-features-status') {
     return handleHermesFeaturesSlash(input)
