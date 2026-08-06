@@ -380,6 +380,8 @@ export default function PortalDashboard() {
   const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const [portalOrg, setPortalOrg] = useState<PortalOrg | null>(null)
   const [portalOrgLoaded, setPortalOrgLoaded] = useState(false)
+  const [memberRole, setMemberRole] = useState<string | null>(null)
+  const [portalUserRole, setPortalUserRole] = useState<string | null>(null)
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [projects, setProjects] = useState<Project[]>([])
@@ -412,7 +414,11 @@ export default function PortalDashboard() {
   useEffect(() => {
     fetch(scopedApi('/api/v1/portal/org'))
       .then((r) => (r.ok ? r.json() : null))
-      .then((body) => setPortalOrg(body?.org ?? null))
+      .then((body) => {
+        setPortalOrg(body?.org ?? null)
+        setMemberRole(typeof body?.user?.memberRole === 'string' ? body.user.memberRole : null)
+        setPortalUserRole(typeof body?.user?.role === 'string' ? body.user.role : null)
+      })
       .catch(() => setPortalOrg(null))
       .finally(() => setPortalOrgLoaded(true))
   }, [scopedApi])
@@ -528,11 +534,13 @@ export default function PortalDashboard() {
         </div>
       </div>
 
-      <OnboardingChecklist
-        scopedHref={scopedHref}
-        scopedApi={scopedApi}
-        initialDone={data?.summary?.onboarding ?? undefined}
-      />
+      {memberRole === 'owner' || memberRole === 'admin' || (memberRole == null && portalUserRole === 'admin') ? (
+        <OnboardingChecklist
+          scopedHref={scopedHref}
+          scopedApi={scopedApi}
+          initialDone={data?.summary?.onboarding ?? undefined}
+        />
+      ) : null}
 
       <section className="space-y-4">
         <PageHeader

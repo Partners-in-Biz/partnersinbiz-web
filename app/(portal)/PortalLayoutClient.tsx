@@ -374,6 +374,33 @@ function buildCrmSubnavItems(buildHref: (path: string) => string): PortalSubnavI
   ]
 }
 
+function filterSubnavByAccess(
+  items: PortalSubnavItem[],
+  access: {
+    memberAccessPolicy: MemberAccessPolicy
+    modulePolicies: OrganizationModulePolicies
+    role: string
+  },
+): PortalSubnavItem[] {
+  const { memberAccessPolicy, modulePolicies, role } = access
+  const canSeeHref = (href: string) => {
+    const hrefPath = href.split('?')[0] ?? href
+    const moduleKey = NAV_MODULES[hrefPath]
+    if (!moduleKey) return true
+    if (!canAccessModule(memberAccessPolicy, moduleKey)) return false
+    if (isOrganizationModulePolicyKey(moduleKey) && !canRoleUseModule(modulePolicies, moduleKey, role)) return false
+    return true
+  }
+  return items
+    .map((item): PortalSubnavItem | null => {
+      const children = item.children ? item.children.filter((child) => canSeeHref(child.href)) : undefined
+      const visible = canSeeHref(item.href)
+      if (!visible && (!children || children.length === 0)) return null
+      return { ...item, children }
+    })
+    .filter((item): item is PortalSubnavItem => item !== null)
+}
+
 function buildMarketingSubnavItems(config: {
   orgId?: string
   orgSlug?: string
@@ -766,6 +793,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     if (moduleKey && !canAccessModule(memberAccessPolicy, moduleKey)) return false
     if (isOrganizationModulePolicyKey(moduleKey) && !canRoleUseModule(modulePolicies, moduleKey, memberRole || userRole)) return false
     if (item.href === '/portal/settings/team' && !canManageTeamSettings) return false
+    // Wiki holds workspace knowledge notes and agent activity logs — owner/admin only.
+    if (item.href === '/portal/wiki' && !canManageTeamSettings) return false
     if (item.href === '/portal/mobile-apps') return portalModules.mobileApps
     if (item.href === '/portal/youtube-studio') return portalModules.youtubeStudio
     if (item.href === '/portal/book-studio') return portalModules.bookStudio
@@ -811,13 +840,14 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     searchParams,
     orgId: activeOrgId,
   })
-  const crmSubnavItems = buildCrmSubnavItems(scopedShellHref)
-  const marketingSubnavItems = buildMarketingSubnavItems({
+  const subnavAccess = { memberAccessPolicy, modulePolicies, role: memberRole || userRole }
+  const crmSubnavItems = filterSubnavByAccess(buildCrmSubnavItems(scopedShellHref), subnavAccess)
+  const marketingSubnavItems = filterSubnavByAccess(buildMarketingSubnavItems({
     orgId: requestedOrgId,
     orgSlug: requestedOrgSlug || activeOrgSlug,
     sourceCompanyId: requestedSourceCompanyId,
     sourceCompanyName: requestedSourceCompanyName,
-  }, scopedShellHref)
+  }, scopedShellHref), subnavAccess)
   const personalSubnavItems = buildPersonalSubnavItems()
   const showPersonalSubnav = PERSONAL_ROUTE_PATTERNS.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/'))
   const showCrmSubnav = CRM_ROUTE_PATTERNS.some((pattern) => pathname === pattern || pathname.startsWith(pattern + '/'))
