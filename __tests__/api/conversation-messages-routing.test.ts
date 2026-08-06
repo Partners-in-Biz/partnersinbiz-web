@@ -34,6 +34,7 @@ const mockCallAgentPath = jest.fn()
 const mockValidateMessageModelSelection = jest.fn()
 const mockRequireReadyLlmCredentialBinding = jest.fn()
 const mockResolveLlmCredentialRuntimeTarget = jest.fn()
+const mockEnsureFreshXaiCredentialForDispatch = jest.fn()
 const mockParseMentions = jest.fn()
 const mockNotifyMentions = jest.fn()
 const mockNotifyConversationMentions = jest.fn()
@@ -89,6 +90,9 @@ jest.mock('@/lib/llm-providers/bindings', () => ({
 }))
 jest.mock('@/lib/llm-providers/sync-targets', () => ({
   resolveLlmCredentialRuntimeTarget: (...args: unknown[]) => mockResolveLlmCredentialRuntimeTarget(...args),
+}))
+jest.mock('@/lib/llm-providers/sync-hermes', () => ({
+  ensureFreshXaiCredentialForDispatch: (...args: unknown[]) => mockEnsureFreshXaiCredentialForDispatch(...args),
 }))
 jest.mock('@/lib/comments/mentions', () => ({
   parseMentions: (...args: unknown[]) => mockParseMentions(...args),
@@ -181,6 +185,7 @@ beforeEach(() => {
   organizationMembers = [{ userId: 'client-1', role: 'member' }]
   mockMintMessagesDispatchDelegation.mockResolvedValue(null)
   mockRequireReadyLlmCredentialBinding.mockResolvedValue({ id: 'binding-test' })
+  mockEnsureFreshXaiCredentialForDispatch.mockResolvedValue({ refreshed: false })
   mockResolveLlmCredentialRuntimeTarget.mockImplementation(async (input: { runtimeTargetId?: string }) => ({
     runtimeTargetId: input.runtimeTargetId || 'vps',
     deviceId: null,
