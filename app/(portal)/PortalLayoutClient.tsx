@@ -166,6 +166,17 @@ const NAV_MODULES: Partial<Record<string, WorkspaceModuleKey>> = {
   '/portal/finance': 'billing',
   '/portal/invoicing': 'billing',
   '/portal/billing': 'billing',
+  // CRM configuration pages are gated by the dedicated configuration module so
+  // members never see pipelines/scoring/products/automation setup unless the
+  // owner explicitly grants them.
+  '/portal/settings/crm-setup': 'configuration',
+  '/portal/settings/pipelines': 'configuration',
+  '/portal/settings/custom-fields': 'configuration',
+  '/portal/settings/scoring': 'configuration',
+  '/portal/settings/products': 'configuration',
+  '/portal/settings/automations': 'configuration',
+  '/portal/settings/sequences': 'configuration',
+  '/portal/settings/webhooks': 'configuration',
 }
 
 const GROUP_LABELS: Record<NavItem['group'], string> = {
@@ -1223,6 +1234,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
             email={email}
             initials={initials}
             role={memberRole}
+            canAccessConfiguration={canAccessModule(memberAccessPolicy, 'configuration')}
             collapsed={collapsed}
           />
         ) : (

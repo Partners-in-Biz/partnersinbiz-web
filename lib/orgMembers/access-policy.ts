@@ -20,6 +20,7 @@ export const WORKSPACE_MODULE_KEYS = [
   'mobileApps',
   'youtubeStudio',
   'bookStudio',
+  'configuration',
 ] as const
 
 export type WorkspaceModuleKey = (typeof WORKSPACE_MODULE_KEYS)[number]
@@ -123,6 +124,7 @@ const MODULE_LABELS: Record<WorkspaceModuleKey, string> = {
   mobileApps: 'Mobile Apps',
   youtubeStudio: 'YouTube Studio',
   bookStudio: 'Book Studio',
+  configuration: 'Configuration',
 }
 
 function moduleFlags(value: boolean): Record<WorkspaceModuleKey, boolean> {

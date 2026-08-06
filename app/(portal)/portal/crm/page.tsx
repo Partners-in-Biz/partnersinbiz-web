@@ -12,6 +12,7 @@ import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 import { StatCard } from '@/components/ui/StatCard'
 import type { HubSection } from '@/components/navigation/HubPage'
 import type { Deal } from '@/lib/crm/types'
+import { canAccessModule, normalizeMemberAccessPolicy, type MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
 type CrmDashboard = {
@@ -458,9 +459,22 @@ export default function PortalCrmPage() {
   const [dashboard, setDashboard] = useState<CrmDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [memberPolicy, setMemberPolicy] = useState<MemberAccessPolicy | null>(null)
   const routeScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
   const crmApiPath = useCallback((path: string) => scopedApiPath(path, routeScope), [routeScope])
   const crmPortalPath = useCallback((path: string) => scopedPortalPath(path, routeScope), [routeScope])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(crmApiPath('/api/v1/portal/org'))
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (cancelled) return
+        if (body?.user?.accessPolicy) setMemberPolicy(normalizeMemberAccessPolicy(body.user.accessPolicy))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [crmApiPath])
 
   useEffect(() => {
     let cancelled = false
@@ -798,7 +812,12 @@ export default function PortalCrmPage() {
         </Surface>
       </section>
 
-      {SECTIONS.map((section) => (
+      {SECTIONS
+        .filter((section) => (
+          section.title !== 'Configuration'
+          || canAccessModule(memberPolicy, 'configuration')
+        ))
+        .map((section) => (
         <Surface
           key={section.title}
           variant="list"
