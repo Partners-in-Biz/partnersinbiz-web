@@ -404,6 +404,53 @@ describe('HermesMessagesShell', () => {
     // After opening, activity chrome is cleared (active tab never shows it).
     expect(screen.getByTestId('workspace-tab-conv-1')).not.toHaveAttribute('data-tab-activity')
   })
+
+  it('checks a running background tab only when the realtime gateway invalidates it', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { messages: [{ role: 'assistant', runId: 'run-1', status: 'completed' }] } }),
+    } as Response)
+    try {
+      render(
+        <HermesMessagesShell
+          surface="portal"
+          orgId="org-1"
+          currentUserUid="user-1"
+          currentUserDisplayName="Peet"
+          initialConvId="conv-1"
+          capabilities={{ allowStartConversations: true, allowSendMessages: true, allowAgentParticipants: true, allowArchiveConversations: true }}
+        />,
+      )
+      const open = mockUnifiedChat.mock.calls.at(-1)?.[0]?.onActiveConversationChange as
+        | ((conversationId: string | null) => void)
+        | undefined
+      const lifecycle = mockUnifiedChat.mock.calls.at(-1)?.[0]?.onConversationLifecycle as
+        | ((event: { conversationId: string; phase: 'running' | 'completed' | 'idle' }) => void)
+        | undefined
+      act(() => {
+        open?.('conv-2')
+        lifecycle?.({ conversationId: 'conv-1', phase: 'running' })
+      })
+      await screen.findByTestId('workspace-tab-conv-1')
+
+      const connectionChange = mockUnifiedChat.mock.calls.at(-1)?.[0]?.onRealtimeGatewayConnectionChange as
+        | ((clientId: string, ready: boolean) => void)
+        | undefined
+      const invalidate = mockUnifiedChat.mock.calls.at(-1)?.[0]?.onConversationRealtimeInvalidation as
+        | ((event: { conversationId: string; eventId: string }) => void)
+        | undefined
+      act(() => connectionChange?.('gateway-client-1', true))
+      act(() => invalidate?.({ conversationId: 'conv-1', eventId: 'evt:v1:conv-1:2' }))
+
+      await waitFor(() => expect(fetchSpy).toHaveBeenCalledWith(
+        '/api/v1/conversations/conv-1/messages?limit=20',
+        { cache: 'no-store' },
+      ))
+      await waitFor(() => expect(screen.getByTestId('workspace-tab-conv-1')).toHaveAttribute('data-tab-activity', 'unread'))
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
 })
 
 describe('MessagesWorkspace', () => {

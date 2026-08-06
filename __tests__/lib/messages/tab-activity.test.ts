@@ -4,9 +4,15 @@ import {
   messageIndicatesInFlightRun,
   messagesIndicateInFlightRun,
   nextTabActivity,
+  shouldUseBackgroundRunPolling,
 } from '@/lib/messages/tab-activity'
 
 describe('tab activity state machine', () => {
+  it('uses the polling fallback only while the realtime gateway is unavailable', () => {
+    expect(shouldUseBackgroundRunPolling(false)).toBe(true)
+    expect(shouldUseBackgroundRunPolling(true)).toBe(false)
+  })
+
   it('keeps running while focused so background pulse works after leave', () => {
     expect(nextTabActivity(undefined, 'running', true)).toBe('running')
     expect(nextTabActivity('running', 'running', false)).toBe('running')

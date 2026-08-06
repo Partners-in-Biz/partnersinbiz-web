@@ -117,5 +117,6 @@ describe('conversation presence helpers', () => {
       actorUid: 'user-1',
       state: 'typing',
     })
+    expect(mockGet).not.toHaveBeenCalled()
   })
 })

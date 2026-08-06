@@ -15,22 +15,25 @@ const REALTIME_PUBSUB_TOPIC = process.env.REALTIME_PUBSUB_TOPIC || "pib-realtime
 type RealtimeOutboxDocument = {
   schemaVersion?: unknown;
   eventId?: unknown;
+  conversationId?: unknown;
   recipientUserIds?: unknown;
 };
 
 function realtimeGatewayDelivery(document: RealtimeOutboxDocument): {
   schemaVersion: number;
   eventId: string;
+  conversationId: string;
   recipientUserIds: string[];
 } | null {
   const eventId = typeof document.eventId === "string" ? document.eventId.trim() : "";
-  if (document.schemaVersion !== REALTIME_EVENT_SCHEMA_VERSION || !eventId) return null;
+  const conversationId = typeof document.conversationId === "string" ? document.conversationId.trim() : "";
+  if (document.schemaVersion !== REALTIME_EVENT_SCHEMA_VERSION || !eventId || !conversationId) return null;
   const recipientUserIds = Array.isArray(document.recipientUserIds)
     ? Array.from(new Set(document.recipientUserIds.filter(
       (uid): uid is string => typeof uid === "string" && uid.trim().length > 0,
     ))).sort()
     : [];
-  return { schemaVersion: REALTIME_EVENT_SCHEMA_VERSION, eventId, recipientUserIds };
+  return { schemaVersion: REALTIME_EVENT_SCHEMA_VERSION, eventId, conversationId, recipientUserIds };
 }
 
 /**

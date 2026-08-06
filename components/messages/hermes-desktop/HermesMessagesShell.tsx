@@ -17,6 +17,7 @@ import {
   applyConversationLifecycle,
   clearTabActivity,
   messagesIndicateInFlightRun,
+  shouldUseBackgroundRunPolling,
   type ConversationLifecycleEvent,
   type TabActivityPhase,
 } from '@/lib/messages/tab-activity'
@@ -178,6 +179,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
   const [renameTabValue, setRenameTabValue] = useState('')
   /** Background-tab attention: pulse while running, underline until opened. */
   const [tabActivityByConversationId, setTabActivityByConversationId] = useState<Record<string, TabActivityPhase>>({})
+  const [realtimeGatewayClientIds, setRealtimeGatewayClientIds] = useState<Set<string>>(() => new Set())
   const [tabTransfer, setTabTransfer] = useState<TabTransfer | null>(null)
   const [resumedTabId, setResumedTabId] = useState<string | null>(null)
   const renameTabCancelledRef = useRef(false)
@@ -222,6 +224,49 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
       focusedConversationIdsRef.current,
     ))
   }, [])
+
+  const checkBackgroundConversationRun = useCallback(async (conversationId: string) => {
+    if (focusedConversationIdsRef.current.has(conversationId)) return
+    try {
+      const response = await fetch(
+        `/api/v1/conversations/${encodeURIComponent(conversationId)}/messages?limit=20`,
+        { cache: 'no-store' },
+      )
+      if (!response.ok) return
+      const body = await response.json().catch(() => null) as {
+        data?: Array<{ role?: string; runId?: string | null; status?: string | null }>
+          | { messages?: Array<{ role?: string; runId?: string | null; status?: string | null }> }
+        messages?: Array<{ role?: string; runId?: string | null; status?: string | null }>
+      } | null
+      const raw = body?.data
+      const messages = Array.isArray(raw)
+        ? raw
+        : (raw && typeof raw === 'object' && Array.isArray(raw.messages) ? raw.messages : (body?.messages ?? []))
+      if (messagesIndicateInFlightRun(messages)) return
+      setTabActivityByConversationId((current) => applyConversationLifecycle(
+        current,
+        { conversationId, phase: 'completed' },
+        focusedConversationIdsRef.current,
+      ))
+    } catch {
+      // Network blips must not clear activity; the gateway or fallback retries.
+    }
+  }, [])
+
+  const handleRealtimeGatewayConnectionChange = useCallback((clientId: string, ready: boolean) => {
+    setRealtimeGatewayClientIds((current) => {
+      const next = new Set(current)
+      if (ready) next.add(clientId)
+      else next.delete(clientId)
+      return next
+    })
+  }, [])
+
+  const handleConversationRealtimeInvalidation = useCallback((event: { conversationId: string }) => {
+    if (tabActivityByConversationId[event.conversationId] === 'running') {
+      void checkBackgroundConversationRun(event.conversationId)
+    }
+  }, [checkBackgroundConversationRun, tabActivityByConversationId])
 
   const openConversation = useCallback((paneId: string, conversationId: string | null) => {
     if (!conversationId) return
@@ -439,8 +484,11 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
   const focusedPane = panes.find((pane) => pane.id === focusedPaneId) ?? panes[0]
   const focusedTabTitle = focusedPane?.tabs.find((tab) => tab.id === focusedPane.activeTabId)?.title ?? 'No session'
 
-  // Poll background tabs still marked running so we can flip to unread when the agent finishes.
+  // The GCP gateway invalidates a running background tab when it changes. Keep
+  // a deliberately slower polling path only while every gateway connection is
+  // unavailable, so a gateway outage cannot leave a tab stuck as running.
   useEffect(() => {
+    if (!shouldUseBackgroundRunPolling(realtimeGatewayClientIds.size > 0)) return undefined
     const runningIds = Object.entries(tabActivityByConversationId)
       .filter(([, phase]) => phase === 'running')
       .map(([conversationId]) => conversationId)
@@ -450,42 +498,17 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     let cancelled = false
     const check = async () => {
       await Promise.all(runningIds.map(async (conversationId) => {
-        try {
-          const response = await fetch(
-            `/api/v1/conversations/${encodeURIComponent(conversationId)}/messages?limit=20`,
-            { cache: 'no-store' },
-          )
-          if (!response.ok || cancelled) return
-          const body = await response.json().catch(() => null) as {
-            data?: Array<{ role?: string; runId?: string | null; status?: string | null }>
-              | { messages?: Array<{ role?: string; runId?: string | null; status?: string | null }> }
-            messages?: Array<{ role?: string; runId?: string | null; status?: string | null }>
-          } | null
-          const raw = body?.data
-          const messages = Array.isArray(raw)
-            ? raw
-            : (raw && typeof raw === 'object' && Array.isArray(raw.messages) ? raw.messages : (body?.messages ?? []))
-          if (cancelled) return
-          if (!messagesIndicateInFlightRun(messages)) {
-            setTabActivityByConversationId((current) => applyConversationLifecycle(
-              current,
-              { conversationId, phase: 'completed' },
-              focusedConversationIds,
-            ))
-          }
-        } catch {
-          // Network blips must not clear activity; next poll retries.
-        }
+        if (!cancelled) await checkBackgroundConversationRun(conversationId)
       }))
     }
 
     void check()
-    const timer = window.setInterval(() => { void check() }, 4_000)
+    const timer = window.setInterval(() => { void check() }, 15_000)
     return () => {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [focusedConversationIds, tabActivityByConversationId])
+  }, [checkBackgroundConversationRun, realtimeGatewayClientIds, tabActivityByConversationId])
 
   return (
     <ModuleShell
@@ -683,6 +706,8 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                       activeConversationId={activeTab?.kind === 'conversation' ? activeTab.conversationId : null}
                       onActiveConversationChange={(conversationId) => openConversation(pane.id, conversationId)}
                       onConversationLifecycle={handleConversationLifecycle}
+                      onRealtimeGatewayConnectionChange={handleRealtimeGatewayConnectionChange}
+                      onConversationRealtimeInvalidation={handleConversationRealtimeInvalidation}
                       onConversationsChange={paneIndex === 0 ? handleConversationCatalogue : undefined}
                       syncedConversationTitles={conversationTitles}
                       showConversationList={paneIndex === 0}

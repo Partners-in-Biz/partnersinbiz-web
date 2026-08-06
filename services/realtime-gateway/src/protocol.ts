@@ -3,6 +3,7 @@ export const REALTIME_PROTOCOL_VERSION = 1 as const
 export type GatewayDelivery = {
   schemaVersion: typeof REALTIME_PROTOCOL_VERSION
   eventId: string
+  conversationId: string
   recipientUserIds: string[]
 }
 
@@ -18,11 +19,13 @@ export function parseGatewayDelivery(value: unknown): GatewayDelivery | null {
   if (raw.schemaVersion !== REALTIME_PROTOCOL_VERSION) return null
   const eventId = typeof raw.eventId === 'string' ? raw.eventId.trim() : ''
   if (!eventId || eventId.length > 512) return null
+  const conversationId = typeof raw.conversationId === 'string' ? raw.conversationId.trim() : ''
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(conversationId)) return null
   if (!Array.isArray(raw.recipientUserIds) || raw.recipientUserIds.length > 500) return null
   const recipientUserIds = Array.from(new Set(raw.recipientUserIds.filter(
     (uid): uid is string => typeof uid === 'string' && uid.trim().length > 0 && uid.length <= 256,
   ))).sort()
-  return { schemaVersion: REALTIME_PROTOCOL_VERSION, eventId, recipientUserIds }
+  return { schemaVersion: REALTIME_PROTOCOL_VERSION, eventId, conversationId, recipientUserIds }
 }
 
 export function parsePubSubPush(body: unknown): GatewayDelivery | null {

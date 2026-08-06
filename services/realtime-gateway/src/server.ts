@@ -62,12 +62,14 @@ function detachSocket(socket: WebSocket) {
 }
 
 function broadcastDelivery(delivery: GatewayDelivery) {
-  // This is intentionally opaque. Conversation IDs, org IDs, message bodies,
-  // run IDs, and raw Hermes/Firestore fields never leave the gateway.
+  // This carries only a safe opaque ID. The browser uses it to call its
+  // canonical, permission-checked conversation API; no content, organisation,
+  // runtime, or Hermes data leaves the gateway.
   const frame = JSON.stringify({
     type: 'invalidate',
     schemaVersion: REALTIME_PROTOCOL_VERSION,
     eventId: delivery.eventId,
+    conversationId: delivery.conversationId,
   })
   for (const uid of delivery.recipientUserIds) {
     for (const socket of socketsByUser.get(uid) ?? []) {

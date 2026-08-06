@@ -16,6 +16,14 @@ export type ConversationLifecycleEvent = {
 }
 
 /**
+ * The gateway supplies an invalidation exactly when a background run changes.
+ * Keep the old timer only as a resilience path while that connection is down.
+ */
+export function shouldUseBackgroundRunPolling(realtimeGatewayReady: boolean): boolean {
+  return !realtimeGatewayReady
+}
+
+/**
  * Pure state transition for one conversation tab.
  *
  * Running is retained even while focused so leaving mid-turn still pulses the

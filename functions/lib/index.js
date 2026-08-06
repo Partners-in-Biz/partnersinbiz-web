@@ -47,12 +47,13 @@ const REALTIME_EVENT_SCHEMA_VERSION = 1;
 const REALTIME_PUBSUB_TOPIC = process.env.REALTIME_PUBSUB_TOPIC || "pib-realtime-events-v1";
 function realtimeGatewayDelivery(document) {
     const eventId = typeof document.eventId === "string" ? document.eventId.trim() : "";
-    if (document.schemaVersion !== REALTIME_EVENT_SCHEMA_VERSION || !eventId)
+    const conversationId = typeof document.conversationId === "string" ? document.conversationId.trim() : "";
+    if (document.schemaVersion !== REALTIME_EVENT_SCHEMA_VERSION || !eventId || !conversationId)
         return null;
     const recipientUserIds = Array.isArray(document.recipientUserIds)
         ? Array.from(new Set(document.recipientUserIds.filter((uid) => typeof uid === "string" && uid.trim().length > 0))).sort()
         : [];
-    return { schemaVersion: REALTIME_EVENT_SCHEMA_VERSION, eventId, recipientUserIds };
+    return { schemaVersion: REALTIME_EVENT_SCHEMA_VERSION, eventId, conversationId, recipientUserIds };
 }
 /**
  * Publishes the transactional conversation outbox to Pub/Sub. This is the only

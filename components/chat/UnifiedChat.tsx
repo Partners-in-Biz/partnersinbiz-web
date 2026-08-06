@@ -22,6 +22,11 @@ import {
   formatConversationPresenceLine,
   type ConversationPresence,
 } from '@/lib/conversations/presence-shared'
+import {
+  planConversationRealtimeRefresh,
+  shouldUseConversationLiveFallback,
+  type ConversationRealtimeInvalidation,
+} from '@/lib/conversations/realtime-invalidation'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import { WORKFORCE_BLUEPRINT_OPTIONS } from '@/lib/agents/role-blueprints'
@@ -233,6 +238,10 @@ export interface UnifiedChatProps {
     conversationId: string
     phase: 'running' | 'completed' | 'idle'
   }) => void
+  /** Reports whether one chat surface is connected to the optional GCP invalidation gateway. */
+  onRealtimeGatewayConnectionChange?: (clientId: string, ready: boolean) => void
+  /** Lets the Hermes tab shell refresh a running background tab only on an actual invalidation. */
+  onConversationRealtimeInvalidation?: (invalidation: ConversationRealtimeInvalidation) => void
   /** Title map from the Hermes tab strip so shell renames stay in sync with chat. */
   syncedConversationTitles?: Record<string, string>
   /** A secondary pane reuses the chat surface without duplicating the session rail. */
@@ -1305,6 +1314,8 @@ export default function UnifiedChat({
   onActiveConversationChange,
   onConversationsChange,
   onConversationLifecycle,
+  onRealtimeGatewayConnectionChange,
+  onConversationRealtimeInvalidation,
   syncedConversationTitles,
   showConversationList = true,
   conversationRailMode = 'expanded',
@@ -1313,6 +1324,7 @@ export default function UnifiedChat({
   showAgentWorkbench = false,
 }: UnifiedChatProps) {
   // ── State ─────────────────────────────────────────────────────────────────
+  const realtimeGatewayClientId = useId()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [conversationsHydrated, setConversationsHydrated] = useState(false)
   const [uncontrolledActiveId, setUncontrolledActiveId] = useState<string | null>(null)
@@ -1533,6 +1545,7 @@ export default function UnifiedChat({
   const [mentionAgentsStatus, setMentionAgentsStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
   const [mentionAgentsEmptyReason, setMentionAgentsEmptyReason] = useState<string | null>(null)
   const [conversationLiveConnected, setConversationLiveConnected] = useState(false)
+  const [conversationRealtimeGatewayReady, setConversationRealtimeGatewayReady] = useState(false)
   const [conversationPageVisible, setConversationPageVisible] = useState(true)
   const [threadPresence, setThreadPresence] = useState<ConversationPresence[]>([])
   const presenceTypingRef = useRef(false)
@@ -1924,6 +1937,10 @@ export default function UnifiedChat({
   const inFlightByConversationRef = useRef<Record<string, boolean>>({})
   const onConversationLifecycleRef = useRef(onConversationLifecycle)
   onConversationLifecycleRef.current = onConversationLifecycle
+  const onRealtimeGatewayConnectionChangeRef = useRef(onRealtimeGatewayConnectionChange)
+  onRealtimeGatewayConnectionChangeRef.current = onRealtimeGatewayConnectionChange
+  const onConversationRealtimeInvalidationRef = useRef(onConversationRealtimeInvalidation)
+  onConversationRealtimeInvalidationRef.current = onConversationRealtimeInvalidation
   useEffect(() => {
     if (!activeId) return
     const wasInFlight = inFlightByConversationRef.current[activeId] === true
@@ -4265,13 +4282,33 @@ export default function UnifiedChat({
     }
   }, [])
 
-  // The realtime connection must not be recreated when the canonical loaders
-  // receive fresh callback identities during normal chat state updates. Keep
-  // their latest implementations available for the eventual `enabled` refresh
-  // path without putting them in the socket effect dependency array.
-  const loadConversationsRef = useRef(loadConversations)
+  const refreshConversation = useCallback(async (conversationId: string) => {
+    try {
+      const response = await fetch(`/api/v1/conversations/${encodeURIComponent(conversationId)}`)
+      if (!response.ok) {
+        if (response.status === 403 || response.status === 404) {
+          setConversations((current) => current.filter((conversation) => conversation.id !== conversationId))
+        }
+        return
+      }
+      const body = await response.json()
+      const conversation = body.data?.conversation as Conversation | undefined
+      if (!conversation || conversation.id !== conversationId) return
+      setConversations((current) => {
+        const existing = current.find((item) => item.id === conversation.id)
+        if (!existing) return [conversation, ...current]
+        return [conversation, ...current.filter((item) => item.id !== conversation.id)]
+      })
+    } catch {
+      // The next invalidation or fallback connection will retry safely.
+    }
+  }, [])
+
+  // The realtime connection must not be recreated when its targeted loaders
+  // receive fresh callback identities during normal chat state updates.
+  const refreshConversationRef = useRef(refreshConversation)
   const loadMessagesRef = useRef(loadMessages)
-  loadConversationsRef.current = loadConversations
+  refreshConversationRef.current = refreshConversation
   loadMessagesRef.current = loadMessages
 
   // ── Effects ───────────────────────────────────────────────────────────────
@@ -4358,7 +4395,11 @@ export default function UnifiedChat({
   // including conversations another member creates while this screen is open.
   // EventSource reconnects automatically after the bounded server stream ends.
   useEffect(() => {
-    if (!conversationPageVisible) {
+    if (!shouldUseConversationLiveFallback({
+      pageVisible: conversationPageVisible,
+      transport: CONVERSATION_REALTIME_TRANSPORT,
+      gatewayReady: conversationRealtimeGatewayReady,
+    })) {
       setConversationLiveConnected(false)
       return
     }
@@ -4426,7 +4467,7 @@ export default function UnifiedChat({
       source.close()
       setConversationLiveConnected(false)
     }
-  }, [activeId, conversationPageVisible, listQuery])
+  }, [activeId, conversationPageVisible, conversationRealtimeGatewayReady, listQuery])
 
   // The GCP gateway is an optional, read-only invalidation transport. It does
   // not carry conversation data; every refresh still goes through the existing
@@ -4440,21 +4481,39 @@ export default function UnifiedChat({
       || (mode !== 'shadow' && mode !== 'enabled')
       || typeof window === 'undefined'
       || typeof window.WebSocket !== 'function'
-    ) return
+    ) {
+      setConversationRealtimeGatewayReady(false)
+      onRealtimeGatewayConnectionChangeRef.current?.(realtimeGatewayClientId, false)
+      return
+    }
 
     let disposed = false
     let socket: WebSocket | null = null
     let reconnectTimer: number | undefined
     let refreshTimer: number | undefined
     let retryMs = 1_000
-    const scheduleCanonicalRefresh = () => {
-      if (mode !== 'enabled' || refreshTimer !== undefined) return
+    const pendingInvalidations = new Map<string, ConversationRealtimeInvalidation>()
+    const reportGatewayReady = (ready: boolean) => {
+      setConversationRealtimeGatewayReady(ready)
+      onRealtimeGatewayConnectionChangeRef.current?.(realtimeGatewayClientId, ready)
+    }
+    const scheduleTargetedRefresh = (invalidation: ConversationRealtimeInvalidation) => {
+      if (mode !== 'enabled') return
+      const initialPlan = planConversationRealtimeRefresh(invalidation, activeConversationIdRef.current)
+      if (!initialPlan) return
+      onConversationRealtimeInvalidationRef.current?.(invalidation)
+      pendingInvalidations.set(initialPlan.conversationId, invalidation)
+      if (refreshTimer !== undefined) return
       refreshTimer = window.setTimeout(() => {
         refreshTimer = undefined
         if (disposed || document.visibilityState === 'hidden') return
-        const convId = activeConversationIdRef.current
-        if (convId) void loadMessagesRef.current(convId, { silent: true, softError: true })
-        void loadConversationsRef.current()
+        for (const invalidation of pendingInvalidations.values()) {
+          const plan = planConversationRealtimeRefresh(invalidation, activeConversationIdRef.current)
+          if (!plan) continue
+          void refreshConversationRef.current(plan.conversationId)
+          if (plan.refreshMessages) void loadMessagesRef.current(plan.conversationId, { silent: true, softError: true })
+        }
+        pendingInvalidations.clear()
       }, 250)
     }
     const connect = async () => {
@@ -4472,14 +4531,22 @@ export default function UnifiedChat({
         nextSocket.onopen = () => nextSocket.send(JSON.stringify({ type: 'authenticate', token }))
         nextSocket.onmessage = (event) => {
           try {
-            const frame = JSON.parse(event.data) as { type?: string; eventId?: string }
-            if (frame.type === 'ready') retryMs = 1_000
-            if (frame.type === 'invalidate' && typeof frame.eventId === 'string') scheduleCanonicalRefresh()
+            const frame = JSON.parse(event.data) as { type?: string; eventId?: string; conversationId?: string }
+            if (frame.type === 'ready') {
+              retryMs = 1_000
+              reportGatewayReady(true)
+            }
+            if (
+              frame.type === 'invalidate'
+              && typeof frame.eventId === 'string'
+              && typeof frame.conversationId === 'string'
+            ) scheduleTargetedRefresh({ eventId: frame.eventId, conversationId: frame.conversationId })
           } catch {
             // The gateway is an optimisation. Ignore malformed frames and retain SSE.
           }
         }
         nextSocket.onclose = () => {
+          reportGatewayReady(false)
           if (disposed) return
           reconnectTimer = window.setTimeout(() => {
             retryMs = Math.min(retryMs * 2, 30_000)
@@ -4488,6 +4555,7 @@ export default function UnifiedChat({
         }
         nextSocket.onerror = () => nextSocket.close()
       } catch {
+        reportGatewayReady(false)
         if (!disposed) {
           reconnectTimer = window.setTimeout(() => {
             retryMs = Math.min(retryMs * 2, 30_000)
@@ -4499,6 +4567,7 @@ export default function UnifiedChat({
     void connect()
     return () => {
       disposed = true
+      reportGatewayReady(false)
       if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer)
       if (refreshTimer !== undefined) window.clearTimeout(refreshTimer)
       socket?.close()

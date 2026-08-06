@@ -107,9 +107,10 @@ export async function heartbeatConversationPresence(
   )
   const presenceId = `${conversationId}:${actor.uid}`.replace(/[^a-zA-Z0-9_-]/g, '_')
   await adminDb.collection(CONVERSATION_PRESENCE_COLLECTION).doc(presenceId).set(cleanedPayload, { merge: true })
-  const serialized = await listConversationPresence(conversationId, orgId, nowMs + 1)
-  const current = serialized.find((item) => item.id === presenceId)
-  return current ?? {
+  // The caller only needs an acknowledgement for its own heartbeat. Re-listing
+  // every collaborator here turns each five-second presence write into an
+  // avoidable collection read; the live transport owns collaborator updates.
+  return {
     id: presenceId,
     ...payload,
     lastSeenAt: new Date(nowMs).toISOString(),

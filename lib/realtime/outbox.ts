@@ -125,6 +125,7 @@ export function appendConversationRealtimeOutboxEvent(input: {
 export type RealtimeGatewayDelivery = {
   schemaVersion: typeof REALTIME_EVENT_SCHEMA_VERSION
   eventId: string
+  conversationId: string
   recipientUserIds: string[]
 }
 
@@ -132,6 +133,7 @@ export function toRealtimeGatewayDelivery(event: RealtimeOutboxEvent): RealtimeG
   return {
     schemaVersion: REALTIME_EVENT_SCHEMA_VERSION,
     eventId: event.eventId,
+    conversationId: event.conversationId,
     recipientUserIds: safeRecipientUserIds(event.recipientUserIds),
   }
 }

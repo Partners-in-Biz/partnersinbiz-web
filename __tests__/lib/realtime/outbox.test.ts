@@ -62,6 +62,7 @@ describe('conversation realtime outbox', () => {
     expect(toRealtimeGatewayDelivery(event)).toEqual({
       schemaVersion: 1,
       eventId: 'evt:v1:conv-1:8',
+      conversationId: 'conv-1',
       recipientUserIds: ['user-a', 'user-b'],
     })
   })
