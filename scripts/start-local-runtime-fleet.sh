@@ -30,8 +30,18 @@ FLEET_SHUTDOWN_GRACE_SECONDS="${PIB_LOCAL_RUNTIME_SHUTDOWN_GRACE_SECONDS:-90}"
 TUNNEL_PROBE_INTERVAL_SECONDS="${PIB_LOCAL_RUNTIME_TUNNEL_PROBE_INTERVAL_SECONDS:-20}"
 # HTTP health must succeed after open before we mark the tunnel healthy.
 TUNNEL_OPEN_GRACE_SECONDS="${PIB_LOCAL_RUNTIME_TUNNEL_OPEN_GRACE_SECONDS:-25}"
-# How many reverse ports to HTTP-probe (pip + theo + maya covers the first three).
-TUNNEL_PROBE_PORT_COUNT="${PIB_LOCAL_RUNTIME_TUNNEL_PROBE_PORT_COUNT:-3}"
+# How many reverse ports to HTTP-probe. A profile mid-restart answers
+# connect-refused for a few seconds, so the probe tolerates partial failure
+# (at least half of the tested ports must answer); 6 sampled ports keep one
+# or two simultaneous profile restarts from looking like a whole-tunnel
+# outage.
+TUNNEL_PROBE_PORT_COUNT="${PIB_LOCAL_RUNTIME_TUNNEL_PROBE_PORT_COUNT:-6}"
+# A profile (re)started by this fleet is excluded from tunnel probes for this
+# long after start; it cannot answer /health while booting.
+TUNNEL_PROFILE_RESTART_GRACE_SECONDS="${PIB_LOCAL_RUNTIME_TUNNEL_PROFILE_RESTART_GRACE_SECONDS:-30}"
+# Consecutive failed probe cycles before the tunnel is force-restarted. One
+# flapping probe is noise; N persistent cycles mean the channel is gone.
+TUNNEL_UNHEALTHY_CONSECUTIVE_LIMIT="${PIB_LOCAL_RUNTIME_TUNNEL_UNHEALTHY_CONSECUTIVE_LIMIT:-3}"
 REGISTRATION_MAX_SECONDS="${PIB_LOCAL_RUNTIME_REGISTRATION_MAX_SECONDS:-90}"
 # After a failed/killed registration, wait this long before retrying (shorter than success interval).
 REGISTRATION_RETRY_SECONDS="${PIB_LOCAL_RUNTIME_REGISTRATION_RETRY_SECONDS:-20}"
@@ -111,8 +121,14 @@ profile_health_failures=()
 # re-log + re-ack every PROFILE_BUSY_DEFER_SECONDS and manufacture a
 # restart-request storm out of a single stale intent.
 last_deferred_request=()
+# When each profile was last (re)started by this fleet, used to exclude that
+# profile's remote port from tunnel probes while it boots.
+profile_restarted_at=()
 tunnel_pid=""
 vps_tunnel_ok=0
+# Consecutive unhealthy tunnel probes; the tunnel is reopened only after this
+# reaches TUNNEL_UNHEALTHY_CONSECUTIVE_LIMIT.
+tunnel_unhealthy_consecutive=0
 last_tunnel_probe_at=0
 last_registration_at=0
 register_pid=""
@@ -228,6 +244,7 @@ start_agent_at_index() {
   fi
   pids[$index]="$LAST_STARTED_PID"
   profile_started_at[$index]="$SECONDS"
+  profile_restarted_at[$index]="$SECONDS"
   return 0
 }
 
@@ -606,6 +623,8 @@ ssh_args+=("$VPS")
 # Durable health rule: a live SSH PID (or a listening remote port) is NOT
 # enough. We require real HTTP 200 from VPS loopback → reverse-forward → Mac
 # Hermes /health before marking the tunnel healthy or running registration.
+# At least half of the sampled ports must answer: one profile's mid-restart
+# downtime is per-profile, not a whole-tunnel failure.
 
 # Kill this fleet's reverse-tunnel SSH processes (tracked + orphans left after
 # launchd restarts). Pattern matches the multi -R port map to the VPS.
@@ -626,34 +645,82 @@ kill_orphaned_reverse_tunnels() {
 }
 
 # HTTP probe from the VPS into reverse-forwarded Mac Hermes ports.
-# Returns 0 only when every sampled port answers healthy HTTP 200.
+# A single profile mid-restart answers connect-refused for a few seconds and
+# is NOT a whole-tunnel failure. The probe reports per-port results and only
+# fails when every tested port fails or fewer than half of the tested ports
+# answer (SSH channel dead / tunnel genuinely gone). Ports belonging to
+# profiles restarted by this fleet within the restart grace window are
+# skipped entirely.
 probe_reverse_tunnel_http() {
   local count="${1:-$TUNNEL_PROBE_PORT_COUNT}"
-  local i ports="" remote_port
+  local i remote_port ports="" skip_list="" skip_count=0
   if (( count < 1 )); then count=1; fi
   if (( count > ${#REMOTE_PORTS[@]} )); then count=${#REMOTE_PORTS[@]}; fi
   for (( i = 0; i < count; i++ )); do
     remote_port="${REMOTE_PORTS[$i]}"
     ports+=" ${remote_port}"
+    if [[ -n "${profile_restarted_at[$i]:-}" ]] && \
+       (( SECONDS - profile_restarted_at[$i] < TUNNEL_PROFILE_RESTART_GRACE_SECONDS )); then
+      skip_list+=" ${remote_port}"
+      skip_count=$((skip_count + 1))
+    fi
   done
+  if (( skip_count >= count )); then
+    # Every sampled profile was just restarted; still verify the channel with
+    # the first sampled port rather than trusting a probe that tested nothing.
+    ports=" ${REMOTE_PORTS[0]}"
+    skip_list=""
+  fi
   # shellcheck disable=SC2086
   ssh -o BatchMode=yes -o ConnectTimeout=8 "$VPS" \
-    "set -e; for port in${ports}; do
+    "set -e; ok=0; fail=0; skip=0; skip_list=\"${skip_list}\"; for port in${ports}; do
+       case \" \${skip_list} \" in
+         *\" \${port} \"*) skip=\$((skip+1)); continue;;
+       esac
        code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 http://127.0.0.1:\$port/health || echo 000)
        if [ \"\$code\" != 200 ]; then
          code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 http://127.0.0.1:\$port/v1/health || echo 000)
        fi
-       if [ \"\$code\" != 200 ]; then
-         echo \"FAIL:\$port:\$code\" >&2
-         exit 1
-       fi
-     done; echo OK" \
+       if [ \"\$code\" = 200 ]; then ok=\$((ok+1)); else echo \"FAIL:\$port:\$code\" >&2; fail=\$((fail+1)); fi
+     done
+     echo \"probe ok=\$ok fail=\$fail skip=\$skip\"
+     if [ \"\$ok\" -eq 0 ] && [ \"\$fail\" -gt 0 ]; then exit 1; fi
+     if [ \"\$ok\" -gt 0 ] && [ \"\$fail\" -gt \"\$ok\" ]; then exit 1; fi
+     exit 0" \
     >>"$LOG_DIR/reverse-tunnel.log" 2>&1
 }
 
 probe_reverse_tunnel() {
   [[ -n "$tunnel_pid" ]] && kill -0 "$tunnel_pid" >/dev/null 2>&1 || return 1
   probe_reverse_tunnel_http "$TUNNEL_PROBE_PORT_COUNT"
+}
+
+# After killing the old tunnel, sshd can hold the remote listeners for a
+# moment. A new ssh with ExitOnForwardFailure=yes would exit immediately if
+# it raced those stale listeners ("remote port forwarding failed"), so wait
+# (bounded) for the sampled ports to stop answering before reopening.
+wait_for_remote_listeners_released() {
+  local deadline=$((SECONDS + 12)) i remote_port code
+  while (( SECONDS < deadline )); do
+    remote_port=""
+    for i in 0 1 2; do
+      if (( i < ${#REMOTE_PORTS[@]} )); then
+        remote_port+=" ${REMOTE_PORTS[$i]}"
+      fi
+    done
+    # shellcheck disable=SC2086
+    code=$(ssh -o BatchMode=yes -o ConnectTimeout=5 "$VPS" \
+      "set -e; ok=0; for port in${remote_port}; do
+         c=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://127.0.0.1:\$port/health || echo 000)
+         [ \"\$c\" = 200 ] && ok=\$((ok+1))
+       done; echo \$ok" 2>/dev/null || echo 999)
+    if [[ "$code" == "0" ]]; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARN: old remote listeners still answering after tunnel kill; reopening anyway" | tee -a "$LOG_DIR/fleet.log"
+  return 1
 }
 
 wait_for_tunnel_http() {
@@ -717,15 +784,28 @@ maintain_reverse_tunnel() {
   if (( vps_tunnel_ok == 1 && SECONDS - last_tunnel_probe_at < TUNNEL_PROBE_INTERVAL_SECONDS )); then return 0; fi
   last_tunnel_probe_at="$SECONDS"
   if probe_reverse_tunnel; then
+    tunnel_unhealthy_consecutive=0
     if (( vps_tunnel_ok != 1 )); then
       echo "[$(date '+%Y-%m-%d %H:%M:%S')] VPS reverse tunnel recovered (HTTP health ok)" | tee -a "$LOG_DIR/fleet.log"
     fi
     vps_tunnel_ok=1
     return 0
   fi
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] VPS reverse tunnel unhealthy (HTTP probe failed); restarting it while local profiles remain up" | tee -a "$LOG_DIR/fleet.log"
+  # A failing probe is not immediately fatal: a single profile mid-restart
+  # (or a short probe blip) must not kill all 12 forwards. Reopen only after
+  # TUNNEL_UNHEALTHY_CONSECUTIVE_LIMIT consecutive failures.
+  tunnel_unhealthy_consecutive=$((tunnel_unhealthy_consecutive + 1))
   vps_tunnel_ok=0
+  if (( tunnel_unhealthy_consecutive < TUNNEL_UNHEALTHY_CONSECUTIVE_LIMIT )); then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARN: VPS reverse tunnel probe failed (${tunnel_unhealthy_consecutive}/${TUNNEL_UNHEALTHY_CONSECUTIVE_LIMIT}); keeping tunnel up while local profiles remain healthy" | tee -a "$LOG_DIR/fleet.log"
+    return 0
+  fi
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] VPS reverse tunnel unhealthy (${tunnel_unhealthy_consecutive} consecutive probe failures); restarting it while local profiles remain up" | tee -a "$LOG_DIR/fleet.log"
+  tunnel_unhealthy_consecutive=0
   stop_reverse_tunnel
+  # Give sshd a moment to release the stale remote listeners so the new ssh
+  # does not die on ExitOnForwardFailure ("remote port forwarding failed").
+  wait_for_remote_listeners_released || true
   open_reverse_tunnel || true
 }
 
