@@ -1200,7 +1200,7 @@ export function __resetWorkbenchBrowsersForTests(): void {
 
 export function linkedRuntimeWorkbenchBrowserClaimBody() {
   return {
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.24',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.25',
     workbenchBrowserSessionsProtocolVersion: 1 as const,
   }
 }

@@ -74,7 +74,7 @@ function receipt(
     timestamp: new Date().toISOString(),
     acceptedAt,
     toolStartedAt,
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.24',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.25',
     machineLabel: os.hostname(),
     outputSha256: digest(output),
     outputBytes: Buffer.byteLength(output),

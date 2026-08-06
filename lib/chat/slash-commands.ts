@@ -267,8 +267,13 @@ export function councilModeGuidanceLines(trigger: 'slash-command' | 'multi-agent
     opening,
     '- Select the relevant PiB specialist perspectives for the question before answering. Use role fit: Theo=engineering, Maya=content/brand/social, Sage=research/strategy, Vera=data/analytics, Nora=ops/billing/admin, Quinn=QA/release, Ari=paid media, Silas=SEO, Luca=support, Iris=documents, Blake=sales.',
     '- Prefer real independent perspectives when supported: use Hermes subagents for bounded one-off analysis, or Projects/Kanban task-bus handoffs when the work needs durable ownership, evidence, approvals, or review.',
+    '- Default to gathering 2-3 read-only perspectives in parallel (subagent batch or task-bus handoffs) before synthesizing; cap the fan-out at ~3 to bound cost.',
+    '- For high-stakes decisions (pricing, positioning, build-vs-buy), run the same question through 2+ model families in parallel and aggregate. Hermes subagents inherit the parent model by default, so for genuine model diversity prefer Projects/Kanban task fan-out with per-task agentModel overrides (e.g. claude-sonnet-4-6 + gpt-5.5); no new credentials needed.',
     '- If you cannot actually call a subagent/specialist in this run, simulate only the clearly relevant perspectives and label them as perspective analysis, not as completed agent execution.',
     '- Include challenge/debate: key disagreements, risks, approval gates, and what evidence would change the recommendation.',
+    '- Run an explicit verification/cross-check pass before consensus: check each material claim against evidence (source, test, API read-back) and flag unverified items.',
+    '- Sharpen the evidence-that-would-change-recommendation check into an adversarial question list: what would disprove this, who loses, and what breaks at 10x scale.',
+    '- Name where perspectives diverged and state why consensus chose X over Y.',
     '- Finish with a clear consensus/recommendation, minority objections if any, confidence level, and the owner for next execution.',
     '- Do not perform client-visible, spend, deploy, finance, secret/config, or destructive actions without the normal approval gate.',
   ]
