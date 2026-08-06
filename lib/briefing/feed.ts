@@ -11,6 +11,7 @@ import {
 } from '@/lib/crm/assignment-access'
 import { withBriefingCardContract } from './cardContract'
 import type { BriefingCard, BriefingCardAction, BriefingCardStateStatus, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
+import { recordLinkedToUser, recordLinkedViaCrm, recordOperatorAddressed } from './personal-scope'
 import { activityAdapter, adCampaignAdapter, agentLearningReviewAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, broadcastAdapter, businessInsightReviewAdapter, calendarEventAdapter, campaignAdapter, clientDocumentAdapter, commentAdapter, contactAdapter, dealAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
 import { comparePriority, formatTimeAgo, normalizeTimestamp, priorityRequiresAction } from './utils'
 
@@ -90,6 +91,44 @@ function userScopedOrgIds(user: ApiUser, requestedOrgId?: string | null): string
   }
 
   return null
+}
+
+/**
+ * Briefings is a personal action queue. A viewer is an "operator" of an org
+ * only when they are the platform admin/AI (internal staff) or hold the
+ * owner/admin member role for that org. Operator viewers still see only their
+ * own linked records plus operator-addressed action cards (approval gates,
+ * blocked/awaiting tasks, documents in review, review-lane social) — never an
+ * org-wide dump.
+ */
+async function loadBriefingOperatorOrgIds(user: ApiUser, scopedOrgIds: string[] | null): Promise<Set<string> | null> {
+  // Platform admin/AI users are internal operators across every scoped org.
+  if (user.role === 'admin' || user.role === 'ai') return null
+
+  // Portal members: operator only where they hold owner/admin in orgMembers.
+  const operatorOrgs = new Set<string>()
+  if (!scopedOrgIds || scopedOrgIds.length === 0) return operatorOrgs
+  try {
+    const snaps = await Promise.all(chunk(scopedOrgIds, 30).map((ids) =>
+      adminDb.collection('orgMembers')
+        .where('__name__', 'in', ids.map((orgId) => `${orgId}_${user.uid}`))
+        .limit(300)
+        .get(),
+    ))
+    for (const snap of snaps) {
+      for (const doc of snap.docs as FirestoreDoc[]) {
+        const data = doc.data()
+        const role = typeof data.role === 'string' ? data.role : ''
+        const orgId = doc.id.replace(new RegExp(`_${escapeRegExp(user.uid)}$`), '')
+        if ((role === 'owner' || role === 'admin') && orgId) operatorOrgs.add(orgId)
+      }
+    }
+  } catch { ignoreOptionalFeedSource() }
+  return operatorOrgs
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 async function loadOrgSummaries(orgIds: string[] | null): Promise<Map<string, OrgSummary>> {
@@ -439,6 +478,47 @@ function briefingUsesPersonalCrmScope(user: ApiUser): boolean {
 }
 
 /**
+ * Universal per-user gate for a briefing source record. A card is visible
+ * when the viewer is linked to the record (created/assigned/owned/shared/
+ * recipient, or a linked CRM company/contact they own), OR the record is an
+ * operator-addressed action card (approval gate, blocked task, doc in review,
+ * review-lane social) and the viewer is an operator of that org. This is the
+ * single rule for every source — no role sees an org-wide dump.
+ */
+function briefingRecordVisibleToUser(
+  sourceType: BriefingSourceType,
+  data: Record<string, unknown>,
+  user: ApiUser,
+  operatorOrgs: Set<string> | null,
+  maps?: CrmAssignmentMaps,
+): boolean {
+  if (!user.uid) return false
+  if (recordLinkedToUser(data, user.uid)) return true
+  if (maps && recordLinkedViaCrm(data, user.uid, maps)) return true
+  const orgId = typeof data.orgId === 'string' && data.orgId ? data.orgId : ''
+  const isOperator = operatorOrgs === null || (orgId ? operatorOrgs.has(orgId) : false)
+  if (isOperator && recordOperatorAddressed(sourceType, data)) return true
+  return false
+}
+
+/** Load company/contact assignment maps for records that reference CRM ids. */
+async function loadBriefingMapsForDocs(docs: FirestoreDoc[]): Promise<CrmAssignmentMaps> {
+  const companyIds = new Set<string>()
+  const contactIds = new Set<string>()
+  for (const doc of docs) {
+    const data = doc.data()
+    for (const id of crmRecordCompanyIds(data as AssignableCrmRecord)) companyIds.add(id)
+    for (const id of crmRecordContactIds(data as AssignableCrmRecord)) contactIds.add(id)
+  }
+  if (companyIds.size === 0 && contactIds.size === 0) return {}
+  const [companies, contacts] = await Promise.all([
+    loadBriefingCrmRecordMap('companies', companyIds),
+    loadBriefingCrmRecordMap('contacts', contactIds),
+  ])
+  return { companies, contacts }
+}
+
+/**
  * CRM relationship cards only surface when the viewer is linked as owner,
  * assignee, creator, member, or via an owned company/contact. Privileged
  * CRM `all` scope must not bypass this — Briefings is per-user work.
@@ -635,18 +715,29 @@ function ignoreOptionalFeedSource() {
 
 export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOptions = {}): Promise<BriefingResponse & { generatedAt: string; scope: { orgId: string | null } }> {
   const scopedOrgIds = userScopedOrgIds(user, options.orgId)
+  const operatorOrgs = await loadBriefingOperatorOrgIds(user, scopedOrgIds)
   const orgs = await loadOrgSummaries(scopedOrgIds)
   const requestedLimit = limitValue(options.limit)
   const items: BriefingCard[] = []
 
   const include = (source: BriefingSourceType) => !options.sourceType || options.sourceType === 'all' || options.sourceType === source
 
+  // Linked parent ids for comment scoping: a comment is "his" when the viewer
+  // authored it OR it sits on a task/project/document the viewer can see.
+  const linkedTaskIds = new Set<string>()
+  const linkedProjectIds = new Set<string>()
+  const linkedDocumentIds = new Set<string>()
+
   if (include('task') || include('agent-output') || include('agent-learning-review') || include('business-insight-review')) {
     const docs = await fetchTaskDocs(scopedOrgIds)
+    const taskMaps = await loadBriefingMapsForDocs(docs)
     for (const doc of docs) {
       const data = normalizeDoc(doc)
+      if (!briefingRecordVisibleToUser('task', data, user, operatorOrgs, taskMaps)) continue
       const projectId = typeof data.projectId === 'string' ? data.projectId : doc.ref?.parent?.parent?.id
       const enriched: Record<string, unknown> & { id: string } = { ...data, projectId, taskId: data.taskId ?? doc.id }
+      if (doc.id) linkedTaskIds.add(doc.id)
+      if (typeof projectId === 'string' && projectId) linkedProjectIds.add(projectId)
       if (include('task')) {
         const item = toItemSafe(taskAdapter, enriched, doc.id)
         if (item) items.push(decorate(item, orgs))
@@ -667,19 +758,15 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
     }
   }
 
-  if (include('comment')) {
-    const docs = await fetchCommentDocs(scopedOrgIds)
-    for (const doc of docs) {
-      const item = toItemSafe(commentAdapter, normalizeDoc(doc, deriveCommentContext(doc)), doc.id)
-      if (item) items.push(decorate(item, orgs))
-    }
-  }
-
   if (include('project')) {
     try {
       const docs = await fetchCollectionDocs('projects', scopedOrgIds)
+      const projectMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(projectAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('project', data, user, operatorOrgs, projectMaps)) continue
+        if (doc.id) linkedProjectIds.add(doc.id)
+        const item = toItemSafe(projectAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -688,8 +775,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('client-document') || include('approval')) {
     try {
       const docs = await fetchCollectionDocs('client_documents', scopedOrgIds)
+      const docMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
         const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('client-document', data, user, operatorOrgs, docMaps)) continue
+        if (doc.id) linkedDocumentIds.add(doc.id)
         if (include('client-document')) {
           const item = toItemSafe(clientDocumentAdapter, data, doc.id)
           if (item) items.push(decorate(item, orgs))
@@ -702,11 +792,32 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
     } catch { ignoreOptionalFeedSource() }
   }
 
+  if (include('comment')) {
+    // Deliberately runs after task/project/client-document loops so the linked
+    // parent id sets are populated before comment scoping is evaluated.
+    const docs = await fetchCommentDocs(scopedOrgIds)
+    for (const doc of docs) {
+      const data = normalizeDoc(doc, deriveCommentContext(doc))
+      const taskId = typeof data.taskId === 'string' ? data.taskId : ''
+      const projectId = typeof data.projectId === 'string' ? data.projectId : ''
+      const documentId = typeof data.documentId === 'string' ? data.documentId : ''
+      const onLinkedParent = (taskId && linkedTaskIds.has(taskId)) ||
+        (projectId && linkedProjectIds.has(projectId)) ||
+        (documentId && linkedDocumentIds.has(documentId))
+      if (!recordLinkedToUser(data, user.uid) && !onLinkedParent) continue
+      const item = toItemSafe(commentAdapter, data, doc.id)
+      if (item) items.push(decorate(item, orgs))
+    }
+  }
+
   if (include('approval')) {
     try {
       const docs = await fetchCollectionDocs('approvals', scopedOrgIds)
+      const approvalMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(approvalAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('approval', data, user, operatorOrgs, approvalMaps)) continue
+        const item = toItemSafe(approvalAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -715,8 +826,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('social-post')) {
     try {
       const docs = await fetchCollectionDocs('social_posts', scopedOrgIds)
+      const postMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(socialPostAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('social-post', data, user, operatorOrgs, postMaps)) continue
+        const item = toItemSafe(socialPostAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -725,8 +839,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('social-inbox')) {
     try {
       const docs = await fetchCollectionDocs('social_inbox', scopedOrgIds)
+      const inboxMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(socialInboxAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('social-inbox', data, user, operatorOrgs, inboxMaps)) continue
+        const item = toItemSafe(socialInboxAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -888,8 +1005,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('report')) {
     try {
       const docs = await fetchCollectionDocs('reports', scopedOrgIds)
+      const reportMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(reportAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('report', data, user, operatorOrgs, reportMaps)) continue
+        const item = toItemSafe(reportAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -898,8 +1018,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('support-ticket')) {
     try {
       const docs = await fetchCollectionDocs('support_tickets', scopedOrgIds)
+      const ticketMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(supportTicketAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('support-ticket', data, user, operatorOrgs, ticketMaps)) continue
+        const item = toItemSafe(supportTicketAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -908,8 +1031,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('invoice')) {
     try {
       const docs = await fetchInvoiceDocs(scopedOrgIds)
+      const invoiceMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(invoiceAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('invoice', data, user, operatorOrgs, invoiceMaps)) continue
+        const item = toItemSafe(invoiceAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -918,8 +1044,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('quote')) {
     try {
       const docs = await fetchQuoteDocs(scopedOrgIds)
+      const quoteMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(quoteAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('quote', data, user, operatorOrgs, quoteMaps)) continue
+        const item = toItemSafe(quoteAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -928,8 +1057,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('order')) {
     try {
       const docs = await fetchCollectionDocs('orders', scopedOrgIds)
+      const orderMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(orderAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('order', data, user, operatorOrgs, orderMaps)) continue
+        const item = toItemSafe(orderAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -938,8 +1070,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('inventory-item')) {
     try {
       const docs = await fetchCollectionDocs('inventoryItems', scopedOrgIds)
+      const inventoryMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(inventoryItemAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('inventory-item', data, user, operatorOrgs, inventoryMaps)) continue
+        const item = toItemSafe(inventoryItemAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -948,8 +1083,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('shipment')) {
     try {
       const docs = await fetchCollectionDocs('shipments', scopedOrgIds)
+      const shipmentMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(shipmentAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('shipment', data, user, operatorOrgs, shipmentMaps)) continue
+        const item = toItemSafe(shipmentAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -968,8 +1106,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('seo-content')) {
     try {
       const docs = await fetchCollectionDocs('seo_content', scopedOrgIds)
+      const seoMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(seoContentAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('seo-content', data, user, operatorOrgs, seoMaps)) continue
+        const item = toItemSafe(seoContentAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -988,8 +1129,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('ad-campaign')) {
     try {
       const docs = await fetchCollectionDocs('ad_campaigns', scopedOrgIds)
+      const adMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(adCampaignAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('ad-campaign', data, user, operatorOrgs, adMaps)) continue
+        const item = toItemSafe(adCampaignAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -998,8 +1142,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('broadcast')) {
     try {
       const docs = await fetchCollectionDocs('broadcasts', scopedOrgIds)
+      const broadcastMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(broadcastAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('broadcast', data, user, operatorOrgs, broadcastMaps)) continue
+        const item = toItemSafe(broadcastAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
@@ -1008,8 +1155,11 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   if (include('campaign')) {
     try {
       const docs = await fetchCollectionDocs('campaigns', scopedOrgIds)
+      const campaignMaps = await loadBriefingMapsForDocs(docs)
       for (const doc of docs) {
-        const item = toItemSafe(campaignAdapter, normalizeDoc(doc), doc.id)
+        const data = normalizeDoc(doc)
+        if (!briefingRecordVisibleToUser('campaign', data, user, operatorOrgs, campaignMaps)) continue
+        const item = toItemSafe(campaignAdapter, data, doc.id)
         if (item) items.push(decorate(item, orgs))
       }
     } catch { ignoreOptionalFeedSource() }
