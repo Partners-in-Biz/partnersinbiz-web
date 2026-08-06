@@ -264,7 +264,7 @@ describe('WorkbenchBrowserPanel — follow live frames', () => {
     expect(onFollowStart).toHaveBeenCalledTimes(1)
   })
 
-  it('mirrors a host that turns following on itself', () => {
+  it('mirrors a host that turns following on itself and auto-loads the latest frame', () => {
     const onFollowStart = jest.fn()
     const { rerender } = render(
       <WorkbenchBrowserPanel
@@ -275,6 +275,7 @@ describe('WorkbenchBrowserPanel — follow live frames', () => {
       />,
     )
     expect(screen.getByTestId('workbench-agent-browser-follow')).toHaveTextContent('Follow agent frames')
+    expect(screen.queryByAltText('Agent browser session frame')).not.toBeInTheDocument()
 
     rerender(
       <WorkbenchBrowserPanel
@@ -287,6 +288,9 @@ describe('WorkbenchBrowserPanel — follow live frames', () => {
     expect(screen.getByTestId('workbench-agent-browser-follow')).toHaveTextContent('Following · 3')
     // The host already started following device-side, so the panel must not re-request it.
     expect(onFollowStart).not.toHaveBeenCalled()
+    // The panel auto-loads the latest frame once following starts — no Follow click needed.
+    expect(screen.getByAltText('Agent browser session frame')).toHaveAttribute('src', 'https://cdn.example.com/f1.png')
+    expect(screen.getByTestId('workbench-preview-kind')).toHaveTextContent(/Agent frames/i)
   })
 
   it('labels a followed frame as agent frames rather than a public preview', () => {

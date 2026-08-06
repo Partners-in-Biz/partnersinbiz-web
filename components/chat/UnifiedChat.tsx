@@ -1373,6 +1373,8 @@ export default function UnifiedChat({
   const workbenchBrowserSessionAbortRef = useRef<AbortController | null>(null)
   // Device-side frame following, driven by the Browser panel's Follow toggle.
   const [workbenchBrowserFollowing, setWorkbenchBrowserFollowing] = useState(false)
+  /** Ref mirror of `workbenchBrowserFollowing` so the stable `applyWorkbenchBrowserSessionUpdate` callback can stamp the view state. */
+  const workbenchBrowserFollowingRef = useRef(false)
   const [workbenchBrowserSnapshotText, setWorkbenchBrowserSnapshotText] = useState<string | null>(null)
   const [workbenchBrowserSnapshotLoading, setWorkbenchBrowserSnapshotLoading] = useState(false)
   /** Session ids whose agent-preview tab was already opened — auto-open exactly once per session ("offer, don't hijack"). */
@@ -3747,6 +3749,7 @@ export default function UnifiedChat({
       initiator: remote.initiator ?? prev?.initiator,
       driver: remote.driver ?? prev?.driver ?? 'idle',
       allowPrivateNetwork: remote.allowPrivateNetwork ?? prev?.allowPrivateNetwork,
+      following: workbenchBrowserFollowingRef.current,
       error: remote.error ?? null,
       busy: false,
     }))
@@ -3958,6 +3961,7 @@ export default function UnifiedChat({
     if (!activeId || !workbenchBrowserSession?.sessionId) return
     const next = action === 'start'
     setWorkbenchBrowserFollowing(next)
+    workbenchBrowserFollowingRef.current = next
     try {
       const updated = await followWorkbenchBrowserSessionApi(activeId, workbenchBrowserSession.sessionId, {
         action,
@@ -3966,6 +3970,7 @@ export default function UnifiedChat({
       applyWorkbenchBrowserSessionUpdate(updated)
     } catch (error) {
       setWorkbenchBrowserFollowing(!next)
+      workbenchBrowserFollowingRef.current = !next
       setWorkbenchBrowserSession((prev) => prev
         ? { ...prev, error: error instanceof Error ? error.message : 'Failed to change frame following.', busy: false }
         : prev)
@@ -3978,6 +3983,7 @@ export default function UnifiedChat({
   const killWorkbenchBrowserSession = useCallback(async () => {
     if (!activeId || !workbenchBrowserSession?.sessionId) return
     setWorkbenchBrowserFollowing(false)
+    workbenchBrowserFollowingRef.current = false
     workbenchBrowserSessionAbortRef.current?.abort()
     setWorkbenchBrowserSession((prev) => (prev ? { ...prev, busy: true } : prev))
     try {
@@ -3996,12 +4002,16 @@ export default function UnifiedChat({
     workbenchBrowserSessionProgressRef.current = EMPTY_WORKBENCH_BROWSER_SESSION_PROGRESS
     setWorkbenchBrowserSession(null)
     setWorkbenchBrowserFollowing(false)
+    workbenchBrowserFollowingRef.current = false
   }, [activeId])
 
   // Following is only meaningful on a live session — a session that exits or is killed
   // leaves the flag behind otherwise, and the panel would keep claiming it is live.
   useEffect(() => {
-    if (workbenchBrowserSession?.status !== 'running') setWorkbenchBrowserFollowing(false)
+    if (workbenchBrowserSession?.status !== 'running') {
+      setWorkbenchBrowserFollowing(false)
+      workbenchBrowserFollowingRef.current = false
+    }
   }, [workbenchBrowserSession?.status])
 
   // A session the user just approved is almost always one they want to watch, so following
