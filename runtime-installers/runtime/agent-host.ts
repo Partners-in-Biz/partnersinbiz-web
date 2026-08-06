@@ -415,5 +415,5 @@ export async function pollAgentHostForever(
 }
 
 export function linkedRuntimeAgentHostClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.26', agentHostProtocolVersion: 3 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.27', agentHostProtocolVersion: 3 as const }
 }

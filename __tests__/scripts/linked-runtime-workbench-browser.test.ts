@@ -565,7 +565,13 @@ describe('linked-computer headless Chrome workbench browser runtime', () => {
     const truncated = truncatedChunk.snapshot.ax
     expect(truncated).toMatch(/… truncated$/)
     expect(truncated.length).toBeGreaterThan(10_000)
-    expect(truncated.length).toBeLessThan(12_100)
+    // The server validator rejects snapshot ax text longer than
+    // MAX_SNAPSHOT_AX_CHARS (12,000). The truncation marker must fit inside
+    // the budget, not push the total over it — a 12,012-char ax string would
+    // be rejected server-side and the device's run loop swallows the error,
+    // leaving the agent blind on dense pages (the second half of the
+    // dense-page fix after the MAX_SNAPSHOT_REFS ref cap).
+    expect(truncated.length).toBeLessThanOrEqual(12_000)
     expect(truncated).not.toContain('Item number 1200')
     // The server validator rejects snapshots with more than MAX_SNAPSHOT_REFS
     // (400) refs, so the ref map must be capped too — a dense page like the

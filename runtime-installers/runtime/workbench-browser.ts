@@ -647,7 +647,16 @@ const AX_INTERESTING_ROLES = new Set([
 
 function truncateChars(value: string, max: number): string {
   if (value.length <= max) return value
-  return `${value.slice(0, max).trimEnd()}\n… truncated`
+  // Budget-aware: reserve room for the marker so the TOTAL never exceeds
+  // `max`. The server validator rejects snapshot ax text longer than
+  // MAX_SNAPSHOT_AX_CHARS (12,000); appending "\n… truncated" after a
+  // 12,000-char slice would emit 12,012 chars, the chunk would be rejected,
+  // and the device's run loop swallows the error — the agent goes blind on
+  // dense pages. This is the second half of the dense-page fix: refs are
+  // capped at MAX_SNAPSHOT_REFS and the ax text now fits the contract.
+  const marker = '\n… truncated'
+  const budget = Math.max(0, max - marker.length)
+  return `${value.slice(0, budget).trimEnd()}${marker}`
 }
 
 /** Scrubs likely secrets from browser-originated text before it reaches the agent (Hermes' redact_sensitive_text). */
@@ -1200,7 +1209,7 @@ export function __resetWorkbenchBrowsersForTests(): void {
 
 export function linkedRuntimeWorkbenchBrowserClaimBody() {
   return {
-    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.26',
+    runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.27',
     workbenchBrowserSessionsProtocolVersion: 1 as const,
   }
 }
