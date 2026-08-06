@@ -22,6 +22,10 @@ import {
   normalizeResourceRelationshipLinks,
 } from '@/lib/client-documents/linkedValidation'
 import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
+import {
+  filterOwnedRowsForActor,
+  memberSeesAllModuleRecords,
+} from '@/lib/orgMembers/record-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -148,7 +152,17 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
     return (aTs?.seconds ?? 0) - (bTs?.seconds ?? 0)
   })
 
-  return apiSuccess(posts.slice(0, limit), 200, { total: aggregateTotal ?? posts.length, page: 1, limit })
+  // Members with an owned_or_linked marketing scope see only posts they own /
+  // are shared / linked to their CRM book; admins, agents and 'all' members
+  // pass through unchanged. Scoped members get the filtered length as total so
+  // the aggregate count does not leak rows they cannot see.
+  const seesAllMarketing = await memberSeesAllModuleRecords(user, orgId, 'marketing')
+  const visiblePosts = seesAllMarketing
+    ? posts
+    : await filterOwnedRowsForActor(user, orgId, 'marketing', posts)
+  const total = seesAllMarketing ? (aggregateTotal ?? posts.length) : visiblePosts.length
+
+  return apiSuccess(visiblePosts.slice(0, limit), 200, { total, page: 1, limit })
 }))
 
 export const POST = withAuth('client', withTenant(async (req, user, orgId) => {

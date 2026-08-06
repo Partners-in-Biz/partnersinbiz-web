@@ -162,4 +162,63 @@ describe('org member record scope (research/documents/marketing)', () => {
     const filtered = await filterOwnedRowsForActor(memberUser(), 'org-1', 'marketing', rows)
     expect(filtered.map((row) => row.id)).toEqual(['m1'])
   })
+
+  it('keeps marketing rows linked to CRM companies via top-level relationship fields', async () => {
+    mockMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'member',
+        accessPolicy: {
+          preset: 'custom',
+          modules: { marketing: true },
+          recordScopes: { marketing: 'owned_or_linked' },
+        },
+      }),
+    })
+    mockCompanyGet.mockImplementation(async (id: string) => {
+      if (id === 'co-owned') {
+        return { exists: true, data: () => ({ orgId: 'org-1', ownerUid: 'stean' }) }
+      }
+      return { exists: false }
+    })
+
+    // Campaigns and social posts spread normalized relationship links at the
+    // top level (companyIds / companyId), not under a nested `linked` field.
+    const rows = [
+      { id: 'c1', companyIds: ['co-owned'] },
+      { id: 'c2', companyIds: ['co-other'] },
+      { id: 'c3', companyId: 'co-owned' },
+      { id: 'c4', companyId: 'co-other' },
+    ]
+    const filtered = await filterOwnedRowsForActor(memberUser(), 'org-1', 'marketing', rows)
+    expect(filtered.map((row) => row.id)).toEqual(['c1', 'c3'])
+  })
+
+  it('keeps marketing rows linked to CRM contacts the actor owns via top-level fields', async () => {
+    mockMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'member',
+        accessPolicy: {
+          preset: 'custom',
+          modules: { marketing: true },
+          recordScopes: { marketing: 'owned_or_linked' },
+        },
+      }),
+    })
+    mockContactGet.mockImplementation(async (id: string) => {
+      if (id === 'ct-owned') {
+        return { exists: true, data: () => ({ orgId: 'org-1', ownerUid: 'stean' }) }
+      }
+      return { exists: false }
+    })
+
+    const rows = [
+      { id: 'p1', contactIds: ['ct-owned'] },
+      { id: 'p2', contactIds: ['ct-other'] },
+      { id: 'p3', contactId: 'ct-owned' },
+    ]
+    const filtered = await filterOwnedRowsForActor(memberUser(), 'org-1', 'marketing', rows)
+    expect(filtered.map((row) => row.id)).toEqual(['p1', 'p3'])
+  })
 })
