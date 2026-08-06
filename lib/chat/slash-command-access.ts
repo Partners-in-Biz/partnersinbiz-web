@@ -63,6 +63,12 @@ export function slashCommandAccessTier(
     }
     case 'hermes-features':
       return 'operator_read'
+    case 'context':
+      // Read-only context usage — any conversation participant may inspect.
+      return 'public'
+    case 'compress':
+      // Triggers a Hermes run and durably rewrites the conversation context.
+      return 'dispatch'
     case 'goal':
     case 'subgoal':
       return 'dispatch'

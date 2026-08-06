@@ -1690,6 +1690,127 @@ describe('unified conversation message routing', () => {
     expect(body.data.assistantMessage.status).toBe('failed')
   })
 
+  it('dispatches a /compress run on the selected agent and plans durable compression', async () => {
+    const now = Date.now()
+    const mk = (id: number, role: 'user' | 'assistant', content: string) => ({
+      id: `m${id}`,
+      conversationId: 'conv-1',
+      role,
+      content,
+      authorKind: role === 'user' ? 'user' : 'agent',
+      authorId: role === 'user' ? 'client-1' : 'pip',
+      authorDisplayName: role === 'user' ? 'Client User' : 'Pip',
+      status: 'completed',
+      createdAt: { toMillis: () => now + id },
+    })
+    const messages = [
+      mk(1, 'user', 'old request one'),
+      mk(2, 'assistant', 'old reply one'),
+      mk(3, 'user', 'old request two'),
+      mk(4, 'assistant', 'old reply two'),
+      mk(5, 'user', 'recent request'),
+      mk(6, 'assistant', 'recent reply'),
+    ]
+    mockListMessages.mockResolvedValue(messages)
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      startedBy: 'client-1',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      contextCompression: null,
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations/conv-1/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        content: '',
+        slashCommand: {
+          id: 'compress',
+          token: '/compress',
+          label: 'Compress context',
+          executorKind: 'hermes_features',
+          args: 'here 2',
+        },
+      }),
+    }), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).toHaveBeenCalledTimes(1)
+    const prompt = mockCreateHermesRun.mock.calls[0][2].prompt as string
+    expect(prompt).toContain('[Context compression task]')
+    expect(prompt).toContain('[Conversation context to compress')
+    // Older exchanges are the summary input; the latest 2 exchanges stay intact.
+    expect(prompt).toContain('old request one')
+    expect(prompt).toContain('old reply one')
+    expect(prompt).not.toContain('old request two')
+    expect(prompt).not.toContain('recent request')
+    expect(prompt).toContain('id: compress')
+
+    const assistantCall = mockCreateMessage.mock.calls.find(
+      (call) => call[1]?.role === 'assistant',
+    )
+    expect(assistantCall?.[1]?.contextCompressionPlan).toEqual({
+      keepTurns: 2,
+      compressedThroughMessageId: 'm2',
+    })
+  })
+
+  it('completes /context synchronously without dispatching a Hermes run', async () => {
+    mockListMessages.mockResolvedValue([
+      {
+        id: 'm1', conversationId: 'conv-1', role: 'user', content: 'hi', authorKind: 'user',
+        authorId: 'client-1', authorDisplayName: 'Client User', status: 'completed',
+        createdAt: { toMillis: () => 1 },
+      },
+      {
+        id: 'm2', conversationId: 'conv-1', role: 'assistant', content: 'hello', authorKind: 'agent',
+        authorId: 'pip', authorDisplayName: 'Pip', status: 'completed',
+        createdAt: { toMillis: () => 2 },
+      },
+    ])
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      startedBy: 'client-1',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+      contextCompression: null,
+      model: 'deepseek/deepseek-v4-flash',
+      provider: 'deepseek',
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations/conv-1/messages', {
+      method: 'POST',
+      body: JSON.stringify({
+        content: '',
+        slashCommand: {
+          id: 'context',
+          token: '/context',
+          label: 'Context usage',
+          executorKind: 'hermes_features',
+          args: '',
+        },
+      }),
+    }), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockCreateHermesRun).not.toHaveBeenCalled()
+    const body = await readJson(res)
+    expect(body.data.assistantMessage.content).toContain('**Context usage — this conversation**')
+    expect(body.data.assistantMessage.content).toContain('Exchanges: 1')
+  })
+
   it('stores validated message attachments with the user message', async () => {
     mockGetConversation.mockResolvedValue({
       id: 'conv-1',

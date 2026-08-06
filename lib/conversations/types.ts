@@ -10,6 +10,7 @@ import type { Timestamp } from 'firebase-admin/firestore'
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
 import type { ContextReference } from '@/lib/context-references/types'
 import type { SlashCommandPayload } from '@/lib/chat/slash-commands'
+import type { ConversationContextCompression, ContextCompressionPlan } from '@/lib/chat/context-compression'
 import type { HermesGoalState } from '@/lib/chat/hermes-goal'
 import type { AgentEffort } from '@/lib/agents/runRouting'
 import type { ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
@@ -129,6 +130,12 @@ export interface Conversation {
    * Driven by `/goal` and `/subgoal` slash commands in Messages.
    */
   goalState?: HermesGoalState | null
+  /**
+   * Durable context compression produced by `/compress`. When present, message
+   * dispatch injects the summary + the most recent turns instead of the raw
+   * history tail.
+   */
+  contextCompression?: ConversationContextCompression | null
   createdAt?: Timestamp
   updatedAt?: Timestamp
 }
@@ -143,6 +150,9 @@ export interface ConversationMessage {
   attachments?: ConversationAttachment[]
   contextRefs?: ContextReference[]
   slashCommand?: SlashCommandPayload
+  /** Set on the pending assistant message of a /compress run so the finalizer
+   * stores the run reply as durable conversation context compression. */
+  contextCompressionPlan?: ContextCompressionPlan
   agentEffort?: AgentEffort | null
   /** Hermes-aligned dangerous-command approval mode for this turn. */
   approvalMode?: ApprovalMode

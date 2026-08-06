@@ -3,6 +3,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { getAgentDispatchHermesProfileLink } from '@/lib/agents/team'
 import { getLinkedRunResult } from '@/lib/linked-computers/run-queue-store'
 import type { AgentId } from '@/lib/agents/types'
+import type { ContextCompressionPlan } from '@/lib/chat/context-compression'
 import { callHermesJson, HERMES_RUNS_COLLECTION } from '@/lib/hermes/server'
 import type { ChatEvent, ChatUiAction, HermesProfileLink, RichMessagePart } from '@/lib/hermes/types'
 import {
@@ -82,6 +83,30 @@ function cleanString(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
   return trimmed ? trimmed : null
+}
+
+/**
+ * Persist the output of a /compress run as durable conversation context
+ * compression. Idempotent: a second completion just overwrites the summary.
+ */
+export async function storeConversationCompression(input: {
+  convId: string
+  plan: ContextCompressionPlan
+  summary: string
+  runId?: string
+}): Promise<void> {
+  const summary = input.summary.trim()
+  if (!summary) return
+  await adminDb.collection(CONVERSATIONS_COLLECTION).doc(input.convId).update({
+    contextCompression: {
+      summary,
+      compressedThroughMessageId: input.plan.compressedThroughMessageId,
+      keepTurns: input.plan.keepTurns,
+      ...(input.plan.focusTopic ? { focusTopic: input.plan.focusTopic } : {}),
+      createdAt: new Date().toISOString(),
+      ...(input.runId ? { runId: input.runId } : {}),
+    },
+  })
 }
 
 function textFromUnknown(value: unknown, depth = 0): string | null {
@@ -369,6 +394,20 @@ export async function finalizeConversationRun(input: {
     if (!linkedResult) {
       throw new HermesConversationRunError('Linked computer run not found', 404)
     }
+    // /compress run completed on a linked computer: persist the summary so the
+    // next dispatch uses compressed context.
+    if (msgData.contextCompressionPlan && linkedResult.status === 'completed' && linkedResult.content) {
+      await storeConversationCompression({
+        convId: input.convId,
+        plan: msgData.contextCompressionPlan as ContextCompressionPlan,
+        summary: linkedResult.content,
+        runId: linkedResult.runId,
+      }).catch((err) => console.error('[store-conversation-compression-failed]', {
+        convId: input.convId,
+        msgId: input.msgId,
+        error: err instanceof Error ? err.message : String(err),
+      }))
+    }
     return {
       status: linkedResult.status,
       runId: linkedResult.runId,
@@ -489,21 +528,39 @@ export async function finalizeConversationRun(input: {
     })
     await touchConversation(input.convId, previewOutput, 'assistant', input.msgId)
 
-    // Standing /goal loop: auto-continue when the conversation has an active Hermes goal.
-    try {
-      const { maybeContinueConversationGoal } = await import('@/lib/chat/hermes-goal-continue')
-      await maybeContinueConversationGoal({
+    // /compress run completed: persist the summary as durable conversation
+    // context compression (the reply is also visible in the thread).
+    if (msgData.contextCompressionPlan) {
+      await storeConversationCompression({
         convId: input.convId,
-        completedAssistantMessageId: input.msgId,
-        assistantContent: output,
+        plan: msgData.contextCompressionPlan as ContextCompressionPlan,
+        summary: output,
         runId,
-      })
-    } catch (goalErr) {
-      console.error('[goal-continue-failed]', {
+      }).catch((err) => console.error('[store-conversation-compression-failed]', {
         convId: input.convId,
         msgId: input.msgId,
-        error: goalErr instanceof Error ? goalErr.message : String(goalErr),
-      })
+        error: err instanceof Error ? err.message : String(err),
+      }))
+    }
+
+    // Standing /goal loop: auto-continue when the conversation has an active Hermes goal.
+    // Compression runs summarize context only — they must not extend a goal loop.
+    if (!msgData.contextCompressionPlan) {
+      try {
+        const { maybeContinueConversationGoal } = await import('@/lib/chat/hermes-goal-continue')
+        await maybeContinueConversationGoal({
+          convId: input.convId,
+          completedAssistantMessageId: input.msgId,
+          assistantContent: output,
+          runId,
+        })
+      } catch (goalErr) {
+        console.error('[goal-continue-failed]', {
+          convId: input.convId,
+          msgId: input.msgId,
+          error: goalErr instanceof Error ? goalErr.message : String(goalErr),
+        })
+      }
     }
 
     return { status: 'completed', content: output, runId, hermesStatus, ...richFields }

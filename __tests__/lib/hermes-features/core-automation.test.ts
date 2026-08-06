@@ -9,6 +9,8 @@ import {
   handleMemorySlash,
   handleRollbackSlash,
   handlePersonalitySlash,
+  handleContextSlash,
+  handleCompressControlSlash,
   tryHandleHermesFeaturesSlash,
 } from '@/lib/hermes-features/slash'
 import { SLASH_COMMANDS, getSlashCommandByToken } from '@/lib/chat/slash-commands'
@@ -17,9 +19,16 @@ import {
   readSkillBody,
 } from '@/lib/hermes-features/skill-loader'
 import { buildDefaultRefDeps } from '@/lib/hermes-features/ref-deps'
+import { getConversation, listMessages, convDoc } from '@/lib/conversations/conversations'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+
+jest.mock('@/lib/conversations/conversations', () => ({
+  getConversation: jest.fn(),
+  listMessages: jest.fn(),
+  convDoc: jest.fn(() => ({ update: jest.fn() })),
+}))
 
 describe('hermes-features durable control plane', () => {
   beforeEach(() => {
@@ -409,10 +418,92 @@ describe('hermes-features durable control plane', () => {
     })
 
     it('registers slash commands', () => {
-      for (const token of ['/toolsets', '/memory', '/rollback', '/personality', '/hermes-features']) {
+      for (const token of ['/toolsets', '/memory', '/rollback', '/personality', '/hermes-features', '/context', '/compress']) {
         expect(getSlashCommandByToken(token)?.executorKind).toBe('hermes_features')
       }
       expect(SLASH_COMMANDS.some((c) => c.id === 'toolsets')).toBe(true)
+      expect(SLASH_COMMANDS.some((c) => c.id === 'context')).toBe(true)
+      expect(SLASH_COMMANDS.some((c) => c.id === 'compress')).toBe(true)
+      expect(getSlashCommandByToken('/context')?.id).toBe('context')
+    })
+
+    it('/context reports message counts and compression state without dispatching', async () => {
+      const now = Date.now()
+      const mk = (id: number, role: 'user' | 'assistant', content: string) => ({
+        id: `m${id}`,
+        conversationId: 'c1',
+        role,
+        content,
+        authorKind: role === 'user' ? 'user' : 'agent',
+        authorId: role === 'user' ? 'peet' : 'pip',
+        authorDisplayName: role === 'user' ? 'Peet' : 'Pip',
+        status: 'completed',
+        createdAt: { toMillis: () => now + id },
+      })
+      const messages = [
+        mk(1, 'user', 'hello'),
+        mk(2, 'assistant', 'hi'),
+        mk(3, 'user', 'set up billing'),
+        mk(4, 'assistant', 'done'),
+      ]
+      ;(listMessages as jest.Mock).mockResolvedValue(messages)
+      ;(getConversation as jest.Mock).mockResolvedValue({
+        id: 'c1',
+        orgId: 'org1',
+        contextCompression: null,
+        model: 'deepseek/deepseek-v4-flash',
+        provider: 'deepseek',
+      })
+
+      const result = await handleContextSlash({ orgId: 'org1', agentId: 'pip', conversationId: 'c1' })
+      expect(result.handled).toBe(true)
+      expect(result.shouldDispatch).toBe(false)
+      expect(result.reply).toContain('**Context usage — this conversation**')
+      expect(result.reply).toContain('Messages: 4 (2 user / 2 assistant)')
+      expect(result.reply).toContain('Compression: none yet')
+      const viaDispatch = await tryHandleHermesFeaturesSlash({
+        token: '/context', args: '', orgId: 'org1', agentId: 'pip', conversationId: 'c1',
+      })
+      expect(viaDispatch?.handled).toBe(true)
+    })
+
+    it('/compress status and clear are handled synchronously; a real /compress is not', async () => {
+      ;(getConversation as jest.Mock).mockResolvedValue({
+        id: 'c1',
+        orgId: 'org1',
+        contextCompression: {
+          summary: 'SUMMARY',
+          compressedThroughMessageId: 'm10',
+          keepTurns: 5,
+          createdAt: '2026-08-06T00:00:00.000Z',
+        },
+      })
+      const status = await tryHandleHermesFeaturesSlash({
+        token: '/compress', args: 'status', orgId: 'org1', agentId: 'pip', conversationId: 'c1',
+      })
+      expect(status?.handled).toBe(true)
+      expect(status?.reply).toContain('Context compression (active)')
+
+      const clear = await tryHandleHermesFeaturesSlash({
+        token: '/compress', args: 'clear', orgId: 'org1', agentId: 'pip', conversationId: 'c1',
+      })
+      expect(clear?.handled).toBe(true)
+      expect(clear?.reply).toContain('Cleared')
+      expect(convDoc).toHaveBeenCalledWith('c1')
+
+      // A real compress falls through to dispatch (handled === null).
+      const compress = await tryHandleHermesFeaturesSlash({
+        token: '/compress', args: 'here 5', orgId: 'org1', agentId: 'pip', conversationId: 'c1',
+      })
+      expect(compress).toBeNull()
+    })
+
+    it('/compress clear writes the durable conversation field', async () => {
+      const update = jest.fn()
+      ;(convDoc as jest.Mock).mockReturnValue({ update })
+      const result = await handleCompressControlSlash({ orgId: 'org1', conversationId: 'c1', args: 'clear' })
+      expect(result.handled).toBe(true)
+      expect(update).toHaveBeenCalledWith({ contextCompression: null })
     })
   })
 

@@ -1,6 +1,6 @@
 # Hermes Features Overview parity matrix — PiB Messages/agent runtime
 
-Last updated: 2026-07-31 (skeptic-hardened)  
+Last updated: 2026-08-06 (context & compression added)  
 Source: [Hermes Features Overview](https://hermes-agent.nousresearch.com/docs/user-guide/features/overview)
 
 ## Architecture contract (criterion 5)
@@ -47,10 +47,12 @@ Durable control-plane state lives in Firestore collection **`hermes_features`** 
 | 26 | Personality / SOUL presets | **complete** | Durable apply; `/personality`; dispatch injection |
 | 27 | Skins & themes | **deferred** | |
 | 28 | Plugins | **partial** | Durable install flags/catalog; not full `hermes plugins` remote install UI |
+| 29 | Context status `/context` | **complete** | Reports message counts, history window, estimated tokens, and durable compression state; no dispatch |
+| 30 | Context compression `/compress` | **complete** | Real Hermes run on the selected agent; reply stored as durable `contextCompression`; later dispatch injects summary + kept turns; `here N`, `focus <topic>`, `status`, `clear` |
 
 ## Operator entry points
 
-- Messages: `/toolsets` `/memory` `/rollback` `/personality` `/hermes-features` `/goal`
+- Messages: `/toolsets` `/memory` `/rollback` `/personality` `/context` `/compress` `/hermes-features` `/goal`
 - Admin: `GET/POST /api/v1/admin/hermes-features`
 - Cron fire worker: `GET /api/cron/hermes-features?orgId=…` (Bearer `CRON_SECRET`)
 - Dispatch: `buildHermesFeaturesDispatchBlock` in conversation messages route
