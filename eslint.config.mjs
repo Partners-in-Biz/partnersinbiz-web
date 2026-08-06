@@ -35,6 +35,7 @@ const eslintConfig = defineConfig([
     ".worktrees/**",
     "__tests__/**",
     "**/dist/**",
+    "runtime-installers/dist.*/**",
     "functions/lib/**",
     "jest.setup.js",
     "scripts/**",

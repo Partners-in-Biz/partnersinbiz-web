@@ -25,7 +25,7 @@ export type WhatsAppTemplateCategory = 'utility' | 'marketing' | 'authentication
 export type CommunicationProviderId = 'twilio' | 'resend' | 'ses' | 'in_app' | 'meta' | 'manual'
 export type CampaignStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'paused' | 'cancelled' | 'failed'
 export type RoutingRuleStatus = 'active' | 'paused' | 'draft'
-export type ChannelAccountStatus = 'disabled' | 'needs_setup' | 'ready' | 'degraded' | 'suspended'
+export type ChannelAccountStatus = 'disabled' | 'needs_setup' | 'ready' | 'degraded' | 'suspended' | 'not_connected' | 'connecting' | 'error'
 export type CommunicationEventType =
   | 'message.queued'
   | 'message.sent'
@@ -39,6 +39,9 @@ export type CommunicationEventType =
   | 'conversation.assigned'
   | 'conversation.resolved'
   | 'hermes.suggestion_created'
+  | 'webhook.received'
+  | 'credential.connected'
+  | 'credential.disconnected'
 
 export interface CommunicationContactSnapshot {
   id?: string
@@ -65,6 +68,8 @@ export interface Conversation {
   priority: ConversationPriority
   contactId: string | null
   contactSnapshot: CommunicationContactSnapshot
+  /** Dedupe key for inbound webhook lookups, e.g. `whatsapp:<e164>`. */
+  inboundKey?: string | null
   queueId: string | null
   assigneeAgentId: string | null
   assigneeUserId: string | null
@@ -206,6 +211,22 @@ export interface ChannelAccount {
   senderId?: string
   phoneNumber?: string
   externalAccountId?: string
+  /**
+   * Connection metadata for per-org provider credentials (Workstream 1).
+   * `kind: 'platform'` means the org is using the platform's env-var account;
+   * `kind: 'org'` means the org connected its own Twilio credentials.
+   */
+  credentialRef?: {
+    kind: 'platform' | 'org'
+    provider: CommunicationProviderId
+    status: 'not_connected' | 'connecting' | 'ready' | 'error'
+    hasCredentials: boolean
+    accountSidMasked?: string | null
+    messagingServiceSidMasked?: string | null
+    errorDetail?: string
+    webhookPath?: string
+    connectedAt?: unknown
+  }
   readiness: {
     configured: boolean
     healthy: boolean
@@ -295,6 +316,8 @@ export interface HermesCommunicationSuggestion {
   directSendAllowed: false
   summary: string
   detectedIntent: string
+  /** 0..1 confidence from the inbound classifier; undefined when no inbound body exists. */
+  confidence?: number
   recommendedOwnerAgentId: 'pip' | 'maya' | 'nora' | 'sage' | 'theo'
   recommendedPriority: ConversationPriority
   recommendedLabels: string[]

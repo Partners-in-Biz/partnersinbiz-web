@@ -3,6 +3,15 @@ import { adminDb } from '@/lib/firebase/admin'
 import { buildHermesConversationSuggestion } from './automation'
 import { buildCommunicationAnalytics } from './analytics'
 import {
+  decryptTwilioCredentials,
+  encryptTwilioCredentials,
+  maskSid,
+  normalizePhoneKey,
+  redactCredentialSummary,
+  type CredentialSummary,
+  type TwilioProviderCredentials,
+} from './credentials'
+import {
   COMMUNICATION_CHANNELS,
   EMPTY_COMMUNICATION_CAMPAIGN_STATS,
   type AgentQueue,
@@ -10,7 +19,9 @@ import {
   type ChannelAccount,
   type CommunicationCampaign,
   type CommunicationChannel,
+  type CommunicationContactSnapshot,
   type CommunicationEvent,
+  type CommunicationProviderId,
   type Conversation,
   type ConversationMessage,
   type ConversationPriority,
@@ -32,6 +43,8 @@ export const COMMUNICATION_COLLECTIONS = {
   queues: 'communication_queues',
   routingRules: 'communication_routing_rules',
   events: 'communication_events',
+  credentials: 'communication_credentials',
+  webhookRoutes: 'communication_webhook_routes',
 } as const
 
 export interface ConversationFilters {
@@ -56,6 +69,10 @@ export interface CreateConversationInput {
   priority?: ConversationPriority
   createdBy: string
   createdByType: 'user' | 'agent' | 'system'
+  /** Contact snapshot to store directly (used by inbound webhooks that have no CRM contact yet). */
+  contactSnapshot?: CommunicationContactSnapshot
+  /** Dedupe key used by inbound webhook receivers, e.g. `whatsapp:<e164>`. */
+  inboundKey?: string
 }
 
 export interface AddConversationMessageInput {
@@ -68,6 +85,11 @@ export interface AddConversationMessageInput {
   campaignId?: string | null
   createdBy: string
   createdByType: 'user' | 'agent' | 'system'
+  /** Provider metadata for webhook-ingested or provider-sent messages. */
+  provider?: ConversationMessage['provider']
+  /** Top-level denormalized provider SID for index-free webhook lookups. */
+  providerMessageId?: string
+  attachments?: ConversationMessage['attachments']
 }
 
 export interface ListResult<T> {
@@ -106,8 +128,8 @@ export async function createConversation(
   if (!isCommunicationChannel(input.channel)) throw new Error('channel is invalid')
 
   const contactSnapshot = input.contactId
-    ? await loadContactSnapshot(orgId, input.contactId)
-    : {}
+    ? { ...(await loadContactSnapshot(orgId, input.contactId)), ...(input.contactSnapshot ?? {}) }
+    : (input.contactSnapshot ?? {})
   const ref = adminDb.collection(COMMUNICATION_COLLECTIONS.conversations).doc()
   const body = (input.body ?? '').trim()
   const labels = cleanStringArray(input.labels)
@@ -120,6 +142,7 @@ export async function createConversation(
     priority: input.priority ?? 'normal',
     contactId: input.contactId ?? null,
     contactSnapshot,
+    inboundKey: input.inboundKey ?? null,
     queueId: input.queueId ?? null,
     assigneeAgentId: null,
     assigneeUserId: null,
@@ -262,6 +285,9 @@ export async function addConversationMessage(
     templateId: input.templateId ?? null,
     campaignId: input.campaignId ?? conversation.campaignId ?? null,
     contactId: conversation.contactId ?? null,
+    provider: input.provider ?? null,
+    providerMessageId: input.providerMessageId ?? null,
+    attachments: input.attachments ?? [],
     createdBy: input.createdBy,
     createdByType: input.createdByType,
     createdAt: now,
@@ -394,6 +420,305 @@ export async function listEvents(orgId: string, limit = 500): Promise<ListResult
   return { items: sorted, total: items.length }
 }
 
+// ── Per-org provider credentials (Workstream 1) ─────────────────────────────
+
+/**
+ * Encrypt and persist per-org Twilio credentials. Ciphertext lives in
+ * `communication_credentials/{orgId}`. Plaintext is never returned.
+ */
+export async function saveOrgTwilioCredentials(
+  orgId: string,
+  credentials: TwilioProviderCredentials,
+  opts: { verified?: boolean } = {},
+): Promise<{ credentialId: string; summary: CredentialSummary }> {
+  const encrypted = encryptTwilioCredentials(credentials, orgId)
+  const now = FieldValue.serverTimestamp()
+  const ref = adminDb.collection(COMMUNICATION_COLLECTIONS.credentials).doc(orgId)
+  await ref.set({
+    orgId,
+    provider: 'twilio',
+    encrypted,
+    accountSidMasked: maskSid(credentials.accountSid),
+    messagingServiceSidMasked: maskSid(credentials.messagingServiceSid ?? null),
+    whatsappFrom: credentials.whatsappFrom ?? null,
+    encryptedAt: now,
+    verifiedAt: opts.verified ? now : null,
+    updatedAt: now,
+  })
+  return {
+    credentialId: orgId,
+    summary: redactCredentialSummary({
+      provider: 'twilio',
+      hasCredentials: true,
+      accountSid: credentials.accountSid,
+      messagingServiceSid: credentials.messagingServiceSid ?? null,
+      whatsappFrom: credentials.whatsappFrom ?? null,
+      encryptedAt: new Date().toISOString(),
+      verifiedAt: opts.verified ? new Date().toISOString() : null,
+    }),
+  }
+}
+
+/** Decrypt and return the org's Twilio credentials, or null when not stored. Server-only. */
+export async function getOrgTwilioCredentials(orgId: string): Promise<TwilioProviderCredentials | null> {
+  const doc = await adminDb.collection(COMMUNICATION_COLLECTIONS.credentials).doc(orgId).get()
+  if (!doc.exists) return null
+  const data = doc.data() ?? {}
+  const encrypted = data.encrypted as Record<keyof TwilioProviderCredentials, { ciphertext: string; iv: string; tag: string } | null> | undefined
+  if (!encrypted) return null
+  try {
+    return decryptTwilioCredentials(encrypted, orgId)
+  } catch {
+    return null
+  }
+}
+
+/** Redacted view for API responses — never contains plaintext credentials. */
+export async function getOrgCredentialSummary(orgId: string): Promise<CredentialSummary | null> {
+  const doc = await adminDb.collection(COMMUNICATION_COLLECTIONS.credentials).doc(orgId).get()
+  if (!doc.exists) return null
+  const data = doc.data() ?? {}
+  const encrypted = data.encrypted as Record<keyof TwilioProviderCredentials, { ciphertext: string; iv: string; tag: string } | null> | undefined
+  if (!encrypted) return null
+  return redactCredentialSummary({
+    provider: 'twilio',
+    hasCredentials: Boolean(encrypted.accountSid && encrypted.authToken),
+    accountSid: data.accountSidMasked ?? null,
+    messagingServiceSid: data.messagingServiceSidMasked ?? null,
+    whatsappFrom: data.whatsappFrom ?? null,
+    encryptedAt: data.encryptedAt ?? null,
+    verifiedAt: data.verifiedAt ?? null,
+  })
+}
+
+// ── Channel accounts + webhook route mapping ────────────────────────────────
+
+export interface UpsertChannelAccountInput {
+  channel: CommunicationChannel
+  providerId: CommunicationProviderId
+  displayName?: string
+  senderId?: string
+  phoneNumber?: string
+  externalAccountId?: string
+  status: ChannelAccount['status']
+  credentialRef?: ChannelAccount['credentialRef']
+  readiness: ChannelAccount['readiness']
+}
+
+/**
+ * Create or update the org's ChannelAccount for a channel/provider and keep the
+ * inbound webhook route mapping in sync so Twilio callbacks can resolve the org.
+ */
+export async function upsertChannelAccount(orgId: string, input: UpsertChannelAccountInput): Promise<{ id: string; account: ChannelAccount }> {
+  const existing = (await listChannelAccounts(orgId)).items.find(
+    (account) => account.channel === input.channel && account.providerId === input.providerId,
+  )
+  const now = FieldValue.serverTimestamp()
+  const ref = existing
+    ? adminDb.collection(COMMUNICATION_COLLECTIONS.channels).doc(existing.id)
+    : adminDb.collection(COMMUNICATION_COLLECTIONS.channels).doc()
+
+  const doc: Record<string, unknown> = {
+    orgId,
+    channel: input.channel,
+    providerId: input.providerId,
+    status: input.status,
+    displayName: input.displayName ?? (input.channel === 'whatsapp' ? 'WhatsApp Business' : input.channel),
+    senderId: input.senderId ?? existing?.senderId ?? null,
+    phoneNumber: input.phoneNumber ?? existing?.phoneNumber ?? null,
+    externalAccountId: input.externalAccountId ?? existing?.externalAccountId ?? null,
+    credentialRef: input.credentialRef ?? existing?.credentialRef ?? null,
+    readiness: input.readiness,
+    quotas: existing?.quotas ?? {},
+    businessHours: existing?.businessHours ?? null,
+    updatedAt: now,
+    deleted: false,
+  }
+  if (!existing) {
+    doc.createdAt = now
+  }
+
+  const batch = adminDb.batch()
+  batch.set(ref, doc)
+
+  // Keep the reverse lookup for inbound webhooks accurate.
+  const sender = input.senderId ?? input.phoneNumber ?? existing?.senderId ?? existing?.phoneNumber
+  const oldSender = existing?.senderId ?? existing?.phoneNumber
+  if (sender) {
+    batch.set(adminDb.collection(COMMUNICATION_COLLECTIONS.webhookRoutes).doc(normalizePhoneKey(sender)), {
+      orgId,
+      accountId: ref.id,
+      providerId: input.providerId,
+      channel: input.channel,
+      sender,
+      updatedAt: now,
+    })
+  }
+  if (oldSender && sender && normalizePhoneKey(oldSender) !== normalizePhoneKey(sender)) {
+    batch.delete(adminDb.collection(COMMUNICATION_COLLECTIONS.webhookRoutes).doc(normalizePhoneKey(oldSender)))
+  }
+  await batch.commit()
+
+  const account = await getChannelAccount(orgId, ref.id)
+  if (!account) throw new Error('Failed to load channel account after upsert')
+  return { id: ref.id, account }
+}
+
+export async function getChannelAccount(orgId: string, accountId: string): Promise<ChannelAccount | null> {
+  const doc = await adminDb.collection(COMMUNICATION_COLLECTIONS.channels).doc(accountId).get()
+  if (!doc.exists) return null
+  const account = { id: doc.id, ...doc.data() } as unknown as ChannelAccount
+  if (account.orgId !== orgId || account.deleted === true) return null
+  return serializeCommunicationValue(account) as ChannelAccount
+}
+
+export interface WebhookRoute {
+  orgId: string
+  accountId: string
+  providerId: string
+  channel: string
+  sender: string
+}
+
+/** Resolve the org that owns an inbound sender number (Twilio `To`). */
+export async function getWebhookRouteBySender(sender: string): Promise<WebhookRoute | null> {
+  const key = normalizePhoneKey(sender)
+  if (!key) return null
+  const doc = await adminDb.collection(COMMUNICATION_COLLECTIONS.webhookRoutes).doc(key).get()
+  if (!doc.exists) return null
+  const data = doc.data() ?? {}
+  return {
+    orgId: String(data.orgId ?? ''),
+    accountId: String(data.accountId ?? ''),
+    providerId: String(data.providerId ?? ''),
+    channel: String(data.channel ?? ''),
+    sender: String(data.sender ?? sender),
+  }
+}
+
+/** Disconnect an org channel account: status flips to not_connected, webhook route removed. */
+export async function disconnectChannelAccount(orgId: string, accountId: string): Promise<ChannelAccount | null> {
+  const account = await getChannelAccount(orgId, accountId)
+  if (!account) return null
+  const sender = account.senderId ?? account.phoneNumber
+  const batch = adminDb.batch()
+  batch.update(adminDb.collection(COMMUNICATION_COLLECTIONS.channels).doc(accountId), {
+    status: 'not_connected',
+    'credentialRef.status': 'not_connected',
+    updatedAt: FieldValue.serverTimestamp(),
+  })
+  if (sender) {
+    batch.delete(adminDb.collection(COMMUNICATION_COLLECTIONS.webhookRoutes).doc(normalizePhoneKey(sender)))
+  }
+  batch.set(adminDb.collection(COMMUNICATION_COLLECTIONS.events).doc(), {
+    orgId,
+    type: 'credential.disconnected',
+    channel: account.channel,
+    accountId,
+    payload: { provider: account.providerId },
+    createdAt: FieldValue.serverTimestamp(),
+  })
+  await batch.commit()
+  return getChannelAccount(orgId, accountId)
+}
+
+// ── Outbound message delivery (status callbacks) ────────────────────────────
+
+export async function getConversationMessage(orgId: string, messageId: string): Promise<ConversationMessage | null> {
+  const doc = await adminDb.collection(COMMUNICATION_COLLECTIONS.messages).doc(messageId).get()
+  if (!doc.exists) return null
+  const message = normalizeMessage(doc.id, doc.data() ?? {})
+  if (message.orgId !== orgId || (doc.data() as { deleted?: boolean } | undefined)?.deleted === true) return null
+  return serializeCommunicationValue(message) as ConversationMessage
+}
+
+/** Find a message by the provider SID (top-level denormalized field, no composite index needed). */
+export async function findMessageByProviderSid(orgId: string, providerMessageId: string): Promise<{ id: string; orgId: string; status: string } | null> {
+  const snap = await adminDb
+    .collection(COMMUNICATION_COLLECTIONS.messages)
+    .where('providerMessageId', '==', providerMessageId)
+    .limit(10)
+    .get()
+  for (const doc of snap.docs) {
+    const data = doc.data() ?? {}
+    if (String(data.orgId ?? '') === orgId && data.deleted !== true) {
+      return { id: doc.id, orgId, status: String(data.status ?? '') }
+    }
+  }
+  return null
+}
+
+export interface DeliveryStatusUpdate {
+  status: 'sent' | 'delivered' | 'read' | 'failed'
+  rawStatus?: string | null
+  errorCode?: string | null
+  errorMessage?: string | null
+}
+
+/** Apply a Twilio status callback to the outbound message. Returns false when the SID is unknown. */
+export async function updateMessageDeliveryStatus(
+  orgId: string,
+  providerMessageId: string,
+  update: DeliveryStatusUpdate,
+): Promise<{ found: boolean; messageId?: string }> {
+  const existing = await findMessageByProviderSid(orgId, providerMessageId)
+  if (!existing) return { found: false }
+
+  const docSnap = await adminDb.collection(COMMUNICATION_COLLECTIONS.messages).doc(existing.id).get()
+  const currentStatus = String((docSnap.data() as { status?: unknown } | undefined)?.status ?? '')
+  // Statuses progress queued → sent → delivered → read (and terminal failed).
+  // Never downgrade (Twilio callbacks can arrive out of order).
+  const rank: Record<string, number> = { queued: 0, draft: 0, sent: 1, delivered: 2, read: 3, failed: 3 }
+  const currentRank = rank[currentStatus] ?? 0
+  const nextRank = rank[update.status] ?? 0
+  if (nextRank < currentRank) return { found: true, messageId: existing.id }
+  if (nextRank === currentRank && update.status !== 'read') return { found: true, messageId: existing.id }
+
+  const patch: Record<string, unknown> = {
+    status: update.status,
+    'provider.rawStatus': update.rawStatus ?? null,
+    'provider.errorCode': update.errorCode ?? null,
+    updatedAt: FieldValue.serverTimestamp(),
+  }
+  if (update.status === 'delivered') patch.deliveredAt = FieldValue.serverTimestamp()
+  if (update.status === 'read') patch.readAt = FieldValue.serverTimestamp()
+  if (update.status === 'failed') {
+    patch.failedAt = FieldValue.serverTimestamp()
+    patch.failureReason = update.errorMessage || (update.errorCode ? `Twilio error ${update.errorCode}` : null)
+  }
+  await adminDb.collection(COMMUNICATION_COLLECTIONS.messages).doc(existing.id).update(patch)
+  return { found: true, messageId: existing.id }
+}
+
+// ── Event helper ────────────────────────────────────────────────────────────
+
+export async function recordCommunicationEvent(
+  orgId: string,
+  input: {
+    type: CommunicationEvent['type']
+    channel?: CommunicationChannel
+    contactId?: string | null
+    conversationId?: string | null
+    messageId?: string | null
+    campaignId?: string | null
+    payload?: Record<string, unknown>
+  },
+): Promise<string> {
+  const ref = adminDb.collection(COMMUNICATION_COLLECTIONS.events).doc()
+  await ref.set({
+    orgId,
+    type: input.type,
+    channel: input.channel ?? 'whatsapp',
+    contactId: input.contactId ?? null,
+    conversationId: input.conversationId ?? null,
+    messageId: input.messageId ?? null,
+    campaignId: input.campaignId ?? null,
+    payload: input.payload ?? {},
+    createdAt: FieldValue.serverTimestamp(),
+  })
+  return ref.id
+}
+
 export async function getCommunicationAnalytics(orgId: string) {
   const [conversations, campaigns, events] = await Promise.all([
     listConversations(orgId, { limit: 500 }),
@@ -441,6 +766,7 @@ function normalizeConversation(id: string, data: FirebaseFirestore.DocumentData)
     priority: isPriority(data.priority) ? data.priority : 'normal',
     contactId: typeof data.contactId === 'string' && data.contactId ? data.contactId : null,
     contactSnapshot: data.contactSnapshot && typeof data.contactSnapshot === 'object' ? data.contactSnapshot : {},
+    inboundKey: typeof data.inboundKey === 'string' && data.inboundKey ? data.inboundKey : null,
     queueId: typeof data.queueId === 'string' && data.queueId ? data.queueId : null,
     assigneeAgentId: typeof data.assigneeAgentId === 'string' && data.assigneeAgentId ? data.assigneeAgentId : null,
     assigneeUserId: typeof data.assigneeUserId === 'string' && data.assigneeUserId ? data.assigneeUserId : null,

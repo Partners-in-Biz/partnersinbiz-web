@@ -428,12 +428,14 @@ export function CommunicationsConsole({
           reply={reply}
           setReply={setReply}
           saveDraft={saveDraft}
+          orgId={activeOrgId}
+          refreshBundle={loadConversationBundle}
         />
       )}
       {view === 'templates' && <TemplatesView templates={templates} mode={mode} selectedOrgId={activeOrgId} reload={loadTemplates} />}
       {view === 'campaigns' && <CampaignsView mode={mode} selectedOrgId={activeOrgId} />}
       {view === 'automations' && <AutomationView mode={mode} />}
-      {view === 'channels' && <ChannelsView channels={channels} />}
+      {view === 'channels' && <ChannelsView channels={channels} orgId={activeOrgId} reload={loadChannels} />}
       {view === 'analytics' && <AnalyticsView analytics={analytics} />}
     </div>
   )
@@ -459,6 +461,8 @@ function InboxView({
   reply,
   setReply,
   saveDraft,
+  orgId,
+  refreshBundle,
 }: {
   loading: boolean
   filter: InboxFilter
@@ -472,7 +476,47 @@ function InboxView({
   reply: string
   setReply: (value: string) => void
   saveDraft: (options: { queueApproved: boolean }) => void
+  orgId: string
+  refreshBundle: (id: string) => void
 }) {
+  const [dismissedSuggestion, setDismissedSuggestion] = useState<string | null>(null)
+  const [suggestionBusy, setSuggestionBusy] = useState(false)
+  const [suggestionError, setSuggestionError] = useState<string | null>(null)
+  const suggestion = bundle?.hermesSuggestion ?? null
+  const suggestionKey = suggestion ? `${bundle?.conversation.id}:${suggestion.detectedIntent}:${suggestion.draftReply}` : null
+  const suggestionVisible = suggestion && suggestionKey && dismissedSuggestion !== suggestionKey
+
+  async function approveSuggestion() {
+    if (!suggestion || !selectedId) return
+    setSuggestionBusy(true)
+    setSuggestionError(null)
+    try {
+      const response = await apiPost<{ send?: { ok?: boolean; error?: string | null } }>(`/api/v1/communications/conversations/${selectedId}/messages`, {
+        orgId: orgId || undefined,
+        body: suggestion.draftReply,
+        direction: 'outbound',
+        sendNow: true,
+        humanApproved: true,
+        suggestionSource: 'internal_copilot',
+      })
+      if (response.send && response.send.ok === false) {
+        setSuggestionError(response.send.error || 'The approved reply could not be sent.')
+        return
+      }
+      setDismissedSuggestion(suggestionKey)
+      refreshBundle(selectedId)
+    } catch (err) {
+      setSuggestionError(err instanceof Error ? err.message : 'Could not send the approved suggestion.')
+    } finally {
+      setSuggestionBusy(false)
+    }
+  }
+
+  function useSuggestionDraft() {
+    if (!suggestion) return
+    setReply(suggestion.draftReply)
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -606,14 +650,58 @@ function InboxView({
             )}
           </Panel>
           <Panel title="Hermes copilot" icon="auto_awesome">
-            {bundle?.hermesSuggestion ? (
+            {suggestion && suggestionVisible ? (
               <div className="space-y-3">
-                <p className="text-sm text-[var(--color-pib-text)]">{bundle.hermesSuggestion.summary}</p>
-                <p className="text-xs text-[var(--color-pib-text-muted)]">Owner: {bundle.hermesSuggestion.recommendedOwnerAgentId} · Priority: {bundle.hermesSuggestion.recommendedPriority}</p>
-                <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3 text-sm text-[var(--color-pib-text)]">
-                  {bundle.hermesSuggestion.draftReply}
+                <p className="text-sm text-[var(--color-pib-text)]">{suggestion.summary}</p>
+                <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest">
+                  <span className="pill !text-[10px] !py-0.5 !px-2">{suggestion.detectedIntent}</span>
+                  {typeof suggestion.confidence === 'number' && (
+                    <span className="pill !text-[10px] !py-0.5 !px-2">
+                      {Math.round(suggestion.confidence * 100)}% confidence
+                    </span>
+                  )}
+                  <span className="pill !text-[10px] !py-0.5 !px-2">owner: {suggestion.recommendedOwnerAgentId}</span>
+                  <span className="pill !text-[10px] !py-0.5 !px-2">priority: {suggestion.recommendedPriority}</span>
                 </div>
-                <p className="text-[11px] text-[var(--color-pib-text-muted)]">Internal suggestion only. Hermes cannot send customer replies directly in V1.</p>
+                <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3 text-sm text-[var(--color-pib-text)]">
+                  {suggestion.draftReply}
+                </div>
+                {suggestion.recommendedLabels.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {suggestion.recommendedLabels.map((label) => (
+                      <span key={label} className="pill !text-[10px] !py-0.5 !px-2">{label}</span>
+                    ))}
+                  </div>
+                )}
+                {suggestionError && (
+                  <p className="text-xs text-red-300">{suggestionError}</p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { void approveSuggestion() }}
+                    disabled={suggestionBusy}
+                    className="btn-pib-accent btn-pib-sm"
+                  >
+                    <span className="material-symbols-outlined text-base">send</span>
+                    {suggestionBusy ? 'Sending...' : 'Approve & send'}
+                  </button>
+                  <button type="button" onClick={useSuggestionDraft} className="btn-pib-secondary btn-pib-sm">
+                    <span className="material-symbols-outlined text-base">edit</span>
+                    Edit draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => suggestionKey && setDismissedSuggestion(suggestionKey)}
+                    className="btn-pib-secondary btn-pib-sm"
+                  >
+                    <span className="material-symbols-outlined text-base">close</span>
+                    Dismiss
+                  </button>
+                </div>
+                <p className="text-[11px] text-[var(--color-pib-text-muted)]">
+                  Internal suggestion only. Nothing sends until a human approves — the server rejects unapproved sends.
+                </p>
               </div>
             ) : (
               <p className="text-sm text-[var(--color-pib-text-muted)]">Suggestions appear after a thread is selected.</p>
@@ -755,7 +843,101 @@ function AutomationView({ mode }: { mode: 'admin' | 'portal' }) {
   )
 }
 
-function ChannelsView({ channels }: { channels: ChannelsResponse | null }) {
+interface ChannelAccountView {
+  id: string
+  channel: string
+  providerId: string
+  status: string
+  displayName?: string
+  senderId?: string
+  phoneNumber?: string
+  credentialRef?: {
+    kind?: string
+    status?: string
+    hasCredentials?: boolean
+    accountSidMasked?: string | null
+    messagingServiceSidMasked?: string | null
+    errorDetail?: string
+    webhookPath?: string
+  }
+}
+
+function ChannelsView({
+  channels,
+  orgId,
+  reload,
+}: {
+  channels: ChannelsResponse | null
+  orgId: string
+  reload: () => void
+}) {
+  const [connectOpen, setConnectOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [form, setForm] = useState({
+    accountSid: '',
+    authToken: '',
+    messagingServiceSid: '',
+    whatsappFrom: '',
+  })
+
+  const accounts = (channels?.accounts ?? []) as unknown as ChannelAccountView[]
+  const whatsappAccount = accounts.find((account) => account.channel === 'whatsapp' && account.providerId === 'twilio')
+
+  async function connectWhatsApp() {
+    if (!orgId) {
+      setFormError('Select an organisation first.')
+      return
+    }
+    setSaving(true)
+    setFormError(null)
+    setFeedback(null)
+    try {
+      const result = await apiPost<{ accountId: string; status: string; credential: { accountSidMasked?: string | null } }>(
+        '/api/v1/communications/channels',
+        {
+          orgId,
+          providerId: 'twilio',
+          channel: 'whatsapp',
+          credentials: {
+            accountSid: form.accountSid,
+            authToken: form.authToken,
+            messagingServiceSid: form.messagingServiceSid || undefined,
+            whatsappFrom: form.whatsappFrom,
+          },
+        },
+      )
+      setFeedback(`WhatsApp sender connected (${result.status}). Inbound messages now route into this workspace.`)
+      setForm({ accountSid: '', authToken: '', messagingServiceSid: '', whatsappFrom: '' })
+      setConnectOpen(false)
+      reload()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Could not connect the WhatsApp sender.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function disconnectWhatsApp(accountId: string) {
+    if (!orgId) return
+    setSaving(true)
+    setFormError(null)
+    setFeedback(null)
+    try {
+      await apiPatch(`/api/v1/communications/channels/${accountId}`, { orgId, action: 'disconnect' })
+      setFeedback('WhatsApp sender disconnected. Inbound webhooks for this number are paused.')
+      reload()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Could not disconnect the WhatsApp sender.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const connectionStatus = whatsappAccount?.credentialRef?.status ?? whatsappAccount?.status ?? 'not_connected'
+  const isConnected = connectionStatus === 'ready'
+
   return (
     <Panel title="Channel readiness" icon="settings_input_antenna">
       <div className="grid gap-3 lg:grid-cols-2">
@@ -781,10 +963,107 @@ function ChannelsView({ channels }: { channels: ChannelsResponse | null }) {
                 </div>
               ))}
             </div>
+
+            {provider.id === 'twilio' && (
+              <div className="mt-4 rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-[var(--color-pib-text)]">WhatsApp Business sender</p>
+                    <p className="mt-0.5 text-xs text-[var(--color-pib-text-muted)]">
+                      {isConnected
+                        ? `Connected · ${whatsappAccount?.phoneNumber || whatsappAccount?.senderId || ''}${whatsappAccount?.credentialRef?.accountSidMasked ? ` · ${whatsappAccount.credentialRef.accountSidMasked}` : ''}`
+                        : whatsappAccount
+                          ? 'Disconnected — reconnect to resume inbound routing for this sender.'
+                          : 'No per-org sender connected yet. The platform account remains the fallback.'}
+                    </p>
+                  </div>
+                  <span className={`pill !text-[10px] !py-0.5 !px-2 ${connectionStatus === 'ready' ? '' : '!border-yellow-500/30 !text-yellow-300'}`}>
+                    {connectionStatus === 'ready' ? 'Ready' : connectionStatus}
+                  </span>
+                </div>
+                {whatsappAccount?.credentialRef?.webhookPath && (
+                  <p className="mt-2 text-[11px] text-[var(--color-pib-text-muted)]">
+                    Inbound webhook: {whatsappAccount.credentialRef.webhookPath}
+                  </p>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {isConnected && whatsappAccount ? (
+                    <button
+                      type="button"
+                      onClick={() => { void disconnectWhatsApp(whatsappAccount.id) }}
+                      disabled={saving}
+                      className="btn-pib-secondary btn-pib-sm"
+                    >
+                      <span className="material-symbols-outlined text-base">link_off</span>
+                      Disconnect
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => setConnectOpen((open) => !open)} className="btn-pib-accent btn-pib-sm">
+                      <span className="material-symbols-outlined text-base">add_link</span>
+                      {whatsappAccount ? 'Reconnect WhatsApp Business' : 'Connect WhatsApp Business'}
+                    </button>
+                  )}
+                </div>
+
+                {connectOpen && !isConnected && (
+                  <div className="mt-3 space-y-2 border-t border-[var(--color-pib-line)] pt-3">
+                    <input
+                      value={form.accountSid}
+                      onChange={(event) => setForm((previous) => ({ ...previous, accountSid: event.target.value }))}
+                      placeholder="Twilio Account SID (AC…)"
+                      className={FIELD_CLASS}
+                      autoComplete="off"
+                    />
+                    <input
+                      value={form.authToken}
+                      onChange={(event) => setForm((previous) => ({ ...previous, authToken: event.target.value }))}
+                      placeholder="Twilio Auth Token"
+                      type="password"
+                      className={FIELD_CLASS}
+                      autoComplete="new-password"
+                    />
+                    <input
+                      value={form.messagingServiceSid}
+                      onChange={(event) => setForm((previous) => ({ ...previous, messagingServiceSid: event.target.value }))}
+                      placeholder="Messaging Service SID (optional, MG…)"
+                      className={FIELD_CLASS}
+                      autoComplete="off"
+                    />
+                    <input
+                      value={form.whatsappFrom}
+                      onChange={(event) => setForm((previous) => ({ ...previous, whatsappFrom: event.target.value }))}
+                      placeholder="WhatsApp sender number, e.g. +27612345678"
+                      className={FIELD_CLASS}
+                      autoComplete="off"
+                    />
+                    {formError && <p className="text-xs text-red-300">{formError}</p>}
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button type="button" onClick={() => setConnectOpen(false)} className="btn-pib-secondary btn-pib-sm" disabled={saving}>
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { void connectWhatsApp() }}
+                        disabled={saving || !form.accountSid.trim() || !form.authToken.trim() || !form.whatsappFrom.trim()}
+                        className="btn-pib-accent btn-pib-sm"
+                      >
+                        <span className="material-symbols-outlined text-base">verified</span>
+                        {saving ? 'Verifying...' : 'Verify & connect'}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-[var(--color-pib-text-muted)]">
+                      Credentials are encrypted per organisation at rest and never stored or shown in plain text.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
         {!channels && <p className="text-sm text-[var(--color-pib-text-muted)]">Open this tab to load provider readiness, queues, and routing rules.</p>}
       </div>
+      {feedback && <div className="mt-4 rounded-lg border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-300">{feedback}</div>}
+      {formError && !connectOpen && <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{formError}</div>}
     </Panel>
   )
 }
@@ -865,6 +1144,17 @@ async function apiGet<T>(url: string): Promise<T> {
 async function apiPost<T = unknown>(url: string, payload: Record<string, unknown>): Promise<T> {
   const res = await fetch(url, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const body = await res.json().catch(() => ({})) as ApiEnvelope<T>
+  if (!res.ok || body.success === false) throw new Error(body.error || 'Request failed')
+  return body.data as T
+}
+
+async function apiPatch<T = unknown>(url: string, payload: Record<string, unknown>): Promise<T> {
+  const res = await fetch(url, {
+    method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })

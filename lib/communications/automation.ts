@@ -108,6 +108,7 @@ export function buildHermesConversationSuggestion({
     directSendAllowed: false,
     summary: buildSummary(classification.intent, lastInbound?.body ?? '', conversation),
     detectedIntent: classification.intent,
+    confidence: lastInbound?.body ? classification.confidence : undefined,
     recommendedOwnerAgentId,
     recommendedPriority: classification.priority,
     recommendedLabels: labels,

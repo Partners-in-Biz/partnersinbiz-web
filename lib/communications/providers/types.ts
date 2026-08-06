@@ -12,6 +12,13 @@ export interface ProviderReadiness {
   }>
 }
 
+export interface ProviderCredentials {
+  accountSid?: string
+  authToken?: string
+  messagingServiceSid?: string
+  from?: string
+}
+
 export interface ProviderSendInput {
   orgId: string
   channel: CommunicationChannel
@@ -23,6 +30,8 @@ export interface ProviderSendInput {
   mediaUrls?: string[]
   statusCallbackUrl?: string
   metadata?: Record<string, unknown>
+  /** Per-org provider credentials; when absent the provider falls back to platform env vars. */
+  credentials?: ProviderCredentials
 }
 
 export interface ProviderSendResult {
@@ -38,6 +47,9 @@ export interface CommunicationProvider {
   id: CommunicationProviderId
   name: string
   supports: CommunicationChannel[]
-  getReadiness: (env?: Record<string, string | undefined>) => ProviderReadiness
+  getReadiness: (
+    env?: Record<string, string | undefined>,
+    credentials?: ProviderCredentials,
+  ) => ProviderReadiness
   send?: (input: ProviderSendInput) => Promise<ProviderSendResult>
 }
