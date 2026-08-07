@@ -26,7 +26,17 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!clientCanAccessOrg(user, orgId)) return apiError('Forbidden', 403)
 
   const body = await req.json().catch(() => null)
-  const code = body && typeof body.code === 'string' ? body.code.trim() : ''
+  let code = body && typeof body.code === 'string' ? body.code.trim() : ''
+  if (!code) return apiError('code is required', 400)
+  // Anthropic's hosted callback shows (and its Copy button copies) "code#state".
+  // Split so we exchange the code and validate the embedded state instead of
+  // sending the combined string to the token endpoint as the code.
+  let stateFromCode: string | undefined
+  if (code.includes('#')) {
+    const [codePart, statePart] = code.split('#', 2)
+    code = codePart.trim()
+    if (statePart) stateFromCode = statePart.trim()
+  }
   if (!code) return apiError('code is required', 400)
 
   const session = await getOauthSession(sessionId)
@@ -46,9 +56,12 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     await updateOauthSession(sessionId, { status: 'expired', error: 'OAuth session expired' })
     return apiError('OAuth session expired. Start a new sign-in.', 400)
   }
-  // Claude Code derives state from the verifier; when a client forwards state,
-  // it must match what the server issued.
-  if (typeof body.state === 'string' && body.state && session.state && body.state !== session.state) {
+  // Claude Code derives state from the verifier; when a client forwards state
+  // (either as a separate field or embedded in the pasted code), it must match
+  // what the server issued.
+  const forwardedState =
+    (typeof body.state === 'string' && body.state ? body.state : undefined) ?? stateFromCode
+  if (forwardedState && session.state && forwardedState !== session.state) {
     return apiError('OAuth state mismatch', 400)
   }
   if (!session.verifierEnc || !session.state) {

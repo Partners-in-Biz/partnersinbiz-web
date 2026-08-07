@@ -227,6 +227,34 @@ describe('POST /api/v1/llm-providers/oauth/[sessionId]/exchange', () => {
     expect(upsertLlmProviderConnectionMock).not.toHaveBeenCalled()
   })
 
+  it('accepts the combined code#state format copied from Anthropic’s callback page', async () => {
+    const response = await exchangeRequest('oauth_sess1', { code: `callback-code#${VERIFIER}` })
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.data.connection.provider).toBe('anthropic')
+    // The embedded state is validated against the session and the code is
+    // exchanged without the #state suffix.
+    expect(exchangeAnthropicCodeMock).toHaveBeenCalledWith({
+      code: 'callback-code',
+      verifier: VERIFIER,
+      state: VERIFIER,
+    })
+  })
+
+  it('rejects a mismatched state embedded in the pasted code', async () => {
+    const response = await exchangeRequest('oauth_sess1', { code: 'callback-code#wrong-state' })
+    expect(response.status).toBe(400)
+    expect(exchangeAnthropicCodeMock).not.toHaveBeenCalled()
+    expect(upsertLlmProviderConnectionMock).not.toHaveBeenCalled()
+  })
+
+  it('still requires a code after stripping a #state suffix', async () => {
+    const response = await exchangeRequest('oauth_sess1', { code: `#${VERIFIER}` })
+    expect(response.status).toBe(400)
+    expect(exchangeAnthropicCodeMock).not.toHaveBeenCalled()
+  })
+
   it('rejects an already-completed or missing session', async () => {
     getOauthSessionMock.mockResolvedValue(null)
     const response = await exchangeRequest('oauth_missing', { code: 'callback-code' })

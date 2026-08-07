@@ -66,10 +66,19 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
   }, [refresh])
 
   useEffect(() => {
-    if (!oauthSession || oauthSession.status !== 'pending') return
-    // Keep the device-code card in view — previously it sat above a long list
-    // while the connect form stayed open, so "Sign in with OAuth" looked dead.
-    oauthBannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (!oauthSession) return
+    const isDeviceFlow = oauthSession.status === 'pending'
+    const isAwaitingCode = oauthSession.status === 'awaiting_code'
+    // Keep the sign-in banner in view for BOTH flows — previously it sat above
+    // a long list while the connect form stayed open, so "Connect with OAuth"
+    // looked dead. Claude's authorization_code flow (awaiting_code) needs the
+    // same scroll so the paste-code box is visible when the user returns.
+    if (isDeviceFlow || isAwaitingCode) {
+      oauthBannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+    // Only device-code sessions poll a token endpoint; authorization_code
+    // sessions wait for the human to paste the hosted-callback code.
+    if (!isDeviceFlow) return
     const intervalMs = Math.max(3000, (oauthSession.intervalSeconds || 5) * 1000)
     const timer = window.setInterval(() => {
       void (async () => {
@@ -113,7 +122,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
       const opened = window.open(url, '_blank', 'noopener,noreferrer')
       if (!opened) {
         // Popup blocked — banner still has the link and code.
-        setError('Browser blocked the OpenAI sign-in tab. Use the link in “Complete sign-in” below and enter the code.')
+        setError('Browser blocked the sign-in tab. Use the link in “Complete sign-in” below and enter the code.')
       }
     }
   }, [orgId])
@@ -134,7 +143,16 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
     setExchanging(true)
     setError(null)
     try {
-      const result = await exchangeLlmOauth(orgId, oauthSession.id, authCode.trim())
+      // Anthropic's hosted callback page shows (and its Copy button copies) the
+      // combined "code#state" string. Split it so the OAuth code is exchanged
+      // and the state is validated against the session instead of being sent
+      // as part of the code (which Anthropic rejects as invalid_grant).
+      const [codePart, statePart] = authCode.trim().split('#', 2)
+      if (!codePart) {
+        setError('Paste the code from the Anthropic sign-in page first.')
+        return
+      }
+      const result = await exchangeLlmOauth(orgId, oauthSession.id, codePart, statePart || undefined)
       if (result.connection) {
         setOauthSession(null)
         setOpenForm(null)
@@ -204,7 +222,8 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
             <>
               <p className="mt-1 text-[var(--color-pib-text-muted)]">
                 Approve with {oauthProviderLabel}. A sign-in tab should have opened — if not, use the link below. After
-                approving, paste the code you receive back here.
+                approving, Anthropic shows a page that says “Paste this into Claude Code” — that is the code you need.
+                Copy it and paste it into the field below.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <a
