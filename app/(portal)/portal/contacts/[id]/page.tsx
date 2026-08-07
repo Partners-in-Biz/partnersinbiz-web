@@ -21,6 +21,7 @@ import { ContactOwnershipPanel } from '@/components/crm/ContactOwnershipPanel'
 import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
 import { ScoreChip } from '@/components/crm/ScoreChip'
+import { SystemLinkBadge } from '@/components/crm/SystemLinkBadge'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
@@ -1609,6 +1610,11 @@ export default function PortalContactDetailPage() {
                 {!hasContactName && (
                   <p className="mt-1 text-sm font-medium text-primary">Unnamed contact</p>
                 )}
+                {contact.linkedUserId ? (
+                  <div className="mt-2 flex">
+                    <SystemLinkBadge kind="user" size="md" />
+                  </div>
+                ) : null}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-[var(--color-pib-text-muted)]">
                   {hasLinkedCompany ? (
                     <Link

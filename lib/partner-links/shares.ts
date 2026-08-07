@@ -1,0 +1,383 @@
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { adminDb } from '@/lib/firebase/admin'
+import type { MemberRef } from '@/lib/orgMembers/memberRef'
+import { recordCrmAuditEvent } from '@/lib/crm/audit'
+import type {
+  BusinessRelationship,
+  SharedBusinessCapability,
+} from '@/lib/business-relationships/types'
+import { cleanString } from './identity'
+
+/**
+ * Phase 2 — per-record sharing across an accepted partner link.
+ *
+ * Phase 1 established the link and negotiated capability/field policy at the
+ * relationship level. This module lets an org share ONE specific record (a
+ * deal, project, invoice, quote, or client document) with the org on the other
+ * side of that link.
+ *
+ * SANCTIONED CROSS-ORG READ (second location, by design).
+ * `lib/companies/command-center.ts` carries a comment declaring itself the only
+ * place allowed to read across org boundaries. That module aggregates
+ * counts/statuses for a linked company. This module is the other sanctioned
+ * location, with a deliberately narrower contract:
+ *   - it reads exactly ONE record, named by an explicit share row
+ *   - the share must be `active` and the caller must be its `partnerOrgId`
+ *   - the record is returned through a per-type field whitelist, never raw
+ * Any cross-org read outside these two modules is still a spec violation.
+ */
+
+export const PARTNER_SHARE_COLLECTION = 'partner_record_shares'
+
+export type PartnerShareResourceType =
+  | 'deal'
+  | 'project'
+  | 'invoice'
+  | 'quote'
+  | 'client_document'
+
+export type PartnerSharePermission = 'view' | 'comment'
+export type PartnerShareStatus = 'active' | 'revoked'
+
+export const PARTNER_SHARE_RESOURCE_TYPES: PartnerShareResourceType[] = [
+  'deal', 'project', 'invoice', 'quote', 'client_document',
+]
+
+const RESOURCE_COLLECTION: Record<PartnerShareResourceType, string> = {
+  deal: 'deals',
+  project: 'projects',
+  invoice: 'invoices',
+  quote: 'quotes',
+  client_document: 'client_documents',
+}
+
+/** A record may only be shared when the link already shares that capability. */
+const RESOURCE_CAPABILITY: Record<PartnerShareResourceType, SharedBusinessCapability> = {
+  deal: 'crm',
+  project: 'projects',
+  invoice: 'invoices',
+  quote: 'invoices',
+  client_document: 'documents',
+}
+
+/** Per-type read whitelist. Never return the raw cross-org document. */
+const RESOURCE_FIELDS: Record<PartnerShareResourceType, string[]> = {
+  deal: ['title', 'value', 'currency', 'stageId', 'probability', 'expectedCloseDate', 'companyName'],
+  project: ['name', 'description', 'brief', 'status', 'targetDate', 'startDate'],
+  invoice: ['invoiceNumber', 'status', 'issueDate', 'dueDate', 'lineItems', 'subtotal',
+    'taxRate', 'taxAmount', 'total', 'currency', 'notes'],
+  quote: ['quoteNumber', 'status', 'issueDate', 'expiryDate', 'lineItems', 'subtotal',
+    'taxRate', 'taxAmount', 'total', 'currency', 'notes'],
+  client_document: ['title', 'status', 'documentType', 'summary', 'latestPublishedVersionId'],
+}
+
+const TITLE_FIELDS: Record<PartnerShareResourceType, string[]> = {
+  deal: ['title'],
+  project: ['name'],
+  invoice: ['invoiceNumber'],
+  quote: ['quoteNumber'],
+  client_document: ['title'],
+}
+
+export interface PartnerRecordShare {
+  id: string
+  partnerLinkId: string
+  relationshipId: string
+  ownerOrgId: string
+  partnerOrgId: string
+  resourceType: PartnerShareResourceType
+  resourceId: string
+  resourceTitle?: string
+  permission: PartnerSharePermission
+  status: PartnerShareStatus
+  sharedByRef?: MemberRef
+  createdAt?: unknown
+  updatedAt?: unknown
+  revokedAt?: unknown
+}
+
+function stripUndefined(input: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined))
+}
+
+function toShare(id: string, data: Record<string, unknown>): PartnerRecordShare {
+  return { id, ...(data as Omit<PartnerRecordShare, 'id'>) }
+}
+
+function timeValue(value: unknown): number {
+  if (!value) return 0
+  if (typeof value === 'object') {
+    const ts = value as { toMillis?: () => number; seconds?: number; _seconds?: number }
+    if (typeof ts.toMillis === 'function') return ts.toMillis()
+    const seconds = ts.seconds ?? ts._seconds
+    if (typeof seconds === 'number') return seconds * 1000
+  }
+  return 0
+}
+
+export function isPartnerShareResourceType(value: unknown): value is PartnerShareResourceType {
+  return typeof value === 'string' && (PARTNER_SHARE_RESOURCE_TYPES as string[]).includes(value)
+}
+
+/** Loads the caller's own side of an accepted, still-active partner link. */
+async function loadActiveLink(
+  relationshipId: string,
+  ownerOrgId: string,
+): Promise<BusinessRelationship> {
+  const snap = await adminDb.collection('businessRelationships').doc(relationshipId).get()
+  if (!snap.exists) throw new Error('Partner link not found')
+  const link = { ...(snap.data() as BusinessRelationship), id: snap.id }
+  if (link.sourceOrgId !== ownerOrgId || link.deleted === true) throw new Error('Partner link not found')
+  if (!cleanString(link.partnerLinkId)) throw new Error('That relationship is not an accepted partner link')
+  if (link.status !== 'active') throw new Error('This partner link is not active')
+  if (!cleanString(link.targetOrgId)) throw new Error('This partner link has no counterpart organisation')
+  return link
+}
+
+export interface SharePartnerRecordInput {
+  ownerOrgId: string
+  relationshipId: string
+  resourceType: PartnerShareResourceType
+  resourceId: string
+  permission?: PartnerSharePermission
+  actor: MemberRef
+}
+
+/**
+ * Share one record with the partner org. Idempotent: re-sharing the same
+ * record returns the existing active row (upgrading its permission if needed).
+ */
+export async function sharePartnerRecord(
+  input: SharePartnerRecordInput,
+): Promise<PartnerRecordShare> {
+  const link = await loadActiveLink(input.relationshipId, input.ownerOrgId)
+  const partnerOrgId = cleanString(link.targetOrgId)
+
+  const capability = RESOURCE_CAPABILITY[input.resourceType]
+  if (!link.sharedCapabilities?.includes(capability)) {
+    throw new Error(`This partner link does not share "${capability}". Enable it before sharing this record.`)
+  }
+
+  // The record must exist and belong to the sharing org.
+  const collection = RESOURCE_COLLECTION[input.resourceType]
+  const recordSnap = await adminDb.collection(collection).doc(input.resourceId).get()
+  if (!recordSnap.exists) throw new Error('Record not found')
+  const recordData = recordSnap.data() ?? {}
+  if (recordData.orgId !== input.ownerOrgId || recordData.deleted === true) {
+    throw new Error('Record not found')
+  }
+
+  const title = TITLE_FIELDS[input.resourceType]
+    .map((f) => cleanString(recordData[f]))
+    .find(Boolean)
+
+  const permission: PartnerSharePermission = input.permission === 'comment' ? 'comment' : 'view'
+  const now = FieldValue.serverTimestamp()
+
+  const existingSnap = await adminDb
+    .collection(PARTNER_SHARE_COLLECTION)
+    .where('ownerOrgId', '==', input.ownerOrgId)
+    .where('resourceType', '==', input.resourceType)
+    .where('resourceId', '==', input.resourceId)
+    .limit(10)
+    .get()
+
+  const existing = existingSnap.docs
+    .map((d) => toShare(d.id, d.data() ?? {}))
+    .find((s) => s.partnerOrgId === partnerOrgId && s.status === 'active')
+
+  if (existing) {
+    if (existing.permission !== permission || existing.resourceTitle !== title) {
+      await adminDb.collection(PARTNER_SHARE_COLLECTION).doc(existing.id).set(stripUndefined({
+        permission,
+        resourceTitle: title,
+        updatedAt: now,
+      }), { merge: true })
+    }
+    return { ...existing, permission, resourceTitle: title }
+  }
+
+  const doc = stripUndefined({
+    partnerLinkId: link.partnerLinkId,
+    relationshipId: input.relationshipId,
+    ownerOrgId: input.ownerOrgId,
+    partnerOrgId,
+    resourceType: input.resourceType,
+    resourceId: input.resourceId,
+    resourceTitle: title,
+    permission,
+    status: 'active',
+    sharedByRef: input.actor,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  const ref = await adminDb.collection(PARTNER_SHARE_COLLECTION).add(doc)
+
+  const notification = {
+    type: 'partner_share.granted',
+    title: 'A partner shared a record with you',
+    body: `${title ? `"${title}"` : `A ${input.resourceType.replace('_', ' ')}`} was shared with your workspace.`,
+    targetOrgIds: [partnerOrgId],
+  }
+  await recordCrmAuditEvent({
+    orgId: input.ownerOrgId,
+    eventType: 'partner_share.granted',
+    resourceType: input.resourceType,
+    resourceId: input.resourceId,
+    relationshipId: input.relationshipId,
+    actorRef: input.actor,
+    metadata: { partnerOrgId, permission, shareId: ref.id },
+    notification,
+  })
+
+  const snap = await ref.get()
+  return toShare(ref.id, snap.data() ?? {})
+}
+
+export async function revokePartnerShare(input: {
+  shareId: string
+  actingOrgId: string
+  actor: MemberRef
+}): Promise<PartnerRecordShare> {
+  const ref = adminDb.collection(PARTNER_SHARE_COLLECTION).doc(input.shareId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new Error('Share not found')
+  const share = toShare(snap.id, snap.data() ?? {})
+  // Only the org that owns the record may revoke it.
+  if (share.ownerOrgId !== input.actingOrgId) throw new Error('Share not found')
+
+  await ref.set({
+    status: 'revoked',
+    revokedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true })
+
+  await recordCrmAuditEvent({
+    orgId: share.ownerOrgId,
+    eventType: 'partner_share.revoked',
+    resourceType: share.resourceType,
+    resourceId: share.resourceId,
+    relationshipId: share.relationshipId,
+    actorRef: input.actor,
+    metadata: { partnerOrgId: share.partnerOrgId, shareId: share.id },
+    notification: {
+      type: 'partner_share.revoked',
+      title: 'A partner stopped sharing a record',
+      body: `${share.resourceTitle ? `"${share.resourceTitle}"` : 'A record'} is no longer shared with your workspace.`,
+      targetOrgIds: [share.partnerOrgId],
+    },
+  })
+
+  return { ...share, status: 'revoked' }
+}
+
+/** Records this org has shared OUT to partners. */
+export async function listOutgoingShares(
+  ownerOrgId: string,
+  params: { relationshipId?: string; includeRevoked?: boolean } = {},
+): Promise<PartnerRecordShare[]> {
+  const snap = await adminDb
+    .collection(PARTNER_SHARE_COLLECTION)
+    .where('ownerOrgId', '==', ownerOrgId)
+    .limit(1000)
+    .get()
+
+  return snap.docs
+    .map((d) => toShare(d.id, d.data() ?? {}))
+    .filter((s) => (params.includeRevoked ? true : s.status === 'active'))
+    .filter((s) => (params.relationshipId ? s.relationshipId === params.relationshipId : true))
+    .sort((a, b) => timeValue(b.createdAt) - timeValue(a.createdAt))
+}
+
+/** Records partners have shared IN to this org. */
+export async function listIncomingShares(partnerOrgId: string): Promise<PartnerRecordShare[]> {
+  const snap = await adminDb
+    .collection(PARTNER_SHARE_COLLECTION)
+    .where('partnerOrgId', '==', partnerOrgId)
+    .where('status', '==', 'active')
+    .limit(1000)
+    .get()
+
+  return snap.docs
+    .map((d) => toShare(d.id, d.data() ?? {}))
+    .sort((a, b) => timeValue(b.createdAt) - timeValue(a.createdAt))
+}
+
+export interface SharedRecordView {
+  share: PartnerRecordShare
+  ownerOrgName: string
+  record: Record<string, unknown>
+}
+
+/**
+ * THE cross-org read. Returns a whitelisted projection of one shared record.
+ * Refuses unless the share is active, the caller is the receiving org, and the
+ * underlying partner link is still active.
+ */
+export async function loadSharedRecord(input: {
+  shareId: string
+  viewerOrgId: string
+}): Promise<SharedRecordView> {
+  const snap = await adminDb.collection(PARTNER_SHARE_COLLECTION).doc(input.shareId).get()
+  if (!snap.exists) throw new Error('Shared record not found')
+  const share = toShare(snap.id, snap.data() ?? {})
+
+  if (share.partnerOrgId !== input.viewerOrgId) throw new Error('Shared record not found')
+  if (share.status !== 'active') throw new Error('This record is no longer shared with you')
+
+  // Re-check the link itself — unlinking must kill record access immediately,
+  // even for shares that were never individually revoked.
+  const linkSnap = await adminDb
+    .collection('businessRelationships')
+    .where('partnerLinkId', '==', share.partnerLinkId)
+    .limit(10)
+    .get()
+  const stillLinked = linkSnap.docs.some((d) => {
+    const row = d.data() as BusinessRelationship
+    return row.status === 'active' && row.deleted !== true
+  })
+  if (!stillLinked) throw new Error('This partner link is no longer active')
+
+  const recordSnap = await adminDb
+    .collection(RESOURCE_COLLECTION[share.resourceType])
+    .doc(share.resourceId)
+    .get()
+  if (!recordSnap.exists) throw new Error('Shared record no longer exists')
+  const raw = recordSnap.data() ?? {}
+  if (raw.orgId !== share.ownerOrgId || raw.deleted === true) {
+    throw new Error('Shared record no longer exists')
+  }
+
+  const record: Record<string, unknown> = { id: recordSnap.id }
+  for (const field of RESOURCE_FIELDS[share.resourceType]) {
+    if (raw[field] !== undefined) record[field] = raw[field]
+  }
+
+  const ownerOrgSnap = await adminDb.collection('organizations').doc(share.ownerOrgId).get()
+  const ownerOrgName = cleanString((ownerOrgSnap.data() ?? {}).name) || share.ownerOrgId
+
+  return { share, ownerOrgName, record }
+}
+
+/** Revoke every share riding on a partner link — called when the link is severed. */
+export async function revokeSharesForPartnerLink(input: {
+  partnerLinkId: string
+  actor: MemberRef
+}): Promise<string[]> {
+  if (!input.partnerLinkId) return []
+  const snap = await adminDb
+    .collection(PARTNER_SHARE_COLLECTION)
+    .where('partnerLinkId', '==', input.partnerLinkId)
+    .limit(1000)
+    .get()
+
+  const now = Timestamp.now()
+  const revoked: string[] = []
+  for (const doc of snap.docs) {
+    if ((doc.data() ?? {}).status !== 'active') continue
+    await doc.ref.set({ status: 'revoked', revokedAt: now, updatedAt: now }, { merge: true })
+    revoked.push(doc.id)
+  }
+  return revoked
+}

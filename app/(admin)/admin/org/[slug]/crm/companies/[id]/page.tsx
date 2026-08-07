@@ -8,6 +8,7 @@ import type { Company } from '@/lib/companies/types'
 import { CompanyAnalyticsPanel } from '@/components/crm/CompanyAnalyticsPanel'
 import { CompanyOverviewPanel } from '@/components/crm/CompanyOverviewPanel'
 import { CompanyRowsPanel } from '@/components/crm/CompanyRowsPanel'
+import { SystemLinkBadge } from '@/components/crm/SystemLinkBadge'
 import { CompanyTabsBar, type CompanyTab } from '@/components/crm/CompanyTabsBar'
 import { CompanyWorkspacePanel, type LinkedWorkspace } from '@/components/crm/CompanyWorkspacePanel'
 import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
@@ -389,7 +390,10 @@ export default function AdminCompanyCommandCenterPage() {
             )}
             <div className="min-w-0">
               <p className="eyebrow !text-[10px]">Admin company command center</p>
-              <h1 className="truncate pib-page-title">{company.name}</h1>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h1 className="truncate pib-page-title">{company.name}</h1>
+                {company.linkedOrgId ? <SystemLinkBadge kind="org" size="md" /> : null}
+              </div>
               <p className="mt-1 text-sm text-[var(--color-pib-text-muted)]">
                 {center.summary?.contacts ?? 0} contacts · {center.summary?.projects ?? 0} projects · {center.summary?.orders ?? 0} orders
               </p>

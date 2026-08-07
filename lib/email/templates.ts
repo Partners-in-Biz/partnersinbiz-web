@@ -5,7 +5,7 @@ function unsubscribeFooter(url?: string): string {
   return `<p style="font-size:11px;color:#666;text-align:center;margin-top:24px;">Don't want these emails? <a href="${url}" style="color:#888;">Unsubscribe</a></p>`
 }
 
-function baseTemplate(title: string, content: string, unsubscribeUrl?: string): string {
+export function baseTemplate(title: string, content: string, unsubscribeUrl?: string): string {
   return `
     <!DOCTYPE html>
     <html>

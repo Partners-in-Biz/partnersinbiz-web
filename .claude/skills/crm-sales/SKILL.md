@@ -69,6 +69,45 @@ CRM Companies and Contacts are now the bridge between one workspace and another 
 - A sender workspace can create a CRM Company/Contact, then send an invoice or share a project with `companyId` and/or `contactId`.
 - Secure public claim links use `claimable_relationships` to connect `sourceOrgId/sourceCompanyId/sourceContactId` to `targetOrgId/targetUserId` after signup or sign-in.
 - Sender-owned CRM links are relationship metadata only: `companies.linkedOrgId` and `contacts.linkedUserId` do not grant the sender admin rights inside the recipient workspace.
+- **These two fields are server-set only.** They are in `NEVER_FROM_BODY` and are silently dropped from any create/update payload. Writing them requires an accepted partner invite (below) or the platform-owner sync. Do not attempt to set them directly — the call will appear to succeed and the field will be absent.
+
+### Partner Links (org ↔ org)
+
+Any org can invite a company or contact from its own CRM to link workspaces. On accept both sides are wired up mutually.
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/v1/crm/partner-invites` | GET, POST | List invites; create + email one. Body: `{ kind: 'company'\|'contact', companyId, contactId?, email?, name?, companyName?, message?, capabilities? }` |
+| `/api/v1/crm/partner-invites/{id}` | GET, PATCH | PATCH `{ action: 'revoke' \| 'resend' }` |
+| `/api/v1/public/partner-invites/{token}` | GET, POST | Public preview / accept / decline. POST `{ action: 'accept'\|'decline', displayName?, businessName?, password?, orgId?, preferTargetCompanyId? }` |
+| `/api/v1/crm/partner-links` | GET | Established links + invitations in flight (powers `/portal/partners`) |
+| `/api/v1/crm/partner-links/{relationshipId}` | PATCH | Edit what **your** side shares: `sharedCapabilities`, `fieldSharingPolicy`, `portalVisible`, `relationshipType`. One-sided by design — never writes the counterpart row. |
+| `/api/v1/crm/partner-links/{relationshipId}/unlink` | POST | Sever from either side |
+| `/api/v1/crm/partner-shares` | GET, POST | List (`?direction=outgoing\|incoming\|both`) / share one record. POST `{ relationshipId, resourceType, resourceId, permission? }` |
+| `/api/v1/crm/partner-shares/{id}` | GET, DELETE | GET returns the shared record (receiving org only); DELETE revokes (owning org only) |
+
+Accept semantics:
+- Invites are **never** auto-accepted, even when both orgs already exist — unlike `claimable_relationships`, which auto-claims when `linkedOrgId` is already set.
+- Acceptable by the invited email, or by an owner/admin of an org that email already belongs to (forwarding case).
+- On accept: the inviter's company gets `linkedOrgId`; a contact matching `recipientEmail` gets `linkedUserId` (created if none); a mirror company + contact are created in the acceptor's CRM; two `businessRelationships` rows are written with `relationshipType: 'partner'` sharing one `partnerLinkId`.
+- Unlink revokes both relationship rows and clears the pointers on both sides. The CRM companies and contacts survive.
+- Tokens expire after 30 days. `GET /api/v1/inbox` surfaces pending invites addressed to the signed-in user (`itemType: 'partner_invite'`).
+- If the acceptor has no account, one is created and a new org is provisioned with them as `owner`. If they already belong to orgs they pick which one links — and their existing role is never rewritten.
+
+**Where a link is visible in the CRM:** `components/crm/SystemLinkBadge.tsx` renders a "Linked workspace" pill on the company row + company header (`companies.linkedOrgId`) and a "Linked user" pill on the contact command center (`contacts.linkedUserId`). Both admin CRM detail pages carry the same badges. The portal management surface is `/portal/partners` (CRM subnav → Partners): invite form, linked partners with sharing editor / share-record / unlink, invitations with resend/revoke, and shared-record lists. A company with no linked workspace shows an "Invite … to link workspaces" CTA on its command center that deep-links to `/portal/partners?companyId=…`.
+
+### Per-record sharing (`partner_record_shares`)
+
+On top of the link, an org can share ONE specific record with the partner: `deal`, `project`, `invoice`, `quote`, or `client_document`.
+
+- **Capability-gated.** A record type can only be shared when the link's `sharedCapabilities` already include the mapped capability (deal→`crm`, project→`projects`, invoice/quote→`invoices`, client_document→`documents`). Edit that with the PATCH endpoint above first.
+- **Ownership-checked.** You can only share a record whose `orgId` is your org.
+- **Whitelisted reads.** `GET /api/v1/crm/partner-shares/{id}` returns a per-type field whitelist, never the raw document — arbitrary fields on the source record do not leak.
+- **Idempotent.** Re-sharing the same record returns the existing active row.
+- **Revocation is layered:** revoke a single share, or unlink the partnership — unlinking calls `revokeSharesForPartnerLink` and every share riding on that `partnerLinkId` dies with it. Reads also re-check that the link is still active, so a severed link kills access even for shares that were never individually revoked.
+- Viewer UI: `/portal/partners/shared/{shareId}`.
+
+**Cross-org read policy:** there are exactly two sanctioned cross-org read locations — `lib/companies/command-center.ts` (aggregate counts/statuses for a linked company) and `lib/partner-links/shares.ts` (one record named by an active share row). Anything else is a spec violation.
 - For PiB-issued resources, `pib-platform-owner` is the canonical source/issuer org and the client org is the recipient/target org. Platform CRM Companies are deduped by `linkedOrgId`; platform CRM Contacts are deduped by `linkedUserId`, then email.
 - Future PiB invoices, quotes, and projects to a linked client org should reuse the existing platform CRM Company and write `companyId/sourceCompanyId`.
 - Client-created project requests remain client-originated until PiB accepts or converts them into PiB-sourced work.
@@ -1043,7 +1082,7 @@ Companies are now a first-class CRM entity. Every `Contact`, `Deal`, `Quote`, an
 | `socialProfiles` | SocialProfiles? | `{ linkedin, twitter, facebook, instagram }` |
 | `logoUrl` | string? | Firebase Storage path OR external URL |
 | `parentCompanyId` | string? | Same-org only; cycle-detection enforced (max 10 levels) |
-| `linkedOrgId` | string? | Target/client organization this sender-owned company represents; relationship metadata only |
+| `linkedOrgId` | string? | **Read-only / system-managed.** Target org this sender-owned company represents. Rejected from POST/PUT/PATCH bodies — set only by an accepted partner invite or the platform-owner sync. See Partner Links below. |
 | `accountManagerUid` | string? | Must be org member |
 | `accountManagerRef` | MemberRef? | Snapshot at write |
 | `healthScore` | number? | 0-100, nullable until A6 automation |
@@ -1175,8 +1214,8 @@ Activity timeline for this company. Query: `limit` (default 50, max 200). Sorted
 New fields (additive, W1-A):
 - `companyId?: string` — link to a Company record (same org)
 - `companyName?: string` — denormalized cache of `company.name` at link time
-- `linkedUserId?: string` — user account represented by this sender-owned contact after a claim or platform CRM sync
-- `linkedOrgId?: string` — organization represented by this contact's company relationship
+- `linkedUserId?: string` — **read-only / system-managed.** User account represented by this sender-owned contact after a claim, partner-link accept, or platform CRM sync. Rejected from request bodies.
+- `linkedOrgId?: string` — **read-only / system-managed.** Organization represented by this contact's company relationship. Rejected from request bodies.
 
 Hybrid: `company: string` (original plain-text field) is preserved unchanged. UI falls back to `company` when `companyId` is unset.
 

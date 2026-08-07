@@ -8,6 +8,7 @@ import {
   companyHasAccountOwner,
 } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
+import { SystemLinkBadge } from '@/components/crm/SystemLinkBadge'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -150,7 +151,6 @@ export function CompanyRow({
     || !company.industry
     || company.employeeCount == null && !company.size
   const signals = [
-    company.linkedOrgId ? 'Client org' : '',
     company.billingEmail || company.accountsContact?.email ? 'Billing' : '',
     company.purchaseOrderRequired ? 'PO required' : '',
     company.tags?.slice(0, 2).join(', '),
@@ -204,6 +204,11 @@ export function CompanyRow({
         >
           {company.name}
         </button>
+        {company.linkedOrgId ? (
+          <span className="mt-0.5 flex">
+            <SystemLinkBadge kind="org" />
+          </span>
+        ) : null}
         {websiteLink ? (
           <a
             href={websiteLink}

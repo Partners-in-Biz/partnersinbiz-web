@@ -8,6 +8,7 @@ export type InboxItemType =
   | 'approval'
   | 'overdue_invoice'
   | 'pending_task'
+  | 'partner_invite'
 
 export interface InboxItem {
   id: string

@@ -7,6 +7,7 @@
  *   - assignments (collection: tasks, assignedTo.id == currentId)
  *   - approvals (social_posts status=pending_approval + expenses status=submitted)
  *   - overdue invoices (collection: invoices, status=overdue)
+ *   - partner invites (collection: partner_invites, recipientEmail == my email)
  *
  * Each source is fetched in parallel with its own try/catch: one failing
  * source never breaks the inbox — it just contributes zero items.
@@ -203,6 +204,60 @@ async function fetchAssignments(ctx: FetchContext, limit: number): Promise<Inbox
   }
 }
 
+/**
+ * Partner invitations addressed to the signed-in user's own email address.
+ *
+ * Surfacing these in-app is what lets a recipient who is already on the
+ * platform accept without depending on the invitation email arriving.
+ */
+async function fetchPartnerInvites(ctx: FetchContext, limit: number): Promise<InboxItem[]> {
+  const items: InboxItem[] = []
+  if (ctx.user.role === 'ai') return items
+
+  try {
+    const userDoc = await adminDb.collection('users').doc(ctx.user.uid).get()
+    const email = typeof userDoc.data()?.email === 'string'
+      ? userDoc.data()!.email.trim().toLowerCase()
+      : ''
+    if (!email) return items
+
+    const snap = await adminDb
+      .collection('partner_invites')
+      .where('recipientEmail', '==', email)
+      .where('status', '==', 'pending')
+      .limit(limit)
+      .get()
+
+    const now = Date.now()
+    for (const doc of snap.docs) {
+      const data = doc.data()
+      // An invite from this same workspace is not actionable here.
+      if (data.sourceOrgId === ctx.orgId) continue
+      const expiresAt = typeof data.expiresAt === 'string' ? Date.parse(data.expiresAt) : NaN
+      if (!Number.isNaN(expiresAt) && expiresAt < now) continue
+      const createdAt = toIso(data.createdAt)
+      if (!withinCursor(createdAt, ctx.before)) continue
+      const from = data.recipientCompanyName ?? data.inviterName ?? 'A business'
+      items.push({
+        id: doc.id,
+        itemType: 'partner_invite',
+        resourceType: 'partner_invite',
+        resourceId: doc.id,
+        title: 'Partner invitation pending',
+        body: `${from} invited you to link workspaces.`,
+        priority: 'high',
+        link: `/partners/invite/${data.inviteToken}`,
+        createdAt,
+        data: { sourceOrgId: data.sourceOrgId ?? null, expiresAt: data.expiresAt ?? null },
+      })
+    }
+  } catch (err) {
+    console.warn('[inbox-partner-invites-skip]', (err as Error).message)
+  }
+
+  return items
+}
+
 async function fetchApprovals(ctx: FetchContext, limit: number): Promise<InboxItem[]> {
   const items: InboxItem[] = []
 
@@ -355,13 +410,14 @@ export const GET = withAuth('admin', async (req, user) => {
   // Per-source cap: enough to merge-sort sensibly without pulling huge pages.
   const perSourceCap = Math.min(limit * 2, MAX_LIMIT)
 
-  const [notifications, mentions, assignments, approvals, overdueInvoices] =
+  const [notifications, mentions, assignments, approvals, overdueInvoices, partnerInvites] =
     await Promise.all([
       fetchNotifications(ctx, perSourceCap),
       fetchMentions(ctx, perSourceCap),
       fetchAssignments(ctx, perSourceCap),
       fetchApprovals(ctx, perSourceCap),
       fetchOverdueInvoices(ctx, perSourceCap),
+      fetchPartnerInvites(ctx, perSourceCap),
     ])
 
   // Merge-sort by createdAt desc, dedupe by (itemType, resourceId).
@@ -371,6 +427,7 @@ export const GET = withAuth('admin', async (req, user) => {
     ...assignments,
     ...approvals,
     ...overdueInvoices,
+    ...partnerInvites,
   ]
 
   const seen = new Set<string>()

@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { companyAccountOwnerRef, companyAccountOwnerUid, companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
+import { SystemLinkBadge } from '@/components/crm/SystemLinkBadge'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -115,7 +116,6 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
   const missingSize = company.employeeCount == null && !company.size
   const missingAccountManager = !companyHasAccountOwner(company)
   const signals = [
-    company.linkedOrgId ? 'Client org linked' : undefined,
     company.billingEmail || company.accountsContact?.email ? 'Billing contact ready' : undefined,
     company.purchaseOrderRequired ? 'PO required' : undefined,
     company.registrationNumber || company.vatNumber ? 'Legal profile captured' : undefined,
@@ -154,6 +154,7 @@ export function CompanyHeader({ company, onEdit, onDelete, deleting = false, sta
             <p className="pib-label">Account command center</p>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <h1 className="truncate text-base font-semibold leading-tight text-[var(--color-pib-text)]">{company.name}</h1>
+              {company.linkedOrgId ? <SystemLinkBadge kind="org" size="md" /> : null}
               {tierLabel && (
                 <button
                   type="button"
