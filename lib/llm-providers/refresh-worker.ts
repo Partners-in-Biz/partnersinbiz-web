@@ -1,6 +1,6 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { getDecryptedLlmCredentials } from './store'
-import { xaiCredentialsNeedRefresh } from './refresh'
+import { anthropicCredentialsNeedRefresh, xaiCredentialsNeedRefresh } from './refresh'
 import { syncLlmConnectionToHermes } from './sync-hermes'
 import { LLM_PROVIDER_CONNECTIONS_COLLECTION, type LlmProviderConnection } from './types'
 
@@ -14,19 +14,25 @@ export type LlmCredentialRefreshSummary = {
 }
 
 /**
- * Refresh due xAI OAuth accounts centrally and deliver the resulting access
- * token to their eligible Hermes profiles. Refresh tokens never leave the web
+ * Refresh due OAuth accounts centrally and deliver the resulting access token
+ * to their eligible Hermes profiles. Refresh tokens never leave the web
  * control plane: delivery is access-only and every target is re-verified by
  * the normal credential sync path.
  */
-export async function refreshDueXaiLlmConnections(input: {
-  limit?: number
-  nowMs?: number
-} = {}): Promise<LlmCredentialRefreshSummary> {
+async function refreshDueOauthConnectionsForProvider(
+  provider: 'xai-oauth' | 'anthropic',
+  input: {
+    limit?: number
+    nowMs?: number
+    /** anthropic also stores api-key connections; only rotate oauth_token ones. */
+    requireOauthToken?: boolean
+  } = {},
+): Promise<LlmCredentialRefreshSummary> {
   const limit = Math.min(Math.max(Math.floor(input.limit ?? 16), 1), 50)
+  const needsRefresh = provider === 'xai-oauth' ? xaiCredentialsNeedRefresh : anthropicCredentialsNeedRefresh
   const snapshot = await adminDb
     .collection(LLM_PROVIDER_CONNECTIONS_COLLECTION)
-    .where('provider', '==', 'xai-oauth')
+    .where('provider', '==', provider)
     .limit(limit)
     .get()
 
@@ -42,11 +48,12 @@ export async function refreshDueXaiLlmConnections(input: {
   for (const doc of snapshot.docs) {
     const connection = { ...(doc.data() as LlmProviderConnection), id: doc.id }
     if (!['connected', 'invalid'].includes(connection.status) || !connection.credentialsEnc) continue
+    if (input.requireOauthToken && connection.authKind !== 'oauth_token') continue
     summary.scanned += 1
 
     try {
       const credentials = await getDecryptedLlmCredentials(connection)
-      if (!credentials?.access_token || !xaiCredentialsNeedRefresh(credentials, input.nowMs)) continue
+      if (!credentials?.access_token || !needsRefresh(credentials, input.nowMs)) continue
       summary.due += 1
 
       const sync = await syncLlmConnectionToHermes(connection.id)
@@ -62,4 +69,20 @@ export async function refreshDueXaiLlmConnections(input: {
   }
 
   return summary
+}
+
+/** Refresh due xAI SuperGrok OAuth accounts (legacy name kept for callers/tests). */
+export async function refreshDueXaiLlmConnections(input: {
+  limit?: number
+  nowMs?: number
+} = {}): Promise<LlmCredentialRefreshSummary> {
+  return refreshDueOauthConnectionsForProvider('xai-oauth', input)
+}
+
+/** Refresh due Anthropic OAuth accounts (Claude Max), skipping api-key connections. */
+export async function refreshDueAnthropicLlmConnections(input: {
+  limit?: number
+  nowMs?: number
+} = {}): Promise<LlmCredentialRefreshSummary> {
+  return refreshDueOauthConnectionsForProvider('anthropic', { ...input, requireOauthToken: true })
 }

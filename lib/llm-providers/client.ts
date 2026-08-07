@@ -89,6 +89,27 @@ export async function pollLlmOauth(
   return unwrap(res)
 }
 
+export async function exchangeLlmOauth(
+  orgId: string,
+  sessionId: string,
+  code: string,
+  state?: string,
+): Promise<{
+  session: LlmOauthSessionPublic
+  connection?: LlmProviderConnectionMasked
+  sync?: unknown
+}> {
+  const res = await fetch(
+    `/api/v1/llm-providers/oauth/${encodeURIComponent(sessionId)}/exchange?orgId=${encodeURIComponent(orgId)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, ...(state ? { state } : {}) }),
+    },
+  )
+  return unwrap(res)
+}
+
 export async function revokeLlmConnection(orgId: string, id: string): Promise<void> {
   const res = await fetch(
     `/api/v1/llm-providers/connections/${encodeURIComponent(id)}?orgId=${encodeURIComponent(orgId)}`,

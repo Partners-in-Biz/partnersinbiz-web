@@ -8,6 +8,7 @@ import {
   connectLlmApiKey,
   startLlmOauth,
   pollLlmOauth,
+  exchangeLlmOauth,
   revokeLlmConnection,
   resyncLlmConnection,
   type LlmProviderCatalogResponse,
@@ -20,7 +21,7 @@ function statusTone(status: string) {
 }
 
 function oauthVerifyUrl(session: LlmOauthSessionPublic): string {
-  return session.verificationUriComplete || session.verificationUri
+  return session.authorizeUrl || session.verificationUriComplete || session.verificationUri || ''
 }
 
 export default function LlmProviderConnections({ orgId }: { orgId: string }) {
@@ -35,6 +36,8 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
   const [openForm, setOpenForm] = useState<string | null>(null)
   const [oauthSession, setOauthSession] = useState<LlmOauthSessionPublic | null>(null)
   const [codeCopied, setCodeCopied] = useState(false)
+  const [authCode, setAuthCode] = useState('')
+  const [exchanging, setExchanging] = useState(false)
   const oauthBannerRef = useRef<HTMLDivElement | null>(null)
   const oauthProviderLabel = oauthSession
     ? providers.find((provider) => provider.key === oauthSession.provider)?.label || 'provider'
@@ -96,12 +99,13 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
       provider: providerKey,
       ...payload,
     })
-    if (!session?.id || session.status !== 'pending') {
+    if (!session?.id || (session.status !== 'pending' && session.status !== 'awaiting_code')) {
       throw new Error('OAuth session did not start. Try again, or check the browser console for a blocked request.')
     }
     setOauthSession(session)
     setOpenForm(null)
     setCodeCopied(false)
+    setAuthCode('')
     const url = oauthVerifyUrl(session)
     // Device-code flows need a visible code + link. Opening the verify page
     // immediately is the strongest signal that the click worked.
@@ -124,6 +128,30 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
       setError('Could not copy code — select it manually.')
     }
   }, [oauthSession?.userCode])
+
+  const submitAuthCode = useCallback(async () => {
+    if (!oauthSession || !authCode.trim()) return
+    setExchanging(true)
+    setError(null)
+    try {
+      const result = await exchangeLlmOauth(orgId, oauthSession.id, authCode.trim())
+      if (result.connection) {
+        setOauthSession(null)
+        setOpenForm(null)
+        setAuthCode('')
+        await refresh()
+        return
+      }
+      if (result.session.status === 'failed' || result.session.status === 'expired') {
+        setError(result.session.error || 'OAuth exchange failed')
+        setOauthSession(result.session)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'OAuth exchange failed')
+    } finally {
+      setExchanging(false)
+    }
+  }, [oauthSession, authCode, orgId, refresh])
 
   if (loading) {
     return <p className="text-sm text-[var(--color-pib-text-muted)]">Loading LLM providers…</p>
@@ -164,7 +192,7 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
           {error}
         </div>
       )}
-      {oauthSession?.status === 'pending' && (
+      {oauthSession && (oauthSession.status === 'pending' || oauthSession.status === 'awaiting_code') && (
         <div
           ref={oauthBannerRef}
           role="status"
@@ -172,46 +200,96 @@ export default function LlmProviderConnections({ orgId }: { orgId: string }) {
           className="rounded-xl border-2 border-[var(--color-pib-accent)]/50 bg-[var(--color-pib-accent-soft)] px-4 py-4 text-sm shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
         >
           <p className="font-semibold text-[var(--color-pib-text)]">Complete sign-in</p>
-          <p className="mt-1 text-[var(--color-pib-text-muted)]">
-            Approve this device with {oauthProviderLabel}. A sign-in tab should have opened — if not, use the link below.
-          </p>
-          {oauthSession.userCode ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <span className="rounded-lg border border-[var(--color-pib-line)] bg-black/30 px-3 py-2 font-mono text-lg tracking-wider text-[var(--color-pib-text)]">
-                {oauthSession.userCode}
-              </span>
-              <button type="button" className="btn-pib-secondary text-xs" onClick={() => void copyUserCode()}>
-                {codeCopied ? 'Copied' : 'Copy code'}
-              </button>
-              <a
-                className="pib-btn-primary text-xs"
-                href={oauthVerifyUrl(oauthSession)}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open sign-in page
-              </a>
-            </div>
+          {oauthSession.flow === 'authorization_code' ? (
+            <>
+              <p className="mt-1 text-[var(--color-pib-text-muted)]">
+                Approve with {oauthProviderLabel}. A sign-in tab should have opened — if not, use the link below. After
+                approving, paste the code you receive back here.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <a
+                  className="pib-btn-primary text-xs"
+                  href={oauthVerifyUrl(oauthSession)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open sign-in page
+                </a>
+              </div>
+              <label className="mt-3 block text-xs text-[var(--color-pib-text-muted)]">
+                Authorization code
+                <input
+                  className="mt-1 w-full rounded-lg border border-[var(--color-pib-line)] bg-black/30 px-3 py-2 font-mono text-sm text-[var(--color-pib-text)]"
+                  placeholder="Paste the code from Anthropic here"
+                  value={authCode}
+                  onChange={(e) => setAuthCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void submitAuthCode()
+                  }}
+                />
+              </label>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="pib-btn-primary text-xs"
+                  disabled={exchanging || !authCode.trim()}
+                  onClick={() => void submitAuthCode()}
+                >
+                  {exchanging ? 'Exchanging…' : 'Submit code'}
+                </button>
+                <button
+                  type="button"
+                  className="mt-0 text-xs text-[var(--color-pib-text-muted)] underline"
+                  onClick={() => setOauthSession(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
           ) : (
-            <p className="mt-3">
-              <a
-                className="text-[var(--color-pib-accent-hover)] underline"
-                href={oauthVerifyUrl(oauthSession)}
-                target="_blank"
-                rel="noreferrer"
+            <>
+              <p className="mt-1 text-[var(--color-pib-text-muted)]">
+                Approve this device with {oauthProviderLabel}. A sign-in tab should have opened — if not, use the link below.
+              </p>
+              {oauthSession.userCode ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="rounded-lg border border-[var(--color-pib-line)] bg-black/30 px-3 py-2 font-mono text-lg tracking-wider text-[var(--color-pib-text)]">
+                    {oauthSession.userCode}
+                  </span>
+                  <button type="button" className="btn-pib-secondary text-xs" onClick={() => void copyUserCode()}>
+                    {codeCopied ? 'Copied' : 'Copy code'}
+                  </button>
+                  <a
+                    className="pib-btn-primary text-xs"
+                    href={oauthVerifyUrl(oauthSession)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open sign-in page
+                  </a>
+                </div>
+              ) : (
+                <p className="mt-3">
+                  <a
+                    className="text-[var(--color-pib-accent-hover)] underline"
+                    href={oauthVerifyUrl(oauthSession)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {oauthSession.verificationUri}
+                  </a>
+                </p>
+              )}
+              <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Waiting for approval… this page updates automatically.</p>
+              <button
+                type="button"
+                className="mt-3 text-xs text-[var(--color-pib-text-muted)] underline"
+                onClick={() => setOauthSession(null)}
               >
-                {oauthSession.verificationUri}
-              </a>
-            </p>
+                Cancel
+              </button>
+            </>
           )}
-          <p className="mt-3 text-xs text-[var(--color-pib-text-muted)]">Waiting for approval… this page updates automatically.</p>
-          <button
-            type="button"
-            className="mt-3 text-xs text-[var(--color-pib-text-muted)] underline"
-            onClick={() => setOauthSession(null)}
-          >
-            Cancel
-          </button>
         </div>
       )}
 
@@ -440,7 +518,7 @@ function ConnectForm({
   const [scope, setScope] = useState<'org' | 'user'>(canManageOrgConnections ? 'org' : 'user')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const wantsOauth = provider.oauthCapable && provider.credentialFields.length === 0
+  const wantsOauth = provider.oauthCapable && (provider.credentialFields.length === 0 || provider.key === 'anthropic')
   const canApiKey = provider.credentialFields.length > 0
 
   const submit = async (mode: 'oauth' | 'api_key') => {
@@ -471,6 +549,12 @@ function ConnectForm({
           </a>
         )}
       </div>
+      {provider.key === 'anthropic' && (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+          OAuth requires a Claude Max plan with purchased extra usage credits; Claude Pro cannot use this path. API key is
+          the reliable alternative.
+        </p>
+      )}
       {canApiKey && provider.credentialFields.map((field) => (
         <label key={field.key} className="block text-xs text-[var(--color-pib-text-muted)]">
           {field.label}
@@ -517,7 +601,11 @@ function ConnectForm({
       <div className="flex flex-wrap gap-2">
         {wantsOauth && (
           <button type="button" className="pib-btn-primary text-xs" disabled={submitting} onClick={() => void submit('oauth')}>
-            {submitting ? `Starting ${provider.label} sign-in…` : `Sign in with ${provider.label}`}
+            {submitting
+              ? `Starting ${provider.label} sign-in…`
+              : provider.key === 'anthropic'
+                ? 'Connect with OAuth'
+                : `Sign in with ${provider.label}`}
           </button>
         )}
         {canApiKey && (
@@ -529,7 +617,7 @@ function ConnectForm({
                 : 'Save & sync to my computers'}
           </button>
         )}
-        {provider.oauthCapable && canApiKey && (
+        {provider.oauthCapable && canApiKey && !wantsOauth && (
           <button type="button" className="btn-pib-secondary text-xs" disabled={submitting} onClick={() => void submit('oauth')}>
             {submitting ? 'Starting OAuth…' : 'Prefer OAuth instead'}
           </button>

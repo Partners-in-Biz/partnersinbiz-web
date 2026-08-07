@@ -38,6 +38,35 @@ export type SyncLlmConnectionResult = {
   message?: string
 }
 
+export type LlmCredentialDeliveryDecision =
+  | { mode: 'oauth' }
+  | { mode: 'env'; envVar: string; value: string }
+  | { mode: 'none' }
+
+/**
+ * Decide how a saved connection's credentials are pushed to a Hermes target.
+ *
+ * Anthropic OAuth tokens are deliberately delivered through the env-var path as
+ * CLAUDE_CODE_OAUTH_TOKEN — Hermes reads ANTHROPIC_API_KEY, then ANTHROPIC_TOKEN,
+ * then CLAUDE_CODE_OAUTH_TOKEN natively, so no admin-auth provider write or
+ * profile restart is needed. Other OAuth providers (xai-oauth, openai-codex,
+ * nous) keep the nested-token /admin/auth/providers path.
+ */
+export function resolveLlmDeliveryForConnection(
+  conn: Pick<LlmProviderConnection, 'provider'>,
+  credentials: Record<string, string>,
+): LlmCredentialDeliveryDecision {
+  const isOauth = Boolean(credentials.access_token && credentials.refresh_token)
+  if (conn.provider === 'anthropic' && credentials.access_token) {
+    return { mode: 'env', envVar: 'CLAUDE_CODE_OAUTH_TOKEN', value: credentials.access_token }
+  }
+  if (isOauth) return { mode: 'oauth' }
+  const def = getLlmProvider(conn.provider)
+  const envVar = def?.envVar || (conn.provider === 'copilot' ? 'COPILOT_GITHUB_TOKEN' : undefined)
+  if (envVar && credentials.apiKey) return { mode: 'env', envVar, value: credentials.apiKey }
+  return { mode: 'none' }
+}
+
 async function loadMemberAccessForSync(input: {
   orgId: string
   uid: string
@@ -205,33 +234,33 @@ async function pushToTargets(
   }
 
   const def = getLlmProvider(conn.provider)
+  const delivery = resolveLlmDeliveryForConnection(conn, credentials)
+  const isOauth = delivery.mode === 'oauth'
+  const envVar = delivery.mode === 'env' ? delivery.envVar : undefined
+  const discoveredCanaryModel = Array.isArray(conn.meta?.discoveredModels)
+    ? conn.meta.discoveredModels.find((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+    : undefined
   const synced: string[] = []
   const queued: Array<{ agentId: string; bindingId: string; jobId: string }> = []
   const failed: Array<{ agentId: string; error: string }> = []
   const verified: Array<{ agentId: string; usable: boolean; detail?: string }> = []
-  const isOauth = Boolean(credentials.access_token && credentials.refresh_token)
-  const envVar = def?.envVar
-    || (conn.provider === 'copilot' ? 'COPILOT_GITHUB_TOKEN' : undefined)
-  const discoveredCanaryModel = Array.isArray(conn.meta?.discoveredModels)
-    ? conn.meta.discoveredModels.find((value): value is string => typeof value === 'string' && Boolean(value.trim()))
-    : undefined
 
   for (const target of resolved.targets) {
     const binding = await putDesiredLlmCredentialBinding({ connection: conn, target })
     try {
       if (target.deviceId) {
-        const delivery = await enqueueCredentialDelivery({
+        const deliveryJob = await enqueueCredentialDelivery({
           connection: conn,
           bindingId: binding.id,
           target,
         })
-        queued.push({ agentId: target.agentId, bindingId: binding.id, jobId: delivery.jobId })
+        queued.push({ agentId: target.agentId, bindingId: binding.id, jobId: deliveryJob.jobId })
         continue
       }
-      if (isOauth) {
+      if (delivery.mode === 'oauth') {
         await pushOauthTokens(target, conn, credentials)
-      } else if (envVar && credentials.apiKey) {
-        await pushApiKeyEnv(target, envVar, credentials.apiKey)
+      } else if (delivery.mode === 'env' && delivery.envVar && delivery.value) {
+        await pushApiKeyEnv(target, delivery.envVar, delivery.value)
       } else {
         throw new Error('No syncable credential material')
       }
