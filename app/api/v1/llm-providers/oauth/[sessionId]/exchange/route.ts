@@ -112,6 +112,10 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
       sync,
     })
   } catch (err) {
-    return apiError(err instanceof Error ? err.message : 'OAuth code exchange failed', 502)
+    const upstreamStatus = typeof err === 'object' && err !== null && 'status' in err
+      && (err as { status?: unknown }).status === 429
+      ? 429
+      : 502
+    return apiError(err instanceof Error ? err.message : 'OAuth code exchange failed', upstreamStatus)
   }
 })

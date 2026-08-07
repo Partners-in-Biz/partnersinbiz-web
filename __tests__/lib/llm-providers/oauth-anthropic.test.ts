@@ -98,6 +98,20 @@ describe('Anthropic PKCE authorization-code flow', () => {
       .rejects.toMatchObject({ name: 'AnthropicOAuthRefreshError', terminal: true, message: 'Code expired' })
   })
 
+  it('normalizes Anthropic structured rate-limit errors instead of rendering [object Object]', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(429, {
+      error: { type: 'rate_limit_error', message: 'Rate limited. Please try again later.' },
+    }))
+    const verifier = generatePkceVerifier()
+    await expect(exchangeAnthropicCode({ code: 'callback-code', verifier }))
+      .rejects.toMatchObject({
+        name: 'AnthropicOAuthRefreshError',
+        message: 'Rate limited. Please try again later.',
+        terminal: false,
+        status: 429,
+      })
+  })
+
   it('refreshes with grant_type=refresh_token and the public client id', async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, {
       access_token: 'at-2',
