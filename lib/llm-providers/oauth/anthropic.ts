@@ -39,10 +39,34 @@ export class AnthropicOAuthRefreshError extends Error {
   constructor(
     message: string,
     readonly terminal: boolean,
+    /** Upstream HTTP status when Anthropic supplied one. */
+    readonly status?: number,
   ) {
     super(message)
     this.name = 'AnthropicOAuthRefreshError'
   }
+}
+
+type AnthropicErrorPayload = {
+  error?: unknown
+  error_description?: unknown
+  message?: unknown
+}
+
+function upstreamErrorMessage(payload: AnthropicErrorPayload, status: number, operation: 'exchange' | 'refresh'): string {
+  if (typeof payload.error_description === 'string' && payload.error_description.trim()) {
+    return payload.error_description.trim()
+  }
+  if (typeof payload.error === 'string' && payload.error.trim()) return payload.error.trim()
+  if (typeof payload.message === 'string' && payload.message.trim()) return payload.message.trim()
+  // Anthropic/Cloudflare rate-limit responses use { error: { type, message } }.
+  // Never pass that object directly to Error(), which renders as "[object Object]".
+  if (payload.error && typeof payload.error === 'object') {
+    const nested = payload.error as { message?: unknown; type?: unknown }
+    if (typeof nested.message === 'string' && nested.message.trim()) return nested.message.trim()
+    if (typeof nested.type === 'string' && nested.type.trim()) return nested.type.trim()
+  }
+  return `Anthropic OAuth ${operation} failed (${status})`
 }
 
 function base64UrlNoPadding(bytes: Uint8Array): string {
@@ -111,14 +135,12 @@ export async function exchangeAnthropicCode(input: {
       redirect_uri: ANTHROPIC_OAUTH_REDIRECT_URI,
     }),
   })
-  const payload = await response.json().catch(() => ({})) as AnthropicTokenPayload & {
-    error?: string
-    error_description?: string
-  }
+  const payload = await response.json().catch(() => ({})) as AnthropicTokenPayload & AnthropicErrorPayload
   if (!response.ok || !payload.access_token) {
     throw new AnthropicOAuthRefreshError(
-      payload.error_description || payload.error || `Anthropic OAuth exchange failed (${response.status})`,
-      terminalFor(payload.error, response.status),
+      upstreamErrorMessage(payload, response.status, 'exchange'),
+      terminalFor(typeof payload.error === 'string' ? payload.error : undefined, response.status),
+      response.status,
     )
   }
   return payload
@@ -138,14 +160,12 @@ export async function refreshAnthropicToken(refreshToken: string): Promise<Anthr
       client_id: ANTHROPIC_OAUTH_CLIENT_ID,
     }),
   })
-  const payload = await response.json().catch(() => ({})) as AnthropicTokenPayload & {
-    error?: string
-    error_description?: string
-  }
+  const payload = await response.json().catch(() => ({})) as AnthropicTokenPayload & AnthropicErrorPayload
   if (!response.ok || !payload.access_token) {
     throw new AnthropicOAuthRefreshError(
-      payload.error_description || payload.error || `Anthropic OAuth refresh failed (${response.status})`,
-      terminalFor(payload.error, response.status),
+      upstreamErrorMessage(payload, response.status, 'refresh'),
+      terminalFor(typeof payload.error === 'string' ? payload.error : undefined, response.status),
+      response.status,
     )
   }
   return payload

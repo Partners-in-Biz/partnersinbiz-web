@@ -255,6 +255,18 @@ describe('POST /api/v1/llm-providers/oauth/[sessionId]/exchange', () => {
     expect(exchangeAnthropicCodeMock).not.toHaveBeenCalled()
   })
 
+  it('preserves an upstream Anthropic rate limit instead of returning a misleading 502', async () => {
+    exchangeAnthropicCodeMock.mockRejectedValue(Object.assign(new Error('Rate limited. Please try again later.'), { status: 429 }))
+
+    const response = await exchangeRequest('oauth_sess1', { code: 'callback-code' })
+
+    expect(response.status).toBe(429)
+    await expect(response.json()).resolves.toMatchObject({
+      success: false,
+      error: 'Rate limited. Please try again later.',
+    })
+  })
+
   it('rejects an already-completed or missing session', async () => {
     getOauthSessionMock.mockResolvedValue(null)
     const response = await exchangeRequest('oauth_missing', { code: 'callback-code' })
