@@ -5,6 +5,7 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { addConversationMessage, getConversationBundle } from '@/lib/communications/store'
+import { sendApprovedConversationMessage } from '@/lib/communications/send'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +27,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const scope = resolveOrgScope(user, typeof body.orgId === 'string' ? body.orgId.trim() : null)
   if (!scope.ok) return apiError(scope.error, scope.status)
 
+  // Server gate (KEEP): customer-facing sends require explicit human approval.
   if (body.sendNow === true && body.humanApproved !== true) {
     return apiError('Human approval is required before sending customer-facing replies in V1', 400)
   }
@@ -43,5 +45,17 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
     ...actorFrom(user),
   })
 
-  return apiSuccess(result, 201)
+  // Approved sends dispatch through the per-org provider (or platform fallback).
+  let send: Record<string, unknown> | null = null
+  if (body.sendNow === true && body.humanApproved === true) {
+    const dispatched = await sendApprovedConversationMessage(scope.orgId, result.id)
+    send = {
+      ok: dispatched.ok,
+      status: dispatched.status,
+      providerMessageId: dispatched.providerMessageId ?? null,
+      error: dispatched.error ?? null,
+    }
+  }
+
+  return apiSuccess({ ...result, send }, 201)
 })

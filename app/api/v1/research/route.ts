@@ -9,6 +9,7 @@ import {
   listResearchItems,
   validateResearchFilters,
 } from '@/lib/research/store'
+import { filterOwnedRowsForActor } from '@/lib/orgMembers/record-scope'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 
 export const dynamic = 'force-dynamic'
@@ -21,7 +22,10 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
   if (!filters.ok) return apiError(filters.error, 400)
 
   const items = await listResearchItems({ orgId: scope.orgId, ...filters.filters })
-  return apiSuccess(items)
+  // Members with an owned_or_linked research scope see only their own / shared
+  // / CRM-linked rows; admins and agents resolve 'all' and pass through.
+  const scopedItems = await filterOwnedRowsForActor(user, scope.orgId, 'research', items)
+  return apiSuccess(scopedItems)
 })
 
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) => {

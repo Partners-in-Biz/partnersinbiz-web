@@ -5,6 +5,7 @@ import type { ApiUser } from '@/lib/api/types'
 import { getLlmProvider } from '@/lib/llm-providers/providers'
 import { clientCanAccessOrg, canWriteOrgLlmConnection } from '@/lib/llm-providers/org-guard'
 import { createOauthSession } from '@/lib/llm-providers/oauth/sessions'
+import { startAnthropicPkce } from '@/lib/llm-providers/oauth/anthropic'
 import { startXaiDeviceCode } from '@/lib/llm-providers/oauth/xai'
 import { startCodexDeviceCode } from '@/lib/llm-providers/oauth/codex'
 import { startNousDeviceCode } from '@/lib/llm-providers/oauth/nous'
@@ -40,6 +41,26 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   }
 
   try {
+    if (def.key === 'anthropic') {
+      const started = startAnthropicPkce()
+      const session = await createOauthSession({
+        provider: def.key,
+        hermesProvider: def.hermesProvider,
+        orgId,
+        ownerUid: user.uid,
+        scope,
+        label: typeof label === 'string' && label.trim() ? label : def.label,
+        flow: 'authorization_code',
+        status: 'awaiting_code',
+        authorizeUrl: started.authorizeUrl,
+        state: started.state,
+        verifier: started.verifier,
+        expiresIn: 600,
+        intervalSeconds: 0,
+      })
+      return apiSuccess({ session }, 201)
+    }
+
     if (def.key === 'xai-oauth') {
       const started = await startXaiDeviceCode()
       const session = await createOauthSession({

@@ -51,8 +51,12 @@ export async function enqueueCredentialDelivery(input: {
   // (xai-oauth, openai-codex) need the profile idle so its gateway can reload
   // the refreshed token. Use the stored connection auth kind so api_key_or_oauth
   // providers (e.g. Anthropic with an API key) take the fast env path.
+  // Anthropic OAuth tokens are an exception: Hermes reads them directly from
+  // the CLAUDE_CODE_OAUTH_TOKEN env var, so they take the fast env path too.
   const oauthConnection = connection.authKind === 'oauth' || connection.authKind === 'oauth_token'
-  const applyMode: 'env' | 'restart' = oauthConnection || !definition.envVar ? 'restart' : 'env'
+  const anthropicOauthEnv = connection.provider === 'anthropic' && connection.authKind === 'oauth_token'
+  const envVar = anthropicOauthEnv ? 'CLAUDE_CODE_OAUTH_TOKEN' : (definition.envVar ?? null)
+  const applyMode: 'env' | 'restart' = (oauthConnection && !anthropicOauthEnv) || !envVar ? 'restart' : 'env'
   const job = await enqueueAgentHostJob({
     idempotencyKey: `sync-credential:${input.bindingId}:v${credentialVersion}`,
     deviceId: target.deviceId,
@@ -77,7 +81,7 @@ export async function enqueueCredentialDelivery(input: {
         credentialVersion,
         provider: connection.provider,
         hermesProvider: connection.hermesProvider,
-        envVar: definition.envVar ?? null,
+        envVar,
         canaryModel,
         applyMode,
       },
@@ -101,7 +105,9 @@ export async function enqueueCredentialRevocations(
   const canaryModel = canaryModelFor(connection)
   if (!definition || !canaryModel) return []
   const oauthConnection = connection.authKind === 'oauth' || connection.authKind === 'oauth_token'
-  const applyMode: 'env' | 'restart' = oauthConnection || !definition.envVar ? 'restart' : 'env'
+  const anthropicOauthEnv = connection.provider === 'anthropic' && connection.authKind === 'oauth_token'
+  const envVar = anthropicOauthEnv ? 'CLAUDE_CODE_OAUTH_TOKEN' : (definition.envVar ?? null)
+  const applyMode: 'env' | 'restart' = (oauthConnection && !anthropicOauthEnv) || !envVar ? 'restart' : 'env'
   const bindings = await listConnectionLlmCredentialBindings(connection.id)
   const jobIds: string[] = []
   for (const binding of bindings) {
@@ -141,7 +147,7 @@ export async function enqueueCredentialRevocations(
           credentialVersion: binding.credentialVersion,
           provider: connection.provider,
           hermesProvider: connection.hermesProvider,
-          envVar: definition.envVar ?? null,
+          envVar,
           canaryModel,
           applyMode,
         },

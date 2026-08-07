@@ -55,4 +55,25 @@ describe('linked computer run events', () => {
     expect(text).toContain('run.completed')
     expect(text).not.toContain('stream.unavailable')
   })
+
+  it('emits the terminal error directly instead of a final still-working heartbeat', async () => {
+    const stream = createLinkedComputerRunSseStream('job-failed', {
+      pollMs: 10,
+      getSnapshot: async () => ({
+        exists: true,
+        status: 'expired',
+        error: 'The linked computer authorization changed while this run was active. Please retry.',
+        chatEvents: [],
+      }),
+    })
+    const reader = stream.getReader()
+    const { value } = await reader.read()
+    const event = JSON.parse(new TextDecoder().decode(value).replace(/^data: /, '').trim())
+
+    expect(event).toEqual(expect.objectContaining({
+      event: 'run.failed',
+      error: 'The linked computer authorization changed while this run was active. Please retry.',
+    }))
+    expect(event.activity).not.toMatch(/still working/i)
+  })
 })

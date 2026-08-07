@@ -44,6 +44,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, ct
 
   try {
     if (session.provider === 'xai-oauth') {
+      if (!session.tokenEndpoint) return apiError('OAuth session is missing its token endpoint', 400)
       const result = await pollXaiDeviceToken({
         tokenEndpoint: session.tokenEndpoint,
         deviceCode: session.deviceCode,
@@ -148,6 +149,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, ct
     }
 
     if (session.provider === 'nous') {
+      if (!session.tokenEndpoint) return apiError('OAuth session is missing its token endpoint', 400)
       const result = await pollNousDeviceToken({
         tokenEndpoint: session.tokenEndpoint,
         deviceCode: session.deviceCode,
@@ -200,6 +202,13 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, ct
         connection,
         sync,
       })
+    }
+
+    if (session.provider === 'anthropic') {
+      // Authorization-code sessions have no device endpoint to poll: the human
+      // pastes the hosted-callback code back into Settings via the exchange
+      // route, which completes the session. Until then it stays pending.
+      return apiSuccess({ session: publicOauthSession(session), pending: true })
     }
 
     return apiError('Unsupported OAuth provider for poll', 400)

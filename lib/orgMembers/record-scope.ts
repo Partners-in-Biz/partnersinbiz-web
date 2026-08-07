@@ -1,10 +1,8 @@
-import { adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import {
   type AssignableCrmRecord,
   crmRecordAssignedToUid,
   crmRecordCompanyIds,
-  crmRecordContactIds,
   loadCompanyAssignmentMap,
   loadContactAssignmentMap,
 } from '@/lib/crm/assignment-access'
@@ -55,6 +53,13 @@ export type OwnedRowLike = {
   sharedWithUserIds?: unknown
   allowedUserIds?: unknown
   linked?: unknown
+  // Marketing rows (campaigns, social posts) spread normalized CRM
+  // relationship links at the top level instead of under `linked`, so the
+  // filter also reads these fields when present.
+  companyId?: unknown
+  companyIds?: unknown
+  contactId?: unknown
+  contactIds?: unknown
 }
 
 function cleanString(value: unknown): string {
@@ -81,6 +86,25 @@ function linkedIds(value: unknown, field: 'companyIds' | 'contactIds' | 'company
   return Array.from(ids)
 }
 
+/** CRM company/contact ids from a row's `linked` set OR its top-level relationship fields. */
+function linkedCompanyIds(row: OwnedRowLike): string[] {
+  return Array.from(new Set([
+    ...linkedIds(row.linked, 'companyIds'),
+    ...linkedIds(row.linked, 'companyId'),
+    ...linkedIds(row, 'companyIds'),
+    ...linkedIds(row, 'companyId'),
+  ]))
+}
+
+function linkedContactIds(row: OwnedRowLike): string[] {
+  return Array.from(new Set([
+    ...linkedIds(row.linked, 'contactIds'),
+    ...linkedIds(row.linked, 'contactId'),
+    ...linkedIds(row, 'contactIds'),
+    ...linkedIds(row, 'contactId'),
+  ]))
+}
+
 export function actorOwnsRow(row: OwnedRowLike, uid: string): boolean {
   if (!uid) return false
   const createdBy = cleanString(row.createdBy) || (row.createdByRef && typeof row.createdByRef === 'object'
@@ -103,10 +127,8 @@ export async function filterOwnedRowsForActor<T extends OwnedRowLike>(
   const companyIds = new Set<string>()
   const contactIds = new Set<string>()
   for (const row of rows) {
-    for (const id of linkedIds(row.linked, 'companyIds')) companyIds.add(id)
-    for (const id of linkedIds(row.linked, 'companyId')) companyIds.add(id)
-    for (const id of linkedIds(row.linked, 'contactIds')) contactIds.add(id)
-    for (const id of linkedIds(row.linked, 'contactId')) contactIds.add(id)
+    for (const id of linkedCompanyIds(row)) companyIds.add(id)
+    for (const id of linkedContactIds(row)) contactIds.add(id)
   }
   const [companies, contacts] = await Promise.all([
     loadCompanyAssignmentMap(orgId, companyIds),
@@ -115,12 +137,10 @@ export async function filterOwnedRowsForActor<T extends OwnedRowLike>(
 
   return rows.filter((row) => {
     if (actorOwnsRow(row, uid)) return true
-    const linkedCompanies = linkedIds(row.linked, 'companyIds')
-    const linkedContacts = linkedIds(row.linked, 'contactIds')
-    for (const id of linkedCompanies) {
+    for (const id of linkedCompanyIds(row)) {
       if (crmRecordAssignedToUid(companies.get(id) as AssignableCrmRecord | undefined, uid)) return true
     }
-    for (const id of linkedContacts) {
+    for (const id of linkedContactIds(row)) {
       const contact = contacts.get(id) as AssignableCrmRecord | undefined
       if (crmRecordAssignedToUid(contact, uid)) return true
       for (const companyId of crmRecordCompanyIds(contact)) {

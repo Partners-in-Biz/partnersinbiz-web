@@ -23,6 +23,7 @@ import type {
   DocumentTheme,
 } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
+import { filterOwnedRowsForActor } from '@/lib/orgMembers/record-scope'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { Organization } from '@/lib/organizations/types'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
@@ -315,6 +316,10 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       documents = Array.from(byId.values())
     }
   }
+  // Members with an owned_or_linked documents scope see only their own /
+  // shared / CRM-linked rows; admins, agents and 'all'-scoped members pass
+  // through unchanged (the client branch already scopes to owned/shared).
+  documents = await filterOwnedRowsForActor(user, scope.orgId, 'documents', documents)
   const hasMore = documents.length > limit
   const total = hasMore ? limit + 1 : documents.length
   documents = documents.slice(0, limit)

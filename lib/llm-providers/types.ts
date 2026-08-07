@@ -7,6 +7,13 @@ export const LLM_CREDENTIAL_BINDINGS_COLLECTION = 'llm_credential_bindings'
 export type LlmConnectionScope = 'org' | 'user'
 export type LlmConnectionStatus = 'connected' | 'invalid' | 'revoked' | 'reauth_required' | 'pending_oauth'
 
+/** AES-256-GCM encrypted blob — same shape as the social token encryption. */
+export interface EncryptedSessionData {
+  ciphertext: string
+  iv: string
+  tag: string
+}
+
 export interface LlmProviderConnection {
   id: string
   provider: LlmProviderKey
@@ -39,6 +46,8 @@ export type LlmProviderConnectionMasked = Omit<LlmProviderConnection, 'credentia
   hasCredentials: boolean
 }
 
+export type LlmOauthFlow = 'device_code' | 'authorization_code'
+
 export interface LlmOauthSession {
   id: string
   provider: LlmProviderKey
@@ -47,12 +56,20 @@ export interface LlmOauthSession {
   ownerUid: string
   scope: LlmConnectionScope
   label: string
-  status: 'pending' | 'completed' | 'expired' | 'failed'
+  /** Which OAuth variant this session represents. */
+  flow: LlmOauthFlow
+  status: 'pending' | 'awaiting_code' | 'completed' | 'expired' | 'failed'
+  /** authorization_code only: the URL the human approves in a browser tab. */
+  authorizeUrl: string | null
+  /** authorization_code only: OAuth state (Claude Code derives it from the verifier). Never public. */
+  state: string | null
+  /** authorization_code only: PKCE verifier, encrypted at rest like other session secrets. Never public. */
+  verifierEnc: EncryptedSessionData | null
   deviceCode: string
   userCode: string
-  verificationUri: string
+  verificationUri: string | null
   verificationUriComplete: string | null
-  tokenEndpoint: string
+  tokenEndpoint: string | null
   expiresAt: string
   intervalSeconds: number
   error: string | null
@@ -60,7 +77,10 @@ export interface LlmOauthSession {
   updatedAt: unknown
 }
 
-export type LlmOauthSessionPublic = Omit<LlmOauthSession, 'deviceCode' | 'tokenEndpoint'>
+export type LlmOauthSessionPublic = Omit<
+  LlmOauthSession,
+  'deviceCode' | 'tokenEndpoint' | 'verifierEnc' | 'state'
+>
 
 export function llmConnectionId(input: {
   provider: LlmProviderKey
@@ -124,6 +144,12 @@ export interface LlmCredentialBinding {
 }
 
 export function publicOauthSession(session: LlmOauthSession): LlmOauthSessionPublic {
-  const { deviceCode: _deviceCode, tokenEndpoint: _tokenEndpoint, ...rest } = session
+  const {
+    deviceCode: _deviceCode,
+    tokenEndpoint: _tokenEndpoint,
+    verifierEnc: _verifierEnc,
+    state: _state,
+    ...rest
+  } = session
   return rest
 }

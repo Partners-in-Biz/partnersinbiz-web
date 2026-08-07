@@ -31,6 +31,10 @@ import {
 } from '@/lib/client-documents/linkedValidation'
 import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 import { sanitizeAudienceDefinition } from '@/lib/email-marketing/audience-snapshot'
+import {
+  filterOwnedRowsForActor,
+  memberSeesAllModuleRecords,
+} from '@/lib/orgMembers/record-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -85,12 +89,22 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     ? query.count().get().then((aggregate: { data: () => { count?: number } }) => aggregate.data().count ?? 0)
     : Promise.resolve(null)
   const snap = await query.limit(limit).get()
-  const total = await totalPromise
+  const rawTotal = await totalPromise
   const campaigns = snap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((d: any) => ({ id: d.id, ...d.data() }))
 
-  return apiSuccess(campaigns, 200, { total: total ?? campaigns.length, page: 1, limit, orgId })
+  // Members with an owned_or_linked marketing scope see only campaigns they
+  // own / are shared / linked to their CRM book; admins, agents and 'all'
+  // members pass through unchanged. The aggregate count would leak rows a
+  // scoped member cannot see, so scoped members get the filtered length.
+  const seesAllMarketing = await memberSeesAllModuleRecords(user, orgId, 'marketing')
+  const visibleCampaigns = seesAllMarketing
+    ? campaigns
+    : await filterOwnedRowsForActor(user, orgId, 'marketing', campaigns)
+  const total = seesAllMarketing ? (rawTotal ?? campaigns.length) : visibleCampaigns.length
+
+  return apiSuccess(visibleCampaigns, 200, { total, page: 1, limit, orgId })
 })
 
 export const POST = withAuth(
