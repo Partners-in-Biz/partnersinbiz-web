@@ -3602,6 +3602,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "partner_record_shares",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ownerOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "partnerOrgId",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

@@ -345,6 +345,102 @@ async function main() {
   check('record can be re-shared after revoke', share2.status === 'active' && share2.id !== share1.id)
 
   // =======================================================================
+  console.log('\n[4e] Record picker search + already-shared flagging')
+  // =======================================================================
+  const { listShareableRecords } = await import('@/lib/partner-links/shares')
+
+  const otherProj = adminDb.collection('projects').doc()
+  await otherProj.set({
+    orgId: 'org-a', name: 'Website Redesign', status: 'active',
+    deleted: false, createdAt: now, updatedAt: now,
+  })
+  const deletedProj = adminDb.collection('projects').doc()
+  await deletedProj.set({ orgId: 'org-a', name: 'Archived Thing', deleted: true, createdAt: now, updatedAt: now })
+
+  const all = await listShareableRecords({ orgId: 'org-a', resourceType: 'project', partnerOrgId: 'org-b' })
+  check('picker returns own-org records', all.some((r) => r.id === otherProj.id))
+  check('picker excludes deleted records', !all.some((r) => r.id === deletedProj.id))
+  check('picker excludes other orgs\' records', !all.some((r) => r.id === foreignRef.id))
+  check('picker flags already-shared', all.find((r) => r.id === projRef.id)?.alreadyShared === true)
+  check('picker does not flag unshared', all.find((r) => r.id === otherProj.id)?.alreadyShared !== true)
+
+  const searched = await listShareableRecords({ orgId: 'org-a', resourceType: 'project', query: 'redesign' })
+  check('picker search matches title case-insensitively',
+    searched.length === 1 && searched[0].id === otherProj.id, searched.map((r) => r.title))
+  const noHits = await listShareableRecords({ orgId: 'org-a', resourceType: 'project', query: 'zzzznope' })
+  check('picker returns nothing for a non-match', noHits.length === 0, noHits.length)
+
+  // =======================================================================
+  console.log('\n[4f] permission:"comment" is actually enforced')
+  // =======================================================================
+  const {
+    listShareComments, addShareComment, setSharePermission, deleteShareComment,
+  } = await import('@/lib/partner-links/shares')
+
+  const partnerActor = { uid: 'user:bea', displayName: 'Bea Owner', kind: 'human' as const }
+
+  // share2 was created with the default permission (view).
+  check('default share permission is view', share2.permission === 'view', share2.permission)
+
+  const asPartner = await listShareComments({ shareId: share2.id, viewerOrgId: 'org-b' })
+  check('partner sees viewerRole=partner', asPartner.role === 'partner', asPartner.role)
+  check('partner cannot comment on a view-only share', asPartner.canComment === false)
+
+  let viewOnlyBlocked = false
+  try {
+    await addShareComment({ shareId: share2.id, viewerOrgId: 'org-b', body: 'nope', actor: partnerActor })
+  } catch { viewOnlyBlocked = true }
+  check('posting as partner on view-only share throws', viewOnlyBlocked)
+
+  // The owner may always comment, even on a view-only share.
+  const ownerComment = await addShareComment({
+    shareId: share2.id, viewerOrgId: 'org-a', body: 'Here is the scope.', actor,
+  })
+  check('owner can comment regardless of permission', Boolean(ownerComment.id))
+  check('comment records the author org', ownerComment.authorOrgId === 'org-a', ownerComment.authorOrgId)
+
+  // Upgrade to comment, then the partner can post.
+  const upgraded = await setSharePermission({
+    shareId: share2.id, ownerOrgId: 'org-a', permission: 'comment', actor,
+  })
+  check('permission upgraded to comment', upgraded.permission === 'comment', upgraded.permission)
+
+  const afterUpgrade = await listShareComments({ shareId: share2.id, viewerOrgId: 'org-b' })
+  check('partner canComment after upgrade', afterUpgrade.canComment === true)
+
+  const partnerComment = await addShareComment({
+    shareId: share2.id, viewerOrgId: 'org-b', body: 'Thanks — one question on timing.', actor: partnerActor,
+  })
+  check('partner can now post', Boolean(partnerComment.id))
+
+  const thread = await listShareComments({ shareId: share2.id, viewerOrgId: 'org-a' })
+  check('both sides appear in the thread', thread.comments.length === 2, thread.comments.length)
+  check('thread is chronological',
+    thread.comments[0].body === 'Here is the scope.' && thread.comments[1].body.startsWith('Thanks'))
+  check('owner sees viewerRole=owner', thread.role === 'owner', thread.role)
+
+  let outsiderBlocked = false
+  try { await listShareComments({ shareId: share2.id, viewerOrgId: 'org-c' }) } catch { outsiderBlocked = true }
+  check('an unrelated org cannot read the thread', outsiderBlocked)
+
+  let foreignDelete = false
+  try { await deleteShareComment({ commentId: partnerComment.id, viewerOrgId: 'org-a' }) } catch { foreignDelete = true }
+  check('you cannot delete the other side\'s comment', foreignDelete)
+
+  await deleteShareComment({ commentId: partnerComment.id, viewerOrgId: 'org-b' })
+  check('author org can delete its own comment',
+    (await listShareComments({ shareId: share2.id, viewerOrgId: 'org-a' })).comments.length === 1)
+
+  let emptyRejected = false
+  try { await addShareComment({ shareId: share2.id, viewerOrgId: 'org-a', body: '   ', actor }) } catch { emptyRejected = true }
+  check('empty comment rejected', emptyRejected)
+
+  // Owner-side read of the record itself (needed so they can see the thread).
+  const ownerView = await loadSharedRecord({ shareId: share2.id, viewerOrgId: 'org-a' })
+  check('owner can load the shared record view', ownerView.viewerRole === 'owner', ownerView.viewerRole)
+  check('owner view reports canComment', ownerView.canComment === true)
+
+  // =======================================================================
   console.log('\n[5] Unlink from the accepting side')
   // =======================================================================
   const unlinked = await unlinkPartnership({

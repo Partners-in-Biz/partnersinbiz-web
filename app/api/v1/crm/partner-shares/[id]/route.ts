@@ -1,6 +1,8 @@
-import { apiErrorFromException, apiSuccess } from '@/lib/api/response'
-import { withCrmAuth } from '@/lib/auth/crm-middleware'
-import { loadSharedRecord, revokePartnerShare } from '@/lib/partner-links/shares'
+import { NextRequest } from 'next/server'
+import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
+import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
+import { cleanString } from '@/lib/partner-links/identity'
+import { loadSharedRecord, revokePartnerShare, setSharePermission } from '@/lib/partner-links/shares'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +17,27 @@ export const GET = withCrmAuth<RouteContext>('viewer', async (_req, ctx, routeCt
     const { id } = await routeCtx!.params
     const view = await loadSharedRecord({ shareId: id, viewerOrgId: ctx.orgId })
     return apiSuccess(view)
+  } catch (err) {
+    return apiErrorFromException(err)
+  }
+})
+
+/** PATCH — switch a share between view-only and comment. Owning org only. */
+export const PATCH = withCrmAuth<RouteContext>('member', async (req: NextRequest, ctx: CrmAuthContext, routeCtx) => {
+  try {
+    const { id } = await routeCtx!.params
+    const body = await req.json().catch(() => ({})) as Record<string, unknown>
+    const permission = cleanString(body.permission)
+    if (permission !== 'view' && permission !== 'comment') {
+      return apiError('permission must be "view" or "comment"', 400)
+    }
+    const share = await setSharePermission({
+      shareId: id,
+      ownerOrgId: ctx.orgId,
+      permission,
+      actor: ctx.actor,
+    })
+    return apiSuccess({ share })
   } catch (err) {
     return apiErrorFromException(err)
   }
