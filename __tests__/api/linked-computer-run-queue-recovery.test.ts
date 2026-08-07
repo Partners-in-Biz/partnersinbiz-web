@@ -275,4 +275,44 @@ describe('linked-computer queue recovery transactions', () => {
     expect(sets.find((entry) => entry.ref.path === `conversations/conversation-${id}/messages/assistant-${id}`)?.value)
       .toEqual(expect.objectContaining({ status: 'queued', queuedReason: 'runtime_restarting', runId: id }))
   })
+
+  it('reclaims a started job after a current authorized credential has rotated beyond one retained predecessor', async () => {
+    const id = 'pip-credential-rebind'
+    const rows = authorizedRows([id], ['pip'])
+    rows.set('linked_devices/device-a', {
+      ...rows.get('linked_devices/device-a')!,
+      credentialVersion: 5,
+    })
+    rows.set('linked_device_credentials/device-a', {
+      credentialVersion: 5,
+      // The current server record retains only version 4. A legitimate
+      // restart during another controlled rotation must not strand a v3 run
+      // when the same signed device, grant, mapping, and memberships persist.
+      previousCredentialVersion: 4,
+      revokedAt: null,
+    })
+    rows.set(`linked_device_run_jobs/${id}`, storedJob(id, 'pip', {
+      credentialVersion: 3,
+      status: 'running',
+      attempt: 1,
+      leaseToken: 'lease-credential-rebind',
+      leaseExpiresAt: Timestamp.fromMillis(now - 1),
+      localHermesRunId: 'local-hermes-resume-id',
+    }))
+    const { updates, sets } = installTransaction(rows)
+
+    const claimed = await claimOldestLinkedRun(
+      { deviceId: 'device-a', ownerUserId: 'owner-a', credentialVersion: 5 },
+      { nowMs: now },
+    )
+
+    expect(claimed).toEqual(expect.objectContaining({
+      jobId: id,
+      localHermesRunId: 'local-hermes-resume-id',
+    }))
+    expect(updates.find((entry) => entry.ref.path === `linked_device_run_jobs/${id}`)?.value)
+      .toEqual(expect.objectContaining({ credentialVersion: 5, status: 'claimed' }))
+    expect(sets.find((entry) => entry.ref.path === `conversations/conversation-${id}/messages/assistant-${id}`)?.value)
+      .toEqual(expect.objectContaining({ linkedDeviceCredentialVersion: 5 }))
+  })
 })

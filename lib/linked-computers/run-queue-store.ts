@@ -550,10 +550,25 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
           device: authorization.device,
           credential: authorization.credential,
         })
-        // Readiness loss never overrides the credential chain. A device that
-        // has rotated beyond this job without its exact predecessor proof is
-        // still a terminal authorization change.
-        if (current.credentialVersion !== input.credentialVersion && !credentialRotationContinued) {
+        const device = authorization.device ?? {}
+        const credential = authorization.credential ?? {}
+        // The current runtime request has already proven possession of the
+        // device key and current credential. If every durable authorization
+        // boundary still matches, an interrupted job may be reclaimed by that
+        // same device even after more than one legitimate credential rotation.
+        // This preserves the saved local Hermes run id for reattachment; it
+        // does not accept work from an old credential or a changed device.
+        const credentialRebindAuthorized = current.credentialVersion !== input.credentialVersion
+          && Number(device.credentialVersion) === input.credentialVersion
+          && Number(credential.credentialVersion) === input.credentialVersion
+          && !credential.revokedAt
+          && isLinkedRunAccessAuthorized({
+            authenticatedDeviceUserId: input.ownerUserId,
+            credentialVersion: input.credentialVersion,
+            ...authorization,
+            job: current,
+          })
+        if (current.credentialVersion !== input.credentialVersion && !credentialRotationContinued && !credentialRebindAuthorized) {
           expiredRefs.push({ ref, job: current, reason: 'authorization_changed' })
           continue
         }
@@ -593,10 +608,10 @@ export async function claimOldestLinkedRun(input: { deviceId: string; ownerUserI
           continue
         }
         selectedIsRetry = current.attempt > 0
-        const claimable = credentialRotationContinued
+        const claimable = credentialRotationContinued || credentialRebindAuthorized
           ? { ...current, credentialVersion: input.credentialVersion }
           : current
-        if (credentialRotationContinued) selectedContinuedCredentialVersion = current.credentialVersion
+        if (credentialRotationContinued || credentialRebindAuthorized) selectedContinuedCredentialVersion = current.credentialVersion
         selected = transitionLinkedRun(claimable, { type: 'claim', ...input, nowMs, leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS })
         selectedRef = ref
       } else candidateSurvivors.push(id)

@@ -49,6 +49,7 @@ export async function getLinkedRunJobSnapshot(jobId: string): Promise<{
   exists: boolean
   status?: string
   machineLabel?: string
+  error?: string
   chatEvents: ChatEvent[]
 } | null> {
   const cleanId = cleanString(jobId)
@@ -66,6 +67,7 @@ export async function getLinkedRunJobSnapshot(jobId: string): Promise<{
       cleanString(data.acceptedMachineLabel)
       ?? cleanString(asRecord(data.acceptanceReceipt).machineLabel)
       ?? cleanString(asRecord(data.receipt).machineLabel),
+    error: cleanString(data.error),
     chatEvents,
   }
 }
@@ -137,6 +139,24 @@ export function createLinkedComputerRunSseStream(
           return true
         }
 
+        const terminal = isTerminalLinkedStatus(snap.status)
+        if (terminal) {
+          const events = snap.chatEvents
+          if (events.length > cursor) {
+            for (const event of events.slice(cursor)) enqueue(event)
+            cursor = events.length
+          }
+          enqueue({
+            event: snap.status === 'completed' ? 'run.completed' : 'run.failed',
+            runId: jobId,
+            run_id: jobId,
+            timestamp: Date.now() / 1000,
+            activity: snap.status === 'completed' ? 'Linked computer run finished' : 'Linked computer run failed',
+            ...(snap.error ? { error: snap.error } : {}),
+          })
+          return true
+        }
+
         if (!emittedBootstrap) {
           emittedBootstrap = true
           enqueue({
@@ -166,16 +186,6 @@ export function createLinkedComputerRunSseStream(
           })
         }
 
-        if (isTerminalLinkedStatus(snap.status)) {
-          enqueue({
-            event: snap.status === 'completed' ? 'run.completed' : 'run.failed',
-            runId: jobId,
-            run_id: jobId,
-            timestamp: Date.now() / 1000,
-            activity: snap.status === 'completed' ? 'Linked computer run finished' : 'Linked computer run failed',
-          })
-          return true
-        }
         return false
       }
 

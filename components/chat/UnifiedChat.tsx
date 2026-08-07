@@ -5113,9 +5113,12 @@ export default function UnifiedChat({
           body: JSON.stringify({ runId, agentId, events }),
         })
         const body = await readApiResponse(res)
-        const data = body.data as { status?: string; content?: string } | undefined
+        const data = body.data as { status?: string; content?: string; error?: string } | undefined
         const status: string | undefined = data?.status
         const finalizedContent = typeof data?.content === 'string' ? data.content : undefined
+        const finalizedError = typeof data?.error === 'string' && data.error.trim()
+          ? data.error.trim()
+          : undefined
 
         if (!res.ok && shouldStopFinalizePollingForStatus(res.status)) {
           closeEventStream(msgId)
@@ -5233,7 +5236,7 @@ export default function UnifiedChat({
                     ...(typeof finalizedContent === 'string' ? { content: finalizedContent } : {}),
                     ...(thinking ? { thinking } : {}),
                     ...(terminalStatus === 'failed'
-                      ? { error: m.error || 'Agent run failed' }
+                      ? { error: finalizedError || m.error || 'Agent run failed' }
                       : { error: undefined }),
                   }
                 : m,
