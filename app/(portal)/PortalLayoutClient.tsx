@@ -67,6 +67,7 @@ const NAV_LINKS: NavItem[] = [
       '/portal/contacts',
       '/portal/companies',
       '/portal/deals',
+      '/portal/partners',
       '/portal/segments',
       '/portal/capture-sources',
       '/portal/integrations',
@@ -190,6 +191,7 @@ const CRM_ROUTE_PATTERNS = [
   '/portal/contacts',
   '/portal/companies',
   '/portal/deals',
+  '/portal/partners',
   '/portal/reports/crm',
   '/portal/segments',
   '/portal/capture-sources',
@@ -339,6 +341,11 @@ function buildCrmSubnavItems(buildHref: (path: string) => string): PortalSubnavI
       label: 'Deals',
       href: buildHref('/portal/deals'),
       icon: 'monetization_on',
+    },
+    {
+      label: 'Partners',
+      href: buildHref('/portal/partners'),
+      icon: 'handshake',
     },
     {
       label: 'CRM Reports',

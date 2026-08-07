@@ -58,6 +58,7 @@ function sanitizeRelationship(input: Record<string, unknown>): Partial<BusinessR
   copyString('status')
   copyString('visibility')
   copyString('approvalState')
+  copyString('partnerLinkId')
   copyString('notes')
 
   const sharedCapabilities = cleanStringArray(input.sharedCapabilities) as SharedBusinessCapability[]

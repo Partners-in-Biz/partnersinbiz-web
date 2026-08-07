@@ -117,12 +117,16 @@ function activeRelationshipsFor(company: Company, relationships: BusinessRelatio
 }
 
 // SANCTIONED CROSS-ORG READ (portal-first convergence spec §7.2).
-// This module is the only place allowed to read across org boundaries:
-// a company command center may aggregate counts/statuses from the org the
+// A company command center may aggregate counts/statuses from the org the
 // company is LINKED to (company.linkedOrgId) and from active business
-// relationships — never raw records from unrelated orgs. Any new cross-org
-// read elsewhere in the codebase is a spec violation; add it here or stop
-// and ask.
+// relationships — never raw records from unrelated orgs.
+//
+// There are exactly TWO sanctioned cross-org read locations:
+//   1. this module (aggregate counts/statuses for a linked company)
+//   2. lib/partner-links/shares.ts (one record, named by an explicit active
+//      share row, returned through a per-type field whitelist)
+// Any cross-org read outside these two is a spec violation; add it to the
+// right one of them or stop and ask.
 function documentCandidateOrgIds(company: Company, relationships: BusinessRelationship[] = []): string[] {
   const activeRelationships = activeRelationshipsFor(company, relationships)
   const orgIds = new Set<string>([company.orgId])

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ContactFactProposalsPanel } from '@/components/crm/ContactFactProposalsPanel'
 import { ContactResearchTasksPanel } from '@/components/crm/ContactResearchTasksPanel'
+import { SystemLinkBadge } from '@/components/crm/SystemLinkBadge'
 
 type ContactRecord = {
   id?: string
@@ -18,6 +19,8 @@ type ContactRecord = {
   companyId?: string
   stage?: string
   type?: string
+  /** Server-set cross-tenant link to a platform user account. */
+  linkedUserId?: string
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -120,7 +123,10 @@ export default function AdminCrmContactDetailPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="eyebrow !text-[10px]">Admin CRM · selected org</p>
-          <h1 className="mt-1 font-display text-3xl text-[var(--color-pib-text)]">{contactName}</h1>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h1 className="font-display text-3xl text-[var(--color-pib-text)]">{contactName}</h1>
+            {contact.linkedUserId ? <SystemLinkBadge kind="user" size="md" /> : null}
+          </div>
           <p className="mt-2 text-sm text-[var(--color-pib-text-muted)]">
             {[contact.jobTitle, contact.companyName || contact.company, contact.email].filter(Boolean).join(' · ')}
           </p>

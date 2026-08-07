@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
-import { adminAuth, adminDb } from '@/lib/firebase/admin'
+import { adminDb } from '@/lib/firebase/admin'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import {
   applyClaimLinks,
@@ -8,31 +8,21 @@ import {
 } from '@/lib/claimable-relationships/store'
 import type { ClaimableRelationship } from '@/lib/claimable-relationships/types'
 import { enforcePublicRateLimit, publicRequestIp, publicRateLimitHash } from '@/lib/api/public-rate-limit'
+import {
+  cleanString,
+  normalizeEmail,
+  resolveInviteUser,
+  slugify as baseSlugify,
+  splitName,
+  uniqueOrgIdForName,
+} from '@/lib/partner-links/identity'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ claimToken: string }> }
 
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase()
-}
-
 function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 48) || 'claimed-business'
-}
-
-function splitName(displayName: string) {
-  const [firstName = '', ...rest] = displayName.trim().split(/\s+/).filter(Boolean)
-  return { firstName, lastName: rest.join(' ') }
-}
-
-function cleanString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
+  return baseSlugify(input, 'claimed-business')
 }
 
 function resourceCollection(resourceType: ClaimableRelationship['resourceType']): 'invoices' | 'projects' {
@@ -88,72 +78,7 @@ async function loadRelationship(claimToken: string): Promise<{ id: string; data:
 }
 
 async function uniqueClaimedOrgId(baseName: string): Promise<{ orgId: string; slug: string }> {
-  const baseSlug = slugify(baseName)
-  let slug = baseSlug
-  for (let i = 0; i < 20; i += 1) {
-    const suffix = i === 0 ? '' : `-${i + 1}`
-    slug = `${baseSlug}${suffix}`.slice(0, 60)
-    const existing = await adminDb
-      .collection('organizations')
-      .where('slug', '==', slug)
-      .limit(1)
-      .get()
-    if (existing.empty) {
-      return { orgId: `claimed-${slug}`, slug }
-    }
-  }
-  const fallback = `${baseSlug}-${Date.now().toString(36)}`
-  return { orgId: `claimed-${fallback}`, slug: fallback }
-}
-
-async function sessionUser(req: NextRequest): Promise<{ uid: string; email?: string } | null> {
-  const cookieName = process.env.SESSION_COOKIE_NAME ?? '__session'
-  const cookie = req.cookies.get(cookieName)?.value
-  if (!cookie) return null
-  try {
-    const decoded = await adminAuth.verifySessionCookie(cookie, true)
-    return {
-      uid: decoded.uid,
-      email: typeof decoded.email === 'string' ? normalizeEmail(decoded.email) : undefined,
-    }
-  } catch {
-    return null
-  }
-}
-
-async function createOrResolveClaimUser(req: NextRequest, input: {
-  email: string
-  displayName: string
-  password?: string
-}): Promise<{ uid: string; fromSession: boolean } | { error: Response }> {
-  const currentUser = await sessionUser(req)
-  const email = normalizeEmail(input.email)
-
-  if (currentUser) {
-    if (currentUser.email && currentUser.email !== email) {
-      return { error: apiError('Signed-in account does not match the claim email.', 403) }
-    }
-    return { uid: currentUser.uid, fromSession: true }
-  }
-
-  try {
-    await adminAuth.getUserByEmail(email)
-    return { error: apiError('Sign in to claim this workspace with your existing account.', 409, { requiresSignIn: true }) }
-  } catch (err: unknown) {
-    const code = (err as { code?: string } | null)?.code
-    if (code !== 'auth/user-not-found') throw err
-  }
-
-  if (!input.password || input.password.length < 8) {
-    return { error: apiError('password must be at least 8 characters', 400) }
-  }
-
-  const created = await adminAuth.createUser({
-    email,
-    displayName: input.displayName,
-    password: input.password,
-  })
-  return { uid: created.uid, fromSession: false }
+  return uniqueOrgIdForName(baseName, 'claimed')
 }
 
 export async function GET(req: NextRequest, ctx: RouteContext) {
@@ -221,10 +146,13 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     return apiError('Claim email must match the invitation email', 400)
   }
 
-  const userResult = await createOrResolveClaimUser(req, {
+  const userResult = await resolveInviteUser(req, {
     email,
     displayName,
     password: typeof body.password === 'string' ? body.password : undefined,
+    // Preserve the claim flow's stricter rule: a signed-in visitor whose email
+    // differs from the claim address is rejected outright.
+    requireSessionEmailMatch: true,
   })
   if ('error' in userResult) return userResult.error
 

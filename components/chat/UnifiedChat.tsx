@@ -5043,10 +5043,9 @@ export default function UnifiedChat({
         }
       }
       es.onerror = () => {
-        // SSE often ends when the run ends, but it can also die mid-run.
-        // Close the socket and let finalize polling + message recovery catch up.
-        es.close()
-        delete eventSourcesRef.current[msgId]
+        // EventSource reconnects automatically after transient network errors and
+        // bounded server streams. Keep this instance alive until finalize polling
+        // proves the run terminal; closing here permanently silences long runs.
         if (convId) {
           void loadMessages(convId, { silent: true, softError: true })
         }

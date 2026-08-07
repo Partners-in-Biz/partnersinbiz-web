@@ -265,6 +265,16 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
           <p className="mx-auto mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
             {companyName} is available as a CRM company, but it is not linked to a selected organisation command surface yet. Keep pre-client context here; convert or link the organisation before running delivery work.
           </p>
+          {mode === 'portal' && companyId ? (
+            <Link
+              href={`/portal/partners?companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`}
+              aria-label={`Invite ${companyName} to link workspaces`}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">handshake</span>
+              Invite {companyName} to link workspaces
+            </Link>
+          ) : null}
         </div>
         <div className="grid gap-3 p-4 md:grid-cols-3">
           {leadWorkspaceItems.map((item) => (

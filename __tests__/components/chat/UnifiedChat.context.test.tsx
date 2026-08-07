@@ -3881,6 +3881,82 @@ describe('UnifiedChat context references', () => {
     expect(screen.queryByTestId('queued-composer-drafts')).not.toBeInTheDocument()
   })
 
+  it('keeps the run EventSource alive after a transient stream error so the browser can reconnect', async () => {
+    const originalEventSource = window.EventSource
+    const sources: MockEventSource[] = []
+    class MockEventSource {
+      onmessage: ((event: MessageEvent) => void) | null = null
+      onerror: (() => void) | null = null
+      close = jest.fn()
+      constructor(readonly url: string) {
+        sources.push(this)
+      }
+    }
+    Object.defineProperty(window, 'EventSource', {
+      configurable: true,
+      value: MockEventSource,
+    })
+
+    mockFetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/models?')) return jsonResponse(modelCatalogResponse)
+      if (url.includes('/visible-agents') || url.includes('/contacts')) return jsonResponse({ data: [] })
+      if (url.startsWith('/api/v1/workspaces?')) return jsonResponse({ data: { workspaces: [] } })
+      if (url.startsWith('/api/v1/conversations?')) return jsonResponse({ data: { conversations: [conversation] } })
+      if (url.includes('/finalize') && init?.method === 'POST') {
+        return jsonResponse({ data: { status: 'running' } })
+      }
+      if (url === '/api/v1/conversations/conv-1/messages') {
+        return jsonResponse({
+          data: {
+            messages: [{
+              id: 'msg-live-run',
+              conversationId: 'conv-1',
+              role: 'assistant',
+              content: '',
+              authorKind: 'agent',
+              authorId: 'pip',
+              authorDisplayName: 'Pip',
+              status: 'pending',
+              runId: 'run-live',
+              createdAt: { seconds: 2 },
+            }],
+          },
+        })
+      }
+      throw new Error(`Unhandled fetch: ${url}`)
+    })
+
+    try {
+      render(
+        <UnifiedChat
+          orgId="org-1"
+          currentUserUid="user-1"
+          currentUserDisplayName="Peet"
+          initialConvId="conv-1"
+        />,
+      )
+
+      const runSource = await waitFor(() => {
+        const source = sources.find((candidate) => candidate.url.includes('/runs/run-live/events'))
+        expect(source).toBeTruthy()
+        return source!
+      })
+
+      await act(async () => {
+        runSource.onerror?.()
+        await Promise.resolve()
+      })
+
+      expect(runSource.close).not.toHaveBeenCalled()
+    } finally {
+      Object.defineProperty(window, 'EventSource', {
+        configurable: true,
+        value: originalEventSource,
+      })
+    }
+  })
+
   it('auto-sends the next queued follow-up after the in-flight agent run completes', async () => {
     const originalEventSource = window.EventSource
     class MockEventSource {

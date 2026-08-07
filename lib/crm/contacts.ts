@@ -13,6 +13,10 @@ const NEVER_FROM_BODY = new Set([
   'deleted',
   // Evidence-ledger ownership is computed server-side from human edits / accept decisions.
   'humanOwnedFields',
+  // Cross-tenant links. Written server-side only, by an accepted partner invite
+  // (lib/partner-links) or the platform-owner sync — never from a request body.
+  'linkedUserId',
+  'linkedOrgId',
 ])
 
 export const CONTACT_AGREEMENT_ROLES = [

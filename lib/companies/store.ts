@@ -119,6 +119,11 @@ const NEVER_FROM_BODY = new Set([
   'createdBy', 'createdByRef', 'createdAt',
   'updatedBy', 'updatedByRef', 'updatedAt',
   'deleted',
+  // Cross-tenant link. It gates sanctioned cross-org reads (command center,
+  // invoices, quotes, contacts), so it must only ever be written server-side by
+  // an accepted partner invite (lib/partner-links) or the platform-owner sync —
+  // never from a request body.
+  'linkedOrgId',
 ])
 
 const LEGAL_STRING_FIELDS = new Set([

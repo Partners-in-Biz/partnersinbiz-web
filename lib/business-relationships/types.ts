@@ -54,6 +54,12 @@ export interface BusinessRelationship {
   allowedOrgIds?: string[]
   allowedUserIds?: string[]
   approvalState?: RelationshipApprovalState
+  /**
+   * Shared id stamped on BOTH sides of a mutually-accepted partner link, so
+   * either org can find its counterpart row without guessing by org id pair.
+   * Only set by the partner-invite accept flow (lib/partner-links).
+   */
+  partnerLinkId?: string
   notes?: string
   createdByRef?: MemberRef
   updatedByRef?: MemberRef
