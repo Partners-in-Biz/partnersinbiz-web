@@ -45,13 +45,52 @@ const CATALOG = {
   notes: {},
 }
 
+const ANTHROPIC_AUTH_SESSION = {
+  id: 'oauth_anthropic_1',
+  provider: 'anthropic',
+  hermesProvider: 'anthropic',
+  orgId: 'org-1',
+  ownerUid: 'user-1',
+  scope: 'user',
+  label: 'Anthropic Claude',
+  flow: 'authorization_code',
+  status: 'awaiting_code',
+  authorizeUrl: 'https://claude.ai/oauth/authorize?client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e',
+  userCode: '',
+  verificationUri: null,
+  verificationUriComplete: null,
+  expiresAt: '2099-01-01T00:00:00.000Z',
+  intervalSeconds: 0,
+  error: null,
+  createdAt: null,
+  updatedAt: null,
+}
+
 function mockCatalogFetch() {
-  global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+  global.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     if (url.startsWith('/api/v1/llm-providers/connections?orgId=')) {
       return {
         ok: true,
         json: async () => ({ success: true, data: CATALOG }),
+      } as Response
+    }
+    if (url.includes('/oauth/start')) {
+      return {
+        ok: true,
+        json: async () => ({ success: true, data: { session: ANTHROPIC_AUTH_SESSION } }),
+      } as Response
+    }
+    if (url.includes('/oauth/') && init?.method === 'POST') {
+      return {
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            session: { ...ANTHROPIC_AUTH_SESSION, status: 'completed' },
+            connection: { id: 'conn-1', provider: 'anthropic', authKind: 'oauth_token' },
+          },
+        }),
       } as Response
     }
     return { ok: true, json: async () => ({ success: true, data: {} }) } as Response
@@ -115,5 +154,52 @@ describe('LlmProviderConnections ConnectForm — anthropic dual option', () => {
     expect(await screen.findByPlaceholderText('xai-…')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /sign in with/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Connect with OAuth' })).not.toBeInTheDocument()
+  })
+
+  it('shows the paste-code banner and scrolls it into view for the anthropic awaiting_code flow', async () => {
+    const scrollSpy = jest.fn()
+    Element.prototype.scrollIntoView = scrollSpy
+    render(<LlmProviderConnections orgId="org-1" />)
+
+    await screen.findByText('Anthropic Claude')
+    const button = connectButtonFor('Anthropic Claude')
+    expect(button).toBeTruthy()
+    fireEvent.click(button!)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Connect with OAuth' }))
+
+    // The Complete sign-in banner must be visible with a place to paste the key.
+    expect(await screen.findByText('Complete sign-in')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Paste the code from Anthropic here')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Submit code' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open sign-in page' })).toHaveAttribute(
+      'href',
+      'https://claude.ai/oauth/authorize?client_id=9d1c250a-e61b-44d9-88ed-5944d1962f5e',
+    )
+    // awaiting_code must auto-scroll the banner into view (same as device code).
+    expect(scrollSpy).toHaveBeenCalled()
+  })
+
+  it('splits the copied code#state string when submitting the paste-code form', async () => {
+    render(<LlmProviderConnections orgId="org-1" />)
+
+    await screen.findByText('Anthropic Claude')
+    const button = connectButtonFor('Anthropic Claude')
+    expect(button).toBeTruthy()
+    fireEvent.click(button!)
+    fireEvent.click(await screen.findByRole('button', { name: 'Connect with OAuth' }))
+
+    const input = await screen.findByPlaceholderText('Paste the code from Anthropic here')
+    fireEvent.change(input, { target: { value: 'callback-code#callback-state' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Submit code' }))
+
+    await waitFor(() => {
+      const exchangeCall = (global.fetch as jest.Mock).mock.calls.find(([inputUrl]) =>
+        String(inputUrl).includes('/exchange'),
+      )
+      expect(exchangeCall).toBeTruthy()
+      const body = JSON.parse(String(exchangeCall![1].body))
+      expect(body).toEqual({ code: 'callback-code', state: 'callback-state' })
+    })
   })
 })
