@@ -127,14 +127,20 @@ export function applyRuntimeCredential(input: {
   if (delivery.envVar) {
     // Anthropic OAuth (Claude Code client) is consumed by Hermes through the
     // CLAUDE_CODE_OAUTH_TOKEN env var, whose value is the OAuth access token.
+    // Hermes prefers ANTHROPIC_API_KEY over CLAUDE_CODE_OAUTH_TOKEN, so the two
+    // must never coexist in a profile: keep both connections in PiB Settings,
+    // but make the most recently applied one the active runtime credential.
     const envValue = delivery.envVar === 'CLAUDE_CODE_OAUTH_TOKEN'
       ? cleanSecret(delivery.credentials?.access_token, 'OAuth access token')
       : cleanSecret(delivery.credentials?.apiKey, 'API key')
-    updateEnv(
-      path.join(dir, '.env'),
-      delivery.envVar,
-      input.revoke ? undefined : envValue,
-    )
+    const envFile = path.join(dir, '.env')
+    if (!input.revoke && delivery.provider === 'anthropic') {
+      const alternateAnthropicEnv = delivery.envVar === 'CLAUDE_CODE_OAUTH_TOKEN'
+        ? 'ANTHROPIC_API_KEY'
+        : 'CLAUDE_CODE_OAUTH_TOKEN'
+      updateEnv(envFile, alternateAnthropicEnv)
+    }
+    updateEnv(envFile, delivery.envVar, input.revoke ? undefined : envValue)
   } else {
     const authPath = path.join(dir, 'auth.json')
     const store = readJson(authPath)

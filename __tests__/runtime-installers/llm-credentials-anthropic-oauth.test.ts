@@ -44,6 +44,56 @@ describe('applyRuntimeCredential — Anthropic OAuth env path', () => {
     expect(envFile).not.toContain('refresh_token')
   })
 
+  it('activates OAuth over a previously applied Anthropic API key without deleting the saved API connection', () => {
+    const home = tempHermesHome()
+    const env = envFor(home)
+    const apiDelivery = {
+      bindingId: 'binding-api', connectionId: 'conn-api', credentialVersion: 1,
+      provider: 'anthropic', hermesProvider: 'anthropic', envVar: 'ANTHROPIC_API_KEY',
+      canaryModel: 'claude-sonnet-4-6', applyMode: 'env' as const,
+      credentials: { apiKey: 'sk-ant-api-secret' },
+    }
+    applyRuntimeCredential({ agentId: 'theo', env, delivery: apiDelivery })
+    applyRuntimeCredential({
+      agentId: 'theo', env,
+      delivery: {
+        bindingId: 'binding-oauth', connectionId: 'conn-oauth', credentialVersion: 2,
+        provider: 'anthropic', hermesProvider: 'anthropic', envVar: 'CLAUDE_CODE_OAUTH_TOKEN',
+        canaryModel: 'claude-sonnet-4-6', applyMode: 'env',
+        credentials: { access_token: 'at-oauth-secret' },
+      },
+    })
+    const envFile = readEnvFile(home, 'theo')
+    expect(envFile).toContain('CLAUDE_CODE_OAUTH_TOKEN=at-oauth-secret')
+    expect(envFile).not.toContain('ANTHROPIC_API_KEY=')
+  })
+
+  it('switches back to API-key auth when the Anthropic API credential is applied later', () => {
+    const home = tempHermesHome()
+    const env = envFor(home)
+    applyRuntimeCredential({
+      agentId: 'theo', env,
+      delivery: {
+        bindingId: 'binding-oauth', connectionId: 'conn-oauth', credentialVersion: 1,
+        provider: 'anthropic', hermesProvider: 'anthropic', envVar: 'CLAUDE_CODE_OAUTH_TOKEN',
+        canaryModel: 'claude-sonnet-4-6', applyMode: 'env',
+        credentials: { access_token: 'at-oauth-secret' },
+      },
+    })
+    applyRuntimeCredential({
+      agentId: 'theo', env,
+      delivery: {
+        bindingId: 'binding-api', connectionId: 'conn-api', credentialVersion: 2,
+        provider: 'anthropic', hermesProvider: 'anthropic', envVar: 'ANTHROPIC_API_KEY',
+        canaryModel: 'claude-sonnet-4-6', applyMode: 'env',
+        credentials: { apiKey: 'sk-ant-api-secret' },
+      },
+    })
+    const envFile = readEnvFile(home, 'theo')
+    expect(envFile).toContain('ANTHROPIC_API_KEY=sk-ant-api-secret')
+    expect(envFile).not.toContain('CLAUDE_CODE_OAUTH_TOKEN=')
+  })
+
   it('rejects the env path when the access token is missing', () => {
     const home = tempHermesHome()
     const env = envFor(home)
