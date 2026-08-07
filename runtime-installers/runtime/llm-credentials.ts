@@ -125,10 +125,15 @@ export function applyRuntimeCredential(input: {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
 
   if (delivery.envVar) {
+    // Anthropic OAuth (Claude Code client) is consumed by Hermes through the
+    // CLAUDE_CODE_OAUTH_TOKEN env var, whose value is the OAuth access token.
+    const envValue = delivery.envVar === 'CLAUDE_CODE_OAUTH_TOKEN'
+      ? cleanSecret(delivery.credentials?.access_token, 'OAuth access token')
+      : cleanSecret(delivery.credentials?.apiKey, 'API key')
     updateEnv(
       path.join(dir, '.env'),
       delivery.envVar,
-      input.revoke ? undefined : cleanSecret(delivery.credentials?.apiKey, 'API key'),
+      input.revoke ? undefined : envValue,
     )
   } else {
     const authPath = path.join(dir, 'auth.json')

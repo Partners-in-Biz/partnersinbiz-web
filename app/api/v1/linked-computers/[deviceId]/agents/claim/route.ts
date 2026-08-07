@@ -122,7 +122,7 @@ export async function handleAgentHostClaim(
         await applyAgentHostJobResult(completed)
         continue
       }
-      const deliveredCredentials = connection.provider === 'xai-oauth'
+      const deliveredCredentials = connection.provider === 'xai-oauth' || connection.provider === 'anthropic'
         ? { ...credentials, refresh_token: '' }
         : credentials
       responseJob = {
