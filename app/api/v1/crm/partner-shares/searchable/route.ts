@@ -29,14 +29,14 @@ export const GET = withCrmAuth('viewer', async (req: NextRequest, ctx: CrmAuthCo
       if (link && link.sourceOrgId === ctx.orgId) partnerOrgId = cleanString(link.targetOrgId) || undefined
     }
 
-    const records = await listShareableRecords({
+    const { records, truncated } = await listShareableRecords({
       orgId: ctx.orgId,
       resourceType,
       query: cleanString(req.nextUrl.searchParams.get('q')) || undefined,
       partnerOrgId,
     })
 
-    return apiSuccess({ records })
+    return apiSuccess({ records, truncated })
   } catch (err) {
     return apiErrorFromException(err)
   }

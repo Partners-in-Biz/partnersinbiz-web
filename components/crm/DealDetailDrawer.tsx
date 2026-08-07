@@ -12,6 +12,7 @@ import type { Deal, Currency } from '@/lib/crm/types'
 import type { PipelineStage } from '@/lib/pipelines/types'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import { DealLineItemsEditor } from './DealLineItemsEditor'
+import { ShareWithPartnerButton } from '@/components/crm/ShareWithPartnerButton'
 
 export interface DealDetailDrawerProps {
   deal: Deal
@@ -161,6 +162,13 @@ export function DealDetailDrawer({
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <ShareWithPartnerButton
+              resourceType="deal"
+              resourceId={deal.id}
+              label="Share"
+              orgScope={orgScope ?? { orgId }}
+              className="btn-pib-secondary btn-pib-sm inline-flex items-center gap-1.5"
+            />
             {/* Convert to quote */}
             <button
               type="button"

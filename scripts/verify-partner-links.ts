@@ -357,18 +357,33 @@ async function main() {
   const deletedProj = adminDb.collection('projects').doc()
   await deletedProj.set({ orgId: 'org-a', name: 'Archived Thing', deleted: true, createdAt: now, updatedAt: now })
 
-  const all = await listShareableRecords({ orgId: 'org-a', resourceType: 'project', partnerOrgId: 'org-b' })
+  const { records: all } = await listShareableRecords({
+    orgId: 'org-a', resourceType: 'project', partnerOrgId: 'org-b', limit: 100,
+  })
   check('picker returns own-org records', all.some((r) => r.id === otherProj.id))
   check('picker excludes deleted records', !all.some((r) => r.id === deletedProj.id))
   check('picker excludes other orgs\' records', !all.some((r) => r.id === foreignRef.id))
   check('picker flags already-shared', all.find((r) => r.id === projRef.id)?.alreadyShared === true)
   check('picker does not flag unshared', all.find((r) => r.id === otherProj.id)?.alreadyShared !== true)
 
-  const searched = await listShareableRecords({ orgId: 'org-a', resourceType: 'project', query: 'redesign' })
-  check('picker search matches title case-insensitively',
-    searched.length === 1 && searched[0].id === otherProj.id, searched.map((r) => r.title))
-  const noHits = await listShareableRecords({ orgId: 'org-a', resourceType: 'project', query: 'zzzznope' })
+  // Substring pass — "redesign" is mid-string in "Website Redesign".
+  const { records: substr } = await listShareableRecords({
+    orgId: 'org-a', resourceType: 'project', query: 'redesign',
+  })
+  check('substring search still matches mid-title',
+    substr.length === 1 && substr[0].id === otherProj.id, substr.map((r) => r.title))
+
+  // Prefix pass — this is the one that scales past the scan window.
+  const { records: prefix } = await listShareableRecords({
+    orgId: 'org-a', resourceType: 'project', query: 'Website',
+  })
+  check('prefix search matches from the start', prefix.some((r) => r.id === otherProj.id), prefix.map((r) => r.title))
+
+  const { records: noHits, truncated } = await listShareableRecords({
+    orgId: 'org-a', resourceType: 'project', query: 'zzzznope',
+  })
   check('picker returns nothing for a non-match', noHits.length === 0, noHits.length)
+  check('truncated is false on a small corpus', truncated === false, truncated)
 
   // =======================================================================
   console.log('\n[4f] permission:"comment" is actually enforced')

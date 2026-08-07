@@ -88,6 +88,18 @@ const SUBTITLE_FIELDS: Record<PartnerShareResourceType, string[]> = {
   client_document: ['documentType', 'status'],
 }
 
+/** The single field each type is ordered/prefix-searched on. */
+const PRIMARY_TITLE_FIELD: Record<PartnerShareResourceType, string> = {
+  deal: 'title',
+  project: 'name',
+  invoice: 'invoiceNumber',
+  quote: 'quoteNumber',
+  client_document: 'title',
+}
+
+/** Bound on the substring pass. Ordered by title, so it is a stable window. */
+const SUBSTRING_SCAN_CAP = 500
+
 export interface ShareableRecord {
   id: string
   title: string
@@ -95,10 +107,28 @@ export interface ShareableRecord {
   alreadyShared?: boolean
 }
 
+export interface ShareableRecordsResult {
+  records: ShareableRecord[]
+  /**
+   * True when the substring pass filled its window, so matches may exist
+   * beyond it. The picker surfaces this rather than silently truncating.
+   */
+  truncated: boolean
+}
+
 /**
- * Searchable list of records this org could share, for the picker. Index-free
- * (`orgId ==` then in-memory filter) to match the convention used elsewhere in
- * this surface.
+ * Searchable list of records this org could share.
+ *
+ * Two passes, merged:
+ *  1. a server-side PREFIX range query on the type's title field — scales to
+ *     any corpus size, so "Web" finds "Website Redesign" however many projects
+ *     the org has;
+ *  2. a bounded window (SUBSTRING_SCAN_CAP, ordered by the same field so it
+ *     reuses one index) filtered in memory for mid-string matches, so
+ *     "redesign" still finds "Website Redesign".
+ *
+ * Pass 2 is what can miss things on a very large corpus; when its window fills
+ * we return `truncated: true` instead of pretending the list is complete.
  */
 export async function listShareableRecords(input: {
   orgId: string
@@ -106,14 +136,13 @@ export async function listShareableRecords(input: {
   query?: string
   partnerOrgId?: string
   limit?: number
-}): Promise<ShareableRecord[]> {
-  const snap = await adminDb
-    .collection(RESOURCE_COLLECTION[input.resourceType])
-    .where('orgId', '==', input.orgId)
-    .limit(1000)
-    .get()
+}): Promise<ShareableRecordsResult> {
+  const collection = RESOURCE_COLLECTION[input.resourceType]
+  const titleField = PRIMARY_TITLE_FIELD[input.resourceType]
+  const q = cleanString(input.query)
+  const limit = Math.min(Math.max(input.limit ?? 25, 1), 100)
 
-  // Mark records already shared with this partner so the picker can show it.
+  // Records already shared with this partner, so the picker can disable them.
   const shared = new Set<string>()
   if (input.partnerOrgId) {
     const shareSnap = await adminDb
@@ -130,11 +159,32 @@ export async function listShareableRecords(input: {
     }
   }
 
-  const q = cleanString(input.query).toLowerCase()
-  const limit = Math.min(Math.max(input.limit ?? 25, 1), 100)
-  const out: ShareableRecord[] = []
+  const base = adminDb.collection(collection).where('orgId', '==', input.orgId)
+  const collected = new Map<string, FirebaseFirestore.DocumentSnapshot>()
+  let truncated = false
 
-  for (const doc of snap.docs) {
+  if (q) {
+    // Pass 1 — prefix range. \uf8ff is the standard high-codepoint sentinel.
+    const prefixSnap = await base
+      .orderBy(titleField)
+      .startAt(q)
+      .endAt(`${q}\uf8ff`)
+      .limit(limit * 2)
+      .get()
+    for (const doc of prefixSnap.docs) collected.set(doc.id, doc)
+  }
+
+  // Pass 2 — bounded window for substring (and the unfiltered browse case).
+  const windowSnap = await base
+    .orderBy(titleField)
+    .limit(q ? SUBSTRING_SCAN_CAP : limit * 4)
+    .get()
+  if (q && windowSnap.size === SUBSTRING_SCAN_CAP) truncated = true
+  for (const doc of windowSnap.docs) collected.set(doc.id, doc)
+
+  const needle = q.toLowerCase()
+  const out: ShareableRecord[] = []
+  for (const doc of collected.values()) {
     const data = doc.data() ?? {}
     if (data.deleted === true) continue
     const title = TITLE_FIELDS[input.resourceType]
@@ -144,13 +194,15 @@ export async function listShareableRecords(input: {
       .map((f) => cleanString(data[f]))
       .filter(Boolean)
       .join(' · ')
-    if (q && !title.toLowerCase().includes(q) && !subtitle.toLowerCase().includes(q)) continue
+    if (needle && !title.toLowerCase().includes(needle) && !subtitle.toLowerCase().includes(needle)) continue
     out.push({ id: doc.id, title, subtitle: subtitle || undefined, alreadyShared: shared.has(doc.id) })
   }
 
-  return out
+  const records = out
     .sort((a, b) => Number(a.alreadyShared) - Number(b.alreadyShared) || a.title.localeCompare(b.title))
     .slice(0, limit)
+
+  return { records, truncated }
 }
 
 export interface PartnerRecordShare {
@@ -533,6 +585,17 @@ export async function addShareComment(input: {
 
   // Notify the other side only.
   const recipientOrgId = role === 'owner' ? share.partnerOrgId : share.ownerOrgId
+
+  // Email as well as the in-app notification — a partner in another workspace
+  // will not be watching this org's bell. Non-fatal: never fail the comment.
+  void notifyShareCommentByEmail({
+    recipientOrgId,
+    authorOrgId: input.viewerOrgId,
+    authorName: input.actor.displayName,
+    share,
+    body,
+  }).catch((err) => console.error('[partner-share-comment-email-error]', err))
+
   await recordCrmAuditEvent({
     orgId: input.viewerOrgId,
     eventType: 'partner_share.commented',
@@ -551,6 +614,45 @@ export async function addShareComment(input: {
 
   const saved = await ref.get()
   return { id: ref.id, ...(saved.data() as Omit<PartnerShareComment, 'id'>) }
+}
+
+/** Org-level contact address, used for cross-workspace notifications. */
+async function orgNotificationEmail(orgId: string): Promise<{ email: string; name: string } | null> {
+  const snap = await adminDb.collection('organizations').doc(orgId).get()
+  if (!snap.exists) return null
+  const data = snap.data() ?? {}
+  const settings = (data.settings ?? {}) as Record<string, unknown>
+  const email = cleanString(settings.notificationEmail).toLowerCase()
+    || cleanString(data.billingEmail).toLowerCase()
+  if (!email || !email.includes('@')) return null
+  return { email, name: cleanString(data.name) || orgId }
+}
+
+async function notifyShareCommentByEmail(input: {
+  recipientOrgId: string
+  authorOrgId: string
+  authorName: string
+  share: PartnerRecordShare
+  body: string
+}): Promise<void> {
+  const recipient = await orgNotificationEmail(input.recipientOrgId)
+  if (!recipient) return
+  const author = await orgNotificationEmail(input.authorOrgId)
+
+  const { partnerShareCommentEmail } = await import('@/lib/email/templates/partner-invite')
+  const { sendEmail } = await import('@/lib/email/send')
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://partnersinbiz.online'
+  const { subject, html } = partnerShareCommentEmail({
+    authorName: input.authorName,
+    authorOrgName: author?.name ?? 'a partner',
+    recordTitle: input.share.resourceTitle || input.share.resourceId,
+    recordType: input.share.resourceType,
+    body: input.body,
+    viewUrl: `${baseUrl}/portal/partners/shared/${input.share.id}`,
+  })
+
+  await sendEmail({ to: recipient.email, subject, html })
 }
 
 export async function deleteShareComment(input: {

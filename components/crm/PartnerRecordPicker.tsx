@@ -33,6 +33,7 @@ export function PartnerRecordPicker({
 }: PartnerRecordPickerProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ShareableRecord[]>([])
+  const [truncated, setTruncated] = useState(false)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -54,8 +55,10 @@ export function PartnerRecordPicker({
       const res = await fetch(`/api/v1/crm/partner-shares/searchable?${params.toString()}`)
       const data = unwrap(await res.json().catch(() => null))
       setResults(res.ok ? ((data?.records as ShareableRecord[]) ?? []) : [])
+      setTruncated(res.ok ? Boolean(data?.truncated) : false)
     } catch {
       setResults([])
+      setTruncated(false)
     } finally {
       setLoading(false)
     }
@@ -128,6 +131,11 @@ export function PartnerRecordPicker({
               </button>
             ))
           )}
+          {truncated ? (
+            <p className="border-t border-[var(--color-pib-line)] px-3 py-2 text-[10px] text-[var(--color-pib-text-muted)]">
+              Showing partial results — type more of the name to narrow the search.
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>
