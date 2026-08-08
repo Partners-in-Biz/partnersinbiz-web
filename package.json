@@ -69,7 +69,11 @@
     "test:finance:vera-phase6-audit": "jest --runInBand __tests__/finance/vera-phase6-calc-audit.test.ts",
     "verify:finance:vera-phase6-audit": "npm run test:finance:vera-phase6-audit && tsx scripts/finance/verify-vera-phase6-audit.ts",
     "test:design-audit": "jest --runInBand __tests__/lib/design-audit",
-    "verify:design-audit": "npm run test:design-audit"
+    "verify:design-audit": "npm run test:design-audit",
+    "design:gate:light": "tsx scripts/design-audit-gate.ts --light --staged",
+    "design:gate:deep": "tsx scripts/design-audit-gate.ts --deep",
+    "design:doctor": "tsx scripts/design-audit-doctor.ts",
+    "prepare": "node scripts/install-design-hooks.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1045.0",

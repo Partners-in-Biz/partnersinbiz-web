@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Design Audit Gate — light per-edit pass on staged UI files.
+#
+# Blocks commits that introduce P0/P1 design findings (AI-slop tells, WCAG
+# failures, broken quality basics) in UI surfaces. P2/P3 are advisory only —
+# the deep pass (CI / npm run design:gate:deep) reports those.
+#
+# Escape hatches (deliberate, not silent):
+#   git commit --no-verify                      # manual override, bypasses this hook
+#   IMPECCABLE_SKIP_HOOK=1 git commit ...       # env override for tooling
+# Inline ignores also work: <!-- impeccable-disable rule --> /
+# data-impeccable-disable="rule" in the source.
+set -uo pipefail
+
+if [[ "${IMPECCABLE_SKIP_HOOK:-0}" == "1" ]]; then
+  echo "design-audit: skipped via IMPECCABLE_SKIP_HOOK=1"
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$REPO_ROOT" || exit 1
+
+# Fast bail: no staged UI files -> nothing to gate.
+STAGED_UI="$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(html?|jsx|tsx|vue|svelte|astro|mdx|css)$' || true)"
+if [[ -z "$STAGED_UI" ]]; then
+  exit 0
+fi
+
+TSX_BIN="$REPO_ROOT/node_modules/.bin/tsx"
+if [[ ! -x "$TSX_BIN" ]]; then
+  echo "design-audit: WARNING tsx not installed; skipping hook (run npm ci). Silence is not clean — run npm run design:doctor to verify." >&2
+  exit 0
+fi
+
+"$TSX_BIN" "$REPO_ROOT/scripts/design-audit-gate.ts" --light --staged
+STATUS=$?
+if [[ $STATUS -eq 2 ]]; then
+  echo ""
+  echo "design-audit: commit BLOCKED by P0/P1 design findings."
+  echo "  - Fix the findings, or add an explicit ignore (impeccable-disable comment/attribute)."
+  echo "  - Manual override: git commit --no-verify (use sparingly; deep pass in CI still reports)."
+  exit 2
+fi
+exit $STATUS
