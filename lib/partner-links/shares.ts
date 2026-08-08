@@ -361,6 +361,60 @@ export async function sharePartnerRecord(
   return toShare(ref.id, snap.data() ?? {})
 }
 
+/**
+ * System-granted share, used when the platform itself creates a record that
+ * the partner is already a party to — currently the invoice drafted from a
+ * confirmed cross-org order.
+ *
+ * Deliberately skips the capability gate that `sharePartnerRecord` enforces:
+ * that gate asks "may this org browse our invoices in general", which is a
+ * different question from "may the buyer see the invoice for the order they
+ * just placed". Every other check (active link, ownership, whitelisted read)
+ * still applies on the way back out.
+ */
+export async function grantSystemShare(input: {
+  relationshipId: string
+  partnerLinkId: string
+  ownerOrgId: string
+  partnerOrgId: string
+  resourceType: PartnerShareResourceType
+  resourceId: string
+  resourceTitle?: string
+  actor: MemberRef
+}): Promise<PartnerRecordShare | null> {
+  const existing = await adminDb
+    .collection(PARTNER_SHARE_COLLECTION)
+    .where('ownerOrgId', '==', input.ownerOrgId)
+    .where('resourceType', '==', input.resourceType)
+    .where('resourceId', '==', input.resourceId)
+    .limit(10)
+    .get()
+
+  const live = existing.docs
+    .map((d) => toShare(d.id, d.data() ?? {}))
+    .find((s) => s.partnerOrgId === input.partnerOrgId && s.status === 'active')
+  if (live) return live
+
+  const now = FieldValue.serverTimestamp()
+  const ref = await adminDb.collection(PARTNER_SHARE_COLLECTION).add(stripUndefined({
+    partnerLinkId: input.partnerLinkId,
+    relationshipId: input.relationshipId,
+    ownerOrgId: input.ownerOrgId,
+    partnerOrgId: input.partnerOrgId,
+    resourceType: input.resourceType,
+    resourceId: input.resourceId,
+    resourceTitle: input.resourceTitle,
+    permission: 'view',
+    status: 'active',
+    systemGranted: true,
+    sharedByRef: input.actor,
+    createdAt: now,
+    updatedAt: now,
+  }))
+  const snap = await ref.get()
+  return toShare(ref.id, snap.data() ?? {})
+}
+
 export async function revokePartnerShare(input: {
   shareId: string
   actingOrgId: string

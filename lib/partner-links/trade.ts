@@ -7,6 +7,7 @@ import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
 import type { BusinessRelationship, SharedBusinessCapability } from '@/lib/business-relationships/types'
 import type { Currency, DealLineItem } from '@/lib/crm/types'
 import { cleanString } from './identity'
+import { grantSystemShare } from './shares'
 
 /**
  * Cross-org trading over an accepted partner link.
@@ -536,6 +537,20 @@ export async function decidePartnerOrder(input: {
       for (const doc of pairSnap.docs) {
         await doc.ref.set({ invoiceId, updatedAt: now }, { merge: true })
       }
+
+      // The buyer is a party to this invoice, so grant them sight of it
+      // directly rather than making it depend on the generic 'invoices'
+      // capability. Non-fatal: a share failure must not undo the order.
+      await grantSystemShare({
+        relationshipId: cleanString(order.relationshipId),
+        partnerLinkId: cleanString(order.partnerLinkId),
+        ownerOrgId: input.supplierOrgId,
+        partnerOrgId: buyerOrgId,
+        resourceType: 'invoice',
+        resourceId: invoiceId,
+        resourceTitle: invoiceNumber,
+        actor: input.actor,
+      }).catch((err) => console.error('[partner-order-invoice-share-error]', err))
     }
   }
 
@@ -614,6 +629,294 @@ async function draftInvoiceForOrder(input: {
     console.error('[partner-order-invoice-error]', err)
     return null
   }
+}
+
+// ── Fulfilment ───────────────────────────────────────────────────────────────
+
+export type FulfilAction = 'pack' | 'ship' | 'deliver'
+
+export interface FulfilResult {
+  tradeOrderId: string
+  fulfillmentStatus: string
+  shipmentIds: string[]
+}
+
+/**
+ * Supplier-side fulfilment: pack → ship → deliver.
+ *
+ * `ship` is the step that actually consumes stock — reserved quantity leaves
+ * the building, so it decrements `quantityReserved` and logs a `shipped`
+ * movement. Shipments are mirrored to the buyer (two `shipments` rows sharing
+ * the `tradeOrderId`) so both sides can track without a cross-org read.
+ */
+export async function fulfilPartnerOrder(input: {
+  supplierOrgId: string
+  orderId: string
+  action: FulfilAction
+  carrier?: string
+  trackingNumber?: string
+  trackingUrl?: string
+  actor: MemberRef
+}): Promise<FulfilResult> {
+  const ref = adminDb.collection(ORDERS_COLLECTION).doc(input.orderId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new Error('Order not found')
+  const order = snap.data() ?? {}
+  if (order.orgId !== input.supplierOrgId) throw new Error('Order not found')
+  if (order.direction !== 'sales') throw new Error('Only the supplier can fulfil an order')
+  if (order.partnerOrderStatus !== 'confirmed') {
+    throw new Error('Only a confirmed order can be fulfilled')
+  }
+
+  const current = cleanString(order.fulfillmentStatus) || 'not_started'
+  const ALLOWED: Record<FulfilAction, string[]> = {
+    pack: ['not_started', 'picking'],
+    ship: ['not_started', 'picking', 'packed'],
+    deliver: ['in_transit'],
+  }
+  if (!ALLOWED[input.action].includes(current)) {
+    throw new Error(`Cannot ${input.action} an order that is "${current}"`)
+  }
+
+  const tradeOrderId = cleanString(order.tradeOrderId)
+  const buyerOrgId = cleanString(order.counterpartyOrgId)
+  const now = Timestamp.now()
+  const nextStatus = input.action === 'pack' ? 'packed' : input.action === 'ship' ? 'in_transit' : 'delivered'
+
+  const pairSnap = await adminDb
+    .collection(ORDERS_COLLECTION)
+    .where('tradeOrderId', '==', tradeOrderId)
+    .limit(10)
+    .get()
+
+  const shipmentIds: string[] = []
+
+  if (input.action === 'ship') {
+    // Reserved stock now physically leaves; clear the reservation.
+    const lineItems = Array.isArray(order.lineItems) ? order.lineItems as DealLineItem[] : []
+    const invSnap = await adminDb
+      .collection('inventoryItems')
+      .where('orgId', '==', input.supplierOrgId)
+      .limit(1000)
+      .get()
+
+    for (const line of lineItems) {
+      if (!line.productId) continue
+      const invDoc = invSnap.docs.find((d) => {
+        const data = d.data() ?? {}
+        return data.deleted !== true && cleanString(data.productId) === line.productId
+      })
+      if (!invDoc) continue
+      const data = invDoc.data() ?? {}
+      const reserved = Number(data.quantityReserved) || 0
+      const take = Math.min(reserved, line.qty)
+      await invDoc.ref.set({
+        quantityReserved: reserved - take,
+        updatedByRef: input.actor,
+        updatedAt: now,
+      }, { merge: true })
+
+      await adminDb.collection('inventoryMovements').add(stripUndefined({
+        orgId: input.supplierOrgId,
+        inventoryItemId: invDoc.id,
+        productId: line.productId,
+        orderId: input.orderId,
+        movementType: 'shipped',
+        quantity: take,
+        createdByRef: input.actor,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false,
+      }))
+    }
+
+    // Mirrored shipment rows so each side tracks from its own tenant.
+    for (const doc of pairSnap.docs) {
+      const row = doc.data() ?? {}
+      const shipRef = adminDb.collection('shipments').doc()
+      await shipRef.set(stripUndefined({
+        orgId: cleanString(row.orgId),
+        companyId: cleanString(row.companyId) || undefined,
+        orderId: doc.id,
+        tradeOrderId,
+        partnerLinkId: cleanString(row.partnerLinkId) || undefined,
+        counterpartyOrgId: cleanString(row.counterpartyOrgId) || undefined,
+        status: 'in_transit',
+        carrier: cleanString(input.carrier) || undefined,
+        trackingNumber: cleanString(input.trackingNumber) || undefined,
+        trackingUrl: cleanString(input.trackingUrl) || undefined,
+        createdByRef: input.actor,
+        updatedByRef: input.actor,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false,
+      }))
+      shipmentIds.push(shipRef.id)
+    }
+  }
+
+  if (input.action === 'deliver') {
+    const shipSnap = await adminDb
+      .collection('shipments')
+      .where('tradeOrderId', '==', tradeOrderId)
+      .limit(20)
+      .get()
+    for (const doc of shipSnap.docs) {
+      await doc.ref.set({ status: 'delivered', deliveredAt: now, updatedAt: now }, { merge: true })
+      shipmentIds.push(doc.id)
+    }
+  }
+
+  const patch = stripUndefined({
+    fulfillmentStatus: nextStatus,
+    status: input.action === 'deliver' ? 'fulfilled' : 'in_progress',
+    deliveredAt: input.action === 'deliver' ? now : undefined,
+    updatedByRef: input.actor,
+    updatedAt: now,
+  })
+  for (const doc of pairSnap.docs) await doc.ref.set(patch, { merge: true })
+
+  await recordCrmAuditEvent({
+    orgId: input.supplierOrgId,
+    eventType: `partner_order.${input.action}`,
+    resourceType: 'order',
+    resourceId: input.orderId,
+    relationshipId: cleanString(order.relationshipId),
+    actorRef: input.actor,
+    metadata: { tradeOrderId, fulfillmentStatus: nextStatus, shipmentIds },
+    notification: {
+      type: `partner_order.${nextStatus}`,
+      title: input.action === 'ship' ? 'Your order has shipped' : input.action === 'deliver' ? 'Your order was delivered' : 'Your order is packed',
+      body: input.trackingNumber
+        ? `Tracking ${input.trackingNumber}${input.carrier ? ` via ${input.carrier}` : ''}.`
+        : `Order is now ${nextStatus.replace('_', ' ')}.`,
+      targetOrgIds: [buyerOrgId],
+    },
+  })
+
+  return { tradeOrderId, fulfillmentStatus: nextStatus, shipmentIds }
+}
+
+/**
+ * Cancel a partner order. Either side may cancel while it is still pending.
+ * After confirmation only the supplier may cancel, and only before shipping —
+ * cancelling then releases the reservation back to available stock.
+ */
+export async function cancelPartnerOrder(input: {
+  orgId: string
+  orderId: string
+  actor: MemberRef
+}): Promise<{ tradeOrderId: string; releasedInventoryIds: string[] }> {
+  const ref = adminDb.collection(ORDERS_COLLECTION).doc(input.orderId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new Error('Order not found')
+  const order = snap.data() ?? {}
+  if (order.orgId !== input.orgId) throw new Error('Order not found')
+
+  const status = cleanString(order.partnerOrderStatus)
+  const fulfilment = cleanString(order.fulfillmentStatus) || 'not_started'
+  const isSupplier = order.direction === 'sales'
+
+  if (status === 'cancelled' || status === 'rejected') throw new Error('This order is already closed')
+  if (status === 'confirmed') {
+    if (!isSupplier) throw new Error('Only the supplier can cancel a confirmed order — ask them to cancel it')
+    if (fulfilment !== 'not_started' && fulfilment !== 'picking' && fulfilment !== 'packed') {
+      throw new Error('This order has already shipped and cannot be cancelled')
+    }
+  }
+
+  const tradeOrderId = cleanString(order.tradeOrderId)
+  const now = Timestamp.now()
+  const releasedInventoryIds: string[] = []
+
+  // Give reserved stock back when a confirmed order is cancelled pre-shipment.
+  if (status === 'confirmed') {
+    const supplierOrgId = isSupplier ? input.orgId : cleanString(order.counterpartyOrgId)
+    const lineItems = Array.isArray(order.lineItems) ? order.lineItems as DealLineItem[] : []
+    const invSnap = await adminDb
+      .collection('inventoryItems')
+      .where('orgId', '==', supplierOrgId)
+      .limit(1000)
+      .get()
+
+    for (const line of lineItems) {
+      if (!line.productId) continue
+      const invDoc = invSnap.docs.find((d) => {
+        const data = d.data() ?? {}
+        return data.deleted !== true && cleanString(data.productId) === line.productId
+      })
+      if (!invDoc) continue
+      const data = invDoc.data() ?? {}
+      const reserved = Number(data.quantityReserved) || 0
+      const available = Number(data.quantityAvailable) || 0
+      const give = Math.min(reserved, line.qty)
+      await invDoc.ref.set({
+        quantityReserved: reserved - give,
+        quantityAvailable: available + give,
+        updatedByRef: input.actor,
+        updatedAt: now,
+      }, { merge: true })
+      releasedInventoryIds.push(invDoc.id)
+
+      await adminDb.collection('inventoryMovements').add(stripUndefined({
+        orgId: supplierOrgId,
+        inventoryItemId: invDoc.id,
+        productId: line.productId,
+        orderId: input.orderId,
+        movementType: 'released',
+        quantity: give,
+        createdByRef: input.actor,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false,
+      }))
+    }
+  }
+
+  const pairSnap = await adminDb
+    .collection(ORDERS_COLLECTION)
+    .where('tradeOrderId', '==', tradeOrderId)
+    .limit(10)
+    .get()
+  for (const doc of pairSnap.docs) {
+    await doc.ref.set({
+      partnerOrderStatus: 'cancelled',
+      status: 'cancelled',
+      cancelledAt: now,
+      updatedByRef: input.actor,
+      updatedAt: now,
+    }, { merge: true })
+  }
+
+  const otherOrgId = cleanString(order.counterpartyOrgId)
+  await recordCrmAuditEvent({
+    orgId: input.orgId,
+    eventType: 'partner_order.cancelled',
+    resourceType: 'order',
+    resourceId: input.orderId,
+    relationshipId: cleanString(order.relationshipId),
+    actorRef: input.actor,
+    metadata: { tradeOrderId, releasedInventoryIds },
+    notification: {
+      type: 'partner_order.cancelled',
+      title: 'Partner order cancelled',
+      body: `${await orgName(input.orgId)} cancelled an order.`,
+      targetOrgIds: [otherOrgId],
+    },
+  })
+
+  return { tradeOrderId, releasedInventoryIds }
+}
+
+/** Shipments for one side of a trade, for tracking display. */
+export async function listPartnerShipments(orgId: string): Promise<Array<Record<string, unknown>>> {
+  const snap = await adminDb
+    .collection('shipments')
+    .where('orgId', '==', orgId)
+    .limit(1000)
+    .get()
+  const rows: Array<Record<string, unknown>> = snap.docs.map((d) => ({ id: d.id, ...(d.data() ?? {}) }))
+  return rows.filter((s) => s.deleted !== true && cleanString(s.tradeOrderId))
 }
 
 /** Partner orders visible to one org, either side. */

@@ -630,6 +630,115 @@ async function main() {
     (await doc('orders', placed.supplierOrderId)).partnerOrderStatus === 'confirmed')
 
   // =======================================================================
+  console.log('\n[4h] Fulfilment: pack → ship → deliver, and cancellation')
+  // =======================================================================
+  const { fulfilPartnerOrder, cancelPartnerOrder, listPartnerShipments } =
+    await import('@/lib/partner-links/trade')
+
+  // The confirmed order from [4g] reserved 3 of the widget.
+  check('reservation still standing before shipping',
+    (await doc('inventoryItems', widgetStock.id)).quantityReserved === 3)
+
+  let deliverTooEarly = false
+  try {
+    await fulfilPartnerOrder({ supplierOrgId: 'org-a', orderId: placed.supplierOrderId, action: 'deliver', actor })
+  } catch { deliverTooEarly = true }
+  check('cannot deliver before shipping', deliverTooEarly)
+
+  let buyerCannotFulfil = false
+  try {
+    await fulfilPartnerOrder({ supplierOrgId: 'org-b', orderId: placed.buyerOrderId, action: 'ship', actor: partnerActor })
+  } catch { buyerCannotFulfil = true }
+  check('the buyer cannot fulfil', buyerCannotFulfil)
+
+  await fulfilPartnerOrder({ supplierOrgId: 'org-a', orderId: placed.supplierOrderId, action: 'pack', actor })
+  check('packing sets fulfillmentStatus',
+    (await doc('orders', placed.supplierOrderId)).fulfillmentStatus === 'packed')
+  check('packing does NOT consume stock',
+    (await doc('inventoryItems', widgetStock.id)).quantityReserved === 3)
+
+  const shipped = await fulfilPartnerOrder({
+    supplierOrgId: 'org-a', orderId: placed.supplierOrderId, action: 'ship',
+    carrier: 'Courier Co', trackingNumber: 'TRK-9', actor,
+  })
+  check('shipping clears the reservation',
+    (await doc('inventoryItems', widgetStock.id)).quantityReserved === 0)
+  check('available stock unchanged by shipping (already decremented)',
+    (await doc('inventoryItems', widgetStock.id)).quantityAvailable === 5)
+  check('a shipped movement was logged',
+    (await adminDb.collection('inventoryMovements').where('orgId', '==', 'org-a').get())
+      .docs.some((d) => d.data().movementType === 'shipped' && d.data().quantity === 3))
+  check('mirrored shipments created for both sides', shipped.shipmentIds.length === 2, shipped.shipmentIds.length)
+  check('buyer can see its own shipment row',
+    (await listPartnerShipments('org-b')).some((s) => s.trackingNumber === 'TRK-9'))
+  check('supplier can see its own shipment row',
+    (await listPartnerShipments('org-a')).some((s) => s.carrier === 'Courier Co'))
+  check('both order copies now in transit',
+    (await doc('orders', placed.buyerOrderId)).fulfillmentStatus === 'in_transit' &&
+    (await doc('orders', placed.supplierOrderId)).fulfillmentStatus === 'in_transit')
+
+  let cancelAfterShip = false
+  try { await cancelPartnerOrder({ orgId: 'org-a', orderId: placed.supplierOrderId, actor }) } catch { cancelAfterShip = true }
+  check('a shipped order cannot be cancelled', cancelAfterShip)
+
+  await fulfilPartnerOrder({ supplierOrgId: 'org-a', orderId: placed.supplierOrderId, action: 'deliver', actor })
+  check('delivery marks both copies fulfilled',
+    (await doc('orders', placed.buyerOrderId)).status === 'fulfilled' &&
+    (await doc('orders', placed.supplierOrderId)).fulfillmentStatus === 'delivered')
+  check('shipments marked delivered',
+    (await listPartnerShipments('org-b')).every((s) => s.status === 'delivered'))
+
+  // The invoice from [4g] should now be visible to the buyer via a system share.
+  const buyerShares = await listIncomingShares('org-b')
+  const invShare = buyerShares.find((s) => s.resourceType === 'invoice' && s.resourceId === decided.invoiceId)
+  check('invoice auto-shared to the buyer', Boolean(invShare))
+  check('the invoice share is view-only', invShare?.permission === 'view', invShare?.permission)
+  const invView = await loadSharedRecord({ shareId: invShare!.id, viewerOrgId: 'org-b' })
+  check('buyer can read the invoice total', Number(invView.record.total) > 0, invView.record.total)
+
+  // --- Cancellation releases a reservation -------------------------------
+  const gadgetStock = adminDb.collection('inventoryItems').doc()
+  await gadgetStock.set({
+    orgId: 'org-a', productId: gadgetRef.id, name: 'Red Gadget',
+    quantityAvailable: 20, quantityReserved: 0, status: 'active',
+    deleted: false, createdAt: now, updatedAt: now,
+  })
+  const gadgetCatalog = (await listPublishedCatalog({ supplierOrgId: 'org-a' }))
+    .find((i) => i.productId === gadgetRef.id)!
+
+  const order2 = await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [{ catalogItemId: gadgetCatalog.id, qty: 4 }], actor: partnerActor,
+  })
+  check('buyer may cancel while still pending',
+    Boolean(await cancelPartnerOrder({ orgId: 'org-b', orderId: order2.buyerOrderId, actor: partnerActor })))
+  check('cancelled pending order touched no stock',
+    (await doc('inventoryItems', gadgetStock.id)).quantityReserved === 0)
+
+  const order3 = await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [{ catalogItemId: gadgetCatalog.id, qty: 4 }], actor: partnerActor,
+  })
+  await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: order3.supplierOrderId, decision: 'confirm', actor })
+  check('confirmation reserved 4 gadgets',
+    (await doc('inventoryItems', gadgetStock.id)).quantityReserved === 4)
+
+  let buyerCannotCancelConfirmed = false
+  try { await cancelPartnerOrder({ orgId: 'org-b', orderId: order3.buyerOrderId, actor: partnerActor }) } catch { buyerCannotCancelConfirmed = true }
+  check('buyer cannot cancel once confirmed', buyerCannotCancelConfirmed)
+
+  const released = await cancelPartnerOrder({ orgId: 'org-a', orderId: order3.supplierOrderId, actor })
+  check('supplier cancellation released the reservation',
+    (await doc('inventoryItems', gadgetStock.id)).quantityReserved === 0)
+  check('released stock returned to available',
+    (await doc('inventoryItems', gadgetStock.id)).quantityAvailable === 20,
+    (await doc('inventoryItems', gadgetStock.id)).quantityAvailable)
+  check('a released movement was logged', released.releasedInventoryIds.length === 1)
+  check('both copies cancelled',
+    (await doc('orders', order3.buyerOrderId)).partnerOrderStatus === 'cancelled' &&
+    (await doc('orders', order3.supplierOrderId)).partnerOrderStatus === 'cancelled')
+
+  // =======================================================================
   console.log('\n[5] Unlink from the accepting side')
   // =======================================================================
   const unlinked = await unlinkPartnership({

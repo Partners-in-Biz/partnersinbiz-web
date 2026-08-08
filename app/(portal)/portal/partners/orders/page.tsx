@@ -13,6 +13,7 @@ interface PartnerOrder {
   currency: string
   notes?: string
   invoiceId?: string
+  fulfillmentStatus?: string
   lineItems?: Array<{ name: string; qty: number; unitPrice: number; total: number }>
   createdAt?: { seconds?: number; _seconds?: number }
 }
@@ -64,6 +65,39 @@ export default function PartnerOrdersPage() {
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  async function act(order: PartnerOrder, body: Record<string, unknown>, successMsg: string, confirmText?: string) {
+    if (confirmText && !window.confirm(confirmText)) return
+    setBusyId(order.id)
+    setError(null)
+    setNotice(null)
+    try {
+      const res = await fetch(`/api/v1/crm/partner-orders/${order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = unwrap(await res.json().catch(() => null))
+      if (!res.ok) {
+        setError((data?.error as string) || 'That action could not be completed.')
+        return
+      }
+      setNotice(successMsg)
+      await load()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function ship(order: PartnerOrder) {
+    const trackingNumber = window.prompt('Tracking number (optional)') ?? ''
+    const carrier = trackingNumber ? (window.prompt('Carrier (optional)') ?? '') : ''
+    await act(
+      order,
+      { action: 'ship', trackingNumber: trackingNumber || undefined, carrier: carrier || undefined },
+      'Marked as shipped. The reservation has been consumed and the buyer notified.',
+    )
+  }
 
   async function decide(order: PartnerOrder, decision: 'confirm' | 'reject') {
     if (decision === 'confirm' && !window.confirm(
@@ -128,6 +162,12 @@ export default function PartnerOrdersPage() {
         ) : null}
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          {order.partnerOrderStatus === 'confirmed' && order.fulfillmentStatus ? (
+            <span className="pib-pill px-2 py-0.5 text-[10px]">
+              {order.fulfillmentStatus.replace('_', ' ')}
+            </span>
+          ) : null}
+
           {canDecide && order.partnerOrderStatus === 'pending' ? (
             <>
               <button
@@ -147,6 +187,61 @@ export default function PartnerOrdersPage() {
                 Decline
               </button>
             </>
+          ) : null}
+
+          {canDecide && order.partnerOrderStatus === 'confirmed' ? (
+            <>
+              {['not_started', 'picking'].includes(order.fulfillmentStatus ?? '') ? (
+                <button
+                  type="button"
+                  onClick={() => void act(order, { action: 'pack' }, 'Marked as packed.')}
+                  disabled={busyId === order.id}
+                  className="rounded-md border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)] disabled:opacity-50"
+                >
+                  Mark packed
+                </button>
+              ) : null}
+              {['not_started', 'picking', 'packed'].includes(order.fulfillmentStatus ?? '') ? (
+                <button
+                  type="button"
+                  onClick={() => void ship(order)}
+                  disabled={busyId === order.id}
+                  className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
+                >
+                  Mark shipped
+                </button>
+              ) : null}
+              {order.fulfillmentStatus === 'in_transit' ? (
+                <button
+                  type="button"
+                  onClick={() => void act(order, { action: 'deliver' }, 'Marked as delivered.')}
+                  disabled={busyId === order.id}
+                  className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
+                >
+                  Mark delivered
+                </button>
+              ) : null}
+            </>
+          ) : null}
+
+          {(order.partnerOrderStatus === 'pending' ||
+            (canDecide && order.partnerOrderStatus === 'confirmed' &&
+              ['not_started', 'picking', 'packed'].includes(order.fulfillmentStatus ?? ''))) ? (
+            <button
+              type="button"
+              onClick={() => void act(
+                order,
+                { action: 'cancel' },
+                'Order cancelled.',
+                order.partnerOrderStatus === 'confirmed'
+                  ? 'Cancel this confirmed order?\n\nReserved stock will be released back to available.'
+                  : 'Cancel this order?',
+              )}
+              disabled={busyId === order.id}
+              className="rounded-md border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] transition hover:text-rose-300 disabled:opacity-50"
+            >
+              Cancel
+            </button>
           ) : null}
           {order.invoiceId ? (
             <Link
