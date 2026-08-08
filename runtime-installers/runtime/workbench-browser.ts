@@ -23,6 +23,7 @@ export type WorkbenchBrowserControl =
   | { kind: 'scroll'; x: number; y: number; deltaX?: number; deltaY: number }
   | { kind: 'snapshot' }
   | { kind: 'console' }
+  | { kind: 'extract' }
   | { kind: 'dialog'; accept: boolean; promptText?: string }
   | { kind: 'follow_start'; intervalMs?: number }
   | { kind: 'follow_stop' }
@@ -229,7 +230,7 @@ function assertValidControl(value: unknown): WorkbenchBrowserControl {
   const input = record(value)
   if (!input || typeof input.kind !== 'string') throw new Error('invalid workbench browser control')
   if (input.kind === 'capture' || input.kind === 'kill' || input.kind === 'follow_stop'
-    || input.kind === 'snapshot' || input.kind === 'console') {
+    || input.kind === 'snapshot' || input.kind === 'console' || input.kind === 'extract') {
     if (!exactKeys(input, ['kind'])) throw new Error('invalid workbench browser control')
     return { kind: input.kind }
   }
@@ -898,6 +899,130 @@ async function consoleAndPost(sessionId: string, entry: BrowserEntry): Promise<v
   })
 }
 
+const EXTRACT_HTML_MAX_CHARS = 500_000
+const EXTRACT_COMPUTED_STYLES_MAX = 400
+const EXTRACT_COMPUTED_PROPS_MAX = 20
+
+/**
+ * Design-audit extraction — serializes the live page for the T1 rule engine.
+ * Runs a bounded page-side script that returns `document.documentElement.
+ * outerHTML` plus a computed-style map keyed by CSS-ish element path for the
+ * element types the detector cares about (headings, links, buttons, cards,
+ * hero/gradient/glass surfaces, inputs). Console error/warning tail is merged
+ * in so the engine's browser-mode hooks (runtimeErrors + computedStyles) run
+ * against the real rendered page — the PiB equivalent of the Impeccable
+ * Chrome extension scan. The result is posted as an `extract` progress chunk
+ * and read back by the caller.
+ */
+async function extractAndPost(sessionId: string, entry: BrowserEntry): Promise<void> {
+  const expression = `(() => {
+    const SELECTORS = 'h1,h2,h3,h4,h5,h6,p,a,button,input,select,textarea,img,section,article,main,nav,header,footer,div[class*="card"],div[class*="hero"],div[class*="gradient"],div[class*="glass"],div[class*="banner"],div[class*="kicker"],div[class*="eyebrow"]';
+    const PROPS = ['font-size','font-family','color','background-color','background-image','border-radius','letter-spacing','line-height','text-align','padding','border','box-shadow','display','position'];
+    const els = Array.from(document.querySelectorAll(SELECTORS)).slice(0, 600);
+    const out = {};
+    let count = 0;
+    const pathOf = (el) => {
+      const parts = [];
+      let node = el;
+      while (node && node.nodeType === 1 && parts.length < 6) {
+        let part = node.tagName.toLowerCase();
+        if (node.id) { part += '#' + node.id; }
+        else if (node.className && typeof node.className === 'string') {
+          const cls = node.className.split(/\\s+/).filter(Boolean)[0];
+          if (cls) part += '.' + cls;
+        }
+        const parent = node.parentElement;
+        if (parent) {
+          const same = Array.from(parent.children).filter((c) => c.tagName === node.tagName);
+          if (same.length > 1) part += ':nth-of-type(' + (same.indexOf(node) + 1) + ')';
+        }
+        parts.unshift(part);
+        node = parent;
+      }
+      return parts.join(' > ') || el.tagName.toLowerCase();
+    };
+    for (const el of els) {
+      if (count >= ${EXTRACT_COMPUTED_STYLES_MAX}) break;
+      const cs = window.getComputedStyle(el);
+      const styles = {};
+      for (const prop of PROPS) {
+        const v = cs.getPropertyValue(prop);
+        if (v && v !== 'none' && v !== 'normal' && v !== 'auto') styles[prop] = v;
+      }
+      const path = pathOf(el);
+      if (!out[path] || Object.keys(styles).length > Object.keys(out[path]).length) {
+        out[path] = styles;
+        count += 1;
+      }
+    }
+    let html = document.documentElement ? document.documentElement.outerHTML : '';
+    const truncated = html.length > ${EXTRACT_HTML_MAX_CHARS};
+    if (truncated) html = html.slice(0, ${EXTRACT_HTML_MAX_CHARS});
+    return { html, computedStyles: out, truncated };
+  })()`
+
+  const result = await entry.cdp.send('Runtime.evaluate', {
+    expression,
+    returnByValue: true,
+    awaitPromise: false,
+  }, entry.targetSessionId)
+  const remoteResult = record(result.result)
+  const value = record(remoteResult?.value)
+  const html = typeof value?.html === 'string' ? value.html : ''
+  const truncated = value?.truncated === true
+  const computedStyles = record(value?.computedStyles)
+    ? Object.fromEntries(
+        Object.entries(value.computedStyles as Record<string, unknown>)
+          .slice(0, EXTRACT_COMPUTED_STYLES_MAX)
+          .map(([path, styles]) => {
+            const rec = record(styles)
+            if (!rec) return [path, {}] as const
+            const clean: Record<string, string> = {}
+            for (const [prop, val] of Object.entries(rec).slice(0, EXTRACT_COMPUTED_PROPS_MAX)) {
+              if (typeof val === 'string' && val.length <= 500) clean[prop] = val
+            }
+            return [path, clean] as const
+          }),
+      )
+    : {}
+
+  const page = evaluatedPage(await entry.cdp.send('Runtime.evaluate', {
+    expression: '({url: location.href, title: document.title})',
+    returnByValue: true,
+  }, entry.targetSessionId))
+
+  const runtimeErrors = entry.consoleRing
+    .filter((entryRow) => entryRow.level === 'error' || entryRow.level === 'warning')
+    .slice(-20)
+    .map((entryRow) => ({
+      level: entryRow.level,
+      text: entryRow.text.slice(0, 300),
+      ...(entryRow.url ? { url: entryRow.url } : {}),
+      ...(typeof entryRow.line === 'number' ? { line: entryRow.line } : {}),
+    }))
+
+  const seq = entry.seq + 1
+  entry.seq = seq
+  const progress = await entry.post(`/workbench/browser/sessions/${sessionId}/progress`, {
+    attempt: entry.attempt,
+    leaseToken: entry.leaseToken,
+    chunk: {
+      seq,
+      stream: 'extract',
+      extract: {
+        ...(page.pageUrl ? { url: redactWorkbenchBrowserText(page.pageUrl) } : {}),
+        ...(page.title ? { title: redactWorkbenchBrowserText(page.title) } : {}),
+        html: redactWorkbenchBrowserText(html),
+        computedStyles,
+        runtimeErrors,
+        truncated,
+      } as Record<string, unknown>,
+      atMs: Date.now(),
+    },
+  })
+  if (!progress.ok) throw new Error(`browser extract progress rejected (${progress.status})`)
+}
+
 async function respondDialog(entry: BrowserEntry, accept: boolean, promptText?: string): Promise<void> {
   if (!entry.pendingDialog) throw new Error('no pending browser dialog')
   await entry.cdp.send('Page.handleJavaScriptDialog', {
@@ -1171,6 +1296,10 @@ export async function runWorkbenchBrowserClaim(
   }
   if (control.kind === 'console') {
     await consoleAndPost(claim.sessionId, entry)
+    return undefined
+  }
+  if (control.kind === 'extract') {
+    await extractAndPost(claim.sessionId, entry)
     return undefined
   }
   if (control.kind === 'dialog') {

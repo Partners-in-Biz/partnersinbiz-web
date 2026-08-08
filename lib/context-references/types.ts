@@ -24,6 +24,7 @@ export const CONTEXT_REFERENCE_TYPES = [
   'file',
   'report',
   'calendar_event',
+  'design',
 ] as const
 
 export type ContextReferenceType = (typeof CONTEXT_REFERENCE_TYPES)[number]
@@ -150,6 +151,12 @@ const TYPE_ALIASES: Record<string, ContextReferenceType> = {
   events: 'calendar_event',
   calendar_event: 'calendar_event',
   calendar_events: 'calendar_event',
+  design: 'design',
+  designs: 'design',
+  audit: 'design',
+  audits: 'design',
+  'design audit': 'design',
+  'design audits': 'design',
 }
 
 export function contextReferenceTypeFrom(value: unknown): ContextReferenceType | null {

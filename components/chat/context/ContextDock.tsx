@@ -16,6 +16,8 @@ import { ContextAttentionMoment } from './ContextAttentionMoment'
 import { ProjectTaskFeed } from './ProjectTaskFeed'
 import { RuntimeExecutionSection, type RuntimeExecution } from '@/components/messages/hermes/RuntimeInspectorRail'
 import { DocumentContextPreview } from './DocumentContextPreview'
+import { DesignAuditContextPreview } from './DesignAuditContextPreview'
+import { DesignIterationContextPreview } from './DesignIterationContextPreview'
 import { EmailContextComposer } from './EmailContextComposer'
 import { CampaignContextPreview } from './CampaignContextPreview'
 import { SocialContextPreview } from './SocialContextPreview'
@@ -25,7 +27,7 @@ import type { ChatContextOption } from './ContextSelector'
 import { ContextActionReceiptCard } from './ContextActionReceiptCard'
 
 const RICH_GENERIC_KINDS = new Set(['company', 'contact', 'task'])
-const DOCK_PREVIEW_KINDS = new Set(['document', 'email', 'campaign', 'social', 'invoice', 'quote'])
+const DOCK_PREVIEW_KINDS = new Set(['document', 'email', 'campaign', 'social', 'invoice', 'quote', 'design'])
 export const CONTEXT_CANVAS_MIN_WIDTH = 420
 export const CONTEXT_CANVAS_MAX_WIDTH = 960
 
@@ -377,6 +379,9 @@ export function ContextDock({ model, open, onClose, compact = false, activeArtif
       {execution?.activeMessage?.runId && <RuntimeExecutionSection {...execution} />}
       {!tabletSecondaryActive && workbenchFolder && <LinkedWorkbenchFolderPreview {...workbenchFolder} />}
       {visibleModel?.context.kind === 'document' && <DocumentContextPreview documentId={visibleModel.context.id} refreshRevision={previewRefreshRevision} />}
+      {visibleModel?.context.kind === 'design' && (visibleModel.context.id.startsWith('di_')
+        ? <DesignIterationContextPreview iterationId={visibleModel.context.id} refreshRevision={previewRefreshRevision} />
+        : <DesignAuditContextPreview auditId={visibleModel.context.id} refreshRevision={previewRefreshRevision} />)}
       {visibleModel?.context.kind === 'email' && <EmailContextComposer messageId={visibleModel.context.id} refreshRevision={previewRefreshRevision} />}
       {visibleModel?.context.kind === 'campaign' && <CampaignContextPreview campaignId={visibleModel.context.id} refreshRevision={previewRefreshRevision} />}
       {visibleModel?.context.kind === 'social' && <SocialContextPreview postId={visibleModel.context.id} refreshRevision={previewRefreshRevision} />}

@@ -31,6 +31,8 @@ import { fileChatContextAdapter } from '@/lib/chat-context/adapters/file'
 import { researchChatContextAdapter } from '@/lib/chat-context/adapters/research'
 import { propertyChatContextAdapter } from '@/lib/chat-context/adapters/property'
 import { reportChatContextAdapter } from '@/lib/chat-context/adapters/report'
+import { designAuditChatContextAdapter } from '@/lib/chat-context/adapters/designAudit'
+import { designIterationChatContextAdapter } from '@/lib/chat-context/adapters/designIteration'
 import { workspaceBrokerJobChatContextAdapter } from '@/lib/chat-context/adapters/workspaceBrokerJob'
 import { workspaceArtifactChatContextAdapter } from '@/lib/chat-context/adapters/workspaceArtifact'
 import { workspaceConnectionChatContextAdapter } from '@/lib/chat-context/adapters/workspaceConnection'
@@ -100,6 +102,13 @@ export const chatContextRegistry = createChatContextRegistry({
   research: researchChatContextAdapter,
   property: propertyChatContextAdapter,
   report: reportChatContextAdapter,
+  design: {
+    resolve(input) {
+      // `di_` = design-iteration session (variant deck), `dar_` = design-audit run.
+      if (input.id.startsWith('di_')) return designIterationChatContextAdapter.resolve(input)
+      return designAuditChatContextAdapter.resolve(input)
+    },
+  },
   calendar_event: calendarEventChatContextAdapter,
   email: emailChatContextAdapter,
   task: taskChatContextAdapter,

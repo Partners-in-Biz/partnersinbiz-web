@@ -23,6 +23,7 @@ import { getProjectForUser } from '@/lib/projects/access'
 import { filterProjectItemsForAccess, filterProjectsForMemberScope } from '@/lib/projects/collaboration'
 import { getResearchItem, RESEARCH_COLLECTION } from '@/lib/research/store'
 import { getSupportTicket, SUPPORT_TICKETS_COLLECTION } from '@/lib/support/store'
+import { getDesignAuditRun } from '@/lib/design-audit/audit-runs'
 import {
   calendarEventVisibleToActor,
   loadCalendarActorEmails,
@@ -482,6 +483,8 @@ function href(type: ContextReferenceType, id: string, data: RawDoc, seedHref?: s
       return `/admin/reports/${id}`
     case 'calendar_event':
       return calendarEventHref(id, data)
+    case 'design':
+      return `/admin/design-audit/runs/${id}`
   }
 }
 
@@ -966,6 +969,27 @@ async function resolveGeneric(
   })
 }
 
+async function resolveDesignAudit(input: ResolverInput): Promise<ContextReference | null> {
+  const expectedOrg = expectedOrgId(input.seed, input.defaultOrgId)
+  const orgId = input.seed.orgId ?? expectedOrg
+  if (!orgId || (expectedOrg && orgId !== expectedOrg)) return null
+  const run = await getDesignAuditRun(orgId, input.seed.id)
+  if (!run || !canUseOrg(input.user, orgId)) return null
+  return makeRef({
+    type: 'design',
+    id: run.id,
+    orgId,
+    label: clean(run.url, 160) || input.seed.label || 'Design audit',
+    origin: origin(input.seed),
+    href: `/admin/design-audit/runs/${run.id}`,
+    summary: compactSummary([
+      run.scope ? `scope: ${run.scope}` : '',
+      run.exitCode === 0 ? 'clean' : `${run.findings.length} findings`,
+      run.designSystemPresent ? 'design context applied' : '',
+    ]),
+  })
+}
+
 async function resolveSupport(input: ResolverInput): Promise<ContextReference | null> {
   const ticket = await getSupportTicket(input.seed.id)
   if (!ticket) return null
@@ -1114,6 +1138,8 @@ async function resolveOne(
       return resolveGeneric(seed.type, { seed, user, defaultOrgId })
     case 'calendar_event':
       return resolveCalendarEvent({ seed, user, defaultOrgId })
+    case 'design':
+      return resolveDesignAudit({ seed, user, defaultOrgId })
     case 'support':
       return resolveSupport({ seed, user, defaultOrgId })
     case 'studio':

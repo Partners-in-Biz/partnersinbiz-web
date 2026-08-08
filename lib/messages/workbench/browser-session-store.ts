@@ -490,6 +490,16 @@ export async function enqueueBrowserSessionConsole(input: EnqueueBrowserSessionC
   return enqueueControl(input, { kind: 'console' }, options)
 }
 
+export interface EnqueueBrowserSessionExtractInput extends WorkbenchBrowserSessionBinding {
+  sessionId: string
+  actorKind?: WorkbenchBrowserActorKind
+}
+
+/** Queues a design-audit `extract` control: the device serializes live DOM + computed styles. */
+export async function enqueueBrowserSessionExtract(input: EnqueueBrowserSessionExtractInput, options: { nowMs?: number } = {}): Promise<WorkbenchBrowserSession> {
+  return enqueueControl(input, { kind: 'extract' }, options)
+}
+
 export interface EnqueueBrowserSessionDialogInput extends WorkbenchBrowserSessionBinding {
   sessionId: string
   accept: boolean

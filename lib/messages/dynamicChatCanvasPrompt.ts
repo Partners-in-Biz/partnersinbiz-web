@@ -50,6 +50,12 @@ export const MESSAGES_CANVAS_REGISTRY: Record<MessagesCanvasKind, {
     never: 'Never paste raw rich_parts/studio_artifact JSON or the full document body as chat-only “preview”. Never use studio_artifact for client documents — kind is document',
     humanAction: 'Humans review the rendered document in the Context Dock; publish/share only after explicit approval',
   },
+  design: {
+    intents: 'audit our page / audit this site / design audit card / design this page / make the hero bolder / iterate on this page',
+    create: 'POST /api/v1/design-audit/runs with url + conversationId + responseMessageId for audits; POST /api/v1/design-iteration/sessions with url + instruction + variants for live "Design this page" iteration',
+    never: 'Never paste raw design-audit findings JSON or raw variant JSON as chat-only “preview” — the card + canvas are the review surface',
+    humanAction: 'Humans act from the card buttons (audit: Fix it / Ignore + reason / Re-run; iteration: Accept / Reject per variant) or open the design canvas',
+  },
 }
 
 export function buildDynamicChatCanvasPromptBlock(input: {
