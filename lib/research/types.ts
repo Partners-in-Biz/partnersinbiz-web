@@ -1,3 +1,5 @@
+import type { DesignContextRecord } from './design-context'
+
 export type ResearchKind =
   | 'competitor'
   | 'market'
@@ -11,6 +13,7 @@ export type ResearchKind =
   | 'product'
   | 'local'
   | 'onboarding'
+  | 'design'
   | 'internal'
   | 'other'
 
@@ -81,6 +84,7 @@ export interface ResearchItem {
   linked: ResearchLinked
   findings: ResearchFinding[]
   recommendations: ResearchRecommendation[]
+  designContext?: DesignContextRecord
   obsidian: ResearchObsidianState
   createdAt?: unknown
   createdBy: string
@@ -131,6 +135,7 @@ export const RESEARCH_KINDS: readonly ResearchKind[] = [
   'product',
   'local',
   'onboarding',
+  'design',
   'internal',
   'other',
 ] as const
