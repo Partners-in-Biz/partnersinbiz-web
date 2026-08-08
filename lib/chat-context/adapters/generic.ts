@@ -10,7 +10,7 @@ const ICONS: Partial<Record<ChatContextKind, string>> = {
   property: 'apartment', seo_sprint: 'query_stats', workspace_folder: 'folder_open',
   workspace_artifact: 'draft', workspace_connection: 'link', workspace_broker_job: 'sync_alt',
   studio: 'auto_awesome', studio_artifact: 'collections', file: 'attach_file', report: 'analytics',
-  calendar_event: 'calendar_month',
+  calendar_event: 'calendar_month', design: 'palette',
 }
 
 function safeRelationship(value: unknown, relation: string): ChatContextRelationship | null {

@@ -81,6 +81,8 @@ export type RichMessagePartType =
   | 'workspace_panel'
   | 'agent_delegation_branch'
   | 'project_command_event'
+  | 'design_audit'
+  | 'design_iteration'
 
 export type RichMessageChoice = string | {
   id?: string
@@ -139,7 +141,7 @@ export type RichMessagePart = {
   artifacts?: Array<{ id: string; contextId: string }>
   contextId?: string
   eyebrow?: string
-  metrics?: Array<{ label?: string; value?: string; detail?: string }>
+  metrics?: Array<{ label?: string; value?: string | number; detail?: string }>
   sections?: Array<{ heading?: string; title?: string; body?: string; content?: string; items?: string[] }>
   [key: string]: unknown
 }

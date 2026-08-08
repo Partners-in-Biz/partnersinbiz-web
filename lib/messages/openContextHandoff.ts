@@ -23,6 +23,7 @@ export const MESSAGES_CANVAS_KINDS = [
   'campaign',
   'social',
   'document',
+  'design',
 ] as const
 
 export type MessagesCanvasKind = (typeof MESSAGES_CANVAS_KINDS)[number]
@@ -62,6 +63,7 @@ const CANVAS_LABEL: Record<MessagesCanvasKind, string> = {
   campaign: 'Review campaign',
   social: 'Review social post',
   document: 'Review document',
+  design: 'Review design audit',
 }
 
 export function isMessagesCanvasKind(value: unknown): value is MessagesCanvasKind {

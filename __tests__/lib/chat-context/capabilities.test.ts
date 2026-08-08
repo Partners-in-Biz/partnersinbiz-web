@@ -11,7 +11,7 @@ describe('chat context capability contract', () => {
 
     expect(capabilities.map((item) => item.kind)).toEqual(CONTEXT_REFERENCE_TYPES)
     expect(new Set(capabilities.map((item) => item.kind)).size).toBe(CONTEXT_REFERENCE_TYPES.length)
-    expect(capabilities).toHaveLength(25)
+    expect(capabilities).toHaveLength(26)
     for (const capability of capabilities) {
       expect(capability.liveRead).toBe(true)
       expect(capability.authoritativeSource).not.toBe('')
@@ -22,11 +22,11 @@ describe('chat context capability contract', () => {
 
   it('makes specialized, sealed-runtime, and navigation-only coverage explicit', () => {
     expect(summarizeChatContextCoverage()).toEqual({
-      totalKinds: 25,
-      liveReadKinds: 25,
-      specializedKinds: 23,
+      totalKinds: 26,
+      liveReadKinds: 26,
+      specializedKinds: 24,
       sealedRuntimeKinds: 1,
-      inlineActionKinds: 24,
+      inlineActionKinds: 25,
       navigateActionKinds: 1,
     })
   })

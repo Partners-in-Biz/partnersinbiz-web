@@ -118,6 +118,7 @@ export type WorkbenchBrowserSessionControl =
   | { kind: 'scroll'; x: number; y: number; deltaX?: number; deltaY: number }
   | { kind: 'snapshot' }
   | { kind: 'console' }
+  | { kind: 'extract' }
   | { kind: 'dialog'; accept: boolean; promptText?: string }
   | { kind: 'follow_start'; intervalMs?: number }
   | { kind: 'follow_stop' }
@@ -150,6 +151,26 @@ export interface WorkbenchBrowserSnapshotPayload {
   pendingDialog?: { type?: string; message?: string } | null
   frames?: Array<{ frameId: string; parentId?: string | null; url?: string; name?: string }>
   console?: WorkbenchBrowserConsoleEntry[]
+}
+
+/**
+ * Design-audit extraction payload produced by the device's `extract` control.
+ * The device serializes the live DOM (outerHTML, bounded) plus a bounded map
+ * of computed styles keyed by CSS-ish element path, so the T1 rule engine can
+ * run its browser-mode hooks (computedStyles + runtimeErrors) against the real
+ * rendered page — the PiB equivalent of the Impeccable Chrome extension scan.
+ */
+export interface WorkbenchBrowserExtractPayload {
+  url?: string
+  title?: string
+  /** Serialized `document.documentElement.outerHTML`, truncated when the page exceeds the byte budget. */
+  html: string
+  /** Element path -> computed style map (bounded to MAX_EXTRACT_COMPUTED_STYLES entries). */
+  computedStyles: Record<string, Record<string, string>>
+  /** Console ring error/warning tail that the engine can use for `script-errors`. */
+  runtimeErrors?: WorkbenchBrowserConsoleEntry[]
+  /** True when the serialized HTML was truncated to fit the budget. */
+  truncated: boolean
 }
 
 /** A single not-yet-delivered control, FIFO-ordered by `seq`. */
@@ -221,7 +242,7 @@ export interface WorkbenchBrowserSession {
 /** Progress chunk streamed by a device worker while a browser session runs. */
 export interface WorkbenchBrowserProgressChunk {
   seq: number
-  stream: 'frame' | 'status' | 'stderr' | 'snapshot' | 'console'
+  stream: 'frame' | 'status' | 'stderr' | 'snapshot' | 'console' | 'extract'
   imageUrl?: string
   contentType?: string
   pageUrl?: string
@@ -231,6 +252,8 @@ export interface WorkbenchBrowserProgressChunk {
   snapshot?: WorkbenchBrowserSnapshotPayload | null
   /** `stream === 'console'`: console ring tail. */
   entries?: WorkbenchBrowserConsoleEntry[] | null
+  /** `stream === 'extract'`: design-audit DOM/computed-styles payload (see WorkbenchBrowserExtractPayload). */
+  extract?: WorkbenchBrowserExtractPayload | null
   atMs: number
 }
 
@@ -523,6 +546,9 @@ export function parseWorkbenchBrowserSessionControl(value: unknown): WorkbenchBr
     case 'console':
       if (!exactKeys(input, ['kind'])) throw new Error('workbench: invalid browser session control')
       return { kind: 'console' }
+    case 'extract':
+      if (!exactKeys(input, ['kind'])) throw new Error('workbench: invalid browser session control')
+      return { kind: 'extract' }
     case 'dialog': {
       if (!exactKeys(input, ['kind', 'accept', 'promptText'])) throw new Error('workbench: invalid browser session control')
       const dialog = sanitizeWorkbenchBrowserDialog({ accept: input.accept, promptText: input.promptText })
@@ -585,6 +611,11 @@ export function parseWorkbenchBrowserProgressChunk(value: unknown): WorkbenchBro
       throw new Error('workbench: invalid browser progress chunk')
     }
   }
+  if (input.stream === 'extract') {
+    if (input.extract === undefined || !parseWorkbenchBrowserExtractPayload(input.extract)) {
+      throw new Error('workbench: invalid browser progress chunk')
+    }
+  }
   return {
     seq: Number(input.seq),
     stream: input.stream as WorkbenchBrowserProgressChunk['stream'],
@@ -595,6 +626,7 @@ export function parseWorkbenchBrowserProgressChunk(value: unknown): WorkbenchBro
     ...(typeof input.text === 'string' ? { text: truncateProgressText(input.text, MAX_PROGRESS_TEXT_BYTES) } : {}),
     ...(input.snapshot ? { snapshot: input.snapshot as WorkbenchBrowserSnapshotPayload } : {}),
     ...(input.entries ? { entries: input.entries as WorkbenchBrowserConsoleEntry[] } : {}),
+    ...(input.extract ? { extract: input.extract as WorkbenchBrowserExtractPayload } : {}),
     atMs: Number(input.atMs),
   }
 }
@@ -606,6 +638,42 @@ function parseWorkbenchBrowserConsoleEntry(value: unknown): value is WorkbenchBr
   if (typeof entry.level !== 'string' || entry.level.length > 64) return false
   if (entry.url !== undefined && (typeof entry.url !== 'string' || entry.url.length > MAX_URL_LENGTH)) return false
   if (entry.line !== undefined && (typeof entry.line !== 'number' || !Number.isSafeInteger(entry.line) || entry.line < 0)) return false
+  return true
+}
+
+const MAX_EXTRACT_HTML_CHARS = 500_000
+const MAX_EXTRACT_COMPUTED_STYLES = 400
+const MAX_EXTRACT_COMPUTED_PROP_CHARS = 500
+const MAX_EXTRACT_COMPUTED_STYLE_PROPS = 20
+
+/** Validates a design-audit extraction payload: bounded html, bounded computed-styles map, optional console tail. */
+export function parseWorkbenchBrowserExtractPayload(value: unknown): value is WorkbenchBrowserExtractPayload {
+  const payload = record(value)
+  if (!payload || typeof payload.html !== 'string' || payload.html.length > MAX_EXTRACT_HTML_CHARS) return false
+  if (typeof payload.truncated !== 'boolean') return false
+  if (payload.url !== undefined && (typeof payload.url !== 'string' || payload.url.length > MAX_URL_LENGTH)) return false
+  if (payload.title !== undefined && (typeof payload.title !== 'string' || payload.title.length > MAX_TITLE_LENGTH)) return false
+  if (payload.computedStyles !== undefined) {
+    if (!record(payload.computedStyles)) return false
+    const styles = payload.computedStyles as Record<string, unknown>
+    const keys = Object.keys(styles)
+    if (keys.length > MAX_EXTRACT_COMPUTED_STYLES) return false
+    for (const key of keys) {
+      if (key.length === 0 || key.length > 400) return false
+      const props = record(styles[key])
+      if (!props) return false
+      const propKeys = Object.keys(props)
+      if (propKeys.length > MAX_EXTRACT_COMPUTED_STYLE_PROPS) return false
+      for (const prop of propKeys) {
+        if (!prop || prop.length > 120) return false
+        if (typeof props[prop] !== 'string' || (props[prop] as string).length > MAX_EXTRACT_COMPUTED_PROP_CHARS) return false
+      }
+    }
+  }
+  if (payload.runtimeErrors !== undefined) {
+    if (!Array.isArray(payload.runtimeErrors) || payload.runtimeErrors.length > MAX_CONSOLE_ENTRIES) return false
+    if (!payload.runtimeErrors.every(parseWorkbenchBrowserConsoleEntry)) return false
+  }
   return true
 }
 

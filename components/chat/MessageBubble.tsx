@@ -24,6 +24,8 @@ import {
 } from '@/lib/linked-computers/reveal-redaction'
 import type { Mention } from '@/lib/comments/types'
 import { ContextArtifactBundle } from './context/ContextArtifactBundle'
+import { DesignAuditCard } from './DesignAuditCard'
+import { DesignIterationCard } from './DesignIterationCard'
 import { buildThinkingTrace, type MessageThinkingTrace } from '@/lib/conversations/thinking-trace'
 import { humanizeConversationRunError } from '@/lib/conversations/run-policy'
 
@@ -1643,6 +1645,12 @@ function RichMessagePartView({
   if (type === 'approval_card') {
     return <ApprovalCard part={part} onQuoteSelection={onQuoteSelection} mentions={mentions} />
   }
+  if (type === 'design_audit') {
+    return <DesignAuditCard part={part} />
+  }
+  if (type === 'design_iteration') {
+    return <DesignIterationCard part={part} />
+  }
   if (type === 'project_task_proposal') {
     return <ProjectTaskProposal part={part} />
   }
@@ -1921,6 +1929,7 @@ function richActionIcon(action: ChatUiAction): string {
     if (kind === 'invoice' || kind === 'quote') return 'receipt_long'
     if (kind === 'social') return 'share'
     if (kind === 'campaign') return 'campaign'
+    if (kind === 'design') return 'palette'
     return 'open_in_new'
   }
   return 'check_circle'
