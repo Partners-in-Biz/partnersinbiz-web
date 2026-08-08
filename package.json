@@ -67,7 +67,9 @@
     "test:finance:budgets": "jest __tests__/finance/budgets-domain.test.ts --runInBand",
     "verify:finance:budgets": "npm run test:finance:budgets && tsx scripts/finance/verify-budgets.ts",
     "test:finance:vera-phase6-audit": "jest --runInBand __tests__/finance/vera-phase6-calc-audit.test.ts",
-    "verify:finance:vera-phase6-audit": "npm run test:finance:vera-phase6-audit && tsx scripts/finance/verify-vera-phase6-audit.ts"
+    "verify:finance:vera-phase6-audit": "npm run test:finance:vera-phase6-audit && tsx scripts/finance/verify-vera-phase6-audit.ts",
+    "test:design-audit": "jest --runInBand __tests__/lib/design-audit",
+    "verify:design-audit": "npm run test:design-audit"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1045.0",
