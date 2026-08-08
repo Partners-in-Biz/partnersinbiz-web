@@ -3686,6 +3686,38 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "partner_catalog_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "supplierOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "buyerOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "productId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "partner_catalog_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "buyerOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "supplierOrgId",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

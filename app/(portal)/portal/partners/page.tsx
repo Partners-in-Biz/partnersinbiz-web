@@ -91,6 +91,7 @@ function PartnersPageInner() {
   const [shareType, setShareType] = useState<string>('project')
   const [shareRecordSel, setShareRecordSel] = useState<ShareableRecord | null>(null)
   const [sharePermission, setSharePermission] = useState<'view' | 'comment'>('view')
+  const [catalogForId, setCatalogForId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -308,6 +309,13 @@ function PartnersPageInner() {
           Businesses whose workspace is linked to yours. A link is mutual — they appear in your CRM,
           you appear in theirs. Each side keeps its own private records.
         </p>
+        <Link
+          href="/portal/partners/orders"
+          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+        >
+          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">receipt_long</span>
+          Partner orders
+        </Link>
       </header>
 
       {error ? (
@@ -414,7 +422,7 @@ function PartnersPageInner() {
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => { setEditingId(editingId === link.relationshipId ? null : link.relationshipId); setShareForId(null) }}
+                        onClick={() => { setEditingId(editingId === link.relationshipId ? null : link.relationshipId); setShareForId(null); setCatalogForId(null) }}
                         aria-label={`Edit sharing for ${link.companyName || 'partner'}`}
                         className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
@@ -422,12 +430,27 @@ function PartnersPageInner() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => { setShareForId(shareForId === link.relationshipId ? null : link.relationshipId); setEditingId(null) }}
+                        onClick={() => { setShareForId(shareForId === link.relationshipId ? null : link.relationshipId); setEditingId(null); setCatalogForId(null) }}
                         aria-label={`Share a record with ${link.companyName || 'partner'}`}
                         className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                       >
                         Share record
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => { setCatalogForId(catalogForId === link.relationshipId ? null : link.relationshipId); setEditingId(null); setShareForId(null) }}
+                        aria-label={`Manage what ${link.companyName || 'this partner'} can order from you`}
+                        className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+                      >
+                        Catalogue
+                      </button>
+                      <Link
+                        href={`/portal/partners/catalog/${link.relationshipId}`}
+                        aria-label={`Order from ${link.companyName || 'this partner'}`}
+                        className="rounded-md border border-[var(--color-pib-line)] px-2.5 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+                      >
+                        Order from them
+                      </Link>
                       <button
                         type="button"
                         onClick={() => void unlink(link)}
@@ -446,6 +469,10 @@ function PartnersPageInner() {
                         onCancel={() => setEditingId(null)}
                         onSave={(caps, policy) => void saveSharing(link, caps, policy)}
                       />
+                    ) : null}
+
+                    {catalogForId === link.relationshipId ? (
+                      <CatalogEditor link={link} />
                     ) : null}
 
                     {shareForId === link.relationshipId ? (
@@ -719,6 +746,175 @@ function SharingEditor({
           Cancel
         </button>
       </div>
+    </div>
+  )
+}
+
+interface OrgProduct {
+  id: string
+  name: string
+  sku?: string
+  unitPrice: number
+  currency: string
+}
+
+interface PublishedItem {
+  id: string
+  productId: string
+  name: string
+  sku?: string
+  unitPrice: number
+  currency: string
+}
+
+/**
+ * Supplier-side catalogue for one partner link: which of my products they can
+ * order, and at what negotiated price.
+ */
+function CatalogEditor({ link }: { link: PartnerLink }) {
+  const [products, setProducts] = useState<OrgProduct[]>([])
+  const [published, setPublished] = useState<PublishedItem[]>([])
+  const [productId, setProductId] = useState('')
+  const [price, setPrice] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const [prodRes, pubRes] = await Promise.all([
+        fetch('/api/v1/crm/products'),
+        fetch(`/api/v1/crm/partner-catalog?view=published&relationshipId=${encodeURIComponent(link.relationshipId)}`),
+      ])
+      const prodData = unwrap(await prodRes.json().catch(() => null))
+      const pubData = unwrap(await pubRes.json().catch(() => null))
+      if (prodRes.ok) setProducts((prodData?.products as OrgProduct[]) ?? [])
+      if (pubRes.ok) setPublished((pubData?.items as PublishedItem[]) ?? [])
+    } catch {
+      setErr('Could not load the catalogue.')
+    }
+  }, [link.relationshipId])
+
+  useEffect(() => { void load() }, [load])
+
+  async function publish() {
+    if (!productId) return
+    setBusy(true); setErr(null); setMsg(null)
+    try {
+      const res = await fetch('/api/v1/crm/partner-catalog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          relationshipId: link.relationshipId,
+          productId,
+          unitPrice: price.trim() === '' ? undefined : Number(price),
+        }),
+      })
+      const data = unwrap(await res.json().catch(() => null))
+      if (!res.ok) { setErr((data?.error as string) || 'Could not publish.'); return }
+      setMsg('Published.'); setProductId(''); setPrice('')
+      await load()
+    } finally { setBusy(false) }
+  }
+
+  async function unpublish(itemId: string) {
+    setBusy(true); setErr(null); setMsg(null)
+    try {
+      const res = await fetch(`/api/v1/crm/partner-catalog/${itemId}`, { method: 'DELETE' })
+      const data = unwrap(await res.json().catch(() => null))
+      if (!res.ok) { setErr((data?.error as string) || 'Could not remove.'); return }
+      setMsg('Removed from their catalogue.')
+      await load()
+    } finally { setBusy(false) }
+  }
+
+  const canTrade = link.sharedCapabilities?.includes('orders')
+  const availableProducts = products.filter((p) => !published.some((i) => i.productId === p.id))
+
+  return (
+    <div className="w-full rounded-lg border border-[var(--color-pib-line)] bg-black/20 p-3">
+      <p className="mb-2 text-xs text-[var(--color-pib-text-muted)]">
+        Products {link.partnerOrgName || 'this partner'} can order from you, at the price you set for them.
+      </p>
+
+      {!canTrade ? (
+        <p className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-200">
+          Enable the <strong>orders</strong> capability under Sharing before publishing a catalogue.
+        </p>
+      ) : (
+        <>
+          {published.length > 0 ? (
+            <ul className="mb-3 space-y-1">
+              {published.map((item) => (
+                <li key={item.id} className="flex items-center gap-2 text-xs">
+                  <span className="min-w-0 flex-1 truncate text-[var(--color-pib-text)]">
+                    {item.name}{item.sku ? ` · ${item.sku}` : ''}
+                  </span>
+                  <span className="font-mono text-[var(--color-pib-text-muted)]">
+                    {item.currency} {item.unitPrice.toFixed(2)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void unpublish(item.id)}
+                    disabled={busy}
+                    aria-label={`Stop offering ${item.name}`}
+                    className="text-[var(--color-pib-text-muted)] transition hover:text-rose-300 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mb-3 text-xs text-[var(--color-pib-text-muted)]">Nothing published to them yet.</p>
+          )}
+
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[180px] flex-1">
+              <label htmlFor={`prod-${link.relationshipId}`} className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Product</label>
+              <select
+                id={`prod-${link.relationshipId}`}
+                value={productId}
+                onChange={(e) => setProductId(e.target.value)}
+                className="w-full rounded-md border border-[var(--color-pib-line)] bg-black/30 px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+              >
+                <option value="">Choose a product…</option>
+                {availableProducts.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {p.currency} {p.unitPrice}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor={`price-${link.relationshipId}`} className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Their price</label>
+              <input
+                id={`price-${link.relationshipId}`}
+                type="number"
+                min={0}
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="list"
+                className="w-24 rounded-md border border-[var(--color-pib-line)] bg-black/30 px-2 py-1.5 text-xs text-[var(--color-pib-text)]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => void publish()}
+              disabled={busy || !productId}
+              className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50"
+            >
+              Publish
+            </button>
+          </div>
+          <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)]">
+            Leave the price blank to use your list price.
+          </p>
+        </>
+      )}
+
+      {err ? <p className="mt-2 text-[11px] text-rose-300">{err}</p> : null}
+      {msg ? <p className="mt-2 text-[11px] text-emerald-300">{msg}</p> : null}
     </div>
   )
 }

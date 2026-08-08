@@ -456,6 +456,180 @@ async function main() {
   check('owner view reports canComment', ownerView.canComment === true)
 
   // =======================================================================
+  console.log('\n[4g] Cross-org trading: catalogue → order → confirm → invoice')
+  // =======================================================================
+  const {
+    publishCatalogItem, unpublishCatalogItem, listPublishedCatalog,
+    browsePartnerCatalog, placePartnerOrder, decidePartnerOrder, listPartnerOrders,
+  } = await import('@/lib/partner-links/trade')
+  const { updateBusinessRelationship } = await import('@/lib/business-relationships/store')
+
+  // Org A is the supplier here; org B accepted the link in section [1].
+  const widgetRef = adminDb.collection('products').doc()
+  await widgetRef.set({
+    orgId: 'org-a', name: 'Blue Widget', sku: 'BW-1', unitPrice: 100,
+    currency: 'ZAR', taxRate: 15, unit: 'item', active: true, deleted: false,
+    createdAt: now, updatedAt: now,
+  })
+  const gadgetRef = adminDb.collection('products').doc()
+  await gadgetRef.set({
+    orgId: 'org-a', name: 'Red Gadget', sku: 'RG-1', unitPrice: 50,
+    currency: 'ZAR', active: true, deleted: false, createdAt: now, updatedAt: now,
+  })
+  const foreignProduct = adminDb.collection('products').doc()
+  await foreignProduct.set({
+    orgId: 'org-c', name: 'Not Mine', unitPrice: 9, currency: 'ZAR',
+    deleted: false, createdAt: now, updatedAt: now,
+  })
+
+  // Stock: 8 available on the widget with a threshold of 10 -> low_stock.
+  const widgetStock = adminDb.collection('inventoryItems').doc()
+  await widgetStock.set({
+    orgId: 'org-a', productId: widgetRef.id, name: 'Blue Widget',
+    quantityAvailable: 8, quantityReserved: 0, lowStockThreshold: 10,
+    status: 'active', deleted: false, createdAt: now, updatedAt: now,
+  })
+
+  // 'orders' is not in the default capability set, so publishing must be gated.
+  let tradeGated = false
+  try {
+    await publishCatalogItem({
+      supplierOrgId: 'org-a', relationshipId: r1.sourceRelationshipId,
+      productId: widgetRef.id, actor,
+    })
+  } catch { tradeGated = true }
+  check('publishing is gated on the "orders" capability', tradeGated)
+
+  // Enable orders + inventory on BOTH sides of the link.
+  for (const [org, relId] of [['org-a', r1.sourceRelationshipId], ['org-b', r1.targetRelationshipId]] as const) {
+    await updateBusinessRelationship(org, relId, {
+      sharedCapabilities: ['crm', 'projects', 'documents', 'services', 'orders', 'inventory'],
+    }, actor)
+  }
+
+  const pub1 = await publishCatalogItem({
+    supplierOrgId: 'org-a', relationshipId: r1.sourceRelationshipId,
+    productId: widgetRef.id, unitPrice: 90, actor,
+  })
+  check('published at the negotiated price, not list price', pub1.unitPrice === 90, pub1.unitPrice)
+  check('catalogue row snapshots the product name', pub1.name === 'Blue Widget', pub1.name)
+  check('catalogue row is stamped with the buyer org', pub1.buyerOrgId === 'org-b', pub1.buyerOrgId)
+
+  const pub1again = await publishCatalogItem({
+    supplierOrgId: 'org-a', relationshipId: r1.sourceRelationshipId,
+    productId: widgetRef.id, unitPrice: 85, actor,
+  })
+  check('re-publishing re-prices in place', pub1again.id === pub1.id && pub1again.unitPrice === 85)
+
+  await publishCatalogItem({
+    supplierOrgId: 'org-a', relationshipId: r1.sourceRelationshipId,
+    productId: gadgetRef.id, actor,
+  })
+
+  let foreignPublish = false
+  try {
+    await publishCatalogItem({
+      supplierOrgId: 'org-a', relationshipId: r1.sourceRelationshipId,
+      productId: foreignProduct.id, actor,
+    })
+  } catch { foreignPublish = true }
+  check('cannot publish a product you do not own', foreignPublish)
+
+  check('supplier sees its published catalogue',
+    (await listPublishedCatalog({ supplierOrgId: 'org-a' })).length === 2)
+
+  const browse = await browsePartnerCatalog({ buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId })
+  check('buyer browses the supplier catalogue', browse.items.length === 2, browse.items.length)
+  check('buyer sees supplier name', browse.supplierName === 'Alpha Consulting', browse.supplierName)
+  const widgetRow = browse.items.find((i) => i.productId === widgetRef.id)
+  check('buyer sees the negotiated price', widgetRow?.unitPrice === 85, widgetRow?.unitPrice)
+  check('stock shows as a SIGNAL not a number', widgetRow?.stock === 'low_stock', widgetRow?.stock)
+  check('no quantity leaks into the buyer view',
+    !Object.prototype.hasOwnProperty.call(widgetRow ?? {}, 'quantityAvailable'))
+  check('product with no inventory row reports unknown',
+    browse.items.find((i) => i.productId === gadgetRef.id)?.stock === 'unknown')
+
+  let outsiderBrowse = false
+  try { await browsePartnerCatalog({ buyerOrgId: 'org-c', relationshipId: r1.targetRelationshipId }) } catch { outsiderBrowse = true }
+  check('an unrelated org cannot browse the catalogue', outsiderBrowse)
+
+  // Buyer places the order.
+  const placed = await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [{ catalogItemId: pub1.id, qty: 3 }], notes: 'Please ship this week.',
+    actor: partnerActor,
+  })
+  check('order totals use the negotiated price', placed.total === 85 * 3 * 1.15,
+    { total: placed.total, expected: 85 * 3 * 1.15 })
+
+  const buyerOrder = await doc('orders', placed.buyerOrderId)
+  const supplierOrder = await doc('orders', placed.supplierOrderId)
+  check('buyer copy is a purchase order', buyerOrder.direction === 'purchase', buyerOrder.direction)
+  check('supplier copy is a sales order', supplierOrder.direction === 'sales', supplierOrder.direction)
+  check('both copies share a tradeOrderId',
+    buyerOrder.tradeOrderId === supplierOrder.tradeOrderId && Boolean(buyerOrder.tradeOrderId))
+  check('both start pending',
+    buyerOrder.partnerOrderStatus === 'pending' && supplierOrder.partnerOrderStatus === 'pending')
+  check('stock NOT reserved before confirmation',
+    (await doc('inventoryItems', widgetStock.id)).quantityReserved === 0)
+
+  let buyerCannotConfirm = false
+  try {
+    await decidePartnerOrder({ supplierOrgId: 'org-b', orderId: placed.buyerOrderId, decision: 'confirm', actor: partnerActor })
+  } catch { buyerCannotConfirm = true }
+  check('the buyer cannot confirm its own order', buyerCannotConfirm)
+
+  const decided = await decidePartnerOrder({
+    supplierOrgId: 'org-a', orderId: placed.supplierOrderId, decision: 'confirm', actor,
+  })
+  check('supplier confirmed', decided.status === 'confirmed', decided.status)
+
+  const stockAfter = await doc('inventoryItems', widgetStock.id)
+  check('stock reserved on confirmation', stockAfter.quantityReserved === 3, stockAfter.quantityReserved)
+  check('available decremented', stockAfter.quantityAvailable === 5, stockAfter.quantityAvailable)
+
+  const movements = await adminDb.collection('inventoryMovements')
+    .where('orgId', '==', 'org-a').get()
+  check('an inventory movement was logged',
+    movements.docs.some((d) => d.data().movementType === 'reserved' && d.data().quantity === 3))
+
+  check('BOTH copies flipped to confirmed',
+    (await doc('orders', placed.buyerOrderId)).partnerOrderStatus === 'confirmed' &&
+    (await doc('orders', placed.supplierOrderId)).partnerOrderStatus === 'confirmed')
+
+  check('an invoice was drafted', Boolean(decided.invoiceId))
+  const inv = await doc('invoices', decided.invoiceId!)
+  check('invoice belongs to the SUPPLIER org', inv.orgId === 'org-a', inv.orgId)
+  check('invoice is addressed to the buyer org', inv.recipientOrgId === 'org-b', inv.recipientOrgId)
+  check('invoice is a draft', inv.status === 'draft', inv.status)
+  check('invoice total matches the order', Math.abs(Number(inv.total) - placed.total) < 0.01,
+    { invoice: inv.total, order: placed.total })
+
+  check('supplier sees it in sales orders',
+    (await listPartnerOrders({ orgId: 'org-a', direction: 'sales' })).length === 1)
+  check('buyer sees it in purchase orders',
+    (await listPartnerOrders({ orgId: 'org-b', direction: 'purchase' })).length === 1)
+
+  let doubleDecide = false
+  try {
+    await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: placed.supplierOrderId, decision: 'reject', actor })
+  } catch { doubleDecide = true }
+  check('an already-decided order cannot be decided again', doubleDecide)
+
+  // Unpublishing blocks future orders but leaves history alone.
+  await unpublishCatalogItem({ supplierOrgId: 'org-a', itemId: pub1.id, actor })
+  let staleOrder = false
+  try {
+    await placePartnerOrder({
+      buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+      lines: [{ catalogItemId: pub1.id, qty: 1 }], actor: partnerActor,
+    })
+  } catch { staleOrder = true }
+  check('cannot order an unpublished item', staleOrder)
+  check('the existing order survives unpublishing',
+    (await doc('orders', placed.supplierOrderId)).partnerOrderStatus === 'confirmed')
+
+  // =======================================================================
   console.log('\n[5] Unlink from the accepting side')
   // =======================================================================
   const unlinked = await unlinkPartnership({
