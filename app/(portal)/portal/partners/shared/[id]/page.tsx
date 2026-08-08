@@ -73,8 +73,9 @@ export default function SharedRecordPage({ params }: { params: Promise<{ id: str
       if (!res.ok) return
       setComments((data?.comments as ShareComment[]) ?? [])
       setCanComment(Boolean(data?.canComment))
-    } catch {
+    } catch (err) {
       // Comments are secondary — a failure here must not blank the record.
+      console.error('Failed to load share comments:', err)
     }
   }, [id])
 
