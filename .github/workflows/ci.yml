@@ -37,6 +37,29 @@ jobs:
       - name: Quality ratchet
         run: npm run lint:ratchet
 
+      - name: Design audit (deep pass on changed UI files)
+        env:
+          BEFORE_SHA: ${{ github.event.before || '' }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" && -n "$PR_BASE_SHA" ]]; then
+            BASE_SHA="$PR_BASE_SHA"
+          elif [[ -n "$BEFORE_SHA" && "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            BASE_SHA="$BEFORE_SHA"
+          else
+            BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || echo '')"
+          fi
+
+          if [[ -z "$BASE_SHA" ]]; then
+            echo "No base SHA available; running deep gate against HEAD (first push in branch)."
+            npx tsx scripts/design-audit-gate.ts --deep --json
+          else
+            echo "Design audit deep pass: diff $BASE_SHA..$GITHUB_SHA"
+            npx tsx scripts/design-audit-gate.ts --deep --base "$BASE_SHA" --json
+          fi
+
       - name: Typecheck
         run: npm run typecheck
 
