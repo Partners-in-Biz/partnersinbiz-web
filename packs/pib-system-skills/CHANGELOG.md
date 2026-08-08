@@ -5,6 +5,21 @@
 
 # Changelog
 
+## 0.1.8 — 2026-08-08
+
+- Add `impeccable-design-discipline` (growth): wrap the Impeccable methodology
+  (Apache 2.0, pbakaus/impeccable) as a PiB agent skill — Layer 1, zero platform
+  changes. Named design command vocabulary (polish, typeset, layout, colorize,
+  audit, critique, harden, distill, clarify, bolder, quieter, overdrive,
+  delight, animate, optimize, onboard, adapt, shape, init, document, extract,
+  live), per-client design context files (PRODUCT.md/DESIGN.md equivalent in
+  wiki/Research via templates/design-context.md), and the deterministic
+  anti-slop detector as a runnable check (`npx -y impeccable detect <path|url>
+  --json`, exit codes 0/2; references/detector-cli.md). Applied to every web
+  task on our site, client sites, and Studio artifacts. Owner: theo; allowed on
+  the 9 web-capable agents (data, docs, maya, pip, qa-release, sage, seo,
+  support, theo).
+
 ## 0.1.7 — 2026-08-05
 
 - Add `browser-agent` (growth): drive the workbench browser (headless Chrome

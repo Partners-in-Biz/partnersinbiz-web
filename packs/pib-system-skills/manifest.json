@@ -1,7 +1,7 @@
 {
   "packName": "pib-system-skills",
-  "packVersion": "0.1.7",
-  "catalogVersion": "2026-08-05.system-skills-v0.1.7",
+  "packVersion": "0.1.8",
+  "catalogVersion": "2026-08-08.system-skills-v0.1.8",
   "minApiVersion": "2026-07-23",
   "channel": "stable",
   "decisions": {
@@ -61,7 +61,8 @@
         "conversations-runtime",
         "life-os-ops",
         "llm-providers-ops",
-        "browser-agent"
+        "browser-agent",
+        "impeccable-design-discipline"
       ]
     }
   },
@@ -374,14 +375,14 @@
       "owner": "theo",
       "risk": "medium",
       "requiredScopes": [],
-      "summary": "Stub: conversation/message runtime \u2014 CRUD, streaming lifecycle, attachments, models, agent-message ingestion. Not yet fully documented."
+      "summary": "Stub: conversation/message runtime — CRUD, streaming lifecycle, attachments, models, agent-message ingestion. Not yet fully documented."
     },
     "life-os-ops": {
       "tier": "growth",
       "owner": "pip",
       "risk": "low",
       "requiredScopes": [],
-      "summary": "Personal Life OS \u2014 check-ins, AI coach workflow (with crisis safety boundary), experiments, reminder preferences/scheduling, weekly reviews, and admin-only data retention (route-mapped 2026-07-23; request/response shapes still to confirm)."
+      "summary": "Personal Life OS — check-ins, AI coach workflow (with crisis safety boundary), experiments, reminder preferences/scheduling, weekly reviews, and admin-only data retention (route-mapped 2026-07-23; request/response shapes still to confirm)."
     },
     "llm-providers-ops": {
       "tier": "growth",
@@ -396,6 +397,13 @@
       "risk": "medium",
       "requiredScopes": [],
       "summary": "Day-to-day Workflow Graph operator: prod templates, start/list/inspect runs, opt-in Kanban sequencer usage. Residual/build stays on pib-workflow-graph-operations."
+    },
+    "impeccable-design-discipline": {
+      "tier": "growth",
+      "owner": "theo",
+      "risk": "medium",
+      "requiredScopes": [],
+      "summary": "Impeccable design discipline (Apache 2.0 wrapper): named design command vocabulary, per-client design context (PRODUCT.md/DESIGN.md equivalent in wiki), deterministic anti-slop detector as runnable check (npx impeccable detect --json, exit 0/2). Layer 1 — zero platform changes."
     }
   },
   "verificationContract": {
