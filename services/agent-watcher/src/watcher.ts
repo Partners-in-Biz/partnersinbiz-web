@@ -33,6 +33,7 @@ import {
   type DependencyState,
 } from './eligibility'
 import { buildCeoDataDecisionOperatingRule as buildSharedCeoDataDecisionOperatingRule } from './ceo-operating-rule'
+import { buildDesignContextPromptBlock } from './design-context'
 import { notifyCommandSessionFromTask } from './command-session'
 import { buildCompletionArtifacts, notifyWorkflowGraphTerminal } from './workflow-writeback'
 
@@ -942,6 +943,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     const baseSpec = taskData.agentInput?.spec?.trim() || taskData.title || `Task ${taskId}`
     const commentBlock = formatTaskComments(await loadRecentTaskComments(taskRef))
     const projectContextBlock = await buildProjectDispatchContext(taskRef, taskData)
+    const designContextBlock = await buildDesignContextPromptBlock(taskData.orgId)
     const durableHandoffBlock = buildDurableTaskHandoffBlock(taskData)
     const linkedHostBlock = linkedTarget
       ? [
@@ -959,6 +961,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       buildCeoDataDecisionOperatingRule(taskData.orgId ?? ''),
       baseSpec,
       projectContextBlock,
+      designContextBlock,
       durableHandoffBlock,
       linkedHostBlock,
       commentBlock ? ('Recent task comments / revision notes:\n' + commentBlock) : '',

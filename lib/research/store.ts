@@ -28,6 +28,14 @@ import {
   RESEARCH_STATUSES,
   RESEARCH_VISIBILITIES,
 } from '@/lib/research/types'
+import {
+  buildDesignContextRecord,
+  hasDesignContextFacts,
+  isDesignGatherPath,
+  normalizeDesignContextPayload,
+  type DesignContextGatherPath,
+  type DesignContextRecord,
+} from '@/lib/research/design-context'
 
 export const RESEARCH_COLLECTION = 'research_items'
 
@@ -46,6 +54,7 @@ export type ResearchCreateInput = {
   linked?: ResearchLinked
   findings?: FindingInput[]
   recommendations?: RecommendationInput[]
+  designContext?: unknown
   user: ApiUser
 }
 
@@ -218,6 +227,9 @@ export async function createResearchItem(input: ResearchCreateInput): Promise<{ 
     linked: linked(input.linked),
     findings: normalizeFindings(input.findings),
     recommendations: normalizeRecommendations(input.recommendations),
+    ...(input.designContext !== undefined && input.designContext !== null
+      ? { designContext: normalizeDesignContextRecordOnCreate(input.designContext, input.user) }
+      : {}),
     obsidian: { exported: false },
     createdAt: now,
     ...created,
@@ -228,6 +240,28 @@ export async function createResearchItem(input: ResearchCreateInput): Promise<{ 
     deleted: false,
   })
   return { id: ref.id }
+}
+
+/**
+ * Normalize a full DesignContext payload at create time. Accepts either a
+ * full record (version/history preserved) or a bare payload (starts at v1).
+ */
+function normalizeDesignContextRecordOnCreate(value: unknown, user: ApiUser): DesignContextRecord {
+  const payload = normalizeDesignContextPayload(value)
+  if (!hasDesignContextFacts(payload)) throw new Error('designContext must contain at least one design fact')
+  const rec = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+  const version = typeof rec.version === 'number' && Number.isFinite(rec.version) && rec.version > 0 ? Math.floor(rec.version) : 1
+  const source = isDesignGatherPath(rec.source) ? rec.source : 'questionnaire'
+  const history = Array.isArray(rec.history) ? rec.history : []
+  const updatedBy = typeof rec.updatedBy === 'string' && rec.updatedBy.trim() ? rec.updatedBy.trim() : ownerUidFrom(user)
+  return {
+    ...payload,
+    version,
+    source,
+    ...(typeof rec.sourceUrl === 'string' && rec.sourceUrl.trim() ? { sourceUrl: rec.sourceUrl.trim() } : {}),
+    history,
+    ...(updatedBy ? { updatedBy } : {}),
+  }
 }
 
 export async function listResearchItems(filters: ResearchListFilters): Promise<ResearchItem[]> {
@@ -283,6 +317,27 @@ export async function updateResearchItem(id: string, input: ResearchUpdateInput,
   if (input.linked !== undefined) updates.linked = linked(input.linked)
   if (Array.isArray(input.findings)) updates.findings = normalizeFindings(input.findings)
   if (Array.isArray(input.recommendations)) updates.recommendations = normalizeRecommendations(input.recommendations)
+  if (input.designContext !== undefined) {
+    if (input.designContext === null) {
+      updates.designContext = FieldValue.delete()
+    } else {
+      const payload = normalizeDesignContextPayload(input.designContext)
+      if (!hasDesignContextFacts(payload)) throw new Error('designContext must contain at least one design fact')
+      const current = await getResearchItem(id)
+      const record = buildDesignContextRecord({
+        payload,
+        source: isDesignGatherPath((input.designContext as Record<string, unknown>).source)
+          ? (input.designContext as Record<string, unknown>).source as DesignContextGatherPath
+          : (current?.designContext?.source ?? 'manual'),
+        sourceUrl: typeof (input.designContext as Record<string, unknown>).sourceUrl === 'string'
+          ? (input.designContext as Record<string, unknown>).sourceUrl as string
+          : undefined,
+        previous: current?.designContext ?? null,
+        updatedBy: ownerUidFrom(user),
+      })
+      updates.designContext = record
+    }
+  }
   await adminDb.collection(RESEARCH_COLLECTION).doc(id).update(updates)
 }
 
@@ -369,4 +424,109 @@ export async function markResearchObsidianExported(id: string, path: string, sou
     },
     ...updated,
   })
+}
+
+/**
+ * Find the design-context research item for an org (kind='design',
+ * not deleted, not archived). When companyId is supplied, prefer items linked
+ * to that company; otherwise return the most recently updated design item.
+ */
+export async function findDesignContextItem(
+  orgId: string,
+  companyId?: string | null,
+): Promise<ResearchItem | null> {
+  const snap = await adminDb
+    .collection(RESEARCH_COLLECTION)
+    .where('orgId', '==', orgId)
+    .get()
+  const candidates = snap.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }) as ResearchItem)
+    .filter((item) => item.deleted !== true)
+    .filter((item) => item.status !== 'archived')
+    .filter((item) => item.kind === 'design')
+    .filter((item) => !!item.designContext && hasDesignContextFacts(item.designContext))
+
+  if (candidates.length === 0) return null
+  const companyFiltered = companyId?.trim()
+    ? candidates.filter((item) => item.linked?.companyId === companyId.trim() || item.linked?.companyIds?.includes(companyId.trim()))
+    : []
+  const pool = companyFiltered.length > 0 ? companyFiltered : candidates
+  return pool.sort((a, b) => updatedAtMillis(b) - updatedAtMillis(a))[0] ?? null
+}
+
+function updatedAtMillis(item: ResearchItem): number {
+  const raw = item.updatedAt ?? item.createdAt
+  if (raw && typeof raw === 'object') {
+    const stamp = raw as { toMillis?: () => number }
+    if (typeof stamp.toMillis === 'function') return stamp.toMillis()
+    const seconds = (raw as { _seconds?: number })._seconds
+    if (typeof seconds === 'number') return seconds * 1000
+  }
+  if (typeof raw === 'string' && Number.isFinite(Date.parse(raw))) return Date.parse(raw)
+  return 0
+}
+
+export type DesignContextUpsertInput = {
+  orgId: string
+  title?: string
+  companyId?: string | null
+  payload: unknown
+  source: DesignContextGatherPath
+  sourceUrl?: string
+  user: ApiUser
+}
+
+/**
+ * Upsert a Design Context record for an org (+ optional company). When a
+ * design item already exists, bumps its version and appends history. When
+ * none exists, creates a new kind='design' research item.
+ */
+export async function upsertDesignContext(input: DesignContextUpsertInput): Promise<{ id: string; created: boolean; version: number }> {
+  const payload = normalizeDesignContextPayload(input.payload)
+  if (!hasDesignContextFacts(payload)) throw new Error('designContext must contain at least one design fact')
+  if (!isDesignGatherPath(input.source)) throw new Error('source must be questionnaire | style-scan | manual')
+
+  const existing = await findDesignContextItem(input.orgId, input.companyId)
+  if (existing) {
+    const record = buildDesignContextRecord({
+      payload,
+      source: input.source,
+      sourceUrl: input.sourceUrl,
+      previous: existing.designContext ?? null,
+      updatedBy: ownerUidFrom(input.user),
+    })
+    const updates: Record<string, unknown> = {
+      designContext: record,
+      ...(input.companyId?.trim()
+        ? { linked: { ...(existing.linked ?? {}), companyId: input.companyId.trim() } }
+        : {}),
+      status: 'verified',
+      ...lastActorFrom(input.user),
+    }
+    await adminDb.collection(RESEARCH_COLLECTION).doc(existing.id).update(updates)
+    return { id: existing.id, created: false, version: record.version }
+  }
+
+  const created = await createResearchItem({
+    orgId: input.orgId,
+    title: input.title?.trim() || `Design Context — ${input.companyId?.trim() || input.orgId}`,
+    kind: 'design',
+    status: 'verified',
+    visibility: 'internal',
+    summary: 'Structured per-client design context (audience, positioning, brand voice, palette, type, components, scales, surface modes).',
+    tags: ['design-context'],
+    linked: {
+      ...(input.companyId?.trim() ? { companyId: input.companyId.trim() } : {}),
+    },
+    designContext: {
+      ...payload,
+      version: 1,
+      source: input.source,
+      ...(input.sourceUrl?.trim() ? { sourceUrl: input.sourceUrl.trim() } : {}),
+      history: [],
+      updatedBy: ownerUidFrom(input.user),
+    },
+    user: input.user,
+  })
+  return { id: created.id, created: true, version: 1 }
 }

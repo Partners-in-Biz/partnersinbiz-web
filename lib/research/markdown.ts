@@ -12,6 +12,7 @@ function linkedLines(item: ResearchItem) {
 }
 
 export function renderResearchMarkdown(item: ResearchItem, sources: ResearchSource[] = []) {
+  const designContextLines = item.designContext ? renderDesignContextMarkdown(item.designContext) : []
   const lines = [
     `# ${item.title}`,
     '',
@@ -23,6 +24,7 @@ export function renderResearchMarkdown(item: ResearchItem, sources: ResearchSour
     '## Summary',
     item.summary || '_No summary captured yet._',
     '',
+    ...(designContextLines.length > 0 ? ['## Design Context', ...designContextLines, ''] : []),
     '## Linked Records',
     ...(linkedLines(item).length ? linkedLines(item) : ['- none']),
     '',
@@ -54,6 +56,24 @@ export function renderResearchMarkdown(item: ResearchItem, sources: ResearchSour
     '',
   ]
   return lines.join('\n')
+}
+
+function renderDesignContextMarkdown(record: import('@/lib/research/design-context').DesignContextRecord): string[] {
+  const lines = [
+    `- Version: ${record.version}`,
+    `- Source: ${record.source}${record.sourceUrl ? ` — ${record.sourceUrl}` : ''}`,
+  ]
+  if (record.audience) lines.push(`- Audience: ${record.audience}`)
+  if (record.positioning) lines.push(`- Positioning: ${record.positioning}`)
+  if (record.brandVoice) lines.push(`- Brand voice: ${record.brandVoice}`)
+  if (record.antiReferences.length) lines.push(`- Anti-references: ${record.antiReferences.join('; ')}`)
+  if (record.palette.length) lines.push(`- Palette: ${record.palette.map((color) => `${color.name} ${color.value}${color.usage ? ` (${color.usage})` : ''}`).join(' | ')}`)
+  if (record.typeStack.length) lines.push(`- Type stack: ${record.typeStack.map((type) => `${type.role} ${type.family}${type.scale ? ` (${type.scale})` : ''}`).join(' | ')}`)
+  if (record.componentRules.length) lines.push(`- Component rules: ${record.componentRules.join('; ')}`)
+  if (record.radiusScale.length) lines.push(`- Radius scale: ${record.radiusScale.map((token) => `${token.name}=${token.value}`).join(' | ')}`)
+  if (record.elevationScale.length) lines.push(`- Elevation scale: ${record.elevationScale.map((token) => `${token.name}=${token.value}`).join(' | ')}`)
+  if (record.surfaceModes.length) lines.push(`- Surface modes: ${record.surfaceModes.map((mode) => `${mode.surface} → ${mode.mode}`).join(' | ')}`)
+  return lines
 }
 
 export function renderResearchSourcesMarkdown(item: ResearchItem, sources: ResearchSource[] = []) {
