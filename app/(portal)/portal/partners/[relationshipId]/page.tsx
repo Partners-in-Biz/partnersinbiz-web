@@ -202,6 +202,9 @@ export default function PartnerOverviewPage({ params }: { params: Promise<{ rela
           <Link href="/portal/partners/orders" className="rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]">
             Orders
           </Link>
+          <Link href="/portal/partners/settlements" className="rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]">
+            Settlements
+          </Link>
           {overview.companyId ? (
             <Link href={`/portal/companies/${overview.companyId}`} className="rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]">
               Company record

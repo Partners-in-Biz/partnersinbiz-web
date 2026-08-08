@@ -316,6 +316,13 @@ function PartnersPageInner() {
           <span className="material-symbols-outlined text-[14px]" aria-hidden="true">receipt_long</span>
           Partner orders
         </Link>
+        <Link
+          href="/portal/partners/settlements"
+          className="mt-2 ml-2 inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+        >
+          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">account_balance</span>
+          Settlements
+        </Link>
       </header>
 
       {error ? (

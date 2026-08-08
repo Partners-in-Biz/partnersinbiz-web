@@ -787,6 +787,60 @@ async function main() {
     (await doc('inventoryItems', gadgetStock.id)).quantityReserved === 0)
 
   // =======================================================================
+  console.log('\n[4i-b] Stock spanning several inventory rows')
+  // =======================================================================
+  // A product held in two locations must reserve across BOTH, not just the
+  // first row found. splitStock (0) sorts alongside gadgetStock (20).
+  await adminDb.collection('inventoryItems').doc(splitStock.id).set(
+    { quantityAvailable: 3, quantityReserved: 0 }, { merge: true })
+  await adminDb.collection('inventoryItems').doc(gadgetStock.id).set(
+    { quantityAvailable: 5, quantityReserved: 0 }, { merge: true })
+
+  const multiOrder = await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [{ catalogItemId: gadgetCatalog.id, qty: 7 }], actor: partnerActor,
+  })
+  await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: multiOrder.supplierOrderId, decision: 'confirm', actor })
+
+  const rowA = await doc('inventoryItems', splitStock.id)
+  const rowB = await doc('inventoryItems', gadgetStock.id)
+  const totalReserved = (Number(rowA.quantityReserved) || 0) + (Number(rowB.quantityReserved) || 0)
+  const totalAvailable = (Number(rowA.quantityAvailable) || 0) + (Number(rowB.quantityAvailable) || 0)
+  check('reservation drains across both inventory rows', totalReserved === 7,
+    { rowA: rowA.quantityReserved, rowB: rowB.quantityReserved })
+  check('available reduced by exactly the reserved amount', totalAvailable === 1, totalAvailable)
+
+  await cancelPartnerOrder({ orgId: 'org-a', orderId: multiOrder.supplierOrderId, actor })
+  const backA = await doc('inventoryItems', splitStock.id)
+  const backB = await doc('inventoryItems', gadgetStock.id)
+  check('cancellation returns stock across both rows',
+    (Number(backA.quantityAvailable) || 0) + (Number(backB.quantityAvailable) || 0) === 8,
+    { a: backA.quantityAvailable, b: backB.quantityAvailable })
+  check('no reservation left behind',
+    (Number(backA.quantityReserved) || 0) + (Number(backB.quantityReserved) || 0) === 0)
+
+  // Ordering more than exists reserves only what is really there.
+  await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [{ catalogItemId: gadgetCatalog.id, qty: 100 }], actor: partnerActor,
+  }).then((o) => decidePartnerOrder({
+    supplierOrgId: 'org-a', orderId: o.supplierOrderId, decision: 'confirm', actor,
+  }))
+  const overA = await doc('inventoryItems', splitStock.id)
+  const overB = await doc('inventoryItems', gadgetStock.id)
+  check('over-ordering never drives stock negative',
+    (Number(overA.quantityAvailable) || 0) >= 0 && (Number(overB.quantityAvailable) || 0) >= 0,
+    { a: overA.quantityAvailable, b: overB.quantityAvailable })
+  check('over-ordering reserves only what existed',
+    (Number(overA.quantityReserved) || 0) + (Number(overB.quantityReserved) || 0) === 8)
+
+  // Reset for the sections that follow.
+  await adminDb.collection('inventoryItems').doc(splitStock.id).set(
+    { quantityAvailable: 0, quantityReserved: 0, deleted: true }, { merge: true })
+  await adminDb.collection('inventoryItems').doc(gadgetStock.id).set(
+    { quantityAvailable: 20, quantityReserved: 0 }, { merge: true })
+
+  // =======================================================================
   console.log('\n[4j] Cross-org project access')
   // =======================================================================
   const {
@@ -885,6 +939,120 @@ async function main() {
   check('buyer overview counts orders placed', overviewB.counts.ordersPlaced >= 1, overviewB.counts.ordersPlaced)
   check('buyer overview sees the project shared with it',
     overviewB.counts.projectsSharedWithMe === 1, overviewB.counts.projectsSharedWithMe)
+
+  // =======================================================================
+  console.log('\n[4l] Settlement: buyer pays, supplier verifies')
+  // =======================================================================
+  const { recordPartnerPayment, decidePartnerPayment, listPartnerSettlements } =
+    await import('@/lib/partner-links/settlement')
+
+  const tradeInvoiceId = decided.invoiceId!
+
+  // Only the recipient may record a payment, only the issuer may verify.
+  let issuerCannotPay = false
+  try {
+    await recordPartnerPayment({ payerOrgId: 'org-a', invoiceId: tradeInvoiceId, reference: 'X', actor })
+  } catch { issuerCannotPay = true }
+  check('the issuer cannot record a payment against its own invoice', issuerCannotPay)
+
+  let outsiderPay = false
+  try {
+    await recordPartnerPayment({ payerOrgId: 'org-c', invoiceId: tradeInvoiceId, reference: 'X', actor })
+  } catch { outsiderPay = true }
+  check('an unrelated org cannot pay the invoice', outsiderPay)
+
+  let noEvidence = false
+  try {
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, actor: partnerActor })
+  } catch { noEvidence = true }
+  check('a payment needs a reference or proof file', noEvidence)
+
+  let verifyBeforePay = false
+  try {
+    await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', actor })
+  } catch { verifyBeforePay = true }
+  check('cannot verify before anything is submitted', verifyBeforePay)
+
+  const paid = await recordPartnerPayment({
+    payerOrgId: 'org-b', invoiceId: tradeInvoiceId,
+    reference: 'EFT-55123', amount: 293.25, note: 'Paid via EFT today.', actor: partnerActor,
+  })
+  check('payment moves the invoice to pending verification',
+    paid.paymentState === 'pending_verification', paid.paymentState)
+  check('invoice status reflects pending verification',
+    (await doc('invoices', tradeInvoiceId)).status === 'payment_pending_verification')
+  check('payment state mirrored onto both order copies', paid.orderIds.length === 2, paid.orderIds)
+  check('buyer order shows pending verification',
+    (await doc('orders', placed.buyerOrderId)).paymentState === 'pending_verification')
+
+  let doublePay = false
+  try {
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'again', actor: partnerActor })
+  } catch { doublePay = true }
+  check('cannot submit a second payment while one is pending', doublePay)
+
+  let buyerCannotVerify = false
+  try {
+    await decidePartnerPayment({ issuerOrgId: 'org-b', invoiceId: tradeInvoiceId, decision: 'confirm', actor: partnerActor })
+  } catch { buyerCannotVerify = true }
+  check('the buyer cannot verify their own payment', buyerCannotVerify)
+
+  // Reject first, so the invoice returns to outstanding.
+  await decidePartnerPayment({
+    issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'reject',
+    note: 'Reference not found on our statement.', actor,
+  })
+  const rejectedInvoice = await doc('invoices', tradeInvoiceId)
+  check('rejection returns the invoice to sent', rejectedInvoice.status === 'sent', rejectedInvoice.status)
+  check('rejection is NOT marked paid', rejectedInvoice.paidAt === undefined)
+  check('rejection note retained',
+    (rejectedInvoice.partnerPayment ?? {}).decisionNote === 'Reference not found on our statement.')
+  check('orders reflect the rejection',
+    (await doc('orders', placed.buyerOrderId)).paymentState === 'rejected')
+
+  // Buyer resubmits, supplier confirms.
+  await recordPartnerPayment({
+    payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'EFT-55999', actor: partnerActor,
+  })
+  const settled = await decidePartnerPayment({
+    issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', actor,
+  })
+  check('confirmation settles the invoice', settled.paymentState === 'paid', settled.paymentState)
+  const paidInvoice = await doc('invoices', tradeInvoiceId)
+  check('invoice marked paid', paidInvoice.status === 'paid', paidInvoice.status)
+  check('paidAt stamped', Boolean(paidInvoice.paidAt))
+  check('both orders show paid',
+    (await doc('orders', placed.buyerOrderId)).paymentState === 'paid' &&
+    (await doc('orders', placed.supplierOrderId)).paymentState === 'paid')
+
+  let payAfterSettled = false
+  try {
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'late', actor: partnerActor })
+  } catch { payAfterSettled = true }
+  check('cannot pay an already-settled invoice', payAfterSettled)
+
+  const aBooks = await listPartnerSettlements('org-a')
+  const bBooks = await listPartnerSettlements('org-b')
+  check('supplier sees it as receivable', aBooks.receivable.some((i) => i.id === tradeInvoiceId))
+  check('supplier has no payable for it', !aBooks.payable.some((i) => i.id === tradeInvoiceId))
+  check('buyer sees it as payable', bBooks.payable.some((i) => i.id === tradeInvoiceId))
+  check('buyer has no receivable for it', !bBooks.receivable.some((i) => i.id === tradeInvoiceId))
+  check('settlement summary reports paid',
+    aBooks.receivable.find((i) => i.id === tradeInvoiceId)?.paymentState === 'paid')
+
+  // A non-trade invoice must not appear in partner settlement books at all.
+  const plainInvoice = adminDb.collection('invoices').doc()
+  await plainInvoice.set({
+    orgId: 'org-a', recipientOrgId: 'org-b', invoiceNumber: 'PLAIN-1',
+    status: 'sent', total: 10, currency: 'ZAR', deleted: false, createdAt: now, updatedAt: now,
+  })
+  check('an invoice with no tradeOrderId is excluded from partner books',
+    !(await listPartnerSettlements('org-a')).receivable.some((i) => i.id === plainInvoice.id))
+  let plainPay = false
+  try {
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: plainInvoice.id, reference: 'x', actor: partnerActor })
+  } catch { plainPay = true }
+  check('a non-trade invoice cannot be settled through the partner flow', plainPay)
 
   // =======================================================================
   console.log('\n[5] Unlink from the accepting side')

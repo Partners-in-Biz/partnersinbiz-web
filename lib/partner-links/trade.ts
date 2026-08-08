@@ -409,6 +409,66 @@ export async function placePartnerOrder(input: PlacePartnerOrderInput): Promise<
   return { tradeOrderId, buyerOrderId: buyerRef.id, supplierOrderId: supplierRef.id, total, currency }
 }
 
+/**
+ * A product can span several inventory rows (multiple locations/batches), so
+ * stock movements must drain across ALL matching rows rather than assuming one.
+ * Reserving 10 against rows of 4 and 8 takes 4 then 6, not 4 and a silent short.
+ *
+ * Returns the rows actually touched and how much each moved, so callers can log
+ * one `inventoryMovements` entry per row.
+ */
+function matchingInventoryRows(
+  docs: FirebaseFirestore.QueryDocumentSnapshot[],
+  productId: string,
+): FirebaseFirestore.QueryDocumentSnapshot[] {
+  return docs.filter((d) => {
+    const data = d.data() ?? {}
+    return data.deleted !== true && cleanString(data.productId) === productId
+  })
+}
+
+type StockMode = 'reserve' | 'ship' | 'release'
+
+async function applyStockMovement(input: {
+  rows: FirebaseFirestore.QueryDocumentSnapshot[]
+  quantity: number
+  mode: StockMode
+  actor: MemberRef
+  now: Timestamp
+}): Promise<Array<{ id: string; moved: number }>> {
+  let remaining = input.quantity
+  const touched: Array<{ id: string; moved: number }> = []
+
+  for (const doc of input.rows) {
+    if (remaining <= 0) break
+    const data = doc.data() ?? {}
+    const available = Number(data.quantityAvailable) || 0
+    const reserved = Number(data.quantityReserved) || 0
+
+    // reserve draws from available; ship and release draw from reserved.
+    const capacity = input.mode === 'reserve' ? available : reserved
+    const moved = Math.min(capacity, remaining)
+    if (moved <= 0) continue
+
+    const patch: Record<string, unknown> = { updatedByRef: input.actor, updatedAt: input.now }
+    if (input.mode === 'reserve') {
+      patch.quantityAvailable = available - moved
+      patch.quantityReserved = reserved + moved
+    } else if (input.mode === 'ship') {
+      patch.quantityReserved = reserved - moved
+    } else {
+      patch.quantityReserved = reserved - moved
+      patch.quantityAvailable = available + moved
+    }
+
+    await doc.ref.set(patch, { merge: true })
+    touched.push({ id: doc.id, moved })
+    remaining -= moved
+  }
+
+  return touched
+}
+
 async function orgName(orgId: string): Promise<string> {
   const snap = await adminDb.collection('organizations').doc(orgId).get()
   return cleanString((snap.data() ?? {}).name) || orgId
@@ -492,35 +552,28 @@ export async function decidePartnerOrder(input: {
 
     for (const line of lineItems) {
       if (!line.productId) continue
-      const invDoc = invSnap.docs.find((d) => {
-        const data = d.data() ?? {}
-        return data.deleted !== true && cleanString(data.productId) === line.productId
+      const touched = await applyStockMovement({
+        rows: matchingInventoryRows(invSnap.docs, line.productId),
+        quantity: line.qty,
+        mode: 'reserve',
+        actor: input.actor,
+        now,
       })
-      if (!invDoc) continue
-      const data = invDoc.data() ?? {}
-      const available = Number(data.quantityAvailable) || 0
-      const reserved = Number(data.quantityReserved) || 0
-      const take = Math.min(available, line.qty)
-      await invDoc.ref.set({
-        quantityAvailable: available - take,
-        quantityReserved: reserved + take,
-        updatedByRef: input.actor,
-        updatedAt: now,
-      }, { merge: true })
-      reservedInventoryIds.push(invDoc.id)
-
-      await adminDb.collection('inventoryMovements').add(stripUndefined({
-        orgId: input.supplierOrgId,
-        inventoryItemId: invDoc.id,
-        productId: line.productId,
-        orderId: input.orderId,
-        movementType: 'reserved',
-        quantity: take,
-        createdByRef: input.actor,
-        createdAt: now,
-        updatedAt: now,
-        deleted: false,
-      }))
+      for (const row of touched) {
+        reservedInventoryIds.push(row.id)
+        await adminDb.collection('inventoryMovements').add(stripUndefined({
+          orgId: input.supplierOrgId,
+          inventoryItemId: row.id,
+          productId: line.productId,
+          orderId: input.orderId,
+          movementType: 'reserved',
+          quantity: row.moved,
+          createdByRef: input.actor,
+          createdAt: now,
+          updatedAt: now,
+          deleted: false,
+        }))
+      }
     }
 
     const drafted = await draftInvoiceForOrder({
@@ -725,27 +778,21 @@ export async function fulfilPartnerOrder(input: {
 
       nextShipped[line.productId] = done + shipping
 
-      const invDoc = invSnap.docs.find((d) => {
-        const data = d.data() ?? {}
-        return data.deleted !== true && cleanString(data.productId) === line.productId
+      const touched = await applyStockMovement({
+        rows: matchingInventoryRows(invSnap.docs, line.productId),
+        quantity: shipping,
+        mode: 'ship',
+        actor: input.actor,
+        now,
       })
-      if (invDoc) {
-        const data = invDoc.data() ?? {}
-        const reserved = Number(data.quantityReserved) || 0
-        const take = Math.min(reserved, shipping)
-        await invDoc.ref.set({
-          quantityReserved: reserved - take,
-          updatedByRef: input.actor,
-          updatedAt: now,
-        }, { merge: true })
-
+      for (const row of touched) {
         await adminDb.collection('inventoryMovements').add(stripUndefined({
           orgId: input.supplierOrgId,
-          inventoryItemId: invDoc.id,
+          inventoryItemId: row.id,
           productId: line.productId,
           orderId: input.orderId,
           movementType: 'shipped',
-          quantity: take,
+          quantity: row.moved,
           createdByRef: input.actor,
           createdAt: now,
           updatedAt: now,
@@ -876,35 +923,28 @@ export async function cancelPartnerOrder(input: {
 
     for (const line of lineItems) {
       if (!line.productId) continue
-      const invDoc = invSnap.docs.find((d) => {
-        const data = d.data() ?? {}
-        return data.deleted !== true && cleanString(data.productId) === line.productId
+      const touched = await applyStockMovement({
+        rows: matchingInventoryRows(invSnap.docs, line.productId),
+        quantity: line.qty,
+        mode: 'release',
+        actor: input.actor,
+        now,
       })
-      if (!invDoc) continue
-      const data = invDoc.data() ?? {}
-      const reserved = Number(data.quantityReserved) || 0
-      const available = Number(data.quantityAvailable) || 0
-      const give = Math.min(reserved, line.qty)
-      await invDoc.ref.set({
-        quantityReserved: reserved - give,
-        quantityAvailable: available + give,
-        updatedByRef: input.actor,
-        updatedAt: now,
-      }, { merge: true })
-      releasedInventoryIds.push(invDoc.id)
-
-      await adminDb.collection('inventoryMovements').add(stripUndefined({
-        orgId: supplierOrgId,
-        inventoryItemId: invDoc.id,
-        productId: line.productId,
-        orderId: input.orderId,
-        movementType: 'released',
-        quantity: give,
-        createdByRef: input.actor,
-        createdAt: now,
-        updatedAt: now,
-        deleted: false,
-      }))
+      for (const row of touched) {
+        releasedInventoryIds.push(row.id)
+        await adminDb.collection('inventoryMovements').add(stripUndefined({
+          orgId: supplierOrgId,
+          inventoryItemId: row.id,
+          productId: line.productId,
+          orderId: input.orderId,
+          movementType: 'released',
+          quantity: row.moved,
+          createdByRef: input.actor,
+          createdAt: now,
+          updatedAt: now,
+          deleted: false,
+        }))
+      }
     }
   }
 
