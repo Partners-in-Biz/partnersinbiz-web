@@ -271,6 +271,16 @@ npx tsx scripts/adopt-project-location-onto-device.ts --apply \
 
 Do **not** tell the user to wait on Sync now while any linked location is still legacy. Sync also needs `PROJECT_SYNC_STORAGE_LIFECYCLE_VERIFIED` after TTL/lifecycle readback — separate from project chat readiness.
 
+## Adding a new skill to the pib-system-skills pack (VPS rollout)
+
+To ship a new PiB skill to agents (e.g. `impeccable-design-discipline`, pack 0.1.8):
+
+1. Author `packs/pib-system-skills/skills/<name>/SKILL.md` (+ `references/`, `templates/` as needed) and mirror byte-identical into `.claude/skills/<name>/` (pack README requires the mirror; `diff -rq` to confirm).
+2. Bump `packs/pib-system-skills/manifest.json` (`packVersion`, `catalogVersion` like `2026-08-08.system-skills-v0.1.8`, tier list, `skills.<name>` metadata) and add a CHANGELOG entry.
+3. In `config/agent-skill-policy.json`: add `skillCatalog.<name>` (ownerAgentId, allowedAgentIds, riskLevel, syncTarget:'vps', pack, packTier), add to `repoPibSkills`, bump `catalogVersion` to match the manifest (lockstep enforced by `bin/verify-contracts.mjs`).
+4. **GOTCHA — add to BOTH `pibSkills` AND `runtimeSkills`** on every allowed agent: `apply-agent-skill-policy.mjs` uses `runtimeSkills` when present (it overrides `pibSkills`), so a skill added only to `pibSkills` silently never links at runtime. Dry-run proves it: `node scripts/apply-agent-skill-policy.mjs --root /var/lib/hermes --no-config --allow-missing-global <agent>` — but the dry-run reports `missingPibSkills` until the shared cache symlink exists at `/var/lib/hermes/pib-skills/partnersinbiz/<name>` (created by `install-vps-skills.sh`). To verify wiring before publish, create a temporary symlink from the pack dir, dry-run, then remove it — never persist.
+5. Publish/install are **config/secret-adjacent**: `bash scripts/publish-pib-system-skills-repo.sh` (force-push to `Partners-in-Biz/pib-system-skills` + tag) and `sudo -u hermes bash .../scripts/install-vps-skills.sh` (clone/pull pack → symlink shared cache → policy apply), then restart touched `hermes@<agent>` services. Flag for explicit approval — do not run unprompted.
+
 ## Error reference
 
 | HTTP | Error | Fix |
