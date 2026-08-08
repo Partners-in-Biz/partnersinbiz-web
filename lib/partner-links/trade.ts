@@ -656,6 +656,12 @@ export async function fulfilPartnerOrder(input: {
   carrier?: string
   trackingNumber?: string
   trackingUrl?: string
+  /**
+   * Partial shipment: how much of each product goes out now, keyed by
+   * productId. Omit to ship everything still outstanding. Quantities are
+   * clamped to what remains, so over-shipping is impossible.
+   */
+  quantities?: Record<string, number>
   actor: MemberRef
 }): Promise<FulfilResult> {
   const ref = adminDb.collection(ORDERS_COLLECTION).doc(input.orderId)
@@ -681,7 +687,7 @@ export async function fulfilPartnerOrder(input: {
   const tradeOrderId = cleanString(order.tradeOrderId)
   const buyerOrgId = cleanString(order.counterpartyOrgId)
   const now = Timestamp.now()
-  const nextStatus = input.action === 'pack' ? 'packed' : input.action === 'ship' ? 'in_transit' : 'delivered'
+  let nextStatus = input.action === 'pack' ? 'packed' : input.action === 'ship' ? 'in_transit' : 'delivered'
 
   const pairSnap = await adminDb
     .collection(ORDERS_COLLECTION)
@@ -691,9 +697,14 @@ export async function fulfilPartnerOrder(input: {
 
   const shipmentIds: string[] = []
 
+  let fullyShipped = true
+
   if (input.action === 'ship') {
-    // Reserved stock now physically leaves; clear the reservation.
+    // Reserved stock now physically leaves; clear that much of the reservation.
     const lineItems = Array.isArray(order.lineItems) ? order.lineItems as DealLineItem[] : []
+    const alreadyShipped = (order.shippedQuantities ?? {}) as Record<string, number>
+    const nextShipped: Record<string, number> = { ...alreadyShipped }
+
     const invSnap = await adminDb
       .collection('inventoryItems')
       .where('orgId', '==', input.supplierOrgId)
@@ -702,32 +713,52 @@ export async function fulfilPartnerOrder(input: {
 
     for (const line of lineItems) {
       if (!line.productId) continue
+      const done = Number(alreadyShipped[line.productId]) || 0
+      const outstanding = Math.max(0, line.qty - done)
+      if (outstanding === 0) continue
+
+      const requested = input.quantities
+        ? Math.max(0, Number(input.quantities[line.productId]) || 0)
+        : outstanding
+      const shipping = Math.min(requested, outstanding)
+      if (shipping === 0) continue
+
+      nextShipped[line.productId] = done + shipping
+
       const invDoc = invSnap.docs.find((d) => {
         const data = d.data() ?? {}
         return data.deleted !== true && cleanString(data.productId) === line.productId
       })
-      if (!invDoc) continue
-      const data = invDoc.data() ?? {}
-      const reserved = Number(data.quantityReserved) || 0
-      const take = Math.min(reserved, line.qty)
-      await invDoc.ref.set({
-        quantityReserved: reserved - take,
-        updatedByRef: input.actor,
-        updatedAt: now,
-      }, { merge: true })
+      if (invDoc) {
+        const data = invDoc.data() ?? {}
+        const reserved = Number(data.quantityReserved) || 0
+        const take = Math.min(reserved, shipping)
+        await invDoc.ref.set({
+          quantityReserved: reserved - take,
+          updatedByRef: input.actor,
+          updatedAt: now,
+        }, { merge: true })
 
-      await adminDb.collection('inventoryMovements').add(stripUndefined({
-        orgId: input.supplierOrgId,
-        inventoryItemId: invDoc.id,
-        productId: line.productId,
-        orderId: input.orderId,
-        movementType: 'shipped',
-        quantity: take,
-        createdByRef: input.actor,
-        createdAt: now,
-        updatedAt: now,
-        deleted: false,
-      }))
+        await adminDb.collection('inventoryMovements').add(stripUndefined({
+          orgId: input.supplierOrgId,
+          inventoryItemId: invDoc.id,
+          productId: line.productId,
+          orderId: input.orderId,
+          movementType: 'shipped',
+          quantity: take,
+          createdByRef: input.actor,
+          createdAt: now,
+          updatedAt: now,
+          deleted: false,
+        }))
+      }
+    }
+
+    fullyShipped = lineItems.every((l) =>
+      !l.productId || (Number(nextShipped[l.productId]) || 0) >= l.qty)
+
+    for (const doc of pairSnap.docs) {
+      await doc.ref.set({ shippedQuantities: nextShipped, updatedAt: now }, { merge: true })
     }
 
     // Mirrored shipment rows so each side tracks from its own tenant.
@@ -766,6 +797,10 @@ export async function fulfilPartnerOrder(input: {
       shipmentIds.push(doc.id)
     }
   }
+
+  // A partial shipment stays 'packed' so the remainder can still be shipped;
+  // only a complete shipment moves the order to in_transit.
+  if (input.action === 'ship' && !fullyShipped) nextStatus = 'packed'
 
   const patch = stripUndefined({
     fulfillmentStatus: nextStatus,

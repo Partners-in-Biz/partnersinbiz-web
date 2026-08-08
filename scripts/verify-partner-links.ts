@@ -739,6 +739,154 @@ async function main() {
     (await doc('orders', order3.supplierOrderId)).partnerOrderStatus === 'cancelled')
 
   // =======================================================================
+  console.log('\n[4i] Partial shipment')
+  // =======================================================================
+  const splitStock = adminDb.collection('inventoryItems').doc()
+  await splitStock.set({
+    orgId: 'org-a', productId: gadgetRef.id, name: 'Red Gadget split',
+    quantityAvailable: 0, quantityReserved: 0, status: 'active',
+    deleted: false, createdAt: now, updatedAt: now,
+  })
+  await adminDb.collection('inventoryItems').doc(gadgetStock.id).set(
+    { quantityAvailable: 20, quantityReserved: 0 }, { merge: true })
+
+  const splitOrder = await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [{ catalogItemId: gadgetCatalog.id, qty: 10 }], actor: partnerActor,
+  })
+  await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: splitOrder.supplierOrderId, decision: 'confirm', actor })
+  check('10 reserved for the split order',
+    (await doc('inventoryItems', gadgetStock.id)).quantityReserved === 10)
+
+  await fulfilPartnerOrder({
+    supplierOrgId: 'org-a', orderId: splitOrder.supplierOrderId, action: 'ship',
+    quantities: { [gadgetRef.id]: 4 }, trackingNumber: 'PART-1', actor,
+  })
+  const afterPartial = await doc('orders', splitOrder.supplierOrderId)
+  check('partial shipment records shipped quantity',
+    (afterPartial.shippedQuantities ?? {})[gadgetRef.id] === 4,
+    afterPartial.shippedQuantities)
+  check('order stays packed while a remainder is outstanding',
+    afterPartial.fulfillmentStatus === 'packed', afterPartial.fulfillmentStatus)
+  check('only the shipped portion left the reservation',
+    (await doc('inventoryItems', gadgetStock.id)).quantityReserved === 6,
+    (await doc('inventoryItems', gadgetStock.id)).quantityReserved)
+
+  // Over-shipping is clamped to what remains.
+  await fulfilPartnerOrder({
+    supplierOrgId: 'org-a', orderId: splitOrder.supplierOrderId, action: 'ship',
+    quantities: { [gadgetRef.id]: 999 }, actor,
+  })
+  const afterRest = await doc('orders', splitOrder.supplierOrderId)
+  check('over-shipping is clamped to the outstanding amount',
+    (afterRest.shippedQuantities ?? {})[gadgetRef.id] === 10,
+    afterRest.shippedQuantities)
+  check('order moves to in_transit once fully shipped',
+    afterRest.fulfillmentStatus === 'in_transit', afterRest.fulfillmentStatus)
+  check('reservation fully consumed',
+    (await doc('inventoryItems', gadgetStock.id)).quantityReserved === 0)
+
+  // =======================================================================
+  console.log('\n[4j] Cross-org project access')
+  // =======================================================================
+  const {
+    grantPartnerProjectAccess, revokePartnerProjectAccess, listPartnerProjects,
+    postPartnerMessage, listPartnerMessages, loadPartnerOverview,
+  } = await import('@/lib/partner-links/collaboration')
+
+  const sharedProject = adminDb.collection('projects').doc()
+  await sharedProject.set({
+    orgId: 'org-a', name: 'Joint Delivery Programme', status: 'active',
+    deleted: false, createdAt: now, updatedAt: now,
+  })
+
+  const granted = await grantPartnerProjectAccess({
+    ownerOrgId: 'org-a', relationshipId: r1.sourceRelationshipId,
+    projectId: sharedProject.id, role: 'contributor', actor,
+  })
+  check('project access granted to the partner org', granted.orgId === 'org-b', granted.orgId)
+  check('access row uses the standard projectOrganizations id',
+    granted.id === `${sharedProject.id}_org-b`, granted.id)
+
+  const escalated = await grantPartnerProjectAccess({
+    ownerOrgId: 'org-a', relationshipId: r1.sourceRelationshipId,
+    projectId: sharedProject.id, role: 'owner', actor,
+  })
+  check('a partner is never given owner rights', escalated.role === 'contributor', escalated.role)
+
+  let foreignProject = false
+  try {
+    await grantPartnerProjectAccess({
+      ownerOrgId: 'org-a', relationshipId: r1.sourceRelationshipId,
+      projectId: otherProj.id === sharedProject.id ? foreignRef.id : foreignRef.id, actor,
+    })
+  } catch { foreignProject = true }
+  check('cannot share a project you do not own', foreignProject)
+
+  const aProjects = await listPartnerProjects('org-a')
+  const bProjects = await listPartnerProjects('org-b')
+  check('owner sees it as shared out', aProjects.sharedOut.some((p) => p.projectId === sharedProject.id))
+  check('partner sees it as shared with them',
+    bProjects.sharedWithMe.some((p) => p.projectId === sharedProject.id))
+  check('owner does not see own grant as inbound',
+    !aProjects.sharedWithMe.some((p) => p.projectId === sharedProject.id))
+
+  await revokePartnerProjectAccess({
+    ownerOrgId: 'org-a', projectId: sharedProject.id, partnerOrgId: 'org-b', actor,
+  })
+  check('revoked access disappears for the partner',
+    !(await listPartnerProjects('org-b')).sharedWithMe.some((p) => p.projectId === sharedProject.id))
+
+  // Re-grant so [5] can prove unlink tears it down.
+  await grantPartnerProjectAccess({
+    ownerOrgId: 'org-a', relationshipId: r1.sourceRelationshipId,
+    projectId: sharedProject.id, actor,
+  })
+
+  // =======================================================================
+  console.log('\n[4k] Relationship conversation + overview')
+  // =======================================================================
+  await postPartnerMessage({
+    relationshipId: r1.sourceRelationshipId, orgId: 'org-a',
+    body: 'Welcome aboard — anything you need?', actor,
+  })
+  await postPartnerMessage({
+    relationshipId: r1.targetRelationshipId, orgId: 'org-b',
+    body: 'Thanks! Sending our first order shortly.', actor: partnerActor,
+  })
+
+  const threadA = await listPartnerMessages({ relationshipId: r1.sourceRelationshipId, orgId: 'org-a' })
+  const threadB = await listPartnerMessages({ relationshipId: r1.targetRelationshipId, orgId: 'org-b' })
+  check('both sides read the same thread', threadA.messages.length === 2 && threadB.messages.length === 2,
+    { a: threadA.messages.length, b: threadB.messages.length })
+  check('thread is chronological', threadA.messages[0].body.startsWith('Welcome'))
+  check('author org recorded', threadA.messages[1].authorOrgId === 'org-b')
+
+  let outsiderThread = false
+  try { await listPartnerMessages({ relationshipId: r1.sourceRelationshipId, orgId: 'org-c' }) } catch { outsiderThread = true }
+  check('an unrelated org cannot read the thread', outsiderThread)
+
+  let emptyMessage = false
+  try {
+    await postPartnerMessage({ relationshipId: r1.sourceRelationshipId, orgId: 'org-a', body: '  ', actor })
+  } catch { emptyMessage = true }
+  check('empty message rejected', emptyMessage)
+
+  const overview = await loadPartnerOverview({ orgId: 'org-a', relationshipId: r1.sourceRelationshipId })
+  check('overview resolves the partner org', overview.partnerOrgName === 'Beta Manufacturing', overview.partnerOrgName)
+  check('overview counts the catalogue', overview.counts.catalogItems >= 1, overview.counts.catalogItems)
+  check('overview counts orders received', overview.counts.ordersReceived >= 1, overview.counts.ordersReceived)
+  check('overview counts the shared project', overview.counts.projectsSharedOut === 1, overview.counts.projectsSharedOut)
+  check('overview counts messages', overview.counts.messages === 2, overview.counts.messages)
+  check('overview reports confirmed trade value', overview.tradeValue.received > 0, overview.tradeValue)
+  check('overview returns recent messages', overview.recentMessages.length === 2)
+
+  const overviewB = await loadPartnerOverview({ orgId: 'org-b', relationshipId: r1.targetRelationshipId })
+  check('buyer overview counts orders placed', overviewB.counts.ordersPlaced >= 1, overviewB.counts.ordersPlaced)
+  check('buyer overview sees the project shared with it',
+    overviewB.counts.projectsSharedWithMe === 1, overviewB.counts.projectsSharedWithMe)
+
+  // =======================================================================
   console.log('\n[5] Unlink from the accepting side')
   // =======================================================================
   const unlinked = await unlinkPartnership({
@@ -760,6 +908,11 @@ async function main() {
 
   check('unlink tore down the record shares', unlinked.revokedShareIds.includes(share2.id),
     unlinked.revokedShareIds)
+  check('unlink tore down partner project access',
+    unlinked.revokedProjectAccessIds.includes(`${sharedProject.id}_org-b`),
+    unlinked.revokedProjectAccessIds)
+  check('partner no longer sees the shared project after unlink',
+    !(await listPartnerProjects('org-b')).sharedWithMe.some((p) => p.projectId === sharedProject.id))
   let postUnlinkRead = false
   try { await loadSharedRecord({ shareId: share2.id, viewerOrgId: 'org-b' }) } catch { postUnlinkRead = true }
   check('shared record unreadable after unlink', postUnlinkRead)

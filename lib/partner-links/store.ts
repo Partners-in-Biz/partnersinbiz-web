@@ -8,6 +8,7 @@ import type { BusinessRelationship } from '@/lib/business-relationships/types'
 import { cleanString, normalizeEmail } from './identity'
 import { ensureMirrorCompany, ensureMirrorContact } from './mirror'
 import { revokeSharesForPartnerLink } from './shares'
+import { revokeProjectAccessForPartnerLink } from './collaboration'
 import {
   DEFAULT_PARTNER_CAPABILITIES,
   DEFAULT_PARTNER_FIELD_SHARING,
@@ -517,8 +518,13 @@ export async function unlinkPartnership(
     revokedRelationshipIds.push(row.id)
   }
 
-  // Per-record shares ride on the link; severing it must kill them too.
+  // Per-record shares and partner project access both ride on the link;
+  // severing it must kill them too, or access outlives the relationship.
   const revokedShareIds = await revokeSharesForPartnerLink({
+    partnerLinkId,
+    actor: input.actor,
+  })
+  const revokedProjectAccessIds = await revokeProjectAccessForPartnerLink({
     partnerLinkId,
     actor: input.actor,
   })
@@ -589,6 +595,7 @@ export async function unlinkPartnership(
     partnerLinkId: partnerLinkId || undefined,
     revokedRelationshipIds,
     revokedShareIds,
+    revokedProjectAccessIds,
     clearedCompanyIds,
     clearedContactIds,
   }

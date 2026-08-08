@@ -146,6 +146,8 @@ export interface UnlinkPartnershipResult {
   revokedRelationshipIds: string[]
   /** Per-record shares torn down because the link they rode on was severed. */
   revokedShareIds: string[]
+  /** Partner project grants torn down for the same reason. */
+  revokedProjectAccessIds: string[]
   clearedCompanyIds: string[]
   clearedContactIds: string[]
 }

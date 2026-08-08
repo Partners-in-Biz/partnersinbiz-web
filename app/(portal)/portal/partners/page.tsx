@@ -399,18 +399,12 @@ function PartnersPageInner() {
                   <li key={link.relationshipId} className="flex flex-wrap items-center gap-3 py-2.5">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        {link.companyId ? (
-                          <Link
-                            href={`/portal/companies/${link.companyId}`}
-                            className="truncate text-sm font-medium text-[var(--color-pib-text)] hover:text-[var(--color-accent-v2)]"
-                          >
-                            {link.companyName || link.partnerOrgName || 'Partner'}
-                          </Link>
-                        ) : (
-                          <span className="truncate text-sm font-medium text-[var(--color-pib-text)]">
-                            {link.companyName || link.partnerOrgName || 'Partner'}
-                          </span>
-                        )}
+                        <Link
+                          href={`/portal/partners/${link.relationshipId}`}
+                          className="truncate text-sm font-medium text-[var(--color-pib-text)] hover:text-[var(--color-accent-v2)]"
+                        >
+                          {link.companyName || link.partnerOrgName || 'Partner'}
+                        </Link>
                         <SystemLinkBadge kind="org" label={link.partnerOrgName} />
                       </div>
                       <p className="mt-1 truncate text-[11px] text-[var(--color-pib-text-muted)]">
