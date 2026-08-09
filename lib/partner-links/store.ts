@@ -9,6 +9,7 @@ import { cleanString, normalizeEmail } from './identity'
 import { ensureMirrorCompany, ensureMirrorContact } from './mirror'
 import { revokeSharesForPartnerLink } from './shares'
 import { revokeProjectAccessForPartnerLink } from './collaboration'
+import { cancelOpenOrdersForPartnerLink } from './trade'
 import {
   ensureIdentityLink,
   planIdentityLinksForAcceptance,
@@ -582,6 +583,15 @@ export async function unlinkPartnership(
   }
 
   const all = [relationship, ...counterparts]
+
+  // Tear down active commerce while the bilateral link is still valid. Order
+  // cancellation itself performs the transaction/liveness checks and releases
+  // confirmed stock reservations; revoking first would strand that inventory.
+  const { cancelledOrderIds, releasedInventoryIds } = await cancelOpenOrdersForPartnerLink({
+    partnerLinkId,
+    actor: input.actor,
+  })
+
   const revokedRelationshipIds: string[] = []
   for (const row of all) {
     await updateBusinessRelationship(row.sourceOrgId, row.id, { status: 'revoked' }, input.actor)
@@ -682,6 +692,8 @@ export async function unlinkPartnership(
     revokedShareIds,
     revokedProjectAccessIds,
     revokedIdentityLinkIds,
+    cancelledOrderIds,
+    releasedInventoryIds,
     clearedCompanyIds,
     clearedContactIds,
   }

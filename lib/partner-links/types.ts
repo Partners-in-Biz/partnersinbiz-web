@@ -183,6 +183,10 @@ export interface UnlinkPartnershipResult {
   revokedProjectAccessIds: string[]
   /** Canonical identity links revoked by the unlink cascade. */
   revokedIdentityLinkIds: string[]
+  /** Open orders cancelled so their reserved stock is not stranded. */
+  cancelledOrderIds: string[]
+  /** Inventory rows whose reservations were returned to available. */
+  releasedInventoryIds: string[]
   clearedCompanyIds: string[]
   clearedContactIds: string[]
 }

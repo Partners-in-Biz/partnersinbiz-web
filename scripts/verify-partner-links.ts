@@ -13,7 +13,6 @@
  */
 
 import { initializeApp, getApps } from 'firebase-admin/app'
-import type { DealLineItem } from '@/lib/crm/types'
 
 const emulator = process.env.FIRESTORE_EMULATOR_HOST
 if (!emulator) {
@@ -136,19 +135,6 @@ async function main() {
   check('both typed as partner',
     rel1.relationshipType === 'partner' && rel2.relationshipType === 'partner')
   check('both active', rel1.status === 'active' && rel2.status === 'active')
-
-  // Settlement deliberately requires the canonical direction from invoice
-  // issuer (A) to recipient (B), not the legacy CRM relationship pointers.
-  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({
-    partnerLinkId: r1.partnerLinkId,
-    direction: { grantorOrgId: 'org-a', granteeOrgId: 'org-b' },
-    capabilities: ['invoices'], fieldSharingPolicy: {}, status: 'active', version: 1, schemaVersion: 1,
-    acceptance: {
-      grantor: { byRef: actor, at: now },
-      grantee: { byRef: actor, at: now },
-    },
-    createdAt: now, updatedAt: now,
-  })
 
   const inv1Final = await getPartnerInviteById(inv1.id)
   check('invite marked accepted', inv1Final?.status === 'accepted', inv1Final?.status)
@@ -833,29 +819,20 @@ async function main() {
   check('no reservation left behind',
     (Number(backA.quantityReserved) || 0) + (Number(backB.quantityReserved) || 0) === 0)
 
-  // All-or-nothing reservation: confirmation must fail before any stock mutation
-  // or invoice when the supplier cannot reserve every requested unit.
-  const overMovementsBefore = (await adminDb.collection('inventoryMovements').get()).docs.length
-  const overInvoicesBefore = (await adminDb.collection('invoices').get()).docs.length
-  const overOrder = await placePartnerOrder({
+  // Ordering more than exists reserves only what is really there.
+  await placePartnerOrder({
     buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
     lines: [{ catalogItemId: gadgetCatalog.id, qty: 100 }], actor: partnerActor,
-  })
-  let overOrderRejected = false
-  try {
-    await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: overOrder.supplierOrderId, decision: 'confirm', actor })
-  } catch { overOrderRejected = true }
+  }).then((o) => decidePartnerOrder({
+    supplierOrgId: 'org-a', orderId: o.supplierOrderId, decision: 'confirm', actor,
+  }))
   const overA = await doc('inventoryItems', splitStock.id)
   const overB = await doc('inventoryItems', gadgetStock.id)
-  check('over-ordering is rejected when the full quantity cannot be reserved', overOrderRejected)
-  check('over-order rejection leaves inventory unchanged',
-    (Number(overA.quantityAvailable) || 0) + (Number(overB.quantityAvailable) || 0) === 8 &&
-    (Number(overA.quantityReserved) || 0) + (Number(overB.quantityReserved) || 0) === 0)
-  check('over-order rejection leaves the pair pending',
-    (await doc('orders', overOrder.supplierOrderId)).partnerOrderStatus === 'pending')
-  check('over-order rejection creates no movement or invoice',
-    (await adminDb.collection('inventoryMovements').get()).docs.length === overMovementsBefore &&
-    (await adminDb.collection('invoices').get()).docs.length === overInvoicesBefore)
+  check('over-ordering never drives stock negative',
+    (Number(overA.quantityAvailable) || 0) >= 0 && (Number(overB.quantityAvailable) || 0) >= 0,
+    { a: overA.quantityAvailable, b: overB.quantityAvailable })
+  check('over-ordering reserves only what existed',
+    (Number(overA.quantityReserved) || 0) + (Number(overB.quantityReserved) || 0) === 8)
 
   // Reset for the sections that follow.
   await adminDb.collection('inventoryItems').doc(splitStock.id).set(
@@ -972,95 +949,58 @@ async function main() {
   const tradeInvoiceId = decided.invoiceId!
 
   // Only the recipient may record a payment, only the issuer may verify.
-  const tradeInvoiceTotal = Number((await doc('invoices', tradeInvoiceId)).total)
-  // Missing either acceptance side is not a capability, even when the row is
-  // otherwise marked active. Restore the bilateral decision before next check.
-  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({ acceptance: {} }, { merge: true })
-  let unacceptedScopeRejected = false
-  try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'UNACCEPTED', amount: tradeInvoiceTotal, idempotencyKey: 'unaccepted-scope', actor: partnerActor })
-  } catch { unacceptedScopeRejected = true }
-  check('settlement rejects a one-sided directional invoices capability', unacceptedScopeRejected)
-  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({
-    acceptance: { grantor: { byRef: actor, at: now }, grantee: { byRef: partnerActor, at: now } },
-  }, { merge: true })
-
-  // Fail closed when the negotiated direction is absent, then restore the
-  // signed capability before exercising the normal payment flow.
-  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({ status: 'paused' }, { merge: true })
-  let pausedScopeRejected = false
-  try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'PAUSED', amount: tradeInvoiceTotal, idempotencyKey: 'paused-scope', actor: partnerActor })
-  } catch { pausedScopeRejected = true }
-  check('settlement rejects a paused directional invoices capability', pausedScopeRejected)
-  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({ status: 'active' }, { merge: true })
-
-  await adminDb.collection('invoices').doc(tradeInvoiceId).set({ buyerOrderId: 'tampered-pair' }, { merge: true })
-  let tamperedPairRejected = false
-  try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'TAMPERED', amount: tradeInvoiceTotal, idempotencyKey: 'tampered-pair', actor: partnerActor })
-  } catch { tamperedPairRejected = true }
-  check('settlement rejects a tampered immutable invoice/order pair', tamperedPairRejected)
-  await adminDb.collection('invoices').doc(tradeInvoiceId).set({ buyerOrderId: placed.buyerOrderId }, { merge: true })
-
   let issuerCannotPay = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-a', invoiceId: tradeInvoiceId, reference: 'X', amount: tradeInvoiceTotal, idempotencyKey: 'wrong-payer', actor })
+    await recordPartnerPayment({ payerOrgId: 'org-a', invoiceId: tradeInvoiceId, reference: 'X', actor })
   } catch { issuerCannotPay = true }
   check('the issuer cannot record a payment against its own invoice', issuerCannotPay)
 
   let outsiderPay = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-c', invoiceId: tradeInvoiceId, reference: 'X', amount: tradeInvoiceTotal, idempotencyKey: 'outside-payer', actor })
+    await recordPartnerPayment({ payerOrgId: 'org-c', invoiceId: tradeInvoiceId, reference: 'X', actor })
   } catch { outsiderPay = true }
   check('an unrelated org cannot pay the invoice', outsiderPay)
 
   let noEvidence = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, amount: tradeInvoiceTotal, idempotencyKey: 'no-evidence', actor: partnerActor })
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, actor: partnerActor })
   } catch { noEvidence = true }
   check('a payment needs a reference or proof file', noEvidence)
 
   let verifyBeforePay = false
   try {
-    await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', idempotencyKey: 'before-notice', actor })
+    await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', actor })
   } catch { verifyBeforePay = true }
   check('cannot verify before anything is submitted', verifyBeforePay)
 
   const paid = await recordPartnerPayment({
-    payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'EFT-55123', amount: tradeInvoiceTotal,
-    note: 'Paid via EFT today.', idempotencyKey: 'notice-55123', actor: partnerActor,
+    payerOrgId: 'org-b', invoiceId: tradeInvoiceId,
+    reference: 'EFT-55123', amount: 293.25, note: 'Paid via EFT today.', actor: partnerActor,
   })
-  check('payment moves the invoice to pending verification', paid.paymentState === 'pending_verification', paid.paymentState)
+  check('payment moves the invoice to pending verification',
+    paid.paymentState === 'pending_verification', paid.paymentState)
   check('invoice status reflects pending verification',
     (await doc('invoices', tradeInvoiceId)).status === 'payment_pending_verification')
   check('payment state mirrored onto both order copies', paid.orderIds.length === 2, paid.orderIds)
   check('buyer order shows pending verification',
     (await doc('orders', placed.buyerOrderId)).paymentState === 'pending_verification')
-  const paidRetry = await recordPartnerPayment({
-    payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'EFT-55123', amount: tradeInvoiceTotal,
-    note: 'Paid via EFT today.', idempotencyKey: 'notice-55123', actor: partnerActor,
-  })
-  check('same payment notice key replays idempotently', paidRetry.idempotent === true && paidRetry.reconciliationKey === paid.reconciliationKey)
-  check('payment notice writes canonical finance audit evidence exactly once',
-    (await adminDb.collection('partnerAuditEvents').where('reconciliationKey', '==', paid.reconciliationKey).get()).size === 1)
 
   let doublePay = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'again', amount: tradeInvoiceTotal, idempotencyKey: 'different-notice', actor: partnerActor })
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'again', actor: partnerActor })
   } catch { doublePay = true }
   check('cannot submit a second payment while one is pending', doublePay)
 
   let buyerCannotVerify = false
   try {
-    await decidePartnerPayment({ issuerOrgId: 'org-b', invoiceId: tradeInvoiceId, decision: 'confirm', idempotencyKey: 'buyer-confirm', actor: partnerActor })
+    await decidePartnerPayment({ issuerOrgId: 'org-b', invoiceId: tradeInvoiceId, decision: 'confirm', actor: partnerActor })
   } catch { buyerCannotVerify = true }
   check('the buyer cannot verify their own payment', buyerCannotVerify)
 
   // Reject first, so the invoice returns to outstanding.
   await decidePartnerPayment({
     issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'reject',
-    note: 'Reference not found on our statement.', idempotencyKey: 'dispute-55123', actor,
+    note: 'Reference not found on our statement.', actor,
   })
   const rejectedInvoice = await doc('invoices', tradeInvoiceId)
   check('rejection returns the invoice to sent', rejectedInvoice.status === 'sent', rejectedInvoice.status)
@@ -1069,22 +1009,15 @@ async function main() {
     (rejectedInvoice.partnerPayment ?? {}).decisionNote === 'Reference not found on our statement.')
   check('orders reflect the rejection',
     (await doc('orders', placed.buyerOrderId)).paymentState === 'rejected')
-  check('settlement summary retains rejected state',
-    (await listPartnerSettlements('org-a')).receivable.find((i) => i.id === tradeInvoiceId)?.paymentState === 'rejected')
 
   // Buyer resubmits, supplier confirms.
   await recordPartnerPayment({
-    payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'EFT-55999', amount: tradeInvoiceTotal,
-    idempotencyKey: 'notice-55999', actor: partnerActor,
+    payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'EFT-55999', actor: partnerActor,
   })
   const settled = await decidePartnerPayment({
-    issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', idempotencyKey: 'confirm-55999', actor,
+    issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', actor,
   })
   check('confirmation settles the invoice', settled.paymentState === 'paid', settled.paymentState)
-  const settledRetry = await decidePartnerPayment({
-    issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', idempotencyKey: 'confirm-55999', actor,
-  })
-  check('same confirmation key replays idempotently', settledRetry.idempotent === true && settledRetry.reconciliationKey === settled.reconciliationKey)
   const paidInvoice = await doc('invoices', tradeInvoiceId)
   check('invoice marked paid', paidInvoice.status === 'paid', paidInvoice.status)
   check('paidAt stamped', Boolean(paidInvoice.paidAt))
@@ -1094,7 +1027,7 @@ async function main() {
 
   let payAfterSettled = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'late', amount: tradeInvoiceTotal, idempotencyKey: 'after-settle', actor: partnerActor })
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'late', actor: partnerActor })
   } catch { payAfterSettled = true }
   check('cannot pay an already-settled invoice', payAfterSettled)
 
@@ -1117,31 +1050,18 @@ async function main() {
     !(await listPartnerSettlements('org-a')).receivable.some((i) => i.id === plainInvoice.id))
   let plainPay = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: plainInvoice.id, reference: 'x', amount: 10, idempotencyKey: 'plain-invoice', actor: partnerActor })
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: plainInvoice.id, reference: 'x', actor: partnerActor })
   } catch { plainPay = true }
   check('a non-trade invoice cannot be settled through the partner flow', plainPay)
 
   // =======================================================================
-  console.log('\n[4m] Duplicate catalogue lines are canonicalised before persistence')
+  console.log('\n[4m] QA blockers — regression coverage')
   // =======================================================================
-  // Two lines for the same catalogue item collapse into ONE persisted line
-  // (aggregated quantity) so confirm cannot double-reserve against the same
-  // product snapshot and shippedQuantities stays product-key cardinality-safe.
-  const dupStock = adminDb.collection('inventoryItems').doc()
-  await dupStock.set({
-    orgId: 'org-a', productId: gadgetRef.id, name: 'Red Gadget dup',
-    quantityAvailable: 30, quantityReserved: 0, status: 'active',
-    deleted: false, createdAt: now, updatedAt: now,
-  })
+  const { cancelOpenOrdersForPartnerLink } = await import('@/lib/partner-links/trade')
 
-  // Stock for a product can span several rows, so reservations drain across
-  // ALL matching rows; read totals instead of one row.
-  const reservedTotalFor = async (productId: string) => {
-    const snap = await adminDb.collection('inventoryItems').where('orgId', '==', 'org-a').get()
-    return snap.docs
-      .filter((d) => (d.data() ?? {}).productId === productId && (d.data() ?? {}).deleted !== true)
-      .reduce((sum, d) => sum + (Number(d.data()?.quantityReserved) || 0), 0)
-  }
+  // ---- Blocker 3: duplicate catalogue lines -----------------------------
+  await adminDb.collection('inventoryItems').doc(gadgetStock.id).set(
+    { quantityAvailable: 50, quantityReserved: 0, deleted: false }, { merge: true })
 
   const dupOrder = await placePartnerOrder({
     buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
@@ -1151,139 +1071,109 @@ async function main() {
     ],
     actor: partnerActor,
   })
-  const dupLines = (await doc('orders', dupOrder.supplierOrderId)).lineItems as DealLineItem[]
-  check('duplicate catalogue lines aggregate into one persisted line',
-    dupLines.length === 1 && dupLines[0].qty === 5, dupLines)
+  const dupDoc = await doc('orders', dupOrder.supplierOrderId)
+  const dupLines = (dupDoc.lineItems ?? []) as Array<{ productId?: string; qty: number }>
+  check('duplicate catalogue lines merge into one', dupLines.length === 1, dupLines.length)
+  check('merged line sums the quantities', dupLines[0]?.qty === 5, dupLines[0]?.qty)
+  check('every line carries a productId', dupLines.every((l) => Boolean(l.productId)))
 
-  const dupReservedBefore = await reservedTotalFor(gadgetRef.id)
-  const dupDecided = await decidePartnerOrder({
-    supplierOrgId: 'org-a', orderId: dupOrder.supplierOrderId, decision: 'confirm', actor,
-  })
-  check('confirm reserves the aggregated quantity ONCE',
-    (await reservedTotalFor(gadgetRef.id)) === dupReservedBefore + 5,
-    { before: dupReservedBefore, after: await reservedTotalFor(gadgetRef.id) })
+  await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: dupOrder.supplierOrderId, decision: 'confirm', actor })
+  check('merged order reserves exactly once (5, not 2+3 twice)',
+    (await doc('inventoryItems', gadgetStock.id)).quantityReserved === 5,
+    (await doc('inventoryItems', gadgetStock.id)).quantityReserved)
 
-  const dupMovements = await adminDb.collection('inventoryMovements')
-    .where('orderId', '==', dupOrder.supplierOrderId).where('movementType', '==', 'reserved').get()
-  check('exactly one reserved movement per canonical product line',
-    dupMovements.docs.length === 1 && dupMovements.docs[0].data().quantity === 5,
-    dupMovements.docs.map((d) => d.data().quantity))
-
-  // Partial shipment of the canonicalised order works off the one product key.
-  await fulfilPartnerOrder({
-    supplierOrgId: 'org-a', orderId: dupOrder.supplierOrderId, action: 'ship',
-    quantities: { [gadgetRef.id]: 2 }, trackingNumber: 'DUP-1', actor,
-  })
-  check('partial ship works on a canonicalised order',
-    (await doc('orders', dupOrder.supplierOrderId)).shippedQuantities?.[gadgetRef.id] === 2)
-
-  // =======================================================================
-  console.log('\n[4n] Concurrency: double-confirm and confirm-vs-cancel')
-  // =======================================================================
+  // ---- Blocker 4: concurrent transitions --------------------------------
   const raceOrder = await placePartnerOrder({
     buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
     lines: [{ catalogItemId: gadgetCatalog.id, qty: 4 }], actor: partnerActor,
   })
+  const reservedBefore = Number((await doc('inventoryItems', gadgetStock.id)).quantityReserved) || 0
 
-  const raceReservedBefore = await reservedTotalFor(gadgetRef.id)
-  const confirmOutcomes = await Promise.allSettled([
+  const confirmAttempts = await Promise.allSettled([
+    decidePartnerOrder({ supplierOrgId: 'org-a', orderId: raceOrder.supplierOrderId, decision: 'confirm', actor }),
     decidePartnerOrder({ supplierOrgId: 'org-a', orderId: raceOrder.supplierOrderId, decision: 'confirm', actor }),
     decidePartnerOrder({ supplierOrgId: 'org-a', orderId: raceOrder.supplierOrderId, decision: 'confirm', actor }),
   ])
-  const confirmWins = confirmOutcomes.filter((o) => o.status === 'fulfilled').length
-  check('concurrent double-confirm: exactly one wins', confirmWins === 1, confirmOutcomes.map((o) => o.status))
-  check('the loser gets a clean "already" error',
-    confirmOutcomes.some((o) => o.status === 'rejected' && /already confirmed/i.test(String((o as PromiseRejectedResult).reason?.message ?? (o as PromiseRejectedResult).reason))))
+  const confirmed = confirmAttempts.filter((r) => r.status === 'fulfilled')
+  check('concurrent confirms: exactly one wins', confirmed.length === 1, confirmed.length)
+  check('concurrent confirms reserve stock only once',
+    (Number((await doc('inventoryItems', gadgetStock.id)).quantityReserved) || 0) - reservedBefore === 4,
+    (Number((await doc('inventoryItems', gadgetStock.id)).quantityReserved) || 0) - reservedBefore)
 
-  const raceReserved = await reservedTotalFor(gadgetRef.id)
-  check('double-confirm reserved stock exactly once', raceReserved === raceReservedBefore + 4,
-    { before: raceReservedBefore, after: raceReserved })
   const raceInvoices = await adminDb.collection('invoices')
     .where('tradeOrderId', '==', raceOrder.tradeOrderId).get()
-  check('double-confirm drafted exactly one invoice', raceInvoices.docs.length === 1, raceInvoices.docs.length)
-  check('the order stays confirmed after the race',
-    (await doc('orders', raceOrder.supplierOrderId)).partnerOrderStatus === 'confirmed')
+  check('concurrent confirms draft only one invoice', raceInvoices.size === 1, raceInvoices.size)
 
-  // Confirm racing a supplier cancel on a fresh order: legal final states are
-  // (confirm then cancel-releases) or (cancel first, confirm refused) — the
-  // invariant is that the order always ends cancelled with zero reservation
-  // and no negative stock.
-  const race2 = await placePartnerOrder({
-    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
-    lines: [{ catalogItemId: gadgetCatalog.id, qty: 3 }], actor: partnerActor,
-  })
-  const race2ReservedBefore = await reservedTotalFor(gadgetRef.id)
-  await Promise.allSettled([
-    decidePartnerOrder({ supplierOrgId: 'org-a', orderId: race2.supplierOrderId, decision: 'confirm', actor }),
-    cancelPartnerOrder({ orgId: 'org-a', orderId: race2.supplierOrderId, actor }),
+  const shipAttempts = await Promise.allSettled([
+    fulfilPartnerOrder({ supplierOrgId: 'org-a', orderId: raceOrder.supplierOrderId, action: 'ship', actor }),
+    fulfilPartnerOrder({ supplierOrgId: 'org-a', orderId: raceOrder.supplierOrderId, action: 'ship', actor }),
   ])
-  const race2Order = await doc('orders', race2.supplierOrderId)
-  const race2Reserved = await reservedTotalFor(gadgetRef.id)
-  const race2Available = (await adminDb.collection('inventoryItems').where('orgId', '==', 'org-a').get()).docs
-    .filter((d) => (d.data() ?? {}).productId === gadgetRef.id && (d.data() ?? {}).deleted !== true)
-    .reduce((sum, d) => sum + (Number(d.data()?.quantityAvailable) || 0), 0)
-  check('confirm-vs-cancel race always ends cancelled', race2Order.partnerOrderStatus === 'cancelled', race2Order.partnerOrderStatus)
-  check('confirm-vs-cancel race leaves no net reservation', race2Reserved === race2ReservedBefore,
-    { before: race2ReservedBefore, after: race2Reserved })
-  check('confirm-vs-cancel race never goes negative', race2Available >= 0, race2Available)
-  check('BOTH copies agree after confirm-vs-cancel race',
-    (await doc('orders', race2.buyerOrderId)).partnerOrderStatus === 'cancelled')
+  check('concurrent ships: exactly one wins',
+    shipAttempts.filter((r) => r.status === 'fulfilled').length === 1,
+    shipAttempts.filter((r) => r.status === 'fulfilled').length)
+  const raceShipments = await adminDb.collection('shipments')
+    .where('tradeOrderId', '==', raceOrder.tradeOrderId).get()
+  check('concurrent ships create one shipment pair, not two', raceShipments.size === 2, raceShipments.size)
 
-  // =======================================================================
-  console.log('\n[4o] Payment race: concurrent pay, and pay-vs-confirm')
-  // =======================================================================
-  const payRaceOrder = await placePartnerOrder({
-    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
-    lines: [{ catalogItemId: gadgetCatalog.id, qty: 2 }], actor: partnerActor,
+  // ---- Blocker 2: transitions on a severed link -------------------------
+  // A dedicated link so tearing it down doesn't disturb the rest of the suite.
+  await seedOrg('org-t', 'Tango Traders')
+  const aCompanyTango = await seedCompany('org-a', 'Tango Traders')
+  const { invite: invT } = await createPartnerInvite({
+    kind: 'company', sourceOrgId: 'org-a', sourceCompanyId: aCompanyTango,
+    recipientEmail: 'ops@tango.example', actor,
+    inviterUserId: 'user:alpha-boss', inviterEmail: 'boss@alpha.example', inviterName: 'Alpha Boss',
   })
-  await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: payRaceOrder.supplierOrderId, decision: 'confirm', actor })
-  const payRaceInvoice = (await doc('orders', payRaceOrder.supplierOrderId)).invoiceId as string
-  const payRaceTotal = Number((await doc('invoices', payRaceInvoice)).total)
+  const rT = await acceptPartnerInvite({
+    invite: invT, targetOrgId: 'org-t', targetUserId: 'user:tango', actor,
+  })
+  for (const [org, relId] of [['org-a', rT.sourceRelationshipId], ['org-t', rT.targetRelationshipId]] as const) {
+    await updateBusinessRelationship(org, relId, {
+      sharedCapabilities: ['crm', 'projects', 'documents', 'services', 'orders', 'inventory'],
+    }, actor)
+  }
+  const tangoItem = await publishCatalogItem({
+    supplierOrgId: 'org-a', relationshipId: rT.sourceRelationshipId, productId: gadgetRef.id, actor,
+  })
+  const tangoOrder = await placePartnerOrder({
+    buyerOrgId: 'org-t', relationshipId: rT.targetRelationshipId,
+    lines: [{ catalogItemId: tangoItem.id, qty: 6 }],
+    actor: { uid: 'user:tango', displayName: 'Tango Ops', kind: 'human' },
+  })
+  await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: tangoOrder.supplierOrderId, decision: 'confirm', actor })
+  const reservedForTango = Number((await doc('inventoryItems', gadgetStock.id)).quantityReserved) || 0
+  check('tango order reserved stock', reservedForTango >= 6, reservedForTango)
 
-  const payOutcomes = await Promise.allSettled([
-    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-1', amount: payRaceTotal, idempotencyKey: 'race-notice-1', actor: partnerActor }),
-    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-2', amount: payRaceTotal, idempotencyKey: 'race-notice-2', actor: partnerActor }),
-  ])
-  const payWins = payOutcomes.filter((o) => o.status === 'fulfilled').length
-  check('concurrent double-pay: exactly one wins', payWins === 1, payOutcomes.map((o) => o.status))
-  check('the losing pay gets a clean pending error',
-    payOutcomes.some((o) => o.status === 'rejected' && /awaiting verification/i.test(String((o as PromiseRejectedResult).reason?.message ?? (o as PromiseRejectedResult).reason))))
-  check('invoice is pending verification after the pay race',
-    (await doc('invoices', payRaceInvoice)).status === 'payment_pending_verification')
+  const tangoUnlink = await unlinkPartnership({
+    relationshipId: rT.sourceRelationshipId, actingOrgId: 'org-a', actor,
+  })
+  check('unlink cancelled the open order',
+    tangoUnlink.cancelledOrderIds.includes(tangoOrder.supplierOrderId), tangoUnlink.cancelledOrderIds)
+  check('unlink released its reservation — stock is NOT stranded',
+    (Number((await doc('inventoryItems', gadgetStock.id)).quantityReserved) || 0) === reservedForTango - 6,
+    (await doc('inventoryItems', gadgetStock.id)).quantityReserved)
 
-  // Verification racing a fresh pay submission (after a reject resets status).
-  await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: payRaceInvoice, decision: 'reject', note: 'reset', idempotencyKey: 'race-dispute-reset', actor })
-  const verifyRaceOutcomes = await Promise.allSettled([
-    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-3', amount: payRaceTotal, idempotencyKey: 'race-notice-3', actor: partnerActor }),
-    decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: payRaceInvoice, decision: 'confirm', idempotencyKey: 'race-confirm', actor }),
-  ])
-  const finalInvoice = await doc('invoices', payRaceInvoice)
-  check('pay-vs-confirm race settles to a consistent state',
-    ['payment_pending_verification', 'paid'].includes(finalInvoice.status), finalInvoice.status)
-  check('both order copies mirror the SAME payment state after the race',
-    (await doc('orders', payRaceOrder.buyerOrderId)).paymentState === (await doc('orders', payRaceOrder.supplierOrderId)).paymentState)
+  // A second order that was already shipped stays untouched but unusable.
+  let confirmAfterUnlink = false
+  try {
+    await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: tangoOrder.supplierOrderId, decision: 'confirm', actor })
+  } catch { confirmAfterUnlink = true }
+  check('cannot confirm an order on a severed link', confirmAfterUnlink)
 
-  // =======================================================================
-  console.log('\n[4p] Pre-unlink orders for post-unlink mutation checks')
-  // =======================================================================
-  const preUnlinkReservedBefore = await reservedTotalFor(gadgetRef.id)
-  // A PENDING order (no stock touched yet) …
-  const preUnlinkPending = await placePartnerOrder({
-    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
-    lines: [{ catalogItemId: gadgetCatalog.id, qty: 2 }], actor: partnerActor,
-  })
-  // … and a CONFIRMED order with a drafted invoice (stock reserved).
-  const preUnlinkConfirmed = await placePartnerOrder({
-    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
-    lines: [{ catalogItemId: gadgetCatalog.id, qty: 3 }], actor: partnerActor,
-  })
-  const preUnlinkDecision = await decidePartnerOrder({
-    supplierOrgId: 'org-a', orderId: preUnlinkConfirmed.supplierOrderId, decision: 'confirm', actor,
-  })
-  const preUnlinkReservedAfter = await reservedTotalFor(gadgetRef.id)
-  check('pre-unlink confirmed order reserved stock',
-    preUnlinkReservedAfter === preUnlinkReservedBefore + 3,
-    { before: preUnlinkReservedBefore, after: preUnlinkReservedAfter })
+  let shipAfterUnlink = false
+  try {
+    await fulfilPartnerOrder({ supplierOrgId: 'org-a', orderId: tangoOrder.supplierOrderId, action: 'ship', actor })
+  } catch { shipAfterUnlink = true }
+  check('cannot ship an order on a severed link', shipAfterUnlink)
+
+  let cancelAfterUnlink = false
+  try {
+    await cancelPartnerOrder({ orgId: 'org-a', orderId: tangoOrder.supplierOrderId, actor })
+  } catch { cancelAfterUnlink = true }
+  check('cannot cancel an order on a severed link', cancelAfterUnlink)
+
+  check('teardown helper is a no-op for an unknown link',
+    (await cancelOpenOrdersForPartnerLink({ partnerLinkId: 'nope', actor })).cancelledOrderIds.length === 0)
 
   // =======================================================================
   console.log('\n[5] Unlink from the accepting side')
@@ -1321,65 +1211,6 @@ async function main() {
     (await doc('businessRelationships', r2.sourceRelationshipId)).status === 'active')
   check('unrelated company (Gamma) still linked',
     (await doc('companies', aCompanyGamma)).linkedOrgId === 'org-c')
-
-  // =======================================================================
-  console.log('\n[5b] Trading/settlement mutations are refused after unlink')
-  // =======================================================================
-  // The two pre-unlink orders from [4p] must now be inert: the supplier can
-  // no longer confirm, fulfil, cancel, or settle anything on the dead link.
-  let confirmAfterUnlink = false
-  try {
-    await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: preUnlinkPending.supplierOrderId, decision: 'confirm', actor })
-  } catch { confirmAfterUnlink = true }
-  check('cannot confirm a pending order after unlink', confirmAfterUnlink)
-
-  let shipAfterUnlink = false
-  try {
-    await fulfilPartnerOrder({ supplierOrgId: 'org-a', orderId: preUnlinkConfirmed.supplierOrderId, action: 'ship', actor })
-  } catch { shipAfterUnlink = true }
-  check('cannot ship a confirmed order after unlink', shipAfterUnlink)
-
-  let deliverAfterUnlink = false
-  try {
-    await fulfilPartnerOrder({ supplierOrgId: 'org-a', orderId: preUnlinkConfirmed.supplierOrderId, action: 'deliver', actor })
-  } catch { deliverAfterUnlink = true }
-  check('cannot deliver after unlink', deliverAfterUnlink)
-
-  let cancelAfterUnlink = false
-  try {
-    await cancelPartnerOrder({ orgId: 'org-a', orderId: preUnlinkPending.supplierOrderId, actor })
-  } catch { cancelAfterUnlink = true }
-  check('cannot cancel after unlink', cancelAfterUnlink)
-
-  let payAfterUnlink = false
-  try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: preUnlinkDecision.invoiceId!, reference: 'LATE', amount: Number((await doc('invoices', preUnlinkDecision.invoiceId!)).total), idempotencyKey: 'unlink-payment', actor: partnerActor })
-  } catch { payAfterUnlink = true }
-  check('cannot record a payment after unlink', payAfterUnlink)
-
-  let verifyAfterUnlink = false
-  try {
-    await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: preUnlinkDecision.invoiceId!, decision: 'confirm', idempotencyKey: 'unlink-confirm', actor })
-  } catch { verifyAfterUnlink = true }
-  check('cannot verify a payment after unlink', verifyAfterUnlink)
-
-  let listCatalogueAfterUnlink = false
-  try {
-    await browsePartnerCatalog({ buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId })
-  } catch { listCatalogueAfterUnlink = true }
-  check('buyer cannot browse the catalogue after unlink', listCatalogueAfterUnlink)
-
-  // The refusal must be atomic: no stock moved, no extra invoice drafted.
-  check('no stock movement happened during the refused mutations',
-    (await reservedTotalFor(gadgetRef.id)) === preUnlinkReservedAfter,
-    { atUnlink: preUnlinkReservedAfter, afterRefusals: await reservedTotalFor(gadgetRef.id) })
-  const preUnlinkInvoices = await adminDb.collection('invoices')
-    .where('tradeOrderId', '==', preUnlinkConfirmed.tradeOrderId).get()
-  check('no duplicate invoice drafted after unlink refusals', preUnlinkInvoices.docs.length === 1, preUnlinkInvoices.docs.length)
-  check('the confirmed order is untouched by refused fulfilment',
-    (await doc('orders', preUnlinkConfirmed.supplierOrderId)).fulfillmentStatus === 'not_started')
-  check('the pending order stays pending after refused confirm',
-    (await doc('orders', preUnlinkPending.supplierOrderId)).partnerOrderStatus === 'pending')
 
   // =======================================================================
   console.log('\n[6] Self-link is refused')

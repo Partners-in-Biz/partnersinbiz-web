@@ -21,10 +21,6 @@ const FULFIL_ACTIONS = ['pack', 'ship', 'deliver']
  *   { action: 'pack' | 'ship' | 'deliver', carrier?, trackingNumber?, trackingUrl? }
  *   { action: 'cancel' }                                either side, per the rules
  *
- * For `ship`, `quantities` is an optional productId → positive number map for
- * a PARTIAL shipment. It is validated here (every value must be a positive
- * finite number) before the service clamps it to what remains outstanding.
- *
  * Confirming reserves stock and drafts an invoice; shipping consumes the
  * reservation; cancelling a confirmed order releases it.
  */
@@ -54,31 +50,34 @@ export const PATCH = withCrmAuth<RouteContext>('member', async (req: NextRequest
     }
 
     if (FULFIL_ACTIONS.includes(action)) {
-      // Partial shipment contract: quantities is a productId → positive number
-      // map. Reject malformed payloads up front so a bad body can never be
-      // silently coerced into a full shipment (the pre-fix behaviour).
+      // Partial shipment: { quantities: { [productId]: number } }. Omit to ship
+      // everything still outstanding.
       let quantities: Record<string, number> | undefined
-      if (action === 'ship' && body.quantities !== undefined && body.quantities !== null) {
+      if (body.quantities !== undefined && body.quantities !== null) {
         if (typeof body.quantities !== 'object' || Array.isArray(body.quantities)) {
-          return apiError('quantities must be an object mapping productId to a positive number', 400)
+          return apiError('quantities must be an object keyed by productId', 400)
         }
         quantities = {}
         for (const [productId, raw] of Object.entries(body.quantities as Record<string, unknown>)) {
-          const qty = Number(raw)
-          if (!cleanString(productId) || !Number.isFinite(qty) || qty <= 0) {
-            return apiError('every quantity must be a positive number keyed by productId', 400)
+          const key = cleanString(productId)
+          if (!key) return apiError('quantities keys must be product ids', 400)
+          const value = Number(raw)
+          if (!Number.isFinite(value) || value < 0) {
+            return apiError(`quantities.${key} must be zero or a positive number`, 400)
           }
-          quantities[productId] = qty
+          quantities[key] = value
         }
+        if (Object.keys(quantities).length === 0) quantities = undefined
       }
+
       const result = await fulfilPartnerOrder({
         supplierOrgId: ctx.orgId,
         orderId: id,
         action: action as FulfilAction,
-        quantities,
         carrier: cleanString(body.carrier) || undefined,
         trackingNumber: cleanString(body.trackingNumber) || undefined,
         trackingUrl: cleanString(body.trackingUrl) || undefined,
+        quantities,
         actor: ctx.actor,
       })
       return apiSuccess(result)

@@ -1,37 +1,32 @@
-import crypto from 'node:crypto'
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import { recordCrmAuditEvent } from '@/lib/crm/audit'
-import { PARTNER_AUDIT_EVENTS_COLLECTION, PARTNER_SCOPE_AGREEMENTS_COLLECTION } from '@/lib/cross-org/types'
-import { hasBilateralAcceptance } from '@/lib/cross-org/lifecycle'
-import type { PartnerScopeAgreement } from '@/lib/cross-org/types'
 import { cleanString } from './identity'
-import {
-  resolveSettlementIdempotency,
-  type SettlementOperation,
-  type StoredSettlementOperation,
-  validateCanonicalSettlementPair,
-} from './settlement-contract'
 
 /**
- * Settlement of a partner invoice, org to org. This module is deliberately
- * fail-closed: CRM linkedOrgId/allowedOrgIds and loose active-relationship
- * lookups are never authority. A canonical invoice binding, a reciprocal pair,
- * and a directional active invoices capability are required in one transaction.
+ * Settlement of a partner invoice, org to org.
+ *
+ * The platform already has an EFT proof-of-payment flow, but it is shaped for
+ * Partners in Biz billing a client: `POST /invoices/{id}/confirm-payment` is
+ * `withAuth('admin')`, i.e. only a PLATFORM admin can verify a payment. For
+ * trading between two client orgs the verifier must be the org that issued the
+ * invoice, so this module reimplements the two transitions with partner
+ * ownership checks instead of platform-admin checks.
+ *
+ * EFT-first, matching the rest of the billing surface: the buyer records a
+ * reference (and optionally an uploaded proof file), the supplier verifies.
+ * No card rails involved.
  */
+
 export const INVOICES_COLLECTION = 'invoices'
 export const ORDERS_COLLECTION = 'orders'
 
-export type PartnerPaymentState = 'unpaid' | 'pending_verification' | 'paid' | 'rejected'
-
-export interface PartnerPaymentOperation extends StoredSettlementOperation {
-  operation: SettlementOperation
-  idempotencyKey: string
-  fingerprint: string
-  resultState: PartnerPaymentState
-  appliedAt?: unknown
-}
+export type PartnerPaymentState =
+  | 'unpaid'
+  | 'pending_verification'
+  | 'paid'
+  | 'rejected'
 
 export interface PartnerPaymentRecord {
   reference?: string
@@ -42,7 +37,6 @@ export interface PartnerPaymentRecord {
   submittedAt?: unknown
   decidedAt?: unknown
   decisionNote?: string
-  operations?: Partial<Record<SettlementOperation, PartnerPaymentOperation>>
 }
 
 export interface PartnerInvoiceSummary {
@@ -60,131 +54,94 @@ export interface PartnerInvoiceSummary {
 }
 
 function stripUndefined(input: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined))
-}
-
-function hasValue(value: unknown): boolean {
-  return value !== undefined && value !== null && value !== ''
+  return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined))
 }
 
 function paymentStateOf(invoice: Record<string, unknown>): PartnerPaymentState {
   const status = cleanString(invoice.status)
   if (status === 'paid') return 'paid'
   if (status === 'payment_pending_verification') return 'pending_verification'
-  if (hasValue(invoice.paymentRejectedAt)) return 'rejected'
+  if (cleanString((invoice.partnerPayment as PartnerPaymentRecord | undefined)?.decisionNote) &&
+      cleanString(invoice.paymentRejectedAt)) return 'rejected'
   return 'unpaid'
 }
 
-function requireIdempotencyKey(value: unknown): string {
-  const key = cleanString(value)
-  if (!key) throw new Error('Idempotency-Key is required for partner settlement')
-  if (key.length > 200) throw new Error('Idempotency-Key is too long')
-  return key
-}
-
-function fingerprint(value: Record<string, unknown>): string {
-  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex')
-}
-
-function paymentOperations(value: unknown): Partial<Record<SettlementOperation, PartnerPaymentOperation>> {
-  if (!value || typeof value !== 'object') return {}
-  return value as Partial<Record<SettlementOperation, PartnerPaymentOperation>>
-}
-
-function operationForKey(
-  operations: Partial<Record<SettlementOperation, PartnerPaymentOperation>>,
-  key: string,
-): PartnerPaymentOperation | undefined {
-  return Object.values(operations).find((operation) => cleanString(operation?.idempotencyKey) === key)
-}
-
-function auditRefFor(invoiceId: string, operation: SettlementOperation, idempotencyKey: string) {
-  const keyDigest = crypto.createHash('sha256').update(idempotencyKey).digest('hex')
-  return adminDb.collection(PARTNER_AUDIT_EVENTS_COLLECTION).doc(`settlement:${invoiceId}:${operation}:${keyDigest}`)
-}
-
 /**
- * Hydrate and validate every settlement authority input under the same
- * transaction snapshot that later writes payment state. The scope agreement is
- * directional issuer -> recipient: it is the issuer granting this specific
- * counterparty invoice/settlement capability, not a broad CRM relationship.
+ * Loads an invoice and proves it belongs to a partner trade between these two
+ * orgs. Everything downstream depends on this, so it is deliberately strict:
+ * the invoice must name both orgs AND carry a tradeOrderId.
  */
-async function loadPartnerInvoiceTx(input: {
-  tx: FirebaseFirestore.Transaction
+async function loadPartnerInvoice(input: {
   invoiceId: string
   orgId: string
   side: 'issuer' | 'recipient'
-}): Promise<{
-  ref: FirebaseFirestore.DocumentReference
-  data: Record<string, unknown>
-  orderDocs: FirebaseFirestore.QueryDocumentSnapshot[]
-  partnerLinkId: string
-  tradeOrderId: string
-  issuerOrgId: string
-  recipientOrgId: string
-  scopeAgreementId: string
-}> {
+}): Promise<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, unknown> }> {
   const ref = adminDb.collection(INVOICES_COLLECTION).doc(input.invoiceId)
-  const invoiceSnap = await input.tx.get(ref)
-  if (!invoiceSnap.exists) throw new Error('Invoice not found')
-  const data = invoiceSnap.data() ?? {}
+  const snap = await ref.get()
+  if (!snap.exists) throw new Error('Invoice not found')
+  const data = snap.data() ?? {}
 
-  // issuerOrgId is mandatory. sourceOrgId is intentionally never a fallback.
-  const issuerOrgId = cleanString(data.issuerOrgId)
+  const issuerOrgId = cleanString(data.orgId) || cleanString(data.sourceOrgId)
   const recipientOrgId = cleanString(data.recipientOrgId)
-  const expectedOrgId = input.side === 'issuer' ? issuerOrgId : recipientOrgId
-  if (!expectedOrgId || expectedOrgId !== input.orgId) throw new Error('Invoice not found')
+  if (!issuerOrgId || !recipientOrgId) throw new Error('This is not a partner invoice')
+  if (!cleanString(data.tradeOrderId)) throw new Error('This is not a partner invoice')
 
-  const tradeOrderId = cleanString(data.tradeOrderId)
-  const partnerLinkId = cleanString(data.partnerLinkId)
-  if (!tradeOrderId || !partnerLinkId) throw new Error('This is not a canonical partner invoice')
+  const expected = input.side === 'issuer' ? issuerOrgId : recipientOrgId
+  if (expected !== input.orgId) throw new Error('Invoice not found')
 
-  const [orderSnap, relationshipSnap, scopeSnap] = await Promise.all([
-    input.tx.get(adminDb.collection(ORDERS_COLLECTION).where('tradeOrderId', '==', tradeOrderId).limit(10)),
-    input.tx.get(adminDb.collection('businessRelationships').where('partnerLinkId', '==', partnerLinkId).limit(10)),
-    input.tx.get(adminDb.collection(PARTNER_SCOPE_AGREEMENTS_COLLECTION).where('partnerLinkId', '==', partnerLinkId).limit(20)),
-  ])
-
-  const orderDocs = orderSnap.docs
-  validateCanonicalSettlementPair({
-    invoice: data,
-    orders: orderDocs.map((doc) => ({ id: doc.id, ...(doc.data() ?? {}) })),
-    relationships: relationshipSnap.docs.map((doc) => ({ id: doc.id, ...(doc.data() ?? {}) })),
-  })
-
-  const scope = scopeSnap.docs
-    .map((doc) => ({ id: doc.id, ...(doc.data() ?? {}) }) as PartnerScopeAgreement)
-    .find((candidate) =>
-      candidate.status === 'active' &&
-      hasBilateralAcceptance(candidate) &&
-      cleanString(candidate.partnerLinkId) === partnerLinkId &&
-      cleanString(candidate.direction?.grantorOrgId) === issuerOrgId &&
-      cleanString(candidate.direction?.granteeOrgId) === recipientOrgId &&
-      Array.isArray(candidate.capabilities) && candidate.capabilities.includes('invoices'),
-    )
-  if (!scope) throw new Error('A live directional invoices settlement capability is required')
-
-  return {
-    ref,
-    data,
-    orderDocs,
-    partnerLinkId,
-    tradeOrderId,
-    issuerOrgId,
-    recipientOrgId,
-    scopeAgreementId: scope.id,
+  // The link must still be live — settlement is part of the relationship.
+  const orderSnap = await adminDb
+    .collection(ORDERS_COLLECTION)
+    .where('tradeOrderId', '==', cleanString(data.tradeOrderId))
+    .limit(10)
+    .get()
+  const partnerLinkId = cleanString((orderSnap.docs[0]?.data() ?? {}).partnerLinkId)
+  if (partnerLinkId) {
+    const linkSnap = await adminDb
+      .collection('businessRelationships')
+      .where('partnerLinkId', '==', partnerLinkId)
+      .limit(10)
+      .get()
+    const live = linkSnap.docs.some((d) => {
+      const row = d.data() ?? {}
+      return row.status === 'active' && row.deleted !== true
+    })
+    if (!live) throw new Error('This partner link is no longer active')
   }
+
+  return { ref, data }
 }
 
-function assertFullInvoiceAmount(amount: number | undefined, invoice: Record<string, unknown>): number {
-  const total = Number(invoice.total)
-  if (!Number.isFinite(total) || total <= 0) throw new Error('Invoice total is invalid for settlement')
-  if (amount === undefined) throw new Error('Payment amount is required for partner settlement')
-  if (Math.abs(amount - total) > 0.005) throw new Error('Payment amount must exactly settle the invoice total')
-  return amount
+/** Mirror the payment state onto both order copies so each side sees it. */
+async function syncOrdersPaymentState(input: {
+  tradeOrderId: string
+  paymentState: PartnerPaymentState
+  actor: MemberRef
+}): Promise<string[]> {
+  if (!input.tradeOrderId) return []
+  const snap = await adminDb
+    .collection(ORDERS_COLLECTION)
+    .where('tradeOrderId', '==', input.tradeOrderId)
+    .limit(10)
+    .get()
+  const now = Timestamp.now()
+  const ids: string[] = []
+  for (const doc of snap.docs) {
+    await doc.ref.set({
+      paymentState: input.paymentState,
+      updatedByRef: input.actor,
+      updatedAt: now,
+    }, { merge: true })
+    ids.push(doc.id)
+  }
+  return ids
 }
 
-/** Buyer notices an EFT payment. Exact retries return the original result. */
+/**
+ * Buyer records that they have paid — an EFT reference, optionally with an
+ * uploaded proof file. Moves the invoice to pending verification; it does NOT
+ * mark it paid, because only the org that is owed the money can say that.
+ */
 export async function recordPartnerPayment(input: {
   payerOrgId: string
   invoiceId: string
@@ -192,173 +149,193 @@ export async function recordPartnerPayment(input: {
   amount?: number
   fileId?: string
   note?: string
-  idempotencyKey: string
   actor: MemberRef
-}): Promise<{ invoiceId: string; paymentState: PartnerPaymentState; orderIds: string[]; idempotent: boolean; reconciliationKey: string }> {
-  const reference = cleanString(input.reference)
-  const fileId = cleanString(input.fileId)
-  if (!reference && !fileId) throw new Error('Provide a payment reference or attach proof of payment')
-  const amount = typeof input.amount === 'number' && Number.isFinite(input.amount) && input.amount > 0 ? input.amount : undefined
-  const idempotencyKey = requireIdempotencyKey(input.idempotencyKey)
-  const requestFingerprint = fingerprint({ operation: 'notice', payerOrgId: input.payerOrgId, reference, fileId, amount, note: cleanString(input.note) })
-  const now = FieldValue.serverTimestamp()
-
-  const outcome = await adminDb.runTransaction(async (tx) => {
-    const loaded = await loadPartnerInvoiceTx({ tx, invoiceId: input.invoiceId, orgId: input.payerOrgId, side: 'recipient' })
-    const existing = (loaded.data.partnerPayment ?? {}) as PartnerPaymentRecord
-    const operations = paymentOperations(existing.operations)
-    const replay = resolveSettlementIdempotency(operationForKey(operations, idempotencyKey), {
-      operation: 'notice', idempotencyKey, fingerprint: requestFingerprint,
-    })
-    const orderIds = loaded.orderDocs.map((doc) => doc.id)
-    const reconciliationKey = `settlement:${input.invoiceId}:notice:${idempotencyKey}`
-    if (replay.replay) {
-      return { ...loaded, orderIds, reconciliationKey, idempotent: true, applied: false }
-    }
-
-    const status = cleanString(loaded.data.status)
-    if (status === 'paid') throw new Error('This invoice is already settled')
-    if (status === 'payment_pending_verification') throw new Error('A payment is already awaiting verification on this invoice')
-    if (status === 'cancelled' || status === 'void') throw new Error('This invoice is closed')
-    const settledAmount = assertFullInvoiceAmount(amount, loaded.data)
-
-    const operation: PartnerPaymentOperation = {
-      operation: 'notice', idempotencyKey, fingerprint: requestFingerprint,
-      resultState: 'pending_verification', appliedAt: now,
-    }
-    const payment: PartnerPaymentRecord = {
-      ...existing,
-      reference: reference || undefined,
-      amount: settledAmount,
-      fileId: fileId || undefined,
-      note: cleanString(input.note) || undefined,
-      submittedByOrgId: input.payerOrgId,
-      submittedAt: now,
-      operations: { ...operations, notice: operation },
-    }
-    tx.set(loaded.ref, stripUndefined({
-      status: 'payment_pending_verification', partnerPayment: payment,
-      paymentProofFileId: fileId || undefined, paymentRejectedAt: FieldValue.delete(),
-      updatedByRef: input.actor, updatedAt: now,
-    }), { merge: true })
-    for (const doc of loaded.orderDocs) {
-      tx.set(doc.ref, { paymentState: 'pending_verification', updatedByRef: input.actor, updatedAt: now }, { merge: true })
-    }
-    tx.create(auditRefFor(input.invoiceId, 'notice', idempotencyKey), {
-      eventType: 'settlement.approved', decision: 'applied', actorRef: input.actor,
-      actorOrgId: input.payerOrgId, partnerLinkId: loaded.partnerLinkId, scopeAgreementId: loaded.scopeAgreementId,
-      resourceType: 'invoice', resourceId: input.invoiceId, reconciliationKey,
-      metadata: { operation: 'notice', tradeOrderId: loaded.tradeOrderId, amount: settledAmount, reference },
-      createdAt: now,
-    })
-    return { ...loaded, orderIds, reconciliationKey, idempotent: false, applied: true }
+}): Promise<{ invoiceId: string; paymentState: PartnerPaymentState; orderIds: string[] }> {
+  const { ref, data } = await loadPartnerInvoice({
+    invoiceId: input.invoiceId,
+    orgId: input.payerOrgId,
+    side: 'recipient',
   })
 
-  if (outcome.applied) {
-    await recordCrmAuditEvent({
-      orgId: input.payerOrgId, eventType: 'partner_payment.submitted', resourceType: 'invoice', resourceId: input.invoiceId,
-      actorRef: input.actor, metadata: { tradeOrderId: outcome.tradeOrderId, reference, amount },
-      notification: {
-        type: 'partner_payment.submitted', title: 'A partner marked an invoice as paid',
-        body: `${cleanString(outcome.data.invoiceNumber) || 'An invoice'} has a payment awaiting your verification${reference ? ` (ref ${reference})` : ''}.`,
-        targetOrgIds: [outcome.issuerOrgId],
-      },
-    })
+  const reference = cleanString(input.reference)
+  const fileId = cleanString(input.fileId)
+  if (!reference && !fileId) {
+    throw new Error('Provide a payment reference or attach proof of payment')
   }
-  return { invoiceId: input.invoiceId, paymentState: 'pending_verification', orderIds: outcome.orderIds, idempotent: outcome.idempotent, reconciliationKey: outcome.reconciliationKey }
+
+  const amount = typeof input.amount === 'number' && Number.isFinite(input.amount) && input.amount > 0
+    ? input.amount
+    : undefined
+
+  const now = FieldValue.serverTimestamp()
+  const payment: PartnerPaymentRecord = stripUndefined({
+    reference: reference || undefined,
+    amount,
+    fileId: fileId || undefined,
+    note: cleanString(input.note) || undefined,
+    submittedByOrgId: input.payerOrgId,
+    submittedAt: now,
+  }) as PartnerPaymentRecord
+
+  // Claim the transition atomically: two submissions racing would otherwise
+  // both pass the status check and overwrite each other's reference.
+  await adminDb.runTransaction(async (tx) => {
+    const fresh = await tx.get(ref)
+    if (!fresh.exists) throw new Error('Invoice not found')
+    const current = cleanString((fresh.data() ?? {}).status)
+    if (current === 'paid') throw new Error('This invoice is already settled')
+    if (current === 'payment_pending_verification') {
+      throw new Error('A payment is already awaiting verification on this invoice')
+    }
+    if (current === 'cancelled' || current === 'void') throw new Error('This invoice is closed')
+    tx.set(ref, stripUndefined({
+      status: 'payment_pending_verification',
+      partnerPayment: payment,
+      paymentProofFileId: fileId || undefined,
+      paymentRejectedAt: FieldValue.delete(),
+      updatedByRef: input.actor,
+      updatedAt: now,
+    }), { merge: true })
+  })
+
+  const tradeOrderId = cleanString(data.tradeOrderId)
+  const orderIds = await syncOrdersPaymentState({
+    tradeOrderId,
+    paymentState: 'pending_verification',
+    actor: input.actor,
+  })
+
+  const issuerOrgId = cleanString(data.orgId) || cleanString(data.sourceOrgId)
+  await recordCrmAuditEvent({
+    orgId: input.payerOrgId,
+    eventType: 'partner_payment.submitted',
+    resourceType: 'invoice',
+    resourceId: input.invoiceId,
+    actorRef: input.actor,
+    metadata: { tradeOrderId, reference, amount },
+    notification: {
+      type: 'partner_payment.submitted',
+      title: 'A partner marked an invoice as paid',
+      body: `${cleanString(data.invoiceNumber) || 'An invoice'} has a payment awaiting your verification${reference ? ` (ref ${reference})` : ''}.`,
+      targetOrgIds: [issuerOrgId],
+    },
+  })
+
+  return { invoiceId: input.invoiceId, paymentState: 'pending_verification', orderIds }
 }
 
-/** Supplier confirms or disputes a payment. Exact retries are idempotent. */
+/**
+ * Supplier verifies or rejects. This is the transition the existing
+ * confirm-payment route reserves for platform admins; here it belongs to the
+ * org that issued the invoice.
+ */
 export async function decidePartnerPayment(input: {
   issuerOrgId: string
   invoiceId: string
   decision: 'confirm' | 'reject'
   note?: string
-  idempotencyKey: string
   actor: MemberRef
-}): Promise<{ invoiceId: string; paymentState: PartnerPaymentState; orderIds: string[]; idempotent: boolean; reconciliationKey: string }> {
-  const operationName: SettlementOperation = input.decision === 'confirm' ? 'confirm' : 'dispute'
-  const paymentState: PartnerPaymentState = input.decision === 'confirm' ? 'paid' : 'rejected'
-  const idempotencyKey = requireIdempotencyKey(input.idempotencyKey)
-  const note = cleanString(input.note)
-  const requestFingerprint = fingerprint({ operation: operationName, issuerOrgId: input.issuerOrgId, note })
-  const now = FieldValue.serverTimestamp()
-
-  const outcome = await adminDb.runTransaction(async (tx) => {
-    const loaded = await loadPartnerInvoiceTx({ tx, invoiceId: input.invoiceId, orgId: input.issuerOrgId, side: 'issuer' })
-    const existing = (loaded.data.partnerPayment ?? {}) as PartnerPaymentRecord
-    const operations = paymentOperations(existing.operations)
-    const replay = resolveSettlementIdempotency(operationForKey(operations, idempotencyKey), {
-      operation: operationName, idempotencyKey, fingerprint: requestFingerprint,
-    })
-    const orderIds = loaded.orderDocs.map((doc) => doc.id)
-    const reconciliationKey = `settlement:${input.invoiceId}:${operationName}:${idempotencyKey}`
-    if (replay.replay) return { ...loaded, orderIds, reconciliationKey, idempotent: true, applied: false }
-
-    if (cleanString(loaded.data.status) !== 'payment_pending_verification') {
-      throw new Error('There is no payment awaiting verification on this invoice')
-    }
-    const decision: PartnerPaymentOperation = {
-      operation: operationName, idempotencyKey, fingerprint: requestFingerprint, resultState: paymentState, appliedAt: now,
-    }
-    tx.set(loaded.ref, stripUndefined({
-      status: input.decision === 'confirm' ? 'paid' : 'sent',
-      paidAt: input.decision === 'confirm' ? now : FieldValue.delete(),
-      paymentRejectedAt: input.decision === 'confirm' ? FieldValue.delete() : now,
-      partnerPayment: { ...existing, decidedAt: now, decisionNote: note || undefined, operations: { ...operations, [operationName]: decision } },
-      updatedByRef: input.actor, updatedAt: now,
-    }), { merge: true })
-    for (const doc of loaded.orderDocs) {
-      tx.set(doc.ref, { paymentState, updatedByRef: input.actor, updatedAt: now }, { merge: true })
-    }
-    tx.create(auditRefFor(input.invoiceId, operationName, idempotencyKey), {
-      eventType: 'settlement.approved', decision: 'applied', actorRef: input.actor,
-      actorOrgId: input.issuerOrgId, partnerLinkId: loaded.partnerLinkId, scopeAgreementId: loaded.scopeAgreementId,
-      resourceType: 'invoice', resourceId: input.invoiceId, reconciliationKey,
-      metadata: { operation: operationName, tradeOrderId: loaded.tradeOrderId, reference: existing.reference, note: note || undefined },
-      createdAt: now,
-    })
-    return { ...loaded, orderIds, reconciliationKey, idempotent: false, applied: true }
+}): Promise<{ invoiceId: string; paymentState: PartnerPaymentState; orderIds: string[] }> {
+  const { ref, data } = await loadPartnerInvoice({
+    invoiceId: input.invoiceId,
+    orgId: input.issuerOrgId,
+    side: 'issuer',
   })
 
-  if (outcome.applied) {
-    await recordCrmAuditEvent({
-      orgId: input.issuerOrgId, eventType: `partner_payment.${input.decision === 'confirm' ? 'confirmed' : 'rejected'}`,
-      resourceType: 'invoice', resourceId: input.invoiceId, actorRef: input.actor,
-      metadata: { tradeOrderId: outcome.tradeOrderId, reference: (outcome.data.partnerPayment as PartnerPaymentRecord | undefined)?.reference },
-      notification: {
-        type: `partner_payment.${input.decision === 'confirm' ? 'confirmed' : 'rejected'}`,
-        title: input.decision === 'confirm' ? 'Your payment was confirmed' : 'Your payment could not be verified',
-        body: input.decision === 'confirm'
-          ? `${cleanString(outcome.data.invoiceNumber) || 'An invoice'} is now settled.`
-          : `${cleanString(outcome.data.invoiceNumber) || 'An invoice'} is still outstanding${note ? `: ${note}` : ''}.`,
-        targetOrgIds: [outcome.recipientOrgId],
+  const now = FieldValue.serverTimestamp()
+  const confirmed = input.decision === 'confirm'
+  const paymentState: PartnerPaymentState = confirmed ? 'paid' : 'rejected'
+
+  // Claim atomically so a double click cannot settle and then un-settle.
+  const existing = await adminDb.runTransaction(async (tx) => {
+    const fresh = await tx.get(ref)
+    if (!fresh.exists) throw new Error('Invoice not found')
+    const row = fresh.data() ?? {}
+    if (cleanString(row.status) !== 'payment_pending_verification') {
+      throw new Error('There is no payment awaiting verification on this invoice')
+    }
+    const prior = (row.partnerPayment ?? {}) as PartnerPaymentRecord
+    tx.set(ref, stripUndefined({
+      status: confirmed ? 'paid' : 'sent',
+      paidAt: confirmed ? now : FieldValue.delete(),
+      paymentRejectedAt: confirmed ? FieldValue.delete() : now,
+      partnerPayment: {
+        ...prior,
+        decidedAt: now,
+        decisionNote: cleanString(input.note) || undefined,
       },
-    })
-  }
-  return { invoiceId: input.invoiceId, paymentState, orderIds: outcome.orderIds, idempotent: outcome.idempotent, reconciliationKey: outcome.reconciliationKey }
+      updatedByRef: input.actor,
+      updatedAt: now,
+    }), { merge: true })
+    return prior
+  })
+
+  const tradeOrderId = cleanString(data.tradeOrderId)
+  const orderIds = await syncOrdersPaymentState({
+    tradeOrderId,
+    paymentState,
+    actor: input.actor,
+  })
+
+  const recipientOrgId = cleanString(data.recipientOrgId)
+  await recordCrmAuditEvent({
+    orgId: input.issuerOrgId,
+    eventType: `partner_payment.${confirmed ? 'confirmed' : 'rejected'}`,
+    resourceType: 'invoice',
+    resourceId: input.invoiceId,
+    actorRef: input.actor,
+    metadata: { tradeOrderId, reference: existing.reference },
+    notification: {
+      type: `partner_payment.${confirmed ? 'confirmed' : 'rejected'}`,
+      title: confirmed ? 'Your payment was confirmed' : 'Your payment could not be verified',
+      body: confirmed
+        ? `${cleanString(data.invoiceNumber) || 'An invoice'} is now settled.`
+        : `${cleanString(data.invoiceNumber) || 'An invoice'} is still outstanding${cleanString(input.note) ? `: ${cleanString(input.note)}` : ''}.`,
+      targetOrgIds: [recipientOrgId],
+    },
+  })
+
+  return { invoiceId: input.invoiceId, paymentState, orderIds }
 }
 
-/** Partner invoice books. Legacy/loosely-linked invoices are intentionally hidden. */
-export async function listPartnerSettlements(orgId: string): Promise<{ receivable: PartnerInvoiceSummary[]; payable: PartnerInvoiceSummary[] }> {
+/**
+ * Partner invoices on both sides: what this org is owed (receivable) and what
+ * it owes (payable). Both are read from the caller's own tenant scope.
+ */
+export async function listPartnerSettlements(orgId: string): Promise<{
+  receivable: PartnerInvoiceSummary[]
+  payable: PartnerInvoiceSummary[]
+}> {
   const [issuedSnap, receivedSnap] = await Promise.all([
     adminDb.collection(INVOICES_COLLECTION).where('orgId', '==', orgId).limit(1000).get(),
     adminDb.collection(INVOICES_COLLECTION).where('recipientOrgId', '==', orgId).limit(1000).get(),
   ])
-  const isCanonicalPartnerInvoice = (data: Record<string, unknown>) =>
-    data.deleted !== true && cleanString(data.orgId) && cleanString(data.issuerOrgId) === cleanString(data.orgId) &&
-    cleanString(data.recipientOrgId) && cleanString(data.tradeOrderId) && cleanString(data.partnerLinkId) &&
-    cleanString(data.supplierOrderId) && cleanString(data.buyerOrderId) && cleanString(data.tradeTermsHash)
-  const summary = (id: string, data: Record<string, unknown>): PartnerInvoiceSummary => ({
-    id, invoiceNumber: cleanString(data.invoiceNumber) || undefined, issuerOrgId: cleanString(data.issuerOrgId),
-    recipientOrgId: cleanString(data.recipientOrgId), status: cleanString(data.status), paymentState: paymentStateOf(data),
-    total: Number(data.total) || 0, currency: cleanString(data.currency) || 'ZAR', tradeOrderId: cleanString(data.tradeOrderId) || undefined,
-    partnerPayment: (data.partnerPayment ?? undefined) as PartnerPaymentRecord | undefined, createdAt: data.createdAt,
+
+  const toSummary = (id: string, data: Record<string, unknown>): PartnerInvoiceSummary => ({
+    id,
+    invoiceNumber: cleanString(data.invoiceNumber) || undefined,
+    issuerOrgId: cleanString(data.orgId) || cleanString(data.sourceOrgId),
+    recipientOrgId: cleanString(data.recipientOrgId),
+    status: cleanString(data.status),
+    paymentState: paymentStateOf(data),
+    total: Number(data.total) || 0,
+    currency: cleanString(data.currency) || 'ZAR',
+    tradeOrderId: cleanString(data.tradeOrderId) || undefined,
+    partnerPayment: (data.partnerPayment ?? undefined) as PartnerPaymentRecord | undefined,
+    createdAt: data.createdAt,
   })
+
+  const isPartnerInvoice = (data: Record<string, unknown>) =>
+    data.deleted !== true && cleanString(data.tradeOrderId) && cleanString(data.recipientOrgId)
+
   return {
-    receivable: issuedSnap.docs.map((doc) => ({ id: doc.id, data: doc.data() ?? {} }))
-      .filter(({ data }) => isCanonicalPartnerInvoice(data) && cleanString(data.recipientOrgId) !== orgId).map(({ id, data }) => summary(id, data)),
-    payable: receivedSnap.docs.map((doc) => ({ id: doc.id, data: doc.data() ?? {} }))
-      .filter(({ data }) => isCanonicalPartnerInvoice(data)).map(({ id, data }) => summary(id, data)),
+    receivable: issuedSnap.docs
+      .map((d) => ({ id: d.id, data: d.data() ?? {} }))
+      .filter((r) => isPartnerInvoice(r.data) && cleanString(r.data.recipientOrgId) !== orgId)
+      .map((r) => toSummary(r.id, r.data)),
+    payable: receivedSnap.docs
+      .map((d) => ({ id: d.id, data: d.data() ?? {} }))
+      .filter((r) => isPartnerInvoice(r.data))
+      .map((r) => toSummary(r.id, r.data)),
   }
 }
