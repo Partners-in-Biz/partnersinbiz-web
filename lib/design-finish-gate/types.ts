@@ -105,6 +105,14 @@ export interface FinishGateInput {
   reviewer: ReviewerOutput
   /** Optional override; defaults to contract.round. */
   round?: number
+  /**
+   * Evidence policy for ship verdicts. When true (default), a ship with no
+   * evidence at all (no screenshots, no vision transcripts, no reviewer
+   * evidence citation) is escalated to exit 1 — missing evidence must never
+   * read as resolved. Pass false only for explicit tooling-only reviews where
+   * the reviewer graded code and recorded evidence in its citation.
+   */
+  requireEvidence?: boolean
 }
 
 export const FINISH_GATE_SCHEMA = 'pib-design-finish-gate/v1' as const
