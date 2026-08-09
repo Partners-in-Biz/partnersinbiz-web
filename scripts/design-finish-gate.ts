@@ -43,6 +43,8 @@ interface CliOptions {
   contractFile?: string
   reviewerFile?: string
   vision?: boolean
+  visionModel?: string
+  visionProvider?: string
   json?: boolean
 }
 
@@ -95,6 +97,12 @@ function parseArgs(argv: string[]): CliOptions {
       case '--vision':
         opts.vision = true
         break
+      case '--vision-model':
+        opts.visionModel = argv[++i]
+        break
+      case '--vision-provider':
+        opts.visionProvider = argv[++i]
+        break
       case '--json':
         opts.json = true
         break
@@ -146,7 +154,8 @@ function help(): void {
 Usage:
   design-finish-gate prepare --brief-file brief.md [--title "Task"] \\
       [--promises-file promises.json] [--screenshots a.png,b.png] \\
-      [--builder-agent theo] [--round 1] [--max-fix-rounds 2] [--vision] [--json]
+      [--builder-agent theo] [--round 1] [--max-fix-rounds 2] [--vision] \\
+      [--vision-model gemini-3.6-flash] [--vision-provider gemini-api] [--json]
 
   design-finish-gate verify --contract contract.json --reviewer-output verdict.json \\
       [--json]
@@ -182,7 +191,10 @@ async function main(): Promise<number> {
     let visionTranscripts: Record<string, string> | undefined
     const visionNotes: string[] = []
     if (opts.vision && screenshots.length) {
-      const result = buildVisionTranscripts(screenshots)
+      const result = buildVisionTranscripts(screenshots, {
+        model: opts.visionModel,
+        provider: opts.visionProvider,
+      })
       visionTranscripts = result.transcripts
       visionNotes.push(...result.notes)
     }

@@ -161,12 +161,29 @@ export function buildReport(input: FinishGateInput): FinishGateReport {
     finalVerdict = 'rebuild'
   }
 
+  // Evidence fail-closed (p4): a ship verdict with NO evidence — no
+  // screenshots, no vision transcripts, no reviewer evidence citation — must
+  // not silently pass. The reviewer's citation is real evidence; an empty
+  // screenshots list is fine for code/tooling reviews that cite files.
+  const requireEvidence = input.requireEvidence ?? true
+  const hasEvidence =
+    contract.screenshots.length > 0 ||
+    (contract.visionTranscripts !== undefined && Object.keys(contract.visionTranscripts).length > 0) ||
+    (typeof reviewer.evidence === 'string' && reviewer.evidence.trim().length > 0)
+  const evidenceMissing = finalVerdict === 'ship' && requireEvidence && !hasEvidence
+
   const roundsRemaining = finalVerdict === 'ship' || finalVerdict === 'rebuild' ? 0 : Math.max(0, maxFixRounds - round)
-  const exitCode: FinishGateReport['exitCode'] = finalVerdict === 'ship' ? 0 : finalVerdict === 'fix' ? 2 : 3
+  const exitCode: FinishGateReport['exitCode'] = evidenceMissing
+    ? 1
+    : finalVerdict === 'ship'
+      ? 0
+      : finalVerdict === 'fix'
+        ? 2
+        : 3
 
   return {
     schema: FINISH_GATE_SCHEMA,
-    verdict: finalVerdict,
+    verdict: evidenceMissing ? 'rebuild' : finalVerdict,
     exitCode,
     round,
     maxFixRounds,

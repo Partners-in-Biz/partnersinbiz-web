@@ -5,6 +5,8 @@ import {
   runVisionTranscript,
   buildVisionTranscripts,
   summarizeModLens,
+  resolveDefaultModel,
+  resolveDefaultProvider,
 } from '../../../lib/design-finish-gate/vision'
 
 function tmpPng(): string {
@@ -20,13 +22,29 @@ describe('finish-gate vision (ModLens bridge)', () => {
     const result = runVisionTranscript(png, {
       _fakeStdout: JSON.stringify({
         provider: 'gemini-api',
-        result: { summary: 'A hero section with brand palette', ocr: { full_text: 'Hero\nCTA' }, uncertainty: [] },
+        result: {
+          summary: 'A hero section with brand palette',
+          ocr: { full_text: 'Hero\nCTA' },
+          layout: { regions: [{ kind: 'heading', label: 'hero', text: 'Welcome' }] },
+          uncertainty: [],
+        },
       }),
     })
     expect(result.ok).toBe(true)
     expect(result.transcript).toContain('provider=gemini-api')
     expect(result.transcript).toContain('A hero section with brand palette')
     expect(result.transcript).toContain('Hero\nCTA')
+    expect(result.transcript).toContain('layout: heading hero: Welcome')
+  })
+
+  it('resolves default model/provider from the real modlens config when present', () => {
+    // Config-aware resolution should not throw and returns a non-empty model.
+    const model = resolveDefaultModel()
+    const provider = resolveDefaultProvider()
+    expect(typeof model).toBe('string')
+    expect(model.length).toBeGreaterThan(0)
+    expect(typeof provider).toBe('string')
+    expect(provider.length).toBeGreaterThan(0)
   })
 
   it('fails closed with a note, never throws, on missing image', () => {

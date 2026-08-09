@@ -39,7 +39,9 @@ requests. Run it after the detector passes and before the task is marked done.
    This prints a JSON envelope: `contract` (schema pib-design-finish-gate/v1)
    with `promises` (extracted from the brief bullets) and the self-contained
    `reviewerPrompt`. Optional `--vision` runs ModLens over the screenshots and
-   attaches OCR + layout transcripts so a text-only reviewer can inspect them.
+   attaches OCR + layout transcripts so a text-only reviewer can inspect them
+   (model/provider resolve from the real ModLens config, or override with
+   `--vision-model` / `--vision-provider`).
 
 2. Hand `contract.reviewerPrompt` to a FRESH reviewer context (delegate_task /
    separate run). NEVER answer it in the builder thread — the gate rejects
@@ -54,7 +56,11 @@ requests. Run it after the detector passes and before the task is marked done.
 
    Exit codes: 0 ship / 2 fix (rounds remain) / 3 rebuild (or fix-rounds
    exhausted) / 1 failure. The report is promise-by-promise with strengths,
-   concerns, fix requests.
+   concerns, fix requests. Evidence fail-closed: a `ship` verdict with NO
+   evidence (no screenshots, no vision transcripts, no reviewer evidence
+   citation) escalates to exit 1 — missing evidence never reads as resolved.
+   Code/tooling reviews supply a real `evidence` citation (files + commands
+   inspected), which counts as evidence.
 
 4. Only a `ship` (exit 0) may precede a done claim. On `fix`, do the fixes,
    bump `--round`, re-run with the same fresh-reviewer discipline (max 2 fix

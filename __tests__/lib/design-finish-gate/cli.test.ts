@@ -50,6 +50,7 @@ function shipReview(): string {
     concerns: [],
     fixRequests: [],
     reviewerAgentId: 'qa-release',
+    evidence: 'inspected hero.png + mobile.png (screenshots in contract)',
   })
 }
 
@@ -141,6 +142,17 @@ describe('design-finish-gate CLI', () => {
     const contractFile = tmpFile('contract.json', JSON.stringify((JSON.parse(prepareOut) as { contract: unknown }).contract))
     const reviewerFile = tmpFile('reviewer.json', JSON.stringify({ verdict: 'nope', reviewerAgentId: 'qa-release' }))
     const { status } = runCli(['verify', '--contract', contractFile, '--reviewer-output', reviewerFile])
+    expect(status).toBe(1)
+  })
+
+  it('verify exits 1 when ship verdict has zero evidence (evidence fail-closed)', () => {
+    const briefFile = tmpFile('brief.md', BRIEF)
+    const { stdout: prepareOut } = runCli(['prepare', '--brief-file', briefFile, '--builder-agent', 'theo', '--json'])
+    const contractFile = tmpFile('contract.json', JSON.stringify((JSON.parse(prepareOut) as { contract: unknown }).contract))
+    const bareReview = JSON.parse(shipReview()) as { evidence: string }
+    delete bareReview.evidence // no screenshots, no transcripts, no citation
+    const reviewerFile = tmpFile('reviewer.json', JSON.stringify(bareReview))
+    const { status } = runCli(['verify', '--contract', contractFile, '--reviewer-output', reviewerFile, '--json'])
     expect(status).toBe(1)
   })
 

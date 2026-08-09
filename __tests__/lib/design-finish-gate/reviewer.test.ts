@@ -34,6 +34,7 @@ const SHIP_REVIEW: ReviewerOutput = {
   concerns: [],
   fixRequests: [],
   reviewerAgentId: 'qa-release',
+  evidence: 'inspected hero.png + body.png + drawer.png against the brief contract',
 }
 
 describe('finish-gate reviewer', () => {
@@ -135,5 +136,29 @@ describe('finish-gate reviewer', () => {
 
   it('scoreFor falls back to unresolved for unknown promise ids', () => {
     expect(scoreFor(SHIP_REVIEW, 'p99')).toBe('unresolved')
+  })
+
+  it('evidence fail-closed: ship with zero evidence escalates to exit 1', () => {
+    // No screenshots, no vision transcripts, no reviewer evidence citation.
+    const noEvidence = { ...SHIP_REVIEW, evidence: undefined }
+    const report = buildReport({ contract: contract(), reviewer: noEvidence })
+    expect(report.exitCode).toBe(1)
+    expect(report.verdict).toBe('rebuild')
+  })
+
+  it('evidence fail-closed: reviewer citation counts as evidence for code reviews', () => {
+    const bare = { ...SHIP_REVIEW, evidence: undefined } // no screenshots, no transcripts, no citation
+    const report = buildReport({ contract: contract(), reviewer: bare })
+    expect(report.exitCode).toBe(1)
+    const withCitation = { ...SHIP_REVIEW, evidence: 'inspected lib/design-finish-gate/*.ts at 5d0885db8' }
+    const report2 = buildReport({ contract: contract(), reviewer: withCitation })
+    expect(report2.exitCode).toBe(0)
+    expect(report2.verdict).toBe('ship')
+  })
+
+  it('requireEvidence:false opts out for explicit tooling-only reviews', () => {
+    const report = buildReport({ contract: contract(), reviewer: SHIP_REVIEW, requireEvidence: false })
+    expect(report.exitCode).toBe(0)
+    expect(report.verdict).toBe('ship')
   })
 })
