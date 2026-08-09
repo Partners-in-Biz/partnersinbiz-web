@@ -3,6 +3,8 @@ import {
   FirestoreCrossOrgPolicyStore,
   type CrossOrgReasonCode,
 } from '@/lib/cross-org/policy-service'
+import { adminDb } from '@/lib/firebase/admin'
+import { isActiveOrgMembershipRow } from '@/lib/orgMembers/active-membership'
 import type { ProjectMemberRole } from '@/lib/projects/collaboration'
 
 const PROJECT_ROLE_RANK: Record<ProjectMemberRole, number> = {
@@ -19,6 +21,21 @@ function projectRoleRank(actorRole: string | undefined, requiredRole: string): b
   return PROJECT_ROLE_RANK[actor] !== undefined
     && PROJECT_ROLE_RANK[required] !== undefined
     && PROJECT_ROLE_RANK[actor] >= PROJECT_ROLE_RANK[required]
+}
+
+function cleanTeamIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return Array.from(new Set(value
+    .filter((teamId): teamId is string => typeof teamId === 'string')
+    .map((teamId) => teamId.trim())
+    .filter(Boolean)))
+}
+
+async function loadTrustedActorTeamIds(actor: { uid: string; orgId: string }): Promise<string[]> {
+  const snap = await adminDb.collection('orgMembers').doc(`${actor.orgId}_${actor.uid}`).get()
+  if (!snap.exists) return []
+  const member = snap.data() ?? {}
+  return isActiveOrgMembershipRow(member) ? cleanTeamIds(member.teamIds) : []
 }
 
 export interface ProjectCrossOrgGrantInput {
@@ -44,8 +61,10 @@ export async function resolveProjectCrossOrgGrant(
   input: ProjectCrossOrgGrantInput,
 ): Promise<ProjectCrossOrgGrantResult> {
   const service = new CrossOrgPolicyService(new FirestoreCrossOrgPolicyStore())
+  const actorTeamIds = await loadTrustedActorTeamIds(input.actor)
   const decision = await service.decide({
     actor: { userId: input.actor.uid, orgId: input.actor.orgId },
+    actorTeamIds,
     resourceType: 'project',
     resourceId: input.projectId,
     action: input.action,

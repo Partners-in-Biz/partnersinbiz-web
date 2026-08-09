@@ -111,6 +111,17 @@ describe('CrossOrgPolicyService — adapter contract', () => {
     expect(result.projection).toEqual({ fields: null, items: null })
   })
 
+  it('denies a grant that is bound to a different scope agreement than the active directional scope', async () => {
+    const service = new CrossOrgPolicyService(seededStore({
+      grant: grant({ scopeAgreementId: 'scope-revoked', approvalBasis: { type: 'scope_agreement', refId: 'scope-revoked' } }),
+    }))
+
+    const result = await service.decide(baseInput())
+
+    expect(result.allowed).toBe(false)
+    expect(result.reasonCode).toBe('SCOPE_AGREEMENT_REQUIRED')
+  })
+
   it('denies when the actor has no active membership with ACTIVE_MEMBERSHIP_REQUIRED', async () => {
     const store = seededStore()
     store.memberships.clear()

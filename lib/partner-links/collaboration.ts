@@ -1,4 +1,4 @@
-import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import { recordCrmAuditEvent } from '@/lib/crm/audit'
@@ -310,20 +310,27 @@ export async function revokeProjectAccessForPartnerLink(input: {
   actor: MemberRef
 }): Promise<string[]> {
   if (!input.partnerLinkId) return []
-  const snap = await adminDb
-    .collection(PROJECT_ORGS_COLLECTION)
-    .where('partnerLinkId', '==', input.partnerLinkId)
-    .limit(1000)
-    .get()
+  const [projectionSnap, grantSnap] = await Promise.all([
+    adminDb.collection(PROJECT_ORGS_COLLECTION).where('partnerLinkId', '==', input.partnerLinkId).limit(1000).get(),
+    adminDb.collection(PARTNER_RESOURCE_GRANTS_COLLECTION).where('partnerLinkId', '==', input.partnerLinkId).limit(1000).get(),
+  ])
 
-  const now = Timestamp.now()
-  const revoked: string[] = []
-  for (const doc of snap.docs) {
-    if ((doc.data() ?? {}).status !== 'active') continue
-    await doc.ref.set({ status: 'revoked', revokedAt: now, updatedAt: now }, { merge: true })
-    revoked.push(doc.id)
-  }
-  return revoked
+  const now = FieldValue.serverTimestamp()
+  const revoked = new Set<string>()
+  await Promise.all([
+    ...projectionSnap.docs.map(async (doc) => {
+      if ((doc.data() ?? {}).status !== 'active') return
+      await doc.ref.set({ status: 'revoked', revokedAt: now, revokedByRef: input.actor, updatedAt: now }, { merge: true })
+      revoked.add(doc.id)
+    }),
+    ...grantSnap.docs.map(async (doc) => {
+      const data = doc.data() ?? {}
+      if (data.resourceType !== 'project' || data.status !== 'active') return
+      await doc.ref.set({ status: 'revoked', revokedAt: now, revokedByRef: input.actor, updatedAt: now }, { merge: true })
+      revoked.add(doc.id)
+    }),
+  ])
+  return Array.from(revoked)
 }
 
 // ── Relationship conversation ────────────────────────────────────────────────

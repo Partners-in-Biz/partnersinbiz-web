@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
+import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { evaluateUnblockReadiness, type DependencyStatus } from '@/lib/projects/blockerRecovery'
 import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import { logActivity } from '@/lib/activity/log'
@@ -58,7 +59,7 @@ async function loadRelatedTasks(projectId: string, ids: string[]): Promise<Depen
 
 export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, taskId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.write', item: taskId })
   if (!access.ok) return apiError(access.error, access.status)
   if (!isAuthorisedToUnblock(user.role)) return apiError('Only an authorised user can unblock a waiting task', 403)
   const planningBlocker = planningMutationBlocker((access.doc.data() ?? {}) as Record<string, unknown>)
@@ -66,7 +67,10 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const taskRef = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
   const taskDoc = await taskRef.get()
-  if (!taskDoc.exists) return apiError('Task not found', 404)
+  if (!taskDoc.exists || filterProjectItemsForAccess([{ id: taskId, ...(taskDoc.data() ?? {}) }], {
+    projectAccess: access.projectAccess,
+    user,
+  }).length !== 1) return apiError('Task not found', 404)
 
   const task = taskDoc.data() ?? {}
   const isBlocked = task.columnId === 'blocked' || task.agentStatus === 'blocked' || task.agentStatus === 'awaiting-input'

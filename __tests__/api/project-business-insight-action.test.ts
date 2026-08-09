@@ -2,9 +2,25 @@ import { NextRequest } from 'next/server'
 
 const mockGetProjectForUser = jest.fn()
 const mockConvertApprovedBusinessInsightReviewTask = jest.fn()
+const mockTaskGet = jest.fn()
+
+jest.mock('@/lib/firebase/admin', () => ({
+  adminDb: {
+    collection: jest.fn(() => ({
+      doc: jest.fn(() => ({
+        collection: jest.fn(() => ({
+          doc: jest.fn(() => ({ get: mockTaskGet })),
+        })),
+      })),
+    })),
+  },
+}))
+
+type MockUser = { uid: string; role: string; authKind: string }
+type Handler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
 
 jest.mock('@/lib/api/auth', () => ({
-  withAuth: (_role: string, handler: Function) => (req: NextRequest, ctx?: unknown) =>
+  withAuth: (_role: string, handler: Handler) => (req: NextRequest, ctx?: unknown) =>
     handler(req, { uid: 'admin-1', role: 'admin', authKind: 'session' }, ctx),
 }))
 
@@ -23,6 +39,7 @@ beforeEach(() => {
     doc: { id: 'growth-project', data: () => ({ orgId: 'pib-platform-owner' }) },
     projectAccess: { role: 'owner', source: 'owner_org', canViewInternal: true },
   })
+  mockTaskGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Approved review task' }) })
   mockConvertApprovedBusinessInsightReviewTask.mockResolvedValue({
     ok: true,
     created: true,
@@ -43,7 +60,10 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/business-insight-acti
     const body = await res.json()
 
     expect(res.status).toBe(201)
-    expect(mockGetProjectForUser).toHaveBeenCalledWith('growth-project', expect.objectContaining({ uid: 'admin-1' }))
+    expect(mockGetProjectForUser).toHaveBeenCalledWith(
+      'growth-project', expect.objectContaining({ uid: 'admin-1' }), undefined,
+      { action: 'project.write', item: 'review-task-1' },
+    )
     expect(mockConvertApprovedBusinessInsightReviewTask).toHaveBeenCalledWith({
       projectId: 'growth-project',
       reviewTaskId: 'review-task-1',

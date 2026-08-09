@@ -201,11 +201,14 @@ export interface PartnerAuditEventInput {
  * JSON of every audit field except id/hash/createdAt. Stable for equal events.
  */
 export function hashPartnerAuditEvent(input: PartnerAuditEventInput): string {
-  const { id: _id, hash: _hash, createdAt: _createdAt, ...rest } = input as PartnerAuditEventInput & {
+  const rest = { ...input } as PartnerAuditEventInput & {
     id?: string
     hash?: string
     createdAt?: unknown
   }
+  delete rest.id
+  delete rest.hash
+  delete rest.createdAt
   const canonical = JSON.stringify(Object.fromEntries(
     Object.entries(rest).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
   ))
@@ -221,8 +224,8 @@ export interface CrossOrgPolicyStore {
   loadPartnerLink(partnerLinkId: string): Promise<PartnerLink | null>
   /** Both mirrored businessRelationships rows carrying the partnerLinkId. */
   loadRelationships(partnerLinkId: string): Promise<Array<Record<string, unknown>>>
-  /** Active directional scope agreement where granteeOrgId is the actor org. */
-  loadScopeAgreement(partnerLinkId: string, granteeOrgId: string): Promise<PartnerScopeAgreement | null>
+  /** Directional scope agreement; when scopeAgreementId is supplied it must match the grant's immutable provenance. */
+  loadScopeAgreement(partnerLinkId: string, granteeOrgId: string, scopeAgreementId?: string): Promise<PartnerScopeAgreement | null>
   /** Active resource grant for the resource that covers the actor org/user/team. */
   loadResourceGrant(input: {
     resourceType: string
@@ -277,7 +280,15 @@ export class InMemoryCrossOrgPolicyStore implements CrossOrgPolicyStore {
     return this.relationships.filter((row) => row.partnerLinkId === partnerLinkId)
   }
 
-  async loadScopeAgreement(partnerLinkId: string, granteeOrgId: string): Promise<PartnerScopeAgreement | null> {
+  async loadScopeAgreement(partnerLinkId: string, granteeOrgId: string, scopeAgreementId?: string): Promise<PartnerScopeAgreement | null> {
+    if (scopeAgreementId) {
+      const agreement = this.scopeAgreements.get(scopeAgreementId) ?? null
+      return agreement
+        && agreement.partnerLinkId === partnerLinkId
+        && agreement.direction.granteeOrgId === granteeOrgId
+        ? agreement
+        : null
+    }
     const matches = [...this.scopeAgreements.values()].filter(
       (agreement) =>
         agreement.partnerLinkId === partnerLinkId &&
@@ -344,7 +355,7 @@ export class FirestoreCrossOrgPolicyStore implements CrossOrgPolicyStore {
     return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
   }
 
-  async loadScopeAgreement(partnerLinkId: string, granteeOrgId: string): Promise<PartnerScopeAgreement | null> {
+  async loadScopeAgreement(partnerLinkId: string, granteeOrgId: string, scopeAgreementId?: string): Promise<PartnerScopeAgreement | null> {
     const snap = await adminDb
       .collection('partnerScopeAgreements')
       .where('partnerLinkId', '==', partnerLinkId)
@@ -352,11 +363,11 @@ export class FirestoreCrossOrgPolicyStore implements CrossOrgPolicyStore {
       .get()
     const matches = snap.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }) as PartnerScopeAgreement)
-      .filter(
-        (agreement) =>
-          agreement.direction?.granteeOrgId === granteeOrgId && agreement.status === 'active',
-      )
-    return matches.sort((a, b) => (b.version ?? 0) - (a.version ?? 0))[0] ?? null
+      .filter((agreement) => agreement.direction?.granteeOrgId === granteeOrgId)
+    if (scopeAgreementId) return matches.find((agreement) => agreement.id === scopeAgreementId) ?? null
+    return matches
+      .filter((agreement) => agreement.status === 'active')
+      .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))[0] ?? null
   }
 
   async loadResourceGrant(input: {
@@ -470,13 +481,6 @@ export class CrossOrgPolicyService {
     if (input.partnerLinkId) {
       link = await this.store.loadPartnerLink(input.partnerLinkId)
       relationships = await this.store.loadRelationships(input.partnerLinkId)
-      if (input.requiredCapability) {
-        scopeAgreement = await this.store.loadScopeAgreement(input.partnerLinkId, orgId)
-        if (scopeAgreement) {
-          const expiry = evaluateExpiry({ status: scopeAgreement.status, expiresAt: scopeAgreement.expiresAt, now })
-          if (expiry.expired) scopeAgreement = { ...scopeAgreement, status: 'expired' }
-        }
-      }
       grant = await this.store.loadResourceGrant({
         resourceType: input.resourceType,
         resourceId: input.resourceId,
@@ -487,6 +491,13 @@ export class CrossOrgPolicyService {
       if (grant) {
         const expiry = evaluateExpiry({ status: grant.status, expiresAt: grant.expiresAt, now })
         if (expiry.expired) grant = { ...grant, status: 'expired' }
+      }
+      if (input.requiredCapability) {
+        scopeAgreement = await this.store.loadScopeAgreement(input.partnerLinkId, orgId, grant?.scopeAgreementId)
+        if (scopeAgreement) {
+          const expiry = evaluateExpiry({ status: scopeAgreement.status, expiresAt: scopeAgreement.expiresAt, now })
+          if (expiry.expired) scopeAgreement = { ...scopeAgreement, status: 'expired' }
+        }
       }
     }
 

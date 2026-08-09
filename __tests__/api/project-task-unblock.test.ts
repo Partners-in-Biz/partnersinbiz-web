@@ -8,7 +8,7 @@ const mockGetAll = jest.fn()
 const mockCollection = jest.fn()
 const mockGetProjectForUser = jest.fn()
 const mockLogActivity = jest.fn()
-const mockPlanningMutationBlocker = jest.fn((_project: Record<string, unknown>): null | { code: 'planning_discovery_required'; message: string; revision: number } => null)
+const mockPlanningMutationBlocker = jest.fn((): null | { code: 'planning_discovery_required'; message: string; revision: number } => null)
 let mockUser: MockUser = { uid: 'user-1', role: 'admin' }
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -125,6 +125,9 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
 
     expect(res.status).toBe(200)
     expect(body).toEqual({ success: true, data: { id: 'task-1', requeued: true, commentId: 'comment-1' } })
+    expect(mockGetProjectForUser).toHaveBeenCalledWith(
+      'project-1', mockUser, undefined, { action: 'project.write', item: 'task-1' },
+    )
     expect(taskUpdate).toHaveBeenCalledWith(expect.objectContaining({
       columnId: 'todo',
       agentStatus: 'pending',

@@ -385,8 +385,12 @@ export async function resolveProjectAccessForUser(
         if (orgAccess.status === 'active') {
           const role = normalizeProjectRole(orgAccess.role)
           const ownerOrgId = projectOwnerOrgId(projectData)
-          const partnerLinkId = cleanString(orgAccess.partnerLinkId)
-          if (partnerLinkId) {
+          // A foreign projectOrganizations row is only a projection of its
+          // PartnerResourceGrant. Neither record-scope aliases nor direct
+          // membership can bypass a missing/revoked canonical grant.
+          if (scopedOrgId !== ownerOrgId) {
+            const partnerLinkId = cleanString(orgAccess.partnerLinkId)
+            if (!partnerLinkId) return null
             const grantAccess = await resolveProjectCrossOrgGrant({
               projectId,
               ownerOrgId,
@@ -404,10 +408,6 @@ export async function resolveProjectAccessForUser(
               crossOrgGrant: grantAccess.grant,
             }
           }
-          // A local owner-org projection can continue through normal member
-          // record-scope policy. Foreign projections never fall back to legacy
-          // aliases, even for owned_or_linked members.
-          if (scopedOrgId !== ownerOrgId) return null
           if (ownedOrLinkedOnly) return legacyProjectAccessForUser(user, projectData, scopedOrgId)
           return {
             role,
@@ -418,51 +418,58 @@ export async function resolveProjectAccessForUser(
         return null
       }
     }
-    if (foreignMemberOrgId === scopedOrgId) return null
+    // Legacy compatibility applies only in the immutable owner organisation;
+    // allowing it for a foreign org resurrects tombstoned partner projections.
+    if (scopedOrgId !== projectOwnerOrgId(projectData) || foreignMemberOrgId === scopedOrgId) return null
     return legacyProjectAccessForUser(user, projectData, scopedOrgId)
   }
 
+  const ownerOrgId = projectOwnerOrgId(projectData)
   for (const orgId of userOrgIds(user)) {
     const orgSnap = await adminDb.collection('projectOrganizations').doc(projectOrganizationDocId(projectId, orgId)).get()
-    if (orgSnap.exists) {
-      const orgAccess = orgSnap.data() ?? {}
-      if (orgAccess.status !== 'active') continue
-      if (ownedOrLinkedOnly) {
-        const legacy = legacyProjectAccessForUser(user, projectData, orgId)
-        if (legacy) return legacy
-        continue
-      }
-      const role = normalizeProjectRole(orgAccess.role)
+    if (!orgSnap.exists) continue
+    const orgAccess = orgSnap.data() ?? {}
+    if (orgAccess.status !== 'active') continue
+    const role = normalizeProjectRole(orgAccess.role)
+
+    if (orgId !== ownerOrgId) {
       const partnerLinkId = cleanString(orgAccess.partnerLinkId)
-      if (partnerLinkId) {
-        const grantAccess = await resolveProjectCrossOrgGrant({
-          projectId,
-          ownerOrgId: projectOwnerOrgId(projectData),
-          partnerLinkId,
-          actor: { uid: user.uid, orgId },
-          projectRole: role,
-          action: crossOrgRequirement.action ?? 'project.read',
-          item: crossOrgRequirement.item,
-        })
-        if (!grantAccess.allowed) continue
-        return {
-          role,
-          source: 'project_organization',
-          canViewInternal: false,
-          crossOrgGrant: grantAccess.grant,
-        }
-      }
+      if (!partnerLinkId) continue
+      const grantAccess = await resolveProjectCrossOrgGrant({
+        projectId,
+        ownerOrgId,
+        partnerLinkId,
+        actor: { uid: user.uid, orgId },
+        projectRole: role,
+        action: crossOrgRequirement.action ?? 'project.read',
+        item: crossOrgRequirement.item,
+      })
+      if (!grantAccess.allowed) continue
       return {
         role,
         source: 'project_organization',
         canViewInternal: false,
+        crossOrgGrant: grantAccess.grant,
       }
     }
-    if (orgId === foreignMemberOrgId) continue
-    const legacy = legacyProjectAccessForUser(user, projectData, orgId)
-    if (legacy) return legacy
+
+    if (ownedOrLinkedOnly) {
+      const legacy = legacyProjectAccessForUser(user, projectData, orgId)
+      if (legacy) return legacy
+      continue
+    }
+    return {
+      role,
+      source: 'project_organization',
+      canViewInternal: false,
+    }
   }
 
+  // Compatibility aliases remain valid only for the owner organisation. A
+  // foreign clientOrgId / allowedUserId is never cross-org authority.
+  if (ownerOrgId && canAccessOrg(user, ownerOrgId)) {
+    return legacyProjectAccessForUser(user, projectData, ownerOrgId)
+  }
   return null
 }
 

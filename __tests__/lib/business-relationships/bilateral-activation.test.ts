@@ -32,7 +32,7 @@ jest.mock('@/lib/crm/audit', () => ({
 import { adminDb } from '@/lib/firebase/admin'
 import { createBusinessRelationship, ensureBusinessRelationship, updateBusinessRelationship } from '@/lib/business-relationships/store'
 import { sharePartnerRecord } from '@/lib/partner-links/shares'
-import { grantPartnerProjectAccess, revokePartnerProjectAccess, postPartnerMessage, loadPartnerOverview } from '@/lib/partner-links/collaboration'
+import { grantPartnerProjectAccess, revokePartnerProjectAccess, revokeProjectAccessForPartnerLink, postPartnerMessage, loadPartnerOverview } from '@/lib/partner-links/collaboration'
 import { loadLiveBilateralLink } from '@/lib/partner-links/link-evidence'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
@@ -559,6 +559,24 @@ describe('accepted bilateral links keep working', () => {
     await grantPartnerProjectAccess({ ownerOrgId: 'org-a', relationshipId: 'rel-a', projectId: 'proj-1', actor })
 
     await revokePartnerProjectAccess({ ownerOrgId: 'org-a', projectId: 'proj-1', partnerOrgId: 'org-b', actor })
+
+    expect(db.rows('projectOrganizations')[0]?.data.status).toBe('revoked')
+    expect(db.rows('partnerResourceGrants')[0]?.data.status).toBe('revoked')
+  })
+
+  it('revokes matching canonical project grants when a partner link is unlinked', async () => {
+    db = createMemoryDb({
+      projectOrganizations: [{ id: 'proj-1_org-b', data: {
+        projectId: 'proj-1', orgId: 'org-b', ownerOrgId: 'org-a', partnerLinkId: 'link-unlink', status: 'active',
+      } }],
+      partnerResourceGrants: [{ id: 'proj-1_org-b', data: {
+        ownerOrgId: 'org-a', resourceType: 'project', resourceId: 'proj-1', partnerLinkId: 'link-unlink', status: 'active',
+        grantee: { orgIds: ['org-b'], userIds: [], teamIds: [] }, actions: ['project.read'],
+      } }],
+    })
+    mockCollection.mockImplementation(db.collection)
+
+    await revokeProjectAccessForPartnerLink({ partnerLinkId: 'link-unlink', actor })
 
     expect(db.rows('projectOrganizations')[0]?.data.status).toBe('revoked')
     expect(db.rows('partnerResourceGrants')[0]?.data.status).toBe('revoked')
