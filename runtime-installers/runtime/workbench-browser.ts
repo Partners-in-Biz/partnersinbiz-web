@@ -972,7 +972,7 @@ async function extractAndPost(sessionId: string, entry: BrowserEntry): Promise<v
   const truncated = value?.truncated === true
   const computedStyles = record(value?.computedStyles)
     ? Object.fromEntries(
-        Object.entries(value.computedStyles as Record<string, unknown>)
+        Object.entries(value?.computedStyles as Record<string, unknown>)
           .slice(0, EXTRACT_COMPUTED_STYLES_MAX)
           .map(([path, styles]) => {
             const rec = record(styles)
