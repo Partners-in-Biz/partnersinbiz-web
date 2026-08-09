@@ -23,7 +23,7 @@ export function selectSkillsForRequest(
   limit = 3,
 ): ProgressiveSkillMeta[] {
   const q = query.trim().toLowerCase()
-  if (!q) return catalog.slice(0, limit)
+  if (!q) return []
   const scored = catalog.map((skill) => {
     const hay = [skill.name, skill.description, ...(skill.tags || []), skill.id].join(' ').toLowerCase()
     let score = 0
@@ -54,14 +54,15 @@ export function loadSkillBody(
 export function progressiveSkillsDispatchBlock(
   catalog: ProgressiveSkillMeta[],
 ): string {
-  const ready = catalog.filter((s) => s.loaded && s.body)
-  const metadata = catalog.map((s) => `- ${s.id}: ${s.description.slice(0, 280)}`)
+  const metadata = catalog
+    .slice(0, 32)
+    .map((s) => `- ${s.id}: ${s.description.slice(0, 180)}`)
+  const omitted = catalog.length > 32 ? `\n[${catalog.length - 32} additional skills omitted; use skill search if needed]` : ''
   return [
     '[Hermes skills — on demand]',
     'The catalogue below is metadata only. Use the scoped skill_view tool for one allowed skill when operational detail is necessary; do not assume a body is preloaded.',
     ...metadata,
-    ready.length > 0 ? '[Explicitly loaded skill bodies]' : '',
-    ...ready.map((s) => `## ${s.name} (${s.id})\n${s.body}`),
+    omitted,
     '',
   ].filter(Boolean).join('\n')
 }

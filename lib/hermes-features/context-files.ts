@@ -65,15 +65,20 @@ export function selectContextFilesForPrompt(
 
   const seenContent = new Set<string>()
   const selected: DiscoveredContextFile[] = []
+  const suffix = '\n…[context budget truncated]'
+  const fit = (value: string, remaining: number): string => {
+    if (remaining <= 0) return ''
+    if (value.length <= remaining) return value
+    if (remaining <= suffix.length) return ''
+    return `${value.slice(0, remaining - suffix.length).trimEnd()}${suffix}`
+  }
   let used = 0
   for (const file of ordered) {
     const normalized = file.content.trim()
     if (!normalized || seenContent.has(normalized)) continue
     if (used >= maxChars) break
     const remaining = maxChars - used
-    const content = normalized.length > remaining
-      ? `${normalized.slice(0, Math.max(0, remaining - 24)).trimEnd()}\n…[context budget truncated]`
-      : normalized
+    const content = fit(normalized, remaining)
     if (!content) break
     selected.push({ ...file, content })
     seenContent.add(normalized)
