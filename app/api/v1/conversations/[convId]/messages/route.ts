@@ -1118,7 +1118,7 @@ export const POST = withAuth(
         uid: user.uid,
         ...(authorEmail ? { email: authorEmail } : {}),
       })
-      const workspaceContext = buildWorkspaceContext(conversation)
+      const workspaceContext = buildWorkspaceContext(conversation, promptIntent.profile)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
       const projectChatOrchestrationContext = promptIntent.needsProjectOrchestration
         ? buildProjectChatOrchestrationContext({
@@ -1187,6 +1187,7 @@ export const POST = withAuth(
           skillBodies: progressive.bodies,
           skillCatalog: progressive.catalog,
           autoCheckpoint: promptIntent.needsWorkspaceWriteContext,
+          includeWorkspaceInstructions: promptIntent.needsWorkspaceWriteContext,
         })
         hermesFeaturesContext = hermesFeaturesDispatch.block
           ? `\n\n${hermesFeaturesDispatch.block}\n`

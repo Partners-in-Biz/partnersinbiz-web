@@ -32,4 +32,10 @@ describe('prompt budget and intent profiles', () => {
     expect(intent.needsMailbox).toBe(true)
     expect(intent.needsStudio).toBe(false)
   })
+
+  it('does not promote a workspace status question to execution solely because it contains project language', () => {
+    const intent = classifyMessagesPromptIntent({ content: 'What is the status of the project?' })
+    expect(intent.profile).toBe('read_only')
+    expect(intent.needsWorkspaceWriteContext).toBe(false)
+  })
 })
