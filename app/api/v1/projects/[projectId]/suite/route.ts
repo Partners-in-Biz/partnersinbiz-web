@@ -571,26 +571,31 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (isPlaybookRun && isAgentActor && user.orgId && explicitOrgId !== user.orgId) {
     return apiError('Agent organisation scope does not match X-Org-Id', 403)
   }
-  const access = await getProjectForUser(
-    projectId,
-    user,
-    isPlaybookRun ? explicitOrgId || undefined : undefined,
-    { action: 'project.write' },
-  )
-  if (!access.ok) return apiError(access.error, access.status)
-  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
-    return apiError('Project contributor access is required', 403)
-  }
-  if (!grantAllowsSuiteAction(access.projectAccess, 'project.write')) {
-    return apiError('Project write is not granted for this cross-organisation share', 403)
-  }
-
   const type = cleanString(body.type) as SuiteType
   const action = cleanString(body.action)
   const collectionName = COLLECTION_BY_TYPE[type]
   if (!collectionName) {
     return apiError('type must be one of: milestone, approval, risk, decision, baseline, playbook, automation, permission, audit, notification, capacity, revenue', 400)
   }
+  const playbookId = isPlaybookRun ? cleanString(body.id) : undefined
+  if (isPlaybookRun && !playbookId) return apiError('id is required to run a playbook', 400)
+  const access = await getProjectForUser(
+    projectId,
+    user,
+    isPlaybookRun ? explicitOrgId || undefined : undefined,
+    { action: 'project.write', item: playbookId },
+  )
+  if (!access.ok) return apiError(access.error, access.status)
+  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
+    return apiError('Project contributor access is required', 403)
+  }
+  if (!grantAllowsSuiteAction(access.projectAccess, 'project.write', playbookId)) {
+    return apiError('Project write is not granted for this cross-organisation share', 403)
+  }
+  if (!isPlaybookRun && (access.projectAccess?.crossOrgGrant?.items.length ?? 0) > 0) {
+    return apiError('Item-scoped cross-organisation grants cannot create unscoped project suite records', 403)
+  }
+
   const planningSensitive = suiteMutationRequiresPlanning(type)
 
   const requiredPermission = permissionForSuiteType(type)

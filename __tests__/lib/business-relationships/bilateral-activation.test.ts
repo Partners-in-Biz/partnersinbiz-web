@@ -16,7 +16,7 @@
  */
 
 jest.mock('@/lib/firebase/admin', () => ({
-  adminDb: { collection: jest.fn() },
+  adminDb: { collection: jest.fn(), runTransaction: jest.fn() },
 }))
 
 jest.mock('firebase-admin/firestore', () => ({
@@ -37,6 +37,7 @@ import { loadLiveBilateralLink } from '@/lib/partner-links/link-evidence'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
 const mockCollection = adminDb.collection as jest.Mock
+const mockRunTransaction = adminDb.runTransaction as jest.Mock
 
 type Row = { id: string; data: Record<string, unknown> }
 
@@ -102,7 +103,19 @@ function createMemoryDb(seed: Record<string, Row[]> = {}) {
     }
   }
 
-  return { collection, store, rows: (name: string) => store[name] ?? [] }
+  let transactionCalls = 0
+  const runTransaction = async <T>(callback: (tx: {
+    set: (ref: ReturnType<typeof refFor>, data: Record<string, unknown>, opts?: { merge?: boolean }) => Promise<void>
+    update: (ref: ReturnType<typeof refFor>, data: Record<string, unknown>) => Promise<void>
+  }) => Promise<T>): Promise<T> => {
+    transactionCalls += 1
+    return callback({
+      set: (ref, data, opts) => ref.set(data, opts),
+      update: (ref, data) => ref.update(data),
+    })
+  }
+
+  return { collection, runTransaction, store, rows: (name: string) => store[name] ?? [], transactionCalls: () => transactionCalls }
 }
 
 const actor: MemberRef = { uid: 'user:tester', displayName: 'Tester', kind: 'human' }
@@ -130,6 +143,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   db = createMemoryDb()
   mockCollection.mockImplementation(db.collection)
+  mockRunTransaction.mockImplementation((callback) => db.runTransaction(callback))
 })
 
 describe('generic business relationship creation is inert metadata', () => {
@@ -493,6 +507,7 @@ describe('accepted bilateral links keep working', () => {
       scopeAgreementId: 'scope-z',
       approvalBasis: { type: 'scope_agreement', refId: 'scope-z' },
     }))
+    expect(mockRunTransaction).toHaveBeenCalledTimes(1)
   })
 
   it('requires normal internal project-manager authority before granting cross-org access', async () => {

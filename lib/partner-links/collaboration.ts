@@ -170,9 +170,9 @@ export async function grantPartnerProjectAccess(input: {
   const docId = projectOrganizationDocId(input.projectId, partnerOrgId)
   const grantId = `${input.projectId}_${partnerOrgId}`
   const now = FieldValue.serverTimestamp()
-  // projectOrganizations remains a UI/listing projection. The canonical
-  // authority is a resource grant carrying the bilateral-link provenance.
-  await adminDb.collection(PARTNER_RESOURCE_GRANTS_COLLECTION).doc(grantId).set(stripUndefined({
+  const grantRef = adminDb.collection(PARTNER_RESOURCE_GRANTS_COLLECTION).doc(grantId)
+  const projectionRef = adminDb.collection(PROJECT_ORGS_COLLECTION).doc(docId)
+  const grantData = stripUndefined({
     ownerOrgId: input.ownerOrgId,
     resourceType: 'project',
     resourceId: input.projectId,
@@ -192,8 +192,8 @@ export async function grantPartnerProjectAccess(input: {
     schemaVersion: CROSS_ORG_SCHEMA_VERSION,
     createdAt: now,
     updatedAt: now,
-  }), { merge: true })
-  await adminDb.collection(PROJECT_ORGS_COLLECTION).doc(docId).set(stripUndefined({
+  })
+  const projectionData = stripUndefined({
     projectId: input.projectId,
     orgId: partnerOrgId,
     ownerOrgId: input.ownerOrgId,
@@ -206,7 +206,13 @@ export async function grantPartnerProjectAccess(input: {
     grantedByRef: input.actor,
     updatedAt: now,
     createdAt: now,
-  }), { merge: true })
+  })
+  // The grant and listing projection have one lifecycle. A transaction prevents
+  // partial materialisation that could otherwise leave stale grant authority.
+  await adminDb.runTransaction(async (tx) => {
+    tx.set(grantRef, grantData, { merge: true })
+    tx.set(projectionRef, projectionData, { merge: true })
+  })
 
   await recordCrmAuditEvent({
     orgId: input.ownerOrgId,
@@ -262,10 +268,11 @@ export async function revokePartnerProjectAccess(input: {
 
   const now = FieldValue.serverTimestamp()
   const grantRef = adminDb.collection(PARTNER_RESOURCE_GRANTS_COLLECTION).doc(`${input.projectId}_${input.partnerOrgId}`)
-  await Promise.all([
-    ref.set({ status: 'revoked', revokedAt: now, revokedByRef: input.actor, updatedAt: now }, { merge: true }),
-    grantRef.set({ status: 'revoked', revokedAt: now, revokedByRef: input.actor, updatedAt: now }, { merge: true }),
-  ])
+  const revocation = { status: 'revoked', revokedAt: now, revokedByRef: input.actor, updatedAt: now }
+  await adminDb.runTransaction(async (tx) => {
+    tx.set(ref, revocation, { merge: true })
+    tx.set(grantRef, revocation, { merge: true })
+  })
 
   await recordCrmAuditEvent({
     orgId: input.ownerOrgId,

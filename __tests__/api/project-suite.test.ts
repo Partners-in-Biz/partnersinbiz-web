@@ -290,6 +290,46 @@ describe('project suite API', () => {
     expect(body.data.reports.revenue.trackedAmount).toBe(100)
   })
 
+  it('denies an item-scoped cross-org grant from creating an unscoped suite record', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: { id: 'project-1', data: () => ({ id: 'project-1', orgId: 'owner-org', ownerOrgId: 'owner-org' }) },
+      projectAccess: {
+        role: 'manager', source: 'project_organization', canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-project-1', actions: ['project.write'], items: ['milestone-existing'] },
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'milestone', title: 'Unscoped external milestone' }),
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockMilestoneAdd).not.toHaveBeenCalled()
+  })
+
+  it('denies a playbook run outside an item-scoped cross-org grant', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: { id: 'project-1', data: () => ({ id: 'project-1', orgId: 'owner-org', ownerOrgId: 'owner-org' }) },
+      projectAccess: {
+        role: 'manager', source: 'project_organization', canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-project-1', actions: ['project.write'], items: ['playbook-other'] },
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'playbook', action: 'run', id: 'playbook-1' }),
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockRunProjectPlaybookTemplate).not.toHaveBeenCalled()
+  })
+
   it('denies a cross-org contributor a Project Suite mutation without project.write', async () => {
     mockGetProjectForUser.mockResolvedValueOnce({
       ok: true,
