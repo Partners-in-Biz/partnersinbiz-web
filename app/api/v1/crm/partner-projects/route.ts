@@ -12,9 +12,15 @@ export const dynamic = 'force-dynamic'
 
 /**
  * GET    projects shared out + shared with me
- * POST   { relationshipId, projectId, role? }  grant partner access
+ * POST   { relationshipId, projectId, role?, includePartnerOrganization?, granteeUserIds?, granteeTeamIds? }
  * DELETE ?projectId=…&partnerOrgId=…           revoke it
  */
+function cleanStringArray(value: unknown): string[] | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value)) return []
+  return [...new Set(value.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean))]
+}
+
 export const GET = withCrmAuth('viewer', async (_req, ctx: CrmAuthContext) => {
   try {
     return apiSuccess(await listPartnerProjects(ctx.orgId))
@@ -30,12 +36,22 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx: CrmAuthC
     const projectId = cleanString(body.projectId)
     if (!relationshipId) return apiError('relationshipId is required', 400)
     if (!projectId) return apiError('projectId is required', 400)
+    if (body.granteeUserIds !== undefined && !Array.isArray(body.granteeUserIds)) return apiError('granteeUserIds must be an array', 400)
+    if (body.granteeTeamIds !== undefined && !Array.isArray(body.granteeTeamIds)) return apiError('granteeTeamIds must be an array', 400)
+    if (body.includePartnerOrganization !== undefined && typeof body.includePartnerOrganization !== 'boolean') {
+      return apiError('includePartnerOrganization must be a boolean', 400)
+    }
 
     const access = await grantPartnerProjectAccess({
       ownerOrgId: ctx.orgId,
       relationshipId,
       projectId,
       role: cleanString(body.role) || undefined,
+      grantee: {
+        includePartnerOrganization: body.includePartnerOrganization !== false,
+        userIds: cleanStringArray(body.granteeUserIds),
+        teamIds: cleanStringArray(body.granteeTeamIds),
+      },
       actor: ctx.actor,
     })
     return apiSuccess({ access }, 201)

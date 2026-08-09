@@ -129,6 +129,9 @@ describe('project task planning mutation atomicity', () => {
     const res = await POST(request('POST', { title: 'Planned task' }), collectionCtx)
 
     expect(res.status).toBe(201)
+    expect(mockGetProjectForUser).toHaveBeenCalledWith(
+      'project-1', user, undefined, { action: 'project.write' },
+    )
     expect(mockRunTransaction).toHaveBeenCalledTimes(1)
     expect(mockTransactionGet).toHaveBeenCalledWith(projectRef)
     expect(mockTransactionSet).toHaveBeenCalledWith(taskRef, expect.objectContaining({ title: 'Planned task' }))

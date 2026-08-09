@@ -237,6 +237,8 @@ export function filterProjectItemsForAccess<T extends object>(
 
   return items.filter((item) => {
     const data = item as Record<string, unknown>
+    const grantItems = projectAccess?.crossOrgGrant?.items ?? []
+    if (grantItems.length > 0 && !grantItems.includes(cleanString(data.id))) return false
     const visibility = cleanString(data.visibility) || (data.internalOnly === true ? 'internal' : 'project')
     const allowedUserIds = cleanStringArray(data.allowedUserIds)
     const allowedOrgIds = cleanStringArray(data.allowedOrgIds)
@@ -350,16 +352,25 @@ export async function resolveProjectAccessForUser(
   const scopedOrgId = cleanString(requestedOrgId)
   const ownedOrLinkedOnly = projectsScopeIsOwnedOrLinked(user)
   const memberSnap = await adminDb.collection('projectMembers').doc(projectMemberDocId(projectId, user.uid)).get()
+  let foreignMemberOrgId = ''
   if (memberSnap.exists) {
     const member = memberSnap.data() ?? {}
     const memberOrgId = cleanString(member.orgId)
+    const ownerOrgId = projectOwnerOrgId(projectData)
     if (member.status === 'active' && (!scopedOrgId || memberOrgId === scopedOrgId)) {
-      const role = normalizeProjectRole(member.role)
-      const ownerOrgId = projectOwnerOrgId(projectData)
-      return {
-        role,
-        source: 'project_member',
-        canViewInternal: member.memberType === 'internal' || (ownerOrgId.length > 0 && memberOrgId === ownerOrgId),
+      // A foreign projectMembers row is a presentation/assignment projection,
+      // never an independent cross-org authority. Continue into the canonical
+      // projectOrganizations + PartnerResourceGrant path below so named
+      // external users cannot bypass link, scope, expiry, or revocation.
+      if (memberOrgId && memberOrgId !== ownerOrgId) {
+        foreignMemberOrgId = memberOrgId
+      } else {
+        const role = normalizeProjectRole(member.role)
+        return {
+          role,
+          source: 'project_member',
+          canViewInternal: member.memberType === 'internal' || (ownerOrgId.length > 0 && memberOrgId === ownerOrgId),
+        }
       }
     }
   }
@@ -372,16 +383,13 @@ export async function resolveProjectAccessForUser(
       if (orgSnap.exists) {
         const orgAccess = orgSnap.data() ?? {}
         if (orgAccess.status === 'active') {
-          // Org-wide share must not bypass owned_or_linked personal book of work.
-          if (ownedOrLinkedOnly) {
-            return legacyProjectAccessForUser(user, projectData, scopedOrgId)
-          }
           const role = normalizeProjectRole(orgAccess.role)
+          const ownerOrgId = projectOwnerOrgId(projectData)
           const partnerLinkId = cleanString(orgAccess.partnerLinkId)
           if (partnerLinkId) {
             const grantAccess = await resolveProjectCrossOrgGrant({
               projectId,
-              ownerOrgId: projectOwnerOrgId(projectData),
+              ownerOrgId,
               partnerLinkId,
               actor: { uid: user.uid, orgId: scopedOrgId },
               projectRole: role,
@@ -396,7 +404,11 @@ export async function resolveProjectAccessForUser(
               crossOrgGrant: grantAccess.grant,
             }
           }
-          if (scopedOrgId !== projectOwnerOrgId(projectData)) return null
+          // A local owner-org projection can continue through normal member
+          // record-scope policy. Foreign projections never fall back to legacy
+          // aliases, even for owned_or_linked members.
+          if (scopedOrgId !== ownerOrgId) return null
+          if (ownedOrLinkedOnly) return legacyProjectAccessForUser(user, projectData, scopedOrgId)
           return {
             role,
             source: 'project_organization',
@@ -406,6 +418,7 @@ export async function resolveProjectAccessForUser(
         return null
       }
     }
+    if (foreignMemberOrgId === scopedOrgId) return null
     return legacyProjectAccessForUser(user, projectData, scopedOrgId)
   }
 
@@ -445,6 +458,7 @@ export async function resolveProjectAccessForUser(
         canViewInternal: false,
       }
     }
+    if (orgId === foreignMemberOrgId) continue
     const legacy = legacyProjectAccessForUser(user, projectData, orgId)
     if (legacy) return legacy
   }

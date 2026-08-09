@@ -32,7 +32,7 @@ jest.mock('@/lib/crm/audit', () => ({
 import { adminDb } from '@/lib/firebase/admin'
 import { createBusinessRelationship, ensureBusinessRelationship, updateBusinessRelationship } from '@/lib/business-relationships/store'
 import { sharePartnerRecord } from '@/lib/partner-links/shares'
-import { grantPartnerProjectAccess, postPartnerMessage, loadPartnerOverview } from '@/lib/partner-links/collaboration'
+import { grantPartnerProjectAccess, revokePartnerProjectAccess, postPartnerMessage, loadPartnerOverview } from '@/lib/partner-links/collaboration'
 import { loadLiveBilateralLink } from '@/lib/partner-links/link-evidence'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
@@ -452,11 +452,19 @@ describe('accepted bilateral links keep working', () => {
 
   it('grantPartnerProjectAccess works when both sides are live', async () => {
     db = createMemoryDb({
+      partnerLinks: [{ id: 'link-z', data: { partnerLinkId: 'link-z', orgA: 'org-a', orgB: 'org-b', status: 'active' } }],
+      partnerScopeAgreements: [{ id: 'scope-z', data: {
+        partnerLinkId: 'link-z', status: 'active', capabilities: ['projects'],
+        direction: { grantorOrgId: 'org-a', granteeOrgId: 'org-b' },
+        acceptance: { grantor: { byRef: actor }, grantee: { byRef: actor } },
+      } }],
+      projectMembers: [{ id: 'proj-1_user:tester', data: { projectId: 'proj-1', uid: 'user:tester', orgId: 'org-a', role: 'manager', status: 'active', memberType: 'internal' } }],
       businessRelationships: [
         relationRow({ id: 'rel-a', partnerLinkId: 'link-z', status: 'active', sharedCapabilities: ['projects'] }),
         relationRow({ id: 'rel-b', partnerLinkId: 'link-z', sourceOrgId: 'org-b', targetOrgId: 'org-a', status: 'active', sharedCapabilities: ['projects'] }),
       ],
-      projects: [{ id: 'proj-1', data: { orgId: 'org-a', name: 'Website', deleted: false } }],
+      projects: [{ id: 'proj-1', data: { ownerOrgId: 'org-a', orgId: 'org-a', name: 'Website', deleted: false } }],
+      projectMembers: [{ id: 'proj-1_user:tester', data: { uid: 'user:tester', orgId: 'org-a', role: 'manager', status: 'active' } }],
     })
     mockCollection.mockImplementation(db.collection)
 
@@ -481,10 +489,107 @@ describe('accepted bilateral links keep working', () => {
       partnerLinkId: 'link-z',
       grantee: expect.objectContaining({ orgIds: ['org-b'] }),
       role: 'contributor',
-      actions: ['project.read'],
+      actions: ['project.read', 'project.write'],
       status: 'active',
-      approvalBasis: { type: 'partner_link', refId: 'link-z' },
+      scopeAgreementId: 'scope-z',
+      approvalBasis: { type: 'scope_agreement', refId: 'scope-z' },
     }))
+  })
+
+  it('requires normal internal project-manager authority before granting cross-org access', async () => {
+    db = createMemoryDb({
+      partnerLinks: [{ id: 'link-authority', data: { partnerLinkId: 'link-authority', orgA: 'org-a', orgB: 'org-b', status: 'active' } }],
+      partnerScopeAgreements: [{ id: 'scope-authority', data: {
+        partnerLinkId: 'link-authority', status: 'active', capabilities: ['projects'],
+        direction: { grantorOrgId: 'org-a', granteeOrgId: 'org-b' },
+        acceptance: { grantor: { byRef: actor }, grantee: { byRef: actor } },
+      } }],
+      projects: [{ id: 'proj-1', data: { ownerOrgId: 'org-a', orgId: 'legacy-org', name: 'Website', deleted: false } }],
+      businessRelationships: [
+        relationRow({ id: 'rel-a', partnerLinkId: 'link-authority', status: 'active', sharedCapabilities: ['projects'] }),
+        relationRow({ id: 'rel-b', partnerLinkId: 'link-authority', sourceOrgId: 'org-b', targetOrgId: 'org-a', status: 'active', sharedCapabilities: ['projects'] }),
+      ],
+    })
+    mockCollection.mockImplementation(db.collection)
+
+    await expect(grantPartnerProjectAccess({
+      ownerOrgId: 'org-a', relationshipId: 'rel-a', projectId: 'proj-1', actor,
+    })).rejects.toThrow(/project manager access/i)
+    expect(db.rows('partnerResourceGrants')).toHaveLength(0)
+  })
+
+  it('does not materialize a project projection or grant without an active bilateral project scope agreement', async () => {
+    db = createMemoryDb({
+      partnerLinks: [{ id: 'link-no-scope', data: { partnerLinkId: 'link-no-scope', orgA: 'org-a', orgB: 'org-b', status: 'active' } }],
+      businessRelationships: [
+        relationRow({ id: 'rel-a', partnerLinkId: 'link-no-scope', status: 'active', sharedCapabilities: ['projects'] }),
+        relationRow({ id: 'rel-b', partnerLinkId: 'link-no-scope', sourceOrgId: 'org-b', targetOrgId: 'org-a', status: 'active', sharedCapabilities: ['projects'] }),
+      ],
+      projects: [{ id: 'proj-1', data: { orgId: 'org-a', name: 'Website', deleted: false } }],
+    })
+    mockCollection.mockImplementation(db.collection)
+
+    await expect(grantPartnerProjectAccess({
+      ownerOrgId: 'org-a',
+      relationshipId: 'rel-a',
+      projectId: 'proj-1',
+      role: 'contributor',
+      actor,
+    })).rejects.toThrow(/scope agreement/i)
+
+    expect(db.rows('partnerResourceGrants')).toHaveLength(0)
+    expect(db.rows('projectOrganizations')).toHaveLength(0)
+  })
+
+  it('revokes the canonical project grant together with its project-organisation projection', async () => {
+    db = createMemoryDb({
+      partnerLinks: [{ id: 'link-revoke', data: { partnerLinkId: 'link-revoke', orgA: 'org-a', orgB: 'org-b', status: 'active' } }],
+      partnerScopeAgreements: [{ id: 'scope-revoke', data: {
+        partnerLinkId: 'link-revoke', status: 'active', capabilities: ['projects'],
+        direction: { grantorOrgId: 'org-a', granteeOrgId: 'org-b' },
+        acceptance: { grantor: { byRef: actor }, grantee: { byRef: actor } },
+      } }],
+      businessRelationships: [
+        relationRow({ id: 'rel-a', partnerLinkId: 'link-revoke', status: 'active', sharedCapabilities: ['projects'] }),
+        relationRow({ id: 'rel-b', partnerLinkId: 'link-revoke', sourceOrgId: 'org-b', targetOrgId: 'org-a', status: 'active', sharedCapabilities: ['projects'] }),
+      ],
+      projects: [{ id: 'proj-1', data: { ownerOrgId: 'org-a', orgId: 'org-a', name: 'Website', deleted: false } }],
+      projectMembers: [{ id: 'proj-1_user:tester', data: { uid: 'user:tester', orgId: 'org-a', role: 'manager', status: 'active' } }],
+    })
+    mockCollection.mockImplementation(db.collection)
+    await grantPartnerProjectAccess({ ownerOrgId: 'org-a', relationshipId: 'rel-a', projectId: 'proj-1', actor })
+
+    await revokePartnerProjectAccess({ ownerOrgId: 'org-a', projectId: 'proj-1', partnerOrgId: 'org-b', actor })
+
+    expect(db.rows('projectOrganizations')[0]?.data.status).toBe('revoked')
+    expect(db.rows('partnerResourceGrants')[0]?.data.status).toBe('revoked')
+  })
+
+  it('supports named user and team grants without widening to the partner organisation', async () => {
+    db = createMemoryDb({
+      partnerLinks: [{ id: 'link-recipient', data: { partnerLinkId: 'link-recipient', orgA: 'org-a', orgB: 'org-b', status: 'active' } }],
+      partnerScopeAgreements: [{ id: 'scope-recipient', data: {
+        partnerLinkId: 'link-recipient', status: 'active', capabilities: ['projects'],
+        direction: { grantorOrgId: 'org-a', granteeOrgId: 'org-b' },
+        acceptance: { grantor: { byRef: actor }, grantee: { byRef: actor } },
+      } }],
+      businessRelationships: [
+        relationRow({ id: 'rel-a', partnerLinkId: 'link-recipient', status: 'active', sharedCapabilities: ['projects'] }),
+        relationRow({ id: 'rel-b', partnerLinkId: 'link-recipient', sourceOrgId: 'org-b', targetOrgId: 'org-a', status: 'active', sharedCapabilities: ['projects'] }),
+      ],
+      projects: [{ id: 'proj-1', data: { ownerOrgId: 'org-a', orgId: 'org-a', name: 'Website', deleted: false } }],
+      projectMembers: [{ id: 'proj-1_user:tester', data: { uid: 'user:tester', orgId: 'org-a', role: 'manager', status: 'active' } }],
+    })
+    mockCollection.mockImplementation(db.collection)
+
+    await grantPartnerProjectAccess({
+      ownerOrgId: 'org-a', relationshipId: 'rel-a', projectId: 'proj-1', actor,
+      grantee: { includePartnerOrganization: false, userIds: ['user-b'], teamIds: ['team-b'] },
+    })
+
+    expect(db.rows('partnerResourceGrants')[0]?.data.grantee).toEqual({
+      orgIds: [], userIds: ['user-b'], teamIds: ['team-b'],
+    })
   })
 
   it('capability gate still applies on a live link', async () => {

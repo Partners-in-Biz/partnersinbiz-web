@@ -4,13 +4,22 @@ import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import { recordCrmAuditEvent } from '@/lib/crm/audit'
 import {
   normalizeProjectRole,
+  canProjectRole,
+  projectMemberDocId,
   projectOrganizationDocId,
   type ProjectMemberRole,
 } from '@/lib/projects/collaboration'
 import type { BusinessRelationship, SharedBusinessCapability } from '@/lib/business-relationships/types'
 import { cleanString } from './identity'
 import { loadLiveBilateralLink } from './link-evidence'
-import { CROSS_ORG_SCHEMA_VERSION, PARTNER_RESOURCE_GRANTS_COLLECTION } from '@/lib/cross-org/types'
+import {
+  CROSS_ORG_SCHEMA_VERSION,
+  PARTNER_RESOURCE_GRANTS_COLLECTION,
+  PARTNER_SCOPE_AGREEMENTS_COLLECTION,
+  type PartnerLink,
+  type PartnerScopeAgreement,
+} from '@/lib/cross-org/types'
+import { hasBilateralAcceptance } from '@/lib/cross-org/lifecycle'
 
 /**
  * Collaboration on top of an accepted partner link, beyond record sharing and
@@ -56,6 +65,45 @@ function requireCapability(link: BusinessRelationship, capability: SharedBusines
   }
 }
 
+function projectGrantActions(role: ProjectMemberRole): Array<'project.read' | 'project.write'> {
+  return role === 'contributor' ? ['project.read', 'project.write'] : ['project.read']
+}
+
+function cleanUniqueIds(values: unknown): string[] {
+  if (!Array.isArray(values)) return []
+  return [...new Set(values.map(cleanString).filter(Boolean))]
+}
+
+async function requireActiveProjectScope(input: {
+  partnerLinkId: string
+  ownerOrgId: string
+  partnerOrgId: string
+}): Promise<PartnerScopeAgreement> {
+  const canonicalLinkSnap = await adminDb.collection('partnerLinks').doc(input.partnerLinkId).get()
+  const canonicalLink = canonicalLinkSnap.data() as PartnerLink | undefined
+  if (!canonicalLinkSnap.exists || canonicalLink?.status !== 'active'
+    || ![canonicalLink.orgA, canonicalLink.orgB].includes(input.ownerOrgId)
+    || ![canonicalLink.orgA, canonicalLink.orgB].includes(input.partnerOrgId)) {
+    throw new Error('An active canonical Partner Link is required before sharing a project')
+  }
+
+  const scopes = await adminDb.collection(PARTNER_SCOPE_AGREEMENTS_COLLECTION)
+    .where('partnerLinkId', '==', input.partnerLinkId)
+    .limit(50)
+    .get()
+  const scope = scopes.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }) as PartnerScopeAgreement)
+    .find((candidate) => candidate.status === 'active'
+      && candidate.direction?.grantorOrgId === input.ownerOrgId
+      && candidate.direction?.granteeOrgId === input.partnerOrgId
+      && candidate.capabilities?.includes('projects')
+      && hasBilateralAcceptance(candidate))
+  if (!scope) {
+    throw new Error('An active bilaterally accepted project scope agreement is required before sharing a project')
+  }
+  return scope
+}
+
 // ── Project access ───────────────────────────────────────────────────────────
 
 export interface PartnerProjectAccess {
@@ -79,20 +127,45 @@ export async function grantPartnerProjectAccess(input: {
   relationshipId: string
   projectId: string
   role?: string
+  grantee?: {
+    includePartnerOrganization?: boolean
+    userIds?: string[]
+    teamIds?: string[]
+  }
   actor: MemberRef
 }): Promise<PartnerProjectAccess> {
   const link = await loadActiveLink(input.relationshipId, input.ownerOrgId)
   requireCapability(link, 'projects')
   const partnerOrgId = cleanString(link.targetOrgId)
+  const partnerLinkId = cleanString(link.partnerLinkId)
+  if (!partnerOrgId || !partnerLinkId) throw new Error('An accepted Partner Link is required before sharing a project')
+  const scopeAgreement = await requireActiveProjectScope({
+    partnerLinkId,
+    ownerOrgId: input.ownerOrgId,
+    partnerOrgId,
+  })
 
   const projectSnap = await adminDb.collection('projects').doc(input.projectId).get()
   if (!projectSnap.exists) throw new Error('Project not found')
   const project = projectSnap.data() ?? {}
-  if (project.orgId !== input.ownerOrgId || project.deleted === true) throw new Error('Project not found')
+  const projectOwnerOrgId = cleanString(project.ownerOrgId) || cleanString(project.sourceOrgId) || cleanString(project.orgId)
+  if (projectOwnerOrgId !== input.ownerOrgId || project.deleted === true) throw new Error('Project not found')
+  const managerSnap = await adminDb.collection('projectMembers').doc(projectMemberDocId(input.projectId, input.actor.uid)).get()
+  const manager = managerSnap.data() ?? {}
+  if (!managerSnap.exists || manager.status !== 'active' || cleanString(manager.orgId) !== input.ownerOrgId
+    || !canProjectRole(manager.role, 'manage_access')) {
+    throw new Error('Active project manager access is required before sharing a project')
+  }
 
   // Partners are never given owner/manager rights over someone else's project.
   const requested = normalizeProjectRole(input.role)
   const role: ProjectMemberRole = (requested === 'owner' || requested === 'manager') ? 'contributor' : requested
+  const granteeUserIds = cleanUniqueIds(input.grantee?.userIds)
+  const granteeTeamIds = cleanUniqueIds(input.grantee?.teamIds)
+  const includePartnerOrganization = input.grantee?.includePartnerOrganization !== false
+  if (!includePartnerOrganization && granteeUserIds.length === 0 && granteeTeamIds.length === 0) {
+    throw new Error('A named user or team recipient is required when organisation-wide access is disabled')
+  }
 
   const docId = projectOrganizationDocId(input.projectId, partnerOrgId)
   const grantId = `${input.projectId}_${partnerOrgId}`
@@ -103,13 +176,18 @@ export async function grantPartnerProjectAccess(input: {
     ownerOrgId: input.ownerOrgId,
     resourceType: 'project',
     resourceId: input.projectId,
-    partnerLinkId: link.partnerLinkId,
-    grantee: { orgIds: [partnerOrgId], userIds: [], teamIds: [] },
+    partnerLinkId,
+    scopeAgreementId: scopeAgreement.id,
+    grantee: {
+      orgIds: includePartnerOrganization ? [partnerOrgId] : [],
+      userIds: granteeUserIds,
+      teamIds: granteeTeamIds,
+    },
     role,
-    actions: ['project.read'],
+    actions: projectGrantActions(role),
     status: 'active',
     provenance: { sourceShareId: docId },
-    approvalBasis: { type: 'partner_link', refId: link.partnerLinkId },
+    approvalBasis: { type: 'scope_agreement', refId: scopeAgreement.id },
     createdByRef: input.actor,
     schemaVersion: CROSS_ORG_SCHEMA_VERSION,
     createdAt: now,
@@ -121,7 +199,8 @@ export async function grantPartnerProjectAccess(input: {
     ownerOrgId: input.ownerOrgId,
     role,
     status: 'active',
-    partnerLinkId: link.partnerLinkId,
+    partnerLinkId,
+    scopeAgreementId: scopeAgreement.id,
     relationshipId: input.relationshipId,
     projectName: cleanString(project.name) || undefined,
     grantedByRef: input.actor,
@@ -152,7 +231,7 @@ export async function grantPartnerProjectAccess(input: {
     orgId: partnerOrgId,
     role,
     status: 'active',
-    partnerLinkId: link.partnerLinkId,
+    partnerLinkId,
     ownerOrgId: input.ownerOrgId,
   }
 }
@@ -168,17 +247,25 @@ export async function revokePartnerProjectAccess(input: {
   const snap = await ref.get()
   if (!snap.exists) throw new Error('Project access not found')
   const row = snap.data() ?? {}
-  // Only the project's owning org may revoke.
-  if (cleanString(row.ownerOrgId) !== input.ownerOrgId) {
-    const projectSnap = await adminDb.collection('projects').doc(input.projectId).get()
-    if ((projectSnap.data() ?? {}).orgId !== input.ownerOrgId) throw new Error('Project access not found')
+  const projectSnap = await adminDb.collection('projects').doc(input.projectId).get()
+  const project = projectSnap.data() ?? {}
+  const projectOwnerOrgId = cleanString(project.ownerOrgId) || cleanString(project.sourceOrgId) || cleanString(project.orgId)
+  if (!projectSnap.exists || projectOwnerOrgId !== input.ownerOrgId || cleanString(row.ownerOrgId) !== input.ownerOrgId) {
+    throw new Error('Project access not found')
+  }
+  const managerSnap = await adminDb.collection('projectMembers').doc(projectMemberDocId(input.projectId, input.actor.uid)).get()
+  const manager = managerSnap.data() ?? {}
+  if (!managerSnap.exists || manager.status !== 'active' || cleanString(manager.orgId) !== input.ownerOrgId
+    || !canProjectRole(manager.role, 'manage_access')) {
+    throw new Error('Active project manager access is required before revoking project sharing')
   }
 
-  await ref.set({
-    status: 'revoked',
-    revokedAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true })
+  const now = FieldValue.serverTimestamp()
+  const grantRef = adminDb.collection(PARTNER_RESOURCE_GRANTS_COLLECTION).doc(`${input.projectId}_${input.partnerOrgId}`)
+  await Promise.all([
+    ref.set({ status: 'revoked', revokedAt: now, revokedByRef: input.actor, updatedAt: now }, { merge: true }),
+    grantRef.set({ status: 'revoked', revokedAt: now, revokedByRef: input.actor, updatedAt: now }, { merge: true }),
+  ])
 
   await recordCrmAuditEvent({
     orgId: input.ownerOrgId,

@@ -120,7 +120,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const scope = projectRequestOrgScope(req, user)
   if (!scope.ok) return scope.response
-  const access = await getProjectForUser(projectId, user, scope.orgId)
+  const access = await getProjectForUser(projectId, user, scope.orgId, { action: 'project.write', item: taskId })
   if (!access.ok) return apiError(access.error, access.status)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required to update tasks', 403)
@@ -550,7 +550,7 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   const { projectId, taskId } = await (ctx as RouteContext).params
   const scope = projectRequestOrgScope(req, user)
   if (!scope.ok) return scope.response
-  const access = await getProjectForUser(projectId, user, scope.orgId)
+  const access = await getProjectForUser(projectId, user, scope.orgId, { action: 'project.write', item: taskId })
   if (!access.ok) return apiError(access.error, access.status)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required to delete tasks', 403)
