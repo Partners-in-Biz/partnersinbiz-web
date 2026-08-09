@@ -98,17 +98,25 @@ agreement active (when `scopeAgreementId` set), grant itself `active`, and
 Collection: `partnerIdentityLinks`.
 
 Associates CRM companies/contacts with organisations/users in many-to-many form.
-Convenience pointers (`linkedOrgId`, `linkedUserId`) may be derived from these rows
-for compatibility but never grant access. Acceptance records the **approver** (the
-admin who accepted), not the recipient identity — identity is verified through an
-active membership or a verified link row.
+One company may link to many orgs (holding companies, agencies, subsidiaries);
+one contact may link to many orgs/users (multi-client contacts). The join rows
+are the full set; the legacy convenience pointers (`linkedOrgId`, `linkedUserId`)
+are DERIVED, read-only compatibility views — the identity service is their only
+writer and recomputes them (primary = earliest verified link) after every
+change. Convenience pointers never grant access; identity is verified through an
+active membership or a verified link row. Acceptance records the **approver**
+(the admin who accepted), not the recipient identity — a `contact_user` link is
+only created/verified when the accepting session's email matches the invite
+recipient email. Unlink revokes every identity link carrying the severed
+`partnerLinkId`; a later relink creates a fresh row (revoked rows are
+permanent audit history, never resurrected).
 
 Fields: `id`, `linkType` (`company_org` | `contact_user` | `company_user` |
 `contact_org`), `sourceRef: { kind: 'company' | 'contact', id }`, `targetRef: {
 kind: 'org' | 'user', id }`, `status` (`verified` | `unverified` | `revoked`),
-`verifiedByRef?`, `verifiedAt?`, `revokedByRef?`, `revokedAt?`, `provenance: {
-sourceInviteId?, sourceDocumentId?, approvalGateTaskId? }`, `schemaVersion`,
-`createdAt`, `updatedAt`.
+`partnerLinkId?`, `verifiedByRef?`, `verifiedAt?`, `revokedByRef?`, `revokedAt?`,
+`provenance: { sourceInviteId?, sourceDocumentId?, approvalGateTaskId? }`,
+`schemaVersion`, `createdAt`, `updatedAt`.
 
 ### 5. PartnerAuditEvent (append-only)
 

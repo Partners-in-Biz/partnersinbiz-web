@@ -198,6 +198,13 @@ export interface PartnerIdentityLink {
   sourceRef: { kind: 'company' | 'contact'; id: string }
   targetRef: { kind: 'org' | 'user'; id: string }
   status: PartnerIdentityLinkStatus
+  /**
+   * Canonical partner link that produced/derived this identity link. Set when
+   * the link was created by an accepted partner invite; unlink revokes every
+   * identity link carrying the severed partnerLinkId. Optional — backfilled
+   * and manually created links may not have one.
+   */
+  partnerLinkId?: string
   /** The admin who accepted/verified — never the recipient identity itself. */
   verifiedByRef?: MemberRef
   verifiedAt?: unknown

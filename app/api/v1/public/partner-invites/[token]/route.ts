@@ -200,23 +200,34 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       || invite.recipientCompanyName
       || displayName
 
-    let uid: string
+    // The APPROVER is whoever clicked accept. The RECIPIENT identity is the
+    // invited person's user id — it is only linked to the invited contact when
+    // the accepting session's email matches the invite email. An owner/admin
+    // accepting on the recipient's behalf is recorded as the approver and
+    // never becomes the invited contact's linked user.
+    let approverUid: string
+    let recipientUid = ''
     let candidateOrgIds: string[] = []
 
     if (existingSession) {
       const auth = await authorizeAccept({ session: existingSession, recipientEmail: invite.recipientEmail })
       if (!auth.ok) return apiError(auth.error, auth.status)
-      uid = existingSession.uid
+      approverUid = existingSession.uid
+      if (auth.reason === 'recipient') {
+        recipientUid = existingSession.uid
+      }
       candidateOrgIds = auth.candidateOrgIds
     } else {
-      // No session: only the invited address itself can proceed.
+      // No session: only the invited address itself can proceed, so the
+      // newly created account IS the recipient identity.
       const resolved = await resolveInviteUser(req, {
         email: invite.recipientEmail,
         displayName,
         password: typeof body.password === 'string' ? body.password : undefined,
       })
       if ('error' in resolved) return resolved.error
-      uid = resolved.uid
+      approverUid = resolved.uid
+      recipientUid = resolved.uid
     }
 
     // --- Target workspace ---------------------------------------------------
@@ -254,7 +265,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
         logoUrl: '',
         website: '',
         source: 'partner_invite',
-        createdBy: uid,
+        createdBy: recipientUid || approverUid,
         createdFromInviteId: invite.id,
         createdFromSourceOrgId: invite.sourceOrgId,
         active: true,
@@ -275,9 +286,11 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     // Only attach membership for a workspace we just created. When targetOrgId
     // came from candidateOrgIds the accepter is ALREADY an active member, and
     // re-writing the role here would silently downgrade an owner to a member.
+    // A new workspace is only created when the RECIPIENT identity accepted
+    // (no existing memberships), so the owner is the recipient.
     if (createdOrg) {
       await attachUserToOrg({
-        uid,
+        uid: recipientUid || approverUid,
         orgId: targetOrgId,
         role: 'owner',
         email: invite.recipientEmail,
@@ -286,18 +299,21 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       })
     }
 
-    const actor = await memberRefFor(uid)
+    const actor = await memberRefFor(approverUid)
     const result = await acceptPartnerInvite({
       invite,
       targetOrgId,
-      targetUserId: uid,
+      targetUserId: recipientUid || undefined,
+      approvedByUserId: approverUid,
+      recipientIdentityMatched: Boolean(recipientUid),
       preferTargetCompanyId: cleanString(body.preferTargetCompanyId) || undefined,
       actor,
     })
 
     return apiSuccess({
       ...result,
-      uid,
+      uid: approverUid,
+      recipientLinked: Boolean(recipientUid),
       createdOrg,
       inviteId: invite.id,
     })

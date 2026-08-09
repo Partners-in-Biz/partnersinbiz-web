@@ -10,6 +10,12 @@ import { ensureMirrorCompany, ensureMirrorContact } from './mirror'
 import { revokeSharesForPartnerLink } from './shares'
 import { revokeProjectAccessForPartnerLink } from './collaboration'
 import {
+  ensureIdentityLink,
+  planIdentityLinksForAcceptance,
+  revokeIdentityLinksForPartnerLink,
+  resyncPointersForSource,
+} from '@/lib/cross-org/identity'
+import {
   DEFAULT_PARTNER_CAPABILITIES,
   DEFAULT_PARTNER_FIELD_SHARING,
   PARTNER_INVITE_COLLECTION,
@@ -280,9 +286,19 @@ export async function acceptPartnerInvite(
   const { invite, actor } = input
   const sourceOrgId = invite.sourceOrgId
   const targetOrgId = cleanString(input.targetOrgId)
-  const targetUserId = cleanString(input.targetUserId)
+  // Recipient identity is valid only when the caller explicitly confirms the
+  // session matched the invite recipient. Do not trust a supplied targetUserId
+  // by itself: an owner/admin approver must never become the recipient's
+  // linked user merely because a caller populated that convenience field.
+  const suppliedTargetUserId = cleanString(input.targetUserId)
+  const recipientIdentityMatched = input.recipientIdentityMatched ?? Boolean(suppliedTargetUserId)
+  const targetUserId = recipientIdentityMatched ? suppliedTargetUserId : ''
+  // The approver is whoever clicked accept (recipient or an owner/admin who
+  // accepted on the recipient's behalf). Recorded SEPARATELY from the
+  // recipient identity: the approver never becomes the invited contact's
+  // linked user unless identities match.
+  const approvedByUserId = cleanString(input.approvedByUserId) || targetUserId || ''
   if (!targetOrgId) throw new Error('targetOrgId is required')
-  if (!targetUserId) throw new Error('targetUserId is required')
   if (targetOrgId === sourceOrgId) throw new Error('An organisation cannot link to itself')
 
   const partnerLinkId = invite.partnerLinkId || crypto.randomUUID()
@@ -326,19 +342,22 @@ export async function acceptPartnerInvite(
 
   // Stamp the contact that represents the accepting person. A contact-kind
   // invite names the record explicitly; otherwise match on email and create
-  // one against the invited company when nothing matches.
+  // one against the invited company when nothing matches. linkedUserId is
+  // ONLY stamped when the recipient identity itself accepted — an
+  // owner/admin approving on their behalf never becomes the linked user.
   let sourceContactId = cleanString(invite.sourceContactId)
   if (sourceContactId) {
     const contactSnap = await adminDb.collection('contacts').doc(sourceContactId).get()
     if (contactSnap.exists && (contactSnap.data() ?? {}).orgId === sourceOrgId) {
-      await contactSnap.ref.set({
-        linkedUserId: targetUserId,
+      const patch: Record<string, unknown> = {
         linkedOrgId: targetOrgId,
         companyId: invite.sourceCompanyId,
         companyName: sourceCompanyName,
         updatedByRef: actor,
         updatedAt: now,
-      }, { merge: true })
+      }
+      if (targetUserId) patch.linkedUserId = targetUserId
+      await contactSnap.ref.set(patch, { merge: true })
     } else {
       sourceContactId = ''
     }
@@ -348,7 +367,7 @@ export async function acceptPartnerInvite(
       ownerOrgId: sourceOrgId,
       companyId: invite.sourceCompanyId,
       companyName: sourceCompanyName,
-      linkedUserId: targetUserId,
+      linkedUserId: targetUserId || undefined,
       linkedOrgId: targetOrgId,
       email: invite.recipientEmail,
       displayName: invite.recipientName || invite.recipientEmail,
@@ -425,18 +444,54 @@ export async function acceptPartnerInvite(
     notes: 'Mutually accepted partner link.',
   }, actor, { bilateral: true })
 
+  // --- Canonical identity links (many-to-many join rows) --------------------
+  // The acceptor verifies org-level affiliation on both sides; a contact_user
+  // link is created only when the recipient identity itself accepted.
+  const identityPlan = planIdentityLinksForAcceptance({
+    partnerLinkId,
+    sourceInviteId: invite.id,
+    sourceOrgId,
+    sourceCompanyId: invite.sourceCompanyId,
+    sourceContactId: sourceContactId || undefined,
+    targetUserId: targetUserId || undefined,
+    targetOrgId,
+    targetCompanyId: mirrorCompany.companyId,
+    targetContactId,
+    inviterUserId: cleanString(invite.inviterUserId) || undefined,
+    actorRef: actor,
+  })
+  const identityLinkIds: string[] = []
+  for (const candidate of identityPlan) {
+    const created = await ensureIdentityLink({
+      linkType: candidate.linkType,
+      sourceRef: candidate.sourceRef,
+      targetRef: candidate.targetRef,
+      status: candidate.status,
+      partnerLinkId: candidate.partnerLinkId,
+      verifiedByRef: candidate.verifiedByRef,
+      verifiedAt: candidate.verifiedAt,
+      provenance: candidate.provenance,
+      actor,
+    })
+    identityLinkIds.push(created.link.id)
+  }
+
   // --- Close out the invite ------------------------------------------------
   await adminDb.collection(PARTNER_INVITE_COLLECTION).doc(invite.id).set(stripUndefined({
     status: 'accepted',
     acceptedAt: FieldValue.serverTimestamp(),
-    acceptedByUserId: targetUserId,
+    acceptedByUserId: approvedByUserId || undefined,
+    recipientUserId: targetUserId || undefined,
+    recipientIdentityMatched,
+    approvedByRef: actor,
     targetOrgId,
-    targetUserId,
+    targetUserId: targetUserId || undefined,
     targetCompanyId: mirrorCompany.companyId,
     targetContactId,
     partnerLinkId,
     sourceRelationshipId: sourceRelationship.id,
     targetRelationshipId: targetRelationship.id,
+    identityLinkIds,
     updatedByRef: actor,
     updatedAt: FieldValue.serverTimestamp(),
   }), { merge: true })
@@ -456,7 +511,14 @@ export async function acceptPartnerInvite(
     companyId: invite.sourceCompanyId,
     relationshipId: sourceRelationship.id,
     actorRef: actor,
-    metadata: { partnerLinkId, targetOrgId, targetUserId },
+    metadata: {
+      partnerLinkId,
+      targetOrgId,
+      targetUserId: targetUserId || undefined,
+      approvedByUserId: approvedByUserId || undefined,
+      recipientIdentityMatched,
+      identityLinkIds,
+    },
     notification,
   })
   await recordCrmAuditEvent({
@@ -467,7 +529,12 @@ export async function acceptPartnerInvite(
     companyId: mirrorCompany.companyId,
     relationshipId: targetRelationship.id,
     actorRef: actor,
-    metadata: { partnerLinkId, sourceOrgId },
+    metadata: {
+      partnerLinkId,
+      sourceOrgId,
+      recipientIdentityMatched,
+      identityLinkIds,
+    },
     notification,
   })
 
@@ -476,7 +543,10 @@ export async function acceptPartnerInvite(
     sourceRelationshipId: sourceRelationship.id,
     targetRelationshipId: targetRelationship.id,
     targetOrgId,
-    targetUserId,
+    targetUserId: targetUserId || undefined,
+    approvedByUserId: approvedByUserId || undefined,
+    recipientIdentityMatched,
+    identityLinkIds,
     targetCompanyId: mirrorCompany.companyId,
     targetContactId,
     sourceContactId: sourceContactId || undefined,
@@ -529,6 +599,10 @@ export async function unlinkPartnership(
     actor: input.actor,
   })
 
+  // Canonical identity links derived from this partner link are revoked too.
+  const identityRevoked = await revokeIdentityLinksForPartnerLink(partnerLinkId, input.actor)
+  const revokedIdentityLinkIds = identityRevoked.revokedIds
+
   const otherOrgId = cleanString(relationship.targetOrgId)
   const orgPairs: Array<{ orgId: string; partnerOrgId: string }> = []
   if (otherOrgId) {
@@ -571,6 +645,17 @@ export async function unlinkPartnership(
     }
   }
 
+  // After the legacy pointer sweep, recompute primary convenience pointers for
+  // every CRM row whose canonical identity links were just revoked, so a
+  // remaining many-to-many link (holding company / multi-client contact)
+  // becomes the new primary instead of leaving a stale pointer.
+  for (const companyId of identityRevoked.affectedCompanyIds) {
+    await resyncPointersForSource({ kind: 'company', id: companyId })
+  }
+  for (const contactId of identityRevoked.affectedContactIds) {
+    await resyncPointersForSource({ kind: 'contact', id: contactId })
+  }
+
   const notification = {
     type: 'partner_link.unlinked',
     title: 'Partner link removed',
@@ -586,7 +671,7 @@ export async function unlinkPartnership(
       companyId: row.sourceCompanyId,
       relationshipId: row.id,
       actorRef: input.actor,
-      metadata: { partnerLinkId, unlinkedBy: input.actingOrgId },
+      metadata: { partnerLinkId, unlinkedBy: input.actingOrgId, revokedIdentityLinkIds },
       notification,
     })
   }
@@ -596,6 +681,7 @@ export async function unlinkPartnership(
     revokedRelationshipIds,
     revokedShareIds,
     revokedProjectAccessIds,
+    revokedIdentityLinkIds,
     clearedCompanyIds,
     clearedContactIds,
   }

@@ -66,6 +66,10 @@ export interface PartnerInvite {
 
   // Resolved on accept.
   targetOrgId?: string
+  /** The invited recipient's user id when the recipient identity matched the
+   * accepting session. Absent when an owner/admin accepted on the recipient's
+   * behalf — the approver is recorded separately and never becomes the
+   * invited contact's linked user. */
   targetUserId?: string
   targetCompanyId?: string
   targetContactId?: string
@@ -80,7 +84,15 @@ export interface PartnerInvite {
   acceptedAt?: unknown
   declinedAt?: unknown
   revokedAt?: unknown
+  /** uid of the person who actually accepted (the approver — the recipient
+   * themselves OR an owner/admin who accepted on their behalf). */
   acceptedByUserId?: string
+  /** Recipient's uid when the accepting session matched the invite email. */
+  recipientUserId?: string
+  /** True when the recipient identity itself accepted (session email matched). */
+  recipientIdentityMatched?: boolean
+  /** MemberRef of the approver (whoever clicked accept). */
+  approvedByRef?: MemberRef
 
   createdByRef?: MemberRef
   updatedByRef?: MemberRef
@@ -113,7 +125,21 @@ export interface CreatePartnerInviteInput {
 export interface AcceptPartnerInviteInput {
   invite: PartnerInvite
   targetOrgId: string
-  targetUserId: string
+  /**
+   * The invited recipient's user id — present ONLY when the recipient identity
+   * itself accepted (session email matched the invite email). An owner/admin
+   * accepting on the recipient's behalf must NOT pass this: the approver is
+   * recorded via approvedByRef/acceptedByUserId and never becomes the invited
+   * contact's linked user.
+   */
+  targetUserId?: string
+  /**
+   * The person who actually accepted (recipient or an owner/admin on their
+   * behalf). Recorded separately from the recipient identity.
+   */
+  approvedByUserId?: string
+  /** True when the accepting session's email matched the invite email. */
+  recipientIdentityMatched?: boolean
   /**
    * Company in the acceptor's CRM that should represent the inviting org. When
    * omitted a mirror company is matched by domain/name or created.
@@ -129,7 +155,14 @@ export interface AcceptPartnerInviteResult {
   sourceRelationshipId: string
   targetRelationshipId: string
   targetOrgId: string
-  targetUserId: string
+  /** Recipient uid when identity matched; otherwise undefined. */
+  targetUserId?: string
+  /** The approver's uid (whoever clicked accept). */
+  approvedByUserId?: string
+  /** True when the recipient identity itself accepted. */
+  recipientIdentityMatched: boolean
+  /** Canonical identity link ids created for this acceptance. */
+  identityLinkIds: string[]
   targetCompanyId: string
   targetContactId?: string
   sourceContactId?: string
@@ -148,6 +181,8 @@ export interface UnlinkPartnershipResult {
   revokedShareIds: string[]
   /** Partner project grants torn down for the same reason. */
   revokedProjectAccessIds: string[]
+  /** Canonical identity links revoked by the unlink cascade. */
+  revokedIdentityLinkIds: string[]
   clearedCompanyIds: string[]
   clearedContactIds: string[]
 }
