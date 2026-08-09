@@ -820,20 +820,29 @@ async function main() {
   check('no reservation left behind',
     (Number(backA.quantityReserved) || 0) + (Number(backB.quantityReserved) || 0) === 0)
 
-  // Ordering more than exists reserves only what is really there.
-  await placePartnerOrder({
+  // All-or-nothing reservation: confirmation must fail before any stock mutation
+  // or invoice when the supplier cannot reserve every requested unit.
+  const overMovementsBefore = (await adminDb.collection('inventoryMovements').get()).docs.length
+  const overInvoicesBefore = (await adminDb.collection('invoices').get()).docs.length
+  const overOrder = await placePartnerOrder({
     buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
     lines: [{ catalogItemId: gadgetCatalog.id, qty: 100 }], actor: partnerActor,
-  }).then((o) => decidePartnerOrder({
-    supplierOrgId: 'org-a', orderId: o.supplierOrderId, decision: 'confirm', actor,
-  }))
+  })
+  let overOrderRejected = false
+  try {
+    await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: overOrder.supplierOrderId, decision: 'confirm', actor })
+  } catch { overOrderRejected = true }
   const overA = await doc('inventoryItems', splitStock.id)
   const overB = await doc('inventoryItems', gadgetStock.id)
-  check('over-ordering never drives stock negative',
-    (Number(overA.quantityAvailable) || 0) >= 0 && (Number(overB.quantityAvailable) || 0) >= 0,
-    { a: overA.quantityAvailable, b: overB.quantityAvailable })
-  check('over-ordering reserves only what existed',
-    (Number(overA.quantityReserved) || 0) + (Number(overB.quantityReserved) || 0) === 8)
+  check('over-ordering is rejected when the full quantity cannot be reserved', overOrderRejected)
+  check('over-order rejection leaves inventory unchanged',
+    (Number(overA.quantityAvailable) || 0) + (Number(overB.quantityAvailable) || 0) === 8 &&
+    (Number(overA.quantityReserved) || 0) + (Number(overB.quantityReserved) || 0) === 0)
+  check('over-order rejection leaves the pair pending',
+    (await doc('orders', overOrder.supplierOrderId)).partnerOrderStatus === 'pending')
+  check('over-order rejection creates no movement or invoice',
+    (await adminDb.collection('inventoryMovements').get()).docs.length === overMovementsBefore &&
+    (await adminDb.collection('invoices').get()).docs.length === overInvoicesBefore)
 
   // Reset for the sections that follow.
   await adminDb.collection('inventoryItems').doc(splitStock.id).set(
