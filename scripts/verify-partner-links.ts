@@ -137,6 +137,19 @@ async function main() {
     rel1.relationshipType === 'partner' && rel2.relationshipType === 'partner')
   check('both active', rel1.status === 'active' && rel2.status === 'active')
 
+  // Settlement deliberately requires the canonical direction from invoice
+  // issuer (A) to recipient (B), not the legacy CRM relationship pointers.
+  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({
+    partnerLinkId: r1.partnerLinkId,
+    direction: { grantorOrgId: 'org-a', granteeOrgId: 'org-b' },
+    capabilities: ['invoices'], fieldSharingPolicy: {}, status: 'active', version: 1, schemaVersion: 1,
+    acceptance: {
+      grantor: { byRef: actor, at: now },
+      grantee: { byRef: actor, at: now },
+    },
+    createdAt: now, updatedAt: now,
+  })
+
   const inv1Final = await getPartnerInviteById(inv1.id)
   check('invite marked accepted', inv1Final?.status === 'accepted', inv1Final?.status)
 
@@ -959,58 +972,95 @@ async function main() {
   const tradeInvoiceId = decided.invoiceId!
 
   // Only the recipient may record a payment, only the issuer may verify.
+  const tradeInvoiceTotal = Number((await doc('invoices', tradeInvoiceId)).total)
+  // Missing either acceptance side is not a capability, even when the row is
+  // otherwise marked active. Restore the bilateral decision before next check.
+  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({ acceptance: {} }, { merge: true })
+  let unacceptedScopeRejected = false
+  try {
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'UNACCEPTED', amount: tradeInvoiceTotal, idempotencyKey: 'unaccepted-scope', actor: partnerActor })
+  } catch { unacceptedScopeRejected = true }
+  check('settlement rejects a one-sided directional invoices capability', unacceptedScopeRejected)
+  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({
+    acceptance: { grantor: { byRef: actor, at: now }, grantee: { byRef: partnerActor, at: now } },
+  }, { merge: true })
+
+  // Fail closed when the negotiated direction is absent, then restore the
+  // signed capability before exercising the normal payment flow.
+  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({ status: 'paused' }, { merge: true })
+  let pausedScopeRejected = false
+  try {
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'PAUSED', amount: tradeInvoiceTotal, idempotencyKey: 'paused-scope', actor: partnerActor })
+  } catch { pausedScopeRejected = true }
+  check('settlement rejects a paused directional invoices capability', pausedScopeRejected)
+  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({ status: 'active' }, { merge: true })
+
+  await adminDb.collection('invoices').doc(tradeInvoiceId).set({ buyerOrderId: 'tampered-pair' }, { merge: true })
+  let tamperedPairRejected = false
+  try {
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'TAMPERED', amount: tradeInvoiceTotal, idempotencyKey: 'tampered-pair', actor: partnerActor })
+  } catch { tamperedPairRejected = true }
+  check('settlement rejects a tampered immutable invoice/order pair', tamperedPairRejected)
+  await adminDb.collection('invoices').doc(tradeInvoiceId).set({ buyerOrderId: placed.buyerOrderId }, { merge: true })
+
   let issuerCannotPay = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-a', invoiceId: tradeInvoiceId, reference: 'X', actor })
+    await recordPartnerPayment({ payerOrgId: 'org-a', invoiceId: tradeInvoiceId, reference: 'X', amount: tradeInvoiceTotal, idempotencyKey: 'wrong-payer', actor })
   } catch { issuerCannotPay = true }
   check('the issuer cannot record a payment against its own invoice', issuerCannotPay)
 
   let outsiderPay = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-c', invoiceId: tradeInvoiceId, reference: 'X', actor })
+    await recordPartnerPayment({ payerOrgId: 'org-c', invoiceId: tradeInvoiceId, reference: 'X', amount: tradeInvoiceTotal, idempotencyKey: 'outside-payer', actor })
   } catch { outsiderPay = true }
   check('an unrelated org cannot pay the invoice', outsiderPay)
 
   let noEvidence = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, actor: partnerActor })
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, amount: tradeInvoiceTotal, idempotencyKey: 'no-evidence', actor: partnerActor })
   } catch { noEvidence = true }
   check('a payment needs a reference or proof file', noEvidence)
 
   let verifyBeforePay = false
   try {
-    await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', actor })
+    await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', idempotencyKey: 'before-notice', actor })
   } catch { verifyBeforePay = true }
   check('cannot verify before anything is submitted', verifyBeforePay)
 
   const paid = await recordPartnerPayment({
-    payerOrgId: 'org-b', invoiceId: tradeInvoiceId,
-    reference: 'EFT-55123', amount: 293.25, note: 'Paid via EFT today.', actor: partnerActor,
+    payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'EFT-55123', amount: tradeInvoiceTotal,
+    note: 'Paid via EFT today.', idempotencyKey: 'notice-55123', actor: partnerActor,
   })
-  check('payment moves the invoice to pending verification',
-    paid.paymentState === 'pending_verification', paid.paymentState)
+  check('payment moves the invoice to pending verification', paid.paymentState === 'pending_verification', paid.paymentState)
   check('invoice status reflects pending verification',
     (await doc('invoices', tradeInvoiceId)).status === 'payment_pending_verification')
   check('payment state mirrored onto both order copies', paid.orderIds.length === 2, paid.orderIds)
   check('buyer order shows pending verification',
     (await doc('orders', placed.buyerOrderId)).paymentState === 'pending_verification')
+  const paidRetry = await recordPartnerPayment({
+    payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'EFT-55123', amount: tradeInvoiceTotal,
+    note: 'Paid via EFT today.', idempotencyKey: 'notice-55123', actor: partnerActor,
+  })
+  check('same payment notice key replays idempotently', paidRetry.idempotent === true && paidRetry.reconciliationKey === paid.reconciliationKey)
+  check('payment notice writes canonical finance audit evidence exactly once',
+    (await adminDb.collection('partnerAuditEvents').where('reconciliationKey', '==', paid.reconciliationKey).get()).size === 1)
 
   let doublePay = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'again', actor: partnerActor })
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'again', amount: tradeInvoiceTotal, idempotencyKey: 'different-notice', actor: partnerActor })
   } catch { doublePay = true }
   check('cannot submit a second payment while one is pending', doublePay)
 
   let buyerCannotVerify = false
   try {
-    await decidePartnerPayment({ issuerOrgId: 'org-b', invoiceId: tradeInvoiceId, decision: 'confirm', actor: partnerActor })
+    await decidePartnerPayment({ issuerOrgId: 'org-b', invoiceId: tradeInvoiceId, decision: 'confirm', idempotencyKey: 'buyer-confirm', actor: partnerActor })
   } catch { buyerCannotVerify = true }
   check('the buyer cannot verify their own payment', buyerCannotVerify)
 
   // Reject first, so the invoice returns to outstanding.
   await decidePartnerPayment({
     issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'reject',
-    note: 'Reference not found on our statement.', actor,
+    note: 'Reference not found on our statement.', idempotencyKey: 'dispute-55123', actor,
   })
   const rejectedInvoice = await doc('invoices', tradeInvoiceId)
   check('rejection returns the invoice to sent', rejectedInvoice.status === 'sent', rejectedInvoice.status)
@@ -1019,15 +1069,22 @@ async function main() {
     (rejectedInvoice.partnerPayment ?? {}).decisionNote === 'Reference not found on our statement.')
   check('orders reflect the rejection',
     (await doc('orders', placed.buyerOrderId)).paymentState === 'rejected')
+  check('settlement summary retains rejected state',
+    (await listPartnerSettlements('org-a')).receivable.find((i) => i.id === tradeInvoiceId)?.paymentState === 'rejected')
 
   // Buyer resubmits, supplier confirms.
   await recordPartnerPayment({
-    payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'EFT-55999', actor: partnerActor,
+    payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'EFT-55999', amount: tradeInvoiceTotal,
+    idempotencyKey: 'notice-55999', actor: partnerActor,
   })
   const settled = await decidePartnerPayment({
-    issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', actor,
+    issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', idempotencyKey: 'confirm-55999', actor,
   })
   check('confirmation settles the invoice', settled.paymentState === 'paid', settled.paymentState)
+  const settledRetry = await decidePartnerPayment({
+    issuerOrgId: 'org-a', invoiceId: tradeInvoiceId, decision: 'confirm', idempotencyKey: 'confirm-55999', actor,
+  })
+  check('same confirmation key replays idempotently', settledRetry.idempotent === true && settledRetry.reconciliationKey === settled.reconciliationKey)
   const paidInvoice = await doc('invoices', tradeInvoiceId)
   check('invoice marked paid', paidInvoice.status === 'paid', paidInvoice.status)
   check('paidAt stamped', Boolean(paidInvoice.paidAt))
@@ -1037,7 +1094,7 @@ async function main() {
 
   let payAfterSettled = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'late', actor: partnerActor })
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'late', amount: tradeInvoiceTotal, idempotencyKey: 'after-settle', actor: partnerActor })
   } catch { payAfterSettled = true }
   check('cannot pay an already-settled invoice', payAfterSettled)
 
@@ -1060,7 +1117,7 @@ async function main() {
     !(await listPartnerSettlements('org-a')).receivable.some((i) => i.id === plainInvoice.id))
   let plainPay = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: plainInvoice.id, reference: 'x', actor: partnerActor })
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: plainInvoice.id, reference: 'x', amount: 10, idempotencyKey: 'plain-invoice', actor: partnerActor })
   } catch { plainPay = true }
   check('a non-trade invoice cannot be settled through the partner flow', plainPay)
 
@@ -1181,10 +1238,11 @@ async function main() {
   })
   await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: payRaceOrder.supplierOrderId, decision: 'confirm', actor })
   const payRaceInvoice = (await doc('orders', payRaceOrder.supplierOrderId)).invoiceId as string
+  const payRaceTotal = Number((await doc('invoices', payRaceInvoice)).total)
 
   const payOutcomes = await Promise.allSettled([
-    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-1', actor: partnerActor }),
-    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-2', actor: partnerActor }),
+    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-1', amount: payRaceTotal, idempotencyKey: 'race-notice-1', actor: partnerActor }),
+    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-2', amount: payRaceTotal, idempotencyKey: 'race-notice-2', actor: partnerActor }),
   ])
   const payWins = payOutcomes.filter((o) => o.status === 'fulfilled').length
   check('concurrent double-pay: exactly one wins', payWins === 1, payOutcomes.map((o) => o.status))
@@ -1194,10 +1252,10 @@ async function main() {
     (await doc('invoices', payRaceInvoice)).status === 'payment_pending_verification')
 
   // Verification racing a fresh pay submission (after a reject resets status).
-  await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: payRaceInvoice, decision: 'reject', note: 'reset', actor })
+  await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: payRaceInvoice, decision: 'reject', note: 'reset', idempotencyKey: 'race-dispute-reset', actor })
   const verifyRaceOutcomes = await Promise.allSettled([
-    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-3', actor: partnerActor }),
-    decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: payRaceInvoice, decision: 'confirm', actor }),
+    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-3', amount: payRaceTotal, idempotencyKey: 'race-notice-3', actor: partnerActor }),
+    decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: payRaceInvoice, decision: 'confirm', idempotencyKey: 'race-confirm', actor }),
   ])
   const finalInvoice = await doc('invoices', payRaceInvoice)
   check('pay-vs-confirm race settles to a consistent state',
@@ -1295,13 +1353,13 @@ async function main() {
 
   let payAfterUnlink = false
   try {
-    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: preUnlinkDecision.invoiceId!, reference: 'LATE', actor: partnerActor })
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: preUnlinkDecision.invoiceId!, reference: 'LATE', amount: Number((await doc('invoices', preUnlinkDecision.invoiceId!)).total), idempotencyKey: 'unlink-payment', actor: partnerActor })
   } catch { payAfterUnlink = true }
   check('cannot record a payment after unlink', payAfterUnlink)
 
   let verifyAfterUnlink = false
   try {
-    await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: preUnlinkDecision.invoiceId!, decision: 'confirm', actor })
+    await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: preUnlinkDecision.invoiceId!, decision: 'confirm', idempotencyKey: 'unlink-confirm', actor })
   } catch { verifyAfterUnlink = true }
   check('cannot verify a payment after unlink', verifyAfterUnlink)
 

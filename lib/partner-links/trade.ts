@@ -358,9 +358,26 @@ export async function placePartnerOrder(input: PlacePartnerOrderInput): Promise<
     })
   }
 
+  // Make the financial terms immutable and identical on both mirrored orders.
+  // Settlement later binds the invoice to this digest; mutable convenience
+  // fields (titles, timestamps, workflow state) deliberately do not participate.
+  lineItems.sort((a, b) => `${a.productId ?? ''}:${a.name}`.localeCompare(`${b.productId ?? ''}:${b.name}`))
   const subtotal = lineItems.reduce((sum, l) => sum + l.total, 0)
   const total = subtotal + taxAmount
   const tradeOrderId = crypto.randomUUID()
+  const termsHash = crypto.createHash('sha256').update(JSON.stringify({
+    tradeOrderId,
+    partnerLinkId: cleanString(link.partnerLinkId),
+    supplierOrgId,
+    buyerOrgId: input.buyerOrgId,
+    lineItems: lineItems.map(({ productId, qty, unitPrice, total: lineTotal, currency: lineCurrency }) =>
+      ({ productId, qty, unitPrice, total: lineTotal, currency: lineCurrency })),
+    subtotal,
+    taxAmount,
+    total,
+    currency,
+    notes: cleanString(input.notes) || '',
+  })).digest('hex')
   const now = Timestamp.now()
 
   const buyerCompany = await companyRepresenting(input.buyerOrgId, supplierOrgId)
@@ -368,6 +385,7 @@ export async function placePartnerOrder(input: PlacePartnerOrderInput): Promise<
 
   const shared = {
     tradeOrderId,
+    termsHash,
     partnerLinkId: link.partnerLinkId,
     relationshipId: input.relationshipId,
     partnerOrderStatus: 'pending' as PartnerOrderStatus,
@@ -764,6 +782,12 @@ async function draftInvoiceForOrder(input: {
       currency: cleanString(input.order.currency) || 'ZAR',
       notes: `Auto-drafted from partner order ${input.orderId}.`,
       recipientCompanyName: buyerName,
+      // Immutable settlement binding. The finance flow refuses legacy invoices
+      // that lack any part of this pair rather than inferring from CRM pointers.
+      partnerLinkId: cleanString(input.order.partnerLinkId),
+      supplierOrderId: input.orderId,
+      buyerOrderId: cleanString(input.order.counterpartOrderId),
+      tradeTermsHash: cleanString(input.order.termsHash),
       orderId: input.orderId,
       tradeOrderId: cleanString(input.order.tradeOrderId),
       paidAt: null,
