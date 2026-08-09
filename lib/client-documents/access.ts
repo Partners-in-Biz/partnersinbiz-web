@@ -5,6 +5,13 @@ import type { ApiUser } from '@/lib/api/types'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { DOCUMENT_CLIENT_FACING_STATUSES, isDocumentClientFacingStatus } from './holder'
 import { getClientDocument } from './store'
+import {
+  canUserShareViewAttachments,
+  canUserShareViewVersions,
+  hasActiveUserShare,
+  isGrantOnlyRecipient,
+  userShareGrantForUser,
+} from './grants'
 import type { ClientDocument, ClientDocumentStatus } from './types'
 
 const CLIENT_VISIBLE_STATUSES = DOCUMENT_CLIENT_FACING_STATUSES
@@ -51,7 +58,7 @@ function isExplicitlyLinkedClientVisible(document: Partial<ClientDocument>, user
  */
 function isHolderTeamMember(document: Partial<ClientDocument>, user: ApiUser): boolean {
   if (document.createdBy === user.uid) return true
-  if ((document.sharedWithUserIds ?? []).includes(user.uid)) return true
+  if (hasActiveUserShare(document, user)) return true
 
   const holderOrgId = typeof document.orgId === 'string' ? document.orgId.trim() : ''
   if (!holderOrgId) return false
@@ -102,11 +109,34 @@ export function canManageClientDocument(document: Partial<ClientDocument>, user:
   return user.role !== 'client' || document.createdBy === user.uid
 }
 
-export async function getAccessibleClientDocument(id: string, user: ApiUser) {
+export type ClientDocumentAction = 'read' | 'versions' | 'attachments' | 'comment' | 'suggest' | 'approve' | 'accept'
+
+function hasActionPermission(document: Partial<ClientDocument>, user: ApiUser, action: ClientDocumentAction): boolean {
+  if (!isGrantOnlyRecipient(document, user)) return true
+  const permissions = userShareGrantForUser(document, user.uid)?.permissions
+  if (!permissions || permissions.canView === false) return false
+  if (action === 'versions') return canUserShareViewVersions(document, user)
+  if (action === 'attachments') return canUserShareViewAttachments(document, user)
+  if (action === 'comment') return permissions.canComment === true
+  if (action === 'suggest') return permissions.canSuggest === true
+  if (action === 'approve' || action === 'accept') return permissions.canApprove === true
+  return true
+}
+
+export function assertClientDocumentActionAccess(document: Partial<ClientDocument>, user: ApiUser, action: ClientDocumentAction = 'read') {
+  const access = assertClientDocumentDataAccess(document, user)
+  if (!access.ok) return access
+  if (!hasActionPermission(document, user, action)) {
+    return { ok: false as const, response: apiError('Document grant does not permit this action', 403) }
+  }
+  return { ok: true as const }
+}
+
+export async function getAccessibleClientDocument(id: string, user: ApiUser, action: ClientDocumentAction = 'read') {
   const document = await getClientDocument(id)
   if (!document) return { ok: false as const, response: apiError('Document not found', 404) }
 
-  const access = assertClientDocumentDataAccess(document, user)
+  const access = assertClientDocumentActionAccess(document, user, action)
   if (!access.ok) return access
 
   return { ok: true as const, document }

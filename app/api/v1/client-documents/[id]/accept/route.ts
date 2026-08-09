@@ -73,7 +73,7 @@ async function resolveClientCompanyName(document: { linked?: { companyId?: strin
 
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await getAccessibleClientDocument(id, user)
+  const access = await getAccessibleClientDocument(id, user, 'accept')
   if (!access.ok) return access.response
 
   const document = access.document

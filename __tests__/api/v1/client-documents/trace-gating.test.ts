@@ -41,7 +41,7 @@ beforeEach(() => {
   mockDocGet.mockReset()
 })
 
-it('traces the gated versions list 403', async () => {
+it('denies a selected-version list when the active named grant forbids version access', async () => {
   mockDocGet.mockResolvedValueOnce({
     exists: true,
     id: 'doc-1',
@@ -72,7 +72,5 @@ it('traces the gated versions list 403', async () => {
   const { GET } = await import('@/app/api/v1/client-documents/[id]/versions/route')
   const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1/versions')
   const res = await GET(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
-  // eslint-disable-next-line no-console
-  console.log('TRACE STATUS', res.status, await res.text())
-  expect(res.status).toBe(200)
+  expect(res.status).toBe(403)
 })

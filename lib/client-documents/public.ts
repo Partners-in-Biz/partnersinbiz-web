@@ -5,6 +5,14 @@ const PRIVATE_FIELDS = new Set([
   'updatedByType',
   'shareToken',
   'shareEnabled',
+  'editShareToken',
+  'editAccessCode',
+  'editShareEnabled',
+  'userShares',
+  'userShareUserIds',
+  'sharedWithUserIds',
+  'providerSignature',
+  'clientAcceptance',
   'deleted',
 ])
 

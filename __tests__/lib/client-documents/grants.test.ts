@@ -34,6 +34,7 @@ function grant(overrides: Partial<DocumentUserShare> = {}): DocumentUserShare {
       canSuggest: false,
       canViewVersions: true,
       canViewAttachments: true,
+      canApprove: false,
     },
     ...overrides,
   }

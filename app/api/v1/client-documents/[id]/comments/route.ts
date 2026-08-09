@@ -76,7 +76,7 @@ export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, c
 
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await getAccessibleClientDocument(id, user)
+  const access = await getAccessibleClientDocument(id, user, 'comment')
   if (!access.ok) return access.response
 
   const body = await req.json().catch(() => null)

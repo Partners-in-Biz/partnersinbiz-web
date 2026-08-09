@@ -35,7 +35,7 @@ function firstForwardedIp(req: NextRequest) {
 
 export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await getAccessibleClientDocument(id, user)
+  const access = await getAccessibleClientDocument(id, user, 'approve')
   if (!access.ok) return access.response
 
   const document = access.document

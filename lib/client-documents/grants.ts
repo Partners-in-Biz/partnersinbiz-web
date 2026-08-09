@@ -48,6 +48,7 @@ export const DEFAULT_USER_SHARE_PERMISSIONS: DocumentUserSharePermissions = {
   canSuggest: false,
   canViewVersions: true,
   canViewAttachments: true,
+  canApprove: false,
 }
 
 const USER_SHARE_PERMISSION_KEYS = new Set<keyof DocumentUserSharePermissions>([
@@ -56,6 +57,7 @@ const USER_SHARE_PERMISSION_KEYS = new Set<keyof DocumentUserSharePermissions>([
   'canSuggest',
   'canViewVersions',
   'canViewAttachments',
+  'canApprove',
 ])
 
 function userOrgIds(user: Pick<ApiUser, 'orgId' | 'orgIds'>): string[] {

@@ -427,6 +427,41 @@ export interface DocumentBlock {
   }
 }
 
+export type DocumentUserShareStatus = 'active' | 'revoked' | 'expired'
+
+export interface DocumentUserSharePermissions {
+  canView: boolean
+  canComment: boolean
+  canSuggest: boolean
+  canViewVersions: boolean
+  canViewAttachments: boolean
+  canApprove: boolean
+}
+
+export interface DocumentUserShare {
+  userId: string
+  recipientOrgId: string
+  status: DocumentUserShareStatus
+  grantedBy: string
+  grantedAt: string
+  expiresAt?: string
+  revokedAt?: string
+  revokedBy?: string
+  permissions: DocumentUserSharePermissions
+}
+
+export interface UserShareInput {
+  userId: string
+  recipientOrgId: string
+  expiresAt?: string
+  permissions?: Partial<DocumentUserSharePermissions>
+}
+
+export interface RevokeUserShareInput {
+  userId: string
+  recipientOrgId: string
+}
+
 export interface ClientDocument {
   id: string
   orgId?: string
@@ -460,7 +495,11 @@ export interface ClientDocument {
   updatedByType: DocumentActorType
   /** Agent that acted for the human updater, when this came from a chat run. */
   updatedByAgentId?: string
-  /** Internal members explicitly invited to collaborate on this document. */
+  /** Canonical authenticated named-user grants; evaluated on every protected action. */
+  userShares?: DocumentUserShare[]
+  /** Derived active named-user index only; never an authorization source. */
+  userShareUserIds?: string[]
+  /** @deprecated Compatibility index; never authorize from it. */
   sharedWithUserIds?: string[]
   deleted: boolean
   providerSignature?: DocumentProviderSignature
