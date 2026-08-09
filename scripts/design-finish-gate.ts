@@ -119,7 +119,7 @@ function readBrief(opts: CliOptions): string {
   fail('prepare requires --brief-file or --brief')
 }
 
-function readPromisesFile(p: string): { id: string; label: string; contract?: string }[] | null {
+function readPromisesFile(p: string): { id: string; label: string; contract?: string }[] {
   const resolved = path.resolve(p)
   if (!fs.existsSync(resolved)) fail(`promises file not found: ${resolved}`)
   const raw = JSON.parse(fs.readFileSync(resolved, 'utf8')) as unknown
