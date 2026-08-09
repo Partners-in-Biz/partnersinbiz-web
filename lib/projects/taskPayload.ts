@@ -465,7 +465,7 @@ export function taskOrderMillis(value: unknown): number {
   return Number.MAX_SAFE_INTEGER
 }
 
-function validateDispatchableAgentTaskContract(task: Record<string, unknown>): PayloadResult<null> {
+export function validateDispatchableAgentTaskContract(task: Record<string, unknown>): PayloadResult<null> {
   const assignee = cleanString(task.assigneeAgentId)
   const riskLevel = cleanString(task.riskLevel)
   const requiresStrictContract = Boolean(assignee) && (riskLevel === 'high' || riskLevel === 'critical')

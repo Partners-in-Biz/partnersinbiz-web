@@ -9,6 +9,7 @@ import {
   applyAgentColumnMoveState,
   buildProjectTaskUpdateData,
   notificationPriority,
+  validateDispatchableAgentTaskContract,
 } from '@/lib/projects/taskPayload'
 import { logActivity } from '@/lib/activity/log'
 import { adminProjectTaskLink } from '@/lib/projects/links'
@@ -188,6 +189,19 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const reconciled = reconcileApprovalGateUpdate(existing, updateValue, body, isApprovalGateCard)
   if (!reconciled.ok) return apiError(reconciled.error, reconciled.status)
   updateValue = reconciled.value
+
+  // A task can become high-risk or gain an agent after creation. Validate the
+  // merged record when the caller makes it dispatchable, so an incomplete task
+  // cannot be constructed through a sequence of individually-valid PATCH calls.
+  const dispatchContractTouched = body.assigneeAgentId !== undefined
+    || body.riskLevel !== undefined
+    || body.agentInput !== undefined
+    || body.requiredCapability !== undefined
+    || body.agentStatus === 'pending'
+  if (dispatchContractTouched) {
+    const nextTaskContract = validateDispatchableAgentTaskContract({ ...existing, ...updateValue })
+    if (!nextTaskContract.ok) return apiError(nextTaskContract.error, nextTaskContract.status ?? 400)
+  }
 
   // Completion is a watcher-verifiable state transition, never an agent narrative
   // shortcut. The watcher writes completionVerification only after it has checked
