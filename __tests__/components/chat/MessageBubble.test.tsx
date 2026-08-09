@@ -386,7 +386,7 @@ describe('MessageBubble', () => {
     expect(screen.getByText(/exit 0/)).toBeInTheDocument()
   })
 
-  it('keeps a collapsed Show thinking control on completed agent replies', () => {
+  it('keeps a collapsed thought-process bubble beside completed agent replies', () => {
     render(
       <MessageBubble
         currentUserUid="user-1"
@@ -414,9 +414,42 @@ describe('MessageBubble', () => {
 
     const disclosure = screen.getByTestId('message-thinking-disclosure')
     expect(disclosure).not.toHaveAttribute('open')
-    expect(screen.getByText(/Show thinking/i)).toBeInTheDocument()
+    expect(screen.getByText(/Thought process/i)).toBeInTheDocument()
     expect(screen.getByText(/Thought for 18s/i)).toBeInTheDocument()
     expect(screen.getByText('Checked the project API and summarised the open tasks.')).toBeInTheDocument()
+  })
+
+  it('keeps a persisted reasoning summary available after the final response arrives', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        message={{
+          id: 'msg-persisted-reasoning',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: 'The requested change is ready.',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'completed',
+          events: [
+            {
+              event: 'reasoning.summary',
+              text: 'I checked the completed run and preserved its safe summary.',
+              timestamp: 1_770_000_000,
+            },
+            {
+              event: 'run.completed',
+              timestamp: 1_770_000_005,
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('The requested change is ready.')).toBeInTheDocument()
+    expect(screen.getByText(/Thought process/i)).toBeInTheDocument()
+    expect(screen.getByText('I checked the completed run and preserved its safe summary.')).toBeInTheDocument()
   })
 
   it('renders assistant markdown, mermaid-style diagrams, and inline SVG visually instead of as raw prose', () => {
