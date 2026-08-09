@@ -1,8 +1,11 @@
+import { buildDesignCommandGuidance, DESIGN_COMMANDS } from '@/lib/chat/design-commands'
+
 export type SlashCommandExecutorKind =
   | 'context_attachment'
   | 'agent_intent'
   | 'hermes_goal'
   | 'hermes_features'
+  | 'design_command'
 
 export type SlashCommandId =
   | 'use-current-page'
@@ -22,6 +25,17 @@ export type SlashCommandId =
   | 'compress'
   | 'hermes-features'
   | 'help'
+  | 'polish'
+  | 'typeset'
+  | 'layout'
+  | 'colorize'
+  | 'bolder'
+  | 'quieter'
+  | 'distill'
+  | 'clarify'
+  | 'harden'
+  | 'audit'
+  | 'critique'
 
 export interface SlashCommandDefinition {
   id: SlashCommandId
@@ -204,6 +218,15 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     icon: 'help',
     executorKind: 'agent_intent',
   },
+  ...DESIGN_COMMANDS.map((designCommand) => ({
+    id: designCommand.id,
+    token: designCommand.token,
+    label: designCommand.label,
+    description: designCommand.description,
+    aliases: designCommand.aliases,
+    icon: designCommand.icon,
+    executorKind: 'design_command' as const,
+  })),
 ]
 
 export function findActiveSlashCommandPrompt(value: string, caret = value.length): ActiveSlashCommandPrompt | null {
@@ -326,16 +349,18 @@ export function hermesFeaturesCommandLine(payload: SlashCommandPayload): string 
 export function slashCommandInstruction(payload: SlashCommandPayload): string {
   const commandGuidance = payload.id === 'council'
     ? councilModeGuidanceLines('slash-command')
-    : payload.executorKind === 'hermes_goal'
-      ? hermesGoalGuidanceLines(payload)
-      : payload.executorKind === 'hermes_features'
-        ? [
-          'Hermes Features control plane (PiB adapter on /v1/runs):',
-          '- Prefer /toolsets, /memory, /rollback, /personality, /context, /compress over free-form config edits.',
-          '- /context shows what is consuming the context window; /compress here 5 or /compress focus <topic> shrinks it. For /compress, summarize the older-message block and reply with only the summary text.',
-          '- Architecture remains Firestore + /v1/runs, not SessionDB slash.exec.',
-        ]
-        : []
+    : payload.executorKind === 'design_command'
+      ? buildDesignCommandGuidance(payload)
+      : payload.executorKind === 'hermes_goal'
+        ? hermesGoalGuidanceLines(payload)
+        : payload.executorKind === 'hermes_features'
+          ? [
+            'Hermes Features control plane (PiB adapter on /v1/runs):',
+            '- Prefer /toolsets, /memory, /rollback, /personality, /context, /compress over free-form config edits.',
+            '- /context shows what is consuming the context window; /compress here 5 or /compress focus <topic> shrinks it. For /compress, summarize the older-message block and reply with only the summary text.',
+            '- Architecture remains Firestore + /v1/runs, not SessionDB slash.exec.',
+          ]
+          : []
 
   return [
     '[Slash command]',
@@ -344,11 +369,13 @@ export function slashCommandInstruction(payload: SlashCommandPayload): string {
     `label: ${payload.label}`,
     `executor: ${payload.executorKind}`,
     payload.args ? `args: ${payload.args}` : 'args: ',
-    payload.executorKind === 'hermes_goal'
-      ? `native: ${hermesGoalCommandLine(payload)}`
-      : payload.executorKind === 'hermes_features'
-        ? `control: ${hermesFeaturesCommandLine(payload)}`
-        : 'Treat this as structured command intent from the composer, not as decorative message text. If it maps to a platform operation, use the relevant typed API/workflow rather than guessing from prose.',
+    payload.executorKind === 'design_command'
+      ? ''
+      : payload.executorKind === 'hermes_goal'
+        ? `native: ${hermesGoalCommandLine(payload)}`
+        : payload.executorKind === 'hermes_features'
+          ? `control: ${hermesFeaturesCommandLine(payload)}`
+          : 'Treat this as structured command intent from the composer, not as decorative message text. If it maps to a platform operation, use the relevant typed API/workflow rather than guessing from prose.',
     ...commandGuidance,
     '---',
     '',
