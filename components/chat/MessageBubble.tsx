@@ -340,12 +340,13 @@ function ThinkingDisclosure({
     <details
       open={defaultOpen || undefined}
       data-testid="message-thinking-disclosure"
-      className="group/thinking mb-2 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] text-[var(--color-pib-text-muted)]"
+      aria-label="Thought process"
+      className="group/thinking mb-2 overflow-hidden rounded-xl border border-primary/25 bg-primary/[0.06] text-[var(--color-pib-text-muted)] shadow-inner"
     >
       <summary className="flex cursor-pointer list-none select-none items-center gap-2 px-3 py-2 text-[11px] font-label uppercase tracking-wide text-[var(--color-pib-text)] [&::-webkit-details-marker]:hidden">
         <span className="material-symbols-outlined text-[15px] text-primary transition-transform group-open/thinking:rotate-90">psychology</span>
         <span className="min-w-0 flex-1 truncate normal-case tracking-normal">
-          {thinking.summary ? 'Show thinking' : 'Show work'}
+          {thinking.summary ? 'Thought process' : 'Work recap'}
           {meta ? <span className="ml-2 font-normal normal-case tracking-normal text-[var(--color-pib-text-muted)]">{meta}</span> : null}
         </span>
         <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] transition-transform group-open/thinking:rotate-180">expand_more</span>
