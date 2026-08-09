@@ -777,11 +777,16 @@ export function applyAgentColumnMoveState(
     return next
   }
 
-  if (!hasAgent || !callerDidNotSetStatus) return updates
+  if (!hasAgent) return updates
 
   if (columnId === 'todo') {
     const requeueable = currentStatus === 'done' || currentStatus === 'blocked' || currentStatus === 'awaiting-input'
-    if (!requeueable) return updates
+    const requestedAgentStatus = typeof updates.agentStatus === 'string' ? updates.agentStatus : null
+    // Callers may explicitly set pending when releasing a task. That is still a
+    // new attempt, so it gets the same stale-state reset as a column-only drag.
+    // Other explicit statuses (for example, done) retain their existing intent.
+    const startsNewAttempt = callerDidNotSetStatus || requestedAgentStatus === 'pending'
+    if (!requeueable || !startsNewAttempt) return updates
     return {
       ...updates,
       agentStatus: 'pending',
@@ -797,8 +802,12 @@ export function applyAgentColumnMoveState(
       completionEvidence: null,
       completionIntegrityFailureReasons: null,
       completionVerification: null,
+      reviewRetryCount: null,
+      reviewRetryAt: null,
     }
   }
+
+  if (!callerDidNotSetStatus) return updates
 
   if (columnId === 'in_progress') {
     return {
