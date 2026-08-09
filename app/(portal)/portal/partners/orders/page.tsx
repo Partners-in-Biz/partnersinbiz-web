@@ -14,8 +14,16 @@ interface PartnerOrder {
   notes?: string
   invoiceId?: string
   fulfillmentStatus?: string
-  lineItems?: Array<{ name: string; qty: number; unitPrice: number; total: number }>
+  lineItems?: Array<{ productId?: string; name: string; qty: number; unitPrice: number; total: number }>
+  shippedQuantities?: Record<string, number>
   createdAt?: { seconds?: number; _seconds?: number }
+}
+
+interface ShipDraft {
+  orderId: string
+  quantities: Record<string, string>
+  trackingNumber: string
+  carrier: string
 }
 
 function unwrap(body: unknown): Record<string, unknown> | null {
@@ -45,6 +53,7 @@ export default function PartnerOrdersPage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [shipDraft, setShipDraft] = useState<ShipDraft | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -89,14 +98,50 @@ export default function PartnerOrdersPage() {
     }
   }
 
-  async function ship(order: PartnerOrder) {
-    const trackingNumber = window.prompt('Tracking number (optional)') ?? ''
-    const carrier = trackingNumber ? (window.prompt('Carrier (optional)') ?? '') : ''
+  function outstandingOf(order: PartnerOrder, line: { productId?: string; qty: number }): number {
+    if (!line.productId) return line.qty
+    const shipped = order.shippedQuantities?.[line.productId] ?? 0
+    return Math.max(0, line.qty - shipped)
+  }
+
+  function startShip(order: PartnerOrder) {
+    const quantities: Record<string, string> = {}
+    for (const line of order.lineItems ?? []) {
+      if (line.productId) quantities[line.productId] = String(outstandingOf(order, line))
+    }
+    setShipDraft({ orderId: order.id, quantities, trackingNumber: '', carrier: '' })
+  }
+
+  async function submitShip(order: PartnerOrder, draft: ShipDraft) {
+    const quantities: Record<string, number> = {}
+    for (const line of order.lineItems ?? []) {
+      if (!line.productId) continue
+      const raw = Number(draft.quantities[line.productId])
+      if (!Number.isFinite(raw) || raw <= 0) continue
+      const capped = Math.min(raw, outstandingOf(order, line))
+      if (capped > 0) quantities[line.productId] = capped
+    }
+    if (Object.keys(quantities).length === 0) {
+      setError('Enter a quantity greater than zero for at least one product to ship.')
+      return
+    }
+    const isPartial = (order.lineItems ?? []).some((line) => {
+      if (!line.productId || !(line.productId in quantities)) return false
+      return quantities[line.productId] < outstandingOf(order, line)
+    })
     await act(
       order,
-      { action: 'ship', trackingNumber: trackingNumber || undefined, carrier: carrier || undefined },
-      'Marked as shipped. The reservation has been consumed and the buyer notified.',
+      {
+        action: 'ship',
+        quantities,
+        trackingNumber: draft.trackingNumber || undefined,
+        carrier: draft.carrier || undefined,
+      },
+      isPartial
+        ? 'Partial shipment recorded. The order stays packed until everything outstanding has shipped.'
+        : 'Marked as shipped. The reservation has been consumed and the buyer notified.',
     )
+    setShipDraft(null)
   }
 
   async function decide(order: PartnerOrder, decision: 'confirm' | 'reject') {
@@ -204,11 +249,11 @@ export default function PartnerOrdersPage() {
               {['not_started', 'picking', 'packed'].includes(order.fulfillmentStatus ?? '') ? (
                 <button
                   type="button"
-                  onClick={() => void ship(order)}
+                  onClick={() => void startShip(order)}
                   disabled={busyId === order.id}
                   className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
                 >
-                  Mark shipped
+                  {busyId === order.id ? 'Working…' : 'Mark shipped'}
                 </button>
               ) : null}
               {order.fulfillmentStatus === 'in_transit' ? (
@@ -252,6 +297,72 @@ export default function PartnerOrdersPage() {
             </Link>
           ) : null}
         </div>
+
+        {shipDraft?.orderId === order.id ? (
+          <div className="mt-3 rounded-md border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
+            <p className="mb-2 text-[11px] text-[var(--color-pib-text-muted)]">
+              Ship a partial quantity per product. Leave a product at zero to ship it later.
+            </p>
+            <div className="space-y-2">
+              {(order.lineItems ?? []).map((line, i) => (
+                <label key={i} className="flex items-center justify-between gap-3 text-[11px] text-[var(--color-pib-text)]">
+                  <span className="min-w-0 truncate">
+                    {line.name} × {line.qty}
+                    {line.productId && outstandingOf(order, line) < line.qty
+                      ? <span className="text-[var(--color-pib-text-muted)]"> ({outstandingOf(order, line)} remaining)</span>
+                      : null}
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={line.productId ? outstandingOf(order, line) : line.qty}
+                    value={shipDraft.quantities[line.productId ?? ''] ?? '0'}
+                    onChange={(e) => {
+                      const productId = line.productId ?? ''
+                      if (!productId) return
+                      setShipDraft({ ...shipDraft, quantities: { ...shipDraft.quantities, [productId]: e.target.value } })
+                    }}
+                    className="w-20 rounded border border-[var(--color-pib-line)] bg-black/20 px-2 py-1 text-right text-xs text-[var(--color-pib-text)]"
+                  />
+                </label>
+              ))}
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Tracking number (optional)"
+                  value={shipDraft.trackingNumber}
+                  onChange={(e) => setShipDraft({ ...shipDraft, trackingNumber: e.target.value })}
+                  className="rounded border border-[var(--color-pib-line)] bg-black/20 px-2 py-1 text-xs text-[var(--color-pib-text)]"
+                />
+                <input
+                  type="text"
+                  placeholder="Carrier (optional)"
+                  value={shipDraft.carrier}
+                  onChange={(e) => setShipDraft({ ...shipDraft, carrier: e.target.value })}
+                  className="rounded border border-[var(--color-pib-line)] bg-black/20 px-2 py-1 text-xs text-[var(--color-pib-text)]"
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void submitShip(order, shipDraft)}
+                disabled={busyId === order.id}
+                className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
+              >
+                {busyId === order.id ? 'Working…' : 'Confirm shipment'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShipDraft(null)}
+                disabled={busyId === order.id}
+                className="rounded-md border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
       </li>
     )
   }

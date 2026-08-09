@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "lib/cross-org/policy-service.ts",
+    "app/api/v1/cross-org/decide/route.ts",
+    "__tests__/lib/cross-org/policy-service.test.ts",
+    "__tests__/api/v1/cross-org/decide.test.ts",
+    "__tests__/architecture/cross-org-policy-service-contract.test.ts",
+    "__tests__/lib/cross-org/decision.test.ts",
+    "__tests__/lib/cross-org/lifecycle.test.ts",
+    "__tests__/lib/cross-org/migration.test.ts",
+    "__tests__/architecture/cross-org-access-contract.test.ts"
+  ]
+}

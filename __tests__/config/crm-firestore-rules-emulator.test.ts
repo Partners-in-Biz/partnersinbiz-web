@@ -17,6 +17,9 @@ import path from 'node:path'
 const projectId = 'crm-rules-emulator'
 jest.setTimeout(60_000)
 
+const emulatorAvailable = !!process.env.FIRESTORE_EMULATOR_HOST
+const describeCrmRules = emulatorAvailable ? describe : describe.skip
+
 const ORG_A = 'org-a'
 const ORG_B = 'org-b'
 
@@ -31,12 +34,11 @@ function memberDocId(orgId: string, uid: string) {
   return `${orgId}_${uid}`
 }
 
-describe('CRM Firestore rules tenant isolation', () => {
+describeCrmRules('CRM Firestore rules tenant isolation', () => {
   let environment: RulesTestEnvironment
   let adminDb: ReturnType<typeof getFirestore>
 
   beforeAll(async () => {
-    if (!process.env.FIRESTORE_EMULATOR_HOST) throw new Error('FIRESTORE_EMULATOR_HOST required; run npm run test:config:crm-emulator')
     environment = await initializeTestEnvironment({
       projectId,
       firestore: { rules: fs.readFileSync(path.resolve('firestore.rules'), 'utf8') },

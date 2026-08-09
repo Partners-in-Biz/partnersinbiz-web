@@ -13,6 +13,7 @@
  */
 
 import { initializeApp, getApps } from 'firebase-admin/app'
+import type { DealLineItem } from '@/lib/crm/types'
 
 const emulator = process.env.FIRESTORE_EMULATOR_HOST
 if (!emulator) {
@@ -1055,6 +1056,169 @@ async function main() {
   check('a non-trade invoice cannot be settled through the partner flow', plainPay)
 
   // =======================================================================
+  console.log('\n[4m] Duplicate catalogue lines are canonicalised before persistence')
+  // =======================================================================
+  // Two lines for the same catalogue item collapse into ONE persisted line
+  // (aggregated quantity) so confirm cannot double-reserve against the same
+  // product snapshot and shippedQuantities stays product-key cardinality-safe.
+  const dupStock = adminDb.collection('inventoryItems').doc()
+  await dupStock.set({
+    orgId: 'org-a', productId: gadgetRef.id, name: 'Red Gadget dup',
+    quantityAvailable: 30, quantityReserved: 0, status: 'active',
+    deleted: false, createdAt: now, updatedAt: now,
+  })
+
+  // Stock for a product can span several rows, so reservations drain across
+  // ALL matching rows; read totals instead of one row.
+  const reservedTotalFor = async (productId: string) => {
+    const snap = await adminDb.collection('inventoryItems').where('orgId', '==', 'org-a').get()
+    return snap.docs
+      .filter((d) => (d.data() ?? {}).productId === productId && (d.data() ?? {}).deleted !== true)
+      .reduce((sum, d) => sum + (Number(d.data()?.quantityReserved) || 0), 0)
+  }
+
+  const dupOrder = await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [
+      { catalogItemId: gadgetCatalog.id, qty: 2 },
+      { catalogItemId: gadgetCatalog.id, qty: 3 },
+    ],
+    actor: partnerActor,
+  })
+  const dupLines = (await doc('orders', dupOrder.supplierOrderId)).lineItems as DealLineItem[]
+  check('duplicate catalogue lines aggregate into one persisted line',
+    dupLines.length === 1 && dupLines[0].qty === 5, dupLines)
+
+  const dupReservedBefore = await reservedTotalFor(gadgetRef.id)
+  const dupDecided = await decidePartnerOrder({
+    supplierOrgId: 'org-a', orderId: dupOrder.supplierOrderId, decision: 'confirm', actor,
+  })
+  check('confirm reserves the aggregated quantity ONCE',
+    (await reservedTotalFor(gadgetRef.id)) === dupReservedBefore + 5,
+    { before: dupReservedBefore, after: await reservedTotalFor(gadgetRef.id) })
+
+  const dupMovements = await adminDb.collection('inventoryMovements')
+    .where('orderId', '==', dupOrder.supplierOrderId).where('movementType', '==', 'reserved').get()
+  check('exactly one reserved movement per canonical product line',
+    dupMovements.docs.length === 1 && dupMovements.docs[0].data().quantity === 5,
+    dupMovements.docs.map((d) => d.data().quantity))
+
+  // Partial shipment of the canonicalised order works off the one product key.
+  await fulfilPartnerOrder({
+    supplierOrgId: 'org-a', orderId: dupOrder.supplierOrderId, action: 'ship',
+    quantities: { [gadgetRef.id]: 2 }, trackingNumber: 'DUP-1', actor,
+  })
+  check('partial ship works on a canonicalised order',
+    (await doc('orders', dupOrder.supplierOrderId)).shippedQuantities?.[gadgetRef.id] === 2)
+
+  // =======================================================================
+  console.log('\n[4n] Concurrency: double-confirm and confirm-vs-cancel')
+  // =======================================================================
+  const raceOrder = await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [{ catalogItemId: gadgetCatalog.id, qty: 4 }], actor: partnerActor,
+  })
+
+  const raceReservedBefore = await reservedTotalFor(gadgetRef.id)
+  const confirmOutcomes = await Promise.allSettled([
+    decidePartnerOrder({ supplierOrgId: 'org-a', orderId: raceOrder.supplierOrderId, decision: 'confirm', actor }),
+    decidePartnerOrder({ supplierOrgId: 'org-a', orderId: raceOrder.supplierOrderId, decision: 'confirm', actor }),
+  ])
+  const confirmWins = confirmOutcomes.filter((o) => o.status === 'fulfilled').length
+  check('concurrent double-confirm: exactly one wins', confirmWins === 1, confirmOutcomes.map((o) => o.status))
+  check('the loser gets a clean "already" error',
+    confirmOutcomes.some((o) => o.status === 'rejected' && /already confirmed/i.test(String((o as PromiseRejectedResult).reason?.message ?? (o as PromiseRejectedResult).reason))))
+
+  const raceReserved = await reservedTotalFor(gadgetRef.id)
+  check('double-confirm reserved stock exactly once', raceReserved === raceReservedBefore + 4,
+    { before: raceReservedBefore, after: raceReserved })
+  const raceInvoices = await adminDb.collection('invoices')
+    .where('tradeOrderId', '==', raceOrder.tradeOrderId).get()
+  check('double-confirm drafted exactly one invoice', raceInvoices.docs.length === 1, raceInvoices.docs.length)
+  check('the order stays confirmed after the race',
+    (await doc('orders', raceOrder.supplierOrderId)).partnerOrderStatus === 'confirmed')
+
+  // Confirm racing a supplier cancel on a fresh order: legal final states are
+  // (confirm then cancel-releases) or (cancel first, confirm refused) — the
+  // invariant is that the order always ends cancelled with zero reservation
+  // and no negative stock.
+  const race2 = await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [{ catalogItemId: gadgetCatalog.id, qty: 3 }], actor: partnerActor,
+  })
+  const race2ReservedBefore = await reservedTotalFor(gadgetRef.id)
+  await Promise.allSettled([
+    decidePartnerOrder({ supplierOrgId: 'org-a', orderId: race2.supplierOrderId, decision: 'confirm', actor }),
+    cancelPartnerOrder({ orgId: 'org-a', orderId: race2.supplierOrderId, actor }),
+  ])
+  const race2Order = await doc('orders', race2.supplierOrderId)
+  const race2Reserved = await reservedTotalFor(gadgetRef.id)
+  const race2Available = (await adminDb.collection('inventoryItems').where('orgId', '==', 'org-a').get()).docs
+    .filter((d) => (d.data() ?? {}).productId === gadgetRef.id && (d.data() ?? {}).deleted !== true)
+    .reduce((sum, d) => sum + (Number(d.data()?.quantityAvailable) || 0), 0)
+  check('confirm-vs-cancel race always ends cancelled', race2Order.partnerOrderStatus === 'cancelled', race2Order.partnerOrderStatus)
+  check('confirm-vs-cancel race leaves no net reservation', race2Reserved === race2ReservedBefore,
+    { before: race2ReservedBefore, after: race2Reserved })
+  check('confirm-vs-cancel race never goes negative', race2Available >= 0, race2Available)
+  check('BOTH copies agree after confirm-vs-cancel race',
+    (await doc('orders', race2.buyerOrderId)).partnerOrderStatus === 'cancelled')
+
+  // =======================================================================
+  console.log('\n[4o] Payment race: concurrent pay, and pay-vs-confirm')
+  // =======================================================================
+  const payRaceOrder = await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [{ catalogItemId: gadgetCatalog.id, qty: 2 }], actor: partnerActor,
+  })
+  await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: payRaceOrder.supplierOrderId, decision: 'confirm', actor })
+  const payRaceInvoice = (await doc('orders', payRaceOrder.supplierOrderId)).invoiceId as string
+
+  const payOutcomes = await Promise.allSettled([
+    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-1', actor: partnerActor }),
+    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-2', actor: partnerActor }),
+  ])
+  const payWins = payOutcomes.filter((o) => o.status === 'fulfilled').length
+  check('concurrent double-pay: exactly one wins', payWins === 1, payOutcomes.map((o) => o.status))
+  check('the losing pay gets a clean pending error',
+    payOutcomes.some((o) => o.status === 'rejected' && /awaiting verification/i.test(String((o as PromiseRejectedResult).reason?.message ?? (o as PromiseRejectedResult).reason))))
+  check('invoice is pending verification after the pay race',
+    (await doc('invoices', payRaceInvoice)).status === 'payment_pending_verification')
+
+  // Verification racing a fresh pay submission (after a reject resets status).
+  await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: payRaceInvoice, decision: 'reject', note: 'reset', actor })
+  const verifyRaceOutcomes = await Promise.allSettled([
+    recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-3', actor: partnerActor }),
+    decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: payRaceInvoice, decision: 'confirm', actor }),
+  ])
+  const finalInvoice = await doc('invoices', payRaceInvoice)
+  check('pay-vs-confirm race settles to a consistent state',
+    ['payment_pending_verification', 'paid'].includes(finalInvoice.status), finalInvoice.status)
+  check('both order copies mirror the SAME payment state after the race',
+    (await doc('orders', payRaceOrder.buyerOrderId)).paymentState === (await doc('orders', payRaceOrder.supplierOrderId)).paymentState)
+
+  // =======================================================================
+  console.log('\n[4p] Pre-unlink orders for post-unlink mutation checks')
+  // =======================================================================
+  const preUnlinkReservedBefore = await reservedTotalFor(gadgetRef.id)
+  // A PENDING order (no stock touched yet) …
+  const preUnlinkPending = await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [{ catalogItemId: gadgetCatalog.id, qty: 2 }], actor: partnerActor,
+  })
+  // … and a CONFIRMED order with a drafted invoice (stock reserved).
+  const preUnlinkConfirmed = await placePartnerOrder({
+    buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId,
+    lines: [{ catalogItemId: gadgetCatalog.id, qty: 3 }], actor: partnerActor,
+  })
+  const preUnlinkDecision = await decidePartnerOrder({
+    supplierOrgId: 'org-a', orderId: preUnlinkConfirmed.supplierOrderId, decision: 'confirm', actor,
+  })
+  const preUnlinkReservedAfter = await reservedTotalFor(gadgetRef.id)
+  check('pre-unlink confirmed order reserved stock',
+    preUnlinkReservedAfter === preUnlinkReservedBefore + 3,
+    { before: preUnlinkReservedBefore, after: preUnlinkReservedAfter })
+
+  // =======================================================================
   console.log('\n[5] Unlink from the accepting side')
   // =======================================================================
   const unlinked = await unlinkPartnership({
@@ -1090,6 +1254,65 @@ async function main() {
     (await doc('businessRelationships', r2.sourceRelationshipId)).status === 'active')
   check('unrelated company (Gamma) still linked',
     (await doc('companies', aCompanyGamma)).linkedOrgId === 'org-c')
+
+  // =======================================================================
+  console.log('\n[5b] Trading/settlement mutations are refused after unlink')
+  // =======================================================================
+  // The two pre-unlink orders from [4p] must now be inert: the supplier can
+  // no longer confirm, fulfil, cancel, or settle anything on the dead link.
+  let confirmAfterUnlink = false
+  try {
+    await decidePartnerOrder({ supplierOrgId: 'org-a', orderId: preUnlinkPending.supplierOrderId, decision: 'confirm', actor })
+  } catch { confirmAfterUnlink = true }
+  check('cannot confirm a pending order after unlink', confirmAfterUnlink)
+
+  let shipAfterUnlink = false
+  try {
+    await fulfilPartnerOrder({ supplierOrgId: 'org-a', orderId: preUnlinkConfirmed.supplierOrderId, action: 'ship', actor })
+  } catch { shipAfterUnlink = true }
+  check('cannot ship a confirmed order after unlink', shipAfterUnlink)
+
+  let deliverAfterUnlink = false
+  try {
+    await fulfilPartnerOrder({ supplierOrgId: 'org-a', orderId: preUnlinkConfirmed.supplierOrderId, action: 'deliver', actor })
+  } catch { deliverAfterUnlink = true }
+  check('cannot deliver after unlink', deliverAfterUnlink)
+
+  let cancelAfterUnlink = false
+  try {
+    await cancelPartnerOrder({ orgId: 'org-a', orderId: preUnlinkPending.supplierOrderId, actor })
+  } catch { cancelAfterUnlink = true }
+  check('cannot cancel after unlink', cancelAfterUnlink)
+
+  let payAfterUnlink = false
+  try {
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: preUnlinkDecision.invoiceId!, reference: 'LATE', actor: partnerActor })
+  } catch { payAfterUnlink = true }
+  check('cannot record a payment after unlink', payAfterUnlink)
+
+  let verifyAfterUnlink = false
+  try {
+    await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: preUnlinkDecision.invoiceId!, decision: 'confirm', actor })
+  } catch { verifyAfterUnlink = true }
+  check('cannot verify a payment after unlink', verifyAfterUnlink)
+
+  let listCatalogueAfterUnlink = false
+  try {
+    await browsePartnerCatalog({ buyerOrgId: 'org-b', relationshipId: r1.targetRelationshipId })
+  } catch { listCatalogueAfterUnlink = true }
+  check('buyer cannot browse the catalogue after unlink', listCatalogueAfterUnlink)
+
+  // The refusal must be atomic: no stock moved, no extra invoice drafted.
+  check('no stock movement happened during the refused mutations',
+    (await reservedTotalFor(gadgetRef.id)) === preUnlinkReservedAfter,
+    { atUnlink: preUnlinkReservedAfter, afterRefusals: await reservedTotalFor(gadgetRef.id) })
+  const preUnlinkInvoices = await adminDb.collection('invoices')
+    .where('tradeOrderId', '==', preUnlinkConfirmed.tradeOrderId).get()
+  check('no duplicate invoice drafted after unlink refusals', preUnlinkInvoices.docs.length === 1, preUnlinkInvoices.docs.length)
+  check('the confirmed order is untouched by refused fulfilment',
+    (await doc('orders', preUnlinkConfirmed.supplierOrderId)).fulfillmentStatus === 'not_started')
+  check('the pending order stays pending after refused confirm',
+    (await doc('orders', preUnlinkPending.supplierOrderId)).partnerOrderStatus === 'pending')
 
   // =======================================================================
   console.log('\n[6] Self-link is refused')

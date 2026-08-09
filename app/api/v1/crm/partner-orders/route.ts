@@ -49,12 +49,27 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx: CrmAuthC
     if (lines.some((l) => !Number.isFinite(l.qty) || l.qty <= 0)) {
       return apiError('every line needs a qty greater than zero', 400)
     }
+    // One line per catalogue item: duplicates collapse the same product onto
+    // one shippedQuantities key and would double-reserve stock on confirm.
+    const seen = new Set<string>()
+    for (const l of lines) {
+      if (seen.has(l.catalogItemId)) {
+        return apiError('each catalogue item may only appear once per order', 400)
+      }
+      seen.add(l.catalogItemId)
+    }
+
+    const idempotencyKey = cleanString(req.headers.get('Idempotency-Key'))
+    if (!idempotencyKey || idempotencyKey.length > 200) {
+      return apiError('Idempotency-Key header is required and must be at most 200 characters', 400)
+    }
 
     const result = await placePartnerOrder({
       buyerOrgId: ctx.orgId,
       relationshipId,
       lines,
       notes: cleanString(body.notes) || undefined,
+      idempotencyKey,
       actor: ctx.actor,
     })
     return apiSuccess(result, 201)

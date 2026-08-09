@@ -11,7 +11,7 @@
  * narrows the pool.
  */
 
-import { WORLD_CATALOG, WORLD_CATEGORIES } from './catalog'
+import { WORLD_CATALOG } from './catalog'
 import type { DirectionWorld, WorldCategory } from './types'
 
 /** Category keywords — expanded tokens used to match brief text. */

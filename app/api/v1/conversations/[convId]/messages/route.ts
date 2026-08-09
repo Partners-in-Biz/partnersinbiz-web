@@ -66,6 +66,8 @@ import {
 } from '@/lib/conversations/agent-delegation'
 import { hermesFeaturesService } from '@/lib/hermes-features/service'
 import { councilModeGuidanceLines, getSlashCommandByToken, hermesFeaturesCommandLine, hermesGoalCommandLine, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
+import { renderDesignContextPayload } from '@/lib/chat/design-commands'
+import { findDesignContextItem } from '@/lib/research/store'
 import {
   buildCompressionInputBlock,
   buildCompressionTaskPromptBlock,
@@ -258,6 +260,30 @@ async function buildOrgContext(
     ].filter(Boolean)
     return lines.join('\n') + '\n\n'
   } catch {
+    return ''
+  }
+}
+
+/**
+ * Load the org's latest Design Context (research kind='design', T3) and render
+ * a prompt-safe block for design-command slash dispatches. Best-effort: a DB
+ * failure or missing record never blocks dispatch — the command guidance still
+ * tells the agent how to behave (and to flag when no context exists).
+ */
+async function loadDesignContextPromptBlock(
+  orgId: string,
+  companyId?: string | null,
+): Promise<string> {
+  try {
+    const item = await findDesignContextItem(orgId, companyId)
+    if (!item?.designContext) return ''
+    const block = renderDesignContextPayload(item.designContext)
+    return block ? `\n\n${block}\n` : ''
+  } catch (error) {
+    console.error('[conversation-design-context-load-failed]', {
+      orgId,
+      message: error instanceof Error ? error.message : String(error),
+    })
     return ''
   }
 }
@@ -491,12 +517,13 @@ export const POST = withAuth(
     if (!attachments) return apiError('One or more attachments are invalid for this conversation', 400)
     const publicAttachments: ConversationAttachment[] = attachments.map(({ storagePath: _storagePath, ...attachment }) => attachment)
     const slashCommand = sanitizeSlashCommand((body as Record<string, unknown>).slashCommand)
-    // /goal, /toolsets, /memory, /rollback, etc. may have empty free-text content.
+    // /goal, /toolsets, /memory, /rollback, /design commands, etc. may have empty free-text content.
     if (
       !content
       && attachments.length === 0
       && slashCommand?.executorKind !== 'hermes_goal'
       && slashCommand?.executorKind !== 'hermes_features'
+      && slashCommand?.executorKind !== 'design_command'
     ) {
       return apiError('content or attachments are required', 400)
     }
@@ -824,7 +851,9 @@ export const POST = withAuth(
     // Store the user message
     const userVisibleContent = slashCommand?.executorKind === 'hermes_goal'
       ? (hermesGoalCommandLine(slashCommand) || content || slashCommand.token)
-      : content
+      : slashCommand?.executorKind === 'design_command'
+        ? (content || (slashCommand.args ? `${slashCommand.token} ${slashCommand.args}` : slashCommand.token))
+        : content
     const mentions = parseMentions(userVisibleContent)
     const mentionIds = mentions.map(({ id, type }) => `${type}:${id}`)
     const message = await createMessage(convId, {
@@ -1110,6 +1139,11 @@ export const POST = withAuth(
       const decisionDataRuleContext = buildDecisionDataOperatingRuleContext()
       const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
       const commandContext = slashCommand ? slashCommandInstruction(slashCommand) : ''
+      // Design commands (T1 detector + T3 design context): inject the client's
+      // latest Design Context record so the agent resolves and cites it.
+      const designContextBlock = slashCommand?.executorKind === 'design_command'
+        ? await loadDesignContextPromptBlock(conversation.orgId, conversation.workspaceContext?.companyId ?? null)
+        : ''
       const goalWorkContext = hermesGoalWorkPrompt
         ? `\n\n${hermesGoalWorkPrompt}\n\n`
         : ''
@@ -1199,7 +1233,7 @@ export const POST = withAuth(
       const userTurnContent = hermesGoalWorkPrompt
         ? `${goalWorkContext}${content ? `User message:\n${content}` : ''}`.trim()
         : content
-      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + hermesFeaturesContext + decisionDataRuleContext + dynamicChatCanvasContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + compressionTaskContext + userTurnContent + attachmentContext
+      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + hermesFeaturesContext + decisionDataRuleContext + designContextBlock + dynamicChatCanvasContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + compressionTaskContext + userTurnContent + attachmentContext
       // VPS-hosted "linked computers" (hermes-vps-01) already expose Hermes
       // /v1/runs publicly. Prefer direct gateway dispatch so chat does not depend
       // on pib-runtime claim queues. Keep the claim queue for Mac/desktop runtimes.

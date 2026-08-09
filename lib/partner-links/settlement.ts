@@ -1,4 +1,4 @@
-import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import { recordCrmAuditEvent } from '@/lib/crm/audit'
@@ -67,80 +67,98 @@ function paymentStateOf(invoice: Record<string, unknown>): PartnerPaymentState {
 }
 
 /**
- * Loads an invoice and proves it belongs to a partner trade between these two
- * orgs. Everything downstream depends on this, so it is deliberately strict:
- * the invoice must name both orgs AND carry a tradeOrderId.
+ * Inside a transaction: prove the partner link is STILL live between these two
+ * orgs. Both mirrored relationship rows must exist, be active, not deleted,
+ * and together name exactly the two orgs on this invoice. Settlement is part
+ * of the relationship — after either side unlinks, the payment surface closes.
  */
-async function loadPartnerInvoice(input: {
+async function assertLivePartnerLinkTx(input: {
+  tx: FirebaseFirestore.Transaction
+  partnerLinkId: string
+  orgA: string
+  orgB: string
+}): Promise<void> {
+  const partnerLinkId = cleanString(input.partnerLinkId)
+  if (!partnerLinkId) throw new Error('This is not a partner settlement')
+  const snap = await input.tx.get(
+    adminDb
+      .collection('businessRelationships')
+      .where('partnerLinkId', '==', partnerLinkId)
+      .limit(10),
+  )
+  const rows = snap.docs.map((d) => d.data() ?? {})
+  const activeOrgIds = new Set(
+    rows
+      .filter((r) => r.status === 'active' && r.deleted !== true)
+      .map((r) => cleanString(r.sourceOrgId)),
+  )
+  if (activeOrgIds.size < 2 || !activeOrgIds.has(input.orgA) || !activeOrgIds.has(input.orgB)) {
+    throw new Error('This partner link is no longer active')
+  }
+}
+
+/**
+ * Loads an invoice inside a transaction and proves it belongs to a partner
+ * trade between these two orgs. Everything downstream depends on this, so it
+ * is deliberately strict: the invoice must name both orgs AND carry a
+ * tradeOrderId. The mirrored order pair and the live partner link are read in
+ * the same transaction, so the mutation-time relationship re-check races
+ * safely with an unlink.
+ */
+async function loadPartnerInvoiceTx(input: {
+  tx: FirebaseFirestore.Transaction
   invoiceId: string
   orgId: string
   side: 'issuer' | 'recipient'
-}): Promise<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, unknown> }> {
+}): Promise<{
+  ref: FirebaseFirestore.DocumentReference
+  data: Record<string, unknown>
+  orderDocs: FirebaseFirestore.QueryDocumentSnapshot[]
+  partnerLinkId: string
+  tradeOrderId: string
+}> {
   const ref = adminDb.collection(INVOICES_COLLECTION).doc(input.invoiceId)
-  const snap = await ref.get()
+  const snap = await input.tx.get(ref)
   if (!snap.exists) throw new Error('Invoice not found')
   const data = snap.data() ?? {}
 
   const issuerOrgId = cleanString(data.orgId) || cleanString(data.sourceOrgId)
   const recipientOrgId = cleanString(data.recipientOrgId)
   if (!issuerOrgId || !recipientOrgId) throw new Error('This is not a partner invoice')
-  if (!cleanString(data.tradeOrderId)) throw new Error('This is not a partner invoice')
+  const tradeOrderId = cleanString(data.tradeOrderId)
+  if (!tradeOrderId) throw new Error('This is not a partner invoice')
 
   const expected = input.side === 'issuer' ? issuerOrgId : recipientOrgId
   if (expected !== input.orgId) throw new Error('Invoice not found')
 
-  // The link must still be live — settlement is part of the relationship.
-  const orderSnap = await adminDb
-    .collection(ORDERS_COLLECTION)
-    .where('tradeOrderId', '==', cleanString(data.tradeOrderId))
-    .limit(10)
-    .get()
-  const partnerLinkId = cleanString((orderSnap.docs[0]?.data() ?? {}).partnerLinkId)
+  // The order pair proves this is a partner trade; the link must still be live.
+  const orderSnap = await input.tx.get(
+    adminDb
+      .collection(ORDERS_COLLECTION)
+      .where('tradeOrderId', '==', tradeOrderId)
+      .limit(10),
+  )
+  const partnerLinkId = cleanString(orderSnap.docs[0]?.data()?.partnerLinkId)
   if (partnerLinkId) {
-    const linkSnap = await adminDb
-      .collection('businessRelationships')
-      .where('partnerLinkId', '==', partnerLinkId)
-      .limit(10)
-      .get()
-    const live = linkSnap.docs.some((d) => {
-      const row = d.data() ?? {}
-      return row.status === 'active' && row.deleted !== true
+    await assertLivePartnerLinkTx({
+      tx: input.tx,
+      partnerLinkId,
+      orgA: issuerOrgId,
+      orgB: recipientOrgId,
     })
-    if (!live) throw new Error('This partner link is no longer active')
   }
 
-  return { ref, data }
-}
-
-/** Mirror the payment state onto both order copies so each side sees it. */
-async function syncOrdersPaymentState(input: {
-  tradeOrderId: string
-  paymentState: PartnerPaymentState
-  actor: MemberRef
-}): Promise<string[]> {
-  if (!input.tradeOrderId) return []
-  const snap = await adminDb
-    .collection(ORDERS_COLLECTION)
-    .where('tradeOrderId', '==', input.tradeOrderId)
-    .limit(10)
-    .get()
-  const now = Timestamp.now()
-  const ids: string[] = []
-  for (const doc of snap.docs) {
-    await doc.ref.set({
-      paymentState: input.paymentState,
-      updatedByRef: input.actor,
-      updatedAt: now,
-    }, { merge: true })
-    ids.push(doc.id)
-  }
-  return ids
+  return { ref, data, orderDocs: orderSnap.docs, partnerLinkId, tradeOrderId }
 }
 
 /**
  * Buyer records that they have paid — an EFT reference, optionally with an
  * uploaded proof file. Moves the invoice to pending verification; it does NOT
  * mark it paid, because only the org that is owed the money can say that.
+ *
+ * The invoice status precondition and the payment-state mirror onto both order
+ * copies commit in ONE Firestore transaction, so two concurrent 'pay' requests
+ * cannot both win and a payment racing a verification cannot corrupt state.
  */
 export async function recordPartnerPayment(input: {
   payerOrgId: string
@@ -151,19 +169,6 @@ export async function recordPartnerPayment(input: {
   note?: string
   actor: MemberRef
 }): Promise<{ invoiceId: string; paymentState: PartnerPaymentState; orderIds: string[] }> {
-  const { ref, data } = await loadPartnerInvoice({
-    invoiceId: input.invoiceId,
-    orgId: input.payerOrgId,
-    side: 'recipient',
-  })
-
-  const status = cleanString(data.status)
-  if (status === 'paid') throw new Error('This invoice is already settled')
-  if (status === 'payment_pending_verification') {
-    throw new Error('A payment is already awaiting verification on this invoice')
-  }
-  if (status === 'cancelled' || status === 'void') throw new Error('This invoice is closed')
-
   const reference = cleanString(input.reference)
   const fileId = cleanString(input.fileId)
   if (!reference && !fileId) {
@@ -184,39 +189,64 @@ export async function recordPartnerPayment(input: {
     submittedAt: now,
   }) as PartnerPaymentRecord
 
-  await ref.set(stripUndefined({
-    status: 'payment_pending_verification',
-    partnerPayment: payment,
-    paymentProofFileId: fileId || undefined,
-    paymentRejectedAt: FieldValue.delete(),
-    updatedByRef: input.actor,
-    updatedAt: now,
-  }), { merge: true })
+  const outcome = await adminDb.runTransaction(async (tx) => {
+    const { ref, data, orderDocs, tradeOrderId } = await loadPartnerInvoiceTx({
+      tx,
+      invoiceId: input.invoiceId,
+      orgId: input.payerOrgId,
+      side: 'recipient',
+    })
 
-  const tradeOrderId = cleanString(data.tradeOrderId)
-  const orderIds = await syncOrdersPaymentState({
-    tradeOrderId,
-    paymentState: 'pending_verification',
-    actor: input.actor,
+    const status = cleanString(data.status)
+    if (status === 'paid') throw new Error('This invoice is already settled')
+    if (status === 'payment_pending_verification') {
+      throw new Error('A payment is already awaiting verification on this invoice')
+    }
+    if (status === 'cancelled' || status === 'void') throw new Error('This invoice is closed')
+
+    tx.set(ref, stripUndefined({
+      status: 'payment_pending_verification',
+      partnerPayment: payment,
+      paymentProofFileId: fileId || undefined,
+      paymentRejectedAt: FieldValue.delete(),
+      updatedByRef: input.actor,
+      updatedAt: now,
+    }), { merge: true })
+
+    const orderIds: string[] = []
+    for (const doc of orderDocs) {
+      tx.set(doc.ref, {
+        paymentState: 'pending_verification',
+        updatedByRef: input.actor,
+        updatedAt: now,
+      }, { merge: true })
+      orderIds.push(doc.id)
+    }
+
+    return {
+      issuerOrgId: cleanString(data.orgId) || cleanString(data.sourceOrgId),
+      invoiceNumber: cleanString(data.invoiceNumber),
+      tradeOrderId,
+      orderIds,
+    }
   })
 
-  const issuerOrgId = cleanString(data.orgId) || cleanString(data.sourceOrgId)
   await recordCrmAuditEvent({
     orgId: input.payerOrgId,
     eventType: 'partner_payment.submitted',
     resourceType: 'invoice',
     resourceId: input.invoiceId,
     actorRef: input.actor,
-    metadata: { tradeOrderId, reference, amount },
+    metadata: { tradeOrderId: outcome.tradeOrderId, reference, amount },
     notification: {
       type: 'partner_payment.submitted',
       title: 'A partner marked an invoice as paid',
-      body: `${cleanString(data.invoiceNumber) || 'An invoice'} has a payment awaiting your verification${reference ? ` (ref ${reference})` : ''}.`,
-      targetOrgIds: [issuerOrgId],
+      body: `${outcome.invoiceNumber || 'An invoice'} has a payment awaiting your verification${reference ? ` (ref ${reference})` : ''}.`,
+      targetOrgIds: [outcome.issuerOrgId],
     },
   })
 
-  return { invoiceId: input.invoiceId, paymentState: 'pending_verification', orderIds }
+  return { invoiceId: input.invoiceId, paymentState: 'pending_verification', orderIds: outcome.orderIds }
 }
 
 /**
@@ -231,60 +261,74 @@ export async function decidePartnerPayment(input: {
   note?: string
   actor: MemberRef
 }): Promise<{ invoiceId: string; paymentState: PartnerPaymentState; orderIds: string[] }> {
-  const { ref, data } = await loadPartnerInvoice({
-    invoiceId: input.invoiceId,
-    orgId: input.issuerOrgId,
-    side: 'issuer',
-  })
-
-  if (cleanString(data.status) !== 'payment_pending_verification') {
-    throw new Error('There is no payment awaiting verification on this invoice')
-  }
-
   const now = FieldValue.serverTimestamp()
-  const existing = (data.partnerPayment ?? {}) as PartnerPaymentRecord
   const confirmed = input.decision === 'confirm'
   const paymentState: PartnerPaymentState = confirmed ? 'paid' : 'rejected'
 
-  await ref.set(stripUndefined({
-    status: confirmed ? 'paid' : 'sent',
-    paidAt: confirmed ? now : FieldValue.delete(),
-    paymentRejectedAt: confirmed ? FieldValue.delete() : now,
-    partnerPayment: {
-      ...existing,
-      decidedAt: now,
-      decisionNote: cleanString(input.note) || undefined,
-    },
-    updatedByRef: input.actor,
-    updatedAt: now,
-  }), { merge: true })
+  const outcome = await adminDb.runTransaction(async (tx) => {
+    const { ref, data, orderDocs, tradeOrderId } = await loadPartnerInvoiceTx({
+      tx,
+      invoiceId: input.invoiceId,
+      orgId: input.issuerOrgId,
+      side: 'issuer',
+    })
 
-  const tradeOrderId = cleanString(data.tradeOrderId)
-  const orderIds = await syncOrdersPaymentState({
-    tradeOrderId,
-    paymentState,
-    actor: input.actor,
+    if (cleanString(data.status) !== 'payment_pending_verification') {
+      throw new Error('There is no payment awaiting verification on this invoice')
+    }
+
+    const existing = (data.partnerPayment ?? {}) as PartnerPaymentRecord
+
+    tx.set(ref, stripUndefined({
+      status: confirmed ? 'paid' : 'sent',
+      paidAt: confirmed ? now : FieldValue.delete(),
+      paymentRejectedAt: confirmed ? FieldValue.delete() : now,
+      partnerPayment: {
+        ...existing,
+        decidedAt: now,
+        decisionNote: cleanString(input.note) || undefined,
+      },
+      updatedByRef: input.actor,
+      updatedAt: now,
+    }), { merge: true })
+
+    const orderIds: string[] = []
+    for (const doc of orderDocs) {
+      tx.set(doc.ref, {
+        paymentState,
+        updatedByRef: input.actor,
+        updatedAt: now,
+      }, { merge: true })
+      orderIds.push(doc.id)
+    }
+
+    return {
+      recipientOrgId: cleanString(data.recipientOrgId),
+      invoiceNumber: cleanString(data.invoiceNumber),
+      reference: existing.reference,
+      tradeOrderId,
+      orderIds,
+    }
   })
 
-  const recipientOrgId = cleanString(data.recipientOrgId)
   await recordCrmAuditEvent({
     orgId: input.issuerOrgId,
     eventType: `partner_payment.${confirmed ? 'confirmed' : 'rejected'}`,
     resourceType: 'invoice',
     resourceId: input.invoiceId,
     actorRef: input.actor,
-    metadata: { tradeOrderId, reference: existing.reference },
+    metadata: { tradeOrderId: outcome.tradeOrderId, reference: outcome.reference },
     notification: {
       type: `partner_payment.${confirmed ? 'confirmed' : 'rejected'}`,
       title: confirmed ? 'Your payment was confirmed' : 'Your payment could not be verified',
       body: confirmed
-        ? `${cleanString(data.invoiceNumber) || 'An invoice'} is now settled.`
-        : `${cleanString(data.invoiceNumber) || 'An invoice'} is still outstanding${cleanString(input.note) ? `: ${cleanString(input.note)}` : ''}.`,
-      targetOrgIds: [recipientOrgId],
+        ? `${outcome.invoiceNumber || 'An invoice'} is now settled.`
+        : `${outcome.invoiceNumber || 'An invoice'} is still outstanding${cleanString(input.note) ? `: ${cleanString(input.note)}` : ''}.`,
+      targetOrgIds: [outcome.recipientOrgId],
     },
   })
 
-  return { invoiceId: input.invoiceId, paymentState, orderIds }
+  return { invoiceId: input.invoiceId, paymentState, orderIds: outcome.orderIds }
 }
 
 /**
