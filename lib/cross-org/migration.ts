@@ -19,7 +19,6 @@
 // ub12qgO1AMb3WQeLIPSB) hydrates Firestore data and persists the produced rows.
 
 import type {
-  PartnerIdentityLink,
   PartnerIdentityLinkType,
   PartnerResourceGrant,
   PartnerResourceType,

@@ -12,7 +12,6 @@
 // calling, so the authority logic itself stays deterministic and auditable.
 
 import type {
-  PartnerAccessContext,
   PartnerAccessDecision,
   PartnerAccessInput,
   DecisionStep,
@@ -74,10 +73,6 @@ function timeMillis(value: unknown, fallback: number): number {
 
 function clean(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
-}
-
-function samePair(a: string | undefined, b: string | undefined): boolean {
-  return clean(a) !== '' && clean(a) === clean(b)
 }
 
 /**
