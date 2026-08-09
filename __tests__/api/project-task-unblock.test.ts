@@ -166,6 +166,8 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
       },
       completionIntegrityFailureReasons: ['completion_evidence_missing'],
       completionVerification: { verifierIdentity: 'agent-watcher', verifierResult: 'failed' },
+      reviewRetryCount: 2,
+      reviewRetryAt: '2026-08-09T20:05:00.000Z',
     })
     mockGetAll.mockResolvedValue([])
 
@@ -181,6 +183,8 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
       completionEvidence: null,
       completionIntegrityFailureReasons: null,
       completionVerification: null,
+      reviewRetryCount: null,
+      reviewRetryAt: null,
     }))
     expect(readTaskData()).toMatchObject({
       agentStatus: 'pending',
@@ -192,6 +196,8 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
       completionEvidence: null,
       completionIntegrityFailureReasons: null,
       completionVerification: null,
+      reviewRetryCount: null,
+      reviewRetryAt: null,
     })
   })
 

@@ -106,6 +106,8 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     update.completionEvidence = null
     update.completionIntegrityFailureReasons = null
     update.completionVerification = null
+    update.reviewRetryCount = null
+    update.reviewRetryAt = null
   } else {
     update.agentStatus = null
   }
