@@ -178,6 +178,38 @@ describe('project task approval gate route guards', () => {
     expect(mockTaskUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ agentStatus: 'done' }))
   })
 
+  it('persists typed code evidence so the watcher can verify it after the agent run', async () => {
+    mockTaskGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ title: 'Implementation', labels: [], assigneeAgentId: 'theo', agentStatus: 'in-progress' }),
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({
+      completionEvidence: {
+        schemaVersion: 1,
+        workKind: 'code',
+        commitSha: 'a'.repeat(40),
+        changedFiles: ['app/api/v1/agent/project/[projectId]/route.ts'],
+        testCommand: 'npx jest --runInBand __tests__/api/agent-project-context.test.ts',
+        testResult: 'passed',
+        worktreeState: 'clean',
+      },
+    }), ctx)
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      completionEvidence: {
+        schemaVersion: 1,
+        workKind: 'code',
+        commitSha: 'a'.repeat(40),
+        changedFiles: ['app/api/v1/agent/project/[projectId]/route.ts'],
+        testCommand: 'npx jest --runInBand __tests__/api/agent-project-context.test.ts',
+        testResult: 'passed',
+        worktreeState: 'clean',
+      },
+    }))
+  })
+
   it('does not allow a reviewer assignment to make narrative-only completion reviewable', async () => {
     mockTaskGet.mockResolvedValueOnce({
       exists: true,
