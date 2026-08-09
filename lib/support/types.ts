@@ -9,10 +9,40 @@ export type SupportCategory = (typeof SUPPORT_CATEGORIES)[number]
 export type SupportPriority = (typeof SUPPORT_PRIORITIES)[number]
 export type SupportStatus = (typeof SUPPORT_STATUSES)[number]
 export type SupportAuthorRole = (typeof SUPPORT_AUTHOR_ROLES)[number]
+export type SupportMessageKind = 'comment' | 'internal_note' | 'system'
+export type SupportParticipantRole = 'observer' | 'requester' | 'provider_agent' | 'provider_manager' | 'provider_owner'
+export type SupportParticipantStatus = 'invited' | 'active' | 'revoked'
+
+export interface SupportParticipant {
+  id: string
+  userId: string
+  orgId: string
+  role: SupportParticipantRole
+  status: SupportParticipantStatus
+  invitedByRef?: { uid: string; displayName?: string; kind?: 'human' | 'agent' }
+  acceptedAt?: unknown
+  revokedAt?: unknown
+  revokedByRef?: { uid: string; displayName?: string; kind?: 'human' | 'agent' }
+}
+
+export interface SupportSla {
+  policyId?: string
+  visibility: 'requester' | 'provider' | 'shared'
+  dueAt?: unknown
+  breachedAt?: unknown
+}
 
 export interface SupportTicket {
   id: string
+  /** Legacy owner alias. Cross-org authority is requester/provider plus a canonical resource grant. */
   orgId: string
+  requesterOrgId?: string
+  providerOrgId?: string
+  partnerLinkId?: string
+  scopeAgreementId?: string
+  participants?: SupportParticipant[]
+  assignment?: { assigneeUserId?: string | null; assigneeAgentId?: string | null; assignedByRef?: { uid: string; displayName?: string; kind?: 'human' | 'agent' }; claimedAt?: unknown }
+  sla?: SupportSla
   orgName?: string
   createdBy: string
   requesterName: string
@@ -60,6 +90,8 @@ export interface SupportMessage {
   authorRole: SupportAuthorRole
   authorName: string
   body: string
+  kind?: SupportMessageKind
+  visibility?: 'requester' | 'provider' | 'shared'
   attachments: Array<{ name: string; url: string; contentType?: string }>
   contextRefs?: ContextReference[]
   createdAt?: unknown

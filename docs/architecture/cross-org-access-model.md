@@ -139,6 +139,28 @@ Fields: `id`, `eventType` (`partner_link.invited` | `partner_link.accepted` |
 The existing `crmAuditEvents` collection stays for CRM-level events; canonical
 cross-org policy events go to `partnerAuditEvents`.
 
+### Support tickets and service workspaces
+
+Support tickets and service workspaces use `support-service-adapter.ts` for a
+conservative cross-org action registry and `support-service-collaboration.ts`
+for participant state transitions. The resource records carry requester and
+provider organisations, the canonical link/scope references, named
+participants, assignment and SLA visibility. An invite is always `invited`, a
+claim is bound to the invited user, and revocation remains a durable state.
+
+`view` and `comment` are the only general-grant actions. `claim` requires a
+named provider user with at least `provider_agent`; assignment, resolve,
+participant invite/revocation and SLA changes require a named
+`provider_manager`. `internal_note` is never cross-org and files require their
+own file/document grant. Foreign projections exclude diagnostics, context
+references, attachment locators, commerce data and provider-only SLA detail.
+
+These contracts do not make either module cross-org discoverable on their own:
+the pre-join registry remains `acceptsPrejoinClaims: false` until each route
+loads the immutable owner, asks `CrossOrgPolicyService` for the named action,
+and applies the safe projection. Capability labels must not be shown before
+those route-level enforcement and denial tests land.
+
 ## Decision evaluation rules
 
 `evaluatePartnerAccess(input)` (pure, unit-testable) walks the chain and returns
