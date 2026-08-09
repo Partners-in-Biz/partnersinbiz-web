@@ -6,13 +6,12 @@ import { getHermesFeaturesRepository } from './repository'
 import { toolsetDispatchBlock, isToolsetEnabled } from './toolsets'
 import {
   progressiveSkillsDispatchBlock,
-  selectSkillsForRequest,
-  loadSkillBody,
 } from './skills-progressive'
 import { memoryDispatchBlock } from './memory-curated'
 import {
   contextFilesDispatchBlock,
   discoverContextFilesFromMap,
+  selectContextFilesForPrompt,
 } from './context-files'
 import {
   expandAtTokensInMessage,
@@ -58,27 +57,22 @@ export async function buildHermesFeaturesDispatchBlock(
     ? input.skillCatalog.map((s) => ({ ...s }))
     : await store.getSkills(input.orgId, input.agentId)
 
-  const selected = selectSkillsForRequest(catalog, input.userMessage, 3)
+  // Skill bodies are intentionally never inferred from user wording. The runtime's
+  // scoped skill_view tool performs explicit, allowlisted body retrieval on demand.
   const loadedIds: string[] = []
-  for (const skill of selected) {
-    const body = input.skillBodies?.[skill.id]
-    if (body) {
-      catalog = loadSkillBody(catalog, skill.id, body)
-      loadedIds.push(skill.id)
-    }
-  }
-  if (loadedIds.length > 0) {
-    await store.setSkills(input.orgId, input.agentId, catalog)
-  }
 
   let contextFiles: DiscoveredContextFile[] = []
   let workspaceFiles: Record<string, string> = {}
 
   if (input.workspace) {
-    contextFiles = input.workspace.discoverContextFiles()
-    workspaceFiles = input.workspace.snapshotTextFiles()
-    if (input.conversationId) {
-      await store.setWorkspaceFiles(input.orgId, input.conversationId, workspaceFiles)
+    // Root instructions are read lazily. A full workspace snapshot is only needed
+    // for a requested checkpoint/write-capable run, never ordinary chat.
+    contextFiles = selectContextFilesForPrompt(input.workspace.discoverContextFiles())
+    if (input.autoCheckpoint) {
+      workspaceFiles = input.workspace.snapshotTextFiles()
+      if (input.conversationId) {
+        await store.setWorkspaceFiles(input.orgId, input.conversationId, workspaceFiles)
+      }
     }
   } else {
     workspaceFiles =
@@ -86,7 +80,7 @@ export async function buildHermesFeaturesDispatchBlock(
       (input.conversationId
         ? await store.getWorkspaceFiles(input.orgId, input.conversationId)
         : {})
-    contextFiles = discoverContextFilesFromMap(workspaceFiles)
+    contextFiles = selectContextFilesForPrompt(discoverContextFilesFromMap(workspaceFiles))
   }
 
   let checkpointId: string | undefined
@@ -116,8 +110,8 @@ export async function buildHermesFeaturesDispatchBlock(
   const parts = [
     toolsetDispatchBlock(policy),
     isToolsetEnabled(policy, 'skills')
-      ? progressiveSkillsDispatchBlock(catalog.filter((s) => s.loaded))
-      : '[Hermes skills — progressive]\nskills toolset disabled\n',
+      ? progressiveSkillsDispatchBlock(catalog)
+      : '[Hermes skills — on demand]\nskills toolset disabled\n',
     isToolsetEnabled(policy, 'memory')
       ? memoryDispatchBlock(memory)
       : '[Hermes curated memory]\nmemory toolset disabled\n',

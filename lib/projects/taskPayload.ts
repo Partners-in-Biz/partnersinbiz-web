@@ -464,6 +464,30 @@ export function taskOrderMillis(value: unknown): number {
   return Number.MAX_SAFE_INTEGER
 }
 
+function validateDispatchableAgentTaskContract(task: Record<string, unknown>): PayloadResult<null> {
+  const assignee = cleanString(task.assigneeAgentId)
+  const riskLevel = cleanString(task.riskLevel)
+  const requiresStrictContract = Boolean(assignee) && (riskLevel === 'high' || riskLevel === 'critical')
+  if (!requiresStrictContract) return { ok: true, value: null }
+
+  const missing: string[] = []
+  const spec = isRecord(task.agentInput) ? cleanString(task.agentInput.spec) : null
+  if (!spec) missing.push('agentInput.spec')
+  if (!cleanString(task.requiredCapability)) missing.push('requiredCapability')
+  if (!cleanString(task.reviewerAgentId) && !Array.isArray(task.reviewerIds)) missing.push('reviewerAgentId or reviewerIds')
+  if (!Array.isArray(task.expectedArtifacts) || task.expectedArtifacts.length === 0) missing.push('expectedArtifacts')
+  if (!Array.isArray(task.verifierChecklist) || task.verifierChecklist.length === 0) missing.push('verifierChecklist')
+  if (cleanString(task.sourceDocumentId) && !cleanString(task.sourceSpecVersion)) missing.push('sourceSpecVersion')
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error: `High-risk dispatchable agent task requires ${missing.join(', ')}`,
+      status: 400,
+    }
+  }
+  return { ok: true, value: null }
+}
+
 export function buildProjectTaskCreateData(
   body: Record<string, unknown>,
   projectId: string,
@@ -542,6 +566,8 @@ export function buildProjectTaskCreateData(
   if (reviewerIds.length > 0) value.reviewerIds = reviewerIds
   if (reviewerAgentId.value) value.reviewerAgentId = reviewerAgentId.value
   if (chatOrigin.value) value.chatOrigin = chatOrigin.value
+  const contract = validateDispatchableAgentTaskContract(value)
+  if (!contract.ok) return contract
 
   return { ok: true, value }
 }

@@ -58,7 +58,7 @@ describe('hermes-features durable control plane', () => {
       expect(loaded.find((s) => s.id === 'crm')?.body).toBe('FULL BODY SECRET')
     })
 
-    it('loads real SKILL.md bodies from packs for progressive selection', async () => {
+    it('keeps initial Messages skill dispatch metadata-only with no fallback bodies', async () => {
       const skillId = 'system-auth'
       const body = readSkillBody(skillId)
       expect(body).toBeTruthy()
@@ -69,15 +69,9 @@ describe('hermes-features durable control plane', () => {
         'authenticate API calls with system-auth token',
       )
       expect(progressive.catalog.every((s) => s.loaded === false && s.body === undefined)).toBe(true)
-      expect(progressive.bodies[skillId] || Object.keys(progressive.bodies).length).toBeTruthy()
-      // selected ids that have on-disk bodies
-      expect(progressive.selectedIds.length).toBeGreaterThan(0)
-      for (const id of progressive.selectedIds) {
-        expect(progressive.bodies[id]).toBeTruthy()
-        expect(progressive.bodies[id]).not.toMatch(/^Agent skill:/)
-      }
+      expect(progressive.bodies).toEqual({})
+      expect(progressive.selectedIds).toEqual([])
 
-      // Messages path: catalog + bodies into dispatch
       await hermesFeaturesService.setSkillCatalog(
         'org1',
         'pip',
@@ -96,13 +90,10 @@ describe('hermes-features durable control plane', () => {
         skillBodies: progressive.bodies,
         skillCatalog: progressive.catalog,
       })
-      expect(block.loadedSkillIds.length).toBeGreaterThan(0)
-      expect(block.block).toContain('[Hermes skills — progressive loaded]')
-      expect(block.block).not.toContain('No skill bodies loaded')
-      // body content from real SKILL.md should appear
-      const firstBody = progressive.bodies[progressive.selectedIds[0]!]
-      expect(firstBody).toBeTruthy()
-      expect(block.block).toContain(firstBody!.slice(0, 40))
+      expect(block.loadedSkillIds).toEqual([])
+      expect(block.block).toContain('[Hermes skills — on demand]')
+      expect(block.block).toContain('system-auth')
+      expect(block.block).not.toContain(body!.slice(0, 40))
     })
 
     it('default ref deps support @diff and @url (not only file/folder)', () => {
@@ -199,10 +190,11 @@ describe('hermes-features durable control plane', () => {
         autoCheckpoint: true,
       })
       expect(block.block).toContain('AGENTS.md')
-      expect(block.block).toContain('CRM SKILL BODY')
+      expect(block.block).not.toContain('CRM SKILL BODY')
+      expect(block.block).toContain('crm')
       expect(block.block).toContain('console.log(1)')
       expect(block.checkpointId).toBeTruthy()
-      expect(block.loadedSkillIds).toContain('crm')
+      expect(block.loadedSkillIds).toEqual([])
       expect(block.contextFileNames).toContain('AGENTS.md')
     })
   })
