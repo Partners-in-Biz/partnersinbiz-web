@@ -1,0 +1,94 @@
+import { NextRequest } from 'next/server'
+
+type MockUser = { uid: string; role: 'admin'; orgId: string }
+type MockHandler = (req: NextRequest, user: MockUser, ctx?: unknown) => Promise<Response>
+
+const mockGetProjectForUser = jest.fn()
+const mockTaskGet = jest.fn()
+const mockDependencyGet = jest.fn()
+const mockCommentsGet = jest.fn()
+
+jest.mock('@/lib/api/auth', () => ({
+  withAuth: (_role: string, handler: MockHandler) => async (req: NextRequest, ctx?: unknown) =>
+    handler(req, { uid: 'admin-1', role: 'admin', orgId: 'org-1' }, ctx),
+}))
+
+jest.mock('@/lib/projects/access', () => ({ getProjectForUser: mockGetProjectForUser }))
+
+beforeEach(() => {
+  jest.clearAllMocks()
+
+  const comments = {
+    orderBy: jest.fn(() => ({ limit: jest.fn(() => ({ get: mockCommentsGet })) })),
+  }
+  const activeTaskRef = { collection: jest.fn(() => comments), get: mockTaskGet }
+  const dependencyTaskRef = { get: mockDependencyGet }
+  const tasks = {
+    doc: jest.fn((id: string) => id === 'task-1' ? activeTaskRef : dependencyTaskRef),
+  }
+  const projectRef = {
+    data: () => ({ orgId: 'org-1', name: 'Context budget', status: 'active' }),
+    collection: jest.fn((name: string) => {
+      if (name === 'tasks') return tasks
+      throw new Error(`unexpected collection ${name}`)
+    }),
+  }
+  mockGetProjectForUser.mockResolvedValue({
+    ok: true,
+    doc: { ref: projectRef, data: projectRef.data },
+    projectAccess: { role: 'owner', canViewInternal: true },
+  })
+  mockTaskGet.mockResolvedValue({
+    exists: true,
+    id: 'task-1',
+    ref: activeTaskRef,
+    data: () => ({
+      orgId: 'org-1', projectId: 'project-1', title: 'Implement bounded context',
+      description: 'Only hydrate what this task needs.', assigneeAgentId: 'theo',
+      agentStatus: 'pending', riskLevel: 'high', requiredCapability: 'platform-engineering',
+      sourceDocumentId: 'spec-1', sourceSpecVersion: 'v3',
+      agentInput: { spec: 'Add the minimal endpoint.', constraints: ['No broad project fetch'] },
+      dependsOn: ['dependency-1'], approvalGateTaskId: 'approval-1',
+      expectedArtifacts: ['commit'], verifierChecklist: ['Run focused tests'],
+    }),
+  })
+  mockDependencyGet.mockImplementation(async () => ({
+    exists: true,
+    id: 'dependency-1',
+    data: () => ({ title: 'Dependency', agentStatus: 'done', agentOutput: { summary: 'Ready', artifacts: ['artifact-1'] } }),
+  }))
+  mockCommentsGet.mockResolvedValue({
+    docs: [
+      { id: 'comment-2', data: () => ({ text: 'Second comment', userName: 'Quinn', userRole: 'qa' }) },
+      { id: 'comment-1', data: () => ({ text: 'First comment', userName: 'Theo', userRole: 'engineering' }) },
+    ],
+  })
+})
+
+describe('GET /api/v1/agent/project/[projectId]/task/[taskId]/context', () => {
+  it('returns only the active task, direct dependencies, and task comments', async () => {
+    const { GET } = await import('@/app/api/v1/agent/project/[projectId]/task/[taskId]/context/route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/v1/agent/project/project-1/task/task-1/context'),
+      { params: Promise.resolve({ projectId: 'project-1', taskId: 'task-1' }) },
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.data).toEqual(expect.objectContaining({
+      project: expect.objectContaining({ id: 'project-1', name: 'Context budget' }),
+      task: expect.objectContaining({
+        id: 'task-1',
+        agentInput: expect.objectContaining({ spec: 'Add the minimal endpoint.' }),
+        expectedArtifacts: ['commit'],
+        verifierChecklist: ['Run focused tests'],
+      }),
+      dependencies: expect.arrayContaining([expect.objectContaining({ id: 'dependency-1' })]),
+      comments: [expect.objectContaining({ id: 'comment-1' }), expect.objectContaining({ id: 'comment-2' })],
+    }))
+    expect(body.data).not.toHaveProperty('plan')
+    expect(body.data).not.toHaveProperty('documents')
+    expect(mockGetProjectForUser).toHaveBeenCalledWith('project-1', expect.any(Object), 'org-1')
+    expect(mockTaskGet).toHaveBeenCalledTimes(1)
+  })
+})
