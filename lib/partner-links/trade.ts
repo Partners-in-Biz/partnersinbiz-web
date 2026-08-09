@@ -1032,6 +1032,11 @@ export async function cancelPartnerOrder(input: {
     const isSupplier = order.direction === 'sales'
 
     if (status === 'cancelled' || status === 'rejected') throw new Error('This order is already closed')
+    const shippedQuantities = (order.shippedQuantities ?? {}) as Record<string, number>
+    const hasShippedGoods = Object.values(shippedQuantities).some((qty) => Number(qty) > 0)
+    if (hasShippedGoods) {
+      throw new Error('This order has shipped goods and requires a credit note; it cannot be cancelled')
+    }
     if (status === 'confirmed') {
       if (!isSupplier) throw new Error('Only the supplier can cancel a confirmed order — ask them to cancel it')
       if (fulfilment !== 'not_started' && fulfilment !== 'picking' && fulfilment !== 'packed') {
