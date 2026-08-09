@@ -168,6 +168,8 @@ export interface PartnerResourceGrant {
     approvalGateTaskId?: string
     sourceResearchItemId?: string
     sourceShareId?: string
+    /** Immutable link to the pre-join invitation that materialised this grant. */
+    sourceInviteId?: string
   }
   approvalBasis:
     | { type: 'partner_link'; refId: string }
