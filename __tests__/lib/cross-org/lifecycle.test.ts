@@ -135,6 +135,21 @@ describe('planCapabilityReductionCascade', () => {
     expect(plan.events.some((e) => e.eventType === 'capability.reduced')).toBe(true)
   })
 
+  it('revokes research/property grants when their scoped capability is removed even with generic actions', () => {
+    const researchGrant = grant('grant-research', {
+      resourceType: 'research', resourceId: 'research-1', actions: ['view'],
+    })
+    const propertyGrant = grant('grant-property', {
+      resourceType: 'property', resourceId: 'property-1', actions: ['comment'],
+    })
+    const plan = planCapabilityReductionCascade({
+      agreement: AGREEMENT,
+      removedCapabilities: ['research', 'properties'],
+      grants: [researchGrant, propertyGrant],
+    })
+    expect(plan.revokeGrantIds).toEqual(['grant-research', 'grant-property'])
+  })
+
   it('keeps grants that do not depend on the removed capability', () => {
     const projectGrant = grant('grant-proj', {
       actions: ['project.read'],

@@ -161,6 +161,37 @@ loads the immutable owner, asks `CrossOrgPolicyService` for the named action,
 and applies the safe projection. Capability labels must not be shown before
 those route-level enforcement and denial tests land.
 
+### Research and properties
+
+Research and property collaboration is defined by `research-properties-adapter.ts`.
+Both capabilities are explicit opt-ins (`research`, `properties`) and every
+foreign action requires a named-user grant in addition to the canonical link,
+directional scope, active membership, and resource grant.
+
+Research supports only `view`, `comment`, `contribute`, and `approve`; property
+supports only `view` and `comment`. Pre-join invite/claim is restricted to an
+exact research/property resource and only the safe `view`/`comment` actions.
+The canonical prejoin materialisation binds the eventual grant to the verified
+recipient user, and canonical grant lifecycle revocation handles an activated
+invite. Attachments, raw evidence, exports, document generation, source
+management, ingest, provider configuration, key rotation, metrics pulls,
+backfills, finance identifiers, and other unlisted actions remain owner-only.
+
+Foreign research item/report DTOs are static allowlists and item-filtered
+findings/recommendations. Evidence exposes only explicitly safe source summary
+fields; raw text, metadata, media/storage URLs and attachment locators are
+never returned. Property DTOs expose only identity/status plus a rebuilt public
+URL config; ingest keys, kill switches, flags, arbitrary custom config, revenue
+and provider identifiers, creator/email wiring, and audit/actor fields are
+excluded even for a legacy grant with no field limit. Capability reduction
+revokes research/property grants by their typed resource capability even though
+the permitted actions are generic words such as `view` or `comment`.
+
+These contracts are an adapter checkpoint, not a claim that owner research or
+property routes have become generally cross-org discoverable. Until a foreign
+route loads its immutable owner, requests the policy decision, and applies the
+DTO, it must fail closed as owner-only.
+
 ## Decision evaluation rules
 
 `evaluatePartnerAccess(input)` (pure, unit-testable) walks the chain and returns

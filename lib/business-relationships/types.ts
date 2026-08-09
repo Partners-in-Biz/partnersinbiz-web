@@ -26,6 +26,8 @@ export type SharedBusinessCapability =
   | 'seo'
   | 'ads'
   | 'analytics'
+  | 'research'
+  | 'properties'
   | 'support'
   | 'services'
 
@@ -39,6 +41,8 @@ export interface FieldSharingPolicy {
   documents?: boolean
   commerce?: boolean
   analytics?: boolean
+  research?: boolean
+  properties?: boolean
 }
 
 export interface BusinessRelationship {

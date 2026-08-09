@@ -202,7 +202,7 @@ export function planCapabilityReductionCascade(input: {
       continue
     }
 
-    const grantCapability = requiredCapabilityForActions(grant.actions)
+    const grantCapability = capabilityForGrant(grant)
     const dependsOnRemoved = grantCapability ? removed.has(grantCapability) : false
     const dependsOnNarrowedField = (grant.fields ?? []).some((field) => narrowed.has(field))
     const dependsOnNarrowedItem = (grant.items ?? []).some((item) => narrowed.has(item))
@@ -308,6 +308,21 @@ const ACTION_CAPABILITY: Record<string, SharedBusinessCapability> = {
   'support.write': 'support',
   'service.read': 'services',
   'service.write': 'services',
+}
+
+const RESOURCE_CAPABILITY: Partial<Record<PartnerResourceGrant['resourceType'], SharedBusinessCapability>> = {
+  research: 'research',
+  property: 'properties',
+}
+
+/**
+ * Research and property grants use intentionally generic action labels
+ * (`view`, `comment`, `contribute`, `approve`). Derive their lifecycle
+ * capability from the typed resource, never from a generic action that could
+ * collide with another module.
+ */
+export function capabilityForGrant(grant: PartnerResourceGrant): SharedBusinessCapability | undefined {
+  return RESOURCE_CAPABILITY[grant.resourceType] ?? requiredCapabilityForActions(grant.actions)
 }
 
 export function requiredCapabilityForActions(actions: string[]): SharedBusinessCapability | undefined {
