@@ -73,6 +73,24 @@ export type PartnerScopeAgreementStatus =
   | 'revoked'
   | 'expired'
 
+export interface ScopeAgreementAcceptanceSide {
+  /** The member (admin) who accepted on this side. */
+  byRef: MemberRef
+  at?: unknown
+}
+
+/**
+ * Bilateral directional acceptance. A directional agreement (grantor ->
+ * grantee) becomes `active` only when BOTH sides have recorded acceptance:
+ * the grantor accepts what it exposes, and the grantee accepts what it
+ * receives. `acceptedByRef` remains as the legacy single-side record for
+ * migration compatibility; new writes should fill `acceptance`.
+ */
+export interface ScopeAgreementAcceptance {
+  grantor?: ScopeAgreementAcceptanceSide
+  grantee?: ScopeAgreementAcceptanceSide
+}
+
 export interface PartnerScopeAgreement {
   id: string
   partnerLinkId: string
@@ -87,7 +105,10 @@ export interface PartnerScopeAgreement {
   version: number
   schemaVersion: number
   proposedByRef?: MemberRef
+  /** Legacy single-side acceptance record (migration compatibility). */
   acceptedByRef?: MemberRef
+  /** Bilateral acceptance — both sides required before the agreement activates. */
+  acceptance?: ScopeAgreementAcceptance
   effectiveAt?: unknown
   expiresAt?: unknown
   createdAt: unknown
@@ -211,6 +232,10 @@ export type PartnerAuditEventType =
   | 'capability.reduced'
   | 'settlement.approved'
   | 'reconciliation.ran'
+  | 'module.revoked'
+  | 'module.frozen'
+  | 'module.reconciled'
+  | 'orphan.detected'
 
 export type PartnerAuditDecision = 'allowed' | 'denied' | 'applied' | 'rejected'
 
@@ -231,6 +256,81 @@ export interface PartnerAuditEvent {
   reconciliationKey?: string
   hash?: string
   createdAt: unknown
+}
+
+// ── Per-module cascade rules (capability-reduction state machine) ───────────
+
+/**
+ * Modules that hold cross-org artifacts affected by a capability reduction or
+ * an unlink. Each module's cascade rule says whether affected records are
+ * revoked (permanent), frozen (temporary pause), or reconciled (evidence run
+ * only). The reconciler applies these rules; see
+ * docs/architecture/cross-org-lifecycle-revocation.md for the state machine.
+ */
+export type CrossOrgModule =
+  | 'shares'
+  | 'project_grants'
+  | 'catalogues'
+  | 'open_orders'
+  | 'settlements'
+  | 'attachments'
+  | 'messages'
+  | 'agent_caches'
+
+export type ModuleCascadeAction = 'revoke' | 'freeze' | 'reconcile'
+
+export interface ModuleCascadeRule {
+  module: CrossOrgModule
+  /**
+   * Capability family whose removal triggers this module's cascade (when the
+   * module is not tied to a single capability, the rule applies to every
+   * capability the module touches). Empty = applies to any capability change.
+   */
+  capability?: SharedBusinessCapability
+  /** What happens to affected records when the link is unlinked. */
+  onUnlink: ModuleCascadeAction
+  /** What happens to affected records when the gating capability is removed. */
+  onCapabilityRemoved: ModuleCascadeAction
+  /** What happens when a shared field is narrowed (e.g. attachment URLs). */
+  onFieldNarrowed: ModuleCascadeAction
+  /** Short human rationale used in audit metadata and docs. */
+  rationale: string
+}
+
+export interface ModuleCascadeTarget {
+  module: CrossOrgModule
+  action: ModuleCascadeAction
+  /** Resource ids affected by the cascade (record ids in the module). */
+  resourceIds: string[]
+  /** Capability/field that triggered this module's entry (when applicable). */
+  trigger?: string
+}
+
+export interface ModuleCascadePlan {
+  /** Why this cascade runs. */
+  trigger: {
+    type: 'link.unlinked' | 'capability.reduced' | 'field.narrowed' | 'membership.offboarded'
+    partnerLinkId?: string
+    scopeAgreementId?: string
+    capability?: SharedBusinessCapability
+    field?: string
+  }
+  targets: ModuleCascadeTarget[]
+  /** Audit event types to emit for each target. */
+  events: Array<{
+    eventType:
+      | 'module.revoked'
+      | 'module.frozen'
+      | 'module.reconciled'
+      | 'orphan.detected'
+      | 'capability.reduced'
+    reason: string
+    partnerLinkId?: string
+    scopeAgreementId?: string
+    resourceType?: string
+    resourceId?: string
+    metadata?: Record<string, unknown>
+  }>
 }
 
 // ── Decision evaluation input/output ─────────────────────────────────────────

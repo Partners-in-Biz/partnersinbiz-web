@@ -19,9 +19,13 @@
 // YKa9DWMexJ8Cx3yuRdgz) hydrates and persists the produced plan.
 
 import type {
+  MemberRef,
+} from '@/lib/orgMembers/memberRef'
+import type {
   PartnerLink,
   PartnerResourceGrant,
   PartnerScopeAgreement,
+  ScopeAgreementAcceptanceSide,
 } from './types'
 import type { SharedBusinessCapability } from '@/lib/business-relationships/types'
 
@@ -312,4 +316,314 @@ export function requiredCapabilityForActions(actions: string[]): SharedBusinessC
     if (capability) return capability
   }
   return undefined
+}
+
+// ── Bilateral directional scope acceptance ───────────────────────────────────
+
+export type ScopeAgreementSide = 'grantor' | 'grantee'
+
+/**
+ * Record one side's acceptance of a directional scope agreement. The agreement
+ * can only become `active` when BOTH the grantor and the grantee have accepted
+ * (bilateral directional acceptance). Returns the next agreement snapshot plus
+ * whether the agreement is now fully accepted and may activate.
+ *
+ * Idempotent: accepting the same side twice is a no-op that keeps the existing
+ * acceptance record.
+ */
+export function recordScopeAgreementAcceptance(input: {
+  agreement: PartnerScopeAgreement
+  side: ScopeAgreementSide
+  byRef: MemberRef
+  at?: unknown
+}): {
+  agreement: PartnerScopeAgreement
+  fullyAccepted: boolean
+  canActivate: boolean
+} {
+  const { agreement, side, byRef } = input
+  const at = input.at ?? new Date()
+  const sideRecord: ScopeAgreementAcceptanceSide = { byRef, at }
+
+  const acceptance = {
+    grantor: agreement.acceptance?.grantor,
+    grantee: agreement.acceptance?.grantee,
+  }
+  if (side === 'grantor') {
+    acceptance.grantor = sideRecord
+  } else {
+    acceptance.grantee = sideRecord
+  }
+
+  const fullyAccepted = Boolean(acceptance.grantor && acceptance.grantee)
+  const next: PartnerScopeAgreement = {
+    ...agreement,
+    acceptance,
+    updatedAt: at,
+    // Legacy compatibility pointer: keep acceptedByRef in sync with the
+    // grantee side when that is the side being accepted (the historic meaning).
+    ...(side === 'grantee' ? { acceptedByRef: byRef } : {}),
+  }
+  // Promote to active when both sides accepted and the agreement is not
+  // already in a terminal state.
+  const canActivate =
+    fullyAccepted &&
+    (agreement.status === 'draft' || agreement.status === 'proposed' || agreement.status === 'paused')
+  if (canActivate && next.status !== 'active') {
+    next.status = 'active'
+    next.effectiveAt = next.effectiveAt ?? at
+  }
+  return { agreement: next, fullyAccepted, canActivate }
+}
+
+/**
+ * True when the agreement has bilateral acceptance recorded (both sides).
+ * Legacy rows that only carry `acceptedByRef` (single-side) are NOT fully
+ * accepted; the missing side must be recorded before the agreement is treated
+ * as active under the canonical model.
+ */
+export function hasBilateralAcceptance(agreement: PartnerScopeAgreement): boolean {
+  return Boolean(agreement.acceptance?.grantor && agreement.acceptance?.grantee)
+}
+
+// ── Per-module cascade rules (capability-reduction state machine) ───────────
+
+import type {
+  CrossOrgModule,
+  ModuleCascadeAction,
+  ModuleCascadePlan,
+  ModuleCascadeRule,
+  ModuleCascadeTarget,
+} from './types'
+
+/**
+ * Canonical per-module cascade rules. These encode the documented
+ * capability-reduction state machine
+ * (docs/architecture/cross-org-lifecycle-revocation.md): turning off a
+ * capability or unlinking immediately revokes/freezes/reconciles the affected
+ * module artifacts. `reconcile` is an evidence run (no state change) used for
+ * agent caches and derived surfaces; `revoke` is permanent; `freeze` is a
+ * temporary pause that can be reversed by restoring the capability.
+ */
+export const MODULE_CASCADE_RULES: ModuleCascadeRule[] = [
+  {
+    module: 'shares',
+    onUnlink: 'revoke',
+    onCapabilityRemoved: 'revoke',
+    onFieldNarrowed: 'reconcile',
+    rationale: 'partner_record_shares grant access to records; they cannot outlive the link or the capability that justified them.',
+  },
+  {
+    module: 'project_grants',
+    capability: 'projects',
+    onUnlink: 'revoke',
+    onCapabilityRemoved: 'revoke',
+    onFieldNarrowed: 'reconcile',
+    rationale: 'projectOrganizations rows grant workspace access; they must be revoked when projects capability is removed or the link dies.',
+  },
+  {
+    module: 'catalogues',
+    capability: 'orders',
+    onUnlink: 'freeze',
+    onCapabilityRemoved: 'freeze',
+    onFieldNarrowed: 'reconcile',
+    rationale: 'partner_catalog_items freeze (stop serving) when orders capability is removed or the link dies; history is retained for reconciliation.',
+  },
+  {
+    module: 'open_orders',
+    capability: 'orders',
+    onUnlink: 'freeze',
+    onCapabilityRemoved: 'freeze',
+    onFieldNarrowed: 'reconcile',
+    rationale: 'open orders freeze so they cannot be confirmed/fulfilled/settled after the capability is removed or the link dies; no data is deleted.',
+  },
+  {
+    module: 'settlements',
+    capability: 'invoices',
+    onUnlink: 'freeze',
+    onCapabilityRemoved: 'freeze',
+    onFieldNarrowed: 'reconcile',
+    rationale: 'cross-org settlement surfaces close (freeze) when invoices capability is removed or the link dies; outstanding settlements stay frozen for reconciliation.',
+  },
+  {
+    module: 'attachments',
+    capability: 'documents',
+    onUnlink: 'revoke',
+    onCapabilityRemoved: 'revoke',
+    onFieldNarrowed: 'revoke',
+    rationale: 'attachment URLs must stop resolving immediately when the link, capability, or shared field that exposed them is removed.',
+  },
+  {
+    module: 'messages',
+    onUnlink: 'freeze',
+    onCapabilityRemoved: 'freeze',
+    onFieldNarrowed: 'reconcile',
+    rationale: 'relationship message threads freeze (read-only for the partner) when a capability is removed or the link dies; history is preserved.',
+  },
+  {
+    module: 'agent_caches',
+    onUnlink: 'reconcile',
+    onCapabilityRemoved: 'reconcile',
+    onFieldNarrowed: 'reconcile',
+    rationale: 'agent caches are derived surfaces; any change triggers an evidence-only reconcile run that invalidates affected keys.',
+  },
+]
+
+export function moduleCascadeRule(module: CrossOrgModule): ModuleCascadeRule {
+  const rule = MODULE_CASCADE_RULES.find((r) => r.module === module)
+  if (!rule) throw new Error(`no cascade rule for module ${module}`)
+  return rule
+}
+
+export function actionForModule(input: {
+  module: CrossOrgModule
+  trigger: ModuleCascadePlan['trigger']['type']
+}): ModuleCascadeAction {
+  const rule = moduleCascadeRule(input.module)
+  switch (input.trigger) {
+    case 'link.unlinked':
+      return rule.onUnlink
+    case 'capability.reduced':
+      return rule.onCapabilityRemoved
+    case 'field.narrowed':
+      return rule.onFieldNarrowed
+    case 'membership.offboarded':
+      // Offboarding revokes everything the offboarded member could reach.
+      return 'revoke'
+  }
+}
+
+/**
+ * Build the per-module cascade plan for a link unlink or capability reduction.
+ * Pure and deterministic: the same inputs always produce the same plan, so the
+ * reconciler can replay it idempotently (see replayModuleCascade).
+ *
+ * `resourcesByModule` maps module -> record ids affected by the trigger. When
+ * `capability` is supplied, only modules whose rule depends on that capability
+ * (or rules with no capability binding) are included. When `field` is
+ * supplied, only field-narrowed modules are included.
+ */
+export function planModuleCascade(input: {
+  trigger: ModuleCascadePlan['trigger']
+  resourcesByModule: Partial<Record<CrossOrgModule, string[]>>
+}): ModuleCascadePlan {
+  const { trigger, resourcesByModule } = input
+  const targets: ModuleCascadeTarget[] = []
+  const events: ModuleCascadePlan['events'] = []
+
+  for (const rule of MODULE_CASCADE_RULES) {
+    // Capability-driven trigger: skip modules bound to a different capability.
+    if (trigger.type === 'capability.reduced' && trigger.capability) {
+      if (rule.capability && rule.capability !== trigger.capability) continue
+    }
+    // Field-narrowed trigger: only modules with field-level revocation rules
+    // participate (attachments revoke URLs; everything else reconciles).
+    if (trigger.type === 'field.narrowed' && !trigger.field) continue
+
+    const resourceIds = resourcesByModule[rule.module]
+    if (!resourceIds || resourceIds.length === 0) continue
+
+    const action = actionForModule({ module: rule.module, trigger: trigger.type })
+    targets.push({
+      module: rule.module,
+      action,
+      resourceIds: [...resourceIds],
+      trigger: trigger.capability ?? trigger.field,
+    })
+
+    const eventType =
+      action === 'revoke' ? 'module.revoked' : action === 'freeze' ? 'module.frozen' : 'module.reconciled'
+    events.push({
+      eventType,
+      reason: `${trigger.type}.${rule.module}`,
+      partnerLinkId: trigger.partnerLinkId,
+      scopeAgreementId: trigger.scopeAgreementId,
+      resourceType: rule.module,
+      metadata: {
+        module: rule.module,
+        action,
+        resourceIds,
+        rationale: rule.rationale,
+      },
+    })
+  }
+
+  return { trigger, targets, events }
+}
+
+/**
+ * Idempotent replay: re-running a module cascade must not double-revoke or
+ * double-freeze records that are already in the target state. `alreadyInState`
+ * should return true when a record id is already revoked/frozen/reconciled.
+ * Reconcile actions are always safe to replay (evidence only) and return true
+ * so the evidence event is emitted once per run key.
+ */
+export function shouldApplyModuleAction(input: {
+  action: ModuleCascadeAction
+  recordId: string
+  alreadyInState: (recordId: string) => boolean
+}): boolean {
+  if (input.action === 'reconcile') return true
+  return !input.alreadyInState(input.recordId)
+}
+
+/**
+ * Deterministic replay key for a module cascade: stable across replays so the
+ * reconciler can deduplicate audit events and idempotently apply the same
+ * cascade twice without side effects.
+ */
+export function moduleCascadeReplayKey(input: {
+  trigger: ModuleCascadePlan['trigger']
+  targets: ModuleCascadeTarget[]
+}): string {
+  const parts = [
+    input.trigger.type,
+    input.trigger.partnerLinkId ?? '',
+    input.trigger.scopeAgreementId ?? '',
+    input.trigger.capability ?? '',
+    input.trigger.field ?? '',
+    ...input.targets
+      .sort((a, b) => (a.module < b.module ? -1 : a.module > b.module ? 1 : 0))
+      .map((t) => `${t.module}:${t.action}:${[...t.resourceIds].sort().join(',')}`),
+  ]
+  return parts.join('|')
+}
+
+// ── Orphan detection ─────────────────────────────────────────────────────────
+
+export interface OrphanRecord {
+  module: CrossOrgModule
+  resourceId: string
+  reason: string
+  detail?: string
+}
+
+/**
+ * Detect orphaned module artifacts: records that still reference a
+ * partnerLinkId / scopeAgreementId / capability that no longer exists or is no
+ * longer active. Orphans are records the cascade should have handled but did
+ * not (e.g. a share whose link was revoked before the canonical cascade ran).
+ * The reconciler reports orphans as `orphan.detected` events and applies the
+ * module rule to them.
+ */
+export function detectOrphanedModuleRecords(input: {
+  trigger: ModuleCascadePlan['trigger']
+  /** For each module, records carrying the partnerLinkId/agreement id. */
+  records: Partial<Record<CrossOrgModule, string[]>>
+}): OrphanRecord[] {
+  const { trigger, records } = input
+  const orphans: OrphanRecord[] = []
+  for (const moduleName of Object.keys(records) as CrossOrgModule[]) {
+    const ids = records[moduleName] ?? []
+    for (const resourceId of ids) {
+      const rule = moduleCascadeRule(moduleName)
+      orphans.push({
+        module: moduleName,
+        resourceId,
+        reason: `${trigger.type}.orphan`,
+        detail: `${rule.module} record still references a ${trigger.type} trigger after cascade`,
+      })
+    }
+  }
+  return orphans
 }

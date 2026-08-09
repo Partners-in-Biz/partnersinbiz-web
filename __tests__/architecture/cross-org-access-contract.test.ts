@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const adrPath = path.join(process.cwd(), 'docs/architecture/cross-org-access-model.md')
+const lifecycleDocPath = path.join(process.cwd(), 'docs/architecture/cross-org-lifecycle-revocation.md')
 const typesPath = path.join(process.cwd(), 'lib/cross-org/types.ts')
 const decisionPath = path.join(process.cwd(), 'lib/cross-org/decision.ts')
 const lifecyclePath = path.join(process.cwd(), 'lib/cross-org/lifecycle.ts')
@@ -84,6 +85,41 @@ describe('cross-org access model architecture contract (ADR RBa6Ykx9AbBFrkrX5sAg
     expect(lifecycle).toContain('planLinkUnlinkCascade')
     expect(lifecycle).toContain('planCapabilityReductionCascade')
     expect(lifecycle).toContain('evaluateExpiry')
+  })
+
+  it('documents and exports bilateral scope acceptance + module cascade state machine (lifecycle task)', () => {
+    const lifecycle = read(lifecyclePath)
+    const lifecycleDoc = fs.existsSync(lifecycleDocPath) ? fs.readFileSync(lifecycleDocPath, 'utf8') : ''
+    // Bilateral acceptance helpers.
+    expect(lifecycle).toContain('recordScopeAgreementAcceptance')
+    expect(lifecycle).toContain('hasBilateralAcceptance')
+    expect(lifecycle).toContain('acceptance?.grantor')
+    expect(lifecycle).toContain('acceptance?.grantee')
+    // Module cascade planner + per-module rules + idempotent replay + orphans.
+    expect(lifecycle).toContain('MODULE_CASCADE_RULES')
+    expect(lifecycle).toContain('planModuleCascade')
+    expect(lifecycle).toContain('actionForModule')
+    expect(lifecycle).toContain('shouldApplyModuleAction')
+    expect(lifecycle).toContain('moduleCascadeReplayKey')
+    expect(lifecycle).toContain('detectOrphanedModuleRecords')
+    // The documented state machine covers every required module surface.
+    for (const moduleName of [
+      'shares',
+      'project_grants',
+      'catalogues',
+      'open_orders',
+      'settlements',
+      'attachments',
+      'messages',
+      'agent_caches',
+    ]) {
+      expect(lifecycle).toContain(`module: '${moduleName}'`)
+      expect(lifecycleDoc).toContain(moduleName)
+    }
+    // Per-module actions: revoke/freeze/reconcile all present.
+    expect(lifecycle).toContain("'revoke'")
+    expect(lifecycle).toContain("'freeze'")
+    expect(lifecycle).toContain("'reconcile'")
   })
 
   it('exports migration compatibility helpers', () => {
