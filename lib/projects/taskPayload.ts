@@ -789,10 +789,14 @@ export function applyAgentColumnMoveState(
       agentOutput: null,
       agentConversationId: null,
       agentHeartbeatAt: null,
-      // Clear exhausted transient-retry budget so requeue is not hard-blocked
-      // after three prior 429/502 failures (watcher treats count >= 3 as final).
+      // A requeue starts a new attempt. Old retry/failure/completion facts must
+      // not be reused to auto-complete or suppress that attempt.
       agentRetryCount: null,
       agentRetryAt: null,
+      agentDispatchFailure: null,
+      completionEvidence: null,
+      completionIntegrityFailureReasons: null,
+      completionVerification: null,
     }
   }
 

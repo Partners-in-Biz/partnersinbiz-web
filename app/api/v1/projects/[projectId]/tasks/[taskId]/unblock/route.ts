@@ -95,9 +95,18 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     updatedAt: FieldValue.serverTimestamp(),
   }
   if (hasAgent) {
+    // An authorised requeue begins a brand-new attempt. Never let a prior 502
+    // retry, dispatch failure, or canary completion record bleed into it.
     update.agentStatus = 'pending'
+    update.agentOutput = null
     update.agentConversationId = null
     update.agentHeartbeatAt = null
+    update.agentRetryCount = null
+    update.agentRetryAt = null
+    update.agentDispatchFailure = null
+    update.completionEvidence = null
+    update.completionIntegrityFailureReasons = null
+    update.completionVerification = null
   } else {
     update.agentStatus = null
   }

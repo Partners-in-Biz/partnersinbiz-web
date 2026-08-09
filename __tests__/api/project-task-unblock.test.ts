@@ -49,12 +49,15 @@ function docSnapshot(id: string, data: Record<string, unknown>, exists = true) {
 }
 
 function makeTaskRefs(taskData: Record<string, unknown>) {
-  const taskUpdate = jest.fn().mockResolvedValue(undefined)
+  let currentTaskData = { ...taskData }
+  const taskUpdate = jest.fn(async (updates: Record<string, unknown>) => {
+    currentTaskData = { ...currentTaskData, ...updates }
+  })
   const commentSet = jest.fn().mockResolvedValue(undefined)
   const commentDoc = jest.fn(() => ({ id: 'comment-1', set: commentSet }))
   const commentsCollection = jest.fn(() => ({ doc: commentDoc }))
   const taskRef = {
-    get: jest.fn().mockResolvedValue(docSnapshot('task-1', taskData)),
+    get: jest.fn().mockImplementation(async () => docSnapshot('task-1', currentTaskData)),
     update: taskUpdate,
     collection: commentsCollection,
   }
@@ -79,7 +82,7 @@ function makeTaskRefs(taskData: Record<string, unknown>) {
     if (name !== 'projects') throw new Error(`unexpected root collection ${name}`)
     return projectsCollection
   })
-  return { taskUpdate, commentSet }
+  return { taskUpdate, commentSet, readTaskData: () => ({ ...currentTaskData }) }
 }
 
 function req() {
@@ -137,6 +140,59 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
       userRole: 'admin',
       agentPickedUp: false,
     }))
+  })
+
+  it('clears stale terminal, retry, dispatch, and completion evidence before requeueing an authorised agent task', async () => {
+    const { taskUpdate, readTaskData } = makeTaskRefs({
+      title: 'Recovered safe canary task',
+      columnId: 'blocked',
+      agentStatus: 'blocked',
+      assigneeAgentId: 'theo',
+      labels: ['blocked', 'runtime-dispatch'],
+      agentConversationId: 'run-stale-502',
+      agentHeartbeatAt: 'stale-heartbeat',
+      agentOutput: { summary: 'Watcher error: Hermes /v1/runs returned 502' },
+      agentRetryCount: 3,
+      agentRetryAt: '2026-08-09T20:00:00.000Z',
+      agentDispatchFailure: { phase: 'pre-execution', retryEligible: true },
+      completionEvidence: {
+        schemaVersion: 1,
+        workKind: 'no-code',
+        noCodeReason: 'Old canary run.',
+        changedFiles: [],
+        testCommand: 'node canary.mjs',
+        testResult: 'passed',
+        worktreeState: 'not-applicable',
+      },
+      completionIntegrityFailureReasons: ['completion_evidence_missing'],
+      completionVerification: { verifierIdentity: 'agent-watcher', verifierResult: 'failed' },
+    })
+    mockGetAll.mockResolvedValue([])
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/unblock/route')
+    const res = await POST(req(), ctx)
+
+    expect(res.status).toBe(200)
+    expect(taskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      agentOutput: null,
+      agentRetryCount: null,
+      agentRetryAt: null,
+      agentDispatchFailure: null,
+      completionEvidence: null,
+      completionIntegrityFailureReasons: null,
+      completionVerification: null,
+    }))
+    expect(readTaskData()).toMatchObject({
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentOutput: null,
+      agentRetryCount: null,
+      agentRetryAt: null,
+      agentDispatchFailure: null,
+      completionEvidence: null,
+      completionIntegrityFailureReasons: null,
+      completionVerification: null,
+    })
   })
 
   it('fails closed before requeueing when planning discovery is stale', async () => {
