@@ -251,6 +251,33 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
     expect(commentSet).not.toHaveBeenCalled()
   })
 
+  it('does not disclose private dependency metadata through a task that is externally shareable', async () => {
+    const { taskUpdate, commentSet } = makeTaskRefs({
+      title: 'Partner-visible task', columnId: 'blocked', agentStatus: 'blocked', dependsOn: ['private-dependency'],
+    })
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: { data: () => ({ orgId: 'org-1' }) },
+      projectAccess: {
+        role: 'contributor', source: 'project_organization', canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-1', actions: ['project.write'], items: ['task-1'] },
+      },
+    })
+    mockGetAll.mockResolvedValue([
+      docSnapshot('private-dependency', { title: 'Internal acquisition plan', columnId: 'blocked', agentStatus: 'blocked', internalOnly: true }),
+    ])
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/unblock/route')
+    const res = await POST(req(), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.reasons).toEqual(['A required dependency or approval gate is not available for this share.'])
+    expect(JSON.stringify(body)).not.toContain('Internal acquisition plan')
+    expect(taskUpdate).not.toHaveBeenCalled()
+    expect(commentSet).not.toHaveBeenCalled()
+  })
+
   it('does not treat quality review or done column as business approval for approval gates', async () => {
     const { taskUpdate, commentSet } = makeTaskRefs({
       title: 'Blocked implementation',

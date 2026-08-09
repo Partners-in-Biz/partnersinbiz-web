@@ -493,7 +493,14 @@ export class CrossOrgPolicyService {
         if (expiry.expired) grant = { ...grant, status: 'expired' }
       }
       if (input.requiredCapability) {
-        scopeAgreement = await this.store.loadScopeAgreement(input.partnerLinkId, orgId, grant?.scopeAgreementId)
+        // A canonical external grant is bound to the exact directional scope
+        // that approved it. Legacy/unbound grants must be migrated before use;
+        // they may never inherit authority from a newer active agreement.
+        scopeAgreement = grant
+          ? (grant.scopeAgreementId
+            ? await this.store.loadScopeAgreement(input.partnerLinkId, orgId, grant.scopeAgreementId)
+            : null)
+          : await this.store.loadScopeAgreement(input.partnerLinkId, orgId)
         if (scopeAgreement) {
           const expiry = evaluateExpiry({ status: scopeAgreement.status, expiresAt: scopeAgreement.expiresAt, now })
           if (expiry.expired) scopeAgreement = { ...scopeAgreement, status: 'expired' }

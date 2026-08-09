@@ -82,7 +82,16 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const dependsOn = Array.isArray(task.dependsOn) ? task.dependsOn.filter((id): id is string => typeof id === 'string' && id.trim().length > 0) : []
   const approvalGateTaskId = typeof task.approvalGateTaskId === 'string' && task.approvalGateTaskId.trim() ? task.approvalGateTaskId.trim() : null
   const relatedTasks = await loadRelatedTasks(projectId, [...dependsOn, ...(approvalGateTaskId ? [approvalGateTaskId] : [])])
-  const readiness = evaluateUnblockReadiness({ dependsOn, approvalGateTaskId }, relatedTasks)
+  const visibleRelatedTasks = filterProjectItemsForAccess(relatedTasks, {
+    projectAccess: access.projectAccess,
+    user,
+  })
+  // Never leak the title, status, or existence details of an item outside a
+  // targeted external grant through a dependency/readiness response.
+  if (visibleRelatedTasks.length !== relatedTasks.length) {
+    return apiError('Cannot unblock yet', 409, { reasons: ['A required dependency or approval gate is not available for this share.'] })
+  }
+  const readiness = evaluateUnblockReadiness({ dependsOn, approvalGateTaskId }, visibleRelatedTasks)
   if (!readiness.ready) {
     return apiError('Cannot unblock yet', 409, { reasons: readiness.reasons })
   }
