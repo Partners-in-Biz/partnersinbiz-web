@@ -10,7 +10,7 @@
  */
 import type { DocumentReference, DocumentSnapshot, QuerySnapshot } from 'firebase-admin/firestore'
 import { db, FieldValue } from './firestore'
-import { AGENT_IDS, getAgentConfig, loadEnabledAgentIds, type AgentId } from './config'
+import { AGENT_IDS, getAgentConfig, loadEnabledAgentIds, type AgentConfig, type AgentId } from './config'
 import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { resolveWatcherLlmRoute, resolveWatcherRuntimePreference } from './llm-routing'
@@ -251,6 +251,33 @@ const TRANSIENT_HERMES_ERROR_PATTERNS = [
 
 export function isTransientHermesError(error: string): boolean {
   return TRANSIENT_HERMES_ERROR_PATTERNS.some((pattern) => pattern.test(error))
+}
+
+const PRE_EXECUTION_FAILOVER_UNSAFE = /\b(approval|approve|send|message|publish|schedule|spend|budget|finance|invoice|payment|delete|archive|secret|config|deploy|release|production|client-visible)\b/i
+
+/**
+ * This is deliberately narrower than durable retry: the first gateway must not
+ * have created a run, so a local fallback cannot duplicate accepted agent work.
+ */
+function canFailOverPreExecutionDispatch(input: {
+  taskData: TaskData
+  cfg: AgentConfig | null
+  linkedTarget: LinkedDeviceDispatchTarget | null
+  credentialRoute: Awaited<ReturnType<typeof resolveWatcherLlmRoute>>
+  result: Awaited<ReturnType<typeof runAndPoll>>
+}): boolean {
+  const { taskData, cfg, linkedTarget, credentialRoute, result } = input
+  if (linkedTarget || credentialRoute || !cfg || cfg.targetId !== 'vps') return false
+  if (result.runId || !result.error || !isTransientHermesError(result.error)) return false
+  // Explicit runtime/model/credential choices must never be silently rerouted.
+  if (taskData.agentRuntimeTargetId || taskData.agentModel || taskData.llmConnectionId || taskData.llmCredentialBindingId) return false
+  if (hasPendingApprovalGate(taskData)) return false
+  const riskText = [
+    taskData.title,
+    taskData.requiredCapability,
+    ...(taskData.labels ?? []),
+  ].filter(Boolean).join(' ')
+  return !PRE_EXECUTION_FAILOVER_UNSAFE.test(riskText)
 }
 
 export function isGatewayRestartStormError(error: string): boolean {
@@ -1003,6 +1030,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     }
 
     let result: Awaited<ReturnType<typeof runAndPoll>>
+    let effectiveDispatchInput = dispatchInput
     if (linkedTarget) {
       logger.info('dispatching task to linked computer queue', {
         taskId,
@@ -1029,9 +1057,25 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     } else {
       logger.info('dispatching task to Hermes', { taskId, agentId, orgId: dispatchInput.orgId })
       result = await runAndPoll(cfg!, dispatchInput, onRunCreated)
+      // The VPS gateway may be unavailable while a fresh local runtime is healthy.
+      // This is a same-dispatch transport recovery, not a retry of accepted agent work.
+      if (canFailOverPreExecutionDispatch({ taskData, cfg, linkedTarget, credentialRoute, result })) {
+        const localCfg = await getAgentConfig(agentId, 'local')
+        if (localCfg?.enabled && localCfg.targetId === 'local' && localCfg.baseUrl !== cfg?.baseUrl) {
+          effectiveDispatchInput = { ...dispatchInput, runtimeTargetId: localCfg.targetId }
+          logger.warn('VPS Hermes pre-execution failure; attempting safe local failover', {
+            taskId,
+            agentId,
+            failedTarget: cfg?.targetId,
+            fallbackTarget: localCfg.targetId,
+            error: result.error,
+          })
+          result = await runAndPoll(localCfg, effectiveDispatchInput, onRunCreated)
+        }
+      }
     }
     activeRunId = result.runId ?? activeRunId
-    const telemetry = result.telemetry ?? fallbackTelemetry(dispatchInput)
+    const telemetry = result.telemetry ?? fallbackTelemetry(effectiveDispatchInput)
     stopHeartbeat?.()
     stopHeartbeat = null
     await persistAgentDispatchRun({

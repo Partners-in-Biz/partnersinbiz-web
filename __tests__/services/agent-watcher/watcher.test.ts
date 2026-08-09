@@ -588,6 +588,60 @@ describe('agent watcher dispatchTask', () => {
     expect(runAndPollMock.mock.calls[0][1].spec).toContain('Please fix the mobile spacing')
   })
 
+  it('fails over once to a healthy local runtime after a pre-execution VPS gateway 502', async () => {
+    const taskRef = makeTaskRef()
+    getAgentConfigMock
+      .mockResolvedValueOnce({ enabled: true, targetId: 'vps', baseUrl: 'https://vps.hermes.local', apiKey: 'vps-key' })
+      .mockResolvedValueOnce({ enabled: true, targetId: 'local', baseUrl: 'https://local.hermes.local', apiKey: 'local-key' })
+    runAndPollMock
+      .mockResolvedValueOnce({ runId: null, output: null, error: 'Hermes /v1/runs returned 502: upstream unavailable', telemetry: { durationMs: 4 } })
+      .mockImplementationOnce(async (_cfg, _input, onRunCreated) => {
+        await onRunCreated('run-local-1')
+        return { runId: 'run-local-1', output: 'done after safe failover', error: null, telemetry: { durationMs: 9 } }
+      })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Repair watcher test fixture',
+      requiredCapability: 'write',
+    })
+
+    expect(getAgentConfigMock).toHaveBeenNthCalledWith(1, 'theo', null)
+    expect(getAgentConfigMock).toHaveBeenNthCalledWith(2, 'theo', 'local')
+    expect(runAndPollMock).toHaveBeenCalledTimes(2)
+    expect(runAndPollMock.mock.calls[1][0]).toEqual(expect.objectContaining({ targetId: 'local' }))
+    expect(runAndPollMock.mock.calls[1][1]).toEqual(expect.objectContaining({ runtimeTargetId: 'local' }))
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'done',
+      agentConversationId: 'run-local-1',
+    }))
+  })
+
+  it('does not fail over a sensitive task after a pre-execution VPS gateway 502', async () => {
+    const taskRef = makeTaskRef()
+    getAgentConfigMock.mockResolvedValue({ enabled: true, targetId: 'vps', baseUrl: 'https://vps.hermes.local', apiKey: 'vps-key' })
+    runAndPollMock.mockResolvedValue({ runId: null, output: null, error: 'Hermes /v1/runs returned 502: upstream unavailable', telemetry: { durationMs: 4 } })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Publish approved client campaign',
+      requiredCapability: 'publish',
+    })
+
+    expect(getAgentConfigMock).toHaveBeenCalledTimes(1)
+    expect(runAndPollMock).toHaveBeenCalledTimes(1)
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'pending',
+      agentRetryCount: 1,
+    }))
+  })
+
   it('injects the CEO data-decision operating rule into every Hermes task dispatch', async () => {
     const taskRef = makeTaskRef()
 
