@@ -570,6 +570,10 @@ describe('project task payload helpers', () => {
         agentHeartbeatAt: null,
         agentRetryCount: null,
         agentRetryAt: null,
+        agentDispatchFailure: null,
+        completionEvidence: null,
+        completionIntegrityFailureReasons: null,
+        completionVerification: null,
       })
     })
 
