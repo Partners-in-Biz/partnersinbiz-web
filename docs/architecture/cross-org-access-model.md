@@ -196,6 +196,46 @@ append-only `access.decided` audit events when `recordDecision` is requested.
 | `partnerAuditEvents` | Server-only, append-only |
 | `businessRelationships` (existing) | Mirrored per-tenant rows, link authority only via canonical contract |
 
+## Central policy decision service and audit decision API
+
+Foundation task `YKa9DWMexJ8Cx3yuRdgz` adds one tenant-safe policy decision
+service (`lib/cross-org/policy-service.ts`) that hydrates the canonical inputs
+from Firestore (active membership via `loadActiveOrgMember`, canonical
+`partnerLinks` doc, both mirrored `businessRelationships` rows, the directional
+`partnerScopeAgreements` row for the actor org, and the covering
+`partnerResourceGrants` row), applies lazy expiry, evaluates the pure chain,
+and returns:
+
+```
+{ allowed, reason, reasonCode, chain, partnerLinkId, scopeAgreementId,
+  resourceGrantId, projection, auditEventId }
+```
+
+Stable machine-readable reason codes (`ALLOWED`, `ACTIVE_MEMBERSHIP_REQUIRED`,
+`RECIPROCAL_LINK_REQUIRED`, `SCOPE_AGREEMENT_REQUIRED`, `CAPABILITY_REQUIRED`,
+`FIELD_NOT_SHARED`, `RESOURCE_GRANT_REQUIRED`, `GRANT_NOT_ACTIVE`,
+`GRANT_EXPIRED`, `GRANT_DOES_NOT_COVER_ACTOR`, `GRANT_COVERS_OTHER_RESOURCE`,
+`GRANT_WRONG_LINK`, `ROLE_REQUIRED`, `ACTION_NOT_GRANTED`,
+`FIELD_NOT_GRANTED`, `ITEM_NOT_GRANTED`, `LIFECYCLE_NOT_ACTIVE`) are derived
+from the first failing chain step by `reasonCodeFromDecision`.
+
+Safe projections (`buildSafeProjection`, `projectResourceRecord`) return only
+grant-allowed fields/items plus scope field-policy exclusions; the service
+never returns foreign resource payloads.
+
+The service accepts an injectable store (`CrossOrgPolicyStore`) with a
+Firestore-backed default and an in-memory implementation used by adapter
+contract tests. Every decision emits an append-only `access.decided` event to
+`partnerAuditEvents` (ids/decision/reason only — no foreign data) with a
+content hash for tamper evidence, unless `recordDecision: false`.
+
+The audit decision API is `POST /api/v1/cross-org/decide` (withCrmAuth member).
+The actor org/user always come from the authenticated context, never from the
+request body; the body carries resourceType/resourceId/action plus optional
+field/item/partnerLinkId/requiredCapability/actorRole/actorTeamIds and
+recordDecision. Denials are returned as successful envelopes with reason codes,
+not HTTP errors.
+
 ## Module conformance
 
 A module is only "cross-org capable" when: (a) it reads access through
