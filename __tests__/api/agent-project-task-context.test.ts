@@ -7,6 +7,8 @@ const mockGetProjectForUser = jest.fn()
 const mockTaskGet = jest.fn()
 const mockDependencyGet = jest.fn()
 const mockCommentsGet = jest.fn()
+const mockPermissionsGet = jest.fn()
+let fixtureProjectDoc: { ref: unknown; data: () => Record<string, unknown> }
 
 jest.mock('@/lib/api/auth', () => ({
   withAuth: (_role: string, handler: MockHandler) => async (req: NextRequest, ctx?: unknown) =>
@@ -26,16 +28,19 @@ beforeEach(() => {
   const tasks = {
     doc: jest.fn((id: string) => id === 'task-1' ? activeTaskRef : dependencyTaskRef),
   }
+  const permissions = { get: mockPermissionsGet }
   const projectRef = {
     data: () => ({ orgId: 'org-1', name: 'Context budget', status: 'active' }),
     collection: jest.fn((name: string) => {
       if (name === 'tasks') return tasks
+      if (name === 'permissions') return permissions
       throw new Error(`unexpected collection ${name}`)
     }),
   }
+  fixtureProjectDoc = { ref: projectRef, data: projectRef.data }
   mockGetProjectForUser.mockResolvedValue({
     ok: true,
-    doc: { ref: projectRef, data: projectRef.data },
+    doc: fixtureProjectDoc,
     projectAccess: { role: 'owner', canViewInternal: true },
   })
   mockTaskGet.mockResolvedValue({
@@ -63,6 +68,7 @@ beforeEach(() => {
       { id: 'comment-1', data: () => ({ text: 'First comment', userName: 'Theo', userRole: 'engineering' }) },
     ],
   })
+  mockPermissionsGet.mockResolvedValue({ docs: [] })
 })
 
 describe('GET /api/v1/agent/project/[projectId]/task/[taskId]/context', () => {
@@ -76,6 +82,7 @@ describe('GET /api/v1/agent/project/[projectId]/task/[taskId]/context', () => {
 
     expect(response.status).toBe(200)
     expect(body.data).toEqual(expect.objectContaining({
+      contextVersion: 1,
       project: expect.objectContaining({ id: 'project-1', name: 'Context budget' }),
       task: expect.objectContaining({
         id: 'task-1',
@@ -90,5 +97,23 @@ describe('GET /api/v1/agent/project/[projectId]/task/[taskId]/context', () => {
     expect(body.data).not.toHaveProperty('documents')
     expect(mockGetProjectForUser).toHaveBeenCalledWith('project-1', expect.any(Object), 'org-1')
     expect(mockTaskGet).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns 404 without leaking a task hidden by a project permission policy', async () => {
+    mockGetProjectForUser.mockResolvedValue({
+      ok: true,
+      doc: fixtureProjectDoc,
+      projectAccess: { role: 'contributor', canViewInternal: false },
+    })
+    mockPermissionsGet.mockResolvedValue({
+      docs: [{ id: 'policy-hidden', data: () => ({ itemType: 'task', itemId: 'task-1', visibility: 'restricted', allowedUserIds: ['other-user'] }) }],
+    })
+    const { GET } = await import('@/app/api/v1/agent/project/[projectId]/task/[taskId]/context/route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/v1/agent/project/project-1/task/task-1/context'),
+      { params: Promise.resolve({ projectId: 'project-1', taskId: 'task-1' }) },
+    )
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual(expect.objectContaining({ error: 'Task not found' }))
   })
 })

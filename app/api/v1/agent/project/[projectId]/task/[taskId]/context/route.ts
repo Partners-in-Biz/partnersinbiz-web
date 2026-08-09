@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
+import { filterProjectItemsForAccess, type ProjectAccessContext } from '@/lib/projects/collaboration'
+import { applyAgentPermissionPolicies } from '@/lib/projects/agentSuiteProjection'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,11 +52,31 @@ function compactAgentOutput(value: unknown) {
   }
 }
 
+function ownerOrgId(project: Record<string, unknown>): string {
+  for (const key of ['ownerOrgId', 'sourceOrgId', 'issuerOrgId', 'orgId']) {
+    const value = project[key]
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return ''
+}
+
+function isVisibleTask(
+  task: Record<string, unknown> & { id: string },
+  policies: Array<Record<string, unknown> & { id: string }>,
+  projectAccess: ProjectAccessContext | null | undefined,
+  user: Parameters<typeof filterProjectItemsForAccess>[1]['user'],
+): boolean {
+  return filterProjectItemsForAccess(
+    applyAgentPermissionPolicies([task], policies, 'task'),
+    { projectAccess, user },
+  ).length === 1
+}
+
 function compactTask(id: string, data: Record<string, unknown>) {
   return {
     id,
-    title: typeof data.title === 'string' ? data.title : '',
-    description: typeof data.description === 'string' ? data.description : '',
+    title: compactText(data.title, 500),
+    description: compactText(data.description, 4_000),
     orgId: typeof data.orgId === 'string' ? data.orgId : '',
     projectId: typeof data.projectId === 'string' ? data.projectId : '',
     status: data.status ?? data.columnId ?? '',
@@ -100,20 +122,32 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   if (!access.ok) return apiError(access.error, access.status)
 
   const projectRef = access.doc.ref
+  const projectData = (access.doc.data() ?? {}) as Record<string, unknown>
+  const projectAccess = orgId !== ownerOrgId(projectData) && access.projectAccess?.role === 'owner'
+    ? { ...access.projectAccess, role: 'contributor' as const, canViewInternal: false }
+    : access.projectAccess
+  const permissionsSnapshot = await projectRef.collection('permissions').get()
+  const policies = permissionsSnapshot.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }) as Record<string, unknown> & { id: string })
+    .filter((policy) => policy.deleted !== true && policy.status !== 'archived' && policy.status !== 'revoked')
   const taskDoc = await projectRef.collection('tasks').doc(taskId).get()
   if (!taskDoc.exists) return apiError('Task not found', 404)
   const taskData = taskDoc.data() as Record<string, unknown>
-  const taskOrgId = typeof taskData.orgId === 'string' ? taskData.orgId : ''
-  if (taskOrgId && taskOrgId !== orgId && !access.projectAccess?.canViewInternal) return apiError('Task is outside the active organisation scope', 403)
+  if (typeof taskData.projectId === 'string' && taskData.projectId && taskData.projectId !== projectId) return apiError('Task not found', 404)
+  if (!isVisibleTask({ id: taskDoc.id, ...taskData }, policies, projectAccess, scopedUser)) {
+    return apiError('Task not found', 404)
+  }
 
   const dependencyIds = [...new Set([
     ...(Array.isArray(taskData.dependsOn) ? taskData.dependsOn.filter((id): id is string => typeof id === 'string' && Boolean(id)) : []),
     ...(typeof taskData.approvalGateTaskId === 'string' && taskData.approvalGateTaskId ? [taskData.approvalGateTaskId] : []),
   ])]
-  const dependencies = await Promise.all(dependencyIds.map(async (dependencyId) => {
+  const dependencies = await Promise.all(dependencyIds.slice(0, 20).map(async (dependencyId) => {
     const doc = await projectRef.collection('tasks').doc(dependencyId).get()
     if (!doc.exists) return null
     const data = doc.data() as Record<string, unknown>
+    if (typeof data.projectId === 'string' && data.projectId && data.projectId !== projectId) return null
+    if (!isVisibleTask({ id: doc.id, ...data }, policies, projectAccess, scopedUser)) return null
     return {
       id: doc.id,
       title: typeof data.title === 'string' ? data.title : '',
@@ -131,11 +165,12 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     return { id: doc.id, text: compactText(data.text, MAX_COMMENT_CHARS), userName: data.userName ?? '', userRole: data.userRole ?? '', createdAt: data.createdAt ?? null }
   })
 
-  const projectData = access.doc.data() ?? {}
   return apiSuccess({
+    contextVersion: 1,
     project: { id: projectId, name: projectData.name ?? '', status: projectData.status ?? '', orgId: projectData.orgId ?? '' },
     task: compactTask(taskDoc.id, taskData),
     dependencies: dependencies.filter(Boolean),
+    ...(dependencyIds.length > 20 ? { dependenciesOmittedCount: dependencyIds.length - 20 } : {}),
     comments,
   })
 })
