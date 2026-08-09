@@ -620,9 +620,9 @@ describe('agent watcher dispatchTask', () => {
     }))
   })
 
-  it('does not fail over a sensitive task after a pre-execution VPS gateway 502', async () => {
+  it('does not fail over or automatically retry a sensitive task after a pre-execution VPS gateway 502', async () => {
     const taskRef = makeTaskRef()
-    getAgentConfigMock.mockResolvedValue({ enabled: true, targetId: 'vps', baseUrl: 'https://vps.hermes.local', apiKey: 'vps-key' })
+    getAgentConfigMock.mockResolvedValue({ enabled: true, targetId: 'vps', baseUrl: 'https://vps.hermes.local', apiKey: 'test-key' })
     runAndPollMock.mockResolvedValue({ runId: null, output: null, error: 'Hermes /v1/runs returned 502: upstream unavailable', telemetry: { durationMs: 4 } })
 
     await dispatchTask(taskRef as never, {
@@ -637,8 +637,16 @@ describe('agent watcher dispatchTask', () => {
     expect(getAgentConfigMock).toHaveBeenCalledTimes(1)
     expect(runAndPollMock).toHaveBeenCalledTimes(1)
     expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
-      agentStatus: 'pending',
-      agentRetryCount: 1,
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      agentDispatchFailure: expect.objectContaining({
+        phase: 'pre-execution',
+        targetId: 'vps',
+        retryEligible: false,
+      }),
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('not retried because this task is approval-gated or side-effect-sensitive'),
+      }),
     }))
   })
 

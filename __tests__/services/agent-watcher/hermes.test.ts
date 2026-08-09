@@ -117,6 +117,35 @@ describe('agent watcher Hermes dispatch', () => {
     jest.useRealTimers()
   })
 
+  it('records gateway correlation headers on a pre-execution dispatch failure', async () => {
+    global.fetch = jest.fn(async () => new Response('Bad Gateway', {
+      status: 502,
+      headers: {
+        'x-request-id': 'req-502-trace',
+        'x-correlation-id': 'corr-502-trace',
+      },
+    })) as unknown as typeof fetch
+
+    await expect(runAndPoll(cfg, {
+      taskId: 'task-1',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Do the work',
+    })).resolves.toMatchObject({
+      runId: null,
+      error: expect.stringContaining('Hermes /v1/runs returned 502'),
+    })
+
+    const result = await runAndPoll(cfg, {
+      taskId: 'task-2',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Do the work',
+    })
+    expect(result.error).toContain('x-request-id=req-502-trace')
+    expect(result.error).toContain('x-correlation-id=corr-502-trace')
+  })
+
   it('sends effort and model overrides as top-level run fields', async () => {
     let postedBody: Record<string, unknown> | null = null
     global.fetch = jest.fn(async (url: string | URL, init?: RequestInit) => {

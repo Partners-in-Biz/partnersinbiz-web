@@ -92,6 +92,18 @@ function extractError(payload: Record<string, unknown>): string {
   return 'Hermes run ended with a failure status (no message)'
 }
 
+function responseCorrelation(res: Response): string {
+  // Preserve a safe request trail across watcher, proxy, and gateway without
+  // logging credentials or the original task payload.
+  const values = ['x-request-id', 'x-correlation-id', 'traceparent']
+    .map((name) => {
+      const value = res.headers.get(name)?.trim()
+      return value ? `${name}=${value.slice(0, 256)}` : ''
+    })
+    .filter(Boolean)
+  return values.length > 0 ? ` [correlation: ${values.join(', ')}]` : ''
+}
+
 async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<{ runId: string; data: Record<string, unknown> }> {
   const url = joinUrl(cfg.baseUrl, '/v1/runs')
   const body = {
@@ -133,7 +145,7 @@ async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<{ ru
   }
 
   if (!res.ok) {
-    throw new Error(`Hermes /v1/runs returned ${res.status}: ${text.slice(0, 500)}`)
+    throw new Error(`Hermes /v1/runs returned ${res.status}${responseCorrelation(res)}: ${text.slice(0, 500)}`)
   }
 
   const runId = extractRunId(data)

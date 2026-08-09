@@ -255,6 +255,25 @@ export function isTransientHermesError(error: string): boolean {
 
 const PRE_EXECUTION_FAILOVER_UNSAFE = /\b(approval|approve|send|message|publish|schedule|spend|budget|finance|invoice|payment|delete|archive|secret|config|deploy|release|production|client-visible)\b/i
 
+function isPreExecutionTransportFailure(result: Awaited<ReturnType<typeof runAndPoll>>): boolean {
+  return !result.runId && Boolean(result.error) && isTransientHermesError(result.error!)
+}
+
+function canRecoverPreExecutionDispatch(input: {
+  taskData: TaskData
+  result: Awaited<ReturnType<typeof runAndPoll>>
+}): boolean {
+  const { taskData, result } = input
+  if (!isPreExecutionTransportFailure(result)) return false
+  if (hasPendingApprovalGate(taskData)) return false
+  const riskText = [
+    taskData.title,
+    taskData.requiredCapability,
+    ...(taskData.labels ?? []),
+  ].filter(Boolean).join(' ')
+  return !PRE_EXECUTION_FAILOVER_UNSAFE.test(riskText)
+}
+
 /**
  * This is deliberately narrower than durable retry: the first gateway must not
  * have created a run, so a local fallback cannot duplicate accepted agent work.
@@ -268,16 +287,10 @@ function canFailOverPreExecutionDispatch(input: {
 }): boolean {
   const { taskData, cfg, linkedTarget, credentialRoute, result } = input
   if (linkedTarget || credentialRoute || !cfg || cfg.targetId !== 'vps') return false
-  if (result.runId || !result.error || !isTransientHermesError(result.error)) return false
+  if (!canRecoverPreExecutionDispatch({ taskData, result })) return false
   // Explicit runtime/model/credential choices must never be silently rerouted.
   if (taskData.agentRuntimeTargetId || taskData.agentModel || taskData.llmConnectionId || taskData.llmCredentialBindingId) return false
-  if (hasPendingApprovalGate(taskData)) return false
-  const riskText = [
-    taskData.title,
-    taskData.requiredCapability,
-    ...(taskData.labels ?? []),
-  ].filter(Boolean).join(' ')
-  return !PRE_EXECUTION_FAILOVER_UNSAFE.test(riskText)
+  return true
 }
 
 export function isGatewayRestartStormError(error: string): boolean {
@@ -1031,6 +1044,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
 
     let result: Awaited<ReturnType<typeof runAndPoll>>
     let effectiveDispatchInput = dispatchInput
+    let effectiveCfg = cfg
     if (linkedTarget) {
       logger.info('dispatching task to linked computer queue', {
         taskId,
@@ -1070,6 +1084,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
             fallbackTarget: localCfg.targetId,
             error: result.error,
           })
+          effectiveCfg = localCfg
           result = await runAndPoll(localCfg, effectiveDispatchInput, onRunCreated)
         }
       }
@@ -1094,7 +1109,39 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         provider: credentialRoute?.provider ?? (taskModel ? taskProvider : null),
         model: taskModel,
       })
-      if (isTransientHermesError(result.error) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
+      const safePreExecutionRecovery = canRecoverPreExecutionDispatch({ taskData, result })
+      const preExecutionFailure = !result.runId && isTransientHermesError(result.error)
+      const dispatchFailure = preExecutionFailure
+        ? {
+            phase: 'pre-execution',
+            targetId: effectiveCfg?.targetId ?? null,
+            error: humanError,
+            retryEligible: safePreExecutionRecovery,
+            observedAt: new Date().toISOString(),
+          }
+        : null
+      if (preExecutionFailure && !safePreExecutionRecovery) {
+        const blockedSummary = `Pre-execution dispatch did not start and was not retried because this task is approval-gated or side-effect-sensitive. Exact transport evidence: ${humanError}`
+        await taskRef.update({
+          ...agentStatusUpdate('blocked'),
+          agentHeartbeatAt: FieldValue.delete(),
+          agentDispatchFailure: dispatchFailure,
+          agentOutput: {
+            summary: blockedSummary,
+            telemetry,
+            completedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+          agentId,
+          summary: blockedSummary,
+          blockingReason: humanError,
+          runId: activeRunId,
+        })
+        return
+      }
+      if ((preExecutionFailure ? safePreExecutionRecovery : isTransientHermesError(result.error)) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
         const nextRetryCount = priorRetryCount + 1
         const retryAt = transientRetryAt(priorRetryCount, Date.now(), result.error)
         logger.warn('transient Hermes run failure — scheduling durable retry', {
@@ -1111,6 +1158,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
           agentRetryCount: nextRetryCount,
           agentRetryAt: retryAt,
           agentHeartbeatAt: FieldValue.delete(),
+          ...(dispatchFailure ? { agentDispatchFailure: dispatchFailure } : {}),
           agentOutput: {
             summary: `Transient watcher error: ${humanError} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
             telemetry,
