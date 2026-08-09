@@ -60,6 +60,21 @@ describe('repository task worktree preflight', () => {
     expect(git(repositoryRoot, ['status', '--porcelain'])).toBe('')
   })
 
+  it('uses the matching nested directory in the task worktree when the authorised mapping targets a repository subdirectory', () => {
+    const selectedDirectory = path.join(repositoryRoot, 'packages', 'app')
+    fs.mkdirSync(selectedDirectory, { recursive: true })
+    fs.writeFileSync(path.join(selectedDirectory, 'package.json'), '{"name":"app"}\n')
+    git(repositoryRoot, ['add', 'packages/app/package.json'])
+    git(repositoryRoot, ['commit', '-m', 'add nested app'])
+
+    const task = prepareTaskWorktree({ repositoryRoot: selectedDirectory, taskId: 'task-nested', baseRef: 'HEAD' })
+
+    expect(task).toMatchObject({ ok: true, taskId: 'task-nested' })
+    if (!task.ok) throw new Error('expected nested task worktree to be ready')
+    expect(task.workingDirectory).toContain(`${path.sep}pib-task-task-nested${path.sep}packages${path.sep}app`)
+    expect(fs.readFileSync(path.join(task.workingDirectory, 'package.json'), 'utf8')).toContain('"name":"app"')
+  })
+
   it('rejects a dirty shared checkout without stashing, rebasing, or touching its in-flight changes', () => {
     const dirtyPath = path.join(repositoryRoot, 'in-flight-sibling.txt')
     fs.writeFileSync(dirtyPath, 'do not mix this task\n')
