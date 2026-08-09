@@ -559,7 +559,7 @@ describe('project task payload helpers', () => {
       })
     })
 
-    it('PATCH: moving into Done marks agent work done and review approved so dependents can start', () => {
+    it('PATCH: moving a reviewed agent task into Done does NOT auto-approve — lands in Review awaiting the reviewer', () => {
       const raw = buildProjectTaskUpdateData({ columnId: 'done' })
       expect(raw.ok).toBe(true)
       if (!raw.ok) return
@@ -570,6 +570,51 @@ describe('project task payload helpers', () => {
           agentStatus: 'done',
           reviewStatus: 'pending',
           reviewerAgentId: 'qa-release',
+        },
+        raw.value,
+        { columnId: 'done' },
+      )
+
+      expect(result).toEqual({
+        columnId: 'review',
+        agentStatus: 'done',
+        reviewStatus: 'pending',
+      })
+    })
+
+    it('PATCH: moving a reviewed task (reviewerIds only) into Done stays pending in Review', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'done' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentColumnMoveState(
+        {
+          assigneeAgentId: 'theo',
+          agentStatus: 'done',
+          reviewStatus: 'pending',
+          reviewerIds: ['uid-reviewer'],
+        },
+        raw.value,
+        { columnId: 'done' },
+      )
+
+      expect(result).toEqual({
+        columnId: 'review',
+        agentStatus: 'done',
+        reviewStatus: 'pending',
+      })
+    })
+
+    it('PATCH: moving an unreviewed agent task into Done keeps the final-handoff approval so dependents can start', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'done' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentColumnMoveState(
+        {
+          assigneeAgentId: 'theo',
+          agentStatus: 'done',
+          reviewStatus: 'pending',
         },
         raw.value,
         { columnId: 'done' },

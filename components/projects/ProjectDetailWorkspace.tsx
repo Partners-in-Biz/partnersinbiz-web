@@ -366,9 +366,14 @@ export function ProjectDetailWorkspace({
     setTasks(prev => prev.map((task) => {
       if (task.id !== taskId) return task
       const next: Task = { ...task, columnId: newColumnId, order: newOrder }
+      const hasReviewer = Boolean(task.reviewerAgentId || (task.reviewerIds && task.reviewerIds.length > 0))
       if (newColumnId === 'done') {
         if (task.assigneeAgentId) next.agentStatus = 'done'
-        next.reviewStatus = 'approved'
+        // Mirror applyAgentColumnMoveState: done never auto-approves when a reviewer
+        // is assigned — the card lands back in Review (awaiting-review) so only an
+        // explicit reviewer action can approve it.
+        next.reviewStatus = hasReviewer ? 'pending' : 'approved'
+        if (hasReviewer) next.columnId = 'review'
       } else if (newColumnId === 'review') {
         if (task.assigneeAgentId) next.agentStatus = 'done'
         next.reviewStatus = 'pending'
@@ -384,9 +389,11 @@ export function ProjectDetailWorkspace({
     setSelectedTask(prev => {
       if (!prev || prev.id !== taskId) return prev
       const next: Task = { ...prev, columnId: newColumnId, order: newOrder }
+      const hasReviewer = Boolean(prev.reviewerAgentId || (prev.reviewerIds && prev.reviewerIds.length > 0))
       if (newColumnId === 'done') {
         if (prev.assigneeAgentId) next.agentStatus = 'done'
-        next.reviewStatus = 'approved'
+        next.reviewStatus = hasReviewer ? 'pending' : 'approved'
+        if (hasReviewer) next.columnId = 'review'
       }
       return next
     })

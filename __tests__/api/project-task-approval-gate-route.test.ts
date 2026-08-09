@@ -152,6 +152,52 @@ describe('project task approval gate route guards', () => {
     }))
   })
 
+  it('never auto-approves done when a reviewer is assigned — stays in Review pending reviewer action', async () => {
+    mockTaskGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        title: 'Reviewed task',
+        labels: [],
+        assigneeAgentId: 'theo',
+        reviewerAgentId: 'qa-release',
+        agentStatus: 'in-progress',
+        reviewStatus: 'pending',
+      }),
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({ agentStatus: 'done', agentOutput: { summary: 'Done, awaiting review' } }), ctx)
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'done',
+      columnId: 'review',
+      reviewStatus: 'pending',
+    }))
+  })
+
+  it('dragging a reviewed card into Done redirects to Review pending — never auto-approves', async () => {
+    mockTaskGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        title: 'Reviewed task',
+        labels: [],
+        assigneeAgentId: 'theo',
+        reviewerAgentId: 'qa-release',
+        agentStatus: 'done',
+        reviewStatus: 'pending',
+      }),
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({ columnId: 'done' }), ctx)
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      columnId: 'review',
+      agentStatus: 'done',
+      reviewStatus: 'pending',
+    }))
+  })
+
   it('fails closed before deleting a task when planning is not ready', async () => {
     mockPlanningMutationBlocker.mockReturnValue({
       code: 'planning_discovery_required', message: 'Planning discovery required', revision: 2,

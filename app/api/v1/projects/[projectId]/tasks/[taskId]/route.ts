@@ -9,6 +9,7 @@ import {
   applyAgentColumnMoveState,
   buildProjectTaskUpdateData,
   notificationPriority,
+  taskHasAssignedReviewer,
 } from '@/lib/projects/taskPayload'
 import { logActivity } from '@/lib/activity/log'
 import { adminProjectTaskLink } from '@/lib/projects/links'
@@ -182,20 +183,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     && body.columnId === undefined
     && body.reviewStatus === undefined
   ) {
-    const nextReviewer = typeof updateValue.reviewerAgentId === 'string'
-      ? updateValue.reviewerAgentId
-      : typeof existing.reviewerAgentId === 'string'
-        ? existing.reviewerAgentId
-        : ''
-    const nextReviewerIds = Array.isArray(updateValue.reviewerIds)
-      ? updateValue.reviewerIds
-      : Array.isArray(existing.reviewerIds)
-        ? existing.reviewerIds
-        : []
-    const hasReviewer = Boolean(
-      nextReviewer.trim()
-      || nextReviewerIds.some((id) => typeof id === 'string' && id.trim()),
-    )
+    const hasReviewer = taskHasAssignedReviewer(existing, updateValue)
     if (!hasReviewer) {
       updateValue.columnId = 'done'
       updateValue.reviewStatus = 'approved'

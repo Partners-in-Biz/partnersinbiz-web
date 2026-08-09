@@ -687,6 +687,26 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
   return { ok: true, value: updates }
 }
 
+export function taskHasAssignedReviewer(
+  existing: Record<string, unknown>,
+  updates: Record<string, unknown>,
+): boolean {
+  const nextReviewer = typeof updates.reviewerAgentId === 'string'
+    ? updates.reviewerAgentId
+    : typeof existing.reviewerAgentId === 'string'
+      ? existing.reviewerAgentId
+      : ''
+  const nextReviewerIds = Array.isArray(updates.reviewerIds)
+    ? updates.reviewerIds
+    : Array.isArray(existing.reviewerIds)
+      ? existing.reviewerIds
+      : []
+  return Boolean(
+    nextReviewer.trim()
+    || nextReviewerIds.some((id) => typeof id === 'string' && id.trim()),
+  )
+}
+
 export function applyAgentColumnMoveState(
   existing: Record<string, unknown>,
   updates: Record<string, unknown>,
@@ -705,7 +725,20 @@ export function applyAgentColumnMoveState(
   if (columnId === 'done') {
     const next: Record<string, unknown> = { ...updates }
     if (hasAgent && callerDidNotSetStatus) next.agentStatus = 'done'
-    if (callerDidNotSetReview) next.reviewStatus = 'approved'
+    if (callerDidNotSetReview) {
+      // Done never auto-approves when a reviewer is assigned: only an explicit
+      // reviewer action may set reviewStatus='approved'. A reviewed card dragged
+      // to Done lands in the Review column (awaiting-review) so the reviewer flow
+      // can run and approve it. Tasks without a reviewer keep the existing
+      // final-handoff behavior (Done + approved) so dependents advance.
+      const hasReviewer = taskHasAssignedReviewer(existing, next)
+      if (hasReviewer) {
+        next.columnId = 'review'
+        next.reviewStatus = 'pending'
+      } else {
+        next.reviewStatus = 'approved'
+      }
+    }
     return next
   }
 
