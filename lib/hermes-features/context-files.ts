@@ -48,10 +48,54 @@ export function discoverContextFilesFromMap(
   return discoverContextFiles((rel) => normalized[rel] ?? null, options)
 }
 
-export function contextFilesDispatchBlock(files: DiscoveredContextFile[]): string {
-  if (files.length === 0) {
-    return '[Project context files]\n(none discovered)\n'
+export function selectContextFilesForPrompt(
+  files: DiscoveredContextFile[],
+  options: { maxChars?: number } = {},
+): DiscoveredContextFile[] {
+  const maxChars = options.maxChars ?? 12_000
+  // One canonical operating file, with AGENTS taking precedence over format
+  // mirrors. SOUL is separate identity context only when it adds new content.
+  const ordered = [
+    files.find((file) => file.kind === 'agents'),
+    files.find((file) => file.kind === 'hermes'),
+    files.find((file) => file.kind === 'claude'),
+    files.find((file) => file.kind === 'cursorrules'),
+    files.find((file) => file.kind === 'soul'),
+  ].filter((file): file is DiscoveredContextFile => Boolean(file))
+
+  const seenContent = new Set<string>()
+  const selected: DiscoveredContextFile[] = []
+  let used = 0
+  for (const file of ordered) {
+    const normalized = file.content.trim()
+    if (!normalized || seenContent.has(normalized)) continue
+    if (used >= maxChars) break
+    const remaining = maxChars - used
+    const content = normalized.length > remaining
+      ? `${normalized.slice(0, Math.max(0, remaining - 24)).trimEnd()}\n…[context budget truncated]`
+      : normalized
+    if (!content) break
+    selected.push({ ...file, content })
+    seenContent.add(normalized)
+    used += content.length
+    // A selected AGENTS/other operating contract supersedes other operating formats.
+    if (file.kind !== 'soul') {
+      const soul = ordered.find((candidate) => candidate.kind === 'soul')
+      if (soul && soul !== file && !seenContent.has(soul.content.trim()) && used < maxChars) {
+        const soulRemaining = maxChars - used
+        const soulContent = soul.content.trim().length > soulRemaining
+          ? `${soul.content.trim().slice(0, Math.max(0, soulRemaining - 24)).trimEnd()}\n…[context budget truncated]`
+          : soul.content.trim()
+        if (soulContent) selected.push({ ...soul, content: soulContent })
+      }
+      break
+    }
   }
+  return selected
+}
+
+export function contextFilesDispatchBlock(files: DiscoveredContextFile[]): string {
+  if (files.length === 0) return '[Project context files]\n(none discovered)\n'
   return [
     '[Project context files]',
     ...files.map((f) => `## ${f.fileName} (${f.kind})\n${f.content}`),

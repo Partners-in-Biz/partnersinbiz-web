@@ -238,6 +238,7 @@ describe('project task payload helpers', () => {
           requiredCapability: 'deploy',
           requestedByAgentId: 'pip',
           expectedArtifacts: ['pull_request', 'deployment_url', 'test_report'],
+          verifierChecklist: ['Run typecheck', 'Verify preview and approval gate'],
           dependsOn: ['task-abc'],
           reviewerIds: ['reviewer-1'],
           reviewerAgentId: 'qa-release',
@@ -349,6 +350,37 @@ describe('project task payload helpers', () => {
       const update = buildProjectTaskUpdateData({ agentModel: 'gpt-5.6-terra' })
       expect(update.ok).toBe(true)
       if (update.ok) expect(update.value.agentModel).toBe('gpt-5.6-terra')
+    })
+
+    it('rejects a high-risk agent task until its completion contract is complete', () => {
+      const result = buildProjectTaskCreateData({
+        title: 'Publish production release',
+        assigneeAgentId: 'theo',
+        riskLevel: 'high',
+        agentInput: { spec: 'Prepare the approved production release.' },
+        requiredCapability: 'production-deploy',
+        expectedArtifacts: ['commit'],
+      }, 'project-1', 'org-1')
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toMatch(/reviewerAgentId.*verifierChecklist/i)
+    })
+
+    it('rejects a source-linked high-risk task without a source spec version', () => {
+      const result = buildProjectTaskCreateData({
+        title: 'Implement approved security change',
+        assigneeAgentId: 'theo',
+        riskLevel: 'critical',
+        agentInput: { spec: 'Implement exactly the approved change.' },
+        requiredCapability: 'production-deploy',
+        expectedArtifacts: ['commit'],
+        verifierChecklist: ['Run security regression'],
+        reviewerAgentId: 'qa-release',
+        sourceDocumentId: 'document-1',
+      }, 'project-1', 'org-1')
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.error).toMatch(/sourceSpecVersion/)
     })
 
     it('CREATE: explicit gated agentStatus controls the starting column', () => {

@@ -52,19 +52,16 @@ export function loadSkillBody(
 }
 
 export function progressiveSkillsDispatchBlock(
-  loaded: ProgressiveSkillMeta[],
+  catalog: ProgressiveSkillMeta[],
 ): string {
-  const ready = loaded.filter((s) => s.loaded && s.body)
-  if (ready.length === 0) {
-    return [
-      '[Hermes skills — progressive]',
-      'No skill bodies loaded. Use catalog metadata only until a skill is explicitly selected.',
-      '',
-    ].join('\n')
-  }
+  const ready = catalog.filter((s) => s.loaded && s.body)
+  const metadata = catalog.map((s) => `- ${s.id}: ${s.description.slice(0, 280)}`)
   return [
-    '[Hermes skills — progressive loaded]',
+    '[Hermes skills — on demand]',
+    'The catalogue below is metadata only. Use the scoped skill_view tool for one allowed skill when operational detail is necessary; do not assume a body is preloaded.',
+    ...metadata,
+    ready.length > 0 ? '[Explicitly loaded skill bodies]' : '',
     ...ready.map((s) => `## ${s.name} (${s.id})\n${s.body}`),
     '',
-  ].join('\n')
+  ].filter(Boolean).join('\n')
 }

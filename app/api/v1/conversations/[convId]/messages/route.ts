@@ -65,6 +65,8 @@ import {
   buildAgentDelegationBranchPart,
 } from '@/lib/conversations/agent-delegation'
 import { hermesFeaturesService } from '@/lib/hermes-features/service'
+import { buildPromptBudget } from '@/lib/hermes-features/prompt-budget'
+import { classifyMessagesPromptIntent } from '@/lib/messages/prompt-profile'
 import { councilModeGuidanceLines, getSlashCommandByToken, hermesFeaturesCommandLine, hermesGoalCommandLine, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
 import { renderDesignContextPayload } from '@/lib/chat/design-commands'
 import { findDesignContextItem } from '@/lib/research/store'
@@ -86,6 +88,8 @@ import { tryHandleHermesFeaturesSlash } from '@/lib/hermes-features/slash'
 import { evaluateSlashCommandAccess } from '@/lib/chat/slash-command-access'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { buildAgentSkillsPromptBlock, collectAgentSkillNames } from '@/lib/chat/agent-skills'
+import { buildPromptBudget } from '@/lib/hermes-features/prompt-budget'
+import { classifyMessagePromptIntent } from '@/lib/messages/prompt-profile'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { requireReadyLlmCredentialBinding } from '@/lib/llm-providers/bindings'
@@ -316,9 +320,23 @@ function buildConversationContext(
   return `${lines.join('\n')}\n`
 }
 
-function buildWorkspaceContext(conversation: Conversation): string {
+function buildWorkspaceContext(conversation: Conversation, profile: 'read_only' | 'draft' | 'execution' = 'execution'): string {
   const workspace = conversation.workspaceContext
   if (!workspace) return ''
+  if (profile === 'read_only') {
+    return [
+      '[Workspace context — compact]',
+      `workspaceId: ${workspace.workspaceId}`,
+      `orgId: ${workspace.orgId}`,
+      `runtimeTarget: ${workspace.runtimeTarget}`,
+      workspace.localWorkingPath || workspace.vpsWorkingPath ? `workingPath: ${workspace.localWorkingPath || workspace.vpsWorkingPath}` : '',
+      `agentDomain: ${workspace.agentDomain}`,
+      `shareMode: ${workspace.shareMode}`,
+      'This is read-only chat context. Read files lazily only when the request requires them.',
+      '---',
+      '',
+    ].filter(Boolean).join('\n')
+  }
   const companyCowork = workspace.folderScope === 'company'
     || (workspace.folderScope === 'project' && Boolean(workspace.companyWorkspaceId || workspace.companyId))
   const projectSession = workspace.folderScope === 'project' && Boolean(workspace.projectId)
@@ -937,7 +955,11 @@ export const POST = withAuth(
         }
       : {}
 
-    const recentMessages = await listMessages(convId, 200).catch(() => [message])
+    // Ordinary answers fetch exactly the history that can enter the prompt. The
+    // broad read is reserved for an explicit, auditable /compress operation.
+    const historyLimit = slashCommand?.id === 'compress' ? 200 : 31
+    const historyFetchLimit = slashCommand?.id === 'compress' ? 200 : 31
+    const recentMessages = await listMessages(convId, historyFetchLimit).catch(() => [message])
     // /compress: plan where to cut (older messages → summary input; latest
     // exchanges stay intact). A real compress falls through to dispatch; the
     // run's reply is stored as durable conversation context compression.
@@ -954,6 +976,12 @@ export const POST = withAuth(
     // Phase 2: dispatch a Hermes run. Multi-agent conversations route via Pip.
     if (dispatchAgentId) {
       const agentId = dispatchAgentId
+      const promptIntent = classifyMessagesPromptIntent({
+        content: content || hermesGoalWorkPrompt || '',
+        hasAttachments: attachments.length > 0,
+        slashExecutorKind: slashCommand?.executorKind,
+        hasProject: Boolean(boundProjectId),
+      })
 
       // Read agent doc from Firestore
       const agentSnap = await adminDb.collection('agent_team').doc(agentId).get()
@@ -1123,20 +1151,26 @@ export const POST = withAuth(
       })
       const workspaceContext = buildWorkspaceContext(conversation)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
-      const projectChatOrchestrationContext = buildProjectChatOrchestrationContext({
-        conversation,
-        dispatchAgentId: agentId,
-        requestMessageId: message.id,
-        responseMessageId: assistantMessage.id,
-      })
-      const studioArtifactOrchestrationContext = buildStudioArtifactOrchestrationContext({
-        dispatchAgentId: agentId,
-        conversationId: convId,
-        requestMessageId: message.id,
-        responseMessageId: assistantMessage.id,
-      })
+      const projectChatOrchestrationContext = promptIntent.needsProjectOrchestration
+        ? buildProjectChatOrchestrationContext({
+          conversation,
+          dispatchAgentId: agentId,
+          requestMessageId: message.id,
+          responseMessageId: assistantMessage.id,
+        })
+        : ''
+      const studioArtifactOrchestrationContext = promptIntent.needsStudio
+        ? buildStudioArtifactOrchestrationContext({
+          dispatchAgentId: agentId,
+          conversationId: convId,
+          requestMessageId: message.id,
+          responseMessageId: assistantMessage.id,
+        })
+        : ''
       const agentSkillsContext = buildAgentSkillsPromptBlock(agentData, agentId)
-      const decisionDataRuleContext = buildDecisionDataOperatingRuleContext()
+      const decisionDataRuleContext = promptIntent.needsCeoDecisionRules
+        ? buildDecisionDataOperatingRuleContext()
+        : ''
       const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
       const commandContext = slashCommand ? slashCommandInstruction(slashCommand) : ''
       // Design commands (T1 detector + T3 design context): inject the client's
@@ -1163,7 +1197,8 @@ export const POST = withAuth(
           : null
         const skillNames = collectAgentSkillNames(agentData)
         const userTurnForSkills = content || hermesGoalWorkPrompt || ''
-        // Progressive disclosure: catalog metadata always; load SKILL.md bodies only for top matches.
+        // On-demand skills: only metadata is in the initial prompt; Hermes loads a
+        // single allowlisted body later through skill_view when it is actually used.
         const { loadProgressiveSkillBodies } = await import('@/lib/hermes-features/skill-loader')
         const progressive = loadProgressiveSkillBodies(skillNames, userTurnForSkills)
         if (progressive.catalog.length > 0) {
@@ -1187,7 +1222,7 @@ export const POST = withAuth(
           workspace: workspaceFs || undefined,
           skillBodies: progressive.bodies,
           skillCatalog: progressive.catalog,
-          autoCheckpoint: Boolean(workspaceFs),
+          autoCheckpoint: promptIntent.needsWorkspaceWriteContext,
         })
         hermesFeaturesContext = hermesFeaturesDispatch.block
           ? `\n\n${hermesFeaturesDispatch.block}\n`
@@ -1199,25 +1234,35 @@ export const POST = withAuth(
           message: featuresErr instanceof Error ? featuresErr.message : String(featuresErr),
         })
       }
-      const mintedDelegation = await mintMessagesDispatchDelegation({
-        user,
-        orgId: conversation.orgId,
-        agentId,
-        conversationId: convId,
-      })
-      const mailboxAccounts = await listMailboxAccountsForUser(conversation.orgId, user.uid).catch(() => [])
-      const dynamicChatCanvasContext = buildDynamicChatCanvasPromptBlock({
-        conversationId: convId,
-        responseMessageId: assistantMessage.id,
-      })
-      const mailboxContext = buildMailboxContextPromptBlock({
-        orgId: conversation.orgId,
-        uid: user.uid,
-        accounts: mailboxAccounts,
-        mailboxDelegationEvidenceId: mintedDelegation?.mailboxDelegationEvidenceId,
-        conversationId: convId,
-        responseMessageId: assistantMessage.id,
-      })
+      // Read-only conversations receive no delegated credential material. Execution
+      // runs retain the existing user-bound delegation contract.
+      const mintedDelegation = promptIntent.needsDelegation
+        ? await mintMessagesDispatchDelegation({
+          user,
+          orgId: conversation.orgId,
+          agentId,
+          conversationId: convId,
+        })
+        : null
+      const mailboxAccounts = promptIntent.needsMailbox
+        ? await listMailboxAccountsForUser(conversation.orgId, user.uid).catch(() => [])
+        : []
+      const dynamicChatCanvasContext = promptIntent.needsCanvas
+        ? buildDynamicChatCanvasPromptBlock({
+          conversationId: convId,
+          responseMessageId: assistantMessage.id,
+        })
+        : ''
+      const mailboxContext = promptIntent.needsMailbox
+        ? buildMailboxContextPromptBlock({
+          orgId: conversation.orgId,
+          uid: user.uid,
+          accounts: mailboxAccounts,
+          mailboxDelegationEvidenceId: mintedDelegation?.mailboxDelegationEvidenceId,
+          conversationId: convId,
+          responseMessageId: assistantMessage.id,
+        })
+        : ''
       const delegationAuthContext = mintedDelegation
         ? buildDelegationAuthPromptBlock({
           token: mintedDelegation.token,
@@ -1233,7 +1278,36 @@ export const POST = withAuth(
       const userTurnContent = hermesGoalWorkPrompt
         ? `${goalWorkContext}${content ? `User message:\n${content}` : ''}`.trim()
         : content
-      const hermesInput = orgContext + convContext + workspaceContext + orchestrationContext + projectChatOrchestrationContext + studioArtifactOrchestrationContext + agentSkillsContext + hermesFeaturesContext + decisionDataRuleContext + designContextBlock + dynamicChatCanvasContext + mailboxContext + delegationAuthContext + attachedContext + conversationHistory + commandContext + compressionTaskContext + userTurnContent + attachmentContext
+      const promptAssembly = buildPromptBudget({
+        profile: promptIntent.profile,
+        blocks: [
+        { id: 'org_identity', content: orgContext, priority: 'critical', required: true },
+        { id: 'conversation_identity', content: convContext, priority: 'critical', required: true },
+        { id: 'latest_request', content: userTurnContent, priority: 'critical', required: true },
+        { id: 'task_or_project_contract', content: projectChatOrchestrationContext, priority: 'high' },
+        { id: 'attached_references', content: attachedContext, priority: 'high' },
+        { id: 'conversation_history', content: conversationHistory, priority: 'high' },
+        { id: 'workspace', content: workspaceContext, priority: 'normal' },
+        { id: 'orchestration', content: orchestrationContext, priority: 'normal' },
+        { id: 'agent_skills_catalogue', content: agentSkillsContext, priority: 'normal' },
+        { id: 'hermes_features', content: hermesFeaturesContext, priority: 'normal' },
+        { id: 'approval_and_decision_rules', content: decisionDataRuleContext, priority: 'high' },
+        { id: 'delegation', content: delegationAuthContext, priority: 'critical', required: Boolean(delegationAuthContext) },
+        { id: 'canvas', content: dynamicChatCanvasContext, priority: 'optional' },
+        { id: 'mailbox', content: mailboxContext, priority: 'optional' },
+        { id: 'studio', content: studioArtifactOrchestrationContext, priority: 'optional' },
+        { id: 'design_context', content: designContextBlock, priority: 'optional' },
+        { id: 'slash_command', content: commandContext, priority: 'high' },
+        { id: 'compression_task', content: compressionTaskContext, priority: 'high' },
+        { id: 'attachments', content: attachmentContext, priority: 'normal' },
+        ],
+      })
+      const hermesInput = promptAssembly.content
+      // The immutable per-run ledger is visible with the pending assistant
+      // message and copied into direct-run metadata below for audit/benchmarking.
+      await messagesCollection(convId).doc(assistantMessage.id).update({
+        contextLedger: promptAssembly.ledger,
+      })
       // VPS-hosted "linked computers" (hermes-vps-01) already expose Hermes
       // /v1/runs publicly. Prefer direct gateway dispatch so chat does not depend
       // on pib-runtime claim queues. Keep the claim queue for Mac/desktop runtimes.
@@ -1447,6 +1521,8 @@ export const POST = withAuth(
           requestedAgentIds: conversation.orchestration?.requestedAgentIds ?? conversation.participantAgentIds,
           orchestrationMode: conversation.orchestration?.mode ?? (conversation.participantAgentIds.length > 1 ? 'pip-orchestrator' : 'direct'),
           source: 'pib-unified-chat',
+          promptProfile: promptIntent.profile,
+          contextLedger: promptAssembly.ledger,
           approvalMode,
           ...(agentEffort ? { agentEffort } : {}),
           ...(resolvedContextRefs.length > 0 ? { contextRefs: resolvedContextRefs } : {}),

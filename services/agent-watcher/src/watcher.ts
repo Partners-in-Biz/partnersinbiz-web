@@ -748,7 +748,7 @@ async function buildProjectDispatchContext(
   }
 
   if (lines.length === 0) return ''
-  lines.push(`Before starting, fetch full project context from GET /api/v1/agent/project/${projectId} and use it as the source of truth for docs, task outputs, and comments.`)
+  lines.push(`Before starting, fetch the task-scoped source of truth from GET /api/v1/agent/project/${projectId}/task/${taskRef.id}/context. It contains this task contract, approved source references, dependency evidence, and recent task comments; do not load parent chat history or unrelated project work.`)
   return lines.join('\n')
 }
 

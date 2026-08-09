@@ -4,7 +4,7 @@
  */
 import fs from 'fs'
 import path from 'path'
-import { selectSkillsForRequest, skillCatalogFromDocs } from './skills-progressive'
+import { skillCatalogFromDocs } from './skills-progressive'
 import type { ProgressiveSkillMeta } from './types'
 
 const MAX_BODY_CHARS = 24_000
@@ -113,31 +113,20 @@ export function buildSkillCatalogFromNames(
 }
 
 /**
- * Progressive selection: pick top skills for the user message, load only those bodies.
+ * Initial Messages dispatch is metadata-only. Hermes exposes the scoped skill_view
+ * tool for an agent to load one allowlisted SKILL.md only after it decides it is
+ * relevant. Keeping this compatibility-shaped result avoids callers ever adding
+ * automatic body loading back by accident.
  */
 export function loadProgressiveSkillBodies(
   skillNames: string[],
-  userMessage: string,
-  options: { limit?: number; cwd?: string } = {},
+  _userMessage: string,
+  options: { cwd?: string } = {},
 ): {
   catalog: ProgressiveSkillMeta[]
   bodies: Record<string, string>
   selectedIds: string[]
 } {
-  const cwd = options.cwd ?? process.cwd()
-  const limit = options.limit ?? 3
-  const catalog = buildSkillCatalogFromNames(skillNames, cwd)
-  const selected = selectSkillsForRequest(catalog, userMessage, limit)
-  // If query scores nothing, still load top N catalog skills so agents aren't body-less
-  const picks = selected.length > 0 ? selected : catalog.slice(0, limit)
-  const bodies: Record<string, string> = {}
-  const selectedIds: string[] = []
-  for (const skill of picks) {
-    const body = readSkillBody(skill.id, cwd)
-    if (body) {
-      bodies[skill.id] = body
-      selectedIds.push(skill.id)
-    }
-  }
-  return { catalog, bodies, selectedIds }
+  const catalog = buildSkillCatalogFromNames(skillNames, options.cwd ?? process.cwd())
+  return { catalog, bodies: {}, selectedIds: [] }
 }
