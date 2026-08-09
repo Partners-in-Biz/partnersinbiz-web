@@ -458,7 +458,6 @@ describe('accepted bilateral links keep working', () => {
         direction: { grantorOrgId: 'org-a', granteeOrgId: 'org-b' },
         acceptance: { grantor: { byRef: actor }, grantee: { byRef: actor } },
       } }],
-      projectMembers: [{ id: 'proj-1_user:tester', data: { projectId: 'proj-1', uid: 'user:tester', orgId: 'org-a', role: 'manager', status: 'active', memberType: 'internal' } }],
       businessRelationships: [
         relationRow({ id: 'rel-a', partnerLinkId: 'link-z', status: 'active', sharedCapabilities: ['projects'] }),
         relationRow({ id: 'rel-b', partnerLinkId: 'link-z', sourceOrgId: 'org-b', targetOrgId: 'org-a', status: 'active', sharedCapabilities: ['projects'] }),

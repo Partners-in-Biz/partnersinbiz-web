@@ -128,7 +128,9 @@ describe('organisation-scoped project access', () => {
   it('does not let an owned_or_linked legacy alias bypass a denied canonical partner grant', async () => {
     const ownedOrLinkedUser: ApiUser = {
       ...user,
-      memberAccessPolicy: { modules: { projects: true }, recordScopes: { projects: 'owned_or_linked' } },
+      memberAccessPolicy: {
+        modules: { projects: true }, recordScopes: { projects: 'owned_or_linked' },
+      } as unknown as ApiUser['memberAccessPolicy'],
     }
     mockDocuments.set('projects/project-1', {
       ownerOrgId: 'source-org', clientOrgIds: ['org-b'], allowedUserIds: ['multi-org-user'],
