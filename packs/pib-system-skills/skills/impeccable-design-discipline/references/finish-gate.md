@@ -3,7 +3,7 @@
 Research: ZTTo7g6CU80u1uUSZvoC recommendation P2. Repo tooling:
 `lib/design-finish-gate/` + `scripts/design-finish-gate.ts`
 (`npm run design:finish-gate -- prepare|verify`). Tests:
-`npm run test:design-finish-gate` (36 checks).
+`npm run test:design-finish-gate` (41 checks).
 
 ## The rule
 
