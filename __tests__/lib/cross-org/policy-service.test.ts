@@ -227,6 +227,21 @@ describe('CrossOrgPolicyService — adapter contract', () => {
     expect(result.resourceGrantId).toBe('grant-1')
   })
 
+  it('requires an exact user grant for a named-user collaboration decision', async () => {
+    const store = seededStore({
+      grant: grant({ grantee: { orgIds: ['org-b'], userIds: [], teamIds: [] } }),
+    })
+    const service = new CrossOrgPolicyService(store)
+    const denied = await service.decide(baseInput({ requireNamedUser: true }))
+    expect(denied).toEqual(expect.objectContaining({ allowed: false, reasonCode: 'NAMED_USER_GRANT_REQUIRED' }))
+
+    const directStore = seededStore({
+      grant: grant({ grantee: { orgIds: ['org-b'], userIds: ['user-partner-1'], teamIds: [] } }),
+    })
+    const allowed = await new CrossOrgPolicyService(directStore).decide(baseInput({ requireNamedUser: true }))
+    expect(allowed.allowed).toBe(true)
+  })
+
   it('denies when the grant role is insufficient with ROLE_REQUIRED', async () => {
     const store = seededStore({ grant: grant({ role: 'owner' }) })
     const service = new CrossOrgPolicyService(store)

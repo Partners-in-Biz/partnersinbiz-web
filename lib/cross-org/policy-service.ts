@@ -57,6 +57,8 @@ export type CrossOrgReasonCode =
   | 'GRANT_DOES_NOT_COVER_ACTOR'
   | 'GRANT_COVERS_OTHER_RESOURCE'
   | 'GRANT_WRONG_LINK'
+  | 'NAMED_USER_GRANT_REQUIRED'
+  | 'RESOURCE_OWNER_MISMATCH'
   | 'ROLE_REQUIRED'
   | 'ACTION_NOT_GRANTED'
   | 'FIELD_NOT_GRANTED'
@@ -86,6 +88,7 @@ export function reasonCodeFromDecision(decision: PartnerAccessDecision): CrossOr
       if (detail.includes('scope agreement') || detail.includes('direction')) return 'SCOPE_AGREEMENT_REQUIRED'
       return 'CAPABILITY_REQUIRED'
     case 'resource_grant':
+      if (detail.includes('named user grant required')) return 'NAMED_USER_GRANT_REQUIRED'
       if (detail.includes('expired')) return 'GRANT_EXPIRED'
       if (detail.includes('status')) return 'GRANT_NOT_ACTIVE'
       if (detail.includes('does not cover actor')) return 'GRANT_DOES_NOT_COVER_ACTOR'
@@ -405,6 +408,8 @@ export interface CrossOrgDecisionInput {
   }
   resourceType: PartnerResourceType | 'custom'
   resourceId: string
+  /** Immutable owner loaded by the module adapter; never accepted from the caller. */
+  resourceOwnerOrgId?: string
   action: string
   field?: string
   item?: string
@@ -413,6 +418,8 @@ export interface CrossOrgDecisionInput {
   actorRole?: string
   actorTeamIds?: string[]
   roleRank?: (actorRole: string | undefined, requiredRole: string) => boolean
+  /** Restrict a collaboration decision to a grant naming this exact user. */
+  requireNamedUser?: boolean
   /** Emit an append-only access.decided audit event. Defaults to true. */
   recordDecision?: boolean
   /** Real caller identity for the audit event; defaults to a synthetic ref. */
@@ -509,7 +516,7 @@ export class CrossOrgPolicyService {
     }
 
     // ── 4. Pure decision chain ───────────────────────────────────────────────
-    const decision = evaluatePartnerAccess({
+    let decision = evaluatePartnerAccess({
       actor,
       context: input.partnerLinkId ? 'cross_org_grant' : 'within_org',
       resourceType: input.resourceType,
@@ -525,11 +532,21 @@ export class CrossOrgPolicyService {
       actorRole: input.actorRole,
       actorTeamIds: input.actorTeamIds,
       roleRank: input.roleRank,
+      requireNamedUser: input.requireNamedUser,
       membershipActive,
       now,
     })
+    if (decision.allowed && input.resourceOwnerOrgId && grant?.ownerOrgId !== input.resourceOwnerOrgId) {
+      decision = {
+        allowed: false,
+        reason: 'resource grant owner does not match the immutable module resource owner',
+        chain: [...decision.chain, { step: 'resource_grant', passed: false, detail: 'resource grant owner does not match module resource owner' }],
+      }
+    }
 
-    const reasonCode = reasonCodeFromDecision(decision)
+    const reasonCode = input.resourceOwnerOrgId && grant?.ownerOrgId !== input.resourceOwnerOrgId
+      ? 'RESOURCE_OWNER_MISMATCH'
+      : reasonCodeFromDecision(decision)
     const projection = decision.allowed
       ? buildSafeProjection(grant, scopeAgreement)
       : undefined
@@ -551,7 +568,7 @@ export class CrossOrgPolicyService {
         partnerLinkId: input.partnerLinkId,
         scopeAgreementId: scopeAgreement?.id,
         resourceGrantId: grant?.id,
-        actorRef: { uid: userId, displayName: userId, kind: 'human' },
+        actorRef: input.actorRef ?? { uid: userId, displayName: userId, kind: 'human' },
         actorOrgId: orgId,
         resourceType: input.resourceType,
         resourceId: input.resourceId,

@@ -198,6 +198,10 @@ export function evaluatePartnerAccess(input: PartnerAccessInput): PartnerAccessD
       chain.push(step('resource_grant', false, 'grant does not cover actor org/user/team'))
       return deny(chain, 'resource grant does not cover actor')
     }
+    if (input.requireNamedUser === true && !coversUser) {
+      chain.push(step('resource_grant', false, 'named user grant required'))
+      return deny(chain, 'named user grant required')
+    }
     // Expiry is a lifecycle check but belongs with the grant read.
     const expiresAt = timeMillis(grant.expiresAt, Number.POSITIVE_INFINITY)
     if (expiresAt < now.getTime()) {

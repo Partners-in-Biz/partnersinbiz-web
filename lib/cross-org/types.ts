@@ -133,6 +133,7 @@ export type PartnerResourceType =
   | 'email'
   | 'seo'
   | 'ads'
+  | 'analytics'
   | 'support'
   | 'service'
   | 'research'
@@ -408,5 +409,7 @@ export interface PartnerAccessInput {
    * requires an explicit grant).
    */
   requireGrant?: boolean
+  /** Privileged participant actions require an explicit grant to this user. */
+  requireNamedUser?: boolean
   now?: Date
 }
