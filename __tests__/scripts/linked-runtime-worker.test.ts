@@ -634,6 +634,30 @@ it('runs a linked Kanban task from a task-scoped Git worktree rather than the sh
   fs.rmSync(path.dirname(root), { recursive: true, force: true })
 })
 
+it('preserves an authorised nested relativeFolder when routing a linked Kanban task into its isolated worktree', async () => {
+  const root = gitRepositoryForTaskWorktree()
+  const nested = path.join(root, 'packages', 'app')
+  fs.mkdirSync(nested, { recursive: true })
+  fs.writeFileSync(path.join(nested, 'package.json'), '{"name":"nested-app"}\n')
+  execFileSync('git', ['add', 'packages/app/package.json'], { cwd: root, stdio: 'ignore' })
+  execFileSync('git', ['commit', '-m', 'add nested app'], { cwd: root, stdio: 'ignore' })
+  execFileSync('git', ['push', 'origin', 'development'], { cwd: root, stdio: 'ignore' })
+  const maps = new MappingRegistry(path.join(path.dirname(root), 'maps'))
+  maps.map('m', root)
+  const k = generateKeyPairSync('ed25519')
+  const hermes = jest.fn(async (body) => `cwd=${body.working_directory}`)
+  const result = await executeJob(
+    { jobId: 'nested-task-job', requestId: 'request', prompt: 'implement safely', workspaceId: 'w', projectId: 'p', mappingId: 'm', relativeFolder: 'packages/app', attempt: 1, leaseToken: 'lease', kanbanTaskId: 'kanban-nested-worktree' },
+    { deviceId: 'device', credentialVersion: 1, privateKey: k.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() },
+    maps,
+    async () => new Response('', { status: 200 }),
+    hermes,
+  )
+  expect(result.status).toBe('completed')
+  expect(String(hermes.mock.calls[0][0].working_directory)).toContain(`${path.sep}pib-task-kanban-nested-worktree${path.sep}packages${path.sep}app`)
+  fs.rmSync(path.dirname(root), { recursive: true, force: true })
+})
+
 it('turns a dirty shared Git mapping into a terminal linked-run error without calling Hermes', async () => {
   const root = gitRepositoryForTaskWorktree()
   fs.writeFileSync(path.join(root, 'sibling-in-flight.txt'), 'do not touch\n')

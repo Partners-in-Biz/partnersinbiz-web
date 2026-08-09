@@ -104,8 +104,10 @@ export function prepareTaskWorktree(input: TaskWorktreeRequest): TaskWorktreeRes
   }
 
   let repositoryRoot: string
+  let selectedDirectory: string
   try {
-    repositoryRoot = fs.realpathSync(input.repositoryRoot)
+    selectedDirectory = fs.realpathSync(input.repositoryRoot)
+    repositoryRoot = selectedDirectory
   } catch {
     return blocked(taskId, 'not_git_repository', `Repository root is unavailable: ${input.repositoryRoot}`)
   }
@@ -115,6 +117,20 @@ export function prepareTaskWorktree(input: TaskWorktreeRequest): TaskWorktreeRes
     return blocked(taskId, 'not_git_repository', `Repository isolation skipped: ${repositoryRoot} is not a Git checkout.`)
   }
   repositoryRoot = topLevel.stdout.trim()
+  const selectedRelativePath = path.relative(repositoryRoot, selectedDirectory)
+  if (selectedRelativePath === '..' || selectedRelativePath.startsWith(`..${path.sep}`) || path.isAbsolute(selectedRelativePath)) {
+    return blocked(taskId, 'task_worktree_conflict', `Selected directory is outside its resolved Git root and was left untouched: ${selectedDirectory}.`)
+  }
+  const taskWorkingDirectory = (worktreePath: string): TaskWorktreeReady | TaskWorktreeBlocked => {
+    const workingDirectory = path.resolve(worktreePath, selectedRelativePath)
+    if (workingDirectory !== worktreePath && !workingDirectory.startsWith(`${worktreePath}${path.sep}`)) {
+      return blocked(taskId, 'task_worktree_conflict', `Task working directory would escape its isolated worktree: ${selectedRelativePath}.`)
+    }
+    if (!fs.existsSync(workingDirectory)) {
+      return blocked(taskId, 'task_worktree_conflict', `Task worktree does not contain the authorised directory: ${selectedRelativePath || '.'}.`)
+    }
+    return { ok: true, taskId, branch: taskBranch(taskId), workingDirectory, reused: false }
+  }
 
   const branch = taskBranch(taskId)
   const sharedBranch = runGit(repositoryRoot, ['symbolic-ref', '--quiet', '--short', 'HEAD'])
@@ -146,7 +162,9 @@ export function prepareTaskWorktree(input: TaskWorktreeRequest): TaskWorktreeRes
     if (!worktreeIsClean(worktreePath)) {
       return blocked(taskId, 'task_worktree_dirty', `Task worktree is dirty and was left untouched: ${worktreePath}.`)
     }
-    return { ok: true, taskId, branch, workingDirectory: worktreePath, reused: true }
+    const selected = taskWorkingDirectory(worktreePath)
+    if (!selected.ok) return selected
+    return { ...selected, reused: true }
   }
 
   const existingBranch = runGit(repositoryRoot, ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`])
@@ -170,5 +188,7 @@ export function prepareTaskWorktree(input: TaskWorktreeRequest): TaskWorktreeRes
   if (!worktreeIsClean(worktreePath)) {
     return blocked(taskId, 'task_worktree_dirty', `New task worktree is unexpectedly dirty and was left untouched: ${worktreePath}.`)
   }
-  return { ok: true, taskId, branch, workingDirectory: worktreePath, reused: false }
+  const selected = taskWorkingDirectory(worktreePath)
+  if (!selected.ok) return selected
+  return selected
 }

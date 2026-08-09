@@ -181,7 +181,7 @@ Watcher-dispatched Kanban work that reaches a linked runtime carries its `kanban
 
 - Shared checkout: must be clean and checked out on `development`.
 - Task branch: `pib-task/<taskId>`, created from the already-synced local `origin/development` ref (the preflight intentionally never fetches shared refs).
-- Task worktree: a deterministic sibling path under `.pib-agent-worktrees/<repository>/pib-task-<taskId>`; this stays outside the source checkout, so creating it cannot dirty the shared tree.
+- Task worktree: a deterministic sibling path under `.pib-agent-worktrees/<repository>/pib-task-<taskId>`; this stays outside the source checkout, so creating it cannot dirty the shared tree. If the authorised mapping selected a subdirectory inside that repository, Hermes receives the matching subdirectory inside the task worktree — never the repository root by accident.
 - Retry: only a clean, correctly registered worktree for the same task may be reused.
 - Non-Git mappings continue normally; this guard applies to repo-backed work, not document-only tasks.
 
