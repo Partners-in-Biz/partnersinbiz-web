@@ -49,10 +49,17 @@ jest.mock('../../../services/agent-watcher/src/logger', () => ({
   },
 }))
 
+jest.mock('../../../services/agent-watcher/src/completion-integrity', () => ({
+  ...jest.requireActual('../../../services/agent-watcher/src/completion-integrity'),
+  verifyReachableDevelopmentCommit: jest.fn(),
+  verifyCleanWatcherWorktree: jest.fn(),
+}))
+
 import { getAgentConfig } from '../../../services/agent-watcher/src/config'
 import { claimTask, claimReviewTask, startHeartbeat } from '../../../services/agent-watcher/src/claim'
 import { db } from '../../../services/agent-watcher/src/firestore'
 import { runAndPoll } from '../../../services/agent-watcher/src/hermes'
+import { verifyCleanWatcherWorktree, verifyReachableDevelopmentCommit } from '../../../services/agent-watcher/src/completion-integrity'
 import {
   dispatchReview,
   dispatchTask,
@@ -68,6 +75,8 @@ const claimTaskMock = claimTask as jest.Mock
 const claimReviewTaskMock = claimReviewTask as jest.Mock
 const startHeartbeatMock = startHeartbeat as jest.Mock
 const runAndPollMock = runAndPoll as jest.Mock
+const verifyCleanWatcherWorktreeMock = verifyCleanWatcherWorktree as jest.Mock
+const verifyReachableDevelopmentCommitMock = verifyReachableDevelopmentCommit as jest.Mock
 
 describe('agent watcher transient Hermes errors', () => {
   it('treats a gateway-lost run as retryable after an upstream outage', () => {
@@ -174,6 +183,40 @@ describe('agent watcher dispatchReview verdict hygiene', () => {
     expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
       columnId: 'done',
       reviewStatus: 'approved',
+      completionVerification: expect.objectContaining({
+        verifierIdentity: 'qa-release',
+        verifierResult: 'approved',
+        reviewerHandoffFrom: 'agent-watcher',
+      }),
+    }))
+  })
+
+  it('blocks reviewer handoff until watcher verification has passed', async () => {
+    const taskRef = makeTaskRef([], {
+      completionVerification: {
+        verifierIdentity: 'agent-watcher',
+        verifierResult: 'failed',
+        reasons: ['completion_evidence_missing'],
+      },
+    })
+
+    await dispatchReview(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      reviewerAgentId: 'qa-release',
+      agentStatus: 'done',
+      columnId: 'review',
+      reviewStatus: 'pending',
+      title: 'Phase 3 authoring',
+      agentOutput: { summary: 'done' },
+    })
+
+    expect(runAndPollMock).not.toHaveBeenCalled()
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: ['completion_integrity_verification_required_before_reviewer_handoff'],
     }))
   })
 
@@ -211,7 +254,24 @@ function makeTaskRef(
   comments: Array<Record<string, unknown>> = [],
   initialData: Record<string, unknown> = {},
 ) {
-  let data: Record<string, unknown> = { ...initialData }
+  let data: Record<string, unknown> = {
+    completionEvidence: {
+      schemaVersion: 1,
+      workKind: 'no-code',
+      noCodeReason: 'Watcher fixture: no repository files were changed.',
+      changedFiles: [],
+      testCommand: 'node scripts/verify-watcher-fixture.mjs',
+      testResult: 'passed',
+      worktreeState: 'not-applicable',
+    },
+    completionVerification: {
+      verifierIdentity: 'agent-watcher',
+      verifierResult: 'passed',
+      reasons: [],
+      commitReachable: null,
+    },
+    ...initialData,
+  }
   const update = jest.fn(async (patch: Record<string, unknown>) => {
     data = { ...data, ...patch }
   })
@@ -271,6 +331,8 @@ describe('agent watcher dispatchTask', () => {
     getAgentConfigMock.mockResolvedValue({ enabled: true, baseUrl: 'https://hermes.local', apiKey: 'secret' })
     claimTaskMock.mockResolvedValue(true)
     startHeartbeatMock.mockReturnValue(jest.fn())
+    verifyCleanWatcherWorktreeMock.mockResolvedValue(true)
+    verifyReachableDevelopmentCommitMock.mockResolvedValue(true)
     runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
       await onRunCreated('run-live-1')
       return {
@@ -344,6 +406,61 @@ describe('agent watcher dispatchTask', () => {
       agentStatus: 'done',
       agentConversationId: 'run-live-1',
       agentOutput: expect.objectContaining({ summary: 'done summary' }),
+    }))
+  })
+
+  it('rejects code completion when its commit is not reachable from origin/development', async () => {
+    const taskRef = makeTaskRef([], {
+      completionEvidence: {
+        schemaVersion: 1,
+        workKind: 'code',
+        commitSha: 'b'.repeat(40),
+        changedFiles: ['services/agent-watcher/src/watcher.ts'],
+        testCommand: 'npx jest --runInBand __tests__/services/agent-watcher/watcher.test.ts',
+        testResult: 'passed',
+        worktreeState: 'clean',
+      },
+    })
+    verifyReachableDevelopmentCommitMock.mockResolvedValue(false)
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', title: 'Ship integrity control',
+    })
+
+    expect(verifyReachableDevelopmentCommitMock).toHaveBeenCalledWith('b'.repeat(40))
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: expect.arrayContaining(['commit_not_reachable_on_origin_development']),
+      completionVerification: expect.objectContaining({ verifierIdentity: 'agent-watcher', verifierResult: 'failed', commitReachable: false }),
+    }))
+  })
+
+  it('rejects code completion when the watcher worktree is dirty', async () => {
+    const taskRef = makeTaskRef([], {
+      completionEvidence: {
+        schemaVersion: 1,
+        workKind: 'code',
+        commitSha: 'c'.repeat(40),
+        changedFiles: ['services/agent-watcher/src/watcher.ts'],
+        testCommand: 'npx jest --runInBand __tests__/services/agent-watcher/watcher.test.ts',
+        testResult: 'passed',
+        worktreeState: 'clean',
+      },
+    })
+    verifyCleanWatcherWorktreeMock.mockResolvedValue(false)
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', title: 'Ship integrity control',
+    })
+
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: expect.arrayContaining(['watcher_worktree_state_conflicts_with_done']),
+      completionVerification: expect.objectContaining({ verifierIdentity: 'agent-watcher', verifierResult: 'failed', worktreeClean: false }),
     }))
   })
 

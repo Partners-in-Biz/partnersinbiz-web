@@ -192,21 +192,6 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const updates = buildProjectTaskUpdateData(body)
   if (!updates.ok) return apiError(updates.error, updates.status ?? 400)
   let updateValue = applyAgentColumnMoveState(existing, updates.value, body)
-  // Agent completion without a reviewer is final — land in Done so Messages and
-  // dependsOn chains advance without a stuck Review badge.
-  // Approval-gate cards are handled separately by reconcileApprovalGateUpdate.
-  if (
-    !isApprovalGateCard
-    && updateValue.agentStatus === 'done'
-    && body.columnId === undefined
-    && body.reviewStatus === undefined
-  ) {
-    const hasReviewer = taskHasAssignedReviewer(existing, updateValue)
-    if (!hasReviewer) {
-      updateValue.columnId = 'done'
-      updateValue.reviewStatus = 'approved'
-    }
-  }
 
   // Authorisation before state reconciliation so unauthorised callers get 403,
   // not a 400 from canonical state rules they were never allowed to attempt.

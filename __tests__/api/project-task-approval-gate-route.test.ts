@@ -132,7 +132,7 @@ describe('project task approval gate route guards', () => {
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
-  it('does not block operational completion output when planning has since become stale', async () => {
+  it('forces narrative-only operational completion to changes-requested even when planning has since become stale', async () => {
     mockPlanningMutationBlocker.mockReturnValue({
       code: 'planning_discovery_required', message: 'Planning discovery required', revision: 8,
     })
@@ -145,15 +145,40 @@ describe('project task approval gate route guards', () => {
 
     expect(res.status).toBe(200)
     expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      agentStatus: 'done',
-      agentOutput: { summary: 'Completed safely' },
-      // Agent completion without a reviewer lands in Done (not stuck Review).
-      columnId: 'done',
-      reviewStatus: 'approved',
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: ['completion_integrity_verification_required'],
+      agentOutput: expect.objectContaining({ summary: expect.stringContaining('Completion integrity blocked') }),
     }))
   })
 
-  it('never auto-approves done when a reviewer is assigned — stays in Review pending reviewer action', async () => {
+  it('accepts a typed no-code exception as staged evidence without allowing direct completion', async () => {
+    mockTaskGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({ title: 'Read-only audit', labels: [], assigneeAgentId: 'sage', agentStatus: 'in-progress' }),
+    })
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(req({
+      completionEvidence: {
+        schemaVersion: 1,
+        workKind: 'no-code',
+        noCodeReason: 'Read-only database audit; no repository files changed.',
+        changedFiles: [],
+        testCommand: 'node scripts/verify-audit.mjs',
+        testResult: 'passed',
+        worktreeState: 'not-applicable',
+      },
+    }), ctx)
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      completionEvidence: expect.objectContaining({ workKind: 'no-code', changedFiles: [] }),
+    }))
+    expect(mockTaskUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ agentStatus: 'done' }))
+  })
+
+  it('does not allow a reviewer assignment to make narrative-only completion reviewable', async () => {
     mockTaskGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({
@@ -170,13 +195,14 @@ describe('project task approval gate route guards', () => {
 
     expect(res.status).toBe(200)
     expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      agentStatus: 'done',
-      columnId: 'review',
-      reviewStatus: 'pending',
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: ['completion_integrity_verification_required'],
     }))
   })
 
-  it('dragging a reviewed card into Done redirects to Review pending — never auto-approves', async () => {
+  it('blocks dragging an unverified agent card into Done', async () => {
     mockTaskGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({
@@ -193,9 +219,10 @@ describe('project task approval gate route guards', () => {
 
     expect(res.status).toBe(200)
     expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      columnId: 'review',
-      agentStatus: 'done',
-      reviewStatus: 'pending',
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: ['completion_integrity_verification_required'],
     }))
   })
 

@@ -12,6 +12,7 @@ import {
 import { validateCompletionEvidence } from '@/lib/projects/completionIntegrity'
 import { columnForAgentStatus } from '@/lib/tasks/agentState'
 import type { AgentStatus } from '@/lib/tasks/types'
+import { validateCompletionEvidence } from '@/lib/projects/completionIntegrity'
 
 // Re-export client-safe allowlists so existing server imports keep working.
 export {
