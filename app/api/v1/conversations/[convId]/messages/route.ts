@@ -1359,9 +1359,9 @@ export const POST = withAuth(
           // Only watcher-created Kanban conversations carry this server-side marker.
           // It is passed at enqueue time so a fast desktop claim cannot race the
           // later Firestore annotation used by the legacy fallback path.
-          const conversationRecord = conversation as unknown as Record<string, unknown>
-          const kanbanTaskId = typeof conversationRecord.kanbanTaskId === 'string'
-            ? conversationRecord.kanbanTaskId.trim()
+          const conversationTaskMarker = conversation as unknown as { kanbanTaskId?: unknown }
+          const kanbanTaskId = typeof conversationTaskMarker.kanbanTaskId === 'string'
+            ? conversationTaskMarker.kanbanTaskId.trim()
             : ''
           const queued = await enqueueLinkedRun({
             requestId: assistantMessage.id,
