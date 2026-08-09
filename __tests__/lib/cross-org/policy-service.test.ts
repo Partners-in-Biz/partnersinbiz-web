@@ -242,6 +242,13 @@ describe('CrossOrgPolicyService — adapter contract', () => {
     expect(allowed.allowed).toBe(true)
   })
 
+  it('denies a grant that does not belong to the immutable module resource owner', async () => {
+    const store = seededStore({ grant: grant({ ownerOrgId: 'org-a' }) })
+    const result = await new CrossOrgPolicyService(store).decide(baseInput({ resourceOwnerOrgId: 'org-c' }))
+    expect(result).toEqual(expect.objectContaining({ allowed: false, reasonCode: 'RESOURCE_OWNER_MISMATCH' }))
+    expect(store.auditEvents[0]?.decision).toBe('denied')
+  })
+
   it('denies when the grant role is insufficient with ROLE_REQUIRED', async () => {
     const store = seededStore({ grant: grant({ role: 'owner' }) })
     const service = new CrossOrgPolicyService(store)

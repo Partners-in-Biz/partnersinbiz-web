@@ -4,6 +4,7 @@ import { withCrmAuth, type CrmAuthContext } from '@/lib/auth/crm-middleware'
 import { createCrossOrgPolicyService } from '@/lib/cross-org/policy-service'
 import type { PartnerResourceType } from '@/lib/cross-org/types'
 import type { SharedBusinessCapability } from '@/lib/business-relationships/types'
+import { MARKETING_COLLABORATION_CONTRACTS } from '@/lib/cross-org/marketing-collaboration'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,7 @@ const RESOURCE_TYPES: readonly string[] = [
   'email',
   'seo',
   'ads',
+  'analytics',
   'support',
   'service',
   'research',
@@ -38,6 +40,8 @@ const CAPABILITIES: readonly string[] = [
   'support',
   'services',
 ]
+
+const MARKETING_RESOURCE_TYPES = new Set(Object.values(MARKETING_COLLABORATION_CONTRACTS).map((contract) => contract.resourceType))
 
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -83,6 +87,9 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx: CrmAuthC
 
     if (!resourceType) return apiError('resourceType is required', 400)
     if (!RESOURCE_TYPES.includes(resourceType)) return apiError('resourceType must be a known cross-org resource type', 400)
+    if (MARKETING_RESOURCE_TYPES.has(resourceType as PartnerResourceType)) {
+      return apiError('Marketing and analytics collaboration decisions must use /api/v1/cross-org/marketing/decide.', 403)
+    }
     if (!resourceId) return apiError('resourceId is required', 400)
     if (!action) return apiError('action is required', 400)
     if (requiredCapability && !CAPABILITIES.includes(requiredCapability)) {

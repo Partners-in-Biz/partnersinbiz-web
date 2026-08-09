@@ -20,6 +20,10 @@ jest.mock('@/lib/cross-org/policy-service', () => {
   return { createCrossOrgPolicyService: () => ({ decide }) }
 })
 
+jest.mock('@/lib/cross-org/marketing-resource-owner', () => ({
+  loadMarketingResourceOwner: jest.fn().mockResolvedValue('org-a'),
+}))
+
 import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/v1/cross-org/marketing/decide/route'
 import { createCrossOrgPolicyService } from '@/lib/cross-org/policy-service'
@@ -62,6 +66,7 @@ describe('POST /api/v1/cross-org/marketing/decide', () => {
       actor: { userId: 'user-partner-1', orgId: 'org-b', platformAdmin: false },
       actorRef: { uid: 'user-partner-1', displayName: 'Partner One', kind: 'human' },
       resourceType: 'social_post',
+      resourceOwnerOrgId: 'org-a',
       requiredCapability: 'social',
       action: 'review_draft',
       requireNamedUser: true,

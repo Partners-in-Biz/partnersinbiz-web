@@ -9,6 +9,7 @@ import {
   type MarketingCollaborationMode,
   type MarketingCollaborationModule,
 } from '@/lib/cross-org/marketing-collaboration'
+import { loadMarketingResourceOwner } from '@/lib/cross-org/marketing-resource-owner'
 
 export const dynamic = 'force-dynamic'
 

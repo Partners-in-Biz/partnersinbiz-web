@@ -286,6 +286,12 @@ export type CrossOrgModule =
   | 'attachments'
   | 'messages'
   | 'agent_caches'
+  | 'campaign_collaboration'
+  | 'social_collaboration'
+  | 'email_collaboration'
+  | 'seo_collaboration'
+  | 'ads_collaboration'
+  | 'analytics_collaboration'
 
 export type ModuleCascadeAction = 'revoke' | 'freeze' | 'reconcile'
 

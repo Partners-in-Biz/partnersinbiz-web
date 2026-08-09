@@ -1,7 +1,10 @@
+import { NextRequest, NextResponse } from 'next/server'
+
+type AuthHandler = (req: Request, ctx: Record<string, unknown>) => unknown
+
 jest.mock('@/lib/auth/crm-middleware', () => ({
-  withCrmAuth: (minRole: string, handler: Function) =>
+  withCrmAuth: (minRole: string, handler: AuthHandler) =>
     (req: Request) => {
-      const { NextResponse } = require('next/server')
       const role = (req as Request & { _testRole?: string })._testRole ?? minRole
       if (minRole === 'admin' && role === 'member') {
         return NextResponse.json({ success: false, error: 'Insufficient permissions' }, { status: 403 })
@@ -34,7 +37,6 @@ jest.mock('@/lib/cross-org/policy-service', () => {
   }
 })
 
-import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/v1/cross-org/decide/route'
 import { createCrossOrgPolicyService } from '@/lib/cross-org/policy-service'
 
@@ -91,6 +93,12 @@ describe('POST /api/v1/cross-org/decide — audit decision API contract', () => 
   it('returns 400 for an unknown requiredCapability', async () => {
     const res = await POST(makePostReq({ resourceType: 'document', resourceId: 'doc-1', action: 'view', partnerLinkId: 'link-1', requiredCapability: 'telepathy' }))
     expect(res.status).toBe(400)
+    expect(mockDecide).not.toHaveBeenCalled()
+  })
+
+  it('rejects marketing resource types so their closed-mode route remains the only decision boundary', async () => {
+    const res = await POST(makePostReq({ resourceType: 'analytics', resourceId: 'property-1', action: 'view', partnerLinkId: 'link-1' }))
+    expect(res.status).toBe(403)
     expect(mockDecide).not.toHaveBeenCalled()
   })
 

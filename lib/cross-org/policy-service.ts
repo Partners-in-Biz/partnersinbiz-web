@@ -536,7 +536,10 @@ export class CrossOrgPolicyService {
       membershipActive,
       now,
     })
-    if (decision.allowed && input.resourceOwnerOrgId && grant?.ownerOrgId !== input.resourceOwnerOrgId) {
+    const resourceOwnerMismatch = Boolean(
+      input.resourceOwnerOrgId && grant?.ownerOrgId !== input.resourceOwnerOrgId,
+    )
+    if (resourceOwnerMismatch) {
       decision = {
         allowed: false,
         reason: 'resource grant owner does not match the immutable module resource owner',
@@ -544,7 +547,7 @@ export class CrossOrgPolicyService {
       }
     }
 
-    const reasonCode = input.resourceOwnerOrgId && grant?.ownerOrgId !== input.resourceOwnerOrgId
+    const reasonCode = resourceOwnerMismatch
       ? 'RESOURCE_OWNER_MISMATCH'
       : reasonCodeFromDecision(decision)
     const projection = decision.allowed
