@@ -7,6 +7,49 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ projectId: string; taskId: string }> }
 
+const MAX_TASK_SPEC_CHARS = 8_000
+const MAX_SUMMARY_CHARS = 2_000
+const MAX_COMMENT_CHARS = 1_200
+
+function compactText(value: unknown, limit: number): string {
+  if (typeof value !== 'string') return ''
+  const text = value.trim()
+  return text.length > limit ? `${text.slice(0, Math.max(0, limit - 1)).trimEnd()}…` : text
+}
+
+function compactAgentInput(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const input = value as Record<string, unknown>
+  const context = input.context && typeof input.context === 'object' && !Array.isArray(input.context)
+    ? input.context as Record<string, unknown>
+    : {}
+  const allowedContext = [
+    'sourceDocumentId', 'sourceDocumentSectionId', 'sourceSpecVersion', 'approvalGateTaskId',
+    'sourceResearchItemId', 'riskLevel', 'requiredCapability', 'expectedArtifacts',
+    'verifierChecklist', 'contextRefs',
+  ].reduce<Record<string, unknown>>((out, key) => {
+    if (context[key] !== undefined) out[key] = context[key]
+    return out
+  }, {})
+  return {
+    spec: compactText(input.spec, MAX_TASK_SPEC_CHARS),
+    ...(Array.isArray(input.constraints)
+      ? { constraints: input.constraints.filter((item): item is string => typeof item === 'string').slice(0, 20).map((item) => compactText(item, 300)) }
+      : {}),
+    ...(Object.keys(allowedContext).length > 0 ? { context: allowedContext } : {}),
+  }
+}
+
+function compactAgentOutput(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const output = value as Record<string, unknown>
+  return {
+    summary: compactText(output.summary, MAX_SUMMARY_CHARS),
+    ...(Array.isArray(output.artifacts) ? { artifacts: output.artifacts.slice(0, 20) } : {}),
+    ...(output.completedAt !== undefined ? { completedAt: output.completedAt } : {}),
+  }
+}
+
 function compactTask(id: string, data: Record<string, unknown>) {
   return {
     id,
@@ -18,8 +61,8 @@ function compactTask(id: string, data: Record<string, unknown>) {
     columnId: data.columnId ?? '',
     agentStatus: data.agentStatus ?? null,
     assigneeAgentId: data.assigneeAgentId ?? null,
-    agentInput: data.agentInput ?? null,
-    agentOutput: data.agentOutput ?? null,
+    agentInput: compactAgentInput(data.agentInput),
+    agentOutput: compactAgentOutput(data.agentOutput),
     dependsOn: Array.isArray(data.dependsOn) ? data.dependsOn : [],
     approvalGateTaskId: data.approvalGateTaskId ?? null,
     approvalGate: data.approvalGate ?? null,
@@ -56,7 +99,8 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const access = await getProjectForUser(projectId, scopedUser, orgId)
   if (!access.ok) return apiError(access.error, access.status)
 
-  const taskDoc = await access.doc.collection('tasks').doc(taskId).get()
+  const projectRef = access.doc.ref
+  const taskDoc = await projectRef.collection('tasks').doc(taskId).get()
   if (!taskDoc.exists) return apiError('Task not found', 404)
   const taskData = taskDoc.data() as Record<string, unknown>
   const taskOrgId = typeof taskData.orgId === 'string' ? taskData.orgId : ''
@@ -67,7 +111,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     ...(typeof taskData.approvalGateTaskId === 'string' && taskData.approvalGateTaskId ? [taskData.approvalGateTaskId] : []),
   ])]
   const dependencies = await Promise.all(dependencyIds.map(async (dependencyId) => {
-    const doc = await access.doc.collection('tasks').doc(dependencyId).get()
+    const doc = await projectRef.collection('tasks').doc(dependencyId).get()
     if (!doc.exists) return null
     const data = doc.data() as Record<string, unknown>
     return {
@@ -76,7 +120,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
       agentStatus: data.agentStatus ?? null,
       approvalStatus: data.approvalStatus ?? null,
       reviewStatus: data.reviewStatus ?? null,
-      output: data.agentOutput ?? null,
+      output: compactAgentOutput(data.agentOutput),
       completionEvidence: data.completionEvidence ?? null,
     }
   }))
@@ -84,7 +128,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const commentsSnapshot = await taskDoc.ref.collection('comments').orderBy('createdAt', 'desc').limit(8).get()
   const comments = commentsSnapshot.docs.reverse().map((doc) => {
     const data = doc.data()
-    return { id: doc.id, text: data.text ?? '', userName: data.userName ?? '', userRole: data.userRole ?? '', createdAt: data.createdAt ?? null }
+    return { id: doc.id, text: compactText(data.text, MAX_COMMENT_CHARS), userName: data.userName ?? '', userRole: data.userRole ?? '', createdAt: data.createdAt ?? null }
   })
 
   const projectData = access.doc.data() ?? {}

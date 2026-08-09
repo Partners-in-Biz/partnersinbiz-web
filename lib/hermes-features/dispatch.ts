@@ -36,6 +36,8 @@ export interface HermesFeaturesDispatchInput {
   /** Pre-built catalog metadata (optional; otherwise from durable store). */
   skillCatalog?: ProgressiveSkillMeta[]
   autoCheckpoint?: boolean
+  /** Root instruction files are fetched only for workspace work; agents can read them on demand otherwise. */
+  includeWorkspaceInstructions?: boolean
 }
 
 export interface HermesFeaturesDispatchResult {
@@ -65,9 +67,12 @@ export async function buildHermesFeaturesDispatchBlock(
   let workspaceFiles: Record<string, string> = {}
 
   if (input.workspace) {
-    // Root instructions are read lazily. A full workspace snapshot is only needed
-    // for a requested checkpoint/write-capable run, never ordinary chat.
-    contextFiles = selectContextFilesForPrompt(input.workspace.discoverContextFiles())
+    // Root instructions and snapshots are both lazy. A normal informational
+    // conversation receives only the workspace identity; the agent can load a
+    // named file with its file tool if the request actually needs it.
+    contextFiles = (input.includeWorkspaceInstructions ?? Boolean(input.autoCheckpoint))
+      ? selectContextFilesForPrompt(input.workspace.discoverContextFiles())
+      : []
     if (input.autoCheckpoint) {
       workspaceFiles = input.workspace.snapshotTextFiles()
       if (input.conversationId) {

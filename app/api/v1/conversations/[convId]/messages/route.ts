@@ -88,8 +88,6 @@ import { tryHandleHermesFeaturesSlash } from '@/lib/hermes-features/slash'
 import { evaluateSlashCommandAccess } from '@/lib/chat/slash-command-access'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
 import { buildAgentSkillsPromptBlock, collectAgentSkillNames } from '@/lib/chat/agent-skills'
-import { buildPromptBudget } from '@/lib/hermes-features/prompt-budget'
-import { classifyMessagePromptIntent } from '@/lib/messages/prompt-profile'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
 import { requireReadyLlmCredentialBinding } from '@/lib/llm-providers/bindings'
@@ -1149,7 +1147,7 @@ export const POST = withAuth(
         uid: user.uid,
         ...(authorEmail ? { email: authorEmail } : {}),
       })
-      const workspaceContext = buildWorkspaceContext(conversation)
+      const workspaceContext = buildWorkspaceContext(conversation, promptIntent.profile)
       const orchestrationContext = buildOrchestrationContext(conversation, agentId)
       const projectChatOrchestrationContext = promptIntent.needsProjectOrchestration
         ? buildProjectChatOrchestrationContext({
@@ -1223,6 +1221,7 @@ export const POST = withAuth(
           skillBodies: progressive.bodies,
           skillCatalog: progressive.catalog,
           autoCheckpoint: promptIntent.needsWorkspaceWriteContext,
+          includeWorkspaceInstructions: promptIntent.needsWorkspaceWriteContext,
         })
         hermesFeaturesContext = hermesFeaturesDispatch.block
           ? `\n\n${hermesFeaturesDispatch.block}\n`

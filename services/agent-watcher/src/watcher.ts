@@ -38,6 +38,7 @@ import { buildDesignContextPromptBlock } from './design-context'
 import { buildSurfaceModePromptBlock } from './surface-modes'
 import { notifyCommandSessionFromTask } from './command-session'
 import { buildCompletionArtifacts, notifyWorkflowGraphTerminal } from './workflow-writeback'
+import { buildWatcherPromptBudget } from './prompt-budget'
 
 
 function expectedArtifactsFromTask(taskData: TaskData): string[] | undefined {
@@ -682,69 +683,14 @@ async function buildProjectDispatchContext(
     lines.push(`- projectId: ${projectId}`)
     if (typeof project?.name === 'string' && project.name.trim()) lines.push(`- name: ${project.name.trim()}`)
     if (typeof project?.status === 'string' && project.status.trim()) lines.push(`- status: ${project.status.trim()}`)
-    const brief = typeof project?.brief === 'string' && project.brief.trim()
-      ? project.brief
-      : typeof project?.description === 'string' ? project.description : ''
-    if (brief.trim()) lines.push(`- brief: ${truncatePromptText(brief, 900)}`)
-
     const surfaceModeBlock = buildSurfaceModePromptBlock(project?.surfaceMode)
     if (surfaceModeBlock) lines.push(surfaceModeBlock)
-
-    const docsSnap = await db
-      .collection('projects')
-      .doc(projectId)
-      .collection('docs')
-      .orderBy('createdAt', 'desc')
-      .limit(12)
-      .get()
-    if (!docsSnap.empty) {
-      lines.push('- docs:')
-      docsSnap.docs.forEach((doc) => {
-        const data = doc.data()
-        const title = typeof data.title === 'string' && data.title.trim() ? data.title.trim() : 'Untitled doc'
-        const type = typeof data.type === 'string' && data.type.trim() ? data.type.trim() : 'notes'
-        lines.push(`  - ${title} (id: ${doc.id}, type: ${type})`)
-      })
-    }
   } catch (err) {
     logger.warn('failed to load project dispatch context', {
       taskId: taskRef.id,
       projectId,
       error: err instanceof Error ? err.message : String(err),
     })
-  }
-
-  const depIds = new Set<string>([
-    ...(taskData.dependsOn?.filter(Boolean) ?? []),
-    ...(taskData.approvalGateTaskId?.trim() ? [taskData.approvalGateTaskId.trim()] : []),
-  ])
-  if (depIds.size > 0) {
-    const depLines: string[] = []
-    for (const depId of depIds) {
-      try {
-        const depSnap = await taskRef.parent.doc(depId).get()
-        if (!depSnap.exists) continue
-        const dep = depSnap.data() as TaskData
-        const summary = dep.agentOutput?.summary?.trim()
-        const approval = typeof dep.approvalStatus === 'string' ? dep.approvalStatus.trim() : ''
-        const title = dep.title?.trim() || depId
-        if (summary) {
-          depLines.push(`- ${title} (${depId}): ${truncatePromptText(summary)}`)
-        } else if (approval) {
-          depLines.push(`- ${title} (${depId}): approvalStatus=${approval}`)
-        }
-      } catch (err) {
-        logger.warn('failed to load dependency summary for dispatch prompt', {
-          taskId: taskRef.id,
-          dependencyId: depId,
-          error: err instanceof Error ? err.message : String(err),
-        })
-      }
-    }
-    if (depLines.length > 0) {
-      lines.push('Dependency outputs:')
-      lines.push(...depLines)
-    }
   }
 
   if (lines.length === 0) return ''
@@ -1014,16 +960,22 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
           'In agentOutput, identify this host (machine label), not hermes-vps-01.',
         ].join('\n')
       : ''
-    const spec = [
-      buildCeoDataDecisionOperatingRule(taskData.orgId ?? ''),
-      buildCompletionIntegrityHandoff(),
-      baseSpec,
-      projectContextBlock,
-      designContextBlock,
-      durableHandoffBlock,
-      linkedHostBlock,
-      commentBlock ? ('Recent task comments / revision notes:\n' + commentBlock) : '',
-    ].filter(Boolean).join('\n\n')
+    const promptAssembly = buildWatcherPromptBudget([
+      { id: 'task_spec', content: baseSpec, priority: 'critical' },
+      { id: 'completion_integrity', content: buildCompletionIntegrityHandoff(), priority: 'critical' },
+      { id: 'durable_task_handoff', content: durableHandoffBlock, priority: 'high' },
+      { id: 'project_identity', content: projectContextBlock, priority: 'high' },
+      { id: 'recent_task_comments', content: commentBlock ? `Recent task comments / revision notes:\n${commentBlock}` : '', priority: 'high' },
+      { id: 'ceo_decision_rule', content: buildCeoDataDecisionOperatingRule(taskData.orgId ?? ''), priority: 'normal' },
+      { id: 'linked_host', content: linkedHostBlock, priority: 'normal' },
+      { id: 'design_context', content: designContextBlock, priority: 'optional' },
+    ])
+    const spec = promptAssembly.content
+    await taskRef.update({
+      promptProfile: 'task_execution',
+      contextLedger: promptAssembly.ledger,
+      updatedAt: FieldValue.serverTimestamp(),
+    })
     const dispatchInput: TaskDispatchInput = {
       taskId,
       orgId: taskData.orgId ?? '',
