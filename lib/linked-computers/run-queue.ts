@@ -59,6 +59,9 @@ export interface LinkedRunJob {
   conversationId: string
   assistantMessageId: string
   agentId: string
+  /** Watcher task correlation; enables task-scoped repository isolation on the runtime. */
+  kanbanTaskId?: string
+  kanbanTaskPath?: string
   /** Immutable approval/delegation namespace bound when the message was dispatched. */
   delegationId?: string
 }
@@ -320,6 +323,7 @@ export function publicClaimedLinkedRun(job: LinkedRunJob, payload: LinkedRunPayl
     ...(job.projectId ? { projectId: job.projectId } : {}), mappingId: job.mappingId,
     relativeFolder: job.relativeFolder,
     ...(job.workingDirectory ? { workingDirectory: job.workingDirectory } : {}),
+    ...(job.kanbanTaskId ? { kanbanTaskId: job.kanbanTaskId } : {}),
     attempt: job.attempt, leaseToken: job.leaseToken, ...(payload.model ? { model: payload.model } : {}),
     ...(payload.images?.length ? { images: payload.images } : {}),
     ...(payload.provider ? { provider: payload.provider } : {}),
