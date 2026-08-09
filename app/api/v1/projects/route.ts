@@ -22,6 +22,7 @@ import {
 import { canAccessProject } from '@/lib/projects/access'
 import { ensureProjectOwnerMembership, filterProjectsForMemberScope, projectOrganizationDocId } from '@/lib/projects/collaboration'
 import { publicProjectView } from '@/lib/projects/public'
+import { isSurfaceMode } from '@/lib/design/surface-modes'
 import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
@@ -401,6 +402,9 @@ export async function handleProjectCreate(
   if (body.status && !VALID_STATUSES.includes(body.status as ProjectStatus)) {
     return apiError('Invalid status')
   }
+  if (body.surfaceMode !== undefined && body.surfaceMode !== null && !isSurfaceMode(body.surfaceMode)) {
+    return apiError('surfaceMode must be one of persuade, operate, read, experience')
+  }
 
   const requestedOrgId = user.role === 'client'
     ? cleanString(body.orgId) || null
@@ -508,6 +512,7 @@ export async function handleProjectCreate(
     description: body.description?.trim() ?? '',
     brief: body.brief?.trim() ?? '',
     status: (body.status as ProjectStatus) ?? 'discovery',
+    ...(body.surfaceMode !== undefined && body.surfaceMode !== null ? { surfaceMode: body.surfaceMode } : {}),
     planningDiscovery: {
       schemaVersion: 1,
       revision: 1,

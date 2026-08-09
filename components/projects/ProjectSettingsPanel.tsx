@@ -13,11 +13,13 @@ function idListValue(values: string[]): string {
 interface ProjectSettingsPanelProps {
   name: string
   status: string
+  surfaceMode: string
   description: string
   saving: boolean
   saved: boolean
   onNameChange: (value: string) => void
   onStatusChange: (value: string) => void
+  onSurfaceModeChange: (value: string) => void
   onDescriptionChange: (value: string) => void
   sourceCompanyId: string
   additionalCompanyIds: string[]
@@ -35,11 +37,13 @@ interface ProjectSettingsPanelProps {
 export function ProjectSettingsPanel({
   name,
   status,
+  surfaceMode,
   description,
   saving,
   saved,
   onNameChange,
   onStatusChange,
+  onSurfaceModeChange,
   onDescriptionChange,
   sourceCompanyId,
   additionalCompanyIds,
@@ -88,6 +92,24 @@ export function ProjectSettingsPanel({
                 <option value="live">Live</option>
                 <option value="maintenance">Maintenance</option>
               </select>
+            </div>
+            <div>
+              <label htmlFor="project-settings-surface-mode" className="pib-label">Surface mode</label>
+              <select
+                id="project-settings-surface-mode"
+                value={surfaceMode}
+                onChange={e => onSurfaceModeChange(e.target.value)}
+                className="pib-select w-full"
+              >
+                <option value="">Not set (agent chooses)</option>
+                <option value="persuade">Persuade — landing/sales page</option>
+                <option value="operate">Operate — dashboard/app</option>
+                <option value="read">Read — docs/knowledge</option>
+                <option value="experience">Experience — portfolio/showcase</option>
+              </select>
+              <p className="mt-1 text-[11px] text-[var(--color-pib-text-muted)]">
+                Tells agents which design standard applies to this web surface (Impeccable-style).
+              </p>
             </div>
             <div className="pib-surface p-4">
               <p className="pib-label">Current board</p>

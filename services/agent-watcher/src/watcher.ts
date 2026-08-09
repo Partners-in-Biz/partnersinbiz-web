@@ -34,6 +34,7 @@ import {
 } from './eligibility'
 import { buildCeoDataDecisionOperatingRule as buildSharedCeoDataDecisionOperatingRule } from './ceo-operating-rule'
 import { buildDesignContextPromptBlock } from './design-context'
+import { buildSurfaceModePromptBlock } from './surface-modes'
 import { notifyCommandSessionFromTask } from './command-session'
 import { buildCompletionArtifacts, notifyWorkflowGraphTerminal } from './workflow-writeback'
 
@@ -632,6 +633,9 @@ async function buildProjectDispatchContext(
       ? project.brief
       : typeof project?.description === 'string' ? project.description : ''
     if (brief.trim()) lines.push(`- brief: ${truncatePromptText(brief, 900)}`)
+
+    const surfaceModeBlock = buildSurfaceModePromptBlock(project?.surfaceMode)
+    if (surfaceModeBlock) lines.push(surfaceModeBlock)
 
     const docsSnap = await db
       .collection('projects')

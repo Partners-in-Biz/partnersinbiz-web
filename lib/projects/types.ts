@@ -1,5 +1,6 @@
 import type { ContextReference } from '@/lib/context-references/types'
 import type { AgentEffort, AgentModel } from '@/lib/agents/runRouting'
+import type { SurfaceMode } from '@/lib/design/surface-modes'
 
 export type ProjectStatus = 'active' | 'on_hold' | 'completed' | 'archived'
 export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low'
@@ -53,6 +54,8 @@ export interface Project {
   name: string
   description: string
   status: ProjectStatus
+  /** Which design standard applies to this web surface: persuade/operate/read/experience. */
+  surfaceMode?: SurfaceMode | null
   columns: KanbanColumn[]
   dueDate?: unknown | null
   tags: string[]

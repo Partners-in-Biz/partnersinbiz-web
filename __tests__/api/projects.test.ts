@@ -765,6 +765,82 @@ describe('PATCH /api/v1/projects/[projectId]', () => {
     expect(mockEnsureClaimableRelationship).not.toHaveBeenCalled()
     expect(mockProjectUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ claimToken: expect.anything() }))
   })
+
+  it('updates surfaceMode for web-surface design-standard awareness', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'platform' }
+    mockProjectGetById.mockResolvedValue({
+      exists: true,
+      id: 'project-1',
+      data: () => ({
+        orgId: 'platform',
+        sourceOrgId: 'platform',
+        name: 'Website redesign',
+      }),
+    })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/route')
+    const req = new NextRequest('http://localhost/api/v1/projects/project-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ surfaceMode: 'persuade' }),
+    })
+
+    const res = await PATCH(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockProjectUpdate).toHaveBeenCalledWith(expect.objectContaining({ surfaceMode: 'persuade' }))
+  })
+
+  it('rejects an invalid surfaceMode on PATCH', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'platform' }
+    mockProjectGetById.mockResolvedValue({
+      exists: true,
+      id: 'project-1',
+      data: () => ({
+        orgId: 'platform',
+        sourceOrgId: 'platform',
+        name: 'Website redesign',
+      }),
+    })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/route')
+    const req = new NextRequest('http://localhost/api/v1/projects/project-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ surfaceMode: 'landing' }),
+    })
+
+    const res = await PATCH(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(400)
+    expect(mockProjectUpdate).not.toHaveBeenCalled()
+  })
+
+  it('clears surfaceMode with an explicit null on PATCH', async () => {
+    mockUser = { uid: 'admin-1', role: 'admin', orgId: 'platform' }
+    mockProjectGetById.mockResolvedValue({
+      exists: true,
+      id: 'project-1',
+      data: () => ({
+        orgId: 'platform',
+        sourceOrgId: 'platform',
+        name: 'Website redesign',
+        surfaceMode: 'persuade',
+      }),
+    })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/route')
+    const req = new NextRequest('http://localhost/api/v1/projects/project-1', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ surfaceMode: null }),
+    })
+
+    const res = await PATCH(req, { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockProjectUpdate).toHaveBeenCalledWith(expect.objectContaining({ surfaceMode: null }))
+  })
 })
 
 describe('DELETE /api/v1/projects', () => {
