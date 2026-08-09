@@ -19,6 +19,7 @@ import {
   readSkillBody,
 } from '@/lib/hermes-features/skill-loader'
 import { selectSkillsForRequest } from '@/lib/hermes-features/skills-progressive'
+import { selectContextFilesForPrompt } from '@/lib/hermes-features/context-files'
 import { buildDefaultRefDeps } from '@/lib/hermes-features/ref-deps'
 import { getConversation, listMessages, convDoc } from '@/lib/conversations/conversations'
 import fs from 'fs'
@@ -105,6 +106,14 @@ describe('hermes-features durable control plane', () => {
       ]
       expect(selectSkillsForRequest(catalog, '')).toEqual([])
       expect(selectSkillsForRequest(catalog, '   ')).toEqual([])
+    })
+
+    it('keeps canonical context files within their exact cap', () => {
+      const selected = selectContextFilesForPrompt([
+        { kind: 'agents', fileName: 'AGENTS.md', relativePath: 'AGENTS.md', content: 'a'.repeat(90) },
+        { kind: 'soul', fileName: 'SOUL.md', relativePath: 'SOUL.md', content: 's'.repeat(90) },
+      ], { maxChars: 100 })
+      expect(selected.reduce((total, file) => total + file.content.length, 0)).toBeLessThanOrEqual(100)
     })
 
     it('default ref deps support @diff and @url (not only file/folder)', () => {

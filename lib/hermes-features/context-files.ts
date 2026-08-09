@@ -86,12 +86,14 @@ export function selectContextFilesForPrompt(
     // A selected AGENTS/other operating contract supersedes other operating formats.
     if (file.kind !== 'soul') {
       const soul = ordered.find((candidate) => candidate.kind === 'soul')
-      if (soul && soul !== file && !seenContent.has(soul.content.trim()) && used < maxChars) {
-        const soulRemaining = maxChars - used
-        const soulContent = soul.content.trim().length > soulRemaining
-          ? `${soul.content.trim().slice(0, Math.max(0, soulRemaining - 24)).trimEnd()}\n…[context budget truncated]`
-          : soul.content.trim()
-        if (soulContent) selected.push({ ...soul, content: soulContent })
+      const soulNormalized = soul?.content.trim() ?? ''
+      if (soul && soul !== file && soulNormalized && !seenContent.has(soulNormalized)) {
+        const soulContent = fit(soulNormalized, maxChars - used)
+        if (soulContent) {
+          selected.push({ ...soul, content: soulContent })
+          seenContent.add(soulNormalized)
+          used += soulContent.length
+        }
       }
       break
     }

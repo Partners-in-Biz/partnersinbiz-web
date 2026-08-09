@@ -72,6 +72,18 @@ function isVisibleTask(
   ).length === 1
 }
 
+function isVisibleDocument(
+  document: Record<string, unknown> & { id: string },
+  policies: Array<Record<string, unknown> & { id: string }>,
+  projectAccess: ProjectAccessContext | null | undefined,
+  user: Parameters<typeof filterProjectItemsForAccess>[1]['user'],
+): boolean {
+  return filterProjectItemsForAccess(
+    applyAgentPermissionPolicies([document], policies, 'document'),
+    { projectAccess, user },
+  ).length === 1
+}
+
 function compactTask(id: string, data: Record<string, unknown>) {
   return {
     id,
@@ -138,6 +150,26 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     return apiError('Task not found', 404)
   }
 
+  const sourceDocumentId = typeof taskData.sourceDocumentId === 'string' ? taskData.sourceDocumentId.trim() : ''
+  let source: Record<string, unknown> | null = null
+  if (sourceDocumentId) {
+    const sourceDoc = await projectRef.collection('docs').doc(sourceDocumentId).get()
+    if (sourceDoc.exists) {
+      const sourceData = sourceDoc.data() as Record<string, unknown>
+      if (isVisibleDocument({ id: sourceDoc.id, ...sourceData }, policies, projectAccess, scopedUser)) {
+        source = {
+          id: sourceDoc.id,
+          title: compactText(sourceData.title, 500),
+          type: compactText(sourceData.type, 100),
+          versionId: sourceData.versionId ?? sourceData.currentVersionId ?? taskData.sourceDocumentVersionId ?? taskData.sourceSpecVersion ?? null,
+          sectionId: taskData.sourceDocumentSectionId ?? null,
+          excerpt: compactText(sourceData.content ?? sourceData.summary, 4_000),
+        }
+      }
+    }
+    if (!source) source = { id: sourceDocumentId, unavailable: true }
+  }
+
   const dependencyIds = [...new Set([
     ...(Array.isArray(taskData.dependsOn) ? taskData.dependsOn.filter((id): id is string => typeof id === 'string' && Boolean(id)) : []),
     ...(typeof taskData.approvalGateTaskId === 'string' && taskData.approvalGateTaskId ? [taskData.approvalGateTaskId] : []),
@@ -169,6 +201,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
     contextVersion: 1,
     project: { id: projectId, name: projectData.name ?? '', status: projectData.status ?? '', orgId: projectData.orgId ?? '' },
     task: compactTask(taskDoc.id, taskData),
+    ...(source ? { source } : {}),
     dependencies: dependencies.filter(Boolean),
     ...(dependencyIds.length > 20 ? { dependenciesOmittedCount: dependencyIds.length - 20 } : {}),
     comments,
