@@ -18,6 +18,7 @@ import {
   loadProgressiveSkillBodies,
   readSkillBody,
 } from '@/lib/hermes-features/skill-loader'
+import { selectSkillsForRequest } from '@/lib/hermes-features/skills-progressive'
 import { buildDefaultRefDeps } from '@/lib/hermes-features/ref-deps'
 import { getConversation, listMessages, convDoc } from '@/lib/conversations/conversations'
 import fs from 'fs'
@@ -48,14 +49,15 @@ describe('hermes-features durable control plane', () => {
       expect((await hermesFeaturesService.getToolsets('org1', 'pip')).enabled).not.toContain('terminal')
     })
 
-    it('progressive skills catalog omits bodies until loaded', async () => {
+    it('progressive skills catalog never persists caller-supplied bodies', async () => {
       const catalog = await hermesFeaturesService.setSkillCatalog('org1', 'pip', [
         { id: 'crm', name: 'CRM', description: 'sales pipeline', body: 'FULL BODY SECRET', tags: ['sales'] },
       ])
       expect(catalog[0].loaded).toBe(false)
       expect(catalog[0].body).toBeUndefined()
       const loaded = await hermesFeaturesService.selectAndLoadSkills('org1', 'pip', 'sales', { crm: 'FULL BODY SECRET' })
-      expect(loaded.find((s) => s.id === 'crm')?.body).toBe('FULL BODY SECRET')
+      expect(loaded.find((s) => s.id === 'crm')?.body).toBeUndefined()
+      expect(loaded.find((s) => s.id === 'crm')?.loaded).toBe(false)
     })
 
     it('keeps initial Messages skill dispatch metadata-only with no fallback bodies', async () => {
@@ -94,6 +96,15 @@ describe('hermes-features durable control plane', () => {
       expect(block.block).toContain('[Hermes skills — on demand]')
       expect(block.block).toContain('system-auth')
       expect(block.block).not.toContain(body!.slice(0, 40))
+    })
+
+    it('does not preselect skills for blank requests', () => {
+      const catalog = [
+        { id: 'crm-sales', name: 'CRM Sales', description: 'Operate the CRM', loaded: false },
+        { id: 'platform-ops', name: 'Platform Ops', description: 'Operate platform systems', loaded: false },
+      ]
+      expect(selectSkillsForRequest(catalog, '')).toEqual([])
+      expect(selectSkillsForRequest(catalog, '   ')).toEqual([])
     })
 
     it('default ref deps support @diff and @url (not only file/folder)', () => {

@@ -134,14 +134,7 @@ export const POST = withAuth('admin', async (req: NextRequest) => {
           ),
         })
       case 'skills.select':
-        return apiSuccess({
-          skills: await hermesFeaturesService.selectAndLoadSkills(
-            orgId,
-            agentId,
-            String(body.query || ''),
-            (body.bodies as Record<string, string>) || {},
-          ),
-        })
+        return apiError('Skill bodies are available only through the scoped active-run skill_view tool', 410)
       case 'memory.set':
         return apiSuccess({
           memory: await hermesFeaturesService.setMemorySection(

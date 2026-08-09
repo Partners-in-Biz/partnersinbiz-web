@@ -16,8 +16,6 @@ import {
 } from './toolsets'
 import {
   skillCatalogFromDocs,
-  selectSkillsForRequest,
-  loadSkillBody,
   progressiveSkillsDispatchBlock,
 } from './skills-progressive'
 import { updateMemorySection, appendMemoryBullet, memoryDispatchBlock } from './memory-curated'
@@ -139,13 +137,12 @@ export const hermesFeaturesService = {
   async listSkills(orgId: string, agentId: string) {
     return repo().getSkills(orgId, agentId)
   },
-  async selectAndLoadSkills(orgId: string, agentId: string, query: string, bodies: Record<string, string>) {
-    let catalog = await repo().getSkills(orgId, agentId)
-    const selected = selectSkillsForRequest(catalog, query, 3)
-    for (const s of selected) {
-      if (bodies[s.id]) catalog = loadSkillBody(catalog, s.id, bodies[s.id])
-    }
-    return repo().setSkills(orgId, agentId, catalog)
+  /**
+   * Deprecated compatibility surface. Skill bodies are never accepted from a
+   * caller or persisted; active-run skill_view is the only body retrieval path.
+   */
+  async selectAndLoadSkills(orgId: string, agentId: string, _query: string, _bodies: Record<string, string>) {
+    return repo().getSkills(orgId, agentId)
   },
 
   // Memory durable
