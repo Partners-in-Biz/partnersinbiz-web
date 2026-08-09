@@ -55,7 +55,7 @@ export async function buildHermesFeaturesDispatchBlock(
   const store = getHermesFeaturesRepository()
   const policy = await store.getToolsetPolicy(input.orgId, input.agentId, input.conversationId)
   const memory = await store.getMemory(input.orgId, input.agentId)
-  let catalog = input.skillCatalog
+  const catalog = input.skillCatalog
     ? input.skillCatalog.map((s) => ({ ...s }))
     : await store.getSkills(input.orgId, input.agentId)
 

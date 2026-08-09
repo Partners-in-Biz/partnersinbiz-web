@@ -8,6 +8,7 @@ const mockTaskGet = jest.fn()
 const mockDependencyGet = jest.fn()
 const mockCommentsGet = jest.fn()
 const mockPermissionsGet = jest.fn()
+const mockSourceGet = jest.fn()
 let fixtureProjectDoc: { ref: unknown; data: () => Record<string, unknown> }
 
 jest.mock('@/lib/api/auth', () => ({
@@ -29,11 +30,13 @@ beforeEach(() => {
     doc: jest.fn((id: string) => id === 'task-1' ? activeTaskRef : dependencyTaskRef),
   }
   const permissions = { get: mockPermissionsGet }
+  const docs = { doc: jest.fn(() => ({ get: mockSourceGet })) }
   const projectRef = {
     data: () => ({ orgId: 'org-1', name: 'Context budget', status: 'active' }),
     collection: jest.fn((name: string) => {
       if (name === 'tasks') return tasks
       if (name === 'permissions') return permissions
+      if (name === 'docs') return docs
       throw new Error(`unexpected collection ${name}`)
     }),
   }
@@ -69,6 +72,11 @@ beforeEach(() => {
     ],
   })
   mockPermissionsGet.mockResolvedValue({ docs: [] })
+  mockSourceGet.mockResolvedValue({
+    exists: true,
+    id: 'spec-1',
+    data: () => ({ title: 'Approved implementation spec', type: 'requirements', versionId: 'v3', content: 'Use bounded task context only.' }),
+  })
 })
 
 describe('GET /api/v1/agent/project/[projectId]/task/[taskId]/context', () => {
@@ -90,6 +98,7 @@ describe('GET /api/v1/agent/project/[projectId]/task/[taskId]/context', () => {
         expectedArtifacts: ['commit'],
         verifierChecklist: ['Run focused tests'],
       }),
+      source: expect.objectContaining({ id: 'spec-1', versionId: 'v3', excerpt: 'Use bounded task context only.' }),
       dependencies: expect.arrayContaining([expect.objectContaining({ id: 'dependency-1' })]),
       comments: [expect.objectContaining({ id: 'comment-1' }), expect.objectContaining({ id: 'comment-2' })],
     }))
