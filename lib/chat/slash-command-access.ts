@@ -80,6 +80,17 @@ export function slashCommandAccessTier(
     case 'search':
     case 'skills':
     case 'help':
+    case 'polish':
+    case 'typeset':
+    case 'layout':
+    case 'colorize':
+    case 'bolder':
+    case 'quieter':
+    case 'distill':
+    case 'clarify':
+    case 'harden':
+    case 'audit':
+    case 'critique':
     default:
       return 'public'
   }
