@@ -10,6 +10,7 @@ import {
   buildProjectTaskUpdateData,
   notificationPriority,
   taskHasAssignedReviewer,
+  validateDispatchableAgentTaskContract,
 } from '@/lib/projects/taskPayload'
 import { logActivity } from '@/lib/activity/log'
 import { adminProjectTaskLink } from '@/lib/projects/links'
@@ -204,6 +205,48 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const reconciled = reconcileApprovalGateUpdate(existing, updateValue, body, isApprovalGateCard)
   if (!reconciled.ok) return apiError(reconciled.error, reconciled.status)
   updateValue = reconciled.value
+
+  // A task can become high-risk or gain an agent after creation. Validate the
+  // merged record when the caller makes it dispatchable, so an incomplete task
+  // cannot be constructed through a sequence of individually-valid PATCH calls.
+  const dispatchContractTouched = body.assigneeAgentId !== undefined
+    || body.riskLevel !== undefined
+    || body.agentInput !== undefined
+    || body.requiredCapability !== undefined
+    || body.agentStatus === 'pending'
+  if (dispatchContractTouched) {
+    const nextTaskContract = validateDispatchableAgentTaskContract({ ...existing, ...updateValue })
+    if (!nextTaskContract.ok) return apiError(nextTaskContract.error, nextTaskContract.status ?? 400)
+  }
+
+  // Completion is a watcher-verifiable state transition, never an agent narrative
+  // shortcut. The watcher writes completionVerification only after it has checked
+  // the typed evidence (including origin/development reachability for code work).
+  const isAgentTask = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
+  const attemptsCompletion = updateValue.agentStatus === 'done'
+    || updateValue.columnId === 'done'
+    || updateValue.reviewStatus === 'approved'
+  const existingVerification = isRecord(existing.completionVerification) ? existing.completionVerification : null
+  const completionVerified = existingVerification?.verifierResult === 'passed' || existingVerification?.verifierResult === 'approved'
+  if (isAgentTask && !isApprovalGateCard && attemptsCompletion && !completionVerified) {
+    const priorOutput = isRecord(updateValue.agentOutput)
+      ? updateValue.agentOutput
+      : isRecord(existing.agentOutput) ? existing.agentOutput : {}
+    const priorSummary = typeof priorOutput.summary === 'string' ? priorOutput.summary.trim() : ''
+    const exactReason = 'completion_integrity_verification_required'
+    updateValue = {
+      ...updateValue,
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      agentHeartbeatAt: null,
+      completionIntegrityFailureReasons: [exactReason],
+      agentOutput: {
+        ...priorOutput,
+        summary: `${priorSummary ? `${priorSummary}\n\n` : ''}Completion integrity blocked: ${exactReason}. Submit structured completionEvidence and let the watcher verify it before Done or approval.`,
+      },
+    }
+  }
 
   // Record human (or delegated-human) approval audit fields when status changes.
   if (body.approvalStatus !== undefined && adminApprover) {
