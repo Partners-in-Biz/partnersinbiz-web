@@ -42,6 +42,7 @@ const CAPABILITIES: readonly string[] = [
 ]
 
 const MARKETING_RESOURCE_TYPES = new Set(Object.values(MARKETING_COLLABORATION_CONTRACTS).map((contract) => contract.resourceType))
+const ADAPTER_ONLY_RESOURCE_TYPES = new Set(['research', 'property'])
 
 function cleanString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -89,6 +90,9 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx: CrmAuthC
     if (!RESOURCE_TYPES.includes(resourceType)) return apiError('resourceType must be a known cross-org resource type', 400)
     if (MARKETING_RESOURCE_TYPES.has(resourceType as PartnerResourceType)) {
       return apiError('Marketing and analytics collaboration decisions must use /api/v1/cross-org/marketing/decide.', 403)
+    }
+    if (ADAPTER_ONLY_RESOURCE_TYPES.has(resourceType)) {
+      return apiError('Research and property collaboration decisions require an adapter-backed route.', 403)
     }
     if (!resourceId) return apiError('resourceId is required', 400)
     if (!action) return apiError('action is required', 400)

@@ -41,6 +41,8 @@ export const DEFAULT_PARTNER_FIELD_SHARING: FieldSharingPolicy = {
   documents: true,
   commerce: false,
   analytics: false,
+  research: false,
+  properties: false,
 }
 
 export interface PartnerInvite {

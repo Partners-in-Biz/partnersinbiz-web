@@ -102,6 +102,14 @@ describe('POST /api/v1/cross-org/decide — audit decision API contract', () => 
     expect(mockDecide).not.toHaveBeenCalled()
   })
 
+  it('rejects research/property decisions until a closed-mode adapter-backed route exists', async () => {
+    for (const resourceType of ['research', 'property']) {
+      const res = await POST(makePostReq({ resourceType, resourceId: `${resourceType}-1`, action: 'view', partnerLinkId: 'link-1' }))
+      expect(res.status).toBe(403)
+    }
+    expect(mockDecide).not.toHaveBeenCalled()
+  })
+
   it('derives actor org/user from the auth context, never from the body', async () => {
     const res = await POST(makePostReq({
       resourceType: 'document',
