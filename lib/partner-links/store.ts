@@ -404,7 +404,7 @@ export async function acceptPartnerInvite(
     allowedOrgIds: [sourceOrgId, targetOrgId],
     partnerLinkId,
     notes: 'Mutually accepted partner link.',
-  }, actor)
+  }, actor, { bilateral: true })
 
   const targetRelationship = await ensureBusinessRelationship(targetOrgId, {
     sourceCompanyId: mirrorCompany.companyId,
@@ -423,7 +423,7 @@ export async function acceptPartnerInvite(
     allowedOrgIds: [targetOrgId, sourceOrgId],
     partnerLinkId,
     notes: 'Mutually accepted partner link.',
-  }, actor)
+  }, actor, { bilateral: true })
 
   // --- Close out the invite ------------------------------------------------
   await adminDb.collection(PARTNER_INVITE_COLLECTION).doc(invite.id).set(stripUndefined({

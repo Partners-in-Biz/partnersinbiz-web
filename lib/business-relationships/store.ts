@@ -83,6 +83,92 @@ function matchesRelationship(row: BusinessRelationship, params: BusinessRelation
   return true
 }
 
+/**
+ * Internal-only switch for the accepted bilateral Partner Link accept flow.
+ *
+ * `bilateral: true` is the ONLY path that may create/activate rows with a
+ * partnerLinkId, status=active, approvalState=approved, portalVisible=true or
+ * non-empty sharedCapabilities. Only lib/partner-links/store.ts
+ * (acceptPartnerInvite) passes it. Every other caller — the generic CRM
+ * relationships route, the platform-owner company sync — creates CRM
+ * relationship METADATA: pending, draft, private, with no capabilities and no
+ * cross-org evidence.
+ */
+export interface BusinessRelationshipStoreOptions {
+  bilateral?: boolean
+}
+
+/**
+ * Fail closed: a business relationship row can only become usable
+ * collaboration (active, approved, portal-visible, with capabilities) when the
+ * caller asserts it is one side of an explicitly accepted bilateral Partner
+ * Link. Generic metadata rows must never carry a partnerLinkId or activation
+ * fields, otherwise a unilateral row would advertise cross-org capability that
+ * was never consented to.
+ */
+function assertActivationBasis(
+  patch: Partial<BusinessRelationshipInput>,
+  opts: BusinessRelationshipStoreOptions | undefined,
+): void {
+  if (opts?.bilateral) {
+    if (!cleanString(patch.partnerLinkId)) {
+      throw new Error('Bilateral activation requires a partnerLinkId')
+    }
+    return
+  }
+
+  if (cleanString(patch.partnerLinkId)) {
+    throw new Error('partnerLinkId is set server-side only and requires accepted bilateral Partner Link evidence')
+  }
+
+  const attempts: string[] = []
+  const status = cleanString(patch.status)
+  if (status && !['pending', 'paused', 'revoked', 'archived'].includes(status)) {
+    attempts.push(`status=${status}`)
+  }
+  const approval = cleanString(patch.approvalState)
+  if (approval && approval !== 'draft' && approval !== 'pending_approval') {
+    attempts.push(`approvalState=${approval}`)
+  }
+  if (patch.portalVisible === true) attempts.push('portalVisible=true')
+  if ((patch.sharedCapabilities?.length ?? 0) > 0) {
+    attempts.push(`sharedCapabilities=[${patch.sharedCapabilities?.join(', ')}]`)
+  }
+  if (attempts.length > 0) {
+    throw new Error(
+      `Cannot activate a business relationship without accepted bilateral Partner Link evidence (${attempts.join(', ')})`,
+    )
+  }
+}
+
+/** Safe defaults for CRM relationship metadata rows (no collaboration contract). */
+function metadataDefaults(patch: Partial<BusinessRelationshipInput>): Pick<
+  BusinessRelationshipInput,
+  'status' | 'sharedCapabilities' | 'visibility' | 'approvalState' | 'portalVisible'
+> {
+  return {
+    status: 'pending',
+    sharedCapabilities: [],
+    visibility: 'private',
+    approvalState: 'draft',
+    portalVisible: false,
+  }
+}
+
+/** Activation defaults for one side of an accepted bilateral Partner Link. */
+function bilateralDefaults(patch: Partial<BusinessRelationshipInput>): Pick<
+  BusinessRelationshipInput,
+  'status' | 'sharedCapabilities' | 'visibility' | 'approvalState' | 'portalVisible'
+> {
+  return {
+    status: patch.status ?? 'active',
+    sharedCapabilities: patch.sharedCapabilities ?? [],
+    visibility: patch.visibility ?? 'relationship',
+    approvalState: patch.approvalState ?? 'approved',
+    portalVisible: patch.portalVisible ?? true,
+  }
+}
+
 export async function listBusinessRelationships(
   sourceOrgId: string,
   params: BusinessRelationshipListParams = {},
@@ -104,19 +190,24 @@ export async function createBusinessRelationship(
   sourceOrgId: string,
   input: Record<string, unknown>,
   actor: MemberRef,
+  opts: BusinessRelationshipStoreOptions = {},
 ): Promise<BusinessRelationship> {
   const patch = sanitizeRelationship(input)
+  assertActivationBasis(patch, opts)
   const relationshipType = patch.relationshipType ?? 'partner'
-  const status = patch.status ?? 'active'
+  const activation = opts.bilateral
+    ? bilateralDefaults(patch)
+    : metadataDefaults(patch)
+  const status = activation.status
   const ref = await adminDb.collection(COLLECTION).add({
     ...patch,
     sourceOrgId,
     relationshipType,
-    status,
-    sharedCapabilities: patch.sharedCapabilities ?? ['projects', 'documents', 'services'],
-    visibility: patch.visibility ?? 'relationship',
-    approvalState: patch.approvalState ?? 'approved',
-    portalVisible: patch.portalVisible ?? true,
+    status: activation.status,
+    sharedCapabilities: activation.sharedCapabilities,
+    visibility: activation.visibility,
+    approvalState: activation.approvalState,
+    portalVisible: activation.portalVisible,
     createdByRef: actor,
     updatedByRef: actor,
     createdAt: FieldValue.serverTimestamp(),
@@ -151,8 +242,10 @@ export async function ensureBusinessRelationship(
   sourceOrgId: string,
   input: Record<string, unknown>,
   actor: MemberRef,
+  opts: BusinessRelationshipStoreOptions = {},
 ): Promise<BusinessRelationship> {
   const patch = sanitizeRelationship(input)
+  assertActivationBasis(patch, opts)
   const relationshipType = patch.relationshipType ?? 'partner'
   const targetOrgId = cleanString(patch.targetOrgId)
   const sourceCompanyId = cleanString(patch.sourceCompanyId)
@@ -174,15 +267,31 @@ export async function ensureBusinessRelationship(
     return true
   })
 
+  // A row already carrying a partnerLinkId is one side of an accepted
+  // bilateral Partner Link — a generic reconcile must never downgrade or
+  // strip it. Everything else defaults to inert CRM metadata.
+  const existingData = existing ? (existing.data() as Partial<BusinessRelationship>) : null
+  const activation = opts.bilateral
+    ? bilateralDefaults(patch)
+    : existingData && cleanString(existingData.partnerLinkId)
+      ? {
+          status: existingData.status ?? 'active',
+          sharedCapabilities: existingData.sharedCapabilities ?? [],
+          visibility: existingData.visibility ?? 'relationship',
+          approvalState: existingData.approvalState ?? 'approved',
+          portalVisible: existingData.portalVisible ?? true,
+        }
+      : metadataDefaults(patch)
+
   const defaults = {
     ...patch,
     sourceOrgId,
     relationshipType,
-    status: patch.status ?? 'active',
-    sharedCapabilities: patch.sharedCapabilities ?? ['crm', 'projects', 'documents', 'services'],
-    visibility: patch.visibility ?? 'relationship',
-    approvalState: patch.approvalState ?? 'approved',
-    portalVisible: patch.portalVisible ?? true,
+    status: activation.status,
+    sharedCapabilities: activation.sharedCapabilities,
+    visibility: activation.visibility,
+    approvalState: activation.approvalState,
+    portalVisible: activation.portalVisible,
     allowedOrgIds: patch.allowedOrgIds ?? [sourceOrgId, targetOrgId].filter(Boolean),
     updatedByRef: actor,
     updatedAt: FieldValue.serverTimestamp(),
@@ -248,6 +357,19 @@ export async function updateBusinessRelationship(
   const existing = snap.data() as BusinessRelationship
   if (existing.sourceOrgId !== sourceOrgId) throw new Error('Relationship not found')
   const patch = sanitizeRelationship(input)
+
+  // partnerLinkId is minted once by the accept flow; it can never be changed
+  // or forged through an update.
+  if (cleanString(patch.partnerLinkId)) {
+    throw new Error('partnerLinkId is set server-side only and requires accepted bilateral Partner Link evidence')
+  }
+
+  // Accepted bilateral links keep one-sided edits (capabilities, visibility,
+  // portal visibility). Metadata rows without a partnerLinkId may change
+  // notes/status lifecycle but can never activate themselves.
+  const isLiveBilateralLink = Boolean(cleanString(existing.partnerLinkId))
+  if (!isLiveBilateralLink) assertActivationBasis(patch, undefined)
+
   await ref.update({
     ...patch,
     updatedByRef: actor,

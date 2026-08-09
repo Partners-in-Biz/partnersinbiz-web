@@ -2946,12 +2946,15 @@ describe('Portal company detail page', () => {
         targetOrgId: 'client-org-1',
         targetName: 'Acme Holdings',
         relationshipType: 'customer',
-        status: 'active',
-        sharedCapabilities: ['crm', 'projects', 'documents', 'services'],
-        visibility: 'relationship',
-        approvalState: 'approved',
       }),
     )
+    // Generic relationship creation is CRM metadata only — never active,
+    // approved, portal-visible or capability-bearing without bilateral evidence.
+    const body = JSON.parse((postRelationship.mock.calls[0][1] as RequestInit).body as string)
+    expect(body.status).toBeUndefined()
+    expect(body.approvalState).toBeUndefined()
+    expect(body.sharedCapabilities).toBeUndefined()
+    expect(body.visibility).toBeUndefined()
   })
 
   it('keeps relationship creation available when a company already has relationships', async () => {
@@ -3046,12 +3049,14 @@ describe('Portal company detail page', () => {
         targetOrgId: 'client-org-1',
         targetName: 'Acme Holdings',
         relationshipType: 'customer',
-        status: 'active',
-        sharedCapabilities: ['crm', 'projects', 'documents', 'services'],
-        visibility: 'relationship',
-        approvalState: 'approved',
       }),
     )
+    // Metadata-only contract: activation fields are not sent by the UI.
+    const body = JSON.parse((postRelationship.mock.calls[0][1] as RequestInit).body as string)
+    expect(body.status).toBeUndefined()
+    expect(body.approvalState).toBeUndefined()
+    expect(body.sharedCapabilities).toBeUndefined()
+    expect(body.visibility).toBeUndefined()
   })
 
   it('turns an empty company invoices tab into an accepted quote conversion action', async () => {

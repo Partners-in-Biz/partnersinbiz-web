@@ -7,6 +7,7 @@ import type {
   SharedBusinessCapability,
 } from '@/lib/business-relationships/types'
 import { cleanString } from './identity'
+import { loadLiveBilateralLink } from './link-evidence'
 
 /**
  * Phase 2 — per-record sharing across an accepted partner link.
@@ -245,18 +246,16 @@ export function isPartnerShareResourceType(value: unknown): value is PartnerShar
   return typeof value === 'string' && (PARTNER_SHARE_RESOURCE_TYPES as string[]).includes(value)
 }
 
-/** Loads the caller's own side of an accepted, still-active partner link. */
+/**
+ * Loads the caller's own side of an accepted partner link and proves the
+ * counterpart row is live too (accepted bilateral Partner Link evidence).
+ * A unilateral relationship row grants no resource access.
+ */
 async function loadActiveLink(
   relationshipId: string,
   ownerOrgId: string,
 ): Promise<BusinessRelationship> {
-  const snap = await adminDb.collection('businessRelationships').doc(relationshipId).get()
-  if (!snap.exists) throw new Error('Partner link not found')
-  const link = { ...(snap.data() as BusinessRelationship), id: snap.id }
-  if (link.sourceOrgId !== ownerOrgId || link.deleted === true) throw new Error('Partner link not found')
-  if (!cleanString(link.partnerLinkId)) throw new Error('That relationship is not an accepted partner link')
-  if (link.status !== 'active') throw new Error('This partner link is not active')
-  if (!cleanString(link.targetOrgId)) throw new Error('This partner link has no counterpart organisation')
+  const { link } = await loadLiveBilateralLink(relationshipId, ownerOrgId)
   return link
 }
 
