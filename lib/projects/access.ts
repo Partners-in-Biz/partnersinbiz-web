@@ -2,7 +2,7 @@ import type { DocumentData, DocumentSnapshot } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg, isSuperAdmin } from '@/lib/api/platformAdmin'
-import { legacyProjectPolicyAllows, resolveProjectAccessForUser } from '@/lib/projects/collaboration'
+import { legacyProjectPolicyAllows, resolveProjectAccessForUser, type ProjectCrossOrgRequirement } from '@/lib/projects/collaboration'
 import { projectLinkedOrgIds } from '@/lib/project-locations/model'
 
 export type ProjectAccessResult =
@@ -28,11 +28,12 @@ export async function getProjectForUser(
   projectId: string,
   user: ApiUser,
   requestedOrgId?: string,
+  crossOrgRequirement?: ProjectCrossOrgRequirement,
 ): Promise<ProjectAccessResult> {
   const doc = await adminDb.collection('projects').doc(projectId).get()
   if (!doc.exists) return { ok: false, status: 404, error: 'Project not found' }
   const data = doc.data() ?? {}
-  const projectAccess = await resolveProjectAccessForUser(projectId, user, data, requestedOrgId)
+  const projectAccess = await resolveProjectAccessForUser(projectId, user, data, requestedOrgId, crossOrgRequirement)
   // resolveProjectAccessForUser owns the legacy fallback decision. In
   // particular, a canonical pending/revoked projectOrganizations row is an
   // authoritative tombstone and must not be bypassed by legacy project fields.

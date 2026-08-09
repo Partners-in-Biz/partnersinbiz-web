@@ -473,6 +473,18 @@ describe('accepted bilateral links keep working', () => {
     expect(orgRow.orgId).toBe('org-b')
     expect(orgRow.status).toBe('active')
     expect(orgRow.partnerLinkId).toBe('link-z')
+    const resourceGrant = db.rows('partnerResourceGrants')[0]?.data
+    expect(resourceGrant).toEqual(expect.objectContaining({
+      ownerOrgId: 'org-a',
+      resourceType: 'project',
+      resourceId: 'proj-1',
+      partnerLinkId: 'link-z',
+      grantee: expect.objectContaining({ orgIds: ['org-b'] }),
+      role: 'contributor',
+      actions: ['project.read'],
+      status: 'active',
+      approvalBasis: { type: 'partner_link', refId: 'link-z' },
+    }))
   })
 
   it('capability gate still applies on a live link', async () => {

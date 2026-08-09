@@ -10,6 +10,7 @@ import {
 import type { BusinessRelationship, SharedBusinessCapability } from '@/lib/business-relationships/types'
 import { cleanString } from './identity'
 import { loadLiveBilateralLink } from './link-evidence'
+import { CROSS_ORG_SCHEMA_VERSION, PARTNER_RESOURCE_GRANTS_COLLECTION } from '@/lib/cross-org/types'
 
 /**
  * Collaboration on top of an accepted partner link, beyond record sharing and
@@ -94,7 +95,26 @@ export async function grantPartnerProjectAccess(input: {
   const role: ProjectMemberRole = (requested === 'owner' || requested === 'manager') ? 'contributor' : requested
 
   const docId = projectOrganizationDocId(input.projectId, partnerOrgId)
+  const grantId = `${input.projectId}_${partnerOrgId}`
   const now = FieldValue.serverTimestamp()
+  // projectOrganizations remains a UI/listing projection. The canonical
+  // authority is a resource grant carrying the bilateral-link provenance.
+  await adminDb.collection(PARTNER_RESOURCE_GRANTS_COLLECTION).doc(grantId).set(stripUndefined({
+    ownerOrgId: input.ownerOrgId,
+    resourceType: 'project',
+    resourceId: input.projectId,
+    partnerLinkId: link.partnerLinkId,
+    grantee: { orgIds: [partnerOrgId], userIds: [], teamIds: [] },
+    role,
+    actions: ['project.read'],
+    status: 'active',
+    provenance: { sourceShareId: docId },
+    approvalBasis: { type: 'partner_link', refId: link.partnerLinkId },
+    createdByRef: input.actor,
+    schemaVersion: CROSS_ORG_SCHEMA_VERSION,
+    createdAt: now,
+    updatedAt: now,
+  }), { merge: true })
   await adminDb.collection(PROJECT_ORGS_COLLECTION).doc(docId).set(stripUndefined({
     projectId: input.projectId,
     orgId: partnerOrgId,

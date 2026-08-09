@@ -4,6 +4,7 @@ import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg, isSuperAdmin } from '@/lib/api/platformAdmin'
 import { canAccessModule, recordScopeFor } from '@/lib/orgMembers/access-policy'
 import { projectLinkedOrgIds } from '@/lib/project-locations/model'
+import { resolveProjectCrossOrgGrant } from '@/lib/projects/cross-org-grant-access'
 
 export const PROJECT_MEMBER_ROLES = ['owner', 'manager', 'contributor', 'reviewer', 'viewer'] as const
 export type ProjectMemberRole = (typeof PROJECT_MEMBER_ROLES)[number]
@@ -14,6 +15,17 @@ export interface ProjectAccessContext {
   role: ProjectMemberRole
   source: 'super_admin' | 'ai' | 'project_member' | 'project_organization' | 'legacy_org'
   canViewInternal: boolean
+  /**
+   * Present only for a canonical cross-organisation project grant. The grant is
+   * evaluated by the policy service before this access context is returned;
+   * suite/reporting routes must preserve its action and item projection instead
+   * of treating a projectOrganizations convenience row as independent authority.
+   */
+  crossOrgGrant?: {
+    grantId: string
+    actions: string[]
+    items: string[]
+  }
 }
 
 export interface ProjectHealthInput {
@@ -314,11 +326,17 @@ export function legacyProjectAccessForUser(
   return { role: canViewInternal ? 'manager' : 'contributor', source: 'legacy_org', canViewInternal }
 }
 
+export interface ProjectCrossOrgRequirement {
+  action?: 'project.read' | 'project.write'
+  item?: string
+}
+
 export async function resolveProjectAccessForUser(
   projectId: string,
   user: ApiUser,
   projectData: Record<string, unknown>,
   requestedOrgId?: string,
+  crossOrgRequirement: ProjectCrossOrgRequirement = {},
 ): Promise<ProjectAccessContext | null> {
   if (user.role === 'ai') {
     const scopedOrgId = cleanString(requestedOrgId)
@@ -358,8 +376,29 @@ export async function resolveProjectAccessForUser(
           if (ownedOrLinkedOnly) {
             return legacyProjectAccessForUser(user, projectData, scopedOrgId)
           }
+          const role = normalizeProjectRole(orgAccess.role)
+          const partnerLinkId = cleanString(orgAccess.partnerLinkId)
+          if (partnerLinkId) {
+            const grantAccess = await resolveProjectCrossOrgGrant({
+              projectId,
+              ownerOrgId: projectOwnerOrgId(projectData),
+              partnerLinkId,
+              actor: { uid: user.uid, orgId: scopedOrgId },
+              projectRole: role,
+              action: crossOrgRequirement.action ?? 'project.read',
+              item: crossOrgRequirement.item,
+            })
+            if (!grantAccess.allowed) return null
+            return {
+              role,
+              source: 'project_organization',
+              canViewInternal: false,
+              crossOrgGrant: grantAccess.grant,
+            }
+          }
+          if (scopedOrgId !== projectOwnerOrgId(projectData)) return null
           return {
-            role: normalizeProjectRole(orgAccess.role),
+            role,
             source: 'project_organization',
             canViewInternal: false,
           }
@@ -380,8 +419,28 @@ export async function resolveProjectAccessForUser(
         if (legacy) return legacy
         continue
       }
+      const role = normalizeProjectRole(orgAccess.role)
+      const partnerLinkId = cleanString(orgAccess.partnerLinkId)
+      if (partnerLinkId) {
+        const grantAccess = await resolveProjectCrossOrgGrant({
+          projectId,
+          ownerOrgId: projectOwnerOrgId(projectData),
+          partnerLinkId,
+          actor: { uid: user.uid, orgId },
+          projectRole: role,
+          action: crossOrgRequirement.action ?? 'project.read',
+          item: crossOrgRequirement.item,
+        })
+        if (!grantAccess.allowed) continue
+        return {
+          role,
+          source: 'project_organization',
+          canViewInternal: false,
+          crossOrgGrant: grantAccess.grant,
+        }
+      }
       return {
-        role: normalizeProjectRole(orgAccess.role),
+        role,
         source: 'project_organization',
         canViewInternal: false,
       }
