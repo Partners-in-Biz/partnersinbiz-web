@@ -175,6 +175,24 @@ The seed script:
 2. Writes `agent_dispatch_configs/<agentId>` with `{ agentId, baseUrl, apiKey, enabled: true }`.
 3. Is idempotent — safe to re-run.
 
+## Concurrent repository task isolation
+
+Watcher-dispatched Kanban work that reaches a linked runtime carries its `kanbanTaskId`. If the selected mapped folder is a Git checkout, the runtime runs the task only from a dedicated worktree:
+
+- Shared checkout: must be clean and checked out on `development`.
+- Task branch: `pib-task/<taskId>`, created from the already-synced local `origin/development` ref (the preflight intentionally never fetches shared refs).
+- Task worktree: a deterministic sibling path under `.pib-agent-worktrees/<repository>/pib-task-<taskId>`; this stays outside the source checkout, so creating it cannot dirty the shared tree.
+- Retry: only a clean, correctly registered worktree for the same task may be reused.
+- Non-Git mappings continue normally; this guard applies to repo-backed work, not document-only tasks.
+
+The preflight never runs `stash`, `pop`, `checkout`, `reset`, `rebase`, `add`, `commit`, or any overwrite against the shared checkout. A dirty shared checkout, a wrong branch, missing base ref, pre-existing task branch, or unexpected task worktree is returned as `TASK_WORKTREE_BLOCKED:<code>`. The linked run completes as failed without starting Hermes; the watcher persists the exact error in `agentOutput.summary` and moves the Kanban task to `blocked`. Resolve the conflict manually, preserve the existing work, then use the normal safe continue/unblock flow. Do not delete another task's worktree or branch to unblock a task.
+
+Deterministic coverage lives in `__tests__/runtime-installers/repository-worktree.test.ts` (two independent task worktrees plus dirty-shared conflict) and `__tests__/scripts/linked-runtime-worker.test.ts` (runtime routing and durable terminal failure). Run:
+
+```bash
+npx jest --runInBand __tests__/runtime-installers/repository-worktree.test.ts __tests__/scripts/linked-runtime-worker.test.ts
+```
+
 ## Failure modes
 
 | Symptom                          | What happens                                                        |

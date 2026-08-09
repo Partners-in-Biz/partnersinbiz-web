@@ -1323,6 +1323,12 @@ export const POST = withAuth(
           }, 201)
         }
         try {
+          // Only watcher-created Kanban conversations carry this server-side marker.
+          // It is passed at enqueue time so a fast desktop claim cannot race the
+          // later Firestore annotation used by the legacy fallback path.
+          const kanbanTaskId = typeof (conversation as Record<string, unknown>).kanbanTaskId === 'string'
+            ? (conversation as Record<string, unknown>).kanbanTaskId.trim()
+            : ''
           const queued = await enqueueLinkedRun({
             requestId: assistantMessage.id,
             deviceId: linkedComputerBinding.deviceId,
@@ -1334,6 +1340,7 @@ export const POST = withAuth(
             mappingId: boundProjectReplica?.mappingId || linkedComputerBinding.mappingId,
             relativeFolder: boundProjectReplica?.relativePath ?? (projectId ? `projects/${projectId}` : '.'),
             ...(coworkWorkingDirectory ? { workingDirectory: coworkWorkingDirectory } : {}),
+            ...(kanbanTaskId ? { kanbanTaskId } : {}),
             credentialVersion: linkedComputerBinding.credentialVersion,
             payload: {
               prompt: hermesInput,

@@ -1,6 +1,7 @@
 import { createHash, createPrivateKey, sign } from 'node:crypto'
 import os from 'node:os'
 import { MappingRegistry } from './bridge'
+import { prepareTaskWorktree } from './repository-worktree'
 import type { JSONValue } from './core'
 import {
   isLocalHermesBrowserToolFailure,
@@ -27,6 +28,8 @@ export type Job = {
   provider?: string
   yolo?: boolean
   cancelled?: boolean
+  /** Present only for watcher-dispatched Kanban tasks, never ordinary Messages chats. */
+  kanbanTaskId?: string
   localHermesRunId?: string
 }
 
@@ -106,7 +109,17 @@ export async function executeJob(
   options: { progressIntervalMs?: number } = {},
 ) {
   if (job.cancelled) return { cancelled: true }
-  const working_directory = registry.resolve(job.mappingId, job.relativeFolder, job.workingDirectory)
+  const sharedWorkingDirectory = registry.resolve(job.mappingId, job.relativeFolder, job.workingDirectory)
+  // Kanban tasks may mutate a repository. Before Hermes is allowed to start, move
+  // those jobs into a deterministic task branch/worktree. Ordinary Messages chats
+  // retain their mapped directory because they are not watcher-owned code tasks.
+  const worktree = job.kanbanTaskId
+    ? prepareTaskWorktree({ repositoryRoot: sharedWorkingDirectory, taskId: job.kanbanTaskId })
+    : null
+  const preflightError = worktree && !worktree.ok && worktree.code !== 'not_git_repository'
+    ? `TASK_WORKTREE_BLOCKED:${worktree.code}: ${worktree.message}`
+    : null
+  const working_directory = worktree?.ok ? worktree.workingDirectory : sharedWorkingDirectory
   let acceptedAt = new Date().toISOString()
   let toolStartedAt = acceptedAt
   // A claim has reached this runtime, but it has not yet been rejected by a
@@ -190,6 +203,7 @@ export async function executeJob(
   )
   try {
     let result: unknown
+    if (preflightError) throw new Error(preflightError)
     try {
       result = await runHermes(job.localHermesRunId)
     } catch (firstErr) {

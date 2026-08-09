@@ -431,6 +431,8 @@ function requeueLinkedRunForRuntimeRecovery(job: LinkedRunJob, nowMs: number): L
 export async function enqueueLinkedRun(input: {
   requestId: string; deviceId: string; runtimeTargetId: string; orgId: string; actorUserId: string; workspaceId: string; projectId?: string; projectReplicaId?: string
   mappingId: string; relativeFolder: string; workingDirectory?: string; credentialVersion: number; payload: LinkedRunPayload
+  /** Internal watcher task identity only; never supplied by ordinary chat clients. */
+  kanbanTaskId?: string
   conversationId: string; assistantMessageId: string; agentId: string; delegationId?: string
   queuedReason?: 'runtime_restarting'
 }, options: { nowMs?: number; ttlMs?: number; queueStartDeadlineMs?: number } = {}): Promise<LinkedRunJob> {
