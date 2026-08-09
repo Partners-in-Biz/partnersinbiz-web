@@ -19,6 +19,13 @@ interface PartnerOrder {
   createdAt?: { seconds?: number; _seconds?: number }
 }
 
+interface ShipDraft {
+  orderId: string
+  quantities: Record<string, string>
+  trackingNumber: string
+  carrier: string
+}
+
 function unwrap(body: unknown): Record<string, unknown> | null {
   if (!body || typeof body !== 'object') return null
   const b = body as Record<string, unknown>
@@ -46,10 +53,7 @@ export default function PartnerOrdersPage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
-  const [shipForId, setShipForId] = useState<string | null>(null)
-  const [shipQty, setShipQty] = useState<Record<string, string>>({})
-  const [shipCarrier, setShipCarrier] = useState('')
-  const [shipTracking, setShipTracking] = useState('')
+  const [shipDraft, setShipDraft] = useState<ShipDraft | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -94,51 +98,50 @@ export default function PartnerOrdersPage() {
     }
   }
 
-  function outstandingFor(order: PartnerOrder, line: { productId?: string; qty: number }): number {
-    if (!line.productId) return 0
-    const done = Number(order.shippedQuantities?.[line.productId]) || 0
-    return Math.max(0, line.qty - done)
+  function outstandingOf(order: PartnerOrder, line: { productId?: string; qty: number }): number {
+    if (!line.productId) return line.qty
+    const shipped = order.shippedQuantities?.[line.productId] ?? 0
+    return Math.max(0, line.qty - shipped)
   }
 
-  function openShipForm(order: PartnerOrder) {
-    const seed: Record<string, string> = {}
+  function startShip(order: PartnerOrder) {
+    const quantities: Record<string, string> = {}
     for (const line of order.lineItems ?? []) {
-      if (line.productId) seed[line.productId] = String(outstandingFor(order, line))
+      if (line.productId) quantities[line.productId] = String(outstandingOf(order, line))
     }
-    setShipQty(seed)
-    setShipCarrier('')
-    setShipTracking('')
-    setShipForId(shipForId === order.id ? null : order.id)
+    setShipDraft({ orderId: order.id, quantities, trackingNumber: '', carrier: '' })
   }
 
-  async function submitShip(order: PartnerOrder) {
+  async function submitShip(order: PartnerOrder, draft: ShipDraft) {
     const quantities: Record<string, number> = {}
-    let partial = false
     for (const line of order.lineItems ?? []) {
       if (!line.productId) continue
-      const outstanding = outstandingFor(order, line)
-      const n = Number(shipQty[line.productId] ?? outstanding)
-      const value = Number.isFinite(n) && n > 0 ? Math.min(n, outstanding) : 0
-      quantities[line.productId] = value
-      if (value < outstanding) partial = true
+      const raw = Number(draft.quantities[line.productId])
+      if (!Number.isFinite(raw) || raw <= 0) continue
+      const capped = Math.min(raw, outstandingOf(order, line))
+      if (capped > 0) quantities[line.productId] = capped
     }
-    if (Object.values(quantities).every((v) => v === 0)) {
-      setError('Enter a quantity for at least one line.')
+    if (Object.keys(quantities).length === 0) {
+      setError('Enter a quantity greater than zero for at least one product to ship.')
       return
     }
+    const isPartial = (order.lineItems ?? []).some((line) => {
+      if (!line.productId || !(line.productId in quantities)) return false
+      return quantities[line.productId] < outstandingOf(order, line)
+    })
     await act(
       order,
       {
         action: 'ship',
         quantities,
-        trackingNumber: shipTracking.trim() || undefined,
-        carrier: shipCarrier.trim() || undefined,
+        trackingNumber: draft.trackingNumber || undefined,
+        carrier: draft.carrier || undefined,
       },
-      partial
-        ? 'Partial shipment recorded. The remaining quantity can still be shipped.'
+      isPartial
+        ? 'Partial shipment recorded. The order stays packed until everything outstanding has shipped.'
         : 'Marked as shipped. The reservation has been consumed and the buyer notified.',
     )
-    setShipForId(null)
+    setShipDraft(null)
   }
 
   async function decide(order: PartnerOrder, decision: 'confirm' | 'reject') {
@@ -246,11 +249,11 @@ export default function PartnerOrdersPage() {
               {['not_started', 'picking', 'packed'].includes(order.fulfillmentStatus ?? '') ? (
                 <button
                   type="button"
-                  onClick={() => openShipForm(order)}
+                  onClick={() => void startShip(order)}
                   disabled={busyId === order.id}
                   className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
                 >
-                  Mark shipped
+                  {busyId === order.id ? 'Working…' : 'Mark shipped'}
                 </button>
               ) : null}
               {order.fulfillmentStatus === 'in_transit' ? (
@@ -295,53 +298,66 @@ export default function PartnerOrdersPage() {
           ) : null}
         </div>
 
-        {shipForId === order.id ? (
-          <div className="mt-2 rounded-lg border border-[var(--color-pib-line)] bg-black/20 p-3">
+        {shipDraft?.orderId === order.id ? (
+          <div className="mt-3 rounded-md border border-[var(--color-pib-line)] bg-white/[0.03] p-3">
             <p className="mb-2 text-[11px] text-[var(--color-pib-text-muted)]">
-              Ship all of it, or reduce any line to send a partial shipment. The remainder stays open.
+              Ship a partial quantity per product. Leave a product at zero to ship it later.
             </p>
-            <ul className="mb-2 space-y-1.5">
-              {(order.lineItems ?? []).filter((l) => l.productId).map((line) => {
-                const outstanding = outstandingFor(order, line)
-                return (
-                  <li key={line.productId} className="flex items-center gap-2 text-xs">
-                    <span className="min-w-0 flex-1 truncate text-[var(--color-pib-text)]">{line.name}</span>
-                    <span className="text-[10px] text-[var(--color-pib-text-muted)]">
-                      {outstanding} of {line.qty} outstanding
-                    </span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={outstanding}
-                      disabled={outstanding === 0}
-                      aria-label={`Quantity of ${line.name} to ship now`}
-                      value={shipQty[line.productId!] ?? String(outstanding)}
-                      onChange={(e) => setShipQty((prev) => ({ ...prev, [line.productId!]: e.target.value }))}
-                      className="w-20 rounded-md border border-[var(--color-pib-line)] bg-black/30 px-2 py-1 text-xs text-[var(--color-pib-text)] disabled:opacity-40"
-                    />
-                  </li>
-                )
-              })}
-            </ul>
-            <div className="flex flex-wrap items-end gap-2">
-              <div>
-                <label htmlFor={`carrier-${order.id}`} className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Carrier</label>
-                <input id={`carrier-${order.id}`} value={shipCarrier} onChange={(e) => setShipCarrier(e.target.value)}
-                  placeholder="optional"
-                  className="w-32 rounded-md border border-[var(--color-pib-line)] bg-black/30 px-2 py-1 text-xs text-[var(--color-pib-text)]" />
+            <div className="space-y-2">
+              {(order.lineItems ?? []).map((line, i) => (
+                <label key={i} className="flex items-center justify-between gap-3 text-[11px] text-[var(--color-pib-text)]">
+                  <span className="min-w-0 truncate">
+                    {line.name} × {line.qty}
+                    {line.productId && outstandingOf(order, line) < line.qty
+                      ? <span className="text-[var(--color-pib-text-muted)]"> ({outstandingOf(order, line)} remaining)</span>
+                      : null}
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={line.productId ? outstandingOf(order, line) : line.qty}
+                    value={shipDraft.quantities[line.productId ?? ''] ?? '0'}
+                    onChange={(e) => {
+                      const productId = line.productId ?? ''
+                      if (!productId) return
+                      setShipDraft({ ...shipDraft, quantities: { ...shipDraft.quantities, [productId]: e.target.value } })
+                    }}
+                    className="w-20 rounded border border-[var(--color-pib-line)] bg-black/20 px-2 py-1 text-right text-xs text-[var(--color-pib-text)]"
+                  />
+                </label>
+              ))}
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Tracking number (optional)"
+                  value={shipDraft.trackingNumber}
+                  onChange={(e) => setShipDraft({ ...shipDraft, trackingNumber: e.target.value })}
+                  className="rounded border border-[var(--color-pib-line)] bg-black/20 px-2 py-1 text-xs text-[var(--color-pib-text)]"
+                />
+                <input
+                  type="text"
+                  placeholder="Carrier (optional)"
+                  value={shipDraft.carrier}
+                  onChange={(e) => setShipDraft({ ...shipDraft, carrier: e.target.value })}
+                  className="rounded border border-[var(--color-pib-line)] bg-black/20 px-2 py-1 text-xs text-[var(--color-pib-text)]"
+                />
               </div>
-              <div>
-                <label htmlFor={`tracking-${order.id}`} className="mb-1 block text-[10px] uppercase tracking-[0.14em] text-[var(--color-pib-text-muted)]">Tracking</label>
-                <input id={`tracking-${order.id}`} value={shipTracking} onChange={(e) => setShipTracking(e.target.value)}
-                  placeholder="optional"
-                  className="w-40 rounded-md border border-[var(--color-pib-line)] bg-black/30 px-2 py-1 text-xs text-[var(--color-pib-text)]" />
-              </div>
-              <button type="button" onClick={() => void submitShip(order)} disabled={busyId === order.id}
-                className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50">
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void submitShip(order, shipDraft)}
+                disabled={busyId === order.id}
+                className="rounded-md bg-[var(--color-accent-v2)] px-3 py-1 text-xs font-semibold text-black disabled:opacity-50"
+              >
                 {busyId === order.id ? 'Working…' : 'Confirm shipment'}
               </button>
-              <button type="button" onClick={() => setShipForId(null)}
-                className="rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)]">
+              <button
+                type="button"
+                onClick={() => setShipDraft(null)}
+                disabled={busyId === order.id}
+                className="rounded-md border border-[var(--color-pib-line)] px-3 py-1 text-xs text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)] disabled:opacity-50"
+              >
                 Cancel
               </button>
             </div>
