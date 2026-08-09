@@ -11,9 +11,17 @@
  * payload into `history` (capped) so the record is auditable.
  */
 
+import type { SurfaceMode } from '@/lib/design/surface-modes'
+import { SURFACE_MODES, isSurfaceMode } from '@/lib/design/surface-modes'
+
 export type DesignContextGatherPath = 'questionnaire' | 'style-scan' | 'manual'
 
-export type DesignSurfaceMode = 'persuade' | 'operate' | 'read' | 'experience'
+/**
+ * Surface-mode enum is canonical in lib/design/surface-modes.ts so project
+ * records and design-context records share one source of truth (P2
+ * Surface-mode awareness, research ZTTo7g6CU80u1uUSZvoC).
+ */
+export type DesignSurfaceMode = SurfaceMode
 
 export interface DesignPaletteColor {
   /** Role name, e.g. `primary`, `accent`, `background`, `text`. */
@@ -89,7 +97,7 @@ export interface DesignContextRecord extends DesignContextPayload {
   history: DesignContextHistoryEntry[]
 }
 
-export const DESIGN_SURFACE_MODES: readonly DesignSurfaceMode[] = ['persuade', 'operate', 'read', 'experience'] as const
+export const DESIGN_SURFACE_MODES: readonly DesignSurfaceMode[] = SURFACE_MODES
 
 export const DESIGN_GATHER_PATHS: readonly DesignContextGatherPath[] = ['questionnaire', 'style-scan', 'manual'] as const
 
@@ -100,7 +108,7 @@ export const DESIGN_TYPE_ROLES = ['display', 'heading', 'body', 'mono', 'label']
 export const DESIGN_HISTORY_CAP = 10
 
 export function isDesignSurfaceMode(value: unknown): value is DesignSurfaceMode {
-  return typeof value === 'string' && (DESIGN_SURFACE_MODES as readonly string[]).includes(value)
+  return isSurfaceMode(value)
 }
 
 export function isDesignGatherPath(value: unknown): value is DesignContextGatherPath {

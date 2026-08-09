@@ -10,6 +10,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
 import { canProjectRole } from '@/lib/projects/collaboration'
 import { publicProjectView } from '@/lib/projects/public'
+import { isSurfaceMode } from '@/lib/design/surface-modes'
 import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { normalizeProjectLinks, pickProjectLinkFields, type ProjectLinkSet } from '@/lib/client-documents/linkedValidation'
@@ -131,6 +132,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const requestedLinks = pickProjectLinkFields(body)
   const requiresProjectManagement = body.name !== undefined
     || body.status !== undefined
+    || body.surfaceMode !== undefined
     || body.archived !== undefined
     || body.targetDate !== undefined
     || body.dueDate !== undefined
@@ -154,6 +156,13 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
       return apiError('Invalid status', 400)
     }
     updates.status = body.status
+  }
+
+  if (body.surfaceMode !== undefined) {
+    if (body.surfaceMode !== null && !isSurfaceMode(body.surfaceMode)) {
+      return apiError('surfaceMode must be one of persuade, operate, read, experience', 400)
+    }
+    updates.surfaceMode = body.surfaceMode
   }
 
   const projectData = (access.doc.data() ?? {}) as Record<string, unknown>

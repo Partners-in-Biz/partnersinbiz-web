@@ -195,6 +195,7 @@ export function ProjectDetailWorkspace({
   const [savingBrief, setSavingBrief] = useState(false)
   const [settingsName, setSettingsName] = useState('')
   const [settingsStatus, setSettingsStatus] = useState('discovery')
+  const [settingsSurfaceMode, setSettingsSurfaceMode] = useState('')
   const [settingsDescription, setSettingsDescription] = useState('')
   const [settingsSourceCompanyId, setSettingsSourceCompanyId] = useState('')
   const [settingsAdditionalCompanyIds, setSettingsAdditionalCompanyIds] = useState<string[]>([])
@@ -251,6 +252,7 @@ export function ProjectDetailWorkspace({
       setBriefValue(pBody.data?.brief ?? '')
       setSettingsName(pBody.data?.name ?? '')
       setSettingsStatus(pBody.data?.status ?? 'discovery')
+      setSettingsSurfaceMode(pBody.data?.surfaceMode ?? '')
       setSettingsDescription(pBody.data?.description ?? '')
       const primaryCompanyId = pBody.data?.sourceCompanyId ?? pBody.data?.companyId ?? ''
       const primaryContactId = pBody.data?.sourceContactId ?? pBody.data?.contactId ?? ''
@@ -427,6 +429,7 @@ export function ProjectDetailWorkspace({
       body: JSON.stringify({
         name: settingsName.trim(),
         status: settingsStatus,
+        surfaceMode: settingsSurfaceMode || null,
         description: settingsDescription,
         companyId: cleanSourceCompanyId || undefined,
         sourceCompanyId: cleanSourceCompanyId || undefined,
@@ -440,6 +443,7 @@ export function ProjectDetailWorkspace({
       ...prev,
       name: settingsName.trim(),
       status: settingsStatus,
+      surfaceMode: settingsSurfaceMode || null,
       description: settingsDescription,
       companyId: cleanSourceCompanyId || undefined,
       sourceCompanyId: cleanSourceCompanyId || undefined,
@@ -834,11 +838,13 @@ export function ProjectDetailWorkspace({
         <ProjectSettingsPanel
           name={settingsName}
           status={settingsStatus}
+          surfaceMode={settingsSurfaceMode}
           description={settingsDescription}
           saving={savingSettings}
           saved={settingsSaved}
           onNameChange={setSettingsName}
           onStatusChange={setSettingsStatus}
+          onSurfaceModeChange={setSettingsSurfaceMode}
           onDescriptionChange={setSettingsDescription}
           sourceCompanyId={settingsSourceCompanyId}
           additionalCompanyIds={settingsAdditionalCompanyIds}

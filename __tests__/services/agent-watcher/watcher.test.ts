@@ -572,7 +572,7 @@ describe('agent watcher dispatchTask', () => {
       doc: jest.fn(() => ({
         get: jest.fn(async () => ({
           exists: true,
-          data: () => ({ name: 'Launch project', brief: 'Approved project brief.' }),
+          data: () => ({ name: 'Launch project', brief: 'Approved project brief.', surfaceMode: 'persuade' }),
         })),
         collection: jest.fn(() => docsCollection),
       })),
@@ -595,6 +595,38 @@ describe('agent watcher dispatchTask', () => {
     expect(spec).toContain('Dependency outputs:')
     expect(spec).toContain('Competitor research says lead with proof.')
     expect(spec).toContain('/api/v1/agent/project/project-1')
+    expect(spec).toContain('## Surface mode: Persuade')
+  })
+
+  it('injects the project surface-mode standard into the dispatch prompt', async () => {
+    const taskRef = makeTaskRef()
+    dbMock.collection = jest.fn(() => ({
+      doc: jest.fn(() => ({
+        get: jest.fn(async () => ({
+          exists: true,
+          data: () => ({ name: 'Dashboard rebuild', surfaceMode: 'operate' }),
+        })),
+        collection: jest.fn(() => ({
+          orderBy: jest.fn(() => ({
+            limit: jest.fn(() => ({ get: jest.fn(async () => ({ empty: true, docs: [] })) })),
+          })),
+        })),
+      })),
+    }))
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentInput: { spec: 'Make the dashboard usable' },
+    })
+
+    const spec = runAndPollMock.mock.calls[0][1].spec as string
+    expect(spec).toContain('## Surface mode: Operate')
+    expect(spec).toContain('disappears into the task')
+    expect(spec).toContain('Avoid:')
   })
 
   it('marks human approval/input stalls as Needs Peet instead of silently completing the task', async () => {

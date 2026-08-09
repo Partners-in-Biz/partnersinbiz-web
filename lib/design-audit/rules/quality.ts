@@ -239,6 +239,21 @@ export const missingAltRule: Rule = {
 
 const UNLABELED_INPUT_TYPES = new Set(['hidden', 'submit', 'button', 'image', 'reset'])
 
+/**
+ * Collect the set of control ids referenced by `<label for="...">` /
+ * `<label htmlFor="...">` (the repo's pib-label convention). The parser
+ * lowercases attribute names, so JSX `htmlFor` arrives as `htmlfor`.
+ */
+function labeledByForIds(doc: RuleContext['doc']): Set<string> {
+  const ids = new Set<string>()
+  walk(doc.root, (el) => {
+    if (el.tag !== 'label') return
+    const ref = el.attrs['for'] ?? el.attrs['htmlfor']
+    if (ref && ref.trim()) ids.add(ref.trim())
+  })
+  return ids
+}
+
 export const unlabeledControlsRule: Rule = {
   id: 'unlabeled-controls',
   severity: 'P1',
@@ -246,6 +261,7 @@ export const unlabeledControlsRule: Rule = {
   description: 'Form controls without a programmatic label (label, aria-label, aria-labelledby, title).',
   check(ctx: RuleContext): Finding[] {
     const out: Finding[] = []
+    const labelForIds = labeledByForIds(ctx.doc)
     walk(ctx.doc.root, (el) => {
       const tag = el.tag
       const isInput = tag === 'input' || tag === 'select' || tag === 'textarea'
@@ -259,6 +275,10 @@ export const unlabeledControlsRule: Rule = {
       if (isButton) {
         if (hasVisibleText(el) || (el.attrs['aria-label'] ?? '').trim()) return
       }
+      // Repo convention: `<label htmlFor="x" class="pib-label">` pairs with the
+      // control's `id`. This is a programmatic label association.
+      const id = el.attrs['id']
+      if (id && labelForIds.has(id)) return
       out.push(finding(
         'unlabeled-controls', 'P1', 'layout', pathOf(el), el.line,
         `Unlabeled ${tag} (no label/aria-label/aria-labelledby/title).`,

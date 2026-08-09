@@ -29,6 +29,14 @@ const LEADING_CLASS: Record<string, number> = {
   'leading-normal': 1.5, 'leading-relaxed': 1.625, 'leading-loose': 2,
 }
 
+/**
+ * Tailwind responsive display utilities (`sm:block`, `md:table`, `lg:flex`,
+ * `xl:grid`, `2xl:inline`, arbitrary variants). An element with `hidden` plus
+ * one of these is an intentional show-at-breakpoint toggle, not content
+ * invisible at rest.
+ */
+const RESPONSIVE_DISPLAY_CLASS = /^(sm|md|lg|xl|2xl|3xl|min-\[|max-\[|print|portrait|landscape|dark|motion-safe|motion-reduce):(block|flex|grid|table|inline|inline-block|inline-flex|contents|list-item|flow-root)$/
+
 const TRACKING_CLASS: Record<string, number> = {
   'tracking-tighter': -0.05, 'tracking-tight': -0.025, 'tracking-normal': 0,
   'tracking-wide': 0.025, 'tracking-wider': 0.05, 'tracking-widest': 0.1,
@@ -439,7 +447,12 @@ export function display(el: ElementNode, ctx: RuleContext): string | null {
   const c = computed(el, 'display', ctx)
   if (c) return c.trim().toLowerCase()
   if (el.style['display']) return el.style['display'].trim().toLowerCase()
-  if (hasClass(el, (cls) => cls === 'hidden')) return 'none'
+  if (hasClass(el, (cls) => cls === 'hidden')) {
+    // Tailwind responsive pattern: `hidden md:block` / `hidden sm:inline` is an
+    // intentional show-at-breakpoint toggle, not content invisible at rest.
+    if (hasClass(el, (cls) => RESPONSIVE_DISPLAY_CLASS.test(cls))) return null
+    return 'none'
+  }
   if (hasClass(el, (cls) => cls === 'block')) return 'block'
   if (hasClass(el, (cls) => cls === 'flex')) return 'flex'
   if (hasClass(el, (cls) => cls === 'grid')) return 'grid'

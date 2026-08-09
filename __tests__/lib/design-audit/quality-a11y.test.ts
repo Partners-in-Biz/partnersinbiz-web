@@ -27,6 +27,26 @@ describe('design-audit quality + a11y rules', () => {
     expect(rulesFor(html)).not.toContain('unlabeled-controls')
   })
 
+  it('accepts controls labeled via the pib-label htmlFor/id convention', () => {
+    const html = `<form>
+      <label htmlFor="project-name" className="pib-label">Project Name</label>
+      <input id="project-name" type="text" className="pib-input w-full" />
+      <label htmlFor="project-status" className="pib-label">Status</label>
+      <select id="project-status" className="pib-select w-full"></select>
+      <label htmlFor="project-notes" className="pib-label">Notes</label>
+      <textarea id="project-notes" className="pib-textarea w-full"></textarea>
+    </form>`
+    expect(rulesFor(html)).not.toContain('unlabeled-controls')
+  })
+
+  it('still flags controls whose id is not referenced by any label', () => {
+    const html = `<form>
+      <label htmlFor="other-field" className="pib-label">Other</label>
+      <input id="project-name" type="text" className="pib-input w-full" />
+    </form>`
+    expect(rulesFor(html)).toContain('unlabeled-controls')
+  })
+
   it('reports runtime script errors (browser mode)', () => {
     const result = runAudit('<p>hi</p>', { runtimeErrors: ['TypeError: x is not a function (main.js:12)'] })
     expect(result.findings.map((f) => f.rule)).toContain('script-errors')
@@ -41,6 +61,20 @@ describe('design-audit quality + a11y rules', () => {
   it('does not flag aria-hidden or reveal-pattern content', () => {
     const html = `<div aria-hidden="true" style="opacity: 0">decorative</div><div class="animate-fade-in" style="opacity: 0">reveal</div>`
     expect(rulesFor(html)).not.toContain('content-invisible-at-rest')
+  })
+
+  it('does not flag Tailwind responsive-hidden toggles', () => {
+    const html = `<div>
+      <span class="hidden sm:inline">Desktop label</span>
+      <table class="hidden w-full min-w-[760px] md:table"><tr><td>Rows</td></tr></table>
+      <div class="pib-card mb-4 hidden lg:block">Chat card</div>
+    </div>`
+    expect(rulesFor(html)).not.toContain('content-invisible-at-rest')
+  })
+
+  it('still flags a plain hidden element without a breakpoint restore', () => {
+    const html = `<div class="hidden">Genuinely hidden content</div>`
+    expect(rulesFor(html)).toContain('content-invisible-at-rest')
   })
 
   it('flags cramped padding on colored containers', () => {
