@@ -586,6 +586,16 @@ function buildCeoDataDecisionOperatingRule(orgId: string): string {
   })
 }
 
+function buildCompletionIntegrityHandoff(): string {
+  return [
+    'Completion-integrity control (mandatory):',
+    '- Do not set agentStatus=done, columnId=done, reviewStatus=approved, or claim final completion from narrative alone.',
+    '- Before ending, PATCH this task with completionEvidence { schemaVersion: 1, workKind: code|no-code, changedFiles, testCommand, testResult: passed, worktreeState, and for code commitSha; no-code requires noCodeReason and no changed files }.',
+    '- Code work requires a clean worktree and a commit that the watcher can verify as reachable from origin/development. The watcher records the verifier identity/result and performs the final handoff.',
+    '- If any work is unresolved, say so plainly and leave the task blocked; do not manufacture completion evidence.',
+  ].join('\n')
+}
+
 /** Durable task handoff metadata for the next agent (not only runtime injection). */
 function buildDurableTaskHandoffBlock(taskData: TaskData): string {
   const lines: string[] = ['Task handoff (durable):']
