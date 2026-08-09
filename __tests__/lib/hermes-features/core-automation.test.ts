@@ -197,6 +197,23 @@ describe('hermes-features durable control plane', () => {
       expect(block.loadedSkillIds).toEqual([])
       expect(block.contextFileNames).toContain('AGENTS.md')
     })
+
+    it('keeps workspace instruction files lazy for an ordinary informational run', async () => {
+      const ws = hermesFeaturesService.createMemoryWorkspaceFs({
+        'AGENTS.md': 'expensive workspace instructions that should remain on disk',
+        'src/app.ts': 'console.log(1)',
+      })
+      const block = await hermesFeaturesService.buildDispatchBlock({
+        orgId: 'org1',
+        agentId: 'pip',
+        conversationId: 'c-read-only',
+        userMessage: 'What is the status?',
+        workspace: ws,
+        includeWorkspaceInstructions: false,
+      })
+      expect(block.contextFileNames).toEqual([])
+      expect(block.block).not.toContain('expensive workspace instructions')
+    })
   })
 
   describe('Automation 7–11 real paths', () => {
