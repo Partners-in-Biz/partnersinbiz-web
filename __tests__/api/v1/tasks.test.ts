@@ -265,7 +265,7 @@ describe('PUT /api/v1/tasks/[id]', () => {
     })
   })
 
-  it('preserves existing tags when an agent completion payload carries an empty tag snapshot', async () => {
+  it('preserves tags but blocks a standalone narrative-only agent completion', async () => {
     const { PUT } = await import('@/app/api/v1/tasks/[id]/route')
 
     const res = await PUT(req({
@@ -282,10 +282,11 @@ describe('PUT /api/v1/tasks/[id]', () => {
     expect(res.status).toBe(200)
     expect(mockTaskUpdate).toHaveBeenCalledWith(expect.not.objectContaining({ tags: [] }))
     expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      agentStatus: 'done',
-      status: 'done',
-      reviewStatus: 'pending',
-      completedAt: 'SERVER_TIMESTAMP',
+      agentStatus: 'blocked',
+      status: 'in_progress',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: ['completion_integrity_verification_required'],
     }))
   })
 

@@ -11,6 +11,7 @@ import {
 } from '@/lib/projects/task-allowlists'
 import { columnForAgentStatus } from '@/lib/tasks/agentState'
 import type { AgentStatus } from '@/lib/tasks/types'
+import { validateCompletionEvidence } from '@/lib/projects/completionIntegrity'
 
 // Re-export client-safe allowlists so existing server imports keep working.
 export {
@@ -643,6 +644,13 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     const agentOutput = cleanAgentOutput(body.agentOutput)
     if (!agentOutput.ok) return agentOutput
     updates.agentOutput = agentOutput.value
+  }
+  if (body.completionEvidence !== undefined) {
+    const completionEvidence = validateCompletionEvidence(body.completionEvidence)
+    if (!completionEvidence.ok) {
+      return { ok: false, error: `Invalid completionEvidence: ${completionEvidence.reasons.join(', ')}`, status: 400 }
+    }
+    updates.completionEvidence = completionEvidence.evidence
   }
   if (body.dependsOn !== undefined) {
     const dependsOn = cleanDependsOn(body.dependsOn)

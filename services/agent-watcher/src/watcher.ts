@@ -23,6 +23,7 @@ import { formatHermesWatcherError } from './hermes-error'
 import { logger } from './logger'
 import type { AgentRunTelemetry } from './run-telemetry'
 import { agentStatusUpdate } from './task-updates'
+import { assessCompletionIntegrity, validateCompletionEvidence, verifyCleanWatcherWorktree, verifyReachableDevelopmentCommit } from './completion-integrity'
 import {
   getTaskDependencyGateIds,
   getTaskDispatchBlocker,
@@ -185,6 +186,8 @@ interface TaskData {
   reviewerIds?: string[]
   reviewStatus?: string
   agentOutput?: { summary?: string; artifacts?: unknown[]; telemetry?: unknown; [key: string]: unknown }
+  completionEvidence?: unknown
+  completionVerification?: { verifierIdentity?: string; verifierResult?: string; reasons?: string[]; commitReachable?: boolean | null }
   agentConversationId?: string
   workflowRunId?: string
   workflowNodeId?: string
@@ -585,6 +588,16 @@ function buildCeoDataDecisionOperatingRule(orgId: string): string {
   })
 }
 
+function buildCompletionIntegrityHandoff(): string {
+  return [
+    'Completion-integrity control (mandatory):',
+    '- Do not set agentStatus=done, columnId=done, reviewStatus=approved, or claim final completion from narrative alone.',
+    '- Before ending, PATCH this task with completionEvidence { schemaVersion: 1, workKind: code|no-code, changedFiles, testCommand, testResult: passed, worktreeState, and for code commitSha; no-code requires noCodeReason and no changed files }.',
+    '- Code work requires a clean worktree and a commit that the watcher can verify as reachable from origin/development. The watcher records the verifier identity/result and performs the final handoff.',
+    '- If any work is unresolved, say so plainly and leave the task blocked; do not manufacture completion evidence.',
+  ].join('\n')
+}
+
 /** Durable task handoff metadata for the next agent (not only runtime injection). */
 function buildDurableTaskHandoffBlock(taskData: TaskData): string {
   const lines: string[] = ['Task handoff (durable):']
@@ -963,6 +976,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       : ''
     const spec = [
       buildCeoDataDecisionOperatingRule(taskData.orgId ?? ''),
+      buildCompletionIntegrityHandoff(),
       baseSpec,
       projectContextBlock,
       designContextBlock,
@@ -1199,10 +1213,22 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       return
     }
 
-    const hasReviewer = Boolean(
-      (typeof taskData.reviewerAgentId === 'string' && taskData.reviewerAgentId.trim())
-      || (Array.isArray(taskData.reviewerIds) && taskData.reviewerIds.some((id) => typeof id === 'string' && id.trim())),
-    )
+    const completionSnap = await taskRef.get().catch(() => null)
+    const completionTask = (completionSnap?.data() ?? taskData) as TaskData
+    const completionEvidence = validateCompletionEvidence(completionTask.completionEvidence)
+    const commitReachable = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
+      ? await verifyReachableDevelopmentCommit(completionEvidence.evidence.commitSha!)
+      : null
+    const worktreeClean = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
+      ? await verifyCleanWatcherWorktree()
+      : null
+    const completion = assessCompletionIntegrity({
+      summary,
+      evidence: completionTask.completionEvidence,
+      commitReachable,
+      worktreeClean,
+      currentAgentStatus: completionTask.agentStatus,
+    })
     // Preserve producer-patched artifacts (merge live store). Never replace with
     // summary/telemetry-only — that thrash wiped Quinn dual-hold gold repeatedly.
     const doneAgentOutput = await buildMergedDoneAgentOutput({
@@ -1211,11 +1237,71 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       summary,
       telemetry,
     })
+    if (completion.outcome !== 'pass') {
+      const exactReason = completion.reasons.join(', ')
+      const blockedSummary = `${summary}\n\nCompletion integrity ${completion.outcome}: ${exactReason}.`
+      await taskRef.update({
+        ...agentStatusUpdate('blocked'),
+        reviewStatus: 'changes-requested',
+        ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+        agentHeartbeatAt: FieldValue.delete(),
+        agentRetryCount: FieldValue.delete(),
+        agentRetryAt: FieldValue.delete(),
+        completionIntegrityFailureReasons: completion.reasons,
+        completionVerification: {
+          verifierIdentity: 'agent-watcher',
+          verifierResult: 'failed',
+          reasons: completion.reasons,
+          commitReachable,
+          worktreeClean,
+          verifiedAt: FieldValue.serverTimestamp(),
+          verifierRunId: activeRunId,
+        },
+        agentOutput: { ...doneAgentOutput, summary: blockedSummary },
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+        agentId,
+        summary: blockedSummary,
+        blockingReason: exactReason,
+        runId: activeRunId,
+      })
+      void notifyWorkflowGraphTerminal({
+        taskRef,
+        taskId,
+        taskData: { ...(taskData as unknown as Record<string, unknown>), agentOutput: { ...doneAgentOutput, summary: blockedSummary } },
+        outcome: 'blocked',
+        summary: blockedSummary,
+        hermesRunId: activeRunId,
+        telemetry,
+        errorFamily: completion.outcome === 'blocked' ? 'agent_incomplete' : 'verifier_fail',
+        actorUid: agentId,
+      })
+      logger.warn('completion integrity rejected task completion', { taskId, agentId, reasons: completion.reasons })
+      return
+    }
+
+    const hasReviewer = Boolean(
+      (typeof taskData.reviewerAgentId === 'string' && taskData.reviewerAgentId.trim())
+      || (Array.isArray(taskData.reviewerIds) && taskData.reviewerIds.some((id) => typeof id === 'string' && id.trim())),
+    )
     await taskRef.update({
       ...agentStatusUpdate('done', { hasReviewer }),
       ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+      agentHeartbeatAt: FieldValue.delete(),
       agentRetryCount: FieldValue.delete(),
       agentRetryAt: FieldValue.delete(),
+      completionEvidence: completion.evidence,
+      completionIntegrityFailureReasons: FieldValue.delete(),
+      completionVerification: {
+        verifierIdentity: 'agent-watcher',
+        verifierResult: 'passed',
+        reasons: [],
+        commitReachable,
+        worktreeClean,
+        verifiedAt: FieldValue.serverTimestamp(),
+        verifierRunId: activeRunId,
+      },
       agentOutput: doneAgentOutput,
       updatedAt: FieldValue.serverTimestamp(),
     })
@@ -1382,6 +1468,18 @@ export async function dispatchReview(taskRef: DocumentReference, taskData: TaskD
       logger.info('review skipped — human already approved', { taskId, agentId })
       return
     }
+    // A reviewer only receives work whose implementer completion was independently
+    // checked by the watcher. This blocks review from laundering a narrative into approval.
+    if (liveData.completionVerification?.verifierResult !== 'passed') {
+      const reason = 'completion_integrity_verification_required_before_reviewer_handoff'
+      await taskRef.update({
+        ...agentStatusUpdate('blocked'),
+        reviewStatus: 'changes-requested',
+        completionIntegrityFailureReasons: [reason],
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      return
+    }
     const liveArtifacts = buildCompletionArtifacts({
       agentOutput: liveData.agentOutput,
       summary: liveData.agentOutput?.summary,
@@ -1492,6 +1590,14 @@ export async function dispatchReview(taskRef: DocumentReference, taskData: TaskD
       await taskRef.update({
         columnId: 'done',
         reviewStatus: 'approved',
+        completionVerification: {
+          ...(liveData.completionVerification ?? {}),
+          verifierIdentity: agentId,
+          verifierResult: 'approved',
+          reviewerHandoffFrom: 'agent-watcher',
+          reviewerOutput: output || 'APPROVED',
+          verifiedAt: FieldValue.serverTimestamp(),
+        },
         reviewRetryCount: FieldValue.delete(),
         reviewRetryAt: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),

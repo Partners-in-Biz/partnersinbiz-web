@@ -37,6 +37,7 @@ import {
 } from '@/lib/client-documents/linkedValidation'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
 import { buildTaskNotificationLink, taskNotificationData } from '@/lib/notifications/task-links'
+import { validateCompletionEvidence } from '@/lib/projects/completionIntegrity'
 
 export const dynamic = 'force-dynamic'
 
@@ -80,6 +81,7 @@ const UPDATABLE_FIELDS = [
   'agentStatus',
   'agentInput',
   'agentOutput',
+  'completionEvidence',
   'agentEffort',
   'agentModel',
   'agentConversationId',
@@ -168,6 +170,11 @@ export const PUT = withAuth('admin', async (req, user, context) => {
       return apiError('agentOutput must be { summary: string, artifacts?, completedAt? }')
     }
   }
+  if (body.completionEvidence !== undefined) {
+    const completionEvidence = validateCompletionEvidence(body.completionEvidence)
+    if (!completionEvidence.ok) return apiError(`Invalid completionEvidence: ${completionEvidence.reasons.join(', ')}`, 400)
+    body.completionEvidence = completionEvidence.evidence
+  }
   if (body.dependsOn !== undefined && !Array.isArray(body.dependsOn)) {
     return apiError('dependsOn must be an array of task IDs')
   }
@@ -198,6 +205,32 @@ export const PUT = withAuth('admin', async (req, user, context) => {
   applyAgentColumnForUpdate(updates, body)
   applyStandaloneTaskStatusForAgentStatus(updates, body)
   const finalUpdates = applyAgentTodoRequeue(existing as unknown as Record<string, unknown>, updates, body)
+
+  const isAgentTask = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
+  const attemptsCompletion = finalUpdates.agentStatus === 'done'
+    || finalUpdates.status === 'done'
+    || finalUpdates.columnId === 'done'
+    || finalUpdates.reviewStatus === 'approved'
+  const verification = existing.completionVerification
+  const completionVerified = verification?.verifierResult === 'passed' || verification?.verifierResult === 'approved'
+  if (isAgentTask && attemptsCompletion && !completionVerified) {
+    const priorOutput = (finalUpdates.agentOutput && typeof finalUpdates.agentOutput === 'object')
+      ? finalUpdates.agentOutput as unknown as Record<string, unknown>
+      : existing.agentOutput && typeof existing.agentOutput === 'object' ? existing.agentOutput as unknown as Record<string, unknown> : {}
+    const priorSummary = typeof priorOutput.summary === 'string' ? priorOutput.summary.trim() : ''
+    Object.assign(finalUpdates, {
+      status: 'in_progress',
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      agentHeartbeatAt: null,
+      completionIntegrityFailureReasons: ['completion_integrity_verification_required'],
+      agentOutput: {
+        ...priorOutput,
+        summary: `${priorSummary ? `${priorSummary}\n\n` : ''}Completion integrity blocked: completion_integrity_verification_required. Submit structured completionEvidence and let the watcher verify it before Done or approval.`,
+      },
+    })
+  }
 
   // Heartbeat sentinel — caller passes agentHeartbeatAt:true to bump server timestamp.
   if (body.agentHeartbeatAt === true) {
