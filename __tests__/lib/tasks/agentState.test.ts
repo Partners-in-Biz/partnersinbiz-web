@@ -18,6 +18,28 @@ describe('standalone agent task state helpers', () => {
     expect(isAgentOwnedTask(null, undefined, {})).toBe(false)
   })
 
+
+  it('repairs assigneeAgentId when assignedTo is an agent and the top-level field is null', () => {
+    const value: Record<string, unknown> = {
+      assignedTo: { type: 'agent', id: 'theo' },
+      assigneeAgentId: null,
+      title: 'Legacy agent task',
+    }
+    applyAgentDispatchDefaultsForStandaloneAssignment(value, { assigneeAgentId: null })
+    expect(value.assigneeAgentId).toBe('theo')
+    expect(value.agentStatus).toBe('pending')
+  })
+
+  it('requeues legacy assignedTo-only agent tasks when moved back to todo', () => {
+    const result = applyAgentTodoRequeue(
+      { assignedTo: { type: 'agent', id: 'theo' }, agentStatus: 'done' },
+      { columnId: 'todo' },
+      { columnId: 'todo' },
+    )
+    expect(result.agentStatus).toBe('pending')
+    expect(result.reviewStatus).toBe('changes-requested')
+  })
+
   it.each([
     ['pending', 'todo'],
     ['picked-up', 'in_progress'],

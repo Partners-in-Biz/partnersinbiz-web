@@ -440,6 +440,77 @@ describe('agent watcher dispatchTask', () => {
     }))
   })
 
+
+  it('uses completion-time reviewer assignment so a mid-run reviewer lands in Review, not Done', async () => {
+    const taskRef = makeTaskRef()
+    taskRef.get.mockImplementation(async () => ({
+      exists: true,
+      data: () => ({
+        completionEvidence: {
+          schemaVersion: 1,
+          workKind: 'no-code',
+          noCodeReason: 'Watcher fixture: no repository files were changed.',
+          changedFiles: [],
+          testCommand: 'node scripts/verify-watcher-fixture.mjs',
+          testResult: 'passed',
+          worktreeState: 'not-applicable',
+        },
+        agentStatus: 'in-progress',
+        assigneeAgentId: 'theo',
+        reviewerAgentId: 'qa-release',
+        reviewStatus: 'pending',
+        agentOutput: { summary: 'done summary' },
+      }),
+    }))
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Ship integrity control',
+    })
+
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'done',
+      columnId: 'review',
+      reviewStatus: 'pending',
+    }))
+    const terminal = taskRef.update.mock.calls
+      .map((call: unknown[]) => call[0] as Record<string, unknown>)
+      .find((update) => update.agentStatus === 'done')
+    expect(terminal).not.toEqual(expect.objectContaining({ columnId: 'done', reviewStatus: 'approved' }))
+  })
+
+  it('does not write done when typed agentOutput claim fields change during verification', async () => {
+    const taskRef = makeTaskRef()
+    const initialGet = taskRef.get.getMockImplementation()
+    taskRef.get
+      .mockImplementationOnce(initialGet)
+      .mockImplementationOnce(async () => {
+        await taskRef.update({
+          agentOutput: { summary: 'done summary', go_no_go: 'NO-GO' },
+        })
+        return {
+          exists: true,
+          data: () => ({
+            agentStatus: 'in-progress',
+            agentOutput: { summary: 'done summary', go_no_go: 'NO-GO' },
+          }),
+        }
+      })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', title: 'Ship integrity control',
+    })
+
+    const updates = taskRef.update.mock.calls.map((call: unknown[]) => call[0] as Record<string, unknown>)
+    expect(updates.some((update) => update.agentStatus === 'done')).toBe(false)
+    expect(updates).toContainEqual(expect.objectContaining({
+      completionIntegrityFailureReasons: ['completion_state_changed_during_verification'],
+    }))
+  })
+
   it('rejects code completion when its commit is not reachable from origin/development', async () => {
     const taskRef = makeTaskRef([], {
       completionEvidence: {
