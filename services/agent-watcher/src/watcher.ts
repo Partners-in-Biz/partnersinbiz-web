@@ -40,6 +40,7 @@ import { buildSurfaceModePromptBlock } from './surface-modes'
 import { notifyCommandSessionFromTask } from './command-session'
 import { buildCompletionArtifacts, notifyWorkflowGraphTerminal } from './workflow-writeback'
 import { buildWatcherPromptBudget } from './prompt-budget'
+import { prepareWatcherTaskWorktree, type WatcherWorktreeResult } from './repository-isolation'
 
 
 function expectedArtifactsFromTask(taskData: TaskData): string[] | undefined {
@@ -1116,6 +1117,65 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     let result: Awaited<ReturnType<typeof runAndPoll>>
     let effectiveDispatchInput = dispatchInput
     let effectiveCfg = cfg
+    // VPS-dispatched Kanban tasks that may mutate a repository are isolated
+    // in a task-scoped Git worktree before Hermes is called. Linked-computer
+    // jobs are isolated by the runtime worker instead, so this only runs
+    // when there is no linked target and the watcher dispatches directly.
+    let watcherWorktree: WatcherWorktreeResult | null = null
+    if (!linkedTarget && taskData.projectId) {
+      const repoRoot = process.env.PIB_REPO_ROOT || process.cwd()
+      try {
+        watcherWorktree = await prepareWatcherTaskWorktree({
+          taskId,
+          repositoryRoot: repoRoot,
+        })
+      } catch (worktreeErr) {
+        logger.warn('watcher worktree preflight threw — leaving task blocked', {
+          taskId,
+          agentId,
+          error: worktreeErr instanceof Error ? worktreeErr.message : String(worktreeErr),
+        })
+        watcherWorktree = {
+          ok: false,
+          taskId,
+          code: 'task_worktree_conflict',
+          message: worktreeErr instanceof Error ? worktreeErr.message : String(worktreeErr),
+        }
+      }
+      if (watcherWorktree && !watcherWorktree.ok) {
+        const blockedSummary = `TASK_WORKTREE_BLOCKED:${watcherWorktree.code}: ${watcherWorktree.message}`
+        logger.warn('watcher worktree preflight blocked — marking task blocked', {
+          taskId,
+          agentId,
+          code: watcherWorktree.code,
+        })
+        await taskRef.update({
+          ...agentStatusUpdate('blocked'),
+          agentHeartbeatAt: FieldValue.delete(),
+          agentOutput: {
+            summary: blockedSummary,
+            completedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+          agentId,
+          summary: blockedSummary,
+          blockingReason: watcherWorktree.message,
+        })
+        return
+      }
+      if (watcherWorktree?.ok) {
+        effectiveDispatchInput = { ...dispatchInput, workingDirectory: watcherWorktree.workingDirectory }
+        logger.info('watcher isolated task worktree created for VPS dispatch', {
+          taskId,
+          agentId,
+          branch: watcherWorktree.branch,
+          workingDirectory: watcherWorktree.workingDirectory,
+          reused: watcherWorktree.reused,
+        })
+      }
+    }
     if (linkedTarget) {
       logger.info('dispatching task to linked computer queue', {
         taskId,

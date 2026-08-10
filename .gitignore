@@ -88,3 +88,4 @@ qa/_split/
 # Agent ownership backfill CSVs (may contain org/user ids)
 scripts/backfill-reports/
 firestore-debug.log
+firebase-debug.log
