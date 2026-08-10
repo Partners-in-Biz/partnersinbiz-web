@@ -118,7 +118,7 @@ export default function PortalAgentOrgChartPage() {
         mode="portal"
         orgId={orgId}
         orgLabel={orgName}
-        canEdit={canEdit && role !== 'member' && role !== 'viewer'}
+        canEdit={canEdit}
         apiBase="/api/v1/portal/settings/agents/org-chart"
         agentsListUrl="/api/v1/portal/settings/agents"
         allowRuntimeTab={false}
