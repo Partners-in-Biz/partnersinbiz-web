@@ -1,21 +1,3 @@
-/**
- * End-to-end smoke test for the edit-share flow.
- *
- * Exercises the in-process API handlers (no real network). Each scenario
- * imports the route handler directly, feeds it a NextRequest, and asserts on
- * the NextResponse. Cookies set by one handler are threaded into the next
- * request to mimic a real browser session.
- *
- * Covered scenarios:
- * 1. Admin enables edit-share → token + code in response
- * 2. Verify code with the correct code → 200 + eds_{token} cookie
- * 3. Verify code with the wrong code → 401, no cookie
- * 4. Fetch doc with no cookies → 401 "Code verification required"
- * 5. Fetch doc with only code cookie (no session) → 401 "Sign-in required"
- * 6. Fetch doc with both cookies + verified session → 200 with doc/version/user
- * 7. Fetch doc when share disabled → 410 "Link disabled"
- */
-
 import { NextRequest } from 'next/server'
 
 const mockCollection = jest.fn()
@@ -27,6 +9,8 @@ const mockQueryLimit = jest.fn()
 const mockSubCollection = jest.fn()
 const mockSubDoc = jest.fn()
 const mockVersionGet = jest.fn()
+const mockOrgMemberGet = jest.fn()
+const mockUserGet = jest.fn()
 
 const mockVerifySessionCookie = jest.fn()
 const mockCheckAndIncrementRateLimit = jest.fn()
@@ -47,16 +31,12 @@ jest.mock('@/lib/rateLimit', () => ({
   checkAndIncrementRateLimit: (...args: unknown[]) => mockCheckAndIncrementRateLimit(...args),
 }))
 
-// Preserve the real generateAccessCode / generateEditShareToken / verifyAccessCode
-// implementations so the enable route produces real-shaped output, but stub
-// logDocumentAccess to avoid touching Firestore in the verify-code path.
 jest.mock('@/lib/client-documents/editShare', () => ({
   ...jest.requireActual('@/lib/client-documents/editShare'),
   logDocumentAccess: (...args: unknown[]) => mockLogDocumentAccess(...args),
 }))
 
 jest.mock('@/lib/api/auth', () => ({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   withAuth: (requiredRole: 'admin' | 'client', handler: any) => async (req: NextRequest, user: any, ctx?: any) => {
     const roleOk =
       user?.role === 'ai' || user?.role === 'admin' || (requiredRole === 'client' && user?.role === 'client')
@@ -90,10 +70,6 @@ function buildCookieHeader(parts: Record<string, string>) {
     .join('; ')
 }
 
-/**
- * Pull the `eds_<token>=<value>` portion out of a Set-Cookie header.
- * Returns null if not present.
- */
 function extractEdsCookie(setCookie: string | null, token: string): string | null {
   if (!setCookie) return null
   const match = new RegExp(`eds_${token}=([^;]+)`).exec(setCookie)
@@ -107,9 +83,6 @@ beforeEach(() => {
   mockQueryGet.mockReset()
   mockVersionGet.mockReset()
 
-  // Chainable Firestore mock: works for both `.doc(id).get()/update()` patterns
-  // (used by the admin enable handler) and `.where().limit().get()` patterns
-  // (used by the public verify-code + GET handlers).
   const query = { where: mockQueryWhere, limit: mockQueryLimit, get: mockQueryGet }
   mockQueryWhere.mockReturnValue(query)
   mockQueryLimit.mockReturnValue(query)
@@ -123,11 +96,23 @@ beforeEach(() => {
     update: mockDocumentUpdate,
     collection: mockSubCollection,
   }
-  mockCollection.mockReturnValue({
-    where: mockQueryWhere,
-    limit: mockQueryLimit,
-    get: mockQueryGet,
-    doc: jest.fn(() => docRef),
+
+  mockOrgMemberGet.mockResolvedValue({ exists: true, data: () => ({ status: 'active' }) })
+  mockUserGet.mockResolvedValue({ exists: false, data: () => ({}) })
+
+  mockCollection.mockImplementation((name: string) => {
+    if (name === 'orgMembers') {
+      return { doc: jest.fn(() => ({ get: mockOrgMemberGet })) }
+    }
+    if (name === 'users') {
+      return { doc: jest.fn(() => ({ get: mockUserGet })) }
+    }
+    return {
+      where: mockQueryWhere,
+      limit: mockQueryLimit,
+      get: mockQueryGet,
+      doc: jest.fn(() => docRef),
+    }
   })
 
   mockCheckAndIncrementRateLimit.mockResolvedValue({
@@ -169,7 +154,6 @@ describe('E2E: edit-share enable → verify-code → fetch', () => {
     const token = 'b'.repeat(32)
     const code = 'GOOD12'
 
-    // Public verify-code handler queries client_documents by editShareToken.
     mockQueryGet.mockResolvedValueOnce({
       empty: false,
       docs: [
@@ -233,15 +217,13 @@ describe('E2E: edit-share enable → verify-code → fetch', () => {
   it('4. fetch doc with no cookies returns 401 "Code verification required"', async () => {
     const token = 'd'.repeat(32)
 
-    // Route now loads the document first (US-036); the access code is only
-    // required when the document configures an editAccessCode.
     mockQueryGet.mockResolvedValueOnce({
       empty: false,
       docs: [
         {
           id: 'doc-4',
           ref: { id: 'doc-4' },
-          data: () => ({ editShareEnabled: true, editAccessCode: 'CODE12', deleted: false, currentVersionId: 'v-1' }),
+          data: () => ({ editShareEnabled: true, editAccessCode: 'CODE12', deleted: false, currentVersionId: 'v-1', linked: { clientOrgId: 'client-org' } }),
         },
       ],
     })
@@ -265,7 +247,7 @@ describe('E2E: edit-share enable → verify-code → fetch', () => {
         {
           id: 'doc-5',
           ref: { id: 'doc-5' },
-          data: () => ({ editShareEnabled: true, editAccessCode: 'CODE12', deleted: false, currentVersionId: 'v-1' }),
+          data: () => ({ editShareEnabled: true, editAccessCode: 'CODE12', deleted: false, currentVersionId: 'v-1', linked: { clientOrgId: 'client-org' } }),
         },
       ],
     })
@@ -282,7 +264,7 @@ describe('E2E: edit-share enable → verify-code → fetch', () => {
     expect(mockVerifySessionCookie).not.toHaveBeenCalled()
   })
 
-  it('6. fetch doc with both cookies + valid session returns 200 with document, version, user', async () => {
+  it('6. fetch doc with both cookies + valid session returns 200 with sanitized document, version, user', async () => {
     const token = 'f'.repeat(32)
 
     mockQueryGet.mockResolvedValueOnce({
@@ -296,6 +278,8 @@ describe('E2E: edit-share enable → verify-code → fetch', () => {
             deleted: false,
             currentVersionId: 'v-3',
             title: 'A Real Proposal',
+            linked: { clientOrgId: 'client-org' },
+            editAccessCode: 'SECRET1',
           }),
         },
       ],
@@ -318,9 +302,10 @@ describe('E2E: edit-share enable → verify-code → fetch', () => {
     expect(body.data.document).toMatchObject({
       id: 'doc-42',
       title: 'A Real Proposal',
-      editShareEnabled: true,
       currentVersionId: 'v-3',
     })
+    expect(body.data.document.editShareEnabled).toBeUndefined()
+    expect(body.data.document.editAccessCode).toBeUndefined()
     expect(body.data.version).toMatchObject({
       id: 'v-3',
       blocks: expect.any(Array),
@@ -356,7 +341,6 @@ describe('E2E: edit-share enable → verify-code → fetch', () => {
     expect(res.status).toBe(410)
     const body = await res.json()
     expect(body.error).toBe('Link disabled')
-    // Version fetch should be skipped when share is disabled.
     expect(mockVersionGet).not.toHaveBeenCalled()
   })
 })

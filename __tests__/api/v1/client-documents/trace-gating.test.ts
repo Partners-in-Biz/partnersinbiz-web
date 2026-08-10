@@ -17,8 +17,15 @@ jest.mock('@/lib/firebase/admin', () => ({
   },
 }))
 
+jest.mock('@/lib/client-documents/canonical-grants', () => ({
+  findDocumentPartnerLinkId: jest.fn().mockResolvedValue(null),
+}))
+
+jest.mock('@/lib/orgMembers/active-membership', () => ({
+  hasActiveOrgMembership: jest.fn().mockResolvedValue(true),
+}))
+
 jest.mock('@/lib/api/auth', () => ({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   withAuth: (requiredRole: 'admin' | 'client', handler: any) => async (req: NextRequest, user: any, ctx?: any) => {
     const roleOk = user?.role === 'ai' || user?.role === 'admin' || (requiredRole === 'client' && user?.role === 'client')
     if (!roleOk) return new Response(JSON.stringify({ success: false, error: 'Forbidden' }), { status: 403 })
@@ -33,7 +40,7 @@ beforeEach(() => {
   const versionRef = { id: 'version-1', update: jest.fn(), set: jest.fn() }
   const versions = { doc: mockVersionDoc.mockReturnValue(versionRef), get: mockVersionsGet }
   const documentRef = { id: 'doc-1', get: mockDocGet, update: jest.fn(), collection: jest.fn(() => versions) }
-  mockCollection.mockImplementation((name: string) => ({
+  mockCollection.mockImplementation(() => ({
     doc: jest.fn(() => documentRef),
     where: jest.fn(),
   }))

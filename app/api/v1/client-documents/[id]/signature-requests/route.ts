@@ -32,10 +32,6 @@ type RouteContext = { params: Promise<{ id: string }> }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-function actorType(user: ApiUser) {
-  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
-}
-
 function requiredText(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
