@@ -18,6 +18,7 @@ jest.mock('@/lib/integrations/registry', () => ({
   getAdapter: jest.fn(),
 }))
 
+import { adminDb } from '@/lib/firebase/admin'
 import { POST } from '@/app/api/v1/properties/[id]/connections/[provider]/backfill/route'
 import { getConnection, markPullSuccess, markPullFailure } from '@/lib/integrations/connections'
 import { getAdapter } from '@/lib/integrations/registry'
@@ -59,6 +60,15 @@ const connection = {
 describe('POST /api/v1/properties/:id/connections/:provider/backfill', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    ;(adminDb.collection as jest.Mock).mockReturnValue({
+      doc: jest.fn().mockReturnValue({
+        get: jest.fn().mockResolvedValue({
+          exists: true,
+          id: 'prop-123',
+          data: () => ({ orgId: 'org-lumen', deleted: false }),
+        }),
+      }),
+    })
   })
 
   it('returns 401 when unauthenticated', async () => {

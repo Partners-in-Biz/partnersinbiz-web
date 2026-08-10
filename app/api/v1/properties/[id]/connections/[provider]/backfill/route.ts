@@ -24,6 +24,7 @@ import { getConnection, markPullSuccess, markPullFailure } from '@/lib/integrati
 import { getAdapter } from '@/lib/integrations/registry'
 import '@/lib/integrations/bootstrap'
 import { ALL_PROVIDERS, type IntegrationProvider, type PullResult } from '@/lib/integrations/types'
+import { loadOwnerAuthorizedProperty } from '@/lib/properties/access'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -42,11 +43,13 @@ function isoDaysAgo(now: Date, daysAgo: number): string {
   return new Date(ms).toISOString().slice(0, 10)
 }
 
-export const POST = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
+export const POST = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   const { id, provider } = await (ctx as RouteContext).params
   if (!isProvider(provider)) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
   }
+  const access = await loadOwnerAuthorizedProperty(user, id)
+  if (!access.ok) return access.response
 
   const conn = await getConnection({ propertyId: id, provider })
   if (!conn) return NextResponse.json({ error: 'Not connected' }, { status: 404 })

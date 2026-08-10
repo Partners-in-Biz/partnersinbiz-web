@@ -7,10 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
-import { adminDb } from '@/lib/firebase/admin'
 import {
   getConnection,
-  upsertConnection,
   setConnectionStatus,
   deleteConnection,
 } from '@/lib/integrations/connections'
@@ -18,6 +16,7 @@ import { getAdapter } from '@/lib/integrations/registry'
 import '@/lib/integrations/bootstrap'
 import type { IntegrationProvider } from '@/lib/integrations/types'
 import { ALL_PROVIDERS } from '@/lib/integrations/types'
+import { loadOwnerAuthorizedProperty } from '@/lib/properties/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,11 +26,13 @@ function isProvider(v: string): v is IntegrationProvider {
   return (ALL_PROVIDERS as string[]).includes(v)
 }
 
-export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
+export const GET = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   const { id, provider } = await (ctx as RouteContext).params
   if (!isProvider(provider)) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
   }
+  const access = await loadOwnerAuthorizedProperty(user, id)
+  if (!access.ok) return access.response
   const conn = await getConnection({ propertyId: id, provider })
   if (!conn) return NextResponse.json({ error: 'Not connected' }, { status: 404 })
   const { credentialsEnc, ...rest } = conn
@@ -46,11 +47,13 @@ interface PutBody {
   meta?: Record<string, unknown>
 }
 
-export const PUT = withAuth('admin', async (req: NextRequest, _user, ctx) => {
+export const PUT = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const { id, provider } = await (ctx as RouteContext).params
   if (!isProvider(provider)) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
   }
+  const access = await loadOwnerAuthorizedProperty(user, id)
+  if (!access.ok) return access.response
   const adapter = getAdapter(provider)
   if (!adapter) {
     return NextResponse.json({ error: 'Adapter not registered' }, { status: 501 })
@@ -61,11 +64,6 @@ export const PUT = withAuth('admin', async (req: NextRequest, _user, ctx) => {
       { status: 400 },
     )
   }
-  const propDoc = await adminDb.collection('properties').doc(id).get()
-  if (!propDoc.exists) {
-    return NextResponse.json({ error: 'Property not found' }, { status: 404 })
-  }
-  const orgId = (propDoc.data() as { orgId: string }).orgId
   const body = (await req.json().catch(() => ({}))) as PutBody
   if (!body.payload) {
     return NextResponse.json({ error: 'payload required' }, { status: 400 })
@@ -73,7 +71,7 @@ export const PUT = withAuth('admin', async (req: NextRequest, _user, ctx) => {
   try {
     const conn = await adapter.saveCredentials({
       propertyId: id,
-      orgId,
+      orgId: access.property.orgId,
       payload: body.payload,
     })
     const { credentialsEnc, ...rest } = conn
@@ -93,11 +91,13 @@ interface PatchBody {
   status?: 'connected' | 'paused' | 'reauth_required' | 'error'
 }
 
-export const PATCH = withAuth('admin', async (req: NextRequest, _user, ctx) => {
+export const PATCH = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const { id, provider } = await (ctx as RouteContext).params
   if (!isProvider(provider)) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
   }
+  const access = await loadOwnerAuthorizedProperty(user, id)
+  if (!access.ok) return access.response
   const body = (await req.json().catch(() => ({}))) as PatchBody
   if (!body.status) {
     return NextResponse.json({ error: 'status required' }, { status: 400 })
@@ -106,11 +106,13 @@ export const PATCH = withAuth('admin', async (req: NextRequest, _user, ctx) => {
   return NextResponse.json({ ok: true })
 })
 
-export const DELETE = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
+export const DELETE = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   const { id, provider } = await (ctx as RouteContext).params
   if (!isProvider(provider)) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
   }
+  const access = await loadOwnerAuthorizedProperty(user, id)
+  if (!access.ok) return access.response
   const conn = await getConnection({ propertyId: id, provider })
   if (conn) {
     const adapter = getAdapter(provider)
