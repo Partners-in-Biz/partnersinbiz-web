@@ -45,15 +45,10 @@ describe('research/properties cross-org collaboration adapter', () => {
     }
   })
 
-  it('uses existing exact-resource pre-join claim contracts only for safe research/property view/comment grants', () => {
-    expect(resolvePrejoinResourceAdapter('research', ['view', 'comment'])).toEqual(expect.objectContaining({
-      resourceType: 'research',
-      acceptsPrejoinClaims: true,
-    }))
-    expect(resolvePrejoinResourceAdapter('property', ['view', 'comment'])).toEqual(expect.objectContaining({
-      resourceType: 'property',
-      acceptsPrejoinClaims: true,
-    }))
+  it('uses existing exact-resource pre-join claim contracts only for enforced safe research/property view/comment grants', () => {
+    // Fail-closed until research/property main-tree handlers call CrossOrgPolicyService.
+    expect(resolvePrejoinResourceAdapter('research', ['view', 'comment'])).toBeNull()
+    expect(resolvePrejoinResourceAdapter('property', ['view', 'comment'])).toBeNull()
     expect(resolvePrejoinResourceAdapter('research', ['contribute'])).toBeNull()
     expect(resolvePrejoinResourceAdapter('property', ['approve'])).toBeNull()
   })

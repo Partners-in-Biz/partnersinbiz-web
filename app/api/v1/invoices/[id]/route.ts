@@ -4,7 +4,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { notifyInvoiceSent } from '@/lib/notifications/notify'
 import { logActivity } from '@/lib/activity/log'
-import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { isInvoiceIssuerAccess, requireInvoiceAccess } from '@/lib/invoices/access'
 import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 import {
   decorateInvoicePortalCapabilities,
@@ -21,7 +21,11 @@ export const GET = withAuth('client', async (req, user, ctx) => {
   const requestedOrgId = new URL(req.url).searchParams.get('orgId')
   const access = await requireInvoiceAccess(user, id, requestedOrgId)
   if (!access.ok) return access.response
-  return apiSuccess(decorateInvoicePortalCapabilities({ id: access.snap.id, ...access.data }, user))
+  return apiSuccess(decorateInvoicePortalCapabilities(
+    { id: access.snap.id, ...access.data },
+    user,
+    access.accessKind,
+  ))
 })
 
 export const PATCH = withAuth('client', async (req, user, ctx) => {
@@ -32,7 +36,7 @@ export const PATCH = withAuth('client', async (req, user, ctx) => {
   if (!access.ok) return access.response
   const mutationError = rejectGenericPartnerTradeMutation(access.data)
   if (mutationError) return apiError(mutationError, 409)
-  const sanitized = sanitizeInvoicePortalPatch(user, access.data, body)
+  const sanitized = sanitizeInvoicePortalPatch(user, access.data, body, access.accessKind)
   if (!sanitized.ok) {
     return apiError(sanitized.error, sanitized.status)
   }
@@ -115,8 +119,12 @@ export const PATCH = withAuth('client', async (req, user, ctx) => {
 
 export const DELETE = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
-  const access = await requireInvoiceAccess(user, id)
+  const requestedOrgId = new URL(req.url).searchParams.get('orgId')
+  const access = await requireInvoiceAccess(user, id, requestedOrgId)
   if (!access.ok) return access.response
+  if (!isInvoiceIssuerAccess(access.accessKind)) {
+    return apiError('Only the issuing organisation can delete this invoice', 403)
+  }
   const mutationError = rejectGenericPartnerTradeMutation(access.data)
   if (mutationError) return apiError(mutationError, 409)
   await access.ref.delete()

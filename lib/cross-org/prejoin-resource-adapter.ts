@@ -24,14 +24,17 @@ export interface PrejoinResourceAdapter {
  * their route-level canonical policy enforcement is delivered.
  */
 export const PREJOIN_RESOURCE_ADAPTERS: readonly PrejoinResourceAdapter[] = [
+  // Only adapters whose owning main-tree routes load the immutable owner and ask
+  // CrossOrgPolicyService.decide may accept pre-join claims. The rest stay
+  // fail-closed until their route-level enforcement + denial tests land.
   { key: 'project', resourceType: 'project', collection: 'projects', allowedActions: ['view', 'comment'], acceptsPrejoinClaims: true },
-  { key: 'invoice', resourceType: 'invoice', collection: 'invoices', allowedActions: ['view'], acceptsPrejoinClaims: true },
-  { key: 'quote', resourceType: 'quote', collection: 'quotes', allowedActions: ['view'], acceptsPrejoinClaims: true },
+  { key: 'invoice', resourceType: 'invoice', collection: 'invoices', allowedActions: ['view'], acceptsPrejoinClaims: false },
+  { key: 'quote', resourceType: 'quote', collection: 'quotes', allowedActions: ['view'], acceptsPrejoinClaims: false },
   { key: 'client-document', resourceType: 'document', collection: 'client_documents', allowedActions: ['view', 'comment'], acceptsPrejoinClaims: true },
-  { key: 'research', resourceType: 'research', collection: 'research_items', allowedActions: ['view', 'comment'], acceptsPrejoinClaims: true },
-  { key: 'campaign', resourceType: 'campaign', collection: 'campaigns', allowedActions: ['view', 'review_draft'], acceptsPrejoinClaims: true },
-  { key: 'property', resourceType: 'property', collection: 'properties', allowedActions: ['view', 'comment'], acceptsPrejoinClaims: true },
-  { key: 'partner-order', resourceType: 'custom', collection: 'orders', allowedActions: ['view'], acceptsPrejoinClaims: true },
+  { key: 'research', resourceType: 'research', collection: 'research_items', allowedActions: ['view', 'comment'], acceptsPrejoinClaims: false },
+  { key: 'campaign', resourceType: 'campaign', collection: 'campaigns', allowedActions: ['view', 'review_draft'], acceptsPrejoinClaims: false },
+  { key: 'property', resourceType: 'property', collection: 'properties', allowedActions: ['view', 'comment'], acceptsPrejoinClaims: false },
+  { key: 'partner-order', resourceType: 'custom', collection: 'orders', allowedActions: ['view'], acceptsPrejoinClaims: false },
   { key: 'conversation', resourceType: 'conversation', collection: 'conversations', allowedActions: ['view'], acceptsPrejoinClaims: false },
   { key: 'support-ticket', resourceType: 'support', collection: 'support_tickets', allowedActions: ['view'], acceptsPrejoinClaims: false },
   { key: 'service-workspace', resourceType: 'service', collection: 'serviceWorkspaces', allowedActions: ['view'], acceptsPrejoinClaims: false },

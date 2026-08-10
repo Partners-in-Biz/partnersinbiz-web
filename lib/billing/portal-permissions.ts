@@ -1,10 +1,22 @@
-type PortalActor = { uid: string; role?: unknown } | null | undefined
+type PortalActor = {
+  uid: string
+  role?: unknown
+  orgId?: unknown
+  activeOrgId?: unknown
+  orgIds?: unknown
+} | null | undefined
 
 type InvoiceLike = {
   status?: unknown
   createdBy?: unknown
   createdByRef?: unknown
+  orgId?: unknown
+  sourceOrgId?: unknown
+  recipientOrgId?: unknown
+  targetOrgId?: unknown
 }
+
+export type InvoiceAccessKind = 'sender' | 'recipient' | 'legacy' | null | undefined
 
 export type InvoicePortalCapabilitySet = {
   canEdit: boolean
@@ -86,29 +98,80 @@ function isPrivileged(actor: PortalActor): boolean {
   return actor?.role === 'admin' || actor?.role === 'ai'
 }
 
-function canEditInvoiceDraft(actor: PortalActor, invoice: InvoiceLike): boolean {
-  if (!actor) return false
-  if (cleanString(invoice.status) !== 'draft') return false
-  if (isPrivileged(actor)) return true
-  return creatorUid(invoice) === actor.uid
+function actorPerspectiveOrgId(actor: PortalActor): string {
+  return cleanString(actor?.activeOrgId) || cleanString(actor?.orgId)
 }
 
-export function invoicePortalCapabilities(actor: PortalActor, invoice: InvoiceLike): InvoicePortalCapabilitySet {
+function sourceOrgId(invoice: InvoiceLike): string {
+  return cleanString(invoice.sourceOrgId) || cleanString(invoice.orgId)
+}
+
+function recipientOrgId(invoice: InvoiceLike): string {
+  return cleanString(invoice.recipientOrgId) || cleanString(invoice.targetOrgId)
+}
+
+/**
+ * Derive sender/recipient/legacy for portal capability decoration.
+ * Cross-org invoices use org perspective; single-org drafts fall back to creator/legacy.
+ */
+export function deriveInvoiceAccessKind(
+  actor: PortalActor,
+  invoice: InvoiceLike,
+  explicit?: InvoiceAccessKind,
+): InvoiceAccessKind {
+  if (explicit === 'sender' || explicit === 'recipient' || explicit === 'legacy') return explicit
+
+  const perspective = actorPerspectiveOrgId(actor)
+  if (perspective) {
+    const source = sourceOrgId(invoice)
+    if (source && source === perspective) {
+      return cleanString(invoice.sourceOrgId) ? 'sender' : 'legacy'
+    }
+    if (recipientOrgId(invoice) === perspective) return 'recipient'
+  }
+
+  // Same-org / creator-scoped invoices without explicit recipient stay issuer-side.
+  if (!recipientOrgId(invoice)) {
+    if (isPrivileged(actor)) return 'legacy'
+    if (actor && creatorUid(invoice) === actor.uid) return 'legacy'
+  }
+
+  return null
+}
+
+function isInvoiceIssuer(access: InvoiceAccessKind): boolean {
+  return access === 'sender' || access === 'legacy'
+}
+
+function canEditInvoiceDraft(access: InvoiceAccessKind, invoice: InvoiceLike): boolean {
+  if (!isInvoiceIssuer(access)) return false
+  return cleanString(invoice.status) === 'draft'
+}
+
+export function invoicePortalCapabilities(
+  actor: PortalActor,
+  invoice: InvoiceLike,
+  explicitAccess?: InvoiceAccessKind,
+): InvoicePortalCapabilitySet {
+  const access = deriveInvoiceAccessKind(actor, invoice, explicitAccess)
   const status = cleanString(invoice.status)
-  const canEdit = canEditInvoiceDraft(actor, invoice)
+  const issuer = isInvoiceIssuer(access)
+  const canEdit = canEditInvoiceDraft(access, invoice)
   return {
     canEdit,
     canSend: canEdit && status === 'draft',
     canCancel: canEdit && status === 'draft',
-    canMarkPaid: Boolean(actor) && status.length > 0 && status !== 'paid' && status !== 'cancelled',
+    // Manual mark-paid is an issuer control. Recipients use payment-proof.
+    canMarkPaid: issuer && status.length > 0 && status !== 'paid' && status !== 'cancelled',
   }
 }
 
 export function decorateInvoicePortalCapabilities<T extends object>(
   invoice: T,
   actor: PortalActor,
+  explicitAccess?: InvoiceAccessKind,
 ): T & InvoicePortalCapabilitySet {
-  return { ...invoice, ...invoicePortalCapabilities(actor, invoice as InvoiceLike) }
+  return { ...invoice, ...invoicePortalCapabilities(actor, invoice as InvoiceLike, explicitAccess) }
 }
 
 function sanitizeDraftFields(body: Record<string, unknown>, allowed: Set<string>): Record<string, unknown> {
@@ -119,12 +182,15 @@ export function sanitizeInvoicePortalPatch(
   actor: PortalActor,
   invoice: InvoiceLike,
   body: Record<string, unknown>,
+  explicitAccess?: InvoiceAccessKind,
 ): SanitizeResult {
+  const access = deriveInvoiceAccessKind(actor, invoice, explicitAccess)
   const status = cleanString(invoice.status)
   const requestedStatus = cleanString(body.status)
   const bodyKeys = Object.keys(body)
   const statusOnly = bodyKeys.length === 1 && requestedStatus.length > 0
-  const canEdit = canEditInvoiceDraft(actor, invoice)
+  const canEdit = canEditInvoiceDraft(access, invoice)
+  const issuer = isInvoiceIssuer(access)
 
   if (statusOnly) {
     if (requestedStatus === 'paid') {
@@ -132,6 +198,10 @@ export function sanitizeInvoicePortalPatch(
     }
     if (!actor || status === 'paid') {
       return { ok: false, status: 403, error: 'This invoice status change is not permitted from the portal' }
+    }
+    // Issuer-controlled lifecycle only. Recipients must not send/cancel/overdue.
+    if (!issuer) {
+      return { ok: false, status: 403, error: 'Only the issuing organisation can change this invoice status' }
     }
     if (PORTAL_INVOICE_STATUS_OPTIONS.has(requestedStatus)) {
       return { ok: true, patch: { status: requestedStatus } }
@@ -142,7 +212,8 @@ export function sanitizeInvoicePortalPatch(
   if (!canEdit) {
     // Admin/AI may correct bill-to / contact metadata on issued invoices (incl. paid)
     // without flipping payment or commercial fields. Members cannot.
-    if (isPrivileged(actor) && status !== 'cancelled') {
+    // Still issuer-org only — recipient privileged users must not rewrite bill-to.
+    if (isPrivileged(actor) && issuer && status !== 'cancelled') {
       const metaOnly = bodyKeys.every((key) => INVOICE_PRIVILEGED_METADATA_FIELDS.has(key))
       if (metaOnly) {
         const patch = sanitizeDraftFields(body, INVOICE_PRIVILEGED_METADATA_FIELDS)
