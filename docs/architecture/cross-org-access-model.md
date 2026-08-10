@@ -139,6 +139,30 @@ Fields: `id`, `eventType` (`partner_link.invited` | `partner_link.accepted` |
 The existing `crmAuditEvents` collection stays for CRM-level events; canonical
 cross-org policy events go to `partnerAuditEvents`.
 
+### Pre-join resource invitations (exact-resource onboarding)
+
+Collection: `partnerPrejoinResourceInvitations` (server-only). Implementation:
+`lib/cross-org/prejoin-resource-adapter.ts`, `prejoin-resource-store.ts`, and
+owning routes under `/api/v1/cross-org/prejoin-invitations`.
+
+A pre-join invitation is intent only. Persist the opaque delivery-token hash,
+never the raw token. Bind each invitation to one exact `resourceType` +
+`resourceId`, explicit non-empty actions, and optional field/item allowlists.
+Issue and activate only after server-side immutable owner lookup; actor org/user
+always come from auth context. Claim requires a verified recipient email hash
+match and never consumes an identity-mismatched token. Owner approval records
+`approvedByRef` separately from `recipientUserId`. Activation hydrates live
+PartnerLink + reciprocal relationships + bilaterally accepted directional scope
++ recipient membership, then materialises one named-user `PartnerResourceGrant`
+in the same transaction. Recovery atomically marks the source `replaced` and
+creates one replacement. Pending invites revoke on the invitation; activated
+invites revoke through the canonical grant lifecycle.
+
+Issuable adapters today: project, invoice, quote, document, research, campaign,
+property, partner-order. Conversation/Messages, support, and service work remain
+`acceptsPrejoinClaims: false` until their owning module routes enforce
+`CrossOrgPolicyService` and projection.
+
 ### Support tickets and service workspaces
 
 Support tickets and service workspaces use `support-service-adapter.ts` for a

@@ -18,7 +18,7 @@ import type {
   CrossOrgPolicyStore,
   PartnerAuditEventInput,
 } from './policy-service'
-import { hashPartnerAuditEvent } from './policy-service'
+import { FirestoreCrossOrgPolicyStore, hashPartnerAuditEvent } from './policy-service'
 import {
   PARTNER_AUDIT_EVENTS_COLLECTION,
   PARTNER_RESOURCE_GRANTS_COLLECTION,
@@ -597,4 +597,19 @@ export class PrejoinResourceService {
     if (!invitation) throw new Error('pre-join invitation not found')
     return invitation
   }
+}
+
+export function createPrejoinResourceService(
+  invitationStore?: PrejoinResourceStore,
+  policyStore?: Pick<CrossOrgPolicyStore, 'loadActiveOrgMember' | 'loadPartnerLink' | 'loadRelationships' | 'loadScopeAgreement'>,
+  now?: () => Date,
+): PrejoinResourceService {
+  return new PrejoinResourceService({
+    invitationStore: invitationStore ?? new FirestorePrejoinResourceStore(),
+    policyStore: policyStore ?? new FirestoreCrossOrgPolicyStore(),
+  }, now)
+}
+
+export async function getPrejoinInvitationById(invitationId: string): Promise<PrejoinResourceInvitation | null> {
+  return new FirestorePrejoinResourceStore().getInvitationById(invitationId)
 }
