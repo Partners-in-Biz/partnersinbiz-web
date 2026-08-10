@@ -113,4 +113,16 @@ describe('agent watcher task dispatch eligibility', () => {
       },
     })).toEqual([])
   })
+
+  it('does not treat topic labels containing approval-gate substring as gate cards', () => {
+    expect(getUnresolvedDependencyIds(['module-contracts'], {
+      'module-contracts': {
+        columnId: 'done',
+        agentStatus: 'done',
+        reviewStatus: 'approved',
+        labels: ['adapter', 'approval-gates', 'module-approval-gates', 'cross-org-collaboration'],
+      },
+    })).toEqual([])
+  })
+
 })

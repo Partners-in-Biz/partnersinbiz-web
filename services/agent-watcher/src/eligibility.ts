@@ -118,7 +118,9 @@ function isApprovalGateDependency(dep: DependencyState): boolean {
     (stringGate && stringGate !== 'none')
     || objectGate
     || typeof dep.approvalStatus === 'string'
-    || dep.labels?.some((label) => /approval-gate|approval-required|client-approval|required-approval/i.test(label)),
+    // Match exact gate labels / approval-gate:<id>. Do not match topic labels like
+    // "approval-gates" (module contracts that mention gates as scope).
+    || dep.labels?.some((label) => /^(approval-gate|approval-required|client-approval|required-approval)(:.*)?$/i.test(String(label || '').trim())),
   )
 }
 
