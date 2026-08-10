@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { PageHeader } from '@/components/ui/AppFoundation'
 import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
@@ -77,6 +78,7 @@ export default function OrganisationAgentsPage() {
   const [marketplace, setMarketplace] = useState<MarketplaceRow[]>([])
   const [skills, setSkills] = useState<SkillListing[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'machines' | 'marketplace'>('machines')
   const [showCreate, setShowCreate] = useState(false)
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null)
   const [skillsAgentId, setSkillsAgentId] = useState<string | null>(null)
@@ -130,8 +132,28 @@ export default function OrganisationAgentsPage() {
     [agents],
   )
 
+  const agentsForDevice = useCallback(
+    (deviceId: string) => agents.filter((agent) => agent.homeDeviceId === deviceId),
+    [agents],
+  )
+
+  function revealMachineSection(id: string) {
+    window.requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
+  function startCreateAgent() {
+    setActiveTab('machines')
+    setEditingAgentId(null)
+    setPullTemplateId(null)
+    setShowCreate(true)
+    revealMachineSection('new-custom-agent')
+  }
+
   function startEdit(agent: AgentRow) {
     if (!agent.canEdit && !agent.canManage) return
+    setActiveTab('machines')
     setShowCreate(false)
     setPullTemplateId(null)
     setEditingAgentId(agent.agentId)
@@ -142,6 +164,7 @@ export default function OrganisationAgentsPage() {
       defaultModel: agent.defaultModel || 'auto',
     })
     setMessage('')
+    revealMachineSection(`custom-agent-${agent.agentId}`)
   }
 
   function cancelEdit() {
@@ -320,11 +343,7 @@ export default function OrganisationAgentsPage() {
           <button
             type="button"
             className="btn-pib-primary btn-pib-sm font-label"
-            onClick={() => {
-              setEditingAgentId(null)
-              setPullTemplateId(null)
-              setShowCreate((value) => !value)
-            }}
+            onClick={startCreateAgent}
           >
             <span className="material-symbols-outlined text-[16px]">add</span>
             New custom agent
@@ -334,8 +353,110 @@ export default function OrganisationAgentsPage() {
 
       {message && <p role="status" className="pib-card px-4 py-3 text-sm text-[var(--color-pib-text-muted)]">{message}</p>}
 
+      <div className="border-b border-[var(--color-pib-line)]" role="tablist" aria-label="Agent management views">
+        <button
+          type="button"
+          id="agents-machines-tab"
+          role="tab"
+          aria-selected={activeTab === 'machines'}
+          aria-controls="agents-machines-panel"
+          className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'machines' ? 'border-primary text-[var(--color-pib-text)]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'}`}
+          onClick={() => setActiveTab('machines')}
+        >
+          Machines & agents
+        </button>
+        <button
+          type="button"
+          id="agents-marketplace-tab"
+          role="tab"
+          aria-selected={activeTab === 'marketplace'}
+          aria-controls="agents-marketplace-panel"
+          className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'marketplace' ? 'border-primary text-[var(--color-pib-text)]' : 'border-transparent text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'}`}
+          onClick={() => setActiveTab('marketplace')}
+        >
+          Marketplace
+        </button>
+      </div>
+
+      {activeTab === 'machines' && (
+        <section id="agents-machines-panel" role="tabpanel" aria-labelledby="agents-machines-tab" className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Machines and their agents</h2>
+              <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                See exactly which agents belong to each linked machine. You can change only agents and machines you own or have been granted access to.
+              </p>
+            </div>
+            <Link href="/portal/settings/linked-computers" className="btn-pib-secondary btn-pib-sm">
+              Manage machines
+            </Link>
+          </div>
+
+          {loading ? (
+            <p className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">Loading machines…</p>
+          ) : devices.length === 0 ? (
+            <div className="pib-card p-4 text-sm text-[var(--color-pib-text-muted)]">
+              No active machines are available to this workspace yet. <Link href="/portal/settings/linked-computers" className="text-primary underline">Link or manage a machine</Link> before adding an agent.
+            </div>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {devices.map((device) => {
+                const machineAgents = agentsForDevice(device.deviceId)
+                return (
+                  <article key={device.deviceId} className="pib-card p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-[var(--color-pib-text)]">{device.label}</h3>
+                        <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                          {device.deviceKind === 'vps' ? 'VPS' : 'Computer'} · {device.ownerType === 'organization' ? 'organisation-managed' : 'owned by you'}
+                          {device.runtimeVersion ? ` · runtime ${device.runtimeVersion}` : ''}
+                        </p>
+                      </div>
+                      <span className={`rounded-full border px-2 py-1 text-[10px] ${device.supportsCustomAgents ? 'border-emerald-500/40 text-emerald-300' : 'border-amber-500/40 text-amber-300'}`}>
+                        {device.supportsCustomAgents ? 'Agent-ready' : 'Update required'}
+                      </span>
+                    </div>
+                    <div className="mt-4 space-y-2 border-t border-[var(--color-pib-line)] pt-3">
+                      {machineAgents.length === 0 ? (
+                        <p className="text-sm text-[var(--color-pib-text-muted)]">No workspace agents installed on this machine.</p>
+                      ) : machineAgents.map((agent) => (
+                        <div key={agent.agentId} className="flex items-center justify-between gap-3 rounded-md bg-[var(--color-pib-surface-muted)] px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-[var(--color-pib-text)]">{agent.name}</p>
+                            <p className="truncate text-[11px] text-[var(--color-pib-text-muted)]">
+                              {agent.agentKind === 'marketplace' || agent.isMarketplace ? 'Marketplace' : 'Custom'} · {agent.role} · {agent.provisioningStatus ?? 'ready'}
+                            </p>
+                          </div>
+                          {(agent.canEdit || agent.canManage || agent.canConfigureMarketplace) && (
+                            <button
+                              type="button"
+                              className="btn-pib-secondary btn-pib-sm shrink-0"
+                              onClick={() => {
+                                if (agent.agentKind === 'marketplace' || agent.isMarketplace) {
+                                  startSkillsConfig(agent)
+                                  revealMachineSection('marketplace-agents')
+                                } else {
+                                  startEdit(agent)
+                                }
+                              }}
+                            >
+                              {agent.agentKind === 'marketplace' || agent.isMarketplace ? 'Manage' : 'Edit'}
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Marketplace catalog */}
-      <section className="space-y-3">
+      {activeTab === 'marketplace' && (
+      <section id="agents-marketplace-panel" role="tabpanel" aria-labelledby="agents-marketplace-tab" className="space-y-3">
         <div>
           <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Marketplace templates</h2>
           <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
@@ -414,8 +535,10 @@ export default function OrganisationAgentsPage() {
           ))}
         </div>
       </section>
+      )}
 
       {/* Skills marketplace */}
+      {activeTab === 'marketplace' && (
       <section className="space-y-3">
         <div>
           <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Skills marketplace</h2>
@@ -449,10 +572,11 @@ export default function OrganisationAgentsPage() {
           ))}
         </div>
       </section>
+      )}
 
       {/* Installed marketplace instances */}
-      {marketplaceInstalled.length > 0 && (
-        <section className="space-y-3">
+      {activeTab === 'machines' && marketplaceInstalled.length > 0 && (
+        <section id="marketplace-agents" className="space-y-3">
           <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Installed from marketplace</h2>
 
           {skillsAgentId && (
@@ -566,7 +690,8 @@ export default function OrganisationAgentsPage() {
       )}
 
       {/* Custom agents */}
-      <section className="space-y-3">
+      {activeTab === 'machines' && (
+      <section id="custom-agents" className="space-y-3">
         <div className="flex items-end justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-[var(--color-pib-text)]">Your custom agents</h2>
@@ -577,7 +702,7 @@ export default function OrganisationAgentsPage() {
         </div>
 
         {showCreate && (
-          <form onSubmit={createAgent} className="pib-card space-y-4 p-4">
+          <form id="new-custom-agent" onSubmit={createAgent} className="pib-card scroll-mt-6 space-y-4 p-4">
             <p className="text-sm text-[var(--color-pib-text-muted)]">
               Personal computers create a private agent owned by you. Shared VPS creation is available only to organisation owners and admins.
             </p>
@@ -632,7 +757,7 @@ export default function OrganisationAgentsPage() {
             const isEditing = editingAgentId === agent.agentId
             const canEdit = Boolean(agent.canEdit ?? agent.canManage)
             return (
-              <article key={agent.agentId} className="p-4">
+              <article id={`custom-agent-${agent.agentId}`} key={agent.agentId} className="scroll-mt-6 p-4">
                 {isEditing ? (
                   <form onSubmit={saveAgent} className="space-y-3">
                     <div className="flex items-start justify-between gap-3">
@@ -707,6 +832,7 @@ export default function OrganisationAgentsPage() {
           })}
         </div>
       </section>
+      )}
     </div>
   )
 }
