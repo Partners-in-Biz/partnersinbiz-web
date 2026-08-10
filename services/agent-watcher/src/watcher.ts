@@ -175,21 +175,42 @@ function chunkAgentIds(agentIds: string[], size = 30): string[][] {
 }
 
 function completionStateFingerprint(task: TaskData): string {
+  const agentOutput = task.agentOutput && typeof task.agentOutput === 'object'
+    ? { ...(task.agentOutput as Record<string, unknown>) }
+    : null
+  if (agentOutput) {
+    // Producer dual-hold may patch artifacts/telemetry while verification runs;
+    // those are merged into the final output and must not trip the claim guard.
+    delete agentOutput.artifacts
+    delete agentOutput.telemetry
+    delete agentOutput.completedAt
+  }
   return JSON.stringify({
     completionEvidence: task.completionEvidence ?? null,
     agentStatus: task.agentStatus ?? null,
+    status: task.status ?? null,
+    columnId: task.columnId ?? null,
     assigneeAgentId: task.assigneeAgentId ?? null,
+    assignedTo: task.assignedTo ?? null,
     reviewerAgentId: task.reviewerAgentId ?? null,
     reviewerIds: task.reviewerIds ?? null,
     reviewStatus: task.reviewStatus ?? null,
-    agentOutputSummary: typeof task.agentOutput?.summary === 'string' ? task.agentOutput.summary : null,
+    agentOutput,
   })
+}
+
+function taskHasAssignedReviewer(task: TaskData): boolean {
+  return Boolean(
+    (typeof task.reviewerAgentId === 'string' && task.reviewerAgentId.trim())
+    || (Array.isArray(task.reviewerIds) && task.reviewerIds.some((id) => typeof id === 'string' && id.trim())),
+  )
 }
 
 interface TaskData {
   orgId?: string
   projectId?: string
   assigneeAgentId?: string
+  assignedTo?: { type?: string; id?: string } | null
   agentStatus?: string
   agentInput?: { spec?: string; context?: Record<string, unknown>; constraints?: string[] }
   dependsOn?: string[]
@@ -1446,10 +1467,6 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       return
     }
 
-    const hasReviewer = Boolean(
-      (typeof taskData.reviewerAgentId === 'string' && taskData.reviewerAgentId.trim())
-      || (Array.isArray(taskData.reviewerIds) && taskData.reviewerIds.some((id) => typeof id === 'string' && id.trim())),
-    )
     const finalized = await db.runTransaction(async (transaction) => {
       const latestSnap = await transaction.get(taskRef)
       const latestTask = (latestSnap.data() ?? completionTask) as TaskData
@@ -1468,8 +1485,9 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
           },
           updatedAt: FieldValue.serverTimestamp(),
         })
-        return false
+        return { ok: false as const, hasReviewer: false }
       }
+      const hasReviewer = taskHasAssignedReviewer(latestTask)
       transaction.update(taskRef, {
         ...agentStatusUpdate('done', { hasReviewer }),
         ...(activeRunId ? { agentConversationId: activeRunId } : {}),
@@ -1491,12 +1509,13 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         agentOutput: doneAgentOutput,
         updatedAt: FieldValue.serverTimestamp(),
       })
-      return true
+      return { ok: true as const, hasReviewer }
     })
-    if (!finalized) {
+    if (!finalized.ok) {
       logger.warn('completion integrity claim changed during verification', { taskId, agentId })
       return
     }
+    const hasReviewer = finalized.hasReviewer
     notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'done', {
       agentId,
       summary,
