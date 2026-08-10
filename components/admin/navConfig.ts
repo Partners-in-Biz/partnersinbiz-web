@@ -61,6 +61,7 @@ export const OPERATOR_NAV_TOPBAR: NavItem[] = [
     label: 'Agents', href: '/admin/agents', icon: 'group_work',
     children: [
       { label: 'Agents board', href: '/admin/agents' },
+      { label: 'Org chart', href: '/admin/agents/org-chart' },
       { label: 'Hermes control', href: '/admin/hermes' },
       { label: 'Hermes metrics', href: '/admin/hermes/metrics' },
     ],
