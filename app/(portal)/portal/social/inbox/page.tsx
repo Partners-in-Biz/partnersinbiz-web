@@ -455,6 +455,7 @@ export default function InboxPage() {
                 {/* Avatar and user info */}
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   {item.fromUser.avatarUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={item.fromUser.avatarUrl}
                       alt={item.fromUser.name}

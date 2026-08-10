@@ -85,6 +85,7 @@ function RoleBadge({ role }: { role: string }) {
 function Avatar({ name, photoURL }: { name?: string; photoURL?: string }) {
   if (photoURL) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={photoURL}
         alt={name}
