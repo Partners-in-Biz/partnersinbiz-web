@@ -216,11 +216,11 @@ export const PUT = withAuth('admin', async (req, user, context) => {
     finalUpdates.completionEvidence !== undefined ? finalUpdates.completionEvidence : existing.completionEvidence,
   )
   const verification = existing.completionVerification
+  const reviewerAgentId = finalUpdates.reviewerAgentId ?? existing.reviewerAgentId
+  const reviewerIds = finalUpdates.reviewerIds ?? existing.reviewerIds
   const hasReviewer = Boolean(
-    (typeof (finalUpdates.reviewerAgentId ?? existing.reviewerAgentId) === 'string'
-      && String(finalUpdates.reviewerAgentId ?? existing.reviewerAgentId).trim())
-    || (Array.isArray(finalUpdates.reviewerIds ?? existing.reviewerIds)
-      && (finalUpdates.reviewerIds ?? existing.reviewerIds as string[] | undefined)?.some((id) => typeof id === 'string' && id.trim())),
+    (typeof reviewerAgentId === 'string' && reviewerAgentId.trim())
+    || (Array.isArray(reviewerIds) && reviewerIds.some((id) => typeof id === 'string' && id.trim())),
   )
   const watcherVerified = evidence.ok
     && verification?.verifierIdentity === 'agent-watcher'
