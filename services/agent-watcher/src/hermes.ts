@@ -9,20 +9,27 @@ import { buildAgentRunTelemetry, type AgentRunTelemetry } from './run-telemetry'
 const POLL_INTERVAL_MS = 2_000
 const MAX_NOT_FOUND_POLLS = 5
 const MAX_RETRYABLE_HTTP_POLLS = 5
+const MAX_RETRYABLE_FETCH_POLLS = 5
 const RETRYABLE_HTTP_STATUSES = new Set([429, 502, 503, 504])
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'succeeded', 'success', 'error', 'cancelled', 'canceled', 'interrupted'])
 const FAILURE_STATUSES = new Set(['failed', 'error', 'cancelled', 'canceled', 'interrupted'])
 
+export type DispatchAcceptance = 'accepted' | 'not-accepted' | 'unknown'
+
 export interface RunResult {
   runId: string | null
   output: string | null
   error: string | null
+  /** Whether reconciliation proves the POST was accepted by Hermes. */
+  dispatchAcceptance: DispatchAcceptance
   telemetry: AgentRunTelemetry
 }
 
 export interface TaskDispatchInput {
   taskId: string
+  /** Stable opaque key for one logical task-dispatch attempt. */
+  dispatchKey?: string
   orgId: string
   agentId: string
   spec: string
@@ -104,7 +111,25 @@ function responseCorrelation(res: Response): string {
   return values.length > 0 ? ` [correlation: ${values.join(', ')}]` : ''
 }
 
-async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<{ runId: string; data: Record<string, unknown> }> {
+type DispatchOutcome =
+  | { acceptance: 'accepted'; runId: string; data: Record<string, unknown> }
+  | { acceptance: 'not-accepted' | 'unknown'; error: string }
+
+async function readResponseData(res: Response): Promise<{ data: Record<string, unknown>; text: string }> {
+  const text = await res.text()
+  if (!text) return { data: {}, text }
+  try {
+    return { data: JSON.parse(text) as Record<string, unknown>, text }
+  } catch {
+    return { data: { raw: text }, text }
+  }
+}
+
+function dispatchError(res: Response, text: string): string {
+  return `Hermes /v1/runs returned ${res.status}${responseCorrelation(res)}: ${text.slice(0, 500)}`
+}
+
+async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<DispatchOutcome> {
   const url = joinUrl(cfg.baseUrl, '/v1/runs')
   const body = {
     input: `[Task ${input.taskId}] ${input.spec}`,
@@ -125,34 +150,88 @@ async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<{ ru
     },
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${cfg.apiKey}`,
-    },
-    body: JSON.stringify(body),
-  })
-
-  let data: Record<string, unknown> = {}
-  const text = await res.text()
-  if (text) {
-    try {
-      data = JSON.parse(text) as Record<string, unknown>
-    } catch {
-      data = { raw: text }
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${cfg.apiKey}`,
+        ...(input.dispatchKey ? { 'Idempotency-Key': input.dispatchKey } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+  } catch (err) {
+    return {
+      acceptance: 'unknown',
+      error: `Hermes /v1/runs transport error: ${err instanceof Error ? err.message : String(err)}`,
     }
   }
 
+  const { data, text } = await readResponseData(res)
   if (!res.ok) {
-    throw new Error(`Hermes /v1/runs returned ${res.status}${responseCorrelation(res)}: ${text.slice(0, 500)}`)
+    // A 4xx response proves this request was rejected. A proxy/gateway 5xx or
+    // rate-limit response may have been emitted after upstream acceptance, so
+    // it must be reconciled before another runtime is allowed to dispatch.
+    return {
+      acceptance: res.status >= 500 || res.status === 429 ? 'unknown' : 'not-accepted',
+      error: dispatchError(res, text),
+    }
   }
 
   const runId = extractRunId(data)
   if (!runId) {
-    throw new Error(`Hermes /v1/runs did not return a run id; payload=${text.slice(0, 500)}`)
+    return {
+      acceptance: 'unknown',
+      error: `Hermes /v1/runs did not return a run id; payload=${text.slice(0, 500)}`,
+    }
   }
-  return { runId, data }
+  return { acceptance: 'accepted', runId, data }
+}
+
+async function reconcileDispatch(cfg: AgentConfig, dispatchKey?: string): Promise<DispatchOutcome> {
+  if (!dispatchKey) {
+    return {
+      acceptance: 'unknown',
+      error: 'Hermes dispatch acceptance is unknown: the attempt has no stable Idempotency-Key for reconciliation',
+    }
+  }
+  let res: Response
+  try {
+    res = await fetch(joinUrl(cfg.baseUrl, '/v1/runs/dispatch-key'), {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${cfg.apiKey}`,
+        'Idempotency-Key': dispatchKey,
+      },
+    })
+  } catch (err) {
+    return {
+      acceptance: 'unknown',
+      error: `Hermes dispatch acceptance is unknown after reconciliation: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+  const { data, text } = await readResponseData(res)
+  if (res.status === 404) {
+    return {
+      acceptance: 'not-accepted',
+      error: 'Hermes dispatch reconciliation proved the key was not accepted',
+    }
+  }
+  if (!res.ok) {
+    return {
+      acceptance: 'unknown',
+      error: `Hermes dispatch acceptance is unknown after reconciliation returned ${res.status}${responseCorrelation(res)}: ${text.slice(0, 500)}`,
+    }
+  }
+  const runId = extractRunId(data)
+  if (!runId) {
+    return {
+      acceptance: 'unknown',
+      error: 'Hermes dispatch acceptance is unknown because reconciliation returned no run id',
+    }
+  }
+  return { acceptance: 'accepted', runId, data }
 }
 
 async function pollRun(cfg: AgentConfig, runId: string, signal: { aborted: boolean }): Promise<Record<string, unknown>> {
@@ -161,6 +240,7 @@ async function pollRun(cfg: AgentConfig, runId: string, signal: { aborted: boole
   const deadline = timeoutMs === null ? null : Date.now() + timeoutMs
   let notFoundPolls = 0
   let retryableHttpPolls = 0
+  let retryableFetchPolls = 0
 
   while (!signal.aborted) {
     if (deadline !== null && timeoutMs !== null && Date.now() > deadline) {
@@ -174,13 +254,20 @@ async function pollRun(cfg: AgentConfig, runId: string, signal: { aborted: boole
         headers: { Authorization: `Bearer ${cfg.apiKey}` },
       })
     } catch (err) {
+      retryableFetchPolls += 1
+      if (retryableFetchPolls >= MAX_RETRYABLE_FETCH_POLLS) {
+        throw new Error(`Hermes run ${runId} poll transport failed repeatedly: ${err instanceof Error ? err.message : String(err)}`)
+      }
       logger.warn('Hermes poll fetch failed; retrying', {
         runId,
+        attempt: retryableFetchPolls,
         error: err instanceof Error ? err.message : String(err),
       })
       await sleep(POLL_INTERVAL_MS)
       continue
     }
+
+    retryableFetchPolls = 0
 
     const text = await res.text()
     let data: Record<string, unknown> = {}
@@ -249,32 +336,82 @@ export async function runAndPoll(
     completedAtMs: Date.now(),
     payloads: [finalPayload, createdPayload],
   })
-  try {
-    const { runId, data } = await postRun(cfg, input)
-    capturedRunId = runId
-    createdPayload = data
-    logger.info('Hermes run created', { taskId: input.taskId, runId, agentId: input.agentId })
 
-    // Notify caller of runId immediately so it can persist agentConversationId before polling.
-    if (onRunCreated) {
-      try {
-        await onRunCreated(runId)
-      } catch (cbErr) {
-        logger.warn('onRunCreated callback threw', {
-          runId,
-          error: cbErr instanceof Error ? cbErr.message : String(cbErr),
-        })
+  let dispatch = await postRun(cfg, input)
+  if (dispatch.acceptance === 'unknown') {
+    const postError = dispatch.error
+    const reconciled = await reconcileDispatch(cfg, input.dispatchKey)
+    if (reconciled.acceptance !== 'accepted') {
+      return {
+        runId: null,
+        output: null,
+        error: `${postError}; ${reconciled.error}`,
+        dispatchAcceptance: reconciled.acceptance,
+        telemetry: telemetry(null),
       }
     }
+    dispatch = reconciled
+  }
+  if (dispatch.acceptance !== 'accepted') {
+    return {
+      runId: null,
+      output: null,
+      error: dispatch.error,
+      dispatchAcceptance: dispatch.acceptance,
+      telemetry: telemetry(null),
+    }
+  }
 
+  const { runId, data } = dispatch
+  capturedRunId = runId
+  createdPayload = data
+  logger.info('Hermes run created', { taskId: input.taskId, runId, agentId: input.agentId })
+
+  // The caller owns the durable PiB task record. Do not poll until its run id
+  // has been persisted; otherwise a watcher crash leaves an accepted side-
+  // effecting run with no durable reconciliation handle.
+  if (onRunCreated) {
+    try {
+      await onRunCreated(runId)
+    } catch (cbErr) {
+      signal.aborted = true
+      return {
+        runId,
+        output: null,
+        error: `Hermes accepted run ${runId}, but the watcher could not persist its run id before polling: ${cbErr instanceof Error ? cbErr.message : String(cbErr)}`,
+        dispatchAcceptance: 'accepted',
+        telemetry: telemetry(null),
+      }
+    }
+  }
+
+  try {
     const final = await pollRun(cfg, runId, signal)
     const status = extractStatus(final)
     if (FAILURE_STATUSES.has(status)) {
-      return { runId: capturedRunId, output: null, error: extractError(final), telemetry: telemetry(final) }
+      return {
+        runId: capturedRunId,
+        output: null,
+        error: extractError(final),
+        dispatchAcceptance: 'accepted',
+        telemetry: telemetry(final),
+      }
     }
-    return { runId: capturedRunId, output: extractOutput(final), error: null, telemetry: telemetry(final) }
+    return {
+      runId: capturedRunId,
+      output: extractOutput(final),
+      error: null,
+      dispatchAcceptance: 'accepted',
+      telemetry: telemetry(final),
+    }
   } catch (err) {
     signal.aborted = true
-    return { runId: capturedRunId, output: null, error: err instanceof Error ? err.message : String(err), telemetry: telemetry(null) }
+    return {
+      runId: capturedRunId,
+      output: null,
+      error: err instanceof Error ? err.message : String(err),
+      dispatchAcceptance: 'accepted',
+      telemetry: telemetry(null),
+    }
   }
 }
