@@ -184,7 +184,9 @@ export function recordPrejoinOwnerApproval(input: {
 }): PrejoinResourceInvitation {
   requireValidNow(input.now)
   if (!input.ownerAuthorized || !clean(input.approvedByRef.id)) throw new Error('authorized owner is required')
-  if (input.invitation.status !== 'pending') throw new Error('only pending invitations can record owner approval')
+  if (input.invitation.status !== 'pending' && input.invitation.status !== 'pending_owner_verification') {
+    throw new Error('only pending invitations can record owner approval')
+  }
   if (isExpired(input.invitation, input.now)) return expirePrejoinResourceInvitation({ invitation: input.invitation, now: input.now })
   return { ...input.invitation, approvedByRef: input.approvedByRef, updatedAt: input.now }
 }

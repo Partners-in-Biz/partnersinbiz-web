@@ -17,9 +17,10 @@ import {
   validateRevokeUserShareInput,
   validateUserShareInput,
 } from '@/lib/client-documents/grants'
+import { syncUserShareDocumentGrants } from '@/lib/client-documents/canonical-grants'
 import { lastActorFrom } from '@/lib/api/actor'
 import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
-import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
+import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentAssumption } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
 import {
@@ -312,6 +313,12 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
   })
 
   if (!result.ok) return result.response
+
+  if (userShares?.ok || userShareRevocations?.ok || update.linked) {
+    const updatedDocument = await getClientDocument(id)
+    if (!updatedDocument) return apiError('Document not found', 404)
+    await syncUserShareDocumentGrants(updatedDocument, user)
+  }
 
   return apiSuccess({ id, updated: Object.keys(update) })
 })

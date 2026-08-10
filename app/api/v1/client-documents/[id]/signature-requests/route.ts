@@ -87,7 +87,7 @@ function signInviteHtml(opts: {
 /** GET — list signature requests for the document. */
 export const GET = withAuth('admin', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await getAccessibleClientDocument(id, user)
+  const access = await getAccessibleClientDocument(id, user, 'sign')
   if (!access.ok) return access.response
 
   const snap = await adminDb
@@ -105,7 +105,7 @@ export const GET = withAuth('admin', async (_req: NextRequest, user: ApiUser, ct
 /** POST — create a signature request and email the signer. */
 export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await getAccessibleClientDocument(id, user)
+  const access = await getAccessibleClientDocument(id, user, 'sign')
   if (!access.ok) return access.response
 
   const document = access.document
