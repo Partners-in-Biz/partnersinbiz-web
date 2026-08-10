@@ -169,7 +169,7 @@ describe('agent-host profile reloads', () => {
     fs.rmSync(home, { recursive: true, force: true })
   })
 
-  it('disables a managed fleet profile without stopping its healthy siblings on uninstall', async () => {
+  it('rejects an unscoped managed-fleet uninstall without stopping any profile', async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'pib-agent-host-disable-'))
     const env = { ...process.env, PIB_HERMES_HOME: home, HERMES_HOME: home }
     isManagedLaunchdHermesProfile.mockReturnValue(true)
@@ -188,8 +188,11 @@ describe('agent-host profile reloads', () => {
       preferredPort: 8756,
     }, { env, probe: async () => ({ availableAgentIds: [] }) })
 
-    expect(result).toEqual(expect.objectContaining({ ok: true }))
-    expect(disableManagedHermesProfile).toHaveBeenCalledWith({ agentId: 'theo', env })
+    expect(result).toEqual(expect.objectContaining({
+      ok: false,
+      error: expect.stringMatching(/managed PiB agent uninstall is rejected/i),
+    }))
+    expect(disableManagedHermesProfile).not.toHaveBeenCalled()
     expect(stopHermesGateway).not.toHaveBeenCalled()
     fs.rmSync(home, { recursive: true, force: true })
   })
