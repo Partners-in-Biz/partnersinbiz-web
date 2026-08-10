@@ -113,6 +113,9 @@ function compactTask(id: string, data: Record<string, unknown>) {
     verifierChecklist: Array.isArray(data.verifierChecklist) ? data.verifierChecklist : [],
     attachments: Array.isArray(data.attachments) ? data.attachments : [],
     chatDecisionExcerpt: typeof data.chatDecisionExcerpt === 'string' ? data.chatDecisionExcerpt : '',
+    completionEvidence: data.completionEvidence ?? null,
+    completionVerification: data.completionVerification ?? null,
+    completionIntegrityFailureReasons: data.completionIntegrityFailureReasons ?? null,
   }
 }
 
