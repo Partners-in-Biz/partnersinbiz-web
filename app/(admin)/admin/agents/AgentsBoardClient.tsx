@@ -6,6 +6,9 @@ import { AgentDetailPanel } from '@/components/agents/AgentDetailPanel'
 import type { AgentTeamDoc } from '@/components/agents/AgentCard'
 import type { HealthStatus } from '@/components/agents/AgentCard'
 import { PageHeader } from '@/components/ui/AppFoundation'
+import type { AgentOrgNode } from '@/lib/agent-org/types'
+
+const PLATFORM_ORG_ID = 'pib-platform-owner'
 
 interface SessionInfo {
   isSuperAdmin?: boolean
@@ -32,6 +35,7 @@ export default function AgentsBoardClient() {
   const [newModel, setNewModel]       = useState('gpt-5.5')
   const [newProvider, setNewProvider] = useState('openai-codex')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  const [orgNodes, setOrgNodes] = useState<AgentOrgNode[]>([])
   const enabledCount = agents.filter((agent) => agent.enabled).length
   const driftedPolicyCount = agents.filter((agent) => {
     const status = agent.skillPolicy?.driftStatus
@@ -67,15 +71,23 @@ export default function AgentsBoardClient() {
     setLoading(true)
     setTopError(null)
     try {
-      const res  = await fetch('/api/v1/admin/agents')
-      const body = await res.json()
-      if (!res.ok) {
+      const [agentsRes, orgRes] = await Promise.all([
+        fetch('/api/v1/admin/agents'),
+        fetch(`/api/v1/admin/agent-org?orgId=${encodeURIComponent(PLATFORM_ORG_ID)}`),
+      ])
+      const body = await agentsRes.json()
+      if (!agentsRes.ok) {
         setTopError(body?.error ?? 'Failed to load agents')
         return
       }
       const data: AgentTeamDoc[] = body.data ?? []
       setAgents(data)
       pingAllHealth(data)
+
+      if (orgRes.ok) {
+        const orgBody = await orgRes.json().catch(() => ({}))
+        setOrgNodes((orgBody.data?.nodes ?? []) as AgentOrgNode[])
+      }
     } catch (err) {
       setTopError(err instanceof Error ? err.message : 'Failed to load agents')
     } finally {
@@ -302,6 +314,29 @@ export default function AgentsBoardClient() {
               onClose={closePanel}
               onSaved={handleSaved}
               canEdit={isSuperAdmin}
+              orgRole={selected ? {
+                orgId: PLATFORM_ORG_ID,
+                node: orgNodes.find((n) => n.agentId === selected.agentId) ?? null,
+                nodes: orgNodes,
+                onNodeSaved: (node) => {
+                  if (!node) {
+                    setOrgNodes((prev) => prev.filter((n) => n.agentId !== selected.agentId))
+                    return
+                  }
+                  setOrgNodes((prev) => {
+                    const idx = prev.findIndex((n) => n.id === node.id)
+                    if (idx >= 0) {
+                      const next = [...prev]
+                      next[idx] = node
+                      return next
+                    }
+                    return [...prev, node]
+                  })
+                },
+                onNodeDeleted: () => {
+                  setOrgNodes((prev) => prev.filter((n) => n.agentId !== selected.agentId))
+                },
+              } : null}
             />
           </div>
         </>

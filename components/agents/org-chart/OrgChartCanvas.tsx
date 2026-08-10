@@ -36,6 +36,8 @@ export interface OrgChartCanvasProps {
   seeding: boolean
   onSeed: () => void
   onSelectNode: (node: AgentOrgNode) => void
+  /** Live machine model labels keyed by agentId (from /admin/agents runtimeModel). */
+  liveModelByAgentId?: Record<string, string>
 }
 
 const CARD_W = 208
@@ -203,7 +205,7 @@ function clampZoom(k: number): number {
 
 const OrgChartCanvas = forwardRef<OrgChartCanvasHandle, OrgChartCanvasProps>(
   function OrgChartCanvas(
-    { nodes, tree, loading, error, seeding, onSeed, onSelectNode },
+    { nodes, tree, loading, error, seeding, onSeed, onSelectNode, liveModelByAgentId = {} },
     ref,
   ) {
     const containerRef = useRef<HTMLDivElement>(null)
@@ -401,14 +403,24 @@ const OrgChartCanvas = forwardRef<OrgChartCanvasHandle, OrgChartCanvasProps>(
           {Array.from(layout.positioned.values()).map(({ node, x, y }) => {
             const iconClass = COLOR_ICON_BG[node.colorKey] ?? 'bg-white/10 text-[var(--color-pib-text-muted)]'
             const borderClass = COLOR_BORDER[node.colorKey] ?? 'border-l-white/20'
-            const modelChip = node.defaultModel ?? 'auto'
+            const liveLabel = node.agentId ? liveModelByAgentId[node.agentId] : undefined
+            const modelChip = liveLabel
+              ? liveLabel
+              : node.defaultModel
+                ? `task: ${node.defaultModel}`
+                : 'auto'
+            const modelTitle = liveLabel
+              ? `Live machine: ${liveLabel}${node.defaultModel ? ` · task default: ${node.defaultModel}` : ''}`
+              : node.defaultModel
+                ? `Task default only (no live profile): ${node.defaultModel}`
+                : 'No model default'
             return (
               <button
                 key={node.id}
                 type="button"
                 onClick={() => onSelectNode(node)}
                 onPointerDown={(e) => e.stopPropagation()}
-                title={`${node.name} — ${node.title}`}
+                title={`${node.name} — ${node.title}${liveLabel ? ` · ${liveLabel}` : ''}`}
                 className={`absolute rounded-lg border border-[var(--color-pib-line)] border-l-2 ${borderClass} bg-[var(--color-pib-surface)] p-2.5 text-left shadow-lg transition-transform duration-100 hover:-translate-y-0.5 hover:border-[var(--color-pib-line-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/30`}
                 style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
               >
@@ -430,7 +442,14 @@ const OrgChartCanvas = forwardRef<OrgChartCanvasHandle, OrgChartCanvasProps>(
                       {node.title}
                     </div>
                     <div className="mt-1.5 flex items-center gap-1.5">
-                      <span className="max-w-full truncate rounded border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-1.5 py-px font-mono text-[10px] text-[var(--color-pib-text-muted)]">
+                      <span
+                        title={modelTitle}
+                        className={`max-w-full truncate rounded border px-1.5 py-px font-mono text-[10px] ${
+                          liveLabel
+                            ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200'
+                            : 'border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] text-[var(--color-pib-text-muted)]'
+                        }`}
+                      >
                         {modelChip}
                       </span>
                       {node.agentId && (

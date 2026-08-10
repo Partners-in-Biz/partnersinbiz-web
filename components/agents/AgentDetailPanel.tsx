@@ -8,6 +8,9 @@ import type { AgentTeamDoc } from './AgentCard'
 import type { HealthStatus } from './AgentCard'
 import { AgentRuntimeModelForm } from './AgentRuntimeModelForm'
 import type { AgentRuntimeModelSettings } from '@/lib/agents/runtime-config'
+import type { AgentOrgNode } from '@/lib/agent-org/types'
+import { buildOrgDefaultsFromRuntime } from '@/lib/agent-org/syncRuntime'
+import OrgRoleForm from '@/components/agents/org-chart/OrgRoleForm'
 
 const COLOR_ACCENT: Record<string, string> = {
   violet:  'text-violet-400',
@@ -32,9 +35,11 @@ const HEALTH_PILL: Record<HealthStatus, { label: string; className: string }> = 
   loading:     { label: 'Checking…',   className: 'bg-white/10 text-[var(--color-pib-text-muted)]' },
 }
 
-const TABS = ['overview', 'skills', 'cron', 'env', 'config', 'soul', 'files', 'logs', 'edit'] as const
-type Tab = typeof TABS[number]
+const BASE_TABS = ['overview', 'skills', 'cron', 'env', 'config', 'soul', 'files', 'logs', 'edit'] as const
+type BaseTab = typeof BASE_TABS[number]
+type Tab = BaseTab | 'org'
 const TAB_LABELS: Record<Tab, string> = {
+  org:      'Org role',
   overview: 'Overview',
   skills:   'Skills',
   cron:     'Cron',
@@ -46,11 +51,24 @@ const TAB_LABELS: Record<Tab, string> = {
   edit:     'Edit',
 }
 
+export type AgentDetailOrgRoleContext = {
+  orgId: string
+  /** Matching org-chart node for this agent (null = unbound seat / create-from-agent). */
+  node: AgentOrgNode | null
+  nodes: AgentOrgNode[]
+  onNodeSaved?: (node: AgentOrgNode | null) => void
+  onNodeDeleted?: () => void
+}
+
 interface AgentDetailPanelProps {
   agent: AgentTeamDoc | null
   onClose: () => void
   onSaved: (updated: AgentTeamDoc) => void
   canEdit?: boolean
+  /** Hide outer header/close when embedded inside OrgNodeEditor. */
+  hideChrome?: boolean
+  /** When set, expose the Org role tab (parity with org-chart drawer). */
+  orgRole?: AgentDetailOrgRoleContext | null
 }
 
 interface HealthResult {
@@ -175,11 +193,31 @@ function RegistryList({ title, items }: { title: string; items?: string[] }) {
   )
 }
 
-export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: AgentDetailPanelProps) {
+export function AgentDetailPanel({
+  agent,
+  onClose,
+  onSaved,
+  canEdit = false,
+  hideChrome = false,
+  orgRole = null,
+}: AgentDetailPanelProps) {
   const { success: toastSuccess, error: toastError } = useToast()
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<Tab>('overview')
+  const [activeTab, setActiveTab] = useState<Tab>(orgRole ? 'org' : 'overview')
+  const [orgNodeLocal, setOrgNodeLocal] = useState<AgentOrgNode | null>(orgRole?.node ?? null)
+
+  useEffect(() => {
+    setOrgNodeLocal(orgRole?.node ?? null)
+  }, [orgRole?.node, agent?.agentId])
+
+  useEffect(() => {
+    // Prefer org tab when context appears; otherwise stay unless previous tab vanished.
+    if (orgRole && activeTab !== 'org' && !BASE_TABS.includes(activeTab as BaseTab)) {
+      setActiveTab('org')
+    }
+    if (!orgRole && activeTab === 'org') setActiveTab('overview')
+  }, [orgRole, activeTab])
 
   // Edit form state
   const [editName, setEditName]       = useState('')
@@ -261,7 +299,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
   // Reset everything when agent changes
   useEffect(() => {
     if (!agent) return
-    setActiveTab('overview')
+    setActiveTab(orgRole ? 'org' : 'overview')
     setEditName(agent.name)
     setEditPersona(agent.persona)
     setEditEnabled(agent.enabled)
@@ -561,6 +599,35 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
     toastSuccess('Auto model settings saved.')
     loadedTabs.current.delete('config')
     void loadConfig(agentId)
+
+    // Mirror primary model/effort into the linked org-chart node when present.
+    if (orgRole?.node?.id && canEdit) {
+      const defaults = buildOrgDefaultsFromRuntime(result.settings)
+      void fetch(`/api/v1/admin/agent-org/${encodeURIComponent(orgRole.node.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId: orgRole.orgId,
+          defaultModel: defaults.defaultModel,
+          defaultEffort: defaults.defaultEffort,
+        }),
+      })
+        .then(async (res) => {
+          const body = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            toastError(body?.error ?? 'Live runtime saved, but org-chart defaults did not sync')
+            return
+          }
+          const saved = (body.data?.node ?? body.data ?? null) as AgentOrgNode | null
+          if (saved) {
+            setOrgNodeLocal(saved)
+            orgRole.onNodeSaved?.(saved)
+          }
+        })
+        .catch((err) => {
+          toastError(err instanceof Error ? err.message : 'Org-chart default sync failed')
+        })
+    }
   }
 
   async function uploadSkill(file: File) {
@@ -773,36 +840,42 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
     ? configObj.liveConfig as Record<string, unknown>
     : null
   const liveConfigPath     = liveConfigObj?.path as string | undefined
-  const visibleTabs = canEdit ? TABS : TABS.filter((tab) => tab !== 'edit')
+  const tabsForPanel: Tab[] = orgRole
+    ? (['org', ...BASE_TABS] as Tab[])
+    : ([...BASE_TABS] as Tab[])
+  const visibleTabs = canEdit ? tabsForPanel : tabsForPanel.filter((tab) => tab !== 'edit')
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Panel header */}
-      <GlassBar className="shrink-0 gap-3 px-4 py-3" data-module-accent="cyan">
-        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${iconClass}`}>
-          <span className="material-symbols-outlined text-[18px]">{agent.iconKey}</span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2 className={`text-sm font-semibold ${accentClass}`}>{agent.name}</h2>
-          <p className="text-xs leading-snug text-[var(--color-pib-text-muted)]">{agent.role}</p>
-        </div>
-        {healthPill ? (
-          <HudChip live={healthResult?.status === 'ok'} className={healthPill.className}>
-            {healthPill.label}
-          </HudChip>
-        ) : null}
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/10 hover:text-[var(--color-pib-text)]"
-          aria-label="Close panel"
-        >
-          <span className="material-symbols-outlined text-[18px]">close</span>
-        </button>
-      </GlassBar>
+      {!hideChrome && (
+        <GlassBar className="shrink-0 gap-3 px-4 py-3" data-module-accent="cyan">
+          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${iconClass}`}>
+            <span className="material-symbols-outlined text-[18px]">{agent.iconKey}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className={`text-sm font-semibold ${accentClass}`}>{agent.name}</h2>
+            <p className="text-xs leading-snug text-[var(--color-pib-text-muted)]">{agent.role}</p>
+          </div>
+          {healthPill ? (
+            <HudChip live={healthResult?.status === 'ok'} className={healthPill.className}>
+              {healthPill.label}
+            </HudChip>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/10 hover:text-[var(--color-pib-text)]"
+            aria-label="Close panel"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </GlassBar>
+      )}
 
       <div className="shrink-0 border-b border-white/10 px-4 py-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
         Only super admins can edit live agent configuration. Secrets remain redacted; config, env, file, cron, and runtime operations stay behind admin approval gates.
+        {orgRole ? ' Org role tab edits Firestore task defaults; Config tab edits the live Hermes machine profile.' : ''}
       </div>
 
       <PageTabs
@@ -815,6 +888,43 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
+
+        {/* ORG ROLE TAB */}
+        {activeTab === 'org' && orgRole && (
+          <OrgRoleForm
+            orgId={orgRole.orgId}
+            node={orgNodeLocal ?? (agent.agentId ? {
+              id: '',
+              orgId: orgRole.orgId,
+              name: agent.name,
+              title: agent.role || 'Specialist',
+              agentId: agent.agentId,
+              reportsTo: null,
+              chainOfCommand: [],
+              capabilities: [],
+              defaultModel: null,
+              defaultEffort: null,
+              delegation: { assignableFrom: 'manager_only', escalateToManager: true, allowLateral: false },
+              status: 'active',
+              iconKey: agent.iconKey || 'smart_toy',
+              colorKey: agent.colorKey || 'violet',
+              createdAt: '',
+              updatedAt: '',
+            } : null)}
+            nodes={orgRole.nodes}
+            canEdit={canEdit}
+            defaultSyncLiveRuntime={Boolean(agent.agentId)}
+            showCancel={false}
+            onSaved={(saved) => {
+              setOrgNodeLocal(saved)
+              orgRole.onNodeSaved?.(saved)
+            }}
+            onDeleted={() => {
+              setOrgNodeLocal(null)
+              orgRole.onNodeDeleted?.()
+            }}
+          />
+        )}
 
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
