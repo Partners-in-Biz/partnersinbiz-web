@@ -807,6 +807,12 @@ export function applyAgentColumnMoveState(
     // Other explicit statuses (for example, done) retain their existing intent.
     const startsNewAttempt = callerDidNotSetStatus || requestedAgentStatus === 'pending'
     if (!requeueable || !startsNewAttempt) return updates
+    // Never reset agentRetryCount to null/0 on requeue. The watcher hashes
+    // org/task/agent/attempt into Hermes Idempotency-Key. Reusing attempt 0 after
+    // the payload changed correctly returns HTTP 409 and freezes the board.
+    const priorAttempt = Number.isFinite(Number(existing.agentRetryCount))
+      ? Math.max(0, Math.trunc(Number(existing.agentRetryCount)))
+      : 0
     return {
       ...updates,
       agentStatus: 'pending',
@@ -816,8 +822,9 @@ export function applyAgentColumnMoveState(
       agentHeartbeatAt: null,
       // A requeue starts a new attempt. Old retry/failure/completion facts must
       // not be reused to auto-complete or suppress that attempt.
-      agentRetryCount: null,
+      agentRetryCount: priorAttempt + 1,
       agentRetryAt: null,
+      agentDispatchKey: null,
       agentDispatchFailure: null,
       completionEvidence: null,
       completionIntegrityFailureReasons: null,

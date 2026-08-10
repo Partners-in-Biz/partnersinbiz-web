@@ -142,6 +142,10 @@ export function applyAgentTodoRequeue(
 
   if (!hasAgent || !movedToTodo || !callerDidNotSetStatus || !requeueable) return updates
 
+  const priorAttempt = Number.isFinite(Number(existing.agentRetryCount))
+    ? Math.max(0, Math.trunc(Number(existing.agentRetryCount)))
+    : 0
+
   return {
     ...updates,
     agentStatus: 'pending',
@@ -150,6 +154,11 @@ export function applyAgentTodoRequeue(
     agentOutput: null,
     agentConversationId: null,
     agentHeartbeatAt: null,
+    // Keep Hermes Idempotency-Keys unique across requeues with changed payloads.
+    agentRetryCount: priorAttempt + 1,
+    agentRetryAt: null,
+    agentDispatchKey: null,
+    agentDispatchFailure: null,
     // A requeue starts a new attempt. Old completion facts must not be reused
     // to auto-complete or bypass watcher/reviewer verification on the new run.
     completionEvidence: null,

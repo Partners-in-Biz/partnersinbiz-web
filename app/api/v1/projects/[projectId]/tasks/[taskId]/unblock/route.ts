@@ -97,12 +97,19 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (hasAgent) {
     // An authorised requeue begins a brand-new attempt. Never let a prior 502
     // retry, dispatch failure, or canary completion record bleed into it.
+    // Increment agentRetryCount instead of nulling it: watcher dispatch keys are
+    // derived from that counter, and reusing attempt 0 after a payload change
+    // freezes the card on Hermes HTTP 409 idempotency_key_conflict.
+    const priorAttempt = Number.isFinite(Number(task.agentRetryCount))
+      ? Math.max(0, Math.trunc(Number(task.agentRetryCount)))
+      : 0
     update.agentStatus = 'pending'
     update.agentOutput = null
     update.agentConversationId = null
     update.agentHeartbeatAt = null
-    update.agentRetryCount = null
+    update.agentRetryCount = priorAttempt + 1
     update.agentRetryAt = null
+    update.agentDispatchKey = null
     update.agentDispatchFailure = null
     update.completionEvidence = null
     update.completionIntegrityFailureReasons = null
