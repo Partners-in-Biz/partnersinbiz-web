@@ -192,9 +192,10 @@ export function AgentRuntimeModelForm({ agentId, canEdit, liveConfigSource, onSa
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex flex-col gap-1">
+        <label htmlFor={`runtime-primary-provider-${agentId}`} className="flex flex-col gap-1">
           <span className="text-[10px] pib-label">Primary provider</span>
           <input
+            id={`runtime-primary-provider-${agentId}`}
             list={`runtime-providers-${agentId}`}
             value={primaryProvider}
             onChange={(e) => setPrimaryProvider(e.target.value)}
@@ -202,6 +203,7 @@ export function AgentRuntimeModelForm({ agentId, canEdit, liveConfigSource, onSa
             required
             className="pib-input w-full font-mono text-sm"
             placeholder="xai-oauth"
+            aria-label="Primary provider"
           />
           <datalist id={`runtime-providers-${agentId}`}>
             {COMMON_RUNTIME_PROVIDERS.map((provider) => (
@@ -210,36 +212,42 @@ export function AgentRuntimeModelForm({ agentId, canEdit, liveConfigSource, onSa
           </datalist>
         </label>
 
-        <label className="flex flex-col gap-1">
+        <label htmlFor={`runtime-primary-model-${agentId}`} className="flex flex-col gap-1">
           <span className="text-[10px] pib-label">Primary model</span>
           <input
+            id={`runtime-primary-model-${agentId}`}
             value={primaryModel}
             onChange={(e) => setPrimaryModel(e.target.value)}
             disabled={!canEdit || saving}
             required
             className="pib-input w-full font-mono text-sm"
             placeholder="grok-4.5"
+            aria-label="Primary model"
           />
         </label>
 
-        <label className="flex flex-col gap-1 sm:col-span-2">
+        <label htmlFor={`runtime-primary-base-url-${agentId}`} className="flex flex-col gap-1 sm:col-span-2">
           <span className="text-[10px] pib-label">Primary base URL (optional)</span>
           <input
+            id={`runtime-primary-base-url-${agentId}`}
             value={primaryBaseUrl}
             onChange={(e) => setPrimaryBaseUrl(e.target.value)}
             disabled={!canEdit || saving}
             className="pib-input w-full font-mono text-sm"
             placeholder="https://api.x.ai/v1"
+            aria-label="Primary base URL"
           />
         </label>
 
-        <label className="flex flex-col gap-1 sm:col-span-2">
+        <label htmlFor={`runtime-reasoning-effort-${agentId}`} className="flex flex-col gap-1 sm:col-span-2">
           <span className="text-[10px] pib-label">Default reasoning effort</span>
           <select
+            id={`runtime-reasoning-effort-${agentId}`}
             value={reasoningEffort}
             onChange={(e) => setReasoningEffort(e.target.value)}
             disabled={!canEdit || saving}
             className="pib-input w-full text-sm"
+            aria-label="Default reasoning effort"
           >
             {RUNTIME_EFFORT_OPTIONS.map((option) => (
               <option key={option.value || 'unset'} value={option.value}>
