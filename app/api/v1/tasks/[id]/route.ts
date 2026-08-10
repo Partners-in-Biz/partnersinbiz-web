@@ -216,6 +216,13 @@ export const PUT = withAuth('admin', async (req, user, context) => {
     finalUpdates.completionEvidence !== undefined ? finalUpdates.completionEvidence : existing.completionEvidence,
   )
   const verification = existing.completionVerification
+  // Bind verification to the current evidence: if completionEvidence changed
+  // or was cleared (e.g. by requeue), stale verification must not satisfy the gate.
+  const evidenceChanged = finalUpdates.completionEvidence !== undefined
+    && finalUpdates.completionEvidence !== existing.completionEvidence
+  const evidenceCleared = finalUpdates.completionEvidence === null
+    || (finalUpdates.completionVerification === null && finalUpdates.completionEvidence === null)
+  const verificationFresh = !evidenceChanged && !evidenceCleared
   const reviewerAgentId = finalUpdates.reviewerAgentId ?? existing.reviewerAgentId
   const reviewerIds = finalUpdates.reviewerIds ?? existing.reviewerIds
   const hasReviewer = Boolean(
@@ -223,6 +230,7 @@ export const PUT = withAuth('admin', async (req, user, context) => {
     || (Array.isArray(reviewerIds) && reviewerIds.some((id) => typeof id === 'string' && id.trim())),
   )
   const watcherVerified = evidence.ok
+    && verificationFresh
     && verification?.verifierIdentity === 'agent-watcher'
     && verification.verifierResult === 'passed'
     && (evidence.evidence.workKind !== 'code' || (

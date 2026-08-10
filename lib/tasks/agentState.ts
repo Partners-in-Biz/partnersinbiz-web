@@ -150,5 +150,10 @@ export function applyAgentTodoRequeue(
     agentOutput: null,
     agentConversationId: null,
     agentHeartbeatAt: null,
+    // A requeue starts a new attempt. Old completion facts must not be reused
+    // to auto-complete or bypass watcher/reviewer verification on the new run.
+    completionEvidence: null,
+    completionVerification: null,
+    completionIntegrityFailureReasons: null,
   }
 }

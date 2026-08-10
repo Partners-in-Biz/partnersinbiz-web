@@ -355,4 +355,143 @@ describe('PUT /api/v1/tasks/[id]', () => {
     expect(res.status).toBe(200)
     expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({ tags: [] }))
   })
+
+  it('clears stale completion facts on requeue and blocks stale-verification terminal', async () => {
+    mockTaskGet.mockResolvedValue({
+      exists: true,
+      id: 'task-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        title: 'Agent task reopened after prior verification',
+        status: 'done',
+        agentStatus: 'done',
+        columnId: 'done',
+        assigneeAgentId: 'theo',
+        reviewStatus: 'approved',
+        completionEvidence: {
+          schemaVersion: 1,
+          workKind: 'code',
+          commitSha: 'abc123',
+          changedFiles: ['app/api/v1/tasks/[id]/route.ts'],
+          testCommand: 'jest',
+          testResult: 'passed',
+          worktreeState: 'clean',
+        },
+        completionVerification: {
+          verifierIdentity: 'agent-watcher',
+          verifierResult: 'passed',
+          commitReachable: true,
+          changedFilesMatch: true,
+          worktreeClean: true,
+        },
+        completionIntegrityFailureReasons: null,
+        createdBy: 'peet',
+        deleted: false,
+      }),
+    })
+    const { PUT } = await import('@/app/api/v1/tasks/[id]/route')
+
+    // Requeue: move back to todo
+    await PUT(req({ columnId: 'todo' }), { params: Promise.resolve({ id: 'task-1' }) })
+
+    const requeueUpdate = mockTaskUpdate.mock.calls.at(-1)?.[0] as Record<string, unknown>
+    expect(requeueUpdate.completionEvidence).toBeNull()
+    expect(requeueUpdate.completionVerification).toBeNull()
+    expect(requeueUpdate.completionIntegrityFailureReasons).toBeNull()
+
+    // Now try to complete again with stale verification still on the record
+    mockTaskGet.mockResolvedValue({
+      exists: true,
+      id: 'task-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        title: 'Agent task reopened',
+        status: 'todo',
+        agentStatus: 'pending',
+        columnId: 'todo',
+        assigneeAgentId: 'theo',
+        reviewStatus: 'changes-requested',
+        completionEvidence: null,
+        completionVerification: {
+          verifierIdentity: 'agent-watcher',
+          verifierResult: 'passed',
+          commitReachable: true,
+          changedFilesMatch: true,
+          worktreeClean: true,
+        },
+        completionIntegrityFailureReasons: null,
+        createdBy: 'peet',
+        deleted: false,
+      }),
+    })
+
+    const res2 = await PUT(req({ status: 'done', agentStatus: 'done' }), { params: Promise.resolve({ id: 'task-1' }) })
+
+    expect(res2.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      status: 'in_progress',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: ['completion_integrity_verification_required'],
+    }))
+  })
+
+  it('blocks evidence swap that keeps stale verification but changes workKind to no-code', async () => {
+    mockTaskGet.mockResolvedValue({
+      exists: true,
+      id: 'task-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        title: 'Agent task with prior code verification',
+        status: 'in_progress',
+        agentStatus: 'in-progress',
+        columnId: 'in_progress',
+        assigneeAgentId: 'theo',
+        completionEvidence: {
+          schemaVersion: 1,
+          workKind: 'code',
+          commitSha: 'abc123',
+          changedFiles: ['app/api/v1/tasks/[id]/route.ts'],
+          testCommand: 'jest',
+          testResult: 'passed',
+          worktreeState: 'clean',
+        },
+        completionVerification: {
+          verifierIdentity: 'agent-watcher',
+          verifierResult: 'passed',
+          commitReachable: true,
+          changedFilesMatch: true,
+          worktreeClean: true,
+        },
+        createdBy: 'peet',
+        deleted: false,
+      }),
+    })
+    const { PUT } = await import('@/app/api/v1/tasks/[id]/route')
+
+    // Swap evidence to no-code while keeping stale verification
+    const res = await PUT(req({
+      completionEvidence: {
+        schemaVersion: 1,
+        workKind: 'no-code',
+        noCodeReason: 'No files changed',
+        changedFiles: [],
+        testCommand: 'echo ok',
+        testResult: 'passed',
+        worktreeState: 'not-applicable',
+      },
+      status: 'done',
+      agentStatus: 'done',
+    }), { params: Promise.resolve({ id: 'task-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      status: 'in_progress',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: ['completion_integrity_verification_required'],
+    }))
+  })
 })
