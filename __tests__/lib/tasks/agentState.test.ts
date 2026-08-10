@@ -95,6 +95,9 @@ describe('standalone agent task state helpers', () => {
       agentOutput: null,
       agentConversationId: null,
       agentHeartbeatAt: null,
+      completionEvidence: null,
+      completionVerification: null,
+      completionIntegrityFailureReasons: null,
     })
   })
 
