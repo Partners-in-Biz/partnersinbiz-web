@@ -150,7 +150,9 @@ export function EntityScopedChat({
           orgName={isCompanyCowork ? entityLabel : orgName}
           currentUserUid={user.uid}
           currentUserDisplayName={user.displayName}
-          includeAllScopes
+          // Never includeAllScopes here: CRM contact/company embeds must only list
+          // threads scoped to this entity (scope + scopeRefId). The Messages rail
+          // is the place for the full conversation catalogue.
           scope={entityType}
           scopeRefId={entityId}
           initialAgentId={allowAgentParticipants ? 'pip' : undefined}
