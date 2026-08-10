@@ -6,7 +6,7 @@ Status: development evidence only. This note authorises no deployment, fleet rol
 
 The Hermes session-compression path must preserve an unpersisted current-turn tail when it acquires the compression lease and discovers that the durable parent session has advanced. A holder-qualified append is allowed only while the same valid compression lease is active. After that append succeeds, the compressor reloads the durable parent and adopts that canonical continuation. If the append is rejected, returns no success result, throws, or the local/durable boundary is divergent or invalid, compression aborts without creating a child session.
 
-The implementation source revisions are `4f26a9a15f20b560b2100f4782787dbee662abf1` (`fix(session): preserve live tail during compression adoption`) and `b60f9991613197b5a7e057e307433c9e4387952a` (`fix(session): reject boolean persistence boundaries`). The source project currently declares Hermes version 0.20.0; no signed Hermes release containing this hardening has been approved or published by this task.
+The rebased implementation source revisions are `196674f3e487e64042f4f957e93f9f8d4a223de7` (`fix(session): preserve live tail during compression adoption`) and `e1b1da87bd1a83ed9263434a7ebd43dcd76d6435` (`fix(session): reject boolean persistence boundaries`). The source project currently declares Hermes version 0.20.0; no signed Hermes release containing this hardening has been approved or published by this task.
 
 ## Evidence contract before any release decision
 
