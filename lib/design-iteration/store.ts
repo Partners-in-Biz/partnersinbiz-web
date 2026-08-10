@@ -75,6 +75,7 @@ function fromStored(id: string, data: Record<string, unknown>): DesignIterationS
 }
 
 export function generateDesignIterationSessionId(): string {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const crypto = require('node:crypto') as typeof import('node:crypto')
   return `di_${crypto.randomBytes(16).toString('base64url')}`
 }

@@ -74,6 +74,7 @@ export function SeoReportPDF({ data }: { data: SeoReportData }) {
       <Page size="A4" style={s.page}>
         <View style={s.header}>
           <View style={s.headerLeft}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
             {data.logoDataUrl ? <Image style={s.logo} src={data.logoDataUrl} /> : null}
             <View>
               <Text style={s.headerTitle}>SEO Performance Report</Text>
