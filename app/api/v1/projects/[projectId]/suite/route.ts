@@ -486,7 +486,7 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
   const access = await getProjectForUser(projectId, user, undefined, { action: 'project.read' })
   if (!access.ok) return apiError(access.error, access.status)
-  if (!grantAllowsSuiteAction(access.projectAccess, 'project.read')) {
+  if (!grantAllowsSuiteAction(access.projectAccess ?? undefined, 'project.read')) {
     return apiError('Project read is not granted for this cross-organisation share', 403)
   }
 
@@ -522,7 +522,7 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const filterItems = <T extends SuiteRecord>(items: T[]) => filterItemsForGrant(filterProjectItemsForAccess(items, {
     projectAccess: access.projectAccess,
     user,
-  }) as T[], access.projectAccess)
+  }) as T[], access.projectAccess ?? undefined)
   const tasks = filterItems(applyPermissionPolicies(tasksRaw, permissionsRaw, 'task'))
   const milestones = filterItems(applyPermissionPolicies(milestonesRaw, permissionsRaw, 'milestone'))
   const approvals = filterItems(applyPermissionPolicies(approvalsRaw, permissionsRaw, 'approval'))
@@ -589,7 +589,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required', 403)
   }
-  if (!grantAllowsSuiteAction(access.projectAccess, 'project.write', playbookId)) {
+  if (!grantAllowsSuiteAction(access.projectAccess ?? undefined, 'project.write', playbookId)) {
     return apiError('Project write is not granted for this cross-organisation share', 403)
   }
   if (!isPlaybookRun && (access.projectAccess?.crossOrgGrant?.items.length ?? 0) > 0) {
@@ -675,7 +675,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', permissionForSuiteType(type))) {
     return apiError('Project manager access is required for this project suite record', 403)
   }
-  if (!grantAllowsSuiteAction(access.projectAccess, 'project.write', id)) {
+  if (!grantAllowsSuiteAction(access.projectAccess ?? undefined, 'project.write', id)) {
     return apiError('Project write is not granted for this cross-organisation share', 403)
   }
 
@@ -738,7 +738,7 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', permissionForSuiteType(type))) {
     return apiError('Project manager access is required for this project suite record', 403)
   }
-  if (!grantAllowsSuiteAction(access.projectAccess, 'project.write', id)) {
+  if (!grantAllowsSuiteAction(access.projectAccess ?? undefined, 'project.write', id)) {
     return apiError('Project write is not granted for this cross-organisation share', 403)
   }
   const planningSensitive = suiteMutationRequiresPlanning(type)

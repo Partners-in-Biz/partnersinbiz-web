@@ -236,6 +236,22 @@ beforeEach(() => {
 })
 
 describe('project suite API', () => {
+  it('fails closed before suite helpers when project access is absent', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      error: 'Project access denied',
+    })
+
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects/project-1/suite'), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(mockCollection).not.toHaveBeenCalled()
+  })
+
   it('filters every Project Suite decision surface to a cross-org grant item allowlist', async () => {
     mockGetProjectForUser.mockResolvedValueOnce({
       ok: true,
@@ -288,6 +304,29 @@ describe('project suite API', () => {
     expect(body.data.risks.map((item: { id: string }) => item.id)).toEqual(['risk-ok'])
     expect(body.data.revenue.map((item: { id: string }) => item.id)).toEqual(['budget-ok'])
     expect(body.data.reports.revenue.trackedAmount).toBe(100)
+  })
+
+  it('denies a restricted cross-org suite grant from updating another item', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: { id: 'project-1', data: () => ({ id: 'project-1', orgId: 'owner-org', ownerOrgId: 'owner-org' }) },
+      projectAccess: {
+        role: 'manager',
+        source: 'project_organization',
+        canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-project-1', actions: ['project.write'], items: ['milestone-other'] },
+      },
+    })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'milestone', id: 'milestone-1', title: 'Forbidden update' }),
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockMilestoneUpdate).not.toHaveBeenCalled()
   })
 
   it('denies an item-scoped cross-org grant from creating an unscoped suite record', async () => {
