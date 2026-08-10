@@ -339,6 +339,7 @@ describe('agent watcher dispatchTask', () => {
         runId: 'run-live-1',
         output: 'done summary',
         error: null,
+        dispatchAcceptance: 'accepted',
         telemetry: {
           provider: null,
           model: null,
@@ -594,10 +595,16 @@ describe('agent watcher dispatchTask', () => {
       .mockResolvedValueOnce({ enabled: true, targetId: 'vps', baseUrl: 'https://vps.hermes.local', apiKey: 'vps-key' })
       .mockResolvedValueOnce({ enabled: true, targetId: 'local', baseUrl: 'https://local.hermes.local', apiKey: 'local-key' })
     runAndPollMock
-      .mockResolvedValueOnce({ runId: null, output: null, error: 'Hermes /v1/runs returned 502: upstream unavailable', telemetry: { durationMs: 4 } })
+      .mockResolvedValueOnce({ runId: null, output: null, error: 'Hermes /v1/runs returned 502: upstream unavailable', dispatchAcceptance: 'not-accepted', telemetry: { durationMs: 4 } })
       .mockImplementationOnce(async (_cfg, _input, onRunCreated) => {
         await onRunCreated('run-local-1')
-        return { runId: 'run-local-1', output: 'done after safe failover', error: null, telemetry: { durationMs: 9 } }
+        return {
+          runId: 'run-local-1',
+          output: 'done after safe failover',
+          error: null,
+          dispatchAcceptance: 'accepted',
+          telemetry: { durationMs: 9 },
+        }
       })
 
     await dispatchTask(taskRef as never, {
@@ -620,10 +627,68 @@ describe('agent watcher dispatchTask', () => {
     }))
   })
 
+  it('blocks an ambiguous no-run-id dispatch instead of failing over or scheduling a new POST', async () => {
+    const taskRef = makeTaskRef()
+    getAgentConfigMock.mockResolvedValue({ enabled: true, targetId: 'vps', baseUrl: 'https://vps.hermes.local', apiKey: 'vps-key' })
+    runAndPollMock.mockResolvedValue({
+      runId: null,
+      output: null,
+      error: 'Hermes dispatch acceptance is unknown after reconciliation: lookup unavailable',
+      dispatchAcceptance: 'unknown',
+      telemetry: { durationMs: 4 },
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Repair watcher transport safety',
+      requiredCapability: 'write',
+    })
+
+    expect(getAgentConfigMock).toHaveBeenCalledTimes(1)
+    expect(runAndPollMock).toHaveBeenCalledTimes(1)
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      agentDispatchFailure: expect.objectContaining({
+        phase: 'dispatch-acceptance-unknown',
+        retryEligible: false,
+      }),
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('not retried because dispatch acceptance is unknown'),
+      }),
+    }))
+  })
+
+  it('derives and passes one stable dispatch key for a logical task attempt', async () => {
+    const taskRef = makeTaskRef()
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Repair watcher transport safety',
+      agentRetryCount: 2,
+    })
+
+    expect(runAndPollMock.mock.calls[0][1]).toEqual(expect.objectContaining({
+      dispatchKey: expect.stringMatching(/^pib-dispatch-v1-[a-f0-9]{64}$/),
+    }))
+  })
+
   it('does not fail over or automatically retry a sensitive task after a pre-execution VPS gateway 502', async () => {
     const taskRef = makeTaskRef()
     getAgentConfigMock.mockResolvedValue({ enabled: true, targetId: 'vps', baseUrl: 'https://vps.hermes.local', apiKey: 'test-key' })
-    runAndPollMock.mockResolvedValue({ runId: null, output: null, error: 'Hermes /v1/runs returned 502: upstream unavailable', telemetry: { durationMs: 4 } })
+    runAndPollMock.mockResolvedValue({
+      runId: null,
+      output: null,
+      error: 'Hermes /v1/runs returned 502: upstream unavailable',
+      dispatchAcceptance: 'not-accepted',
+      telemetry: { durationMs: 4 },
+    })
 
     await dispatchTask(taskRef as never, {
       orgId: 'org-1',
@@ -770,10 +835,8 @@ describe('agent watcher dispatchTask', () => {
     const spec = runAndPollMock.mock.calls[0][1].spec as string
     expect(spec).toContain('Project context:')
     expect(spec).toContain('Launch project')
-    expect(spec).toContain('Approved spec (id: doc-1, type: requirements)')
-    expect(spec).toContain('Dependency outputs:')
-    expect(spec).toContain('Competitor research says lead with proof.')
-    expect(spec).toContain('/api/v1/agent/project/project-1')
+    expect(spec).toContain('/api/v1/agent/project/project-1/task/task-1/context')
+    expect(spec).toContain('approved source references, dependency evidence')
     expect(spec).toContain('## Surface mode: Persuade')
   })
 
@@ -935,7 +998,12 @@ describe('agent watcher dispatchTask', () => {
     startHeartbeatMock.mockReturnValue(stopHeartbeat)
     runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
       await onRunCreated('run-failed-1')
-      return { runId: 'run-failed-1', output: null, error: 'gateway failed' }
+      return {
+        runId: 'run-failed-1',
+        output: null,
+        error: 'gateway failed',
+        dispatchAcceptance: 'accepted',
+      }
     })
 
     await dispatchTask(taskRef as never, {
@@ -950,18 +1018,29 @@ describe('agent watcher dispatchTask', () => {
     expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
       agentStatus: 'blocked',
       agentConversationId: 'run-failed-1',
-      agentOutput: expect.objectContaining({ summary: 'Watcher error: gateway failed' }),
+      agentDispatchFailure: expect.objectContaining({
+        phase: 'accepted-run-polling',
+        retryEligible: false,
+      }),
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('Watcher error after accepted run run-failed-1: gateway failed'),
+      }),
     }))
   })
 
-  it('durably requeues transient provider connection failures instead of blocking the project', async () => {
+  it('blocks an accepted-run transient failure instead of scheduling a second POST', async () => {
     const taskRef = makeTaskRef()
     const stopHeartbeat = jest.fn()
     startHeartbeatMock.mockReturnValue(stopHeartbeat)
     jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-07-27T06:00:00.000Z'))
     runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
       await onRunCreated('run-connection-1')
-      return { runId: 'run-connection-1', output: null, error: 'Connection error.' }
+      return {
+        runId: 'run-connection-1',
+        output: null,
+        error: 'Connection error.',
+        dispatchAcceptance: 'accepted',
+      }
     })
 
     await dispatchTask(taskRef as never, {
@@ -974,14 +1053,56 @@ describe('agent watcher dispatchTask', () => {
 
     expect(stopHeartbeat).toHaveBeenCalledTimes(1)
     expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      agentConversationId: 'run-connection-1',
+      agentDispatchFailure: expect.objectContaining({
+        phase: 'accepted-run-polling',
+        retryEligible: false,
+      }),
+      agentHeartbeatAt: 'DELETE_FIELD',
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('will not dispatch a second run'),
+      }),
+    }))
+  })
+
+  it('durably requeues a proven not-accepted pre-execution transient failure', async () => {
+    const taskRef = makeTaskRef()
+    const stopHeartbeat = jest.fn()
+    startHeartbeatMock.mockReturnValue(stopHeartbeat)
+    jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-07-27T06:00:00.000Z'))
+    runAndPollMock.mockResolvedValue({
+      runId: null,
+      output: null,
+      error: 'Hermes /v1/runs returned 502: upstream unavailable',
+      dispatchAcceptance: 'not-accepted',
+      telemetry: { durationMs: 4 },
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'pip',
       agentStatus: 'pending',
       columnId: 'todo',
-      agentConversationId: 'run-connection-1',
+      title: 'Investigate project blockers',
+      requiredCapability: 'write',
+    })
+
+    expect(stopHeartbeat).toHaveBeenCalledTimes(1)
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'pending',
+      columnId: 'todo',
       agentRetryCount: 1,
       agentRetryAt: '2026-07-27T06:01:00.000Z',
       agentHeartbeatAt: 'DELETE_FIELD',
+      agentDispatchFailure: expect.objectContaining({
+        phase: 'pre-execution',
+        acceptance: 'not-accepted',
+        retryEligible: true,
+      }),
       agentOutput: expect.objectContaining({
-        summary: expect.stringContaining('Transient watcher error: Connection error.'),
+        summary: expect.stringContaining('Transient watcher error: Hermes /v1/runs returned 502'),
       }),
     }))
   })

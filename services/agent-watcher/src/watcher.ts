@@ -8,6 +8,7 @@
  *
  * Concurrency cap: 5 active dispatches per agent.
  */
+import crypto from 'node:crypto'
 import type { DocumentReference, DocumentSnapshot, QuerySnapshot } from 'firebase-admin/firestore'
 import { db, FieldValue } from './firestore'
 import { AGENT_IDS, getAgentConfig, loadEnabledAgentIds, type AgentConfig, type AgentId } from './config'
@@ -190,6 +191,9 @@ interface TaskData {
   completionEvidence?: unknown
   completionVerification?: { verifierIdentity?: string; verifierResult?: string; reasons?: string[]; commitReachable?: boolean | null; changedFilesMatch?: boolean | null }
   agentConversationId?: string
+  /** Stable key for the current logical task-dispatch attempt. */
+  agentDispatchKey?: string
+  agentDispatchFailure?: Record<string, unknown>
   workflowRunId?: string
   workflowNodeId?: string
   status?: string
@@ -256,7 +260,12 @@ export function isTransientHermesError(error: string): boolean {
 const PRE_EXECUTION_FAILOVER_UNSAFE = /\b(approval|approve|send|message|publish|schedule|spend|budget|finance|invoice|payment|delete|archive|secret|config|deploy|release|production|client-visible)\b/i
 
 function isPreExecutionTransportFailure(result: Awaited<ReturnType<typeof runAndPoll>>): boolean {
-  return !result.runId && Boolean(result.error) && isTransientHermesError(result.error!)
+  // A no-run-id transport error is safe to recover only when deterministic
+  // lookup has proved this runtime never accepted the dispatch key.
+  return result.dispatchAcceptance === 'not-accepted'
+    && !result.runId
+    && Boolean(result.error)
+    && isTransientHermesError(result.error!)
 }
 
 function canRecoverPreExecutionDispatch(input: {
@@ -314,6 +323,27 @@ function transientRetryAt(retryCount: number, now = Date.now(), error?: string):
 
 function safeDocKey(value: string): string {
   return value.replace(/\//g, '-')
+}
+
+/**
+ * One Firestore retry count represents one logical dispatch attempt. Hashing the
+ * durable identifiers gives Hermes an opaque valid key that survives watcher
+ * restarts and VPS→local recovery, without exposing org/task ids in headers.
+ */
+export function stableTaskDispatchKey(input: {
+  orgId: string
+  taskId: string
+  agentId: string
+  attempt: number
+}): string {
+  const canonical = JSON.stringify({
+    v: 1,
+    orgId: input.orgId,
+    taskId: input.taskId,
+    agentId: input.agentId,
+    attempt: Math.max(0, Math.trunc(input.attempt) || 0),
+  })
+  return `pib-dispatch-v1-${crypto.createHash('sha256').update(canonical).digest('hex')}`
 }
 
 const HUMAN_BLOCKER_PATTERNS = [
@@ -912,9 +942,23 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       }
     }
 
+    // The same task retry counter must resolve to the same opaque key after a
+    // watcher crash. A new durable retry increments that counter only after
+    // reconciliation proves this attempt was not accepted.
+    const dispatchAttempt = Number.isFinite(taskData.agentRetryCount)
+      ? Math.max(0, Math.trunc(Number(taskData.agentRetryCount)))
+      : 0
+    const dispatchKey = stableTaskDispatchKey({
+      orgId: taskData.orgId ?? '',
+      taskId,
+      agentId,
+      attempt: dispatchAttempt,
+    })
+
     // Move to in-progress + start heartbeat. Always preserve an explicit linked-device pin.
     await taskRef.update({
       ...agentStatusUpdate('in-progress'),
+      agentDispatchKey: dispatchKey,
       agentHeartbeatAt: FieldValue.serverTimestamp(),
       ...(taskData.agentRuntimeTargetId
         ? { agentRuntimeTargetId: taskData.agentRuntimeTargetId }
@@ -978,6 +1022,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     })
     const dispatchInput: TaskDispatchInput = {
       taskId,
+      dispatchKey,
       orgId: taskData.orgId ?? '',
       agentId,
       spec,
@@ -1022,24 +1067,17 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         ?? null,
     }
 
-    // Callback: fires as soon as the Hermes run is created (before polling completes).
-    // Writes agentConversationId so the PiB UI can show a "Live session →" link immediately.
+    // Callback: fires as soon as Hermes accepts a run and MUST persist the id
+    // before polling. Throwing deliberately stops pollRun; the accepted key/id
+    // remains recoverable rather than being hidden behind a polling storm.
     const onRunCreated = async (runId: string): Promise<void> => {
       activeRunId = runId
-      try {
-        await taskRef.update({
-          agentConversationId: runId,
-          updatedAt: FieldValue.serverTimestamp(),
-        })
-        logger.info('wrote agentConversationId', { taskId, agentId, runId })
-      } catch (err) {
-        logger.warn('failed to write agentConversationId', {
-          taskId,
-          agentId,
-          runId,
-          error: err instanceof Error ? err.message : String(err),
-        })
-      }
+      await taskRef.update({
+        agentConversationId: runId,
+        agentDispatchKey: dispatchKey,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      logger.info('persisted accepted Hermes run before polling', { taskId, agentId, runId, dispatchKey })
     }
 
     let result: Awaited<ReturnType<typeof runAndPoll>>
@@ -1109,12 +1147,76 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         provider: credentialRoute?.provider ?? (taskModel ? taskProvider : null),
         model: taskModel,
       })
+      const noRunId = !result.runId
+      if (noRunId && result.dispatchAcceptance === 'unknown') {
+        const dispatchFailure = {
+          phase: 'dispatch-acceptance-unknown',
+          targetId: effectiveCfg?.targetId ?? null,
+          dispatchKey,
+          error: humanError,
+          retryEligible: false,
+          observedAt: new Date().toISOString(),
+        }
+        const blockedSummary = `Watcher error: ${humanError} This task was not retried because dispatch acceptance is unknown; reconcile Idempotency-Key ${dispatchKey} before any new dispatch.`
+        await taskRef.update({
+          ...agentStatusUpdate('blocked'),
+          agentHeartbeatAt: FieldValue.delete(),
+          agentDispatchKey: dispatchKey,
+          agentDispatchFailure: dispatchFailure,
+          agentOutput: {
+            summary: blockedSummary,
+            telemetry,
+            completedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+          agentId,
+          summary: blockedSummary,
+          blockingReason: humanError,
+          runId: activeRunId,
+        })
+        return
+      }
+      if (result.runId && result.dispatchAcceptance === 'accepted') {
+        const dispatchFailure = {
+          phase: 'accepted-run-polling',
+          targetId: effectiveCfg?.targetId ?? null,
+          dispatchKey,
+          error: humanError,
+          retryEligible: false,
+          observedAt: new Date().toISOString(),
+        }
+        const blockedSummary = `Watcher error after accepted run ${result.runId}: ${humanError} The watcher will not dispatch a second run; reconcile/poll the persisted run id instead.`
+        await taskRef.update({
+          ...agentStatusUpdate('blocked'),
+          agentHeartbeatAt: FieldValue.delete(),
+          agentConversationId: result.runId,
+          agentDispatchKey: dispatchKey,
+          agentDispatchFailure: dispatchFailure,
+          agentOutput: {
+            summary: blockedSummary,
+            telemetry,
+            completedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+          agentId,
+          summary: blockedSummary,
+          blockingReason: humanError,
+          runId: result.runId,
+        })
+        return
+      }
       const safePreExecutionRecovery = canRecoverPreExecutionDispatch({ taskData, result })
-      const preExecutionFailure = !result.runId && isTransientHermesError(result.error)
+      const preExecutionFailure = isPreExecutionTransportFailure(result)
       const dispatchFailure = preExecutionFailure
         ? {
             phase: 'pre-execution',
             targetId: effectiveCfg?.targetId ?? null,
+            dispatchKey,
+            acceptance: result.dispatchAcceptance,
             error: humanError,
             retryEligible: safePreExecutionRecovery,
             observedAt: new Date().toISOString(),
@@ -1155,6 +1257,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         await taskRef.update({
           ...agentStatusUpdate('pending'),
           ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+          agentDispatchKey: FieldValue.delete(),
           agentRetryCount: nextRetryCount,
           agentRetryAt: retryAt,
           agentHeartbeatAt: FieldValue.delete(),
@@ -1386,6 +1489,30 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     })
     logger.error('dispatchTask threw', { taskId, agentId, error: message })
     try {
+      // Once a run id was observed, a retry would be a new execution unless a
+      // future reconciler explicitly resumes that id. Preserve the evidence and
+      // stop instead of turning a post-acceptance write/poll failure into a
+      // second POST.
+      if (activeRunId) {
+        const blockedSummary = `Watcher error after accepted run ${activeRunId}: ${humanError} No new dispatch was scheduled; reconcile/poll the persisted run id instead.`
+        await taskRef.update({
+          ...agentStatusUpdate('blocked'),
+          agentConversationId: activeRunId,
+          agentHeartbeatAt: FieldValue.delete(),
+          agentOutput: {
+            summary: blockedSummary,
+            completedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+          agentId,
+          summary: blockedSummary,
+          blockingReason: humanError,
+          runId: activeRunId,
+        })
+        return
+      }
       const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
       if (isTransientHermesError(message) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
         const nextRetryCount = priorRetryCount + 1

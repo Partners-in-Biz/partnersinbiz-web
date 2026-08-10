@@ -708,10 +708,13 @@ export async function pollKanbanLinkedRun(
     try {
       await options.onRunCreated(jobId)
     } catch (err) {
-      logger.warn('onRunCreated callback threw for linked run', {
-        jobId,
-        error: err instanceof Error ? err.message : String(err),
-      })
+      return {
+        runId: jobId,
+        output: null,
+        error: `Linked computer accepted job ${jobId}, but the watcher could not persist its run id before polling: ${err instanceof Error ? err.message : String(err)}`,
+        dispatchAcceptance: 'accepted',
+        telemetry: fallbackTelemetry(startedAtMs),
+      }
     }
   }
 
@@ -721,6 +724,7 @@ export async function pollKanbanLinkedRun(
         runId: jobId,
         output: null,
         error: `Linked computer run ${jobId} timed out after ${Math.round(timeoutMs / 1000)}s`,
+        dispatchAcceptance: 'accepted',
         telemetry: fallbackTelemetry(startedAtMs),
       }
     }
@@ -742,6 +746,7 @@ export async function pollKanbanLinkedRun(
         runId: jobId,
         output: (output || 'Linked computer returned no output.') + hostLine,
         error: null,
+        dispatchAcceptance: 'accepted',
         telemetry: fallbackTelemetry(startedAtMs),
       }
     }
@@ -756,6 +761,7 @@ export async function pollKanbanLinkedRun(
         runId: jobId,
         output: null,
         error: (error || fallback) + hostLine,
+        dispatchAcceptance: 'accepted',
         telemetry: fallbackTelemetry(startedAtMs),
       }
     }
@@ -767,6 +773,7 @@ export async function pollKanbanLinkedRun(
     runId: jobId,
     output: null,
     error: `Linked computer run ${jobId} aborted before completion`,
+    dispatchAcceptance: 'accepted',
     telemetry: fallbackTelemetry(startedAtMs),
   }
 }

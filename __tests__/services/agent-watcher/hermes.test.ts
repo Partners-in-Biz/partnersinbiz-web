@@ -38,6 +38,29 @@ describe('agent watcher Hermes dispatch', () => {
     expect(events).toEqual(['post', 'callback:run-live-1', 'callback-done', 'poll:true'])
   })
 
+  it('does not poll an accepted run when durable run-id persistence fails', async () => {
+    global.fetch = jest.fn(async (url: string | URL) => {
+      if (String(url).endsWith('/v1/runs')) {
+        return new Response(JSON.stringify({ run_id: 'run-persist-failure-1' }), { status: 200 })
+      }
+      throw new Error('poll must not start before persistence')
+    }) as unknown as typeof fetch
+
+    const result = await runAndPoll(cfg, {
+      taskId: 'task-1',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Do the work',
+      dispatchKey: 'pib-dispatch-v1-test-persist-failure-01',
+    }, async () => {
+      throw new Error('Firestore unavailable')
+    })
+
+    expect(result).toMatchObject({ runId: 'run-persist-failure-1', dispatchAcceptance: 'accepted' })
+    expect(result.error).toContain('could not persist its run id before polling')
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
   it('returns the run id when a terminal Hermes run fails', async () => {
     global.fetch = jest.fn(async (url: string | URL) => {
       const urlText = String(url)
@@ -298,5 +321,62 @@ describe('agent watcher Hermes dispatch', () => {
         missing: expect.arrayContaining(['token_usage', 'cost_usd']),
       },
     })
+  })
+
+  it('reconciles an ambiguous POST through the dispatch-key lookup before polling', async () => {
+    const key = 'pib-dispatch-v1-test-reconcile-0001'
+    const events: string[] = []
+    global.fetch = jest.fn(async (url: string | URL, init?: RequestInit) => {
+      const urlText = String(url)
+      if (urlText.endsWith('/v1/runs')) {
+        events.push(`post:${new Headers(init?.headers).get('Idempotency-Key')}`)
+        throw new TypeError('proxy response lost after acceptance')
+      }
+      if (urlText.endsWith('/v1/runs/dispatch-key')) {
+        events.push(`lookup:${new Headers(init?.headers).get('Idempotency-Key')}`)
+        return new Response(JSON.stringify({ run_id: 'run-reconciled-1', status: 'queued' }), { status: 200 })
+      }
+      events.push('poll')
+      return new Response(JSON.stringify({ status: 'completed', output: 'done' }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    const result = await runAndPoll(cfg, {
+      taskId: 'task-1',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Do the work',
+      dispatchKey: key,
+    }, async (runId) => {
+      events.push(`persist:${runId}`)
+    })
+
+    expect(result).toMatchObject({ runId: 'run-reconciled-1', output: 'done', error: null, dispatchAcceptance: 'accepted' })
+    expect(events).toEqual([`post:${key}`, `lookup:${key}`, 'persist:run-reconciled-1', 'poll'])
+  })
+
+  it('does not poll or retry a no-run-id dispatch when acceptance reconciliation stays ambiguous', async () => {
+    const key = 'pib-dispatch-v1-test-unknown-0001'
+    global.fetch = jest.fn(async (url: string | URL) => {
+      const urlText = String(url)
+      if (urlText.endsWith('/v1/runs')) {
+        return new Response('Bad Gateway', { status: 502 })
+      }
+      if (urlText.endsWith('/v1/runs/dispatch-key')) {
+        throw new TypeError('lookup unavailable')
+      }
+      throw new Error(`unexpected poll: ${urlText}`)
+    }) as unknown as typeof fetch
+
+    const result = await runAndPoll(cfg, {
+      taskId: 'task-1',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Do the work',
+      dispatchKey: key,
+    })
+
+    expect(result).toMatchObject({ runId: null, dispatchAcceptance: 'unknown' })
+    expect(result.error).toContain('dispatch acceptance is unknown')
+    expect(global.fetch).toHaveBeenCalledTimes(2)
   })
 })
