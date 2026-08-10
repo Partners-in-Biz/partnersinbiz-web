@@ -268,7 +268,12 @@ append-only `access.decided` audit events when `recordDecision` is requested.
   rows with provenance `sourceShareId`; `linkedOrgId`/`linkedUserId` pointers are
   read-only compatibility inputs used only to seed `PartnerIdentityLink` rows
   during backfill — they never grant access and may be removed once migration
-  evidence proves the canonical rows are complete.
+  evidence proves the canonical rows are complete. Dry-run-first planner:
+  `lib/cross-org/migration.ts` (`buildCanonicalMigrationPlan`,
+  `assertNoNewLegacyAliasCombination`, `applyMigrationPlan`) plus
+  `scripts/migrate-cross-org-canonical.ts`. Contradictions are surfaced, never
+  silent-merged; new legacy alias combinations are blocked outside identity
+  pointer sync; apply mode is non-destructive and access-preserving.
 
 ## Collection inventory
 
