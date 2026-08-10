@@ -180,8 +180,9 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
     expect(res.status).toBe(200)
     expect(taskUpdate).toHaveBeenCalledWith(expect.objectContaining({
       agentOutput: null,
-      agentRetryCount: null,
+      agentRetryCount: 4,
       agentRetryAt: null,
+      agentDispatchKey: null,
       agentDispatchFailure: null,
       completionEvidence: null,
       completionIntegrityFailureReasons: null,
@@ -193,8 +194,9 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
       agentStatus: 'pending',
       columnId: 'todo',
       agentOutput: null,
-      agentRetryCount: null,
+      agentRetryCount: 4,
       agentRetryAt: null,
+      agentDispatchKey: null,
       agentDispatchFailure: null,
       completionEvidence: null,
       completionIntegrityFailureReasons: null,
