@@ -1,3 +1,14 @@
+jest.mock('../../../services/agent-watcher/src/repository-isolation', () => ({
+  prepareWatcherTaskWorktree: jest.fn(async ({ taskId }: { taskId: string }) => ({
+    ok: true,
+    taskId,
+    branch: `pib-task-${taskId}`,
+    worktreePath: `/tmp/pib-agent-worktrees/demo/pib-task-${taskId}`,
+    workingDirectory: `/tmp/pib-agent-worktrees/demo/pib-task-${taskId}`,
+    reused: false,
+  })),
+}))
+
 jest.mock('../../../services/agent-watcher/src/config', () => ({
   AGENT_IDS: ['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo'],
   getAgentConfig: jest.fn(),
@@ -1186,7 +1197,7 @@ describe('agent watcher dispatchTask', () => {
       assigneeAgentId: 'pip',
       agentStatus: 'pending',
       columnId: 'todo',
-      title: 'Investigate project blockers',
+      title: 'Investigate project health',
       requiredCapability: 'write',
     })
 
@@ -1201,9 +1212,78 @@ describe('agent watcher dispatchTask', () => {
         phase: 'pre-execution',
         acceptance: 'not-accepted',
         retryEligible: true,
+        class: 'transient_queue_host',
       }),
       agentOutput: expect.objectContaining({
         summary: expect.stringContaining('Transient watcher error: Hermes /v1/runs returned 502'),
+      }),
+    }))
+  })
+
+  it('does not automatically requeue when review changes are still requested', async () => {
+    const taskRef = makeTaskRef()
+    jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-07-27T06:00:00.000Z'))
+    runAndPollMock.mockResolvedValue({
+      runId: null,
+      output: null,
+      error: 'Hermes /v1/runs returned 502: upstream unavailable',
+      dispatchAcceptance: 'not-accepted',
+      telemetry: { durationMs: 4 },
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'pip',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Investigate project health',
+      requiredCapability: 'write',
+      reviewStatus: 'changes-requested',
+    })
+
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      agentDispatchFailure: expect.objectContaining({
+        class: 'review_changes_requested',
+        retryEligible: false,
+      }),
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('review changes are unresolved'),
+      }),
+    }))
+  })
+
+  it('blocks with terminal exhaustion after the bounded retry budget', async () => {
+    const taskRef = makeTaskRef()
+    jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-07-27T06:00:00.000Z'))
+    runAndPollMock.mockResolvedValue({
+      runId: null,
+      output: null,
+      error: 'session-storage busy: database is locked',
+      dispatchAcceptance: 'not-accepted',
+      telemetry: { durationMs: 4 },
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'pip',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Investigate project health',
+      requiredCapability: 'write',
+      agentRetryCount: 3,
+    })
+
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      agentDispatchFailure: expect.objectContaining({
+        class: 'terminal_retry_exhausted',
+        retryEligible: false,
+      }),
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('Automatic retry budget exhausted'),
       }),
     }))
   })

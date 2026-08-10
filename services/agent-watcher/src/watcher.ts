@@ -41,6 +41,23 @@ import { notifyCommandSessionFromTask } from './command-session'
 import { buildCompletionArtifacts, notifyWorkflowGraphTerminal } from './workflow-writeback'
 import { buildWatcherPromptBudget } from './prompt-budget'
 import { prepareWatcherTaskWorktree, type WatcherWorktreeResult } from './repository-isolation'
+import {
+  decideAutomaticRequeue,
+  isGatewayRestartStormError,
+  isTransientHermesError,
+  MAX_TRANSIENT_RETRIES,
+  transientRetryAt,
+  type DurableFailureRecord,
+} from './failure-classification'
+
+export {
+  classificationMatrix,
+  decideAutomaticRequeue,
+  isGatewayRestartStormError,
+  isTransientHermesError,
+  MAX_TRANSIENT_RETRIES,
+  transientRetryAt,
+} from './failure-classification'
 
 
 function expectedArtifactsFromTask(taskData: TaskData): string[] | undefined {
@@ -138,12 +155,8 @@ const READY_TASK_SWEEP_MS = 60_000
 const MAX_READY_SWEEP_DOCS = 100
 const MAX_SCHEDULED_RELEASE_SWEEP_DOCS = 100
 const MAX_DEPENDENCY_RELEASE_SWEEP_DOCS = 100
-const MAX_TRANSIENT_RETRIES = 3
-// Normal provider blips stay short. Mid-run gateway loss / 502 storms need a
-// longer cool-down so the watcher does not re-claim while local-runtime is
-// still bouncing the profile.
-const TRANSIENT_RETRY_DELAYS_MS = [60_000, 5 * 60_000, 15 * 60_000] as const
-const GATEWAY_STORM_RETRY_DELAYS_MS = [5 * 60_000, 15 * 60_000, 30 * 60_000] as const
+// Transient retry budget + backoff tables live in failure-classification.ts
+// (bounded automatic requeue under the at-most-once dispatch contract).
 
 const inFlight = new Set<string>()
 const perAgentInFlight = new Map<AgentId, number>()
@@ -273,24 +286,6 @@ interface TaskData {
   }
 }
 
-const TRANSIENT_HERMES_ERROR_PATTERNS = [
-  /\bconnection error\b/i,
-  /\bfetch failed\b/i,
-  /\bsocket hang up\b/i,
-  /\b(?:ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN)\b/i,
-  /\b(?:429|502|503|504)\b/,
-  /\brate limit(?:ed)?\b/i,
-  /\bservice unavailable\b/i,
-  /\bprovider (?:is )?(?:overloaded|temporarily unavailable)\b/i,
-  /\bwas not found on the agent gateway\b/i,
-  /\bautomatic credential sync will retry\b/i,
-  /\bProvider authentication failed\b/i,
-]
-
-export function isTransientHermesError(error: string): boolean {
-  return TRANSIENT_HERMES_ERROR_PATTERNS.some((pattern) => pattern.test(error))
-}
-
 const PRE_EXECUTION_FAILOVER_UNSAFE = /\b(approval|approve|send|message|publish|schedule|spend|budget|finance|invoice|payment|delete|archive|secret|config|deploy|release|production|client-visible)\b/i
 
 function isPreExecutionTransportFailure(result: Awaited<ReturnType<typeof runAndPoll>>): boolean {
@@ -336,23 +331,51 @@ function canFailOverPreExecutionDispatch(input: {
   return true
 }
 
-export function isGatewayRestartStormError(error: string): boolean {
-  return (
-    /\bwas not found on the agent gateway\b/i.test(error)
-    || /\brun_not_found\b/i.test(error)
-    || /\breturned 502 repeatedly while polling\b/i.test(error)
-    || /\breturned 503 repeatedly while polling\b/i.test(error)
-    || /\bgateway_draining\b/i.test(error)
-    || /\baddress already in use\b/i.test(error)
-  )
-}
-
-function transientRetryAt(retryCount: number, now = Date.now(), error?: string): string {
-  const table = error && isGatewayRestartStormError(error)
-    ? GATEWAY_STORM_RETRY_DELAYS_MS
-    : TRANSIENT_RETRY_DELAYS_MS
-  const delay = table[Math.min(retryCount, table.length - 1)]
-  return new Date(now + delay).toISOString()
+function buildAutomaticRequeuePatch(input: {
+  decision: ReturnType<typeof decideAutomaticRequeue>
+  activeRunId?: string | null
+  dispatchKey?: string | null
+  telemetry?: AgentRunTelemetry | Record<string, unknown> | null
+  targetId?: string | null
+  preserveRuntimeTargetId?: string | null
+}): Record<string, unknown> {
+  const { decision } = input
+  const failure: Record<string, unknown> = {
+    ...decision.record,
+    ...(input.targetId ? { targetId: input.targetId } : {}),
+  }
+  if (decision.action === 'requeue') {
+    return {
+      ...agentStatusUpdate('pending'),
+      ...(input.activeRunId ? { agentConversationId: input.activeRunId } : {}),
+      agentDispatchKey: FieldValue.delete(),
+      agentRetryCount: decision.nextRetryCount,
+      agentRetryAt: decision.retryAt,
+      agentHeartbeatAt: FieldValue.delete(),
+      agentDispatchFailure: failure,
+      ...(input.preserveRuntimeTargetId ? { agentRuntimeTargetId: input.preserveRuntimeTargetId } : {}),
+      agentOutput: {
+        summary: decision.summary,
+        ...(input.telemetry ? { telemetry: input.telemetry } : {}),
+        completedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    }
+  }
+  return {
+    ...agentStatusUpdate('blocked'),
+    ...(input.activeRunId ? { agentConversationId: input.activeRunId } : {}),
+    ...(input.dispatchKey ? { agentDispatchKey: input.dispatchKey } : {}),
+    agentHeartbeatAt: FieldValue.delete(),
+    agentDispatchFailure: failure,
+    ...(input.preserveRuntimeTargetId ? { agentRuntimeTargetId: input.preserveRuntimeTargetId } : {}),
+    agentOutput: {
+      summary: decision.summary,
+      ...(input.telemetry ? { telemetry: input.telemetry } : {}),
+      completedAt: FieldValue.serverTimestamp(),
+    },
+    updatedAt: FieldValue.serverTimestamp(),
+  }
 }
 
 function safeDocKey(value: string): string {
@@ -866,40 +889,28 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
           runtimeTargetId: taskData.agentRuntimeTargetId,
           error: message,
         })
-        if (isTransientHermesError(message) || /offline|stale|heartbeat|retry/i.test(message)) {
-          const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
-          if (priorRetryCount < MAX_TRANSIENT_RETRIES) {
-            const nextRetryCount = priorRetryCount + 1
-            const retryAt = transientRetryAt(priorRetryCount, Date.now(), message)
-            await taskRef.update({
-              ...agentStatusUpdate('pending'),
-              agentRetryCount: nextRetryCount,
-              agentRetryAt: retryAt,
-              agentHeartbeatAt: FieldValue.delete(),
-              agentRuntimeTargetId: taskData.agentRuntimeTargetId,
-              agentOutput: {
-                summary: `Transient watcher error: ${message} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
-                completedAt: FieldValue.serverTimestamp(),
-              },
-              updatedAt: FieldValue.serverTimestamp(),
-            })
-            return
-          }
+        const classifiedError = (isTransientHermesError(message) || /offline|stale|heartbeat|retry/i.test(message))
+          ? `host unavailable: ${message}`
+          : message
+        const decision = decideAutomaticRequeue({
+          error: classifiedError,
+          dispatchAcceptance: 'not-accepted',
+          runId: null,
+          priorRetryCount: Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0,
+          phase: 'linked-device-resolve',
+          task: taskData,
+        })
+        await taskRef.update(buildAutomaticRequeuePatch({
+          decision,
+          preserveRuntimeTargetId: taskData.agentRuntimeTargetId ?? null,
+        }))
+        if (decision.action === 'block') {
+          notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+            agentId,
+            summary: decision.summary,
+            blockingReason: message,
+          })
         }
-        await taskRef.update({
-          ...agentStatusUpdate('blocked'),
-          agentRuntimeTargetId: taskData.agentRuntimeTargetId,
-          agentOutput: {
-            summary: `Watcher error: ${message}`,
-            completedAt: FieldValue.serverTimestamp(),
-          },
-          updatedAt: FieldValue.serverTimestamp(),
-        })
-        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
-          agentId,
-          summary: `Watcher error: ${message}`,
-          blockingReason: message,
-        })
         return
       }
       logger.warn('linked-device resolve skipped; continuing VPS path', {
@@ -1240,161 +1251,77 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         provider: credentialRoute?.provider ?? (taskModel ? taskProvider : null),
         model: taskModel,
       })
-      const noRunId = !result.runId
-      if (noRunId && result.dispatchAcceptance === 'unknown') {
-        const dispatchFailure = {
-          phase: 'dispatch-acceptance-unknown',
-          targetId: effectiveCfg?.targetId ?? null,
-          dispatchKey,
-          error: humanError,
-          retryEligible: false,
-          observedAt: new Date().toISOString(),
-        }
-        const blockedSummary = `Watcher error: ${humanError} This task was not retried because dispatch acceptance is unknown; reconcile Idempotency-Key ${dispatchKey} before any new dispatch.`
-        await taskRef.update({
-          ...agentStatusUpdate('blocked'),
-          agentHeartbeatAt: FieldValue.delete(),
-          agentDispatchKey: dispatchKey,
-          agentDispatchFailure: dispatchFailure,
-          agentOutput: {
-            summary: blockedSummary,
-            telemetry,
-            completedAt: FieldValue.serverTimestamp(),
-          },
-          updatedAt: FieldValue.serverTimestamp(),
-        })
-        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
-          agentId,
-          summary: blockedSummary,
-          blockingReason: humanError,
-          runId: activeRunId,
-        })
-        return
-      }
-      if (result.runId && result.dispatchAcceptance === 'accepted') {
-        const dispatchFailure = {
-          phase: 'accepted-run-polling',
-          targetId: effectiveCfg?.targetId ?? null,
-          dispatchKey,
-          error: humanError,
-          retryEligible: false,
-          observedAt: new Date().toISOString(),
-        }
-        const blockedSummary = `Watcher error after accepted run ${result.runId}: ${humanError} The watcher will not dispatch a second run; reconcile/poll the persisted run id instead.`
-        await taskRef.update({
-          ...agentStatusUpdate('blocked'),
-          agentHeartbeatAt: FieldValue.delete(),
-          agentConversationId: result.runId,
-          agentDispatchKey: dispatchKey,
-          agentDispatchFailure: dispatchFailure,
-          agentOutput: {
-            summary: blockedSummary,
-            telemetry,
-            completedAt: FieldValue.serverTimestamp(),
-          },
-          updatedAt: FieldValue.serverTimestamp(),
-        })
-        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
-          agentId,
-          summary: blockedSummary,
-          blockingReason: humanError,
-          runId: result.runId,
-        })
-        return
-      }
-      const safePreExecutionRecovery = canRecoverPreExecutionDispatch({ taskData, result })
       const preExecutionFailure = isPreExecutionTransportFailure(result)
-      const dispatchFailure = preExecutionFailure
-        ? {
-            phase: 'pre-execution',
-            targetId: effectiveCfg?.targetId ?? null,
-            dispatchKey,
-            acceptance: result.dispatchAcceptance,
-            error: humanError,
-            retryEligible: safePreExecutionRecovery,
-            observedAt: new Date().toISOString(),
-          }
-        : null
-      if (preExecutionFailure && !safePreExecutionRecovery) {
-        const blockedSummary = `Pre-execution dispatch did not start and was not retried because this task is approval-gated or side-effect-sensitive. Exact transport evidence: ${humanError}`
-        await taskRef.update({
-          ...agentStatusUpdate('blocked'),
-          agentHeartbeatAt: FieldValue.delete(),
-          agentDispatchFailure: dispatchFailure,
-          agentOutput: {
-            summary: blockedSummary,
-            telemetry,
-            completedAt: FieldValue.serverTimestamp(),
-          },
-          updatedAt: FieldValue.serverTimestamp(),
-        })
-        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
-          agentId,
-          summary: blockedSummary,
-          blockingReason: humanError,
-          runId: activeRunId,
-        })
-        return
-      }
-      if ((preExecutionFailure ? safePreExecutionRecovery : isTransientHermesError(result.error)) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
-        const nextRetryCount = priorRetryCount + 1
-        const retryAt = transientRetryAt(priorRetryCount, Date.now(), result.error)
+      const phase = result.dispatchAcceptance === 'unknown'
+        ? 'dispatch-acceptance-unknown'
+        : (result.runId && result.dispatchAcceptance === 'accepted')
+          ? 'accepted-run-polling'
+          : preExecutionFailure
+            ? 'pre-execution'
+            : 'run-failure'
+      const decision = decideAutomaticRequeue({
+        error: humanError,
+        dispatchAcceptance: result.dispatchAcceptance ?? null,
+        runId: result.runId ?? null,
+        output: result.output ?? null,
+        priorRetryCount,
+        phase,
+        dispatchKey,
+        task: taskData,
+        now: Date.now(),
+      })
+      if (decision.action === 'requeue') {
         logger.warn('transient Hermes run failure — scheduling durable retry', {
           taskId,
           agentId,
           runId: activeRunId,
-          retryCount: nextRetryCount,
-          retryAt,
+          retryCount: decision.nextRetryCount,
+          retryAt: decision.retryAt,
+          class: decision.class,
           error: result.error,
         })
-        await taskRef.update({
-          ...agentStatusUpdate('pending'),
-          ...(activeRunId ? { agentConversationId: activeRunId } : {}),
-          agentDispatchKey: FieldValue.delete(),
-          agentRetryCount: nextRetryCount,
-          agentRetryAt: retryAt,
-          agentHeartbeatAt: FieldValue.delete(),
-          ...(dispatchFailure ? { agentDispatchFailure: dispatchFailure } : {}),
-          agentOutput: {
-            summary: `Transient watcher error: ${humanError} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
-            telemetry,
-            completedAt: FieldValue.serverTimestamp(),
-          },
-          updatedAt: FieldValue.serverTimestamp(),
+      } else {
+        logger.warn('Hermes run failed — marking blocked', {
+          taskId,
+          agentId,
+          error: result.error,
+          class: decision.class,
         })
-        return
       }
-      logger.warn('Hermes run failed — marking blocked', { taskId, agentId, error: result.error })
-      await taskRef.update({
-        ...agentStatusUpdate('blocked'),
-        ...(activeRunId ? { agentConversationId: activeRunId } : {}),
-        agentOutput: {
-          summary: `Watcher error: ${humanError}`,
-          telemetry,
-          completedAt: FieldValue.serverTimestamp(),
-        },
-        updatedAt: FieldValue.serverTimestamp(),
-      })
-      notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
-        agentId,
-        summary: `Watcher error: ${humanError}`,
-        blockingReason: humanError,
-        runId: activeRunId,
-      })
-      void notifyWorkflowGraphTerminal({
-        taskRef,
-        taskId,
-        taskData: {
-          ...(taskData as unknown as Record<string, unknown>),
-          agentOutput: { summary: `Watcher error: ${humanError}`, telemetry },
-        },
-        outcome: 'blocked',
-        summary: `Watcher error: ${humanError}`,
-        hermesRunId: activeRunId,
+      await taskRef.update(buildAutomaticRequeuePatch({
+        decision,
+        activeRunId: result.runId ?? activeRunId,
+        dispatchKey: decision.action === 'block' ? dispatchKey : null,
         telemetry,
-        errorFamily: isTransientHermesError(result.error) ? 'transient_infra' : 'unknown',
-        actorUid: agentId,
-      })
+        targetId: effectiveCfg?.targetId ?? null,
+      }))
+      if (decision.action === 'block') {
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+          agentId,
+          summary: decision.summary,
+          blockingReason: humanError,
+          runId: result.runId ?? activeRunId,
+        })
+        void notifyWorkflowGraphTerminal({
+          taskRef,
+          taskId,
+          taskData: {
+            ...(taskData as unknown as Record<string, unknown>),
+            agentOutput: { summary: decision.summary, telemetry },
+          },
+          outcome: 'blocked',
+          summary: decision.summary,
+          hermesRunId: result.runId ?? activeRunId,
+          telemetry,
+          errorFamily: decision.class === 'transient_queue_host'
+            || decision.class === 'session_storage_busy'
+            || decision.class === 'runner_timeout_no_evidence'
+            || decision.class === 'terminal_retry_exhausted'
+            ? 'transient_infra'
+            : 'unknown',
+          actorUid: agentId,
+        })
+      }
       return
     }
 
@@ -1611,72 +1538,46 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       // future reconciler explicitly resumes that id. Preserve the evidence and
       // stop instead of turning a post-acceptance write/poll failure into a
       // second POST.
-      if (activeRunId) {
-        const blockedSummary = `Watcher error after accepted run ${activeRunId}: ${humanError} No new dispatch was scheduled; reconcile/poll the persisted run id instead.`
-        await taskRef.update({
-          ...agentStatusUpdate('blocked'),
-          agentConversationId: activeRunId,
-          agentHeartbeatAt: FieldValue.delete(),
-          agentOutput: {
-            summary: blockedSummary,
-            completedAt: FieldValue.serverTimestamp(),
-          },
-          updatedAt: FieldValue.serverTimestamp(),
-        })
+      const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
+      const decision = decideAutomaticRequeue({
+        error: humanError,
+        dispatchAcceptance: activeRunId ? 'accepted' : 'not-accepted',
+        runId: activeRunId,
+        priorRetryCount,
+        phase: activeRunId ? 'accepted-run-polling' : 'dispatch-throw',
+        task: taskData,
+        now: Date.now(),
+      })
+      await taskRef.update(buildAutomaticRequeuePatch({
+        decision,
+        activeRunId,
+      }))
+      if (decision.action === 'block') {
         notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
           agentId,
-          summary: blockedSummary,
+          summary: decision.summary,
           blockingReason: humanError,
           runId: activeRunId,
         })
-        return
-      }
-      const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
-      if (isTransientHermesError(message) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
-        const nextRetryCount = priorRetryCount + 1
-        const retryAt = transientRetryAt(priorRetryCount, Date.now(), message)
-        await taskRef.update({
-          ...agentStatusUpdate('pending'),
-          ...(activeRunId ? { agentConversationId: activeRunId } : {}),
-          agentRetryCount: nextRetryCount,
-          agentRetryAt: retryAt,
-          agentHeartbeatAt: FieldValue.delete(),
-          agentOutput: {
-            summary: `Transient watcher error: ${humanError} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
-            completedAt: FieldValue.serverTimestamp(),
+        void notifyWorkflowGraphTerminal({
+          taskRef,
+          taskId,
+          taskData: {
+            ...(taskData as unknown as Record<string, unknown>),
+            agentOutput: { summary: decision.summary },
           },
-          updatedAt: FieldValue.serverTimestamp(),
+          outcome: 'blocked',
+          summary: decision.summary,
+          hermesRunId: activeRunId,
+          errorFamily: decision.class === 'transient_queue_host'
+            || decision.class === 'session_storage_busy'
+            || decision.class === 'runner_timeout_no_evidence'
+            || decision.class === 'terminal_retry_exhausted'
+            ? 'transient_infra'
+            : 'unknown',
+          actorUid: agentId,
         })
-        return
       }
-      await taskRef.update({
-        ...agentStatusUpdate('blocked'),
-        ...(activeRunId ? { agentConversationId: activeRunId } : {}),
-        agentOutput: {
-          summary: `Watcher error: ${humanError}`,
-          completedAt: FieldValue.serverTimestamp(),
-        },
-        updatedAt: FieldValue.serverTimestamp(),
-      })
-      notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
-        agentId,
-        summary: `Watcher error: ${humanError}`,
-        blockingReason: humanError,
-        runId: activeRunId,
-      })
-      void notifyWorkflowGraphTerminal({
-        taskRef,
-        taskId,
-        taskData: {
-          ...(taskData as unknown as Record<string, unknown>),
-          agentOutput: { summary: `Watcher error: ${humanError}` },
-        },
-        outcome: 'blocked',
-        summary: `Watcher error: ${humanError}`,
-        hermesRunId: activeRunId,
-        errorFamily: isTransientHermesError(message) ? 'transient_infra' : 'unknown',
-        actorUid: agentId,
-      })
     } catch (writeErr) {
       logger.error('failed to write blocked status after dispatch error', {
         taskId,
