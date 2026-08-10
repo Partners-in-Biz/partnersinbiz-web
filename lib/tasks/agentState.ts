@@ -2,6 +2,24 @@ import { type AgentStatus, type TaskStatus } from './types'
 
 export type AgentColumnId = 'todo' | 'in_progress' | 'blocked' | 'review'
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Detect agent-owned tasks from top-level assigneeAgentId and legacy
+ * assignedTo.type='agent' records, including same-request assignment updates.
+ */
+export function isAgentOwnedTask(...sources: Array<unknown>): boolean {
+  for (const source of sources) {
+    if (!isRecord(source)) continue
+    if (typeof source.assigneeAgentId === 'string' && source.assigneeAgentId.trim()) return true
+    const assignedTo = isRecord(source.assignedTo) ? source.assignedTo : null
+    if (assignedTo?.type === 'agent' && typeof assignedTo.id === 'string' && assignedTo.id.trim()) return true
+  }
+  return false
+}
+
 export function columnForAgentStatus(status: AgentStatus): AgentColumnId {
   switch (status) {
     case 'pending':
@@ -62,10 +80,6 @@ export function applyStandaloneTaskStatusForAgentStatus(
   const agentStatus = typeof updates.agentStatus === 'string' ? updates.agentStatus as AgentStatus : null
   if (!agentStatus || body.status !== undefined) return
   updates.status = taskStatusForAgentStatus(agentStatus)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function taskSpecFrom(value: Record<string, unknown>, existing?: Record<string, unknown>): string {

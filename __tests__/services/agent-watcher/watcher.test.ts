@@ -15,7 +15,12 @@ jest.mock('../../../services/agent-watcher/src/hermes', () => ({
 }))
 
 jest.mock('../../../services/agent-watcher/src/firestore', () => ({
-  db: {},
+  db: {
+    runTransaction: jest.fn(async (work) => work({
+      get: (ref: { get: () => unknown }) => ref.get(),
+      update: (ref: { update: (patch: Record<string, unknown>) => unknown }, patch: Record<string, unknown>) => ref.update(patch),
+    })),
+  },
   FieldValue: {
     serverTimestamp: jest.fn(() => 'SERVER_TIME'),
     delete: jest.fn(() => 'DELETE_FIELD'),
@@ -407,6 +412,31 @@ describe('agent watcher dispatchTask', () => {
       agentStatus: 'done',
       agentConversationId: 'run-live-1',
       agentOutput: expect.objectContaining({ summary: 'done summary' }),
+    }))
+  })
+
+  it('does not write done when the task claim changes during asynchronous verification', async () => {
+    const taskRef = makeTaskRef()
+    const initialGet = taskRef.get.getMockImplementation()
+    taskRef.get
+      .mockImplementationOnce(initialGet)
+      .mockImplementationOnce(async () => {
+        await taskRef.update({
+          agentStatus: 'pending',
+          agentOutput: { summary: 'Remaining work is unresolved.' },
+        })
+        return { exists: true, data: () => ({ agentStatus: 'pending', agentOutput: { summary: 'Remaining work is unresolved.' } }) }
+      })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', title: 'Ship integrity control',
+    })
+
+    const updates = taskRef.update.mock.calls.map((call: unknown[]) => call[0] as Record<string, unknown>)
+    expect(updates.some((update) => update.agentStatus === 'done')).toBe(false)
+    expect(updates).toContainEqual(expect.objectContaining({
+      completionIntegrityFailureReasons: ['completion_state_changed_during_verification'],
+      completionVerification: expect.objectContaining({ verifierResult: 'failed' }),
     }))
   })
 

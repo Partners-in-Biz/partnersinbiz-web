@@ -70,6 +70,7 @@ export interface CompletionVerification {
   verifierResult: 'passed' | 'failed' | 'approved'
   reasons: string[]
   commitReachable: boolean | null
+  changedFilesMatch?: boolean | null
   worktreeClean?: boolean | null
   verifiedAt: unknown
   verifierRunId?: string | null
