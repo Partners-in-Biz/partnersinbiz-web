@@ -18,6 +18,10 @@ PIB_LOCAL_HERMES_ROUTES={"pip":{"baseUrl":"http://127.0.0.1:8755","apiKey":"..."
 
 Route URLs are restricted to loopback HTTP. The runtime includes the selected `agentId` in the claimed job, dispatches only to that agent's configured route, and reports the healthy inventory to PiB so Messages never offers a computer for an agent it does not have.
 
+## Long-running local Hermes work
+
+Local Hermes runs have no wall-clock timeout by default: the runtime and watcher remain attached until Hermes completes, fails, or the run is explicitly cancelled. Set `PIB_LOCAL_HERMES_RUN_TIMEOUT_MS` (runtime) or `HERMES_RUN_TIMEOUT_MS` (watcher) to a positive millisecond value only when an operator needs a bounded run; unset or `0` means unlimited. Health heartbeats and the existing authenticated restart/recovery paths remain active while a run is in progress.
+
 Production metadata names `version`, `minimumVersion`, `payloadUrl`, `sha256`, and an Ed25519 `signature`. Install/update verifies authenticated metadata and payload before activation, enforces the minimum version, and retains one prior verified binary for rollback. Missing or invalid signatures fail closed. Immutable release assets live in the repository's `runtime-v<semver>` GitHub Releases; bootstrap scripts resolve the latest stable release, while each signed manifest pins its payload to the exact versioned tag.
 
 The release private key is stored in GitHub Actions as `LINKED_RUNTIME_RELEASE_PRIVATE_KEY` and in Peet's macOS Keychain under `com.partnersinbiz.runtime-release-signing-key`. Only `runtime-installers/release-public.pem` is committed or distributed. Linux, macOS, and Windows release workflows build only from `main` and refuse mismatched signing keys, invalid SemVer, non-production source branches, or replacement of existing immutable platform assets.
