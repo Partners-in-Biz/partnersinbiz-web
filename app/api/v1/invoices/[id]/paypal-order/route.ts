@@ -10,13 +10,12 @@
  * Auth: admin (ai satisfies). The public view page proxies through
  * server-side with the admin key.
  */
-import { FieldValue } from 'firebase-admin/firestore'
-import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
 import { createPayPalOrder } from '@/lib/payments/paypal'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,6 +36,8 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   if (!access.ok) return access.response
   const ref = access.ref
   const invoice = access.data
+  const partnerTradeError = rejectGenericPartnerTradeMutation(invoice)
+  if (partnerTradeError) return apiError(partnerTradeError, 409)
 
   const publicToken: string | undefined = invoice.publicToken
   if (!publicToken) {

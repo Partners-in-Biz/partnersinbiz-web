@@ -45,6 +45,7 @@ async function main() {
   const { adminDb } = await import('@/lib/firebase/admin')
   const { createPartnerInvite, acceptPartnerInvite, unlinkPartnership, getPartnerInviteById, listPartnerLinks } =
     await import('@/lib/partner-links/store')
+  const { updateBusinessRelationship } = await import('@/lib/business-relationships/store')
   const { Timestamp } = await import('firebase-admin/firestore')
 
   const actor = { uid: 'user:tester', displayName: 'Tester', kind: 'human' as const }
@@ -88,6 +89,7 @@ async function main() {
     recipientEmail: 'Owner@Beta.Example',
     recipientName: 'Bea Owner',
     recipientCompanyName: 'Beta Manufacturing',
+    capabilities: ['crm', 'projects', 'documents', 'services', 'invoices'],
     actor,
     inviterUserId: 'user:alpha-boss',
     inviterEmail: 'boss@alpha.example',
@@ -136,19 +138,22 @@ async function main() {
   check('both typed as partner',
     rel1.relationshipType === 'partner' && rel2.relationshipType === 'partner')
   check('both active', rel1.status === 'active' && rel2.status === 'active')
-
-  // Settlement deliberately requires the canonical direction from invoice
-  // issuer (A) to recipient (B), not the legacy CRM relationship pointers.
-  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({
-    partnerLinkId: r1.partnerLinkId,
-    direction: { grantorOrgId: 'org-a', granteeOrgId: 'org-b' },
-    capabilities: ['invoices'], fieldSharingPolicy: {}, status: 'active', version: 1, schemaVersion: 1,
-    acceptance: {
-      grantor: { byRef: actor, at: now },
-      grantee: { byRef: actor, at: now },
-    },
-    createdAt: now, updatedAt: now,
-  })
+  // Acceptance itself must materialize the canonical bilateral authority —
+  // commerce must never depend on verifier-only seed records.
+  const canonicalLink = await doc('partnerLinks', r1.partnerLinkId!)
+  check('acceptance materializes canonical partner link', canonicalLink.status === 'active', canonicalLink)
+  const canonicalScopes = await adminDb.collection('partnerScopeAgreements')
+    .where('partnerLinkId', '==', r1.partnerLinkId).get()
+  const invoiceScopeId = canonicalScopes.docs.find((scope) => {
+    const direction = scope.data().direction
+    return direction?.grantorOrgId === 'org-a' && direction?.granteeOrgId === 'org-b'
+  })?.id ?? ''
+  const scopeDirections = canonicalScopes.docs.map((scope) => scope.data().direction)
+  check('acceptance materializes bilateral invoice scopes', Boolean(invoiceScopeId) && scopeDirections.some((direction) =>
+    direction?.grantorOrgId === 'org-a' && direction?.granteeOrgId === 'org-b',
+  ) && scopeDirections.some((direction) =>
+    direction?.grantorOrgId === 'org-b' && direction?.granteeOrgId === 'org-a',
+  ), scopeDirections)
 
   const inv1Final = await getPartnerInviteById(inv1.id)
   check('invite marked accepted', inv1Final?.status === 'accepted', inv1Final?.status)
@@ -327,13 +332,13 @@ async function main() {
   } catch { foreignRejected = true }
   check('cannot share a record you do not own', foreignRejected)
 
-  // Capability gate: invoices are not in the default capability set.
+  // Capability gate: the separate A↔C partner link does not negotiate invoices.
   let capBlocked = false
   const invRef = adminDb.collection('invoices').doc()
   await invRef.set({ orgId: 'org-a', invoiceNumber: 'INV-1', deleted: false, createdAt: now, updatedAt: now })
   try {
     await sharePartnerRecord({
-      ownerOrgId: 'org-a', relationshipId: r1.sourceRelationshipId,
+      ownerOrgId: 'org-a', relationshipId: r2.sourceRelationshipId,
       resourceType: 'invoice', resourceId: invRef.id, actor,
     })
   } catch { capBlocked = true }
@@ -476,7 +481,6 @@ async function main() {
     publishCatalogItem, unpublishCatalogItem, listPublishedCatalog,
     browsePartnerCatalog, placePartnerOrder, decidePartnerOrder, listPartnerOrders,
   } = await import('@/lib/partner-links/trade')
-  const { updateBusinessRelationship } = await import('@/lib/business-relationships/store')
 
   // Org A is the supplier here; org B accepted the link in section [1].
   const widgetRef = adminDb.collection('products').doc()
@@ -517,7 +521,7 @@ async function main() {
   // Enable orders + inventory on BOTH sides of the link.
   for (const [org, relId] of [['org-a', r1.sourceRelationshipId], ['org-b', r1.targetRelationshipId]] as const) {
     await updateBusinessRelationship(org, relId, {
-      sharedCapabilities: ['crm', 'projects', 'documents', 'services', 'orders', 'inventory'],
+      sharedCapabilities: ['crm', 'projects', 'documents', 'services', 'orders', 'inventory', 'invoices'],
     }, actor)
   }
 
@@ -876,6 +880,16 @@ async function main() {
     orgId: 'org-a', name: 'Joint Delivery Programme', status: 'active',
     deleted: false, createdAt: now, updatedAt: now,
   })
+  await adminDb.collection('projectMembers').doc(`${sharedProject.id}_${actor.uid}`).set({
+    projectId: sharedProject.id, userId: actor.uid, orgId: 'org-a', role: 'manager', status: 'active',
+    createdAt: now, updatedAt: now,
+  })
+
+  const preProjectScope = await doc('partnerScopeAgreements', invoiceScopeId)
+  check('project scope fixture remains canonical', preProjectScope.status === 'active' &&
+    preProjectScope.partnerLinkId === r1.partnerLinkId && Array.isArray(preProjectScope.capabilities) &&
+    preProjectScope.capabilities.includes('projects') && preProjectScope.acceptance?.grantor && preProjectScope.acceptance?.grantee,
+  preProjectScope)
 
   const granted = await grantPartnerProjectAccess({
     ownerOrgId: 'org-a', relationshipId: r1.sourceRelationshipId,
@@ -972,28 +986,29 @@ async function main() {
   const tradeInvoiceId = decided.invoiceId!
 
   // Only the recipient may record a payment, only the issuer may verify.
-  const tradeInvoiceTotal = Number((await doc('invoices', tradeInvoiceId)).total)
+  const tradeInvoiceSnapshot = await doc('invoices', tradeInvoiceId)
+  const tradeInvoiceTotal = Number(tradeInvoiceSnapshot.total)
   // Missing either acceptance side is not a capability, even when the row is
   // otherwise marked active. Restore the bilateral decision before next check.
-  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({ acceptance: {} }, { merge: true })
+  await adminDb.collection('partnerScopeAgreements').doc(invoiceScopeId).set({ acceptance: {} }, { merge: true })
   let unacceptedScopeRejected = false
   try {
     await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'UNACCEPTED', amount: tradeInvoiceTotal, idempotencyKey: 'unaccepted-scope', actor: partnerActor })
   } catch { unacceptedScopeRejected = true }
   check('settlement rejects a one-sided directional invoices capability', unacceptedScopeRejected)
-  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({
+  await adminDb.collection('partnerScopeAgreements').doc(invoiceScopeId).set({
     acceptance: { grantor: { byRef: actor, at: now }, grantee: { byRef: partnerActor, at: now } },
   }, { merge: true })
 
   // Fail closed when the negotiated direction is absent, then restore the
   // signed capability before exercising the normal payment flow.
-  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({ status: 'paused' }, { merge: true })
+  await adminDb.collection('partnerScopeAgreements').doc(invoiceScopeId).set({ status: 'paused' }, { merge: true })
   let pausedScopeRejected = false
   try {
     await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'PAUSED', amount: tradeInvoiceTotal, idempotencyKey: 'paused-scope', actor: partnerActor })
   } catch { pausedScopeRejected = true }
   check('settlement rejects a paused directional invoices capability', pausedScopeRejected)
-  await adminDb.collection('partnerScopeAgreements').doc('scope-invoices-a-to-b').set({ status: 'active' }, { merge: true })
+  await adminDb.collection('partnerScopeAgreements').doc(invoiceScopeId).set({ status: 'active' }, { merge: true })
 
   await adminDb.collection('invoices').doc(tradeInvoiceId).set({ buyerOrderId: 'tampered-pair' }, { merge: true })
   let tamperedPairRejected = false
@@ -1002,6 +1017,19 @@ async function main() {
   } catch { tamperedPairRejected = true }
   check('settlement rejects a tampered immutable invoice/order pair', tamperedPairRejected)
   await adminDb.collection('invoices').doc(tradeInvoiceId).set({ buyerOrderId: placed.buyerOrderId }, { merge: true })
+
+  const alteredLineItems = Array.isArray(tradeInvoiceSnapshot.lineItems)
+    ? tradeInvoiceSnapshot.lineItems.map((line: Record<string, unknown>, index: number) => index === 0
+      ? { ...line, productId: 'tampered-same-total-product' }
+      : line)
+    : []
+  await adminDb.collection('invoices').doc(tradeInvoiceId).set({ lineItems: alteredLineItems }, { merge: true })
+  let tamperedFinancialTermsRejected = false
+  try {
+    await recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: tradeInvoiceId, reference: 'TAMPERED-TERMS', amount: tradeInvoiceTotal, idempotencyKey: 'tampered-financial-terms', actor: partnerActor })
+  } catch { tamperedFinancialTermsRejected = true }
+  check('settlement rejects same-total tampered financial line terms', tamperedFinancialTermsRejected)
+  await adminDb.collection('invoices').doc(tradeInvoiceId).set({ lineItems: tradeInvoiceSnapshot.lineItems }, { merge: true })
 
   let issuerCannotPay = false
   try {
@@ -1156,7 +1184,7 @@ async function main() {
     dupLines.length === 1 && dupLines[0].qty === 5, dupLines)
 
   const dupReservedBefore = await reservedTotalFor(gadgetRef.id)
-  const dupDecided = await decidePartnerOrder({
+  await decidePartnerOrder({
     supplierOrgId: 'org-a', orderId: dupOrder.supplierOrderId, decision: 'confirm', actor,
   })
   check('confirm reserves the aggregated quantity ONCE',
@@ -1253,7 +1281,7 @@ async function main() {
 
   // Verification racing a fresh pay submission (after a reject resets status).
   await decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: payRaceInvoice, decision: 'reject', note: 'reset', idempotencyKey: 'race-dispute-reset', actor })
-  const verifyRaceOutcomes = await Promise.allSettled([
+  await Promise.allSettled([
     recordPartnerPayment({ payerOrgId: 'org-b', invoiceId: payRaceInvoice, reference: 'RACE-3', amount: payRaceTotal, idempotencyKey: 'race-notice-3', actor: partnerActor }),
     decidePartnerPayment({ issuerOrgId: 'org-a', invoiceId: payRaceInvoice, decision: 'confirm', idempotencyKey: 'race-confirm', actor }),
   ])

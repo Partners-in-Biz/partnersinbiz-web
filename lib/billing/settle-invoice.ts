@@ -25,6 +25,7 @@ import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { tryAttributeInvoicePaid } from '@/lib/email-analytics/attribution-hooks'
 import type { Subscription } from '@/lib/billing/types'
 import type { BillingInterval } from '@/lib/plans/types'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -216,6 +217,8 @@ export async function settleInvoicePaid(
     if (!snap.exists) return { kind: 'not-found' }
 
     const invoice = snap.data() as Record<string, unknown>
+    const genericMutationError = rejectGenericPartnerTradeMutation(invoice)
+    if (genericMutationError) throw new Error(genericMutationError)
 
     // Idempotency: any terminal-settled state is a no-op for this caller. We
     // treat `paid` and `partially_paid` as already-settled so a retry never

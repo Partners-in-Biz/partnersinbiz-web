@@ -24,6 +24,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
 import { settleInvoicePaid } from '@/lib/billing/settle-invoice'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,6 +43,8 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   if (!access.ok) return access.response
   const ref = access.ref
   const invoice = access.data
+  const genericMutationError = rejectGenericPartnerTradeMutation(invoice)
+  if (genericMutationError) return apiError(genericMutationError, 409)
   const orgId: string | undefined =
     typeof invoice.orgId === 'string' ? invoice.orgId : undefined
   const invoiceNumber: string =

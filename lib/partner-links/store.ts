@@ -11,6 +11,11 @@ import { revokeSharesForPartnerLink } from './shares'
 import { revokeProjectAccessForPartnerLink } from './collaboration'
 import { cancelOpenOrdersForPartnerLink } from './trade'
 import {
+  CROSS_ORG_SCHEMA_VERSION,
+  PARTNER_LINKS_COLLECTION,
+  PARTNER_SCOPE_AGREEMENTS_COLLECTION,
+} from '@/lib/cross-org/types'
+import {
   ensureIdentityLink,
   planIdentityLinksForAcceptance,
   revokeIdentityLinksForPartnerLink,
@@ -274,6 +279,70 @@ export async function declinePartnerInvite(input: {
 }
 
 /**
+ * Materialize the canonical authority at the same acceptance boundary that
+ * creates CRM mirrors. The mirrors remain compatibility projections only;
+ * finance and cross-org policy read these records as the source of authority.
+ */
+async function materializeCanonicalPartnerAuthority(input: {
+  partnerLinkId: string
+  sourceOrgId: string
+  targetOrgId: string
+  sourceRelationshipId: string
+  targetRelationshipId: string
+  capabilities: NonNullable<CreatePartnerInviteInput['capabilities']>
+  fieldSharingPolicy: NonNullable<CreatePartnerInviteInput['fieldSharingPolicy']>
+  sourceAcceptedBy: MemberRef
+  targetAcceptedBy: MemberRef
+}): Promise<void> {
+  const now = FieldValue.serverTimestamp()
+  const scopeId = (grantorOrgId: string, granteeOrgId: string) =>
+    `${input.partnerLinkId}:${grantorOrgId}:${granteeOrgId}`
+  const scopeData = (grantorOrgId: string, granteeOrgId: string, grantorAcceptedBy: MemberRef, granteeAcceptedBy: MemberRef) => ({
+    partnerLinkId: input.partnerLinkId,
+    direction: { grantorOrgId, granteeOrgId },
+    capabilities: input.capabilities,
+    fieldSharingPolicy: input.fieldSharingPolicy,
+    status: 'active',
+    version: 1,
+    schemaVersion: CROSS_ORG_SCHEMA_VERSION,
+    proposedByRef: grantorAcceptedBy,
+    acceptedByRef: granteeAcceptedBy,
+    acceptance: {
+      grantor: { byRef: grantorAcceptedBy, at: now },
+      grantee: { byRef: granteeAcceptedBy, at: now },
+    },
+    effectiveAt: now,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  await adminDb.runTransaction(async (tx) => {
+    tx.set(adminDb.collection(PARTNER_LINKS_COLLECTION).doc(input.partnerLinkId), {
+      partnerLinkId: input.partnerLinkId,
+      orgA: input.sourceOrgId,
+      orgB: input.targetOrgId,
+      relationshipIdA: input.sourceRelationshipId,
+      relationshipIdB: input.targetRelationshipId,
+      negotiableCapabilities: input.capabilities,
+      status: 'active',
+      schemaVersion: CROSS_ORG_SCHEMA_VERSION,
+      createdAt: now,
+      updatedAt: now,
+    }, { merge: true })
+    tx.set(
+      adminDb.collection(PARTNER_SCOPE_AGREEMENTS_COLLECTION).doc(scopeId(input.sourceOrgId, input.targetOrgId)),
+      scopeData(input.sourceOrgId, input.targetOrgId, input.sourceAcceptedBy, input.targetAcceptedBy),
+      { merge: true },
+    )
+    tx.set(
+      adminDb.collection(PARTNER_SCOPE_AGREEMENTS_COLLECTION).doc(scopeId(input.targetOrgId, input.sourceOrgId)),
+      scopeData(input.targetOrgId, input.sourceOrgId, input.targetAcceptedBy, input.sourceAcceptedBy),
+      { merge: true },
+    )
+  })
+}
+
+/**
  * The accept transaction. Order matters: the mirror company must exist before
  * either relationship row is written so both carry targetCompanyId.
  *
@@ -444,6 +513,18 @@ export async function acceptPartnerInvite(
     partnerLinkId,
     notes: 'Mutually accepted partner link.',
   }, actor, { bilateral: true })
+
+  await materializeCanonicalPartnerAuthority({
+    partnerLinkId,
+    sourceOrgId,
+    targetOrgId,
+    sourceRelationshipId: sourceRelationship.id,
+    targetRelationshipId: targetRelationship.id,
+    capabilities,
+    fieldSharingPolicy,
+    sourceAcceptedBy: invite.createdByRef ?? actor,
+    targetAcceptedBy: actor,
+  })
 
   // --- Canonical identity links (many-to-many join rows) --------------------
   // The acceptor verifies org-level affiliation on both sides; a contact_user

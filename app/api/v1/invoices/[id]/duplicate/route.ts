@@ -6,6 +6,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
 import { generateInvoicePdfShareToken } from '@/lib/invoices/share-token'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +18,8 @@ export const POST = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   const access = await requireInvoiceAccess(user, id)
   if (!access.ok) return access.response
   const source = access.data
+  const partnerTradeError = rejectGenericPartnerTradeMutation(source)
+  if (partnerTradeError) return apiError(partnerTradeError, 409)
 
   const invoiceNumber = await generateInvoiceNumber(source.orgId, source.clientDetails?.name ?? source.orgId)
 

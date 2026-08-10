@@ -5,6 +5,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { notifyInvoiceSent } from '@/lib/notifications/notify'
 import { logActivity } from '@/lib/activity/log'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 import {
   decorateInvoicePortalCapabilities,
   sanitizeInvoicePortalPatch,
@@ -29,6 +30,8 @@ export const PATCH = withAuth('client', async (req, user, ctx) => {
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
   const access = await requireInvoiceAccess(user, id, requestedOrgId)
   if (!access.ok) return access.response
+  const mutationError = rejectGenericPartnerTradeMutation(access.data)
+  if (mutationError) return apiError(mutationError, 409)
   const sanitized = sanitizeInvoicePortalPatch(user, access.data, body)
   if (!sanitized.ok) {
     return apiError(sanitized.error, sanitized.status)
@@ -114,6 +117,8 @@ export const DELETE = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const access = await requireInvoiceAccess(user, id)
   if (!access.ok) return access.response
+  const mutationError = rejectGenericPartnerTradeMutation(access.data)
+  if (mutationError) return apiError(mutationError, 409)
   await access.ref.delete()
   return apiSuccess({ deleted: true })
 })

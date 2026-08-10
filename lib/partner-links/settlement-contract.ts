@@ -1,3 +1,7 @@
+import crypto from 'node:crypto'
+import { evaluateExpiry, hasBilateralAcceptance } from '@/lib/cross-org/lifecycle'
+import type { PartnerLink, PartnerScopeAgreement } from '@/lib/cross-org/types'
+
 export type SettlementOperation = 'notice' | 'confirm' | 'dispute'
 
 export interface CanonicalSettlementPair {
@@ -23,6 +27,29 @@ function clean(value: unknown): string {
 
 function fail(detail: string): never {
   throw new Error(`Canonical partner settlement required: ${detail}`)
+}
+
+/** A stable, exact commercial representation independent of UI-only labels. */
+export function financialTermsHash(record: Record<string, unknown>): string {
+  const lineItems = Array.isArray(record.lineItems) ? record.lineItems : []
+  const normalizedLines = lineItems.map((raw) => {
+    const line = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    return {
+      productId: clean(line.productId),
+      quantity: Number(line.quantity ?? line.qty),
+      unitPrice: Number(line.unitPrice),
+      amount: Number(line.amount ?? line.total),
+      currency: clean(line.currency) || clean(record.currency),
+    }
+  }).sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)))
+  return crypto.createHash('sha256').update(JSON.stringify({
+    lineItems: normalizedLines,
+    subtotal: Number(record.subtotal),
+    taxRate: Number(record.taxRate),
+    taxAmount: Number(record.taxAmount),
+    total: Number(record.total),
+    currency: clean(record.currency),
+  })).digest('hex')
 }
 
 /**
@@ -87,8 +114,50 @@ export function validateCanonicalSettlementPair(input: {
       clean(sales.counterpartOrderId) !== buyerOrderId || clean(purchase.counterpartOrderId) !== supplierOrderId) {
     fail('orders are not an exact reciprocal issuer/recipient pair')
   }
+  const invoiceTotal = Number(invoice.total)
+  const salesTotal = Number(sales.total)
+  const purchaseTotal = Number(purchase.total)
+  if (!Number.isFinite(invoiceTotal) || !Number.isFinite(salesTotal) || !Number.isFinite(purchaseTotal) ||
+      Math.abs(invoiceTotal - salesTotal) > 0.005 || Math.abs(invoiceTotal - purchaseTotal) > 0.005 ||
+      !clean(invoice.currency) || clean(invoice.currency) !== clean(sales.currency) || clean(invoice.currency) !== clean(purchase.currency)) {
+    fail('invoice financial terms do not match the immutable mirrored order pair')
+  }
+
+  const financialHashes = [invoice, sales, purchase].map((record) => clean(record.tradeFinancialHash))
+  if (financialHashes.some((hash) => !hash) || new Set(financialHashes).size !== 1 ||
+      financialHashes.some((hash, index) => hash !== financialTermsHash([invoice, sales, purchase][index]))) {
+    fail('invoice line items and financial terms do not match the immutable mirrored order pair')
+  }
 
   return { partnerLinkId, tradeOrderId, issuerOrgId, recipientOrgId, supplierOrderId, buyerOrderId, tradeTermsHash }
+}
+
+/**
+ * Canonical settlement authority is a second boundary after the immutable pair:
+ * a live PartnerLink record plus a live, bilaterally accepted issuer-to-recipient
+ * invoices agreement. Relationship rows alone never replace this authority.
+ */
+export function validateCanonicalSettlementAuthority(input: {
+  pair: CanonicalSettlementPair
+  link: Pick<PartnerLink, 'id' | 'partnerLinkId' | 'orgA' | 'orgB' | 'status'> | null | undefined
+  scope: Pick<PartnerScopeAgreement, 'id' | 'partnerLinkId' | 'status' | 'direction' | 'capabilities' | 'acceptance' | 'expiresAt'> | null | undefined
+  now?: Date
+}): { scopeAgreementId: string } {
+  const { pair, link, scope } = input
+  const sameParties = link && ((clean(link.orgA) === pair.issuerOrgId && clean(link.orgB) === pair.recipientOrgId) ||
+    (clean(link.orgA) === pair.recipientOrgId && clean(link.orgB) === pair.issuerOrgId))
+  if (!link || clean(link.partnerLinkId) !== pair.partnerLinkId || clean(link.id) !== pair.partnerLinkId || link.status !== 'active' || !sameParties) {
+    fail('active canonical partner link is required')
+  }
+  const scopeExpired = scope ? evaluateExpiry({ status: scope.status, expiresAt: scope.expiresAt, now: input.now }).expired : false
+  if (!scope || scopeExpired || scope.status !== 'active' || !hasBilateralAcceptance(scope as PartnerScopeAgreement) ||
+    clean(scope.partnerLinkId) !== pair.partnerLinkId ||
+    clean(scope.direction?.grantorOrgId) !== pair.issuerOrgId ||
+    clean(scope.direction?.granteeOrgId) !== pair.recipientOrgId ||
+    !Array.isArray(scope.capabilities) || !scope.capabilities.includes('invoices')) {
+    fail('active bilateral directional invoices capability is required')
+  }
+  return { scopeAgreementId: clean(scope.id) }
 }
 
 /**

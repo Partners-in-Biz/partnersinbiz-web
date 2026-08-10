@@ -3,14 +3,14 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import { recordCrmAuditEvent } from '@/lib/crm/audit'
-import { PARTNER_AUDIT_EVENTS_COLLECTION, PARTNER_SCOPE_AGREEMENTS_COLLECTION } from '@/lib/cross-org/types'
-import { hasBilateralAcceptance } from '@/lib/cross-org/lifecycle'
-import type { PartnerScopeAgreement } from '@/lib/cross-org/types'
+import { PARTNER_AUDIT_EVENTS_COLLECTION, PARTNER_LINKS_COLLECTION, PARTNER_SCOPE_AGREEMENTS_COLLECTION } from '@/lib/cross-org/types'
+import type { PartnerLink, PartnerScopeAgreement } from '@/lib/cross-org/types'
 import { cleanString } from './identity'
 import {
   resolveSettlementIdempotency,
   type SettlementOperation,
   type StoredSettlementOperation,
+  validateCanonicalSettlementAuthority,
   validateCanonicalSettlementPair,
 } from './settlement-contract'
 
@@ -42,7 +42,7 @@ export interface PartnerPaymentRecord {
   submittedAt?: unknown
   decidedAt?: unknown
   decisionNote?: string
-  operations?: Partial<Record<SettlementOperation, PartnerPaymentOperation>>
+  operations?: Record<string, PartnerPaymentOperation>
 }
 
 export interface PartnerInvoiceSummary {
@@ -86,13 +86,17 @@ function fingerprint(value: Record<string, unknown>): string {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex')
 }
 
-function paymentOperations(value: unknown): Partial<Record<SettlementOperation, PartnerPaymentOperation>> {
+function paymentOperations(value: unknown): Record<string, PartnerPaymentOperation> {
   if (!value || typeof value !== 'object') return {}
-  return value as Partial<Record<SettlementOperation, PartnerPaymentOperation>>
+  return value as Record<string, PartnerPaymentOperation>
+}
+
+function operationStorageKey(idempotencyKey: string): string {
+  return crypto.createHash('sha256').update(idempotencyKey).digest('hex')
 }
 
 function operationForKey(
-  operations: Partial<Record<SettlementOperation, PartnerPaymentOperation>>,
+  operations: Record<string, PartnerPaymentOperation>,
   key: string,
 ): PartnerPaymentOperation | undefined {
   return Object.values(operations).find((operation) => cleanString(operation?.idempotencyKey) === key)
@@ -139,14 +143,15 @@ async function loadPartnerInvoiceTx(input: {
   const partnerLinkId = cleanString(data.partnerLinkId)
   if (!tradeOrderId || !partnerLinkId) throw new Error('This is not a canonical partner invoice')
 
-  const [orderSnap, relationshipSnap, scopeSnap] = await Promise.all([
+  const [orderSnap, relationshipSnap, partnerLinkSnap, scopeSnap] = await Promise.all([
     input.tx.get(adminDb.collection(ORDERS_COLLECTION).where('tradeOrderId', '==', tradeOrderId).limit(10)),
     input.tx.get(adminDb.collection('businessRelationships').where('partnerLinkId', '==', partnerLinkId).limit(10)),
+    input.tx.get(adminDb.collection(PARTNER_LINKS_COLLECTION).doc(partnerLinkId)),
     input.tx.get(adminDb.collection(PARTNER_SCOPE_AGREEMENTS_COLLECTION).where('partnerLinkId', '==', partnerLinkId).limit(20)),
   ])
 
   const orderDocs = orderSnap.docs
-  validateCanonicalSettlementPair({
+  const pair = validateCanonicalSettlementPair({
     invoice: data,
     orders: orderDocs.map((doc) => ({ id: doc.id, ...(doc.data() ?? {}) })),
     relationships: relationshipSnap.docs.map((doc) => ({ id: doc.id, ...(doc.data() ?? {}) })),
@@ -155,14 +160,15 @@ async function loadPartnerInvoiceTx(input: {
   const scope = scopeSnap.docs
     .map((doc) => ({ id: doc.id, ...(doc.data() ?? {}) }) as PartnerScopeAgreement)
     .find((candidate) =>
-      candidate.status === 'active' &&
-      hasBilateralAcceptance(candidate) &&
       cleanString(candidate.partnerLinkId) === partnerLinkId &&
       cleanString(candidate.direction?.grantorOrgId) === issuerOrgId &&
-      cleanString(candidate.direction?.granteeOrgId) === recipientOrgId &&
-      Array.isArray(candidate.capabilities) && candidate.capabilities.includes('invoices'),
+      cleanString(candidate.direction?.granteeOrgId) === recipientOrgId,
     )
-  if (!scope) throw new Error('A live directional invoices settlement capability is required')
+  const authority = validateCanonicalSettlementAuthority({
+    pair,
+    link: partnerLinkSnap.exists ? ({ id: partnerLinkSnap.id, ...(partnerLinkSnap.data() ?? {}) } as PartnerLink) : null,
+    scope,
+  })
 
   return {
     ref,
@@ -172,7 +178,7 @@ async function loadPartnerInvoiceTx(input: {
     tradeOrderId,
     issuerOrgId,
     recipientOrgId,
-    scopeAgreementId: scope.id,
+    scopeAgreementId: authority.scopeAgreementId,
   }
 }
 
@@ -234,7 +240,7 @@ export async function recordPartnerPayment(input: {
       note: cleanString(input.note) || undefined,
       submittedByOrgId: input.payerOrgId,
       submittedAt: now,
-      operations: { ...operations, notice: operation },
+      operations: { ...operations, [operationStorageKey(idempotencyKey)]: operation },
     }
     tx.set(loaded.ref, stripUndefined({
       status: 'payment_pending_verification', partnerPayment: payment,
@@ -255,7 +261,10 @@ export async function recordPartnerPayment(input: {
   })
 
   if (outcome.applied) {
-    await recordCrmAuditEvent({
+    // Finance reconciliation evidence was committed atomically above. CRM audit
+    // and notifications are advisory fan-out: never turn a committed payment
+    // transition into a failed client response or undermine idempotent replay.
+    void recordCrmAuditEvent({
       orgId: input.payerOrgId, eventType: 'partner_payment.submitted', resourceType: 'invoice', resourceId: input.invoiceId,
       actorRef: input.actor, metadata: { tradeOrderId: outcome.tradeOrderId, reference, amount },
       notification: {
@@ -263,7 +272,7 @@ export async function recordPartnerPayment(input: {
         body: `${cleanString(outcome.data.invoiceNumber) || 'An invoice'} has a payment awaiting your verification${reference ? ` (ref ${reference})` : ''}.`,
         targetOrgIds: [outcome.issuerOrgId],
       },
-    })
+    }).catch((err) => console.error('[partner-settlement-crm-audit-error]', err))
   }
   return { invoiceId: input.invoiceId, paymentState: 'pending_verification', orderIds: outcome.orderIds, idempotent: outcome.idempotent, reconciliationKey: outcome.reconciliationKey }
 }
@@ -277,6 +286,7 @@ export async function decidePartnerPayment(input: {
   idempotencyKey: string
   actor: MemberRef
 }): Promise<{ invoiceId: string; paymentState: PartnerPaymentState; orderIds: string[]; idempotent: boolean; reconciliationKey: string }> {
+  if (input.actor.kind !== 'human') throw new Error('A human finance approver is required to verify or dispute a partner payment')
   const operationName: SettlementOperation = input.decision === 'confirm' ? 'confirm' : 'dispute'
   const paymentState: PartnerPaymentState = input.decision === 'confirm' ? 'paid' : 'rejected'
   const idempotencyKey = requireIdempotencyKey(input.idempotencyKey)
@@ -305,7 +315,7 @@ export async function decidePartnerPayment(input: {
       status: input.decision === 'confirm' ? 'paid' : 'sent',
       paidAt: input.decision === 'confirm' ? now : FieldValue.delete(),
       paymentRejectedAt: input.decision === 'confirm' ? FieldValue.delete() : now,
-      partnerPayment: { ...existing, decidedAt: now, decisionNote: note || undefined, operations: { ...operations, [operationName]: decision } },
+      partnerPayment: { ...existing, decidedAt: now, decisionNote: note || undefined, operations: { ...operations, [operationStorageKey(idempotencyKey)]: decision } },
       updatedByRef: input.actor, updatedAt: now,
     }), { merge: true })
     for (const doc of loaded.orderDocs) {
@@ -322,7 +332,10 @@ export async function decidePartnerPayment(input: {
   })
 
   if (outcome.applied) {
-    await recordCrmAuditEvent({
+    // Finance reconciliation evidence was committed atomically above. CRM audit
+    // and notifications are advisory fan-out: never turn a committed payment
+    // transition into a failed client response or undermine idempotent replay.
+    void recordCrmAuditEvent({
       orgId: input.issuerOrgId, eventType: `partner_payment.${input.decision === 'confirm' ? 'confirmed' : 'rejected'}`,
       resourceType: 'invoice', resourceId: input.invoiceId, actorRef: input.actor,
       metadata: { tradeOrderId: outcome.tradeOrderId, reference: (outcome.data.partnerPayment as PartnerPaymentRecord | undefined)?.reference },
@@ -334,7 +347,7 @@ export async function decidePartnerPayment(input: {
           : `${cleanString(outcome.data.invoiceNumber) || 'An invoice'} is still outstanding${note ? `: ${note}` : ''}.`,
         targetOrgIds: [outcome.recipientOrgId],
       },
-    })
+    }).catch((err) => console.error('[partner-settlement-crm-audit-error]', err))
   }
   return { invoiceId: input.invoiceId, paymentState, orderIds: outcome.orderIds, idempotent: outcome.idempotent, reconciliationKey: outcome.reconciliationKey }
 }

@@ -6,6 +6,7 @@ import { recordCrmAuditEvent } from '@/lib/crm/audit'
 import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
 import type { BusinessRelationship, SharedBusinessCapability } from '@/lib/business-relationships/types'
 import type { Currency, DealLineItem } from '@/lib/crm/types'
+import { financialTermsHash } from './settlement-contract'
 import { cleanString } from './identity'
 import { grantSystemShare } from './shares'
 
@@ -366,6 +367,8 @@ export async function placePartnerOrder(input: PlacePartnerOrderInput): Promise<
   lineItems.sort((a, b) => `${a.productId ?? ''}:${a.name}`.localeCompare(`${b.productId ?? ''}:${b.name}`))
   const subtotal = lineItems.reduce((sum, l) => sum + l.total, 0)
   const total = subtotal + taxAmount
+  const taxRate = subtotal > 0 ? Number(((taxAmount / subtotal) * 100).toFixed(4)) : 0
+  const financialHash = financialTermsHash({ lineItems, subtotal, taxRate, taxAmount, total, currency })
   const tradeOrderId = crypto.randomUUID()
   const termsHash = crypto.createHash('sha256').update(JSON.stringify({
     tradeOrderId,
@@ -388,11 +391,13 @@ export async function placePartnerOrder(input: PlacePartnerOrderInput): Promise<
   const shared = {
     tradeOrderId,
     termsHash,
+    tradeFinancialHash: financialHash,
     partnerLinkId: link.partnerLinkId,
     relationshipId: input.relationshipId,
     partnerOrderStatus: 'pending' as PartnerOrderStatus,
     lineItems,
     subtotal,
+    taxRate,
     taxAmount,
     total,
     currency,
@@ -759,6 +764,7 @@ async function draftInvoiceForOrder(input: {
     const invoiceNumber = await generateInvoiceNumber(input.supplierOrgId, buyerName)
     const lines = Array.isArray(input.order.lineItems) ? input.order.lineItems as DealLineItem[] : []
     const lineItems = lines.map((l) => ({
+      productId: l.productId,
       description: l.name,
       quantity: l.qty,
       unitPrice: l.unitPrice,
@@ -766,6 +772,11 @@ async function draftInvoiceForOrder(input: {
     }))
     const subtotal = lineItems.reduce((s, l) => s + l.amount, 0)
     const taxAmount = Number(input.order.taxAmount) || 0
+    const taxRate = subtotal > 0 ? Number(((taxAmount / subtotal) * 100).toFixed(4)) : 0
+    const total = subtotal + taxAmount
+    const tradeFinancialHash = financialTermsHash({
+      lineItems, subtotal, taxRate, taxAmount, total, currency: cleanString(input.order.currency) || 'ZAR',
+    })
     const now = FieldValue.serverTimestamp()
 
     const ref = await adminDb.collection('invoices').add(stripUndefined({
@@ -779,9 +790,9 @@ async function draftInvoiceForOrder(input: {
       dueDate: null,
       lineItems,
       subtotal,
-      taxRate: subtotal > 0 ? Number(((taxAmount / subtotal) * 100).toFixed(4)) : 0,
+      taxRate,
       taxAmount,
-      total: subtotal + taxAmount,
+      total,
       currency: cleanString(input.order.currency) || 'ZAR',
       notes: `Auto-drafted from partner order ${input.orderId}.`,
       recipientCompanyName: buyerName,
@@ -791,6 +802,7 @@ async function draftInvoiceForOrder(input: {
       supplierOrderId: input.orderId,
       buyerOrderId: cleanString(input.order.counterpartOrderId),
       tradeTermsHash: cleanString(input.order.termsHash),
+      tradeFinancialHash,
       orderId: input.orderId,
       tradeOrderId: cleanString(input.order.tradeOrderId),
       paidAt: null,

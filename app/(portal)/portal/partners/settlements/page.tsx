@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 interface PartnerInvoice {
@@ -45,6 +45,7 @@ export default function PartnerSettlementsPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const idempotencyKeys = useRef(new Map<string, string>())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -65,15 +66,20 @@ export default function PartnerSettlementsPage() {
   useEffect(() => { void load() }, [load])
 
   async function post(invoice: PartnerInvoice, body: Record<string, unknown>, msg: string) {
+    const action = typeof body.action === 'string' ? body.action : 'settlement'
+    const keyId = `${invoice.id}:${action}`
+    const idempotencyKey = idempotencyKeys.current.get(keyId) ?? crypto.randomUUID()
+    idempotencyKeys.current.set(keyId, idempotencyKey)
     setBusyId(invoice.id); setError(null); setNotice(null)
     try {
       const res = await fetch(`/api/v1/crm/partner-settlements/${invoice.id}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
         body: JSON.stringify(body),
       })
       const data = unwrap(await res.json().catch(() => null))
       if (!res.ok) { setError((data?.error as string) || 'That action could not be completed.'); return }
+      idempotencyKeys.current.delete(keyId)
       setNotice(msg)
       await load()
     } finally { setBusyId(null) }
@@ -84,7 +90,7 @@ export default function PartnerSettlementsPage() {
       `Payment reference for ${invoice.invoiceNumber || 'this invoice'}\n\n${money(invoice.total, invoice.currency)} — enter the EFT reference you used.`,
     )
     if (!reference?.trim()) return
-    await post(invoice, { action: 'pay', reference: reference.trim() },
+    await post(invoice, { action: 'pay', reference: reference.trim(), amount: invoice.total },
       'Payment recorded. The supplier will verify it.')
   }
 

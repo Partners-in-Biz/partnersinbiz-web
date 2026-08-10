@@ -51,8 +51,11 @@ export const POST = withCrmAuth<RouteContext>('member', async (req: NextRequest,
     }
 
     if (action === 'confirm' || action === 'reject') {
-      if (!ctx.isAgent && !memberCanIssueInvoices(ctx.accessPolicy)) {
-        return apiError('Invoice issuer access is required to verify a partner payment', 403)
+      if (ctx.isAgent) {
+        return apiError('A human finance approver must verify or dispute a partner payment', 403)
+      }
+      if (!canAccessModule(ctx.accessPolicy, 'billing') || !memberCanIssueInvoices(ctx.accessPolicy)) {
+        return apiError('Billing and invoice issuer access are required to verify a partner payment', 403)
       }
       const result = await decidePartnerPayment({
         issuerOrgId: ctx.orgId,
