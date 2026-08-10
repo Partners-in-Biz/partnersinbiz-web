@@ -38,4 +38,32 @@ describe('prompt budget and intent profiles', () => {
     expect(intent.profile).toBe('read_only')
     expect(intent.needsWorkspaceWriteContext).toBe(false)
   })
+
+  it('truncates a block with maxTokens even when the profile limit has headroom and records capTokens', () => {
+    const oversized = 'metadata-block '.repeat(5_000)
+    const result = buildPromptBudget({
+      profile: 'execution',
+      limitTokens: 32_000,
+      blocks: [
+        { id: 'request', priority: 'critical', content: 'User request: keep this.' },
+        { id: 'hermes_features', priority: 'normal', content: oversized, maxTokens: 100 },
+      ],
+    })
+
+    const featuresLedger = result.ledger.blocks.find((block) => block.id === 'hermes_features')
+    expect(featuresLedger).toEqual(expect.objectContaining({
+      id: 'hermes_features',
+      included: true,
+      capTokens: 100,
+    }))
+    expect(featuresLedger!.includedTokens).toBeLessThanOrEqual(100)
+    expect(featuresLedger!.includedTokens).toBeLessThan(featuresLedger!.inputTokens)
+    expect(result.content).toContain('User request: keep this.')
+    expect(result.content).toContain('…[prompt budget truncated]')
+    expect(result.ledger.omitted).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'hermes_features', reason: 'budget' }),
+    ]))
+    // Profile still has headroom — truncation is from the per-block cap, not the total budget.
+    expect(result.ledger.inputTokens).toBeLessThan(result.ledger.limitTokens)
+  })
 })

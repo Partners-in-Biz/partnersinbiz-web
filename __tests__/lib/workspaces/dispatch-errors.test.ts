@@ -1,5 +1,6 @@
 import {
   classifyWorkspaceDispatchFailure,
+  compactPromptLedger,
   safeHermesRunPayload,
   sanitizeDispatchMetadata,
 } from '@/lib/workspaces/dispatch-errors'
@@ -60,6 +61,37 @@ describe('workspace dispatch safety', () => {
     }))
     expect(metadata).not.toHaveProperty('apiKey')
     expect(metadata).not.toHaveProperty('vpsWorkingPath')
+  })
+
+  it('keeps promptProfile and a compact contextLedger without raw prompt text', () => {
+    const metadata = sanitizeDispatchMetadata({
+      conversationId: 'conv-1',
+      promptProfile: 'execution',
+      contextLedger: {
+        profile: 'execution',
+        limitTokens: 32000,
+        inputTokens: 4100,
+        blocks: [
+          { id: 'latest_request', inputTokens: 120, includedTokens: 120, included: true },
+          { id: 'agent_skills_catalogue', inputTokens: 9000, includedTokens: 2400, included: true, capTokens: 2400, content: 'SECRET SKILL BODY' },
+        ],
+        omitted: [{ id: 'studio', reason: 'budget', inputTokens: 500 }],
+      },
+      apiKey: 'super-secret',
+    })
+    expect(metadata.promptProfile).toBe('execution')
+    expect(metadata.contextLedger).toEqual({
+      profile: 'execution',
+      limitTokens: 32000,
+      inputTokens: 4100,
+      blocks: [
+        { id: 'latest_request', inputTokens: 120, includedTokens: 120, included: true },
+        { id: 'agent_skills_catalogue', inputTokens: 9000, includedTokens: 2400, included: true, capTokens: 2400 },
+      ],
+      omitted: [{ id: 'studio', reason: 'budget', inputTokens: 500 }],
+    })
+    expect(JSON.stringify(metadata)).not.toMatch(/SECRET SKILL BODY|super-secret/)
+    expect(compactPromptLedger({ profile: 'draft', blocks: [] })).toEqual({ profile: 'draft', blocks: [], omitted: [] })
   })
 
   it('reduces arbitrary Hermes payloads to safe run fields', () => {

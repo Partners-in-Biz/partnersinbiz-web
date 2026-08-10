@@ -28,6 +28,7 @@ import {
   extractHermesRunError,
   extractHermesRunOutput,
   extractOutputFromEvents,
+  extractRunUsage,
   findPendingConversationRuns,
   normalizeHermesRunStatus,
 } from '@/lib/conversations/run-finalizer'
@@ -63,6 +64,46 @@ describe('conversation run finalizer helpers', () => {
       { event: 'message.delta', delta: 'there' },
       { event: 'tool.call', text: 'ignored', error: true },
     ])).toBe('Hello there')
+  })
+
+  it('extracts gateway usage from snake_case and camelCase shapes', () => {
+    expect(extractRunUsage({
+      usage: {
+        input_tokens: 1200,
+        output_tokens: 80,
+        total_tokens: 1280,
+        cache_read_input_tokens: 900,
+        cost_usd: 0.012,
+      },
+    })).toEqual({
+      inputTokens: 1200,
+      outputTokens: 80,
+      totalTokens: 1280,
+      reasoningTokens: null,
+      cacheReadTokens: 900,
+      cacheWriteTokens: null,
+      costUsd: 0.012,
+    })
+
+    expect(extractRunUsage({
+      result: {
+        usage: {
+          inputTokens: 10,
+          outputTokens: 5,
+          reasoningTokens: 2,
+        },
+      },
+    })).toEqual({
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 17,
+      reasoningTokens: 2,
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+      costUsd: null,
+    })
+
+    expect(extractRunUsage({ status: 'completed', output: 'no usage here' })).toBeNull()
   })
 })
 

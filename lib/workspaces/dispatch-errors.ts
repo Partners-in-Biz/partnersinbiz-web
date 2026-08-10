@@ -57,18 +57,83 @@ const SAFE_METADATA_KEYS = new Set([
   'conversationId', 'messageId', 'orgId', 'workspaceId', 'projectId', 'workspacePathClass',
   'requestedRuntimeTargetId', 'runtimeTargetId', 'runtimeKind', 'runtimeMachineLabel',
   'dispatchAgentId', 'model', 'provider', 'requestedAgentIds', 'orchestrationMode', 'source',
-  'agentEffort', 'slashCommand',
+  'agentEffort', 'slashCommand', 'promptProfile',
   // Subagent branch completion (hermes-features-delegation → cron re-entry)
   'delegationId', 'childId', 'branchMessageId', 'parentRunHint',
+  // Compact token ledger only (never raw prompt text) — see compactPromptLedger
+  'contextLedger',
 ])
 
 const SAFE_VALUE = /^[A-Za-z0-9][A-Za-z0-9._:@+ -]{0,199}$/
+const SAFE_LEDGER_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/
+const SAFE_OMISSION_REASON = new Set(['empty', 'duplicate', 'budget'])
+
+function finiteNonNegInt(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null
+  return Math.min(Math.round(value), 50_000_000)
+}
+
+/**
+ * Strip a prompt-budget ledger down to ids + token counts only.
+ * Never persist raw block content / prompt text on hermes_runs.
+ */
+export function compactPromptLedger(input: unknown): Record<string, unknown> | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null
+  const row = input as Record<string, unknown>
+  const profile = typeof row.profile === 'string' && SAFE_VALUE.test(row.profile) ? row.profile : undefined
+  const limitTokens = finiteNonNegInt(row.limitTokens)
+  const inputTokens = finiteNonNegInt(row.inputTokens)
+  const blocks = Array.isArray(row.blocks)
+    ? row.blocks.slice(0, 40).flatMap((block) => {
+      if (!block || typeof block !== 'object' || Array.isArray(block)) return []
+      const b = block as Record<string, unknown>
+      const id = typeof b.id === 'string' && SAFE_LEDGER_ID.test(b.id) ? b.id : null
+      if (!id) return []
+      const blockInput = finiteNonNegInt(b.inputTokens)
+      const includedTokens = finiteNonNegInt(b.includedTokens)
+      const capTokens = finiteNonNegInt(b.capTokens)
+      return [{
+        id,
+        ...(blockInput !== null ? { inputTokens: blockInput } : {}),
+        ...(includedTokens !== null ? { includedTokens } : {}),
+        included: b.included === true,
+        ...(capTokens !== null ? { capTokens } : {}),
+      }]
+    })
+    : []
+  const omitted = Array.isArray(row.omitted)
+    ? row.omitted.slice(0, 40).flatMap((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return []
+      const o = item as Record<string, unknown>
+      const id = typeof o.id === 'string' && SAFE_LEDGER_ID.test(o.id) ? o.id : null
+      const reason = typeof o.reason === 'string' && SAFE_OMISSION_REASON.has(o.reason) ? o.reason : null
+      if (!id || !reason) return []
+      const omitTokens = finiteNonNegInt(o.inputTokens)
+      return [{ id, reason, ...(omitTokens !== null ? { inputTokens: omitTokens } : {}) }]
+    })
+    : []
+  if (!profile && limitTokens === null && inputTokens === null && blocks.length === 0 && omitted.length === 0) {
+    return null
+  }
+  return {
+    ...(profile ? { profile } : {}),
+    ...(limitTokens !== null ? { limitTokens } : {}),
+    ...(inputTokens !== null ? { inputTokens } : {}),
+    blocks,
+    omitted,
+  }
+}
 
 export function sanitizeDispatchMetadata(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {}
   const output: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
     if (!SAFE_METADATA_KEYS.has(key)) continue
+    if (key === 'contextLedger') {
+      const compact = compactPromptLedger(value)
+      if (compact) output.contextLedger = compact
+      continue
+    }
     if (typeof value === 'string' && SAFE_VALUE.test(value)) output[key] = value
     else if (Array.isArray(value)) {
       output[key] = value.filter((item): item is string => typeof item === 'string' && SAFE_VALUE.test(item)).slice(0, 50)
