@@ -12,7 +12,8 @@ import { actorFrom } from '@/lib/api/actor'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
-import { cleanAgentEffort, VALID_AGENT_EFFORTS, resolveAgentTaskModelEligibility } from '@/lib/agents/runRouting'
+import { cleanAgentEffort, VALID_AGENT_EFFORTS, resolveAgentTaskModelEligibility, type AgentEffort } from '@/lib/agents/runRouting'
+import { applyOrgChartToAssignment, applyOrgDefaultsToTaskFields } from '@/lib/agent-org/taskHooks'
 import {
   VALID_TASK_STATUSES,
   VALID_TASK_PRIORITIES,
@@ -204,7 +205,7 @@ export const POST = withAuth(
       }
       agentStatusValue = rawStatus as AgentStatus
     }
-    const agentEffortValue = raw.agentEffort === undefined || raw.agentEffort === null || raw.agentEffort === ''
+    let agentEffortValue = raw.agentEffort === undefined || raw.agentEffort === null || raw.agentEffort === ''
       ? null
       : cleanAgentEffort(raw.agentEffort)
     if (raw.agentEffort !== undefined && raw.agentEffort !== null && raw.agentEffort !== '' && !agentEffortValue) {
@@ -215,6 +216,22 @@ export const POST = withAuth(
       const resolution = resolveAgentTaskModelEligibility({ model: raw.agentModel })
       if (!resolution.ok) return apiError(resolution.reason, resolution.status)
       agentModelValue = resolution.model.id
+    }
+
+    // Org-chart gate: relationship enforcement + node defaults for agent assignees.
+    if (assigneeAgentId) {
+      const orgGate = await applyOrgChartToAssignment({
+        orgId: body.orgId.trim(),
+        user,
+        assigneeAgentId,
+      })
+      if (!orgGate.ok) return apiError(orgGate.error ?? 'Org chart does not permit this assignment', orgGate.status ?? 403)
+      if (orgGate.defaults) {
+        const bag: { agentModel: string | null; agentEffort: AgentEffort | null } = { agentModel: agentModelValue, agentEffort: agentEffortValue }
+        applyOrgDefaultsToTaskFields(bag, orgGate.defaults)
+        agentModelValue = bag.agentModel
+        agentEffortValue = bag.agentEffort
+      }
     }
     let agentInputValue: { spec: string; context?: Record<string, unknown>; constraints?: string[] } | null = null
     const rawInput = raw.agentInput

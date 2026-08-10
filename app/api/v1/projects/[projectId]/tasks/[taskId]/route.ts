@@ -24,6 +24,7 @@ import {
 import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
+import { applyOrgChartToAssignment, applyOrgDefaultsToTaskFields } from '@/lib/agent-org/taskHooks'
 import { publishTaskLifecycleToCommandSession } from '@/lib/projects/commandSession'
 import { approvalActorAuditFields, isAuthorizedAdminApprover } from '@/lib/projects/adminApprover'
 import { hasApprovalGateMarker, reconcileApprovalGateUpdate } from '@/lib/projects/approvalState'
@@ -287,6 +288,28 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     updatedByType: actorFields.updatedByType,
     ...(actorFields.updatedByAgentId ? { updatedByAgentId: actorFields.updatedByAgentId } : {}),
   })
+
+  // Org-chart gate: relationship enforcement + node defaults on reassignment.
+  const effectiveAssignee = typeof updateValue.assigneeAgentId === 'string'
+    ? updateValue.assigneeAgentId
+    : (typeof existing.assigneeAgentId === 'string' ? existing.assigneeAgentId : null)
+  if (effectiveAssignee && typeof projectOrgId === 'string' && projectOrgId) {
+    const orgGate = await applyOrgChartToAssignment({
+      orgId: projectOrgId,
+      user,
+      assigneeAgentId: effectiveAssignee,
+    })
+    if (!orgGate.ok) return apiError(orgGate.error ?? 'Org chart does not permit this assignment', orgGate.status ?? 403)
+    if (orgGate.defaults) {
+      const bag: { agentModel: string | null; agentEffort: string | null } = {
+        agentModel: updateValue.agentModel !== undefined ? updateValue.agentModel : existing.agentModel,
+        agentEffort: updateValue.agentEffort !== undefined ? updateValue.agentEffort : existing.agentEffort,
+      }
+      applyOrgDefaultsToTaskFields(bag, orgGate.defaults)
+      if (updateValue.agentModel === undefined && bag.agentModel !== existing.agentModel) updateValue.agentModel = bag.agentModel
+      if (updateValue.agentEffort === undefined && bag.agentEffort !== existing.agentEffort) updateValue.agentEffort = bag.agentEffort
+    }
+  }
 
   if (body.contextRefs !== undefined) {
     const contextRefs = await resolveContextReferences(

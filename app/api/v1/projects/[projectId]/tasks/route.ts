@@ -16,6 +16,7 @@ import { resolveContextReferences } from '@/lib/context-references/registry'
 import { sanitizeContextReferenceSeeds, type ContextReference } from '@/lib/context-references/types'
 import { getConversation } from '@/lib/conversations/conversations'
 import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
+import { applyOrgChartToAssignment, applyOrgDefaultsToTaskFields } from '@/lib/agent-org/taskHooks'
 import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 
 export const dynamic = 'force-dynamic'
@@ -179,6 +180,20 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (contextRefs.length > 0) {
     taskData.value.contextRefs = contextRefs
     attachContextRefsToAgentInput(taskData.value, contextRefs)
+  }
+
+  // Org-chart gate: relationship enforcement + node defaults for agent assignees.
+  const assigneeForGate = typeof taskData.value.assigneeAgentId === 'string' ? taskData.value.assigneeAgentId : null
+  if (assigneeForGate) {
+    const orgGate = await applyOrgChartToAssignment({
+      orgId,
+      user,
+      assigneeAgentId: assigneeForGate,
+    })
+    if (!orgGate.ok) return apiError(orgGate.error ?? 'Org chart does not permit this assignment', orgGate.status ?? 403)
+    if (orgGate.defaults) {
+      applyOrgDefaultsToTaskFields(taskData.value, orgGate.defaults)
+    }
   }
 
   await applyTaskLlmCredentialResolution({
