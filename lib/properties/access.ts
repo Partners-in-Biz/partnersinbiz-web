@@ -12,15 +12,20 @@ export type OwnerPropertyAccess =
  * Loads a property only for its owning organisation. This is intentionally an
  * owner-route guard, not a cross-organisation adapter: no partner grant,
  * capability, or resource projection is accepted here.
+ *
+ * Request IDs must already be canonical (no surrounding whitespace). Callers
+ * must use the returned `property.id` for every downstream connection,
+ * OAuth-state, adapter, or mutation operation.
  */
 export async function loadOwnerAuthorizedProperty(
   user: ApiUser,
   propertyId: string,
 ): Promise<OwnerPropertyAccess> {
-  const id = propertyId.trim()
-  if (!id) return { ok: false, response: apiError('Property not found', 404) }
+  if (typeof propertyId !== 'string' || propertyId !== propertyId.trim() || !propertyId) {
+    return { ok: false, response: apiError('Property not found', 404) }
+  }
 
-  const snap = await adminDb.collection('properties').doc(id).get()
+  const snap = await adminDb.collection('properties').doc(propertyId).get()
   if (!snap.exists || snap.data()?.deleted) {
     return { ok: false, response: apiError('Property not found', 404) }
   }

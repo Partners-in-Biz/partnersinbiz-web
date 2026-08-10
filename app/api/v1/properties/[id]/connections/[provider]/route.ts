@@ -33,7 +33,8 @@ export const GET = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   }
   const access = await loadOwnerAuthorizedProperty(user, id)
   if (!access.ok) return access.response
-  const conn = await getConnection({ propertyId: id, provider })
+  const propertyId = access.property.id
+  const conn = await getConnection({ propertyId, provider })
   if (!conn) return NextResponse.json({ error: 'Not connected' }, { status: 404 })
   const { credentialsEnc, ...rest } = conn
   return NextResponse.json({
@@ -54,6 +55,7 @@ export const PUT = withAuth('admin', async (req: NextRequest, user, ctx) => {
   }
   const access = await loadOwnerAuthorizedProperty(user, id)
   if (!access.ok) return access.response
+  const propertyId = access.property.id
   const adapter = getAdapter(provider)
   if (!adapter) {
     return NextResponse.json({ error: 'Adapter not registered' }, { status: 501 })
@@ -70,7 +72,7 @@ export const PUT = withAuth('admin', async (req: NextRequest, user, ctx) => {
   }
   try {
     const conn = await adapter.saveCredentials({
-      propertyId: id,
+      propertyId,
       orgId: access.property.orgId,
       payload: body.payload,
     })
@@ -98,11 +100,12 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, ctx) => {
   }
   const access = await loadOwnerAuthorizedProperty(user, id)
   if (!access.ok) return access.response
+  const propertyId = access.property.id
   const body = (await req.json().catch(() => ({}))) as PatchBody
   if (!body.status) {
     return NextResponse.json({ error: 'status required' }, { status: 400 })
   }
-  await setConnectionStatus({ propertyId: id, provider, status: body.status })
+  await setConnectionStatus({ propertyId, provider, status: body.status })
   return NextResponse.json({ ok: true })
 })
 
@@ -113,7 +116,8 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, user, ctx) => 
   }
   const access = await loadOwnerAuthorizedProperty(user, id)
   if (!access.ok) return access.response
-  const conn = await getConnection({ propertyId: id, provider })
+  const propertyId = access.property.id
+  const conn = await getConnection({ propertyId, provider })
   if (conn) {
     const adapter = getAdapter(provider)
     if (adapter?.revoke) {
@@ -122,6 +126,6 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, user, ctx) => 
       }
     }
   }
-  await deleteConnection({ propertyId: id, provider })
+  await deleteConnection({ propertyId, provider })
   return NextResponse.json({ ok: true })
 })

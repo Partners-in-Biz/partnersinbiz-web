@@ -33,6 +33,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   }
   const access = await loadOwnerAuthorizedProperty(user, id)
   if (!access.ok) return access.response
+  const propertyId = access.property.id
   const adapter = getAdapter(provider)
   if (!adapter) {
     return NextResponse.json({ error: 'Adapter not registered' }, { status: 501 })
@@ -46,12 +47,12 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const orgId = access.property.orgId
 
   const state = crypto.randomBytes(24).toString('hex')
-  const redirectUri = `${appBaseUrl(req)}/api/v1/properties/${id}/connections/${provider}/callback`
+  const redirectUri = `${appBaseUrl(req)}/api/v1/properties/${propertyId}/connections/${provider}/callback`
 
   // Persist state for CSRF check on callback. TTL 10 minutes is enough.
   await adminDb.collection('oauth_state').doc(state).set({
     state,
-    propertyId: id,
+    propertyId,
     orgId,
     provider,
     createdAt: new Date(),
@@ -59,7 +60,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   })
 
   const { authorizeUrl } = await adapter.beginOAuth({
-    propertyId: id,
+    propertyId,
     orgId,
     redirectUri,
     state,

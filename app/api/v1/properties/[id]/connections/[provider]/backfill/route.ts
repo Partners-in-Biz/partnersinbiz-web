@@ -50,8 +50,9 @@ export const POST = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   }
   const access = await loadOwnerAuthorizedProperty(user, id)
   if (!access.ok) return access.response
+  const propertyId = access.property.id
 
-  const conn = await getConnection({ propertyId: id, provider })
+  const conn = await getConnection({ propertyId, provider })
   if (!conn) return NextResponse.json({ error: 'Not connected' }, { status: 404 })
 
   const adapter = getAdapter(provider)
@@ -70,20 +71,20 @@ export const POST = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   try {
     result = await adapter.pullDaily({ connection: conn, window: { from, to } })
     await markPullSuccess({
-      propertyId: id,
+      propertyId,
       provider,
       backfilledThrough: result.to || to,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    await markPullFailure({ propertyId: id, provider, error: message })
+    await markPullFailure({ propertyId, provider, error: message })
     return NextResponse.json({ ok: false, error: message, from, to }, { status: 502 })
   }
 
   return NextResponse.json({
     ok: true,
     provider,
-    propertyId: id,
+    propertyId,
     from,
     to,
     days: BACKFILL_DAYS,

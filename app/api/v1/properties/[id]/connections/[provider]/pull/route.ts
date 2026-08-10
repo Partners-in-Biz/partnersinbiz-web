@@ -26,7 +26,8 @@ export const POST = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   }
   const access = await loadOwnerAuthorizedProperty(user, id)
   if (!access.ok) return access.response
-  const conn = await getConnection({ propertyId: id, provider })
+  const propertyId = access.property.id
+  const conn = await getConnection({ propertyId, provider })
   if (!conn) return NextResponse.json({ error: 'Not connected' }, { status: 404 })
   const summary = await dispatchOne(conn)
   return NextResponse.json({ ...summary, ok: true })

@@ -13,7 +13,8 @@ export const GET = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const access = await loadOwnerAuthorizedProperty(user, id)
   if (!access.ok) return access.response
-  const connections = await listConnectionsForProperty(id)
+  const propertyId = access.property.id
+  const connections = await listConnectionsForProperty(propertyId)
   // Strip ciphertext from response — not needed by UI, leaks nothing if logged.
   const sanitized = connections.map(({ credentialsEnc: _e, ...rest }) => ({
     ...rest,
