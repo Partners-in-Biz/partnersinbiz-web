@@ -12,6 +12,7 @@ import {
   taskHasAssignedReviewer,
   validateDispatchableAgentTaskContract,
 } from '@/lib/projects/taskPayload'
+import { isAgentOwnedTask } from '@/lib/tasks/agentState'
 import { validateCompletionEvidence } from '@/lib/projects/completionIntegrity'
 import { logActivity } from '@/lib/activity/log'
 import { adminProjectTaskLink } from '@/lib/projects/links'
@@ -224,7 +225,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   // Completion is a watcher-verifiable state transition, never an agent narrative
   // shortcut. The watcher writes completionVerification only after it has checked
   // the typed evidence (including origin/development reachability for code work).
-  const isAgentTask = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
+  const isAgentTask = isAgentOwnedTask(existing, body, updateValue)
   const attemptsCompletion = updateValue.agentStatus === 'done'
     || updateValue.columnId === 'done'
     || updateValue.reviewStatus === 'approved'
@@ -244,11 +245,21 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const verificationFresh = !evidenceChanged && !evidenceCleared
   const watcherVerified = evidence.ok
     && verificationFresh
-    && (
-      existingVerification?.verifierResult === 'passed'
-      || existingVerification?.verifierResult === 'approved'
-    )
-  const completionVerified = watcherVerified
+    && existingVerification?.verifierIdentity === 'agent-watcher'
+    && existingVerification.verifierResult === 'passed'
+    && (evidence.evidence.workKind !== 'code' || (
+      existingVerification.commitReachable === true
+      && existingVerification.changedFilesMatch === true
+      && existingVerification.worktreeClean === true
+    ))
+  const reviewerAgentId = updateValue.reviewerAgentId ?? existing.reviewerAgentId
+  const reviewerIds = updateValue.reviewerIds ?? existing.reviewerIds
+  const hasReviewer = Boolean(
+    (typeof reviewerAgentId === 'string' && reviewerAgentId.trim())
+    || (Array.isArray(reviewerIds) && reviewerIds.some((id) => typeof id === 'string' && id.trim())),
+  )
+  const reviewerApproved = !hasReviewer || existing.reviewStatus === 'approved' || updateValue.reviewStatus === 'approved'
+  const completionVerified = watcherVerified && reviewerApproved
   if (isAgentTask && !isApprovalGateCard && attemptsCompletion && !completionVerified) {
     const priorOutput = isRecord(updateValue.agentOutput)
       ? updateValue.agentOutput

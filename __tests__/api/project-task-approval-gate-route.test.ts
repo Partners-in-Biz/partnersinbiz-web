@@ -250,11 +250,15 @@ describe('project task approval gate route guards', () => {
     const res = await PATCH(req({ columnId: 'done' }), ctx)
 
     expect(res.status).toBe(200)
+    // Unverified drag-to-Done with a reviewer now redirects to Review
+    // (awaiting watcher verification) instead of auto-approving.
     expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
-      agentStatus: 'blocked',
-      columnId: 'blocked',
-      reviewStatus: 'changes-requested',
-      completionIntegrityFailureReasons: ['completion_integrity_verification_required'],
+      columnId: 'review',
+      reviewStatus: 'pending',
+    }))
+    expect(mockTaskUpdate).not.toHaveBeenCalledWith(expect.objectContaining({
+      columnId: 'done',
+      reviewStatus: 'approved',
     }))
   })
 

@@ -9,8 +9,7 @@ import {
   VALID_AGENT_CAPABILITIES,
   VALID_APPROVAL_GATES,
 } from '@/lib/projects/task-allowlists'
-import { validateCompletionEvidence } from '@/lib/projects/completionIntegrity'
-import { columnForAgentStatus } from '@/lib/tasks/agentState'
+import { columnForAgentStatus, isAgentOwnedTask } from '@/lib/tasks/agentState'
 import type { AgentStatus } from '@/lib/tasks/types'
 import { validateCompletionEvidence } from '@/lib/projects/completionIntegrity'
 
@@ -547,6 +546,15 @@ export function buildProjectTaskCreateData(
 
   if (agentId.value) {
     const nextAgentStatus = agentStatus.value ?? 'pending'
+    // Agent tasks must not be created already terminal. The watcher must verify
+    // structured completionEvidence before Done/Approved.
+    const attemptsTerminal = nextAgentStatus === 'done'
+      || body.columnId === 'done'
+      || body.reviewStatus === 'approved'
+      || body.status === 'done'
+    if (attemptsTerminal) {
+      return { ok: false, error: 'completion_integrity_verification_required', status: 409 }
+    }
     value.assigneeAgentId = agentId.value
     value.agentStatus = nextAgentStatus
     if (agentReleaseAt.value) {
@@ -556,7 +564,6 @@ export function buildProjectTaskCreateData(
     } else if (body.columnId === undefined) {
       value.columnId = columnForAgentStatus(nextAgentStatus)
     }
-    if (nextAgentStatus === 'done') value.reviewStatus = 'pending'
   }
   const provenance = applyProvenanceFields(body, value)
   if (!provenance.ok) return provenance
@@ -747,7 +754,7 @@ export function applyAgentColumnMoveState(
   updates: Record<string, unknown>,
   body: Record<string, unknown>,
 ): Record<string, unknown> {
-  const hasAgent = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
+  const hasAgent = isAgentOwnedTask(existing, updates, body)
   const columnId = typeof updates.columnId === 'string' ? updates.columnId : null
   const callerDidNotSetStatus = body.agentStatus === undefined
   const callerDidNotSetReview = body.reviewStatus === undefined
@@ -759,7 +766,20 @@ export function applyAgentColumnMoveState(
   // fields aligned so Messages, dependency release, and kanban state all agree.
   if (columnId === 'done') {
     const next: Record<string, unknown> = { ...updates }
-    if (hasAgent && callerDidNotSetStatus) next.agentStatus = 'done'
+    // Drag-to-Done only auto-sets agentStatus='done' when the watcher has
+    // already verified structured completionEvidence. Without verification,
+    // the card lands in Review so the watcher can run.
+    const existingEvidence = validateCompletionEvidence(existing.completionEvidence)
+    const existingVerification = isRecord(existing.completionVerification) ? existing.completionVerification : null
+    const dragWatcherVerified = existingEvidence.ok
+      && existingVerification?.verifierIdentity === 'agent-watcher'
+      && existingVerification.verifierResult === 'passed'
+      && (existingEvidence.evidence.workKind !== 'code' || (
+        existingVerification.commitReachable === true
+        && existingVerification.changedFilesMatch === true
+        && existingVerification.worktreeClean === true
+      ))
+    if (hasAgent && callerDidNotSetStatus && dragWatcherVerified) next.agentStatus = 'done'
     if (callerDidNotSetReview) {
       // Done never auto-approves when a reviewer is assigned: only an explicit
       // reviewer action may set reviewStatus='approved'. A reviewed card dragged
@@ -818,9 +838,20 @@ export function applyAgentColumnMoveState(
   }
 
   if (columnId === 'review') {
+    // Only set agentStatus='done' on drag-to-Review when the watcher verified.
+    const reviewEvidence = validateCompletionEvidence(existing.completionEvidence)
+    const reviewVerification = isRecord(existing.completionVerification) ? existing.completionVerification : null
+    const reviewWatcherVerified = reviewEvidence.ok
+      && reviewVerification?.verifierIdentity === 'agent-watcher'
+      && reviewVerification.verifierResult === 'passed'
+      && (reviewEvidence.evidence.workKind !== 'code' || (
+        reviewVerification.commitReachable === true
+        && reviewVerification.changedFilesMatch === true
+        && reviewVerification.worktreeClean === true
+      ))
     return {
       ...updates,
-      ...(hasAgent && callerDidNotSetStatus ? { agentStatus: 'done' } : {}),
+      ...(hasAgent && callerDidNotSetStatus && reviewWatcherVerified ? { agentStatus: 'done' } : {}),
       ...(callerDidNotSetReview ? { reviewStatus: 'pending' } : {}),
     }
   }
