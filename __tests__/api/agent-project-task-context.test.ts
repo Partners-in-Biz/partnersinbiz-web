@@ -125,4 +125,66 @@ describe('GET /api/v1/agent/project/[projectId]/task/[taskId]/context', () => {
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual(expect.objectContaining({ error: 'Task not found' }))
   })
+
+  it('projects completionEvidence, completionVerification, and completionIntegrityFailureReasons', async () => {
+    mockTaskGet.mockResolvedValue({
+      exists: true,
+      id: 'task-1',
+      ref: { collection: jest.fn(() => ({ orderBy: jest.fn(() => ({ limit: jest.fn(() => ({ get: mockCommentsGet })) })) })), get: mockTaskGet },
+      data: () => ({
+        orgId: 'org-1', projectId: 'project-1', title: 'Completion evidence task',
+        assigneeAgentId: 'theo', agentStatus: 'in-progress',
+        completionEvidence: {
+          schemaVersion: 1,
+          workKind: 'code',
+          commitSha: 'abc1234',
+          changedFiles: ['lib/example.ts'],
+          testCommand: 'npm test',
+          testResult: 'passed',
+          worktreeState: 'clean',
+        },
+        completionVerification: {
+          verifierIdentity: 'agent-watcher',
+          verifierResult: 'passed',
+          commitReachable: true,
+          changedFilesMatch: true,
+          worktreeClean: true,
+        },
+        completionIntegrityFailureReasons: null,
+      }),
+    })
+    const { GET } = await import('@/app/api/v1/agent/project/[projectId]/task/[taskId]/context/route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/v1/agent/project/project-1/task/task-1/context'),
+      { params: Promise.resolve({ projectId: 'project-1', taskId: 'task-1' }) },
+    )
+    const body = await response.json()
+    expect(response.status).toBe(200)
+    expect(body.data.task.completionEvidence).toEqual(expect.objectContaining({
+      schemaVersion: 1,
+      workKind: 'code',
+      commitSha: 'abc1234',
+      changedFiles: ['lib/example.ts'],
+      testResult: 'passed',
+      worktreeState: 'clean',
+    }))
+    expect(body.data.task.completionVerification).toEqual(expect.objectContaining({
+      verifierIdentity: 'agent-watcher',
+      verifierResult: 'passed',
+    }))
+    expect(body.data.task.completionIntegrityFailureReasons).toBeNull()
+  })
+
+  it('projects null completion fields when absent from the task document', async () => {
+    const { GET } = await import('@/app/api/v1/agent/project/[projectId]/task/[taskId]/context/route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/v1/agent/project/project-1/task/task-1/context'),
+      { params: Promise.resolve({ projectId: 'project-1', taskId: 'task-1' }) },
+    )
+    const body = await response.json()
+    expect(response.status).toBe(200)
+    expect(body.data.task.completionEvidence).toBeNull()
+    expect(body.data.task.completionVerification).toBeNull()
+    expect(body.data.task.completionIntegrityFailureReasons).toBeNull()
+  })
 })
