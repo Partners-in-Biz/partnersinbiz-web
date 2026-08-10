@@ -2371,10 +2371,17 @@ export default function UnifiedChat({
   const visibleConversations = useMemo(
     () => conversations.filter((conversation) => {
       if (conversation.archived) return false
+      // Entity embeds (CRM contact/company, tickets) lock the rail to one scope
+      // ref. Never let a stale list/live snapshot leak unrelated threads in.
+      if (!includeAllScopes && scope && scopeRefId) {
+        const scoped = conversation.scope === scope && conversation.scopeRefId === scopeRefId
+        const contextLinked = conversation.contextRefs?.some((ref) => ref.type === scope && ref.id === scopeRefId)
+        if (!scoped && !contextLinked) return false
+      }
       const project = conversationProjectIdentity(conversation)
       return layoutVariant !== 'hermes' || compact || !project || linkedProjectIds.has(project.id)
     }),
-    [compact, conversations, layoutVariant, linkedProjectIds],
+    [compact, conversations, includeAllScopes, layoutVariant, linkedProjectIds, scope, scopeRefId],
   )
   const filteredConversations = useMemo(() => {
     const query = conversationFilter.trim().toLocaleLowerCase()

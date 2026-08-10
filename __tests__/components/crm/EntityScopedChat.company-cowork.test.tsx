@@ -25,6 +25,7 @@ jest.mock('@/components/chat/UnifiedChat', () => ({
       data-org-name={String(props.orgName ?? '')}
       data-auto-title={String(props.autoCreateTitle ?? '')}
       data-compact={props.compact ? 'true' : 'false'}
+      data-include-all-scopes={props.includeAllScopes ? 'true' : 'false'}
     />
   ),
 }))
@@ -69,6 +70,27 @@ describe('EntityScopedChat company Cowork chrome', () => {
       expect(chat).toHaveAttribute('data-org-name', 'Hunt and Gun')
       expect(chat).toHaveAttribute('data-auto-title', 'Hunt and Gun Cowork')
       expect(chat).toHaveAttribute('data-compact', 'true')
+      expect(chat).toHaveAttribute('data-include-all-scopes', 'false')
+    })
+  })
+
+  it('locks contact embeds to the contact without listing every Messages thread', async () => {
+    render(
+      <EntityScopedChat
+        orgId="org-1"
+        entityType="contact"
+        entityId="contact-ada"
+        entityLabel="Ada Lovelace"
+        href="/portal/contacts/contact-ada"
+      />,
+    )
+
+    const chat = await screen.findByTestId('unified-chat')
+    await waitFor(() => {
+      expect(chat).toHaveAttribute('data-scope', 'contact')
+      expect(chat).toHaveAttribute('data-scope-ref', 'contact-ada')
+      expect(chat).toHaveAttribute('data-auto-title', 'Ada Lovelace contact workspace')
+      expect(chat).toHaveAttribute('data-include-all-scopes', 'false')
     })
   })
 })
