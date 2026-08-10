@@ -10,7 +10,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument } from '@/lib/client-documents/types'
 import { getProjectForUser } from '@/lib/projects/access'
-import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
+import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 
 export const dynamic = 'force-dynamic'
@@ -47,8 +47,14 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
 export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
   const body = await req.json().catch(() => ({}))
-  const access = await getProjectForUser(projectId, user)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.write' })
   if (!access.ok) return apiError(access.error, access.status)
+  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
+    return apiError('Project contributor access is required to create documents', 403)
+  }
+  if ((access.projectAccess?.crossOrgGrant?.items.length ?? 0) > 0) {
+    return apiError('Item-scoped cross-organisation grants cannot create unscoped project documents', 403)
+  }
 
   if (!body.title?.trim()) return apiError('title is required', 400)
   if (!body.content) return apiError('content is required', 400)

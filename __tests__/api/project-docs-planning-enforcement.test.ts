@@ -179,4 +179,81 @@ describe('legacy project docs planning enforcement', () => {
     expect(mockLegacyDocDelete).not.toHaveBeenCalled()
     expect(mockTransactionDelete).not.toHaveBeenCalled()
   })
+
+  it('rejects a read-only external collaborator before creating an unscoped legacy project document', async () => {
+    accessProject = { orgId: 'org-1', planningDiscovery: readyPlanning() }
+    liveProject = accessProject
+    mockGetProjectForUser.mockResolvedValue({
+      ok: true,
+      doc: { id: 'project-1', data: () => accessProject },
+      projectAccess: {
+        role: 'viewer',
+        canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-1', actions: ['project.read'], items: [] },
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/docs/route')
+    const res = await POST(request('POST', { title: 'External write', content: 'must be denied', type: 'notes' }), collectionCtx)
+
+    expect(res.status).toBe(403)
+    expect(mockTransactionSet).not.toHaveBeenCalledWith(expect.objectContaining({ path: expect.stringContaining('/docs/') }), expect.anything())
+  })
+
+  it('rejects a read-only external collaborator before updating a legacy project document', async () => {
+    accessProject = { orgId: 'org-1', planningDiscovery: readyPlanning() }
+    liveProject = accessProject
+    mockGetProjectForUser.mockResolvedValue({
+      ok: true,
+      doc: { id: 'project-1', data: () => accessProject },
+      projectAccess: {
+        role: 'viewer',
+        canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-1', actions: ['project.read'], items: ['doc-1'] },
+      },
+    })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/docs/[docId]/route')
+    const res = await PATCH(request('PATCH', { content: 'must be denied' }), itemCtx)
+
+    expect(res.status).toBe(403)
+    expect(mockTransactionUpdate).not.toHaveBeenCalledWith(legacyDocRef, expect.anything())
+  })
+
+  it('rejects a read-only external collaborator before deleting a legacy project document', async () => {
+    accessProject = { orgId: 'org-1', planningDiscovery: readyPlanning() }
+    liveProject = accessProject
+    mockGetProjectForUser.mockResolvedValue({
+      ok: true,
+      doc: { id: 'project-1', data: () => accessProject },
+      projectAccess: {
+        role: 'viewer',
+        canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-1', actions: ['project.read'], items: ['doc-1'] },
+      },
+    })
+
+    const { DELETE } = await import('@/app/api/v1/projects/[projectId]/docs/[docId]/route')
+    const res = await DELETE(request('DELETE'), itemCtx)
+
+    expect(res.status).toBe(403)
+    expect(mockTransactionDelete).not.toHaveBeenCalled()
+  })
+
+  it('does not return a direct legacy document outside an external grant item allowlist', async () => {
+    mockGetProjectForUser.mockResolvedValue({
+      ok: true,
+      doc: { id: 'project-1', data: () => accessProject },
+      projectAccess: {
+        role: 'viewer',
+        canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-1', actions: ['project.read'], items: ['other-doc'] },
+      },
+    })
+
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/docs/[docId]/route')
+    const res = await GET(request('GET'), itemCtx)
+
+    expect(res.status).toBe(404)
+  })
 })
