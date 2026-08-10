@@ -145,17 +145,49 @@ describe('agent completion integrity', () => {
     }))
   })
 
-  it('blocks completion when the watcher no longer owns an in-progress task', () => {
+  it('allows producer-finished done status so the watcher can verify after the agent closeout PATCH', () => {
     const result = assessCompletionIntegrity({
       summary: 'Implementation complete.',
       evidence: codeEvidence,
       commitReachable: true,
+      changedFilesMatch: true,
+      worktreeClean: true,
       currentAgentStatus: 'done',
     })
 
     expect(result).toEqual(expect.objectContaining({
+      outcome: 'pass',
+    }))
+  })
+
+  it('allows blocked status when the Projects API rewrote done for missing watcher verification', () => {
+    const result = assessCompletionIntegrity({
+      summary: 'Implementation complete.\n\nCompletion integrity blocked: completion_integrity_verification_required. Submit structured completionEvidence and let the watcher verify it before Done or approval.',
+      evidence: codeEvidence,
+      commitReachable: true,
+      changedFilesMatch: true,
+      worktreeClean: true,
+      currentAgentStatus: 'blocked',
+    })
+
+    expect(result).toEqual(expect.objectContaining({
+      outcome: 'pass',
+    }))
+  })
+
+  it('still blocks when another owner holds a non-producer status', () => {
+    const result = assessCompletionIntegrity({
+      summary: 'Implementation complete.',
+      evidence: codeEvidence,
+      commitReachable: true,
+      changedFilesMatch: true,
+      worktreeClean: true,
+      currentAgentStatus: 'awaiting-input',
+    })
+
+    expect(result).toEqual(expect.objectContaining({
       outcome: 'blocked',
-      reasons: expect.arrayContaining(['agent_state_conflicts_with_completion:done']),
+      reasons: expect.arrayContaining(['agent_state_conflicts_with_completion:awaiting-input']),
     }))
   })
 })

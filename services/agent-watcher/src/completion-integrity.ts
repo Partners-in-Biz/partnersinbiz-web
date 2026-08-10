@@ -86,7 +86,17 @@ export function assessCompletionIntegrity(input: { summary: unknown; evidence: u
   const reasons: string[] = []
   if (reportsUnresolvedWork(summary)) reasons.push('agent_output_reports_unresolved_work')
   const currentAgentStatus = stringValue(input.currentAgentStatus)
-  if (currentAgentStatus && currentAgentStatus !== 'in-progress' && currentAgentStatus !== 'picked-up') reasons.push(`agent_state_conflicts_with_completion:${currentAgentStatus}`)
+  // Producer closeout may briefly land in done/blocked before this watcher pass runs:
+  // the Projects API rewrites agentStatus=done to blocked when verification is still
+  // missing (completion_integrity_verification_required). Treat those as producer-
+  // finished, not as a competing owner, so the watcher can still pass real CE.
+  const apiIntegrityRewrite = /completion_integrity_verification_required/i.test(summary)
+  const producerFinishedStatuses = new Set(['in-progress', 'picked-up', 'done'])
+  if (currentAgentStatus === 'blocked' && apiIntegrityRewrite) {
+    // allowed
+  } else if (currentAgentStatus && !producerFinishedStatuses.has(currentAgentStatus)) {
+    reasons.push(`agent_state_conflicts_with_completion:${currentAgentStatus}`)
+  }
   if (validation.evidence.workKind === 'code' && input.commitReachable !== true) reasons.push('commit_not_reachable_on_origin_development')
   if (validation.evidence.workKind === 'code' && input.changedFilesMatch !== true) reasons.push('changed_file_list_mismatch_with_commit')
   if (validation.evidence.workKind === 'code' && input.worktreeClean === false) reasons.push('watcher_worktree_state_conflicts_with_done')
