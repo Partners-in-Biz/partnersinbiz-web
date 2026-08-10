@@ -29,6 +29,7 @@ import {
   applyAgentColumnForUpdate,
   applyAgentTodoRequeue,
   applyStandaloneTaskStatusForAgentStatus,
+  isAgentOwnedTask,
 } from '@/lib/tasks/agentState'
 import {
   RESOURCE_RELATIONSHIP_ARRAY_FIELDS,
@@ -206,13 +207,31 @@ export const PUT = withAuth('admin', async (req, user, context) => {
   applyStandaloneTaskStatusForAgentStatus(updates, body)
   const finalUpdates = applyAgentTodoRequeue(existing as unknown as Record<string, unknown>, updates, body)
 
-  const isAgentTask = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
+  const isAgentTask = isAgentOwnedTask(existing, body, finalUpdates)
   const attemptsCompletion = finalUpdates.agentStatus === 'done'
     || finalUpdates.status === 'done'
     || finalUpdates.columnId === 'done'
     || finalUpdates.reviewStatus === 'approved'
+  const evidence = validateCompletionEvidence(
+    finalUpdates.completionEvidence !== undefined ? finalUpdates.completionEvidence : existing.completionEvidence,
+  )
   const verification = existing.completionVerification
-  const completionVerified = verification?.verifierResult === 'passed' || verification?.verifierResult === 'approved'
+  const hasReviewer = Boolean(
+    (typeof (finalUpdates.reviewerAgentId ?? existing.reviewerAgentId) === 'string'
+      && String(finalUpdates.reviewerAgentId ?? existing.reviewerAgentId).trim())
+    || (Array.isArray(finalUpdates.reviewerIds ?? existing.reviewerIds)
+      && (finalUpdates.reviewerIds ?? existing.reviewerIds as string[] | undefined)?.some((id) => typeof id === 'string' && id.trim())),
+  )
+  const watcherVerified = evidence.ok
+    && verification?.verifierIdentity === 'agent-watcher'
+    && verification.verifierResult === 'passed'
+    && (evidence.evidence.workKind !== 'code' || (
+      verification.commitReachable === true
+      && verification.changedFilesMatch === true
+      && verification.worktreeClean === true
+    ))
+  const reviewerApproved = !hasReviewer || existing.reviewStatus === 'approved' || finalUpdates.reviewStatus === 'approved'
+  const completionVerified = watcherVerified && reviewerApproved
   if (isAgentTask && attemptsCompletion && !completionVerified) {
     const priorOutput = (finalUpdates.agentOutput && typeof finalUpdates.agentOutput === 'object')
       ? finalUpdates.agentOutput as unknown as Record<string, unknown>

@@ -30,9 +30,11 @@ function isValidDevelopmentCommitSha(value: string): boolean {
 
 function normalizedChangedFiles(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null
-  const files = value.map(stringValue)
-  if (files.some(file => !file || file.startsWith('/') || file.includes('..'))) return null
-  return [...new Set(files)]
+  if (!value.every((file): file is string => typeof file === 'string')) return null
+  const files = value as string[]
+  if (files.some((file) => file !== file.trim() || !file || file.startsWith('/') || file.includes('..'))) return null
+  if (new Set(files).size !== files.length) return null
+  return files
 }
 
 export function validateCompletionEvidence(value: unknown): { ok: true; evidence: CompletionEvidence } | { ok: false; reasons: string[] } {
@@ -86,7 +88,7 @@ export function assessCompletionIntegrity(input: { summary: unknown; evidence: u
   const currentAgentStatus = stringValue(input.currentAgentStatus)
   if (currentAgentStatus && currentAgentStatus !== 'in-progress' && currentAgentStatus !== 'picked-up') reasons.push(`agent_state_conflicts_with_completion:${currentAgentStatus}`)
   if (validation.evidence.workKind === 'code' && input.commitReachable !== true) reasons.push('commit_not_reachable_on_origin_development')
-  if (validation.evidence.workKind === 'code' && input.changedFilesMatch === false) reasons.push('changed_file_list_mismatch_with_commit')
+  if (validation.evidence.workKind === 'code' && input.changedFilesMatch !== true) reasons.push('changed_file_list_mismatch_with_commit')
   if (validation.evidence.workKind === 'code' && input.worktreeClean === false) reasons.push('watcher_worktree_state_conflicts_with_done')
   if (!reasons.length) return { outcome: 'pass', reasons, evidence: validation.evidence }
   return {
@@ -140,11 +142,11 @@ export async function verifyChangedFilesMatchCommit(
   try {
     const { stdout } = await execFile(
       'git',
-      ['-C', repoRoot, 'diff-tree', '--no-commit-id', '--name-only', '-r', '--root', commitSha],
+      ['-C', repoRoot, 'diff-tree', '--no-commit-id', '--name-only', '-z', '-r', '--root', commitSha],
       { timeout: 10_000 },
     )
-    const actual = stdout.split(/\r?\n/).map((file) => file.trim()).filter(Boolean).sort()
-    const expected = [...new Set(changedFiles.map((file) => file.trim()))].sort()
+    const actual = stdout.split('\0').filter((file) => file.length > 0).sort()
+    const expected = [...changedFiles].sort()
     return actual.length === expected.length && actual.every((file, index) => file === expected[index])
   } catch {
     return false

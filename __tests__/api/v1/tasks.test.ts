@@ -290,6 +290,63 @@ describe('PUT /api/v1/tasks/[id]', () => {
     }))
   })
 
+  it.each([
+    {
+      label: 'same-request assigneeAgentId',
+      existing: {
+        orgId: 'pib-platform-owner',
+        title: 'Human task becoming agent',
+        status: 'todo',
+        assignedTo: null,
+        createdBy: 'peet',
+        deleted: false,
+      },
+      body: { assigneeAgentId: 'theo', status: 'done' },
+    },
+    {
+      label: 'same-request assignedTo agent',
+      existing: {
+        orgId: 'pib-platform-owner',
+        title: 'Human task becoming agent',
+        status: 'todo',
+        assignedTo: null,
+        createdBy: 'peet',
+        deleted: false,
+      },
+      body: { assignedTo: { type: 'agent', id: 'theo' }, status: 'done' },
+    },
+    {
+      label: 'legacy assignedTo-only agent task',
+      existing: {
+        orgId: 'pib-platform-owner',
+        title: 'Legacy agent task',
+        status: 'in_progress',
+        assignedTo: { type: 'agent', id: 'theo' },
+        createdBy: 'peet',
+        deleted: false,
+      },
+      body: { status: 'done' },
+    },
+  ])('blocks unverified terminal completion for $label', async ({ existing, body }) => {
+    mockTaskGet.mockResolvedValue({
+      exists: true,
+      id: 'task-1',
+      data: () => existing,
+    })
+    const { PUT } = await import('@/app/api/v1/tasks/[id]/route')
+
+    const res = await PUT(req(body), { params: Promise.resolve({ id: 'task-1' }) })
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      status: 'in_progress',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: ['completion_integrity_verification_required'],
+    }))
+  })
+
   it('still allows an explicit tag-only update to clear tags', async () => {
     const { PUT } = await import('@/app/api/v1/tasks/[id]/route')
 

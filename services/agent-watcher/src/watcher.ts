@@ -174,6 +174,18 @@ function chunkAgentIds(agentIds: string[], size = 30): string[][] {
   return chunks.length > 0 ? chunks : [Array.from(AGENT_IDS)]
 }
 
+function completionStateFingerprint(task: TaskData): string {
+  return JSON.stringify({
+    completionEvidence: task.completionEvidence ?? null,
+    agentStatus: task.agentStatus ?? null,
+    assigneeAgentId: task.assigneeAgentId ?? null,
+    reviewerAgentId: task.reviewerAgentId ?? null,
+    reviewerIds: task.reviewerIds ?? null,
+    reviewStatus: task.reviewStatus ?? null,
+    agentOutputSummary: typeof task.agentOutput?.summary === 'string' ? task.agentOutput.summary : null,
+  })
+}
+
 interface TaskData {
   orgId?: string
   projectId?: string
@@ -1362,6 +1374,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
 
     const completionSnap = await taskRef.get().catch(() => null)
     const completionTask = (completionSnap?.data() ?? taskData) as TaskData
+    const completionFingerprint = completionStateFingerprint(completionTask)
     const completionEvidence = validateCompletionEvidence(completionTask.completionEvidence)
     const commitReachable = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
       ? await verifyReachableDevelopmentCommit(completionEvidence.evidence.commitSha!)
@@ -1437,27 +1450,53 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       (typeof taskData.reviewerAgentId === 'string' && taskData.reviewerAgentId.trim())
       || (Array.isArray(taskData.reviewerIds) && taskData.reviewerIds.some((id) => typeof id === 'string' && id.trim())),
     )
-    await taskRef.update({
-      ...agentStatusUpdate('done', { hasReviewer }),
-      ...(activeRunId ? { agentConversationId: activeRunId } : {}),
-      agentHeartbeatAt: FieldValue.delete(),
-      agentRetryCount: FieldValue.delete(),
-      agentRetryAt: FieldValue.delete(),
-      completionEvidence: completion.evidence,
-      completionIntegrityFailureReasons: FieldValue.delete(),
-      completionVerification: {
-        verifierIdentity: 'agent-watcher',
-        verifierResult: 'passed',
-        reasons: [],
-        commitReachable,
-        changedFilesMatch,
-        worktreeClean,
-        verifiedAt: FieldValue.serverTimestamp(),
-        verifierRunId: activeRunId,
-      },
-      agentOutput: doneAgentOutput,
-      updatedAt: FieldValue.serverTimestamp(),
+    const finalized = await db.runTransaction(async (transaction) => {
+      const latestSnap = await transaction.get(taskRef)
+      const latestTask = (latestSnap.data() ?? completionTask) as TaskData
+      if (completionStateFingerprint(latestTask) !== completionFingerprint) {
+        transaction.update(taskRef, {
+          completionIntegrityFailureReasons: ['completion_state_changed_during_verification'],
+          completionVerification: {
+            verifierIdentity: 'agent-watcher',
+            verifierResult: 'failed',
+            reasons: ['completion_state_changed_during_verification'],
+            commitReachable,
+            changedFilesMatch,
+            worktreeClean,
+            verifiedAt: FieldValue.serverTimestamp(),
+            verifierRunId: activeRunId,
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        return false
+      }
+      transaction.update(taskRef, {
+        ...agentStatusUpdate('done', { hasReviewer }),
+        ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+        agentHeartbeatAt: FieldValue.delete(),
+        agentRetryCount: FieldValue.delete(),
+        agentRetryAt: FieldValue.delete(),
+        completionEvidence: completion.evidence,
+        completionIntegrityFailureReasons: FieldValue.delete(),
+        completionVerification: {
+          verifierIdentity: 'agent-watcher',
+          verifierResult: 'passed',
+          reasons: [],
+          commitReachable,
+          changedFilesMatch,
+          worktreeClean,
+          verifiedAt: FieldValue.serverTimestamp(),
+          verifierRunId: activeRunId,
+        },
+        agentOutput: doneAgentOutput,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      return true
     })
+    if (!finalized) {
+      logger.warn('completion integrity claim changed during verification', { taskId, agentId })
+      return
+    }
     notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'done', {
       agentId,
       summary,

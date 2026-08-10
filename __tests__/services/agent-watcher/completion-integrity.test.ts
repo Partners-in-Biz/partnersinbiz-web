@@ -44,6 +44,30 @@ describe('agent completion integrity', () => {
     }))
   })
 
+  it('requires an explicit positive changed-file verifier result for code evidence', () => {
+    const result = assessCompletionIntegrity({
+      summary: 'Implementation complete.',
+      evidence: codeEvidence,
+      commitReachable: true,
+      currentAgentStatus: 'in-progress',
+    })
+
+    expect(result).toEqual(expect.objectContaining({
+      outcome: 'changes-requested',
+      reasons: expect.arrayContaining(['changed_file_list_mismatch_with_commit']),
+    }))
+  })
+
+  it('rejects non-canonical and duplicate changed-file claims before commit matching', () => {
+    expect(validateCompletionEvidence({
+      ...codeEvidence,
+      changedFiles: ['services/agent-watcher/src/watcher.ts ', 'services/agent-watcher/src/watcher.ts'],
+    })).toEqual(expect.objectContaining({
+      ok: false,
+      reasons: expect.arrayContaining(['changed_file_list_invalid']),
+    }))
+  })
+
   it('rejects a code claim whose changed-file list does not match the reachable commit', () => {
     const result = assessCompletionIntegrity({
       summary: 'Implementation complete.',
