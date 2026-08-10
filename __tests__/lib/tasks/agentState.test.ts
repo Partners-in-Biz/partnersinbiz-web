@@ -5,10 +5,19 @@ import {
   applyAgentTodoRequeue,
   applyStandaloneTaskStatusForAgentStatus,
   columnForAgentStatus,
+  isAgentOwnedTask,
   taskStatusForAgentStatus,
 } from '@/lib/tasks/agentState'
 
 describe('standalone agent task state helpers', () => {
+  it('detects agent ownership from top-level and legacy assignment forms across sources', () => {
+    expect(isAgentOwnedTask({ assigneeAgentId: 'theo' })).toBe(true)
+    expect(isAgentOwnedTask({ assignedTo: { type: 'agent', id: 'theo' } })).toBe(true)
+    expect(isAgentOwnedTask({ assignedTo: null }, { assigneeAgentId: 'maya' })).toBe(true)
+    expect(isAgentOwnedTask({ assignedTo: { type: 'user', id: 'peet' } }, { status: 'done' })).toBe(false)
+    expect(isAgentOwnedTask(null, undefined, {})).toBe(false)
+  })
+
   it.each([
     ['pending', 'todo'],
     ['picked-up', 'in_progress'],
