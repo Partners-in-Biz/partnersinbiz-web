@@ -96,14 +96,44 @@ export function normalizeOrgNodeInput(
   }
 }
 
-/** List all nodes for an org (no tree derivation; use buildOrgTree on the result). */
+/** List all nodes for an org (no tree derivation; use buildOrgTree on the result).
+ * Equality-only query (no orderBy) so a missing composite index cannot 500 the admin UI.
+ * Stable sort is applied in memory — org charts are small (tens of nodes, not thousands).
+ */
 export async function listOrgNodes(orgId: string): Promise<AgentOrgNode[]> {
   const snap = await adminDb
     .collection(AGENT_ORG_COLLECTION)
     .where('orgId', '==', orgId)
-    .orderBy('createdAt', 'asc')
     .get()
-  return snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<AgentOrgNode, 'id'>) }) as AgentOrgNode)
+  const nodes = snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<AgentOrgNode, 'id'>) }) as AgentOrgNode)
+  return nodes.sort((a, b) => {
+    const aMs = createdAtMs(a.createdAt)
+    const bMs = createdAtMs(b.createdAt)
+    if (aMs !== bMs) return aMs - bMs
+    return a.id.localeCompare(b.id)
+  })
+}
+
+function createdAtMs(value: unknown): number {
+  if (!value) return 0
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  if (typeof value === 'object') {
+    const raw = value as { toMillis?: () => number; seconds?: number; _seconds?: number }
+    if (typeof raw.toMillis === 'function') {
+      try {
+        return raw.toMillis()
+      } catch {
+        /* fall through */
+      }
+    }
+    if (typeof raw.seconds === 'number') return raw.seconds * 1000
+    if (typeof raw._seconds === 'number') return raw._seconds * 1000
+  }
+  return 0
 }
 
 export async function getOrgNode(orgId: string, nodeId: string): Promise<AgentOrgNode | null> {
