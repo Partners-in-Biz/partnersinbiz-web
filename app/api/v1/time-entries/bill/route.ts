@@ -22,6 +22,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { lastActorFrom } from '@/lib/api/actor'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 import type { Invoice, LineItem } from '@/lib/invoices/types'
 import type { TimeEntry } from '@/lib/time-tracking/types'
 
@@ -51,6 +52,8 @@ export const POST = withAuth('admin', async (req, user) => {
   if (!invoiceSnap.exists) return apiError('Invoice not found', 404)
   const invoice = invoiceSnap.data() as Invoice | undefined
   if (!invoice) return apiError('Invoice not found', 404)
+  const genericMutationError = rejectGenericPartnerTradeMutation(invoice as unknown as Record<string, unknown>)
+  if (genericMutationError) return apiError(genericMutationError, 409)
 
   // Fetch entries (Firestore admin getAll handles duplicates fine).
   const entryRefs = entryIds.map((id) => adminDb.collection('time_entries').doc(id))
