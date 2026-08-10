@@ -29,6 +29,7 @@ export type SharedBusinessCapability =
   | 'research'
   | 'properties'
   | 'support'
+  | 'messages'
   | 'services'
 
 export type RelationshipVisibility = 'private' | 'relationship' | 'client_visible'

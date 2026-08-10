@@ -4,6 +4,7 @@ import { getProjectForUser } from '@/lib/projects/access'
 import { selectActiveProjectId } from '@/lib/projects/chatProgress'
 import { projectLinkedToOrganization } from '@/lib/projects/organization-link'
 import type { Conversation, ConversationAttachment, ConversationMessage } from './types'
+import { canManageCrossOrgConversation } from './cross-org'
 
 type ProjectConversationAuthorization =
   | { ok: true; projectId: string | null }
@@ -77,8 +78,15 @@ export function publicConversationView(conversation: Conversation, userUid?: str
   delete publicConversation.lastReadAt
   if (userUid) {
     const shareMode = conversation.workspaceContext?.shareMode
-    const readState = conversation.readStateByUser?.[userUid]
-    const explicitUnreadCount = conversation.unreadCounts?.[userUid]
+    const readKey = conversation.crossOrg
+      ? (conversation.crossOrg.participants.find((participant) => (
+        participant.kind === 'user'
+        && participant.uid === userUid
+        && participant.status === 'active'
+      ))?.principalId ?? userUid)
+      : userUid
+    const readState = conversation.readStateByUser?.[readKey] ?? conversation.readStateByUser?.[userUid]
+    const explicitUnreadCount = conversation.unreadCounts?.[readKey] ?? conversation.unreadCounts?.[userUid]
     const persistedReadMessageCount = typeof readState?.lastReadMessageCount === 'number'
       ? readState.lastReadMessageCount
       : Number.NaN
@@ -171,6 +179,7 @@ export function publicConversationMessageView(message: ConversationMessage): Con
 
 /** Access-management is narrower than read access: owner or scoped admin only. */
 export function canManageConversationAccess(user: ApiUser, conversation: Conversation): boolean {
+  if (conversation.crossOrg) return canManageCrossOrgConversation(user, conversation)
   if (user.role === 'ai' || !canAccessOrg(user, conversation.orgId)) return false
   if (user.role === 'admin') return true
   const ownerUid = conversation.workspaceContext?.ownerUserId ?? conversation.startedBy

@@ -315,11 +315,22 @@ const ACTION_CAPABILITY: Record<string, SharedBusinessCapability> = {
   'support.write': 'support',
   'service.read': 'services',
   'service.write': 'services',
+  'messages.read': 'messages',
+  'messages.write': 'messages',
+  'messages.reply': 'messages',
+  'messages.manage': 'messages',
+  'conversation.read': 'messages',
+  'conversation.reply': 'messages',
+  'conversation.manage': 'messages',
+  'attachment.read': 'messages',
+  'attachment.upload': 'messages',
+  'agent.append': 'messages',
 }
 
 const RESOURCE_CAPABILITY: Partial<Record<PartnerResourceGrant['resourceType'], SharedBusinessCapability>> = {
   research: 'research',
   property: 'properties',
+  conversation: 'messages',
 }
 
 /**

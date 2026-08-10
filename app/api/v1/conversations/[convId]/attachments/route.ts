@@ -9,6 +9,7 @@ import { actorFrom } from '@/lib/api/actor'
 import { getConversation } from '@/lib/conversations/conversations'
 import type { ApiUser } from '@/lib/api/types'
 import { authorizeConversationProject, canReplyConversation } from '@/lib/conversations/access'
+import { evaluateCrossOrgConversationAccess } from '@/lib/conversations/cross-org'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,9 +47,19 @@ export const POST = withAuth(
     const { convId } = await (context as Params).params
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
-    if (!canReplyConversation(user, conversation)) return apiError('Forbidden', 403)
-    const projectAuthorization = await authorizeConversationProject(user, conversation)
-    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+    const access = conversation.crossOrg
+      ? await evaluateCrossOrgConversationAccess({ conversation, user, action: 'attachment.upload' })
+      : null
+    if (conversation.crossOrg ? !access?.allowed : !canReplyConversation(user, conversation)) {
+      return apiError('Forbidden', 403)
+    }
+    const foreignCrossOrgParticipant = Boolean(
+      conversation.crossOrg && user.orgId !== conversation.crossOrg.ownerOrgId,
+    )
+    if (!foreignCrossOrgParticipant) {
+      const projectAuthorization = await authorizeConversationProject(user, conversation)
+      if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+    }
 
     const contentLengthHeader = req.headers.get('content-length')
     if (contentLengthHeader) {
@@ -93,6 +104,13 @@ export const POST = withAuth(
         storagePath,
         contentType,
         sizeBytes: buffer.byteLength,
+        ...(conversation.crossOrg ? {
+          visibility: {
+            principalIds: conversation.crossOrg.participants
+              .filter((participant) => participant.status === 'active')
+              .map((participant) => participant.principalId),
+          },
+        } : {}),
         deleted: false,
         ...actorFrom(user),
         createdAt: FieldValue.serverTimestamp(),

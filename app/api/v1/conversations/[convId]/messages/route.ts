@@ -110,9 +110,13 @@ import {
   canReplyConversation,
   publicConversationMessageView,
 } from '@/lib/conversations/access'
+import {
+  canReadCrossOrgConversationMessage,
+  evaluateCrossOrgConversationAccess,
+} from '@/lib/conversations/cross-org'
 import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
 import type { AgentTeamDoc } from '@/lib/agents/types'
-import type { AgentId, Conversation, ConversationAttachment } from '@/lib/conversations/types'
+import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
 import { selectActiveProjectId } from '@/lib/projects/chatProgress'
 
 export const dynamic = 'force-dynamic'
@@ -169,6 +173,15 @@ async function resolveAttachments(value: unknown, convId: string, orgId: string)
       contentType,
       sizeBytes,
       ...(storagePath ? { storagePath } : {}),
+      ...(attachment.visibility && typeof attachment.visibility === 'object'
+        && Array.isArray((attachment.visibility as { principalIds?: unknown }).principalIds)
+        ? {
+          visibility: {
+            principalIds: (attachment.visibility as { principalIds: unknown[] }).principalIds
+              .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+          },
+        }
+        : {}),
     }
   }))
   return resolved.every((attachment): attachment is ResolvedConversationAttachment => attachment !== null)
@@ -485,23 +498,34 @@ export const POST = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccessConversation(user, conversation)) {
+    const crossOrgAccess = conversation.crossOrg
+      ? await evaluateCrossOrgConversationAccess({ conversation, user, action: 'reply' })
+      : null
+    if (conversation.crossOrg ? !crossOrgAccess?.allowed : !canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
-    if (!canReplyConversation(user, conversation)) {
+    if (!conversation.crossOrg && !canReplyConversation(user, conversation)) {
       return apiError('You do not have permission to reply in this conversation', 403)
     }
-    const replyAccess = await assertUserCanPerformOrganizationModuleAction(
-      user,
-      conversation.orgId,
-      'messages',
-      'reply',
-      'Conversation replies are disabled for your organisation role',
+    const foreignCrossOrgParticipant = Boolean(
+      conversation.crossOrg && user.orgId !== conversation.crossOrg.ownerOrgId,
     )
-    if (!replyAccess.ok) return apiError(replyAccess.error, replyAccess.status)
-    const projectAuthorization = await authorizeConversationProject(user, conversation)
-    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
-    const boundProjectId = projectAuthorization.projectId ?? undefined
+    if (!foreignCrossOrgParticipant) {
+      const replyAccess = await assertUserCanPerformOrganizationModuleAction(
+        user,
+        conversation.orgId,
+        'messages',
+        'reply',
+        'Conversation replies are disabled for your organisation role',
+      )
+      if (!replyAccess.ok) return apiError(replyAccess.error, replyAccess.status)
+    }
+    let boundProjectId: string | undefined
+    if (!foreignCrossOrgParticipant) {
+      const projectAuthorization = await authorizeConversationProject(user, conversation)
+      if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+      boundProjectId = projectAuthorization.projectId ?? undefined
+    }
 
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
@@ -531,7 +555,14 @@ export const POST = withAuth(
       || requestedCredentialBindingId !== undefined
     const attachments = await resolveAttachments((body as Record<string, unknown>).attachments, convId, conversation.orgId)
     if (!attachments) return apiError('One or more attachments are invalid for this conversation', 400)
-    const publicAttachments: ConversationAttachment[] = attachments.map(({ storagePath: _storagePath, ...attachment }) => attachment)
+    const publicAttachments: ConversationAttachment[] = attachments.map((attachment) => ({
+      id: attachment.id,
+      name: attachment.name,
+      url: attachment.url,
+      contentType: attachment.contentType,
+      sizeBytes: attachment.sizeBytes,
+      ...(attachment.visibility ? { visibility: attachment.visibility } : {}),
+    }))
     const slashCommand = sanitizeSlashCommand((body as Record<string, unknown>).slashCommand)
     // /goal, /toolsets, /memory, /rollback, /design commands, etc. may have empty free-text content.
     if (
@@ -568,7 +599,12 @@ export const POST = withAuth(
 
     // Resolve dispatch target before storing the message so unauthorized or
     // invalid model/provider overrides fail without creating a partial thread.
-    const dispatchAgentId = await resolveConversationDispatchAgentId(conversation)
+    // Foreign-org participants may add user messages, but cannot dispatch an
+    // owner-org workspace agent. A foreign agent needs a separately-sanitised
+    // execution context; until that exists this prevents workspace/history
+    // leakage across the collaboration boundary.
+    let dispatchAgentId = await resolveConversationDispatchAgentId(conversation)
+    if (foreignCrossOrgParticipant) dispatchAgentId = null
     let modelSelection: {
       model: string
       provider?: string
@@ -1676,15 +1712,28 @@ const listMessagesHandler = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccessConversation(user, conversation)) {
+    const access = conversation.crossOrg
+      ? await evaluateCrossOrgConversationAccess({ conversation, user, action: 'read' })
+      : null
+    if (conversation.crossOrg ? !access?.allowed : !canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
 
-    const projectAuthorization = await authorizeConversationProject(user, conversation)
-    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+    const foreignCrossOrgParticipant = Boolean(
+      conversation.crossOrg && user.orgId !== conversation.crossOrg.ownerOrgId,
+    )
+    if (!foreignCrossOrgParticipant) {
+      const projectAuthorization = await authorizeConversationProject(user, conversation)
+      if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+    }
 
     const messages = await listMessages(convId, 200)
-    return apiSuccess({ messages: messages.map(publicConversationMessageView) })
+    const visibleMessages = conversation.crossOrg
+      ? (await Promise.all(messages.map(async (message) => (
+        await canReadCrossOrgConversationMessage({ conversation, message, user }) ? message : null
+      )))).filter((message): message is ConversationMessage => message !== null)
+      : messages
+    return apiSuccess({ messages: visibleMessages.map(publicConversationMessageView) })
   },
 )
 

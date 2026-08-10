@@ -26,6 +26,7 @@ import {
   canManageConversationAccess,
   publicConversationView,
 } from '@/lib/conversations/access'
+import { evaluateCrossOrgConversationAccess } from '@/lib/conversations/cross-org'
 import {
   ConversationParticipantError,
   resolveHumanConversationParticipants,
@@ -49,11 +50,19 @@ export const GET = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccessConversation(user, conversation)) {
+    const access = conversation.crossOrg
+      ? await evaluateCrossOrgConversationAccess({ conversation, user, action: 'read' })
+      : null
+    if (conversation.crossOrg ? !access?.allowed : !canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
-    const projectAuthorization = await authorizeConversationProject(user, conversation)
-    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+    const foreignCrossOrgParticipant = Boolean(
+      conversation.crossOrg && user.orgId !== conversation.crossOrg.ownerOrgId,
+    )
+    if (!foreignCrossOrgParticipant) {
+      const projectAuthorization = await authorizeConversationProject(user, conversation)
+      if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+    }
 
     return apiSuccess({ conversation: publicConversationView(conversation, user.uid) })
   },
@@ -103,6 +112,12 @@ export const PATCH = withAuth(
 
     const hasAccessUpdate = body.shareMode !== undefined || body.participantUids !== undefined
     if (hasAccessUpdate) {
+      // The legacy access mutation stores only same-org participants. Applying
+      // it to a bilateral thread could silently drop the canonical foreign
+      // principal list, so it is never a cross-org management path.
+      if (conversation.crossOrg) {
+        return apiError('Cross-organisation participant changes require the canonical cross-org participant workflow', 400)
+      }
       if (patch.title !== undefined || patch.archived !== undefined) {
         return apiError('Access changes cannot be combined with metadata changes', 400)
       }

@@ -15,6 +15,7 @@ import type { ContextReference } from '@/lib/context-references/types'
 import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
 import type { ApiUser } from '@/lib/api/types'
 import { authorizeConversationProject, canAccessConversation } from './access'
+import { evaluateCrossOrgConversationAccess } from './cross-org'
 import {
   CONVERSATION_RUN_DISPATCH_GRACE_MS,
 } from './run-policy'
@@ -134,6 +135,8 @@ export async function listConversations(
     ? Math.max(limit * 2, 30)
     : Math.max(limit * 4, filters?.scope ? 100 : limit)
   const baseOrgQuery = adminDb.collection(CONVERSATIONS_COLLECTION).where('orgId', '==', orgId)
+  const crossOrgQuery = adminDb.collection(CONVERSATIONS_COLLECTION)
+    .where('crossOrg.participantOrgIds', 'array-contains', orgId)
   // Project and other scoped Messages views previously read up to 100-120
   // organisation-wide conversations on every refresh, then discarded nearly
   // all of them in memory. Apply the most selective stable scope in Firestore
@@ -141,41 +144,53 @@ export async function listConversations(
   const orgQuery = scopedRefId
     ? baseOrgQuery.where('scopeRefId', '==', scopedRefId)
     : baseOrgQuery
-  let snap: FirebaseFirestore.QuerySnapshot
-  try {
-    snap = await orgQuery
-      .orderBy('updatedAt', 'desc')
-      .limit(readLimit)
-      .get()
-  } catch (error) {
-    const firestoreError = error as { code?: unknown; details?: unknown; message?: unknown }
-    const description = `${String(firestoreError.details ?? '')} ${String(firestoreError.message ?? '')}`.toLowerCase()
-    const missingIndex = firestoreError.code === 9 || firestoreError.code === 'failed-precondition' || description.includes('requires an index')
-    if (!missingIndex) throw error
-
-    // Keep messaging available while a newly declared composite index is still building.
-    // Read the whole org set before sorting so an unordered limit cannot hide newer rows.
-    snap = await baseOrgQuery.get()
+  const readQuery = async (query: FirebaseFirestore.Query, fallback: FirebaseFirestore.Query) => {
+    try {
+      return await query.orderBy('updatedAt', 'desc').limit(readLimit).get()
+    } catch (error) {
+      const firestoreError = error as { code?: unknown; details?: unknown; message?: unknown }
+      const description = `${String(firestoreError.details ?? '')} ${String(firestoreError.message ?? '')}`.toLowerCase()
+      const missingIndex = firestoreError.code === 9 || firestoreError.code === 'failed-precondition' || description.includes('requires an index')
+      if (!missingIndex) throw error
+      // Index builds must not turn a permitted cross-org thread invisible.
+      return fallback.get()
+    }
   }
+  const [ownerSnapshot, crossOrgSnapshot] = await Promise.all([
+    readQuery(orgQuery, baseOrgQuery),
+    readQuery(crossOrgQuery, crossOrgQuery),
+  ])
 
-  const candidates = snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }) as Conversation)
+  const byId = new Map<string, Conversation>()
+  for (const doc of [...ownerSnapshot.docs, ...crossOrgSnapshot.docs]) {
+    byId.set(doc.id, { id: doc.id, ...doc.data() } as Conversation)
+  }
+  const preliminary = [...byId.values()]
     .sort((left, right) => {
       const leftMs = left.updatedAt?.toMillis?.() ?? 0
       const rightMs = right.updatedAt?.toMillis?.() ?? 0
       return rightMs - leftMs
     })
     .filter((conversation) => {
-      if (!canAccessConversation(user, conversation)) return false
       if (filters?.includeAllScopes) return true
       if (filters?.scope && conversation.scope !== filters.scope) return false
       if (filters?.scopeRefId && conversation.scopeRefId !== filters.scopeRefId) return false
       if (filters?.projectId && conversation.scopeRefId !== filters.projectId) return false
       return true
     })
+  const accessResults = await Promise.all(preliminary.map(async (conversation) => {
+    if (!conversation.crossOrg) return canAccessConversation(user, conversation)
+    return (await evaluateCrossOrgConversationAccess({ conversation, user, action: 'read' })).allowed
+  }))
+  const candidates = preliminary.filter((_conversation, index) => accessResults[index])
 
   const projectAuthorizations = await Promise.all(
-    candidates.map((conversation) => authorizeConversationProject(user, conversation)),
+    candidates.map(async (conversation) => {
+      if (conversation.crossOrg && user.orgId !== conversation.crossOrg.ownerOrgId) {
+        return { ok: true, projectId: null } as const
+      }
+      return authorizeConversationProject(user, conversation)
+    }),
   )
 
   return candidates
@@ -192,16 +207,40 @@ export async function createMessage(
   msg: Omit<ConversationMessage, 'id'>,
 ): Promise<ConversationMessage> {
   const ref = messagesCollection(convId).doc()
-  const data = {
-    ...msg,
-    createdAt: FieldValue.serverTimestamp(),
+  const applyCrossOrgDefaults = (conversation: Conversation): Omit<ConversationMessage, 'id'> => {
+    if (!conversation.crossOrg) return msg
+    const activePrincipalIds = conversation.crossOrg.participants
+      .filter((participant) => participant.status === 'active')
+      .map((participant) => participant.principalId)
+    const allowed = new Set(activePrincipalIds)
+    const visibility = msg.visibility?.principalIds?.filter((principalId) => allowed.has(principalId))
+    const principalIds = visibility && visibility.length > 0 ? visibility : activePrincipalIds
+    return {
+      ...msg,
+      visibility: { principalIds },
+      ...(msg.attachments
+        ? {
+          attachments: msg.attachments.map((attachment) => ({
+            ...attachment,
+            visibility: attachment.visibility?.principalIds?.length
+              ? {
+                principalIds: attachment.visibility.principalIds.filter((principalId) => principalIds.includes(principalId)),
+              }
+              : { principalIds },
+          })),
+        }
+        : {}),
+    }
   }
+
   if (realtimeOutboxEnabled()) {
     const conversationRef = convDoc(convId)
+    let stored: Omit<ConversationMessage, 'id'> | null = null
     await adminDb.runTransaction(async (transaction) => {
       const conversationSnapshot = await transaction.get(conversationRef)
       if (!conversationSnapshot.exists) throw new Error('Conversation not found')
-      transaction.create(ref, data)
+      stored = applyCrossOrgDefaults(conversationSnapshot.data() as Conversation)
+      transaction.create(ref, { ...stored, createdAt: FieldValue.serverTimestamp() })
       appendConversationRealtimeOutboxEvent({
         transaction,
         conversationRef,
@@ -212,9 +251,15 @@ export async function createMessage(
         writeConversation: (realtimeSequence) => transaction.update(conversationRef, { realtimeSequence }),
       })
     })
-  } else {
-    await ref.set(data)
+    const persisted = stored ?? msg
+    return { id: ref.id, ...persisted, createdAt: FieldValue.serverTimestamp() } as ConversationMessage
   }
+
+  const conversation = await getConversation(convId)
+  if (!conversation) throw new Error('Conversation not found')
+  const stored = applyCrossOrgDefaults(conversation)
+  const data = { ...stored, createdAt: FieldValue.serverTimestamp() }
+  await ref.set(data)
   return { id: ref.id, ...data } as ConversationMessage
 }
 
@@ -523,6 +568,8 @@ export class ConversationReadConflictError extends Error {
 export async function markConversationRead(input: {
   convId: string
   userId: string
+  /** Qualified cross-org principal id; legacy conversations continue using userId. */
+  readKey?: string
   lastMessageId: string | null
 }): Promise<void> {
   const ref = convDoc(input.convId)
@@ -531,22 +578,37 @@ export async function markConversationRead(input: {
     if (!snapshot.exists) throw new Error('Conversation not found')
     const conversation = snapshot.data() as Conversation
     const currentLastMessageId = conversation.lastMessageId?.trim() || null
-    if (currentLastMessageId !== input.lastMessageId) {
-      throw new ConversationReadConflictError(currentLastMessageId)
-    }
-    if (!(conversation.participantUids ?? []).includes(input.userId)
-      && conversation.workspaceContext?.shareMode !== 'org') {
-      throw new Error('User is not a conversation participant')
+    const readKey = input.readKey ?? input.userId
+    if (conversation.crossOrg) {
+      const activePrincipal = conversation.crossOrg.participants.find((participant) => (
+        participant.principalId === readKey && participant.status === 'active'
+      ))
+      if (!activePrincipal) throw new Error('Cross-organisation participant is not active')
+      if (input.lastMessageId) {
+        const messageSnapshot = await transaction.get(messagesCollection(input.convId).doc(input.lastMessageId))
+        const visibility = messageSnapshot.exists
+          ? (messageSnapshot.data() as ConversationMessage).visibility?.principalIds
+          : null
+        if (!visibility?.includes(readKey)) throw new Error('Message is not visible to this participant')
+      }
+    } else {
+      if (currentLastMessageId !== input.lastMessageId) {
+        throw new ConversationReadConflictError(currentLastMessageId)
+      }
+      if (!(conversation.participantUids ?? []).includes(input.userId)
+        && conversation.workspaceContext?.shareMode !== 'org') {
+        throw new Error('User is not a conversation participant')
+      }
     }
     const readStateUpdate = {
       unreadCounts: {
         ...(conversation.unreadCounts ?? {}),
-        [input.userId]: 0,
+        [readKey]: 0,
       },
       readStateByUser: {
         ...(conversation.readStateByUser ?? {}),
-        [input.userId]: {
-          ...(currentLastMessageId ? { lastReadMessageId: currentLastMessageId } : {}),
+        [readKey]: {
+          ...(input.lastMessageId ? { lastReadMessageId: input.lastMessageId } : {}),
           lastReadMessageCount: Math.max(0, Math.floor(conversation.messageCount ?? 0)),
           lastReadAt: FieldValue.serverTimestamp(),
         },
