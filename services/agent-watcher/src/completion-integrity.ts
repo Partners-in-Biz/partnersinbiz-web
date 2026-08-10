@@ -77,7 +77,7 @@ function reportsUnresolvedWork(summary: string): boolean {
   return /\b(?:unresolved|remaining work|not (?:yet )?(?:committed|pushed|complete|finished)|nothing is committed|cannot complete|still (?:needs|requires)|incomplete)\b/i.test(summary)
 }
 
-export function assessCompletionIntegrity(input: { summary: unknown; evidence: unknown; commitReachable: boolean | null; worktreeClean?: boolean | null; currentAgentStatus: unknown }): CompletionIntegrityAssessment {
+export function assessCompletionIntegrity(input: { summary: unknown; evidence: unknown; commitReachable: boolean | null; changedFilesMatch?: boolean | null; worktreeClean?: boolean | null; currentAgentStatus: unknown }): CompletionIntegrityAssessment {
   const summary = stringValue(input.summary)
   const validation = validateCompletionEvidence(input.evidence)
   if ('reasons' in validation) return { outcome: 'changes-requested', reasons: validation.reasons, evidence: null }
@@ -86,6 +86,7 @@ export function assessCompletionIntegrity(input: { summary: unknown; evidence: u
   const currentAgentStatus = stringValue(input.currentAgentStatus)
   if (currentAgentStatus && currentAgentStatus !== 'in-progress' && currentAgentStatus !== 'picked-up') reasons.push(`agent_state_conflicts_with_completion:${currentAgentStatus}`)
   if (validation.evidence.workKind === 'code' && input.commitReachable !== true) reasons.push('commit_not_reachable_on_origin_development')
+  if (validation.evidence.workKind === 'code' && input.changedFilesMatch === false) reasons.push('changed_file_list_mismatch_with_commit')
   if (validation.evidence.workKind === 'code' && input.worktreeClean === false) reasons.push('watcher_worktree_state_conflicts_with_done')
   if (!reasons.length) return { outcome: 'pass', reasons, evidence: validation.evidence }
   return {
@@ -120,6 +121,31 @@ export async function verifyReachableDevelopmentCommit(
     await execFile('git', ['-C', repoRoot, 'fetch', '--quiet', 'origin', 'development'], { timeout: 30_000 })
     await execFile('git', ['-C', repoRoot, 'merge-base', '--is-ancestor', commitSha, 'origin/development'], { timeout: 10_000 })
     return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Verify that the producer's claimed changed-file list exactly matches the
+ * submitted commit. This binds completion evidence to the source revision,
+ * rather than accepting a narrative or arbitrary artifact list.
+ */
+export async function verifyChangedFilesMatchCommit(
+  commitSha: string,
+  changedFiles: string[],
+  repoRoot = process.env.PIB_REPO_ROOT || process.cwd(),
+): Promise<boolean> {
+  if (!isValidDevelopmentCommitSha(commitSha) || !normalizedChangedFiles(changedFiles)) return false
+  try {
+    const { stdout } = await execFile(
+      'git',
+      ['-C', repoRoot, 'diff-tree', '--no-commit-id', '--name-only', '-r', '--root', commitSha],
+      { timeout: 10_000 },
+    )
+    const actual = stdout.split(/\r?\n/).map((file) => file.trim()).filter(Boolean).sort()
+    const expected = [...new Set(changedFiles.map((file) => file.trim()))].sort()
+    return actual.length === expected.length && actual.every((file, index) => file === expected[index])
   } catch {
     return false
   }

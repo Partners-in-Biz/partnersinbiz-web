@@ -23,7 +23,7 @@ import { formatHermesWatcherError } from './hermes-error'
 import { logger } from './logger'
 import type { AgentRunTelemetry } from './run-telemetry'
 import { agentStatusUpdate } from './task-updates'
-import { assessCompletionIntegrity, validateCompletionEvidence, verifyCleanWatcherWorktree, verifyReachableDevelopmentCommit } from './completion-integrity'
+import { assessCompletionIntegrity, validateCompletionEvidence, verifyChangedFilesMatchCommit, verifyCleanWatcherWorktree, verifyReachableDevelopmentCommit } from './completion-integrity'
 import {
   getTaskDependencyGateIds,
   getTaskDispatchBlocker,
@@ -188,7 +188,7 @@ interface TaskData {
   reviewStatus?: string
   agentOutput?: { summary?: string; artifacts?: unknown[]; telemetry?: unknown; [key: string]: unknown }
   completionEvidence?: unknown
-  completionVerification?: { verifierIdentity?: string; verifierResult?: string; reasons?: string[]; commitReachable?: boolean | null }
+  completionVerification?: { verifierIdentity?: string; verifierResult?: string; reasons?: string[]; commitReachable?: boolean | null; changedFilesMatch?: boolean | null }
   agentConversationId?: string
   workflowRunId?: string
   workflowNodeId?: string
@@ -1263,6 +1263,9 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     const commitReachable = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
       ? await verifyReachableDevelopmentCommit(completionEvidence.evidence.commitSha!)
       : null
+    const changedFilesMatch = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
+      ? await verifyChangedFilesMatchCommit(completionEvidence.evidence.commitSha!, completionEvidence.evidence.changedFiles)
+      : null
     const worktreeClean = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
       ? await verifyCleanWatcherWorktree()
       : null
@@ -1270,6 +1273,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       summary,
       evidence: completionTask.completionEvidence,
       commitReachable,
+      changedFilesMatch,
       worktreeClean,
       currentAgentStatus: completionTask.agentStatus,
     })
@@ -1297,6 +1301,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
           verifierResult: 'failed',
           reasons: completion.reasons,
           commitReachable,
+          changedFilesMatch,
           worktreeClean,
           verifiedAt: FieldValue.serverTimestamp(),
           verifierRunId: activeRunId,
@@ -1342,6 +1347,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         verifierResult: 'passed',
         reasons: [],
         commitReachable,
+        changedFilesMatch,
         worktreeClean,
         verifiedAt: FieldValue.serverTimestamp(),
         verifierRunId: activeRunId,
