@@ -284,11 +284,39 @@ describe('GET /api/v1/public/client-documents/edit/[editShareToken]', () => {
       body: { text: 'Proposal contents' },
     })
     expect(body.data.user).toEqual({ uid: 'user-1', email: 'foo@example.com' })
+    expect(res.headers.get('Cache-Control')).toContain('no-store')
 
     expect(mockVerifySessionCookie).toHaveBeenCalledWith('good-session', true)
     expect(mockDoc).toHaveBeenCalledWith('doc-9')
     expect(mockSubCollection).toHaveBeenCalledWith('versions')
     expect(mockSubDoc).toHaveBeenCalledWith('v-7')
+  })
+
+  it('returns 403 when the signed-in user is not an active linked/named recipient member', async () => {
+    mockOrgMemberGet.mockResolvedValue({ exists: false, data: () => ({}) })
+    configureDocLookup({
+      empty: false,
+      doc: {
+        id: 'doc-9',
+        data: {
+          orgId: 'owner-org',
+          editShareEnabled: true,
+          deleted: false,
+          currentVersionId: 'v-7',
+          linked: { clientOrgId: 'client-org' },
+          editAccessCode: 'SECRET1',
+        },
+      },
+    })
+
+    const { GET } = await import('@/app/api/v1/public/client-documents/edit/[editShareToken]/route')
+    const req = getRequest(`http://localhost/api/v1/public/client-documents/edit/${TOKEN}`, {
+      Cookie: buildCookieHeader({ [`eds_${TOKEN}`]: '1', __session: 'good-session' }),
+    })
+    const res = await GET(req, { params: Promise.resolve({ editShareToken: TOKEN }) })
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.error).toBe('This edit share is not available to your account')
   })
 
   it('rejects a code cookie that is not exactly "1" on a code-protected doc', async () => {

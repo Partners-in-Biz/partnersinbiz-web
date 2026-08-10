@@ -12,6 +12,8 @@ describe('client document public sanitizer', () => {
       updatedBy: 'admin-1',
       updatedByType: 'user',
       deleted: false,
+      pdfSnapshotUrl: 'https://firebasestorage.googleapis.com/v0/b/x/o/y?alt=media&token=abc',
+      signToken: 'sign-secret',
       assumptions: [
         { text: 'Public note', severity: 'info', status: 'open', createdBy: 'ai-agent' },
         { text: 'Internal pricing concern', severity: 'blocks_publish', status: 'open' },

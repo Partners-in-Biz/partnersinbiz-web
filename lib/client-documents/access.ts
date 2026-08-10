@@ -89,7 +89,6 @@ function isExplicitlyLinkedClientVisible(document: Partial<ClientDocument>, user
 
 function isHolderTeamMember(document: Partial<ClientDocument>, user: ApiUser): boolean {
   if (document.createdBy === user.uid) return true
-  if (hasActiveUserShare(document, user)) return true
 
   const holderOrgId = typeof document.orgId === 'string' ? document.orgId.trim() : ''
   if (!holderOrgId) return false
@@ -106,6 +105,8 @@ function isHolderTeamMember(document: Partial<ClientDocument>, user: ApiUser): b
 }
 
 function isInternalCollaborator(document: Partial<ClientDocument>, user: ApiUser): boolean {
+  // Named-user shares are authenticated partner grants, not holder-team authority.
+  // Keep them out of the holder path so manage/delete paths cannot treat a share as staff.
   return isHolderTeamMember(document, user)
 }
 
@@ -176,6 +177,7 @@ async function hasCanonicalPartnerGrant(
 export function assertClientDocumentDataAccess(document: Partial<ClientDocument>, user: ApiUser) {
   if (user.role === 'client') {
     if (isInternalCollaborator(document, user)) return { ok: true as const }
+    if (hasActiveUserShare(document, user)) return { ok: true as const }
     if (isExplicitlyLinkedClientVisible(document, user)) return { ok: true as const }
     return { ok: false as const, response: apiError('Forbidden', 403) }
   }
@@ -191,7 +193,11 @@ export function assertClientDocumentDataAccess(document: Partial<ClientDocument>
 }
 
 export function isClientDocumentVisibleToUser(document: Partial<ClientDocument>, user: ApiUser): boolean {
-  return isInternalCollaborator(document, user) || isExplicitlyLinkedClientVisible(document, user)
+  return (
+    isInternalCollaborator(document, user)
+    || hasActiveUserShare(document, user)
+    || isExplicitlyLinkedClientVisible(document, user)
+  )
 }
 
 export { isDocumentClientFacingStatus }

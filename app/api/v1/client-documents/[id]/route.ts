@@ -18,6 +18,7 @@ import {
   validateUserShareInput,
 } from '@/lib/client-documents/grants'
 import { syncUserShareDocumentGrants } from '@/lib/client-documents/canonical-grants'
+import { revokeDocumentSignedArtifactAccess } from '@/lib/client-documents/artifact-revocation'
 import { lastActorFrom } from '@/lib/api/actor'
 import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
 import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
@@ -318,6 +319,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
     const updatedDocument = await getClientDocument(id)
     if (!updatedDocument) return apiError('Document not found', 404)
     await syncUserShareDocumentGrants(updatedDocument, user)
+  }
+
+  if (update.shareEnabled === false || userShareRevocations?.ok) {
+    await revokeDocumentSignedArtifactAccess(id).catch(() => undefined)
   }
 
   return apiSuccess({ id, updated: Object.keys(update) })

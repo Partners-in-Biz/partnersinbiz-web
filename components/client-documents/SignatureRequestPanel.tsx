@@ -11,7 +11,7 @@ interface SignatureRequestRow {
   signerEmail: string
   message?: string
   status: 'pending' | 'signed' | 'declined' | 'cancelled'
-  pdfSnapshotUrl?: string
+  pdfSnapshotPath?: string
   createdAt?: unknown
   signedAt?: unknown
 }
@@ -149,6 +149,7 @@ export function SignatureRequestPanel({ documentId, canRequest }: SignatureReque
             value={signerName}
             onChange={(e) => setSignerName(e.target.value)}
             placeholder="Signer name"
+            aria-label="Signer name"
             className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
           />
           <input
@@ -156,12 +157,14 @@ export function SignatureRequestPanel({ documentId, canRequest }: SignatureReque
             value={signerEmail}
             onChange={(e) => setSignerEmail(e.target.value)}
             placeholder="signer@example.com"
+            aria-label="Signer email"
             className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
           />
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Optional message to the signer"
+            aria-label="Optional message to the signer"
             rows={2}
             className="w-full resize-none rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-[var(--color-pib-accent)]"
           />
@@ -210,9 +213,9 @@ export function SignatureRequestPanel({ documentId, canRequest }: SignatureReque
                     ? `Requested ${fmtTimestamp(r.createdAt)}`
                     : null}
               </p>
-              {r.status === 'signed' && r.pdfSnapshotUrl ? (
+              {r.status === 'signed' && r.pdfSnapshotPath ? (
                 <a
-                  href={r.pdfSnapshotUrl}
+                  href={`/api/v1/client-documents/${documentId}/signature-requests/${r.id}/download`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--color-pib-accent)] hover:underline"

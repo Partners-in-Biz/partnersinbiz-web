@@ -167,7 +167,7 @@ function isUsableImageUrl(url: unknown): url is string {
 
 export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await getAccessibleClientDocument(id, user)
+  const access = await getAccessibleClientDocument(id, user, 'attachments')
   if (!access.ok) return access.response
 
   const doc = access.document
@@ -362,6 +362,9 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, ct
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${filename}.pdf"`,
       'Content-Length': String(buffer.byteLength),
+      'Cache-Control': 'private, no-store, max-age=0',
+      Pragma: 'no-cache',
+      'X-Content-Type-Options': 'nosniff',
     },
   })
 })

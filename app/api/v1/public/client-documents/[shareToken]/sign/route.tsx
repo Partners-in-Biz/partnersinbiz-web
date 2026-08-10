@@ -14,7 +14,6 @@
  */
 import { FieldValue } from 'firebase-admin/firestore'
 import { NextRequest, NextResponse } from 'next/server'
-import crypto from 'crypto'
 import {
   renderToBuffer,
   Document as PdfDocument,
@@ -199,7 +198,7 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
       blocks: deserializeBlocksFromFirestore(versionData.blocks),
     }
 
-    return apiSuccess({
+    const response = apiSuccess({
       document: stripPrivateDocumentFields(document),
       version: stripPrivateDocumentFields(version),
       signatureRequest: {
@@ -210,6 +209,9 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
         status: request.status ?? 'pending',
       },
     })
+    response.headers.set('Cache-Control', 'private, no-store, max-age=0')
+    response.headers.set('Pragma', 'no-cache')
+    return response
   } catch (err) {
     console.error('[public/client-documents/sign GET]', err)
     return apiError('Internal Server Error', 500)
@@ -273,9 +275,9 @@ export async function POST(req: NextRequest, context: RouteContext): Promise<Nex
     const userAgent = req.headers.get('user-agent') ?? ''
     const signedAtIso = new Date().toISOString()
 
-    // Render a PDF snapshot of the document as signed, and store it.
+    // Render a PDF snapshot of the document as signed, and store the path only.
+    // Durable Firebase download tokens are never returned from this public route.
     let pdfSnapshotPath: string | undefined
-    let pdfSnapshotUrl: string | undefined
     try {
       let blocks: DocumentBlock[] = []
       if (versionId) {
@@ -297,17 +299,21 @@ export async function POST(req: NextRequest, context: RouteContext): Promise<Nex
         signedAtIso,
         ip,
       })
-      const downloadToken = crypto.randomUUID()
       const storagePath = `client-documents/${docSnap.id}/signed/${requestRef.id}.pdf`
       const bucket = getStorage(getAdminApp()).bucket()
       await bucket.file(storagePath).save(pdfBuffer, {
         metadata: {
           contentType: 'application/pdf',
-          metadata: { firebaseStorageDownloadTokens: downloadToken },
+          cacheControl: 'private, max-age=0, no-store',
+          metadata: {
+            // Rotate-friendly private marker; authenticated download issues short-lived URLs.
+            documentArtifact: 'signed-pdf',
+            documentId: docSnap.id,
+            signatureRequestId: requestRef.id,
+          },
         },
       })
       pdfSnapshotPath = storagePath
-      pdfSnapshotUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media&token=${downloadToken}`
     } catch (err) {
       // PDF snapshot is best-effort — the signature itself still records.
       console.error('[public sign] PDF snapshot failed (non-blocking)', err)
@@ -323,7 +329,6 @@ export async function POST(req: NextRequest, context: RouteContext): Promise<Nex
       typedName,
       signatureImage,
       ...(pdfSnapshotPath ? { pdfSnapshotPath } : {}),
-      ...(pdfSnapshotUrl ? { pdfSnapshotUrl } : {}),
       ip,
       userAgent,
       signedAt: now,
@@ -340,7 +345,6 @@ export async function POST(req: NextRequest, context: RouteContext): Promise<Nex
       typedName,
       signatureImage,
       ...(pdfSnapshotPath ? { pdfSnapshotPath } : {}),
-      ...(pdfSnapshotUrl ? { pdfSnapshotUrl } : {}),
       ip,
       userAgent,
       createdAt: now,
@@ -355,7 +359,6 @@ export async function POST(req: NextRequest, context: RouteContext): Promise<Nex
         typedName,
         versionId,
         ...(pdfSnapshotPath ? { pdfSnapshotPath } : {}),
-        ...(pdfSnapshotUrl ? { pdfSnapshotUrl } : {}),
         signedAt: now,
         ip,
       },
@@ -364,7 +367,10 @@ export async function POST(req: NextRequest, context: RouteContext): Promise<Nex
 
     await batch.commit()
 
-    return apiSuccess({ signed: true, ...(pdfSnapshotUrl ? { pdfSnapshotUrl } : {}) })
+    const response = apiSuccess({ signed: true, hasSignedCopy: Boolean(pdfSnapshotPath) })
+    response.headers.set('Cache-Control', 'private, no-store, max-age=0')
+    response.headers.set('Pragma', 'no-cache')
+    return response
   } catch (err) {
     console.error('[public/client-documents/sign POST]', err)
     return apiError('Internal Server Error', 500)

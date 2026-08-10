@@ -85,7 +85,35 @@ beforeEach(() => {
     collection: jest.fn(() => childCollection),
   }
 
-  mockCollection.mockReturnValue({ doc: jest.fn(() => documentRef) })
+  mockCollection.mockImplementation((name: string) => {
+    if (name === 'orgMembers') {
+      return {
+        doc: jest.fn(() => ({
+          get: async () => ({ exists: true, data: () => ({ status: 'active', role: 'member' }) }),
+        })),
+      }
+    }
+    if (name === 'organizations') {
+      return {
+        doc: jest.fn(() => ({
+          get: async () => ({ exists: true, data: () => ({ id: 'org-1' }) }),
+        })),
+      }
+    }
+    if (name === 'partnerLinks' || name === 'partnerScopeAgreements' || name === 'partnerResourceGrants') {
+      return {
+        where: jest.fn(() => ({
+          limit: jest.fn(() => ({
+            get: async () => ({ empty: true, docs: [] }),
+          })),
+        })),
+        doc: jest.fn(() => ({
+          get: async () => ({ exists: false, data: () => undefined }),
+        })),
+      }
+    }
+    return { doc: jest.fn(() => documentRef) }
+  })
 })
 
 describe('client document collaboration API', () => {

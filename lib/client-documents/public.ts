@@ -1,3 +1,5 @@
+import { stripDurableArtifactUrls } from './artifacts'
+
 const PRIVATE_FIELDS = new Set([
   'createdBy',
   'createdByType',
@@ -14,6 +16,12 @@ const PRIVATE_FIELDS = new Set([
   'providerSignature',
   'clientAcceptance',
   'deleted',
+  'signToken',
+  'signatureImage',
+  'pdfSnapshotUrl',
+  'downloadUrl',
+  'signedUrl',
+  'artifactUrl',
 ])
 
 export function stripPrivateDocumentFields(input: unknown): unknown {
@@ -41,5 +49,5 @@ export function stripPrivateDocumentFields(input: unknown): unknown {
     output[key] = stripPrivateDocumentFields(value)
   }
 
-  return output
+  return stripDurableArtifactUrls(output)
 }

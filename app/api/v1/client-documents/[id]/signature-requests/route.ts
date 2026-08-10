@@ -19,6 +19,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { getAccessibleClientDocument } from '@/lib/client-documents/access'
+import { stripDurableArtifactUrls } from '@/lib/client-documents/artifacts'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import { adminDb } from '@/lib/firebase/admin'
 import { sendEmail } from '@/lib/email/send'
@@ -94,7 +95,12 @@ export const GET = withAuth('admin', async (_req: NextRequest, user: ApiUser, ct
     .get()
     .catch(() => null)
 
-  const requests = (snap?.docs ?? []).map((d) => ({ id: d.id, ...d.data() }) as SignatureRequest)
+  const requests = (snap?.docs ?? []).map((d) => {
+    const data = stripDurableArtifactUrls({ id: d.id, ...d.data() }) as SignatureRequest
+    // Never expose the raw sign token on list; invitations already emailed the link.
+    delete (data as { signToken?: string }).signToken
+    return data
+  })
   return apiSuccess(requests)
 })
 

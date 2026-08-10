@@ -51,10 +51,13 @@ export async function GET(req: NextRequest, context: RouteContext): Promise<Next
 
     const versionData = versionSnap.data()!
     const version = { id: versionSnap.id, ...versionData, blocks: deserializeBlocksFromFirestore(versionData.blocks) }
-    return apiSuccess({
+    const response = apiSuccess({
       document: stripPrivateDocumentFields(document),
       version: stripPrivateDocumentFields(version),
     })
+    response.headers.set('Cache-Control', 'private, no-store, max-age=0')
+    response.headers.set('Pragma', 'no-cache')
+    return response
   } catch (err) {
     console.error('[public/client-documents]', err)
     return apiError('Internal Server Error', 500)
