@@ -24,7 +24,9 @@ const nextConfig: NextConfig = {
     staticGenerationMaxConcurrency: 1,
   },
   transpilePackages: ['@partnersinbiz/analytics-js'],
-  serverExternalPackages: ['@react-pdf/renderer'],
+  // These server-only packages load native/WASM assets from their package
+  // directories. Bundling them drops those runtime files from Route Handlers.
+  serverExternalPackages: ['@dqbd/tiktoken', '@react-pdf/renderer'],
   productionBrowserSourceMaps: false,
   webpack(config, { dev }) {
     if (!dev) {
