@@ -141,12 +141,18 @@ function formatBytes(n: number): string {
   return (n / 1048576).toFixed(1) + ' MB'
 }
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+function FieldRow({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] pib-label">
-        {label}
-      </span>
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className="text-[10px] pib-label">
+          {label}
+        </label>
+      ) : (
+        <span className="text-[10px] pib-label">
+          {label}
+        </span>
+      )}
       {children}
     </div>
   )
@@ -986,6 +992,8 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                   type="file"
                   accept=".zip"
                   className="hidden"
+                  aria-label="Upload skill zip"
+                  data-impeccable-disable="content-invisible-at-rest"
                   onChange={(e) => {
                     const f = e.target.files?.[0]
                     if (f) uploadSkill(f)
@@ -1125,6 +1133,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                     readOnly={!canEdit}
                     spellCheck={false}
                     rows={18}
+                    aria-label="Agent config JSON"
                     className="pib-input w-full resize-y font-mono text-xs leading-relaxed"
                     placeholder='{ "model": { "provider": "openai-codex", "default": "gpt-5.5" } }'
                   />
@@ -1181,6 +1190,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
               readOnly={!canEdit}
               spellCheck={false}
               rows={28}
+              aria-label="SOUL.md content"
               className="pib-input w-full resize-y font-mono text-xs leading-relaxed"
               placeholder="This profile does not have a SOUL.md yet."
             />
@@ -1254,6 +1264,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                   readOnly={!canEdit || !fileMeta?.editable}
                   spellCheck={false}
                   rows={24}
+                  aria-label="Profile file content"
                   className="pib-input w-full resize-y font-mono text-xs leading-relaxed disabled:opacity-70"
                 />
               </div>
@@ -1410,6 +1421,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                     placeholder="Name (optional)"
                     value={cronName}
                     onChange={(e) => setCronName(e.target.value)}
+                    aria-label="Cron job name (optional)"
                     className="pib-input w-full text-sm"
                   />
                   <textarea
@@ -1418,6 +1430,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                     onChange={(e) => setCronPrompt(e.target.value)}
                     required
                     rows={3}
+                    aria-label="What should the agent do on each run?"
                     className="pib-input w-full text-sm resize-none"
                   />
                   <input
@@ -1426,6 +1439,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                     value={cronSchedule}
                     onChange={(e) => setCronSchedule(e.target.value)}
                     required
+                    aria-label="Cron expression, e.g. 0 9 * * *"
                     className="pib-input w-full text-sm font-mono"
                   />
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -1434,6 +1448,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                       placeholder="Provider override (optional)"
                       value={cronProvider}
                       onChange={(e) => setCronProvider(e.target.value)}
+                      aria-label="Provider override (optional)"
                       className="pib-input w-full text-sm font-mono"
                     />
                     <input
@@ -1441,6 +1456,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                       placeholder="Model override (optional)"
                       value={cronModel}
                       onChange={(e) => setCronModel(e.target.value)}
+                      aria-label="Model override (optional)"
                       className="pib-input w-full text-sm font-mono"
                     />
                   </div>
@@ -1599,6 +1615,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                         value={envKey}
                         onChange={(e) => setEnvKey(e.target.value)}
                         placeholder="OPENAI_API_KEY"
+                        aria-label="Environment variable key"
                         className="pib-input w-full text-sm font-mono uppercase"
                         pattern="[A-Za-z0-9_]+"
                         required
@@ -1608,6 +1625,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                         value={envValue}
                         onChange={(e) => setEnvValue(e.target.value)}
                         placeholder="New value"
+                        aria-label="New value for environment variable"
                         className="pib-input w-full text-sm font-mono"
                         autoComplete="new-password"
                         required
@@ -1674,8 +1692,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
         {/* EDIT TAB */}
         {activeTab === 'edit' && (
           <form id="agent-edit-form" onSubmit={handleSave} className="space-y-4">
-            <FieldRow label="Name">
+            <FieldRow label="Name" htmlFor="agent-edit-name">
               <input
+                id="agent-edit-name"
+                aria-label="Agent name"
                 type="text"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
@@ -1684,8 +1704,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
               />
             </FieldRow>
 
-            <FieldRow label="Persona">
+            <FieldRow label="Persona" htmlFor="agent-edit-persona">
               <textarea
+                id="agent-edit-persona"
+                aria-label="Agent persona"
                 value={editPersona}
                 onChange={(e) => setEditPersona(e.target.value)}
                 className="pib-input w-full resize-none"
@@ -1693,8 +1715,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
               />
             </FieldRow>
 
-            <FieldRow label="Registry default model label">
+            <FieldRow label="Registry default model label" htmlFor="agent-edit-model">
               <input
+                id="agent-edit-model"
+                aria-label="Registry default model label"
                 type="text"
                 value={editModel}
                 onChange={(e) => setEditModel(e.target.value)}
@@ -1707,8 +1731,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
               </p>
             </FieldRow>
 
-            <FieldRow label="Base URL">
+            <FieldRow label="Base URL" htmlFor="agent-edit-base-url">
               <input
+                id="agent-edit-base-url"
+                aria-label="Base URL"
                 type="url"
                 value={editBaseUrl}
                 onChange={(e) => setEditBaseUrl(e.target.value)}
@@ -1717,8 +1743,10 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
               />
             </FieldRow>
 
-            <FieldRow label="API Key (leave blank to keep current)">
+            <FieldRow label="API Key (leave blank to keep current)" htmlFor="agent-edit-api-key">
               <input
+                id="agent-edit-api-key"
+                aria-label="API key"
                 type="password"
                 value={editApiKey}
                 onChange={(e) => setEditApiKey(e.target.value)}
