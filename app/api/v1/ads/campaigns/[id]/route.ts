@@ -3,6 +3,10 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { enforceAgentCapability } from '@/lib/api/capabilityGate'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { getCampaign, updateCampaign, deleteCampaign } from '@/lib/ads/campaigns/store'
 import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
@@ -24,7 +28,7 @@ import {
 
 export const GET = withAuth(
   'admin',
-  async (req: NextRequest, _user: unknown, ctxParams: { params: Promise<{ id: string }> }) => {
+  async (req: NextRequest, user: ApiUser, ctxParams: { params: Promise<{ id: string }> }) => {
     const orgId = req.headers.get('X-Org-Id')
     if (!orgId) return apiError('Missing X-Org-Id header', 400)
 
@@ -32,7 +36,18 @@ export const GET = withAuth(
     const campaign = await getCampaign(id)
 
     if (!campaign) return apiError('Campaign not found', 404)
-    if (campaign.orgId !== orgId) return apiError('Campaign not found', 404) // tenant isolation
+    const access = await assertMarketingHandlerAccess({
+      user: { ...user, orgId: user.orgId || orgId },
+      module: 'ads',
+      resourceId: id,
+      resourceOwnerOrgId: campaign.orgId,
+      operation: 'read',
+      partnerLinkId: extractPartnerLinkId(req),
+    })
+    if (!access.ok) return apiError(access.error, access.status)
+    if (access.access === 'owner' && campaign.orgId !== orgId) {
+      return apiError('Campaign not found', 404)
+    }
 
     return apiSuccess(campaign)
   },
@@ -40,13 +55,25 @@ export const GET = withAuth(
 
 export const PATCH = withAuth(
   'admin',
-  async (req: NextRequest, _user: unknown, ctxParams: { params: Promise<{ id: string }> }) => {
+  async (req: NextRequest, user: ApiUser, ctxParams: { params: Promise<{ id: string }> }) => {
     const orgId = req.headers.get('X-Org-Id')
     if (!orgId) return apiError('Missing X-Org-Id header', 400)
 
     const { id } = await ctxParams.params
     const campaign = await getCampaign(id)
-    if (!campaign || campaign.orgId !== orgId) return apiError('Campaign not found', 404)
+    if (!campaign) return apiError('Campaign not found', 404)
+    const access = await assertMarketingHandlerAccess({
+      user: { ...user, orgId: user.orgId || orgId },
+      module: 'ads',
+      resourceId: id,
+      resourceOwnerOrgId: campaign.orgId,
+      operation: 'write',
+      partnerLinkId: extractPartnerLinkId(req),
+    })
+    if (!access.ok) return apiError(access.error, access.status)
+    if (access.access === 'owner' && campaign.orgId !== orgId) {
+      return apiError('Campaign not found', 404)
+    }
 
     const patch = (await req.json()) as UpdateAdCampaignInput
     const approvalOverridePath = findUntrustedApprovalOverride(patch)
@@ -143,7 +170,17 @@ export const DELETE = withAuth(
 
     const { id } = await ctxParams.params
     const campaign = await getCampaign(id)
-    if (!campaign || campaign.orgId !== orgId) return apiError('Campaign not found', 404)
+    if (!campaign) return apiError('Campaign not found', 404)
+    const access = await assertMarketingHandlerAccess({
+      user: { ...user, orgId: user.orgId || orgId },
+      module: 'ads',
+      resourceId: id,
+      resourceOwnerOrgId: campaign.orgId,
+      operation: 'delete',
+      partnerLinkId: extractPartnerLinkId(req),
+    })
+    if (!access.ok) return apiError(access.error, access.status)
+    if (campaign.orgId !== orgId) return apiError('Campaign not found', 404)
     const approvalError = requireApprovedCampaignForAdsAction(campaign, 'delete')
     if (approvalError) return apiError(approvalError, 403)
     const capabilityError = enforceAgentCapability(user, 'delete', req)

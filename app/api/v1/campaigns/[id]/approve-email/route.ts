@@ -2,7 +2,10 @@ import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { getOrganizationEmailApprovalPolicy, validateEmailMarketingApprovalTask } from '@/lib/email-marketing/agent-governance'
@@ -21,8 +24,16 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!snap.exists || snap.data()?.deleted) return apiError('Campaign not found', 404)
 
   const campaign = snap.data() as Record<string, unknown>
-  const scope = resolveOrgScope(user, typeof campaign.orgId === 'string' ? campaign.orgId : null)
-  if (!scope.ok) return apiError(scope.error, scope.status)
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'campaigns',
+    resourceId: id,
+    resourceOwnerOrgId: typeof campaign.orgId === 'string' ? campaign.orgId : null,
+    operation: 'approve',
+    partnerLinkId: extractPartnerLinkId(typeof req !== 'undefined' ? req : undefined),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
+  const scope = { ok: true as const, orgId: access.orgId }
   if (campaign.status !== 'draft' && campaign.status !== 'scheduled') {
     return apiError('Only draft or scheduled campaigns can be approved', 422)
   }

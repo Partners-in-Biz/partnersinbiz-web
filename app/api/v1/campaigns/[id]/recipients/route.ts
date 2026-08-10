@@ -11,7 +11,10 @@
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { resolveSegmentContacts } from '@/lib/crm/segments'
 import type { Contact } from '@/lib/crm/types'
@@ -21,15 +24,23 @@ export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
 
-export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, context?: unknown) => {
+export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
   const { id } = await (context as Params).params
 
   const snap = await adminDb.collection('campaigns').doc(id).get()
   if (!snap.exists || snap.data()?.deleted) return apiError('Campaign not found', 404)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const campaign = snap.data() as any
-  const scope = resolveOrgScope(user, (campaign.orgId as string | undefined) ?? null)
-  if (!scope.ok) return apiError(scope.error, scope.status)
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'campaigns',
+    resourceId: id,
+    resourceOwnerOrgId: (campaign.orgId as string | undefined) ?? null,
+    operation: 'read',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
+  const scope = { ok: true as const, orgId: access.orgId }
   const orgId = scope.orgId
 
   const exclusion = new Set<string>(

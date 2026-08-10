@@ -3,6 +3,11 @@ import { apiError } from '@/lib/api/response'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
 import type { Property } from '@/lib/properties/types'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
+import type { NextRequest } from 'next/server'
 
 export class AnalyticsPropertyAccessError extends Error {
   status: number
@@ -23,7 +28,14 @@ export function analyticsPropertyErrorResponse(error: unknown): Response | null 
 
 export async function requireAnalyticsProperty(
   user: ApiUser,
-  input: { propertyId: string; orgId?: string | null },
+  input: {
+    propertyId: string
+    orgId?: string | null
+    /** When provided, enables PartnerLink-based reporting_view collaboration. */
+    req?: NextRequest | null
+    partnerLinkId?: string | null
+    operation?: 'read' | 'reporting_view'
+  },
 ): Promise<Property> {
   const propertyId = input.propertyId?.trim()
   if (!propertyId) {
@@ -40,8 +52,25 @@ export async function requireAnalyticsProperty(
     throw new AnalyticsPropertyAccessError('propertyId does not belong to orgId', 400)
   }
 
-  if (!canAccessOrg(user, property.orgId)) {
-    throw new AnalyticsPropertyAccessError('Forbidden', 403)
+  // Fast path: ordinary same-org / platform-admin access.
+  if (canAccessOrg(user, property.orgId)) {
+    return property
+  }
+
+  // Cross-org collaboration: reporting_view only (never configure/spend).
+  const partnerLinkId =
+    input.partnerLinkId
+    ?? extractPartnerLinkId(input.req ?? null)
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'analytics',
+    resourceId: propertyId,
+    resourceOwnerOrgId: property.orgId,
+    operation: input.operation ?? 'reporting_view',
+    partnerLinkId,
+  })
+  if (!access.ok) {
+    throw new AnalyticsPropertyAccessError(access.error, access.status)
   }
 
   return property

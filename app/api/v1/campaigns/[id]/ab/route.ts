@@ -10,7 +10,10 @@ import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
 import type { ApiUser } from '@/lib/api/types'
@@ -21,14 +24,21 @@ export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
 
-export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, context?: unknown) => {
+export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
   const { id } = await (context as Params).params
   const snap = await adminDb.collection('campaigns').doc(id).get()
   if (!snap.exists || snap.data()?.deleted === true) return apiError('Campaign not found', 404)
   const data = snap.data()!
-  const scope = resolveOrgScope(user, (data.orgId as string | undefined) ?? null)
-  if (!scope.ok) return apiError(scope.error, scope.status)
-
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'campaigns',
+    resourceId: id,
+    resourceOwnerOrgId: (data.orgId as string | undefined) ?? null,
+    operation: 'write',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
+  const scope = { ok: true as const, orgId: access.orgId }
   const ab = (data.ab as AbConfig | undefined) ?? EMPTY_AB
   return apiSuccess({ campaignId: id, ab })
 })
@@ -38,9 +48,16 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   const snap = await adminDb.collection('campaigns').doc(id).get()
   if (!snap.exists || snap.data()?.deleted === true) return apiError('Campaign not found', 404)
   const data = snap.data()!
-  const scope = resolveOrgScope(user, (data.orgId as string | undefined) ?? null)
-  if (!scope.ok) return apiError(scope.error, scope.status)
-
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'campaigns',
+    resourceId: id,
+    resourceOwnerOrgId: (data.orgId as string | undefined) ?? null,
+    operation: 'write',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
+  const scope = { ok: true as const, orgId: access.orgId }
   const existing = (data.ab as AbConfig | undefined) ?? EMPTY_AB
   if (existing.status === 'testing' || existing.status === 'winner-pending' || existing.status === 'winner-sent') {
     return apiError('A/B test is already running — cannot edit the configuration now', 409)

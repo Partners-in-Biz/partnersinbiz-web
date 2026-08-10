@@ -5,6 +5,10 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { adminDb } from '@/lib/firebase/admin'
 import type { ContentBrief } from '@/lib/seo/content-brief'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +22,15 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
   const sprintSnap = await adminDb.collection('seo_sprints').doc(sprintId).get()
   if (!sprintSnap.exists) return apiError('Sprint not found', 404)
   const sprint = sprintSnap.data() as { orgId?: string }
-  if (user.role !== 'ai' && sprint.orgId !== user.orgId) return apiError('Forbidden', 403)
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'seo',
+    resourceId: sprintId,
+    resourceOwnerOrgId: sprint.orgId ?? null,
+    operation: 'read',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
 
   const snap = await adminDb
     .collection('seo_briefs')
@@ -47,7 +59,15 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser) =>
   const sprintSnap = await adminDb.collection('seo_sprints').doc(sprintId).get()
   if (!sprintSnap.exists) return apiError('Sprint not found', 404)
   const sprint = sprintSnap.data() as { orgId?: string }
-  if (user.role !== 'ai' && sprint.orgId !== user.orgId) return apiError('Forbidden', 403)
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'seo',
+    resourceId: sprintId,
+    resourceOwnerOrgId: sprint.orgId ?? null,
+    operation: 'write',
+    partnerLinkId: extractPartnerLinkId(req, body as Record<string, unknown>),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
 
   const ref = await adminDb.collection('seo_briefs').add({
     sprintId,

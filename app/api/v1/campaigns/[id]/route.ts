@@ -9,8 +9,11 @@ import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { lastActorFrom } from '@/lib/api/actor'
 import type { Campaign } from '@/lib/campaigns/types'
 import type { ApiUser } from '@/lib/api/types'
@@ -61,12 +64,19 @@ function relationshipInputFrom(body: Record<string, unknown>) {
   return Object.keys(value).length > 0 ? value : undefined
 }
 
-export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, context?: unknown) => {
+export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
   const { id } = await (context as Params).params
   const snap = await adminDb.collection('campaigns').doc(id).get()
   if (!snap.exists || snap.data()?.deleted) return apiError('Campaign not found', 404)
-  const scope = resolveOrgScope(user, (snap.data()?.orgId as string | undefined) ?? null)
-  if (!scope.ok) return apiError(scope.error, scope.status)
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'campaigns',
+    resourceId: id,
+    resourceOwnerOrgId: (snap.data()?.orgId as string | undefined) ?? null,
+    operation: 'read',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
   const campaign = { id: snap.id, ...snap.data() } as Campaign
   return apiSuccess(campaign)
 })
@@ -79,8 +89,15 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
   const snap = await adminDb.collection('campaigns').doc(id).get()
   if (!snap.exists || snap.data()?.deleted) return apiError('Campaign not found', 404)
   const current = snap.data() as Campaign
-  const scope = resolveOrgScope(user, current.orgId ?? null)
-  if (!scope.ok) return apiError(scope.error, scope.status)
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'campaigns',
+    resourceId: id,
+    resourceOwnerOrgId: current.orgId ?? null,
+    operation: 'write',
+    partnerLinkId: extractPartnerLinkId(req, body as Record<string, unknown>),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
 
   // Active campaigns are read-only except for status transitions handled
   // by the launch/pause endpoints. Avoid drift by rejecting edits here.
@@ -179,8 +196,15 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
   if (!snap.exists || snap.data()?.deleted) return apiError('Campaign not found', 404)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const current = snap.data() as any
-  const scope = resolveOrgScope(user, (current.orgId as string | undefined) ?? null)
-  if (!scope.ok) return apiError(scope.error, scope.status)
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'campaigns',
+    resourceId: id,
+    resourceOwnerOrgId: (current.orgId as string | undefined) ?? null,
+    operation: 'write',
+    partnerLinkId: extractPartnerLinkId(req, body as Record<string, unknown>),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
 
   const update: Record<string, unknown> = { ...lastActorFrom(user) }
   for (const k of CONTENT_PATCH_FIELDS) {
@@ -215,12 +239,19 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
   return apiSuccess({ id, updated: Object.keys(update) })
 })
 
-export const DELETE = withAuth('client', async (_req: NextRequest, user: ApiUser, context?: unknown) => {
+export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
   const { id } = await (context as Params).params
   const snap = await adminDb.collection('campaigns').doc(id).get()
   if (!snap.exists || snap.data()?.deleted) return apiError('Campaign not found', 404)
-  const scope = resolveOrgScope(user, (snap.data()?.orgId as string | undefined) ?? null)
-  if (!scope.ok) return apiError(scope.error, scope.status)
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'campaigns',
+    resourceId: id,
+    resourceOwnerOrgId: (snap.data()?.orgId as string | undefined) ?? null,
+    operation: 'delete',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
   await snap.ref.update({ deleted: true, updatedAt: FieldValue.serverTimestamp() })
 
   logActivity({

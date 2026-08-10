@@ -16,7 +16,10 @@ import { NextRequest } from 'next/server'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
 import type { ApiUser } from '@/lib/api/types'
@@ -43,9 +46,16 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   if (!snap.exists || snap.data()?.deleted) return apiError('Campaign not found', 404)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const campaign = snap.data() as any
-  const scope = resolveOrgScope(user, (campaign.orgId as string | undefined) ?? null)
-  if (!scope.ok) return apiError(scope.error, scope.status)
-
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'campaigns',
+    resourceId: id,
+    resourceOwnerOrgId: (campaign.orgId as string | undefined) ?? null,
+    operation: 'schedule',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
+  const scope = { ok: true as const, orgId: access.orgId }
   try {
     await assertEmailMarketingAgentActionWithTask(user, 'email_marketing_send', campaign.approvalState, {
       orgId: scope.orgId, resourceType: 'email_campaign', resourceId: id,
@@ -93,16 +103,23 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   return apiSuccess({ id, status: 'scheduled', scheduledAt: scheduledDate.toISOString() })
 })
 
-export const DELETE = withAuth('client', async (_req: NextRequest, user: ApiUser, context?: unknown) => {
+export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser, context?: unknown) => {
   const { id } = await (context as Params).params
 
   const snap = await adminDb.collection('campaigns').doc(id).get()
   if (!snap.exists || snap.data()?.deleted) return apiError('Campaign not found', 404)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const campaign = snap.data() as any
-  const scope = resolveOrgScope(user, (campaign.orgId as string | undefined) ?? null)
-  if (!scope.ok) return apiError(scope.error, scope.status)
-
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'campaigns',
+    resourceId: id,
+    resourceOwnerOrgId: (campaign.orgId as string | undefined) ?? null,
+    operation: 'schedule',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
+  const scope = { ok: true as const, orgId: access.orgId }
   if (campaign.status !== 'scheduled') {
     return apiError('Campaign is not scheduled', 422)
   }
