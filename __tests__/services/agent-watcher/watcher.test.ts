@@ -992,7 +992,7 @@ describe('agent watcher dispatchTask', () => {
   })
 
   it('routes completed agent work into Review when a reviewer is assigned', async () => {
-    const taskRef = makeTaskRef()
+    const taskRef = makeTaskRef([], { reviewerAgentId: 'qa-release', reviewStatus: 'pending' })
     runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
       await onRunCreated('run-complete-reviewer-1')
       return {
@@ -1009,7 +1009,7 @@ describe('agent watcher dispatchTask', () => {
       reviewerAgentId: 'qa-release',
       agentStatus: 'pending',
       columnId: 'todo',
-      title: 'Implement with review gate',
+      title: 'Implement development fix',
     })
 
     expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
