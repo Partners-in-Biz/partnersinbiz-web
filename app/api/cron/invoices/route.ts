@@ -7,6 +7,7 @@ import { generateInvoiceNumber } from '@/lib/invoices/invoice-number'
 import { generateInvoicePdfShareToken } from '@/lib/invoices/share-token'
 import { calculateNextDueAt, RecurrenceInterval } from '@/lib/invoices/recurring'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
+import { isCanonicalPartnerTradeInvoice } from '@/lib/partner-links/invoice-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +34,12 @@ export async function GET(req: NextRequest) {
       const templateDoc = await adminDb.collection('invoices').doc(schedule.invoiceId).get()
       if (!templateDoc.exists) continue
       const template = templateDoc.data()!
+
+      // Skip canonical partner-trade templates — recurrence of a partner-trade
+      // invoice must go through the canonical trade transaction, not the
+      // generic cron clone path, which would drop partnerLinkId, tradeOrderId,
+      // and the immutable financial hash.
+      if (isCanonicalPartnerTradeInvoice(template)) continue
 
       // Generate a fresh invoice number
       const invoiceNumber = await generateInvoiceNumber(
@@ -125,6 +132,13 @@ export async function GET(req: NextRequest) {
       for (const doc of overdueSnap.docs) {
         try {
           const invoice = doc.data() ?? {}
+
+          // Skip canonical partner-trade invoices — the settlement flow owns
+          // their lifecycle. Flipping to 'overdue' would block the pending
+          // human confirmation/rejection that requires
+          // 'payment_pending_verification'.
+          if (isCanonicalPartnerTradeInvoice(invoice)) continue
+
           const invoiceNumber: string = invoice.invoiceNumber ?? doc.id
           const createdBy: string | undefined = invoice.createdBy
           const orgId: string | undefined = invoice.orgId
