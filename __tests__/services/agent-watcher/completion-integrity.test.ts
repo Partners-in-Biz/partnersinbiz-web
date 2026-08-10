@@ -1,6 +1,8 @@
+import { execFileSync } from 'node:child_process'
 import {
   assessCompletionIntegrity,
   validateCompletionEvidence,
+  verifyChangedFilesMatchCommit,
 } from '../../../services/agent-watcher/src/completion-integrity'
 
 const codeEvidence = {
@@ -40,6 +42,34 @@ describe('agent completion integrity', () => {
       outcome: 'changes-requested',
       reasons: expect.arrayContaining(['commit_not_reachable_on_origin_development']),
     }))
+  })
+
+  it('rejects a code claim whose changed-file list does not match the reachable commit', () => {
+    const result = assessCompletionIntegrity({
+      summary: 'Implementation complete.',
+      evidence: codeEvidence,
+      commitReachable: true,
+      changedFilesMatch: false,
+      currentAgentStatus: 'in-progress',
+    } as never)
+
+    expect(result).toEqual(expect.objectContaining({
+      outcome: 'changes-requested',
+      reasons: expect.arrayContaining(['changed_file_list_mismatch_with_commit']),
+    }))
+  })
+
+  it('compares the claimed changed-file list against the submitted commit', async () => {
+    const repoRoot = process.cwd()
+    const commitSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim()
+    const changedFiles = execFileSync(
+      'git',
+      ['diff-tree', '--no-commit-id', '--name-only', '-r', '--root', commitSha],
+      { cwd: repoRoot, encoding: 'utf8' },
+    ).split(/\r?\n/).filter(Boolean)
+
+    await expect(verifyChangedFilesMatchCommit(commitSha, changedFiles, repoRoot)).resolves.toBe(true)
+    await expect(verifyChangedFilesMatchCommit(commitSha, [...changedFiles, 'unexpected.ts'], repoRoot)).resolves.toBe(false)
   })
 
   it('accepts an attested no-code task without a commit while retaining scoped verification', () => {

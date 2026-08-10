@@ -26,6 +26,31 @@ export const POST = withAuth('admin', async (_req, user, context) => {
     return apiError('Task not found', 404)
   }
 
+  // An agent task is only terminal after the watcher/reviewer has verified its
+  // structured evidence. This route is a legacy convenience completion action;
+  // never let it bypass the completion-integrity handoff.
+  const isAgentTask = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
+  const verifierResult = existing.completionVerification?.verifierResult
+  const completionVerified = verifierResult === 'passed' || verifierResult === 'approved'
+  if (isAgentTask && !completionVerified) {
+    const priorSummary = typeof existing.agentOutput?.summary === 'string' ? existing.agentOutput.summary.trim() : ''
+    const exactReason = 'completion_integrity_verification_required'
+    await ref.update({
+      status: 'in_progress',
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      agentHeartbeatAt: null,
+      completionIntegrityFailureReasons: [exactReason],
+      agentOutput: {
+        ...(existing.agentOutput ?? {}),
+        summary: `${priorSummary ? `${priorSummary}\n\n` : ''}Completion integrity blocked: ${exactReason}. Submit structured completionEvidence and let the watcher verify it before Done or approval.`,
+      },
+      ...lastActorFrom(user),
+    })
+    return apiSuccess({ id, status: 'in_progress', agentStatus: 'blocked', reason: exactReason })
+  }
+
   await ref.update({
     status: 'done',
     completedAt: FieldValue.serverTimestamp(),
