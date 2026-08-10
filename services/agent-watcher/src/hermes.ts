@@ -7,7 +7,6 @@ import { logger } from './logger'
 import { buildAgentRunTelemetry, type AgentRunTelemetry } from './run-telemetry'
 
 const POLL_INTERVAL_MS = 2_000
-const DEFAULT_RUN_TIMEOUT_MS = 90 * 60 * 1_000
 const MAX_NOT_FOUND_POLLS = 5
 const MAX_RETRYABLE_HTTP_POLLS = 5
 const RETRYABLE_HTTP_STATUSES = new Set([429, 502, 503, 504])
@@ -39,9 +38,14 @@ export interface TaskDispatchInput {
   runtimeTargetId?: string | null
 }
 
-function runTimeoutMs(): number {
+function runTimeoutMs(): number | null {
   const raw = Number(process.env.HERMES_RUN_TIMEOUT_MS)
-  return Number.isFinite(raw) && raw >= 5 * 60 * 1_000 ? raw : DEFAULT_RUN_TIMEOUT_MS
+  // Long-running local work is controlled by the runtime's health/heartbeat
+  // and explicit cancellation, not an arbitrary watcher wall-clock limit.
+  // A positive value keeps the optional operator-imposed timeout.
+  return Number.isFinite(raw) && raw > 0
+    ? Math.max(raw, 5 * 60 * 1_000)
+    : null
 }
 
 function joinUrl(base: string, path: string): string {
@@ -142,12 +146,12 @@ async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<{ ru
 async function pollRun(cfg: AgentConfig, runId: string, signal: { aborted: boolean }): Promise<Record<string, unknown>> {
   const url = joinUrl(cfg.baseUrl, `/v1/runs/${encodeURIComponent(runId)}`)
   const timeoutMs = runTimeoutMs()
-  const deadline = Date.now() + timeoutMs
+  const deadline = timeoutMs === null ? null : Date.now() + timeoutMs
   let notFoundPolls = 0
   let retryableHttpPolls = 0
 
   while (!signal.aborted) {
-    if (Date.now() > deadline) {
+    if (deadline !== null && timeoutMs !== null && Date.now() > deadline) {
       throw new Error(`Hermes run ${runId} timed out after ${Math.round(timeoutMs / 1000)}s`)
     }
 

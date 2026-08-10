@@ -55,6 +55,41 @@ describe('agent watcher Hermes dispatch', () => {
     })).resolves.toMatchObject({ runId: 'run-failed-1', output: null, error: 'boom' })
   })
 
+  it('keeps polling an unset wall-clock timeout until the run completes', async () => {
+    const previousTimeout = process.env.HERMES_RUN_TIMEOUT_MS
+    delete process.env.HERMES_RUN_TIMEOUT_MS
+    jest.useFakeTimers()
+    jest.setSystemTime(0)
+    let polls = 0
+    global.fetch = jest.fn(async (url: string | URL) => {
+      if (String(url).endsWith('/v1/runs')) {
+        return new Response(JSON.stringify({ id: 'run-unlimited-1' }), { status: 200 })
+      }
+      polls += 1
+      return new Response(JSON.stringify(polls === 1
+        ? { status: 'running' }
+        : { status: 'completed', output: 'eventually finished' }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    try {
+      const result = runAndPoll(cfg, {
+        taskId: 'task-1',
+        orgId: 'org-1',
+        agentId: 'theo',
+        spec: 'Long-running work',
+      })
+      await jest.advanceTimersByTimeAsync(0)
+      jest.setSystemTime(3 * 60 * 60 * 1_000)
+      await jest.advanceTimersByTimeAsync(2_000)
+      await expect(result).resolves.toMatchObject({ runId: 'run-unlimited-1', output: 'eventually finished', error: null })
+      expect(polls).toBe(2)
+    } finally {
+      jest.useRealTimers()
+      if (previousTimeout === undefined) delete process.env.HERMES_RUN_TIMEOUT_MS
+      else process.env.HERMES_RUN_TIMEOUT_MS = previousTimeout
+    }
+  })
+
   it('stops polling after repeated retryable gateway failures so the task can be durably retried', async () => {
     jest.useFakeTimers()
     global.fetch = jest.fn(async (url: string | URL) => {

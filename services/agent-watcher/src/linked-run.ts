@@ -21,7 +21,6 @@ const CONTEXT = 'linked-computer-run-queue:v1'
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000
 const LINKED_RUN_QUEUE_START_DEADLINE_MS = 45 * 60 * 1000
 const POLL_INTERVAL_MS = 2_000
-const DEFAULT_RUN_TIMEOUT_MS = 90 * 60 * 1_000
 const HEARTBEAT_STALE_MS = 10 * 60 * 1000
 
 export type LinkedDeviceDispatchTarget = {
@@ -49,9 +48,13 @@ export type LinkedRunPayload = {
 
 type EncryptedLinkedRunPayload = { ciphertext: string; iv: string; tag: string }
 
-function runTimeoutMs(): number {
+function runTimeoutMs(): number | null {
   const raw = Number(process.env.HERMES_RUN_TIMEOUT_MS)
-  return Number.isFinite(raw) && raw >= 5 * 60 * 1_000 ? raw : DEFAULT_RUN_TIMEOUT_MS
+  // 0 or an unset value deliberately keeps the watcher attached until the
+  // linked runtime completes, fails, or is explicitly cancelled.
+  return Number.isFinite(raw) && raw > 0
+    ? Math.max(raw, 5 * 60 * 1_000)
+    : null
 }
 
 function masterKey(): Buffer {
@@ -698,7 +701,7 @@ export async function pollKanbanLinkedRun(
 ): Promise<RunResult> {
   const startedAtMs = Date.now()
   const timeoutMs = runTimeoutMs()
-  const deadline = startedAtMs + timeoutMs
+  const deadline = timeoutMs === null ? null : startedAtMs + timeoutMs
   const signal = options.signal ?? { aborted: false }
 
   if (options.onRunCreated) {
@@ -713,7 +716,7 @@ export async function pollKanbanLinkedRun(
   }
 
   while (!signal.aborted) {
-    if (Date.now() > deadline) {
+    if (deadline !== null && timeoutMs !== null && Date.now() > deadline) {
       return {
         runId: jobId,
         output: null,

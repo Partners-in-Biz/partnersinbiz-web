@@ -506,9 +506,15 @@ export async function callLocalHermes(
       : `Local Hermes ${cleanAgent} did not return a run id`)
   }
   await helpers.onStarted?.(runId)
-  const rawTimeout = Number(env.PIB_LOCAL_HERMES_RUN_TIMEOUT_MS ?? 30 * 60_000)
-  const timeoutMs = Number.isFinite(rawTimeout) ? Math.min(Math.max(rawTimeout, 30_000), 24 * 60 * 60_000) : 30 * 60_000
-  const deadline = Date.now() + timeoutMs
+  // A local agent may legitimately take longer than a fixed wall-clock window
+  // while it is actively compiling, testing, or waiting for a provider. Keep
+  // polling until the job reaches a terminal state by default. Operators can
+  // still set a positive bounded value; 0/unset means no wall-clock timeout.
+  const rawTimeout = Number(env.PIB_LOCAL_HERMES_RUN_TIMEOUT_MS ?? 0)
+  const timeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0
+    ? Math.max(rawTimeout, 30_000)
+    : null
+  const deadline = timeoutMs === null ? null : Date.now() + timeoutMs
   const abort = new AbortController()
   const autoApprove = Boolean(body.yolo)
   const eventsTask = helpers.onEvents || autoApprove
@@ -531,7 +537,7 @@ export async function callLocalHermes(
     : Promise.resolve()
   try {
     let pollMisses = 0
-    while (Date.now() < deadline) {
+    while (deadline === null || Date.now() < deadline) {
       let runResponse: Response
       let runText = ''
       try {
@@ -583,7 +589,9 @@ export async function callLocalHermes(
       }
       await wait(1_000)
     }
-    throw new Error(`Local Hermes ${cleanAgent} timed out after ${Math.round(timeoutMs / 1000)}s`)
+    // This is reachable only for an explicit positive timeout. An unset or
+    // zero PIB_LOCAL_HERMES_RUN_TIMEOUT_MS polls until completion/cancellation.
+    throw new Error(`Local Hermes ${cleanAgent} timed out after ${Math.round((timeoutMs ?? 0) / 1000)}s`)
   } finally {
     abort.abort()
     await eventsTask.catch(() => undefined)
