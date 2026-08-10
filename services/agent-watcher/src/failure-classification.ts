@@ -373,7 +373,6 @@ function buildRecord(input: {
  * Central decision for automatic requeue. Safe-by-default: unknown classes block.
  */
 export function decideAutomaticRequeue(input: ClassifyInput): AutomaticRequeueDecision {
-  const error = (input.error || '').trim() || 'Unknown watcher/runtime failure'
   const priorRetryCount = Number.isFinite(input.priorRetryCount)
     ? Math.max(0, Math.trunc(Number(input.priorRetryCount)))
     : 0
@@ -382,7 +381,7 @@ export function decideAutomaticRequeue(input: ClassifyInput): AutomaticRequeueDe
   const runId = input.runId ?? null
   const dispatchKey = input.dispatchKey ?? null
   const phase = input.phase || 'watcher-failure'
-  const policy = buildPolicy(priorRetryCount, error)
+  const policy = buildPolicy(priorRetryCount, input.error)
 
   const finishBlock = (failureClass: FailureClass, reason: string): AutomaticRequeueDecision => {
     const operatorAction = operatorActionFor(failureClass, dispatchKey)
@@ -395,26 +394,26 @@ export function decideAutomaticRequeue(input: ClassifyInput): AutomaticRequeueDe
       dispatchKey,
       acceptance,
       runId,
-      error,
+      error: input.error,
       operatorAction,
       now,
       policy,
     })
-    let summary = `Watcher error: ${error} Class=${failureClass}. ${operatorAction}`
+    let summary = `Watcher error: ${input.error} Class=${failureClass}. ${operatorAction}`
     if (failureClass === 'dispatch_acceptance_unknown') {
-      summary = `Watcher error: ${error} This task was not retried because dispatch acceptance is unknown; reconcile Idempotency-Key ${dispatchKey || '(missing)'} before any new dispatch.`
+      summary = `Watcher error: ${input.error} This task was not retried because dispatch acceptance is unknown; reconcile Idempotency-Key ${dispatchKey || '(missing)'} before any new dispatch.`
     } else if (failureClass === 'accepted_run_unresolved') {
       summary = runId
-        ? `Watcher error after accepted run ${runId}: ${error} The watcher will not dispatch a second run; reconcile/poll the persisted run id instead.`
-        : `Watcher error: ${error} The watcher will not dispatch a second run; reconcile/poll the persisted run id instead.`
+        ? `Watcher error after accepted run ${runId}: ${input.error} The watcher will not dispatch a second run; reconcile/poll the persisted run id instead.`
+        : `Watcher error: ${input.error} The watcher will not dispatch a second run; reconcile/poll the persisted run id instead.`
     } else if (failureClass === 'side_effect_sensitive' || failureClass === 'approval_gate') {
-      summary = `Pre-execution dispatch did not start and was not retried because this task is approval-gated or side-effect-sensitive. Exact transport evidence: ${error}`
+      summary = `Pre-execution dispatch did not start and was not retried because this task is approval-gated or side-effect-sensitive. Exact transport evidence: ${input.error}`
     } else if (failureClass === 'terminal_retry_exhausted') {
-      summary = `Watcher error: ${error} Automatic retry budget exhausted (${priorRetryCount}/${MAX_TRANSIENT_RETRIES}). Class=terminal_retry_exhausted. ${operatorAction}`
+      summary = `Watcher error: ${input.error} Automatic retry budget exhausted (${priorRetryCount}/${MAX_TRANSIENT_RETRIES}). Class=terminal_retry_exhausted. ${operatorAction}`
     } else if (failureClass === 'worktree_safety') {
-      summary = `Watcher error: ${error} Class=worktree_safety. Automatic requeue forbidden. ${operatorAction}`
+      summary = `Watcher error: ${input.error} Class=worktree_safety. Automatic requeue forbidden. ${operatorAction}`
     } else if (failureClass === 'review_changes_requested') {
-      summary = `Watcher error: ${error} Class=review_changes_requested. Automatic requeue forbidden while review changes are unresolved. ${operatorAction}`
+      summary = `Watcher error: ${input.error} Class=review_changes_requested. Automatic requeue forbidden while review changes are unresolved. ${operatorAction}`
     }
     return {
       action: 'block',
@@ -459,8 +458,12 @@ export function decideAutomaticRequeue(input: ClassifyInput): AutomaticRequeueDe
     )
   }
 
-  let signal = classifyFailureSignal(error, input.output)
-  if (signal === 'runner_timeout_no_evidence' && hasCommittedOrEvidencedOutput(input)) {
+  const rawSignal = classifyFailureSignal(input.error, input.output)
+  const signal: FailureClass = rawSignal === 'runner_timeout_no_evidence' && hasCommittedOrEvidencedOutput(input) 
+    ? 'business_or_test_blocker' 
+    : rawSignal
+
+  if (signal === 'business_or_test_blocker' && rawSignal === 'runner_timeout_no_evidence') {
     return finishBlock(
       'business_or_test_blocker',
       'Runner timeout retained committed/evidenced output; automatic requeue is unsafe.',
@@ -506,7 +509,7 @@ export function decideAutomaticRequeue(input: ClassifyInput): AutomaticRequeueDe
   }
 
   const nextRetryCount = priorRetryCount + 1
-  const retryAt = transientRetryAt(priorRetryCount, now, error)
+  const retryAt = transientRetryAt(priorRetryCount, now, input.error)
   const operatorAction = operatorActionFor(signal, dispatchKey)
   const record = buildRecord({
     failureClass: signal,
@@ -517,7 +520,7 @@ export function decideAutomaticRequeue(input: ClassifyInput): AutomaticRequeueDe
     dispatchKey,
     acceptance,
     runId,
-    error,
+    error: input.error,
     operatorAction,
     now,
     policy: {
@@ -535,7 +538,7 @@ export function decideAutomaticRequeue(input: ClassifyInput): AutomaticRequeueDe
     retryAt,
     reason: `Classified ${signal} as safe transient runtime failure under at-most-once contract.`,
     operatorAction,
-    summary: `Transient watcher error: ${error} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}. Class=${signal}. Next attempt uses a fresh at-most-once dispatch key.`,
+    summary: `Transient watcher error: ${input.error} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}. Class=${signal}. Next attempt uses a fresh at-most-once dispatch key.`,
     record,
   }
 }
