@@ -105,7 +105,10 @@ export function applyAgentDispatchDefaultsForStandaloneAssignment(
   if (assignedTo?.type !== 'agent' || typeof assignedTo.id !== 'string' || !assignedTo.id.trim()) return
 
   const agentId = assignedTo.id.trim()
-  if (body.assigneeAgentId === undefined && value.assigneeAgentId === undefined) {
+  const currentAssignee = typeof value.assigneeAgentId === 'string' ? value.assigneeAgentId.trim() : ''
+  // Keep legacy assignedTo agent tasks watcher-addressable even if a caller
+  // explicitly nulls assigneeAgentId; the two fields must not diverge.
+  if (!currentAssignee) {
     value.assigneeAgentId = agentId
   }
   if (body.agentStatus === undefined && value.agentStatus === undefined) {
@@ -131,7 +134,7 @@ export function applyAgentTodoRequeue(
   updates: Record<string, unknown>,
   body: Record<string, unknown>,
 ): Record<string, unknown> {
-  const hasAgent = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
+  const hasAgent = isAgentOwnedTask(existing, updates, body)
   const movedToTodo = updates.columnId === 'todo'
   const callerDidNotSetStatus = body.agentStatus === undefined
   const currentStatus = typeof existing.agentStatus === 'string' ? existing.agentStatus : null
