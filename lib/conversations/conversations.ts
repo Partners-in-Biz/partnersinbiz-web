@@ -117,6 +117,18 @@ export async function getConversation(convId: string): Promise<Conversation | nu
  * List conversations visible to a user within an org, ordered by most-recently-updated.
  * Participant-only private/shared chats and org-visible Workspace chats are filtered server-side.
  */
+function conversationMatchesEntityScope(
+  conversation: Conversation,
+  scope: Conversation['scope'],
+  scopeRefId: string,
+): boolean {
+  const hardScoped = conversation.scope === scope && conversation.scopeRefId === scopeRefId
+  if (hardScoped) return true
+  return Boolean(
+    conversation.contextRefs?.some((ref) => ref.type === scope && ref.id === scopeRefId),
+  )
+}
+
 export async function listConversations(
   orgId: string,
   user: ApiUser,
@@ -128,12 +140,23 @@ export async function listConversations(
     includeAllScopes?: boolean
   },
 ): Promise<Conversation[]> {
-  const scopedRefId = filters?.includeAllScopes
+  // Contact embeds must surface hard-scoped contact workspaces AND ordinary
+  // Messages threads where that contact was attached as context. A Firestore
+  // scopeRefId equality query would drop the context-linked set, so scan the
+  // recent org page and filter in memory (same rule as UnifiedChat client).
+  const contactContextScan = Boolean(
+    !filters?.includeAllScopes
+    && filters?.scope === 'contact'
+    && filters?.scopeRefId,
+  )
+  const scopedRefId = filters?.includeAllScopes || contactContextScan
     ? undefined
     : (filters?.scopeRefId ?? filters?.projectId)
-  const readLimit = scopedRefId
-    ? Math.max(limit * 2, 30)
-    : Math.max(limit * 4, filters?.scope ? 100 : limit)
+  const readLimit = contactContextScan
+    ? Math.max(limit * 4, 100)
+    : scopedRefId
+      ? Math.max(limit * 2, 30)
+      : Math.max(limit * 4, filters?.scope ? 100 : limit)
   const baseOrgQuery = adminDb.collection(CONVERSATIONS_COLLECTION).where('orgId', '==', orgId)
   const crossOrgQuery = adminDb.collection(CONVERSATIONS_COLLECTION)
     .where('crossOrg.participantOrgIds', 'array-contains', orgId)
@@ -173,6 +196,9 @@ export async function listConversations(
     })
     .filter((conversation) => {
       if (filters?.includeAllScopes) return true
+      if (filters?.scope && filters?.scopeRefId) {
+        return conversationMatchesEntityScope(conversation, filters.scope, filters.scopeRefId)
+      }
       if (filters?.scope && conversation.scope !== filters.scope) return false
       if (filters?.scopeRefId && conversation.scopeRefId !== filters.scopeRefId) return false
       if (filters?.projectId && conversation.scopeRefId !== filters.projectId) return false

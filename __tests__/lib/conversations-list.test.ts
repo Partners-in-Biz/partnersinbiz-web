@@ -255,4 +255,44 @@ describe('listConversations', () => {
 
     expect(conversations).toEqual([])
   })
+
+  it('lists contact embed threads by hard scope or contextRefs, never the full Messages rail', async () => {
+    mockIndexedGet.mockResolvedValue({
+      docs: [
+        conversationDoc('contact-workspace', 5000, ['admin-1'], {
+          scope: 'contact',
+          scopeRefId: 'contact-ada',
+        }),
+        conversationDoc('context-linked', 4000, ['admin-1'], {
+          scope: 'general',
+          contextRefs: [{ type: 'contact', id: 'contact-ada', orgId: 'pib-platform-owner', label: 'Ada' }],
+        }),
+        conversationDoc('other-contact', 3000, ['admin-1'], {
+          scope: 'contact',
+          scopeRefId: 'contact-other',
+        }),
+        conversationDoc('unrelated-private', 2000, ['admin-1'], {
+          scope: 'general',
+          title: 'Default',
+        }),
+      ],
+    })
+
+    const { listConversations } = await import('@/lib/conversations/conversations')
+    const conversations = await listConversations(
+      'pib-platform-owner',
+      { uid: 'admin-1', role: 'admin' },
+      30,
+      { scope: 'contact', scopeRefId: 'contact-ada' },
+    )
+
+    // Contact embeds must scan recent org threads so context-linked chats surface,
+    // not only docs whose scopeRefId equals the contact id.
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'pib-platform-owner')
+    expect(mockWhere).not.toHaveBeenCalledWith('scopeRefId', '==', 'contact-ada')
+    expect(conversations.map((conversation) => conversation.id)).toEqual([
+      'contact-workspace',
+      'context-linked',
+    ])
+  })
 })
