@@ -4,22 +4,43 @@
  * Agent Org Chart — admin page for the AgentOrgNode org-chart subsystem.
  *
  * Reads ?orgId= from the URL (defaults to 'pib-platform-owner'), fetches the
- * chart from GET /api/v1/admin/agent-org and renders the Paperclip-style
- * OrgChartCanvas. Toolbar: org switcher, Seed default chart, Refresh,
+ * chart from GET /api/v1/admin/agent-org and live agent runtime labels from
+ * GET /api/v1/admin/agents. Toolbar: org switcher, Seed default chart, Refresh,
  * Fit / Zoom controls (drive the canvas via ref) and Add node.
+ *
+ * Side drawer:
+ * - Org role tab = Firestore task defaults (always)
+ * - Live runtime tab = full AgentDetailPanel when node.agentId is bound
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PageHeader } from '@/components/ui/AppFoundation'
 import OrgChartCanvas, { type OrgChartCanvasHandle } from '@/components/agents/org-chart/OrgChartCanvas'
 import OrgNodeEditor from '@/components/agents/org-chart/OrgNodeEditor'
+import type { AgentTeamDoc } from '@/components/agents/AgentCard'
+import type { RuntimeModelSummary } from '@/lib/agents/runtime-config'
 import type { AgentOrgNode, OrgTreeNode } from '@/lib/agent-org/types'
 
 const DEFAULT_ORG_ID = 'pib-platform-owner'
 
+type LiveAgent = AgentTeamDoc & { runtimeModel?: RuntimeModelSummary }
+
+interface SessionInfo {
+  isSuperAdmin?: boolean
+}
+
 interface FetchResult {
   nodes: AgentOrgNode[]
   tree: OrgTreeNode[]
+}
+
+function liveModelLabel(agent: LiveAgent | undefined): string | undefined {
+  if (!agent) return undefined
+  const rm = agent.runtimeModel
+  if (rm?.label?.trim()) return rm.label.trim()
+  if (rm?.primaryProvider && rm?.primaryModel) return `${rm.primaryProvider} / ${rm.primaryModel}`
+  if (agent.defaultModel?.trim()) return agent.defaultModel.trim()
+  return undefined
 }
 
 export default function AgentOrgChartPage() {
@@ -31,21 +52,51 @@ export default function AgentOrgChartPage() {
   const [orgInput, setOrgInput] = useState<string>(orgId)
   const [nodes, setNodes] = useState<AgentOrgNode[]>([])
   const [tree, setTree] = useState<OrgTreeNode[]>([])
+  const [agentsById, setAgentsById] = useState<Record<string, LiveAgent>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [seeding, setSeeding] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [editor, setEditor] = useState<{ node: AgentOrgNode | null } | null>(null)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const canvasRef = useRef<OrgChartCanvasHandle>(null)
+
+  const liveModelByAgentId = useMemo(() => {
+    const out: Record<string, string> = {}
+    for (const [id, agent] of Object.entries(agentsById)) {
+      const label = liveModelLabel(agent)
+      if (label) out[id] = label
+    }
+    return out
+  }, [agentsById])
+
+  const loadAgents = useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/admin/agents')
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) return
+      const list = (body.data ?? []) as LiveAgent[]
+      const map: Record<string, LiveAgent> = {}
+      for (const agent of list) {
+        if (agent?.agentId) map[agent.agentId] = agent
+      }
+      setAgentsById(map)
+    } catch {
+      // Live labels are best-effort; chart still works from Firestore defaults.
+    }
+  }, [])
 
   const load = useCallback(async (oid: string) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/v1/admin/agent-org?orgId=${encodeURIComponent(oid)}`)
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        throw new Error(body?.error ?? `Failed to load org chart (${res.status})`)
+      const [chartRes] = await Promise.all([
+        fetch(`/api/v1/admin/agent-org?orgId=${encodeURIComponent(oid)}`),
+        loadAgents(),
+      ])
+      const body = await chartRes.json().catch(() => ({}))
+      if (!chartRes.ok) {
+        throw new Error(body?.error ?? `Failed to load org chart (${chartRes.status})`)
       }
       const data = (body.data ?? {}) as Partial<FetchResult>
       setNodes(data.nodes ?? [])
@@ -57,16 +108,31 @@ export default function AgentOrgChartPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [loadAgents])
 
   useEffect(() => {
-    load(orgId)
+    void load(orgId)
   }, [orgId, load])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/verify')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((session: SessionInfo | null) => {
+        if (!cancelled) setIsSuperAdmin(Boolean(session?.isSuperAdmin))
+      })
+      .catch(() => {
+        if (!cancelled) setIsSuperAdmin(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const applyOrg = () => {
     const next = orgInput.trim() || DEFAULT_ORG_ID
     if (next === orgId) {
-      load(next)
+      void load(next)
       return
     }
     setOrgId(next)
@@ -105,16 +171,28 @@ export default function AgentOrgChartPage() {
     }
   }
 
-  const handleSaved = () => {
+  const handleSaved = (saved: AgentOrgNode | null) => {
     setEditor(null)
-    setNotice(null)
-    load(orgId)
+    setNotice(
+      saved?.agentId
+        ? `Saved ${saved.name}. Use Live runtime tab (or tick sync) to push model onto linked machines.`
+        : null,
+    )
+    void load(orgId)
   }
 
   const handleDeleted = () => {
     setEditor(null)
     setNotice(null)
-    load(orgId)
+    void load(orgId)
+  }
+
+  const handleRuntimeSaved = (agent: AgentTeamDoc) => {
+    setAgentsById((prev) => ({
+      ...prev,
+      [agent.agentId]: { ...(prev[agent.agentId] ?? agent), ...agent },
+    }))
+    void loadAgents()
   }
 
   return (
@@ -123,10 +201,9 @@ export default function AgentOrgChartPage() {
         accent="cyan"
         eyebrow="Admin · Agents"
         title="Agent Org Chart"
-        description="Paperclip-style organisation chart — who reports to whom, what each role can do, and its runtime defaults."
+        description="Hierarchy + task defaults (Firestore) with the same live Hermes runtime panel as /admin/agents when a node is bound. Cyan chips = live machine model."
       />
 
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] px-3 py-2.5">
         <label
           htmlFor="agent-org-org-id"
@@ -153,16 +230,17 @@ export default function AgentOrgChartPage() {
 
         <button
           type="button"
-          onClick={handleSeed}
-          disabled={seeding || loading}
+          onClick={() => void handleSeed()}
+          disabled={seeding || loading || !isSuperAdmin}
           className="btn-pib-ghost btn-pib-sm font-label inline-flex items-center gap-1.5 disabled:opacity-50"
+          title={!isSuperAdmin ? 'Super admin required' : undefined}
         >
           <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
           {seeding ? 'Seeding…' : 'Seed default chart'}
         </button>
         <button
           type="button"
-          onClick={() => load(orgId)}
+          onClick={() => void load(orgId)}
           disabled={loading}
           className="btn-pib-ghost btn-pib-sm font-label inline-flex items-center gap-1.5 disabled:opacity-50"
         >
@@ -202,15 +280,21 @@ export default function AgentOrgChartPage() {
         <button
           type="button"
           onClick={() => setEditor({ node: null })}
-          disabled={loading}
+          disabled={loading || !isSuperAdmin}
           className="btn-pib-primary btn-pib-sm font-label inline-flex items-center gap-1.5 disabled:opacity-50"
+          title={!isSuperAdmin ? 'Super admin required' : undefined}
         >
           <span className="material-symbols-outlined text-[16px]">add</span>
           Add node
         </button>
       </div>
 
-      {/* Inline notices */}
+      {!isSuperAdmin && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          View-only — super admin is required to edit org roles or live runtime profiles.
+        </div>
+      )}
+
       {notice && !error && (
         <div className="flex items-center gap-2 rounded-md border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-300">
           <span className="material-symbols-outlined text-[14px]">info</span>
@@ -218,7 +302,6 @@ export default function AgentOrgChartPage() {
         </div>
       )}
 
-      {/* Canvas / frames */}
       <div className="relative h-[calc(100vh-320px)] min-h-[480px]">
         <OrgChartCanvas
           ref={canvasRef}
@@ -227,8 +310,9 @@ export default function AgentOrgChartPage() {
           loading={loading}
           error={error}
           seeding={seeding}
-          onSeed={handleSeed}
+          onSeed={() => void handleSeed()}
           onSelectNode={(node) => setEditor({ node })}
+          liveModelByAgentId={liveModelByAgentId}
         />
       </div>
 
@@ -237,9 +321,12 @@ export default function AgentOrgChartPage() {
         orgId={orgId}
         node={editor?.node ?? null}
         nodes={nodes}
+        canEdit={isSuperAdmin}
+        agentsById={agentsById}
         onClose={() => setEditor(null)}
         onSaved={handleSaved}
         onDeleted={handleDeleted}
+        onRuntimeSaved={handleRuntimeSaved}
       />
     </div>
   )
