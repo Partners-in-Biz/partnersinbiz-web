@@ -379,4 +379,51 @@ describe('agent watcher Hermes dispatch', () => {
     expect(result.error).toContain('dispatch acceptance is unknown')
     expect(global.fetch).toHaveBeenCalledTimes(2)
   })
+
+  it('forwards working_directory to Hermes when the watcher has isolated a task worktree', async () => {
+    let postedBody: Record<string, unknown> | null = null
+    global.fetch = jest.fn(async (url: string | URL, init?: RequestInit) => {
+      const urlText = String(url)
+      if (urlText.endsWith('/v1/runs')) {
+        postedBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+        return new Response(JSON.stringify({ run_id: 'run-worktree-1' }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ status: 'completed', output: 'done' }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    const isolatedDir = '/tmp/pib-agent-worktrees/repo/pib-task-test-worktree'
+    const result = await runAndPoll(cfg, {
+      taskId: 'task-worktree-1',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Implement safely',
+      workingDirectory: isolatedDir,
+    })
+
+    expect(result).toMatchObject({ runId: 'run-worktree-1', output: 'done' })
+    expect(postedBody).not.toBeNull()
+    expect(postedBody!['working_directory']).toBe(isolatedDir)
+  })
+
+  it('does not send working_directory when no isolation was performed', async () => {
+    let postedBody: Record<string, unknown> | null = null
+    global.fetch = jest.fn(async (url: string | URL, init?: RequestInit) => {
+      const urlText = String(url)
+      if (urlText.endsWith('/v1/runs')) {
+        postedBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+        return new Response(JSON.stringify({ run_id: 'run-no-worktree' }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ status: 'completed', output: 'done' }), { status: 200 })
+    }) as unknown as typeof fetch
+
+    await runAndPoll(cfg, {
+      taskId: 'task-no-worktree',
+      orgId: 'org-1',
+      agentId: 'theo',
+      spec: 'Do the work',
+    })
+
+    expect(postedBody).not.toBeNull()
+    expect(postedBody).not.toHaveProperty('working_directory')
+  })
 })

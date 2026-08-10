@@ -193,6 +193,22 @@ Deterministic coverage lives in `__tests__/runtime-installers/repository-worktre
 npx jest --runInBand __tests__/runtime-installers/repository-worktree.test.ts __tests__/scripts/linked-runtime-worker.test.ts
 ```
 
+### Direct VPS dispatch isolation
+
+When a Kanban task is dispatched directly to VPS Hermes (no linked-computer target), the watcher itself runs an equivalent preflight before calling `runAndPoll`. The watcher process is the execution host, so it creates the task worktree on the same machine that Hermes runs on:
+
+- Repository root: resolved from `PIB_REPO_ROOT` or `process.cwd()`.
+- The watcher fetches `origin/development` before creating the worktree (it is the sole VPS writer and already fetches in completion-integrity verification).
+- The isolated `working_directory` is forwarded to Hermes as `working_directory` in the `/v1/runs` POST body, so the agent runs inside the task worktree instead of the shared checkout.
+- A blocked preflight (`TASK_WORKTREE_BLOCKED:<code>`) moves the task to `blocked` without dispatching Hermes. The shared checkout is never stashed, rebased, or overwritten.
+- Non-repository tasks (no `projectId`) skip the preflight and dispatch normally.
+
+Deterministic coverage lives in `__tests__/services/agent-watcher/repository-isolation.test.ts` and `__tests__/services/agent-watcher/hermes.test.ts`. Run:
+
+```bash
+npx jest --runInBand __tests__/services/agent-watcher/repository-isolation.test.ts __tests__/services/agent-watcher/hermes.test.ts
+```
+
 ## Failure modes
 
 | Symptom                          | What happens                                                        |

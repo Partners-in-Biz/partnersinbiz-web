@@ -43,6 +43,12 @@ export interface TaskDispatchInput {
   llmConnectionId?: string | null
   llmCredentialBindingId?: string | null
   runtimeTargetId?: string | null
+  /**
+   * Isolated working directory for repository-backed tasks. When set, the
+   * watcher has already created a task-scoped Git worktree and this path
+   * overrides the Hermes profile default.
+   */
+  workingDirectory?: string | null
 }
 
 function runTimeoutMs(): number | null {
@@ -133,6 +139,7 @@ async function postRun(cfg: AgentConfig, input: TaskDispatchInput): Promise<Disp
   const url = joinUrl(cfg.baseUrl, '/v1/runs')
   const body = {
     input: `[Task ${input.taskId}] ${input.spec}`,
+    ...(input.workingDirectory ? { working_directory: input.workingDirectory } : {}),
     ...(input.agentEffort ? { reasoning_effort: input.agentEffort } : {}),
     ...(input.agentModel ? { model: input.agentModel } : {}),
     ...(input.agentProvider ? { provider: input.agentProvider } : {}),
