@@ -29,7 +29,7 @@ function isApprovalGateTask(task: Record<string, unknown>): boolean {
   return Boolean(
     approvalGate
     || typeof task.approvalStatus === 'string'
-    || labels.some((label) => /approval-gate|approval-required|client-approval|required-approval/i.test(label)),
+    || labels.some((label) => /^(approval-gate|approval-required|client-approval|required-approval)(:.*)?$/i.test(String(label || '').trim())),
   )
 }
 
