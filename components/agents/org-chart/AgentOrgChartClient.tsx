@@ -6,7 +6,7 @@
  * - Portal: /portal/settings/agents/org-chart (active org auto-selected)
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { AgentOrgNode, AgentOrgTreeNode } from '@/lib/agent-org/types'
+import type { AgentOrgNode, OrgTreeNode } from '@/lib/agent-org/types'
 import type { AgentTeamDoc } from '@/components/agents/AgentCard'
 import type { RuntimeModelSummary } from '@/lib/agents/runtime-config'
 import OrgChartCanvas, { type OrgChartCanvasHandle } from '@/components/agents/org-chart/OrgChartCanvas'
@@ -81,7 +81,7 @@ export default function AgentOrgChartClient({
 }: AgentOrgChartClientProps) {
   const canvasRef = useRef<OrgChartCanvasHandle>(null)
   const [nodes, setNodes] = useState<AgentOrgNode[]>([])
-  const [tree, setTree] = useState<AgentOrgTreeNode[]>([])
+  const [tree, setTree] = useState<OrgTreeNode[]>([])
   const [loading, setLoading] = useState(true)
   const [seeding, setSeeding] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -127,7 +127,7 @@ export default function AgentOrgChartClient({
       if (!res.ok) throw new Error(body?.error ?? `Failed to load org chart (${res.status})`)
       const data = body.data ?? body
       setNodes((data.nodes as AgentOrgNode[]) ?? [])
-      setTree((data.tree as AgentOrgTreeNode[]) ?? [])
+      setTree((data.tree as OrgTreeNode[]) ?? [])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load org chart')
       setNodes([])

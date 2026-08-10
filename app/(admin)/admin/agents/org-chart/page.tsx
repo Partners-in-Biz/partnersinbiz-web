@@ -6,17 +6,16 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useAuth } from '@/lib/firebase/auth-context'
 import AgentOrgChartClient from '@/components/agents/org-chart/AgentOrgChartClient'
 
 const PLATFORM_ORG = 'pib-platform-owner'
 
+type SessionInfo = { isSuperAdmin?: boolean }
+
 export default function AdminAgentOrgChartPage() {
-  const { user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const isSuperAdmin = Boolean(user?.isSuperAdmin)
-
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [orgId, setOrgId] = useState(() => searchParams.get('orgId')?.trim() || PLATFORM_ORG)
   const [orgOptions, setOrgOptions] = useState<Array<{ id: string; name: string }>>([
     { id: PLATFORM_ORG, name: 'Partners in Biz (platform)' },
@@ -27,6 +26,21 @@ export default function AdminAgentOrgChartPage() {
     if (q && q !== orgId) setOrgId(q)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/auth/verify')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((session: SessionInfo | null) => {
+        if (!cancelled) setIsSuperAdmin(Boolean(session?.isSuperAdmin))
+      })
+      .catch(() => {
+        if (!cancelled) setIsSuperAdmin(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -46,7 +60,6 @@ export default function AdminAgentOrgChartPage() {
           }))
           .filter((o) => o.id)
         if (opts.length > 0) {
-          // Ensure platform owner always present.
           if (!opts.some((o) => o.id === PLATFORM_ORG)) {
             opts.unshift({ id: PLATFORM_ORG, name: 'Partners in Biz (platform)' })
           }
