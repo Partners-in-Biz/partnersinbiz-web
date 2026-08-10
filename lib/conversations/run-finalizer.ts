@@ -85,6 +85,119 @@ function cleanString(value: unknown): string | null {
   return trimmed ? trimmed : null
 }
 
+function finiteToken(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null
+  return Math.min(Math.round(value), 50_000_000)
+}
+
+function finiteCostUsd(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null
+  // Keep sub-cent precision for portal credits; clamp runaway values.
+  return Math.min(Number(value.toFixed(8)), 1_000_000)
+}
+
+function asUsageRecord(value: unknown): JsonObject | null {
+  const obj = asObject(value)
+  if (!obj) return null
+  const looksLikeUsage = [
+    'input_tokens', 'inputTokens', 'prompt_tokens', 'promptTokens',
+    'output_tokens', 'outputTokens', 'completion_tokens', 'completionTokens',
+    'total_tokens', 'totalTokens', 'cache_read_input_tokens', 'cache_read_tokens',
+  ].some((key) => key in obj)
+  return looksLikeUsage ? obj : null
+}
+
+function findUsageRecord(payload: unknown, depth = 0): JsonObject | null {
+  const obj = asObject(payload)
+  if (!obj || depth > 4) return null
+  const direct = asUsageRecord(obj.usage) ?? asUsageRecord(obj.token_usage) ?? asUsageRecord(obj.tokenUsage)
+  if (direct) return direct
+  if (asUsageRecord(obj)) return obj
+  for (const key of ['result', 'response', 'data', 'run', 'output', 'message', 'metrics']) {
+    if (key in obj) {
+      const nested = findUsageRecord(obj[key], depth + 1)
+      if (nested) return nested
+    }
+  }
+  return null
+}
+
+/**
+ * Extract gateway-reported token/cost usage from a Hermes run payload.
+ * Tolerates snake_case and camelCase OpenAI-style usage objects.
+ */
+export function extractRunUsage(payload: unknown): {
+  inputTokens: number | null
+  outputTokens: number | null
+  totalTokens: number | null
+  reasoningTokens: number | null
+  cacheReadTokens: number | null
+  cacheWriteTokens: number | null
+  costUsd: number | null
+} | null {
+  const usage = findUsageRecord(payload)
+  if (!usage) return null
+  const inputTokens = finiteToken(
+    usage.input_tokens ?? usage.inputTokens ?? usage.prompt_tokens ?? usage.promptTokens,
+  )
+  const outputTokens = finiteToken(
+    usage.output_tokens ?? usage.outputTokens ?? usage.completion_tokens ?? usage.completionTokens,
+  )
+  const reasoningTokens = finiteToken(usage.reasoning_tokens ?? usage.reasoningTokens)
+  const cacheReadTokens = finiteToken(
+    usage.cache_read_input_tokens
+    ?? usage.cache_read_tokens
+    ?? usage.cacheReadTokens
+    ?? usage.cached_tokens
+    ?? usage.cachedTokens,
+  )
+  const cacheWriteTokens = finiteToken(
+    usage.cache_creation_input_tokens
+    ?? usage.cache_write_tokens
+    ?? usage.cacheWriteTokens,
+  )
+  let totalTokens = finiteToken(usage.total_tokens ?? usage.totalTokens ?? usage.tokensTotal)
+  if (totalTokens === null) {
+    const parts = [inputTokens, outputTokens, reasoningTokens].filter((v): v is number => v !== null)
+    if (parts.length > 0) totalTokens = parts.reduce((sum, v) => sum + v, 0)
+  }
+  const costUsd = finiteCostUsd(usage.cost_usd ?? usage.costUsd ?? usage.cost)
+  if (
+    inputTokens === null
+    && outputTokens === null
+    && totalTokens === null
+    && reasoningTokens === null
+    && cacheReadTokens === null
+    && cacheWriteTokens === null
+    && costUsd === null
+  ) {
+    return null
+  }
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    reasoningTokens,
+    cacheReadTokens,
+    cacheWriteTokens,
+    costUsd,
+  }
+}
+
+function usagePatchFromPayload(payload: unknown): Record<string, unknown> {
+  const usage = extractRunUsage(payload)
+  if (!usage) return {}
+  const compact: Record<string, number> = {}
+  if (usage.inputTokens !== null) compact.inputTokens = usage.inputTokens
+  if (usage.outputTokens !== null) compact.outputTokens = usage.outputTokens
+  if (usage.totalTokens !== null) compact.totalTokens = usage.totalTokens
+  if (usage.reasoningTokens !== null) compact.reasoningTokens = usage.reasoningTokens
+  if (usage.cacheReadTokens !== null) compact.cacheReadTokens = usage.cacheReadTokens
+  if (usage.cacheWriteTokens !== null) compact.cacheWriteTokens = usage.cacheWriteTokens
+  if (usage.costUsd !== null) compact.costUsd = usage.costUsd
+  return Object.keys(compact).length > 0 ? { usage: compact } : {}
+}
+
 /**
  * Persist the output of a /compress run as durable conversation context
  * compression. Idempotent: a second completion just overwrites the summary.
@@ -490,6 +603,8 @@ export async function finalizeConversationRun(input: {
         : rawOutput
     const previewOutput = output || richPreviewFromParts(ledgerRichPatch.richParts) || 'Agent returned a rich response.'
 
+    const usagePatch = usagePatchFromPayload(data)
+
     if (messageAlreadyCompleted) {
       await updateRunDoc(msgData.runDocId, runId, {
         status: 'completed',
@@ -497,6 +612,7 @@ export async function finalizeConversationRun(input: {
         output: previewOutput,
         error: FieldValue.delete(),
         ...ledgerRichPatch,
+        ...usagePatch,
       })
       return {
         status: 'completed',
@@ -518,6 +634,7 @@ export async function finalizeConversationRun(input: {
       // Preserve mid-run open_context attachments (email/invoice drafts) that
       // create routes wrote before Hermes completed.
       ...ledgerRichPatch,
+      ...usagePatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
       status: 'completed',
@@ -525,6 +642,7 @@ export async function finalizeConversationRun(input: {
       output: previewOutput,
       error: FieldValue.delete(),
       ...richFields,
+      ...usagePatch,
     })
     await touchConversation(input.convId, previewOutput, 'assistant', input.msgId)
 
@@ -586,6 +704,7 @@ export async function finalizeConversationRun(input: {
       || `Run ${hermesStatus}`
     const error = humanizeConversationRunError(rawError)
     const richPatch = richMessagePatchFromRun(data, events)
+    const usagePatch = usagePatchFromPayload(data)
     await msgRef.update({
       content: error,
       status: 'failed',
@@ -594,12 +713,14 @@ export async function finalizeConversationRun(input: {
       ...eventsPersistPatch,
       ...thinkingPatch,
       ...richPatch,
+      ...usagePatch,
     })
     await updateRunDoc(msgData.runDocId, runId, {
       status: hermesStatus,
       response: data,
       error,
       ...richPatch,
+      ...usagePatch,
     })
     await touchConversation(input.convId, `[run ${hermesStatus}] ${error}`, 'assistant', input.msgId)
     return { status: 'failed', content: error, error, runId, hermesStatus, ...richPatch }

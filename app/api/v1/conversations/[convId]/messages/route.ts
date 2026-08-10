@@ -1316,25 +1316,27 @@ export const POST = withAuth(
       const promptAssembly = buildPromptBudget({
         profile: promptIntent.profile,
         blocks: [
+        // Critical/high contract blocks stay uncapped so identity, request, and
+        // decision rules cannot be starved by metadata headroom.
         { id: 'org_identity', content: orgContext, priority: 'critical', required: true },
         { id: 'conversation_identity', content: convContext, priority: 'critical', required: true },
         { id: 'latest_request', content: userTurnContent, priority: 'critical', required: true },
         { id: 'task_or_project_contract', content: projectChatOrchestrationContext, priority: 'high' },
-        { id: 'attached_references', content: attachedContext, priority: 'high' },
-        { id: 'conversation_history', content: conversationHistory, priority: 'high' },
-        { id: 'workspace', content: workspaceContext, priority: 'normal' },
-        { id: 'orchestration', content: orchestrationContext, priority: 'normal' },
-        { id: 'agent_skills_catalogue', content: agentSkillsContext, priority: 'normal' },
-        { id: 'hermes_features', content: hermesFeaturesContext, priority: 'normal' },
+        { id: 'attached_references', content: attachedContext, priority: 'high', maxTokens: 2_000 },
+        { id: 'conversation_history', content: conversationHistory, priority: 'high', maxTokens: 22_000 },
+        { id: 'workspace', content: workspaceContext, priority: 'normal', maxTokens: 2_000 },
+        { id: 'orchestration', content: orchestrationContext, priority: 'normal', maxTokens: 1_400 },
+        { id: 'agent_skills_catalogue', content: agentSkillsContext, priority: 'normal', maxTokens: 2_400 },
+        { id: 'hermes_features', content: hermesFeaturesContext, priority: 'normal', maxTokens: 6_000 },
         { id: 'approval_and_decision_rules', content: decisionDataRuleContext, priority: 'high' },
         { id: 'delegation', content: delegationAuthContext, priority: 'critical', required: Boolean(delegationAuthContext) },
-        { id: 'canvas', content: dynamicChatCanvasContext, priority: 'optional' },
-        { id: 'mailbox', content: mailboxContext, priority: 'optional' },
-        { id: 'studio', content: studioArtifactOrchestrationContext, priority: 'optional' },
-        { id: 'design_context', content: designContextBlock, priority: 'optional' },
+        { id: 'canvas', content: dynamicChatCanvasContext, priority: 'optional', maxTokens: 1_500 },
+        { id: 'mailbox', content: mailboxContext, priority: 'optional', maxTokens: 1_500 },
+        { id: 'studio', content: studioArtifactOrchestrationContext, priority: 'optional', maxTokens: 1_500 },
+        { id: 'design_context', content: designContextBlock, priority: 'optional', maxTokens: 1_500 },
         { id: 'slash_command', content: commandContext, priority: 'high' },
         { id: 'compression_task', content: compressionTaskContext, priority: 'high' },
-        { id: 'attachments', content: attachmentContext, priority: 'normal' },
+        { id: 'attachments', content: attachmentContext, priority: 'normal', maxTokens: 2_000 },
         ],
       })
       const hermesInput = promptAssembly.content

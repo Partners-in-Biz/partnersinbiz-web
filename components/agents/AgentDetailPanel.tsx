@@ -1723,7 +1723,7 @@ export function AgentDetailPanel({ agent, onClose, onSaved, canEdit = false }: A
                 value={editModel}
                 onChange={(e) => setEditModel(e.target.value)}
                 className="pib-input w-full font-mono text-sm"
-                placeholder="e.g. openai-codex / gpt-5.6-luna"
+                placeholder="e.g. xai-oauth / grok-4.5"
               />
               <p className="mt-1 text-[10px] text-[var(--color-pib-text-muted)]/70">
                 Display/registry only. To change what Messages <strong className="text-[var(--color-pib-text)]">Auto</strong> uses
