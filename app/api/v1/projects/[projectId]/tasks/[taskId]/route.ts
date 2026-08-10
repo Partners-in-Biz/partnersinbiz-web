@@ -12,6 +12,7 @@ import {
   taskHasAssignedReviewer,
   validateDispatchableAgentTaskContract,
 } from '@/lib/projects/taskPayload'
+import { validateCompletionEvidence } from '@/lib/projects/completionIntegrity'
 import { logActivity } from '@/lib/activity/log'
 import { adminProjectTaskLink } from '@/lib/projects/links'
 import { buildBlockedTaskRecovery } from '@/lib/projects/blockerRecovery'
@@ -226,8 +227,27 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const attemptsCompletion = updateValue.agentStatus === 'done'
     || updateValue.columnId === 'done'
     || updateValue.reviewStatus === 'approved'
+  const evidence = validateCompletionEvidence(
+    updateValue.completionEvidence !== undefined ? updateValue.completionEvidence : existing.completionEvidence,
+  )
   const existingVerification = isRecord(existing.completionVerification) ? existing.completionVerification : null
-  const completionVerified = existingVerification?.verifierResult === 'passed' || existingVerification?.verifierResult === 'approved'
+  const evidenceChanged = updateValue.completionEvidence !== undefined
+    && updateValue.completionEvidence !== existing.completionEvidence
+  const evidenceCleared = updateValue.completionEvidence === null
+    || (updateValue.completionVerification === null && updateValue.completionEvidence === null)
+  // When evidence changes, force re-verification by clearing stale verification.
+  if (evidenceChanged || evidenceCleared) {
+    updateValue.completionVerification = null
+    updateValue.completionIntegrityFailureReasons = null
+  }
+  const verificationFresh = !evidenceChanged && !evidenceCleared
+  const watcherVerified = evidence.ok
+    && verificationFresh
+    && (
+      existingVerification?.verifierResult === 'passed'
+      || existingVerification?.verifierResult === 'approved'
+    )
+  const completionVerified = watcherVerified
   if (isAgentTask && !isApprovalGateCard && attemptsCompletion && !completionVerified) {
     const priorOutput = isRecord(updateValue.agentOutput)
       ? updateValue.agentOutput

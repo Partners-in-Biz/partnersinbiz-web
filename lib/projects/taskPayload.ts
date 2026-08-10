@@ -9,6 +9,7 @@ import {
   VALID_AGENT_CAPABILITIES,
   VALID_APPROVAL_GATES,
 } from '@/lib/projects/task-allowlists'
+import { validateCompletionEvidence } from '@/lib/projects/completionIntegrity'
 import { columnForAgentStatus } from '@/lib/tasks/agentState'
 import type { AgentStatus } from '@/lib/tasks/types'
 
@@ -669,6 +670,13 @@ export function buildProjectTaskUpdateData(body: Record<string, unknown>): Paylo
     const agentOutput = cleanAgentOutput(body.agentOutput)
     if (!agentOutput.ok) return agentOutput
     updates.agentOutput = agentOutput.value
+  }
+  if (body.completionEvidence !== undefined) {
+    const completionEvidence = validateCompletionEvidence(body.completionEvidence)
+    if (!completionEvidence.ok) {
+      return { ok: false, error: `Invalid completionEvidence: ${completionEvidence.reasons.join(', ')}`, status: 400 }
+    }
+    updates.completionEvidence = completionEvidence.evidence
   }
   if (body.dependsOn !== undefined) {
     const dependsOn = cleanDependsOn(body.dependsOn)

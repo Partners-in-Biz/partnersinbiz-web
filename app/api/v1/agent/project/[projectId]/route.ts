@@ -151,6 +151,11 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
       sourceResearchItemId: data.sourceResearchItemId ?? null,
       expectedArtifacts: Array.isArray(data.expectedArtifacts) ? data.expectedArtifacts : [],
       verifierChecklist: Array.isArray(data.verifierChecklist) ? data.verifierChecklist : [],
+      completionEvidence: data.completionEvidence ?? null,
+      completionVerification: data.completionVerification ?? null,
+      completionIntegrityFailureReasons: Array.isArray(data.completionIntegrityFailureReasons)
+        ? data.completionIntegrityFailureReasons
+        : [],
       agentConversationId: data.agentConversationId ?? null,
       agentHeartbeatAt: data.agentHeartbeatAt ?? null,
       attachments: data.attachments ?? [],
