@@ -190,7 +190,16 @@ export async function createClientDocument(input: {
       const projects = projectSnapshots.map((snapshot) => snapshot.exists
         ? (snapshot.data() ?? {}) as Record<string, unknown>
         : null)
-      if (projects.some((project) => !project || !canMutateLinkedProjectPlanning(project, input.user, input.orgId))) {
+      if (projects.some((project) => !project)) {
+        return { ok: false as const, accessDenied: true as const }
+      }
+      const accessChecks = await Promise.all(projects.map((project, index) => canMutateLinkedProjectPlanning(
+        projectIds[index],
+        project as Record<string, unknown>,
+        input.user,
+        { documentOrgId: input.orgId },
+      )))
+      if (accessChecks.some((allowed) => !allowed)) {
         return { ok: false as const, accessDenied: true as const }
       }
 

@@ -7,6 +7,7 @@ const mockRunTransaction = jest.fn()
 const mockPlanningBlocker = jest.fn()
 const mockPreparePlanningTransition = jest.fn()
 const mockStartPlanningTransition = jest.fn()
+const mockResolveProjectAccessForUser = jest.fn()
 
 const documentRef = { id: 'doc-1', path: 'client_documents/doc-1' }
 const planningEventRef = { id: 'event-1', path: 'projects/project-1/planningDiscoveryEvents/event-1' }
@@ -45,12 +46,25 @@ jest.mock('@/lib/projects/planningDiscovery', () => ({
   applyPlanningDiscoveryAction: (...args: unknown[]) => mockStartPlanningTransition(...args),
 }))
 
+jest.mock('@/lib/projects/collaboration', () => {
+  const actual = jest.requireActual('@/lib/projects/collaboration')
+  return {
+    ...actual,
+    resolveProjectAccessForUser: (...args: unknown[]) => mockResolveProjectAccessForUser(...args),
+  }
+})
+
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: { serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP') },
 }))
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockResolveProjectAccessForUser.mockResolvedValue({
+    role: 'manager',
+    source: 'project_member',
+    canViewInternal: true,
+  })
   mockTransactionGet.mockImplementation(async (ref: unknown) => {
     if (ref === documentRef) {
       return {
@@ -153,6 +167,7 @@ it('initializes discovery and blocks a linked document mutation on a legacy proj
 })
 
 it('rejects a newly linked project outside the caller tenant without disclosing planning state', async () => {
+  mockResolveProjectAccessForUser.mockResolvedValue(null)
   mockTransactionGet.mockImplementation(async (ref: unknown) => {
     if (ref === documentRef) return { exists: true, data: () => ({ orgId: 'org-1', title: 'Requirements', deleted: false }) }
     if (ref === projectRef) {
@@ -177,6 +192,7 @@ it('rejects a newly linked project outside the caller tenant without disclosing 
 })
 
 it('rejects an existing foreign project link on delete without mutating it', async () => {
+  mockResolveProjectAccessForUser.mockResolvedValue(null)
   mockTransactionGet.mockImplementation(async (ref: unknown) => {
     if (ref === documentRef) {
       return {
@@ -198,4 +214,31 @@ it('rejects an existing foreign project link on delete without mutating it', asy
   expect(res.status).toBe(403)
   expect(mockTransactionUpdate).not.toHaveBeenCalled()
   expect(mockTransactionSet).not.toHaveBeenCalled()
+})
+
+it('rejects a read-only external collaborator before mutating a project-linked client document', async () => {
+  mockResolveProjectAccessForUser.mockResolvedValue({
+    role: 'viewer',
+    source: 'project_organization',
+    canViewInternal: false,
+    crossOrgGrant: { grantId: 'grant-1', actions: ['project.read'], items: [] },
+  })
+  const { PATCH } = await import('@/app/api/v1/client-documents/[id]/route')
+  const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ title: 'Unauthorized external edit' }),
+  })
+
+  const res = await PATCH(req, user, ctx)
+
+  expect(res.status).toBe(403)
+  expect(mockResolveProjectAccessForUser).toHaveBeenCalledWith(
+    'project-1',
+    user,
+    expect.objectContaining({ orgId: 'org-1' }),
+    'org-1',
+    { action: 'project.write', item: 'doc-1' },
+  )
+  expect(mockTransactionUpdate).not.toHaveBeenCalledWith(documentRef, expect.anything())
 })

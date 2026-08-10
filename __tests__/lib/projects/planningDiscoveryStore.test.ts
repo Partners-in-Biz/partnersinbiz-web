@@ -1,5 +1,18 @@
 import { planningDiscoveryDigest, type PlanningDecisionBrief, type PlanningDiscoveryState } from '@/lib/projects/planningDiscovery'
-import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
+import {
+  canMutateLinkedProjectPlanning,
+  planningContextMutationTransition,
+} from '@/lib/projects/planningDiscoveryStore'
+
+const mockResolveProjectAccessForUser = jest.fn()
+
+jest.mock('@/lib/projects/collaboration', () => {
+  const actual = jest.requireActual('@/lib/projects/collaboration')
+  return {
+    ...actual,
+    resolveProjectAccessForUser: (...args: unknown[]) => mockResolveProjectAccessForUser(...args),
+  }
+})
 
 const actor = { uid: 'peet', now: '2026-07-27T08:00:00.000Z', reason: 'client_document.updated' }
 const brief: PlanningDecisionBrief = {
@@ -86,5 +99,78 @@ describe('planningContextMutationTransition', () => {
       }),
       event: expect.objectContaining({ type: 'reopened', reason: 'client_document.updated' }),
     }))
+  })
+})
+
+describe('canMutateLinkedProjectPlanning', () => {
+  const externalUser = {
+    uid: 'external-1',
+    role: 'admin' as const,
+    orgId: 'external-org',
+    authKind: 'session' as const,
+  }
+  const foreignProject = {
+    orgId: 'owner-org',
+    clientOrgId: 'external-org',
+  }
+
+  beforeEach(() => {
+    mockResolveProjectAccessForUser.mockReset()
+  })
+
+  it('denies a read-only external collaborator from creating a project-linked client document', async () => {
+    mockResolveProjectAccessForUser.mockResolvedValue({
+      role: 'viewer',
+      source: 'project_organization',
+      canViewInternal: false,
+      crossOrgGrant: { grantId: 'grant-1', actions: ['project.read'], items: [] },
+    })
+
+    await expect(canMutateLinkedProjectPlanning('project-1', foreignProject, externalUser, {
+      documentOrgId: 'external-org',
+    })).resolves.toBe(false)
+
+    expect(mockResolveProjectAccessForUser).toHaveBeenCalledWith(
+      'project-1',
+      externalUser,
+      foreignProject,
+      'external-org',
+      { action: 'project.write' },
+    )
+  })
+
+  it('denies item-scoped grants from creating unscoped project-linked client documents', async () => {
+    mockResolveProjectAccessForUser.mockResolvedValue({
+      role: 'contributor',
+      source: 'project_organization',
+      canViewInternal: false,
+      crossOrgGrant: { grantId: 'grant-1', actions: ['project.write'], items: ['doc-existing'] },
+    })
+
+    await expect(canMutateLinkedProjectPlanning('project-1', foreignProject, externalUser, {
+      documentOrgId: 'external-org',
+    })).resolves.toBe(false)
+  })
+
+  it('allows an exact-item write grant to mutate an existing linked client document', async () => {
+    mockResolveProjectAccessForUser.mockResolvedValue({
+      role: 'contributor',
+      source: 'project_organization',
+      canViewInternal: false,
+      crossOrgGrant: { grantId: 'grant-1', actions: ['project.write'], items: ['doc-1'] },
+    })
+
+    await expect(canMutateLinkedProjectPlanning('project-1', foreignProject, externalUser, {
+      documentOrgId: 'external-org',
+      item: 'doc-1',
+    })).resolves.toBe(true)
+
+    expect(mockResolveProjectAccessForUser).toHaveBeenCalledWith(
+      'project-1',
+      externalUser,
+      foreignProject,
+      'external-org',
+      { action: 'project.write', item: 'doc-1' },
+    )
   })
 })

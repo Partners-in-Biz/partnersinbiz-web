@@ -17,7 +17,7 @@ import {
   validateRevokeUserShareInput,
   validateUserShareInput,
 } from '@/lib/client-documents/grants'
-import { actorFrom, lastActorFrom } from '@/lib/api/actor'
+import { lastActorFrom } from '@/lib/api/actor'
 import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentAssumption } from '@/lib/client-documents/types'
@@ -46,10 +46,6 @@ const ASSUMPTION_FIELDS = new Set([
 const ASSUMPTION_SEVERITIES = new Set(['info', 'needs_review', 'blocks_publish'])
 const ASSUMPTION_STATUSES = new Set(['open', 'resolved'])
 
-function actorType(user: ApiUser) {
-  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
-}
-
 function linkedProjectIds(linked: ClientDocument['linked'] | undefined): string[] {
   return Array.from(new Set([
     ...(typeof linked?.projectId === 'string' ? [linked.projectId] : []),
@@ -63,6 +59,7 @@ async function applyLinkedProjectPlanningMutation(
   user: ApiUser,
   documentOrgId: string | undefined,
   reason: string,
+  documentId: string,
 ): Promise<{ ok: true } | { ok: false; response: Response }> {
   if (projectIds.length === 0) return { ok: true }
 
@@ -73,7 +70,22 @@ async function applyLinkedProjectPlanningMutation(
   const projects = projectSnapshots.map((snapshot) => snapshot.exists
     ? (snapshot.data() ?? {}) as Record<string, unknown>
     : null)
-  if (projects.some((project) => !project || !canMutateLinkedProjectPlanning(project, user, documentOrgId))) {
+  if (projects.some((project) => !project)) {
+    return {
+      ok: false,
+      response: apiError('Linked project is not accessible', 403, { code: 'project_access_denied' }),
+    }
+  }
+  const accessChecks = await Promise.all(projects.map((project, index) => canMutateLinkedProjectPlanning(
+    projectIds[index],
+    project as Record<string, unknown>,
+    user,
+    {
+      documentOrgId,
+      item: documentId,
+    },
+  )))
+  if (accessChecks.some((allowed) => !allowed)) {
     return {
       ok: false,
       response: apiError('Linked project is not accessible', 403, { code: 'project_access_denied' }),
@@ -291,6 +303,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
       user,
       document.orgId,
       'client_document.updated',
+      id,
     )
     if (!planning.ok) return planning
 
@@ -323,6 +336,7 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, user: ApiUser,
       user,
       document.orgId,
       'client_document.deleted',
+      id,
     )
     if (!planning.ok) return planning
 
