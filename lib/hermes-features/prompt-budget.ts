@@ -9,6 +9,8 @@ export interface PromptBudgetBlock {
   content: string
   priority?: PromptBlockPriority
   required?: boolean
+  /** Hard per-block cap in tokens; the block is truncated to this even when the profile limit has headroom. */
+  maxTokens?: number
 }
 
 export interface PromptBudgetOmission {
@@ -21,7 +23,7 @@ export interface PromptBudgetLedger {
   profile: PromptProfile
   limitTokens: number
   inputTokens: number
-  blocks: Array<{ id: string; inputTokens: number; includedTokens: number; included: boolean }>
+  blocks: Array<{ id: string; inputTokens: number; includedTokens: number; included: boolean; capTokens?: number }>
   omitted: PromptBudgetOmission[]
 }
 
@@ -107,7 +109,10 @@ export function buildPromptBudget(input: {
 
     const separatorTokens = included.length > 0 ? countPromptTokens('\n\n') : 0
     const allowed = Math.max(0, remaining - separatorTokens)
-    const chosen = inputTokens <= allowed ? content : fitToTokenLimit(content, allowed)
+    const capTokens = block.maxTokens && block.maxTokens > 0 ? Math.min(inputTokens, block.maxTokens) : inputTokens
+    const chosen = inputTokens <= allowed && capTokens === inputTokens
+      ? content
+      : fitToTokenLimit(content, Math.min(allowed, capTokens))
     const includedTokens = countPromptTokens(chosen)
     if (!chosen) {
       omitted.push({ id: block.id, reason: 'budget', inputTokens })
@@ -116,7 +121,13 @@ export function buildPromptBudget(input: {
     }
     included.push(chosen)
     remaining -= separatorTokens + includedTokens
-    blockLedger.push({ id: block.id, inputTokens, includedTokens, included: true })
+    blockLedger.push({
+      id: block.id,
+      inputTokens,
+      includedTokens,
+      included: true,
+      ...(block.maxTokens && block.maxTokens > 0 ? { capTokens } : {}),
+    })
     if (includedTokens < inputTokens) omitted.push({ id: block.id, reason: 'budget', inputTokens: inputTokens - includedTokens })
   }
 

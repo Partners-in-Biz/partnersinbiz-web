@@ -320,6 +320,10 @@ export async function createHermesRun(link: HermesProfileLink, requestedBy: stri
         acceptedAt,
         outcome: 'accepted',
       }
+  const promptProfile = typeof metadata.promptProfile === 'string' ? metadata.promptProfile : undefined
+  const promptLedger = metadata.contextLedger && typeof metadata.contextLedger === 'object' && !Array.isArray(metadata.contextLedger)
+    ? metadata.contextLedger
+    : undefined
   const docRef = await adminDb.collection(HERMES_RUNS_COLLECTION).add({
     orgId: link.orgId,
     profile: link.profile,
@@ -330,6 +334,8 @@ export async function createHermesRun(link: HermesProfileLink, requestedBy: stri
     ...(messageId ? { messageId } : {}),
     ...(dispatchAgentId ? { dispatchAgentId } : {}),
     ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+    ...(promptProfile ? { promptProfile } : {}),
+    ...(promptLedger ? { promptLedger } : {}),
     ...(executionReceipt ? { executionReceipt } : {}),
     ...(request.model ? { model: request.model } : {}),
     ...(request.provider ? { provider: request.provider } : {}),

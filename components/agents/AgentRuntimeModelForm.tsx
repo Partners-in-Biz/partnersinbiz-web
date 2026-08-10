@@ -192,16 +192,18 @@ export function AgentRuntimeModelForm({ agentId, canEdit, liveConfigSource, onSa
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex flex-col gap-1">
+        <label htmlFor={`runtime-primary-provider-${agentId}`} className="flex flex-col gap-1">
           <span className="text-[10px] pib-label">Primary provider</span>
           <input
+            id={`runtime-primary-provider-${agentId}`}
             list={`runtime-providers-${agentId}`}
             value={primaryProvider}
             onChange={(e) => setPrimaryProvider(e.target.value)}
             disabled={!canEdit || saving}
             required
             className="pib-input w-full font-mono text-sm"
-            placeholder="openai-codex"
+            placeholder="xai-oauth"
+            aria-label="Primary provider"
           />
           <datalist id={`runtime-providers-${agentId}`}>
             {COMMON_RUNTIME_PROVIDERS.map((provider) => (
@@ -210,36 +212,42 @@ export function AgentRuntimeModelForm({ agentId, canEdit, liveConfigSource, onSa
           </datalist>
         </label>
 
-        <label className="flex flex-col gap-1">
+        <label htmlFor={`runtime-primary-model-${agentId}`} className="flex flex-col gap-1">
           <span className="text-[10px] pib-label">Primary model</span>
           <input
+            id={`runtime-primary-model-${agentId}`}
             value={primaryModel}
             onChange={(e) => setPrimaryModel(e.target.value)}
             disabled={!canEdit || saving}
             required
             className="pib-input w-full font-mono text-sm"
-            placeholder="gpt-5.6-luna"
+            placeholder="grok-4.5"
+            aria-label="Primary model"
           />
         </label>
 
-        <label className="flex flex-col gap-1 sm:col-span-2">
+        <label htmlFor={`runtime-primary-base-url-${agentId}`} className="flex flex-col gap-1 sm:col-span-2">
           <span className="text-[10px] pib-label">Primary base URL (optional)</span>
           <input
+            id={`runtime-primary-base-url-${agentId}`}
             value={primaryBaseUrl}
             onChange={(e) => setPrimaryBaseUrl(e.target.value)}
             disabled={!canEdit || saving}
             className="pib-input w-full font-mono text-sm"
-            placeholder="https://chatgpt.com/backend-api/codex"
+            placeholder="https://api.x.ai/v1"
+            aria-label="Primary base URL"
           />
         </label>
 
-        <label className="flex flex-col gap-1 sm:col-span-2">
+        <label htmlFor={`runtime-reasoning-effort-${agentId}`} className="flex flex-col gap-1 sm:col-span-2">
           <span className="text-[10px] pib-label">Default reasoning effort</span>
           <select
+            id={`runtime-reasoning-effort-${agentId}`}
             value={reasoningEffort}
             onChange={(e) => setReasoningEffort(e.target.value)}
             disabled={!canEdit || saving}
             className="pib-input w-full text-sm"
+            aria-label="Default reasoning effort"
           >
             {RUNTIME_EFFORT_OPTIONS.map((option) => (
               <option key={option.value || 'unset'} value={option.value}>
@@ -278,12 +286,14 @@ export function AgentRuntimeModelForm({ agentId, canEdit, liveConfigSource, onSa
                 className="grid gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]"
               >
                 <input
+                  id={`runtime-fallback-provider-${agentId}-${index}`}
                   list={`runtime-providers-${agentId}-fb-${index}`}
                   value={row.provider}
                   onChange={(e) => updateFallback(index, { provider: e.target.value })}
                   disabled={!canEdit || saving}
                   className="pib-input w-full font-mono text-sm"
-                  placeholder="Provider (e.g. xai)"
+                  placeholder="Provider (e.g. nous)"
+                  aria-label={`Fallback ${index + 1} provider`}
                 />
                 <datalist id={`runtime-providers-${agentId}-fb-${index}`}>
                   {COMMON_RUNTIME_PROVIDERS.map((provider) => (
@@ -291,11 +301,13 @@ export function AgentRuntimeModelForm({ agentId, canEdit, liveConfigSource, onSa
                   ))}
                 </datalist>
                 <input
+                  id={`runtime-fallback-model-${agentId}-${index}`}
                   value={row.model}
                   onChange={(e) => updateFallback(index, { model: e.target.value })}
                   disabled={!canEdit || saving}
                   className="pib-input w-full font-mono text-sm"
-                  placeholder="Model (e.g. grok-4.20-0309-reasoning)"
+                  placeholder="Model (e.g. deepseek/deepseek-v4-flash)"
+                  aria-label={`Fallback ${index + 1} model`}
                 />
                 {canEdit && (
                   <button
