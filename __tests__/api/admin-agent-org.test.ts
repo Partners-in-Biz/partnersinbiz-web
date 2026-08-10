@@ -430,8 +430,8 @@ describe('POST /api/v1/admin/agent-org/seed', () => {
 
     const res = await seedRoute.POST(req('POST', '/api/v1/admin/agent-org/seed', { orgId: ORG_ID }))
     expect(res.status).toBe(200)
-    expect((await bodyOf(res)).data).toEqual({ created: 14, skipped: false })
-    expect(seed.seedOrgChart).toHaveBeenCalledWith(ORG_ID)
+    expect((await bodyOf(res)).data).toEqual({ created: 14, skipped: false, template: null })
+    expect(seed.seedOrgChart).toHaveBeenCalledWith(ORG_ID, { template: undefined })
   })
 
   it('is idempotent — a second seed is skipped', async () => {
@@ -442,7 +442,7 @@ describe('POST /api/v1/admin/agent-org/seed', () => {
     await seedRoute.POST(req('POST', '/api/v1/admin/agent-org/seed', { orgId: ORG_ID }))
     const res = await seedRoute.POST(req('POST', '/api/v1/admin/agent-org/seed', { orgId: ORG_ID }))
     expect(res.status).toBe(200)
-    expect((await bodyOf(res)).data).toEqual({ created: 0, skipped: true })
+    expect((await bodyOf(res)).data).toEqual({ created: 0, skipped: true, template: null })
     expect(seed.seedOrgChart).toHaveBeenCalledTimes(2)
   })
 

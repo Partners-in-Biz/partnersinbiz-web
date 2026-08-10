@@ -40,11 +40,21 @@ export interface OrgRoleFormProps {
   canEdit?: boolean
   /** Prefer live runtime push when a bound agentId is present. */
   defaultSyncLiveRuntime?: boolean
+  /**
+   * Chart CRUD base path.
+   * Admin: `/api/v1/admin/agent-org`
+   * Portal: `/api/v1/portal/settings/agents/org-chart`
+   */
+  apiBase?: string
+  /** When false, hide/disable push-to-live Hermes (portal org admins without admin agent APIs). */
+  allowLiveRuntimeSync?: boolean
   onSaved: (node: AgentOrgNode | null) => void
   onDeleted?: () => void
   onCancel?: () => void
   /** Hide footer cancel when parent drawer already has one. */
   showCancel?: boolean
+  /** Override the read-only error copy. */
+  readOnlyMessage?: string
 }
 
 interface EditorForm {
@@ -128,22 +138,27 @@ export default function OrgRoleForm({
   nodes,
   canEdit = true,
   defaultSyncLiveRuntime = true,
+  apiBase = '/api/v1/admin/agent-org',
+  allowLiveRuntimeSync = true,
   onSaved,
   onDeleted,
   onCancel,
   showCancel = true,
+  readOnlyMessage = 'Only organisation admins can edit org roles.',
 }: OrgRoleFormProps) {
-  const [form, setForm] = useState<EditorForm>(() => formFrom(node, defaultSyncLiveRuntime))
+  const [form, setForm] = useState<EditorForm>(() =>
+    formFrom(node, allowLiveRuntimeSync ? defaultSyncLiveRuntime : false),
+  )
   const [busy, setBusy] = useState<'save' | 'delete' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    setForm(formFrom(node, defaultSyncLiveRuntime))
+    setForm(formFrom(node, allowLiveRuntimeSync ? defaultSyncLiveRuntime : false))
     setBusy(null)
     setError(null)
     setMessage(null)
-  }, [node, defaultSyncLiveRuntime])
+  }, [node, defaultSyncLiveRuntime, allowLiveRuntimeSync])
 
   const set = <K extends keyof EditorForm>(key: K, value: EditorForm[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
@@ -160,7 +175,7 @@ export default function OrgRoleForm({
 
   const handleSave = async () => {
     if (!canEdit) {
-      setError('Only super admins can edit org roles.')
+      setError(readOnlyMessage)
       return
     }
     const name = form.name.trim()
@@ -192,7 +207,7 @@ export default function OrgRoleForm({
     }
     try {
       const res = await fetch(
-        isEdit ? `/api/v1/admin/agent-org/${encodeURIComponent(node!.id)}` : '/api/v1/admin/agent-org',
+        isEdit ? `${apiBase}/${encodeURIComponent(node!.id)}` : apiBase,
         {
           method: isEdit ? 'PATCH' : 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -206,7 +221,7 @@ export default function OrgRoleForm({
 
       const savedNode = (body.data?.node ?? body.data ?? null) as AgentOrgNode | null
       let syncNote: string | null = null
-      if (boundAgentId && form.syncLiveRuntime) {
+      if (allowLiveRuntimeSync && boundAgentId && form.syncLiveRuntime) {
         try {
           syncNote = await pushLiveRuntime(boundAgentId, form)
         } catch (syncErr) {
@@ -218,7 +233,12 @@ export default function OrgRoleForm({
         }
       }
 
-      setMessage(syncNote ?? 'Org role saved (task defaults only — live Hermes profile unchanged).')
+      setMessage(
+        syncNote ??
+          (allowLiveRuntimeSync
+            ? 'Org role saved (task defaults only — live Hermes profile unchanged).'
+            : 'Org role saved. Live Hermes profiles are linked via bound agentId + machine install (Pip skill).'),
+      )
       onSaved(savedNode)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed')
@@ -237,8 +257,10 @@ export default function OrgRoleForm({
     setError(null)
     setMessage(null)
     try {
+      const qs = new URLSearchParams({ force: 'true' })
+      if (apiBase.includes('/admin/')) qs.set('orgId', orgId)
       const res = await fetch(
-        `/api/v1/admin/agent-org/${encodeURIComponent(node.id)}?orgId=${encodeURIComponent(orgId)}&force=true`,
+        `${apiBase}/${encodeURIComponent(node.id)}?${qs.toString()}`,
         { method: 'DELETE' },
       )
       const body = await res.json().catch(() => ({}))
@@ -395,7 +417,7 @@ export default function OrgRoleForm({
           </div>
         </div>
 
-        {boundAgentId ? (
+        {allowLiveRuntimeSync && boundAgentId ? (
           <label className="flex cursor-pointer items-start gap-2 rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-muted)] p-3 text-sm text-[var(--color-pib-text)]">
             <input
               type="checkbox"

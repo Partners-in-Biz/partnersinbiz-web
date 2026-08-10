@@ -229,17 +229,82 @@ export function defaultOrgChartSeed(orgId: string): SeedSpec[] {
   ]
 }
 
+export type SeedTemplate = 'platform' | 'minimal'
+
+/** Lightweight starter chart for client orgs (unbound seats — bind via portal/Pip skill). */
+export function minimalOrgChartSeed(orgId: string): SeedSpec[] {
+  void orgId
+  const open: AgentOrgNode['delegation'] = { ...DEFAULT_ORG_NODE_DELEGATION, assignableFrom: 'anyone' }
+  const peers: AgentOrgNode['delegation'] = {
+    ...DEFAULT_ORG_NODE_DELEGATION,
+    assignableFrom: 'manager_and_peers',
+    allowLateral: true,
+  }
+  return [
+    {
+      id: 'coordinator',
+      agentId: null,
+      name: 'Coordinator',
+      title: 'Org Coordinator',
+      reportsTo: null,
+      capabilities: ['routing', 'projects', 'approvals', 'client-context'],
+      defaultModel: 'grok-4.5',
+      defaultEffort: 'medium',
+      iconKey: 'hub',
+      colorKey: 'violet',
+      delegation: open,
+    },
+    {
+      id: 'delivery-lead',
+      agentId: null,
+      name: 'Delivery Lead',
+      title: 'Delivery Lead',
+      reportsTo: 'coordinator',
+      capabilities: ['delivery', 'implementation', 'qa-handoff'],
+      defaultModel: 'grok-4.5',
+      defaultEffort: 'high',
+      iconKey: 'engineering',
+      colorKey: 'sky',
+      delegation: peers,
+    },
+    {
+      id: 'content-lead',
+      agentId: null,
+      name: 'Content Lead',
+      title: 'Content Lead',
+      reportsTo: 'coordinator',
+      capabilities: ['content', 'social', 'brand-voice'],
+      defaultModel: 'claude-sonnet-4-6',
+      defaultEffort: 'medium',
+      iconKey: 'edit_note',
+      colorKey: 'rose',
+      delegation: peers,
+    },
+  ]
+}
+
 /**
  * Seed the default org chart for an org. Idempotent — no-op when the org already
  * has any nodes. Recomputes and persists chains after creation.
+ *
+ * template:
+ * - platform → full PiB roster (Pip/Theo/…)
+ * - minimal → unbound coordinator + delivery/content leads (client orgs)
+ * default: platform when orgId is pib-platform-owner, else minimal
  */
-export async function seedOrgChart(orgId: string): Promise<SeedResult> {
+export async function seedOrgChart(
+  orgId: string,
+  options?: { template?: SeedTemplate },
+): Promise<SeedResult> {
   const existing = await listOrgNodes(orgId)
   if (existing.length > 0) {
     return { ok: true, created: 0, skipped: true }
   }
 
-  const specs = defaultOrgChartSeed(orgId)
+  const template: SeedTemplate =
+    options?.template ??
+    (orgId === 'pib-platform-owner' ? 'platform' : 'minimal')
+  const specs = template === 'platform' ? defaultOrgChartSeed(orgId) : minimalOrgChartSeed(orgId)
   const nodes: AgentOrgNode[] = []
   for (const spec of specs) {
     const result = await createOrgNode({

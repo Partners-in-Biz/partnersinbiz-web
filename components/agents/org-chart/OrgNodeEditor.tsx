@@ -26,8 +26,19 @@ export interface OrgNodeEditorProps {
   /** All nodes of the org — used for the reportsTo select. */
   nodes: AgentOrgNode[]
   canEdit?: boolean
-  /** Live team docs keyed by agentId (from /admin/agents). */
+  /** Live team docs keyed by agentId (from /admin/agents or portal agents). */
   agentsById?: Record<string, AgentTeamDoc & { runtimeModel?: RuntimeModelSummary }>
+  /**
+   * Chart CRUD base path.
+   * Admin: `/api/v1/admin/agent-org`
+   * Portal: `/api/v1/portal/settings/agents/org-chart`
+   */
+  apiBase?: string
+  /** Show Runtime tab + AgentDetailPanel (admin only — needs superadmin agent APIs). */
+  allowRuntimeTab?: boolean
+  /** Allow push-to-live Hermes from the Role tab. */
+  allowLiveRuntimeSync?: boolean
+  readOnlyMessage?: string
   onClose: () => void
   onSaved: (node: AgentOrgNode | null) => void
   onDeleted: () => void
@@ -42,6 +53,10 @@ export default function OrgNodeEditor({
   nodes,
   canEdit = true,
   agentsById = {},
+  apiBase = '/api/v1/admin/agent-org',
+  allowRuntimeTab = true,
+  allowLiveRuntimeSync = true,
+  readOnlyMessage,
   onClose,
   onSaved,
   onDeleted,
@@ -64,6 +79,15 @@ export default function OrgNodeEditor({
     if (cached) {
       setBoundAgent(cached)
       setAgentLoadError(null)
+    }
+    // Portal mode: no admin agent config API — rely on agentsById cache only.
+    if (!allowRuntimeTab) {
+      if (!cached) {
+        setBoundAgent(null)
+        setAgentLoadError(null)
+      }
+      setAgentLoading(false)
+      return
     }
     setAgentLoading(true)
     setAgentLoadError(null)
@@ -112,7 +136,7 @@ export default function OrgNodeEditor({
     } finally {
       setAgentLoading(false)
     }
-  }, [agentsById, node?.colorKey, node?.iconKey])
+  }, [agentsById, allowRuntimeTab, node?.colorKey, node?.iconKey])
 
   useEffect(() => {
     if (!open) return
@@ -133,7 +157,7 @@ export default function OrgNodeEditor({
 
   const tabs: Array<{ label: string; value: DrawerTab }> = [
     { label: 'Org role', value: 'role' },
-    ...(agentId ? [{ label: 'Live runtime', value: 'runtime' as const }] : []),
+    ...(allowRuntimeTab && agentId ? [{ label: 'Live runtime', value: 'runtime' as const }] : []),
   ]
 
   return (
@@ -188,7 +212,10 @@ export default function OrgNodeEditor({
                 node={node}
                 nodes={nodes}
                 canEdit={canEdit}
-                defaultSyncLiveRuntime
+                apiBase={apiBase}
+                allowLiveRuntimeSync={allowLiveRuntimeSync}
+                readOnlyMessage={readOnlyMessage}
+                defaultSyncLiveRuntime={allowLiveRuntimeSync}
                 showCancel
                 onCancel={onClose}
                 onSaved={(saved) => {
@@ -201,7 +228,7 @@ export default function OrgNodeEditor({
             </div>
           )}
 
-          {tab === 'runtime' && (
+          {allowRuntimeTab && tab === 'runtime' && (
             <div className="flex h-full min-h-0 flex-col">
               {agentLoading && !boundAgent ? (
                 <div className="p-5 text-sm text-[var(--color-pib-text-muted)]">Loading live agent…</div>

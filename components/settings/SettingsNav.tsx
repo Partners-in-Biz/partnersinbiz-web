@@ -30,6 +30,7 @@ const WORKSPACE_LINKS = [
   { href: '/portal/settings/profile', label: 'My profile', icon: 'person', minRole: null },
   { href: '/portal/settings/organization', label: 'Organisation details', icon: 'business', minRole: null },
   { href: '/portal/settings/agents', label: 'Agents', icon: 'smart_toy', minRole: null },
+  { href: '/portal/settings/agents/org-chart', label: 'Agent org chart', icon: 'account_tree', minRole: 'admin' },
   { href: '/portal/settings/team', label: 'Team', icon: 'group', minRole: 'admin' },
   { href: '/portal/communications', label: 'Communications', icon: 'forum', minRole: 'admin' },
   { href: '/portal/settings/custom-fields', label: 'Custom fields', icon: 'tune', configAccess: true },
