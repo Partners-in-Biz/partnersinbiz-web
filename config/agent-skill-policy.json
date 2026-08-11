@@ -1,6 +1,6 @@
 {
-  "version": "2026-08-04.system-skills-v0.1.6",
-  "catalogVersion": "2026-08-08.system-skills-v0.1.8",
+  "version": "2026-08-10.system-skills-v0.1.7",
+  "catalogVersion": "2026-08-10.system-skills-v0.1.9",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],
@@ -86,6 +86,7 @@
     "google-workspace",
     "platform-ops",
     "agent-runtime-ops",
+    "pib-agent-org-setup",
     "platform-admin-users",
     "reports",
     "project-management",
@@ -1428,6 +1429,18 @@
       "syncTarget": "vps",
       "pack": "pib-system-skills",
       "packTier": "growth"
+    },
+    "pib-agent-org-setup": {
+      "ownerAgentId": "pip",
+      "allowedAgentIds": [
+        "pip",
+        "theo",
+        "qa-release"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps",
+      "pack": "pib-system-skills",
+      "packTier": "core"
     }
   },
   "agents": {
@@ -1472,6 +1485,7 @@
         "studio-release-handoff",
         "life-os-ops",
         "agent-runtime-ops",
+        "pib-agent-org-setup",
         "platform-admin-users",
         "reports",
         "browser-agent"
@@ -1522,6 +1536,7 @@
         "studio-release-handoff",
         "life-os-ops",
         "agent-runtime-ops",
+        "pib-agent-org-setup",
         "platform-admin-users",
         "reports",
         "pib-staff-billing-access",
@@ -1558,7 +1573,8 @@
         "approvals",
         "kanban orchestration",
         "blocker follow-up",
-        "workflow-graph-operator"
+        "workflow-graph-operator",
+        "agent org setup"
       ],
       "mayRequestFrom": [
         "theo",
@@ -1617,6 +1633,7 @@
         "conversations-runtime",
         "llm-providers-ops",
         "agent-runtime-ops",
+        "pib-agent-org-setup",
         "platform-admin-users",
         "browser-agent"
       ],
@@ -1689,6 +1706,7 @@
         "conversations-runtime",
         "llm-providers-ops",
         "agent-runtime-ops",
+        "pib-agent-org-setup",
         "platform-admin-users",
         "browser-agent"
       ],
@@ -2361,6 +2379,7 @@
         "life-os-ops",
         "llm-providers-ops",
         "agent-runtime-ops",
+        "pib-agent-org-setup",
         "platform-admin-users",
         "reports",
         "browser-agent"
@@ -2441,6 +2460,7 @@
         "life-os-ops",
         "llm-providers-ops",
         "agent-runtime-ops",
+        "pib-agent-org-setup",
         "platform-admin-users",
         "reports",
         "browser-agent"
