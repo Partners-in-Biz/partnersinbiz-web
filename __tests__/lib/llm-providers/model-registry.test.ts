@@ -70,7 +70,7 @@ describe('canonical model registry', () => {
     }
   })
 
-  it('agent-task allowlist preserves legacy selections and adds gpt-5.6-terra from the canonical source', () => {
+  it('agent-task allowlist includes the approved Nous DeepSeek route for org defaults', () => {
     expect(VALID_AGENT_MODELS).toEqual([
       'grok-4.5',
       'claude-sonnet-4-6',
@@ -79,6 +79,7 @@ describe('canonical model registry', () => {
       'gpt-5.4',
       'gpt-5.4-mini',
       'gpt-5.3-codex-spark',
+      'deepseek/deepseek-v4-flash-0731',
     ])
     expect(agentTaskModelIds()).toEqual(VALID_AGENT_MODELS)
   })
@@ -99,6 +100,7 @@ describe('canonical model registry', () => {
     expect(cleanAgentModel('gpt-5.6-terra')).toBe('gpt-5.6-terra')
     expect(cleanAgentModel(' claude-sonnet-4-6 ')).toBe('claude-sonnet-4-6')
     expect(cleanAgentModel('gpt-5.4')).toBe('gpt-5.4')
+    expect(cleanAgentModel('deepseek/deepseek-v4-flash-0731')).toBe('deepseek/deepseek-v4-flash-0731')
     expect(cleanAgentModel('glm-4.7')).toBeNull()
     expect(cleanAgentModel('gpt-5.6-luna')).toBeNull() // policy-restricted
     expect(cleanAgentModel('gpt-4o')).toBeNull() // runtime-unsupported
@@ -106,6 +108,7 @@ describe('canonical model registry', () => {
     expect(cleanAgentModel(null)).toBeNull()
     expect(cleanAgentTaskModel(42)).toBeNull()
     expect(isAgentTaskModel('gpt-5.6-terra')).toBe(true)
+    expect(isAgentTaskModel('deepseek/deepseek-v4-flash-0731')).toBe(true)
     expect(isAgentTaskModel('gpt-5.6-luna')).toBe(false)
   })
 
