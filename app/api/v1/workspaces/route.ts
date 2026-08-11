@@ -1,5 +1,13 @@
 /**
  * GET /api/v1/workspaces — list VPS-canonical PiB workspaces for the caller/org.
+ *
+ * Cost notes (2026-08-11):
+ * - Projects are library-first: only user-library project docs are loaded.
+ *   The previous 11-field projects fan-out scanned org-wide project indexes on
+ *   every catalogue hit even though non-library projects were discarded.
+ * - Runtime discovery is request-memoized so multi-workspace orgs do not
+ *   re-scan linked_devices / grants / mappings / credentials per workspace.
+ * - A 20s process-local response cache collapses multi-tab bursts.
  */
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
@@ -26,6 +34,12 @@ import {
 import { legacyProjectAccessForUser, projectOrganizationDocId } from '@/lib/projects/collaboration'
 import { listUserLibraryProjectIds } from '@/lib/projects/user-library'
 import { AGENT_IDS, type AgentId } from '@/lib/agents/types'
+import {
+  readWorkspaceCatalogueCache,
+  workspaceCatalogueCacheKey,
+  writeWorkspaceCatalogueCache,
+} from '@/lib/workspaces/catalogue-response-cache'
+import { createRequestScopedDb } from '@/lib/workspaces/request-scoped-db'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,6 +80,15 @@ export interface PublicWorkspaceProjectSummary {
   locations: PublicWorkspaceProjectLocation[]
 }
 
+type WorkspaceCataloguePayload = {
+  workspaces: PublicWorkspaceSummary[]
+  runtimeTargets: WorkspaceRuntimeTarget[]
+  runtimeTargetsByWorkspace: Record<string, WorkspaceRuntimeTarget[]>
+  projects: PublicWorkspaceProjectSummary[]
+}
+
+type WorkspaceRuntimeTarget = PublicExecutionLocationPresence | PublicAuthorizedRuntimeTarget
+
 function toPublicWorkspaceSummary(workspace: OrgWorkspaceRecord): PublicWorkspaceSummary {
   return {
     id: workspace.id,
@@ -83,6 +106,28 @@ function toPublicWorkspaceSummary(workspace: OrgWorkspaceRecord): PublicWorkspac
   }
 }
 
+async function loadLibraryProjectDocs(projectIds: string[]) {
+  if (projectIds.length === 0) return [] as Array<{ id: string; exists: boolean; data: () => Record<string, unknown> }>
+  // Chunk getAll to stay under Firestore's practical batch limits.
+  const chunkSize = 100
+  const docs: Array<{ id: string; exists: boolean; data: () => Record<string, unknown> }> = []
+  for (let offset = 0; offset < projectIds.length; offset += chunkSize) {
+    const chunk = projectIds.slice(offset, offset + chunkSize)
+    const refs = chunk.map((projectId) => adminDb.collection('projects').doc(projectId))
+    const snapshots = typeof (adminDb as { getAll?: (...args: unknown[]) => Promise<FirebaseFirestore.DocumentSnapshot[]> }).getAll === 'function'
+      ? await (adminDb as unknown as { getAll: (...args: FirebaseFirestore.DocumentReference[]) => Promise<FirebaseFirestore.DocumentSnapshot[]> }).getAll(...refs)
+      : await Promise.all(refs.map((ref) => ref.get()))
+    for (const snapshot of snapshots) {
+      docs.push({
+        id: snapshot.id,
+        exists: snapshot.exists,
+        data: () => (snapshot.data() ?? {}) as Record<string, unknown>,
+      })
+    }
+  }
+  return docs.filter((doc) => doc.exists)
+}
+
 export const GET = withAuth('client', async (req: NextRequest, user) => {
   const { searchParams } = new URL(req.url)
   const orgScope = resolveOrgScope(user, searchParams.get('orgId'))
@@ -93,17 +138,24 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     ? requestedRuntimeAgentId as AgentId
     : 'pip'
 
-  const scalarProjectOrgFields = ['orgId', 'clientOrgId', 'targetOrgId', 'recipientOrgId'] as const
-  const arrayProjectOrgFields = [
-    'sourceOrgIds',
-    'ownerOrgIds',
-    'issuerOrgIds',
-    'clientOrgIds',
-    'recipientOrgIds',
-    'targetOrgIds',
-    'linkedOrgIds',
-  ] as const
-  const [snap, runtimeDoc, projectSnapshots, projectOrganizationAccess, projectMemberAccess, projectReplicas, libraryProjectIds] = await Promise.all([
+  const cacheKey = workspaceCatalogueCacheKey({
+    orgId: orgScope.orgId,
+    userId: user.uid,
+    agentId: runtimeAgentId,
+  })
+  // Keep unit tests deterministic: catalogue mocks mutate between calls in one case.
+  const catalogueCacheEnabled = process.env.NODE_ENV !== 'test'
+  const cached = catalogueCacheEnabled
+    ? readWorkspaceCatalogueCache<WorkspaceCataloguePayload>(cacheKey)
+    : null
+  if (cached) {
+    const hit = apiSuccess(cached)
+    hit.headers.set('Cache-Control', 'private, max-age=15')
+    hit.headers.set('X-PiB-Catalogue-Cache', 'hit')
+    return hit
+  }
+
+  const [snap, runtimeDoc, projectOrganizationAccess, projectMemberAccess, projectReplicas, libraryProjectIds] = await Promise.all([
     adminDb.collection(ORG_WORKSPACES_COLLECTION)
       .where('orgId', '==', orgScope.orgId)
       .where('status', '==', 'active')
@@ -113,20 +165,13 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     // Mac as online immediately before conversation creation authorizes the
     // same target against another agent and rejects it as unavailable.
     adminDb.collection('agent_dispatch_configs').doc(runtimeAgentId).get(),
-    Promise.all([
-      ...scalarProjectOrgFields.map((field) => (
-        adminDb.collection('projects').where(field, '==', orgScope.orgId).get()
-      )),
-      ...arrayProjectOrgFields.map((field) => (
-        adminDb.collection('projects').where(field, 'array-contains', orgScope.orgId).get()
-      )),
-    ]),
     adminDb.collection('projectOrganizations').where('orgId', '==', orgScope.orgId).get(),
     adminDb.collection('projectMembers').where('uid', '==', user.uid).get(),
     adminDb.collection(PROJECT_LOCATION_REPLICAS_COLLECTION).where('orgId', '==', orgScope.orgId).get(),
     listUserLibraryProjectIds(orgScope.orgId, user.uid),
   ])
   const libraryProjectIdSet = new Set(libraryProjectIds)
+  const libraryProjectDocs = await loadLibraryProjectDocs(libraryProjectIds)
 
   // Explicit project-organisation grants are first-class access records and
   // may exist without legacy link fields on the project document.
@@ -140,13 +185,9 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
       canonicalProjectAccess.set(projectId, row)
     }
   }
-  const accessProjectIds = Array.from(canonicalProjectAccess.entries())
+  const explicitlySharedProjectIds = new Set(Array.from(canonicalProjectAccess.entries())
     .filter(([, row]) => row.status === 'active')
-    .map(([projectId]) => projectId)
-  const accessProjectDocs = (await Promise.all(accessProjectIds.map((projectId) => (
-    adminDb.collection('projects').doc(projectId).get()
-  )))).filter((doc) => doc.exists)
-  const explicitlySharedProjectIds = new Set(accessProjectIds)
+    .map(([projectId]) => projectId))
   const memberProjectIds = new Set(projectMemberAccess.docs
     .filter((doc) => {
       const row = doc.data()
@@ -170,7 +211,10 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
       ? { ...target, transportIdentity: runtimeTargetPhysicalTransportIdentity(normalized) }
       : target
   })
-  type WorkspaceRuntimeTarget = PublicExecutionLocationPresence | PublicAuthorizedRuntimeTarget
+
+  // One request-scoped memo so every workspace reuses the same linked-device
+  // collection scans and execution-location query instead of N full fan-outs.
+  const requestDb = createRequestScopedDb(adminDb as unknown as Parameters<typeof createRequestScopedDb>[0])
   const runtimeTargetsByWorkspace: Record<string, WorkspaceRuntimeTarget[]> = Object.fromEntries(await Promise.all(workspaces.map(async (workspace) => {
     const [scopedCompatibility, linked] = await Promise.all([
       discoverAuthorizedExecutionLocationTargets({
@@ -178,8 +222,13 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
         orgId: orgScope.orgId,
         workspaceId: workspace.workspaceId,
         compatibilityTargets: compatibilityRuntimeTargets,
-      }).catch(() => []),
-      discoverAuthorizedRuntimeTargets({ userId: user.uid, orgId: orgScope.orgId, workspaceId: workspace.workspaceId, agentId: runtimeAgentId }).catch(() => []),
+      }, { db: requestDb }).catch(() => []),
+      discoverAuthorizedRuntimeTargets({
+        userId: user.uid,
+        orgId: orgScope.orgId,
+        workspaceId: workspace.workspaceId,
+        agentId: runtimeAgentId,
+      }, { db: requestDb }).catch(() => []),
     ])
     const deduped = new Map<string, WorkspaceRuntimeTarget>()
     for (const target of [...scopedCompatibility, ...linked]) {
@@ -215,23 +264,21 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     ]),
   ).values())
   const projectsById = new Map<string, PublicWorkspaceProjectSummary>()
-  for (const projectSnap of [...projectSnapshots, { docs: accessProjectDocs }]) {
-    for (const projectDoc of projectSnap.docs) {
-      if (!libraryProjectIdSet.has(projectDoc.id)) continue
-      const data = projectDoc.data() ?? {}
-      if (data.deleted === true || data.archived === true) continue
-      const hasCanonicalAccess = canonicalProjectAccess.has(projectDoc.id)
-      const explicitlyShared = explicitlySharedProjectIds.has(projectDoc.id)
-      // A canonical project-organisation row is authoritative, including an
-      // inactive tombstone. Neither a legacy org field nor a project-member
-      // row may resurrect the project inside this organisation's Workspace.
-      if (hasCanonicalAccess && !explicitlyShared) continue
-      if (!explicitlyShared
-        && !memberProjectIds.has(projectDoc.id)
-        && !legacyProjectAccessForUser(user, data)) continue
-      const name = typeof data.name === 'string' ? data.name.trim() : ''
-      if (name) projectsById.set(projectDoc.id, { id: projectDoc.id, name, locations: [] })
-    }
+  for (const projectDoc of libraryProjectDocs) {
+    if (!libraryProjectIdSet.has(projectDoc.id)) continue
+    const data = projectDoc.data() ?? {}
+    if (data.deleted === true || data.archived === true) continue
+    const hasCanonicalAccess = canonicalProjectAccess.has(projectDoc.id)
+    const explicitlyShared = explicitlySharedProjectIds.has(projectDoc.id)
+    // A canonical project-organisation row is authoritative, including an
+    // inactive tombstone. Neither a legacy org field nor a project-member
+    // row may resurrect the project inside this organisation's Workspace.
+    if (hasCanonicalAccess && !explicitlyShared) continue
+    if (!explicitlyShared
+      && !memberProjectIds.has(projectDoc.id)
+      && !legacyProjectAccessForUser(user, data, orgScope.orgId)) continue
+    const name = typeof data.name === 'string' ? data.name.trim() : ''
+    if (name) projectsById.set(projectDoc.id, { id: projectDoc.id, name, locations: [] })
   }
 
   const locationMapsByProject = new Map<string, Map<string, PublicWorkspaceProjectLocation>>()
@@ -292,5 +339,16 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
   }
   const projects = Array.from(projectsById.values()).sort((a, b) => a.name.localeCompare(b.name))
 
-  return apiSuccess({ workspaces, runtimeTargets, runtimeTargetsByWorkspace, projects })
+  const payload: WorkspaceCataloguePayload = {
+    workspaces,
+    runtimeTargets,
+    runtimeTargetsByWorkspace,
+    projects,
+  }
+  if (catalogueCacheEnabled) writeWorkspaceCatalogueCache(cacheKey, payload)
+
+  const miss = apiSuccess(payload)
+  miss.headers.set('Cache-Control', 'private, max-age=15')
+  miss.headers.set('X-PiB-Catalogue-Cache', 'miss')
+  return miss
 })
