@@ -4,10 +4,11 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { auth, getClientAuth } from '@/lib/firebase/config'
 import { MessagesWorkspace } from '@/components/messages/MessagesWorkspace'
-import { scopedApiPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
+import { scopedApiPath } from '@/lib/portal/scoped-routing'
 import {
   canRolePerformModuleAction,
   resolveOrganizationModulePolicies,
@@ -59,9 +60,12 @@ function messageCapabilitiesFromPortalBody(body: Record<string, unknown>): Messa
 
 export default function PortalMessagesPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const orgScope = useMemo(() => scopeFromSearchParams(searchParams), [searchParams])
-  const orgEndpoint = useMemo(() => scopedApiPath('/api/v1/portal/org', orgScope), [orgScope])
+  // Inherit the shell workspace switcher when URL has no orgId (same path as finance).
+  const orgScope = usePortalOrgScope()
+  const orgEndpoint = useMemo(
+    () => (orgScope.orgId ? scopedApiPath('/api/v1/portal/org', orgScope) : ''),
+    [orgScope],
+  )
   const [org, setOrg] = useState<OrgInfo | null>(null)
   const [user, setUser] = useState<UserInfo | null>(null)
   const [capabilities, setCapabilities] = useState<MessageCapabilities>(DEFAULT_MESSAGE_CAPABILITIES)
@@ -69,8 +73,15 @@ export default function PortalMessagesPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!orgEndpoint) {
+      setChecking(true)
+      return
+    }
+
     let cancelled = false
     let unsubscribe: (() => void) | null = null
+    setChecking(true)
+    setError(null)
 
     getClientAuth()
       .authStateReady()
@@ -82,7 +93,7 @@ export default function PortalMessagesPage() {
             return
           }
 
-          fetch(orgEndpoint)
+          fetch(orgEndpoint, { cache: 'no-store' })
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`org fetch: ${r.status}`))))
             .then((body) => {
               if (cancelled) return

@@ -100,3 +100,26 @@ describe('finance portal pages inherit the selected workspace', () => {
     expect(hub).not.toContain('useSearchParams')
   })
 })
+
+describe('portal messages + agent org chart inherit selected workspace', () => {
+  test('messages page uses usePortalOrgScope (not URL-only scope)', () => {
+    const src = read('app/(portal)/portal/messages/page.tsx')
+    expect(src).toContain('usePortalOrgScope')
+    expect(src).not.toMatch(/scopeFromSearchParams\(/)
+  })
+
+  test('agent org chart uses usePortalOrgScope and portal/org identity', () => {
+    const src = read('app/(portal)/portal/settings/agents/org-chart/page.tsx')
+    expect(src).toContain('usePortalOrgScope')
+    expect(src).toContain('/api/v1/portal/org')
+    // Must not bind the page label to the first membership org as a name fallback.
+    expect(src).not.toMatch(/orgs\.find[\s\S]*\|\|\s*orgs\[0\]/)
+    expect(src).not.toMatch(/scopeFromSearchParams\(/)
+  })
+
+  test('portal shell always scopes nav with activeOrgId when URL has no orgId', () => {
+    const src = read('app/(portal)/PortalLayoutClient.tsx')
+    expect(src).toContain('const shellOrgId = requestedOrgId || activeOrgId')
+    expect(src).toContain('shellOrgId ? scopedShellHref(item.href)')
+  })
+})

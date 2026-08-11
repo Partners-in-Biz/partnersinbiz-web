@@ -748,11 +748,20 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     setOrgSwitching(true)
     const switched = orgs.find(o => o.id === orgId)
     try {
-      await fetch('/api/v1/portal/active-org', {
+      const res = await fetch('/api/v1/portal/active-org', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orgId }),
       })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        const message =
+          typeof body?.error === 'string' && body.error.trim()
+            ? body.error.trim()
+            : `Could not switch workspace (${res.status})`
+        window.alert(message)
+        return
+      }
       setActiveOrgId(orgId)
       if (switched) {
         setOrgName(switched.name)
@@ -788,12 +797,19 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     )
   }
 
+  // Always carry the selected workspace on shell links. URL orgId wins when
+  // present; otherwise use the active workspace the switcher already resolved.
+  // Previously only URL-scoped navigations kept orgId, so pages like Messages
+  // and Agent org chart re-resolved a stale Firestore activeOrgId (e.g. a UAT
+  // org) while the switcher still showed Partners in Biz.
+  const shellOrgId = requestedOrgId || activeOrgId
+  const shellOrgSlug = requestedOrgSlug || activeOrgSlug
   const scopedShellHref = (path: string) =>
-    requestedOrgId
+    shellOrgId
       ? scopedPortalHref(
           path,
-          requestedOrgId,
-          requestedOrgSlug || activeOrgSlug,
+          shellOrgId,
+          shellOrgSlug,
           requestedSourceCompanyId,
           requestedSourceCompanyName,
         )
@@ -821,9 +837,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     return true
   })
   const navItems: NavItem[] = visibleNavLinks.map((item) => {
-    const href = requestedOrgId
-      ? scopedShellHref(item.href)
-      : item.href
+    const href = shellOrgId ? scopedShellHref(item.href) : item.href
     return { ...item, href }
   })
 
