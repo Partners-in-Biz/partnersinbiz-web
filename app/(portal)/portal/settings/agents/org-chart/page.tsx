@@ -3,54 +3,66 @@
 /**
  * Portal Agent Org Chart — active organisation auto-selected.
  * Org owners/admins can build a different hierarchy per client org.
+ *
+ * Uses usePortalOrgScope so URL orgId and the shell workspace switcher stay
+ * aligned. Never falls back to the first org in the membership list for the
+ * page label when a different active orgId is selected (that produced
+ * "Partners in Biz" in the switcher with a UAT org name on this page).
  */
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import AgentOrgChartClient from '@/components/agents/org-chart/AgentOrgChartClient'
-import { scopeFromSearchParams, scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
+import { scopedApiPath, scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 export default function PortalAgentOrgChartPage() {
-  const searchParams = useSearchParams()
-  const routeScope = scopeFromSearchParams(searchParams)
+  const routeScope = usePortalOrgScope()
   const [orgId, setOrgId] = useState<string>('')
   const [orgName, setOrgName] = useState<string>('')
   const [role, setRole] = useState<string | null>(null)
   const [bootError, setBootError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
 
+  const orgEndpoint = useMemo(
+    () => (routeScope.orgId ? scopedApiPath('/api/v1/portal/org', routeScope) : ''),
+    [routeScope],
+  )
+
   useEffect(() => {
+    // Wait until URL or active-org inheritance has resolved a workspace.
+    if (!routeScope.orgId || !orgEndpoint) {
+      setReady(false)
+      return
+    }
+
     let cancelled = false
+    setReady(false)
+    setBootError(null)
     ;(async () => {
       try {
-        const [orgsRes, meRes] = await Promise.all([
-          fetch('/api/v1/portal/orgs'),
-          fetch('/api/v1/portal/org').catch(() => null),
-        ])
-        const orgsBody = await orgsRes.json().catch(() => ({}))
-        if (!orgsRes.ok) {
-          throw new Error(orgsBody?.error ?? `Failed to load organisations (${orgsRes.status})`)
+        const meRes = await fetch(orgEndpoint, { cache: 'no-store' })
+        const meBody = await meRes.json().catch(() => ({}))
+        if (!meRes.ok) {
+          throw new Error(meBody?.error ?? `Failed to load organisation (${meRes.status})`)
         }
-        const activeOrgId = String(orgsBody.activeOrgId || '')
-        const orgs = Array.isArray(orgsBody.orgs) ? orgsBody.orgs : []
-        const active = orgs.find((o: { id?: string }) => o?.id === activeOrgId) || orgs[0]
-        if (!activeOrgId && !active?.id) throw new Error('No active organisation on this session')
 
-        let memberRole: string | null = null
-        if (meRes && meRes.ok) {
-          const meBody = await meRes.json().catch(() => ({}))
-          const me = meBody.data ?? meBody
-          memberRole =
-            (typeof me.role === 'string' && me.role) ||
-            (typeof me.memberRole === 'string' && me.memberRole) ||
-            (typeof me.organization?.role === 'string' && me.organization.role) ||
-            null
-        }
+        const org = meBody.org ?? meBody.data?.org ?? {}
+        const resolvedOrgId = String(org.id || routeScope.orgId || '').trim()
+        const resolvedOrgName = String(org.name || resolvedOrgId).trim()
+        if (!resolvedOrgId) throw new Error('No active organisation on this session')
+
+        const user = meBody.user ?? meBody.data?.user ?? {}
+        let memberRole: string | null =
+          (typeof user.memberRole === 'string' && user.memberRole) ||
+          (typeof user.role === 'string' && user.role) ||
+          (typeof meBody.role === 'string' && meBody.role) ||
+          null
 
         // Fallback: membership endpoint when /portal/org does not expose role.
         if (!memberRole) {
           const memRes = await fetch(
-            `/api/v1/portal/org-members/me?orgId=${encodeURIComponent(activeOrgId || active.id)}`,
+            `/api/v1/portal/org-members/me?orgId=${encodeURIComponent(resolvedOrgId)}`,
+            { cache: 'no-store' },
           ).catch(() => null)
           if (memRes && memRes.ok) {
             const memBody = await memRes.json().catch(() => ({}))
@@ -60,13 +72,15 @@ export default function PortalAgentOrgChartPage() {
         }
 
         if (cancelled) return
-        setOrgId(String(activeOrgId || active.id))
-        setOrgName(String(active?.name || activeOrgId || active.id))
+        setOrgId(resolvedOrgId)
+        setOrgName(resolvedOrgName)
         setRole(memberRole)
         setReady(true)
       } catch (e) {
         if (!cancelled) {
           setBootError(e instanceof Error ? e.message : 'Failed to resolve active organisation')
+          setOrgId('')
+          setOrgName('')
           setReady(true)
         }
       }
@@ -74,7 +88,7 @@ export default function PortalAgentOrgChartPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [orgEndpoint, routeScope.orgId])
 
   // Owner/admin edit; if role unknown after boot, allow try (API still enforces admin).
   const canEdit = role === 'owner' || role === 'admin' || role === null
@@ -83,7 +97,7 @@ export default function PortalAgentOrgChartPage() {
     [routeScope],
   )
 
-  if (!ready) {
+  if (!routeScope.orgId || !ready) {
     return (
       <div className="p-6 text-sm text-[var(--color-pib-text-muted)]">Loading organisation…</div>
     )

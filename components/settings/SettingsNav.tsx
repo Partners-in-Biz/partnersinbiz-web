@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
-import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { usePathname } from 'next/navigation'
+import { usePortalOrgScope } from '@/lib/portal/usePortalOrgScope'
+import { scopedPortalPath } from '@/lib/portal/scoped-routing'
 
 interface SettingsNavProps {
   name: string
@@ -75,8 +76,8 @@ export function SettingsNav({
   collapsed,
 }: SettingsNavProps) {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const routeScope = scopeFromSearchParams(searchParams)
+  const routeScope = usePortalOrgScope()
+  const backToPortalHref = scopedPortalPath('/portal/dashboard', routeScope)
   const scopedWorkspaceLinks = (WORKSPACE_LINKS as SettingsWorkspaceLink[])
     .filter((link) => {
       if (!canSee(link.minRole ?? null, role)) return false
@@ -95,7 +96,7 @@ export function SettingsNav({
     return (
       <nav className="flex-1 flex flex-col items-center gap-1 py-4 px-2">
         <Link
-          href="/portal/dashboard"
+          href={backToPortalHref}
           title="Back to portal"
           aria-label="Back to portal"
           className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.05] transition-colors mb-2"
@@ -129,7 +130,7 @@ export function SettingsNav({
     <div className="flex-1 flex flex-col overflow-y-auto">
       <div className="p-4 border-b border-[var(--color-pib-line)]">
         <Link
-          href="/portal/dashboard"
+          href={backToPortalHref}
           aria-label="Back to portal"
           className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors mb-4"
         >
