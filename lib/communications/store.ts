@@ -721,9 +721,10 @@ export async function recordCommunicationEvent(
 
 export async function getCommunicationAnalytics(orgId: string) {
   const [conversations, campaigns, events] = await Promise.all([
-    listConversations(orgId, { limit: 500 }),
+    // Analytics only needs recent volume signals — not a full org dump.
+    listConversations(orgId, { limit: 100 }),
     listCampaigns(orgId),
-    listEvents(orgId, 1000),
+    listEvents(orgId, 250),
   ])
   return buildCommunicationAnalytics({
     conversations: conversations.items,

@@ -182,7 +182,12 @@ export async function listConversations(
       const missingIndex = firestoreError.code === 9 || firestoreError.code === 'failed-precondition' || description.includes('requires an index')
       if (!missingIndex) throw error
       // Index builds must not turn a permitted cross-org thread invisible.
-      return fallback.get()
+      // Still hard-cap the fallback page — an unbounded org scan is a bill bomb.
+      try {
+        return await fallback.orderBy('updatedAt', 'desc').limit(readLimit).get()
+      } catch {
+        return await fallback.limit(readLimit).get()
+      }
     }
   }
   const [ownerSnapshot, crossOrgSnapshot] = await Promise.all([

@@ -1718,7 +1718,10 @@ function AgentDelegationBranchCard({ part }: { part: RichMessagePart }) {
         // best-effort live refresh
       }
     }
-    const timer = window.setInterval(poll, 4000)
+    const timer = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      void poll()
+    }, 12_000)
     void poll()
     return () => {
       cancelled = true

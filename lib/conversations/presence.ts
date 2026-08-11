@@ -18,7 +18,9 @@ export {
 } from './presence-shared'
 
 export const CONVERSATION_PRESENCE_COLLECTION = 'conversation_presence'
-const PRESENCE_TTL_MS = 12_000
+// Longer TTL lets the client heartbeat less often without flapping chips.
+// Live transport still owns collaborator freshness; this is only the doc lease.
+const PRESENCE_TTL_MS = 45_000
 
 interface UnknownRecord {
   [key: string]: unknown
@@ -70,6 +72,7 @@ export async function listConversationPresence(
     .collection(CONVERSATION_PRESENCE_COLLECTION)
     .where('conversationId', '==', conversationId)
     .where('orgId', '==', orgId)
+    .limit(40)
     .get()
 
   return snap.docs
@@ -108,8 +111,8 @@ export async function heartbeatConversationPresence(
   const presenceId = `${conversationId}:${actor.uid}`.replace(/[^a-zA-Z0-9_-]/g, '_')
   await adminDb.collection(CONVERSATION_PRESENCE_COLLECTION).doc(presenceId).set(cleanedPayload, { merge: true })
   // The caller only needs an acknowledgement for its own heartbeat. Re-listing
-  // every collaborator here turns each five-second presence write into an
-  // avoidable collection read; the live transport owns collaborator updates.
+  // every collaborator here turns each presence write into an avoidable
+  // collection read; the live transport owns collaborator updates.
   return {
     id: presenceId,
     ...payload,
