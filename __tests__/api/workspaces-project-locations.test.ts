@@ -96,7 +96,7 @@ describe('GET workspaces with scoped execution locations', () => {
     expect(mockDiscoverExecutionLocations).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'peet', orgId: 'pib-platform-owner', workspaceId: 'partners',
       compatibilityTargets: expect.arrayContaining([expect.objectContaining({ id: 'vps' }), expect.objectContaining({ id: 'local' })]),
-    }))
+    }), expect.objectContaining({ db: expect.any(Object) }))
     expect(body.data.runtimeTargetsByWorkspace.partners.map((target: { id: string }) => target.id)).toEqual(['vps'])
     expect(body.data.runtimeTargets.map((target: { id: string }) => target.id)).toEqual(['vps'])
   })
@@ -298,14 +298,15 @@ describe('GET workspaces with scoped execution locations', () => {
     })])
   })
 
-  it('discovers projects linked to the active organisation through multi-org arrays', async () => {
+  it('discovers library projects linked through multi-org arrays without org-wide project scans', async () => {
     const arrayProject = {
       id: 'project-array',
       data: () => ({ name: 'Multi-org project', clientOrgIds: ['pib-platform-owner'] }),
     }
     mockProjectDocs = [arrayProject]
     mockProjectLibraryDocs = [{ id: 'link-project-array', data: () => ({ orgId: 'pib-platform-owner', userId: 'peet', projectId: 'project-array', active: true }) }]
-    mockProjectQueryDocs = { 'clientOrgIds:array-contains': [arrayProject] }
+    // Library-first catalogue must resolve this via project doc get, not field fan-out.
+    mockProjectQueryDocs = {}
 
     const { GET } = await import('@/app/api/v1/workspaces/route')
     const response = await GET(new NextRequest('http://localhost/api/v1/workspaces?orgId=pib-platform-owner'))
