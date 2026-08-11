@@ -116,7 +116,8 @@ export function extractPartnerLinkId(
       const fromQuery = cleanPartnerLinkId(url.searchParams.get('partnerLinkId'))
       if (fromQuery) return fromQuery
     } catch {
-      // ignore malformed URLs
+      // ignore malformed URLs; fall through to body/header already checked
+      void 0
     }
   }
   if (body) {
