@@ -246,7 +246,10 @@ export async function executeJob(
   return { status, output, error, receipt: terminal }
 }
 
-const MAX_IDLE_CLAIM_BASE_DELAY_MS = 1_000
+// Cap idle claim polls at 5s (was 1s). Each claim is a signed device request
+// that writes a Firestore nonce + later TTL delete. Two always-on devices at
+// 1s idle created material write/delete spend without improving latency.
+const MAX_IDLE_CLAIM_BASE_DELAY_MS = 5_000
 
 /** A healthy Hermes profile has its own ten-session admission budget. */
 export const LINKED_RUN_MAX_CONCURRENCY_PER_AGENT = 10

@@ -64,7 +64,8 @@ const MAX_STDIN_BYTES = 8_000
 const MIN_DIMENSION = 1
 const MAX_DIMENSION = 300
 const DEFAULT_IDLE_TTL_MS = 10 * 60 * 1_000
-const SESSIONS_MAX_POLL_DELAY_MS = 1_000
+// Keep in lockstep with workbench idle claim cap (nonce write cost).
+const SESSIONS_MAX_POLL_DELAY_MS = 5_000
 
 function isSafeDimension(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) >= MIN_DIMENSION && Number(value) <= MAX_DIMENSION

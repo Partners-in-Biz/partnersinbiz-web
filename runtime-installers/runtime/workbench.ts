@@ -11,7 +11,9 @@ const DEFAULT_MAX_LIST_ENTRIES = 1_000
 const DEFAULT_MAX_GIT_OUTPUT_BYTES = 2 * 1024 * 1024
 const DEFAULT_GIT_TIMEOUT_MS = 5_000
 const MAX_ERROR_BYTES = 400
-const MAX_IDLE_CLAIM_BASE_DELAY_MS = 1_000
+// Shared with linked-run worker: idle claim cadence is a Firestore cost lever
+// (signed request → nonce write → TTL delete). 5s idle is still snappy for humans.
+const MAX_IDLE_CLAIM_BASE_DELAY_MS = 5_000
 const DEFAULT_SHELL_TIMEOUT_MS = 30_000
 const MAX_SHELL_TIMEOUT_MS = 60_000
 const MAX_SHELL_OUTPUT_BYTES = 2 * 1024 * 1024
