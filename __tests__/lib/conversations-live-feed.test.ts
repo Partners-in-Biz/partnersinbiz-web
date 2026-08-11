@@ -1,6 +1,7 @@
 import {
   CONVERSATION_LIVE_MESSAGE_LIMIT,
   CONVERSATION_LIVE_REFRESH_MS,
+  CONVERSATION_LIVE_STREAM_TTL_MS,
   conversationLiveSnapshotSignature,
   encodeConversationLiveEvent,
   parseConversationLiveQuery,
@@ -10,7 +11,7 @@ import {
 describe('conversation live feed', () => {
   it('bounds recurring message reads while preserving a responsive cadence', () => {
     expect(CONVERSATION_LIVE_MESSAGE_LIMIT).toBe(20)
-    expect(CONVERSATION_LIVE_REFRESH_MS).toBeGreaterThanOrEqual(15_000)
+    expect(CONVERSATION_LIVE_REFRESH_MS).toBeGreaterThanOrEqual(CONVERSATION_LIVE_STREAM_TTL_MS)
   })
 
   it('parses and bounds permission-scoped live query parameters', () => {

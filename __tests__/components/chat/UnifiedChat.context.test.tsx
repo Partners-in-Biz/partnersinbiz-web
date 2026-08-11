@@ -8,6 +8,7 @@ import UnifiedChat, {
 } from '@/components/chat/UnifiedChat'
 import type { ContextReference } from '@/lib/context-references/types'
 import { postConversationMessage } from '@/lib/conversations/message-submit'
+import { WORKSPACE_CATALOGUE_HEALTHY_REFRESH_MS } from '@/lib/workspaces/catalogue-refresh'
 
 jest.mock('@/components/chat/VoiceInputButton', () => ({
   __esModule: true,
@@ -853,7 +854,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
       .toBe(firstHeaders['Idempotency-Key'] || firstHeaders['idempotency-key'])
   })
 
-  it('refreshes computer availability every 30 seconds and clears that poll on unmount', async () => {
+  it('refreshes healthy computer availability on the bounded catalogue cadence and clears that poll on unmount', async () => {
     let workspaceRequests = 0
     global.fetch = jest.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
@@ -874,7 +875,7 @@ describe('UnifiedChat Workspace catalogue privacy', () => {
 
     try {
       await waitFor(() => expect(workspaceRequests).toBe(1))
-      const pollIndex = setIntervalSpy.mock.calls.findIndex(([, delay]) => delay === 30_000)
+      const pollIndex = setIntervalSpy.mock.calls.findIndex(([, delay]) => delay === WORKSPACE_CATALOGUE_HEALTHY_REFRESH_MS)
       expect(pollIndex).toBeGreaterThanOrEqual(0)
 
       await act(async () => {

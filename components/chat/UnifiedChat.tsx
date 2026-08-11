@@ -27,6 +27,11 @@ import {
   shouldUseConversationLiveFallback,
   type ConversationRealtimeInvalidation,
 } from '@/lib/conversations/realtime-invalidation'
+import {
+  WORKSPACE_CATALOGUE_HEALTHY_REFRESH_MS,
+  WORKSPACE_CATALOGUE_RECOVERY_REFRESH_MS,
+  shouldPollWorkspaceCatalogue,
+} from '@/lib/workspaces/catalogue-refresh'
 import { AGENT_IDS, type AgentSkillPolicyState } from '@/lib/agents/types'
 import { AGENT_EFFORT_OPTIONS, type AgentEffort } from '@/lib/agents/runRouting'
 import { WORKFORCE_BLUEPRINT_OPTIONS } from '@/lib/agents/role-blueprints'
@@ -261,7 +266,6 @@ const MAX_RUN_POLL_ATTEMPTS = Math.ceil((90 * 60 * 1000) / POLL_INTERVAL)
 const FINALIZE_MESSAGE_RECOVERY_EVERY = 10
 const FINALIZE_LOAD_RETRIES = 3
 const HUMAN_CHAT_REFRESH_INTERVAL = 3000
-const WORKSPACE_CATALOGUE_REFRESH_INTERVAL = 30_000
 const PROJECT_SYNC_STATUS_REFRESH_INTERVAL = 5_000
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 const MAX_PENDING_ATTACHMENTS = 5
@@ -2686,7 +2690,7 @@ export default function UnifiedChat({
           agentId: workspaceCatalogueAgentId,
         }).toString()}`, { signal: controller.signal })
         const body = response.ok ? await response.json() : null
-        // A 5-second recovery refresh can overtake the normal 30-second poll.
+        // A recovery refresh can overtake the normal healthy-catalogue poll.
         // Only its newest result may change the bound runtime or composer.
         if (cancelled || controller.signal.aborted || requestId !== activeRequestId || !body?.data) return null
         const next = Array.isArray(body.data.workspaces)
@@ -2750,8 +2754,9 @@ export default function UnifiedChat({
     refreshWorkspaceCatalogueRef.current = () => loadWorkspaceCatalogue(false)
     void loadWorkspaceCatalogue(true)
     const interval = window.setInterval(() => {
+      if (!shouldPollWorkspaceCatalogue(document.visibilityState)) return
       void loadWorkspaceCatalogue(false)
-    }, WORKSPACE_CATALOGUE_REFRESH_INTERVAL)
+    }, WORKSPACE_CATALOGUE_HEALTHY_REFRESH_MS)
     return () => {
       cancelled = true
       activeController?.abort()
@@ -2770,10 +2775,13 @@ export default function UnifiedChat({
   // selects or fails over to another machine.
   useEffect(() => {
     if (!shouldRefreshUnavailableRuntime) return
-    void refreshWorkspaceCatalogueRef.current()
-    const interval = window.setInterval(() => {
+    if (shouldPollWorkspaceCatalogue(document.visibilityState)) {
       void refreshWorkspaceCatalogueRef.current()
-    }, 5_000)
+    }
+    const interval = window.setInterval(() => {
+      if (!shouldPollWorkspaceCatalogue(document.visibilityState)) return
+      void refreshWorkspaceCatalogueRef.current()
+    }, WORKSPACE_CATALOGUE_RECOVERY_REFRESH_MS)
     return () => window.clearInterval(interval)
   }, [shouldRefreshUnavailableRuntime])
 

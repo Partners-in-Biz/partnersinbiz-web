@@ -153,6 +153,7 @@ describe('listConversations', () => {
     expect(mockWhere).toHaveBeenCalledTimes(2)
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'pib-platform-owner')
     expect(mockWhere).toHaveBeenCalledWith('crossOrg.participantOrgIds', 'array-contains', 'pib-platform-owner')
+    expect(mockIndexedLimit).toHaveBeenCalledWith(100)
     expect(conversations.map((conversation) => conversation.id)).toEqual(['project-chat', 'task-chat'])
   })
 

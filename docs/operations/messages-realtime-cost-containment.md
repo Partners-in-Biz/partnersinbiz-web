@@ -21,9 +21,14 @@ does not lose updates.
 - Gateway invalidations refresh one conversation rather than re-reading the full rail.
 - The active transcript reloads only when that active conversation changes.
 - A running background tab reloads only on its own invalidation. If every
-  gateway connection is unavailable, it falls back to a 15-second poll.
+  gateway connection is unavailable, the bounded fallback reads one snapshot
+  per stream instead of rescanning the rail inside the 55-second stream.
 - Presence heartbeats acknowledge their own write without listing the full
   presence collection again.
+
+When the gateway is still in unproven `shadow` mode, set both transport flags
+to `off`. Shadow keeps the Firestore fallback authoritative while also paying
+for the WebSocket path, so it must be reserved for a time-boxed canary.
 
 ## Safe production activation order
 
