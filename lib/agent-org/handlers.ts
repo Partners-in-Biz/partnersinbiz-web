@@ -116,7 +116,6 @@ export async function createOrgChartNode(orgId: string, body: Record<string, unk
     name,
     title,
     reportsTo,
-    chainOfCommand: [],
     capabilities,
     defaultModel,
     defaultEffort,
@@ -125,15 +124,16 @@ export async function createOrgChartNode(orgId: string, body: Record<string, unk
     iconKey,
     colorKey,
   })
-  if (!result.ok) return { ok: false as const, status: (result.status ?? 500) as number, error: result.error ?? 'Failed to create org node' }
+  if (!result.ok || !result.node) {
+    return { ok: false as const, status: (result.status ?? 500) as number, error: result.error ?? 'Failed to create org node' }
+  }
   const created = result.node
-  if (!created) return { ok: false as const, status: 500 as const, error: 'Created node could not be read back' }
 
   const all = buildOrgTree([...existing, created])
   if (!all.ok) return { ok: false as const, status: 409 as const, error: all.error ?? 'Org chart is inconsistent' }
   await persistChains(orgId, Array.from(all.byId.values()))
   invalidateOrgNodeCache(orgId)
-  return { ok: true as const, node: created }
+  return { ok: true as const, node: all.byId.get(created.id) ?? created }
 }
 
 export async function patchOrgChartNode(orgId: string, nodeId: string, body: Record<string, unknown>) {
@@ -182,16 +182,23 @@ export async function patchOrgChartNode(orgId: string, nodeId: string, body: Rec
   }
 
   const result = await updateOrgNode(orgId, nodeId, patch)
-  if (!result.ok) return { ok: false as const, status: (result.status ?? 500) as number, error: result.error ?? 'Failed to update org node' }
-  const updated = result.node!
+  if (!result.ok || !result.node) {
+    return { ok: false as const, status: (result.status ?? 500) as number, error: result.error ?? 'Failed to update org node' }
+  }
+  const updated = result.node
 
   const refreshed = await listOrgNodes(orgId)
-  await persistChains(orgId, refreshed)
+  // Prefer the just-written node so chain rebuild cannot lag a stale list snapshot.
+  const merged = refreshed.some((n) => n.id === nodeId)
+    ? refreshed.map((n) => (n.id === nodeId ? updated : n))
+    : [...refreshed, updated]
+  const tree = buildOrgTree(merged)
+  if (!tree.ok) return { ok: false as const, status: 409 as const, error: tree.error ?? 'Org chart is inconsistent' }
+  // Must persist tree-derived chains — listOrgNodes alone leaves chainOfCommand empty.
+  await persistChains(orgId, Array.from(tree.byId.values()))
   invalidateOrgNodeCache(orgId)
 
-  const tree = buildOrgTree(refreshed)
-  if (!tree.ok) return { ok: false as const, status: 409 as const, error: tree.error ?? 'Org chart is inconsistent' }
-  return { ok: true as const, node: updated, tree: tree.roots }
+  return { ok: true as const, node: tree.byId.get(nodeId) ?? updated, tree: tree.roots }
 }
 
 export async function removeOrgChartNode(orgId: string, nodeId: string, force: boolean) {
@@ -229,7 +236,13 @@ export async function removeOrgChartNode(orgId: string, nodeId: string, force: b
   }
 
   const result = await deleteOrgNode(orgId, nodeId)
-  if (!result.ok) return { ok: false as const, status: (result.status ?? 500) as number, error: result.error ?? 'Failed to delete org node' }
+  if (!result.ok) {
+    return { ok: false as const, status: (result.status ?? 500) as number, error: result.error ?? 'Failed to delete org node' }
+  }
+  // Recompute chains for remaining nodes after delete.
+  const remaining = await listOrgNodes(orgId)
+  const remainingTree = buildOrgTree(remaining)
+  if (remainingTree.ok) await persistChains(orgId, Array.from(remainingTree.byId.values()))
   invalidateOrgNodeCache(orgId)
   return { ok: true as const, deleted: true as const }
 }

@@ -9,10 +9,30 @@
  * node's `defaultModel`/`defaultEffort` become the task defaults.
  *
  * Storage: Firestore collection `agent_org_nodes`, one doc per node.
+ * Document path is org-scoped (`${orgId}__${nodeId}`) so two orgs can share
+ * logical seat ids like `coordinator`. Legacy bare ids are still readable.
  */
 import type { AgentEffort, AgentModel } from '@/lib/agents/runRouting'
 
 export const AGENT_ORG_COLLECTION = 'agent_org_nodes'
+
+/** Firestore document id for a logical seat inside an org. */
+export function orgNodeDocId(orgId: string, nodeId: string): string {
+  const org = orgId.trim()
+  const id = nodeId.trim()
+  if (!org || !id) return id
+  const prefix = `${org}__`
+  if (id.startsWith(prefix)) return id
+  return `${prefix}${id}`
+}
+
+/** Logical seat id from a Firestore doc id + optional stored `id` field. */
+export function logicalOrgNodeId(orgId: string, docId: string, storedId?: unknown): string {
+  if (typeof storedId === 'string' && storedId.trim()) return storedId.trim()
+  const prefix = `${orgId.trim()}__`
+  if (docId.startsWith(prefix)) return docId.slice(prefix.length)
+  return docId
+}
 
 /** Max capabilities stored per node (UI chip limit). */
 export const AGENT_ORG_MAX_CAPABILITIES = 12
