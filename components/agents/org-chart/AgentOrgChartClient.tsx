@@ -49,6 +49,9 @@ type LiveAgent = AgentTeamDoc & { runtimeModel?: RuntimeModelSummary; defaultMod
 function liveLabel(agent: LiveAgent | undefined): string | undefined {
   if (!agent) return undefined
   const rm = agent.runtimeModel
+  if (typeof rm?.label === 'string' && rm.label.trim()) {
+    return rm.label.trim()
+  }
   if (rm?.primaryModel) {
     const provider = rm.primaryProvider ? `${rm.primaryProvider}/` : ''
     return `${provider}${rm.primaryModel}`
