@@ -172,7 +172,7 @@ describe('admin agent permissions', () => {
           name: 'Zara',
           role: 'Specialist',
           persona: 'Helps',
-          defaultModel: 'gpt-5.5',
+          defaultModel: 'xai-oauth/grok-4.5',
           provider: 'openai-codex',
         }),
       }),
@@ -186,6 +186,34 @@ describe('admin agent permissions', () => {
       cronWatchLoops: ['daily queue check'],
       allowedScopes: ['projects'],
       exampleTaskTypes: ['triage a project'],
+    }))
+  })
+
+  it('lets super admins register an already-provisioned VPS profile without recreating it', async () => {
+    const { POST } = await import('@/app/api/v1/admin/agents/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/admin/agents', {
+      method: 'POST',
+      body: JSON.stringify({
+        agentId: 'theo-fe',
+        name: 'Nova',
+        role: 'Frontend Engineer',
+        persona: 'Owns frontend delivery.',
+        defaultModel: 'nous/deepseek/deepseek-v4-flash-0731',
+        adoptExisting: true,
+      }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect(mockCallAgentPath).toHaveBeenCalledWith(
+      'pip',
+      '/admin/profiles/theo-fe/registration',
+      undefined,
+    )
+    expect(mockCreateAgent).toHaveBeenCalledWith(expect.objectContaining({
+      agentId: 'theo-fe',
+      name: 'Nova',
+      baseUrl: 'https://agent.test',
+      apiKey: 'plain-key',
     }))
   })
 

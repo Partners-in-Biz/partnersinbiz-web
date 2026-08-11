@@ -1252,6 +1252,44 @@ async def write_profile_file(profile: str, file_path: str, request: Request, x_a
     }
 
 
+def _existing_profile_registration(
+    target_profile: str,
+    *,
+    profiles_root: Path = PROFILES_ROOT,
+    env_root: Path = ENV_ROOT,
+) -> dict:
+    if not SAFE_NAME.match(target_profile) or target_profile in {"admin", "health"}:
+        raise HTTPException(status_code=400, detail="invalid agentId")
+    profile_dir = profiles_root / target_profile
+    env_path = env_root / f"{target_profile}.env"
+    if not profile_dir.is_dir() or not env_path.is_file():
+        raise HTTPException(status_code=404, detail="profile not found")
+
+    env = _parse_env(env_path)
+    api_key = str(env.get("API_SERVER_KEY") or "").strip()
+    raw_port = str(env.get("API_SERVER_PORT") or "").strip()
+    if not api_key or not raw_port.isdigit():
+        raise HTTPException(status_code=409, detail="profile registration is incomplete")
+
+    return {
+        "agentId": target_profile,
+        "baseUrl": f"https://hermes-api.partnersinbiz.online/profiles/{target_profile}",
+        "apiKey": api_key,
+        "port": int(raw_port),
+    }
+
+
+@app.get("/profiles/{profile}/admin/profiles/{target_profile}/registration")
+async def existing_profile_registration(
+    profile: str,
+    target_profile: str,
+    x_api_key: Optional[str] = Header(default=None),
+    authorization: Optional[str] = Header(default=None),
+):
+    _require_auth(profile, x_api_key, authorization)
+    return _existing_profile_registration(target_profile)
+
+
 @app.post("/profiles/{profile}/admin/profiles")
 async def provision_profile(profile: str, request: Request, x_api_key: Optional[str] = Header(default=None), authorization: Optional[str] = Header(default=None)):
     _require_auth(profile, x_api_key, authorization)
