@@ -222,13 +222,13 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
         orgId: orgScope.orgId,
         workspaceId: workspace.workspaceId,
         compatibilityTargets: compatibilityRuntimeTargets,
-      }, { db: requestDb }).catch(() => []),
+      }, { db: requestDb as never }).catch(() => []),
       discoverAuthorizedRuntimeTargets({
         userId: user.uid,
         orgId: orgScope.orgId,
         workspaceId: workspace.workspaceId,
         agentId: runtimeAgentId,
-      }, { db: requestDb }).catch(() => []),
+      }, { db: requestDb as never }).catch(() => []),
     ])
     const deduped = new Map<string, WorkspaceRuntimeTarget>()
     for (const target of [...scopedCompatibility, ...linked]) {
