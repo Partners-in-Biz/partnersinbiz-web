@@ -3,6 +3,15 @@ import { GET, PATCH, DELETE } from '@/app/api/v1/ads/campaigns/[id]/route'
 
 jest.mock('@/lib/api/auth', () => ({ withAuth: (_r: string, h: any) => h }))
 jest.mock('@/lib/api/capabilityGate', () => ({ enforceAgentCapability: jest.fn(() => null) }))
+// Unit tests supply bare user objects; owner isolation is asserted by the route after this seam.
+jest.mock('@/lib/cross-org/marketing-handler-access', () => ({
+  assertMarketingHandlerAccess: jest.fn(async ({ resourceOwnerOrgId }: { resourceOwnerOrgId?: string }) => ({
+    ok: true,
+    access: 'owner',
+    orgId: resourceOwnerOrgId || 'org_1',
+  })),
+  extractPartnerLinkId: jest.fn(() => null),
+}))
 jest.mock('@/lib/ads/campaigns/store', () => ({
   getCampaign: jest.fn(),
   updateCampaign: jest.fn(),
