@@ -15,6 +15,7 @@ export type SlashCommandId =
   | 'briefing'
   | 'search'
   | 'skills'
+  | 'hire'
   | 'goal'
   | 'subgoal'
   | 'toolsets'
@@ -126,6 +127,16 @@ export const SLASH_COMMANDS: SlashCommandDefinition[] = [
     description: 'Show the selected agent skills, capabilities, and the best skill for this request.',
     aliases: ['/agent-skills', '/capabilities'],
     icon: 'psychology',
+    executorKind: 'agent_intent',
+  },
+  {
+    id: 'hire',
+    token: '/hire',
+    label: 'Hire agent',
+    description:
+      'Design org-chart seats and optionally provision live Hermes profiles (chart + machine hire). Chart save alone never creates profiles.',
+    aliases: ['/agent-hire', '/provision-agent'],
+    icon: 'person_add',
     executorKind: 'agent_intent',
   },
   {
@@ -346,10 +357,37 @@ export function hermesFeaturesCommandLine(payload: SlashCommandPayload): string 
   return args ? `${payload.token} ${args}` : payload.token
 }
 
+function hireCommandGuidanceLines(payload: SlashCommandPayload): string[] {
+  const args = payload.args.trim()
+  return [
+    'HIRE MODE (/hire). Design org-chart seats and optionally provision live Hermes agent profiles.',
+    '1) Load skill pib-agent-org-setup first. Use agent-runtime-ops only when a real profile must be created/linked.',
+    '2) Resolve orgId (current workspace org or explicit). Never invent client orgIds.',
+    '3) Separate layers always:',
+    '   - Chart seats (Firestore org chart): titles, reportsTo, capabilities, defaults, bind agentId.',
+    '   - Live brains (Hermes profiles on machines): only with explicit hire/provision intent.',
+    '4) Chart-only by default. Do NOT create machine profiles unless the user clearly wants a live hire',
+    '   (words like provision, create profile, make live, hire on Mac/VPS). Binding without a profile = role seat.',
+    '5) Recommended PiB shape for development + marketing companies:',
+    '   Coordinator/Pip → Engineering lead (Theo) with optional FE/BE seats + Quinn QA;',
+    '   Marketing lead (Maya) with Ari paid / Silas SEO / Vera analytics;',
+    '   peers under coordinator: Sage research, Blake sales, Iris docs, Nora ops, Luca support.',
+    '6) For each role: pick agentId, soul voice, skill pack (pib-agent-org-setup recommended packs),',
+    '   default model/effort, machine target (Mac mini linked-device vs VPS), and bind after profile exists.',
+    '7) Confirm plan briefly, then execute: seed/patch chart → (optional) provision profile + skills → bind agentId → verify.',
+    '8) Never auto-send client messages, never production-deploy, never spend ads as part of hire.',
+    args
+      ? `User hire brief: ${args}`
+      : 'User opened /hire with no args — ask org, roles/hierarchy, chart-only vs live provision, and machine target.',
+  ]
+}
+
 export function slashCommandInstruction(payload: SlashCommandPayload): string {
   const commandGuidance = payload.id === 'council'
     ? councilModeGuidanceLines('slash-command')
-    : payload.executorKind === 'design_command'
+    : payload.id === 'hire'
+      ? hireCommandGuidanceLines(payload)
+      : payload.executorKind === 'design_command'
       ? buildDesignCommandGuidance(payload)
       : payload.executorKind === 'hermes_goal'
         ? hermesGoalGuidanceLines(payload)
