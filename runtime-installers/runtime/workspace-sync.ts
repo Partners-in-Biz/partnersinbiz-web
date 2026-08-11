@@ -1369,6 +1369,6 @@ export async function pollWorkspaceSyncForever(
       continue
     }
     await new Promise((resolve) => setTimeout(resolve, delay + Math.floor(Math.random() * delay)))
-    delay = Math.min(delay * 2, 5_000)
+    delay = Math.min(delay * 2, 15_000)
   }
 }

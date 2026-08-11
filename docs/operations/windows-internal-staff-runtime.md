@@ -39,7 +39,7 @@ The setup warns before adding trust, verifies the pinned certificate, installs/c
 ## Acceptance
 
 - `Get-Service PartnersInBizRuntime` is `Running` with automatic startup.
-- The installed runtime reports version `1.1.27` and paired status.
+- The installed runtime reports version `1.1.30` and paired status.
 - PiB production reports the Windows device `active`, `health=ok`, `workspace.execute`, and the expected agent inventory.
 - Reboot, runtime-process termination, Windows service-wrapper termination, temporary internet loss, update, rollback, and Credential Manager persistence pass on clean Windows 11 x64 and arm64 machines. The service manager must show restart actions at 5, 10, and 30 seconds.
 
