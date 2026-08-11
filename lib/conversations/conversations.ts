@@ -152,13 +152,17 @@ export async function listConversations(
   const scopedRefId = filters?.includeAllScopes || contactContextScan
     ? undefined
     : (filters?.scopeRefId ?? filters?.projectId)
+  // Hard-cap Firestore page size at 100. Contact/default overscan used to be
+  // limit*4 (a 100-row rail → 400 billed docs per query). listConversations
+  // always runs owner + crossOrg queries in parallel, so the page size is the
+  // main billed-read lever left on this path.
   const readLimit = filters?.includeAllScopes
-    ? Math.max(limit, 100)
+    ? 100
     : contactContextScan
-      ? Math.max(limit * 4, 100)
+      ? Math.min(100, Math.max(limit * 2, 60))
       : scopedRefId
-        ? Math.max(limit * 2, 30)
-        : Math.max(limit * 4, filters?.scope ? 100 : limit)
+        ? Math.min(100, Math.max(limit * 2, 30))
+        : Math.min(100, Math.max(limit * 2, filters?.scope ? 60 : limit))
   const baseOrgQuery = adminDb.collection(CONVERSATIONS_COLLECTION).where('orgId', '==', orgId)
   const crossOrgQuery = adminDb.collection(CONVERSATIONS_COLLECTION)
     .where('crossOrg.participantOrgIds', 'array-contains', orgId)

@@ -65,7 +65,8 @@ const MIN_DIMENSION = 1
 const MAX_DIMENSION = 300
 const DEFAULT_IDLE_TTL_MS = 10 * 60 * 1_000
 // Keep in lockstep with workbench idle claim cap (nonce write cost).
-const SESSIONS_MAX_POLL_DELAY_MS = 5_000
+// Idle session claims are secondary; 15s matches other non-execution pollers.
+const SESSIONS_MAX_POLL_DELAY_MS = 15_000
 
 function isSafeDimension(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) >= MIN_DIMENSION && Number(value) <= MAX_DIMENSION
@@ -592,7 +593,7 @@ export async function runWorkbenchSessionClaim(
 }
 
 export function linkedRuntimeWorkbenchSessionsClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.27', workbenchSessionsProtocolVersion: 1 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.30', workbenchSessionsProtocolVersion: 1 as const }
 }
 
 /** Same idle-backoff shape as pollWorkbenchForever/pollAgentHostForever; sweeps idle sessions each cycle. */

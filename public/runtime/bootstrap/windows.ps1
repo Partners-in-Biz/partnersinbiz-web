@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ApiBase = if ($env:PIB_API_BASE) { $env:PIB_API_BASE.TrimEnd('/') } else { 'https://partnersinbiz.online' }
 $PublicReleaseBase = 'https://github.com/Partners-in-Biz/partnersinbiz-web/releases/latest/download'
-$InternalReleaseBase = 'https://github.com/Partners-in-Biz/partnersinbiz-web/releases/download/runtime-internal-v1.1.27'
+$InternalReleaseBase = 'https://github.com/Partners-in-Biz/partnersinbiz-web/releases/download/runtime-internal-v1.1.30'
 $ReleaseBase = if ($env:PIB_RUNTIME_RELEASE_BASE) { $env:PIB_RUNTIME_RELEASE_BASE.TrimEnd('/') } elseif ($InternalStaff) { $InternalReleaseBase } else { $PublicReleaseBase }
 $Architecture = $env:PROCESSOR_ARCHITECTURE.ToLowerInvariant().Replace('amd64','x64')
 $ExpectedPublisher = if ($env:PIB_WINDOWS_EXPECTED_PUBLISHER) { $env:PIB_WINDOWS_EXPECTED_PUBLISHER } else { 'The Partners in Business (PTY) LTD' }

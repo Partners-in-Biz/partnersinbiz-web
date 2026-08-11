@@ -62,7 +62,8 @@ const HEARTBEAT_INTERVAL_MS = 30_000
 // this device somehow never hears back from the server about the session's fate.
 const TUNNEL_TTL_MS = 30 * 60 * 1000
 // Keep in lockstep with workbench idle claim cap (nonce write cost).
-const TUNNEL_MAX_POLL_DELAY_MS = 5_000
+// Idle tunnel claims are secondary; 15s matches other non-execution pollers.
+const TUNNEL_MAX_POLL_DELAY_MS = 15_000
 const CLOUDFLARE_URL_PATTERN = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i
 const TCP_PROBE_TIMEOUT_MS = 1_000
 
@@ -357,7 +358,7 @@ export async function runWorkbenchTunnelClaim(
 }
 
 export function linkedRuntimeWorkbenchTunnelsClaimBody() {
-  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.27', workbenchTunnelsProtocolVersion: 1 as const }
+  return { runtimeVersion: process.env.PIB_RUNTIME_VERSION || '1.1.30', workbenchTunnelsProtocolVersion: 1 as const }
 }
 
 /** Same idle-backoff shape as pollWorkbenchSessionsForever; sweeps TTL-expired tunnels each cycle. */
