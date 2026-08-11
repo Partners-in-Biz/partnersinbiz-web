@@ -55,23 +55,32 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const defaultModel = String(body.defaultModel ?? 'xai-oauth/grok-4.5').trim()
   const iconKey = String(body.iconKey ?? 'smart_toy').trim()
   const colorKey = String(body.colorKey ?? 'sky').trim()
+  const adoptExisting = body.adoptExisting === true
   const registry = normalizeAgentRegistryInput(body)
 
   try {
-    const { response, data } = await callAgentPath('pip', '/admin/profiles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        agentId,
-        name,
-        role,
-        persona,
-        defaultModel,
-        provider: body.provider ?? 'openai-codex',
-        soul: body.soul,
-      }),
-    })
-    if (!response.ok) return apiError('Pip could not provision the VPS profile', 502, { upstream: data })
+    const { response, data } = adoptExisting
+      ? await callAgentPath('pip', `/admin/profiles/${encodeURIComponent(agentId)}/registration`)
+      : await callAgentPath('pip', '/admin/profiles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentId,
+          name,
+          role,
+          persona,
+          defaultModel,
+          provider: body.provider ?? 'openai-codex',
+          soul: body.soul,
+        }),
+      })
+    if (!response.ok) {
+      return apiError(
+        adoptExisting ? 'Pip could not register the existing VPS profile' : 'Pip could not provision the VPS profile',
+        502,
+        { upstream: data },
+      )
+    }
 
     const result = data as Record<string, unknown>
     const baseUrl = String(result.baseUrl ?? '')
@@ -97,6 +106,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
     return apiSuccess({
       agent,
       provisioned: safeProvisioned,
+      adoptedExisting: adoptExisting,
       linkedComputerPull: {
         preferredPort: resolvePreferredAgentPort(agentId),
         catalogIncluded: true,
