@@ -217,6 +217,38 @@ describe('admin agent permissions', () => {
     }))
   })
 
+  it('automatically adopts an existing profile when normal provisioning reports a conflict', async () => {
+    mockCallAgentPath
+      .mockResolvedValueOnce({
+        response: { ok: false, status: 409 },
+        data: { detail: 'profile already exists' },
+      })
+      .mockResolvedValueOnce({
+        response: { ok: true, status: 200 },
+        data: { baseUrl: 'https://agent.test', apiKey: 'plain-key' },
+      })
+
+    const { POST } = await import('@/app/api/v1/admin/agents/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/admin/agents', {
+      method: 'POST',
+      body: JSON.stringify({ agentId: 'theo-be', name: 'Atlas', role: 'Backend Engineer' }),
+    }))
+
+    expect(res.status).toBe(200)
+    expect(mockCallAgentPath).toHaveBeenNthCalledWith(
+      2,
+      'pip',
+      '/admin/profiles/theo-be/registration',
+      undefined,
+    )
+    expect(mockCreateAgent).toHaveBeenCalledWith(expect.objectContaining({
+      agentId: 'theo-be',
+      name: 'Atlas',
+      baseUrl: 'https://agent.test',
+      apiKey: 'plain-key',
+    }))
+  })
+
   it('rejects restricted admins editing agent details', async () => {
     mockUser = { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-a'] }
     const { PUT } = await import('@/app/api/v1/admin/agents/[agentId]/route')
