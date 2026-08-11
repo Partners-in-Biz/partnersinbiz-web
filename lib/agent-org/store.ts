@@ -3,6 +3,9 @@
  *
  * Tenant safety: every read/write is scoped by orgId. Callers must have already
  * resolved + authorised the orgId (use canAccessOrg / resolveOrgScope at the route).
+ *
+ * Document path: `${orgId}__${logicalNodeId}` so two orgs can share seat names
+ * like `coordinator`. Legacy bare document ids remain readable when orgId matches.
  */
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
@@ -11,6 +14,8 @@ import {
   AGENT_ORG_MAX_CAPABILITIES,
   isOrgAssignableFrom,
   isOrgNodeStatus,
+  logicalOrgNodeId,
+  orgNodeDocId,
   type AgentOrgNode,
   type OrgNodeDelegation,
 } from './types'
@@ -60,6 +65,45 @@ function cleanId(value: unknown): string | null {
   return id
 }
 
+function mapDocToNode(orgId: string, docId: string, data: FirebaseFirestore.DocumentData): AgentOrgNode {
+  const id = logicalOrgNodeId(orgId, docId, data.id)
+  return {
+    ...(data as Omit<AgentOrgNode, 'id'>),
+    id,
+    orgId: typeof data.orgId === 'string' ? data.orgId : orgId,
+    chainOfCommand: Array.isArray(data.chainOfCommand) ? (data.chainOfCommand as string[]) : [],
+  }
+}
+
+type ResolvedNodeRef = {
+  ref: FirebaseFirestore.DocumentReference
+  data: FirebaseFirestore.DocumentData
+  docId: string
+}
+
+/** Resolve logical node id → Firestore doc (composite path, then legacy bare id). */
+export async function resolveOrgNodeRef(orgId: string, nodeId: string): Promise<ResolvedNodeRef | null> {
+  const coll = adminDb.collection(AGENT_ORG_COLLECTION)
+  const compositeId = orgNodeDocId(orgId, nodeId)
+  const compositeSnap = await coll.doc(compositeId).get()
+  if (compositeSnap.exists) {
+    const data = compositeSnap.data()
+    if (data && data.orgId === orgId) {
+      return { ref: compositeSnap.ref, data, docId: compositeSnap.id }
+    }
+  }
+  if (nodeId !== compositeId) {
+    const bareSnap = await coll.doc(nodeId).get()
+    if (bareSnap.exists) {
+      const data = bareSnap.data()
+      if (data && data.orgId === orgId) {
+        return { ref: bareSnap.ref, data, docId: bareSnap.id }
+      }
+    }
+  }
+  return null
+}
+
 /** Normalise an incoming node payload. Returns error on missing/invalid id. */
 export function normalizeOrgNodeInput(
   input: OrgNodeInput,
@@ -105,7 +149,7 @@ export async function listOrgNodes(orgId: string): Promise<AgentOrgNode[]> {
     .collection(AGENT_ORG_COLLECTION)
     .where('orgId', '==', orgId)
     .get()
-  const nodes = snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<AgentOrgNode, 'id'>) }) as AgentOrgNode)
+  const nodes = snap.docs.map((doc) => mapDocToNode(orgId, doc.id, doc.data()))
   return nodes.sort((a, b) => {
     const aMs = createdAtMs(a.createdAt)
     const bMs = createdAtMs(b.createdAt)
@@ -137,49 +181,56 @@ function createdAtMs(value: unknown): number {
 }
 
 export async function getOrgNode(orgId: string, nodeId: string): Promise<AgentOrgNode | null> {
-  const doc = await adminDb.collection(AGENT_ORG_COLLECTION).doc(nodeId).get()
-  if (!doc.exists) return null
-  const data = doc.data() as Omit<AgentOrgNode, 'id'> | undefined
-  if (!data || data.orgId !== orgId) return null
-  return { id: doc.id, ...data }
+  const resolved = await resolveOrgNodeRef(orgId, nodeId)
+  if (!resolved) return null
+  return mapDocToNode(orgId, resolved.docId, resolved.data)
 }
 
-/** Create a node. Fails if the id already exists (optionally checks org match). */
+/** Create a node. Fails if the logical id already exists for this org. */
 export async function createOrgNode(input: OrgNodeInput): Promise<StoreResult> {
   const now = FieldValue.serverTimestamp()
-  const ref = adminDb.collection(AGENT_ORG_COLLECTION).doc(input.id)
-  const existing = await ref.get()
-  if (existing.exists) {
-    return { ok: false, status: 409, error: `Org node '${input.id}' already exists` }
+  const logicalId = input.id
+  const existing = await resolveOrgNodeRef(input.orgId, logicalId)
+  if (existing) {
+    return { ok: false, status: 409, error: `Org node '${logicalId}' already exists` }
   }
+
+  const docPath = orgNodeDocId(input.orgId, logicalId)
+  const ref = adminDb.collection(AGENT_ORG_COLLECTION).doc(docPath)
+  const race = await ref.get()
+  if (race.exists) {
+    return { ok: false, status: 409, error: `Org node '${logicalId}' already exists` }
+  }
+
   await ref.set({
     ...input,
+    id: logicalId,
     chainOfCommand: [],
     createdAt: now,
     updatedAt: now,
   })
-  const node = await getOrgNode(input.orgId, input.id)
+  const node = await getOrgNode(input.orgId, logicalId)
   if (!node) return { ok: false, status: 500, error: 'Created node could not be read back' }
   return { ok: true, node }
 }
 
 /**
- * Update a node with a partial patch. Chain-of-command is recomputed lazily by
- * the caller after reads; callers should run tree validation (reparent checks)
- * before persisting reportsTo changes.
+ * Update a node with a partial patch. Chain-of-command is recomputed by
+ * handlers via buildOrgTree + persistChains after writes.
  */
 export async function updateOrgNode(
   orgId: string,
   nodeId: string,
   patch: Partial<Omit<AgentOrgNode, 'id' | 'orgId' | 'createdAt' | 'updatedAt'>>,
 ): Promise<StoreResult> {
-  const ref = adminDb.collection(AGENT_ORG_COLLECTION).doc(nodeId)
-  const existing = await ref.get()
-  if (!existing.exists) return { ok: false, status: 404, error: `Org node '${nodeId}' not found` }
-  const data = existing.data() as Omit<AgentOrgNode, 'id'> | undefined
-  if (!data || data.orgId !== orgId) return { ok: false, status: 404, error: `Org node '${nodeId}' not found in this organisation` }
+  const resolved = await resolveOrgNodeRef(orgId, nodeId)
+  if (!resolved) return { ok: false, status: 404, error: `Org node '${nodeId}' not found` }
+  const data = resolved.data as Omit<AgentOrgNode, 'id'>
 
-  const clean: Record<string, unknown> = {}
+  const clean: Record<string, unknown> = {
+    // Keep logical id durable on legacy bare docs.
+    id: logicalOrgNodeId(orgId, resolved.docId, (resolved.data as { id?: unknown }).id ?? nodeId),
+  }
   if ('agentId' in patch) clean.agentId = typeof patch.agentId === 'string' && patch.agentId.trim() ? patch.agentId.trim() : null
   if ('name' in patch) clean.name = typeof patch.name === 'string' && patch.name.trim() ? patch.name.trim().slice(0, 80) : data.name
   if ('title' in patch) clean.title = typeof patch.title === 'string' && patch.title.trim() ? patch.title.trim().slice(0, 120) : ''
@@ -193,7 +244,7 @@ export async function updateOrgNode(
   if ('iconKey' in patch) clean.iconKey = typeof patch.iconKey === 'string' && patch.iconKey.trim() ? patch.iconKey.trim().slice(0, 40) : data.iconKey
   if ('colorKey' in patch) clean.colorKey = typeof patch.colorKey === 'string' && patch.colorKey.trim() ? patch.colorKey.trim().slice(0, 24) : data.colorKey
 
-  await ref.update({ ...clean, updatedAt: FieldValue.serverTimestamp() })
+  await resolved.ref.update({ ...clean, updatedAt: FieldValue.serverTimestamp() })
   const node = await getOrgNode(orgId, nodeId)
   if (!node) return { ok: false, status: 500, error: 'Updated node could not be read back' }
   return { ok: true, node }
@@ -201,23 +252,27 @@ export async function updateOrgNode(
 
 /** Delete a node. Callers must handle children (reparent or block) before calling. */
 export async function deleteOrgNode(orgId: string, nodeId: string): Promise<StoreResult> {
-  const ref = adminDb.collection(AGENT_ORG_COLLECTION).doc(nodeId)
-  const existing = await ref.get()
-  if (!existing.exists) return { ok: false, status: 404, error: `Org node '${nodeId}' not found` }
-  const data = existing.data() as Omit<AgentOrgNode, 'id'> | undefined
-  if (!data || data.orgId !== orgId) return { ok: false, status: 404, error: `Org node '${nodeId}' not found in this organisation` }
-  await ref.delete()
+  const resolved = await resolveOrgNodeRef(orgId, nodeId)
+  if (!resolved) return { ok: false, status: 404, error: `Org node '${nodeId}' not found` }
+  await resolved.ref.delete()
   return { ok: true }
 }
 
 /** Recompute and persist chainOfCommand for every node in an org (after reparent). */
 export async function persistChains(orgId: string, nodes: AgentOrgNode[]): Promise<void> {
+  if (nodes.length === 0) return
   const batch = adminDb.batch()
+  let writes = 0
   for (const node of nodes) {
-    batch.update(adminDb.collection(AGENT_ORG_COLLECTION).doc(node.id), {
-      chainOfCommand: node.chainOfCommand,
+    const resolved = await resolveOrgNodeRef(orgId, node.id)
+    if (!resolved) continue
+    batch.update(resolved.ref, {
+      chainOfCommand: Array.isArray(node.chainOfCommand) ? node.chainOfCommand : [],
+      id: node.id,
       updatedAt: FieldValue.serverTimestamp(),
     })
+    writes += 1
   }
+  if (writes === 0) return
   await batch.commit()
 }
