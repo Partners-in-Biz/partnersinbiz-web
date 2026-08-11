@@ -3670,6 +3670,13 @@ describe('UnifiedChat context references', () => {
     fireEvent.change(input, { target: { value: '/' } })
 
     expect(await screen.findByRole('button', { name: 'Use /task' })).toBeInTheDocument()
+    const slashCommandMenu = screen.getByText('Slash commands').parentElement
+    expect(slashCommandMenu).toHaveClass(
+      'max-h-[60dvh]',
+      'lg:max-h-[50dvh]',
+      'overflow-y-auto',
+      'overscroll-contain',
+    )
     expect(screen.getByRole('button', { name: 'Use /route' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Use /council' })).toBeInTheDocument()
 
