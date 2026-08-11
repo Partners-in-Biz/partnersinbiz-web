@@ -131,9 +131,29 @@ if (( ${#active_units[@]} > 0 )); then
   done
 
   # Extra settle only for profiles restarted in this pass (crash-loop already gated).
+  # Skills are already on disk before any restart. A slow/activating unit must NOT
+  # fail the GitHub Actions job (exit 3 from `systemctl is-active` was a false red
+  # after 2026-08-11 hire/skill push when only hermes@default restarted and was
+  # still activating during the settle window). Re-queue unstable units instead.
   if (( ${#restarted_units[@]} > 0 && stabilization_seconds > 0 )); then
     sleep "$stabilization_seconds"
-    systemctl is-active "${restarted_units[@]}"
+    unstable_units=()
+    for unit in "${restarted_units[@]}"; do
+      state=$(systemctl is-active "$unit" 2>/dev/null || true)
+      printf '%s\n' "$state"
+      if [[ "$state" != "active" ]]; then
+        unstable_units+=("$unit")
+      fi
+    done
+    if (( ${#unstable_units[@]} > 0 )); then
+      echo "warning: restarted units not fully active after stabilization: ${unstable_units[*]}" >&2
+      for unit in "${unstable_units[@]}"; do
+        profile=${unit#hermes@}
+        profile=${profile%.service}
+        pib_hermes_mark_pending_restart "$profile" "post-restart-not-active"
+        deferred_units+=("$unit")
+      done
+    fi
   fi
 
   logger -t pib-skill-sync \
