@@ -61,7 +61,8 @@ const HEARTBEAT_INTERVAL_MS = 30_000
 // defense-in-depth so a tunnel process is never left running indefinitely even if
 // this device somehow never hears back from the server about the session's fate.
 const TUNNEL_TTL_MS = 30 * 60 * 1000
-const TUNNEL_MAX_POLL_DELAY_MS = 1_000
+// Keep in lockstep with workbench idle claim cap (nonce write cost).
+const TUNNEL_MAX_POLL_DELAY_MS = 5_000
 const CLOUDFLARE_URL_PATTERN = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i
 const TCP_PROBE_TIMEOUT_MS = 1_000
 

@@ -114,7 +114,8 @@ const DEVTOOLS_POLL_INTERVAL_MS = 50
 const PAGE_LOAD_TIMEOUT_MS = 10_000
 const HEARTBEAT_INTERVAL_MS = 30_000
 const BROWSER_SESSION_TTL_MS = 30 * 60 * 1_000
-const BROWSER_MAX_POLL_DELAY_MS = 1_000
+// Keep in lockstep with workbench idle claim cap (nonce write cost).
+const BROWSER_MAX_POLL_DELAY_MS = 5_000
 const JPEG_QUALITIES = [80, 60, 40, 20] as const
 const CHROME_MISSING_MESSAGE = 'Google Chrome or Chromium was not found on this computer. Install Chrome in a standard location or set PIB_CHROME_PATH.'
 
