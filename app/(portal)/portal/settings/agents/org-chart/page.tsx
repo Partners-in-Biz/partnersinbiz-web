@@ -20,6 +20,7 @@ export default function PortalAgentOrgChartPage() {
   const [orgId, setOrgId] = useState<string>('')
   const [orgName, setOrgName] = useState<string>('')
   const [role, setRole] = useState<string | null>(null)
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
   const [bootError, setBootError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
 
@@ -32,6 +33,7 @@ export default function PortalAgentOrgChartPage() {
     // Wait until URL or active-org inheritance has resolved a workspace.
     if (!routeScope.orgId || !orgEndpoint) {
       setReady(false)
+      setIsPlatformAdmin(false)
       return
     }
 
@@ -52,6 +54,7 @@ export default function PortalAgentOrgChartPage() {
         if (!resolvedOrgId) throw new Error('No active organisation on this session')
 
         const user = meBody.user ?? meBody.data?.user ?? {}
+        const platformAdmin = user.role === 'admin'
         let memberRole: string | null =
           (typeof user.memberRole === 'string' && user.memberRole) ||
           (typeof user.role === 'string' && user.role) ||
@@ -75,12 +78,14 @@ export default function PortalAgentOrgChartPage() {
         setOrgId(resolvedOrgId)
         setOrgName(resolvedOrgName)
         setRole(memberRole)
+        setIsPlatformAdmin(platformAdmin)
         setReady(true)
       } catch (e) {
         if (!cancelled) {
           setBootError(e instanceof Error ? e.message : 'Failed to resolve active organisation')
           setOrgId('')
           setOrgName('')
+          setIsPlatformAdmin(false)
           setReady(true)
         }
       }
@@ -134,9 +139,9 @@ export default function PortalAgentOrgChartPage() {
         orgLabel={orgName}
         canEdit={canEdit}
         apiBase="/api/v1/portal/settings/agents/org-chart"
-        agentsListUrl="/api/v1/portal/settings/agents"
-        allowRuntimeTab={false}
-        allowLiveRuntimeSync={false}
+        agentsListUrl={isPlatformAdmin ? '/api/v1/admin/agents' : '/api/v1/portal/settings/agents'}
+        allowRuntimeTab={isPlatformAdmin}
+        allowLiveRuntimeSync={isPlatformAdmin}
         seedTemplate={orgId === 'pib-platform-owner' ? 'platform' : 'minimal'}
         title="Agent organisation"
         description="Build this organisation’s agent hierarchy. Seats can bind to linked-machine agent profiles. Ask Pip to provision profiles from a structure brief (skill: pib-agent-org-setup)."
