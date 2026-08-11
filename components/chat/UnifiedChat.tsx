@@ -8724,7 +8724,7 @@ export default function UnifiedChat({
           )}
 
           {slashPrompt && (
-            <div className="rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl">
+            <div className="max-h-[60dvh] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl lg:max-h-[50dvh]">
               <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
                 Slash commands
               </div>
