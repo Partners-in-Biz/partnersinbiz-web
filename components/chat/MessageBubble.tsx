@@ -736,6 +736,7 @@ function BareUrlPreviews({ content }: { content: string }) {
           rel="noreferrer"
           className="group block overflow-hidden rounded-xl border border-white/15 bg-black/20 transition hover:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/60"
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={url} alt={url} className="max-h-52 w-full min-w-[220px] object-cover" />
           <span className="block truncate border-t border-white/10 px-3 py-2 text-xs text-[var(--color-pib-text-muted)] group-hover:text-[var(--color-pib-text)]">
             {url}
@@ -1569,6 +1570,7 @@ function RichMessagePartView({
   if (type === 'image' && part.url) {
     return (
       <figure className="my-2 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={part.url} alt={part.alt ?? part.caption ?? part.name ?? 'Rich image'} className="max-h-72 w-full object-cover" />
         {part.caption && <figcaption className="px-3 py-2 text-xs text-[var(--color-pib-text-muted)]">{part.caption}</figcaption>}
       </figure>
@@ -1579,6 +1581,7 @@ function RichMessagePartView({
       <div className="my-2 grid grid-cols-2 gap-2">
         {part.images.map((image, index) => (
           <figure key={`${image.url}-${index}`} className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={image.url} alt={image.alt ?? image.caption ?? `Gallery image ${index + 1}`} className="h-36 w-full object-cover" />
             {image.caption && <figcaption className="px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]">{image.caption}</figcaption>}
           </figure>
@@ -1715,7 +1718,10 @@ function AgentDelegationBranchCard({ part }: { part: RichMessagePart }) {
         // best-effort live refresh
       }
     }
-    const timer = window.setInterval(poll, 4000)
+    const timer = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      void poll()
+    }, 12_000)
     void poll()
     return () => {
       cancelled = true
@@ -2257,6 +2263,7 @@ export default function MessageBubble({
               onClick={() => setPreviewAttachment(attachment)}
               className="group relative block overflow-hidden rounded-xl border border-white/15 bg-black/20 text-left transition hover:border-primary/70 focus:outline-none focus:ring-2 focus:ring-primary/60"
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={attachment.url}
                 alt={attachment.name}
@@ -2312,6 +2319,7 @@ export default function MessageBubble({
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={previewAttachment.url}
           alt={previewAttachment.name}

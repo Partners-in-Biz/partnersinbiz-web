@@ -1,11 +1,13 @@
 const mockIndexedGet = jest.fn()
 const mockFallbackGet = jest.fn()
 const mockIndexedLimit = jest.fn(() => ({ get: mockIndexedGet }))
+const mockFallbackLimit = jest.fn(() => ({ get: mockFallbackGet }))
 const mockOrderBy = jest.fn(() => ({ limit: mockIndexedLimit }))
 const mockWhere = jest.fn()
 const mockQuery = {
   where: mockWhere,
   orderBy: mockOrderBy,
+  limit: mockFallbackLimit,
   get: mockFallbackGet,
 }
 const mockCollection = jest.fn(() => ({ where: mockWhere }))

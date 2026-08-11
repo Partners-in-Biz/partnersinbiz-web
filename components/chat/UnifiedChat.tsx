@@ -264,8 +264,12 @@ const MAX_RUN_POLL_ATTEMPTS = Math.ceil((90 * 60 * 1000) / POLL_INTERVAL)
 /** Every N finalize polls, reload messages so a completed run still surfaces if SSE died. */
 const FINALIZE_MESSAGE_RECOVERY_EVERY = 10
 const FINALIZE_LOAD_RETRIES = 3
-const HUMAN_CHAT_REFRESH_INTERVAL = 3000
-const PROJECT_SYNC_STATUS_REFRESH_INTERVAL = 5_000
+// Fallback only when SSE is down and the thread has no agent participants.
+// 3s full message reloads were a major Firestore read amplifier on open tabs.
+const HUMAN_CHAT_REFRESH_INTERVAL = 15_000
+const PROJECT_SYNC_STATUS_REFRESH_INTERVAL = 15_000
+const COMMAND_SESSION_MESSAGE_POLL_MS = 15_000
+const PRESENCE_HEARTBEAT_INTERVAL_MS = 20_000
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
 const MAX_PENDING_ATTACHMENTS = 5
 const MAX_COMPOSER_HISTORY_ENTRIES = 30
@@ -1848,7 +1852,7 @@ export default function UnifiedChat({
         })
         .catch(() => {})
     }
-    const interval = window.setInterval(poll, 5_000)
+    const interval = window.setInterval(poll, COMMAND_SESSION_MESSAGE_POLL_MS)
     document.addEventListener('visibilitychange', poll)
     return () => {
       cancelled = true
@@ -4634,7 +4638,7 @@ export default function UnifiedChat({
       if (cancelled) return
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
       void postPresence(presenceTypingRef.current ? 'typing' : 'viewing')
-    }, 5_000)
+    }, PRESENCE_HEARTBEAT_INTERVAL_MS)
 
     return () => {
       cancelled = true
@@ -4917,6 +4921,7 @@ export default function UnifiedChat({
     if (conversationLiveConnected) return
 
     const interval = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
       void loadMessages(activeId, { silent: true })
     }, HUMAN_CHAT_REFRESH_INTERVAL)
 

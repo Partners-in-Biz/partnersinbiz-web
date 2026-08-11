@@ -151,13 +151,16 @@ export async function listConversations(
   const scopedRefId = filters?.includeAllScopes || contactContextScan
     ? undefined
     : (filters?.scopeRefId ?? filters?.projectId)
+  // Hard-cap Firestore page size at 100. Contact/default overscan used to be
+  // limit*4 (a 100-row rail → 400 billed docs per query). Do not unbounded-scan
+  // the org on missing-index fallback — that is a bill bomb.
   const readLimit = filters?.includeAllScopes
-    ? Math.max(limit, 100)
+    ? 100
     : contactContextScan
-      ? Math.max(limit * 4, 100)
+      ? Math.min(100, Math.max(limit * 2, 60))
       : scopedRefId
-        ? Math.max(limit * 2, 30)
-        : Math.max(limit * 4, filters?.scope ? 100 : limit)
+        ? Math.min(100, Math.max(limit * 2, 30))
+        : Math.min(100, Math.max(limit * 2, filters?.scope ? 60 : limit))
   const baseOrgQuery = adminDb.collection(CONVERSATIONS_COLLECTION).where('orgId', '==', orgId)
   // Project and other scoped Messages views previously read up to 100-120
   // organisation-wide conversations on every refresh, then discarded nearly
@@ -179,8 +182,12 @@ export async function listConversations(
     if (!missingIndex) throw error
 
     // Keep messaging available while a newly declared composite index is still building.
-    // Read the whole org set before sorting so an unordered limit cannot hide newer rows.
-    snap = await baseOrgQuery.get()
+    // Still hard-cap — never read the whole org set.
+    try {
+      snap = await baseOrgQuery.orderBy('updatedAt', 'desc').limit(readLimit).get()
+    } catch {
+      snap = await baseOrgQuery.limit(readLimit).get()
+    }
   }
 
   const candidates = snap.docs
