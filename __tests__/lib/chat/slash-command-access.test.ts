@@ -56,6 +56,7 @@ describe('slash-command-access', () => {
   it('classifies command tiers', () => {
     expect(slashCommandAccessTier('task')).toBe('public')
     expect(slashCommandAccessTier('goal')).toBe('dispatch')
+    expect(slashCommandAccessTier('hire')).toBe('dispatch')
     expect(slashCommandAccessTier('memory', '')).toBe('operator_read')
     expect(slashCommandAccessTier('memory', 'add foo')).toBe('operator_write')
     expect(slashCommandAccessTier('toolsets')).toBe('operator_write')
@@ -63,6 +64,13 @@ describe('slash-command-access', () => {
     expect(slashCommandAccessTier('hermes-features')).toBe('operator_read')
     expect(slashCommandAccessTier('context')).toBe('public')
     expect(slashCommandAccessTier('compress')).toBe('dispatch')
+  })
+
+  it('registers /hire as agent_intent with hire guidance', () => {
+    const hire = SLASH_COMMANDS.find((command) => command.id === 'hire')
+    expect(hire?.token).toBe('/hire')
+    expect(hire?.executorKind).toBe('agent_intent')
+    expect(hire?.aliases).toEqual(expect.arrayContaining(['/agent-hire', '/provision-agent']))
   })
 
   it('exposes /context and /compress in the registry with distinct identities', () => {

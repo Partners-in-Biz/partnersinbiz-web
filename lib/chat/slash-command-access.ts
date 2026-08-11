@@ -72,6 +72,10 @@ export function slashCommandAccessTier(
     case 'goal':
     case 'subgoal':
       return 'dispatch'
+    case 'hire':
+      // Org design + optional machine provision. Participants may request; Pip still
+      // gates real profile creation behind explicit intent + runtime operator skills.
+      return 'dispatch'
     case 'use-current-page':
     case 'task':
     case 'route':
