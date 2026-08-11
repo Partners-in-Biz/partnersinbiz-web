@@ -304,6 +304,35 @@ export default function AgentOrgChartClient({
           onSelectNode={(node) => setEditor({ node })}
           liveModelByAgentId={liveModelByAgentId}
         />
+        <div className="absolute right-3 top-3 z-10 flex overflow-hidden rounded-md border border-[var(--color-pib-line)] bg-[var(--color-pib-surface)] shadow-lg">
+          <button
+            type="button"
+            aria-label="Zoom out"
+            title="Zoom out"
+            onClick={() => canvasRef.current?.zoomOut()}
+            className="grid h-8 w-8 place-items-center border-r border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
+          >
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">remove</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Fit chart"
+            title="Fit chart"
+            onClick={() => canvasRef.current?.fit()}
+            className="grid h-8 w-8 place-items-center border-r border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
+          >
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">fit_screen</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Zoom in"
+            title="Zoom in"
+            onClick={() => canvasRef.current?.zoomIn()}
+            className="grid h-8 w-8 place-items-center text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.06] hover:text-[var(--color-pib-text)]"
+          >
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>
+          </button>
+        </div>
       </div>
 
       <OrgNodeEditor
