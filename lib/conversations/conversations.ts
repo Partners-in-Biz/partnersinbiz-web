@@ -151,11 +151,13 @@ export async function listConversations(
   const scopedRefId = filters?.includeAllScopes || contactContextScan
     ? undefined
     : (filters?.scopeRefId ?? filters?.projectId)
-  const readLimit = contactContextScan
-    ? Math.max(limit * 4, 100)
-    : scopedRefId
-      ? Math.max(limit * 2, 30)
-      : Math.max(limit * 4, filters?.scope ? 100 : limit)
+  const readLimit = filters?.includeAllScopes
+    ? Math.max(limit, 100)
+    : contactContextScan
+      ? Math.max(limit * 4, 100)
+      : scopedRefId
+        ? Math.max(limit * 2, 30)
+        : Math.max(limit * 4, filters?.scope ? 100 : limit)
   const baseOrgQuery = adminDb.collection(CONVERSATIONS_COLLECTION).where('orgId', '==', orgId)
   // Project and other scoped Messages views previously read up to 100-120
   // organisation-wide conversations on every refresh, then discarded nearly

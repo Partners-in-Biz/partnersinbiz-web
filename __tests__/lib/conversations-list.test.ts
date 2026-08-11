@@ -151,6 +151,7 @@ describe('listConversations', () => {
     )
 
     expect(mockWhere).toHaveBeenCalledTimes(1)
+    expect(mockIndexedLimit).toHaveBeenCalledWith(100)
     expect(conversations.map((conversation) => conversation.id)).toEqual(['project-chat', 'task-chat'])
   })
 

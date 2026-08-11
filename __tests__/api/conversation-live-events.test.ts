@@ -1,4 +1,8 @@
 import { NextRequest } from 'next/server'
+import {
+  CONVERSATION_LIVE_REFRESH_MS,
+  CONVERSATION_LIVE_STREAM_TTL_MS,
+} from '@/lib/conversations/live-feed'
 
 const mockListConversations = jest.fn()
 const mockGetConversation = jest.fn()
@@ -148,7 +152,7 @@ describe('GET /api/v1/conversations/live', () => {
     expect(new TextDecoder().decode(snapshot.value)).toContain('"id":"conv-focused"')
   })
 
-  it('does not reread an unchanged active thread on each heartbeat', async () => {
+  it('does not reread an unchanged active thread inside a bounded fallback stream', async () => {
     jest.useFakeTimers()
     const conversation = {
       id: 'conv-stable',
@@ -179,8 +183,9 @@ describe('GET /api/v1/conversations/live', () => {
     await reader.read()
 
     expect(mockListMessages).toHaveBeenCalledTimes(1)
-    await jest.advanceTimersByTimeAsync(15_000)
-    expect(mockListConversations).toHaveBeenCalledTimes(2)
+    expect(CONVERSATION_LIVE_REFRESH_MS).toBeGreaterThanOrEqual(CONVERSATION_LIVE_STREAM_TTL_MS)
+    await jest.advanceTimersByTimeAsync(CONVERSATION_LIVE_STREAM_TTL_MS)
+    expect(mockListConversations).toHaveBeenCalledTimes(1)
     expect(mockListMessages).toHaveBeenCalledTimes(1)
 
     await reader.cancel()
