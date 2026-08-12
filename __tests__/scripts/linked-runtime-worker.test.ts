@@ -1,4 +1,4 @@
-import fs from'node:fs';import os from'node:os';import path from'node:path';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunPollDelay,LinkedRunProfileCapacity,pollForever}from'../../runtime-installers/runtime/worker'
+import fs from'node:fs';import os from'node:os';import path from'node:path';import{execFileSync}from'node:child_process';import{generateKeyPairSync}from'node:crypto';import{MappingRegistry}from'../../runtime-installers/runtime/bridge';import{executeJob,linkedRunPollDelay,LinkedRunProfileCapacity,pollForever}from'../../runtime-installers/runtime/worker'
 import { DeviceApiClient } from '../../runtime-installers/runtime/client'
 import { applyHeartbeatData,handleRotation,heartbeatForever,isRevokeAcknowledged,linkedRunMaxTotalConcurrency,linkedRuntimeHeartbeatBody,linkedRuntimePlatform,linkedRuntimeSyncClaimBody,nativeWorkspaceSyncSupported,recoverPendingRevocation,runRuntimeServicePollers,sanitizeIdentity } from '../../runtime-installers/runtime/cli'
 import { callLocalHermes, isLocalHermesGatewayDrainingError, localHermesAgentHasActiveWork, localHermesRoutes, probeLocalHermes } from '../../runtime-installers/runtime/hermes'
@@ -593,5 +593,92 @@ it('persists and reads back rotation before acknowledging with the new credentia
 it('never acknowledges a failed or torn secure write and retries a failed ack from durable state',async()=>{const old={deviceId:'d',credential:'old',credentialVersion:1,privateKey:'private'},rotation={rotation:{credential:'new',credentialVersion:2,rotationDeliveryId:'delivery-1'}},ack=jest.fn(async()=>{});await expect(handleRotation(old,rotation,async()=>{throw new Error('disk')},async()=>old,ack)).rejects.toThrow(/secure identity write/);await expect(handleRotation(old,rotation,async()=>{},async()=>old,ack)).rejects.toThrow(/secure identity write/);expect(ack).not.toHaveBeenCalled();let stored:any,attempts=0;const persist=async(v:any)=>{stored=structuredClone(v)},read=async()=>stored;await expect(handleRotation(old,rotation,persist,read,async()=>{attempts++;throw new Error('offline')})).rejects.toThrow(/acknowledgement/);expect(stored.pendingRotationDeliveryId).toBe('delivery-1');await expect(handleRotation(stored,{rotation:null},persist,read,async(v,id)=>{attempts++;expect(v.credentialVersion).toBe(2);expect(id).toBe('delivery-1')})).resolves.toEqual(expect.not.objectContaining({pendingRotationDeliveryId:expect.anything()}));expect(attempts).toBe(2)})
 it('migrates legacy identities and repeated deliveries without persisting transport tokens',async()=>{expect(sanitizeIdentity({deviceId:'d',credential:'c',credentialVersion:2,privateKey:'p',transportToken:'secret'})).toEqual({deviceId:'d',credential:'c',credentialVersion:2,privateKey:'p'});let stored:any={deviceId:'d',credential:'new',credentialVersion:2,privateKey:'p',pendingRotationDeliveryId:'delivery-1'},acks=0;const result=await handleRotation(stored,{rotation:{credential:'new',credentialVersion:2,rotationDeliveryId:'delivery-1'}},async v=>{stored=v},async()=>stored,async()=>{acks++});expect(acks).toBe(1);expect(result.pendingRotationDeliveryId).toBeUndefined()})
 it('revoke recovery retries only revoke, survives restart, and clears identity after ack',async()=>{const calls:string[]=[],cleared=jest.fn(),waits:number[]=[];let attempts=0;await recoverPendingRevocation(async()=>{calls.push('revoke');if(++attempts<3)throw new Error('offline')},async()=>{calls.push('clear');cleared()},async ms=>{waits.push(ms)},()=>false);expect(calls).toEqual(['revoke','revoke','revoke','clear']);expect(waits).toEqual([1000,2000]);expect(cleared).toHaveBeenCalled();expect(calls).not.toContain('claim');expect(calls).not.toContain('heartbeat')})
+
+function gitRepositoryForTaskWorktree(): string {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'linked-task-worktree-'))
+  const origin = path.join(parent, 'origin.git')
+  const root = path.join(parent, 'repo')
+  execFileSync('git', ['init', '--bare', origin], { stdio: 'ignore' })
+  fs.mkdirSync(root)
+  const git = (args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore' })
+  git(['init', '-b', 'development'])
+  git(['config', 'user.email', 'runtime-test@example.com'])
+  git(['config', 'user.name', 'runtime test'])
+  fs.writeFileSync(path.join(root, 'README.md'), 'runtime worktree test\n')
+  git(['add', 'README.md'])
+  git(['commit', '-m', 'seed'])
+  git(['remote', 'add', 'origin', origin])
+  git(['push', '-u', 'origin', 'development'])
+  return root
+}
+
+it('runs a linked Kanban task from a task-scoped Git worktree rather than the shared mapping root', async () => {
+  const root = gitRepositoryForTaskWorktree()
+  const maps = new MappingRegistry(path.join(path.dirname(root), 'maps'))
+  maps.map('m', root)
+  const k = generateKeyPairSync('ed25519')
+  const post = jest.fn(async () => new Response('', { status: 200 }))
+  const hermes = jest.fn(async (body) => `cwd=${body.working_directory}`)
+  const result = await executeJob(
+    { jobId: 'linked-task-job', requestId: 'request', prompt: 'implement safely', workspaceId: 'w', projectId: 'p', mappingId: 'm', relativeFolder: '.', attempt: 1, leaseToken: 'lease', kanbanTaskId: 'kanban-safe-worktree' },
+    { deviceId: 'device', credentialVersion: 1, privateKey: k.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() },
+    maps,
+    post,
+    hermes,
+  )
+  expect(result.status).toBe('completed')
+  const cwd = String(hermes.mock.calls[0][0].working_directory)
+  expect(cwd).toContain(`${path.sep}.pib-agent-worktrees${path.sep}`)
+  expect(cwd).not.toBe(fs.realpathSync(root))
+  expect(execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' })).toBe('')
+  fs.rmSync(path.dirname(root), { recursive: true, force: true })
+})
+
+it('preserves an authorised nested relativeFolder when routing a linked Kanban task into its isolated worktree', async () => {
+  const root = gitRepositoryForTaskWorktree()
+  const nested = path.join(root, 'packages', 'app')
+  fs.mkdirSync(nested, { recursive: true })
+  fs.writeFileSync(path.join(nested, 'package.json'), '{"name":"nested-app"}\n')
+  execFileSync('git', ['add', 'packages/app/package.json'], { cwd: root, stdio: 'ignore' })
+  execFileSync('git', ['commit', '-m', 'add nested app'], { cwd: root, stdio: 'ignore' })
+  execFileSync('git', ['push', 'origin', 'development'], { cwd: root, stdio: 'ignore' })
+  const maps = new MappingRegistry(path.join(path.dirname(root), 'maps'))
+  maps.map('m', root)
+  const k = generateKeyPairSync('ed25519')
+  const hermes = jest.fn(async (body) => `cwd=${body.working_directory}`)
+  const result = await executeJob(
+    { jobId: 'nested-task-job', requestId: 'request', prompt: 'implement safely', workspaceId: 'w', projectId: 'p', mappingId: 'm', relativeFolder: 'packages/app', attempt: 1, leaseToken: 'lease', kanbanTaskId: 'kanban-nested-worktree' },
+    { deviceId: 'device', credentialVersion: 1, privateKey: k.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() },
+    maps,
+    async () => new Response('', { status: 200 }),
+    hermes,
+  )
+  expect(result.status).toBe('completed')
+  expect(String(hermes.mock.calls[0][0].working_directory)).toContain(`${path.sep}pib-task-kanban-nested-worktree${path.sep}packages${path.sep}app`)
+  fs.rmSync(path.dirname(root), { recursive: true, force: true })
+})
+
+it('turns a dirty shared Git mapping into a terminal linked-run error without calling Hermes', async () => {
+  const root = gitRepositoryForTaskWorktree()
+  fs.writeFileSync(path.join(root, 'sibling-in-flight.txt'), 'do not touch\n')
+  const maps = new MappingRegistry(path.join(path.dirname(root), 'maps'))
+  maps.map('m', root)
+  const k = generateKeyPairSync('ed25519')
+  const posts: any[] = []
+  const post = jest.fn(async (url, body) => { posts.push([url, body]); return new Response('', { status: 200 }) })
+  const hermes = jest.fn(async () => 'must not run')
+  const result = await executeJob(
+    { jobId: 'dirty-task-job', requestId: 'request', prompt: 'implement safely', workspaceId: 'w', projectId: 'p', mappingId: 'm', relativeFolder: '.', attempt: 1, leaseToken: 'lease', kanbanTaskId: 'kanban-dirty-worktree' },
+    { deviceId: 'device', credentialVersion: 1, privateKey: k.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() },
+    maps,
+    post,
+    hermes,
+  )
+  expect(result).toEqual(expect.objectContaining({ status: 'failed', error: expect.stringContaining('shared_worktree_dirty') }))
+  expect(hermes).not.toHaveBeenCalled()
+  expect(fs.readFileSync(path.join(root, 'sibling-in-flight.txt'), 'utf8')).toBe('do not touch\n')
+  expect(posts.some(([url, body]) => String(url).endsWith('/complete') && body.outcome === 'failed')).toBe(true)
+  fs.rmSync(path.dirname(root), { recursive: true, force: true })
+})
 it.each([[200,{revoked:true,code:'device_revoked'},true],[200,{revoked:true,code:'already_revoked'},true],[401,{error:'signature'},false],[403,{revoked:true,code:'device_revoked'},false],[410,{revoked:true,code:'already_revoked'},false],[200,{revoked:true,code:'unknown'},false],[200,{status:'revoked'},false]])('accepts only exact successful revoke acknowledgement %#',async(status,body,expected)=>{await expect(isRevokeAcknowledged(new Response(JSON.stringify(body),{status}))).resolves.toBe(expected)})
 it('keeps revoke pending on malformed acknowledgement JSON',async()=>{await expect(isRevokeAcknowledged(new Response('not-json',{status:200}))).resolves.toBe(false)})

@@ -8,9 +8,10 @@
  *
  * Concurrency cap: 5 active dispatches per agent.
  */
+import crypto from 'node:crypto'
 import type { DocumentReference, DocumentSnapshot, QuerySnapshot } from 'firebase-admin/firestore'
 import { db, FieldValue } from './firestore'
-import { AGENT_IDS, getAgentConfig, loadEnabledAgentIds, type AgentId } from './config'
+import { AGENT_IDS, getAgentConfig, loadEnabledAgentIds, type AgentConfig, type AgentId } from './config'
 import { claimReviewTask, claimTask, startHeartbeat } from './claim'
 import { runAndPoll, type TaskDispatchInput } from './hermes'
 import { resolveWatcherLlmRoute, resolveWatcherRuntimePreference } from './llm-routing'
@@ -23,6 +24,7 @@ import { formatHermesWatcherError } from './hermes-error'
 import { logger } from './logger'
 import type { AgentRunTelemetry } from './run-telemetry'
 import { agentStatusUpdate } from './task-updates'
+import { assessCompletionIntegrity, validateCompletionEvidence, verifyChangedFilesMatchCommit, verifyCleanWatcherWorktree, verifyReachableDevelopmentCommit, type CompletionIntegrityAssessment } from './completion-integrity'
 import {
   getTaskDependencyGateIds,
   getTaskDispatchBlocker,
@@ -38,6 +40,24 @@ import { buildSurfaceModePromptBlock } from './surface-modes'
 import { notifyCommandSessionFromTask } from './command-session'
 import { buildCompletionArtifacts, notifyWorkflowGraphTerminal } from './workflow-writeback'
 import { buildWatcherPromptBudget } from './prompt-budget'
+import { prepareWatcherTaskWorktree, type WatcherWorktreeResult } from './repository-isolation'
+import {
+  decideAutomaticRequeue,
+  isGatewayRestartStormError,
+  isTransientHermesError,
+  MAX_TRANSIENT_RETRIES,
+  transientRetryAt,
+  type DurableFailureRecord,
+} from './failure-classification'
+
+export {
+  classificationMatrix,
+  decideAutomaticRequeue,
+  isGatewayRestartStormError,
+  isTransientHermesError,
+  MAX_TRANSIENT_RETRIES,
+  transientRetryAt,
+} from './failure-classification'
 
 
 function expectedArtifactsFromTask(taskData: TaskData): string[] | undefined {
@@ -135,12 +155,8 @@ const READY_TASK_SWEEP_MS = 60_000
 const MAX_READY_SWEEP_DOCS = 100
 const MAX_SCHEDULED_RELEASE_SWEEP_DOCS = 100
 const MAX_DEPENDENCY_RELEASE_SWEEP_DOCS = 100
-const MAX_TRANSIENT_RETRIES = 3
-// Normal provider blips stay short. Mid-run gateway loss / 502 storms need a
-// longer cool-down so the watcher does not re-claim while local-runtime is
-// still bouncing the profile.
-const TRANSIENT_RETRY_DELAYS_MS = [60_000, 5 * 60_000, 15 * 60_000] as const
-const GATEWAY_STORM_RETRY_DELAYS_MS = [5 * 60_000, 15 * 60_000, 30 * 60_000] as const
+// Transient retry budget + backoff tables live in failure-classification.ts
+// (bounded automatic requeue under the at-most-once dispatch contract).
 
 const inFlight = new Set<string>()
 const perAgentInFlight = new Map<AgentId, number>()
@@ -172,10 +188,43 @@ function chunkAgentIds(agentIds: string[], size = 30): string[][] {
   return chunks.length > 0 ? chunks : [Array.from(AGENT_IDS)]
 }
 
+function completionStateFingerprint(task: TaskData): string {
+  const agentOutput = task.agentOutput && typeof task.agentOutput === 'object'
+    ? { ...(task.agentOutput as Record<string, unknown>) }
+    : null
+  if (agentOutput) {
+    // Producer dual-hold may patch artifacts/telemetry while verification runs;
+    // those are merged into the final output and must not trip the claim guard.
+    delete agentOutput.artifacts
+    delete agentOutput.telemetry
+    delete agentOutput.completedAt
+  }
+  return JSON.stringify({
+    completionEvidence: task.completionEvidence ?? null,
+    agentStatus: task.agentStatus ?? null,
+    status: task.status ?? null,
+    columnId: task.columnId ?? null,
+    assigneeAgentId: task.assigneeAgentId ?? null,
+    assignedTo: task.assignedTo ?? null,
+    reviewerAgentId: task.reviewerAgentId ?? null,
+    reviewerIds: task.reviewerIds ?? null,
+    reviewStatus: task.reviewStatus ?? null,
+    agentOutput,
+  })
+}
+
+function taskHasAssignedReviewer(task: TaskData): boolean {
+  return Boolean(
+    (typeof task.reviewerAgentId === 'string' && task.reviewerAgentId.trim())
+    || (Array.isArray(task.reviewerIds) && task.reviewerIds.some((id) => typeof id === 'string' && id.trim())),
+  )
+}
+
 interface TaskData {
   orgId?: string
   projectId?: string
   assigneeAgentId?: string
+  assignedTo?: { type?: string; id?: string } | null
   agentStatus?: string
   agentInput?: { spec?: string; context?: Record<string, unknown>; constraints?: string[] }
   dependsOn?: string[]
@@ -186,7 +235,13 @@ interface TaskData {
   reviewerIds?: string[]
   reviewStatus?: string
   agentOutput?: { summary?: string; artifacts?: unknown[]; telemetry?: unknown; [key: string]: unknown }
+  completionEvidence?: unknown
+  completionVerification?: { verifierIdentity?: string; verifierResult?: string; reasons?: string[]; commitReachable?: boolean | null; changedFilesMatch?: boolean | null }
+  completionIntegrityFailureReasons?: string[]
   agentConversationId?: string
+  /** Stable key for the current logical task-dispatch attempt. */
+  agentDispatchKey?: string
+  agentDispatchFailure?: Record<string, unknown>
   workflowRunId?: string
   workflowNodeId?: string
   status?: string
@@ -232,45 +287,121 @@ interface TaskData {
   }
 }
 
-const TRANSIENT_HERMES_ERROR_PATTERNS = [
-  /\bconnection error\b/i,
-  /\bfetch failed\b/i,
-  /\bsocket hang up\b/i,
-  /\b(?:ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN)\b/i,
-  /\b(?:429|502|503|504)\b/,
-  /\brate limit(?:ed)?\b/i,
-  /\bservice unavailable\b/i,
-  /\bprovider (?:is )?(?:overloaded|temporarily unavailable)\b/i,
-  /\bwas not found on the agent gateway\b/i,
-  /\bautomatic credential sync will retry\b/i,
-  /\bProvider authentication failed\b/i,
-]
+const PRE_EXECUTION_FAILOVER_UNSAFE = /\b(approval|approve|send|message|publish|schedule|spend|budget|finance|invoice|payment|delete|archive|secret|config|deploy|release|production|client-visible)\b/i
 
-export function isTransientHermesError(error: string): boolean {
-  return TRANSIENT_HERMES_ERROR_PATTERNS.some((pattern) => pattern.test(error))
+function isPreExecutionTransportFailure(result: Awaited<ReturnType<typeof runAndPoll>>): boolean {
+  // A no-run-id transport error is safe to recover only when deterministic
+  // lookup has proved this runtime never accepted the dispatch key.
+  return result.dispatchAcceptance === 'not-accepted'
+    && !result.runId
+    && Boolean(result.error)
+    && isTransientHermesError(result.error!)
 }
 
-export function isGatewayRestartStormError(error: string): boolean {
-  return (
-    /\bwas not found on the agent gateway\b/i.test(error)
-    || /\brun_not_found\b/i.test(error)
-    || /\breturned 502 repeatedly while polling\b/i.test(error)
-    || /\breturned 503 repeatedly while polling\b/i.test(error)
-    || /\bgateway_draining\b/i.test(error)
-    || /\baddress already in use\b/i.test(error)
-  )
+function canRecoverPreExecutionDispatch(input: {
+  taskData: TaskData
+  result: Awaited<ReturnType<typeof runAndPoll>>
+}): boolean {
+  const { taskData, result } = input
+  if (!isPreExecutionTransportFailure(result)) return false
+  if (hasPendingApprovalGate(taskData)) return false
+  const riskText = [
+    taskData.title,
+    taskData.requiredCapability,
+    ...(taskData.labels ?? []),
+  ].filter(Boolean).join(' ')
+  return !PRE_EXECUTION_FAILOVER_UNSAFE.test(riskText)
 }
 
-function transientRetryAt(retryCount: number, now = Date.now(), error?: string): string {
-  const table = error && isGatewayRestartStormError(error)
-    ? GATEWAY_STORM_RETRY_DELAYS_MS
-    : TRANSIENT_RETRY_DELAYS_MS
-  const delay = table[Math.min(retryCount, table.length - 1)]
-  return new Date(now + delay).toISOString()
+/**
+ * This is deliberately narrower than durable retry: the first gateway must not
+ * have created a run, so a local fallback cannot duplicate accepted agent work.
+ */
+function canFailOverPreExecutionDispatch(input: {
+  taskData: TaskData
+  cfg: AgentConfig | null
+  linkedTarget: LinkedDeviceDispatchTarget | null
+  credentialRoute: Awaited<ReturnType<typeof resolveWatcherLlmRoute>>
+  result: Awaited<ReturnType<typeof runAndPoll>>
+}): boolean {
+  const { taskData, cfg, linkedTarget, credentialRoute, result } = input
+  if (linkedTarget || credentialRoute || !cfg || cfg.targetId !== 'vps') return false
+  if (!canRecoverPreExecutionDispatch({ taskData, result })) return false
+  // Explicit runtime/model/credential choices must never be silently rerouted.
+  if (taskData.agentRuntimeTargetId || taskData.agentModel || taskData.llmConnectionId || taskData.llmCredentialBindingId) return false
+  return true
+}
+
+function buildAutomaticRequeuePatch(input: {
+  decision: ReturnType<typeof decideAutomaticRequeue>
+  activeRunId?: string | null
+  dispatchKey?: string | null
+  telemetry?: AgentRunTelemetry | Record<string, unknown> | null
+  targetId?: string | null
+  preserveRuntimeTargetId?: string | null
+}): Record<string, unknown> {
+  const { decision } = input
+  const failure: Record<string, unknown> = {
+    ...decision.record,
+    ...(input.targetId ? { targetId: input.targetId } : {}),
+  }
+  if (decision.action === 'requeue') {
+    return {
+      ...agentStatusUpdate('pending'),
+      ...(input.activeRunId ? { agentConversationId: input.activeRunId } : {}),
+      agentDispatchKey: FieldValue.delete(),
+      agentRetryCount: decision.nextRetryCount,
+      agentRetryAt: decision.retryAt,
+      agentHeartbeatAt: FieldValue.delete(),
+      agentDispatchFailure: failure,
+      ...(input.preserveRuntimeTargetId ? { agentRuntimeTargetId: input.preserveRuntimeTargetId } : {}),
+      agentOutput: {
+        summary: decision.summary,
+        ...(input.telemetry ? { telemetry: input.telemetry } : {}),
+        completedAt: FieldValue.serverTimestamp(),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    }
+  }
+  return {
+    ...agentStatusUpdate('blocked'),
+    ...(input.activeRunId ? { agentConversationId: input.activeRunId } : {}),
+    ...(input.dispatchKey ? { agentDispatchKey: input.dispatchKey } : {}),
+    agentHeartbeatAt: FieldValue.delete(),
+    agentDispatchFailure: failure,
+    ...(input.preserveRuntimeTargetId ? { agentRuntimeTargetId: input.preserveRuntimeTargetId } : {}),
+    agentOutput: {
+      summary: decision.summary,
+      ...(input.telemetry ? { telemetry: input.telemetry } : {}),
+      completedAt: FieldValue.serverTimestamp(),
+    },
+    updatedAt: FieldValue.serverTimestamp(),
+  }
 }
 
 function safeDocKey(value: string): string {
   return value.replace(/\//g, '-')
+}
+
+/**
+ * One Firestore retry count represents one logical dispatch attempt. Hashing the
+ * durable identifiers gives Hermes an opaque valid key that survives watcher
+ * restarts and VPS→local recovery, without exposing org/task ids in headers.
+ */
+export function stableTaskDispatchKey(input: {
+  orgId: string
+  taskId: string
+  agentId: string
+  attempt: number
+}): string {
+  const canonical = JSON.stringify({
+    v: 1,
+    orgId: input.orgId,
+    taskId: input.taskId,
+    agentId: input.agentId,
+    attempt: Math.max(0, Math.trunc(input.attempt) || 0),
+  })
+  return `pib-dispatch-v1-${crypto.createHash('sha256').update(canonical).digest('hex')}`
 }
 
 const HUMAN_BLOCKER_PATTERNS = [
@@ -759,40 +890,28 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
           runtimeTargetId: taskData.agentRuntimeTargetId,
           error: message,
         })
-        if (isTransientHermesError(message) || /offline|stale|heartbeat|retry/i.test(message)) {
-          const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
-          if (priorRetryCount < MAX_TRANSIENT_RETRIES) {
-            const nextRetryCount = priorRetryCount + 1
-            const retryAt = transientRetryAt(priorRetryCount, Date.now(), message)
-            await taskRef.update({
-              ...agentStatusUpdate('pending'),
-              agentRetryCount: nextRetryCount,
-              agentRetryAt: retryAt,
-              agentHeartbeatAt: FieldValue.delete(),
-              agentRuntimeTargetId: taskData.agentRuntimeTargetId,
-              agentOutput: {
-                summary: `Transient watcher error: ${message} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
-                completedAt: FieldValue.serverTimestamp(),
-              },
-              updatedAt: FieldValue.serverTimestamp(),
-            })
-            return
-          }
+        const classifiedError = (isTransientHermesError(message) || /offline|stale|heartbeat|retry/i.test(message))
+          ? `host unavailable: ${message}`
+          : message
+        const decision = decideAutomaticRequeue({
+          error: classifiedError,
+          dispatchAcceptance: 'not-accepted',
+          runId: null,
+          priorRetryCount: Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0,
+          phase: 'linked-device-resolve',
+          task: taskData,
+        })
+        await taskRef.update(buildAutomaticRequeuePatch({
+          decision,
+          preserveRuntimeTargetId: taskData.agentRuntimeTargetId ?? null,
+        }))
+        if (decision.action === 'block') {
+          notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+            agentId,
+            summary: decision.summary,
+            blockingReason: message,
+          })
         }
-        await taskRef.update({
-          ...agentStatusUpdate('blocked'),
-          agentRuntimeTargetId: taskData.agentRuntimeTargetId,
-          agentOutput: {
-            summary: `Watcher error: ${message}`,
-            completedAt: FieldValue.serverTimestamp(),
-          },
-          updatedAt: FieldValue.serverTimestamp(),
-        })
-        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
-          agentId,
-          summary: `Watcher error: ${message}`,
-          blockingReason: message,
-        })
         return
       }
       logger.warn('linked-device resolve skipped; continuing VPS path', {
@@ -869,9 +988,23 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       }
     }
 
+    // The same task retry counter must resolve to the same opaque key after a
+    // watcher crash. A new durable retry increments that counter only after
+    // reconciliation proves this attempt was not accepted.
+    const dispatchAttempt = Number.isFinite(taskData.agentRetryCount)
+      ? Math.max(0, Math.trunc(Number(taskData.agentRetryCount)))
+      : 0
+    const dispatchKey = stableTaskDispatchKey({
+      orgId: taskData.orgId ?? '',
+      taskId,
+      agentId,
+      attempt: dispatchAttempt,
+    })
+
     // Move to in-progress + start heartbeat. Always preserve an explicit linked-device pin.
     await taskRef.update({
       ...agentStatusUpdate('in-progress'),
+      agentDispatchKey: dispatchKey,
       agentHeartbeatAt: FieldValue.serverTimestamp(),
       ...(taskData.agentRuntimeTargetId
         ? { agentRuntimeTargetId: taskData.agentRuntimeTargetId }
@@ -935,6 +1068,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     })
     const dispatchInput: TaskDispatchInput = {
       taskId,
+      dispatchKey,
       orgId: taskData.orgId ?? '',
       agentId,
       spec,
@@ -979,27 +1113,81 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         ?? null,
     }
 
-    // Callback: fires as soon as the Hermes run is created (before polling completes).
-    // Writes agentConversationId so the PiB UI can show a "Live session →" link immediately.
+    // Callback: fires as soon as Hermes accepts a run and MUST persist the id
+    // before polling. Throwing deliberately stops pollRun; the accepted key/id
+    // remains recoverable rather than being hidden behind a polling storm.
     const onRunCreated = async (runId: string): Promise<void> => {
       activeRunId = runId
-      try {
-        await taskRef.update({
-          agentConversationId: runId,
-          updatedAt: FieldValue.serverTimestamp(),
-        })
-        logger.info('wrote agentConversationId', { taskId, agentId, runId })
-      } catch (err) {
-        logger.warn('failed to write agentConversationId', {
-          taskId,
-          agentId,
-          runId,
-          error: err instanceof Error ? err.message : String(err),
-        })
-      }
+      await taskRef.update({
+        agentConversationId: runId,
+        agentDispatchKey: dispatchKey,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      logger.info('persisted accepted Hermes run before polling', { taskId, agentId, runId, dispatchKey })
     }
 
     let result: Awaited<ReturnType<typeof runAndPoll>>
+    let effectiveDispatchInput = dispatchInput
+    let effectiveCfg = cfg
+    // VPS-dispatched Kanban tasks that may mutate a repository are isolated
+    // in a task-scoped Git worktree before Hermes is called. Linked-computer
+    // jobs are isolated by the runtime worker instead, so this only runs
+    // when there is no linked target and the watcher dispatches directly.
+    let watcherWorktree: WatcherWorktreeResult | null = null
+    if (!linkedTarget && taskData.projectId) {
+      const repoRoot = process.env.PIB_REPO_ROOT || process.cwd()
+      try {
+        watcherWorktree = await prepareWatcherTaskWorktree({
+          taskId,
+          repositoryRoot: repoRoot,
+        })
+      } catch (worktreeErr) {
+        logger.warn('watcher worktree preflight threw — leaving task blocked', {
+          taskId,
+          agentId,
+          error: worktreeErr instanceof Error ? worktreeErr.message : String(worktreeErr),
+        })
+        watcherWorktree = {
+          ok: false,
+          taskId,
+          code: 'task_worktree_conflict',
+          message: worktreeErr instanceof Error ? worktreeErr.message : String(worktreeErr),
+        }
+      }
+      if (watcherWorktree && !watcherWorktree.ok) {
+        const blockedSummary = `TASK_WORKTREE_BLOCKED:${watcherWorktree.code}: ${watcherWorktree.message}`
+        logger.warn('watcher worktree preflight blocked — marking task blocked', {
+          taskId,
+          agentId,
+          code: watcherWorktree.code,
+        })
+        await taskRef.update({
+          ...agentStatusUpdate('blocked'),
+          agentHeartbeatAt: FieldValue.delete(),
+          agentOutput: {
+            summary: blockedSummary,
+            completedAt: FieldValue.serverTimestamp(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+          agentId,
+          summary: blockedSummary,
+          blockingReason: watcherWorktree.message,
+        })
+        return
+      }
+      if (watcherWorktree?.ok) {
+        effectiveDispatchInput = { ...dispatchInput, workingDirectory: watcherWorktree.workingDirectory }
+        logger.info('watcher isolated task worktree created for VPS dispatch', {
+          taskId,
+          agentId,
+          branch: watcherWorktree.branch,
+          workingDirectory: watcherWorktree.workingDirectory,
+          reused: watcherWorktree.reused,
+        })
+      }
+    }
     if (linkedTarget) {
       logger.info('dispatching task to linked computer queue', {
         taskId,
@@ -1026,9 +1214,26 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     } else {
       logger.info('dispatching task to Hermes', { taskId, agentId, orgId: dispatchInput.orgId })
       result = await runAndPoll(cfg!, dispatchInput, onRunCreated)
+      // The VPS gateway may be unavailable while a fresh local runtime is healthy.
+      // This is a same-dispatch transport recovery, not a retry of accepted agent work.
+      if (canFailOverPreExecutionDispatch({ taskData, cfg, linkedTarget, credentialRoute, result })) {
+        const localCfg = await getAgentConfig(agentId, 'local')
+        if (localCfg?.enabled && localCfg.targetId === 'local' && localCfg.baseUrl !== cfg?.baseUrl) {
+          effectiveDispatchInput = { ...dispatchInput, runtimeTargetId: localCfg.targetId }
+          logger.warn('VPS Hermes pre-execution failure; attempting safe local failover', {
+            taskId,
+            agentId,
+            failedTarget: cfg?.targetId,
+            fallbackTarget: localCfg.targetId,
+            error: result.error,
+          })
+          effectiveCfg = localCfg
+          result = await runAndPoll(localCfg, effectiveDispatchInput, onRunCreated)
+        }
+      }
     }
     activeRunId = result.runId ?? activeRunId
-    const telemetry = result.telemetry ?? fallbackTelemetry(dispatchInput)
+    const telemetry = result.telemetry ?? fallbackTelemetry(effectiveDispatchInput)
     stopHeartbeat?.()
     stopHeartbeat = null
     await persistAgentDispatchRun({
@@ -1047,63 +1252,77 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
         provider: credentialRoute?.provider ?? (taskModel ? taskProvider : null),
         model: taskModel,
       })
-      if (isTransientHermesError(result.error) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
-        const nextRetryCount = priorRetryCount + 1
-        const retryAt = transientRetryAt(priorRetryCount, Date.now(), result.error)
+      const preExecutionFailure = isPreExecutionTransportFailure(result)
+      const phase = result.dispatchAcceptance === 'unknown'
+        ? 'dispatch-acceptance-unknown'
+        : (result.runId && result.dispatchAcceptance === 'accepted')
+          ? 'accepted-run-polling'
+          : preExecutionFailure
+            ? 'pre-execution'
+            : 'run-failure'
+      const decision = decideAutomaticRequeue({
+        error: humanError,
+        dispatchAcceptance: result.dispatchAcceptance ?? null,
+        runId: result.runId ?? null,
+        output: result.output ?? null,
+        priorRetryCount,
+        phase,
+        dispatchKey,
+        task: taskData,
+        now: Date.now(),
+      })
+      if (decision.action === 'requeue') {
         logger.warn('transient Hermes run failure — scheduling durable retry', {
           taskId,
           agentId,
           runId: activeRunId,
-          retryCount: nextRetryCount,
-          retryAt,
+          retryCount: decision.nextRetryCount,
+          retryAt: decision.retryAt,
+          class: decision.class,
           error: result.error,
         })
-        await taskRef.update({
-          ...agentStatusUpdate('pending'),
-          ...(activeRunId ? { agentConversationId: activeRunId } : {}),
-          agentRetryCount: nextRetryCount,
-          agentRetryAt: retryAt,
-          agentHeartbeatAt: FieldValue.delete(),
-          agentOutput: {
-            summary: `Transient watcher error: ${humanError} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
-            telemetry,
-            completedAt: FieldValue.serverTimestamp(),
-          },
-          updatedAt: FieldValue.serverTimestamp(),
+      } else {
+        logger.warn('Hermes run failed — marking blocked', {
+          taskId,
+          agentId,
+          error: result.error,
+          class: decision.class,
         })
-        return
       }
-      logger.warn('Hermes run failed — marking blocked', { taskId, agentId, error: result.error })
-      await taskRef.update({
-        ...agentStatusUpdate('blocked'),
-        ...(activeRunId ? { agentConversationId: activeRunId } : {}),
-        agentOutput: {
-          summary: `Watcher error: ${humanError}`,
-          telemetry,
-          completedAt: FieldValue.serverTimestamp(),
-        },
-        updatedAt: FieldValue.serverTimestamp(),
-      })
-      notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
-        agentId,
-        summary: `Watcher error: ${humanError}`,
-        blockingReason: humanError,
-        runId: activeRunId,
-      })
-      void notifyWorkflowGraphTerminal({
-        taskRef,
-        taskId,
-        taskData: {
-          ...(taskData as unknown as Record<string, unknown>),
-          agentOutput: { summary: `Watcher error: ${humanError}`, telemetry },
-        },
-        outcome: 'blocked',
-        summary: `Watcher error: ${humanError}`,
-        hermesRunId: activeRunId,
+      await taskRef.update(buildAutomaticRequeuePatch({
+        decision,
+        activeRunId: result.runId ?? activeRunId,
+        dispatchKey: decision.action === 'block' ? dispatchKey : null,
         telemetry,
-        errorFamily: isTransientHermesError(result.error) ? 'transient_infra' : 'unknown',
-        actorUid: agentId,
-      })
+        targetId: effectiveCfg?.targetId ?? null,
+      }))
+      if (decision.action === 'block') {
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+          agentId,
+          summary: decision.summary,
+          blockingReason: humanError,
+          runId: result.runId ?? activeRunId,
+        })
+        void notifyWorkflowGraphTerminal({
+          taskRef,
+          taskId,
+          taskData: {
+            ...(taskData as unknown as Record<string, unknown>),
+            agentOutput: { summary: decision.summary, telemetry },
+          },
+          outcome: 'blocked',
+          summary: decision.summary,
+          hermesRunId: result.runId ?? activeRunId,
+          telemetry,
+          errorFamily: decision.class === 'transient_queue_host'
+            || decision.class === 'session_storage_busy'
+            || decision.class === 'runner_timeout_no_evidence'
+            || decision.class === 'terminal_retry_exhausted'
+            ? 'transient_infra'
+            : 'unknown',
+          actorUid: agentId,
+        })
+      }
       return
     }
 
@@ -1162,10 +1381,27 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       return
     }
 
-    const hasReviewer = Boolean(
-      (typeof taskData.reviewerAgentId === 'string' && taskData.reviewerAgentId.trim())
-      || (Array.isArray(taskData.reviewerIds) && taskData.reviewerIds.some((id) => typeof id === 'string' && id.trim())),
-    )
+    const completionSnap = await taskRef.get().catch(() => null)
+    const completionTask = (completionSnap?.data() ?? taskData) as TaskData
+    const completionFingerprint = completionStateFingerprint(completionTask)
+    const completionEvidence = validateCompletionEvidence(completionTask.completionEvidence)
+    const commitReachable = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
+      ? await verifyReachableDevelopmentCommit(completionEvidence.evidence.commitSha!)
+      : null
+    const changedFilesMatch = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
+      ? await verifyChangedFilesMatchCommit(completionEvidence.evidence.commitSha!, completionEvidence.evidence.changedFiles)
+      : null
+    const worktreeClean = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
+      ? await verifyCleanWatcherWorktree()
+      : null
+    const completion = assessCompletionIntegrity({
+      summary,
+      evidence: completionTask.completionEvidence,
+      commitReachable,
+      changedFilesMatch,
+      worktreeClean,
+      currentAgentStatus: completionTask.agentStatus,
+    })
     // Preserve producer-patched artifacts (merge live store). Never replace with
     // summary/telemetry-only — that thrash wiped Quinn dual-hold gold repeatedly.
     const doneAgentOutput = await buildMergedDoneAgentOutput({
@@ -1174,14 +1410,158 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       summary,
       telemetry,
     })
-    await taskRef.update({
-      ...agentStatusUpdate('done', { hasReviewer }),
-      ...(activeRunId ? { agentConversationId: activeRunId } : {}),
-      agentRetryCount: FieldValue.delete(),
-      agentRetryAt: FieldValue.delete(),
-      agentOutput: doneAgentOutput,
-      updatedAt: FieldValue.serverTimestamp(),
+    if (completion.outcome !== 'pass') {
+      const exactReason = completion.reasons.join(', ')
+      const blockedSummary = `${summary}\n\nCompletion integrity ${completion.outcome}: ${exactReason}.`
+      const priorRetryCount = Number.isFinite(completionTask.agentRetryCount)
+        ? Math.max(0, Math.trunc(Number(completionTask.agentRetryCount)))
+        : 0
+      // Recoverable completion-integrity failures — evidence/test/commit artifacts
+      // the agent can still produce, e.g. tool-budget exhaustion before the agent
+      // attached completion evidence (the Covalonic terminal-block case) — are
+      // requeued with bounded backoff instead of being parked terminal in blocked.
+      // Genuinely terminal outcomes (agent reports unresolved work, watcher-worktree
+      // state conflicts) and exhausted retry budgets still block for human review.
+      if (isRecoverableCompletionFailure(completion) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
+        const nextRetryCount = priorRetryCount + 1
+        const retryAt = transientRetryAt(priorRetryCount, Date.now(), exactReason)
+        const requeueSummary = `${blockedSummary}\nAutomatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`
+        await taskRef.update({
+          ...agentStatusUpdate('pending'),
+          ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+          agentDispatchKey: FieldValue.delete(),
+          agentRetryCount: nextRetryCount,
+          agentRetryAt: retryAt,
+          agentHeartbeatAt: FieldValue.delete(),
+          completionIntegrityFailureReasons: completion.reasons,
+          completionVerification: {
+            verifierIdentity: 'agent-watcher',
+            verifierResult: 'failed',
+            reasons: completion.reasons,
+            commitReachable,
+            changedFilesMatch,
+            worktreeClean,
+            verifiedAt: FieldValue.serverTimestamp(),
+            verifierRunId: activeRunId,
+          },
+          agentOutput: { ...doneAgentOutput, summary: requeueSummary },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        await taskRef.collection('comments').add({
+          text: `Completion integrity did not pass (${exactReason}). Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
+          userId: 'system:agent-watcher',
+          userName: 'Agent watcher',
+          userRole: 'system',
+          createdAt: FieldValue.serverTimestamp(),
+          agentPickedUp: false,
+          agentPickedUpAt: null,
+        })
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'pending', {
+          agentId,
+          summary: requeueSummary,
+          blockingReason: exactReason,
+          runId: activeRunId,
+        })
+        logger.warn('recoverable completion-integrity failure scheduled automatic retry', {
+          taskId,
+          agentId,
+          reasons: completion.reasons,
+          retryCount: nextRetryCount,
+          retryAt,
+        })
+        return
+      }
+      await taskRef.update({
+        ...agentStatusUpdate('blocked'),
+        reviewStatus: 'changes-requested',
+        ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+        agentHeartbeatAt: FieldValue.delete(),
+        agentRetryCount: FieldValue.delete(),
+        agentRetryAt: FieldValue.delete(),
+        completionIntegrityFailureReasons: completion.reasons,
+        completionVerification: {
+          verifierIdentity: 'agent-watcher',
+          verifierResult: 'failed',
+          reasons: completion.reasons,
+          commitReachable,
+          changedFilesMatch,
+          worktreeClean,
+          verifiedAt: FieldValue.serverTimestamp(),
+          verifierRunId: activeRunId,
+        },
+        agentOutput: { ...doneAgentOutput, summary: blockedSummary },
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+        agentId,
+        summary: blockedSummary,
+        blockingReason: exactReason,
+        runId: activeRunId,
+      })
+      void notifyWorkflowGraphTerminal({
+        taskRef,
+        taskId,
+        taskData: { ...(taskData as unknown as Record<string, unknown>), agentOutput: { ...doneAgentOutput, summary: blockedSummary } },
+        outcome: 'blocked',
+        summary: blockedSummary,
+        hermesRunId: activeRunId,
+        telemetry,
+        errorFamily: completion.outcome === 'blocked' ? 'agent_incomplete' : 'verifier_fail',
+        actorUid: agentId,
+      })
+      logger.warn('completion integrity rejected task completion', { taskId, agentId, reasons: completion.reasons })
+      return
+    }
+
+    const finalized = await db.runTransaction(async (transaction) => {
+      const latestSnap = await transaction.get(taskRef)
+      const latestTask = (latestSnap.data() ?? completionTask) as TaskData
+      if (completionStateFingerprint(latestTask) !== completionFingerprint) {
+        transaction.update(taskRef, {
+          completionIntegrityFailureReasons: ['completion_state_changed_during_verification'],
+          completionVerification: {
+            verifierIdentity: 'agent-watcher',
+            verifierResult: 'failed',
+            reasons: ['completion_state_changed_during_verification'],
+            commitReachable,
+            changedFilesMatch,
+            worktreeClean,
+            verifiedAt: FieldValue.serverTimestamp(),
+            verifierRunId: activeRunId,
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        return { ok: false as const, hasReviewer: false }
+      }
+      const hasReviewer = taskHasAssignedReviewer(latestTask)
+      transaction.update(taskRef, {
+        ...agentStatusUpdate('done', { hasReviewer }),
+        ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+        agentHeartbeatAt: FieldValue.delete(),
+        agentRetryCount: FieldValue.delete(),
+        agentRetryAt: FieldValue.delete(),
+        completionEvidence: completion.evidence,
+        completionIntegrityFailureReasons: FieldValue.delete(),
+        completionVerification: {
+          verifierIdentity: 'agent-watcher',
+          verifierResult: 'passed',
+          reasons: [],
+          commitReachable,
+          changedFilesMatch,
+          worktreeClean,
+          verifiedAt: FieldValue.serverTimestamp(),
+          verifierRunId: activeRunId,
+        },
+        agentOutput: doneAgentOutput,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+      return { ok: true as const, hasReviewer }
     })
+    if (!finalized.ok) {
+      logger.warn('completion integrity claim changed during verification', { taskId, agentId })
+      return
+    }
+    const hasReviewer = finalized.hasReviewer
     notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'done', {
       agentId,
       summary,
@@ -1213,52 +1593,50 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     })
     logger.error('dispatchTask threw', { taskId, agentId, error: message })
     try {
+      // Once a run id was observed, a retry would be a new execution unless a
+      // future reconciler explicitly resumes that id. Preserve the evidence and
+      // stop instead of turning a post-acceptance write/poll failure into a
+      // second POST.
       const priorRetryCount = Number.isFinite(taskData.agentRetryCount) ? Math.max(0, Number(taskData.agentRetryCount)) : 0
-      if (isTransientHermesError(message) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
-        const nextRetryCount = priorRetryCount + 1
-        const retryAt = transientRetryAt(priorRetryCount, Date.now(), message)
-        await taskRef.update({
-          ...agentStatusUpdate('pending'),
-          ...(activeRunId ? { agentConversationId: activeRunId } : {}),
-          agentRetryCount: nextRetryCount,
-          agentRetryAt: retryAt,
-          agentHeartbeatAt: FieldValue.delete(),
-          agentOutput: {
-            summary: `Transient watcher error: ${humanError} Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
-            completedAt: FieldValue.serverTimestamp(),
-          },
-          updatedAt: FieldValue.serverTimestamp(),
-        })
-        return
-      }
-      await taskRef.update({
-        ...agentStatusUpdate('blocked'),
-        ...(activeRunId ? { agentConversationId: activeRunId } : {}),
-        agentOutput: {
-          summary: `Watcher error: ${humanError}`,
-          completedAt: FieldValue.serverTimestamp(),
-        },
-        updatedAt: FieldValue.serverTimestamp(),
-      })
-      notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
-        agentId,
-        summary: `Watcher error: ${humanError}`,
-        blockingReason: humanError,
+      const decision = decideAutomaticRequeue({
+        error: humanError,
+        dispatchAcceptance: activeRunId ? 'accepted' : 'not-accepted',
         runId: activeRunId,
+        priorRetryCount,
+        phase: activeRunId ? 'accepted-run-polling' : 'dispatch-throw',
+        task: taskData,
+        now: Date.now(),
       })
-      void notifyWorkflowGraphTerminal({
-        taskRef,
-        taskId,
-        taskData: {
-          ...(taskData as unknown as Record<string, unknown>),
-          agentOutput: { summary: `Watcher error: ${humanError}` },
-        },
-        outcome: 'blocked',
-        summary: `Watcher error: ${humanError}`,
-        hermesRunId: activeRunId,
-        errorFamily: isTransientHermesError(message) ? 'transient_infra' : 'unknown',
-        actorUid: agentId,
-      })
+      await taskRef.update(buildAutomaticRequeuePatch({
+        decision,
+        activeRunId,
+      }))
+      if (decision.action === 'block') {
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'blocked', {
+          agentId,
+          summary: decision.summary,
+          blockingReason: humanError,
+          runId: activeRunId,
+        })
+        void notifyWorkflowGraphTerminal({
+          taskRef,
+          taskId,
+          taskData: {
+            ...(taskData as unknown as Record<string, unknown>),
+            agentOutput: { summary: decision.summary },
+          },
+          outcome: 'blocked',
+          summary: decision.summary,
+          hermesRunId: activeRunId,
+          errorFamily: decision.class === 'transient_queue_host'
+            || decision.class === 'session_storage_busy'
+            || decision.class === 'runner_timeout_no_evidence'
+            || decision.class === 'terminal_retry_exhausted'
+            ? 'transient_infra'
+            : 'unknown',
+          actorUid: agentId,
+        })
+      }
     } catch (writeErr) {
       logger.error('failed to write blocked status after dispatch error', {
         taskId,
@@ -1343,6 +1721,18 @@ export async function dispatchReview(taskRef: DocumentReference, taskData: TaskD
     // Human already accepted while we were starting — do not thrash back to review/CR.
     if (liveData.reviewStatus === 'approved' || liveData.columnId === 'done') {
       logger.info('review skipped — human already approved', { taskId, agentId })
+      return
+    }
+    // A reviewer only receives work whose implementer completion was independently
+    // checked by the watcher. This blocks review from laundering a narrative into approval.
+    if (liveData.completionVerification?.verifierResult !== 'passed') {
+      const reason = 'completion_integrity_verification_required_before_reviewer_handoff'
+      await taskRef.update({
+        ...agentStatusUpdate('blocked'),
+        reviewStatus: 'changes-requested',
+        completionIntegrityFailureReasons: [reason],
+        updatedAt: FieldValue.serverTimestamp(),
+      })
       return
     }
     const liveArtifacts = buildCompletionArtifacts({
@@ -1455,6 +1845,14 @@ export async function dispatchReview(taskRef: DocumentReference, taskData: TaskD
       await taskRef.update({
         columnId: 'done',
         reviewStatus: 'approved',
+        completionVerification: {
+          ...(liveData.completionVerification ?? {}),
+          verifierIdentity: agentId,
+          verifierResult: 'approved',
+          reviewerHandoffFrom: 'agent-watcher',
+          reviewerOutput: output || 'APPROVED',
+          verifiedAt: FieldValue.serverTimestamp(),
+        },
         reviewRetryCount: FieldValue.delete(),
         reviewRetryAt: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
@@ -1579,6 +1977,64 @@ async function releaseDueScheduledTasks(now = Date.now()): Promise<void> {
   }
 }
 
+/**
+ * Completion-integrity failure reasons the agent can genuinely recover from by
+ * producing the missing artifact (evidence, tests passing, commit pushed, clean
+ * worktree). These are requeued with bounded backoff. Anything outside this set
+ * — agent reports unresolved work, watcher-worktree state conflicts, unknown
+ * causes — is terminal and must block for human review.
+ */
+const RECOVERABLE_COMPLETION_REASONS: ReadonlySet<string> = new Set([
+  'completion_evidence_missing',
+  'completion_evidence_schema_invalid',
+  'completion_work_kind_invalid',
+  'changed_file_list_invalid',
+  'changed_file_list_missing_for_code',
+  'scoped_test_command_missing',
+  'scoped_test_result_not_passing',
+  'development_commit_missing_or_invalid',
+  'changed_file_list_mismatch_with_commit',
+  'commit_not_reachable_on_origin_development',
+  'worktree_state_conflicts_with_done',
+  'no_code_task_lists_changed_files',
+  'no_code_exception_reason_missing',
+])
+
+function isRecoverableCompletionFailure(completion: CompletionIntegrityAssessment): boolean {
+  return completion.outcome === 'changes-requested'
+    && completion.reasons.length > 0
+    && completion.reasons.every((reason) => RECOVERABLE_COMPLETION_REASONS.has(reason))
+}
+
+/**
+ * Safety net for dep-less blocked cards that predate the recoverable-requeue fix
+ * (or any future card parked in blocked with a retryable completion-integrity
+ * cause). Recover only when the block carries a recoverable completion-integrity
+ * reason, is not human-gated, is past its retry backoff window (if any), and is
+ * still inside the bounded retry budget. Deliberately narrow so it never sweeps
+ * up arbitrary human/approval-gated blocks.
+ */
+function recoverableDepLessBlockedTask(data: TaskData, now: number): boolean {
+  if (data.columnId !== 'blocked') return false
+  if (data.deleted === true || data.status === 'cancelled' || data.status === 'canceled') return false
+  if (hasPendingApprovalGate(data) || hasPendingScheduledRelease(data, now)) return false
+  if (data.agentOutput?.needsPeet === true) return false
+  const summary = typeof data.agentOutput?.summary === 'string' ? data.agentOutput.summary : ''
+  if (outputNeedsHumanInput(summary)) return false
+  const reasons = Array.isArray(data.completionIntegrityFailureReasons)
+    ? data.completionIntegrityFailureReasons.filter((reason): reason is string => typeof reason === 'string' && reason.trim().length > 0)
+    : []
+  if (reasons.length === 0) return false
+  if (!reasons.every((reason) => RECOVERABLE_COMPLETION_REASONS.has(reason))) return false
+  const retryAtMs = releaseMillis(data.agentRetryAt)
+  if (retryAtMs !== null && retryAtMs > now) return false
+  const priorRetryCount = Number.isFinite(data.agentRetryCount)
+    ? Math.max(0, Math.trunc(Number(data.agentRetryCount)))
+    : 0
+  if (priorRetryCount >= MAX_TRANSIENT_RETRIES) return false
+  return true
+}
+
 async function releaseDependencyClearedDocs(
   docs: Array<{ ref: DocumentReference; data: () => Record<string, unknown> | undefined }>,
   waitingStatus: string,
@@ -1591,26 +2047,65 @@ async function releaseDependencyClearedDocs(
     if (allowedAgentIds && !allowedAgentIds.includes(data.assigneeAgentId)) return
     if (data.columnId !== 'blocked') return
     const dependencyGateIds = getTaskDependencyGateIds(data.dependsOn, data.approvalGateTaskId)
-    if (dependencyGateIds.length === 0) return
-    if (waitingStatus === 'blocked' && typeof data.agentOutput?.summary === 'string' && data.agentOutput.summary.trim()) return
+    // Dep-less blocked cards with a retryable completion-integrity cause (the
+    // pre-fix terminal dead end) are also re-dispatched. This is deliberately
+    // narrow — recoverableDepLessBlockedTask requires a recoverable reason, a
+    // non-human-gated block, an elapsed backoff window, and spare retry budget.
+    const depLessRecoverable = waitingStatus === 'blocked'
+      && dependencyGateIds.length === 0
+      && recoverableDepLessBlockedTask(data, now)
+    if (dependencyGateIds.length === 0 && !depLessRecoverable) return
+    // Summary-suppress guard protects human/approval-gated stalls. Dep-less
+    // retryable blocks are exempt: their recoverable gate already proved the
+    // block is not human-gated.
+    if (!depLessRecoverable && waitingStatus === 'blocked' && typeof data.agentOutput?.summary === 'string' && data.agentOutput.summary.trim()) return
     if (data.deleted === true || data.status === 'cancelled' || data.status === 'canceled') return
     if (hasPendingApprovalGate(data) || hasPendingScheduledRelease(data, now)) return
 
-    const deps = await dependenciesResolved(doc.ref, data.dependsOn, data.approvalGateTaskId)
+    const deps = dependencyGateIds.length > 0
+      ? await dependenciesResolved(doc.ref, data.dependsOn, data.approvalGateTaskId)
+      : { ok: true as const }
     if (!deps.ok) return
+
+    const priorRetryCount = Number.isFinite(data.agentRetryCount)
+      ? Math.max(0, Math.trunc(Number(data.agentRetryCount)))
+      : 0
+    const nextRetryCount = depLessRecoverable
+      ? Math.min(MAX_TRANSIENT_RETRIES, priorRetryCount + 1)
+      : priorRetryCount
+    const retryAt = depLessRecoverable ? transientRetryAt(priorRetryCount, now) : undefined
 
     const releasedData: TaskData = {
       ...data,
       agentStatus: 'pending',
       columnId: 'todo',
+      // Carry the scheduled retry so the immediate dispatch defers until the
+      // backoff window elapses instead of hot-looping.
+      ...(depLessRecoverable
+        ? { agentRetryCount: nextRetryCount, agentRetryAt: retryAt }
+        : {}),
     }
     await doc.ref.update({
       ...agentStatusUpdate('pending'),
       agentHeartbeatAt: FieldValue.delete(),
+      // For a dep-less retryable recovery, schedule the next bounded attempt,
+      // and clear the stale terminal markers left by the pre-fix block path
+      // (reviewStatus='changes-requested', completionIntegrityFailureReasons).
+      ...(depLessRecoverable
+        ? {
+            agentRetryCount: nextRetryCount,
+            agentRetryAt: retryAt,
+            completionIntegrityFailureReasons: FieldValue.delete(),
+            reviewStatus: FieldValue.delete(),
+            agentDispatchKey: FieldValue.delete(),
+          }
+        : {}),
       updatedAt: FieldValue.serverTimestamp(),
     })
     await doc.ref.collection('comments').add({
-      text: `Dependency gate cleared. All dependsOn tasks are complete; moved back to To Do for agent pickup.`,
+      text: depLessRecoverable
+        ? `Blocked with a retryable completion-integrity failure. Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}; moved back to To Do for agent pickup.`
+        : `Dependency gate cleared. All dependsOn tasks are complete; moved back to To Do for agent pickup.`,
       userId: 'system:agent-watcher',
       userName: 'Agent watcher',
       userRole: 'system',

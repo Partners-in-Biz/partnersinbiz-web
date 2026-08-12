@@ -33,7 +33,7 @@ export function hasApprovalGateMarker(
     ? nextBody.labels.filter((label): label is string => typeof label === 'string').map((l) => l.toLowerCase())
     : []
   const labelGate = [...labels, ...nextLabels].some((label) =>
-    /approval-gate|approval-required|client-approval|required-approval/.test(label),
+    /^(approval-gate|approval-required|client-approval|required-approval)(:.*)?$/i.test(String(label || '').trim()),
   )
   const existingGate = typeof data.approvalGate === 'string' && data.approvalGate && data.approvalGate !== 'none'
   const nextGate = typeof nextBody.approvalGate === 'string' && nextBody.approvalGate && nextBody.approvalGate !== 'none'

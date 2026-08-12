@@ -2,6 +2,24 @@ import { type AgentStatus, type TaskStatus } from './types'
 
 export type AgentColumnId = 'todo' | 'in_progress' | 'blocked' | 'review'
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Detect agent-owned tasks from top-level assigneeAgentId and legacy
+ * assignedTo.type='agent' records, including same-request assignment updates.
+ */
+export function isAgentOwnedTask(...sources: Array<unknown>): boolean {
+  for (const source of sources) {
+    if (!isRecord(source)) continue
+    if (typeof source.assigneeAgentId === 'string' && source.assigneeAgentId.trim()) return true
+    const assignedTo = isRecord(source.assignedTo) ? source.assignedTo : null
+    if (assignedTo?.type === 'agent' && typeof assignedTo.id === 'string' && assignedTo.id.trim()) return true
+  }
+  return false
+}
+
 export function columnForAgentStatus(status: AgentStatus): AgentColumnId {
   switch (status) {
     case 'pending':
@@ -64,10 +82,6 @@ export function applyStandaloneTaskStatusForAgentStatus(
   updates.status = taskStatusForAgentStatus(agentStatus)
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function taskSpecFrom(value: Record<string, unknown>, existing?: Record<string, unknown>): string {
   const title = typeof value.title === 'string' && value.title.trim()
     ? value.title.trim()
@@ -91,7 +105,10 @@ export function applyAgentDispatchDefaultsForStandaloneAssignment(
   if (assignedTo?.type !== 'agent' || typeof assignedTo.id !== 'string' || !assignedTo.id.trim()) return
 
   const agentId = assignedTo.id.trim()
-  if (body.assigneeAgentId === undefined && value.assigneeAgentId === undefined) {
+  const currentAssignee = typeof value.assigneeAgentId === 'string' ? value.assigneeAgentId.trim() : ''
+  // Keep legacy assignedTo agent tasks watcher-addressable even if a caller
+  // explicitly nulls assigneeAgentId; the two fields must not diverge.
+  if (!currentAssignee) {
     value.assigneeAgentId = agentId
   }
   if (body.agentStatus === undefined && value.agentStatus === undefined) {
@@ -117,13 +134,17 @@ export function applyAgentTodoRequeue(
   updates: Record<string, unknown>,
   body: Record<string, unknown>,
 ): Record<string, unknown> {
-  const hasAgent = typeof existing.assigneeAgentId === 'string' && existing.assigneeAgentId.trim().length > 0
+  const hasAgent = isAgentOwnedTask(existing, updates, body)
   const movedToTodo = updates.columnId === 'todo'
   const callerDidNotSetStatus = body.agentStatus === undefined
   const currentStatus = typeof existing.agentStatus === 'string' ? existing.agentStatus : null
   const requeueable = currentStatus === 'done' || currentStatus === 'blocked' || currentStatus === 'awaiting-input'
 
   if (!hasAgent || !movedToTodo || !callerDidNotSetStatus || !requeueable) return updates
+
+  const priorAttempt = Number.isFinite(Number(existing.agentRetryCount))
+    ? Math.max(0, Math.trunc(Number(existing.agentRetryCount)))
+    : 0
 
   return {
     ...updates,
@@ -133,5 +154,15 @@ export function applyAgentTodoRequeue(
     agentOutput: null,
     agentConversationId: null,
     agentHeartbeatAt: null,
+    // Keep Hermes Idempotency-Keys unique across requeues with changed payloads.
+    agentRetryCount: priorAttempt + 1,
+    agentRetryAt: null,
+    agentDispatchKey: null,
+    agentDispatchFailure: null,
+    // A requeue starts a new attempt. Old completion facts must not be reused
+    // to auto-complete or bypass watcher/reviewer verification on the new run.
+    completionEvidence: null,
+    completionVerification: null,
+    completionIntegrityFailureReasons: null,
   }
 }

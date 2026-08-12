@@ -568,8 +568,15 @@ describe('project task payload helpers', () => {
         agentOutput: null,
         agentConversationId: null,
         agentHeartbeatAt: null,
-        agentRetryCount: null,
+        agentRetryCount: 1,
         agentRetryAt: null,
+        agentDispatchKey: null,
+        agentDispatchFailure: null,
+        completionEvidence: null,
+        completionIntegrityFailureReasons: null,
+        completionVerification: null,
+        reviewRetryCount: null,
+        reviewRetryAt: null,
       })
     })
 
@@ -674,6 +681,75 @@ describe('project task payload helpers', () => {
         columnId: 'done',
         reviewStatus: 'approved',
       })
+    })
+
+    it('PATCH: explicit pending requeue also clears the previous attempt state', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'todo', agentStatus: 'pending' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentTodoRequeue(
+        {
+          assigneeAgentId: 'theo',
+          agentStatus: 'blocked',
+          agentOutput: { summary: 'Old gateway 502' },
+          agentConversationId: 'run-stale',
+          agentHeartbeatAt: 'stale-heartbeat',
+          agentRetryCount: 3,
+          agentRetryAt: '2026-08-09T20:00:00.000Z',
+          agentDispatchFailure: { phase: 'pre-execution', retryEligible: true },
+          completionEvidence: { schemaVersion: 1, workKind: 'no-code' },
+          completionIntegrityFailureReasons: ['completion_evidence_missing'],
+          completionVerification: { verifierResult: 'failed' },
+          reviewRetryCount: 2,
+          reviewRetryAt: '2026-08-09T20:05:00.000Z',
+        },
+        raw.value,
+        { columnId: 'todo', agentStatus: 'pending' },
+      )
+
+      expect(result).toEqual({
+        columnId: 'todo',
+        agentStatus: 'pending',
+        reviewStatus: 'changes-requested',
+        agentOutput: null,
+        agentConversationId: null,
+        agentHeartbeatAt: null,
+        agentRetryCount: 4,
+        agentRetryAt: null,
+        agentDispatchKey: null,
+        agentDispatchFailure: null,
+        completionEvidence: null,
+        completionIntegrityFailureReasons: null,
+        completionVerification: null,
+        reviewRetryCount: null,
+        reviewRetryAt: null,
+      })
+    })
+
+    it('PATCH: requeue from null retry count advances to attempt 1 so Idempotency-Keys do not collide', () => {
+      const raw = buildProjectTaskUpdateData({ columnId: 'todo' })
+      expect(raw.ok).toBe(true)
+      if (!raw.ok) return
+
+      const result = applyAgentTodoRequeue(
+        {
+          assigneeAgentId: 'theo',
+          agentStatus: 'blocked',
+          agentDispatchKey: 'pib-dispatch-v1-stale',
+          agentOutput: { summary: 'Idempotency-Key was already accepted with a different request payload' },
+        },
+        raw.value,
+        { columnId: 'todo' },
+      )
+
+      expect(result).toEqual(expect.objectContaining({
+        columnId: 'todo',
+        agentStatus: 'pending',
+        agentRetryCount: 1,
+        agentDispatchKey: null,
+        agentOutput: null,
+      }))
     })
 
     it('PATCH: explicit agentStatus is respected when moving columns', () => {

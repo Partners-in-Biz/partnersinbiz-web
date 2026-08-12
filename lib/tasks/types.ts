@@ -54,6 +54,28 @@ export interface AgentOutput {
   completedAt?: unknown
 }
 
+export interface CompletionEvidence {
+  schemaVersion: 1
+  workKind: 'code' | 'no-code'
+  commitSha?: string
+  changedFiles: string[]
+  testCommand: string
+  testResult: 'passed'
+  worktreeState: 'clean' | 'not-applicable'
+  noCodeReason?: string
+}
+
+export interface CompletionVerification {
+  verifierIdentity: string
+  verifierResult: 'passed' | 'failed' | 'approved'
+  reasons: string[]
+  commitReachable: boolean | null
+  changedFilesMatch?: boolean | null
+  worktreeClean?: boolean | null
+  verifiedAt: unknown
+  verifierRunId?: string | null
+}
+
 // Resource a task was created on behalf of (e.g. the portal Book Studio
 // request-draft route writes { type: 'book_studio_project', id, unitType, unitId }).
 export interface TaskLinkedResource {
@@ -107,6 +129,8 @@ export interface Task {
   agentStatus?: AgentStatus
   agentInput?: AgentInput
   agentOutput?: AgentOutput
+  completionEvidence?: CompletionEvidence
+  completionVerification?: CompletionVerification
   agentConversationId?: string | null
   agentHeartbeatAt?: unknown
   dependsOn?: string[]
@@ -157,6 +181,8 @@ export interface TaskInput {
   agentStatus?: AgentStatus
   agentInput?: AgentInput
   agentOutput?: AgentOutput
+  completionEvidence?: CompletionEvidence
+  completionVerification?: CompletionVerification
   agentConversationId?: string | null
   dependsOn?: string[]
   reviewerIds?: string[]

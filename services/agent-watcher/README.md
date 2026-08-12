@@ -175,6 +175,40 @@ The seed script:
 2. Writes `agent_dispatch_configs/<agentId>` with `{ agentId, baseUrl, apiKey, enabled: true }`.
 3. Is idempotent — safe to re-run.
 
+## Concurrent repository task isolation
+
+Watcher-dispatched Kanban work that reaches a linked runtime carries its `kanbanTaskId`. If the selected mapped folder is a Git checkout, the runtime runs the task only from a dedicated worktree:
+
+- Shared checkout: must be clean and checked out on `development`.
+- Task branch: `pib-task/<taskId>`, created from the already-synced local `origin/development` ref (the preflight intentionally never fetches shared refs).
+- Task worktree: a deterministic sibling path under `.pib-agent-worktrees/<repository>/pib-task-<taskId>`; this stays outside the source checkout, so creating it cannot dirty the shared tree. If the authorised mapping selected a subdirectory inside that repository, Hermes receives the matching subdirectory inside the task worktree — never the repository root by accident.
+- Retry: only a clean, correctly registered worktree for the same task may be reused.
+- Non-Git mappings continue normally; this guard applies to repo-backed work, not document-only tasks.
+
+The preflight never runs `stash`, `pop`, `checkout`, `reset`, `rebase`, `add`, `commit`, or any overwrite against the shared checkout. A dirty shared checkout, a wrong branch, missing base ref, pre-existing task branch, or unexpected task worktree is returned as `TASK_WORKTREE_BLOCKED:<code>`. The linked run completes as failed without starting Hermes; the watcher persists the exact error in `agentOutput.summary` and moves the Kanban task to `blocked`. Resolve the conflict manually, preserve the existing work, then use the normal safe continue/unblock flow. Do not delete another task's worktree or branch to unblock a task.
+
+Deterministic coverage lives in `__tests__/runtime-installers/repository-worktree.test.ts` (two independent task worktrees plus dirty-shared conflict) and `__tests__/scripts/linked-runtime-worker.test.ts` (runtime routing and durable terminal failure). Run:
+
+```bash
+npx jest --runInBand __tests__/runtime-installers/repository-worktree.test.ts __tests__/scripts/linked-runtime-worker.test.ts
+```
+
+### Direct VPS dispatch isolation
+
+When a Kanban task is dispatched directly to VPS Hermes (no linked-computer target), the watcher itself runs an equivalent preflight before calling `runAndPoll`. The watcher process is the execution host, so it creates the task worktree on the same machine that Hermes runs on:
+
+- Repository root: resolved from `PIB_REPO_ROOT` or `process.cwd()`.
+- The watcher fetches `origin/development` before creating the worktree (it is the sole VPS writer and already fetches in completion-integrity verification).
+- The isolated `working_directory` is forwarded to Hermes as `working_directory` in the `/v1/runs` POST body, so the agent runs inside the task worktree instead of the shared checkout.
+- A blocked preflight (`TASK_WORKTREE_BLOCKED:<code>`) moves the task to `blocked` without dispatching Hermes. The shared checkout is never stashed, rebased, or overwritten.
+- Non-repository tasks (no `projectId`) skip the preflight and dispatch normally.
+
+Deterministic coverage lives in `__tests__/services/agent-watcher/repository-isolation.test.ts` and `__tests__/services/agent-watcher/hermes.test.ts`. Run:
+
+```bash
+npx jest --runInBand __tests__/services/agent-watcher/repository-isolation.test.ts __tests__/services/agent-watcher/hermes.test.ts
+```
+
 ## Failure modes
 
 | Symptom                          | What happens                                                        |

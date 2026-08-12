@@ -1,3 +1,14 @@
+jest.mock('../../../services/agent-watcher/src/repository-isolation', () => ({
+  prepareWatcherTaskWorktree: jest.fn(async ({ taskId }: { taskId: string }) => ({
+    ok: true,
+    taskId,
+    branch: `pib-task-${taskId}`,
+    worktreePath: `/tmp/pib-agent-worktrees/demo/pib-task-${taskId}`,
+    workingDirectory: `/tmp/pib-agent-worktrees/demo/pib-task-${taskId}`,
+    reused: false,
+  })),
+}))
+
 jest.mock('../../../services/agent-watcher/src/config', () => ({
   AGENT_IDS: ['pip', 'theo', 'maya', 'sage', 'nora', 'ads', 'qa-release', 'support', 'data', 'docs', 'seo'],
   getAgentConfig: jest.fn(),
@@ -15,7 +26,12 @@ jest.mock('../../../services/agent-watcher/src/hermes', () => ({
 }))
 
 jest.mock('../../../services/agent-watcher/src/firestore', () => ({
-  db: {},
+  db: {
+    runTransaction: jest.fn(async (work) => work({
+      get: (ref: { get: () => unknown }) => ref.get(),
+      update: (ref: { update: (patch: Record<string, unknown>) => unknown }, patch: Record<string, unknown>) => ref.update(patch),
+    })),
+  },
   FieldValue: {
     serverTimestamp: jest.fn(() => 'SERVER_TIME'),
     delete: jest.fn(() => 'DELETE_FIELD'),
@@ -49,10 +65,17 @@ jest.mock('../../../services/agent-watcher/src/logger', () => ({
   },
 }))
 
+jest.mock('../../../services/agent-watcher/src/completion-integrity', () => ({
+  ...jest.requireActual('../../../services/agent-watcher/src/completion-integrity'),
+  verifyReachableDevelopmentCommit: jest.fn(),
+  verifyCleanWatcherWorktree: jest.fn(),
+}))
+
 import { getAgentConfig } from '../../../services/agent-watcher/src/config'
 import { claimTask, claimReviewTask, startHeartbeat } from '../../../services/agent-watcher/src/claim'
 import { db } from '../../../services/agent-watcher/src/firestore'
 import { runAndPoll } from '../../../services/agent-watcher/src/hermes'
+import { verifyCleanWatcherWorktree, verifyReachableDevelopmentCommit } from '../../../services/agent-watcher/src/completion-integrity'
 import {
   dispatchReview,
   dispatchTask,
@@ -68,6 +91,8 @@ const claimTaskMock = claimTask as jest.Mock
 const claimReviewTaskMock = claimReviewTask as jest.Mock
 const startHeartbeatMock = startHeartbeat as jest.Mock
 const runAndPollMock = runAndPoll as jest.Mock
+const verifyCleanWatcherWorktreeMock = verifyCleanWatcherWorktree as jest.Mock
+const verifyReachableDevelopmentCommitMock = verifyReachableDevelopmentCommit as jest.Mock
 
 describe('agent watcher transient Hermes errors', () => {
   it('treats a gateway-lost run as retryable after an upstream outage', () => {
@@ -174,6 +199,40 @@ describe('agent watcher dispatchReview verdict hygiene', () => {
     expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
       columnId: 'done',
       reviewStatus: 'approved',
+      completionVerification: expect.objectContaining({
+        verifierIdentity: 'qa-release',
+        verifierResult: 'approved',
+        reviewerHandoffFrom: 'agent-watcher',
+      }),
+    }))
+  })
+
+  it('blocks reviewer handoff until watcher verification has passed', async () => {
+    const taskRef = makeTaskRef([], {
+      completionVerification: {
+        verifierIdentity: 'agent-watcher',
+        verifierResult: 'failed',
+        reasons: ['completion_evidence_missing'],
+      },
+    })
+
+    await dispatchReview(taskRef as never, {
+      orgId: 'org-1',
+      projectId: 'project-1',
+      reviewerAgentId: 'qa-release',
+      agentStatus: 'done',
+      columnId: 'review',
+      reviewStatus: 'pending',
+      title: 'Phase 3 authoring',
+      agentOutput: { summary: 'done' },
+    })
+
+    expect(runAndPollMock).not.toHaveBeenCalled()
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: ['completion_integrity_verification_required_before_reviewer_handoff'],
     }))
   })
 
@@ -211,7 +270,24 @@ function makeTaskRef(
   comments: Array<Record<string, unknown>> = [],
   initialData: Record<string, unknown> = {},
 ) {
-  let data: Record<string, unknown> = { ...initialData }
+  let data: Record<string, unknown> = {
+    completionEvidence: {
+      schemaVersion: 1,
+      workKind: 'no-code',
+      noCodeReason: 'Watcher fixture: no repository files were changed.',
+      changedFiles: [],
+      testCommand: 'node scripts/verify-watcher-fixture.mjs',
+      testResult: 'passed',
+      worktreeState: 'not-applicable',
+    },
+    completionVerification: {
+      verifierIdentity: 'agent-watcher',
+      verifierResult: 'passed',
+      reasons: [],
+      commitReachable: null,
+    },
+    ...initialData,
+  }
   const update = jest.fn(async (patch: Record<string, unknown>) => {
     data = { ...data, ...patch }
   })
@@ -271,12 +347,15 @@ describe('agent watcher dispatchTask', () => {
     getAgentConfigMock.mockResolvedValue({ enabled: true, baseUrl: 'https://hermes.local', apiKey: 'secret' })
     claimTaskMock.mockResolvedValue(true)
     startHeartbeatMock.mockReturnValue(jest.fn())
+    verifyCleanWatcherWorktreeMock.mockResolvedValue(true)
+    verifyReachableDevelopmentCommitMock.mockResolvedValue(true)
     runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
       await onRunCreated('run-live-1')
       return {
         runId: 'run-live-1',
         output: 'done summary',
         error: null,
+        dispatchAcceptance: 'accepted',
         telemetry: {
           provider: null,
           model: null,
@@ -344,6 +423,161 @@ describe('agent watcher dispatchTask', () => {
       agentStatus: 'done',
       agentConversationId: 'run-live-1',
       agentOutput: expect.objectContaining({ summary: 'done summary' }),
+    }))
+  })
+
+  it('does not write done when the task claim changes during asynchronous verification', async () => {
+    const taskRef = makeTaskRef()
+    const initialGet = taskRef.get.getMockImplementation()
+    taskRef.get
+      .mockImplementationOnce(initialGet)
+      .mockImplementationOnce(async () => {
+        await taskRef.update({
+          agentStatus: 'pending',
+          agentOutput: { summary: 'Remaining work is unresolved.' },
+        })
+        return { exists: true, data: () => ({ agentStatus: 'pending', agentOutput: { summary: 'Remaining work is unresolved.' } }) }
+      })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', title: 'Ship integrity control',
+    })
+
+    const updates = taskRef.update.mock.calls.map((call: unknown[]) => call[0] as Record<string, unknown>)
+    expect(updates.some((update) => update.agentStatus === 'done')).toBe(false)
+    expect(updates).toContainEqual(expect.objectContaining({
+      completionIntegrityFailureReasons: ['completion_state_changed_during_verification'],
+      completionVerification: expect.objectContaining({ verifierResult: 'failed' }),
+    }))
+  })
+
+
+  it('uses completion-time reviewer assignment so a mid-run reviewer lands in Review, not Done', async () => {
+    const taskRef = makeTaskRef()
+    taskRef.get.mockImplementation(async () => ({
+      exists: true,
+      data: () => ({
+        completionEvidence: {
+          schemaVersion: 1,
+          workKind: 'no-code',
+          noCodeReason: 'Watcher fixture: no repository files were changed.',
+          changedFiles: [],
+          testCommand: 'node scripts/verify-watcher-fixture.mjs',
+          testResult: 'passed',
+          worktreeState: 'not-applicable',
+        },
+        agentStatus: 'in-progress',
+        assigneeAgentId: 'theo',
+        reviewerAgentId: 'qa-release',
+        reviewStatus: 'pending',
+        agentOutput: { summary: 'done summary' },
+      }),
+    }))
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Ship integrity control',
+    })
+
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'done',
+      columnId: 'review',
+      reviewStatus: 'pending',
+    }))
+    const terminal = taskRef.update.mock.calls
+      .map((call: unknown[]) => call[0] as Record<string, unknown>)
+      .find((update) => update.agentStatus === 'done')
+    expect(terminal).not.toEqual(expect.objectContaining({ columnId: 'done', reviewStatus: 'approved' }))
+  })
+
+  it('does not write done when typed agentOutput claim fields change during verification', async () => {
+    const taskRef = makeTaskRef()
+    const initialGet = taskRef.get.getMockImplementation()
+    taskRef.get
+      .mockImplementationOnce(initialGet)
+      .mockImplementationOnce(async () => {
+        await taskRef.update({
+          agentOutput: { summary: 'done summary', go_no_go: 'NO-GO' },
+        })
+        return {
+          exists: true,
+          data: () => ({
+            agentStatus: 'in-progress',
+            agentOutput: { summary: 'done summary', go_no_go: 'NO-GO' },
+          }),
+        }
+      })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', title: 'Ship integrity control',
+    })
+
+    const updates = taskRef.update.mock.calls.map((call: unknown[]) => call[0] as Record<string, unknown>)
+    expect(updates.some((update) => update.agentStatus === 'done')).toBe(false)
+    expect(updates).toContainEqual(expect.objectContaining({
+      completionIntegrityFailureReasons: ['completion_state_changed_during_verification'],
+    }))
+  })
+
+  it('requeues code completion with bounded backoff when its commit is not reachable from origin/development', async () => {
+    const taskRef = makeTaskRef([], {
+      completionEvidence: {
+        schemaVersion: 1,
+        workKind: 'code',
+        commitSha: 'b'.repeat(40),
+        changedFiles: ['services/agent-watcher/src/watcher.ts'],
+        testCommand: 'npx jest --runInBand __tests__/services/agent-watcher/watcher.test.ts',
+        testResult: 'passed',
+        worktreeState: 'clean',
+      },
+    })
+    verifyReachableDevelopmentCommitMock.mockResolvedValue(false)
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', title: 'Ship integrity control',
+    })
+
+    expect(verifyReachableDevelopmentCommitMock).toHaveBeenCalledWith('b'.repeat(40))
+    const update = taskRef.update.mock.calls.map((call: unknown[]) => call[0] as Record<string, unknown>).at(-1)
+    expect(update).toEqual(expect.objectContaining({
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentRetryCount: 1,
+      agentRetryAt: expect.any(String),
+      completionIntegrityFailureReasons: expect.arrayContaining(['commit_not_reachable_on_origin_development']),
+      completionVerification: expect.objectContaining({ verifierIdentity: 'agent-watcher', verifierResult: 'failed', commitReachable: false }),
+    }))
+    // Recoverable completion failures must not be parked terminal in review.
+    expect(update).not.toEqual(expect.objectContaining({ reviewStatus: 'changes-requested' }))
+  })
+
+  it('rejects code completion when the watcher worktree is dirty', async () => {
+    const taskRef = makeTaskRef([], {
+      completionEvidence: {
+        schemaVersion: 1,
+        workKind: 'code',
+        commitSha: 'c'.repeat(40),
+        changedFiles: ['services/agent-watcher/src/watcher.ts'],
+        testCommand: 'npx jest --runInBand __tests__/services/agent-watcher/watcher.test.ts',
+        testResult: 'passed',
+        worktreeState: 'clean',
+      },
+    })
+    verifyCleanWatcherWorktreeMock.mockResolvedValue(false)
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', title: 'Ship integrity control',
+    })
+
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: expect.arrayContaining(['watcher_worktree_state_conflicts_with_done']),
+      completionVerification: expect.objectContaining({ verifierIdentity: 'agent-watcher', verifierResult: 'failed', worktreeClean: false }),
     }))
   })
 
@@ -471,6 +705,132 @@ describe('agent watcher dispatchTask', () => {
     expect(runAndPollMock.mock.calls[0][1].spec).toContain('Please fix the mobile spacing')
   })
 
+  it('fails over once to a healthy local runtime after a pre-execution VPS gateway 502', async () => {
+    const taskRef = makeTaskRef()
+    getAgentConfigMock
+      .mockResolvedValueOnce({ enabled: true, targetId: 'vps', baseUrl: 'https://vps.hermes.local', apiKey: 'vps-key' })
+      .mockResolvedValueOnce({ enabled: true, targetId: 'local', baseUrl: 'https://local.hermes.local', apiKey: 'local-key' })
+    runAndPollMock
+      .mockResolvedValueOnce({ runId: null, output: null, error: 'Hermes /v1/runs returned 502: upstream unavailable', dispatchAcceptance: 'not-accepted', telemetry: { durationMs: 4 } })
+      .mockImplementationOnce(async (_cfg, _input, onRunCreated) => {
+        await onRunCreated('run-local-1')
+        return {
+          runId: 'run-local-1',
+          output: 'done after safe failover',
+          error: null,
+          dispatchAcceptance: 'accepted',
+          telemetry: { durationMs: 9 },
+        }
+      })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Repair watcher test fixture',
+      requiredCapability: 'write',
+    })
+
+    expect(getAgentConfigMock).toHaveBeenNthCalledWith(1, 'theo', null)
+    expect(getAgentConfigMock).toHaveBeenNthCalledWith(2, 'theo', 'local')
+    expect(runAndPollMock).toHaveBeenCalledTimes(2)
+    expect(runAndPollMock.mock.calls[1][0]).toEqual(expect.objectContaining({ targetId: 'local' }))
+    expect(runAndPollMock.mock.calls[1][1]).toEqual(expect.objectContaining({ runtimeTargetId: 'local' }))
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'done',
+      agentConversationId: 'run-local-1',
+    }))
+  })
+
+  it('blocks an ambiguous no-run-id dispatch instead of failing over or scheduling a new POST', async () => {
+    const taskRef = makeTaskRef()
+    getAgentConfigMock.mockResolvedValue({ enabled: true, targetId: 'vps', baseUrl: 'https://vps.hermes.local', apiKey: 'vps-key' })
+    runAndPollMock.mockResolvedValue({
+      runId: null,
+      output: null,
+      error: 'Hermes dispatch acceptance is unknown after reconciliation: lookup unavailable',
+      dispatchAcceptance: 'unknown',
+      telemetry: { durationMs: 4 },
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Repair watcher transport safety',
+      requiredCapability: 'write',
+    })
+
+    expect(getAgentConfigMock).toHaveBeenCalledTimes(1)
+    expect(runAndPollMock).toHaveBeenCalledTimes(1)
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      agentDispatchFailure: expect.objectContaining({
+        phase: 'dispatch-acceptance-unknown',
+        retryEligible: false,
+      }),
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('not retried because dispatch acceptance is unknown'),
+      }),
+    }))
+  })
+
+  it('derives and passes one stable dispatch key for a logical task attempt', async () => {
+    const taskRef = makeTaskRef()
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Repair watcher transport safety',
+      agentRetryCount: 2,
+    })
+
+    expect(runAndPollMock.mock.calls[0][1]).toEqual(expect.objectContaining({
+      dispatchKey: expect.stringMatching(/^pib-dispatch-v1-[a-f0-9]{64}$/),
+    }))
+  })
+
+  it('does not fail over or automatically retry a sensitive task after a pre-execution VPS gateway 502', async () => {
+    const taskRef = makeTaskRef()
+    getAgentConfigMock.mockResolvedValue({ enabled: true, targetId: 'vps', baseUrl: 'https://vps.hermes.local', apiKey: 'test-key' })
+    runAndPollMock.mockResolvedValue({
+      runId: null,
+      output: null,
+      error: 'Hermes /v1/runs returned 502: upstream unavailable',
+      dispatchAcceptance: 'not-accepted',
+      telemetry: { durationMs: 4 },
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Publish approved client campaign',
+      requiredCapability: 'publish',
+    })
+
+    expect(getAgentConfigMock).toHaveBeenCalledTimes(1)
+    expect(runAndPollMock).toHaveBeenCalledTimes(1)
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      agentDispatchFailure: expect.objectContaining({
+        phase: 'pre-execution',
+        targetId: 'vps',
+        retryEligible: false,
+      }),
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('not retried because this task is approval-gated or side-effect-sensitive'),
+      }),
+    }))
+  })
+
   it('injects the CEO data-decision operating rule into every Hermes task dispatch', async () => {
     const taskRef = makeTaskRef()
 
@@ -591,10 +951,8 @@ describe('agent watcher dispatchTask', () => {
     const spec = runAndPollMock.mock.calls[0][1].spec as string
     expect(spec).toContain('Project context:')
     expect(spec).toContain('Launch project')
-    expect(spec).toContain('Approved spec (id: doc-1, type: requirements)')
-    expect(spec).toContain('Dependency outputs:')
-    expect(spec).toContain('Competitor research says lead with proof.')
-    expect(spec).toContain('/api/v1/agent/project/project-1')
+    expect(spec).toContain('/api/v1/agent/project/project-1/task/task-1/context')
+    expect(spec).toContain('approved source references, dependency evidence')
     expect(spec).toContain('## Surface mode: Persuade')
   })
 
@@ -720,7 +1078,7 @@ describe('agent watcher dispatchTask', () => {
   })
 
   it('routes completed agent work into Review when a reviewer is assigned', async () => {
-    const taskRef = makeTaskRef()
+    const taskRef = makeTaskRef([], { reviewerAgentId: 'qa-release', reviewStatus: 'pending' })
     runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
       await onRunCreated('run-complete-reviewer-1')
       return {
@@ -737,7 +1095,7 @@ describe('agent watcher dispatchTask', () => {
       reviewerAgentId: 'qa-release',
       agentStatus: 'pending',
       columnId: 'todo',
-      title: 'Implement with review gate',
+      title: 'Implement development fix',
     })
 
     expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -756,7 +1114,12 @@ describe('agent watcher dispatchTask', () => {
     startHeartbeatMock.mockReturnValue(stopHeartbeat)
     runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
       await onRunCreated('run-failed-1')
-      return { runId: 'run-failed-1', output: null, error: 'gateway failed' }
+      return {
+        runId: 'run-failed-1',
+        output: null,
+        error: 'gateway failed',
+        dispatchAcceptance: 'accepted',
+      }
     })
 
     await dispatchTask(taskRef as never, {
@@ -771,18 +1134,29 @@ describe('agent watcher dispatchTask', () => {
     expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
       agentStatus: 'blocked',
       agentConversationId: 'run-failed-1',
-      agentOutput: expect.objectContaining({ summary: 'Watcher error: gateway failed' }),
+      agentDispatchFailure: expect.objectContaining({
+        phase: 'accepted-run-polling',
+        retryEligible: false,
+      }),
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('Watcher error after accepted run run-failed-1: gateway failed'),
+      }),
     }))
   })
 
-  it('durably requeues transient provider connection failures instead of blocking the project', async () => {
+  it('blocks an accepted-run transient failure instead of scheduling a second POST', async () => {
     const taskRef = makeTaskRef()
     const stopHeartbeat = jest.fn()
     startHeartbeatMock.mockReturnValue(stopHeartbeat)
     jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-07-27T06:00:00.000Z'))
     runAndPollMock.mockImplementation(async (_cfg, _input, onRunCreated) => {
       await onRunCreated('run-connection-1')
-      return { runId: 'run-connection-1', output: null, error: 'Connection error.' }
+      return {
+        runId: 'run-connection-1',
+        output: null,
+        error: 'Connection error.',
+        dispatchAcceptance: 'accepted',
+      }
     })
 
     await dispatchTask(taskRef as never, {
@@ -795,14 +1169,125 @@ describe('agent watcher dispatchTask', () => {
 
     expect(stopHeartbeat).toHaveBeenCalledTimes(1)
     expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      agentConversationId: 'run-connection-1',
+      agentDispatchFailure: expect.objectContaining({
+        phase: 'accepted-run-polling',
+        retryEligible: false,
+      }),
+      agentHeartbeatAt: 'DELETE_FIELD',
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('will not dispatch a second run'),
+      }),
+    }))
+  })
+
+  it('durably requeues a proven not-accepted pre-execution transient failure', async () => {
+    const taskRef = makeTaskRef()
+    const stopHeartbeat = jest.fn()
+    startHeartbeatMock.mockReturnValue(stopHeartbeat)
+    jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-07-27T06:00:00.000Z'))
+    runAndPollMock.mockResolvedValue({
+      runId: null,
+      output: null,
+      error: 'Hermes /v1/runs returned 502: upstream unavailable',
+      dispatchAcceptance: 'not-accepted',
+      telemetry: { durationMs: 4 },
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'pip',
       agentStatus: 'pending',
       columnId: 'todo',
-      agentConversationId: 'run-connection-1',
+      title: 'Investigate project health',
+      requiredCapability: 'write',
+    })
+
+    expect(stopHeartbeat).toHaveBeenCalledTimes(1)
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'pending',
+      columnId: 'todo',
       agentRetryCount: 1,
       agentRetryAt: '2026-07-27T06:01:00.000Z',
       agentHeartbeatAt: 'DELETE_FIELD',
+      agentDispatchFailure: expect.objectContaining({
+        phase: 'pre-execution',
+        acceptance: 'not-accepted',
+        retryEligible: true,
+        class: 'transient_queue_host',
+      }),
       agentOutput: expect.objectContaining({
-        summary: expect.stringContaining('Transient watcher error: Connection error.'),
+        summary: expect.stringContaining('Transient watcher error: Hermes /v1/runs returned 502'),
+      }),
+    }))
+  })
+
+  it('does not automatically requeue when review changes are still requested', async () => {
+    const taskRef = makeTaskRef()
+    jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-07-27T06:00:00.000Z'))
+    runAndPollMock.mockResolvedValue({
+      runId: null,
+      output: null,
+      error: 'Hermes /v1/runs returned 502: upstream unavailable',
+      dispatchAcceptance: 'not-accepted',
+      telemetry: { durationMs: 4 },
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'pip',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Investigate project health',
+      requiredCapability: 'write',
+      reviewStatus: 'changes-requested',
+    })
+
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      agentDispatchFailure: expect.objectContaining({
+        class: 'review_changes_requested',
+        retryEligible: false,
+      }),
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('review changes are unresolved'),
+      }),
+    }))
+  })
+
+  it('blocks with terminal exhaustion after the bounded retry budget', async () => {
+    const taskRef = makeTaskRef()
+    jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-07-27T06:00:00.000Z'))
+    runAndPollMock.mockResolvedValue({
+      runId: null,
+      output: null,
+      error: 'session-storage busy: database is locked',
+      dispatchAcceptance: 'not-accepted',
+      telemetry: { durationMs: 4 },
+    })
+
+    await dispatchTask(taskRef as never, {
+      orgId: 'org-1',
+      assigneeAgentId: 'pip',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Investigate project health',
+      requiredCapability: 'write',
+      agentRetryCount: 3,
+    })
+
+    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      agentDispatchFailure: expect.objectContaining({
+        class: 'terminal_retry_exhausted',
+        retryEligible: false,
+      }),
+      agentOutput: expect.objectContaining({
+        summary: expect.stringContaining('Automatic retry budget exhausted'),
       }),
     }))
   })
@@ -973,6 +1458,80 @@ describe('agent watcher dispatchTask', () => {
       expect.objectContaining({ taskId: 'blocked-follow-up-1' }),
       expect.any(Function),
     )
+  })
+
+  it('recovers a dep-less blocked task with a retryable completion-integrity failure into todo with bounded backoff', async () => {
+    const commentCollection = {
+      add: jest.fn(async () => undefined),
+      orderBy: jest.fn(() => ({
+        limit: jest.fn(() => ({
+          get: jest.fn(async () => ({ docs: [] })),
+        })),
+      })),
+    }
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'dep-less-blocked-recoverable-1',
+      path: 'projects/project-1/tasks/dep-less-blocked-recoverable-1',
+      collection: jest.fn(() => commentCollection),
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      title: 'Dep-less recoverable blocked task',
+      // No dependsOn — the pre-fix terminal dead end.
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: ['completion_evidence_missing'],
+      agentOutput: { summary: 'Ran out of tool budget before attaching evidence.' },
+    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks(Date.parse('2026-08-12T10:00:00.000Z'))
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentHeartbeatAt: 'DELETE_FIELD',
+      agentRetryCount: 1,
+      reviewStatus: 'DELETE_FIELD',
+      completionIntegrityFailureReasons: 'DELETE_FIELD',
+      agentDispatchKey: 'DELETE_FIELD',
+    }))
+    expect(commentCollection.add).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'system:agent-watcher',
+      text: expect.stringContaining('retryable completion-integrity'),
+    }))
+    // The recovery schedules the next bounded attempt; it must not dispatch
+    // immediately while agentRetryAt is still in the future.
+    expect(claimTaskMock).not.toHaveBeenCalled()
+  })
+
+  it('does not recover a dep-less blocked task without a recoverable completion-integrity reason', async () => {
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'dep-less-blocked-nonrecoverable-1',
+      path: 'projects/project-1/tasks/dep-less-blocked-nonrecoverable-1',
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      title: 'Dep-less human-gated blocked task',
+      agentOutput: { summary: 'Needs Peet to approve the approach before continuing.' },
+    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks(Date.parse('2026-08-12T10:00:00.000Z'))
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(taskRef.update).not.toHaveBeenCalled()
+    expect(claimTaskMock).not.toHaveBeenCalled()
   })
 
   it('does not release blocked tasks whose completed approval-gate dependency is unapproved', async () => {

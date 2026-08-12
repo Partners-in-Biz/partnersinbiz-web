@@ -31,6 +31,7 @@ import {
 import {
   applyAgentColumnForCreate,
   applyAgentDispatchDefaultsForStandaloneAssignment,
+  isAgentOwnedTask,
 } from '@/lib/tasks/agentState'
 import { buildTaskNotificationLink, taskNotificationData } from '@/lib/notifications/task-links'
 import {
@@ -267,6 +268,15 @@ export const POST = withAuth(
     const description = body.description?.trim() ?? ''
     const dueDate = body.dueDate ?? null
     const assignedTo = body.assignedTo ?? null
+
+    const createsAgentTask = isAgentOwnedTask({ assigneeAgentId, assignedTo }, raw)
+    const attemptsUnverifiedTerminalState = status === 'done'
+      || agentStatusValue === 'done'
+      || raw.columnId === 'done'
+      || raw.reviewStatus === 'approved'
+    if (createsAgentTask && attemptsUnverifiedTerminalState) {
+      return apiError('completion_integrity_verification_required', 409)
+    }
 
     const relationshipInput = relationshipInputFrom(body as unknown as Record<string, unknown>)
     const relationships = relationshipInput

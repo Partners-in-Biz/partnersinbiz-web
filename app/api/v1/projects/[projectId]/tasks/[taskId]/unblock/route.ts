@@ -29,7 +29,7 @@ function isApprovalGateTask(task: Record<string, unknown>): boolean {
   return Boolean(
     approvalGate
     || typeof task.approvalStatus === 'string'
-    || labels.some((label) => /approval-gate|approval-required|client-approval|required-approval/i.test(label)),
+    || labels.some((label) => /^(approval-gate|approval-required|client-approval|required-approval)(:.*)?$/i.test(String(label || '').trim())),
   )
 }
 
@@ -95,9 +95,27 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     updatedAt: FieldValue.serverTimestamp(),
   }
   if (hasAgent) {
+    // An authorised requeue begins a brand-new attempt. Never let a prior 502
+    // retry, dispatch failure, or canary completion record bleed into it.
+    // Increment agentRetryCount instead of nulling it: watcher dispatch keys are
+    // derived from that counter, and reusing attempt 0 after a payload change
+    // freezes the card on Hermes HTTP 409 idempotency_key_conflict.
+    const priorAttempt = Number.isFinite(Number(task.agentRetryCount))
+      ? Math.max(0, Math.trunc(Number(task.agentRetryCount)))
+      : 0
     update.agentStatus = 'pending'
+    update.agentOutput = null
     update.agentConversationId = null
     update.agentHeartbeatAt = null
+    update.agentRetryCount = priorAttempt + 1
+    update.agentRetryAt = null
+    update.agentDispatchKey = null
+    update.agentDispatchFailure = null
+    update.completionEvidence = null
+    update.completionIntegrityFailureReasons = null
+    update.completionVerification = null
+    update.reviewRetryCount = null
+    update.reviewRetryAt = null
   } else {
     update.agentStatus = null
   }
