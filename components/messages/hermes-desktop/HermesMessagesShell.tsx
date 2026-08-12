@@ -514,12 +514,12 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
 
   return (
     <ModuleShell
-      tier={2}
+      tier={0}
       accent="amber"
       shellTestId="hermes-messages-shell"
-      fieldTestId="messages-neural-field"
-      data-messages-experience="cinematic-2026"
-      className="relative flex h-[calc(100dvh-72px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-[var(--color-card)]/55 shadow-none lg:min-h-[640px]"
+      data-messages-experience="quiet-2026"
+      style={{ background: '#000' }}
+      className="relative flex h-[calc(100dvh-72px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-black shadow-none lg:min-h-[640px]"
     >
       <header data-testid="hermes-messages-shell-topbar" className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-2.5">
         <div className="flex min-w-0 items-center gap-2">
