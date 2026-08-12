@@ -60,12 +60,12 @@
   box-shadow: none !important;
 }
 
-/* Flat thread — no card bubbles / glowing composer glass */
+/* Flat thread — no card bubbles; keep accent rail with readable inset */
 [data-messages-experience='quiet-2026'] .mx-bubble-agent {
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  padding-left: 0 !important;
+  padding-left: 0.875rem !important;
   padding-right: 0 !important;
 }
 
@@ -73,6 +73,6 @@
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  padding-left: 0 !important;
+  padding-left: 0.875rem !important;
   padding-right: 0 !important;
 }

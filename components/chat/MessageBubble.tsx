@@ -2563,8 +2563,8 @@ export default function MessageBubble({
                 : [
                     // Mobile: plain prose, no background, larger readable text
                     'mx-bubble-agent max-w-full overflow-hidden text-[15px] leading-relaxed text-[var(--color-pib-text)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
-                    // Desktop: keep readable width without a heavy card shell
-                    'lg:rounded-none lg:px-0 lg:py-1 lg:text-sm lg:bg-transparent',
+                    // Desktop: flat prose with inset from the accent rail
+                    'lg:rounded-none lg:pl-3.5 lg:pr-0 lg:py-1 lg:text-sm lg:bg-transparent',
                   ].join(' ')
             }
           >
