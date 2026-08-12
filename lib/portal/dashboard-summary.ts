@@ -1,6 +1,8 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import type * as FirebaseFirestore from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
+import type { ApiUser } from '@/lib/api/types'
+import { filterProjectsForMemberScope } from '@/lib/projects/collaboration'
 
 export const PORTAL_DASHBOARD_SUMMARY_COLLECTION = 'org_portal_summaries'
 
@@ -330,7 +332,10 @@ function withSummaryDefaults(
   }
 }
 
-async function loadProjectSummary(orgId: string): Promise<PortalDashboardSummary['projects']> {
+async function loadProjectSummary(
+  orgId: string,
+  user?: ApiUser,
+): Promise<PortalDashboardSummary['projects']> {
   const [receivedSnap, targetSnap, clientSnap, legacySnap] = await Promise.all([
     adminDb.collection('projects').where('recipientOrgId', '==', orgId).get(),
     adminDb.collection('projects').where('targetOrgId', '==', orgId).get(),
@@ -338,12 +343,15 @@ async function loadProjectSummary(orgId: string): Promise<PortalDashboardSummary
     adminDb.collection('projects').where('orgId', '==', orgId).get(),
   ])
 
-  const byId = new Map<string, Record<string, unknown>>()
+  const byId = new Map<string, Record<string, unknown> & { id: string }>()
   for (const snap of [receivedSnap, targetSnap, clientSnap, legacySnap]) {
     for (const doc of snap.docs) byId.set(doc.id, { id: doc.id, ...doc.data() })
   }
 
-  const visible = Array.from(byId.values()).filter(isOpenProject)
+  const orgVisible = Array.from(byId.values()).filter(isOpenProject)
+  const visible = user
+    ? await filterProjectsForMemberScope(user, orgVisible)
+    : orgVisible
   visible.sort((a, b) => timestampMillis(b.updatedAt) - timestampMillis(a.updatedAt) || timestampMillis(b.createdAt) - timestampMillis(a.createdAt))
 
   return {
@@ -351,6 +359,18 @@ async function loadProjectSummary(orgId: string): Promise<PortalDashboardSummary
     active: visible.filter(isActiveProject).length,
     recent: visible.slice(0, RECENT_PROJECT_LIMIT).map((project) => projectRow(String(project.id), project)),
   }
+}
+
+/**
+ * The materialized dashboard summary is organisation-wide. Projects are a
+ * record-scoped surface, so the portal must calculate this portion for the
+ * authenticated member instead of reusing the shared cached value.
+ */
+export async function getPortalDashboardProjectSummary(
+  orgId: string,
+  user: ApiUser,
+): Promise<PortalDashboardSummary['projects']> {
+  return loadProjectSummary(orgId, user)
 }
 
 async function loadDomainDone(orgId: string): Promise<boolean> {

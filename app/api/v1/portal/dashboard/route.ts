@@ -8,10 +8,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
+import type { ApiUser } from '@/lib/api/types'
+import { loadOrgMemberAccessPolicy } from '@/lib/orgMembers/org-access-policy'
 import { snapshotKpis, lastCompletedMonth, monthPeriod } from '@/lib/reports/snapshot'
 import { listConnectionsForOrg } from '@/lib/integrations/connections'
 import { listReports } from '@/lib/reports/generate'
-import { getPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
+import { getPortalDashboardProjectSummary, getPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,7 +36,7 @@ async function listProps(orgId: string): Promise<PortalProperty[]> {
   })
 }
 
-export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _uid: string, orgId: string) => {
+export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, uid: string, orgId: string) => {
   // Use the current month-to-date for the live dashboard.
   const now = new Date()
   const tz = 'UTC' // Portal users see UTC for now; server-rendered, no timezone leakage.
@@ -43,13 +45,37 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
   // Cap end at today.
   period.end = now.toISOString().slice(0, 10)
 
-  const [snapshot, properties, connections, reports, summary] = await Promise.all([
+  const memberAccessPolicy = await loadOrgMemberAccessPolicy(orgId, uid).catch(() => null)
+  const projectViewer: ApiUser = {
+    uid,
+    role: 'client',
+    orgId,
+    activeOrgId: orgId,
+    orgIds: [orgId],
+    memberAccessPolicy: memberAccessPolicy ?? undefined,
+  }
+  const emptyProjects = { total: 0, active: 0, recent: [] }
+
+  const [snapshot, properties, connections, reports, summary, projects] = await Promise.all([
     snapshotKpis({ orgId, period, previousPeriod: lastCompletedMonth(tz) }).catch(() => null),
     listProps(orgId).catch(() => []),
     listConnectionsForOrg(orgId).catch(() => []),
     listReports(orgId, 6).catch(() => []),
     getPortalDashboardSummary(orgId).catch(() => null),
+    getPortalDashboardProjectSummary(orgId, projectViewer).catch(() => emptyProjects),
   ])
+
+  const scopedSummary = summary
+    ? {
+        ...summary,
+        counts: {
+          ...summary.counts,
+          projects: projects.total,
+          activeProjects: projects.active,
+        },
+        projects,
+      }
+    : null
 
   // Strip ciphertext from connections shown in portal.
   const safeConnections = connections.map(({ credentialsEnc: _e, ...rest }) => ({
@@ -65,11 +91,11 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, _ui
     series: snapshot?.series ?? null,
     properties,
     connections: safeConnections,
-    summary: summary
+    summary: scopedSummary
       ? {
-          ...summary,
+          ...scopedSummary,
           onboarding: {
-            ...summary.onboarding,
+            ...scopedSummary.onboarding,
             analytics: safeConnections.length > 0,
           },
         }
