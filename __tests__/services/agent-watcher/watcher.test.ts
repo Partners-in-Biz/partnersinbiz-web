@@ -522,7 +522,7 @@ describe('agent watcher dispatchTask', () => {
     }))
   })
 
-  it('rejects code completion when its commit is not reachable from origin/development', async () => {
+  it('requeues code completion with bounded backoff when its commit is not reachable from origin/development', async () => {
     const taskRef = makeTaskRef([], {
       completionEvidence: {
         schemaVersion: 1,
@@ -541,13 +541,17 @@ describe('agent watcher dispatchTask', () => {
     })
 
     expect(verifyReachableDevelopmentCommitMock).toHaveBeenCalledWith('b'.repeat(40))
-    expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
-      agentStatus: 'blocked',
-      columnId: 'blocked',
-      reviewStatus: 'changes-requested',
+    const update = taskRef.update.mock.calls.map((call: unknown[]) => call[0] as Record<string, unknown>).at(-1)
+    expect(update).toEqual(expect.objectContaining({
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentRetryCount: 1,
+      agentRetryAt: expect.any(String),
       completionIntegrityFailureReasons: expect.arrayContaining(['commit_not_reachable_on_origin_development']),
       completionVerification: expect.objectContaining({ verifierIdentity: 'agent-watcher', verifierResult: 'failed', commitReachable: false }),
     }))
+    // Recoverable completion failures must not be parked terminal in review.
+    expect(update).not.toEqual(expect.objectContaining({ reviewStatus: 'changes-requested' }))
   })
 
   it('rejects code completion when the watcher worktree is dirty', async () => {
@@ -1454,6 +1458,80 @@ describe('agent watcher dispatchTask', () => {
       expect.objectContaining({ taskId: 'blocked-follow-up-1' }),
       expect.any(Function),
     )
+  })
+
+  it('recovers a dep-less blocked task with a retryable completion-integrity failure into todo with bounded backoff', async () => {
+    const commentCollection = {
+      add: jest.fn(async () => undefined),
+      orderBy: jest.fn(() => ({
+        limit: jest.fn(() => ({
+          get: jest.fn(async () => ({ docs: [] })),
+        })),
+      })),
+    }
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'dep-less-blocked-recoverable-1',
+      path: 'projects/project-1/tasks/dep-less-blocked-recoverable-1',
+      collection: jest.fn(() => commentCollection),
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      title: 'Dep-less recoverable blocked task',
+      // No dependsOn — the pre-fix terminal dead end.
+      reviewStatus: 'changes-requested',
+      completionIntegrityFailureReasons: ['completion_evidence_missing'],
+      agentOutput: { summary: 'Ran out of tool budget before attaching evidence.' },
+    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks(Date.parse('2026-08-12T10:00:00.000Z'))
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentHeartbeatAt: 'DELETE_FIELD',
+      agentRetryCount: 1,
+      reviewStatus: 'DELETE_FIELD',
+      completionIntegrityFailureReasons: 'DELETE_FIELD',
+      agentDispatchKey: 'DELETE_FIELD',
+    }))
+    expect(commentCollection.add).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'system:agent-watcher',
+      text: expect.stringContaining('retryable completion-integrity'),
+    }))
+    // The recovery schedules the next bounded attempt; it must not dispatch
+    // immediately while agentRetryAt is still in the future.
+    expect(claimTaskMock).not.toHaveBeenCalled()
+  })
+
+  it('does not recover a dep-less blocked task without a recoverable completion-integrity reason', async () => {
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'dep-less-blocked-nonrecoverable-1',
+      path: 'projects/project-1/tasks/dep-less-blocked-nonrecoverable-1',
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'blocked',
+      columnId: 'blocked',
+      title: 'Dep-less human-gated blocked task',
+      agentOutput: { summary: 'Needs Peet to approve the approach before continuing.' },
+    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks(Date.parse('2026-08-12T10:00:00.000Z'))
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(taskRef.update).not.toHaveBeenCalled()
+    expect(claimTaskMock).not.toHaveBeenCalled()
   })
 
   it('does not release blocked tasks whose completed approval-gate dependency is unapproved', async () => {
