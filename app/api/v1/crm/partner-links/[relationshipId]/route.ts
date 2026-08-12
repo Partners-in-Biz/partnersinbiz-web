@@ -16,11 +16,11 @@ type RouteContext = { params: Promise<{ relationshipId: string }> }
 
 const VALID_CAPABILITIES: SharedBusinessCapability[] = [
   'crm', 'projects', 'documents', 'orders', 'shipments',
-  'inventory', 'invoices', 'analytics', 'support', 'services',
+  'inventory', 'invoices', 'analytics', 'research', 'properties', 'support', 'services',
 ]
 
 const POLICY_KEYS: Array<keyof FieldSharingPolicy> = [
-  'companyProfile', 'contacts', 'projects', 'documents', 'commerce', 'analytics',
+  'companyProfile', 'contacts', 'projects', 'documents', 'commerce', 'analytics', 'research', 'properties',
 ]
 
 /**

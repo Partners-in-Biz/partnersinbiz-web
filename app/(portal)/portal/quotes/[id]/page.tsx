@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { ShareWithPartnerButton } from '@/components/crm/ShareWithPartnerButton'
 
 type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'expired' | 'converted'
 
@@ -203,6 +204,11 @@ export default function QuoteDetailPage() {
           </p>
         </div>
       )}
+
+      {/* Share with a linked partner workspace */}
+      <div className="flex flex-wrap gap-2">
+        <ShareWithPartnerButton resourceType="quote" resourceId={id} />
+      </div>
 
       {/* Actions */}
       {!['converted', 'declined', 'expired'].includes(quote.status) && (

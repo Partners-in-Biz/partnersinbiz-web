@@ -58,7 +58,7 @@ describe('finish-gate vision (ModLens bridge)', () => {
     const png = tmpPng()
     const result = runVisionTranscript(png, { binary: 'definitely-not-a-real-binary-xyz' })
     expect(result.ok).toBe(false)
-    expect(result.error && result.error.length > 0).toBe(true)
+    expect(result.error.length).toBeGreaterThan(0)
   })
 
   it('buildVisionTranscripts keys by path and collects notes', () => {

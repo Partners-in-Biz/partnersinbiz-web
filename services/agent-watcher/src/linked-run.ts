@@ -634,9 +634,9 @@ async function enqueueKanbanLinkedRunViaMessages(input: {
     content: input.payload.prompt,
     agentId: input.agentId,
   }
-  // Keep grok-4.5 / xai-oauth pairing only when both are present (Messages rejects provider-only stamps).
+  // Keep grok-4.6 / xai-oauth pairing only when both are present (Messages rejects provider-only stamps).
   if (input.payload.model && input.payload.provider) {
-    // Omit model/provider so Mac profile primary (xai-oauth/grok-4.5) can run cleanly.
+    // Omit model/provider so Mac profile primary (xai-oauth/grok-4.6) can run cleanly.
     // Explicit pairs can re-enable once credential binding resolution is included.
   }
 

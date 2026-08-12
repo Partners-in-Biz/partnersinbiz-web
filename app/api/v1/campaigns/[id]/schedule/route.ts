@@ -32,7 +32,10 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
-import { resolveOrgScope } from '@/lib/api/orgScope'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
 import { logActivity } from '@/lib/activity/log'
@@ -151,8 +154,16 @@ export const POST = withAuth(
     if (!campaignSnap.exists) return apiError('Campaign not found', 404)
     const campaign = campaignSnap.data() as AnyObj
     if (campaign.deleted) return apiError('Campaign not found', 404)
-    const scope = resolveOrgScope(user, (campaign.orgId as string | undefined) ?? null)
-    if (!scope.ok) return apiError(scope.error, scope.status)
+    const access = await assertMarketingHandlerAccess({
+      user,
+      module: 'campaigns',
+      resourceId: id,
+      resourceOwnerOrgId: (campaign.orgId as string | undefined) ?? null,
+      operation: 'schedule',
+      partnerLinkId: extractPartnerLinkId(req),
+    })
+    if (!access.ok) return apiError(access.error, access.status)
+    const scope = { ok: true as const, orgId: access.orgId }
     const orgId = scope.orgId
 
     // Resolve options

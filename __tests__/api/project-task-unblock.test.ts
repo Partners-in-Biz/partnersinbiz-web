@@ -8,7 +8,7 @@ const mockGetAll = jest.fn()
 const mockCollection = jest.fn()
 const mockGetProjectForUser = jest.fn()
 const mockLogActivity = jest.fn()
-const mockPlanningMutationBlocker = jest.fn((_project: Record<string, unknown>): null | { code: 'planning_discovery_required'; message: string; revision: number } => null)
+const mockPlanningMutationBlocker = jest.fn((): null | { code: 'planning_discovery_required'; message: string; revision: number } => null)
 let mockUser: MockUser = { uid: 'user-1', role: 'admin' }
 
 jest.mock('@/lib/firebase/admin', () => ({
@@ -125,6 +125,9 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
 
     expect(res.status).toBe(200)
     expect(body).toEqual({ success: true, data: { id: 'task-1', requeued: true, commentId: 'comment-1' } })
+    expect(mockGetProjectForUser).toHaveBeenCalledWith(
+      'project-1', mockUser, undefined, { action: 'project.write', item: 'task-1' },
+    )
     expect(taskUpdate).toHaveBeenCalledWith(expect.objectContaining({
       columnId: 'todo',
       agentStatus: 'pending',
@@ -246,6 +249,33 @@ describe('POST /api/v1/projects/[projectId]/tasks/[taskId]/unblock', () => {
         'Approval gate “Approval” is not approved yet.',
       ],
     })
+    expect(taskUpdate).not.toHaveBeenCalled()
+    expect(commentSet).not.toHaveBeenCalled()
+  })
+
+  it('does not disclose private dependency metadata through a task that is externally shareable', async () => {
+    const { taskUpdate, commentSet } = makeTaskRefs({
+      title: 'Partner-visible task', columnId: 'blocked', agentStatus: 'blocked', dependsOn: ['private-dependency'],
+    })
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: { data: () => ({ orgId: 'org-1' }) },
+      projectAccess: {
+        role: 'contributor', source: 'project_organization', canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-1', actions: ['project.write'], items: ['task-1'] },
+      },
+    })
+    mockGetAll.mockResolvedValue([
+      docSnapshot('private-dependency', { title: 'Internal acquisition plan', columnId: 'blocked', agentStatus: 'blocked', internalOnly: true }),
+    ])
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/unblock/route')
+    const res = await POST(req(), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(body.reasons).toEqual(['A required dependency or approval gate is not available for this share.'])
+    expect(JSON.stringify(body)).not.toContain('Internal acquisition plan')
     expect(taskUpdate).not.toHaveBeenCalled()
     expect(commentSet).not.toHaveBeenCalled()
   })

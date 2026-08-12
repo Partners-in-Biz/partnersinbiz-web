@@ -19,6 +19,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { getAccessibleClientDocument } from '@/lib/client-documents/access'
+import { stripDurableArtifactUrls } from '@/lib/client-documents/artifacts'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import { adminDb } from '@/lib/firebase/admin'
 import { sendEmail } from '@/lib/email/send'
@@ -31,10 +32,6 @@ export const dynamic = 'force-dynamic'
 type RouteContext = { params: Promise<{ id: string }> }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-function actorType(user: ApiUser) {
-  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
-}
 
 function requiredText(value: unknown): string {
   return typeof value === 'string' && value.trim() ? value.trim() : ''
@@ -87,7 +84,7 @@ function signInviteHtml(opts: {
 /** GET — list signature requests for the document. */
 export const GET = withAuth('admin', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await getAccessibleClientDocument(id, user)
+  const access = await getAccessibleClientDocument(id, user, 'sign')
   if (!access.ok) return access.response
 
   const snap = await adminDb
@@ -98,14 +95,19 @@ export const GET = withAuth('admin', async (_req: NextRequest, user: ApiUser, ct
     .get()
     .catch(() => null)
 
-  const requests = (snap?.docs ?? []).map((d) => ({ id: d.id, ...d.data() }) as SignatureRequest)
+  const requests = (snap?.docs ?? []).map((d) => {
+    const data = stripDurableArtifactUrls({ id: d.id, ...d.data() }) as SignatureRequest
+    // Never expose the raw sign token on list; invitations already emailed the link.
+    delete (data as { signToken?: string }).signToken
+    return data
+  })
   return apiSuccess(requests)
 })
 
 /** POST — create a signature request and email the signer. */
 export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await getAccessibleClientDocument(id, user)
+  const access = await getAccessibleClientDocument(id, user, 'sign')
   if (!access.ok) return access.response
 
   const document = access.document

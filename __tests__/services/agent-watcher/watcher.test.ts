@@ -1460,6 +1460,90 @@ describe('agent watcher dispatchTask', () => {
     )
   })
 
+  it('releases dependency-gated awaiting-input tasks parked in the todo column when deps clear', async () => {
+    // Workflow-graph / playbook planners create dependency-gated cards with
+    // agentStatus=awaiting-input but leave columnId=todo. Neither the blocked
+    // sweep nor the ready-pending sweep used to read these, so projects stalled
+    // at every gate boundary. The sweep must now release them once deps clear.
+    const dependencySnap = { exists: true, data: () => ({ agentStatus: 'done', columnId: 'review' }) }
+    const commentCollection = {
+      add: jest.fn(async () => undefined),
+      orderBy: jest.fn(() => ({
+        limit: jest.fn(() => ({
+          get: jest.fn(async () => ({ docs: [] })),
+        })),
+      })),
+    }
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'gate-impl-awaiting-todo-1',
+      path: 'projects/project-1/tasks/gate-impl-awaiting-todo-1',
+      parent: {
+        doc: jest.fn(() => ({ get: jest.fn(async () => dependencySnap) })),
+      },
+      collection: jest.fn(() => commentCollection),
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'awaiting-input',
+      columnId: 'todo',
+      title: '[Gate 4] 4.1 Impl waiting on prior qa',
+      dependsOn: ['dependency-1'],
+      // No agentOutput.summary — genuinely dependency-gated, not human-waiting.
+    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks()
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(query.where).toHaveBeenCalledWith('agentStatus', '==', 'awaiting-input')
+    expect(query.where).toHaveBeenCalledWith('columnId', '==', 'todo')
+    expect(taskRef.update).toHaveBeenCalledWith(expect.objectContaining({
+      agentStatus: 'pending',
+      columnId: 'todo',
+      agentHeartbeatAt: 'DELETE_FIELD',
+    }))
+    expect(commentCollection.add).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'system:agent-watcher',
+      text: expect.stringContaining('Dependency gate cleared'),
+    }))
+    expect(claimTaskMock).toHaveBeenCalledWith(taskRef, 'theo')
+    expect(runAndPollMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ taskId: 'gate-impl-awaiting-todo-1' }),
+      expect.any(Function),
+    )
+  })
+
+  it('does not auto-release an awaiting-input todo-column card that is genuinely waiting on a human', async () => {
+    // Guard: an awaiting-input card carrying a human-waiting output (summary +
+    // needsPeet) must NOT be swept forward just because it sits in the todo column.
+    const taskRef = {
+      ...makeTaskRef(),
+      id: 'human-waiting-todo-1',
+      path: 'projects/project-1/tasks/human-waiting-todo-1',
+    }
+    const taskData = {
+      orgId: 'org-1',
+      assigneeAgentId: 'theo',
+      agentStatus: 'awaiting-input',
+      columnId: 'todo',
+      title: 'Waiting for Peet approval',
+      dependsOn: ['dependency-1'],
+      agentOutput: { summary: 'Cannot continue until Peet approves the release.', needsPeet: true },
+    }
+    const query = makeFilteringCollectionQuery([{ ref: taskRef, data: () => taskData }])
+    dbMock.collectionGroup = jest.fn(() => query)
+
+    await sweepReadyPendingTasks()
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(taskRef.update).not.toHaveBeenCalled()
+    expect(claimTaskMock).not.toHaveBeenCalledWith(taskRef, 'theo')
+  })
+
   it('recovers a dep-less blocked task with a retryable completion-integrity failure into todo with bounded backoff', async () => {
     const commentCollection = {
       add: jest.fn(async () => undefined),

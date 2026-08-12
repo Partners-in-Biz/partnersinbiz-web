@@ -14,6 +14,7 @@ import {
   publishClientDocument,
   CLIENT_DOCUMENTS_COLLECTION,
 } from '@/lib/client-documents/store'
+import { syncPublishedDocumentGrants } from '@/lib/client-documents/canonical-grants'
 import { adminDb } from '@/lib/firebase/admin'
 import { lastActorFrom } from '@/lib/api/actor'
 import { FieldValue } from 'firebase-admin/firestore'
@@ -111,6 +112,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
 
   try {
     const result = await publishClientDocument(id, user, document.orgId ?? null, { acknowledgeMultiOrgPublish })
+    const publishedDocument = await getClientDocument(id)
+    if (!publishedDocument) return apiError('Document not found', 404)
+    await syncPublishedDocumentGrants(publishedDocument, user)
 
     // Fire-and-forget: notify primary contact if org has one
     if (document.orgId) {

@@ -84,7 +84,10 @@ Any org can invite a company or contact from its own CRM to link workspaces. On 
 | `/api/v1/crm/partner-links/{relationshipId}` | PATCH | Edit what **your** side shares: `sharedCapabilities`, `fieldSharingPolicy`, `portalVisible`, `relationshipType`. One-sided by design — never writes the counterpart row. |
 | `/api/v1/crm/partner-links/{relationshipId}/unlink` | POST | Sever from either side |
 | `/api/v1/crm/partner-shares` | GET, POST | List (`?direction=outgoing\|incoming\|both`) / share one record. POST `{ relationshipId, resourceType, resourceId, permission? }` |
-| `/api/v1/crm/partner-shares/{id}` | GET, DELETE | GET returns the shared record (receiving org only); DELETE revokes (owning org only) |
+| `/api/v1/crm/partner-shares/searchable` | GET | `?type=project&q=…&relationshipId=…` — records you could share, for the picker. Flags rows already shared with that partner. |
+| `/api/v1/crm/partner-shares/{id}` | GET, PATCH, DELETE | GET returns the shared record (**either** side); PATCH `{ permission: 'view'\|'comment' }` (owning org only); DELETE revokes (owning org only) |
+| `/api/v1/crm/partner-shares/{id}/comments` | GET, POST | Conversation on a shared record |
+| `/api/v1/crm/partner-shares/{id}/comments/{commentId}` | DELETE | Soft-delete your own org's comment |
 
 Accept semantics:
 - Invites are **never** auto-accepted, even when both orgs already exist — unlike `claimable_relationships`, which auto-claims when `linkedOrgId` is already set.
@@ -105,7 +108,15 @@ On top of the link, an org can share ONE specific record with the partner: `deal
 - **Whitelisted reads.** `GET /api/v1/crm/partner-shares/{id}` returns a per-type field whitelist, never the raw document — arbitrary fields on the source record do not leak.
 - **Idempotent.** Re-sharing the same record returns the existing active row.
 - **Revocation is layered:** revoke a single share, or unlink the partnership — unlinking calls `revokeSharesForPartnerLink` and every share riding on that `partnerLinkId` dies with it. Reads also re-check that the link is still active, so a severed link kills access even for shares that were never individually revoked.
-- Viewer UI: `/portal/partners/shared/{shareId}`.
+- Viewer UI: `/portal/partners/shared/{shareId}` — reachable by **both** sides (`viewerRole: 'owner' | 'partner'`), so the owner has a surface for the conversation too.
+
+**`permission` is enforced, not decorative.** `view` (default) is read-only; `comment` lets the receiving org post on the thread. The owning org can always comment on its own record. Change it any time with PATCH; the partner gets a notification either way. Comments live in `partner_share_comments`, are readable by both sides only, and each org can soft-delete only its own. Unlinking or revoking the share makes the whole thread inaccessible (`resolveShareAccess` re-checks share status *and* link status on every read).
+
+**Picking a record to share:** use `components/crm/PartnerRecordPicker.tsx` (debounced search over `/searchable`), not a raw id. Search runs two passes and merges them — a server-side **prefix** range query on the type's title field (scales to any corpus), plus a bounded 500-row window filtered in memory for **mid-string** matches. When that window fills, the response carries `truncated: true` and the picker says so rather than silently dropping matches. Requires the `orgId + <titleField>` index per type (deals.title, projects.name, invoices.invoiceNumber, quotes.quoteNumber, client_documents.title). Note that `orderBy` excludes documents missing that field, so an untitled record will not appear.
+
+**Sharing from the record itself:** `components/crm/ShareWithPartnerButton.tsx` is a drop-in control already mounted on the project workspace header, deal detail drawer, quote detail, invoice detail, and client-document detail. It lists only partners whose link already shares the matching capability and explains why the rest are hidden, so the capability gate is visible before submit rather than as a server error.
+
+**Comment emails:** a new comment also emails the *other* org's `settings.notificationEmail` (falling back to `billingEmail`) via `partnerShareCommentEmail`, because a partner in another workspace will not be watching this org's notification bell. Send failures are logged and never fail the comment.
 
 **Cross-org read policy:** there are exactly two sanctioned cross-org read locations — `lib/companies/command-center.ts` (aggregate counts/statuses for a linked company) and `lib/partner-links/shares.ts` (one record named by an active share row). Anything else is a spec violation.
 - For PiB-issued resources, `pib-platform-owner` is the canonical source/issuer org and the client org is the recipient/target org. Platform CRM Companies are deduped by `linkedOrgId`; platform CRM Contacts are deduped by `linkedUserId`, then email.

@@ -2,7 +2,7 @@
 import { NextRequest } from 'next/server'
 import { GET, POST, handleOrganizationCreate } from '@/app/api/v1/organizations/route'
 import { GET as getById, PUT, DELETE } from '@/app/api/v1/organizations/[id]/route'
-import { POST as addMember } from '@/app/api/v1/organizations/[id]/members/route'
+import { POST as addMember, GET as listMembers } from '@/app/api/v1/organizations/[id]/members/route'
 import { GET as searchClientMembers, POST as addClientMember } from '@/app/api/v1/organizations/[id]/members/client/route'
 import { POST as createLogin } from '@/app/api/v1/organizations/[id]/create-login/route'
 import { PATCH as patchMember, DELETE as removeMember } from '@/app/api/v1/organizations/[id]/members/[userId]/route'
@@ -738,6 +738,208 @@ describe('POST /api/v1/organizations/[id]/members', () => {
       routeCtx(),
     )
     expect(res.status).toBe(404)
+  })
+})
+
+describe('GET /api/v1/organizations/[id]/members — restricted admin scope', () => {
+  const mockOrgGet = jest.fn()
+  const mockUserDocGet = jest.fn()
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockOrgGet.mockResolvedValue({
+      exists: true,
+      id: 'unassigned-org',
+      data: () => ({
+        name: 'Other Co', slug: 'other', active: true,
+        members: [{ userId: 'member-1', role: 'member' }],
+        description: '', logoUrl: '', website: '', createdBy: 'ai-agent', linkedClientId: '',
+      }),
+    })
+    mockUserDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'admin',
+        orgId: 'pib-platform-owner',
+        allowedOrgIds: ['assigned-org'],
+        displayName: 'Restricted Admin',
+        email: 'restricted@example.com',
+      }),
+    })
+    mockCollection.mockImplementation((collName: string) => {
+      if (collName === 'users') return { doc: jest.fn().mockReturnValue({ get: mockUserDocGet }) }
+      if (collName === 'organizations') return { doc: jest.fn().mockReturnValue({ get: mockOrgGet }) }
+      throw new Error(`Unexpected collection: ${collName}`)
+    })
+  })
+
+  function restrictedAdminReq(method = 'GET', url = 'http://localhost/api/v1/organizations/unassigned-org/members') {
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValueOnce({ uid: 'restricted-admin' })
+    return new NextRequest(url, {
+      method,
+      headers: { cookie: '__session=fake-session-cookie' },
+    })
+  }
+
+  it('denies member enumeration in an unassigned org (403)', async () => {
+    const res = await listMembers(restrictedAdminReq('GET'), routeCtx({ id: 'unassigned-org' }))
+    expect(res.status).toBe(403)
+  })
+
+  it('allows member enumeration in an assigned org (200)', async () => {
+    const res = await listMembers(
+      restrictedAdminReq('GET', 'http://localhost/api/v1/organizations/assigned-org/members'),
+      routeCtx({ id: 'assigned-org' }),
+    )
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toHaveLength(1)
+    expect(body.data[0].userId).toBe('member-1')
+  })
+})
+
+describe('POST /api/v1/organizations/[id]/members — restricted admin scope', () => {
+  const mockOrgGet = jest.fn()
+  const mockOrgUpdate = jest.fn()
+  const mockUserDocGet = jest.fn()
+  const mockUserQueryGet = jest.fn()
+  const mockUserWhere = jest.fn()
+  const mockUserDoc = jest.fn()
+  const mockUserSet = jest.fn()
+  const mockOrgMemberSet = jest.fn()
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockOrgGet.mockResolvedValue({
+      exists: true,
+      id: 'unassigned-org',
+      data: () => ({
+        name: 'Other Co', slug: 'other', active: true,
+        members: [{ userId: 'ai-agent', role: 'owner' }],
+        description: '', logoUrl: '', website: '', createdBy: 'ai-agent', linkedClientId: '',
+      }),
+    })
+    mockOrgUpdate.mockResolvedValue(undefined)
+    mockUserDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'admin',
+        orgId: 'pib-platform-owner',
+        allowedOrgIds: ['assigned-org'],
+        displayName: 'Restricted Admin',
+        email: 'restricted@example.com',
+      }),
+    })
+    mockUserQueryGet.mockResolvedValue({
+      empty: false,
+      docs: [{ id: 'new-user', data: () => ({ displayName: 'New User', email: 'new@example.com', photoURL: null }) }],
+    })
+    mockUserWhere.mockReturnValue({ get: mockUserQueryGet })
+    mockUserSet.mockResolvedValue(undefined)
+    mockOrgMemberSet.mockResolvedValue(undefined)
+    mockUserDoc.mockReturnValue({
+      get: mockUserDocGet,
+      set: mockUserSet,
+    })
+    mockCollection.mockImplementation((collName: string) => {
+      if (collName === 'users') return { where: mockUserWhere, doc: mockUserDoc }
+      if (collName === 'organizations') return { doc: jest.fn().mockReturnValue({ get: mockOrgGet, update: mockOrgUpdate }) }
+      if (collName === 'orgMembers') return { doc: jest.fn().mockReturnValue({ set: mockOrgMemberSet }) }
+      throw new Error(`Unexpected collection: ${collName}`)
+    })
+  })
+
+  function restrictedAdminReq(method = 'POST', body?: unknown, url = 'http://localhost/api/v1/organizations/unassigned-org/members') {
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValueOnce({ uid: 'restricted-admin' })
+    return new NextRequest(url, {
+      method,
+      headers: { cookie: '__session=fake-session-cookie' },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  }
+
+  it('denies member creation in an unassigned org without writing anything (403)', async () => {
+    const res = await addMember(
+      restrictedAdminReq('POST', { email: 'new@example.com', role: 'member' }),
+      routeCtx({ id: 'unassigned-org' }),
+    )
+    expect(res.status).toBe(403)
+    expect(mockOrgUpdate).not.toHaveBeenCalled()
+    expect(mockUserSet).not.toHaveBeenCalled()
+    expect(mockOrgMemberSet).not.toHaveBeenCalled()
+    expect(mockUserWhere).not.toHaveBeenCalled()
+  })
+
+  it('allows member creation in an assigned org (201)', async () => {
+    const res = await addMember(
+      restrictedAdminReq('POST', { email: 'new@example.com', role: 'member' }, 'http://localhost/api/v1/organizations/assigned-org/members'),
+      routeCtx({ id: 'assigned-org' }),
+    )
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.data.userId).toBe('new-user')
+    expect(mockOrgUpdate).toHaveBeenCalled()
+  })
+
+  it('still allows super admins (no allowedOrgIds) to add members', async () => {
+    mockUserDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'admin',
+        orgId: 'pib-platform-owner',
+        displayName: 'Super Admin',
+        email: 'super@example.com',
+      }),
+    })
+    const res = await addMember(
+      restrictedAdminReq('POST', { email: 'new@example.com', role: 'member' }, 'http://localhost/api/v1/organizations/unassigned-org/members'),
+      routeCtx({ id: 'unassigned-org' }),
+    )
+    expect(res.status).toBe(201)
+  })
+})
+
+describe('POST /api/v1/organizations/[id]/create-login — restricted admin scope', () => {
+  const mockOrgGet = jest.fn()
+  const mockUserDocGet = jest.fn()
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockOrgGet.mockResolvedValue({
+      exists: true,
+      id: 'unassigned-org',
+      data: () => ({
+        name: 'Other Co', slug: 'other', active: true,
+        members: [{ userId: 'ai-agent', role: 'owner' }],
+        description: '', logoUrl: '', website: '', createdBy: 'ai-agent', linkedClientId: '',
+      }),
+    })
+    mockUserDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        role: 'admin',
+        orgId: 'pib-platform-owner',
+        allowedOrgIds: ['assigned-org'],
+        displayName: 'Restricted Admin',
+        email: 'restricted@example.com',
+      }),
+    })
+    mockCollection.mockImplementation((collName: string) => {
+      if (collName === 'users') return { doc: jest.fn().mockReturnValue({ get: mockUserDocGet }) }
+      if (collName === 'organizations') return { doc: jest.fn().mockReturnValue({ get: mockOrgGet }) }
+      throw new Error(`Unexpected collection: ${collName}`)
+    })
+  })
+
+  it('denies login creation in an unassigned org (403)', async () => {
+    ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValueOnce({ uid: 'restricted-admin' })
+    const req = new NextRequest('http://localhost/api/v1/organizations/unassigned-org/create-login', {
+      method: 'POST',
+      headers: { cookie: '__session=fake-session-cookie' },
+      body: JSON.stringify({ email: 'client@example.com', name: 'Client User', role: 'member' }),
+    })
+    const res = await createLogin(req, routeCtx({ id: 'unassigned-org' }))
+    expect(res.status).toBe(403)
   })
 })
 

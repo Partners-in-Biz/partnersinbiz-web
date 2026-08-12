@@ -113,7 +113,7 @@ describe('listConversations', () => {
     )
 
     expect(mockOrderBy).toHaveBeenCalledWith('updatedAt', 'desc')
-    expect(mockFallbackGet).toHaveBeenCalledTimes(1)
+    expect(mockFallbackGet).toHaveBeenCalledTimes(2)
     expect(conversations.map((conversation) => conversation.id)).toEqual(['newest', 'middle'])
   })
 
@@ -152,7 +152,9 @@ describe('listConversations', () => {
       { scope: 'project', scopeRefId: 'project-1', includeAllScopes: true },
     )
 
-    expect(mockWhere).toHaveBeenCalledTimes(1)
+    expect(mockWhere).toHaveBeenCalledTimes(2)
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'pib-platform-owner')
+    expect(mockWhere).toHaveBeenCalledWith('crossOrg.participantOrgIds', 'array-contains', 'pib-platform-owner')
     expect(mockIndexedLimit).toHaveBeenCalledWith(100)
     expect(conversations.map((conversation) => conversation.id)).toEqual(['project-chat', 'task-chat'])
   })
@@ -173,10 +175,69 @@ describe('listConversations', () => {
       { scope: 'project', projectId: 'project-1' },
     )
 
-    expect(mockWhere).toHaveBeenNthCalledWith(1, 'orgId', '==', 'pib-platform-owner')
-    expect(mockWhere).toHaveBeenNthCalledWith(2, 'scopeRefId', '==', 'project-1')
+    expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'pib-platform-owner')
+    expect(mockWhere).toHaveBeenCalledWith('crossOrg.participantOrgIds', 'array-contains', 'pib-platform-owner')
+    expect(mockWhere).toHaveBeenCalledWith('scopeRefId', '==', 'project-1')
     expect(mockIndexedLimit).toHaveBeenCalledWith(60)
     expect(conversations.map((conversation) => conversation.id)).toEqual(['project-chat'])
+  })
+
+  it('lists a foreign participant into a bilateral thread only when policy allows it', async () => {
+    mockIndexedGet.mockResolvedValue({
+      docs: [
+        conversationDoc('bilateral', 4000, ['owner-a', 'member-b'], {
+          orgId: 'org-a',
+          crossOrg: {
+            partnerLinkId: 'link-ab',
+            ownerOrgId: 'org-a',
+            participantOrgIds: ['org-a', 'org-b'],
+            thread: { kind: 'project', resourceType: 'project', resourceId: 'project-ab' },
+            status: 'active',
+            accessEpoch: 1,
+            retention: { foreignParticipantRetentionDays: 30 },
+            participants: [
+              { principalId: 'user:owner-a', kind: 'user', uid: 'owner-a', orgId: 'org-a', role: 'owner', status: 'active' },
+              { principalId: 'user:member-b', kind: 'user', uid: 'member-b', orgId: 'org-b', role: 'member', status: 'active' },
+            ],
+          },
+        }),
+        conversationDoc('third-org', 3000, ['owner-a', 'member-c'], {
+          orgId: 'org-a',
+          crossOrg: {
+            partnerLinkId: 'link-ac',
+            ownerOrgId: 'org-a',
+            participantOrgIds: ['org-a', 'org-c'],
+            thread: { kind: 'relationship', resourceType: 'relationship', resourceId: 'rel-ac' },
+            status: 'active',
+            accessEpoch: 1,
+            retention: { foreignParticipantRetentionDays: 30 },
+            participants: [
+              { principalId: 'user:owner-a', kind: 'user', uid: 'owner-a', orgId: 'org-a', role: 'owner', status: 'active' },
+              { principalId: 'user:member-c', kind: 'user', uid: 'member-c', orgId: 'org-c', role: 'member', status: 'active' },
+            ],
+          },
+        }),
+      ],
+    })
+
+    jest.doMock('@/lib/conversations/cross-org', () => ({
+      evaluateCrossOrgConversationAccess: jest.fn(async ({ user, conversation }: {
+        user: { uid: string }
+        conversation: { id: string }
+      }) => ({
+        allowed: conversation.id === 'bilateral' && user.uid === 'member-b',
+        principalId: user.uid === 'member-b' ? 'user:member-b' : undefined,
+      })),
+    }))
+
+    const { listConversations } = await import('@/lib/conversations/conversations')
+    const conversations = await listConversations(
+      'org-b',
+      { uid: 'member-b', role: 'client', orgId: 'org-b' },
+      30,
+    )
+
+    expect(conversations.map((conversation) => conversation.id)).toEqual(['bilateral'])
   })
 
   it('drops project conversations when current project access has been revoked', async () => {

@@ -17,8 +17,11 @@ import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { enforceAgentCapability } from '@/lib/api/capabilityGate'
 import { sendCampaignEmail, FROM_ADDRESS, plainTextToHtml, htmlToPlainText } from '@/lib/email/resend'
 import { signUnsubscribeToken } from '@/lib/email/unsubscribeToken'
@@ -91,9 +94,19 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     typeof body.orgId === 'string' && body.orgId.trim()
       ? body.orgId.trim()
       : await resolveOrgIdFromContact(contactId)
-  const scope = resolveOrgScope(user, requestedOrgId)
-  if (!scope.ok) return apiError(scope.error, scope.status)
-  const orgId = scope.orgId
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'email',
+    resourceId:
+      typeof campaignId === 'string' && campaignId.trim()
+        ? campaignId.trim()
+        : 'outbound-send',
+    resourceOwnerOrgId: requestedOrgId,
+    operation: 'send',
+    partnerLinkId: extractPartnerLinkId(req, body as Record<string, unknown>),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
+  const orgId = access.orgId
   const capabilityError = enforceAgentCapability(user, 'message_client', req, body)
   if (capabilityError) return capabilityError
 

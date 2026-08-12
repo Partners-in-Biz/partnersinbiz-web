@@ -68,6 +68,8 @@ import { hermesFeaturesService } from '@/lib/hermes-features/service'
 import { buildPromptBudget } from '@/lib/hermes-features/prompt-budget'
 import { classifyMessagesPromptIntent } from '@/lib/messages/prompt-profile'
 import { councilModeGuidanceLines, getSlashCommandByToken, hermesFeaturesCommandLine, hermesGoalCommandLine, slashCommandInstruction, type SlashCommandPayload } from '@/lib/chat/slash-commands'
+import { renderDesignContextPayload } from '@/lib/chat/design-commands'
+import { findDesignContextItem } from '@/lib/research/store'
 import {
   buildCompressionInputBlock,
   buildCompressionTaskPromptBlock,
@@ -108,9 +110,13 @@ import {
   canReplyConversation,
   publicConversationMessageView,
 } from '@/lib/conversations/access'
+import {
+  canReadCrossOrgConversationMessage,
+  evaluateCrossOrgConversationAccess,
+} from '@/lib/conversations/cross-org'
 import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
 import type { AgentTeamDoc } from '@/lib/agents/types'
-import type { AgentId, Conversation, ConversationAttachment } from '@/lib/conversations/types'
+import type { AgentId, Conversation, ConversationAttachment, ConversationMessage } from '@/lib/conversations/types'
 import { selectActiveProjectId } from '@/lib/projects/chatProgress'
 
 export const dynamic = 'force-dynamic'
@@ -167,6 +173,15 @@ async function resolveAttachments(value: unknown, convId: string, orgId: string)
       contentType,
       sizeBytes,
       ...(storagePath ? { storagePath } : {}),
+      ...(attachment.visibility && typeof attachment.visibility === 'object'
+        && Array.isArray((attachment.visibility as { principalIds?: unknown }).principalIds)
+        ? {
+          visibility: {
+            principalIds: (attachment.visibility as { principalIds: unknown[] }).principalIds
+              .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+          },
+        }
+        : {}),
     }
   }))
   return resolved.every((attachment): attachment is ResolvedConversationAttachment => attachment !== null)
@@ -260,6 +275,30 @@ async function buildOrgContext(
     ].filter(Boolean)
     return lines.join('\n') + '\n\n'
   } catch {
+    return ''
+  }
+}
+
+/**
+ * Load the org's latest Design Context (research kind='design', T3) and render
+ * a prompt-safe block for design-command slash dispatches. Best-effort: a DB
+ * failure or missing record never blocks dispatch — the command guidance still
+ * tells the agent how to behave (and to flag when no context exists).
+ */
+async function loadDesignContextPromptBlock(
+  orgId: string,
+  companyId?: string | null,
+): Promise<string> {
+  try {
+    const item = await findDesignContextItem(orgId, companyId)
+    if (!item?.designContext) return ''
+    const block = renderDesignContextPayload(item.designContext)
+    return block ? `\n\n${block}\n` : ''
+  } catch (error) {
+    console.error('[conversation-design-context-load-failed]', {
+      orgId,
+      message: error instanceof Error ? error.message : String(error),
+    })
     return ''
   }
 }
@@ -459,23 +498,34 @@ export const POST = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccessConversation(user, conversation)) {
+    const crossOrgAccess = conversation.crossOrg
+      ? await evaluateCrossOrgConversationAccess({ conversation, user, action: 'reply' })
+      : null
+    if (conversation.crossOrg ? !crossOrgAccess?.allowed : !canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
-    if (!canReplyConversation(user, conversation)) {
+    if (!conversation.crossOrg && !canReplyConversation(user, conversation)) {
       return apiError('You do not have permission to reply in this conversation', 403)
     }
-    const replyAccess = await assertUserCanPerformOrganizationModuleAction(
-      user,
-      conversation.orgId,
-      'messages',
-      'reply',
-      'Conversation replies are disabled for your organisation role',
+    const foreignCrossOrgParticipant = Boolean(
+      conversation.crossOrg && user.orgId !== conversation.crossOrg.ownerOrgId,
     )
-    if (!replyAccess.ok) return apiError(replyAccess.error, replyAccess.status)
-    const projectAuthorization = await authorizeConversationProject(user, conversation)
-    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
-    const boundProjectId = projectAuthorization.projectId ?? undefined
+    if (!foreignCrossOrgParticipant) {
+      const replyAccess = await assertUserCanPerformOrganizationModuleAction(
+        user,
+        conversation.orgId,
+        'messages',
+        'reply',
+        'Conversation replies are disabled for your organisation role',
+      )
+      if (!replyAccess.ok) return apiError(replyAccess.error, replyAccess.status)
+    }
+    let boundProjectId: string | undefined
+    if (!foreignCrossOrgParticipant) {
+      const projectAuthorization = await authorizeConversationProject(user, conversation)
+      if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+      boundProjectId = projectAuthorization.projectId ?? undefined
+    }
 
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
@@ -505,14 +555,22 @@ export const POST = withAuth(
       || requestedCredentialBindingId !== undefined
     const attachments = await resolveAttachments((body as Record<string, unknown>).attachments, convId, conversation.orgId)
     if (!attachments) return apiError('One or more attachments are invalid for this conversation', 400)
-    const publicAttachments: ConversationAttachment[] = attachments.map(({ storagePath: _storagePath, ...attachment }) => attachment)
+    const publicAttachments: ConversationAttachment[] = attachments.map((attachment) => ({
+      id: attachment.id,
+      name: attachment.name,
+      url: attachment.url,
+      contentType: attachment.contentType,
+      sizeBytes: attachment.sizeBytes,
+      ...(attachment.visibility ? { visibility: attachment.visibility } : {}),
+    }))
     const slashCommand = sanitizeSlashCommand((body as Record<string, unknown>).slashCommand)
-    // /goal, /toolsets, /memory, /rollback, etc. may have empty free-text content.
+    // /goal, /toolsets, /memory, /rollback, /design commands, etc. may have empty free-text content.
     if (
       !content
       && attachments.length === 0
       && slashCommand?.executorKind !== 'hermes_goal'
       && slashCommand?.executorKind !== 'hermes_features'
+      && slashCommand?.executorKind !== 'design_command'
     ) {
       return apiError('content or attachments are required', 400)
     }
@@ -541,7 +599,12 @@ export const POST = withAuth(
 
     // Resolve dispatch target before storing the message so unauthorized or
     // invalid model/provider overrides fail without creating a partial thread.
-    const dispatchAgentId = await resolveConversationDispatchAgentId(conversation)
+    // Foreign-org participants may add user messages, but cannot dispatch an
+    // owner-org workspace agent. A foreign agent needs a separately-sanitised
+    // execution context; until that exists this prevents workspace/history
+    // leakage across the collaboration boundary.
+    let dispatchAgentId = await resolveConversationDispatchAgentId(conversation)
+    if (foreignCrossOrgParticipant) dispatchAgentId = null
     let modelSelection: {
       model: string
       provider?: string
@@ -840,7 +903,9 @@ export const POST = withAuth(
     // Store the user message
     const userVisibleContent = slashCommand?.executorKind === 'hermes_goal'
       ? (hermesGoalCommandLine(slashCommand) || content || slashCommand.token)
-      : content
+      : slashCommand?.executorKind === 'design_command'
+        ? (content || (slashCommand.args ? `${slashCommand.token} ${slashCommand.args}` : slashCommand.token))
+        : content
     const mentions = parseMentions(userVisibleContent)
     const mentionIds = mentions.map(({ id, type }) => `${type}:${id}`)
     const message = await createMessage(convId, {
@@ -1142,6 +1207,11 @@ export const POST = withAuth(
         : ''
       const attachedContext = buildAttachedContextBlock(resolvedContextRefs)
       const commandContext = slashCommand ? slashCommandInstruction(slashCommand) : ''
+      // Design commands (T1 detector + T3 design context): inject the client's
+      // latest Design Context record so the agent resolves and cites it.
+      const designContextBlock = slashCommand?.executorKind === 'design_command'
+        ? await loadDesignContextPromptBlock(conversation.orgId, conversation.workspaceContext?.companyId ?? null)
+        : ''
       const goalWorkContext = hermesGoalWorkPrompt
         ? `\n\n${hermesGoalWorkPrompt}\n\n`
         : ''
@@ -1263,6 +1333,7 @@ export const POST = withAuth(
         { id: 'canvas', content: dynamicChatCanvasContext, priority: 'optional', maxTokens: 1_500 },
         { id: 'mailbox', content: mailboxContext, priority: 'optional', maxTokens: 1_500 },
         { id: 'studio', content: studioArtifactOrchestrationContext, priority: 'optional', maxTokens: 1_500 },
+        { id: 'design_context', content: designContextBlock, priority: 'optional', maxTokens: 1_500 },
         { id: 'slash_command', content: commandContext, priority: 'high' },
         { id: 'compression_task', content: compressionTaskContext, priority: 'high' },
         { id: 'attachments', content: attachmentContext, priority: 'normal', maxTokens: 2_000 },
@@ -1326,9 +1397,10 @@ export const POST = withAuth(
           // Only watcher-created Kanban conversations carry this server-side marker.
           // It is passed at enqueue time so a fast desktop claim cannot race the
           // later Firestore annotation used by the legacy fallback path.
-          const kanbanRecord = conversation as unknown as Record<string, unknown>
-          const rawKanbanTaskId = kanbanRecord.kanbanTaskId
-          const kanbanTaskId = typeof rawKanbanTaskId === 'string' ? rawKanbanTaskId.trim() : ''
+          const conversationTaskMarker = conversation as unknown as { kanbanTaskId?: unknown }
+          const kanbanTaskId = typeof conversationTaskMarker.kanbanTaskId === 'string'
+            ? conversationTaskMarker.kanbanTaskId.trim()
+            : ''
           const queued = await enqueueLinkedRun({
             requestId: assistantMessage.id,
             deviceId: linkedComputerBinding.deviceId,
@@ -1642,15 +1714,28 @@ const listMessagesHandler = withAuth(
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
 
-    if (!canAccessConversation(user, conversation)) {
+    const access = conversation.crossOrg
+      ? await evaluateCrossOrgConversationAccess({ conversation, user, action: 'read' })
+      : null
+    if (conversation.crossOrg ? !access?.allowed : !canAccessConversation(user, conversation)) {
       return apiError('Forbidden', 403)
     }
 
-    const projectAuthorization = await authorizeConversationProject(user, conversation)
-    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+    const foreignCrossOrgParticipant = Boolean(
+      conversation.crossOrg && user.orgId !== conversation.crossOrg.ownerOrgId,
+    )
+    if (!foreignCrossOrgParticipant) {
+      const projectAuthorization = await authorizeConversationProject(user, conversation)
+      if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+    }
 
     const messages = await listMessages(convId, 200)
-    return apiSuccess({ messages: messages.map(publicConversationMessageView) })
+    const visibleMessages = conversation.crossOrg
+      ? (await Promise.all(messages.map(async (message) => (
+        await canReadCrossOrgConversationMessage({ conversation, message, user }) ? message : null
+      )))).filter((message): message is ConversationMessage => message !== null)
+      : messages
+    return apiSuccess({ messages: visibleMessages.map(publicConversationMessageView) })
   },
 )
 

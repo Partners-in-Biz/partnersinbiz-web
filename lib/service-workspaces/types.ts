@@ -2,6 +2,25 @@ import type { Timestamp } from 'firebase-admin/firestore'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import type { Currency } from '@/lib/crm/types'
 
+export type ServiceWorkspaceParticipantRole = 'observer' | 'requester' | 'provider_agent' | 'provider_manager' | 'provider_owner'
+export interface ServiceWorkspaceParticipant {
+  id: string
+  userId: string
+  orgId: string
+  role: ServiceWorkspaceParticipantRole
+  status: 'invited' | 'active' | 'revoked'
+  invitedByRef?: MemberRef
+  acceptedAt?: unknown
+  revokedAt?: unknown
+  revokedByRef?: MemberRef
+}
+export interface ServiceWorkspaceSla {
+  policyId?: string
+  visibility: 'requester' | 'provider' | 'shared'
+  dueAt?: unknown
+  breachedAt?: unknown
+}
+
 export type ServiceWorkspaceType =
   | 'seo'
   | 'geo_seo'
@@ -19,7 +38,15 @@ export type ServiceWorkspaceApprovalState = 'draft' | 'pending_approval' | 'appr
 
 export interface ServiceWorkspace {
   id: string
+  /** Legacy owner alias. Cross-org authority is requester/provider plus a canonical resource grant. */
   orgId: string
+  requesterOrgId?: string
+  providerOrgId?: string
+  partnerLinkId?: string
+  scopeAgreementId?: string
+  participants?: ServiceWorkspaceParticipant[]
+  assignment?: { assigneeUserId?: string | null; assigneeAgentId?: string | null; assignedByRef?: MemberRef; claimedAt?: unknown }
+  sla?: ServiceWorkspaceSla
   companyId: string
   contactId?: string
   relationshipId?: string

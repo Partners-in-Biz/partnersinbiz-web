@@ -129,7 +129,7 @@ export function formatHermesWatcherError(error: string, context?: {
       `Provider usage limit reached on ${where || 'the active LLM account'}.`,
       plan ? `This is the ${plan} quota — not necessarily SuperGrok.` : null,
       providerLabel.includes('Codex')
-        ? 'If SuperGrok is your intended plan, switch the agent Auto model to xai-oauth / grok-4.5 (Chat Auto uses the Hermes primary, not registry history).'
+        ? 'If SuperGrok is your intended plan, switch the agent Auto model to xai-oauth / grok-4.6 (Chat Auto uses the Hermes primary, not registry history).'
         : null,
       providerLabel.includes('API key')
         ? 'Raise or top up the xAI API team spend limit in the xAI console, or use SuperGrok OAuth instead.'

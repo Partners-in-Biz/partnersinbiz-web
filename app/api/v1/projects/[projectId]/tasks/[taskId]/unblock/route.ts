@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
+import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { evaluateUnblockReadiness, type DependencyStatus } from '@/lib/projects/blockerRecovery'
 import { upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
@@ -29,6 +30,7 @@ function isApprovalGateTask(task: Record<string, unknown>): boolean {
   return Boolean(
     approvalGate
     || typeof task.approvalStatus === 'string'
+    || (typeof task.requiredCapability === 'string' && task.requiredCapability.trim().toLowerCase() === 'approve')
     || labels.some((label) => /^(approval-gate|approval-required|client-approval|required-approval)(:.*)?$/i.test(String(label || '').trim())),
   )
 }
@@ -59,7 +61,7 @@ async function loadRelatedTasks(projectId: string, ids: string[]): Promise<Depen
 
 export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, taskId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.write', item: taskId })
   if (!access.ok) return apiError(access.error, access.status)
   if (!isAuthorisedToUnblock(user.role)) return apiError('Only an authorised user can unblock a waiting task', 403)
   const planningBlocker = planningMutationBlocker((access.doc.data() ?? {}) as Record<string, unknown>)
@@ -67,7 +69,10 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const taskRef = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
   const taskDoc = await taskRef.get()
-  if (!taskDoc.exists) return apiError('Task not found', 404)
+  if (!taskDoc.exists || filterProjectItemsForAccess([{ id: taskId, ...(taskDoc.data() ?? {}) }], {
+    projectAccess: access.projectAccess,
+    user,
+  }).length !== 1) return apiError('Task not found', 404)
 
   const task = taskDoc.data() ?? {}
   const isBlocked = task.columnId === 'blocked' || task.agentStatus === 'blocked' || task.agentStatus === 'awaiting-input'
@@ -79,7 +84,16 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const dependsOn = Array.isArray(task.dependsOn) ? task.dependsOn.filter((id): id is string => typeof id === 'string' && id.trim().length > 0) : []
   const approvalGateTaskId = typeof task.approvalGateTaskId === 'string' && task.approvalGateTaskId.trim() ? task.approvalGateTaskId.trim() : null
   const relatedTasks = await loadRelatedTasks(projectId, [...dependsOn, ...(approvalGateTaskId ? [approvalGateTaskId] : [])])
-  const readiness = evaluateUnblockReadiness({ dependsOn, approvalGateTaskId }, relatedTasks)
+  const visibleRelatedTasks = filterProjectItemsForAccess(relatedTasks, {
+    projectAccess: access.projectAccess,
+    user,
+  })
+  // Never leak the title, status, or existence details of an item outside a
+  // targeted external grant through a dependency/readiness response.
+  if (visibleRelatedTasks.length !== relatedTasks.length) {
+    return apiError('Cannot unblock yet', 409, { reasons: ['A required dependency or approval gate is not available for this share.'] })
+  }
+  const readiness = evaluateUnblockReadiness({ dependsOn, approvalGateTaskId }, visibleRelatedTasks)
   if (!readiness.ready) {
     return apiError('Cannot unblock yet', 409, { reasons: readiness.reasons })
   }

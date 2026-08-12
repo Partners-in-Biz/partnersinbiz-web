@@ -793,7 +793,7 @@ describe('client documents API', () => {
     expect(res.status).toBe(200)
   })
 
-  it('allows a member to retrieve their own draft or a document explicitly shared with them', async () => {
+  it('denies a legacy raw uid share even when the uid is listed', async () => {
     mockDocGet.mockResolvedValueOnce({
       exists: true,
       id: 'doc-1',
@@ -811,7 +811,7 @@ describe('client documents API', () => {
     const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1')
     const res = await GET(req, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(403)
   })
 
   it('allows clients to fetch client-visible documents explicitly linked via clientOrgIds', async () => {
@@ -1100,35 +1100,18 @@ describe('client documents API', () => {
     expect(mockTransactionUpdate).not.toHaveBeenCalled()
   })
 
-  it('allows creators to share drafts with members but blocks non-creators from managing them', async () => {
+  it('rejects raw uid share mutation instead of creating an unaudited grant', async () => {
     const { PATCH } = await import('@/app/api/v1/client-documents/[id]/route')
-    mockTransactionGet.mockResolvedValueOnce({
-      exists: true,
-      id: 'doc-1',
-      data: () => ({ orgId: 'client-org', createdBy: 'client-1', deleted: false }),
-    })
-    const creatorReq = jsonRequest(
+    const request = jsonRequest(
       'http://localhost/api/v1/client-documents/doc-1',
       { sharedWithUserIds: ['client-2'] },
       'PATCH',
     )
-    const creatorRes = await PATCH(creatorReq, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
 
-    expect(creatorRes.status).toBe(200)
-    expect(mockTransactionUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'doc-1' }),
-      expect.objectContaining({ sharedWithUserIds: ['client-2'] }),
-    )
+    const response = await PATCH(request, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
 
-    mockTransactionGet.mockResolvedValueOnce({
-      exists: true,
-      id: 'doc-1',
-      data: () => ({ orgId: 'client-org', createdBy: 'client-2', sharedWithUserIds: ['client-1'], deleted: false }),
-    })
-    const memberReq = jsonRequest('http://localhost/api/v1/client-documents/doc-1', { title: 'Client edit' }, 'PATCH')
-    const memberRes = await PATCH(memberReq, clientUser, { params: Promise.resolve({ id: 'doc-1' }) })
-
-    expect(memberRes.status).toBe(403)
+    expect(response.status).toBe(400)
+    expect(mockTransactionUpdate).not.toHaveBeenCalled()
   })
 
   it('publishes documents with orgId and no blocking assumptions', async () => {

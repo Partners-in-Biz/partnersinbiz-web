@@ -5,7 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import { getAccessibleCompanyForUser } from '@/lib/companies/api-access'
-import { canAccessProject, getProjectForUser } from '@/lib/projects/access'
+import { getProjectForUser } from '@/lib/projects/access'
 import {
   addProjectToUserLibrary,
   listUserLibraryProjectIds,
@@ -37,7 +37,6 @@ export const GET = withAuth('client', async (req: NextRequest, user) => {
     .map((doc) => ({ id: doc.id, data: doc.data() as Record<string, unknown> }))
     .filter(({ data }) => data.deleted !== true && data.archived !== true)
     .filter(({ data }) => projectCompanyId(data) === companyId)
-    .filter(({ data }) => canAccessProject(user, data, orgScope.orgId))
     .map(({ id, data }) => ({
       id,
       name: clean(data.name) || clean(company.name) || 'Company Cowork',

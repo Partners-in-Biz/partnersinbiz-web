@@ -15,6 +15,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { lastActorFrom } from '@/lib/api/actor'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 import type { Expense } from '@/lib/expenses/types'
 
 export const dynamic = 'force-dynamic'
@@ -51,6 +52,8 @@ export const POST = withAuth('admin', async (req, user) => {
   const invoiceDoc = await invoiceRef.get()
   if (!invoiceDoc.exists) return apiError('Invoice not found', 404)
   const invoice = invoiceDoc.data() as Record<string, unknown>
+  const genericMutationError = rejectGenericPartnerTradeMutation(invoice)
+  if (genericMutationError) return apiError(genericMutationError, 409)
 
   // Load + validate every expense up-front; fail fast before any writes.
   const expenseRefs = expenseIds.map((id) =>

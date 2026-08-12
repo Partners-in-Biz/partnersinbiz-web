@@ -41,7 +41,12 @@ export function hasApprovalGateMarker(
   // merely *attempts* to set approvalStatus does not — that would allow non-gate
   // tasks to become gates by writing the field alone.
   const existingApprovalStatus = typeof data.approvalStatus === 'string' && data.approvalStatus.trim().length > 0
-  return Boolean(labelGate || existingGate || nextGate || existingApprovalStatus)
+  // A task whose required capability is human approval is by definition an
+  // approval gate, even when the create/planning path failed to attach an
+  // explicit label/field. Without this, such cards fall into the ordinary
+  // code-evidence completion machine and get parked in blocked forever.
+  const approveCapability = lower(data.requiredCapability) === 'approve'
+  return Boolean(labelGate || existingGate || nextGate || existingApprovalStatus || approveCapability)
 }
 
 /**

@@ -17,6 +17,12 @@ describe('approval gate state reconciliation', () => {
     expect(hasApprovalGateMarker({ title: 'Ordinary' })).toBe(false)
   })
 
+  it('treats requiredCapability=approve as an approval gate marker', () => {
+    expect(hasApprovalGateMarker({ requiredCapability: 'approve' })).toBe(true)
+    expect(hasApprovalGateMarker({ requiredCapability: 'Approve' })).toBe(true)
+    expect(hasApprovalGateMarker({ requiredCapability: 'engineering' })).toBe(false)
+  })
+
   it('aligns Done/review/agent when approvalStatus becomes approved', () => {
     const result = reconcileApprovalGateUpdate(gate, { approvalStatus: 'approved' }, { approvalStatus: 'approved' }, true)
     expect(result).toEqual({

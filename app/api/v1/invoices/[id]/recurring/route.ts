@@ -6,6 +6,7 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { calculateNextDueAt, RecurrenceInterval } from '@/lib/invoices/recurring'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +34,8 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
 
   const access = await requireInvoiceAccess(user, id)
   if (!access.ok) return access.response
+  const mutationError = rejectGenericPartnerTradeMutation(access.data)
+  if (mutationError) return apiError(mutationError, 409)
   const invoice = access.data
 
   // Check for existing active/paused schedule
@@ -65,6 +68,8 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, user, ctx) => 
   const { id } = await (ctx as RouteContext).params
   const access = await requireInvoiceAccess(user, id)
   if (!access.ok) return access.response
+  const mutationError = rejectGenericPartnerTradeMutation(access.data)
+  if (mutationError) return apiError(mutationError, 409)
 
   const snap = await (adminDb.collection('recurring_schedules') as any)
     .where('invoiceId', '==', id)

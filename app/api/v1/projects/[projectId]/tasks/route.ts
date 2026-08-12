@@ -62,7 +62,7 @@ function cleanString(value: unknown): string {
 }
 
 function authoritativeProjectOrgId(project: Record<string, unknown>): string {
-  return cleanString(project.orgId) || cleanString(project.ownerOrgId) || cleanString(project.sourceOrgId) || cleanString(project.issuerOrgId)
+  return cleanString(project.ownerOrgId) || cleanString(project.sourceOrgId) || cleanString(project.orgId) || cleanString(project.issuerOrgId)
 }
 
 function projectRequestOrgScope(req: NextRequest, user: Parameters<typeof getProjectForUser>[1]) {
@@ -126,7 +126,7 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
   const scope = projectRequestOrgScope(req, user)
   if (!scope.ok) return scope.response
-  const access = await getProjectForUser(projectId, user, scope.orgId)
+  const access = await getProjectForUser(projectId, user, scope.orgId, { action: 'project.read' })
   if (!access.ok) return apiError(access.error, access.status)
 
   const boardView = req.nextUrl.searchParams.get('view') === 'board'
@@ -151,10 +151,13 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
   const scope = projectRequestOrgScope(req, user)
   if (!scope.ok) return scope.response
-  const access = await getProjectForUser(projectId, user, scope.orgId)
+  const access = await getProjectForUser(projectId, user, scope.orgId, { action: 'project.write' })
   if (!access.ok) return apiError(access.error, access.status)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
     return apiError('Project contributor access is required to create tasks', 403)
+  }
+  if ((access.projectAccess?.crossOrgGrant?.items.length ?? 0) > 0) {
+    return apiError('Item-scoped cross-organisation grants cannot create unscoped project tasks', 403)
   }
   const project = access.doc.data() ?? {}
 

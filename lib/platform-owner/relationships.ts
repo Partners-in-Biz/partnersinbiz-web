@@ -97,41 +97,20 @@ async function ensurePlatformClientRelationshipLinks(input: {
   clientName: string
   platformName: string
 }) {
-  const sharedCapabilities = [
-    'crm',
-    'projects',
-    'documents',
-    'services',
-    'orders',
-    'shipments',
-    'inventory',
-    'invoices',
-    'analytics',
-    'support',
-  ]
-  const fieldSharingPolicy = {
-    companyProfile: true,
-    contacts: true,
-    projects: true,
-    documents: true,
-    commerce: true,
-    analytics: true,
-  }
-
+  // CRM relationship METADATA only — deliberately NOT an accepted bilateral
+  // Partner Link contract. No status/approvalState/portalVisible/capabilities:
+  // the store defaults these rows to pending/draft/private with zero
+  // capabilities, so a unilateral platform sync row can never grant cross-org
+  // access. Real collaboration requires the explicit accept flow
+  // (lib/partner-links acceptPartnerInvite).
   await ensureBusinessRelationship(input.platformOrgId, {
     sourceCompanyId: input.platformCompanyId,
     targetOrgId: input.clientOrgId,
     targetCompanyId: input.clientCompanyId,
     targetName: input.clientName,
     relationshipType: 'customer',
-    status: 'active',
-    sharedCapabilities,
-    fieldSharingPolicy,
-    visibility: 'client_visible',
-    portalVisible: true,
-    approvalState: 'approved',
     allowedOrgIds: [input.platformOrgId, input.clientOrgId],
-    notes: 'Platform-owner CRM relationship for the client company and shared operating-system records.',
+    notes: 'Platform-owner CRM relationship metadata for the client company and shared operating-system records.',
   }, AGENT_PIP_REF)
 
   if (!input.clientCompanyId) return
@@ -142,14 +121,8 @@ async function ensurePlatformClientRelationshipLinks(input: {
     targetCompanyId: input.platformCompanyId,
     targetName: input.platformName,
     relationshipType: 'supplier',
-    status: 'active',
-    sharedCapabilities,
-    fieldSharingPolicy,
-    visibility: 'client_visible',
-    portalVisible: true,
-    approvalState: 'approved',
     allowedOrgIds: [input.clientOrgId, input.platformOrgId],
-    notes: 'Client portal supplier relationship for Partners in Biz service delivery.',
+    notes: 'Client portal supplier relationship metadata for Partners in Biz service delivery.',
   }, AGENT_PIP_REF)
 }
 

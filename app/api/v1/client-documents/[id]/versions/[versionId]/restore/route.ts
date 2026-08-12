@@ -5,10 +5,10 @@ import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
-import { assertClientDocumentDataAccess } from '@/lib/client-documents/access'
+import { getAccessibleClientDocument } from '@/lib/client-documents/access'
 import { deserializeBlocksFromFirestore, serializeBlocksForFirestore } from '@/lib/client-documents/firestore-blocks'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
-import type { ClientDocument, DocumentTheme } from '@/lib/client-documents/types'
+import type { DocumentTheme } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -17,6 +17,8 @@ type RouteContext = { params: Promise<{ id: string; versionId: string }> }
 
 export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id, versionId } = await ctx.params
+  const access = await getAccessibleClientDocument(id, user, 'write', { item: versionId })
+  if (!access.ok) return access.response
 
   const documentRef = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id)
   const sourceVersionRef = documentRef.collection('versions').doc(versionId)
@@ -31,9 +33,6 @@ export const POST = withAuth('admin', async (_req: NextRequest, user: ApiUser, c
       if (!docSnap.exists || docSnap.data()?.deleted === true) {
         return { ok: false as const, response: apiError('Document not found', 404) }
       }
-
-      const access = assertClientDocumentDataAccess(docSnap.data() as Partial<ClientDocument>, user)
-      if (!access.ok) return access
 
       const versionSnap = await transaction.get(sourceVersionRef)
       if (!versionSnap.exists) {

@@ -59,6 +59,49 @@ export type Participant = HumanParticipant | AgentParticipant
 
 export type ConversationScope = 'general' | 'project' | 'workspace' | 'task' | 'campaign' | 'company' | 'contact'
 
+export interface CrossOrgConversationParticipant {
+  /** Stable audience key, e.g. `user:uid` or `agent:agent-id:org-id`. */
+  principalId: string
+  kind: 'user' | 'agent'
+  orgId: string
+  role: 'owner' | 'member' | 'agent'
+  status: 'active' | 'removed'
+  uid?: string
+  agentId?: AgentId
+  /** Active human membership that authorises an agent's cross-org policy check. */
+  memberUid?: string
+  addedByUid?: string
+  addedAt?: Timestamp
+  removedByUid?: string
+  removedAt?: Timestamp
+}
+
+export interface CrossOrgConversationBinding {
+  /** Canonical bilateral relationship authority; legacy CRM pointers never grant access. */
+  partnerLinkId: string
+  ownerOrgId: string
+  /** Exactly the owner and one reciprocal partner organisation. */
+  participantOrgIds: [string, string]
+  thread: {
+    kind: 'relationship' | 'project' | 'resource'
+    resourceType: 'relationship' | 'project' | string
+    resourceId: string
+  }
+  status: 'active' | 'frozen' | 'revoked'
+  /** Incremented on revocation/narrowing to fence context caches and queued runs. */
+  accessEpoch: number
+  retention: {
+    foreignParticipantRetentionDays: number
+    purgeAfter?: Timestamp
+  }
+  participants: CrossOrgConversationParticipant[]
+}
+
+export interface ConversationVisibility {
+  /** Explicit audience; omitted is legacy owner-org-only behavior. */
+  principalIds: string[]
+}
+
 export interface ConversationAttachment {
   id: string
   name: string
@@ -66,6 +109,7 @@ export interface ConversationAttachment {
   contentType: string
   sizeBytes: number
   storagePath?: string
+  visibility?: ConversationVisibility
 }
 
 export interface ConversationReadState {
@@ -80,6 +124,11 @@ export interface Conversation {
   participants: Participant[]
   participantUids: string[]
   participantAgentIds: AgentId[]
+  /**
+   * Deliberate two-organisation binding for a normal Conversation. When set,
+   * foreign access must pass lib/conversations/cross-org.ts on every request.
+   */
+  crossOrg?: CrossOrgConversationBinding
   /** Monotonic version used to prevent stale access-management writes. */
   accessVersion?: number
   /** Server-only per-conversation event sequence for the realtime outbox. */
@@ -145,6 +194,8 @@ export interface ConversationMessage {
   conversationId: string
   role: 'user' | 'assistant' | 'system' | 'tool'
   content: string
+  /** Explicit per-message audience for cross-org Conversations. */
+  visibility?: ConversationVisibility
   mentions?: Mention[]
   mentionIds?: string[]
   attachments?: ConversationAttachment[]

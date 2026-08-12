@@ -16,6 +16,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { verifyPayPalWebhook } from '@/lib/payments/paypal'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,6 +78,11 @@ async function handleEvent(event: Record<string, unknown>) {
 
   const doc = snap.docs[0]
   const invoice = doc.data() ?? {}
+  const genericMutationError = rejectGenericPartnerTradeMutation(invoice)
+  if (genericMutationError) {
+    console.warn(`[paypal webhook] canonical partner invoice ${doc.id} ignored; canonical settlement is required`)
+    return
+  }
   if (invoice.status === 'paid') return // idempotent
 
   const captureId =

@@ -172,7 +172,7 @@ describe('admin agent permissions', () => {
           name: 'Zara',
           role: 'Specialist',
           persona: 'Helps',
-          defaultModel: 'xai-oauth/grok-4.5',
+          defaultModel: 'xai-oauth/grok-4.6',
           provider: 'openai-codex',
         }),
       }),

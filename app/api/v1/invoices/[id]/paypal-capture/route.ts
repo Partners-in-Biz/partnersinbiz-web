@@ -18,6 +18,7 @@ import { capturePayPalOrder } from '@/lib/payments/paypal'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { tryAttributeInvoicePaid } from '@/lib/email-analytics/attribution-hooks'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,6 +38,8 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   if (!access.ok) return access.response
   const ref = access.ref
   const invoice = access.data
+  const partnerTradeError = rejectGenericPartnerTradeMutation(invoice)
+  if (partnerTradeError) return apiError(partnerTradeError, 409)
 
   if (invoice.paypalOrderId && invoice.paypalOrderId !== orderId) {
     return apiError('orderId does not match invoice.paypalOrderId', 400)

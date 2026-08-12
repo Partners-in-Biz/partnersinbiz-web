@@ -136,6 +136,7 @@ describe('agent watcher Hermes dispatch', () => {
       output: null,
       error: expect.stringContaining('returned 502 repeatedly'),
     })
+    // 1 POST /v1/runs + MAX_RETRYABLE_HTTP_POLLS (5) gateway polls before giving up.
     expect(global.fetch).toHaveBeenCalledTimes(6)
     jest.useRealTimers()
   })

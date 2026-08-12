@@ -1,0 +1,35 @@
+{
+  "extends": "./tsconfig.typecheck.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false
+  },
+  "include": [],
+  "files": [
+    "lib/client-documents/access.ts",
+    "lib/client-documents/canonical-grants.ts",
+    "lib/client-documents/artifacts.ts",
+    "lib/client-documents/artifact-revocation.ts",
+    "lib/client-documents/public.ts",
+    "app/api/v1/public/client-documents/edit/[editShareToken]/route.ts",
+    "app/api/v1/public/client-documents/[shareToken]/route.ts",
+    "app/api/v1/public/client-documents/[shareToken]/sign/route.tsx",
+    "app/api/v1/client-documents/[id]/publish/route.ts",
+    "app/api/v1/client-documents/[id]/route.ts",
+    "app/api/v1/client-documents/[id]/export-pdf/route.tsx",
+    "app/api/v1/client-documents/[id]/versions/[versionId]/route.ts",
+    "app/api/v1/client-documents/[id]/versions/[versionId]/restore/route.ts",
+    "app/api/v1/client-documents/[id]/comments/[commentId]/route.ts",
+    "app/api/v1/client-documents/[id]/comments/[commentId]/resolve/route.ts",
+    "app/api/v1/client-documents/[id]/comments/[commentId]/replies/route.ts",
+    "app/api/v1/client-documents/[id]/suggestions/route.ts",
+    "app/api/v1/client-documents/[id]/suggestions/[suggestionId]/accept/route.ts",
+    "app/api/v1/client-documents/[id]/suggestions/[suggestionId]/reject/route.ts",
+    "app/api/v1/client-documents/[id]/sign/route.ts",
+    "app/api/v1/client-documents/[id]/signature-requests/route.ts",
+    "app/api/v1/client-documents/[id]/signature-requests/[requestId]/download/route.ts",
+    "app/api/v1/client-documents/[id]/edit-share/disable/route.ts",
+    "components/client-documents/SignatureRequestPanel.tsx",
+    "lib/cross-org/lifecycle.ts"
+  ]
+}

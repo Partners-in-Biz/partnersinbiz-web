@@ -19,6 +19,7 @@ import { invoiceSentEmail } from '@/lib/email/templates'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 import { canManageOrgAs } from '@/lib/orgMembers/permissions'
 import { renderInvoicePdf } from '@/lib/invoices/pdf-generator'
 import { invoiceLikeFromInvoiceRecord } from '@/lib/invoices/commerce-html'
@@ -38,6 +39,8 @@ export const POST = withAuth('client', async (req, user, ctx) => {
   if (!access.ok) return access.response
   const ref = access.ref
   const invoice = access.data
+  const partnerTradeError = rejectGenericPartnerTradeMutation(invoice)
+  if (partnerTradeError) return apiError(partnerTradeError, 409)
   const sourceOrgId: string | undefined = invoice.sourceOrgId ?? invoice.orgId
   if (!sourceOrgId || !(await canManageOrgAs(user, sourceOrgId))) {
     return apiError('Forbidden', 403)

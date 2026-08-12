@@ -14,6 +14,7 @@ import { NextRequest } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import { isCanonicalPartnerTradeInvoice } from '@/lib/partner-links/invoice-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,7 +42,10 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     updates.firstViewedAt = FieldValue.serverTimestamp()
   }
   // Only auto-transition sent → viewed; leave paid/overdue/etc alone.
-  if (invoice.status === 'sent') {
+  // Canonical partner-trade invoices settle through the partner settlement
+  // flow, never a public view-tracking route. View analytics are still
+  // recorded, but the lifecycle status is immutable here.
+  if (invoice.status === 'sent' && !isCanonicalPartnerTradeInvoice(invoice)) {
     updates.status = 'viewed'
   }
 

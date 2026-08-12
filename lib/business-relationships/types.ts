@@ -20,8 +20,16 @@ export type SharedBusinessCapability =
   | 'shipments'
   | 'inventory'
   | 'invoices'
+  | 'campaigns'
+  | 'social'
+  | 'email'
+  | 'seo'
+  | 'ads'
   | 'analytics'
+  | 'research'
+  | 'properties'
   | 'support'
+  | 'messages'
   | 'services'
 
 export type RelationshipVisibility = 'private' | 'relationship' | 'client_visible'
@@ -34,6 +42,8 @@ export interface FieldSharingPolicy {
   documents?: boolean
   commerce?: boolean
   analytics?: boolean
+  research?: boolean
+  properties?: boolean
 }
 
 export interface BusinessRelationship {
@@ -57,7 +67,10 @@ export interface BusinessRelationship {
   /**
    * Shared id stamped on BOTH sides of a mutually-accepted partner link, so
    * either org can find its counterpart row without guessing by org id pair.
-   * Only set by the partner-invite accept flow (lib/partner-links).
+   * SERVER-SET-ONLY: only the partner-invite accept flow
+   * (lib/partner-links) may write it, and only rows carrying it can carry
+   * active/approved/portal-visible collaboration state. Generic CRM
+   * relationship metadata never sets it.
    */
   partnerLinkId?: string
   notes?: string

@@ -133,6 +133,8 @@ function mergeFieldPolicy(relationships: BusinessRelationship[]): Required<Field
     documents: true,
     commerce: true,
     analytics: true,
+    research: true,
+    properties: true,
   }
 
   for (const relationship of relationships) {

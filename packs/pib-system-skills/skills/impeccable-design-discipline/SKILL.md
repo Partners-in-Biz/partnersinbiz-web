@@ -72,6 +72,35 @@ Working rules:
   SaaS patterns — that is exactly what the detector punishes.
 - **Run the detector after every edit pass**, then fix, then re-run. See pillar 3.
 
+#### Named design commands in Messages (P1 slash surface)
+
+PiB Messages ships 11 of these commands as first-class slash commands that
+route through the same discipline. Users type `/polish the pricing page` or
+`/quieter the dashboard`, and the agent runs the discipline with the right
+detector scope, resolving + citing the client Design Context (T3) and running
+the T1 detector BEFORE and AFTER. A palette action menu next to the composer is
+the mobile fallback for the same commands.
+
+| Command | Scope | Discipline |
+| --- | --- | --- |
+| `/polish` | all | Final quality pass: alignment, spacing, consistency, contrast, edge details |
+| `/typeset` | type | Typography: hierarchy, sizes, line-height, letter-spacing, measure |
+| `/layout` | layout | Spacing/rhythm: padding, grid, whitespace, surface structure |
+| `/colorize` | all | Strategic color: palette adherence, contrast, gradients |
+| `/bolder` | type | Amplify: stronger hierarchy, contrast, presence |
+| `/quieter` | layout | Tone down: less noise, more whitespace, calmer surfaces |
+| `/distill` | layout | Strip to essence: remove what does not serve the primary job |
+| `/clarify` | type | Copy/microcopy: clear headings, labels, CTAs, empty states |
+| `/harden` | all | Production-readiness: error states, overflow, edge cases, a11y |
+| `/audit` | all | Technical audit: run the full detector and fix by severity |
+| `/critique` | all | UX critique: hierarchy, interaction, affordance, flow |
+
+Non-negotiable for every named command: (1) resolve the client Design Context
+(T3) — if none exists, say so and flag that an `init`/questionnaire or style
+scan is needed; (2) run the T1 detector before, record the baseline; (3) apply
+the discipline; (4) re-run the detector after and fix every error/warning
+finding (or record a real waiver); (5) report before/after counts.
+
 ### 2. Per-client design context (PRODUCT.md/DESIGN.md equivalent)
 
 Impeccable's durable context = `PRODUCT.md` (platform, users, positioning,
@@ -172,6 +201,35 @@ written into the repo/site being worked on when possible (Layer 2+ territory).
 7. **Finish gate** — for significant design work, a fresh reviewer (never the
    builder) checks the surface against the brief contract before done
    (project pillar: "Fresh-reviewer finish gate").
+
+## "Audit our page/site" — the Messages action card flow (T2)
+
+When a user asks to audit a live page/site, do not just print findings in
+chat. Use the PiB Design Audit action card:
+
+1. **Open the live URL in the browser** (browser-agent/workbench tools) so the
+   page actually renders and computed styles exist — or use the workbench
+   `extract` control to pull outerHTML + computed styles + console errors.
+   Server-side fetch (`POST /api/v1/design-audit/runs`) is the fallback for
+   public URLs.
+2. **Run the T1 engine** with the fetched/extracted DOM (scope `all` default,
+   or `type`/`layout` narrowing). Keep it tenant-safe: the API resolves orgId
+   from the authenticated user + X-Org-Id, never from an unauthenticated body.
+   URL guard: http/https only, no embedded credentials, private-network
+   rejection (allowPrivateNetwork opt-in), optional host allowlist.
+3. **Return the design_audit rich part** — findings grouped P0-P3 with element
+   refs, severity metrics (P0..P3 counts, exit code), screenshot overlay when a
+   screenshot exists, evidence, and the `open_context` ref so the run opens in
+   the Context Dock (`design` canvas kind). The action card arrives in
+   Messages with uiActions: **Fix it** (agent edits and re-verifies),
+   **Ignore + reason** (records a waiver), **Re-run**.
+4. **Fix it** → make the edits, re-run the audit, and only report done when the
+   re-run is clean (or every remaining finding has a real waiver).
+5. **Ignore + reason** → records a waiver on the run (`POST
+   /api/v1/design-audit/runs/:runId/waivers`) so the decision is auditable and
+   re-runs do not re-flag it.
+6. **Evidence** — task output should cite the run id, URL, scope, exit code,
+   before/after finding counts, and waivers.
 
 ## Security & boundaries
 

@@ -66,7 +66,8 @@ export default function AdminAgentOrgChartPage() {
           setOrgOptions(opts)
         }
       } catch {
-        // keep default
+        // keep default PLATFORM_ORG option when list fails
+        void 0
       }
     })()
     return () => {

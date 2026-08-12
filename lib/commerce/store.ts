@@ -4,6 +4,7 @@ import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import { recordCrmAuditEvent } from '@/lib/crm/audit'
 import type { CommerceListParams, InventoryItem, Order, Shipment } from './types'
 import type { Currency, DealLineItem } from '@/lib/crm/types'
+import { rejectGenericPartnerTradeOrderMutation } from '@/lib/partner-links/invoice-guard'
 
 type CommerceKind = 'orders' | 'shipments' | 'inventoryItems'
 type CommerceRow = Order | Shipment | InventoryItem
@@ -240,6 +241,10 @@ async function updateRow<T extends CommerceRow>(
   if (!snap.exists) throw new Error(`${kind} record not found`)
   const existing = snap.data() as CommerceRow
   if (existing.orgId !== orgId) throw new Error(`${kind} record not found`)
+  if (kind === 'orders') {
+    const genericMutationError = rejectGenericPartnerTradeOrderMutation(existing as unknown as Record<string, unknown>)
+    if (genericMutationError) throw new Error(genericMutationError)
+  }
   const sanitized = sanitize(kind, input)
   await ref.update({
     ...sanitized,

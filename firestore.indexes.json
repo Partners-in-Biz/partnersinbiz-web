@@ -3618,6 +3618,150 @@
       ]
     },
     {
+      "collectionGroup": "partner_record_shares",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ownerOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "partnerOrgId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "deals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "orgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "title",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "projects",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "orgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "invoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "orgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "invoiceNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "quotes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "orgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "quoteNumber",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "client_documents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "orgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "title",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "partner_catalog_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "supplierOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "buyerOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "productId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "partner_catalog_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "buyerOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "supplierOrgId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "projectOrganizations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "ownerOrgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "projectOrganizations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "orgId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "agent_org_nodes",
       "queryScope": "COLLECTION",
       "fields": [

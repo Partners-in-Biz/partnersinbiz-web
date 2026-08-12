@@ -19,6 +19,7 @@ import { resolveUser } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { buildPaymentInstructions } from '@/lib/payments/eft'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,6 +48,10 @@ export async function GET(req: NextRequest, ctx: unknown): Promise<NextResponse>
 
   let publicToken = invoice.publicToken as string | undefined
   if (!publicToken) {
+    // This GET lazily writes a public token. Canonical partner invoices must not
+    // gain alternate payment entry points outside the settlement transaction.
+    const mutationError = rejectGenericPartnerTradeMutation(invoice)
+    if (mutationError) return apiError(mutationError, 409)
     publicToken = crypto.randomBytes(16).toString('hex')
     await ref.update({ publicToken, updatedAt: FieldValue.serverTimestamp() })
   }
@@ -67,7 +72,6 @@ export async function GET(req: NextRequest, ctx: unknown): Promise<NextResponse>
       dueDate: invoice.dueDate,
       publicToken,
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     platformOrg as any,
   )
 

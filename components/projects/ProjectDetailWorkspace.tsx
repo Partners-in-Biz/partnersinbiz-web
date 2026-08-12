@@ -14,6 +14,7 @@ import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAcc
 import { ProjectSettingsPanel } from '@/components/projects/ProjectSettingsPanel'
 import { ProjectSuitePanel } from '@/components/projects/ProjectSuitePanel'
 import { PageTabs } from '@/components/ui/AppFoundation'
+import { ShareWithPartnerButton } from '@/components/crm/ShareWithPartnerButton'
 import type { AgentMember, Column, Task, TeamMember } from '@/components/kanban/types'
 
 interface Project {
@@ -599,16 +600,27 @@ export function ProjectDetailWorkspace({
             </h1>
           </div>
         </div>
-        {activeTab === 'kanban' && (
-          <button
-            onClick={() => setShowNewTask('todo')}
-            className="pib-btn-primary btn-pib-sm shrink-0 font-label"
-          >
-            <span className="material-symbols-outlined text-[15px]">add_task</span>
-            <span className="hidden sm:inline">New Task</span>
-            <span className="sm:hidden">New</span>
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {mode === 'portal' && projectId ? (
+            <ShareWithPartnerButton
+              resourceType="project"
+              resourceId={projectId}
+              label="Share"
+              orgScope={orgScope}
+              className="btn-pib-secondary btn-pib-sm inline-flex items-center gap-1.5 font-label"
+            />
+          ) : null}
+          {activeTab === 'kanban' && (
+            <button
+              onClick={() => setShowNewTask('todo')}
+              className="pib-btn-primary btn-pib-sm shrink-0 font-label"
+            >
+              <span className="material-symbols-outlined text-[15px]">add_task</span>
+              <span className="hidden sm:inline">New Task</span>
+              <span className="sm:hidden">New</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <PageTabs

@@ -8,6 +8,7 @@ import { getAdapter } from '@/lib/integrations/registry'
 import '@/lib/integrations/bootstrap'
 import { ALL_PROVIDERS, type IntegrationProvider } from '@/lib/integrations/types'
 import crypto from 'crypto'
+import { loadOwnerAuthorizedProperty } from '@/lib/properties/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,11 +26,14 @@ function appBaseUrl(req: NextRequest): string {
   )
 }
 
-export const GET = withAuth('admin', async (req: NextRequest, _user, ctx) => {
+export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const { id, provider } = await (ctx as RouteContext).params
   if (!isProvider(provider)) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
   }
+  const access = await loadOwnerAuthorizedProperty(user, id)
+  if (!access.ok) return access.response
+  const propertyId = access.property.id
   const adapter = getAdapter(provider)
   if (!adapter) {
     return NextResponse.json({ error: 'Adapter not registered' }, { status: 501 })
@@ -40,19 +44,15 @@ export const GET = withAuth('admin', async (req: NextRequest, _user, ctx) => {
       { status: 400 },
     )
   }
-  const propDoc = await adminDb.collection('properties').doc(id).get()
-  if (!propDoc.exists) {
-    return NextResponse.json({ error: 'Property not found' }, { status: 404 })
-  }
-  const orgId = (propDoc.data() as { orgId: string }).orgId
+  const orgId = access.property.orgId
 
   const state = crypto.randomBytes(24).toString('hex')
-  const redirectUri = `${appBaseUrl(req)}/api/v1/properties/${id}/connections/${provider}/callback`
+  const redirectUri = `${appBaseUrl(req)}/api/v1/properties/${propertyId}/connections/${provider}/callback`
 
   // Persist state for CSRF check on callback. TTL 10 minutes is enough.
   await adminDb.collection('oauth_state').doc(state).set({
     state,
-    propertyId: id,
+    propertyId,
     orgId,
     provider,
     createdAt: new Date(),
@@ -60,7 +60,7 @@ export const GET = withAuth('admin', async (req: NextRequest, _user, ctx) => {
   })
 
   const { authorizeUrl } = await adapter.beginOAuth({
-    propertyId: id,
+    propertyId,
     orgId,
     redirectUri,
     state,

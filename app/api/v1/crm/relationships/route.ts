@@ -53,8 +53,15 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
 export const POST = withCrmAuth('admin', async (req, ctx) => {
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== 'object') return apiError('Invalid JSON', 400)
-  const relationship = await createBusinessRelationship(ctx.orgId, body as Record<string, unknown>, ctx.actor)
-  return apiSuccess({ relationship }, 201)
+  try {
+    const relationship = await createBusinessRelationship(ctx.orgId, body as Record<string, unknown>, ctx.actor)
+    return apiSuccess({ relationship }, 201)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to create relationship'
+    // Activation attempts on generic metadata fail closed (400) rather than
+    // silently creating an approved, portal-visible collaboration row.
+    return apiError(message, 400)
+  }
 })
 
 export const PATCH = withCrmAuth('admin', async (req, ctx) => {

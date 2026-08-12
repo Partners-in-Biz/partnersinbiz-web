@@ -8,8 +8,11 @@ import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { withIdempotency } from '@/lib/api/idempotency'
-import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { lastActorFrom } from '@/lib/api/actor'
 import type { ApiUser } from '@/lib/api/types'
 import { logActivity } from '@/lib/activity/log'
@@ -28,8 +31,15 @@ export const POST = withAuth(
     if (!snap.exists) return apiError('Campaign not found', 404)
     const data = snap.data()!
     if (data.deleted) return apiError('Campaign not found', 404)
-    const scope = resolveOrgScope(user, (data.orgId as string | undefined) ?? null)
-    if (!scope.ok) return apiError(scope.error, scope.status)
+    const access = await assertMarketingHandlerAccess({
+      user,
+      module: 'campaigns',
+      resourceId: id,
+      resourceOwnerOrgId: (data.orgId as string | undefined) ?? null,
+      operation: 'archive',
+      partnerLinkId: extractPartnerLinkId(req, body as Record<string, unknown>),
+    })
+    if (!access.ok) return apiError(access.error, access.status)
 
     const update: Record<string, unknown> = {
       status: 'archived',

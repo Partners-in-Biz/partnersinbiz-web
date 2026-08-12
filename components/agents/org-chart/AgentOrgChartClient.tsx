@@ -117,7 +117,8 @@ export default function AgentOrgChartClient({
       }
       setAgentsById(map)
     } catch {
-      // live chips optional
+      // live chips optional — keep previous map rather than fail the chart
+      void 0
     }
   }, [agentsListUrl])
 

@@ -6,6 +6,7 @@ const mockResolveContextReferences = jest.fn()
 const mockCommentSet = jest.fn()
 const mockCommentGet = jest.fn()
 const mockCommentDoc = jest.fn()
+const mockCommentsGet = jest.fn()
 const mockCommentsCollection = jest.fn()
 const mockTaskGet = jest.fn()
 const mockTaskDoc = jest.fn()
@@ -100,7 +101,11 @@ beforeEach(() => {
     }),
   })
   mockCommentDoc.mockReturnValue({ id: 'comment-1', set: mockCommentSet, get: mockCommentGet })
-  mockCommentsCollection.mockReturnValue({ doc: mockCommentDoc })
+  mockCommentsGet.mockResolvedValue({ docs: [] })
+  mockCommentsCollection.mockReturnValue({
+    doc: mockCommentDoc,
+    orderBy: jest.fn(() => ({ get: mockCommentsGet })),
+  })
   mockTaskGet.mockResolvedValue({
     exists: true,
     data: () => ({ title: 'Website Launch' }),
@@ -136,6 +141,19 @@ beforeEach(() => {
 })
 
 describe('project task comment context refs', () => {
+  it('uses canonical read and item access before returning task comments', async () => {
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/comments/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1/comments'), {
+      params: Promise.resolve({ projectId: 'project-1', taskId: 'task-1' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(mockGetProjectForUser).toHaveBeenCalledWith(
+      'project-1', expect.objectContaining({ uid: 'admin-1' }), undefined,
+      { action: 'project.read', item: 'task-1' },
+    )
+  })
+
   it('revalidates and stores context refs on task comments', async () => {
     const { POST } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/comments/route')
     const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1/comments', {
@@ -151,6 +169,10 @@ describe('project task comment context refs', () => {
     })
 
     expect(res.status).toBe(201)
+    expect(mockGetProjectForUser).toHaveBeenCalledWith(
+      'project-1', expect.objectContaining({ uid: 'admin-1' }), undefined,
+      { action: 'project.write', item: 'task-1' },
+    )
     expect(mockResolveContextReferences).toHaveBeenCalledWith(
       [
         expect.objectContaining({

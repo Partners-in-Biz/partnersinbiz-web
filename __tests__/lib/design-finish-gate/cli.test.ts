@@ -99,10 +99,7 @@ describe('design-finish-gate CLI', () => {
     const briefFile = tmpFile('brief.md', BRIEF)
     const { stdout: prepareOut } = runCli(['prepare', '--brief-file', briefFile, '--builder-agent', 'theo', '--json'])
     const contractFile = tmpFile('contract.json', JSON.stringify((JSON.parse(prepareOut) as { contract: unknown }).contract))
-    const fixReview = JSON.parse(shipReview()) as {
-      verdict: string
-      promiseScores: Record<string, { score: string; note?: string }>
-    }
+    const fixReview = JSON.parse(shipReview()) as { promiseScores: Record<string, { score: string }> }
     fixReview.verdict = 'fix'
     fixReview.promiseScores.p2 = { score: 'partial', note: 'close but not AA' }
     const reviewerFile = tmpFile('reviewer.json', JSON.stringify(fixReview))
@@ -117,10 +114,7 @@ describe('design-finish-gate CLI', () => {
     const briefFile = tmpFile('brief.md', BRIEF)
     const { stdout: prepareOut } = runCli(['prepare', '--brief-file', briefFile, '--builder-agent', 'theo', '--json'])
     const contractFile = tmpFile('contract.json', JSON.stringify((JSON.parse(prepareOut) as { contract: unknown }).contract))
-    const rebuildReview = JSON.parse(shipReview()) as {
-      verdict: string
-      promiseScores: Record<string, { score: string; note?: string }>
-    }
+    const rebuildReview = JSON.parse(shipReview()) as { promiseScores: Record<string, { score: string }> }
     rebuildReview.verdict = 'rebuild'
     rebuildReview.promiseScores.p1 = { score: 'unresolved', note: 'no hero at all' }
     const reviewerFile = tmpFile('reviewer.json', JSON.stringify(rebuildReview))
@@ -155,7 +149,7 @@ describe('design-finish-gate CLI', () => {
     const briefFile = tmpFile('brief.md', BRIEF)
     const { stdout: prepareOut } = runCli(['prepare', '--brief-file', briefFile, '--builder-agent', 'theo', '--json'])
     const contractFile = tmpFile('contract.json', JSON.stringify((JSON.parse(prepareOut) as { contract: unknown }).contract))
-    const bareReview = JSON.parse(shipReview()) as { evidence?: string }
+    const bareReview = JSON.parse(shipReview()) as { evidence: string }
     delete bareReview.evidence // no screenshots, no transcripts, no citation
     const reviewerFile = tmpFile('reviewer.json', JSON.stringify(bareReview))
     const { status } = runCli(['verify', '--contract', contractFile, '--reviewer-output', reviewerFile, '--json'])

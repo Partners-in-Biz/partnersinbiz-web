@@ -112,9 +112,11 @@ describe('reciprocal Partners in Biz supplier links', () => {
       targetOrgId: 'client-org',
       targetCompanyId: 'supplier-company',
       relationshipType: 'customer',
-      visibility: 'client_visible',
+      status: 'pending',
+      visibility: 'private',
+      approvalState: 'draft',
+      portalVisible: false,
       allowedOrgIds: ['pib-platform-owner', 'client-org'],
-      portalVisible: true,
     }))
     expect(mockRelationshipAdd).toHaveBeenNthCalledWith(2, expect.objectContaining({
       sourceOrgId: 'client-org',
@@ -122,9 +124,11 @@ describe('reciprocal Partners in Biz supplier links', () => {
       targetOrgId: 'pib-platform-owner',
       targetCompanyId: 'platform-company',
       relationshipType: 'supplier',
-      visibility: 'client_visible',
+      status: 'pending',
+      visibility: 'private',
+      approvalState: 'draft',
+      portalVisible: false,
       allowedOrgIds: ['client-org', 'pib-platform-owner'],
-      portalVisible: true,
     }))
   })
 })

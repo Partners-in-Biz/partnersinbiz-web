@@ -3,7 +3,7 @@
  * line-length, tight leading, wide tracking, justified text, script errors.
  */
 
-import type { Finding, Rule, RuleContext } from '../types'
+import type { ElementNode, Finding, Rule, RuleContext } from '../types'
 import { pathOf, snippet, textContent, walk } from '../parser'
 import {
   display, isCardLike, letterSpacingEm, lineHeightRatio,
@@ -254,6 +254,34 @@ function labeledByForIds(doc: RuleContext['doc']): Set<string> {
   return ids
 }
 
+/**
+ * pib-label convention: a control nested directly inside a `<label>` element
+ * is implicitly associated (valid HTML) — `<label><span>Label</span>
+ * <input/></label>`. The pib-label class + wrapping label is a repo-wide
+ * pattern, so the detector must treat it as labeled.
+ */
+function hasLabelAncestor(el: ElementNode): boolean {
+  let cur: ElementNode | null = el.parent
+  while (cur && cur.tag !== '#root') {
+    if (cur.tag === 'label') return true
+    cur = cur.parent
+  }
+  return false
+}
+
+/**
+ * JSX-expression convention: `htmlFor={cond ? idA : idB}` and `id={idA}` do
+ * not string-match, but both reference the same identifier. Extract the
+ * identifier tokens from a JSX expression value so the pairing still counts.
+ */
+function jsxExpressionTokens(value: string): Set<string> {
+  const tokens = new Set<string>()
+  for (const match of value.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g)) {
+    tokens.add(match[0])
+  }
+  return tokens
+}
+
 export const unlabeledControlsRule: Rule = {
   id: 'unlabeled-controls',
   severity: 'P1',
@@ -279,6 +307,22 @@ export const unlabeledControlsRule: Rule = {
       // control's `id`. This is a programmatic label association.
       const id = el.attrs['id']
       if (id && labelForIds.has(id)) return
+      // JSX-expression convention: id={x} is labeled when any label references
+      // the same identifier in its htmlFor expression (e.g. htmlFor={cond ? x : y}).
+      if (id) {
+        const idTokens = jsxExpressionTokens(id)
+        if (idTokens.size) {
+          for (const ref of labelForIds) {
+            const refTokens = jsxExpressionTokens(ref)
+            for (const token of idTokens) {
+              if (refTokens.has(token)) return
+            }
+          }
+        }
+      }
+      // Repo convention: control nested inside a wrapping `<label>` element is
+      // implicitly labeled (valid HTML association).
+      if (hasLabelAncestor(el)) return
       out.push(finding(
         'unlabeled-controls', 'P1', 'layout', pathOf(el), el.line,
         `Unlabeled ${tag} (no label/aria-label/aria-labelledby/title).`,

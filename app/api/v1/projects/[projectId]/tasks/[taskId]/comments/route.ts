@@ -6,6 +6,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { notifyNewComment } from '@/lib/notifications/notify'
 import { logActivity } from '@/lib/activity/log'
 import { getProjectForUser } from '@/lib/projects/access'
+import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { adminProjectTaskLink } from '@/lib/projects/links'
 import { resolveContextReferences } from '@/lib/context-references/registry'
 import {
@@ -30,6 +31,18 @@ interface Comment {
 
 type RouteContext = { params: Promise<{ projectId: string; taskId: string }> }
 
+function taskIsVisible(
+  taskId: string,
+  task: Record<string, unknown>,
+  access: Extract<Awaited<ReturnType<typeof getProjectForUser>>, { ok: true }>,
+  user: Parameters<typeof getProjectForUser>[1],
+): boolean {
+  return filterProjectItemsForAccess([{ id: taskId, ...task }], {
+    projectAccess: access.projectAccess,
+    user,
+  }).length === 1
+}
+
 function taskContextSeed(args: {
   projectId: string
   taskId: string
@@ -49,12 +62,12 @@ function taskContextSeed(args: {
 // GET - List all comments for a task
 export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, taskId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.read', item: taskId })
   if (!access.ok) return apiError(access.error, access.status)
 
   const ref = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
   const doc = await ref.get()
-  if (!doc.exists) return apiError('Task not found', 404)
+  if (!doc.exists || !taskIsVisible(taskId, doc.data() ?? {}, access, user)) return apiError('Task not found', 404)
 
   const commentsSnap = await ref.collection('comments').orderBy('createdAt', 'asc').get()
   const comments: Comment[] = commentsSnap.docs.map(d => ({
@@ -68,7 +81,7 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
 // POST - Create a comment
 export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, taskId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.write', item: taskId })
   if (!access.ok) return apiError(access.error, access.status)
 
   try {
@@ -83,7 +96,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     // Check task exists
     const taskRef = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
     const taskDoc = await taskRef.get()
-    if (!taskDoc.exists) return apiError('Task not found', 404)
+    if (!taskDoc.exists || !taskIsVisible(taskId, taskDoc.data() ?? {}, access, user)) return apiError('Task not found', 404)
     const taskData = taskDoc.data() ?? {}
     const projectData = access.doc.data() ?? {}
     const orgId = typeof projectData.orgId === 'string' ? projectData.orgId : undefined

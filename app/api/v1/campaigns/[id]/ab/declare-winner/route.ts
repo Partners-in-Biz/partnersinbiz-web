@@ -16,7 +16,10 @@
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
-import { resolveOrgScope } from '@/lib/api/orgScope'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { lastActorFrom } from '@/lib/api/actor'
 import { FieldValue } from 'firebase-admin/firestore'
@@ -34,9 +37,16 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser, c
   const snap = await adminDb.collection('campaigns').doc(id).get()
   if (!snap.exists || snap.data()?.deleted) return apiError('Not found', 404)
   const data = snap.data()!
-  const scope = resolveOrgScope(user, (data.orgId as string | undefined) ?? null)
-  if (!scope.ok) return apiError(scope.error, scope.status)
-
+  const access = await assertMarketingHandlerAccess({
+    user,
+    module: 'campaigns',
+    resourceId: id,
+    resourceOwnerOrgId: (data.orgId as string | undefined) ?? null,
+    operation: 'write',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
+  const scope = { ok: true as const, orgId: access.orgId }
   const ab = data.ab as AbConfig | undefined
   if (!ab?.enabled) return apiError('A/B testing is not enabled on this campaign', 400)
 

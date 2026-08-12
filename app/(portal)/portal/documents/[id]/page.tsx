@@ -23,6 +23,7 @@ import {
 } from '@/lib/organizations/module-policies'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import { fmtTimestamp } from '@/lib/format/timestamp'
+import { ShareWithPartnerButton } from '@/components/crm/ShareWithPartnerButton'
 
 function ignoreBestEffortFailure() {
   return undefined
@@ -403,6 +404,7 @@ export default function PortalDocumentDetail({ params }: Props) {
             <span className="material-symbols-outlined text-sm" aria-hidden="true">history</span>
             Version history
           </button>
+          <ShareWithPartnerButton resourceType="client_document" resourceId={id} />
         </div>
       </div>
 

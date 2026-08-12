@@ -14,10 +14,22 @@ service cloud.firestore {
     }
 
     function isOrgMember(orgId) {
-      return request.auth != null && (
-        isAdmin() ||
-        exists(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid))
-      );
+      // Active membership only. A revoked/disabled/deleted orgMembers row never
+      // grants access. The global users.role == "admin" flag is deliberately
+      // NOT a fallback here: admin users operate through the tenant-safe API.
+      // (Expression-only body: the rules engine caches repeated get() calls.)
+      return request.auth != null
+          && exists(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid))
+          && (!('disabled' in get(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid)).data)
+              || get(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid)).data.disabled != true)
+          && (!('deleted' in get(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid)).data)
+              || get(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid)).data.deleted != true)
+          && (!('deletedAt' in get(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid)).data)
+              || get(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid)).data.deletedAt == null)
+          && (!('status' in get(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid)).data)
+              || get(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid)).data.status == ''
+              || get(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid)).data.status == 'active'
+              || get(/databases/$(database)/documents/orgMembers/$(orgId + "_" + request.auth.uid)).data.status == 'enabled');
     }
 
     // ── Users ────────────────────────────────────────────────────────────────
@@ -42,30 +54,36 @@ service cloud.firestore {
     }
 
     // ── CRM ──────────────────────────────────────────────────────────────────
+    // All CRM reads/writes are served by /api/v1/crm/* routes whose middleware
+    // enforces canonical active org membership (lib/auth/crm-middleware.ts) plus
+    // per-module authorities. The browser never reads these collections with the
+    // client SDK, so direct client access is denied. Never reintroduce a global
+    // role=admin grant here: it turns any admin user into a cross-tenant reader.
     match /contacts/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     match /deals/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     match /activities/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     // ── Email ────────────────────────────────────────────────────────────────
+    // Email history is CRM data; served only through the API with tenant checks.
     match /emails/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     // ── Sequences ────────────────────────────────────────────────────────────
     match /sequences/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     match /sequence_enrollments/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     // ── Client portal ────────────────────────────────────────────────────────
@@ -117,17 +135,17 @@ service cloud.firestore {
     }
 
     match /recurring_schedules/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     // ── Marketing ────────────────────────────────────────────────────────────
     match /campaigns/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     // ── AI audit log ─────────────────────────────────────────────────────────
     match /ai_action_log/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     // Agent memory chunks are retrieved only through authenticated API routes
@@ -315,11 +333,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Unified comments — admin read/write. Clients cannot see each other's
+    // Unified comments — API-mediated only. Clients cannot see each other's
     // comment threads (even on their own resources) without deliberate
     // per-resource exposure later.
     match /comments/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     // Standalone tasks (distinct from the nested /tasks/{taskId}/comments above).
@@ -329,10 +347,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Notifications — admin read/write. Per-user visibility via API (withAuth)
+    // Notifications — API-mediated. Per-user visibility via API (withAuth)
     // rather than client-side Firestore reads.
     match /notifications/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     // Push tokens — written exclusively through /api/v1/push-tokens via the
@@ -341,34 +359,34 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // File metadata — admin read/write. Uploads are via Admin SDK through /upload.
+    // File metadata — API-mediated. Uploads are via Admin SDK through /upload.
     match /uploads/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
-    // Calendar events — admin read/write.
+    // Calendar events — API-mediated.
     match /calendar_events/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
-    // Time tracking — admin read/write. Self-only reads are API-gated.
+    // Time tracking — API-mediated. Self-only reads are API-gated.
     match /time_entries/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
-    // Expenses — admin read/write.
+    // Expenses — API-mediated.
     match /expenses/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
-    // Forms — admin read/write. Public submit goes through the /api/v1/forms/[slug]/submit
+    // Forms — API-mediated. Public submit goes through the /api/v1/forms/[slug]/submit
     // route which uses Admin SDK; no client-side form submit to Firestore.
     match /forms/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     match /form_submissions/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     // Form rate-limit buckets — never client-readable or writable.
@@ -376,9 +394,9 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Outbound webhooks system — admin only. Queue + deliveries are internal.
+    // Outbound webhooks system — API-mediated. Queue + deliveries are internal.
     match /outbound_webhooks/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     match /webhook_queue/{id} {
@@ -386,7 +404,7 @@ service cloud.firestore {
     }
 
     match /webhook_deliveries/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
 
     // Properties — managed via server-side API only

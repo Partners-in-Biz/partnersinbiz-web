@@ -24,7 +24,8 @@ import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { tryAttributeInvoicePaid } from '@/lib/email-analytics/attribution-hooks'
 import { logActivity } from '@/lib/activity/log'
-import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { isInvoiceIssuerAccess, requireInvoiceAccess } from '@/lib/invoices/access'
+import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,10 +46,16 @@ export const PATCH = withAuth('client', async (req, user, ctx) => {
     )
   }
 
-  const access = await requireInvoiceAccess(user, id)
+  const requestedOrgId = new URL(req.url).searchParams.get('orgId')
+  const access = await requireInvoiceAccess(user, id, requestedOrgId)
   if (!access.ok) return access.response
+  if (!isInvoiceIssuerAccess(access.accessKind)) {
+    return apiError('Only the issuing organisation can mark this invoice paid; recipients must use the payment-proof workflow', 403)
+  }
   const ref = access.ref
   const invoice = access.data
+  const partnerTradeError = rejectGenericPartnerTradeMutation(invoice)
+  if (partnerTradeError) return apiError(partnerTradeError, 409)
   const orgId: string | undefined = invoice.orgId
   const invoiceNumber: string = invoice.invoiceNumber ?? id
   const createdBy: string | undefined = invoice.createdBy

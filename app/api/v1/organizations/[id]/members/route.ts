@@ -10,7 +10,9 @@ import { logActivity } from '@/lib/activity/log'
 import { syncPlatformContactForOrgMember } from '@/lib/platform-owner/relationships'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
+import { isOwnerOrAdmin } from '@/lib/organizations/helpers'
 import { ACCESS_SCOPE_OPTIONS, parseMemberMetadata } from '@/lib/organizations/memberMetadata'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,6 +61,10 @@ export const GET = withAuth('admin', async (req, user, ctx) => {
   // Fetch organization
   const orgDoc = await adminDb.collection('organizations').doc(id).get()
   if (!orgDoc.exists) return apiError('Organisation not found', 404)
+
+  // Restricted admins may only enumerate members of orgs they are assigned
+  // to (allowedOrgIds); super admins and AI agents keep unrestricted access.
+  if (!canAccessOrg(user, id)) return apiError('Forbidden', 403)
 
   const org = orgDoc.data() as Organization
   const members = (org.members ?? []) as StoredMember[]
@@ -121,7 +127,19 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   const orgDoc = await adminDb.collection('organizations').doc(id).get()
   if (!orgDoc.exists) return apiError('Organisation not found', 404)
 
+  // Member creation must be scoped to orgs the actor is authorised to manage:
+  // restricted admins may only add members to assigned orgs (allowedOrgIds);
+  // super admins and AI agents keep unrestricted onboarding. Matches the gate
+  // on GET /organizations and every other /organizations/[id] sibling route.
+  if (!canAccessOrg(user, id)) return apiError('Forbidden', 403)
+
   const org = orgDoc.data() as Organization
+  // This guard is unreachable with current roles ('admin', 'client', 'ai')
+  // because withAuth('admin') blocks clients. Kept intentionally for when
+  // lower-privilege roles are introduced: only owners/admins may add members.
+  if (user.role !== 'admin' && user.role !== 'ai') {
+    if (!isOwnerOrAdmin(org.members ?? [], user.uid)) return apiError('Forbidden', 403)
+  }
 
   // Look up user by email
   const userSnapshot = await adminDb

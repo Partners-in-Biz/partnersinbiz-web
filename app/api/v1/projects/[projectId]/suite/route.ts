@@ -463,10 +463,32 @@ async function writeSuiteNotifications(input: {
   }
 }
 
+function filterItemsForGrant<T extends SuiteRecord>(
+  items: T[],
+  projectAccess: { crossOrgGrant?: { items: string[] } } | undefined,
+): T[] {
+  const grantedItems = projectAccess?.crossOrgGrant?.items ?? []
+  return grantedItems.length === 0 ? items : items.filter((item) => grantedItems.includes(item.id))
+}
+
+function grantAllowsSuiteAction(
+  access: { crossOrgGrant?: { actions: string[]; items: string[] } } | undefined,
+  action: 'project.read' | 'project.write',
+  itemId?: string,
+): boolean {
+  const grant = access?.crossOrgGrant
+  if (!grant) return true
+  if (!grant.actions.includes(action)) return false
+  return !itemId || grant.items.length === 0 || grant.items.includes(itemId)
+}
+
 export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.read' })
   if (!access.ok) return apiError(access.error, access.status)
+  if (!grantAllowsSuiteAction(access.projectAccess ?? undefined, 'project.read')) {
+    return apiError('Project read is not granted for this cross-organisation share', 403)
+  }
 
   const [
     tasksRaw,
@@ -497,10 +519,10 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
     listSubcollection(projectId, 'capacities'),
     listSubcollection(projectId, 'revenue'),
   ])
-  const filterItems = <T extends object>(items: T[]) => filterProjectItemsForAccess(items, {
+  const filterItems = <T extends SuiteRecord>(items: T[]) => filterItemsForGrant(filterProjectItemsForAccess(items, {
     projectAccess: access.projectAccess,
     user,
-  })
+  }) as T[], access.projectAccess ?? undefined)
   const tasks = filterItems(applyPermissionPolicies(tasksRaw, permissionsRaw, 'task'))
   const milestones = filterItems(applyPermissionPolicies(milestonesRaw, permissionsRaw, 'milestone'))
   const approvals = filterItems(applyPermissionPolicies(approvalsRaw, permissionsRaw, 'approval'))
@@ -549,18 +571,31 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   if (isPlaybookRun && isAgentActor && user.orgId && explicitOrgId !== user.orgId) {
     return apiError('Agent organisation scope does not match X-Org-Id', 403)
   }
-  const access = await getProjectForUser(projectId, user, isPlaybookRun ? explicitOrgId || undefined : undefined)
-  if (!access.ok) return apiError(access.error, access.status)
-  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
-    return apiError('Project contributor access is required', 403)
-  }
-
   const type = cleanString(body.type) as SuiteType
   const action = cleanString(body.action)
   const collectionName = COLLECTION_BY_TYPE[type]
   if (!collectionName) {
     return apiError('type must be one of: milestone, approval, risk, decision, baseline, playbook, automation, permission, audit, notification, capacity, revenue', 400)
   }
+  const playbookId = isPlaybookRun ? cleanString(body.id) : undefined
+  if (isPlaybookRun && !playbookId) return apiError('id is required to run a playbook', 400)
+  const access = await getProjectForUser(
+    projectId,
+    user,
+    isPlaybookRun ? explicitOrgId || undefined : undefined,
+    { action: 'project.write', item: playbookId },
+  )
+  if (!access.ok) return apiError(access.error, access.status)
+  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
+    return apiError('Project contributor access is required', 403)
+  }
+  if (!grantAllowsSuiteAction(access.projectAccess ?? undefined, 'project.write', playbookId)) {
+    return apiError('Project write is not granted for this cross-organisation share', 403)
+  }
+  if (!isPlaybookRun && (access.projectAccess?.crossOrgGrant?.items.length ?? 0) > 0) {
+    return apiError('Item-scoped cross-organisation grants cannot create unscoped project suite records', 403)
+  }
+
   const planningSensitive = suiteMutationRequiresPlanning(type)
 
   const requiredPermission = permissionForSuiteType(type)
@@ -628,18 +663,20 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
 
 export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
-  if (!access.ok) return apiError(access.error, access.status)
-
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const type = cleanString(body.type) as SuiteType
   const id = cleanString(body.id)
   const collectionName = COLLECTION_BY_TYPE[type]
   if (!collectionName) return apiError('Invalid suite record type', 400)
   if (!id) return apiError('id is required', 400)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.write', item: id })
+  if (!access.ok) return apiError(access.error, access.status)
   const planningSensitive = suiteMutationRequiresPlanning(type)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', permissionForSuiteType(type))) {
     return apiError('Project manager access is required for this project suite record', 403)
+  }
+  if (!grantAllowsSuiteAction(access.projectAccess ?? undefined, 'project.write', id)) {
+    return apiError('Project write is not granted for this cross-organisation share', 403)
   }
 
   const updates = suiteMutableFields(body, type, user.uid, 'update')
@@ -690,17 +727,19 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
 
 export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
-  if (!access.ok) return apiError(access.error, access.status)
-
   const body = await req.json().catch(() => ({})) as Record<string, unknown>
   const type = cleanString(body.type) as SuiteType
   const id = cleanString(body.id)
   const collectionName = COLLECTION_BY_TYPE[type]
   if (!collectionName) return apiError('Invalid suite record type', 400)
   if (!id) return apiError('id is required', 400)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.write', item: id })
+  if (!access.ok) return apiError(access.error, access.status)
   if (!canProjectRole(access.projectAccess?.role ?? 'viewer', permissionForSuiteType(type))) {
     return apiError('Project manager access is required for this project suite record', 403)
+  }
+  if (!grantAllowsSuiteAction(access.projectAccess ?? undefined, 'project.write', id)) {
+    return apiError('Project write is not granted for this cross-organisation share', 403)
   }
   const planningSensitive = suiteMutationRequiresPlanning(type)
 

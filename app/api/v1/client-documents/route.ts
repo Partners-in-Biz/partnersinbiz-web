@@ -215,7 +215,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     const base = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION)
       .where('orgId', '==', orgId) as unknown as FirestoreListQuery
     let ownedQuery = base.where('createdBy', '==', user.uid) as unknown as FirestoreListQuery
-    let sharedQuery = base.where('sharedWithUserIds', 'array-contains', user.uid) as unknown as FirestoreListQuery
+    let sharedQuery = base.where('userShareUserIds', 'array-contains', user.uid) as unknown as FirestoreListQuery
     if (status) {
       ownedQuery = ownedQuery.where('status', '==', status)
       sharedQuery = sharedQuery.where('status', '==', status)

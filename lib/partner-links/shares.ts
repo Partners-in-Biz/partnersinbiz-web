@@ -7,6 +7,7 @@ import type {
   SharedBusinessCapability,
 } from '@/lib/business-relationships/types'
 import { cleanString } from './identity'
+import { loadLiveBilateralLink } from './link-evidence'
 
 /**
  * Phase 2 — per-record sharing across an accepted partner link.
@@ -79,6 +80,132 @@ const TITLE_FIELDS: Record<PartnerShareResourceType, string[]> = {
   client_document: ['title'],
 }
 
+/** Secondary line shown in the record picker, per type. */
+const SUBTITLE_FIELDS: Record<PartnerShareResourceType, string[]> = {
+  deal: ['companyName', 'stageId'],
+  project: ['status', 'description'],
+  invoice: ['status', 'total'],
+  quote: ['status', 'total'],
+  client_document: ['documentType', 'status'],
+}
+
+/** The single field each type is ordered/prefix-searched on. */
+const PRIMARY_TITLE_FIELD: Record<PartnerShareResourceType, string> = {
+  deal: 'title',
+  project: 'name',
+  invoice: 'invoiceNumber',
+  quote: 'quoteNumber',
+  client_document: 'title',
+}
+
+/** Bound on the substring pass. Ordered by title, so it is a stable window. */
+const SUBSTRING_SCAN_CAP = 500
+
+export interface ShareableRecord {
+  id: string
+  title: string
+  subtitle?: string
+  alreadyShared?: boolean
+}
+
+export interface ShareableRecordsResult {
+  records: ShareableRecord[]
+  /**
+   * True when the substring pass filled its window, so matches may exist
+   * beyond it. The picker surfaces this rather than silently truncating.
+   */
+  truncated: boolean
+}
+
+/**
+ * Searchable list of records this org could share.
+ *
+ * Two passes, merged:
+ *  1. a server-side PREFIX range query on the type's title field — scales to
+ *     any corpus size, so "Web" finds "Website Redesign" however many projects
+ *     the org has;
+ *  2. a bounded window (SUBSTRING_SCAN_CAP, ordered by the same field so it
+ *     reuses one index) filtered in memory for mid-string matches, so
+ *     "redesign" still finds "Website Redesign".
+ *
+ * Pass 2 is what can miss things on a very large corpus; when its window fills
+ * we return `truncated: true` instead of pretending the list is complete.
+ */
+export async function listShareableRecords(input: {
+  orgId: string
+  resourceType: PartnerShareResourceType
+  query?: string
+  partnerOrgId?: string
+  limit?: number
+}): Promise<ShareableRecordsResult> {
+  const collection = RESOURCE_COLLECTION[input.resourceType]
+  const titleField = PRIMARY_TITLE_FIELD[input.resourceType]
+  const q = cleanString(input.query)
+  const limit = Math.min(Math.max(input.limit ?? 25, 1), 100)
+
+  // Records already shared with this partner, so the picker can disable them.
+  const shared = new Set<string>()
+  if (input.partnerOrgId) {
+    const shareSnap = await adminDb
+      .collection(PARTNER_SHARE_COLLECTION)
+      .where('ownerOrgId', '==', input.orgId)
+      .where('partnerOrgId', '==', input.partnerOrgId)
+      .limit(1000)
+      .get()
+    for (const doc of shareSnap.docs) {
+      const row = doc.data() ?? {}
+      if (row.status === 'active' && row.resourceType === input.resourceType) {
+        shared.add(cleanString(row.resourceId))
+      }
+    }
+  }
+
+  const base = adminDb.collection(collection).where('orgId', '==', input.orgId)
+  const collected = new Map<string, FirebaseFirestore.DocumentSnapshot>()
+  let truncated = false
+
+  if (q) {
+    // Pass 1 — prefix range. \uf8ff is the standard high-codepoint sentinel.
+    const prefixSnap = await base
+      .orderBy(titleField)
+      .startAt(q)
+      .endAt(`${q}\uf8ff`)
+      .limit(limit * 2)
+      .get()
+    for (const doc of prefixSnap.docs) collected.set(doc.id, doc)
+  }
+
+  // Pass 2 — bounded window for substring (and the unfiltered browse case).
+  const windowSnap = await base
+    .orderBy(titleField)
+    .limit(q ? SUBSTRING_SCAN_CAP : limit * 4)
+    .get()
+  if (q && windowSnap.size === SUBSTRING_SCAN_CAP) truncated = true
+  for (const doc of windowSnap.docs) collected.set(doc.id, doc)
+
+  const needle = q.toLowerCase()
+  const out: ShareableRecord[] = []
+  for (const doc of collected.values()) {
+    const data = doc.data() ?? {}
+    if (data.deleted === true) continue
+    const title = TITLE_FIELDS[input.resourceType]
+      .map((f) => cleanString(data[f]))
+      .find(Boolean) || doc.id
+    const subtitle = SUBTITLE_FIELDS[input.resourceType]
+      .map((f) => cleanString(data[f]))
+      .filter(Boolean)
+      .join(' · ')
+    if (needle && !title.toLowerCase().includes(needle) && !subtitle.toLowerCase().includes(needle)) continue
+    out.push({ id: doc.id, title, subtitle: subtitle || undefined, alreadyShared: shared.has(doc.id) })
+  }
+
+  const records = out
+    .sort((a, b) => Number(a.alreadyShared) - Number(b.alreadyShared) || a.title.localeCompare(b.title))
+    .slice(0, limit)
+
+  return { records, truncated }
+}
+
 export interface PartnerRecordShare {
   id: string
   partnerLinkId: string
@@ -119,18 +246,16 @@ export function isPartnerShareResourceType(value: unknown): value is PartnerShar
   return typeof value === 'string' && (PARTNER_SHARE_RESOURCE_TYPES as string[]).includes(value)
 }
 
-/** Loads the caller's own side of an accepted, still-active partner link. */
+/**
+ * Loads the caller's own side of an accepted partner link and proves the
+ * counterpart row is live too (accepted bilateral Partner Link evidence).
+ * A unilateral relationship row grants no resource access.
+ */
 async function loadActiveLink(
   relationshipId: string,
   ownerOrgId: string,
 ): Promise<BusinessRelationship> {
-  const snap = await adminDb.collection('businessRelationships').doc(relationshipId).get()
-  if (!snap.exists) throw new Error('Partner link not found')
-  const link = { ...(snap.data() as BusinessRelationship), id: snap.id }
-  if (link.sourceOrgId !== ownerOrgId || link.deleted === true) throw new Error('Partner link not found')
-  if (!cleanString(link.partnerLinkId)) throw new Error('That relationship is not an accepted partner link')
-  if (link.status !== 'active') throw new Error('This partner link is not active')
-  if (!cleanString(link.targetOrgId)) throw new Error('This partner link has no counterpart organisation')
+  const { link } = await loadLiveBilateralLink(relationshipId, ownerOrgId)
   return link
 }
 
@@ -235,6 +360,60 @@ export async function sharePartnerRecord(
   return toShare(ref.id, snap.data() ?? {})
 }
 
+/**
+ * System-granted share, used when the platform itself creates a record that
+ * the partner is already a party to — currently the invoice drafted from a
+ * confirmed cross-org order.
+ *
+ * Deliberately skips the capability gate that `sharePartnerRecord` enforces:
+ * that gate asks "may this org browse our invoices in general", which is a
+ * different question from "may the buyer see the invoice for the order they
+ * just placed". Every other check (active link, ownership, whitelisted read)
+ * still applies on the way back out.
+ */
+export async function grantSystemShare(input: {
+  relationshipId: string
+  partnerLinkId: string
+  ownerOrgId: string
+  partnerOrgId: string
+  resourceType: PartnerShareResourceType
+  resourceId: string
+  resourceTitle?: string
+  actor: MemberRef
+}): Promise<PartnerRecordShare | null> {
+  const existing = await adminDb
+    .collection(PARTNER_SHARE_COLLECTION)
+    .where('ownerOrgId', '==', input.ownerOrgId)
+    .where('resourceType', '==', input.resourceType)
+    .where('resourceId', '==', input.resourceId)
+    .limit(10)
+    .get()
+
+  const live = existing.docs
+    .map((d) => toShare(d.id, d.data() ?? {}))
+    .find((s) => s.partnerOrgId === input.partnerOrgId && s.status === 'active')
+  if (live) return live
+
+  const now = FieldValue.serverTimestamp()
+  const ref = await adminDb.collection(PARTNER_SHARE_COLLECTION).add(stripUndefined({
+    partnerLinkId: input.partnerLinkId,
+    relationshipId: input.relationshipId,
+    ownerOrgId: input.ownerOrgId,
+    partnerOrgId: input.partnerOrgId,
+    resourceType: input.resourceType,
+    resourceId: input.resourceId,
+    resourceTitle: input.resourceTitle,
+    permission: 'view',
+    status: 'active',
+    systemGranted: true,
+    sharedByRef: input.actor,
+    createdAt: now,
+    updatedAt: now,
+  }))
+  const snap = await ref.get()
+  return toShare(ref.id, snap.data() ?? {})
+}
+
 export async function revokePartnerShare(input: {
   shareId: string
   actingOrgId: string
@@ -308,36 +487,25 @@ export interface SharedRecordView {
   share: PartnerRecordShare
   ownerOrgName: string
   record: Record<string, unknown>
+  /** Which side of the share the caller is on. */
+  viewerRole: ShareViewerRole
+  /** Owner always; partner only when permission === 'comment'. */
+  canComment: boolean
 }
 
 /**
  * THE cross-org read. Returns a whitelisted projection of one shared record.
- * Refuses unless the share is active, the caller is the receiving org, and the
- * underlying partner link is still active.
+ *
+ * Both sides may read: the receiving org (that's the cross-org part) and the
+ * owning org (so it has a surface for the shared-record conversation). Refuses
+ * unless the share is active and the underlying partner link is still active.
  */
 export async function loadSharedRecord(input: {
   shareId: string
   viewerOrgId: string
 }): Promise<SharedRecordView> {
-  const snap = await adminDb.collection(PARTNER_SHARE_COLLECTION).doc(input.shareId).get()
-  if (!snap.exists) throw new Error('Shared record not found')
-  const share = toShare(snap.id, snap.data() ?? {})
-
-  if (share.partnerOrgId !== input.viewerOrgId) throw new Error('Shared record not found')
-  if (share.status !== 'active') throw new Error('This record is no longer shared with you')
-
-  // Re-check the link itself — unlinking must kill record access immediately,
-  // even for shares that were never individually revoked.
-  const linkSnap = await adminDb
-    .collection('businessRelationships')
-    .where('partnerLinkId', '==', share.partnerLinkId)
-    .limit(10)
-    .get()
-  const stillLinked = linkSnap.docs.some((d) => {
-    const row = d.data() as BusinessRelationship
-    return row.status === 'active' && row.deleted !== true
-  })
-  if (!stillLinked) throw new Error('This partner link is no longer active')
+  // resolveShareAccess enforces membership of one side, active share, live link.
+  const { share, role } = await resolveShareAccess(input)
 
   const recordSnap = await adminDb
     .collection(RESOURCE_COLLECTION[share.resourceType])
@@ -357,7 +525,239 @@ export async function loadSharedRecord(input: {
   const ownerOrgSnap = await adminDb.collection('organizations').doc(share.ownerOrgId).get()
   const ownerOrgName = cleanString((ownerOrgSnap.data() ?? {}).name) || share.ownerOrgId
 
-  return { share, ownerOrgName, record }
+  return {
+    share,
+    ownerOrgName,
+    record,
+    viewerRole: role,
+    canComment: role === 'owner' || share.permission === 'comment',
+  }
+}
+
+export const PARTNER_SHARE_COMMENT_COLLECTION = 'partner_share_comments'
+
+export interface PartnerShareComment {
+  id: string
+  shareId: string
+  partnerLinkId: string
+  ownerOrgId: string
+  partnerOrgId: string
+  /** Which side wrote it — lets the UI label "them" vs "you" without leaking uids. */
+  authorOrgId: string
+  authorRef?: MemberRef
+  body: string
+  createdAt?: unknown
+  deleted?: boolean
+}
+
+export type ShareViewerRole = 'owner' | 'partner'
+
+/**
+ * Both sides of a share may read it; only the receiving side is gated on
+ * `permission`. Returns which side the caller is so callers can branch.
+ */
+async function resolveShareAccess(input: {
+  shareId: string
+  viewerOrgId: string
+}): Promise<{ share: PartnerRecordShare; role: ShareViewerRole }> {
+  const snap = await adminDb.collection(PARTNER_SHARE_COLLECTION).doc(input.shareId).get()
+  if (!snap.exists) throw new Error('Shared record not found')
+  const share = toShare(snap.id, snap.data() ?? {})
+
+  const isOwner = share.ownerOrgId === input.viewerOrgId
+  const isPartner = share.partnerOrgId === input.viewerOrgId
+  if (!isOwner && !isPartner) throw new Error('Shared record not found')
+  if (share.status !== 'active') throw new Error('This record is no longer shared')
+
+  const linkSnap = await adminDb
+    .collection('businessRelationships')
+    .where('partnerLinkId', '==', share.partnerLinkId)
+    .limit(10)
+    .get()
+  const stillLinked = linkSnap.docs.some((d) => {
+    const row = d.data() as BusinessRelationship
+    return row.status === 'active' && row.deleted !== true
+  })
+  if (!stillLinked) throw new Error('This partner link is no longer active')
+
+  return { share, role: isOwner ? 'owner' : 'partner' }
+}
+
+export async function listShareComments(input: {
+  shareId: string
+  viewerOrgId: string
+}): Promise<{ comments: PartnerShareComment[]; role: ShareViewerRole; canComment: boolean }> {
+  const { share, role } = await resolveShareAccess(input)
+
+  const snap = await adminDb
+    .collection(PARTNER_SHARE_COMMENT_COLLECTION)
+    .where('shareId', '==', input.shareId)
+    .limit(500)
+    .get()
+
+  const comments = snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<PartnerShareComment, 'id'>) }))
+    .filter((c) => c.deleted !== true)
+    .sort((a, b) => timeValue(a.createdAt) - timeValue(b.createdAt))
+
+  // The owner can always comment on their own record; the partner needs the
+  // 'comment' permission — this is what makes that field mean something.
+  const canComment = role === 'owner' || share.permission === 'comment'
+  return { comments, role, canComment }
+}
+
+export async function addShareComment(input: {
+  shareId: string
+  viewerOrgId: string
+  body: string
+  actor: MemberRef
+}): Promise<PartnerShareComment> {
+  const { share, role } = await resolveShareAccess(input)
+  const body = input.body.trim()
+  if (!body) throw new Error('Comment cannot be empty')
+  if (body.length > 5000) throw new Error('Comment is too long (max 5000 characters)')
+
+  if (role === 'partner' && share.permission !== 'comment') {
+    throw new Error('This record was shared with you as view-only')
+  }
+
+  const now = FieldValue.serverTimestamp()
+  const doc = stripUndefined({
+    shareId: input.shareId,
+    partnerLinkId: share.partnerLinkId,
+    ownerOrgId: share.ownerOrgId,
+    partnerOrgId: share.partnerOrgId,
+    authorOrgId: input.viewerOrgId,
+    authorRef: input.actor,
+    body,
+    createdAt: now,
+    deleted: false,
+  })
+
+  const ref = await adminDb.collection(PARTNER_SHARE_COMMENT_COLLECTION).add(doc)
+
+  // Notify the other side only.
+  const recipientOrgId = role === 'owner' ? share.partnerOrgId : share.ownerOrgId
+
+  // Email as well as the in-app notification — a partner in another workspace
+  // will not be watching this org's bell. Non-fatal: never fail the comment.
+  void notifyShareCommentByEmail({
+    recipientOrgId,
+    authorOrgId: input.viewerOrgId,
+    authorName: input.actor.displayName,
+    share,
+    body,
+  }).catch((err) => console.error('[partner-share-comment-email-error]', err))
+
+  await recordCrmAuditEvent({
+    orgId: input.viewerOrgId,
+    eventType: 'partner_share.commented',
+    resourceType: share.resourceType,
+    resourceId: share.resourceId,
+    relationshipId: share.relationshipId,
+    actorRef: input.actor,
+    metadata: { shareId: share.id, commentId: ref.id },
+    notification: {
+      type: 'partner_share.commented',
+      title: 'New comment on a shared record',
+      body: `${input.actor.displayName} commented on ${share.resourceTitle ? `"${share.resourceTitle}"` : 'a shared record'}.`,
+      targetOrgIds: [recipientOrgId],
+    },
+  })
+
+  const saved = await ref.get()
+  return { id: ref.id, ...(saved.data() as Omit<PartnerShareComment, 'id'>) }
+}
+
+/** Org-level contact address, used for cross-workspace notifications. */
+async function orgNotificationEmail(orgId: string): Promise<{ email: string; name: string } | null> {
+  const snap = await adminDb.collection('organizations').doc(orgId).get()
+  if (!snap.exists) return null
+  const data = snap.data() ?? {}
+  const settings = (data.settings ?? {}) as Record<string, unknown>
+  const email = cleanString(settings.notificationEmail).toLowerCase()
+    || cleanString(data.billingEmail).toLowerCase()
+  if (!email || !email.includes('@')) return null
+  return { email, name: cleanString(data.name) || orgId }
+}
+
+async function notifyShareCommentByEmail(input: {
+  recipientOrgId: string
+  authorOrgId: string
+  authorName: string
+  share: PartnerRecordShare
+  body: string
+}): Promise<void> {
+  const recipient = await orgNotificationEmail(input.recipientOrgId)
+  if (!recipient) return
+  const author = await orgNotificationEmail(input.authorOrgId)
+
+  const { partnerShareCommentEmail } = await import('@/lib/email/templates/partner-invite')
+  const { sendEmail } = await import('@/lib/email/send')
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://partnersinbiz.online'
+  const { subject, html } = partnerShareCommentEmail({
+    authorName: input.authorName,
+    authorOrgName: author?.name ?? 'a partner',
+    recordTitle: input.share.resourceTitle || input.share.resourceId,
+    recordType: input.share.resourceType,
+    body: input.body,
+    viewUrl: `${baseUrl}/portal/partners/shared/${input.share.id}`,
+  })
+
+  await sendEmail({ to: recipient.email, subject, html })
+}
+
+export async function deleteShareComment(input: {
+  commentId: string
+  viewerOrgId: string
+}): Promise<void> {
+  const ref = adminDb.collection(PARTNER_SHARE_COMMENT_COLLECTION).doc(input.commentId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new Error('Comment not found')
+  const comment = snap.data() as PartnerShareComment
+  // Only the org that wrote it may remove it.
+  if (comment.authorOrgId !== input.viewerOrgId) throw new Error('Comment not found')
+  await ref.set({ deleted: true, deletedAt: FieldValue.serverTimestamp() }, { merge: true })
+}
+
+/** Change an existing share between view-only and comment. Owner only. */
+export async function setSharePermission(input: {
+  shareId: string
+  ownerOrgId: string
+  permission: PartnerSharePermission
+  actor: MemberRef
+}): Promise<PartnerRecordShare> {
+  const ref = adminDb.collection(PARTNER_SHARE_COLLECTION).doc(input.shareId)
+  const snap = await ref.get()
+  if (!snap.exists) throw new Error('Share not found')
+  const share = toShare(snap.id, snap.data() ?? {})
+  if (share.ownerOrgId !== input.ownerOrgId) throw new Error('Share not found')
+
+  await ref.set({
+    permission: input.permission,
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true })
+
+  await recordCrmAuditEvent({
+    orgId: share.ownerOrgId,
+    eventType: 'partner_share.permission_changed',
+    resourceType: share.resourceType,
+    resourceId: share.resourceId,
+    relationshipId: share.relationshipId,
+    actorRef: input.actor,
+    metadata: { shareId: share.id, permission: input.permission },
+    notification: {
+      type: 'partner_share.permission_changed',
+      title: 'Sharing permission changed',
+      body: input.permission === 'comment'
+        ? `You can now comment on ${share.resourceTitle ? `"${share.resourceTitle}"` : 'a shared record'}.`
+        : `${share.resourceTitle ? `"${share.resourceTitle}"` : 'A shared record'} is now view-only.`,
+      targetOrgIds: [share.partnerOrgId],
+    },
+  })
+
+  return { ...share, permission: input.permission }
 }
 
 /** Revoke every share riding on a partner link — called when the link is severed. */

@@ -70,6 +70,37 @@ describe('project task visibility', () => {
 
     expect(res.status).toBe(200)
     expect(body.data.map((task: { id: string }) => task.id)).toEqual(['public-task'])
+    expect(mockGetProjectForUser).toHaveBeenCalledWith(
+      'project-1', mockUser, undefined, { action: 'project.read' },
+    )
+  })
+
+  it('applies a canonical item allowlist before returning external task rows', async () => {
+    mockTaskGet.mockResolvedValue({
+      docs: [
+        { id: 'allowed-task', data: () => ({ title: 'Allowed', order: 1 }) },
+        { id: 'excluded-task', data: () => ({ title: 'Excluded', order: 2 }) },
+      ],
+    })
+    mockGetProjectForUser.mockResolvedValue({
+      ok: true,
+      doc: { id: 'project-1', data: () => ({ id: 'project-1', ownerOrgId: 'owner-org' }) },
+      projectAccess: {
+        role: 'viewer', source: 'project_organization', canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-1', actions: ['project.read'], items: ['allowed-task'] },
+      },
+    })
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/tasks/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects/project-1/tasks'), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((task: { id: string }) => task.id)).toEqual(['allowed-task'])
+    expect(mockGetProjectForUser).toHaveBeenCalledWith(
+      'project-1', mockUser, undefined, { action: 'project.read' },
+    )
   })
 
   it('shows internal-only tasks to project owner-org collaborators', async () => {

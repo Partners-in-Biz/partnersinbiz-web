@@ -12,6 +12,7 @@ import {
   getConversation,
   markConversationRead,
 } from '@/lib/conversations/conversations'
+import { evaluateCrossOrgConversationAccess } from '@/lib/conversations/cross-org'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,9 +25,19 @@ export const POST = withAuth(
     const { convId } = await (context as Params).params
     const conversation = await getConversation(convId)
     if (!conversation) return apiError('Conversation not found', 404)
-    if (!canAccessConversation(user, conversation)) return apiError('Forbidden', 403)
-    const projectAuthorization = await authorizeConversationProject(user, conversation)
-    if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+    const access = conversation.crossOrg
+      ? await evaluateCrossOrgConversationAccess({ conversation, user, action: 'read' })
+      : null
+    if (conversation.crossOrg ? !access?.allowed : !canAccessConversation(user, conversation)) {
+      return apiError('Forbidden', 403)
+    }
+    const foreignCrossOrgParticipant = Boolean(
+      conversation.crossOrg && user.orgId !== conversation.crossOrg.ownerOrgId,
+    )
+    if (!foreignCrossOrgParticipant) {
+      const projectAuthorization = await authorizeConversationProject(user, conversation)
+      if (!projectAuthorization.ok) return apiError(projectAuthorization.error, projectAuthorization.status)
+    }
 
     const body = await req.json().catch(() => null)
     if (!body || typeof body !== 'object') return apiError('Invalid JSON body', 400)
@@ -43,6 +54,7 @@ export const POST = withAuth(
       await markConversationRead({
         convId,
         userId: user.uid,
+        ...(access?.principalId ? { readKey: access.principalId } : {}),
         lastMessageId,
       })
     } catch (error) {

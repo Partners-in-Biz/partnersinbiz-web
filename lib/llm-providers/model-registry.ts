@@ -66,12 +66,13 @@ export type AgentModelEligibilityResult =
  * order as the historical chat curated lists so derived lists stay stable.
  *
  * Agent-task eligible (no agentTaskRestriction):
- *   grok-4.5, claude-sonnet-4-6, gpt-5.5, gpt-5.4, gpt-5.4-mini,
+ *   grok-4.6, grok-4.5, claude-sonnet-4-6, gpt-5.5, gpt-5.4, gpt-5.4-mini,
  *   gpt-5.3-codex-spark, gpt-5.6-terra
  */
 export const MODEL_REGISTRY: CanonicalModelEntry[] = [
   // xAI Grok (SuperGrok OAuth + API key share one catalogue)
   { id: 'grok-build-0.1', label: 'Grok Build 0.1', provider: 'xai-oauth', providerKeys: ['xai-oauth', 'xai'], runtimeCompatible: true, agentTaskRestriction: { code: 'chat-only', reason: 'Grok Build 0.1 is available for chat selection but is not offered for agent-task dispatch.' } },
+  { id: 'grok-4.6', label: 'Grok 4.6 (SuperGrok)', provider: 'xai-oauth', providerKeys: ['xai-oauth', 'xai'], runtimeCompatible: true },
   { id: 'grok-4.5', label: 'Grok 4.5 (SuperGrok)', provider: 'xai-oauth', providerKeys: ['xai-oauth', 'xai'], runtimeCompatible: true },
   { id: 'grok-4.3', label: 'Grok 4.3', provider: 'xai-oauth', providerKeys: ['xai-oauth', 'xai'], runtimeCompatible: true, agentTaskRestriction: { code: 'chat-only', reason: 'Grok 4.3 is available for chat selection but is not offered for agent-task dispatch.' } },
   { id: 'grok-composer-2.5-fast', label: 'Grok Composer 2.5 Fast', provider: 'xai-oauth', providerKeys: ['xai-oauth', 'xai'], runtimeCompatible: true, agentTaskRestriction: { code: 'chat-only', reason: 'Grok Composer 2.5 Fast is available for chat selection but is not offered for agent-task dispatch.' } },
@@ -114,6 +115,7 @@ export const MODEL_REGISTRY: CanonicalModelEntry[] = [
   // OpenRouter (aggregator; prefixed ids are not Hermes agent-task run models)
   { id: 'anthropic/claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (OpenRouter)', provider: 'openrouter', providerKeys: ['openrouter'], runtimeCompatible: false, agentTaskRestriction: { code: 'chat-only', reason: 'OpenRouter-prefixed models are not supported by Hermes agent runtimes.' } },
   { id: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (OpenRouter)', provider: 'openrouter', providerKeys: ['openrouter'], runtimeCompatible: false, agentTaskRestriction: { code: 'chat-only', reason: 'OpenRouter-prefixed models are not supported by Hermes agent runtimes.' } },
+  { id: 'x-ai/grok-4.6', label: 'Grok 4.6 (OpenRouter / Nous Portal)', provider: 'openrouter', providerKeys: ['openrouter', 'nous'], runtimeCompatible: false, agentTaskRestriction: { code: 'chat-only', reason: 'Provider-qualified aggregator models are not supported by Hermes agent runtimes.' } },
   { id: 'x-ai/grok-4.5', label: 'Grok 4.5 (OpenRouter / Nous Portal)', provider: 'openrouter', providerKeys: ['openrouter', 'nous'], runtimeCompatible: false, agentTaskRestriction: { code: 'chat-only', reason: 'Provider-qualified aggregator models are not supported by Hermes agent runtimes.' } },
   { id: 'openai/gpt-5.4', label: 'GPT-5.4 (OpenRouter)', provider: 'openrouter', providerKeys: ['openrouter'], runtimeCompatible: false, agentTaskRestriction: { code: 'chat-only', reason: 'OpenRouter-prefixed models are not supported by Hermes agent runtimes.' } },
 

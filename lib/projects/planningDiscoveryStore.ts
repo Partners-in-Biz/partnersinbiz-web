@@ -1,6 +1,9 @@
 import type { ApiUser } from '@/lib/api/types'
 import { isSuperAdmin } from '@/lib/api/platformAdmin'
-import { canProjectRole, legacyProjectAccessForUser } from '@/lib/projects/collaboration'
+import {
+  canProjectRole,
+  resolveProjectAccessForUser,
+} from '@/lib/projects/collaboration'
 import {
   applyPlanningDiscoveryAction,
   planningMutationBlocker,
@@ -25,17 +28,37 @@ export type PlanningContextMutationTransition =
       event?: PlanningEvent
     }
 
-export function canMutateLinkedProjectPlanning(
+export async function canMutateLinkedProjectPlanning(
+  projectId: string,
   project: Record<string, unknown>,
   user: ApiUser,
-  documentOrgId?: string,
-): boolean {
-  const scopedOrgId = documentOrgId?.trim() || user.activeOrgId?.trim() || user.orgId?.trim() || ''
+  options: {
+    documentOrgId?: string
+    /** When omitted, item-scoped grants cannot create unscoped project-linked documents. */
+    item?: string
+  } = {},
+): Promise<boolean> {
+  const scopedOrgId = options.documentOrgId?.trim() || user.activeOrgId?.trim() || user.orgId?.trim() || ''
   const isUnscopedPlatformAdmin = user.role === 'admin' && isSuperAdmin(user)
   if (!scopedOrgId && !isUnscopedPlatformAdmin) return false
 
-  const access = legacyProjectAccessForUser(user, project, scopedOrgId || undefined)
-  return Boolean(access && canProjectRole(access.role, 'write'))
+  const access = await resolveProjectAccessForUser(
+    projectId,
+    user,
+    project,
+    scopedOrgId || undefined,
+    {
+      action: 'project.write',
+      ...(options.item ? { item: options.item } : {}),
+    },
+  )
+  if (!access || !canProjectRole(access.role, 'write')) return false
+
+  // Creating a new linked document has no durable item id yet. An item-scoped
+  // grant must not mint unscoped project artifacts through client-documents.
+  if (!options.item && (access.crossOrgGrant?.items.length ?? 0) > 0) return false
+
+  return true
 }
 
 export function planningContextMutationTransition(

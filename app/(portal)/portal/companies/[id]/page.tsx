@@ -2353,10 +2353,9 @@ export default function CompanyDetailPage() {
           targetOrgId: company.linkedOrgId,
           targetName: company.name,
           relationshipType: 'customer',
-          status: 'active',
-          sharedCapabilities: ['crm', 'projects', 'documents', 'services'],
-          visibility: 'relationship',
-          approvalState: 'approved',
+          // CRM relationship metadata only — activation (active/approved/
+          // portal-visible/capabilities) comes exclusively from an accepted
+          // bilateral Partner Link, never from this generic create path.
         }),
       })
       const body = await res.json().catch(() => ({}))

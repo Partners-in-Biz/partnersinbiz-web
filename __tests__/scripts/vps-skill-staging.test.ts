@@ -20,6 +20,10 @@ describe('VPS skill staging deployment', () => {
     expect(helper).toContain('pib_hermes_restart_profile_when_idle')
     expect(helper).toContain('deferred')
     expect(helper).toContain('Never force-kill multi-hour runs')
+    // Slow/activating units after settle must re-queue, not fail GHA (exit 3).
+    expect(helper).toContain('post-restart-not-active')
+    expect(helper).toContain('unstable_units')
+    expect(helper).not.toMatch(/systemctl is-active "\$\{restarted_units\[@\]\}"/)
     expect(helper).not.toContain('systemctl restart "${active_units[@]}"')
     expect(helper).not.toMatch(/(?:bash|sh|source|\.)\s+"?\$staging/)
   })

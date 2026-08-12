@@ -47,7 +47,7 @@ function isMistakenProviderAcceptance(document: { clientAcceptance?: { actorId?:
 
 export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await getAccessibleClientDocument(id, user)
+  const access = await getAccessibleClientDocument(id, user, 'sign')
   if (!access.ok) return access.response
 
   const document = access.document

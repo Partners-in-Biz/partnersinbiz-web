@@ -139,6 +139,27 @@ export function parseHtml(source: string): DocumentNode {
   const n = source.length
 
   while (i < n) {
+    // Skip JS/JSX comments so comment text (which may contain <tag> lookalikes
+    // like `<img>` in a doc comment) is never parsed as elements. `/* ... */`
+    // covers JSDoc and JSX `{/* */}`; `//` covers line comments. A `//` that
+    // is part of a URL (`https://`) is not a comment — guard on the previous
+    // char so text content like `see https://example.com` survives intact.
+    if (source.startsWith('/*', i)) {
+      const end = source.indexOf('*/', i + 2)
+      const endIdx = end === -1 ? n : end + 2
+      const raw = source.slice(i, endIdx)
+      line += countNewlines(raw)
+      i = endIdx
+      continue
+    }
+    if (source.startsWith('//', i) && (i === 0 || source[i - 1] !== ':')) {
+      const end = source.indexOf('\n', i)
+      const endIdx = end === -1 ? n : end
+      const raw = source.slice(i, endIdx)
+      line += countNewlines(raw)
+      i = endIdx
+      continue
+    }
     const lt = source.indexOf('<', i)
     if (lt === -1) {
       const text = source.slice(i)

@@ -5,10 +5,23 @@ import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
-import { assertClientDocumentDataAccess, canManageClientDocument, getAccessibleClientDocument } from '@/lib/client-documents/access'
-import { actorFrom, lastActorFrom } from '@/lib/api/actor'
+import {
+  assertClientDocumentDataAccess,
+  canManageClientDocument,
+  getAccessibleClientDocument,
+} from '@/lib/client-documents/access'
+import {
+  assertRecipientShareEligible,
+  revokeUserShares,
+  upsertUserShares,
+  validateRevokeUserShareInput,
+  validateUserShareInput,
+} from '@/lib/client-documents/grants'
+import { syncUserShareDocumentGrants } from '@/lib/client-documents/canonical-grants'
+import { revokeDocumentSignedArtifactAccess } from '@/lib/client-documents/artifact-revocation'
+import { lastActorFrom } from '@/lib/api/actor'
 import { validateClientDocumentLinks } from '@/lib/client-documents/linkedValidation'
-import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
+import { CLIENT_DOCUMENTS_COLLECTION, getClientDocument } from '@/lib/client-documents/store'
 import type { ClientDocument, DocumentAssumption } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
 import {
@@ -20,7 +33,7 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-const PATCH_FIELDS = new Set(['title', 'linked', 'assumptions', 'shareEnabled', 'sharedWithUserIds'])
+const PATCH_FIELDS = new Set(['title', 'linked', 'assumptions', 'shareEnabled', 'userShares', 'revokeUserShares'])
 const ASSUMPTION_FIELDS = new Set([
   'id',
   'text',
@@ -35,10 +48,6 @@ const ASSUMPTION_FIELDS = new Set([
 const ASSUMPTION_SEVERITIES = new Set(['info', 'needs_review', 'blocks_publish'])
 const ASSUMPTION_STATUSES = new Set(['open', 'resolved'])
 
-function actorType(user: ApiUser) {
-  return actorFrom(user).createdByType === 'agent' ? 'agent' : 'user'
-}
-
 function linkedProjectIds(linked: ClientDocument['linked'] | undefined): string[] {
   return Array.from(new Set([
     ...(typeof linked?.projectId === 'string' ? [linked.projectId] : []),
@@ -52,6 +61,7 @@ async function applyLinkedProjectPlanningMutation(
   user: ApiUser,
   documentOrgId: string | undefined,
   reason: string,
+  documentId: string,
 ): Promise<{ ok: true } | { ok: false; response: Response }> {
   if (projectIds.length === 0) return { ok: true }
 
@@ -62,7 +72,22 @@ async function applyLinkedProjectPlanningMutation(
   const projects = projectSnapshots.map((snapshot) => snapshot.exists
     ? (snapshot.data() ?? {}) as Record<string, unknown>
     : null)
-  if (projects.some((project) => !project || !canMutateLinkedProjectPlanning(project, user, documentOrgId))) {
+  if (projects.some((project) => !project)) {
+    return {
+      ok: false,
+      response: apiError('Linked project is not accessible', 403, { code: 'project_access_denied' }),
+    }
+  }
+  const accessChecks = await Promise.all(projects.map((project, index) => canMutateLinkedProjectPlanning(
+    projectIds[index],
+    project as Record<string, unknown>,
+    user,
+    {
+      documentOrgId,
+      item: documentId,
+    },
+  )))
+  if (accessChecks.some((allowed) => !allowed)) {
     return {
       ok: false,
       response: apiError('Linked project is not accessible', 403, { code: 'project_access_denied' }),
@@ -231,20 +256,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
     update.shareEnabled = body.shareEnabled
   }
 
-  if ('sharedWithUserIds' in body) {
-    if (!Array.isArray(body.sharedWithUserIds) || body.sharedWithUserIds.length > 100) {
-      return apiError('sharedWithUserIds must be an array of at most 100 user ids', 400)
-    }
-    const rawSharedWithUserIds = body.sharedWithUserIds as unknown[]
-    const sharedWithUserIds = Array.from(new Set(rawSharedWithUserIds.flatMap((value): string[] => {
-      const uid = typeof value === 'string' ? value.trim() : ''
-      return uid ? [uid] : []
-    })))
-    if (sharedWithUserIds.some((uid) => uid.length > 256)) {
-      return apiError('sharedWithUserIds contains an invalid user id', 400)
-    }
-    update.sharedWithUserIds = sharedWithUserIds
-  }
+  const userShares = 'userShares' in body ? validateUserShareInput(body.userShares) : null
+  if (userShares && !userShares.ok) return apiError(userShares.error, 400)
+  const userShareRevocations = 'revokeUserShares' in body ? validateRevokeUserShareInput(body.revokeUserShares) : null
+  if (userShareRevocations && !userShareRevocations.ok) return apiError(userShareRevocations.error, 400)
 
   const documentRef = adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id)
   const result = await adminDb.runTransaction(async (transaction) => {
@@ -258,6 +273,21 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
     if (!access.ok) return access
     if (!canManageClientDocument(snap.data() as Partial<ClientDocument>, user)) {
       return { ok: false as const, response: apiError('Only the document creator can manage member sharing', 403) }
+    }
+
+    if (userShares?.ok) {
+      for (const share of userShares.value) {
+        const eligibility = await assertRecipientShareEligible(document, share)
+        if (!eligibility.ok) return { ok: false as const, response: apiError(eligibility.error, eligibility.status) }
+      }
+      const granted = upsertUserShares(document.userShares, userShares.value, user)
+      update.userShares = granted.shares
+      update.userShareUserIds = granted.userShareUserIds
+    }
+    if (userShareRevocations?.ok) {
+      const revoked = revokeUserShares(document.userShares, userShareRevocations.value, user)
+      update.userShares = revoked.shares
+      update.userShareUserIds = revoked.userShareUserIds
     }
 
     if (update.linked) {
@@ -275,6 +305,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
       user,
       document.orgId,
       'client_document.updated',
+      id,
     )
     if (!planning.ok) return planning
 
@@ -283,6 +314,16 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
   })
 
   if (!result.ok) return result.response
+
+  if (userShares?.ok || userShareRevocations?.ok || update.linked) {
+    const updatedDocument = await getClientDocument(id)
+    if (!updatedDocument) return apiError('Document not found', 404)
+    await syncUserShareDocumentGrants(updatedDocument, user)
+  }
+
+  if (update.shareEnabled === false || userShareRevocations?.ok) {
+    await revokeDocumentSignedArtifactAccess(id).catch(() => undefined)
+  }
 
   return apiSuccess({ id, updated: Object.keys(update) })
 })
@@ -307,6 +348,7 @@ export const DELETE = withAuth('admin', async (_req: NextRequest, user: ApiUser,
       user,
       document.orgId,
       'client_document.deleted',
+      id,
     )
     if (!planning.ok) return planning
 

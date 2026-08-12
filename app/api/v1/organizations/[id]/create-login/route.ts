@@ -13,6 +13,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
 import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 import { ACCESS_SCOPE_OPTIONS, parseMemberMetadata } from '@/lib/organizations/memberMetadata'
+import { canAccessOrg } from '@/lib/api/platformAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +47,11 @@ export const POST = withAuth('admin', async (req: NextRequest, user, ctx) => {
   // Fetch organisation
   const orgDoc = await adminDb.collection('organizations').doc(id).get()
   if (!orgDoc.exists) return apiError('Organisation not found', 404)
+
+  // Creating a client login adds a member, so it must be scoped to orgs the
+  // actor is authorised to manage (same rule as POST /organizations/[id]/members).
+  if (!canAccessOrg(user, id)) return apiError('Forbidden', 403)
+
   const org = orgDoc.data() as Organization
 
   // Check if Firebase Auth user already exists

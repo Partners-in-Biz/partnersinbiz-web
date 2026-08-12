@@ -7,6 +7,15 @@ import { POST as pausePOST } from '@/app/api/v1/ads/campaigns/[id]/pause/route'
 jest.mock('@/lib/api/auth', () => ({ withAuth: (_r: string, h: any) => h }))
 jest.mock('@/lib/api/capabilityGate', () => ({ enforceAgentCapability: jest.fn(() => null) }))
 
+jest.mock('@/lib/cross-org/marketing-handler-access', () => ({
+  assertMarketingHandlerAccess: jest.fn(async ({ resourceOwnerOrgId }: { resourceOwnerOrgId?: string }) => ({
+    ok: true,
+    access: 'owner',
+    orgId: resourceOwnerOrgId || 'org_1',
+  })),
+  extractPartnerLinkId: jest.fn(() => null),
+}))
+
 jest.mock('@/lib/ads/campaigns/store', () => ({
   listCampaigns: jest.fn(),
   createCampaign: jest.fn(),

@@ -16,6 +16,7 @@ describe('canonical model registry', () => {
     // Regression: the chat picker catalogue must not change because lists are derived.
     expect(curatedModelsForProvider('xai-oauth')).toEqual([
       'grok-build-0.1',
+      'grok-4.6',
       'grok-4.5',
       'grok-4.3',
       'grok-composer-2.5-fast',
@@ -46,6 +47,7 @@ describe('canonical model registry', () => {
     expect(curatedModelsForProvider('openrouter')).toEqual([
       'anthropic/claude-sonnet-4-6',
       'google/gemini-2.5-flash',
+      'x-ai/grok-4.6',
       'x-ai/grok-4.5',
       'openai/gpt-5.4',
     ])
@@ -56,7 +58,7 @@ describe('canonical model registry', () => {
       'google/gemini-3.6-flash',
       'z-ai/glm-5.2',
     ]))
-    expect(curatedModelsForProvider('nous')).toHaveLength(30)
+    expect(curatedModelsForProvider('nous')).toHaveLength(31)
 
     // The live provider definitions consume the same derived lists.
     expect(getLlmProvider('openai-codex')?.curatedModels).toContain('gpt-5.6-terra')
@@ -72,6 +74,7 @@ describe('canonical model registry', () => {
 
   it('agent-task allowlist includes the approved Nous DeepSeek route for org defaults', () => {
     expect(VALID_AGENT_MODELS).toEqual([
+      'grok-4.6',
       'grok-4.5',
       'claude-sonnet-4-6',
       'gpt-5.6-terra',
@@ -89,6 +92,7 @@ describe('canonical model registry', () => {
     expect(AGENT_MODEL_OPTIONS).toEqual(expect.arrayContaining([
       { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra' },
       { value: 'gpt-5.3-codex-spark', label: 'GPT-5.3 Spark' },
+      { value: 'grok-4.6', label: 'Grok 4.6 (SuperGrok)' },
       { value: 'grok-4.5', label: 'Grok 4.5 (SuperGrok)' },
     ]))
     expect(AGENT_MODEL_OPTIONS).not.toEqual(expect.arrayContaining([

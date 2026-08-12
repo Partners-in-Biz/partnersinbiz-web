@@ -9,7 +9,7 @@ let mockProjectDocs: Array<{ id: string; data: () => Record<string, unknown> }> 
 let mockUser = { uid: 'user-1', role: 'client', orgId: 'org-1', orgIds: ['org-1'] }
 
 jest.mock('@/lib/api/auth', () => ({
-  withAuth: (_role: string, handler: Function) => (req: NextRequest) => handler(req, mockUser),
+  withAuth: (_role: string, handler: (req: NextRequest, user: typeof mockUser) => Promise<unknown> | unknown) => (req: NextRequest) => handler(req, mockUser),
 }))
 jest.mock('@/lib/api/orgScope', () => ({
   resolveOrgScope: (_user: unknown, orgId: string | null) => orgId === 'org-1'

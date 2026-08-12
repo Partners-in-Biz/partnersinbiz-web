@@ -1,20 +1,42 @@
+// lib/portal/org-access.ts
+//
+// Portal org-scope resolution for browser-session users.
+//
+// Access model (canonical, shared with CRM middleware):
+//   - Explicit ACTIVE membership always grants access: the orgMembers row or a
+//     legacy organizations.members array entry (see
+//     lib/orgMembers/active-membership.ts). Disabled, revoked, deleted and
+//     inactive rows never grant access.
+//   - Platform admins may additionally enter orgs in their ASSIGNED scope:
+//     allowedOrgIds plus their home orgId. There is NO implicit "any existing
+//     org" entry and NO implicit owner role. Super admins (no allowedOrgIds)
+//     keep their home org; orgs they must operate require either membership or
+//     an explicit allowedOrgIds entry.
+//   - Convenience pointers on the user record (activeOrgId / orgId / orgIds)
+//     are resolution hints only; they never grant access by themselves.
+
 import { adminDb } from '@/lib/firebase/admin'
+import {
+  activeOrgMembershipOrgIds,
+  cleanString,
+  cleanStringArray,
+  hasActiveOrgMembership,
+  legacyActiveOrgMembershipOrgIds,
+} from '@/lib/orgMembers/active-membership'
 
 export type PortalUserData = {
   activeOrgId?: unknown
   orgId?: unknown
   orgIds?: unknown
   role?: unknown
-}
-
-function cleanString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
+  allowedOrgIds?: unknown
 }
 
 function isAdminUser(data: PortalUserData): boolean {
   return cleanString(data.role) === 'admin'
 }
 
+/** Convenience pointers from the user record — resolution hints only. */
 function userLinkedOrgIds(data: PortalUserData): string[] {
   const ids = new Set<string>()
 
@@ -25,8 +47,6 @@ function userLinkedOrgIds(data: PortalUserData): string[] {
     }
   }
 
-  // Platform admins use activeOrgId as an operator context when opening a
-  // linked client workspace from CRM. Client users keep the legacy fallback.
   const activeOrgId = cleanString(data.activeOrgId)
   if (activeOrgId) ids.add(activeOrgId)
 
@@ -38,27 +58,27 @@ function userLinkedOrgIds(data: PortalUserData): string[] {
   return Array.from(ids)
 }
 
-function orgIdFromMemberDoc(docId: string, uid: string): string {
-  const suffix = `_${uid}`
-  return docId.endsWith(suffix) ? docId.slice(0, -suffix.length) : ''
-}
-
-async function orgMemberOrgIds(uid: string): Promise<string[]> {
-  const snap = await adminDb.collection('orgMembers').where('uid', '==', uid).get()
+/** Assigned admin scope: allowedOrgIds ∪ home orgId. Empty for non-admins. */
+export function adminAssignedOrgIds(data: PortalUserData): string[] {
+  if (!isAdminUser(data)) return []
   const ids = new Set<string>()
-  for (const doc of snap.docs) {
-    const data = doc.data() ?? {}
-    const orgId = cleanString(data.orgId) || orgIdFromMemberDoc(doc.id, uid)
-    if (orgId) ids.add(orgId)
-  }
+  for (const orgId of cleanStringArray(data.allowedOrgIds)) ids.add(orgId)
+  const homeOrgId = cleanString(data.orgId)
+  if (homeOrgId) ids.add(homeOrgId)
   return Array.from(ids)
 }
 
-async function orgExists(orgId: string): Promise<boolean> {
-  const snap = await adminDb.collection('organizations').doc(orgId).get()
+/** True when the org record itself is operable (not deleted/archived/suspended/churned). */
+export async function orgIsOperable(orgId: string): Promise<boolean> {
+  const cleanOrgId = cleanString(orgId)
+  if (!cleanOrgId) return false
+  const snap = await adminDb.collection('organizations').doc(cleanOrgId).get()
   if (!snap.exists) return false
   const data = snap.data() ?? {}
-  return data.deleted !== true && data.archived !== true
+  if (data.deleted === true || data.archived === true) return false
+  const status = typeof data.status === 'string' ? data.status.trim().toLowerCase() : ''
+  if (status === 'suspended' || status === 'churned') return false
+  return true
 }
 
 export function choosePortalActiveOrgId(data: PortalUserData, orgIds: string[]): string | null {
@@ -73,8 +93,24 @@ export function choosePortalActiveOrgId(data: PortalUserData, orgIds: string[]):
 }
 
 export async function getPortalOrgIdsForUser(uid: string, data: PortalUserData): Promise<string[]> {
-  const ids = new Set(userLinkedOrgIds(data))
-  for (const orgId of await orgMemberOrgIds(uid)) ids.add(orgId)
+  const ids = new Set<string>()
+
+  // 1. Canonical active orgMembers rows.
+  for (const orgId of await activeOrgMembershipOrgIds(uid)) ids.add(orgId)
+
+  // 2. Legacy organizations.members array entries for pointer candidates.
+  const candidates = userLinkedOrgIds(data)
+  if (candidates.length > 0) {
+    for (const orgId of await legacyActiveOrgMembershipOrgIds(uid, candidates)) ids.add(orgId)
+  }
+
+  // 3. Admin assigned scope (allowedOrgIds + home orgId), org must be operable.
+  if (isAdminUser(data)) {
+    for (const orgId of adminAssignedOrgIds(data)) {
+      if (await orgIsOperable(orgId)) ids.add(orgId)
+    }
+  }
+
   return Array.from(ids)
 }
 
@@ -86,8 +122,14 @@ export async function resolvePortalActiveOrgId(uid: string, data: PortalUserData
 export async function canUsePortalOrg(uid: string, data: PortalUserData, orgId: string): Promise<boolean> {
   const requestedOrgId = cleanString(orgId)
   if (!requestedOrgId) return false
-  if (userLinkedOrgIds(data).includes(requestedOrgId)) return true
-  const memberOrgIds = await orgMemberOrgIds(uid)
-  if (memberOrgIds.includes(requestedOrgId)) return true
-  return isAdminUser(data) ? orgExists(requestedOrgId) : false
+
+  // Explicit ACTIVE membership (orgMembers row or legacy org.members entry).
+  if (await hasActiveOrgMembership(requestedOrgId, uid)) return true
+
+  // Admin assigned scope only. No implicit any-org entry for admins.
+  if (isAdminUser(data) && adminAssignedOrgIds(data).includes(requestedOrgId)) {
+    return orgIsOperable(requestedOrgId)
+  }
+
+  return false
 }

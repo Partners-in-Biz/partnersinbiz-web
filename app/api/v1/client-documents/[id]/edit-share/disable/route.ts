@@ -5,6 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
+import { revokeDocumentSignedArtifactAccess } from '@/lib/client-documents/artifact-revocation'
 import { adminDb } from '@/lib/firebase/admin'
 
 export const dynamic = 'force-dynamic'
@@ -30,6 +31,10 @@ export const POST = withAuth('admin', async (req: NextRequest, user: ApiUser, ct
     updatedBy: user.uid,
     updatedByType: user.role === 'ai' ? 'agent' : 'user',
   })
+
+  // Disable is a grant-lifecycle event: rotate any durable signed-copy tokens and
+  // clear cached download URLs so old public/edit context cannot keep resolving.
+  await revokeDocumentSignedArtifactAccess(id).catch(() => undefined)
 
   return apiSuccess({ editShareEnabled: false })
 })

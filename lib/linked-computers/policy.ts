@@ -1,13 +1,10 @@
 import type { ActiveOrgMembership, DeviceGrantAccessMode, LinkedDevice, LinkedDeviceGrant } from './types'
+import { isActiveOrgMembershipRow } from '@/lib/orgMembers/active-membership'
+
+export { isActiveOrgMembershipRow }
 
 type DeviceAccessView = Pick<LinkedDevice, 'deviceId' | 'ownerType' | 'ownerUserId' | 'ownerOrgId' | 'createdByUserId' | 'status'>
 type GrantAccessView = Pick<LinkedDeviceGrant, 'deviceId' | 'orgId' | 'status' | 'accessMode' | 'allowedUserIds'>
-
-export function isActiveOrgMembershipRow(row: Record<string, unknown> | undefined): boolean {
-  if (!row || row.disabled === true || row.deleted === true || row.deletedAt) return false
-  const status = typeof row.status === 'string' ? row.status.trim().toLowerCase() : ''
-  return status === '' || status === 'active' || status === 'enabled'
-}
 
 export function linkedDeviceOwnerType(device: Pick<LinkedDevice, 'ownerType' | 'ownerUserId' | 'ownerOrgId'>): 'user' | 'organization' {
   if (device.ownerType === 'organization' && device.ownerOrgId) return 'organization'

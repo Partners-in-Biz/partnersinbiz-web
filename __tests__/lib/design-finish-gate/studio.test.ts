@@ -29,18 +29,7 @@ describe('finish-gate Studio integration', () => {
       at: '2026-08-09T00:00:00.000Z',
       mode: 'studio',
       summary: { findings: 1, blocked: 1, bySeverity: { P0: 1, P1: 0, P2: 0, P3: 0 } },
-      findings: [
-        {
-          rule: 'purple-gradients',
-          severity: 'P0',
-          scope: 'layout',
-          line: 0,
-          ref: 'div',
-          snippet: '<div style="background:linear-gradient(...)">',
-          message: 'gradient hero',
-          field: 'html',
-        },
-      ],
+      findings: [{ rule: 'purple-gradients', severity: 'P0', message: 'gradient hero', element: 'div', field: 'html' }],
     }
     const contract = buildStudioReviewContract({
       nodeId: 'node_456',

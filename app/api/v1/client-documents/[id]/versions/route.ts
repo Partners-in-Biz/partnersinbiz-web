@@ -267,7 +267,7 @@ function validateTheme(value: unknown): { ok: true; value: DocumentTheme } | { o
 
 export const GET = withAuth('client', async (_req: NextRequest, user: ApiUser, ctx: RouteContext) => {
   const { id } = await ctx.params
-  const access = await getAccessibleClientDocument(id, user)
+  const access = await getAccessibleClientDocument(id, user, 'versions')
   if (!access.ok) return access.response
 
   const snap = await adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(id).collection('versions').get()

@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
+import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,7 +13,7 @@ type RouteContext = { params: Promise<{ projectId: string; taskId: string; comme
 // PATCH - Mark comment as agent picked up
 export const PATCH = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const { projectId, taskId, commentId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.write', item: taskId })
   if (!access.ok) return apiError(access.error, access.status)
 
   try {
@@ -26,7 +27,10 @@ export const PATCH = withAuth('admin', async (req: NextRequest, user, ctx) => {
     // Check task exists
     const taskRef = adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId)
     const taskDoc = await taskRef.get()
-    if (!taskDoc.exists) return apiError('Task not found', 404)
+    if (!taskDoc.exists || filterProjectItemsForAccess([{ id: taskId, ...(taskDoc.data() ?? {}) }], {
+      projectAccess: access.projectAccess,
+      user,
+    }).length !== 1) return apiError('Task not found', 404)
 
     // Check comment exists
     const commentRef = taskRef.collection('comments').doc(commentId)

@@ -221,7 +221,7 @@ export function AgentRuntimeModelForm({ agentId, canEdit, liveConfigSource, onSa
             disabled={!canEdit || saving}
             required
             className="pib-input w-full font-mono text-sm"
-            placeholder="grok-4.5"
+            placeholder="grok-4.6"
             aria-label="Primary model"
           />
         </label>

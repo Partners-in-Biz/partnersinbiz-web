@@ -6,6 +6,7 @@ import Link from 'next/link'
 import type { PaymentInstructions } from '@/lib/invoices/types'
 import { INTERVAL_LABELS, RecurrenceInterval } from '@/lib/invoices/recurring'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { ShareWithPartnerButton } from '@/components/crm/ShareWithPartnerButton'
 
 type InvoiceStatus = 'draft' | 'sent' | 'viewed' | 'payment_pending_verification' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled'
 
@@ -356,6 +357,7 @@ export default function InvoiceDetailPage() {
             {duplicating ? 'Duplicating…' : 'Duplicate'}
           </button>
           <button onClick={handlePrint} className="btn-pib-secondary">Print</button>
+          <ShareWithPartnerButton resourceType="invoice" resourceId={id} />
         </div>
       </header>
 

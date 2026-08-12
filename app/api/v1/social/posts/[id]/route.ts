@@ -8,6 +8,10 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { validatePostContent } from '@/lib/social/validation'
 import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
 import { logAudit } from '@/lib/social/audit'
@@ -51,13 +55,31 @@ function relationshipInputFrom(body: Record<string, unknown>) {
   return Object.keys(value).length > 0 ? value : undefined
 }
 
-export const GET = withAuth('client', withTenant(async (_req, _user, orgId, context) => {
+export const GET = withAuth('client', withTenant(async (req, user, orgId, context) => {
   const { id } = await (context as Params).params
   const doc = await adminDb.collection('social_posts').doc(id).get()
   if (!doc.exists) return apiError('Post not found', 404)
 
   const data = doc.data()!
-  if (data.orgId && data.orgId !== orgId) return apiError('Post not found', 404)
+  const ownerOrgId = typeof data.orgId === 'string' ? data.orgId : orgId
+  const access = await assertMarketingHandlerAccess({
+    user: { ...user, orgId: user.orgId || orgId },
+    module: 'social',
+    resourceId: id,
+    resourceOwnerOrgId: ownerOrgId,
+    operation: 'read',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) {
+    // Preserve previous tenant 404 shape for plain same-org misses without a partner link.
+    if (access.reason === 'OWNER_SCOPE_DENIED' || access.reason === 'PARTNER_LINK_REQUIRED') {
+      if (data.orgId && data.orgId !== orgId) return apiError('Post not found', 404)
+    }
+    return apiError(access.error, access.status)
+  }
+  if (access.access === 'owner' && data.orgId && data.orgId !== orgId) {
+    return apiError('Post not found', 404)
+  }
 
   return apiSuccess({ id: doc.id, ...data })
 }))
@@ -68,7 +90,24 @@ export const PUT = withAuth('admin', withTenant(async (req, user, orgId, context
   if (!doc.exists) return apiError('Post not found', 404)
 
   const existing = doc.data()!
-  if (existing.orgId && existing.orgId !== orgId) return apiError('Post not found', 404)
+  const ownerOrgId = typeof existing.orgId === 'string' ? existing.orgId : orgId
+  const access = await assertMarketingHandlerAccess({
+    user: { ...user, orgId: user.orgId || orgId },
+    module: 'social',
+    resourceId: id,
+    resourceOwnerOrgId: ownerOrgId,
+    operation: 'write',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) {
+    if (existing.orgId && existing.orgId !== orgId && access.reason !== 'OWNER_ONLY_ACTION') {
+      return apiError('Post not found', 404)
+    }
+    return apiError(access.error, access.status)
+  }
+  if (access.access === 'owner' && existing.orgId && existing.orgId !== orgId) {
+    return apiError('Post not found', 404)
+  }
 
   const body = await req.json()
 
@@ -245,7 +284,19 @@ export const DELETE = withAuth('admin', withTenant(async (req, user, orgId, cont
   if (!doc.exists) return apiError('Post not found', 404)
 
   const data = doc.data()!
-  if (data.orgId && data.orgId !== orgId) return apiError('Post not found', 404)
+  const ownerOrgId = typeof data.orgId === 'string' ? data.orgId : orgId
+  const access = await assertMarketingHandlerAccess({
+    user: { ...user, orgId: user.orgId || orgId },
+    module: 'social',
+    resourceId: id,
+    resourceOwnerOrgId: ownerOrgId,
+    operation: 'delete',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) return apiError(access.error, access.status)
+  if (access.access === 'owner' && data.orgId && data.orgId !== orgId) {
+    return apiError('Post not found', 404)
+  }
 
   await adminDb.collection('social_posts').doc(id).update({
     status: 'cancelled',

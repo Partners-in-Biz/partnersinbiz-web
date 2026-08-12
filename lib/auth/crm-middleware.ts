@@ -11,6 +11,7 @@ import {
   type MemberRef,
 } from '@/lib/orgMembers/memberRef'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
+import { isActiveOrgMembershipRow, isOrgRole, type OrgMemberRow } from '@/lib/orgMembers/active-membership'
 import {
   FULL_ACCESS_POLICY,
   canAccessModule,
@@ -72,6 +73,15 @@ async function loadOrgPermissions(orgId: string): Promise<{
   const orgDoc = await adminDb.collection('organizations').doc(orgId).get()
   if (!orgDoc.exists) return { permissions: {}, modulePolicies: undefined, members: null, exists: false }
   const data = orgDoc.data() ?? {}
+  // Deleted, archived, suspended and churned organisations are not operable —
+  // no member can act through them regardless of their membership row.
+  if (
+    data.deleted === true ||
+    data.archived === true ||
+    (typeof data.status === 'string' && ['suspended', 'churned'].includes(data.status.trim().toLowerCase()))
+  ) {
+    return { permissions: {}, modulePolicies: undefined, members: null, exists: false }
+  }
   const settings = (data.settings as Record<string, unknown> | undefined) ?? {}
   return {
     permissions: (settings.permissions as OrgPermissions) ?? {},
@@ -125,22 +135,30 @@ async function resolveHumanCrmMembership(input: {
   let storedAccessPolicy: unknown
   if (memberSnap.exists) {
     const m = memberSnap.data() ?? {}
-    role = (m.role as OrgRole) ?? null
-    actor = buildHumanRef(uid, m)
-    accessScope = m.accessScope
-    storedAccessPolicy = m.accessPolicy
+    // Only ACTIVE membership rows grant CRM authority. Disabled, revoked,
+    // deleted and inactive rows are rejected by the canonical predicate.
+    if (isActiveOrgMembershipRow(m as OrgMemberRow)) {
+      role = isOrgRole(m.role) ? m.role : null
+      if (role) {
+        actor = buildHumanRef(uid, m)
+        accessScope = m.accessScope
+        storedAccessPolicy = m.accessPolicy
+      }
+    }
   }
 
   const { permissions, modulePolicies, members, exists: orgExists } = await loadOrgPermissions(orgId)
   if (!orgExists) return { ok: false, response: apiError('Organization not found', 404) }
 
   if (!role) {
-    const fallback = members?.find((m) => m.userId === uid)
+    const fallback = members?.find((m) => m.userId === uid && isActiveOrgMembershipRow(m as OrgMemberRow))
     if (fallback) {
-      role = fallback.role
-      actor = { uid, displayName: uid, kind: 'human' }
-      accessScope = fallback.accessScope
-      storedAccessPolicy = fallback.accessPolicy
+      role = isOrgRole(fallback.role) ? fallback.role : null
+      if (role) {
+        actor = { uid, displayName: uid, kind: 'human' }
+        accessScope = fallback.accessScope
+        storedAccessPolicy = fallback.accessPolicy
+      }
     }
   }
 

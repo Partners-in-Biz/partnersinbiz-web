@@ -12,15 +12,28 @@ import { documentLinksTo } from '@/lib/client-documents/links'
 import { CLIENT_DOCUMENTS_COLLECTION } from '@/lib/client-documents/store'
 import type { ClientDocument } from '@/lib/client-documents/types'
 import { getProjectForUser } from '@/lib/projects/access'
+import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ projectId: string; docId: string }> }
 
+function documentIsVisible(
+  docId: string,
+  document: Record<string, unknown>,
+  access: Extract<Awaited<ReturnType<typeof getProjectForUser>>, { ok: true }>,
+  user: Parameters<typeof getProjectForUser>[1],
+): boolean {
+  return filterProjectItemsForAccess([{ id: docId, ...document }], {
+    projectAccess: access.projectAccess,
+    user,
+  }).length === 1
+}
+
 export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, docId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.read', item: docId })
   if (!access.ok) return apiError(access.error, access.status)
 
   const doc = await adminDb
@@ -30,13 +43,19 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
     .doc(docId)
     .get()
 
-  if (doc.exists) return apiSuccess({ id: doc.id, source: 'legacy_project_docs', ...doc.data() })
+  if (doc.exists) {
+    const data = doc.data() ?? {}
+    if (!documentIsVisible(docId, data, access, user)) return apiError('Document not found', 404)
+    return apiSuccess({ id: doc.id, source: 'legacy_project_docs', ...data })
+  }
 
   const clientDocument = await adminDb.collection(CLIENT_DOCUMENTS_COLLECTION).doc(docId).get()
   if (!clientDocument.exists || clientDocument.data()?.deleted === true) return apiError('Document not found', 404)
 
   const data = clientDocument.data() as Omit<ClientDocument, 'id'>
-  if (!documentLinksTo('projectId', projectId, data)) return apiError('Document not found', 404)
+  if (!documentLinksTo('projectId', projectId, data) || !documentIsVisible(docId, data, access, user)) {
+    return apiError('Document not found', 404)
+  }
 
   return apiSuccess({ ...data, id: clientDocument.id, source: 'client_documents' })
 })
@@ -44,8 +63,11 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
 export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, docId } = await (ctx as RouteContext).params
   const body = await req.json().catch(() => ({}))
-  const access = await getProjectForUser(projectId, user)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.write', item: docId })
   if (!access.ok) return apiError(access.error, access.status)
+  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
+    return apiError('Project contributor access is required to update documents', 403)
+  }
 
   const updates: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp(), updatedBy: user.uid }
 
@@ -73,6 +95,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     const [liveProjectSnapshot, liveDocSnapshot] = await Promise.all([tx.get(projectRef), tx.get(docRef)])
     if (!liveProjectSnapshot.exists) return { ok: false as const, status: 404, error: 'Project not found' }
     if (!liveDocSnapshot.exists) return { ok: false as const, status: 404, error: 'Document not found' }
+    const liveDocument = liveDocSnapshot.data() ?? {}
+    if (!documentIsVisible(docId, liveDocument, access, user)) {
+      return { ok: false as const, status: 404, error: 'Document not found' }
+    }
     const liveProject = (liveProjectSnapshot.data() ?? {}) as Record<string, unknown>
     const transition = planningContextMutationTransition(liveProject, {
       uid: user.uid,
@@ -106,8 +132,11 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
 
 export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => {
   const { projectId, docId } = await (ctx as RouteContext).params
-  const access = await getProjectForUser(projectId, user)
+  const access = await getProjectForUser(projectId, user, undefined, { action: 'project.write', item: docId })
   if (!access.ok) return apiError(access.error, access.status)
+  if (!canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')) {
+    return apiError('Project contributor access is required to delete documents', 403)
+  }
   const projectRef = adminDb.collection('projects').doc(projectId)
   const docRef = projectRef.collection('docs').doc(docId)
   const eventRef = projectRef.collection('planningDiscoveryEvents').doc()
@@ -115,6 +144,10 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
     const [liveProjectSnapshot, liveDocSnapshot] = await Promise.all([tx.get(projectRef), tx.get(docRef)])
     if (!liveProjectSnapshot.exists) return { ok: false as const, status: 404, error: 'Project not found' }
     if (!liveDocSnapshot.exists) return { ok: false as const, status: 404, error: 'Document not found' }
+    const liveDocument = liveDocSnapshot.data() ?? {}
+    if (!documentIsVisible(docId, liveDocument, access, user)) {
+      return { ok: false as const, status: 404, error: 'Document not found' }
+    }
     const liveProject = (liveProjectSnapshot.data() ?? {}) as Record<string, unknown>
     const transition = planningContextMutationTransition(liveProject, {
       uid: user.uid,

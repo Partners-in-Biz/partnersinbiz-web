@@ -3,6 +3,10 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { enforceAgentCapability } from '@/lib/api/capabilityGate'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { getCampaign, updateCampaign, setCampaignMetaId } from '@/lib/ads/campaigns/store'
 import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { metaProvider } from '@/lib/ads/providers/meta'
@@ -24,7 +28,18 @@ export const POST = withAuth(
 
     const { id } = await ctxParams.params
     const campaign = await getCampaign(id)
-    if (!campaign || campaign.orgId !== orgId) return apiError('Campaign not found', 404)
+    if (!campaign) return apiError('Campaign not found', 404)
+    const access = await assertMarketingHandlerAccess({
+      user,
+      module: 'ads',
+      resourceId: id,
+      resourceOwnerOrgId: campaign.orgId,
+      operation: 'launch',
+      partnerLinkId: extractPartnerLinkId(req),
+    })
+    if (!access.ok) return apiError(access.error, access.status)
+    // Ads provider actions remain owner-tenant scoped via X-Org-Id + resource owner.
+    if (campaign.orgId !== orgId) return apiError('Campaign not found', 404)
     const approvalError = requireApprovedCampaignForAdsAction(campaign, 'launch')
     if (approvalError) return apiError(approvalError, 403)
 

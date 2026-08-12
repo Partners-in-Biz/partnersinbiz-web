@@ -73,6 +73,7 @@ import {
   type SlashCommandDefinition,
   type SlashCommandPayload,
 } from '@/lib/chat/slash-commands'
+import { DESIGN_COMMANDS, type DesignCommandDefinition } from '@/lib/chat/design-commands'
 import MessageBubble, { type ConversationAttachment, type ConversationMessage } from './MessageBubble'
 import ParticipantBar from './ParticipantBar'
 import ParticipantPicker, { type SelectedParticipant } from './ParticipantPicker'
@@ -1421,6 +1422,7 @@ export default function UnifiedChat({
   const [contextTypePrompt, setContextTypePrompt] = useState<ActiveContextTypePrompt | null>(null)
   const [slashPrompt, setSlashPrompt] = useState<ActiveSlashCommandPrompt | null>(null)
   const [selectedSlashCommand, setSelectedSlashCommand] = useState<SlashCommandDefinition | null>(null)
+  const [designMenuOpen, setDesignMenuOpen] = useState(false)
   const [contextSearchResults, setContextSearchResults] = useState<ContextReference[]>([])
   const [agentMentionResults, setAgentMentionResults] = useState<Array<{ agentId: string; label: string; summary?: string }>>([])
   const [contextSearchLoading, setContextSearchLoading] = useState(false)
@@ -5682,6 +5684,7 @@ export default function UnifiedChat({
       insertedSeparator !== activeContextPicker.start - 1 || value[insertedSeparator] !== ' '
     )) contextPickerInsertedSeparatorRef.current = undefined
     const commandPrompt = mention || typePrompt ? null : findActiveSlashCommandPrompt(value, caret)
+    if (commandPrompt) setDesignMenuOpen(false)
     setContextMention(mention)
     setContextTypePrompt(typePrompt)
     setSlashPrompt(commandPrompt)
@@ -6016,6 +6019,32 @@ export default function UnifiedChat({
       composerRef.current?.setSelectionRange(next.caret, next.caret)
     })
   }, [input, slashPrompt])
+
+  // Design-command action menu (mobile fallback for the "/" composer surface).
+  // Inserts the command token into the composer so the user can add a target,
+  // or sends a bare command when the composer is empty and Enter is pressed.
+  const insertDesignCommand = useCallback((command: DesignCommandDefinition) => {
+    const token = `${command.token} `
+    const nextValue = input.trim() ? `${input.trimEnd()} ${token}` : token
+    setInput(nextValue)
+    setSelectedSlashCommand({
+      id: command.id,
+      token: command.token,
+      label: command.label,
+      description: command.description,
+      aliases: command.aliases,
+      icon: command.icon,
+      executorKind: 'design_command',
+    })
+    setDesignMenuOpen(false)
+    setSlashPrompt(null)
+    setContextMention(null)
+    setContextTypePrompt(null)
+    requestAnimationFrame(() => {
+      composerRef.current?.focus()
+      composerRef.current?.setSelectionRange(nextValue.length, nextValue.length)
+    })
+  }, [input])
 
   const addPendingAttachments = useCallback((files: File[]) => {
     if (files.length === 0) return
@@ -7208,6 +7237,7 @@ export default function UnifiedChat({
                               <input
                                 autoFocus
                                 value={renameValue}
+                                aria-label="Rename conversation"
                                 onChange={(e) => setRenameValue(e.target.value)}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') renameConversation(c.id, renameValue)
@@ -7596,6 +7626,7 @@ export default function UnifiedChat({
                                 <input
                                   autoFocus
                                   value={renameValue}
+                                  aria-label="Rename conversation"
                                   onChange={(e) => setRenameValue(e.target.value)}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') renameConversation(c.id, renameValue)
@@ -7731,6 +7762,7 @@ export default function UnifiedChat({
                                   <input
                                     autoFocus
                                     value={renameValue}
+                                    aria-label="Rename conversation"
                                     onChange={(e) => setRenameValue(e.target.value)}
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') renameConversation(c.id, renameValue)
@@ -7865,6 +7897,7 @@ export default function UnifiedChat({
                                   <input
                                     autoFocus
                                     value={renameValue}
+                                    aria-label="Rename conversation"
                                     onChange={(e) => setRenameValue(e.target.value)}
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') renameConversation(c.id, renameValue)
@@ -7932,6 +7965,7 @@ export default function UnifiedChat({
                           <input
                             autoFocus
                             value={renameValue}
+                            aria-label="Rename conversation"
                             onChange={(e) => setRenameValue(e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') renameConversation(c.id, renameValue)
@@ -7990,6 +8024,7 @@ export default function UnifiedChat({
                     <input
                       autoFocus
                       value={renameValue}
+                      aria-label="Rename conversation"
                       onChange={(e) => setRenameValue(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') renameConversation(c.id, renameValue)
@@ -8971,6 +9006,49 @@ export default function UnifiedChat({
                 e.target.value = ''
               }}
             />
+            {/* Design commands — action menu fallback (mobile) for the "/" surface */}
+            <div className="relative self-end shrink-0">
+              <button
+                type="button"
+                onClick={() => setDesignMenuOpen((open) => !open)}
+                title="Design commands (polish, typeset, layout, colorize, audit, …)"
+                aria-label="Design commands"
+                aria-expanded={designMenuOpen}
+                aria-haspopup="menu"
+                disabled={!canUseComposer || sending}
+                className="flex items-center justify-center w-9 h-9 rounded-full text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.08] transition-colors aria-disabled:opacity-40 shrink-0 cursor-pointer aria-disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="material-symbols-outlined text-[20px]">palette</span>
+              </button>
+              {designMenuOpen && (
+                <div
+                  role="menu"
+                  aria-label="Design commands"
+                  className="absolute bottom-full right-0 z-30 mb-2 max-h-[min(60dvh,28rem)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto overscroll-contain rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] p-1 shadow-xl"
+                >
+                  <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-[var(--color-pib-text-muted)]">
+                    Design commands
+                  </div>
+                  {DESIGN_COMMANDS.map((command) => (
+                    <button
+                      key={command.id}
+                      type="button"
+                      role="menuitem"
+                      aria-label={`Insert ${command.token}`}
+                      onClick={() => insertDesignCommand(command)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.06]"
+                    >
+                      <span className="material-symbols-outlined text-[16px] text-[var(--color-pib-text-muted)]">{command.icon}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-xs font-medium">{command.label}</span>
+                        <span className="block truncate text-[11px] text-[var(--color-pib-text-muted)]">{command.token} · {command.description}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Attach */}
             <label
               htmlFor={!canUseComposer || sending ? undefined : attachmentInputId}
@@ -8999,6 +9077,7 @@ export default function UnifiedChat({
 
             <textarea
               ref={composerRef}
+              aria-label="Message"
               role="combobox"
               aria-autocomplete="list"
               aria-haspopup="listbox"
@@ -9025,8 +9104,12 @@ export default function UnifiedChat({
               }}
               onKeyDown={(e) => {
                 if (handleContextPickerKeyDown(e)) return
-                if (e.key === 'Escape' && (contextMention || contextTypePrompt || slashPrompt)) {
+                if (e.key === 'Escape' && (contextMention || contextTypePrompt || slashPrompt || designMenuOpen)) {
                   e.preventDefault()
+                  if (designMenuOpen) {
+                    setDesignMenuOpen(false)
+                    return
+                  }
                   const contextPicker = contextMention ?? contextTypePrompt
                   const insertedSeparator = contextPickerInsertedSeparatorRef.current
                   if (contextPicker && insertedSeparator !== undefined) {

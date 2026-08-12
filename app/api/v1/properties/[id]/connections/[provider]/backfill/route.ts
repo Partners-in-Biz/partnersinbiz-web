@@ -24,6 +24,7 @@ import { getConnection, markPullSuccess, markPullFailure } from '@/lib/integrati
 import { getAdapter } from '@/lib/integrations/registry'
 import '@/lib/integrations/bootstrap'
 import { ALL_PROVIDERS, type IntegrationProvider, type PullResult } from '@/lib/integrations/types'
+import { loadOwnerAuthorizedProperty } from '@/lib/properties/access'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -42,13 +43,16 @@ function isoDaysAgo(now: Date, daysAgo: number): string {
   return new Date(ms).toISOString().slice(0, 10)
 }
 
-export const POST = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
+export const POST = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   const { id, provider } = await (ctx as RouteContext).params
   if (!isProvider(provider)) {
     return NextResponse.json({ error: 'Unknown provider' }, { status: 400 })
   }
+  const access = await loadOwnerAuthorizedProperty(user, id)
+  if (!access.ok) return access.response
+  const propertyId = access.property.id
 
-  const conn = await getConnection({ propertyId: id, provider })
+  const conn = await getConnection({ propertyId, provider })
   if (!conn) return NextResponse.json({ error: 'Not connected' }, { status: 404 })
 
   const adapter = getAdapter(provider)
@@ -67,20 +71,20 @@ export const POST = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
   try {
     result = await adapter.pullDaily({ connection: conn, window: { from, to } })
     await markPullSuccess({
-      propertyId: id,
+      propertyId,
       provider,
       backfilledThrough: result.to || to,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    await markPullFailure({ propertyId: id, provider, error: message })
+    await markPullFailure({ propertyId, provider, error: message })
     return NextResponse.json({ ok: false, error: message, from, to }, { status: 502 })
   }
 
   return NextResponse.json({
     ok: true,
     provider,
-    propertyId: id,
+    propertyId,
     from,
     to,
     days: BACKFILL_DAYS,

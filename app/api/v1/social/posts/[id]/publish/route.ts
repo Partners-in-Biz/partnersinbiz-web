@@ -7,6 +7,10 @@ import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
+import {
   isTokenExpiredError,
   markAccountTokenExpired,
   refreshAccountToken,
@@ -26,13 +30,26 @@ export const dynamic = 'force-dynamic'
 
 type Params = { params: Promise<{ id: string }> }
 
-export const POST = withAuth('admin', withTenant(async (_req, user, orgId, context) => {
+export const POST = withAuth('admin', withTenant(async (req, user, orgId, context) => {
   const { id } = await (context as Params).params
 
   const doc = await adminDb.collection('social_posts').doc(id).get()
   if (!doc.exists) return apiError('Post not found', 404)
 
   const post = doc.data()!
+  const ownerOrgId = typeof post.orgId === 'string' ? post.orgId : orgId
+  const access = await assertMarketingHandlerAccess({
+    user: { ...user, orgId: user.orgId || orgId },
+    module: 'social',
+    resourceId: id,
+    resourceOwnerOrgId: ownerOrgId,
+    operation: 'publish',
+    partnerLinkId: extractPartnerLinkId(req),
+  })
+  if (!access.ok) {
+    if (post.orgId && post.orgId !== orgId) return apiError(access.error, access.status)
+    return apiError(access.error, access.status)
+  }
   if (post.orgId && post.orgId !== orgId) return apiError('Post not found', 404)
   if (post.status === 'published') return apiError('Post already published', 409)
   if (post.status === 'cancelled') return apiError('Cannot publish a cancelled post', 400)

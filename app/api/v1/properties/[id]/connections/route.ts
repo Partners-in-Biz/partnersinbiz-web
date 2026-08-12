@@ -3,20 +3,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { listConnectionsForProperty } from '@/lib/integrations/connections'
-import { adminDb } from '@/lib/firebase/admin'
+import { loadOwnerAuthorizedProperty } from '@/lib/properties/access'
 
 export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
+export const GET = withAuth('admin', async (_req: NextRequest, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
-  // Verify the property exists & is visible to this caller.
-  const propDoc = await adminDb.collection('properties').doc(id).get()
-  if (!propDoc.exists) {
-    return NextResponse.json({ error: 'Property not found' }, { status: 404 })
-  }
-  const connections = await listConnectionsForProperty(id)
+  const access = await loadOwnerAuthorizedProperty(user, id)
+  if (!access.ok) return access.response
+  const propertyId = access.property.id
+  const connections = await listConnectionsForProperty(propertyId)
   // Strip ciphertext from response — not needed by UI, leaks nothing if logged.
   const sanitized = connections.map(({ credentialsEnc: _e, ...rest }) => ({
     ...rest,

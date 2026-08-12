@@ -42,6 +42,16 @@ export type AgentHostRuntimeJob = {
   credentialDelivery?: RuntimeCredentialDelivery | null
 }
 
+// These profiles are the PiB-managed agent fleet, not ad-hoc linked-runtime
+// installs. A generic agent-host uninstall delivery has no human approval or
+// target-runtime attestation, so it must never be able to stop one of them.
+// Managed fleet removal stays an explicit, separately-gated control-plane
+// operation; custom profiles retain the normal uninstall path below.
+const MANAGED_FLEET_AGENT_IDS = new Set([
+  'pip', 'theo', 'maya', 'sage', 'nora', 'ads',
+  'qa-release', 'support', 'data', 'docs', 'seo', 'sales',
+])
+
 export type AgentHostSkillPackDownloader = (input: {
   artifactPath: string
   expectedContentSha256: string
@@ -214,6 +224,12 @@ export async function executeAgentHostJob(
     }
 
     if (job.kind === 'uninstall') {
+      if (MANAGED_FLEET_AGENT_IDS.has(job.agentId)) {
+        return {
+          ok: false,
+          error: 'managed PiB agent uninstall is rejected by the linked runtime; use an explicitly approved fleet-control operation',
+        }
+      }
       const managedFleetProfile = isManagedLaunchdHermesProfile({ agentId: job.agentId, env })
       if (managedFleetProfile) {
         const disabled = await disableManagedHermesProfile({ agentId: job.agentId, env })

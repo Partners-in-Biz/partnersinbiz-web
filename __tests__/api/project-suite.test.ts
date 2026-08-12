@@ -236,6 +236,165 @@ beforeEach(() => {
 })
 
 describe('project suite API', () => {
+  it('fails closed before suite helpers when project access is absent', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      error: 'Project access denied',
+    })
+
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects/project-1/suite'), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(mockCollection).not.toHaveBeenCalled()
+  })
+
+  it('filters every Project Suite decision surface to a cross-org grant item allowlist', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: {
+        id: 'project-1',
+        data: () => ({ id: 'project-1', orgId: 'owner-org', ownerOrgId: 'owner-org' }),
+      },
+      projectAccess: {
+        role: 'reviewer',
+        source: 'project_organization',
+        canViewInternal: false,
+        crossOrgGrant: {
+          grantId: 'grant-project-1',
+          actions: ['project.read'],
+          items: ['task-ok', 'milestone-ok', 'approval-ok', 'risk-ok', 'budget-ok'],
+        },
+      },
+    })
+    mockTasksGet.mockResolvedValue(docs([
+      { id: 'task-ok', data: { title: 'Partner task', columnId: 'blocked' } },
+      { id: 'task-no', data: { title: 'Internal task', columnId: 'blocked' } },
+    ]))
+    mockMilestonesGet.mockResolvedValue(docs([
+      { id: 'milestone-ok', data: { title: 'Partner milestone', status: 'active' } },
+      { id: 'milestone-no', data: { title: 'Internal milestone', status: 'active' } },
+    ]))
+    mockApprovalsGet.mockResolvedValue(docs([
+      { id: 'approval-ok', data: { title: 'Partner approval', status: 'pending' } },
+      { id: 'approval-no', data: { title: 'Internal approval', status: 'pending' } },
+    ]))
+    mockRisksGet.mockResolvedValue(docs([
+      { id: 'risk-ok', data: { title: 'Partner risk', severity: 'high' } },
+      { id: 'risk-no', data: { title: 'Internal risk', severity: 'high' } },
+    ]))
+    mockRevenueGet.mockResolvedValue(docs([
+      { id: 'budget-ok', data: { amount: 100, currency: 'ZAR' } },
+      { id: 'budget-no', data: { amount: 500, currency: 'ZAR' } },
+    ]))
+
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects/project-1/suite'), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.tasks.map((item: { id: string }) => item.id)).toEqual(['task-ok'])
+    expect(body.data.milestones.map((item: { id: string }) => item.id)).toEqual(['milestone-ok'])
+    expect(body.data.approvals.map((item: { id: string }) => item.id)).toEqual(['approval-ok'])
+    expect(body.data.risks.map((item: { id: string }) => item.id)).toEqual(['risk-ok'])
+    expect(body.data.revenue.map((item: { id: string }) => item.id)).toEqual(['budget-ok'])
+    expect(body.data.reports.revenue.trackedAmount).toBe(100)
+  })
+
+  it('denies a restricted cross-org suite grant from updating another item', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: { id: 'project-1', data: () => ({ id: 'project-1', orgId: 'owner-org', ownerOrgId: 'owner-org' }) },
+      projectAccess: {
+        role: 'manager',
+        source: 'project_organization',
+        canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-project-1', actions: ['project.write'], items: ['milestone-other'] },
+      },
+    })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'milestone', id: 'milestone-1', title: 'Forbidden update' }),
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockMilestoneUpdate).not.toHaveBeenCalled()
+  })
+
+  it('denies an item-scoped cross-org grant from creating an unscoped suite record', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: { id: 'project-1', data: () => ({ id: 'project-1', orgId: 'owner-org', ownerOrgId: 'owner-org' }) },
+      projectAccess: {
+        role: 'manager', source: 'project_organization', canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-project-1', actions: ['project.write'], items: ['milestone-existing'] },
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'milestone', title: 'Unscoped external milestone' }),
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockMilestoneAdd).not.toHaveBeenCalled()
+  })
+
+  it('denies a playbook run outside an item-scoped cross-org grant', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: { id: 'project-1', data: () => ({ id: 'project-1', orgId: 'owner-org', ownerOrgId: 'owner-org' }) },
+      projectAccess: {
+        role: 'manager', source: 'project_organization', canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-project-1', actions: ['project.write'], items: ['playbook-other'] },
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'playbook', action: 'run', id: 'playbook-1' }),
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockRunProjectPlaybookTemplate).not.toHaveBeenCalled()
+  })
+
+  it('denies a cross-org contributor a Project Suite mutation without project.write', async () => {
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: {
+        id: 'project-1',
+        data: () => ({ id: 'project-1', orgId: 'owner-org', ownerOrgId: 'owner-org' }),
+      },
+      projectAccess: {
+        role: 'contributor',
+        source: 'project_organization',
+        canViewInternal: false,
+        crossOrgGrant: { grantId: 'grant-project-1', actions: ['project.read'], items: [] },
+      },
+    })
+
+    const { POST } = await import('@/app/api/v1/projects/[projectId]/suite/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/projects/project-1/suite', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'milestone', title: 'Attempted external write' }),
+    }), { params: Promise.resolve({ projectId: 'project-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockMilestoneAdd).not.toHaveBeenCalled()
+  })
+
   it('returns PM suite data, computed health, and filters internal-only records', async () => {
     const { GET } = await import('@/app/api/v1/projects/[projectId]/suite/route')
     const res = await GET(new NextRequest('http://localhost/api/v1/projects/project-1/suite'), {

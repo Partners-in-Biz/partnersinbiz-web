@@ -22,7 +22,11 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
   if (!rangeIsValid(range)) return apiError('Invalid date range', 400)
 
   try {
-    const property = await requireAnalyticsProperty(user, { propertyId })
+    const property = await requireAnalyticsProperty(user, {
+      propertyId,
+      req,
+      operation: 'reporting_view',
+    })
     const segment = parseSegment(searchParams)
 
     const allSessions = await fetchSessions(property.id, range)

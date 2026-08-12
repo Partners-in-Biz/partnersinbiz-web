@@ -8,6 +8,10 @@ import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import {
+  assertMarketingHandlerAccess,
+  extractPartnerLinkId,
+} from '@/lib/cross-org/marketing-handler-access'
 import { notifyNewComment } from '@/lib/notifications/notify'
 import { getHermesProfileLink, createHermesRun } from '@/lib/hermes/server'
 import { logActivity } from '@/lib/activity/log'
@@ -32,7 +36,22 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId, contex
     }
 
     const postData = postDoc.data()!
-    if (postData.orgId && postData.orgId !== orgId) {
+    const ownerOrgId = typeof postData.orgId === 'string' ? postData.orgId : orgId
+    const access = await assertMarketingHandlerAccess({
+      user: { ...user, orgId: user.orgId || orgId },
+      module: 'social',
+      resourceId: id,
+      resourceOwnerOrgId: ownerOrgId,
+      operation: 'read',
+      partnerLinkId: extractPartnerLinkId(req),
+    })
+    if (!access.ok) {
+      if (postData.orgId && postData.orgId !== orgId && access.reason !== 'OWNER_ONLY_ACTION') {
+        return apiError('Post not found', 404)
+      }
+      return apiError(access.error, access.status)
+    }
+    if (access.access === 'owner' && postData.orgId && postData.orgId !== orgId) {
       return apiError('Post not found', 404)
     }
 
@@ -89,7 +108,22 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId, conte
     }
 
     const postData = postDoc.data()!
-    if (postData.orgId && postData.orgId !== orgId) {
+    const ownerOrgId = typeof postData.orgId === 'string' ? postData.orgId : orgId
+    const access = await assertMarketingHandlerAccess({
+      user: { ...user, orgId: user.orgId || orgId },
+      module: 'social',
+      resourceId: id,
+      resourceOwnerOrgId: ownerOrgId,
+      operation: 'comment',
+      partnerLinkId: extractPartnerLinkId(req, body as Record<string, unknown>),
+    })
+    if (!access.ok) {
+      if (postData.orgId && postData.orgId !== orgId && access.reason !== 'OWNER_ONLY_ACTION') {
+        return apiError('Post not found', 404)
+      }
+      return apiError(access.error, access.status)
+    }
+    if (access.access === 'owner' && postData.orgId && postData.orgId !== orgId) {
       return apiError('Post not found', 404)
     }
 
