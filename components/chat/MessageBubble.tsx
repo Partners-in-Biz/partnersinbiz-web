@@ -386,7 +386,7 @@ function ThoughtStream({
           </span>
         </summary>
         {thoughtText ? (
-          <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-pib-text)]/85">
+          <p className="mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-pib-text)]/80">
             {thoughtText}
           </p>
         ) : live ? (
@@ -2396,13 +2396,6 @@ export default function MessageBubble({
   )
   const toolOnlySummary = !hasNarrative && displayEvents.length > 0 ? eventSummary : ''
   const showSlimControls = (isQueued || isPending || isWaiting) && (!hasNarrative || isQueued)
-  const toolActivityEvents = displayEvents.filter((ev) => {
-    const name = ev.event ?? ''
-    return name !== 'assistant.text_delta'
-      && name !== 'heartbeat'
-      && name !== 'reasoning.delta'
-      && name !== 'reasoning.summary'
-  })
   const consoleRows = commandConsoleRows(displayEvents)
   const commandConsole = consoleRows.length > 0 ? (
     <details className="my-1.5 overflow-hidden rounded-lg border border-white/8 bg-black/25 text-[var(--color-pib-text-muted)] group/console">
@@ -2545,33 +2538,6 @@ export default function MessageBubble({
                 </div>
               </details>
             )}
-
-            {commandConsole}
-
-            {toolActivityEvents.length > 0 && (
-              <details className="text-[var(--color-pib-text-muted)] group/details">
-                <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1.5 rounded-md px-0.5 py-0.5 text-[11px] hover:bg-white/[0.04]">
-                  <span className="opacity-60 transition-transform group-open/details:rotate-90">›</span>
-                  <span>Tool activity</span>
-                  <span className="rounded-full bg-white/8 px-1.5 py-0.5 font-mono text-[10px] opacity-70">
-                    {toolActivityEvents.length}
-                  </span>
-                </summary>
-                <div className="mt-1 space-y-1">
-                  {toolActivityEvents.slice(-8).map((ev, i) => (
-                    <div
-                      key={i}
-                      className="flex items-baseline gap-2 rounded-md bg-[var(--color-card,rgba(255,255,255,0.03))] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]"
-                    >
-                      <span className="material-symbols-outlined text-[12px] text-primary/70 shrink-0">build</span>
-                      {ev.tool && <span className="text-primary font-mono shrink-0">{ev.tool}</span>}
-                      <span className="font-mono opacity-50 shrink-0">{ev.event ?? 'event'}</span>
-                      {(ev.preview || ev.delta) && <span className="truncate opacity-70">{ev.preview ?? ev.delta}</span>}
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
           </div>
         )}
 
@@ -2580,7 +2546,7 @@ export default function MessageBubble({
           <ThoughtStream thinking={thinking} />
         )}
 
-        {/* Completed tool console — collapsed by default */}
+        {/* Completed tool console — collapsed by default; hidden while live to keep the stream sleek */}
         {!isPending && !isWaiting && commandConsole}
         {displayEvents.length > 0 && !isPending && !isWaiting && eventSummary && !thinking?.segments?.some((s) => s.kind === 'tools') && (
           <p className="mb-1 text-[11px] text-[var(--color-pib-text-muted)]/65">{eventSummary}</p>
@@ -2597,8 +2563,8 @@ export default function MessageBubble({
                 : [
                     // Mobile: plain prose, no background, larger readable text
                     'mx-bubble-agent max-w-full overflow-hidden text-[15px] leading-relaxed text-[var(--color-pib-text)] whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
-                    // Desktop: keep the bubble look
-                    'lg:rounded-2xl lg:rounded-tl-md lg:px-4 lg:py-2.5 lg:text-sm lg:bg-[var(--color-card-active,rgba(255,255,255,0.06))]',
+                    // Desktop: keep readable width without a heavy card shell
+                    'lg:rounded-none lg:px-0 lg:py-1 lg:text-sm lg:bg-transparent',
                   ].join(' ')
             }
           >
