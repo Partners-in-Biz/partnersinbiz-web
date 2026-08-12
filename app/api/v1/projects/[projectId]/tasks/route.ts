@@ -18,6 +18,7 @@ import { getConversation } from '@/lib/conversations/conversations'
 import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
 import { applyOrgChartToAssignment, applyOrgDefaultsToTaskFields } from '@/lib/agent-org/taskHooks'
 import { planningContextMutationTransition } from '@/lib/projects/planningDiscoveryStore'
+import { getProjectTaskReadModel, seedProjectTaskReadModel, upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -128,14 +129,18 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const access = await getProjectForUser(projectId, user, scope.orgId, { action: 'project.read' })
   if (!access.ok) return apiError(access.error, access.status)
 
-  const snapshot = await adminDb
-    .collection('projects')
-    .doc(projectId)
-    .collection('tasks')
-    .get()
-
-  const tasks = snapshot.docs
-    .map(doc => ({ id: doc.id, ...doc.data() }))
+  const boardView = req.nextUrl.searchParams.get('view') === 'board'
+  const readModel = boardView ? await getProjectTaskReadModel(projectId) : null
+  const tasks = (readModel?.tasks ?? await (async () => {
+    const snapshot = await adminDb
+      .collection('projects')
+      .doc(projectId)
+      .collection('tasks')
+      .get()
+    const fullTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    if (boardView) await seedProjectTaskReadModel(projectId, fullTasks)
+    return fullTasks
+  })())
     .sort((a, b) => taskOrderMillis((a as Record<string, unknown>).order) - taskOrderMillis((b as Record<string, unknown>).order))
   return apiSuccess(filterProjectItemsForAccess(tasks, { projectAccess: access.projectAccess, user }))
 })
@@ -233,6 +238,8 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     return { ok: true as const }
   })
   if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
+
+  await upsertProjectTaskReadModel(projectId, ref.id, doc).catch(() => {})
 
   if (orgId) {
     const actorName = user.uid === 'ai-agent'

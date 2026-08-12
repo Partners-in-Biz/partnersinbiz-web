@@ -7,6 +7,7 @@ import { getProjectForUser } from '@/lib/projects/access'
 import { buildProjectChatProgress, type ProjectChatTaskSource } from '@/lib/projects/chatProgress'
 import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { taskOrderMillis } from '@/lib/projects/taskPayload'
+import { getProjectTaskReadModel, seedProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,9 +23,15 @@ export const GET = withAuth('client', async (_req: NextRequest, user, ctx) => {
   if (!access.ok) return apiError(access.error, access.status)
 
   const projectData = access.doc.data() ?? {}
-  const snapshot = await adminDb.collection('projects').doc(projectId).collection('tasks').get()
+  const cachedModel = await getProjectTaskReadModel(projectId)
+  const sourceTasks = cachedModel?.tasks ?? await (async () => {
+    const snapshot = await adminDb.collection('projects').doc(projectId).collection('tasks').get()
+    const tasks = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    await seedProjectTaskReadModel(projectId, tasks)
+    return tasks
+  })()
   const visibleTasks = filterProjectItemsForAccess(
-    snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+    sourceTasks,
     { projectAccess: access.projectAccess, user },
   ).sort((left, right) => taskOrderMillis((left as Record<string, unknown>).order) - taskOrderMillis((right as Record<string, unknown>).order)) as ProjectChatTaskSource[]
 

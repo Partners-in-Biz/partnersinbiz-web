@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { selectActiveProjectId, type ProjectChatProgress, type ProjectChatTaskItem } from '@/lib/projects/chatProgress'
 import type { ProjectOption } from './ProjectChatExperience'
 
-const PROJECT_PROGRESS_REFRESH_MS = 5_000
+const PROJECT_PROGRESS_REFRESH_MS = 60_000
 
 // Compatibility coordinator for the shipped Project Pulse. Generic Studio and
 // artifact contexts are coordinated by useChatContexts, never concurrently.

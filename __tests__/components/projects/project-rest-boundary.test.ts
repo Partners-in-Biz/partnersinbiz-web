@@ -19,11 +19,11 @@ describe('project browser REST boundary', () => {
     expect(source).not.toContain("collection(getClientDb(), 'projects'")
   })
 
-  it('refreshes public project and task views through relationship-aware APIs every 15 seconds', () => {
-    expect(listWorkspace).toContain('const PROJECT_REFRESH_INTERVAL_MS = 15_000')
+  it('refreshes public project and task views through relationship-aware APIs every 60 seconds', () => {
+    expect(listWorkspace).toContain('const PROJECT_REFRESH_INTERVAL_MS = 60_000')
     expect(listWorkspace).toContain("'/api/v1/projects'")
-    expect(listWorkspace).toContain('`/api/v1/projects/${project.id}/tasks`')
-    expect(detailWorkspace).toContain('const TASK_REFRESH_INTERVAL_MS = 15_000')
-    expect(detailWorkspace).toContain('`/api/v1/projects/${projectId}/tasks`')
+    expect(listWorkspace).toContain('`/api/v1/projects/${project.id}/tasks?view=board`')
+    expect(detailWorkspace).toContain('const TASK_REFRESH_INTERVAL_MS = 60_000')
+    expect(detailWorkspace).toContain('`/api/v1/projects/${projectId}/tasks?view=board`')
   })
 })

@@ -8,6 +8,7 @@ import { actorFrom, lastActorFrom } from '@/lib/api/actor'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
+import { upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 
 export type GeoSeoCollectionConfig = {
   collection: string
@@ -450,13 +451,15 @@ async function createLinkedProjectTask(args: {
   const built = buildProjectTaskCreateData(payload, projectId, args.orgId)
   if (!built.ok) return apiError(built.error, built.status ?? 400)
   const ref = adminDb.collection('projects').doc(projectId).collection('tasks').doc()
-  await ref.set({
+  const task = {
     ...built.value,
     reporterId: args.user.uid,
     createdBy: args.user.uid,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
-  })
+  }
+  await ref.set(task)
+  await upsertProjectTaskReadModel(projectId, ref.id, task).catch(() => {})
   await args.findingRef.set({ projectTaskId: ref.id, updatedAt: FieldValue.serverTimestamp() }, { merge: true })
   return ref.id
 }

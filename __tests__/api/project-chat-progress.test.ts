@@ -5,6 +5,9 @@ const mockCollection = jest.fn()
 const mockProjectDoc = jest.fn()
 const mockTaskCollection = jest.fn()
 const mockTaskGet = jest.fn()
+const mockReadModelDoc = jest.fn()
+const mockReadModelGet = jest.fn()
+const mockReadModelSet = jest.fn()
 
 const mockUser = { uid: 'client-1', role: 'client' as const, orgId: 'client-org' }
 
@@ -39,7 +42,16 @@ beforeEach(() => {
     ],
   })
   mockTaskCollection.mockReturnValue({ get: mockTaskGet })
-  mockProjectDoc.mockReturnValue({ collection: mockTaskCollection })
+  mockReadModelGet.mockResolvedValue({ exists: false, data: () => undefined })
+  mockReadModelSet.mockResolvedValue(undefined)
+  mockReadModelDoc.mockReturnValue({ get: mockReadModelGet, set: mockReadModelSet })
+  mockProjectDoc.mockImplementation(() => ({
+    collection: (name: string) => {
+      if (name === 'tasks') return mockTaskCollection()
+      if (name === '_readModels') return { doc: mockReadModelDoc }
+      throw new Error(`Unexpected project subcollection ${name}`)
+    },
+  }))
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { doc: mockProjectDoc }
     throw new Error(`Unexpected collection ${name}`)
@@ -60,6 +72,7 @@ describe('project chat progress API', () => {
     expect(body.data.tasks.map((task: { id: string }) => task.id)).toEqual(['done', 'ready'])
     expect(body.data.next).toMatchObject({ id: 'ready', state: 'ready' })
     expect(body.data.asOf).toEqual(expect.any(String))
+    expect(mockReadModelSet).toHaveBeenCalledWith(expect.objectContaining({ schemaVersion: 1, tasks: expect.any(Array) }))
   })
 
   it('returns the project access failure without reading tasks', async () => {
@@ -70,6 +83,29 @@ describe('project chat progress API', () => {
     })
 
     expect(res.status).toBe(403)
+    expect(mockTaskGet).not.toHaveBeenCalled()
+  })
+
+  it('uses the compact task model when one is available', async () => {
+    mockReadModelGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        schemaVersion: 1,
+        tasks: [
+          { id: 'done', title: 'Draft copy', columnId: 'review', agentStatus: 'done', assigneeAgentId: 'maya' },
+          { id: 'ready', title: 'Run QA', columnId: 'todo', agentStatus: 'pending', dependsOn: ['done'] },
+          { id: 'internal', title: 'Internal note', columnId: 'todo', internalOnly: true },
+        ],
+      }),
+    })
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/chat-progress/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects/project-1/chat-progress'), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.tasks.map((task: { id: string }) => task.id)).toEqual(['done', 'ready'])
     expect(mockTaskGet).not.toHaveBeenCalled()
   })
 })

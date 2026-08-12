@@ -28,6 +28,7 @@ import { applyOrgChartToAssignment, applyOrgDefaultsToTaskFields } from '@/lib/a
 import { publishTaskLifecycleToCommandSession } from '@/lib/projects/commandSession'
 import { approvalActorAuditFields, isAuthorizedAdminApprover } from '@/lib/projects/adminApprover'
 import { hasApprovalGateMarker, reconcileApprovalGateUpdate } from '@/lib/projects/approvalState'
+import { removeProjectTaskReadModelTask, upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 
 export const dynamic = 'force-dynamic'
 
@@ -111,6 +112,20 @@ function agentInputWithContextRefs(
 function isApprovalGateRecord(data: Record<string, unknown>, nextBody: Record<string, unknown> = {}): boolean {
   return hasApprovalGateMarker(data, nextBody)
 }
+
+export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
+  const { projectId, taskId } = await (ctx as RouteContext).params
+  const scope = projectRequestOrgScope(req, user)
+  if (!scope.ok) return scope.response
+  const access = await getProjectForUser(projectId, user, scope.orgId, { action: 'project.read', item: taskId })
+  if (!access.ok) return apiError(access.error, access.status)
+
+  const doc = await adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId).get()
+  if (!doc.exists) return apiError('Task not found', 404)
+  const task = doc.data() ?? {}
+  if (!taskIsVisible(taskId, task, access, user)) return apiError('Task not found', 404)
+  return apiSuccess({ id: taskId, ...task })
+})
 
 async function approvalGateTaskApproved(projectId: string, approvalGateTaskId: string): Promise<boolean> {
   const gateDoc = await adminDb.collection('projects').doc(projectId).collection('tasks').doc(approvalGateTaskId).get()
@@ -380,6 +395,8 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   })
   if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
 
+  await upsertProjectTaskReadModel(projectId, taskId, { ...existing, ...updateValue }).catch(() => {})
+
   if (projectOrgId) {
     const approvalChanged = body.approvalStatus !== undefined
       && String(existing.approvalStatus ?? '') !== String(updateValue.approvalStatus ?? '')
@@ -631,6 +648,8 @@ export const DELETE = withAuth('client', async (req: NextRequest, user, ctx) => 
     return { ok: true as const }
   })
   if (!mutation.ok) return apiError(mutation.error, mutation.status, mutation.details)
+
+  await removeProjectTaskReadModelTask(projectId, taskId).catch(() => {})
 
   const deleteOrgId = access.doc.data()?.orgId as string | undefined
   if (deleteOrgId) {

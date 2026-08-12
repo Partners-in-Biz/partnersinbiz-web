@@ -70,7 +70,7 @@ describe('ProjectDetailWorkspace portal agent assignment', () => {
         return jsonResponse({ data: { id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'active', columns: [] } })
       }
       if (url === '/api/v1/projects/project-1/docs') return jsonResponse({ data: [] })
-      if (url === '/api/v1/projects/project-1/tasks') return jsonResponse({ data: [] })
+      if (url === '/api/v1/projects/project-1/tasks?view=board') return jsonResponse({ data: [] })
       if (url === '/api/v1/organizations/org-acme/members') return jsonResponse({ data: [] })
       if (url === '/api/v1/projects/project-1/access') return jsonResponse({ data: { members: [] } })
       if (url === '/api/v1/orgs/org-acme/visible-agents') {
@@ -100,7 +100,7 @@ describe('ProjectDetailWorkspace portal agent assignment', () => {
         return jsonResponse({ data: { id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'active', columns: [] } })
       }
       if (url === '/api/v1/projects/project-1/docs') return jsonResponse({ data: [] })
-      if (url === '/api/v1/projects/project-1/tasks' && !init) {
+      if (url === '/api/v1/projects/project-1/tasks?view=board' && !init) {
         return jsonResponse({ data: [{ id: 'task-1', title: 'Approval gate', columnId: 'review', order: 1, labels: ['approval-gate'], approvalStatus: 'pending' }] })
       }
       if (url === '/api/v1/projects/project-1/tasks/task-1' && init?.method === 'PATCH') {
@@ -134,7 +134,7 @@ describe('ProjectDetailWorkspace portal agent assignment', () => {
         return jsonResponse({ data: { id: 'project-1', orgId: 'org-acme', name: 'Client Website', status: 'active', columns: [] } })
       }
       if (url === '/api/v1/projects/project-1/docs') return jsonResponse({ data: [] })
-      if (url === '/api/v1/projects/project-1/tasks' && !init) {
+      if (url === '/api/v1/projects/project-1/tasks?view=board' && !init) {
         return jsonResponse({ data: [{ id: 'task-1', title: 'Approval gate', columnId: 'review', order: 1, labels: ['approval-gate'], approvalStatus: 'pending' }] })
       }
       if (url === '/api/v1/projects/project-1/tasks/task-1' && init?.method === 'PATCH') {

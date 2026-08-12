@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { isValidAgentId } from '@/lib/agents/types'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
+import { upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 
 type ConversionOk = {
   ok: true
@@ -280,6 +281,10 @@ export async function convertApprovedBusinessInsightReviewTask(
     updatedBy: input.actorId,
     updatedByType: actorType,
   }), { merge: true })
+  await Promise.all([
+    upsertProjectTaskReadModel(input.projectId, nextActionTaskId, payload).catch(() => {}),
+    upsertProjectTaskReadModel(input.projectId, input.reviewTaskId, task).catch(() => {}),
+  ])
 
   return {
     ok: true,

@@ -6,6 +6,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import { getProjectForUser } from '@/lib/projects/access'
 import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { evaluateUnblockReadiness, type DependencyStatus } from '@/lib/projects/blockerRecovery'
+import { upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import { logActivity } from '@/lib/activity/log'
 
@@ -133,6 +134,7 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   }
 
   await taskRef.update(update)
+  await upsertProjectTaskReadModel(projectId, taskId, { ...task, ...update }).catch(() => {})
 
   const userRole = actorRole(user.role)
   const userName = user.uid
