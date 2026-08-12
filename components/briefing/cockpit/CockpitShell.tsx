@@ -6,7 +6,8 @@ import type { Mode } from './cockpitTypes'
 import type { PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
 import type { ContextReferenceSeed } from '@/lib/context-references/types'
 import { ModuleShell } from '@/components/ui/ModuleShell'
-import { HudChip, SignalMeter } from '@/components/ui/HudChip'
+import { HudChip } from '@/components/ui/HudChip'
+import '@/components/briefing/atmosphere/briefings-quiet.css'
 
 export type CockpitShellProps = {
   mode: Mode
@@ -43,25 +44,24 @@ export function CockpitShell({
 
   return (
     <ModuleShell
-      tier={2}
+      tier={0}
       accent="cyan"
       shellTestId="briefings-room-shell"
-      fieldTestId="briefings-neural-field"
-      data-briefings-experience="room"
-      className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-[var(--color-card)]/55 shadow-none"
+      data-briefings-experience="quiet-2026"
+      style={{ background: '#000' }}
+      className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-black shadow-none"
     >
-      <header className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3">
+      <header data-testid="briefings-shell-topbar" className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black px-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span aria-hidden="true" className="pib-icon-tint pib-icon-tint-cyan shrink-0"><span className="material-symbols-outlined text-[15px]">checklist</span></span>
+          <span aria-hidden="true" className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white/[0.06] text-[var(--color-pib-text)]"><span className="material-symbols-outlined text-[15px]">radar</span></span>
           <div className="flex min-w-0 items-center gap-2">
             <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">Briefings</h1>
             {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
           </div>
-          <div className="messages-info-constellation hidden lg:flex" aria-label="Briefings live signals">
+          <div className="hidden items-center gap-2 text-xs text-[var(--color-pib-text-muted)] lg:flex" aria-label="Briefings live signals">
             <HudChip live={loading}>Queue</HudChip>
             <HudChip>Open <strong>{itemCount}</strong></HudChip>
             {updatedLabel ? <HudChip>Updated <strong>{updatedLabel}</strong></HudChip> : null}
-            <SignalMeter title="Briefings signal" />
           </div>
         </div>
         <div className="flex items-center gap-1.5">

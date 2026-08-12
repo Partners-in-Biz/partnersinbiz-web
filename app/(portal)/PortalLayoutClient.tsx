@@ -54,7 +54,7 @@ interface NavItem {
 
 const NAV_LINKS: NavItem[] = [
   { href: '/portal/dashboard', label: 'Overview',  icon: 'space_dashboard', group: 'work' },
-  { href: '/portal/briefings', label: 'Briefings', icon: 'team_dashboard', group: 'work' },
+  { href: '/portal/briefings', label: 'Briefings', icon: 'radar', group: 'work' },
   { href: '/portal/projects',  label: 'Projects',  icon: 'rocket_launch',   group: 'work' },
   { href: '/portal/documents', label: 'Documents', icon: 'description',     group: 'work' },
   { href: '/portal/research',  label: 'Research',  icon: 'travel_explore', group: 'data' },

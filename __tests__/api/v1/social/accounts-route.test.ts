@@ -34,8 +34,11 @@ beforeEach(() => {
   mockLimit.mockReturnValue(query)
   mockGet.mockResolvedValue({
     docs: [
+      { id: 'org-page', data: () => ({ orgId: 'org-1', displayName: 'Facebook PIB', platform: 'facebook', accountType: 'page', status: 'active' }) },
       { id: 'org-account', data: () => ({ orgId: 'org-1', displayName: 'Org LinkedIn', platform: 'linkedin', status: 'active' }) },
+      { id: 'peet-twin', data: () => ({ orgId: 'org-1', displayName: 'Peet Stander', platform: 'twitter', accountType: 'personal', status: 'active' }) },
       { id: 'personal-account', data: () => ({ orgId: 'org-1', displayName: 'Personal X', platform: 'x', status: 'active', accountScope: 'personal', ownerUid: 'user-1' }) },
+      { id: 'brand-bluesky', data: () => ({ orgId: 'org-1', displayName: 'partnersinbiz', platform: 'bluesky', status: 'active' }) },
     ],
   })
   mockCollection.mockImplementation((name: string) => {
@@ -67,5 +70,14 @@ describe('GET /api/v1/social/accounts', () => {
     expect(mockWhere).toHaveBeenCalledWith('ownerUid', '==', 'user-1')
     expect(mockLimit).toHaveBeenCalledWith(6)
     expect(body.data.map((account: { id: string }) => account.id)).toEqual(['personal-account'])
+  })
+
+  it('lists only company-linked accounts on the org social surface', async () => {
+    const { GET } = await import('@/app/api/v1/social/accounts/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/social/accounts?limit=10&page=1'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((account: { id: string }) => account.id)).toEqual(['org-page', 'brand-bluesky'])
   })
 })

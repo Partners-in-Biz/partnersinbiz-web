@@ -38,10 +38,15 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
   const redirectUrl = sanitizeOAuthRedirectPath(url.searchParams.get('redirectUrl') ?? '/portal/social')
   const oauthOrgId = resolveOAuthOrgId(req, user, orgId, redirectUrl)
   const accountScope = url.searchParams.get('scope') === PERSONAL_SCOPE ? PERSONAL_SCOPE : 'org'
+  const requestedLinkedInMode = url.searchParams.get('linkedinMode')
   const linkedinMode: LinkedInOAuthMode =
-    platform === 'linkedin' && url.searchParams.get('linkedinMode') === 'organization'
-      ? 'organization'
-      : 'personal'
+    platform !== 'linkedin'
+      ? 'personal'
+      : requestedLinkedInMode === 'personal'
+        ? 'personal'
+        : requestedLinkedInMode === 'organization' || accountScope === 'org'
+          ? 'organization'
+          : 'personal'
   const feature = url.searchParams.get('feature') === 'youtube_studio' ? 'youtube_studio' : undefined
   const rawPrompt = url.searchParams.get('prompt')
   const requestedPrompt = rawPrompt === 'select_account' || rawPrompt === 'consent' ? rawPrompt : undefined
@@ -93,6 +98,7 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
     accountScope,
     ownerUid: user.uid,
     ...(feature ? { feature } : {}),
+    ...(platform === 'linkedin' ? { linkedinMode } : {}),
     ...(codeVerifier ? { codeVerifier } : {}),
     expiresAt: Timestamp.fromDate(new Date(Date.now() + 10 * 60 * 1000)),
     createdAt: Timestamp.now(),

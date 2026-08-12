@@ -1,0 +1,34 @@
+/* Quiet Briefings overrides — solid black, no glass/glow motion.
+   Scoped to [data-briefings-experience='quiet-2026'] only. */
+
+[data-briefings-experience='quiet-2026'] {
+  background: #000 !important;
+}
+
+[data-briefings-experience='quiet-2026'] [data-testid='briefings-shell-topbar'] {
+  background: #0a0a0a !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-briefings-experience='quiet-2026'] .messages-hud-pulse,
+[data-briefings-experience='quiet-2026'] .messages-hud-meter,
+[data-briefings-experience='quiet-2026'] .messages-scanlines,
+[data-briefings-experience='quiet-2026'] .pib-scanlines,
+[data-briefings-experience='quiet-2026'] .messages-neural-field,
+[data-briefings-experience='quiet-2026'] .pib-neural-field,
+[data-briefings-experience='quiet-2026'] .messages-atmosphere-fallback,
+[data-briefings-experience='quiet-2026'] .pib-aurora-fallback {
+  display: none !important;
+  animation: none !important;
+}
+
+[data-briefings-experience='quiet-2026'] [data-testid='briefings-room-shell'] aside,
+[data-briefings-experience='quiet-2026'] aside {
+  background: #080808 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}

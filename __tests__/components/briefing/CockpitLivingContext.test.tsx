@@ -24,6 +24,9 @@ describe('Briefings living Context Dock integration', () => {
     const onRefresh = jest.fn()
     render(<CockpitShell mode="portal" orgId="org-1" currentUser={{ uid: 'user-1', displayName: 'Ava' }} itemCount={1} onRefresh={onRefresh} selectedContextSeed={{ type: 'studio', id: 'youtube_studio:org-1', orgId: 'org-1', label: 'YouTube Studio' }} workFeedContent={<div>Attention feed</div>} />)
     expect(screen.getByText('Attention feed')).toBeInTheDocument()
+    const shell = screen.getByTestId('briefings-room-shell')
+    expect(shell).toHaveAttribute('data-briefings-experience', 'quiet-2026')
+    expect(screen.getByTestId('briefings-shell-topbar')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Open Pip briefing assistant' }))
     expect(unifiedChatProps).toHaveBeenCalledWith(expect.objectContaining({
       compact: true,

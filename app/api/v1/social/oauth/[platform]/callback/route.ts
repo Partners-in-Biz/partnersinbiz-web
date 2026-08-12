@@ -168,21 +168,29 @@ export async function GET(req: NextRequest) {
         { accessToken: tokenResponse.accessToken, refreshToken, expiresAt },
         orgId,
       )
-      const options = liResult.map((acc, i) => ({
-        index: i,
-        displayName: acc.displayName,
-        username: acc.username,
-        avatarUrl: acc.avatarUrl,
-        profileUrl: acc.profileUrl,
-        accountType: acc.accountType,
-        platformAccountId: acc.platformAccountId,
-        encryptedTokens: encrypted,
-        platformMeta: acc.meta ?? {},
-        scopes: config.scopes,
-      }))
+      const companyOnly = linkedinMode === 'organization' || accountScope === 'org'
+      const options = liResult
+        .filter((acc) => !companyOnly || acc.accountType === 'page')
+        .map((acc, i) => ({
+          index: i,
+          displayName: acc.displayName,
+          username: acc.username,
+          avatarUrl: acc.avatarUrl,
+          profileUrl: acc.profileUrl,
+          accountType: acc.accountType,
+          platformAccountId: acc.platformAccountId,
+          encryptedTokens: encrypted,
+          platformMeta: acc.meta ?? {},
+          scopes: config.scopes,
+        }))
       if (options.length === 0) {
         return NextResponse.redirect(
-          new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: 'No LinkedIn accounts found' }), url.origin).toString()
+          new URL(buildOAuthRedirectPath(redirectUrl, {
+            status: 'error',
+            message: companyOnly
+              ? 'No LinkedIn company pages found. Connect a personal profile from Personal marketing.'
+              : 'No LinkedIn accounts found',
+          }), url.origin).toString()
         )
       }
       return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid)
@@ -754,7 +762,8 @@ async function writePendingAndRedirect(
     nonce,
     orgId,
     platform,
-    ...(accountScope === 'personal' ? { accountScope, ownerUid } : {}),
+    accountScope,
+    ...(accountScope === 'personal' ? { ownerUid } : {}),
     createdAt: Timestamp.now(),
     expiresAt,
     options: options.map(opt => ({

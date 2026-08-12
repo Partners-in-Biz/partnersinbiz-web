@@ -11,6 +11,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import type { AccountStatus } from '@/lib/social/providers'
 import { ACTIVE_PLATFORMS } from '@/lib/social/providers'
 import { logAudit } from '@/lib/social/audit'
+import { isCompanyLinkedAccount, isPersonalAccountRecord } from '@/lib/social/account-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,7 +35,7 @@ function wantsPersonalScope(req: NextRequest): boolean {
 }
 
 function isPersonalAccountForUser(account: Record<string, unknown>, uid: string): boolean {
-  return account.accountScope === PERSONAL_SCOPE && account.ownerUid === uid
+  return isPersonalAccountRecord(account) && account.ownerUid === uid
 }
 
 export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
@@ -70,7 +71,7 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
     return { id: doc.id, ...safe }
   }).filter((account: Record<string, unknown>) => {
     if (personalScope) return isPersonalAccountForUser(account, user.uid)
-    return account.accountScope !== PERSONAL_SCOPE
+    return isCompanyLinkedAccount(account)
   })
 
   const start = (page - 1) * limit

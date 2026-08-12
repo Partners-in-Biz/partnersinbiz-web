@@ -46,8 +46,16 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
   const platform: string = pending.platform
   const options = (pending.options ?? []) as PendingOption[]
 
+  const allowedSelections = !personalScope && platform === 'linkedin'
+    ? selections.filter((sel) => options[sel.index]?.accountType === 'page')
+    : selections
+
+  if (!personalScope && platform === 'linkedin' && allowedSelections.length === 0) {
+    return apiError('Select a LinkedIn company page. Personal profiles belong in Personal marketing.', 400)
+  }
+
   // Pre-validate all selection indexes and accountType values before writing
-  for (const sel of selections) {
+  for (const sel of allowedSelections) {
     if (!options[sel.index]) return apiError(`Invalid selection index: ${sel.index}`, 400)
     if (!['personal', 'page'].includes(options[sel.index].accountType)) {
       return apiError(`Invalid accountType: ${options[sel.index].accountType}`, 400)
@@ -77,7 +85,7 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
 
   const accountIds: string[] = []
 
-  for (const sel of selections) {
+  for (const sel of allowedSelections) {
     const option = options[sel.index]
 
     const encryptedTokens = {
@@ -115,6 +123,7 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
       avatarUrl: option.avatarUrl,
       profileUrl: option.profileUrl,
       subAccountType: option.accountType,
+      accountType: option.accountType,
       isDefault: sel.isDefault ?? false,
       status: 'active',
       scopes: option.scopes ?? [],
