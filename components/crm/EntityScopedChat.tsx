@@ -5,6 +5,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import UnifiedChat from '@/components/chat/UnifiedChat'
 import { auth, getClientAuth } from '@/lib/firebase/config'
 import type { ContextReferenceSeed } from '@/lib/context-references/types'
+import { canRolePerformModuleAction } from '@/lib/organizations/module-policies'
 
 type EntityScopedChatProps = {
   orgId: string
@@ -21,6 +22,8 @@ type ChatUser = {
   uid: string
   displayName: string
   role: string
+  canStartConversations: boolean
+  canUseAgentHandoff: boolean
 }
 
 export function EntityScopedChat({
@@ -63,12 +66,37 @@ export function EntityScopedChat({
                 firebaseUser.displayName ||
                 firebaseUser.email?.split('@')[0] ||
                 firebaseUser.uid
-              setUser({
+              const chatUser = {
                 uid: firebaseUser.uid,
                 displayName,
                 role: body?.role || 'client',
-              })
-              setChecking(false)
+              canStartConversations: body?.role === 'admin' || body?.role === 'ai',
+              canUseAgentHandoff: body?.role === 'admin' || body?.role === 'ai',
+              }
+              if (chatUser.canUseAgentHandoff) {
+                setUser(chatUser)
+                setChecking(false)
+                return
+              }
+
+              fetch(`/api/v1/portal/org?orgId=${encodeURIComponent(orgId)}`)
+                .then((res) => (res.ok ? res.json() : null))
+                .then((portalBody) => {
+                  if (cancelled) return
+                  const policies = portalBody?.org?.modulePolicies
+                  const memberRole = portalBody?.user?.memberRole ?? portalBody?.user?.role ?? 'viewer'
+                  setUser({
+                    ...chatUser,
+                    canStartConversations: canRolePerformModuleAction(policies, 'messages', 'start', memberRole),
+                    canUseAgentHandoff: canRolePerformModuleAction(policies, 'messages', 'agentHandoff', memberRole),
+                  })
+                  setChecking(false)
+                })
+                .catch(() => {
+                  if (cancelled) return
+                  setUser(chatUser)
+                  setChecking(false)
+                })
             })
             .catch(() => {
               if (cancelled) return
@@ -76,6 +104,8 @@ export function EntityScopedChat({
                 uid: firebaseUser.uid,
                 displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || firebaseUser.uid,
                 role: 'client',
+                canStartConversations: false,
+                canUseAgentHandoff: false,
               })
               setChecking(false)
             })
@@ -113,7 +143,7 @@ export function EntityScopedChat({
     )
   }
 
-  const allowAgentParticipants = user.role === 'admin' || user.role === 'ai'
+  const allowAgentParticipants = user.canUseAgentHandoff
   const isCompanyCowork = entityType === 'company'
 
   return (
@@ -156,9 +186,10 @@ export function EntityScopedChat({
           scope={entityType}
           scopeRefId={entityId}
           initialAgentId={allowAgentParticipants ? 'pip' : undefined}
-          autoCreateScopedConversation={allowAgentParticipants}
+          autoCreateScopedConversation={user.canStartConversations && allowAgentParticipants}
           autoCreateTitle={isCompanyCowork ? `${entityLabel} Cowork` : `${entityLabel} ${entityType} workspace`}
           allowAgentParticipants={allowAgentParticipants}
+          allowStartConversations={user.canStartConversations}
           currentPageContext={currentPageContext}
           compact={compact || isCompanyCowork}
         />
