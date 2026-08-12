@@ -37,5 +37,9 @@ export const GET = withAuth('client', withTenant(async (_req: NextRequest, user,
     return copy
   })
 
-  return apiSuccess({ platform: data.platform, options })
+  return apiSuccess({
+    platform: data.platform,
+    accountScope: data.accountScope === 'personal' ? 'personal' : 'org',
+    options,
+  })
 }))

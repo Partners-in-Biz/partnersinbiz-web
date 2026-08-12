@@ -48,4 +48,37 @@ describe('GET /api/v1/social/oauth/[platform]', () => {
     }))
     expect(String(res.headers.get('location'))).toContain('accounts.google.com/o/oauth2/v2/auth')
   })
+
+  it('defaults company LinkedIn connect to organization mode', async () => {
+    process.env.LINKEDIN_ORGANIZATION_CLIENT_ID = 'li-org-id'
+    process.env.LINKEDIN_ORGANIZATION_CLIENT_SECRET = 'li-org-secret'
+    process.env.LINKEDIN_CLIENT_ID = 'li-id'
+    process.env.LINKEDIN_CLIENT_SECRET = 'li-secret'
+
+    const { GET } = await import('@/app/api/v1/social/oauth/[platform]/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/social/oauth/linkedin?redirectUrl=%2Fportal%2Fsocial%2Faccounts'))
+
+    expect(res.status).toBe(307)
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'linkedin',
+      accountScope: 'org',
+      linkedinMode: 'organization',
+    }))
+    expect(String(res.headers.get('location'))).toContain('linkedin.com')
+  })
+
+  it('keeps explicit personal LinkedIn mode on the personal path', async () => {
+    process.env.LINKEDIN_PERSONAL_CLIENT_ID = 'li-personal-id'
+    process.env.LINKEDIN_PERSONAL_CLIENT_SECRET = 'li-personal-secret'
+
+    const { GET } = await import('@/app/api/v1/social/oauth/[platform]/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/social/oauth/linkedin?scope=personal&linkedinMode=personal'))
+
+    expect(res.status).toBe(307)
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'linkedin',
+      accountScope: 'personal',
+      linkedinMode: 'personal',
+    }))
+  })
 })

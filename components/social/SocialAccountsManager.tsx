@@ -300,16 +300,10 @@ function PlatformCard({
           </p>
         </div>
         {platform === 'linkedin' && scope === 'org' ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <a href={linkedInPersonalUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
-              <span className="material-symbols-outlined text-base">person_add</span>
-              Personal
-            </a>
-            <a href={linkedInOrganizationUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
-              <span className="material-symbols-outlined text-base">business</span>
-              Company page
-            </a>
-          </div>
+          <a href={linkedInOrganizationUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
+            <span className="material-symbols-outlined text-base">business</span>
+            Company page
+          </a>
         ) : OAUTH_PLATFORMS.includes(platform) && (
           <a href={platform === 'linkedin' ? linkedInPersonalUrl : oauthUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
             <span className="material-symbols-outlined text-base">add</span>
@@ -362,9 +356,14 @@ function PickerModal({
       .then((res) => res.ok ? res.json() : Promise.reject(new Error(`Failed (${res.status})`)))
       .then((body) => {
         const opts: PendingOption[] = body.data?.options ?? []
+        const orgLinkedIn = body.data?.platform === 'linkedin' && body.data?.accountScope !== 'personal'
+        const pageIndexes = opts
+          .map((opt, index) => (opt.accountType === 'page' ? index : -1))
+          .filter((index) => index >= 0)
+        const initial = orgLinkedIn && pageIndexes.length > 0 ? pageIndexes : opts.map((_, index) => index)
         setOptions(opts)
-        setSelected(new Set(opts.map((_, index) => index)))
-        if (opts.length > 0) setDefaultIndex(0)
+        setSelected(new Set(initial))
+        if (initial.length > 0) setDefaultIndex(initial[0])
       })
       .catch(() => setError('Failed to load account options. Please reconnect and try again.'))
       .finally(() => setLoading(false))
@@ -461,6 +460,7 @@ function PickerModal({
                     checked={isSelected}
                     onChange={() => toggleSelect(index)}
                     onClick={(event) => event.stopPropagation()}
+                    aria-label={`Select ${option.displayName}`}
                     className="h-4 w-4 accent-[var(--color-pib-accent)]"
                   />
                   <div className="min-w-0 flex-1">
@@ -564,6 +564,7 @@ function BlueskyForm({
           value={handle}
           onChange={(event) => setHandle(event.target.value)}
           placeholder="handle.bsky.social"
+          aria-label="Bluesky handle"
           disabled={disabled || submitting}
           className="pib-input"
         />
@@ -572,6 +573,7 @@ function BlueskyForm({
           value={appPassword}
           onChange={(event) => setAppPassword(event.target.value)}
           placeholder="App password"
+          aria-label="Bluesky app password"
           disabled={disabled || submitting}
           className="pib-input"
         />
@@ -961,13 +963,13 @@ export default function SocialAccountsManager({
                   redirectUrl: basePath,
                   scope: scope === 'personal' ? 'personal' : undefined,
                   orgId: resolvedOrgId,
-                  linkedinMode: platform === 'linkedin' ? 'personal' : undefined,
+                  linkedinMode: platform === 'linkedin' ? (isPersonalScope ? 'personal' : 'organization') : undefined,
                 })}
                 className="pib-card pib-card-hover flex items-center gap-3 p-4"
               >
                 <PlatformBadge platformId={platform} />
                 <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--color-pib-text)]">
-                  Connect {PLATFORM_LABELS[platform] ?? platform}
+                  Connect {platform === 'linkedin' && !isPersonalScope ? 'LinkedIn company page' : (PLATFORM_LABELS[platform] ?? platform)}
                 </span>
                 <span className="material-symbols-outlined text-base text-[var(--color-pib-text-muted)]">arrow_forward</span>
               </a>

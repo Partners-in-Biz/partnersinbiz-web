@@ -36,6 +36,7 @@ interface SocialAccount {
   platform: string
   displayName: string
   username?: string
+  avatarUrl?: string
   status: string
 }
 
@@ -284,12 +285,25 @@ function ConnectedAccounts({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {activeAccounts.map((account) => (
             <div key={account.id} className="pib-stat-card flex items-center gap-3">
-              <PlatformBadge platform={account.platform} />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{account.displayName}</p>
-                <p className="text-xs text-[var(--color-pib-text-muted)] truncate font-mono">
-                  @{account.username || account.displayName}
-                </p>
+              {account.avatarUrl ? (
+                <img
+                  src={account.avatarUrl}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded-full border border-[var(--color-pib-line)] object-cover"
+                />
+              ) : (
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--color-pib-surface-2)] text-xs font-bold text-[var(--color-pib-text)]">
+                  {(account.displayName || '?').slice(0, 2).toUpperCase()}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{account.displayName}</p>
+                <div className="mt-0.5 flex items-center gap-2">
+                  <PlatformBadge platform={account.platform} />
+                  <p className="truncate font-mono text-xs text-[var(--color-pib-text-muted)]">
+                    @{account.username || account.displayName}
+                  </p>
+                </div>
               </div>
               <span className={ACCOUNT_STATUS_PILL[account.status] ?? 'pib-pill'}>{account.status}</span>
             </div>
@@ -464,6 +478,7 @@ function ReviewPostCard({
               value={commentText}
               onChange={(event) => onCommentTextChange(event.target.value)}
               placeholder="Add a comment..."
+              aria-label="Add a comment"
               className="pib-input !rounded-full !py-1.5 !text-xs"
               disabled={commentLoading}
             />
