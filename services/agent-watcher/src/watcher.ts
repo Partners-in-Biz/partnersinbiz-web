@@ -24,7 +24,7 @@ import { formatHermesWatcherError } from './hermes-error'
 import { logger } from './logger'
 import type { AgentRunTelemetry } from './run-telemetry'
 import { agentStatusUpdate } from './task-updates'
-import { assessCompletionIntegrity, validateCompletionEvidence, verifyChangedFilesMatchCommit, verifyCleanWatcherWorktree, verifyReachableDevelopmentCommit } from './completion-integrity'
+import { assessCompletionIntegrity, validateCompletionEvidence, verifyChangedFilesMatchCommit, verifyCleanWatcherWorktree, verifyReachableDevelopmentCommit, type CompletionIntegrityAssessment } from './completion-integrity'
 import {
   getTaskDependencyGateIds,
   getTaskDispatchBlocker,
@@ -237,6 +237,7 @@ interface TaskData {
   agentOutput?: { summary?: string; artifacts?: unknown[]; telemetry?: unknown; [key: string]: unknown }
   completionEvidence?: unknown
   completionVerification?: { verifierIdentity?: string; verifierResult?: string; reasons?: string[]; commitReachable?: boolean | null; changedFilesMatch?: boolean | null }
+  completionIntegrityFailureReasons?: string[]
   agentConversationId?: string
   /** Stable key for the current logical task-dispatch attempt. */
   agentDispatchKey?: string
@@ -1412,6 +1413,64 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     if (completion.outcome !== 'pass') {
       const exactReason = completion.reasons.join(', ')
       const blockedSummary = `${summary}\n\nCompletion integrity ${completion.outcome}: ${exactReason}.`
+      const priorRetryCount = Number.isFinite(completionTask.agentRetryCount)
+        ? Math.max(0, Math.trunc(Number(completionTask.agentRetryCount)))
+        : 0
+      // Recoverable completion-integrity failures — evidence/test/commit artifacts
+      // the agent can still produce, e.g. tool-budget exhaustion before the agent
+      // attached completion evidence (the Covalonic terminal-block case) — are
+      // requeued with bounded backoff instead of being parked terminal in blocked.
+      // Genuinely terminal outcomes (agent reports unresolved work, watcher-worktree
+      // state conflicts) and exhausted retry budgets still block for human review.
+      if (isRecoverableCompletionFailure(completion) && priorRetryCount < MAX_TRANSIENT_RETRIES) {
+        const nextRetryCount = priorRetryCount + 1
+        const retryAt = transientRetryAt(priorRetryCount, Date.now(), exactReason)
+        const requeueSummary = `${blockedSummary}\nAutomatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`
+        await taskRef.update({
+          ...agentStatusUpdate('pending'),
+          ...(activeRunId ? { agentConversationId: activeRunId } : {}),
+          agentDispatchKey: FieldValue.delete(),
+          agentRetryCount: nextRetryCount,
+          agentRetryAt: retryAt,
+          agentHeartbeatAt: FieldValue.delete(),
+          completionIntegrityFailureReasons: completion.reasons,
+          completionVerification: {
+            verifierIdentity: 'agent-watcher',
+            verifierResult: 'failed',
+            reasons: completion.reasons,
+            commitReachable,
+            changedFilesMatch,
+            worktreeClean,
+            verifiedAt: FieldValue.serverTimestamp(),
+            verifierRunId: activeRunId,
+          },
+          agentOutput: { ...doneAgentOutput, summary: requeueSummary },
+          updatedAt: FieldValue.serverTimestamp(),
+        })
+        await taskRef.collection('comments').add({
+          text: `Completion integrity did not pass (${exactReason}). Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}.`,
+          userId: 'system:agent-watcher',
+          userName: 'Agent watcher',
+          userRole: 'system',
+          createdAt: FieldValue.serverTimestamp(),
+          agentPickedUp: false,
+          agentPickedUpAt: null,
+        })
+        notifyCommandSessionFromTask(taskRef, taskData as unknown as Record<string, unknown>, 'pending', {
+          agentId,
+          summary: requeueSummary,
+          blockingReason: exactReason,
+          runId: activeRunId,
+        })
+        logger.warn('recoverable completion-integrity failure scheduled automatic retry', {
+          taskId,
+          agentId,
+          reasons: completion.reasons,
+          retryCount: nextRetryCount,
+          retryAt,
+        })
+        return
+      }
       await taskRef.update({
         ...agentStatusUpdate('blocked'),
         reviewStatus: 'changes-requested',
@@ -1918,6 +1977,64 @@ async function releaseDueScheduledTasks(now = Date.now()): Promise<void> {
   }
 }
 
+/**
+ * Completion-integrity failure reasons the agent can genuinely recover from by
+ * producing the missing artifact (evidence, tests passing, commit pushed, clean
+ * worktree). These are requeued with bounded backoff. Anything outside this set
+ * — agent reports unresolved work, watcher-worktree state conflicts, unknown
+ * causes — is terminal and must block for human review.
+ */
+const RECOVERABLE_COMPLETION_REASONS: ReadonlySet<string> = new Set([
+  'completion_evidence_missing',
+  'completion_evidence_schema_invalid',
+  'completion_work_kind_invalid',
+  'changed_file_list_invalid',
+  'changed_file_list_missing_for_code',
+  'scoped_test_command_missing',
+  'scoped_test_result_not_passing',
+  'development_commit_missing_or_invalid',
+  'changed_file_list_mismatch_with_commit',
+  'commit_not_reachable_on_origin_development',
+  'worktree_state_conflicts_with_done',
+  'no_code_task_lists_changed_files',
+  'no_code_exception_reason_missing',
+])
+
+function isRecoverableCompletionFailure(completion: CompletionIntegrityAssessment): boolean {
+  return completion.outcome === 'changes-requested'
+    && completion.reasons.length > 0
+    && completion.reasons.every((reason) => RECOVERABLE_COMPLETION_REASONS.has(reason))
+}
+
+/**
+ * Safety net for dep-less blocked cards that predate the recoverable-requeue fix
+ * (or any future card parked in blocked with a retryable completion-integrity
+ * cause). Recover only when the block carries a recoverable completion-integrity
+ * reason, is not human-gated, is past its retry backoff window (if any), and is
+ * still inside the bounded retry budget. Deliberately narrow so it never sweeps
+ * up arbitrary human/approval-gated blocks.
+ */
+function recoverableDepLessBlockedTask(data: TaskData, now: number): boolean {
+  if (data.columnId !== 'blocked') return false
+  if (data.deleted === true || data.status === 'cancelled' || data.status === 'canceled') return false
+  if (hasPendingApprovalGate(data) || hasPendingScheduledRelease(data, now)) return false
+  if (data.agentOutput?.needsPeet === true) return false
+  const summary = typeof data.agentOutput?.summary === 'string' ? data.agentOutput.summary : ''
+  if (outputNeedsHumanInput(summary)) return false
+  const reasons = Array.isArray(data.completionIntegrityFailureReasons)
+    ? data.completionIntegrityFailureReasons.filter((reason): reason is string => typeof reason === 'string' && reason.trim().length > 0)
+    : []
+  if (reasons.length === 0) return false
+  if (!reasons.every((reason) => RECOVERABLE_COMPLETION_REASONS.has(reason))) return false
+  const retryAtMs = releaseMillis(data.agentRetryAt)
+  if (retryAtMs !== null && retryAtMs > now) return false
+  const priorRetryCount = Number.isFinite(data.agentRetryCount)
+    ? Math.max(0, Math.trunc(Number(data.agentRetryCount)))
+    : 0
+  if (priorRetryCount >= MAX_TRANSIENT_RETRIES) return false
+  return true
+}
+
 async function releaseDependencyClearedDocs(
   docs: Array<{ ref: DocumentReference; data: () => Record<string, unknown> | undefined }>,
   waitingStatus: string,
@@ -1930,26 +2047,65 @@ async function releaseDependencyClearedDocs(
     if (allowedAgentIds && !allowedAgentIds.includes(data.assigneeAgentId)) return
     if (data.columnId !== 'blocked') return
     const dependencyGateIds = getTaskDependencyGateIds(data.dependsOn, data.approvalGateTaskId)
-    if (dependencyGateIds.length === 0) return
-    if (waitingStatus === 'blocked' && typeof data.agentOutput?.summary === 'string' && data.agentOutput.summary.trim()) return
+    // Dep-less blocked cards with a retryable completion-integrity cause (the
+    // pre-fix terminal dead end) are also re-dispatched. This is deliberately
+    // narrow — recoverableDepLessBlockedTask requires a recoverable reason, a
+    // non-human-gated block, an elapsed backoff window, and spare retry budget.
+    const depLessRecoverable = waitingStatus === 'blocked'
+      && dependencyGateIds.length === 0
+      && recoverableDepLessBlockedTask(data, now)
+    if (dependencyGateIds.length === 0 && !depLessRecoverable) return
+    // Summary-suppress guard protects human/approval-gated stalls. Dep-less
+    // retryable blocks are exempt: their recoverable gate already proved the
+    // block is not human-gated.
+    if (!depLessRecoverable && waitingStatus === 'blocked' && typeof data.agentOutput?.summary === 'string' && data.agentOutput.summary.trim()) return
     if (data.deleted === true || data.status === 'cancelled' || data.status === 'canceled') return
     if (hasPendingApprovalGate(data) || hasPendingScheduledRelease(data, now)) return
 
-    const deps = await dependenciesResolved(doc.ref, data.dependsOn, data.approvalGateTaskId)
+    const deps = dependencyGateIds.length > 0
+      ? await dependenciesResolved(doc.ref, data.dependsOn, data.approvalGateTaskId)
+      : { ok: true as const }
     if (!deps.ok) return
+
+    const priorRetryCount = Number.isFinite(data.agentRetryCount)
+      ? Math.max(0, Math.trunc(Number(data.agentRetryCount)))
+      : 0
+    const nextRetryCount = depLessRecoverable
+      ? Math.min(MAX_TRANSIENT_RETRIES, priorRetryCount + 1)
+      : priorRetryCount
+    const retryAt = depLessRecoverable ? transientRetryAt(priorRetryCount, now) : undefined
 
     const releasedData: TaskData = {
       ...data,
       agentStatus: 'pending',
       columnId: 'todo',
+      // Carry the scheduled retry so the immediate dispatch defers until the
+      // backoff window elapses instead of hot-looping.
+      ...(depLessRecoverable
+        ? { agentRetryCount: nextRetryCount, agentRetryAt: retryAt }
+        : {}),
     }
     await doc.ref.update({
       ...agentStatusUpdate('pending'),
       agentHeartbeatAt: FieldValue.delete(),
+      // For a dep-less retryable recovery, schedule the next bounded attempt,
+      // and clear the stale terminal markers left by the pre-fix block path
+      // (reviewStatus='changes-requested', completionIntegrityFailureReasons).
+      ...(depLessRecoverable
+        ? {
+            agentRetryCount: nextRetryCount,
+            agentRetryAt: retryAt,
+            completionIntegrityFailureReasons: FieldValue.delete(),
+            reviewStatus: FieldValue.delete(),
+            agentDispatchKey: FieldValue.delete(),
+          }
+        : {}),
       updatedAt: FieldValue.serverTimestamp(),
     })
     await doc.ref.collection('comments').add({
-      text: `Dependency gate cleared. All dependsOn tasks are complete; moved back to To Do for agent pickup.`,
+      text: depLessRecoverable
+        ? `Blocked with a retryable completion-integrity failure. Automatic retry ${nextRetryCount}/${MAX_TRANSIENT_RETRIES} scheduled for ${retryAt}; moved back to To Do for agent pickup.`
+        : `Dependency gate cleared. All dependsOn tasks are complete; moved back to To Do for agent pickup.`,
       userId: 'system:agent-watcher',
       userName: 'Agent watcher',
       userRole: 'system',
