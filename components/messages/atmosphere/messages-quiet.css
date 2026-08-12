@@ -1,0 +1,78 @@
+/* Quiet Messages overrides — solid black, no glass/glow motion.
+   Scoped to [data-messages-experience='quiet-2026'] only. */
+
+[data-messages-experience='quiet-2026'] {
+  background: #000 !important;
+}
+
+[data-messages-experience='quiet-2026'] [data-testid='hermes-messages-shell-topbar'] {
+  background: #0a0a0a !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-messages-experience='quiet-2026'] .messages-hud-pulse,
+[data-messages-experience='quiet-2026'] .messages-hud-meter,
+[data-messages-experience='quiet-2026'] .messages-scanlines,
+[data-messages-experience='quiet-2026'] .pib-scanlines,
+[data-messages-experience='quiet-2026'] .messages-neural-field,
+[data-messages-experience='quiet-2026'] .pib-neural-field,
+[data-messages-experience='quiet-2026'] .messages-atmosphere-fallback,
+[data-messages-experience='quiet-2026'] .pib-aurora-fallback {
+  display: none !important;
+  animation: none !important;
+}
+
+[data-messages-experience='quiet-2026'] [data-testid^='messages-workspace-pane-'] {
+  background: #050505 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+[data-messages-experience='quiet-2026'] [data-testid^='messages-workspace-pane-'] > div:first-child {
+  background: #0a0a0a !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-messages-experience='quiet-2026'] [role='tab'][aria-selected='true'] {
+  text-shadow: none !important;
+}
+
+[data-messages-experience='quiet-2026'] [data-testid='unified-chat-root'][data-layout-variant='hermes'] > aside {
+  background: #080808 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-messages-experience='quiet-2026'] [data-testid='unified-chat-root'][data-layout-variant='hermes'] > aside::before {
+  content: none !important;
+}
+
+[data-messages-experience='quiet-2026'] [data-testid^='hermes-company-']:hover,
+[data-messages-experience='quiet-2026'] [data-testid^='hermes-project-']:hover {
+  box-shadow: none !important;
+}
+
+/* Flat thread — no card bubbles / glowing composer glass */
+[data-messages-experience='quiet-2026'] .mx-bubble-agent {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+[data-messages-experience='quiet-2026'] .mx-activity-live {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}

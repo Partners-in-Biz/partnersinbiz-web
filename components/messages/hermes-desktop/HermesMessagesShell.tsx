@@ -10,8 +10,8 @@ import {
   type WorkspacePanelSpec,
 } from '@/lib/hermes/workspace-panels'
 import { ModuleShell } from '@/components/ui/ModuleShell'
-import { HudChip, SignalMeter } from '@/components/ui/HudChip'
-import DeepSeekUsageChip from '@/components/messages/hermes/DeepSeekUsageChip'
+import { DeepSeekUsageChip } from '@/components/messages/hermes/DeepSeekUsageChip'
+import '@/components/messages/atmosphere/messages-quiet.css'
 import { conversationFolderAccentSeed, folderAccentStyle } from '@/lib/messages/folder-accent'
 import {
   applyConversationLifecycle,
@@ -479,12 +479,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     showAgentWorkbench: true,
   }), [capabilities, currentUserDisplayName, currentUserUid, orgId, orgName, surface, userRole])
 
-  const openTabCount = useMemo(
-    () => panes.reduce((sum, pane) => sum + pane.tabs.length, 0),
-    [panes],
-  )
   const focusedPane = panes.find((pane) => pane.id === focusedPaneId) ?? panes[0]
-  const focusedTabTitle = focusedPane?.tabs.find((tab) => tab.id === focusedPane.activeTabId)?.title ?? 'No session'
 
   // The GCP gateway invalidates a running background tab when it changes. Keep
   // a deliberately slower polling path only while every gateway connection is
@@ -529,23 +524,18 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
           <div className="flex min-w-0 items-center gap-2">
             <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{copy.title}</h1>
             {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
+            {parkedTabs.length > 0 && (
+              <span className="hidden rounded-md border border-white/[0.08] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] sm:inline">
+                Parked {parkedTabs.length}
+              </span>
+            )}
           </div>
-          <div className="messages-info-constellation">
-            <span aria-hidden="true" className="contents">
-              <HudChip live>Live</HudChip>
-              <HudChip>Panes <strong>{panes.length}</strong></HudChip>
-              <HudChip>Tabs <strong>{openTabCount}</strong></HudChip>
-              {parkedTabs.length > 0 && <HudChip>Parked <strong>{parkedTabs.length}</strong></HudChip>}
-            </span>
-            <DeepSeekUsageChip orgId={orgId} />
-            <span aria-hidden="true" className="contents">
-              <HudChip className="max-w-[10rem] truncate" title={focusedTabTitle}>Focus <strong className="truncate">{focusedTabTitle}</strong></HudChip>
-              <SignalMeter title="Signal field" />
-            </span>
-          </div>
+          <DeepSeekUsageChip orgId={orgId} />
         </div>
         <div className="flex min-w-0 items-center gap-1.5">
-          <div className="hidden items-center gap-1.5 xl:flex"><StatusPill tone="accent"><span className="material-symbols-outlined text-[13px]">hub</span>{runtimeMode}</StatusPill><StatusPill><span className="material-symbols-outlined text-[13px]">shield_lock</span>Safe /v1 runs</StatusPill>{userRole && <StatusPill tone="muted">{userRole}</StatusPill>}</div>
+          <div className="hidden items-center gap-1.5 xl:flex">
+            <StatusPill tone="muted"><span className="material-symbols-outlined text-[13px]">hub</span>{runtimeMode}</StatusPill>
+          </div>
           <button type="button" aria-label={conversationRailMode === 'expanded' ? 'Collapse sessions' : 'Expand sessions'} onClick={() => setConversationRailMode((value) => value === 'expanded' ? 'collapsed' : 'expanded')} className="hidden h-7 w-7 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)] xl:grid"><span aria-hidden="true" className="material-symbols-outlined text-[16px]">{conversationRailMode === 'expanded' ? 'left_panel_close' : 'left_panel_open'}</span></button>
           <button type="button" aria-label={direction === 'row' ? 'Stack panes vertically' : 'Place panes side by side'} onClick={() => setDirection((value) => value === 'row' ? 'column' : 'row')} disabled={panes.length < 2} className="grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35 xl:h-7 xl:w-7"><span className="material-symbols-outlined text-[16px]">{direction === 'row' ? 'horizontal_split' : 'vertical_split'}</span></button>
           <button type="button" aria-label="Open active session in split pane" onClick={splitActiveTab} disabled={panes.length > 1} className="grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35 xl:h-7 xl:w-7"><span className="material-symbols-outlined text-[16px]">splitscreen</span></button>
