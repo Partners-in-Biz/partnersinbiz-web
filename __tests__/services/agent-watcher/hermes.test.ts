@@ -136,7 +136,7 @@ describe('agent watcher Hermes dispatch', () => {
       output: null,
       error: expect.stringContaining('returned 502 repeatedly'),
     })
-    expect(global.fetch).toHaveBeenCalledTimes(4)
+    expect(global.fetch).toHaveBeenCalledTimes(6)
     jest.useRealTimers()
   })
 
