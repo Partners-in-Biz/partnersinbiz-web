@@ -193,8 +193,26 @@ export function normalizeHermesEvent(input: unknown, fallbackRunId?: string): Ch
     }]
   }
 
-  if (rawEvent === 'reasoning.available') {
-    const text = cleanString(raw.text) ?? preview
+  if (rawEvent === 'thinking.delta') {
+    // Hermes spinner/status verbs — not real reasoning. Drop so the UI stays clean.
+    return []
+  }
+
+  if (rawEvent === 'reasoning.delta') {
+    // Preserve whitespace exactly — reasoning streams token-by-token like assistant text.
+    const delta = rawString(raw.delta) ?? rawString(raw.text)
+    if (delta === undefined) return []
+    return [{
+      ...base,
+      event: 'reasoning.delta',
+      delta,
+      text: delta,
+      preview: delta,
+    }]
+  }
+
+  if (rawEvent === 'reasoning.available' || rawEvent === 'reasoning.summary') {
+    const text = cleanString(raw.text) ?? cleanString(raw.summary) ?? preview
     return [{
       ...base,
       event: 'reasoning.summary',

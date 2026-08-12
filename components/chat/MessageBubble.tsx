@@ -26,7 +26,12 @@ import type { Mention } from '@/lib/comments/types'
 import { ContextArtifactBundle } from './context/ContextArtifactBundle'
 import { DesignAuditCard } from './DesignAuditCard'
 import { DesignIterationCard } from './DesignIterationCard'
-import { buildThinkingTrace, type MessageThinkingTrace } from '@/lib/conversations/thinking-trace'
+import {
+  buildThinkingTrace,
+  liveReasoningText,
+  summarizeToolEvents,
+  type MessageThinkingTrace,
+} from '@/lib/conversations/thinking-trace'
 import { humanizeConversationRunError } from '@/lib/conversations/run-policy'
 
 // Matches Phase 1 ConversationMessage shape
@@ -151,28 +156,7 @@ function useElapsed(active: boolean, createdAt?: ConversationMessage['createdAt'
 // Categorize tool-call events into a short human summary like
 // "Ran 6 commands, read 2 files, wrote 1 file".
 function summarizeEvents(events: ChatEvent[]): string {
-  if (events.length === 0) return ''
-  let commands = 0, read = 0, wrote = 0, searched = 0, web = 0, other = 0
-  for (const ev of events) {
-    const t = (ev.tool ?? ev.event ?? '').toLowerCase()
-    if (!t) { other++; continue }
-    if (/(^|_)(read|view|cat|glob|ls|list)(_|$)/.test(t)) read++
-    else if (/(bash|exec|shell|command|^run$|run_)/.test(t)) commands++
-    else if (/(write|edit|update|create|patch|save)/.test(t)) wrote++
-    else if (/(grep|search|find)/.test(t)) searched++
-    else if (/(web|fetch|http|url)/.test(t)) web++
-    else other++
-  }
-  const parts: string[] = []
-  const plur = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
-  if (commands) parts.push(`ran ${plur(commands, 'command')}`)
-  if (read) parts.push(`read ${plur(read, 'file')}`)
-  if (wrote) parts.push(`wrote ${plur(wrote, 'file')}`)
-  if (searched) parts.push(`searched ${plur(searched, 'time')}`)
-  if (web) parts.push(`fetched ${plur(web, 'page')}`)
-  if (!parts.length) parts.push(plur(other, 'action'))
-  const joined = parts.join(', ')
-  return joined.charAt(0).toUpperCase() + joined.slice(1)
+  return summarizeToolEvents(events)
 }
 
 function eventLabel(event: ChatEvent): string {
@@ -228,7 +212,13 @@ function commandConsoleRows(events: ChatEvent[]): Array<{
   body: string
 }> {
   return events
-    .filter((event) => event.event !== 'assistant.text_delta' && event.event !== 'heartbeat')
+    .filter((event) => {
+      const name = event.event ?? ''
+      return name !== 'assistant.text_delta'
+        && name !== 'heartbeat'
+        && name !== 'reasoning.delta'
+        && name !== 'reasoning.summary'
+    })
     .map((event, index) => {
       const failed = Boolean(event.error) || (typeof event.exitCode === 'number' && event.exitCode !== 0)
       const status: 'running' | 'done' | 'failed' | 'info' = failed
@@ -308,11 +298,6 @@ function taskRows(events: ChatEvent[]): Array<{ key: string; title: string; stat
   return Array.from(rows.values()).slice(0, 6)
 }
 
-function reasoningSummary(events: ChatEvent[]): string | null {
-  const event = [...events].reverse().find((item) => item.event === 'reasoning.summary' && (item.text || item.preview))
-  return event?.text ?? event?.preview ?? null
-}
-
 function formatThinkingDuration(durationMs?: number): string | null {
   if (typeof durationMs !== 'number' || !Number.isFinite(durationMs) || durationMs < 500) return null
   const seconds = Math.round(durationMs / 1000)
@@ -322,64 +307,101 @@ function formatThinkingDuration(durationMs?: number): string | null {
   return rem ? `${minutes}m ${rem}s` : `${minutes}m`
 }
 
-function ThinkingDisclosure({
+function thoughtHeaderLabel(thinking: MessageThinkingTrace, liveElapsed?: number): string {
+  if (typeof liveElapsed === 'number' && liveElapsed > 0) return `Thought for ${liveElapsed}s`
+  const duration = formatThinkingDuration(thinking.durationMs)
+  return duration ? `Thought for ${duration}` : 'Thought'
+}
+
+function ThoughtStream({
   thinking,
-  defaultOpen = false,
+  live = false,
+  liveElapsed,
+  onStopRun,
+  showStop,
 }: {
   thinking: MessageThinkingTrace
-  defaultOpen?: boolean
+  live?: boolean
+  liveElapsed?: number
+  onStopRun?: () => void
+  showStop?: boolean
 }) {
-  const duration = formatThinkingDuration(thinking.durationMs)
-  const meta = [
-    duration ? `Thought for ${duration}` : null,
-    thinking.toolCount > 0 ? `${thinking.toolCount} tool${thinking.toolCount === 1 ? '' : 's'}` : null,
-    thinking.steps.length > 0 ? `${thinking.steps.length} step${thinking.steps.length === 1 ? '' : 's'}` : null,
-  ].filter(Boolean).join(' · ')
+  const header = thoughtHeaderLabel(thinking, live ? liveElapsed : undefined)
+  const segments = thinking.segments?.length
+    ? thinking.segments
+    : [
+        ...(thinking.summary ? [{ kind: 'thought' as const, text: thinking.summary }] : []),
+        ...(thinking.toolCount > 0
+          ? [{
+              kind: 'tools' as const,
+              summary: thinking.steps.length
+                ? summarizeToolEvents(
+                    thinking.steps
+                      .filter((step) => step.kind === 'tool')
+                      .map((step) => ({ event: 'tool.completed', tool: step.label })),
+                  ) || `${thinking.toolCount} tool${thinking.toolCount === 1 ? '' : 's'}`
+                : `${thinking.toolCount} tool${thinking.toolCount === 1 ? '' : 's'}`,
+            }]
+          : []),
+      ]
+
+  const thoughtText = segments
+    .filter((segment) => segment.kind === 'thought' && segment.text)
+    .map((segment) => segment.text)
+    .join('\n\n')
+    || thinking.summary
+    || ''
+
+  const toolLines = segments
+    .filter((segment) => segment.kind === 'tools' && segment.summary)
+    .map((segment) => segment.summary as string)
 
   return (
-    <details
-      open={defaultOpen || undefined}
-      data-testid="message-thinking-disclosure"
-      aria-label="Thought process"
-      className="group/thinking mb-2 overflow-hidden rounded-xl border border-primary/25 bg-primary/[0.06] text-[var(--color-pib-text-muted)] shadow-inner"
-    >
-      <summary className="flex cursor-pointer list-none select-none items-center gap-2 px-3 py-2 text-[11px] font-label uppercase tracking-wide text-[var(--color-pib-text)] [&::-webkit-details-marker]:hidden">
-        <span className="material-symbols-outlined text-[15px] text-primary transition-transform group-open/thinking:rotate-90">psychology</span>
-        <span className="min-w-0 flex-1 truncate normal-case tracking-normal">
-          {thinking.summary ? 'Thought process' : 'Work recap'}
-          {meta ? <span className="ml-2 font-normal normal-case tracking-normal text-[var(--color-pib-text-muted)]">{meta}</span> : null}
-        </span>
-        <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] transition-transform group-open/thinking:rotate-180">expand_more</span>
-      </summary>
-      <div className="space-y-2 border-t border-white/10 px-3 py-2.5">
-        {thinking.summary && (
-          <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-[var(--color-pib-text-muted)]">
-            {thinking.summary}
-          </p>
-        )}
-        {thinking.steps.length > 0 && (
-          <div className="space-y-1">
-            {thinking.steps.map((step, index) => (
-              <div
-                key={`${step.kind}-${step.label}-${index}`}
-                className="flex items-center gap-2 text-[11px] text-[var(--color-pib-text-muted)]"
+    <div className="mb-1.5 space-y-1" data-testid="message-thinking-disclosure" aria-label="Thought process">
+      <details
+        open={live || undefined}
+        className="group/thinking"
+      >
+        <summary className="flex cursor-pointer list-none select-none items-center gap-1.5 py-0.5 text-[12px] text-[var(--color-pib-text-muted)] [&::-webkit-details-marker]:hidden">
+          <span className="font-medium text-[var(--color-pib-text-muted)]/90">{header}</span>
+          <span className="text-[11px] opacity-50 transition-transform group-open/thinking:rotate-90">›</span>
+          <span className="ml-auto flex shrink-0 items-center gap-1.5">
+            {live && typeof liveElapsed === 'number' && liveElapsed > 0 && (
+              <span className="font-mono text-[10px] opacity-60">{liveElapsed}s</span>
+            )}
+            {showStop && onStopRun && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  onStopRun()
+                }}
+                className="inline-flex items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-200 hover:bg-red-500/15"
               >
-                <span className={[
-                  'material-symbols-outlined text-[13px]',
-                  step.status === 'failed' ? 'text-red-300' : step.status === 'completed' || step.status === 'done' ? 'text-emerald-300' : 'text-primary/80',
-                ].join(' ')}>
-                  {step.kind === 'tool' ? 'build' : step.kind === 'task' ? 'checklist' : step.kind === 'reasoning' ? 'psychology' : 'trip_origin'}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{step.label}</span>
-                {step.status && (
-                  <span className="shrink-0 font-mono text-[10px] opacity-60">{step.status}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </details>
+                <span className="material-symbols-outlined text-[12px]">stop</span>
+                Stop
+              </button>
+            )}
+          </span>
+        </summary>
+        {thoughtText ? (
+          <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-pib-text)]/85">
+            {thoughtText}
+          </p>
+        ) : live ? (
+          <p className="mt-1 text-[12px] italic text-[var(--color-pib-text-muted)]/70">Thinking…</p>
+        ) : null}
+      </details>
+      {toolLines.map((line, index) => (
+        <p
+          key={`${line}-${index}`}
+          className="pl-0.5 text-[11px] leading-snug text-[var(--color-pib-text-muted)]/65"
+        >
+          {line}
+        </p>
+      ))}
+    </div>
   )
 }
 
@@ -2245,7 +2267,6 @@ export default function MessageBubble({
     : ((m.events ?? []) as ChatEvent[])
   const activity = currentActivity(displayEvents, elapsed, Boolean(m.runId))
   const tasks = taskRows(displayEvents)
-  const safeReasoning = reasoningSummary(displayEvents)
   const thinking = m.thinking ?? buildThinkingTrace(displayEvents)
   const attachments = m.attachments ?? []
   const attachmentList = attachments.length > 0 ? (
@@ -2358,20 +2379,44 @@ export default function MessageBubble({
   // Other (agent or another user)
   const isAgent = m.authorKind === 'agent'
   const eventSummary = displayEvents.length > 0 ? summarizeEvents(displayEvents) : ''
+  const liveThought = liveReasoningText(displayEvents)
+  const hasToolishLive = displayEvents.some((event) => {
+    const name = event.event ?? ''
+    return name.startsWith('tool.') || name.startsWith('task.') || name === 'reasoning.delta' || name === 'reasoning.summary'
+  })
+  const liveThinking = thinking ?? (
+    liveThought || hasToolishLive
+      ? buildThinkingTrace(displayEvents)
+      : null
+  )
+  const hasNarrative = Boolean(
+    liveThought
+    || liveThinking?.summary
+    || liveThinking?.segments?.some((segment) => segment.kind === 'thought' && segment.text),
+  )
+  const toolOnlySummary = !hasNarrative && displayEvents.length > 0 ? eventSummary : ''
+  const showSlimControls = (isQueued || isPending || isWaiting) && (!hasNarrative || isQueued)
+  const toolActivityEvents = displayEvents.filter((ev) => {
+    const name = ev.event ?? ''
+    return name !== 'assistant.text_delta'
+      && name !== 'heartbeat'
+      && name !== 'reasoning.delta'
+      && name !== 'reasoning.summary'
+  })
   const consoleRows = commandConsoleRows(displayEvents)
   const commandConsole = consoleRows.length > 0 ? (
-    <details open className="my-2 overflow-hidden rounded-xl border border-primary/20 bg-black/35 text-[var(--color-pib-text-muted)] shadow-inner group/console">
-      <summary className="flex cursor-pointer select-none list-none items-center gap-2 border-b border-white/10 px-3 py-2 text-[11px] font-label uppercase tracking-wide text-[var(--color-pib-text)] [&::-webkit-details-marker]:hidden">
-        <span className="material-symbols-outlined text-[15px] text-primary">terminal</span>
+    <details className="my-1.5 overflow-hidden rounded-lg border border-white/8 bg-black/25 text-[var(--color-pib-text-muted)] group/console">
+      <summary className="flex cursor-pointer select-none list-none items-center gap-2 px-2.5 py-1.5 text-[11px] text-[var(--color-pib-text-muted)] [&::-webkit-details-marker]:hidden">
+        <span className="material-symbols-outlined text-[14px] opacity-70">terminal</span>
         <span className="min-w-0 flex-1 truncate">Inline command console</span>
-        <span className="rounded-full bg-white/8 px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
+        <span className="rounded-full bg-white/8 px-1.5 py-0.5 font-mono text-[10px] opacity-70">
           {consoleRows.length}
         </span>
-        <span className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] transition-transform group-open/console:rotate-180">expand_more</span>
+        <span className="text-[11px] opacity-50 transition-transform group-open/console:rotate-90">›</span>
       </summary>
-      <div className="max-h-80 overflow-y-auto p-2 font-mono text-[11px] leading-relaxed">
+      <div className="max-h-80 overflow-y-auto border-t border-white/8 p-2 font-mono text-[11px] leading-relaxed">
         {consoleRows.map((row) => (
-          <div key={row.key} className="mb-1.5 overflow-hidden rounded-lg border border-white/10 bg-[#050505]/80 last:mb-0">
+          <div key={row.key} className="mb-1.5 overflow-hidden rounded-md border border-white/10 bg-[#050505]/80 last:mb-0">
             <div className="flex items-center gap-2 border-b border-white/5 px-2 py-1 text-[10px]">
               <span className={[
                 'h-2 w-2 rounded-full shrink-0',
@@ -2421,34 +2466,26 @@ export default function MessageBubble({
           {m.authorDisplayName}
         </p>
 
-        {/* Durable queue / live events (while queued, pending, streaming, or waiting) */}
+        {/* Live thought stream while queued / pending / streaming / waiting */}
         {(isQueued || isPending || isWaiting) && (
-            <div className="mb-1 min-w-0 space-y-1">
-              <div className="mx-activity-live min-w-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-[10px] font-label uppercase tracking-wide text-[var(--color-pib-text-muted)]">
-                    <span className="inline-flex gap-0.5 text-primary">
-                      <span className="animate-bounce [animation-delay:0ms]">·</span>
-                      <span className="animate-bounce [animation-delay:150ms]">·</span>
-                      <span className="animate-bounce [animation-delay:300ms]">·</span>
-                    </span>
-                    {isQueued ? 'Queued' : 'Current activity'}
-                  </div>
-                  <p className="mt-1 truncate text-xs font-medium text-[var(--color-pib-text)]">
+          <div className="mb-1 min-w-0 space-y-1">
+            {showSlimControls && (
+              <div className="mx-activity-live flex min-w-0 items-center gap-2 rounded-md px-0.5 py-0.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] text-[var(--color-pib-text)]/90">
                     {isQueued
                       ? `Queued on ${m.dispatchRuntimeLabel || m.acceptedDevice?.machineLabel || 'linked computer'}`
                       : activity.label}
                   </p>
-                  {(isQueued || activity.detail) && (
-                    <p className="mt-0.5 truncate text-[11px] text-[var(--color-pib-text-muted)]">
+                  {(isQueued || (!hasNarrative && activity.detail)) && (
+                    <p className="mt-0.5 truncate text-[11px] text-[var(--color-pib-text-muted)]/70">
                       {isQueued ? queuedRunDetail(m.queuedReason) : activity.detail}
                     </p>
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   {elapsed > 0 && (
-                    <span className="rounded bg-black/20 px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-pib-text-muted)]">
+                    <span className="font-mono text-[10px] text-[var(--color-pib-text-muted)]/70">
                       {elapsed}s
                     </span>
                   )}
@@ -2458,15 +2495,38 @@ export default function MessageBubble({
                       onClick={onStopRun}
                       className="inline-flex items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-[11px] font-medium text-red-200 hover:bg-red-500/15"
                     >
-                      <span className="material-symbols-outlined text-[13px]">stop_circle</span>
+                      <span className="material-symbols-outlined text-[13px]">stop</span>
                       Stop
                     </button>
                   )}
                 </div>
               </div>
+            )}
 
-              {tasks.length > 0 && (
-                <div className="mt-2 space-y-1 border-t border-white/10 pt-2">
+            {!isQueued && liveThinking && (
+              <ThoughtStream
+                thinking={liveThinking}
+                live
+                liveElapsed={elapsed}
+                onStopRun={onStopRun}
+                showStop={Boolean(onStopRun && m.runId && hasNarrative)}
+              />
+            )}
+
+            {!isQueued && !hasNarrative && toolOnlySummary && (
+              <p className="text-[11px] text-[var(--color-pib-text-muted)]/65">{toolOnlySummary}</p>
+            )}
+
+            {tasks.length > 0 && (
+              <details className="text-[var(--color-pib-text-muted)] group/tasks">
+                <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1.5 py-0.5 text-[11px] hover:text-[var(--color-pib-text)]">
+                  <span className="opacity-60 transition-transform group-open/tasks:rotate-90">›</span>
+                  <span>Tasks</span>
+                  <span className="rounded-full bg-white/8 px-1.5 py-0.5 font-mono text-[10px] opacity-70">
+                    {tasks.length}
+                  </span>
+                </summary>
+                <div className="mt-1 space-y-1">
                   {tasks.map((task) => {
                     const done = /done|completed|complete/i.test(task.status)
                     const active = /progress|doing|active|running/i.test(task.status)
@@ -2483,34 +2543,27 @@ export default function MessageBubble({
                     )
                   })}
                 </div>
-              )}
+              </details>
+            )}
 
-              {safeReasoning && (
-                <details className="mt-2 border-t border-white/10 pt-2 text-[11px] text-[var(--color-pib-text-muted)]">
-                  <summary className="cursor-pointer select-none text-[var(--color-pib-text)]">Reasoning summary</summary>
-                  <p className="mt-1 whitespace-pre-wrap leading-relaxed">{safeReasoning}</p>
-                </details>
-              )}
-            </div>
             {commandConsole}
-            {displayEvents.length > 0 && (
+
+            {toolActivityEvents.length > 0 && (
               <details className="text-[var(--color-pib-text-muted)] group/details">
-                <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-[11px] hover:bg-white/[0.04]">
-                  <span className="material-symbols-outlined text-[13px] opacity-70 transition-transform group-open/details:rotate-90">chevron_right</span>
+                <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden inline-flex items-center gap-1.5 rounded-md px-0.5 py-0.5 text-[11px] hover:bg-white/[0.04]">
+                  <span className="opacity-60 transition-transform group-open/details:rotate-90">›</span>
                   <span>Tool activity</span>
                   <span className="rounded-full bg-white/8 px-1.5 py-0.5 font-mono text-[10px] opacity-70">
-                    {displayEvents.length}
+                    {toolActivityEvents.length}
                   </span>
                 </summary>
                 <div className="mt-1 space-y-1">
-                  {displayEvents.slice(-8).map((ev, i) => (
+                  {toolActivityEvents.slice(-8).map((ev, i) => (
                     <div
                       key={i}
                       className="flex items-baseline gap-2 rounded-md bg-[var(--color-card,rgba(255,255,255,0.03))] px-2 py-1 text-xs text-[var(--color-pib-text-muted)]"
                     >
-                      <span className="material-symbols-outlined text-[12px] text-primary/70 shrink-0">
-                        {ev.event === 'assistant.text_delta' ? 'edit_note' : ev.event === 'heartbeat' ? 'sync' : 'build'}
-                      </span>
+                      <span className="material-symbols-outlined text-[12px] text-primary/70 shrink-0">build</span>
                       {ev.tool && <span className="text-primary font-mono shrink-0">{ev.tool}</span>}
                       <span className="font-mono opacity-50 shrink-0">{ev.event ?? 'event'}</span>
                       {(ev.preview || ev.delta) && <span className="truncate opacity-70">{ev.preview ?? ev.delta}</span>}
@@ -2522,37 +2575,15 @@ export default function MessageBubble({
           </div>
         )}
 
-        {/* Completed thinking — collapsed by default so the answer stays primary */}
+        {/* Completed thinking — collapsed Thought for Ns › above the answer */}
         {!isPending && !isWaiting && thinking && (
-          <ThinkingDisclosure thinking={thinking} />
+          <ThoughtStream thinking={thinking} />
         )}
 
-        {/* Completed tool-call timeline (collapsible) */}
+        {/* Completed tool console — collapsed by default */}
         {!isPending && !isWaiting && commandConsole}
-        {displayEvents.length > 0 && !isPending && !isWaiting && (
-          <details className="my-2 text-[var(--color-pib-text-muted)] group/details">
-            <summary className="cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden flex items-center gap-1.5 py-1 -mx-1 px-1 rounded hover:bg-[var(--color-card,rgba(255,255,255,0.03))] text-[13px] lg:text-xs">
-              <span className="opacity-60 group-open/details:rotate-90 transition-transform text-[14px] leading-none">›</span>
-              <span className="opacity-80">{eventSummary}</span>
-            </summary>
-            <div className="mt-1 space-y-0.5 pl-3 border-l border-[var(--color-card-border)] text-xs">
-              {displayEvents.map((ev, i) => {
-                const ts = ev.timestamp
-                  ? new Date(ev.timestamp * 1000).toISOString().slice(11, 19)
-                  : null
-                const toolLabel = ev.tool || ev.event
-                return (
-                  <div key={i} className="flex items-center gap-2 py-0.5">
-                    {ts && <span className="font-mono opacity-40 shrink-0">{ts}</span>}
-                    {toolLabel && (
-                      <span className="text-primary font-mono shrink-0">{toolLabel}</span>
-                    )}
-                    {ev.preview && <span className="truncate opacity-70">{ev.preview}</span>}
-                  </div>
-                )
-              })}
-            </div>
-          </details>
+        {displayEvents.length > 0 && !isPending && !isWaiting && eventSummary && !thinking?.segments?.some((s) => s.kind === 'tools') && (
+          <p className="mb-1 text-[11px] text-[var(--color-pib-text-muted)]/65">{eventSummary}</p>
         )}
 
         {/* The bubble itself — plain prose on mobile, bubble on desktop */}
@@ -2574,7 +2605,7 @@ export default function MessageBubble({
             {isQueued && !renderedMessage.content && (
               <span className="opacity-70 italic text-xs">{queuedRunPlaceholder(m.queuedReason)}</span>
             )}
-            {isPending && !renderedMessage.content && (
+            {isPending && !renderedMessage.content && !hasNarrative && (
               <span className="opacity-40 italic text-xs">Waiting for agent activity...</span>
             )}
             {isWaiting && !renderedMessage.content && (
