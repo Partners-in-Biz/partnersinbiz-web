@@ -45,7 +45,7 @@ export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, uid
   // Cap end at today.
   period.end = now.toISOString().slice(0, 10)
 
-  const memberAccessPolicy = await loadOrgMemberAccessPolicy(orgId, uid).catch(() => null)
+  const memberAccessPolicy = await loadOrgMemberAccessPolicy(orgId, uid)
   const projectViewer: ApiUser = {
     uid,
     role: 'client',
