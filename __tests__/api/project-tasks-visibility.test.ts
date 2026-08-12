@@ -5,6 +5,9 @@ const mockProjectDoc = jest.fn()
 const mockTaskCollection = jest.fn()
 const mockTaskGet = jest.fn()
 const mockCollection = jest.fn()
+const mockReadModelDoc = jest.fn()
+const mockReadModelGet = jest.fn()
+const mockReadModelSet = jest.fn()
 
 let canViewInternal = false
 let mockUser = { uid: 'external-user', role: 'client' as const, orgId: 'external-org' }
@@ -41,7 +44,16 @@ beforeEach(() => {
     ],
   })
   mockTaskCollection.mockReturnValue({ get: mockTaskGet })
-  mockProjectDoc.mockReturnValue({ collection: mockTaskCollection })
+  mockReadModelGet.mockResolvedValue({ exists: false, data: () => undefined })
+  mockReadModelSet.mockResolvedValue(undefined)
+  mockReadModelDoc.mockReturnValue({ get: mockReadModelGet, set: mockReadModelSet })
+  mockProjectDoc.mockImplementation(() => ({
+    collection: (name: string) => {
+      if (name === 'tasks') return mockTaskCollection()
+      if (name === '_readModels') return { doc: mockReadModelDoc }
+      throw new Error(`Unexpected project subcollection ${name}`)
+    },
+  }))
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { doc: mockProjectDoc }
     throw new Error(`Unexpected collection ${name}`)
@@ -69,5 +81,23 @@ describe('project task visibility', () => {
     const body = await res.json()
 
     expect(body.data.map((task: { id: string }) => task.id)).toEqual(['public-task', 'internal-task'])
+  })
+
+  it('serves board cards from the compact read model without scanning all tasks', async () => {
+    mockReadModelGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        schemaVersion: 1,
+        tasks: [{ id: 'public-task', title: 'Shared task', order: 1, description: undefined }],
+      }),
+    })
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/tasks/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects/project-1/tasks?view=board'), {
+      params: Promise.resolve({ projectId: 'project-1' }),
+    })
+    const body = await res.json()
+
+    expect(body.data).toEqual([{ id: 'public-task', title: 'Shared task', order: 1 }])
+    expect(mockTaskGet).not.toHaveBeenCalled()
   })
 })

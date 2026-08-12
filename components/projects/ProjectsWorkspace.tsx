@@ -52,7 +52,7 @@ const PROJECT_VIEW_TABS = [
   { value: 'active', label: 'Active' },
   { value: 'archive', label: 'Archive' },
 ]
-const PROJECT_REFRESH_INTERVAL_MS = 15_000
+const PROJECT_REFRESH_INTERVAL_MS = 60_000
 
 function receivedProjectsUrl({
   mode,
@@ -247,7 +247,7 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
       try {
         const results = await Promise.all(filtered.map(async (project) => {
           try {
-            const response = await fetch(`/api/v1/projects/${project.id}/tasks`)
+            const response = await fetch(`/api/v1/projects/${project.id}/tasks?view=board`)
             if (!response.ok) throw new Error(`Task refresh failed (${response.status})`)
             const body = await response.json()
             return {
@@ -412,7 +412,9 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
         <Surface variant="glass" accentEdge="cyan" className={isAdmin ? '!p-3' : undefined}>
           <form onSubmit={handleCreateProject} className="flex flex-wrap items-end gap-2">
             <div className="min-w-[150px] flex-1">
+              <label htmlFor="new-project-name" className="sr-only">Project name</label>
               <input
+                id="new-project-name"
                 type="text"
                 placeholder="Project name..."
                 value={formName}
@@ -422,7 +424,9 @@ export function ProjectsWorkspace({ mode, orgSlug = '', orgScope = {} }: Project
                 autoFocus
               />
             </div>
+            <label htmlFor="new-project-status" className="sr-only">Project status</label>
             <select
+              id="new-project-status"
               value={formStatus}
               onChange={(e) => setFormStatus(e.target.value)}
               className="pib-select h-8 text-sm"

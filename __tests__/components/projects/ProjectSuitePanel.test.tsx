@@ -697,7 +697,7 @@ describe('ProjectSuitePanel', () => {
     })))
   })
 
-  it('refreshes visible Plan data every 15 seconds without clearing unsaved form drafts', async () => {
+  it('refreshes visible Plan data every 60 seconds without clearing unsaved form drafts', async () => {
     jest.useFakeTimers()
     try {
       render(<ProjectSuitePanel projectId="project-1" />)
@@ -706,7 +706,7 @@ describe('ProjectSuitePanel', () => {
       expect(screen.getByLabelText('Playbook title')).toHaveValue('Unsaved planning draft')
 
       await act(async () => {
-        jest.advanceTimersByTime(15_000)
+        jest.advanceTimersByTime(60_000)
         await Promise.resolve()
         await Promise.resolve()
       })

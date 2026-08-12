@@ -2,6 +2,7 @@ import { createHash } from 'crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
+import { upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 import type { ConservativeReviewTaskDraft } from './review-evaluator'
 
 type CreatedReviewTask = {
@@ -184,6 +185,7 @@ export async function persistConservativeReviewTaskDrafts(
 
     const taskId = reviewTaskId(draft.idempotencyKey)
     await adminDb.collection('projects').doc(projectId).collection('tasks').doc(taskId).set(payload, { merge: true })
+    await upsertProjectTaskReadModel(projectId, taskId, payload).catch(() => {})
     created.push({
       draftId: draft.idempotencyKey,
       taskId,

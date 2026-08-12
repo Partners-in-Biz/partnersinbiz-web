@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { WorkflowGraphAuthoringPanel } from '@/components/projects/WorkflowGraphAuthoringPanel'
 
-export const PLAN_REFRESH_INTERVAL_MS = 15_000
+export const PLAN_REFRESH_INTERVAL_MS = 60_000
 
 type SuiteItem = {
   id?: string

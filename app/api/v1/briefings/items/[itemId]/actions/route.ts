@@ -6,6 +6,7 @@ import { apiError, apiSuccess } from '@/lib/api/response'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { getProjectForUser } from '@/lib/projects/access'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
+import { upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 import { planningMutationBlocker } from '@/lib/projects/planningDiscovery'
 import { isValidAgentId } from '@/lib/agents/types'
 export const dynamic = 'force-dynamic'
@@ -250,13 +251,15 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
   }, projectId, projectOrgId)
   if (!payload.ok) return apiError(payload.error, payload.status ?? 400)
 
-  const ref = await adminDb.collection('projects').doc(projectId).collection('tasks').add({
+  const task = {
     ...payload.value,
     reporterId: user.uid,
     createdBy: user.uid,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
-  })
+  }
+  const ref = await adminDb.collection('projects').doc(projectId).collection('tasks').add(task)
+  await upsertProjectTaskReadModel(projectId, ref.id, task).catch(() => {})
 
   return apiSuccess({ itemId, action, taskId: ref.id, projectId }, 201)
 })

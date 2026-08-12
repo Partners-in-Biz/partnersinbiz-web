@@ -68,7 +68,7 @@ const DEFAULT_COLUMNS: Column[] = [
   { id: 'review',      name: 'Review',      color: '#c084fc',                 order: 4 },
   { id: 'done',        name: 'Done',        color: '#4ade80',                 order: 5 },
 ]
-const TASK_REFRESH_INTERVAL_MS = 15_000
+const TASK_REFRESH_INTERVAL_MS = 60_000
 
 function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`pib-skeleton ${className}`} />
@@ -226,7 +226,7 @@ export function ProjectDetailWorkspace({
 
   const refreshTasks = useCallback(async () => {
     const mutationVersionAtRequest = taskMutationVersionRef.current
-    const res = await fetch(`/api/v1/projects/${projectId}/tasks`)
+    const res = await fetch(`/api/v1/projects/${projectId}/tasks?view=board`)
     if (!res.ok) throw new Error(`Task refresh failed (${res.status})`)
     const body = await res.json()
     const nextTasks = (body.data ?? []) as Task[]
@@ -239,6 +239,19 @@ export function ProjectDetailWorkspace({
       const freshTask = nextTasks.find(task => task.id === prev.id)
       return freshTask ?? prev
     })
+  }, [projectId])
+
+  const openTask = useCallback((task: Task) => {
+    setSelectedTask(task)
+    void fetch(`/api/v1/projects/${projectId}/tasks/${task.id}`)
+      .then(async (res) => res.ok ? res.json() : null)
+      .then((body) => {
+        const fullTask = body?.data as Task | undefined
+        if (!fullTask?.id) return
+        setTasks(prev => prev.map((item) => item.id === fullTask.id ? { ...item, ...fullTask } : item))
+        setSelectedTask(prev => prev?.id === fullTask.id ? { ...prev, ...fullTask } : prev)
+      })
+      .catch(() => {})
   }, [projectId])
 
   useEffect(() => {
@@ -329,7 +342,7 @@ export function ProjectDetailWorkspace({
     queueMicrotask(() => {
       if (cancelled) return
       setActiveTab('kanban')
-      setSelectedTask(task)
+      openTask(task)
     })
     return () => { cancelled = true }
   }, [deepLinkedTaskId, tasks])
@@ -692,7 +705,7 @@ export function ProjectDetailWorkspace({
                     <button
                       key={task.id}
                       type="button"
-                      onClick={() => setSelectedTask(task)}
+                      onClick={() => openTask(task)}
                       data-state-tone={stateStyle.tone}
                       className="w-full rounded-[var(--radius-card)] border border-[var(--color-pib-line)] p-3 text-left shadow-sm transition-colors hover:border-[var(--color-accent-v2)]"
                       style={{ background: stateStyle.tint, borderLeft: `4px solid ${stateStyle.railColor}` }}
@@ -734,7 +747,7 @@ export function ProjectDetailWorkspace({
                     return (
                       <tr
                         key={task.id}
-                        onClick={() => setSelectedTask(task)}
+                        onClick={() => openTask(task)}
                         data-state-tone={stateStyle.tone}
                         className="cursor-pointer border-b border-[var(--color-pib-line)] hover:bg-[var(--color-row-hover)]"
                         style={{ background: stateStyle.tint, boxShadow: `inset 4px 0 0 ${stateStyle.railColor}` }}
@@ -774,7 +787,7 @@ export function ProjectDetailWorkspace({
                 onSortModeChange={setBoardSortMode}
                 showSortToggle={false}
                 onTaskMove={handleTaskMove}
-                onTaskClick={setSelectedTask}
+                onTaskClick={openTask}
                 onAddTask={(columnId) => setShowNewTask(columnId)}
               />
             </div>

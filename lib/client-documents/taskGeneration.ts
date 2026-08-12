@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { isValidAgentId, type AgentId } from '@/lib/agents/types'
 import { getClientDocumentTemplate } from '@/lib/client-documents/templates'
 import { adminDb } from '@/lib/firebase/admin'
+import { upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 import type { ClientDocument, DocumentBlock } from '@/lib/client-documents/types'
 
 export type ApprovedDocumentTaskPlanItem = {
@@ -459,6 +460,10 @@ export async function generateApprovedDocumentProjectTasks(input: {
     updatedByType: 'agent',
   })
   await batch.commit()
+  await Promise.all(built.tasks.map((task) => {
+    const { id, ...taskData } = task
+    return upsertProjectTaskReadModel(projectId, id, taskData).catch(() => {})
+  }))
 
   return built
 }

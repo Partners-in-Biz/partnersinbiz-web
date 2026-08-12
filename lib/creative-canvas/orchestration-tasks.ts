@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { buildProjectTaskCreateData } from '@/lib/projects/taskPayload'
+import { upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 import { buildCreativeCanvasOrchestrationPlan } from './orchestration'
 import { CREATIVE_CANVAS_COLLECTION } from './store'
 import type {
@@ -193,6 +194,7 @@ export async function createCreativeCanvasOrchestrationTasks(
       updatedAt: FieldValue.serverTimestamp(),
     }
     const ref = await adminDb.collection('projects').doc(projectId).collection('tasks').add(doc)
+    await upsertProjectTaskReadModel(projectId, ref.id, doc).catch(() => {})
     nodeTaskIds.set(step.nodeId, ref.id)
     createdTasks.push({
       id: ref.id,

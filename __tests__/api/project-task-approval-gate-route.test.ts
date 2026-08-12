@@ -114,6 +114,7 @@ beforeEach(() => {
   mockCollection.mockImplementation((name: string) => {
     if (name === 'projects') return { doc: mockProjectDoc }
     if (name === 'notifications') return { add: jest.fn() }
+    if (name === 'agent_org_nodes') return { where: jest.fn(() => ({ get: jest.fn(async () => ({ docs: [] })) })) }
     throw new Error(`Unexpected collection ${name}`)
   })
 })
