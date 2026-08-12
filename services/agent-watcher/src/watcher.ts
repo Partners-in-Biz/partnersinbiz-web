@@ -2045,12 +2045,15 @@ async function releaseDependencyClearedDocs(
     const data = (doc.data() ?? {}) as TaskData
     if (!isActiveAgentId(data.assigneeAgentId)) return
     if (allowedAgentIds && !allowedAgentIds.includes(data.assigneeAgentId)) return
-    if (data.columnId !== 'blocked') return
     const dependencyGateIds = getTaskDependencyGateIds(data.dependsOn, data.approvalGateTaskId)
-    // Dep-less blocked cards with a retryable completion-integrity cause (the
-    // pre-fix terminal dead end) are also re-dispatched. This is deliberately
-    // narrow — recoverableDepLessBlockedTask requires a recoverable reason, a
-    // non-human-gated block, an elapsed backoff window, and spare retry budget.
+    // Awaiting-input cards created by the workflow-graph / playbook planners are
+    // dependency-gated (they depend on a prior gate's qa card) but stay in the
+    // `todo` column, not `blocked`. The pre-fix sweep only read the `blocked`
+    // column, so these never self-released and projects stalled at every gate
+    // boundary. Accept them here so their deps clearing moves them back to the
+    // ready-to-dispatch pool.
+    const awaitingInputInTodo = waitingStatus === 'awaiting-input' && data.columnId === 'todo'
+    if (data.columnId !== 'blocked' && !awaitingInputInTodo) return
     const depLessRecoverable = waitingStatus === 'blocked'
       && dependencyGateIds.length === 0
       && recoverableDepLessBlockedTask(data, now)
@@ -2059,6 +2062,11 @@ async function releaseDependencyClearedDocs(
     // retryable blocks are exempt: their recoverable gate already proved the
     // block is not human-gated.
     if (!depLessRecoverable && waitingStatus === 'blocked' && typeof data.agentOutput?.summary === 'string' && data.agentOutput.summary.trim()) return
+    // Do not auto-release awaiting-input cards that are genuinely waiting on a
+    // human (they carry a summary/needsPeet output). Only dependency-gated
+    // awaiting-input cards in the todo column — those with no human-waiting
+    // output — are safe to advance.
+    if (awaitingInputInTodo && data.agentOutput?.summary) return
     if (data.deleted === true || data.status === 'cancelled' || data.status === 'canceled') return
     if (hasPendingApprovalGate(data) || hasPendingScheduledRelease(data, now)) return
 
@@ -2120,36 +2128,45 @@ async function releaseDependencyClearedDocs(
 async function releaseDependencyClearedTasks(now = Date.now()): Promise<void> {
   const chunks = chunkAgentIds(currentAgentIds())
   for (const chunk of chunks) {
-    for (const waitingStatus of ['awaiting-input', 'blocked']) {
+    // The primary sweep covers cards parked in the `blocked` column (awaiting-input
+    // and blocked alike). Workflow-graph / playbook planners additionally leave
+    // dependency-gated awaiting-input cards in the `todo` column; they need a
+    // second query or they never self-release and the project stalls at the gate.
+    const statusColumnPairs: Array<{ status: string; column: string }> = [
+      { status: 'awaiting-input', column: 'blocked' },
+      { status: 'blocked', column: 'blocked' },
+      { status: 'awaiting-input', column: 'todo' },
+    ]
+    for (const { status, column } of statusColumnPairs) {
       try {
         const snap = await db
           .collectionGroup('tasks')
           .where('assigneeAgentId', 'in', chunk)
-          .where('agentStatus', '==', waitingStatus)
-          .where('columnId', '==', 'blocked')
+          .where('agentStatus', '==', status)
+          .where('columnId', '==', column)
           .limit(MAX_DEPENDENCY_RELEASE_SWEEP_DOCS)
           .get()
 
-        await releaseDependencyClearedDocs(snap.docs, waitingStatus, now)
+        await releaseDependencyClearedDocs(snap.docs, status, now)
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
         if (message.includes('FAILED_PRECONDITION')) {
           logger.warn('dependency-cleared indexed sweep unavailable; falling back to agentStatus-only scan', {
             agents: chunk,
-            agentStatus: waitingStatus,
+            agentStatus: status,
             error: message,
           })
           try {
             const fallbackSnap = await db
               .collectionGroup('tasks')
-              .where('agentStatus', '==', waitingStatus)
+              .where('agentStatus', '==', status)
               .limit(MAX_DEPENDENCY_RELEASE_SWEEP_DOCS)
               .get()
-            await releaseDependencyClearedDocs(fallbackSnap.docs, waitingStatus, now, chunk)
+            await releaseDependencyClearedDocs(fallbackSnap.docs, status, now, chunk)
           } catch (fallbackErr) {
             logger.error('dependency-cleared task fallback release sweep failed', {
               agents: chunk,
-              agentStatus: waitingStatus,
+              agentStatus: status,
               error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
             })
           }
@@ -2157,7 +2174,7 @@ async function releaseDependencyClearedTasks(now = Date.now()): Promise<void> {
         }
         logger.error('dependency-cleared task release sweep failed', {
           agents: chunk,
-          agentStatus: waitingStatus,
+          agentStatus: status,
           error: message,
         })
       }
