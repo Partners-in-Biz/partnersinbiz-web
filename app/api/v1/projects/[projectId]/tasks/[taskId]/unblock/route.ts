@@ -30,6 +30,7 @@ function isApprovalGateTask(task: Record<string, unknown>): boolean {
   return Boolean(
     approvalGate
     || typeof task.approvalStatus === 'string'
+    || (typeof task.requiredCapability === 'string' && task.requiredCapability.trim().toLowerCase() === 'approve')
     || labels.some((label) => /^(approval-gate|approval-required|client-approval|required-approval)(:.*)?$/i.test(String(label || '').trim())),
   )
 }
