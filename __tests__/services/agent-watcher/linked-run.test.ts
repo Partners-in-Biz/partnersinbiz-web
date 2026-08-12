@@ -208,7 +208,7 @@ describe('agent watcher linked-device Kanban preference', () => {
     const jobId = linkedRunJobId('mac-1', 'kanban:task-1:1')
     const enc = encryptLinkedRunPayload({
       prompt: 'hello kanban',
-      model: 'grok-4.5',
+      model: 'grok-4.6',
       provider: 'xai-oauth',
     }, 'mac-1', jobId)
     expect(enc.ciphertext).toBeTruthy()

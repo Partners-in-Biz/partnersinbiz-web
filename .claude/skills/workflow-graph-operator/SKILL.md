@@ -71,7 +71,7 @@ Other orgs may have their own templates — always `GET /api/v1/graph-templates`
 
 ## Per-node model routing (cost-tiered packs)
 
-Each `agent` node may declare `agentModel` (allowlist: grok-4.5, claude-sonnet-4-6, gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.3-codex-spark). The Suite/Plan graph editor shows an `agentModel` picker on agent nodes; absent = platform default.
+Each `agent` node may declare `agentModel` (allowlist: grok-4.6, grok-4.5, claude-sonnet-4-6, gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.3-codex-spark). The Suite/Plan graph editor shows an `agentModel` picker on agent nodes; absent = platform default.
 
 - Cheap code/implementation workers → `gpt-5.3-codex-spark`
 - Strong judge/review nodes → `claude-sonnet-4-6`

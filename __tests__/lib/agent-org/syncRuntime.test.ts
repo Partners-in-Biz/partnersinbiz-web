@@ -6,7 +6,7 @@ import type { AgentRuntimeModelSettings } from '@/lib/agents/runtime-config'
 
 const base: AgentRuntimeModelSettings = {
   primaryProvider: 'xai-oauth',
-  primaryModel: 'grok-4.5',
+  primaryModel: 'grok-4.6',
   primaryBaseUrl: '',
   reasoningEffort: 'medium',
   fallbacks: [{ provider: 'nous', model: 'deepseek/deepseek-v4-flash' }],
@@ -29,17 +29,17 @@ describe('agent-org syncRuntime', () => {
       defaultModel: '',
       defaultEffort: null,
     })
-    expect(next.primaryModel).toBe('grok-4.5')
+    expect(next.primaryModel).toBe('grok-4.6')
     expect(next.reasoningEffort).toBe('medium')
   })
 
   it('maps runtime settings back to org task defaults', () => {
     const defaults = buildOrgDefaultsFromRuntime({
       ...base,
-      primaryModel: 'grok-4.5',
+      primaryModel: 'grok-4.6',
       reasoningEffort: 'high',
     })
-    expect(defaults.defaultModel).toBe('grok-4.5')
+    expect(defaults.defaultModel).toBe('grok-4.6')
     expect(defaults.defaultEffort).toBe('high')
   })
 })

@@ -55,6 +55,7 @@ describe('project task LLM credential helpers', () => {
   it('infers providers from model ids', () => {
     expect(inferHermesProviderFromModel('claude-sonnet-4-6')).toBe('anthropic')
     expect(inferHermesProviderFromModel('gpt-5.4')).toBe('openai-codex')
+    expect(inferHermesProviderFromModel('grok-4.6')).toBe('xai-oauth')
     expect(inferHermesProviderFromModel('grok-4.5')).toBe('xai-oauth')
     expect(inferHermesProviderFromModel('openai/gpt-5.5')).toBe('openai-codex')
   })

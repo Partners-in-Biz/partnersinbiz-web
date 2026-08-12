@@ -52,7 +52,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
   const name = String(body.name ?? agentId).trim()
   const role = String(body.role ?? 'Specialist').trim()
   const persona = String(body.persona ?? `${name} supports Partners in Biz with focused specialist work.`).trim()
-  const defaultModel = String(body.defaultModel ?? 'xai-oauth/grok-4.5').trim()
+  const defaultModel = String(body.defaultModel ?? 'xai-oauth/grok-4.6').trim()
   const iconKey = String(body.iconKey ?? 'smart_toy').trim()
   const colorKey = String(body.colorKey ?? 'sky').trim()
   let adoptedExisting = body.adoptExisting === true

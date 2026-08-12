@@ -846,8 +846,8 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
 
     // Pairing rule: never force a provider without an explicit model.
     // Stamping agentProvider=openai-codex with agentModel=null makes Hermes keep the
-    // profile default model (grok-4.5) on ChatGPT Codex → HTTP 400.
-    // Prefer profile primary (xai-oauth/grok-4.5) when the card only has a provider stamp.
+    // profile default model (grok-4.6) on ChatGPT Codex → HTTP 400.
+    // Prefer profile primary (xai-oauth/grok-4.6) when the card only has a provider stamp.
     //
     // Model allowlist boundary: the canonical model catalogue lives in the web app
     // (lib/llm-providers/model-registry.ts) and is enforced at task create/update +
@@ -1100,7 +1100,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       agentEffort: taskData.agentEffort ?? null,
       agentModel: taskModel,
       // Only pass provider when it came from a verified route or an explicit model+provider pair.
-      // Linked Mac runs keep explicit model+provider pairs (e.g. grok-4.5/xai-oauth); provider-only stamps stay null.
+      // Linked Mac runs keep explicit model+provider pairs (e.g. grok-4.6/xai-oauth); provider-only stamps stay null.
       agentProvider: credentialRoute?.provider ?? (taskModel ? taskProvider : null),
       llmCredentialSource: taskData.llmCredentialSource ?? null,
       llmResolvedSource: credentialRoute?.resolvedSource ?? taskData.llmResolvedSource ?? null,

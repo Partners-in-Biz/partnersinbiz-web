@@ -54,12 +54,12 @@ describe('AgentOrgChartClient canvas controls', () => {
           json: async () => ({
             data: [{
               agentId: 'pip',
-              defaultModel: 'grok-4.5',
+              defaultModel: 'grok-4.6',
               runtimeModel: {
                 source: 'live_config',
-                label: 'xai-oauth / grok-4.5 → nous / deepseek/deepseek-v4-flash-0731',
+                label: 'xai-oauth / grok-4.6 → nous / deepseek/deepseek-v4-flash-0731',
                 primaryProvider: 'xai-oauth',
-                primaryModel: 'grok-4.5',
+                primaryModel: 'grok-4.6',
                 fallbackProvider: 'nous',
                 fallbackModel: 'deepseek/deepseek-v4-flash-0731',
                 staleRegistry: false,
@@ -84,7 +84,7 @@ describe('AgentOrgChartClient canvas controls', () => {
 
     await waitFor(() => {
       expect(mockCanvasProps.liveModelByAgentId).toEqual({
-        pip: 'xai-oauth / grok-4.5 → nous / deepseek/deepseek-v4-flash-0731',
+        pip: 'xai-oauth / grok-4.6 → nous / deepseek/deepseek-v4-flash-0731',
       })
     })
   })

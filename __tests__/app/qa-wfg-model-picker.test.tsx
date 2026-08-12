@@ -39,6 +39,7 @@ describe('WorkflowGraphAuthoringPanel per-node model picker (QA render check)', 
     expect(options[0]?.value).toBe('')
     const values = options.map((o) => o.value).filter(Boolean)
     expect(values).toEqual([
+      'grok-4.6',
       'grok-4.5',
       'claude-sonnet-4-6',
       'gpt-5.6-terra',
@@ -46,6 +47,7 @@ describe('WorkflowGraphAuthoringPanel per-node model picker (QA render check)', 
       'gpt-5.4',
       'gpt-5.4-mini',
       'gpt-5.3-codex-spark',
+      'deepseek/deepseek-v4-flash-0731',
     ])
   })
 

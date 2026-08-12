@@ -5,7 +5,7 @@
  */
 
 export const SYSTEM_DEFAULT_PRIMARY_PROVIDER = 'xai-oauth'
-export const SYSTEM_DEFAULT_PRIMARY_MODEL = 'grok-4.5'
+export const SYSTEM_DEFAULT_PRIMARY_MODEL = 'grok-4.6'
 export const SYSTEM_DEFAULT_PRIMARY_BASE_URL = 'https://api.x.ai/v1'
 
 export const SYSTEM_DEFAULT_FALLBACK_PROVIDER = 'nous'
