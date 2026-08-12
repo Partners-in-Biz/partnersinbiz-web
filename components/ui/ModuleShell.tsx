@@ -20,7 +20,7 @@ type ModuleShellProps = ComponentPropsWithoutRef<'div'> & {
 
 /**
  * Workspace frame with atmosphere tiers:
- * 0 quiet · 1 glass materials · 2 neural field + glass
+ * 0 quiet (solid surface, no aurora/field) · 1 glass + static aurora · 2 neural field + glass
  */
 export function ModuleShell({
   tier = 1,
@@ -42,7 +42,7 @@ export function ModuleShell({
       {...props}
     >
       {tier >= 2 ? <NeuralField testId={fieldTestId ?? 'pib-neural-field'} /> : null}
-      <CssAurora />
+      {tier >= 1 ? <CssAurora /> : null}
       {showScanlines ? <div className="pib-scanlines messages-scanlines" aria-hidden="true" /> : null}
       <div className="pib-shell-chrome messages-experience-chrome">{children}</div>
     </div>
