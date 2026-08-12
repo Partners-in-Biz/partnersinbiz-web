@@ -380,13 +380,13 @@ describe('MessageBubble', () => {
     )
 
     expect(screen.getByText('Inline command console')).toBeInTheDocument()
-    expect(screen.getAllByText('terminal').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getAllByText('terminal').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText((content) => content.includes('$ npm test -- --runInBand')).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText((content) => content.includes('PASS __tests__/components/chat/MessageBubble.test.tsx'))).toBeInTheDocument()
     expect(screen.getByText(/exit 0/)).toBeInTheDocument()
   })
 
-  it('keeps a collapsed thought-process bubble beside completed agent replies', () => {
+  it('keeps a collapsed thought stream beside completed agent replies', () => {
     render(
       <MessageBubble
         currentUserUid="user-1"
@@ -413,10 +413,39 @@ describe('MessageBubble', () => {
     )
 
     const disclosure = screen.getByTestId('message-thinking-disclosure')
-    expect(disclosure).not.toHaveAttribute('open')
-    expect(screen.getByText(/Thought process/i)).toBeInTheDocument()
+    expect(disclosure.querySelector('details')).not.toHaveAttribute('open')
     expect(screen.getByText(/Thought for 18s/i)).toBeInTheDocument()
     expect(screen.getByText('Checked the project API and summarised the open tasks.')).toBeInTheDocument()
+  })
+
+  it('streams live reasoning into an open Thought disclosure while pending', () => {
+    render(
+      <MessageBubble
+        currentUserUid="user-1"
+        liveEvents={[
+          { event: 'reasoning.delta', delta: 'I will load the Hermes skill first.', timestamp: Date.now() / 1000 },
+          { event: 'tool.started', tool: 'skill_view', timestamp: Date.now() / 1000 },
+        ]}
+        message={{
+          id: 'msg-live-thought',
+          conversationId: 'conv-1',
+          role: 'assistant',
+          content: '',
+          authorKind: 'agent',
+          authorId: 'pip',
+          authorDisplayName: 'Pip',
+          status: 'pending',
+          runId: 'run_live',
+        }}
+      />,
+    )
+
+    expect(screen.getByText(/^Thought$/i)).toBeInTheDocument()
+    expect(screen.getByTestId('message-thinking-disclosure')).toHaveTextContent(
+      'I will load the Hermes skill first.',
+    )
+    expect(screen.queryByText('Current activity')).not.toBeInTheDocument()
+    expect(screen.getByText(/Read 1 file/i)).toBeInTheDocument()
   })
 
   it('keeps a persisted reasoning summary available after the final response arrives', () => {
@@ -448,7 +477,7 @@ describe('MessageBubble', () => {
     )
 
     expect(screen.getByText('The requested change is ready.')).toBeInTheDocument()
-    expect(screen.getByText(/Thought process/i)).toBeInTheDocument()
+    expect(screen.getByText(/Thought for/i)).toBeInTheDocument()
     expect(screen.getByText('I checked the completed run and preserved its safe summary.')).toBeInTheDocument()
   })
 

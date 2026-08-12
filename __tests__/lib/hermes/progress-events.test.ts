@@ -177,4 +177,36 @@ describe('normalizeHermesEvent', () => {
       ],
     })
   })
+
+  it('maps reasoning.delta with exact whitespace and drops spinner thinking.delta', () => {
+    const deltas = normalizeHermesEvent({
+      event: 'reasoning.delta',
+      run_id: 'run_1',
+      delta: ' hello ',
+      timestamp: 123,
+    })
+    expect(deltas).toHaveLength(1)
+    expect(deltas[0]).toMatchObject({
+      event: 'reasoning.delta',
+      runId: 'run_1',
+      delta: ' hello ',
+      text: ' hello ',
+    })
+
+    const available = normalizeHermesEvent({
+      type: 'reasoning.available',
+      text: 'Settled thought.',
+      timestamp: 124,
+    })
+    expect(available[0]).toMatchObject({
+      event: 'reasoning.summary',
+      text: 'Settled thought.',
+    })
+
+    expect(normalizeHermesEvent({
+      event: 'thinking.delta',
+      text: 'pondering',
+      timestamp: 125,
+    })).toEqual([])
+  })
 })

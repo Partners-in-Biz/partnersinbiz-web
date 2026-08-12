@@ -8,11 +8,23 @@ export type MessageThinkingStep = {
   at?: number
 }
 
+/** Interleaved narrative blocks for the sleek thought stream UI. */
+export type MessageThinkingSegment = {
+  kind: 'thought' | 'tools'
+  /** Natural-language reasoning for thought segments. */
+  text?: string
+  /** Muted one-liner for tool segments, e.g. "Ran 1 command, used 1 tool". */
+  summary?: string
+  durationMs?: number
+}
+
 export type MessageThinkingTrace = {
   summary: string | null
   steps: MessageThinkingStep[]
   toolCount: number
   durationMs?: number
+  /** Chronological thought / tool blocks for transcript rendering. */
+  segments?: MessageThinkingSegment[]
 }
 
 function cleanLabel(value: unknown, fallback: string): string {
@@ -30,7 +42,8 @@ function stepFromEvent(event: ChatEvent): MessageThinkingStep | null {
   const at = typeof event.timestamp === 'number' ? event.timestamp : undefined
   switch (event.event) {
     case 'reasoning.summary':
-      return null // folded into summary
+    case 'reasoning.delta':
+      return null // folded into summary / segments
     case 'tool.started':
     case 'tool.input_delta':
       return {
@@ -87,6 +100,144 @@ function dedupeSteps(steps: MessageThinkingStep[]): MessageThinkingStep[] {
   return out.slice(-24)
 }
 
+function isToolishEvent(event: ChatEvent): boolean {
+  const name = event.event ?? ''
+  if (name === 'tool.started' || name === 'tool.input_delta' || name === 'tool.completed') return true
+  if (name === 'task.created' || name === 'task.updated') return true
+  if (event.tool && name !== 'assistant.text_delta' && name !== 'reasoning.delta' && name !== 'reasoning.summary') {
+    return true
+  }
+  return false
+}
+
+/** Compact human summary of tool-ish events — shared by UI and persistence. */
+export function summarizeToolEvents(events: ChatEvent[]): string {
+  if (events.length === 0) return ''
+  let commands = 0
+  let read = 0
+  let wrote = 0
+  let searched = 0
+  let web = 0
+  let other = 0
+  for (const ev of events) {
+    const t = (ev.tool ?? ev.event ?? '').toLowerCase()
+    if (!t) {
+      other++
+      continue
+    }
+    if (/(^|_)(read|view|cat|glob|ls|list)(_|$)/.test(t)) read++
+    else if (/(bash|exec|shell|command|^run$|run_|terminal)/.test(t)) commands++
+    else if (/(write|edit|update|create|patch|save)/.test(t)) wrote++
+    else if (/(grep|search|find)/.test(t)) searched++
+    else if (/(web|fetch|http|url)/.test(t)) web++
+    else other++
+  }
+  const parts: string[] = []
+  const plur = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
+  if (commands) parts.push(`ran ${plur(commands, 'command')}`)
+  if (read) parts.push(`read ${plur(read, 'file')}`)
+  if (wrote) parts.push(`wrote ${plur(wrote, 'file')}`)
+  if (searched) parts.push(`searched ${plur(searched, 'time')}`)
+  if (web) parts.push(`fetched ${plur(web, 'page')}`)
+  if (!parts.length && other) parts.push(`used ${plur(other, 'tool')}`)
+  else if (other && parts.length) parts.push(`used ${plur(other, 'tool')}`)
+  else if (!parts.length) parts.push(plur(events.length, 'action'))
+  const joined = parts.join(', ')
+  return joined.charAt(0).toUpperCase() + joined.slice(1)
+}
+
+function buildSegments(events: ChatEvent[]): MessageThinkingSegment[] {
+  const segments: MessageThinkingSegment[] = []
+  let thoughtBuf = ''
+  let toolBuf: ChatEvent[] = []
+
+  const flushThought = () => {
+    const text = thoughtBuf.replace(/\s+$/u, '').trim()
+    thoughtBuf = ''
+    if (!text) return
+    const prev = segments[segments.length - 1]
+    if (prev?.kind === 'thought' && prev.text) {
+      // Merge consecutive thought chunks (delta stream + summary settle).
+      prev.text = text.startsWith(prev.text) ? text : `${prev.text}\n\n${text}`
+      return
+    }
+    segments.push({ kind: 'thought', text: text.slice(0, 4000) })
+  }
+
+  const flushTools = () => {
+    if (toolBuf.length === 0) return
+    const summary = summarizeToolEvents(toolBuf)
+    toolBuf = []
+    if (!summary) return
+    const prev = segments[segments.length - 1]
+    if (prev?.kind === 'tools') {
+      prev.summary = summary
+      return
+    }
+    segments.push({ kind: 'tools', summary })
+  }
+
+  for (const event of events) {
+    if (event.event === 'reasoning.delta') {
+      flushTools()
+      const chunk = typeof event.delta === 'string'
+        ? event.delta
+        : typeof event.text === 'string'
+          ? event.text
+          : ''
+      thoughtBuf += chunk
+      continue
+    }
+    if (event.event === 'reasoning.summary') {
+      flushTools()
+      const text = (typeof event.text === 'string' ? event.text : typeof event.preview === 'string' ? event.preview : '').trim()
+      if (text) {
+        // Prefer the settled summary as the current thought block body.
+        thoughtBuf = text
+        flushThought()
+      }
+      continue
+    }
+    if (isToolishEvent(event)) {
+      flushThought()
+      toolBuf.push(event)
+      continue
+    }
+  }
+  flushThought()
+  flushTools()
+  return segments.slice(-32)
+}
+
+/** Live concatenated reasoning text from delta + summary events. */
+export function liveReasoningText(events: ChatEvent[] = []): string {
+  if (!Array.isArray(events) || events.length === 0) return ''
+  let buf = ''
+  let lastSummary = ''
+  for (const event of events) {
+    if (event.event === 'reasoning.delta') {
+      const chunk = typeof event.delta === 'string'
+        ? event.delta
+        : typeof event.text === 'string'
+          ? event.text
+          : ''
+      buf += chunk
+    } else if (event.event === 'reasoning.summary') {
+      const text = (typeof event.text === 'string' ? event.text : typeof event.preview === 'string' ? event.preview : '').trim()
+      if (text) {
+        lastSummary = text
+        // If we have no streamed deltas yet, use summary; if deltas exist and
+        // summary subsumes them, prefer summary as the settled form.
+        if (!buf.trim() || text.startsWith(buf.trim()) || buf.trim().startsWith(text.slice(0, 40))) {
+          buf = text
+        }
+      }
+    }
+  }
+  const out = buf.trim() || lastSummary
+  return out.slice(0, 4000)
+}
+
 /** Build a public thinking trace from streamed/persisted chat events. */
 export function buildThinkingTrace(events: ChatEvent[] = []): MessageThinkingTrace | null {
   if (!Array.isArray(events) || events.length === 0) return null
@@ -94,16 +245,19 @@ export function buildThinkingTrace(events: ChatEvent[] = []): MessageThinkingTra
   const summaryEvent = [...events].reverse().find(
     (item) => item.event === 'reasoning.summary' && (item.text || item.preview),
   )
+  const streamed = liveReasoningText(events)
   const summary = typeof summaryEvent?.text === 'string'
     ? summaryEvent.text.trim()
     : typeof summaryEvent?.preview === 'string'
       ? summaryEvent.preview.trim()
-      : null
+      : streamed || null
 
   const steps = dedupeSteps(events.flatMap((event) => {
     const step = stepFromEvent(event)
     return step ? [step] : []
   }))
+
+  const segments = buildSegments(events)
 
   const toolCount = new Set(
     steps.filter((step) => step.kind === 'tool').map((step) => step.label),
@@ -117,13 +271,14 @@ export function buildThinkingTrace(events: ChatEvent[] = []): MessageThinkingTra
     ? Math.max(0, Math.round(Math.max(...stamps) - Math.min(...stamps)))
     : undefined
 
-  if (!summary && steps.length === 0) return null
+  if (!summary && steps.length === 0 && segments.length === 0) return null
 
   return {
     summary: summary || null,
     steps,
     toolCount,
     ...(durationMs !== undefined ? { durationMs } : {}),
+    ...(segments.length > 0 ? { segments } : {}),
   }
 }
 

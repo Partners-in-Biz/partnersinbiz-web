@@ -1,4 +1,9 @@
-import { buildThinkingTrace, mergeChatEvents } from '@/lib/conversations/thinking-trace'
+import {
+  buildThinkingTrace,
+  liveReasoningText,
+  mergeChatEvents,
+  summarizeToolEvents,
+} from '@/lib/conversations/thinking-trace'
 import type { ChatEvent } from '@/lib/hermes/types'
 
 describe('thinking-trace', () => {
@@ -19,8 +24,36 @@ describe('thinking-trace', () => {
       ],
       toolCount: 1,
       durationMs: 50_000,
+      segments: [
+        { kind: 'thought', text: 'I should check the project status first.' },
+        { kind: 'tools', summary: 'Ran 2 commands' },
+      ],
     })
     expect(JSON.stringify(thinking)).not.toMatch(/Bearer|secret|\/var\/lib/)
+  })
+
+  it('streams reasoning.delta into live text and thought segments', () => {
+    const events: ChatEvent[] = [
+      { event: 'reasoning.delta', delta: 'I will start by ', timestamp: 1 },
+      { event: 'reasoning.delta', delta: 'loading the skill.', timestamp: 2 },
+      { event: 'tool.started', tool: 'skill_view', timestamp: 3 },
+      { event: 'tool.completed', tool: 'skill_view', timestamp: 4 },
+    ]
+
+    expect(liveReasoningText(events)).toBe('I will start by loading the skill.')
+    const thinking = buildThinkingTrace(events)
+    expect(thinking?.summary).toBe('I will start by loading the skill.')
+    expect(thinking?.segments).toEqual([
+      { kind: 'thought', text: 'I will start by loading the skill.' },
+      { kind: 'tools', summary: 'Read 2 files' },
+    ])
+  })
+
+  it('summarises tool events into a muted one-liner', () => {
+    expect(summarizeToolEvents([
+      { event: 'tool.completed', tool: 'terminal' },
+      { event: 'tool.completed', tool: 'read_file' },
+    ])).toBe('Ran 1 command, read 1 file')
   })
 
   it('prefers the richer event trail when merging', () => {
