@@ -9014,9 +9014,16 @@ export default function UnifiedChat({
                 title="Design commands (polish, typeset, layout, colorize, audit, …)"
                 aria-label="Design commands"
                 aria-expanded={designMenuOpen}
+                aria-pressed={selectedSlashCommand?.executorKind === 'design_command'}
                 aria-haspopup="menu"
                 disabled={!canUseComposer || sending}
-                className="flex items-center justify-center w-9 h-9 rounded-full text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.08] transition-colors aria-disabled:opacity-40 shrink-0 cursor-pointer aria-disabled:cursor-not-allowed disabled:opacity-40"
+                data-active={designMenuOpen || selectedSlashCommand?.executorKind === 'design_command' || undefined}
+                className={[
+                  'flex items-center justify-center w-9 h-9 rounded-full transition-colors shrink-0 cursor-pointer aria-disabled:cursor-not-allowed disabled:opacity-40',
+                  designMenuOpen || selectedSlashCommand?.executorKind === 'design_command'
+                    ? 'bg-primary/15 text-primary ring-1 ring-primary/45'
+                    : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.08]',
+                ].join(' ')}
               >
                 <span className="material-symbols-outlined text-[20px]">palette</span>
               </button>
