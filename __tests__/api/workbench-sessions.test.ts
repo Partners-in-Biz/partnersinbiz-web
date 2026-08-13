@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { handleCreateWorkbenchSession } from '@/app/api/v1/conversations/[convId]/workbench/sessions/route'
+import { handleCreateWorkbenchSession, handleListWorkbenchSessions } from '@/app/api/v1/conversations/[convId]/workbench/sessions/route'
 import { handleGetWorkbenchSession } from '@/app/api/v1/conversations/[convId]/workbench/sessions/[sessionId]/route'
 import { handleApproveWorkbenchSession } from '@/app/api/v1/conversations/[convId]/workbench/sessions/[sessionId]/approve/route'
 import { handleWorkbenchSessionStdin } from '@/app/api/v1/conversations/[convId]/workbench/sessions/[sessionId]/stdin/route'
@@ -112,6 +112,52 @@ describe('conversation workbench session browser routes', () => {
     const response = await handleCreateWorkbenchSession(request, user, 'conversation-a', { authorize: async () => authorization, create })
 
     expect(response.status).toBe(409)
+  })
+
+  it('lists only this user\'s context-bound sessions for the terminal rehydrate path', async () => {
+    const authorize = jest.fn(async () => authorization)
+    // The store already filters terminal statuses; the handler narrows ownership.
+    const list = jest.fn(async () => [
+      // Matches user-a + authorization binding exactly -> included.
+      session({ status: 'running' }),
+      // Another actor's session -> excluded by ownership narrowing.
+      session({ status: 'running', actorUserId: 'user-b' }),
+      // Different device binding -> excluded by ownership narrowing.
+      session({ status: 'running', deviceId: 'device-other' }),
+    ])
+    const request = new NextRequest('https://app.test/api/v1/conversations/conversation-a/workbench/sessions')
+
+    const response = await handleListWorkbenchSessions(request, user, 'conversation-a', { authorize, list })
+
+    expect(response.status).toBe(200)
+    expect(authorize).toHaveBeenCalledWith(user, 'conversation-a')
+    const body = await response.json()
+    expect(body.data).toHaveLength(1)
+    expect(body.data[0]).toMatchObject({ sessionId: 'wbs_a', status: 'running' })
+  })
+
+  it('returns an empty list when no session is owned by the caller', async () => {
+    const authorize = jest.fn(async () => authorization)
+    const list = jest.fn(async () => [session({ status: 'running', actorUserId: 'user-b' })])
+    const request = new NextRequest('https://app.test/api/v1/conversations/conversation-a/workbench/sessions')
+
+    const response = await handleListWorkbenchSessions(request, user, 'conversation-a', { authorize, list })
+
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body.data).toEqual([])
+  })
+
+  it('forbids non-client/admin roles from listing sessions', async () => {
+    const authorize = jest.fn(async () => authorization)
+    const list = jest.fn()
+    const request = new NextRequest('https://app.test/api/v1/conversations/conversation-a/workbench/sessions')
+    const staffUser = { uid: 'staff-a', role: 'staff' as const, orgId: 'org-a' }
+
+    const response = await handleListWorkbenchSessions(request, staffUser, 'conversation-a', { authorize, list })
+
+    expect(response.status).toBe(403)
+    expect(list).not.toHaveBeenCalled()
   })
 
   it('rechecks conversation/project/runtime authorization and exact session ownership before polling', async () => {
