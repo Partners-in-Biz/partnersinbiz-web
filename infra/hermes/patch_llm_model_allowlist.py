@@ -9,11 +9,34 @@ if not backup.exists():
     backup.write_text(text, encoding="utf-8")
 
 old_allow = '''_DEFAULT_RUN_MODEL_ALLOWLIST = {
+    # Anthropic
     "claude-sonnet-4-6",
+    "claude-opus-4-6",
+    "claude-haiku-4-5",
+    # OpenAI Codex / ChatGPT
+    "gpt-5.6-luna",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
     "gpt-5.5",
     "gpt-5.4",
     "gpt-5.4-mini",
+    "gpt-5.3-codex",
     "gpt-5.3-codex-spark",
+    "gpt-5.2-codex",
+    # xAI Grok (API key + SuperGrok OAuth)
+    "grok-build-0.1",
+    "grok-4.6",
+    "grok-4.5",
+    "grok-4.3",
+    "grok-composer-2.5-fast",
+    "grok-4.20-0309-reasoning",
+    "grok-4.20-0309-non-reasoning",
+    "grok-4.20-multi-agent-0309",
+    "grok-4.20-reasoning",  # legacy alias still present in some profile fallbacks
+    # Gemini
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-3-flash-preview",
 }'''
 
 new_allow = '''_DEFAULT_RUN_MODEL_ALLOWLIST = {
@@ -46,10 +69,20 @@ new_allow = '''_DEFAULT_RUN_MODEL_ALLOWLIST = {
     "gemini-2.5-flash",
     "gemini-3-flash-preview",
     # DeepSeek (API key · base https://api.deepseek.com)
+    # Includes the dated Nous-portal variant PiB dispatches as the per-run
+    # model override for Auto company/workspace chats (pip primary model is
+    # deepseek/deepseek-v4-flash-0731). Both bare and provider-prefixed forms
+    # are allowlisted because the gateway matches the raw model string exactly.
     "deepseek-v4-flash",
+    "deepseek-v4-flash-0731",
     "deepseek-v4-pro",
     "deepseek-chat",
     "deepseek-reasoner",
+    "deepseek/deepseek-v4-flash",
+    "deepseek/deepseek-v4-flash-0731",
+    "deepseek/deepseek-v4-pro",
+    "deepseek/deepseek-chat",
+    "deepseek/deepseek-reasoner",
 }'''
 
 if old_allow not in text:
