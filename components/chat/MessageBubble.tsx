@@ -2360,7 +2360,7 @@ export default function MessageBubble({
               {selectionPopover}
               <div
                 onMouseUp={handleTextSelection}
-                className="mx-bubble-mine max-w-full overflow-hidden rounded-none px-2 py-1 text-[15px] lg:text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[var(--color-pib-text)]"
+                className="mx-bubble-mine max-w-full overflow-hidden rounded-none px-2 py-1 text-[16px] lg:text-[15px] italic whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[var(--color-pib-text)]"
               >
             <ChatMessageContent content={renderedMessage.content} mentions={renderedMessage.mentions} />
             <RichMessageParts parts={renderedMessage.richParts} onQuoteSelection={onQuoteSelection} mentions={renderedMessage.mentions} />

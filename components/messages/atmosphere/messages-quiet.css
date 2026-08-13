@@ -119,6 +119,8 @@
      transparent (no-background) user bubble needs the same light text as the
      agent rail, otherwise user messages are illegible on the dark pane. */
   color: var(--color-pib-text) !important;
+  font-style: italic;
+  font-size: 15px;
 }
 
 [data-messages-experience='quiet-2026'] .mx-bubble-mine::after {
