@@ -1,5 +1,6 @@
 import {
   buildThinkingTrace,
+  isReadableThought,
   liveReasoningText,
   mergeChatEvents,
   summarizeToolEvents,
@@ -64,5 +65,20 @@ describe('thinking-trace', () => {
     ]
     expect(mergeChatEvents(short, long)).toBe(long)
     expect(mergeChatEvents(long, short)).toBe(long)
+  })
+
+  it('hides encrypted live reasoning until a readable summary arrives', () => {
+    const blob = 'eJyNVkuP2zYQvvdXjG0uL9QmN8kA8bC9xYz0pQ=='.repeat(4)
+    expect(isReadableThought(blob)).toBe(false)
+    expect(liveReasoningText([
+      { event: 'reasoning.delta', delta: blob },
+    ])).toBe('')
+    expect(liveReasoningText([
+      { event: 'reasoning.delta', delta: blob },
+      { event: 'reasoning.summary', text: 'I should inspect the mobile side chat header first.' },
+    ])).toBe('I should inspect the mobile side chat header first.')
+    expect(buildThinkingTrace([
+      { event: 'reasoning.delta', delta: blob },
+    ])).toBeNull()
   })
 })

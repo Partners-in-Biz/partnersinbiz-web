@@ -105,9 +105,19 @@ export function ModelProviderPicker({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [pinned, setPinned] = useState<string[]>([])
+  const [sheet, setSheet] = useState(false)
 
   useEffect(() => {
     setPinned(readPinned())
+  }, [])
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const media = window.matchMedia('(max-width: 767px)')
+    const update = () => setSheet(media.matches)
+    update()
+    media.addEventListener?.('change', update)
+    return () => media.removeEventListener?.('change', update)
   }, [])
 
   const models = catalog?.models ?? []
@@ -191,25 +201,39 @@ export function ModelProviderPicker({
         title={catalog?.canSelect === false ? 'Model selection is visible but locked for this role' : 'Select model/provider'}
         aria-label={`Select model and provider: ${activeLabel}`}
         className={[
-          'inline-flex min-w-0 items-center gap-1.5 rounded-full border border-[var(--color-card-border)] bg-white/[0.04] text-[var(--color-pib-text-muted)] transition-colors hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-45',
-          compact ? 'h-7 px-2 text-[11px]' : 'h-8 px-2.5 text-xs',
+          'inline-flex min-w-0 items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.08] text-[var(--color-pib-text)] transition-colors hover:bg-white/[0.12] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-45',
+          compact ? 'h-8 max-w-[min(100%,18rem)] px-2.5 text-[12px]' : 'h-8 px-2.5 text-xs',
         ].join(' ')}
       >
         <span className="material-symbols-outlined text-[15px]">memory</span>
-        <span className="max-w-[160px] truncate">{activeLabel}</span>
+        <span className={compact ? 'max-w-[min(14rem,calc(100vw-8rem))] truncate' : 'max-w-[160px] truncate'}>{activeLabel}</span>
         {catalog?.canSelect === false && <span className="material-symbols-outlined text-[13px]">lock</span>}
         <span className="material-symbols-outlined text-[14px]">expand_more</span>
       </button>
 
       {open && (
-        <div
-          role="dialog"
-          aria-label="Choose model and provider"
-          className={[
-            'absolute right-0 z-40 flex max-h-[min(560px,calc(100dvh-5rem))] w-[min(360px,calc(100vw-1rem))] flex-col overflow-hidden rounded-2xl border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] shadow-2xl',
-            placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
-          ].join(' ')}
-        >
+        <>
+          {sheet ? (
+            <button
+              type="button"
+              aria-label="Dismiss model picker"
+              className="fixed inset-0 z-[90] bg-black/60"
+              onClick={() => setOpen(false)}
+            />
+          ) : null}
+          <div
+            role="dialog"
+            aria-label="Choose model and provider"
+            data-presentation={sheet ? 'sheet' : 'popover'}
+            className={
+              sheet
+                ? 'fixed inset-x-0 bottom-0 z-[91] flex max-h-[min(34rem,80dvh)] w-full flex-col overflow-hidden rounded-t-2xl border border-white/15 bg-[#161616] pb-[env(safe-area-inset-bottom)] shadow-2xl'
+                : [
+                    'absolute right-0 z-40 flex max-h-[min(560px,calc(100dvh-5rem))] w-[min(360px,calc(100vw-1rem))] flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#161616] shadow-2xl',
+                    placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2',
+                  ].join(' ')
+            }
+          >
           <div className="shrink-0 border-b border-[var(--color-card-border)] p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -241,6 +265,7 @@ export function ModelProviderPicker({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search models or providers"
+              aria-label="Search models or providers"
               className="mt-3 h-9 w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none focus:border-primary/60"
             />
             {catalog?.warning && (
@@ -379,7 +404,8 @@ export function ModelProviderPicker({
               Connect providers…
             </a>
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   )

@@ -146,6 +146,25 @@ export function summarizeToolEvents(events: ChatEvent[]): string {
   return joined.charAt(0).toUpperCase() + joined.slice(1)
 }
 
+/** Hide encrypted / token-soup reasoning until a readable summary lands. */
+export function isReadableThought(text: string): boolean {
+  const t = text.replace(/\s+/g, ' ').trim()
+  if (!t) return false
+  if (/[\u0000-\u0008\uFFFD]/.test(t)) return false
+  const letters = (t.match(/\p{L}/gu) || []).length
+  const cjk = (t.match(/\p{Script=Han}/gu) || []).length
+  const spaces = (t.match(/\s/g) || []).length
+  const words = t.split(/\s+/).filter((w) => /\p{L}{2,}/u.test(w)).length
+  if (cjk >= 8 || (t.length > 0 && cjk / t.length >= 0.3)) return true
+  if (t.length < 28) {
+    return /\p{L}/u.test(t) && !/^[A-Za-z0-9+/_=-]{16,}$/.test(t.replace(/\s/g, ''))
+  }
+  if (spaces === 0 && /^[A-Za-z0-9+/_=-]+$/.test(t)) return false
+  if (t.length >= 40 && words < 3 && spaces / t.length < 0.05) return false
+  if (letters / Math.max(t.length, 1) < 0.28) return false
+  return true
+}
+
 function buildSegments(events: ChatEvent[]): MessageThinkingSegment[] {
   const segments: MessageThinkingSegment[] = []
   let thoughtBuf = ''
@@ -154,7 +173,7 @@ function buildSegments(events: ChatEvent[]): MessageThinkingSegment[] {
   const flushThought = () => {
     const text = thoughtBuf.replace(/\s+$/u, '').trim()
     thoughtBuf = ''
-    if (!text) return
+    if (!text || !isReadableThought(text)) return
     const prev = segments[segments.length - 1]
     if (prev?.kind === 'thought' && prev.text) {
       // Merge consecutive thought chunks (delta stream + summary settle).
@@ -234,8 +253,10 @@ export function liveReasoningText(events: ChatEvent[] = []): string {
       }
     }
   }
-  const out = buf.trim() || lastSummary
-  return out.slice(0, 4000)
+  const deltaText = buf.trim()
+  if (lastSummary && isReadableThought(lastSummary)) return lastSummary.slice(0, 4000)
+  if (deltaText && isReadableThought(deltaText)) return deltaText.slice(0, 4000)
+  return ''
 }
 
 /** Build a public thinking trace from streamed/persisted chat events. */
