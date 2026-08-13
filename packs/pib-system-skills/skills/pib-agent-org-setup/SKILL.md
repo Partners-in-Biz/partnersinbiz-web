@@ -8,7 +8,6 @@ metadata:
   hermes:
     tags: [partnersinbiz, agents, org-chart, setup, provision, multi-org, hermes-profiles, hire]
     related_skills:
-      - pib-agent-org-operations
       - agent-runtime-ops
       - agent-skill-drift-gather
       - pib-system-skill-authoring
@@ -93,8 +92,8 @@ Baseline on almost every specialist: `system-auth`, `collaboration-runtime`, `pr
 
 | Role / agentId | Core ownership skills | Strong additions |
 |---|---|---|
-| pip | `pib-agent-org-setup`, `pib-agent-org-operations`, `platform-ops`, `workflow-graph-operator`, `interactive-project-planning` | gather skills, `content-engine` (route only) |
-| theo | `platform-ops`, `pib-web-api-route-authoring` (repo), `qa-verification-routing`, delivery/deploy skills | `impeccable-design-discipline`, `browser-agent` |
+| pip | `pib-agent-org-setup`, `platform-ops`, `workflow-graph-operator`, `interactive-project-planning` | gather skills, `content-engine` (route only) |
+| theo | `platform-ops`, delivery/deploy skills already on the theo allowlist | `impeccable-design-discipline`, `browser-agent` |
 | theo-fe (if hired) | frontend-focused engineering pack + design discipline | accessibility, UI QA handoff |
 | theo-be (if hired) | APIs, Firestore, auth, infra | release handoff to Quinn |
 | qa-release | QA/release skills, smoke/prod verification | design audit gate awareness |
@@ -224,7 +223,6 @@ Auth: user-delegation Bearer + `X-Org-Id` for the target org. Portal routes use 
 
 ## Related
 
-- `pib-agent-org-operations` — day-to-day chart ops, permissions, task hooks, dual SoT
-- `agent-runtime-ops` — provision/link Hermes profiles, skills apply, health
+- `agent-runtime-ops` — day-to-day chart ops, provision/link Hermes profiles, skills apply, health
 - `agent-skill-drift-gather` — after policy/profile changes
 - `pib-system-skill-authoring` — landing this skill in policy packs
