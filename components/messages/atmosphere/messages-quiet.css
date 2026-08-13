@@ -107,6 +107,10 @@
   box-shadow: none !important;
   padding-left: 0 !important;
   padding-right: 0.875rem !important;
+  /* Base messages-experience.css forces #121214 on .mx-bubble-mine; the
+     transparent (no-background) user bubble needs the same light text as the
+     agent rail, otherwise user messages are illegible on the dark pane. */
+  color: var(--color-pib-text) !important;
 }
 
 [data-messages-experience='quiet-2026'] .mx-bubble-mine::after {
