@@ -118,6 +118,7 @@ import {
   approveWorkbenchSession as approveWorkbenchSessionApi,
   createWorkbenchSession,
   killWorkbenchSession as killWorkbenchSessionApi,
+  listWorkbenchSessions,
   pollWorkbenchSession,
   resizeWorkbenchSession as resizeWorkbenchSessionApi,
   writeWorkbenchSessionStdin,
@@ -3664,6 +3665,57 @@ export default function UnifiedChat({
     setWorkbenchSession(null)
     setWorkbenchSessionHistory([])
   }, [activeId])
+
+  // Rehydrate the terminal panel after a tab switch/remount. The reset above
+  // drops client-local session state, but the server durably persists live
+  // sessions, so on re-entering a conversation we restore the latest still-active
+  // one (and its buffered transcript) instead of forcing "Not started" again.
+  useEffect(() => {
+    if (!activeId) return
+    let cancelled = false
+    const controller = new AbortController()
+    workbenchSessionAbortRef.current = controller
+    void (async () => {
+      try {
+        const sessions = await listWorkbenchSessions(activeId, { signal: controller.signal })
+        if (cancelled) return
+        const active = sessions.filter((s) => !WORKBENCH_SESSION_TERMINAL_STATUSES.has(s.status))
+        if (active.length === 0) return
+        // Most recently updated first — the panel should show the session the user was just using.
+        const ordered = [...active].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        const latest = ordered[0]
+        applyWorkbenchSessionUpdate(latest)
+        setWorkbenchSessionHistory(
+          ordered.slice(1).map((s) => ({
+            sessionId: s.sessionId,
+            status: s.status,
+            transcript: appendWorkbenchSessionOutput({ text: '', lastSeq: -1 }, s).text,
+            exitCode: s.exitCode ?? null,
+            error: s.error ?? null,
+            busy: false,
+          })),
+        )
+        // Resume the poll loop for a session that is actually alive (claimed/running),
+        // so its transcript keeps streaming after restore.
+        if (!WORKBENCH_SESSION_TERMINAL_STATUSES.has(latest.status) && latest.status !== 'awaiting_approval') {
+          await pollWorkbenchSession(activeId, latest.sessionId, {
+            signal: controller.signal,
+            onProgress: applyWorkbenchSessionUpdate,
+          })
+        }
+      } catch (error) {
+        if (cancelled) return
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        // Non-fatal: leave the panel on the "Not started" state rather than
+        // erroring the whole chat. The user can still Start a fresh session.
+        console.error('[workbench-session-restore-failed]', error)
+      }
+    })()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [activeId, applyWorkbenchSessionUpdate])
 
   /**
    * Merges a tunnel snapshot into view state — mirrors `applyWorkbenchSessionUpdate` above.
@@ -9033,9 +9085,16 @@ export default function UnifiedChat({
                 title="Design commands (polish, typeset, layout, colorize, audit, …)"
                 aria-label="Design commands"
                 aria-expanded={designMenuOpen}
+                aria-pressed={selectedSlashCommand?.executorKind === 'design_command'}
                 aria-haspopup="menu"
                 disabled={!canUseComposer || sending}
-                className="flex items-center justify-center w-9 h-9 rounded-full text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.08] transition-colors aria-disabled:opacity-40 shrink-0 cursor-pointer aria-disabled:cursor-not-allowed disabled:opacity-40"
+                data-active={designMenuOpen || selectedSlashCommand?.executorKind === 'design_command' || undefined}
+                className={[
+                  'flex items-center justify-center w-9 h-9 rounded-full transition-colors shrink-0 cursor-pointer aria-disabled:cursor-not-allowed disabled:opacity-40',
+                  designMenuOpen || selectedSlashCommand?.executorKind === 'design_command'
+                    ? 'bg-primary/15 text-primary ring-1 ring-primary/45'
+                    : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] hover:bg-white/[0.08]',
+                ].join(' ')}
               >
                 <span className="material-symbols-outlined text-[20px]">palette</span>
               </button>

@@ -123,36 +123,47 @@ Override via `PIB_API_BASE` env var for local dev. Default to production.
 
 When scheduling content **for Partners in Biz itself** (not a client), use `orgId: pib-platform-owner` and these account IDs:
 
+Company social keep-list (Peet 2026-08-12; only these belong on Marketing → company social):
+
 | Platform | Account ID | Type | Notes |
 |---|---|---|---|
-| facebook | `l0DPTxi8xGFX4oLwOK8c` | PIB page | "PIB" — the business page. Always use this, not the personal FB. |
-| instagram | `kZFWPdCXR7HiZgTJrmJF` | personal | active |
-| linkedin | `z6jekgWOpRJs229kbd4I` | personal | company page pending CMA approval — use personal until approved |
-| twitter | `I478D32VOu4rm7a2utoS` | personal | @PeetStander |
-| bluesky | `rlyjv3dl2Wvdm33fVrpH` | personal | partnersinbiz.bsky.social |
-| pinterest | `uTV7yaJEaRyU4GFTJZqR` | business | peetstander0223 |
-| youtube | `aGqyvID6ub8nOu8J7owY` | personal | AI Daily Clips — confirm with Peet before scheduling here |
+| facebook | `l0DPTxi8xGFX4oLwOK8c` | PIB page | "PIB" business page |
+| instagram | `SsalOoRpMg3pkFurrCKW` | business | Partners in Biz |
+| bluesky | `rlyjv3dl2Wvdm33fVrpH` | personal | partnersinbiz.bsky.social — brand handle, keep |
 
-**Stale / wrong-org accounts to ignore:**
-- `9UILwCn9bUtiyJbFScAP` (twitter, disconnected)
-- `BbxrEsnmq4GGVphenm3l` (facebook "Omni Platform", wrong org)
-- `Kod7W9yQ6h6QStYtKcKc` (facebook "Petrus Stander", personal — not for marketing)
+Personal-workspace copies (do not disconnect; do not show on company social):
+- `oFwrmGSpMClnlgrCwkqR` X / Peet
+- `sPOlXsT1YjYhvtZnRFCq` LinkedIn / Peet
+
+Disconnected from company social 2026-08-12 (do not reconnect, do not campaign):
+- `wvbLLRg2mzdrTRcFRPB0` YouTube Capital Gains
+- `aGqyvID6ub8nOu8J7owY` YouTube AI Daily Clips
+- `uTV7yaJEaRyU4GFTJZqR` Pinterest peetstander0223
+- `BbxrEsnmq4GGVphenm3l` Facebook Omni Platform
+- `kZFWPdCXR7HiZgTJrmJF` Instagram placeholder
+- `9UILwCn9bUtiyJbFScAP` Twitter leftover
+
+Hide from company social (staff/personal twins; do not disconnect personal-workspace copies):
+- `I478D32VOu4rm7a2utoS` X Peet org twin
+- `z6jekgWOpRJs229kbd4I` LinkedIn Peet org twin
+- `Kod7W9yQ6h6QStYtKcKc` Facebook Petrus Stander
+- `DoSNwHvOI6Q3CmBREAPe` LinkedIn Stean
+- `Wf2bCTtxplgaM7SkRzG8` X Stean
 
 ### Default campaign platform coverage
 
-When creating a new campaign for Partners in Biz, include **all 6 active marketing platforms** unless a platform is explicitly excluded:
+When creating a new campaign for Partners in Biz company social, use only the keep-list unless Peet adds a platform:
 
 ```
-platforms: ["facebook", "instagram", "linkedin", "twitter", "bluesky", "pinterest"]
+platforms: ["facebook", "instagram", "bluesky"]
 accountIds: [
   "l0DPTxi8xGFX4oLwOK8c",  // Facebook PIB page
-  "kZFWPdCXR7HiZgTJrmJF",  // Instagram
-  "z6jekgWOpRJs229kbd4I",   // LinkedIn personal (company page pending)
-  "I478D32VOu4rm7a2utoS",   // Twitter
-  "rlyjv3dl2Wvdm33fVrpH",   // Bluesky
-  "uTV7yaJEaRyU4GFTJZqR"   // Pinterest
+  "SsalOoRpMg3pkFurrCKW",  // Instagram Partners in Biz
+  "rlyjv3dl2Wvdm33fVrpH"   // Bluesky partnersinbiz
 ]
 ```
+
+Do not schedule company campaigns to Pinterest, YouTube, personal X, personal LinkedIn, or Omni. Company LinkedIn page connect is still pending (task iNjmiaUvvBl3fjj9EMFF).
 
 ### Platform-specific content guidelines (PiB campaigns)
 

@@ -190,6 +190,32 @@ export async function getWorkbenchSession(
   }
 }
 
+/**
+ * Lists this user's own, context-bound, still-active sessions for a
+ * conversation. Used to rehydrate the terminal panel after a tab switch or
+ * remount — the server durably persists live sessions, so returning to a
+ * conversation should bring the active session back instead of resetting to
+ * "Not started".
+ */
+export async function listWorkbenchSessions(
+  conversationId: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<PublicWorkbenchSession[]> {
+  try {
+    const response = await fetch(workbenchSessionsBase(conversationId), {
+      cache: 'no-store',
+      signal: options.signal,
+    })
+    const body = await response.json().catch(() => null) as { data?: PublicWorkbenchSession[]; error?: string } | null
+    if (!response.ok || !Array.isArray(body?.data)) {
+      throw new Error(body?.error || `Workbench session list request failed (${response.status})`)
+    }
+    return body.data
+  } catch (error) {
+    throw humanizeWorkbenchSessionError(error, 'Unable to list workbench sessions')
+  }
+}
+
 /** Approves an `awaiting_approval` session so a device will spawn the pty. */
 export async function approveWorkbenchSession(
   conversationId: string,

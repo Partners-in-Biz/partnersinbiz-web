@@ -1,9 +1,14 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
+import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 import { apiError, apiSuccess } from '@/lib/api/response'
 import type { ApiUser } from '@/lib/api/types'
-import { authorizeWorkbenchConversation, WorkbenchAuthorizationError } from '@/lib/messages/workbench/authorization'
-import { createWorkbenchSession, type CreateWorkbenchSessionInput } from '@/lib/messages/workbench/session-store'
+import {
+  authorizeWorkbenchConversation,
+  isWorkbenchSessionOwnedByContext,
+  WorkbenchAuthorizationError,
+} from '@/lib/messages/workbench/authorization'
+import { createWorkbenchSession, listActiveSessionsForConversation, type CreateWorkbenchSessionInput } from '@/lib/messages/workbench/session-store'
 import {
   publicWorkbenchSession,
   resolveWorkbenchSessionShell,
@@ -80,3 +85,44 @@ export const POST = withAuth('client', async (request: NextRequest, user: ApiUse
   const { convId } = await (context as Context).params
   return handleCreateWorkbenchSession(request, user, convId)
 })
+
+type ListDependencies = {
+  authorize: (user: ApiUser, conversationId: string) => Promise<RouteAuthorization>
+  list: (conversationId: string) => Promise<Awaited<ReturnType<typeof listActiveSessionsForConversation>>>
+}
+
+export async function handleListWorkbenchSessions(
+  _request: NextRequest,
+  user: ApiUser,
+  conversationId: string,
+  dependencies: ListDependencies = { authorize: authorizeWorkbenchConversation, list: listActiveSessionsForConversation },
+): Promise<Response> {
+  try {
+    const authorization = await dependencies.authorize(user, conversationId)
+    if (user.role !== 'admin' && user.role !== 'client') return apiError('Forbidden', 403)
+    // Return only this user's own, context-bound, still-active sessions so the
+    // client can rehydrate the terminal panel after a tab switch/remount. The
+    // store already filters terminal statuses; ownership is narrowed here so a
+    // list request never leaks another actor's or device binding's sessions.
+    const owned = (await dependencies.list(conversationId))
+      .filter((session) => isWorkbenchSessionOwnedByContext(session, user, conversationId, authorization))
+      .map(publicWorkbenchSession)
+    return apiSuccess(owned)
+  } catch (error) {
+    if (error instanceof WorkbenchAuthorizationError) return apiError(error.message, error.status)
+    console.error('[workbench-session-list-failed]', error)
+    return apiError('Unable to list workbench sessions', 500)
+  }
+}
+
+const listWorkbenchSessionsHandler = withAuth('client', async (request: NextRequest, user: ApiUser, context?: unknown) => {
+  const { convId } = await (context as Context).params
+  return handleListWorkbenchSessions(request, user, convId)
+})
+
+export const GET = (request: NextRequest, context?: unknown) =>
+  runWithFirestoreReadAudit(
+    'api/v1/conversations/:id/workbench/sessions:list',
+    () => listWorkbenchSessionsHandler(request, context),
+    { logEveryRun: true },
+  )
