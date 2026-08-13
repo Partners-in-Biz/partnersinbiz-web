@@ -1,4 +1,5 @@
 jest.mock('../../../services/agent-watcher/src/repository-isolation', () => ({
+  ...jest.requireActual('../../../services/agent-watcher/src/repository-isolation'),
   prepareWatcherTaskWorktree: jest.fn(async ({ taskId }: { taskId: string }) => ({
     ok: true,
     taskId,
@@ -76,6 +77,7 @@ import { claimTask, claimReviewTask, startHeartbeat } from '../../../services/ag
 import { db } from '../../../services/agent-watcher/src/firestore'
 import { runAndPoll } from '../../../services/agent-watcher/src/hermes'
 import { verifyCleanWatcherWorktree, verifyReachableDevelopmentCommit } from '../../../services/agent-watcher/src/completion-integrity'
+import { prepareWatcherTaskWorktree } from '../../../services/agent-watcher/src/repository-isolation'
 import {
   dispatchReview,
   dispatchTask,
@@ -93,6 +95,10 @@ const startHeartbeatMock = startHeartbeat as jest.Mock
 const runAndPollMock = runAndPoll as jest.Mock
 const verifyCleanWatcherWorktreeMock = verifyCleanWatcherWorktree as jest.Mock
 const verifyReachableDevelopmentCommitMock = verifyReachableDevelopmentCommit as jest.Mock
+const prepareWatcherTaskWorktreeMock = prepareWatcherTaskWorktree as jest.Mock
+
+const PIB_WEBSITE_PROJECT_ID = 'UhlEQl2fsZbhfAcnKmt2'
+const SAG_MOBILE_PROJECT_ID = 'IKZxZvKIyr21yMhYywNJ'
 
 describe('agent watcher transient Hermes errors', () => {
   it('treats a gateway-lost run as retryable after an upstream outage', () => {
@@ -537,7 +543,12 @@ describe('agent watcher dispatchTask', () => {
     verifyReachableDevelopmentCommitMock.mockResolvedValue(false)
 
     await dispatchTask(taskRef as never, {
-      orgId: 'org-1', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', title: 'Ship integrity control',
+      orgId: 'org-1',
+      projectId: PIB_WEBSITE_PROJECT_ID,
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Ship integrity control',
     })
 
     expect(verifyReachableDevelopmentCommitMock).toHaveBeenCalledWith('b'.repeat(40))
@@ -569,7 +580,12 @@ describe('agent watcher dispatchTask', () => {
     verifyCleanWatcherWorktreeMock.mockResolvedValue(false)
 
     await dispatchTask(taskRef as never, {
-      orgId: 'org-1', assigneeAgentId: 'theo', agentStatus: 'pending', columnId: 'todo', title: 'Ship integrity control',
+      orgId: 'org-1',
+      projectId: PIB_WEBSITE_PROJECT_ID,
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Ship integrity control',
     })
 
     expect(taskRef.update).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -578,6 +594,56 @@ describe('agent watcher dispatchTask', () => {
       reviewStatus: 'changes-requested',
       completionIntegrityFailureReasons: expect.arrayContaining(['watcher_worktree_state_conflicts_with_done']),
       completionVerification: expect.objectContaining({ verifierIdentity: 'agent-watcher', verifierResult: 'failed', worktreeClean: false }),
+    }))
+  })
+
+  it('isolates PiB website cards against the platform monorepo and skips that lock for SA Gun Auctions', async () => {
+    const pibTask = makeTaskRef()
+    await dispatchTask(pibTask as never, {
+      orgId: 'org-1',
+      projectId: PIB_WEBSITE_PROJECT_ID,
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: 'Ship platform isolation',
+    })
+    expect(prepareWatcherTaskWorktreeMock).toHaveBeenCalledTimes(1)
+
+    prepareWatcherTaskWorktreeMock.mockClear()
+    verifyReachableDevelopmentCommitMock.mockResolvedValue(false)
+    verifyCleanWatcherWorktreeMock.mockResolvedValue(false)
+    const sagTask = makeTaskRef([], {
+      projectId: SAG_MOBILE_PROJECT_ID,
+      completionEvidence: {
+        schemaVersion: 1,
+        workKind: 'code',
+        commitSha: 'd'.repeat(40),
+        changedFiles: ['src/screens/BiddingScreen.tsx'],
+        testCommand: 'npm test -- bidding',
+        testResult: 'passed',
+        worktreeState: 'clean',
+      },
+    })
+    await dispatchTask(sagTask as never, {
+      orgId: 'org-1',
+      projectId: SAG_MOBILE_PROJECT_ID,
+      assigneeAgentId: 'theo',
+      agentStatus: 'pending',
+      columnId: 'todo',
+      title: '5.2 Bidding',
+    })
+
+    expect(prepareWatcherTaskWorktreeMock).not.toHaveBeenCalled()
+    expect(verifyReachableDevelopmentCommitMock).not.toHaveBeenCalled()
+    expect(verifyCleanWatcherWorktreeMock).not.toHaveBeenCalled()
+    expect(sagTask.update).toHaveBeenLastCalledWith(expect.objectContaining({
+      agentStatus: 'done',
+      completionVerification: expect.objectContaining({
+        verifierIdentity: 'agent-watcher',
+        verifierResult: 'passed',
+        commitReachable: null,
+        worktreeClean: null,
+      }),
     }))
   })
 

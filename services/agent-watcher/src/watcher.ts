@@ -40,7 +40,7 @@ import { buildSurfaceModePromptBlock } from './surface-modes'
 import { notifyCommandSessionFromTask } from './command-session'
 import { buildCompletionArtifacts, notifyWorkflowGraphTerminal } from './workflow-writeback'
 import { buildWatcherPromptBudget } from './prompt-budget'
-import { prepareWatcherTaskWorktree, type WatcherWorktreeResult } from './repository-isolation'
+import { prepareWatcherTaskWorktree, usesPlatformRepoIsolation, type WatcherWorktreeResult } from './repository-isolation'
 import {
   decideAutomaticRequeue,
   isGatewayRestartStormError,
@@ -1129,12 +1129,13 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     let result: Awaited<ReturnType<typeof runAndPoll>>
     let effectiveDispatchInput = dispatchInput
     let effectiveCfg = cfg
-    // VPS-dispatched Kanban tasks that may mutate a repository are isolated
-    // in a task-scoped Git worktree before Hermes is called. Linked-computer
-    // jobs are isolated by the runtime worker instead, so this only runs
-    // when there is no linked target and the watcher dispatches directly.
+    // VPS-dispatched Kanban tasks that may mutate the PiB platform monorepo
+    // are isolated in a task-scoped Git worktree before Hermes is called.
+    // Linked-computer jobs are isolated by the runtime worker instead.
+    // Client product boards (SAG, Loyalty Plus, …) keep their own checkouts
+    // and must not share or inspect PIB_REPO_ROOT — dirt there is not their lock.
     let watcherWorktree: WatcherWorktreeResult | null = null
-    if (!linkedTarget && taskData.projectId) {
+    if (!linkedTarget && usesPlatformRepoIsolation(taskData.projectId)) {
       const repoRoot = process.env.PIB_REPO_ROOT || process.cwd()
       try {
         watcherWorktree = await prepareWatcherTaskWorktree({
@@ -1385,13 +1386,14 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
     const completionTask = (completionSnap?.data() ?? taskData) as TaskData
     const completionFingerprint = completionStateFingerprint(completionTask)
     const completionEvidence = validateCompletionEvidence(completionTask.completionEvidence)
-    const commitReachable = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
+    const verifyAgainstPlatformRepo = usesPlatformRepoIsolation(completionTask.projectId ?? taskData.projectId)
+    const commitReachable = verifyAgainstPlatformRepo && completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
       ? await verifyReachableDevelopmentCommit(completionEvidence.evidence.commitSha!)
       : null
-    const changedFilesMatch = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
+    const changedFilesMatch = verifyAgainstPlatformRepo && completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
       ? await verifyChangedFilesMatchCommit(completionEvidence.evidence.commitSha!, completionEvidence.evidence.changedFiles)
       : null
-    const worktreeClean = completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
+    const worktreeClean = verifyAgainstPlatformRepo && completionEvidence.ok && completionEvidence.evidence.workKind === 'code'
       ? await verifyCleanWatcherWorktree()
       : null
     const completion = assessCompletionIntegrity({
@@ -1400,6 +1402,7 @@ export async function dispatchTask(taskRef: DocumentReference, taskData: TaskDat
       commitReachable,
       changedFilesMatch,
       worktreeClean,
+      verifyAgainstPlatformRepo,
       currentAgentStatus: completionTask.agentStatus,
     })
     // Preserve producer-patched artifacts (merge live store). Never replace with

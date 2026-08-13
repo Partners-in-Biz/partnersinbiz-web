@@ -79,7 +79,7 @@ function reportsUnresolvedWork(summary: string): boolean {
   return /\b(?:unresolved|remaining work|not (?:yet )?(?:committed|pushed|complete|finished)|nothing is committed|cannot complete|still (?:needs|requires)|incomplete)\b/i.test(summary)
 }
 
-export function assessCompletionIntegrity(input: { summary: unknown; evidence: unknown; commitReachable: boolean | null; changedFilesMatch?: boolean | null; worktreeClean?: boolean | null; currentAgentStatus: unknown }): CompletionIntegrityAssessment {
+export function assessCompletionIntegrity(input: { summary: unknown; evidence: unknown; commitReachable: boolean | null; changedFilesMatch?: boolean | null; worktreeClean?: boolean | null; verifyAgainstPlatformRepo?: boolean; currentAgentStatus: unknown }): CompletionIntegrityAssessment {
   const summary = stringValue(input.summary)
   const validation = validateCompletionEvidence(input.evidence)
   if ('reasons' in validation) return { outcome: 'changes-requested', reasons: validation.reasons, evidence: null }
@@ -97,9 +97,13 @@ export function assessCompletionIntegrity(input: { summary: unknown; evidence: u
   } else if (currentAgentStatus && !producerFinishedStatuses.has(currentAgentStatus)) {
     reasons.push(`agent_state_conflicts_with_completion:${currentAgentStatus}`)
   }
-  if (validation.evidence.workKind === 'code' && input.commitReachable !== true) reasons.push('commit_not_reachable_on_origin_development')
-  if (validation.evidence.workKind === 'code' && input.changedFilesMatch !== true) reasons.push('changed_file_list_mismatch_with_commit')
-  if (validation.evidence.workKind === 'code' && input.worktreeClean === false) reasons.push('watcher_worktree_state_conflicts_with_done')
+  // Client product boards (SAG, Loyalty Plus, …) do not share PIB_REPO_ROOT.
+  // Their commits live in their own GitHub trees; a dirty PiB monorepo or a
+  // SHA that is not an ancestor of origin/development must not bounce them.
+  const verifyAgainstPlatformRepo = input.verifyAgainstPlatformRepo !== false
+  if (verifyAgainstPlatformRepo && validation.evidence.workKind === 'code' && input.commitReachable !== true) reasons.push('commit_not_reachable_on_origin_development')
+  if (verifyAgainstPlatformRepo && validation.evidence.workKind === 'code' && input.changedFilesMatch !== true) reasons.push('changed_file_list_mismatch_with_commit')
+  if (verifyAgainstPlatformRepo && validation.evidence.workKind === 'code' && input.worktreeClean === false) reasons.push('watcher_worktree_state_conflicts_with_done')
   if (!reasons.length) return { outcome: 'pass', reasons, evidence: validation.evidence }
   return {
     outcome: reasons.some(reason => reason === 'agent_output_reports_unresolved_work' || reason.startsWith('agent_state_conflicts_with_completion:')) ? 'blocked' : 'changes-requested',

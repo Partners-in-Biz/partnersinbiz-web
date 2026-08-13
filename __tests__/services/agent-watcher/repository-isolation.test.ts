@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { prepareWatcherTaskWorktree } from '../../../services/agent-watcher/src/repository-isolation'
+import { prepareWatcherTaskWorktree, usesPlatformRepoIsolation } from '../../../services/agent-watcher/src/repository-isolation'
 
 function git(cwd: string, args: string[]): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim()
@@ -127,5 +127,29 @@ describe('watcher repository isolation for direct VPS dispatch', () => {
     const result = await prepareWatcherTaskWorktree({ taskId: 'task-branch', repositoryRoot, baseRef: 'HEAD' })
     expect(result).toEqual(expect.objectContaining({ ok: false, code: 'shared_worktree_branch_conflict' }))
     git(repositoryRoot, ['checkout', 'development'])
+  })
+})
+
+describe('usesPlatformRepoIsolation', () => {
+  const original = process.env.PIB_PLATFORM_PROJECT_IDS
+
+  afterEach(() => {
+    if (original === undefined) delete process.env.PIB_PLATFORM_PROJECT_IDS
+    else process.env.PIB_PLATFORM_PROJECT_IDS = original
+  })
+
+  it('isolates only PiB website boards and never SA Gun Auctions', () => {
+    delete process.env.PIB_PLATFORM_PROJECT_IDS
+    expect(usesPlatformRepoIsolation('UhlEQl2fsZbhfAcnKmt2')).toBe(true)
+    expect(usesPlatformRepoIsolation('o9oakSxDgF3iHwlKmW1T')).toBe(true)
+    expect(usesPlatformRepoIsolation('IKZxZvKIyr21yMhYywNJ')).toBe(false)
+    expect(usesPlatformRepoIsolation('project-1')).toBe(false)
+    expect(usesPlatformRepoIsolation(undefined)).toBe(false)
+  })
+
+  it('accepts extra platform project ids from PIB_PLATFORM_PROJECT_IDS', () => {
+    process.env.PIB_PLATFORM_PROJECT_IDS = ' extra-pib ,another '
+    expect(usesPlatformRepoIsolation('extra-pib')).toBe(true)
+    expect(usesPlatformRepoIsolation('IKZxZvKIyr21yMhYywNJ')).toBe(false)
   })
 })

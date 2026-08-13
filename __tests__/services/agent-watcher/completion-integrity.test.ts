@@ -145,6 +145,27 @@ describe('agent completion integrity', () => {
     }))
   })
 
+  it('skips PiB monorepo reachability and dirt checks for client product boards', () => {
+    const result = assessCompletionIntegrity({
+      summary: 'Implementation complete.',
+      evidence: {
+        ...codeEvidence,
+        changedFiles: ['src/screens/BiddingScreen.tsx'],
+        testCommand: 'npm test -- bidding',
+      },
+      commitReachable: false,
+      changedFilesMatch: false,
+      worktreeClean: false,
+      verifyAgainstPlatformRepo: false,
+      currentAgentStatus: 'in-progress',
+    })
+
+    expect(result).toEqual(expect.objectContaining({
+      outcome: 'pass',
+      reasons: [],
+    }))
+  })
+
   it('allows producer-finished done status so the watcher can verify after the agent closeout PATCH', () => {
     const result = assessCompletionIntegrity({
       summary: 'Implementation complete.',

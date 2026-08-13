@@ -201,7 +201,8 @@ When a Kanban task is dispatched directly to VPS Hermes (no linked-computer targ
 - The watcher fetches `origin/development` before creating the worktree (it is the sole VPS writer and already fetches in completion-integrity verification).
 - The isolated `working_directory` is forwarded to Hermes as `working_directory` in the `/v1/runs` POST body, so the agent runs inside the task worktree instead of the shared checkout.
 - A blocked preflight (`TASK_WORKTREE_BLOCKED:<code>`) moves the task to `blocked` without dispatching Hermes. The shared checkout is never stashed, rebased, or overwritten.
-- Non-repository tasks (no `projectId`) skip the preflight and dispatch normally.
+- Only PiB platform boards isolate against that checkout: `PIB - Website` (`UhlEQl2fsZbhfAcnKmt2`) and `Website` (`o9oakSxDgF3iHwlKmW1T`), plus any ids in `PIB_PLATFORM_PROJECT_IDS`. Client product boards (SA Gun Auctions `IKZxZvKIyr21yMhYywNJ`, Loyalty Plus, and other Cowork trees) skip the preflight and skip PiB-monorepo completion checks so dirt in one tree cannot block the other.
+- Non-repository tasks (no `projectId`) also skip the preflight and dispatch normally.
 
 Deterministic coverage lives in `__tests__/services/agent-watcher/repository-isolation.test.ts` and `__tests__/services/agent-watcher/hermes.test.ts`. Run:
 

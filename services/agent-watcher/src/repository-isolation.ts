@@ -48,6 +48,29 @@ export type WatcherWorktreeResult = WatcherWorktreeReady | WatcherWorktreeBlocke
 const TASK_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/
 const TASK_BRANCH_PREFIX = 'pib-task/'
 
+/**
+ * Kanban projects whose source of truth is the Partners in Biz platform
+ * monorepo (`PIB_REPO_ROOT`). Client product boards — SA Gun Auctions,
+ * Loyalty Plus, and any other registered Cowork tree — must not isolate
+ * or verify against that checkout. Dirt in one tree must not block the other.
+ *
+ * Extra ids can be appended with `PIB_PLATFORM_PROJECT_IDS=id,id`.
+ */
+export const DEFAULT_PLATFORM_REPO_PROJECT_IDS = [
+  'UhlEQl2fsZbhfAcnKmt2', // PIB - Website
+  'o9oakSxDgF3iHwlKmW1T', // Website
+] as const
+
+export function usesPlatformRepoIsolation(projectId: string | null | undefined): boolean {
+  const id = typeof projectId === 'string' ? projectId.trim() : ''
+  if (!id) return false
+  const extra = (process.env.PIB_PLATFORM_PROJECT_IDS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+  return new Set<string>([...DEFAULT_PLATFORM_REPO_PROJECT_IDS, ...extra]).has(id)
+}
+
 function taskBranch(taskId: string): string {
   return `${TASK_BRANCH_PREFIX}${taskId}`
 }
