@@ -1590,6 +1590,25 @@ describe('UnifiedChat responsive Sessions focus mode', () => {
     fireEvent.click(search)
     await waitFor(() => expect(screen.getByRole('searchbox', { name: 'Filter conversations' })).toHaveFocus())
   })
+
+  it('does not stack a second Messages header in compact mobile side-chat', async () => {
+    installViewport(390)
+    installConversationFetch()
+    render(
+      <UnifiedChat
+        compact
+        orgId="org-1"
+        orgName="Partners in Biz"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+      />,
+    )
+
+    expect(await screen.findByRole('button', { name: /new conversation/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Browse sessions' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Close sessions' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Session browser' })).not.toBeInTheDocument()
+  })
 })
 
 describe('UnifiedChat message scrolling', () => {

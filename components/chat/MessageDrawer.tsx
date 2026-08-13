@@ -97,7 +97,7 @@ export function MessageDrawer({
       {open && orgId && drawerPortalTarget && createPortal(
         <div className="fixed right-0 top-0 z-[80] h-dvh w-full md:w-[clamp(420px,34vw,560px)]">
           <aside className="flex h-full min-h-0 w-full flex-col border-l border-[var(--color-pib-line)] bg-[var(--color-pib-bg)] shadow-2xl">
-            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--color-pib-line)] px-4">
+            <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--color-pib-line)] px-4" data-testid="message-drawer-header">
               <div className="flex-1 min-w-0">
                 <p className="eyebrow !text-[10px]">Messages</p>
                 {orgName && (
@@ -112,7 +112,7 @@ export function MessageDrawer({
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
-            </div>
+            </header>
             <div className="flex min-h-0 flex-1 overflow-hidden">
               <UnifiedChat
                 orgId={orgId}

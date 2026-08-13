@@ -154,4 +154,34 @@ describe('ModelProviderPicker', () => {
     expect(screen.getByRole('dialog', { name: 'Choose model and provider' })).toHaveClass('bottom-full')
     expect(screen.getByTestId('model-provider-options')).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto')
   })
+
+  it('opens a full-width high-contrast sheet on mobile', () => {
+    window.matchMedia = jest.fn().mockImplementation((query: string) => ({
+      matches: query.includes('max-width: 767px'),
+      media: query,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    }))
+
+    render(
+      <ModelProviderPicker
+        catalog={catalog}
+        selected={null}
+        compact
+        placement="top"
+        onSelect={jest.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Select model and provider/i }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Choose model and provider' })
+    expect(dialog).toHaveAttribute('data-presentation', 'sheet')
+    expect(dialog.className).toContain('inset-x-0')
+    expect(dialog.className).toContain('bg-[#161616]')
+    expect(screen.getByRole('button', { name: 'Dismiss model picker' })).toBeInTheDocument()
+  })
 })

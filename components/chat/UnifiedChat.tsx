@@ -1742,8 +1742,10 @@ export default function UnifiedChat({
     const overlayMedia = window.matchMedia('(max-width: 1279px)')
     const tabletMedia = window.matchMedia('(min-width: 1024px) and (max-width: 1279px)')
     const update = () => {
-      setSessionsOverlayViewport(overlayMedia.matches)
-      setTabletSessionsDrawer(tabletMedia.matches)
+      // Compact side-chat already has a drawer header/close. Do not stack a
+      // second full-screen sessions overlay on top of it.
+      setSessionsOverlayViewport(!compact && overlayMedia.matches)
+      setTabletSessionsDrawer(!compact && tabletMedia.matches)
     }
     update()
     overlayMedia.addEventListener?.('change', update)
@@ -1752,7 +1754,7 @@ export default function UnifiedChat({
       overlayMedia.removeEventListener?.('change', update)
       tabletMedia.removeEventListener?.('change', update)
     }
-  }, [])
+  }, [compact])
   const historyDraftRef = useRef('')
   // Tracks which assistant message IDs we've already started polling for (prevents duplicates)
   const resumedRunsRef = useRef<Set<string>>(new Set())
@@ -3994,7 +3996,7 @@ export default function UnifiedChat({
   /**
    * Design Mode drive: the panel reports a point as a percentage of the frame it
    * is showing, which maps onto the session's own viewport (the frame is a
-   * screenshot of exactly that viewport) rather than onto the rendered <img>.
+   * screenshot of exactly that viewport) rather than onto the rendered image.
    */
   const clickWorkbenchBrowserSessionAt = useCallback(async (xPct: number, yPct: number) => {
     if (!activeId || !workbenchBrowserSession?.sessionId) return
@@ -7106,9 +7108,11 @@ export default function UnifiedChat({
             : 'pib-card min-h-0 min-w-0 flex-col gap-2 overflow-hidden flex-1 p-3',
           compact ? '!rounded-none !border-0 !bg-transparent' : 'xl:flex max-xl:!rounded-none max-xl:!border-0 max-xl:!bg-transparent',
           showListOnMobile
-            ? tabletSessionsDrawer
-              ? 'flex fixed inset-y-0 left-0 z-50 w-[min(380px,42vw)] rounded-none bg-[var(--color-surface,#151515)] pl-[max(.75rem,env(safe-area-inset-left))] pr-[max(.75rem,env(safe-area-inset-right))] pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] shadow-2xl xl:static xl:w-auto xl:shadow-none'
-              : 'flex max-xl:fixed max-xl:inset-0 max-xl:z-50 max-xl:rounded-none max-xl:bg-[var(--color-surface,#151515)] max-xl:pl-[max(.75rem,env(safe-area-inset-left))] max-xl:pr-[max(.75rem,env(safe-area-inset-right))] max-xl:pb-[max(.75rem,env(safe-area-inset-bottom))] max-xl:pt-[max(.75rem,env(safe-area-inset-top))]'
+            ? compact
+              ? 'flex h-full min-h-0'
+              : tabletSessionsDrawer
+                ? 'flex fixed inset-y-0 left-0 z-50 w-[min(380px,42vw)] rounded-none bg-[var(--color-surface,#151515)] pl-[max(.75rem,env(safe-area-inset-left))] pr-[max(.75rem,env(safe-area-inset-right))] pb-[max(.75rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] shadow-2xl xl:static xl:w-auto xl:shadow-none'
+                : 'flex max-xl:fixed max-xl:inset-0 max-xl:z-50 max-xl:rounded-none max-xl:bg-[var(--color-surface,#151515)] max-xl:pl-[max(.75rem,env(safe-area-inset-left))] max-xl:pr-[max(.75rem,env(safe-area-inset-right))] max-xl:pb-[max(.75rem,env(safe-area-inset-bottom))] max-xl:pt-[max(.75rem,env(safe-area-inset-top))]'
             : 'hidden',
         ].join(' ')}
       >
@@ -7137,7 +7141,25 @@ export default function UnifiedChat({
           </div>
         )}
         <div className={railCollapsed ? 'hidden' : 'contents'}>
-        <div className="mb-1 flex min-h-11 items-center justify-between xl:hidden"><div><p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">Messages</p><h2 className="text-base font-semibold text-[var(--color-pib-text)]">Browse sessions</h2></div>{activeConversation && <button ref={mobileSessionsCloseRef} type="button" aria-label="Close sessions" onClick={closeSessions} className="grid h-11 w-11 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"><span aria-hidden="true" className="material-symbols-outlined">close</span></button>}</div>
+        {!compact ? (
+          <div className="mb-1 flex min-h-11 items-center justify-between xl:hidden">
+            <div>
+              <p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">Messages</p>
+              <h2 className="text-base font-semibold text-[var(--color-pib-text)]">Browse sessions</h2>
+            </div>
+            {activeConversation && (
+              <button
+                ref={mobileSessionsCloseRef}
+                type="button"
+                aria-label="Close sessions"
+                onClick={closeSessions}
+                className="grid h-11 w-11 place-items-center rounded-full text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined">close</span>
+              </button>
+            )}
+          </div>
+        ) : null}
         {/* non-hermes: full-width New conversation CTA above the list */}
         {!hermesLayout && (
           <button
@@ -9402,6 +9424,7 @@ export default function UnifiedChat({
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="e.g. Q3 campaign planning"
+                  aria-label="Conversation title"
                   className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)] outline-none focus:border-primary/60"
                 />
               </div>
@@ -9607,6 +9630,7 @@ export default function UnifiedChat({
                       Visibility
                     </label>
                     <select
+                      aria-label="Visibility"
                       value={selectedWorkspaceShareMode}
                       onChange={(e) => {
                         selectedWorkspaceShareModeTouchedRef.current = true
@@ -9720,6 +9744,7 @@ export default function UnifiedChat({
                               type="text"
                               value={projectSetupName}
                               onChange={(event) => setProjectSetupName(event.target.value)}
+                              aria-label="Project name"
                               className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60"
                             />
                           </label>
@@ -9729,6 +9754,7 @@ export default function UnifiedChat({
                               <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Current organisation runtime access</span>
                               <select
                                 value={projectSetupWorkspaceId}
+                                aria-label="Current organisation runtime access"
                                 onChange={(event) => {
                                   setProjectSetupWorkspaceId(event.target.value)
                                   setProjectSetupLocationIds([])
@@ -9752,6 +9778,7 @@ export default function UnifiedChat({
                                 <span className="mb-1 block text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Registered folder</span>
                                 <select
                                   value={projectSetupWorkspaceFolderId}
+                                  aria-label="Registered folder"
                                   onChange={(event) => setProjectSetupWorkspaceFolderId(event.target.value)}
                                   disabled={registeredWorkspaceFoldersLoading || registeredWorkspaceFolders.length === 0}
                                   className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60 disabled:opacity-60"
@@ -9843,15 +9870,15 @@ export default function UnifiedChat({
                               </p>
                               <label className="block text-xs text-[var(--color-pib-text)]">
                                 <span className="mb-1 block">Client name</span>
-                                <input type="text" value={projectSetupClientName} onChange={(event) => setProjectSetupClientName(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60" />
+                                <input type="text" value={projectSetupClientName} aria-label="Client name" onChange={(event) => setProjectSetupClientName(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60" />
                               </label>
                               <label className="block text-xs text-[var(--color-pib-text)]">
                                 <span className="mb-1 block">Client domain</span>
-                                <input type="text" value={projectSetupDomainSlug} onChange={(event) => setProjectSetupDomainSlug(event.target.value)} placeholder="client-name" className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60" />
+                                <input type="text" value={projectSetupDomainSlug} aria-label="Client domain" onChange={(event) => setProjectSetupDomainSlug(event.target.value)} placeholder="client-name" className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60" />
                               </label>
                               <label className="block text-xs text-[var(--color-pib-text)]">
                                 <span className="mb-1 block">Agent name</span>
-                                <input type="text" value={projectSetupAgentName} onChange={(event) => setProjectSetupAgentName(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60" />
+                                <input type="text" value={projectSetupAgentName} aria-label="Agent name" onChange={(event) => setProjectSetupAgentName(event.target.value)} className="w-full rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] px-3 py-2 text-sm outline-none focus:border-primary/60" />
                               </label>
                             </div>
                           )}

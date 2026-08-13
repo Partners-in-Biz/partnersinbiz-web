@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MessageDrawer } from '@/components/chat/MessageDrawer'
 
 jest.mock('@/components/chat/UnifiedChat', () => ({
@@ -67,6 +67,10 @@ describe('MessageDrawer', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Open messages' }))
 
+    const header = screen.getByTestId('message-drawer-header')
+    expect(header).toBeInTheDocument()
+    expect(within(header).getAllByRole('button', { name: 'Close messages' })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Close sessions' })).not.toBeInTheDocument()
     expect(handleOpen).toHaveBeenCalledTimes(1)
   })
 
