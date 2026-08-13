@@ -112,7 +112,7 @@ describe('UnifiedChat CRM company Cowork', () => {
       workspaceId: 'partners',
       runtimeTarget: 'partners-vps',
       mappingId: 'partners-vps-workspace',
-      shareMode: 'org',
+      shareMode: 'private',
     })]))
 
     fireEvent.click(await screen.findByRole('button', { name: /new conversation/i }))

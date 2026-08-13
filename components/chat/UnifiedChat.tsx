@@ -827,11 +827,11 @@ function isWorkspaceSharedRuntime(target: WorkspaceRuntimePresence | null | unde
 }
 
 function defaultScopedConversationShareMode(
-  scope: ConversationScope,
-  runtimeTarget: WorkspaceRuntimePresence | null,
+  _scope: ConversationScope,
+  _runtimeTarget: WorkspaceRuntimePresence | null,
 ): ScopedConversationShareMode {
-  if (!isScopedConversation(scope)) return 'private'
-  return isWorkspaceSharedRuntime(runtimeTarget) ? 'org' : 'private'
+  // New chats stay private until the owner explicitly shares them.
+  return 'private'
 }
 
 function normalizedScopedConversationShareMode(
