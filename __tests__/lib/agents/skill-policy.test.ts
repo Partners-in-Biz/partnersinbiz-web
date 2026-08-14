@@ -53,6 +53,7 @@ describe('agent skill policy manifest', () => {
       'platform-ops',
       'agent-runtime-ops',
       'pib-agent-org-setup',
+      'pib-staff-billing-access',
       'platform-admin-users',
       'reports',
       'project-management',
@@ -85,7 +86,7 @@ describe('agent skill policy manifest', () => {
   })
 
   it('assigns the governed Studio workflow to the operators and specialists that use it', () => {
-    expect(AGENT_SKILL_POLICY.agents.pip.runtimeSkills).toEqual(expect.arrayContaining([
+    expect(AGENT_SKILL_POLICY.agents.pip.runtimeSkills).not.toEqual(expect.arrayContaining([
       'studio-context-gather',
       'studio-artifact-orchestrate',
     ]))
@@ -99,7 +100,13 @@ describe('agent skill policy manifest', () => {
       'studio-artifact-orchestrate',
       'studio-artifact-review',
     ]))
-    expect(AGENT_SKILL_POLICY.agents.theo.runtimeSkills).toContain('studio-release-handoff')
+    expect(AGENT_SKILL_POLICY.agents.docs.runtimeSkills).toEqual(expect.arrayContaining([
+      'studio-context-gather',
+      'studio-artifact-orchestrate',
+      'studio-artifact-review',
+      'studio-release-handoff',
+    ]))
+    expect(AGENT_SKILL_POLICY.agents.theo.runtimeSkills).not.toContain('studio-release-handoff')
 
     expect(AGENT_SKILL_POLICY.skillCatalog['studio-context-gather']).toEqual(expect.objectContaining({
       ownerAgentId: 'pip',
@@ -235,7 +242,7 @@ describe('agent skill policy manifest', () => {
     expect(AGENT_SKILL_POLICY.futureAgentCandidates).toEqual([])
   })
 
-  it('grants Pip the governed planning workflow in both runtime and catalog policy', () => {
+  it('keeps the governed planning workflow on Theo runtime and still catalog-allows Pip', () => {
     const planningSkills = [
       'agent-skills/using-agent-skills',
       'agent-skills/interview-me',
@@ -243,26 +250,29 @@ describe('agent skill policy manifest', () => {
       'agent-skills/spec-driven-development',
       'software-development/writing-plans',
     ]
-    expect(AGENT_SKILL_POLICY.agents.pip.runtimeSkills).toEqual(expect.arrayContaining(planningSkills))
+    expect(AGENT_SKILL_POLICY.agents.theo.runtimeSkills).toEqual(expect.arrayContaining(planningSkills))
+    expect(AGENT_SKILL_POLICY.agents.pip.runtimeSkills).not.toEqual(expect.arrayContaining(planningSkills))
     for (const skill of planningSkills) {
       expect(AGENT_SKILL_POLICY.skillCatalog[skill].allowedAgentIds).toContain('pip')
+      expect(AGENT_SKILL_POLICY.skillCatalog[skill].allowedAgentIds).toContain('theo')
     }
   })
 
-  it('gives role owners outreach skills and every profile the analytics baseline', () => {
-    // theo is engineering/infra-only and intentionally excluded from non-engineering
-    // execution skills like email-outreach (see agent-skill-policy narrowing).
-    const sequenceAgents = ['maya', 'nora', 'qa-release', 'support', 'sales']
+  it('gives role owners outreach skills and keeps analytics on the data seats', () => {
+    // Lean core: outreach stays on marketing/ops/sales owners, not QA or support.
+    const sequenceAgents = ['maya', 'nora', 'sales']
     for (const agentId of sequenceAgents) {
       expect(AGENT_SKILL_POLICY.skillCatalog['email-outreach'].allowedAgentIds).toContain(agentId)
       expect(AGENT_SKILL_POLICY.agents[agentId].runtimeSkills).toContain('email-outreach')
     }
 
+    expect(AGENT_SKILL_POLICY.agents['qa-release'].runtimeSkills).not.toContain('email-outreach')
+    expect(AGENT_SKILL_POLICY.agents.support.runtimeSkills).not.toContain('email-outreach')
     expect(AGENT_SKILL_POLICY.agents.data.runtimeSkills).not.toContain('email-outreach')
     expect(AGENT_SKILL_POLICY.agents.theo.runtimeSkills).not.toContain('email-outreach')
     expect(AGENT_SKILL_POLICY.skillCatalog['email-outreach'].allowedAgentIds).not.toContain('theo')
 
-    const performanceAgents = Object.keys(AGENT_SKILL_POLICY.agents)
+    const performanceAgents = ['data', 'ads', 'finance']
     for (const agentId of performanceAgents) {
       expect(AGENT_SKILL_POLICY.skillCatalog.analytics.allowedAgentIds).toContain(agentId)
       expect(AGENT_SKILL_POLICY.skillCatalog['data-analyst'].allowedAgentIds).toContain(agentId)
@@ -271,6 +281,10 @@ describe('agent skill policy manifest', () => {
         'data-analyst',
       ]))
     }
+    expect(AGENT_SKILL_POLICY.agents.pip.runtimeSkills).not.toEqual(expect.arrayContaining([
+      'analytics',
+      'data-analyst',
+    ]))
   })
 
   it('delivers safe daily-workflow v1.2 to every managed agent and the client pack', () => {
@@ -363,31 +377,20 @@ describe('agent skill policy manifest', () => {
   it('classifies fully qualified globals without colliding with PiB skills that share a basename', () => {
     const installed = classifyInstalledSkills([
       'partnersinbiz/system-auth',
-      'partnersinbiz/analytics',
-      'partnersinbiz/ceo-on-demand-gather',
-      'partnersinbiz/client-documents',
-      'partnersinbiz/client-manager',
       'partnersinbiz/collaboration-runtime',
-      'partnersinbiz/crm-sales',
-      'partnersinbiz/data-analyst',
-      'partnersinbiz/daily-workflow',
-      'partnersinbiz/docs-lead',
       'partnersinbiz/evidence-ledger',
-      'partnersinbiz/google-workspace',
-      'partnersinbiz/impeccable-design-discipline',
-      'partnersinbiz/platform-ops',
       'partnersinbiz/project-management',
-      'partnersinbiz/interactive-project-planning',
-      'partnersinbiz/properties',
-      'partnersinbiz/research-intelligence',
-      'partnersinbiz/research/open-notebook',
-      'partnersinbiz/browser-agent',
+      'partnersinbiz/daily-workflow',
+      'partnersinbiz/client-documents',
+      'partnersinbiz/docs-lead',
       'partnersinbiz/studio-artifact-orchestrate',
       'partnersinbiz/studio-artifact-review',
       'partnersinbiz/studio-context-gather',
       'partnersinbiz/studio-release-handoff',
-      'partnersinbiz/agent-skills/interview-me',
-      'partnersinbiz/agent-skills/planning-and-task-breakdown',
+      'partnersinbiz/interactive-project-planning',
+      'partnersinbiz/impeccable-design-discipline',
+      'partnersinbiz/browser-agent',
+      'partnersinbiz/google-workspace',
       'productivity/google-workspace',
       'productivity/powerpoint',
     ])
