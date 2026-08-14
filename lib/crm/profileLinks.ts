@@ -81,10 +81,10 @@ export function sanitizeOtherLinks(value: unknown): ProfileLink[] | undefined {
   return out
 }
 
-export function sanitizeSocialProfiles(value: unknown): Record<SocialProfileKey, string> | undefined {
+export function sanitizeSocialProfiles(value: unknown): Partial<Record<SocialProfileKey, string>> | undefined {
   if (value === undefined) return undefined
   if (!isRecord(value)) return {}
-  const out = {} as Record<SocialProfileKey, string>
+  const out = {} as Partial<Record<SocialProfileKey, string>>
   for (const key of SOCIAL_PROFILE_KEYS) {
     const cleaned = sanitizeProfileUrl(value[key])
     if (cleaned !== undefined) out[key] = cleaned
