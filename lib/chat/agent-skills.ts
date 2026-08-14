@@ -11,15 +11,25 @@ function unique(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value))))
 }
 
+const PIB_SKILL_PREFIX = 'partnersinbiz/'
+
+/** Collapse `partnersinbiz/foo` onto `foo` so the Messages index does not double. */
+export function normalizeAgentSkillName(value: string): string {
+  const trimmed = value.trim()
+  return trimmed.startsWith(PIB_SKILL_PREFIX) ? trimmed.slice(PIB_SKILL_PREFIX.length) : trimmed
+}
+
 export function collectAgentSkillNames(agent?: AgentSkillSource | null): string[] {
   if (!agent) return []
   const policy = agent.skillPolicy
-  return unique([
-    ...(policy?.runtimeSkills ?? []),
-    ...(policy?.pibSkills ?? []),
-    ...(policy?.globalSkills ?? []),
-    ...(agent.skills ?? []),
-  ])
+  return unique(
+    [
+      ...(policy?.runtimeSkills ?? []),
+      ...(policy?.pibSkills ?? []),
+      ...(policy?.globalSkills ?? []),
+      ...(agent.skills ?? []),
+    ].map((value) => (value ? normalizeAgentSkillName(value) : value)),
+  )
 }
 
 export function collectAgentCapabilities(agent?: AgentSkillSource | null): string[] {
