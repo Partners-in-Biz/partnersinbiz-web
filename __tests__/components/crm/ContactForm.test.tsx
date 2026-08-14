@@ -112,5 +112,36 @@ describe('ContactForm', () => {
     expect(screen.getByRole('checkbox', { name: 'Primary contact role for Acme Holdings' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save contact for Acme Holdings' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Cancel contact for Acme Holdings' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Website for Acme Holdings')).toBeInTheDocument()
+    expect(screen.getByLabelText('GitHub for Acme Holdings')).toBeInTheDocument()
+  })
+
+  it('saves website, GitHub, and extra links on the contact', async () => {
+    const onSave = jest.fn().mockResolvedValue(undefined)
+
+    render(
+      <ContactForm
+        onSave={onSave}
+        onCancel={jest.fn()}
+        initial={{
+          name: 'Ava Owner',
+          email: 'ava@example.com',
+          website: 'https://ava.example',
+        }}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('GitHub'), { target: { value: 'https://github.com/ava' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add another link' }))
+    fireEvent.change(screen.getByLabelText('Extra link 1 label'), { target: { value: 'Portfolio' } })
+    fireEvent.change(screen.getByLabelText('Extra link 1 URL'), { target: { value: 'https://ava.dev' } })
+    fireEvent.click(screen.getByRole('button', { name: /Save Contact/i }))
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      website: 'https://ava.example',
+      githubUrl: 'https://github.com/ava',
+      otherLinks: [{ label: 'Portfolio', url: 'https://ava.dev' }],
+    }))
   })
 })

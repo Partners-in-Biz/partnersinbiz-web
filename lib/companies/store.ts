@@ -1,6 +1,7 @@
 // lib/companies/store.ts
 import { adminDb } from '@/lib/firebase/admin'
 import { FieldValue } from 'firebase-admin/firestore'
+import { sanitizeOtherLinks, sanitizeSocialProfiles } from '@/lib/crm/profileLinks'
 import type { Company, CompanyInput } from './types'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 
@@ -195,6 +196,16 @@ export function sanitizeCompanyForWrite(input: Partial<CompanyInput>): Record<st
     }
     if (k === 'purchaseOrderRequired') {
       out[k] = v === true
+      continue
+    }
+    if (k === 'socialProfiles') {
+      const cleaned = sanitizeSocialProfiles(v)
+      if (cleaned !== undefined) out[k] = cleaned
+      continue
+    }
+    if (k === 'otherLinks') {
+      const links = sanitizeOtherLinks(v)
+      if (links !== undefined) out[k] = links
       continue
     }
     out[k] = v

@@ -235,6 +235,40 @@ describe('CompanyEditDrawer', () => {
     expect(screen.queryAllByRole('option', { name: '—' })).toHaveLength(0)
   })
 
+  it('saves social profiles and extra URLs on the company', async () => {
+    const handleSave = jest.fn().mockResolvedValue(undefined)
+    render(
+      <CompanyEditDrawer
+        company={makeCompany({
+          socialProfiles: { linkedin: 'https://linkedin.com/company/acme' },
+        })}
+        mode="edit"
+        onSave={handleSave}
+        onClose={noopClose}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('GitHub'), {
+      target: { value: 'https://github.com/acme' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add another link' }))
+    fireEvent.change(screen.getByLabelText('Extra link 1 label'), { target: { value: 'Docs' } })
+    fireEvent.change(screen.getByLabelText('Extra link 1 URL'), { target: { value: 'https://docs.acme.com' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await waitFor(() => {
+      expect(handleSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          socialProfiles: expect.objectContaining({
+            linkedin: 'https://linkedin.com/company/acme',
+            github: 'https://github.com/acme',
+          }),
+          otherLinks: [{ label: 'Docs', url: 'https://docs.acme.com' }],
+        }),
+      )
+    })
+  })
+
   it('lets users assign an account manager from workspace members instead of typing a raw UID', async () => {
     const handleSave = jest.fn().mockResolvedValue(undefined)
 

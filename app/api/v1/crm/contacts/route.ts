@@ -23,7 +23,7 @@ import type {
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
 import { loadCompany } from '@/lib/companies/store'
-import { cleanContactString, normalizeAgreementRoles } from '@/lib/crm/contacts'
+import { cleanContactString, normalizeAgreementRoles, sanitizeContactForWrite } from '@/lib/crm/contacts'
 import { getDefinitionsForResource } from '@/lib/customFields/store'
 import { validateCustomFields } from '@/lib/customFields/validation'
 import {
@@ -360,6 +360,17 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
   } : undefined)
   if (normalizedCompanyLinks === null) return apiError('Invalid companyLinks', 400)
 
+  const profileFields = sanitizeContactForWrite({
+    website: bodyRaw.website,
+    linkedinUrl: bodyRaw.linkedinUrl,
+    twitterUrl: bodyRaw.twitterUrl,
+    githubUrl: bodyRaw.githubUrl,
+    facebookUrl: bodyRaw.facebookUrl,
+    instagramUrl: bodyRaw.instagramUrl,
+    youtubeUrl: bodyRaw.youtubeUrl,
+    otherLinks: bodyRaw.otherLinks,
+  })
+
   const contactData = {
     orgId,
     capturedFromId,
@@ -371,6 +382,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     ...(agreementRoles !== undefined ? { agreementRoles } : {}),
     company: body.company?.trim() ?? '',
     website: body.website?.trim() ?? '',
+    ...profileFields,
     source: body.source ?? 'manual',
     type: body.type ?? 'lead',
     stage: body.stage ?? 'new',

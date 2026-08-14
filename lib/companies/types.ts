@@ -37,6 +37,8 @@ export interface SocialProfiles {
   twitter?: string
   facebook?: string
   instagram?: string
+  github?: string
+  youtube?: string
 }
 
 export interface Company {
@@ -74,6 +76,7 @@ export interface Company {
   invoiceInstructions?: string
   secondaryAddresses?: CompanyAddress[]
   socialProfiles?: SocialProfiles
+  otherLinks?: Array<{ label: string; url: string }>
   // Branding
   logoUrl?: string        // Firebase Storage upload OR external URL
   // Relationships

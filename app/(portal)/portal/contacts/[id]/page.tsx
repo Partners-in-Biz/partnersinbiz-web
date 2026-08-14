@@ -22,7 +22,17 @@ import { CustomFieldsSection } from '@/components/crm/CustomFieldsSection'
 import { EntityScopedChat } from '@/components/crm/EntityScopedChat'
 import { ScoreChip } from '@/components/crm/ScoreChip'
 import { SystemLinkBadge } from '@/components/crm/SystemLinkBadge'
+import { ProfileLinksFields } from '@/components/crm/ProfileLinksFields'
 import type { CustomFieldDefinition } from '@/lib/customFields/types'
+import {
+  contactPayloadFromValues,
+  contactValuesFromRecord,
+  hrefForProfileUrl,
+  PROFILE_LINK_FIELDS,
+  sanitizeOtherLinks,
+  type ProfileLink,
+  type ProfileLinkFieldValues,
+} from '@/lib/crm/profileLinks'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 
@@ -398,6 +408,8 @@ export default function PortalContactDetailPage() {
   const [jobTitle, setJobTitle] = useState('')
   const [department, setDepartment] = useState('')
   const [website, setWebsite] = useState('')
+  const [profileLinks, setProfileLinks] = useState<ProfileLinkFieldValues>({})
+  const [otherLinks, setOtherLinks] = useState<ProfileLink[]>([])
   const [timezone, setTimezone] = useState('')
   const [source, setSource] = useState('manual')
   const [type, setType] = useState('lead')
@@ -507,6 +519,8 @@ export default function PortalContactDetailPage() {
       setJobTitle(c?.jobTitle ?? '')
       setDepartment(c?.department ?? '')
       setWebsite(c?.website ?? '')
+      setProfileLinks(contactValuesFromRecord(c ?? {}))
+      setOtherLinks(sanitizeOtherLinks(c?.otherLinks) ?? [])
       setTimezone(c?.timezone ?? '')
       setSource(c?.source ?? 'manual')
       setType(c?.type ?? 'lead')
@@ -619,7 +633,8 @@ export default function PortalContactDetailPage() {
         phone: phone.trim(),
         jobTitle: jobTitle.trim(),
         department: department.trim(),
-        website: website.trim(),
+        ...contactPayloadFromValues({ ...profileLinks, website }),
+        otherLinks: sanitizeOtherLinks(otherLinks) ?? [],
         timezone: timezone.trim(),
         source,
         type,
@@ -653,7 +668,8 @@ export default function PortalContactDetailPage() {
               phone: phone.trim(),
               jobTitle: jobTitle.trim(),
               department: department.trim(),
-              website: website.trim(),
+              ...contactPayloadFromValues({ ...profileLinks, website }),
+              otherLinks: sanitizeOtherLinks(otherLinks) ?? [],
               timezone: timezone.trim(),
               source,
               type,
@@ -683,6 +699,8 @@ export default function PortalContactDetailPage() {
     setJobTitle(contact.jobTitle ?? '')
     setDepartment(contact.department ?? '')
     setWebsite(contact.website ?? '')
+    setProfileLinks(contactValuesFromRecord(contact))
+    setOtherLinks(sanitizeOtherLinks(contact.otherLinks) ?? [])
     setTimezone(contact.timezone ?? '')
     setSource(contact.source ?? 'manual')
     setType(contact.type ?? 'lead')
@@ -1254,6 +1272,13 @@ export default function PortalContactDetailPage() {
     department,
     hasLinkedCompany || hasCompanyContext ? companyLabel : '',
     website,
+    profileLinks.linkedin,
+    profileLinks.twitter,
+    profileLinks.github,
+    profileLinks.facebook,
+    profileLinks.instagram,
+    profileLinks.youtube,
+    otherLinks.length > 0 ? otherLinks.map((link) => link.url).join(',') : '',
     timezone,
     source,
     type,
@@ -1406,6 +1431,39 @@ export default function PortalContactDetailPage() {
       onAction: () => focusProfileField(websiteFieldRef),
       needsActionWhenValued: true,
     },
+    ...PROFILE_LINK_FIELDS.filter((field) => field.key !== 'website').flatMap((field) => {
+      const value = String(profileLinks[field.key] ?? '').trim()
+      if (!value) return []
+      return [{
+        label: field.label,
+        value,
+        href: hrefForProfileUrl(value),
+        external: true,
+        empty: `No ${field.label} captured`,
+        actionLabel: `Edit ${field.label}`,
+        actionAriaLabel: `Edit ${field.label} ${value} for ${contactName} from details`,
+        onAction: () => {
+          const input = document.getElementById(`contact-profile-${field.key}`)
+          if (input instanceof HTMLElement) input.focus()
+        },
+        needsActionWhenValued: true,
+      }]
+    }),
+    ...otherLinks.filter((link) => link.label && link.url).map((link) => ({
+      label: link.label,
+      value: link.url,
+      href: hrefForProfileUrl(link.url),
+      external: true,
+      empty: 'No extra link captured',
+      actionLabel: `Edit ${link.label}`,
+      actionAriaLabel: `Edit ${link.label} ${link.url} for ${contactName} from details`,
+      onAction: () => {
+        const idx = otherLinks.findIndex((item) => item.label === link.label && item.url === link.url)
+        const input = document.getElementById(`contact-profile-other-url-${idx >= 0 ? idx : 0}`)
+        if (input instanceof HTMLElement) input.focus()
+      },
+      needsActionWhenValued: true,
+    })),
     {
       label: 'Relationship notes',
       value: notes.trim(),
@@ -2172,6 +2230,23 @@ export default function PortalContactDetailPage() {
                   placeholder="https://..."
                 />
               </div>
+            </div>
+            <div className="space-y-2 pt-1">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-pib-text-muted)] font-mono">
+                Links & profiles
+              </p>
+              <ProfileLinksFields
+                idPrefix="contact-profile"
+                ariaPrefix={`Contact ${contactName}`}
+                includeWebsite={false}
+                values={{ ...profileLinks, website }}
+                otherLinks={otherLinks}
+                onChange={(next) => {
+                  setProfileLinks(next)
+                  if (typeof next.website === 'string') setWebsite(next.website)
+                }}
+                onOtherLinksChange={setOtherLinks}
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">

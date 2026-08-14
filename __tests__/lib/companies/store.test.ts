@@ -73,6 +73,28 @@ describe('lib/companies/store', () => {
       expect(out).toHaveProperty('website', 'https://acme.com')
     })
 
+    it('sanitizes social profiles and extra links', () => {
+      const out = sanitizeCompanyForWrite({
+        name: 'ACME',
+        socialProfiles: {
+          linkedin: '  https://linkedin.com/company/acme  ',
+          github: 'github.com/acme',
+          tiktok: 'https://tiktok.com/@acme',
+          youtube: 'javascript:alert(1)',
+        },
+        otherLinks: [
+          { label: ' Docs ', url: '  docs.acme.com  ' },
+          { label: '', url: 'https://skip.me' },
+        ],
+      } as never)
+      expect(out.socialProfiles).toEqual({
+        linkedin: 'https://linkedin.com/company/acme',
+        github: 'github.com/acme',
+        youtube: '',
+      })
+      expect(out.otherLinks).toEqual([{ label: 'Docs', url: 'docs.acme.com' }])
+    })
+
     it('lowercases + strips protocol from domain', () => {
       const out = sanitizeCompanyForWrite({ name: 'ACME', domain: 'HTTPS://Acme.COM/path', tags: [], notes: '' })
       expect(out.domain).toBe('acme.com')

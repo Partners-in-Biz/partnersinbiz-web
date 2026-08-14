@@ -98,6 +98,10 @@ export interface Contact {
   linkedinUrl?: string
   twitterUrl?: string
   githubUrl?: string
+  facebookUrl?: string
+  instagramUrl?: string
+  youtubeUrl?: string
+  otherLinks?: Array<{ label: string; url: string }>
   // UTM capture-source attribution (US-097 — additive, backward-compatible).
   // Written by the public capture form / lead-capture pipeline; all optional so
   // existing contacts without UTM data continue to work.

@@ -1,6 +1,14 @@
 // components/crm/ContactForm.tsx
 'use client'
 import { useState } from 'react'
+import { ProfileLinksFields } from '@/components/crm/ProfileLinksFields'
+import {
+  contactPayloadFromValues,
+  contactValuesFromRecord,
+  sanitizeOtherLinks,
+  type ProfileLink,
+  type ProfileLinkFieldValues,
+} from '@/lib/crm/profileLinks'
 
 const STAGES = ['new','contacted','replied','demo','proposal','won','lost'] as const
 const TYPES = ['lead','prospect','client','churned'] as const
@@ -28,7 +36,6 @@ type ContactFormState = {
   department: string
   timezone: string
   company: string
-  website: string
   assignedTo: string
   source: string
   type: string
@@ -76,7 +83,6 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
     department: String(initial.department ?? ''),
     timezone: String(initial.timezone ?? ''),
     company: String(initial.company ?? ''),
-    website: String(initial.website ?? ''),
     assignedTo: String(initial.assignedTo ?? ''),
     source: String(initial.source ?? 'manual'),
     type: String(initial.type ?? 'lead'),
@@ -86,6 +92,8 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
     tagsInput: initialTags,
     notes: String(initial.notes ?? ''),
   })
+  const [profileLinks, setProfileLinks] = useState<ProfileLinkFieldValues>(() => contactValuesFromRecord(initial))
+  const [otherLinks, setOtherLinks] = useState<ProfileLink[]>(() => sanitizeOtherLinks(initial.otherLinks) ?? [])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   // Per-field validation errors keyed by field, surfaced inline (US-052).
@@ -127,6 +135,8 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
       const { tagsInput, ...payload } = form
       const result = await onSave({
         ...payload,
+        ...contactPayloadFromValues(profileLinks),
+        otherLinks: sanitizeOtherLinks(otherLinks) ?? [],
         companyId: initial.companyId,
         companyName: initial.companyName,
         tags: splitTags(tagsInput),
@@ -214,7 +224,17 @@ export function ContactForm({ onSave, onCancel, initial = {}, contextName, redir
       </div>
       {field('Timezone', 'timezone')}
       {field('Company', 'company')}
-      {field('Website', 'website')}
+      <div className="flex flex-col gap-2">
+        <p className="text-[10px] font-label uppercase tracking-widest text-[var(--color-pib-text-muted)]">Links & profiles</p>
+        <ProfileLinksFields
+          idPrefix="crm-contact"
+          ariaPrefix={context || undefined}
+          values={profileLinks}
+          otherLinks={otherLinks}
+          onChange={setProfileLinks}
+          onOtherLinksChange={setOtherLinks}
+        />
+      </div>
       {field('Owner', 'assignedTo')}
       {select('Source', 'source', SOURCES)}
       {select('Type', 'type', TYPES)}

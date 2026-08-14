@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { DonutChart, HorizontalBarChart, RevenueBarChart, StatCardWithChart } from '@/components/ui/Charts'
 import { companyHasAccountOwner } from '@/lib/companies/ownership'
 import type { Company } from '@/lib/companies/types'
+import { hrefForProfileUrl } from '@/lib/crm/profileLinks'
 
 type OverviewRow = { id?: string; [key: string]: unknown }
 
@@ -576,7 +577,10 @@ function BusinessProfile({ company, onEditCompany }: { company: Company; onEditC
   const social = company.socialProfiles
   const customFields = company.customFields ? Object.entries(company.customFields) : []
   const hasAddress = addr && (addr.street || addr.city || addr.country)
-  const hasSocial = social && (social.linkedin || social.twitter || social.facebook || social.instagram)
+  const otherLinks = Array.isArray(company.otherLinks) ? company.otherLinks.filter((link) => link.label && link.url) : []
+  const hasSocial = Boolean(
+    social && (social.linkedin || social.twitter || social.facebook || social.instagram || social.github || social.youtube),
+  ) || otherLinks.length > 0
   const billingAddress = company.billingAddress
   const hasBillingAddress = billingAddress && (billingAddress.line1 || billingAddress.line2 || billingAddress.city || billingAddress.state || billingAddress.postalCode || billingAddress.country)
   const parentCompanyLabel = company.parentCompanyName?.trim() || 'parent company'
@@ -661,8 +665,13 @@ function BusinessProfile({ company, onEditCompany }: { company: Company; onEditC
         <SectionCard title="Signals">
           {social?.linkedin && <SocialLink label="LinkedIn" href={social.linkedin} />}
           {social?.twitter && <SocialLink label="X / Twitter" href={social.twitter} />}
+          {social?.github && <SocialLink label="GitHub" href={social.github} />}
           {social?.facebook && <SocialLink label="Facebook" href={social.facebook} />}
           {social?.instagram && <SocialLink label="Instagram" href={social.instagram} />}
+          {social?.youtube && <SocialLink label="YouTube" href={social.youtube} />}
+          {otherLinks.map((link) => (
+            <SocialLink key={`${link.label}:${link.url}`} label={link.label} href={link.url} />
+          ))}
           {company.parentCompanyId && (
             <Link
               href={`/portal/companies/${company.parentCompanyId}`}
@@ -685,7 +694,7 @@ function BusinessProfile({ company, onEditCompany }: { company: Company; onEditC
 
 function SocialLink({ label, href }: { label: string; href: string }) {
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 py-1 text-sm text-[var(--color-accent-v2)] hover:underline">
+    <a href={hrefForProfileUrl(href)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 py-1 text-sm text-[var(--color-accent-v2)] hover:underline">
       <span aria-hidden="true" className="material-symbols-outlined text-[16px]">link</span>
       {label}
     </a>

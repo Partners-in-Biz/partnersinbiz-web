@@ -1,5 +1,6 @@
 // lib/crm/contacts.ts
-//
+import { sanitizeOtherLinks, sanitizeProfileUrl } from '@/lib/crm/profileLinks'
+
 // Fields that must never come from the request body — the route handler
 // (via middleware-authoritative ctx) controls these. Stripping them here
 // blocks the cross-tenant-via-body-orgId attack at the source.
@@ -54,12 +55,21 @@ export function sanitizeContactForWrite(input: Record<string, unknown>): Record<
     if (
       (k === 'jobTitle' ||
         k === 'department' ||
+        k === 'website' ||
         k === 'linkedinUrl' ||
         k === 'twitterUrl' ||
-        k === 'githubUrl') &&
+        k === 'githubUrl' ||
+        k === 'facebookUrl' ||
+        k === 'instagramUrl' ||
+        k === 'youtubeUrl') &&
       typeof v === 'string'
     ) {
-      out[k] = v.trim()
+      out[k] = sanitizeProfileUrl(v) ?? v.trim()
+      continue
+    }
+    if (k === 'otherLinks') {
+      const links = sanitizeOtherLinks(v)
+      if (links !== undefined) out[k] = links
       continue
     }
     if (k === 'agreementRoles') {
