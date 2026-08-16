@@ -6,6 +6,7 @@ import { PageHeader, PageTabs } from '@/components/ui/AppFoundation'
 import { StatCard } from '@/components/ui/StatCard'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { scopedPortalPath } from '@/lib/portal/scoped-routing'
+import { TwilioSettingsPanel } from '@/components/twilio/TwilioSettingsPanel'
 import type {
   CommunicationChannel,
   Conversation,
@@ -80,6 +81,7 @@ const VIEW_LABELS: Array<{ id: ConsoleView; label: string; icon: string }> = [
 const CHANNEL_LABELS: Record<CommunicationChannel, string> = {
   whatsapp: 'WhatsApp',
   sms: 'SMS',
+  voice: 'Voice',
   email: 'Email',
   in_app: 'In-app',
   messenger: 'Messenger',
@@ -537,6 +539,7 @@ function InboxView({
         <select
           value={channel}
           onChange={(event) => setChannel(event.target.value as CommunicationChannel | 'all')}
+          aria-label="Filter conversations by channel"
           className="ml-auto rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)]"
         >
           <option value="all">All channels</option>
@@ -619,6 +622,7 @@ function InboxView({
               onChange={(event) => setReply(event.target.value)}
               rows={4}
               placeholder="Draft a human-approved reply..."
+              aria-label="Draft reply message"
               className="w-full rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] px-3 py-2 text-sm text-[var(--color-pib-text)] outline-none focus:border-[var(--color-pib-accent)]"
             />
             <div className="mt-3 flex flex-wrap justify-end gap-2">
@@ -772,11 +776,11 @@ function TemplatesView({
       </Panel>
       <Panel title="Create template" icon="add_box">
         <div className="space-y-3">
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Template name" className={FIELD_CLASS} />
-          <select value={channel} onChange={(event) => setChannel(event.target.value as CommunicationChannel)} className={FIELD_CLASS}>
+          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Template name" aria-label="Template name" className={FIELD_CLASS} />
+          <select value={channel} onChange={(event) => setChannel(event.target.value as CommunicationChannel)} aria-label="Template channel" className={FIELD_CLASS}>
             {Object.entries(CHANNEL_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
-          <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={7} className={FIELD_CLASS} />
+          <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={7} aria-label="Template body" className={FIELD_CLASS} />
           <button type="button" onClick={createTemplate} disabled={saving || !name.trim()} className="btn-pib-accent w-full justify-center">
             <span className="material-symbols-outlined text-base">save</span>
             {mode === 'admin' ? 'Create template' : 'Save draft'}
@@ -940,6 +944,11 @@ function ChannelsView({
 
   return (
     <Panel title="Channel readiness" icon="settings_input_antenna">
+      {orgId ? (
+        <div className="mb-4">
+          <TwilioSettingsPanel orgId={orgId} />
+        </div>
+      ) : null}
       <div className="grid gap-3 lg:grid-cols-2">
         {(channels?.providers ?? []).map((provider) => (
           <div key={provider.id} className="rounded-lg border border-[var(--color-pib-line)] p-4">

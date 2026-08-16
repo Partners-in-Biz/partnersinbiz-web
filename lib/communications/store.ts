@@ -3,12 +3,15 @@ import { adminDb } from '@/lib/firebase/admin'
 import { buildHermesConversationSuggestion } from './automation'
 import { buildCommunicationAnalytics } from './analytics'
 import {
+  computeTwilioCapabilities,
   decryptTwilioCredentials,
   encryptTwilioCredentials,
   maskSid,
+  mergeTwilioCredentials,
   normalizePhoneKey,
   redactCredentialSummary,
   type CredentialSummary,
+  type TwilioOrgConfig,
   type TwilioProviderCredentials,
 } from './credentials'
 import {
@@ -425,38 +428,110 @@ export async function listEvents(orgId: string, limit = 500): Promise<ListResult
 /**
  * Encrypt and persist per-org Twilio credentials. Ciphertext lives in
  * `communication_credentials/{orgId}`. Plaintext is never returned.
+ * Merges with any existing secrets so partial connects (WhatsApp-only) keep Voice keys.
  */
 export async function saveOrgTwilioCredentials(
   orgId: string,
-  credentials: TwilioProviderCredentials,
-  opts: { verified?: boolean } = {},
+  credentials: Partial<TwilioProviderCredentials>,
+  opts: { verified?: boolean; config?: TwilioOrgConfig; replace?: boolean } = {},
 ): Promise<{ credentialId: string; summary: CredentialSummary }> {
-  const encrypted = encryptTwilioCredentials(credentials, orgId)
+  const existing = opts.replace ? null : await getOrgTwilioCredentials(orgId)
+  const existingConfig = opts.replace ? null : await getOrgTwilioConfig(orgId)
+  const merged = mergeTwilioCredentials(existing, credentials)
+  const encrypted = encryptTwilioCredentials(merged, orgId)
+  const config: TwilioOrgConfig = {
+    recordCallsByDefault:
+      opts.config?.recordCallsByDefault ?? existingConfig?.recordCallsByDefault ?? true,
+    inboundNumbers: normalizeInboundNumbers(
+      opts.config?.inboundNumbers ?? existingConfig?.inboundNumbers ?? buildDefaultInboundNumbers(merged),
+    ),
+  }
   const now = FieldValue.serverTimestamp()
   const ref = adminDb.collection(COMMUNICATION_COLLECTIONS.credentials).doc(orgId)
   await ref.set({
     orgId,
     provider: 'twilio',
     encrypted,
-    accountSidMasked: maskSid(credentials.accountSid),
-    messagingServiceSidMasked: maskSid(credentials.messagingServiceSid ?? null),
-    whatsappFrom: credentials.whatsappFrom ?? null,
+    accountSidMasked: maskSid(merged.accountSid),
+    messagingServiceSidMasked: maskSid(merged.messagingServiceSid ?? null),
+    apiKeySidMasked: maskSid(merged.apiKeySid ?? null),
+    twimlAppSidMasked: maskSid(merged.twimlAppSid ?? null),
+    verifyServiceSidMasked: maskSid(merged.verifyServiceSid ?? null),
+    whatsappFrom: merged.whatsappFrom ?? null,
+    defaultFromNumber: merged.defaultFromNumber ?? null,
+    voiceCallerId: merged.voiceCallerId ?? null,
+    recordCallsByDefault: config.recordCallsByDefault === true,
+    inboundNumbers: config.inboundNumbers,
+    capabilities: computeTwilioCapabilities(merged),
     encryptedAt: now,
-    verifiedAt: opts.verified ? now : null,
     updatedAt: now,
-  })
+  }, { merge: true })
+  if (opts.verified) {
+    await ref.set({ verifiedAt: now }, { merge: true })
+  }
+
+  // Keep inbound webhook routes for SMS/voice DIDs in sync.
+  for (const number of config.inboundNumbers) {
+    await upsertWebhookRouteForNumber(orgId, number, {
+      channel: 'sms',
+      providerId: 'twilio',
+      sender: number,
+    })
+  }
+
   return {
     credentialId: orgId,
-    summary: redactCredentialSummary({
-      provider: 'twilio',
-      hasCredentials: true,
-      accountSid: credentials.accountSid,
-      messagingServiceSid: credentials.messagingServiceSid ?? null,
-      whatsappFrom: credentials.whatsappFrom ?? null,
+    summary: buildCredentialSummaryFromMerged(merged, config, {
       encryptedAt: new Date().toISOString(),
       verifiedAt: opts.verified ? new Date().toISOString() : null,
     }),
   }
+}
+
+function buildDefaultInboundNumbers(credentials: TwilioProviderCredentials): string[] {
+  return [
+    credentials.defaultFromNumber,
+    credentials.voiceCallerId,
+    credentials.whatsappFrom?.replace(/^whatsapp:/i, ''),
+  ].filter((value): value is string => Boolean(value?.trim()))
+}
+
+function normalizeInboundNumbers(values: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    const trimmed = value.trim()
+    if (!trimmed) continue
+    const key = normalizePhoneKey(trimmed)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(trimmed.startsWith('+') || trimmed.includes(':') ? trimmed : `+${key}`)
+  }
+  return out
+}
+
+function buildCredentialSummaryFromMerged(
+  credentials: TwilioProviderCredentials,
+  config: TwilioOrgConfig,
+  timestamps: { encryptedAt: string | null; verifiedAt: string | null },
+): CredentialSummary {
+  return redactCredentialSummary({
+    provider: 'twilio',
+    hasCredentials: true,
+    accountSid: credentials.accountSid,
+    messagingServiceSid: credentials.messagingServiceSid ?? null,
+    apiKeySid: credentials.apiKeySid ?? null,
+    twimlAppSid: credentials.twimlAppSid ?? null,
+    verifyServiceSid: credentials.verifyServiceSid ?? null,
+    whatsappFrom: credentials.whatsappFrom ?? null,
+    defaultFromNumber: credentials.defaultFromNumber ?? null,
+    voiceCallerId: credentials.voiceCallerId ?? null,
+    recordCallsByDefault: config.recordCallsByDefault === true,
+    inboundNumbers: config.inboundNumbers ?? [],
+    capabilities: computeTwilioCapabilities(credentials),
+    encryptedAt: timestamps.encryptedAt,
+    verifiedAt: timestamps.verifiedAt,
+  })
 }
 
 /** Decrypt and return the org's Twilio credentials, or null when not stored. Server-only. */
@@ -464,7 +539,7 @@ export async function getOrgTwilioCredentials(orgId: string): Promise<TwilioProv
   const doc = await adminDb.collection(COMMUNICATION_COLLECTIONS.credentials).doc(orgId).get()
   if (!doc.exists) return null
   const data = doc.data() ?? {}
-  const encrypted = data.encrypted as Record<keyof TwilioProviderCredentials, { ciphertext: string; iv: string; tag: string } | null> | undefined
+  const encrypted = data.encrypted as Record<string, { ciphertext: string; iv: string; tag: string } | null> | undefined
   if (!encrypted) return null
   try {
     return decryptTwilioCredentials(encrypted, orgId)
@@ -473,22 +548,74 @@ export async function getOrgTwilioCredentials(orgId: string): Promise<TwilioProv
   }
 }
 
+export async function getOrgTwilioConfig(orgId: string): Promise<TwilioOrgConfig | null> {
+  const doc = await adminDb.collection(COMMUNICATION_COLLECTIONS.credentials).doc(orgId).get()
+  if (!doc.exists) return null
+  const data = doc.data() ?? {}
+  return {
+    recordCallsByDefault: data.recordCallsByDefault !== false,
+    inboundNumbers: Array.isArray(data.inboundNumbers)
+      ? data.inboundNumbers.filter((value: unknown): value is string => typeof value === 'string')
+      : [],
+  }
+}
+
 /** Redacted view for API responses — never contains plaintext credentials. */
 export async function getOrgCredentialSummary(orgId: string): Promise<CredentialSummary | null> {
   const doc = await adminDb.collection(COMMUNICATION_COLLECTIONS.credentials).doc(orgId).get()
   if (!doc.exists) return null
   const data = doc.data() ?? {}
-  const encrypted = data.encrypted as Record<keyof TwilioProviderCredentials, { ciphertext: string; iv: string; tag: string } | null> | undefined
+  const encrypted = data.encrypted as Record<string, { ciphertext: string; iv: string; tag: string } | null> | undefined
   if (!encrypted) return null
-  return redactCredentialSummary({
-    provider: 'twilio',
-    hasCredentials: Boolean(encrypted.accountSid && encrypted.authToken),
-    accountSid: data.accountSidMasked ?? null,
-    messagingServiceSid: data.messagingServiceSidMasked ?? null,
-    whatsappFrom: data.whatsappFrom ?? null,
-    encryptedAt: data.encryptedAt ?? null,
-    verifiedAt: data.verifiedAt ?? null,
+  const credentials = await getOrgTwilioCredentials(orgId)
+  const config = await getOrgTwilioConfig(orgId)
+  if (!credentials) {
+    return {
+      provider: 'twilio',
+      hasCredentials: Boolean(encrypted.accountSid && encrypted.authToken),
+      accountSidMasked: typeof data.accountSidMasked === 'string' ? data.accountSidMasked : null,
+      messagingServiceSidMasked: typeof data.messagingServiceSidMasked === 'string' ? data.messagingServiceSidMasked : null,
+      apiKeySidMasked: typeof data.apiKeySidMasked === 'string' ? data.apiKeySidMasked : null,
+      twimlAppSidMasked: typeof data.twimlAppSidMasked === 'string' ? data.twimlAppSidMasked : null,
+      verifyServiceSidMasked: typeof data.verifyServiceSidMasked === 'string' ? data.verifyServiceSidMasked : null,
+      whatsappFrom: data.whatsappFrom ?? null,
+      defaultFromNumber: data.defaultFromNumber ?? null,
+      voiceCallerId: data.voiceCallerId ?? null,
+      recordCallsByDefault: data.recordCallsByDefault !== false,
+      inboundNumbers: Array.isArray(data.inboundNumbers) ? data.inboundNumbers : [],
+      capabilities: data.capabilities ?? {
+        account: Boolean(encrypted.accountSid && encrypted.authToken),
+        sms: false,
+        whatsapp: Boolean(data.whatsappFrom),
+        voice: false,
+        verify: false,
+        lookup: Boolean(encrypted.accountSid && encrypted.authToken),
+      },
+      encryptedAt: data.encryptedAt ? String(data.encryptedAt.toDate?.() ?? data.encryptedAt) : null,
+      verifiedAt: data.verifiedAt ? String(data.verifiedAt.toDate?.() ?? data.verifiedAt) : null,
+    }
+  }
+  return buildCredentialSummaryFromMerged(credentials, config ?? {}, {
+    encryptedAt: data.encryptedAt ? String(data.encryptedAt.toDate?.() ?? data.encryptedAt) : null,
+    verifiedAt: data.verifiedAt ? String(data.verifiedAt.toDate?.() ?? data.verifiedAt) : null,
   })
+}
+
+async function upsertWebhookRouteForNumber(
+  orgId: string,
+  number: string,
+  meta: { channel: string; providerId: string; sender: string },
+): Promise<void> {
+  const key = normalizePhoneKey(number)
+  if (!key) return
+  await adminDb.collection(COMMUNICATION_COLLECTIONS.webhookRoutes).doc(key).set({
+    orgId,
+    accountId: null,
+    providerId: meta.providerId,
+    channel: meta.channel,
+    sender: meta.sender,
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true })
 }
 
 // ── Channel accounts + webhook route mapping ────────────────────────────────

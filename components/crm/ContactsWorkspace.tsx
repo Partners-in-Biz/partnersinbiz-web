@@ -17,6 +17,7 @@ import {
 } from '@/components/crm/ContactDuplicateCommandCenter'
 import { PageHeader, Surface } from '@/components/ui/AppFoundation'
 import { StatCard } from '@/components/ui/StatCard'
+import { ClickToCallButton } from '@/components/twilio/ClickToCallButton'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { useCrmLiveRefresh } from '@/lib/crm/use-crm-live-refresh'
 import { scopedApiPath, scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
@@ -1088,6 +1089,7 @@ export function ContactsWorkspace({
             placeholder="Search name, email, company…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search contacts"
             className="h-8 min-w-[200px] flex-1 rounded-md border border-[var(--color-card-border)] bg-transparent px-2 text-xs text-[var(--color-pib-text)] placeholder:text-[var(--color-pib-text-muted)]"
           />
           <select
@@ -1393,14 +1395,13 @@ export function ContactsWorkspace({
                         'Email missing'
                       )}
                       {c.phone?.trim() && (
-                        <a
-                          href={`tel:${c.phone.trim()}`}
-                          aria-label={`Call ${c.phone.trim()} from contacts list`}
-                          className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] text-[var(--color-pib-text-muted)] transition hover:text-[var(--color-pib-text)]"
-                        >
-                          <span className="pib-icon-tint !h-5 !w-5 !rounded-md" aria-hidden="true"><span className="material-symbols-outlined text-[12px]">call</span></span>
-                          <span className="truncate">{c.phone.trim()}</span>
-                        </a>
+                        <ClickToCallButton
+                          orgId={(c.orgId || activeAdminOrgId || scopedOrgId || '').trim()}
+                          phone={c.phone.trim()}
+                          contactId={c.id}
+                          label={c.phone.trim()}
+                          className="mt-0.5"
+                        />
                       )}
                     </div>
                     <div className="md:col-span-2 text-xs text-[var(--color-pib-text-muted)] truncate">

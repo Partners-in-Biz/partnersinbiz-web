@@ -11,7 +11,7 @@
  *   - Plaintext credentials are only ever decrypted server-side at send /
  *     verify time. They are NEVER returned by an API route and never logged.
  *   - API responses must use `redactCredentialSummary`, which only exposes
- *     masked SIDs and the public sender number.
+ *     masked SIDs and the public sender numbers / capability flags.
  */
 import crypto from 'crypto'
 import twilio from 'twilio'
@@ -19,11 +19,46 @@ import twilio from 'twilio'
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 12
 
+/** All secret fields that may be encrypted for an org Twilio connection. */
+export const TWILIO_SECRET_KEYS = [
+  'accountSid',
+  'authToken',
+  'messagingServiceSid',
+  'whatsappFrom',
+  'defaultFromNumber',
+  'voiceCallerId',
+  'apiKeySid',
+  'apiKeySecret',
+  'twimlAppSid',
+  'verifyServiceSid',
+] as const
+
+export type TwilioSecretKey = (typeof TWILIO_SECRET_KEYS)[number]
+
 export interface TwilioProviderCredentials {
   accountSid: string
   authToken: string
   messagingServiceSid?: string
   whatsappFrom?: string
+  /** Default SMS / MMS from number (E.164) when no Messaging Service is set. */
+  defaultFromNumber?: string
+  /** Outbound Voice caller ID (must be a Twilio number on the org account). */
+  voiceCallerId?: string
+  /** API Key SID for Voice Access Tokens (SK…). */
+  apiKeySid?: string
+  /** API Key Secret for Voice Access Tokens. */
+  apiKeySecret?: string
+  /** TwiML App SID (AP…) — Voice Request URL should hit our voice webhook. */
+  twimlAppSid?: string
+  /** Verify Service SID (VA…) for OTP send/check. */
+  verifyServiceSid?: string
+}
+
+export interface TwilioOrgConfig {
+  /** When true, new outbound/inbound calls request dual-channel recording. */
+  recordCallsByDefault?: boolean
+  /** Extra voice/SMS DIDs (E.164) registered for inbound webhook routing. */
+  inboundNumbers?: string[]
 }
 
 export interface EncryptedCredentialBlock {
@@ -32,12 +67,29 @@ export interface EncryptedCredentialBlock {
   tag: string // base64
 }
 
+export interface TwilioCapabilityFlags {
+  account: boolean
+  sms: boolean
+  whatsapp: boolean
+  voice: boolean
+  verify: boolean
+  lookup: boolean
+}
+
 export interface CredentialSummary {
   provider: 'twilio'
   hasCredentials: boolean
   accountSidMasked: string | null
   messagingServiceSidMasked: string | null
+  apiKeySidMasked: string | null
+  twimlAppSidMasked: string | null
+  verifyServiceSidMasked: string | null
   whatsappFrom: string | null
+  defaultFromNumber: string | null
+  voiceCallerId: string | null
+  recordCallsByDefault: boolean
+  inboundNumbers: string[]
+  capabilities: TwilioCapabilityFlags
   encryptedAt: string | null
   verifiedAt: string | null
 }
@@ -91,34 +143,104 @@ export function decryptCredentialValue(block: EncryptedCredentialBlock, orgId: s
   }
 }
 
+export type EncryptedTwilioCredentialMap = Record<TwilioSecretKey, EncryptedCredentialBlock | null>
+
 export function encryptTwilioCredentials(
   credentials: TwilioProviderCredentials,
   orgId: string,
-): Record<keyof TwilioProviderCredentials, EncryptedCredentialBlock | null> {
-  return {
-    accountSid: encryptCredentialValue(credentials.accountSid.trim(), orgId),
-    authToken: encryptCredentialValue(credentials.authToken.trim(), orgId),
-    messagingServiceSid: credentials.messagingServiceSid?.trim()
-      ? encryptCredentialValue(credentials.messagingServiceSid.trim(), orgId)
-      : null,
-    whatsappFrom: credentials.whatsappFrom?.trim()
-      ? encryptCredentialValue(credentials.whatsappFrom.trim(), orgId)
-      : null,
+): EncryptedTwilioCredentialMap {
+  const out = {} as EncryptedTwilioCredentialMap
+  for (const key of TWILIO_SECRET_KEYS) {
+    const value = credentials[key]
+    out[key] = typeof value === 'string' && value.trim()
+      ? encryptCredentialValue(value.trim(), orgId)
+      : null
   }
+  return out
 }
 
 export function decryptTwilioCredentials(
-  block: Record<keyof TwilioProviderCredentials, EncryptedCredentialBlock | null>,
+  block: Partial<EncryptedTwilioCredentialMap> | Record<string, EncryptedCredentialBlock | null>,
   orgId: string,
 ): TwilioProviderCredentials {
-  if (!block.accountSid || !block.authToken) {
+  const accountSidBlock = block.accountSid
+  const authTokenBlock = block.authToken
+  if (!accountSidBlock || !authTokenBlock) {
     throw new CredentialEncryptionError('Stored credentials are incomplete')
   }
+  const credentials: TwilioProviderCredentials = {
+    accountSid: decryptCredentialValue(accountSidBlock, orgId),
+    authToken: decryptCredentialValue(authTokenBlock, orgId),
+  }
+  for (const key of TWILIO_SECRET_KEYS) {
+    if (key === 'accountSid' || key === 'authToken') continue
+    const encrypted = block[key]
+    if (encrypted) {
+      credentials[key] = decryptCredentialValue(encrypted, orgId)
+    }
+  }
+  return credentials
+}
+
+/**
+ * Merge incoming credentials over an existing set. Empty strings are ignored
+ * so partial UI updates (e.g. WhatsApp-only connect) do not wipe Voice keys.
+ */
+export function mergeTwilioCredentials(
+  existing: TwilioProviderCredentials | null,
+  incoming: Partial<TwilioProviderCredentials>,
+): TwilioProviderCredentials {
+  const base: TwilioProviderCredentials = {
+    accountSid: existing?.accountSid ?? '',
+    authToken: existing?.authToken ?? '',
+    messagingServiceSid: existing?.messagingServiceSid,
+    whatsappFrom: existing?.whatsappFrom,
+    defaultFromNumber: existing?.defaultFromNumber,
+    voiceCallerId: existing?.voiceCallerId,
+    apiKeySid: existing?.apiKeySid,
+    apiKeySecret: existing?.apiKeySecret,
+    twimlAppSid: existing?.twimlAppSid,
+    verifyServiceSid: existing?.verifyServiceSid,
+  }
+  for (const key of TWILIO_SECRET_KEYS) {
+    const value = incoming[key]
+    if (typeof value === 'string' && value.trim()) {
+      base[key] = value.trim()
+    }
+  }
+  if (!base.accountSid || !base.authToken) {
+    throw new CredentialEncryptionError('Twilio Account SID and Auth Token are required')
+  }
+  return base
+}
+
+export function computeTwilioCapabilities(
+  credentials: Pick<
+    TwilioProviderCredentials,
+    | 'accountSid'
+    | 'authToken'
+    | 'messagingServiceSid'
+    | 'whatsappFrom'
+    | 'defaultFromNumber'
+    | 'voiceCallerId'
+    | 'apiKeySid'
+    | 'apiKeySecret'
+    | 'twimlAppSid'
+    | 'verifyServiceSid'
+  > | null,
+): TwilioCapabilityFlags {
+  const hasAccount = Boolean(credentials?.accountSid && credentials?.authToken)
   return {
-    accountSid: decryptCredentialValue(block.accountSid, orgId),
-    authToken: decryptCredentialValue(block.authToken, orgId),
-    messagingServiceSid: block.messagingServiceSid ? decryptCredentialValue(block.messagingServiceSid, orgId) : undefined,
-    whatsappFrom: block.whatsappFrom ? decryptCredentialValue(block.whatsappFrom, orgId) : undefined,
+    account: hasAccount,
+    sms: hasAccount && Boolean(credentials?.messagingServiceSid || credentials?.defaultFromNumber),
+    whatsapp: hasAccount && Boolean(credentials?.whatsappFrom),
+    voice: hasAccount
+      && Boolean(credentials?.apiKeySid)
+      && Boolean(credentials?.apiKeySecret)
+      && Boolean(credentials?.twimlAppSid)
+      && Boolean(credentials?.voiceCallerId || credentials?.defaultFromNumber),
+    verify: hasAccount && Boolean(credentials?.verifyServiceSid),
+    lookup: hasAccount,
   }
 }
 
@@ -145,16 +267,44 @@ export function redactCredentialSummary(input: {
   hasCredentials?: boolean
   accountSid?: string | null
   messagingServiceSid?: string | null
+  apiKeySid?: string | null
+  twimlAppSid?: string | null
+  verifyServiceSid?: string | null
   whatsappFrom?: string | null
+  defaultFromNumber?: string | null
+  voiceCallerId?: string | null
+  recordCallsByDefault?: boolean
+  inboundNumbers?: string[]
+  capabilities?: TwilioCapabilityFlags
   encryptedAt?: string | Date | null
   verifiedAt?: string | Date | null
 }): CredentialSummary {
+  const capabilities = input.capabilities ?? computeTwilioCapabilities({
+    accountSid: input.accountSid ?? '',
+    authToken: input.hasCredentials ? 'x' : '',
+    messagingServiceSid: input.messagingServiceSid ?? undefined,
+    whatsappFrom: input.whatsappFrom ?? undefined,
+    defaultFromNumber: input.defaultFromNumber ?? undefined,
+    voiceCallerId: input.voiceCallerId ?? undefined,
+    apiKeySid: input.apiKeySid ?? undefined,
+    apiKeySecret: input.apiKeySid ? 'x' : undefined,
+    twimlAppSid: input.twimlAppSid ?? undefined,
+    verifyServiceSid: input.verifyServiceSid ?? undefined,
+  })
   return {
     provider: 'twilio',
     hasCredentials: input.hasCredentials ?? Boolean(input.accountSid),
     accountSidMasked: maskSid(input.accountSid),
     messagingServiceSidMasked: maskSid(input.messagingServiceSid),
+    apiKeySidMasked: maskSid(input.apiKeySid),
+    twimlAppSidMasked: maskSid(input.twimlAppSid),
+    verifyServiceSidMasked: maskSid(input.verifyServiceSid),
     whatsappFrom: input.whatsappFrom || null,
+    defaultFromNumber: input.defaultFromNumber || null,
+    voiceCallerId: input.voiceCallerId || null,
+    recordCallsByDefault: input.recordCallsByDefault === true,
+    inboundNumbers: Array.isArray(input.inboundNumbers) ? input.inboundNumbers.filter(Boolean) : [],
+    capabilities,
     encryptedAt: input.encryptedAt ? String(input.encryptedAt) : null,
     verifiedAt: input.verifiedAt ? String(input.verifiedAt) : null,
   }

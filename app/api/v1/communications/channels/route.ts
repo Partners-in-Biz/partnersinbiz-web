@@ -45,8 +45,11 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
 
   const providerId = body.providerId === 'twilio' ? 'twilio' : null
   if (!providerId) return apiError('Only the Twilio provider can be connected in V1', 400)
-  const channel = body.channel === 'whatsapp' ? 'whatsapp' : null
-  if (!channel) return apiError('Only the WhatsApp channel can be connected in V1', 400)
+  const channel =
+    body.channel === 'whatsapp' || body.channel === 'sms' || body.channel === 'voice'
+      ? body.channel
+      : null
+  if (!channel) return apiError('channel must be whatsapp, sms, or voice', 400)
 
   const credentials = body.credentials && typeof body.credentials === 'object'
     ? body.credentials as Record<string, unknown>
@@ -57,15 +60,35 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   const authToken = typeof credentials.authToken === 'string' ? credentials.authToken.trim() : ''
   const messagingServiceSid = typeof credentials.messagingServiceSid === 'string' ? credentials.messagingServiceSid.trim() : ''
   const whatsappFrom = typeof credentials.whatsappFrom === 'string' ? credentials.whatsappFrom.trim() : ''
+  const defaultFromNumber = typeof credentials.defaultFromNumber === 'string' ? credentials.defaultFromNumber.trim() : ''
+  const voiceCallerId = typeof credentials.voiceCallerId === 'string' ? credentials.voiceCallerId.trim() : ''
+  const apiKeySid = typeof credentials.apiKeySid === 'string' ? credentials.apiKeySid.trim() : ''
+  const apiKeySecret = typeof credentials.apiKeySecret === 'string' ? credentials.apiKeySecret.trim() : ''
+  const twimlAppSid = typeof credentials.twimlAppSid === 'string' ? credentials.twimlAppSid.trim() : ''
+  const verifyServiceSid = typeof credentials.verifyServiceSid === 'string' ? credentials.verifyServiceSid.trim() : ''
 
   if (!accountSid || !authToken) return apiError('Twilio Account SID and Auth Token are required', 400)
-  if (!whatsappFrom) return apiError('A WhatsApp sender number is required to connect WhatsApp', 400)
+  if (channel === 'whatsapp' && !whatsappFrom) {
+    return apiError('A WhatsApp sender number is required to connect WhatsApp', 400)
+  }
+  if (channel === 'sms' && !messagingServiceSid && !defaultFromNumber) {
+    return apiError('Messaging Service SID or default from number is required for SMS', 400)
+  }
+  if (channel === 'voice' && (!apiKeySid || !apiKeySecret || !twimlAppSid || !(voiceCallerId || defaultFromNumber))) {
+    return apiError('Voice requires API Key SID/Secret, TwiML App SID, and a voice caller ID', 400)
+  }
 
   const creds: TwilioProviderCredentials = {
     accountSid,
     authToken,
     messagingServiceSid: messagingServiceSid || undefined,
-    whatsappFrom,
+    whatsappFrom: whatsappFrom || undefined,
+    defaultFromNumber: defaultFromNumber || undefined,
+    voiceCallerId: voiceCallerId || undefined,
+    apiKeySid: apiKeySid || undefined,
+    apiKeySecret: apiKeySecret || undefined,
+    twimlAppSid: twimlAppSid || undefined,
+    verifyServiceSid: verifyServiceSid || undefined,
   }
 
   // Verify against Twilio before persisting anything.
@@ -83,7 +106,7 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     accountSid,
     authToken,
     messagingServiceSid: messagingServiceSid || undefined,
-    from: whatsappFrom,
+    from: whatsappFrom || defaultFromNumber || voiceCallerId || undefined,
   }) ?? {
     configured: true,
     healthy: true,
@@ -91,13 +114,31 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     checks: [],
   }
 
-  const senderId = `whatsapp:${whatsappFrom.replace(/^whatsapp:/i, '')}`
+  const phoneNumber =
+    channel === 'whatsapp'
+      ? whatsappFrom
+      : channel === 'voice'
+        ? (voiceCallerId || defaultFromNumber)
+        : (defaultFromNumber || messagingServiceSid || '')
+  const senderId =
+    channel === 'whatsapp'
+      ? `whatsapp:${whatsappFrom.replace(/^whatsapp:/i, '')}`
+      : channel === 'voice'
+        ? `voice:${phoneNumber}`
+        : `sms:${phoneNumber || messagingServiceSid}`
+  const displayName =
+    channel === 'whatsapp'
+      ? `WhatsApp Business ${whatsappFrom}`
+      : channel === 'voice'
+        ? `Twilio Voice ${phoneNumber}`
+        : `Twilio SMS ${phoneNumber || messagingServiceSid}`
+
   const { id: accountId, account } = await upsertChannelAccount(scope.orgId, {
-    channel: 'whatsapp',
+    channel,
     providerId: 'twilio',
-    displayName: `WhatsApp Business ${whatsappFrom}`,
+    displayName,
     senderId,
-    phoneNumber: whatsappFrom,
+    phoneNumber: phoneNumber || undefined,
     externalAccountId: accountSid,
     status: 'ready',
     credentialRef: {
@@ -107,7 +148,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
       hasCredentials: true,
       accountSidMasked: summary.accountSidMasked,
       messagingServiceSidMasked: summary.messagingServiceSidMasked,
-      webhookPath: '/api/v1/communications/webhooks/twilio',
+      webhookPath: channel === 'voice'
+        ? '/api/v1/twilio/voice/webhook'
+        : '/api/v1/communications/webhooks/twilio',
       connectedAt: new Date().toISOString(),
     },
     readiness,
@@ -115,8 +158,13 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
 
   await recordCommunicationEvent(scope.orgId, {
     type: 'credential.connected',
-    channel: 'whatsapp',
-    payload: { provider: 'twilio', accountId, accountSidMasked: summary.accountSidMasked },
+    channel,
+    payload: {
+      provider: 'twilio',
+      accountId,
+      accountSidMasked: summary.accountSidMasked,
+      connectedChannel: channel,
+    },
   })
 
   return apiSuccess({
@@ -124,6 +172,8 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     status: account.status,
     credential: summary,
     readiness: account.readiness,
-    webhookPath: '/api/v1/communications/webhooks/twilio',
+    webhookPath: channel === 'voice'
+      ? '/api/v1/twilio/voice/webhook'
+      : '/api/v1/communications/webhooks/twilio',
   }, 201)
 })
