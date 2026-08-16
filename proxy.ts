@@ -1,11 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const COOKIE_NAME = process.env.SESSION_COOKIE_NAME ?? '__session'
+const MARKET_COOKIE = 'pib-market'
 
 const PROTECTED = ['/portal', '/admin']
 
 export default async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname, searchParams } = request.nextUrl
+
+  // Geo-routing: redirect US visitors on homepage to /us
+  if (pathname === '/') {
+    const country = request.geo?.country || request.headers.get('x-vercel-ip-country')
+    const marketCookie = request.cookies.get(MARKET_COOKIE)?.value
+    const homeQuery = searchParams.get('home')
+
+    // Skip redirect if global market cookie is set or ?home=1 query parameter
+    const skipRedirect = marketCookie === 'global' || homeQuery === '1'
+
+    if (country === 'US' && !skipRedirect) {
+      const response = NextResponse.redirect(new URL('/us', request.url), 307)
+      response.cookies.set(MARKET_COOKIE, 'us', {
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60,
+        sameSite: 'lax',
+      })
+      return response
+    }
+
+    // If ?home=1 is present, set the global market cookie so user isn't redirected again
+    if (homeQuery === '1' && country === 'US' && marketCookie !== 'global') {
+      const response = NextResponse.next()
+      response.cookies.set(MARKET_COOKIE, 'global', {
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60,
+        sameSite: 'lax',
+      })
+      return response
+    }
+  }
+
   const isProtected = PROTECTED.some((p) => pathname.startsWith(p))
   if (!isProtected) return NextResponse.next()
 
@@ -26,5 +59,5 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/portal/:path*', '/admin/:path*'],
+  matcher: ['/', '/portal/:path*', '/admin/:path*'],
 }
