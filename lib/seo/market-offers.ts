@@ -1,12 +1,12 @@
 import { SITE } from '@/lib/seo/site'
 
-export type MarketId = 'us' | 'uk' | 'au'
+export type MarketId = 'us' | 'uk' | 'au' | 'eu'
 
 export interface MarketOffer {
   id: MarketId
   path: `/${MarketId}`
   regionLabel: string
-  currencyCode: 'USD' | 'GBP' | 'AUD'
+  currencyCode: 'USD' | 'GBP' | 'AUD' | 'EUR'
   /** Display price with symbol, e.g. "$9,500" */
   priceDisplay: string
   /** Schema.org price amount without formatting */
@@ -20,6 +20,13 @@ export interface MarketOffer {
   whoFor: string
   countries: readonly string[]
 }
+
+/** EU member states (ISO 3166-1 alpha-2). GB stays on /uk. */
+export const EU_COUNTRY_CODES = [
+  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR',
+  'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL',
+  'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE',
+] as const
 
 export const MARKET_OFFERS: Record<MarketId, MarketOffer> = {
   us: {
@@ -70,14 +77,32 @@ export const MARKET_OFFERS: Record<MarketId, MarketOffer> = {
     whoFor: 'Australian founder-led firms. Law, clinics, coaches, B2B services. You have demand and a dead site.',
     countries: ['AU'],
   },
+  eu: {
+    id: 'eu',
+    path: '/eu',
+    regionLabel: 'Europe',
+    currencyCode: 'EUR',
+    priceDisplay: '€8,500',
+    priceAmount: '8500',
+    portalFromDisplay: 'From €32,000',
+    retainerDisplay: '€2,200/month',
+    cheapAltDisplay: '€1,500 Wix',
+    overlapLabel: 'Overlap 9am–1pm CET.',
+    overlapShort: 'WhatsApp · 9am–1pm CET overlap',
+    footerBadge: 'EUR · Stripe · CET overlap',
+    whoFor:
+      'EU founder-led firms who work in English. Law, clinics, coaches, B2B services. You have demand and a dead site.',
+    countries: EU_COUNTRY_CODES,
+  },
 }
 
-/** Country ISO → market path for homepage geo redirect. CA folds into US. */
+/** Country ISO → market for homepage geo redirect. CA→US; GB→UK; EU members→/eu. */
 export const GEO_MARKET_BY_COUNTRY: Record<string, MarketId> = {
   US: 'us',
   CA: 'us',
   GB: 'uk',
   AU: 'au',
+  ...Object.fromEntries(EU_COUNTRY_CODES.map((code) => [code, 'eu' as const])),
 }
 
 export const MARKET_PATHS = Object.values(MARKET_OFFERS).map((m) => m.path)
@@ -95,7 +120,7 @@ export function marketFromPathname(pathname: string): MarketOffer | null {
 
 export function marketFromId(id: string | undefined | null): MarketOffer | null {
   if (!id) return null
-  if (id === 'us' || id === 'uk' || id === 'au') return MARKET_OFFERS[id]
+  if (id in MARKET_OFFERS) return MARKET_OFFERS[id as MarketId]
   return null
 }
 
