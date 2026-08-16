@@ -1020,6 +1020,7 @@ function ChannelsView({
                       value={form.accountSid}
                       onChange={(event) => setForm((previous) => ({ ...previous, accountSid: event.target.value }))}
                       placeholder="Twilio Account SID (AC…)"
+                      aria-label="Twilio Account SID"
                       className={FIELD_CLASS}
                       autoComplete="off"
                     />
@@ -1027,6 +1028,7 @@ function ChannelsView({
                       value={form.authToken}
                       onChange={(event) => setForm((previous) => ({ ...previous, authToken: event.target.value }))}
                       placeholder="Twilio Auth Token"
+                      aria-label="Twilio Auth Token"
                       type="password"
                       className={FIELD_CLASS}
                       autoComplete="new-password"
@@ -1035,6 +1037,7 @@ function ChannelsView({
                       value={form.messagingServiceSid}
                       onChange={(event) => setForm((previous) => ({ ...previous, messagingServiceSid: event.target.value }))}
                       placeholder="Messaging Service SID (optional, MG…)"
+                      aria-label="Twilio Messaging Service SID"
                       className={FIELD_CLASS}
                       autoComplete="off"
                     />
@@ -1042,6 +1045,7 @@ function ChannelsView({
                       value={form.whatsappFrom}
                       onChange={(event) => setForm((previous) => ({ ...previous, whatsappFrom: event.target.value }))}
                       placeholder="WhatsApp sender number, e.g. +27612345678"
+                      aria-label="WhatsApp sender number"
                       className={FIELD_CLASS}
                       autoComplete="off"
                     />
