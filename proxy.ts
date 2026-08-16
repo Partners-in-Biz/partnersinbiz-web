@@ -10,7 +10,8 @@ export default async function proxy(request: NextRequest) {
 
   // Geo-routing: redirect US visitors on homepage to /us
   if (pathname === '/') {
-    const country = request.geo?.country || request.headers.get('x-vercel-ip-country')
+    // Next.js 16 dropped `NextRequest.geo`; Vercel still stamps the country header.
+    const country = request.headers.get('x-vercel-ip-country')
     const marketCookie = request.cookies.get(MARKET_COOKIE)?.value
     const homeQuery = searchParams.get('home')
 
