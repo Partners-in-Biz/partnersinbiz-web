@@ -4,13 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { NAV } from '@/lib/seo/site'
-
-const US_NAV = [
-  { href: '/us', label: 'Offer' },
-  { href: '/work', label: 'Work' },
-  { href: '/?home=1', label: 'Studio' },
-  { href: '/book-a-call?market=us', label: 'Book' },
-] as const
+import {
+  marketFromPathname,
+  marketNav,
+  marketStartHref,
+} from '@/lib/seo/market-offers'
 
 export default function Navbar() {
   const pathname = usePathname()
@@ -33,11 +31,10 @@ export default function Navbar() {
     const path = href.split('?')[0]
     return pathname === path || (path !== '/' && pathname.startsWith(path))
   }
-  const isUs = pathname === '/us' || pathname.startsWith('/us/')
-  const startHref = isUs ? '/start-a-project?offer=4-week-site&market=us' : '/start-a-project'
-  const homeHref = isUs ? '/us' : '/'
-  const studioHref = '/?home=1'
-  const links = isUs ? US_NAV : NAV
+  const market = marketFromPathname(pathname)
+  const startHref = market ? marketStartHref(market.id) : '/start-a-project'
+  const homeHref = market ? market.path : '/'
+  const links = market ? marketNav(market.id) : NAV
 
   return (
     <>
@@ -77,7 +74,7 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2">
-            {!isUs && (
+            {!market && (
               <Link
                 href="/login"
                 prefetch={false}
@@ -128,7 +125,7 @@ export default function Navbar() {
               {label}
             </Link>
           ))}
-          {!isUs && (
+          {!market && (
             <Link
               href="/login"
               prefetch={false}
@@ -146,7 +143,7 @@ export default function Navbar() {
             <span className="material-symbols-outlined text-base">arrow_outward</span>
           </Link>
           <p className="font-mono text-xs text-[var(--color-pib-text-faint)] tracking-wide">
-            © {new Date().getFullYear()} Partners in Biz{isUs ? '' : ' · Pretoria'}
+            © {new Date().getFullYear()} Partners in Biz{market ? '' : ' · Pretoria'}
           </p>
         </div>
       </aside>

@@ -4,6 +4,7 @@ import { SITE, TESTIMONIALS } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema } from '@/lib/seo/schema'
 import { Reveal } from '@/components/marketing/Reveal'
 import StartProjectForm from './StartProjectForm'
+import { marketBookHref, marketFromId } from '@/lib/seo/market-offers'
 
 export const metadata: Metadata = {
   title: 'Start a project',
@@ -33,26 +34,26 @@ const TRUST = [
   '100% of clients still operating',
 ]
 
-const TRUST_US = [
-  'USD · Stripe · half to start',
-  'Reply within 1 business day',
-  'WhatsApp · 8am–12pm ET overlap',
-  'You own the repo on day one',
-]
-
 export default async function StartProjectPage({
   searchParams,
 }: {
   searchParams: Promise<{ market?: string; offer?: string }>
 }) {
   const params = await searchParams
-  const isUs = params.market === 'us'
-  const trust = isUs ? TRUST_US : TRUST
-  const bookHref = isUs ? '/book-a-call?market=us' : SITE.cal.url
+  const market = marketFromId(params.market)
+  const trust = market
+    ? [
+        `${market.currencyCode} · Stripe · half to start`,
+        'Reply within 1 business day',
+        market.overlapShort,
+        'You own the repo on day one',
+      ]
+    : TRUST
+  const bookHref = market ? marketBookHref(market.id) : SITE.cal.url
   const waLink = `https://wa.me/${SITE.whatsapp.replace(/\D/g, '')}`
   const breadcrumb = breadcrumbSchema([
     { name: 'Home', url: '/' },
-    ...(isUs ? [{ name: 'US Offer', url: '/us' }] : []),
+    ...(market ? [{ name: `${market.regionLabel} Offer`, url: market.path }] : []),
     { name: 'Start a project', url: '/start-a-project' },
   ])
   const contactPoint = {
@@ -61,7 +62,7 @@ export default async function StartProjectPage({
     contactType: 'sales',
     email: SITE.email,
     telephone: SITE.phone,
-    areaServed: isUs ? ['US'] : ['ZA', 'GB', 'US', 'EU'],
+    areaServed: market ? [...market.countries] : ['ZA', 'GB', 'US', 'EU', 'AU'],
     availableLanguage: ['English'],
     url: `${SITE.url}/start-a-project`,
   }
@@ -76,32 +77,29 @@ export default async function StartProjectPage({
         <div className="pib-mesh absolute inset-0 -z-10 opacity-70" />
         <div className="container-pib">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
-            {/* LEFT — sticky form */}
             <div className="lg:col-span-7 order-2 lg:order-1">
               <div className="lg:sticky lg:top-28">
                 <StartProjectForm />
               </div>
             </div>
 
-            {/* RIGHT — page content */}
             <div className="lg:col-span-5 order-1 lg:order-2">
               <Reveal>
-                <p className="eyebrow mb-6">{isUs ? 'The 4-Week Site' : 'Start a project'}</p>
+                <p className="eyebrow mb-6">{market ? 'The 4-Week Site' : 'Start a project'}</p>
               </Reveal>
               <Reveal delay={80}>
                 <h1 className="h-display text-balance" style={{ fontSize: 'clamp(2.5rem, 5vw, 4.5rem)' }}>
-                  {isUs ? 'Tell us about the site.' : <>Tell us what you&rsquo;re building.</>}
+                  {market ? 'Tell us about the site.' : <>Tell us what you&rsquo;re building.</>}
                 </h1>
               </Reveal>
               <Reveal delay={160}>
                 <p className="mt-6 text-lg text-[var(--color-pib-text-muted)] text-pretty">
-                  {isUs
-                    ? 'Four quick questions. Ninety seconds. We reply within one business day — USD, Stripe, repo yours.'
+                  {market
+                    ? `Four quick questions. Ninety seconds. We reply within one business day — ${market.currencyCode}, Stripe, repo yours.`
                     : 'Four quick questions. Ninety seconds. We reply within one business day.'}
                 </p>
               </Reveal>
 
-              {/* What happens next */}
               <Reveal delay={240}>
                 <div className="mt-10 bento-card p-6">
                   <p className="eyebrow mb-4">What happens next</p>
@@ -118,7 +116,6 @@ export default async function StartProjectPage({
                 </div>
               </Reveal>
 
-              {/* Prefer something else */}
               <Reveal delay={320}>
                 <div className="mt-6 bento-card p-6">
                   <p className="eyebrow mb-4">Prefer something else?</p>
@@ -157,7 +154,6 @@ export default async function StartProjectPage({
                 </div>
               </Reveal>
 
-              {/* Testimonial */}
               <Reveal delay={400}>
                 <figure className="mt-6 bento-card p-6">
                   <span
@@ -177,7 +173,6 @@ export default async function StartProjectPage({
                 </figure>
               </Reveal>
 
-              {/* Trust band */}
               <Reveal delay={480}>
                 <ul className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {trust.map((t) => (

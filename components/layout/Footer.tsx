@@ -4,6 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { SITE, SERVICES } from '@/lib/seo/site'
 import NewsletterForm from '@/components/marketing/NewsletterForm'
+import {
+  marketBookHref,
+  marketFromPathname,
+  marketStartHref,
+} from '@/lib/seo/market-offers'
 
 const SOCIAL_LINKS = [
   { label: 'Facebook', href: SITE.social.facebook },
@@ -11,14 +16,14 @@ const SOCIAL_LINKS = [
   { label: 'GitHub', href: SITE.social.github },
 ].filter((item) => Boolean(item.href))
 
-const US_DESCRIPTION =
+const MARKET_DESCRIPTION =
   'We build production Next.js sites that get founders clients. Four weeks. You own the repo.'
 
 export default function Footer() {
   const pathname = usePathname()
-  const isUs = pathname === '/us' || pathname.startsWith('/us/')
-  const startHref = isUs ? '/start-a-project?offer=4-week-site&market=us' : '/start-a-project'
-  const bookHref = isUs ? '/book-a-call?market=us' : SITE.cal.url
+  const market = marketFromPathname(pathname)
+  const startHref = market ? marketStartHref(market.id) : '/start-a-project'
+  const bookHref = market ? marketBookHref(market.id) : SITE.cal.url
 
   return (
     <footer className="relative border-t border-[var(--color-pib-line)] mt-32" aria-labelledby="footer-heading">
@@ -29,7 +34,7 @@ export default function Footer() {
         <div className="container-pib relative py-24 md:py-36 text-center">
           <p className="eyebrow mb-8">Ready when you are</p>
           <h3 className="h-display text-balance max-w-4xl mx-auto">
-            {isUs ? (
+            {market ? (
               <>
                 One price. One promise.{' '}
                 <em className="text-[var(--color-pib-accent)] not-italic">28 days.</em>
@@ -70,14 +75,14 @@ export default function Footer() {
       <div className="container-pib py-16">
         <div className="grid grid-cols-2 md:grid-cols-12 gap-8 md:gap-10">
           <div className="col-span-2 md:col-span-4">
-            <Link href={isUs ? '/us' : '/'} prefetch={false} className="flex items-center gap-2.5 mb-5">
+            <Link href={market ? market.path : '/'} prefetch={false} className="flex items-center gap-2.5 mb-5">
               <span className="grid place-items-center w-8 h-8 rounded-lg bg-[var(--color-pib-text)] text-black font-bold text-sm font-mono">P</span>
               <span className="font-display text-xl">Partners <span className="text-[var(--color-pib-text-muted)]">in</span> Biz</span>
             </Link>
             <p className="text-sm text-[var(--color-pib-text-muted)] max-w-xs leading-relaxed">
-              {isUs ? US_DESCRIPTION : SITE.description}
+              {market ? MARKET_DESCRIPTION : SITE.description}
             </p>
-            {!isUs && (
+            {!market && (
               <address className="not-italic mt-6 text-sm text-[var(--color-pib-text-muted)] space-y-1">
                 <div>{SITE.address.addressLocality}, {SITE.address.addressRegion}</div>
                 <div>{SITE.address.addressCountry}</div>
@@ -85,12 +90,12 @@ export default function Footer() {
             )}
           </div>
 
-          {isUs ? (
+          {market ? (
             <div className="md:col-span-2">
               <h4 className="eyebrow mb-5">Offer</h4>
               <ul className="space-y-3 text-sm">
                 <li>
-                  <Link href="/us" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
+                  <Link href={market.path} prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
                     The 4-Week Site
                   </Link>
                 </li>
@@ -125,7 +130,7 @@ export default function Footer() {
             <h4 className="eyebrow mb-5">Studio</h4>
             <ul className="space-y-3 text-sm">
               <li><Link href="/work" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Work</Link></li>
-              {!isUs && (
+              {!market && (
                 <>
                   <li><Link href="/about" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">About</Link></li>
                   <li><Link href="/our-process" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Process</Link></li>
@@ -133,8 +138,12 @@ export default function Footer() {
                   <li><Link href="/pricing" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">Pricing</Link></li>
                 </>
               )}
-              {isUs && (
-                <li><Link href="/us" prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">US offer</Link></li>
+              {market && (
+                <li>
+                  <Link href={market.path} prefetch={false} className="text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors">
+                    {market.id.toUpperCase()} offer
+                  </Link>
+                </li>
               )}
             </ul>
           </div>
@@ -155,7 +164,7 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-2">
             <h4 className="eyebrow mb-5">Newsletter</h4>
             <p className="text-sm text-[var(--color-pib-text-muted)] mb-3">Build notes, case studies, and the occasional opinion. Monthly.</p>
-            <NewsletterForm source={isUs ? 'footer-us' : 'footer'} />
+            <NewsletterForm source={market ? `footer-${market.id}` : 'footer'} />
           </div>
         </div>
 
@@ -168,8 +177,8 @@ export default function Footer() {
             <Link href="/terms-of-service" prefetch={false} className="hover:text-[var(--color-pib-text-muted)] transition-colors">Terms</Link>
             <a href="/llms.txt" className="hover:text-[var(--color-pib-text-muted)] transition-colors">llms.txt</a>
             <a href="/sitemap.xml" className="hover:text-[var(--color-pib-text-muted)] transition-colors">Sitemap</a>
-            {!isUs && <span className="font-mono">v2026.04 · Made in Pretoria</span>}
-            {isUs && <span className="font-mono">USD · Stripe · ET overlap</span>}
+            {!market && <span className="font-mono">v2026.04 · Made in Pretoria</span>}
+            {market && <span className="font-mono">{market.footerBadge}</span>}
           </div>
         </div>
       </div>
