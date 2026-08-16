@@ -8,6 +8,7 @@ import { NAV } from '@/lib/seo/site'
 const US_NAV = [
   { href: '/us', label: 'Offer' },
   { href: '/work', label: 'Work' },
+  { href: '/?home=1', label: 'Studio' },
   { href: '/book-a-call?market=us', label: 'Book' },
 ] as const
 
@@ -35,6 +36,7 @@ export default function Navbar() {
   const isUs = pathname === '/us' || pathname.startsWith('/us/')
   const startHref = isUs ? '/start-a-project?offer=4-week-site&market=us' : '/start-a-project'
   const homeHref = isUs ? '/us' : '/'
+  const studioHref = '/?home=1'
   const links = isUs ? US_NAV : NAV
 
   return (
