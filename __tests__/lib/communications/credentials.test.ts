@@ -10,6 +10,8 @@ import {
   encryptTwilioCredentials,
   getCredentialMasterKey,
   maskSid,
+  mergeTwilioCredentials,
+  computeTwilioCapabilities,
   normalizePhoneKey,
   redactCredentialSummary,
 } from '@/lib/communications/credentials'
@@ -68,11 +70,37 @@ describe('communications credential encryption', () => {
       authToken: 'sekrit-token-value',
       messagingServiceSid: 'MGbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
       whatsappFrom: '+27612345678',
+      defaultFromNumber: '+27610000000',
+      voiceCallerId: '+27610000000',
+      apiKeySid: 'SKcccccccccccccccccccccccccccccccc',
+      apiKeySecret: 'api-key-secret',
+      twimlAppSid: 'APdddddddddddddddddddddddddddddddd',
+      verifyServiceSid: 'VAeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
     }
     const block = encryptTwilioCredentials(creds, ORG_A)
     expect(JSON.stringify(block)).not.toContain('sekrit-token-value')
+    expect(JSON.stringify(block)).not.toContain('api-key-secret')
     const restored = decryptTwilioCredentials(block, ORG_A)
     expect(restored).toEqual(creds)
+  })
+
+  it('merges partial credential updates without wiping voice secrets', () => {
+    const existing = {
+      accountSid: 'ACaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      authToken: 'sekrit-token-value',
+      apiKeySid: 'SKcccccccccccccccccccccccccccccccc',
+      apiKeySecret: 'api-key-secret',
+      twimlAppSid: 'APdddddddddddddddddddddddddddddddd',
+      voiceCallerId: '+27610000000',
+    }
+    const merged = mergeTwilioCredentials(existing, {
+      whatsappFrom: '+27612345678',
+      authToken: '',
+    })
+    expect(merged.apiKeySecret).toBe('api-key-secret')
+    expect(merged.whatsappFrom).toBe('+27612345678')
+    expect(computeTwilioCapabilities(merged).voice).toBe(true)
+    expect(computeTwilioCapabilities(merged).whatsapp).toBe(true)
   })
 
   it('redacts credentials so API summaries never leak secrets', () => {

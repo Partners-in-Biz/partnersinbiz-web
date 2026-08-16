@@ -19,7 +19,8 @@
 
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
-import { sendSms, isValidE164, normalizeToE164, countSmsSegments } from '@/lib/sms/twilio'
+import { isValidE164, normalizeToE164, countSmsSegments } from '@/lib/sms/twilio'
+import { sendOrgSms } from '@/lib/twilio/sms'
 import { isSuppressed } from '@/lib/email/suppressions'
 import { shouldSendToContact } from '@/lib/preferences/store'
 import { isWithinFrequencyCap, logFrequencySkip } from '@/lib/email/frequency'
@@ -148,12 +149,14 @@ export async function sendSmsToContact(opts: SmsSendOptions): Promise<SmsSendOut
     return { status: 'skipped', reason: freqCheck.reason ?? 'frequency cap' }
   }
 
-  // 6. Send via Twilio.
+  // 6. Send via Twilio (per-org credentials preferred).
   const segInfo = countSmsSegments(body)
-  const sendResult = await sendSms({
+  const sendResult = await sendOrgSms({
+    orgId,
     to: e164,
     body,
     from: opts.fromOverride,
+    allowPlatformFallback: true,
   })
 
   // 7. Persist the sms doc no matter what — failed sends are useful audit
@@ -165,7 +168,7 @@ export async function sendSmsToContact(opts: SmsSendOptions): Promise<SmsSendOut
     direction: 'outbound',
     contactId,
     twilioSid: sendResult.twilioSid,
-    from: (opts.fromOverride ?? '').trim() || process.env.TWILIO_DEFAULT_FROM_NUMBER || '',
+    from: (opts.fromOverride ?? '').trim() || '',
     to: e164,
     body,
     status: sendResult.ok ? 'sent' : 'failed',

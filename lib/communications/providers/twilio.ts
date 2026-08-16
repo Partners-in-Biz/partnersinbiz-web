@@ -14,13 +14,13 @@ function credValue(credentials: ProviderCredentials | undefined, key: keyof Prov
 
 export const twilioCommunicationProvider: CommunicationProvider = {
   id: 'twilio',
-  name: 'Twilio WhatsApp and SMS',
-  supports: ['whatsapp', 'sms'],
+  name: 'Twilio (SMS, WhatsApp, Voice)',
+  supports: ['whatsapp', 'sms', 'voice'],
   getReadiness(env = process.env, credentials?: ProviderCredentials): ProviderReadiness {
     const accountSid = credValue(credentials, 'accountSid', env, 'TWILIO_ACCOUNT_SID')
     const authToken = credValue(credentials, 'authToken', env, 'TWILIO_AUTH_TOKEN')
     const messagingServiceSid = credValue(credentials, 'messagingServiceSid', env, 'TWILIO_MESSAGING_SERVICE_SID')
-    const defaultFrom = envValue(env, 'TWILIO_DEFAULT_FROM_NUMBER')
+    const defaultFrom = envValue(env, 'TWILIO_DEFAULT_FROM_NUMBER') || (credentials?.from ?? '').toString().trim()
     const whatsappFrom = credValue(credentials, 'from', env, 'TWILIO_WHATSAPP_FROM')
     const missing: string[] = []
     if (!accountSid) missing.push('TWILIO_ACCOUNT_SID')
@@ -59,6 +59,12 @@ export const twilioCommunicationProvider: CommunicationProvider = {
           detail: whatsappFrom
             ? 'WhatsApp sender configured.'
             : 'Set a WhatsApp sender before enabling outbound WhatsApp.',
+        },
+        {
+          id: 'voice',
+          label: 'Voice softphone',
+          status: 'warn',
+          detail: 'Configure API Key + TwiML App + caller ID in Organisation Twilio settings for in-browser calling.',
         },
       ],
     }

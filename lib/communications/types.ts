@@ -1,6 +1,7 @@
 export const COMMUNICATION_CHANNELS = [
   'whatsapp',
   'sms',
+  'voice',
   'email',
   'in_app',
   'messenger',
