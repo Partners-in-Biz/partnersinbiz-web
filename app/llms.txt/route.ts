@@ -39,7 +39,8 @@ ${posts}
 ## Key pages
 - [About](${SITE.url}/about): Founder story, methodology, values
 - [Process](${SITE.url}/our-process): How we work — Discover, Design, Build, Launch, Grow
-- [Pricing](${SITE.url}/pricing): Packaged tiers, retainers, and bespoke engagements
+- [Pricing](${SITE.url}/pricing): Packaged tiers, retainers, and bespoke engagements (ZAR)
+- [US Offer — The 4-Week Site](${SITE.url}/us): Fixed $9,500 USD Next.js site in 28 days for US founders. Stripe. Client owns the repo.
 - [Gauteng Growth Audit](${SITE.url}/gauteng-growth-audit): Free website, local SEO, and social media audit for Gauteng SMEs
 - [Start a project](${SITE.url}/start-a-project): 4-step intake form, ~90 seconds
 - [Book an intro call](${SITE.cal.url}): 20-minute Cal.com slot

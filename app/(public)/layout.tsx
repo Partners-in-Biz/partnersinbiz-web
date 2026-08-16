@@ -21,6 +21,7 @@ const PUBLIC_MATERIAL_SYMBOL_NAMES = [
   'chat',
   'check',
   'check_circle',
+  'close',
   'dashboard',
   'delete',
   'edit_note',

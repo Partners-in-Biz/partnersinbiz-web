@@ -42,6 +42,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/faq',
     '/book-a-call',
     '/start-a-project',
+    '/us',
     '/privacy-policy',
     '/terms-of-service',
   ].map((path) => ({ url: `${SITE.url}${path}`, lastModified: staticLastModified }))

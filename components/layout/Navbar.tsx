@@ -5,6 +5,12 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { NAV } from '@/lib/seo/site'
 
+const US_NAV = [
+  { href: '/us', label: 'Offer' },
+  { href: '/work', label: 'Work' },
+  { href: '/book-a-call?market=us', label: 'Book' },
+] as const
+
 export default function Navbar() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -22,7 +28,14 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const isActive = (href: string) => pathname === href || (href !== '/' && pathname.startsWith(href))
+  const isActive = (href: string) => {
+    const path = href.split('?')[0]
+    return pathname === path || (path !== '/' && pathname.startsWith(path))
+  }
+  const isUs = pathname === '/us' || pathname.startsWith('/us/')
+  const startHref = isUs ? '/start-a-project?offer=4-week-site&market=us' : '/start-a-project'
+  const homeHref = isUs ? '/us' : '/'
+  const links = isUs ? US_NAV : NAV
 
   return (
     <>
@@ -37,7 +50,7 @@ export default function Navbar() {
           aria-label="Primary"
           className="container-pib flex items-center justify-between h-16 md:h-20"
         >
-          <Link href="/" prefetch={false} aria-label="Partners in Biz home" className="flex items-center gap-2.5 group">
+          <Link href={homeHref} prefetch={false} aria-label="Partners in Biz home" className="flex items-center gap-2.5 group">
             <Image src="/pib-logo-64.png" alt="Partners in Biz" width={32} height={32} className="rounded-lg object-contain" />
             <span className="font-display text-xl tracking-tight hidden sm:inline">
               Partners <span className="text-[var(--color-pib-text-muted)]">in</span> Biz
@@ -45,7 +58,7 @@ export default function Navbar() {
           </Link>
 
           <div className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
-            {NAV.map(({ href, label }) => (
+            {links.map(({ href, label }) => (
               <Link
                 key={href}
                 href={href}
@@ -62,14 +75,16 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              href="/login"
-              prefetch={false}
-              className="hidden lg:inline-flex text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-3 py-2 transition-colors"
-            >
-              Client login
-            </Link>
-            <Link href="/start-a-project" prefetch={false} className="btn-pib-primary text-sm hidden sm:inline-flex">
+            {!isUs && (
+              <Link
+                href="/login"
+                prefetch={false}
+                className="hidden lg:inline-flex text-sm text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] px-3 py-2 transition-colors"
+              >
+                Client login
+              </Link>
+            )}
+            <Link href={startHref} prefetch={false} className="btn-pib-primary text-sm hidden sm:inline-flex">
               Start a project
               <span className="material-symbols-outlined text-base">arrow_outward</span>
             </Link>
@@ -86,7 +101,6 @@ export default function Navbar() {
         </nav>
       </header>
 
-      {/* Mobile sidebar */}
       <div
         onClick={() => setOpen(false)}
         className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
@@ -99,7 +113,7 @@ export default function Navbar() {
         }`}
       >
         <nav className="flex flex-col gap-1 flex-1">
-          {NAV.map(({ href, label }) => (
+          {links.map(({ href, label }) => (
             <Link
               key={href}
               href={href}
@@ -112,23 +126,25 @@ export default function Navbar() {
               {label}
             </Link>
           ))}
-          <Link
-            href="/login"
-            prefetch={false}
-            onClick={() => setOpen(false)}
-            className="font-display text-3xl py-4 border-b border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
-          >
-            Client login
-          </Link>
+          {!isUs && (
+            <Link
+              href="/login"
+              prefetch={false}
+              onClick={() => setOpen(false)}
+              className="font-display text-3xl py-4 border-b border-[var(--color-pib-line)] text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)] transition-colors"
+            >
+              Client login
+            </Link>
+          )}
         </nav>
 
         <div className="space-y-4">
-          <Link href="/start-a-project" prefetch={false} onClick={() => setOpen(false)} className="btn-pib-primary w-full justify-center">
+          <Link href={startHref} prefetch={false} onClick={() => setOpen(false)} className="btn-pib-primary w-full justify-center">
             Start a project
             <span className="material-symbols-outlined text-base">arrow_outward</span>
           </Link>
           <p className="font-mono text-xs text-[var(--color-pib-text-faint)] tracking-wide">
-            © {new Date().getFullYear()} Partners in Biz · Pretoria
+            © {new Date().getFullYear()} Partners in Biz{isUs ? '' : ' · Pretoria'}
           </p>
         </div>
       </aside>

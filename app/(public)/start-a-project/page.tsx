@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { SITE, TESTIMONIALS } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema } from '@/lib/seo/schema'
 import { Reveal } from '@/components/marketing/Reveal'
@@ -32,10 +33,26 @@ const TRUST = [
   '100% of clients still operating',
 ]
 
-export default function StartProjectPage() {
+const TRUST_US = [
+  'USD · Stripe · half to start',
+  'Reply within 1 business day',
+  'WhatsApp · 8am–12pm ET overlap',
+  'You own the repo on day one',
+]
+
+export default async function StartProjectPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ market?: string; offer?: string }>
+}) {
+  const params = await searchParams
+  const isUs = params.market === 'us'
+  const trust = isUs ? TRUST_US : TRUST
+  const bookHref = isUs ? '/book-a-call?market=us' : SITE.cal.url
   const waLink = `https://wa.me/${SITE.whatsapp.replace(/\D/g, '')}`
   const breadcrumb = breadcrumbSchema([
     { name: 'Home', url: '/' },
+    ...(isUs ? [{ name: 'US Offer', url: '/us' }] : []),
     { name: 'Start a project', url: '/start-a-project' },
   ])
   const contactPoint = {
@@ -44,7 +61,7 @@ export default function StartProjectPage() {
     contactType: 'sales',
     email: SITE.email,
     telephone: SITE.phone,
-    areaServed: ['ZA', 'GB', 'US', 'EU'],
+    areaServed: isUs ? ['US'] : ['ZA', 'GB', 'US', 'EU'],
     availableLanguage: ['English'],
     url: `${SITE.url}/start-a-project`,
   }
@@ -69,16 +86,18 @@ export default function StartProjectPage() {
             {/* RIGHT — page content */}
             <div className="lg:col-span-5 order-1 lg:order-2">
               <Reveal>
-                <p className="eyebrow mb-6">Start a project</p>
+                <p className="eyebrow mb-6">{isUs ? 'The 4-Week Site' : 'Start a project'}</p>
               </Reveal>
               <Reveal delay={80}>
                 <h1 className="h-display text-balance" style={{ fontSize: 'clamp(2.5rem, 5vw, 4.5rem)' }}>
-                  Tell us what you&rsquo;re building.
+                  {isUs ? 'Tell us about the site.' : <>Tell us what you&rsquo;re building.</>}
                 </h1>
               </Reveal>
               <Reveal delay={160}>
                 <p className="mt-6 text-lg text-[var(--color-pib-text-muted)] text-pretty">
-                  Four quick questions. Ninety seconds. We reply within one business day.
+                  {isUs
+                    ? 'Four quick questions. Ninety seconds. We reply within one business day — USD, Stripe, repo yours.'
+                    : 'Four quick questions. Ninety seconds. We reply within one business day.'}
                 </p>
               </Reveal>
 
@@ -125,15 +144,14 @@ export default function StartProjectPage() {
                       </a>
                     </li>
                     <li>
-                      <a
-                        href={SITE.cal.url}
-                        target="_blank"
-                        rel="noreferrer"
+                      <Link
+                        href={bookHref}
+                        prefetch={false}
                         className="flex items-center gap-3 text-sm text-[var(--color-pib-text)] hover:text-[var(--color-pib-accent)] transition"
                       >
                         <span className="material-symbols-outlined text-base">event</span>
                         Book a 20-min call
-                      </a>
+                      </Link>
                     </li>
                   </ul>
                 </div>
@@ -162,7 +180,7 @@ export default function StartProjectPage() {
               {/* Trust band */}
               <Reveal delay={480}>
                 <ul className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {TRUST.map((t) => (
+                  {trust.map((t) => (
                     <li
                       key={t}
                       className="flex items-center gap-2 text-xs text-[var(--color-pib-text-muted)]"
