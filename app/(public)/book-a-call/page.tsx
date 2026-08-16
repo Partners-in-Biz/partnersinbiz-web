@@ -31,9 +31,17 @@ export default async function BookACallPage({
             Book a 20-min call
           </h1>
           <p className="text-[var(--color-pib-text-muted)] leading-relaxed">
-            {market
-              ? `No sales pitch. We\u2019ll confirm fit for the ${market.priceDisplay} / 28-day site, then you start on Stripe.`
-              : 'No sales pitch. We\u2019ll talk through what you\u2019re building, whether we\u2019re the right fit, and what a realistic scope and timeline looks like.'}
+            {market ? (
+              <>
+                No sales pitch. We&apos;ll confirm fit for the {market.priceDisplay} / 28-day site, then you
+                start on Stripe.
+              </>
+            ) : (
+              <>
+                No sales pitch. We&apos;ll talk through what you&apos;re building, whether we&apos;re the right
+                fit, and what a realistic scope and timeline looks like.
+              </>
+            )}
           </p>
         </div>
 
