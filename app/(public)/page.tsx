@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
-import { SITE, SERVICES, CASE_STUDIES, TESTIMONIALS, STATS, TECH_STACK, PROCESS, FAQ_HOMEPAGE } from '@/lib/seo/site'
+import { SITE, SERVICES, CASE_STUDIES, TESTIMONIALS, TECH_STACK, PROCESS, FAQ_HOMEPAGE } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema, faqSchema } from '@/lib/seo/schema'
 import { Reveal } from '@/components/marketing/Reveal'
-import { CountUp } from '@/components/marketing/CountUp'
 import { Marquee } from '@/components/marketing/Marquee'
 import { FAQ } from '@/components/marketing/FAQ'
 import { SectionHead } from '@/components/marketing/SectionHead'
@@ -359,26 +358,6 @@ export default function HomePage() {
                 {t}
               </span>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* STATS */}
-      <section className="section border-t border-[var(--color-pib-line)] relative">
-        <div className="container-pib">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-[var(--color-pib-line)] border border-[var(--color-pib-line)] rounded-2xl overflow-hidden">
-            {STATS.map((s) => {
-              const numeric = parseFloat(s.value)
-              const decimals = s.value.includes('.') ? 1 : 0
-              return (
-                <div key={s.label} className="bg-[var(--color-pib-bg)] p-8 md:p-10">
-                  <div className="font-display text-5xl md:text-6xl lg:text-7xl text-[var(--color-pib-text)]">
-                    <CountUp to={numeric} decimals={decimals} suffix={s.suffix} />
-                  </div>
-                  <div className="mt-3 text-sm text-[var(--color-pib-text-muted)]">{s.label}</div>
-                </div>
-              )
-            })}
           </div>
         </div>
       </section>

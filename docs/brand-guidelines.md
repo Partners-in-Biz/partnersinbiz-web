@@ -174,7 +174,6 @@ In `partnersinbiz-web/components/marketing/`:
 | Primitive | Use |
 |---|---|
 | `Reveal` | Scroll-triggered fade-up. Stagger child reveals by 60–80 ms via `delay`. |
-| `CountUp` | Animated stats numbers when they enter the viewport. |
 | `Marquee` | Pure-CSS infinite ticker (used for the logo wall). |
 | `FAQ` | Accordion — always paired with `faqSchema` in JSON-LD. |
 | `SectionHead` | Standard eyebrow / title / subtitle / CTA at the top of every section. |
@@ -242,7 +241,7 @@ These count as the brand too — they govern how PiB appears outside the site.
 
 Customer-facing copy and tokens live here. **Edit these, not individual pages:**
 
-- `partnersinbiz-web/lib/seo/site.ts` — SITE config, NAV, SERVICES, CASE_STUDIES, TESTIMONIALS, STATS, TECH_STACK, PROCESS, FAQ_HOMEPAGE
+- `partnersinbiz-web/lib/seo/site.ts` — SITE config, NAV, SERVICES, CASE_STUDIES, TESTIMONIALS, TECH_STACK, PROCESS, FAQ_HOMEPAGE
 - `partnersinbiz-web/lib/content/posts.ts` — blog posts
 - `partnersinbiz-web/app/globals.css` — design tokens (`@theme` block)
 - `partnersinbiz-web/components/marketing/` — primitives

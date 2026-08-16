@@ -235,13 +235,6 @@ export const TESTIMONIALS = [
   },
 ] as const;
 
-export const STATS = [
-  { value: '23', suffix: '+', label: 'SMEs scaled' },
-  { value: '4.2', suffix: 'x', label: 'avg. lead increase' },
-  { value: '38', suffix: ' days', label: 'median launch time' },
-  { value: '100', suffix: '%', label: 'clients still operating' },
-] as const;
-
 export const TECH_STACK = [
   'Next.js', 'React', 'TypeScript', 'Tailwind CSS', 'Vercel',
   'Firebase', 'Supabase', 'Anthropic', 'OpenAI', 'Resend',

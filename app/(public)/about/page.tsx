@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
-import { SITE, STATS, TECH_STACK } from '@/lib/seo/site'
+import { SITE, TECH_STACK } from '@/lib/seo/site'
 import { JsonLd, breadcrumbSchema } from '@/lib/seo/schema'
 import { Reveal } from '@/components/marketing/Reveal'
-import { CountUp } from '@/components/marketing/CountUp'
 
 export const metadata: Metadata = {
   title: 'About — Founder-led software studio in Pretoria',
@@ -242,40 +241,6 @@ export default function AboutPage() {
               </Reveal>
             ))}
           </ol>
-        </div>
-      </section>
-
-      {/* STATS BAND */}
-      <section className="section border-t border-[var(--color-pib-line)]">
-        <div className="container-pib">
-          <div className="max-w-2xl mb-14">
-            <Reveal>
-              <p className="eyebrow mb-5">By the numbers</p>
-            </Reveal>
-            <Reveal delay={80}>
-              <h2 className="h-display text-balance">
-                Small studio. Real receipts.
-              </h2>
-            </Reveal>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-[var(--color-pib-line)] border border-[var(--color-pib-line)] rounded-[20px] overflow-hidden">
-            {STATS.map((s, i) => {
-              const num = parseFloat(s.value)
-              const decimals = s.value.includes('.') ? 1 : 0
-              return (
-                <Reveal key={s.label} delay={i * 80}>
-                  <div className="bg-[var(--color-pib-bg)] p-8 md:p-10 h-full flex flex-col justify-between min-h-[180px]">
-                    <span className="font-display text-5xl md:text-6xl tracking-tight text-[var(--color-pib-text)]">
-                      <CountUp to={num} decimals={decimals} suffix={s.suffix} />
-                    </span>
-                    <p className="mt-6 text-sm text-[var(--color-pib-text-muted)] uppercase tracking-wider font-mono">
-                      {s.label}
-                    </p>
-                  </div>
-                </Reveal>
-              )
-            })}
-          </div>
         </div>
       </section>
 
