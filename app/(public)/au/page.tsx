@@ -3,7 +3,7 @@ import { SITE } from '@/lib/seo/site'
 import { MARKET_OFFERS } from '@/lib/seo/market-offers'
 import { MarketOfferPage } from '@/components/marketing/MarketOfferPage'
 
-const market = MARKET_OFFERS.us
+const market = MARKET_OFFERS.au
 
 export const metadata: Metadata = {
   title: `The 4-Week Site — ${market.priceDisplay}`,
@@ -23,6 +23,6 @@ export const metadata: Metadata = {
   },
 }
 
-export default function UsOfferRoute() {
+export default function AuOfferRoute() {
   return <MarketOfferPage market={market} />
 }

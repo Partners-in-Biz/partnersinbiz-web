@@ -1,39 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { GEO_MARKET_BY_COUNTRY, MARKET_OFFERS } from '@/lib/seo/market-offers'
 
 const COOKIE_NAME = process.env.SESSION_COOKIE_NAME ?? '__session'
 const MARKET_COOKIE = 'pib-market'
+const COOKIE_MAX_AGE = 30 * 24 * 60 * 60
 
 const PROTECTED = ['/portal', '/admin']
 
 export default async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl
 
-  // Geo-routing: redirect US visitors on homepage to /us
+  // Geo-routing: send visitors on homepage to their priced market offer.
   if (pathname === '/') {
     // Next.js 16 dropped `NextRequest.geo`; Vercel still stamps the country header.
     const country = request.headers.get('x-vercel-ip-country')
     const marketCookie = request.cookies.get(MARKET_COOKIE)?.value
     const homeQuery = searchParams.get('home')
+    const marketId = country ? GEO_MARKET_BY_COUNTRY[country] : undefined
 
     // Skip redirect if global market cookie is set or ?home=1 query parameter
     const skipRedirect = marketCookie === 'global' || homeQuery === '1'
 
-    if (country === 'US' && !skipRedirect) {
-      const response = NextResponse.redirect(new URL('/us', request.url), 307)
-      response.cookies.set(MARKET_COOKIE, 'us', {
+    if (marketId && !skipRedirect) {
+      const response = NextResponse.redirect(new URL(MARKET_OFFERS[marketId].path, request.url), 307)
+      response.cookies.set(MARKET_COOKIE, marketId, {
         path: '/',
-        maxAge: 30 * 24 * 60 * 60,
+        maxAge: COOKIE_MAX_AGE,
         sameSite: 'lax',
       })
       return response
     }
 
-    // If ?home=1 is present, set the global market cookie so user isn't redirected again
-    if (homeQuery === '1' && country === 'US' && marketCookie !== 'global') {
+    // If ?home=1 is present from a geo market, set global so they aren't redirected again
+    if (homeQuery === '1' && marketId && marketCookie !== 'global') {
       const response = NextResponse.next()
       response.cookies.set(MARKET_COOKIE, 'global', {
         path: '/',
-        maxAge: 30 * 24 * 60 * 60,
+        maxAge: COOKIE_MAX_AGE,
         sameSite: 'lax',
       })
       return response
