@@ -96,7 +96,8 @@ export const agentRunAdapter: BriefingSourceAdapter<AgentRunDocument> = {
   extractPriority(doc: AgentRunDocument): BriefingPriority {
     const status = runStatus(doc)
     if (isWaitingApproval(status)) return 'needs-peet'
-    if (isFailed(status)) return 'critical'
+    // Agent-run failures are ops review work, not human-blocking critical
+    if (isFailed(status)) return 'review'
     if (isRunning(status)) return 'progress'
     if (isCompleted(status)) return 'fyi'
     return 'fyi'

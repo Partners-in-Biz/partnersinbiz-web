@@ -84,12 +84,7 @@ export const taskAdapter: BriefingSourceAdapter<TaskDocument> = {
    * Extract priority based on task state.
    */
   extractPriority(doc: TaskDocument, _docId: string): BriefingPriority {
-    // Blocked tasks are critical
-    if (doc.agentStatus === 'blocked') {
-      return 'critical'
-    }
-
-    // Awaiting-input tasks need attention
+    // Awaiting-input tasks need human attention - highest priority
     if (doc.agentStatus === 'awaiting-input') {
       return 'needs-peet'
     }
@@ -99,19 +94,27 @@ export const taskAdapter: BriefingSourceAdapter<TaskDocument> = {
       return 'needs-peet'
     }
 
-    // Completed agent work pending review
-    if (doc.agentStatus === 'done' && doc.reviewStatus === 'pending' && doc.columnId === 'review') {
-      return 'review'
-    }
-
-    // Changes requested after review
+    // Changes requested after review need human attention
     if (doc.reviewStatus === 'changes-requested') {
       return 'needs-peet'
     }
 
-    // High-priority urgent tasks
+    // High-priority urgent tasks are client risk
     if (doc.priority === 'urgent') {
       return 'client-risk'
+    }
+
+    // Blocked tasks: if they need Peet, critical; otherwise review-lane agent ops
+    if (doc.agentStatus === 'blocked') {
+      // Check if this is a human-blocking issue (based on blockerRecovery metadata)
+      const reason = typeof doc.blockedReason === 'string' ? doc.blockedReason.toLowerCase() : ''
+      const needsHuman = /approval|input|credential|secret|payment|client|peet/.test(reason)
+      return needsHuman ? 'critical' : 'review'
+    }
+
+    // Completed agent work pending review
+    if (doc.agentStatus === 'done' && doc.reviewStatus === 'pending' && doc.columnId === 'review') {
+      return 'review'
     }
 
     // In-progress agent work
