@@ -892,15 +892,12 @@ const MISSION_CONTROL_APPROVAL_GATES = [
   'destructive actions',
 ]
 
-type WorkflowLaneId = 'all' | 'decide' | 'approve' | 'unblock' | 'follow-up' | 'agent-review' | 'fyi-evidence'
+type WorkflowLaneId = 'call' | 'follow-up' | 'blocked' | 'agent-ops'
 
 const WORKFLOW_LANES: Array<{ id: WorkflowLaneId; label: string; icon: string; description: string }> = [
-  { id: 'decide', label: 'Needs a call', icon: 'rule', description: 'Quotes, finance choices, account-risk calls, and business decisions Peet must make.' },
-  { id: 'approve', label: 'Needs approval', icon: 'approval', description: 'Documents, campaigns, spend, runs, or workspace jobs waiting for explicit approval.' },
-  { id: 'unblock', label: 'Blocked', icon: 'lock_open', description: 'Work paused until Peet, a client, or an internal reviewer gives input.' },
-  { id: 'follow-up', label: 'Follow up', icon: 'follow_the_signs', description: 'Replies, CRM touches, support, forms, bookings, inboxes, and relationship next steps.' },
-  { id: 'agent-review', label: 'Check agent work', icon: 'smart_toy', description: 'Agent outputs, learning proposals, build evidence, and run approvals needing review.' },
-  { id: 'fyi-evidence', label: 'FYI', icon: 'fact_check', description: 'Progress, completed work, reports, shipments, and evidence Peet may want to scan.' },
+  { id: 'call', label: 'Call', icon: 'phone_in_talk', description: 'CRM contacts, deals, and call-ready tasks' },
+  { id: 'follow-up', label: 'Follow up', icon: 'follow_the_signs', description: 'Bookings, inbox, comments, and relationship next steps' },
+  { id: 'blocked', label: 'Blocked', icon: 'front_hand', description: 'Waiting on Peet: approvals and blockers' },
 ]
 
 const SUMMARY_COUNTER_DEFS = [
@@ -1026,13 +1023,62 @@ function isRecentlyCompletedItem(item: BriefingCard) {
   return /completed|done|delivered|paid|approved|sent|fulfilled|resolved|handled|closed|archived/.test(workflowHaystack(item))
 }
 
+function isCallItem(item: BriefingCard): boolean {
+  // CRM contacts and deals
+  if (['contact', 'deal'].includes(item.source.type)) return true
+  
+  // Tasks tagged call-ready or with "Needs Peet: Call" in title
+  if (item.source.type === 'task') {
+    const tags = Array.isArray(item.metadata?.tags) ? item.metadata.tags : []
+    const hasCallTag = tags.some((tag: unknown) => typeof tag === 'string' && /call-ready|needs-peet/i.test(tag))
+    const hasCallTitle = /Needs Peet:.*Call|Call.*Needs Peet/i.test(item.title)
+    return hasCallTag || hasCallTitle
+  }
+  
+  return false
+}
+
+function isBlockedItem(item: BriefingCard): boolean {
+  // Bookings always need human touch
+  if (item.source.type === 'booking') return true
+  
+  // Awaiting-input and approval-needed tasks
+  if (isApprovalNeededItem(item)) return true
+  
+  // Blocked items that actually need Peet (not agent-ops)
+  if (item.priority === 'needs-peet' || item.priority === 'critical') {
+    // Exclude agent-runs and agent-ops blockers
+    if (item.source.type === 'agent-run' || item.source.type === 'agent-output') return false
+    return true
+  }
+  
+  return false
+}
+
+function isAgentOpsItem(item: BriefingCard): boolean {
+  // Agent runs, outputs, learning reviews
+  if (['agent-run', 'agent-output', 'agent-learning-review', 'business-insight-review'].includes(item.source.type)) return true
+  
+  // Blocked/failed agent work
+  if (item.source.type === 'task' && item.priority === 'review') {
+    const haystack = workflowHaystack(item)
+    if (/blocked|failed|agent/.test(haystack)) return true
+  }
+  
+  // SEO tasks at review priority (blocked SEO)
+  if (item.source.type === 'seo-task' && item.priority === 'review') return true
+  
+  // Workspace broker jobs
+  if (item.source.type === 'workspace-broker-job') return true
+  
+  return false
+}
+
 function workflowLaneForItem(item: BriefingCard): WorkflowLaneId {
-  if (isAgentReviewItem(item)) return 'agent-review'
-  if (isApprovalNeededItem(item)) return 'approve'
-  if (isBlockedByPeetItem(item)) return 'unblock'
-  if (isFollowUpDueItem(item)) return 'follow-up'
-  if (isClientRiskItem(item) || ['quote', 'invoice', 'order', 'expense'].includes(item.source.type)) return 'decide'
-  return 'fyi-evidence'
+  if (isCallItem(item)) return 'call'
+  if (isAgentOpsItem(item)) return 'agent-ops'
+  if (isBlockedItem(item)) return 'blocked'
+  return 'follow-up'
 }
 
 function workflowLaneCount(items: BriefingCard[], laneId: WorkflowLaneId) {
@@ -1042,7 +1088,9 @@ function workflowLaneCount(items: BriefingCard[], laneId: WorkflowLaneId) {
 export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: Mode; portalScope?: PortalOrgRouteScope; currentUser?: { uid: string; displayName: string } }) {
   const { orgs, orgId, setOrgId, priority, setPriority, sourceType, setSourceType, feed, setFeed, selectedId, setSelectedId, loading, autoRefresh, setAutoRefresh, flash, setFlash, loadFeed } = useBriefingFeed(mode)
   const [accountPulseId, setAccountPulseId] = useState('')
-  const [workflowLane, setWorkflowLane] = useState<WorkflowLaneId>('all')
+  const [workflowLane, setWorkflowLane] = useState<WorkflowLaneId>('call')
+  const [showAgentOps, setShowAgentOps] = useState(false)
+  const [showMoreActions, setShowMoreActions] = useState(false)
   const [snapshotting, setSnapshotting] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [socialChangeText, setSocialChangeText] = useState('')
@@ -1071,54 +1119,37 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
     if (mode !== 'portal' || !accountPulseId) return allItems
     return allItems.filter((item) => accountPulseIdentity(item).id === accountPulseId)
   }, [accountPulseId, allItems, mode])
+  
+  const mainLaneItems = useMemo(() => {
+    return pulseScopedItems.filter((item) => {
+      const lane = workflowLaneForItem(item)
+      return lane !== 'agent-ops'
+    })
+  }, [pulseScopedItems])
+  
+  const agentOpsItems = useMemo(() => {
+    return pulseScopedItems.filter((item) => workflowLaneForItem(item) === 'agent-ops')
+  }, [pulseScopedItems])
+  
   const items = useMemo(() => {
-    if (workflowLane === 'all') return pulseScopedItems
-    return pulseScopedItems.filter((item) => workflowLaneForItem(item) === workflowLane)
-  }, [pulseScopedItems, workflowLane])
+    const sourceItems = showAgentOps ? agentOpsItems : mainLaneItems
+    return sourceItems.filter((item) => workflowLaneForItem(item) === workflowLane)
+  }, [mainLaneItems, agentOpsItems, showAgentOps, workflowLane])
+  
   const selected = items.find((item) => item.id === selectedId) ?? items[0] ?? null
   const selectedReviewCard = selected ? agentOutputReviewCard(selected) : null
   const selectedLearningReview = selected ? agentLearningReviewCard(selected) : null
 
-  const topStats = useMemo(() => ({
-    needsPeet: pulseScopedItems.filter((item) => item.priority === 'needs-peet' || item.requiresAction).length,
-    blockedByPeet: pulseScopedItems.filter(isBlockedByPeetItem).length,
-    approvalNeeded: pulseScopedItems.filter(isApprovalNeededItem).length,
-    agentReview: pulseScopedItems.filter(isAgentReviewItem).length,
-    followUpsDue: pulseScopedItems.filter(isFollowUpDueItem).length,
-    clientRisk: pulseScopedItems.filter(isClientRiskItem).length,
-    inProgress: pulseScopedItems.filter(isInProgressItem).length,
-    recentlyCompleted: pulseScopedItems.filter(isRecentlyCompletedItem).length,
-  }), [pulseScopedItems])
-
-  const missionRoutes = useMemo(() => [
-    {
-      id: 'peet',
-      label: 'Needs Peet',
-      count: pulseScopedItems.filter((item) => item.requiresAction || isApprovalNeededItem(item) || isBlockedByPeetItem(item) || workflowLaneForItem(item) === 'decide').length,
-      description: 'Only Peet can decide, approve, unblock, or send back.',
-      icon: 'person_alert',
-    },
-    {
-      id: 'agent',
-      label: 'Agent lane',
-      count: pulseScopedItems.filter(isAgentReviewItem).length,
-      description: 'Review agent output, evidence, runs, and handoffs.',
-      icon: 'smart_toy',
-    },
-    {
-      id: 'fyi',
-      label: 'FYI / evidence',
-      count: pulseScopedItems.filter((item) => workflowLaneForItem(item) === 'fyi-evidence' || item.priority === 'progress' || item.priority === 'fyi').length,
-      description: 'Read-only progress, evidence, and completed signals.',
-      icon: 'fact_check',
-    },
-  ], [pulseScopedItems])
+  const dailySnapshot = useMemo(() => ({
+    call: mainLaneItems.filter((item) => workflowLaneForItem(item) === 'call').length,
+    followUp: mainLaneItems.filter((item) => workflowLaneForItem(item) === 'follow-up').length,
+    blocked: mainLaneItems.filter((item) => workflowLaneForItem(item) === 'blocked').length,
+  }), [mainLaneItems])
 
   function selectWorkflowLane(laneId: WorkflowLaneId) {
     setWorkflowLane(laneId)
-    const next = laneId === 'all'
-      ? pulseScopedItems[0]
-      : pulseScopedItems.find((item) => workflowLaneForItem(item) === laneId)
+    const sourceItems = laneId === 'agent-ops' ? agentOpsItems : mainLaneItems
+    const next = sourceItems.find((item) => workflowLaneForItem(item) === laneId)
     setSelectedId(next?.id ?? null)
   }
 
@@ -2392,6 +2423,37 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
   const workFeedContent = (
     <div className="flex h-full min-h-0 w-full flex-col gap-2 text-[var(--color-pib-text)]">
+        {/* Daily snapshot strip */}
+        <section className="shrink-0 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-6">
+              <div>
+                <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{dailySnapshot.call}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">Call</p>
+              </div>
+              <div>
+                <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{dailySnapshot.followUp}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">Follow up</p>
+              </div>
+              <div>
+                <p className="text-2xl font-semibold text-[var(--color-pib-text)]">{dailySnapshot.blocked}</p>
+                <p className="text-xs text-[var(--color-pib-text-muted)]">Blocked</p>
+              </div>
+            </div>
+            {agentOpsItems.length > 0 ? (
+              <button 
+                type="button" 
+                onClick={() => setShowAgentOps(!showAgentOps)}
+                className="flex items-center gap-1.5 rounded-md border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+              >
+                <span className="material-symbols-outlined text-[16px]">smart_toy</span>
+                <span>Agents ({agentOpsItems.length})</span>
+                <span className="material-symbols-outlined text-[16px]">{showAgentOps ? 'expand_less' : 'expand_more'}</span>
+              </button>
+            ) : null}
+          </div>
+        </section>
+
         <section className="hidden" aria-hidden="true">
           <span className="absolute inset-y-0 left-0 w-1.5 bg-[var(--color-accent-v2)]" aria-hidden="true" />
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(520px,1.05fr)] lg:items-center">
@@ -2434,26 +2496,18 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
         <section className="shrink-0 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-2 py-1.5">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {mode === 'admin' ? (
-              <label className="sr-only" htmlFor="briefing-workspace-filter">Workspace</label>
-            ) : null}
-            {mode === 'admin' ? (
+              <>
+                <label className="sr-only" htmlFor="briefing-workspace-filter">Workspace</label>
                 <select id="briefing-workspace-filter" aria-label="Workspace" className="h-8 max-w-52 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={orgId} onChange={(event) => setOrgId(event.target.value)}>
                   <option value="">All visible workspaces</option>
                   {orgs.map((org) => (
                     <option key={org.id} value={org.id}>{org.name}</option>
                   ))}
                 </select>
+              </>
             ) : (
               <span className="hidden max-w-44 truncate px-2 text-xs text-[var(--color-pib-text-muted)] sm:inline">{activeWorkspaceName}</span>
             )}
-            <label className="sr-only" htmlFor="briefing-priority-filter">Priority</label>
-              <select id="briefing-priority-filter" aria-label="Priority" className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={priority} onChange={(event) => setPriority(event.target.value)}>
-                {PRIORITIES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
-            <label className="sr-only" htmlFor="briefing-source-filter">Source</label>
-              <select id="briefing-source-filter" aria-label="Source" className="h-8 rounded-md border border-[var(--color-pib-line)] bg-transparent px-2 text-xs text-[var(--color-pib-text)]" value={sourceType} onChange={(event) => setSourceType(event.target.value)}>
-                {SOURCES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
             <div className="ml-auto flex items-center gap-1">
               <button className={`flex h-8 items-center gap-1 rounded-md px-2 text-xs transition ${autoRefresh ? 'bg-emerald-400/10 text-emerald-300' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'}`} type="button" onClick={() => setAutoRefresh((value) => !value)}>
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{autoRefresh ? 'sync' : 'sync_disabled'}</span>
@@ -2504,28 +2558,23 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
         </section>
 
         <section aria-label="Briefing control desk columns" className="grid min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/45 xl:grid-cols-[190px_350px_minmax(420px,1fr)]">
-          <aside aria-label="Workflow lanes" className="min-w-0 overflow-y-auto border-r border-[var(--color-pib-line)] p-2 max-xl:order-3">
-            <div className="flex items-center justify-between gap-2 px-1">
-              <p className="eyebrow !text-[10px]">Workflow lanes</p>
-              {workflowLane !== 'all' ? (
-                <button type="button" className="text-xs font-medium text-[var(--color-accent-text)] hover:underline" onClick={() => selectWorkflowLane('all')}>
-                  All lanes
-                </button>
-              ) : null}
+          <aside aria-label="Workflow stacks" className="min-w-0 overflow-y-auto border-r border-[var(--color-pib-line)] p-2 max-xl:order-3">
+            <div className="px-1">
+              <p className="eyebrow !text-[10px]">{showAgentOps ? 'Agent operations' : 'Your day'}</p>
             </div>
             <div className="mt-2 grid grid-cols-2 gap-1 xl:grid-cols-1">
-              {WORKFLOW_LANES.map((lane) => {
-                const laneCount = workflowLaneCount(pulseScopedItems, lane.id)
+              {(showAgentOps ? [{ id: 'agent-ops' as WorkflowLaneId, label: 'Agent ops', icon: 'smart_toy', description: 'Failed runs, blocked agents, agent review' }] : WORKFLOW_LANES).map((lane) => {
+                const laneCount = workflowLaneCount(showAgentOps ? agentOpsItems : mainLaneItems, lane.id)
                 return (
                   <button
                     key={lane.id}
                     type="button"
                     onClick={() => selectWorkflowLane(lane.id)}
-                    aria-label={`${lane.label} workflow lane`}
+                    aria-label={`${lane.label} stack`}
                     className={`flex min-h-14 items-start gap-2 rounded-md px-2 py-2 text-left text-xs transition ${workflowLane === lane.id ? 'bg-primary/10 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.04] hover:text-[var(--color-pib-text)]'}`}
-                    style={{ borderLeft: `3px solid ${priorityAccentColor(lane.id === 'unblock' ? 'critical' : lane.id === 'approve' || lane.id === 'agent-review' ? 'review' : lane.id === 'follow-up' ? 'needs-peet' : lane.id === 'decide' ? 'client-risk' : 'fyi')}` }}
+                    style={{ borderLeft: `3px solid ${priorityAccentColor(lane.id === 'call' ? 'needs-peet' : lane.id === 'blocked' ? 'critical' : lane.id === 'agent-ops' ? 'review' : 'progress')}` }}
                   >
-                    <span className="material-symbols-outlined mt-0.5 text-[19px]" style={{ color: priorityAccentColor(lane.id === 'unblock' ? 'critical' : lane.id === 'approve' || lane.id === 'agent-review' ? 'review' : lane.id === 'follow-up' ? 'needs-peet' : lane.id === 'decide' ? 'client-risk' : 'fyi') }} aria-hidden="true">{lane.icon}</span>
+                    <span className="material-symbols-outlined mt-0.5 text-[19px]" style={{ color: priorityAccentColor(lane.id === 'call' ? 'needs-peet' : lane.id === 'blocked' ? 'critical' : lane.id === 'agent-ops' ? 'review' : 'progress') }} aria-hidden="true">{lane.icon}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium">{lane.label}</span>
                       <span className="block text-[11px] text-[var(--color-pib-text-muted)]">{laneCount} open</span>
@@ -2631,42 +2680,160 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Quick briefing actions">
-                  <button
-                    type="button"
-                    className="pib-btn-primary min-w-0 justify-center px-3 py-2 text-xs"
-                    onClick={() => (reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected) || (canSocialPostAct(selected) && Boolean(socialActionStage(selected)))) ? approvePhase2Item(selected) : setItemState(selected, 'handled')}
-                    disabled={!!busyAction}
-                  >
-                    <span className="material-symbols-outlined text-[15px]">done</span>
-                    {(reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected)) ? 'Approve' : 'Clear'}
-                  </button>
-                  <button type="button" className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction}>
+                {(selected.source.type === 'contact' || selected.source.type === 'deal' || (selected.source.type === 'task' && (selected.context.contactId || selected.context.dealId))) ? (
+                  <div className="rounded-lg border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Quick CRM actions</p>
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {selected.metadata?.email ? (
+                        <a
+                          href={`mailto:${selected.metadata.email}`}
+                          className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">mail</span>
+                          Email
+                        </a>
+                      ) : null}
+                      {selected.metadata?.phone ? (
+                        <a
+                          href={`tel:${selected.metadata.phone}`}
+                          className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">call</span>
+                          Call
+                        </a>
+                      ) : null}
+                    </div>
+                    {selected.context.contactName || selected.context.contactId ? (
+                      <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
+                        <span className="font-medium text-[var(--color-pib-text)]">Contact:</span> {selected.context.contactName || selected.context.contactId}
+                      </p>
+                    ) : null}
+                    {selected.metadata?.company || selected.context.companyName ? (
+                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                        <span className="font-medium text-[var(--color-pib-text)]">Company:</span> {selected.metadata?.company || selected.context.companyName}
+                      </p>
+                    ) : null}
+                    {selected.context.dealTitle || selected.context.dealId ? (
+                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                        <span className="font-medium text-[var(--color-pib-text)]">Deal:</span> {selected.context.dealTitle || selected.context.dealId}
+                      </p>
+                    ) : null}
+                    {typeof selected.metadata?.leadScore === 'number' || typeof selected.metadata?.icpScore === 'number' || typeof selected.metadata?.aiLeadScore === 'number' ? (
+                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                        <span className="font-medium text-[var(--color-pib-text)]">Score:</span>{' '}
+                        {Math.max(
+                          typeof selected.metadata?.leadScore === 'number' ? selected.metadata.leadScore : 0,
+                          typeof selected.metadata?.icpScore === 'number' ? selected.metadata.icpScore : 0,
+                          typeof selected.metadata?.aiLeadScore === 'number' ? selected.metadata.aiLeadScore : 0
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {/* Primary actions - context-aware based on current stack */}
+                <div className="space-y-2" aria-label="Primary actions">
+                  {workflowLane === 'call' && (selected.metadata?.email || selected.metadata?.phone) ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {selected.metadata?.phone ? (
+                        <a href={`tel:${selected.metadata.phone}`} className="pib-btn-primary min-w-0 justify-center px-3 py-2.5 text-xs">
+                          <span className="material-symbols-outlined text-[15px]">call</span>
+                          Call
+                        </a>
+                      ) : null}
+                      {selected.metadata?.email ? (
+                        <a href={`mailto:${selected.metadata.email}`} className="pib-btn-primary min-w-0 justify-center px-3 py-2.5 text-xs">
+                          <span className="material-symbols-outlined text-[15px]">mail</span>
+                          Email
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  
+                  {workflowLane === 'blocked' ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        className="pib-btn-primary min-w-0 justify-center px-3 py-2.5 text-xs"
+                        onClick={() => (reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected)) ? approvePhase2Item(selected) : unblockTask(selected)}
+                        disabled={!!busyAction}
+                      >
+                        <span className="material-symbols-outlined text-[15px]">{reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected) ? 'verified' : 'play_arrow'}</span>
+                        {reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected) ? 'Approve' : 'Unblock'}
+                      </button>
+                      {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ? (
+                        <a className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ?? undefined} target="_blank" rel="noopener noreferrer">
+                          <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                          Open
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  
+                  {workflowLane === 'follow-up' ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        className="pib-btn-primary min-w-0 justify-center px-3 py-2.5 text-xs"
+                        onClick={() => setItemState(selected, 'handled')}
+                        disabled={!!busyAction}
+                      >
+                        <span className="material-symbols-outlined text-[15px]">done</span>
+                        Done
+                      </button>
+                      {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ? (
+                        <a className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ?? undefined} target="_blank" rel="noopener noreferrer">
+                          <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                          Open
+                        </a>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  
+                  {/* Universal secondary action */}
+                  <button type="button" className="pib-btn-secondary w-full min-w-0 justify-center px-3 py-2 text-xs" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction}>
                     <span className="material-symbols-outlined text-[15px]">snooze</span>
                     Later
                   </button>
+                  
+                  {/* Toggle for more actions */}
                   <button
                     type="button"
-                    className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs"
-                    onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')}
-                    disabled={!!busyAction || !selected.context.projectId}
-                    title={selected.context.projectId ? `Send this briefing to ${phase2AgentLabel(selected)}` : 'Link a project before delegating this briefing.'}
+                    onClick={() => setShowMoreActions(!showMoreActions)}
+                    className="flex w-full items-center justify-center gap-1 rounded-md border border-[var(--color-pib-line)] px-3 py-2 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
                   >
-                    <span className="material-symbols-outlined text-[15px]">smart_toy</span>
-                    Ask {phase2AgentLabel(selected)}
+                    <span>{showMoreActions ? 'Less' : 'More'}</span>
+                    <span className="material-symbols-outlined text-[16px]">{showMoreActions ? 'expand_less' : 'expand_more'}</span>
                   </button>
-                  {(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ? (
-                    <a className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" href={(mode === 'admin' ? adminSourceHref(selected) : sourceHref(selected, mode, portalScope)) ?? undefined} target="_blank" rel="noopener noreferrer">
-                      <span className="material-symbols-outlined text-[15px]">open_in_new</span>
-                      Source
-                    </a>
-                  ) : (
-                    <button type="button" className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" disabled>
-                      <span className="material-symbols-outlined text-[15px]">open_in_new</span>
-                      Source
-                    </button>
-                  )}
                 </div>
+
+                {/* Kitchen sink actions - behind More toggle */}
+                {showMoreActions ? (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Additional actions">
+                    <button
+                      type="button"
+                      className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs"
+                      onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')}
+                      disabled={!!busyAction || !selected.context.projectId}
+                      title={selected.context.projectId ? `Send this briefing to ${phase2AgentLabel(selected)}` : 'Link a project before delegating this briefing.'}
+                    >
+                      <span className="material-symbols-outlined text-[15px]">smart_toy</span>
+                      Ask {phase2AgentLabel(selected)}
+                    </button>
+                    <button type="button" className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" onClick={() => createPhase2Task(selected)} disabled={!!busyAction || !(selected.context.projectId || selected.context.orgId || selected.orgId)}>
+                      <span className="material-symbols-outlined text-[15px]">add_task</span>
+                      Follow-up task
+                    </button>
+                    <button className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" type="button" onClick={() => copyBriefingAction(selected, 'exact-ask')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]">content_copy</span>
+                      Copy ask
+                    </button>
+                    <button className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" type="button" onClick={() => setItemState(selected, 'handled')} disabled={!!busyAction}>
+                      <span className="material-symbols-outlined text-[15px]">done_all</span>
+                      Mark reviewed
+                    </button>
+                  </div>
+                ) : null}
 
                 <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-pib-surface-2)] p-3">
                   <div className="flex flex-wrap gap-2">
