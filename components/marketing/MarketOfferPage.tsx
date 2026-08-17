@@ -216,17 +216,57 @@ export function MarketOfferPage({ market }: { market: MarketOffer }) {
       <section className="section border-t border-[var(--color-pib-line)]">
         <div className="container-pib max-w-3xl">
           <Reveal>
-            <h2 className="h-display text-balance mb-8">After the site</h2>
+            <h2 className="h-display text-balance mb-8">The 90-Day Fill</h2>
           </Reveal>
           <Reveal delay={60}>
             <div className="space-y-6 text-lg text-[var(--color-pib-text-muted)] leading-relaxed">
               <p className="text-pretty">
-                Need a portal or an app?{' '}
-                <span className="text-[var(--color-pib-text)]">{market.portalFromDisplay}.</span>
+                You have a site. Google still sends people to the guy who has been there for ten years. We change
+                that.
               </p>
+              <p className="text-pretty">
+                For 90 days we make your Google Business Profile do the selling. The map pack. The reviews. The posts
+                that mention the neighborhoods you actually serve. The services section that matches what people type
+                at 11pm.
+              </p>
+              <p className="text-pretty">You do not log into anything. You do not write posts. You take the calls.</p>
+              <p className="text-pretty">
+                Week 1 we fix the listing so you show up for the searches that pay. Week 2 we load it with the words
+                Google needs. Week 3 we set the review machine so every happy client becomes a ranking signal. Week 4
+                we start posting like a business that is alive. Then we run it for two more months until the city
+                knows your name.
+              </p>
+              <p className="text-pretty">
+                This is not an SEO report. This is not a login to six tools. This is the quiet work that makes a{' '}
+                {market.priceDisplay} site start paying for itself.
+              </p>
+              <p className="text-pretty">
+                <span className="text-[var(--color-pib-text)] font-display text-2xl">{market.fillPriceDisplay}.</span>{' '}
+                90 days. Half now, half at day 45.
+              </p>
+              <p className="text-pretty text-[var(--color-pib-text)]">
+                The 4-Week Site gets you a place they can trust. The 90-Day Fill gets them to find it.
+              </p>
+              <p className="text-pretty text-sm">Add it when you book the site. Or add it the week you launch. Either way, do not launch into silence.</p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      <section className="section border-t border-[var(--color-pib-line)]">
+        <div className="container-pib max-w-3xl">
+          <Reveal>
+            <h2 className="h-display text-balance mb-8">After the 90 days</h2>
+          </Reveal>
+          <Reveal delay={60}>
+            <div className="space-y-6 text-lg text-[var(--color-pib-text-muted)] leading-relaxed">
               <p className="text-pretty">
                 Want us to keep shipping?{' '}
                 <span className="text-[var(--color-pib-text)]">{market.retainerDisplay}.</span> Cancel any month.
+              </p>
+              <p className="text-pretty">
+                Need a portal or an app?{' '}
+                <span className="text-[var(--color-pib-text)]">{market.portalFromDisplay}.</span>
               </p>
             </div>
           </Reveal>
