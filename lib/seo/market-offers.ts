@@ -11,6 +11,8 @@ export interface MarketOffer {
   priceDisplay: string
   /** Schema.org price amount without formatting */
   priceAmount: string
+  fillPriceDisplay: string
+  fillPriceAmount: string
   portalFromDisplay: string
   retainerDisplay: string
   cheapAltDisplay: string
@@ -36,6 +38,8 @@ export const MARKET_OFFERS: Record<MarketId, MarketOffer> = {
     currencyCode: 'USD',
     priceDisplay: '$9,500',
     priceAmount: '9500',
+    fillPriceDisplay: '$4,500',
+    fillPriceAmount: '4500',
     portalFromDisplay: 'From $35,000',
     retainerDisplay: '$2,500/month',
     cheapAltDisplay: '$1,500 Wix',
@@ -52,6 +56,8 @@ export const MARKET_OFFERS: Record<MarketId, MarketOffer> = {
     currencyCode: 'GBP',
     priceDisplay: '£7,500',
     priceAmount: '7500',
+    fillPriceDisplay: '£3,500',
+    fillPriceAmount: '3500',
     portalFromDisplay: 'From £28,000',
     retainerDisplay: '£2,000/month',
     cheapAltDisplay: '£1,200 Wix',
@@ -68,6 +74,8 @@ export const MARKET_OFFERS: Record<MarketId, MarketOffer> = {
     currencyCode: 'AUD',
     priceDisplay: 'A$14,500',
     priceAmount: '14500',
+    fillPriceDisplay: 'A$6,800',
+    fillPriceAmount: '6800',
     portalFromDisplay: 'From A$55,000',
     retainerDisplay: 'A$3,800/month',
     cheapAltDisplay: 'A$2,000 Wix',
@@ -84,6 +92,8 @@ export const MARKET_OFFERS: Record<MarketId, MarketOffer> = {
     currencyCode: 'EUR',
     priceDisplay: '€8,500',
     priceAmount: '8500',
+    fillPriceDisplay: '€4,000',
+    fillPriceAmount: '4000',
     portalFromDisplay: 'From €32,000',
     retainerDisplay: '€2,200/month',
     cheapAltDisplay: '€1,500 Wix',
