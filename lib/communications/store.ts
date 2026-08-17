@@ -471,7 +471,7 @@ export async function saveOrgTwilioCredentials(
   }
 
   // Keep inbound webhook routes for SMS/voice DIDs in sync.
-  for (const number of config.inboundNumbers) {
+  for (const number of config.inboundNumbers ?? []) {
     await upsertWebhookRouteForNumber(orgId, number, {
       channel: 'sms',
       providerId: 'twilio',
