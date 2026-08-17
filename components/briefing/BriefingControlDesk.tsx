@@ -873,6 +873,17 @@ type PulseRow = {
 
 const WORKSPACE_OPERATIONS_KEY = 'workspace-operations'
 
+const SUMMARY_COUNTER_DEFS = [
+  { id: 'needsPeet', label: 'Needs Peet', icon: 'person_alert', color: 'var(--color-accent-v2)' },
+  { id: 'blockedByPeet', label: 'Waiting on input', icon: 'front_hand', color: '#f97316' },
+  { id: 'approvalNeeded', label: 'Needs approval', icon: 'approval', color: '#f59e0b' },
+  { id: 'agentReview', label: 'Review agent work', icon: 'smart_toy', color: '#4ade80' },
+  { id: 'followUpsDue', label: 'Follow up', icon: 'forward_to_inbox', color: '#60a5fa' },
+  { id: 'clientRisk', label: 'Account risk', icon: 'release_alert', color: '#ef4444' },
+  { id: 'inProgress', label: 'Moving', icon: 'progress_activity', color: '#38bdf8' },
+  { id: 'recentlyCompleted', label: 'Done recently', icon: 'task_alt', color: '#a78bfa' },
+] as const
+
 type WorkflowLaneId = 'call' | 'follow-up' | 'blocked' | 'agent-ops'
 
 const WORKFLOW_LANES: Array<{ id: WorkflowLaneId; label: string; icon: string; description: string }> = [
@@ -1089,6 +1100,13 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
     followUp: mainLaneItems.filter((item) => workflowLaneForItem(item) === 'follow-up').length,
     blocked: mainLaneItems.filter((item) => workflowLaneForItem(item) === 'blocked').length,
   }), [mainLaneItems])
+
+  // Hidden Mission Control summary stats (section is display:none but needs type-checking)
+  const missionRoutes: Array<{ id: string; label: string; icon: string; description: string; count: number }> = []
+  const topStats: Record<string, number> = {}
+  
+  // Workflow lane for the selected item
+  const workflowLane = selected ? workflowLaneForItem(selected) : null
 
   function selectedDecisionOptionId(item: BriefingCard) {
     return decisionChoices[item.id]
@@ -2721,7 +2739,6 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       </>
                     ) : null}
                   </p>
-                </div>
 
                 {(selected.source.type === 'contact' || selected.source.type === 'deal' || (selected.source.type === 'task' && (selected.context.contactId || selected.context.dealId))) ? (
                   <div className="rounded-lg border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] p-3">
@@ -2751,9 +2768,9 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         <span className="font-medium text-[var(--color-pib-text)]">Contact:</span> {selected.context.contactName || selected.context.contactId}
                       </p>
                     ) : null}
-                    {selected.metadata?.company || selected.context.companyName ? (
+                    {(selected.metadata?.company || selected.context.companyName) ? (
                       <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                        <span className="font-medium text-[var(--color-pib-text)]">Company:</span> {selected.metadata?.company || selected.context.companyName}
+                        <span className="font-medium text-[var(--color-pib-text)]">Company:</span> {String(selected.metadata?.company || selected.context.companyName || '')}
                       </p>
                     ) : null}
                     {selected.context.dealTitle || selected.context.dealId ? (
@@ -3876,7 +3893,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
       currentUser={currentUser}
       orgId={orgId}
       orgName={orgs.find((org) => org.id === orgId)?.name ?? (mode === 'portal' ? activeWorkspaceName : orgId ? undefined : 'All workspaces')}
-      itemCount={items.length}
+      itemCount={mainLaneItems.length}
       generatedAt={feed?.generatedAt}
       loading={loading}
       onRefresh={() => { void loadFeed() }}
