@@ -892,15 +892,14 @@ const MISSION_CONTROL_APPROVAL_GATES = [
   'destructive actions',
 ]
 
-type WorkflowLaneId = 'all' | 'decide' | 'approve' | 'unblock' | 'follow-up' | 'agent-review' | 'fyi-evidence'
+type WorkflowLaneId = 'all' | 'call-today' | 'needs-you' | 'agent-ops' | 'follow-up' | 'fyi-evidence' | 'decide' | 'approve' | 'unblock' | 'agent-review'
 
 const WORKFLOW_LANES: Array<{ id: WorkflowLaneId; label: string; icon: string; description: string }> = [
-  { id: 'decide', label: 'Needs a call', icon: 'rule', description: 'Quotes, finance choices, account-risk calls, and business decisions Peet must make.' },
-  { id: 'approve', label: 'Needs approval', icon: 'approval', description: 'Documents, campaigns, spend, runs, or workspace jobs waiting for explicit approval.' },
-  { id: 'unblock', label: 'Blocked', icon: 'lock_open', description: 'Work paused until Peet, a client, or an internal reviewer gives input.' },
-  { id: 'follow-up', label: 'Follow up', icon: 'follow_the_signs', description: 'Replies, CRM touches, support, forms, bookings, inboxes, and relationship next steps.' },
-  { id: 'agent-review', label: 'Check agent work', icon: 'smart_toy', description: 'Agent outputs, learning proposals, build evidence, and run approvals needing review.' },
-  { id: 'fyi-evidence', label: 'FYI', icon: 'fact_check', description: 'Progress, completed work, reports, shipments, and evidence Peet may want to scan.' },
+  { id: 'call-today', label: 'Call today', icon: 'phone_in_talk', description: 'CRM contacts, deals, and call-ready tasks. Name, company, score, one-tap call/email.' },
+  { id: 'needs-you', label: 'Needs you', icon: 'person_alert', description: 'Approvals, bookings, awaiting-input blockers, and real human-touch work.' },
+  { id: 'agent-ops', label: 'Agent ops', icon: 'smart_toy', description: 'Failed runs, blocked agents, agent review, and technical recovery tasks.' },
+  { id: 'follow-up', label: 'Follow up', icon: 'follow_the_signs', description: 'Support, forms, inboxes, comments, and relationship next steps.' },
+  { id: 'fyi-evidence', label: 'FYI / Evidence', icon: 'fact_check', description: 'Progress, completed work, reports, shipments, and reference evidence.' },
 ]
 
 const SUMMARY_COUNTER_DEFS = [
@@ -1026,12 +1025,62 @@ function isRecentlyCompletedItem(item: BriefingCard) {
   return /completed|done|delivered|paid|approved|sent|fulfilled|resolved|handled|closed|archived/.test(workflowHaystack(item))
 }
 
+function isCallTodayItem(item: BriefingCard): boolean {
+  // CRM contacts and deals
+  if (['contact', 'deal'].includes(item.source.type)) return true
+  
+  // Tasks tagged call-ready or with "Needs Peet: Call" in title
+  if (item.source.type === 'task') {
+    const tags = Array.isArray(item.metadata?.tags) ? item.metadata.tags : []
+    const hasCallTag = tags.some((tag: unknown) => typeof tag === 'string' && /call-ready|needs-peet/i.test(tag))
+    const hasCallTitle = /Needs Peet:.*Call|Call.*Needs Peet/i.test(item.title)
+    return hasCallTag || hasCallTitle
+  }
+  
+  return false
+}
+
+function isNeedsYouItem(item: BriefingCard): boolean {
+  // Bookings always need human touch
+  if (item.source.type === 'booking') return true
+  
+  // Awaiting-input and approval-needed tasks
+  if (isApprovalNeededItem(item)) return true
+  
+  // Blocked items that actually need Peet (not agent-ops)
+  if (item.priority === 'needs-peet' || item.priority === 'critical') {
+    // Exclude agent-runs and agent-ops blockers
+    if (item.source.type === 'agent-run' || item.source.type === 'agent-output') return false
+    return true
+  }
+  
+  return false
+}
+
+function isAgentOpsItem(item: BriefingCard): boolean {
+  // Agent runs, outputs, learning reviews
+  if (['agent-run', 'agent-output', 'agent-learning-review', 'business-insight-review'].includes(item.source.type)) return true
+  
+  // Blocked/failed agent work
+  if (item.source.type === 'task' && item.priority === 'review') {
+    const haystack = workflowHaystack(item)
+    if (/blocked|failed|agent/.test(haystack)) return true
+  }
+  
+  // SEO tasks at review priority (blocked SEO)
+  if (item.source.type === 'seo-task' && item.priority === 'review') return true
+  
+  // Workspace broker jobs
+  if (item.source.type === 'workspace-broker-job') return true
+  
+  return false
+}
+
 function workflowLaneForItem(item: BriefingCard): WorkflowLaneId {
-  if (isAgentReviewItem(item)) return 'agent-review'
-  if (isApprovalNeededItem(item)) return 'approve'
-  if (isBlockedByPeetItem(item)) return 'unblock'
+  if (isCallTodayItem(item)) return 'call-today'
+  if (isNeedsYouItem(item)) return 'needs-you'
+  if (isAgentOpsItem(item)) return 'agent-ops'
   if (isFollowUpDueItem(item)) return 'follow-up'
-  if (isClientRiskItem(item) || ['quote', 'invoice', 'order', 'expense'].includes(item.source.type)) return 'decide'
   return 'fyi-evidence'
 }
 
@@ -2523,9 +2572,9 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     onClick={() => selectWorkflowLane(lane.id)}
                     aria-label={`${lane.label} workflow lane`}
                     className={`flex min-h-14 items-start gap-2 rounded-md px-2 py-2 text-left text-xs transition ${workflowLane === lane.id ? 'bg-primary/10 text-[var(--color-pib-text)]' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.04] hover:text-[var(--color-pib-text)]'}`}
-                    style={{ borderLeft: `3px solid ${priorityAccentColor(lane.id === 'unblock' ? 'critical' : lane.id === 'approve' || lane.id === 'agent-review' ? 'review' : lane.id === 'follow-up' ? 'needs-peet' : lane.id === 'decide' ? 'client-risk' : 'fyi')}` }}
+                    style={{ borderLeft: `3px solid ${priorityAccentColor(lane.id === 'call-today' ? 'needs-peet' : lane.id === 'needs-you' ? 'critical' : lane.id === 'agent-ops' ? 'review' : lane.id === 'follow-up' ? 'progress' : 'fyi')}` }}
                   >
-                    <span className="material-symbols-outlined mt-0.5 text-[19px]" style={{ color: priorityAccentColor(lane.id === 'unblock' ? 'critical' : lane.id === 'approve' || lane.id === 'agent-review' ? 'review' : lane.id === 'follow-up' ? 'needs-peet' : lane.id === 'decide' ? 'client-risk' : 'fyi') }} aria-hidden="true">{lane.icon}</span>
+                    <span className="material-symbols-outlined mt-0.5 text-[19px]" style={{ color: priorityAccentColor(lane.id === 'call-today' ? 'needs-peet' : lane.id === 'needs-you' ? 'critical' : lane.id === 'agent-ops' ? 'review' : lane.id === 'follow-up' ? 'progress' : 'fyi') }} aria-hidden="true">{lane.icon}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium">{lane.label}</span>
                       <span className="block text-[11px] text-[var(--color-pib-text-muted)]">{laneCount} open</span>
@@ -2630,6 +2679,57 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     ) : null}
                   </p>
                 </div>
+
+                {(selected.source.type === 'contact' || selected.source.type === 'deal' || (selected.source.type === 'task' && (selected.context.contactId || selected.context.dealId))) ? (
+                  <div className="rounded-lg border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Quick CRM actions</p>
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {selected.metadata?.email ? (
+                        <a
+                          href={`mailto:${selected.metadata.email}`}
+                          className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">mail</span>
+                          Email
+                        </a>
+                      ) : null}
+                      {selected.metadata?.phone ? (
+                        <a
+                          href={`tel:${selected.metadata.phone}`}
+                          className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">call</span>
+                          Call
+                        </a>
+                      ) : null}
+                    </div>
+                    {selected.context.contactName || selected.context.contactId ? (
+                      <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
+                        <span className="font-medium text-[var(--color-pib-text)]">Contact:</span> {selected.context.contactName || selected.context.contactId}
+                      </p>
+                    ) : null}
+                    {selected.metadata?.company || selected.context.companyName ? (
+                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                        <span className="font-medium text-[var(--color-pib-text)]">Company:</span> {selected.metadata?.company || selected.context.companyName}
+                      </p>
+                    ) : null}
+                    {selected.context.dealTitle || selected.context.dealId ? (
+                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                        <span className="font-medium text-[var(--color-pib-text)]">Deal:</span> {selected.context.dealTitle || selected.context.dealId}
+                      </p>
+                    ) : null}
+                    {typeof selected.metadata?.leadScore === 'number' || typeof selected.metadata?.icpScore === 'number' || typeof selected.metadata?.aiLeadScore === 'number' ? (
+                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
+                        <span className="font-medium text-[var(--color-pib-text)]">Score:</span>{' '}
+                        {Math.max(
+                          typeof selected.metadata?.leadScore === 'number' ? selected.metadata.leadScore : 0,
+                          typeof selected.metadata?.icpScore === 'number' ? selected.metadata.icpScore : 0,
+                          typeof selected.metadata?.aiLeadScore === 'number' ? selected.metadata.aiLeadScore : 0
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Quick briefing actions">
                   <button

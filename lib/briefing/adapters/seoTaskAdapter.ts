@@ -83,7 +83,8 @@ export const seoTaskAdapter: BriefingSourceAdapter<SeoTaskDocument> = {
   },
 
   extractPriority(doc: SeoTaskDocument): BriefingPriority {
-    if (doc.status === 'blocked') return 'critical'
+    // Blocked SEO tasks are agent ops review, not human-critical by default
+    if (doc.status === 'blocked') return 'review'
     if (doc.status === 'not_started') return 'needs-peet'
     return 'progress'
   },
