@@ -71,7 +71,7 @@ export async function requestCallTranscription(
 
     if (input.recordingSid) {
       // Legacy Recording Transcriptions API — typed loosely across Twilio SDK versions.
-      const transcriptions = resolved.client.recordings(input.recordingSid).transcriptions as {
+      const transcriptions = resolved.client.recordings(input.recordingSid).transcriptions as unknown as {
         create: (params?: Record<string, unknown>) => Promise<{ sid?: string }>
       }
       await transcriptions.create({})
