@@ -35,24 +35,31 @@ export function isCompanyLinkedAccount(account: {
   return false
 }
 
-export function isPersonalCampaignRecord(campaign: { accountScope?: unknown }): boolean {
-  return campaign.accountScope === PERSONAL_SCOPE
+function campaignScopeFields(campaign: object): { accountScope?: unknown; ownerUid?: unknown } {
+  const record = campaign as Record<string, unknown>
+  return {
+    accountScope: record.accountScope,
+    ownerUid: record.ownerUid,
+  }
 }
 
-export function canAccessCampaign(
-  campaign: { accountScope?: unknown; ownerUid?: unknown },
-  uid: string,
-): boolean {
+export function isPersonalCampaignRecord(campaign: object): boolean {
+  return campaignScopeFields(campaign).accountScope === PERSONAL_SCOPE
+}
+
+export function canAccessCampaign(campaign: object, uid: string): boolean {
+  const { ownerUid } = campaignScopeFields(campaign)
   if (!isPersonalCampaignRecord(campaign)) return true
-  return campaign.ownerUid === uid
+  return ownerUid === uid
 }
 
 export function campaignVisibleForScope(
-  campaign: { accountScope?: unknown; ownerUid?: unknown },
+  campaign: object,
   options: { personal: boolean; uid: string },
 ): boolean {
+  const { ownerUid } = campaignScopeFields(campaign)
   if (options.personal) {
-    return isPersonalCampaignRecord(campaign) && campaign.ownerUid === options.uid
+    return isPersonalCampaignRecord(campaign) && ownerUid === options.uid
   }
   return !isPersonalCampaignRecord(campaign)
 }
