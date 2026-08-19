@@ -55,8 +55,11 @@ export function getOAuthConfig(platform: SocialPlatformType, options: OAuthOptio
           platform: 'linkedin',
           authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
           tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-          // Dedicated Community Management API app for company-page posting.
-          scopes: ['rw_organization_admin', 'w_organization_social_feed'],
+          // Company-page app: list administered pages + post as the page.
+          // Posts API still requires w_organization_social. w_organization_social_feed
+          // is a separate comments/reactions permission and LinkedIn rejects it as
+          // "not valid" unless that extra CMA entitlement is on the app.
+          scopes: ['rw_organization_admin', 'w_organization_social'],
         }
       }
       return {

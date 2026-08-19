@@ -64,7 +64,11 @@ describe('GET /api/v1/social/oauth/[platform]', () => {
       accountScope: 'org',
       linkedinMode: 'organization',
     }))
-    expect(String(res.headers.get('location'))).toContain('linkedin.com')
+    const location = String(res.headers.get('location'))
+    expect(location).toContain('linkedin.com')
+    expect(location).toContain('rw_organization_admin')
+    expect(location).toContain('w_organization_social')
+    expect(location).not.toContain('w_organization_social_feed')
   })
 
   it('keeps explicit personal LinkedIn mode on the personal path', async () => {
