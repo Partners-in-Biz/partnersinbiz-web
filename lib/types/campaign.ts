@@ -101,6 +101,9 @@ export interface Campaign {
   shareToken: string
   shareEnabled: boolean
 
+  accountScope?: 'org' | 'personal'
+  ownerUid?: string | null
+
   createdAt: Timestamp | null
   createdBy: string
   createdByType: 'user' | 'agent' | 'system'

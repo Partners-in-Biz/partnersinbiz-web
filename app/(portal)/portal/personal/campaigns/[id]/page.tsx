@@ -7,26 +7,18 @@ import {
   campaignMonthLabel,
 } from '@/components/campaign-cockpit/CampaignCockpitFrame'
 import { toPreviewBrand, type BrandColorsLike } from '@/lib/organizations/toPreviewBrand'
-import { PortalCampaignCockpitClient } from '@/components/campaign-cockpit/PortalCampaignCockpitClient'
-import {
-  resolvePortalCampaignUser,
-  scopedPortalHref,
-  scopeFromSearchParams,
-  type PortalCampaignSearchParams,
-} from '../portalCampaignScope'
+import { CampaignCockpitClient } from '@/components/campaign-cockpit/CampaignCockpitClient'
+import { resolvePortalCampaignUser } from '../../../campaigns/portalCampaignScope'
+import { isPersonalCampaignRecord } from '@/lib/social/account-scope'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PortalCampaignCockpitPage({
+export default async function PersonalCampaignCockpitPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams?: Promise<PortalCampaignSearchParams>
 }) {
-  const resolvedSearchParams = await searchParams
-  const scope = scopeFromSearchParams(resolvedSearchParams)
-  const user = await resolvePortalCampaignUser(scope.orgId)
+  const user = await resolvePortalCampaignUser()
   if (!user) redirect('/login')
   if (user.forbidden) notFound()
 
@@ -35,20 +27,10 @@ export default async function PortalCampaignCockpitPage({
   if (!loaded) notFound()
 
   const { campaign, assets } = loaded
-  if (campaign.orgId !== user.orgId) notFound()
-  if (campaign.accountScope === 'personal') {
-    if (campaign.ownerUid !== user.uid) notFound()
-    redirect('/portal/personal/campaigns/' + id)
-  }
+  if (!user.orgId || campaign.orgId !== user.orgId) notFound()
+  if (!isPersonalCampaignRecord(campaign) || campaign.ownerUid !== user.uid) notFound()
 
-  const isEmailCampaign =
-    Boolean(campaign.sequenceId) ||
-    (!campaign.clientType && !campaign.research && !campaign.brandIdentity)
-  if (isEmailCampaign) {
-    redirect(scopedPortalHref(`/portal/campaigns/email/${id}`, scope))
-  }
-
-  const orgSnap = await adminDb.collection('organizations').doc(user.orgId!).get()
+  const orgSnap = await adminDb.collection('organizations').doc(user.orgId).get()
   const org = orgSnap.data() ?? {}
   const settings = (org.settings ?? {}) as Record<string, unknown>
   const brandColors = (settings.brandColors ?? undefined) as BrandColorsLike | undefined
@@ -57,7 +39,7 @@ export default async function PortalCampaignCockpitPage({
 
   return (
     <CampaignCockpitFrame brandColors={brandColors}>
-      <PortalCampaignCockpitClient
+      <CampaignCockpitClient
         campaignId={id}
         campaign={campaign}
         assets={assets}
@@ -66,6 +48,11 @@ export default async function PortalCampaignCockpitPage({
         monthLabel={campaignMonthLabel(campaign.createdAt)}
         shareToken={campaign.shareToken}
         shareEnabled={campaign.shareEnabled !== false}
+        backHref="/portal/personal/campaigns"
+        backLabel="Personal campaigns"
+        basePath={`/portal/personal/campaigns/${id}`}
+        assetApprovalMode="client"
+        showClientBlogApprovals
       />
     </CampaignCockpitFrame>
   )

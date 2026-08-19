@@ -3,6 +3,7 @@ import type * as FirebaseFirestore from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { ApiUser } from '@/lib/api/types'
 import { filterProjectsForMemberScope } from '@/lib/projects/collaboration'
+import { isCompanyLinkedAccount, PERSONAL_SCOPE } from '@/lib/social/account-scope'
 
 export const PORTAL_DASHBOARD_SUMMARY_COLLECTION = 'org_portal_summaries'
 
@@ -11,7 +12,6 @@ const TREND_BUCKETS = 7
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
 const RECENT_PROJECT_LIMIT = 6
 const TODAY_POST_LIMIT = 12
-const PERSONAL_SCOPE = 'personal'
 
 type SummarySource = 'materialized' | 'live_missing' | 'live_stale'
 
@@ -401,11 +401,15 @@ async function buildPortalDashboardSummaryLive(orgId: string, source: SummarySou
   ])
 
   const contacts = mapDocs(contactsSnap).filter((doc) => doc.data.deleted !== true)
-  const campaigns = mapDocs(campaignsSnap).filter((doc) => doc.data.deleted !== true)
+  const campaigns = mapDocs(campaignsSnap).filter((doc) => (
+    doc.data.deleted !== true && doc.data.accountScope !== PERSONAL_SCOPE
+  ))
   const captureSources = mapDocs(captureSourcesSnap).filter((doc) => doc.data.deleted !== true)
-  const socialPosts = mapDocs(socialPostsSnap).filter((doc) => doc.data.deleted !== true)
+  const socialPosts = mapDocs(socialPostsSnap).filter((doc) => (
+    doc.data.deleted !== true && doc.data.accountScope !== PERSONAL_SCOPE
+  ))
   const orgSocialAccounts = mapDocs(socialAccountsSnap).filter((doc) => (
-    doc.data.accountScope !== PERSONAL_SCOPE && doc.data.deleted !== true
+    isCompanyLinkedAccount(doc.data) && doc.data.deleted !== true
   ))
   const activeCampaigns = campaigns.filter((campaign) => textValue(campaign.data.status) === 'active').length
   const activeAccounts = orgSocialAccounts.filter((account) => textValue(account.data.status) === 'active').length

@@ -84,8 +84,8 @@ describe('social failed post diagnostics', () => {
         },
       ],
       accounts: [
-        { id: 'li', platform: 'linkedin', status: 'active' },
-        { id: 'tw', platform: 'twitter', status: 'active' },
+        { id: 'li', platform: 'linkedin', status: 'active', accountType: 'page' },
+        { id: 'tw', platform: 'twitter', status: 'active', accountType: 'business' },
       ],
     })
 
@@ -115,7 +115,7 @@ describe('social failed post diagnostics', () => {
       ],
       accounts: [
         { id: 'bs', platform: 'bluesky', status: 'active' },
-        { id: 'li', platform: 'linkedin', status: 'active' },
+        { id: 'li', platform: 'linkedin', status: 'active', accountType: 'page' },
       ],
     })
 

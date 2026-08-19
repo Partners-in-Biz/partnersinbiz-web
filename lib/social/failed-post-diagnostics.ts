@@ -1,3 +1,5 @@
+import { isCompanyLinkedAccount } from '@/lib/social/account-scope'
+
 type TimestampLike = { seconds?: number; _seconds?: number; toDate?: () => Date }
 
 type SocialPostLike = Record<string, unknown> & {
@@ -198,7 +200,7 @@ function isOrgRecord(record: { accountScope?: string }): boolean {
 }
 
 function isActiveAccount(account: SocialAccountLike): boolean {
-  return account.deleted !== true && isOrgRecord(account) && account.status === 'active' && Boolean(normalizePlatform(account.platform))
+  return account.deleted !== true && isCompanyLinkedAccount(account) && account.status === 'active' && Boolean(normalizePlatform(account.platform))
 }
 
 function contentPreview(post: SocialPostLike): string {
@@ -304,7 +306,7 @@ export function buildSocialFailedPostDiagnostics(input: SocialFailedPostDiagnost
   const now = input.now ?? new Date()
   const posts = input.posts.filter((post) => post.deleted !== true && post.archived !== true && isOrgRecord(post))
   const failedPosts = posts.filter((post) => post.status === 'failed')
-  const accounts = input.accounts.filter((account) => account.deleted !== true && isOrgRecord(account))
+  const accounts = input.accounts.filter((account) => account.deleted !== true && isCompanyLinkedAccount(account))
   const accountById = new Map(accounts.map((account) => [account.id, account]).filter((entry): entry is [string, SocialAccountLike] => Boolean(entry[0])))
 
   const platformCategoryCounts = new Map<string, Map<SocialFailedPostErrorCategory, number>>()

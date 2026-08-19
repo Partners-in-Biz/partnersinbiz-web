@@ -87,7 +87,7 @@ describe('personal social account scope', () => {
 
   it('keeps personal accounts out of the default organisation account list', async () => {
     mockDocs.push(
-      { id: 'org-account', data: { orgId: 'org-1', platform: 'linkedin', displayName: 'Company Page', status: 'active' } },
+      { id: 'org-account', data: { orgId: 'org-1', platform: 'linkedin', displayName: 'Company Page', accountType: 'page', status: 'active' } },
       { id: 'personal-account', data: { orgId: 'org-1', ownerUid: 'user-1', accountScope: 'personal', platform: 'linkedin', displayName: 'Peet Personal', status: 'active' } },
     )
 
@@ -103,7 +103,7 @@ describe('personal social account scope', () => {
     mockDocs.push(
       { id: 'own-personal', data: { orgId: 'org-1', ownerUid: 'user-1', accountScope: 'personal', platform: 'linkedin', displayName: 'Own Personal', status: 'active' } },
       { id: 'other-personal', data: { orgId: 'org-1', ownerUid: 'user-2', accountScope: 'personal', platform: 'linkedin', displayName: 'Other Personal', status: 'active' } },
-      { id: 'org-account', data: { orgId: 'org-1', platform: 'linkedin', displayName: 'Company Page', status: 'active' } },
+      { id: 'org-account', data: { orgId: 'org-1', platform: 'linkedin', displayName: 'Company Page', accountType: 'page', status: 'active' } },
     )
 
     const { GET } = await import('@/app/api/v1/social/accounts/route')
@@ -227,6 +227,35 @@ describe('personal social post scope', () => {
       accountScope: 'personal',
       accountIds: ['own-account'],
     }))
+  })
+
+  it('rejects organisation posts that target a person-profile twin', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        orgId: 'org-1',
+        accountScope: 'org',
+        accountType: 'personal',
+        platform: 'twitter',
+        status: 'active',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/social/posts/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/social/posts', {
+      method: 'POST',
+      body: JSON.stringify({
+        content: { text: 'Company update' },
+        platforms: ['twitter'],
+        accountIds: ['peet-twin'],
+        status: 'draft',
+      }),
+    }))
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/company\/organisation account/i)
+    expect(mockAdd).not.toHaveBeenCalled()
   })
 })
 

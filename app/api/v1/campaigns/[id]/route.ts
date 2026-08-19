@@ -17,6 +17,7 @@ import {
 import { lastActorFrom } from '@/lib/api/actor'
 import type { Campaign } from '@/lib/campaigns/types'
 import type { ApiUser } from '@/lib/api/types'
+import { canAccessCampaign } from '@/lib/social/account-scope'
 import { logActivity } from '@/lib/activity/log'
 import {
   normalizeResourceRelationshipLinks,
@@ -77,6 +78,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser, co
     partnerLinkId: extractPartnerLinkId(req),
   })
   if (!access.ok) return apiError(access.error, access.status)
+  if (!canAccessCampaign(snap.data() ?? {}, user.uid)) return apiError('Campaign not found', 404)
   const campaign = { id: snap.id, ...snap.data() } as Campaign
   return apiSuccess(campaign)
 })
@@ -98,6 +100,7 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser, co
     partnerLinkId: extractPartnerLinkId(req, body as Record<string, unknown>),
   })
   if (!access.ok) return apiError(access.error, access.status)
+  if (!canAccessCampaign(current, user.uid)) return apiError('Campaign not found', 404)
 
   // Active campaigns are read-only except for status transitions handled
   // by the launch/pause endpoints. Avoid drift by rejecting edits here.
@@ -205,6 +208,7 @@ export const PATCH = withAuth('client', async (req: NextRequest, user: ApiUser, 
     partnerLinkId: extractPartnerLinkId(req, body as Record<string, unknown>),
   })
   if (!access.ok) return apiError(access.error, access.status)
+  if (!canAccessCampaign(current, user.uid)) return apiError('Campaign not found', 404)
 
   const update: Record<string, unknown> = { ...lastActorFrom(user) }
   for (const k of CONTENT_PATCH_FIELDS) {
@@ -252,6 +256,7 @@ export const DELETE = withAuth('client', async (req: NextRequest, user: ApiUser,
     partnerLinkId: extractPartnerLinkId(req),
   })
   if (!access.ok) return apiError(access.error, access.status)
+  if (!canAccessCampaign(snap.data() ?? {}, user.uid)) return apiError('Campaign not found', 404)
   await snap.ref.update({ deleted: true, updatedAt: FieldValue.serverTimestamp() })
 
   logActivity({

@@ -128,6 +128,40 @@ describe('POST /api/v1/campaigns', () => {
       })
     )
   })
+
+  it('creates a personal content campaign owned by the current user', async () => {
+    mockAdd.mockResolvedValue({ id: 'camp-personal' })
+    const { POST } = await import('@/app/api/v1/campaigns/route')
+    const req = new NextRequest('http://localhost/api/v1/campaigns?scope=personal', {
+      method: 'POST',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'o1',
+        name: 'Personal voice',
+        clientType: 'service-business',
+      }),
+    })
+    const res = await POST(req, { uid: 'u1', role: 'admin' })
+    expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'o1',
+      name: 'Personal voice',
+      accountScope: 'personal',
+      ownerUid: 'u1',
+    }))
+  })
+
+  it('rejects personal email campaigns', async () => {
+    const { POST } = await import('@/app/api/v1/campaigns/route')
+    const req = new NextRequest('http://localhost/api/v1/campaigns?scope=personal', {
+      method: 'POST',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orgId: 'o1', name: 'Newsletter' }),
+    })
+    const res = await POST(req, { uid: 'u1', role: 'admin' })
+    expect(res.status).toBe(400)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
 })
 
 describe('PUT /api/v1/campaigns/[id]', () => {

@@ -27,14 +27,14 @@ describe('findDefaultAccount', () => {
   beforeEach(() => jest.clearAllMocks())
 
   it('returns isDefault=true account first when available', async () => {
-    const defaultDoc = { id: 'acc-1', data: () => ({ platform: 'linkedin', platformAccountId: 'li-1', encryptedTokens: {}, isDefault: true, status: 'active' }) }
+    const defaultDoc = { id: 'acc-1', data: () => ({ platform: 'linkedin', platformAccountId: 'li-1', encryptedTokens: {}, isDefault: true, status: 'active', accountType: 'page' }) }
     mockGet.mockResolvedValueOnce({ empty: false, docs: [defaultDoc] })
     const result = await findDefaultAccount('org-1', 'linkedin')
     expect(result?.id).toBe('acc-1')
   })
 
   it('falls back to any active account when no isDefault exists', async () => {
-    const fallbackDoc = { id: 'acc-2', data: () => ({ platform: 'linkedin', platformAccountId: 'li-2', encryptedTokens: {}, isDefault: false, status: 'active' }) }
+    const fallbackDoc = { id: 'acc-2', data: () => ({ platform: 'linkedin', platformAccountId: 'li-2', encryptedTokens: {}, isDefault: false, status: 'active', accountType: 'page' }) }
     mockGet
       .mockResolvedValueOnce({ empty: true, docs: [] })
       .mockResolvedValueOnce({ empty: false, docs: [fallbackDoc] })
@@ -52,7 +52,7 @@ describe('findDefaultAccount', () => {
 
   it('ignores isDefault account from a different platform', async () => {
     const wrongPlatformDoc = { id: 'acc-wrong', data: () => ({ platform: 'twitter', platformAccountId: 'tw-1', encryptedTokens: {}, isDefault: true, status: 'active' }) }
-    const correctDoc = { id: 'acc-correct', data: () => ({ platform: 'linkedin', platformAccountId: 'li-3', encryptedTokens: {}, isDefault: false, status: 'active' }) }
+    const correctDoc = { id: 'acc-correct', data: () => ({ platform: 'linkedin', platformAccountId: 'li-3', encryptedTokens: {}, isDefault: false, status: 'active', accountType: 'page' }) }
     mockGet
       .mockResolvedValueOnce({ empty: false, docs: [wrongPlatformDoc] }) // isDefault query returns twitter account
       .mockResolvedValueOnce({ empty: false, docs: [correctDoc] })       // fallback returns linkedin
@@ -62,7 +62,7 @@ describe('findDefaultAccount', () => {
 
   it('ignores placeholder Instagram accounts with unknown account ids', async () => {
     const unknownDoc = { id: 'bad-ig', data: () => ({ platform: 'instagram', platformAccountId: 'unknown', encryptedTokens: {}, isDefault: true, status: 'active' }) }
-    const correctDoc = { id: 'good-ig', data: () => ({ platform: 'instagram', platformAccountId: '17841400000000001', encryptedTokens: {}, isDefault: false, status: 'active' }) }
+    const correctDoc = { id: 'good-ig', data: () => ({ platform: 'instagram', platformAccountId: '17841400000000001', encryptedTokens: {}, isDefault: false, status: 'active', accountType: 'business' }) }
     mockGet
       .mockResolvedValueOnce({ empty: false, docs: [unknownDoc] })
       .mockResolvedValueOnce({ empty: false, docs: [correctDoc] })
@@ -72,11 +72,21 @@ describe('findDefaultAccount', () => {
 
   it('never returns personal accounts as company/organisation publishing defaults', async () => {
     const personalDefaultDoc = { id: 'personal-default', data: () => ({ platform: 'twitter', platformAccountId: 'tw-personal', encryptedTokens: {}, isDefault: true, status: 'active', accountScope: 'personal', ownerUid: 'user-1' }) }
-    const orgFallbackDoc = { id: 'org-fallback', data: () => ({ platform: 'twitter', platformAccountId: 'tw-org', encryptedTokens: {}, isDefault: false, status: 'active', accountScope: 'org', ownerUid: null }) }
+    const orgFallbackDoc = { id: 'org-fallback', data: () => ({ platform: 'twitter', platformAccountId: 'tw-org', encryptedTokens: {}, isDefault: false, status: 'active', accountScope: 'org', accountType: 'business', ownerUid: null }) }
     mockGet
       .mockResolvedValueOnce({ empty: false, docs: [personalDefaultDoc] })
       .mockResolvedValueOnce({ empty: false, docs: [personalDefaultDoc, orgFallbackDoc] })
     const result = await findDefaultAccount('org-1', 'twitter')
     expect(result?.id).toBe('org-fallback')
+  })
+
+  it('never returns org-scoped person profiles as company publishing defaults', async () => {
+    const personTwin = { id: 'peet-twin', data: () => ({ platform: 'twitter', platformAccountId: 'tw-peet', encryptedTokens: {}, isDefault: true, status: 'active', accountScope: 'org', accountType: 'personal', ownerUid: null }) }
+    const companyAccount = { id: 'brand-x', data: () => ({ platform: 'twitter', platformAccountId: 'tw-brand', encryptedTokens: {}, isDefault: false, status: 'active', accountScope: 'org', accountType: 'business', ownerUid: null }) }
+    mockGet
+      .mockResolvedValueOnce({ empty: false, docs: [personTwin] })
+      .mockResolvedValueOnce({ empty: false, docs: [personTwin, companyAccount] })
+    const result = await findDefaultAccount('org-1', 'twitter')
+    expect(result?.id).toBe('brand-x')
   })
 })

@@ -16,6 +16,7 @@ import { getDefaultProvider, getProvider } from '@/lib/social/providers'
 import type { SocialPlatformType } from '@/lib/social/providers'
 import type { ProviderCredentials } from '@/lib/social/providers/base'
 import { decryptTokenBlock, encryptTokenBlock } from '@/lib/social/encryption'
+import { accountAllowedForPublish } from '@/lib/social/account-scope'
 
 export interface ResolvedAccount {
   provider: ReturnType<typeof getProvider>
@@ -108,9 +109,12 @@ function hasUsablePlatformAccountId(account: FirebaseFirestore.DocumentData): bo
 function isPublishableAccount(
   account: FirebaseFirestore.DocumentData,
   platformNames: string[],
-  options: { allowPersonal?: boolean } = {},
+  options: { allowPersonal?: boolean; ownerUid?: string } = {},
 ): boolean {
-  if (!options.allowPersonal && account.accountScope === 'personal') return false
+  if (!accountAllowedForPublish(account, {
+    personal: Boolean(options.allowPersonal),
+    ownerUid: options.ownerUid,
+  })) return false
   return (
     account.status === 'active' &&
     platformNames.includes(account.platform) &&
@@ -186,14 +190,13 @@ export async function resolveProvider(
     const accountDoc = await adminDb.collection('social_accounts').doc(explicitId).get()
     if (accountDoc.exists && accountDoc.data()?.orgId === orgId) {
       const account = accountDoc.data()!
-      if (personalScope && (account.accountScope !== 'personal' || account.ownerUid !== ownerUid)) {
-        throw new Error('Selected personal account is not available to this user.')
-      }
-      if (!personalScope && account.accountScope === 'personal') {
-        throw new Error('Selected account is personal and cannot be used for company/organisation publishing.')
+      if (!accountAllowedForPublish(account, { personal: personalScope, ownerUid })) {
+        throw new Error(personalScope
+          ? 'Selected personal account is not available to this user.'
+          : 'Selected account is personal and cannot be used for company/organisation publishing.')
       }
       const platformNames = platformMap[platformType] ?? []
-      if (!isPublishableAccount(account, platformNames, { allowPersonal: personalScope })) {
+      if (!isPublishableAccount(account, platformNames, { allowPersonal: personalScope, ownerUid })) {
         throw new Error(`Selected ${platformType} account is not publishable. Reconnect it from Social Accounts and try again.`)
       }
       const provider = buildProviderFromAccount(account, orgId, platformType)
