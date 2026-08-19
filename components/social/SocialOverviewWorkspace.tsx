@@ -71,6 +71,7 @@ interface SocialOverviewWorkspaceProps {
   showApprovalTabs?: boolean
   showRecentPosts?: boolean
   showInboxCount?: boolean
+  connectedAccountsHref?: string
 }
 
 const PLATFORM_COLORS: Record<string, { bg: string; label: string }> = {
@@ -611,6 +612,7 @@ export default function SocialOverviewWorkspace({
   showApprovalTabs = surface === 'portal',
   showRecentPosts = surface === 'admin',
   showInboxCount = surface === 'admin',
+  connectedAccountsHref,
 }: SocialOverviewWorkspaceProps) {
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [posts, setPosts] = useState<SocialPost[]>([])
@@ -768,7 +770,11 @@ export default function SocialOverviewWorkspace({
     ...action,
     href: appendResolvedOrg(hrefFor(action.href), resolvedOrgId, resolvedOrgSlug),
   }))
-  const accountsHref = appendResolvedOrg(hrefFor('/portal/social/accounts'), resolvedOrgId, resolvedOrgSlug)
+  const accountsHref = appendResolvedOrg(
+    hrefFor(connectedAccountsHref ?? '/portal/social/accounts'),
+    resolvedOrgId,
+    resolvedOrgSlug,
+  )
 
   return (
     <div className="space-y-6" data-module-accent="rose">
