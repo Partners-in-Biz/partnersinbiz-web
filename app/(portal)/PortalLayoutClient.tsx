@@ -920,6 +920,23 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               <span className="pill !text-[10px] !py-0.5 !px-1.5">{portalWorkspaceLabel}</span>
             </Link>
 
+            {/* Workspace switcher */}
+            {workspaceOptions.length > 0 && (
+              <div className="hidden md:block shrink-0">
+                <ThemedSelect
+                  id="portal-topbar-workspace-switcher"
+                  ariaLabel="Switch portal workspace"
+                  value={activeOrgId}
+                  options={workspaceOptions.map(org => ({ value: org.id, label: org.name }))}
+                  onValueChange={handleOrgSwitch}
+                  disabled={orgSwitching || workspaceOptions.length === 1}
+                  className="min-w-[140px]"
+                  buttonClassName="!h-8 !text-xs"
+                  menuClassName="bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
+                />
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => router.back()}
@@ -1216,7 +1233,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Workspace switcher — compact, near the top like the admin context. */}
-        {workspaceOptions.length > 1 && (
+        {workspaceOptions.length > 0 && (
           <div className="border-b border-[var(--color-pib-line)] shrink-0">
             {collapsed ? (
               <button
@@ -1238,7 +1255,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   value={activeOrgId}
                   options={workspaceOptions.map(org => ({ value: org.id, label: org.name }))}
                   onValueChange={handleOrgSwitch}
-                  disabled={orgSwitching}
+                  disabled={orgSwitching || workspaceOptions.length === 1}
                   className="w-full"
                   buttonClassName="w-full"
                   menuClassName="bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
