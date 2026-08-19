@@ -170,4 +170,10 @@ export interface OrganizationSummary {
   memberCount: number
   createdAt?: unknown
   updatedAt?: unknown
+  /**
+   * True when this org should appear in the workspace/portal switcher.
+   * Platform_owner orgs and platform-owned product portals (Velox, Lumen)
+   * are true; regular client orgs and UAT/test orgs are false.
+   */
+  isPlatformProduct?: boolean
 }

@@ -15,6 +15,7 @@ import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
 import { slugify } from '@/lib/organizations/helpers'
 import type { Organization, OrgMember, OrganizationSummary } from '@/lib/organizations/types'
 import type { ApiUser } from '@/lib/api/types'
+import { PIB_PLATFORM_ORG_ID, PLATFORM_PRODUCT_ORG_IDS } from '@/lib/platform/constants'
 
 export const dynamic = 'force-dynamic'
 
@@ -75,19 +76,25 @@ export const GET = withAuth('client', async (req, user) => {
       // legacy display cache and must not resurrect a revoked membership.
       return canAccessOrg(user, org.id)
     })
-    .map((org): OrganizationSummary => ({
-      id: org.id!,
-      name: org.name,
-      slug: org.slug,
-      type: org.type ?? 'client',
-      status: org.status ?? (org.active !== false ? 'active' : 'churned'),
-      description: org.description,
-      logoUrl: org.logoUrl,
-      website: org.website,
-      memberCount: (org.members ?? []).length,
-      createdAt: org.createdAt,
-      updatedAt: org.updatedAt,
-    }))
+    .map((org): OrganizationSummary => {
+      const isPlatformProduct = org.type === 'platform_owner'
+        || org.id === PIB_PLATFORM_ORG_ID
+        || PLATFORM_PRODUCT_ORG_IDS.includes(org.id!)
+      return {
+        id: org.id!,
+        name: org.name,
+        slug: org.slug,
+        type: org.type ?? 'client',
+        status: org.status ?? (org.active !== false ? 'active' : 'churned'),
+        description: org.description,
+        logoUrl: org.logoUrl,
+        website: org.website,
+        memberCount: (org.members ?? []).length,
+        createdAt: org.createdAt,
+        updatedAt: org.updatedAt,
+        isPlatformProduct,
+      }
+    })
 
   return apiSuccess(orgs)
 })
