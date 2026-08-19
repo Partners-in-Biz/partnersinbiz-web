@@ -29,6 +29,8 @@ export type CampaignWorkspaceRecord = {
   createdAt?: string | null
   updatedAt?: string | null
   kind?: string | null
+  accountScope?: string | null
+  ownerUid?: string | null
   content?: {
     subject?: string | null
     preheader?: string | null

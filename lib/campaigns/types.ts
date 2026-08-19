@@ -92,6 +92,8 @@ export interface Campaign {
   createdAt: Timestamp | null
   updatedAt: Timestamp | null
   createdBy: string
+  accountScope?: 'org' | 'personal'
+  ownerUid?: string | null
   createdByType?: 'user' | 'agent' | 'system'
   approvalState?: {
     status: 'not_required' | 'pending' | 'approved' | 'rejected' | 'revoked'
