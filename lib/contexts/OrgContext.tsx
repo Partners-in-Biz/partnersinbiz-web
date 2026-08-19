@@ -36,11 +36,18 @@ export function OrgProvider({ children }: { children: ReactNode }) {
   const [orgName, setOrgName] = useState('')
   const [orgs, setOrgs] = useState<OrganizationSummary[]>([])
 
-  // Fetch organizations on mount
+  // Fetch organizations on mount and filter to platform products only.
+  // Platform products are: platform_owner org (Partners in Biz) and explicitly
+  // listed platform-owned portals (Velox, Lumen). Exclude regular client orgs
+  // where the user happens to be a member and UAT/test orgs.
   useEffect(() => {
     fetch('/api/v1/organizations')
       .then((r) => r.json())
-      .then((b) => setOrgs(b.data ?? []))
+      .then((b) => {
+        const allOrgs = b.data ?? []
+        const platformOrgs = allOrgs.filter((org: OrganizationSummary) => org.isPlatformProduct === true)
+        setOrgs(platformOrgs)
+      })
       .catch(() => {})
   }, [])
 
