@@ -37,7 +37,8 @@ export async function GET(req: NextRequest) {
     // Handle platform-side errors
     if (error) {
       const errorDesc = url.searchParams.get('error_description') ?? error
-      return NextResponse.redirect(new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: errorDesc }), url.origin))
+      const message = describeOAuthProviderError(platform, error, errorDesc)
+      return NextResponse.redirect(new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message }), url.origin))
     }
 
     if (!code || !stateToken) {
@@ -370,6 +371,14 @@ function recoverRedirectUrlFromState(stateToken: string | null): string | null {
   } catch {
     return null
   }
+}
+
+function describeOAuthProviderError(platform: string, error: string, errorDesc: string): string {
+  const text = `${error} ${errorDesc}`.toLowerCase()
+  if (platform === 'linkedin' && (text.includes('scope') || error === 'unauthorized_scope_error')) {
+    return 'LinkedIn rejected the company-page permission. That app must have Community Management API access with w_organization_social and rw_organization_admin enabled on its Auth tab.'
+  }
+  return errorDesc
 }
 
 // --- Token Exchange ---
