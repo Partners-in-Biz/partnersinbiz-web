@@ -1,6 +1,7 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import WorkspacesPage from '@/app/(portal)/portal/settings/workspaces/page'
+import PersonalMarketingPage from '@/app/(portal)/portal/personal/marketing/page'
 import SocialAccountsManager from '@/components/social/SocialAccountsManager'
 import SocialPostComposer from '@/components/social/SocialPostComposer'
 import { PersonalXMcpConnectionCard } from '@/components/workspace-os/PersonalXMcpConnectionCard'
@@ -272,5 +273,17 @@ describe('personal workspace social UI', () => {
       '/api/v1/social/oauth/linkedin?redirectUrl=%2Fportal%2Fsocial%2Faccounts&orgId=org-1&linkedinMode=organization',
     )
     expect(screen.queryByRole('link', { name: /^personal$/i })).not.toBeInTheDocument()
+  })
+
+  it('shows personal connected accounts on the overview using the same org-scoped query as Accounts', async () => {
+    render(<PersonalMarketingPage />)
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/api/v1/social/accounts?scope=personal&orgId=org-1')
+    })
+
+    expect(await screen.findByText('@peet')).toBeInTheDocument()
+    expect(screen.getByText('Peet Stander')).toBeInTheDocument()
+    expect(screen.queryByText('No accounts connected yet.')).not.toBeInTheDocument()
   })
 })
