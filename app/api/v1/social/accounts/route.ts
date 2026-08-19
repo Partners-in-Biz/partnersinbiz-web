@@ -11,13 +11,11 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import type { AccountStatus } from '@/lib/social/providers'
 import { ACTIVE_PLATFORMS } from '@/lib/social/providers'
 import { logAudit } from '@/lib/social/audit'
-import { isCompanyLinkedAccount, isPersonalAccountRecord } from '@/lib/social/account-scope'
+import { isCompanyLinkedAccount, isPersonalAccountRecord, storedAccountTypeForScope, PERSONAL_SCOPE, ORG_SCOPE } from '@/lib/social/account-scope'
 
 export const dynamic = 'force-dynamic'
 
 const VALID_STATUSES: AccountStatus[] = ['active', 'token_expired', 'disconnected', 'rate_limited']
-const PERSONAL_SCOPE = 'personal'
-const ORG_SCOPE = 'org'
 
 type SocialAccountDoc = {
   id: string
@@ -101,7 +99,11 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     username: body.username ?? '',
     avatarUrl: body.avatarUrl ?? '',
     profileUrl: body.profileUrl ?? '',
-    accountType: body.accountType ?? 'personal',
+    accountType: storedAccountTypeForScope({
+      profileType: body.accountType,
+      accountScope: personalScope ? PERSONAL_SCOPE : ORG_SCOPE,
+      platform: body.platform,
+    }),
     status: 'active' as AccountStatus,
     scopes: body.scopes ?? [],
     encryptedTokens: body.encryptedTokens ?? {

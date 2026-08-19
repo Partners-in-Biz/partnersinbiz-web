@@ -26,6 +26,11 @@ import {
   filterOwnedRowsForActor,
   memberSeesAllModuleRecords,
 } from '@/lib/orgMembers/record-scope'
+import {
+  accountAllowedForPublish,
+  isPersonalCampaignRecord,
+  PERSONAL_SCOPE,
+} from '@/lib/social/account-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +41,6 @@ const VALID_STATUSES: PostStatus[] = [
   'approved', 'vaulted', 'scheduled', 'publishing', 'published',
   'partially_published', 'failed', 'cancelled',
 ]
-const PERSONAL_SCOPE = 'personal'
 
 function wantsPersonalScope(req: Request): boolean {
   return new URL(req.url).searchParams.get('scope') === PERSONAL_SCOPE
@@ -167,7 +171,19 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
 
 export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
   const body = await req.json()
-  const personalScope = wantsPersonalScope(req)
+  let personalScope = wantsPersonalScope(req)
+  const campaignId = typeof body.campaignId === 'string' ? body.campaignId.trim() : ''
+
+  if (campaignId) {
+    const campaignSnap = await adminDb.collection('campaigns').doc(campaignId).get()
+    if (!campaignSnap.exists || campaignSnap.data()?.deleted) return apiError('campaignId not found', 400)
+    const campaign = campaignSnap.data() ?? {}
+    if (campaign.orgId !== orgId) return apiError('campaignId belongs to a different organisation', 403)
+    const campaignIsPersonal = isPersonalCampaignRecord(campaign)
+    if (campaignIsPersonal && campaign.ownerUid !== user.uid) return apiError('Campaign not found', 404)
+    if (campaignIsPersonal) personalScope = true
+    else if (personalScope) return apiError('Personal posts cannot be attached to an organisation campaign', 400)
+  }
 
   // --- Resolve content ---
   let contentText: string
@@ -231,9 +247,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
       if (
         !accountDoc.exists ||
         account?.orgId !== orgId ||
-        account.accountScope !== PERSONAL_SCOPE ||
-        account.ownerUid !== user.uid ||
-        account.status !== 'active'
+        !accountAllowedForPublish(account, { personal: true, ownerUid: user.uid })
       ) {
         return apiError('Selected personal account is not available to this user', 403)
       }
@@ -246,7 +260,11 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     for (const accountId of accountIds) {
       const accountDoc = await adminDb.collection('social_accounts').doc(accountId).get()
       const account = accountDoc.data()
-      if (!accountDoc.exists || account?.orgId !== orgId || account.accountScope === PERSONAL_SCOPE || account.status !== 'active') {
+      if (
+        !accountDoc.exists ||
+        account?.orgId !== orgId ||
+        !accountAllowedForPublish(account, { personal: false })
+      ) {
         return apiError('Selected company/organisation account is not available for this workspace', 403)
       }
       const accountPlatform = toProviderPlatform(String(account.platform ?? ''))
@@ -297,7 +315,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     hashtags: body.hashtags ?? [],
     labels: body.labels ?? [],
     campaign: body.campaign ?? null,
-    campaignId: typeof body.campaignId === 'string' ? body.campaignId : null,
+    campaignId: campaignId || null,
     pillarId: typeof body.pillarId === 'string' ? body.pillarId : null,
     audience: typeof body.audience === 'string' ? body.audience : null,
     ...actorFrom(user),

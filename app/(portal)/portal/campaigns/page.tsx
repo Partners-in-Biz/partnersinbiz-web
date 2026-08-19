@@ -4,6 +4,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { getBrandKitForOrg } from '@/lib/brand-kit/store'
 import { serializeForClient } from '@/lib/campaigns/serialize'
 import { listCampaigns as listAdCampaigns } from '@/lib/ads/campaigns/store'
+import { campaignVisibleForScope } from '@/lib/social/account-scope'
 import {
   CampaignsWorkspace,
   type CampaignWorkspaceRecord,
@@ -78,6 +79,7 @@ export default async function PortalCampaignsIndex({
 
   const allCampaigns = campaignsSnap.docs
     .map((doc) => serializeForClient({ id: doc.id, ...doc.data() }) as CampaignWorkspaceRecord)
+    .filter((campaign) => campaignVisibleForScope(campaign, { personal: false, uid: user.uid }))
     .sort(sortByCreatedDesc)
 
   const broadcasts = broadcastsSnap.docs

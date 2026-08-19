@@ -61,12 +61,12 @@ describe('social content readiness diagnostics', () => {
         { id: 'old-published', status: 'published', platforms: ['facebook'], publishedAt: '2026-06-12T09:00:00.000Z', content: { text: 'Previous post.' } },
       ],
       accounts: [
-        { id: 'li', platform: 'linkedin', status: 'active' },
-        { id: 'ig', platform: 'instagram', status: 'active' },
-        { id: 'fb', platform: 'facebook', status: 'active' },
-        { id: 'tw', platform: 'twitter', status: 'active' },
+        { id: 'li', platform: 'linkedin', status: 'active', accountType: 'page' },
+        { id: 'ig', platform: 'instagram', status: 'active', accountType: 'business' },
+        { id: 'fb', platform: 'facebook', status: 'active', accountType: 'page' },
+        { id: 'tw', platform: 'twitter', status: 'active', accountType: 'business' },
         { id: 'bs', platform: 'bluesky', status: 'active' },
-        { id: 'pin', platform: 'pinterest', status: 'active' },
+        { id: 'pin', platform: 'pinterest', status: 'active', accountType: 'business' },
       ],
       queueEntries: [],
     })
@@ -90,12 +90,12 @@ describe('social content readiness diagnostics', () => {
         { id: 'approved-tiktok', status: 'approved', platforms: ['tiktok'], content: { text: 'Show the AI employee workflow.' }, media: [{ url: 'https://cdn.example/pib.mp4', type: 'video' }] },
       ],
       accounts: [
-        { id: 'li', platform: 'linkedin', status: 'active' },
-        { id: 'ig', platform: 'instagram', status: 'active' },
-        { id: 'fb', platform: 'facebook', status: 'active' },
-        { id: 'tw', platform: 'twitter', status: 'active' },
+        { id: 'li', platform: 'linkedin', status: 'active', accountType: 'page' },
+        { id: 'ig', platform: 'instagram', status: 'active', accountType: 'business' },
+        { id: 'fb', platform: 'facebook', status: 'active', accountType: 'page' },
+        { id: 'tw', platform: 'twitter', status: 'active', accountType: 'business' },
         { id: 'bs', platform: 'bluesky', status: 'active' },
-        { id: 'pin', platform: 'pinterest', status: 'active' },
+        { id: 'pin', platform: 'pinterest', status: 'active', accountType: 'business' },
       ],
       queueEntries: [],
     })
@@ -124,8 +124,8 @@ describe('social content readiness diagnostics', () => {
         { status: 'scheduled', platforms: ['twitter'], scheduledFor: '2026-07-01T09:00:00.000Z', content: { text: 'Scheduled X post.' } },
       ],
       accounts: [
-        { platform: 'linkedin', status: 'active' },
-        { platform: 'twitter', status: 'active' },
+        { platform: 'linkedin', status: 'active', accountType: 'page' },
+        { platform: 'twitter', status: 'active', accountType: 'business' },
       ],
       queue: [
         { postId: 'post-1', status: 'pending', scheduledFor: '2026-07-01T09:00:00.000Z' },

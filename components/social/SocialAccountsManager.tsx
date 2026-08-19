@@ -356,11 +356,12 @@ function PickerModal({
       .then((res) => res.ok ? res.json() : Promise.reject(new Error(`Failed (${res.status})`)))
       .then((body) => {
         const opts: PendingOption[] = body.data?.options ?? []
-        const orgLinkedIn = body.data?.platform === 'linkedin' && body.data?.accountScope !== 'personal'
+        const orgCompanyPicker = body.data?.accountScope !== 'personal'
+          && (body.data?.platform === 'linkedin' || body.data?.platform === 'facebook')
         const pageIndexes = opts
           .map((opt, index) => (opt.accountType === 'page' ? index : -1))
           .filter((index) => index >= 0)
-        const initial = orgLinkedIn && pageIndexes.length > 0 ? pageIndexes : opts.map((_, index) => index)
+        const initial = orgCompanyPicker && pageIndexes.length > 0 ? pageIndexes : opts.map((_, index) => index)
         setOptions(opts)
         setSelected(new Set(initial))
         if (initial.length > 0) setDefaultIndex(initial[0])
@@ -768,14 +769,12 @@ export default function SocialAccountsManager({
   const scopeCard = isPersonalScope
     ? {
         title: 'Personal account scope',
-        body: 'These accounts belong to your user profile. They are used for your own posts and do not appear in organisation publishing queues or company account pickers.',
+        body: 'These accounts belong to your user profile. They are used for your own posts, personal campaigns, and scheduling. Company pages never appear here and cannot be selected for personal publishing.',
         icon: 'person',
-        href: appendQueryParams('/portal/social/accounts', { orgId: resolvedOrgId }),
-        hrefLabel: 'Open company accounts',
       }
     : {
         title: 'Company / organisation scope',
-        body: 'These accounts are shared by the active company workspace for brand publishing, approvals, calendars, and inbox sync. They are not your private bookmarks or personal X account.',
+        body: 'These accounts are shared by the active company workspace for brand publishing, approvals, calendars, and inbox sync. Person profiles stay in Personal marketing so org campaigns cannot send to them by mistake.',
         icon: 'business',
         href: appendQueryParams('/portal/personal/social/accounts', { orgId: resolvedOrgId }),
         hrefLabel: 'Open personal accounts',
@@ -816,9 +815,11 @@ export default function SocialAccountsManager({
               <p className="mt-1 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">{scopeCard.body}</p>
             </div>
           </div>
-          <a href={scopeCard.href} className="btn-pib-secondary btn-pib-sm w-fit shrink-0">
-            {scopeCard.hrefLabel}
-          </a>
+          {'href' in scopeCard && scopeCard.href ? (
+            <a href={scopeCard.href} className="btn-pib-secondary btn-pib-sm w-fit shrink-0">
+              {scopeCard.hrefLabel}
+            </a>
+          ) : null}
         </div>
       </section>
 

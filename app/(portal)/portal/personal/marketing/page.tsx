@@ -32,21 +32,14 @@ export default function PersonalMarketingPage() {
           { label: 'Post history', href: '/portal/personal/social/history', icon: 'history' },
           { label: 'Calendar', href: '/portal/personal/social/calendar', icon: 'calendar_month' },
           { label: 'Accounts', href: '/portal/personal/social/accounts', icon: 'add_link' },
-          { label: 'Company social', href: '/portal/social', icon: 'business' },
+          { label: 'Campaigns', href: '/portal/personal/campaigns', icon: 'flag' },
         ]}
       />
 
-      <section className="grid gap-4 md:grid-cols-2" aria-label="Personal versus company social distinction">
-        <div className="pib-card space-y-2">
-          <p className="eyebrow !text-[10px]">Personal account scope</p>
-          <h2 className="font-display text-xl text-[var(--color-pib-text)]">User-owned channels</h2>
-          <p className="text-sm leading-6 text-[var(--color-pib-text-muted)]">Posts, vault items, calendar entries, and connected accounts here belong to your login and personal voice. This is where Peet can work with his own X bookmarks and personal social channels.</p>
-        </div>
-        <div className="pib-card space-y-2">
-          <p className="eyebrow !text-[10px]">Company / organisation scope</p>
-          <h2 className="font-display text-xl text-[var(--color-pib-text)]">Shared brand channels</h2>
-          <p className="text-sm leading-6 text-[var(--color-pib-text-muted)]">Organisation social remains for client or company publishing, team approvals, shared brand accounts, content-engine campaigns, and managed delivery work.</p>
-        </div>
+      <section className="pib-card space-y-2" aria-label="Personal marketing scope">
+        <p className="eyebrow !text-[10px]">Personal account scope</p>
+        <h2 className="font-display text-xl text-[var(--color-pib-text)]">User-owned channels</h2>
+        <p className="text-sm leading-6 text-[var(--color-pib-text-muted)]">Posts, vault items, calendar entries, campaigns, and connected accounts here belong to your login. Organisation pages and company campaigns stay in the company workspace and cannot be selected from this screen.</p>
       </section>
 
       <PersonalXMcpConnectionCard setupSurface="portal_personal_marketing" />

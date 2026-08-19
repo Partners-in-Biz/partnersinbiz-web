@@ -88,6 +88,8 @@ describe('personal workspace social UI', () => {
       'href',
       '/api/v1/social/oauth/twitter?redirectUrl=%2Fportal%2Fpersonal%2Fsocial%2Faccounts&scope=personal&orgId=org-1',
     )
+    expect(screen.queryByRole('link', { name: /open company accounts/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^company social$/i })).not.toBeInTheDocument()
   })
 
   it('confirms personal social account disconnects inside the page', async () => {

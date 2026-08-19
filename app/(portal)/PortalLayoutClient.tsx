@@ -255,11 +255,11 @@ function buildPersonalSubnavItems(): PortalSubnavItem[] {
   return [
     { label: 'Personal overview', href: '/portal/personal/marketing', icon: 'person' },
     { label: 'Compose', href: '/portal/personal/social/compose', icon: 'edit_square' },
+    { label: 'Campaigns', href: '/portal/personal/campaigns', icon: 'flag' },
     { label: 'Accounts', href: '/portal/personal/social/accounts', icon: 'add_link' },
     { label: 'Vault', href: '/portal/personal/social/vault', icon: 'folder' },
     { label: 'History', href: '/portal/personal/social/history', icon: 'history' },
     { label: 'Calendar', href: '/portal/personal/social/calendar', icon: 'calendar_month' },
-    { label: 'Company social', href: '/portal/social', icon: 'business' },
   ]
 }
 

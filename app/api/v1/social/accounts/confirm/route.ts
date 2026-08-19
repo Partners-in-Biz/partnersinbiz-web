@@ -5,8 +5,9 @@ import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
 
+import { isCompanyAccountType, isCompanyPagePlatform, PERSONAL_SCOPE } from '@/lib/social/account-scope'
+
 export const dynamic = 'force-dynamic'
-const PERSONAL_SCOPE = 'personal'
 
 interface PendingOption {
   platformAccountId: string
@@ -46,12 +47,12 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
   const platform: string = pending.platform
   const options = (pending.options ?? []) as PendingOption[]
 
-  const allowedSelections = !personalScope && platform === 'linkedin'
-    ? selections.filter((sel) => options[sel.index]?.accountType === 'page')
+  const allowedSelections = !personalScope && isCompanyPagePlatform(platform)
+    ? selections.filter((sel) => isCompanyAccountType(options[sel.index]?.accountType))
     : selections
 
-  if (!personalScope && platform === 'linkedin' && allowedSelections.length === 0) {
-    return apiError('Select a LinkedIn company page. Personal profiles belong in Personal marketing.', 400)
+  if (!personalScope && isCompanyPagePlatform(platform) && allowedSelections.length === 0) {
+    return apiError('Select a company page. Personal profiles belong in Personal marketing.', 400)
   }
 
   // Pre-validate all selection indexes and accountType values before writing

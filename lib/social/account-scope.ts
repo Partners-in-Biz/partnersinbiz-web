@@ -1,7 +1,9 @@
-const PERSONAL_SCOPE = 'personal'
-const ORG_SCOPE = 'org'
+export const PERSONAL_SCOPE = 'personal'
+export const ORG_SCOPE = 'org'
+
 const COMPANY_ACCOUNT_TYPES = new Set(['page', 'business', 'organization', 'company'])
 const BRAND_HANDLE_PLATFORMS = new Set(['bluesky'])
+const COMPANY_PAGE_PLATFORMS = new Set(['facebook', 'linkedin'])
 
 export function isPersonalAccountRecord(account: { accountScope?: unknown }): boolean {
   return account.accountScope === PERSONAL_SCOPE
@@ -11,6 +13,14 @@ function accountKind(account: { accountType?: unknown; subAccountType?: unknown 
   return String(account.accountType || account.subAccountType || '').toLowerCase()
 }
 
+export function isCompanyAccountType(value: unknown): boolean {
+  return COMPANY_ACCOUNT_TYPES.has(String(value || '').toLowerCase())
+}
+
+export function isCompanyPagePlatform(platform: unknown): boolean {
+  return COMPANY_PAGE_PLATFORMS.has(String(platform || '').toLowerCase())
+}
+
 export function isCompanyLinkedAccount(account: {
   accountScope?: unknown
   accountType?: unknown
@@ -18,8 +28,61 @@ export function isCompanyLinkedAccount(account: {
   platform?: unknown
 }): boolean {
   if (isPersonalAccountRecord(account)) return false
-  if (COMPANY_ACCOUNT_TYPES.has(accountKind(account))) return true
-  if (account.accountScope === ORG_SCOPE) return true
+  if (isCompanyAccountType(accountKind(account))) return true
   const platform = String(account.platform || '').toLowerCase()
-  return BRAND_HANDLE_PLATFORMS.has(platform)
+  // Bluesky has no page type. Brand handles connected in the company workspace stay here.
+  if (BRAND_HANDLE_PLATFORMS.has(platform) && account.accountScope !== PERSONAL_SCOPE) return true
+  return false
+}
+
+export function isPersonalCampaignRecord(campaign: { accountScope?: unknown }): boolean {
+  return campaign.accountScope === PERSONAL_SCOPE
+}
+
+export function canAccessCampaign(
+  campaign: { accountScope?: unknown; ownerUid?: unknown },
+  uid: string,
+): boolean {
+  if (!isPersonalCampaignRecord(campaign)) return true
+  return campaign.ownerUid === uid
+}
+
+export function campaignVisibleForScope(
+  campaign: { accountScope?: unknown; ownerUid?: unknown },
+  options: { personal: boolean; uid: string },
+): boolean {
+  if (options.personal) {
+    return isPersonalCampaignRecord(campaign) && campaign.ownerUid === options.uid
+  }
+  return !isPersonalCampaignRecord(campaign)
+}
+
+export function accountAllowedForPublish(
+  account: {
+    accountScope?: unknown
+    accountType?: unknown
+    subAccountType?: unknown
+    platform?: unknown
+    ownerUid?: unknown
+    status?: unknown
+  },
+  options: { personal: boolean; ownerUid?: string },
+): boolean {
+  if (account.status && account.status !== 'active') return false
+  if (options.personal) {
+    return isPersonalAccountRecord(account) && account.ownerUid === options.ownerUid
+  }
+  return isCompanyLinkedAccount(account)
+}
+
+export function storedAccountTypeForScope(input: {
+  profileType?: unknown
+  accountScope: 'org' | 'personal'
+  platform?: unknown
+}): string {
+  const profileType = String(input.profileType || '').toLowerCase()
+  if (input.accountScope === PERSONAL_SCOPE) return profileType || 'personal'
+  if (isCompanyAccountType(profileType)) return profileType
+  if (isCompanyPagePlatform(input.platform)) return profileType || 'personal'
+  return 'business'
 }

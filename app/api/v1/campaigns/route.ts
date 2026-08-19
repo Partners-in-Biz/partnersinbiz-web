@@ -35,6 +35,7 @@ import {
   filterOwnedRowsForActor,
   memberSeesAllModuleRecords,
 } from '@/lib/orgMembers/record-scope'
+import { campaignVisibleForScope, PERSONAL_SCOPE } from '@/lib/social/account-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,6 +71,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const scope = resolveOrgScope(user, searchParams.get('orgId'))
   if (!scope.ok) return apiError(scope.error, scope.status)
   const orgId = scope.orgId
+  const personalScope = searchParams.get('scope') === PERSONAL_SCOPE
   const status = searchParams.get('status')
   const limitParam = searchParams.get('limit')
   const limit = limitParam ? Math.max(1, Math.min(500, parseInt(limitParam, 10) || 100)) : 500
@@ -85,11 +87,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
     query = query.where('status', '==', status)
   }
 
-  const totalPromise = typeof query.count === 'function'
-    ? query.count().get().then((aggregate: { data: () => { count?: number } }) => aggregate.data().count ?? 0)
-    : Promise.resolve(null)
   const snap = await query.limit(limit).get()
-  const rawTotal = await totalPromise
   const campaigns = snap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .map((d: any) => ({ id: d.id, ...d.data() }))
@@ -99,10 +97,13 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   // members pass through unchanged. The aggregate count would leak rows a
   // scoped member cannot see, so scoped members get the filtered length.
   const seesAllMarketing = await memberSeesAllModuleRecords(user, orgId, 'marketing')
-  const visibleCampaigns = seesAllMarketing
+  const visibleCampaigns = (seesAllMarketing
     ? campaigns
     : await filterOwnedRowsForActor(user, orgId, 'marketing', campaigns)
-  const total = seesAllMarketing ? (rawTotal ?? campaigns.length) : visibleCampaigns.length
+  ).filter((campaign: { accountScope?: unknown; ownerUid?: unknown }) =>
+    campaignVisibleForScope(campaign, { personal: personalScope, uid: user.uid }),
+  )
+  const total = visibleCampaigns.length
 
   return apiSuccess(visibleCampaigns, 200, { total, page: 1, limit, orgId })
 })
@@ -112,10 +113,17 @@ export const POST = withAuth(
   withIdempotency(async (req: NextRequest, user: ApiUser) => {
     const body = await req.json().catch(() => null)
     if (!body) return apiError('Invalid JSON', 400)
+    const personalScope = new URL(req.url).searchParams.get('scope') === PERSONAL_SCOPE
+      || body.accountScope === PERSONAL_SCOPE
+      || body.scope === PERSONAL_SCOPE
 
     // Branch: content-engine campaign requested via clientType
     if (body.clientType !== undefined) {
-      return createContentEngineCampaign(body, user)
+      return createContentEngineCampaign(body, user, personalScope)
+    }
+
+    if (personalScope) {
+      return apiError('Personal campaigns are content campaigns only. Email programmes stay in the organisation workspace.', 400)
     }
 
     return createEmailCampaign(body, user)
@@ -126,6 +134,7 @@ async function createContentEngineCampaign(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   body: any,
   user: ApiUser,
+  personalScope = false,
 ) {
   const requestedOrgId = typeof body.orgId === 'string' ? body.orgId.trim() : null
   const scope = resolveOrgScope(user, requestedOrgId)
@@ -157,6 +166,9 @@ async function createContentEngineCampaign(
     brandIdentity: body.brandIdentity ?? null,
     pillars: Array.isArray(body.pillars) ? body.pillars : [],
     calendar: Array.isArray(body.calendar) ? body.calendar : [],
+    ...(personalScope
+      ? { accountScope: PERSONAL_SCOPE, ownerUid: user.uid }
+      : { accountScope: 'org', ownerUid: null }),
     ...relationships.value,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),

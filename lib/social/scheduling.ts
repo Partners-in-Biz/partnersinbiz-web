@@ -2,6 +2,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import { findDefaultAccount, toPlatformType } from '@/lib/social/account-resolver'
 import type { PostStatus } from '@/lib/social/providers'
+import { accountAllowedForPublish, isPersonalAccountRecord } from '@/lib/social/account-scope'
 
 const platformAliases: Record<string, string[]> = {
   twitter: ['twitter'],
@@ -51,21 +52,21 @@ export async function hasActivePublishAccount(post: FirebaseFirestore.DocumentDa
     for (const accountId of accountIds) {
       const doc = await adminDb.collection('social_accounts').doc(accountId).get()
       const account = doc.data()
-      const personalMatches = post.accountScope === 'personal'
-        ? account?.accountScope === 'personal' && account.ownerUid === post.ownerUid
-        : account?.accountScope !== 'personal'
+      const personalPost = isPersonalAccountRecord(post)
       if (
         doc.exists &&
         account?.orgId === orgId &&
-        account.status === 'active' &&
-        personalMatches &&
+        accountAllowedForPublish(account, {
+          personal: personalPost,
+          ownerUid: typeof post.ownerUid === 'string' ? post.ownerUid : undefined,
+        }) &&
         accountMatchesPlatform(account, platformType)
       ) return true
     }
     return false
   }
 
-  if (post.accountScope === 'personal') return false
+  if (isPersonalAccountRecord(post)) return false
 
   return Boolean(await findDefaultAccount(orgId, platformType))
 }

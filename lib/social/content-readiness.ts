@@ -1,3 +1,5 @@
+import { isCompanyLinkedAccount } from '@/lib/social/account-scope'
+
 type TimestampLike = { seconds?: number; _seconds?: number; toDate?: () => Date }
 
 type SocialPostLike = Record<string, unknown> & {
@@ -169,7 +171,7 @@ function isOrgRecord(record: { accountScope?: string }): boolean {
 }
 
 function isActiveAccount(account: SocialAccountLike): boolean {
-  return account.deleted !== true && isOrgRecord(account) && account.status === 'active' && Boolean(normalizePlatform(account.platform))
+  return account.deleted !== true && isCompanyLinkedAccount(account) && account.status === 'active' && Boolean(normalizePlatform(account.platform))
 }
 
 function findingFor(summary: SocialContentReadiness['summary']): SocialContentReadiness['primaryFinding'] {

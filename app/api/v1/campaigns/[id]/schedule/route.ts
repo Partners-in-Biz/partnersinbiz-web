@@ -41,6 +41,7 @@ import { lastActorFrom } from '@/lib/api/actor'
 import { logActivity } from '@/lib/activity/log'
 import type { ApiUser } from '@/lib/api/types'
 import { validateOutboundLinks } from '@/lib/social/outbound-link-validation'
+import { canAccessCampaign, isPersonalAccountRecord, isPersonalCampaignRecord } from '@/lib/social/account-scope'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -163,6 +164,7 @@ export const POST = withAuth(
       partnerLinkId: extractPartnerLinkId(req),
     })
     if (!access.ok) return apiError(access.error, access.status)
+    if (!canAccessCampaign(campaign, user.uid)) return apiError('Campaign not found', 404)
     const scope = { ok: true as const, orgId: access.orgId }
     const orgId = scope.orgId
 
@@ -194,7 +196,9 @@ export const POST = withAuth(
       .where('campaignId', '==', id)
       .get()
 
-    const allPosts = postsSnap.docs
+    const campaignIsPersonal = isPersonalCampaignRecord(campaign)
+    const skipped: AnyObj[] = []
+    const matchingPosts = postsSnap.docs
       .map(d => ({ id: d.id, ...d.data() } as AnyObj))
       .filter(p => eligible.includes(p.status))
       .filter(p => {
@@ -202,6 +206,22 @@ export const POST = withAuth(
         const plat = (Array.isArray(p.platforms) ? p.platforms[0] : p.platform) ?? ''
         return platformsFilter.includes(String(plat).toLowerCase())
       })
+      .filter(p => {
+        const postIsPersonal = isPersonalAccountRecord(p)
+        if (campaignIsPersonal !== postIsPersonal) {
+          skipped.push({
+            postId: p.id,
+            platform: p.platforms?.[0] ?? p.platform,
+            reason: campaignIsPersonal
+              ? 'Organisation posts cannot be scheduled on a personal campaign'
+              : 'Personal posts cannot be scheduled on an organisation campaign',
+          })
+          return false
+        }
+        return true
+      })
+
+    const allPosts = matchingPosts
 
     // Sort by createdAt for stable assignment
     allPosts.sort((a, b) => {
@@ -213,8 +233,8 @@ export const POST = withAuth(
     if (allPosts.length === 0) {
       return apiSuccess({
         scheduled: [],
-        skipped: [],
-        totals: { scheduled: 0, skipped: 0, eligible: 0 },
+        skipped,
+        totals: { scheduled: 0, skipped: skipped.length, eligible: 0 },
         startDate: startDate.toISOString(),
         endDate: startDate.toISOString(),
         mode,
@@ -240,7 +260,6 @@ export const POST = withAuth(
 
     // Walk + write
     const scheduled: AnyObj[] = []
-    const skipped: AnyObj[] = []
 
     if (dryRun) {
       for (let i = 0; i < allPosts.length; i++) {

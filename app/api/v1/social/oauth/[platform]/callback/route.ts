@@ -18,6 +18,7 @@ import { getProvider } from '@/lib/social/providers/registry'
 import { exchangeInstagramLongLivedToken } from '@/lib/social/instagram-oauth'
 import { logAudit } from '@/lib/social/audit'
 import { safeProvisionYouTubeChannelWorkspace } from '@/lib/youtube-studio/channel-provisioning'
+import { storedAccountTypeForScope } from '@/lib/social/account-scope'
 import type { SocialPlatformType } from '@/lib/social/providers/types'
 
 export async function GET(req: NextRequest) {
@@ -131,27 +132,35 @@ export async function GET(req: NextRequest) {
     // Facebook and LinkedIn: collect all accounts/pages, write pending doc, redirect with picker nonce
     if (platform === 'facebook') {
       const fbResult = await fetchAllFacebookAccounts(tokenResponse.accessToken)
-      const options = fbResult.map((acc, i) => {
-        const encrypted = encryptTokenBlock(
-          { accessToken: acc.accessToken, refreshToken: null, tokenType: 'Bearer', expiresAt: null },
-          orgId,
-        )
-        return {
-          index: i,
-          displayName: acc.displayName,
-          username: acc.username,
-          avatarUrl: acc.avatarUrl,
-          profileUrl: acc.profileUrl,
-          accountType: acc.accountType,
-          platformAccountId: acc.platformAccountId,
-          encryptedTokens: encrypted,
-          platformMeta: acc.meta ?? {},
-          scopes: config.scopes,
-        }
-      })
+      const companyOnly = accountScope === 'org'
+      const options = fbResult
+        .filter((acc) => !companyOnly || acc.accountType === 'page')
+        .map((acc, i) => {
+          const encrypted = encryptTokenBlock(
+            { accessToken: acc.accessToken, refreshToken: null, tokenType: 'Bearer', expiresAt: null },
+            orgId,
+          )
+          return {
+            index: i,
+            displayName: acc.displayName,
+            username: acc.username,
+            avatarUrl: acc.avatarUrl,
+            profileUrl: acc.profileUrl,
+            accountType: acc.accountType,
+            platformAccountId: acc.platformAccountId,
+            encryptedTokens: encrypted,
+            platformMeta: acc.meta ?? {},
+            scopes: config.scopes,
+          }
+        })
       if (options.length === 0) {
         return NextResponse.redirect(
-          new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: 'No Facebook accounts found' }), url.origin).toString()
+          new URL(buildOAuthRedirectPath(redirectUrl, {
+            status: 'error',
+            message: companyOnly
+              ? 'No Facebook Pages found. Connect a personal profile from Personal marketing.'
+              : 'No Facebook accounts found',
+          }), url.origin).toString()
         )
       }
       return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid)
@@ -265,7 +274,11 @@ export async function GET(req: NextRequest) {
       username: profile.username,
       avatarUrl: profile.avatarUrl,
       profileUrl: profile.profileUrl,
-      accountType: profile.accountType ?? 'personal',
+      accountType: storedAccountTypeForScope({
+        profileType: profile.accountType,
+        accountScope,
+        platform,
+      }),
       status: 'active',
       scopes: config.scopes,
       encryptedTokens: {

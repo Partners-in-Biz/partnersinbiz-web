@@ -155,12 +155,12 @@ const pendingDocData = {
   options: [
     {
       index: 0,
-      displayName: 'Peet',
-      username: 'peet@test.com',
+      displayName: 'Partners in Biz',
+      username: 'partners-in-biz',
       avatarUrl: '',
       profileUrl: '',
-      accountType: 'personal',
-      platformAccountId: 'urn:li:person:abc',
+      accountType: 'page',
+      platformAccountId: 'urn:li:organization:abc',
       encryptedTokens: { accessToken: 'enc', refreshToken: null, tokenType: 'Bearer', expiresAt: null, iv: 'iv', tag: 'tag' },
       platformMeta: {},
       scopes: ['openid'],
