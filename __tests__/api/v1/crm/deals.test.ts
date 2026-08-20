@@ -784,7 +784,7 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     expect(lostCall![0].summary).toContain('Lost Deal')
   })
 
-  it('stageId change WITHOUT contactId does NOT call activities.add', async () => {
+  it('stageId change WITHOUT contactId still writes a deal-scoped stage_change activity', async () => {
     const member = seedOrgMember('org-1', 'uid-1', { role: 'member' })
     const capturedActivitiesAdd = jest.fn().mockResolvedValue({ id: 'act-1' })
     stageAuthWithDeal(
@@ -796,7 +796,12 @@ describe('PUT /api/v1/crm/deals/[id]', () => {
     const req = callAsMember(member, 'PUT', '/api/v1/crm/deals/d1', { stageId: 'proposal' })
     const { PUT } = await import('@/app/api/v1/crm/deals/[id]/route')
     await PUT(req, routeCtx('d1'))
-    expect(capturedActivitiesAdd).not.toHaveBeenCalled()
+    expect(capturedActivitiesAdd).toHaveBeenCalledWith(expect.objectContaining({
+      dealId: 'd1',
+      dealTitle: 'No Contact Deal',
+      type: 'stage_change',
+      metadata: expect.objectContaining({ dealTitle: 'No Contact Deal', value: 100 }),
+    }))
   })
 })
 

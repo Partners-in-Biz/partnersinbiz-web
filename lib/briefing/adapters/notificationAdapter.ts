@@ -49,6 +49,8 @@ interface ActivityDocument extends Record<string, unknown> {
   contactName?: string | null
   dealId?: string | null
   dealTitle?: string | null
+  companyId?: string | null
+  companyName?: string | null
   metadata?: Record<string, unknown> | null
   createdBy?: string | null
   createdByRef?: {
@@ -80,6 +82,54 @@ function cleanHumanName(value: unknown): string | null {
 
 function activityText(doc: ActivityDocument): string {
   return cleanString(doc.summary) ?? cleanString(doc.description) ?? cleanString(doc.metadata?.nextAction) ?? cleanString(doc.metadata?.note) ?? 'Activity logged'
+}
+
+function metaString(doc: ActivityDocument, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = cleanString(doc.metadata?.[key])
+    if (value && !looksLikeOpaqueId(value)) return value
+  }
+  return null
+}
+
+function metaNumber(doc: ActivityDocument, ...keys: string[]): number | null {
+  for (const key of keys) {
+    const value = doc.metadata?.[key]
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+  }
+  return null
+}
+
+function activityDealTitle(doc: ActivityDocument): string | null {
+  return cleanHumanName(doc.dealTitle) ?? metaString(doc, 'dealTitle', 'entityTitle') ?? cleanHumanName(doc.entityTitle)
+}
+
+function activityContactName(doc: ActivityDocument): string | null {
+  return cleanHumanName(doc.contactName) ?? metaString(doc, 'contactName')
+}
+
+function activityCompanyName(doc: ActivityDocument): string | null {
+  return cleanHumanName(doc.companyName) ?? metaString(doc, 'companyName', 'company')
+}
+
+function activityMoney(doc: ActivityDocument): string | null {
+  const value = metaNumber(doc, 'value', 'amount', 'dealValue')
+  if (value === null) return null
+  const code = metaString(doc, 'currency') ?? 'ZAR'
+  const symbol = code === 'ZAR' ? 'R' : code === 'USD' ? '$' : code === 'EUR' ? '€' : `${code} `
+  return `${symbol}${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+}
+
+function stageChangeLabel(doc: ActivityDocument): string | null {
+  const from = metaString(doc, 'fromStageLabel', 'previousStageLabel')
+  const to = metaString(doc, 'toStageLabel', 'stageLabel')
+  if (from && to) return `${from} → ${to}`
+  return to ?? from
+}
+
+function isStageChangeActivity(doc: ActivityDocument): boolean {
+  const type = doc.type.toLowerCase()
+  return type.includes('stage') || /deal moved/i.test(activityText(doc))
 }
 
 function activityFollowUpIntent(doc: ActivityDocument): string | null {
@@ -452,9 +502,11 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
       taskId: entityType === 'task' ? entityId : null,
       documentId: entityType === 'document' ? entityId : null,
       contactId,
-      contactName: cleanString(doc.contactName),
+      contactName: activityContactName(doc),
       dealId,
-      dealTitle: cleanString(doc.dealTitle),
+      dealTitle: activityDealTitle(doc),
+      companyId: cleanString(doc.companyId) ?? metaString(doc, 'companyId'),
+      companyName: activityCompanyName(doc),
       entityId,
       entityType,
       entityTitle: doc.entityTitle,
@@ -463,40 +515,59 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
 
   extractTitle(doc: ActivityDocument, docId: string): string {
     const actor = this.extractActor(doc, docId)
-    const actorName = cleanString(doc.contactName) ?? actor.name ?? actor.id
+    const contactName = activityContactName(doc)
+    const actorName = contactName ?? cleanHumanName(actor.name) ?? 'CRM update'
     const followUpIntent = activityFollowUpIntent(doc)
+    const dealTitle = activityDealTitle(doc)
+    const value = activityMoney(doc)
+    const toStage = metaString(doc, 'toStageLabel')
+    const stage = stageChangeLabel(doc)
 
     if (followUpIntent) {
-      return `Follow up with ${actorName}`
+      return `Follow up with ${actorName}${dealTitle ? ` · ${dealTitle}` : ''}`
     }
 
+    if (isStageChangeActivity(doc)) {
+      const subject = dealTitle ?? contactName
+      if (subject && toStage) return `${subject}${value ? ` · ${value}` : ''} → ${toStage}`
+      if (subject && stage) return `${subject}${value ? ` · ${value}` : ''}: ${stage}`
+      if (subject) return value ? `${subject} · ${value}` : subject
+    }
+
+    if (dealTitle) return `${dealTitle}: ${activityText(doc)}`
     return `${actorName}: ${activityText(doc)}`
   },
 
   extractSummary(doc: ActivityDocument): string {
     const parts: string[] = []
-
-    parts.push(`Activity: ${doc.type}`)
-
+    const dealTitle = activityDealTitle(doc)
+    const contactName = activityContactName(doc)
+    const companyName = activityCompanyName(doc)
+    const value = activityMoney(doc)
+    const stage = stageChangeLabel(doc)
     const text = activityText(doc)
-    if (text) {
-      parts.push(text)
-    }
+
+    if (dealTitle) parts.push(`Deal: ${dealTitle}`)
+    if (value) parts.push(`Value: ${value}`)
+    if (companyName) parts.push(`Company: ${companyName}`)
+    if (contactName) parts.push(`Contact: ${contactName}`)
+    if (stage && !text.toLowerCase().includes(stage.toLowerCase())) parts.push(`Stage: ${stage}`)
+    if (text && !parts.some((part) => part.includes(text))) parts.push(text)
+
+    const email = metaString(doc, 'email', 'contactEmail')
+    const phone = metaString(doc, 'phone', 'contactPhone')
+    if (email) parts.push(`Email: ${email}`)
+    if (phone) parts.push(`Phone: ${phone}`)
 
     const nextAction = cleanString(doc.metadata?.nextAction)
-    if (nextAction) {
-      parts.push(`Next action: ${nextAction}`)
-    }
+      ?? (isStageChangeActivity(doc)
+        ? 'Confirm the new stage with the contact and schedule the next sales step.'
+        : activityFollowUpIntent(doc)
+          ? 'Log the call or email, then set the next follow-up.'
+          : null)
+    if (nextAction) parts.push(`Next: ${nextAction}`)
 
-    if (doc.entityType) {
-      parts.push(`Entity: ${doc.entityType}`)
-    }
-
-    if (doc.entityTitle) {
-      parts.push(doc.entityTitle)
-    }
-
-    return parts.join(' — ') || 'No details.'
+    return parts.join(' · ') || 'No details.'
   },
 
   extractExcerpt(doc: ActivityDocument, docIdOrMaxLength: string | number = 300, maxLength = 300): string | null {
@@ -517,10 +588,22 @@ export const activityAdapter: BriefingSourceAdapter<ActivityDocument> = {
       entityId: doc.entityId,
       entityTitle: doc.entityTitle,
       contactId: cleanString(doc.contactId),
-      contactName: cleanString(doc.contactName),
+      contactName: activityContactName(doc),
       dealId: cleanString(doc.dealId),
-      dealTitle: cleanString(doc.dealTitle),
+      dealTitle: activityDealTitle(doc),
+      companyId: cleanString(doc.companyId) ?? metaString(doc, 'companyId'),
+      companyName: activityCompanyName(doc),
+      company: activityCompanyName(doc),
+      email: metaString(doc, 'email', 'contactEmail'),
+      phone: metaString(doc, 'phone', 'contactPhone'),
+      value: metaNumber(doc, 'value', 'amount', 'dealValue'),
+      currency: metaString(doc, 'currency'),
+      fromStageLabel: metaString(doc, 'fromStageLabel', 'previousStageLabel'),
+      toStageLabel: metaString(doc, 'toStageLabel'),
+      stageLabel: metaString(doc, 'toStageLabel', 'stageLabel') ?? stageChangeLabel(doc),
       followUpIntent,
+      nextAction: cleanString(doc.metadata?.nextAction)
+        ?? (isStageChangeActivity(doc) ? 'Confirm the new stage with the contact and schedule the next sales step.' : null),
     }
   },
 

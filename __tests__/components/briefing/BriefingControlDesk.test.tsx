@@ -337,6 +337,44 @@ const notificationBriefingItem = {
   occurredAt: '2026-05-31T09:59:00.000Z',
 }
 
+const dealMovedBriefingItem = {
+  id: 'activity:stage-change-1',
+  orgId: 'org-1',
+  priority: 'fyi',
+  title: 'Acme website rebuild · R45,000 → Qualified',
+  summary: 'Deal: Acme website rebuild · Value: R45,000 · Company: Acme Holdings · Contact: Jane Buyer',
+  excerpt: 'Confirm qualification and book the next sales step.',
+  timeAgo: '2 weeks ago',
+  requiresAction: false,
+  source: { type: 'activity', id: 'stage-change-1', url: '/portal/deals/deal-1' },
+  actor: { id: 'user:peet', name: 'Peet Stander', role: 'admin', type: 'user' },
+  context: {
+    orgId: 'org-1',
+    orgName: 'Partners in Biz',
+    orgSlug: 'partners-in-biz',
+    contactId: 'contact-1',
+    contactName: 'Jane Buyer',
+    dealId: 'deal-1',
+    dealTitle: 'Acme website rebuild',
+    companyName: 'Acme Holdings',
+  },
+  metadata: {
+    activityType: 'stage_change',
+    contactId: 'contact-1',
+    dealId: 'deal-1',
+    dealTitle: 'Acme website rebuild',
+    companyName: 'Acme Holdings',
+    email: 'jane@acme.test',
+    phone: '+27821234567',
+    value: 45000,
+    currency: 'ZAR',
+    fromStageLabel: 'New lead',
+    toStageLabel: 'Qualified',
+    nextAction: 'Call Jane to confirm qualification and book discovery.',
+  },
+  occurredAt: '2026-07-31T11:54:00.000Z',
+}
+
 const activityBriefingItem = {
   id: 'activity:activity-1',
   orgId: 'org-1',
@@ -437,11 +475,15 @@ const supportBriefingItem = {
     orgSlug: 'client-one',
     supportTicketId: 'support-1',
     supportTicketSubject: 'Website form is not sending leads',
+    contactName: 'Riley Client',
   },
   metadata: {
     supportStatus: 'waiting_on_us',
     supportPriority: 'urgent',
     sourcePath: '/portal/campaigns',
+    requesterName: 'Riley Client',
+    requesterEmail: 'riley@client.test',
+    email: 'riley@client.test',
   },
   occurredAt: '2026-05-31T09:56:00.000Z',
 }
@@ -463,12 +505,15 @@ const invoiceBriefingItem = {
     orgSlug: 'client-one',
     invoiceId: 'invoice-1',
     invoiceNumber: 'INV-1001',
+    contactName: 'Riley Client',
   },
   metadata: {
     invoiceStatus: 'draft',
     total: 12500,
     currency: 'ZAR',
     recipientName: 'Riley Client',
+    recipientEmail: 'riley@client.test',
+    email: 'riley@client.test',
   },
   occurredAt: '2026-05-31T09:55:00.000Z',
 }
@@ -490,12 +535,15 @@ const invoiceProofBriefingItem = {
     orgSlug: 'client-one',
     invoiceId: 'invoice-proof-1',
     invoiceNumber: 'INV-2001',
+    contactName: 'Riley Client',
   },
   metadata: {
     invoiceStatus: 'payment_pending_verification',
     total: 8800,
     currency: 'ZAR',
     recipientName: 'Riley Client',
+    recipientEmail: 'riley@client.test',
+    email: 'riley@client.test',
     paymentProofFileId: 'file-proof-1',
     paymentProofUploadedAt: '2026-05-31',
   },
@@ -519,12 +567,15 @@ const quoteBriefingItem = {
     orgSlug: 'client-one',
     quoteId: 'quote-1',
     quoteNumber: 'QUO-1001',
+    contactName: 'Riley Client',
   },
   metadata: {
     quoteStatus: 'sent',
     total: 18500,
     currency: 'ZAR',
     recipientName: 'Riley Client',
+    recipientEmail: 'riley@client.test',
+    email: 'riley@client.test',
     recipientOrgId: 'org-1',
     sourceOrgId: 'pib-platform-owner',
   },
@@ -1204,7 +1255,7 @@ describe('BriefingControlDesk', () => {
         } as Response
       }
       if (url.startsWith('/api/v1/briefings/feed')) {
-        const orgOneItems = [briefingItem, agentLearningBriefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, seoKeywordDecisionBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem]
+        const orgOneItems = [briefingItem, agentLearningBriefingItem, documentBriefingItem, documentCommentBriefingItem, approvalBriefingItem, conversationBriefingItem, socialBriefingItem, notificationBriefingItem, dealMovedBriefingItem, activityBriefingItem, contactBriefingItem, reportBriefingItem, supportBriefingItem, invoiceBriefingItem, invoiceProofBriefingItem, quoteBriefingItem, shipmentBriefingItem, orderBriefingItem, inventoryBriefingItem, expenseBriefingItem, seoContentBriefingItem, seoTaskBriefingItem, seoKeywordDecisionBriefingItem, adCampaignBriefingItem, draftBroadcastBriefingItem, scheduledBroadcastBriefingItem, pausedBroadcastBriefingItem, draftCampaignBriefingItem, activeCampaignBriefingItem, formSubmissionBriefingItem, socialInboxBriefingItem, mailboxBriefingItem, agentRunBriefingItem, workspaceBrokerBriefingItem, calendarBriefingItem]
         const items = url.includes('orgId=org-2')
           ? [secondOrgBriefingItem]
           : url.includes('orgId=org-1')
@@ -1507,12 +1558,9 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('button', { name: /copy handoff/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /copy blocker/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /copy evidence/i })).toBeInTheDocument()
-    // Chat link removed — docked chat in CockpitShell replaces the briefingChatHref link-out
-    expect(screen.getByRole('button', { name: /log to crm unavailable/i })).toBeDisabled()
-    expect(screen.getByText('CRM conversion unavailable: this card needs a linked contact or deal first. Open the source to link CRM context, or create a follow-up task before converting.')).toBeInTheDocument()
-    expect(screen.getByText(/Usable alternatives for this card: create follow-up task, ask Theo to triage, link existing task, create routed Theo task, open evidence\./)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /approval still required/i })).toBeDisabled()
-    expect(screen.getByText(/Peet must still explicitly approve production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /log to crm unavailable/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/CRM conversion unavailable/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Usable alternatives for this card/)).not.toBeInTheDocument()
   })
 
   it('filters unavailable alternatives for cards without a project scope', async () => {
@@ -1520,11 +1568,12 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Document pending approval: Growth plan/i }))
 
-    expect(screen.getByRole('button', { name: /ask theo to triage unavailable/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /create routed theo task unavailable/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /link existing task unavailable/i })).toBeDisabled()
-    expect(screen.getByText(/Usable alternatives for this card: create follow-up task, open evidence\./)).toBeInTheDocument()
-    expect(screen.queryByText(/ask Theo to triage, link existing task, create routed Theo task/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /ask theo to triage unavailable/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /create routed theo task unavailable/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /link existing task unavailable/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /ask theo to triage$/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Usable alternatives for this card/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Project-scoped routing is unavailable/)).not.toBeInTheDocument()
   })
 
   it('keeps long action-panel command labels contained in wrapped controls', async () => {
@@ -1538,10 +1587,7 @@ describe('BriefingControlDesk', () => {
 
     // Chat link removed — docked chat in CockpitShell replaces briefingChatHref
     const longControls = [
-      screen.getByRole('button', { name: /ask theo to triage unavailable/i }),
-      screen.getByRole('button', { name: /create routed theo task unavailable/i }),
-      screen.getByRole('button', { name: /link existing task unavailable/i }),
-      screen.getByRole('button', { name: /log to crm unavailable/i }),
+      screen.getByRole('button', { name: /snooze internal review item/i }),
     ]
 
     longControls.forEach((control) => {
@@ -1556,26 +1602,21 @@ describe('BriefingControlDesk', () => {
   it('keeps the Briefings command desk usable without horizontal overflow on mobile', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
-    expect(await screen.findByText('Briefings Mission Control')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Briefings' })).toBeInTheDocument()
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
 
-    const columns = screen.getByLabelText('Briefing control desk columns')
+    const columns = screen.getByLabelText('Daily briefings desk')
     expect(columns).toHaveClass('min-w-0')
     expect(columns).toHaveClass('min-h-0')
-    expect(columns).toHaveClass('xl:grid-cols-[190px_350px_minmax(420px,1fr)]')
+    expect(columns).toHaveClass('lg:grid-cols-3')
 
     const shell = screen.getByTestId('briefings-room-shell')
     expect(shell).toHaveClass('h-full', 'rounded-none', 'border-0', 'shadow-none')
     expect(shell).not.toHaveClass('h-[calc(100dvh-88px)]')
     expect(screen.queryByText('Client portal / Briefings')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /open pip briefing assistant/i })).toBeInTheDocument()
-    expect(screen.getByLabelText('Quick briefing actions')).toBeInTheDocument()
 
-    expect(screen.getByLabelText('Workflow lanes')).toHaveClass('min-w-0')
-    expect(screen.getByLabelText('Briefing card lane')).toHaveClass('min-w-0')
-    expect(screen.getByLabelText('Selected briefing action panel')).toHaveClass('min-w-0')
-    expect(screen.getByLabelText('Selected briefing action panel')).toHaveClass('max-xl:order-1')
-    expect(screen.getByLabelText('Briefing card lane')).toHaveClass('max-xl:order-2')
+    expect(screen.getByLabelText('Selected briefing detail panel')).toBeInTheDocument()
 
     expect(screen.getByTestId('selected-briefing-title')).toHaveClass('break-words')
     expect(screen.getAllByTestId('briefing-card-title')[0]).toHaveClass('break-words')
@@ -1720,11 +1761,10 @@ describe('BriefingControlDesk', () => {
   it('renders a portal control desk with source-aware task actions', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
-    expect(await screen.findByText('Briefings Mission Control')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /live off/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Briefings' })).toBeInTheDocument()
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Client One').length).toBeGreaterThan(0)
-    expect(screen.getByLabelText('Live briefing cards')).toHaveClass('overflow-y-auto')
+    expect(screen.getByLabelText('Daily briefings desk')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /filter to acme holdings account/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/projects/project-1?taskId=task-1')
     expect(screen.getByLabelText('Structured review card')).toBeInTheDocument()
@@ -1745,13 +1785,13 @@ describe('BriefingControlDesk', () => {
     expect(screen.getByRole('button', { name: /create follow-up/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /assign theo/i })).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: /view evidence/i }).at(-1)).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
-    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Approve')
-    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Send back')
-    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Snooze')
-    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Create follow-up')
-    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('Assign agent')
-    expect(screen.getByLabelText('Mission Control decision routing')).toHaveTextContent('View evidence')
-    expect(screen.getByText(/Peet must still explicitly approve production deploys, external sends, public publishing, paid spend, finance changes, secret\/config changes, destructive actions/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Internal review action controls')).toHaveTextContent('Approve')
+    expect(screen.getByLabelText('Internal review action controls')).toHaveTextContent('Send back')
+    expect(screen.getByLabelText('Internal review action controls')).toHaveTextContent('Snooze')
+    expect(screen.getByLabelText('Internal review action controls')).toHaveTextContent('Create follow-up')
+    expect(screen.getByLabelText('Internal review action controls')).toHaveTextContent('Assign theo')
+    expect(screen.getByLabelText('Internal review action controls')).toHaveTextContent('View evidence')
+    expect(screen.getByText('Release actions are disabled until Quinn signs off the review gate.')).toBeInTheDocument()
   })
 
   it('renders portal briefings as an active-workspace CRM account pulse', async () => {
@@ -1788,39 +1828,21 @@ describe('BriefingControlDesk', () => {
     expect((await screen.findAllByText('Blocked launch checklist')).length).toBeGreaterThan(0)
     expect(screen.queryByText('Theo completed work - review required')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^unblock$/i })).toBeInTheDocument()
-    expect(screen.getAllByText('1 live cards').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /all workspaces/i })).toBeInTheDocument()
   })
 
   it('maps admin command cards into workflow lanes with action-focused counters', async () => {
     render(<BriefingControlDesk mode="admin" />)
 
-    expect(await screen.findByText('Briefings Mission Control')).toBeInTheDocument()
-    for (const label of [
-      'Needs Peet',
-      'Waiting on input',
-      'Needs approval',
-      'Review agent work',
-      'Follow up',
-      'Account risk',
-      'Moving',
-      'Done recently',
-    ]) {
-      expect(screen.getByLabelText(`Summary counter: ${label}`)).toBeInTheDocument()
-    }
+    expect(await screen.findByRole('heading', { name: 'Briefings' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Daily briefings desk')).toBeInTheDocument()
+    expect(screen.getAllByText('Call').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Follow up').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Blocked').length).toBeGreaterThan(0)
 
-    expect(screen.getByText('Workflow lanes')).toBeInTheDocument()
-    for (const lane of ['Needs a call', 'Needs approval', 'Blocked', 'Follow up', 'Check agent work', 'FYI']) {
-      expect(screen.getByRole('button', { name: new RegExp(`${lane} workflow lane`, 'i') })).toBeInTheDocument()
-    }
-
-    fireEvent.click(screen.getByRole('button', { name: /needs approval workflow lane/i }))
     expect((await screen.findAllByText('Document pending approval: Growth plan')).length).toBeGreaterThan(0)
-
-    fireEvent.click(screen.getByRole('button', { name: /check agent work workflow lane/i }))
     expect((await screen.findAllByText('Theo completed work - review required')).length).toBeGreaterThan(0)
-    expect(screen.getByText('Weekly Agent Learning Review - Theo')).toBeInTheDocument()
-    expect(screen.getAllByLabelText(/Software build evidence for Theo completed work/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Weekly Agent Learning Review - Theo').length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', 'https://partnersinbiz.online/admin/projects/project-1?taskId=task-1')
   })
 
@@ -2184,7 +2206,7 @@ describe('BriefingControlDesk', () => {
 
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/contacts/contact-1')
     expect(screen.getByText('Ava Owner (contact-1)')).toBeInTheDocument()
-    expect(screen.getByText('proposal')).toBeInTheDocument()
+    expect(screen.getAllByText('proposal').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /mark contact followed up/i })).toBeDisabled()
 
     fireEvent.change(screen.getByLabelText('Follow-up note'), { target: { value: 'Called Ava; proposal decision due tomorrow.' } })
@@ -2339,13 +2361,97 @@ describe('BriefingControlDesk', () => {
     })
   })
 
+  it('shows deal, company, contact, and call/email actions on a stage-change card without unavailable buttons', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /Acme website rebuild · R45,000 → Qualified/i }))
+
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Deal: Acme website rebuild')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Company: Acme Holdings')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Contact: Jane Buyer')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('R45,000')
+    expect(screen.getByRole('link', { name: /call jane buyer/i })).toHaveAttribute('href', 'tel:+27821234567')
+    expect(screen.getByRole('link', { name: /email jane buyer/i })).toHaveAttribute('href', 'mailto:jane@acme.test')
+    expect(screen.getByRole('button', { name: /hand off to sales/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /unavailable/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('Unknown')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Ask Theo to triage unavailable/i)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    {
+      name: 'invoice',
+      title: /Draft invoice ready: INV-1001/i,
+      facts: ['Invoice: INV-1001', 'Value: R12,500', 'Contact: Riley Client', 'Email: riley@client.test'],
+      email: /email riley client/i,
+      emailHref: 'mailto:riley@client.test',
+      handoff: /hand off to nora/i,
+    },
+    {
+      name: 'quote',
+      title: /Quote awaiting decision: QUO-1001/i,
+      facts: ['Quote: QUO-1001', 'Value: R18,500', 'Contact: Riley Client', 'Email: riley@client.test'],
+      email: /email riley client/i,
+      emailHref: 'mailto:riley@client.test',
+      handoff: /hand off to sales/i,
+    },
+    {
+      name: 'support ticket',
+      title: /Urgent support: Website form is not sending leads/i,
+      facts: ['Ticket: Website form is not sending leads', 'Contact: Riley Client', 'Email: riley@client.test'],
+      email: /email riley client/i,
+      emailHref: 'mailto:riley@client.test',
+      handoff: /hand off to support/i,
+    },
+    {
+      name: 'mailbox message',
+      title: /Unread email from Client Lead/i,
+      facts: ['From: Client Lead', 'Subject: Can we book a call?', 'Email: lead@example.test'],
+      email: /email client lead/i,
+      emailHref: 'mailto:lead@example.test',
+      handoff: /hand off to support/i,
+    },
+    {
+      name: 'calendar event',
+      title: /RSVP needed: Website retainer check-in/i,
+      facts: ['Meeting: Website retainer check-in', 'Contact: Ava Owner', 'Email: ava@example.test'],
+      email: /email ava owner/i,
+      emailHref: 'mailto:ava@example.test',
+      handoff: /hand off to sales/i,
+    },
+    {
+      name: 'form submission',
+      title: /New form submission from Ava Owner/i,
+      facts: ['Contact: Ava Owner', 'Email: ava@example.test'],
+      email: /email ava owner/i,
+      emailHref: 'mailto:ava@example.test',
+      handoff: /hand off to sales/i,
+    },
+  ])('shows item-specific facts and contact actions on a $name card', async ({ title, facts, email, emailHref, handoff }) => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    const titleButton = await screen.findByRole('button', { name: title })
+    expect(titleButton.closest('div')).toHaveTextContent(facts[0])
+
+    fireEvent.click(titleButton)
+
+    const details = screen.getByLabelText('Card details')
+    for (const fact of facts) {
+      expect(details).toHaveTextContent(fact)
+    }
+    expect(screen.getByRole('link', { name: email })).toHaveAttribute('href', emailHref)
+    expect(screen.getByRole('button', { name: handoff })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /unavailable/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('Unknown')).not.toBeInTheDocument()
+  })
+
   it('opens and sends rendered report cards from the control desk', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
     fireEvent.click(await screen.findByRole('button', { name: /Report ready to review: May performance report/i }))
 
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/reports/public-report-token')
-    expect(screen.getByText('May performance report (report-1)')).toBeInTheDocument()
+    expect(screen.getAllByText('May performance report').length).toBeGreaterThan(0)
 
     fireEvent.change(screen.getByLabelText('Report recipients'), { target: { value: 'client@example.test, ops@example.test' } })
     fireEvent.click(screen.getByRole('button', { name: /send report/i }))
@@ -2366,6 +2472,10 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Urgent support: Website form is not sending leads/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Ticket: Website form is not sending leads')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Contact: Riley Client')
+    expect(screen.getByRole('link', { name: /email riley client/i })).toHaveAttribute('href', 'mailto:riley@client.test')
+    expect(screen.getByRole('button', { name: /hand off to support/i })).toBeInTheDocument()
     expect(screen.getByText('Website form is not sending leads (support-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal')
 
@@ -2476,6 +2586,11 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Shipment in transit: DHL-123/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Tracking: DHL-123')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Carrier: DHL')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Company: Acme Holdings')
+    expect(screen.queryByRole('link', { name: /email /i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /unavailable/i })).not.toBeInTheDocument()
     expect(screen.getByText('DHL-123 (shipment-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/companies/company-1?shipment=shipment-1')
     expect(screen.getByRole('button', { name: /mark delivered/i })).toBeInTheDocument()
@@ -2508,6 +2623,10 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Order blocked: Website onboarding order/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Order: Website onboarding order')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Value: R18,500')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Company: Acme Holdings')
+    expect(screen.queryByRole('button', { name: /unavailable/i })).not.toBeInTheDocument()
     expect(screen.getByText('Website onboarding order (order-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/companies/company-1?order=order-1')
     expect(screen.getByRole('button', { name: /mark order in progress/i })).toBeInTheDocument()
@@ -2585,6 +2704,11 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /New enquiry from Ava Owner/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Enquiry: Ava Owner')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Company: Acme Holdings')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Email: ava@example.test')
+    expect(screen.getByRole('link', { name: /email ava owner/i })).toHaveAttribute('href', 'mailto:ava@example.test')
+    expect(screen.getByRole('button', { name: /hand off to sales/i })).toBeInTheDocument()
     expect(screen.getByText('Ava Owner (enquiry-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/briefings?source=enquiry&id=enquiry-1')
     expect(screen.getByRole('button', { name: /mark enquiry reviewing/i })).toBeInTheDocument()
@@ -2630,6 +2754,9 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Expense needs approval: Travel/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Vendor: Bolt')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Status: submitted')
+    expect(screen.queryByRole('button', { name: /unavailable/i })).not.toBeInTheDocument()
     expect(screen.getByText('Travel (expense-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/finance?expense=expense-1')
     expect(screen.getByRole('button', { name: /approve expense/i })).toBeInTheDocument()
@@ -2780,7 +2907,7 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Broadcast ready to send: June newsletter/i }))
     expect(screen.getByText('June newsletter (broadcast-1)')).toBeInTheDocument()
-    expect(screen.getByText('June growth update')).toBeInTheDocument()
+    expect(screen.getAllByText('June growth update').length).toBeGreaterThan(0)
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/campaigns/broadcast/broadcast-1')
     expect(screen.queryByRole('button', { name: /send broadcast now/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /send broadcast requires approval/i })).toBeDisabled()
@@ -2887,6 +3014,9 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Social DM needs reply from Mia Prospect/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Contact: Mia Prospect')
+    expect(screen.getByRole('button', { name: /hand off to maya/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /email /i })).not.toBeInTheDocument()
     expect(screen.getByText('Mia Prospect (social-inbox-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/social/inbox?item=social-inbox-1')
     expect(screen.getByRole('button', { name: /mark engagement read/i })).toBeInTheDocument()
@@ -3086,6 +3216,11 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Booking needs Meet link: Mia Founder/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Booking: Mia Founder')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Company: Mia Studio')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Email: mia@example.test')
+    expect(screen.getByRole('link', { name: /email mia founder/i })).toHaveAttribute('href', 'mailto:mia@example.test')
+    expect(screen.getByRole('button', { name: /hand off to sales/i })).toBeInTheDocument()
     expect(screen.getByText('Mia Founder (booking-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/briefings?source=booking&id=booking-1')
     expect(screen.getByRole('button', { name: /mark booking completed/i })).toBeInTheDocument()

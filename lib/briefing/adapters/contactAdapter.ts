@@ -9,8 +9,11 @@ interface ContactDocument extends Record<string, unknown> {
   orgId?: string | null
   name?: string | null
   email?: string | null
+  phone?: string | null
+  jobTitle?: string | null
   company?: string | null
   companyName?: string | null
+  companyId?: string | null
   type?: string | null
   stage?: string | null
   source?: string | null
@@ -130,6 +133,8 @@ export const contactAdapter: BriefingSourceAdapter<ContactDocument> = {
       orgId: clean(doc.orgId) ?? '',
       contactId: docId,
       contactName: contactName(doc, docId),
+      companyId: clean(doc.companyId),
+      companyName: companyLabel(doc),
     }
   },
 
@@ -158,6 +163,10 @@ export const contactAdapter: BriefingSourceAdapter<ContactDocument> = {
     if (type) parts.push(`Type: ${type}`)
     const company = companyLabel(doc)
     if (company) parts.push(`Company: ${company}`)
+    const email = clean(doc.email)
+    if (email) parts.push(`Email: ${email}`)
+    const phone = clean(doc.phone)
+    if (phone) parts.push(`Phone: ${phone}`)
     const leadScore = score(doc.leadScore)
     if (leadScore !== null) parts.push(`Lead score: ${leadScore}`)
     parts.push(`Next action: ${nextAction(signal)}`)
@@ -183,7 +192,10 @@ export const contactAdapter: BriefingSourceAdapter<ContactDocument> = {
       lastContactedAt: isoDate(doc.lastContactedAt),
       lastRepliedAt: isoDate(doc.lastRepliedAt),
       company: companyLabel(doc),
+      companyName: companyLabel(doc),
       email: clean(doc.email),
+      phone: clean(doc.phone),
+      jobTitle: clean(doc.jobTitle),
       assignedTo: clean(doc.assignedTo),
       leadScore: score(doc.leadScore),
       icpScore: score(doc.icpScore),

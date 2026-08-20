@@ -74,6 +74,7 @@ export const supportTicketAdapter: BriefingSourceAdapter<SupportTicketDocument> 
       orgId,
       supportTicketId: docId,
       supportTicketSubject: clean(doc.subject) ?? 'Support request',
+      contactName: clean(doc.requesterName),
     }
   },
 
@@ -110,7 +111,9 @@ export const supportTicketAdapter: BriefingSourceAdapter<SupportTicketDocument> 
       category: doc.category,
       sourceUrl: doc.sourceUrl,
       sourcePath: doc.sourcePath,
-      assignedToType: doc.assignedToType,
+      requesterName: clean(doc.requesterName),
+      requesterEmail: clean(doc.requesterEmail),
+      email: clean(doc.requesterEmail),
       assigneeUserId: doc.assigneeUserId,
       assigneeAgentId: doc.assigneeAgentId,
       hermesStatus: doc.hermesStatus,
