@@ -15,7 +15,7 @@ const executionOnlyModel: ChatContextReadModel = {
   pulse: { label: 'Execution', metrics: [] }, groups: [], artifacts: [], attention: [], activity: [], capabilities: [], asOf: '',
 }
 
-export function ChatContextExperience({ context, compact = false, artifactRequest, focusRequest, execution, executionRequest, closeRequest = 0, previewRefreshSignal = 0, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; focusRequest?: { kind: ChatContextReference['kind']; id: string; projectId?: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; closeRequest?: number; /** Bumps when parent messages/runs change so dock previews soft-reload. */ previewRefreshSignal?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void }) {
+export function ChatContextExperience({ context, compact = false, artifactRequest, focusRequest, execution, executionRequest, closeRequest = 0, previewRefreshSignal = 0, onActionResolved, onRemoveContext, onAddContext, contextPickerExpanded, contextPickerControls, onOpenChange, onPresentationChange, preferCanvas = false }: { context: ReturnTypeOfUseChatContexts; compact?: boolean; artifactRequest?: { id: string; nonce: number }; focusRequest?: { kind: ChatContextReference['kind']; id: string; projectId?: string; nonce: number }; execution?: RuntimeExecution; executionRequest?: number; closeRequest?: number; /** Bumps when parent messages/runs change so dock previews soft-reload. */ previewRefreshSignal?: number; onActionResolved?: () => void; onRemoveContext?: (value: ChatContextReference) => void; onAddContext?: () => void; contextPickerExpanded?: boolean; contextPickerControls?: string; onOpenChange?: (open: boolean) => void; onPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void; preferCanvas?: boolean }) {
   const [open, setOpen] = useState(false)
   const [canvasMode, setCanvasMode] = useState<'single' | 'dual'>('single')
   const [canvasWidth, setCanvasWidth] = useState(520)
@@ -102,6 +102,19 @@ export function ChatContextExperience({ context, compact = false, artifactReques
     }
     setLoadedCanvasStorageKey(canvasStorageKey)
   }, [canvasStorageKey])
+  useEffect(() => {
+    if (!preferCanvas) return
+    if (!canvasStorageKey || loadedCanvasStorageKey !== canvasStorageKey) return
+    const hasSurface = Boolean(context.activeContext) || (context.model?.artifacts?.length ?? 0) > 0
+    if (!hasSurface) return
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(canvasStorageKey) ?? 'null') as { open?: unknown } | null
+      if (stored && typeof stored.open === 'boolean') return
+    } catch {
+      // Ignore canvas storage policy failures.
+    }
+    setOpen(true)
+  }, [canvasStorageKey, context.activeContext, context.model?.artifacts?.length, loadedCanvasStorageKey, preferCanvas])
   useEffect(() => {
     if (!canvasStorageKey || loadedCanvasStorageKey !== canvasStorageKey) return
     if (pendingStoredSecondary?.storageKey === canvasStorageKey) {
