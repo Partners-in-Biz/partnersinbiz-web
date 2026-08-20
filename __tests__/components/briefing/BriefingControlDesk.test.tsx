@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { BriefingControlDesk, briefingContextSeed } from '@/components/briefing/BriefingControlDesk'
 import { findRelatedConversationId } from '@/components/chat/UnifiedChat'
 
@@ -1610,6 +1610,10 @@ describe('BriefingControlDesk', () => {
     expect(columns).toHaveClass('min-h-0')
     expect(columns).toHaveClass('lg:grid-cols-3')
 
+    const laneFilter = screen.getByLabelText('Briefings workflow lanes')
+    expect(laneFilter).toHaveClass('lg:hidden')
+    expect(laneFilter).toHaveClass('grid-cols-3')
+
     const shell = screen.getByTestId('briefings-room-shell')
     expect(shell).toHaveClass('h-full', 'rounded-none', 'border-0', 'shadow-none')
     expect(shell).not.toHaveClass('h-[calc(100dvh-88px)]')
@@ -1631,6 +1635,46 @@ describe('BriefingControlDesk', () => {
       expect(control).toHaveClass('whitespace-normal')
       expect(control).toHaveClass('w-full')
     })
+  })
+
+  it('filters to one workflow column on mobile and hides the dense summary chrome', async () => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    expect(await screen.findByRole('heading', { name: 'Briefings' })).toBeInTheDocument()
+
+    const laneFilter = screen.getByLabelText('Briefings workflow lanes')
+    const callTab = within(laneFilter).getByRole('button', { name: /call/i })
+    const followUpTab = within(laneFilter).getByRole('button', { name: /follow up/i })
+    const blockedTab = within(laneFilter).getByRole('button', { name: /blocked/i })
+
+    expect(callTab).toHaveAttribute('aria-pressed', 'true')
+    expect(followUpTab).toHaveAttribute('aria-pressed', 'false')
+    expect(blockedTab).toHaveAttribute('aria-pressed', 'false')
+
+    const laneColumns = screen.getByLabelText('Daily briefings desk').children
+    expect(laneColumns[0]).toHaveClass('flex')
+    expect(laneColumns[0]).not.toHaveClass('hidden')
+    expect(laneColumns[1]).toHaveClass('hidden')
+    expect(laneColumns[2]).toHaveClass('hidden')
+
+    fireEvent.click(followUpTab)
+    expect(callTab).toHaveAttribute('aria-pressed', 'false')
+    expect(followUpTab).toHaveAttribute('aria-pressed', 'true')
+    expect(laneColumns[0]).toHaveClass('hidden')
+    expect(laneColumns[1]).toHaveClass('flex')
+    expect(laneColumns[1]).not.toHaveClass('hidden')
+    expect(laneColumns[2]).toHaveClass('hidden')
+
+    fireEvent.click(blockedTab)
+    expect(blockedTab).toHaveAttribute('aria-pressed', 'true')
+    expect(laneColumns[0]).toHaveClass('hidden')
+    expect(laneColumns[1]).toHaveClass('hidden')
+    expect(laneColumns[2]).toHaveClass('flex')
+    expect(laneColumns[2]).not.toHaveClass('hidden')
+
+    const liveButton = screen.getByRole('button', { name: /live off|live on/i })
+    expect(liveButton.parentElement).toHaveClass('hidden', 'lg:flex')
+    expect(screen.getByRole('button', { name: /^snapshot$/i }).parentElement).toHaveClass('hidden', 'lg:flex')
   })
 
   it('renders Agent Learning Review proposals with skill, wiki, task links and no automatic rewrite guard', async () => {

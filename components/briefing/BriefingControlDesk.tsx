@@ -1053,6 +1053,7 @@ function workflowLaneCount(items: BriefingCard[], laneId: WorkflowLaneId) {
 export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: Mode; portalScope?: PortalOrgRouteScope; currentUser?: { uid: string; displayName: string } }) {
   const { orgs, orgId, setOrgId, priority, setPriority, sourceType, setSourceType, feed, setFeed, selectedId, setSelectedId, loading, autoRefresh, setAutoRefresh, flash, setFlash, loadFeed } = useBriefingFeed(mode)
   const [accountPulseId, setAccountPulseId] = useState('')
+  const [mobileLane, setMobileLane] = useState<Exclude<WorkflowLaneId, 'agent-ops'>>('call')
   const [showAgentOps, setShowAgentOps] = useState(false)
   const [showMoreActions, setShowMoreActions] = useState(false)
   const [snapshotting, setSnapshotting] = useState(false)
@@ -2382,8 +2383,8 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
 
   const workFeedContent = (
     <div className="flex h-full min-h-0 w-full flex-col gap-2 text-[var(--color-pib-text)]">
-        {/* Daily snapshot strip */}
-        <section className="shrink-0 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-4 py-3">
+        {/* Daily snapshot strip — desktop only; mobile uses lane filter tabs instead */}
+        <section className="hidden shrink-0 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-4 py-3 lg:block">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-6">
               <div>
@@ -2452,7 +2453,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           </div>
         ) : null}
 
-        <section className="shrink-0 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-2 py-1.5">
+        <section className={`shrink-0 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 px-2 py-1.5 ${mode === 'admin' ? '' : 'hidden lg:block'}`}>
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             {mode === 'admin' ? (
               <>
@@ -2467,7 +2468,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
             ) : (
               <span className="hidden max-w-44 truncate px-2 text-xs text-[var(--color-pib-text-muted)] sm:inline">{activeWorkspaceName}</span>
             )}
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto hidden items-center gap-1 lg:flex">
               <button className={`flex h-8 items-center gap-1 rounded-md px-2 text-xs transition ${autoRefresh ? 'bg-emerald-400/10 text-emerald-300' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]'}`} type="button" onClick={() => setAutoRefresh((value) => !value)}>
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{autoRefresh ? 'sync' : 'sync_disabled'}</span>
                 {autoRefresh ? 'Live on' : 'Live off'}
@@ -2516,12 +2517,50 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
           </div>
         </section>
 
-        {/* Three-column day desk layout */}
+        {/* Mobile: filter to one workflow column so cards stay visible */}
+        <nav
+          aria-label="Briefings workflow lanes"
+          className="grid shrink-0 grid-cols-3 gap-1 rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/65 p-1 lg:hidden"
+        >
+          {WORKFLOW_LANES.map((lane) => {
+            const count = workflowLaneCount(mainLaneItems, lane.id)
+            const selected = mobileLane === lane.id
+            return (
+              <button
+                key={lane.id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setMobileLane(lane.id)}
+                className={`flex h-9 min-w-0 items-center justify-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition ${
+                  selected
+                    ? 'bg-white/[0.08] text-[var(--color-pib-text)]'
+                    : 'text-[var(--color-pib-text-muted)] hover:text-[var(--color-pib-text)]'
+                }`}
+              >
+                <span
+                  className="material-symbols-outlined shrink-0 text-[15px]"
+                  style={{ color: priorityAccentColor(lane.id === 'call' ? 'needs-peet' : lane.id === 'blocked' ? 'critical' : 'progress') }}
+                  aria-hidden="true"
+                >
+                  {lane.icon}
+                </span>
+                <span className="truncate">{lane.label}</span>
+                <span className="tabular-nums text-[var(--color-pib-text-muted)]">{count}</span>
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* Three-column day desk layout — one lane on mobile, three on desktop */}
         <section aria-label="Daily briefings desk" className="grid min-h-0 min-w-0 flex-1 gap-2 overflow-hidden lg:grid-cols-3">
           {WORKFLOW_LANES.map((lane) => {
             const laneItems = mainLaneItems.filter((item) => workflowLaneForItem(item) === lane.id)
+            const showOnMobile = mobileLane === lane.id
             return (
-              <div key={lane.id} className="flex min-h-0 flex-col rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/45">
+              <div
+                key={lane.id}
+                className={`min-h-0 flex-col rounded-xl border border-[var(--color-pib-line)] bg-[var(--color-card)]/45 ${showOnMobile ? 'flex' : 'hidden'} lg:flex`}
+              >
                 {/* Column header */}
                 <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--color-pib-line)] px-3">
                   <div className="flex items-center gap-2">
