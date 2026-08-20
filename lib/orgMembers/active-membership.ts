@@ -33,6 +33,11 @@ export interface ActiveOrgMember {
  * Missing status is treated as active (legacy rows predate the status field).
  * Anything else is treated as active only when the status string is an
  * explicitly active value.
+ * 
+ * EXCEPTION: Org owners can access their orgs regardless of status, as long as
+ * the row doesn't have an explicit negative flag (disabled/revoked/deleted/inactive/archived)
+ * or an explicit negative status string. This allows platform team members to
+ * switch between their owned orgs even during setup/configuration/onboarding.
  */
 export function isActiveOrgMembershipRow(row: OrgMemberRow | null | undefined): boolean {
   if (!row || typeof row !== 'object') return false
@@ -43,15 +48,20 @@ export function isActiveOrgMembershipRow(row: OrgMemberRow | null | undefined): 
   if (row.archived === true) return false
 
   const status = typeof row.status === 'string' ? row.status.trim().toLowerCase() : ''
+  const role = typeof row.role === 'string' ? row.role.trim().toLowerCase() : ''
+  
+  // Explicit negative status strings always block access, even for owners.
+  const negativeStatuses = ['disabled', 'revoked', 'deleted', 'removed', 'inactive', 'suspended', 'left', 'churned']
+  if (negativeStatuses.includes(status)) return false
+  
+  // Owners can access their orgs with any non-negative status (including pending,
+  // onboarding, setup, draft, configuring, etc.) This ensures they can use the
+  // workspace switcher even when org setup is incomplete.
+  if (role === 'owner') return true
+  
+  // Non-owners require explicit active status or missing status.
   if (status === '') return true
   if (['active', 'enabled'].includes(status)) return true
-  
-  // Org owners can always access their orgs in the portal switcher, even during
-  // onboarding or with incomplete portal configuration. This ensures platform
-  // team members (e.g. Peet) can switch to orgs they own (Partners, Velox, Lumen)
-  // without requiring full portal area setup first.
-  const role = typeof row.role === 'string' ? row.role.trim().toLowerCase() : ''
-  if (role === 'owner' && ['pending', 'onboarding', 'setup'].includes(status)) return true
   
   return false
 }
