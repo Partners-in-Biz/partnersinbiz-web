@@ -1,20 +1,9 @@
 'use client'
 
 import { BOT_MODE_COPY } from '@/lib/messages/experience-mode'
+import type { BotRosterItem } from '@/lib/messages/bot-roster'
 
-export interface BotRosterItem {
-  id: string
-  name: string
-  role: string
-  iconKey?: string
-  colorKey?: string
-  defaultModel?: string
-  channelCount: number
-  lastChannelTitle?: string | null
-  onlineComputerCount: number
-  kind?: 'custom' | 'marketplace' | 'specialist'
-  shareable?: boolean
-}
+export type { BotRosterItem }
 
 const COLOR: Record<string, string> = {
   violet: 'bg-violet-400',

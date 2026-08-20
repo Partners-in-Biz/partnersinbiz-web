@@ -57,19 +57,29 @@ export async function createBotShare(input: {
   return data
 }
 
+function revokedAtIso(value: unknown): string | null {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+    try {
+      const date = (value as { toDate: () => Date }).toDate()
+      return date instanceof Date && !Number.isNaN(date.getTime()) ? date.toISOString() : null
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
 export async function getBotShare(shareId: string): Promise<(BotShareRecord & { revokedAt?: string | null }) | null> {
   const id = parseBotShareId(shareId)
   if (!id) return null
   const snap = await shareDoc(id).get()
   if (!snap.exists) return null
-  const row = snap.data() as BotShareRecord & { revokedAt?: { toDate?: () => Date } | string | null }
-  const revokedAt = row.revokedAt && typeof row.revokedAt === 'object' && typeof row.revokedAt.toDate === 'function'
-    ? row.revokedAt.toDate().toISOString()
-    : typeof row.revokedAt === 'string' ? row.revokedAt : null
+  const row = snap.data() as Omit<BotShareRecord, 'revokedAt'> & { revokedAt?: unknown }
   return {
     ...row,
     shareId: id,
-    revokedAt,
+    revokedAt: revokedAtIso(row.revokedAt),
   }
 }
 

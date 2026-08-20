@@ -66,7 +66,20 @@ describe('bot roster', () => {
         channelCount: 1,
         lastChannelTitle: 'Fix preview builds',
         onlineComputerCount: 1,
+        kind: 'specialist',
       }),
     ])
+  })
+
+  it('labels marketplace and custom bots without widening kind to string', () => {
+    const roster = buildBotRosterItems(
+      [
+        { agentId: 'ads-pack', name: 'Ads Pack', enabled: true, marketplaceTemplateId: 'tpl-1' },
+        { agentId: 'custom-1', name: 'Site Bot', enabled: true, agentKind: 'custom', scopeOrgId: 'org-1', provisioningMode: 'linked_device' },
+      ],
+      [],
+      [],
+    )
+    expect(roster.map((bot) => bot.kind)).toEqual(['marketplace', 'custom'])
   })
 })

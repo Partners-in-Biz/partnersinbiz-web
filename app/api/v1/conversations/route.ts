@@ -313,16 +313,17 @@ export const POST = withAuth(
         }
       }
       if (!botInbox) return apiError('Bot inbox needs two different Bots', 400)
-      const hasFrom = agentParticipants.some((participant) => participant.agentId === botInbox.fromAgentId)
-      const hasTo = agentParticipants.some((participant) => participant.agentId === botInbox.toAgentId)
-      if (!hasFrom || !hasTo || botInbox.fromAgentId === botInbox.toAgentId) {
+      const inbox = botInbox
+      const hasFrom = agentParticipants.some((participant) => participant.agentId === inbox.fromAgentId)
+      const hasTo = agentParticipants.some((participant) => participant.agentId === inbox.toAgentId)
+      if (!hasFrom || !hasTo || inbox.fromAgentId === inbox.toAgentId) {
         return apiError('Bot inbox participants must include both Bots', 400)
       }
       const humans = participants.filter((participant) => participant.kind === 'user')
-      const toParticipant = agentParticipants.find((participant) => participant.agentId === botInbox.toAgentId)!
-      const fromParticipant = agentParticipants.find((participant) => participant.agentId === botInbox.fromAgentId)!
+      const toParticipant = agentParticipants.find((participant) => participant.agentId === inbox.toAgentId)!
+      const fromParticipant = agentParticipants.find((participant) => participant.agentId === inbox.fromAgentId)!
       const extras = agentParticipants.filter((participant) => (
-        participant.agentId !== botInbox.toAgentId && participant.agentId !== botInbox.fromAgentId
+        participant.agentId !== inbox.toAgentId && participant.agentId !== inbox.fromAgentId
       ))
       participants.splice(0, participants.length, ...humans, toParticipant, fromParticipant, ...extras)
     }

@@ -2,6 +2,8 @@ import type { VisibleBotComputer } from './bot-computers'
 import { computersForBot } from './bot-computers'
 import { canShareAgentAsGrokBot } from './bot-shares'
 
+export type BotRosterKind = 'custom' | 'marketplace' | 'specialist'
+
 export interface BotRosterSourceAgent {
   agentId: string
   name?: string
@@ -21,11 +23,33 @@ export interface BotRosterChannelGroup {
   conversations: Array<{ title?: string | null }>
 }
 
+export interface BotRosterItem {
+  id: string
+  name: string
+  role: string
+  iconKey?: string
+  colorKey?: string
+  defaultModel?: string
+  channelCount: number
+  lastChannelTitle?: string | null
+  onlineComputerCount: number
+  kind?: BotRosterKind
+  shareable?: boolean
+}
+
+function resolveBotRosterKind(agent: BotRosterSourceAgent): BotRosterKind {
+  if (agent.agentKind === 'marketplace' || Boolean(agent.marketplaceTemplateId)) return 'marketplace'
+  if (agent.agentKind === 'custom' || (Boolean(agent.scopeOrgId) && agent.provisioningMode === 'linked_device')) {
+    return 'custom'
+  }
+  return 'specialist'
+}
+
 export function buildBotRosterItems(
   agents: BotRosterSourceAgent[],
   groups: BotRosterChannelGroup[],
   computers: VisibleBotComputer[],
-) {
+): BotRosterItem[] {
   const groupById = new Map(groups.map((group) => [group.id, group]))
   return agents
     .filter((agent) => agent.enabled !== false)
@@ -42,11 +66,7 @@ export function buildBotRosterItems(
         channelCount: group?.conversations.length ?? 0,
         lastChannelTitle: group?.conversations[0]?.title ?? null,
         onlineComputerCount: botComputers.filter((computer) => computer.online).length,
-        kind: agent.agentKind === 'marketplace' || agent.marketplaceTemplateId
-          ? 'marketplace'
-          : agent.agentKind === 'custom' || (Boolean(agent.scopeOrgId) && agent.provisioningMode === 'linked_device')
-            ? 'custom'
-            : 'specialist',
+        kind: resolveBotRosterKind(agent),
         shareable: canShareAgentAsGrokBot(agent),
       }
     })

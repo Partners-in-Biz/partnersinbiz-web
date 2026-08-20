@@ -1,6 +1,7 @@
 'use client'
 
 import type { ContextReference } from '@/lib/context-references/types'
+import type { BotInboxMeta } from '@/lib/messages/bot-channel'
 import { HoverTip } from '@/components/ui/HoverTip'
 
 type AgentId = string
@@ -44,12 +45,7 @@ export interface Conversation {
     ownerUserId?: string
   }
   channelKind?: string
-  botInbox?: {
-    fromAgentId: string
-    toAgentId: string
-    parentConversationId?: string | null
-    status?: string
-  }
+  botInbox?: Partial<BotInboxMeta>
   contextRefs?: ContextReference[]
   lastMessageId?: string
   lastMessagePreview?: string
