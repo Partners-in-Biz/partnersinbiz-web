@@ -890,8 +890,9 @@ const SUMMARY_COUNTER_DEFS = [
 ] as const
 
 type WorkflowLaneId = 'call' | 'follow-up' | 'blocked' | 'agent-ops'
+type MainWorkflowLaneId = Exclude<WorkflowLaneId, 'agent-ops'>
 
-const WORKFLOW_LANES: Array<{ id: WorkflowLaneId; label: string; icon: string; description: string }> = [
+const WORKFLOW_LANES: Array<{ id: MainWorkflowLaneId; label: string; icon: string; description: string }> = [
   { id: 'call', label: 'Call', icon: 'phone_in_talk', description: 'CRM contacts, deals, and call-ready tasks' },
   { id: 'follow-up', label: 'Follow up', icon: 'follow_the_signs', description: 'Bookings, inbox, comments, and relationship next steps' },
   { id: 'blocked', label: 'Blocked', icon: 'front_hand', description: 'Waiting on Peet: approvals and blockers' },
@@ -1053,7 +1054,7 @@ function workflowLaneCount(items: BriefingCard[], laneId: WorkflowLaneId) {
 export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: Mode; portalScope?: PortalOrgRouteScope; currentUser?: { uid: string; displayName: string } }) {
   const { orgs, orgId, setOrgId, priority, setPriority, sourceType, setSourceType, feed, setFeed, selectedId, setSelectedId, loading, autoRefresh, setAutoRefresh, flash, setFlash, loadFeed } = useBriefingFeed(mode)
   const [accountPulseId, setAccountPulseId] = useState('')
-  const [mobileLane, setMobileLane] = useState<Exclude<WorkflowLaneId, 'agent-ops'>>('call')
+  const [mobileLane, setMobileLane] = useState<MainWorkflowLaneId>('call')
   const [showAgentOps, setShowAgentOps] = useState(false)
   const [showMoreActions, setShowMoreActions] = useState(false)
   const [snapshotting, setSnapshotting] = useState(false)
