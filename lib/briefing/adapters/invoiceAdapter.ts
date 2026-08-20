@@ -110,6 +110,8 @@ export const invoiceAdapter: BriefingSourceAdapter<InvoiceDocument> = {
       orgId: invoiceOrgId(doc),
       invoiceId: docId,
       invoiceNumber: invoiceNumber(doc, docId),
+      contactName: recipientName(doc),
+      companyName: clean(doc.recipientCompanyName),
     }
   },
 
@@ -157,6 +159,8 @@ export const invoiceAdapter: BriefingSourceAdapter<InvoiceDocument> = {
       publicToken: doc.publicToken,
       recipientName: recipientName(doc),
       recipientEmail: clean(doc.recipientEmail) ?? clean(doc.clientDetails?.email),
+      email: clean(doc.recipientEmail) ?? clean(doc.clientDetails?.email),
+      value: doc.total,
       recipientOrgId: clean(doc.recipientOrgId),
       targetOrgId: clean(doc.targetOrgId),
       paymentProofFileId: clean(doc.paymentProofFileId),

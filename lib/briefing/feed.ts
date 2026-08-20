@@ -10,6 +10,7 @@ import {
   type CrmAssignmentMaps,
 } from '@/lib/crm/assignment-access'
 import { withBriefingCardContract } from './cardContract'
+import { applyCrmDisplayRecords, crmIdsFromItem, type CrmDisplayRecord } from './cardFacts'
 import type { BriefingCard, BriefingCardAction, BriefingCardStateStatus, BriefingPriority, BriefingResponse, BriefingSourceAdapter, BriefingSourceItem, BriefingSourceType } from './types'
 import { recordLinkedToUser, recordLinkedViaCrm, recordOperatorAddressed } from './personal-scope'
 import { activityAdapter, adCampaignAdapter, agentLearningReviewAdapter, agentOutputAdapter, agentRunAdapter, approvalAdapter, bookingAdapter, broadcastAdapter, businessInsightReviewAdapter, calendarEventAdapter, campaignAdapter, clientDocumentAdapter, commentAdapter, contactAdapter, dealAdapter, enquiryAdapter, expenseAdapter, formSubmissionAdapter, inventoryItemAdapter, invoiceAdapter, mailboxMessageAdapter, notificationAdapter, orderAdapter, projectAdapter, quoteAdapter, reportAdapter, seoContentAdapter, seoTaskAdapter, shipmentAdapter, socialInboxAdapter, socialPostAdapter, supportTicketAdapter, taskAdapter, workspaceBrokerJobAdapter } from './index'
@@ -548,7 +549,7 @@ function briefingCrmLinkedToUser(
 }
 
 async function loadBriefingCrmRecordMap(
-  collectionName: 'companies' | 'contacts',
+  collectionName: 'companies' | 'contacts' | 'deals',
   ids: Iterable<string>,
 ): Promise<Map<string, AssignableCrmRecord>> {
   const uniqueIds = [...new Set([...ids].filter(Boolean))]
@@ -568,6 +569,74 @@ async function loadBriefingCrmRecordMap(
   } catch { ignoreOptionalFeedSource() }
 
   return map
+}
+
+function asCrmDisplayRecord(record: AssignableCrmRecord | undefined): CrmDisplayRecord | null {
+  if (!record?.id) return null
+  const data = record as AssignableCrmRecord & Record<string, unknown>
+  const numberValue = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) ? value : null
+  const text = (value: unknown): string | null => typeof value === 'string' && value.trim() ? value.trim() : null
+  return {
+    id: record.id,
+    name: text(data.name),
+    title: text(data.title),
+    email: text(data.email),
+    phone: text(data.phone),
+    company: text(data.company),
+    companyId: text(data.companyId),
+    companyName: text(data.companyName),
+    contactId: text(data.contactId),
+    value: numberValue(data.value),
+    amount: numberValue(data.amount),
+    currency: text(data.currency),
+    stageLabel: text(data.stageLabel) ?? text(data.stageName) ?? text(data.stage),
+    stageName: text(data.stageName),
+    stage: text(data.stage),
+    jobTitle: text(data.jobTitle),
+  }
+}
+
+async function enrichCrmDisplayFacts(items: BriefingCard[]): Promise<BriefingCard[]> {
+  const contactIds: string[] = []
+  const dealIds: string[] = []
+  const companyIds: string[] = []
+  for (const item of items) {
+    const ids = crmIdsFromItem(item)
+    if (ids.contactId) contactIds.push(ids.contactId)
+    if (ids.dealId) dealIds.push(ids.dealId)
+    if (ids.companyId) companyIds.push(ids.companyId)
+  }
+  if (contactIds.length === 0 && dealIds.length === 0 && companyIds.length === 0) return items
+
+  const [contacts, deals] = await Promise.all([
+    loadBriefingCrmRecordMap('contacts', contactIds),
+    loadBriefingCrmRecordMap('deals', dealIds),
+  ])
+  for (const contact of contacts.values()) {
+    companyIds.push(...crmRecordCompanyIds(contact))
+  }
+  for (const deal of deals.values()) {
+    companyIds.push(...crmRecordCompanyIds(deal))
+    const contactId = typeof deal.contactId === 'string' ? deal.contactId : ''
+    if (contactId && !contacts.has(contactId)) contactIds.push(contactId)
+  }
+  const extraContacts = [...new Set(contactIds)].filter((id) => !contacts.has(id))
+  if (extraContacts.length > 0) {
+    const loaded = await loadBriefingCrmRecordMap('contacts', extraContacts)
+    for (const [id, record] of loaded) contacts.set(id, record)
+  }
+  const companies = await loadBriefingCrmRecordMap('companies', companyIds)
+
+  return items.map((item) => {
+    const ids = crmIdsFromItem(item)
+    const deal = asCrmDisplayRecord(ids.dealId ? deals.get(ids.dealId) : undefined)
+    const contactId = ids.contactId ?? deal?.contactId ?? null
+    const contact = asCrmDisplayRecord(contactId ? contacts.get(contactId) : undefined)
+    const companyId = ids.companyId ?? deal?.companyId ?? contact?.companyId ?? null
+    const company = asCrmDisplayRecord(companyId ? companies.get(companyId) : undefined)
+    if (!deal && !contact && !company) return item
+    return withBriefingCardContract(applyCrmDisplayRecords(item, { contact, deal, company }))
+  })
 }
 
 async function fetchCalendarEventDocs(scopedOrgIds: string[] | null, user: ApiUser): Promise<FirestoreDoc[]> {
@@ -1196,8 +1265,15 @@ export async function buildBriefingFeed(user: ApiUser, options: BriefingFeedOpti
   const tasks = await loadTaskSummaries(taskRefs)
   const projects = await loadProjectSummaries([...projectIds, ...[...tasks.values()].map((task) => task.projectId).filter((id): id is string => typeof id === 'string' && id.length > 0)])
   const users = await loadUserSummaries(actorIds)
+  const labelled = enrichBriefingLabels(items, projects, tasks, users)
+  let withCrmFacts = labelled
+  try {
+    withCrmFacts = await enrichCrmDisplayFacts(labelled)
+  } catch {
+    ignoreOptionalFeedSource()
+  }
   const labelledItems = applyUserState(
-    enrichBriefingLabels(items, projects, tasks, users),
+    withCrmFacts,
     await loadBriefingUserStates(user.uid, scopedOrgIds),
   )
 

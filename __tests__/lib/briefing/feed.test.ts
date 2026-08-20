@@ -818,7 +818,7 @@ describe('briefing feed', () => {
       priority: 'needs-peet',
       requiresAction: true,
       source: { type: 'activity', id: 'activity-1', url: '/portal/contacts/contact-1' },
-      title: 'Follow up with Ava Owner',
+      title: 'Follow up with Ava Owner · Website retainer',
       actor: { name: 'Ava Owner', role: 'client', type: 'user' },
       context: {
         orgName: 'Client One',
@@ -835,6 +835,67 @@ describe('briefing feed', () => {
       }),
     })
     expect(feed.items[0].summary).toContain('Confirm approval blockers')
+    expect(feed.items[0].summary).toContain('Website retainer')
+  })
+
+  it('enriches deal-moved activities with contact, company, value, and phone from CRM records', async () => {
+    collections.organizations = [makeDoc('org-1', { name: 'Partners in Biz', slug: 'partners-in-biz' })]
+    collections.activities = [
+      makeDoc('activity-stage-1', {
+        orgId: 'org-1',
+        contactId: 'contact-1',
+        dealId: 'deal-1',
+        type: 'stage_change',
+        summary: 'Deal moved: New lead → Qualified',
+        metadata: {
+          fromStageLabel: 'New lead',
+          toStageLabel: 'Qualified',
+        },
+        createdByRef: { uid: 'admin-1', displayName: 'Peet Stander', role: 'admin' },
+        occurredAt: '2026-07-31T11:54:00.000Z',
+      }),
+    ]
+    collections.deals = [
+      makeDoc('deal-1', {
+        orgId: 'org-1',
+        title: 'Acme website rebuild',
+        value: 45000,
+        currency: 'ZAR',
+        contactId: 'contact-1',
+        companyId: 'company-1',
+        companyName: 'Acme Holdings',
+      }),
+    ]
+    collections.contacts = [
+      makeDoc('contact-1', {
+        orgId: 'org-1',
+        name: 'Jane Buyer',
+        email: 'jane@acme.test',
+        phone: '+27821234567',
+        companyName: 'Acme Holdings',
+      }),
+    ]
+
+    const { buildBriefingFeed } = await import('@/lib/briefing/feed')
+    const feed = await buildBriefingFeed(
+      { uid: 'admin-1', role: 'admin', allowedOrgIds: ['org-1'] },
+      { limit: 10, sourceType: 'activity' },
+    )
+
+    expect(feed.items).toHaveLength(1)
+    expect(feed.items[0].title).toContain('Acme website rebuild')
+    expect(feed.items[0].title).toContain('Qualified')
+    expect(feed.items[0].context).toMatchObject({
+      dealTitle: 'Acme website rebuild',
+      contactName: 'Jane Buyer',
+      companyName: 'Acme Holdings',
+    })
+    expect(feed.items[0].metadata).toMatchObject({
+      email: 'jane@acme.test',
+      phone: '+27821234567',
+      value: 45000,
+    })
+    expect(feed.items[0].summary).not.toContain('Activity: stage_change')
   })
 
   it('surfaces CRM revenue intelligence cards for hot prospects, no-touch imports, and proposal follow-ups', async () => {

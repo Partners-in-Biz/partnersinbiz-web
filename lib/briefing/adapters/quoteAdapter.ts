@@ -96,6 +96,8 @@ export const quoteAdapter: BriefingSourceAdapter<QuoteDocument> = {
       orgId: quoteOrgId(doc),
       quoteId: docId,
       quoteNumber: quoteNumber(doc, docId),
+      contactName: recipientName(doc),
+      companyName: clean(doc.recipientCompanyName),
     }
   },
 
@@ -139,6 +141,8 @@ export const quoteAdapter: BriefingSourceAdapter<QuoteDocument> = {
       validUntil: isoDate(doc.validUntil),
       recipientName: recipientName(doc),
       recipientEmail: clean(doc.recipientEmail) ?? clean(doc.clientDetails?.email),
+      email: clean(doc.recipientEmail) ?? clean(doc.clientDetails?.email),
+      value: doc.total,
       recipientOrgId: clean(doc.recipientOrgId),
       targetOrgId: clean(doc.targetOrgId),
       sourceOrgId: clean(doc.sourceOrgId) ?? clean(doc.orgId),
