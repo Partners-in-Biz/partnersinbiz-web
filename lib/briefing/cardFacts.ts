@@ -5,13 +5,25 @@
  * email, next action) and omit empty/unknown/opaque-id placeholders.
  */
 
-import type { BriefingCard, BriefingSourceItem } from './types'
+import type { BriefingCard, BriefingContext } from './types'
 
 export type BriefingFact = {
   id: string
   label: string
   value: string
   href?: string
+}
+
+/** Display helpers accept feed items and the lighter Control Desk card shape. */
+export type BriefingFactInput = {
+  source: { type: string }
+  context: Partial<BriefingContext>
+  metadata?: Record<string, unknown> | null
+  title: string
+  summary: string
+  excerpt?: string | null
+  actor?: { id?: string | null; type?: string | null } | null
+  options?: Array<{ id: string }> | null
 }
 
 export type CrmDisplayRecord = {
@@ -54,11 +66,11 @@ export function formatBriefingMoney(amount: unknown, currency: unknown): string 
   return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
-function meta(item: BriefingSourceItem, key: string): unknown {
+function meta(item: BriefingFactInput, key: string): unknown {
   return item.metadata?.[key]
 }
 
-function metaText(item: BriefingSourceItem, ...keys: string[]): string | null {
+function metaText(item: BriefingFactInput, ...keys: string[]): string | null {
   for (const key of keys) {
     const text = humanText(meta(item, key))
     if (text) return text
@@ -66,7 +78,7 @@ function metaText(item: BriefingSourceItem, ...keys: string[]): string | null {
   return null
 }
 
-function metaNumber(item: BriefingSourceItem, ...keys: string[]): number | null {
+function metaNumber(item: BriefingFactInput, ...keys: string[]): number | null {
   for (const key of keys) {
     const value = meta(item, key)
     if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -81,24 +93,24 @@ function pushFact(facts: BriefingFact[], id: string, label: string, value: strin
   facts.push({ id, label, value: clean, ...(href ? { href } : {}) })
 }
 
-function dealValue(item: BriefingSourceItem): string | null {
+function dealValue(item: BriefingFactInput): string | null {
   return formatBriefingMoney(metaNumber(item, 'value', 'amount', 'dealValue', 'total', 'dailyBudget', 'budget'), metaText(item, 'currency') ?? 'ZAR')
 }
 
-function contactEmail(item: BriefingSourceItem): string | null {
+function contactEmail(item: BriefingFactInput): string | null {
   const email = metaText(item, 'email', 'contactEmail', 'recipientEmail', 'fromEmail', 'attendeeEmail', 'requesterEmail')
   return email && email.includes('@') ? email : null
 }
 
-function contactPhone(item: BriefingSourceItem): string | null {
+function contactPhone(item: BriefingFactInput): string | null {
   return metaText(item, 'phone', 'contactPhone', 'mobile')
 }
 
-export function briefingContactChannels(item: BriefingSourceItem): { email: string | null; phone: string | null } {
+export function briefingContactChannels(item: BriefingFactInput): { email: string | null; phone: string | null } {
   return { email: contactEmail(item), phone: contactPhone(item) }
 }
 
-export function briefingHasContactChannel(item: BriefingSourceItem): boolean {
+export function briefingHasContactChannel(item: BriefingFactInput): boolean {
   const channels = briefingContactChannels(item)
   return Boolean(channels.email || channels.phone)
 }
@@ -111,7 +123,7 @@ export function isContactableSource(type: string): boolean {
   return isCrmRelationshipSource(type) || ['invoice', 'support-ticket', 'mailbox-message', 'calendar-event', 'social-inbox'].includes(type)
 }
 
-function personName(item: BriefingSourceItem): string | null {
+function personName(item: BriefingFactInput): string | null {
   const ctx = item.context
   return humanText(ctx.contactName)
     ?? humanText(ctx.enquiryName)
@@ -121,7 +133,7 @@ function personName(item: BriefingSourceItem): string | null {
     ?? metaText(item, 'recipientName', 'attendeeName', 'requesterName', 'contactName', 'fromLabel')
 }
 
-export function briefingPersonName(item: BriefingSourceItem): string | null {
+export function briefingPersonName(item: BriefingFactInput): string | null {
   return personName(item)
 }
 
@@ -149,25 +161,25 @@ const HANDOFF_AGENT_BY_TYPE: Record<string, string> = {
   'client-document': 'docs',
 }
 
-export function briefingHandoffAgentId(item: BriefingSourceItem): string {
+export function briefingHandoffAgentId(item: BriefingFactInput): string {
   const assigned = item.metadata?.assigneeAgentId ?? item.metadata?.assignedAgentId ?? item.metadata?.agentId
   if (typeof assigned === 'string' && assigned.trim()) return assigned.trim().replace(/^agent:/, '')
   if (item.actor?.type === 'agent' && item.actor.id) return item.actor.id.replace(/^agent:/, '')
   return HANDOFF_AGENT_BY_TYPE[item.source.type] ?? item.context.reviewerAgentId ?? 'theo'
 }
 
-function activityType(item: BriefingSourceItem): string {
+function activityType(item: BriefingFactInput): string {
   return (metaText(item, 'activityType') ?? item.source.type).toLowerCase()
 }
 
-function stageChangeLabel(item: BriefingSourceItem): string | null {
+function stageChangeLabel(item: BriefingFactInput): string | null {
   const from = metaText(item, 'fromStageLabel', 'previousStageLabel')
   const to = metaText(item, 'toStageLabel', 'stageLabel')
   if (from && to) return `${from} → ${to}`
   return to ?? from
 }
 
-function defaultNextAction(item: BriefingSourceItem): string | null {
+function defaultNextAction(item: BriefingFactInput): string | null {
   const explicit = metaText(item, 'nextAction')
   if (explicit) return explicit
   const type = item.source.type
@@ -241,14 +253,14 @@ const LIST_RANK_BY_TYPE: Record<string, string[]> = {
   'business-insight-review': ['task', 'project'],
 }
 
-function whenLabel(item: BriefingSourceItem): string | null {
+function whenLabel(item: BriefingFactInput): string | null {
   const date = metaText(item, 'dueDate', 'expectedDeliveryDate', 'validUntil', 'date', 'start', 'startAt', 'scheduledFor', 'publishDate')
   const time = metaText(item, 'time')
   if (date && time && !date.includes(time)) return `${date} ${time}`
   return date
 }
 
-export function briefingDisplayFacts(item: BriefingSourceItem): BriefingFact[] {
+export function briefingDisplayFacts(item: BriefingFactInput): BriefingFact[] {
   const facts: BriefingFact[] = []
   const ctx = item.context
 
@@ -291,7 +303,7 @@ export function briefingDisplayFacts(item: BriefingSourceItem): BriefingFact[] {
   return facts
 }
 
-export function briefingListFacts(item: BriefingSourceItem, limit = 4): BriefingFact[] {
+export function briefingListFacts(item: BriefingFactInput, limit = 4): BriefingFact[] {
   const preferred = [...(LIST_RANK_BY_TYPE[item.source.type] ?? ['contact', 'company', 'value', 'status', 'email', 'phone']), 'next']
   const facts = briefingDisplayFacts(item)
   const ranked = preferred
@@ -301,7 +313,7 @@ export function briefingListFacts(item: BriefingSourceItem, limit = 4): Briefing
   return [...ranked, ...rest].slice(0, limit)
 }
 
-export function briefingUsefulSummary(item: BriefingSourceItem): string {
+export function briefingUsefulSummary(item: BriefingFactInput): string {
   const facts = briefingDisplayFacts(item).filter((fact) => fact.id !== 'next' && fact.id !== 'workspace')
   if (facts.length === 0) {
     const copy = humanText(item.excerpt, 280) ?? humanText(item.summary, 280) ?? ''
@@ -314,7 +326,7 @@ export function briefingUsefulSummary(item: BriefingSourceItem): string {
   return facts.slice(0, 4).map((fact) => `${fact.label}: ${fact.value}`).join(' · ')
 }
 
-export function isGenericBriefingDecision(item: BriefingSourceItem): boolean {
+export function isGenericBriefingDecision(item: BriefingFactInput): boolean {
   const ids = (item.options ?? []).map((option) => option.id).sort().join(',')
   return ids === 'create-follow-up,review'
 }
@@ -337,7 +349,7 @@ function recordCompany(record: CrmDisplayRecord | null | undefined): { id: strin
   }
 }
 
-function activityHeadline(item: BriefingSourceItem): string | null {
+function activityHeadline(item: BriefingFactInput): string | null {
   const type = activityType(item)
   const deal = humanText(item.context.dealTitle)
   const contact = humanText(item.context.contactName)
@@ -357,7 +369,7 @@ function activityHeadline(item: BriefingSourceItem): string | null {
   return deal ?? null
 }
 
-export function briefingSpecificTitle(item: BriefingSourceItem): string {
+export function briefingSpecificTitle(item: BriefingFactInput): string {
   if (item.source.type === 'activity') {
     return activityHeadline(item) ?? item.title
   }
@@ -428,7 +440,7 @@ export function applyCrmDisplayRecords(
   }
 }
 
-export function crmIdsFromItem(item: BriefingSourceItem): { contactId: string | null; dealId: string | null; companyId: string | null } {
+export function crmIdsFromItem(item: BriefingFactInput): { contactId: string | null; dealId: string | null; companyId: string | null } {
   return {
     contactId: typeof item.context.contactId === 'string' && item.context.contactId ? item.context.contactId : typeof item.metadata?.contactId === 'string' ? item.metadata.contactId : null,
     dealId: typeof item.context.dealId === 'string' && item.context.dealId ? item.context.dealId : typeof item.metadata?.dealId === 'string' ? item.metadata.dealId : null,
