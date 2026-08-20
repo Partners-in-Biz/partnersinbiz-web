@@ -23,6 +23,9 @@ import { ThemedSelect } from '@/components/ui/ThemedSelect'
 import { CommandPalette } from '@/components/command-palette/CommandPalette'
 import { ShortcutsCheatSheet } from '@/components/command-palette/ShortcutsCheatSheet'
 import { FeatureFlagsProvider } from '@/components/portal/FeatureFlagsProvider'
+import { BotModeChromeToggle } from '@/components/messages/bot-mode/BotModeChromeToggle'
+import { BotModeImmersiveShell } from '@/components/messages/bot-mode/BotModeImmersiveShell'
+import { shouldHideSiteChrome } from '@/lib/messages/bot-mode-chrome'
 import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { resolvePortalModules, type PortalModules } from '@/lib/organizations/portal-modules'
@@ -526,6 +529,8 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     enable_social_listening: false,
     show_whatsapp: false,
   })
+  const [chromeRevealed, setChromeRevealed] = useState(false)
+  const botModeParam = searchParams.get('mode')
 
   // Keyboard shortcuts: Cmd+K (palette), Cmd+S (save event), ? (cheat sheet),
   // and G-prefix nav sequences (G then D/C/E/S/O).
@@ -728,6 +733,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     setDrawerOpen(false)
   }, [pathname])
 
+  useEffect(() => {
+    if (botModeParam !== 'bot') setChromeRevealed(false)
+  }, [botModeParam])
+
   function toggleCollapsed() {
     setCollapsed(prev => {
       localStorage.setItem('portal_sidebar_collapsed', String(!prev))
@@ -901,6 +910,32 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
     </>
   )
 
+  const hideSiteChrome = shouldHideSiteChrome({
+    pathname,
+    mode: botModeParam,
+    chromeRevealed,
+  })
+  const botModeChrome = isMessagesRoute && botModeParam === 'bot'
+  const revealedChromeToggle = botModeChrome && chromeRevealed ? (
+    <BotModeChromeToggle revealed onToggle={() => setChromeRevealed(false)} />
+  ) : null
+
+  if (hideSiteChrome) {
+    return (
+      <>
+        <link rel="stylesheet" href={PORTAL_MATERIAL_SYMBOLS} />
+        <BotModeImmersiveShell onShowChrome={() => setChromeRevealed(true)}>
+          {tracker}
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <FeatureFlagsProvider orgId={activeOrgId}>{children}</FeatureFlagsProvider>
+          </main>
+          <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
+          <ShortcutsCheatSheet open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+        </BotModeImmersiveShell>
+      </>
+    )
+  }
+
   // ── Topbar mode ────────────────────────────────────────────────────────────
   if (layoutMode === 'topbar') {
     return (
@@ -911,6 +946,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
           isCockpitRoute || isMessagesRoute ? 'h-dvh overflow-hidden' : 'min-h-screen',
         ].join(' ')}>
           {tracker}
+          {revealedChromeToggle}
           <header className="pib-chrome-sticky pib-topbar-dense sticky top-0 z-30 shrink-0">
           <div className="flex items-center h-full px-3 gap-1.5 sm:px-4">
             {/* Brand */}
@@ -1142,6 +1178,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         isCockpitRoute || isMessagesRoute ? 'h-dvh overflow-hidden' : 'min-h-screen',
       ].join(' ')}>
         {tracker}
+        {revealedChromeToggle}
       {/* Mobile backdrop */}
       <div
         onClick={() => setDrawerOpen(false)}

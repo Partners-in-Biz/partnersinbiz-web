@@ -2,10 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AdminShell } from '@/components/admin/AdminShell'
 
 let mockPathname = '/admin'
+let mockSearchParams = new URLSearchParams()
 
 jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
 }))
 
 jest.mock('@/lib/contexts/OrgContext', () => ({
@@ -51,6 +52,7 @@ jest.mock('@/components/mailbox/MailboxDrawer', () => ({
 describe('AdminShell message drawer coordination', () => {
   beforeEach(() => {
     mockPathname = '/admin'
+    mockSearchParams = new URLSearchParams()
     localStorage.clear()
     window.matchMedia = jest.fn().mockImplementation((query: string) => ({
       matches: true,
@@ -104,5 +106,18 @@ describe('AdminShell message drawer coordination', () => {
     expect(main).not.toHaveClass('px-2', 'md:px-4', 'py-4')
     expect(content).toHaveClass('max-w-[1400px]')
     expect(content).not.toHaveClass('max-w-none')
+  })
+
+  it('hides admin chrome in Bot mode until Show navigation is clicked', () => {
+    mockPathname = '/admin/org/partners/messages'
+    mockSearchParams = new URLSearchParams('mode=bot')
+
+    render(<AdminShell userEmail="peet@example.com" userUid="user_1"><main>Messages</main></AdminShell>)
+
+    expect(screen.queryByTestId('admin-sidebar')).not.toBeInTheDocument()
+    expect(screen.getByTestId('bot-mode-immersive-shell')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show navigation' }))
+    expect(screen.getByTestId('admin-sidebar')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Hide navigation' })).toBeInTheDocument()
   })
 })

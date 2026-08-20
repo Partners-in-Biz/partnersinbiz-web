@@ -105,9 +105,11 @@ import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverla
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import AgentWorkbenchRail from '@/components/messages/workbench/AgentWorkbenchRail'
 import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStrip'
+import { BotDeskPanel } from '@/components/messages/bot-mode/BotDeskPanel'
 import { BotModeLanding } from '@/components/messages/bot-mode/BotModeLanding'
 import { BotRoster } from '@/components/messages/bot-mode/BotRoster'
 import { BotInboxRail } from '@/components/messages/bot-mode/BotInboxRail'
+import { BotRailDock } from '@/components/messages/bot-mode/BotRailDock'
 import { BotRailSwitcher, type BotRailSection } from '@/components/messages/bot-mode/BotRailSwitcher'
 import type { BotStudioDevice } from '@/components/messages/bot-mode/BotStudioPanel'
 import { uniqueBotComputers } from '@/lib/messages/bot-computers'
@@ -1735,6 +1737,7 @@ export default function UnifiedChat({
   const [exportingChat, setExportingChat] = useState(false)
   const [conversationFilter, setConversationFilter] = useState('')
   const [botRailSection, setBotRailSection] = useState<BotRailSection>('bots')
+  const [botPluginsOpen, setBotPluginsOpen] = useState(false)
 
   // Refs
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -2507,7 +2510,7 @@ export default function UnifiedChat({
   const visibleBotRoster = useMemo(() => {
     const query = conversationFilter.trim().toLocaleLowerCase()
     if (!query) return botRoster
-    return botRoster.filter((bot) => [bot.name, bot.role, bot.lastChannelTitle].some((value) => value?.toLocaleLowerCase().includes(query)))
+    return botRoster.filter((bot) => [bot.name, bot.role, bot.lastChannelTitle, bot.lastPreview].some((value) => value?.toLocaleLowerCase().includes(query)))
   }, [botRoster, conversationFilter])
   const visibleBotInboxThreads = useMemo(() => {
     const query = conversationFilter.trim().toLocaleLowerCase()
@@ -2658,6 +2661,17 @@ export default function UnifiedChat({
         })
       : []),
     [slashPrompt, slashAccessActor, slashAccessAgent, activeConversation?.startedBy, activeConversation?.workspaceContext?.ownerUserId],
+  )
+  const botPluginSkills = useMemo(
+    () => listSlashCommandsForAccess({
+      actor: slashAccessActor,
+      conversation: {
+        startedBy: activeConversation?.startedBy ?? null,
+        ownerUserId: activeConversation?.workspaceContext?.ownerUserId ?? null,
+      },
+      agent: slashAccessAgent,
+    }).map((command) => ({ token: command.token, label: command.label, icon: command.icon })),
+    [slashAccessActor, slashAccessAgent, activeConversation?.startedBy, activeConversation?.workspaceContext?.ownerUserId],
   )
 
   const coerceContextRef = useCallback((ref: ContextReference | ContextReferenceSeed): ContextReference => ({
@@ -7373,7 +7387,11 @@ export default function UnifiedChat({
           : !showConversationList
             ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
           : hermesLayout
-            ? `relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden xl:grid xl:gap-2 ${railCollapsed ? 'xl:grid-cols-[48px_minmax(0,1fr)]' : 'xl:grid-cols-[236px_minmax(0,1fr)]'}`
+            ? `relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden xl:grid xl:gap-2 ${
+                railCollapsed
+                  ? (botMode ? 'xl:grid-cols-[48px_minmax(0,1fr)_minmax(0,280px)]' : 'xl:grid-cols-[48px_minmax(0,1fr)]')
+                  : (botMode ? 'xl:grid-cols-[280px_minmax(0,1fr)_minmax(0,280px)]' : 'xl:grid-cols-[236px_minmax(0,1fr)]')
+              }`
             : 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden lg:grid lg:gap-4 lg:grid-cols-[280px_minmax(0,1fr)]'
       }
     >
@@ -8488,6 +8506,25 @@ export default function UnifiedChat({
               </div>
             ))}
         </div>
+        {botMode && (
+          <BotRailDock
+            userName={currentUserDisplayName}
+            pluginsOpen={botPluginsOpen}
+            onTogglePlugins={() => setBotPluginsOpen((open) => !open)}
+            inboxCount={visibleBotInboxThreads.length}
+            channelsCount={botChannelGroups.reduce((total, group) => total + group.conversations.length, 0)}
+            skills={botPluginSkills}
+            computersHref={computersHref}
+            approvalsHref="/portal/projects"
+            onOpenInbox={() => { setBotRailSection('inbox'); setBotPluginsOpen(false) }}
+            onOpenChannels={() => { setBotRailSection('channels'); setBotPluginsOpen(false) }}
+            onOpenCanvas={() => { setBotPluginsOpen(false); openContextPicker() }}
+            onInsertSkill={(token) => {
+              setBotPluginsOpen(false)
+              setInput((current) => current.trim() ? current : `${token} `)
+            }}
+          />
+        )}
         </div>
       </aside>}
 
@@ -8853,19 +8890,21 @@ export default function UnifiedChat({
         </div>
 
         {botMode && (
-          <BotComputerStrip
-            computers={botComputers}
-            activeComputerId={activeWorkspaceContext?.runtimeTarget}
-            computersHref={computersHref}
-            workbenchOpen={workbenchOpen}
-            isolatedFolder={isolatedBotFolder}
-            browserProfileId={isolatedBotProfile}
-            onOpenWorkbench={showAgentWorkbench ? openWorkbenchTab : undefined}
-            onToggleWorkbench={showAgentWorkbench ? () => {
-              if (workbenchOpen) handleWorkbenchOpenChange(false)
-              else openWorkbenchTab(workbenchTab)
-            } : undefined}
-          />
+          <div className="xl:hidden">
+            <BotComputerStrip
+              computers={botComputers}
+              activeComputerId={activeWorkspaceContext?.runtimeTarget}
+              computersHref={computersHref}
+              workbenchOpen={workbenchOpen}
+              isolatedFolder={isolatedBotFolder}
+              browserProfileId={isolatedBotProfile}
+              onOpenWorkbench={showAgentWorkbench ? openWorkbenchTab : undefined}
+              onToggleWorkbench={showAgentWorkbench ? () => {
+                if (workbenchOpen) handleWorkbenchOpenChange(false)
+                else openWorkbenchTab(workbenchTab)
+              } : undefined}
+            />
+          </div>
         )}
         {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} preferCanvas={botMode} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
@@ -9730,6 +9769,19 @@ export default function UnifiedChat({
         </form>
 
       </section>
+
+      {botMode && (
+        <BotDeskPanel
+          botId={activeBotId}
+          botName={botRoster.find((bot) => bot.id === activeBotId)?.name ?? 'Bot'}
+          computers={botComputers}
+          workbenchOpen={workbenchOpen}
+          isolatedFolder={isolatedBotFolder}
+          standingGoal={activeConversation?.goalState?.goal ?? null}
+          onOpenScreen={showAgentWorkbench ? () => openWorkbenchTab('browser') : undefined}
+          onNewRoutine={() => setInput((current) => current.trim() ? current : '/goal ')}
+        />
+      )}
 
       {accessConversation && (
         <ConversationAccessDialog

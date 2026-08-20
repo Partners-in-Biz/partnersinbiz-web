@@ -1,6 +1,7 @@
 'use client'
 
 import type { BotRosterItem } from '@/lib/messages/bot-roster'
+import { botRosterRelativeTime } from '@/lib/messages/bot-roster'
 
 export type { BotRosterItem }
 
@@ -10,6 +11,15 @@ const COLOR: Record<string, string> = {
   amber: 'bg-amber-400',
   emerald: 'bg-emerald-400',
   rose: 'bg-rose-400',
+}
+
+function initials(name: string): string {
+  return name
+    .split(/[\s.@]+/)
+    .filter(Boolean)
+    .slice(0, 1)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'B'
 }
 
 export function BotRoster({
@@ -37,12 +47,11 @@ export function BotRoster({
             aria-label={`Open ${bot.name}`}
             title={`${bot.name} · ${bot.role}`}
             onClick={() => onSelectBot(bot.id)}
-            className={`relative grid h-11 w-11 place-items-center rounded-lg xl:h-10 xl:w-10 ${
-              bot.id === activeBotId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07]'
-            }`}
+            className={`relative grid h-11 w-11 place-items-center rounded-full text-[12px] font-semibold text-black xl:h-10 xl:w-10 ${
+              COLOR[bot.colorKey ?? ''] ?? 'bg-primary'
+            } ${bot.id === activeBotId ? 'ring-2 ring-white/70' : 'opacity-80 hover:opacity-100'}`}
           >
-            <span aria-hidden="true" className={`absolute left-1.5 top-1.5 h-1.5 w-1.5 rounded-full ${COLOR[bot.colorKey ?? ''] ?? 'bg-primary'}`} />
-            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">{bot.iconKey || 'smart_toy'}</span>
+            {initials(bot.name)}
           </button>
         ))}
       </div>
@@ -55,7 +64,8 @@ export function BotRoster({
         <p className="px-2 py-3 text-xs text-[var(--color-pib-text-muted)]">No Bots are visible for this organisation yet.</p>
       ) : bots.map((bot) => {
         const selected = bot.id === activeBotId
-        const channelLabel = `${bot.channelCount} channel${bot.channelCount === 1 ? '' : 's'}`
+        const preview = bot.lastPreview || bot.role
+        const timeLabel = botRosterRelativeTime(bot.lastAt)
         return (
           <article
             key={bot.id}
@@ -68,16 +78,20 @@ export function BotRoster({
               type="button"
               aria-label={`Open ${bot.name}`}
               aria-pressed={selected}
-              title={bot.lastChannelTitle ? `${bot.role} · ${bot.lastChannelTitle}` : bot.role}
+              title={preview}
               onClick={() => onSelectBot(bot.id)}
-              className="flex h-9 min-w-0 w-full items-center gap-2 py-1 pl-2 pr-16 text-left xl:pr-12"
+              className="flex min-h-12 min-w-0 w-full items-center gap-2.5 py-1.5 pl-2 pr-16 text-left xl:min-h-11 xl:pr-12"
             >
-              <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR[bot.colorKey ?? ''] ?? 'bg-primary'}`} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[12px] font-semibold leading-4 text-[var(--color-pib-text)]">{bot.name}</span>
-                <span className="block truncate text-[10px] leading-3 text-[var(--color-pib-text-muted)]">{bot.role}</span>
+              <span aria-hidden="true" className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-[13px] font-semibold text-black ${COLOR[bot.colorKey ?? ''] ?? 'bg-primary'}`}>
+                {initials(bot.name)}
               </span>
-              <span className="shrink-0 font-mono text-[10px] text-[var(--color-pib-text-muted)]/80">{channelLabel}</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex min-w-0 items-baseline justify-between gap-2">
+                  <span className="truncate text-[13px] font-semibold leading-4 text-[var(--color-pib-text)]">{bot.name}</span>
+                  {timeLabel ? <span className="shrink-0 font-mono text-[10px] text-[var(--color-pib-text-muted)]">{timeLabel}</span> : null}
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{preview}</span>
+              </span>
             </button>
             <div className="absolute right-0.5 top-1/2 flex -translate-y-1/2 items-center">
               {onShareBot && bot.shareable && (

@@ -12,6 +12,9 @@ import { AppShell } from '@/components/ui/AppFoundation'
 import { detectCurrentPageContext } from '@/lib/context-references/route-context'
 import { useOrg } from '@/lib/contexts/OrgContext'
 import { PIB_PLATFORM_ORG_ID, SHARED_SENDER_NAME } from '@/lib/platform/constants'
+import { BotModeChromeToggle } from '@/components/messages/bot-mode/BotModeChromeToggle'
+import { BotModeImmersiveShell } from '@/components/messages/bot-mode/BotModeImmersiveShell'
+import { shouldHideSiteChrome } from '@/lib/messages/bot-mode-chrome'
 
 interface AdminShellProps {
   userEmail: string
@@ -28,6 +31,8 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('sidebar')
+  const [chromeRevealed, setChromeRevealed] = useState(false)
+  const botModeParam = searchParams.get('mode')
 
   useEffect(() => {
     const restorePreferences = () => {
@@ -39,6 +44,10 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     const id = window.setTimeout(restorePreferences, 0)
     return () => window.clearTimeout(id)
   }, [])
+
+  useEffect(() => {
+    if (botModeParam !== 'bot') setChromeRevealed(false)
+  }, [botModeParam])
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
@@ -112,6 +121,24 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
     )
   }
 
+  const hideSiteChrome = shouldHideSiteChrome({
+    pathname,
+    mode: botModeParam,
+    chromeRevealed,
+  })
+  if (hideSiteChrome) {
+    return (
+      <BotModeImmersiveShell onShowChrome={() => setChromeRevealed(true)}>
+        <WelcomeFlashHandler />
+        {children}
+      </BotModeImmersiveShell>
+    )
+  }
+
+  const revealedChromeToggle = botModeParam === 'bot' && /\/messages(?:\/|$)/.test(pathname) ? (
+    <BotModeChromeToggle revealed onToggle={() => setChromeRevealed(false)} />
+  ) : null
+
   if (layoutMode === 'topbar') {
     return (
       <AppShell
@@ -119,6 +146,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
         data-module-accent="cyan"
         header={(
           <>
+            {revealedChromeToggle}
             <WelcomeFlashHandler />
             <AdminTopbarNav
               userEmail={userEmail}
@@ -139,6 +167,7 @@ export function AdminShell({ userEmail, userUid, children }: AdminShellProps) {
 
   return (
     <div data-message-push-root data-module-accent="cyan" className="flex h-screen overflow-hidden bg-[var(--color-pib-bg)] text-[var(--color-pib-text)]">
+      {revealedChromeToggle}
       <WelcomeFlashHandler />
       <AdminSidebar open={open} onClose={() => setOpen(false)} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       <AppShell

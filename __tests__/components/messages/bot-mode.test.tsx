@@ -2,12 +2,27 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MessagesExperienceSwitch } from '@/components/messages/bot-mode/MessagesExperienceSwitch'
 import { BotRoster } from '@/components/messages/bot-mode/BotRoster'
 import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStrip'
+import { BotDeskPanel } from '@/components/messages/bot-mode/BotDeskPanel'
 import { BotModeLanding } from '@/components/messages/bot-mode/BotModeLanding'
 import { BotInboxRail } from '@/components/messages/bot-mode/BotInboxRail'
+import { BotRailDock } from '@/components/messages/bot-mode/BotRailDock'
 import { BotRailSwitcher } from '@/components/messages/bot-mode/BotRailSwitcher'
+import { BotModeImmersiveShell } from '@/components/messages/bot-mode/BotModeImmersiveShell'
+import { shouldHideSiteChrome } from '@/lib/messages/bot-mode-chrome'
 
 const bots = [
-  { id: 'theo', name: 'Theo', role: 'Engineering', channelCount: 2, lastChannelTitle: 'Preview builds', onlineComputerCount: 1, iconKey: 'terminal', colorKey: 'sky' },
+  {
+    id: 'theo',
+    name: 'Theo',
+    role: 'Engineering',
+    channelCount: 2,
+    lastChannelTitle: 'Preview builds',
+    lastPreview: 'Ship the preview',
+    lastAt: { seconds: Math.floor(Date.now() / 1000) - 120 },
+    onlineComputerCount: 1,
+    iconKey: 'terminal',
+    colorKey: 'sky',
+  },
   { id: 'maya', name: 'Maya', role: 'Content', channelCount: 0, onlineComputerCount: 0, iconKey: 'palette', colorKey: 'amber' },
 ]
 
@@ -28,8 +43,8 @@ describe('bot mode surfaces', () => {
     const onSelectBot = jest.fn()
     const onStartChannel = jest.fn()
     render(<BotRoster bots={bots} activeBotId="theo" onSelectBot={onSelectBot} onStartChannel={onStartChannel} />)
-    expect(screen.getByTestId('bot-roster-card-theo')).toHaveTextContent('Engineering')
-    expect(screen.getByTestId('bot-roster-card-theo')).toHaveTextContent('2 channels')
+    expect(screen.getByTestId('bot-roster-card-theo')).toHaveTextContent('Ship the preview')
+    expect(screen.getByTestId('bot-roster-card-theo')).not.toHaveTextContent('2 channels')
     fireEvent.click(screen.getByRole('button', { name: 'Start channel with Maya' }))
     expect(onStartChannel).toHaveBeenCalledWith('maya')
   })
@@ -122,5 +137,54 @@ describe('bot mode surfaces', () => {
     fireEvent.change(screen.getByPlaceholderText('Purpose and behaviour'), { target: { value: 'Cite sources.' } })
     fireEvent.submit(screen.getByRole('button', { name: 'Create Bot' }).closest('form')!)
     expect(onCreateBot).toHaveBeenCalledWith(expect.objectContaining({ name: 'Research', role: 'Analyst', deviceId: 'mac' }))
+  })
+
+  it('hides site chrome until Show navigation is clicked', () => {
+    expect(shouldHideSiteChrome({ pathname: '/portal/messages', mode: 'bot', chromeRevealed: false })).toBe(true)
+    expect(shouldHideSiteChrome({ pathname: '/portal/messages', mode: 'bot', chromeRevealed: true })).toBe(false)
+    expect(shouldHideSiteChrome({ pathname: '/portal/messages', mode: null, chromeRevealed: false })).toBe(false)
+    const onShowChrome = jest.fn()
+    render(<BotModeImmersiveShell onShowChrome={onShowChrome}><p>Desk</p></BotModeImmersiveShell>)
+    expect(screen.getByTestId('bot-mode-immersive-shell')).toHaveTextContent('Desk')
+    fireEvent.click(screen.getByRole('button', { name: 'Show navigation' }))
+    expect(onShowChrome).toHaveBeenCalled()
+  })
+
+  it('shows the bot screen, routines, plugins, and skills', () => {
+    const onOpenScreen = jest.fn()
+    const onInsertSkill = jest.fn()
+    const onOpenInbox = jest.fn()
+    render(
+      <>
+        <BotDeskPanel botName="Theo" computers={computers} standingGoal="Ship leftover uploads" onOpenScreen={onOpenScreen} onNewRoutine={onOpenScreen} />
+        <BotRailDock
+          userName="Peet Stander"
+          pluginsOpen
+          onTogglePlugins={jest.fn()}
+          inboxCount={2}
+          channelsCount={4}
+          skills={[{ token: '/goal', label: 'Goal', icon: 'flag' }]}
+          computersHref="/portal/settings/linked-computers"
+          approvalsHref="/portal/projects"
+          onOpenInbox={onOpenInbox}
+          onOpenChannels={jest.fn()}
+          onOpenCanvas={jest.fn()}
+          onInsertSkill={onInsertSkill}
+        />
+      </>,
+    )
+    expect(screen.getByTestId('bot-desk-panel')).toHaveTextContent("Theo's screen")
+    expect(screen.getByTestId('bot-desk-panel')).toHaveTextContent('Routines')
+    expect(screen.getByTestId('bot-routine-standing-goal')).toHaveTextContent('Ship leftover uploads')
+    fireEvent.click(screen.getByTestId('bot-desk-open-screen'))
+    expect(onOpenScreen).toHaveBeenCalled()
+    fireEvent.click(screen.getByTestId('bot-desk-new-routine'))
+    expect(onOpenScreen).toHaveBeenCalledTimes(2)
+    fireEvent.click(screen.getByTestId('bot-plugin-skill-goal'))
+    expect(onInsertSkill).toHaveBeenCalledWith('/goal')
+    fireEvent.click(screen.getByTestId('bot-plugin-inbox'))
+    expect(onOpenInbox).toHaveBeenCalled()
+    expect(screen.getByTestId('bot-plugin-approvals')).toHaveAttribute('href', '/portal/projects')
+    expect(screen.getByTestId('bot-rail-user')).toHaveTextContent('PS')
   })
 })

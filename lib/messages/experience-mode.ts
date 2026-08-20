@@ -74,4 +74,21 @@ export const BOT_MODE_COPY = {
   inboxEmpty: 'No Bot-to-Bot threads yet. Send work from one Bot to another.',
   createBotLabel: 'Create a Bot',
   importBotLabel: 'Import a shared Bot',
+  routinesLabel: 'Routines',
+  pluginsLabel: 'Plugins',
+  screenLabel: 'Screen',
 } as const
+
+/** Grok Bot surfaces we cover, plus PiB extras. */
+export const BOT_MODE_CAPABILITIES = [
+  { id: 'named-bots', grok: true, extra: 'Org specialists, marketplace packs, and custom GrokBots' },
+  { id: 'direct-chat', grok: true, extra: 'Durable channels per Bot, not one-shot prompts' },
+  { id: 'computer', grok: true, extra: 'Linked Mac and VPS with isolated bots/{id} folders' },
+  { id: 'screen', grok: true, extra: 'Watch or take the wheel in the workbench' },
+  { id: 'routines', grok: true, extra: 'Hermes cron plus scheduled Kanban work' },
+  { id: 'skills', grok: true, extra: 'Slash commands and per-agent skill libraries' },
+  { id: 'plugins', grok: true, extra: 'Mailbox, CRM, ads, SEO, Drive, and connectors' },
+  { id: 'bot-to-bot', grok: true, extra: 'Inbox threads a human can observe' },
+  { id: 'approvals', grok: true, extra: 'Kanban approval gates before send, spend, or publish' },
+  { id: 'canvas', grok: false, extra: 'Intelligent Context Dock beside the transcript' },
+] as const
