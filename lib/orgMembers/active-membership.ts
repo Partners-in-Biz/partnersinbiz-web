@@ -45,6 +45,14 @@ export function isActiveOrgMembershipRow(row: OrgMemberRow | null | undefined): 
   const status = typeof row.status === 'string' ? row.status.trim().toLowerCase() : ''
   if (status === '') return true
   if (['active', 'enabled'].includes(status)) return true
+  
+  // Org owners can always access their orgs in the portal switcher, even during
+  // onboarding or with incomplete portal configuration. This ensures platform
+  // team members (e.g. Peet) can switch to orgs they own (Partners, Velox, Lumen)
+  // without requiring full portal area setup first.
+  const role = typeof row.role === 'string' ? row.role.trim().toLowerCase() : ''
+  if (role === 'owner' && ['pending', 'onboarding', 'setup'].includes(status)) return true
+  
   return false
 }
 
