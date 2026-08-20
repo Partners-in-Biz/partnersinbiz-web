@@ -1,6 +1,5 @@
 'use client'
 
-import { BOT_MODE_COPY } from '@/lib/messages/experience-mode'
 import type { BotRosterItem } from '@/lib/messages/bot-roster'
 
 export type { BotRosterItem }
@@ -51,52 +50,44 @@ export function BotRoster({
   }
 
   return (
-    <div data-testid="bot-roster" className="flex min-h-0 flex-col gap-1">
-      <div className="flex items-center justify-between px-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
-        <span>{BOT_MODE_COPY.railLabel}</span>
-        <span className="font-mono text-[10px] tracking-normal">{bots.length}</span>
-      </div>
+    <div data-testid="bot-roster" className="flex min-h-0 flex-col gap-0.5">
       {bots.length === 0 ? (
         <p className="px-2 py-3 text-xs text-[var(--color-pib-text-muted)]">No Bots are visible for this organisation yet.</p>
       ) : bots.map((bot) => {
         const selected = bot.id === activeBotId
+        const channelLabel = `${bot.channelCount} channel${bot.channelCount === 1 ? '' : 's'}`
         return (
           <article
             key={bot.id}
             data-testid={`bot-roster-card-${bot.id}`}
-            className={`rounded-md border px-2 py-1.5 ${
-              selected ? 'border-primary/35 bg-primary/[0.08]' : 'border-white/[0.06] bg-white/[0.025]'
+            className={`group/bot relative min-w-0 rounded-md ${
+              selected ? 'bg-white/[0.08] ring-1 ring-white/[0.06]' : 'hover:bg-white/[0.045]'
             }`}
           >
-            <div className="flex min-w-0 items-start gap-1">
-              <button
-                type="button"
-                aria-label={`Open ${bot.name}`}
-                aria-pressed={selected}
-                onClick={() => onSelectBot(bot.id)}
-                className="flex min-h-11 min-w-0 flex-1 items-start gap-2 rounded px-1 py-0.5 text-left hover:bg-white/[0.05] xl:min-h-0"
-              >
-                <span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${COLOR[bot.colorKey ?? ''] ?? 'bg-primary'}`} />
-                <span className="min-w-0">
-                  <span className="block truncate text-[12px] font-semibold text-[var(--color-pib-text)]">{bot.name}</span>
-                  <span className="mt-0.5 block truncate text-[10px] leading-4 text-[var(--color-pib-text-muted)]">
-                    {bot.role}{bot.kind === 'custom' ? ' · custom' : bot.kind === 'marketplace' ? ' · marketplace' : ''}
-                  </span>
-                  <span className="mt-0.5 block truncate text-[10px] text-[var(--color-pib-text-muted)]/80">
-                    {bot.channelCount} channel{bot.channelCount === 1 ? '' : 's'}
-                    {bot.onlineComputerCount > 0 ? ` · ${bot.onlineComputerCount} computer${bot.onlineComputerCount === 1 ? '' : 's'} online` : ''}
-                    {bot.lastChannelTitle ? ` · ${bot.lastChannelTitle}` : ''}
-                  </span>
-                </span>
-              </button>
+            <button
+              type="button"
+              aria-label={`Open ${bot.name}`}
+              aria-pressed={selected}
+              title={bot.lastChannelTitle ? `${bot.role} · ${bot.lastChannelTitle}` : bot.role}
+              onClick={() => onSelectBot(bot.id)}
+              className="flex h-9 min-w-0 w-full items-center gap-2 py-1 pl-2 pr-16 text-left xl:pr-12"
+            >
+              <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${COLOR[bot.colorKey ?? ''] ?? 'bg-primary'}`} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[12px] font-semibold leading-4 text-[var(--color-pib-text)]">{bot.name}</span>
+                <span className="block truncate text-[10px] leading-3 text-[var(--color-pib-text-muted)]">{bot.role}</span>
+              </span>
+              <span className="shrink-0 font-mono text-[10px] text-[var(--color-pib-text-muted)]/80">{channelLabel}</span>
+            </button>
+            <div className="absolute right-0.5 top-1/2 flex -translate-y-1/2 items-center">
               {onShareBot && bot.shareable && (
                 <button
                   type="button"
                   aria-label={`Share ${bot.name}`}
                   onClick={() => onShareBot(bot.id)}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-primary xl:h-7 xl:w-7"
+                  className="grid h-8 w-8 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-primary xl:h-6 xl:w-6 xl:opacity-0 xl:group-hover/bot:opacity-100 xl:group-focus-within/bot:opacity-100"
                 >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[16px]">ios_share</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[15px]">ios_share</span>
                 </button>
               )}
               {onStartChannel && (
@@ -104,9 +95,9 @@ export function BotRoster({
                   type="button"
                   aria-label={`Start channel with ${bot.name}`}
                   onClick={() => onStartChannel(bot.id)}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-primary xl:h-7 xl:w-7"
+                  className="grid h-8 w-8 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-primary xl:h-6 xl:w-6 xl:opacity-0 xl:group-hover/bot:opacity-100 xl:group-focus-within/bot:opacity-100"
                 >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[16px]">add</span>
+                  <span aria-hidden="true" className="material-symbols-outlined text-[15px]">add</span>
                 </button>
               )}
             </div>

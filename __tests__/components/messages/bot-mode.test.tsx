@@ -4,6 +4,7 @@ import { BotRoster } from '@/components/messages/bot-mode/BotRoster'
 import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStrip'
 import { BotModeLanding } from '@/components/messages/bot-mode/BotModeLanding'
 import { BotInboxRail } from '@/components/messages/bot-mode/BotInboxRail'
+import { BotRailSwitcher } from '@/components/messages/bot-mode/BotRailSwitcher'
 
 const bots = [
   { id: 'theo', name: 'Theo', role: 'Engineering', channelCount: 2, lastChannelTitle: 'Preview builds', onlineComputerCount: 1, iconKey: 'terminal', colorKey: 'sky' },
@@ -71,8 +72,20 @@ describe('bot mode surfaces', () => {
       />,
     )
     expect(screen.getByTestId('bot-inbox-thread-inbox-1')).toHaveTextContent('Draft the changelog')
+    expect(screen.queryByRole('button', { name: 'Send to inbox' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'New inbox thread' }))
     fireEvent.submit(screen.getByRole('button', { name: 'Send to inbox' }).closest('form')!)
     expect(onCreateThread).toHaveBeenCalled()
+  })
+
+  it('switches the bot rail between bots, inbox, and channels', () => {
+    const onChange = jest.fn()
+    render(<BotRailSwitcher value="bots" onChange={onChange} botsCount={12} inboxCount={8} channelsCount={3} />)
+    expect(screen.getByTestId('bot-rail-bots')).toHaveAttribute('aria-selected', 'true')
+    fireEvent.click(screen.getByTestId('bot-rail-inbox'))
+    expect(onChange).toHaveBeenCalledWith('inbox')
+    fireEvent.click(screen.getByTestId('bot-rail-channels'))
+    expect(onChange).toHaveBeenCalledWith('channels')
   })
 
   it('shows the isolated folder on the computer strip', () => {

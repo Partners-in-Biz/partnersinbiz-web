@@ -108,6 +108,7 @@ import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStri
 import { BotModeLanding } from '@/components/messages/bot-mode/BotModeLanding'
 import { BotRoster } from '@/components/messages/bot-mode/BotRoster'
 import { BotInboxRail } from '@/components/messages/bot-mode/BotInboxRail'
+import { BotRailSwitcher, type BotRailSection } from '@/components/messages/bot-mode/BotRailSwitcher'
 import type { BotStudioDevice } from '@/components/messages/bot-mode/BotStudioPanel'
 import { uniqueBotComputers } from '@/lib/messages/bot-computers'
 import { buildBotRosterItems } from '@/lib/messages/bot-roster'
@@ -1733,6 +1734,7 @@ export default function UnifiedChat({
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
   const [exportingChat, setExportingChat] = useState(false)
   const [conversationFilter, setConversationFilter] = useState('')
+  const [botRailSection, setBotRailSection] = useState<BotRailSection>('bots')
 
   // Refs
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -2501,6 +2503,20 @@ export default function UnifiedChat({
       Object.fromEntries(Object.values(agentMap).map((agent) => [agent.agentId, agent.name])),
     ),
     [agentMap, visibleConversations],
+  )
+  const visibleBotRoster = useMemo(() => {
+    const query = conversationFilter.trim().toLocaleLowerCase()
+    if (!query) return botRoster
+    return botRoster.filter((bot) => [bot.name, bot.role, bot.lastChannelTitle].some((value) => value?.toLocaleLowerCase().includes(query)))
+  }, [botRoster, conversationFilter])
+  const visibleBotInboxThreads = useMemo(() => {
+    const query = conversationFilter.trim().toLocaleLowerCase()
+    if (!query) return botInboxThreads
+    return botInboxThreads.filter((thread) => [thread.title, thread.preview, thread.status].some((value) => value?.toLocaleLowerCase().includes(query)))
+  }, [botInboxThreads, conversationFilter])
+  const botChannelGroups = useMemo(
+    () => hermesAgentGroups.filter((group) => group.conversations.length > 0),
+    [hermesAgentGroups],
   )
   const isolationAgentId = useMemo(
     () => isolationAgentIdForConversation({
@@ -7286,14 +7302,22 @@ export default function UnifiedChat({
     }
   }, [sessionsOverlayViewport])
   const selectBot = useCallback((botId: string) => {
+    const groupKey = `agent:${botId}`
+    setExpandedSessionGroupKeys((current) => {
+      if (current.includes(groupKey)) return current
+      const next = [...current, groupKey]
+      writeExpandedSessionGroupKeys(orgId, next)
+      return next
+    })
     const latest = hermesAgentGroups.find((group) => group.id === botId)?.conversations[0]
     if (latest) {
+      setBotRailSection('channels')
       setActiveId(latest.id)
       closeSessions()
       return
     }
     openNewAgentConversation(botId)
-  }, [closeSessions, hermesAgentGroups, openNewAgentConversation, setActiveId])
+  }, [closeSessions, hermesAgentGroups, openNewAgentConversation, orgId, setActiveId])
   useEffect(() => {
     if (!showConversationList || !showListOnMobile || !sessionsOverlayViewport) return
     mobileSessionsCloseRef.current?.focus()
@@ -7382,7 +7406,7 @@ export default function UnifiedChat({
             <button type="button" aria-label="Search sessions" onClick={() => { onConversationRailModeChange?.('expanded'); requestAnimationFrame(() => conversationFilterRef.current?.focus()) }} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] xl:h-10 xl:w-10"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">search</span></button>
             <div aria-hidden="true" className="my-0.5 h-px w-7 bg-[var(--color-card-border)]" />
             {botMode ? (
-              <BotRoster bots={botRoster} activeBotId={activeBotId} onSelectBot={selectBot} compact />
+              <BotRoster bots={visibleBotRoster} activeBotId={activeBotId} onSelectBot={selectBot} compact />
             ) : (
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
               {filteredConversations.slice(0, 10).map((conversation) => (
@@ -7444,7 +7468,7 @@ export default function UnifiedChat({
           <div className={hermesLayout
             ? 'text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]'
             : 'text-xs text-[var(--color-pib-text-muted)]'}>
-            {hermesLayout ? (botMode ? 'Bots' : 'Sessions') : 'Conversations'}
+            {hermesLayout ? (botMode ? 'Bot mode' : 'Sessions') : 'Conversations'}
           </div>
           <div className="flex items-center gap-0.5">
             {hermesLayout && (
@@ -7452,14 +7476,14 @@ export default function UnifiedChat({
                 type="button"
                 onClick={() => openNewConversation()}
                 disabled={!allowStartConversations}
-                aria-label="New conversation"
-                title="New conversation"
+                aria-label={botMode ? 'New channel' : 'New conversation'}
+                title={botMode ? 'New channel' : 'New conversation'}
                 className="grid h-8 w-8 place-items-center rounded-md text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-[var(--color-pib-text)] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <span className="material-symbols-outlined text-[16px]" aria-hidden="true">add</span>
               </button>
             )}
-            {hermesLayout && (
+            {hermesLayout && !botMode && (
               <button
                 type="button"
                 aria-label="New project"
@@ -7479,10 +7503,10 @@ export default function UnifiedChat({
           <input
             ref={conversationFilterRef}
             type="search"
-            aria-label="Filter conversations"
+            aria-label={botMode ? 'Filter bots' : 'Filter conversations'}
             value={conversationFilter}
             onChange={(event) => setConversationFilter(event.target.value)}
-            placeholder="Filter conversations"
+            placeholder={botMode ? (botRailSection === 'inbox' ? 'Filter inbox' : botRailSection === 'channels' ? 'Filter channels' : 'Filter bots') : 'Filter conversations'}
             className={hermesLayout
               ? 'h-11 w-full rounded-md border border-[var(--color-card-border)] bg-black/10 pl-7 pr-2 text-xs text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)]/65 focus:border-primary/50 focus:ring-1 focus:ring-primary/30 xl:h-8'
               : 'h-9 w-full rounded-lg border border-[var(--color-card-border)] bg-transparent pl-8 pr-2 text-sm text-[var(--color-pib-text)] outline-none placeholder:text-[var(--color-pib-text-muted)] focus:border-primary/50 focus:ring-1 focus:ring-primary/30'}
@@ -7525,36 +7549,49 @@ export default function UnifiedChat({
           </div>
         )}
 
+        {botMode && (
+          <BotRailSwitcher
+            value={botRailSection}
+            onChange={setBotRailSection}
+            botsCount={visibleBotRoster.length}
+            inboxCount={visibleBotInboxThreads.length}
+            channelsCount={botChannelGroups.reduce((total, group) => total + group.conversations.length, 0)}
+          />
+        )}
+
         <div className={hermesLayout ? 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5' : 'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto'}>
-          {botMode && (
+          {botMode && botRailSection === 'bots' && (
             <BotRoster
-              bots={botRoster}
+              bots={visibleBotRoster}
               activeBotId={activeBotId}
               onSelectBot={selectBot}
               onStartChannel={allowStartConversations ? openNewAgentConversation : undefined}
               onShareBot={shareCustomBot}
             />
           )}
-          {botMode && (
+          {botMode && botRailSection === 'inbox' && (
             <BotInboxRail
-              threads={botInboxThreads}
+              threads={visibleBotInboxThreads}
               bots={botRoster.map((bot) => ({ id: bot.id, name: bot.name }))}
               activeId={activeId}
               onOpenThread={(threadId) => { setActiveId(threadId); closeSessions() }}
               onCreateThread={allowStartConversations ? createBotInboxThread : undefined}
             />
           )}
-          {(hermesLayout ? !hasHermesRailItems : filteredConversations.length === 0) && (
+          {botMode && botRailSection === 'channels' && botChannelGroups.length === 0 && (
+            <div className="px-2 py-3 text-xs text-[var(--color-pib-text-muted)]">
+              {conversationFilter.trim() ? 'No channels match your filter.' : 'No channels yet. Open a Bot to start one.'}
+            </div>
+          )}
+          {!botMode && (hermesLayout ? !hasHermesRailItems : filteredConversations.length === 0) && (
             <div className="text-xs text-[var(--color-pib-text-muted)] px-2 py-3">
               {conversationFilter.trim()
-                ? botMode ? 'No bots or channels match your filter.' : 'No projects or conversations match your filter.'
+                ? 'No projects or conversations match your filter.'
                 : allowStartConversations
-                  ? botMode
-                    ? 'No channels yet. Start one with a Bot above.'
-                    : workspaceProjects.length === 0
+                  ? workspaceProjects.length === 0
                     ? 'No projects yet. Use New project above to create your first project, then start its sessions.'
                     : 'No projects or conversations yet. Start one.'
-                  : botMode ? 'No bots or channels yet.' : 'No projects or conversations yet.'}
+                  : 'No projects or conversations yet.'}
             </div>
           )}
           {hermesLayout && !botMode && hermesCompanyGroups.length > 0 && (
@@ -8191,17 +8228,19 @@ export default function UnifiedChat({
               </div>
             </div>
           )}
-          {hermesLayout && (botMode ? hermesAgentGroups.some((group) => group.conversations.length > 0) : hermesAgentGroups.length > 0) && (
+          {hermesLayout && (botMode ? botRailSection === 'channels' && botChannelGroups.length > 0 : hermesAgentGroups.length > 0) && (
             <div data-testid="hermes-agents" className="min-w-0">
-              <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
-                <span>{botMode ? 'Channels' : 'Agents'}</span>
-                <span className="font-mono text-[10px] tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesAgentGroups.length}</span>
-              </div>
+              {!botMode && (
+                <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
+                  <span>Agents</span>
+                  <span className="font-mono text-[10px] tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesAgentGroups.length}</span>
+                </div>
+              )}
               <div className="flex min-w-0 flex-col gap-0.5">
-                {hermesAgentGroups.map((agent) => {
+                {(botMode ? botChannelGroups : hermesAgentGroups).map((agent) => {
                   const groupKey = `agent:${agent.id}`
                   const agentIsAuthorized = Boolean(agentMap[agent.id])
-                  const sessionsExpanded = botMode || Boolean(conversationFilter.trim()) || expandedSessionGroupKeys.includes(groupKey)
+                  const sessionsExpanded = Boolean(conversationFilter.trim()) || expandedSessionGroupKeys.includes(groupKey)
                   const sessionsRegionId = `agent-sessions-${agent.id}`
                   return (
                     <div
