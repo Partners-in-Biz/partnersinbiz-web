@@ -1,5 +1,6 @@
 import type { BriefingSourceItem, BriefingV2CardContract } from './types'
 import { extractSafeExcerpt } from './utils'
+import { briefingContactChannels, briefingHandoffAgentId, briefingPersonName, isContactableSource } from './cardFacts'
 
 const GATED_EXTERNAL_ACTIONS = 'Production deploys, main merges, public publishing, client/prospect sends, paid spend, finance, secret/config changes, and destructive actions remain separately approval-gated.'
 
@@ -69,10 +70,27 @@ function defaultSafetyGate(item: BriefingSourceItem): BriefingV2CardContract['sa
 }
 
 function defaultNearestValidActions(item: BriefingSourceItem): BriefingV2CardContract['nearestValidActions'] {
-  const actions: BriefingV2CardContract['nearestValidActions'] = [
-    { action: 'open-evidence', label: 'Open evidence/source', reason: 'Read-only, source-linked review is safe before any gated action.' },
-    { action: 'create-task', label: 'Create internal follow-up task', reason: 'Internal Projects/Kanban routing preserves tenant scope and evidence.' },
-  ]
+  const person = briefingPersonName(item)
+  const channels = briefingContactChannels(item)
+  const actions: BriefingV2CardContract['nearestValidActions'] = []
+  if (channels.phone) actions.push({ action: 'call-contact', label: `Call ${person ?? 'contact'}`, reason: channels.phone, href: `tel:${channels.phone}` })
+  if (channels.email) actions.push({ action: 'email-contact', label: `Email ${person ?? 'contact'}`, reason: channels.email, href: `mailto:${channels.email}` })
+  const href = sourceHref(item)
+  if (href) {
+    const openLabel = item.source.type === 'invoice'
+      ? 'Open invoice'
+      : item.source.type === 'quote'
+        ? 'Open quote'
+        : item.source.type === 'deal'
+          ? 'Open deal'
+          : item.source.type === 'support-ticket'
+            ? 'Open ticket'
+            : 'Open source'
+    actions.push({ action: 'open-evidence', label: openLabel, reason: 'Open the linked record for the full details.' })
+  }
+  if (item.context.projectId || item.source.type === 'seo-task') {
+    actions.push({ action: 'create-task', label: 'Create internal follow-up task', reason: 'Internal Projects/Kanban routing preserves tenant scope and evidence.' })
+  }
   if (item.source.type === 'agent-output') {
     actions.unshift({ action: 'pending-review', label: 'Mark pending review', reason: 'Internal review state only; no external side effect.' })
   }
@@ -80,6 +98,30 @@ function defaultNearestValidActions(item: BriefingSourceItem): BriefingV2CardCon
     actions.unshift({ action: 'complete', label: 'Complete internal SEO task', reason: 'Only valid after Peet confirms the decision or the evidence is sufficient.' })
   }
   return actions
+}
+
+function contactableContract(item: BriefingSourceItem): Partial<BriefingV2CardContract> {
+  const person = briefingPersonName(item)
+  const channels = briefingContactChannels(item)
+  const options: BriefingV2CardContract['options'] = [
+    { id: 'log-follow-up', label: 'Log the next step', description: channels.phone || channels.email ? 'Call or email, then record what happened.' : 'Record the decision or next step against this record.', recommended: true },
+    { id: 'create-follow-up', label: 'Create follow-up', description: 'Keep the next internal action on the board with this source as evidence.', recommended: false },
+  ]
+  return {
+    decisionRequest: {
+      prompt: person ? `Follow up ${person}` : item.title,
+      scope: 'internal',
+      source: item.source.type,
+      reason: [person ? `Contact: ${person}` : null, channels.phone ? `Phone: ${channels.phone}` : null, channels.email ? `Email: ${channels.email}` : null, firstText(item.summary)].filter(Boolean).join(' · ') || item.title,
+    },
+    options,
+    recommendedOption: { id: 'log-follow-up', label: 'Log the next step' },
+    inputTarget: { action: 'follow-up-created', resourceType: item.source.type, resourceId: item.source.id, orgId: item.orgId },
+    afterSubmit: { consequence: 'Records an internal follow-up only; no external send is performed.', createsAuditTrail: true, nextStatus: 'follow-up-created' },
+    agentHandoff: { targetAgentId: briefingHandoffAgentId(item), sourceTaskId: item.context.taskId ?? null, sourceProjectId: item.context.projectId ?? null, summary: item.summary },
+    nearestValidActions: defaultNearestValidActions(item),
+    disabledReason: null,
+  }
 }
 
 function seoTaskContract(item: BriefingSourceItem): Partial<BriefingV2CardContract> {
@@ -189,7 +231,7 @@ function crmRelationshipContract(item: BriefingSourceItem): Partial<BriefingV2Ca
     recommendedOption: { id: 'log-follow-up', label: 'Log the next step' },
     inputTarget: { action: 'follow-up-created', resourceType: item.context.dealId ? 'deal' : 'contact', resourceId: item.context.dealId ?? item.context.contactId ?? item.source.id, orgId: item.orgId },
     afterSubmit: { consequence: 'Records an internal CRM follow-up only; no external send is performed.', createsAuditTrail: true, nextStatus: 'follow-up-created' },
-    agentHandoff: { targetAgentId: 'sales', sourceTaskId: item.context.taskId ?? null, sourceProjectId: item.context.projectId ?? null, summary: item.summary, context: { contactId: item.context.contactId ?? null, dealId: item.context.dealId ?? null } },
+    agentHandoff: { targetAgentId: briefingHandoffAgentId(item), sourceTaskId: item.context.taskId ?? null, sourceProjectId: item.context.projectId ?? null, summary: item.summary, context: { contactId: item.context.contactId ?? null, dealId: item.context.dealId ?? null } },
     nearestValidActions,
     disabledReason: null,
   }
@@ -211,7 +253,7 @@ function defaultContract(item: BriefingSourceItem): BriefingV2CardContract {
     recommendedOption: { id: 'review', label: 'Review internally' },
     inputTarget: { action: 'read', resourceType: source, resourceId: item.source.id, orgId: item.orgId },
     afterSubmit: { consequence: 'Records an internal briefing state only; no external side effect is performed.', createsAuditTrail: true },
-    agentHandoff: { targetAgentId: item.context.reviewerAgentId ?? null, sourceTaskId: item.context.taskId ?? null, sourceProjectId: item.context.projectId ?? null, summary: item.summary },
+    agentHandoff: { targetAgentId: briefingHandoffAgentId(item), sourceTaskId: item.context.taskId ?? null, sourceProjectId: item.context.projectId ?? null, summary: item.summary },
     evidenceLinks: sourceEvidence(item),
     safetyGate: defaultSafetyGate(item),
     disabledReason: `Unsafe external actions are unavailable from this card: ${GATED_EXTERNAL_ACTIONS}`,
@@ -224,7 +266,9 @@ function defaultContract(item: BriefingSourceItem): BriefingV2CardContract {
       ? agentOutputContract(item)
       : ['activity', 'contact', 'deal'].includes(source)
         ? crmRelationshipContract(item)
-        : {}
+        : isContactableSource(source)
+          ? contactableContract(item)
+          : { nearestValidActions: defaultNearestValidActions(item), disabledReason: ['agent-output', 'seo-task', 'ad-campaign', 'broadcast', 'campaign'].includes(source) ? base.disabledReason : null }
 
   return {
     ...base,

@@ -9,10 +9,13 @@ import { sanitizeContextReferenceSeeds, type ContextReferenceSeed, type ContextR
 import {
   briefingContactChannels,
   briefingDisplayFacts,
+  briefingHandoffAgentId,
   briefingHasContactChannel,
   briefingListFacts,
+  briefingPersonName,
   briefingUsefulSummary,
   isBoilerplateDisabledReason,
+  isContactableSource,
   isCrmRelationshipSource,
   isGenericBriefingDecision,
 } from '@/lib/briefing/cardFacts'
@@ -755,10 +758,15 @@ function phase2NextActionCopy(item: BriefingCard, mode: Mode) {
   if (approvalGateReviewable(item)) return 'Next action: approve the gate if the request is safe, or reject it with direction for the agent.'
   if (documentReviewable(item)) return 'Next action: approve the document, or request changes with a clear note.'
   if (canSocialPostAct(item) && socialActionStage(item)) return 'Next action: approve the content for its current review stage, or request changes without publishing.'
-  if (canConvertToCrmActivity(item) || isCrmRelationshipSource(item.source.type)) {
+  if (canConvertToCrmActivity(item) || isContactableSource(item.source.type)) {
     const channels = briefingContactChannels(item)
-    if (channels.phone || channels.email) return 'Next action: call or email the contact, then log the next CRM follow-up.'
-    return 'Next action: convert this signal into a CRM activity or schedule the next follow-up task.'
+    const person = briefingPersonName(item)
+    if (channels.phone || channels.email) {
+      return `Next action: call or email ${person ?? 'the contact'}, then log the next follow-up.`
+    }
+    if (isCrmRelationshipSource(item.source.type) || canConvertToCrmActivity(item)) {
+      return 'Next action: convert this signal into a CRM activity or schedule the next follow-up task.'
+    }
   }
   if (canAgentRunApprove(item, mode) || canWorkspaceBrokerAct(item, mode)) return 'Next action: review the approval request and only approve the scoped operation if it is safe.'
   if (canTaskAct(item)) return 'Next action: reply on the task, create a follow-up task, assign an agent, or snooze this signal.'
@@ -766,11 +774,7 @@ function phase2NextActionCopy(item: BriefingCard, mode: Mode) {
 }
 
 function phase2AgentId(item: BriefingCard) {
-  const assigned = item.metadata?.assigneeAgentId ?? item.metadata?.assignedAgentId ?? item.metadata?.agentId
-  if (typeof assigned === 'string' && assigned.trim()) return assigned.trim().replace(/^agent:/, '')
-  if (item.actor.type === 'agent') return item.actor.id.replace(/^agent:/, '')
-  if (isCrmRelationshipSource(item.source.type)) return 'sales'
-  return 'theo'
+  return briefingHandoffAgentId(item)
 }
 
 function phase2AgentLabel(item: BriefingCard) {
@@ -984,7 +988,8 @@ function isFollowUpDueItem(item: BriefingCard) {
 }
 
 function isCallItem(item: BriefingCard): boolean {
-  if (['contact', 'deal'].includes(item.source.type)) return true
+  if (briefingContactChannels(item).phone) return true
+  if (['contact', 'deal', 'booking'].includes(item.source.type)) return true
   if (isCrmRelationshipSource(item.source.type) && briefingHasContactChannel(item)) return true
 
   if (item.source.type === 'task') {
@@ -2785,18 +2790,18 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         </div>
                       ))}
                     </dl>
-                    {isCrmRelationshipSource(selected.source.type) || briefingHasContactChannel(selected) ? (
+                    {isContactableSource(selected.source.type) || briefingHasContactChannel(selected) ? (
                       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {briefingContactChannels(selected).email ? (
                           <a href={`mailto:${briefingContactChannels(selected).email}`} className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs">
                             <span className="material-symbols-outlined text-[15px]">mail</span>
-                            Email {selected.context.contactName || 'contact'}
+                            Email {briefingPersonName(selected) || 'contact'}
                           </a>
                         ) : null}
                         {briefingContactChannels(selected).phone ? (
                           <a href={`tel:${briefingContactChannels(selected).phone}`} className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs">
                             <span className="material-symbols-outlined text-[15px]">call</span>
-                            Call {selected.context.contactName || 'contact'}
+                            Call {briefingPersonName(selected) || 'contact'}
                           </a>
                         ) : null}
                         <button

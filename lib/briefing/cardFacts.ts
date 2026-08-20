@@ -33,7 +33,7 @@ export type CrmDisplayRecord = {
   jobTitle?: string | null
 }
 
-const OPAQUE_ID = /^[A-Za-z0-9_-]{16,}$|^[a-z]+_[A-Za-z0-9_-]{8,}$/i
+const OPAQUE_ID = /^[A-Za-z0-9-]{16,}$|^[a-z]+_[A-Za-z0-9]{12,}$/i
 
 export function looksLikeOpaqueId(value: string | null | undefined): boolean {
   if (!value) return false
@@ -82,16 +82,16 @@ function pushFact(facts: BriefingFact[], id: string, label: string, value: strin
 }
 
 function dealValue(item: BriefingSourceItem): string | null {
-  return formatBriefingMoney(metaNumber(item, 'value', 'amount', 'dealValue', 'total'), metaText(item, 'currency') ?? 'ZAR')
+  return formatBriefingMoney(metaNumber(item, 'value', 'amount', 'dealValue', 'total', 'dailyBudget', 'budget'), metaText(item, 'currency') ?? 'ZAR')
 }
 
 function contactEmail(item: BriefingSourceItem): string | null {
-  const email = metaText(item, 'email', 'contactEmail')
+  const email = metaText(item, 'email', 'contactEmail', 'recipientEmail', 'fromEmail', 'attendeeEmail', 'requesterEmail')
   return email && email.includes('@') ? email : null
 }
 
 function contactPhone(item: BriefingSourceItem): string | null {
-  return metaText(item, 'phone', 'contactPhone')
+  return metaText(item, 'phone', 'contactPhone', 'mobile')
 }
 
 export function briefingContactChannels(item: BriefingSourceItem): { email: string | null; phone: string | null } {
@@ -105,6 +105,55 @@ export function briefingHasContactChannel(item: BriefingSourceItem): boolean {
 
 export function isCrmRelationshipSource(type: string): boolean {
   return ['activity', 'contact', 'deal', 'booking', 'enquiry', 'form-submission', 'quote'].includes(type)
+}
+
+export function isContactableSource(type: string): boolean {
+  return isCrmRelationshipSource(type) || ['invoice', 'support-ticket', 'mailbox-message', 'calendar-event', 'social-inbox'].includes(type)
+}
+
+function personName(item: BriefingSourceItem): string | null {
+  const ctx = item.context
+  return humanText(ctx.contactName)
+    ?? humanText(ctx.enquiryName)
+    ?? humanText(ctx.bookingName)
+    ?? humanText(ctx.mailboxFrom)
+    ?? humanText(ctx.socialInboxFrom)
+    ?? metaText(item, 'recipientName', 'attendeeName', 'requesterName', 'contactName', 'fromLabel')
+}
+
+export function briefingPersonName(item: BriefingSourceItem): string | null {
+  return personName(item)
+}
+
+const HANDOFF_AGENT_BY_TYPE: Record<string, string> = {
+  activity: 'sales',
+  contact: 'sales',
+  deal: 'sales',
+  quote: 'sales',
+  booking: 'sales',
+  enquiry: 'sales',
+  'form-submission': 'sales',
+  'calendar-event': 'sales',
+  'support-ticket': 'support',
+  'mailbox-message': 'support',
+  invoice: 'nora',
+  expense: 'nora',
+  'seo-task': 'seo',
+  'seo-content': 'seo',
+  'ad-campaign': 'ads',
+  'social-post': 'maya',
+  'social-inbox': 'maya',
+  broadcast: 'maya',
+  campaign: 'maya',
+  report: 'docs',
+  'client-document': 'docs',
+}
+
+export function briefingHandoffAgentId(item: BriefingSourceItem): string {
+  const assigned = item.metadata?.assigneeAgentId ?? item.metadata?.assignedAgentId ?? item.metadata?.agentId
+  if (typeof assigned === 'string' && assigned.trim()) return assigned.trim().replace(/^agent:/, '')
+  if (item.actor?.type === 'agent' && item.actor.id) return item.actor.id.replace(/^agent:/, '')
+  return HANDOFF_AGENT_BY_TYPE[item.source.type] ?? item.context.reviewerAgentId ?? 'theo'
 }
 
 function activityType(item: BriefingSourceItem): string {
@@ -128,46 +177,113 @@ function defaultNextAction(item: BriefingSourceItem): string | null {
   }
   if (type === 'activity') return 'Log the outcome against this CRM record or schedule the next follow-up.'
   if (type === 'booking') return 'Confirm the meeting details and prepare for the call.'
+  if (type === 'calendar-event') return 'RSVP or open the calendar event and confirm attendance.'
   if (type === 'enquiry' || type === 'form-submission') return 'Qualify the enquiry and reply or create the next internal follow-up.'
   if (type === 'mailbox-message') return 'Read the email and draft a reply without sending until it is approved.'
+  if (type === 'social-inbox') return 'Reply to the message or archive it if no follow-up is needed.'
+  if (type === 'social-post') return 'Approve the post for its current review stage, or request changes without publishing.'
   if (type === 'support-ticket') return 'Reply to the ticket or route it to the owning specialist.'
   if (type === 'invoice') return 'Review the invoice status and take the next billing step.'
   if (type === 'quote') return 'Review the quote and accept, decline, or convert it.'
-  if (type === 'agent-output' || type === 'agent-learning-review') return 'Review the evidence, then approve or send it back.'
-  return null
+  if (type === 'order') return 'Unblock fulfillment or update the order status.'
+  if (type === 'shipment') return 'Check tracking and confirm delivery or recovery.'
+  if (type === 'inventory-item') return 'Restock or adjust the inventory threshold.'
+  if (type === 'expense') return 'Approve or reject the expense with a note.'
+  if (type === 'report') return 'Review the report, then send it only after approval.'
+  if (type === 'seo-task') return 'Decide the SEO task so the sprint can continue.'
+  if (type === 'seo-content') return 'Review the SEO content without publishing until it is approved.'
+  if (type === 'ad-campaign') return 'Approve or request changes; paid spend stays gated.'
+  if (type === 'broadcast' || type === 'campaign') return 'Review the campaign internally; sending stays approval-gated.'
+  if (type === 'agent-output' || type === 'agent-learning-review' || type === 'business-insight-review') {
+    return 'Review the evidence, then approve or send it back.'
+  }
+  if (type === 'agent-run' || type === 'workspace-broker-job') return 'Approve the scoped operation only if it is safe, or deny it.'
+  if (type === 'task' || type === 'approval' || type === 'client-document') return 'Approve, request changes, or create a follow-up with a clear note.'
+  if (type === 'comment') return 'Reply on the source thread or create a follow-up task.'
+  if (type === 'notification') return 'Open the source and mark this notification handled when the work is done.'
+  return 'Open the source for more context, then take the next internal step.'
+}
+
+const LIST_RANK_BY_TYPE: Record<string, string[]> = {
+  activity: ['deal', 'value', 'company', 'contact', 'stage', 'email', 'phone'],
+  contact: ['contact', 'company', 'email', 'phone', 'stage', 'role'],
+  deal: ['deal', 'value', 'company', 'contact', 'stage'],
+  booking: ['booking', 'contact', 'company', 'email', 'when'],
+  'calendar-event': ['calendar', 'contact', 'email', 'when'],
+  enquiry: ['enquiry', 'company', 'email', 'contact'],
+  'form-submission': ['contact', 'email', 'company'],
+  invoice: ['invoice', 'value', 'contact', 'email', 'status', 'when'],
+  quote: ['quote', 'value', 'contact', 'email', 'status', 'when'],
+  order: ['order', 'value', 'status', 'company', 'when'],
+  shipment: ['tracking', 'carrier', 'status', 'company', 'when'],
+  'inventory-item': ['sku', 'status', 'company'],
+  expense: ['value', 'vendor', 'status', 'when'],
+  'support-ticket': ['ticket', 'contact', 'email', 'status'],
+  report: ['report', 'project', 'status'],
+  'mailbox-message': ['mailbox', 'subject', 'email'],
+  'social-inbox': ['contact', 'campaign'],
+  'social-post': ['campaign', 'status'],
+  'ad-campaign': ['campaign', 'value', 'status'],
+  broadcast: ['campaign', 'subject', 'status'],
+  campaign: ['campaign', 'status'],
+  'seo-task': ['seo', 'status', 'project'],
+  'seo-content': ['seo', 'status'],
+  'client-document': ['document', 'status', 'project'],
+  comment: ['task', 'project', 'document'],
+  task: ['task', 'project', 'status'],
+  approval: ['task', 'project', 'status'],
+  'agent-output': ['task', 'project'],
+  'agent-learning-review': ['task', 'project'],
+  'agent-run': ['status'],
+  'workspace-broker-job': ['status'],
+  project: ['project', 'status', 'task'],
+  notification: ['contact', 'deal', 'company', 'status'],
+  'business-insight-review': ['task', 'project'],
+}
+
+function whenLabel(item: BriefingSourceItem): string | null {
+  const date = metaText(item, 'dueDate', 'expectedDeliveryDate', 'validUntil', 'date', 'start', 'startAt', 'scheduledFor', 'publishDate')
+  const time = metaText(item, 'time')
+  if (date && time && !date.includes(time)) return `${date} ${time}`
+  return date
 }
 
 export function briefingDisplayFacts(item: BriefingSourceItem): BriefingFact[] {
   const facts: BriefingFact[] = []
   const ctx = item.context
 
-  pushFact(facts, 'deal', 'Deal', humanText(ctx.dealTitle) ?? (activityType(item).includes('stage') ? null : null))
+  pushFact(facts, 'deal', 'Deal', humanText(ctx.dealTitle))
+  pushFact(facts, 'booking', 'Booking', humanText(ctx.bookingName))
+  pushFact(facts, 'calendar', 'Meeting', humanText(ctx.calendarEventTitle))
+  pushFact(facts, 'enquiry', 'Enquiry', humanText(ctx.enquiryName))
+  pushFact(facts, 'mailbox', 'From', humanText(ctx.mailboxFrom) ?? metaText(item, 'fromEmail'))
+  pushFact(facts, 'ticket', 'Ticket', humanText(ctx.supportTicketSubject))
+  pushFact(facts, 'invoice', 'Invoice', humanText(ctx.invoiceNumber))
+  pushFact(facts, 'quote', 'Quote', humanText(ctx.quoteNumber))
+  pushFact(facts, 'order', 'Order', humanText(ctx.orderTitle))
   pushFact(facts, 'value', 'Value', dealValue(item))
   pushFact(facts, 'stage', 'Stage', stageChangeLabel(item) ?? metaText(item, 'stageLabel', 'contactStage', 'stage'))
-  pushFact(facts, 'company', 'Company', humanText(ctx.companyName) ?? metaText(item, 'company', 'companyName'))
-  pushFact(facts, 'contact', 'Contact', humanText(ctx.contactName))
+  pushFact(facts, 'company', 'Company', humanText(ctx.companyName) ?? metaText(item, 'company', 'companyName', 'recipientCompanyName'))
+  pushFact(facts, 'contact', 'Contact', personName(item))
   const email = contactEmail(item)
   const phone = contactPhone(item)
   pushFact(facts, 'email', 'Email', email, email ? `mailto:${email}` : null)
   pushFact(facts, 'phone', 'Phone', phone, phone ? `tel:${phone}` : null)
-  pushFact(facts, 'job-title', 'Role', metaText(item, 'jobTitle'))
+  pushFact(facts, 'role', 'Role', metaText(item, 'jobTitle'))
   pushFact(facts, 'project', 'Project', humanText(ctx.projectName))
   pushFact(facts, 'task', 'Task', humanText(ctx.taskTitle))
   pushFact(facts, 'document', 'Document', humanText(ctx.documentTitle))
   pushFact(facts, 'report', 'Report', humanText(ctx.reportTitle))
   pushFact(facts, 'conversation', 'Conversation', humanText(ctx.conversationTitle))
-  pushFact(facts, 'quote', 'Quote', humanText(ctx.quoteNumber))
-  pushFact(facts, 'invoice', 'Invoice', humanText(ctx.invoiceNumber))
-  pushFact(facts, 'order', 'Order', humanText(ctx.orderTitle))
-  pushFact(facts, 'ticket', 'Ticket', humanText(ctx.supportTicketSubject))
-  pushFact(facts, 'status', 'Status', metaText(item, 'invoiceStatus', 'quoteStatus', 'orderStatus', 'shipmentStatus', 'fulfillmentStatus', 'seoTaskStatus', 'contactStage'))
+  pushFact(facts, 'status', 'Status', metaText(item, 'invoiceStatus', 'quoteStatus', 'orderStatus', 'shipmentStatus', 'fulfillmentStatus', 'inventoryStatus', 'expenseStatus', 'seoTaskStatus', 'seoStatus', 'contactStage', 'supportStatus', 'bookingStatus', 'broadcastStatus', 'enquiryStatus', 'reportStatus', 'documentStatus', 'runStatus', 'brokerStatus', 'adCampaignStatus', 'campaignStatus', 'reviewState', 'socialInboxStatus', 'formSubmissionStatus'))
+  pushFact(facts, 'when', 'When', whenLabel(item))
+  pushFact(facts, 'tracking', 'Tracking', humanText(ctx.shipmentTrackingNumber) ?? metaText(item, 'trackingNumber'))
+  pushFact(facts, 'carrier', 'Carrier', metaText(item, 'carrier'))
+  pushFact(facts, 'sku', 'SKU', metaText(item, 'sku') ?? humanText(ctx.inventoryItemName))
+  pushFact(facts, 'vendor', 'Vendor', metaText(item, 'vendor'))
   pushFact(facts, 'campaign', 'Campaign', humanText(ctx.campaignName) ?? humanText(ctx.adCampaignName) ?? humanText(ctx.broadcastName))
-  pushFact(facts, 'booking', 'Booking', humanText(ctx.bookingName))
-  pushFact(facts, 'calendar', 'Meeting', humanText(ctx.calendarEventTitle))
-  pushFact(facts, 'mailbox', 'From', humanText(ctx.mailboxFrom))
   pushFact(facts, 'subject', 'Subject', humanText(ctx.mailboxSubject) ?? metaText(item, 'subject'))
-  pushFact(facts, 'enquiry', 'Enquiry', humanText(ctx.enquiryName))
-  pushFact(facts, 'seo', 'SEO', humanText(ctx.seoTaskTitle) ?? humanText(ctx.seoContentTitle))
+  pushFact(facts, 'seo', 'SEO', humanText(ctx.seoTaskTitle) ?? humanText(ctx.seoContentTitle) ?? metaText(item, 'targetKeyword', 'focus'))
   pushFact(facts, 'workspace', 'Workspace', humanText(ctx.orgName))
   const next = defaultNextAction(item)
   pushFact(facts, 'next', 'Next', next)
@@ -176,7 +292,7 @@ export function briefingDisplayFacts(item: BriefingSourceItem): BriefingFact[] {
 }
 
 export function briefingListFacts(item: BriefingSourceItem, limit = 4): BriefingFact[] {
-  const preferred = ['deal', 'value', 'company', 'contact', 'stage', 'email', 'phone', 'invoice', 'quote', 'ticket', 'booking', 'subject', 'project', 'task', 'next']
+  const preferred = [...(LIST_RANK_BY_TYPE[item.source.type] ?? ['contact', 'company', 'value', 'status', 'email', 'phone']), 'next']
   const facts = briefingDisplayFacts(item)
   const ranked = preferred
     .map((id) => facts.find((fact) => fact.id === id))

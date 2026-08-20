@@ -475,11 +475,15 @@ const supportBriefingItem = {
     orgSlug: 'client-one',
     supportTicketId: 'support-1',
     supportTicketSubject: 'Website form is not sending leads',
+    contactName: 'Riley Client',
   },
   metadata: {
     supportStatus: 'waiting_on_us',
     supportPriority: 'urgent',
     sourcePath: '/portal/campaigns',
+    requesterName: 'Riley Client',
+    requesterEmail: 'riley@client.test',
+    email: 'riley@client.test',
   },
   occurredAt: '2026-05-31T09:56:00.000Z',
 }
@@ -501,12 +505,15 @@ const invoiceBriefingItem = {
     orgSlug: 'client-one',
     invoiceId: 'invoice-1',
     invoiceNumber: 'INV-1001',
+    contactName: 'Riley Client',
   },
   metadata: {
     invoiceStatus: 'draft',
     total: 12500,
     currency: 'ZAR',
     recipientName: 'Riley Client',
+    recipientEmail: 'riley@client.test',
+    email: 'riley@client.test',
   },
   occurredAt: '2026-05-31T09:55:00.000Z',
 }
@@ -528,12 +535,15 @@ const invoiceProofBriefingItem = {
     orgSlug: 'client-one',
     invoiceId: 'invoice-proof-1',
     invoiceNumber: 'INV-2001',
+    contactName: 'Riley Client',
   },
   metadata: {
     invoiceStatus: 'payment_pending_verification',
     total: 8800,
     currency: 'ZAR',
     recipientName: 'Riley Client',
+    recipientEmail: 'riley@client.test',
+    email: 'riley@client.test',
     paymentProofFileId: 'file-proof-1',
     paymentProofUploadedAt: '2026-05-31',
   },
@@ -557,12 +567,15 @@ const quoteBriefingItem = {
     orgSlug: 'client-one',
     quoteId: 'quote-1',
     quoteNumber: 'QUO-1001',
+    contactName: 'Riley Client',
   },
   metadata: {
     quoteStatus: 'sent',
     total: 18500,
     currency: 'ZAR',
     recipientName: 'Riley Client',
+    recipientEmail: 'riley@client.test',
+    email: 'riley@client.test',
     recipientOrgId: 'org-1',
     sourceOrgId: 'pib-platform-owner',
   },
@@ -2365,6 +2378,73 @@ describe('BriefingControlDesk', () => {
     expect(screen.queryByText(/Ask Theo to triage unavailable/i)).not.toBeInTheDocument()
   })
 
+  it.each([
+    {
+      name: 'invoice',
+      title: /Draft invoice ready: INV-1001/i,
+      facts: ['Invoice: INV-1001', 'Value: R12,500', 'Contact: Riley Client', 'Email: riley@client.test'],
+      email: /email riley client/i,
+      emailHref: 'mailto:riley@client.test',
+      handoff: /hand off to nora/i,
+    },
+    {
+      name: 'quote',
+      title: /Quote awaiting decision: QUO-1001/i,
+      facts: ['Quote: QUO-1001', 'Value: R18,500', 'Contact: Riley Client', 'Email: riley@client.test'],
+      email: /email riley client/i,
+      emailHref: 'mailto:riley@client.test',
+      handoff: /hand off to sales/i,
+    },
+    {
+      name: 'support ticket',
+      title: /Urgent support: Website form is not sending leads/i,
+      facts: ['Ticket: Website form is not sending leads', 'Contact: Riley Client', 'Email: riley@client.test'],
+      email: /email riley client/i,
+      emailHref: 'mailto:riley@client.test',
+      handoff: /hand off to support/i,
+    },
+    {
+      name: 'mailbox message',
+      title: /Unread email from Client Lead/i,
+      facts: ['From: Client Lead', 'Subject: Can we book a call?', 'Email: lead@example.test'],
+      email: /email client lead/i,
+      emailHref: 'mailto:lead@example.test',
+      handoff: /hand off to support/i,
+    },
+    {
+      name: 'calendar event',
+      title: /RSVP needed: Website retainer check-in/i,
+      facts: ['Meeting: Website retainer check-in', 'Contact: Ava Owner', 'Email: ava@example.test'],
+      email: /email ava owner/i,
+      emailHref: 'mailto:ava@example.test',
+      handoff: /hand off to sales/i,
+    },
+    {
+      name: 'form submission',
+      title: /New form submission from Ava Owner/i,
+      facts: ['Contact: Ava Owner', 'Email: ava@example.test'],
+      email: /email ava owner/i,
+      emailHref: 'mailto:ava@example.test',
+      handoff: /hand off to sales/i,
+    },
+  ])('shows item-specific facts and contact actions on a $name card', async ({ title, facts, email, emailHref, handoff }) => {
+    render(<BriefingControlDesk mode="portal" />)
+
+    const titleButton = await screen.findByRole('button', { name: title })
+    expect(titleButton.closest('div')).toHaveTextContent(facts[0])
+
+    fireEvent.click(titleButton)
+
+    const details = screen.getByLabelText('Card details')
+    for (const fact of facts) {
+      expect(details).toHaveTextContent(fact)
+    }
+    expect(screen.getByRole('link', { name: email })).toHaveAttribute('href', emailHref)
+    expect(screen.getByRole('button', { name: handoff })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /unavailable/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('Unknown')).not.toBeInTheDocument()
+  })
+
   it('opens and sends rendered report cards from the control desk', async () => {
     render(<BriefingControlDesk mode="portal" />)
 
@@ -2392,6 +2472,10 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Urgent support: Website form is not sending leads/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Ticket: Website form is not sending leads')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Contact: Riley Client')
+    expect(screen.getByRole('link', { name: /email riley client/i })).toHaveAttribute('href', 'mailto:riley@client.test')
+    expect(screen.getByRole('button', { name: /hand off to support/i })).toBeInTheDocument()
     expect(screen.getByText('Website form is not sending leads (support-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal')
 
@@ -2502,6 +2586,11 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Shipment in transit: DHL-123/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Tracking: DHL-123')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Carrier: DHL')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Company: Acme Holdings')
+    expect(screen.queryByRole('link', { name: /email /i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /unavailable/i })).not.toBeInTheDocument()
     expect(screen.getByText('DHL-123 (shipment-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/companies/company-1?shipment=shipment-1')
     expect(screen.getByRole('button', { name: /mark delivered/i })).toBeInTheDocument()
@@ -2534,6 +2623,10 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Order blocked: Website onboarding order/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Order: Website onboarding order')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Value: R18,500')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Company: Acme Holdings')
+    expect(screen.queryByRole('button', { name: /unavailable/i })).not.toBeInTheDocument()
     expect(screen.getByText('Website onboarding order (order-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/portal/companies/company-1?order=order-1')
     expect(screen.getByRole('button', { name: /mark order in progress/i })).toBeInTheDocument()
@@ -2611,6 +2704,11 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /New enquiry from Ava Owner/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Enquiry: Ava Owner')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Company: Acme Holdings')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Email: ava@example.test')
+    expect(screen.getByRole('link', { name: /email ava owner/i })).toHaveAttribute('href', 'mailto:ava@example.test')
+    expect(screen.getByRole('button', { name: /hand off to sales/i })).toBeInTheDocument()
     expect(screen.getByText('Ava Owner (enquiry-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/briefings?source=enquiry&id=enquiry-1')
     expect(screen.getByRole('button', { name: /mark enquiry reviewing/i })).toBeInTheDocument()
@@ -2656,6 +2754,9 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Expense needs approval: Travel/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Vendor: Bolt')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Status: submitted')
+    expect(screen.queryByRole('button', { name: /unavailable/i })).not.toBeInTheDocument()
     expect(screen.getByText('Travel (expense-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/finance?expense=expense-1')
     expect(screen.getByRole('button', { name: /approve expense/i })).toBeInTheDocument()
@@ -2913,6 +3014,9 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Social DM needs reply from Mia Prospect/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Contact: Mia Prospect')
+    expect(screen.getByRole('button', { name: /hand off to maya/i })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /email /i })).not.toBeInTheDocument()
     expect(screen.getByText('Mia Prospect (social-inbox-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/social/inbox?item=social-inbox-1')
     expect(screen.getByRole('button', { name: /mark engagement read/i })).toBeInTheDocument()
@@ -3112,6 +3216,11 @@ describe('BriefingControlDesk', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /Booking needs Meet link: Mia Founder/i }))
 
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Booking: Mia Founder')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Company: Mia Studio')
+    expect(screen.getByLabelText('Card details')).toHaveTextContent('Email: mia@example.test')
+    expect(screen.getByRole('link', { name: /email mia founder/i })).toHaveAttribute('href', 'mailto:mia@example.test')
+    expect(screen.getByRole('button', { name: /hand off to sales/i })).toBeInTheDocument()
     expect(screen.getByText('Mia Founder (booking-1)')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /open source/i })).toHaveAttribute('href', '/admin/briefings?source=booking&id=booking-1')
     expect(screen.getByRole('button', { name: /mark booking completed/i })).toBeInTheDocument()
