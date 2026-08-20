@@ -3,6 +3,7 @@
 import { BOT_MODE_COPY } from '@/lib/messages/experience-mode'
 import type { BotRosterItem } from './BotRoster'
 import type { VisibleBotComputer } from '@/lib/messages/bot-computers'
+import { BotStudioPanel, type BotStudioDevice } from './BotStudioPanel'
 
 const CANVAS_SURFACES = ['Email', 'Invoice', 'Quote', 'Campaign', 'Social', 'Document', 'Design']
 
@@ -11,11 +12,25 @@ export function BotModeLanding({
   computers,
   onStartChannel,
   onOpenWorkbench,
+  studioDevices = [],
+  canCreateBot = false,
+  creatingBot = false,
+  importingBot = false,
+  studioError = null,
+  onCreateBot,
+  onImportBot,
 }: {
   bots: BotRosterItem[]
   computers: VisibleBotComputer[]
   onStartChannel?: (botId: string) => void
   onOpenWorkbench?: () => void
+  studioDevices?: BotStudioDevice[]
+  canCreateBot?: boolean
+  creatingBot?: boolean
+  importingBot?: boolean
+  studioError?: string | null
+  onCreateBot?: (input: { name: string; role: string; persona: string; deviceId: string; agentHandle?: string }) => void
+  onImportBot?: (input: { shareId: string; deviceId: string }) => void
 }) {
   const featured = bots.slice(0, 8)
   const onlineComputers = computers.filter((computer) => computer.online)
@@ -51,7 +66,7 @@ export function BotModeLanding({
           <p className="mt-1 text-sm text-[var(--color-pib-text)]">
             {onlineComputers.length} online · {computers.length} paired
           </p>
-          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Watch files, terminal, and browser beside the channel.</p>
+          <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">Each Bot works in its own folder and browser profile on the linked computer or VPS.</p>
           {onOpenWorkbench && (
             <button
               type="button"
@@ -70,6 +85,17 @@ export function BotModeLanding({
           </p>
         </article>
       </div>
+      {(onCreateBot || onImportBot) && (
+        <BotStudioPanel
+          devices={studioDevices}
+          canCreate={canCreateBot}
+          creating={creatingBot}
+          importing={importingBot}
+          error={studioError}
+          onCreateBot={onCreateBot}
+          onImportBot={onImportBot}
+        />
+      )}
     </div>
   )
 }

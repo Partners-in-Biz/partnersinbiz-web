@@ -16,6 +16,11 @@ import {
 import { requireProjectRuntimeReplica } from '@/lib/project-locations/runtime-binding'
 import type { WorkbenchBrowserSession } from './browser-sessions'
 import {
+  applyBotIsolationToWorkbenchPaths,
+  isolationAgentIdForConversation,
+} from '@/lib/messages/bot-computer-isolation'
+import { usesBotComputerIsolation } from '@/lib/messages/bot-channel'
+import {
   canonicalWorkbenchWorkspaceRelativePath,
   sanitizeWorkbenchRelativePath,
   type WorkbenchJob,
@@ -51,6 +56,23 @@ interface AuthorizationDependencies {
 
 export const WORKBENCH_MINIMUM_RUNTIME_VERSION = '1.1.8'
 export const WORKBENCH_COMPANY_ROOT_MINIMUM_RUNTIME_VERSION = '1.1.10'
+
+function isolateBotWorkbenchPaths(
+  conversation: Conversation,
+  relativeFolder: string,
+  workingDirectory?: string,
+): { relativeFolder: string; workingDirectory?: string } {
+  if (!usesBotComputerIsolation(conversation.channelKind) && !conversation.botInbox) {
+    return workingDirectory ? { relativeFolder, workingDirectory } : { relativeFolder }
+  }
+  const agentId = isolationAgentIdForConversation({
+    channelKind: conversation.channelKind,
+    botInbox: conversation.botInbox,
+    participantAgentIds: conversation.participantAgentIds,
+  })
+  if (!agentId) return workingDirectory ? { relativeFolder, workingDirectory } : { relativeFolder }
+  return applyBotIsolationToWorkbenchPaths({ agentId, relativeFolder, workingDirectory })
+}
 
 export function workbenchRuntimeUpdateRequired(version: string): boolean {
   return linkedRuntimeUpdateRequired(version, WORKBENCH_MINIMUM_RUNTIME_VERSION)
@@ -121,11 +143,12 @@ export async function authorizeWorkbenchConversation(
       if (!relativeFolder || replica.mappingId !== binding.mappingId) {
         throw new Error('Project is not linked to this computer')
       }
+      const isolated = isolateBotWorkbenchPaths(conversation, relativeFolder)
       return {
         conversation,
         projectId: projectAuthorization.projectId,
         projectReplicaId: replica.replicaId,
-        relativeFolder,
+        relativeFolder: isolated.relativeFolder,
         binding,
       }
     } catch {
@@ -147,19 +170,21 @@ export async function authorizeWorkbenchConversation(
     if (!workingDirectory || !rootBindingId) {
       throw new WorkbenchAuthorizationError('Company workspace folder is unavailable', 409)
     }
+    const isolated = isolateBotWorkbenchPaths(conversation, '.', workingDirectory)
     return {
       conversation,
       projectId: null,
-      relativeFolder: '.',
+      relativeFolder: isolated.relativeFolder,
       rootBindingId,
-      workingDirectory,
+      workingDirectory: isolated.workingDirectory,
       binding,
     }
   }
 
   const relativeFolder = canonicalWorkbenchWorkspaceRelativePath(workspace.folderRelativePath)
   if (!relativeFolder) throw new WorkbenchAuthorizationError('Conversation workspace folder is invalid', 409)
-  return { conversation, projectId: null, relativeFolder, binding }
+  const isolated = isolateBotWorkbenchPaths(conversation, relativeFolder)
+  return { conversation, projectId: null, relativeFolder: isolated.relativeFolder, binding }
 }
 
 /** Exact durable job binding used by browser poll and approval routes. */

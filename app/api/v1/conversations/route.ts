@@ -44,6 +44,15 @@ import { organizationMemberUids } from '@/lib/conversations/participant-access'
 import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
 import { memberCanUseAgentOnRuntime } from '@/lib/orgMembers/access-policy'
 import { loadOrgMemberAccessPolicy } from '@/lib/orgMembers/org-access-policy'
+import {
+  parseBotChannelKind,
+  parseBotInboxMeta,
+  usesBotComputerIsolation,
+} from '@/lib/messages/bot-channel'
+import {
+  isolatedBotBrowserProfileId,
+  joinIsolatedBotFolder,
+} from '@/lib/messages/bot-computer-isolation'
 import type { AgentId, Participant, Conversation, ConversationScope } from '@/lib/conversations/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -287,9 +296,42 @@ export const POST = withAuth(
       })
     }
 
+    const channelKind = parseBotChannelKind(body.channelKind)
+    let botInbox = parseBotInboxMeta(body.botInbox)
+    if (channelKind === 'bot_inbox') {
+      const agentParticipants = participants.filter((participant): participant is Extract<Participant, { kind: 'agent' }> => participant.kind === 'agent')
+      if (!botInbox) {
+        if (agentParticipants.length !== 2) {
+          return apiError('Bot inbox needs two different Bots', 400)
+        }
+        const parentConversationId = typeof body.parentConversationId === 'string' ? body.parentConversationId.trim() : ''
+        botInbox = {
+          fromAgentId: agentParticipants[1].agentId,
+          toAgentId: agentParticipants[0].agentId,
+          status: 'open',
+          ...(parentConversationId ? { parentConversationId } : {}),
+        }
+      }
+      if (!botInbox) return apiError('Bot inbox needs two different Bots', 400)
+      const hasFrom = agentParticipants.some((participant) => participant.agentId === botInbox.fromAgentId)
+      const hasTo = agentParticipants.some((participant) => participant.agentId === botInbox.toAgentId)
+      if (!hasFrom || !hasTo || botInbox.fromAgentId === botInbox.toAgentId) {
+        return apiError('Bot inbox participants must include both Bots', 400)
+      }
+      const humans = participants.filter((participant) => participant.kind === 'user')
+      const toParticipant = agentParticipants.find((participant) => participant.agentId === botInbox.toAgentId)!
+      const fromParticipant = agentParticipants.find((participant) => participant.agentId === botInbox.fromAgentId)!
+      const extras = agentParticipants.filter((participant) => (
+        participant.agentId !== botInbox.toAgentId && participant.agentId !== botInbox.fromAgentId
+      ))
+      participants.splice(0, participants.length, ...humans, toParticipant, fromParticipant, ...extras)
+    }
+
     let orchestration: Conversation['orchestration']
     const selectedAgentIds = Array.from(seenAgents)
+    const skipPipOrchestrator = channelKind === 'bot_inbox'
     if (
+      !skipPipOrchestrator &&
       callerRole === 'admin' &&
       selectedAgentIds.length > 1 &&
       !seenAgents.has('pip') &&
@@ -307,7 +349,7 @@ export const POST = withAuth(
       }
     }
 
-    if (callerRole === 'admin' && selectedAgentIds.length > 1) {
+    if (!skipPipOrchestrator && callerRole === 'admin' && selectedAgentIds.length > 1) {
       orchestration = {
         mode: 'pip-orchestrator',
         dispatcherAgentId: 'pip',
@@ -439,6 +481,16 @@ export const POST = withAuth(
         return apiError(mapped.message, mapped.status)
       }
     }
+    const isolationAgentId = botInbox?.toAgentId
+      ?? (usesBotComputerIsolation(channelKind)
+        ? participants.find((participant): participant is Extract<Participant, { kind: 'agent' }> => participant.kind === 'agent')?.agentId
+        : undefined)
+    const isolatedFolder = isolationAgentId
+      ? joinIsolatedBotFolder(projectFolderRelativePath || '.', isolationAgentId)
+      : null
+    const isolatedBrowserProfileId = isolationAgentId
+      ? isolatedBotBrowserProfileId(isolationAgentId)
+      : null
     const workspaceContext = shouldBindWorkspace
       ? await resolveConversationWorkspaceContext({
           orgId: scope.orgId,
@@ -455,7 +507,8 @@ export const POST = withAuth(
           shareMode,
           projectId: convScope === 'project' ? scopeRefId : undefined,
           projectName,
-          folderRelativePath: projectFolderRelativePath,
+          folderRelativePath: isolatedFolder || projectFolderRelativePath,
+          ...(isolatedBrowserProfileId ? { browserProfileId: isolatedBrowserProfileId } : {}),
           companyId,
           companyName,
           companyDomain,
@@ -502,6 +555,8 @@ export const POST = withAuth(
       participants,
       orchestration,
       title,
+      ...(channelKind !== 'messages' ? { channelKind } : {}),
+      ...(botInbox ? { botInbox } : {}),
       scope: convScope,
       scopeRefId: convScope === 'workspace' ? boundWorkspaceContext?.workspaceId ?? scopeRefId : scopeRefId,
       ...(boundWorkspaceContext ? { workspaceContext: boundWorkspaceContext } : {}),

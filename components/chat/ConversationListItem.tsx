@@ -36,10 +36,19 @@ export interface Conversation {
     companyId?: string | null
     companyName?: string
     folderScope?: 'organisation' | 'company' | 'project'
+    folderRelativePath?: string
+    browserProfileId?: string
     projectId?: string
     projectName?: string
     shareMode?: string
     ownerUserId?: string
+  }
+  channelKind?: string
+  botInbox?: {
+    fromAgentId: string
+    toAgentId: string
+    parentConversationId?: string | null
+    status?: string
   }
   contextRefs?: ContextReference[]
   lastMessageId?: string

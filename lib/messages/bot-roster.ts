@@ -1,5 +1,6 @@
 import type { VisibleBotComputer } from './bot-computers'
 import { computersForBot } from './bot-computers'
+import { canShareAgentAsGrokBot } from './bot-shares'
 
 export interface BotRosterSourceAgent {
   agentId: string
@@ -9,6 +10,10 @@ export interface BotRosterSourceAgent {
   colorKey?: string
   defaultModel?: string
   enabled?: boolean
+  agentKind?: string
+  marketplaceTemplateId?: string
+  provisioningMode?: string
+  scopeOrgId?: string
 }
 
 export interface BotRosterChannelGroup {
@@ -37,6 +42,12 @@ export function buildBotRosterItems(
         channelCount: group?.conversations.length ?? 0,
         lastChannelTitle: group?.conversations[0]?.title ?? null,
         onlineComputerCount: botComputers.filter((computer) => computer.online).length,
+        kind: agent.agentKind === 'marketplace' || agent.marketplaceTemplateId
+          ? 'marketplace'
+          : agent.agentKind === 'custom' || (Boolean(agent.scopeOrgId) && agent.provisioningMode === 'linked_device')
+            ? 'custom'
+            : 'specialist',
+        shareable: canShareAgentAsGrokBot(agent),
       }
     })
 }

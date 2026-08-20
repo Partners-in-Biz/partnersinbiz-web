@@ -53,6 +53,8 @@ export async function createConversation(input: {
   orchestration?: Conversation['orchestration']
   lineage?: Conversation['lineage']
   title?: string
+  channelKind?: Conversation['channelKind']
+  botInbox?: Conversation['botInbox']
   scope?: Conversation['scope']
   scopeRefId?: string
   workspaceContext?: ConversationWorkspaceContext | null
@@ -85,6 +87,8 @@ export async function createConversation(input: {
     updatedAt: FieldValue.serverTimestamp(),
   }
 
+  if (input.channelKind && input.channelKind !== 'messages') data.channelKind = input.channelKind
+  if (input.botInbox) data.botInbox = input.botInbox
   if (input.scope) data.scope = input.scope
   if (input.scopeRefId) data.scopeRefId = input.scopeRefId
   if (input.workspaceContext) data.workspaceContext = input.workspaceContext
@@ -350,6 +354,7 @@ export async function patchConversation(
     participants?: Conversation['participants']
     participantUids?: string[]
     workspaceContext?: Conversation['workspaceContext']
+    botInbox?: Conversation['botInbox']
     goalState?: Conversation['goalState']
   },
 ): Promise<void> {
@@ -359,6 +364,7 @@ export async function patchConversation(
   if (patch.participants !== undefined) updates.participants = patch.participants
   if (patch.participantUids !== undefined) updates.participantUids = patch.participantUids
   if (patch.workspaceContext !== undefined) updates.workspaceContext = patch.workspaceContext
+  if (patch.botInbox !== undefined) updates.botInbox = patch.botInbox
   if (patch.goalState !== undefined) {
     updates.goalState = patch.goalState === null ? FieldValue.delete() : patch.goalState
   }

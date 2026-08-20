@@ -137,7 +137,7 @@ beforeEach(() => {
       return {
         doc: (agentId: string) => ({
           get: async () => ({
-            exists: ['pip', 'sales', 'docs'].includes(agentId),
+            exists: ['pip', 'sales', 'docs', 'theo', 'maya'].includes(agentId),
             data: () => ({
               agentId,
               enabled: true,
@@ -148,6 +148,10 @@ beforeEach(() => {
                   ? 'Sales'
                   : agentId === 'docs'
                   ? 'Docs'
+                  : agentId === 'theo'
+                  ? 'Theo'
+                  : agentId === 'maya'
+                  ? 'Maya'
                   : agentId,
             }),
           }),
@@ -342,6 +346,35 @@ describe('platform-scoped unified conversations', () => {
     expect(mockCreateConversation.mock.calls[0][0]).not.toHaveProperty('workspaceContext')
     const body = await readJson(res)
     expect(body.data.conversation.id).toBe('conv-1')
+  })
+
+  it('creates a Bot-to-Bot inbox without promoting Pip as orchestrator', async () => {
+    mockResolveVisibleAgents.mockReturnValue(['pip', 'theo', 'maya'])
+    const { POST } = await import('@/app/api/v1/conversations/route')
+
+    const res = await POST(new NextRequest('http://localhost/api/v1/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        orgId: 'pib-platform-owner',
+        channelKind: 'bot_inbox',
+        botInbox: { fromAgentId: 'theo', toAgentId: 'maya', status: 'open' },
+        participants: [
+          { kind: 'agent', agentId: 'maya' },
+          { kind: 'agent', agentId: 'theo' },
+        ],
+        title: 'Inbox · Theo → Maya',
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockCreateConversation).toHaveBeenCalledWith(expect.objectContaining({
+      channelKind: 'bot_inbox',
+      botInbox: expect.objectContaining({ fromAgentId: 'theo', toAgentId: 'maya' }),
+      title: 'Inbox · Theo → Maya',
+    }))
+    const created = mockCreateConversation.mock.calls[0][0]
+    expect(created.orchestration).toBeUndefined()
+    expect(created.participants.filter((participant: { kind: string }) => participant.kind === 'agent').map((participant: { agentId: string }) => participant.agentId)).toEqual(['maya', 'theo'])
   })
 
   it('allows a sales-role client to start a role-specific non-linked specialist conversation without runtime grant', async () => {

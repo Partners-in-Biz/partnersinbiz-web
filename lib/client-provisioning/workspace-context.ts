@@ -99,6 +99,8 @@ export type ConversationWorkspaceContext = {
   contactIds: string[]
   folderScope?: 'organisation' | 'company' | 'project'
   folderRelativePath?: string
+  /** OpenBot-style isolated browser profile on the linked computer / VPS. */
+  browserProfileId?: string
   vpsWorkingPath?: string
   localWorkingPath?: string
   projectId?: string
@@ -205,6 +207,7 @@ export async function resolveConversationWorkspaceContext(input: {
   projectId?: string | null
   projectName?: string | null
   folderRelativePath?: string | null
+  browserProfileId?: string | null
   companyId?: string | null
   companyName?: string | null
   companyDomain?: string | null
@@ -288,7 +291,7 @@ export async function resolveConversationWorkspaceContext(input: {
   const requestedFolderRelativePath = cleanString(input.folderRelativePath)
   const folderRelativePath = projectId
     ? requestedFolderRelativePath || `projects/${projectId}`
-    : ''
+    : requestedFolderRelativePath
   if (folderRelativePath) {
     const segments = folderRelativePath.split('/')
     if (folderRelativePath.startsWith('/') || folderRelativePath.startsWith('~')
@@ -327,6 +330,7 @@ export async function resolveConversationWorkspaceContext(input: {
     contactIds: Array.isArray(workspace.contactIds) ? workspace.contactIds : [],
     folderScope: projectId ? 'project' : projectCompanyId ? 'company' : 'organisation',
     folderRelativePath,
+    ...(cleanString(input.browserProfileId) ? { browserProfileId: cleanString(input.browserProfileId) } : {}),
     vpsWorkingPath: joinCoworkWorkingPath(workspaceRoot.vpsPath, folderRelativePath),
     localWorkingPath: joinCoworkWorkingPath(workspaceRoot.localPath, folderRelativePath),
     ...(projectId ? { projectId } : {}),

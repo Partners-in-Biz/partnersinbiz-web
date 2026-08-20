@@ -18,6 +18,12 @@
  * - Messages mode = existing session catalogue (projects, companies, threads).
  * - Bot mode = named specialists as Bots, channels per Bot, visible computers,
  *   workbench + intelligent Context Dock canvas beside the thread.
+ * - Bot-to-Bot inbox = Hermes Agent Inbox as ordinary conversations with
+ *   channelKind=bot_inbox (human observes; recipient Bot is dispatched).
+ * - Isolated computers = OpenBot container/volume/profile mapped to
+ *   bots/{agentId} + browser profile on the existing linked Mac/VPS.
+ * - Custom GrokBots = linked custom agents that can be created, shared, and
+ *   cloned beyond the org specialist roster.
  */
 export const MESSAGES_EXPERIENCE_MODES = ['messages', 'bot'] as const
 
@@ -64,4 +70,8 @@ export const BOT_MODE_COPY = {
   landingEyebrow: 'Bot mode',
   landingTitle: 'Start a channel with a Bot',
   landingBody: 'Each Bot is a specialist with a role, model, and computer. Watch the machine work, take the wheel, and review artifacts on the canvas instead of scrolling a transcript.',
+  inboxLabel: 'Bot inbox',
+  inboxEmpty: 'No Bot-to-Bot threads yet. Send work from one Bot to another.',
+  createBotLabel: 'Create a Bot',
+  importBotLabel: 'Import a shared Bot',
 } as const

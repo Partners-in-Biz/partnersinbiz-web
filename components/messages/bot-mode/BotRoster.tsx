@@ -12,6 +12,8 @@ export interface BotRosterItem {
   channelCount: number
   lastChannelTitle?: string | null
   onlineComputerCount: number
+  kind?: 'custom' | 'marketplace' | 'specialist'
+  shareable?: boolean
 }
 
 const COLOR: Record<string, string> = {
@@ -27,12 +29,14 @@ export function BotRoster({
   activeBotId,
   onSelectBot,
   onStartChannel,
+  onShareBot,
   compact = false,
 }: {
   bots: BotRosterItem[]
   activeBotId?: string | null
   onSelectBot: (botId: string) => void
   onStartChannel?: (botId: string) => void
+  onShareBot?: (botId: string) => void
   compact?: boolean
 }) {
   if (compact) {
@@ -86,7 +90,9 @@ export function BotRoster({
                 <span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${COLOR[bot.colorKey ?? ''] ?? 'bg-primary'}`} />
                 <span className="min-w-0">
                   <span className="block truncate text-[12px] font-semibold text-[var(--color-pib-text)]">{bot.name}</span>
-                  <span className="mt-0.5 block truncate text-[10px] leading-4 text-[var(--color-pib-text-muted)]">{bot.role}</span>
+                  <span className="mt-0.5 block truncate text-[10px] leading-4 text-[var(--color-pib-text-muted)]">
+                    {bot.role}{bot.kind === 'custom' ? ' · custom' : bot.kind === 'marketplace' ? ' · marketplace' : ''}
+                  </span>
                   <span className="mt-0.5 block truncate text-[10px] text-[var(--color-pib-text-muted)]/80">
                     {bot.channelCount} channel{bot.channelCount === 1 ? '' : 's'}
                     {bot.onlineComputerCount > 0 ? ` · ${bot.onlineComputerCount} computer${bot.onlineComputerCount === 1 ? '' : 's'} online` : ''}
@@ -94,6 +100,16 @@ export function BotRoster({
                   </span>
                 </span>
               </button>
+              {onShareBot && bot.shareable && (
+                <button
+                  type="button"
+                  aria-label={`Share ${bot.name}`}
+                  onClick={() => onShareBot(bot.id)}
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded text-[var(--color-pib-text-muted)] hover:bg-white/[0.08] hover:text-primary xl:h-7 xl:w-7"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[16px]">ios_share</span>
+                </button>
+              )}
               {onStartChannel && (
                 <button
                   type="button"

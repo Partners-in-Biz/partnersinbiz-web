@@ -16,6 +16,8 @@ export function BotComputerStrip({
   activeComputerId,
   computersHref = '/portal/settings/linked-computers',
   workbenchOpen = false,
+  isolatedFolder = null,
+  browserProfileId = null,
   onOpenWorkbench,
   onToggleWorkbench,
 }: {
@@ -23,6 +25,8 @@ export function BotComputerStrip({
   activeComputerId?: string | null
   computersHref?: string
   workbenchOpen?: boolean
+  isolatedFolder?: string | null
+  browserProfileId?: string | null
   onOpenWorkbench?: (tab: WorkbenchTab) => void
   onToggleWorkbench?: () => void
 }) {
@@ -62,6 +66,13 @@ export function BotComputerStrip({
           </span>
         )
       })}
+      {isolatedFolder && (
+        <span data-testid="bot-isolated-folder" className="inline-flex h-11 max-w-[260px] items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-[11px] text-[var(--color-pib-text-muted)] xl:h-8">
+          <span aria-hidden="true" className="material-symbols-outlined text-[14px]">folder_managed</span>
+          <span className="min-w-0 truncate">{isolatedFolder}</span>
+          {browserProfileId ? <span className="hidden truncate sm:inline">· {browserProfileId}</span> : null}
+        </span>
+      )}
       <span className="ml-auto flex shrink-0 items-center gap-1">
         {onOpenWorkbench && WORKBENCH_TABS.map((tab) => (
           <button

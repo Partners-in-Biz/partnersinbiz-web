@@ -3,6 +3,7 @@ import { MessagesExperienceSwitch } from '@/components/messages/bot-mode/Message
 import { BotRoster } from '@/components/messages/bot-mode/BotRoster'
 import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStrip'
 import { BotModeLanding } from '@/components/messages/bot-mode/BotModeLanding'
+import { BotInboxRail } from '@/components/messages/bot-mode/BotInboxRail'
 
 const bots = [
   { id: 'theo', name: 'Theo', role: 'Engineering', channelCount: 2, lastChannelTitle: 'Preview builds', onlineComputerCount: 1, iconKey: 'terminal', colorKey: 'sky' },
@@ -57,5 +58,56 @@ describe('bot mode surfaces', () => {
     expect(screen.getByText(/Intelligent canvas/i)).toBeInTheDocument()
     expect(screen.getByText(/1 online · 2 paired/)).toBeInTheDocument()
     expect(screen.getByText(/Email · Invoice · Quote/)).toBeInTheDocument()
+  })
+
+  it('lists Bot-to-Bot inbox threads and sends work to another Bot', () => {
+    const onCreateThread = jest.fn()
+    render(
+      <BotInboxRail
+        threads={[{ id: 'inbox-1', title: 'Inbox · Theo → Maya', fromAgentId: 'theo', toAgentId: 'maya', status: 'open', preview: 'Draft the changelog' }]}
+        bots={[{ id: 'theo', name: 'Theo' }, { id: 'maya', name: 'Maya' }]}
+        onOpenThread={jest.fn()}
+        onCreateThread={onCreateThread}
+      />,
+    )
+    expect(screen.getByTestId('bot-inbox-thread-inbox-1')).toHaveTextContent('Draft the changelog')
+    fireEvent.submit(screen.getByRole('button', { name: 'Send to inbox' }).closest('form')!)
+    expect(onCreateThread).toHaveBeenCalled()
+  })
+
+  it('shows the isolated folder on the computer strip', () => {
+    render(
+      <BotComputerStrip
+        computers={computers}
+        activeComputerId="mac"
+        isolatedFolder="bots/theo"
+        browserProfileId="bot-theo"
+        onOpenWorkbench={jest.fn()}
+        onToggleWorkbench={jest.fn()}
+      />,
+    )
+    expect(screen.getByTestId('bot-isolated-folder')).toHaveTextContent('bots/theo')
+    expect(screen.getByTestId('bot-isolated-folder')).toHaveTextContent('bot-theo')
+  })
+
+  it('creates and imports custom GrokBots from landing', () => {
+    const onCreateBot = jest.fn()
+    const onImportBot = jest.fn()
+    render(
+      <BotModeLanding
+        bots={bots}
+        computers={computers}
+        studioDevices={[{ deviceId: 'mac', label: 'Peet Mac', deviceKind: 'computer', supportsCustomAgents: true }]}
+        canCreateBot
+        onCreateBot={onCreateBot}
+        onImportBot={onImportBot}
+      />,
+    )
+    expect(screen.getByTestId('bot-studio-panel')).toBeInTheDocument()
+    fireEvent.change(screen.getByPlaceholderText('Name'), { target: { value: 'Research' } })
+    fireEvent.change(screen.getByPlaceholderText('Role'), { target: { value: 'Analyst' } })
+    fireEvent.change(screen.getByPlaceholderText('Purpose and behaviour'), { target: { value: 'Cite sources.' } })
+    fireEvent.submit(screen.getByRole('button', { name: 'Create Bot' }).closest('form')!)
+    expect(onCreateBot).toHaveBeenCalledWith(expect.objectContaining({ name: 'Research', role: 'Analyst', deviceId: 'mac' }))
   })
 })

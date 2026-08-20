@@ -82,6 +82,14 @@ export interface AgentTeamDoc extends AgentRegistryEntry {
   accessScope?: 'personal' | 'organization'
   /** Custom agent vs marketplace template instance (never editable as a system agent). */
   agentKind?: 'custom' | 'marketplace'
+  /** OpenBot-style isolation on the home linked computer / VPS. */
+  botComputer?: {
+    isolated: true
+    deviceId?: string | null
+    runtimeTarget?: string | null
+    workspaceRelativePath: string
+    browserProfileId: string
+  }
   /** Source marketplace template id when agentKind is marketplace (e.g. pip). */
   marketplaceTemplateId?: string
   /** Skill pack channel — marketplace pulls use public packs only. */
