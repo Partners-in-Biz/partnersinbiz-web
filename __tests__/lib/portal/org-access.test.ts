@@ -315,6 +315,36 @@ describe('resolvePortalActiveOrgId / getPortalOrgIdsForUser — stale sessions',
     expect(orgIds).not.toContain('client-org')
   })
 
+  it('includes owner memberships with ANY non-negative status (draft, configuring, etc.)', async () => {
+    setMembers([
+      { orgId: 'active-org', row: { role: 'owner', status: 'active' } },
+      { orgId: 'draft-org', row: { role: 'owner', status: 'draft' } },
+      { orgId: 'configuring-org', row: { role: 'owner', status: 'configuring' } },
+      { orgId: 'invited-org', row: { role: 'owner', status: 'invited' } },
+      { orgId: 'unknown-org', row: { role: 'owner', status: 'some-unknown-status' } },
+      { orgId: 'member-draft', row: { role: 'member', status: 'draft' } },
+    ])
+    setOrgs({
+      'active-org': {},
+      'draft-org': {},
+      'configuring-org': {},
+      'invited-org': {},
+      'unknown-org': {},
+      'member-draft': {},
+    })
+    const data = { role: 'admin', orgId: 'active-org' }
+
+    const orgIds = await getPortalOrgIdsForUser('user-1', data)
+    // All owner memberships with any non-negative status should be included
+    expect(orgIds).toContain('active-org')
+    expect(orgIds).toContain('draft-org')
+    expect(orgIds).toContain('configuring-org')
+    expect(orgIds).toContain('invited-org')
+    expect(orgIds).toContain('unknown-org')
+    // Members with non-active status should still be excluded
+    expect(orgIds).not.toContain('member-draft')
+  })
+
   it('excludes owner memberships with explicitly inactive/disabled/revoked status', async () => {
     setMembers([
       { orgId: 'active-org', row: { role: 'owner', status: 'active' } },
@@ -335,5 +365,33 @@ describe('resolvePortalActiveOrgId / getPortalOrgIdsForUser — stale sessions',
     expect(orgIds).not.toContain('disabled-org')
     expect(orgIds).not.toContain('revoked-org')
     expect(orgIds).not.toContain('deleted-org')
+  })
+
+  it('excludes owner memberships with negative status strings (suspended, churned, revoked, etc.)', async () => {
+    setMembers([
+      { orgId: 'active-org', row: { role: 'owner', status: 'active' } },
+      { orgId: 'suspended-org', row: { role: 'owner', status: 'suspended' } },
+      { orgId: 'churned-org', row: { role: 'owner', status: 'churned' } },
+      { orgId: 'revoked-status-org', row: { role: 'owner', status: 'revoked' } },
+      { orgId: 'deleted-status-org', row: { role: 'owner', status: 'deleted' } },
+      { orgId: 'inactive-status-org', row: { role: 'owner', status: 'inactive' } },
+    ])
+    setOrgs({
+      'active-org': {},
+      'suspended-org': {},
+      'churned-org': {},
+      'revoked-status-org': {},
+      'deleted-status-org': {},
+      'inactive-status-org': {},
+    })
+    const data = { role: 'admin', orgId: 'active-org' }
+
+    const orgIds = await getPortalOrgIdsForUser('user-1', data)
+    expect(orgIds).toContain('active-org')
+    expect(orgIds).not.toContain('suspended-org')
+    expect(orgIds).not.toContain('churned-org')
+    expect(orgIds).not.toContain('revoked-status-org')
+    expect(orgIds).not.toContain('deleted-status-org')
+    expect(orgIds).not.toContain('inactive-status-org')
   })
 })
