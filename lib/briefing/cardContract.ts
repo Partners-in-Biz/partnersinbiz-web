@@ -146,6 +146,55 @@ function agentOutputContract(item: BriefingSourceItem): Partial<BriefingV2CardCo
   }
 }
 
+function crmRelationshipContract(item: BriefingSourceItem): Partial<BriefingV2CardContract> {
+  const contact = firstText(item.context.contactName, item.metadata?.contactName)
+  const deal = firstText(item.context.dealTitle, item.metadata?.dealTitle)
+  const company = firstText(item.context.companyName, item.metadata?.company, item.metadata?.companyName)
+  const value = typeof item.metadata?.value === 'number' ? item.metadata.value : null
+  const currency = firstText(item.metadata?.currency) ?? 'ZAR'
+  const money = typeof value === 'number'
+    ? `${currency === 'ZAR' ? 'R' : currency === 'USD' ? '$' : currency === 'EUR' ? '€' : `${currency} `}${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+    : null
+  const email = firstText(item.metadata?.email)
+  const phone = firstText(item.metadata?.phone)
+  const stage = firstText(item.metadata?.toStageLabel, item.metadata?.stageLabel)
+  const subject = deal ?? contact ?? 'this CRM record'
+  const promptBits = [deal, money, company, stage ? `now ${stage}` : null].filter(Boolean)
+  const reasonBits = [
+    contact ? `Contact: ${contact}` : null,
+    phone ? `Phone: ${phone}` : null,
+    email ? `Email: ${email}` : null,
+    firstText(item.metadata?.nextAction, item.summary),
+  ].filter(Boolean)
+  const options: BriefingV2CardContract['options'] = [
+    { id: 'log-follow-up', label: 'Log the next step', description: phone || email ? 'Call or email, then record what happened against this CRM record.' : 'Record the call, decision, or next step against this CRM record.', recommended: true },
+    { id: 'create-follow-up', label: 'Create follow-up', description: 'Keep the next internal action on the board with this deal/contact as evidence.', recommended: false },
+  ]
+  if (item.context.projectId) {
+    options.push({ id: 'handoff-sales', label: 'Hand off to Sales', description: 'Route this CRM follow-up to the sales specialist with the deal and contact attached.', recommended: false })
+  }
+  const nearestValidActions: BriefingV2CardContract['nearestValidActions'] = []
+  if (phone) nearestValidActions.push({ action: 'call-contact', label: `Call ${contact ?? 'contact'}`, reason: phone, href: `tel:${phone}` })
+  if (email) nearestValidActions.push({ action: 'email-contact', label: `Email ${contact ?? 'contact'}`, reason: email, href: `mailto:${email}` })
+  nearestValidActions.push({ action: 'open-evidence', label: deal ? `Open deal${money ? ` (${money})` : ''}` : 'Open CRM record', reason: 'Open the linked deal or contact to see the full record.' })
+  nearestValidActions.push({ action: 'create-task', label: 'Create internal follow-up task', reason: 'Internal Projects/Kanban routing preserves tenant scope and evidence.' })
+  return {
+    decisionRequest: {
+      prompt: promptBits.length ? promptBits.join(' · ') : `Follow up ${subject}`,
+      scope: 'internal',
+      source: item.source.type,
+      reason: reasonBits.join(' · ') || `Follow up ${subject}.`,
+    },
+    options,
+    recommendedOption: { id: 'log-follow-up', label: 'Log the next step' },
+    inputTarget: { action: 'follow-up-created', resourceType: item.context.dealId ? 'deal' : 'contact', resourceId: item.context.dealId ?? item.context.contactId ?? item.source.id, orgId: item.orgId },
+    afterSubmit: { consequence: 'Records an internal CRM follow-up only; no external send is performed.', createsAuditTrail: true, nextStatus: 'follow-up-created' },
+    agentHandoff: { targetAgentId: 'sales', sourceTaskId: item.context.taskId ?? null, sourceProjectId: item.context.projectId ?? null, summary: item.summary, context: { contactId: item.context.contactId ?? null, dealId: item.context.dealId ?? null } },
+    nearestValidActions,
+    disabledReason: null,
+  }
+}
+
 function defaultContract(item: BriefingSourceItem): BriefingV2CardContract {
   const source = item.source.type
   const base: BriefingV2CardContract = {
@@ -173,7 +222,9 @@ function defaultContract(item: BriefingSourceItem): BriefingV2CardContract {
     ? seoTaskContract(item)
     : source === 'agent-output'
       ? agentOutputContract(item)
-      : {}
+      : ['activity', 'contact', 'deal'].includes(source)
+        ? crmRelationshipContract(item)
+        : {}
 
   return {
     ...base,
@@ -181,6 +232,7 @@ function defaultContract(item: BriefingSourceItem): BriefingV2CardContract {
     evidenceLinks: sourceEvidence(item),
     safetyGate: { ...base.safetyGate, ...(sourceSpecific.safetyGate ?? {}) },
     nearestValidActions: sourceSpecific.nearestValidActions ?? base.nearestValidActions,
+    disabledReason: sourceSpecific.disabledReason === null ? null : (sourceSpecific.disabledReason ?? (['activity', 'contact', 'deal', 'booking', 'enquiry'].includes(source) ? null : base.disabledReason)),
   }
 }
 

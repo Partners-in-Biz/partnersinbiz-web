@@ -287,33 +287,43 @@ async function handleDealUpdate(
       (typeof body?.contactId === 'string' && body.contactId) ||
       (typeof before.contactId === 'string' && before.contactId) ||
       null
+    const currency =
+      (typeof body?.currency === 'string' && body.currency) ||
+      (typeof before.currency === 'string' && before.currency) ||
+      'ZAR'
+    const companyId = typeof before.companyId === 'string' ? before.companyId : null
+    const companyName = typeof before.companyName === 'string' ? before.companyName : null
 
-    // Stage-change activity — appears on contact timeline regardless of sub-stage
-    if (contactId) {
-      try {
-        const activityData = Object.fromEntries(Object.entries({
-          orgId: ctx.orgId,
-          contactId,
-          dealId: id,
-          type: 'stage_change',
-          summary: `Deal moved: ${fromStage?.label ?? fromStageId} → ${toStage?.label ?? toStageId}`,
-          metadata: {
-            fromPipelineId,
-            fromStageId,
-            fromStageLabel: fromStage?.label,
-            toPipelineId,
-            toStageId,
-            toStageLabel: toStage?.label,
-            dealTitle,
-          },
-          createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
-          createdByRef: actorRef,
-          createdAt: FieldValue.serverTimestamp(),
-        }).filter(([, v]) => v !== undefined))
-        await adminDb.collection('activities').add(activityData)
-      } catch (e) {
-        console.error('[activities] timeline write failed (stage_change)', e)
-      }
+    try {
+      const activityData = Object.fromEntries(Object.entries({
+        orgId: ctx.orgId,
+        contactId: contactId || undefined,
+        dealId: id,
+        dealTitle,
+        companyId: companyId || undefined,
+        companyName: companyName || undefined,
+        type: 'stage_change',
+        summary: `Deal moved: ${fromStage?.label ?? fromStageId} → ${toStage?.label ?? toStageId}`,
+        metadata: {
+          fromPipelineId,
+          fromStageId,
+          fromStageLabel: fromStage?.label,
+          toPipelineId,
+          toStageId,
+          toStageLabel: toStage?.label,
+          dealTitle,
+          value: dealValue,
+          currency,
+          companyId,
+          companyName,
+        },
+        createdBy: ctx.isAgent ? undefined : ctx.actor.uid,
+        createdByRef: actorRef,
+        createdAt: FieldValue.serverTimestamp(),
+      }).filter(([, v]) => v !== undefined && v !== null))
+      await adminDb.collection('activities').add(activityData)
+    } catch (e) {
+      console.error('[activities] timeline write failed (stage_change)', e)
     }
 
     // won/lost special handling keyed off stage.kind (A3 W2-F)

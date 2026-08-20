@@ -6,6 +6,16 @@ import type { SoftwareBuildEvidenceRow, AgentOutputReviewStatus, AgentOutputRevi
 import { useBriefingFeed } from './cockpit/useBriefingFeed'
 import { CockpitShell } from './cockpit/CockpitShell'
 import { sanitizeContextReferenceSeeds, type ContextReferenceSeed, type ContextReferenceType } from '@/lib/context-references/types'
+import {
+  briefingContactChannels,
+  briefingDisplayFacts,
+  briefingHasContactChannel,
+  briefingListFacts,
+  briefingUsefulSummary,
+  isBoilerplateDisabledReason,
+  isCrmRelationshipSource,
+  isGenericBriefingDecision,
+} from '@/lib/briefing/cardFacts'
 
 const ACTION_CONTROL_GRID_CLASS = 'mt-3 grid min-w-0 grid-cols-1 gap-2'
 const ACTION_CONTEXT_GRID_CLASS = 'mt-2 grid min-w-0 grid-cols-1 gap-2'
@@ -162,7 +172,15 @@ function sourceTypeLabel(type: string) {
 function looksLikeOpaqueId(value: string | null | undefined) {
   if (!value) return false
   const trimmed = value.trim()
-  return /^[A-Za-z0-9_-]{16,}$/.test(trimmed) || /^[a-z]+_[A-Za-z0-9_-]{8,}$/i.test(trimmed)
+  const withoutPrefix = trimmed.replace(/^(user|agent|crm|email|org):/i, '')
+  return /^[A-Za-z0-9_-]{16,}$/.test(trimmed)
+    || /^[A-Za-z0-9_-]{16,}$/.test(withoutPrefix)
+    || /^[a-z]+_[A-Za-z0-9_-]{8,}$/i.test(trimmed)
+}
+
+function detailMetaValue(title: string | null | undefined, id?: string | null) {
+  const value = titledId(title, id)
+  return value && value !== 'Unknown' ? value : null
 }
 
 function humanReadableCopy(value: string | null | undefined) {
@@ -550,7 +568,8 @@ function canNotificationAct(item: BriefingCard) {
 }
 
 function canActivityFollowUpAct(item: BriefingCard) {
-  return (item.source.type === 'activity' || item.source.type === 'contact') && Boolean(item.context.contactId || item.metadata?.contactId)
+  return (item.source.type === 'activity' || item.source.type === 'contact' || item.source.type === 'deal')
+    && Boolean(item.context.contactId || item.metadata?.contactId)
 }
 
 function canContactFollowUpComplete(item: BriefingCard) {
@@ -736,7 +755,11 @@ function phase2NextActionCopy(item: BriefingCard, mode: Mode) {
   if (approvalGateReviewable(item)) return 'Next action: approve the gate if the request is safe, or reject it with direction for the agent.'
   if (documentReviewable(item)) return 'Next action: approve the document, or request changes with a clear note.'
   if (canSocialPostAct(item) && socialActionStage(item)) return 'Next action: approve the content for its current review stage, or request changes without publishing.'
-  if (canConvertToCrmActivity(item)) return 'Next action: convert this signal into a CRM activity or schedule the next follow-up task.'
+  if (canConvertToCrmActivity(item) || isCrmRelationshipSource(item.source.type)) {
+    const channels = briefingContactChannels(item)
+    if (channels.phone || channels.email) return 'Next action: call or email the contact, then log the next CRM follow-up.'
+    return 'Next action: convert this signal into a CRM activity or schedule the next follow-up task.'
+  }
   if (canAgentRunApprove(item, mode) || canWorkspaceBrokerAct(item, mode)) return 'Next action: review the approval request and only approve the scoped operation if it is safe.'
   if (canTaskAct(item)) return 'Next action: reply on the task, create a follow-up task, assign an agent, or snooze this signal.'
   return 'Next action: open the source for more context, create a follow-up task when supported, or snooze the card.'
@@ -746,6 +769,7 @@ function phase2AgentId(item: BriefingCard) {
   const assigned = item.metadata?.assigneeAgentId ?? item.metadata?.assignedAgentId ?? item.metadata?.agentId
   if (typeof assigned === 'string' && assigned.trim()) return assigned.trim().replace(/^agent:/, '')
   if (item.actor.type === 'agent') return item.actor.id.replace(/^agent:/, '')
+  if (isCrmRelationshipSource(item.source.type)) return 'sales'
   return 'theo'
 }
 
@@ -755,30 +779,7 @@ function phase2AgentLabel(item: BriefingCard) {
 }
 
 function canConvertToCrmActivity(item: BriefingCard) {
-  return Boolean(item.context.contactId || item.context.dealId || item.metadata?.contactId || item.metadata?.dealId)
-}
-
-function phase2UsableAlternatives(item: BriefingCard, mode: Mode, portalScope?: PortalOrgRouteScope) {
-  const alternatives: string[] = []
-  if (item.context.projectId || item.context.orgId || item.orgId) alternatives.push('create follow-up task')
-  if (item.context.projectId) {
-    alternatives.push(`ask ${phase2AgentLabel(item)} to triage`)
-    alternatives.push('link existing task')
-    alternatives.push(`create routed ${phase2AgentLabel(item)} task`)
-  }
-  if (evidenceHref(item, mode, portalScope)) alternatives.push('open evidence')
-  else if (sourceHref(item, mode, portalScope)) alternatives.push('open source')
-  return alternatives.filter((alternative, index, all) => all.indexOf(alternative) === index)
-}
-
-function phase2UnavailableActionCopy(item: BriefingCard) {
-  if (item.context.projectId) return null
-  return `Project-scoped routing is unavailable: this card is not linked to a project. Open the source or create a follow-up task first.`
-}
-
-function crmUnavailableCopy(item: BriefingCard) {
-  if (canConvertToCrmActivity(item)) return null
-  return 'CRM conversion unavailable: this card needs a linked contact or deal first. Open the source to link CRM context, or create a follow-up task before converting.'
+  return Boolean(item.context.contactId || item.metadata?.contactId)
 }
 
 function contractNearestValidActions(item: BriefingCard) {
@@ -983,17 +984,16 @@ function isFollowUpDueItem(item: BriefingCard) {
 }
 
 function isCallItem(item: BriefingCard): boolean {
-  // CRM contacts and deals
   if (['contact', 'deal'].includes(item.source.type)) return true
-  
-  // Tasks tagged call-ready or with "Needs Peet: Call" in title
+  if (isCrmRelationshipSource(item.source.type) && briefingHasContactChannel(item)) return true
+
   if (item.source.type === 'task') {
     const tags = Array.isArray(item.metadata?.tags) ? item.metadata.tags : []
     const hasCallTag = tags.some((tag: unknown) => typeof tag === 'string' && /call-ready|needs-peet/i.test(tag))
     const hasCallTitle = /Needs Peet:.*Call|Call.*Needs Peet/i.test(item.title)
     return hasCallTag || hasCallTitle
   }
-  
+
   return false
 }
 
@@ -1037,8 +1037,7 @@ function isAgentOpsItem(item: BriefingCard): boolean {
 
 function workflowLaneForItem(item: BriefingCard): WorkflowLaneId {
   if (isCallItem(item)) return 'call'
-  if (isAgentOpsItem(item)) return 'agent-ops'
-  if (isBlockedItem(item)) return 'blocked'
+  if (isBlockedItem(item) || isAgentOpsItem(item)) return 'blocked'
   return 'follow-up'
 }
 
@@ -2541,7 +2540,12 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     <div className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-4 text-center text-xs text-[var(--color-pib-text-muted)]">Nothing here</div>
                   ) : (
                     laneItems.map((item) => {
+                      const channels = briefingContactChannels(item)
+                      const listFacts = briefingListFacts(item)
+                      const summary = humanReadableCopy(briefingUsefulSummary(item) || item.summary)
                       const primaryAction = (() => {
+                        if (channels.phone) return { type: 'call' as const, href: `tel:${channels.phone}`, label: 'Call', icon: 'call' }
+                        if (channels.email) return { type: 'email' as const, href: `mailto:${channels.email}`, label: 'Email', icon: 'mail' }
                         if (lane.id === 'call') {
                           if (item.metadata?.phone) return { type: 'call' as const, href: `tel:${item.metadata.phone}`, label: 'Call', icon: 'call' }
                           if (item.metadata?.email) return { type: 'email' as const, href: `mailto:${item.metadata.email}`, label: 'Email', icon: 'mail' }
@@ -2568,10 +2572,23 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
-                              <h3 className="break-words text-sm font-semibold leading-5 text-[var(--color-pib-text)]">{item.title}</h3>
-                              <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
-                                {humanReadableCopy(item.summary)}
-                              </p>
+                              <button type="button" className="block min-w-0 w-full text-left" onClick={() => setSelectedId(item.id)}>
+                                <p data-testid="briefing-card-title" className="break-words text-sm font-semibold leading-5 text-[var(--color-pib-text)]">{item.title}</p>
+                              </button>
+                              {summary ? (
+                                <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                                  {summary}
+                                </p>
+                              ) : null}
+                              {listFacts.length ? (
+                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                  {listFacts.map((fact) => (
+                                    <span key={fact.id} className="max-w-full truncate rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-[var(--color-pib-text)]">
+                                      <span className="text-[var(--color-pib-text-muted)]">{fact.label}:</span> {fact.value}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null}
                               <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-[var(--color-pib-text-muted)]">
                                 <span className={`rounded-full border px-2 py-0.5 font-semibold ${priorityClass(item.priority)}`}>{PRIORITY_LABELS[item.priority]}</span>
                                 <span className="truncate">{item.timeAgo}</span>
@@ -2683,7 +2700,11 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                   className="rounded-lg border border-[var(--color-pib-line)] bg-[var(--color-card)] p-3"
                   style={{ borderLeft: `3px solid ${priorityAccentColor('review')}` }}
                 >
-                  <h3 className="break-words text-sm font-semibold leading-5 text-[var(--color-pib-text)]">{item.title}</h3>
+                  <p className="break-words text-sm font-semibold leading-5 text-[var(--color-pib-text)]">
+                    <button type="button" className="block min-w-0 w-full text-left" onClick={() => setSelectedId(item.id)}>
+                      {item.title}
+                    </button>
+                  </p>
                   <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-pib-text-muted)]">
                     {humanReadableCopy(item.summary)}
                   </p>
@@ -2723,86 +2744,89 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
               </div>
               <div className="p-4 sm:p-5 space-y-5">
                   <h2 data-testid="selected-briefing-title" className="break-words text-xl font-semibold text-[var(--color-pib-text)]">{selected.title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                    {humanReadableCopy(selected.excerpt || selected.summary)}
-                    {viewHrefFromCopy(selected.excerpt || selected.summary) || viewHrefFromCopy(selected.summary) ? (
-                      <>
-                        {' '}
-                        <a
-                          className="font-medium text-[var(--color-accent-text)] underline underline-offset-4"
-                          href={(viewHrefFromCopy(selected.excerpt || selected.summary) || viewHrefFromCopy(selected.summary)) ?? undefined}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          View
-                        </a>
-                      </>
-                    ) : null}
-                  </p>
+                  {(() => {
+                    const summary = briefingUsefulSummary(selected)
+                    const fallback = humanReadableCopy(selected.excerpt || selected.summary)
+                    const copy = humanReadableCopy(summary && !selected.title.includes(summary) ? summary : fallback)
+                    if (!copy || copy === selected.title) return null
+                    return (
+                      <p className="mt-2 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                        {copy}
+                        {viewHrefFromCopy(selected.excerpt || selected.summary) || viewHrefFromCopy(selected.summary) ? (
+                          <>
+                            {' '}
+                            <a
+                              className="font-medium text-[var(--color-accent-text)] underline underline-offset-4"
+                              href={(viewHrefFromCopy(selected.excerpt || selected.summary) || viewHrefFromCopy(selected.summary)) ?? undefined}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              View
+                            </a>
+                          </>
+                        ) : null}
+                      </p>
+                    )
+                  })()}
 
-                {(selected.source.type === 'contact' || selected.source.type === 'deal' || (selected.source.type === 'task' && (selected.context.contactId || selected.context.dealId))) ? (
-                  <div className="rounded-lg border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Quick CRM actions</p>
-                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {selected.metadata?.email ? (
-                        <a
-                          href={`mailto:${selected.metadata.email}`}
+                {briefingDisplayFacts(selected).length ? (
+                  <div className="rounded-lg border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] p-3" aria-label="Card details">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">This card</p>
+                    <dl className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {briefingDisplayFacts(selected).map((fact) => (
+                        <div key={fact.id} className="min-w-0">
+                          <dt className="sr-only">{fact.label}</dt>
+                          <dd className="break-words text-sm text-[var(--color-pib-text)]">
+                            <span className="text-[var(--color-pib-text-muted)]">{fact.label}: </span>
+                            {fact.href ? (
+                              <a className="underline underline-offset-2" href={fact.href}>{fact.value}</a>
+                            ) : fact.value}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    {isCrmRelationshipSource(selected.source.type) || briefingHasContactChannel(selected) ? (
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {briefingContactChannels(selected).email ? (
+                          <a href={`mailto:${briefingContactChannels(selected).email}`} className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs">
+                            <span className="material-symbols-outlined text-[15px]">mail</span>
+                            Email {selected.context.contactName || 'contact'}
+                          </a>
+                        ) : null}
+                        {briefingContactChannels(selected).phone ? (
+                          <a href={`tel:${briefingContactChannels(selected).phone}`} className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs">
+                            <span className="material-symbols-outlined text-[15px]">call</span>
+                            Call {selected.context.contactName || 'contact'}
+                          </a>
+                        ) : null}
+                        <button
+                          type="button"
                           className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs"
+                          onClick={() => selected.context.projectId
+                            ? createRoutedBriefingTask(selected, 'ask-specialist-triage')
+                            : copyBriefingAction(selected, 'agent-handoff')}
+                          disabled={!!busyAction}
                         >
-                          <span className="material-symbols-outlined text-[15px]">mail</span>
-                          Email
-                        </a>
-                      ) : null}
-                      {selected.metadata?.phone ? (
-                        <a
-                          href={`tel:${selected.metadata.phone}`}
-                          className="pib-btn-secondary min-w-0 justify-center px-3 py-2.5 text-xs"
-                        >
-                          <span className="material-symbols-outlined text-[15px]">call</span>
-                          Call
-                        </a>
-                      ) : null}
-                    </div>
-                    {selected.context.contactName || selected.context.contactId ? (
-                      <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">
-                        <span className="font-medium text-[var(--color-pib-text)]">Contact:</span> {selected.context.contactName || selected.context.contactId}
-                      </p>
-                    ) : null}
-                    {(selected.metadata?.company || selected.context.companyName) ? (
-                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                        <span className="font-medium text-[var(--color-pib-text)]">Company:</span> {String(selected.metadata?.company || selected.context.companyName || '')}
-                      </p>
-                    ) : null}
-                    {selected.context.dealTitle || selected.context.dealId ? (
-                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                        <span className="font-medium text-[var(--color-pib-text)]">Deal:</span> {selected.context.dealTitle || selected.context.dealId}
-                      </p>
-                    ) : null}
-                    {typeof selected.metadata?.leadScore === 'number' || typeof selected.metadata?.icpScore === 'number' || typeof selected.metadata?.aiLeadScore === 'number' ? (
-                      <p className="mt-1 text-xs text-[var(--color-pib-text-muted)]">
-                        <span className="font-medium text-[var(--color-pib-text)]">Score:</span>{' '}
-                        {Math.max(
-                          typeof selected.metadata?.leadScore === 'number' ? selected.metadata.leadScore : 0,
-                          typeof selected.metadata?.icpScore === 'number' ? selected.metadata.icpScore : 0,
-                          typeof selected.metadata?.aiLeadScore === 'number' ? selected.metadata.aiLeadScore : 0
-                        )}
-                      </p>
+                          <span className="material-symbols-outlined text-[15px]">smart_toy</span>
+                          Hand off to {phase2AgentLabel(selected)}
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
 
                 {/* Primary actions - context-aware based on current stack */}
                 <div className="space-y-2" aria-label="Primary actions">
-                  {workflowLane === 'call' && (selected.metadata?.email || selected.metadata?.phone) ? (
+                  {(workflowLane === 'call' || briefingHasContactChannel(selected)) && (briefingContactChannels(selected).email || briefingContactChannels(selected).phone) ? (
                     <div className="grid grid-cols-2 gap-2">
-                      {selected.metadata?.phone ? (
-                        <a href={`tel:${selected.metadata.phone}`} className="pib-btn-primary min-w-0 justify-center px-3 py-2.5 text-xs">
+                      {briefingContactChannels(selected).phone ? (
+                        <a href={`tel:${briefingContactChannels(selected).phone}`} className="pib-btn-primary min-w-0 justify-center px-3 py-2.5 text-xs">
                           <span className="material-symbols-outlined text-[15px]">call</span>
                           Call
                         </a>
                       ) : null}
-                      {selected.metadata?.email ? (
-                        <a href={`mailto:${selected.metadata.email}`} className="pib-btn-primary min-w-0 justify-center px-3 py-2.5 text-xs">
+                      {briefingContactChannels(selected).email ? (
+                        <a href={`mailto:${briefingContactChannels(selected).email}`} className="pib-btn-primary min-w-0 justify-center px-3 py-2.5 text-xs">
                           <span className="material-symbols-outlined text-[15px]">mail</span>
                           Email
                         </a>
@@ -2870,20 +2894,24 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 {/* Kitchen sink actions - behind More toggle */}
                 {showMoreActions ? (
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Additional actions">
-                    <button
-                      type="button"
-                      className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs"
-                      onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')}
-                      disabled={!!busyAction || !selected.context.projectId}
-                      title={selected.context.projectId ? `Send this briefing to ${phase2AgentLabel(selected)}` : 'Link a project before delegating this briefing.'}
-                    >
-                      <span className="material-symbols-outlined text-[15px]">smart_toy</span>
-                      Ask {phase2AgentLabel(selected)}
-                    </button>
-                    <button type="button" className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" onClick={() => createPhase2Task(selected)} disabled={!!busyAction || !(selected.context.projectId || selected.context.orgId || selected.orgId)}>
-                      <span className="material-symbols-outlined text-[15px]">add_task</span>
-                      Follow-up task
-                    </button>
+                    {selected.context.projectId ? (
+                      <button
+                        type="button"
+                        className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs"
+                        onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')}
+                        disabled={!!busyAction}
+                        title={`Send this briefing to ${phase2AgentLabel(selected)}`}
+                      >
+                        <span className="material-symbols-outlined text-[15px]">smart_toy</span>
+                        Ask {phase2AgentLabel(selected)}
+                      </button>
+                    ) : null}
+                    {selected.context.projectId ? (
+                      <button type="button" className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" onClick={() => createPhase2Task(selected)} disabled={!!busyAction}>
+                        <span className="material-symbols-outlined text-[15px]">add_task</span>
+                        Follow-up task
+                      </button>
+                    ) : null}
                     <button className="pib-btn-secondary min-w-0 justify-center px-3 py-2 text-xs" type="button" onClick={() => copyBriefingAction(selected, 'exact-ask')} disabled={!!busyAction}>
                       <span className="material-symbols-outlined text-[15px]">content_copy</span>
                       Copy ask
@@ -2906,7 +2934,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                   <p className="mt-3 text-sm leading-6 text-[var(--color-pib-text-muted)]">{phase2NextActionCopy(selected, mode)}</p>
                 </div>
 
-                {selected.decisionRequest && selected.options?.length && selected.inputTarget && selected.afterSubmit ? (
+                {selected.decisionRequest && selected.options?.length && selected.inputTarget && selected.afterSubmit && !isGenericBriefingDecision(selected) ? (
                   <div className="rounded-lg border border-[var(--color-accent-v2)]/35 bg-[var(--color-accent-subtle)] p-3" aria-label="Inline decision submission">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Decision required</p>
@@ -2970,90 +2998,88 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">Safe moves</p>
                     <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-1 text-[11px] text-emerald-100">No external side effects</span>
                   </div>
-                  {selected.disabledReason ? (
+                  {selected.disabledReason && !isBoilerplateDisabledReason(selected.disabledReason) ? (
                     <div className="mt-3 rounded-lg border border-amber-300/25 bg-amber-300/10 p-3 text-xs leading-5 text-amber-100">
                       <p><span className="font-semibold">Disabled action reason:</span> {selected.disabledReason}</p>
                     </div>
                   ) : null}
                   {contractNearestValidActions(selected).length ? (
                     <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs leading-5 text-[var(--color-pib-text-muted)]">
-                      <p className="font-semibold text-[var(--color-pib-text)]">Contract alternatives</p>
+                      <p className="font-semibold text-[var(--color-pib-text)]">Useful next steps</p>
                       <ul className="mt-1 space-y-1">
                         {contractNearestValidActions(selected).map((action) => (
                           <li key={`${action.action}-${action.label}`}>
-                            <span className="font-medium text-[var(--color-pib-text)]">{action.label}</span>{action.reason ? ` — ${action.reason}` : ''}
+                            {action.href ? (
+                              <a className="font-medium text-[var(--color-accent-text)] underline underline-offset-2" href={action.href}>{action.label}</a>
+                            ) : (
+                              <span className="font-medium text-[var(--color-pib-text)]">{action.label}</span>
+                            )}
+                            {action.reason ? ` — ${action.reason}` : ''}
                           </li>
                         ))}
                       </ul>
                     </div>
                   ) : null}
                   <div className={ACTION_CONTROL_GRID_CLASS} aria-label="Internal review action controls">
-                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => approvePhase2Item(selected)} disabled={!!busyAction} aria-label="Approve">
-                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">verified</span>
-                      <ActionControlLabel>Approve</ActionControlLabel>
-                    </button>
-                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => rejectPhase2Item(selected)} disabled={!!busyAction || (canSocialPostAct(selected) && !!socialActionStage(selected) && !socialChangeText.trim())} aria-label="Send back">
-                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">assignment_return</span>
-                      <ActionControlLabel>Send back</ActionControlLabel>
-                    </button>
+                    {reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected) ? (
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => approvePhase2Item(selected)} disabled={!!busyAction} aria-label="Approve">
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">verified</span>
+                        <ActionControlLabel>Approve</ActionControlLabel>
+                      </button>
+                    ) : null}
+                    {reviewable(selected) || approvalGateReviewable(selected) || documentReviewable(selected) || (canSocialPostAct(selected) && !!socialActionStage(selected)) ? (
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => rejectPhase2Item(selected)} disabled={!!busyAction || (canSocialPostAct(selected) && !!socialActionStage(selected) && !socialChangeText.trim())} aria-label="Send back">
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">assignment_return</span>
+                        <ActionControlLabel>Send back</ActionControlLabel>
+                      </button>
+                    ) : null}
                     <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => setItemState(selected, 'snoozed')} disabled={!!busyAction} aria-label="Snooze internal review item">
                       <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">snooze</span>
                       <ActionControlLabel>Snooze 24h</ActionControlLabel>
                     </button>
-                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createPhase2Task(selected)} disabled={!!busyAction || !(selected.context.projectId || selected.context.orgId || selected.orgId)}>
-                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_task</span>
-                      <ActionControlLabel>Create follow-up</ActionControlLabel>
-                    </button>
-                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? `Ask ${phase2AgentLabel(selected)} to triage` : `Ask ${phase2AgentLabel(selected)} to triage unavailable`} title={!selected.context.projectId ? 'Requires a linked project before routing to a specialist.' : undefined}>
-                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">support_agent</span>
-                      <ActionControlLabel>{selected.context.projectId ? `Ask ${phase2AgentLabel(selected)} to triage` : `Ask ${phase2AgentLabel(selected)} to triage unavailable`}</ActionControlLabel>
-                    </button>
-                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'create-routed-task')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? `Create routed ${phase2AgentLabel(selected)} task` : `Create routed ${phase2AgentLabel(selected)} task unavailable`} title={!selected.context.projectId ? 'Requires a linked project before creating a routed specialist task.' : undefined}>
-                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">route</span>
-                      <ActionControlLabel>{selected.context.projectId ? `Create routed ${phase2AgentLabel(selected)} task` : `Create routed ${phase2AgentLabel(selected)} task unavailable`}</ActionControlLabel>
-                    </button>
-                    <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'link-existing-task')} disabled={!selected.context.projectId} aria-label={selected.context.projectId ? 'Link existing task' : 'Link existing task unavailable'} title={!selected.context.projectId ? 'Requires a linked project before linking an existing project task.' : undefined}>
-                      <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_link</span>
-                      <ActionControlLabel>{selected.context.projectId ? 'Link existing task' : 'Link existing task unavailable'}</ActionControlLabel>
-                    </button>
+                    {selected.context.projectId ? (
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createPhase2Task(selected)} disabled={!!busyAction}>
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_task</span>
+                        <ActionControlLabel>Create follow-up</ActionControlLabel>
+                      </button>
+                    ) : null}
+                    {selected.context.projectId ? (
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'ask-specialist-triage')} aria-label={`Ask ${phase2AgentLabel(selected)} to triage`}>
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">support_agent</span>
+                        <ActionControlLabel>Ask {phase2AgentLabel(selected)} to triage</ActionControlLabel>
+                      </button>
+                    ) : null}
+                    {selected.context.projectId ? (
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'create-routed-task')} aria-label={`Create routed ${phase2AgentLabel(selected)} task`}>
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">route</span>
+                        <ActionControlLabel>Create routed {phase2AgentLabel(selected)} task</ActionControlLabel>
+                      </button>
+                    ) : null}
+                    {selected.context.projectId ? (
+                      <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => createRoutedBriefingTask(selected, 'link-existing-task')} aria-label="Link existing task">
+                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_link</span>
+                        <ActionControlLabel>Link existing task</ActionControlLabel>
+                      </button>
+                    ) : null}
                     {canTaskAct(selected) ? (
                       <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => assignPhase2Agent(selected)} disabled={!!busyAction}>
                         <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">smart_toy</span>
                         <ActionControlLabel>Assign {phase2AgentId(selected)}</ActionControlLabel>
                       </button>
-                    ) : (
-                      <button className={ACTION_CONTROL_CLASS} type="button" disabled title="Agent assignment requires a linked project task." aria-label="Assign agent unavailable">
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">smart_toy</span>
-                        <ActionControlLabel>Assign agent unavailable</ActionControlLabel>
-                      </button>
-                    )}
+                    ) : null}
                     {evidenceHref(selected, mode, portalScope) ? (
                       <a className={ACTION_CONTROL_LINK_CLASS} href={evidenceHref(selected, mode, portalScope) ?? undefined} target="_blank" rel="noopener noreferrer">
                         <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">fact_check</span>
                         <ActionControlLabel>View evidence</ActionControlLabel>
                       </a>
-                    ) : (
-                      <button className={ACTION_CONTROL_CLASS} type="button" disabled title="No evidence link is available on this briefing." aria-label="View evidence unavailable">
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">fact_check</span>
-                        <ActionControlLabel>View evidence unavailable</ActionControlLabel>
-                      </button>
-                    )}
+                    ) : null}
                     {canConvertToCrmActivity(selected) ? (
                       <button className={ACTION_CONTROL_CLASS} type="button" onClick={() => convertToCrmActivity(selected)} disabled={!!busyAction}>
                         <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_notes</span>
                         <ActionControlLabel>Log to CRM</ActionControlLabel>
                       </button>
-                    ) : (
-                      <button className={ACTION_CONTROL_CLASS} type="button" disabled aria-label="Log to CRM unavailable">
-                        <span className={ACTION_CONTROL_ICON_CLASS} aria-hidden="true">add_notes</span>
-                        <ActionControlLabel>Log to CRM unavailable</ActionControlLabel>
-                      </button>
-                    )}
+                    ) : null}
                   </div>
-                  {!canTaskAct(selected) ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Unavailable: Agent assignment requires a linked project task.</p> : null}
-                  {phase2UnavailableActionCopy(selected) ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{phase2UnavailableActionCopy(selected)}</p> : null}
-                  {crmUnavailableCopy(selected) ? <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">{crmUnavailableCopy(selected)}</p> : null}
-                  <p className="mt-2 text-xs text-[var(--color-pib-text-muted)]">Usable alternatives for this card: {phase2UsableAlternatives(selected, mode, portalScope).join(', ')}.</p>
                   <details className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                     <summary className="cursor-pointer text-[10px] font-label uppercase tracking-[0.16em] text-brand">Secondary actions and routing notes</summary>
                     <div className="mt-3 space-y-3">
@@ -3512,7 +3538,11 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                       className="pib-input mt-2 min-h-24 w-full resize-y"
                       value={followUpText}
                       onChange={(event) => setFollowUpText(event.target.value)}
-                      placeholder="Log the call, decision, blocker, or next step against this CRM contact..."
+                      placeholder={
+                        selected.context.contactName || selected.context.dealTitle
+                          ? `Log the call, decision, or next step for ${[selected.context.contactName, selected.context.dealTitle].filter(Boolean).join(' · ')}...`
+                          : 'Log the call, decision, blocker, or next step against this CRM contact...'
+                      }
                     />
                     <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px]">
                       <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-next-follow-up-task">
@@ -3522,7 +3552,7 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                           className="pib-input mt-1 w-full"
                           value={nextFollowUpTaskTitle}
                           onChange={(event) => setNextFollowUpTaskTitle(event.target.value)}
-                          placeholder="Optional next step"
+                          placeholder={selected.context.dealTitle ? `Follow up on ${selected.context.dealTitle}` : 'Optional next step'}
                         />
                       </label>
                       <label className="text-xs font-medium text-[var(--color-pib-text-muted)]" htmlFor="briefing-next-follow-up-task-due">
@@ -3832,43 +3862,43 @@ export function BriefingControlDesk({ mode, portalScope, currentUser }: { mode: 
                 ) : null}
 
                 <dl className="space-y-3 text-sm">
-                  <div><dt className="text-[var(--color-pib-text-muted)]">Actor</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.actor.name, selected.actor.id)}</dd></div>
-                  <div><dt className="text-[var(--color-pib-text-muted)]">Workspace</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.orgName, selected.orgId)}</dd></div>
-                  {selected.context.projectName || selected.context.projectId ? <div><dt className="text-[var(--color-pib-text-muted)]">Project</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.projectName, selected.context.projectId)}</dd></div> : null}
-                  {selected.context.taskTitle || selected.context.taskId ? <div><dt className="text-[var(--color-pib-text-muted)]">Task</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.taskTitle, selected.context.taskId)}</dd></div> : null}
-                  {selected.context.documentTitle || selected.context.documentId ? <div><dt className="text-[var(--color-pib-text-muted)]">Document</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.documentTitle, selected.context.documentId)}</dd></div> : null}
-                  {selected.context.conversationTitle || selected.context.conversationId ? <div><dt className="text-[var(--color-pib-text-muted)]">Conversation</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.conversationTitle, selected.context.conversationId)}</dd></div> : null}
-                  {selected.context.contactName || selected.context.contactId ? <div><dt className="text-[var(--color-pib-text-muted)]">Contact</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.contactName, selected.context.contactId)}</dd></div> : null}
+                  {detailMetaValue(selected.actor.name, selected.actor.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Actor</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.actor.name, selected.actor.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.orgName, selected.orgId) ? <div><dt className="text-[var(--color-pib-text-muted)]">Workspace</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.orgName, selected.orgId)}</dd></div> : null}
+                  {detailMetaValue(selected.context.projectName, selected.context.projectId) ? <div><dt className="text-[var(--color-pib-text-muted)]">Project</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.projectName, selected.context.projectId)}</dd></div> : null}
+                  {detailMetaValue(selected.context.taskTitle, selected.context.taskId) ? <div><dt className="text-[var(--color-pib-text-muted)]">Task</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.taskTitle, selected.context.taskId)}</dd></div> : null}
+                  {detailMetaValue(selected.context.documentTitle, selected.context.documentId) ? <div><dt className="text-[var(--color-pib-text-muted)]">Document</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.documentTitle, selected.context.documentId)}</dd></div> : null}
+                  {detailMetaValue(selected.context.conversationTitle, selected.context.conversationId) ? <div><dt className="text-[var(--color-pib-text-muted)]">Conversation</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.conversationTitle, selected.context.conversationId)}</dd></div> : null}
+                  {detailMetaValue(selected.context.contactName, selected.context.contactId) ? <div><dt className="text-[var(--color-pib-text-muted)]">Contact</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.contactName, selected.context.contactId)}</dd></div> : null}
                   {typeof selected.metadata?.contactStage === 'string' && selected.metadata.contactStage ? <div><dt className="text-[var(--color-pib-text-muted)]">Contact stage</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.contactStage}</dd></div> : null}
                   {typeof selected.metadata?.lastContactedAt === 'string' && selected.metadata.lastContactedAt ? <div><dt className="text-[var(--color-pib-text-muted)]">Last contacted</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.lastContactedAt.slice(0, 10)}</dd></div> : null}
-                  {selected.context.dealTitle || selected.context.dealId ? <div><dt className="text-[var(--color-pib-text-muted)]">Deal</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.dealTitle, selected.context.dealId)}</dd></div> : null}
-                  {selected.context.reportTitle || selected.context.reportId ? <div><dt className="text-[var(--color-pib-text-muted)]">Report</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.reportTitle, selected.context.reportId)}</dd></div> : null}
-                  {selected.context.bookingName || selected.context.bookingId ? <div><dt className="text-[var(--color-pib-text-muted)]">Booking</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.bookingName, selected.context.bookingId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.supportTicketSubject || selected.context.supportTicketId ? <div><dt className="text-[var(--color-pib-text-muted)]">Support ticket</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.supportTicketSubject, selected.context.supportTicketId)}</dd></div> : null}
-                  {selected.context.invoiceNumber || selected.context.invoiceId ? <div><dt className="text-[var(--color-pib-text-muted)]">Invoice</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.quoteNumber || selected.context.quoteId ? <div><dt className="text-[var(--color-pib-text-muted)]">Quote</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.quoteNumber, selected.context.quoteId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.orderTitle || selected.context.orderId ? <div><dt className="text-[var(--color-pib-text-muted)]">Order</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.orderTitle, selected.context.orderId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.inventoryItemName || selected.context.inventoryItemId ? <div><dt className="text-[var(--color-pib-text-muted)]">Inventory</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.inventoryItemName, selected.context.inventoryItemId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.shipmentTrackingNumber || selected.context.shipmentId ? <div><dt className="text-[var(--color-pib-text-muted)]">Shipment</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.shipmentTrackingNumber, selected.context.shipmentId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.expenseCategory || selected.context.expenseId ? <div><dt className="text-[var(--color-pib-text-muted)]">Expense</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.seoContentTitle || selected.context.seoContentId ? <div><dt className="text-[var(--color-pib-text-muted)]">SEO content</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.seoTaskTitle || selected.context.seoTaskId ? <div><dt className="text-[var(--color-pib-text-muted)]">SEO task</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.adCampaignName || selected.context.adCampaignId ? <div><dt className="text-[var(--color-pib-text-muted)]">Ad campaign</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.broadcastName || selected.context.broadcastId ? <div><dt className="text-[var(--color-pib-text-muted)]">Broadcast</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.broadcastName, selected.context.broadcastId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.campaignName || selected.context.campaignId ? <div><dt className="text-[var(--color-pib-text-muted)]">Campaign</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.campaignName, selected.context.campaignId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.dealTitle, selected.context.dealId) ? <div><dt className="text-[var(--color-pib-text-muted)]">Deal</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.dealTitle, selected.context.dealId)}</dd></div> : null}
+                  {detailMetaValue(selected.context.reportTitle, selected.context.reportId) ? <div><dt className="text-[var(--color-pib-text-muted)]">Report</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.reportTitle, selected.context.reportId)}</dd></div> : null}
+                  {detailMetaValue(selected.context.bookingName, selected.context.bookingId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Booking</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.bookingName, selected.context.bookingId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.supportTicketSubject, selected.context.supportTicketId) ? <div><dt className="text-[var(--color-pib-text-muted)]">Support ticket</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.supportTicketSubject, selected.context.supportTicketId)}</dd></div> : null}
+                  {detailMetaValue(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Invoice</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.invoiceNumber, selected.context.invoiceId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.quoteNumber, selected.context.quoteId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Quote</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.quoteNumber, selected.context.quoteId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.orderTitle, selected.context.orderId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Order</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.orderTitle, selected.context.orderId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.inventoryItemName, selected.context.inventoryItemId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Inventory</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.inventoryItemName, selected.context.inventoryItemId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.shipmentTrackingNumber, selected.context.shipmentId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Shipment</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.shipmentTrackingNumber, selected.context.shipmentId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Expense</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.expenseCategory, selected.context.expenseId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">SEO content</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.seoContentTitle, selected.context.seoContentId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">SEO task</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.seoTaskTitle, selected.context.seoTaskId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Ad campaign</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.adCampaignName, selected.context.adCampaignId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.broadcastName, selected.context.broadcastId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Broadcast</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.broadcastName, selected.context.broadcastId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.campaignName, selected.context.campaignId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Campaign</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.campaignName, selected.context.campaignId ?? selected.source.id)}</dd></div> : null}
                   {typeof selected.metadata?.sequenceId === 'string' && selected.metadata.sequenceId ? <div><dt className="text-[var(--color-pib-text-muted)]">Sequence</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.sequenceId}</dd></div> : null}
                   {typeof selected.metadata?.segmentId === 'string' && selected.metadata.segmentId ? <div><dt className="text-[var(--color-pib-text-muted)]">Segment</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.segmentId}</dd></div> : null}
                   {typeof selected.metadata?.subject === 'string' && selected.metadata.subject ? <div><dt className="text-[var(--color-pib-text-muted)]">Subject</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.subject}</dd></div> : null}
                   {typeof selected.metadata?.audienceSize === 'number' ? <div><dt className="text-[var(--color-pib-text-muted)]">Audience</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.audienceSize.toLocaleString('en-ZA')} recipients</dd></div> : null}
-                  {selected.context.enquiryName || selected.context.enquiryId ? <div><dt className="text-[var(--color-pib-text-muted)]">Enquiry</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.enquiryName, selected.context.enquiryId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.formName || selected.context.formId || selected.context.formSubmissionId ? <div><dt className="text-[var(--color-pib-text-muted)]">Form submission</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.formName ?? selected.context.formId, selected.context.formSubmissionId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.socialInboxFrom || selected.context.socialInboxId ? <div><dt className="text-[var(--color-pib-text-muted)]">Social inbox</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.socialInboxFrom, selected.context.socialInboxId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.mailboxFrom || selected.context.mailboxMessageId ? <div><dt className="text-[var(--color-pib-text-muted)]">Mailbox</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.mailboxFrom, selected.context.mailboxMessageId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.agentProfile || selected.context.agentRunId ? <div><dt className="text-[var(--color-pib-text-muted)]">Agent run</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.agentProfile, selected.context.agentRunId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.enquiryName, selected.context.enquiryId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Enquiry</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.enquiryName, selected.context.enquiryId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.formName ?? selected.context.formId, selected.context.formSubmissionId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Form submission</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.formName ?? selected.context.formId, selected.context.formSubmissionId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.socialInboxFrom, selected.context.socialInboxId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Social inbox</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.socialInboxFrom, selected.context.socialInboxId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.mailboxFrom, selected.context.mailboxMessageId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Mailbox</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.mailboxFrom, selected.context.mailboxMessageId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.agentProfile, selected.context.agentRunId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Agent run</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.agentProfile, selected.context.agentRunId ?? selected.source.id)}</dd></div> : null}
                   {typeof selected.metadata?.approvalToolName === 'string' && selected.metadata.approvalToolName ? <div><dt className="text-[var(--color-pib-text-muted)]">Approval tool</dt><dd className="text-[var(--color-pib-text)]">{selected.metadata.approvalToolName}</dd></div> : null}
-                  {selected.context.workspaceBrokerOperation || selected.context.workspaceBrokerJobId ? <div><dt className="text-[var(--color-pib-text-muted)]">Workspace job</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.workspaceBrokerOperation, selected.context.workspaceBrokerJobId ?? selected.source.id)}</dd></div> : null}
-                  {selected.context.workspaceArtifactTitle || selected.context.workspaceArtifactId ? <div><dt className="text-[var(--color-pib-text-muted)]">Workspace artifact</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.workspaceArtifactTitle, selected.context.workspaceArtifactId)}</dd></div> : null}
-                  {selected.context.calendarEventTitle || selected.context.calendarEventId ? <div><dt className="text-[var(--color-pib-text-muted)]">Calendar event</dt><dd className="text-[var(--color-pib-text)]">{titledId(selected.context.calendarEventTitle, selected.context.calendarEventId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.workspaceBrokerOperation, selected.context.workspaceBrokerJobId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Workspace job</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.workspaceBrokerOperation, selected.context.workspaceBrokerJobId ?? selected.source.id)}</dd></div> : null}
+                  {detailMetaValue(selected.context.workspaceArtifactTitle, selected.context.workspaceArtifactId) ? <div><dt className="text-[var(--color-pib-text-muted)]">Workspace artifact</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.workspaceArtifactTitle, selected.context.workspaceArtifactId)}</dd></div> : null}
+                  {detailMetaValue(selected.context.calendarEventTitle, selected.context.calendarEventId ?? selected.source.id) ? <div><dt className="text-[var(--color-pib-text-muted)]">Calendar event</dt><dd className="text-[var(--color-pib-text)]">{detailMetaValue(selected.context.calendarEventTitle, selected.context.calendarEventId ?? selected.source.id)}</dd></div> : null}
                   <div><dt className="text-[var(--color-pib-text-muted)]">Occurred</dt><dd className="text-[var(--color-pib-text)]">{new Date(selected.occurredAt).toLocaleString('en-ZA')}</dd></div>
                   <div><dt className="text-[var(--color-pib-text-muted)]">Source</dt><dd className="text-[var(--color-pib-text)]">{sourceLabel(selected)}</dd></div>
                 </dl>
