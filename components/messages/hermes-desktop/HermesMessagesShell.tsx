@@ -11,6 +11,7 @@ import {
 } from '@/lib/hermes/workspace-panels'
 import { ModuleShell } from '@/components/ui/ModuleShell'
 import { DeepSeekUsageChip } from '@/components/messages/hermes/DeepSeekUsageChip'
+import { MessagesExperienceSwitch } from '@/components/messages/bot-mode/MessagesExperienceSwitch'
 import '@/components/messages/atmosphere/messages-quiet.css'
 import { conversationFolderAccentSeed, folderAccentStyle } from '@/lib/messages/folder-accent'
 import {
@@ -21,6 +22,13 @@ import {
   type ConversationLifecycleEvent,
   type TabActivityPhase,
 } from '@/lib/messages/tab-activity'
+import {
+  applyExperienceModeToSearch,
+  BOT_MODE_COPY,
+  MESSAGES_EXPERIENCE_MODE_STORAGE_FIELD,
+  resolveMessagesExperienceMode,
+  type MessagesExperienceMode,
+} from '@/lib/messages/experience-mode'
 import type { HermesMessagesShellProps, MessagesSurface } from './types'
 
 const SURFACE_META: Record<MessagesSurface, { title: string; description: string }> = {
@@ -32,6 +40,27 @@ const SURFACE_META: Record<MessagesSurface, { title: string; description: string
     title: 'Messages',
     description: 'Dense Hermes-style workspace for conversations with Pip and the Partners team.',
   },
+}
+
+function readStoredExperienceMode(storageKey: string, initialExperienceMode?: MessagesExperienceMode): MessagesExperienceMode {
+  if (typeof window === 'undefined') return initialExperienceMode ?? 'messages'
+  const searchParam = new URLSearchParams(window.location.search).get('mode')
+  let stored: unknown
+  try {
+    stored = JSON.parse(window.localStorage.getItem(storageKey) ?? 'null')?.[MESSAGES_EXPERIENCE_MODE_STORAGE_FIELD]
+  } catch {
+    stored = undefined
+  }
+  return resolveMessagesExperienceMode({
+    searchParam: initialExperienceMode ?? searchParam,
+    stored,
+  })
+}
+
+function syncExperienceModeToUrl(mode: MessagesExperienceMode) {
+  if (typeof window === 'undefined') return
+  const next = `${window.location.pathname}${applyExperienceModeToSearch(window.location.search, mode)}${window.location.hash}`
+  window.history.replaceState(window.history.state, '', next)
 }
 
 type ConversationTab = { id: string; kind: 'conversation'; conversationId: string; title: string; accentSeed?: string | null }
@@ -138,7 +167,7 @@ function GeneratedWorkspacePanel({ panel }: { panel: WorkspacePanelSpec }) {
 }
 
 export function HermesMessagesShell(props: HermesMessagesShellProps) {
-  const { surface, orgId, currentUserUid, currentUserDisplayName, orgName, userRole, initialConvId, capabilities } = props
+  const { surface, orgId, currentUserUid, currentUserDisplayName, orgName, userRole, initialConvId, initialExperienceMode, capabilities } = props
   const copy = SURFACE_META[surface]
   const runtimeMode = capabilities.allowAgentParticipants ? 'Agents enabled' : 'Human-only'
   const storageKey = `pib.messages.workspace.v1:${orgId}:${currentUserUid}`
@@ -171,6 +200,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     if (typeof window === 'undefined') return 'expanded'
     try { return JSON.parse(window.localStorage.getItem(storageKey) ?? 'null')?.conversationRailMode === 'collapsed' ? 'collapsed' : 'expanded' } catch { return 'expanded' }
   })
+  const [experienceMode, setExperienceMode] = useState<MessagesExperienceMode>(() => readStoredExperienceMode(storageKey, initialExperienceMode))
   const [canvasForcesCollapsedRail, setCanvasForcesCollapsedRail] = useState(false)
   const [focusedPaneId, setFocusedPaneId] = useState('primary')
   const [conversationTitles, setConversationTitles] = useState<Record<string, string>>({})
@@ -197,12 +227,13 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
         direction,
         splitPercent,
         conversationRailMode,
+        [MESSAGES_EXPERIENCE_MODE_STORAGE_FIELD]: experienceMode,
       }))
     } catch (storageError) {
       // Private browsing or storage policy must not break Messages.
       void storageError
     }
-  }, [conversationRailMode, direction, panes, parkedTabs, splitPercent, storageKey])
+  }, [conversationRailMode, direction, experienceMode, panes, parkedTabs, splitPercent, storageKey])
 
   const focusedConversationIds = useMemo(() => {
     const ids = new Set<string>()
@@ -477,7 +508,13 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
     allowArchiveConversations: capabilities.allowArchiveConversations,
     layoutVariant: 'hermes' as const,
     showAgentWorkbench: true,
+    computersHref: '/portal/settings/linked-computers',
   }), [capabilities, currentUserDisplayName, currentUserUid, orgId, orgName, surface, userRole])
+
+  const handleExperienceModeChange = useCallback((mode: MessagesExperienceMode) => {
+    setExperienceMode(mode)
+    syncExperienceModeToUrl(mode)
+  }, [])
 
   const focusedPane = panes.find((pane) => pane.id === focusedPaneId) ?? panes[0]
 
@@ -513,16 +550,17 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
       accent="amber"
       shellTestId="hermes-messages-shell"
       data-messages-experience="quiet-2026"
+      data-experience-mode={experienceMode}
       style={{ background: '#000' }}
       className="relative flex h-[calc(100dvh-72px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-none border-0 bg-black shadow-none lg:min-h-[640px]"
     >
       <header data-testid="hermes-messages-shell-topbar" className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="material-symbols-outlined grid h-6 w-6 shrink-0 place-items-center rounded-md bg-primary/10 text-[15px] text-primary" aria-hidden="true">
-            forum
+            {experienceMode === 'bot' ? 'smart_toy' : 'forum'}
           </span>
           <div className="flex min-w-0 items-center gap-2">
-            <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{copy.title}</h1>
+            <h1 className="truncate text-sm font-semibold leading-tight text-[var(--color-pib-text)]">{experienceMode === 'bot' ? BOT_MODE_COPY.title : copy.title}</h1>
             {orgName && <span className="hidden truncate text-xs text-[var(--color-pib-text-muted)] sm:inline">· {orgName}</span>}
             {parkedTabs.length > 0 && (
               <span className="hidden rounded-md border border-white/[0.08] px-1.5 py-0.5 text-[10px] text-[var(--color-pib-text-muted)] sm:inline">
@@ -533,6 +571,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
           <DeepSeekUsageChip orgId={orgId} />
         </div>
         <div className="flex min-w-0 items-center gap-1.5">
+          <MessagesExperienceSwitch value={experienceMode} onChange={handleExperienceModeChange} />
           <div className="hidden items-center gap-1.5 xl:flex">
             <StatusPill tone="muted"><span className="material-symbols-outlined text-[13px]">hub</span>{runtimeMode}</StatusPill>
           </div>
@@ -541,7 +580,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
           <button type="button" aria-label="Open active session in split pane" onClick={splitActiveTab} disabled={panes.length > 1} className="grid h-11 w-11 place-items-center rounded-md border border-white/[0.08] text-[var(--color-pib-text-muted)] hover:bg-white/[0.05] disabled:opacity-35 xl:h-7 xl:w-7"><span className="material-symbols-outlined text-[16px]">splitscreen</span></button>
         </div>
       </header>
-      <div className="sr-only" data-testid="hermes-messages-shell-description">{copy.description}</div>
+      <div className="sr-only" data-testid="hermes-messages-shell-description">{experienceMode === 'bot' ? BOT_MODE_COPY.description : copy.description}</div>
       <section data-testid="hermes-messages-shell-body" className="flex min-h-0 min-w-0 flex-1 overflow-hidden p-1">
         <div className={`flex h-full min-h-0 min-w-0 flex-1 ${direction === 'row' ? 'flex-row' : 'flex-col'}`}>
           {panes.map((pane, paneIndex) => {
@@ -706,6 +745,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                       conversationRailMode={canvasForcesCollapsedRail && paneIndex === 0 ? 'collapsed' : conversationRailMode}
                       onConversationRailModeChange={setConversationRailMode}
                       onContextCanvasPresentationChange={paneIndex === 0 ? ({ open, mode }) => setCanvasForcesCollapsedRail(open && mode === 'dual') : undefined}
+                      experienceMode={experienceMode}
                     />
                   )}
                 </div>

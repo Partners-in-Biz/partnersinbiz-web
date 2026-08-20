@@ -104,6 +104,27 @@ import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAcc
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import AgentWorkbenchRail from '@/components/messages/workbench/AgentWorkbenchRail'
+import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStrip'
+import { BotModeLanding } from '@/components/messages/bot-mode/BotModeLanding'
+import { BotRoster } from '@/components/messages/bot-mode/BotRoster'
+import { BotInboxRail } from '@/components/messages/bot-mode/BotInboxRail'
+import type { BotStudioDevice } from '@/components/messages/bot-mode/BotStudioPanel'
+import { uniqueBotComputers } from '@/lib/messages/bot-computers'
+import { buildBotRosterItems } from '@/lib/messages/bot-roster'
+import {
+  botInboxTitle,
+  findOpenBotInboxThread,
+  isBotInboxConversation,
+  listBotInboxThreads,
+} from '@/lib/messages/bot-channel'
+import {
+  isolatedBotBrowserProfileId,
+  isolatedBotWorkspacePath,
+  isolationAgentIdForConversation,
+  joinIsolatedBotFolder,
+} from '@/lib/messages/bot-computer-isolation'
+import { parseBotShareIdFromInput } from '@/lib/messages/bot-shares'
+import { parseMessagesExperienceMode, type MessagesExperienceMode } from '@/lib/messages/experience-mode'
 import {
   buildWorkbenchBrowserTargets,
   buildWorkbenchChanges,
@@ -204,6 +225,8 @@ interface AgentTeamDoc {
   provisioningMode?: string
   scopeOrgId?: string
   agentHandle?: string
+  agentKind?: 'custom' | 'marketplace' | string
+  marketplaceTemplateId?: string
 }
 
 export interface UnifiedChatProps {
@@ -259,6 +282,9 @@ export interface UnifiedChatProps {
   onContextCanvasPresentationChange?: (state: { open: boolean; mode: 'single' | 'dual'; width: number }) => void
   /** Enables the observer-only Files / Terminal / Browser / Changes rail in Messages. */
   showAgentWorkbench?: boolean
+  /** Messages catalogue vs named-Bot coworker mode (OpenBot / Hermes / GrokBot). */
+  experienceMode?: MessagesExperienceMode
+  computersHref?: string
 }
 
 const POLL_INTERVAL = 1500
@@ -1332,7 +1358,10 @@ export default function UnifiedChat({
   onConversationRailModeChange,
   onContextCanvasPresentationChange,
   showAgentWorkbench = false,
+  experienceMode = 'messages',
+  computersHref = '/portal/settings/linked-computers',
 }: UnifiedChatProps) {
+  const botMode = parseMessagesExperienceMode(experienceMode) === 'bot'
   // ── State ─────────────────────────────────────────────────────────────────
   const realtimeGatewayClientId = useId()
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -1355,6 +1384,7 @@ export default function UnifiedChat({
   const [contextCanvasPresentation, setContextCanvasPresentation] = useState<{ open: boolean; mode: 'single' | 'dual'; width: number }>({ open: false, mode: 'single', width: 520 })
   const contextCanvasOpen = contextCanvasPresentation.open
   const [workbenchOpen, setWorkbenchOpen] = useState(false)
+  const botWorkbenchUserClosedRef = useRef<string | null>(null)
   const [workbenchTab, setWorkbenchTab] = useState<WorkbenchTab>('files')
   const [workbenchWidth, setWorkbenchWidth] = useState(480)
   const [workbenchStateConversationId, setWorkbenchStateConversationId] = useState<string | null>(null)
@@ -1410,11 +1440,17 @@ export default function UnifiedChat({
   const handleWorkbenchOpenChange = useCallback((open: boolean) => {
     setWorkbenchOpen(open)
     if (open) setContextCanvasCloseRequest((revision) => revision + 1)
+    else botWorkbenchUserClosedRef.current = activeConversationIdRef.current
   }, [])
   const openWorkbenchTab = useCallback((tab: WorkbenchTab) => {
     setWorkbenchTab(tab)
     handleWorkbenchOpenChange(true)
   }, [handleWorkbenchOpenChange])
+  useEffect(() => {
+    if (!botMode || !showAgentWorkbench || !activeId) return
+    if (botWorkbenchUserClosedRef.current === activeId) return
+    handleWorkbenchOpenChange(true)
+  }, [activeId, botMode, handleWorkbenchOpenChange, showAgentWorkbench])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
@@ -1599,6 +1635,11 @@ export default function UnifiedChat({
   const [newTitle, setNewTitle] = useState('')
   const [newParticipants, setNewParticipants] = useState<SelectedParticipant[]>([])
   const [newInitialAgentIds, setNewInitialAgentIds] = useState<string[]>([])
+  const [botStudioDevices, setBotStudioDevices] = useState<BotStudioDevice[]>([])
+  const [botStudioCanCreate, setBotStudioCanCreate] = useState(false)
+  const [botStudioCreating, setBotStudioCreating] = useState(false)
+  const [botStudioImporting, setBotStudioImporting] = useState(false)
+  const [botStudioError, setBotStudioError] = useState<string | null>(null)
   const [newScope, setNewScope] = useState<ConversationScope>(
     scope ?? (projectId ? 'project' : 'general'),
   )
@@ -2355,6 +2396,13 @@ export default function UnifiedChat({
     runtimeTarget: activeWorkspaceContext?.runtimeTarget,
     hasMapping: Boolean(activeWorkspaceContext?.mappingId),
   }), [activeConnectionWhere, activeRuntimeLabel, activeWorkspaceContext])
+  const botComputers = useMemo(
+    () => uniqueBotComputers(
+      Object.values(workspaceRuntimeTargetsByWorkspace).flat(),
+      activeWorkspaceContext?.runtimeTarget,
+    ),
+    [activeWorkspaceContext?.runtimeTarget, workspaceRuntimeTargetsByWorkspace],
+  )
   const unavailableActiveRuntime = useMemo(
     () => activeWorkspaceContext && activeRuntimeCatalogueLoaded && (!activeRuntimePresence || !activeRuntimePresence.selectable)
       ? {
@@ -2384,6 +2432,7 @@ export default function UnifiedChat({
   const visibleConversations = useMemo(
     () => conversations.filter((conversation) => {
       if (conversation.archived) return false
+      if (!botMode && isBotInboxConversation(conversation)) return false
       // Entity embeds (CRM contact/company, tickets) lock the rail to one scope
       // ref. Never let a stale list/live snapshot leak unrelated threads in.
       if (!includeAllScopes && scope && scopeRefId) {
@@ -2394,7 +2443,7 @@ export default function UnifiedChat({
       const project = conversationProjectIdentity(conversation)
       return layoutVariant !== 'hermes' || compact || !project || linkedProjectIds.has(project.id)
     }),
-    [compact, conversations, includeAllScopes, layoutVariant, linkedProjectIds, scope, scopeRefId],
+    [botMode, compact, conversations, includeAllScopes, layoutVariant, linkedProjectIds, scope, scopeRefId],
   )
   const filteredConversations = useMemo(() => {
     const query = conversationFilter.trim().toLocaleLowerCase()
@@ -2425,7 +2474,12 @@ export default function UnifiedChat({
     [conversationFilter, pinnedConversationIds, visibleConversations, workspaces],
   )
   const allHermesAgentGroups = useMemo(
-    () => buildHermesAgentGroups(visibleConversations, Object.values(agentMap), conversationFilter, pinnedConversationIds),
+    () => buildHermesAgentGroups(
+      visibleConversations.filter((conversation) => !isBotInboxConversation(conversation)),
+      Object.values(agentMap),
+      conversationFilter,
+      pinnedConversationIds,
+    ),
     [agentMap, conversationFilter, pinnedConversationIds, visibleConversations],
   )
   const hiddenFolderKeySet = useMemo(() => new Set(hiddenFolderKeys), [hiddenFolderKeys])
@@ -2436,6 +2490,40 @@ export default function UnifiedChat({
   const hermesAgentGroups = useMemo(
     () => allHermesAgentGroups.filter((group) => !hiddenFolderKeySet.has(`agent:${group.id}`)),
     [allHermesAgentGroups, hiddenFolderKeySet],
+  )
+  const botRoster = useMemo(
+    () => buildBotRosterItems(Object.values(agentMap), hermesAgentGroups, botComputers),
+    [agentMap, botComputers, hermesAgentGroups],
+  )
+  const botInboxThreads = useMemo(
+    () => listBotInboxThreads(
+      visibleConversations,
+      Object.fromEntries(Object.values(agentMap).map((agent) => [agent.agentId, agent.name])),
+    ),
+    [agentMap, visibleConversations],
+  )
+  const isolationAgentId = useMemo(
+    () => isolationAgentIdForConversation({
+      channelKind: activeConversation?.channelKind,
+      botInbox: activeConversation?.botInbox,
+      participantAgentIds: activeConversation?.participantAgentIds,
+    }),
+    [activeConversation?.botInbox, activeConversation?.channelKind, activeConversation?.participantAgentIds],
+  )
+  const isolatedBotFolder = useMemo(() => {
+    if (!botMode || !isolationAgentId) return null
+    const stored = activeConversation?.workspaceContext?.folderRelativePath?.trim()
+    if (stored) return joinIsolatedBotFolder(stored, isolationAgentId) || stored
+    return isolatedBotWorkspacePath(isolationAgentId)
+  }, [activeConversation?.workspaceContext?.folderRelativePath, botMode, isolationAgentId])
+  const isolatedBotProfile = useMemo(() => {
+    if (!botMode || !isolationAgentId) return null
+    return activeConversation?.workspaceContext?.browserProfileId?.trim()
+      || isolatedBotBrowserProfileId(isolationAgentId)
+  }, [activeConversation?.workspaceContext?.browserProfileId, botMode, isolationAgentId])
+  const activeBotId = useMemo(
+    () => activeConversation?.participantAgentIds?.[0] ?? null,
+    [activeConversation?.participantAgentIds],
   )
   const hiddenFolderOptions = useMemo(() => [
     ...allHermesWorkspaceGroups
@@ -2453,6 +2541,7 @@ export default function UnifiedChat({
     || hermesWorkspaceGroups.length > 0
     || hermesAgentGroups.length > 0
     || hermesSessionSections.length > 0
+    || (botMode && (botRoster.length > 0 || botInboxThreads.length > 0))
   // Only auto-expand the folder that contains the active conversation.
   // Do NOT re-expand every project on catalogue/poll refreshes — that fights
   // the user's collapse preference a few seconds after they close a folder.
@@ -2606,6 +2695,20 @@ export default function UnifiedChat({
       .catch(() => {})
     return () => { cancelled = true }
   }, [orgId])
+
+  useEffect(() => {
+    if (!botMode) return
+    let cancelled = false
+    fetch(`/api/v1/orgs/${encodeURIComponent(orgId)}/bots`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => {
+        if (cancelled || !body?.data) return
+        setBotStudioDevices(Array.isArray(body.data.devices) ? body.data.devices : [])
+        setBotStudioCanCreate(Boolean(body.data.canCreate))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [botMode, orgId])
 
   // Active chat machine for @agent mentions — same rule as New Conversation:
   // context → computer → agents available on that runtime (not a hard-coded roster).
@@ -2988,6 +3091,135 @@ export default function UnifiedChat({
     setModalError(null)
     setShowNewModal(true)
   }, [allowStartConversations])
+
+  const reloadVisibleAgents = useCallback(() => {
+    fetch(`/api/v1/orgs/${orgId}/visible-agents`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => {
+        if (!body?.data) return
+        const map = {} as Record<AgentId, AgentTeamDoc>
+        for (const agent of body.data as AgentTeamDoc[]) {
+          map[agent.agentId] = agent
+        }
+        setAgentMap(map)
+      })
+      .catch(() => {})
+  }, [orgId])
+
+  const createCustomBot = useCallback(async (input: { name: string; role: string; persona: string; deviceId: string; agentHandle?: string }) => {
+    if (botStudioCreating) return
+    setBotStudioCreating(true)
+    setBotStudioError(null)
+    try {
+      const response = await fetch(`/api/v1/orgs/${encodeURIComponent(orgId)}/bots`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(body?.error || 'Failed to create Bot')
+      reloadVisibleAgents()
+    } catch (error) {
+      setBotStudioError(error instanceof Error ? error.message : 'Failed to create Bot')
+    } finally {
+      setBotStudioCreating(false)
+    }
+  }, [botStudioCreating, orgId, reloadVisibleAgents])
+
+  const importSharedBot = useCallback(async (input: { shareId: string; deviceId: string }) => {
+    if (botStudioImporting) return
+    const shareId = parseBotShareIdFromInput(input.shareId)
+    if (!shareId) {
+      setBotStudioError('Paste a valid Bot share link')
+      return
+    }
+    setBotStudioImporting(true)
+    setBotStudioError(null)
+    try {
+      const response = await fetch(`/api/v1/orgs/${encodeURIComponent(orgId)}/bots/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shareId, deviceId: input.deviceId }),
+      })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(body?.error || 'Failed to import Bot')
+      reloadVisibleAgents()
+    } catch (error) {
+      setBotStudioError(error instanceof Error ? error.message : 'Failed to import Bot')
+    } finally {
+      setBotStudioImporting(false)
+    }
+  }, [botStudioImporting, orgId, reloadVisibleAgents])
+
+  const shareCustomBot = useCallback(async (botId: string) => {
+    try {
+      const response = await fetch(`/api/v1/orgs/${encodeURIComponent(orgId)}/bots/${encodeURIComponent(botId)}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visibility: 'link', allowClone: true }),
+      })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(body?.error || 'Failed to share Bot')
+      const shareId = body?.data?.shareId as string | undefined
+      if (!shareId) throw new Error('Share was created without an id')
+      const url = `${window.location.origin}${window.location.pathname}?mode=bot&botShare=${shareId}`
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to share Bot')
+    }
+  }, [orgId])
+
+  const createBotInboxThread = useCallback(async (fromAgentId: string, toAgentId: string) => {
+    if (!allowStartConversations) {
+      setError('Starting new conversations is disabled for your organisation role.')
+      return
+    }
+    const existing = findOpenBotInboxThread(conversations, fromAgentId, toAgentId)
+    if (existing?.id) {
+      setActiveId(existing.id)
+      setMobilePane('conversation')
+      return
+    }
+    const fromName = agentMap[fromAgentId]?.name || fromAgentId
+    const toName = agentMap[toAgentId]?.name || toAgentId
+    const payload: Record<string, unknown> = {
+      orgId,
+      channelKind: 'bot_inbox',
+      botInbox: {
+        fromAgentId,
+        toAgentId,
+        status: 'open',
+        ...(activeId ? { parentConversationId: activeId } : {}),
+      },
+      participants: [
+        { kind: 'agent', agentId: toAgentId },
+        { kind: 'agent', agentId: fromAgentId },
+      ],
+      title: botInboxTitle(fromName, toName),
+    }
+    if (selectedWorkspaceId && selectedWorkspaceRuntime) {
+      const selected = parseWorkspaceRuntimeSelection(selectedWorkspaceRuntime)
+      payload.workspaceId = selectedWorkspaceId
+      payload.runtimeTarget = selected.runtimeTargetId
+      if (selected.mappingId) payload.mappingId = selected.mappingId
+    }
+    try {
+      const response = await fetch('/api/v1/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const body = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(body?.error || 'Failed to open Bot inbox')
+      const conversation: Conversation | undefined = body?.data?.conversation
+      if (!conversation?.id) throw new Error('Failed to open Bot inbox')
+      setConversations((prev) => (prev.some((row) => row.id === conversation.id) ? prev : [conversation, ...prev]))
+      setActiveId(conversation.id)
+      setMobilePane('conversation')
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to open Bot inbox')
+    }
+  }, [activeId, agentMap, allowStartConversations, conversations, orgId, selectedWorkspaceId, selectedWorkspaceRuntime, setActiveId])
 
   const closeNewConversation = useCallback(() => {
     setShowNewModal(false)
@@ -6540,6 +6772,23 @@ export default function UnifiedChat({
       if (newScope === scope && scopeRefId) payload.scopeRefId = scopeRefId
       if (newScope === 'project' && projectId && !payload.scopeRefId) payload.scopeRefId = projectId
       if (contextRefs.length > 0) payload.contextRefs = contextRefs
+      if (botMode) {
+        const selectedAgents = newParticipants.filter((participant) => participant.kind === 'agent')
+        payload.channelKind = selectedAgents.length > 1 ? 'bot_inbox' : 'bot'
+        if (selectedAgents.length > 1) {
+          payload.botInbox = {
+            fromAgentId: selectedAgents[0].agentId,
+            toAgentId: selectedAgents[1].agentId,
+            status: 'open',
+          }
+        }
+        if (!payload.workspaceId && selectedWorkspaceId && selectedWorkspaceRuntime) {
+          const selected = parseWorkspaceRuntimeSelection(selectedWorkspaceRuntime)
+          payload.workspaceId = selectedWorkspaceId
+          payload.runtimeTarget = selected.runtimeTargetId
+          if (selected.mappingId) payload.mappingId = selected.mappingId
+        }
+      }
 
       const reconcileCriteria = {
         startedBy: currentUserUid,
@@ -6604,7 +6853,7 @@ export default function UnifiedChat({
     } finally {
       setCreatingConv(false)
     }
-  }, [allowStartConversations, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, projectSetupBlocksSession, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId, selectedCompanyId, setActiveId, currentUserUid, listQuery])
+  }, [allowStartConversations, botMode, creatingConv, newParticipants, newTitle, newScope, orgId, projectId, projectSetupBlocksSession, scope, scopeRefId, contextRefs, selectedWorkspaceId, selectedWorkspaceRuntime, selectedWorkspaceRuntimeIsValid, selectedWorkspaceShareMode, selectedProjectId, selectedCompanyId, setActiveId, currentUserUid, listQuery])
 
   const dispatchComposerMessage = useCallback(
     async (options: {
@@ -7036,6 +7285,15 @@ export default function UnifiedChat({
       requestAnimationFrame(() => mobileSessionsTriggerRef.current?.focus())
     }
   }, [sessionsOverlayViewport])
+  const selectBot = useCallback((botId: string) => {
+    const latest = hermesAgentGroups.find((group) => group.id === botId)?.conversations[0]
+    if (latest) {
+      setActiveId(latest.id)
+      closeSessions()
+      return
+    }
+    openNewAgentConversation(botId)
+  }, [closeSessions, hermesAgentGroups, openNewAgentConversation, setActiveId])
   useEffect(() => {
     if (!showConversationList || !showListOnMobile || !sessionsOverlayViewport) return
     mobileSessionsCloseRef.current?.focus()
@@ -7084,6 +7342,7 @@ export default function UnifiedChat({
     <div
       data-testid="unified-chat-root"
       data-layout-variant={layoutVariant}
+      data-experience-mode={experienceMode}
       className={
         compact
           ? 'relative flex h-full min-h-0 min-w-0 flex-1 overflow-hidden'
@@ -7122,6 +7381,9 @@ export default function UnifiedChat({
             <button type="button" aria-label="New conversation" onClick={() => openNewConversation()} disabled={!allowStartConversations} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15 disabled:opacity-40 xl:h-10 xl:w-10"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">add_comment</span></button>
             <button type="button" aria-label="Search sessions" onClick={() => { onConversationRailModeChange?.('expanded'); requestAnimationFrame(() => conversationFilterRef.current?.focus()) }} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)] xl:h-10 xl:w-10"><span aria-hidden="true" className="material-symbols-outlined text-[19px]">search</span></button>
             <div aria-hidden="true" className="my-0.5 h-px w-7 bg-[var(--color-card-border)]" />
+            {botMode ? (
+              <BotRoster bots={botRoster} activeBotId={activeBotId} onSelectBot={selectBot} compact />
+            ) : (
             <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
               {filteredConversations.slice(0, 10).map((conversation) => (
                 <button key={conversation.id} type="button" aria-label={`Open ${conversation.title || 'Untitled session'}`} title={conversation.title || 'Untitled session'} onClick={() => { setActiveId(conversation.id); closeSessions() }} className={`relative grid h-11 w-11 place-items-center rounded-lg xl:h-10 xl:w-10 ${conversation.id === activeId ? 'bg-primary/14 text-primary' : 'text-[var(--color-pib-text-muted)] hover:bg-white/[0.07] hover:text-[var(--color-pib-text)]'}`}>
@@ -7138,14 +7400,15 @@ export default function UnifiedChat({
                 </button>
               ))}
             </div>
+            )}
           </div>
         )}
         <div className={railCollapsed ? 'hidden' : 'contents'}>
         {!compact ? (
           <div className="mb-1 flex min-h-11 items-center justify-between xl:hidden">
             <div>
-              <p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">Messages</p>
-              <h2 className="text-base font-semibold text-[var(--color-pib-text)]">Browse sessions</h2>
+              <p className="text-[10px] font-label uppercase tracking-[0.2em] text-[var(--color-pib-text-muted)]">{botMode ? 'Bot mode' : 'Messages'}</p>
+              <h2 className="text-base font-semibold text-[var(--color-pib-text)]">{botMode ? 'Browse bots' : 'Browse sessions'}</h2>
             </div>
             {activeConversation && (
               <button
@@ -7181,7 +7444,7 @@ export default function UnifiedChat({
           <div className={hermesLayout
             ? 'text-[10px] font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]'
             : 'text-xs text-[var(--color-pib-text-muted)]'}>
-            {hermesLayout ? 'Sessions' : 'Conversations'}
+            {hermesLayout ? (botMode ? 'Bots' : 'Sessions') : 'Conversations'}
           </div>
           <div className="flex items-center gap-0.5">
             {hermesLayout && (
@@ -7263,18 +7526,38 @@ export default function UnifiedChat({
         )}
 
         <div className={hermesLayout ? 'flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-0.5' : 'flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto'}>
+          {botMode && (
+            <BotRoster
+              bots={botRoster}
+              activeBotId={activeBotId}
+              onSelectBot={selectBot}
+              onStartChannel={allowStartConversations ? openNewAgentConversation : undefined}
+              onShareBot={shareCustomBot}
+            />
+          )}
+          {botMode && (
+            <BotInboxRail
+              threads={botInboxThreads}
+              bots={botRoster.map((bot) => ({ id: bot.id, name: bot.name }))}
+              activeId={activeId}
+              onOpenThread={(threadId) => { setActiveId(threadId); closeSessions() }}
+              onCreateThread={allowStartConversations ? createBotInboxThread : undefined}
+            />
+          )}
           {(hermesLayout ? !hasHermesRailItems : filteredConversations.length === 0) && (
             <div className="text-xs text-[var(--color-pib-text-muted)] px-2 py-3">
               {conversationFilter.trim()
-                ? 'No projects or conversations match your filter.'
+                ? botMode ? 'No bots or channels match your filter.' : 'No projects or conversations match your filter.'
                 : allowStartConversations
-                  ? workspaceProjects.length === 0
+                  ? botMode
+                    ? 'No channels yet. Start one with a Bot above.'
+                    : workspaceProjects.length === 0
                     ? 'No projects yet. Use New project above to create your first project, then start its sessions.'
                     : 'No projects or conversations yet. Start one.'
-                  : 'No projects or conversations yet.'}
+                  : botMode ? 'No bots or channels yet.' : 'No projects or conversations yet.'}
             </div>
           )}
-          {hermesLayout && hermesCompanyGroups.length > 0 && (
+          {hermesLayout && !botMode && hermesCompanyGroups.length > 0 && (
             <div data-testid="hermes-companies" className="min-w-0">
               <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
                 <span>Cowork folders</span>
@@ -7382,7 +7665,7 @@ export default function UnifiedChat({
               </div>
             </div>
           )}
-          {hermesLayout && hermesProjectGroups.length > 0 && (
+          {hermesLayout && !botMode && hermesProjectGroups.length > 0 && (
             <div data-testid="hermes-projects" className="min-w-0">
               <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
                 <span>Projects</span>
@@ -7772,7 +8055,7 @@ export default function UnifiedChat({
               </div>
             </div>
           )}
-          {hermesLayout && hermesWorkspaceGroups.length > 0 && (
+          {hermesLayout && !botMode && hermesWorkspaceGroups.length > 0 && (
             <div data-testid="hermes-workspaces" className="min-w-0">
               <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
                 <span>Workspaces</span>
@@ -7908,17 +8191,17 @@ export default function UnifiedChat({
               </div>
             </div>
           )}
-          {hermesLayout && hermesAgentGroups.length > 0 && (
+          {hermesLayout && (botMode ? hermesAgentGroups.some((group) => group.conversations.length > 0) : hermesAgentGroups.length > 0) && (
             <div data-testid="hermes-agents" className="min-w-0">
               <div className="mb-1 flex items-center justify-between px-1 text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]/75">
-                <span>Agents</span>
+                <span>{botMode ? 'Channels' : 'Agents'}</span>
                 <span className="font-mono text-[10px] tracking-normal text-[var(--color-pib-text-muted)]/55">{hermesAgentGroups.length}</span>
               </div>
               <div className="flex min-w-0 flex-col gap-0.5">
                 {hermesAgentGroups.map((agent) => {
                   const groupKey = `agent:${agent.id}`
                   const agentIsAuthorized = Boolean(agentMap[agent.id])
-                  const sessionsExpanded = Boolean(conversationFilter.trim()) || expandedSessionGroupKeys.includes(groupKey)
+                  const sessionsExpanded = botMode || Boolean(conversationFilter.trim()) || expandedSessionGroupKeys.includes(groupKey)
                   const sessionsRegionId = `agent-sessions-${agent.id}`
                   return (
                     <div
@@ -8044,7 +8327,7 @@ export default function UnifiedChat({
             </div>
           )}
           {hermesLayout
-            ? hermesSessionSections.map((section) => (
+            ? (botMode ? [] : hermesSessionSections).map((section) => (
               <div key={section.id} data-testid={`hermes-session-section-${section.id}`} className="min-w-0">
                 <div className="mb-1 flex items-center justify-between px-1 text-xs font-label uppercase tracking-[0.22em] text-[var(--color-pib-text-muted)]/75">
                   <span>{section.label}</span>
@@ -8530,7 +8813,22 @@ export default function UnifiedChat({
           </div>
         </div>
 
-        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
+        {botMode && (
+          <BotComputerStrip
+            computers={botComputers}
+            activeComputerId={activeWorkspaceContext?.runtimeTarget}
+            computersHref={computersHref}
+            workbenchOpen={workbenchOpen}
+            isolatedFolder={isolatedBotFolder}
+            browserProfileId={isolatedBotProfile}
+            onOpenWorkbench={showAgentWorkbench ? openWorkbenchTab : undefined}
+            onToggleWorkbench={showAgentWorkbench ? () => {
+              if (workbenchOpen) handleWorkbenchOpenChange(false)
+              else openWorkbenchTab(workbenchTab)
+            } : undefined}
+          />
+        )}
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} preferCanvas={botMode} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
@@ -8604,7 +8902,22 @@ export default function UnifiedChat({
           className={`flex-1 min-h-0 min-w-0 space-y-3 overflow-y-auto overflow-x-hidden p-4 transition-[margin] duration-200 ${rightDockOpen ? 'lg:mr-[var(--context-canvas-width)]' : ''}`}
         >
           {loading && <div className="text-xs text-[var(--color-pib-text-muted)]">Loading…</div>}
-          {!loading && messages.length === 0 && (
+          {!loading && botMode && !activeConversation && (
+            <BotModeLanding
+              bots={botRoster}
+              computers={botComputers}
+              onStartChannel={allowStartConversations ? openNewAgentConversation : undefined}
+              onOpenWorkbench={showAgentWorkbench ? () => openWorkbenchTab('browser') : undefined}
+              studioDevices={botStudioDevices}
+              canCreateBot={botStudioCanCreate}
+              creatingBot={botStudioCreating}
+              importingBot={botStudioImporting}
+              studioError={botStudioError}
+              onCreateBot={createCustomBot}
+              onImportBot={importSharedBot}
+            />
+          )}
+          {!loading && messages.length === 0 && !(botMode && !activeConversation) && (
             <div className="text-sm text-[var(--color-pib-text-muted)] py-8 text-center">
               {activeConversation
                 ? allowSendMessages ? 'No messages yet. Send one below.' : 'No messages yet.'

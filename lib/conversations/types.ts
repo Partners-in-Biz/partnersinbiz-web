@@ -15,6 +15,7 @@ import type { HermesGoalState } from '@/lib/chat/hermes-goal'
 import type { AgentEffort } from '@/lib/agents/runRouting'
 import type { ChatUiAction, RichMessagePart } from '@/lib/hermes/types'
 import type { ConversationWorkspaceContext } from '@/lib/client-provisioning/workspace-context'
+import type { BotChannelKind, BotInboxMeta } from '@/lib/messages/bot-channel'
 import type { ApprovalMode } from '@/lib/messages/approval-mode'
 import type { MessageThinkingTrace } from './thinking-trace'
 import type { Mention } from '@/lib/comments/types'
@@ -148,6 +149,9 @@ export interface Conversation {
   }
   startedBy: string
   title: string
+  /** messages = ordinary chat; bot = human↔Bot channel; bot_inbox = Bot↔Bot. */
+  channelKind?: BotChannelKind
+  botInbox?: BotInboxMeta
   scope?: ConversationScope
   scopeRefId?: string
   workspaceContext?: ConversationWorkspaceContext

@@ -3,6 +3,7 @@
 import AgentRunSession from '@/components/agents/AgentRunSession'
 import HermesMessagesShell from '@/components/messages/hermes-desktop/HermesMessagesShell'
 import type { MessagesSurface } from '@/components/messages/hermes-desktop/types'
+import type { MessagesExperienceMode } from '@/lib/messages/experience-mode'
 
 interface MessagesWorkspaceProps {
   surface: MessagesSurface
@@ -17,6 +18,7 @@ interface MessagesWorkspaceProps {
   initialRunId?: string
   initialTaskId?: string
   initialTaskTitle?: string
+  initialExperienceMode?: MessagesExperienceMode
   allowStartConversations?: boolean
   allowSendMessages?: boolean
   allowAgentParticipants?: boolean
@@ -36,6 +38,7 @@ export function MessagesWorkspace({
   initialRunId,
   initialTaskId,
   initialTaskTitle,
+  initialExperienceMode,
   allowStartConversations = true,
   allowSendMessages = true,
   allowAgentParticipants,
@@ -67,6 +70,7 @@ export function MessagesWorkspace({
       currentUserDisplayName={currentUserDisplayName}
       userRole={userRole}
       initialConvId={initialConvId}
+      initialExperienceMode={initialExperienceMode}
       capabilities={{
         allowStartConversations,
         allowSendMessages,

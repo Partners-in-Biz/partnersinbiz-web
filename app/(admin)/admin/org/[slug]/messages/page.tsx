@@ -13,6 +13,7 @@ export default async function MessagesPage({ params, searchParams }: PageProps) 
   const { slug } = await params
   const sp = await searchParams
   const initialConvId = typeof sp.convId === 'string' ? sp.convId : undefined
+  const initialExperienceMode = sp.mode === 'bot' ? 'bot' : undefined
   const initialAgentId = typeof sp.agent === 'string' ? sp.agent : undefined
   const initialRunId = typeof sp.runId === 'string' ? sp.runId : undefined
   const initialTaskId = typeof sp.taskId === 'string' ? sp.taskId : undefined
@@ -55,6 +56,7 @@ export default async function MessagesPage({ params, searchParams }: PageProps) 
       currentUserDisplayName={displayName}
       orgSlug={slug}
       initialConvId={initialConvId}
+      initialExperienceMode={initialExperienceMode}
       initialAgentId={initialAgentId}
       initialRunId={initialRunId}
       initialTaskId={initialTaskId}

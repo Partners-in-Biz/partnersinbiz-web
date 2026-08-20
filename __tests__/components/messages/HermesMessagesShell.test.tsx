@@ -95,7 +95,37 @@ describe('HermesMessagesShell', () => {
       allowArchiveConversations: false,
       layoutVariant: 'hermes',
       showAgentWorkbench: true,
+      experienceMode: 'messages',
     }))
+  })
+
+  it('switches the workspace between Messages and Bot mode', () => {
+    render(
+      <HermesMessagesShell
+        surface="portal"
+        orgId="org-1"
+        currentUserUid="user-1"
+        currentUserDisplayName="Peet"
+        initialConvId="conv-1"
+        capabilities={{
+          allowStartConversations: true,
+          allowSendMessages: true,
+          allowAgentParticipants: true,
+          allowArchiveConversations: true,
+        }}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Bot mode' }))
+
+    expect(screen.getByTestId('hermes-messages-shell')).toHaveAttribute('data-experience-mode', 'bot')
+    expect(screen.getByTestId('hermes-messages-shell-topbar')).toHaveTextContent('Bot mode')
+    expect(mockUnifiedChat).toHaveBeenCalledWith(expect.objectContaining({
+      experienceMode: 'bot',
+      showAgentWorkbench: true,
+    }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Messages' }))
+    expect(screen.getByTestId('hermes-messages-shell')).toHaveAttribute('data-experience-mode', 'messages')
   })
 
   it('enables delete controls for admin surface only', () => {

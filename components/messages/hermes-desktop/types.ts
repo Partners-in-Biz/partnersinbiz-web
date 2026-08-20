@@ -1,3 +1,5 @@
+import type { MessagesExperienceMode } from '@/lib/messages/experience-mode'
+
 export type MessagesSurface = 'admin' | 'portal'
 
 export interface HermesMessagesCapabilities {
@@ -15,5 +17,6 @@ export interface HermesMessagesShellProps {
   orgName?: string
   userRole?: string
   initialConvId?: string
+  initialExperienceMode?: MessagesExperienceMode
   capabilities: HermesMessagesCapabilities
 }
