@@ -1,5 +1,6 @@
 import {
   applyExperienceModeToSearch,
+  BOT_MODE_CAPABILITIES,
   parseMessagesExperienceMode,
   resolveMessagesExperienceMode,
 } from '@/lib/messages/experience-mode'
@@ -65,6 +66,7 @@ describe('bot roster', () => {
         role: 'Engineering',
         channelCount: 1,
         lastChannelTitle: 'Fix preview builds',
+        lastPreview: 'Fix preview builds',
         onlineComputerCount: 1,
         kind: 'specialist',
       }),
@@ -81,5 +83,20 @@ describe('bot roster', () => {
       [],
     )
     expect(roster.map((bot) => bot.kind)).toEqual(['marketplace', 'custom'])
+  })
+
+  it('keeps Grok Bot surfaces and PiB extras in the capability map', () => {
+    expect(BOT_MODE_CAPABILITIES.filter((item) => item.grok).map((item) => item.id)).toEqual([
+      'named-bots',
+      'direct-chat',
+      'computer',
+      'screen',
+      'routines',
+      'skills',
+      'plugins',
+      'bot-to-bot',
+      'approvals',
+    ])
+    expect(BOT_MODE_CAPABILITIES.find((item) => item.id === 'canvas')?.grok).toBe(false)
   })
 })

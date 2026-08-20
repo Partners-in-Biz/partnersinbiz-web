@@ -58,6 +58,7 @@ export interface Conversation {
   archived: boolean
   /** Set when this conversation is the project command session. */
   commandSessionProjectId?: string
+  goalState?: { status?: string; goal?: string | null } | null
 }
 
 interface ConversationListItemProps {
