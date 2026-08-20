@@ -255,4 +255,85 @@ describe('resolvePortalActiveOrgId / getPortalOrgIdsForUser — stale sessions',
     expect(orgIds).toContain('pib-platform-owner')
     expect(orgIds).not.toContain('client-org')
   })
+
+  it('lists all orgs where user is an owner (portal switcher bug regression)', async () => {
+    setMembers([
+      { orgId: 'pib-platform-owner', row: { role: 'owner' } },
+      { orgId: 'velox-org', row: { role: 'owner' } },
+      { orgId: 'lumen-org', row: { role: 'owner' } },
+    ])
+    setOrgs({
+      'pib-platform-owner': { data: { name: 'Partners in Biz', type: 'platform_owner' } },
+      'velox-org': { data: { name: 'Velox', type: 'platform_product' } },
+      'lumen-org': { data: { name: 'Lumen', type: 'platform_product' } },
+    })
+    const data = { role: 'admin', orgId: 'pib-platform-owner' }
+
+    const orgIds = await getPortalOrgIdsForUser('user-1', data)
+    expect(orgIds).toContain('pib-platform-owner')
+    expect(orgIds).toContain('velox-org')
+    expect(orgIds).toContain('lumen-org')
+    expect(orgIds.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('includes orgs with incomplete portal setup (no areas configured yet)', async () => {
+    setMembers([
+      { orgId: 'org-with-areas', row: { role: 'owner' } },
+      { orgId: 'org-without-areas', row: { role: 'owner' } },
+    ])
+    setOrgs({
+      'org-with-areas': { data: { name: 'Configured Org' } },
+      'org-without-areas': { data: { name: 'New Org' } },
+    })
+    const data = { role: 'client', orgId: 'org-with-areas' }
+
+    const orgIds = await getPortalOrgIdsForUser('user-1', data)
+    expect(orgIds).toContain('org-with-areas')
+    expect(orgIds).toContain('org-without-areas')
+  })
+
+  it('includes owner memberships with pending/onboarding/setup status (portal switcher fix)', async () => {
+    setMembers([
+      { orgId: 'pib-platform-owner', row: { role: 'owner', status: 'active' } },
+      { orgId: 'velox-org', row: { role: 'owner', status: 'onboarding' } },
+      { orgId: 'lumen-org', row: { role: 'owner', status: 'pending' } },
+      { orgId: 'client-org', row: { role: 'member', status: 'onboarding' } },
+    ])
+    setOrgs({
+      'pib-platform-owner': {},
+      'velox-org': {},
+      'lumen-org': {},
+      'client-org': {},
+    })
+    const data = { role: 'admin', orgId: 'pib-platform-owner' }
+
+    const orgIds = await getPortalOrgIdsForUser('user-1', data)
+    expect(orgIds).toContain('pib-platform-owner')
+    expect(orgIds).toContain('velox-org')
+    expect(orgIds).toContain('lumen-org')
+    // Regular members with onboarding status should NOT be included
+    expect(orgIds).not.toContain('client-org')
+  })
+
+  it('excludes owner memberships with explicitly inactive/disabled/revoked status', async () => {
+    setMembers([
+      { orgId: 'active-org', row: { role: 'owner', status: 'active' } },
+      { orgId: 'disabled-org', row: { role: 'owner', status: 'active', disabled: true } },
+      { orgId: 'revoked-org', row: { role: 'owner', status: 'active', revoked: true } },
+      { orgId: 'deleted-org', row: { role: 'owner', status: 'active', deleted: true } },
+    ])
+    setOrgs({
+      'active-org': {},
+      'disabled-org': {},
+      'revoked-org': {},
+      'deleted-org': {},
+    })
+    const data = { role: 'admin', orgId: 'active-org' }
+
+    const orgIds = await getPortalOrgIdsForUser('user-1', data)
+    expect(orgIds).toContain('active-org')
+    expect(orgIds).not.toContain('disabled-org')
+    expect(orgIds).not.toContain('revoked-org')
+    expect(orgIds).not.toContain('deleted-org')
+  })
 })

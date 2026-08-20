@@ -965,7 +965,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   value={activeOrgId}
                   options={workspaceOptions.map(org => ({ value: org.id, label: org.name }))}
                   onValueChange={handleOrgSwitch}
-                  disabled={orgSwitching || workspaceOptions.length === 1}
+                  disabled={orgSwitching || workspaceOptions.length <= 1}
                   className="min-w-[140px]"
                   buttonClassName="!h-8 !text-xs"
                   menuClassName="bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
@@ -1292,7 +1292,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   value={activeOrgId}
                   options={workspaceOptions.map(org => ({ value: org.id, label: org.name }))}
                   onValueChange={handleOrgSwitch}
-                  disabled={orgSwitching || workspaceOptions.length === 1}
+                  disabled={orgSwitching || workspaceOptions.length <= 1}
                   className="w-full"
                   buttonClassName="w-full"
                   menuClassName="bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
