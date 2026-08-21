@@ -53,8 +53,11 @@ export function resolveOrgScope(user: ApiUser, requestedOrgId: string | null): O
   const portalWorkspaceOrgId = user.activeOrgId
   
   // Portal workspace context: enforce client-like scoping for ALL roles.
+  // This is the ONLY new restriction added by the security fix.
   if (portalWorkspaceOrgId) {
     // If an orgId was explicitly requested, it MUST match the active workspace.
+    // This blocks platform admins from accessing other orgs via query params
+    // while sitting in a client workspace.
     if (requestedOrgId && requestedOrgId !== portalWorkspaceOrgId) {
       return { ok: false, status: 403, error: 'Cannot access a different organisation from portal workspace' }
     }
@@ -65,17 +68,16 @@ export function resolveOrgScope(user: ApiUser, requestedOrgId: string | null): O
     return { ok: true, orgId: portalWorkspaceOrgId }
   }
 
-  // Admin / ai WITHOUT portal context: trust whatever was requested (API/cron usage).
+  // Admin / ai WITHOUT portal context: original pre-fix behavior restored.
+  // For list endpoints that require explicit ?orgId=, the endpoint validates it.
+  // For document-access checks, requestedOrgId is the document's orgId.
   if (user.role === 'admin' || user.role === 'ai') {
+    // If no orgId provided, this is likely a list endpoint - let it handle the error
     if (!requestedOrgId) {
-      return { ok: false, status: 400, error: 'orgId is required (admin role must scope explicitly)' }
+      return { ok: false, status: 400, error: 'orgId is required' }
     }
-    if (user.role === 'admin' && requestedOrgId === PIB_PLATFORM_ORG_ID) {
-      return { ok: true, orgId: requestedOrgId }
-    }
-    // Restricted platform admins can only access orgs in their allowedOrgIds
-    // list (or their home orgId). Super admins (no allowedOrgIds) are
-    // unrestricted. AI agents are always unrestricted.
+    // AI agents and unrestricted admins can access any org
+    // Restricted admins checked via canAccessOrg
     if (!canAccessOrg(user, requestedOrgId)) {
       return { ok: false, status: 403, error: 'You do not have access to this organisation' }
     }
