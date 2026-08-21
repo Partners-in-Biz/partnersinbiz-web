@@ -824,9 +824,8 @@ export default function OrganizationSettingsPage() {
                 accept="image/*"
                 onChange={handleLogoUpload}
                 disabled={!canEdit || uploadingLogo}
-                className="hidden"
+                className="sr-only"
                 id="org-logo-upload"
-                data-impeccable-disable="content-invisible-at-rest: Hidden file input controlled by custom button"
               />
               <button
                 type="button"
