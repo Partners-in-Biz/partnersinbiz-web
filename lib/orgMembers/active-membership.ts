@@ -130,23 +130,41 @@ export async function hasActiveOrgMembership(orgId: string, uid: string): Promis
   })
 }
 
+async function queryActiveMemberOrgIds(field: 'uid' | 'userId', uid: string): Promise<string[]> {
+  try {
+    const snap = await adminDb.collection('orgMembers').where(field, '==', uid).get()
+    const ids = new Set<string>()
+    for (const doc of snap.docs) {
+      const row = doc.data() ?? {}
+      if (!isActiveOrgMembershipRow(row)) continue
+      const orgId = cleanString(row.orgId) || orgIdFromMemberDocId(doc.id, uid)
+      if (orgId) ids.add(orgId)
+    }
+    return Array.from(ids)
+  } catch (err) {
+    console.error(`[orgMembers] ${field} membership query failed`, err)
+    return []
+  }
+}
+
 /**
  * All org ids where the user holds an ACTIVE orgMembers row.
  * Filtered by the canonical predicate — revoked/disabled/deleted rows never
  * surface here.
+ *
+ * Query both `uid` and `userId`: older rows and some write paths stored the
+ * Firebase uid under `userId` only. A uid-only query made those memberships
+ * invisible to the portal workspace switcher even though document-id lookups
+ * still granted access.
  */
 export async function activeOrgMembershipOrgIds(uid: string): Promise<string[]> {
   const cleanUid = cleanString(uid)
   if (!cleanUid) return []
-  const snap = await adminDb.collection('orgMembers').where('uid', '==', cleanUid).get()
-  const ids = new Set<string>()
-  for (const doc of snap.docs) {
-    const row = doc.data() ?? {}
-    if (!isActiveOrgMembershipRow(row)) continue
-    const orgId = cleanString(row.orgId) || orgIdFromMemberDocId(doc.id, cleanUid)
-    if (orgId) ids.add(orgId)
-  }
-  return Array.from(ids)
+  const [uidOrgIds, userIdOrgIds] = await Promise.all([
+    queryActiveMemberOrgIds('uid', cleanUid),
+    queryActiveMemberOrgIds('userId', cleanUid),
+  ])
+  return Array.from(new Set([...uidOrgIds, ...userIdOrgIds]))
 }
 
 /**

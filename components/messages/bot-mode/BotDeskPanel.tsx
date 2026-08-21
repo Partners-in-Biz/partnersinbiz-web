@@ -43,7 +43,7 @@ export function BotDeskPanel({
     >
       <section className="shrink-0 border-b border-white/[0.08] p-3">
         <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">
-          {botName}'s {BOT_MODE_COPY.screenLabel.toLowerCase()}
+          {botName}&apos;s {BOT_MODE_COPY.screenLabel.toLowerCase()}
         </p>
         <button
           type="button"

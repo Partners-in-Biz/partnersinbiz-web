@@ -21,7 +21,6 @@ import {
   cleanString,
   cleanStringArray,
   hasActiveOrgMembership,
-  legacyActiveOrgMembershipOrgIds,
 } from '@/lib/orgMembers/active-membership'
 
 export type PortalUserData = {
@@ -95,18 +94,22 @@ export function choosePortalActiveOrgId(data: PortalUserData, orgIds: string[]):
 export async function getPortalOrgIdsForUser(uid: string, data: PortalUserData): Promise<string[]> {
   const ids = new Set<string>()
 
-  // 1. Canonical active orgMembers rows.
+  // 1. Canonical active orgMembers rows (uid and userId field queries).
   for (const orgId of await activeOrgMembershipOrgIds(uid)) ids.add(orgId)
 
-  // 2. Legacy organizations.members array entries for pointer candidates.
-  const candidates = userLinkedOrgIds(data)
-  if (candidates.length > 0) {
-    for (const orgId of await legacyActiveOrgMembershipOrgIds(uid, candidates)) ids.add(orgId)
+  // 2. User-record pointers (orgIds / activeOrgId / orgId) never grant access
+  //    alone, but they are candidates for document-id + legacy members-array
+  //    lookups. This recovers memberships that the collection query missed
+  //    (missing uid field, query failure) when the pointer is still present.
+  for (const orgId of userLinkedOrgIds(data)) {
+    if (ids.has(orgId)) continue
+    if (await hasActiveOrgMembership(orgId, uid)) ids.add(orgId)
   }
 
   // 3. Admin assigned scope (allowedOrgIds + home orgId), org must be operable.
   if (isAdminUser(data)) {
     for (const orgId of adminAssignedOrgIds(data)) {
+      if (ids.has(orgId)) continue
       if (await orgIsOperable(orgId)) ids.add(orgId)
     }
   }

@@ -65,6 +65,15 @@ type OrganizationSettingsResponse = {
       purchaseOrderRequired?: boolean
       purchaseOrderNumber?: string
       invoiceInstructions?: string
+      bankingDetails?: {
+        bankName?: string
+        accountHolder?: string
+        accountNumber?: string
+        branchCode?: string
+        routingNumber?: string
+        swiftCode?: string
+        iban?: string
+      }
     }
   }
   permissions?: { canEdit?: boolean; role?: string | null }
@@ -111,6 +120,13 @@ type FormState = {
   purchaseOrderRequired: boolean
   purchaseOrderNumber: string
   invoiceInstructions: string
+  bankName: string
+  accountHolder: string
+  accountNumber: string
+  branchCode: string
+  routingNumber: string
+  swiftCode: string
+  iban: string
 }
 
 type TextField = {
@@ -145,6 +161,13 @@ const emptyForm: FormState = {
   purchaseOrderRequired: false,
   purchaseOrderNumber: '',
   invoiceInstructions: '',
+  bankName: '',
+  accountHolder: '',
+  accountNumber: '',
+  branchCode: '',
+  routingNumber: '',
+  swiftCode: '',
+  iban: '',
 }
 
 function stringValue(value: unknown): string {
@@ -157,6 +180,7 @@ function toForm(data: OrganizationSettingsResponse): FormState {
   const address = billing.address ?? {}
   const accounts = billing.accountsContact ?? {}
   const signatory = billing.authorizedSignatory ?? {}
+  const banking = billing.bankingDetails ?? {}
 
   return {
     name: stringValue(org.name),
@@ -186,6 +210,13 @@ function toForm(data: OrganizationSettingsResponse): FormState {
     purchaseOrderRequired: billing.purchaseOrderRequired === true,
     purchaseOrderNumber: stringValue(billing.purchaseOrderNumber),
     invoiceInstructions: stringValue(billing.invoiceInstructions),
+    bankName: stringValue(banking.bankName),
+    accountHolder: stringValue(banking.accountHolder),
+    accountNumber: stringValue(banking.accountNumber),
+    branchCode: stringValue(banking.branchCode),
+    routingNumber: stringValue(banking.routingNumber),
+    swiftCode: stringValue(banking.swiftCode),
+    iban: stringValue(banking.iban),
   }
 }
 
@@ -225,6 +256,15 @@ function toPayload(form: FormState) {
       purchaseOrderRequired: form.purchaseOrderRequired,
       purchaseOrderNumber: form.purchaseOrderNumber,
       invoiceInstructions: form.invoiceInstructions,
+      bankingDetails: {
+        bankName: form.bankName,
+        accountHolder: form.accountHolder,
+        accountNumber: form.accountNumber,
+        branchCode: form.branchCode,
+        routingNumber: form.routingNumber,
+        swiftCode: form.swiftCode,
+        iban: form.iban,
+      },
     },
   }
 }
@@ -691,6 +731,21 @@ export default function OrganizationSettingsPage() {
           </div>
         </Section>
 
+        <Section title="Banking details">
+          <p className="text-sm text-[var(--color-pib-text-muted)]">
+            Bank account information for payments. Only visible to owners and admins.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {field('Bank name', 'bankName')}
+            {field('Account holder', 'accountHolder')}
+            {field('Account number', 'accountNumber')}
+            {field('Branch code', 'branchCode')}
+            {field('Routing number', 'routingNumber')}
+            {field('SWIFT code', 'swiftCode')}
+            <div className="sm:col-span-2">{field('IBAN', 'iban')}</div>
+          </div>
+        </Section>
+
         {error && <p className="text-sm text-red-400">{error}</p>}
 
         <button
@@ -769,7 +824,7 @@ export default function OrganizationSettingsPage() {
                 accept="image/*"
                 onChange={handleLogoUpload}
                 disabled={!canEdit || uploadingLogo}
-                className="hidden"
+                className="sr-only"
                 id="org-logo-upload"
               />
               <button

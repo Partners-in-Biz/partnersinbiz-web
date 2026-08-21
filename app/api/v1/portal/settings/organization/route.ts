@@ -81,6 +81,11 @@ function canEdit(role: OrgRole | null): boolean {
 }
 
 function organizationPayload(orgId: string, org: OrgData, role: OrgRole | null) {
+  const isPrivileged = role === 'owner' || role === 'admin'
+  const billingDetailsForRole = isPrivileged
+    ? org.billingDetails
+    : publicBillingDetails(org.billingDetails)
+
   return {
     organization: {
       id: orgId,
@@ -90,7 +95,7 @@ function organizationPayload(orgId: string, org: OrgData, role: OrgRole | null) 
       industry: typeof org.industry === 'string' ? org.industry : '',
       billingEmail: typeof org.billingEmail === 'string' ? org.billingEmail : '',
       timezone: orgTimezone(org),
-      billingDetails: publicBillingDetails(org.billingDetails),
+      billingDetails: billingDetailsForRole,
       defaultSender: defaultSenderPayload(org),
     },
     permissions: { canEdit: canEdit(role), role },
@@ -162,8 +167,11 @@ export const PATCH = withPortalAuth(async (req: NextRequest, uid: string) => {
       timezoneChanged = true
     }
     if (body.billingDetails && typeof body.billingDetails === 'object') {
+      // Owners and admins can edit banking details (strict superset of admin rights).
+      // Members and viewers cannot (blocked at the canEdit gate above).
+      const allowBanking = role === 'owner' || role === 'admin'
       updates.billingDetails = mergeBillingDetailsForWrite(body.billingDetails, org.billingDetails, {
-        allowBankingDetails: false,
+        allowBankingDetails: allowBanking,
       })
     }
 

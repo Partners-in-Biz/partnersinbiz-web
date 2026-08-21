@@ -260,6 +260,100 @@ describe('PortalLayout mobile role switch', () => {
     })
   })
 
+  it('keeps the workspace switcher enabled when the user belongs to multiple organisations', async () => {
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    const switcher = await screen.findByRole('button', { name: 'Switch portal workspace' })
+    await waitFor(() => {
+      expect(switcher).not.toBeDisabled()
+    })
+  })
+
+  it('does not lock the workspace switcher before the org list has loaded', async () => {
+    let resolveOrgs: ((value: Response) => void) | undefined
+    const orgsPromise = new Promise<Response>((resolve) => {
+      resolveOrgs = resolve
+    })
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            org: { id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client' },
+            user: { role: 'admin', memberRole: 'admin', accessPolicy: fullAccessPolicy },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/orgs') return orgsPromise
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
+    }) as jest.Mock
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    const switcher = await screen.findByRole('button', { name: 'Switch portal workspace' })
+    expect(switcher).not.toBeDisabled()
+
+    resolveOrgs?.({
+      ok: true,
+      json: async () => ({
+        activeOrgId: 'org-acme',
+        orgs: [
+          { id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client' },
+          { id: 'course-digs-org', slug: 'course-digs', name: 'Course Digs', type: 'client' },
+        ],
+      }),
+    } as Response)
+
+    await waitFor(() => {
+      expect(switcher).not.toBeDisabled()
+    })
+  })
+
+  it('disables the workspace switcher after load when the user only belongs to one organisation', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            org: { id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client' },
+            user: { role: 'admin', memberRole: 'admin', accessPolicy: fullAccessPolicy },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/orgs') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            activeOrgId: 'org-acme',
+            orgs: [{ id: 'org-acme', slug: 'acme', name: 'Acme Growth', type: 'client' }],
+          }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) } as Response)
+    }) as jest.Mock
+
+    render(
+      <PortalLayout>
+        <div>Portal content</div>
+      </PortalLayout>,
+    )
+
+    const switcher = await screen.findByRole('button', { name: 'Switch portal workspace' })
+    await waitFor(() => {
+      expect(switcher).toBeDisabled()
+    })
+  })
+
   it('navigates plain portal workspace switches to an explicit scoped URL', async () => {
     mockPathname = '/portal/projects'
 
