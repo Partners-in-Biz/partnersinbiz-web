@@ -51,6 +51,10 @@ export interface Project {
   claimableRelationshipId?: string
   claimToken?: string
   claimStatus?: 'pending' | 'claimed' | 'revoked'
+  /** White-label vendor organisations (PiB, other agencies) that work on this project but are not visible to the end client. */
+  vendorOrgIds?: string[]
+  /** The face organisation whose brand/identity external clients see. Defaults to ownerOrgId/sourceOrgId. */
+  faceOrgId?: string | null
   name: string
   description: string
   status: ProjectStatus
