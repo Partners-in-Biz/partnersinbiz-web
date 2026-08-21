@@ -139,12 +139,37 @@ if (enforceClientScoping) {
 
 `__tests__/api/v1/invoices/invoices-workspace-isolation.test.ts`
 
+#### Workspace Isolation Tests (Original)
+
 Tests:
 1. ✅ Platform admin with `activeOrgId` sees ONLY that workspace (sent)
 2. ✅ Platform admin with `activeOrgId` sees ONLY that workspace (received)
 3. ✅ Platform admin WITHOUT `activeOrgId` can query globally
 4. ✅ Client user sees ONLY their org
 5. ✅ Client user cannot request different org via param
+
+#### Two-Workspace Proof Tests (Added)
+
+**Peet's Success Test Requirement:**
+When Humanaut issues PAR-001 to Partners in Biz:
+- Humanaut Finance (sent view) = shows PAR-001 as outgoing
+- PiB Finance (received view) = shows PAR-001 as incoming
+- Same invoice, opposite inboxes
+
+Tests prove:
+1. ✅ Humanaut workspace sent view shows PAR-001 (even when draft)
+2. ✅ PiB workspace received view shows PAR-001 (even when draft)
+3. ✅ PiB workspace sent view does NOT show PAR-001 (issued by Humanaut)
+4. ✅ Humanaut workspace received view does NOT show PAR-001 (issued by Humanaut)
+5. ✅ Platform admin in Humanaut sees PAR-001 sent (not cross-org PiB invoices)
+6. ✅ Platform admin in PiB sees PAR-001 received (not in sent)
+
+**Key Behaviors Verified:**
+- ✅ Draft invoices (`sentAt=null`) appear in recipient's received view once created
+- ✅ Vendor on received row is the issuer org (Humanaut), not a fake "client: Humanaut" row
+- ✅ Draft invoices do NOT leak into issuer's outgoing stack of a different org
+- ✅ Active workspace is source/issuer OR recipient (not both, not neither)
+- ✅ Dual-role platform admin scoped to active org in both workspaces
 
 ### Updated Tests
 
@@ -159,6 +184,10 @@ Tests:
 npm test -- __tests__/api/v1/invoices/invoices-workspace-isolation.test.ts
 npm test -- __tests__/api/invoices.test.ts
 ```
+
+**Total Test Cases:** 11 tests
+- 5 workspace isolation tests (dual-role platform owners)
+- 6 two-workspace proof tests (same invoice, opposite inboxes)
 
 ### Manual Verification (Do NOT write to production)
 
@@ -175,6 +204,11 @@ npm test -- __tests__/api/invoices.test.ts
 4. **Verify Admin Context:**
    - Use API directly (without portal context)
    - Verify admin can still query globally
+5. **Verify Two-Workspace Behavior:**
+   - Create a draft invoice from Client A to Client B
+   - Switch to Client A workspace: invoice appears in Sent view
+   - Switch to Client B workspace: invoice appears in Received view
+   - Verify vendor on received row is Client A (the issuer)
 
 ## Deployment Notes
 
