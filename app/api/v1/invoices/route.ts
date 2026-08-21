@@ -227,20 +227,26 @@ export const GET = withAuth('client', async (req, user) => {
   let billingOrgIdFilter: string | null = null
   let orgAccessFilter: string[] | null = null
 
-  // Security: when accessing from a portal workspace (activeOrgId or explicit orgId param),
+  // Security: when accessing from a portal workspace (activeOrgId is set),
   // ALL users (including platform admins with role=admin|ai) must be scoped to THAT workspace.
   // This prevents platform owners from seeing cross-org invoices when sitting in a client workspace.
+  //
+  // Critical: If activeOrgId is set, we are in a portal workspace context.
+  // In portal context, explicitOrgId param must either match activeOrgId or be absent.
+  // If it doesn't match, return 403 to prevent workspace bypass.
   const explicitOrgId = searchParams.get('orgId')
-  const portalWorkspaceOrgId = explicitOrgId ?? user.activeOrgId
-  const isPortalWorkspaceContext = Boolean(portalWorkspaceOrgId)
+  const activeOrgId = user.activeOrgId
+  const isPortalWorkspaceContext = Boolean(activeOrgId)
 
-  // When in portal workspace context, enforce client-like scoping regardless of global role.
-  // Otherwise, platform admins in a client workspace would leak invoices from other clients.
-  const enforceClientScoping = user.role === 'client' || isPortalWorkspaceContext
-
-  if (enforceClientScoping) {
-    const requestedOrgId = portalWorkspaceOrgId ?? user.orgId ?? user.orgIds?.[0]
-    if (!requestedOrgId || !canAccessOrg(user, requestedOrgId)) return apiSuccess([])
+  // Portal workspace context: enforce strict workspace isolation
+  if (isPortalWorkspaceContext) {
+    // If orgId param is provided but doesn't match active workspace, reject
+    if (explicitOrgId && explicitOrgId !== activeOrgId) {
+      return apiError('Cannot access a different organisation from portal workspace', 403)
+    }
+    // Use active workspace as the only allowed orgId
+    const requestedOrgId = activeOrgId
+    if (!canAccessOrg(user, requestedOrgId)) return apiSuccess([])
     const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
     if (view === 'received') {
       const received = (await loadReceivedInvoicesForOrg(requestedOrgId))
@@ -253,6 +259,25 @@ export const GET = withAuth('client', async (req, user) => {
       return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
     }
     // Issuer/sent book: members need explicit invoice grant; still CRM-scoped.
+    if (!shouldExposeIssuerBillingBook(crmCtx, 'invoices')) {
+      return apiSuccess([])
+    }
+    query = query.where(orgField, '==', requestedOrgId)
+  } else if (user.role === 'client') {
+    // Client user NOT in portal context (legacy/direct API access): scope to their org
+    const requestedOrgId = user.orgId ?? user.orgIds?.[0]
+    if (!requestedOrgId || !canAccessOrg(user, requestedOrgId)) return apiSuccess([])
+    const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
+    if (view === 'received') {
+      const received = (await loadReceivedInvoicesForOrg(requestedOrgId))
+        .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+        .filter((invoice) => invoice.status !== 'draft')
+      const scoped = await filterBillingRecordsForCrmActor(crmCtx, received)
+      const invoices = scoped
+        .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+        .slice(0, 50)
+      return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
+    }
     if (!shouldExposeIssuerBillingBook(crmCtx, 'invoices')) {
       return apiSuccess([])
     }

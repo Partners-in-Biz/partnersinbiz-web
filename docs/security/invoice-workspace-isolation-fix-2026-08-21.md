@@ -250,6 +250,112 @@ Updated 2 existing tests to match the new rule:
 
 Status chips in the UI remain unchanged.
 
+### Phase 5: Portal Workspace Bypass Prevention
+
+**Date:** 2026-08-21 (same PR)  
+**Severity:** Critical - Query param bypass of workspace isolation  
+**Reporter:** Adversarial reviewer bc-75e488cb-0c22-4a56-a99d-76087d4731e5
+
+#### Problem
+
+The initial fix (Phases 1-4) allowed `explicitOrgId` from the query parameter to override `user.activeOrgId`, creating a bypass vector. A platform admin in a CLIENT workspace could pass `?orgId=<other-client>` to enumerate that client's invoices, bypassing workspace isolation.
+
+**Attack Vector:**
+- Stean (platform admin) in Humanaut workspace
+- Request: `GET /api/v1/invoices?orgId=saaiman-org`
+- Bug: Returns Saaiman's invoices (workspace bypass)
+- Fix: Returns 403 Forbidden
+
+**Code Vulnerability (BEFORE):**
+```typescript
+// Line 234 in initial fix
+const explicitOrgId = searchParams.get('orgId')
+const portalWorkspaceOrgId = explicitOrgId ?? user.activeOrgId
+// ❌ This allowed explicitOrgId to override activeOrgId
+```
+
+#### Business Rule: Portal Context = Absolute Workspace Lock
+
+When `activeOrgId` is present (portal workspace context):
+- **ALL users** (including platform admins) are locked to that workspace
+- Query param `?orgId=` must either:
+  - Match `activeOrgId` (allowed), OR
+  - Be absent (defaults to `activeOrgId`), OR
+  - Not match (403 Forbidden)
+- No role-based exceptions
+- No parameter-based bypasses
+
+When `activeOrgId` is NOT present (admin/API/cron mode):
+- Platform admins can pass `?orgId=` to scope queries
+- Restricted admins checked against `allowedOrgIds`
+- Client users always scoped to their org
+
+#### Implementation
+
+**Invoice Route:** `app/api/v1/invoices/route.ts`
+
+```typescript
+// AFTER (Secure):
+const explicitOrgId = searchParams.get('orgId')
+const activeOrgId = user.activeOrgId
+const isPortalWorkspaceContext = Boolean(activeOrgId)
+
+// Portal workspace context: enforce strict workspace isolation
+if (isPortalWorkspaceContext) {
+  // If orgId param is provided but doesn't match active workspace, reject
+  if (explicitOrgId && explicitOrgId !== activeOrgId) {
+    return apiError('Cannot access a different organisation from portal workspace', 403)
+  }
+  // Use active workspace as the only allowed orgId
+  const requestedOrgId = activeOrgId
+  // ... proceed with workspace-scoped query
+}
+```
+
+**OrgScope Helper:** `lib/api/orgScope.ts` (already correct from Phase 2)
+
+The `resolveOrgScope` helper already had the correct implementation from Phase 2, which is used by:
+- `/api/v1/client-documents`
+- `/api/v1/contacts`
+- `/api/v1/companies`
+- `/api/v1/deals`
+- Other CRM routes
+
+This ensures the bypass is blocked across ALL routes, not just invoices.
+
+#### Test Coverage
+
+Added 6 new tests in `__tests__/api/v1/invoices/portal-workspace-bypass-prevention.test.ts`:
+
+1. ✅ BLOCKS platform admin in Humanaut workspace from accessing Saaiman invoices via `?orgId=`
+2. ✅ BLOCKS platform admin without activeOrgId from bypassing portal (restricted admin)
+3. ✅ ALLOWS platform admin in Humanaut workspace to access Humanaut invoices (matching activeOrgId)
+4. ✅ ALLOWS platform admin in Humanaut workspace without orgId param (defaults to activeOrgId)
+5. ✅ BLOCKS dual-role user switching orgId via query param in portal context
+6. ✅ ALLOWS admin WITHOUT activeOrgId to query allowed orgs (API/cron mode)
+
+**Total Test Coverage:** 31 tests (25 from prior phases + 6 new bypass prevention tests)
+
+#### Attack Scenarios Blocked
+
+| Scenario | Before | After |
+|----------|--------|-------|
+| Stean in Humanaut → `?orgId=saaiman-org` | ❌ Returns Saaiman invoices | ✅ 403 Forbidden |
+| Peet in Humanaut → `?orgId=pib-platform-owner` | ❌ Returns PiB invoices | ✅ 403 Forbidden |
+| Admin API (no activeOrgId) → `?orgId=humanaut-org` | ✅ Allowed (API mode) | ✅ Allowed (API mode) |
+| Stean in Humanaut → no orgId param | ✅ Humanaut only | ✅ Humanaut only |
+| Stean in Humanaut → `?orgId=humanaut-org` | ✅ Humanaut only | ✅ Humanaut only |
+
+#### Security Impact
+
+- ✅ Query parameter bypass completely blocked
+- ✅ Portal workspace context is now an absolute lock
+- ✅ Dual-role users cannot switch workspace via URL manipulation
+- ✅ Admin API/cron mode still works (no activeOrgId)
+- ✅ PiB staff billing access preserved in PiB/admin workspace
+- ✅ No new mesh patterns introduced
+- ✅ Fix applies to ALL routes via `resolveOrgScope`
+
 ### Phase 4: Accounting Ledger AR/AP Separation
 
 **Date:** 2026-08-21 (same PR)  
@@ -356,7 +462,7 @@ Tests prove 100% org isolation via `resolveOrgScope`:
 `__tests__/api/invoices.test.ts`
 - Added dual-role platform owner test cases
 
-**Total Test Coverage:** 25 tests across all resources (invoices, quotes, documents, contacts, companies, deals)
+**Total Test Coverage:** 31 tests across all resources (invoices, quotes, documents, contacts, companies, deals)
 
 ## Verification Steps
 
@@ -367,14 +473,16 @@ npm test -- __tests__/api/v1/invoices/invoices-workspace-isolation.test.ts
 npm test -- __tests__/api/invoices.test.ts
 npm test -- __tests__/api/org-scope-workspace-isolation.test.ts
 npm test -- __tests__/portal/invoicing-ar-ap-separation.test.tsx
+npm test -- __tests__/api/v1/invoices/portal-workspace-bypass-prevention.test.ts
 ```
 
-**Total Test Cases:** 25 tests
+**Total Test Cases:** 31 tests
 - 5 workspace isolation tests (dual-role platform owners)
 - 6 two-workspace proof tests (same invoice, opposite inboxes)
 - 4 draft visibility tests (hide drafts from recipient until sent)
 - 6 org-scope workspace isolation tests
 - 4 AR/AP separation tests (revenue/payables ledger integrity)
+- 6 portal workspace bypass prevention tests (query param attack blocked)
 
 ### Manual Verification (Do NOT write to production)
 
@@ -420,14 +528,15 @@ npm test -- __tests__/portal/invoicing-ar-ap-separation.test.tsx
 
 ## Related Files
 
-- `app/api/v1/invoices/route.ts` - Invoice route fix with workspace isolation + draft visibility
+- `app/api/v1/invoices/route.ts` - Invoice route fix + draft visibility + bypass prevention
 - `app/api/v1/quotes/route.ts` - Quote route fix with draft visibility
 - `app/(portal)/portal/invoicing/page.tsx` - AR/AP separation for revenue/payables calculations
-- `lib/api/orgScope.ts` - Global fix for all routes using resolveOrgScope
+- `lib/api/orgScope.ts` - Global fix for all routes using resolveOrgScope (includes bypass prevention)
 - `__tests__/api/v1/invoices/invoices-workspace-isolation.test.ts` - Comprehensive invoice test suite (15 tests)
 - `__tests__/api/org-scope-workspace-isolation.test.ts` - OrgScope helper tests (6 tests)
 - `__tests__/api/invoices.test.ts` - Updated dual-role tests
 - `__tests__/portal/invoicing-ar-ap-separation.test.tsx` - AR/AP ledger separation tests (4 tests)
+- `__tests__/api/v1/invoices/portal-workspace-bypass-prevention.test.ts` - Query param bypass prevention tests (6 tests)
 - `docs/security/invoice-workspace-isolation-fix-2026-08-21.md` - This document
 
 ## References
@@ -455,6 +564,10 @@ npm test -- __tests__/portal/invoicing-ar-ap-separation.test.tsx
 5. **Accounting ledger integrity**  
    AR (sent invoices) and AP (received invoices) must be kept separate for revenue calculations.  
    Merging ledgers breaks financial reporting.
+
+6. **Query parameter validation in workspace context**  
+   When `activeOrgId` is present, ANY `?orgId=` param must match or be absent.  
+   Never trust query params to scope data in portal context.
 
 ## Recommendation
 
