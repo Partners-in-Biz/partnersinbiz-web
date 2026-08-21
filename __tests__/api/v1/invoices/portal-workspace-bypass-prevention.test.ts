@@ -29,22 +29,33 @@ jest.mock('@/lib/firebase/admin', () => ({
 
 jest.mock('@/lib/api/platformAdmin', () => ({
   canAccessOrg: jest.fn((user: { uid: string; role: string; orgId?: string; allowedOrgIds?: string[] }, orgId: string) => {
-    if (user.role === 'admin' || user.role === 'ai') return true
+    if (user.role === 'admin' || user.role === 'ai') {
+      // If allowedOrgIds is set, respect it (restricted admin)
+      if (Array.isArray(user.allowedOrgIds) && user.allowedOrgIds.length > 0) {
+        return user.allowedOrgIds.includes(orgId) || user.orgId === orgId
+      }
+      // Unrestricted admin
+      return true
+    }
     return user.orgId === orgId
   }),
   restrictedAdminOrgIds: jest.fn(() => []),
   explicitAdminOrgIds: jest.fn(() => []),
 }))
 
-jest.mock('@/lib/auth/billing-crm-auth', () => ({
+jest.mock('@/lib/billing/crm-record-scope', () => ({
   resolveBillingCrmAuthContext: jest.fn(() => Promise.resolve({
     orgId: 'humanaut-org',
     user: { uid: 'test-user', role: 'admin' },
     actor: { uid: 'test-user', role: 'admin' },
     isAgent: false,
   })),
-  shouldExposeIssuerBillingBook: jest.fn(() => true),
   filterBillingRecordsForCrmActor: jest.fn((ctx: unknown, records: unknown[]) => Promise.resolve(records)),
+}))
+
+jest.mock('@/lib/billing/member-issuer', () => ({
+  shouldExposeIssuerBillingBook: jest.fn(() => true),
+  resolveInvoiceCreateAccess: jest.fn(() => Promise.resolve({ ok: true, mode: 'platform_admin' })),
 }))
 
 jest.mock('@/lib/platform-owner/relationships', () => ({
