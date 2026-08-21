@@ -225,7 +225,6 @@ export const GET = withAuth('client', async (req, user) => {
 
   let query: FirebaseFirestore.Query = adminDb.collection('invoices')
   let billingOrgIdFilter: string | null = null
-  const orgAccessFilter: string[] | null = null
 
   // Security: when accessing from a portal workspace (activeOrgId is set),
   // ALL users (including platform admins with role=admin|ai) must be scoped to THAT workspace.
@@ -240,6 +239,11 @@ export const GET = withAuth('client', async (req, user) => {
 
   // Portal workspace context: enforce strict workspace isolation
   if (isPortalWorkspaceContext) {
+    // Type guard: activeOrgId is truthy here
+    if (!activeOrgId) {
+      return apiError('Active workspace org ID is required', 400)
+    }
+    
     // If orgId param is provided but doesn't match active workspace, reject
     if (explicitOrgId && explicitOrgId !== activeOrgId) {
       return apiError('Cannot access a different organisation from portal workspace', 403)
@@ -314,7 +318,6 @@ export const GET = withAuth('client', async (req, user) => {
   const snapshot = await query.get()
   let invoices = snapshot.docs
     .map((doc): InvoiceListItem => ({ id: doc.id, ...doc.data() }))
-    .filter((invoice) => !orgAccessFilter || orgAccessFilter.includes(String(invoice[orgField] ?? '')))
     .filter((invoice) => !billingOrgIdFilter || invoice.billingOrgId === billingOrgIdFilter)
     .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
 

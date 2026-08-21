@@ -55,6 +55,11 @@ export function resolveOrgScope(user: ApiUser, requestedOrgId: string | null): O
 
   // Portal workspace context: enforce client-like scoping for ALL roles.
   if (isPortalWorkspaceContext) {
+    // Type guard: portalWorkspaceOrgId is truthy here
+    if (!portalWorkspaceOrgId) {
+      return { ok: false, status: 400, error: 'Active workspace org ID is required' }
+    }
+    
     // If an orgId was explicitly requested, it MUST match the active workspace.
     if (requestedOrgId && requestedOrgId !== portalWorkspaceOrgId) {
       return { ok: false, status: 403, error: 'Cannot access a different organisation from portal workspace' }
