@@ -128,10 +128,20 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
     listOwnerMemberCandidates(project, access.projectAccess?.role),
   ])
 
+  // Filter vendor organizations from client-scoped views
+  const canViewInternal = access.projectAccess?.canViewInternal ?? false
+  const filteredOrganizations = canViewInternal
+    ? organizations
+    : organizations.filter((org) => {
+        const orgType = cleanString(org.organizationType)
+        const visibleToClient = org.visibleToClient !== false
+        return orgType !== 'vendor' || visibleToClient
+      })
+
   return apiSuccess({
     access: access.projectAccess,
     members,
-    organizations,
+    organizations: filteredOrganizations,
     invites,
     memberCandidates,
   })

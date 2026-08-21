@@ -10,14 +10,9 @@ const mockProjectMemberDoc = jest.fn()
 const mockProjectMemberGet = jest.fn()
 const mockProjectOrgDoc = jest.fn()
 const mockProjectOrgGet = jest.fn()
-const mockResolveProjectCrossOrgGrant = jest.fn()
 
 jest.mock('@/lib/firebase/admin', () => ({
   adminDb: { collection: mockCollection },
-}))
-
-jest.mock('@/lib/projects/cross-org-grant-access', () => ({
-  resolveProjectCrossOrgGrant: (input: unknown) => mockResolveProjectCrossOrgGrant(input),
 }))
 
 jest.mock('@/lib/api/platformAdmin', () => ({
@@ -50,11 +45,6 @@ beforeEach(() => {
     if (name === 'projectOrganizations') return { doc: mockProjectOrgDoc }
     throw new Error(`Unexpected collection ${name}`)
   })
-
-  mockResolveProjectCrossOrgGrant.mockResolvedValue({
-    allowed: true,
-    grant: { grantId: 'grant-1', actions: ['project.read'], items: [] },
-  })
 })
 
 describe('white-label vendor access resolution', () => {
@@ -67,7 +57,7 @@ describe('white-label vendor access resolution', () => {
     vendorOrgIds: ['pib-platform-owner'],
   }
 
-  it('resolves vendor access with white-label display org', async () => {
+  it('grants vendor access with internal visibility and white-label display org (no partnerLinkId required)', async () => {
     mockProjectOrgGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({
@@ -78,7 +68,6 @@ describe('white-label vendor access resolution', () => {
         status: 'active',
         organizationType: 'vendor',
         visibleToClient: false,
-        partnerLinkId: 'link-abc-pib',
       }),
     })
 
@@ -92,20 +81,12 @@ describe('white-label vendor access resolution', () => {
     expect(access).toMatchObject({
       role: 'contributor',
       source: 'project_organization',
-      canViewInternal: false,
+      canViewInternal: true,
       scopedOrgId: 'pib-platform-owner',
       isVendor: true,
       displayOrgId: 'agency-abc',
     })
-    expect(mockResolveProjectCrossOrgGrant).toHaveBeenCalledWith(
-      expect.objectContaining({
-        projectId: 'project-1',
-        ownerOrgId: 'agency-abc',
-        partnerLinkId: 'link-abc-pib',
-        actor: { uid: 'pib-user', orgId: 'pib-platform-owner' },
-        projectRole: 'contributor',
-      }),
-    )
+    expect(access?.crossOrgGrant).toBeUndefined()
   })
 
   it('shows vendor org identity when visibleToClient is true', async () => {
@@ -119,7 +100,6 @@ describe('white-label vendor access resolution', () => {
         status: 'active',
         organizationType: 'vendor',
         visibleToClient: true,
-        partnerLinkId: 'link-abc-pib',
       }),
     })
 
@@ -131,12 +111,13 @@ describe('white-label vendor access resolution', () => {
     )
 
     expect(access).toMatchObject({
+      canViewInternal: true,
       isVendor: true,
       displayOrgId: 'pib-platform-owner',
     })
   })
 
-  it('resolves face org access without vendor flags', async () => {
+  it('grants owner/face org access with internal visibility', async () => {
     mockProjectOrgGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({
@@ -158,14 +139,14 @@ describe('white-label vendor access resolution', () => {
     expect(access).toMatchObject({
       role: 'manager',
       source: 'project_organization',
-      canViewInternal: false,
+      canViewInternal: true,
       scopedOrgId: 'agency-abc',
       isVendor: false,
       displayOrgId: 'agency-abc',
     })
   })
 
-  it('resolves client access without vendor flags', async () => {
+  it('denies client access without partnerLinkId (clients require partner grants)', async () => {
     mockProjectOrgGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({
@@ -174,7 +155,6 @@ describe('white-label vendor access resolution', () => {
         ownerOrgId: 'agency-abc',
         role: 'reviewer',
         status: 'active',
-        partnerLinkId: 'link-abc-shipping',
       }),
     })
 
@@ -185,19 +165,7 @@ describe('white-label vendor access resolution', () => {
       'shipping-abc',
     )
 
-    expect(access).toMatchObject({
-      role: 'reviewer',
-      source: 'project_organization',
-      canViewInternal: false,
-      scopedOrgId: 'shipping-abc',
-      isVendor: false,
-      displayOrgId: 'shipping-abc',
-    })
-    expect(mockResolveProjectCrossOrgGrant).toHaveBeenCalledWith(
-      expect.objectContaining({
-        partnerLinkId: 'link-abc-shipping',
-      }),
-    )
+    expect(access).toBeNull()
   })
 
   it('denies access when project organization is revoked', async () => {
@@ -221,7 +189,7 @@ describe('white-label vendor access resolution', () => {
     expect(access).toBeNull()
   })
 
-  it('denies access when cross-org grant is missing', async () => {
+  it('vendor org flagged via vendorOrgIds array gets vendor access even without organizationType field', async () => {
     mockProjectOrgGet.mockResolvedValueOnce({
       exists: true,
       data: () => ({
@@ -230,14 +198,8 @@ describe('white-label vendor access resolution', () => {
         ownerOrgId: 'agency-abc',
         role: 'contributor',
         status: 'active',
-        organizationType: 'vendor',
         visibleToClient: false,
-        partnerLinkId: 'link-abc-pib',
       }),
-    })
-    mockResolveProjectCrossOrgGrant.mockResolvedValueOnce({
-      allowed: false,
-      reasonCode: 'NO_GRANT',
     })
 
     const access = await resolveProjectAccessForUser(
@@ -247,6 +209,10 @@ describe('white-label vendor access resolution', () => {
       'pib-platform-owner',
     )
 
-    expect(access).toBeNull()
+    expect(access).toMatchObject({
+      canViewInternal: true,
+      isVendor: true,
+      displayOrgId: 'agency-abc',
+    })
   })
 })

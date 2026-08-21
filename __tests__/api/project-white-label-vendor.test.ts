@@ -276,4 +276,146 @@ describe('project white-label vendor access', () => {
       { merge: true },
     )
   })
+
+  it('client GET /projects/[id]/access does not expose vendor org id or name', async () => {
+    // Set up: face org manager can see vendor, client user cannot
+    mockUser = { uid: 'client-user', role: 'client', orgId: 'shipping-abc', orgIds: ['shipping-abc'] }
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: {
+        id: 'project-white-label',
+        data: () => ({
+          ownerOrgId: 'agency-abc',
+          vendorOrgIds: ['pib-platform-owner'],
+        }),
+      },
+      projectAccess: { role: 'manager', source: 'project_organization', canViewInternal: false },
+    })
+    mockProjectOrgListGet.mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'project-white-label_agency-abc',
+          data: () => ({
+            projectId: 'project-white-label',
+            orgId: 'agency-abc',
+            role: 'owner',
+            status: 'active',
+            recipientCompanyName: 'ABC Agency',
+          }),
+        },
+        {
+          id: 'project-white-label_pib-platform-owner',
+          data: () => ({
+            projectId: 'project-white-label',
+            orgId: 'pib-platform-owner',
+            ownerOrgId: 'agency-abc',
+            role: 'contributor',
+            status: 'active',
+            organizationType: 'vendor',
+            visibleToClient: false,
+            recipientCompanyName: 'Partners in Biz',
+          }),
+        },
+        {
+          id: 'project-white-label_shipping-abc',
+          data: () => ({
+            projectId: 'project-white-label',
+            orgId: 'shipping-abc',
+            role: 'reviewer',
+            status: 'active',
+            recipientCompanyName: 'Shipping ABC',
+          }),
+        },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects/project-white-label/access', { method: 'GET' }), {
+      params: Promise.resolve({ projectId: 'project-white-label' }),
+    })
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.organizations).toHaveLength(2)
+    expect(body.data.organizations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ orgId: 'agency-abc' }),
+        expect.objectContaining({ orgId: 'shipping-abc' }),
+      ]),
+    )
+    expect(body.data.organizations).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ orgId: 'pib-platform-owner' }),
+      ]),
+    )
+  })
+
+  it('face org GET /projects/[id]/access exposes vendor orgs to internal users', async () => {
+    // Face org manager can see all orgs including vendors
+    mockUser = { uid: 'abc-owner', role: 'admin', orgId: 'agency-abc', orgIds: ['agency-abc'] }
+    mockGetProjectForUser.mockResolvedValueOnce({
+      ok: true,
+      doc: {
+        id: 'project-white-label',
+        data: () => ({
+          ownerOrgId: 'agency-abc',
+          vendorOrgIds: ['pib-platform-owner'],
+        }),
+      },
+      projectAccess: { role: 'owner', source: 'project_member', canViewInternal: true },
+    })
+    mockProjectOrgListGet.mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'project-white-label_agency-abc',
+          data: () => ({
+            projectId: 'project-white-label',
+            orgId: 'agency-abc',
+            role: 'owner',
+            status: 'active',
+            recipientCompanyName: 'ABC Agency',
+          }),
+        },
+        {
+          id: 'project-white-label_pib-platform-owner',
+          data: () => ({
+            projectId: 'project-white-label',
+            orgId: 'pib-platform-owner',
+            ownerOrgId: 'agency-abc',
+            role: 'contributor',
+            status: 'active',
+            organizationType: 'vendor',
+            visibleToClient: false,
+            recipientCompanyName: 'Partners in Biz',
+          }),
+        },
+        {
+          id: 'project-white-label_shipping-abc',
+          data: () => ({
+            projectId: 'project-white-label',
+            orgId: 'shipping-abc',
+            role: 'reviewer',
+            status: 'active',
+            recipientCompanyName: 'Shipping ABC',
+          }),
+        },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/projects/[projectId]/access/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/projects/project-white-label/access', { method: 'GET' }), {
+      params: Promise.resolve({ projectId: 'project-white-label' }),
+    })
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.organizations).toHaveLength(3)
+    expect(body.data.organizations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ orgId: 'agency-abc' }),
+        expect.objectContaining({ orgId: 'pib-platform-owner' }),
+        expect.objectContaining({ orgId: 'shipping-abc' }),
+      ]),
+    )
+  })
 })
