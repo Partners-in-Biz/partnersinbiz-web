@@ -464,7 +464,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
     expect(mockInvoiceWhere).toHaveBeenCalledWith('orgId', '==', 'humanaut-org')
   })
 
-  it('PiB workspace (received view) shows PAR-001 as incoming, even when draft', async () => {
+  it('PiB workspace (received view) HIDES PAR-001 while draft, issuer drafts are private', async () => {
     mockUser = {
       uid: 'pib-admin',
       role: 'client',
@@ -498,13 +498,10 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
     expect(res.status).toBe(200)
     const body = await res.json()
 
-    // PAR-001 appears in PiB's received list
-    expect(body.data.map((inv: { id: string }) => inv.id)).toContain('par-001')
-    expect(body.data[0].invoiceNumber).toBe('PAR-001')
-    expect(body.data[0].status).toBe('draft')
-    // Vendor is Humanaut (fromDetails), not a fake "client: Humanaut" on PiB outgoing
-    expect(body.data[0].fromDetails.companyName).toBe('Humanaut AI')
-    expect(body.data[0].clientDetails.name).toBe('Partners in Biz')
+    // PAR-001 is draft, so it should NOT appear in PiB's received list
+    // Draft invoices are private to the issuer until sent
+    expect(body.data.map((inv: { id: string }) => inv.id)).not.toContain('par-001')
+    expect(body.data.length).toBe(0)
 
     // Verify query was scoped to PiB as recipient
     expect(mockInvoiceWhere).toHaveBeenCalledWith('recipientOrgId', '==', 'pib-platform-owner')
@@ -625,7 +622,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
     expect(mockInvoiceWhere).toHaveBeenCalledWith('orgId', '==', 'humanaut-org')
   })
 
-  it('platform admin in PiB workspace sees PAR-001 received (not in sent)', async () => {
+  it('platform admin in PiB workspace received HIDES draft PAR-001 (drafts are issuer-private)', async () => {
     mockUser = {
       uid: 'pib-admin',
       role: 'admin',
@@ -658,9 +655,98 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
     expect(res.status).toBe(200)
     const body = await res.json()
 
-    // PAR-001 appears in PiB received list
+    // PAR-001 is draft, so it should NOT appear in PiB received list
+    expect(body.data.map((inv: { id: string }) => inv.id)).not.toContain('par-001')
+    expect(body.data.length).toBe(0)
+  })
+
+  it('PiB workspace received SHOWS PAR-001 once status becomes "sent"', async () => {
+    const PAR_001_SENT = {
+      ...PAR_001_DRAFT,
+      status: 'sent',
+      sentAt: { seconds: 1724256000, nanoseconds: 0 },
+    }
+
+    mockUser = {
+      uid: 'pib-admin',
+      role: 'client',
+      orgId: 'pib-platform-owner',
+      activeOrgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner'],
+    }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ status: 'active', role: 'owner' }),
+    })
+
+    mockInvoiceGet
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: PAR_001_SENT.id,
+            data: () => PAR_001_SENT,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    // PAR-001 is sent, so it DOES appear in PiB received list
     expect(body.data.map((inv: { id: string }) => inv.id)).toContain('par-001')
     expect(body.data[0].invoiceNumber).toBe('PAR-001')
+    expect(body.data[0].status).toBe('sent')
     expect(body.data[0].fromDetails.companyName).toBe('Humanaut AI')
+    expect(body.data[0].clientDetails.name).toBe('Partners in Biz')
+  })
+
+  it('platform admin in PiB received workspace SHOWS sent PAR-001', async () => {
+    const PAR_001_SENT = {
+      ...PAR_001_DRAFT,
+      status: 'sent',
+      sentAt: { seconds: 1724256000, nanoseconds: 0 },
+    }
+
+    mockUser = {
+      uid: 'pib-admin',
+      role: 'admin',
+      orgId: 'pib-platform-owner',
+      activeOrgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner'],
+    }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ status: 'active', role: 'owner' }),
+    })
+
+    mockInvoiceGet
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: PAR_001_SENT.id,
+            data: () => PAR_001_SENT,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    // PAR-001 is sent, so it DOES appear for platform admin in PiB received
+    expect(body.data.map((inv: { id: string }) => inv.id)).toContain('par-001')
+    expect(body.data[0].invoiceNumber).toBe('PAR-001')
+    expect(body.data[0].status).toBe('sent')
   })
 })

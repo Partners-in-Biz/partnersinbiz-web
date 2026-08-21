@@ -245,6 +245,7 @@ export const GET = withAuth('client', async (req, user) => {
     if (view === 'received') {
       const received = (await loadReceivedInvoicesForOrg(requestedOrgId))
         .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+        .filter((invoice) => invoice.status !== 'draft')
       const scoped = await filterBillingRecordsForCrmActor(crmCtx, received)
       const invoices = scoped
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))

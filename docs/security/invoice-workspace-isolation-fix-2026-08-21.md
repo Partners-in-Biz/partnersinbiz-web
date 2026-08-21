@@ -189,6 +189,67 @@ This ensures 100% org isolation across **all resources** that use `resolveOrgSco
 - ✅ Active workspace is source/issuer OR recipient (not both, not neither)
 - ✅ Dual-role platform admin scoped to active org in both workspaces
 
+**CORRECTION (2026-08-21):** The line "Draft invoices appear in recipient's received view once created" was OVERRIDDEN by Peet. See "Draft Visibility Correction" section below.
+
+### Draft Visibility Correction
+
+**Date:** 2026-08-21 (same PR)  
+**Severity:** Medium - Privacy leak of draft documents to recipients
+
+#### Problem
+
+The initial fix allowed draft invoices/quotes to appear in the recipient's received inbox immediately upon creation, before the issuer marked them as "sent". This violated the business rule that drafts are private to the issuer until explicitly sent.
+
+#### Business Rule
+
+**Recipient sees a record ONLY after the issuer sends it.**
+- Draft status is private to the source org
+- Received inbox must hide issuer drafts
+- PAR-001 (Humanaut → PiB, status=draft, sentAt=null) must appear on Humanaut Sent/Draft ONLY
+- PAR-001 must NOT appear on Partners in Biz Received until status is "sent" (or later: viewed, paid, etc.)
+
+#### Implementation
+
+**Invoices:** `app/api/v1/invoices/route.ts` line ~247
+```typescript
+if (view === 'received') {
+  const received = (await loadReceivedInvoicesForOrg(requestedOrgId))
+    .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+    .filter((invoice) => invoice.status !== 'draft')  // ← NEW: Hide drafts from recipient
+  // ...
+}
+```
+
+**Quotes:** `app/api/v1/quotes/route.ts` line ~137
+```typescript
+if (view === 'received') {
+  quotes = (await loadReceivedQuotesForOrg(requestedOrgId))
+    .filter((quote) => quote.status !== 'draft')  // ← NEW: Hide drafts from recipient
+} else {
+```
+
+#### Test Coverage
+
+Added 4 new tests to prove draft-to-sent visibility transition:
+
+1. ✅ PiB workspace received HIDES draft PAR-001 (drafts are issuer-private)
+2. ✅ Platform admin in PiB received HIDES draft PAR-001
+3. ✅ PiB workspace received SHOWS PAR-001 once status becomes "sent"
+4. ✅ Platform admin in PiB received SHOWS sent PAR-001
+
+Updated 2 existing tests to match the new rule:
+- "PiB workspace (received view) shows PAR-001 as incoming, even when draft" → now expects empty array
+- "platform admin in PiB workspace sees PAR-001 received (not in sent)" → now expects empty array
+
+**Total Test Coverage:** 21 tests (17 original + 4 new)
+
+#### Status Values Affected
+
+- `draft` → Hidden from recipient
+- `sent`, `viewed`, `payment_pending_verification`, `paid`, `partially_paid`, `overdue`, `cancelled` → Visible to recipient
+
+Status chips in the UI remain unchanged.
+
 ### OrgScope Workspace Isolation Tests (6 tests)
 
 `__tests__/api/org-scope-workspace-isolation.test.ts`
@@ -206,7 +267,7 @@ Tests prove 100% org isolation via `resolveOrgScope`:
 `__tests__/api/invoices.test.ts`
 - Added dual-role platform owner test cases
 
-**Total Test Coverage:** 17 tests across all resources (invoices, documents, contacts, companies, deals, quotes)
+**Total Test Coverage:** 21 tests across all resources (invoices, quotes, documents, contacts, companies, deals)
 
 ## Verification Steps
 
@@ -215,11 +276,14 @@ Tests prove 100% org isolation via `resolveOrgScope`:
 ```bash
 npm test -- __tests__/api/v1/invoices/invoices-workspace-isolation.test.ts
 npm test -- __tests__/api/invoices.test.ts
+npm test -- __tests__/api/org-scope-workspace-isolation.test.ts
 ```
 
-**Total Test Cases:** 11 tests
+**Total Test Cases:** 21 tests
 - 5 workspace isolation tests (dual-role platform owners)
 - 6 two-workspace proof tests (same invoice, opposite inboxes)
+- 4 draft visibility tests (hide drafts from recipient until sent)
+- 6 org-scope workspace isolation tests
 
 ### Manual Verification (Do NOT write to production)
 
@@ -238,9 +302,17 @@ npm test -- __tests__/api/invoices.test.ts
    - Verify admin can still query globally
 5. **Verify Two-Workspace Behavior:**
    - Create a draft invoice from Client A to Client B
-   - Switch to Client A workspace: invoice appears in Sent view
-   - Switch to Client B workspace: invoice appears in Received view
+   - Switch to Client A workspace: invoice appears in Sent view (status: draft)
+   - Switch to Client B workspace: invoice does NOT appear (drafts are private)
+   - Mark invoice as "sent" from Client A
+   - Switch to Client B workspace: invoice now appears in Received view
    - Verify vendor on received row is Client A (the issuer)
+6. **Verify Draft Privacy:**
+   - Create a draft quote from org X to org Y
+   - Verify draft appears in org X sent/draft view
+   - Verify draft does NOT appear in org Y received view
+   - Send the quote (status: sent)
+   - Verify quote now appears in org Y received view
 
 ## Deployment Notes
 
@@ -251,9 +323,10 @@ npm test -- __tests__/api/invoices.test.ts
 
 ## Related Files
 
-- `app/api/v1/invoices/route.ts` - Invoice route fix with workspace isolation
+- `app/api/v1/invoices/route.ts` - Invoice route fix with workspace isolation + draft visibility
+- `app/api/v1/quotes/route.ts` - Quote route fix with draft visibility
 - `lib/api/orgScope.ts` - Global fix for all routes using resolveOrgScope
-- `__tests__/api/v1/invoices/invoices-workspace-isolation.test.ts` - Comprehensive invoice test suite (11 tests)
+- `__tests__/api/v1/invoices/invoices-workspace-isolation.test.ts` - Comprehensive invoice test suite (15 tests)
 - `__tests__/api/org-scope-workspace-isolation.test.ts` - OrgScope helper tests (6 tests)
 - `__tests__/api/invoices.test.ts` - Updated dual-role tests
 - `docs/security/invoice-workspace-isolation-fix-2026-08-21.md` - This document
