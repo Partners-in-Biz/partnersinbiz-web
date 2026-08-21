@@ -148,24 +148,59 @@ describe('NotificationBell', () => {
     expect(await screen.findByRole('heading', { name: 'No CRM alerts need action' })).toBeInTheDocument()
   })
 
-  it('constrains dropdown width to viewport on mobile screens', async () => {
+  it('prevents dropdown overflow on 390px mobile viewport', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         data: {
-          notifications: [],
-          unreadCount: 0,
+          notifications: [
+            {
+              id: 'notification-1',
+              orgId: 'test-org',
+              userId: 'test-user',
+              agentId: null,
+              type: 'task.assigned',
+              title: 'Assigned to you',
+              body: 'call: Quinton Mundell (Pretoria dra...',
+              link: '/portal/projects?task=task-1',
+              data: null,
+              priority: 'normal',
+              status: 'unread',
+              snoozedUntil: null,
+              readAt: null,
+              createdAt: '2026-08-21T09:45:00.000Z',
+            },
+          ],
+          unreadCount: 1,
         },
       }),
     }) as jest.Mock
+
+    // Simulate 390px mobile viewport
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 390 })
+    global.matchMedia = jest.fn().mockImplementation(query => ({
+      matches: query === '(max-width: 639px)',
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    }))
 
     const { container } = render(<NotificationBell />)
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalled())
     fireEvent.click(screen.getByRole('button', { name: 'Open notifications' }))
 
-    const dropdown = container.querySelector('.absolute.right-0.top-full')
+    const dropdown = container.querySelector('.fixed')
     expect(dropdown).toBeInTheDocument()
+    expect(dropdown).toHaveClass('right-2')
+    expect(dropdown).toHaveClass('sm:right-0')
     expect(dropdown).toHaveClass('w-[min(20rem,calc(100vw-1rem))]')
+    
+    // Verify "Assigned to you" title is present (not clipped)
+    expect(await screen.findByText('Assigned to you')).toBeInTheDocument()
   })
 })

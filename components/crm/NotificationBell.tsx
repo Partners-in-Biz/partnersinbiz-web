@@ -191,8 +191,13 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
       {/* Dropdown panel */}
       {open && (
         <div
-          className="absolute right-0 top-full z-50 mt-1.5 w-[min(20rem,calc(100vw-1rem))] overflow-hidden rounded-lg border border-[var(--color-card-border)]"
-          style={{ background: 'var(--color-sidebar, var(--color-pib-surface))' }}
+          className="fixed sm:absolute right-2 sm:right-0 top-[var(--dropdown-top)] sm:top-full z-50 mt-1.5 w-[min(20rem,calc(100vw-1rem))] overflow-hidden rounded-lg border border-[var(--color-card-border)]"
+          style={{
+            background: 'var(--color-sidebar, var(--color-pib-surface))',
+            '--dropdown-top': containerRef.current
+              ? `${containerRef.current.getBoundingClientRect().bottom + window.scrollY + 6}px`
+              : 'auto',
+          } as React.CSSProperties}
         >
           {/* Header */}
           <div className="flex h-9 items-center justify-between border-b border-[var(--color-card-border)] px-3">
