@@ -50,12 +50,47 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockUser = { uid: 'client-1', role: 'client' }
 
+  // Track where conditions to filter documents
+  const whereConditions: Array<{ field: string; op: string; value: unknown }> = []
+  let allDocs: Array<{ id: string; data: () => unknown }> = []
+
   const invoiceQuery = {
-    where: mockInvoiceWhere,
-    get: mockInvoiceGet,
+    where: jest.fn((field: string, op: string, value: unknown) => {
+      whereConditions.push({ field, op, value })
+      return invoiceQuery
+    }),
+    get: jest.fn(async () => {
+      // Filter allDocs based on whereConditions
+      let filtered = allDocs
+      for (const condition of whereConditions) {
+        filtered = filtered.filter((doc) => {
+          const docData = doc.data() as Record<string, unknown>
+          const fieldValue = docData[condition.field]
+          
+          if (condition.op === '==') {
+            return fieldValue === condition.value
+          } else if (condition.op === 'in' && Array.isArray(condition.value)) {
+            return condition.value.includes(fieldValue)
+          }
+          return true
+        })
+      }
+      return { docs: filtered }
+    }),
   }
-  mockInvoiceWhere.mockReturnValue(invoiceQuery)
-  mockInvoiceGet.mockResolvedValue({ docs: [] })
+
+  // Expose setter for tests to configure the full document set
+  mockInvoiceGet.mockImplementation(async () => {
+    return { docs: allDocs }
+  })
+  
+  // Expose setter for tests
+  ;(mockInvoiceGet as { setAllDocs?: (docs: typeof allDocs) => void }).setAllDocs = (docs) => {
+    allDocs = docs
+    whereConditions.length = 0 // Reset where conditions
+  }
+
+  mockInvoiceWhere.mockImplementation(invoiceQuery.where)
   mockOrgMemberGet.mockResolvedValue({ exists: false })
   mockOrgGet.mockResolvedValue({ exists: false })
 
@@ -117,30 +152,28 @@ describe('GET /api/v1/invoices — workspace isolation for dual-role platform ow
     // - humanaut-issued: Humanaut → someone (should appear)
     // - pib-to-saaiman: PiB → Saaiman (should NOT appear)
     // - pib-to-humanaut: PiB → Humanaut (should appear in received, not sent)
-    mockInvoiceGet.mockResolvedValue({
-      docs: [
-        {
-          id: 'humanaut-issued',
-          data: () => ({
-            orgId: 'humanaut-org',
-            sourceOrgId: 'humanaut-org',
-            recipientOrgId: 'other-client',
-            invoiceNumber: 'PAR-001',
-            createdAt: { seconds: 30 },
-          }),
-        },
-        {
-          id: 'pib-to-saaiman',
-          data: () => ({
-            orgId: 'pib-platform-owner',
-            sourceOrgId: 'pib-platform-owner',
-            recipientOrgId: 'saaiman-org',
-            invoiceNumber: 'SAA-002',
-            createdAt: { seconds: 20 },
-          }),
-        },
-      ],
-    })
+    ;(mockInvoiceGet as { setAllDocs: (docs: unknown[]) => void }).setAllDocs([
+      {
+        id: 'humanaut-issued',
+        data: () => ({
+          orgId: 'humanaut-org',
+          sourceOrgId: 'humanaut-org',
+          recipientOrgId: 'other-client',
+          invoiceNumber: 'PAR-001',
+          createdAt: { seconds: 30 },
+        }),
+      },
+      {
+        id: 'pib-to-saaiman',
+        data: () => ({
+          orgId: 'pib-platform-owner',
+          sourceOrgId: 'pib-platform-owner',
+          recipientOrgId: 'saaiman-org',
+          invoiceNumber: 'SAA-002',
+          createdAt: { seconds: 20 },
+        }),
+      },
+    ])
 
     const { GET } = await import('@/app/api/v1/invoices/route')
     const req = new NextRequest('http://localhost/api/v1/invoices')
@@ -255,8 +288,7 @@ describe('GET /api/v1/invoices — workspace isolation for dual-role platform ow
       allowedOrgIds: ['humanaut-org', 'client-b'],
     }
 
-    mockInvoiceGet.mockResolvedValue({
-      docs: [
+    ;(mockInvoiceGet as { setAllDocs: (docs: unknown[]) => void }).setAllDocs([
         {
           id: 'humanaut-issued',
           data: () => ({
@@ -488,7 +520,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
           },
         ],
       })
-      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [])
       .mockResolvedValueOnce({ docs: [] })
 
     const { GET } = await import('@/app/api/v1/invoices/route')
@@ -522,8 +554,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
 
     // Sent view queries orgId == pib-platform-owner
     // PAR-001 has orgId=humanaut-org, so it won't match
-    mockInvoiceGet.mockResolvedValue({
-      docs: [],
+    ;(mockInvoiceGet as { setAllDocs: (docs: unknown[]) => void }).setAllDocs([],
     })
 
     const { GET } = await import('@/app/api/v1/invoices/route')
@@ -556,7 +587,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
     // Received view queries recipientOrgId/targetOrgId/orgId == humanaut-org
     // PAR-001 has recipientOrgId=pib-platform-owner, so it won't match
     mockInvoiceGet
-      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [])
       .mockResolvedValueOnce({ docs: [] })
       .mockResolvedValueOnce({ docs: [] })
 
@@ -586,8 +617,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
     })
 
     // Sent view queries orgId == humanaut-org
-    mockInvoiceGet.mockResolvedValue({
-      docs: [
+    ;(mockInvoiceGet as { setAllDocs: (docs: unknown[]) => void }).setAllDocs([
         {
           id: PAR_001_DRAFT.id,
           data: () => PAR_001_DRAFT,
@@ -645,7 +675,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
           },
         ],
       })
-      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [])
       .mockResolvedValueOnce({ docs: [] })
 
     const { GET } = await import('@/app/api/v1/invoices/route')
