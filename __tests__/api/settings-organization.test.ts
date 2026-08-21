@@ -120,6 +120,56 @@ describe('GET /api/v1/portal/settings/organization', () => {
     })
   })
 
+  it('returns banking details to owners', async () => {
+    stage('owner')
+
+    const { GET } = await import('@/app/api/v1/portal/settings/organization/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/settings/organization'))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.organization.billingDetails.bankingDetails).toEqual({
+      bankName: 'Existing Bank',
+      accountNumber: '123',
+    })
+  })
+
+  it('returns banking details to admins', async () => {
+    stage('admin')
+
+    const { GET } = await import('@/app/api/v1/portal/settings/organization/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/settings/organization'))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.organization.billingDetails.bankingDetails).toEqual({
+      bankName: 'Existing Bank',
+      accountNumber: '123',
+    })
+  })
+
+  it('excludes banking details from members', async () => {
+    stage('member')
+
+    const { GET } = await import('@/app/api/v1/portal/settings/organization/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/settings/organization'))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.organization.billingDetails.bankingDetails).toBeUndefined()
+  })
+
+  it('excludes banking details from viewers', async () => {
+    stage('viewer')
+
+    const { GET } = await import('@/app/api/v1/portal/settings/organization/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/portal/settings/organization'))
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.organization.billingDetails.bankingDetails).toBeUndefined()
+  })
+
   it('returns organisation details for a requested CRM company workspace org', async () => {
     const { GET } = await import('@/app/api/v1/portal/settings/organization/route')
     const res = await GET(new NextRequest('http://localhost/api/v1/portal/settings/organization?orgId=lumen-org'))
@@ -159,7 +209,11 @@ describe('PATCH /api/v1/portal/settings/organization', () => {
           purchaseOrderRequired: false,
           purchaseOrderNumber: 'PO-456',
           invoiceInstructions: 'Use the PO on all invoices.',
-          bankingDetails: { accountNumber: 'should-not-write-from-portal' },
+          bankingDetails: { 
+            bankName: 'New Bank',
+            accountNumber: '999',
+            branchCode: '12345',
+          },
         },
       }),
     })
@@ -180,8 +234,9 @@ describe('PATCH /api/v1/portal/settings/organization', () => {
           country: 'South Africa',
         },
         bankingDetails: {
-          bankName: 'Existing Bank',
-          accountNumber: '123',
+          bankName: 'New Bank',
+          accountNumber: '999',
+          branchCode: '12345',
         },
         authorizedSignatory: {
           name: 'New Signatory',
@@ -199,7 +254,10 @@ describe('PATCH /api/v1/portal/settings/organization', () => {
       updatedAt: 'SERVER_TS',
     })
     expect(update.active).toBeUndefined()
-    expect(update.billingDetails.bankingDetails.accountNumber).toBe('123')
+    // Owners and admins can now update banking details
+    expect(update.billingDetails.bankingDetails.accountNumber).toBe('999')
+    expect(update.billingDetails.bankingDetails.bankName).toBe('New Bank')
+    expect(update.billingDetails.bankingDetails.branchCode).toBe('12345')
   })
 
   it('updates organisation details for a requested CRM company workspace org', async () => {
@@ -233,6 +291,66 @@ describe('PATCH /api/v1/portal/settings/organization', () => {
 
     expect(res.status).toBe(403)
     expect(mockOrgUpdate).not.toHaveBeenCalled()
+  })
+
+  it('allows portal owners to edit banking details', async () => {
+    stage('owner')
+
+    const { PATCH } = await import('@/app/api/v1/portal/settings/organization/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/organization', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        billingDetails: {
+          bankingDetails: {
+            bankName: 'Owner Changed Bank',
+            accountHolder: 'Company Name',
+            accountNumber: '555',
+            branchCode: '67890',
+            swiftCode: 'OWNERABC',
+          },
+        },
+      }),
+    })
+    const res = await PATCH(req)
+
+    expect(res.status).toBe(200)
+    const update = mockOrgUpdate.mock.calls[0][0]
+    expect(update.billingDetails.bankingDetails).toEqual({
+      bankName: 'Owner Changed Bank',
+      accountHolder: 'Company Name',
+      accountNumber: '555',
+      branchCode: '67890',
+      swiftCode: 'OWNERABC',
+    })
+  })
+
+  it('allows portal admins to edit banking details', async () => {
+    stage('admin')
+
+    const { PATCH } = await import('@/app/api/v1/portal/settings/organization/route')
+    const req = new NextRequest('http://localhost/api/v1/portal/settings/organization', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        billingDetails: {
+          bankingDetails: {
+            bankName: 'Admin Changed Bank',
+            accountNumber: '777',
+            iban: 'GB29NWBK60161331926819',
+          },
+        },
+      }),
+    })
+    const res = await PATCH(req)
+
+    expect(res.status).toBe(200)
+    const update = mockOrgUpdate.mock.calls[0][0]
+    expect(update.billingDetails.bankingDetails).toEqual({
+      bankName: 'Admin Changed Bank',
+      accountNumber: '777',
+      iban: 'GB29NWBK60161331926819',
+    })
   })
 
   it('writes a valid timezone to settings.timezone (the field cron/send-time reads), not a top-level field', async () => {
