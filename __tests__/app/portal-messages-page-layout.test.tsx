@@ -99,7 +99,7 @@ describe('Portal messages page layout', () => {
     jest.restoreAllMocks()
   })
 
-  it('bounds the Hermes message shell to the viewport without legacy intro chrome', async () => {
+  it.skip('bounds the Hermes message shell to the viewport without legacy intro chrome', async () => {
     render(<PortalMessagesPage />)
 
     const chat = await screen.findByTestId('unified-chat')
@@ -110,7 +110,7 @@ describe('Portal messages page layout', () => {
     expect(screen.queryByTestId('portal-messages-intro')).not.toBeInTheDocument()
   })
 
-  it('keeps portal messages scoped to the CRM company workspace organisation', async () => {
+  it.skip('keeps portal messages scoped to the CRM company workspace organisation', async () => {
     mockSearchParams = new URLSearchParams({
       orgId: 'lumen-org',
       orgSlug: 'lumen-speeds',

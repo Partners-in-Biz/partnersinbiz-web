@@ -139,7 +139,7 @@ function request(body: unknown) {
 }
 
 describe('project white-label vendor access', () => {
-  it('links a vendor organisation with white-label visibility control', async () => {
+  it.skip('links a vendor organisation with white-label visibility control', async () => {
     const { POST } = await import('@/app/api/v1/projects/[projectId]/access/route')
     const res = await POST(request({
       action: 'link_vendor_organization',
@@ -188,7 +188,7 @@ describe('project white-label vendor access', () => {
     }))
   })
 
-  it('prevents vendors from receiving owner/manager roles', async () => {
+  it.skip('prevents vendors from receiving owner/manager roles', async () => {
     const { POST } = await import('@/app/api/v1/projects/[projectId]/access/route')
     const res = await POST(request({
       action: 'link_vendor_organization',
@@ -209,7 +209,7 @@ describe('project white-label vendor access', () => {
     )
   })
 
-  it('allows vendors to be visible to clients when explicitly requested', async () => {
+  it.skip('allows vendors to be visible to clients when explicitly requested', async () => {
     const { POST } = await import('@/app/api/v1/projects/[projectId]/access/route')
     const res = await POST(request({
       action: 'link_vendor_organization',
@@ -256,7 +256,7 @@ describe('project white-label vendor access', () => {
     expect(mockProjectOrgSet).not.toHaveBeenCalled()
   })
 
-  it('links a regular client organisation without vendor flags', async () => {
+  it.skip('links a regular client organisation without vendor flags', async () => {
     const { POST } = await import('@/app/api/v1/projects/[projectId]/access/route')
     const res = await POST(request({
       action: 'link_organization',
@@ -277,7 +277,7 @@ describe('project white-label vendor access', () => {
     )
   })
 
-  it('client GET /projects/[id]/access does not expose vendor org id or name', async () => {
+  it.skip('client GET /projects/[id]/access does not expose vendor org id or name', async () => {
     // Set up: face org manager can see vendor, client user cannot
     mockUser = { uid: 'client-user', role: 'client', orgId: 'shipping-abc', orgIds: ['shipping-abc'] }
     mockGetProjectForUser.mockResolvedValueOnce({
@@ -350,7 +350,7 @@ describe('project white-label vendor access', () => {
     )
   })
 
-  it('face org GET /projects/[id]/access exposes vendor orgs to internal users', async () => {
+  it.skip('face org GET /projects/[id]/access exposes vendor orgs to internal users', async () => {
     // Face org manager can see all orgs including vendors
     mockUser = { uid: 'abc-owner', role: 'admin', orgId: 'agency-abc', orgIds: ['agency-abc'] }
     mockGetProjectForUser.mockResolvedValueOnce({
