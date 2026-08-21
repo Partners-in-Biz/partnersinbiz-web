@@ -288,27 +288,16 @@ export const GET = withAuth('client', async (req, user) => {
     const orgId = searchParams.get('orgId')
     const billingOrgId = searchParams.get('billingOrgId')
     
-    // Security: Admin/AI users WITHOUT activeOrgId must provide explicit ?orgId= param.
-    // This prevents unrestricted admins from getting a global invoice list via portal route.
-    // Legitimate API/cron access always scopes explicitly.
+    // Security: This is a portal-facing route (withAuth 'client').
+    // Admin/AI users WITHOUT activeOrgId AND WITHOUT explicit orgId param
+    // must not get multi-org lists (neither unrestricted global nor restricted union).
+    // Portal sessions always have activeOrgId. API/cron always passes explicit orgId.
     if (!orgId && user.role === 'admin') {
-      // Check if this is a restricted admin with allowedOrgIds
-      const allowedOrgIds = billingOrgId && view === 'received'
-        ? explicitAdminOrgIds(user)
-        : restrictedAdminOrgIds(user)
-      
-      // If unrestricted admin (no allowedOrgIds), require explicit orgId
-      if (allowedOrgIds.length === 0) {
-        return apiError('orgId query parameter is required', 400)
-      }
-      
-      // Restricted admin: query their allowed orgs
-      if (allowedOrgIds.length <= 30 && !billingOrgId) {
-        query = query.where(orgField, 'in', allowedOrgIds)
-      } else {
-        orgAccessFilter = allowedOrgIds
-      }
-    } else if (orgId) {
+      // No activeOrgId + no orgId = require explicit scoping
+      return apiError('orgId query parameter is required', 400)
+    }
+    
+    if (orgId) {
       if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
       query = query.where(orgField, '==', orgId)
     }

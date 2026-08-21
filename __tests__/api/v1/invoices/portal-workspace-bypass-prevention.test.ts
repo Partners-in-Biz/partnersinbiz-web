@@ -279,4 +279,37 @@ describe('Portal Workspace Bypass Prevention', () => {
     // Verify NO global query was attempted
     expect(mockInvoiceGet).not.toHaveBeenCalled()
   })
+
+  it('BLOCKS restricted admin WITHOUT activeOrgId from getting multi-org union (no orgId param)', async () => {
+    // Fourth review blocker: Restricted admin without activeOrgId should NOT get multi-org list
+    const mockUser = {
+      uid: 'restricted-admin',
+      role: 'admin' as const,
+      orgId: 'pib-platform-owner',
+      activeOrgId: null, // NO PORTAL CONTEXT
+      orgIds: ['pib-platform-owner'],
+      allowedOrgIds: ['pib-platform-owner', 'humanaut-org'], // Restricted to 2 orgs
+    }
+
+    jest.doMock('@/lib/api/auth', () => ({
+      withAuth: (role: string, handler: Function) => async (req: NextRequest) => {
+        return handler(req, mockUser)
+      },
+    }))
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+
+    // Restricted admin WITHOUT activeOrgId, no orgId param
+    // Should NOT return multi-org union (pib + humanaut)
+    const req = new NextRequest('http://localhost/api/v1/invoices')
+    const res = await GET(req)
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toContain('orgId query parameter is required')
+
+    // Verify NO multi-org query was attempted
+    expect(mockInvoiceWhere).not.toHaveBeenCalledWith('orgId', 'in', ['pib-platform-owner', 'humanaut-org'])
+    expect(mockInvoiceGet).not.toHaveBeenCalled()
+  })
 })
