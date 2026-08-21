@@ -46,8 +46,30 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
   const [loading, setLoading] = useState(false)
   const [markingRead, setMarkingRead] = useState(false)
   const [openingId, setOpeningId] = useState<string | null>(null)
+  const [dropdownTop, setDropdownTop] = useState<number>(0)
 
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Update dropdown position for fixed positioning on mobile
+  const updateDropdownPosition = useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      setDropdownTop(rect.bottom + 6)
+    }
+  }, [])
+
+  // Recompute position on open, scroll, and resize
+  useEffect(() => {
+    if (open) {
+      updateDropdownPosition()
+      window.addEventListener('scroll', updateDropdownPosition)
+      window.addEventListener('resize', updateDropdownPosition)
+      return () => {
+        window.removeEventListener('scroll', updateDropdownPosition)
+        window.removeEventListener('resize', updateDropdownPosition)
+      }
+    }
+  }, [open, updateDropdownPosition])
 
   // Close panel on click outside
   useEffect(() => {
@@ -191,8 +213,11 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
       {/* Dropdown panel */}
       {open && (
         <div
-          className="absolute right-0 top-full z-50 mt-1.5 w-80 overflow-hidden rounded-lg border border-[var(--color-card-border)]"
-          style={{ background: 'var(--color-sidebar, var(--color-pib-surface))' }}
+          className="fixed sm:absolute right-2 sm:right-0 top-[var(--dropdown-top)] sm:top-full z-50 mt-1.5 w-[min(20rem,calc(100vw-1rem))] overflow-hidden rounded-lg border border-[var(--color-card-border)]"
+          style={{
+            background: 'var(--color-sidebar, var(--color-pib-surface))',
+            '--dropdown-top': `${dropdownTop}px`,
+          } as React.CSSProperties}
         >
           {/* Header */}
           <div className="flex h-9 items-center justify-between border-b border-[var(--color-card-border)] px-3">
