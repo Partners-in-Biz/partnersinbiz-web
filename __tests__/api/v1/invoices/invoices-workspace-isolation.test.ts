@@ -314,7 +314,6 @@ describe('GET /api/v1/invoices — workspace isolation for dual-role platform ow
           }),
         },
       ],
-    })
 
     const { GET } = await import('@/app/api/v1/invoices/route')
     const req = new NextRequest('http://localhost/api/v1/invoices')
@@ -355,7 +354,6 @@ describe('GET /api/v1/invoices — workspace isolation for dual-role platform ow
           }),
         },
       ],
-    })
 
     const { GET } = await import('@/app/api/v1/invoices/route')
     const req = new NextRequest('http://localhost/api/v1/invoices')
@@ -475,7 +473,6 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
           data: () => PAR_001_DRAFT,
         },
       ],
-    })
 
     const { GET } = await import('@/app/api/v1/invoices/route')
     const req = new NextRequest('http://localhost/api/v1/invoices')
@@ -633,7 +630,6 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
           }),
         },
       ],
-    })
 
     const { GET } = await import('@/app/api/v1/invoices/route')
     const req = new NextRequest('http://localhost/api/v1/invoices')
