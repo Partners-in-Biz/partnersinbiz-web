@@ -11,10 +11,44 @@ export type ProjectMemberRole = (typeof PROJECT_MEMBER_ROLES)[number]
 
 export type ProjectPermission = 'manage_access' | 'manage_project' | 'write' | 'review' | 'view'
 
+export type ProjectOrganizationType = 'client' | 'vendor' | 'partner'
+
+export interface ProjectOrganization {
+  id?: string
+  projectId: string
+  orgId: string
+  ownerOrgId?: string
+  role: ProjectMemberRole
+  status: 'active' | 'pending' | 'revoked'
+  /** Organization type: client (external end-client), vendor (white-label subcontractor), partner (bilateral scope agreement) */
+  organizationType?: ProjectOrganizationType
+  /** When true, this vendor org is hidden from client-facing views; clients see the face org's brand instead */
+  visibleToClient?: boolean
+  recipientCompanyName?: string
+  recipientEmail?: string
+  recipientName?: string
+  companyId?: string
+  contactId?: string
+  partnerLinkId?: string
+  scopeAgreementId?: string
+  relationshipId?: string
+  projectName?: string
+  linkedBy?: string
+  grantedByRef?: Record<string, unknown>
+  createdAt?: unknown
+  updatedAt?: unknown
+}
+
 export interface ProjectAccessContext {
   role: ProjectMemberRole
   source: 'super_admin' | 'ai' | 'project_member' | 'project_organization' | 'legacy_org'
   canViewInternal: boolean
+  /** The organization this access context is scoped to */
+  scopedOrgId?: string
+  /** When present, indicates this user is accessing via a vendor org that is hidden from clients */
+  isVendor?: boolean
+  /** The visible/branded org identity clients should see (face org, not the vendor) */
+  displayOrgId?: string
   /**
    * Present only for a canonical cross-organisation project grant. The grant is
    * evaluated by the policy service before this access context is returned;
@@ -108,6 +142,16 @@ function projectOwnerOrgId(data: Record<string, unknown>): string {
     cleanString(data.sourceOrgId) ||
     cleanString(data.issuerOrgId) ||
     cleanString(data.orgId)
+}
+
+function projectFaceOrgId(data: Record<string, unknown>): string {
+  return cleanString(data.faceOrgId) || projectOwnerOrgId(data)
+}
+
+function projectVendorOrgIds(data: Record<string, unknown>): string[] {
+  const value = data.vendorOrgIds
+  if (!Array.isArray(value)) return []
+  return value.map((id) => cleanString(id)).filter(Boolean)
 }
 
 function projectOrgIds(data: Record<string, unknown>): string[] {
@@ -350,13 +394,15 @@ export async function resolveProjectAccessForUser(
   if (isSuperAdmin(user)) return { role: 'owner', source: 'super_admin', canViewInternal: true }
 
   const scopedOrgId = cleanString(requestedOrgId)
+  const ownerOrgId = projectOwnerOrgId(projectData)
+  const faceOrgId = projectFaceOrgId(projectData)
+  const vendorOrgIds = projectVendorOrgIds(projectData)
   const ownedOrLinkedOnly = projectsScopeIsOwnedOrLinked(user)
   const memberSnap = await adminDb.collection('projectMembers').doc(projectMemberDocId(projectId, user.uid)).get()
   let foreignMemberOrgId = ''
   if (memberSnap.exists) {
     const member = memberSnap.data() ?? {}
     const memberOrgId = cleanString(member.orgId)
-    const ownerOrgId = projectOwnerOrgId(projectData)
     if (member.status === 'active' && (!scopedOrgId || memberOrgId === scopedOrgId)) {
       // A foreign projectMembers row is a presentation/assignment projection,
       // never an independent cross-org authority. Continue into the canonical
@@ -370,6 +416,7 @@ export async function resolveProjectAccessForUser(
           role,
           source: 'project_member',
           canViewInternal: member.memberType === 'internal' || (ownerOrgId.length > 0 && memberOrgId === ownerOrgId),
+          scopedOrgId: memberOrgId,
         }
       }
     }
@@ -384,35 +431,55 @@ export async function resolveProjectAccessForUser(
         const orgAccess = orgSnap.data() ?? {}
         if (orgAccess.status === 'active') {
           const role = normalizeProjectRole(orgAccess.role)
-          const ownerOrgId = projectOwnerOrgId(projectData)
-          // A foreign projectOrganizations row is only a projection of its
-          // PartnerResourceGrant. Neither record-scope aliases nor direct
-          // membership can bypass a missing/revoked canonical grant.
-          if (scopedOrgId !== ownerOrgId) {
-            const partnerLinkId = cleanString(orgAccess.partnerLinkId)
-            if (!partnerLinkId) return null
-            const grantAccess = await resolveProjectCrossOrgGrant({
-              projectId,
-              ownerOrgId,
-              partnerLinkId,
-              actor: { uid: user.uid, orgId: scopedOrgId },
-              projectRole: role,
-              action: crossOrgRequirement.action ?? 'project.read',
-              item: crossOrgRequirement.item,
-            })
-            if (!grantAccess.allowed) return null
+          const orgType = cleanString(orgAccess.organizationType) as ProjectOrganizationType | undefined
+          const isVendor = orgType === 'vendor' || vendorOrgIds.includes(scopedOrgId)
+          const visibleToClient = orgAccess.visibleToClient !== false
+          
+          // Owner/face org always gets internal visibility
+          if (scopedOrgId === ownerOrgId) {
             return {
               role,
               source: 'project_organization',
-              canViewInternal: false,
-              crossOrgGrant: grantAccess.grant,
+              canViewInternal: true,
+              scopedOrgId,
+              isVendor: false,
+              displayOrgId: scopedOrgId,
             }
           }
-          if (ownedOrLinkedOnly) return legacyProjectAccessForUser(user, projectData, scopedOrgId)
+          
+          // Vendor orgs get internal visibility; they work alongside the face org
+          if (isVendor) {
+            return {
+              role,
+              source: 'project_organization',
+              canViewInternal: true,
+              scopedOrgId,
+              isVendor: true,
+              displayOrgId: visibleToClient ? scopedOrgId : faceOrgId,
+            }
+          }
+          
+          // Client orgs (non-vendor, non-owner) require a partner link and get no internal visibility
+          const partnerLinkId = cleanString(orgAccess.partnerLinkId)
+          if (!partnerLinkId) return null
+          const grantAccess = await resolveProjectCrossOrgGrant({
+            projectId,
+            ownerOrgId,
+            partnerLinkId,
+            actor: { uid: user.uid, orgId: scopedOrgId },
+            projectRole: role,
+            action: crossOrgRequirement.action ?? 'project.read',
+            item: crossOrgRequirement.item,
+          })
+          if (!grantAccess.allowed) return null
           return {
             role,
             source: 'project_organization',
             canViewInternal: false,
+            scopedOrgId,
+            isVendor: false,
+            displayOrgId: scopedOrgId,
+            crossOrgGrant: grantAccess.grant,
           }
         }
         return null
@@ -424,44 +491,61 @@ export async function resolveProjectAccessForUser(
     return legacyProjectAccessForUser(user, projectData, scopedOrgId)
   }
 
-  const ownerOrgId = projectOwnerOrgId(projectData)
   for (const orgId of userOrgIds(user)) {
     const orgSnap = await adminDb.collection('projectOrganizations').doc(projectOrganizationDocId(projectId, orgId)).get()
     if (!orgSnap.exists) continue
     const orgAccess = orgSnap.data() ?? {}
     if (orgAccess.status !== 'active') continue
     const role = normalizeProjectRole(orgAccess.role)
+    const orgType = cleanString(orgAccess.organizationType) as ProjectOrganizationType | undefined
+    const isVendor = orgType === 'vendor' || vendorOrgIds.includes(orgId)
+    const visibleToClient = orgAccess.visibleToClient !== false
 
-    if (orgId !== ownerOrgId) {
-      const partnerLinkId = cleanString(orgAccess.partnerLinkId)
-      if (!partnerLinkId) continue
-      const grantAccess = await resolveProjectCrossOrgGrant({
-        projectId,
-        ownerOrgId,
-        partnerLinkId,
-        actor: { uid: user.uid, orgId },
-        projectRole: role,
-        action: crossOrgRequirement.action ?? 'project.read',
-        item: crossOrgRequirement.item,
-      })
-      if (!grantAccess.allowed) continue
+    // Owner/face org always gets internal visibility
+    if (orgId === ownerOrgId) {
       return {
         role,
         source: 'project_organization',
-        canViewInternal: false,
-        crossOrgGrant: grantAccess.grant,
+        canViewInternal: true,
+        scopedOrgId: orgId,
+        isVendor: false,
+        displayOrgId: orgId,
+      }
+    }
+    
+    // Vendor orgs get internal visibility
+    if (isVendor) {
+      return {
+        role,
+        source: 'project_organization',
+        canViewInternal: true,
+        scopedOrgId: orgId,
+        isVendor: true,
+        displayOrgId: visibleToClient ? orgId : faceOrgId,
       }
     }
 
-    if (ownedOrLinkedOnly) {
-      const legacy = legacyProjectAccessForUser(user, projectData, orgId)
-      if (legacy) return legacy
-      continue
-    }
+    // Client orgs require a partner link
+    const partnerLinkId = cleanString(orgAccess.partnerLinkId)
+    if (!partnerLinkId) continue
+    const grantAccess = await resolveProjectCrossOrgGrant({
+      projectId,
+      ownerOrgId,
+      partnerLinkId,
+      actor: { uid: user.uid, orgId },
+      projectRole: role,
+      action: crossOrgRequirement.action ?? 'project.read',
+      item: crossOrgRequirement.item,
+    })
+    if (!grantAccess.allowed) continue
     return {
       role,
       source: 'project_organization',
       canViewInternal: false,
+      scopedOrgId: orgId,
+      isVendor: false,
+      displayOrgId: orgId,
+      crossOrgGrant: grantAccess.grant,
     }
   }
 
