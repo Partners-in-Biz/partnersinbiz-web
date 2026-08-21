@@ -133,8 +133,9 @@ export const GET = withAuth('client', async (req: NextRequest, user, ctx) => {
   const filteredOrganizations = canViewInternal
     ? organizations
     : organizations.filter((org) => {
-        const orgType = cleanString(org.organizationType)
-        const visibleToClient = org.visibleToClient !== false
+        const orgData = org as Record<string, unknown>
+        const orgType = cleanString(orgData.organizationType)
+        const visibleToClient = orgData.visibleToClient !== false
         return orgType !== 'vendor' || visibleToClient
       })
 
