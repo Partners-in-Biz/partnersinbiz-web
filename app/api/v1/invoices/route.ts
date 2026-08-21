@@ -1,3 +1,21 @@
+// app/api/v1/invoices/route.ts
+//
+// Security fix 2026-08-21: Portal workspace isolation for dual-role platform owners.
+//
+// PROBLEM: Platform owners (role=admin|ai) sitting in a CLIENT workspace via activeOrgId
+// were seeing invoices from ALL orgs they could access, not just the active workspace.
+// Live case: Stean (PiB admin) in Humanaut workspace saw Humanaut invoices PLUS PiB
+// invoices to Saaiman/AHS/etc (other clients).
+//
+// ROOT CAUSE: withAuth('client', ...) allows admin/ai roles to pass through (hierarchy),
+// but they stay role=admin in the handler. The handler checked `if (user.role === 'client')`
+// which was FALSE for platform admins, so they fell into the global admin query path.
+//
+// FIX: Check for portal workspace context (activeOrgId or explicit orgId param) and enforce
+// client-like scoping for ALL roles when in that context. This prevents cross-org leaks.
+//
+// CONTRAST: /api/v1/quotes uses withCrmAuth which always resolves ctx.orgId from the portal
+// active workspace, so it was never vulnerable to this leak.
 import { FieldValue } from 'firebase-admin/firestore'
 import type * as FirebaseFirestore from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
@@ -209,13 +227,30 @@ export const GET = withAuth('client', async (req, user) => {
   let billingOrgIdFilter: string | null = null
   let orgAccessFilter: string[] | null = null
 
-  if (user.role === 'client') {
-    const requestedOrgId = searchParams.get('orgId') ?? user.activeOrgId ?? user.orgId ?? user.orgIds?.[0]
-    if (!requestedOrgId || !canAccessOrg(user, requestedOrgId)) return apiSuccess([])
+  // Security: when accessing from a portal workspace (activeOrgId is set),
+  // ALL users (including platform admins with role=admin|ai) must be scoped to THAT workspace.
+  // This prevents platform owners from seeing cross-org invoices when sitting in a client workspace.
+  //
+  // Critical: If activeOrgId is set, we are in a portal workspace context.
+  // In portal context, explicitOrgId param must either match activeOrgId or be absent.
+  // If it doesn't match, return 403 to prevent workspace bypass.
+  const explicitOrgId = searchParams.get('orgId')
+  const activeOrgId = user.activeOrgId
+
+  // Portal workspace context: enforce strict workspace isolation
+  if (activeOrgId) {
+    // If orgId param is provided but doesn't match active workspace, reject
+    if (explicitOrgId && explicitOrgId !== activeOrgId) {
+      return apiError('Cannot access a different organisation from portal workspace', 403)
+    }
+    // Use active workspace as the only allowed orgId
+    const requestedOrgId = activeOrgId
+    if (!canAccessOrg(user, requestedOrgId)) return apiSuccess([])
     const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
     if (view === 'received') {
       const received = (await loadReceivedInvoicesForOrg(requestedOrgId))
         .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+        .filter((invoice) => invoice.status !== 'draft')
       const scoped = await filterBillingRecordsForCrmActor(crmCtx, received)
       const invoices = scoped
         .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
@@ -227,25 +262,55 @@ export const GET = withAuth('client', async (req, user) => {
       return apiSuccess([])
     }
     query = query.where(orgField, '==', requestedOrgId)
+  } else if (user.role === 'client') {
+    // Client user NOT in portal context (legacy/direct API access): scope to their org
+    const requestedOrgId = user.orgId ?? user.orgIds?.[0]
+    if (!requestedOrgId || !canAccessOrg(user, requestedOrgId)) return apiSuccess([])
+    const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
+    if (view === 'received') {
+      const received = (await loadReceivedInvoicesForOrg(requestedOrgId))
+        .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+        .filter((invoice) => invoice.status !== 'draft')
+      const scoped = await filterBillingRecordsForCrmActor(crmCtx, received)
+      const invoices = scoped
+        .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+        .slice(0, 50)
+      return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
+    }
+    if (!shouldExposeIssuerBillingBook(crmCtx, 'invoices')) {
+      return apiSuccess([])
+    }
+    query = query.where(orgField, '==', requestedOrgId)
   } else {
-    // Admin / AI can filter freely by orgId / billingOrgId query params.
+    // Admin / AI global queries (NOT in portal workspace context).
+    // This path is for API/cron access where activeOrgId is not set.
     const orgId = searchParams.get('orgId')
     const billingOrgId = searchParams.get('billingOrgId')
+    
     if (orgId) {
       if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
       query = query.where(orgField, '==', orgId)
     } else if (user.role === 'admin') {
+      // Restricted admin filtering (from development)
       const allowedOrgIds = billingOrgId && view === 'received'
         ? explicitAdminOrgIds(user)
         : restrictedAdminOrgIds(user)
       if (allowedOrgIds.length > 0) {
+        // Restricted admin: filter by allowedOrgIds
         if (allowedOrgIds.length <= 30 && !billingOrgId) {
           query = query.where(orgField, 'in', allowedOrgIds)
         } else {
           orgAccessFilter = allowedOrgIds
         }
+      } else {
+        // Unrestricted admin without orgId/billingOrgId: require explicit scoping
+        // This prevents unrestricted admins from accidentally querying ALL invoices
+        if (!billingOrgId) {
+          return apiError('orgId or billingOrgId query parameter is required', 400)
+        }
       }
     }
+    
     if (billingOrgId) {
       if (orgId) {
         billingOrgIdFilter = billingOrgId
@@ -261,14 +326,6 @@ export const GET = withAuth('client', async (req, user) => {
     .filter((invoice) => !orgAccessFilter || orgAccessFilter.includes(String(invoice[orgField] ?? '')))
     .filter((invoice) => !billingOrgIdFilter || invoice.billingOrgId === billingOrgIdFilter)
     .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
-
-  if (user.role === 'client') {
-    const requestedOrgId = searchParams.get('orgId') ?? user.activeOrgId ?? user.orgId ?? user.orgIds?.[0]
-    if (requestedOrgId) {
-      const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
-      invoices = await filterBillingRecordsForCrmActor(crmCtx, invoices)
-    }
-  }
 
   invoices = invoices
     .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
