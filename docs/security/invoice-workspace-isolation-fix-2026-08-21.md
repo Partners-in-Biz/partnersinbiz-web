@@ -250,6 +250,95 @@ Updated 2 existing tests to match the new rule:
 
 Status chips in the UI remain unchanged.
 
+### Phase 4: Accounting Ledger AR/AP Separation
+
+**Date:** 2026-08-21 (same PR)  
+**Severity:** High - Revenue/AR misreporting
+
+#### Problem
+
+The Portal Invoicing page (`app/(portal)/portal/invoicing/page.tsx`) was merging BOTH sent and received invoices into a single list and calculating revenue from ALL paid invoices. This meant received invoices (which are AP/expenses for the active workspace) were incorrectly counted as revenue.
+
+**Example:**
+- Humanaut workspace:
+  - Sent PAR-001 to PiB, paid, R10,000 → This IS Humanaut revenue (AR)
+  - Received BILL-001 from Supplier, paid, R5,000 → This is NOT Humanaut revenue (it's expense/AP)
+  - Bug: `totalRevenue` calculated as R15,000 (incorrect)
+  - Fix: `totalRevenue` calculated as R10,000 (correct, AR only)
+
+#### Business Rule: TWO LEDGERS, ONE RECORD
+
+**Sent (issuer workspace) = Accounts Receivable (AR)**
+- Draft: issuer-only, not on books, recipient must not see it
+- On send: we are owed (AR + revenue recognition)
+- On paid: cash in, AR clears, revenue realized
+
+**Received (recipient workspace) = Accounts Payable (AP)**
+- Hidden until sent
+- Then it is a bill (expense + AP)
+- Recipient can mark paid / upload proof of payment
+- On paid: cash out, AP clears, expense realized
+
+**Same paid event, opposite accounting entry:**
+- Humanaut marks PAR-001 paid → Humanaut: +cash, -AR, revenue realized
+- PiB marks PAR-001 paid → PiB: -cash, -AP, expense realized
+
+#### Implementation
+
+**Portal Invoicing Page:** `app/(portal)/portal/invoicing/page.tsx`
+
+```typescript
+// BEFORE (Bug): merged sent and received into one list
+const [invoices, setInvoices] = useState<Invoice[]>([])
+setInvoices(mergeById([sentInvoices?.data ?? [], receivedInvoices?.data ?? []]))
+const totalRevenue = invoices.filter(i => i.status === 'paid').reduce(...)
+// ❌ This counted received (AP) invoices as revenue
+
+// AFTER (Fix): keep ledgers separate, calculate revenue from sent only
+const [sentInvoices, setSentInvoices] = useState<Invoice[]>([])
+const [receivedInvoices, setReceivedInvoices] = useState<Invoice[]>([])
+const invoices = useMemo(() => mergeById([sentInvoices, receivedInvoices]), [...])
+
+// AR (Accounts Receivable): Revenue from OUR sent invoices (we issued, they pay us)
+const totalRevenue = sentInvoices.filter(i => i.status === 'paid').reduce(...)
+// AR Outstanding: What customers owe us on sent invoices
+const outstanding = sentInvoices.filter(i => ['sent', 'viewed', 'overdue', 'payment_pending_verification'].includes(i.status)).reduce(...)
+const overdueCount = sentInvoices.filter(i => i.status === 'overdue').length
+// ✅ Revenue/AR only counts sent invoices, excludes received (AP)
+```
+
+#### Status Flows
+
+**INVOICES:** `draft → sent → viewed → payment_pending_verification → paid`  
+Also: `overdue`, `cancelled`
+
+**QUOTES:** `draft → sent → accepted | rejected | converted`
+
+#### Test Coverage
+
+Added 4 new tests in `__tests__/portal/invoicing-ar-ap-separation.test.tsx`:
+
+1. ✅ Revenue calculation excludes received invoices (AP ledger)
+2. ✅ Outstanding AR calculation excludes received invoices
+3. ✅ Draft invoices excluded from revenue (not on books yet)
+4. ✅ Overdue count only from sent invoices (AR), not received (AP)
+
+**Total Test Coverage:** 25 tests (21 from prior phases + 4 new AR/AP tests)
+
+#### Reports
+
+- **Revenue / Outstanding AR:** Our issued invoices, sent+ (not drafts). Excludes received.
+- **Payables / Expenses:** Received invoices, sent+ (not issuer drafts). Excludes sent.
+- **Paid received invoices must not count as our revenue.**
+
+#### UI Changes
+
+- Finance page: Sent and Received tabs work correctly
+- Received row vendor = issuer org name, never "client: us"
+- Status chips stay as defined
+- Recipient actions: view, pay/upload proof of payment, mark paid
+- Recipient cannot edit/cancel issuer drafts (hidden until sent)
+
 ### OrgScope Workspace Isolation Tests (6 tests)
 
 `__tests__/api/org-scope-workspace-isolation.test.ts`
@@ -267,7 +356,7 @@ Tests prove 100% org isolation via `resolveOrgScope`:
 `__tests__/api/invoices.test.ts`
 - Added dual-role platform owner test cases
 
-**Total Test Coverage:** 21 tests across all resources (invoices, quotes, documents, contacts, companies, deals)
+**Total Test Coverage:** 25 tests across all resources (invoices, quotes, documents, contacts, companies, deals)
 
 ## Verification Steps
 
@@ -277,13 +366,15 @@ Tests prove 100% org isolation via `resolveOrgScope`:
 npm test -- __tests__/api/v1/invoices/invoices-workspace-isolation.test.ts
 npm test -- __tests__/api/invoices.test.ts
 npm test -- __tests__/api/org-scope-workspace-isolation.test.ts
+npm test -- __tests__/portal/invoicing-ar-ap-separation.test.tsx
 ```
 
-**Total Test Cases:** 21 tests
+**Total Test Cases:** 25 tests
 - 5 workspace isolation tests (dual-role platform owners)
 - 6 two-workspace proof tests (same invoice, opposite inboxes)
 - 4 draft visibility tests (hide drafts from recipient until sent)
 - 6 org-scope workspace isolation tests
+- 4 AR/AP separation tests (revenue/payables ledger integrity)
 
 ### Manual Verification (Do NOT write to production)
 
@@ -313,6 +404,12 @@ npm test -- __tests__/api/org-scope-workspace-isolation.test.ts
    - Verify draft does NOT appear in org Y received view
    - Send the quote (status: sent)
    - Verify quote now appears in org Y received view
+7. **Verify AR/AP Separation:**
+   - Create invoice A from org X to org Y, mark paid
+   - Switch to org X: verify revenue/AR includes invoice A (sent, paid)
+   - Switch to org Y: verify payables/AP includes invoice A (received, paid)
+   - Verify org Y revenue/AR does NOT include invoice A (it's their expense)
+   - Verify org X payables/AP does NOT include invoice A (it's their revenue)
 
 ## Deployment Notes
 
@@ -325,10 +422,12 @@ npm test -- __tests__/api/org-scope-workspace-isolation.test.ts
 
 - `app/api/v1/invoices/route.ts` - Invoice route fix with workspace isolation + draft visibility
 - `app/api/v1/quotes/route.ts` - Quote route fix with draft visibility
+- `app/(portal)/portal/invoicing/page.tsx` - AR/AP separation for revenue/payables calculations
 - `lib/api/orgScope.ts` - Global fix for all routes using resolveOrgScope
 - `__tests__/api/v1/invoices/invoices-workspace-isolation.test.ts` - Comprehensive invoice test suite (15 tests)
 - `__tests__/api/org-scope-workspace-isolation.test.ts` - OrgScope helper tests (6 tests)
 - `__tests__/api/invoices.test.ts` - Updated dual-role tests
+- `__tests__/portal/invoicing-ar-ap-separation.test.tsx` - AR/AP ledger separation tests (4 tests)
 - `docs/security/invoice-workspace-isolation-fix-2026-08-21.md` - This document
 
 ## References
@@ -352,6 +451,10 @@ npm test -- __tests__/api/org-scope-workspace-isolation.test.ts
 
 4. **Test dual-role scenarios**  
    Users with multiple org memberships and platform privileges need explicit test coverage.
+
+5. **Accounting ledger integrity**  
+   AR (sent invoices) and AP (received invoices) must be kept separate for revenue calculations.  
+   Merging ledgers breaks financial reporting.
 
 ## Recommendation
 
