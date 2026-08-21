@@ -191,7 +191,7 @@ export function NotificationBell({ mode = 'crm', orgId, userId }: NotificationBe
       {/* Dropdown panel */}
       {open && (
         <div
-          className="absolute right-0 top-full z-50 mt-1.5 w-80 overflow-hidden rounded-lg border border-[var(--color-card-border)]"
+          className="absolute right-0 top-full z-50 mt-1.5 w-[min(20rem,calc(100vw-1rem))] overflow-hidden rounded-lg border border-[var(--color-card-border)]"
           style={{ background: 'var(--color-sidebar, var(--color-pib-surface))' }}
         >
           {/* Header */}

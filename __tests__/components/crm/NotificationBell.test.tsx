@@ -147,4 +147,25 @@ describe('NotificationBell', () => {
     expect(screen.queryByText('Task assigned to you')).not.toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'No CRM alerts need action' })).toBeInTheDocument()
   })
+
+  it('constrains dropdown width to viewport on mobile screens', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          notifications: [],
+          unreadCount: 0,
+        },
+      }),
+    }) as jest.Mock
+
+    const { container } = render(<NotificationBell />)
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+    fireEvent.click(screen.getByRole('button', { name: 'Open notifications' }))
+
+    const dropdown = container.querySelector('.absolute.right-0.top-full')
+    expect(dropdown).toBeInTheDocument()
+    expect(dropdown).toHaveClass('w-[min(20rem,calc(100vw-1rem))]')
+  })
 })
