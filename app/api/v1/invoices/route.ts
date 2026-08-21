@@ -235,15 +235,9 @@ export const GET = withAuth('client', async (req, user) => {
   // If it doesn't match, return 403 to prevent workspace bypass.
   const explicitOrgId = searchParams.get('orgId')
   const activeOrgId = user.activeOrgId
-  const isPortalWorkspaceContext = Boolean(activeOrgId)
 
   // Portal workspace context: enforce strict workspace isolation
-  if (isPortalWorkspaceContext) {
-    // Type guard: activeOrgId is truthy here
-    if (!activeOrgId) {
-      return apiError('Active workspace org ID is required', 400)
-    }
-    
+  if (activeOrgId) {
     // If orgId param is provided but doesn't match active workspace, reject
     if (explicitOrgId && explicitOrgId !== activeOrgId) {
       return apiError('Cannot access a different organisation from portal workspace', 403)
