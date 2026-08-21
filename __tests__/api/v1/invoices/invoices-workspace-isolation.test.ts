@@ -356,3 +356,311 @@ describe('GET /api/v1/invoices — workspace isolation for dual-role platform ow
     expect(mockInvoiceGet).not.toHaveBeenCalled()
   })
 })
+
+describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite inboxes', () => {
+  /**
+   * Peet's success test requirement:
+   * When Humanaut issues PAR-001 to Partners in Biz:
+   * - Humanaut Finance (sent view) = shows PAR-001 as outgoing
+   * - PiB Finance (received view) = shows PAR-001 as incoming
+   * - Same invoice, opposite inboxes
+   * - Vendor on received row is Humanaut, not "client: Humanaut" on PiB outgoing
+   * - Even if status=draft (sentAt=null), PiB received shows it once it exists
+   * - Draft invoices do NOT leak into issuer's outgoing stack of a different org
+   */
+
+  const PAR_001_DRAFT = {
+    id: 'par-001',
+    orgId: 'humanaut-org',
+    sourceOrgId: 'humanaut-org',
+    issuerOrgId: 'humanaut-org',
+    recipientOrgId: 'pib-platform-owner',
+    targetOrgId: 'pib-platform-owner',
+    invoiceNumber: 'PAR-001',
+    status: 'draft',
+    sentAt: null,
+    total: 5000,
+    currency: 'ZAR',
+    fromDetails: { companyName: 'Humanaut AI' },
+    clientDetails: { name: 'Partners in Biz' },
+    createdAt: { seconds: 1692640000 },
+  }
+
+  beforeEach(() => {
+    // Mock platform org query for loadReceivedInvoicesForOrg
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'invoices') {
+        return {
+          where: mockInvoiceWhere.mockReturnValue({
+            get: mockInvoiceGet,
+          }),
+        }
+      }
+      if (name === 'orgMembers') {
+        return {
+          doc: () => ({ get: mockOrgMemberGet }),
+        }
+      }
+      if (name === 'organizations') {
+        return {
+          doc: mockOrgDoc,
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              get: jest.fn().mockResolvedValue({
+                empty: false,
+                docs: [
+                  {
+                    id: 'pib-platform-owner',
+                    data: () => ({ name: 'Partners in Biz' }),
+                  },
+                ],
+              }),
+            }),
+          }),
+        }
+      }
+      throw new Error(`Unexpected collection: ${name}`)
+    })
+  })
+
+  it('Humanaut workspace (sent view) shows PAR-001 as outgoing, even when draft', async () => {
+    mockUser = {
+      uid: 'humanaut-admin',
+      role: 'client',
+      orgId: 'humanaut-org',
+      activeOrgId: 'humanaut-org',
+      orgIds: ['humanaut-org'],
+    }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ status: 'active', role: 'owner' }),
+    })
+
+    // Sent view queries orgId == humanaut-org
+    mockInvoiceGet.mockResolvedValue({
+      docs: [
+        {
+          id: PAR_001_DRAFT.id,
+          data: () => PAR_001_DRAFT,
+        },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    // PAR-001 appears in Humanaut's sent list
+    expect(body.data.map((inv: { id: string }) => inv.id)).toContain('par-001')
+    expect(body.data[0].invoiceNumber).toBe('PAR-001')
+    expect(body.data[0].status).toBe('draft')
+    expect(body.data[0].fromDetails.companyName).toBe('Humanaut AI')
+    expect(body.data[0].clientDetails.name).toBe('Partners in Biz')
+
+    // Verify query was scoped to Humanaut
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('orgId', '==', 'humanaut-org')
+  })
+
+  it('PiB workspace (received view) shows PAR-001 as incoming, even when draft', async () => {
+    mockUser = {
+      uid: 'pib-admin',
+      role: 'client',
+      orgId: 'pib-platform-owner',
+      activeOrgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner'],
+    }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ status: 'active', role: 'owner' }),
+    })
+
+    // Received view queries recipientOrgId/targetOrgId/orgId == pib-platform-owner
+    // Mock three queries for loadReceivedInvoicesForOrg
+    mockInvoiceGet
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: PAR_001_DRAFT.id,
+            data: () => PAR_001_DRAFT,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    // PAR-001 appears in PiB's received list
+    expect(body.data.map((inv: { id: string }) => inv.id)).toContain('par-001')
+    expect(body.data[0].invoiceNumber).toBe('PAR-001')
+    expect(body.data[0].status).toBe('draft')
+    // Vendor is Humanaut (fromDetails), not a fake "client: Humanaut" on PiB outgoing
+    expect(body.data[0].fromDetails.companyName).toBe('Humanaut AI')
+    expect(body.data[0].clientDetails.name).toBe('Partners in Biz')
+
+    // Verify query was scoped to PiB as recipient
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('recipientOrgId', '==', 'pib-platform-owner')
+  })
+
+  it('PiB workspace (sent view) does NOT show PAR-001 (issued by Humanaut)', async () => {
+    mockUser = {
+      uid: 'pib-admin',
+      role: 'client',
+      orgId: 'pib-platform-owner',
+      activeOrgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner'],
+    }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ status: 'active', role: 'owner' }),
+    })
+
+    // Sent view queries orgId == pib-platform-owner
+    // PAR-001 has orgId=humanaut-org, so it won't match
+    mockInvoiceGet.mockResolvedValue({
+      docs: [],
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    // PAR-001 does NOT appear in PiB's sent list
+    expect(body.data.map((inv: { id: string }) => inv.id)).not.toContain('par-001')
+
+    // Verify query was scoped to PiB as issuer
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('orgId', '==', 'pib-platform-owner')
+  })
+
+  it('Humanaut workspace (received view) does NOT show PAR-001 (issued by Humanaut)', async () => {
+    mockUser = {
+      uid: 'humanaut-admin',
+      role: 'client',
+      orgId: 'humanaut-org',
+      activeOrgId: 'humanaut-org',
+      orgIds: ['humanaut-org'],
+    }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ status: 'active', role: 'owner' }),
+    })
+
+    // Received view queries recipientOrgId/targetOrgId/orgId == humanaut-org
+    // PAR-001 has recipientOrgId=pib-platform-owner, so it won't match
+    mockInvoiceGet
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    // PAR-001 does NOT appear in Humanaut's received list
+    expect(body.data.map((inv: { id: string }) => inv.id)).not.toContain('par-001')
+  })
+
+  it('platform admin in Humanaut workspace sees PAR-001 sent (not cross-org PiB invoices)', async () => {
+    // Stean-like user: platform admin sitting in Humanaut workspace
+    mockUser = {
+      uid: 'stean',
+      role: 'admin',
+      orgId: 'pib-platform-owner',
+      activeOrgId: 'humanaut-org',
+      orgIds: ['pib-platform-owner', 'humanaut-org'],
+    }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ status: 'active', role: 'owner' }),
+    })
+
+    // Sent view queries orgId == humanaut-org
+    mockInvoiceGet.mockResolvedValue({
+      docs: [
+        {
+          id: PAR_001_DRAFT.id,
+          data: () => PAR_001_DRAFT,
+        },
+        // Simulate other PiB invoices that should NOT appear
+        {
+          id: 'saa-002',
+          data: () => ({
+            orgId: 'pib-platform-owner',
+            sourceOrgId: 'pib-platform-owner',
+            recipientOrgId: 'saaiman-org',
+            invoiceNumber: 'SAA-002',
+            status: 'sent',
+          }),
+        },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    // MUST see PAR-001 (Humanaut-issued)
+    expect(body.data.map((inv: { id: string }) => inv.id)).toContain('par-001')
+    // MUST NOT see SAA-002 (PiB-issued to other client)
+    expect(body.data.map((inv: { id: string }) => inv.id)).not.toContain('saa-002')
+
+    // Verify query was scoped to Humanaut workspace
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('orgId', '==', 'humanaut-org')
+  })
+
+  it('platform admin in PiB workspace sees PAR-001 received (not in sent)', async () => {
+    mockUser = {
+      uid: 'pib-admin',
+      role: 'admin',
+      orgId: 'pib-platform-owner',
+      activeOrgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner'],
+    }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ status: 'active', role: 'owner' }),
+    })
+
+    // Received view
+    mockInvoiceGet
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: PAR_001_DRAFT.id,
+            data: () => PAR_001_DRAFT,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    // PAR-001 appears in PiB received list
+    expect(body.data.map((inv: { id: string }) => inv.id)).toContain('par-001')
+    expect(body.data[0].invoiceNumber).toBe('PAR-001')
+    expect(body.data[0].fromDetails.companyName).toBe('Humanaut AI')
+  })
+})
