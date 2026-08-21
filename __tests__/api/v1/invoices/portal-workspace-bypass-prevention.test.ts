@@ -285,7 +285,7 @@ describe('Portal Workspace Bypass Prevention', () => {
 
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.error).toContain('orgId query parameter is required')
+    expect(body.error).toContain('orgId or billingOrgId query parameter is required')
 
     // Verify NO global query was attempted
     expect(mockInvoiceGet).not.toHaveBeenCalled()
@@ -317,7 +317,7 @@ describe('Portal Workspace Bypass Prevention', () => {
 
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.error).toContain('orgId query parameter is required')
+    expect(body.error).toContain('orgId or billingOrgId query parameter is required')
 
     // Verify NO multi-org query was attempted
     expect(mockInvoiceWhere).not.toHaveBeenCalledWith('orgId', 'in', ['pib-platform-owner', 'humanaut-org'])
