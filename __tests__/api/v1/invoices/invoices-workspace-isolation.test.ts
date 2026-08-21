@@ -344,8 +344,7 @@ describe('GET /api/v1/invoices — workspace isolation for dual-role platform ow
       data: () => ({ status: 'active', role: 'owner' }),
     })
 
-    mockInvoiceGet.mockResolvedValue({
-      docs: [
+    ;(mockInvoiceGet as { setAllDocs: (docs: unknown[]) => void }).setAllDocs([
         {
           id: 'humanaut-issued',
           data: () => ({
@@ -765,7 +764,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
         ],
       })
       .mockResolvedValueOnce({ docs: [] })
-      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [])
 
     const { GET } = await import('@/app/api/v1/invoices/route')
     const req = new NextRequest('http://localhost/api/v1/invoices?view=received')
