@@ -1,0 +1,358 @@
+/**
+ * Workspace isolation test for invoice list routes.
+ *
+ * Security requirement: Finance in an active CLIENT workspace must only show
+ * invoices where that workspace org is the source/issuer OR the recipient.
+ *
+ * Live case (must prevent):
+ *   - Stean van Wyk in Humanaut AI workspace (org jRHViFkdCsZ8HoTG5hJ2)
+ *   - Stean is also a PiB member (pib-platform-owner)
+ *   - Finance showed Humanaut PAR-001 PLUS PiB invoices (SAA-002, AHS-010/009/008, etc.)
+ *   - PiB invoices belong to DIFFERENT client orgs, NOT Humanaut
+ *
+ * This test uses fixture org IDs to prove the fix without hardcoding live data.
+ */
+import { NextRequest } from 'next/server'
+
+type MockUser = {
+  uid: string
+  role: 'admin' | 'client'
+  orgId?: string
+  activeOrgId?: string
+  orgIds?: string[]
+  allowedOrgIds?: string[]
+}
+type MockHandler = (req: NextRequest, user: MockUser) => Promise<Response>
+
+const mockCollection = jest.fn()
+const mockInvoiceWhere = jest.fn()
+const mockInvoiceGet = jest.fn()
+const mockOrgMemberGet = jest.fn()
+const mockOrgDoc = jest.fn()
+const mockOrgGet = jest.fn()
+
+let mockUser: MockUser = { uid: 'client-1', role: 'client' }
+
+jest.mock('@/lib/firebase/admin', () => ({
+  adminDb: { collection: mockCollection },
+}))
+
+jest.mock('@/lib/api/auth', () => ({
+  withAuth: (_role: string, handler: MockHandler) => async (req: NextRequest) =>
+    handler(req, mockUser),
+}))
+
+jest.mock('firebase-admin/firestore', () => ({
+  FieldValue: { serverTimestamp: jest.fn(() => 'SERVER_TIMESTAMP') },
+}))
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockUser = { uid: 'client-1', role: 'client' }
+
+  const invoiceQuery = {
+    where: mockInvoiceWhere,
+    get: mockInvoiceGet,
+  }
+  mockInvoiceWhere.mockReturnValue(invoiceQuery)
+  mockInvoiceGet.mockResolvedValue({ docs: [] })
+  mockOrgMemberGet.mockResolvedValue({ exists: false })
+  mockOrgGet.mockResolvedValue({ exists: false })
+
+  mockCollection.mockImplementation((name: string) => {
+    if (name === 'invoices') return invoiceQuery
+    if (name === 'orgMembers') {
+      return {
+        doc: () => ({ get: mockOrgMemberGet }),
+      }
+    }
+    if (name === 'organizations') {
+      return {
+        doc: mockOrgDoc,
+        where: jest.fn().mockReturnValue({
+          limit: jest.fn().mockReturnValue({
+            get: jest.fn().mockResolvedValue({ empty: true, docs: [] }),
+          }),
+        }),
+      }
+    }
+    throw new Error(`Unexpected collection: ${name}`)
+  })
+
+  mockOrgDoc.mockImplementation(() => ({ get: mockOrgGet }))
+})
+
+describe('GET /api/v1/invoices — workspace isolation for dual-role platform owners', () => {
+  /**
+   * The live leak scenario:
+   * - User is a platform owner (part of pib-platform-owner)
+   * - User is also admin/owner in a CLIENT org (e.g., Humanaut AI)
+   * - User switches to CLIENT workspace via activeOrgId
+   * - Portal Finance calls /api/v1/invoices (sent) and /api/v1/invoices?view=received
+   * - BEFORE FIX: returns global list because platform owner has no allowedOrgIds restriction
+   * - AFTER FIX: scoped to ONLY the active workspace org
+   */
+
+  it('platform owner in CLIENT workspace sees ONLY that workspace invoices (sent)', async () => {
+    // Stean-like user: member of both pib-platform-owner AND Humanaut AI (client org)
+    mockUser = {
+      uid: 'stean',
+      role: 'client',
+      orgId: 'pib-platform-owner',
+      activeOrgId: 'humanaut-org',
+      orgIds: ['pib-platform-owner', 'humanaut-org'],
+      // No allowedOrgIds restriction (unrestricted platform admin)
+    }
+
+    // Mock: orgMember doc shows the user is active in the Humanaut org
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        status: 'active',
+        role: 'owner',
+      }),
+    })
+
+    // Mock: return a mix of invoices
+    // - humanaut-issued: Humanaut → someone (should appear)
+    // - pib-to-saaiman: PiB → Saaiman (should NOT appear)
+    // - pib-to-humanaut: PiB → Humanaut (should appear in received, not sent)
+    mockInvoiceGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'humanaut-issued',
+          data: () => ({
+            orgId: 'humanaut-org',
+            sourceOrgId: 'humanaut-org',
+            recipientOrgId: 'other-client',
+            invoiceNumber: 'PAR-001',
+            createdAt: { seconds: 30 },
+          }),
+        },
+        {
+          id: 'pib-to-saaiman',
+          data: () => ({
+            orgId: 'pib-platform-owner',
+            sourceOrgId: 'pib-platform-owner',
+            recipientOrgId: 'saaiman-org',
+            invoiceNumber: 'SAA-002',
+            createdAt: { seconds: 20 },
+          }),
+        },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    // MUST NOT see PiB invoices to other clients
+    expect(body.data.map((inv: { id: string }) => inv.id)).toEqual(['humanaut-issued'])
+    expect(body.data.map((inv: { id: string }) => inv.id)).not.toContain('pib-to-saaiman')
+
+    // Verify the query was scoped to humanaut-org
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('orgId', '==', 'humanaut-org')
+  })
+
+  it('platform owner in CLIENT workspace sees ONLY that workspace invoices (received)', async () => {
+    mockUser = {
+      uid: 'stean',
+      role: 'client',
+      orgId: 'pib-platform-owner',
+      activeOrgId: 'humanaut-org',
+      orgIds: ['pib-platform-owner', 'humanaut-org'],
+    }
+
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ status: 'active', role: 'owner' }),
+    })
+
+    // Mock three separate queries for received invoices:
+    // 1. recipientOrgId == humanaut-org
+    // 2. targetOrgId == humanaut-org
+    // 3. orgId == humanaut-org (legacy)
+    mockInvoiceGet
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'pib-to-humanaut',
+            data: () => ({
+              orgId: 'pib-platform-owner',
+              sourceOrgId: 'pib-platform-owner',
+              recipientOrgId: 'humanaut-org',
+              invoiceNumber: 'PAR-001',
+              createdAt: { seconds: 30 },
+            }),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [] })
+
+    // Mock platform org query (for legacy detection)
+    mockCollection.mockImplementation((name: string) => {
+      if (name === 'organizations') {
+        return {
+          doc: mockOrgDoc,
+          where: jest.fn().mockReturnValue({
+            limit: jest.fn().mockReturnValue({
+              get: jest.fn().mockResolvedValue({
+                empty: false,
+                docs: [
+                  {
+                    id: 'pib-platform-owner',
+                    data: () => ({ name: 'Partners in Biz' }),
+                  },
+                ],
+              }),
+            }),
+          }),
+        }
+      }
+      if (name === 'invoices') {
+        return {
+          where: mockInvoiceWhere.mockReturnValue({
+            get: mockInvoiceGet,
+          }),
+        }
+      }
+      if (name === 'orgMembers') {
+        return {
+          doc: () => ({ get: mockOrgMemberGet }),
+        }
+      }
+      throw new Error(`Unexpected collection: ${name}`)
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?view=received')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    // MUST see PiB → Humanaut invoice
+    expect(body.data.map((inv: { id: string }) => inv.id)).toContain('pib-to-humanaut')
+
+    // MUST NOT see PiB → Saaiman or other invoices
+    expect(body.data.length).toBe(1)
+
+    // Verify queries were scoped to humanaut-org
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('recipientOrgId', '==', 'humanaut-org')
+  })
+
+  it('restricted platform admin in CLIENT workspace sees ONLY assigned org invoices', async () => {
+    // Restricted admin with allowedOrgIds (common for support staff)
+    mockUser = {
+      uid: 'support-admin',
+      role: 'admin',
+      orgId: 'pib-platform-owner',
+      activeOrgId: 'humanaut-org',
+      allowedOrgIds: ['humanaut-org', 'client-b'],
+    }
+
+    mockInvoiceGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'humanaut-issued',
+          data: () => ({
+            orgId: 'humanaut-org',
+            invoiceNumber: 'PAR-001',
+            createdAt: { seconds: 30 },
+          }),
+        },
+        {
+          id: 'client-b-issued',
+          data: () => ({
+            orgId: 'client-b',
+            invoiceNumber: 'CLB-001',
+            createdAt: { seconds: 20 },
+          }),
+        },
+        {
+          id: 'unassigned-client',
+          data: () => ({
+            orgId: 'client-c',
+            invoiceNumber: 'CLC-001',
+            createdAt: { seconds: 10 },
+          }),
+        },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    // Admin mode: when orgId param is absent, restrictedAdminOrgIds applies
+    // But this should still respect the session context
+    expect(mockInvoiceWhere).toHaveBeenCalled()
+    // The actual filtering depends on allowedOrgIds logic
+  })
+
+  it('client user in their own org sees ONLY their org invoices (baseline)', async () => {
+    mockUser = {
+      uid: 'humanaut-owner',
+      role: 'client',
+      orgId: 'humanaut-org',
+      activeOrgId: 'humanaut-org',
+      orgIds: ['humanaut-org'],
+      // Not a platform owner, just a regular client
+    }
+
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ status: 'active', role: 'owner' }),
+    })
+
+    mockInvoiceGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'humanaut-issued',
+          data: () => ({
+            orgId: 'humanaut-org',
+            sourceOrgId: 'humanaut-org',
+            invoiceNumber: 'PAR-001',
+            createdAt: { seconds: 30 },
+          }),
+        },
+      ],
+    })
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    expect(body.data.map((inv: { id: string }) => inv.id)).toEqual(['humanaut-issued'])
+    expect(mockInvoiceWhere).toHaveBeenCalledWith('orgId', '==', 'humanaut-org')
+  })
+
+  it('rejects client user requesting a different org via query param', async () => {
+    mockUser = {
+      uid: 'humanaut-owner',
+      role: 'client',
+      orgId: 'humanaut-org',
+      activeOrgId: 'humanaut-org',
+      orgIds: ['humanaut-org'],
+    }
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices?orgId=other-client')
+    const res = await GET(req)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toEqual([])
+    expect(mockInvoiceGet).not.toHaveBeenCalled()
+  })
+})

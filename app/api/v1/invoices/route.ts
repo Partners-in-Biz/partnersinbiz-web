@@ -1,3 +1,21 @@
+// app/api/v1/invoices/route.ts
+//
+// Security fix 2026-08-21: Portal workspace isolation for dual-role platform owners.
+//
+// PROBLEM: Platform owners (role=admin|ai) sitting in a CLIENT workspace via activeOrgId
+// were seeing invoices from ALL orgs they could access, not just the active workspace.
+// Live case: Stean (PiB admin) in Humanaut workspace saw Humanaut invoices PLUS PiB
+// invoices to Saaiman/AHS/etc (other clients).
+//
+// ROOT CAUSE: withAuth('client', ...) allows admin/ai roles to pass through (hierarchy),
+// but they stay role=admin in the handler. The handler checked `if (user.role === 'client')`
+// which was FALSE for platform admins, so they fell into the global admin query path.
+//
+// FIX: Check for portal workspace context (activeOrgId or explicit orgId param) and enforce
+// client-like scoping for ALL roles when in that context. This prevents cross-org leaks.
+//
+// CONTRAST: /api/v1/quotes uses withCrmAuth which always resolves ctx.orgId from the portal
+// active workspace, so it was never vulnerable to this leak.
 import { FieldValue } from 'firebase-admin/firestore'
 import type * as FirebaseFirestore from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
@@ -209,8 +227,19 @@ export const GET = withAuth('client', async (req, user) => {
   let billingOrgIdFilter: string | null = null
   let orgAccessFilter: string[] | null = null
 
-  if (user.role === 'client') {
-    const requestedOrgId = searchParams.get('orgId') ?? user.activeOrgId ?? user.orgId ?? user.orgIds?.[0]
+  // Security: when accessing from a portal workspace (activeOrgId or explicit orgId param),
+  // ALL users (including platform admins with role=admin|ai) must be scoped to THAT workspace.
+  // This prevents platform owners from seeing cross-org invoices when sitting in a client workspace.
+  const explicitOrgId = searchParams.get('orgId')
+  const portalWorkspaceOrgId = explicitOrgId ?? user.activeOrgId
+  const isPortalWorkspaceContext = Boolean(portalWorkspaceOrgId)
+
+  // When in portal workspace context, enforce client-like scoping regardless of global role.
+  // Otherwise, platform admins in a client workspace would leak invoices from other clients.
+  const enforceClientScoping = user.role === 'client' || isPortalWorkspaceContext
+
+  if (enforceClientScoping) {
+    const requestedOrgId = portalWorkspaceOrgId ?? user.orgId ?? user.orgIds?.[0]
     if (!requestedOrgId || !canAccessOrg(user, requestedOrgId)) return apiSuccess([])
     const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
     if (view === 'received') {
@@ -228,7 +257,8 @@ export const GET = withAuth('client', async (req, user) => {
     }
     query = query.where(orgField, '==', requestedOrgId)
   } else {
-    // Admin / AI can filter freely by orgId / billingOrgId query params.
+    // Admin / AI global queries (NOT in portal workspace context).
+    // Can filter freely by orgId / billingOrgId query params.
     const orgId = searchParams.get('orgId')
     const billingOrgId = searchParams.get('billingOrgId')
     if (orgId) {
@@ -262,8 +292,8 @@ export const GET = withAuth('client', async (req, user) => {
     .filter((invoice) => !billingOrgIdFilter || invoice.billingOrgId === billingOrgIdFilter)
     .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
 
-  if (user.role === 'client') {
-    const requestedOrgId = searchParams.get('orgId') ?? user.activeOrgId ?? user.orgId ?? user.orgIds?.[0]
+  if (enforceClientScoping) {
+    const requestedOrgId = portalWorkspaceOrgId ?? user.orgId ?? user.orgIds?.[0]
     if (requestedOrgId) {
       const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
       invoices = await filterBillingRecordsForCrmActor(crmCtx, invoices)
