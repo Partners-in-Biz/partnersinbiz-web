@@ -285,34 +285,34 @@ export const GET = withAuth('client', async (req, user) => {
   } else {
     // Admin / AI global queries (NOT in portal workspace context).
     // This path is for API/cron access where activeOrgId is not set.
-    // 
-    // Security note: Portal browser sessions ALWAYS have activeOrgId set by the
-    // portal UI (from user profile + org switcher). If a user could drop the
-    // activeOrgId cookie/header, they would fall into this branch. However:
-    // 1. The route uses withAuth('client') which is for portal/client access
-    // 2. Admin users without activeOrgId must pass explicit ?orgId= (line 290)
-    // 3. Restricted admins are checked against allowedOrgIds (line 294-302)
-    // 4. This path is intentionally preserved for legitimate API/cron usage
-    //
-    // If activeOrgId is missing but the caller is coming from a browser/portal
-    // context (not API/cron), they must explicitly scope with ?orgId=.
     const orgId = searchParams.get('orgId')
     const billingOrgId = searchParams.get('billingOrgId')
-    if (orgId) {
-      if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
-      query = query.where(orgField, '==', orgId)
-    } else if (user.role === 'admin') {
+    
+    // Security: Admin/AI users WITHOUT activeOrgId must provide explicit ?orgId= param.
+    // This prevents unrestricted admins from getting a global invoice list via portal route.
+    // Legitimate API/cron access always scopes explicitly.
+    if (!orgId && user.role === 'admin') {
+      // Check if this is a restricted admin with allowedOrgIds
       const allowedOrgIds = billingOrgId && view === 'received'
         ? explicitAdminOrgIds(user)
         : restrictedAdminOrgIds(user)
-      if (allowedOrgIds.length > 0) {
-        if (allowedOrgIds.length <= 30 && !billingOrgId) {
-          query = query.where(orgField, 'in', allowedOrgIds)
-        } else {
-          orgAccessFilter = allowedOrgIds
-        }
+      
+      // If unrestricted admin (no allowedOrgIds), require explicit orgId
+      if (allowedOrgIds.length === 0) {
+        return apiError('orgId query parameter is required', 400)
       }
+      
+      // Restricted admin: query their allowed orgs
+      if (allowedOrgIds.length <= 30 && !billingOrgId) {
+        query = query.where(orgField, 'in', allowedOrgIds)
+      } else {
+        orgAccessFilter = allowedOrgIds
+      }
+    } else if (orgId) {
+      if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
+      query = query.where(orgField, '==', orgId)
     }
+    
     if (billingOrgId) {
       if (orgId) {
         billingOrgIdFilter = billingOrgId

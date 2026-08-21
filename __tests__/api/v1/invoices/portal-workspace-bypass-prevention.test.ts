@@ -248,4 +248,35 @@ describe('Portal Workspace Bypass Prevention', () => {
     // Query was scoped to requested org
     expect(mockInvoiceWhere).toHaveBeenCalledWith('orgId', '==', 'humanaut-org')
   })
+
+  it('BLOCKS unrestricted admin WITHOUT activeOrgId from getting global list (no orgId param)', async () => {
+    // Third review blocker: Unrestricted admin without activeOrgId should NOT get global list
+    const mockUser = {
+      uid: 'unrestricted-admin',
+      role: 'admin' as const,
+      orgId: 'pib-platform-owner',
+      activeOrgId: null, // NO PORTAL CONTEXT
+      orgIds: ['pib-platform-owner'],
+      allowedOrgIds: null, // Unrestricted super admin
+    }
+
+    jest.doMock('@/lib/api/auth', () => ({
+      withAuth: (role: string, handler: Function) => async (req: NextRequest) => {
+        return handler(req, mockUser)
+      },
+    }))
+
+    const { GET } = await import('@/app/api/v1/invoices/route')
+
+    // Unrestricted admin WITHOUT activeOrgId, no orgId param (portal-style request)
+    const req = new NextRequest('http://localhost/api/v1/invoices')
+    const res = await GET(req)
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toContain('orgId query parameter is required')
+
+    // Verify NO global query was attempted
+    expect(mockInvoiceGet).not.toHaveBeenCalled()
+  })
 })
