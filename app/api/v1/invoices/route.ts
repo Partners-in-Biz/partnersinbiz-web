@@ -225,7 +225,7 @@ export const GET = withAuth('client', async (req, user) => {
 
   let query: FirebaseFirestore.Query = adminDb.collection('invoices')
   let billingOrgIdFilter: string | null = null
-  let orgAccessFilter: string[] | null = null
+  const orgAccessFilter: string[] | null = null
 
   // Security: when accessing from a portal workspace (activeOrgId is set),
   // ALL users (including platform admins with role=admin|ai) must be scoped to THAT workspace.
