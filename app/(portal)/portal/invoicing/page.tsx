@@ -125,7 +125,8 @@ async function fetchJson(url: string) {
 }
 
 export default function InvoicingPage() {
-  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [sentInvoices, setSentInvoices] = useState<Invoice[]>([])
+  const [receivedInvoices, setReceivedInvoices] = useState<Invoice[]>([])
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<BillingTab>('invoices')
@@ -136,10 +137,13 @@ export default function InvoicingPage() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Merge sent and received for display, but keep ledgers separate for accounting
+  const invoices = useMemo(() => mergeById<Invoice>([sentInvoices, receivedInvoices]), [sentInvoices, receivedInvoices])
+
   useEffect(() => {
     let cancelled = false
     async function load() {
-      const [sentInvoices, receivedInvoices, sentQuotes, receivedQuotes, orgs] = await Promise.all([
+      const [sentInvoicesData, receivedInvoicesData, sentQuotes, receivedQuotes, orgs] = await Promise.all([
         fetchJson('/api/v1/invoices'),
         fetchJson('/api/v1/invoices?view=received'),
         fetchJson('/api/v1/quotes'),
@@ -147,7 +151,8 @@ export default function InvoicingPage() {
         fetchJson('/api/v1/organizations'),
       ])
       if (cancelled) return
-      setInvoices(mergeById<Invoice>([sentInvoices?.data ?? [], receivedInvoices?.data ?? []]))
+      setSentInvoices(sentInvoicesData?.data ?? [])
+      setReceivedInvoices(receivedInvoicesData?.data ?? [])
       setQuotes(mergeById<Quote>([sentQuotes?.data?.quotes ?? [], receivedQuotes?.data?.quotes ?? []]))
       const map: Record<string, string> = {}
       for (const org of orgs?.data ?? []) map[org.id] = org.name
@@ -160,9 +165,12 @@ export default function InvoicingPage() {
 
   const visibleInvoices = filter === 'all' ? invoices : invoices.filter(i => i.status === filter)
   const visibleQuotes = filter === 'all' ? quotes : quotes.filter(q => q.status === filter)
-  const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + (i.total ?? 0), 0)
-  const outstanding = invoices.filter(i => ['sent', 'viewed', 'overdue', 'payment_pending_verification'].includes(i.status)).reduce((s, i) => s + (i.total ?? 0), 0)
-  const overdueCount = invoices.filter(i => i.status === 'overdue').length
+  // AR (Accounts Receivable): Revenue from OUR sent invoices (we issued, they pay us)
+  // Only count sent invoices that are paid, exclude drafts and received invoices
+  const totalRevenue = sentInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + (i.total ?? 0), 0)
+  // AR Outstanding: What customers owe us on sent invoices (sent/viewed/overdue/pending verification)
+  const outstanding = sentInvoices.filter(i => ['sent', 'viewed', 'overdue', 'payment_pending_verification'].includes(i.status)).reduce((s, i) => s + (i.total ?? 0), 0)
+  const overdueCount = sentInvoices.filter(i => i.status === 'overdue').length
   const filterOptions = useMemo(() => {
     const statuses = tab === 'invoices'
       ? ['draft', 'sent', 'viewed', 'payment_pending_verification', 'paid', 'overdue', 'cancelled']
@@ -208,7 +216,9 @@ export default function InvoicingPage() {
       setSavingId(null)
       return
     }
-    setInvoices(current => current.map(item => item.id === invoice.id ? { ...item, ...body } : item))
+    // Update both ledgers (sent and received) as the same invoice may appear in both
+    setSentInvoices(current => current.map(item => item.id === invoice.id ? { ...item, ...body } : item))
+    setReceivedInvoices(current => current.map(item => item.id === invoice.id ? { ...item, ...body } : item))
     setEditing(null)
     setSavingId(null)
   }

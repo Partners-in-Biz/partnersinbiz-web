@@ -134,7 +134,8 @@ export const GET = withCrmAuth('viewer', async (req: NextRequest, ctx) => {
 
   let quotes: Array<Quote & { id: string }>
   if (view === 'received') {
-    quotes = await loadReceivedQuotesForOrg(requestedOrgId)
+    quotes = (await loadReceivedQuotesForOrg(requestedOrgId))
+      .filter((quote) => quote.status !== 'draft')
   } else {
     if (!shouldExposeIssuerBillingBook(ctx, 'quotes')) {
       return apiSuccess({ quotes: [] })
