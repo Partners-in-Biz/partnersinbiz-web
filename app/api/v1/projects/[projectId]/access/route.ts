@@ -263,6 +263,76 @@ export const POST = withAuth('client', async (req: NextRequest, user, ctx) => {
     }, 201)
   }
 
+  if (body.action === 'link_vendor_organization') {
+    const vendorOrgId = cleanString(body.vendorOrgId)
+    if (!vendorOrgId) return apiError('vendorOrgId is required', 400)
+    if (vendorOrgId === sourceOrgId) return apiError('The project already belongs to this organisation', 409)
+    if (!canAccessOrg(user, vendorOrgId)) return apiError('Vendor organisation access is required', 403)
+    const vendorOrgSnap = await adminDb.collection('organizations').doc(vendorOrgId).get()
+    if (!vendorOrgSnap.exists) return apiError('Vendor organisation not found', 404)
+    const vendorOrg = vendorOrgSnap.data() ?? {}
+    if (vendorOrg.active === false || vendorOrg.deleted === true) {
+      return apiError('Vendor organisation is not active', 409)
+    }
+
+    const role = normalizeProjectRole(body.role) === 'owner' ? 'manager' : normalizeProjectRole(body.role)
+    const visibleToClient = body.visibleToClient !== false
+    const vendorOrgName = cleanString(vendorOrg.name) || vendorOrgId
+    const now = FieldValue.serverTimestamp()
+    const payload = {
+      projectId,
+      orgId: vendorOrgId,
+      ownerOrgId: sourceOrgId,
+      role,
+      status: 'active',
+      organizationType: 'vendor',
+      visibleToClient,
+      recipientCompanyName: vendorOrgName,
+      linkedBy: user.uid,
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    await adminDb
+      .collection('projectOrganizations')
+      .doc(projectOrganizationDocId(projectId, vendorOrgId))
+      .set(payload, { merge: true })
+    
+    const vendorOrgIds = Array.isArray(project.vendorOrgIds) ? project.vendorOrgIds : []
+    if (!vendorOrgIds.includes(vendorOrgId)) {
+      await adminDb.collection('projects').doc(projectId).set({
+        vendorOrgIds: [...vendorOrgIds, vendorOrgId],
+        updatedAt: now,
+      }, { merge: true })
+    }
+
+    await writeAccessAudit({
+      projectId,
+      eventType: 'access_vendor_linked',
+      itemType: 'projectOrganization',
+      itemId: vendorOrgId,
+      title: `Linked ${vendorOrgName} as vendor (${role})`,
+      actorUid: user.uid,
+      metadata: {
+        orgId: vendorOrgId,
+        role,
+        status: 'active',
+        organizationType: 'vendor',
+        visibleToClient,
+      },
+    })
+
+    return apiSuccess({
+      projectId,
+      orgId: vendorOrgId,
+      recipientCompanyName: vendorOrgName,
+      role,
+      status: 'active',
+      organizationType: 'vendor',
+      visibleToClient,
+    }, 201)
+  }
+
   if (body.action === 'invite_organizations') {
     const rawInvites = Array.isArray(body.invites) ? body.invites : [body]
     const results: Array<Record<string, unknown>> = []
