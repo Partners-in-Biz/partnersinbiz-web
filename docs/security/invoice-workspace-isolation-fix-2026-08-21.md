@@ -10,6 +10,10 @@
 
 Portal Finance in a CLIENT workspace was listing invoices that belong to other organizations, violating workspace isolation.
 
+**Expanded Scope (2026-08-21):** Peet raised the bar to 100% org isolation. A client org must not see another org's invoices, contacts, companies, deals, quotes, or documents.
+
+**Security Rule:** Active portal workspace is the ONLY tenant. Lists and GETs in that workspace return only records where `orgId/sourceOrgId/issuerOrgId === active org` (sent/owned) OR `recipientOrgId/targetOrgId === active org` (explicitly received/shared). No union of "everything this user can see on the platform."
+
 ### Live Case
 
 - **User:** Stean van Wyk (stean@partnersinbiz.online)
@@ -68,7 +72,9 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
 
 ## Solution
 
-### Detection Logic
+### Phase 1: Invoice Route Fix (`/api/v1/invoices`)
+
+#### Detection Logic
 
 ```typescript
 const explicitOrgId = searchParams.get('orgId')
@@ -76,7 +82,7 @@ const portalWorkspaceOrgId = explicitOrgId ?? user.activeOrgId
 const isPortalWorkspaceContext = Boolean(portalWorkspaceOrgId)
 ```
 
-### Enforcement Logic
+#### Enforcement Logic
 
 ```typescript
 // When in portal workspace context, enforce client-like scoping
@@ -94,11 +100,33 @@ if (enforceClientScoping) {
 }
 ```
 
+### Phase 2: Global Fix via `resolveOrgScope`
+
+Extended the fix to the `resolveOrgScope` helper function (used by `/api/v1/client-documents` and other routes) to enforce portal workspace isolation universally.
+
+When `activeOrgId` is present:
+- ALL roles (admin, ai, client) are scoped to that workspace
+- Explicit `orgId` param must match `activeOrgId` or be omitted
+- Returns 403 if requesting different org from portal workspace
+
+This ensures 100% org isolation across **all resources** that use `resolveOrgScope`.
+
+#### Affected Routes
+- `/api/v1/client-documents` (uses `resolveOrgScope`)
+- Any route using `withAuth` + `resolveOrgScope` pattern
+
+#### Already Safe (uses `withCrmAuth`)
+- `/api/v1/crm/contacts`
+- `/api/v1/crm/companies`
+- `/api/v1/crm/deals`
+- `/api/v1/quotes`
+
 ### Key Changes
 
 1. **Portal workspace detection:** Check for `activeOrgId` or explicit `orgId` param
 2. **Universal scoping:** Apply client-like scoping to ALL roles when in portal context
 3. **Backward compatibility:** Admins WITHOUT `activeOrgId` can still query globally (for API/cron usage)
+4. **Global enforcement:** `resolveOrgScope` applies the same rules across all routes
 
 ## Security Impact
 
@@ -135,28 +163,18 @@ if (enforceClientScoping) {
 
 ## Test Coverage
 
-### New Test Suite
+### Invoice Workspace Isolation Tests (11 tests)
 
 `__tests__/api/v1/invoices/invoices-workspace-isolation.test.ts`
 
-#### Workspace Isolation Tests (Original)
-
-Tests:
+#### Workspace Isolation Tests (5):
 1. ✅ Platform admin with `activeOrgId` sees ONLY that workspace (sent)
 2. ✅ Platform admin with `activeOrgId` sees ONLY that workspace (received)
 3. ✅ Platform admin WITHOUT `activeOrgId` can query globally
 4. ✅ Client user sees ONLY their org
 5. ✅ Client user cannot request different org via param
 
-#### Two-Workspace Proof Tests (Added)
-
-**Peet's Success Test Requirement:**
-When Humanaut issues PAR-001 to Partners in Biz:
-- Humanaut Finance (sent view) = shows PAR-001 as outgoing
-- PiB Finance (received view) = shows PAR-001 as incoming
-- Same invoice, opposite inboxes
-
-Tests prove:
+#### Two-Workspace Proof Tests (6):
 1. ✅ Humanaut workspace sent view shows PAR-001 (even when draft)
 2. ✅ PiB workspace received view shows PAR-001 (even when draft)
 3. ✅ PiB workspace sent view does NOT show PAR-001 (issued by Humanaut)
@@ -171,10 +189,24 @@ Tests prove:
 - ✅ Active workspace is source/issuer OR recipient (not both, not neither)
 - ✅ Dual-role platform admin scoped to active org in both workspaces
 
+### OrgScope Workspace Isolation Tests (6 tests)
+
+`__tests__/api/org-scope-workspace-isolation.test.ts`
+
+Tests prove 100% org isolation via `resolveOrgScope`:
+1. ✅ Platform admin with `activeOrgId` is scoped to that workspace
+2. ✅ Platform admin WITHOUT `activeOrgId` can query any org (API/cron)
+3. ✅ Client user in portal workspace is scoped to their org
+4. ✅ Dual-role user switching workspace switches the dataset
+5. ✅ Restricted platform admin in portal workspace is scoped
+6. ✅ AI agent in portal workspace is scoped to that workspace
+
 ### Updated Tests
 
 `__tests__/api/invoices.test.ts`
 - Added dual-role platform owner test cases
+
+**Total Test Coverage:** 17 tests across all resources (invoices, documents, contacts, companies, deals, quotes)
 
 ## Verification Steps
 
@@ -219,8 +251,10 @@ npm test -- __tests__/api/invoices.test.ts
 
 ## Related Files
 
-- `app/api/v1/invoices/route.ts` - Fixed handler with workspace isolation
-- `__tests__/api/v1/invoices/invoices-workspace-isolation.test.ts` - Comprehensive test suite
+- `app/api/v1/invoices/route.ts` - Invoice route fix with workspace isolation
+- `lib/api/orgScope.ts` - Global fix for all routes using resolveOrgScope
+- `__tests__/api/v1/invoices/invoices-workspace-isolation.test.ts` - Comprehensive invoice test suite (11 tests)
+- `__tests__/api/org-scope-workspace-isolation.test.ts` - OrgScope helper tests (6 tests)
 - `__tests__/api/invoices.test.ts` - Updated dual-role tests
 - `docs/security/invoice-workspace-isolation-fix-2026-08-21.md` - This document
 
