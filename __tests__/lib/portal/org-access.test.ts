@@ -29,10 +29,14 @@ let memberDocs: Array<{ id: string; data: () => MemberRow }> = []
 let orgDataByOrg: Record<string, { exists: boolean; data: () => Record<string, unknown> }> = {}
 
 function setMembers(rows: Array<{ orgId: string; row?: MemberRow }>) {
-  memberDocs = rows.map(({ orgId, row }) => ({
-    id: `${orgId}_user-1`,
-    data: () => ({ orgId, uid: 'user-1', ...(row ?? {}) }),
-  }))
+  memberDocs = rows.map(({ orgId, row }) => {
+    const rowData = row ?? {}
+    const identity = 'uid' in rowData || 'userId' in rowData ? {} : { uid: 'user-1' }
+    return {
+      id: `${orgId}_user-1`,
+      data: () => ({ orgId, ...identity, ...rowData }),
+    }
+  })
 }
 
 function setOrgs(orgs: Record<string, { exists?: boolean; data?: Record<string, unknown> }>) {
@@ -51,7 +55,11 @@ beforeEach(() => {
   jest.clearAllMocks()
   memberDocs = []
   orgDataByOrg = {}
-  mockMemberWhere.mockReturnValue({ get: mockMemberGet })
+  mockMemberWhere.mockImplementation((field: string, _op: string, value: unknown) => ({
+    get: async () => ({
+      docs: memberDocs.filter((doc) => doc.data()[field] === value),
+    }),
+  }))
   mockMemberGet.mockImplementation(() => Promise.resolve({ docs: memberDocs }))
   mockMemberDocGet.mockResolvedValue({ exists: false, data: () => ({}) })
   mockOrgDocGet.mockResolvedValue({ exists: false, data: () => ({}) })
@@ -254,6 +262,50 @@ describe('resolvePortalActiveOrgId / getPortalOrgIdsForUser — stale sessions',
     const orgIds = await getPortalOrgIdsForUser('user-1', data)
     expect(orgIds).toContain('pib-platform-owner')
     expect(orgIds).not.toContain('client-org')
+  })
+
+  it('lists orgs whose orgMembers rows use userId instead of uid', async () => {
+    setMembers([
+      { orgId: 'org-a', row: { role: 'member' } },
+      { orgId: 'org-b', row: { userId: 'user-1', role: 'member', status: 'active' } },
+    ])
+    setOrgs({ 'org-a': {}, 'org-b': {} })
+    const data = { role: 'client', orgId: 'org-a' }
+
+    const orgIds = await getPortalOrgIdsForUser('user-1', data)
+    expect(orgIds).toContain('org-a')
+    expect(orgIds).toContain('org-b')
+  })
+
+  it('lists pointer orgs when orgMembers exist by document id even if the uid query misses them', async () => {
+    setMembers([{ orgId: 'home-org', row: { role: 'member' } }])
+    memberDocs.push({
+      id: 'client-org_user-1',
+      data: () => ({ orgId: 'client-org', role: 'admin', status: 'active' }),
+    })
+    setOrgs({ 'home-org': {}, 'client-org': {} })
+    const data = { role: 'client', orgId: 'home-org', orgIds: ['home-org', 'client-org'] }
+
+    const orgIds = await getPortalOrgIdsForUser('user-1', data)
+    expect(orgIds).toContain('home-org')
+    expect(orgIds).toContain('client-org')
+  })
+
+  it('still lists user.orgIds memberships when the uid collection query fails', async () => {
+    mockMemberWhere.mockImplementation((field: string) => ({
+      get: async () => {
+        if (field === 'uid') throw new Error('FAILED_PRECONDITION: index required')
+        return { docs: [] }
+      },
+    }))
+    memberDocs = [{
+      id: 'org-b_user-1',
+      data: () => ({ orgId: 'org-b', role: 'member', status: 'active' }),
+    }]
+    setOrgs({ 'org-a': {}, 'org-b': {} })
+    const data = { role: 'client', orgId: 'org-a', orgIds: ['org-a', 'org-b'] }
+
+    await expect(getPortalOrgIdsForUser('user-1', data)).resolves.toEqual(expect.arrayContaining(['org-b']))
   })
 
   it('lists all orgs where user is an owner (portal switcher bug regression)', async () => {

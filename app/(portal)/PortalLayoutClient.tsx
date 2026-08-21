@@ -429,7 +429,9 @@ function buildMarketingSubnavItems(config: {
   sourceCompanyName?: string
 }, buildHref: (path: string) => string): PortalSubnavItem[] {
   const marketingHub = buildMarketingHubProps({ surface: 'portal', ...config })
-  const sectionItems = marketingHub.sections.map((section) => {
+  const sectionItems = marketingHub.sections
+    .filter((section) => section.title !== 'Personal workspace')
+    .map((section) => {
     const firstAction = section.actions[0]
     return {
       label: section.title,
@@ -510,6 +512,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed]   = useState(false)
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('sidebar')
   const [orgs, setOrgs] = useState<PortalOrgOption[]>([])
+  const [orgsLoaded, setOrgsLoaded] = useState(false)
   const [activeOrgId, setActiveOrgId] = useState('')
   const [activeOrgSlug, setActiveOrgSlug] = useState('')
   const [activeOrgType, setActiveOrgType] = useState('')
@@ -712,6 +715,9 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
               }
             })
             .catch(() => {})
+            .finally(() => {
+              if (!cancelled) setOrgsLoaded(true)
+            })
           fetch('/api/v1/portal/settings/profile')
             .then(r => r.ok ? r.json() : null)
             .then(d => {
@@ -864,7 +870,10 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
         portalModules,
       }
     : null
-  const workspaceOptions = requestedWorkspaceOption ? [requestedWorkspaceOption, ...orgs] : orgs
+  const workspaceOptions = (requestedWorkspaceOption ? [requestedWorkspaceOption, ...orgs] : orgs).filter(
+    (org, index, list) => org.id && list.findIndex((candidate) => candidate.id === org.id) === index,
+  )
+  const workspaceSwitcherLocked = orgSwitching || (orgsLoaded && workspaceOptions.length <= 1)
 
   const initials = (name || email).split(/[.\s@]/).filter(Boolean).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')
   const canOpenAdminView = userRole === 'admin' && !!activeOrgSlug
@@ -965,7 +974,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   value={activeOrgId}
                   options={workspaceOptions.map(org => ({ value: org.id, label: org.name }))}
                   onValueChange={handleOrgSwitch}
-                  disabled={orgSwitching || workspaceOptions.length <= 1}
+                  disabled={workspaceSwitcherLocked}
                   className="min-w-[140px]"
                   buttonClassName="!h-8 !text-xs"
                   menuClassName="bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
@@ -1292,7 +1301,7 @@ function PortalLayoutContent({ children }: { children: React.ReactNode }) {
                   value={activeOrgId}
                   options={workspaceOptions.map(org => ({ value: org.id, label: org.name }))}
                   onValueChange={handleOrgSwitch}
-                  disabled={orgSwitching || workspaceOptions.length <= 1}
+                  disabled={workspaceSwitcherLocked}
                   className="w-full"
                   buttonClassName="w-full"
                   menuClassName="bg-[var(--color-pib-surface)] text-[var(--color-pib-text)]"
