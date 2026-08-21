@@ -225,6 +225,7 @@ export const GET = withAuth('client', async (req, user) => {
 
   let query: FirebaseFirestore.Query = adminDb.collection('invoices')
   let billingOrgIdFilter: string | null = null
+  let orgAccessFilter: string[] | null = null
 
   // Security: when accessing from a portal workspace (activeOrgId is set),
   // ALL users (including platform admins with role=admin|ai) must be scoped to THAT workspace.
@@ -286,18 +287,28 @@ export const GET = withAuth('client', async (req, user) => {
     const orgId = searchParams.get('orgId')
     const billingOrgId = searchParams.get('billingOrgId')
     
-    // Security: This is a portal-facing route (withAuth 'client').
-    // Admin/AI users WITHOUT activeOrgId AND WITHOUT explicit orgId param
-    // must not get multi-org lists (neither unrestricted global nor restricted union).
-    // Portal sessions always have activeOrgId. API/cron always passes explicit orgId.
-    if (!orgId && user.role === 'admin') {
-      // No activeOrgId + no orgId = require explicit scoping
-      return apiError('orgId query parameter is required', 400)
-    }
-    
     if (orgId) {
       if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
       query = query.where(orgField, '==', orgId)
+    } else if (user.role === 'admin') {
+      // Restricted admin filtering (from development)
+      const allowedOrgIds = billingOrgId && view === 'received'
+        ? explicitAdminOrgIds(user)
+        : restrictedAdminOrgIds(user)
+      if (allowedOrgIds.length > 0) {
+        // Restricted admin: filter by allowedOrgIds
+        if (allowedOrgIds.length <= 30 && !billingOrgId) {
+          query = query.where(orgField, 'in', allowedOrgIds)
+        } else {
+          orgAccessFilter = allowedOrgIds
+        }
+      } else {
+        // Unrestricted admin without orgId/billingOrgId: require explicit scoping
+        // This prevents unrestricted admins from accidentally querying ALL invoices
+        if (!billingOrgId) {
+          return apiError('orgId or billingOrgId query parameter is required', 400)
+        }
+      }
     }
     
     if (billingOrgId) {
@@ -312,6 +323,7 @@ export const GET = withAuth('client', async (req, user) => {
   const snapshot = await query.get()
   let invoices = snapshot.docs
     .map((doc): InvoiceListItem => ({ id: doc.id, ...doc.data() }))
+    .filter((invoice) => !orgAccessFilter || orgAccessFilter.includes(String(invoice[orgField] ?? '')))
     .filter((invoice) => !billingOrgIdFilter || invoice.billingOrgId === billingOrgIdFilter)
     .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
 
