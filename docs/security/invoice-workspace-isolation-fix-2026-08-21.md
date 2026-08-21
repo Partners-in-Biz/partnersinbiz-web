@@ -481,7 +481,7 @@ Tests prove 100% org isolation via `resolveOrgScope`:
 `__tests__/api/invoices.test.ts`
 - Added dual-role platform owner test cases
 
-**Total Test Coverage:** 31 tests across all resources (invoices, quotes, documents, contacts, companies, deals)
+**Total Test Coverage:** 32 tests across all resources (invoices, quotes, documents, contacts, companies, deals)
 
 ## Verification Steps
 
@@ -495,13 +495,13 @@ npm test -- __tests__/portal/invoicing-ar-ap-separation.test.tsx
 npm test -- __tests__/api/v1/invoices/portal-workspace-bypass-prevention.test.ts
 ```
 
-**Total Test Cases:** 31 tests
+**Total Test Cases:** 32 tests
 - 5 workspace isolation tests (dual-role platform owners)
 - 6 two-workspace proof tests (same invoice, opposite inboxes)
 - 4 draft visibility tests (hide drafts from recipient until sent)
 - 6 org-scope workspace isolation tests
 - 4 AR/AP separation tests (revenue/payables ledger integrity)
-- 6 portal workspace bypass prevention tests (query param attack blocked)
+- 7 portal workspace bypass prevention tests (query param attack + unrestricted admin blocked)
 
 ### Manual Verification (Do NOT write to production)
 
@@ -629,6 +629,48 @@ The admin/AI branch is for API/cron access only. Even if a user could drop `acti
 - `__tests__/api/v1/invoices/portal-workspace-bypass-prevention.test.ts` (6 tests)
 
 **Verification:** Tests are syntactically correct and comprehensive. Local/CI environment with jest installed will execute successfully.
+
+## Third Review Findings
+
+**Date:** 2026-08-21  
+**Reviewer:** Third adversarial review
+
+### Critical Fix: Block Unrestricted Admin Global List
+
+**Issue:** Unrestricted admin (no `allowedOrgIds`) WITHOUT `activeOrgId` could call `GET /api/v1/invoices` (no `orgId` param) and get a global invoice list. This is a portal-facing route (`withAuth('client')`) and should never return a global multi-org list.
+
+**Attack Vector:**
+- Unrestricted super admin drops `activeOrgId` cookie
+- Request: `GET /api/v1/invoices` (no `orgId` param)
+- Bug: Returns global invoice list across all orgs
+- Fix: Returns 400 'orgId query parameter is required'
+
+**Fix (lines 295-298):**
+```typescript
+if (!orgId && user.role === 'admin') {
+  const allowedOrgIds = restrictedAdminOrgIds(user)
+  
+  // If unrestricted admin (no allowedOrgIds), require explicit orgId
+  if (allowedOrgIds.length === 0) {
+    return apiError('orgId query parameter is required', 400)
+  }
+  
+  // Restricted admin: query their allowed orgs
+  // ... existing logic
+}
+```
+
+**Logic Flow:**
+1. **Portal sessions:** `activeOrgId` always set → absolute lock (Phase 5)
+2. **Restricted admin,** no `activeOrgId`, no `orgId` → query their `allowedOrgIds`
+3. **Unrestricted admin,** no `activeOrgId`, no `orgId` → **400 'orgId required'** (NEW)
+4. **Any admin,** no `activeOrgId`, WITH `orgId` → allowed (API/cron usage)
+
+**Test Added:** Unrestricted admin, `activeOrgId` missing, no `orgId` param → 400 error, no global query
+
+**Total Test Coverage:** 32 tests (31 prior + 1 new)
+
+**Verification:** TypeScript typecheck clean, no errors.
 
 ## Recommendation
 
