@@ -637,40 +637,51 @@ The admin/AI branch is for API/cron access only. Even if a user could drop `acti
 
 ### Critical Fix: Block Unrestricted Admin Global List
 
-**Issue:** Unrestricted admin (no `allowedOrgIds`) WITHOUT `activeOrgId` could call `GET /api/v1/invoices` (no `orgId` param) and get a global invoice list. This is a portal-facing route (`withAuth('client')`) and should never return a global multi-org list.
+**Issue:** Unrestricted admin (no `allowedOrgIds`) WITHOUT `activeOrgId` could call `GET /api/v1/invoices` (no `orgId` param) and get a global invoice list.
+
+**Fix:** Added check for `allowedOrgIds.length === 0` to return 400.
+
+**Test Added:** Unrestricted admin blocked from global list.
+
+## Fourth Review Findings
+
+**Date:** 2026-08-21  
+**Reviewer:** Fourth adversarial review
+
+### Critical Fix: Block Restricted Admin Multi-Org Union
+
+**Issue:** Restricted admin (with `allowedOrgIds` set) WITHOUT `activeOrgId` and NO `orgId` param still ran `query.where(orgField, 'in', allowedOrgIds)` and returned multi-org union. This route is portal-facing (`withAuth('client')`) and should NEVER return multi-org lists without explicit scoping.
 
 **Attack Vector:**
-- Unrestricted super admin drops `activeOrgId` cookie
+- Restricted admin with `allowedOrgIds: ['pib-platform-owner', 'humanaut-org']`
+- No `activeOrgId` (drops cookie)
 - Request: `GET /api/v1/invoices` (no `orgId` param)
-- Bug: Returns global invoice list across all orgs
+- Bug: Returns PiB + Humanaut invoices (2-org union)
 - Fix: Returns 400 'orgId query parameter is required'
 
-**Fix (lines 295-298):**
+**Root Cause:** Third review only blocked unrestricted admins (`allowedOrgIds.length === 0`). Restricted admins still queried their multi-org union (lines 305-310).
+
+**Fix (lines 294-296):**
 ```typescript
 if (!orgId && user.role === 'admin') {
-  const allowedOrgIds = restrictedAdminOrgIds(user)
-  
-  // If unrestricted admin (no allowedOrgIds), require explicit orgId
-  if (allowedOrgIds.length === 0) {
-    return apiError('orgId query parameter is required', 400)
-  }
-  
-  // Restricted admin: query their allowed orgs
-  // ... existing logic
+  // No activeOrgId + no orgId = require explicit scoping
+  // This blocks BOTH unrestricted AND restricted admins
+  return apiError('orgId query parameter is required', 400)
 }
 ```
 
-**Logic Flow:**
-1. **Portal sessions:** `activeOrgId` always set → absolute lock (Phase 5)
-2. **Restricted admin,** no `activeOrgId`, no `orgId` → query their `allowedOrgIds`
-3. **Unrestricted admin,** no `activeOrgId`, no `orgId` → **400 'orgId required'** (NEW)
-4. **Any admin,** no `activeOrgId`, WITH `orgId` → allowed (API/cron usage)
+**Removed:** Lines 295-310 that checked `allowedOrgIds` and performed multi-org union queries. Portal-facing routes must not return multi-org lists.
 
-**Test Added:** Unrestricted admin, `activeOrgId` missing, no `orgId` param → 400 error, no global query
+**Final Logic:**
+1. **Portal session:** `activeOrgId` set → absolute lock (Phase 5)
+2. **Admin,** no `activeOrgId`, WITH `orgId` → allowed (API/cron, checked against `canAccessOrg`)
+3. **Admin,** no `activeOrgId`, NO `orgId` → **400 for ALL admins** (unrestricted AND restricted)
 
-**Total Test Coverage:** 32 tests (31 prior + 1 new)
+**Test Added:** Restricted admin with `allowedOrgIds=['pib-platform-owner', 'humanaut-org']`, no `activeOrgId`, no `orgId` param → 400, NOT two-org list.
 
-**Verification:** TypeScript typecheck clean, no errors.
+**Total Test Coverage:** 33 tests (32 prior + 1 new)
+
+**Verification:** TypeScript typecheck clean.
 
 ## Recommendation
 
