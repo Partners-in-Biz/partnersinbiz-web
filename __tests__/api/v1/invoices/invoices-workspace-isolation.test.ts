@@ -516,7 +516,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
           },
         ],
       })
-      .mockResolvedValueOnce({ docs: [])
+      .mockResolvedValueOnce({ docs: [] }
       .mockResolvedValueOnce({ docs: [] })
 
     const { GET } = await import('@/app/api/v1/invoices/route')
@@ -582,7 +582,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
     // Received view queries recipientOrgId/targetOrgId/orgId == humanaut-org
     // PAR-001 has recipientOrgId=pib-platform-owner, so it won't match
     mockInvoiceGet
-      .mockResolvedValueOnce({ docs: [])
+      .mockResolvedValueOnce({ docs: [] }
       .mockResolvedValueOnce({ docs: [] })
       .mockResolvedValueOnce({ docs: [] })
 
@@ -669,7 +669,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
           },
         ],
       })
-      .mockResolvedValueOnce({ docs: [])
+      .mockResolvedValueOnce({ docs: [] }
       .mockResolvedValueOnce({ docs: [] })
 
     const { GET } = await import('@/app/api/v1/invoices/route')
@@ -759,7 +759,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
         ],
       })
       .mockResolvedValueOnce({ docs: [] })
-      .mockResolvedValueOnce({ docs: [])
+      .mockResolvedValueOnce({ docs: [] }
 
     const { GET } = await import('@/app/api/v1/invoices/route')
     const req = new NextRequest('http://localhost/api/v1/invoices?view=received')
