@@ -52,7 +52,7 @@ describe('Portal organisation settings page', () => {
     }) as jest.Mock
   })
 
-  it('renders editable legal, billing, signatory, and invoice fields without banking fields', async () => {
+  it('renders editable legal, billing, signatory, invoice, and banking fields for owner role', async () => {
     render(<OrganizationSettingsPage />)
 
     await waitFor(() => expect(screen.getByDisplayValue('Client Legal Pty Ltd')).toBeInTheDocument())
@@ -61,8 +61,8 @@ describe('Portal organisation settings page', () => {
     expect(screen.getByDisplayValue('Owner Person')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Accounts Person')).toBeInTheDocument()
     expect(screen.getByLabelText(/Purchase order required/i)).toBeChecked()
-    expect(screen.queryByLabelText(/Bank name/i)).not.toBeInTheDocument()
-    expect(screen.queryByLabelText(/Account number/i)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/Bank name/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Account number/i)).toBeInTheDocument()
   })
 
   it('summarizes organisation readiness before the long CRM settings form', async () => {
