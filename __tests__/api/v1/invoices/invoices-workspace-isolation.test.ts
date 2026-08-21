@@ -550,8 +550,7 @@ describe('GET /api/v1/invoices — two-workspace proof: same invoice, opposite i
 
     // Sent view queries orgId == pib-platform-owner
     // PAR-001 has orgId=humanaut-org, so it won't match
-    ;(mockInvoiceGet as { setAllDocs: (docs: unknown[]) => void }).setAllDocs([],
-    })
+    ;(mockInvoiceGet as { setAllDocs: (docs: unknown[]) => void }).setAllDocs([])
 
     const { GET } = await import('@/app/api/v1/invoices/route')
     const req = new NextRequest('http://localhost/api/v1/invoices')
