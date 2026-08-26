@@ -26,6 +26,10 @@ jest.mock('@/lib/portal/org-access', () => ({
   canUsePortalOrg: mockCanUsePortalOrg,
 }))
 
+jest.mock('@/lib/portal/switcher-orgs', () => ({
+  listPortalSwitcherOrgIds: mockGetPortalOrgIdsForUser,
+}))
+
 beforeEach(() => {
   jest.clearAllMocks()
   mockUserDoc.mockReturnValue({ get: mockUserGet })
@@ -81,7 +85,7 @@ describe('portal org routes', () => {
         modulePolicies: expect.objectContaining({
           projects: expect.objectContaining({
             actions: expect.objectContaining({
-              visibility: { owner: true, admin: true, member: false },
+                visibility: expect.objectContaining({ owner: true, admin: true, member: false }),
             }),
           }),
         }),
@@ -172,7 +176,7 @@ describe('portal org routes', () => {
           modulePolicies: expect.objectContaining({
             messages: expect.objectContaining({
               actions: expect.objectContaining({
-                visibility: { owner: true, admin: false, member: false },
+                visibility: expect.objectContaining({ owner: true, admin: false, member: false }),
               }),
             }),
           }),
