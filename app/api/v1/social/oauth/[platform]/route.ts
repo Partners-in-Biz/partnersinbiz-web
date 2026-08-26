@@ -15,6 +15,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { getOAuthConfig, getClientCredentials, getCallbackUrl } from '@/lib/social/oauth-config'
 import { sanitizeOAuthRedirectPath } from '@/lib/social/oauth-redirect'
 import type { LinkedInOAuthMode } from '@/lib/social/oauth-config'
+import { isLinkedInCmaEnabled } from '@/lib/social/linkedin-cma'
 import type { SocialPlatformType } from '@/lib/social/providers/types'
 import { Timestamp } from 'firebase-admin/firestore'
 
@@ -42,11 +43,13 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
   const linkedinMode: LinkedInOAuthMode =
     platform !== 'linkedin'
       ? 'personal'
-      : requestedLinkedInMode === 'personal'
+      : !isLinkedInCmaEnabled()
         ? 'personal'
-        : requestedLinkedInMode === 'organization' || accountScope === 'org'
-          ? 'organization'
-          : 'personal'
+        : requestedLinkedInMode === 'personal'
+          ? 'personal'
+          : requestedLinkedInMode === 'organization' || accountScope === 'org'
+            ? 'organization'
+            : 'personal'
   const feature = url.searchParams.get('feature') === 'youtube_studio' ? 'youtube_studio' : undefined
   const rawPrompt = url.searchParams.get('prompt')
   const requestedPrompt = rawPrompt === 'select_account' || rawPrompt === 'consent' ? rawPrompt : undefined
@@ -63,8 +66,8 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
 
   const creds = getClientCredentials(platform, { linkedinMode })
   if (!creds) {
-    const envHint = platform === 'linkedin' && linkedinMode === 'personal'
-      ? 'Set LINKEDIN_PERSONAL_CLIENT_ID and LINKEDIN_PERSONAL_CLIENT_SECRET.'
+    const envHint = platform === 'linkedin'
+      ? 'Set LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET.'
       : `Set ${platform.toUpperCase()}_CLIENT_ID and ${platform.toUpperCase()}_CLIENT_SECRET.`
     return apiError(`Missing client credentials for ${platform}. ${envHint}`, 500)
   }

@@ -13,6 +13,7 @@ import { Timestamp } from 'firebase-admin/firestore'
 import { getOAuthConfig, getClientCredentials, getCallbackUrl } from '@/lib/social/oauth-config'
 import { buildOAuthRedirectPath, sanitizeOAuthRedirectPath } from '@/lib/social/oauth-redirect'
 import type { LinkedInOAuthMode } from '@/lib/social/oauth-config'
+import { grantedLinkedInScopes, isLinkedInCmaEnabled, selectLinkedInCallbackAccounts } from '@/lib/social/linkedin-cma'
 import { encryptTokenBlock } from '@/lib/social/encryption'
 import { getProvider } from '@/lib/social/providers/registry'
 import { exchangeInstagramLongLivedToken } from '@/lib/social/instagram-oauth'
@@ -34,8 +35,9 @@ export async function GET(req: NextRequest) {
   let redirectUrl = recoverRedirectUrlFromState(stateToken) ?? '/portal/social'
 
   try {
-    // Handle platform-side errors
-    if (error) {
+    // Handle platform-side errors. If LinkedIn still returned a code after
+    // denying org scopes, continue and persist the personal grant.
+    if (error && !code) {
       const errorDesc = url.searchParams.get('error_description') ?? error
       const message = describeOAuthProviderError(platform, error, errorDesc)
       return NextResponse.redirect(new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message }), url.origin))
@@ -178,10 +180,19 @@ export async function GET(req: NextRequest) {
         { accessToken: tokenResponse.accessToken, refreshToken, expiresAt },
         orgId,
       )
-      const companyOnly = linkedinMode === 'organization' || accountScope === 'org'
-      const options = liResult
-        .filter((acc) => !companyOnly || acc.accountType === 'page')
-        .map((acc, i) => ({
+      const persistedScopes = grantedLinkedInScopes(tokenResponse.scope, config.scopes)
+      const { usePicker, accounts: selectedAccounts } = selectLinkedInCallbackAccounts(liResult)
+      if (selectedAccounts.length === 0) {
+        return NextResponse.redirect(
+          new URL(buildOAuthRedirectPath(redirectUrl, {
+            status: 'error',
+            message: 'No LinkedIn accounts found',
+          }), url.origin).toString()
+        )
+      }
+
+      if (usePicker) {
+        const options = selectedAccounts.map((acc, i) => ({
           index: i,
           displayName: acc.displayName,
           username: acc.username,
@@ -191,19 +202,46 @@ export async function GET(req: NextRequest) {
           platformAccountId: acc.platformAccountId,
           encryptedTokens: encrypted,
           platformMeta: acc.meta ?? {},
-          scopes: config.scopes,
+          scopes: persistedScopes,
         }))
-      if (options.length === 0) {
-        return NextResponse.redirect(
-          new URL(buildOAuthRedirectPath(redirectUrl, {
-            status: 'error',
-            message: companyOnly
-              ? 'No LinkedIn company pages found. Connect a personal profile from Personal marketing.'
-              : 'No LinkedIn accounts found',
-          }), url.origin).toString()
-        )
+        return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid)
       }
-      return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid)
+
+      const profile = selectedAccounts[0]
+      const accountId = await upsertSocialAccountFromOAuth({
+        orgId,
+        platform,
+        accountScope,
+        ownerUid,
+        profile: {
+          platformAccountId: profile.platformAccountId,
+          displayName: profile.displayName,
+          username: profile.username,
+          avatarUrl: profile.avatarUrl,
+          profileUrl: profile.profileUrl,
+          accountType: profile.accountType,
+          meta: profile.meta,
+        },
+        scopes: persistedScopes,
+        encryptedTokens: encrypted,
+        tokenType: tokenResponse.tokenType,
+      })
+      logAudit({
+        orgId,
+        action: 'account.connected',
+        entityType: 'account',
+        entityId: accountId,
+        performedBy: 'oauth',
+        performedByRole: 'system',
+        details: { platform, displayName: profile.displayName },
+      })
+      return NextResponse.redirect(
+        new URL(buildOAuthRedirectPath(redirectUrl, {
+          status: 'success',
+          platform,
+          account: accountId,
+        }), url.origin),
+      )
     }
 
     // All other platforms: fetch profile, encrypt, upsert social_accounts, audit log
@@ -376,9 +414,99 @@ function recoverRedirectUrlFromState(stateToken: string | null): string | null {
 function describeOAuthProviderError(platform: string, error: string, errorDesc: string): string {
   const text = `${error} ${errorDesc}`.toLowerCase()
   if (platform === 'linkedin' && (text.includes('scope') || error === 'unauthorized_scope_error')) {
-    return 'LinkedIn rejected the company-page permission. That app must have Community Management API access with w_organization_social and rw_organization_admin enabled on its Auth tab.'
+    if (isLinkedInCmaEnabled()) {
+      return 'LinkedIn rejected the company-page permission. Confirm Community Management API access is enabled on this same app, then reconnect.'
+    }
+    return 'LinkedIn rejected a requested permission. Connect LinkedIn again to grant the personal posting scopes.'
   }
   return errorDesc
+}
+
+async function upsertSocialAccountFromOAuth(input: {
+  orgId: string
+  platform: SocialPlatformType
+  accountScope: 'org' | 'personal'
+  ownerUid: string
+  profile: {
+    platformAccountId: string
+    displayName: string
+    username: string
+    avatarUrl: string
+    profileUrl: string
+    accountType: string
+    meta?: Record<string, unknown>
+  }
+  scopes: string[]
+  encryptedTokens: {
+    accessToken: string
+    refreshToken: string | null
+    tokenType: string
+    expiresAt: Date | null
+    iv: string
+    tag: string
+  }
+  tokenType: string
+}): Promise<string> {
+  const existingQuery = await adminDb
+    .collection('social_accounts')
+    .where('orgId', '==', input.orgId)
+    .where('platform', '==', input.platform)
+    .where('platformAccountId', '==', input.profile.platformAccountId)
+    .limit(10)
+    .get()
+  const matchingExistingDoc = existingQuery.docs.find((candidate) => {
+    const candidateData = candidate.data()
+    if (input.accountScope === 'personal') {
+      return candidateData.accountScope === 'personal' && candidateData.ownerUid === input.ownerUid
+    }
+    return candidateData.accountScope !== 'personal'
+  })
+
+  const now = Timestamp.now()
+  const accountData = {
+    orgId: input.orgId,
+    platform: input.platform,
+    platformAccountId: input.profile.platformAccountId,
+    displayName: input.profile.displayName,
+    username: input.profile.username,
+    avatarUrl: input.profile.avatarUrl,
+    profileUrl: input.profile.profileUrl,
+    accountType: storedAccountTypeForScope({
+      profileType: input.profile.accountType,
+      accountScope: input.accountScope,
+      platform: input.platform,
+    }),
+    status: 'active',
+    scopes: input.scopes,
+    encryptedTokens: {
+      accessToken: input.encryptedTokens.accessToken,
+      refreshToken: input.encryptedTokens.refreshToken,
+      tokenType: input.encryptedTokens.tokenType || input.tokenType,
+      expiresAt: input.encryptedTokens.expiresAt ? Timestamp.fromDate(input.encryptedTokens.expiresAt) : null,
+      iv: input.encryptedTokens.iv,
+      tag: input.encryptedTokens.tag,
+    },
+    platformMeta: input.profile.meta ?? {},
+    lastTokenRefresh: now,
+    updatedAt: now,
+    ...(input.accountScope === 'personal'
+      ? { accountScope: 'personal', ownerUid: input.ownerUid }
+      : { accountScope: 'org', ownerUid: null }),
+  }
+
+  if (matchingExistingDoc) {
+    await adminDb.collection('social_accounts').doc(matchingExistingDoc.id).update(accountData)
+    return matchingExistingDoc.id
+  }
+
+  const docRef = await adminDb.collection('social_accounts').add({
+    ...accountData,
+    connectedBy: 'oauth',
+    connectedAt: now,
+    lastUsed: null,
+    createdAt: now,
+  })
+  return docRef.id
 }
 
 // --- Token Exchange ---
@@ -389,6 +517,7 @@ interface TokenResponse {
   tokenType: string
   expiresIn: number | null
   platformAccountId?: string
+  scope?: string
 }
 
 async function exchangeCode(
@@ -460,6 +589,7 @@ async function exchangeCode(
     refreshToken: readString(data, 'refresh_token') ?? readString(data, 'refreshToken') ?? null,
     tokenType: readString(data, 'token_type') ?? 'Bearer',
     expiresIn: readNumber(data, 'expires_in') ?? readNumber(data, 'expiresIn') ?? null,
+    scope: readString(data, 'scope') ?? undefined,
     platformAccountId:
       readString(data, 'user_id') ??
       readString(data, 'userId') ??

@@ -23,10 +23,6 @@ describe('isCompanyLinkedAccount', () => {
       platform: 'twitter',
     } as { accountType?: string; platform?: string })).toBe(false)
     expect(isCompanyLinkedAccount({
-      accountType: 'personal',
-      platform: 'linkedin',
-    })).toBe(false)
-    expect(isCompanyLinkedAccount({
       accountScope: 'org',
       accountType: 'personal',
       platform: 'twitter',
@@ -35,6 +31,23 @@ describe('isCompanyLinkedAccount', () => {
       accountScope: 'org',
       accountType: 'personal',
       platform: 'facebook',
+    })).toBe(false)
+  })
+
+  it('keeps org-scoped LinkedIn personal profiles on company social so posting works before CMA', () => {
+    expect(isCompanyLinkedAccount({
+      accountScope: 'org',
+      accountType: 'personal',
+      platform: 'linkedin',
+    })).toBe(true)
+    expect(isCompanyLinkedAccount({
+      accountType: 'personal',
+      platform: 'linkedin',
+    })).toBe(true)
+    expect(isCompanyLinkedAccount({
+      accountScope: 'personal',
+      accountType: 'personal',
+      platform: 'linkedin',
     })).toBe(false)
   })
 
@@ -66,6 +79,12 @@ describe('accountAllowedForPublish', () => {
     expect(accountAllowedForPublish({
       accountType: 'page',
       platform: 'facebook',
+      status: 'active',
+    }, { personal: false })).toBe(true)
+    expect(accountAllowedForPublish({
+      accountScope: 'org',
+      accountType: 'personal',
+      platform: 'linkedin',
       status: 'active',
     }, { personal: false })).toBe(true)
   })

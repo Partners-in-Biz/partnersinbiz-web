@@ -28,6 +28,7 @@ jest.mock('firebase-admin/firestore', () => ({
 describe('GET /api/v1/social/oauth/[platform]', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    delete process.env.LINKEDIN_CMA_ENABLED
     process.env.YOUTUBE_CLIENT_ID = 'youtube-client-id'
     process.env.YOUTUBE_CLIENT_SECRET = 'youtube-client-secret'
   })
@@ -49,11 +50,12 @@ describe('GET /api/v1/social/oauth/[platform]', () => {
     expect(String(res.headers.get('location'))).toContain('accounts.google.com/o/oauth2/v2/auth')
   })
 
-  it('defaults company LinkedIn connect to organization mode', async () => {
-    process.env.LINKEDIN_ORGANIZATION_CLIENT_ID = 'li-org-id'
-    process.env.LINKEDIN_ORGANIZATION_CLIENT_SECRET = 'li-org-secret'
+  it('omits company-page scopes on default LinkedIn connect when CMA is off', async () => {
+    delete process.env.LINKEDIN_CMA_ENABLED
     process.env.LINKEDIN_CLIENT_ID = 'li-id'
     process.env.LINKEDIN_CLIENT_SECRET = 'li-secret'
+    delete process.env.LINKEDIN_PERSONAL_CLIENT_ID
+    delete process.env.LINKEDIN_PERSONAL_CLIENT_SECRET
 
     const { GET } = await import('@/app/api/v1/social/oauth/[platform]/route')
     const res = await GET(new NextRequest('http://localhost/api/v1/social/oauth/linkedin?redirectUrl=%2Fportal%2Fsocial%2Faccounts'))
@@ -62,18 +64,41 @@ describe('GET /api/v1/social/oauth/[platform]', () => {
     expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
       platform: 'linkedin',
       accountScope: 'org',
-      linkedinMode: 'organization',
+      linkedinMode: 'personal',
     }))
     const location = String(res.headers.get('location'))
     expect(location).toContain('linkedin.com')
+    expect(location).toContain('w_member_social')
+    expect(location).toContain('openid')
+    expect(location).toContain('profile')
+    expect(location).not.toContain('rw_organization_admin')
+    expect(location).not.toContain('w_organization_social')
+    expect(decodeURIComponent(location)).toContain('client_id=li-id')
+  })
+
+  it('requests company-page scopes when CMA is on and organization mode is asked', async () => {
+    process.env.LINKEDIN_CMA_ENABLED = 'true'
+    process.env.LINKEDIN_CLIENT_ID = 'li-id'
+    process.env.LINKEDIN_CLIENT_SECRET = 'li-secret'
+
+    const { GET } = await import('@/app/api/v1/social/oauth/[platform]/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/social/oauth/linkedin?redirectUrl=%2Fportal%2Fsocial%2Faccounts&linkedinMode=organization'))
+
+    expect(res.status).toBe(307)
+    expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'linkedin',
+      linkedinMode: 'organization',
+    }))
+    const location = String(res.headers.get('location'))
     expect(location).toContain('rw_organization_admin')
     expect(location).toContain('w_organization_social')
     expect(location).not.toContain('w_organization_social_feed')
   })
 
   it('keeps explicit personal LinkedIn mode on the personal path', async () => {
-    process.env.LINKEDIN_PERSONAL_CLIENT_ID = 'li-personal-id'
-    process.env.LINKEDIN_PERSONAL_CLIENT_SECRET = 'li-personal-secret'
+    delete process.env.LINKEDIN_CMA_ENABLED
+    process.env.LINKEDIN_CLIENT_ID = 'li-id'
+    process.env.LINKEDIN_CLIENT_SECRET = 'li-secret'
 
     const { GET } = await import('@/app/api/v1/social/oauth/[platform]/route')
     const res = await GET(new NextRequest('http://localhost/api/v1/social/oauth/linkedin?scope=personal&linkedinMode=personal'))

@@ -267,6 +267,7 @@ function PlatformCard({
   orgId,
   youtubeStudioLinks,
   onAdoptIntoYouTubeStudio,
+  linkedinCmaEnabled,
 }: {
   platform: string
   accounts: SocialAccount[]
@@ -278,6 +279,7 @@ function PlatformCard({
   orgId?: string | null
   youtubeStudioLinks: Record<string, string>
   onAdoptIntoYouTubeStudio?: (accountId: string) => void
+  linkedinCmaEnabled: boolean
 }) {
   const label = PLATFORM_LABELS[platform] ?? platform
   const oauthUrl = appendQueryParams(`/api/v1/social/oauth/${platform}`, {
@@ -299,7 +301,7 @@ function PlatformCard({
             {accounts.length} connected{defaultAccount ? ` · default: ${defaultAccount.displayName}` : ''}
           </p>
         </div>
-        {platform === 'linkedin' && scope === 'org' ? (
+        {platform === 'linkedin' && scope === 'org' && linkedinCmaEnabled ? (
           <a href={linkedInOrganizationUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
             <span className="material-symbols-outlined text-base">business</span>
             Company page
@@ -610,6 +612,7 @@ export default function SocialAccountsManager({
   const [actionError, setActionError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [youtubeStudioLinks, setYoutubeStudioLinks] = useState<Record<string, string>>({})
+  const [linkedinCmaEnabled, setLinkedinCmaEnabled] = useState(false)
 
   const pickerNonce = searchParams.get('picker')
   const pickerPlatform = searchParams.get('platform') ?? ''
@@ -626,6 +629,7 @@ export default function SocialAccountsManager({
       const res = await fetch(socialApiPath('/api/v1/social/accounts'))
       const body = await res.json()
       setAccounts(body.data ?? [])
+      setLinkedinCmaEnabled(Boolean(body.meta?.linkedinCmaEnabled))
     } catch {
       setAccounts([])
       setActionError('Failed to load social accounts.')
@@ -937,6 +941,7 @@ export default function SocialAccountsManager({
                 orgId={resolvedOrgId}
                 youtubeStudioLinks={youtubeStudioLinks}
                 onAdoptIntoYouTubeStudio={scope === 'personal' ? undefined : adoptIntoYouTubeStudio}
+                linkedinCmaEnabled={linkedinCmaEnabled}
               />
             ))}
           </div>
@@ -964,13 +969,15 @@ export default function SocialAccountsManager({
                   redirectUrl: basePath,
                   scope: scope === 'personal' ? 'personal' : undefined,
                   orgId: resolvedOrgId,
-                  linkedinMode: platform === 'linkedin' ? (isPersonalScope ? 'personal' : 'organization') : undefined,
+                  linkedinMode: platform === 'linkedin'
+                    ? (isPersonalScope || !linkedinCmaEnabled ? 'personal' : 'organization')
+                    : undefined,
                 })}
                 className="pib-card pib-card-hover flex items-center gap-3 p-4"
               >
                 <PlatformBadge platformId={platform} />
                 <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--color-pib-text)]">
-                  Connect {platform === 'linkedin' && !isPersonalScope ? 'LinkedIn company page' : (PLATFORM_LABELS[platform] ?? platform)}
+                  Connect {platform === 'linkedin' && !isPersonalScope && linkedinCmaEnabled ? 'LinkedIn company page' : (PLATFORM_LABELS[platform] ?? platform)}
                 </span>
                 <span className="material-symbols-outlined text-base text-[var(--color-pib-text-muted)]">arrow_forward</span>
               </a>

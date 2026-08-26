@@ -32,6 +32,9 @@ export function isCompanyLinkedAccount(account: {
   const platform = String(account.platform || '').toLowerCase()
   // Bluesky has no page type. Brand handles connected in the company workspace stay here.
   if (BRAND_HANDLE_PLATFORMS.has(platform) && account.accountScope !== PERSONAL_SCOPE) return true
+  // LinkedIn personal profiles are valid org posting identities until CMA
+  // attaches a company page on the same app.
+  if (platform === 'linkedin') return true
   return false
 }
 

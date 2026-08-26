@@ -264,7 +264,38 @@ describe('personal workspace social UI', () => {
     })
   })
 
-  it('offers LinkedIn company page on the company connect path', async () => {
+  it('hides the LinkedIn company-page picker when CMA is off', async () => {
+    render(<SocialAccountsManager />)
+
+    const connectLinkedIn = await screen.findByRole('link', { name: /connect linkedin/i })
+    expect(connectLinkedIn).toHaveAttribute(
+      'href',
+      '/api/v1/social/oauth/linkedin?redirectUrl=%2Fportal%2Fsocial%2Faccounts&orgId=org-1&linkedinMode=personal',
+    )
+    expect(connectLinkedIn.textContent).toMatch(/Connect LinkedIn/)
+    expect(connectLinkedIn.textContent).not.toMatch(/company page/i)
+    expect(screen.queryByRole('link', { name: /linkedin company page/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /company page/i })).not.toBeInTheDocument()
+  })
+
+  it('offers LinkedIn company page on the company connect path when CMA is on', async () => {
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/portal/orgs') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ activeOrgId: 'org-1', orgs: [{ id: 'org-1', name: 'Acme', logoUrl: '' }] }),
+        } as Response)
+      }
+      if (url.startsWith('/api/v1/social/accounts')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [], meta: { linkedinCmaEnabled: true } }),
+        } as Response)
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ data: [] }) } as Response)
+    }) as jest.Mock
+
     render(<SocialAccountsManager />)
 
     const connectLinkedIn = await screen.findByRole('link', { name: /connect linkedin company page/i })
