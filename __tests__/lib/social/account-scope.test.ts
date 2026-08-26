@@ -59,6 +59,21 @@ describe('isCompanyLinkedAccount', () => {
     expect(isCompanyLinkedAccount({ accountScope: 'org', platform: 'bluesky' })).toBe(true)
   })
 
+  it('keeps org Instagram rows company-linked even when accountType is omitted', () => {
+    expect(isCompanyLinkedAccount({
+      platform: 'instagram',
+      status: 'active',
+    })).toBe(true)
+    expect(isCompanyLinkedAccount({
+      accountScope: 'org',
+      platform: 'instagram',
+    })).toBe(true)
+    expect(isCompanyLinkedAccount({
+      accountScope: 'personal',
+      platform: 'instagram',
+    })).toBe(false)
+  })
+
   it('keeps personal bluesky out of company social', () => {
     expect(isCompanyLinkedAccount({
       accountScope: 'personal',

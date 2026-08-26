@@ -1,9 +1,12 @@
-## 0.1.6 — 2026-08-04
-
-- Add `workflow-graph-operator` (core): day-to-day Workflow Graph usage for pip/theo/nora/qa-release.
-- Residual diagnosis remains on profile skill `pib-workflow-graph-operations`.
-
 # Changelog
+
+## 0.1.9 — 2026-08-26
+
+- Correct `social-media-manager` LinkedIn company-page note: keep the existing
+  LinkedIn app, flip `LINKEDIN_CMA_ENABLED`, then reconnect. Do not swap
+  `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` and do not invent a second app.
+- Bump `catalogVersion` to `2026-08-10.system-skills-v0.1.9` so the pack stays
+  in lockstep with `config/agent-skill-policy.json`.
 
 ## 0.1.8 — 2026-08-08
 
@@ -27,6 +30,11 @@
   stable @eN refs, click-by-ref, JS dialog handling, console ring, driver
   arbitration (slice 2 attach), private-network guard, `X-Agent-Actor` header
   requirement. Mirrors the Hermes Desktop in-app browser pattern.
+
+## 0.1.6 — 2026-08-04
+
+- Add `workflow-graph-operator` (core): day-to-day Workflow Graph usage for pip/theo/nora/qa-release.
+- Residual diagnosis remains on profile skill `pib-workflow-graph-operations`.
 
 ## 0.1.5 — 2026-07-30
 

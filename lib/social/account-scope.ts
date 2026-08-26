@@ -4,6 +4,7 @@ export const ORG_SCOPE = 'org'
 const COMPANY_ACCOUNT_TYPES = new Set(['page', 'business', 'organization', 'company'])
 const BRAND_HANDLE_PLATFORMS = new Set(['bluesky'])
 const COMPANY_PAGE_PLATFORMS = new Set(['facebook', 'linkedin'])
+const ORG_BUSINESS_PLATFORMS = new Set(['instagram'])
 
 export function isPersonalAccountRecord(account: { accountScope?: unknown }): boolean {
   return account.accountScope === PERSONAL_SCOPE
@@ -35,6 +36,9 @@ export function isCompanyLinkedAccount(account: {
   // LinkedIn personal profiles are valid org posting identities until CMA
   // attaches a company page on the same app.
   if (platform === 'linkedin') return true
+  // Instagram org rows are business identities even when a legacy fixture
+  // omits accountType. Personal-scoped Instagram stays out of company social.
+  if (ORG_BUSINESS_PLATFORMS.has(platform) && account.accountScope !== PERSONAL_SCOPE) return true
   return false
 }
 
