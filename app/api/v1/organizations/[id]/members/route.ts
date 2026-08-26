@@ -8,11 +8,12 @@ import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { logActivity } from '@/lib/activity/log'
 import { syncPlatformContactForOrgMember } from '@/lib/platform-owner/relationships'
-import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import type { Organization, OrgMember, OrgRole } from '@/lib/organizations/types'
 import { isOwnerOrAdmin } from '@/lib/organizations/helpers'
 import { ACCESS_SCOPE_OPTIONS, parseMemberMetadata } from '@/lib/organizations/memberMetadata'
+import { effectiveAccessScopeForRole } from '@/lib/organizations/owner-access-scope'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
+import { portalUserMembershipUpdate } from '@/lib/orgMembers/portal-mirrors'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,24 +37,6 @@ function splitName(displayName: string) {
   return { firstName, lastName: rest.join(' ') }
 }
 
-function normalizeOrgIds(userData: Record<string, unknown>, orgId: string): string[] {
-  const ids = new Set<string>()
-  const isPlatformAdmin = userData.role === 'admin'
-  if (Array.isArray(userData.orgIds)) {
-    for (const value of userData.orgIds) {
-      if (typeof value === 'string' && value.trim()) {
-        const linkedOrgId = value.trim()
-        if (!isPlatformAdmin || linkedOrgId !== PIB_PLATFORM_ORG_ID) ids.add(linkedOrgId)
-      }
-    }
-  }
-  if (typeof userData.orgId === 'string' && userData.orgId.trim()) {
-    const primaryOrgId = userData.orgId.trim()
-    if (!isPlatformAdmin || primaryOrgId !== PIB_PLATFORM_ORG_ID) ids.add(primaryOrgId)
-  }
-  ids.add(orgId)
-  return Array.from(ids)
-}
 
 export const GET = withAuth('admin', async (req, user, ctx) => {
   const { id } = await (ctx as Params).params
@@ -92,7 +75,14 @@ export const GET = withAuth('admin', async (req, user, ctx) => {
         }
       }
 
-      return { ...member, userId, displayName, email, photoURL }
+      return {
+        ...member,
+        userId,
+        displayName,
+        email,
+        photoURL,
+        accessScope: effectiveAccessScopeForRole(member.role, member.accessScope),
+      }
     }),
   )
 
@@ -158,19 +148,69 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   const userId = userDoc.id
   const userData = userDoc.data()
 
-  // Check if already a member
-  const alreadyMember = (org.members ?? []).some((m) => m.userId === userId)
-  if (alreadyMember) {
-    return apiError('User is already a member of this organisation', 409)
+  // Already a member: repair portal mirrors instead of 409 no-op.
+  // Do not add a second member row or change the existing role.
+  const existingMember = (org.members ?? []).find((m) => m.userId === userId)
+  if (existingMember) {
+    const accessScope = effectiveAccessScopeForRole(existingMember.role, existingMember.accessScope)
+    const needsOwnerScopeRepair = existingMember.role === 'owner' && existingMember.accessScope !== 'all'
+    if (needsOwnerScopeRepair) {
+      const updatedMembers = (org.members ?? []).map((m) => (
+        m.userId === userId ? { ...m, accessScope } : m
+      ))
+      await adminDb.collection('organizations').doc(id).update({
+        members: updatedMembers,
+        updatedAt: FieldValue.serverTimestamp(),
+      })
+    }
+
+    try {
+      await adminDb.collection('users').doc(userId).set(
+        portalUserMembershipUpdate(userData, id),
+        { merge: true },
+      )
+    } catch (err) {
+      console.error('[members.add] failed to repair org membership on user doc', err)
+    }
+
+    const displayName = (userData.displayName as string | undefined) ?? ''
+    const { firstName, lastName } = splitName(displayName)
+    await adminDb.collection('orgMembers').doc(`${id}_${userId}`).set(
+      {
+        orgId: id,
+        uid: userId,
+        firstName,
+        lastName,
+        avatarUrl: userData.photoURL ?? '',
+        role: existingMember.role,
+        ...(accessScope ? { accessScope } : {}),
+        updatedAt: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    )
+
+    return apiSuccess(
+      {
+        ...existingMember,
+        accessScope,
+        displayName: userData.displayName,
+        email: userData.email,
+        photoURL: userData.photoURL,
+      },
+      200,
+    )
   }
 
   // Add member
+  const accessScope = effectiveAccessScopeForRole(role, memberMetadata.accessScope)
   const newMember: OrgMember = {
     userId,
     role: role as OrgRole,
     joinedAt: Timestamp.now(),
     invitedBy: user.uid,
     ...memberMetadata,
+    accessScope,
   }
 
   const updatedMembers = [...(org.members ?? []), newMember]
@@ -184,11 +224,7 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
   // client users. Preserve the user's existing primary org.
   try {
     await adminDb.collection('users').doc(userId).set(
-      {
-        orgIds: normalizeOrgIds(userData, id),
-        ...(userData.orgId ? {} : { orgId: id }),
-        updatedAt: FieldValue.serverTimestamp(),
-      },
+      portalUserMembershipUpdate(userData, id),
       { merge: true },
     )
   } catch (err) {
@@ -206,6 +242,7 @@ export const POST = withAuth('admin', async (req, user, ctx) => {
       avatarUrl: userData.photoURL ?? '',
       role,
       ...memberMetadata,
+      accessScope,
       updatedAt: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp(),
     },

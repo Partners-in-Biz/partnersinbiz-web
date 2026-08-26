@@ -195,6 +195,50 @@ it('submits the selected existing client and role', async () => {
   })
 })
 
+it('shows All selected-org areas for an owner with missing accessScope', async () => {
+  render(<TeamPage />)
+
+  const ownerName = await screen.findByText('Peet Stander')
+  const ownerRow = ownerName.closest('tr')
+  expect(ownerRow).not.toBeNull()
+  expect(within(ownerRow as HTMLElement).getByText('All selected-org areas')).toBeInTheDocument()
+  expect(within(ownerRow as HTMLElement).queryByText('No selected-org areas yet')).not.toBeInTheDocument()
+})
+
+it('shows All selected-org areas for an owner stored as accessScope none', async () => {
+  fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const method = init?.method ?? 'GET'
+    if (url === '/api/v1/organizations') {
+      return jsonResponse({ data: [{ id: 'org-1', name: 'Lumen', slug: 'lumen' }] })
+    }
+    if (url === '/api/v1/organizations/org-1/members' && method === 'GET') {
+      return jsonResponse({
+        data: [
+          {
+            userId: 'owner-1',
+            role: 'owner',
+            displayName: 'Peet Stander',
+            email: 'peet@example.com',
+            accessScope: 'none',
+          },
+        ],
+      })
+    }
+    if (url === '/api/v1/admin/platform-users') {
+      return jsonResponse({ data: [] })
+    }
+    throw new Error(`Unexpected fetch: ${method} ${url}`)
+  })
+
+  render(<TeamPage />)
+
+  const ownerName = await screen.findByText('Peet Stander')
+  const ownerRow = ownerName.closest('tr')
+  expect(ownerRow).not.toBeNull()
+  expect(within(ownerRow as HTMLElement).getByText('All selected-org areas')).toBeInTheDocument()
+})
+
 it('submits the selected existing PiB member and role', async () => {
   render(<TeamPage />)
 

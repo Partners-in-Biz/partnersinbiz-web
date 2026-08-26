@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { FiCheckCircle, FiCopy, FiLink, FiSearch, FiUserCheck, FiUserPlus, FiX } from 'react-icons/fi'
 import { TeamAccessGovernancePanel } from '@/components/settings/TeamAccessGovernancePanel'
 import { copyToClipboard } from '@/lib/utils/clipboard'
+import { effectiveAccessScopeForRole } from '@/lib/organizations/owner-access-scope'
 
 interface OrgMember {
   userId: string
@@ -56,8 +57,9 @@ const ACCESS_SCOPE_OPTIONS: Array<{ value: AccessScope; label: string }> = [
   { value: 'readonly', label: 'Read-only oversight' },
 ]
 
-function accessScopeLabel(value?: AccessScope) {
-  return ACCESS_SCOPE_OPTIONS.find((option) => option.value === value)?.label ?? 'No selected-org areas yet'
+function accessScopeLabel(role: string, value?: AccessScope) {
+  const resolved = effectiveAccessScopeForRole(role, value)
+  return ACCESS_SCOPE_OPTIONS.find((option) => option.value === resolved)?.label ?? 'No selected-org areas yet'
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
@@ -1065,6 +1067,7 @@ export default function TeamPage() {
                             value={member.role}
                             onChange={(e) => handleChangeRole(member.userId, e.target.value)}
                             disabled={updatingRole === member.userId}
+                            aria-label={`Change role for ${member.displayName || member.email || member.userId}`}
                             className="text-xs px-2 py-1 rounded-md opacity-0 hover:opacity-100 transition-opacity"
                             style={{
                               backgroundColor: 'var(--color-surface)',
@@ -1095,7 +1098,7 @@ export default function TeamPage() {
                             ))}
                           </select>
                         ) : (
-                          <p className="text-[var(--color-pib-text-muted)]">{accessScopeLabel(member.accessScope)}</p>
+                          <p className="text-[var(--color-pib-text-muted)]">{accessScopeLabel(member.role, member.accessScope)}</p>
                         )}
                         {member.accessNotes && (
                           <p className="mt-0.5 truncate text-xs text-[var(--color-pib-text-faint)]">{member.accessNotes}</p>

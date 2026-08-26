@@ -170,6 +170,17 @@ describe('POST /api/v1/organizations', () => {
         }),
       }
       if (name === 'orgMembers') return { doc: () => ({ set: memberSet }) }
+      if (name === 'users') {
+        return {
+          doc: () => ({
+            get: jest.fn().mockResolvedValue({
+              exists: true,
+              data: () => ({ role: 'admin', orgId: 'pib-platform-owner', orgIds: [] }),
+            }),
+            set: jest.fn().mockResolvedValue(undefined),
+          }),
+        }
+      }
       return { where: mockWhere, add: mockAdd, orderBy: mockOrderBy, get: mockGet }
     })
     const options = {
@@ -199,8 +210,14 @@ describe('POST /api/v1/organizations', () => {
   it('creates the canonical owner membership for a human organisation creator', async () => {
     const memberSet = jest.fn().mockResolvedValue(undefined)
     const memberDoc = jest.fn().mockReturnValue({ set: memberSet })
+    const userSet = jest.fn().mockResolvedValue(undefined)
+    const userGet = jest.fn().mockResolvedValue({
+      exists: true,
+      data: () => ({ role: 'admin', orgId: 'pib-platform-owner', orgIds: [] }),
+    })
     mockCollection.mockImplementation((name: string) => {
       if (name === 'orgMembers') return { doc: memberDoc }
+      if (name === 'users') return { doc: () => ({ get: userGet, set: userSet }) }
       return { where: mockWhere, add: mockAdd, orderBy: mockOrderBy, get: mockGet }
     })
 
@@ -210,6 +227,9 @@ describe('POST /api/v1/organizations', () => {
     )
 
     expect(res.status).toBe(201)
+    expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
+      members: [{ userId: 'admin-1', role: 'owner', accessScope: 'all' }],
+    }))
     expect(memberDoc).toHaveBeenCalledWith('new-org-id_admin-1')
     expect(memberSet).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -217,11 +237,20 @@ describe('POST /api/v1/organizations', () => {
         uid: 'admin-1',
         role: 'owner',
         status: 'active',
+        accessScope: 'all',
         createdAt: '__SERVER_TS__',
         updatedAt: '__SERVER_TS__',
       }),
       { merge: true },
     )
+    expect(userSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgIds: ['new-org-id'],
+        updatedAt: '__SERVER_TS__',
+      }),
+      { merge: true },
+    )
+    expect(userSet.mock.calls[0][0]).not.toHaveProperty('orgId')
   })
 
   it('requests full VPS client provisioning by default for client orgs', async () => {
@@ -702,16 +731,109 @@ describe('POST /api/v1/organizations/[id]/members', () => {
     expect(mockUserSet.mock.calls[0][0]).not.toHaveProperty('orgId', 'org-1')
   })
 
-  it('returns 409 when user is already a member', async () => {
+  it('repairs portal mirrors when an existing owner is re-added instead of 409', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen', slug: 'lumen', active: true,
+        members: [{ userId: 'staff-1', role: 'owner' }],
+        description: '', logoUrl: '', website: '', createdBy: 'staff-1', linkedClientId: '',
+      }),
+    })
     mockUserQueryGet.mockResolvedValue({
       empty: false,
-      docs: [{ id: 'ai-agent', data: () => ({ displayName: 'Pip', email: 'owner@example.com' }) }],
+      docs: [{
+        id: 'staff-1',
+        data: () => ({
+          role: 'admin',
+          orgId: 'pib-platform-owner',
+          orgIds: [],
+          displayName: 'Staff Owner',
+          email: 'owner@example.com',
+        }),
+      }],
     })
+
     const res = await addMember(
       adminReq('POST', { email: 'owner@example.com', role: 'member' }),
       routeCtx(),
     )
-    expect(res.status).toBe(409)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.userId).toBe('staff-1')
+    expect(body.data.role).toBe('owner')
+    expect(body.data.accessScope).toBe('all')
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      members: [expect.objectContaining({ userId: 'staff-1', role: 'owner', accessScope: 'all' })],
+    }))
+    expect(mockUpdate.mock.calls[0][0].members).toHaveLength(1)
+    expect(mockUserSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgIds: ['org-1'],
+        updatedAt: '__SERVER_TS__',
+      }),
+      { merge: true },
+    )
+    expect(mockUserSet.mock.calls[0][0]).not.toHaveProperty('orgId')
+    expect(mockOrgMemberSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'org-1',
+        uid: 'staff-1',
+        role: 'owner',
+        accessScope: 'all',
+      }),
+      { merge: true },
+    )
+  })
+
+  it('repairs mirrors for an existing non-owner without adding a second member row', async () => {
+    mockDocGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen', slug: 'lumen', active: true,
+        members: [{ userId: 'member-1', role: 'member', accessScope: 'crm' }],
+        description: '', logoUrl: '', website: '', createdBy: 'ai-agent', linkedClientId: '',
+      }),
+    })
+    mockUserQueryGet.mockResolvedValue({
+      empty: false,
+      docs: [{
+        id: 'member-1',
+        data: () => ({
+          role: 'client',
+          orgId: 'org-1',
+          orgIds: [],
+          displayName: 'Existing Member',
+          email: 'member@example.com',
+        }),
+      }],
+    })
+
+    const res = await addMember(
+      adminReq('POST', { email: 'member@example.com', role: 'admin' }),
+      routeCtx(),
+    )
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.role).toBe('member')
+    expect(body.data.accessScope).toBe('crm')
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockUserSet).toHaveBeenCalledWith(
+      expect.objectContaining({ orgIds: ['org-1'] }),
+      { merge: true },
+    )
+    expect(mockOrgMemberSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        uid: 'member-1',
+        role: 'member',
+        accessScope: 'crm',
+      }),
+      { merge: true },
+    )
   })
 
   it('returns 400 when email is missing', async () => {
@@ -738,6 +860,72 @@ describe('POST /api/v1/organizations/[id]/members', () => {
       routeCtx(),
     )
     expect(res.status).toBe(404)
+  })
+})
+
+describe('GET /api/v1/organizations/[id]/members — owner accessScope', () => {
+  const mockOrgGet = jest.fn()
+  const mockUserDocGet = jest.fn()
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockUserDocGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ displayName: 'Peet Stander', email: 'peet@example.com' }),
+    })
+    mockCollection.mockImplementation((collName: string) => {
+      if (collName === 'users') return { doc: jest.fn().mockReturnValue({ get: mockUserDocGet }) }
+      if (collName === 'organizations') return { doc: jest.fn().mockReturnValue({ get: mockOrgGet }) }
+      throw new Error(`Unexpected collection: ${collName}`)
+    })
+  })
+
+  it('returns accessScope all when the owner row is missing accessScope', async () => {
+    mockOrgGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen', slug: 'lumen', active: true,
+        members: [{ userId: 'owner-1', role: 'owner' }],
+      }),
+    })
+
+    const res = await listMembers(adminReq(), routeCtx())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data[0]).toMatchObject({ userId: 'owner-1', role: 'owner', accessScope: 'all' })
+  })
+
+  it('returns accessScope all when the owner row is stored as none', async () => {
+    mockOrgGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen', slug: 'lumen', active: true,
+        members: [{ userId: 'owner-1', role: 'owner', accessScope: 'none' }],
+      }),
+    })
+
+    const res = await listMembers(adminReq(), routeCtx())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data[0].accessScope).toBe('all')
+  })
+
+  it('leaves a non-owner none accessScope unchanged', async () => {
+    mockOrgGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen', slug: 'lumen', active: true,
+        members: [{ userId: 'member-1', role: 'member', accessScope: 'none' }],
+      }),
+    })
+
+    const res = await listMembers(adminReq(), routeCtx())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data[0].accessScope).toBe('none')
   })
 })
 
@@ -1330,6 +1518,30 @@ describe('PATCH /api/v1/organizations/[id]/members/[userId]', () => {
       }),
       { merge: true },
     )
+  })
+
+  it('forbids changing the workspace owner access policy', async () => {
+    mockOrgGet.mockResolvedValue({
+      exists: true,
+      id: 'org-1',
+      data: () => ({
+        name: 'Lumen',
+        slug: 'lumen',
+        active: true,
+        members: [
+          { userId: 'owner-1', role: 'owner' },
+          { userId: 'stean-member', role: 'member' },
+        ],
+      }),
+    })
+
+    const res = await patchMember(
+      adminReq('PATCH', { accessScope: 'crm' }, 'http://localhost/api/v1/organizations/org-1/members/owner-1'),
+      routeCtx({ id: 'org-1', userId: 'owner-1' }),
+    )
+
+    expect(res.status).toBe(403)
+    expect(mockOrgUpdate).not.toHaveBeenCalled()
   })
 
   it('rejects sending both accessScope and accessPolicy', async () => {

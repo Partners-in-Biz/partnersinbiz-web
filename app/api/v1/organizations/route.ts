@@ -15,6 +15,7 @@ import { provisionFullClientOnVps } from '@/lib/client-provisioning/vps'
 import { slugify } from '@/lib/organizations/helpers'
 import type { Organization, OrgMember, OrganizationSummary } from '@/lib/organizations/types'
 import type { ApiUser } from '@/lib/api/types'
+import { portalUserMembershipUpdate } from '@/lib/orgMembers/portal-mirrors'
 
 export const dynamic = 'force-dynamic'
 
@@ -149,7 +150,7 @@ export async function handleOrganizationCreate(
   // adding `ai-agent` as an owner produces an unremovable "Unknown" team member.
   const initialMembers: OrgMember[] = user.role === 'ai'
     ? []
-    : [{ userId: user.uid, role: 'owner' }]
+    : [{ userId: user.uid, role: 'owner', accessScope: 'all' }]
   const inputSettings = body.settings && typeof body.settings === 'object'
     ? body.settings as Record<string, unknown>
     : {}
@@ -233,9 +234,23 @@ export async function handleOrganizationCreate(
         avatarUrl: '',
         role: 'owner',
         status: 'active',
+        accessScope: 'all',
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       },
+      { merge: true },
+    )
+
+    const userSnap = await adminDb.collection('users').doc(user.uid).get()
+    const stored = userSnap.exists ? userSnap.data() ?? {} : {}
+    const userData = {
+      ...stored,
+      role: user.role,
+      orgId: stored.orgId ?? user.orgId,
+      orgIds: stored.orgIds ?? user.orgIds,
+    }
+    await adminDb.collection('users').doc(user.uid).set(
+      portalUserMembershipUpdate(userData, docRef.id),
       { merge: true },
     )
   }
