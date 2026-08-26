@@ -5,7 +5,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withPortalAuth } from '@/lib/auth/portal-middleware'
 import { adminDb } from '@/lib/firebase/admin'
-import { choosePortalActiveOrgId, getPortalOrgIdsForUser } from '@/lib/portal/org-access'
+import { choosePortalActiveOrgId } from '@/lib/portal/org-access'
+import { listPortalSwitcherOrgIds } from '@/lib/portal/switcher-orgs'
 import { resolvePortalModules } from '@/lib/organizations/portal-modules'
 import { resolveOrganizationModulePolicies } from '@/lib/organizations/module-policies'
 
@@ -16,7 +17,7 @@ export const GET = withPortalAuth(async (_req: NextRequest, uid: string) => {
   if (!userDoc.exists) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   const data = userDoc.data()!
-  const orgIds = await getPortalOrgIdsForUser(uid, data)
+  const orgIds = await listPortalSwitcherOrgIds(uid, data)
 
   if (!orgIds.length) return NextResponse.json({ orgs: [], activeOrgId: null })
 

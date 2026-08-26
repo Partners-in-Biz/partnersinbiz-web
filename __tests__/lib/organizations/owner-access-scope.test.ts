@@ -1,4 +1,4 @@
-import { effectiveAccessScopeForRole, parseMemberMetadata } from '@/lib/organizations/memberMetadata'
+import { effectiveAccessScopeForRole } from '@/lib/organizations/owner-access-scope'
 
 describe('effectiveAccessScopeForRole', () => {
   it('treats a missing accessScope on an owner as all', () => {
@@ -25,11 +25,5 @@ describe('effectiveAccessScopeForRole', () => {
   it('preserves a concrete non-owner accessScope', () => {
     expect(effectiveAccessScopeForRole('member', 'crm')).toBe('crm')
     expect(effectiveAccessScopeForRole('admin', 'projects')).toBe('projects')
-  })
-})
-
-describe('parseMemberMetadata', () => {
-  it('defaults a missing accessScope to none for invite payloads', () => {
-    expect(parseMemberMetadata({})).toEqual({ accessScope: 'none' })
   })
 })

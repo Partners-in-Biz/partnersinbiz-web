@@ -21,7 +21,6 @@ import {
   cleanString,
   cleanStringArray,
   hasActiveOrgMembership,
-  organizationEmbeddedMemberOrgIds,
 } from '@/lib/orgMembers/active-membership'
 
 export type PortalUserData = {
@@ -95,15 +94,8 @@ export function choosePortalActiveOrgId(data: PortalUserData, orgIds: string[]):
 export async function getPortalOrgIdsForUser(uid: string, data: PortalUserData): Promise<string[]> {
   const ids = new Set<string>()
 
-  // 1. Canonical active orgMembers rows (uid and userId field queries)
-  //    plus every org whose embedded members array lists this user.
-  //    Missing / none accessScope must not hide a live membership.
-  const [memberOrgIds, embeddedOrgIds] = await Promise.all([
-    activeOrgMembershipOrgIds(uid),
-    organizationEmbeddedMemberOrgIds(uid),
-  ])
-  for (const orgId of memberOrgIds) ids.add(orgId)
-  for (const orgId of embeddedOrgIds) ids.add(orgId)
+  // 1. Canonical active orgMembers rows (uid and userId field queries).
+  for (const orgId of await activeOrgMembershipOrgIds(uid)) ids.add(orgId)
 
   // 2. User-record pointers (orgIds / activeOrgId / orgId) never grant access
   //    alone, but they are candidates for document-id + legacy members-array

@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation'
 import { FiCheckCircle, FiCopy, FiLink, FiSearch, FiUserCheck, FiUserPlus, FiX } from 'react-icons/fi'
 import { TeamAccessGovernancePanel } from '@/components/settings/TeamAccessGovernancePanel'
 import { copyToClipboard } from '@/lib/utils/clipboard'
-import { effectiveAccessScopeForRole } from '@/lib/organizations/memberMetadata'
+import { effectiveAccessScopeForRole } from '@/lib/organizations/owner-access-scope'
 
 interface OrgMember {
   userId: string

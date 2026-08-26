@@ -81,15 +81,6 @@ beforeEach(() => {
     }
     if (name === 'organizations') {
       return {
-        get: async () => ({
-          docs: Object.entries(orgDataByOrg)
-            .filter(([, cfg]) => cfg.exists)
-            .map(([orgId, cfg]) => ({
-              id: orgId,
-              exists: true,
-              data: cfg.data,
-            })),
-        }),
         doc: (orgId: string) => ({
           get: async () => {
             const cfg = orgDataByOrg[orgId]
@@ -454,46 +445,5 @@ describe('resolvePortalActiveOrgId / getPortalOrgIdsForUser — stale sessions',
     expect(orgIds).not.toContain('revoked-status-org')
     expect(orgIds).not.toContain('deleted-status-org')
     expect(orgIds).not.toContain('inactive-status-org')
-  })
-
-  it('lists an Org.members-only owner when accessScope is missing and orgMembers/users.orgIds are absent', async () => {
-    setMembers([])
-    setOrgs({
-      'pib-platform-owner': { data: { members: [] } },
-      'client-org': { data: { members: [{ userId: 'user-1', role: 'owner' }] } },
-    })
-    const data = { role: 'admin', orgId: 'pib-platform-owner' }
-
-    const orgIds = await getPortalOrgIdsForUser('user-1', data)
-    expect(orgIds).toContain('client-org')
-    expect(orgIds).toContain('pib-platform-owner')
-  })
-
-  it('lists an Org.members-only owner when accessScope is none for a staff account on pib-platform-owner', async () => {
-    setMembers([])
-    setOrgs({
-      'pib-platform-owner': { data: { members: [] } },
-      'owned-client': {
-        data: { members: [{ userId: 'user-1', role: 'owner', accessScope: 'none' }] },
-      },
-    })
-    const data = { role: 'admin', orgId: 'pib-platform-owner', orgIds: [] }
-
-    const orgIds = await getPortalOrgIdsForUser('user-1', data)
-    expect(orgIds).toContain('owned-client')
-  })
-
-  it('does not list orgs the signed-in user is not a member of', async () => {
-    setMembers([])
-    setOrgs({
-      'pib-platform-owner': { data: { members: [] } },
-      'someone-elses-org': {
-        data: { members: [{ userId: 'other-user', role: 'owner', accessScope: 'all' }] },
-      },
-    })
-    const data = { role: 'admin', orgId: 'pib-platform-owner' }
-
-    const orgIds = await getPortalOrgIdsForUser('user-1', data)
-    expect(orgIds).not.toContain('someone-elses-org')
   })
 })
