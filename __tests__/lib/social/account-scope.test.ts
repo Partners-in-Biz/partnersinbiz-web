@@ -23,10 +23,6 @@ describe('isCompanyLinkedAccount', () => {
       platform: 'twitter',
     } as { accountType?: string; platform?: string })).toBe(false)
     expect(isCompanyLinkedAccount({
-      accountType: 'personal',
-      platform: 'linkedin',
-    })).toBe(false)
-    expect(isCompanyLinkedAccount({
       accountScope: 'org',
       accountType: 'personal',
       platform: 'twitter',
@@ -38,12 +34,44 @@ describe('isCompanyLinkedAccount', () => {
     })).toBe(false)
   })
 
+  it('keeps org-scoped LinkedIn personal profiles on company social so posting works before CMA', () => {
+    expect(isCompanyLinkedAccount({
+      accountScope: 'org',
+      accountType: 'personal',
+      platform: 'linkedin',
+    })).toBe(true)
+    expect(isCompanyLinkedAccount({
+      accountType: 'personal',
+      platform: 'linkedin',
+    })).toBe(true)
+    expect(isCompanyLinkedAccount({
+      accountScope: 'personal',
+      accountType: 'personal',
+      platform: 'linkedin',
+    })).toBe(false)
+  })
+
   it('keeps company pages, business accounts, and org brand handles', () => {
     expect(isCompanyLinkedAccount({ accountType: 'page', platform: 'facebook' })).toBe(true)
     expect(isCompanyLinkedAccount({ accountType: 'business', platform: 'instagram' })).toBe(true)
     expect(isCompanyLinkedAccount({ accountScope: 'org', accountType: 'business', platform: 'twitter' })).toBe(true)
     expect(isCompanyLinkedAccount({ platform: 'bluesky' })).toBe(true)
     expect(isCompanyLinkedAccount({ accountScope: 'org', platform: 'bluesky' })).toBe(true)
+  })
+
+  it('keeps org Instagram rows company-linked even when accountType is omitted', () => {
+    expect(isCompanyLinkedAccount({
+      platform: 'instagram',
+      status: 'active',
+    })).toBe(true)
+    expect(isCompanyLinkedAccount({
+      accountScope: 'org',
+      platform: 'instagram',
+    })).toBe(true)
+    expect(isCompanyLinkedAccount({
+      accountScope: 'personal',
+      platform: 'instagram',
+    })).toBe(false)
   })
 
   it('keeps personal bluesky out of company social', () => {
@@ -66,6 +94,12 @@ describe('accountAllowedForPublish', () => {
     expect(accountAllowedForPublish({
       accountType: 'page',
       platform: 'facebook',
+      status: 'active',
+    }, { personal: false })).toBe(true)
+    expect(accountAllowedForPublish({
+      accountScope: 'org',
+      accountType: 'personal',
+      platform: 'linkedin',
       status: 'active',
     }, { personal: false })).toBe(true)
   })

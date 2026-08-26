@@ -1,7 +1,7 @@
 {
   "packName": "pib-system-skills",
-  "packVersion": "0.1.8",
-  "catalogVersion": "2026-08-08.system-skills-v0.1.8",
+  "packVersion": "0.1.9",
+  "catalogVersion": "2026-08-10.system-skills-v0.1.9",
   "minApiVersion": "2026-07-23",
   "channel": "stable",
   "decisions": {

@@ -78,6 +78,7 @@ describe('GET /api/v1/social/accounts', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data.map((account: { id: string }) => account.id)).toEqual(['org-page', 'brand-bluesky'])
+    expect(body.data.map((account: { id: string }) => account.id)).toEqual(['org-page', 'org-account', 'brand-bluesky'])
+    expect(body.meta).toEqual(expect.objectContaining({ linkedinCmaEnabled: false }))
   })
 })

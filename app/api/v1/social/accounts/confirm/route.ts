@@ -6,6 +6,7 @@ import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
 
 import { isCompanyAccountType, isCompanyPagePlatform, PERSONAL_SCOPE } from '@/lib/social/account-scope'
+import { isLinkedInCmaEnabled } from '@/lib/social/linkedin-cma'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,11 +48,12 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
   const platform: string = pending.platform
   const options = (pending.options ?? []) as PendingOption[]
 
-  const allowedSelections = !personalScope && isCompanyPagePlatform(platform)
+  const requireCompanyPage = !personalScope && isCompanyPagePlatform(platform) && (platform !== 'linkedin' || isLinkedInCmaEnabled())
+  const allowedSelections = requireCompanyPage
     ? selections.filter((sel) => isCompanyAccountType(options[sel.index]?.accountType))
     : selections
 
-  if (!personalScope && isCompanyPagePlatform(platform) && allowedSelections.length === 0) {
+  if (requireCompanyPage && allowedSelections.length === 0) {
     return apiError('Select a company page. Personal profiles belong in Personal marketing.', 400)
   }
 
