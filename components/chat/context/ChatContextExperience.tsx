@@ -9,6 +9,7 @@ import type { RuntimeExecution } from '@/components/messages/hermes/RuntimeInspe
 import { chatContextReferenceKey, type ChatContextReadModel, type ChatContextReference } from '@/lib/chat-context/types'
 import type { ChatContextOption } from './ContextSelector'
 import { useOpenDockPolling } from './usePreviewLiveReload'
+import { MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS } from '@/lib/messages/mobile-conversation-chrome'
 
 const executionOnlyModel: ChatContextReadModel = {
   context: { kind: 'studio', id: 'execution', orgId: '', label: 'Conversation', icon: 'developer_board' },
@@ -195,10 +196,12 @@ export function ChatContextExperience({ context, compact = false, artifactReques
   }, 6_000)
 
   const hasExecution = Boolean(execution?.activeMessage?.runId)
+  const firstPaintChromeClass = compact ? undefined : MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS
+  const executionTriggerClass = compact ? 'inline-flex' : 'hidden md:inline-flex'
   if ((!context.model || !context.activeContext) && !hasExecution) return <>
-    {!hideFirstPaintChrome && (context.activeContext && context.contexts.length > 0
-      ? <ContextStrip options={context.contexts} value={context.activeContext} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} onOpen={() => { void context.refresh() }} />
-      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} /> : null)}
+    {context.activeContext && context.contexts.length > 0
+      ? <ContextStrip options={context.contexts} value={context.activeContext} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} onOpen={() => { void context.refresh() }} className={firstPaintChromeClass} />
+      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} className={firstPaintChromeClass} /> : null}
     {context.error && <div role="alert" className="border-b border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">Unable to load context. <button type="button" aria-label="Retry context" onClick={() => { void context.refresh() }} className="min-h-11 px-2 underline xl:min-h-0">Retry</button></div>}
   </>
   const model = context.model ?? executionOnlyModel
@@ -295,10 +298,10 @@ export function ChatContextExperience({ context, compact = false, artifactReques
     }
   }
   return <>
-    {!hideFirstPaintChrome && (context.model && context.activeContext
-      ? <ContextStrip options={context.contexts} value={context.activeContext} model={context.model} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} onOpen={() => setOpen(true)} />
-      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} /> : null)}
-    {!hideFirstPaintChrome && !context.model && !context.activeContext && <button type="button" data-testid="execution-context-trigger" onClick={() => setOpen(true)} className="mx-3 mt-2 inline-flex h-11 items-center gap-2 self-start rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs text-[var(--color-pib-text)] outline-none focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8"><span aria-hidden="true" className="material-symbols-outlined text-[15px]">developer_board</span>Execution <span className="text-[var(--color-pib-text-muted)]">{execution?.activeMessage?.status}</span></button>}
+    {context.model && context.activeContext
+      ? <ContextStrip options={context.contexts} value={context.activeContext} model={context.model} onChange={context.setActiveContext} onRemove={onRemoveContext} onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} onOpen={() => setOpen(true)} className={firstPaintChromeClass} />
+      : onAddContext ? <EmptyContextStrip onAdd={onAddContext} pickerExpanded={contextPickerExpanded} pickerControls={contextPickerControls} className={firstPaintChromeClass} /> : null}
+    {!context.model && !context.activeContext && <button type="button" data-testid="execution-context-trigger" onClick={() => setOpen(true)} className={`mx-3 mt-2 h-11 items-center gap-2 self-start rounded-full border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-xs text-[var(--color-pib-text)] outline-none focus-visible:ring-2 focus-visible:ring-primary/60 xl:h-8 ${executionTriggerClass}`}><span aria-hidden="true" className="material-symbols-outlined text-[15px]">developer_board</span>Execution <span className="text-[var(--color-pib-text-muted)]">{execution?.activeMessage?.status}</span></button>}
     <ContextDock model={model} open={open} compact={compact} activeArtifactId={activeArtifactId} onArtifactActivate={activateArtifact} onAction={(action, actionContext) => { void executeAction(action, actionContext) }} actionError={actionError} actionReceipt={actionReceipt} pendingActionId={pendingActionId} execution={execution} mode={canvasMode} onModeChange={setCanvasMode} canvasWidth={canvasWidth} onCanvasWidthChange={setCanvasWidth} secondaryContext={secondaryContext} secondaryOptions={secondaryOptions} onSecondaryChange={(next) => { setPendingStoredSecondary(null); setSecondaryContext(next) }} secondaryRefreshRevision={secondaryRefreshRevision} previewRefreshRevision={previewRefreshRevision} workbenchFolder={context.activeContext?.kind === 'workspace_folder' && context.activeContext.workbenchPath && context.conversationId ? { conversationId: context.conversationId, path: context.activeContext.workbenchPath } : undefined} onClose={() => setOpen(false)} />
   </>
 }

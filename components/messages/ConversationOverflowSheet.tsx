@@ -1,8 +1,10 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { MessagesExperienceSwitch } from '@/components/messages/bot-mode/MessagesExperienceSwitch'
 import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStrip'
 import type { VisibleBotComputer } from '@/lib/messages/bot-computers'
+import type { MessagesExperienceMode } from '@/lib/messages/experience-mode'
 import type { WorkbenchTab } from '@/lib/messages/workbench/types'
 
 const WORKBENCH_ACTIONS: Array<{ id: WorkbenchTab; label: string; icon: string }> = [
@@ -10,6 +12,17 @@ const WORKBENCH_ACTIONS: Array<{ id: WorkbenchTab; label: string; icon: string }
   { id: 'terminal', label: 'Terminal', icon: 'terminal' },
   { id: 'browser', label: 'Browser', icon: 'language' },
 ]
+
+export type OverflowDesignCommand = {
+  id: string
+  token: string
+  label: string
+  description?: string
+  icon: string
+}
+
+const ACTION_BUTTON_CLASS =
+  'inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-left text-[12px] font-medium text-[var(--color-pib-text)]'
 
 export function ConversationOverflowSheet({
   open,
@@ -37,6 +50,11 @@ export function ConversationOverflowSheet({
   approvalControl,
   runtimeStatus,
   queuedCount,
+  experienceMode,
+  onExperienceModeChange,
+  designCommands,
+  onDesignCommand,
+  conversationActions,
   children,
 }: {
   open: boolean
@@ -64,6 +82,11 @@ export function ConversationOverflowSheet({
   approvalControl?: ReactNode
   runtimeStatus?: string | null
   queuedCount?: number
+  experienceMode?: MessagesExperienceMode
+  onExperienceModeChange?: (mode: MessagesExperienceMode) => void
+  designCommands?: OverflowDesignCommand[]
+  onDesignCommand?: (command: OverflowDesignCommand) => void
+  conversationActions?: ReactNode
   children?: ReactNode
 }) {
   if (!open) return null
@@ -99,6 +122,48 @@ export function ConversationOverflowSheet({
         </header>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-3">
+          {experienceMode && onExperienceModeChange && (
+            <section aria-label="Experience" data-testid="overflow-experience-switch" className="space-y-2">
+              <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Experience</p>
+              <MessagesExperienceSwitch
+                value={experienceMode}
+                onChange={(mode) => { onExperienceModeChange(mode); onClose() }}
+                showLabels
+              />
+            </section>
+          )}
+
+          {conversationActions && (
+            <section aria-label="Conversation" data-testid="overflow-conversation-actions" className="space-y-2">
+              <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Conversation</p>
+              <div className="grid gap-2">{conversationActions}</div>
+            </section>
+          )}
+
+          {designCommands && designCommands.length > 0 && onDesignCommand && (
+            <section aria-label="Design commands" data-testid="overflow-design-commands" className="space-y-2">
+              <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Design commands</p>
+              <div className="grid gap-2">
+                {designCommands.map((command) => (
+                  <button
+                    key={command.id}
+                    type="button"
+                    data-testid={`overflow-design-command-${command.id}`}
+                    aria-label={`Insert ${command.token}`}
+                    onClick={() => { onDesignCommand(command); onClose() }}
+                    className={ACTION_BUTTON_CLASS}
+                  >
+                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{command.icon}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{command.label}</span>
+                      <span className="block truncate text-[11px] text-[var(--color-pib-text-muted)]">{command.token}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
           {(isCommandSession || canBindCommandSession || connectionWhere) && (
             <section aria-label="Session" className="space-y-2">
               <p className="text-[10px] font-label uppercase tracking-[0.16em] text-[var(--color-pib-text-muted)]">Session</p>

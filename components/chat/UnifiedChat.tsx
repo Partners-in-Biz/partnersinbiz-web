@@ -115,7 +115,13 @@ import { BotRailDock } from '@/components/messages/bot-mode/BotRailDock'
 import { BotRailSwitcher, type BotRailSection } from '@/components/messages/bot-mode/BotRailSwitcher'
 import type { BotStudioDevice } from '@/components/messages/bot-mode/BotStudioPanel'
 import { uniqueBotComputers } from '@/lib/messages/bot-computers'
-import { shouldAutoOpenBotWorkbench, shouldHideMobileConversationChrome } from '@/lib/messages/mobile-conversation-chrome'
+import {
+  MOBILE_CONVERSATION_HIDDEN_BLOCK_CLASS,
+  MOBILE_CONVERSATION_HIDDEN_BOT_STRIP_CLASS,
+  MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS,
+  shouldAutoOpenBotWorkbench,
+  shouldHideMobileConversationChrome,
+} from '@/lib/messages/mobile-conversation-chrome'
 import { buildBotRosterItems } from '@/lib/messages/bot-roster'
 import {
   botInboxTitle,
@@ -290,6 +296,7 @@ export interface UnifiedChatProps {
   showAgentWorkbench?: boolean
   /** Messages catalogue vs named-Bot coworker mode (OpenBot / Hermes / GrokBot). */
   experienceMode?: MessagesExperienceMode
+  onExperienceModeChange?: (mode: MessagesExperienceMode) => void
   computersHref?: string
 }
 
@@ -1365,6 +1372,7 @@ export default function UnifiedChat({
   onContextCanvasPresentationChange,
   showAgentWorkbench = false,
   experienceMode = 'messages',
+  onExperienceModeChange,
   computersHref = '/portal/settings/linked-computers',
 }: UnifiedChatProps) {
   const botMode = parseMessagesExperienceMode(experienceMode) === 'bot'
@@ -1373,6 +1381,9 @@ export default function UnifiedChat({
     compact,
     mobileViewport: mobileConversationViewport,
   })
+  const firstPaintChromeClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS
+  const firstPaintBlockClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_BLOCK_CLASS
+  const firstPaintBotStripClass = compact ? '' : MOBILE_CONVERSATION_HIDDEN_BOT_STRIP_CLASS
   // ── State ─────────────────────────────────────────────────────────────────
   const realtimeGatewayClientId = useId()
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -8708,8 +8719,11 @@ export default function UnifiedChat({
                     {activeConversation?.title || 'New conversation'}
                   </button>
                 )}
-                {!hideMobileConversationChrome && activeConversation?.scope === 'project' && activeConversation.scopeRefId && (
-                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px]">
+                {activeConversation?.scope === 'project' && activeConversation.scopeRefId && (
+                  <div
+                    data-testid="conversation-command-session"
+                    className={['mt-0.5 min-w-0 flex-wrap items-center gap-1.5 text-[10px]', firstPaintChromeClass || 'flex'].join(' ')}
+                  >
                     {isCommandSession ? (
                       <span
                         data-testid="command-session-badge"
@@ -8734,10 +8748,10 @@ export default function UnifiedChat({
                     )}
                   </div>
                 )}
-                {!hideMobileConversationChrome && (subtitle || activeConnectionWhere) && (
+                {(subtitle || activeConnectionWhere) && (
                   <div
                     data-testid="conversation-mobile-subtitle"
-                    className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)] lg:hidden"
+                    className={['mt-0.5 min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)] lg:hidden', firstPaintChromeClass || 'flex'].join(' ')}
                   >
                     {subtitle && <span className="truncate">{subtitle}</span>}
                     {subtitle && activeConnectionWhere && <span aria-hidden="true">·</span>}
@@ -8827,8 +8841,8 @@ export default function UnifiedChat({
                 >
                   <span className="material-symbols-outlined text-[22px]">more_horiz</span>
                 </button>
-                {headerMenuOpen && !hideMobileConversationChrome && (
-                  <div className="absolute right-0 top-full mt-1 z-30 min-w-[190px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl">
+                {headerMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1 z-30 hidden min-w-[190px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl md:block">
                     <button
                       type="button"
                       className="w-full text-left px-3 py-2 text-sm text-[var(--color-pib-text)] hover:bg-[var(--color-card-hover,rgba(255,255,255,0.06))] flex items-center gap-2"
@@ -8907,22 +8921,21 @@ export default function UnifiedChat({
           </div>
         </div>
 
-        {botMode && !hideMobileConversationChrome && (
-          <div className="xl:hidden">
-            <BotComputerStrip
-              computers={botComputers}
-              activeComputerId={activeWorkspaceContext?.runtimeTarget}
-              computersHref={computersHref}
-              workbenchOpen={workbenchOpen}
-              isolatedFolder={isolatedBotFolder}
-              browserProfileId={isolatedBotProfile}
-              onOpenWorkbench={showAgentWorkbench ? openWorkbenchTab : undefined}
-              onToggleWorkbench={showAgentWorkbench ? () => {
-                if (workbenchOpen) handleWorkbenchOpenChange(false)
-                else openWorkbenchTab(workbenchTab)
-              } : undefined}
-            />
-          </div>
+        {botMode && (
+          <BotComputerStrip
+            className={firstPaintBotStripClass || 'xl:hidden'}
+            computers={botComputers}
+            activeComputerId={activeWorkspaceContext?.runtimeTarget}
+            computersHref={computersHref}
+            workbenchOpen={workbenchOpen}
+            isolatedFolder={isolatedBotFolder}
+            browserProfileId={isolatedBotProfile}
+            onOpenWorkbench={showAgentWorkbench ? openWorkbenchTab : undefined}
+            onToggleWorkbench={showAgentWorkbench ? () => {
+              if (workbenchOpen) handleWorkbenchOpenChange(false)
+              else openWorkbenchTab(workbenchTab)
+            } : undefined}
+          />
         )}
         {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} preferCanvas={botMode} hideFirstPaintChrome={hideMobileConversationChrome} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
@@ -8985,7 +8998,6 @@ export default function UnifiedChat({
           onSendTerminalSessionData={sendWorkbenchSessionData}
           onResizeTerminalSession={resizeWorkbenchSession}
           onKillTerminalSession={killWorkbenchSession}
-          hideClosedIconStrip={hideMobileConversationChrome}
         />}
 
         {/* Messages */}
@@ -9172,8 +9184,8 @@ export default function UnifiedChat({
             rightDockOpen ? 'lg:mr-[var(--context-canvas-width)]' : '',
           ].join(' ')}
         >
-          {showComposerContextToolbar && !hideMobileConversationChrome && (
-            <div data-testid="chat-context-toolbar" className="flex items-center justify-between gap-2">
+          {showComposerContextToolbar && (
+            <div data-testid="chat-context-toolbar" className={['items-center justify-between gap-2', firstPaintChromeClass || 'flex'].join(' ')}>
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 {projectChat.progress && projectChat.activeProjectId && !contextRefs.some((ref) => ref.type === 'project' && ref.id === projectChat.activeProjectId) && (
                   <span
@@ -9509,8 +9521,8 @@ export default function UnifiedChat({
                 e.target.value = ''
               }}
             />
-            {/* Design commands — action menu fallback (mobile) for the "/" surface */}
-            <div className="relative self-end shrink-0">
+            {/* Design commands — desktop composer control; phone reaches them from overflow */}
+            <div data-testid="conversation-design-commands" className={['relative self-end shrink-0', firstPaintBlockClass].filter(Boolean).join(' ')}>
               <button
                 type="button"
                 onClick={() => setDesignMenuOpen((open) => !open)}
@@ -9678,10 +9690,10 @@ export default function UnifiedChat({
             </button>
           </div>
 
-          {hermesLayout && !hideMobileConversationChrome && (
+          {hermesLayout && (
             <div
               data-testid="hermes-runtime-control-bar"
-              className="flex min-h-8 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]"
+              className={['min-h-8 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]', firstPaintChromeClass || 'flex'].join(' ')}
             >
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 <span className="inline-flex h-6 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2">
@@ -9789,7 +9801,7 @@ export default function UnifiedChat({
 
       </section>
 
-      {hideMobileConversationChrome && (
+      {!compact && (
         <ConversationOverflowSheet
           open={headerMenuOpen}
           onClose={() => setHeaderMenuOpen(false)}
@@ -9814,6 +9826,97 @@ export default function UnifiedChat({
           }}
           showInspect={Boolean(activeConversation)}
           onOpenInspect={() => setExecutionDockRequest((value) => value + 1)}
+          experienceMode={experienceMode}
+          onExperienceModeChange={onExperienceModeChange}
+          designCommands={DESIGN_COMMANDS}
+          onDesignCommand={(command) => {
+            const full = DESIGN_COMMANDS.find((item) => item.id === command.id)
+            if (full) insertDesignCommand(full)
+          }}
+          conversationActions={activeConversation ? (
+            <>
+              <button
+                type="button"
+                data-testid="overflow-open-new-window"
+                className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-left text-[12px] font-medium text-[var(--color-pib-text)]"
+                onClick={() => {
+                  openConversationInNewWindow(activeConversation.id)
+                  setHeaderMenuOpen(false)
+                }}
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">open_in_new</span>
+                Open in new window
+              </button>
+              <button
+                type="button"
+                data-testid="overflow-export"
+                disabled={exportingChat}
+                className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-left text-[12px] font-medium text-[var(--color-pib-text)] disabled:opacity-50"
+                onClick={() => { void exportConversation(activeConversation.id) }}
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">download</span>
+                {exportingChat ? 'Exporting…' : 'Export chat'}
+              </button>
+              <button
+                type="button"
+                data-testid="overflow-rename"
+                className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-left text-[12px] font-medium text-[var(--color-pib-text)]"
+                onClick={() => {
+                  setHeaderMenuOpen(false)
+                  setRenamingId(activeConversation.id)
+                  setRenameValue(activeConversation.title || '')
+                  setMobilePane('list')
+                }}
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">edit</span>
+                Rename
+              </button>
+              {(allowManageConversationAccess || (activeConversation.workspaceContext?.ownerUserId ?? activeConversation.startedBy) === currentUserUid) && (
+                <button
+                  type="button"
+                  data-testid="overflow-manage-access"
+                  className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-left text-[12px] font-medium text-[var(--color-pib-text)]"
+                  onClick={() => {
+                    setHeaderMenuOpen(false)
+                    setAccessConversation(activeConversation)
+                  }}
+                >
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">manage_accounts</span>
+                  {activeConversation.workspaceContext ? 'Manage access' : 'Manage people'}
+                </button>
+              )}
+              {allowArchiveConversations && (
+                <button
+                  type="button"
+                  data-testid="overflow-archive"
+                  className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-red-400/25 bg-red-500/10 px-3 text-left text-[12px] font-medium text-red-300"
+                  onClick={() => {
+                    setHeaderMenuOpen(false)
+                    archiveConversation(activeConversation.id)
+                    setMobilePane('list')
+                  }}
+                >
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">archive</span>
+                  Archive
+                </button>
+              )}
+              {allowDeleteConversations && (
+                <button
+                  type="button"
+                  data-testid="overflow-delete"
+                  className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-red-400/25 bg-red-500/10 px-3 text-left text-[12px] font-medium text-red-300"
+                  onClick={() => {
+                    setHeaderMenuOpen(false)
+                    deleteConversation(activeConversation.id)
+                    setMobilePane('list')
+                  }}
+                >
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>
+                  Delete
+                </button>
+              )}
+            </>
+          ) : null}
           runtimeStatus={activeRuntimeMessage?.status?.replace('_', ' ') ?? (hasInFlightAgentRun ? 'running' : 'idle')}
           queuedCount={activeQueuedDrafts.length}
           modelControl={activeModelAgentId ? (

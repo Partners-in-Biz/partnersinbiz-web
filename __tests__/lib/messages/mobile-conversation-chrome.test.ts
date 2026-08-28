@@ -1,7 +1,10 @@
 import {
   MOBILE_CONVERSATION_BREAKPOINT_PX,
   MOBILE_CONVERSATION_CHROME_QUERY,
+  MOBILE_CONVERSATION_HIDDEN_BOT_STRIP_CLASS,
+  MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS,
   MOBILE_FIRST_PAINT_HIDDEN_TEST_IDS,
+  isHiddenUntilMd,
   isMobileConversationViewport,
   shouldAutoOpenBotWorkbench,
   shouldHideMobileConversationChrome,
@@ -17,6 +20,16 @@ describe('mobile conversation chrome', () => {
     expect(isMobileConversationViewport({ width: 768 })).toBe(false)
     expect(isMobileConversationViewport({ matchesQuery: true })).toBe(true)
     expect(isMobileConversationViewport({ matchesQuery: false, width: 390 })).toBe(false)
+  })
+
+  it('treats first-paint hide as CSS hidden-until-md, not a JS unmount', () => {
+    expect(isHiddenUntilMd(MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS)).toBe(true)
+    expect(isHiddenUntilMd(MOBILE_CONVERSATION_HIDDEN_BOT_STRIP_CLASS)).toBe(true)
+    expect(isHiddenUntilMd('hidden md:block xl:hidden')).toBe(true)
+    expect(isHiddenUntilMd('hidden md:inline-flex')).toBe(true)
+    expect(isHiddenUntilMd('flex')).toBe(false)
+    expect(isHiddenUntilMd('md:flex')).toBe(false)
+    expect(isHiddenUntilMd('')).toBe(false)
   })
 
   it('hides first-paint chrome on phone Messages, not compact side-chat', () => {
@@ -43,18 +56,17 @@ describe('mobile conversation chrome', () => {
     })).toBe(true)
   })
 
-  it('keeps the closed workbench icon rail off the phone first paint', () => {
-    expect(shouldRenderClosedWorkbenchIconStrip({ open: false, hideClosedIconStrip: true })).toBe(false)
-    expect(shouldRenderClosedWorkbenchIconStrip({ open: false, hideClosedIconStrip: false })).toBe(true)
-    expect(shouldRenderClosedWorkbenchIconStrip({ open: true, hideClosedIconStrip: true })).toBe(false)
+  it('keeps the closed workbench icon rail in the tree so CSS can hide it', () => {
+    expect(shouldRenderClosedWorkbenchIconStrip({ open: false })).toBe(true)
+    expect(shouldRenderClosedWorkbenchIconStrip({ open: true })).toBe(false)
   })
 
-  it('names every first-paint chrome row tests must hide', () => {
+  it('names every first-paint chrome host tests must CSS-hide', () => {
     expect(MOBILE_FIRST_PAINT_HIDDEN_TEST_IDS).toEqual(expect.arrayContaining([
-      'command-session-badge',
+      'conversation-command-session',
       'bot-computer-strip',
       'conversation-context-strip',
-      'agent-workbench-icon-strip',
+      'agent-workbench-rail',
       'hermes-runtime-control-bar',
     ]))
   })

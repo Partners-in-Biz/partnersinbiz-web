@@ -60,4 +60,47 @@ describe('ConversationOverflowSheet', () => {
     expect(onOpenWorkbench).toHaveBeenCalledWith('terminal')
     expect(onClose).toHaveBeenCalled()
   })
+
+  it('reaches conversation actions, experience switch, and design commands', () => {
+    const onClose = jest.fn()
+    const onExperienceModeChange = jest.fn()
+    const onDesignCommand = jest.fn()
+    const onRename = jest.fn()
+
+    render(
+      <ConversationOverflowSheet
+        open
+        onClose={onClose}
+        title="Hunt & Gun"
+        experienceMode="bot"
+        onExperienceModeChange={onExperienceModeChange}
+        designCommands={[{ id: 'polish', token: '/polish', label: 'Polish', icon: 'auto_fix_high' }]}
+        onDesignCommand={onDesignCommand}
+        conversationActions={(
+          <>
+            <button type="button" data-testid="overflow-rename" onClick={onRename}>Rename</button>
+            <button type="button" data-testid="overflow-export">Export chat</button>
+            <button type="button" data-testid="overflow-archive">Archive</button>
+            <button type="button" data-testid="overflow-delete">Delete</button>
+            <button type="button" data-testid="overflow-manage-access">Manage access</button>
+            <button type="button" data-testid="overflow-open-new-window">Open in new window</button>
+          </>
+        )}
+      />,
+    )
+
+    expect(screen.getByTestId('overflow-experience-switch')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Bot mode' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByTestId('overflow-rename')).toBeInTheDocument()
+    expect(screen.getByTestId('overflow-export')).toBeInTheDocument()
+    expect(screen.getByTestId('overflow-archive')).toBeInTheDocument()
+    expect(screen.getByTestId('overflow-delete')).toBeInTheDocument()
+    expect(screen.getByTestId('overflow-manage-access')).toBeInTheDocument()
+    expect(screen.getByTestId('overflow-open-new-window')).toBeInTheDocument()
+    expect(screen.getByTestId('overflow-design-command-polish')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Messages' }))
+    expect(onExperienceModeChange).toHaveBeenCalledWith('messages')
+    expect(onClose).toHaveBeenCalled()
+  })
 })

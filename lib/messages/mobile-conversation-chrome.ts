@@ -10,17 +10,27 @@ export const MOBILE_CONVERSATION_CHROME_QUERY = '(max-width: 767px)'
 /** CSS hide for first-paint rows that still exist in the desktop tree. */
 export const MOBILE_CONVERSATION_HIDDEN_FLEX_CLASS = 'hidden md:flex'
 export const MOBILE_CONVERSATION_HIDDEN_BLOCK_CLASS = 'hidden md:block'
+export const MOBILE_CONVERSATION_HIDDEN_BOT_STRIP_CLASS = 'hidden md:flex xl:hidden'
+
+const HIDDEN_UNTIL_MD = /\bhidden\b/
+const MD_DISPLAY = /\bmd:(?:flex|block|inline-flex|grid|inline-block)\b/
+
+/** True when a host is in the tree on phone first paint but CSS-hidden until md. */
+export function isHiddenUntilMd(className: string | null | undefined): boolean {
+  if (!className) return false
+  return HIDDEN_UNTIL_MD.test(className) && MD_DISPLAY.test(className)
+}
 
 export const MOBILE_FIRST_PAINT_HIDDEN_TEST_IDS = [
-  'command-session-badge',
-  'bind-command-session',
+  'conversation-command-session',
   'conversation-mobile-subtitle',
-  'connection-where-chip-mobile',
   'bot-computer-strip',
   'conversation-context-strip',
-  'agent-workbench-icon-strip',
+  'context-pulse',
+  'agent-workbench-rail',
   'hermes-runtime-control-bar',
   'chat-context-toolbar',
+  'conversation-design-commands',
 ] as const
 
 export type MobileConversationChromeTestId = (typeof MOBILE_FIRST_PAINT_HIDDEN_TEST_IDS)[number]
@@ -59,7 +69,6 @@ export function shouldAutoOpenBotWorkbench(input: {
 
 export function shouldRenderClosedWorkbenchIconStrip(input: {
   open: boolean
-  hideClosedIconStrip: boolean
 }): boolean {
-  return !input.open && !input.hideClosedIconStrip
+  return !input.open
 }

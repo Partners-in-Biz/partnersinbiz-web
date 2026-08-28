@@ -757,6 +757,7 @@ export function HermesMessagesShell(props: HermesMessagesShellProps) {
                       onConversationRailModeChange={setConversationRailMode}
                       onContextCanvasPresentationChange={paneIndex === 0 ? ({ open, mode }) => setCanvasForcesCollapsedRail(open && mode === 'dual') : undefined}
                       experienceMode={experienceMode}
+                      onExperienceModeChange={handleExperienceModeChange}
                     />
                   )}
                 </div>

@@ -146,8 +146,6 @@ export interface AgentWorkbenchRailProps {
   /** Fitted xterm grid size, forwarded to the remote pty resize control. */
   onResizeTerminalSession?: (cols: number, rows: number) => void
   onKillTerminalSession?: () => void
-  /** Phone first paint: keep files/terminal/browser reachable from overflow, not a persistent rail. */
-  hideClosedIconStrip?: boolean
 }
 
 const FILES_SOURCE_LABEL: Record<WorkbenchFilesSource, string> = {
@@ -232,7 +230,6 @@ export function AgentWorkbenchRail({
   onSendTerminalSessionData,
   onResizeTerminalSession,
   onKillTerminalSession,
-  hideClosedIconStrip = false,
 }: AgentWorkbenchRailProps) {
   const mobileViewport = useIsMobileViewport()
   const sheet = compact || mobileViewport
@@ -316,8 +313,7 @@ export function AgentWorkbenchRail({
     </div>
   )
 
-  if (!open) {
-    if (!shouldRenderClosedWorkbenchIconStrip({ open: false, hideClosedIconStrip })) return null
+  if (shouldRenderClosedWorkbenchIconStrip({ open })) {
     return (
       <div data-testid="agent-workbench-rail" data-open="false" className="absolute inset-y-0 right-0 z-30 hidden md:flex">
         {iconStrip}

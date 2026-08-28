@@ -96,6 +96,7 @@ describe('HermesMessagesShell', () => {
       layoutVariant: 'hermes',
       showAgentWorkbench: true,
       experienceMode: 'messages',
+      onExperienceModeChange: expect.any(Function),
     }))
   })
 
