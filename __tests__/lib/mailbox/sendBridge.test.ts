@@ -146,7 +146,9 @@ describe('sendMailboxMessage', () => {
       expect(init?.method).toBe('POST')
       expect(init?.headers).toMatchObject({ authorization: 'Bearer token' })
       const raw = JSON.parse(String(init?.body)).raw
-      expect(Buffer.from(raw, 'base64url').toString('utf8')).toContain('Subject: Hello')
+      const mime = Buffer.from(raw, 'base64url').toString('utf8')
+      expect(mime).toContain('Subject: Hello')
+      expect(mime).not.toContain('=?UTF-8?B?')
       return { ok: true, json: async () => ({ id: 'gmail-sent-1', threadId: 'thread-1', labelIds: ['SENT'] }) }
     }) as unknown as typeof fetch
 
@@ -229,6 +231,40 @@ describe('sendMailboxMessage', () => {
 
     expect(result).toMatchObject({ ok: true, provider: 'google', providerMessageId: 'gmail-sent-attachment' })
     expect(messages[0].data.attachments).toEqual([{ name: 'brief.txt', contentType: 'text/plain', sizeBytes: 15 }])
+  })
+
+  it('RFC 2047-encodes non-ASCII subjects in the Gmail raw MIME payload', async () => {
+    const subject = 'Invoice SAA-002 — Deposit — Saaiman Stays Platform Build'
+    const accounts: Doc[] = [{ id: 'acct-1', data: { orgId: 'org-1', uid: 'uid-1', provider: 'google', status: 'connected', emailAddress: 'me@example.com', googleEnc: { credentials: { accessToken: 'token', expiresAt: Date.now() + 600_000 } } } }]
+    const messages: Doc[] = []
+    stageCollections(accounts, messages)
+    global.fetch = jest.fn(async (_url: string, init?: RequestInit) => {
+      const raw = JSON.parse(String(init?.body)).raw
+      const mime = Buffer.from(raw, 'base64url').toString('utf8')
+      const subjectLine = mime.split('\r\n').find((line) => line.startsWith('Subject: '))
+      expect(subjectLine).toBeDefined()
+      expect(subjectLine).toMatch(/^Subject: =\?UTF-8\?B\?[A-Za-z0-9+/=]+\?=$/)
+      expect(subjectLine).not.toContain('—')
+      const encodedWord = subjectLine!.slice('Subject: '.length)
+      const b64 = encodedWord.slice('=?UTF-8?B?'.length, -'?='.length)
+      expect(Buffer.from(b64, 'base64').toString('utf8')).toBe(subject)
+      expect(mime).toContain('Invoice: SAA-002 — Deposit — Saaiman Stays Platform Build')
+      return { ok: true, json: async () => ({ id: 'gmail-sent-rfc2047', threadId: 'thread-rfc2047' }) }
+    }) as unknown as typeof fetch
+
+    const { sendMailboxMessage } = await import('@/lib/mailbox/sendBridge')
+    const result = await sendMailboxMessage({
+      orgId: 'org-1',
+      uid: 'uid-1',
+      accountId: 'acct-1',
+      approved: true,
+      to: ['client@example.com'],
+      subject,
+      bodyText: 'Invoice: SAA-002 — Deposit — Saaiman Stays Platform Build',
+    })
+
+    expect(result).toMatchObject({ ok: true, provider: 'google', providerMessageId: 'gmail-sent-rfc2047' })
+    expect(messages[0].data.subject).toBe(subject)
   })
 
   it('sends through configured SMTP account when SMTP credentials are present', async () => {

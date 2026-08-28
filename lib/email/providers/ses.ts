@@ -16,6 +16,7 @@
 //   SES_CONFIGURATION_SET     optional — needed for open/click/bounce events
 
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2'
+import { encodeMimeHeaderValue } from '@/lib/email/rfc2047'
 import {
   buildSendHeaders,
   type EmailProvider,
@@ -37,15 +38,9 @@ export function resetSesClientForTests(): void {
   client = null
 }
 
-/**
- * Encodes a header value for use in a raw MIME payload. SES rejects bare
- * non-ASCII bytes in headers, so anything outside printable ASCII is sent as
- * RFC 2047 encoded-words (UTF-8 / base64).
- */
+/** RFC 2047 for raw MIME headers. SES rejects bare non-ASCII bytes. */
 function encodeHeaderValue(value: string): string {
-  if (/^[\x20-\x7E]*$/.test(value)) return value
-  const b64 = Buffer.from(value, 'utf-8').toString('base64')
-  return `=?UTF-8?B?${b64}?=`
+  return encodeMimeHeaderValue(value)
 }
 
 /**

@@ -1,6 +1,7 @@
 import * as net from 'node:net'
 import * as tls from 'node:tls'
 import { FieldValue } from 'firebase-admin/firestore'
+import { encodeMimeHeaderValue } from '@/lib/email/rfc2047'
 import { adminDb } from '@/lib/firebase/admin'
 import { decryptCredentials, type EncryptedCredentials } from '@/lib/integrations/crypto'
 import type { MailboxAttachmentStored } from '@/lib/mailbox/attachments'
@@ -93,6 +94,11 @@ function snippet(bodyText: string): string {
 }
 
 function encodeHeader(value: string): string {
+  return encodeMimeHeaderValue(value)
+}
+
+/** Quoted-string filename: strip CR/LF only. RFC 2047 encoded-words are invalid inside quotes. */
+function sanitizeFilename(value: string): string {
   return value.replace(/[\r\n]+/g, ' ').trim()
 }
 
@@ -130,7 +136,7 @@ function buildBodyPart(input: SendMailboxMessageInput, boundarySeed: string): st
 }
 
 function buildAttachmentPart(attachment: MailboxAttachmentStored): string[] {
-  const filename = encodeHeader(attachment.name)
+  const filename = sanitizeFilename(attachment.name)
   return [
     `Content-Type: ${attachment.contentType}; name="${filename}"`,
     `Content-Disposition: attachment; filename="${filename}"`,

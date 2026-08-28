@@ -606,7 +606,6 @@ Messages always injects a `[Mailbox connections]` block for interactive runs (co
 5. `summarize=true` returns `bodyPreview` (up to 8k). For full text use `GET /agent/email/messages/{id}`. If connected + hits exist, **never** ask the user to paste the email.
 6. **Compose / “put this in an email” (mandatory):** `POST /agent/email/drafts` with `to`, `subject`, `bodyText`, plus `conversationId` + `responseMessageId` from the mailbox block when present. Echo returned `uiActions`/`contextRef` (`open_context`) so Messages opens the email side canvas. **Never** paste a full email as chat-only preview. Drafts work even when mailbox status is `none` (send disabled until connect). Humans **Approve & send**; do not auto-send.
 7. **Peet mailbox draft style (mandatory for peet.stander@partnersinbiz.online):**
-   - **Subject encoding:** use plain ASCII only in `subject`. Prefer ` - ` (space-hyphen-space). Do **not** use em dash (`—`), en dash (`–`), smart quotes, or other non-ASCII punctuation in subjects — Gmail/API paths have mojibaked these (e.g. `—` → `Ã¢ÂÂ` in sent/list views).
    - **No manual signature footer:** never append `Peet Stander`, `Partners in Biz`, `Cheers,\nPeet`, or similar name/company closings. His connected mailbox already applies his email signature. End the body after the last content paragraph (optional short sign-off word like `Thanks,` is OK only if he asked; default is none).
 
 ### Admin operations utility routes
