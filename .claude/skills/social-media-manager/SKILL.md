@@ -165,9 +165,9 @@ accountIds: [
 
 ### LinkedIn company page (pending)
 
-LinkedIn company page posting requires `w_organization_social` scope. A dedicated LinkedIn app was created and Community Management API access submitted (2026-05-15). When approved:
-1. Update `LINKEDIN_CLIENT_ID` + `LINKEDIN_CLIENT_SECRET` in Vercel with new app credentials
-2. Reconnect LinkedIn via OAuth — company page appears in picker
+LinkedIn company page posting requires `w_organization_social` on **this same LinkedIn app**. Personal connect uses OpenID + `w_member_social` and must keep working while Community Management API is off (`LINKEDIN_CMA_ENABLED` defaults off). When CMA is approved on this app:
+1. Turn on `LINKEDIN_CMA_ENABLED` — do not swap `LINKEDIN_CLIENT_ID` / `LINKEDIN_CLIENT_SECRET` and do not create a second app
+2. Reconnect LinkedIn via OAuth — company page appears in the picker
 3. Add company page accountId to campaigns and update the 21 May 2026 standalone posts
 
 ---

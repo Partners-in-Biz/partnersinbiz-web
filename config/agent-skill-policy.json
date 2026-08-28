@@ -1,6 +1,6 @@
 {
-  "version": "2026-08-10.system-skills-v0.1.7",
-  "catalogVersion": "2026-08-10.system-skills-v0.1.9",
+  "version": "2026-08-28.system-skills-v0.1.8",
+  "catalogVersion": "2026-08-28.system-skills-v0.1.10",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],
@@ -108,6 +108,7 @@
     "creative-canvas-ops",
     "book-studio-ops",
     "browser-agent",
+    "cursor-agent",
     "youtube-studio-ops",
     "conversations-runtime",
     "life-os-ops",
@@ -1442,6 +1443,23 @@
       "syncTarget": "vps",
       "pack": "pib-system-skills",
       "packTier": "core"
+    },
+    "cursor-agent": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "ads",
+        "data",
+        "docs",
+        "maya",
+        "pip",
+        "qa-release",
+        "sage",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
     }
   },
   "agents": {
@@ -1451,26 +1469,27 @@
       "role": "Front-door operator and orchestrator",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/pip",
       "pibSkills": [
-        "system-auth",
-        "collaboration-runtime",
-        "evidence-ledger",
-        "project-management",
-        "daily-workflow",
-        "impeccable-design-discipline",
-        "platform-ops",
-        "workflow-graph-operator",
-        "pib-agent-org-setup",
-        "agent-runtime-ops",
-        "platform-admin-users",
-        "interactive-project-planning",
-        "reports",
-        "pib-staff-billing-access",
-        "browser-agent",
         "agent-runtime-gather",
+        "agent-runtime-ops",
         "agent-skill-drift-gather",
         "approval-queue-gather",
+        "browser-agent",
         "ceo-on-demand-gather",
-        "chat-surface-gather"
+        "chat-surface-gather",
+        "collaboration-runtime",
+        "cursor-agent",
+        "daily-workflow",
+        "evidence-ledger",
+        "impeccable-design-discipline",
+        "interactive-project-planning",
+        "pib-agent-org-setup",
+        "pib-staff-billing-access",
+        "platform-admin-users",
+        "platform-ops",
+        "project-management",
+        "reports",
+        "system-auth",
+        "workflow-graph-operator"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1492,7 +1511,8 @@
         "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
-        "chat-surface-gather"
+        "chat-surface-gather",
+        "cursor-agent"
       ],
       "globalSkills": [
         "autonomous-ai-agents/hermes-agent"
@@ -1548,17 +1568,18 @@
       "role": "Engineering and infrastructure specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/theo",
       "pibSkills": [
-        "system-auth",
-        "collaboration-runtime",
-        "evidence-ledger",
-        "project-management",
-        "daily-workflow",
-        "impeccable-design-discipline",
-        "platform-ops",
-        "interactive-project-planning",
         "browser-agent",
+        "client-documents",
+        "collaboration-runtime",
+        "cursor-agent",
+        "daily-workflow",
+        "evidence-ledger",
+        "impeccable-design-discipline",
+        "interactive-project-planning",
+        "platform-ops",
+        "project-management",
         "properties",
-        "client-documents"
+        "system-auth"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1587,7 +1608,8 @@
         "agent-skills/planning-and-task-breakdown",
         "agent-skills/using-agent-skills",
         "agent-skills/interview-me",
-        "agent-skills/context-engineering"
+        "agent-skills/context-engineering",
+        "cursor-agent"
       ],
       "globalSkills": [
         "autonomous-ai-agents/codex",
@@ -1645,26 +1667,27 @@
       "role": "Marketing and creative specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/maya",
       "pibSkills": [
-        "system-auth",
+        "book-studio-ops",
+        "browser-agent",
         "collaboration-runtime",
-        "evidence-ledger",
-        "project-management",
-        "daily-workflow",
         "content-engine",
-        "social-media-manager",
+        "creative-canvas-ops",
+        "cursor-agent",
+        "daily-workflow",
         "email-outreach",
+        "evidence-ledger",
+        "google-workspace",
+        "impeccable-design-discipline",
+        "project-management",
+        "research-intelligence",
+        "social-media-manager",
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
         "studio-release-handoff",
+        "system-auth",
         "video-editor-ops",
-        "youtube-studio-ops",
-        "book-studio-ops",
-        "creative-canvas-ops",
-        "impeccable-design-discipline",
-        "research-intelligence",
-        "browser-agent",
-        "google-workspace"
+        "youtube-studio-ops"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1687,7 +1710,8 @@
         "research-intelligence",
         "research/last30days",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "higgsfield-generate",
@@ -1746,16 +1770,17 @@
       "role": "Research and strategic intelligence specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/sage",
       "pibSkills": [
-        "system-auth",
+        "browser-agent",
         "collaboration-runtime",
-        "evidence-ledger",
-        "project-management",
+        "cursor-agent",
         "daily-workflow",
+        "evidence-ledger",
+        "google-workspace",
+        "interactive-project-planning",
+        "project-management",
         "research-intelligence",
         "studio-context-gather",
-        "interactive-project-planning",
-        "browser-agent",
-        "google-workspace"
+        "system-auth"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1769,7 +1794,8 @@
         "studio-context-gather",
         "interactive-project-planning",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "note-taking/obsidian",
@@ -2004,7 +2030,8 @@
         "docs-lead",
         "evidence-ledger",
         "google-workspace",
-        "project-management"
+        "project-management",
+        "cursor-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace",
@@ -2048,18 +2075,19 @@
       "role": "Paid advertising specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/ads",
       "pibSkills": [
-        "system-auth",
-        "collaboration-runtime",
-        "evidence-ledger",
-        "project-management",
-        "daily-workflow",
         "ads-manager",
-        "research-intelligence",
-        "data-analyst",
         "analytics",
         "browser-agent",
+        "collaboration-runtime",
+        "cursor-agent",
+        "daily-workflow",
+        "data-analyst",
+        "evidence-ledger",
         "google-workspace",
-        "impeccable-design-discipline"
+        "impeccable-design-discipline",
+        "project-management",
+        "research-intelligence",
+        "system-auth"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2128,19 +2156,20 @@
       "role": "QA and release readiness specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/qa-release",
       "pibSkills": [
-        "system-auth",
+        "browser-agent",
         "collaboration-runtime",
-        "evidence-ledger",
-        "project-management",
+        "cursor-agent",
         "daily-workflow",
+        "evidence-ledger",
+        "impeccable-design-discipline",
+        "interactive-project-planning",
+        "platform-ops",
+        "project-management",
         "qa-release",
         "studio-artifact-review",
-        "studio-release-handoff",
         "studio-context-gather",
-        "impeccable-design-discipline",
-        "platform-ops",
-        "interactive-project-planning",
-        "browser-agent"
+        "studio-release-handoff",
+        "system-auth"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2158,7 +2187,8 @@
         "browser-agent",
         "software-development/requesting-code-review",
         "software-development/code-review",
-        "software-development/systematic-debugging"
+        "software-development/systematic-debugging",
+        "cursor-agent"
       ],
       "globalSkills": [
         "autonomous-ai-agents/hermes-agent",
@@ -2211,16 +2241,17 @@
       "role": "Client support triage specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/support",
       "pibSkills": [
-        "system-auth",
-        "collaboration-runtime",
-        "evidence-ledger",
-        "project-management",
-        "daily-workflow",
-        "support-manager",
-        "client-manager",
-        "crm-sales",
         "browser-agent",
-        "google-workspace"
+        "client-manager",
+        "collaboration-runtime",
+        "crm-sales",
+        "cursor-agent",
+        "daily-workflow",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management",
+        "support-manager",
+        "system-auth"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2232,7 +2263,8 @@
         "client-manager",
         "crm-sales",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace"
@@ -2281,17 +2313,18 @@
       "role": "Analytics, reporting, and data-quality specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/data",
       "pibSkills": [
-        "system-auth",
+        "analytics",
+        "browser-agent",
         "collaboration-runtime",
-        "evidence-ledger",
-        "project-management",
+        "cursor-agent",
         "daily-workflow",
         "data-analyst",
-        "analytics",
+        "evidence-ledger",
+        "google-workspace",
+        "project-management",
         "reports",
         "research-intelligence",
-        "browser-agent",
-        "google-workspace"
+        "system-auth"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2304,7 +2337,8 @@
         "reports",
         "research-intelligence",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace",
@@ -2348,21 +2382,22 @@
       "role": "Client documents and approvals specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/docs",
       "pibSkills": [
-        "system-auth",
-        "collaboration-runtime",
-        "evidence-ledger",
-        "project-management",
-        "daily-workflow",
+        "browser-agent",
         "client-documents",
+        "collaboration-runtime",
+        "cursor-agent",
+        "daily-workflow",
         "docs-lead",
+        "evidence-ledger",
+        "google-workspace",
+        "impeccable-design-discipline",
+        "interactive-project-planning",
+        "project-management",
         "studio-artifact-orchestrate",
         "studio-artifact-review",
         "studio-context-gather",
         "studio-release-handoff",
-        "interactive-project-planning",
-        "impeccable-design-discipline",
-        "browser-agent",
-        "google-workspace"
+        "system-auth"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2379,7 +2414,8 @@
         "interactive-project-planning",
         "impeccable-design-discipline",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace",
@@ -2426,16 +2462,17 @@
       "role": "SEO sprint and local SEO specialist",
       "vpsExternalDir": "/var/lib/hermes/agent-skills/seo",
       "pibSkills": [
-        "system-auth",
-        "collaboration-runtime",
-        "evidence-ledger",
-        "project-management",
-        "daily-workflow",
-        "seo-sprint-manager",
-        "geo-seo-service",
-        "research-intelligence",
         "browser-agent",
-        "google-workspace"
+        "collaboration-runtime",
+        "cursor-agent",
+        "daily-workflow",
+        "evidence-ledger",
+        "geo-seo-service",
+        "google-workspace",
+        "project-management",
+        "research-intelligence",
+        "seo-sprint-manager",
+        "system-auth"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2449,7 +2486,8 @@
         "research-intelligence",
         "research/last30days",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace",

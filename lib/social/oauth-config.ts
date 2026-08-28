@@ -2,6 +2,7 @@
  * OAuth Configuration — Per-platform OAuth URLs, scopes, and token exchange logic.
  */
 import type { SocialPlatformType } from './providers/types'
+import { isLinkedInCmaEnabled } from './linkedin-cma'
 
 export type LinkedInOAuthMode = 'personal' | 'organization'
 
@@ -50,15 +51,14 @@ export function getOAuthConfig(platform: SocialPlatformType, options: OAuthOptio
         extraAuthParams: { enable_fb_login: '0', force_reauth: 'true' },
       }
     case 'linkedin':
-      if (options.linkedinMode === 'organization') {
+      if (options.linkedinMode === 'organization' && isLinkedInCmaEnabled()) {
         return {
           platform: 'linkedin',
           authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
           tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-          // Company-page app: list administered pages + post as the page.
-          // Posts API still requires w_organization_social. w_organization_social_feed
-          // is a separate comments/reactions permission and LinkedIn rejects it as
-          // "not valid" unless that extra CMA entitlement is on the app.
+          // Company-page posting on THIS same app, only after CMA is enabled.
+          // w_organization_social_feed is a separate comments/reactions permission
+          // and LinkedIn rejects it unless that extra CMA entitlement is on the app.
           scopes: ['rw_organization_admin', 'w_organization_social'],
         }
       }
@@ -165,15 +165,20 @@ export function getClientCredentials(platform: SocialPlatformType, options: OAut
     return { clientId, clientSecret }
   }
   if (platform === 'linkedin') {
-    if (options.linkedinMode === 'organization') {
-      const clientId = process.env.LINKEDIN_ORGANIZATION_CLIENT_ID?.trim() ?? process.env.LINKEDIN_CLIENT_ID?.trim()
-      const clientSecret = process.env.LINKEDIN_ORGANIZATION_CLIENT_SECRET?.trim() ?? process.env.LINKEDIN_CLIENT_SECRET?.trim()
-      if (!clientId || !clientSecret) return null
-      return { clientId, clientSecret }
-    }
-
-    const clientId = process.env.LINKEDIN_PERSONAL_CLIENT_ID?.trim()
-    const clientSecret = process.env.LINKEDIN_PERSONAL_CLIENT_SECRET?.trim()
+    const clientId =
+      process.env.LINKEDIN_CLIENT_ID?.trim()
+      || (options.linkedinMode === 'organization'
+        ? process.env.LINKEDIN_ORGANIZATION_CLIENT_ID?.trim()
+        : process.env.LINKEDIN_PERSONAL_CLIENT_ID?.trim())
+      || process.env.LINKEDIN_PERSONAL_CLIENT_ID?.trim()
+      || process.env.LINKEDIN_ORGANIZATION_CLIENT_ID?.trim()
+    const clientSecret =
+      process.env.LINKEDIN_CLIENT_SECRET?.trim()
+      || (options.linkedinMode === 'organization'
+        ? process.env.LINKEDIN_ORGANIZATION_CLIENT_SECRET?.trim()
+        : process.env.LINKEDIN_PERSONAL_CLIENT_SECRET?.trim())
+      || process.env.LINKEDIN_PERSONAL_CLIENT_SECRET?.trim()
+      || process.env.LINKEDIN_ORGANIZATION_CLIENT_SECRET?.trim()
     if (!clientId || !clientSecret) return null
     return { clientId, clientSecret }
   }

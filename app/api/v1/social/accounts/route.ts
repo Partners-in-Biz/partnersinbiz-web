@@ -12,6 +12,7 @@ import type { AccountStatus } from '@/lib/social/providers'
 import { ACTIVE_PLATFORMS } from '@/lib/social/providers'
 import { logAudit } from '@/lib/social/audit'
 import { isCompanyLinkedAccount, isPersonalAccountRecord, storedAccountTypeForScope, PERSONAL_SCOPE, ORG_SCOPE } from '@/lib/social/account-scope'
+import { isLinkedInCmaEnabled } from '@/lib/social/linkedin-cma'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,7 +78,7 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
   const hasMore = allAccounts.length > start + limit
   const total = hasMore ? start + accounts.length + 1 : start + accounts.length
 
-  return apiSuccess(accounts, 200, { total, page, limit, hasMore })
+  return apiSuccess(accounts, 200, { total, page, limit, hasMore, linkedinCmaEnabled: isLinkedInCmaEnabled() })
 }))
 
 export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
