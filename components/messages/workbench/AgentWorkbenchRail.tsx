@@ -15,6 +15,7 @@ import type {
   WorkbenchTerminalMode,
   WorkbenchTunnelViewState,
 } from '@/lib/messages/workbench/types'
+import { shouldRenderClosedWorkbenchIconStrip } from '@/lib/messages/mobile-conversation-chrome'
 import { WorkbenchBrowserPanel } from './WorkbenchBrowserPanel'
 import { WorkbenchChangesPanel } from './WorkbenchChangesPanel'
 import { WorkbenchFilesPanel } from './WorkbenchFilesPanel'
@@ -145,6 +146,8 @@ export interface AgentWorkbenchRailProps {
   /** Fitted xterm grid size, forwarded to the remote pty resize control. */
   onResizeTerminalSession?: (cols: number, rows: number) => void
   onKillTerminalSession?: () => void
+  /** Phone first paint: keep files/terminal/browser reachable from overflow, not a persistent rail. */
+  hideClosedIconStrip?: boolean
 }
 
 const FILES_SOURCE_LABEL: Record<WorkbenchFilesSource, string> = {
@@ -229,6 +232,7 @@ export function AgentWorkbenchRail({
   onSendTerminalSessionData,
   onResizeTerminalSession,
   onKillTerminalSession,
+  hideClosedIconStrip = false,
 }: AgentWorkbenchRailProps) {
   const mobileViewport = useIsMobileViewport()
   const sheet = compact || mobileViewport
@@ -313,8 +317,9 @@ export function AgentWorkbenchRail({
   )
 
   if (!open) {
+    if (!shouldRenderClosedWorkbenchIconStrip({ open: false, hideClosedIconStrip })) return null
     return (
-      <div data-testid="agent-workbench-rail" data-open="false" className="absolute inset-y-0 right-0 z-30 flex">
+      <div data-testid="agent-workbench-rail" data-open="false" className="absolute inset-y-0 right-0 z-30 hidden md:flex">
         {iconStrip}
       </div>
     )

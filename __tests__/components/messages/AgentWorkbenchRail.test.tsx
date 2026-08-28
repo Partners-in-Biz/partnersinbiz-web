@@ -33,6 +33,24 @@ function Harness({ mapped = true, liveTree = false }: { mapped?: boolean; liveTr
 }
 
 describe('AgentWorkbenchRail', () => {
+  it('hides the closed icon rail on a phone-width first paint', () => {
+    render(
+      <AgentWorkbenchRail
+        open={false}
+        activeTab="files"
+        onOpenChange={jest.fn()}
+        onTabChange={jest.fn()}
+        hideClosedIconStrip
+        terminalEntries={[]}
+        fileTree={[]}
+        changes={[]}
+        browserTargets={[]}
+      />,
+    )
+    expect(screen.queryByTestId('agent-workbench-rail')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('agent-workbench-icon-strip')).not.toBeInTheDocument()
+  })
+
   it('defaults closed and exposes all four observer panels', () => {
     render(<Harness />)
 

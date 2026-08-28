@@ -104,6 +104,8 @@ import { ProjectPeopleAccessPanel } from '@/components/projects/ProjectPeopleAcc
 import { AccessibleDialog } from '@/components/linked-computers/AccessibleOverlay'
 import { CompanyPicker } from '@/components/crm/CompanyPicker'
 import AgentWorkbenchRail from '@/components/messages/workbench/AgentWorkbenchRail'
+import { ConversationOverflowSheet } from '@/components/messages/ConversationOverflowSheet'
+import { useMobileConversationViewport } from '@/components/messages/useMobileConversationViewport'
 import { BotComputerStrip } from '@/components/messages/bot-mode/BotComputerStrip'
 import { BotDeskPanel } from '@/components/messages/bot-mode/BotDeskPanel'
 import { BotModeLanding } from '@/components/messages/bot-mode/BotModeLanding'
@@ -113,6 +115,7 @@ import { BotRailDock } from '@/components/messages/bot-mode/BotRailDock'
 import { BotRailSwitcher, type BotRailSection } from '@/components/messages/bot-mode/BotRailSwitcher'
 import type { BotStudioDevice } from '@/components/messages/bot-mode/BotStudioPanel'
 import { uniqueBotComputers } from '@/lib/messages/bot-computers'
+import { shouldAutoOpenBotWorkbench, shouldHideMobileConversationChrome } from '@/lib/messages/mobile-conversation-chrome'
 import { buildBotRosterItems } from '@/lib/messages/bot-roster'
 import {
   botInboxTitle,
@@ -1365,6 +1368,11 @@ export default function UnifiedChat({
   computersHref = '/portal/settings/linked-computers',
 }: UnifiedChatProps) {
   const botMode = parseMessagesExperienceMode(experienceMode) === 'bot'
+  const mobileConversationViewport = useMobileConversationViewport()
+  const hideMobileConversationChrome = shouldHideMobileConversationChrome({
+    compact,
+    mobileViewport: mobileConversationViewport,
+  })
   // ── State ─────────────────────────────────────────────────────────────────
   const realtimeGatewayClientId = useId()
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -1450,10 +1458,15 @@ export default function UnifiedChat({
     handleWorkbenchOpenChange(true)
   }, [handleWorkbenchOpenChange])
   useEffect(() => {
-    if (!botMode || !showAgentWorkbench || !activeId) return
-    if (botWorkbenchUserClosedRef.current === activeId) return
+    if (!shouldAutoOpenBotWorkbench({
+      botMode,
+      showAgentWorkbench,
+      hasActiveConversation: Boolean(activeId),
+      userClosed: botWorkbenchUserClosedRef.current === activeId,
+      mobileViewport: mobileConversationViewport,
+    })) return
     handleWorkbenchOpenChange(true)
-  }, [activeId, botMode, handleWorkbenchOpenChange, showAgentWorkbench])
+  }, [activeId, botMode, handleWorkbenchOpenChange, mobileConversationViewport, showAgentWorkbench])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [modalError, setModalError] = useState<string | null>(null)
@@ -5304,7 +5317,9 @@ export default function UnifiedChat({
     if (!headerMenuOpen) return
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement
-      if (!target.closest('[data-header-menu]')) setHeaderMenuOpen(false)
+      if (!target.closest('[data-header-menu]') && !target.closest('[data-testid="conversation-overflow-sheet"]')) {
+        setHeaderMenuOpen(false)
+      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -8693,7 +8708,7 @@ export default function UnifiedChat({
                     {activeConversation?.title || 'New conversation'}
                   </button>
                 )}
-                {activeConversation?.scope === 'project' && activeConversation.scopeRefId && (
+                {!hideMobileConversationChrome && activeConversation?.scope === 'project' && activeConversation.scopeRefId && (
                   <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px]">
                     {isCommandSession ? (
                       <span
@@ -8719,8 +8734,11 @@ export default function UnifiedChat({
                     )}
                   </div>
                 )}
-                {(subtitle || activeConnectionWhere) && (
-                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)] lg:hidden">
+                {!hideMobileConversationChrome && (subtitle || activeConnectionWhere) && (
+                  <div
+                    data-testid="conversation-mobile-subtitle"
+                    className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-pib-text-muted)] lg:hidden"
+                  >
                     {subtitle && <span className="truncate">{subtitle}</span>}
                     {subtitle && activeConnectionWhere && <span aria-hidden="true">·</span>}
                     {activeConnectionWhere && (
@@ -8809,7 +8827,7 @@ export default function UnifiedChat({
                 >
                   <span className="material-symbols-outlined text-[22px]">more_horiz</span>
                 </button>
-                {headerMenuOpen && (
+                {headerMenuOpen && !hideMobileConversationChrome && (
                   <div className="absolute right-0 top-full mt-1 z-30 min-w-[190px] rounded-lg border border-[var(--color-card-border)] bg-[var(--color-surface,#1c1c1c)] py-1 shadow-xl">
                     <button
                       type="button"
@@ -8889,7 +8907,7 @@ export default function UnifiedChat({
           </div>
         </div>
 
-        {botMode && (
+        {botMode && !hideMobileConversationChrome && (
           <div className="xl:hidden">
             <BotComputerStrip
               computers={botComputers}
@@ -8906,7 +8924,7 @@ export default function UnifiedChat({
             />
           </div>
         )}
-        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} preferCanvas={botMode} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
+        {activeConversation && <ChatContextExperience context={chatContexts} compact={compact} artifactRequest={contextArtifactRequest} focusRequest={contextFocusRequest} execution={runtimeExecution} executionRequest={executionDockRequest} closeRequest={contextCanvasCloseRequest} previewRefreshSignal={contextPreviewRefreshSignal} onActionResolved={handleContextActionResolved} onPresentationChange={handleContextCanvasPresentationChange} preferCanvas={botMode} hideFirstPaintChrome={hideMobileConversationChrome} onAddContext={openContextPicker} contextPickerExpanded={Boolean(contextMention || contextTypePrompt)} contextPickerControls={contextPickerPanelId} onRemoveContext={(value) => {
           const ref = contextRefs.find((item) => item.type === value.kind && item.id === value.id)
           if (ref) removeContextRef(ref)
         }} />}
@@ -8967,6 +8985,7 @@ export default function UnifiedChat({
           onSendTerminalSessionData={sendWorkbenchSessionData}
           onResizeTerminalSession={resizeWorkbenchSession}
           onKillTerminalSession={killWorkbenchSession}
+          hideClosedIconStrip={hideMobileConversationChrome}
         />}
 
         {/* Messages */}
@@ -9153,7 +9172,7 @@ export default function UnifiedChat({
             rightDockOpen ? 'lg:mr-[var(--context-canvas-width)]' : '',
           ].join(' ')}
         >
-          {showComposerContextToolbar && (
+          {showComposerContextToolbar && !hideMobileConversationChrome && (
             <div data-testid="chat-context-toolbar" className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 {projectChat.progress && projectChat.activeProjectId && !contextRefs.some((ref) => ref.type === 'project' && ref.id === projectChat.activeProjectId) && (
@@ -9659,7 +9678,7 @@ export default function UnifiedChat({
             </button>
           </div>
 
-          {hermesLayout && (
+          {hermesLayout && !hideMobileConversationChrome && (
             <div
               data-testid="hermes-runtime-control-bar"
               className="flex min-h-8 flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-card-border)] bg-black/[0.08] px-2 py-1.5 text-[11px] text-[var(--color-pib-text-muted)]"
@@ -9769,6 +9788,88 @@ export default function UnifiedChat({
         </form>
 
       </section>
+
+      {hideMobileConversationChrome && (
+        <ConversationOverflowSheet
+          open={headerMenuOpen}
+          onClose={() => setHeaderMenuOpen(false)}
+          title={activeConversation?.title || 'New conversation'}
+          subtitle={subtitle}
+          connectionWhere={activeConnectionWhere}
+          isCommandSession={isCommandSession}
+          canBindCommandSession={Boolean(activeConversation?.scope === 'project' && activeConversation.scopeRefId && !isCommandSession)}
+          commandSessionBusy={commandSessionBusy}
+          onBindCommandSession={() => { void bindCommandSession() }}
+          computers={botComputers}
+          computersHref={computersHref}
+          activeComputerId={activeWorkspaceContext?.runtimeTarget}
+          isolatedFolder={isolatedBotFolder}
+          browserProfileId={isolatedBotProfile}
+          showAgentWorkbench={showAgentWorkbench}
+          workbenchOpen={workbenchOpen}
+          onOpenWorkbench={openWorkbenchTab}
+          onToggleWorkbench={() => {
+            if (workbenchOpen) handleWorkbenchOpenChange(false)
+            else openWorkbenchTab(workbenchTab)
+          }}
+          showInspect={Boolean(activeConversation)}
+          onOpenInspect={() => setExecutionDockRequest((value) => value + 1)}
+          runtimeStatus={activeRuntimeMessage?.status?.replace('_', ' ') ?? (hasInFlightAgentRun ? 'running' : 'idle')}
+          queuedCount={activeQueuedDrafts.length}
+          modelControl={activeModelAgentId ? (
+            <ModelProviderPicker
+              catalog={modelCatalog}
+              selected={selectedRuntime}
+              loading={modelCatalogLoading}
+              disabled={!activeConversation}
+              compact
+              placement="top"
+              onSelect={setSelectedRuntime}
+              onRefresh={loadModelCatalog}
+            />
+          ) : null}
+          effortControl={allowAgentParticipants ? (
+            <label className="block">
+              <span className="sr-only">Runtime thinking effort</span>
+              <select
+                value={agentEffort}
+                onChange={(event) => setAgentEffort(event.target.value as AgentEffort | '')}
+                disabled={!canUseComposer || sending}
+                title="Thinking effort"
+                aria-label="Runtime thinking effort"
+                className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-[12px] font-medium text-[var(--color-pib-text)] outline-none"
+              >
+                <option value="">Auto effort</option>
+                {AGENT_EFFORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          approvalControl={hermesLayout ? (
+            <label className="block">
+              <span className="sr-only">Approval mode</span>
+              <select
+                value={approvalMode}
+                onChange={(event) => {
+                  const next = cleanApprovalMode(event.target.value) ?? 'ask'
+                  setApprovalMode(next)
+                }}
+                disabled={!canUseComposer || sending}
+                title={APPROVAL_MODE_OPTIONS.find((option) => option.value === approvalMode)?.description}
+                aria-label="Approval mode"
+                className="h-11 w-full rounded-lg border border-[var(--color-card-border)] bg-white/[0.04] px-3 text-[12px] font-medium text-[var(--color-pib-text)] outline-none"
+              >
+                {APPROVAL_MODE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value} title={option.description}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        />
+      )}
 
       {botMode && (
         <BotDeskPanel
