@@ -1,6 +1,6 @@
 {
-  "version": "2026-08-10.system-skills-v0.1.7",
-  "catalogVersion": "2026-08-10.system-skills-v0.1.9",
+  "version": "2026-08-28.system-skills-v0.1.8",
+  "catalogVersion": "2026-08-28.system-skills-v0.1.10",
   "mode": "hard_allowlist",
   "vpsRoot": "/var/lib/hermes/agent-skills",
   "futureAgentCandidates": [],
@@ -108,6 +108,7 @@
     "creative-canvas-ops",
     "book-studio-ops",
     "browser-agent",
+    "cursor-agent",
     "youtube-studio-ops",
     "conversations-runtime",
     "life-os-ops",
@@ -1442,6 +1443,23 @@
       "syncTarget": "vps",
       "pack": "pib-system-skills",
       "packTier": "core"
+    },
+    "cursor-agent": {
+      "ownerAgentId": "theo",
+      "allowedAgentIds": [
+        "data",
+        "docs",
+        "maya",
+        "people",
+        "pip",
+        "qa-release",
+        "sage",
+        "seo",
+        "support",
+        "theo"
+      ],
+      "riskLevel": "high",
+      "syncTarget": "vps"
     }
   },
   "agents": {
@@ -1470,7 +1488,8 @@
         "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
-        "chat-surface-gather"
+        "chat-surface-gather",
+        "cursor-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1492,7 +1511,8 @@
         "agent-skill-drift-gather",
         "approval-queue-gather",
         "ceo-on-demand-gather",
-        "chat-surface-gather"
+        "chat-surface-gather",
+        "cursor-agent"
       ],
       "globalSkills": [
         "autonomous-ai-agents/hermes-agent"
@@ -1558,7 +1578,8 @@
         "interactive-project-planning",
         "browser-agent",
         "properties",
-        "client-documents"
+        "client-documents",
+        "cursor-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1587,7 +1608,8 @@
         "agent-skills/planning-and-task-breakdown",
         "agent-skills/using-agent-skills",
         "agent-skills/interview-me",
-        "agent-skills/context-engineering"
+        "agent-skills/context-engineering",
+        "cursor-agent"
       ],
       "globalSkills": [
         "autonomous-ai-agents/codex",
@@ -1664,7 +1686,8 @@
         "impeccable-design-discipline",
         "research-intelligence",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1687,7 +1710,8 @@
         "research-intelligence",
         "research/last30days",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "higgsfield-generate",
@@ -1755,7 +1779,8 @@
         "studio-context-gather",
         "interactive-project-planning",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -1769,7 +1794,8 @@
         "studio-context-gather",
         "interactive-project-planning",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "note-taking/obsidian",
@@ -1987,7 +2013,8 @@
         "docs-lead",
         "evidence-ledger",
         "google-workspace",
-        "project-management"
+        "project-management",
+        "cursor-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2004,7 +2031,8 @@
         "docs-lead",
         "evidence-ledger",
         "google-workspace",
-        "project-management"
+        "project-management",
+        "cursor-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace",
@@ -2140,7 +2168,8 @@
         "impeccable-design-discipline",
         "platform-ops",
         "interactive-project-planning",
-        "browser-agent"
+        "browser-agent",
+        "cursor-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2158,7 +2187,8 @@
         "browser-agent",
         "software-development/requesting-code-review",
         "software-development/code-review",
-        "software-development/systematic-debugging"
+        "software-development/systematic-debugging",
+        "cursor-agent"
       ],
       "globalSkills": [
         "autonomous-ai-agents/hermes-agent",
@@ -2220,7 +2250,8 @@
         "client-manager",
         "crm-sales",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2232,7 +2263,8 @@
         "client-manager",
         "crm-sales",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace"
@@ -2291,7 +2323,8 @@
         "reports",
         "research-intelligence",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2304,7 +2337,8 @@
         "reports",
         "research-intelligence",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace",
@@ -2362,7 +2396,8 @@
         "interactive-project-planning",
         "impeccable-design-discipline",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2379,7 +2414,8 @@
         "interactive-project-planning",
         "impeccable-design-discipline",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace",
@@ -2435,7 +2471,8 @@
         "geo-seo-service",
         "research-intelligence",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "runtimeSkills": [
         "system-auth",
@@ -2449,7 +2486,8 @@
         "research-intelligence",
         "research/last30days",
         "browser-agent",
-        "google-workspace"
+        "google-workspace",
+        "cursor-agent"
       ],
       "globalSkills": [
         "productivity/google-workspace",

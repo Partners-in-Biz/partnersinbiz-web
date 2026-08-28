@@ -1,7 +1,7 @@
 # Hermes Agent Skill Policy
 
-Current policy version: `2026-08-10.system-skills-v0.1.7`
-Catalog version: `2026-08-10.system-skills-v0.1.9`
+Current policy version: `2026-08-28.system-skills-v0.1.8`
+Catalog version: `2026-08-28.system-skills-v0.1.10`
 
 Partners in Biz now treats every agent skill as a cataloged, owned, versioned runtime capability. The platform team is 12 specialists:
 
