@@ -60,7 +60,16 @@ beforeEach(() => {
   mockOrderBy.mockReturnValue(orderByChain)
   const whereChain = { orderBy: mockOrderBy, get: mockFallbackGet }
   mockWhere.mockReturnValue(whereChain)
-  mockCollection.mockReturnValue({ where: mockWhere })
+  mockCollection.mockImplementation((name: string) => {
+    if (name === 'orgMembers' || name === 'organizations') {
+      return {
+        doc: jest.fn(() => ({
+          get: jest.fn().mockResolvedValue({ exists: false, data: () => undefined }),
+        })),
+      }
+    }
+    return { where: mockWhere }
+  })
 })
 
 describe('GET /api/v1/client-documents/[id]/access-log', () => {

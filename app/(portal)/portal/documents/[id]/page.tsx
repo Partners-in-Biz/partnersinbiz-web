@@ -42,6 +42,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
+function isClientDocument(value: unknown): value is ClientDocument {
+  if (!isRecord(value)) return false
+  if (typeof value.id !== 'string' || !value.id.trim()) return false
+  if (typeof value.status !== 'string') return false
+  if (typeof value.currentVersionId !== 'string') return false
+  if (!isRecord(value.clientPermissions)) return false
+  if (typeof value.clientPermissions.canComment !== 'boolean') return false
+  if (typeof value.clientPermissions.canApprove !== 'boolean') return false
+  return true
+}
+
 function canReviewApprovalFromPortalBody(body: Record<string, unknown>) {
   const org = isRecord(body.org) ? body.org : isRecord(body.data) && isRecord(body.data.org) ? body.data.org : {}
   const user = isRecord(body.user) ? body.user : isRecord(body.data) && isRecord(body.data.user) ? body.data.user : {}
@@ -122,16 +133,15 @@ export default function PortalDocumentDetail({ params }: Props) {
       const docData = await docRes.json()
       const versionsData = await versionsRes.json()
       const payload = docData.data
-      if (!isRecord(payload) || typeof payload.id !== 'string') {
+      if (!isClientDocument(payload)) {
         setDoc(null)
         setVersion(null)
         return
       }
-      const document = payload as ClientDocument
-      setDoc(document)
+      setDoc(payload)
       const versions: ClientDocumentVersion[] = versionsData.data ?? []
       const current =
-        versions.find((v) => v.id === document.currentVersionId) ??
+        versions.find((v) => v.id === payload.currentVersionId) ??
         versions.find((v) => v.status === 'published') ??
         versions[versions.length - 1] ??
         null
@@ -166,18 +176,17 @@ export default function PortalDocumentDetail({ params }: Props) {
         const versionsData = await versionsRes.json()
         const commentsData = commentsRes.ok ? await commentsRes.json() : { data: [] }
         const payload = docData.data
-        if (!isRecord(payload) || typeof payload.id !== 'string') {
+        if (!isClientDocument(payload)) {
           setDoc(null)
           setVersion(null)
           return
         }
-        const document = payload as ClientDocument
-        setDoc(document)
+        setDoc(payload)
         setComments((commentsData.data ?? []) as DocumentComment[])
 
         const versions: ClientDocumentVersion[] = versionsData.data ?? []
         const current =
-          versions.find((v) => v.id === document.currentVersionId) ??
+          versions.find((v) => v.id === payload.currentVersionId) ??
           versions.find((v) => v.status === 'published') ??
           versions[versions.length - 1] ??
           null
@@ -602,8 +611,9 @@ export default function PortalDocumentDetail({ params }: Props) {
               <span className="text-sm">I have read and agree to the terms above</span>
             </label>
             <div className="space-y-1">
-              <label className="pib-label">Type your full name to confirm</label>
+              <label className="pib-label" htmlFor="portal-document-accept-name">Type your full name to confirm</label>
               <input
+                id="portal-document-accept-name"
                 type="text"
                 value={typedName}
                 onChange={(e) => setTypedName(e.target.value)}
