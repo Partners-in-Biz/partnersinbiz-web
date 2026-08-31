@@ -219,4 +219,106 @@ describe('portal document detail scoped routing', () => {
     )
     expect(screen.queryByRole('link', { name: 'arrow_back Back to Documents' })).not.toBeInTheDocument()
   })
+
+  it('treats a 403 document GET as not-found instead of flattening the error payload', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'client-org',
+      orgSlug: 'saaiman-stays',
+    })
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith('/api/v1/client-documents/doc-pib')) {
+        return Promise.resolve({
+          ok: false,
+          status: 403,
+          json: async () => ({ error: 'Document grant does not permit this action' }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/org?orgId=client-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            org: { id: 'client-org', name: 'Saaiman Stays', modulePolicies: {} },
+            user: { role: 'client', memberRole: 'member' },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    await act(async () => {
+      render(<PortalDocumentDetail params={Promise.resolve({ id: 'doc-pib' })} />)
+    })
+
+    expect(await screen.findByText('Document not found.')).toBeInTheDocument()
+    expect(screen.queryByText('Document rendered')).not.toBeInTheDocument()
+  })
+
+  it('renders a pib-platform-owner document linked to the active client org', async () => {
+    mockSearchParams = new URLSearchParams({
+      orgId: 'client-org',
+      orgSlug: 'saaiman-stays',
+    })
+    global.fetch = jest.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url === '/api/v1/client-documents/doc-pib?orgId=client-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              id: 'doc-pib',
+              orgId: 'pib-platform-owner',
+              title: 'Saaiman proposal',
+              type: 'sales_proposal',
+              status: 'client_review',
+              currentVersionId: 'version-1',
+              approvalMode: 'none',
+              linked: { clientOrgId: 'client-org' },
+              clientPermissions: {
+                canComment: false,
+                canApprove: true,
+              },
+            },
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/client-documents/doc-pib/versions?orgId=client-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [{ id: 'version-1', documentId: 'doc-pib', status: 'published', blocks: [] }],
+          }),
+        } as Response)
+      }
+      if (url === '/api/v1/client-documents/doc-pib/comments?orgId=client-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response)
+      }
+      if (url === '/api/v1/client-documents/doc-pib/access-log?orgId=client-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { events: [] } }),
+        } as Response)
+      }
+      if (url === '/api/v1/portal/org?orgId=client-org') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            org: { id: 'client-org', name: 'Saaiman Stays', modulePolicies: {} },
+            user: { role: 'client', memberRole: 'member' },
+          }),
+        } as Response)
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
+    }) as jest.Mock
+
+    await act(async () => {
+      render(<PortalDocumentDetail params={Promise.resolve({ id: 'doc-pib' })} />)
+    })
+
+    expect(await screen.findByText('Document rendered')).toBeInTheDocument()
+    expect(screen.queryByText('Document not found.')).not.toBeInTheDocument()
+  })
 })

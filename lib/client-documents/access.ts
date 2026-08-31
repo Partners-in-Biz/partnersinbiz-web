@@ -242,9 +242,11 @@ export async function getAccessibleClientDocument(
     return { ok: true as const, document }
   }
 
-  if (user.role !== 'client') {
-    const access = assertClientDocumentActionAccess(document, user, action)
-    if (!access.ok) return access
+  // Clients use the same list-equivalent gate as staff: linked client-visible
+  // docs and active named shares. Partner-link grants are a fallback only.
+  // Public share tokens are never consulted on this authenticated path.
+  const access = assertClientDocumentActionAccess(document, user, action)
+  if (access.ok) {
     return { ok: true as const, document }
   }
 
@@ -252,7 +254,7 @@ export async function getAccessibleClientDocument(
     return { ok: true as const, document }
   }
 
-  return { ok: false as const, response: apiError('Document grant does not permit this action', 403) }
+  return { ok: false as const, response: access.response }
 }
 
 export function isClientVisibleClientDocument(document: Pick<ClientDocument, 'status'>): boolean {

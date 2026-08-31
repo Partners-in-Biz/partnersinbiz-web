@@ -834,6 +834,76 @@ describe('client documents API', () => {
     expect(res.status).toBe(200)
   })
 
+  it('blocks clients from platform-owned documents linked to a different client org', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        title: 'Other client proposal',
+        status: 'client_review',
+        linked: { clientOrgId: 'other-org' },
+        deleted: false,
+      }),
+    })
+
+    const { GET } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1')
+    const res = await GET(req, linkedClientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(403)
+  })
+
+  it('allows owner-org staff to GET a platform-owned document by id', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        title: 'Platform held proposal',
+        status: 'internal_draft',
+        linked: { clientOrgId: 'client-org' },
+        deleted: false,
+      }),
+    })
+
+    const platformStaff = {
+      uid: 'pib-staff',
+      role: 'admin' as const,
+      orgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner'],
+    }
+    const { GET } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1')
+    const res = await GET(req, platformStaff, { params: Promise.resolve({ id: 'doc-1' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data).toMatchObject({ id: 'doc-1', orgId: 'pib-platform-owner' })
+  })
+
+  it('does not grant authenticated portal GET via a public share token', async () => {
+    mockDocGet.mockResolvedValueOnce({
+      exists: true,
+      id: 'doc-1',
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        title: 'Publicly shared proposal',
+        status: 'client_review',
+        shareToken: 'public-share-token',
+        shareEnabled: true,
+        linked: { clientOrgId: 'other-org' },
+        deleted: false,
+      }),
+    })
+
+    const { GET } = await import('@/app/api/v1/client-documents/[id]/route')
+    const req = new NextRequest('http://localhost/api/v1/client-documents/doc-1')
+    const res = await GET(req, linkedClientUser, { params: Promise.resolve({ id: 'doc-1' }) })
+
+    expect(res.status).toBe(403)
+  })
+
   it('blocks clients from standalone internal documents', async () => {
     mockDocGet.mockResolvedValueOnce({
       exists: true,
