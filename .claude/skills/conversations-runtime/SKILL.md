@@ -46,7 +46,7 @@ Interactive Hermes runs use the **user-delegation** token injected by Messages /
 
 ### Human message → agent dispatch
 1. `POST /conversations/[convId]/messages` with `{ content, ... }` as the human user session.
-2. Platform mints a short-lived `pib_dlg_*` token and injects it into the Hermes prompt.
+2. Platform mints a **fresh** short-lived `pib_dlg_*` token on every human-triggered turn and injects it into the Hermes prompt. Do not reuse a stale token from conversation history. Mailbox 401/403 with delegation-evidence is reminted once in-run; never ask the human to remint via chat.
 3. Read back assistant message status via `GET .../messages` — do not invent run outcomes.
 
 ### Agent append without re-dispatch

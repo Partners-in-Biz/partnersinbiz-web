@@ -104,6 +104,26 @@ describe('user delegation auth', () => {
     expect(mockDelegationUpdate).toHaveBeenCalledWith(expect.objectContaining({ lastUsedAt: expect.anything() }))
   })
 
+  it('narrows a stored memberAccessPolicy onto the resolved user and drops garbage', async () => {
+    const rawToken = 'pib_dlg_valid-delegation-secret'
+    const policy = {
+      preset: 'full',
+      modules: { crm: true },
+      recordScopes: { crm: 'all' },
+      agentRuntimeAccess: {},
+      allowPersonalLlmOnOrgVps: false,
+      capabilities: { invoices: true, quotes: true },
+    }
+    mockDelegationDocs = [delegationDoc(rawToken, { memberAccessPolicy: policy })]
+    const { resolveDelegationTokenUser } = await import('@/lib/api/delegations')
+    const user = await resolveDelegationTokenUser(rawToken)
+    expect(user?.memberAccessPolicy).toEqual(policy)
+
+    mockDelegationDocs = [delegationDoc(rawToken, { memberAccessPolicy: { leftover: true } })]
+    const dropped = await resolveDelegationTokenUser(rawToken)
+    expect(dropped?.memberAccessPolicy).toBeUndefined()
+  })
+
   it('rejects expired or revoked delegation tokens', async () => {
     const rawToken = 'pib_dlg_expired'
     mockDelegationDocs = [delegationDoc(rawToken, { expiresAt: '2020-01-01T00:00:00.000Z' })]

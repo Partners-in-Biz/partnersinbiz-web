@@ -43,6 +43,9 @@ describe('buildMailboxContextPromptBlock', () => {
     expect(block).toContain('conversationId=conv-1')
     expect(block).toContain('responseMessageId=assistant-1')
     expect(block).toContain('NEVER paste a full email as chat-only')
+    expect(block).toContain('mailbox call failed')
+    expect(block).not.toMatch(/re-send a message to mint a token/i)
+    expect(block).not.toMatch(/send any chat message to (re)?mint/i)
   })
 
   it('reports none when no connected accounts exist but still requires email canvas drafts', () => {

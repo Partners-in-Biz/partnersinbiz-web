@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { withAuth } from '@/lib/api/auth'
+import { withMailboxAuth } from '@/lib/mailbox/mailboxAuth'
 import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
 import { createAgentMailboxDraft } from '@/lib/mailbox/agentEmail'
 import {
@@ -11,7 +11,7 @@ import { agentMailboxActorFromUser, agentMailboxContextFromBody, authorizeAgentM
 export const dynamic = 'force-dynamic'
 
 
-export const POST = withAuth('client', async (req: NextRequest, user) => {
+export const POST = withMailboxAuth('client', async (req: NextRequest, user) => {
   try {
     const body = await req.json().catch(() => ({})) as Record<string, unknown>
     const ctx = agentMailboxContextFromBody(body, user)
