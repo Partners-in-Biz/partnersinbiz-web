@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server'
-import { withAuth } from '@/lib/api/auth'
+import { withMailboxAuth } from '@/lib/mailbox/mailboxAuth'
 import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
 import { listAgentMailboxAccounts } from '@/lib/mailbox/agentEmail'
 import { agentMailboxActorFromUser, agentMailboxContextFromRequest, authorizeAgentMailboxRequest } from '../_shared'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = withAuth('client', async (req: NextRequest, user) => {
+export const GET = withMailboxAuth('client', async (req: NextRequest, user) => {
   try {
     const ctx = agentMailboxContextFromRequest(req, user)
     if (!ctx.orgId) return apiError('orgId is required', 400)

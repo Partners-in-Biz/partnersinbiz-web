@@ -19,7 +19,7 @@ describe('prompt budget and intent profiles', () => {
   it('keeps a normal status question read-only and gates costly contexts', () => {
     const intent = classifyMessagesPromptIntent({ content: 'What is the status of the project?' })
     expect(intent.profile).toBe('read_only')
-    expect(intent.needsDelegation).toBe(false)
+    expect(intent.needsDelegation).toBe(true)
     expect(intent.needsCanvas).toBe(false)
     expect(intent.needsMailbox).toBe(false)
   })

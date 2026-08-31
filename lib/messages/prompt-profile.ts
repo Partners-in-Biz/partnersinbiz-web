@@ -42,8 +42,8 @@ export function classifyMessagesPromptIntent(input: {
     needsCeoDecisionRules: DECISION.test(value),
     needsProjectOrchestration: Boolean(input.hasProject) && profile !== 'read_only',
     needsWorkspaceWriteContext,
-    // Internal draft records (email/document/canvas) still need a user-bound API
-    // delegation, but plain read-only chat does not receive one.
-    needsDelegation: profile !== 'read_only',
+    // Every human-triggered Messages turn mints a fresh user-delegation token.
+    // Mailbox and other /api/v1/* calls must not reuse a stale pib_dlg_.
+    needsDelegation: true,
   }
 }

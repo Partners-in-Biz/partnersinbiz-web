@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { withAuth } from '@/lib/api/auth'
+import { withMailboxAuth } from '@/lib/mailbox/mailboxAuth'
 import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
 import { getAgentMailboxMessage } from '@/lib/mailbox/agentEmail'
 import { agentMailboxActorFromUser, agentMailboxContextFromRequest, authorizeAgentMailboxRequest } from '../../_shared'
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-export const GET = withAuth('client', async (req: NextRequest, user, context) => {
+export const GET = withMailboxAuth('client', async (req: NextRequest, user, context) => {
   try {
     const { id: messageId } = await (context as RouteContext).params
     if (!messageId?.trim()) return apiError('message id is required', 400)

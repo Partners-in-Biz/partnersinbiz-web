@@ -81,7 +81,7 @@ For every profile, create `/etc/hermes/profiles/<profile>.env` from `docs/deploy
 Example for `i-am-ballito`:
 
 ```bash
-sudo install -m 600 -o root -g root docs/deploy/hermes-profile.env.example /etc/hermes/profiles/i-am-ballito.env
+sudo install -m 640 -o root -g hermes docs/deploy/hermes-profile.env.example /etc/hermes/profiles/i-am-ballito.env
 sudoedit /etc/hermes/profiles/i-am-ballito.env
 ```
 

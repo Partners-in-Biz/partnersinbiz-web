@@ -163,6 +163,25 @@ describe('context-compression', () => {
       expect(block).toContain('assistant-10')
     })
 
+    it('redacts stale pib_dlg_ tokens so a cached conversation blob cannot reuse them', () => {
+      const messages = [
+        msg('m1', 'user', 'Please read the inbox'),
+        msg('m2', 'assistant', 'Authorization: Bearer pib_dlg_staleFromEarlierTurnABC123 and leftover pib_dlg_anotherOldToken99'),
+        msg('m3', 'user', 'now'),
+      ]
+      const block = buildConversationHistoryBlock(messages, 'm3', {
+        summary: 'Earlier auth used pib_dlg_compressedHistoryToken',
+        compressedThroughMessageId: 'missing',
+        keepTurns: 5,
+        createdAt: '2026-08-06T00:00:00.000Z',
+      })
+      expect(block).not.toContain('pib_dlg_staleFromEarlierTurnABC123')
+      expect(block).not.toContain('pib_dlg_anotherOldToken99')
+      expect(block).not.toContain('pib_dlg_compressedHistoryToken')
+      expect(block).toContain('pib_dlg_[redacted]')
+      expect(block).toContain('Authorization: Bearer [redacted]')
+    })
+
     it('keeps the whole thread when the cut is before everything', () => {
       const messages = conversation(4)
       const compression = {

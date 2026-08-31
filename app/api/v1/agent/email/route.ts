@@ -1,9 +1,9 @@
-import { withAuth } from '@/lib/api/auth'
+import { withMailboxAuth } from '@/lib/mailbox/mailboxAuth'
 import { apiSuccess } from '@/lib/api/response'
 
 export const dynamic = 'force-dynamic'
 
-export const GET = withAuth('client', async () => apiSuccess({
+export const GET = withMailboxAuth('client', async () => apiSuccess({
   toolset: 'agent-email',
   version: '2026-07-23.v3',
   scope: 'All operations require explicit orgId and uid/requestingUserId. Interactive Messages runs may authorize via the injected user-delegation Bearer token (self mailbox). Agent/system keys still need mailbox_agent_delegations or a scoped mailbox API-key permission.',

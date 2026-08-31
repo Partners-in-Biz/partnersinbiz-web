@@ -12,6 +12,8 @@
  * hermes-features slash handlers, run finalizer) use these.
  */
 
+import { redactDelegationSecretsFromText } from '@/lib/api/delegation-text'
+
 export const HISTORY_WINDOW = 30
 export const DEFAULT_COMPRESS_KEEP_TURNS = 5
 export const MAX_COMPRESS_KEEP_TURNS = 30
@@ -100,8 +102,8 @@ function messageAuthorLabel(message: CompressibleMessage): string {
 
 function normalizeHistoryContent(message: CompressibleMessage): string {
   const content = typeof message.content === 'string' ? message.content.trim() : ''
-  if (content) return content.replace(/\s+$/g, '')
-  if (message.error) return `[${message.status ?? 'failed'}: ${message.error}]`
+  if (content) return redactDelegationSecretsFromText(content.replace(/\s+$/g, ''))
+  if (message.error) return redactDelegationSecretsFromText(`[${message.status ?? 'failed'}: ${message.error}]`)
   if (message.attachments?.length) {
     return `[attachments: ${message.attachments.map((attachment) => attachment.name).join(', ')}]`
   }
@@ -248,7 +250,7 @@ export function buildConversationHistoryBlock(
   const summaryBlock = compression
     ? [
       `[Compressed earlier context — /compress here ${compression.keepTurns}${compression.focusTopic ? `, focus "${compression.focusTopic}"` : ''}]`,
-      compression.summary,
+      redactDelegationSecretsFromText(compression.summary),
       '',
     ]
     : []

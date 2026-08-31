@@ -28,9 +28,15 @@ SAFE_NAME = re.compile(r"^[A-Za-z0-9._-]+$")
 
 def _load_profile_key(profile: str) -> Optional[str]:
     env_file = ENV_ROOT / f"{profile}.env"
-    if not env_file.exists():
-        return None
-    for line in env_file.read_text().splitlines():
+    try:
+        if not env_file.exists():
+            return None
+        text = env_file.read_text(encoding="utf-8")
+    except OSError:
+        # chmod 600 root:root (or an ACL mask of ---) must not 500 Messages
+        # provisioning as a raw "Internal Server Error".
+        raise HTTPException(status_code=503, detail="profile env unreadable")
+    for line in text.splitlines():
         if line.startswith("API_SERVER_KEY="):
             return line.split("=", 1)[1].strip()
     return None

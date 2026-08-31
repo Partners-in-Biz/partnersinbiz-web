@@ -1,6 +1,6 @@
 # Hermes Knowledge Sidecar
 
-**Last updated:** 2026-07-09
+**Last updated:** 2026-08-31
 
 Partners exposes Obsidian-style Markdown knowledge in the web app through Pip's Hermes admin sidecar.
 
@@ -16,6 +16,14 @@ Partners exposes Obsidian-style Markdown knowledge in the web app through Pip's 
 - Public route shape: `https://hermes-api.partnersinbiz.online/profiles/pip/admin/knowledge`
 
 The sidecar endpoint is authenticated with the profile API key. The Next.js app does not store or expose that key in the browser; it calls `/api/v1/admin/knowledge`, which uses the existing encrypted `agent_team/pip` key via `callAgentPath`.
+
+## Profile env readability (Messages provision)
+
+`hermes-admin-sidecar` runs as `hermes` and reads `/etc/hermes/profiles/<profile>.env` on every `/admin/*` call, including `POST /admin/client-workspaces` (Messages company Cowork ensure).
+
+Required POSIX mode for **root-owned** platform env files: `root:hermes` `640`. Do **not** `chmod 600` those files after adding a `u:hermes:r` ACL — `chmod 600` zeros the ACL mask (`effective:---`) and the sidecar returns a raw `Internal Server Error`. That is the `VPS workspace provisioning failed: {"raw":"Internal Server Error"}` banner.
+
+`infra/hermes/hermes-perms-assert.sh` (15-minute timer on the VPS) re-asserts `root:hermes` `640` on root-owned `*.env` files. Unreadable env files must 503 `profile env unreadable`, not 500.
 
 ## Client Workspace provisioning route
 
