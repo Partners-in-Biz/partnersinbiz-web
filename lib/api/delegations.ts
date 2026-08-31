@@ -4,7 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import type { ApiRole, ApiUser } from '@/lib/api/types'
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import { adminDb } from '@/lib/firebase/admin'
-import { resolveMemberAccessPolicy } from '@/lib/orgMembers/access-policy'
+import { resolveMemberAccessPolicy, type MemberAccessPolicy } from '@/lib/orgMembers/access-policy'
 import {
   ORGANIZATION_MODULE_POLICY_KEYS,
   resolveOrganizationModulePolicies,
@@ -58,6 +58,24 @@ function cleanStringArray(value: unknown): string[] {
     .filter((item): item is string => typeof item === 'string')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isMemberAccessPolicy(value: unknown): value is MemberAccessPolicy {
+  if (!isRecord(value)) return false
+  return typeof value.preset === 'string'
+    && isRecord(value.modules)
+    && isRecord(value.recordScopes)
+    && isRecord(value.agentRuntimeAccess)
+    && typeof value.allowPersonalLlmOnOrgVps === 'boolean'
+    && isRecord(value.capabilities)
+}
+
+function memberAccessPolicyFromUnknown(value: unknown): MemberAccessPolicy | undefined {
+  return isMemberAccessPolicy(value) ? value : undefined
 }
 
 async function loadMemberAccessPolicy(uid: string, orgId: string) {
@@ -228,7 +246,7 @@ export function actingUserFromDelegationRecord(data: Record<string, unknown>): A
     activeOrgId: normalizeText(data.activeOrgId) || orgId,
     orgIds: orgIds.length > 0 ? orgIds : [orgId],
     allowedOrgIds: allowedOrgIds.length > 0 ? allowedOrgIds : undefined,
-    memberAccessPolicy: data.memberAccessPolicy as ApiUser['memberAccessPolicy'],
+    memberAccessPolicy: memberAccessPolicyFromUnknown(data.memberAccessPolicy),
   }
 }
 
@@ -303,7 +321,7 @@ export async function resolveDelegationTokenUser(rawToken: string): Promise<ApiU
       activeOrgId,
       orgIds: orgIds.length > 0 ? orgIds : (activeOrgId ? [activeOrgId] : undefined),
       allowedOrgIds: allowedOrgIds.length > 0 ? allowedOrgIds : undefined,
-      memberAccessPolicy: data.memberAccessPolicy ?? undefined,
+      memberAccessPolicy: memberAccessPolicyFromUnknown(data.memberAccessPolicy),
     }
   } catch {
     return null

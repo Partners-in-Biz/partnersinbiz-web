@@ -38,7 +38,7 @@ describe('fresh Messages turn delegation injector', () => {
     })
   })
 
-  it('mints a fresh pib_dlg_ at turn start and ignores a stale token from an earlier turn', async () => {
+  it('mints a fresh pib_dlg_ at turn start via the system-auth mint path', async () => {
     const { mintFreshMessagesTurnDelegation } = await import('@/lib/messages/turn-delegation')
 
     const minted = await mintFreshMessagesTurnDelegation({
@@ -46,7 +46,6 @@ describe('fresh Messages turn delegation injector', () => {
       orgId: 'org-1',
       agentId: 'pip',
       conversationId: 'conv-1',
-      staleTokenFromHistory: 'pib_dlg_stale_from_cached_blob',
     })
 
     expect(mockMintMessagesDispatchDelegation).toHaveBeenCalledTimes(1)
@@ -57,10 +56,9 @@ describe('fresh Messages turn delegation injector', () => {
       conversationId: 'conv-1',
     })
     expect(minted?.token).toBe('pib_dlg_fresh_turn_token')
-    expect(minted?.token).not.toBe('pib_dlg_stale_from_cached_blob')
   })
 
-  it('does not reuse a cached conversation blob token when mint fails', async () => {
+  it('returns null when mint fails instead of inventing a token', async () => {
     mockMintMessagesDispatchDelegation.mockResolvedValueOnce(null)
     const { mintFreshMessagesTurnDelegation } = await import('@/lib/messages/turn-delegation')
 
@@ -69,7 +67,6 @@ describe('fresh Messages turn delegation injector', () => {
       orgId: 'org-1',
       agentId: 'pip',
       conversationId: 'conv-1',
-      staleTokenFromHistory: 'pib_dlg_stale_from_cached_blob',
     })
 
     expect(minted).toBeNull()

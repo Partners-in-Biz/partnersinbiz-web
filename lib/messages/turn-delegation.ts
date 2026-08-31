@@ -14,10 +14,7 @@ export async function mintFreshMessagesTurnDelegation(input: {
   orgId: string
   agentId: string
   conversationId: string
-  /** Ignored — accepted only so callers cannot accidentally treat history tokens as live. */
-  staleTokenFromHistory?: string | null
 }): Promise<MintedDelegation | null> {
-  void input.staleTokenFromHistory
   return mintMessagesDispatchDelegation({
     user: input.user,
     orgId: input.orgId,
