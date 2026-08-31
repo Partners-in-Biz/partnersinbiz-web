@@ -114,9 +114,20 @@ export default function PortalDocumentDetail({ params }: Props) {
         fetch(documentEndpoint),
         fetch(documentVersionsEndpoint),
       ])
+      if (!docRes.ok || !versionsRes.ok) {
+        setDoc(null)
+        setVersion(null)
+        return
+      }
       const docData = await docRes.json()
       const versionsData = await versionsRes.json()
-      const document: ClientDocument = docData.data ?? docData
+      const payload = docData.data
+      if (!isRecord(payload) || typeof payload.id !== 'string') {
+        setDoc(null)
+        setVersion(null)
+        return
+      }
+      const document = payload as ClientDocument
       setDoc(document)
       const versions: ClientDocumentVersion[] = versionsData.data ?? []
       const current =
@@ -141,14 +152,26 @@ export default function PortalDocumentDetail({ params }: Props) {
           orgPolicyRequest,
         ])
 
-        const docData = await docRes.json()
-        const versionsData = await versionsRes.json()
-        const commentsData = await commentsRes.json()
         if (isRecord(orgPolicyBody)) {
           setCanReviewApproval(canReviewApprovalFromPortalBody(orgPolicyBody))
         }
 
-        const document: ClientDocument = docData.data ?? docData
+        if (!docRes.ok || !versionsRes.ok) {
+          setDoc(null)
+          setVersion(null)
+          return
+        }
+
+        const docData = await docRes.json()
+        const versionsData = await versionsRes.json()
+        const commentsData = commentsRes.ok ? await commentsRes.json() : { data: [] }
+        const payload = docData.data
+        if (!isRecord(payload) || typeof payload.id !== 'string') {
+          setDoc(null)
+          setVersion(null)
+          return
+        }
+        const document = payload as ClientDocument
         setDoc(document)
         setComments((commentsData.data ?? []) as DocumentComment[])
 
