@@ -12,10 +12,8 @@ import { getStorage } from 'firebase-admin/storage'
 import { adminDb, getAdminApp } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
-import {
-  buildDelegationAuthPromptBlock,
-  mintMessagesDispatchDelegation,
-} from '@/lib/api/delegations'
+import { buildDelegationAuthPromptBlock } from '@/lib/api/delegations'
+import { mintFreshMessagesTurnDelegation } from '@/lib/messages/turn-delegation'
 import { buildMailboxContextPromptBlock, listMailboxAccountsForUser } from '@/lib/mailbox/mailboxContext'
 import { buildDynamicChatCanvasPromptBlock } from '@/lib/messages/dynamicChatCanvasPrompt'
 import { apiSuccess, apiError } from '@/lib/api/response'
@@ -1269,16 +1267,14 @@ export const POST = withAuth(
           message: featuresErr instanceof Error ? featuresErr.message : String(featuresErr),
         })
       }
-      // Read-only conversations receive no delegated credential material. Execution
-      // runs retain the existing user-bound delegation contract.
-      const mintedDelegation = promptIntent.needsDelegation
-        ? await mintMessagesDispatchDelegation({
-          user,
-          orgId: conversation.orgId,
-          agentId,
-          conversationId: convId,
-        })
-        : null
+      // Every human-triggered Hermes turn gets a fresh pib_dlg_. Never reuse a
+      // stale token from an earlier turn or a cached Hermes conversation blob.
+      const mintedDelegation = await mintFreshMessagesTurnDelegation({
+        user,
+        orgId: conversation.orgId,
+        agentId,
+        conversationId: convId,
+      })
       const mailboxAccounts = promptIntent.needsMailbox
         ? await listMailboxAccountsForUser(conversation.orgId, user.uid).catch(() => [])
         : []

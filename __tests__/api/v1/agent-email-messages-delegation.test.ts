@@ -55,7 +55,14 @@ describe('GET /api/v1/agent/email/messages delegation guard', () => {
   })
 
   it('rejects legacy ai credentials that guess a uid without machine-checkable delegation evidence', async () => {
-    stageCollections({ mailbox_agent_delegations: [], mailbox_messages: [], mailbox_agent_tool_events: [] })
+    stageCollections({
+      mailbox_agent_delegations: [],
+      mailbox_messages: [],
+      mailbox_agent_tool_events: [],
+      mailbox_accounts: [],
+      agent_delegations: [],
+      api_keys: [],
+    })
 
     const res = await GET(makeReq('orgId=org-1&uid=user-1'))
 
@@ -75,6 +82,9 @@ describe('GET /api/v1/agent/email/messages delegation guard', () => {
         { id: 'msg-2', data: { orgId: 'org-1', uid: 'user-2', folder: 'inbox', from: 'other@example.com', subject: 'Secret', snippet: 'Secret' } },
       ],
       mailbox_agent_tool_events: audits,
+      mailbox_accounts: [],
+      agent_delegations: [],
+      api_keys: [],
     })
 
     const res = await GET(makeReq('orgId=org-1&uid=user-1&delegationEvidenceId=delegation-1'))

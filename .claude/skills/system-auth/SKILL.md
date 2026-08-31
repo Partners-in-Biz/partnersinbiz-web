@@ -58,7 +58,7 @@ X-Org-Id: <orgId>
 
 ### Messages dispatch (automatic)
 
-When a human sends a Messages chat that dispatches Hermes / linked-computer runs, the platform mints a short-lived delegation and injects:
+When a human sends a Messages chat that dispatches Hermes / linked-computer runs, the platform mints a **fresh** short-lived delegation on **every turn** (never reuse a stale `pib_dlg_` from an earlier turn or a cached conversation blob) and injects:
 
 ```
 [Partners in Biz API auth — user delegation]
@@ -67,6 +67,8 @@ X-Org-Id: <orgId>
 ```
 
 into the agent prompt. Prefer that injected Bearer token for all `/api/v1/*` calls in the run. Do not fall back to `AI_API_KEY`.
+
+If `/api/v1/agent/email/*` (or another mailbox route that requires delegation evidence) returns 401/403, the platform remints a fresh user-delegation token **once in the same run** and retries silently. Do not ask the human to send a chat message. If the mailbox call still fails, say the mailbox call failed and stop.
 
 **Rollout:** mint + Bearer resolution + Messages prompt injection are in `partnersinbiz-web` app code. Live after the app deployment that includes this change.
 
@@ -86,4 +88,4 @@ Tag writes with `createdByType: "system"` when the job is cron-originated.
 
 ## When access is denied
 
-Surface the exact API `error` string. Ask the human to grant access or switch org — do not retry with a more privileged key.
+Surface the exact API `error` string. Ask the human to grant access or switch org — do not retry with a more privileged key. Never instruct a chat remint ritual.

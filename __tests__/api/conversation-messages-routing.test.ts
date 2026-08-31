@@ -643,6 +643,44 @@ describe('unified conversation message routing', () => {
     expect(prompt).toContain('Create a clear, bounded, low-risk single task immediately')
   })
 
+  it('mints a fresh user-delegation token on every human-triggered Hermes turn including read-only chat', async () => {
+    mockMintMessagesDispatchDelegation.mockResolvedValue({
+      id: 'dlg-hello-1',
+      token: 'pib_dlg_fresh_hello_token',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      actingForUserId: 'client-1',
+      agentId: 'pip',
+      orgIds: ['pib-platform-owner'],
+      scopes: [],
+    })
+    mockGetConversation.mockResolvedValue({
+      id: 'conv-1',
+      orgId: 'pib-platform-owner',
+      participantUids: ['client-1'],
+      participantAgentIds: ['pip'],
+      participants: [
+        { kind: 'user', uid: 'client-1', role: 'client', displayName: 'Client User' },
+        { kind: 'agent', agentId: 'pip', name: 'Pip' },
+      ],
+    })
+    const { POST } = await import('@/app/api/v1/conversations/[convId]/messages/route')
+
+    const res = await POST(req({ content: 'Hello' }), { params: Promise.resolve({ convId: 'conv-1' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockMintMessagesDispatchDelegation).toHaveBeenCalledWith(expect.objectContaining({
+      user: expect.objectContaining({ uid: 'client-1', role: 'client' }),
+      orgId: 'pib-platform-owner',
+      agentId: 'pip',
+      conversationId: 'conv-1',
+    }))
+    const hermesArgs = mockCreateHermesRun.mock.calls[0][2]
+    expect(hermesArgs.prompt).toContain('Authorization: Bearer pib_dlg_fresh_hello_token')
+    expect(hermesArgs.prompt).toContain('Use ONLY the Bearer token in THIS block')
+    expect(hermesArgs.prompt).not.toMatch(/send any chat message to (re)?mint/i)
+    expect(hermesArgs.prompt).not.toMatch(/re-send a message to mint a token/i)
+  })
+
   it('mints a user-delegation token and injects it into the Hermes prompt + metadata', async () => {
     mockMintMessagesDispatchDelegation.mockResolvedValue({
       id: 'dlg-messages-1',

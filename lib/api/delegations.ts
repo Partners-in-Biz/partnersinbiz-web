@@ -13,6 +13,17 @@ import {
 import { resolveOrganizationPolicyRole } from '@/lib/organizations/module-policy-access'
 import type { OrgRole } from '@/lib/organizations/types'
 import { isActiveOrgMembershipRow } from '@/lib/linked-computers/policy'
+import {
+  CHAT_REMINT_RITUAL_PATTERNS,
+  containsChatRemintRitual,
+  redactDelegationSecretsFromText,
+} from '@/lib/api/delegation-text'
+
+export {
+  CHAT_REMINT_RITUAL_PATTERNS,
+  containsChatRemintRitual,
+  redactDelegationSecretsFromText,
+}
 
 const DELEGATION_COLLECTION = 'agent_delegations'
 const DELEGATION_PREFIX = 'pib_dlg_'
@@ -178,20 +189,92 @@ export async function mintAgentDelegation(input: {
   }
 }
 
-export async function resolveDelegationTokenUser(rawToken: string): Promise<ApiUser | null> {
+export async function lookupDelegationRecordByToken(rawToken: string): Promise<{
+  id: string
+  data: Record<string, unknown>
+  expired: boolean
+  revoked: boolean
+  ref: { update: (data: Record<string, unknown>) => Promise<unknown> }
+} | null> {
   if (!rawToken || !rawToken.startsWith(DELEGATION_PREFIX)) return null
   const tokenHash = createHash('sha256').update(rawToken).digest('hex')
   try {
     const snap = await adminDb.collection(DELEGATION_COLLECTION).where('tokenHash', '==', tokenHash).limit(1).get()
     if (snap.empty || snap.docs.length === 0) return null
     const doc = snap.docs[0]
-    const data = doc.data() ?? {}
-    if (normalizeText(data.status) !== 'active' || data.revokedAt) return null
+    const data = (doc.data() ?? {}) as Record<string, unknown>
+    const revoked = Boolean(data.revokedAt) || normalizeText(data.status) === 'revoked'
     const expiresAt = timestampToMillis(data.expiresAt)
-    if (expiresAt !== null && expiresAt <= Date.now()) return null
+    const expired = expiresAt !== null && expiresAt <= Date.now()
+    return { id: doc.id, data, expired, revoked, ref: doc.ref }
+  } catch {
+    return null
+  }
+}
+
+export function actingUserFromDelegationRecord(data: Record<string, unknown>): ApiUser | null {
+  const actingForUserId = normalizeText(data.actingForUserId)
+  const role = normalizeText(data.role)
+  const validRole: ApiRole = role === 'admin' || role === 'client' ? role : 'client'
+  const orgId = normalizeText(data.orgId)
+  if (!actingForUserId || !orgId) return null
+  const orgIds = cleanStringArray(data.orgIds)
+  const allowedOrgIds = cleanStringArray(data.allowedOrgIds)
+  return {
+    uid: actingForUserId,
+    role: validRole,
+    authKind: 'session',
+    orgId,
+    activeOrgId: normalizeText(data.activeOrgId) || orgId,
+    orgIds: orgIds.length > 0 ? orgIds : [orgId],
+    allowedOrgIds: allowedOrgIds.length > 0 ? allowedOrgIds : undefined,
+    memberAccessPolicy: data.memberAccessPolicy as ApiUser['memberAccessPolicy'],
+  }
+}
+
+/**
+ * Re-mint a Messages-purpose delegation from an expired (or otherwise unusable)
+ * pib_dlg_ token. Uses the same system-auth mint path. Never returns AI_API_KEY.
+ */
+export async function remintExpiredMessagesDelegation(rawToken: string): Promise<MintedDelegation | null> {
+  const record = await lookupDelegationRecordByToken(rawToken)
+  if (!record || record.revoked) return null
+  const purpose = normalizeText(record.data.purpose)
+  if (!purpose.startsWith('messages:')) return null
+  const user = actingUserFromDelegationRecord(record.data)
+  const agentId = normalizeText(record.data.agentId)
+  const orgId = normalizeText(record.data.orgId)
+  const conversationId = normalizeText(record.data.conversationId) || purpose.slice('messages:'.length)
+  if (!user || !agentId || !orgId) return null
+  try {
+    return await mintAgentDelegation({
+      user,
+      orgId,
+      agentId,
+      purpose,
+      conversationId,
+    })
+  } catch (error) {
+    console.error('[delegation-remint-messages-failed]', {
+      conversationId,
+      agentId,
+      orgId,
+      message: error instanceof Error ? error.message : String(error),
+    })
+    return null
+  }
+}
+
+export async function resolveDelegationTokenUser(rawToken: string): Promise<ApiUser | null> {
+  if (!rawToken || !rawToken.startsWith(DELEGATION_PREFIX)) return null
+  try {
+    const record = await lookupDelegationRecordByToken(rawToken)
+    if (!record) return null
+    const data = record.data
+    if (normalizeText(data.status) !== 'active' || record.revoked || record.expired) return null
 
     try {
-      await doc.ref.update({ lastUsedAt: FieldValue.serverTimestamp() })
+      await record.ref.update({ lastUsedAt: FieldValue.serverTimestamp() })
     } catch {
       // Non-fatal telemetry.
     }
@@ -213,7 +296,7 @@ export async function resolveDelegationTokenUser(rawToken: string): Promise<ApiU
       role: validRole,
       authKind: 'user_delegation',
       agentId,
-      delegationId: doc.id,
+      delegationId: record.id,
       actingForUserId,
       delegationScopes: scopes,
       orgId: orgId || undefined,
@@ -259,11 +342,14 @@ export function buildDelegationAuthPromptBlock(input: {
     `- X-Org-Id: ${input.orgId}`,
     `- API base: ${apiBase}`,
     `Token expires at ${input.expiresAt} (ISO). Do not reuse after expiry.`,
+    'Use ONLY the Bearer token in THIS block. Ignore any earlier pib_dlg_ value from conversation history or a cached Hermes conversation.',
     `Scopes for this delegation: ${scopeLine}`,
     ...mailboxLines,
     'Do not use AI_API_KEY, agent system keys, or invent credentials for PiB API calls in this run.',
     'Do not print the full Bearer token in client-visible replies; use it only in HTTP Authorization headers.',
-    'If a PiB API call returns 401/403, stop and report the exact error — do not fall back to another key.',
+    'If /api/v1/agent/email/* (or another mailbox route that requires delegation evidence) returns 401/403, the platform remints a fresh user-delegation token once in this run and retries. Do not ask the human to do anything.',
+    'If the mailbox call still fails after that silent remint, say the mailbox call failed and stop.',
+    'If a non-mailbox PiB API call returns 401/403, stop and report the exact error — do not fall back to another key.',
     '',
   ].join('\n')
 }

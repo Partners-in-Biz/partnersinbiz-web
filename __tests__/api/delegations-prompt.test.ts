@@ -22,6 +22,10 @@ describe('delegation prompt + messages mint helper', () => {
     expect(block).toContain('documents:create')
     expect(block).toContain('Do not use AI_API_KEY')
     expect(block).toContain('/api/v1/agent/email/*')
+    expect(block).toContain('Use ONLY the Bearer token in THIS block')
+    expect(block).toContain('mailbox call failed')
+    expect(block).not.toMatch(/re-send a message to mint a token/i)
+    expect(block).not.toMatch(/send any chat message to (re)?mint/i)
   })
 
   it('includes mailbox delegation evidence when provided', () => {

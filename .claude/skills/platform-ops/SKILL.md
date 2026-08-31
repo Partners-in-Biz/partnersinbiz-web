@@ -599,7 +599,7 @@ Agents should not treat mailbox messages as marketing broadcasts. Respect delega
 
 Messages injects a `[Mailbox connections]` block when the acting user has authenticated Google/SMTP accounts.
 
-1. If the prompt says `status: connected`, call `GET /agent/email/accounts` then `GET /agent/email/messages?summarize=true&q=...` with the injected `pib_dlg_…` Bearer token **before** asking the user to paste email content.
+1. If the prompt says `status: connected`, call `GET /agent/email/accounts` then `GET /agent/email/messages?summarize=true&q=...` with the injected `pib_dlg_…` Bearer token from **this turn** **before** asking the user to paste email content. Use only that token. If mailbox returns 401/403 with delegation-evidence, the platform remints once and retries silently — do not ask the human to send a chat message. If it still fails, say the mailbox call failed and stop. Never fall back to `AI_API_KEY`.
 2. Never claim you cannot access their email when the mailbox block shows a connected account — use `/agent/email/*`.
 3. Portal `/portal/email/*` is browser/session only. Hermes must use `/agent/email/*`.
 4. Message reads auto-refresh stale Google sync (≈5 min) and, when `q` is set, also run a **live Gmail search** that imports matches before filtering. Prefer short queries (`rs@ahslaw.co.za`, `Rikus Stander July 20`) — not full Gmail UI sentences.
