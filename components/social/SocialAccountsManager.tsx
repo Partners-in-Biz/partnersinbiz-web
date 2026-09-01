@@ -268,6 +268,7 @@ function PlatformCard({
   youtubeStudioLinks,
   onAdoptIntoYouTubeStudio,
   linkedinCmaEnabled,
+  companyId,
 }: {
   platform: string
   accounts: SocialAccount[]
@@ -280,12 +281,14 @@ function PlatformCard({
   youtubeStudioLinks: Record<string, string>
   onAdoptIntoYouTubeStudio?: (accountId: string) => void
   linkedinCmaEnabled: boolean
+  companyId?: string
 }) {
   const label = PLATFORM_LABELS[platform] ?? platform
   const oauthUrl = appendQueryParams(`/api/v1/social/oauth/${platform}`, {
     redirectUrl: redirectPath,
     scope: scope === 'personal' ? 'personal' : undefined,
     orgId,
+    companyId: scope === 'personal' ? undefined : companyId,
   })
   const linkedInPersonalUrl = appendQueryParams(oauthUrl, { linkedinMode: 'personal' })
   const linkedInOrganizationUrl = appendQueryParams(oauthUrl, { linkedinMode: 'organization' })
@@ -301,7 +304,7 @@ function PlatformCard({
             {accounts.length} connected{defaultAccount ? ` · default: ${defaultAccount.displayName}` : ''}
           </p>
         </div>
-        {platform === 'linkedin' && scope === 'org' && linkedinCmaEnabled ? (
+        {platform === 'linkedin' && scope === 'org' ? (
           <a href={linkedInOrganizationUrl} className="btn-pib-secondary !px-3 !py-2 !text-xs">
             <span className="material-symbols-outlined text-base">business</span>
             Company page
@@ -508,11 +511,13 @@ function BlueskyForm({
   disabled,
   scope,
   orgId,
+  companyId,
 }: {
   onSuccess: () => void
   disabled: boolean
   scope: SocialScope
   orgId?: string | null
+  companyId?: string
 }) {
   const [handle, setHandle] = useState('')
   const [appPassword, setAppPassword] = useState('')
@@ -529,6 +534,7 @@ function BlueskyForm({
       const res = await fetch(appendQueryParams('/api/v1/social/accounts', {
         scope: scope === 'personal' ? 'personal' : undefined,
         orgId,
+        companyId: scope === 'personal' ? undefined : companyId,
       }), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -605,6 +611,9 @@ export default function SocialAccountsManager({
   const router = useRouter()
   const searchParams = useSearchParams()
   const { orgId: resolvedOrgId, resolving: resolvingOrgId } = useResolvedPortalOrgId(orgId)
+  const workspaceCompanyId = scope === 'personal'
+    ? ''
+    : (searchParams.get('companyId') || searchParams.get('sourceCompanyId') || '').trim()
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
@@ -619,7 +628,8 @@ export default function SocialAccountsManager({
   const socialApiPath = useCallback((path: string) => appendQueryParams(path, {
     scope: scope === 'personal' ? 'personal' : undefined,
     orgId: resolvedOrgId,
-  }), [resolvedOrgId, scope])
+    companyId: scope === 'personal' ? undefined : workspaceCompanyId || undefined,
+  }), [resolvedOrgId, scope, workspaceCompanyId])
   const tenantApiPath = useCallback((path: string) => appendQueryParams(path, { orgId: resolvedOrgId }), [resolvedOrgId])
 
   const fetchAccounts = useCallback(async () => {
@@ -942,6 +952,7 @@ export default function SocialAccountsManager({
                 youtubeStudioLinks={youtubeStudioLinks}
                 onAdoptIntoYouTubeStudio={scope === 'personal' ? undefined : adoptIntoYouTubeStudio}
                 linkedinCmaEnabled={linkedinCmaEnabled}
+                companyId={workspaceCompanyId || undefined}
               />
             ))}
           </div>
@@ -969,15 +980,16 @@ export default function SocialAccountsManager({
                   redirectUrl: basePath,
                   scope: scope === 'personal' ? 'personal' : undefined,
                   orgId: resolvedOrgId,
+                  companyId: scope === 'personal' ? undefined : workspaceCompanyId || undefined,
                   linkedinMode: platform === 'linkedin'
-                    ? (isPersonalScope || !linkedinCmaEnabled ? 'personal' : 'organization')
+                    ? (isPersonalScope ? 'personal' : 'organization')
                     : undefined,
                 })}
                 className="pib-card pib-card-hover flex items-center gap-3 p-4"
               >
                 <PlatformBadge platformId={platform} />
                 <span className="min-w-0 flex-1 text-sm font-semibold text-[var(--color-pib-text)]">
-                  Connect {platform === 'linkedin' && !isPersonalScope && linkedinCmaEnabled ? 'LinkedIn company page' : (PLATFORM_LABELS[platform] ?? platform)}
+                  Connect {platform === 'linkedin' && !isPersonalScope ? 'LinkedIn company page' : (PLATFORM_LABELS[platform] ?? platform)}
                 </span>
                 <span className="material-symbols-outlined text-base text-[var(--color-pib-text-muted)]">arrow_forward</span>
               </a>
@@ -990,7 +1002,7 @@ export default function SocialAccountsManager({
         )}
 
         {!connectedPlatformIds.has('bluesky') && (
-          <BlueskyForm onSuccess={fetchAccounts} disabled={loading} scope={scope} orgId={resolvedOrgId} />
+          <BlueskyForm onSuccess={fetchAccounts} disabled={loading} scope={scope} orgId={resolvedOrgId} companyId={workspaceCompanyId || undefined} />
         )}
       </section>
     </div>

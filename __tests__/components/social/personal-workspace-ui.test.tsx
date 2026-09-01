@@ -264,18 +264,15 @@ describe('personal workspace social UI', () => {
     })
   })
 
-  it('hides the LinkedIn company-page picker when CMA is off', async () => {
+  it('offers LinkedIn company page on the company connect path', async () => {
     render(<SocialAccountsManager />)
 
-    const connectLinkedIn = await screen.findByRole('link', { name: /connect linkedin/i })
+    const connectLinkedIn = await screen.findByRole('link', { name: /connect linkedin company page/i })
     expect(connectLinkedIn).toHaveAttribute(
       'href',
-      '/api/v1/social/oauth/linkedin?redirectUrl=%2Fportal%2Fsocial%2Faccounts&orgId=org-1&linkedinMode=personal',
+      '/api/v1/social/oauth/linkedin?redirectUrl=%2Fportal%2Fsocial%2Faccounts&orgId=org-1&linkedinMode=organization',
     )
-    expect(connectLinkedIn.textContent).toMatch(/Connect LinkedIn/)
-    expect(connectLinkedIn.textContent).not.toMatch(/company page/i)
-    expect(screen.queryByRole('link', { name: /linkedin company page/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /company page/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /^personal$/i })).not.toBeInTheDocument()
   })
 
   it('offers LinkedIn company page on the company connect path when CMA is on', async () => {

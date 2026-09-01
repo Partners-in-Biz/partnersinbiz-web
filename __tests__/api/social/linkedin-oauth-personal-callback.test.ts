@@ -151,12 +151,32 @@ describe('LinkedIn OAuth callback personal persist', () => {
     else process.env.LINKEDIN_CLIENT_SECRET = envSnapshot.LINKEDIN_CLIENT_SECRET
   })
 
-  it('upserts a personal LinkedIn account when org scopes are missing or denied', async () => {
+  it('refuses to persist a LinkedIn person profile onto organisation social', async () => {
     mockLinkedInFetch({ tokenScope: 'w_member_social openid profile', orgAclsStatus: 403 })
     const { GET } = await import('@/app/api/v1/social/oauth/[platform]/callback/route')
 
     const res = await GET(new NextRequest(
       `http://localhost/api/v1/social/oauth/linkedin/callback?code=abc&state=${encodeState()}`,
+    ))
+
+    expect(mockAccountsAdd).not.toHaveBeenCalled()
+    expect(mockPendingSet).not.toHaveBeenCalled()
+    const location = new URL(res.headers.get('location') ?? '', 'http://localhost')
+    expect(location.pathname).toBe('/portal/social/accounts')
+    expect(location.searchParams.get('status')).toBe('error')
+    expect(location.searchParams.get('message')).toMatch(/company pages/i)
+  })
+
+  it('upserts a personal LinkedIn account on the personal marketing path', async () => {
+    mockLinkedInFetch({ tokenScope: 'w_member_social openid profile', orgAclsStatus: 403 })
+    const { GET } = await import('@/app/api/v1/social/oauth/[platform]/callback/route')
+
+    const res = await GET(new NextRequest(
+      `http://localhost/api/v1/social/oauth/linkedin/callback?code=abc&state=${encodeState({
+        accountScope: 'personal',
+        linkedinMode: 'personal',
+        redirectUrl: '/portal/personal/social/accounts',
+      })}`,
     ))
 
     expect(mockAccountsAdd).toHaveBeenCalledWith(expect.objectContaining({
@@ -166,17 +186,15 @@ describe('LinkedIn OAuth callback personal persist', () => {
       displayName: 'Peet Stander',
       accountType: 'personal',
       status: 'active',
-      accountScope: 'org',
+      accountScope: 'personal',
+      ownerUid: 'user-1',
     }))
-    expect(mockPendingSet).not.toHaveBeenCalled()
     const location = new URL(res.headers.get('location') ?? '', 'http://localhost')
-    expect(location.pathname).toBe('/portal/social/accounts')
+    expect(location.pathname).toBe('/portal/personal/social/accounts')
     expect(location.searchParams.get('status')).toBe('success')
-    expect(location.searchParams.get('account')).toBe('li-personal-1')
-    expect(location.searchParams.get('picker')).toBeNull()
   })
 
-  it('shows the company-page picker when CMA is on and pages are available', async () => {
+  it('connects a LinkedIn company page on organisation OAuth when a page is available', async () => {
     process.env.LINKEDIN_CMA_ENABLED = 'true'
     mockLinkedInFetch({
       tokenScope: 'rw_organization_admin w_organization_social',
@@ -189,13 +207,17 @@ describe('LinkedIn OAuth callback personal persist', () => {
       `http://localhost/api/v1/social/oauth/linkedin/callback?code=abc&state=${encodeState({ linkedinMode: 'organization' })}`,
     ))
 
-    expect(mockPendingSet).toHaveBeenCalled()
-    const pending = mockPendingSet.mock.calls[0]?.[0] as { options: Array<{ accountType: string; displayName: string }> }
-    expect(pending.options.some((option) => option.accountType === 'page' && option.displayName === 'Partners in Biz')).toBe(true)
-    expect(mockAccountsAdd).not.toHaveBeenCalled()
+    expect(mockPendingSet).not.toHaveBeenCalled()
+    expect(mockAccountsAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org-1',
+      platform: 'linkedin',
+      displayName: 'Partners in Biz',
+      accountType: 'page',
+      accountScope: 'org',
+    }))
     const location = new URL(res.headers.get('location') ?? '', 'http://localhost')
     expect(location.pathname).toBe('/portal/social/accounts')
-    expect(location.searchParams.get('picker')).toBe('nonce-1')
-    expect(location.searchParams.get('platform')).toBe('linkedin')
+    expect(location.searchParams.get('status')).toBe('success')
+    expect(location.searchParams.get('picker')).toBeNull()
   })
 })

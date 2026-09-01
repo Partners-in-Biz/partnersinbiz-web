@@ -15,7 +15,6 @@ import { adminDb } from '@/lib/firebase/admin'
 import { getOAuthConfig, getClientCredentials, getCallbackUrl } from '@/lib/social/oauth-config'
 import { sanitizeOAuthRedirectPath } from '@/lib/social/oauth-redirect'
 import type { LinkedInOAuthMode } from '@/lib/social/oauth-config'
-import { isLinkedInCmaEnabled } from '@/lib/social/linkedin-cma'
 import type { SocialPlatformType } from '@/lib/social/providers/types'
 import { Timestamp } from 'firebase-admin/firestore'
 
@@ -40,16 +39,13 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
   const oauthOrgId = resolveOAuthOrgId(req, user, orgId, redirectUrl)
   const accountScope = url.searchParams.get('scope') === PERSONAL_SCOPE ? PERSONAL_SCOPE : 'org'
   const requestedLinkedInMode = url.searchParams.get('linkedinMode')
+  const companyId = url.searchParams.get('companyId')?.trim() || url.searchParams.get('sourceCompanyId')?.trim() || ''
   const linkedinMode: LinkedInOAuthMode =
     platform !== 'linkedin'
       ? 'personal'
-      : !isLinkedInCmaEnabled()
+      : requestedLinkedInMode === 'personal' || accountScope === PERSONAL_SCOPE
         ? 'personal'
-        : requestedLinkedInMode === 'personal'
-          ? 'personal'
-          : requestedLinkedInMode === 'organization' || accountScope === 'org'
-            ? 'organization'
-            : 'personal'
+        : 'organization'
   const feature = url.searchParams.get('feature') === 'youtube_studio' ? 'youtube_studio' : undefined
   const rawPrompt = url.searchParams.get('prompt')
   const requestedPrompt = rawPrompt === 'select_account' || rawPrompt === 'consent' ? rawPrompt : undefined
@@ -81,6 +77,7 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
     redirectUrl,
     accountScope,
     ownerUid: user.uid,
+    ...(companyId && accountScope !== PERSONAL_SCOPE ? { companyId } : {}),
     ...(platform === 'linkedin' ? { linkedinMode } : {}),
     ...(feature ? { feature } : {}),
   }
@@ -100,6 +97,7 @@ export const GET = withAuth('client', withTenant(async (req: NextRequest, user, 
     redirectUrl,
     accountScope,
     ownerUid: user.uid,
+    ...(companyId && accountScope !== PERSONAL_SCOPE ? { companyId } : {}),
     ...(feature ? { feature } : {}),
     ...(platform === 'linkedin' ? { linkedinMode } : {}),
     ...(codeVerifier ? { codeVerifier } : {}),

@@ -692,6 +692,12 @@ export async function callAgentStream(
   const target = await resolveAgentDispatchTarget(agentId, raw, options)
   if (!target) throw new Error(`No reachable runtime target configured for agent_team/${agentId}`)
   const url = `${target.baseUrl}${path.startsWith('/') ? path : `/${path}`}`
-  const response = await fetch(url, { headers: { Authorization: `Bearer ${target.apiKey}` } })
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${target.apiKey}`,
+      Accept: 'text/event-stream',
+      'Cache-Control': 'no-cache',
+    },
+  })
   return response
 }

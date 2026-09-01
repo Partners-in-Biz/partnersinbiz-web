@@ -5,8 +5,7 @@ import { withAuth } from '@/lib/api/auth'
 import { withTenant } from '@/lib/api/tenant'
 import { apiSuccess, apiError } from '@/lib/api/response'
 
-import { isCompanyAccountType, isCompanyPagePlatform, PERSONAL_SCOPE } from '@/lib/social/account-scope'
-import { isLinkedInCmaEnabled } from '@/lib/social/linkedin-cma'
+import { isCompanyAccountType, isCompanyPagePlatform, PERSONAL_SCOPE, companyFieldsForWrite } from '@/lib/social/account-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +47,7 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
   const platform: string = pending.platform
   const options = (pending.options ?? []) as PendingOption[]
 
-  const requireCompanyPage = !personalScope && isCompanyPagePlatform(platform) && (platform !== 'linkedin' || isLinkedInCmaEnabled())
+  const requireCompanyPage = !personalScope && isCompanyPagePlatform(platform)
   const allowedSelections = requireCompanyPage
     ? selections.filter((sel) => isCompanyAccountType(options[sel.index]?.accountType))
     : selections
@@ -132,7 +131,7 @@ export const POST = withAuth('client', withTenant(async (req: NextRequest, user:
       scopes: option.scopes ?? [],
       encryptedTokens,
       platformMeta: option.platformMeta ?? {},
-      ...(personalScope ? { accountScope: PERSONAL_SCOPE, ownerUid: user?.uid ?? '' } : { accountScope: 'org', ownerUid: null }),
+      ...(personalScope ? { accountScope: PERSONAL_SCOPE, ownerUid: user?.uid ?? '' } : { accountScope: 'org', ownerUid: null, ...companyFieldsForWrite(pending.companyId) }),
       updatedAt: FieldValue.serverTimestamp(),
     }
 

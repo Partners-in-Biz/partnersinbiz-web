@@ -287,6 +287,29 @@ describe('admin agent permissions', () => {
   })
 
 
+  it('retries a not-ready events endpoint before falling back to polling', async () => {
+    mockCallAgentStream
+      .mockResolvedValueOnce({ ok: false, status: 404, body: null })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('data: {"event":"heartbeat","activity":"live"}\n\n'))
+            controller.close()
+          },
+        }),
+      })
+
+    const { GET } = await import('@/app/api/v1/admin/agents/[agentId]/runs/[runId]/events/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/admin/agents/pip/runs/run-1/events'), runRouteCtx('pip', 'run-1'))
+    const text = await res.text()
+
+    expect(res.status).toBe(200)
+    expect(text).not.toContain('stream.unavailable')
+    expect(mockCallAgentStream).toHaveBeenCalledTimes(2)
+  })
+
   it('keeps run events as a 200 SSE response when the live agent stream is unavailable', async () => {
     mockCallAgentStream.mockResolvedValue({ ok: false, status: 502, body: null })
 

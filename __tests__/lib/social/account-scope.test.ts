@@ -1,5 +1,6 @@
 import {
   accountAllowedForPublish,
+  accountVisibleForWorkspace,
   brandKitDocId,
   campaignVisibleForScope,
   isCompanyLinkedAccount,
@@ -39,21 +40,26 @@ describe('isCompanyLinkedAccount', () => {
     })).toBe(false)
   })
 
-  it('keeps org-scoped LinkedIn personal profiles on company social so posting works before CMA', () => {
+  it('hides LinkedIn person profiles from company social, even if they were saved as org-scoped', () => {
     expect(isCompanyLinkedAccount({
       accountScope: 'org',
       accountType: 'personal',
       platform: 'linkedin',
-    })).toBe(true)
+    })).toBe(false)
     expect(isCompanyLinkedAccount({
       accountType: 'personal',
       platform: 'linkedin',
-    })).toBe(true)
+    })).toBe(false)
     expect(isCompanyLinkedAccount({
       accountScope: 'personal',
       accountType: 'personal',
       platform: 'linkedin',
     })).toBe(false)
+    expect(isCompanyLinkedAccount({
+      accountScope: 'org',
+      accountType: 'page',
+      platform: 'linkedin',
+    })).toBe(true)
   })
 
   it('keeps company pages, business accounts, and org brand handles', () => {
@@ -106,7 +112,43 @@ describe('accountAllowedForPublish', () => {
       accountType: 'personal',
       platform: 'linkedin',
       status: 'active',
+    }, { personal: false })).toBe(false)
+    expect(accountAllowedForPublish({
+      accountScope: 'org',
+      accountType: 'page',
+      platform: 'linkedin',
+      status: 'active',
     }, { personal: false })).toBe(true)
+  })
+
+  it('keeps organisation, CRM company, and personal accounts in separate buckets', () => {
+    expect(accountVisibleForWorkspace({
+      accountScope: 'org',
+      accountType: 'page',
+      platform: 'facebook',
+    }, { personal: false })).toBe(true)
+    expect(accountVisibleForWorkspace({
+      accountScope: 'org',
+      accountType: 'page',
+      platform: 'facebook',
+      companyId: 'co-1',
+    }, { personal: false })).toBe(false)
+    expect(accountVisibleForWorkspace({
+      accountScope: 'org',
+      accountType: 'page',
+      platform: 'facebook',
+      companyId: 'co-1',
+    }, { personal: false, companyId: 'co-1' })).toBe(true)
+    expect(accountVisibleForWorkspace({
+      accountScope: 'org',
+      accountType: 'page',
+      platform: 'facebook',
+    }, { personal: false, companyId: 'co-1' })).toBe(false)
+    expect(accountAllowedForPublish({
+      accountType: 'page',
+      platform: 'facebook',
+      status: 'active',
+    }, { personal: false, companyId: 'co-1' })).toBe(false)
   })
 
   it('only allows the owner personal accounts for personal publishing', () => {
@@ -171,6 +213,16 @@ describe('storedAccountTypeForScope', () => {
       accountScope: 'org',
       platform: 'facebook',
     })).toBe('page')
+    expect(storedAccountTypeForScope({
+      profileType: '',
+      accountScope: 'org',
+      platform: 'linkedin',
+    })).toBe('page')
+    expect(storedAccountTypeForScope({
+      profileType: 'personal',
+      accountScope: 'org',
+      platform: 'linkedin',
+    })).toBe('personal')
     expect(storedAccountTypeForScope({
       profileType: 'personal',
       accountScope: 'personal',
