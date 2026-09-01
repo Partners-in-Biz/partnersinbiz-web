@@ -18,6 +18,7 @@ export function buildMailboxContextPromptBlock(input: {
   mailboxDelegationEvidenceId?: string | null
   conversationId?: string | null
   responseMessageId?: string | null
+  conversationOrgId?: string | null
 }): string {
   const connected = input.accounts.filter((account) => account.status === 'connected')
   const lines = [
@@ -25,6 +26,11 @@ export function buildMailboxContextPromptBlock(input: {
     `orgId: ${input.orgId}`,
     `uid: ${input.uid}`,
   ]
+
+  if (input.conversationOrgId && input.conversationOrgId !== input.orgId) {
+    lines.push(`conversationOrgId: ${input.conversationOrgId}`)
+    lines.push(`Mailbox tenant is ${input.orgId} (Partners in Biz staff mailbox). Conversation workspace is ${input.conversationOrgId}. Always pass orgId=${input.orgId} on /api/v1/agent/email/* — do not use the conversation org for mailbox reads/drafts.`)
+  }
 
   if (input.conversationId) lines.push(`conversationId: ${input.conversationId}`)
   if (input.responseMessageId) lines.push(`responseMessageId: ${input.responseMessageId}`)

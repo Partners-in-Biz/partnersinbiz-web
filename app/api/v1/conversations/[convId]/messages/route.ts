@@ -15,6 +15,7 @@ import { runWithFirestoreReadAudit } from '@/lib/firebase/read-audit'
 import { buildDelegationAuthPromptBlock } from '@/lib/api/delegations'
 import { mintFreshMessagesTurnDelegation } from '@/lib/messages/turn-delegation'
 import { buildMailboxContextPromptBlock, listMailboxAccountsForUser } from '@/lib/mailbox/mailboxContext'
+import { resolveMailboxOrgIdForActor } from '@/lib/mailbox/staff-mailbox-remap'
 import { buildDynamicChatCanvasPromptBlock } from '@/lib/messages/dynamicChatCanvasPrompt'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
@@ -1283,8 +1284,14 @@ export const POST = withAuth(
         agentId,
         conversationId: convId,
       })
+      const mailboxOrg = promptIntent.needsMailbox
+        ? await resolveMailboxOrgIdForActor({
+          uid: user.uid,
+          requestedOrgId: conversation.orgId,
+        })
+        : { orgId: conversation.orgId }
       const mailboxAccounts = promptIntent.needsMailbox
-        ? await listMailboxAccountsForUser(conversation.orgId, user.uid).catch(() => [])
+        ? await listMailboxAccountsForUser(mailboxOrg.orgId, user.uid).catch(() => [])
         : []
       const dynamicChatCanvasContext = promptIntent.needsCanvas
         ? buildDynamicChatCanvasPromptBlock({
@@ -1294,12 +1301,13 @@ export const POST = withAuth(
         : ''
       const mailboxContext = promptIntent.needsMailbox
         ? buildMailboxContextPromptBlock({
-          orgId: conversation.orgId,
+          orgId: mailboxOrg.orgId,
           uid: user.uid,
           accounts: mailboxAccounts,
           mailboxDelegationEvidenceId: mintedDelegation?.mailboxDelegationEvidenceId,
           conversationId: convId,
           responseMessageId: assistantMessage.id,
+          conversationOrgId: mailboxOrg.conversationOrgId ?? conversation.orgId,
         })
         : ''
       const delegationAuthContext = mintedDelegation
