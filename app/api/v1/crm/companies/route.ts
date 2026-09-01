@@ -320,6 +320,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     createdAt: now,
     updatedAt: now,
     deleted: false,
+    ...(ctx.staffClientOrgId ? { linkedOrgId: ctx.staffClientOrgId } : {}),
   }
 
   // Strip undefined values (Firestore rejects them)

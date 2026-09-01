@@ -61,6 +61,10 @@ Full workspace access (`FULL_ACCESS_POLICY`) implies both capabilities.
 - Member with grant from a **client company chat**: POST `orgId` as the conversation/client org (Messages already sends that `X-Org-Id`). The API remaps issuer to `pib-platform-owner` and recipient to the client org, then evaluates grant + `owned_or_linked` on the PiB membership. ELE-004 class: posting `orgId=<client>` is correct; do not wait for Peet.
 - Owner/admin of client org: may still create that org's own book without CRM target.
 
+### CRM companies and contacts
+
+PiB staff CRM rows live on `pib-platform-owner`. Client-chat `X-Org-Id` is conversation context, not the CRM tenant. `withCrmAuth` remaps PiB staff onto the platform org; `owned_or_linked` still hides other staff’s book. Creates stamp `linkedOrgId` to the client workspace. Do not promote staff to Platform User admin for company/contact access.
+
 ### Quotes `POST /api/v1/quotes`
 
 Same grant + owned_or_linked model. Agents/system and org owner/admin unchanged.
@@ -82,6 +86,7 @@ Portal **Settings → Team → Edit access**:
 
 - `lib/orgMembers/access-policy.ts` — `capabilities`, `memberCanIssueInvoices` / `memberCanIssueQuotes`
 - `lib/billing/staff-issuer-remap.ts` — client-chat → platform issuer remap
+- `lib/auth/crm-middleware.ts` — PiB staff CRM remap onto `pib-platform-owner`
 - `lib/orgMembers/platform-staff.ts` — PiB staff membership + specialist grant merge
 - `lib/billing/member-issuer.ts` — grant + owned-client gates
 - `app/api/v1/invoices/route.ts`, `app/api/v1/quotes/route.ts`

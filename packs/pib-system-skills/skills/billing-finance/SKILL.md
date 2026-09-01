@@ -73,7 +73,7 @@ Do not treat `allowedOrgIds` as client portal/CRM access. It scopes admin billin
 
 ## Member-owned-client issuer (staff stay members)
 
-Org owners/admins grant members explicit `capabilities.invoices` / `capabilities.quotes` on Team access. That grant does **not** come from `modules.billing` alone. Granted members create/list issuer invoices and quotes only for CRM **owned_or_linked** clients. See skill `pib-staff-billing-access` for the full matrix, UI toggles, and Stean-shaped workflow. Do not promote staff to Platform User admin solely to issue client invoices.
+Org owners/admins grant members explicit `capabilities.invoices` / `capabilities.quotes` on Team access. That grant does **not** come from `modules.billing` alone. Granted members create/list issuer invoices and quotes only for CRM **owned_or_linked** clients. Client-chat CRM companies/contacts remap onto `pib-platform-owner` the same way. See skill `pib-staff-billing-access`. Do not promote staff to Platform User admin solely to issue client invoices or edit their CRM book.
 
 ## Invoice status machine
 

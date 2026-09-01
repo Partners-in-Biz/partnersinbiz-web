@@ -396,6 +396,7 @@ export const POST = withCrmAuth('member', async (req, ctx) => {
     companyId: resolvedCompanyId,     // undefined if not provided; sanitize strips
     companyName: resolvedCompanyName, // undefined if not provided; sanitize strips
     companyLinks: normalizedCompanyLinks.length > 0 ? normalizedCompanyLinks : undefined,
+    ...(ctx.staffClientOrgId ? { linkedOrgId: ctx.staffClientOrgId } : {}),
     deleted: false,
     // Subscription lifecycle derived from the requested status (US-052). The
     // contact is always subscribed at creation; unsubscribed/bounced additionally

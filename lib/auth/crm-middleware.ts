@@ -12,6 +12,7 @@ import {
 } from '@/lib/orgMembers/memberRef'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 import { isActiveOrgMembershipRow, isOrgRole, type OrgMemberRow } from '@/lib/orgMembers/active-membership'
+import { loadPlatformStaffMembership } from '@/lib/orgMembers/platform-staff'
 import {
   FULL_ACCESS_POLICY,
   canAccessModule,
@@ -33,6 +34,8 @@ export interface OrgPermissions {
 
 export interface CrmAuthContext {
   orgId: string
+  /** Conversation/client org when PiB staff CRM was remapped onto the platform owner book. */
+  staffClientOrgId?: string
   uid?: string
   actor: MemberRef
   role: CrmRole
@@ -121,6 +124,22 @@ function delegationAllowsOrg(user: ApiUser, orgId: string): boolean {
   return allowed.has(orgId)
 }
 
+/**
+ * PiB staff CRM rows live on pib-platform-owner. Client-chat X-Org-Id is the
+ * conversation workspace, not the CRM tenant — remap when the actor is platform
+ * staff and may use the platform org. owned_or_linked still filters the book.
+ */
+function remapStaffCrmToPlatform(input: {
+  staff: Awaited<ReturnType<typeof loadPlatformStaffMembership>>
+  requestedOrgId: string
+  allowsPlatform: boolean
+}): string | null {
+  if (!input.staff || !input.allowsPlatform) return null
+  const requested = input.requestedOrgId.trim()
+  if (!requested || requested === input.staff.platformOrgId) return null
+  return input.staff.platformOrgId
+}
+
 async function resolveHumanCrmMembership(input: {
   uid: string
   orgId: string
@@ -191,24 +210,40 @@ async function resolveDelegationCrmContext(
     req.headers.get('x-org-id')?.trim() ||
     new URL(req.url).searchParams.get('orgId')?.trim() ||
     ''
-  const orgId = requestedOrgId || delegationUser.activeOrgId || delegationUser.orgId || ''
+
+  const staff = await loadPlatformStaffMembership(actingUid)
+  const tokenAllowsPlatform = Boolean(staff && delegationAllowsOrg(delegationUser, staff.platformOrgId))
+  const remappedOrgId = remapStaffCrmToPlatform({
+    staff,
+    requestedOrgId,
+    allowsPlatform: tokenAllowsPlatform,
+  })
+  const remapToPlatform = Boolean(remappedOrgId)
+  const orgId = remappedOrgId
+    || requestedOrgId
+    || delegationUser.activeOrgId
+    || delegationUser.orgId
+    || ''
   if (!orgId) return apiError('Missing X-Org-Id header', 400)
-  if (!delegationAllowsOrg(delegationUser, orgId)) {
-    return apiError('Delegation is not scoped to this organization', 403)
-  }
 
   const userDoc = await adminDb.collection('users').doc(actingUid).get()
   if (!userDoc.exists) return apiError('User not found', 404)
   const userData = userDoc.data() ?? {}
 
-  const allowed = await canUsePortalOrg(actingUid, userData, orgId)
-  if (!allowed) return apiError('You do not have access to this workspace', 403)
+  if (!remapToPlatform) {
+    if (!delegationAllowsOrg(delegationUser, orgId)) {
+      return apiError('Delegation is not scoped to this organization', 403)
+    }
+    const allowed = await canUsePortalOrg(actingUid, userData, orgId)
+    if (!allowed) return apiError('You do not have access to this workspace', 403)
+  }
 
   const membership = await resolveHumanCrmMembership({ uid: actingUid, orgId, minRole })
   if (!membership.ok) return membership.response
 
   return {
     orgId,
+    ...(remapToPlatform ? { staffClientOrgId: requestedOrgId } : {}),
     uid: actingUid,
     actor: membership.actor,
     role: membership.role,
@@ -327,10 +362,25 @@ export function withCrmAuth<RouteCtx = unknown>(
       ''
     const activeOrgId = await resolvePortalActiveOrgId(uid, userData)
     let orgId = activeOrgId
+    let staffClientOrgId: string | undefined
     if (requestedOrgId) {
-      const allowed = await canUsePortalOrg(uid, userData, requestedOrgId)
-      if (!allowed) return apiError('You do not have access to this workspace', 403)
-      orgId = requestedOrgId
+      const staff = await loadPlatformStaffMembership(uid)
+      const canUsePlatform = Boolean(
+        staff && (await canUsePortalOrg(uid, userData, staff.platformOrgId)),
+      )
+      const remappedOrgId = remapStaffCrmToPlatform({
+        staff,
+        requestedOrgId,
+        allowsPlatform: canUsePlatform,
+      })
+      if (remappedOrgId) {
+        orgId = remappedOrgId
+        staffClientOrgId = requestedOrgId
+      } else {
+        const allowed = await canUsePortalOrg(uid, userData, requestedOrgId)
+        if (!allowed) return apiError('You do not have access to this workspace', 403)
+        orgId = requestedOrgId
+      }
     }
     if (!orgId) return apiError('No active workspace', 400)
 
@@ -339,6 +389,7 @@ export function withCrmAuth<RouteCtx = unknown>(
 
     const ctx: CrmAuthContext = {
       orgId,
+      ...(staffClientOrgId ? { staffClientOrgId } : {}),
       uid,
       actor: membership.actor,
       role: membership.role,

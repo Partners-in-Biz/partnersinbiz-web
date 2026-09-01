@@ -28,6 +28,7 @@ jest.mock('@/lib/firebase/admin', () => ({
 
 jest.mock('@/lib/api/delegations', () => ({
   resolveDelegationTokenUser: (...args: unknown[]) => mockResolveDelegationTokenUser(...args),
+  resolveDelegationBearerUser: (...args: unknown[]) => mockResolveDelegationTokenUser(...args),
 }))
 
 jest.mock('@/lib/api/auth', () => ({
@@ -65,8 +66,12 @@ function setOrgs(orgs: Record<string, { exists?: boolean; data?: Record<string, 
   )
 }
 
-function handler() {
-  return new Response(JSON.stringify({ ok: true }), {
+function handler(_req: NextRequest, ctx: { orgId: string; staffClientOrgId?: string }) {
+  return new Response(JSON.stringify({
+    ok: true,
+    orgId: ctx.orgId,
+    staffClientOrgId: ctx.staffClientOrgId ?? null,
+  }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
   })
@@ -192,6 +197,18 @@ describe('withCrmAuth — cookie path', () => {
     expect(res.status).toBe(403)
   })
 
+  it('remaps PiB staff CRM onto pib-platform-owner when the portal asks for a client org', async () => {
+    setUser({ role: 'client', orgId: 'pib-platform-owner' })
+    setMembers([{ orgId: 'pib-platform-owner', row: { role: 'member' } }])
+    setOrgs({ 'pib-platform-owner': {}, 'wS5pgwa6c9WbPocf4w0w': {} })
+
+    const res = await withCrmAuth('viewer', handler)(cookieRequest('wS5pgwa6c9WbPocf4w0w'))
+    expect(res.status).toBe(200)
+    const body = await res.json() as { orgId: string; staffClientOrgId: string | null }
+    expect(body.orgId).toBe('pib-platform-owner')
+    expect(body.staffClientOrgId).toBe('wS5pgwa6c9WbPocf4w0w')
+  })
+
   it('rejects an inactive organisation even with an active member row', async () => {
     setUser({ role: 'client', orgId: 'suspended-org' })
     setMembers([{ orgId: 'suspended-org', row: { role: 'member' } }])
@@ -290,6 +307,49 @@ describe('withCrmAuth — delegation path (Messages / interactive Hermes)', () =
     })
 
     const res = await withCrmAuth('viewer', handler)(bearerRequest('pib_dlg_valid', 'org-b'))
+    expect(res.status).toBe(403)
+  })
+
+  it('remaps PiB staff delegations from a client-org chat onto the platform CRM book', async () => {
+    setUser({ role: 'client', orgId: 'pib-platform-owner' })
+    setMembers([{ orgId: 'pib-platform-owner', row: { role: 'member' } }])
+    setOrgs({ 'pib-platform-owner': {}, 'wS5pgwa6c9WbPocf4w0w': {} })
+    mockResolveDelegationTokenUser.mockResolvedValue({
+      uid: 'user-1',
+      role: 'client',
+      authKind: 'user_delegation',
+      agentId: 'theo',
+      delegationId: 'dlg_staff',
+      actingForUserId: 'user-1',
+      orgId: 'wS5pgwa6c9WbPocf4w0w',
+      activeOrgId: 'wS5pgwa6c9WbPocf4w0w',
+      orgIds: ['wS5pgwa6c9WbPocf4w0w', 'pib-platform-owner'],
+    })
+
+    const res = await withCrmAuth('member', handler)(bearerRequest('pib_dlg_staff', 'wS5pgwa6c9WbPocf4w0w'))
+    expect(res.status).toBe(200)
+    const body = await res.json() as { orgId: string; staffClientOrgId: string | null }
+    expect(body.orgId).toBe('pib-platform-owner')
+    expect(body.staffClientOrgId).toBe('wS5pgwa6c9WbPocf4w0w')
+  })
+
+  it('does not remap a client-org-only delegation that is not PiB staff', async () => {
+    setUser({ role: 'client', orgId: 'wS5pgwa6c9WbPocf4w0w' })
+    setMembers([])
+    setOrgs({ 'pib-platform-owner': {}, 'wS5pgwa6c9WbPocf4w0w': {} })
+    mockResolveDelegationTokenUser.mockResolvedValue({
+      uid: 'user-1',
+      role: 'client',
+      authKind: 'user_delegation',
+      agentId: 'theo',
+      delegationId: 'dlg_client',
+      actingForUserId: 'user-1',
+      orgId: 'wS5pgwa6c9WbPocf4w0w',
+      activeOrgId: 'wS5pgwa6c9WbPocf4w0w',
+      orgIds: ['wS5pgwa6c9WbPocf4w0w'],
+    })
+
+    const res = await withCrmAuth('viewer', handler)(bearerRequest('pib_dlg_client', 'wS5pgwa6c9WbPocf4w0w'))
     expect(res.status).toBe(403)
   })
 
