@@ -10,6 +10,7 @@ import {
 } from '@/lib/messages/bot-channel'
 import {
   applyBotIsolationToWorkbenchPaths,
+  botComputerFoldersToEnsure,
   buildBotComputerBinding,
   isolatedBotBrowserProfileId,
   isolatedBotWorkspacePath,
@@ -98,6 +99,13 @@ describe('isolated per-bot computers', () => {
     expect(joinIsolatedBotFolder('bots/theo', 'theo')).toBe('bots/theo')
     expect(joinIsolatedBotFolder('bots/maya', 'theo')).toBe('bots/theo')
     expect(joinIsolatedBotFolder('partners/Acme/bots/maya', 'theo')).toBe('partners/Acme/bots/theo')
+  })
+
+  it('lists VPS folders to ensure for Bot isolation paths', () => {
+    expect(botComputerFoldersToEnsure('bots/sales')).toEqual(['bots/sales', 'bots'])
+    expect(botComputerFoldersToEnsure('projects/abc/bots/theo')).toEqual(['projects/abc/bots/theo'])
+    expect(botComputerFoldersToEnsure('docs')).toEqual([])
+    expect(botComputerFoldersToEnsure('../etc')).toEqual([])
   })
 
   it('isolates workbench folders, and company roots via workingDirectory', () => {

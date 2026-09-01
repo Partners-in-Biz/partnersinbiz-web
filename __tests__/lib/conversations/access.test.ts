@@ -67,6 +67,22 @@ describe('Workspace conversation access', () => {
     expect(canAccessConversation(outsider, conversation('org'))).toBe(false)
   })
 
+  it('allows PiB staff named on a client-org thread without joining that org', () => {
+    const stean = {
+      uid: 'stean',
+      role: 'client',
+      orgId: 'pib-platform-owner',
+      activeOrgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner'],
+    } as ApiUser
+    const thread = conversation('private')
+    thread.orgId = 'wS5pgwa6c9WbPocf4w0w'
+    thread.participantUids.push('stean')
+    expect(canAccessConversation(stean, thread)).toBe(true)
+    expect(canReplyConversation(stean, thread)).toBe(true)
+    expect(canAccessConversation(outsider, thread)).toBe(false)
+  })
+
   it('allows every authenticated organisation member to reply in organisation conversations', () => {
     expect(conversation('org').participantUids).not.toContain(member.uid)
     expect(canReplyConversation(member, conversation('org'))).toBe(true)

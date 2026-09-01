@@ -20,6 +20,7 @@ let currentUser: {
 } = {
   uid: 'client-1', role: 'client', authKind: 'session',
 }
+let staffMemberDoc: Record<string, unknown> | null = null
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: {
@@ -89,6 +90,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockPlanningMutationBlocker.mockReturnValue(null)
   currentUser = { uid: 'client-1', role: 'client', authKind: 'session' }
+  staffMemberDoc = null
   mockGetProjectForUser.mockResolvedValue({
     ok: true,
     doc: { data: () => ({ orgId: 'org-1' }) },
@@ -115,6 +117,18 @@ beforeEach(() => {
     if (name === 'projects') return { doc: mockProjectDoc }
     if (name === 'notifications') return { add: jest.fn() }
     if (name === 'agent_org_nodes') return { where: jest.fn(() => ({ get: jest.fn(async () => ({ docs: [] })) })) }
+    if (name === 'orgMembers') {
+      return {
+        doc: (id: string) => ({
+          get: async () => {
+            if (staffMemberDoc && id === `pib-platform-owner_${currentUser.uid}`) {
+              return { exists: true, data: () => staffMemberDoc }
+            }
+            return { exists: false, data: () => undefined }
+          },
+        }),
+      }
+    }
     throw new Error(`Unexpected collection ${name}`)
   })
 })
@@ -311,7 +325,7 @@ describe('project task approval gate route guards', () => {
     const body = await res.json()
 
     expect(res.status).toBe(403)
-    expect(body.error).toMatch(/Only an admin approver/)
+    expect(body.error).toMatch(/Only an (admin|authorized) approver/)
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
@@ -501,7 +515,7 @@ describe('project task approval gate route guards', () => {
     const body = await res.json()
 
     expect(res.status).toBe(403)
-    expect(body.error).toMatch(/Only an admin approver/)
+    expect(body.error).toMatch(/Only an (admin|authorized) approver/)
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
@@ -511,7 +525,7 @@ describe('project task approval gate route guards', () => {
     const body = await res.json()
 
     expect(res.status).toBe(403)
-    expect(body.error).toMatch(/Only an admin approver/)
+    expect(body.error).toMatch(/Only an (admin|authorized) approver/)
     expect(mockTaskDelete).not.toHaveBeenCalled()
   })
 
@@ -533,7 +547,7 @@ describe('project task approval gate route guards', () => {
     const body = await res.json()
 
     expect(res.status).toBe(403)
-    expect(body.error).toMatch(/Only an admin approver/)
+    expect(body.error).toMatch(/Only an (admin|authorized) approver/)
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
@@ -556,7 +570,7 @@ describe('project task approval gate route guards', () => {
     const body = await res.json()
 
     expect(res.status).toBe(403)
-    expect(body.error).toMatch(/Only an admin approver/)
+    expect(body.error).toMatch(/Only an (admin|authorized) approver/)
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
@@ -579,7 +593,7 @@ describe('project task approval gate route guards', () => {
     const body = await res.json()
 
     expect(res.status).toBe(403)
-    expect(body.error).toMatch(/Only an admin approver/)
+    expect(body.error).toMatch(/Only an (admin|authorized) approver/)
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
@@ -602,7 +616,7 @@ describe('project task approval gate route guards', () => {
     const body = await res.json()
 
     expect(res.status).toBe(403)
-    expect(body.error).toMatch(/Only an admin approver/)
+    expect(body.error).toMatch(/Only an (admin|authorized) approver/)
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 
@@ -645,6 +659,65 @@ describe('project task approval gate route guards', () => {
 
     expect(res.status).toBe(400)
     expect(body.error).toMatch(/approvalStatus can only/)
+    expect(mockTaskUpdate).not.toHaveBeenCalled()
+  })
+
+  it('allows a PiB staff member to approve a finance gate on their book', async () => {
+    currentUser = {
+      uid: 'stean',
+      role: 'client',
+      authKind: 'user_delegation',
+      agentId: 'pip',
+      delegationId: 'dlg-1',
+      actingForUserId: 'stean',
+    }
+    staffMemberDoc = { status: 'active', role: 'member' }
+    mockTaskGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        title: 'Finance approval',
+        labels: ['approval-gate'],
+        approvalGate: 'finance',
+        approvalStatus: 'pending',
+      }),
+    })
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', {
+      method: 'PATCH',
+      headers: { 'x-org-id': 'org-1' },
+      body: JSON.stringify({ approvalStatus: 'approved' }),
+    }), ctx)
+
+    expect(res.status).toBe(200)
+    expect(mockTaskUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      approvalStatus: 'approved',
+      approvedBy: 'stean',
+      approvedByType: 'delegated_user',
+    }))
+  })
+
+  it('keeps production-deploy gates admin-only for PiB staff members', async () => {
+    currentUser = {
+      uid: 'stean',
+      role: 'client',
+      authKind: 'user_delegation',
+      agentId: 'pip',
+      delegationId: 'dlg-1',
+      actingForUserId: 'stean',
+    }
+    staffMemberDoc = { status: 'active', role: 'member' }
+
+    const { PATCH } = await import('@/app/api/v1/projects/[projectId]/tasks/[taskId]/route')
+    const res = await PATCH(new NextRequest('http://localhost/api/v1/projects/project-1/tasks/task-1', {
+      method: 'PATCH',
+      headers: { 'x-org-id': 'org-1' },
+      body: JSON.stringify({ approvalStatus: 'approved' }),
+    }), ctx)
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/Only an (admin|authorized) approver/)
     expect(mockTaskUpdate).not.toHaveBeenCalled()
   })
 })

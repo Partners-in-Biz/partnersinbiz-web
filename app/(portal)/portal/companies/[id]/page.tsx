@@ -2744,6 +2744,8 @@ export default function CompanyDetailPage() {
             companyId={company.id}
             mode="portal"
             workspace={related.linkedWorkspace}
+            crmOrgId={scopedOrgId || company.orgId}
+            crmOrgSlug={orgScope.orgSlug ?? undefined}
           />
         )}
         {!relatedLoading && tab === 'contacts' && (

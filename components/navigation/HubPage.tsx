@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 
 export interface HubAction {
@@ -22,12 +23,14 @@ export interface HubPageProps {
   sourceContext?: {
     sourceCompanyName?: string
     targetWorkspaceName?: string
+    owner?: 'org' | 'company'
   }
+  children?: ReactNode
 }
 
-export function HubPage({ eyebrow, title, description, primaryAction, sections, sourceContext }: HubPageProps) {
+export function HubPage({ eyebrow, title, description, primaryAction, sections, sourceContext, children }: HubPageProps) {
   const sourceCompanyName = sourceContext?.sourceCompanyName?.trim()
-  const targetWorkspaceName = sourceContext?.targetWorkspaceName?.trim()
+  const companyOwned = sourceContext?.owner === 'company' || Boolean(sourceCompanyName)
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
@@ -45,20 +48,18 @@ export function HubPage({ eyebrow, title, description, primaryAction, sections, 
         )}
       </header>
 
-      {sourceCompanyName && (
-        <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]/10 p-4" aria-label="CRM company workspace context">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-3">
-              <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[22px] text-[var(--color-pib-accent)]">account_tree</span>
-              <div>
-                <p className="eyebrow !text-[10px]">Opened from CRM company</p>
-                <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">
-                  {sourceCompanyName} is linked to {targetWorkspaceName || 'this organisation workspace'}
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
-                  You are now working in the linked organisation workspace. New delivery work created here belongs to that organisation, while the CRM company remains the source context and relationship record.
-                </p>
-              </div>
+      {companyOwned && sourceCompanyName && (
+        <section className="pib-card border-[var(--color-pib-accent)]/40 bg-[var(--color-pib-accent-soft)]/10 p-4" aria-label="Company marketing workspace">
+          <div className="flex gap-3">
+            <span aria-hidden="true" className="material-symbols-outlined mt-0.5 text-[22px] text-[var(--color-pib-accent)]">apartment</span>
+            <div>
+              <p className="eyebrow !text-[10px]">Company marketing</p>
+              <h2 className="mt-1 text-base font-semibold text-[var(--color-pib-text)]">
+                {sourceCompanyName}
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-[var(--color-pib-text-muted)]">
+                This company&apos;s campaigns, accounts, and brand stay here. They do not mix with this organisation&apos;s own marketing or with Personal.
+              </p>
             </div>
           </div>
         </section>
@@ -105,6 +106,7 @@ export function HubPage({ eyebrow, title, description, primaryAction, sections, 
           </div>
         </section>
       ))}
+      {children}
     </div>
   )
 }

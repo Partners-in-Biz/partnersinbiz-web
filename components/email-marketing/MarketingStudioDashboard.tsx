@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { scopedPortalPath, type PortalOrgRouteScope } from '@/lib/portal/scoped-routing'
+import { CompanyMarketingSection } from '@/components/marketing/CompanyMarketingSection'
 import { MarketingStudioNav } from './MarketingStudioNav'
 import { ProgramList } from './ProgramList'
 
@@ -42,7 +43,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
   const workspaceLabel = scope.sourceCompanyName?.trim()
 
   return (
-    <main className="min-w-0 text-[var(--color-pib-text)]" data-module-accent="blue">
+    <main className="min-w-0 space-y-8 text-[var(--color-pib-text)]" data-module-accent="blue">
       <div className="min-w-0 overflow-hidden rounded-xl border border-[var(--color-card-border)] bg-[var(--color-card)]/55 shadow-[0_16px_48px_rgba(0,0,0,0.16)]">
         <header className="flex min-h-12 items-center justify-between gap-3 border-b border-[var(--color-card-border)] bg-black/[0.08] px-3 py-2 sm:px-4">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -71,17 +72,15 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
 
         <MarketingStudioNav scope={scope} />
 
-        {scope.sourceCompanyName ? (
+        {scope.sourceCompanyId ? (
           <section
-            aria-label="CRM company workspace context"
+            aria-label="Company marketing workspace"
             className="border-b border-[var(--color-card-border)] bg-primary/[0.035] px-3 py-3 sm:px-4"
           >
-            <p className="text-[10px] font-label uppercase tracking-[0.18em] text-primary">Opened from CRM company</p>
-            <h2 className="mt-1 text-sm font-semibold">
-              {scope.sourceCompanyName} is linked to {scope.orgSlug || scope.orgId || 'this organisation workspace'}
-            </h2>
+            <p className="text-[10px] font-label uppercase tracking-[0.18em] text-primary">Company marketing</p>
+            <h2 className="mt-1 text-sm font-semibold">{workspaceLabel || 'This company'}</h2>
             <p className="mt-1 text-xs leading-5 text-[var(--color-pib-text-muted)]">
-              New delivery work created here belongs to that organisation; links preserve the CRM source context.
+              This company&apos;s campaigns, accounts, and brand stay here. They do not mix with organisation marketing or Personal.
             </p>
           </section>
         ) : null}
@@ -147,6 +146,7 @@ export function MarketingStudioDashboard({ scope }: MarketingStudioDashboardProp
           <span className="whitespace-nowrap">Live counts stay in their source workspaces until the unified program data contract is available.</span>
         </footer>
       </div>
+      {scope.sourceCompanyId ? null : <CompanyMarketingSection scope={scope} />}
     </main>
   )
 }

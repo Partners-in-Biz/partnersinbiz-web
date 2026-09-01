@@ -99,7 +99,16 @@ beforeEach(() => {
     if (name === 'invoices') return invoiceQuery
     if (name === 'users') return { doc: mockUserDoc }
     if (name === 'organizations') return { doc: mockOrgDoc, where: mockOrgWhere }
-    if (name === 'companies') return { doc: mockCompanyDoc }
+    if (name === 'companies') {
+      const companyQuery = {
+        where: jest.fn(),
+        limit: jest.fn(),
+        get: jest.fn().mockResolvedValue({ empty: true, docs: [] }),
+      }
+      companyQuery.where.mockReturnValue(companyQuery)
+      companyQuery.limit.mockReturnValue(companyQuery)
+      return { doc: mockCompanyDoc, where: companyQuery.where, limit: companyQuery.limit, get: companyQuery.get }
+    }
     if (name === 'contacts') return { doc: mockContactDoc }
     // No membership doc → resolveBillingCrmAuthContext falls back to full member
     // defaults so existing admin/client list tests stay org-scoped only.
@@ -519,6 +528,71 @@ describe('POST /api/v1/invoices', () => {
     const res = await POST(req)
     expect(res.status).toBe(201)
     expect(mockInvoiceAdd).toHaveBeenCalled()
+  })
+
+  it('remaps PiB staff invoice create from a client chat to the platform issuer (ELE-004)', async () => {
+    mockUser = {
+      uid: 'stean',
+      role: 'client',
+      orgId: 'wS5pgwa6c9WbPocf4w0w',
+      activeOrgId: 'wS5pgwa6c9WbPocf4w0w',
+      orgIds: ['wS5pgwa6c9WbPocf4w0w'],
+    }
+    mockOrgMemberGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        status: 'active',
+        role: 'member',
+        accessPolicy: {
+          preset: 'custom',
+          modules: { crm: true, billing: true },
+          recordScopes: { crm: 'owned_or_linked', projects: 'owned_or_linked' },
+          capabilities: { invoices: true, quotes: true },
+        },
+      }),
+    })
+    mockOrgDoc.mockImplementation((orgId: string) => ({
+      get: jest.fn().mockResolvedValue({
+        exists: true,
+        data: () => ({
+          name: orgId === 'pib-platform-owner' ? 'Partners in Biz' : 'Elemental',
+          settings: { currency: 'ZAR' },
+          billingDetails: {},
+        }),
+      }),
+    }))
+    mockCompanyGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        orgId: 'pib-platform-owner',
+        name: 'Elemental',
+        ownerUid: 'stean',
+        assignedTo: 'stean',
+        linkedOrgId: 'wS5pgwa6c9WbPocf4w0w',
+        email: 'billing@elemental.test',
+      }),
+    })
+
+    const { POST } = await import('@/app/api/v1/invoices/route')
+    const req = new NextRequest('http://localhost/api/v1/invoices', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        orgId: 'wS5pgwa6c9WbPocf4w0w',
+        companyId: 'YgKHsbteioeP2NglZamG',
+        lineItems: [{ description: 'Month 3 retainer', quantity: 1, unitPrice: 15000 }],
+      }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    expect(mockInvoiceAdd).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'pib-platform-owner',
+      sourceOrgId: 'pib-platform-owner',
+      issuerOrgId: 'pib-platform-owner',
+      recipientOrgId: 'wS5pgwa6c9WbPocf4w0w',
+      companyId: 'YgKHsbteioeP2NglZamG',
+    }))
   })
 
   it('denies member without invoice grant', async () => {

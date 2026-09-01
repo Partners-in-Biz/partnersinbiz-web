@@ -12,7 +12,8 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { FieldValue } from 'firebase-admin/firestore'
 import { lastActorFrom } from '@/lib/api/actor'
-import { getBrandKitForOrg } from '@/lib/brand-kit/store'
+import { getBrandKitForOrg, getBrandKitForOwner, brandKitWriteDocId } from '@/lib/brand-kit/store'
+import { resolveMarketingOwnerFromSearchParams } from '@/lib/social/account-scope'
 import { defaultBrandKit, type BrandKitSocial } from '@/lib/brand-kit/types'
 import type { ApiUser } from '@/lib/api/types'
 
@@ -30,7 +31,8 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const { searchParams } = new URL(req.url)
   const scope = resolveOrgScope(user, searchParams.get('orgId'))
   if (!scope.ok) return apiError(scope.error, scope.status)
-  const kit = await getBrandKitForOrg(scope.orgId)
+  const owner = resolveMarketingOwnerFromSearchParams(searchParams, user.uid)
+  const kit = await getBrandKitForOwner(scope.orgId, owner)
   return apiSuccess(toWire(kit))
 })
 
@@ -41,10 +43,11 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const scope = resolveOrgScope(user, requestedOrgId)
   if (!scope.ok) return apiError(scope.error, scope.status)
   const orgId = scope.orgId
+  const owner = resolveMarketingOwnerFromSearchParams(searchParams, user.uid)
 
   // Whitelist-based merge — never accept arbitrary fields. Missing fields
   // fall back to whatever is already in Firestore (or defaults if none).
-  const existing = await getBrandKitForOrg(orgId)
+  const existing = await getBrandKitForOwner(orgId, owner)
   const merged = { ...existing }
 
   const stringFields: (keyof typeof merged)[] = [
@@ -98,15 +101,26 @@ export const PUT = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   // below wins (otherwise TS warns about a duplicate key in the literal).
   delete cleaned.updatedAt
 
-  await adminDb.collection('brand_kits').doc(orgId).set(
+  await adminDb.collection('brand_kits').doc(brandKitWriteDocId(orgId, owner)).set(
     {
       ...cleaned,
+      ...ownerFieldsIfAny(owner),
       // lastActorFrom() supplies updatedAt + updatedBy + updatedByType.
       ...lastActorFrom(user),
     },
     { merge: true },
   )
 
-  const fresh = await getBrandKitForOrg(orgId)
+  const fresh = await getBrandKitForOwner(orgId, owner)
   return apiSuccess(toWire(fresh))
 })
+
+function ownerFieldsIfAny(owner: ReturnType<typeof resolveMarketingOwnerFromSearchParams>) {
+  if (owner.owner === 'company' && owner.companyId) {
+    return { marketingOwner: 'company', companyId: owner.companyId }
+  }
+  if (owner.owner === 'personal') {
+    return { marketingOwner: 'personal', ownerUid: owner.uid ?? null }
+  }
+  return { marketingOwner: 'org' }
+}

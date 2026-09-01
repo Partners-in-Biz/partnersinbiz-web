@@ -22,6 +22,11 @@ export type ClientProvisioningInput = {
   agentName?: string
   companyId?: string | null
   contactIds?: string[]
+  /**
+   * Extra relative dirs to mkdir under the company Cowork root (e.g. `bots/sales`).
+   * Used so Bot-mode isolation folders exist before Hermes validates working_directory.
+   */
+  extraWorkspaceFolders?: string[]
 }
 
 export type ClientFolderVisibility = 'admin_only' | 'admin_agents' | 'admin_agents_clients'
@@ -186,6 +191,15 @@ export function buildClientProvisioningPayload(input: ClientProvisioningInput): 
     createdBy: 'client_provisioning',
   }
   const workspaceInstructions = renderWorkspaceInstructions({ clientName, domain: paths.agentDomain, orgId, agentName, workspacePath, agentDomainPath, localWorkspacePath })
+  const extraFolders = Array.isArray(input.extraWorkspaceFolders)
+    ? input.extraWorkspaceFolders
+      .map((folder) => folder.trim().replace(/^\/+|\/+$/g, ''))
+      .filter((folder) => Boolean(folder) && !folder.includes('..') && !folder.startsWith('~'))
+    : []
+  const workspaceFolders = Array.from(new Set([...DEFAULT_WORKSPACE_FOLDERS, ...extraFolders]))
+  if (extraFolders.length > 0) {
+    manifest.folders = workspaceFolders
+  }
 
   return {
     clientName,
@@ -196,7 +210,7 @@ export function buildClientProvisioningPayload(input: ClientProvisioningInput): 
     agentDomainPath,
     localWorkspacePath,
     localAgentDomainPath,
-    workspaceFolders: DEFAULT_WORKSPACE_FOLDERS,
+    workspaceFolders,
     manifest,
     folderRegistry,
     soul: renderSoul({ clientName, domain: paths.agentDomain, orgId, agentName, workspacePath, agentDomainPath, localWorkspacePath }),

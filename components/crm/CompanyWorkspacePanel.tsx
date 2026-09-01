@@ -25,6 +25,8 @@ interface CompanyWorkspacePanelProps {
   companyId?: string
   mode: WorkspaceMode
   workspace?: LinkedWorkspace | null
+  crmOrgId?: string
+  crmOrgSlug?: string
 }
 
 function adminOrgPath(slug: string, path = '') {
@@ -135,38 +137,54 @@ function adminActions(workspace: LinkedWorkspace): WorkspaceAction[] {
   ]
 }
 
-function portalActions(workspace: LinkedWorkspace): WorkspaceAction[] {
+function companyMarketingActions(scope: {
+  orgId?: string
+  orgSlug?: string
+  sourceCompanyId?: string
+  sourceCompanyName?: string
+}): WorkspaceAction[] {
   return [
     {
       title: 'Marketing',
-      description: 'Planning, campaign command, growth channels, and client-facing marketing workspace.',
+      description: 'This company’s campaigns, brand, social, ads, and SEO. Separate from organisation marketing and Personal.',
       icon: 'campaign',
-      href: scopedPortalPath('/portal/marketing', workspace),
-    },
-    {
-      title: 'SEO',
-      description: 'Sprints, keyword work, content plans, audits, pages, blog drafts, and performance.',
-      icon: 'travel_explore',
-      href: scopedPortalPath('/portal/seo', workspace),
-    },
-    {
-      title: 'Social',
-      description: 'Review queue, compose, calendar, account connections, vault, and social history.',
-      icon: 'diversity_3',
-      href: scopedPortalPath('/portal/social', workspace),
-    },
-    {
-      title: 'Ads',
-      description: 'Campaigns, ad sets, creatives, audiences, budgets, conversions, and experiments.',
-      icon: 'ads_click',
-      href: scopedPortalPath('/portal/ads', workspace),
+      href: scopedPortalPath('/portal/marketing', scope),
     },
     {
       title: 'Campaigns',
-      description: 'Email and content campaign work that belongs to the client organisation.',
+      description: 'Content and email campaigns that belong to this CRM company.',
       icon: 'outgoing_mail',
-      href: scopedPortalPath('/portal/campaigns', workspace),
+      href: scopedPortalPath('/portal/campaigns', scope),
     },
+    {
+      title: 'Social',
+      description: 'Compose, calendar, approvals, and connected brand accounts for this company.',
+      icon: 'diversity_3',
+      href: scopedPortalPath('/portal/social', scope),
+    },
+    {
+      title: 'Brand',
+      description: 'Brand profile, colours, voice, and assets owned by this company.',
+      icon: 'palette',
+      href: scopedPortalPath('/portal/branding', scope),
+    },
+    {
+      title: 'Ads',
+      description: 'Paid campaigns, ad accounts, and spend that belong to this company.',
+      icon: 'ads_click',
+      href: scopedPortalPath('/portal/ads', scope),
+    },
+    {
+      title: 'SEO',
+      description: 'Sprints, keywords, and search work owned by this company.',
+      icon: 'travel_explore',
+      href: scopedPortalPath('/portal/seo', scope),
+    },
+  ]
+}
+
+function portalActions(workspace: LinkedWorkspace): WorkspaceAction[] {
+  return [
     {
       title: 'Research',
       description: 'Discovery, market notes, client intelligence, and research records.',
@@ -190,12 +208,6 @@ function portalActions(workspace: LinkedWorkspace): WorkspaceAction[] {
       description: 'Proposals, reports, shared documents, and client document approvals.',
       icon: 'description',
       href: scopedPortalPath('/portal/documents', workspace),
-    },
-    {
-      title: 'Brand',
-      description: 'Brand profile, positioning, and reusable client identity inputs.',
-      icon: 'palette',
-      href: scopedPortalPath('/portal/branding', workspace),
     },
     {
       title: 'Communications',
@@ -236,56 +248,88 @@ function portalActions(workspace: LinkedWorkspace): WorkspaceAction[] {
   ]
 }
 
-export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace }: CompanyWorkspacePanelProps) {
-  if (!workspace) {
-    const leadWorkspaceItems = [
-      {
-        title: 'Company chat',
-        description: 'Use the Chat tab to keep discovery, qualification, proposal, and handoff discussion scoped to this CRM company.',
-        icon: 'forum',
-      },
-      {
-        title: 'CRM knowledge',
-        description: 'Keep pre-client notes in the company record until the account is promoted to a full organisation workspace.',
-        icon: 'menu_book',
-      },
-      {
-        title: 'Organisation control gate',
-        description: 'Link or create an organisation before delivery work such as campaigns, SEO, social, ads, wiki, and reports.',
-        icon: 'approval_delegation',
-      },
-    ]
-
-    return (
-      <div className="pib-surface overflow-hidden">
-        <div className="border-b border-[var(--color-pib-line)] p-4 text-center">
-          <span aria-hidden="true" className="material-symbols-outlined text-[22px] text-[var(--color-pib-text-muted)]">link_off</span>
-          <p className="pib-label mt-2 text-[var(--color-pib-accent)]">Lead workspace</p>
-          <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">CRM-only company workspace</h2>
-          <p className="mx-auto mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
-            {companyName} is available as a CRM company, but it is not linked to a selected organisation command surface yet. Keep pre-client context here; convert or link the organisation before running delivery work.
-          </p>
-          {mode === 'portal' && companyId ? (
-            <Link
-              href={`/portal/partners?companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`}
-              aria-label={`Invite ${companyName} to link workspaces`}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px]">handshake</span>
-              Invite {companyName} to link workspaces
-            </Link>
-          ) : null}
-        </div>
-        <div className="grid gap-3 p-4 md:grid-cols-3">
-          {leadWorkspaceItems.map((item) => (
-            <div key={item.title} className="pib-card p-3">
-              <div className="flex items-center gap-2">
-                <span aria-hidden="true" className="pib-icon-tint"><span className="material-symbols-outlined text-[16px]">{item.icon}</span></span>
-                <h3 className="text-xs font-semibold text-[var(--color-pib-text)]">{item.title}</h3>
-              </div>
-              <p className="mt-1.5 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{item.description}</p>
+function ActionGrid({
+  companyName,
+  actions,
+}: {
+  companyName: string
+  actions: WorkspaceAction[]
+}) {
+  return (
+    <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
+      {actions.map((action) => (
+        <Link
+          key={`${action.title}-${action.href}`}
+          href={action.href}
+          aria-label={`Open ${action.title === 'SEO' ? 'SEO' : action.title.toLowerCase()} workspace for ${companyName}`}
+          className="pib-card pib-card-hover group p-3 focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span aria-hidden="true" className="pib-icon-tint"><span className="material-symbols-outlined text-[16px]">{action.icon}</span></span>
+              <h3 className="truncate text-xs font-semibold text-[var(--color-pib-text)]">{action.title}</h3>
             </div>
-          ))}
+            <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] transition-colors group-hover:text-[var(--color-pib-text)]">open_in_new</span>
+          </div>
+          <p className="mt-1.5 line-clamp-3 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{action.description}</p>
+        </Link>
+      ))}
+    </div>
+  )
+}
+
+export function CompanyWorkspacePanel({
+  companyName,
+  companyId,
+  mode,
+  workspace,
+  crmOrgId,
+  crmOrgSlug,
+}: CompanyWorkspacePanelProps) {
+  const companyScope = mode === 'portal' && companyId
+    ? {
+        orgId: workspace?.orgId || workspace?.id || crmOrgId,
+        orgSlug: workspace?.orgSlug || workspace?.slug || crmOrgSlug,
+        sourceCompanyId: companyId,
+        sourceCompanyName: companyName,
+      }
+    : null
+  const portalCompanyMarketing = companyScope ? companyMarketingActions(companyScope) : []
+
+  if (!workspace) {
+    return (
+      <div className="space-y-4">
+        {mode === 'portal' && portalCompanyMarketing.length > 0 ? (
+          <div className="pib-surface overflow-hidden">
+            <div className="pib-surface-header">
+              <p className="pib-label">Company marketing</p>
+              <h2 className="mt-0.5 text-sm font-semibold text-[var(--color-pib-text)]">{companyName} marketing</h2>
+              <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                Campaigns, accounts, and brand for this CRM company. This does not require a linked organisation workspace and stays separate from Personal.
+              </p>
+            </div>
+            <ActionGrid companyName={companyName} actions={portalCompanyMarketing} />
+          </div>
+        ) : null}
+        <div className="pib-surface overflow-hidden">
+          <div className="border-b border-[var(--color-pib-line)] p-4 text-center">
+            <span aria-hidden="true" className="material-symbols-outlined text-[22px] text-[var(--color-pib-text-muted)]">link_off</span>
+            <p className="pib-label mt-2 text-[var(--color-pib-accent)]">Lead workspace</p>
+            <h2 className="mt-1 text-sm font-semibold text-[var(--color-pib-text)]">CRM-only company workspace</h2>
+            <p className="mx-auto mt-1 max-w-2xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
+              {companyName} is not linked to a client organisation yet. Company marketing above is available now. Link an organisation to open the shared client workspace for projects, wiki, and reports.
+            </p>
+            {mode === 'portal' && companyId ? (
+              <Link
+                href={`/portal/partners?companyId=${encodeURIComponent(companyId)}&companyName=${encodeURIComponent(companyName)}`}
+                aria-label={`Invite ${companyName} to link workspaces`}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-pib-line)] px-3 py-1.5 text-xs text-[var(--color-pib-text-muted)] transition hover:bg-white/[0.05] hover:text-[var(--color-pib-text)]"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">handshake</span>
+                Invite {companyName} to link workspaces
+              </Link>
+            ) : null}
+          </div>
         </div>
       </div>
     )
@@ -294,54 +338,50 @@ export function CompanyWorkspacePanel({ companyName, companyId, mode, workspace 
   const workspaceScope = mode === 'portal' && companyId
     ? { ...workspace, sourceCompanyId: companyId, sourceCompanyName: companyName }
     : workspace
-  const actions = mode === 'portal' ? portalActions(workspaceScope) : adminActions(workspace)
+  const linkedActions = mode === 'portal' ? portalActions(workspaceScope) : adminActions(workspace)
   const eyebrow = mode === 'portal' ? 'Linked organisation workspace' : 'Operator organisation workspace'
   const dashboardHref = mode === 'portal'
     ? scopedPortalPath('/portal/dashboard', workspaceScope)
     : adminOrgPath(workspace.slug, '/dashboard')
 
   return (
-    <div className="pib-surface overflow-hidden">
-      <div className="pib-surface-header">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <p className="pib-label">{eyebrow}</p>
-            <h2 className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{workspace.name} workspace</h2>
+    <div className="space-y-4">
+      {mode === 'portal' && portalCompanyMarketing.length > 0 ? (
+        <div className="pib-surface overflow-hidden">
+          <div className="pib-surface-header">
+            <p className="pib-label">Company marketing</p>
+            <h2 className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{companyName} marketing</h2>
             <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
-              {mode === 'portal'
-                ? 'Run the client organisation work from this CRM company record. Work opened here stays inside the linked organisation workspace.'
-                : 'Run PiB operator work for this selected client org. Links stay inside the admin command surface with the slug scope visible in the URL.'}
+              This company&apos;s campaigns, accounts, and brand. Separate from the linked organisation workspace and from Personal.
             </p>
           </div>
-          <Link
-            href={dashboardHref}
-            aria-label={`Open ${workspace.name} dashboard for ${companyName}`}
-            className="btn-pib-primary h-8 shrink-0 gap-1.5 px-2.5 text-xs"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">dashboard</span>
-            Dashboard
-          </Link>
+          <ActionGrid companyName={companyName} actions={portalCompanyMarketing} />
         </div>
-      </div>
+      ) : null}
 
-      <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
-        {actions.map((action) => (
-          <Link
-            key={`${action.title}-${action.href}`}
-            href={action.href}
-            aria-label={`Open ${action.title === 'SEO' ? 'SEO' : action.title.toLowerCase()} workspace for ${companyName}`}
-            className="pib-card pib-card-hover group p-3 focus:outline-none focus:ring-2 focus:ring-[var(--color-pib-accent)]"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <span aria-hidden="true" className="pib-icon-tint"><span className="material-symbols-outlined text-[16px]">{action.icon}</span></span>
-                <h3 className="truncate text-xs font-semibold text-[var(--color-pib-text)]">{action.title}</h3>
-              </div>
-              <span aria-hidden="true" className="material-symbols-outlined text-[14px] text-[var(--color-pib-text-muted)] transition-colors group-hover:text-[var(--color-pib-text)]">open_in_new</span>
+      <div className="pib-surface overflow-hidden">
+        <div className="pib-surface-header">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="min-w-0">
+              <p className="pib-label">{eyebrow}</p>
+              <h2 className="mt-0.5 truncate text-sm font-semibold text-[var(--color-pib-text)]">{workspace.name} workspace</h2>
+              <p className="mt-0.5 max-w-3xl text-xs leading-5 text-[var(--color-pib-text-muted)]">
+                {mode === 'portal'
+                  ? 'Client organisation workspace for projects, documents, wiki, and reports. Marketing for this CRM company lives in the company marketing section above.'
+                  : 'Run PiB operator work for this selected client org. Links stay inside the admin command surface with the slug scope visible in the URL.'}
+              </p>
             </div>
-            <p className="mt-1.5 line-clamp-3 text-[11px] leading-4 text-[var(--color-pib-text-muted)]">{action.description}</p>
-          </Link>
-        ))}
+            <Link
+              href={dashboardHref}
+              aria-label={`Open ${workspace.name} dashboard for ${companyName}`}
+              className="btn-pib-primary h-8 shrink-0 gap-1.5 px-2.5 text-xs"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">dashboard</span>
+              Dashboard
+            </Link>
+          </div>
+        </div>
+        <ActionGrid companyName={companyName} actions={linkedActions} />
       </div>
     </div>
   )

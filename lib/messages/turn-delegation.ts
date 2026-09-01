@@ -38,5 +38,7 @@ export function buildMessagesTurnDelegationPrompt(input: {
     scopes: input.delegation.scopes,
     mailboxDelegationEvidenceId: input.delegation.mailboxDelegationEvidenceId,
     apiBaseUrl: input.apiBaseUrl,
+    orgIds: input.delegation.orgIds,
+    issuerOrgId: input.delegation.issuerOrgId,
   })
 }

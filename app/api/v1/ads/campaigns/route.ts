@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { listCampaigns, createCampaign, updateCampaign } from '@/lib/ads/campaigns/store'
+import { resolveMarketingOwnerFromSearchParams } from '@/lib/social/account-scope'
 import { requireMetaContext, resolveGoogleAdsCustomerContext } from '@/lib/ads/api-helpers'
 import { getConnection, decryptAccessToken } from '@/lib/ads/connections/store'
 import { readDeveloperToken } from '@/lib/integrations/google_ads/oauth'
@@ -16,11 +17,13 @@ export const GET = withAuth('admin', async (req: NextRequest) => {
   const url = new URL(req.url)
   const status = url.searchParams.get('status') as AdEntityStatus | null
   const platform = url.searchParams.get('platform') as 'meta' | null
+  const owner = resolveMarketingOwnerFromSearchParams(url.searchParams)
 
   const campaigns = await listCampaigns({
     orgId,
     status: status ?? undefined,
     platform: platform ?? undefined,
+    owner,
   })
 
   return apiSuccess(campaigns)
@@ -87,6 +90,7 @@ export const POST = withAuth('admin', async (req: NextRequest, user) => {
       adAccountId: ctx.adAccountId,
     } as CreateAdCampaignInput,
     platform,
+    owner: resolveMarketingOwnerFromSearchParams(new URL(req.url).searchParams),
   })
 
   if (platform === 'google') {

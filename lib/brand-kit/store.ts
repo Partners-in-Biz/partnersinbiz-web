@@ -6,6 +6,7 @@
 
 import { adminDb } from '@/lib/firebase/admin'
 import { defaultBrandKit, type BrandKit, type BrandKitSocial } from './types'
+import { brandKitDocId, type MarketingOwnerContext } from '@/lib/social/account-scope'
 
 /**
  * Fetch the brand kit for an org. Returns defaults (with overrides from
@@ -54,6 +55,30 @@ export async function getBrandKitForOrg(orgId: string): Promise<BrandKit> {
   }
 
   return fallback
+}
+
+export async function getBrandKitForOwner(orgId: string, owner: MarketingOwnerContext): Promise<BrandKit> {
+  const docId = brandKitDocId(orgId, owner)
+  if (owner.owner === 'org' || docId === orgId) return getBrandKitForOrg(orgId)
+
+  const fallback = defaultBrandKit(orgId)
+  try {
+    const snap = await adminDb.collection('brand_kits').doc(docId).get()
+    if (snap.exists) {
+      const data = snap.data() ?? {}
+      return {
+        ...fallback,
+        ...sanitize(data, orgId),
+      }
+    }
+  } catch {
+    // company/personal kits do not fall back to org brand — that would mix owners
+  }
+  return fallback
+}
+
+export function brandKitWriteDocId(orgId: string, owner: MarketingOwnerContext): string {
+  return brandKitDocId(orgId, owner)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

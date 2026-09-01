@@ -26,7 +26,7 @@ import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/coll
 import { applyTaskLlmCredentialResolution } from '@/lib/projects/apply-task-llm'
 import { applyOrgChartToAssignment, applyOrgDefaultsToTaskFields } from '@/lib/agent-org/taskHooks'
 import { publishTaskLifecycleToCommandSession } from '@/lib/projects/commandSession'
-import { approvalActorAuditFields, isAuthorizedAdminApprover } from '@/lib/projects/adminApprover'
+import { approvalActorAuditFields, canApproveProjectGate, isAuthorizedAdminApprover } from '@/lib/projects/adminApprover'
 import { hasApprovalGateMarker, reconcileApprovalGateUpdate } from '@/lib/projects/approvalState'
 import { removeProjectTaskReadModelTask, upsertProjectTaskReadModel } from '@/lib/projects/taskReadModelStore'
 
@@ -154,7 +154,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   const existingApprovalGateTaskId = typeof existing.approvalGateTaskId === 'string' && existing.approvalGateTaskId.trim().length > 0
   const isApprovalGateCard = isApprovalGateRecord(existing, body)
   const isApprovalGatedTask = isApprovalGateCard || existingApprovalGateTaskId
-  const adminApprover = isAuthorizedAdminApprover(user)
+  const gateKind = typeof existing.approvalGate === 'string' && existing.approvalGate.trim()
+    ? existing.approvalGate
+    : typeof body.approvalGate === 'string' ? body.approvalGate : ''
+  const adminApprover = await canApproveProjectGate(user, gateKind)
   const approvalMetadataFields = [
     'approvalGate',
     'requiredCapability',
@@ -181,10 +184,10 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
     'agentReleasedAt',
   ]
   if (body.approvalStatus !== undefined && !adminApprover) {
-    return apiError('Only an admin approver can change approvalStatus on project tasks', 403)
+    return apiError('Only an authorized approver can change approvalStatus on project tasks', 403)
   }
   if (!adminApprover && approvalMetadataFields.some((field) => body[field] !== undefined)) {
-    return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
+    return apiError('Only an authorized approver can change approval-gate metadata on project tasks', 403)
   }
   if (body.approvalStatus !== undefined && body.approvalStatus !== null && !isApprovalGatedTask) {
     return apiError('approvalStatus can only be changed on approval-gated tasks', 400)
@@ -197,11 +200,11 @@ export const PATCH = withAuth('client', async (req: NextRequest, user, ctx) => {
   // not a 400 from canonical state rules they were never allowed to attempt.
   const touchesApprovalExecutionState = approvalExecutionFields.some((field) => updateValue[field] !== undefined)
   if (!adminApprover && isApprovalGateCard && touchesApprovalExecutionState) {
-    return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
+    return apiError('Only an authorized approver can change approval-gate metadata on project tasks', 403)
   }
   if (!adminApprover && existingApprovalGateTaskId && touchesApprovalExecutionState) {
     const approved = await approvalGateTaskApproved(projectId, String(existing.approvalGateTaskId))
-    if (!approved) return apiError('Only an admin approver can change approval-gate metadata on project tasks', 403)
+    if (!approved) return apiError('Only an authorized approver can change approval-gate metadata on project tasks', 403)
   }
 
   const reconciled = reconcileApprovalGateUpdate(existing, updateValue, body, isApprovalGateCard)

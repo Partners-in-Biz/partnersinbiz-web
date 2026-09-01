@@ -43,7 +43,10 @@ import { publicConversationView } from '@/lib/conversations/access'
 import { organizationMemberUids } from '@/lib/conversations/participant-access'
 import { resolveConversationDispatchAgentId } from '@/lib/conversations/dispatch-agent'
 import { memberCanUseAgentOnRuntime } from '@/lib/orgMembers/access-policy'
-import { loadOrgMemberAccessPolicy } from '@/lib/orgMembers/org-access-policy'
+import {
+  grantedAgentIdsFromPolicy,
+  loadEffectiveMemberAgentPolicy,
+} from '@/lib/orgMembers/platform-staff'
 import {
   parseBotChannelKind,
   parseBotInboxMeta,
@@ -98,7 +101,11 @@ export const POST = withAuth(
       : null
     // Auth hydrates memberAccessPolicy for activeOrgId only — load the policy
     // for the conversation org when evaluating Team agent grants.
-    const scopedAccessPolicy = (await loadOrgMemberAccessPolicy(scope.orgId, user.uid))
+    const scopedAccessPolicy = (await loadEffectiveMemberAgentPolicy(
+      scope.orgId,
+      user.uid,
+      user.memberAccessPolicy,
+    ))
       ?? user.memberAccessPolicy
       ?? null
     const membershipDoc = await adminDb.collection('orgMembers').doc(`${scope.orgId}_${user.uid}`).get()
@@ -119,6 +126,9 @@ export const POST = withAuth(
         : null,
     }
     const allowedAgentIds = new Set<AgentId>(resolveVisibleAgents(config, callerRole, memberProfile))
+    for (const agentId of grantedAgentIdsFromPolicy(scopedAccessPolicy)) {
+      allowedAgentIds.add(agentId)
+    }
     const orgMemberUids = new Set<string>()
     if (callerRole === 'client' || !isPlatformWorkspace(scope.orgId)) {
       const canonicalMemberUids = await organizationMemberUids(scope.orgId)

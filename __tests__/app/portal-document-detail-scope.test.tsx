@@ -1,6 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 
 import PortalDocumentDetail from '@/app/(portal)/portal/documents/[id]/page'
+import { clientDocumentApiPath } from '@/lib/portal/scoped-routing'
 
 let mockSearchParams = new URLSearchParams()
 
@@ -56,7 +57,7 @@ describe('portal document detail scoped routing', () => {
     })
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/client-documents/doc-lumen?orgId=lumen-org') {
+      if (url === '/api/v1/client-documents/doc-lumen') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -77,7 +78,7 @@ describe('portal document detail scoped routing', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/versions?orgId=lumen-org') {
+      if (url === '/api/v1/client-documents/doc-lumen/versions') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -85,13 +86,13 @@ describe('portal document detail scoped routing', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/comments?orgId=lumen-org') {
+      if (url === '/api/v1/client-documents/doc-lumen/comments') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [] }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/access-log?orgId=lumen-org') {
+      if (url === '/api/v1/client-documents/doc-lumen/access-log') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { events: [] } }),
@@ -128,7 +129,7 @@ describe('portal document detail scoped routing', () => {
     })
     global.fetch = jest.fn((input: RequestInfo | URL) => {
       const url = String(input)
-      if (url === '/api/v1/client-documents/doc-lumen?orgId=lumen-org') {
+      if (url === '/api/v1/client-documents/doc-lumen') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -149,7 +150,7 @@ describe('portal document detail scoped routing', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/versions?orgId=lumen-org') {
+      if (url === '/api/v1/client-documents/doc-lumen/versions') {
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -157,13 +158,13 @@ describe('portal document detail scoped routing', () => {
           }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/comments?orgId=lumen-org') {
+      if (url === '/api/v1/client-documents/doc-lumen/comments') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: [] }),
         } as Response)
       }
-      if (url === '/api/v1/client-documents/doc-lumen/access-log?orgId=lumen-org') {
+      if (url === '/api/v1/client-documents/doc-lumen/access-log') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ data: { events: [] } }),
@@ -320,5 +321,16 @@ describe('portal document detail scoped routing', () => {
 
     expect(await screen.findByText('Document rendered')).toBeInTheDocument()
     expect(screen.queryByText('Document not found.')).not.toBeInTheDocument()
+  })
+})
+
+describe('clientDocumentApiPath', () => {
+  it('never attaches a workspace orgId to document resource URLs', () => {
+    expect(clientDocumentApiPath('68lOER4Q2lF12yqBP3rx')).toBe(
+      '/api/v1/client-documents/68lOER4Q2lF12yqBP3rx',
+    )
+    expect(clientDocumentApiPath('68lOER4Q2lF12yqBP3rx', '/versions')).toBe(
+      '/api/v1/client-documents/68lOER4Q2lF12yqBP3rx/versions',
+    )
   })
 })

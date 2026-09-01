@@ -31,15 +31,17 @@ describe('client documents admin and portal boundary', () => {
     expect(portalRoute).not.toContain('fetch(')
   })
 
-  it('keeps portal document detail API calls scoped to the route organisation', () => {
+  it('loads portal document detail by document ACL, not the URL workspace orgId', () => {
     const detailRoute = source('app/(portal)/portal/documents/[id]/page.tsx')
 
     expect(detailRoute).toContain("scopeFromSearchParams(searchParams)")
-    expect(detailRoute).toContain("const documentEndpoint = scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}`, portalScope)")
+    expect(detailRoute).toContain('clientDocumentApiPath')
+    expect(detailRoute).toContain('const documentEndpoint = clientDocumentApiPath(id)')
     expect(detailRoute).toContain('fetch(documentEndpoint)')
     expect(detailRoute).toContain('fetch(documentVersionsEndpoint)')
     expect(detailRoute).toContain('fetch(documentCommentsEndpoint)')
     expect(detailRoute).toContain('fetch(documentAccessLogEndpoint)')
+    expect(detailRoute).not.toContain("scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}`, portalScope)")
     expect(detailRoute).not.toContain('fetch(`/api/v1/client-documents/${id}`)')
     expect(detailRoute).not.toContain('fetch(`/api/v1/client-documents/${id}/versions`)')
   })

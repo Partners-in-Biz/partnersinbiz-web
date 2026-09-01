@@ -37,6 +37,8 @@ describe('PortalMarketingPage', () => {
       'href',
       '/portal/capture-sources',
     )
+    expect(screen.queryByRole('link', { name: /Personal marketing/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Personal accounts/ })).not.toBeInTheDocument()
   })
 
   it('keeps marketing cards scoped when opened from a CRM company workspace', async () => {
@@ -53,10 +55,10 @@ describe('PortalMarketingPage', () => {
 
     const sourceSuffix = '&sourceCompanyId=company-1&sourceCompanyName=Lumen'
 
-    expect(screen.getByRole('region', { name: 'CRM company workspace context' })).toBeInTheDocument()
-    expect(screen.getByText('Opened from CRM company')).toBeInTheDocument()
-    expect(screen.getByText('Lumen is linked to lumen-speeds')).toBeInTheDocument()
-    expect(screen.getByText(/New delivery work created here belongs to that organisation/)).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Company marketing workspace' })).toBeInTheDocument()
+    expect(screen.getByText('Company marketing')).toBeInTheDocument()
+    expect(screen.getByText('Lumen')).toBeInTheDocument()
+    expect(screen.getByText(/do not mix with this organisation/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Content Campaigns/ })).toHaveAttribute(
       'href',
       `/portal/campaigns?orgId=lumen-org&orgSlug=lumen-speeds${sourceSuffix}`,
@@ -88,6 +90,8 @@ describe('PortalMarketingPage', () => {
     const scope = '?orgId=lumen-org&orgSlug=lumen-speeds&sourceCompanyId=company-1&sourceCompanyName=Lumen'
 
     expect(screen.getByRole('heading', { name: 'Marketing Studio' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Company marketing workspace' })).toBeInTheDocument()
+    expect(screen.getByText(/do not mix with organisation marketing or Personal/)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Marketing' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute(
       'href',

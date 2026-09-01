@@ -45,8 +45,7 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('next/image', () => ({
   __esModule: true,
-  // eslint-disable-next-line @next/next/no-img-element
-  default: ({ alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => <img alt={alt} {...props} />,
+  default: (props: { alt?: string }) => <span role="img" aria-label={props.alt} />,
 }))
 
 jest.mock('firebase/auth', () => ({

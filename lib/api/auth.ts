@@ -9,7 +9,7 @@ import { resolveMemberAccessPolicy, type MemberAccessPolicy } from '@/lib/orgMem
 import type { OrgRole } from '@/lib/organizations/types'
 import { getMaintenanceState, isMaintenanceActiveNow, requestBypassesMaintenance } from '@/lib/governance/maintenance'
 import { isActiveOrgMembershipRow } from '@/lib/linked-computers/policy'
-import { resolveDelegationTokenUser } from '@/lib/api/delegations'
+import { resolveDelegationBearerUser } from '@/lib/api/delegations'
 
 type RouteHandler = (req: NextRequest, user: ApiUser, context?: any) => Promise<Response>
 
@@ -96,9 +96,11 @@ async function _resolveUser(req: NextRequest): Promise<ApiUser | null> {
   if (authHeader.startsWith('Bearer ')) {
     const token = authHeader.slice(7)
 
-    // 1. Check for a user-scoped delegation token.
-    const delegationUser = await resolveDelegationTokenUser(token)
-    if (delegationUser) return delegationUser
+    // 1. Check for a user-scoped delegation token. Expired Messages dlg tokens
+    // remint once; a pib_dlg_ bearer never falls through to AI_API_KEY.
+    if (token.startsWith('pib_dlg_')) {
+      return resolveDelegationBearerUser(token)
+    }
 
     // 2. Check for AI_API_KEY
     const aiKey = process.env.AI_API_KEY

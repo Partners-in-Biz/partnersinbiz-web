@@ -18,7 +18,10 @@ import { resolveOrgScope } from '@/lib/api/orgScope'
 import { apiSuccess, apiError } from '@/lib/api/response'
 import { orgChatConfigDoc, resolveVisibleAgents } from '@/lib/conversations/conversations'
 import { memberCanUseAgentOnRuntime } from '@/lib/orgMembers/access-policy'
-import { loadOrgMemberAccessPolicy } from '@/lib/orgMembers/org-access-policy'
+import {
+  grantedAgentIdsFromPolicy,
+  loadEffectiveMemberAgentPolicy,
+} from '@/lib/orgMembers/platform-staff'
 import type { AgentId } from '@/lib/agents/types'
 import type { AgentTeamStoredDoc } from '@/lib/agents/types'
 import type { ApiUser } from '@/lib/api/types'
@@ -67,9 +70,14 @@ export const GET = withAuth(
     const allowedAgentIds = new Set<AgentId>(visibleAgents)
     const memberRole = memberDoc.data()?.role
     const orgManager = user.role === 'admin' || memberRole === 'owner' || memberRole === 'admin'
-    const scopedAccessPolicy = (await loadOrgMemberAccessPolicy(scope.orgId, user.uid))
-      ?? user.memberAccessPolicy
-      ?? null
+    const scopedAccessPolicy = (await loadEffectiveMemberAgentPolicy(
+      scope.orgId,
+      user.uid,
+      user.memberAccessPolicy,
+    )) ?? user.memberAccessPolicy ?? null
+    for (const agentId of grantedAgentIdsFromPolicy(scopedAccessPolicy)) {
+      allowedAgentIds.add(agentId)
+    }
 
     const selectedDeviceId = runtimeTargetId?.startsWith('linked-device:')
       ? runtimeTargetId.slice('linked-device:'.length)

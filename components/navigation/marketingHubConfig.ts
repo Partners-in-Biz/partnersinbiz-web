@@ -17,11 +17,13 @@ function section(title: string, actions: HubAction[]): HubSection {
 export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProps {
   if (config.surface === 'portal') {
     return {
-      eyebrow: 'Client portal',
+      eyebrow: config.sourceCompanyId ? 'Company marketing' : 'Client portal',
       title: 'Marketing',
-      description: 'Your brand, campaigns, social approvals, SEO work, contacts, and lead capture in one place.',
-      sourceContext: config.sourceCompanyName
-        ? { sourceCompanyName: config.sourceCompanyName, targetWorkspaceName: config.orgSlug || config.orgId || 'the linked organisation' }
+      description: config.sourceCompanyId
+        ? `${config.sourceCompanyName || 'This company'} campaigns, accounts, and brand. Separate from organisation marketing and Personal.`
+        : 'Your brand, campaigns, social approvals, SEO work, contacts, and lead capture in one place.',
+      sourceContext: config.sourceCompanyId
+        ? { sourceCompanyName: config.sourceCompanyName, owner: 'company' as const }
         : undefined,
       primaryAction: {
         label: 'Review social',
@@ -72,22 +74,6 @@ export function buildMarketingHubProps(config: MarketingHubSurface): HubPageProp
             icon: 'psychology_alt',
             description: 'Review AI search visibility, GEO audits, answer-engine readiness, and approval-gated reports.',
             eyebrow: 'AI search',
-          },
-        ]),
-        section('Personal workspace', [
-          {
-            label: 'Personal marketing',
-            href: '/portal/personal/marketing',
-            icon: 'person',
-            description: 'Your own social accounts, drafts, and X MCP/bookmark access. Separate from this company workspace.',
-            eyebrow: 'User-owned',
-          },
-          {
-            label: 'Personal accounts',
-            href: '/portal/personal/social/accounts',
-            icon: 'person_add',
-            description: 'Connect social accounts and personal X MCP under your user profile, not the organisation.',
-            eyebrow: 'Connect',
           },
         ]),
         section('Social media', [

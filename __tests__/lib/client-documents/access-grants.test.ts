@@ -122,6 +122,89 @@ describe('getAccessibleClientDocument canonical grants', () => {
       }),
     )
   })
+
+  it('lets a client-role creator open a platform-held document without a partner grant', async () => {
+    mockGetClientDocument.mockResolvedValue({
+      id: 'doc-1',
+      orgId: 'pib-platform-owner',
+      status: 'client_review',
+      linked: { clientOrgId: 'client-org' },
+      createdBy: 'stean',
+      currentVersionId: 'ver-current',
+      latestPublishedVersionId: 'ver-pub',
+    })
+    mockFindDocumentPartnerLinkId.mockResolvedValue(null)
+    const stean = {
+      uid: 'stean',
+      role: 'client' as const,
+      orgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner'],
+    }
+
+    const access = await getAccessibleClientDocument('doc-1', stean, 'read')
+
+    expect(access.ok).toBe(true)
+    expect(mockDecide).not.toHaveBeenCalled()
+  })
+
+  it('lets a linked client-org member open a published document when no partner grant exists', async () => {
+    mockGetClientDocument.mockResolvedValue({
+      id: 'doc-1',
+      orgId: 'pib-platform-owner',
+      status: 'client_review',
+      linked: { clientOrgId: 'client-org' },
+      createdBy: 'stean',
+      currentVersionId: 'ver-current',
+      latestPublishedVersionId: 'ver-pub',
+    })
+    mockFindDocumentPartnerLinkId.mockResolvedValue(null)
+    mockHasActiveOrgMembership.mockImplementation(async (orgId: string, uid: string) => {
+      return orgId === 'client-org' && uid === 'hendrik'
+    })
+    const hendrik = {
+      uid: 'hendrik',
+      role: 'client' as const,
+      orgId: 'client-org',
+      orgIds: ['client-org'],
+    }
+
+    const access = await getAccessibleClientDocument('doc-1', hendrik, 'read')
+
+    expect(access.ok).toBe(true)
+  })
+
+  it('does not let a client-role platform member open someone else’s platform document', async () => {
+    mockGetClientDocument.mockResolvedValue({
+      id: 'doc-1',
+      orgId: 'pib-platform-owner',
+      status: 'internal_draft',
+      linked: { clientOrgId: 'other-client' },
+      createdBy: 'someone-else',
+    })
+    mockFindDocumentPartnerLinkId.mockResolvedValue(null)
+    const stean = {
+      uid: 'stean',
+      role: 'client' as const,
+      orgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner'],
+    }
+
+    const access = await getAccessibleClientDocument('doc-1', stean, 'read')
+
+    expect(access.ok).toBe(false)
+    if (!access.ok) {
+      expect(access.response.status).toBe(403)
+    }
+  })
+
+  it('does not fall back to share visibility after a canonical grant denies the action', async () => {
+    mockDecide.mockResolvedValue({ allowed: false, reasonCode: 'ACTION_NOT_GRANTED' })
+    const access = await getAccessibleClientDocument('doc-1', namedUser, 'comment')
+    expect(access.ok).toBe(false)
+    if (!access.ok) {
+      expect(access.response.status).toBe(403)
+    }
+  })
 })
 
 const platformLinkedDoc = {

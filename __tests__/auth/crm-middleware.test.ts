@@ -294,7 +294,7 @@ describe('withCrmAuth — cookie path', () => {
     expect(ctx.actor.uid).toBe(UID)
   })
 
-  it('403s when user has no membership in active org', async () => {
+  it('400s when user has no membership in the pointed-at active org', async () => {
     ;(adminAuth.verifySessionCookie as jest.Mock).mockResolvedValue({ uid: UID })
     setupCollections({
       user: { activeOrgId: ORG_ID },
@@ -304,7 +304,8 @@ describe('withCrmAuth — cookie path', () => {
     const handler = jest.fn()
     const route = withCrmAuth('viewer', handler)
     const res = await route(makeReq({ cookie: '__session=valid' }))
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(400)
+    expect(handler).not.toHaveBeenCalled()
   })
 
   it('400s when user has no activeOrgId or orgId', async () => {
@@ -580,7 +581,7 @@ describe('withCrmAuth — user delegation Bearer path', () => {
 
     expect(res.status).toBe(401)
     expect(handler).not.toHaveBeenCalled()
-    expect((await res.json()).error).toMatch(/Invalid API key/i)
+    expect((await res.json()).error).toMatch(/Unauthorized/i)
   })
 
   it('400s when delegation call is missing X-Org-Id and mint has no org claim', async () => {

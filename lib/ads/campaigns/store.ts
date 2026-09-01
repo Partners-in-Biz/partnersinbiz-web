@@ -2,6 +2,7 @@
 import { adminDb } from '@/lib/firebase/admin'
 import { Timestamp } from 'firebase-admin/firestore'
 import type { AdCampaign, CreateAdCampaignInput, UpdateAdCampaignInput } from '@/lib/ads/types'
+import { recordVisibleForOwner, type MarketingOwnerContext } from '@/lib/social/account-scope'
 import crypto from 'crypto'
 
 const COLLECTION = 'ad_campaigns'
@@ -11,6 +12,7 @@ export async function createCampaign(args: {
   createdBy: string
   input: CreateAdCampaignInput
   platform?: AdCampaign['platform']
+  owner?: MarketingOwnerContext
 }): Promise<AdCampaign> {
   const id = `cmp_${crypto.randomBytes(8).toString('hex')}`
   const now = Timestamp.now()
@@ -24,6 +26,9 @@ export async function createCampaign(args: {
     createdBy: args.createdBy,
     createdAt: now,
     updatedAt: now,
+    ...(args.owner?.owner === 'company' && args.owner.companyId
+      ? { marketingOwner: 'company', companyId: args.owner.companyId }
+      : { marketingOwner: 'org' }),
   }
 
   await adminDb.collection(COLLECTION).doc(id).set(doc)
@@ -40,6 +45,7 @@ export async function listCampaigns(args: {
   orgId: string
   status?: AdCampaign['status']
   platform?: AdCampaign['platform']
+  owner?: MarketingOwnerContext
 }): Promise<AdCampaign[]> {
   let query = adminDb.collection(COLLECTION).where('orgId', '==', args.orgId)
 
@@ -52,7 +58,9 @@ export async function listCampaigns(args: {
   }
 
   const snap = await query.get()
-  return snap.docs.map((d) => d.data() as AdCampaign)
+  return snap.docs
+    .map((d) => d.data() as AdCampaign)
+    .filter((campaign) => recordVisibleForOwner(campaign, args.owner ?? { owner: 'org' }))
 }
 
 export async function updateCampaign(id: string, patch: UpdateAdCampaignInput): Promise<void> {
