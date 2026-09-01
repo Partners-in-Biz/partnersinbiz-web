@@ -45,7 +45,7 @@ import { safeRuntimeTargetId, type RuntimeTargetSelectionErrorCode } from '@/lib
 import { cleanAgentEffort, VALID_AGENT_EFFORTS, type AgentEffort } from '@/lib/agents/runRouting'
 import { cleanApprovalMode, shouldAutoApproveDangerousCommands } from '@/lib/messages/approval-mode'
 import { memberCanUseAgentOnRuntime } from '@/lib/orgMembers/access-policy'
-import { loadOrgMemberAccessPolicy } from '@/lib/orgMembers/org-access-policy'
+import { loadEffectiveMemberAgentPolicy, loadPlatformStaffMembership } from '@/lib/orgMembers/platform-staff'
 import { buildAttachedContextBlock, resolveContextReferences } from '@/lib/context-references/registry'
 import { buildProjectCodeWorkspacePrompt } from '@/lib/projects/code-workspace'
 import {
@@ -84,7 +84,7 @@ import {
 } from '@/lib/chat/hermes-goal'
 import { tryHandleHermesFeaturesSlash } from '@/lib/hermes-features/slash'
 import { evaluateSlashCommandAccess } from '@/lib/chat/slash-command-access'
-import { isSuperAdmin } from '@/lib/api/platformAdmin'
+import { canAccessOrg, isSuperAdmin } from '@/lib/api/platformAdmin'
 import { buildAgentSkillsPromptBlock, collectAgentSkillNames } from '@/lib/chat/agent-skills'
 import { CEO_APPROVAL_CARD_RULE_LINES, buildCeoDataDecisionOperatingRuleLines } from '@/lib/agent/ceo-operating-rule'
 import { validateMessageModelSelection } from '@/lib/messages/model-catalog'
@@ -509,9 +509,13 @@ export const POST = withAuth(
       conversation.crossOrg && user.orgId !== conversation.crossOrg.ownerOrgId,
     )
     if (!foreignCrossOrgParticipant) {
+      const staff = await loadPlatformStaffMembership(user.uid)
+      const moduleOrgId = staff && !canAccessOrg(user, conversation.orgId)
+        ? staff.platformOrgId
+        : conversation.orgId
       const replyAccess = await assertUserCanPerformOrganizationModuleAction(
         user,
-        conversation.orgId,
+        moduleOrgId,
         'messages',
         'reply',
         'Conversation replies are disabled for your organisation role',
@@ -656,7 +660,11 @@ export const POST = withAuth(
     let authorizedWorkspaceRuntime: AuthorizedWorkspaceRuntime | null = null
     let recoveringLinkedComputerQueue = false
     if (requestedRuntimeTarget && conversation.workspaceContext?.workspaceId && dispatchAgentId) {
-      const scopedAccessPolicy = (await loadOrgMemberAccessPolicy(conversation.orgId, user.uid))
+      const scopedAccessPolicy = (await loadEffectiveMemberAgentPolicy(
+        conversation.orgId,
+        user.uid,
+        user.memberAccessPolicy,
+      ))
         ?? user.memberAccessPolicy
         ?? null
       // Platform admins and Pip are always allowed. Everyone else needs a Team
@@ -1303,6 +1311,8 @@ export const POST = withAuth(
           actingForUserId: mintedDelegation.actingForUserId,
           scopes: mintedDelegation.scopes,
           mailboxDelegationEvidenceId: mintedDelegation.mailboxDelegationEvidenceId,
+          orgIds: mintedDelegation.orgIds,
+          issuerOrgId: mintedDelegation.issuerOrgId,
         })
         : ''
       // For /goal set, prefer the goal work prompt as the actionable user request.

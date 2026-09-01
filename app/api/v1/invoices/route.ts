@@ -42,6 +42,7 @@ import {
   resolveInvoiceCreateAccess,
   shouldExposeIssuerBillingBook,
 } from '@/lib/billing/member-issuer'
+import { resolvePibStaffIssuerRemap } from '@/lib/billing/staff-issuer-remap'
 
 export const dynamic = 'force-dynamic'
 
@@ -340,14 +341,31 @@ export const POST = withAuth('client', async (req, user) => {
   const rawLineItems = Array.isArray(body.lineItems) ? body.lineItems : []
   if (!requestedOrgId) return apiError('orgId is required', 400)
   if (rawLineItems.length === 0) return apiError('At least one line item is required', 400)
-  const claimableInvoice = hasClaimableTarget(body)
+  const staffRemap = await resolvePibStaffIssuerRemap({
+    user,
+    requestedOrgId,
+    companyId: cleanString(body.companyId),
+    contactId: cleanString(body.contactId),
+    kind: 'invoices',
+  })
+  const claimableInvoice = hasClaimableTarget(body) || Boolean(staffRemap?.companyId)
   const platformOwnerOrgId = await resolvePlatformOwnerOrgId()
-  const platformIssuedInvoice = !claimableInvoice && (user.role === 'admin' || user.role === 'ai')
-  const sourceOrgId = platformIssuedInvoice ? platformOwnerOrgId : requestedOrgId
-  const recipientOrgId = platformIssuedInvoice ? requestedOrgId : cleanString(body.recipientOrgId)
+  const platformIssuedInvoice = !claimableInvoice && (user.role === 'admin' || user.role === 'ai') && !staffRemap
+  const sourceOrgId = staffRemap?.sourceOrgId
+    ?? (platformIssuedInvoice ? platformOwnerOrgId : requestedOrgId)
+  const recipientOrgId = staffRemap?.recipientOrgId
+    ?? (platformIssuedInvoice ? requestedOrgId : cleanString(body.recipientOrgId))
+  const crmBody = staffRemap
+    ? {
+        ...body,
+        companyId: staffRemap.companyId || body.companyId,
+        contactId: staffRemap.contactId || body.contactId,
+        recipientOrgId: staffRemap.recipientOrgId,
+      }
+    : body
 
   // Resolve CRM target early so member-owned issuer checks can fail closed.
-  const crmTargetPreview = claimableInvoice ? await resolveInvoiceCrmTarget(body, sourceOrgId) : null
+  const crmTargetPreview = claimableInvoice ? await resolveInvoiceCrmTarget(crmBody, sourceOrgId) : null
   if (claimableInvoice && crmTargetPreview?.companyId && !crmTargetPreview.company) {
     return apiError('CRM company not found', 404)
   }

@@ -1,9 +1,58 @@
 import type { ApiUser } from '@/lib/api/types'
+import { loadPlatformStaffMembership } from '@/lib/orgMembers/platform-staff'
 
 type ApproverUser = Pick<
   ApiUser,
   'role' | 'authKind' | 'uid' | 'actingForUserId' | 'agentId' | 'delegationId'
 >
+
+const ADMIN_ONLY_APPROVAL_GATES = new Set([
+  'production-deploy',
+  'secret-config',
+  'secrets-config',
+  'destructive',
+  'destructive-action',
+  'destructive-data',
+])
+
+const BOOK_APPROVAL_GATES = new Set([
+  'finance',
+  'client-visible',
+  'public-publishing',
+  'paid-spend',
+  'human-review',
+  'client-approval',
+  'human-required',
+])
+
+function cleanGate(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+export function isAdminOnlyApprovalGate(gate: unknown): boolean {
+  return ADMIN_ONLY_APPROVAL_GATES.has(cleanGate(gate))
+}
+
+export function isBookApprovalGate(gate: unknown): boolean {
+  const value = cleanGate(gate)
+  if (!value || value === 'none') return true
+  if (isAdminOnlyApprovalGate(value)) return false
+  return BOOK_APPROVAL_GATES.has(value) || value.includes('client') || value.includes('finance')
+}
+
+function isCompleteHumanApprover(user: ApproverUser): boolean {
+  const kind = user.authKind
+  if (kind === 'agent_api_key' || kind === 'legacy_ai_key') return false
+
+  if (kind === 'user_delegation') {
+    if (!user.delegationId?.trim()) return false
+    if (!user.actingForUserId?.trim() || user.actingForUserId !== user.uid) return false
+    if (!user.agentId?.trim()) return false
+    return true
+  }
+
+  return kind === 'session' || kind === 'firebase' || kind === undefined
+}
 
 /**
  * Returns true when the caller may set human approval-gate fields
@@ -19,23 +68,29 @@ type ApproverUser = Pick<
  * - Malformed or incomplete user-delegation projections
  *
  * Org scope and project write access are enforced by the route separately.
+ * Book-of-business staff approval uses `canApproveProjectGate`.
  */
 export function isAuthorizedAdminApprover(user: ApproverUser): boolean {
   if (user.role !== 'admin') return false
+  return isCompleteHumanApprover(user)
+}
 
-  const kind = user.authKind
-  if (kind === 'agent_api_key' || kind === 'legacy_ai_key') return false
+/**
+ * PiB staff members may approve book-of-business gates (finance, client
+ * messages, drafts) on work they can already write. Production, secrets, and
+ * destructive gates stay admin-only.
+ */
+export async function isAuthorizedBookApprover(user: ApproverUser, gate?: unknown): Promise<boolean> {
+  if (!isCompleteHumanApprover(user)) return false
+  if (isAdminOnlyApprovalGate(gate)) return false
+  if (!isBookApprovalGate(gate)) return false
+  const staff = await loadPlatformStaffMembership(user.uid)
+  return Boolean(staff)
+}
 
-  if (kind === 'user_delegation') {
-    // ResolveDelegationTokenUser sets uid = actingForUserId (the human).
-    if (!user.delegationId?.trim()) return false
-    if (!user.actingForUserId?.trim() || user.actingForUserId !== user.uid) return false
-    if (!user.agentId?.trim()) return false
-    return true
-  }
-
-  // Direct human browser/session auth (or legacy callers without authKind).
-  return kind === 'session' || kind === 'firebase' || kind === undefined
+export async function canApproveProjectGate(user: ApproverUser, gate?: unknown): Promise<boolean> {
+  if (isAuthorizedAdminApprover(user)) return true
+  return isAuthorizedBookApprover(user, gate)
 }
 
 /**

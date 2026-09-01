@@ -3,7 +3,7 @@ import { getProjectForUser } from '@/lib/projects/access'
 import { buildProjectChatProgress, type ProjectChatTaskItem, type ProjectChatTaskSource } from '@/lib/projects/chatProgress'
 import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
 import { taskOrderMillis } from '@/lib/projects/taskPayload'
-import { isAuthorizedAdminApprover } from '@/lib/projects/adminApprover'
+import { canApproveProjectGate } from '@/lib/projects/adminApprover'
 import type { AgentArtifact, AgentOutput } from '@/lib/projects/types'
 import type {
   ChatContextAction,
@@ -288,11 +288,17 @@ export const projectChatContextAdapter: ChatContextAdapter = {
     })
     const asOf = new Date().toISOString()
     const canWrite = canProjectRole(access.projectAccess?.role ?? 'viewer', 'write')
-    const canApprove = canWrite && isAuthorizedAdminApprover(user)
-    const actionsByTaskId = new Map(progress.tasks.map((task) => [
-      task.id,
-      projectTaskChatActions({ projectId, task, canWrite, canApprove }),
-    ]))
+    const actionsByTaskId = new Map(
+      await Promise.all(progress.tasks.map(async (task) => [
+        task.id,
+        projectTaskChatActions({
+          projectId,
+          task,
+          canWrite,
+          canApprove: canWrite && await canApproveProjectGate(user, task.approvalGate),
+        }),
+      ] as const)),
+    )
 
     const orgId = cleanString(projectData.orgId) || cleanString(projectData.ownerOrgId) || ''
     const attention: ContextAttentionSummary[] = []

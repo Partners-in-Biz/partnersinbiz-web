@@ -28,6 +28,24 @@ describe('delegation prompt + messages mint helper', () => {
     expect(block).not.toMatch(/send any chat message to (re)?mint/i)
   })
 
+  it('tells staff agents to issue PiB invoices from the client chat without waiting for Peet', () => {
+    const block = buildDelegationAuthPromptBlock({
+      token: 'pib_dlg_abc',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      orgId: 'wS5pgwa6c9WbPocf4w0w',
+      agentId: 'pip',
+      actingForUserId: 'stean',
+      scopes: ['billing:create'],
+      orgIds: ['wS5pgwa6c9WbPocf4w0w', 'pib-platform-owner'],
+      issuerOrgId: 'pib-platform-owner',
+    })
+
+    expect(block).toContain('PiB issuer org is pib-platform-owner')
+    expect(block).toContain('This token is also scoped to: pib-platform-owner.')
+    expect(block).toContain('Do not wait for Peet')
+    expect(block).not.toMatch(/re-send a message to mint a token/i)
+  })
+
   it('includes mailbox delegation evidence when provided', () => {
     const block = buildDelegationAuthPromptBlock({
       token: 'pib_dlg_abc',

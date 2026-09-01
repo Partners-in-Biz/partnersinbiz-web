@@ -57,7 +57,8 @@ Full workspace access (`FULL_ACCESS_POLICY`) implies both capabilities.
 ### Invoices `POST /api/v1/invoices`
 
 - Platform admin/AI without CRM target: platform-issued (`sourceOrgId=pib-platform-owner`, `orgId`=client).
-- Member with grant: must supply CRM `companyId` and/or `contactId` owned/linked to them; `orgId` is the **issuer** workspace (e.g. `pib-platform-owner`).
+- Member with grant from the **Partners in Biz** workspace: supply CRM `companyId` and/or `contactId` owned/linked to them; `orgId` is the issuer workspace (`pib-platform-owner`).
+- Member with grant from a **client company chat**: POST `orgId` as the conversation/client org (Messages already sends that `X-Org-Id`). The API remaps issuer to `pib-platform-owner` and recipient to the client org, then evaluates grant + `owned_or_linked` on the PiB membership. ELE-004 class: posting `orgId=<client>` is correct; do not wait for Peet.
 - Owner/admin of client org: may still create that org's own book without CRM target.
 
 ### Quotes `POST /api/v1/quotes`
@@ -80,6 +81,8 @@ Portal **Settings → Team → Edit access**:
 ## Code anchors
 
 - `lib/orgMembers/access-policy.ts` — `capabilities`, `memberCanIssueInvoices` / `memberCanIssueQuotes`
+- `lib/billing/staff-issuer-remap.ts` — client-chat → platform issuer remap
+- `lib/orgMembers/platform-staff.ts` — PiB staff membership + specialist grant merge
 - `lib/billing/member-issuer.ts` — grant + owned-client gates
 - `app/api/v1/invoices/route.ts`, `app/api/v1/quotes/route.ts`
 - `app/(portal)/portal/settings/team/page.tsx`

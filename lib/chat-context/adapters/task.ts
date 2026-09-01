@@ -14,7 +14,7 @@ import { adminDb } from '@/lib/firebase/admin'
 import { getProjectForUser } from '@/lib/projects/access'
 import { buildProjectChatProgress } from '@/lib/projects/chatProgress'
 import { canProjectRole, filterProjectItemsForAccess } from '@/lib/projects/collaboration'
-import { isAuthorizedAdminApprover } from '@/lib/projects/adminApprover'
+import { canApproveProjectGate } from '@/lib/projects/adminApprover'
 
 function clean(value: unknown, max = 240): string {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, max) : ''
@@ -134,7 +134,7 @@ export const taskChatContextAdapter: ChatContextAdapter = {
       projectId,
       task,
       canWrite,
-      canApprove: canWrite && isAuthorizedAdminApprover(input.user),
+      canApprove: canWrite && await canApproveProjectGate(input.user, task.approvalGate),
     })
     const href = `/portal/projects/${encodeURIComponent(projectId)}?taskId=${encodeURIComponent(task.id)}`
     const item = { ...projectTaskSummary(task, actions), href }

@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from '@/lib/firebase/admin'
 import { ROLE_RANK } from '@/lib/orgMembers/types'
 import type { OrgRole } from '@/lib/organizations/types'
 import { resolveAgentApiKeyUser } from '@/lib/api/auth'
-import { resolveDelegationTokenUser } from '@/lib/api/delegations'
+import { resolveDelegationBearerUser } from '@/lib/api/delegations'
 import type { ApiAuthKind, ApiPermission, ApiUser } from '@/lib/api/types'
 import {
   AGENT_PIP_REF,
@@ -50,6 +50,8 @@ export interface CrmAuthContext {
     delegationScopes?: string[]
     permissions?: ApiPermission[]
     orgId?: string
+    activeOrgId?: string
+    orgIds?: string[]
     allowedOrgIds?: string[]
   }
 }
@@ -225,6 +227,8 @@ async function resolveDelegationCrmContext(
       delegationScopes: delegationUser.delegationScopes,
       permissions: delegationUser.permissions,
       orgId: typeof userData.orgId === 'string' ? userData.orgId : orgId,
+      activeOrgId: orgId,
+      orgIds: Array.isArray(delegationUser.orgIds) ? delegationUser.orgIds : [orgId],
       allowedOrgIds: Array.isArray(userData.allowedOrgIds)
         ? cleanStringArray(userData.allowedOrgIds)
         : delegationUser.allowedOrgIds,
@@ -252,8 +256,11 @@ export function withCrmAuth<RouteCtx = unknown>(
       const token = authHeader.slice(7)
 
       // 1. User-delegation tokens (Messages / interactive Hermes runs).
-      const delegationUser = await resolveDelegationTokenUser(token)
-      if (delegationUser) {
+      // Expired Messages dlg tokens remint once; a pib_dlg_ bearer never
+      // falls through to AI_API_KEY.
+      if (token.startsWith('pib_dlg_')) {
+        const delegationUser = await resolveDelegationBearerUser(token)
+        if (!delegationUser) return apiError('Unauthorized', 401)
         const resolved = await resolveDelegationCrmContext(req, delegationUser, minRole)
         if (resolved instanceof Response) return resolved
         return handler(req, resolved, routeCtx)

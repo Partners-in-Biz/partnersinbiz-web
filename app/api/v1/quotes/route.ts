@@ -21,6 +21,8 @@ import {
   resolveQuoteCreateAccess,
   shouldExposeIssuerBillingBook,
 } from '@/lib/billing/member-issuer'
+import { resolvePibStaffIssuerRemap } from '@/lib/billing/staff-issuer-remap'
+import type { ApiUser } from '@/lib/api/types'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -73,6 +75,8 @@ function ctxCanAccessOrg(ctx: CrmAuthContext, orgId: string): boolean {
     uid: ctx.user.uid,
     role: ctx.user.role === 'admin' ? 'admin' : 'client',
     orgId: ctx.user.orgId,
+    activeOrgId: ctx.user.activeOrgId,
+    orgIds: ctx.user.orgIds,
     allowedOrgIds: ctx.user.allowedOrgIds,
   }, orgId)
 }
@@ -190,16 +194,39 @@ async function prefillFromDeal(dealId: string, orgId: string): Promise<LineItem[
 export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
   const body = await req.json().catch(() => ({}))
   const platformOrgId = await resolvePlatformOwnerOrgId()
-  const requestedRecipientOrgId = cleanString(body.recipientOrgId) ||
-    cleanString(body.targetOrgId) ||
-    (ctx.user?.role === 'admin' || ctx.isAgent ? cleanString(body.orgId) : '')
-  const sourceOrgId = requestedRecipientOrgId ? platformOrgId : ctx.orgId
-  const recipientOrgId = requestedRecipientOrgId || undefined
+  const actorUser: ApiUser | null = ctx.user
+    ? {
+        uid: ctx.user.uid,
+        role: ctx.user.role === 'admin' ? 'admin' : ctx.user.role === 'ai' ? 'ai' : 'client',
+        orgId: ctx.user.orgId,
+        activeOrgId: ctx.user.activeOrgId,
+        orgIds: ctx.user.orgIds,
+        allowedOrgIds: ctx.user.allowedOrgIds,
+        authKind: ctx.user.authKind,
+      }
+    : ctx.uid
+      ? { uid: ctx.uid, role: 'client', orgId: ctx.orgId }
+      : null
+  const staffRemap = actorUser && !ctx.isAgent
+    ? await resolvePibStaffIssuerRemap({
+        user: actorUser,
+        requestedOrgId: cleanString(body.orgId) || ctx.orgId,
+        companyId: cleanString(body.companyId),
+        contactId: cleanString(body.contactId),
+        kind: 'quotes',
+      })
+    : null
+  const requestedRecipientOrgId = staffRemap?.recipientOrgId
+    || cleanString(body.recipientOrgId)
+    || cleanString(body.targetOrgId)
+    || (ctx.user?.role === 'admin' || ctx.isAgent ? cleanString(body.orgId) : '')
+  const sourceOrgId = staffRemap?.sourceOrgId || (requestedRecipientOrgId ? platformOrgId : ctx.orgId)
+  const recipientOrgId = staffRemap?.recipientOrgId || requestedRecipientOrgId || undefined
 
-  if (recipientOrgId && !ctxCanAccessOrg(ctx, recipientOrgId)) {
+  if (recipientOrgId && !staffRemap && !ctxCanAccessOrg(ctx, recipientOrgId)) {
     return apiError('Forbidden for recipient organisation', 403)
   }
-  if (!ctxCanAccessOrg(ctx, sourceOrgId)) {
+  if (!staffRemap && !ctxCanAccessOrg(ctx, sourceOrgId)) {
     return apiError('Forbidden for source organisation', 403)
   }
 
@@ -278,6 +305,10 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
     derivedCompanyId = body.companyId
     derivedCompanyName = loaded.data.name
     loadedCompany = loaded.data as unknown as Record<string, unknown>
+  } else if (staffRemap?.companyId) {
+    derivedCompanyId = staffRemap.companyId
+    derivedCompanyName = typeof staffRemap.company?.name === 'string' ? staffRemap.company.name : undefined
+    loadedCompany = staffRemap.company as Record<string, unknown> | null
   } else if (contactId) {
     const derived = await deriveCompanyFromContact(contactId, sourceOrgId)
     derivedCompanyId = derived.companyId
@@ -309,7 +340,9 @@ export const POST = withCrmAuth('member', async (req: NextRequest, ctx) => {
   }
 
   const quoteAccess = await resolveQuoteCreateAccess({
-    ctx,
+    ctx: staffRemap
+      ? { ...ctx, orgId: sourceOrgId, accessPolicy: staffRemap.policy, role: staffRemap.role }
+      : ctx,
     companyId: derivedCompanyId,
     contactId,
     company: loadedCompany,

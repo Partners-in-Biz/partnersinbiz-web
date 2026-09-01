@@ -134,6 +134,8 @@ Body:
 
 For admin/AI PiB-issued invoices without CRM claim fields, `orgId` is the client/recipient org in the request; the API resolves the platform owner as `sourceOrgId` and writes `recipientOrgId=orgId`. For CRM-targeted invoices, pass `companyId`/`contactId` and optional `recipientOrgId`; if the Company already has `linkedOrgId`, the API reuses it.
 
+PiB **staff members** (org role `member` on `pib-platform-owner`, not Platform User admin) chatting in a client company: POST `orgId` as the conversation/client org and pass the platform CRM `companyId` (or omit it and let the API resolve via `linkedOrgId`). The API remaps `sourceOrgId`/`issuerOrgId` to `pib-platform-owner` and treats the client org as recipient. Do **not** wait for Peet when that staff member asked for the invoice on their owned/linked book. Do not POST another staff member's company. From the Partners in Biz workspace, POST `orgId=pib-platform-owner` with the CRM company as usual.
+
 Auto-snapshots:
 - `fromDetails` from platform owner org (name, address, email, phone, vatNumber, bankingDetails)
 - `clientDetails` from client org (`billingDetails`, `billingEmail`)

@@ -13,6 +13,7 @@ import {
 import { resolveOrganizationPolicyRole } from '@/lib/organizations/module-policy-access'
 import type { OrgRole } from '@/lib/organizations/types'
 import { isActiveOrgMembershipRow } from '@/lib/linked-computers/policy'
+import { loadPlatformStaffMembership } from '@/lib/orgMembers/platform-staff'
 import {
   CHAT_REMINT_RITUAL_PATTERNS,
   containsChatRemintRitual,
@@ -127,6 +128,7 @@ export type MintedDelegation = {
   orgIds: string[]
   scopes: string[]
   mailboxDelegationEvidenceId?: string
+  issuerOrgId?: string
 }
 
 export async function mintAgentDelegation(input: {
@@ -144,13 +146,25 @@ export async function mintAgentDelegation(input: {
   if (!agentId) throw Object.assign(new Error('agentId is required'), { status: 400 })
   if (!purpose) throw Object.assign(new Error('purpose is required'), { status: 400 })
   if (input.user.role === 'ai') throw Object.assign(new Error('AI/system users cannot mint delegations'), { status: 403 })
-  if (!canAccessOrg(input.user, orgId)) throw Object.assign(new Error('Forbidden'), { status: 403 })
+  const staff = await loadPlatformStaffMembership(input.user.uid)
+  const conversationId = normalizeText(input.conversationId)
+  if (!canAccessOrg(input.user, orgId) && !(staff && conversationId)) {
+    throw Object.assign(new Error('Forbidden'), { status: 403 })
+  }
 
   const ttlSeconds = Math.min(Math.max(Math.trunc(input.ttlSeconds ?? DEFAULT_TTL_SECONDS), 60), MAX_TTL_SECONDS)
   const token = `${DELEGATION_PREFIX}${randomBytes(24).toString('hex')}`
   const tokenHash = createHash('sha256').update(token).digest('hex')
-  const scopes = await buildDelegationScopes(input.user, orgId)
-  const memberAccessPolicy = await loadMemberAccessPolicy(input.user.uid, orgId)
+  const orgIds = staff && orgId !== staff.platformOrgId
+    ? Array.from(new Set([orgId, staff.platformOrgId]))
+    : [orgId]
+  const conversationScopes = await buildDelegationScopes(input.user, orgId)
+  const staffScopes = staff && orgId !== staff.platformOrgId
+    ? await buildDelegationScopes(input.user, staff.platformOrgId)
+    : []
+  const scopes = Array.from(new Set([...conversationScopes, ...staffScopes])).sort()
+  const conversationPolicy = await loadMemberAccessPolicy(input.user.uid, orgId)
+  const memberAccessPolicy = staff?.policy ?? conversationPolicy
   const ref = adminDb.collection(DELEGATION_COLLECTION).doc()
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString()
 
@@ -162,7 +176,8 @@ export async function mintAgentDelegation(input: {
     role: input.user.role,
     orgId,
     activeOrgId: orgId,
-    orgIds: [orgId],
+    orgIds,
+    issuerOrgId: staff?.platformOrgId ?? null,
     allowedOrgIds: input.user.allowedOrgIds ?? null,
     memberAccessPolicy: memberAccessPolicy ?? null,
     scopes,
@@ -201,9 +216,10 @@ export async function mintAgentDelegation(input: {
     expiresAt,
     actingForUserId: input.user.uid,
     agentId,
-    orgIds: [orgId],
+    orgIds,
     scopes,
     mailboxDelegationEvidenceId: mailboxRef.id,
+    issuerOrgId: staff?.platformOrgId,
   }
 }
 
@@ -328,6 +344,16 @@ export async function resolveDelegationTokenUser(rawToken: string): Promise<ApiU
   }
 }
 
+/** Resolve a pib_dlg_ bearer, reminting an expired Messages token once. Never falls through to AI_API_KEY. */
+export async function resolveDelegationBearerUser(rawToken: string): Promise<ApiUser | null> {
+  if (!rawToken.startsWith(DELEGATION_PREFIX)) return null
+  const live = await resolveDelegationTokenUser(rawToken)
+  if (live) return live
+  const reminted = await remintExpiredMessagesDelegation(rawToken)
+  if (!reminted?.token) return null
+  return resolveDelegationTokenUser(reminted.token)
+}
+
 /** Prompt block injected into Messages → Hermes / linked-computer runs. */
 export function buildDelegationAuthPromptBlock(input: {
   token: string
@@ -338,11 +364,15 @@ export function buildDelegationAuthPromptBlock(input: {
   scopes: string[]
   apiBaseUrl?: string
   mailboxDelegationEvidenceId?: string
+  orgIds?: string[]
+  issuerOrgId?: string
 }): string {
   const apiBase = (input.apiBaseUrl || 'https://partnersinbiz.online').replace(/\/+$/, '')
   const scopeLine = input.scopes.length > 0
     ? input.scopes.join(', ')
     : '(org module policy — none explicitly listed)'
+  const extraOrgIds = (input.orgIds ?? []).filter((id) => id && id !== input.orgId)
+  const issuerOrgId = input.issuerOrgId?.trim() || ''
   const mailboxLines = input.mailboxDelegationEvidenceId
     ? [
       `Mailbox delegationEvidenceId for /api/v1/agent/email/* (if using an agent/system key): ${input.mailboxDelegationEvidenceId}`,
@@ -351,6 +381,13 @@ export function buildDelegationAuthPromptBlock(input: {
     : [
       'For connected mailbox reads/drafts, call /api/v1/agent/email/* with this same user-delegation Bearer token and the acting user uid.',
     ]
+  const staffBillingLines = issuerOrgId && issuerOrgId !== input.orgId
+    ? [
+      `This human is Partners in Biz staff. Conversation org is ${input.orgId}. PiB issuer org is ${issuerOrgId}.`,
+      'For PiB invoices/quotes created for the customer in this chat, POST orgId as the conversation/client org (or pass companyId on the platform CRM). The API issues the document from the platform owner org. Do not wait for Peet when this human asked for that invoice/quote/CRM/doc/email on their own book.',
+      extraOrgIds.length > 0 ? `This token is also scoped to: ${extraOrgIds.join(', ')}.` : '',
+    ].filter(Boolean)
+    : []
   return [
     '',
     '[Partners in Biz API auth — user delegation]',
@@ -362,12 +399,13 @@ export function buildDelegationAuthPromptBlock(input: {
     `Token expires at ${input.expiresAt} (ISO). Do not reuse after expiry.`,
     'Use ONLY the Bearer token in THIS block. Ignore any earlier pib_dlg_ value from conversation history or a cached Hermes conversation.',
     `Scopes for this delegation: ${scopeLine}`,
+    ...staffBillingLines,
     ...mailboxLines,
     'Do not use AI_API_KEY, agent system keys, or invent credentials for PiB API calls in this run.',
     'Do not print the full Bearer token in client-visible replies; use it only in HTTP Authorization headers.',
     'If /api/v1/agent/email/* (or another mailbox route that requires delegation evidence) returns 401/403, the platform remints a fresh user-delegation token once in this run and retries. Do not ask the human to do anything.',
     'If the mailbox call still fails after that silent remint, say the mailbox call failed and stop.',
-    'If a non-mailbox PiB API call returns 401/403, stop and report the exact error — do not fall back to another key.',
+    'If a non-mailbox PiB API call returns 401/403 for an expired pib_dlg_ token, the platform remints once on the next call. If it still fails, stop and report the exact error — do not fall back to another key.',
     '',
   ].join('\n')
 }

@@ -1,5 +1,6 @@
 import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { getProjectForUser } from '@/lib/projects/access'
 import { selectActiveProjectId } from '@/lib/projects/chatProgress'
 import { projectLinkedToOrganization } from '@/lib/projects/organization-link'
@@ -40,6 +41,12 @@ export async function authorizeConversationProject(
   return { ok: true, projectId }
 }
 
+function isPlatformStaffScopedUser(user: ApiUser): boolean {
+  return user.activeOrgId === PIB_PLATFORM_ORG_ID
+    || user.orgId === PIB_PLATFORM_ORG_ID
+    || (user.orgIds ?? []).includes(PIB_PLATFORM_ORG_ID)
+}
+
 /**
  * Conversation access semantics:
  * - human callers, including administrators, need explicit participation for
@@ -48,6 +55,8 @@ export async function authorizeConversationProject(
  * - participants can access private/shared conversations;
  * - org-visible Workspace conversations are available to any caller whose
  *   authenticated org scope includes the conversation org.
+ * - PiB staff named on a client-company thread may stay in that chat without
+ *   joining the client org as a member.
  */
 export function canAccessConversation(user: ApiUser, conversation: Conversation): boolean {
   if (user.role === 'ai') {
@@ -55,10 +64,13 @@ export function canAccessConversation(user: ApiUser, conversation: Conversation)
     const agentId = user.agentId ?? user.uid
     return (conversation.participantAgentIds ?? []).includes(agentId as Conversation['participantAgentIds'][number])
   }
-  if (!canAccessOrg(user, conversation.orgId)) return false
-  if ((conversation.participantUids ?? []).includes(user.uid)) return true
-  if (conversation.workspaceContext?.shareMode !== 'org') return false
-  return true
+  const namedParticipant = (conversation.participantUids ?? []).includes(user.uid)
+  if (canAccessOrg(user, conversation.orgId)) {
+    if (namedParticipant) return true
+    if (conversation.workspaceContext?.shareMode !== 'org') return false
+    return true
+  }
+  return namedParticipant && isPlatformStaffScopedUser(user)
 }
 
 /** Remove server-only fields and expose only the caller's own read state. */
