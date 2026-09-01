@@ -60,15 +60,115 @@ export function canAccessCampaign(campaign: object, uid: string): boolean {
   return ownerUid === uid
 }
 
+export type MarketingOwnerKind = 'org' | 'company' | 'personal'
+
+export type MarketingOwnerContext = {
+  owner: MarketingOwnerKind
+  uid?: string
+  companyId?: string
+}
+
+function cleanScopeId(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+export function recordCompanyId(record: { companyId?: unknown }): string {
+  return cleanScopeId(record.companyId)
+}
+
+export function brandKitDocId(orgId: string, owner: MarketingOwnerContext): string {
+  const home = orgId.trim()
+  if (!home) return ''
+  if (owner.owner === 'personal') {
+    const uid = cleanScopeId(owner.uid)
+    return uid ? `${home}__personal_${uid}` : home
+  }
+  if (owner.owner === 'company') {
+    const companyId = cleanScopeId(owner.companyId)
+    return companyId ? `${home}__company_${companyId}` : home
+  }
+  return home
+}
+
+export function ownerFieldsForWrite(owner: MarketingOwnerContext): Record<string, unknown> {
+  if (owner.owner === 'personal') {
+    const uid = cleanScopeId(owner.uid)
+    return {
+      accountScope: PERSONAL_SCOPE,
+      marketingOwner: 'personal',
+      ...(uid ? { ownerUid: uid } : {}),
+    }
+  }
+  if (owner.owner === 'company' && owner.companyId) {
+    return {
+      marketingOwner: 'company',
+      companyId: owner.companyId,
+    }
+  }
+  return { marketingOwner: 'org' }
+}
+
+export function resolveMarketingOwnerFromValues(input: {
+  personal?: boolean
+  scope?: unknown
+  companyId?: unknown
+  sourceCompanyId?: unknown
+  uid?: string
+}): MarketingOwnerContext {
+  if (input.personal || cleanScopeId(input.scope) === PERSONAL_SCOPE) {
+    const uid = cleanScopeId(input.uid)
+    return { owner: 'personal', ...(uid ? { uid } : {}) }
+  }
+  const companyId = cleanScopeId(input.companyId) || cleanScopeId(input.sourceCompanyId)
+  if (companyId) return { owner: 'company', companyId }
+  return { owner: 'org' }
+}
+
+export function resolveMarketingOwnerFromSearchParams(
+  searchParams: URLSearchParams,
+  uid?: string,
+): MarketingOwnerContext {
+  return resolveMarketingOwnerFromValues({
+    personal: searchParams.get('scope') === PERSONAL_SCOPE,
+    scope: searchParams.get('scope'),
+    companyId: searchParams.get('companyId'),
+    sourceCompanyId: searchParams.get('sourceCompanyId'),
+    uid,
+  })
+}
+
+export function recordVisibleForOwner(
+  record: {
+    accountScope?: unknown
+    ownerUid?: unknown
+    companyId?: unknown
+    marketingOwner?: unknown
+  },
+  owner: MarketingOwnerContext,
+): boolean {
+  if (owner.owner === 'personal') {
+    return isPersonalCampaignRecord(record) && campaignScopeFields(record).ownerUid === owner.uid
+  }
+  if (isPersonalCampaignRecord(record)) return false
+  if (owner.owner === 'company') {
+    const companyId = cleanScopeId(owner.companyId)
+    return Boolean(companyId) && recordCompanyId(record) === companyId
+  }
+  return true
+}
+
 export function campaignVisibleForScope(
   campaign: object,
-  options: { personal: boolean; uid: string },
+  options: { personal: boolean; uid: string; companyId?: string },
 ): boolean {
   const { ownerUid } = campaignScopeFields(campaign)
   if (options.personal) {
     return isPersonalCampaignRecord(campaign) && ownerUid === options.uid
   }
-  return !isPersonalCampaignRecord(campaign)
+  if (isPersonalCampaignRecord(campaign)) return false
+  const wanted = cleanScopeId(options.companyId)
+  if (!wanted) return true
+  return recordCompanyId(campaign as { companyId?: unknown }) === wanted
 }
 
 export function accountAllowedForPublish(
@@ -79,14 +179,20 @@ export function accountAllowedForPublish(
     platform?: unknown
     ownerUid?: unknown
     status?: unknown
+    companyId?: unknown
   },
-  options: { personal: boolean; ownerUid?: string },
+  options: { personal: boolean; ownerUid?: string; companyId?: string },
 ): boolean {
   if (account.status && account.status !== 'active') return false
   if (options.personal) {
     return isPersonalAccountRecord(account) && account.ownerUid === options.ownerUid
   }
-  return isCompanyLinkedAccount(account)
+  if (!isCompanyLinkedAccount(account)) return false
+  const wanted = cleanScopeId(options.companyId)
+  if (!wanted) return true
+  const accountCompanyId = cleanScopeId(account.companyId)
+  if (!accountCompanyId) return true
+  return accountCompanyId === wanted
 }
 
 export function storedAccountTypeForScope(input: {

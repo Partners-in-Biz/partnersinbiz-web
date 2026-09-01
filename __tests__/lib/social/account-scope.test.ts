@@ -1,8 +1,13 @@
 import {
   accountAllowedForPublish,
+  brandKitDocId,
   campaignVisibleForScope,
   isCompanyLinkedAccount,
   isPersonalAccountRecord,
+  ownerFieldsForWrite,
+  recordCompanyId,
+  recordVisibleForOwner,
+  resolveMarketingOwnerFromSearchParams,
   storedAccountTypeForScope,
 } from '@/lib/social/account-scope'
 
@@ -133,6 +138,24 @@ describe('campaignVisibleForScope', () => {
     expect(campaignVisibleForScope({ accountScope: 'personal', ownerUid: 'user-1' }, { personal: true, uid: 'user-1' })).toBe(true)
     expect(campaignVisibleForScope({ accountScope: 'personal', ownerUid: 'user-2' }, { personal: true, uid: 'user-1' })).toBe(false)
     expect(campaignVisibleForScope({ accountScope: 'org' }, { personal: true, uid: 'user-1' })).toBe(false)
+  })
+
+  it('filters company-workspace campaigns by companyId', () => {
+    expect(campaignVisibleForScope({ companyId: 'co-1' }, { personal: false, uid: 'user-1', companyId: 'co-1' })).toBe(true)
+    expect(campaignVisibleForScope({ companyId: 'co-2' }, { personal: false, uid: 'user-1', companyId: 'co-1' })).toBe(false)
+    expect(campaignVisibleForScope({}, { personal: false, uid: 'user-1', companyId: 'co-1' })).toBe(false)
+  })
+})
+
+describe('marketing owner helpers', () => {
+  it('resolves company owners from search params and writes matching fields', () => {
+    const owner = resolveMarketingOwnerFromSearchParams(new URLSearchParams('companyId=co-1'), 'user-1')
+    expect(owner).toEqual({ owner: 'company', companyId: 'co-1' })
+    expect(ownerFieldsForWrite(owner)).toEqual({ marketingOwner: 'company', companyId: 'co-1' })
+    expect(brandKitDocId('pib-platform-owner', owner)).toBe('pib-platform-owner__company_co-1')
+    expect(recordVisibleForOwner({ companyId: 'co-1' }, owner)).toBe(true)
+    expect(recordVisibleForOwner({ companyId: 'co-2' }, owner)).toBe(false)
+    expect(recordCompanyId({ companyId: 'co-1' })).toBe('co-1')
   })
 })
 

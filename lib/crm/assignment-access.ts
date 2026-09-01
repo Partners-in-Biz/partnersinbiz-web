@@ -16,6 +16,7 @@ export type AssignableCrmRecord = {
   accountManagerRef?: AssignmentRef
   createdBy?: unknown
   createdByRef?: AssignmentRef
+  name?: unknown
   linkedUserId?: unknown
   memberUid?: unknown
   memberRef?: AssignmentRef
