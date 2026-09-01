@@ -28,7 +28,14 @@ export const GET = withAuth('client', withTenant(async (_req: NextRequest, _user
   const byId = new Map<string, ReturnType<typeof toMarketingCompanyCard>>()
   for (const doc of [...homeSnap.docs, ...linkedDocs]) {
     const data = doc.data() ?? {}
-    const company = { id: doc.id, ...data }
+    const company = { id: doc.id, ...data } as {
+      id: string
+      name?: unknown
+      orgId?: unknown
+      linkedOrgId?: unknown
+      deleted?: unknown
+      logoUrl?: unknown
+    }
     if (!isProjectedCompanyMarketing(company, orgId)) continue
     byId.set(doc.id, toMarketingCompanyCard(company))
   }
