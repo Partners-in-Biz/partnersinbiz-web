@@ -31,6 +31,7 @@ export type AssignableCrmRecord = {
   sourceContactId?: unknown
   targetContactId?: unknown
   companyLinks?: unknown
+  linkedOrgId?: unknown
 }
 
 export type CrmAssignmentMaps = {
