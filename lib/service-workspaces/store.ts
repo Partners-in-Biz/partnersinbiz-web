@@ -1,4 +1,4 @@
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { adminDb } from '@/lib/firebase/admin'
 import type { MemberRef } from '@/lib/orgMembers/memberRef'
 import { recordCrmAuditEvent } from '@/lib/crm/audit'
@@ -133,7 +133,8 @@ export async function createServiceWorkspace(
       orgId,
       role: 'requester',
       status: 'active',
-      acceptedAt: FieldValue.serverTimestamp(),
+      // Firestore rejects FieldValue.serverTimestamp() inside arrays.
+      acceptedAt: Timestamp.now(),
     }],
     assignment: { assigneeUserId: null, assigneeAgentId: null },
     sla: null,

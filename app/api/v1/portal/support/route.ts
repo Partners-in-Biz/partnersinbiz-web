@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withPortalAuthAndRole } from '@/lib/auth/portal-middleware'
-import { apiError, apiSuccess } from '@/lib/api/response'
+import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
 import {
   createSupportTicket,
   listPortalSupportTickets,
@@ -30,53 +30,66 @@ function relationshipInputFrom(body: Record<string, unknown>) {
 }
 
 export const GET = withPortalAuthAndRole('viewer', async (_req: NextRequest, uid: string, orgId: string) => {
-  const tickets = await listPortalSupportTickets(orgId, uid)
-  return apiSuccess(tickets)
+  try {
+    const tickets = await listPortalSupportTickets(orgId, uid)
+    return apiSuccess(tickets)
+  } catch (err) {
+    return apiErrorFromException(err)
+  }
 })
 
 export const POST = withPortalAuthAndRole('viewer', async (req: NextRequest, uid: string, orgId: string) => {
-  const body = await req.json().catch(() => null)
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return apiError('Invalid JSON', 400)
+  try {
+    const body = await req.json().catch(() => null)
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return apiError('Invalid JSON', 400)
 
-  const parsed = validateSupportInput(body as Record<string, unknown>)
-  if (!parsed.ok) return apiError(parsed.error, 400)
+    const parsed = validateSupportInput(body as Record<string, unknown>)
+    if (!parsed.ok) return apiError(parsed.error, 400)
 
-  const userDoc = await adminDb.collection('users').doc(uid).get()
-  const user = userDoc.data() ?? {}
-  const requesterName =
-    typeof user.name === 'string' && user.name.trim()
-      ? user.name.trim()
-      : typeof user.displayName === 'string' && user.displayName.trim()
-        ? user.displayName.trim()
-        : 'Client'
-  const requesterEmail = typeof user.email === 'string' ? user.email.trim() : ''
-  const apiUser: ApiUser = {
-    uid,
-    role: 'client',
-    orgId,
-    orgIds: [orgId],
-    authKind: 'session',
+    const userDoc = await adminDb.collection('users').doc(uid).get()
+    const user = userDoc.data() ?? {}
+    const requesterName =
+      typeof user.name === 'string' && user.name.trim()
+        ? user.name.trim()
+        : typeof user.displayName === 'string' && user.displayName.trim()
+          ? user.displayName.trim()
+          : 'Client'
+    const requesterEmail = typeof user.email === 'string' ? user.email.trim() : ''
+    const apiUser: ApiUser = {
+      uid,
+      role: 'client',
+      orgId,
+      orgIds: [orgId],
+      authKind: 'session',
+    }
+    let contextRefs = [] as Awaited<ReturnType<typeof resolveContextReferences>>
+    try {
+      contextRefs = await resolveContextReferences(
+        sanitizeContextReferenceSeeds((body as Record<string, unknown>).contextRefs),
+        apiUser,
+        orgId,
+      )
+    } catch (err) {
+      console.error('[portal-support] context ref resolve failed', err)
+    }
+    const relationshipInput = relationshipInputFrom(body as Record<string, unknown>)
+    const relationships = relationshipInput
+      ? normalizeResourceRelationshipLinks(relationshipInput)
+      : { ok: true as const, value: {} }
+    if (!relationships.ok) return apiError(relationships.error, 400)
+
+    const id = await createSupportTicket({
+      orgId,
+      uid,
+      requesterName,
+      requesterEmail,
+      contextRefs,
+      relationshipLinks: relationships.value,
+      ...parsed.value,
+    })
+
+    return apiSuccess({ id }, 201)
+  } catch (err) {
+    return apiErrorFromException(err)
   }
-  const contextRefs = await resolveContextReferences(
-    sanitizeContextReferenceSeeds((body as Record<string, unknown>).contextRefs),
-    apiUser,
-    orgId,
-  )
-  const relationshipInput = relationshipInputFrom(body as Record<string, unknown>)
-  const relationships = relationshipInput
-    ? normalizeResourceRelationshipLinks(relationshipInput)
-    : { ok: true as const, value: {} }
-  if (!relationships.ok) return apiError(relationships.error, 400)
-
-  const id = await createSupportTicket({
-    orgId,
-    uid,
-    requesterName,
-    requesterEmail,
-    contextRefs,
-    relationshipLinks: relationships.value,
-    ...parsed.value,
-  })
-
-  return apiSuccess({ id }, 201)
 })

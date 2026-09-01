@@ -70,6 +70,18 @@ export function SupportDrawer({
     [tickets, selectedId],
   )
 
+  function supportHeaders(extra?: Record<string, string>) {
+    return {
+      ...(orgId ? { 'x-org-id': orgId } : {}),
+      ...extra,
+    }
+  }
+
+  function supportPath(suffix = '') {
+    const qs = orgId ? `?orgId=${encodeURIComponent(orgId)}` : ''
+    return `/api/v1/portal/support${suffix}${qs}`
+  }
+
   useEffect(() => {
     setMounted(true)
     const params = new URLSearchParams(window.location.search)
@@ -92,7 +104,7 @@ export function SupportDrawer({
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/v1/portal/support')
+      const res = await fetch(supportPath(), { headers: supportHeaders() })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body?.error ?? 'Could not load support tickets')
       const nextTickets = body.data ?? []
@@ -109,7 +121,7 @@ export function SupportDrawer({
   async function refreshMessages(ticketId: string) {
     if (!ticketId) return
     try {
-      const res = await fetch(`/api/v1/portal/support/${ticketId}/messages`)
+      const res = await fetch(supportPath(`/${ticketId}/messages`), { headers: supportHeaders() })
       const body = await res.json().catch(() => ({}))
       if (res.ok) setMessages(body.data ?? [])
     } catch {}
@@ -139,9 +151,9 @@ export function SupportDrawer({
       const sourceUrl = window.location.href
       const sourcePath = window.location.pathname
       const priority: SupportPriority = category === 'urgent' ? 'urgent' : 'normal'
-      const res = await fetch('/api/v1/portal/support', {
+      const res = await fetch(supportPath(), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: supportHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ category, priority, subject, description, sourceUrl, sourcePath, contextRefs }),
       })
       const body = await res.json().catch(() => ({}))
@@ -164,9 +176,9 @@ export function SupportDrawer({
     setSaving(true)
     setError('')
     try {
-      const res = await fetch(`/api/v1/portal/support/${selectedId}/messages`, {
+      const res = await fetch(supportPath(`/${selectedId}/messages`), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: supportHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ body: reply }),
       })
       const body = await res.json().catch(() => ({}))
@@ -242,6 +254,7 @@ export function SupportDrawer({
                     value={subject}
                     onChange={(event) => setSubject(event.target.value)}
                     placeholder="Short summary"
+                    aria-label="Ticket subject"
                     maxLength={140}
                   />
                   <textarea
@@ -249,6 +262,7 @@ export function SupportDrawer({
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
                     placeholder="Tell us what happened, what you expected, and where you were in the portal."
+                    aria-label="Ticket description"
                   />
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
@@ -363,6 +377,7 @@ export function SupportDrawer({
                             if (event.key === 'Enter') sendReply()
                           }}
                           placeholder="Add a reply..."
+                          aria-label="Reply to ticket"
                         />
                         <button
                           type="button"

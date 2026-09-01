@@ -101,4 +101,25 @@ describe('portal support context refs', () => {
       ],
     }))
   })
+
+  it('still creates the ticket when context ref resolution fails', async () => {
+    mockResolveContextReferences.mockRejectedValueOnce(new Error('company lookup failed'))
+    const { POST } = await import('@/app/api/v1/portal/support/route')
+    const res = await POST(new NextRequest('http://localhost/api/v1/portal/support', {
+      method: 'POST',
+      body: JSON.stringify({
+        category: 'urgent',
+        priority: 'urgent',
+        subject: 'Invoice generation - Elemental',
+        description: 'I cant issue an invoice - i don\'t have rights.',
+        contextRefs: [{ type: 'company', id: 'company-1', orgId: 'org-1' }],
+      }),
+    }))
+
+    expect(res.status).toBe(201)
+    expect(mockCreateSupportTicket).toHaveBeenCalledWith(expect.objectContaining({
+      subject: 'Invoice generation - Elemental',
+      contextRefs: [],
+    }))
+  })
 })

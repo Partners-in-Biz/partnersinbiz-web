@@ -181,7 +181,8 @@ export async function createSupportTicket(args: {
       orgId: args.orgId,
       role: 'requester',
       status: 'active',
-      acceptedAt: FieldValue.serverTimestamp(),
+      // Firestore rejects FieldValue.serverTimestamp() inside arrays.
+      acceptedAt: Timestamp.now(),
     }],
     assignment: { assigneeUserId: null, assigneeAgentId: null },
     sla: null,
@@ -246,12 +247,11 @@ export async function listPortalSupportTickets(orgId: string, uid: string) {
   const snap = await adminDb
     .collection(SUPPORT_TICKETS_COLLECTION)
     .where('orgId', '==', orgId)
-    .where('createdBy', '==', uid)
     .get()
 
   return snap.docs
     .map((doc) => toTicket(doc.id, doc.data()))
-    .filter((ticket) => ticket.deleted !== true)
+    .filter((ticket) => ticket.deleted !== true && ticket.createdBy === uid)
     .sort((a, b) => millis(b.updatedAt) - millis(a.updatedAt))
 }
 
