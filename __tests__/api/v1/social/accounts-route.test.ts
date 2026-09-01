@@ -35,7 +35,9 @@ beforeEach(() => {
   mockGet.mockResolvedValue({
     docs: [
       { id: 'org-page', data: () => ({ orgId: 'org-1', displayName: 'Facebook PIB', platform: 'facebook', accountType: 'page', status: 'active' }) },
-      { id: 'org-account', data: () => ({ orgId: 'org-1', displayName: 'Org LinkedIn', platform: 'linkedin', status: 'active' }) },
+      { id: 'org-linkedin-page', data: () => ({ orgId: 'org-1', displayName: 'PiB LinkedIn', platform: 'linkedin', accountType: 'page', status: 'active' }) },
+      { id: 'org-linkedin-person', data: () => ({ orgId: 'org-1', displayName: 'Peet Stander', platform: 'linkedin', accountType: 'personal', status: 'active' }) },
+      { id: 'crm-page', data: () => ({ orgId: 'org-1', displayName: 'Lumen Page', platform: 'facebook', accountType: 'page', status: 'active', companyId: 'co-1' }) },
       { id: 'peet-twin', data: () => ({ orgId: 'org-1', displayName: 'Peet Stander', platform: 'twitter', accountType: 'personal', status: 'active' }) },
       { id: 'personal-account', data: () => ({ orgId: 'org-1', displayName: 'Personal X', platform: 'x', status: 'active', accountScope: 'personal', ownerUid: 'user-1' }) },
       { id: 'brand-bluesky', data: () => ({ orgId: 'org-1', displayName: 'partnersinbiz', platform: 'bluesky', status: 'active' }) },
@@ -78,7 +80,16 @@ describe('GET /api/v1/social/accounts', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body.data.map((account: { id: string }) => account.id)).toEqual(['org-page', 'org-account', 'brand-bluesky'])
+    expect(body.data.map((account: { id: string }) => account.id)).toEqual(['org-page', 'org-linkedin-page', 'brand-bluesky'])
     expect(body.meta).toEqual(expect.objectContaining({ linkedinCmaEnabled: false }))
+  })
+
+  it('lists only the CRM company accounts when companyId is present', async () => {
+    const { GET } = await import('@/app/api/v1/social/accounts/route')
+    const res = await GET(new NextRequest('http://localhost/api/v1/social/accounts?companyId=co-1&limit=10&page=1'))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((account: { id: string }) => account.id)).toEqual(['crm-page'])
   })
 })

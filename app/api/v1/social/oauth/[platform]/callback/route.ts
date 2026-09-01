@@ -19,7 +19,7 @@ import { getProvider } from '@/lib/social/providers/registry'
 import { exchangeInstagramLongLivedToken } from '@/lib/social/instagram-oauth'
 import { logAudit } from '@/lib/social/audit'
 import { safeProvisionYouTubeChannelWorkspace } from '@/lib/youtube-studio/channel-provisioning'
-import { storedAccountTypeForScope } from '@/lib/social/account-scope'
+import { storedAccountTypeForScope, companyFieldsForWrite } from '@/lib/social/account-scope'
 import type { SocialPlatformType } from '@/lib/social/providers/types'
 
 export async function GET(req: NextRequest) {
@@ -68,6 +68,10 @@ export async function GET(req: NextRequest) {
     if (stateRecord.platform !== platform || stateRecord.orgId !== orgId) {
       return NextResponse.redirect(new URL(buildOAuthRedirectPath(redirectUrl, { status: 'error', message: 'State mismatch' }), url.origin))
     }
+    const companyId = accountScope === 'personal'
+      ? ''
+      : (typeof stateData.companyId === 'string' ? stateData.companyId.trim() : '')
+        || (typeof stateRecord.companyId === 'string' ? stateRecord.companyId.trim() : '')
 
     // Check expiry
     const expiresAt = stateRecord.expiresAt?.toDate?.() ?? new Date(0)
@@ -166,7 +170,7 @@ export async function GET(req: NextRequest) {
           }), url.origin).toString()
         )
       }
-      return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid)
+      return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid, companyId)
     }
 
     if (platform === 'linkedin') {
@@ -181,12 +185,14 @@ export async function GET(req: NextRequest) {
         orgId,
       )
       const persistedScopes = grantedLinkedInScopes(tokenResponse.scope, config.scopes)
-      const { usePicker, accounts: selectedAccounts } = selectLinkedInCallbackAccounts(liResult)
+      const { usePicker, accounts: selectedAccounts } = selectLinkedInCallbackAccounts(liResult, { accountScope })
       if (selectedAccounts.length === 0) {
         return NextResponse.redirect(
           new URL(buildOAuthRedirectPath(redirectUrl, {
             status: 'error',
-            message: 'No LinkedIn accounts found',
+            message: accountScope === 'org'
+              ? 'No LinkedIn company pages found. Connect a personal profile from Personal marketing.'
+              : 'No LinkedIn accounts found',
           }), url.origin).toString()
         )
       }
@@ -204,7 +210,7 @@ export async function GET(req: NextRequest) {
           platformMeta: acc.meta ?? {},
           scopes: persistedScopes,
         }))
-        return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid)
+        return writePendingAndRedirect(options, platform, orgId, nonce, redirectUrl, url.origin, accountScope, ownerUid, companyId)
       }
 
       const profile = selectedAccounts[0]
@@ -213,6 +219,7 @@ export async function GET(req: NextRequest) {
         platform,
         accountScope,
         ownerUid,
+        companyId,
         profile: {
           platformAccountId: profile.platformAccountId,
           displayName: profile.displayName,
@@ -331,7 +338,7 @@ export async function GET(req: NextRequest) {
       platformMeta: profile.meta ?? {},
       lastTokenRefresh: now,
       updatedAt: now,
-      ...(accountScope === 'personal' ? { accountScope, ownerUid } : { accountScope: 'org', ownerUid: null }),
+      ...(accountScope === 'personal' ? { accountScope, ownerUid } : { accountScope: 'org', ownerUid: null, ...companyFieldsForWrite(companyId) }),
     }
 
     let accountId: string
@@ -427,6 +434,7 @@ async function upsertSocialAccountFromOAuth(input: {
   platform: SocialPlatformType
   accountScope: 'org' | 'personal'
   ownerUid: string
+  companyId?: string
   profile: {
     platformAccountId: string
     displayName: string
@@ -491,7 +499,7 @@ async function upsertSocialAccountFromOAuth(input: {
     updatedAt: now,
     ...(input.accountScope === 'personal'
       ? { accountScope: 'personal', ownerUid: input.ownerUid }
-      : { accountScope: 'org', ownerUid: null }),
+      : { accountScope: 'org', ownerUid: null, ...companyFieldsForWrite(input.companyId) }),
   }
 
   if (matchingExistingDoc) {
@@ -908,6 +916,7 @@ async function writePendingAndRedirect(
   originUrl: string,
   accountScope: 'org' | 'personal' = 'org',
   ownerUid = '',
+  companyId = '',
 ): Promise<NextResponse> {
   const expiresAt = Timestamp.fromDate(new Date(Date.now() + 30 * 60 * 1000))
   const pendingData = {
@@ -915,7 +924,7 @@ async function writePendingAndRedirect(
     orgId,
     platform,
     accountScope,
-    ...(accountScope === 'personal' ? { ownerUid } : {}),
+    ...(accountScope === 'personal' ? { ownerUid } : { ...companyFieldsForWrite(companyId) }),
     createdAt: Timestamp.now(),
     expiresAt,
     options: options.map(opt => ({

@@ -11,7 +11,7 @@ import { apiSuccess, apiError } from '@/lib/api/response'
 import type { AccountStatus } from '@/lib/social/providers'
 import { ACTIVE_PLATFORMS } from '@/lib/social/providers'
 import { logAudit } from '@/lib/social/audit'
-import { isCompanyLinkedAccount, isPersonalAccountRecord, storedAccountTypeForScope, PERSONAL_SCOPE, ORG_SCOPE } from '@/lib/social/account-scope'
+import { isPersonalAccountRecord, storedAccountTypeForScope, PERSONAL_SCOPE, ORG_SCOPE, accountVisibleForWorkspace, isCompanyPagePlatform, isCompanyAccountType, companyFieldsForWrite } from '@/lib/social/account-scope'
 import { isLinkedInCmaEnabled } from '@/lib/social/linkedin-cma'
 
 export const dynamic = 'force-dynamic'
@@ -44,6 +44,7 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '50', 10)))
   const personalScope = wantsPersonalScope(req)
+  const companyId = personalScope ? '' : (searchParams.get('companyId') ?? searchParams.get('sourceCompanyId') ?? '').trim()
 
   let query = adminDb.collection('social_accounts')
     .where('orgId', '==', orgId) as unknown as SocialAccountQuery
@@ -70,7 +71,7 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
     return { id: doc.id, ...safe }
   }).filter((account: Record<string, unknown>) => {
     if (personalScope) return isPersonalAccountForUser(account, user.uid)
-    return isCompanyLinkedAccount(account)
+    return accountVisibleForWorkspace(account, { personal: false, companyId: companyId || undefined })
   })
 
   const start = (page - 1) * limit
@@ -84,12 +85,27 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
 export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
   const body = await req.json()
   const personalScope = wantsPersonalScope(req)
+  const companyId = personalScope
+    ? ''
+    : (typeof body.companyId === 'string' ? body.companyId.trim() : '')
+      || new URL(req.url).searchParams.get('companyId')?.trim()
+      || new URL(req.url).searchParams.get('sourceCompanyId')?.trim()
+      || ''
 
   if (!body.platform || !ACTIVE_PLATFORMS.includes(body.platform)) {
     return apiError(`platform must be one of: ${ACTIVE_PLATFORMS.join(', ')}`)
   }
   if (!body.displayName || typeof body.displayName !== 'string') {
     return apiError('displayName is required')
+  }
+
+  const accountType = storedAccountTypeForScope({
+    profileType: body.accountType,
+    accountScope: personalScope ? PERSONAL_SCOPE : ORG_SCOPE,
+    platform: body.platform,
+  })
+  if (!personalScope && isCompanyPagePlatform(body.platform) && !isCompanyAccountType(accountType)) {
+    return apiError('Select a company page. Personal profiles belong in Personal marketing.')
   }
 
   const doc = {
@@ -100,11 +116,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     username: body.username ?? '',
     avatarUrl: body.avatarUrl ?? '',
     profileUrl: body.profileUrl ?? '',
-    accountType: storedAccountTypeForScope({
-      profileType: body.accountType,
-      accountScope: personalScope ? PERSONAL_SCOPE : ORG_SCOPE,
-      platform: body.platform,
-    }),
+    accountType,
     status: 'active' as AccountStatus,
     scopes: body.scopes ?? [],
     encryptedTokens: body.encryptedTokens ?? {
@@ -117,7 +129,9 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     },
     platformMeta: body.platformMeta ?? {},
     connectedBy: user.uid,
-    ...(personalScope ? { accountScope: PERSONAL_SCOPE, ownerUid: user.uid } : { accountScope: ORG_SCOPE, ownerUid: null }),
+    ...(personalScope
+      ? { accountScope: PERSONAL_SCOPE, ownerUid: user.uid }
+      : { accountScope: ORG_SCOPE, ownerUid: null, ...companyFieldsForWrite(companyId) }),
     connectedAt: FieldValue.serverTimestamp(),
     lastTokenRefresh: null,
     lastUsed: null,

@@ -27,14 +27,22 @@ describe('selectLinkedInCallbackAccounts', () => {
     else process.env.LINKEDIN_CMA_ENABLED = originalCma
   })
 
-  it('keeps the personal profile and hides the picker when CMA is off', () => {
+  it('never auto-selects personal profiles for organisation LinkedIn connect', () => {
     delete process.env.LINKEDIN_CMA_ENABLED
     const result = selectLinkedInCallbackAccounts([
       { accountType: 'personal' as const, name: 'Peet' },
       { accountType: 'page' as const, name: 'PiB' },
-    ])
+    ], { accountScope: 'org' })
     expect(result.usePicker).toBe(false)
-    expect(result.accounts).toEqual([{ accountType: 'personal', name: 'Peet' }])
+    expect(result.accounts).toEqual([{ accountType: 'page', name: 'PiB' }])
+  })
+
+  it('returns no accounts for organisation connect when only a person profile is present', () => {
+    const result = selectLinkedInCallbackAccounts([
+      { accountType: 'personal' as const, name: 'Peet' },
+    ], { accountScope: 'org' })
+    expect(result.usePicker).toBe(false)
+    expect(result.accounts).toEqual([])
   })
 
   it('shows the picker when CMA is on and a company page is present', () => {
@@ -49,10 +57,14 @@ describe('selectLinkedInCallbackAccounts', () => {
 })
 
 describe('grantedLinkedInScopes', () => {
-  it('drops org scopes from the stored grant when CMA is off', () => {
+  it('stores the scopes LinkedIn actually granted, or the requested set', () => {
+    expect(grantedLinkedInScopes(
+      'w_member_social openid profile',
+      ['rw_organization_admin', 'w_organization_social'],
+    )).toEqual(['w_member_social', 'openid', 'profile'])
     expect(grantedLinkedInScopes(
       undefined,
-      ['w_member_social', 'openid', 'profile', 'w_organization_social'],
-    )).toEqual(['w_member_social', 'openid', 'profile'])
+      ['rw_organization_admin', 'w_organization_social'],
+    )).toEqual(['rw_organization_admin', 'w_organization_social'])
   })
 })

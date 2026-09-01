@@ -18,15 +18,18 @@ export function grantedLinkedInScopes(raw: string | undefined, requested: string
   if (raw?.trim()) {
     return raw.split(/[,\s]+/).map((scope) => scope.trim()).filter(Boolean)
   }
-  if (isLinkedInCmaEnabled()) return requested
-  return requested.filter((scope) => !LINKEDIN_ORG_SCOPES.includes(scope as (typeof LINKEDIN_ORG_SCOPES)[number]))
+  return requested
 }
 
 export function selectLinkedInCallbackAccounts<T extends { accountType: 'personal' | 'page' }>(
   accounts: T[],
+  options?: { accountScope?: 'org' | 'personal' },
 ): { usePicker: boolean; accounts: T[] } {
   const personal = accounts.filter((account) => account.accountType === 'personal')
   const pages = accounts.filter((account) => account.accountType === 'page')
+  if (options?.accountScope === 'org') {
+    return { usePicker: pages.length > 1, accounts: pages }
+  }
   if (isLinkedInCmaEnabled() && pages.length > 0) {
     return { usePicker: true, accounts: [...personal, ...pages] }
   }

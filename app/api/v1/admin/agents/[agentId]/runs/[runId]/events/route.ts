@@ -41,8 +41,23 @@ function sseResponse(stream: ReadableStream<Uint8Array>) {
 }
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 300
 
 type Ctx = { params: Promise<{ agentId: string; runId: string }> }
+
+const RETRYABLE_UPSTREAM = new Set([404, 409, 425])
+
+async function openUpstreamRunEvents(agentId: AgentId, runId: string): Promise<Response> {
+  const delays = [0, 250, 500, 1000, 2000]
+  let last: Response | null = null
+  for (const delay of delays) {
+    if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay))
+    last = await callAgentStream(agentId, `/v1/runs/${encodeURIComponent(runId)}/events`)
+    if (last.ok && last.body) return last
+    if (!RETRYABLE_UPSTREAM.has(last.status)) return last
+  }
+  return last as Response
+}
 
 export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
   const { agentId, runId } = await (ctx as Ctx).params
@@ -54,7 +69,7 @@ export const GET = withAuth('admin', async (_req: NextRequest, _user, ctx) => {
       return sseResponse(createLinkedComputerRunSseStream(runId))
     }
 
-    const upstream = await callAgentStream(agentId as AgentId, `/v1/runs/${encodeURIComponent(runId)}/events`)
+    const upstream = await openUpstreamRunEvents(agentId as AgentId, runId)
     if (!upstream.ok || !upstream.body) {
       return sseResponse(singleEventStream({
         event: 'stream.unavailable',

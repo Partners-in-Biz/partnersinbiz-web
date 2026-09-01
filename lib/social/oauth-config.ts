@@ -2,7 +2,6 @@
  * OAuth Configuration — Per-platform OAuth URLs, scopes, and token exchange logic.
  */
 import type { SocialPlatformType } from './providers/types'
-import { isLinkedInCmaEnabled } from './linkedin-cma'
 
 export type LinkedInOAuthMode = 'personal' | 'organization'
 
@@ -51,14 +50,14 @@ export function getOAuthConfig(platform: SocialPlatformType, options: OAuthOptio
         extraAuthParams: { enable_fb_login: '0', force_reauth: 'true' },
       }
     case 'linkedin':
-      if (options.linkedinMode === 'organization' && isLinkedInCmaEnabled()) {
+      if (options.linkedinMode === 'organization') {
         return {
           platform: 'linkedin',
           authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
           tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-          // Company-page posting on THIS same app, only after CMA is enabled.
-          // w_organization_social_feed is a separate comments/reactions permission
-          // and LinkedIn rejects it unless that extra CMA entitlement is on the app.
+          // Company-page posting. w_organization_social_feed is a separate
+          // comments/reactions permission and LinkedIn rejects it unless that
+          // extra CMA entitlement is on the app.
           scopes: ['rw_organization_admin', 'w_organization_social'],
         }
       }

@@ -33,9 +33,6 @@ export function isCompanyLinkedAccount(account: {
   const platform = String(account.platform || '').toLowerCase()
   // Bluesky has no page type. Brand handles connected in the company workspace stay here.
   if (BRAND_HANDLE_PLATFORMS.has(platform) && account.accountScope !== PERSONAL_SCOPE) return true
-  // LinkedIn personal profiles are valid org posting identities until CMA
-  // attaches a company page on the same app.
-  if (platform === 'linkedin') return true
   // Instagram org rows are business identities even when a legacy fixture
   // omits accountType. Personal-scoped Instagram stays out of company social.
   if (ORG_BUSINESS_PLATFORMS.has(platform) && account.accountScope !== PERSONAL_SCOPE) return true
@@ -171,6 +168,27 @@ export function campaignVisibleForScope(
   return recordCompanyId(campaign as { companyId?: unknown }) === wanted
 }
 
+export function accountVisibleForWorkspace(
+  account: {
+    accountScope?: unknown
+    accountType?: unknown
+    subAccountType?: unknown
+    platform?: unknown
+    ownerUid?: unknown
+    companyId?: unknown
+  },
+  options: { personal: boolean; ownerUid?: string; companyId?: string },
+): boolean {
+  if (options.personal) {
+    return isPersonalAccountRecord(account) && account.ownerUid === options.ownerUid
+  }
+  if (!isCompanyLinkedAccount(account)) return false
+  const wanted = cleanScopeId(options.companyId)
+  const accountCompanyId = recordCompanyId(account)
+  if (!wanted) return !accountCompanyId
+  return accountCompanyId === wanted
+}
+
 export function accountAllowedForPublish(
   account: {
     accountScope?: unknown
@@ -184,15 +202,12 @@ export function accountAllowedForPublish(
   options: { personal: boolean; ownerUid?: string; companyId?: string },
 ): boolean {
   if (account.status && account.status !== 'active') return false
-  if (options.personal) {
-    return isPersonalAccountRecord(account) && account.ownerUid === options.ownerUid
-  }
-  if (!isCompanyLinkedAccount(account)) return false
-  const wanted = cleanScopeId(options.companyId)
-  if (!wanted) return true
-  const accountCompanyId = cleanScopeId(account.companyId)
-  if (!accountCompanyId) return true
-  return accountCompanyId === wanted
+  return accountVisibleForWorkspace(account, options)
+}
+
+export function companyFieldsForWrite(companyId?: unknown): Record<string, unknown> {
+  const id = cleanScopeId(companyId)
+  return id ? { companyId: id, marketingOwner: 'company' } : { marketingOwner: 'org' }
 }
 
 export function storedAccountTypeForScope(input: {
@@ -203,6 +218,10 @@ export function storedAccountTypeForScope(input: {
   const profileType = String(input.profileType || '').toLowerCase()
   if (input.accountScope === PERSONAL_SCOPE) return profileType || 'personal'
   if (isCompanyAccountType(profileType)) return profileType
-  if (isCompanyPagePlatform(input.platform)) return profileType || 'personal'
+  if (isCompanyPagePlatform(input.platform)) {
+    if (input.accountScope === PERSONAL_SCOPE) return profileType || 'personal'
+    if (profileType === 'personal') return 'personal'
+    return 'page'
+  }
   return 'business'
 }

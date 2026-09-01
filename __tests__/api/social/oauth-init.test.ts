@@ -50,7 +50,7 @@ describe('GET /api/v1/social/oauth/[platform]', () => {
     expect(String(res.headers.get('location'))).toContain('accounts.google.com/o/oauth2/v2/auth')
   })
 
-  it('omits company-page scopes on default LinkedIn connect when CMA is off', async () => {
+  it('requests company-page scopes for org LinkedIn connect', async () => {
     delete process.env.LINKEDIN_CMA_ENABLED
     process.env.LINKEDIN_CLIENT_ID = 'li-id'
     process.env.LINKEDIN_CLIENT_SECRET = 'li-secret'
@@ -64,15 +64,14 @@ describe('GET /api/v1/social/oauth/[platform]', () => {
     expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({
       platform: 'linkedin',
       accountScope: 'org',
-      linkedinMode: 'personal',
+      linkedinMode: 'organization',
     }))
     const location = String(res.headers.get('location'))
     expect(location).toContain('linkedin.com')
-    expect(location).toContain('w_member_social')
-    expect(location).toContain('openid')
-    expect(location).toContain('profile')
-    expect(location).not.toContain('rw_organization_admin')
-    expect(location).not.toContain('w_organization_social')
+    expect(location).toContain('rw_organization_admin')
+    expect(location).toContain('w_organization_social')
+    expect(location).not.toContain('w_organization_social_feed')
+    expect(location).not.toContain('w_member_social')
     expect(decodeURIComponent(location)).toContain('client_id=li-id')
   })
 
