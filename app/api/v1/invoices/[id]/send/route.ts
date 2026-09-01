@@ -18,8 +18,13 @@ import { getResendClient, FROM_ADDRESS } from '@/lib/email/resend'
 import { invoiceSentEmail } from '@/lib/email/templates'
 import { dispatchWebhook } from '@/lib/webhooks/dispatch'
 import { logActivity } from '@/lib/activity/log'
-import { requireInvoiceAccess } from '@/lib/invoices/access'
+import { isInvoiceIssuerAccess, requireInvoiceAccess } from '@/lib/invoices/access'
 import { rejectGenericPartnerTradeMutation } from '@/lib/partner-links/invoice-guard'
+import { resolveBillingCrmAuthContext } from '@/lib/billing/crm-record-scope'
+import {
+  memberCanPerformBillingAction,
+  shouldExposeIssuerBillingBook,
+} from '@/lib/billing/member-issuer'
 import { canManageOrgAs } from '@/lib/orgMembers/permissions'
 import { renderInvoicePdf } from '@/lib/invoices/pdf-generator'
 import { invoiceLikeFromInvoiceRecord } from '@/lib/invoices/commerce-html'
@@ -37,13 +42,25 @@ export const POST = withAuth('client', async (req, user, ctx) => {
   const { id } = await (ctx as RouteContext).params
   const access = await requireInvoiceAccess(user, id)
   if (!access.ok) return access.response
+  if (!isInvoiceIssuerAccess(access.accessKind)) {
+    return apiError('Only the issuing organisation can send this invoice', 403)
+  }
   const ref = access.ref
   const invoice = access.data
   const partnerTradeError = rejectGenericPartnerTradeMutation(invoice)
   if (partnerTradeError) return apiError(partnerTradeError, 409)
   const sourceOrgId: string | undefined = invoice.sourceOrgId ?? invoice.orgId
-  if (!sourceOrgId || !(await canManageOrgAs(user, sourceOrgId))) {
-    return apiError('Forbidden', 403)
+  if (!sourceOrgId) return apiError('Forbidden', 403)
+  // Org admins keep full send rights. Members with an invoice grant (e.g. PiB
+  // staff) may send drafts they can already access as issuer — matching create.
+  if (!(await canManageOrgAs(user, sourceOrgId))) {
+    const crmCtx = await resolveBillingCrmAuthContext(user, sourceOrgId)
+    if (!shouldExposeIssuerBillingBook(crmCtx, 'invoices')) {
+      return apiError('Forbidden', 403)
+    }
+    if (!memberCanPerformBillingAction(crmCtx, 'send')) {
+      return apiError('Forbidden', 403)
+    }
   }
 
   if (invoice.status !== 'draft') {

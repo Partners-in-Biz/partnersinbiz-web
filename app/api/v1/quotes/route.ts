@@ -133,21 +133,41 @@ async function loadReceivedQuotesForOrg(orgId: string): Promise<Array<Quote & { 
 export const GET = withCrmAuth('viewer', async (req: NextRequest, ctx) => {
   const { searchParams } = new URL(req.url)
   const view = searchParams.get('view') ?? 'sent'
-  const requestedOrgId = cleanString(searchParams.get('orgId')) || ctx.orgId
-  if (!ctxCanAccessOrg(ctx, requestedOrgId)) return apiError('Forbidden', 403)
+  const queryOrgId = cleanString(searchParams.get('orgId'))
+  // PiB staff CRM remap sets ctx.orgId to the platform issuer. Agents still pass
+  // conversation orgId in ?orgId= — prefer the remapped issuer for sent lists.
+  if (ctx.staffClientOrgId && view !== 'received') {
+    if (queryOrgId && queryOrgId !== ctx.staffClientOrgId && queryOrgId !== ctx.orgId) {
+      return apiError('Forbidden', 403)
+    }
+  } else {
+    const gateOrgId = queryOrgId || ctx.orgId
+    if (!ctxCanAccessOrg(ctx, gateOrgId)) return apiError('Forbidden', 403)
+  }
 
   let quotes: Array<Quote & { id: string }>
   if (view === 'received') {
-    quotes = (await loadReceivedQuotesForOrg(requestedOrgId))
+    const receivedOrgId = queryOrgId || ctx.staffClientOrgId || ctx.orgId
+    if (!ctxCanAccessOrg(ctx, receivedOrgId) && receivedOrgId !== ctx.staffClientOrgId) {
+      return apiError('Forbidden', 403)
+    }
+    quotes = (await loadReceivedQuotesForOrg(receivedOrgId))
       .filter((quote) => quote.status !== 'draft')
   } else {
     if (!shouldExposeIssuerBillingBook(ctx, 'quotes')) {
       return apiSuccess({ quotes: [] })
     }
+    const issuerOrgId = ctx.staffClientOrgId ? ctx.orgId : (queryOrgId || ctx.orgId)
     const query: FirebaseFirestore.Query = adminDb.collection('quotes')
-      .where('orgId', '==', requestedOrgId)
+      .where('orgId', '==', issuerOrgId)
     const snapshot = await query.get()
     quotes = snapshot.docs.map((doc): Quote & { id: string } => ({ ...(doc.data() as Quote), id: doc.id }))
+    if (ctx.staffClientOrgId) {
+      quotes = quotes.filter((quote) => {
+        const recipient = cleanString(quote.recipientOrgId) || cleanString((quote as { targetOrgId?: unknown }).targetOrgId)
+        return recipient === ctx.staffClientOrgId
+      })
+    }
     if (view === 'shared') quotes = quotes.filter((quote) => Boolean(quote.claimableRelationshipId))
   }
 

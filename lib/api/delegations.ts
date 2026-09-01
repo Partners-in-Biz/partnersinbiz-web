@@ -386,9 +386,11 @@ export function buildDelegationAuthPromptBlock(input: {
     ]
   const staffBillingLines = issuerOrgId && issuerOrgId !== input.orgId
     ? [
-      `This human is Partners in Biz staff. Conversation org is ${input.orgId}. PiB issuer org is ${issuerOrgId}.`,
-      'For PiB invoices/quotes created for the customer in this chat, POST orgId as the conversation/client org (or pass companyId on the platform CRM). The API issues the document from the platform owner org. Do not wait for Peet when this human asked for that invoice/quote/CRM/doc/email on their own book.',
-      `For /api/v1/agent/email/* mailbox reads and drafts, use orgId=${issuerOrgId} (staff mailbox tenant). Client-chat orgId is remapped server-side, but prefer the platform org in the prompt.`,
+      `This human is Partners in Biz staff. Conversation org is ${input.orgId}. PiB home/issuer org is ${issuerOrgId}.`,
+      'Server remaps these onto the platform org when the chat passes the conversation orgId: CRM companies/contacts, invoice/quote create+issuer list, and /api/v1/agent/email/* mailbox.',
+      'For PiB invoices/quotes for this customer, POST orgId as the conversation/client org (or companyId on platform CRM). Prefer orgId=' + issuerOrgId + ' when listing issuer invoices/quotes or reading mailbox.',
+      'Client Cowork folders, conversation identity, and received billing stay on the conversation org.',
+      'Do not wait for Peet when this human asked for invoice/quote/CRM/doc/email on their own book.',
       extraOrgIds.length > 0 ? `This token is also scoped to: ${extraOrgIds.join(', ')}.` : '',
     ].filter(Boolean)
     : []

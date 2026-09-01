@@ -269,7 +269,10 @@ async function buildOrgContext(
       brand.targetAudience ? `audience: ${brand.targetAudience}` : '',
       doWords ? `do-words: ${doWords}` : '',
       dontWords ? `dont-words: ${dontWords}` : '',
-      "When writing copy, taking actions, or making decisions on this client's behalf: stay in their voice, scope every platform API call to this orgId, and never leak data or copy from other clients. If a skill needs an orgId, this is the one to pass.",
+      "When writing copy, taking actions, or making decisions on this client's behalf: stay in their voice, and never leak data or copy from other clients.",
+      'Scope client-workspace APIs (Cowork paths, conversation identity, received billing, client brand profile) to this orgId.',
+      'If the acting human is Partners in Biz staff, CRM / issuer invoices & quotes / mailbox are remapped server-side onto pib-platform-owner — prefer that platform orgId for those calls when the delegation block names it.',
+      'If a skill needs an orgId for client-local work, this conversation orgId is the one to pass.',
       '---',
     ].filter(Boolean)
     return lines.join('\n') + '\n\n'

@@ -227,6 +227,11 @@ export const GET = withAuth('client', async (req, user) => {
   let query: FirebaseFirestore.Query = adminDb.collection('invoices')
   let billingOrgIdFilter: string | null = null
   let orgAccessFilter: string[] | null = null
+  let staffIssuerList: {
+    sourceOrgId: string
+    recipientOrgId: string
+    crmCtx: Awaited<ReturnType<typeof resolveBillingCrmAuthContext>>
+  } | null = null
 
   // Security: when accessing from a portal workspace (activeOrgId is set),
   // ALL users (including platform admins with role=admin|ai) must be scoped to THAT workspace.
@@ -246,42 +251,86 @@ export const GET = withAuth('client', async (req, user) => {
     }
     // Use active workspace as the only allowed orgId
     const requestedOrgId = activeOrgId
-    if (!canAccessOrg(user, requestedOrgId)) return apiSuccess([])
-    const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
-    if (view === 'received') {
-      const received = (await loadReceivedInvoicesForOrg(requestedOrgId))
-        .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
-        .filter((invoice) => invoice.status !== 'draft')
-      const scoped = await filterBillingRecordsForCrmActor(crmCtx, received)
-      const invoices = scoped
-        .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
-        .slice(0, 50)
-      return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
+    // PiB staff in a client chat: issuer rows live on the platform org, addressed
+    // to this client. Do not require client-org membership before remapping, and
+    // do not query invoices.orgId == client (empty / wrong book).
+    if (view !== 'received') {
+      const staffRemap = await resolvePibStaffIssuerRemap({
+        user,
+        requestedOrgId,
+        kind: 'invoices',
+      })
+      if (staffRemap) {
+        const crmCtx = await resolveBillingCrmAuthContext(user, staffRemap.sourceOrgId)
+        if (!shouldExposeIssuerBillingBook(crmCtx, 'invoices')) {
+          return apiSuccess([])
+        }
+        staffIssuerList = {
+          sourceOrgId: staffRemap.sourceOrgId,
+          recipientOrgId: staffRemap.recipientOrgId,
+          crmCtx,
+        }
+      }
     }
-    // Issuer/sent book: members need explicit invoice grant; still CRM-scoped.
-    if (!shouldExposeIssuerBillingBook(crmCtx, 'invoices')) {
-      return apiSuccess([])
+    if (!staffIssuerList) {
+      if (!canAccessOrg(user, requestedOrgId)) return apiSuccess([])
+      const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
+      if (view === 'received') {
+        const received = (await loadReceivedInvoicesForOrg(requestedOrgId))
+          .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+          .filter((invoice) => invoice.status !== 'draft')
+        const scoped = await filterBillingRecordsForCrmActor(crmCtx, received)
+        const invoices = scoped
+          .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+          .slice(0, 50)
+        return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
+      }
+      // Issuer/sent book: members need explicit invoice grant; still CRM-scoped.
+      if (!shouldExposeIssuerBillingBook(crmCtx, 'invoices')) {
+        return apiSuccess([])
+      }
+      query = query.where(orgField, '==', requestedOrgId)
     }
-    query = query.where(orgField, '==', requestedOrgId)
   } else if (user.role === 'client') {
     // Client user NOT in portal context (legacy/direct API access): scope to their org
-    const requestedOrgId = user.orgId ?? user.orgIds?.[0]
-    if (!requestedOrgId || !canAccessOrg(user, requestedOrgId)) return apiSuccess([])
-    const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
-    if (view === 'received') {
-      const received = (await loadReceivedInvoicesForOrg(requestedOrgId))
-        .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
-        .filter((invoice) => invoice.status !== 'draft')
-      const scoped = await filterBillingRecordsForCrmActor(crmCtx, received)
-      const invoices = scoped
-        .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
-        .slice(0, 50)
-      return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
+    const requestedOrgId = explicitOrgId || user.orgId || user.orgIds?.[0]
+    if (!requestedOrgId) return apiSuccess([])
+    if (view !== 'received') {
+      const staffRemap = await resolvePibStaffIssuerRemap({
+        user,
+        requestedOrgId,
+        kind: 'invoices',
+      })
+      if (staffRemap) {
+        const crmCtx = await resolveBillingCrmAuthContext(user, staffRemap.sourceOrgId)
+        if (!shouldExposeIssuerBillingBook(crmCtx, 'invoices')) {
+          return apiSuccess([])
+        }
+        staffIssuerList = {
+          sourceOrgId: staffRemap.sourceOrgId,
+          recipientOrgId: staffRemap.recipientOrgId,
+          crmCtx,
+        }
+      }
     }
-    if (!shouldExposeIssuerBillingBook(crmCtx, 'invoices')) {
-      return apiSuccess([])
+    if (!staffIssuerList) {
+      if (!canAccessOrg(user, requestedOrgId)) return apiSuccess([])
+      const crmCtx = await resolveBillingCrmAuthContext(user, requestedOrgId)
+      if (view === 'received') {
+        const received = (await loadReceivedInvoicesForOrg(requestedOrgId))
+          .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+          .filter((invoice) => invoice.status !== 'draft')
+        const scoped = await filterBillingRecordsForCrmActor(crmCtx, received)
+        const invoices = scoped
+          .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+          .slice(0, 50)
+        return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
+      }
+      if (!shouldExposeIssuerBillingBook(crmCtx, 'invoices')) {
+        return apiSuccess([])
+      }
+      query = query.where(orgField, '==', requestedOrgId)
     }
-    query = query.where(orgField, '==', requestedOrgId)
   } else {
     // Admin / AI global queries (NOT in portal workspace context).
     // This path is for API/cron access where activeOrgId is not set.
@@ -319,6 +368,23 @@ export const GET = withAuth('client', async (req, user) => {
         query = query.where('billingOrgId', '==', billingOrgId)
       }
     }
+  }
+
+  if (staffIssuerList) {
+    const snapshot = await adminDb.collection('invoices')
+      .where('orgId', '==', staffIssuerList.sourceOrgId)
+      .get()
+    let invoices = snapshot.docs
+      .map((doc): InvoiceListItem => ({ id: doc.id, ...doc.data() }))
+      .filter((invoice) => {
+        const recipient = cleanString(invoice.recipientOrgId) || cleanString(invoice.targetOrgId)
+        return recipient === staffIssuerList!.recipientOrgId
+      })
+      .filter((invoice) => !sharedOnly || Boolean(invoice.claimableRelationshipId))
+    invoices = (await filterBillingRecordsForCrmActor(staffIssuerList.crmCtx, invoices))
+      .sort((a, b) => createdAtMillis(b.createdAt) - createdAtMillis(a.createdAt))
+      .slice(0, 50)
+    return apiSuccess(invoices.map((invoice) => decorateInvoicePortalCapabilities(invoice, user)))
   }
 
   const snapshot = await query.get()

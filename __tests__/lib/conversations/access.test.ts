@@ -315,4 +315,40 @@ describe('Workspace conversation access', () => {
       projectId: 'project-context-1', orgId: 'org-1',
     }))
   })
+
+  it('retries project auth for PiB staff on a client-org thread via the platform org', async () => {
+    const stean = {
+      uid: 'stean',
+      role: 'client',
+      orgId: 'pib-platform-owner',
+      activeOrgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner'],
+    } as ApiUser
+    const projectConversation = conversation('private')
+    projectConversation.orgId = 'wS5pgwa6c9WbPocf4w0w'
+    projectConversation.participantUids.push('stean')
+    projectConversation.scope = 'project'
+    projectConversation.scopeRefId = 'project-1'
+
+    const getProject = jest.fn()
+      .mockResolvedValueOnce({ ok: false, status: 403, error: 'Forbidden' })
+      .mockResolvedValueOnce({
+        ok: true,
+        doc: { data: () => ({ clientOrgIds: ['wS5pgwa6c9WbPocf4w0w'] }) },
+        projectAccess: { role: 'contributor' },
+      })
+    const linked = jest.fn().mockResolvedValue(true)
+
+    await expect(authorizeConversationProject(stean, projectConversation, {
+      getProjectForUser: getProject,
+      projectLinkedToOrganization: linked,
+    })).resolves.toEqual({ ok: true, projectId: 'project-1' })
+
+    expect(getProject).toHaveBeenNthCalledWith(1, 'project-1', stean, 'wS5pgwa6c9WbPocf4w0w')
+    expect(getProject).toHaveBeenNthCalledWith(2, 'project-1', stean, 'pib-platform-owner')
+    expect(linked).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: 'project-1',
+      orgId: 'wS5pgwa6c9WbPocf4w0w',
+    }))
+  })
 })

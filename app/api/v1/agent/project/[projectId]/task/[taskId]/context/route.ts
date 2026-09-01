@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server'
 import { withAuth } from '@/lib/api/auth'
 import { apiError, apiSuccess } from '@/lib/api/response'
+import type { ApiUser } from '@/lib/api/types'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { getProjectForUser } from '@/lib/projects/access'
 import { filterProjectItemsForAccess, type ProjectAccessContext } from '@/lib/projects/collaboration'
 import { applyAgentPermissionPolicies } from '@/lib/projects/agentSuiteProjection'
@@ -58,6 +60,43 @@ function ownerOrgId(project: Record<string, unknown>): string {
     if (typeof value === 'string' && value.trim()) return value.trim()
   }
   return ''
+}
+
+function agentAllowsOrg(user: ApiUser, orgId: string): boolean {
+  if (!orgId) return false
+  if (user.role === 'ai' && !user.orgId) return true
+  if (user.orgId === orgId || user.activeOrgId === orgId) return true
+  return (user.orgIds ?? []).includes(orgId)
+}
+
+function buildAgentScopedUser(user: ApiUser, requestedOrgId: string): ApiUser {
+  const orgIds = Array.from(new Set([
+    ...(user.orgIds ?? []),
+    user.orgId,
+    user.activeOrgId,
+    requestedOrgId,
+    PIB_PLATFORM_ORG_ID,
+  ].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))))
+  return {
+    ...user,
+    orgId: requestedOrgId,
+    activeOrgId: requestedOrgId,
+    orgIds,
+  }
+}
+
+async function resolveAgentProjectAccess(
+  projectId: string,
+  scopedUser: ApiUser,
+  requestedOrgId: string,
+) {
+  let access = await getProjectForUser(projectId, scopedUser, requestedOrgId)
+  if (access.ok) return access
+  if (requestedOrgId !== PIB_PLATFORM_ORG_ID) {
+    access = await getProjectForUser(projectId, scopedUser, PIB_PLATFORM_ORG_ID)
+    if (access.ok) return access
+  }
+  return getProjectForUser(projectId, scopedUser)
 }
 
 function isVisibleTask(
@@ -128,12 +167,14 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const explicitOrgId = req.headers.get('x-org-id')?.trim() || ''
   const isAgentActor = user.role === 'ai' || user.authKind === 'user_delegation'
   if (isAgentActor && !explicitOrgId) return apiError('X-Org-Id is required for agent task context', 400)
-  if (isAgentActor && user.orgId && explicitOrgId !== user.orgId) return apiError('Agent organisation scope does not match X-Org-Id', 403)
+  if (isAgentActor && explicitOrgId && !agentAllowsOrg(user, explicitOrgId)) {
+    return apiError('Agent organisation scope does not match X-Org-Id', 403)
+  }
   const orgId = explicitOrgId || user.activeOrgId || user.orgId || ''
   if (!orgId) return apiError('Active organisation is required for agent task context', 400)
 
-  const scopedUser = { ...user, orgId, activeOrgId: orgId, orgIds: [orgId], allowedOrgIds: [orgId] }
-  const access = await getProjectForUser(projectId, scopedUser, orgId)
+  const scopedUser = buildAgentScopedUser(user, orgId)
+  const access = await resolveAgentProjectAccess(projectId, scopedUser, orgId)
   if (!access.ok) return apiError(access.error, access.status)
 
   const projectRef = access.doc.ref
