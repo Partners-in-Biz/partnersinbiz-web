@@ -15,6 +15,8 @@ import type { OrgRole } from '@/lib/organizations/types'
 import { isActiveOrgMembershipRow } from '@/lib/linked-computers/policy'
 import { pibStaffCanServeClientOrg } from '@/lib/auth/staff-client-org'
 import { loadPlatformStaffMembership } from '@/lib/orgMembers/platform-staff'
+import { canAccessConversation } from '@/lib/conversations/access'
+import type { Conversation } from '@/lib/conversations/types'
 import {
   CHAT_REMINT_RITUAL_PATTERNS,
   containsChatRemintRitual,
@@ -34,6 +36,43 @@ const MAX_TTL_SECONDS = 24 * 60 * 60
 
 function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function conversationFromSnap(id: string, data: Record<string, unknown>): Conversation {
+  const participantUids = Array.isArray(data.participantUids)
+    ? data.participantUids.filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+    : []
+  const participantAgentIds = Array.isArray(data.participantAgentIds)
+    ? data.participantAgentIds.filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+    : []
+  return {
+    id,
+    orgId: normalizeText(data.orgId),
+    participantUids,
+    participantAgentIds,
+    participants: Array.isArray(data.participants) ? data.participants as Conversation['participants'] : [],
+    startedBy: typeof data.startedBy === 'string' ? data.startedBy : '',
+    title: typeof data.title === 'string' ? data.title : '',
+    messageCount: typeof data.messageCount === 'number' ? data.messageCount : 0,
+    archived: data.archived === true,
+    workspaceContext: data.workspaceContext && typeof data.workspaceContext === 'object'
+      ? data.workspaceContext as Conversation['workspaceContext']
+      : undefined,
+  } as Conversation
+}
+
+/** A conversationId only authorises staff mint when the thread exists, matches orgId, and the caller can access it. */
+async function conversationAuthorizesStaffMint(
+  user: ApiUser,
+  orgId: string,
+  conversationId: string,
+): Promise<boolean> {
+  if (!conversationId) return false
+  const snap = await adminDb.collection('conversations').doc(conversationId).get()
+  if (!snap.exists) return false
+  const conversation = conversationFromSnap(snap.id, (snap.data() ?? {}) as Record<string, unknown>)
+  if (!conversation.orgId || conversation.orgId !== orgId) return false
+  return canAccessConversation(user, conversation)
 }
 
 function timestampToMillis(value: unknown): number | null {
@@ -149,10 +188,13 @@ export async function mintAgentDelegation(input: {
   if (input.user.role === 'ai') throw Object.assign(new Error('AI/system users cannot mint delegations'), { status: 403 })
   const staff = await loadPlatformStaffMembership(input.user.uid)
   const conversationId = normalizeText(input.conversationId)
+  const conversationAuthorizes = conversationId
+    ? await conversationAuthorizesStaffMint(input.user, orgId, conversationId)
+    : false
   const staffServesClient = Boolean(
     staff
     && orgId !== staff.platformOrgId
-    && (conversationId || await pibStaffCanServeClientOrg(input.user, orgId)),
+    && (conversationAuthorizes || await pibStaffCanServeClientOrg(input.user, orgId)),
   )
   if (!canAccessOrg(input.user, orgId) && !staffServesClient) {
     throw Object.assign(new Error('Forbidden'), { status: 403 })
