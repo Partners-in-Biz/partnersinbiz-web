@@ -193,9 +193,11 @@ export async function mintAgentDelegation(input: {
 
   // Parallel mailbox evidence so agent/system keys can still call /agent/email/*
   // when Messages also injects the user-delegation Bearer token (preferred).
+  // PiB staff mailboxes live on the platform org even when the chat is a client workspace.
+  const mailboxOrgId = staff?.platformOrgId ?? orgId
   const mailboxRef = adminDb.collection('mailbox_agent_delegations').doc()
   await mailboxRef.set({
-    orgId,
+    orgId: mailboxOrgId,
     uid: input.user.uid,
     delegatedUid: input.user.uid,
     agentId,
@@ -204,6 +206,7 @@ export async function mintAgentDelegation(input: {
     status: 'active',
     purpose,
     conversationId: normalizeText(input.conversationId) || null,
+    conversationOrgId: orgId !== mailboxOrgId ? orgId : null,
     sourceDelegationId: ref.id,
     expiresAt,
     createdAt: FieldValue.serverTimestamp(),
@@ -385,6 +388,7 @@ export function buildDelegationAuthPromptBlock(input: {
     ? [
       `This human is Partners in Biz staff. Conversation org is ${input.orgId}. PiB issuer org is ${issuerOrgId}.`,
       'For PiB invoices/quotes created for the customer in this chat, POST orgId as the conversation/client org (or pass companyId on the platform CRM). The API issues the document from the platform owner org. Do not wait for Peet when this human asked for that invoice/quote/CRM/doc/email on their own book.',
+      `For /api/v1/agent/email/* mailbox reads and drafts, use orgId=${issuerOrgId} (staff mailbox tenant). Client-chat orgId is remapped server-side, but prefer the platform org in the prompt.`,
       extraOrgIds.length > 0 ? `This token is also scoped to: ${extraOrgIds.join(', ')}.` : '',
     ].filter(Boolean)
     : []

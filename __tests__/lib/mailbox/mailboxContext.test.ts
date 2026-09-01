@@ -48,6 +48,21 @@ describe('buildMailboxContextPromptBlock', () => {
     expect(block).not.toMatch(/send any chat message to (re)?mint/i)
   })
 
+  it('tells staff agents to use the platform mailbox org when remapped from a client chat', () => {
+    const block = buildMailboxContextPromptBlock({
+      orgId: 'pib-platform-owner',
+      uid: 'stean',
+      accounts: [{ ...connected, orgId: 'pib-platform-owner', uid: 'stean' }],
+      conversationOrgId: 'wS5pgwa6c9WbPocf4w0w',
+      conversationId: 'conv-el',
+      responseMessageId: 'asst-el',
+    })
+    expect(block).toContain('orgId: pib-platform-owner')
+    expect(block).toContain('conversationOrgId: wS5pgwa6c9WbPocf4w0w')
+    expect(block).toContain('Always pass orgId=pib-platform-owner')
+    expect(block).toContain('do not use the conversation org for mailbox')
+  })
+
   it('reports none when no connected accounts exist but still requires email canvas drafts', () => {
     const block = buildMailboxContextPromptBlock({
       orgId: 'org-1',
