@@ -24,6 +24,7 @@ import type {
 } from '@/lib/client-documents/types'
 import { adminDb } from '@/lib/firebase/admin'
 import { filterOwnedRowsForActor } from '@/lib/orgMembers/record-scope'
+import { loadPlatformStaffMembership } from '@/lib/orgMembers/platform-staff'
 import { assertUserCanPerformOrganizationModuleAction } from '@/lib/organizations/module-policy-access'
 import type { Organization } from '@/lib/organizations/types'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
@@ -94,6 +95,27 @@ async function platformCompanyForClientOrg(clientOrgId: string): Promise<{ id: s
   return match ? { id: match.id } : null
 }
 
+/**
+ * PiB staff are often named on a client-company chat without joining that org.
+ * Allow the client org as a document *recipient* scope when a platform CRM
+ * company is linked to it; holder remapping still puts drafts on the platform.
+ */
+async function resolveClientDocumentOrgScope(
+  user: ApiUser,
+  requestedOrgId: string | null,
+): Promise<ReturnType<typeof resolveOrgScope>> {
+  const scope = resolveOrgScope(user, requestedOrgId)
+  if (scope.ok) return scope
+  if (scope.status !== 403 || user.role !== 'client') return scope
+  const requested = typeof requestedOrgId === 'string' ? requestedOrgId.trim() : ''
+  if (!requested || requested === PIB_PLATFORM_ORG_ID) return scope
+  const staff = await loadPlatformStaffMembership(user.uid)
+  if (!staff) return scope
+  const company = await platformCompanyForClientOrg(requested)
+  if (!company) return scope
+  return { ok: true, orgId: requested }
+}
+
 async function companyForLinkedDocument(companyId: string): Promise<{ id: string; orgId: string; linkedOrgId?: string } | null> {
   if (!companyId) return null
   const snap = await adminDb.collection('companies').doc(companyId).get()
@@ -112,8 +134,20 @@ async function assertDocumentLinkTenantSafety(
   documentOrgId: string | undefined,
   user: ApiUser,
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
-  for (const clientOrgId of linked.clientOrgIds ?? []) {
-    if (!canAccessOrg(user, clientOrgId)) return { ok: false, error: `Forbidden linked client org: ${clientOrgId}`, status: 403 }
+  const staff = user.role === 'client' ? await loadPlatformStaffMembership(user.uid) : null
+  const linkedClientOrgIds = Array.from(new Set([
+    ...(typeof linked.clientOrgId === 'string' && linked.clientOrgId.trim() ? [linked.clientOrgId.trim()] : []),
+    ...(linked.clientOrgIds ?? []).filter((id): id is string => typeof id === 'string' && Boolean(id.trim())),
+  ]))
+  for (const clientOrgId of linkedClientOrgIds) {
+    if (canAccessOrg(user, clientOrgId)) continue
+    // Platform-held docs may link a client org the staff member is serving
+    // without requiring client-org membership.
+    if (staff && documentOrgId === staff.platformOrgId) {
+      const company = await platformCompanyForClientOrg(clientOrgId)
+      if (company) continue
+    }
+    return { ok: false, error: `Forbidden linked client org: ${clientOrgId}`, status: 403 }
   }
 
   if (!documentOrgId) return { ok: true }
@@ -182,7 +216,7 @@ function validateCreateAssumptions(
 
 export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) => {
   const { searchParams } = new URL(req.url)
-  const scope = resolveOrgScope(user, searchParams.get('orgId'))
+  const scope = await resolveClientDocumentOrgScope(user, searchParams.get('orgId'))
   if (!scope.ok) return apiError(scope.error, scope.status)
   const parsedLimit = Number.parseInt(searchParams.get('limit') ?? `${DEFAULT_LIST_LIMIT}`, 10)
   const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), MAX_LIST_LIMIT) : DEFAULT_LIST_LIMIT
@@ -237,7 +271,14 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   // owned/shared + recipient-linked client-facing platform docs only.
   let documents: Array<ClientDocument & { id: string }> = []
   if (user.role === 'client') {
-    const ownedOrShared = await listOwnedOrSharedForOrg(scope.orgId)
+    const staff = scope.orgId !== PIB_PLATFORM_ORG_ID
+      ? await loadPlatformStaffMembership(user.uid)
+      : null
+    const ownedOrShared = [
+      ...(await listOwnedOrSharedForOrg(scope.orgId)),
+      // PiB staff drafts live on the platform holder even when listing from a client chat.
+      ...(staff ? await listOwnedOrSharedForOrg(PIB_PLATFORM_ORG_ID) : []),
+    ]
     // Platform-held docs explicitly addressed to this client org (or any of the
     // caller's client orgs if they list under a non-platform scope).
     const recipientOrgIds = Array.from(new Set([
@@ -274,10 +315,23 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
       snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ClientDocument & { id: string })),
     )
       .filter((doc) => doc.deleted !== true)
-      .filter((doc) => isClientVisibleClientDocument(doc))
+      .filter((doc) => isClientVisibleClientDocument(doc) || isClientDocumentVisibleToUser(doc, user))
 
     const byId = new Map<string, ClientDocument & { id: string }>()
     for (const document of [...documents, ...ownedOrShared, ...linkedPlatformDocuments]) {
+      // When listing from a client chat, keep platform-owned drafts that are
+      // linked to this client (or unlinked personal drafts for this staff user).
+      if (
+        staff
+        && document.orgId === PIB_PLATFORM_ORG_ID
+        && document.createdBy === user.uid
+      ) {
+        const linkedIds = [
+          ...(document.linked?.clientOrgId ? [document.linked.clientOrgId] : []),
+          ...(document.linked?.clientOrgIds ?? []),
+        ].filter(Boolean)
+        if (linkedIds.length > 0 && !linkedIds.includes(scope.orgId)) continue
+      }
       byId.set(document.id, document)
     }
     documents = Array.from(byId.values()).filter((doc) => isClientDocumentVisibleToUser(doc, user))
@@ -341,20 +395,9 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
   let orgId: string | undefined
   const requestedOrgId = typeof body.orgId === 'string' && body.orgId.trim() ? body.orgId.trim() : null
   if (requestedOrgId || user.role === 'client') {
-    const scope = resolveOrgScope(user, requestedOrgId)
+    const scope = await resolveClientDocumentOrgScope(user, requestedOrgId)
     if (!scope.ok) return apiError(scope.error, scope.status)
     orgId = scope.orgId
-  }
-
-  if (orgId) {
-    const createAccess = await assertUserCanPerformOrganizationModuleAction(
-      user,
-      orgId,
-      'documents',
-      'create',
-      'Document creation is disabled for your organisation role',
-    )
-    if (!createAccess.ok) return apiError(createAccess.error, createAccess.status)
   }
 
   let linked: ClientDocumentLinkSet = {}
@@ -387,6 +430,18 @@ export const POST = withAuth('client', async (req: NextRequest, user: ApiUser) =
     linkedCompany: companyFromLink,
     creatorHomeOrgId: user.activeOrgId || user.orgId || null,
   })
+  // Gate create on the holder org (platform for PiB staff client chats), not the
+  // recipient client org the staff member may not belong to.
+  if (documentOrgId) {
+    const createAccess = await assertUserCanPerformOrganizationModuleAction(
+      user,
+      documentOrgId,
+      'documents',
+      'create',
+      'Document creation is disabled for your organisation role',
+    )
+    if (!createAccess.ok) return apiError(createAccess.error, createAccess.status)
+  }
   // Never stamp the holder org as linked.clientOrgId — that makes client_review
   // docs invisible to the real client organisation (Saaiman Stays bug).
   const recipientClientOrgId = resolveDocumentRecipientClientOrgId({

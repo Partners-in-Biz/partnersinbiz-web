@@ -13,6 +13,8 @@ import { NextRequest } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
 import { withAuth } from '@/lib/api/auth'
 import { apiSuccess, apiError } from '@/lib/api/response'
+import type { ApiUser } from '@/lib/api/types'
+import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 import { getProjectForUser } from '@/lib/projects/access'
 import { applyAgentPermissionPolicies, loadAgentProjectPlan } from '@/lib/projects/agentSuiteProjection'
 import { filterProjectItemsForAccess } from '@/lib/projects/collaboration'
@@ -34,25 +36,56 @@ function timestampMillis(value: unknown): number {
   return typeof maybeTimestamp.toMillis === 'function' ? (maybeTimestamp.toMillis as () => number)() : 0
 }
 
+function agentAllowsOrg(user: ApiUser, orgId: string): boolean {
+  if (!orgId) return false
+  if (user.role === 'ai' && !user.orgId) return true
+  if (user.orgId === orgId || user.activeOrgId === orgId) return true
+  return (user.orgIds ?? []).includes(orgId)
+}
+
+function buildAgentScopedUser(user: ApiUser, requestedOrgId: string): ApiUser {
+  const orgIds = Array.from(new Set([
+    ...(user.orgIds ?? []),
+    user.orgId,
+    user.activeOrgId,
+    requestedOrgId,
+    PIB_PLATFORM_ORG_ID,
+  ].filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))))
+  return {
+    ...user,
+    orgId: requestedOrgId,
+    activeOrgId: requestedOrgId,
+    orgIds,
+  }
+}
+
+async function resolveAgentProjectAccess(
+  projectId: string,
+  scopedUser: ApiUser,
+  requestedOrgId: string,
+) {
+  let access = await getProjectForUser(projectId, scopedUser, requestedOrgId)
+  if (access.ok) return access
+  if (requestedOrgId !== PIB_PLATFORM_ORG_ID) {
+    access = await getProjectForUser(projectId, scopedUser, PIB_PLATFORM_ORG_ID)
+    if (access.ok) return access
+  }
+  return getProjectForUser(projectId, scopedUser)
+}
+
 export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
   const { projectId } = await (ctx as RouteContext).params
   const explicitOrgId = req.headers.get('x-org-id')?.trim() || ''
   const isAgentActor = user.role === 'ai' || user.authKind === 'user_delegation'
   if (isAgentActor && !explicitOrgId) return apiError('X-Org-Id is required for agent project context', 400)
-  if (isAgentActor && user.orgId && explicitOrgId !== user.orgId) {
+  if (isAgentActor && explicitOrgId && !agentAllowsOrg(user, explicitOrgId)) {
     return apiError('Agent organisation scope does not match X-Org-Id', 403)
   }
   const requestedOrgId = explicitOrgId || user.activeOrgId || user.orgId || ''
   if (!requestedOrgId) return apiError('Active organisation is required for agent project context', 400)
 
-  const scopedUser = {
-    ...user,
-    orgId: requestedOrgId,
-    activeOrgId: requestedOrgId,
-    orgIds: [requestedOrgId],
-    allowedOrgIds: [requestedOrgId],
-  }
-  const access = await getProjectForUser(projectId, scopedUser, requestedOrgId)
+  const scopedUser = buildAgentScopedUser(user, requestedOrgId)
+  const access = await resolveAgentProjectAccess(projectId, scopedUser, requestedOrgId)
   if (!access.ok) return apiError(access.error, access.status)
   const projectDoc = access.doc
 
@@ -105,7 +138,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user, ctx) => {
       const allowedOrgIds = Array.isArray(record.allowedOrgIds)
         ? record.allowedOrgIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
         : []
-      return allowedOrgIds.length === 0 || allowedOrgIds.includes(requestedOrgId)
+      return allowedOrgIds.length === 0 || allowedOrgIds.includes(requestedOrgId) || allowedOrgIds.includes(ownerOrgId)
     }),
     { projectAccess, user: scopedUser },
   )

@@ -30,9 +30,21 @@ export async function authorizeConversationProject(
 ): Promise<ProjectConversationAuthorization> {
   const projectId = conversationProjectId(conversation)
   if (!projectId) return { ok: true, projectId: null }
-  const projectAccess = await (options.getProjectForUser ?? getProjectForUser)(projectId, user, conversation.orgId)
+  const getProject = options.getProjectForUser ?? getProjectForUser
+  const linkedCheck = options.projectLinkedToOrganization ?? projectLinkedToOrganization
+
+  let projectAccess = await getProject(projectId, user, conversation.orgId)
+  // PiB staff named on a client thread often lack client-org membership, while
+  // the project holder lives on pib-platform-owner. Retry without the client
+  // org scope, then still require the project to be linked to this conversation org.
+  if (!projectAccess.ok && isPlatformStaffScopedUser(user)) {
+    projectAccess = await getProject(projectId, user, PIB_PLATFORM_ORG_ID)
+    if (!projectAccess.ok) {
+      projectAccess = await getProject(projectId, user)
+    }
+  }
   if (!projectAccess.ok) return { ok: false, status: projectAccess.status, error: projectAccess.error }
-  const linked = await (options.projectLinkedToOrganization ?? projectLinkedToOrganization)({
+  const linked = await linkedCheck({
     projectId,
     project: projectAccess.doc.data() ?? {},
     orgId: conversation.orgId,
