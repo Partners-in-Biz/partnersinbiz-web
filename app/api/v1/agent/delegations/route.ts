@@ -3,7 +3,6 @@ import { NextRequest } from 'next/server'
 import { resolveUser } from '@/lib/api/auth'
 import { mintAgentDelegation } from '@/lib/api/delegations'
 import { apiError, apiErrorFromException, apiSuccess } from '@/lib/api/response'
-import { canAccessOrg } from '@/lib/api/platformAdmin'
 import type { ApiUser } from '@/lib/api/types'
 
 export const dynamic = 'force-dynamic'
@@ -43,7 +42,6 @@ export const POST = async (req: NextRequest) => {
   if (!orgId) return apiError('orgId is required', 400)
   if (!agentId) return apiError('agentId is required', 400)
   if (!purpose) return apiError('purpose is required', 400)
-  if (!canAccessOrg(user, orgId)) return apiError('Forbidden', 403)
 
   try {
     const delegation = await mintAgentDelegation({ user, orgId, agentId, purpose, ttlSeconds, conversationId })

@@ -1,4 +1,9 @@
 const mintedSets: Record<string, unknown>[] = []
+const mockStaffCanServe = jest.fn()
+
+jest.mock('@/lib/auth/staff-client-org', () => ({
+  pibStaffCanServeClientOrg: (...args: unknown[]) => mockStaffCanServe(...args),
+}))
 
 jest.mock('firebase-admin/firestore', () => ({
   FieldValue: { serverTimestamp: () => 'SERVER_TIMESTAMP' },
@@ -66,6 +71,8 @@ jest.mock('@/lib/firebase/admin', () => ({
 describe('staff dual-scope delegations', () => {
   beforeEach(() => {
     mintedSets.length = 0
+    mockStaffCanServe.mockReset()
+    mockStaffCanServe.mockResolvedValue(false)
   })
 
   it('mints conversation org plus pib-platform-owner for PiB staff', async () => {
@@ -94,5 +101,42 @@ describe('staff dual-scope delegations', () => {
         capabilities: expect.objectContaining({ invoices: true, quotes: true }),
       }),
     }))
+  })
+
+  it('mints for a served client org without a conversationId', async () => {
+    mockStaffCanServe.mockResolvedValue(true)
+    const { mintAgentDelegation } = await import('@/lib/api/delegations')
+    const minted = await mintAgentDelegation({
+      user: {
+        uid: 'stean',
+        role: 'client',
+        orgId: 'pib-platform-owner',
+        activeOrgId: 'pib-platform-owner',
+        orgIds: ['pib-platform-owner'],
+      },
+      orgId: 'wS5pgwa6c9WbPocf4w0w',
+      agentId: 'pip',
+      purpose: 'skill:crm',
+    })
+
+    expect(minted.orgIds).toEqual(['wS5pgwa6c9WbPocf4w0w', 'pib-platform-owner'])
+    expect(mockStaffCanServe).toHaveBeenCalledWith(expect.objectContaining({ uid: 'stean' }), 'wS5pgwa6c9WbPocf4w0w')
+  })
+
+  it('rejects a client org the staff member does not serve when there is no conversation', async () => {
+    mockStaffCanServe.mockResolvedValue(false)
+    const { mintAgentDelegation } = await import('@/lib/api/delegations')
+    await expect(mintAgentDelegation({
+      user: {
+        uid: 'stean',
+        role: 'client',
+        orgId: 'pib-platform-owner',
+        activeOrgId: 'pib-platform-owner',
+        orgIds: ['pib-platform-owner'],
+      },
+      orgId: 'foreign-org',
+      agentId: 'pip',
+      purpose: 'skill:crm',
+    })).rejects.toMatchObject({ status: 403 })
   })
 })

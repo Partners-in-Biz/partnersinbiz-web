@@ -37,6 +37,7 @@ import {
 } from '@/lib/crm/assignment-access'
 import { memberCanPerformModuleAction } from '@/lib/orgMembers/access-policy'
 import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
+import { filterCrmRowsForStaffClientOrg } from '@/lib/crm/staff-client-filter'
 import { touchPortalDashboardSummary } from '@/lib/portal/dashboard-summary'
 
 const VALID_STAGES: ContactStage[] = [
@@ -162,6 +163,7 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
 
   const canUseIndexedMetaProbe =
     isCrmPrivilegedActor(ctx) &&
+    !ctx.staffClientOrgId &&
     limit === 1 &&
     page === 1 &&
     !stage &&
@@ -203,6 +205,14 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     }
     const companies = await loadCompanyAssignmentMap(orgId, companyIds)
     contacts = filterCrmRowsForActor(ctx, contacts, { companies })
+    contacts = filterCrmRowsForStaffClientOrg(ctx.staffClientOrgId, contacts, { companies })
+  } else if (ctx.staffClientOrgId) {
+    const companyIds = new Set<string>()
+    for (const contact of contacts) {
+      for (const companyId of crmRecordCompanyIds(contact)) companyIds.add(companyId)
+    }
+    const companies = await loadCompanyAssignmentMap(orgId, companyIds)
+    contacts = filterCrmRowsForStaffClientOrg(ctx.staffClientOrgId, contacts, { companies })
   }
 
   if (capturedFromId) {

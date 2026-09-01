@@ -26,6 +26,7 @@ import {
   loadContactAssignmentMap,
   normalizeAllowedUserIds,
 } from '@/lib/crm/assignment-access'
+import { filterCrmRowsForStaffClientOrg } from '@/lib/crm/staff-client-filter'
 
 async function deriveCompanyFromContact(contactId: string, orgId: string): Promise<{ companyId?: string; companyName?: string }> {
   try {
@@ -61,19 +62,21 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     .map((doc): Deal => ({ ...(doc.data() as Deal), id: doc.id }))
     .filter((d: Deal) => d.deleted !== true)
 
-  if (!isCrmPrivilegedActor(ctx)) {
-    const contacts = await loadContactAssignmentMap(orgId, deals.flatMap((deal) => crmRecordContactIds(deal)))
-    const companyIds = new Set<string>()
-    for (const deal of deals) {
-      for (const companyId of crmRecordCompanyIds(deal)) companyIds.add(companyId)
-      for (const contactId of crmRecordContactIds(deal)) {
-        const contact = contacts.get(contactId)
-        for (const companyId of crmRecordCompanyIds(contact)) companyIds.add(companyId)
-      }
+  const contacts = await loadContactAssignmentMap(orgId, deals.flatMap((deal) => crmRecordContactIds(deal)))
+  const companyIds = new Set<string>()
+  for (const deal of deals) {
+    for (const companyId of crmRecordCompanyIds(deal)) companyIds.add(companyId)
+    for (const contactId of crmRecordContactIds(deal)) {
+      const contact = contacts.get(contactId)
+      for (const companyId of crmRecordCompanyIds(contact)) companyIds.add(companyId)
     }
-    const companies = await loadCompanyAssignmentMap(orgId, companyIds)
+  }
+  const companies = await loadCompanyAssignmentMap(orgId, companyIds)
+
+  if (!isCrmPrivilegedActor(ctx)) {
     deals = filterCrmRowsForActor(ctx, deals, { contacts, companies })
   }
+  deals = filterCrmRowsForStaffClientOrg(ctx.staffClientOrgId, deals, { contacts, companies })
 
   deals = deals
     .filter((d: Deal) => !pipelineId || d.pipelineId === pipelineId)
