@@ -219,7 +219,7 @@ export function storedAccountTypeForScope(input: {
   if (input.accountScope === PERSONAL_SCOPE) return profileType || 'personal'
   if (isCompanyAccountType(profileType)) return profileType
   if (isCompanyPagePlatform(input.platform)) {
-    if (input.accountScope === PERSONAL_SCOPE) return profileType || 'personal'
+    // Org + LinkedIn/Facebook person profiles stay typed personal so callers can reject them.
     if (profileType === 'personal') return 'personal'
     return 'page'
   }
