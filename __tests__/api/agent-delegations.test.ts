@@ -74,4 +74,34 @@ describe('POST /api/v1/agent/delegations', () => {
     const res = await POST(req)
     expect(res.status).toBe(403)
   })
+
+  it('lets mintAgentDelegation decide org access so staff can mint without membership', async () => {
+    mockCanAccessOrg.mockReturnValue(false)
+    mockResolveUser.mockResolvedValue({
+      uid: 'stean',
+      role: 'client',
+      authKind: 'session',
+      orgId: 'pib-platform-owner',
+      orgIds: ['pib-platform-owner'],
+    })
+    mockMintAgentDelegation.mockResolvedValue({
+      id: 'dlg-staff',
+      token: 'pib_dlg_secret',
+      orgIds: ['wS5pgwa6c9WbPocf4w0w', 'pib-platform-owner'],
+    })
+
+    const { POST } = await import('@/app/api/v1/agent/delegations/route')
+    const req = new NextRequest('http://localhost/api/v1/agent/delegations', {
+      method: 'POST',
+      body: JSON.stringify({ orgId: 'wS5pgwa6c9WbPocf4w0w', agentId: 'pip', purpose: 'skill:crm' }),
+      headers: new Headers({ 'content-type': 'application/json' }),
+    })
+
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    expect(mockMintAgentDelegation).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'wS5pgwa6c9WbPocf4w0w',
+      conversationId: '',
+    }))
+  })
 })

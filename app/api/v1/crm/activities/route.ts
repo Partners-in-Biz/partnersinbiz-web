@@ -23,6 +23,7 @@ import {
   loadCompanyAssignmentMap,
   loadContactAssignmentMap,
 } from '@/lib/crm/assignment-access'
+import { filterCrmRowsForStaffClientOrg } from '@/lib/crm/staff-client-filter'
 
 /**
  * Best-effort: resolve companyId from a contact's companyId field.
@@ -110,6 +111,9 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     }
     const companies = await loadCompanyAssignmentMap(ctx.orgId, companyIds)
     activities = filterCrmRowsForActor(ctx, activities, { contacts, companies })
+    activities = filterCrmRowsForStaffClientOrg(ctx.staffClientOrgId, activities, { contacts, companies })
+  } else {
+    activities = filterCrmRowsForStaffClientOrg(ctx.staffClientOrgId, activities)
   }
   return apiSuccess({ activities, page, limit })
 })

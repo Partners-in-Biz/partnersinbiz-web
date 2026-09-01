@@ -11,6 +11,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { adminDb } from '@/lib/firebase/admin'
+import { pibStaffCanServeClientOrg } from '@/lib/auth/staff-client-org'
 import { canUsePortalOrg, resolvePortalActiveOrgId } from '@/lib/portal/org-access'
 import { apiError } from './response'
 import type { ApiUser } from './types'
@@ -68,8 +69,14 @@ async function resolveOrgId(req: NextRequest, user: ApiUser): Promise<string | n
       const { searchParams } = new URL(req.url)
       const requestedOrgId = searchParams.get('orgId')?.trim()
       if (requestedOrgId) {
+        // Dual-scope staff dlg tokens already include the conversation org.
+        if (canAccessOrg(user, requestedOrgId)) return requestedOrgId
         const allowed = await canUsePortalOrg(user.uid, data, requestedOrgId)
-        return allowed ? requestedOrgId : null
+        if (allowed) return requestedOrgId
+        // Session users: PiB staff serving this client via a platform CRM company.
+        // Data stays on the client tenant (social/Twilio are not remapped to PiB).
+        if (await pibStaffCanServeClientOrg(user, requestedOrgId)) return requestedOrgId
+        return null
       }
       return (await resolvePortalActiveOrgId(user.uid, data)) ?? DEFAULT_ORG_ID
     }

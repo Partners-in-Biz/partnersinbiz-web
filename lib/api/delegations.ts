@@ -13,6 +13,7 @@ import {
 import { resolveOrganizationPolicyRole } from '@/lib/organizations/module-policy-access'
 import type { OrgRole } from '@/lib/organizations/types'
 import { isActiveOrgMembershipRow } from '@/lib/linked-computers/policy'
+import { pibStaffCanServeClientOrg } from '@/lib/auth/staff-client-org'
 import { loadPlatformStaffMembership } from '@/lib/orgMembers/platform-staff'
 import {
   CHAT_REMINT_RITUAL_PATTERNS,
@@ -148,7 +149,12 @@ export async function mintAgentDelegation(input: {
   if (input.user.role === 'ai') throw Object.assign(new Error('AI/system users cannot mint delegations'), { status: 403 })
   const staff = await loadPlatformStaffMembership(input.user.uid)
   const conversationId = normalizeText(input.conversationId)
-  if (!canAccessOrg(input.user, orgId) && !(staff && conversationId)) {
+  const staffServesClient = Boolean(
+    staff
+    && orgId !== staff.platformOrgId
+    && (conversationId || await pibStaffCanServeClientOrg(input.user, orgId)),
+  )
+  if (!canAccessOrg(input.user, orgId) && !staffServesClient) {
     throw Object.assign(new Error('Forbidden'), { status: 403 })
   }
 

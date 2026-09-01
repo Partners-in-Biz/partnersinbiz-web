@@ -37,6 +37,7 @@ import {
 } from '@/lib/crm/assignment-access'
 import { memberCanPerformModuleAction } from '@/lib/orgMembers/access-policy'
 import { safeTouchCrmLiveUpdate } from '@/lib/crm/live-updates'
+import { filterCrmRowsForStaffClientOrg } from '@/lib/crm/staff-client-filter'
 
 // ── GET ─────────────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,7 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
     const limit = Math.min(params.limit ?? 50, 200)
     const canUseIndexedPage =
       isCrmPrivilegedActor(ctx) &&
+      !ctx.staffClientOrgId &&
       !params.search &&
       !params.hasOpenDeals
 
@@ -143,6 +145,7 @@ export const GET = withCrmAuth('viewer', async (req, ctx) => {
       }
       companies = companies.filter((company) => visibleIds.has(company.id))
     }
+    companies = filterCrmRowsForStaffClientOrg(ctx.staffClientOrgId, companies)
 
     if (params.industry) {
       companies = companies.filter((company) => company.industry === params.industry)
