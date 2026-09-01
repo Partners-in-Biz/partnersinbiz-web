@@ -1,14 +1,12 @@
 import type { AssignableCrmRecord, CrmAssignmentMaps } from '@/lib/crm/assignment-access'
 import { crmRecordCompanyIds, crmRecordContactIds } from '@/lib/crm/assignment-access'
 
-type LinkedRecord = AssignableCrmRecord & { linkedOrgId?: unknown }
-
-function linkedOrgIdOf(record: { linkedOrgId?: unknown } | null | undefined): string {
+function linkedOrgIdOf(record: AssignableCrmRecord | null | undefined): string {
   return typeof record?.linkedOrgId === 'string' ? record.linkedOrgId.trim() : ''
 }
 
 export function crmRowMatchesStaffClientOrg(
-  row: LinkedRecord,
+  row: AssignableCrmRecord,
   staffClientOrgId: string,
   maps: CrmAssignmentMaps = {},
 ): boolean {
@@ -32,7 +30,7 @@ export function crmRowMatchesStaffClientOrg(
 }
 
 /** When PiB staff are remapped onto the platform CRM book in a client chat, keep only rows for that client. */
-export function filterCrmRowsForStaffClientOrg<T extends LinkedRecord>(
+export function filterCrmRowsForStaffClientOrg<T extends AssignableCrmRecord>(
   staffClientOrgId: string | undefined,
   rows: T[],
   maps: CrmAssignmentMaps = {},
