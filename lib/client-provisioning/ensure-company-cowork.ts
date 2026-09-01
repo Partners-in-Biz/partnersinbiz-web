@@ -15,6 +15,7 @@ import {
   type ConversationWorkspaceContext,
   type OrgWorkspaceRecord,
 } from '@/lib/client-provisioning/workspace-context'
+import { botComputerFoldersToEnsure } from '@/lib/messages/bot-computer-isolation'
 import { PIB_PLATFORM_ORG_ID } from '@/lib/platform/constants'
 
 export type EnsureCompanyCoworkFolderResult =
@@ -143,6 +144,7 @@ export async function ensureCompanyCoworkFolderOnVps(
       // Partners CRM company Cowork always nests under partners/, even when the
       // workspace record is linked to a client organisation id.
       platformOwned: workspace.orgId === PIB_PLATFORM_ORG_ID,
+      extraWorkspaceFolders: botComputerFoldersToEnsure(workspace.folderRelativePath),
     }
     await provisionFullClientOnVps(input)
     const payload = buildClientProvisioningPayload(input)

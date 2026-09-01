@@ -148,6 +148,7 @@ describe('POST /api/v1/campaigns', () => {
       name: 'Personal voice',
       accountScope: 'personal',
       ownerUid: 'u1',
+      marketingOwner: 'personal',
     }))
   })
 
@@ -210,5 +211,23 @@ describe('GET /api/v1/campaigns', () => {
     const res = await GET(req, { uid: 'u1', role: 'admin' })
     expect(res.status).toBe(200)
     expect(mockWhere).toHaveBeenCalledWith('orgId', '==', 'o1')
+  })
+
+  it('keeps company campaigns off the org-own list', async () => {
+    mockGet.mockResolvedValue({
+      docs: [
+        { id: 'org-own', data: () => ({ orgId: 'o1', name: 'Org', deleted: false, accountScope: 'org' }) },
+        { id: 'company', data: () => ({ orgId: 'o1', name: 'Lumen', deleted: false, companyId: 'co-1', marketingOwner: 'company' }) },
+        { id: 'personal', data: () => ({ orgId: 'o1', name: 'Mine', deleted: false, accountScope: 'personal', ownerUid: 'u1' }) },
+      ],
+    })
+    const { GET } = await import('@/app/api/v1/campaigns/route')
+    const orgRes = await GET(new NextRequest('http://localhost/api/v1/campaigns?orgId=o1'), { uid: 'u1', role: 'admin' })
+    const orgBody = await orgRes.json()
+    expect(orgBody.data.map((row: { id: string }) => row.id)).toEqual(['org-own'])
+
+    const companyRes = await GET(new NextRequest('http://localhost/api/v1/campaigns?orgId=o1&companyId=co-1'), { uid: 'u1', role: 'admin' })
+    const companyBody = await companyRes.json()
+    expect(companyBody.data.map((row: { id: string }) => row.id)).toEqual(['company'])
   })
 })

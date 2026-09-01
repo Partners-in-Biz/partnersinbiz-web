@@ -30,6 +30,10 @@ import {
   accountAllowedForPublish,
   isPersonalCampaignRecord,
   PERSONAL_SCOPE,
+  ownerFieldsForWrite,
+  recordCompanyId,
+  recordVisibleForOwner,
+  resolveMarketingOwnerFromSearchParams,
 } from '@/lib/social/account-scope'
 
 export const dynamic = 'force-dynamic'
@@ -78,6 +82,7 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
   const to = searchParams.get('to')
   const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') ?? '50', 10) || 50))
   const personalScope = wantsPersonalScope(req)
+  const owner = resolveMarketingOwnerFromSearchParams(searchParams, user.uid)
   const fromDate = from ? new Date(from) : null
   const toDate = to ? new Date(to) : null
   const hasValidFrom = Boolean(fromDate && !isNaN(fromDate.getTime()))
@@ -127,7 +132,7 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
   }
   let posts = Array.from(byId.values()).filter((post: Record<string, unknown>) => {
     if (personalScope) return post.accountScope === PERSONAL_SCOPE && post.ownerUid === user.uid
-    return post.accountScope !== PERSONAL_SCOPE
+    return recordVisibleForOwner(post, owner)
   })
 
   // Compatibility fallback for older rows that only have scheduledFor.
@@ -172,6 +177,7 @@ export const GET = withAuth('client', withTenant(async (req, user, orgId) => {
 export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
   const body = await req.json()
   let personalScope = wantsPersonalScope(req)
+  let owner = resolveMarketingOwnerFromSearchParams(new URL(req.url).searchParams, user.uid)
   const campaignId = typeof body.campaignId === 'string' ? body.campaignId.trim() : ''
 
   if (campaignId) {
@@ -181,8 +187,15 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     if (campaign.orgId !== orgId) return apiError('campaignId belongs to a different organisation', 403)
     const campaignIsPersonal = isPersonalCampaignRecord(campaign)
     if (campaignIsPersonal && campaign.ownerUid !== user.uid) return apiError('Campaign not found', 404)
-    if (campaignIsPersonal) personalScope = true
-    else if (personalScope) return apiError('Personal posts cannot be attached to an organisation campaign', 400)
+    if (campaignIsPersonal) {
+      personalScope = true
+      owner = { owner: 'personal', uid: user.uid }
+    } else if (personalScope) {
+      return apiError('Personal posts cannot be attached to an organisation campaign', 400)
+    } else {
+      const campaignCompanyId = recordCompanyId(campaign)
+      if (campaignCompanyId) owner = { owner: 'company', companyId: campaignCompanyId, uid: user.uid }
+    }
   }
 
   // --- Resolve content ---
@@ -263,7 +276,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
       if (
         !accountDoc.exists ||
         account?.orgId !== orgId ||
-        !accountAllowedForPublish(account, { personal: false })
+        !accountAllowedForPublish(account, { personal: false, companyId: owner.companyId })
       ) {
         return apiError('Selected company/organisation account is not available for this workspace', 403)
       }
@@ -306,7 +319,7 @@ export const POST = withAuth('client', withTenant(async (req, user, orgId) => {
     media: body.media ?? [],
     platforms,
     accountIds,
-    ...(personalScope ? { accountScope: PERSONAL_SCOPE, ownerUid: user.uid } : {}),
+    ...ownerFieldsForWrite(personalScope ? { owner: 'personal', uid: user.uid } : owner),
     status,
     scheduledAt,
     scheduledFor: scheduledAt,

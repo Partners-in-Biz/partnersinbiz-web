@@ -35,7 +35,7 @@ import {
   filterOwnedRowsForActor,
   memberSeesAllModuleRecords,
 } from '@/lib/orgMembers/record-scope'
-import { campaignVisibleForScope, PERSONAL_SCOPE } from '@/lib/social/account-scope'
+import { campaignVisibleForScope, PERSONAL_SCOPE, ownerFieldsForWrite, resolveMarketingOwnerFromSearchParams, resolveMarketingOwnerFromValues } from '@/lib/social/account-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +72,7 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   if (!scope.ok) return apiError(scope.error, scope.status)
   const orgId = scope.orgId
   const personalScope = searchParams.get('scope') === PERSONAL_SCOPE
+  const owner = resolveMarketingOwnerFromSearchParams(searchParams, user.uid)
   const status = searchParams.get('status')
   const limitParam = searchParams.get('limit')
   const limit = limitParam ? Math.max(1, Math.min(500, parseInt(limitParam, 10) || 100)) : 500
@@ -100,8 +101,8 @@ export const GET = withAuth('client', async (req: NextRequest, user: ApiUser) =>
   const visibleCampaigns = (seesAllMarketing
     ? campaigns
     : await filterOwnedRowsForActor(user, orgId, 'marketing', campaigns)
-  ).filter((campaign: { accountScope?: unknown; ownerUid?: unknown }) =>
-    campaignVisibleForScope(campaign, { personal: personalScope, uid: user.uid }),
+  ).filter((campaign: { accountScope?: unknown; ownerUid?: unknown; companyId?: unknown; marketingOwner?: unknown }) =>
+    campaignVisibleForScope(campaign, { personal: personalScope, uid: user.uid, companyId: owner.companyId }),
   )
   const total = visibleCampaigns.length
 
@@ -113,20 +114,28 @@ export const POST = withAuth(
   withIdempotency(async (req: NextRequest, user: ApiUser) => {
     const body = await req.json().catch(() => null)
     if (!body) return apiError('Invalid JSON', 400)
-    const personalScope = new URL(req.url).searchParams.get('scope') === PERSONAL_SCOPE
+    const url = new URL(req.url)
+    const personalScope = url.searchParams.get('scope') === PERSONAL_SCOPE
       || body.accountScope === PERSONAL_SCOPE
       || body.scope === PERSONAL_SCOPE
+    const owner = resolveMarketingOwnerFromValues({
+      personal: personalScope,
+      scope: url.searchParams.get('scope'),
+      companyId: url.searchParams.get('companyId'),
+      sourceCompanyId: url.searchParams.get('sourceCompanyId') || body.sourceCompanyId,
+      uid: user.uid,
+    })
 
     // Branch: content-engine campaign requested via clientType
     if (body.clientType !== undefined) {
-      return createContentEngineCampaign(body, user, personalScope)
+      return createContentEngineCampaign(body, user, owner)
     }
 
     if (personalScope) {
       return apiError('Personal campaigns are content campaigns only. Email programmes stay in the organisation workspace.', 400)
     }
 
-    return createEmailCampaign(body, user)
+    return createEmailCampaign(body, user, owner)
   }),
 )
 
@@ -134,7 +143,7 @@ async function createContentEngineCampaign(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   body: any,
   user: ApiUser,
-  personalScope = false,
+  owner: ReturnType<typeof resolveMarketingOwnerFromValues>,
 ) {
   const requestedOrgId = typeof body.orgId === 'string' ? body.orgId.trim() : null
   const scope = resolveOrgScope(user, requestedOrgId)
@@ -166,9 +175,7 @@ async function createContentEngineCampaign(
     brandIdentity: body.brandIdentity ?? null,
     pillars: Array.isArray(body.pillars) ? body.pillars : [],
     calendar: Array.isArray(body.calendar) ? body.calendar : [],
-    ...(personalScope
-      ? { accountScope: PERSONAL_SCOPE, ownerUid: user.uid }
-      : { accountScope: 'org', ownerUid: null }),
+    ...ownerFieldsForWrite(owner),
     ...relationships.value,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -222,6 +229,7 @@ async function createEmailCampaign(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   body: any,
   user: ApiUser,
+  owner: ReturnType<typeof resolveMarketingOwnerFromValues>,
 ) {
   const requestedOrgId = typeof body.orgId === 'string' ? body.orgId.trim() : null
   const scope = resolveOrgScope(user, requestedOrgId)
@@ -277,6 +285,7 @@ async function createEmailCampaign(
     segmentId: body.segmentId ?? '',
     contactIds: Array.isArray(body.contactIds) ? body.contactIds : [],
     audienceDefinition,
+    ...ownerFieldsForWrite(owner),
     ...relationships.value,
     sequenceId,
     triggers: {

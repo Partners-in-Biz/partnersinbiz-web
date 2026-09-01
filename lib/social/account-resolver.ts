@@ -109,11 +109,12 @@ function hasUsablePlatformAccountId(account: FirebaseFirestore.DocumentData): bo
 function isPublishableAccount(
   account: FirebaseFirestore.DocumentData,
   platformNames: string[],
-  options: { allowPersonal?: boolean; ownerUid?: string } = {},
+  options: { allowPersonal?: boolean; ownerUid?: string; companyId?: string } = {},
 ): boolean {
   if (!accountAllowedForPublish(account, {
     personal: Boolean(options.allowPersonal),
     ownerUid: options.ownerUid,
+    companyId: options.companyId,
   })) return false
   return (
     account.status === 'active' &&
@@ -130,6 +131,7 @@ function isPublishableAccount(
 export async function findDefaultAccount(
   orgId: string,
   platformType: SocialPlatformType,
+  options?: { companyId?: string },
 ): Promise<{ id: string; data: FirebaseFirestore.DocumentData } | null> {
   const platformNames = platformMap[platformType]
   if (!platformNames) return null
@@ -145,7 +147,7 @@ export async function findDefaultAccount(
 
   for (const doc of defaultSnap.docs) {
     const data = doc.data()
-    if (isPublishableAccount(data, platformNames)) {
+    if (isPublishableAccount(data, platformNames, { companyId: options?.companyId })) {
       return { id: doc.id, data }
     }
   }
@@ -160,7 +162,7 @@ export async function findDefaultAccount(
 
   for (const doc of snap.docs) {
     const data = doc.data()
-    if (isPublishableAccount(data, platformNames)) {
+    if (isPublishableAccount(data, platformNames, { companyId: options?.companyId })) {
       return { id: doc.id, data }
     }
   }
@@ -182,6 +184,7 @@ export async function resolveProvider(
 ): Promise<ResolvedAccount> {
   const personalScope = post.accountScope === 'personal'
   const ownerUid = typeof post.ownerUid === 'string' ? post.ownerUid : ''
+  const companyId = typeof post.companyId === 'string' ? post.companyId.trim() : ''
   // 1. Try explicit accountIds on the post
   const accountIds = post.accountIds as string[] | undefined
   const explicitId = Array.isArray(accountIds) && accountIds.length > 0 ? accountIds[0] : null
@@ -190,7 +193,7 @@ export async function resolveProvider(
     const accountDoc = await adminDb.collection('social_accounts').doc(explicitId).get()
     if (accountDoc.exists && accountDoc.data()?.orgId === orgId) {
       const account = accountDoc.data()!
-      if (!accountAllowedForPublish(account, { personal: personalScope, ownerUid })) {
+      if (!accountAllowedForPublish(account, { personal: personalScope, ownerUid, companyId: companyId || undefined })) {
         throw new Error(personalScope
           ? 'Selected personal account is not available to this user.'
           : 'Selected account is personal and cannot be used for company/organisation publishing.')
@@ -209,7 +212,7 @@ export async function resolveProvider(
   }
 
   // 2. Look up default active account for this org + platform
-  const defaultAccount = await findDefaultAccount(orgId, platformType)
+  const defaultAccount = await findDefaultAccount(orgId, platformType, { companyId: companyId || undefined })
   if (defaultAccount) {
     const provider = buildProviderFromAccount(defaultAccount.data, orgId, platformType)
     return { provider, accountId: defaultAccount.id }

@@ -21,7 +21,7 @@ import {
   canRolePerformModuleAction,
   resolveOrganizationModulePolicies,
 } from '@/lib/organizations/module-policies'
-import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { clientDocumentApiPath, scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import { fmtTimestamp } from '@/lib/format/timestamp'
 import { ShareWithPartnerButton } from '@/components/crm/ShareWithPartnerButton'
 
@@ -67,11 +67,11 @@ export default function PortalDocumentDetail({ params }: Props) {
   const portalScope = scopeFromSearchParams(searchParams)
   const documentsHref = scopedPortalPath('/portal/documents', portalScope)
   const orgEndpoint = scopedApiPath('/api/v1/portal/org', portalScope)
-  const documentEndpoint = scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}`, portalScope)
-  const documentVersionsEndpoint = scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}/versions`, portalScope)
-  const documentCommentsEndpoint = scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}/comments`, portalScope)
-  const documentAccessLogEndpoint = scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}/access-log`, portalScope)
-  const documentExportPdfEndpoint = scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}/export-pdf`, portalScope)
+  const documentEndpoint = clientDocumentApiPath(id)
+  const documentVersionsEndpoint = clientDocumentApiPath(id, '/versions')
+  const documentCommentsEndpoint = clientDocumentApiPath(id, '/comments')
+  const documentAccessLogEndpoint = clientDocumentApiPath(id, '/access-log')
+  const documentExportPdfEndpoint = clientDocumentApiPath(id, '/export-pdf')
   const [doc, setDoc] = useState<ClientDocument | null>(null)
   const [version, setVersion] = useState<ClientDocumentVersion | null>(null)
   const [comments, setComments] = useState<DocumentComment[]>([])
@@ -274,7 +274,7 @@ export default function PortalDocumentDetail({ params }: Props) {
   }
 
   async function handleResolve(commentId: string, resolved: boolean) {
-    const res = await fetch(scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}/comments/${encodeURIComponent(commentId)}/resolve`, portalScope), {
+    const res = await fetch(clientDocumentApiPath(id, `/comments/${encodeURIComponent(commentId)}/resolve`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resolved }),
@@ -283,7 +283,7 @@ export default function PortalDocumentDetail({ params }: Props) {
   }
 
   async function handleReply(commentId: string, text: string, contextRefs: ContextReference[], alsoLinkToDocument?: boolean) {
-    const res = await fetch(scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}/comments/${encodeURIComponent(commentId)}/replies`, portalScope), {
+    const res = await fetch(clientDocumentApiPath(id, `/comments/${encodeURIComponent(commentId)}/replies`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -300,7 +300,7 @@ export default function PortalDocumentDetail({ params }: Props) {
     setPublishing(true)
     setPublishError(null)
     try {
-      const res = await fetch(scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}/publish`, portalScope), {
+      const res = await fetch(clientDocumentApiPath(id, '/publish'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -331,7 +331,7 @@ export default function PortalDocumentDetail({ params }: Props) {
     }
     setApproving(true)
     try {
-      await fetch(scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}/approve`, portalScope), {
+      await fetch(clientDocumentApiPath(id, '/approve'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -347,7 +347,7 @@ export default function PortalDocumentDetail({ params }: Props) {
     if (!typedName.trim() || !agreed || approving || !canReviewApproval) return
     setApproving(true)
     try {
-      await fetch(scopedApiPath(`/api/v1/client-documents/${encodeURIComponent(id)}/accept`, portalScope), {
+      await fetch(clientDocumentApiPath(id, '/accept'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

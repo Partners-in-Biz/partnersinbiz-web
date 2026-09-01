@@ -59,6 +59,7 @@ export async function hasActivePublishAccount(post: FirebaseFirestore.DocumentDa
         accountAllowedForPublish(account, {
           personal: personalPost,
           ownerUid: typeof post.ownerUid === 'string' ? post.ownerUid : undefined,
+          companyId: typeof post.companyId === 'string' ? post.companyId : undefined,
         }) &&
         accountMatchesPlatform(account, platformType)
       ) return true
@@ -68,7 +69,9 @@ export async function hasActivePublishAccount(post: FirebaseFirestore.DocumentDa
 
   if (isPersonalAccountRecord(post)) return false
 
-  return Boolean(await findDefaultAccount(orgId, platformType))
+  return Boolean(await findDefaultAccount(orgId, platformType, {
+    companyId: typeof post.companyId === 'string' ? post.companyId : undefined,
+  }))
 }
 
 export async function resolveQueueableStatus(

@@ -53,6 +53,25 @@ describe('CompanyWorkspacePanel', () => {
     expect(screen.getByRole('link', { name: 'Open Lumen Speeds dashboard for Lumen' })).toHaveAttribute('href', `/portal/dashboard?orgId=client-org&orgSlug=lumen-speeds${sourceSuffix}`)
   })
 
+  it('shows company marketing for an unlinked portal company without a client organisation', () => {
+    render(
+      <CompanyWorkspacePanel
+        companyName="Standalone prospect"
+        companyId="co-lead"
+        mode="portal"
+        workspace={null}
+        crmOrgId="pib-org"
+        crmOrgSlug="partners-in-biz"
+      />,
+    )
+
+    expect(screen.getByText('CRM-only company workspace')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open marketing workspace for Standalone prospect' })).toHaveAttribute(
+      'href',
+      '/portal/marketing?orgId=pib-org&orgSlug=partners-in-biz&sourceCompanyId=co-lead&sourceCompanyName=Standalone+prospect',
+    )
+  })
+
   it('shows a relationship setup state when the company is not linked to an organisation', () => {
     render(<CompanyWorkspacePanel companyName="Standalone prospect" mode="admin" workspace={null} />)
 

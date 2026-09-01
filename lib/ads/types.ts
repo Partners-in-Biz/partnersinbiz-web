@@ -118,6 +118,8 @@ export interface AdCampaign {
   createdBy: string
   createdAt: Timestamp
   updatedAt: Timestamp
+  marketingOwner?: 'org' | 'company'
+  companyId?: string
   // ─── Approval workflow (Sub-2) ──
   reviewState?: CampaignReviewState
   submittedForReviewAt?: Timestamp
@@ -132,7 +134,7 @@ export interface AdCampaign {
 
 export type CreateAdCampaignInput = Omit<
   AdCampaign,
-  'id' | 'orgId' | 'platform' | 'providerData' | 'createdBy' | 'createdAt' | 'updatedAt' | 'lastRefreshedAt'
+  'id' | 'orgId' | 'platform' | 'providerData' | 'createdBy' | 'createdAt' | 'updatedAt' | 'lastRefreshedAt' | 'marketingOwner' | 'companyId'
 >
 
 export type UpdateAdCampaignInput = Partial<

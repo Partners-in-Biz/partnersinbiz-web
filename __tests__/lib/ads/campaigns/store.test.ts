@@ -107,6 +107,22 @@ describe('campaigns store', () => {
     expect(allOrg1).toHaveLength(2)
   })
 
+  it('keeps company-owned ads off the organisation list', async () => {
+    await createCampaign({ orgId: 'org_1', createdBy: 'u1', input: { ...BASE_INPUT, name: 'Org ads' } })
+    await createCampaign({
+      orgId: 'org_1',
+      createdBy: 'u1',
+      input: { ...BASE_INPUT, name: 'Lumen ads' },
+      owner: { owner: 'company', companyId: 'co-1' },
+    })
+
+    const orgOwn = await listCampaigns({ orgId: 'org_1', owner: { owner: 'org' } })
+    expect(orgOwn.map((row) => row.name)).toEqual(['Org ads'])
+
+    const company = await listCampaigns({ orgId: 'org_1', owner: { owner: 'company', companyId: 'co-1' } })
+    expect(company.map((row) => row.name)).toEqual(['Lumen ads'])
+  })
+
   it('updateCampaign patches fields and bumps updatedAt', async () => {
     const campaign = await createCampaign({
       orgId: 'org_1',

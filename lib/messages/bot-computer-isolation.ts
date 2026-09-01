@@ -41,6 +41,26 @@ export function isolatedBotWorkspacePath(agentId: unknown): string | null {
   return segment ? `${BOT_COMPUTER_FOLDER_PREFIX}/${segment}` : null
 }
 
+/**
+ * Relative folders the VPS sidecar must mkdir before Hermes accepts a Bot run.
+ * Hermes rejects missing `working_directory` with HTTP 400 (PiB: dispatch_rejected).
+ */
+export function botComputerFoldersToEnsure(folderRelativePath: unknown): string[] {
+  const raw = typeof folderRelativePath === 'string'
+    ? folderRelativePath.trim().replace(/^\/+|\/+$/g, '')
+    : ''
+  if (!raw || raw.includes('..')) return []
+  const match = raw.match(new RegExp(`(?:^|/)${BOT_COMPUTER_FOLDER_PREFIX}/([a-z][a-z0-9._-]{0,39})$`, 'i'))
+  if (!match) return []
+  const segment = isolatedBotFolderSegment(match[1])
+  if (!segment) return []
+  const folders = new Set<string>([raw])
+  if (raw.startsWith(`${BOT_COMPUTER_FOLDER_PREFIX}/`)) {
+    folders.add(BOT_COMPUTER_FOLDER_PREFIX)
+  }
+  return Array.from(folders)
+}
+
 export function isolatedBotBrowserProfileId(agentId: unknown): string | null {
   const segment = isolatedBotFolderSegment(agentId)
   if (!segment) return null

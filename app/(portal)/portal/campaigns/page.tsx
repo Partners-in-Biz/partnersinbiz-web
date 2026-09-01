@@ -1,10 +1,10 @@
 import type { CSSProperties } from 'react'
 import { notFound, redirect } from 'next/navigation'
 import { adminDb } from '@/lib/firebase/admin'
-import { getBrandKitForOrg } from '@/lib/brand-kit/store'
+import { campaignVisibleForScope } from '@/lib/social/account-scope'
+import { getBrandKitForOwner } from '@/lib/brand-kit/store'
 import { serializeForClient } from '@/lib/campaigns/serialize'
 import { listCampaigns as listAdCampaigns } from '@/lib/ads/campaigns/store'
-import { campaignVisibleForScope } from '@/lib/social/account-scope'
 import {
   CampaignsWorkspace,
   type CampaignWorkspaceRecord,
@@ -62,13 +62,24 @@ export default async function PortalCampaignsIndex({
       .where('deleted', '==', false)
       .get(),
     adminDb.collection('broadcasts').where('orgId', '==', user.orgId).get(),
-    getBrandKitForOrg(user.orgId),
+    getBrandKitForOwner(user.orgId, {
+      owner: scope.sourceCompanyId ? 'company' : 'org',
+      companyId: scope.sourceCompanyId,
+      uid: user.uid,
+    }),
     adminDb
       .collection('campaign_requests')
       .where('orgId', '==', user.orgId)
       .where('deleted', '==', false)
       .get(),
-    listAdCampaigns({ orgId: user.orgId }),
+    listAdCampaigns({
+      orgId: user.orgId,
+      owner: {
+        owner: scope.sourceCompanyId ? 'company' : 'org',
+        companyId: scope.sourceCompanyId,
+        uid: user.uid,
+      },
+    }),
   ])
 
   const [sequencesSnap, enrollmentsSnap, emailsSnap] = await Promise.all([
@@ -79,12 +90,21 @@ export default async function PortalCampaignsIndex({
 
   const allCampaigns = campaignsSnap.docs
     .map((doc) => serializeForClient({ id: doc.id, ...doc.data() }) as CampaignWorkspaceRecord)
-    .filter((campaign) => campaignVisibleForScope(campaign, { personal: false, uid: user.uid }))
+    .filter((campaign) => campaignVisibleForScope(campaign, {
+      personal: false,
+      uid: user.uid,
+      companyId: scope.sourceCompanyId,
+    }))
     .sort(sortByCreatedDesc)
 
   const broadcasts = broadcastsSnap.docs
     .map((doc) => serializeForClient({ id: doc.id, ...doc.data() }) as CampaignWorkspaceRecord)
     .filter((broadcast) => broadcast.deleted !== true)
+    .filter((broadcast) => campaignVisibleForScope(broadcast, {
+      personal: false,
+      uid: user.uid,
+      companyId: scope.sourceCompanyId,
+    }))
     .sort(sortByCreatedDesc)
 
   const requests = requestSnap.docs

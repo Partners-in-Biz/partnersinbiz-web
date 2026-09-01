@@ -2,19 +2,24 @@
 """Idempotently ensure the Hermes gateway per-run model allowlist keeps the
 DeepSeek models PiB dispatches (incl. the dated Nous-portal variant
 deepseek-v4-flash-0731 used as pip's primary model for Auto company/workspace
-chats).
+chats), and re-applies the PiB working-directory auto-create patch.
 
-WHY: `hermes update` rewrites `gateway/platforms/api_server.py` from upstream,
-which drops DeepSeek from `_DEFAULT_RUN_MODEL_ALLOWLIST`. PiB then sends
-`model: deepseek/deepseek-v4-flash-0731` as a per-run override, the gateway
-returns HTTP 400 "Requested model is not allowlisted for per-run override",
-and company chats surface "The agent gateway rejected the run request"
-(dispatch_rejected).
+WHY (allowlist): `hermes update` rewrites `gateway/platforms/api_server.py`
+from upstream, which drops DeepSeek from `_DEFAULT_RUN_MODEL_ALLOWLIST`. PiB
+then sends `model: deepseek/deepseek-v4-flash-0731` as a per-run override, the
+gateway returns HTTP 400 "Requested model is not allowlisted for per-run
+override", and company chats surface "The agent gateway rejected the run
+request" (dispatch_rejected).
+
+WHY (working-directory): Bot-mode chat isolation folders (bots/{agentId}) may
+not exist on the VPS when a conversation is dispatched from the web (which runs
+on Vercel and cannot mkdir on the runtime). The gateway is the authenticated
+runtime that performs the existence check, so a PiB fork commit auto-creates a
+missing working_directory when a valid working_directory_root bounds it. An
+upstream rewrite drops that block too; this script re-applies it idempotently.
 
 This script is safe to run repeatedly (idempotent) and after every `hermes
-update`. Unlike `patch_llm_model_allowlist.py` (a one-shot full re-patch), it
-repairs just the allowlist by inserting the required deepseek entries if they
-are missing, so it tolerates upstream changes to the surrounding block.
+update`.
 
 Usage:
   python3 ensure_gateway_allowlist.py            # apply (insert if missing)
@@ -84,6 +89,131 @@ def apply(text: str) -> tuple[str, list[str]]:
     head = text[: match.end(2)]
     tail = text[match.end(2):]
     return head + insertion + tail, missing
+
+
+# ---------------------------------------------------------------------------
+# Working-directory auto-create patch (PiB fork commit, re-applied idempotently)
+# ---------------------------------------------------------------------------
+
+WD_START_MARKER = '        working_directory = ""'
+WD_END_MARKER = "            working_directory = str(canonical_working_directory)"
+WD_PIB_MARKER = "# PiB: validate a working_directory_root first"
+
+WD_NEW_BLOCK = '''        working_directory = ""
+        if "working_directory" in body:
+            raw_working_directory = body["working_directory"]
+            if not isinstance(raw_working_directory, str) or not raw_working_directory.strip():
+                return web.json_response(
+                    _openai_error("working_directory must be a non-empty absolute path to an existing directory"),
+                    status=400,
+                )
+            working_directory_path = Path(raw_working_directory.strip()).expanduser()
+            try:
+                working_directory_absolute = working_directory_path.is_absolute()
+            except OSError:
+                working_directory_absolute = False
+            if not working_directory_absolute:
+                return web.json_response(
+                    _openai_error("working_directory must be a non-empty absolute path to an existing directory"),
+                    status=400,
+                )
+            # PiB: validate a working_directory_root first, then auto-create a
+            # missing working_directory inside that root so Bot-mode chat
+            # isolation folders (bots/{agentId}) exist before the run is accepted.
+            # Without a root, the path must already exist.
+            canonical_working_directory_root = None
+            if "working_directory_root" in body:
+                raw_working_directory_root = body["working_directory_root"]
+                if not isinstance(raw_working_directory_root, str) or not raw_working_directory_root.strip():
+                    return web.json_response(
+                        _openai_error("working_directory_root must contain the working directory"),
+                        status=400,
+                    )
+                working_directory_root = Path(raw_working_directory_root.strip()).expanduser()
+                try:
+                    working_directory_root_ok = working_directory_root.is_absolute() and working_directory_root.is_dir()
+                except OSError:
+                    working_directory_root_ok = False
+                if not working_directory_root_ok:
+                    return web.json_response(
+                        _openai_error("working_directory_root must contain the working directory"),
+                        status=400,
+                    )
+                try:
+                    canonical_working_directory_root = working_directory_root.resolve()
+                except OSError:
+                    return web.json_response(
+                        _openai_error("working_directory_root must contain the working directory"),
+                        status=400,
+                    )
+            try:
+                canonical_working_directory = working_directory_path.resolve(strict=True)
+            except FileNotFoundError:
+                if canonical_working_directory_root is not None:
+                    try:
+                        lexical_working_directory = working_directory_path.resolve(strict=False)
+                    except OSError:
+                        return web.json_response(
+                            _openai_error("working_directory must be a non-empty absolute path to an existing directory"),
+                            status=400,
+                        )
+                    if not lexical_working_directory.is_relative_to(canonical_working_directory_root):
+                        return web.json_response(
+                            _openai_error("working_directory must stay inside working_directory_root"),
+                            status=400,
+                        )
+                    try:
+                        lexical_working_directory.mkdir(parents=True, exist_ok=True)
+                    except OSError:
+                        return web.json_response(
+                            _openai_error("working_directory could not be created inside working_directory_root"),
+                            status=400,
+                        )
+                    try:
+                        canonical_working_directory = lexical_working_directory.resolve(strict=True)
+                    except OSError:
+                        return web.json_response(
+                            _openai_error("working_directory must be a non-empty absolute path to an existing directory"),
+                            status=400,
+                        )
+                else:
+                    return web.json_response(
+                        _openai_error("working_directory must be a non-empty absolute path to an existing directory"),
+                        status=400,
+                    )
+            except OSError:
+                return web.json_response(
+                    _openai_error("working_directory must be a non-empty absolute path to an existing directory"),
+                    status=400,
+                )
+            if canonical_working_directory_root is not None and not canonical_working_directory.is_relative_to(canonical_working_directory_root):
+                return web.json_response(
+                    _openai_error("working_directory must stay inside working_directory_root"),
+                    status=400,
+                )
+            working_directory = str(canonical_working_directory)
+'''
+
+
+def wd_patch_present(text: str) -> bool:
+    return WD_PIB_MARKER in text
+
+
+def apply_wd_patch(text: str) -> tuple[str, bool]:
+    """Rewrite the working_directory block to the auto-create version.
+
+    Returns (new_text, applied). Raises RuntimeError if markers are missing.
+    """
+    if wd_patch_present(text):
+        return text, False
+    start = text.find(WD_START_MARKER)
+    if start == -1:
+        raise RuntimeError("Could not locate working_directory start marker")
+    end = text.find(WD_END_MARKER, start)
+    if end == -1:
+        raise RuntimeError("Could not locate working_directory end marker")
+    block_end = end + len(WD_END_MARKER)
+    return text[:start] + WD_NEW_BLOCK + text[block_end:], True
 
 
 def running_profile_gateways() -> list[str]:
@@ -180,29 +310,51 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     text = load(path)
+    changed = False
+
+    # --- Allowlist repair ---
     missing = missing_models(text)
-
-    if not missing:
+    if missing:
+        print(
+            f"ensure_gateway_allowlist: MISSING {len(missing)} required models: "
+            + ", ".join(missing)
+        )
+        if args.check:
+            print("ensure_gateway_allowlist: --check FAILED (required models absent)", file=sys.stderr)
+            return 1
+        text, inserted = apply(text)
+        changed = True
+    else:
         print("ensure_gateway_allowlist: OK — all required DeepSeek models allowlisted")
-        return 0
 
-    print(
-        f"ensure_gateway_allowlist: MISSING {len(missing)} required models: "
-        + ", ".join(missing)
-    )
+    # --- Working-directory auto-create patch repair ---
+    try:
+        wd_patched = wd_patch_present(text)
+        if not wd_patched:
+            if args.check:
+                print("ensure_gateway_allowlist: --check FAILED (working-directory patch absent)", file=sys.stderr)
+                return 1
+            text, applied = apply_wd_patch(text)
+            changed = changed or applied
+            if applied:
+                print("ensure_gateway_allowlist: re-applied working-directory auto-create patch")
+            else:
+                print("ensure_gateway_allowlist: working-directory patch marker present; no-op")
+        else:
+            print("ensure_gateway_allowlist: working-directory auto-create patch present; no-op")
+    except RuntimeError as exc:
+        print(f"ensure_gateway_allowlist: {exc}", file=sys.stderr)
+        if args.check:
+            return 1
 
-    if args.check:
-        print("ensure_gateway_allowlist: --check FAILED (required models absent)", file=sys.stderr)
-        return 1
+    if changed:
+        backup = path.with_suffix(".py.bak-ensure-allowlist")
+        if not backup.exists():
+            backup.write_text(load(path), encoding="utf-8")
+        path.write_text(text, encoding="utf-8")
+        print(f"ensure_gateway_allowlist: wrote {path}")
 
-    new_text, inserted = apply(text)
-    backup = path.with_suffix(".py.bak-ensure-allowlist")
-    if not backup.exists():
-        backup.write_text(text, encoding="utf-8")
-    path.write_text(new_text, encoding="utf-8")
-    print(f"ensure_gateway_allowlist: inserted {len(inserted)} models into {path}")
-
-    if args.restart:
+    if args.restart and changed:
         restarted = restart_active_gateways()
         if restarted:
             print(
@@ -215,7 +367,9 @@ def main(argv: list[str] | None = None) -> int:
                 "the running gateway may not load the fix until its next restart.",
                 file=sys.stderr,
             )
-    else:
+    elif args.restart and not changed:
+        print("ensure_gateway_allowlist: no changes; not restarting gateways")
+    elif changed:
         print(
             "ensure_gateway_allowlist: NOTE — restart the gateway for changes to take "
             "effect (e.g. systemctl restart 'hermes@*.service' or --restart)."

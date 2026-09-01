@@ -46,10 +46,22 @@ export function scopedPortalPath(path: string, scope: PortalOrgRouteScope): stri
   })
 }
 
-export function scopedApiPath(path: string, scope: Pick<PortalOrgRouteScope, 'orgId' | 'id'>): string {
+export function scopedApiPath(path: string, scope: Pick<PortalOrgRouteScope, 'orgId' | 'id' | 'sourceCompanyId'>): string {
   return appendQueryParams(path, {
     orgId: cleanScopeValue(scope.orgId) || cleanScopeValue(scope.id),
+    companyId: cleanScopeValue(scope.sourceCompanyId),
   })
+}
+
+/**
+ * Document-id APIs authorize from the document ACL, not the URL workspace.
+ * Never attach ?orgId= — a staff deep-link (holder org) 403s recipients at
+ * withAuth before the document access check can run.
+ */
+export function clientDocumentApiPath(documentId: string, suffix = ''): string {
+  const id = encodeURIComponent(cleanScopeValue(documentId))
+  const extra = !suffix ? '' : suffix.startsWith('/') ? suffix : `/${suffix}`
+  return `/api/v1/client-documents/${id}${extra}`
 }
 
 // Selected-workspace inheritance for portal client surfaces.

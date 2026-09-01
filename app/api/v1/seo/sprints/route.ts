@@ -8,6 +8,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { OUTRANK_90 } from '@/lib/seo/templates/outrank-90'
 import type { ApiUser } from '@/lib/api/types'
 import { canAccessOrg, restrictedAdminOrgIds } from '@/lib/api/platformAdmin'
+import { recordVisibleForOwner, resolveMarketingOwnerFromSearchParams, ownerFieldsForWrite } from '@/lib/social/account-scope'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,6 +49,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
   if (status) q = q.where('status', '==', status)
   if (clientId) q = q.where('clientId', '==', clientId)
   const snap = await q.get()
+  const owner = resolveMarketingOwnerFromSearchParams(searchParams)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = snap.docs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,6 +58,7 @@ export const GET = withAuth('admin', async (req: NextRequest, user: ApiUser) => 
     .filter((d: any) => !d.deleted)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     .filter((d: any) => user.role !== 'admin' || canAccessOrg(user, d.orgId))
+    .filter((d: object) => recordVisibleForOwner(d, owner))
   return apiSuccess(data, 200, { total: data.length, page: 1, limit: data.length })
 })
 
@@ -90,6 +93,7 @@ export const POST = withAuth(
       templateId: 'outrank-90',
       autopilotMode: body.autopilotMode ?? 'safe',
       autopilotTaskTypes: body.autopilotTaskTypes ?? [],
+      ...ownerFieldsForWrite(resolveMarketingOwnerFromSearchParams(new URL(req.url).searchParams, user.uid)),
       integrations: {
         gsc: { connected: false },
         bing: { connected: false },
