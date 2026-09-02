@@ -5,6 +5,7 @@ import { listAds } from '@/lib/ads/ads/store'
 import { InsightsChart } from '@/components/ads/InsightsChart'
 import { AdCampaignDetailWorkspace } from '@/components/ads/AdCampaignDetailWorkspace'
 import { AdCampaignReviewActions } from '@/components/ads/AdCampaignReviewActions'
+import { CompanyWorkRecordControls } from '@/components/crm/CompanyWorkRecordControls'
 import {
   resolvePortalAdsUser,
   scopedPortalHref,
@@ -37,6 +38,15 @@ export default async function PortalAdCampaignDetail({
   ])
 
   return (
+    <>
+    <CompanyWorkRecordControls
+      className="mb-4"
+      module="ads"
+      recordId={id}
+      companyId={campaign.companyId ?? null}
+      clientVisibility={campaign.clientVisibility === 'private' ? 'private' : 'shared'}
+      orgId={scope.orgId}
+    />
     <AdCampaignDetailWorkspace
       surface="portal"
       campaign={campaign}
@@ -51,5 +61,6 @@ export default async function PortalAdCampaignDetail({
         ) : null
       }
     />
+    </>
   )
 }

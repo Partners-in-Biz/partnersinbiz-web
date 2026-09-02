@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { scopedApiPath, scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
+import { scopedPortalPath, scopeFromSearchParams } from '@/lib/portal/scoped-routing'
 import { CompanyWorkRecordControls } from '@/components/crm/CompanyWorkRecordControls'
 
 const TABS = [
@@ -91,7 +91,9 @@ export function PortalSeoSprintChrome({
                   className="mt-2"
                   companyId={sprint.companyId}
                   clientVisibility={sprint.clientVisibility}
-                  patchPath={scopedApiPath(`/api/v1/portal/seo/sprints/${encodeURIComponent(id)}/visibility`, scope)}
+                  module="seo"
+                  recordId={id}
+                  orgId={scope.orgId}
                 />
               ) : null}
             </div>

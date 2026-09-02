@@ -63,6 +63,9 @@ function createdAtMillis(value: unknown): number {
   return 0
 }
 
+/** High-risk agent tasks must carry a verifier checklist (lib/projects/taskPayload). */
+const GEO_TASK_VERIFIER_CHECKLIST = ['GEO record updated with resolution', 'Evidence link attached', 'Completion note recorded']
+
 async function parseBody(req: NextRequest): Promise<Record<string, unknown>> {
   let body: unknown = {}
   try {
@@ -367,6 +370,9 @@ async function validateProjectTaskHandoff(args: {
     expectedArtifacts: cleanStringList(fieldFrom(taskInput, 'expectedArtifacts')).length
       ? cleanStringList(fieldFrom(taskInput, 'expectedArtifacts'))
       : (Array.isArray(linkage.expectedArtifacts) ? linkage.expectedArtifacts : ['geo_record_update', 'evidence_link', 'completion_note']),
+    verifierChecklist: cleanStringList(fieldFrom(taskInput, 'verifierChecklist')).length
+      ? cleanStringList(fieldFrom(taskInput, 'verifierChecklist'))
+      : GEO_TASK_VERIFIER_CHECKLIST,
     ...(args.linkedSeoTaskId ? { linkedSeoTaskId: args.linkedSeoTaskId, seoTaskId: args.linkedSeoTaskId } : {}),
     agentInput: {
       ...existingAgentInput,
@@ -438,6 +444,9 @@ async function createLinkedProjectTask(args: {
     expectedArtifacts: cleanStringList(fieldFrom(taskInput, 'expectedArtifacts')).length
       ? cleanStringList(fieldFrom(taskInput, 'expectedArtifacts'))
       : (Array.isArray(linkage.expectedArtifacts) ? linkage.expectedArtifacts : ['geo_record_update', 'evidence_link', 'completion_note']),
+    verifierChecklist: cleanStringList(fieldFrom(taskInput, 'verifierChecklist')).length
+      ? cleanStringList(fieldFrom(taskInput, 'verifierChecklist'))
+      : GEO_TASK_VERIFIER_CHECKLIST,
     ...(args.linkedSeoTaskId ? { linkedSeoTaskId: args.linkedSeoTaskId, seoTaskId: args.linkedSeoTaskId } : {}),
     agentInput: {
       ...existingAgentInput,
