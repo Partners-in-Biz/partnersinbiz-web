@@ -293,9 +293,6 @@ body:has(.sc-stage) ::selection {
 }
 
 /* Groups that share a fade. */
-.sc-group {
-  display: contents;
-}
 .sc-dead-copy,
 .sc-own-copy {
   opacity: calc(1 - var(--hush));
