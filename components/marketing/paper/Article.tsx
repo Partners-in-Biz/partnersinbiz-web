@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { CTA_LABEL } from '@/lib/seo/site'
+import { ScrollIn } from './ScrollIn'
 
 /**
  * Paper article primitives for the firm pages. Running text, an asymmetric
@@ -40,8 +41,10 @@ export function ArticleHead({
       </div>
       {plate && (
         <div className="sc-article__head-art">
-          <div className="sc-block" aria-hidden="true" />
-          {plate}
+          <ScrollIn className="sc-in--head-art">
+            <div className="sc-block" aria-hidden="true" />
+            {plate}
+          </ScrollIn>
         </div>
       )}
     </header>
@@ -114,16 +117,18 @@ export function Plate({
   wide?: boolean
 }) {
   return (
-    <figure className={`sc-plate sc-article__photo${wide ? ' sc-plate--wide' : ''}`}>
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        sizes={wide ? '(max-width: 900px) 92vw, 44rem' : '(max-width: 900px) 90vw, 26rem'}
-        priority={priority}
-      />
-      {caption && <figcaption className="sc-tiny sc-plate__caption">{caption}</figcaption>}
-    </figure>
+    <ScrollIn className={wide ? 'sc-in--plate sc-in--wide' : 'sc-in--plate'}>
+      <figure className={`sc-plate sc-article__photo${wide ? ' sc-plate--wide' : ''}`}>
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          sizes={wide ? '(max-width: 900px) 92vw, 44rem' : '(max-width: 900px) 90vw, 26rem'}
+          priority={priority}
+        />
+        {caption && <figcaption className="sc-tiny sc-plate__caption">{caption}</figcaption>}
+      </figure>
+    </ScrollIn>
   )
 }
 
