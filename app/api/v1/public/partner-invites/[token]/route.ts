@@ -25,6 +25,8 @@ import {
 } from '@/lib/partner-links/store'
 import { isPartnerInviteExpired, type PartnerInvite } from '@/lib/partner-links/types'
 import type { OrgRole } from '@/lib/organizations/types'
+import type { SharedBusinessCapability } from '@/lib/business-relationships/types'
+import { COMPANY_WORKSPACE_MODULES } from '@/lib/company-work/module-keys'
 
 export const dynamic = 'force-dynamic'
 
@@ -300,6 +302,12 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
     }
 
     const actor = await memberRefFor(approverUid)
+    const allowedModules = new Set(COMPANY_WORKSPACE_MODULES as string[])
+    const bodyCapabilities = Array.isArray(body.capabilities)
+      ? body.capabilities
+          .map((value) => cleanString(value))
+          .filter((value): value is SharedBusinessCapability => allowedModules.has(value))
+      : undefined
     const result = await acceptPartnerInvite({
       invite,
       targetOrgId,
@@ -307,6 +315,7 @@ export async function POST(req: NextRequest, ctx: RouteContext) {
       approvedByUserId: approverUid,
       recipientIdentityMatched: Boolean(recipientUid),
       preferTargetCompanyId: cleanString(body.preferTargetCompanyId) || undefined,
+      ...(bodyCapabilities && bodyCapabilities.length > 0 ? { capabilities: bodyCapabilities } : {}),
       actor,
     })
 

@@ -1,4 +1,5 @@
 import {
+  COMPANY_WORKSPACE_ACTIONS,
   grantIncludesModule,
   normalizeCompanyWorkspaceModules,
   companyWorkspaceGrantId,
@@ -6,6 +7,7 @@ import {
 import { projectRecordFields } from '@/lib/company-work/fields'
 import { isClientPrivate } from '@/lib/work-scope'
 import type { PartnerResourceGrant } from '@/lib/cross-org/types'
+import { orgRoleRank } from '@/lib/cross-org/decision'
 
 describe('company workspace grants', () => {
   it('builds stable grant ids and normalises modules', () => {
@@ -29,6 +31,11 @@ describe('company workspace grants', () => {
     expect(grantIncludesModule(grant, 'seo')).toBe(true)
     expect(grantIncludesModule(grant, 'ads')).toBe(false)
     expect(grantIncludesModule({ ...grant, status: 'revoked' }, 'seo')).toBe(false)
+  })
+
+  it('exposes view|comment|approve actions matching decideSharedAction', () => {
+    expect([...COMPANY_WORKSPACE_ACTIONS]).toEqual(['view', 'comment', 'approve'])
+    expect(orgRoleRank('viewer', 'viewer')).toBe(true)
   })
 })
 

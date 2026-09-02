@@ -133,11 +133,16 @@ export async function listSharedRecords(
   const collection = MODULE_COLLECTIONS[module]
   if (!viewer || !collection) return []
 
+  const servingCompanyFilter = await resolveServingCompanyIdsForViewerFilter(
+    viewer,
+    clean(options.companyId) || undefined,
+  )
+
   const grants = (await listActiveCompanyWorkspaceGrantsForGrantee(viewer))
     .filter((grant) => grantIncludesModule(grant, module))
     .filter((grant) => {
-      const wanted = clean(options.companyId)
-      return !wanted || clean(grant.resourceId) === wanted
+      if (!servingCompanyFilter) return true
+      return servingCompanyFilter.has(clean(grant.resourceId))
     })
 
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 200)
@@ -188,8 +193,50 @@ export async function listSharedRecords(
 }
 
 /**
+ * Accept either a serving-book company id (grant.resourceId) or the viewer's
+ * mirror company id (company on viewer book with linkedOrgId = serving org).
+ * Returns null when no filter was requested.
+ */
+async function resolveServingCompanyIdsForViewerFilter(
+  viewerOrgId: string,
+  companyId?: string,
+): Promise<Set<string> | null> {
+  const wanted = clean(companyId)
+  if (!wanted) return null
+
+  const ids = new Set<string>([wanted])
+  const companySnap = await adminDb.collection('companies').doc(wanted).get()
+  if (!companySnap.exists) return ids
+  const data = companySnap.data() ?? {}
+  const companyOrgId = clean(data.orgId)
+  const linkedOrgId = clean(data.linkedOrgId)
+
+  // Viewer passed their mirror company → find serving companies that link back.
+  if (companyOrgId === viewerOrgId && linkedOrgId) {
+    // Index-light: filter by serving org, then linkedOrgId in memory.
+    const servingSnap = await adminDb
+      .collection('companies')
+      .where('orgId', '==', linkedOrgId)
+      .limit(200)
+      .get()
+    for (const doc of servingSnap.docs) {
+      const row = doc.data() ?? {}
+      if (row.deleted === true) continue
+      if (clean(row.linkedOrgId) !== viewerOrgId) continue
+      ids.add(doc.id)
+    }
+  }
+
+  return ids
+}
+
+/**
  * Decide view | comment | approve for a company_workspace module action.
  * Audits via CrossOrgPolicyService.
+ *
+ * Grant contract: actions are view|comment|approve; role is viewer; module
+ * gating is grant.items[] (not scope-agreement capability — those may omit
+ * marketing modules the workspace grant still exposes).
  */
 export async function decideSharedAction(input: {
   viewerUid: string
@@ -212,17 +259,22 @@ export async function decideSharedAction(input: {
     return { allowed: false, reason: 'No active company_workspace grant for this module' }
   }
 
+  const partnerLinkId = clean(grant.partnerLinkId)
+  if (!partnerLinkId) {
+    return { allowed: false, reason: 'company_workspace grant missing partnerLinkId' }
+  }
+
   const policy = new CrossOrgPolicyService(new FirestoreCrossOrgPolicyStore())
-  const actionKey = `${input.module}.${input.action === 'view' ? 'read' : input.action}`
   const decision = await policy.decide({
     actor: { userId: input.viewerUid, orgId: viewerOrgId },
     resourceType: 'company_workspace',
     resourceId: grant.resourceId,
-    action: actionKey,
-    partnerLinkId: grant.partnerLinkId,
-    requiredCapability: input.module,
+    // Grant actions are view|comment|approve — not `${module}.read`.
+    action: input.action,
+    partnerLinkId,
     item: input.module,
     resourceOwnerOrgId: grant.ownerOrgId,
+    actorRole: 'viewer',
   })
 
   return {

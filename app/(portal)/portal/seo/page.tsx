@@ -63,7 +63,10 @@ export default async function PortalSeoIndex({
         <SharedWithUsSection
           module="seo"
           companyId={scope.sourceCompanyId}
-          hrefForRecord={(record) => scopedPortalHref(`/portal/seo/sprints/${record.id}`, scope)}
+          hrefForRecord={(record) => scopedPortalHref(`/portal/seo/sprints/${record.id}`, {
+            orgId: scope.orgId || user.orgId,
+            orgSlug: scope.orgSlug,
+          })}
         />
         <SeoSprintOverview
           sprints={sprints}

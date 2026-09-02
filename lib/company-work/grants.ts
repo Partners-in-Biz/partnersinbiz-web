@@ -63,11 +63,13 @@ export async function upsertCompanyWorkspaceGrant(input: {
 
   const id = companyWorkspaceGrantId({ partnerLinkId, ownerOrgId, companyId })
   const items = normalizeCompanyWorkspaceModules(input.modules)
+  const scopeAgreementId = input.scopeAgreementId
+    || `${partnerLinkId}:${ownerOrgId}:${granteeOrgId}`
   const now = FieldValue.serverTimestamp()
   const grant: Record<string, unknown> = {
     id,
     partnerLinkId,
-    ...(input.scopeAgreementId ? { scopeAgreementId: input.scopeAgreementId } : {}),
+    scopeAgreementId,
     ownerOrgId,
     resourceType: 'company_workspace',
     resourceId: companyId,
